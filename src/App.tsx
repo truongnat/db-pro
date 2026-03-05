@@ -1,28 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { loadNavigator, resetConnections, testConnection } from "@/lib/tauri";
+import { resetConnections, testConnection } from "@/lib/tauri";
 import { ConnectionModal } from "@/features/connections/ConnectionModal";
 import { ConnectionSidebar } from "@/features/connections/ConnectionSidebar";
 import { clearConnectionPanelCache } from "@/features/connections/cache";
 import { SAMPLE_CONNECTION_ID } from "@/features/connections/constants";
 import { useConnectionController } from "@/features/connections/useConnectionController";
+import { useNavigatorController } from "@/features/navigator/useNavigatorController";
 import { getSqlCompletionCatalog } from "@/features/sql-editor/completions";
 import { starterSql } from "@/features/sql-editor/statement";
-import {
-  buildQualifiedObjectName,
-  buildDdlTemplateSql,
-  buildInsertTemplateSql,
-  buildSelectFromObjectSql,
-  buildUpdateTemplateSql,
-} from "@/features/navigator/sql";
-import type { NavigatorActionRequest } from "@/features/navigator/actions";
-import { copyTextToClipboard } from "@/features/query/clipboard";
-import { classifyQueryError, formatError } from "@/features/query/errors";
+import { classifyQueryError } from "@/features/query/errors";
 import { useQueryController } from "@/features/query/useQueryController";
 import { QueryWorkbench } from "@/features/workbench/QueryWorkbench";
-import type { NavigatorTree } from "@/types";
-
-const NAVIGATOR_FRONTEND_TIMEOUT_MS = 15_000;
 
 function App() {
   const [statusText, setStatusText] = useState(
@@ -30,26 +19,6 @@ function App() {
   );
   const [lastErrorText, setLastErrorText] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
-
-  const [navigatorTree, setNavigatorTree] = useState<NavigatorTree | null>(null);
-  const [navigatorLoading, setNavigatorLoading] = useState(false);
-  const [navigatorError, setNavigatorError] = useState<string | null>(null);
-  const navigatorRequestIdRef = useRef(0);
-
-  const navigatorObjectCount = useMemo(() => {
-    if (!navigatorTree) {
-      return 0;
-    }
-    return navigatorTree.schemas.reduce(
-      (acc, schema) => acc + schema.tables.length + schema.views.length,
-      0,
-    );
-  }, [navigatorTree]);
-
-  const sqlCompletionCatalog = useMemo(
-    () => getSqlCompletionCatalog(navigatorTree),
-    [navigatorTree],
-  );
 
   const applyErrorStatus = useCallback((error: unknown) => {
     const classified = classifyQueryError(error);
@@ -85,62 +54,9 @@ function App() {
   });
 
   const connectionPanelBusy = busyAction !== null;
-
-  const refreshNavigator = useCallback(
-    async (connectionId?: string) => {
-      const targetConnectionId = connectionId ?? selectedConnectionId;
-      if (!targetConnectionId) {
-        navigatorRequestIdRef.current += 1;
-        setNavigatorTree(null);
-        setNavigatorError(null);
-        setNavigatorLoading(false);
-        return;
-      }
-
-      const requestId = navigatorRequestIdRef.current + 1;
-      navigatorRequestIdRef.current = requestId;
-
-      try {
-        setNavigatorLoading(true);
-        setNavigatorError(null);
-        const tree = await withPromiseTimeout(
-          loadNavigator(targetConnectionId),
-          NAVIGATOR_FRONTEND_TIMEOUT_MS,
-          `Schema navigator load timed out after ${NAVIGATOR_FRONTEND_TIMEOUT_MS} ms`,
-        );
-
-        if (navigatorRequestIdRef.current !== requestId) {
-          return;
-        }
-
-        setNavigatorTree(tree);
-        clearErrorStatus();
-      } catch (error) {
-        if (navigatorRequestIdRef.current !== requestId) {
-          return;
-        }
-
-        setNavigatorTree(null);
-        const message = formatError(error);
-        setNavigatorError(message);
-        setLastErrorText(message);
-      } finally {
-        if (navigatorRequestIdRef.current === requestId) {
-          setNavigatorLoading(false);
-        }
-      }
-    },
-    [clearErrorStatus, selectedConnectionId],
+  const refreshNavigatorRef = useRef<(connectionId?: string) => void | Promise<void>>(
+    () => undefined,
   );
-
-  useEffect(() => {
-    if (!selectedConnectionId) {
-      setNavigatorTree(null);
-      setNavigatorError(null);
-      return;
-    }
-    void refreshNavigator(selectedConnectionId);
-  }, [refreshNavigator, selectedConnectionId]);
 
   const {
     sqlText,
@@ -177,8 +93,33 @@ function App() {
     onStatus: setStatusText,
     onClearError: clearErrorStatus,
     onError: applyErrorStatus,
-    onRefreshNavigator: refreshNavigator,
+    onRefreshNavigator: (connectionId) => refreshNavigatorRef.current(connectionId),
   });
+
+  const {
+    navigatorTree,
+    navigatorLoading,
+    navigatorError,
+    navigatorObjectCount,
+    refreshNavigator,
+    handleNavigatorAction,
+  } = useNavigatorController({
+    selectedConnectionId,
+    selectedConnectionEngine: selectedConnection?.engine,
+    queryPageSize,
+    onSetSqlText: setSqlText,
+    onRunQueryPage: runQueryPage,
+    onResetQueryGridModifiers: resetQueryGridModifiers,
+    onStatus: setStatusText,
+    onClearError: clearErrorStatus,
+    onError: applyErrorStatus,
+  });
+  refreshNavigatorRef.current = refreshNavigator;
+
+  const sqlCompletionCatalog = useMemo(
+    () => getSqlCompletionCatalog(navigatorTree),
+    [navigatorTree],
+  );
 
   const handleResetData = useCallback(async () => {
     const confirmed = window.confirm(
@@ -201,9 +142,6 @@ function App() {
 
       if (nextSelectedId) {
         await refreshNavigator(nextSelectedId);
-      } else {
-        setNavigatorTree(null);
-        setNavigatorError(null);
       }
 
       setStatusText("Data reset completed. Sample SQLite is restored.");
@@ -238,87 +176,6 @@ function App() {
       setBusyAction(null);
     }
   }, [applyErrorStatus, clearErrorStatus, selectedConnectionId]);
-
-  const insertNavigatorSql = useCallback(
-    (sql: string, message: string) => {
-      setSqlText((previous) => (previous.trim() ? `${previous.trimEnd()}\n\n${sql}` : sql));
-      setStatusText(message);
-      clearErrorStatus();
-    },
-    [clearErrorStatus],
-  );
-
-  const handleNavigatorAction = useCallback(
-    async (request: NavigatorActionRequest) => {
-      const { schemaName, object, action } = request;
-      const engine = selectedConnection?.engine;
-      const qualifiedName = buildQualifiedObjectName(engine, schemaName, object.name);
-
-      try {
-        if (action === "copy_name") {
-          await copyTextToClipboard(qualifiedName);
-          setStatusText(`Copied object name ${qualifiedName}.`);
-          clearErrorStatus();
-          return;
-        }
-
-        if (action === "generate_select" || action === "open_data") {
-          const selectSql = buildSelectFromObjectSql(
-            engine,
-            schemaName,
-            object.name,
-            queryPageSize,
-          );
-
-          if (action === "generate_select") {
-            insertNavigatorSql(selectSql, `Generated SELECT for ${qualifiedName}.`);
-            return;
-          }
-
-          setSqlText(selectSql);
-          setStatusText(`Running SELECT for ${qualifiedName}...`);
-          clearErrorStatus();
-          resetQueryGridModifiers();
-          await runQueryPage(selectSql, 0, "navigator", {
-            gridModifiersOverride: {
-              quickFilter: "",
-              sortColumn: "",
-              sortDirection: "asc",
-            },
-          });
-          return;
-        }
-
-        if (action === "generate_insert") {
-          const insertSql = buildInsertTemplateSql(engine, schemaName, object);
-          insertNavigatorSql(insertSql, `Generated INSERT for ${qualifiedName}.`);
-          return;
-        }
-
-        if (action === "generate_update") {
-          const updateSql = buildUpdateTemplateSql(engine, schemaName, object);
-          insertNavigatorSql(updateSql, `Generated UPDATE for ${qualifiedName}.`);
-          return;
-        }
-
-        if (action === "generate_ddl") {
-          const ddlSql = buildDdlTemplateSql(engine, schemaName, object);
-          insertNavigatorSql(ddlSql, `Generated DDL template for ${qualifiedName}.`);
-        }
-      } catch (error) {
-        applyErrorStatus(error);
-      }
-    },
-    [
-      applyErrorStatus,
-      clearErrorStatus,
-      insertNavigatorSql,
-      queryPageSize,
-      resetQueryGridModifiers,
-      runQueryPage,
-      selectedConnection?.engine,
-    ],
-  );
 
   useEffect(() => {
     const onGlobalKeyDown = (event: KeyboardEvent) => {
@@ -450,28 +307,6 @@ function App() {
       />
     </div>
   );
-}
-
-async function withPromiseTimeout<T>(
-  promise: Promise<T>,
-  timeoutMs: number,
-  message: string,
-): Promise<T> {
-  let timeoutHandle: ReturnType<typeof window.setTimeout> | undefined;
-
-  try {
-    const timeoutPromise = new Promise<T>((_, reject) => {
-      timeoutHandle = window.setTimeout(() => {
-        reject(new Error(message));
-      }, timeoutMs);
-    });
-
-    return await Promise.race([promise, timeoutPromise]);
-  } finally {
-    if (timeoutHandle) {
-      window.clearTimeout(timeoutHandle);
-    }
-  }
 }
 
 export default App;

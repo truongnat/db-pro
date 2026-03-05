@@ -42,6 +42,8 @@ type RunQueryPageOptions = {
   skipHistory?: boolean;
 };
 
+export type QueryRunPageOptions = RunQueryPageOptions;
+
 type UseQueryControllerOptions = {
   initialSqlText: string;
   selectedConnectionId: string | null;
