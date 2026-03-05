@@ -43,3 +43,4 @@ cargo check --manifest-path src-tauri/Cargo.toml
 - Import/export wizard (CSV/JSON/XLSX)
 - ER diagram view
 - Visual query builder + multi-tab SQL workspace
+# db-pro
