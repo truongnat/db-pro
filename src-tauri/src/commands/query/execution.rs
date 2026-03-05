@@ -833,7 +833,7 @@ fn build_filter_clause(engine: &DbEngine, pushdown: &QueryPushdownOptions) -> Op
                     format!("LOWER(CAST({qualified} AS TEXT))")
                 }
             };
-            format!("{cast_expr} LIKE '{escaped_pattern}' ESCAPE '\\\\'")
+            format!("{cast_expr} LIKE '{escaped_pattern}' ESCAPE '\\'")
         })
         .collect::<Vec<_>>();
 

@@ -1,5 +1,7 @@
 mod cancellation;
 mod execution;
+#[cfg(test)]
+mod integration_tests;
 
 use std::time::{Duration, Instant};
 
