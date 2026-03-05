@@ -3,14 +3,20 @@ import { EditorView } from "@codemirror/view";
 import { tags } from "@lezer/highlight";
 
 export const sqlHighlightStyle = HighlightStyle.define([
-  { tag: tags.keyword, color: "#2563eb", fontWeight: "700" },
-  { tag: [tags.string, tags.special(tags.string)], color: "#b45309" },
-  { tag: [tags.number, tags.bool], color: "#7c3aed" },
+  { tag: tags.keyword, color: "#1d4ed8", fontWeight: "700" },
+  { tag: [tags.string, tags.special(tags.string)], color: "#a16207" },
+  { tag: [tags.number, tags.bool, tags.literal], color: "#7e22ce", fontWeight: "600" },
   { tag: [tags.comment, tags.lineComment], color: "#64748b", fontStyle: "italic" },
   { tag: [tags.variableName, tags.name], color: "#0f172a" },
-  { tag: [tags.typeName, tags.className], color: "#0ea5e9" },
-  { tag: tags.operator, color: "#475569" },
+  { tag: [tags.typeName, tags.className], color: "#0f766e", fontWeight: "600" },
+  {
+    tag: [tags.function(tags.variableName), tags.function(tags.propertyName)],
+    color: "#db2777",
+  },
+  { tag: tags.definition(tags.variableName), color: "#0f172a", fontWeight: "700" },
+  { tag: tags.operator, color: "#334155", fontWeight: "600" },
   { tag: tags.punctuation, color: "#64748b" },
+  { tag: tags.invalid, color: "#dc2626", textDecoration: "underline wavy" },
 ]);
 
 export const sqlEditorTheme = EditorView.theme({
@@ -49,9 +55,40 @@ export const sqlEditorTheme = EditorView.theme({
     backdropFilter: "blur(10px)",
     overflow: "hidden",
   },
+  ".cm-tooltip-autocomplete > ul": {
+    maxHeight: "18rem",
+    padding: "0.25rem 0",
+  },
+  ".cm-tooltip-autocomplete ul li": {
+    padding: "0.45rem 0.65rem",
+    borderBottom: "1px solid hsl(var(--border) / 0.35)",
+  },
+  ".cm-tooltip-autocomplete ul li:last-child": {
+    borderBottom: "none",
+  },
+  ".cm-tooltip-autocomplete ul li .cm-completionIcon": {
+    opacity: "0.75",
+  },
+  ".cm-tooltip-autocomplete ul li .cm-completionLabel": {
+    fontWeight: "600",
+    letterSpacing: "0.01em",
+  },
+  ".cm-tooltip-autocomplete ul li .cm-completionMatchedText": {
+    color: "hsl(var(--primary))",
+    textDecoration: "none",
+    fontWeight: "800",
+  },
+  ".cm-tooltip-autocomplete ul li .cm-completionDetail": {
+    color: "hsl(var(--muted-foreground))",
+    fontSize: "11px",
+    marginLeft: "0.35rem",
+  },
   ".cm-tooltip-autocomplete ul li[aria-selected]": {
     backgroundColor: "hsl(var(--accent))",
     color: "hsl(var(--foreground))",
+  },
+  ".cm-tooltip-autocomplete ul li[aria-selected] .cm-completionMatchedText": {
+    color: "hsl(var(--primary))",
   },
 });
 

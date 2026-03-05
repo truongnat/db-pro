@@ -257,7 +257,7 @@ export function resolveSqlCompletions(
     return null;
   }
 
-  if (!context.explicit && tokenRange.from === tokenRange.to) {
+  if (!shouldOpenCompletions(context, tokenRange.from, tokenRange.to)) {
     return null;
   }
 
@@ -287,4 +287,25 @@ export function resolveSqlCompletions(
     to: replaceEnd,
     options: items,
   };
+}
+
+function shouldOpenCompletions(
+  context: CompletionContext,
+  tokenStart: number,
+  tokenEnd: number,
+): boolean {
+  if (context.explicit) {
+    return true;
+  }
+
+  if (tokenStart !== tokenEnd) {
+    return true;
+  }
+
+  const previousChar = context.state.sliceDoc(Math.max(0, context.pos - 1), context.pos);
+  if (!previousChar) {
+    return false;
+  }
+
+  return /[\s(,]/.test(previousChar);
 }

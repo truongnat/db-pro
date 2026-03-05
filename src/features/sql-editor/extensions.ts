@@ -1,7 +1,5 @@
 import {
-  acceptCompletion,
   autocompletion,
-  startCompletion,
   type CompletionContext,
 } from "@codemirror/autocomplete";
 import { Prec, type Extension } from "@codemirror/state";
@@ -11,6 +9,7 @@ import { MySQL, PostgreSQL, SQLite, sql } from "@codemirror/lang-sql";
 import type { DbEngine } from "@/types";
 
 import { resolveSqlCompletions } from "./completions";
+import { buildSqlEditorKeymap } from "./keymap";
 import { sqlEditorStyling } from "./theme";
 import type { SqlCompletionCatalog } from "./types";
 
@@ -45,45 +44,11 @@ export function buildSqlEditorExtensions({
     autocompletion({
       activateOnTyping: true,
       maxRenderedOptions: 18,
+      defaultKeymap: false,
       override: [
         (context: CompletionContext) => resolveSqlCompletions(context, catalog),
       ],
     }),
-    Prec.high(
-      keymap.of([
-        {
-          key: "Mod-Enter",
-          run: () => {
-            if (busy) {
-              return true;
-            }
-            onRunQuery();
-            return true;
-          },
-        },
-        {
-          key: "Shift-Mod-f",
-          run: () => {
-            void onFormatSql();
-            return true;
-          },
-        },
-        {
-          key: "Alt-Shift-f",
-          run: () => {
-            void onFormatSql();
-            return true;
-          },
-        },
-        {
-          key: "Mod-Space",
-          run: startCompletion,
-        },
-        {
-          key: "Tab",
-          run: acceptCompletion,
-        },
-      ]),
-    ),
+    Prec.high(keymap.of(buildSqlEditorKeymap({ busy, onRunQuery, onFormatSql }))),
   ];
 }
