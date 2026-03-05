@@ -10,7 +10,7 @@ import {
 
 import { loadNavigator } from "@/lib/tauri";
 import { copyTextToClipboard } from "@/features/query/clipboard";
-import type { QueryRunPageOptions } from "@/features/query/useQueryController";
+import type { QueryRunPageOptions } from "@/features/query/controller-types";
 import type { DbEngine, NavigatorTree } from "@/types";
 
 import type { NavigatorActionRequest } from "./actions";

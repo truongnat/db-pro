@@ -9,10 +9,10 @@ import {
 } from "react";
 
 import { cancelQuery, executeQuery } from "@/lib/tauri";
-import { loadCachedQueryPageSize, saveCachedQueryPageSize } from "@/features/connections/cache";
 import type { ConnectionListItem, QueryResult } from "@/types";
 
 import { copyTextToClipboard, toTabDelimited } from "./clipboard";
+import type { QueryRunPageOptions, RunQueryPageFn } from "./controller-types";
 import { buildResultCsvFilename, downloadCsv, toCsv } from "./csv";
 import { isTimeoutError } from "./errors";
 import {
@@ -22,27 +22,12 @@ import {
   saveQueryHistory,
   type QueryHistoryEntry,
 } from "./history";
-import type { QueryGridModifiers } from "./QueryResultGrid";
+import { useResultGridController } from "./useResultGridController";
 import { detectSqlTarget } from "../sql-editor/statement";
 import { formatSqlText } from "../sql-editor/format";
 import type { SqlEditorSelection } from "../sql-editor/types";
 
-const DEFAULT_QUERY_PAGE_SIZE = 500;
 const QUERY_FRONTEND_TIMEOUT_MS = 45_000;
-const FILTER_DEBOUNCE_MS = 300;
-const DEFAULT_QUERY_GRID_MODIFIERS: QueryGridModifiers = {
-  quickFilter: "",
-  sortColumn: "",
-  sortDirection: "asc",
-};
-
-type RunQueryPageOptions = {
-  pageSizeOverride?: number;
-  gridModifiersOverride?: QueryGridModifiers;
-  skipHistory?: boolean;
-};
-
-export type QueryRunPageOptions = RunQueryPageOptions;
 
 type UseQueryControllerOptions = {
   initialSqlText: string;
@@ -73,20 +58,11 @@ export function useQueryController({
   const [queryHistory, setQueryHistory] = useState<QueryHistoryEntry[]>(() =>
     loadQueryHistory(),
   );
-  const [queryPageSize, setQueryPageSize] = useState(() =>
-    loadCachedQueryPageSize(DEFAULT_QUERY_PAGE_SIZE),
-  );
-  const [queryGridModifiers, setQueryGridModifiers] = useState<QueryGridModifiers>(
-    DEFAULT_QUERY_GRID_MODIFIERS,
-  );
   const [cancelRequested, setCancelRequested] = useState(false);
 
   const sqlSelectionRef = useRef<SqlEditorSelection | null>(null);
-  const filterDebounceTimerRef = useRef<number | null>(null);
-  const appliedGridModifiersRef = useRef<QueryGridModifiers>(
-    DEFAULT_QUERY_GRID_MODIFIERS,
-  );
   const queryRequestIdRef = useRef(0);
+  const runQueryPageRef = useRef<RunQueryPageFn>(async () => undefined);
 
   const queryHistoryForSelectedConnection = useMemo(() => {
     if (!selectedConnectionId) {
@@ -98,50 +74,37 @@ export function useQueryController({
       .slice(0, 50);
   }, [queryHistory, selectedConnectionId]);
 
-  const clearFilterDebounceTimer = useCallback(() => {
-    if (filterDebounceTimerRef.current !== null) {
-      window.clearTimeout(filterDebounceTimerRef.current);
-      filterDebounceTimerRef.current = null;
-    }
-  }, []);
-
-  const resetQueryGridModifiers = useCallback(() => {
-    clearFilterDebounceTimer();
-    setQueryGridModifiers(DEFAULT_QUERY_GRID_MODIFIERS);
-    appliedGridModifiersRef.current = DEFAULT_QUERY_GRID_MODIFIERS;
-  }, [clearFilterDebounceTimer]);
-
   const invalidateQueryRequests = useCallback(() => {
     queryRequestIdRef.current += 1;
   }, []);
 
-  useEffect(() => {
-    return () => {
-      if (filterDebounceTimerRef.current !== null) {
-        window.clearTimeout(filterDebounceTimerRef.current);
-      }
-    };
-  }, []);
+  const {
+    queryPageSize,
+    queryGridModifiers,
+    handleGridModifiersChange,
+    resetQueryGridModifiers,
+    handleNextPage,
+    handlePreviousPage,
+    handleQueryPageSizeChange,
+    markGridModifiersApplied,
+    resetForDataReset: resetResultGridForDataReset,
+  } = useResultGridController({
+    selectedConnectionId,
+    busyAction,
+    activeQuerySql,
+    queryResult,
+    onStatus,
+    onRunQueryPage: (sql, offset, runSource, options) =>
+      runQueryPageRef.current(sql, offset, runSource, options),
+  });
 
   useEffect(() => {
     invalidateQueryRequests();
-    clearFilterDebounceTimer();
-    setQueryGridModifiers(DEFAULT_QUERY_GRID_MODIFIERS);
-    appliedGridModifiersRef.current = DEFAULT_QUERY_GRID_MODIFIERS;
     setQueryResult(null);
     setActiveQuerySql(null);
     onSetBusyAction((previous) => (previous === "run-query" ? null : previous));
     setCancelRequested(false);
-  }, [
-    clearFilterDebounceTimer,
-    invalidateQueryRequests,
-    onSetBusyAction,
-    selectedConnectionId,
-  ]);
-
-  useEffect(() => {
-    saveCachedQueryPageSize(queryPageSize);
-  }, [queryPageSize]);
+  }, [invalidateQueryRequests, onSetBusyAction, selectedConnectionId]);
 
   useEffect(() => {
     saveQueryHistory(queryHistory);
@@ -152,7 +115,7 @@ export function useQueryController({
       sql: string,
       offset: number,
       runSource: string,
-      options?: RunQueryPageOptions,
+      options?: QueryRunPageOptions,
     ) => {
       if (!selectedConnectionId) {
         onStatus("Select a connection first.");
@@ -208,9 +171,15 @@ export function useQueryController({
           columns: resolvedColumns,
         });
         setActiveQuerySql(result.isRowQuery ? sql : null);
-        appliedGridModifiersRef.current = result.isRowQuery
-          ? effectiveGridModifiers
-          : DEFAULT_QUERY_GRID_MODIFIERS;
+        markGridModifiersApplied(
+          result.isRowQuery
+            ? effectiveGridModifiers
+            : {
+                quickFilter: "",
+                sortColumn: "",
+                sortDirection: "asc",
+              },
+        );
 
         onStatus(`${result.message} in ${result.executionMs} ms (${runSource}).`);
         onClearError();
@@ -260,6 +229,7 @@ export function useQueryController({
       selectedConnectionId,
     ],
   );
+  runQueryPageRef.current = runQueryPage;
 
   const runCurrentSql = useCallback(async () => {
     if (!selectedConnectionId) {
@@ -281,75 +251,13 @@ export function useQueryController({
           : "full editor";
     resetQueryGridModifiers();
     await runQueryPage(sqlTarget.sql, 0, runSource, {
-      gridModifiersOverride: DEFAULT_QUERY_GRID_MODIFIERS,
+      gridModifiersOverride: {
+        quickFilter: "",
+        sortColumn: "",
+        sortDirection: "asc",
+      },
     });
   }, [onStatus, resetQueryGridModifiers, runQueryPage, selectedConnectionId, sqlText]);
-
-  const handleNextPage = useCallback(async () => {
-    if (!selectedConnectionId) {
-      onStatus("Select a connection first.");
-      return;
-    }
-
-    if (!queryResult?.isRowQuery || !activeQuerySql) {
-      onStatus("Run a row query first.");
-      return;
-    }
-
-    if (!queryResult.hasMore) {
-      onStatus("No more rows.");
-      return;
-    }
-
-    const nextOffset = queryResult.pageOffset + queryResult.pageSize;
-    await runQueryPage(activeQuerySql, nextOffset, "next page");
-  }, [activeQuerySql, onStatus, queryResult, runQueryPage, selectedConnectionId]);
-
-  const handlePreviousPage = useCallback(async () => {
-    if (!selectedConnectionId) {
-      onStatus("Select a connection first.");
-      return;
-    }
-
-    if (!queryResult?.isRowQuery || !activeQuerySql) {
-      onStatus("Run a row query first.");
-      return;
-    }
-
-    if (queryResult.pageOffset === 0) {
-      onStatus("Already at the first page.");
-      return;
-    }
-
-    const previousOffset = Math.max(queryResult.pageOffset - queryResult.pageSize, 0);
-    await runQueryPage(activeQuerySql, previousOffset, "previous page");
-  }, [activeQuerySql, onStatus, queryResult, runQueryPage, selectedConnectionId]);
-
-  const handleQueryPageSizeChange = useCallback(
-    async (nextPageSize: number) => {
-      if (!Number.isFinite(nextPageSize) || nextPageSize <= 0) {
-        return;
-      }
-      if (nextPageSize === queryPageSize) {
-        return;
-      }
-
-      setQueryPageSize(nextPageSize);
-      onStatus(`Query page size set to ${nextPageSize}.`);
-
-      if (!selectedConnectionId) {
-        return;
-      }
-      if (!queryResult?.isRowQuery || !activeQuerySql) {
-        return;
-      }
-
-      await runQueryPage(activeQuerySql, 0, "page size change", {
-        pageSizeOverride: nextPageSize,
-      });
-    },
-    [activeQuerySql, onStatus, queryPageSize, queryResult, runQueryPage, selectedConnectionId],
-  );
 
   const cancelRunningQuery = useCallback(async () => {
     if (!selectedConnectionId) {
@@ -409,7 +317,11 @@ export function useQueryController({
       setSqlText(item.sql);
       resetQueryGridModifiers();
       await runQueryPage(item.sql, 0, "history", {
-        gridModifiersOverride: DEFAULT_QUERY_GRID_MODIFIERS,
+        gridModifiersOverride: {
+          quickFilter: "",
+          sortColumn: "",
+          sortDirection: "asc",
+        },
       });
       onClearError();
     },
@@ -504,57 +416,15 @@ export function useQueryController({
     [onClearError, onStatus],
   );
 
-  const handleGridModifiersChange = useCallback((next: QueryGridModifiers) => {
-    setQueryGridModifiers(next);
-  }, []);
-
-  useEffect(() => {
-    if (!selectedConnectionId) {
-      return;
-    }
-    if (!queryResult?.isRowQuery || !activeQuerySql) {
-      return;
-    }
-    if (busyAction === "run-query") {
-      return;
-    }
-    if (areGridModifiersEqual(queryGridModifiers, appliedGridModifiersRef.current)) {
-      return;
-    }
-
-    clearFilterDebounceTimer();
-    filterDebounceTimerRef.current = window.setTimeout(() => {
-      void runQueryPage(activeQuerySql, 0, "filter/sort", {
-        gridModifiersOverride: queryGridModifiers,
-        skipHistory: true,
-      });
-    }, FILTER_DEBOUNCE_MS);
-
-    return () => {
-      clearFilterDebounceTimer();
-    };
-  }, [
-    activeQuerySql,
-    busyAction,
-    clearFilterDebounceTimer,
-    queryGridModifiers,
-    queryResult?.isRowQuery,
-    runQueryPage,
-    selectedConnectionId,
-  ]);
-
   const resetForDataReset = useCallback(() => {
     clearQueryHistoryStorage();
-    clearFilterDebounceTimer();
     invalidateQueryRequests();
-    setQueryPageSize(DEFAULT_QUERY_PAGE_SIZE);
-    setQueryGridModifiers(DEFAULT_QUERY_GRID_MODIFIERS);
-    appliedGridModifiersRef.current = DEFAULT_QUERY_GRID_MODIFIERS;
+    resetResultGridForDataReset();
     setQueryHistory([]);
     setQueryResult(null);
     setActiveQuerySql(null);
     setCancelRequested(false);
-  }, [clearFilterDebounceTimer, invalidateQueryRequests]);
+  }, [invalidateQueryRequests, resetResultGridForDataReset]);
 
   const setSqlSelection = useCallback((selection: SqlEditorSelection) => {
     sqlSelectionRef.current = selection;
@@ -587,17 +457,6 @@ export function useQueryController({
     resetForDataReset,
     setSqlSelection,
   };
-}
-
-function areGridModifiersEqual(
-  left: QueryGridModifiers,
-  right: QueryGridModifiers,
-): boolean {
-  return (
-    left.quickFilter === right.quickFilter &&
-    left.sortColumn === right.sortColumn &&
-    left.sortDirection === right.sortDirection
-  );
 }
 
 async function withPromiseTimeout<T>(
