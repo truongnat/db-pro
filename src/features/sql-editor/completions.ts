@@ -3,6 +3,7 @@ import type { Completion, CompletionContext } from "@codemirror/autocomplete";
 import type { NavigatorTree } from "@/types";
 
 import type { SqlCompletionCatalog } from "./types";
+import { detectCompletionIntent, rankCompletions } from "./completion-ranking";
 
 const SQL_KEYWORDS = [
   "SELECT",
@@ -225,29 +226,6 @@ export function getSqlCompletionCatalog(
   return catalog;
 }
 
-function scoreCompletions(items: Completion[], rawPrefix: string): Completion[] {
-  const prefix = normalizeSqlIdentifier(rawPrefix);
-  if (!prefix) {
-    return items.slice(0, 80);
-  }
-
-  const startsWith: Completion[] = [];
-  const contains: Completion[] = [];
-
-  for (const suggestion of items) {
-    const label = normalizeSqlIdentifier(suggestion.label ?? "");
-    if (label.startsWith(prefix)) {
-      startsWith.push(suggestion);
-      continue;
-    }
-    if (label.includes(prefix)) {
-      contains.push(suggestion);
-    }
-  }
-
-  return [...startsWith, ...contains].slice(0, 80);
-}
-
 export function resolveSqlCompletions(
   context: CompletionContext,
   catalog: SqlCompletionCatalog,
@@ -270,10 +248,16 @@ export function resolveSqlCompletions(
   const scopedSuggestions = normalizedScope
     ? catalog.columnsByScope.get(normalizedScope)
     : undefined;
+  const textBeforeCursor = context.state.sliceDoc(0, context.pos);
+  const primaryIntent = detectCompletionIntent(textBeforeCursor, Boolean(scopedSuggestions));
 
-  let items = scoreCompletions(scopedSuggestions ?? catalog.global, rawPrefix);
+  let items = rankCompletions(scopedSuggestions ?? catalog.global, rawPrefix, primaryIntent);
   if (items.length === 0 && scopedSuggestions) {
-    items = scoreCompletions(catalog.global, tokenRange.text);
+    items = rankCompletions(
+      catalog.global,
+      rawPrefix,
+      detectCompletionIntent(textBeforeCursor, false),
+    );
   }
 
   if (items.length === 0) {
