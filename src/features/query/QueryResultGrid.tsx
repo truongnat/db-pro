@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import {
   ArrowDownAZ,
   ArrowUpZA,
@@ -14,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { QueryResult } from "@/types";
+import type { GridSelectionSummary } from "./grid-selection";
 import { VirtualizedResultTable } from "./VirtualizedResultTable";
 
 const PAGE_SIZE_OPTIONS = [100, 250, 500, 1000, 2000] as const;
@@ -51,6 +53,14 @@ export function QueryResultGrid({
   onPreviousPage,
   onNextPage,
 }: QueryResultGridProps) {
+  const [selectionSummary, setSelectionSummary] = useState<GridSelectionSummary | null>(null);
+
+  useEffect(() => {
+    if (!queryResult || queryResult.rows.length === 0 || queryResult.columns.length === 0) {
+      setSelectionSummary(null);
+    }
+  }, [queryResult]);
+
   const canPaginate = !!queryResult?.isRowQuery && queryResult.pageSize > 0;
   const hasPreviousPage = canPaginate && queryResult.pageOffset > 0;
   const hasNextPage = canPaginate && queryResult.hasMore;
@@ -90,6 +100,11 @@ export function QueryResultGrid({
           )}
           {hasFilter && <Badge variant="secondary">Filtered</Badge>}
           {hasSort && <Badge variant="secondary">Sorted</Badge>}
+          {selectionSummary && selectionSummary.cellCount > 0 && (
+            <Badge variant="secondary">
+              Selection {selectionSummary.rowCount}x{selectionSummary.columnCount}
+            </Badge>
+          )}
         </div>
 
         <div className="flex items-center gap-2">
@@ -278,7 +293,15 @@ export function QueryResultGrid({
             columns={queryResult.columns}
             rows={queryResult.rows}
             onCopyFeedback={onGridCopyFeedback}
+            onSelectionSummaryChange={setSelectionSummary}
           />
+        </div>
+      )}
+
+      {queryResult && queryResult.columns.length > 0 && queryResult.rows.length > 0 && (
+        <div className="shrink-0 text-[11px] text-muted-foreground">
+          Shortcuts: <kbd className="rounded border px-1 py-0.5">Ctrl/Cmd+C</kbd> copy TSV,{" "}
+          <kbd className="rounded border px-1 py-0.5">Ctrl/Cmd+Shift+C</kbd> copy CSV.
         </div>
       )}
     </div>
