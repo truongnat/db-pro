@@ -37,12 +37,32 @@ Context:
 {{merge_recommendation}}
 Return pass/fail and required mitigations.
 
+## Step: workflow_report
+Skill: agent.workflow_report
+DependsOn: internet_security_check
+Input: Build detailed review report from:
+{{review_context}}
+{{generate_findings}}
+{{merge_recommendation}}
+{{internet_security_check}}
+Return strict JSON with summary/actions/risks and clear merge posture.
+
+## Step: report_quality_gate
+Skill: agent.report_quality_gate
+DependsOn: workflow_report
+Input: {{workflow_report}}
+
+## Step: simulation_fallback_gate
+Skill: agent.simulation_fallback_gate
+DependsOn: report_quality_gate
+Input: {{workflow_report}}
+
 ## Step: next_actions
 Skill: agent.next_steps
-DependsOn: internet_security_check
-Input: Derive next actions from {{generate_findings}} {{merge_recommendation}} {{internet_security_check}}
+DependsOn: simulation_fallback_gate
+Input: Derive next actions from {{workflow_report}} and preserve severity-first remediation ordering.
 
 ## Step: finalize
 Skill: demo.echo
 DependsOn: next_actions
-Input: Review workflow completed with findings, recommendation, security gate, and next-action plan.
+Input: Review workflow completed with findings, recommendation, security gate, detailed report, and next-action plan.

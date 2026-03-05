@@ -13,7 +13,7 @@ Schema: antigrav.skill@v1
   "model": "qwen3:8b",
   "temperature": 0.05,
   "input_type": "text",
-  "output_type": "text",
+  "output_type": "json",
   "estimated_cost": 7,
   "estimated_latency_ms": 2200,
   "allow_fs_read": false,

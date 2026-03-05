@@ -13,7 +13,7 @@ Schema: antigrav.rule@v1
   "read_only": false,
   "strict_mode": true,
   "external_mutation_penalty": 120,
-  "step_timeout_ms": 180000,
+  "step_timeout_ms": 420000,
   "max_trust_tier": "Constrained",
   "max_total_cost": 2500,
   "max_total_latency_ms": 900000,
@@ -24,7 +24,7 @@ Schema: antigrav.rule@v1
   "max_fs_writes": 450,
   "max_network_calls": 25,
   "max_memory_mb": 1024,
-  "run_script_timeout_ms": 180000,
+  "run_script_timeout_ms": 420000,
   "run_script_allowed_commands": [
     "npm",
     "npx",

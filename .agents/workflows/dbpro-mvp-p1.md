@@ -21,14 +21,14 @@ Input: implementer:::Build deterministic implementation plan for dbpro-mvp-p1 fr
 Skill: agent.run_script
 DependsOn: execution_plan
 Retry: 1
-OnFailure: Continue
+OnFailure: FailFast
 Input: npm run -s build
 
 ## Step: validate_backend
 Skill: agent.run_script
 DependsOn: validate_frontend
 Retry: 1
-OnFailure: Continue
+OnFailure: FailFast
 Input: cargo check --manifest-path src-tauri/Cargo.toml
 
 ## Step: risk_review
@@ -41,12 +41,29 @@ Skill: agent.llm_subagent
 DependsOn: risk_review
 Input: reviewer:::Run focused security check for internet-capable execution paths. Confirm no secret leakage through export/copy tooling. Context: {{risk_review}}
 
+## Step: workflow_report
+Skill: agent.workflow_report
+DependsOn: internet_security_check
+Input: Build detailed dbpro-mvp-p1 workflow report from:
+{{intent_analysis}}
+{{execution_plan}}
+{{validate_frontend}}
+{{validate_backend}}
+{{risk_review}}
+{{internet_security_check}}
+Return strict JSON with summary/actions/risks and delivery readiness status.
+
+## Step: report_quality_gate
+Skill: agent.report_quality_gate
+DependsOn: workflow_report
+Input: {{workflow_report}}
+
 ## Step: next_actions
 Skill: agent.next_steps
-DependsOn: internet_security_check
-Input: Derive next actions from {{execution_plan}} {{risk_review}} {{internet_security_check}}
+DependsOn: report_quality_gate
+Input: Derive next actions from {{workflow_report}} with priority on unresolved regression and usability risks.
 
 ## Step: finalize
 Skill: demo.echo
 DependsOn: next_actions
-Input: dbpro-mvp-p1 workflow completed with planning, dual-stack validation, security gates, and next-action plan.
+Input: dbpro-mvp-p1 workflow completed with planning, dual-stack validation, security gates, detailed report, and next-action plan.

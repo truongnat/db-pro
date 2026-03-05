@@ -39,14 +39,14 @@ Prioritize high-risk and edge-case scenarios.
 Skill: agent.run_script
 DependsOn: regression_plan
 Retry: 2
-OnFailure: Continue
+OnFailure: FailFast
 Input: npm run -s build
 
 ## Step: validate_backend
 Skill: agent.run_script
 DependsOn: validate_frontend
 Retry: 2
-OnFailure: Continue
+OnFailure: FailFast
 Input: cargo check --manifest-path src-tauri/Cargo.toml
 
 ## Step: post_fix_review
@@ -65,12 +65,31 @@ Context:
 {{post_fix_review}}
 Return pass/fail and mandatory mitigations.
 
+## Step: workflow_report
+Skill: agent.workflow_report
+DependsOn: internet_security_check
+Input: Build detailed bugfix workflow report from:
+{{issue_triage}}
+{{root_cause_hypothesis}}
+{{patch_plan}}
+{{regression_plan}}
+{{validate_frontend}}
+{{validate_backend}}
+{{post_fix_review}}
+{{internet_security_check}}
+Return strict JSON with summary/actions/risks and release-readiness posture.
+
+## Step: report_quality_gate
+Skill: agent.report_quality_gate
+DependsOn: workflow_report
+Input: {{workflow_report}}
+
 ## Step: next_actions
 Skill: agent.next_steps
-DependsOn: internet_security_check
-Input: Derive next actions from {{patch_plan}} {{post_fix_review}} {{internet_security_check}}
+DependsOn: report_quality_gate
+Input: Derive next actions from {{workflow_report}} with priority on unresolved validation and high-severity risks.
 
 ## Step: finalize
 Skill: demo.echo
 DependsOn: next_actions
-Input: Bugfix workflow completed with root-cause, patch, regression, security validation, and next-action plan.
+Input: Bugfix workflow completed with root-cause, patch, regression checks, security validation, detailed report, and next-action plan.

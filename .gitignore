@@ -32,3 +32,6 @@ dist-ssr
 .agents/marketplace.json
 .agents/skills.lock.json
 .agents/memory/context.db
+
+# Local QA artifacts
+artifacts/

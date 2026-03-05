@@ -1,0 +1,579 @@
+Title,Description,Priority,Status,Assignee,Created,Completed,Labels,Estimate
+S1-01 PostgreSQL real-world test matrix,"# S1-01 - PostgreSQL real-world test matrix
+
+## Sprint
+Sprint 1
+
+## Problem
+Define and run matrix across local/remote/high-latency/lock-contention/large-table PostgreSQL scenarios.
+
+## Expected Outcome
+Matrix documented and executed with pass/fail evidence for each scenario.
+
+## Scope
+- In scope: Define and run matrix across local/remote/high-latency/lock-contention/large-table PostgreSQL scenarios.
+- Out of scope: unrelated feature additions and non-MVP enhancements.
+
+## Acceptance Criteria
+- [ ] Matrix documented and executed with pass/fail evidence for each scenario.
+- [ ] No regression on existing behavior covered by the same area.
+- [ ] User-facing error/loading states remain deterministic.
+
+## Validation
+- Attach scenario logs and findings in a markdown report.
+- Run: npm run build
+- Run: cargo check --manifest-path src-tauri/Cargo.toml
+
+## Dependencies
+None
+
+## Risks
+Environment variability can hide intermittent failures.
+
+## Notes
+- Track progress against docs/mvp-sprint-backlog.md.
+- Link implementation PR and test evidence before closing.",High,Backlog,,2026-03-05,,"mvp,sprint-1,s1-01",
+S1-02 Query lifecycle hardening,"# S1-02 - Query lifecycle hardening
+
+## Sprint
+Sprint 1
+
+## Problem
+Ensure run/cancel/timeout state machine cannot remain indefinitely in Running state.
+
+## Expected Outcome
+No unresolved Running state after timeout/cancel in matrix scenarios.
+
+## Scope
+- In scope: Ensure run/cancel/timeout state machine cannot remain indefinitely in Running state.
+- Out of scope: unrelated feature additions and non-MVP enhancements.
+
+## Acceptance Criteria
+- [ ] No unresolved Running state after timeout/cancel in matrix scenarios.
+- [ ] No regression on existing behavior covered by the same area.
+- [ ] User-facing error/loading states remain deterministic.
+
+## Validation
+- Execute reproducible manual script for run/cancel stress cycles.
+- Run: npm run build
+- Run: cargo check --manifest-path src-tauri/Cargo.toml
+
+## Dependencies
+S1-01
+
+## Risks
+State-machine regressions can appear only under load.
+
+## Notes
+- Track progress against docs/mvp-sprint-backlog.md.
+- Link implementation PR and test evidence before closing.",High,Backlog,,2026-03-05,,"mvp,sprint-1,s1-02",
+S1-03 Stage diagnostics normalization,"# S1-03 - Stage diagnostics normalization
+
+## Sprint
+Sprint 1
+
+## Problem
+Standardize diagnostics format (connect/session/fetch/mode) across engines.
+
+## Expected Outcome
+Every query response/log follows deterministic diagnostic shape.
+
+## Scope
+- In scope: Standardize diagnostics format (connect/session/fetch/mode) across engines.
+- Out of scope: unrelated feature additions and non-MVP enhancements.
+
+## Acceptance Criteria
+- [ ] Every query response/log follows deterministic diagnostic shape.
+- [ ] No regression on existing behavior covered by the same area.
+- [ ] User-facing error/loading states remain deterministic.
+
+## Validation
+- Capture sample outputs for SQLite/PostgreSQL/MySQL.
+- Run: npm run build
+- Run: cargo check --manifest-path src-tauri/Cargo.toml
+
+## Dependencies
+S1-02
+
+## Risks
+Inconsistent formatting reduces debuggability.
+
+## Notes
+- Track progress against docs/mvp-sprint-backlog.md.
+- Link implementation PR and test evidence before closing.",High,Backlog,,2026-03-05,,"mvp,sprint-1,s1-03",
+S1-04 Wrapped pagination fallback policy,"# S1-04 - Wrapped pagination fallback policy
+
+## Sprint
+Sprint 1
+
+## Problem
+Prevent silent fallback when server-side filter/sort guarantees are not met.
+
+## Expected Outcome
+Filter/sort uses wrapped query or fails explicitly with actionable error.
+
+## Scope
+- In scope: Prevent silent fallback when server-side filter/sort guarantees are not met.
+- Out of scope: unrelated feature additions and non-MVP enhancements.
+
+## Acceptance Criteria
+- [ ] Filter/sort uses wrapped query or fails explicitly with actionable error.
+- [ ] No regression on existing behavior covered by the same area.
+- [ ] User-facing error/loading states remain deterministic.
+
+## Validation
+- Behavior matrix documented for SQLite/PostgreSQL/MySQL.
+- Run: npm run build
+- Run: cargo check --manifest-path src-tauri/Cargo.toml
+
+## Dependencies
+S1-03
+
+## Risks
+Silent fallback can create incorrect UX expectations.
+
+## Notes
+- Track progress against docs/mvp-sprint-backlog.md.
+- Link implementation PR and test evidence before closing.",High,Backlog,,2026-03-05,,"mvp,sprint-1,s1-04",
+S1-05 Incident-friendly error surfaces,"# S1-05 - Incident-friendly error surfaces
+
+## Sprint
+Sprint 1
+
+## Problem
+Improve network/auth/timeout/cancel user-facing errors.
+
+## Expected Outcome
+Errors are classified and actionable in status + error UI.
+
+## Scope
+- In scope: Improve network/auth/timeout/cancel user-facing errors.
+- Out of scope: unrelated feature additions and non-MVP enhancements.
+
+## Acceptance Criteria
+- [ ] Errors are classified and actionable in status + error UI.
+- [ ] No regression on existing behavior covered by the same area.
+- [ ] User-facing error/loading states remain deterministic.
+
+## Validation
+- Validate each error class through controlled failure tests.
+- Run: npm run build
+- Run: cargo check --manifest-path src-tauri/Cargo.toml
+
+## Dependencies
+S1-02,S1-03
+
+## Risks
+Overly generic errors slow incident triage.
+
+## Notes
+- Track progress against docs/mvp-sprint-backlog.md.
+- Link implementation PR and test evidence before closing.",High,Backlog,,2026-03-05,,"mvp,sprint-1,s1-05",
+S2-01 Connection controller extraction,"# S2-01 - Connection controller extraction
+
+## Sprint
+Sprint 2
+
+## Problem
+Move connection CRUD/reset/cache orchestration from App.tsx to dedicated controller hook.
+
+## Expected Outcome
+Connection business logic is isolated and App.tsx responsibilities are reduced.
+
+## Scope
+- In scope: Move connection CRUD/reset/cache orchestration from App.tsx to dedicated controller hook.
+- Out of scope: unrelated feature additions and non-MVP enhancements.
+
+## Acceptance Criteria
+- [ ] Connection business logic is isolated and App.tsx responsibilities are reduced.
+- [ ] No regression on existing behavior covered by the same area.
+- [ ] User-facing error/loading states remain deterministic.
+
+## Validation
+- Behavior parity checklist for add/edit/delete/test/reset/restore.
+- Run: npm run build
+- Run: cargo check --manifest-path src-tauri/Cargo.toml
+
+## Dependencies
+S1-05
+
+## Risks
+Refactor can break subtle modal/cache flows.
+
+## Notes
+- Track progress against docs/mvp-sprint-backlog.md.
+- Link implementation PR and test evidence before closing.",Medium,Backlog,,2026-03-05,,"mvp,sprint-2,s2-01",
+S2-02 Query controller extraction,"# S2-02 - Query controller extraction
+
+## Sprint
+Sprint 2
+
+## Problem
+Move run/cancel/history/page/filter/sort orchestration to query controller hook.
+
+## Expected Outcome
+Query flow has stable controller API and deterministic state transitions.
+
+## Scope
+- In scope: Move run/cancel/history/page/filter/sort orchestration to query controller hook.
+- Out of scope: unrelated feature additions and non-MVP enhancements.
+
+## Acceptance Criteria
+- [ ] Query flow has stable controller API and deterministic state transitions.
+- [ ] No regression on existing behavior covered by the same area.
+- [ ] User-facing error/loading states remain deterministic.
+
+## Validation
+- Run/cancel/history/filter/sort smoke tests pass.
+- Run: npm run build
+- Run: cargo check --manifest-path src-tauri/Cargo.toml
+
+## Dependencies
+S2-01
+
+## Risks
+High coupling can leak into controller boundaries.
+
+## Notes
+- Track progress against docs/mvp-sprint-backlog.md.
+- Link implementation PR and test evidence before closing.",Medium,Backlog,,2026-03-05,,"mvp,sprint-2,s2-02",
+S2-03 Navigator controller extraction,"# S2-03 - Navigator controller extraction
+
+## Sprint
+Sprint 2
+
+## Problem
+Move navigator load/retry/refresh/action dispatch from root component.
+
+## Expected Outcome
+Navigator logic is isolated with no UX regression.
+
+## Scope
+- In scope: Move navigator load/retry/refresh/action dispatch from root component.
+- Out of scope: unrelated feature additions and non-MVP enhancements.
+
+## Acceptance Criteria
+- [ ] Navigator logic is isolated with no UX regression.
+- [ ] No regression on existing behavior covered by the same area.
+- [ ] User-facing error/loading states remain deterministic.
+
+## Validation
+- Refresh-after-DDL and retry flow verified.
+- Run: npm run build
+- Run: cargo check --manifest-path src-tauri/Cargo.toml
+
+## Dependencies
+S2-01
+
+## Risks
+Metadata load edge-cases can regress silently.
+
+## Notes
+- Track progress against docs/mvp-sprint-backlog.md.
+- Link implementation PR and test evidence before closing.",Medium,Backlog,,2026-03-05,,"mvp,sprint-2,s2-03",
+S2-04 Result grid controller extraction,"# S2-04 - Result grid controller extraction
+
+## Sprint
+Sprint 2
+
+## Problem
+Move grid modifiers/debounce/pagination integration into dedicated controller.
+
+## Expected Outcome
+Grid state updates are deterministic and testable.
+
+## Scope
+- In scope: Move grid modifiers/debounce/pagination integration into dedicated controller.
+- Out of scope: unrelated feature additions and non-MVP enhancements.
+
+## Acceptance Criteria
+- [ ] Grid state updates are deterministic and testable.
+- [ ] No regression on existing behavior covered by the same area.
+- [ ] User-facing error/loading states remain deterministic.
+
+## Validation
+- Filter/sort/page interactions verified with pushdown behavior.
+- Run: npm run build
+- Run: cargo check --manifest-path src-tauri/Cargo.toml
+
+## Dependencies
+S2-02
+
+## Risks
+Debounce logic regressions can trigger over-querying.
+
+## Notes
+- Track progress against docs/mvp-sprint-backlog.md.
+- Link implementation PR and test evidence before closing.",Medium,Backlog,,2026-03-05,,"mvp,sprint-2,s2-04",
+S2-05 Integration tests for critical flows,"# S2-05 - Integration tests for critical flows
+
+## Sprint
+Sprint 2
+
+## Problem
+Add automated regression tests for run/cancel/timeout, navigator refresh, pushdown paging, sample bootstrap.
+
+## Expected Outcome
+Critical user paths are covered by integration tests and reproducible locally.
+
+## Scope
+- In scope: Add automated regression tests for run/cancel/timeout, navigator refresh, pushdown paging, sample bootstrap.
+- Out of scope: unrelated feature additions and non-MVP enhancements.
+
+## Acceptance Criteria
+- [ ] Critical user paths are covered by integration tests and reproducible locally.
+- [ ] No regression on existing behavior covered by the same area.
+- [ ] User-facing error/loading states remain deterministic.
+
+## Validation
+- Document local test command and baseline outputs.
+- Run: npm run build
+- Run: cargo check --manifest-path src-tauri/Cargo.toml
+
+## Dependencies
+S2-02,S2-03,S2-04
+
+## Risks
+Flaky tests can reduce trust in CI gates.
+
+## Notes
+- Track progress against docs/mvp-sprint-backlog.md.
+- Link implementation PR and test evidence before closing.",Medium,Backlog,,2026-03-05,,"mvp,sprint-2,s2-05",
+S2-06 Architecture boundaries doc,"# S2-06 - Architecture boundaries doc
+
+## Sprint
+Sprint 2
+
+## Problem
+Document module ownership, data flow, and anti-patterns.
+
+## Expected Outcome
+Architecture map committed and aligned with refactored code.
+
+## Scope
+- In scope: Document module ownership, data flow, and anti-patterns.
+- Out of scope: unrelated feature additions and non-MVP enhancements.
+
+## Acceptance Criteria
+- [ ] Architecture map committed and aligned with refactored code.
+- [ ] No regression on existing behavior covered by the same area.
+- [ ] User-facing error/loading states remain deterministic.
+
+## Validation
+- Review checklist signed by maintainers.
+- Run: npm run build
+- Run: cargo check --manifest-path src-tauri/Cargo.toml
+
+## Dependencies
+S2-01,S2-02,S2-03,S2-04
+
+## Risks
+Without docs, architecture drift returns quickly.
+
+## Notes
+- Track progress against docs/mvp-sprint-backlog.md.
+- Link implementation PR and test evidence before closing.",Medium,Backlog,,2026-03-05,,"mvp,sprint-2,s2-06",
+S3-01 Completion keyboard navigation overhaul,"# S3-01 - Completion keyboard navigation overhaul
+
+## Sprint
+Sprint 3
+
+## Problem
+Fix Up/Down/Enter/Tab/Esc behavior in all completion states.
+
+## Expected Outcome
+Completion is fully usable without mouse in everyday SQL flow.
+
+## Scope
+- In scope: Fix Up/Down/Enter/Tab/Esc behavior in all completion states.
+- Out of scope: unrelated feature additions and non-MVP enhancements.
+
+## Acceptance Criteria
+- [ ] Completion is fully usable without mouse in everyday SQL flow.
+- [ ] No regression on existing behavior covered by the same area.
+- [ ] User-facing error/loading states remain deterministic.
+
+## Validation
+- Keyboard walkthrough script passes end-to-end.
+- Run: npm run build
+- Run: cargo check --manifest-path src-tauri/Cargo.toml
+
+## Dependencies
+S2-02
+
+## Risks
+Editor key handling conflicts can reappear.
+
+## Notes
+- Track progress against docs/mvp-sprint-backlog.md.
+- Link implementation PR and test evidence before closing.",Medium,Backlog,,2026-03-05,,"mvp,sprint-3,s3-01",
+S3-02 Completion ranking quality,"# S3-02 - Completion ranking quality
+
+## Sprint
+Sprint 3
+
+## Problem
+Tune ranking for keyword/object/column with recency-aware behavior.
+
+## Expected Outcome
+Top suggestions are consistently relevant in real schemas.
+
+## Scope
+- In scope: Tune ranking for keyword/object/column with recency-aware behavior.
+- Out of scope: unrelated feature additions and non-MVP enhancements.
+
+## Acceptance Criteria
+- [ ] Top suggestions are consistently relevant in real schemas.
+- [ ] No regression on existing behavior covered by the same area.
+- [ ] User-facing error/loading states remain deterministic.
+
+## Validation
+- Acceptance examples documented and passed.
+- Run: npm run build
+- Run: cargo check --manifest-path src-tauri/Cargo.toml
+
+## Dependencies
+S3-01
+
+## Risks
+Ranking changes can hurt discoverability if untested.
+
+## Notes
+- Track progress against docs/mvp-sprint-backlog.md.
+- Link implementation PR and test evidence before closing.",Medium,Backlog,,2026-03-05,,"mvp,sprint-3,s3-02",
+S3-03 SQL visual readability upgrade,"# S3-03 - SQL visual readability upgrade
+
+## Sprint
+Sprint 3
+
+## Problem
+Improve token contrast and syntax readability in default light mode.
+
+## Expected Outcome
+Readable SQL with clear token separation and no accessibility regressions.
+
+## Scope
+- In scope: Improve token contrast and syntax readability in default light mode.
+- Out of scope: unrelated feature additions and non-MVP enhancements.
+
+## Acceptance Criteria
+- [ ] Readable SQL with clear token separation and no accessibility regressions.
+- [ ] No regression on existing behavior covered by the same area.
+- [ ] User-facing error/loading states remain deterministic.
+
+## Validation
+- Before/after screenshots and readability checks.
+- Run: npm run build
+- Run: cargo check --manifest-path src-tauri/Cargo.toml
+
+## Dependencies
+S3-01
+
+## Risks
+Theme changes can impact contrast compliance.
+
+## Notes
+- Track progress against docs/mvp-sprint-backlog.md.
+- Link implementation PR and test evidence before closing.",Medium,Backlog,,2026-03-05,,"mvp,sprint-3,s3-03",
+S3-04 Result grid selection upgrade,"# S3-04 - Result grid selection upgrade
+
+## Sprint
+Sprint 3
+
+## Problem
+Add multi-cell selection and robust copy semantics (TSV/CSV).
+
+## Expected Outcome
+Copy selection works deterministically for grid ranges.
+
+## Scope
+- In scope: Add multi-cell selection and robust copy semantics (TSV/CSV).
+- Out of scope: unrelated feature additions and non-MVP enhancements.
+
+## Acceptance Criteria
+- [ ] Copy selection works deterministically for grid ranges.
+- [ ] No regression on existing behavior covered by the same area.
+- [ ] User-facing error/loading states remain deterministic.
+
+## Validation
+- Clipboard output matrix verified.
+- Run: npm run build
+- Run: cargo check --manifest-path src-tauri/Cargo.toml
+
+## Dependencies
+S2-04
+
+## Risks
+Selection model complexity may impact performance.
+
+## Notes
+- Track progress against docs/mvp-sprint-backlog.md.
+- Link implementation PR and test evidence before closing.",Medium,Backlog,,2026-03-05,,"mvp,sprint-3,s3-04",
+S3-05 Result grid column controls,"# S3-05 - Result grid column controls
+
+## Sprint
+Sprint 3
+
+## Problem
+Add column resize and basic show/hide controls.
+
+## Expected Outcome
+Column interaction is stable with large datasets and virtualized table.
+
+## Scope
+- In scope: Add column resize and basic show/hide controls.
+- Out of scope: unrelated feature additions and non-MVP enhancements.
+
+## Acceptance Criteria
+- [ ] Column interaction is stable with large datasets and virtualized table.
+- [ ] No regression on existing behavior covered by the same area.
+- [ ] User-facing error/loading states remain deterministic.
+
+## Validation
+- Manual UX test on 1k+ rows passes.
+- Run: npm run build
+- Run: cargo check --manifest-path src-tauri/Cargo.toml
+
+## Dependencies
+S3-04
+
+## Risks
+Layout state bugs can degrade usability.
+
+## Notes
+- Track progress against docs/mvp-sprint-backlog.md.
+- Link implementation PR and test evidence before closing.",Medium,Backlog,,2026-03-05,,"mvp,sprint-3,s3-05",
+S3-06 Connection panel pro polish,"# S3-06 - Connection panel pro polish
+
+## Sprint
+Sprint 3
+
+## Problem
+Upgrade add/edit modal UX, password handling states, and reset/cache clarity.
+
+## Expected Outcome
+Connection panel flow is deterministic, polished, and user-safe.
+
+## Scope
+- In scope: Upgrade add/edit modal UX, password handling states, and reset/cache clarity.
+- Out of scope: unrelated feature additions and non-MVP enhancements.
+
+## Acceptance Criteria
+- [ ] Connection panel flow is deterministic, polished, and user-safe.
+- [ ] No regression on existing behavior covered by the same area.
+- [ ] User-facing error/loading states remain deterministic.
+
+## Validation
+- UX acceptance checklist completed.
+- Run: npm run build
+- Run: cargo check --manifest-path src-tauri/Cargo.toml
+
+## Dependencies
+S2-01
+
+## Risks
+UX polish can trigger unexpected form-state regressions.
+
+## Notes
+- Track progress against docs/mvp-sprint-backlog.md.
+- Link implementation PR and test evidence before closing.",Medium,Backlog,,2026-03-05,,"mvp,sprint-3,s3-06",

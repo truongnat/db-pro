@@ -100,10 +100,9 @@ pub async fn execute_sqlite_query(
                         page_size as u32,
                         has_more,
                         paged_rows.len(),
-                        &[
-                            format!("connect {connect_ms}ms"),
-                            format!("fetch {fetch_ms}ms ({fetch_mode})"),
-                        ],
+                        format_diagnostics(&[("connect_ms", connect_ms), ("fetch_ms", fetch_ms)])
+                            .with_text("fetch_mode", fetch_mode)
+                            .render(),
                     ),
                     schema_changed: false,
                     is_row_query: true,
@@ -131,9 +130,13 @@ pub async fn execute_sqlite_query(
                 affected_rows: done.rows_affected(),
                 execution_ms: execute_ms,
                 message: format!(
-                    "Done. {} row(s) affected [connect {connect_ms}ms, execute {}ms]",
+                    "Done. {} row(s) affected [{}]",
                     done.rows_affected(),
-                    execute_ms.saturating_sub(connect_ms)
+                    format_diagnostics(&[
+                        ("connect_ms", connect_ms),
+                        ("execute_ms", execute_ms.saturating_sub(connect_ms)),
+                    ])
+                    .render()
                 ),
                 schema_changed,
                 is_row_query: false,
@@ -239,11 +242,13 @@ pub async fn execute_postgres_query(
                         page_size as u32,
                         has_more,
                         paged_rows.len(),
-                        &[
-                            format!("connect {connect_ms}ms"),
-                            format!("session {session_ms}ms"),
-                            format!("fetch {fetch_ms}ms ({fetch_mode})"),
-                        ],
+                        format_diagnostics(&[
+                            ("connect_ms", connect_ms),
+                            ("session_ms", session_ms),
+                            ("fetch_ms", fetch_ms),
+                        ])
+                        .with_text("fetch_mode", fetch_mode)
+                        .render(),
                     ),
                     schema_changed: false,
                     is_row_query: true,
@@ -271,9 +276,17 @@ pub async fn execute_postgres_query(
                 affected_rows: done.rows_affected(),
                 execution_ms: execute_ms,
                 message: format!(
-                    "Done. {} row(s) affected [connect {connect_ms}ms, session {session_ms}ms, execute {}ms]",
+                    "Done. {} row(s) affected [{}]",
                     done.rows_affected(),
-                    execute_ms.saturating_sub(connect_ms + session_ms)
+                    format_diagnostics(&[
+                        ("connect_ms", connect_ms),
+                        ("session_ms", session_ms),
+                        (
+                            "execute_ms",
+                            execute_ms.saturating_sub(connect_ms + session_ms),
+                        ),
+                    ])
+                    .render()
                 ),
                 schema_changed,
                 is_row_query: false,
@@ -366,10 +379,9 @@ pub async fn execute_mysql_query(
                         page_size as u32,
                         has_more,
                         paged_rows.len(),
-                        &[
-                            format!("connect {connect_ms}ms"),
-                            format!("fetch {fetch_ms}ms ({fetch_mode})"),
-                        ],
+                        format_diagnostics(&[("connect_ms", connect_ms), ("fetch_ms", fetch_ms)])
+                            .with_text("fetch_mode", fetch_mode)
+                            .render(),
                     ),
                     schema_changed: false,
                     is_row_query: true,
@@ -397,9 +409,13 @@ pub async fn execute_mysql_query(
                 affected_rows: done.rows_affected(),
                 execution_ms: execute_ms,
                 message: format!(
-                    "Done. {} row(s) affected [connect {connect_ms}ms, execute {}ms]",
+                    "Done. {} row(s) affected [{}]",
                     done.rows_affected(),
-                    execute_ms.saturating_sub(connect_ms)
+                    format_diagnostics(&[
+                        ("connect_ms", connect_ms),
+                        ("execute_ms", execute_ms.saturating_sub(connect_ms)),
+                    ])
+                    .render()
                 ),
                 schema_changed,
                 is_row_query: false,
@@ -422,6 +438,8 @@ async fn fetch_sqlite_page(
     pushdown: &QueryPushdownOptions,
     cancellation: &Arc<QueryCancellation>,
 ) -> Result<(Vec<SqliteRow>, bool, &'static str), String> {
+    ensure_pushdown_supported(first_word, pushdown)?;
+
     if supports_wrapped_pagination(first_word) {
         let paged_sql =
             build_wrapped_paged_sql(sql, page_size, page_offset, DbEngine::Sqlite, pushdown);
@@ -493,6 +511,8 @@ async fn fetch_postgres_page(
     pushdown: &QueryPushdownOptions,
     cancellation: &Arc<QueryCancellation>,
 ) -> Result<(Vec<PgRow>, bool, &'static str), String> {
+    ensure_pushdown_supported(first_word, pushdown)?;
+
     if supports_wrapped_pagination(first_word) {
         let paged_sql =
             build_wrapped_paged_sql(sql, page_size, page_offset, DbEngine::Postgres, pushdown);
@@ -564,6 +584,8 @@ async fn fetch_mysql_page(
     pushdown: &QueryPushdownOptions,
     cancellation: &Arc<QueryCancellation>,
 ) -> Result<(Vec<MySqlRow>, bool, &'static str), String> {
+    ensure_pushdown_supported(first_word, pushdown)?;
+
     if supports_wrapped_pagination(first_word) {
         let paged_sql =
             build_wrapped_paged_sql(sql, page_size, page_offset, DbEngine::Mysql, pushdown);
@@ -631,13 +653,13 @@ fn build_row_page_message(
     page_size: u32,
     has_more: bool,
     fetched_rows: usize,
-    stage_notes: &[String],
+    diagnostics: String,
 ) -> String {
     if fetched_rows == 0 {
         let mut message = "Fetched 0 row(s)".to_string();
-        if !stage_notes.is_empty() {
+        if !diagnostics.is_empty() {
             message.push_str(" [");
-            message.push_str(&stage_notes.join(", "));
+            message.push_str(&diagnostics);
             message.push(']');
         }
         return message;
@@ -651,12 +673,36 @@ fn build_row_page_message(
     if has_more {
         message.push_str(" (more rows available)");
     }
-    if !stage_notes.is_empty() {
+    if !diagnostics.is_empty() {
         message.push_str(" [");
-        message.push_str(&stage_notes.join(", "));
+        message.push_str(&diagnostics);
         message.push(']');
     }
     message
+}
+
+fn format_diagnostics(values: &[(&str, u128)]) -> DiagnosticsBuilder {
+    let mut parts = values
+        .iter()
+        .map(|(key, value)| format!("{key}={value}"))
+        .collect::<Vec<_>>();
+    parts.insert(0, "diag".to_string());
+    DiagnosticsBuilder { parts }
+}
+
+struct DiagnosticsBuilder {
+    parts: Vec<String>,
+}
+
+impl DiagnosticsBuilder {
+    fn with_text(mut self, key: &str, value: &str) -> Self {
+        self.parts.push(format!("{key}={value}"));
+        self
+    }
+
+    fn render(self) -> String {
+        self.parts.join(" ")
+    }
 }
 
 fn leading_sql_keyword(sql: &str) -> String {
@@ -708,6 +754,25 @@ fn requires_wrapped_pushdown(pushdown: &QueryPushdownOptions) -> bool {
             .sort_column
             .as_deref()
             .is_some_and(|value| !value.trim().is_empty())
+}
+
+fn ensure_pushdown_supported(
+    first_word: &str,
+    pushdown: &QueryPushdownOptions,
+) -> Result<(), String> {
+    if !requires_wrapped_pushdown(pushdown) || supports_wrapped_pagination(first_word) {
+        return Ok(());
+    }
+
+    let statement = if first_word.is_empty() {
+        "<unknown>"
+    } else {
+        first_word
+    };
+
+    Err(format!(
+        "Filter/sort pushdown requires SELECT/WITH statements for wrapped pagination; got '{statement}'."
+    ))
 }
 
 fn build_wrapped_paged_sql(
@@ -951,4 +1016,53 @@ fn sqlite_cell_to_string(row: &SqliteRow, index: usize) -> String {
     }
 
     "<unrenderable>".to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn build_pushdown(
+        quick_filter: Option<&str>,
+        sort_column: Option<&str>,
+    ) -> QueryPushdownOptions {
+        QueryPushdownOptions {
+            quick_filter: quick_filter.map(ToString::to_string),
+            filter_columns: quick_filter
+                .map(|_| vec!["id".to_string(), "name".to_string()])
+                .unwrap_or_default(),
+            sort_column: sort_column.map(ToString::to_string),
+            sort_direction: SortDirection::Asc,
+        }
+    }
+
+    #[test]
+    fn diagnostics_format_is_deterministic() {
+        let diagnostics = format_diagnostics(&[("connect_ms", 12), ("fetch_ms", 44)])
+            .with_text("fetch_mode", "wrapped")
+            .render();
+
+        assert_eq!(
+            diagnostics,
+            "diag connect_ms=12 fetch_ms=44 fetch_mode=wrapped"
+        );
+    }
+
+    #[test]
+    fn pushdown_requires_select_or_with_statements() {
+        let pushdown = build_pushdown(Some("john"), None);
+        let error = ensure_pushdown_supported("show", &pushdown)
+            .expect_err("expected explicit error for unsupported pushdown");
+
+        assert!(error.contains("requires SELECT/WITH"));
+        assert!(error.contains("show"));
+    }
+
+    #[test]
+    fn pushdown_accepts_select_statements() {
+        let pushdown = build_pushdown(Some("john"), Some("id"));
+        let result = ensure_pushdown_supported("select", &pushdown);
+
+        assert!(result.is_ok());
+    }
 }

@@ -40,14 +40,14 @@ Include expected pass criteria for frontend and Rust backend.
 Skill: agent.run_script
 DependsOn: validation_strategy
 Retry: 1
-OnFailure: Continue
+OnFailure: FailFast
 Input: npm run -s build
 
 ## Step: validate_backend
 Skill: agent.run_script
 DependsOn: validate_frontend
 Retry: 1
-OnFailure: Continue
+OnFailure: FailFast
 Input: cargo check --manifest-path src-tauri/Cargo.toml
 
 ## Step: risk_review
@@ -66,12 +66,31 @@ Use this risk register:
 {{risk_review}}
 Return pass/fail plus required mitigations.
 
+## Step: workflow_report
+Skill: agent.workflow_report
+DependsOn: internet_security_check
+Input: Build detailed feature workflow report from:
+{{intent_analysis}}
+{{architecture_plan}}
+{{implementation_plan}}
+{{validation_strategy}}
+{{validate_frontend}}
+{{validate_backend}}
+{{risk_review}}
+{{internet_security_check}}
+Return strict JSON with summary/actions/risks and explicit readiness posture.
+
+## Step: report_quality_gate
+Skill: agent.report_quality_gate
+DependsOn: workflow_report
+Input: {{workflow_report}}
+
 ## Step: next_actions
 Skill: agent.next_steps
-DependsOn: internet_security_check
-Input: Derive next actions from current workflow state using {{implementation_plan}} {{risk_review}} {{internet_security_check}}
+DependsOn: report_quality_gate
+Input: Derive next actions from {{workflow_report}} and keep ordering aligned with validation/risk critical path.
 
 ## Step: finalize
 Skill: demo.echo
 DependsOn: next_actions
-Input: Feature workflow completed with architecture, implementation, validation, security gates, and next-action plan.
+Input: Feature workflow completed with architecture, implementation, validation, security gate, detailed report, and next-action plan.
