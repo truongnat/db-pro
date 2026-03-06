@@ -1,6 +1,7 @@
 import {
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
   useCallback,
   useEffect,
   useMemo,
@@ -27,12 +28,15 @@ import {
   moveCellPosition,
   summarizeSelection,
 } from "./grid-selection";
+import { clampColumnWidth } from "./useColumnLayoutController";
 
 type VirtualizedResultTableProps = {
   columns: string[];
   rows: string[][];
   onCopyFeedback?: (message: string) => void;
   onSelectionSummaryChange?: (summary: GridSelectionSummary | null) => void;
+  columnWidths?: Record<string, number>;
+  onColumnWidthChange?: (columnName: string, width: number) => void;
 };
 
 const ROW_HEIGHT_PX = 34;
@@ -45,8 +49,11 @@ export function VirtualizedResultTable({
   rows,
   onCopyFeedback,
   onSelectionSummaryChange,
+  columnWidths,
+  onColumnWidthChange,
 }: VirtualizedResultTableProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const resizeCleanupRef = useRef<(() => void) | null>(null);
 
   const [activeCell, setActiveCell] = useState<CellPosition | null>(null);
   const [selectionRange, setSelectionRange] = useState<CellRange | null>(null);
@@ -82,6 +89,15 @@ export function VirtualizedResultTable({
       resizeObserver.disconnect();
     };
   }, [useVirtualizedRows]);
+
+  useEffect(() => {
+    return () => {
+      if (resizeCleanupRef.current) {
+        resizeCleanupRef.current();
+        resizeCleanupRef.current = null;
+      }
+    };
+  }, []);
 
   const selectionSummary = useMemo(
     () => summarizeSelection(selectionRange),
@@ -330,6 +346,58 @@ export function VirtualizedResultTable({
     [activeCell, handleCellPointerSelect, selectionRange],
   );
 
+  const resolveColumnWidth = useCallback(
+    (columnName: string) => clampColumnWidth(columnWidths?.[columnName] ?? 180),
+    [columnWidths],
+  );
+
+  const startColumnResize = useCallback(
+    (
+      event: ReactPointerEvent<HTMLButtonElement>,
+      columnName: string,
+      startWidth: number,
+    ) => {
+      if (!onColumnWidthChange) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      if (resizeCleanupRef.current) {
+        resizeCleanupRef.current();
+      }
+
+      const initialX = event.clientX;
+      const initialWidth = clampColumnWidth(startWidth);
+      const originalCursor = document.body.style.cursor;
+      const originalUserSelect = document.body.style.userSelect;
+      document.body.style.cursor = "col-resize";
+      document.body.style.userSelect = "none";
+
+      const onPointerMove = (moveEvent: PointerEvent) => {
+        const delta = moveEvent.clientX - initialX;
+        const nextWidth = clampColumnWidth(initialWidth + delta);
+        onColumnWidthChange(columnName, nextWidth);
+      };
+
+      const cleanup = () => {
+        window.removeEventListener("pointermove", onPointerMove);
+        window.removeEventListener("pointerup", cleanup);
+        window.removeEventListener("pointercancel", cleanup);
+        document.body.style.cursor = originalCursor;
+        document.body.style.userSelect = originalUserSelect;
+        resizeCleanupRef.current = null;
+      };
+
+      resizeCleanupRef.current = cleanup;
+      window.addEventListener("pointermove", onPointerMove);
+      window.addEventListener("pointerup", cleanup);
+      window.addEventListener("pointercancel", cleanup);
+    },
+    [onColumnWidthChange],
+  );
+
   return (
     <div
       ref={containerRef}
@@ -346,11 +414,28 @@ export function VirtualizedResultTable({
       onKeyDown={handleKeyDown}
     >
       <table className="min-w-max caption-bottom text-sm">
+        <colgroup>
+          {columns.map((columnName) => {
+            const width = resolveColumnWidth(columnName);
+            return <col key={`col-${columnName}`} style={{ width, minWidth: width }} />;
+          })}
+        </colgroup>
+
         <TableHeader className="sticky top-0 z-10 bg-background">
           <TableRow>
             {columns.map((column) => (
-              <TableHead key={column} className="whitespace-nowrap">
-                {column}
+              <TableHead key={column} className="group relative whitespace-nowrap pr-3">
+                <span>{column}</span>
+                {onColumnWidthChange && (
+                  <button
+                    type="button"
+                    className="absolute right-0 top-0 h-full w-2 cursor-col-resize border-r border-transparent transition group-hover:border-primary/40 focus-visible:border-primary/60 focus-visible:outline-none"
+                    onPointerDown={(event) =>
+                      startColumnResize(event, column, resolveColumnWidth(column))
+                    }
+                    aria-label={`Resize column ${column}`}
+                  />
+                )}
               </TableHead>
             ))}
           </TableRow>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowDownAZ,
   ArrowUpZA,
@@ -15,7 +15,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { QueryResult } from "@/types";
+import { ColumnVisibilityPanel } from "./ColumnVisibilityPanel";
 import type { GridSelectionSummary } from "./grid-selection";
+import { useColumnLayoutController } from "./useColumnLayoutController";
 import { VirtualizedResultTable } from "./VirtualizedResultTable";
 
 const PAGE_SIZE_OPTIONS = [100, 250, 500, 1000, 2000] as const;
@@ -54,6 +56,42 @@ export function QueryResultGrid({
   onNextPage,
 }: QueryResultGridProps) {
   const [selectionSummary, setSelectionSummary] = useState<GridSelectionSummary | null>(null);
+  const sourceColumns = queryResult?.columns ?? [];
+  const sourceRows = queryResult?.rows ?? [];
+
+  const {
+    visibleColumns,
+    visibleColumnIndexes,
+    hiddenColumnSet,
+    hiddenColumnCount,
+    canHideAnyColumn,
+    columnWidthByName,
+    toggleColumnVisibility,
+    showAllColumns,
+    setColumnWidth,
+    resetColumnLayout,
+  } = useColumnLayoutController({
+    columns: sourceColumns,
+    rows: sourceRows,
+    onStatus: onGridCopyFeedback,
+  });
+
+  const projectedRows = useMemo(() => {
+    if (!queryResult) {
+      return [];
+    }
+
+    if (
+      visibleColumnIndexes.length === 0 ||
+      visibleColumnIndexes.length === queryResult.columns.length
+    ) {
+      return queryResult.rows;
+    }
+
+    return queryResult.rows.map((row) =>
+      visibleColumnIndexes.map((columnIndex) => row[columnIndex] ?? ""),
+    );
+  }, [queryResult, visibleColumnIndexes]);
 
   useEffect(() => {
     if (!queryResult || queryResult.rows.length === 0 || queryResult.columns.length === 0) {
@@ -65,7 +103,7 @@ export function QueryResultGrid({
   const hasPreviousPage = canPaginate && queryResult.pageOffset > 0;
   const hasNextPage = canPaginate && queryResult.hasMore;
 
-  const hasRows = !!queryResult && queryResult.columns.length > 0 && queryResult.rows.length > 0;
+  const hasRows = visibleColumns.length > 0 && projectedRows.length > 0;
 
   const hasFilter = gridModifiers.quickFilter.trim().length > 0;
   const hasSort = gridModifiers.sortColumn.length > 0;
@@ -116,7 +154,7 @@ export function QueryResultGrid({
               if (!queryResult) {
                 return;
               }
-              onCopyResultPage(queryResult.columns, queryResult.rows);
+              onCopyResultPage(visibleColumns, projectedRows);
             }}
             disabled={loadingPage || !hasRows}
           >
@@ -131,7 +169,7 @@ export function QueryResultGrid({
               if (!queryResult) {
                 return;
               }
-              onExportResultCsv(queryResult.columns, queryResult.rows);
+              onExportResultCsv(visibleColumns, projectedRows);
             }}
             disabled={loadingPage || !hasRows}
           >
@@ -266,6 +304,16 @@ export function QueryResultGrid({
             <X className="mr-1 h-3.5 w-3.5" />
             Clear
           </Button>
+
+          <ColumnVisibilityPanel
+            columns={queryResult.columns}
+            hiddenColumnSet={hiddenColumnSet}
+            hiddenColumnCount={hiddenColumnCount}
+            canHideAnyColumn={canHideAnyColumn}
+            onToggleColumnVisibility={toggleColumnVisibility}
+            onShowAllColumns={showAllColumns}
+            onResetColumnLayout={resetColumnLayout}
+          />
         </div>
       )}
 
@@ -287,21 +335,30 @@ export function QueryResultGrid({
         </div>
       )}
 
-      {queryResult && queryResult.columns.length > 0 && queryResult.rows.length > 0 && (
+      {queryResult && queryResult.columns.length > 0 && visibleColumns.length === 0 && (
+        <div className="shrink-0 rounded-md border border-dashed bg-muted/50 p-4 text-sm text-muted-foreground">
+          All columns are currently hidden.
+        </div>
+      )}
+
+      {queryResult && visibleColumns.length > 0 && projectedRows.length > 0 && (
         <div className="min-h-0 flex-1 overflow-hidden rounded-md border bg-background">
           <VirtualizedResultTable
-            columns={queryResult.columns}
-            rows={queryResult.rows}
+            columns={visibleColumns}
+            rows={projectedRows}
             onCopyFeedback={onGridCopyFeedback}
             onSelectionSummaryChange={setSelectionSummary}
+            columnWidths={columnWidthByName}
+            onColumnWidthChange={setColumnWidth}
           />
         </div>
       )}
 
-      {queryResult && queryResult.columns.length > 0 && queryResult.rows.length > 0 && (
+      {queryResult && queryResult.columns.length > 0 && visibleColumns.length > 0 && (
         <div className="shrink-0 text-[11px] text-muted-foreground">
           Shortcuts: <kbd className="rounded border px-1 py-0.5">Ctrl/Cmd+C</kbd> copy TSV,{" "}
-          <kbd className="rounded border px-1 py-0.5">Ctrl/Cmd+Shift+C</kbd> copy CSV.
+          <kbd className="rounded border px-1 py-0.5">Ctrl/Cmd+Shift+C</kbd> copy CSV, drag
+          header edge to resize.
         </div>
       )}
     </div>
