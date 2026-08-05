@@ -180,6 +180,8 @@ fn introspect_foreign_keys(conn: &rusqlite::Connection) -> Result<Vec<ForeignKey
                     from_column,
                     to_table,
                     to_column,
+                    schema: "main".into(),
+                    to_schema: "main".into(),
                 })
             })
             .map_err(crate::error::from_rusqlite)?

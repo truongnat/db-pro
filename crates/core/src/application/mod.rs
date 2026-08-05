@@ -3,6 +3,7 @@ pub mod export_service;
 pub mod query_service;
 pub mod registry;
 pub mod schema_service;
+mod sql_policy;
 
 pub use connection_service::ConnectionService;
 pub use export_service::{ExportResult, ExportService};

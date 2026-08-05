@@ -6,6 +6,7 @@ use crate::domain::query::{CellValue, QueryResult};
 use crate::ports::DbConnector;
 
 use super::registry::ConnectionRegistry;
+use super::sql_policy::reject_multi_statement;
 
 pub struct ExportResult {
     pub content: Vec<u8>,
@@ -25,6 +26,8 @@ impl ExportService {
     }
 
     async fn execute_for_export(&self, connection_id: &ConnectionId, sql: &str) -> Result<QueryResult, DbError> {
+        reject_multi_statement(sql)?;
+
         let handle = self
             .registry
             .get(connection_id)
@@ -286,6 +289,17 @@ mod tests {
     async fn export_not_active() {
         let svc = build_service(MockDbConnector::new(), Arc::new(ConnectionRegistry::new()));
         let result = svc.export_csv(&ConnectionId::new(), "SELECT 1").await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn export_multi_statement_rejected() {
+        let conn_id = ConnectionId::new();
+        let registry = Arc::new(ConnectionRegistry::new());
+        registry.register(conn_id, ConnectionHandle(1));
+
+        let svc = build_service(MockDbConnector::new(), Arc::clone(&registry));
+        let result = svc.export_csv(&conn_id, "SELECT 1; SELECT 2").await;
         assert!(result.is_err());
     }
 }

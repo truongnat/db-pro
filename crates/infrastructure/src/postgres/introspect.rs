@@ -314,7 +314,9 @@ async fn introspect_foreign_keys(pool: &sqlx::PgPool) -> Result<Vec<ForeignKey>,
             kcu.table_name AS from_table,
             kcu.column_name AS from_column,
             ccu.table_name AS to_table,
-            ccu.column_name AS to_column
+            ccu.column_name AS to_column,
+            tc.table_schema AS from_schema,
+            ccu.table_schema AS to_schema
         FROM information_schema.table_constraints tc
         JOIN information_schema.key_column_usage kcu
             ON tc.constraint_name = kcu.constraint_name
@@ -338,12 +340,16 @@ async fn introspect_foreign_keys(pool: &sqlx::PgPool) -> Result<Vec<ForeignKey>,
             let from_column: String = row.get("from_column");
             let to_table: String = row.get("to_table");
             let to_column: String = row.get("to_column");
+            let schema: String = row.get("from_schema");
+            let to_schema: String = row.get("to_schema");
             ForeignKey {
                 name,
                 from_table,
                 from_column,
                 to_table,
                 to_column,
+                schema,
+                to_schema,
             }
         })
         .collect())

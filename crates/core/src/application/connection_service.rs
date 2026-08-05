@@ -45,8 +45,15 @@ impl ConnectionService {
         let mut connection = Connection::new(config);
         let key = Self::secret_key(&connection.id);
         self.secrets.store_secret(&key, password).await?;
-        connection = connection.with_secret_ref(key);
-        self.repo.save(&connection).await?;
+        connection = connection.with_secret_ref(key.clone());
+
+        if let Err(e) = self.repo.save(&connection).await {
+            if let Err(cleanup_err) = self.secrets.delete_secret(&key).await {
+                tracing::error!("failed to clean up orphan secret after repo save failure: {cleanup_err}");
+            }
+            return Err(e);
+        }
+
         Ok(connection)
     }
 
@@ -86,13 +93,14 @@ impl ConnectionService {
         connection.config = config;
         connection.updated_at = chrono::Utc::now();
 
+        self.repo.save(&connection).await?;
+
         if let Some(pw) = password {
             let key = Self::secret_key(id);
             self.secrets.store_secret(&key, pw).await?;
-            connection = connection.with_secret_ref(key);
         }
 
-        self.repo.save(&connection).await
+        Ok(())
     }
 
     pub async fn delete(&self, id: &ConnectionId) -> Result<(), DbError> {
@@ -330,5 +338,22 @@ mod tests {
 
         svc.delete(&id).await.unwrap();
         assert!(!registry.is_active(&id));
+    }
+
+    #[tokio::test]
+    async fn create_cleans_up_secret_on_repo_failure() {
+        let config = test_config();
+
+        let mut repo = MockConnectionRepository::new();
+        repo.expect_save()
+            .returning(|_| Err(DbError::Internal("db error".into())));
+
+        let mut secrets = MockSecretStore::new();
+        secrets.expect_store_secret().returning(|_, _| Ok(()));
+        secrets.expect_delete_secret().returning(|_| Ok(()));
+
+        let svc = build_service(MockDbConnector::new(), repo, secrets);
+        let result = svc.create(config, "pass").await;
+        assert!(result.is_err());
     }
 }

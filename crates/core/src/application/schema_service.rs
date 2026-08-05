@@ -86,7 +86,7 @@ impl SchemaService {
         let foreign_keys: Vec<_> = introspect
             .foreign_keys
             .into_iter()
-            .filter(|fk| fk.from_table == table)
+            .filter(|fk| fk.from_table == table && fk.schema == schema)
             .collect();
 
         Ok(TableInfo {
@@ -115,12 +115,16 @@ impl SchemaService {
 
 fn build_create_table_ddl(info: &TableInfo) -> String {
     let mut ddl = String::new();
-    let qualified = format!("{}.{}", info.table.schema, info.table.name);
+    let qualified = format!(
+        "{}.{}",
+        quote_identifier(&info.table.schema),
+        quote_identifier(&info.table.name)
+    );
 
     ddl.push_str(&format!("CREATE TABLE {qualified} (\n"));
 
     for (i, col) in info.columns.iter().enumerate() {
-        ddl.push_str(&format!("    {}", col.name));
+        ddl.push_str(&format!("    {}", quote_identifier(&col.name)));
         ddl.push_str(&format!(" {}", col.data_type));
         if !col.nullable {
             ddl.push_str(" NOT NULL");
@@ -135,7 +139,12 @@ fn build_create_table_ddl(info: &TableInfo) -> String {
     }
 
     if let Some(ref pk) = info.primary_key {
-        let cols = pk.columns.join(", ");
+        let cols = pk
+            .columns
+            .iter()
+            .map(|c| quote_identifier(c))
+            .collect::<Vec<_>>()
+            .join(", ");
         ddl.push_str(&format!("    PRIMARY KEY ({cols})\n"));
     }
 
@@ -143,18 +152,34 @@ fn build_create_table_ddl(info: &TableInfo) -> String {
 
     for idx in &info.indexes {
         let unique = if idx.unique { "UNIQUE " } else { "" };
-        let cols = idx.columns.join(", ");
-        ddl.push_str(&format!("CREATE {unique}INDEX {} ON {qualified} ({cols});\n", idx.name));
+        let cols = idx
+            .columns
+            .iter()
+            .map(|c| quote_identifier(c))
+            .collect::<Vec<_>>()
+            .join(", ");
+        ddl.push_str(&format!(
+            "CREATE {unique}INDEX {} ON {qualified} ({cols});\n",
+            quote_identifier(&idx.name)
+        ));
     }
 
     for fk in &info.foreign_keys {
         ddl.push_str(&format!(
             "ALTER TABLE {qualified} ADD CONSTRAINT {} FOREIGN KEY ({}) REFERENCES {} ({});\n",
-            fk.name, fk.from_column, fk.to_table, fk.to_column
+            quote_identifier(&fk.name),
+            quote_identifier(&fk.from_column),
+            quote_identifier(&fk.to_table),
+            quote_identifier(&fk.to_column)
         ));
     }
 
     ddl
+}
+
+fn quote_identifier(name: &str) -> String {
+    let escaped = name.replace('"', "\"\"");
+    format!("\"{escaped}\"")
 }
 
 #[cfg(test)]
@@ -317,10 +342,10 @@ mod tests {
         let svc = SchemaService::new(Box::new(MockDbConnector::new()), Box::new(cache), Arc::clone(&registry));
 
         let ddl = svc.get_table_ddl(&conn_id, "public", "users").await.unwrap();
-        assert!(ddl.contains("CREATE TABLE public.users"));
-        assert!(ddl.contains("id INTEGER NOT NULL"));
-        assert!(ddl.contains("PRIMARY KEY (id)"));
-        assert!(ddl.contains("CREATE UNIQUE INDEX idx_email"));
+        assert!(ddl.contains("CREATE TABLE \"public\".\"users\""));
+        assert!(ddl.contains("\"id\" INTEGER NOT NULL"));
+        assert!(ddl.contains("PRIMARY KEY (\"id\")"));
+        assert!(ddl.contains("CREATE UNIQUE INDEX \"idx_email\""));
     }
 
     #[test]
@@ -348,10 +373,20 @@ mod tests {
                 from_column: "user_id".into(),
                 to_table: "users".into(),
                 to_column: "id".into(),
+                schema: "public".into(),
+                to_schema: "public".into(),
             }],
         };
 
         let ddl = build_create_table_ddl(&info);
-        assert!(ddl.contains("FOREIGN KEY (user_id) REFERENCES users (id)"));
+        assert!(ddl.contains("FOREIGN KEY (\"user_id\") REFERENCES \"users\" (\"id\")"));
+    }
+
+    #[test]
+    fn quote_identifier_handles_special_chars() {
+        assert_eq!(quote_identifier("table"), "\"table\"");
+        assert_eq!(quote_identifier("my table"), "\"my table\"");
+        assert_eq!(quote_identifier("select"), "\"select\"");
+        assert_eq!(quote_identifier("has\"quote"), "\"has\"\"quote\"");
     }
 }

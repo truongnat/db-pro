@@ -47,6 +47,8 @@ pub struct ForeignKey {
     pub from_column: String,
     pub to_table: String,
     pub to_column: String,
+    pub schema: String,
+    pub to_schema: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
