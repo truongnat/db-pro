@@ -1,7 +1,7 @@
 use db_pro_core::domain::error::DbError;
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::RwLock;
+use std::sync::{Arc, RwLock};
 
 const MAGIC: &[u8; 4] = b"DBP1";
 const ALGO_ARGON2_AES: u8 = 1;
@@ -77,10 +77,24 @@ fn hex_decode(s: &str) -> Result<Vec<u8>, DbError> {
 
 pub struct FallbackStore {
     file_path: PathBuf,
-    entries: RwLock<HashMap<String, Vec<u8>>>,
+    entries: Arc<RwLock<HashMap<String, Vec<u8>>>>,
+}
+
+impl Clone for FallbackStore {
+    fn clone(&self) -> Self {
+        Self {
+            file_path: self.file_path.clone(),
+            entries: Arc::clone(&self.entries),
+        }
+    }
 }
 
 impl FallbackStore {
+    /// Create a reference to an existing store (shares the same in-memory entries).
+    pub fn clone_ref(store: &FallbackStore) -> Self {
+        store.clone()
+    }
+
     /// Create a new `FallbackStore`, loading existing entries from `file_path`
     /// if the file already exists.
     pub fn new(file_path: PathBuf) -> Result<Self, DbError> {
@@ -100,7 +114,7 @@ impl FallbackStore {
 
         Ok(Self {
             file_path,
-            entries: RwLock::new(entries),
+            entries: Arc::new(RwLock::new(entries)),
         })
     }
 
@@ -159,7 +173,9 @@ impl FallbackStore {
             std::fs::create_dir_all(parent).map_err(|e| DbError::Io(format!("failed to create fallback dir: {e}")))?;
         }
 
-        let tmp_path = self.file_path.with_extension("json.tmp");
+        let tmp_path = self
+            .file_path
+            .with_extension(format!("json.tmp.{}", std::process::id()));
         std::fs::write(&tmp_path, &json)
             .map_err(|e| DbError::Io(format!("failed to write fallback temp file: {e}")))?;
 

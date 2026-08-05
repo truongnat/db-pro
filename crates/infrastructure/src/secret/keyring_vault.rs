@@ -2,17 +2,22 @@ use async_trait::async_trait;
 use db_pro_core::domain::error::DbError;
 use db_pro_core::ports::SecretStore;
 use std::path::PathBuf;
+use std::sync::Mutex;
 
 use super::encryption;
 use super::fallback::{self, FallbackStore};
 
-/// A `SecretStore` backed by the OS keyring with an encrypted-file fallback.
+/// A `SecretStore` backed by the OS keyring with an opt-in encrypted-file fallback.
 ///
-/// When the OS credential manager is unavailable (e.g. headless CI), secrets
-/// are transparently stored in an encrypted JSON file inside `fallback_dir`.
+/// The fallback is **disabled by default**. Call `with_fallback()` to enable it
+/// for development/CI environments. In production, if the OS keyring is
+/// unavailable, operations return an error instead of silently writing
+/// weakly-encrypted secrets to disk.
 pub struct KeyringVault {
     service_name: String,
     fallback_dir: PathBuf,
+    allow_fallback: bool,
+    fallback_store: Mutex<Option<FallbackStore>>,
 }
 
 impl std::fmt::Debug for KeyringVault {
@@ -20,6 +25,7 @@ impl std::fmt::Debug for KeyringVault {
         f.debug_struct("KeyringVault")
             .field("service_name", &"[REDACTED]")
             .field("fallback_dir", &self.fallback_dir)
+            .field("allow_fallback", &self.allow_fallback)
             .finish()
     }
 }
@@ -29,29 +35,56 @@ impl KeyringVault {
         Self {
             service_name: service_name.into(),
             fallback_dir,
+            allow_fallback: false,
+            fallback_store: Mutex::new(None),
         }
+    }
+
+    /// Enable the encrypted-file fallback for environments without an OS keyring.
+    ///
+    /// **Do not enable in production.** The encryption key is derived from the
+    /// service name, which is not a secret.
+    pub fn with_fallback(mut self) -> Self {
+        self.allow_fallback = true;
+        self
     }
 
     // -- helpers -------------------------------------------------------------
 
-    fn fallback_store(&self) -> Result<FallbackStore, DbError> {
+    fn get_or_init_fallback(&self) -> Result<FallbackStore, DbError> {
+        let mut guard = self
+            .fallback_store
+            .lock()
+            .map_err(|e| DbError::Internal(format!("fallback mutex poisoned: {e}")))?;
+        if let Some(store) = guard.as_ref() {
+            return Ok(FallbackStore::clone_ref(store));
+        }
         let path = self.fallback_dir.join("secrets.json");
-        FallbackStore::new(path)
+        let store = FallbackStore::new(path)?;
+        *guard = Some(FallbackStore::clone_ref(&store));
+        Ok(store)
+    }
+
+    fn require_fallback(&self) -> Result<(), DbError> {
+        if self.allow_fallback {
+            Ok(())
+        } else {
+            Err(DbError::EncryptionFailed(
+                "OS keyring unavailable and fallback is disabled; \
+                 call KeyringVault::with_fallback() to enable for development"
+                    .into(),
+            ))
+        }
     }
 
     /// Derive a master encryption key from the service name.
     ///
     /// **DEV-ONLY**: The service name is not a secret — anyone who knows it can
-    /// derive the same key and decrypt the fallback file. This exists solely so
-    /// the application can run in environments without an OS keyring (e.g.
-    /// headless CI). Before production use, either the OS keyring must be
-    /// mandatory or the user must supply a master password that is stored in
-    /// platform secure storage.
+    /// derive the same key and decrypt the fallback file.
     fn derive_master_key(&self, salt: &[u8]) -> Result<[u8; 32], DbError> {
         encryption::derive_key(&self.service_name, salt)
     }
 
-    /// Fixed salt used for master-key derivation (MVP).
     fn master_salt(&self) -> [u8; 16] {
         let mut salt = [0u8; 16];
         let name_bytes = self.service_name.as_bytes();
@@ -65,8 +98,6 @@ impl KeyringVault {
     }
 }
 
-/// Returns `true` when the error indicates the OS credential manager itself
-/// is not accessible (as opposed to a simple "entry not found").
 fn is_keyring_unavailable(err: &keyring::Error) -> bool {
     matches!(
         err,
@@ -80,7 +111,8 @@ impl SecretStore for KeyringVault {
         let entry = match self.keyring_entry(key) {
             Ok(e) => e,
             Err(e) if is_keyring_unavailable(&e) => {
-                tracing::warn!("OS keyring unavailable, falling back to encrypted file: {e}");
+                tracing::warn!("OS keyring unavailable: {e}");
+                self.require_fallback()?;
                 return self.store_fallback(key, value);
             }
             Err(e) => {
@@ -91,7 +123,8 @@ impl SecretStore for KeyringVault {
         match entry.set_password(value) {
             Ok(()) => Ok(()),
             Err(e) if is_keyring_unavailable(&e) => {
-                tracing::warn!("OS keyring unavailable, falling back to encrypted file: {e}");
+                tracing::warn!("OS keyring unavailable: {e}");
+                self.require_fallback()?;
                 self.store_fallback(key, value)
             }
             Err(e) => Err(DbError::Internal(format!("keyring set_password failed: {e}"))),
@@ -102,7 +135,8 @@ impl SecretStore for KeyringVault {
         let entry = match self.keyring_entry(key) {
             Ok(e) => e,
             Err(e) if is_keyring_unavailable(&e) => {
-                tracing::warn!("OS keyring unavailable, trying fallback file: {e}");
+                tracing::warn!("OS keyring unavailable: {e}");
+                self.require_fallback()?;
                 return self.retrieve_fallback(key);
             }
             Err(e) => {
@@ -112,11 +146,10 @@ impl SecretStore for KeyringVault {
 
         match entry.get_password() {
             Ok(value) => return Ok(Some(value)),
-            Err(keyring::Error::NoEntry) => {
-                // Not in keyring — try fallback file.
-            }
+            Err(keyring::Error::NoEntry) => {}
             Err(e) if is_keyring_unavailable(&e) => {
-                tracing::warn!("OS keyring unavailable, trying fallback file: {e}");
+                tracing::warn!("OS keyring unavailable: {e}");
+                self.require_fallback()?;
                 return self.retrieve_fallback(key);
             }
             Err(e) => {
@@ -124,13 +157,10 @@ impl SecretStore for KeyringVault {
             }
         }
 
-        // Try fallback.
         self.retrieve_fallback(key)
     }
 
     async fn delete_secret(&self, key: &str) -> Result<(), DbError> {
-        // Attempt keyring deletion (ignore NoEntry — just means it was never
-        // stored there or already removed).
         match self.keyring_entry(key) {
             Ok(entry) => {
                 if let Err(e) = entry.delete_credential() {
@@ -142,21 +172,18 @@ impl SecretStore for KeyringVault {
             Err(e) if !is_keyring_unavailable(&e) => {
                 return Err(DbError::Internal(format!("keyring entry creation failed: {e}")));
             }
-            Err(_) => {
-                // Keyring unavailable — skip keyring deletion.
-            }
+            Err(_) => {}
         }
 
-        // Also remove from fallback file (ignore error if file doesn't exist).
-        if let Ok(store) = self.fallback_store() {
-            store.delete(key)?;
+        if self.allow_fallback {
+            if let Ok(store) = self.get_or_init_fallback() {
+                store.delete(key)?;
+            }
         }
 
         Ok(())
     }
 }
-
-// -- private fallback helpers ------------------------------------------------
 
 impl KeyringVault {
     fn store_fallback(&self, key: &str, value: &str) -> Result<(), DbError> {
@@ -165,14 +192,14 @@ impl KeyringVault {
         let (ciphertext, nonce) = encryption::encrypt(value, &master_key)?;
         let blob = fallback::pack_encrypted(&salt, &nonce, &ciphertext);
 
-        let store = self.fallback_store()?;
+        let store = self.get_or_init_fallback()?;
         store.store(key, blob)?;
         tracing::info!("secret stored in fallback file (keyring unavailable)");
         Ok(())
     }
 
     fn retrieve_fallback(&self, key: &str) -> Result<Option<String>, DbError> {
-        let store = self.fallback_store()?;
+        let store = self.get_or_init_fallback()?;
         let blob = match store.retrieve(key)? {
             Some(b) => b,
             None => return Ok(None),

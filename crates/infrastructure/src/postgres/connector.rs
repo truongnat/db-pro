@@ -90,11 +90,12 @@ impl DbConnector for PostgresConnector {
             use futures_util::StreamExt;
             let mut stream = sqlx::query_with(sql, pg_args).fetch(&pool);
             let mut result_rows = Vec::with_capacity(max_rows.min(1024) as usize);
-            while let Some(pg_row) = stream.next().await {
-                let pg_row = pg_row.map_err(crate::error::from_sqlx)?;
-                if result_rows.len() as u64 >= max_rows {
-                    break;
-                }
+            while (result_rows.len() as u64) < max_rows {
+                let pg_row = match stream.next().await {
+                    Some(Ok(row)) => row,
+                    Some(Err(e)) => return Err(crate::error::from_sqlx(e)),
+                    None => break,
+                };
                 let row = super::query_mapper::map_row(&pg_row, &columns)?;
                 result_rows.push(row);
             }
