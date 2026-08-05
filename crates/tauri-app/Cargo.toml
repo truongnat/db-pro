@@ -1,0 +1,21 @@
+[package]
+name = "db-pro-tauri"
+version = "0.1.0"
+edition.workspace = true
+
+[lib]
+name = "db_pro_tauri_lib"
+crate-type = ["lib", "cdylib", "staticlib"]
+
+[dependencies]
+db-pro-core = { path = "../core" }
+db-pro-infrastructure = { path = "../infrastructure" }
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+tauri = { version = "2", features = [] }
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
