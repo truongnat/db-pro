@@ -64,7 +64,7 @@
 | C-027 | Create `build.rs` | Build script for Tauri app | C-026 | 30m |
 | C-028 | Configure `.deb` packaging | `tauri.conf.json` bundle settings for .deb | F-149 | 1h |
 | C-029 | Configure `.AppImage` packaging | `tauri.conf.json` bundle settings for AppImage | F-150 | 1h |
-| C-030 | Configure `.flatpak` packaging (future) | Placeholder config for Flatpak | F-150 | 30m |
+| C-030 | Configure `.flatpak` packaging (future) | Placeholder config for Flatpak | C-029 | 30m |
 
 ### 5.2 Build Scripts
 
