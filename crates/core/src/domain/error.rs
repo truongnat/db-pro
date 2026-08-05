@@ -50,6 +50,12 @@ pub enum DbError {
     #[error("io error: {0}")]
     Io(String),
 
+    #[error("introspection failed: {0}")]
+    IntrospectionFailed(String),
+
+    #[error("encryption failed: {0}")]
+    EncryptionFailed(String),
+
     #[error("internal: {0}")]
     Internal(String),
 }
