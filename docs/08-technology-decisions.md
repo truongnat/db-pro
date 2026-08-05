@@ -1,6 +1,6 @@
 # DB Client — Technology Decisions & Technical Strategy
 
-Status: proposed baseline for the planning phase
+Status: ratified baseline; detailed architecture decisions are recorded in `docs/09-architecture-decisions.md`
 
 This document records the technology choices and implementation constraints that must be agreed before production code is added. It is intentionally explicit: a task plan is not complete until its dependencies, runtime model, security policy, and test strategy are implementable.
 
@@ -128,19 +128,19 @@ Required gates before M1/M2:
 - Playwright smoke flow for connection → query → result → error handling.
 - Dependency audit and secret scanning in CI.
 
-## 9. Plan corrections required
+## 9. Plan corrections completed
 
-Before implementation, update the task files to follow this baseline:
+The task files were updated to follow this baseline. The ratified implementation details are maintained in `docs/09-architecture-decisions.md`:
 
-1. Replace undefined `C-076` dependency with the actual PostgreSQL fixture task (`D-037` or a new CI fixture task).
-2. Keep frontend packaging tasks in `03-frontend-tasks.md`; CI tasks should depend on `F-149`/`F-150` only after those IDs are defined and completed.
-3. Remove duplicate PostgreSQL driver and pool tasks from `06-database-tasks.md`.
-4. Replace `sqlx::Decode` parameter wording with the explicit parameter enum strategy.
-5. Replace `app.emit_all()` with a Tauri 2 typed event channel design.
-6. Replace raw `rusqlite::Connection` fields in shared async state with a worker/actor boundary.
-7. Replace semicolon splitting with parser-backed statement classification, initially disabling multi-statement execution.
-8. Change explain behavior to plain `EXPLAIN` by default and explicit `EXPLAIN ANALYZE` confirmation.
-9. Add the missing `docs/01`–`docs/07` reference documents or mark them as planned documents in the index.
+1. UI tasks use source-owned shadcn/Radix/Tailwind components.
+2. PostgreSQL uses `sqlx::PgPool` only.
+3. Parameters use the typed `QueryParam` model.
+4. SQLite uses a dedicated actor boundary.
+5. MVP rejects multi-statement execution.
+6. Secrets use OS keyring with Argon2id/AES-GCM fallback.
+7. Streaming uses Tauri 2 `Channel<T>`.
+8. Results use typed cells, bounded pages, request IDs, and stable errors.
+9. The first delivery is a PostgreSQL read-only vertical slice.
 
 ## 10. Decision status
 
