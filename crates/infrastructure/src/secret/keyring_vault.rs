@@ -146,7 +146,10 @@ impl SecretStore for KeyringVault {
 
         match entry.get_password() {
             Ok(value) => return Ok(Some(value)),
-            Err(keyring::Error::NoEntry) => {}
+            Err(keyring::Error::NoEntry) => {
+                // Not in keyring — try fallback if allowed.
+                self.require_fallback()?;
+            }
             Err(e) if is_keyring_unavailable(&e) => {
                 tracing::warn!("OS keyring unavailable: {e}");
                 self.require_fallback()?;

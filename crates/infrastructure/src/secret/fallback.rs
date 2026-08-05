@@ -1,7 +1,8 @@
 use db_pro_core::domain::error::DbError;
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::{Arc, RwLock};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, Mutex};
 
 const MAGIC: &[u8; 4] = b"DBP1";
 const ALGO_ARGON2_AES: u8 = 1;
@@ -77,7 +78,8 @@ fn hex_decode(s: &str) -> Result<Vec<u8>, DbError> {
 
 pub struct FallbackStore {
     file_path: PathBuf,
-    entries: Arc<RwLock<HashMap<String, Vec<u8>>>>,
+    entries: Arc<Mutex<HashMap<String, Vec<u8>>>>,
+    persist_counter: Arc<AtomicU64>,
 }
 
 impl Clone for FallbackStore {
@@ -85,6 +87,7 @@ impl Clone for FallbackStore {
         Self {
             file_path: self.file_path.clone(),
             entries: Arc::clone(&self.entries),
+            persist_counter: Arc::clone(&self.persist_counter),
         }
     }
 }
@@ -114,41 +117,44 @@ impl FallbackStore {
 
         Ok(Self {
             file_path,
-            entries: Arc::new(RwLock::new(entries)),
+            entries: Arc::new(Mutex::new(entries)),
+            persist_counter: Arc::new(AtomicU64::new(0)),
         })
     }
 
     /// Store an encrypted blob under `key`, persisting to disk.
+    ///
+    /// The lock is held across the entire update+persist operation to prevent
+    /// race conditions when multiple threads write concurrently.
     pub fn store(&self, key: &str, encrypted_blob: Vec<u8>) -> Result<(), DbError> {
-        {
-            let mut entries = self
-                .entries
-                .write()
-                .map_err(|e| DbError::Internal(format!("lock poisoned: {e}")))?;
-            entries.insert(key.to_string(), encrypted_blob);
-        }
-        self.persist()
+        let mut entries = self
+            .entries
+            .lock()
+            .map_err(|e| DbError::Internal(format!("lock poisoned: {e}")))?;
+        entries.insert(key.to_string(), encrypted_blob);
+        self.persist_locked(&entries)
     }
 
     /// Retrieve the encrypted blob for `key`, if it exists.
     pub fn retrieve(&self, key: &str) -> Result<Option<Vec<u8>>, DbError> {
         let entries = self
             .entries
-            .read()
+            .lock()
             .map_err(|e| DbError::Internal(format!("lock poisoned: {e}")))?;
         Ok(entries.get(key).cloned())
     }
 
     /// Delete the entry for `key` and persist.
+    ///
+    /// The lock is held across the entire update+persist operation to prevent
+    /// race conditions when multiple threads delete concurrently.
     pub fn delete(&self, key: &str) -> Result<(), DbError> {
-        {
-            let mut entries = self
-                .entries
-                .write()
-                .map_err(|e| DbError::Internal(format!("lock poisoned: {e}")))?;
-            entries.remove(key);
-        }
-        self.persist()
+        let mut entries = self
+            .entries
+            .lock()
+            .map_err(|e| DbError::Internal(format!("lock poisoned: {e}")))?;
+        entries.remove(key);
+        self.persist_locked(&entries)
     }
 
     /// Write the current in-memory entries to disk as JSON (hex-encoded blobs).
@@ -160,11 +166,7 @@ impl FallbackStore {
     /// which is not a secret. This fallback is intended for development only.
     /// Production deployments must use the OS keyring or a user-provided master
     /// key stored in platform secure storage.
-    fn persist(&self) -> Result<(), DbError> {
-        let entries = self
-            .entries
-            .read()
-            .map_err(|e| DbError::Internal(format!("lock poisoned: {e}")))?;
+    fn persist_locked(&self, entries: &HashMap<String, Vec<u8>>) -> Result<(), DbError> {
         let encoded: HashMap<&str, String> = entries.iter().map(|(k, v)| (k.as_str(), hex_encode(v))).collect();
         let json = serde_json::to_string_pretty(&encoded)
             .map_err(|e| DbError::Internal(format!("failed to serialize fallback: {e}")))?;
@@ -173,9 +175,10 @@ impl FallbackStore {
             std::fs::create_dir_all(parent).map_err(|e| DbError::Io(format!("failed to create fallback dir: {e}")))?;
         }
 
+        let seq = self.persist_counter.fetch_add(1, Ordering::Relaxed);
         let tmp_path = self
             .file_path
-            .with_extension(format!("json.tmp.{}", std::process::id()));
+            .with_extension(format!("json.tmp.{}.{}", std::process::id(), seq));
         std::fs::write(&tmp_path, &json)
             .map_err(|e| DbError::Io(format!("failed to write fallback temp file: {e}")))?;
 
