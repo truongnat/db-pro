@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DB Client — Design Demo</title>
+<title>DB Pro — Concept A · Workspace UI</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
 <style>
@@ -501,6 +501,81 @@ textarea.input { height:auto; min-height:50px; resize:vertical; font-family:var(
 .text-error { color:var(--error); }
 .text-warning { color:var(--warning); }
 .text-info { color:var(--info); }
+
+/* ================================================================
+   DB PRO CONCEPT A — Codex-inspired custom UI layer
+   shadcn/Radix will provide behavior primitives in the real app.
+   These tokens and component styles remain product-owned.
+================================================================ */
+:root {
+  --bg-0:#101014;
+  --bg-1:#151519;
+  --bg-2:#1b1b20;
+  --bg-3:#232329;
+  --bg-4:#2b2b32;
+  --bg-input:#1c1c21;
+  --fg-0:#f8f8fa;
+  --fg-1:#d7d7dc;
+  --fg-2:#96969f;
+  --fg-3:#686870;
+  --accent:#a78bfa;
+  --accent-hover:#c4b5fd;
+  --accent-dim:rgba(167,139,250,.13);
+  --accent-glow:rgba(167,139,250,.2);
+  --border:rgba(255,255,255,.085);
+  --border-hover:rgba(255,255,255,.16);
+  --radius:10px;
+  --radius-sm:7px;
+  --radius-lg:14px;
+  --sidebar-w:248px;
+  --activitybar-w:52px;
+  --titlebar-h:42px;
+  --statusbar-h:26px;
+}
+body { letter-spacing:-.01em; }
+.titlebar { background:rgba(16,16,20,.92); padding:0 14px; border-bottom-color:rgba(255,255,255,.09); }
+.tb-logo { width:24px; height:24px; border-radius:8px; background:linear-gradient(145deg,#c4b5fd,#818cf8 55%,#67e8f9); box-shadow:0 0 18px rgba(167,139,250,.18); }
+.tb-name { font-weight:600; letter-spacing:-.02em; }
+.tb-center .breadcrumb { opacity:.78; }
+.activitybar { padding:8px 0; background:#121216; border-right-color:rgba(255,255,255,.08); }
+.ab-item { width:44px; height:42px; border-radius:10px; margin:1px 4px; }
+.ab-item.active { color:var(--accent-hover); background:var(--accent-dim); }
+.ab-item.active::before { display:none; }
+.sidebar { background:#141418; border-right-color:rgba(255,255,255,.08); }
+.sb-header { padding:13px 15px 9px; color:var(--fg-2); }
+.sb-action { width:26px; height:26px; border-radius:7px; }
+.sti { margin:1px 8px 1px 0; padding:6px 10px 6px 0; border-radius:0 8px 8px 0; }
+.sti:hover { background:rgba(255,255,255,.045); }
+.sti.active { background:linear-gradient(90deg,rgba(167,139,250,.17),rgba(167,139,250,.06)); border-left-color:var(--accent); }
+.st-children .sti { padding-top:5px; padding-bottom:5px; }
+.editor-area { background:#101014; }
+.editor-tabs { height:39px; background:#17171c; }
+.etab { padding:0 14px; font-size:11px; }
+.etab.active { background:#101014; }
+.editor-breadcrumb { padding:7px 16px; background:#101014; color:var(--fg-3); }
+.editor-wrap { background:#101014; }
+.editor-gutter { background:#121216; border-right-color:rgba(255,255,255,.06); }
+.editor-area textarea { font-size:13px; line-height:1.72; padding:2px 16px; }
+.panel { background:#141418; border-top-color:rgba(255,255,255,.08); }
+.panel-hdr { padding:7px 13px; background:#19191e; }
+.panel-body { padding:2px 4px; }
+.tabs { height:40px; background:#17171c; padding:0 7px; gap:3px; }
+.tab { padding:0 12px; border-radius:8px 8px 0 0; }
+.tab.active { background:#101014; border-bottom-color:var(--accent); }
+.toolbar { padding:7px 10px; background:#151519; gap:5px; }
+.tgroup { border-right:0; padding:0 3px; }
+.tbtn { padding:6px 9px; border-radius:7px; }
+.tbtn:hover { background:rgba(255,255,255,.07); }
+.tsearch .input { width:160px !important; height:27px !important; border-radius:8px; }
+.dtable th { padding:9px 11px; background:#1a1a20; }
+.dtable td { padding:8px 11px; }
+.dtable tbody tr.selected { background:rgba(167,139,250,.12); }
+.dtable tbody tr:hover { background:rgba(255,255,255,.035); }
+.card { border-radius:12px; background:#18181d; }
+.btn { border-radius:8px; }
+.btn-primary { background:linear-gradient(135deg,#a78bfa,#818cf8); box-shadow:0 4px 18px rgba(129,140,248,.2); }
+.input { border-radius:8px; }
+.statusbar { background:#141418; border-top-color:rgba(255,255,255,.08); }
 </style>
 </head>
 <body>
@@ -510,7 +585,7 @@ textarea.input { height:auto; min-height:50px; resize:vertical; font-family:var(
 <div class="titlebar">
   <div class="tb-left">
     <div class="tb-logo">DB</div>
-    <span class="tb-name">DB Client</span>
+    <span class="tb-name">DB Pro</span>
   </div>
   <div class="tb-center">
     <div class="breadcrumb">
@@ -1173,27 +1248,3 @@ function showToast(type, message, actionText, actionFn) {
   setTimeout(function() {
     toast.style.animation = 'toastOut 0.2s ease forwards';
     setTimeout(function() { toast.remove(); }, 200);
-  }, 4000);
-}
-
-// Auto-show welcome toast
-setTimeout(function() {
-  showToast('info', 'Welcome to DB Client — press <span class="keybinding">Ctrl+P</span> for command palette');
-}, 600);
-
-// Simulate live status bar updates
-setInterval(function() {
-  var sbItems = document.querySelectorAll('.statusbar-right .sb-item');
-  if (sbItems.length > 8) {
-    var latency = Math.floor(Math.random() * 20) + 5;
-    sbItems[sbItems.length - 8].textContent = latency + 'ms';
-  }
-}, 3000);
-
-// Show a demo toast after 2 seconds
-setTimeout(function() {
-  showToast('success', 'Query executed successfully in 12ms');
-}, 2000);
-</script>
-</body>
-</html>
