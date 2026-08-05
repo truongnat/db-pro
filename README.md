@@ -1,6 +1,6 @@
-# DB Client
+# DB Pro
 
-OPASS Fab DB Client is a planned Tauri 2 desktop database client for Ubuntu. It combines a Rust backend with a React/TypeScript frontend and targets PostgreSQL first, followed by SQLite.
+DB Pro is a planned Tauri 2 desktop database client for Ubuntu. It combines a Rust backend with a React/TypeScript frontend and targets PostgreSQL first, followed by SQLite.
 
 > Current status: planning/design stage. The repository does not yet contain the Rust workspace, frontend application, tests, or CI pipeline. `demo.html` is currently a UI design prototype.
 

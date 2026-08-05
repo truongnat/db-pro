@@ -1,4 +1,4 @@
-# DB Client — Architecture Decisions
+# DB Pro — Architecture Decisions
 
 Status: ratified before implementation
 

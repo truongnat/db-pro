@@ -1,4 +1,4 @@
-# DB Client — Backend (Rust) Tasks
+# DB Pro — Backend (Rust) Tasks
 
 ---
 

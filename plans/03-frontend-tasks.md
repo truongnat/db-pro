@@ -1,4 +1,4 @@
-# DB Client — Frontend (React/TypeScript) Tasks
+# DB Pro — Frontend (React/TypeScript) Tasks
 
 ---
 

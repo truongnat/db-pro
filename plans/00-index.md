@@ -1,4 +1,4 @@
-# DB Client — Plans Index
+# DB Pro — Plans Index
 
 ---
 
