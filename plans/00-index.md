@@ -67,3 +67,4 @@
 | DB Architecture | `docs/06-db-architecture.md` |
 | FE Architecture | `docs/07-fe-architecture.md` |
 | Technology Decisions | `docs/08-technology-decisions.md` |
+| Architecture Decisions | `docs/09-architecture-decisions.md` |
