@@ -1,10 +1,10 @@
-# DB Client — Master Plan
+# DB Pro — Master Plan
 
 ---
 
 ## 1. Project Summary
 
-OPASS Fab DB Client — a Tauri 2 desktop app (Rust core + React WebView) for Ubuntu that provides DBeaver-like database management capabilities for PostgreSQL (primary) and SQLite. Built on OPASS Fab's existing Clean Architecture conventions.
+DB Pro — a Tauri 2 desktop app (Rust core + React WebView) for Ubuntu that provides DBeaver-like database management capabilities for PostgreSQL (primary) and SQLite. Built on Clean Architecture conventions.
 
 ## 2. Reference Documents
 
