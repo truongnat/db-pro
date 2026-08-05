@@ -49,13 +49,15 @@ pub async fn run_introspection(pool: &sqlx::PgPool) -> Result<IntrospectResult, 
     let columns = raw_cols
         .into_iter()
         .map(|(schema, table, name, data_type, nullable, default)| {
-            let is_pk = pk_column_set.contains(&(schema, table, name.clone()));
+            let is_pk = pk_column_set.contains(&(schema.clone(), table.clone(), name.clone()));
             Column {
                 name,
                 data_type,
                 nullable,
                 default,
                 is_primary_key: is_pk,
+                table_name: table,
+                schema,
             }
         })
         .collect();
@@ -197,40 +199,47 @@ async fn introspect_columns_raw(pool: &sqlx::PgPool) -> Result<Vec<RawColumn>, D
 async fn introspect_primary_keys(pool: &sqlx::PgPool) -> Result<Vec<PrimaryKey>, DbError> {
     let rows = sqlx::query(
         r#"
-        SELECT tc.constraint_name, kcu.column_name
+        SELECT tc.table_schema, tc.table_name, tc.constraint_name, kcu.column_name
         FROM information_schema.table_constraints tc
         JOIN information_schema.key_column_usage kcu
             ON tc.constraint_name = kcu.constraint_name
             AND tc.table_schema = kcu.table_schema
         WHERE tc.constraint_type = 'PRIMARY KEY'
           AND tc.table_schema NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
-        ORDER BY tc.constraint_name, kcu.ordinal_position
+        ORDER BY tc.table_schema, tc.table_name, tc.constraint_name, kcu.ordinal_position
         "#,
     )
     .fetch_all(pool)
     .await
     .map_err(crate::error::from_sqlx)?;
 
-    // Group columns by constraint_name to support composite keys
-    let mut map: std::collections::HashMap<String, Vec<String>> = std::collections::HashMap::new();
-    let mut order: Vec<String> = Vec::new();
+    // Group columns by (schema, table, constraint_name) to support composite keys
+    let mut map: std::collections::HashMap<(String, String, String), Vec<String>> = std::collections::HashMap::new();
+    let mut order: Vec<(String, String, String)> = Vec::new();
 
     for row in rows {
+        let schema: String = row.get("table_schema");
+        let table: String = row.get("table_name");
         let constraint_name: String = row.get("constraint_name");
         let column_name: String = row.get("column_name");
-        if !map.contains_key(&constraint_name) {
-            order.push(constraint_name.clone());
+        let key = (schema.clone(), table.clone(), constraint_name.clone());
+        if !map.contains_key(&key) {
+            order.push(key.clone());
         }
-        map.entry(constraint_name).or_default().push(column_name);
+        map.entry(key).or_default().push(column_name);
     }
 
     Ok(order
         .into_iter()
-        .map(|name| {
-            let columns = map.remove(&name).unwrap_or_default();
+        .map(|(schema, table, name)| {
+            let columns = map
+                .remove(&(schema.clone(), table.clone(), name.clone()))
+                .unwrap_or_default();
             PrimaryKey {
                 constraint_name: name,
                 columns,
+                table_name: table,
+                schema,
             }
         })
         .collect())
@@ -252,16 +261,21 @@ async fn introspect_indexes(pool: &sqlx::PgPool) -> Result<Vec<Index>, DbError> 
     Ok(rows
         .into_iter()
         .map(|row| {
+            let schema: String = row.get("schemaname");
+            let table: String = row.get("tablename");
             let name: String = row.get("indexname");
             let indexdef: String = row.get("indexdef");
             let unique = indexdef.contains("UNIQUE");
 
-            // Parse columns from indexdef, e.g.:
-            //   CREATE UNIQUE INDEX idx ON public.t USING btree (col1, col2)
-            //   CREATE INDEX idx ON public.t USING btree (col1)
             let columns = parse_index_columns(&indexdef);
 
-            Index { name, columns, unique }
+            Index {
+                name,
+                columns,
+                unique,
+                table_name: table,
+                schema,
+            }
         })
         .collect())
 }

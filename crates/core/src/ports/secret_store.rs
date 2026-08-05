@@ -2,6 +2,7 @@ use async_trait::async_trait;
 
 use crate::domain::error::DbError;
 
+#[cfg_attr(test, mockall::automock)]
 #[async_trait]
 pub trait SecretStore: Send + Sync {
     async fn store_secret(&self, key: &str, value: &str) -> Result<(), DbError>;

@@ -3,6 +3,7 @@ use async_trait::async_trait;
 use crate::domain::connection::{Connection, ConnectionConfig, ConnectionId};
 use crate::domain::error::DbError;
 
+#[cfg_attr(test, mockall::automock)]
 #[async_trait]
 pub trait ConnectionRepository: Send + Sync {
     async fn save(&self, connection: &Connection) -> Result<(), DbError>;

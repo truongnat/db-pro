@@ -5,6 +5,7 @@ use crate::domain::error::DbError;
 use crate::domain::query::{QueryParam, QueryResult};
 use crate::domain::schema::IntrospectResult;
 
+#[cfg_attr(test, mockall::automock)]
 #[async_trait]
 pub trait DbConnector: Send + Sync {
     async fn connect(&self, config: &ConnectionConfig, password: &str) -> Result<ConnectionHandle, DbError>;

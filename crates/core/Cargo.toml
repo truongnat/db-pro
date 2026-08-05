@@ -10,3 +10,10 @@ thiserror.workspace = true
 uuid.workspace = true
 chrono.workspace = true
 async-trait.workspace = true
+tracing.workspace = true
+csv.workspace = true
+rust_xlsxwriter.workspace = true
+
+[dev-dependencies]
+mockall.workspace = true
+tokio = { workspace = true, features = ["macros", "rt"] }

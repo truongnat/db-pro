@@ -4,6 +4,7 @@ use crate::domain::connection::ConnectionId;
 use crate::domain::error::DbError;
 use crate::domain::history::SavedQuery;
 
+#[cfg_attr(test, mockall::automock)]
 #[async_trait]
 pub trait SavedQueryRepository: Send + Sync {
     async fn save(&self, query: &SavedQuery) -> Result<(), DbError>;

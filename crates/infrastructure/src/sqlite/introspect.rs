@@ -26,6 +26,8 @@ pub fn run_introspection(conn: &rusqlite::Connection) -> Result<IntrospectResult
             primary_keys.push(PrimaryKey {
                 constraint_name: format!("{}_pk", t.name),
                 columns: pk_cols,
+                table_name: t.name.clone(),
+                schema: "main".into(),
             });
         }
     }
@@ -92,6 +94,8 @@ fn introspect_columns(conn: &rusqlite::Connection) -> Result<Vec<Column>, DbErro
                     nullable: !notnull,
                     default,
                     is_primary_key: pk,
+                    table_name: table_name.clone(),
+                    schema: "main".into(),
                 })
             })
             .map_err(crate::error::from_rusqlite)?
@@ -140,6 +144,8 @@ fn introspect_indexes(conn: &rusqlite::Connection) -> Result<Vec<Index>, DbError
                 name: index_name,
                 columns: cols,
                 unique,
+                table_name: table_name.clone(),
+                schema: "main".into(),
             });
         }
     }

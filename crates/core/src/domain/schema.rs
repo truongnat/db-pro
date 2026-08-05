@@ -19,12 +19,16 @@ pub struct Column {
     pub nullable: bool,
     pub default: Option<String>,
     pub is_primary_key: bool,
+    pub table_name: String,
+    pub schema: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PrimaryKey {
     pub constraint_name: String,
     pub columns: Vec<String>,
+    pub table_name: String,
+    pub schema: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -32,6 +36,8 @@ pub struct Index {
     pub name: String,
     pub columns: Vec<String>,
     pub unique: bool,
+    pub table_name: String,
+    pub schema: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -90,4 +96,13 @@ impl IntrospectResult {
             functions: Vec::new(),
         }
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TableInfo {
+    pub table: Table,
+    pub columns: Vec<Column>,
+    pub primary_key: Option<PrimaryKey>,
+    pub indexes: Vec<Index>,
+    pub foreign_keys: Vec<ForeignKey>,
 }

@@ -56,6 +56,9 @@ pub enum DbError {
     #[error("encryption failed: {0}")]
     EncryptionFailed(String),
 
+    #[error("validation: {0}")]
+    Validation(String),
+
     #[error("internal: {0}")]
     Internal(String),
 }
