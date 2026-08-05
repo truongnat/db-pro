@@ -11,7 +11,7 @@ OPASS Fab DB Client is a planned Tauri 2 desktop database client for Ubuntu. It 
 - SQL editor, query execution, history, cancellation, explain plans, and transactions.
 - Schema browsing, table details, DDL inspection, editable data grid, and CSV/JSON/Excel export.
 - Tauri 2 shell with Clean Architecture boundaries: domain → ports → infrastructure → application services → Tauri commands.
-- React/TypeScript frontend with Monaco, TanStack Query, Zustand, MUI, i18n, and virtualized data rendering.
+- React/TypeScript frontend with Monaco, TanStack Query, Zustand, shadcn/ui, Radix UI, Tailwind CSS, i18n, and virtualized data rendering.
 
 ## Repository layout
 
@@ -65,6 +65,7 @@ The current technology baseline and implementation constraints are recorded in [
 ## Suggested development rules
 
 - Build vertical slices and keep each phase independently runnable.
+- Treat `demo.html` as the visual approval baseline; implement the approved design in source-owned shadcn/Radix components.
 - Keep database-specific types inside infrastructure adapters; expose stable domain/DTO types to the UI.
 - Never log passwords, connection strings, bound parameters, or raw secrets.
 - Default to read-only or confirmation-gated destructive operations.
