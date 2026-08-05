@@ -1,6 +1,6 @@
-# DB Pro
+# DB Client
 
-DB Pro is a planned Tauri 2 desktop database client for Ubuntu. It combines a Rust backend with a React/TypeScript frontend and targets PostgreSQL first, followed by SQLite.
+OPASS Fab DB Client is a planned Tauri 2 desktop database client for Ubuntu. It combines a Rust backend with a React/TypeScript frontend and targets PostgreSQL first, followed by SQLite.
 
 > Current status: planning/design stage. The repository does not yet contain the Rust workspace, frontend application, tests, or CI pipeline. `demo.html` is currently a UI design prototype.
 
@@ -25,6 +25,7 @@ plans/04-testing-tasks.md Testing tasks (T-001…T-078)
 plans/05-cicd-tasks.md    CI/CD and packaging tasks (C-001…C-060)
 plans/06-database-tasks.md Database, crypto, and meta-store tasks (D-001…D-107)
 docs/08-technology-decisions.md Chosen stack, runtime model, security, and query strategy
+docs/09-architecture-decisions.md Ratified architecture decisions before implementation
 ```
 
 ## Planned delivery phases
@@ -49,18 +50,11 @@ The plan estimates approximately 47 working days. The first useful vertical slic
 4. Add a real PostgreSQL integration fixture and a basic frontend result table.
 5. Add `cargo fmt`, Clippy, TypeScript typecheck, unit tests, and one CI workflow.
 
-## Important decisions before implementation
+## Ratified architecture decisions
 
-The current technology baseline and implementation constraints are recorded in [`docs/08-technology-decisions.md`](docs/08-technology-decisions.md). That document is the source of truth for library selection, concurrency, security, query safety, DTOs, and quality gates.
+The nine pre-implementation decisions are ratified in [`docs/09-architecture-decisions.md`](docs/09-architecture-decisions.md). The technology rationale remains in [`docs/08-technology-decisions.md`](docs/08-technology-decisions.md).
 
 - Add the referenced `docs/` set (`01-features.md` through `07-fe-architecture.md`), or remove those references from the plans.
-- Reconcile duplicate and inconsistent task dependencies, especially references such as `C-076`, `F-149`, and `F-150` that are not defined in the corresponding plan sections.
-- Choose one PostgreSQL driver strategy. The current plan mixes `sqlx`, `tokio-postgres`, `bb8`, and `bb8-sqlx` without defining ownership or why all are needed.
-- Define a typed parameter model for dynamic SQL values; `sqlx::query_with()` cannot accept an arbitrary `&[sqlx::Decode<'_>]` parameter list as currently written.
-- Decide how SQLite access is synchronized with async services. A raw `rusqlite::Connection` conflicts with a naïve `Send + Sync` async connector design.
-- Treat multi-statement execution, write queries, transaction scope, cancellation, and `EXPLAIN ANALYZE` as explicit safety policies rather than simple string splitting.
-- Finalize the secret-storage model. Prefer OS keyring as the primary secret store, with a clearly specified encrypted fallback, key lifecycle, migration, and redaction policy.
-- Define the Tauri 2 event/streaming API and result pagination contract before implementing large-result streaming.
 
 ## Suggested development rules
 
