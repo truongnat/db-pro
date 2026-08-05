@@ -67,8 +67,6 @@ pub struct ConnectionConfig {
     pub port: u16,
     pub database: String,
     pub username: String,
-    #[serde(skip)]
-    pub encrypted_password: Vec<u8>,
     pub driver: DriverType,
     #[serde(default)]
     pub ssl_mode: SslMode,
@@ -88,6 +86,9 @@ fn default_max_rows() -> u64 {
     500
 }
 
+const MAX_CONNECTION_NAME_LEN: usize = 128;
+const MAX_MAX_ROWS: u64 = 100_000;
+
 impl ConnectionConfig {
     pub fn validate(&self) -> Result<(), Vec<ValidationError>> {
         let mut errors = Vec::new();
@@ -97,20 +98,35 @@ impl ConnectionConfig {
                 field: "name".into(),
                 message: "Connection name is required".into(),
             });
-        }
-
-        if self.host.trim().is_empty() {
+        } else if self.name.len() > MAX_CONNECTION_NAME_LEN {
             errors.push(ValidationError {
-                field: "host".into(),
-                message: "Host is required".into(),
+                field: "name".into(),
+                message: format!("Connection name must be at most {MAX_CONNECTION_NAME_LEN} characters"),
             });
         }
 
-        if self.port == 0 {
-            errors.push(ValidationError {
-                field: "port".into(),
-                message: "Port must be between 1 and 65535".into(),
-            });
+        match self.driver {
+            DriverType::Postgres => {
+                if self.host.trim().is_empty() {
+                    errors.push(ValidationError {
+                        field: "host".into(),
+                        message: "Host is required".into(),
+                    });
+                }
+                if self.port == 0 {
+                    errors.push(ValidationError {
+                        field: "port".into(),
+                        message: "Port must be between 1 and 65535".into(),
+                    });
+                }
+                if self.username.trim().is_empty() {
+                    errors.push(ValidationError {
+                        field: "username".into(),
+                        message: "Username is required".into(),
+                    });
+                }
+            }
+            DriverType::SQLite => {}
         }
 
         if self.database.trim().is_empty() {
@@ -120,11 +136,45 @@ impl ConnectionConfig {
             });
         }
 
-        if self.username.trim().is_empty() {
+        if self.query_timeout_ms == 0 {
             errors.push(ValidationError {
-                field: "username".into(),
-                message: "Username is required".into(),
+                field: "query_timeout_ms".into(),
+                message: "Query timeout must be greater than 0".into(),
             });
+        }
+
+        if self.max_rows == 0 || self.max_rows > MAX_MAX_ROWS {
+            errors.push(ValidationError {
+                field: "max_rows".into(),
+                message: format!("max_rows must be between 1 and {MAX_MAX_ROWS}"),
+            });
+        }
+
+        if let Some(ref ssh) = self.ssh_tunnel {
+            if ssh.host.trim().is_empty() {
+                errors.push(ValidationError {
+                    field: "ssh_tunnel.host".into(),
+                    message: "SSH tunnel host is required".into(),
+                });
+            }
+            if ssh.port == 0 {
+                errors.push(ValidationError {
+                    field: "ssh_tunnel.port".into(),
+                    message: "SSH tunnel port must be between 1 and 65535".into(),
+                });
+            }
+            if ssh.user.trim().is_empty() {
+                errors.push(ValidationError {
+                    field: "ssh_tunnel.user".into(),
+                    message: "SSH tunnel user is required".into(),
+                });
+            }
+            if ssh.private_key_path.trim().is_empty() {
+                errors.push(ValidationError {
+                    field: "ssh_tunnel.private_key_path".into(),
+                    message: "SSH tunnel private key path is required".into(),
+                });
+            }
         }
 
         if errors.is_empty() {
@@ -141,10 +191,11 @@ pub struct ValidationError {
     pub message: String,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Connection {
     pub id: ConnectionId,
     pub config: ConnectionConfig,
+    pub secret_ref: Option<String>,
     pub created_at: chrono::DateTime<chrono::Utc>,
     pub updated_at: chrono::DateTime<chrono::Utc>,
 }
@@ -155,9 +206,15 @@ impl Connection {
         Self {
             id: ConnectionId::new(),
             config,
+            secret_ref: None,
             created_at: now,
             updated_at: now,
         }
+    }
+
+    pub fn with_secret_ref(mut self, secret_ref: String) -> Self {
+        self.secret_ref = Some(secret_ref);
+        self
     }
 }
 
@@ -181,7 +238,6 @@ mod tests {
             port: 5432,
             database: "testdb".into(),
             username: "user".into(),
-            encrypted_password: vec![],
             driver: DriverType::Postgres,
             ssl_mode: SslMode::Disable,
             ssh_tunnel: None,
@@ -226,7 +282,6 @@ mod tests {
             port: 0,
             database: "".into(),
             username: "".into(),
-            encrypted_password: vec![],
             driver: DriverType::Postgres,
             ssl_mode: SslMode::Disable,
             ssh_tunnel: None,
@@ -235,5 +290,73 @@ mod tests {
         };
         let errors = config.validate().unwrap_err();
         assert_eq!(errors.len(), 5);
+    }
+
+    #[test]
+    fn sqlite_does_not_require_host_port_username() {
+        let config = ConnectionConfig {
+            name: "local-db".into(),
+            host: "".into(),
+            port: 0,
+            database: "/tmp/test.db".into(),
+            username: "".into(),
+            driver: DriverType::SQLite,
+            ssl_mode: SslMode::Disable,
+            ssh_tunnel: None,
+            query_timeout_ms: 30_000,
+            max_rows: 500,
+        };
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn validate_zero_query_timeout() {
+        let mut config = valid_config();
+        config.query_timeout_ms = 0;
+        let errors = config.validate().unwrap_err();
+        assert!(errors.iter().any(|e| e.field == "query_timeout_ms"));
+    }
+
+    #[test]
+    fn validate_max_rows_zero() {
+        let mut config = valid_config();
+        config.max_rows = 0;
+        let errors = config.validate().unwrap_err();
+        assert!(errors.iter().any(|e| e.field == "max_rows"));
+    }
+
+    #[test]
+    fn validate_max_rows_exceedses_limit() {
+        let mut config = valid_config();
+        config.max_rows = MAX_MAX_ROWS + 1;
+        let errors = config.validate().unwrap_err();
+        assert!(errors.iter().any(|e| e.field == "max_rows"));
+    }
+
+    #[test]
+    fn validate_name_too_long() {
+        let mut config = valid_config();
+        config.name = "x".repeat(MAX_CONNECTION_NAME_LEN + 1);
+        let errors = config.validate().unwrap_err();
+        assert_eq!(errors.len(), 1);
+        assert_eq!(errors[0].field, "name");
+    }
+
+    #[test]
+    fn validate_ssh_tunnel_empty_fields() {
+        let mut config = valid_config();
+        config.ssh_tunnel = Some(SshTunnelConfig {
+            host: "".into(),
+            port: 0,
+            user: "".into(),
+            private_key_path: "".into(),
+        });
+        let errors = config.validate().unwrap_err();
+        let ssh_fields: Vec<&str> = errors
+            .iter()
+            .filter(|e| e.field.starts_with("ssh_tunnel."))
+            .map(|e| e.field.as_str())
+            .collect();
+        assert_eq!(ssh_fields.len(), 4);
     }
 }

@@ -73,6 +73,16 @@ impl QueryResult {
             duration_ms: 0,
         }
     }
+
+    pub fn validate(&self) -> Result<(), String> {
+        let col_count = self.columns.len();
+        for (i, row) in self.rows.iter().enumerate() {
+            if row.0.len() != col_count {
+                return Err(format!("row {i} has {} cells but expected {col_count}", row.0.len()));
+            }
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -147,5 +157,60 @@ impl QueryError {
             QueryError::Validation(_) => "error.validation",
             QueryError::Internal(_) => "error.internal",
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn query_result_validate_empty() {
+        let result = QueryResult::empty();
+        assert!(result.validate().is_ok());
+    }
+
+    #[test]
+    fn query_result_validate_matching_columns() {
+        let result = QueryResult {
+            columns: vec![
+                ColumnMeta {
+                    name: "id".into(),
+                    data_type: "int".into(),
+                    nullable: false,
+                },
+                ColumnMeta {
+                    name: "name".into(),
+                    data_type: "text".into(),
+                    nullable: true,
+                },
+            ],
+            rows: vec![Row(vec![CellValue::Int64(1), CellValue::Text("alice".into())])],
+            row_count: 1,
+            duration_ms: 0,
+        };
+        assert!(result.validate().is_ok());
+    }
+
+    #[test]
+    fn query_result_validate_cell_count_mismatch() {
+        let result = QueryResult {
+            columns: vec![
+                ColumnMeta {
+                    name: "id".into(),
+                    data_type: "int".into(),
+                    nullable: false,
+                },
+                ColumnMeta {
+                    name: "name".into(),
+                    data_type: "text".into(),
+                    nullable: true,
+                },
+            ],
+            rows: vec![Row(vec![CellValue::Int64(1)])],
+            row_count: 1,
+            duration_ms: 0,
+        };
+        assert!(result.validate().is_err());
     }
 }
