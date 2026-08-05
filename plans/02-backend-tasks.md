@@ -33,7 +33,7 @@
 | B-018 | Create `ForeignKey` struct | name, from_table, from_column, to_table, to_column | B-005 | 30m |
 | B-019 | Create `View` struct | name, definition | B-005 | 30m |
 | B-020 | Create `ExplainPlan` type | `serde_json::Value` or custom struct | B-012 | 1h |
-| B-021 | Create `ConnectionHandle` enum | `Postgres(sqlx::PgPool)`, `SQLite(rusqlite::Connection)` — opaque to FE | B-005 | 1h |
+| B-021 | Create connection handle registry | PostgreSQL uses `sqlx::PgPool`; SQLite uses an opaque actor handle — neither is exposed to FE | B-005 | 1h |
 | B-022 | Create `QueryHistory` struct | sql, executed_at, duration_ms, row_count | B-005 | 1h |
 | B-023 | Create `SavedQuery` struct | id, name, sql, folder, created_at | B-005 | 1h |
 
@@ -63,13 +63,13 @@
 | B-031 | Implement `disconnect()` | Drop pool, set handle to None | B-030 | 1h |
 | B-032 | Implement `query()` | Execute SQL with parameters via `sqlx::query()`, map rows to `QueryResult` | B-030 | 3h |
 | B-033 | Implement `introspect()` | Run all 11 introspection queries from `06-db-architecture.md`, return `Schema` | B-030 | 4h |
-| B-034 | Implement `explain()` | Run `EXPLAIN ANALYZE` for SELECT queries, return `ExplainPlan` | B-030 | 2h |
+| B-034 | Implement `explain()` | Run plain `EXPLAIN (FORMAT JSON)` by default; require explicit confirmation for `EXPLAIN ANALYZE` | B-030 | 2h |
 
 ### 2.2 SQLiteConnector
 
 | # | Task | Detail | Depends | Est. |
 |---|---|---|---|---|
-| B-035 | Create `SQLiteConnector` struct | Fields: `conn: Option<rusqlite::Connection>` | B-024 | 1h |
+| B-035 | Create `SQLiteActor` connector | Dedicated Tokio task owns `rusqlite::Connection`; callers use typed commands | B-024 | 1h |
 | B-036 | Implement `connect()` | Open SQLite file or memory DB, return `ConnectionHandle::SQLite(conn)` | B-035 | 1h |
 | B-037 | Implement `disconnect()` | Close connection | B-036 | 30m |
 | B-038 | Implement `query()` | Execute SQL via `rusqlite`, map rows to `QueryResult` | B-036 | 2h |
@@ -81,7 +81,7 @@
 | # | Task | Detail | Depends | Est. |
 |---|---|---|---|---|
 | B-041 | Create `KeyringVault` struct | Uses `keyring` crate for OS keyring, `aes-gcm` for encryption | B-025 | 2h |
-| B-042 | Implement `encrypt()` | PBKDF2 key derivation from master key, AES-256-GCM encryption | B-041 | 2h |
+| B-042 | Implement `encrypt()` | Argon2id key derivation from user master password, AES-256-GCM encryption | B-041 | 2h |
 | B-043 | Implement `decrypt()` | Reverse of encrypt | B-042 | 2h |
 | B-044 | Implement `store()` | Save encrypted password to OS keyring | B-042 | 1h |
 | B-045 | Implement `retrieve()` | Read encrypted password from OS keyring, decrypt | B-043 | 1h |
@@ -139,11 +139,11 @@
 |---|---|---|---|---|
 | B-071 | Create `QueryService` struct | Receives `DbConnector` + `MetaStore` via constructor injection | B-024, B-026 | 1h |
 | B-072 | Implement `execute()` | Get connection handle, call `DbConnector::query()`, save to history, return `QueryResult` | B-071 | 3h |
-| B-073 | Implement `execute_multi()` | Split SQL by `;`, execute each statement, return multiple `QueryResult` | B-072 | 2h |
+| B-073 | Reject multi-statement execution in MVP | Require one selected statement; future parser-backed execution requires a new ADR | B-072 | 1h |
 | B-074 | Implement `explain()` | Get handle, call `DbConnector::explain()`, return `ExplainPlan` | B-071 | 1h |
 | B-075 | Implement `get_history()` | Query meta-store for history entries | B-071 | 1h |
 | B-076 | Implement `save_to_history()` | Save query + result metadata to meta-store | B-071 | 1h |
-| B-077 | Implement streaming for large results | If `row_count > 10_000`, use `app.emit_all()` to stream batches | B-072 | 3h |
+| B-077 | Implement bounded query streaming | Use Tauri 2 `Channel<QueryStreamEvent>` with request ID, batch limits, and cancellation | B-072 | 3h |
 | B-078 | Write unit tests for `QueryService` | Mock all dependencies, test execute, multi-execute, error paths | B-072-B-077 | 3h |
 
 ### 3.3 SchemaService
