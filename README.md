@@ -24,6 +24,7 @@ plans/03-frontend-tasks.md Frontend tasks (F-001…F-150)
 plans/04-testing-tasks.md Testing tasks (T-001…T-078)
 plans/05-cicd-tasks.md    CI/CD and packaging tasks (C-001…C-060)
 plans/06-database-tasks.md Database, crypto, and meta-store tasks (D-001…D-107)
+docs/08-technology-decisions.md Chosen stack, runtime model, security, and query strategy
 ```
 
 ## Planned delivery phases
@@ -49,6 +50,8 @@ The plan estimates approximately 47 working days. The first useful vertical slic
 5. Add `cargo fmt`, Clippy, TypeScript typecheck, unit tests, and one CI workflow.
 
 ## Important decisions before implementation
+
+The current technology baseline and implementation constraints are recorded in [`docs/08-technology-decisions.md`](docs/08-technology-decisions.md). That document is the source of truth for library selection, concurrency, security, query safety, DTOs, and quality gates.
 
 - Add the referenced `docs/` set (`01-features.md` through `07-fe-architecture.md`), or remove those references from the plans.
 - Reconcile duplicate and inconsistent task dependencies, especially references such as `C-076`, `F-149`, and `F-150` that are not defined in the corresponding plan sections.
