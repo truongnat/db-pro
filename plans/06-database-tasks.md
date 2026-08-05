@@ -8,10 +8,10 @@
 
 | # | Task | Detail | Depends | Est. |
 |---|---|---|---|---|
-| D-001 | Add `sqlx` + `tokio-postgres` to `Cargo.toml` | `sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "postgres", "chrono", "uuid", "json"] }` | — | 15m |
-| D-002 | Add `tokio-postgres` to `Cargo.toml` | `tokio-postgres = "0.7"` | D-001 | 15m |
-| D-003 | Add `bb8` + `bb8-sqlx` to `Cargo.toml` | Connection pooling | D-001 | 15m |
-| D-004 | Verify PostgreSQL client compiles | `cargo check` with new deps | D-003 | 30m |
+| D-001 | Add `sqlx` PostgreSQL support to `Cargo.toml` | `sqlx` with Tokio, rustls, PostgreSQL, chrono, uuid, and json features | — | 15m |
+| D-002 | Verify the PostgreSQL pool strategy | Use `sqlx::PgPool`; do not add a second driver or pool abstraction without an ADR | D-001 | 30m |
+| D-003 | Verify PostgreSQL client compiles | `cargo check` with the selected driver and features | D-002 | 30m |
+| D-004 | Verify connection configuration compiles | Compile connection options, timeout, SSL, and pool configuration | D-003 | 30m |
 
 ### 1.2 Connection
 
@@ -30,14 +30,14 @@
 
 | # | Task | Detail | Depends | Est. |
 |---|---|---|---|---|
-| D-013 | Implement parameterized query execution | `sqlx::query_with()` with `&[sqlx::Decode<'_>]` params | D-006 | 2h |
+| D-013 | Implement parameterized query execution | Map the explicit domain `QueryParam` enum to `sqlx::Arguments`; reject unsupported values | D-006 | 2h |
 | D-014 | Implement row mapping | Map `sqlx::Row` to `Row` type (`Vec<String>`) | D-013 | 1h |
 | D-015 | Implement column metadata extraction | Extract column name, type, nullable from `pg_description` | D-013 | 1h |
 | D-016 | Implement result set size limit | Enforce `max_rows` from `ConnectionConfig`, default 100k | D-013 | 30m |
 | D-017 | Implement query cancellation | `PgCancelQuery` on `PgPool` for canceling running queries | D-013 | 1h |
 | D-018 | Implement multi-statement execution | Split by `;`, execute sequentially, return multiple `QueryResult` | D-013 | 2h |
 | D-019 | Implement transaction support | `BEGIN`/`COMMIT`/`ROLLBACK` via `PgPool::begin()` | D-013 | 2h |
-| D-020 | Implement streaming for large results | `>10k rows` → event streaming via `app.emit_all()` | D-013 | 3h |
+| D-020 | Implement streaming for large results | Backend-owned request ID, bounded batches, typed Tauri 2 events, cancellation, and payload limits | D-013 | 3h |
 
 ### 1.4 Schema Introspection
 
@@ -61,7 +61,7 @@
 
 | # | Task | Detail | Depends | Est. |
 |---|---|---|---|---|
-| D-034 | Implement `EXPLAIN ANALYZE` for SELECT | Run `EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) SELECT ...` | D-013 | 2h |
+| D-034 | Implement safe explain for SELECT | Run plain `EXPLAIN (FORMAT JSON)` by default; require explicit confirmation for `EXPLAIN ANALYZE` | D-013 | 2h |
 | D-035 | Implement explain plan parsing | Parse JSON output into `ExplainPlan` struct | D-034 | 1h |
 | D-036 | Implement explain plan display format | Convert `ExplainPlan` to tree structure for FE | D-035 | 1h |
 
@@ -69,7 +69,7 @@
 
 | # | Task | Detail | Depends | Est. |
 |---|---|---|---|---|
-| D-037 | Set up PostgreSQL test container | Docker compose with PostgreSQL 14+, sample schema | C-076 | 1h |
+| D-037 | Set up PostgreSQL test container | Docker compose with PostgreSQL 14+, sample schema | C-054 | 1h |
 | D-038 | Test connection with real PostgreSQL | Verify all connection options work against real PG | D-037 | 1h |
 | D-039 | Test query execution with real PostgreSQL | Verify SELECT, INSERT, UPDATE, DELETE work | D-037 | 1h |
 | D-040 | Test introspection with real PostgreSQL | Verify all 11 introspection queries return correct data | D-037 | 2h |
@@ -95,7 +95,7 @@
 | # | Task | Detail | Depends | Est. |
 |---|---|---|---|---|
 | D-050 | Implement SQLite connection | Open file-based or in-memory SQLite DB | D-048 | 1h |
-| D-051 | Implement SQLite connection pooling | Use `rusqlite::Connection` with `RefCell` or pool | D-050 | 1h |
+| D-051 | Implement SQLite worker boundary | Run `rusqlite::Connection` on a dedicated worker/blocking boundary; do not share it across async handlers | D-050 | 1h |
 | D-052 | Implement WAL mode | Set `PRAGMA journal_mode=WAL` on connect | D-050 | 30m |
 | D-053 | Implement foreign key enforcement | Set `PRAGMA foreign_keys=ON` on connect | D-050 | 30m |
 
