@@ -8,7 +8,7 @@
 |---|---|---|---|---|
 | F-001 | Initialize Vite + React + TypeScript project | `npm create vite@latest frontend -- --template react-ts` | — | 1h |
 | F-002 | Install core dependencies | `react`, `react-dom`, `typescript`, `vite`, `@types/react`, `@types/react-dom` | F-001 | 30m |
-| F-003 | Install MUI 7 + dependencies | `@mui/material`, `@mui/icons-material`, `@emotion/react`, `@emotion/styled` | F-002 | 30m |
+| F-003 | Install UI foundation | Tailwind CSS, Radix UI primitives, class variance utilities, and source-owned shadcn-style components | F-002 | 1h |
 | F-004 | Install TanStack Query 5 | `@tanstack/react-query` | F-002 | 15m |
 | F-005 | Install Zustand + persist | `zustand`, `zustand/middleware` | F-002 | 15m |
 | F-006 | Install Monaco editor | `@monaco-editor/react` | F-002 | 15m |
@@ -73,7 +73,7 @@
 
 | # | Task | Detail | Depends | Est. |
 |---|---|---|---|---|
-| F-036 | Create `app/providers/theme.provider.tsx` | MUI theme provider with dark/light mode | F-029 | 1h |
+| F-036 | Create `app/providers/theme.provider.tsx` | CSS-variable theme provider with DB Pro dark/light tokens | F-029 | 1h |
 | F-037 | Create `app/providers/query.provider.tsx` | TanStack QueryClient provider | F-004 | 30m |
 | F-038 | Create `app/providers/snackbar.provider.tsx` | Snackbar for notifications (success, error, warning) | F-026 | 1h |
 | F-039 | Create `app/providers/modal.provider.tsx` | Modal dialog management | F-038 | 1h |
@@ -162,7 +162,7 @@
 |---|---|---|---|---|
 | F-064 | Create `modules/query/components/query-editor.tsx` | Monaco editor with SQL syntax highlighting, line numbers | F-006, F-058 | 4h |
 | F-065 | Create `modules/query/components/result-grid.tsx` | Virtualized grid with sortable columns, column resize, hide/show, reorder | F-007, F-058 | 6h |
-| F-066 | Create `modules/query/components/explain-plan.tsx` | Tree view for EXPLAIN ANALYZE cost tree | F-061 | 2h |
+| F-066 | Create `modules/query/components/explain-plan.tsx` | Tree view for safe EXPLAIN cost tree; ANALYZE requires explicit confirmation | F-061 | 2h |
 | F-067 | Create `modules/query/components/transaction-bar.tsx` | BEGIN / COMMIT / ROLLBACK buttons, auto-commit toggle indicator | F-059 | 1h |
 | F-068 | Create `modules/query/components/query-toolbar.tsx` | Execute selected, execute all, clear, format SQL buttons | F-064 | 1h |
 | F-069 | Create `modules/query/components/query-history-panel.tsx` | Searchable, clickable query history list | F-062 | 2h |
