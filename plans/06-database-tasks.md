@@ -35,9 +35,9 @@
 | D-015 | Implement column metadata extraction | Extract column name, type, nullable from `pg_description` | D-013 | 1h |
 | D-016 | Implement result set size limit | Enforce `max_rows` from `ConnectionConfig`, default 100k | D-013 | 30m |
 | D-017 | Implement query cancellation | `PgCancelQuery` on `PgPool` for canceling running queries | D-013 | 1h |
-| D-018 | Implement multi-statement execution | Split by `;`, execute sequentially, return multiple `QueryResult` | D-013 | 2h |
+| D-018 | Enforce single-statement MVP policy | Reject multiple statements; parser-backed execution is deferred behind a new ADR | D-013 | 1h |
 | D-019 | Implement transaction support | `BEGIN`/`COMMIT`/`ROLLBACK` via `PgPool::begin()` | D-013 | 2h |
-| D-020 | Implement streaming for large results | Backend-owned request ID, bounded batches, typed Tauri 2 events, cancellation, and payload limits | D-013 | 3h |
+| D-020 | Implement streaming for large results | Tauri 2 `Channel<QueryStreamEvent>`, bounded batches, cancellation, and payload limits | D-013 | 3h |
 
 ### 1.4 Schema Introspection
 
@@ -139,7 +139,7 @@
 |---|---|---|---|---|
 | D-071 | Add `keyring` to `Cargo.toml` | `keyring = "0.16"` | — | 15m |
 | D-072 | Add `aes-gcm` to `Cargo.toml` | `aes-gcm = "0.10"` | — | 15m |
-| D-073 | Add `pbkdf2` + `hmac` + `sha2` to `Cargo.toml` | `pbkdf2 = "0.12"`, `hmac = "0.10"`, `sha2 = "0.10"` | — | 15m |
+| D-073 | Add `argon2` to `Cargo.toml` | Argon2id for deriving the fallback encryption key from the user master password | — | 15m |
 | D-074 | Add `rand` to `Cargo.toml` | `rand = "0.8"` for generating salt/nonce | — | 15m |
 | D-075 | Verify crypto deps compile | `cargo check` with new deps | D-071-D-074 | 30m |
 
@@ -147,7 +147,7 @@
 
 | # | Task | Detail | Depends | Est. |
 |---|---|---|---|---|
-| D-076 | Implement PBKDF2 key derivation | Derive 256-bit key from master password + salt | D-071-D-074 | 1h |
+| D-076 | Implement Argon2id key derivation | Derive a 256-bit key from the user master password and salt | D-071-D-074 | 1h |
 | D-077 | Implement AES-256-GCM encryption | Encrypt password with derived key + random nonce | D-076 | 1h |
 | D-078 | Implement AES-256-GCM decryption | Decrypt ciphertext with derived key + nonce | D-077 | 1h |
 | D-079 | Implement OS keyring storage | Store encrypted password in system keyring via `keyring` crate | D-076 | 1h |
