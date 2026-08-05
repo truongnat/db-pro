@@ -23,7 +23,7 @@ SQLite, schema browsing, editable grids, exports, SSH tunneling, and advanced ad
 | Desktop shell | Tauri 2 | Small Linux footprint and native Rust integration |
 | Backend language | Rust stable, edition 2021 initially | Safety, predictable resource handling, strong database ecosystem |
 | Frontend | React + TypeScript + Vite | Component ecosystem and fast desktop development loop |
-| UI system | MUI 7 | Accessible primitives and consistent desktop UI theming |
+| UI system | shadcn/ui + Radix UI + Tailwind CSS | Custom-first visual system, accessible primitives, and full control over desktop density |
 | SQL editor | Monaco Editor | Mature SQL editing, selection, keyboard shortcuts, future completion |
 | Client routing | TanStack Router | Typed route contracts and predictable module boundaries |
 | Server state | TanStack Query 5 | Request lifecycle, cache invalidation, mutation state |
@@ -192,18 +192,29 @@ The worker boundary is part of the choice. Choosing `rusqlite` without that boun
 
 For this product, grid/editor ecosystem and maintainability matter more than benchmark differences between React, Svelte, and Solid.
 
-### 11.5 State and data fetching
+### 11.5 UI system
+
+| Option | Strengths | Weaknesses | Verdict |
+|---|---|---|---|
+| shadcn/ui + Radix + Tailwind | Modern visual baseline, source-owned components, accessible primitives, maximum custom control | More implementation responsibility; must define and maintain design tokens | **Selected** |
+| MUI | Large component catalog, mature accessibility, fast CRUD/admin UI development | Material look can feel generic; styling/runtime layer adds constraints | Rejected as primary UI system; may be used only for isolated utilities if justified |
+| Ant Design | Very productive enterprise components and tables | Strong visual identity, heavier customization for an IDE-like product | Not selected |
+
+The UI will use shadcn-style source-owned components rather than treating shadcn as a runtime dependency. Radix supplies behavior and accessibility; Tailwind and CSS variables define the product visual language.
+
+### 11.6 State and data fetching
 
 TanStack Query remains the right choice for request state and cache invalidation. Zustand is acceptable for local UI preferences, but it must not become a second server-state cache. Alternatives such as Redux Toolkit are stronger for very large event-driven state graphs, while Jotai is lighter for atomized local state. Neither provides a compelling advantage for the planned modules.
 
-### 11.6 Final recommendation
+### 11.7 Final recommendation
 
 Keep the current baseline with these clarifications:
 
 1. Tauri 2 + React/TypeScript for the desktop shell and UI.
-2. `sqlx` only for PostgreSQL in the first implementation.
-3. `rusqlite` behind a dedicated worker for SQLite and the metadata store.
-4. No ORM, no second pool library, and no premature support for additional databases.
-5. Re-evaluate `sqlx::sqlite` after the first integration tests if sharing one async abstraction materially reduces complexity.
+2. shadcn/ui + Radix UI + Tailwind CSS as the custom visual foundation.
+3. `sqlx` only for PostgreSQL in the first implementation.
+4. `rusqlite` behind a dedicated worker for SQLite and the metadata store.
+5. No ORM, no second pool library, and no premature support for additional databases.
+6. Re-evaluate `sqlx::sqlite` after the first integration tests if sharing one async abstraction materially reduces complexity.
 
 This gives the project the best balance of native performance, security control, SQL-client flexibility, and implementation speed. The main scalability risk is not the selected stack; it is uncontrolled feature scope and an unclear runtime/data contract.
