@@ -1,0 +1,1199 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DB Client — Design Demo</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<style>
+:root {
+  --bg-0: #0b0b12;
+  --bg-1: #12121c;
+  --bg-2: #1a1a28;
+  --bg-3: #222236;
+  --bg-4: #2a2a42;
+  --bg-input: #1e1e30;
+  --fg-0: #f0f0f8;
+  --fg-1: #c8c8d8;
+  --fg-2: #8888a0;
+  --fg-3: #555570;
+  --accent: #7c6cf0;
+  --accent-hover: #9588ff;
+  --accent-dim: rgba(124,108,240,0.12);
+  --accent-glow: rgba(124,108,240,0.25);
+  --accent2: #22d3ee;
+  --accent3: #f472b6;
+  --success: #34d399;
+  --success-dim: rgba(52,211,153,0.12);
+  --error: #f87171;
+  --error-dim: rgba(248,113,113,0.12);
+  --warning: #fbbf24;
+  --warning-dim: rgba(251,191,36,0.12);
+  --info: #60a5fa;
+  --info-dim: rgba(96,165,250,0.12);
+  --border: rgba(255,255,255,0.06);
+  --border-hover: rgba(255,255,255,0.12);
+  --border-focus: rgba(124,108,240,0.5);
+  --shadow: 0 4px 24px rgba(0,0,0,0.4);
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.3);
+  --radius: 8px;
+  --radius-sm: 6px;
+  --radius-lg: 12px;
+  --font: 'Inter', -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --text-xs: 11px;
+  --text-sm: 12.5px;
+  --text-md: 13.5px;
+  --text-lg: 15px;
+  --text-xl: 18px;
+  --text-2xl: 22px;
+  --sidebar-w: 230px;
+  --activitybar-w: 46px;
+  --statusbar-h: 24px;
+  --titlebar-h: 34px;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+html, body { height:100%; overflow:hidden; }
+body { font-family:var(--font); font-size:var(--text-md); color:var(--fg-1); background:var(--bg-0); line-height:1.5; -webkit-font-smoothing:antialiased; }
+::-webkit-scrollbar { width:5px; height:5px; }
+::-webkit-scrollbar-track { background:transparent; }
+::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.08); border-radius:3px; }
+::-webkit-scrollbar-thumb:hover { background:rgba(255,255,255,0.15); }
+
+/* App */
+.app { display:flex; flex-direction:column; height:100vh; }
+
+/* Titlebar */
+.titlebar { display:flex; align-items:center; height:var(--titlebar-h); background:rgba(18,18,28,0.9); backdrop-filter:blur(20px); padding:0 10px; font-size:11px; user-select:none; border-bottom:1px solid var(--border); flex-shrink:0; z-index:100; }
+.tb-left { display:flex; align-items:center; gap:8px; flex:1; }
+.tb-logo { width:20px; height:20px; background:linear-gradient(135deg, var(--accent), var(--accent2)); border-radius:5px; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:700; color:#fff; }
+.tb-name { font-weight:500; color:var(--fg-0); font-size:12px; }
+.tb-center { flex:1; text-align:center; }
+.tb-right { display:flex; align-items:center; gap:2px; }
+.tb-btn { width:30px; height:22px; display:flex; align-items:center; justify-content:center; background:none; border:none; color:var(--fg-2); cursor:pointer; border-radius:4px; font-size:12px; transition:all 0.15s; }
+.tb-btn:hover { background:rgba(255,255,255,0.06); color:var(--fg-1); }
+.tb-btn.close:hover { background:var(--error); color:#fff; }
+
+/* Main */
+.main { display:flex; flex:1; overflow:hidden; }
+
+/* Activitybar */
+.activitybar { width:var(--activitybar-w); background:var(--bg-1); display:flex; flex-direction:column; align-items:center; padding:5px 0; flex-shrink:0; border-right:1px solid var(--border); }
+.ab-item { width:46px; height:38px; display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; color:var(--fg-3); font-size:8px; gap:2px; position:relative; transition:all 0.15s; border-radius:var(--radius-sm); }
+.ab-item:hover { color:var(--fg-1); background:var(--bg-2); }
+.ab-item.active { color:var(--fg-0); }
+.ab-item.active::before { content:''; position:absolute; left:0; top:8px; bottom:8px; width:2px; background:var(--accent); border-radius:0 2px 2px 0; }
+.ab-item .ab-icon { font-size:18px; line-height:1; }
+.ab-item .ab-label { font-size:7px; text-transform:uppercase; letter-spacing:0.3px; font-weight:500; }
+.ab-spacer { flex:1; }
+
+/* Sidebar */
+.sidebar { width:var(--sidebar-w); background:var(--bg-1); display:flex; flex-direction:column; flex-shrink:0; border-right:1px solid var(--border); overflow:hidden; }
+.sb-header { padding:8px 12px; font-size:9px; font-weight:600; text-transform:uppercase; letter-spacing:0.8px; color:var(--fg-3); display:flex; align-items:center; justify-content:space-between; }
+.sb-header .sb-actions { display:flex; gap:1px; }
+.sb-action { background:none; border:none; color:var(--fg-3); cursor:pointer; font-size:12px; padding:3px 5px; border-radius:4px; transition:all 0.15s; }
+.sb-action:hover { color:var(--fg-1); background:var(--bg-2); }
+.sb-content { flex:1; overflow-y:auto; padding:2px 0; }
+
+/* Sidebar Tree */
+.stree { list-style:none; padding:0; margin:0; }
+.sti { display:flex; align-items:center; padding:3px 10px 3px 0; cursor:pointer; font-size:var(--text-sm); color:var(--fg-2); border-left:2px solid transparent; transition:all 0.1s; gap:5px; }
+.sti:hover { background:var(--bg-2); color:var(--fg-1); }
+.sti.active { background:var(--accent-dim); color:var(--fg-0); border-left-color:var(--accent); }
+.sti .st-icon { width:14px; text-align:center; font-size:12px; flex-shrink:0; }
+.sti .st-name { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.sti .st-badge { font-size:9px; background:var(--bg-3); color:var(--fg-3); padding:1px 5px; border-radius:10px; }
+.sti .st-chevron { font-size:8px; color:var(--fg-3); transition:transform 0.15s; width:12px; text-align:center; flex-shrink:0; }
+.sti.expanded > .st-chevron { transform:rotate(90deg); }
+.st-children { list-style:none; padding-left:0; margin:0; display:none; }
+.sti.expanded > .st-children { display:block; }
+.st-children .sti { padding-left:16px; font-size:12px; }
+
+/* Editor Area */
+.editor-area { flex:1; display:flex; flex-direction:column; overflow:hidden; min-width:0; background:var(--bg-0); }
+
+/* Tabs */
+.editor-tabs { display:flex; background:var(--bg-2); height:34px; flex-shrink:0; overflow-x:auto; border-bottom:1px solid var(--border); }
+.etab { display:flex; align-items:center; padding:0 12px; font-size:11px; color:var(--fg-2); cursor:pointer; border-right:1px solid var(--border); flex-shrink:0; max-width:160px; gap:5px; position:relative; height:100%; transition:all 0.1s; }
+.etab:hover { background:var(--bg-3); color:var(--fg-1); }
+.etab.active { background:var(--bg-0); color:var(--fg-0); }
+.etab.active::after { content:''; position:absolute; bottom:0; left:0; right:0; height:2px; background:var(--accent); box-shadow:0 0 8px var(--accent-glow); }
+.etab .et-icon { font-size:11px; }
+.etab .et-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.etab .et-mod { width:5px; height:5px; border-radius:50%; background:var(--fg-3); flex-shrink:0; }
+.etab .et-close { font-size:10px; opacity:0.3; padding:1px 3px; border-radius:3px; transition:all 0.1s; }
+.etab .et-close:hover { opacity:1; background:var(--bg-4); }
+
+/* Editor */
+.editor-wrap { flex:1; display:flex; overflow:hidden; position:relative; }
+.editor-gutter { width:46px; background:var(--bg-1); border-right:1px solid var(--border); overflow:hidden; flex-shrink:0; user-select:none; }
+.gl { height:20px; font-family:var(--font-mono); font-size:12px; line-height:20px; padding:0 8px; color:var(--fg-3); text-align:right; font-size:10px; }
+.gl.active { color:var(--accent); font-weight:500; }
+.editor-scroll { flex:1; overflow:auto; background:var(--bg-0); }
+.editor-area textarea { width:100%; height:100%; border:none; outline:none; background:transparent; color:var(--fg-0); font-family:var(--font-mono); font-size:13px; line-height:1.65; padding:0; resize:none; tab-size:2; white-space:pre; overflow:wrap; caret-color:var(--accent); }
+.editor-area textarea::selection { background:rgba(124,108,240,0.25); }
+.editor-area textarea::placeholder { color:var(--fg-3); }
+.minimap { width:50px; background:var(--bg-1); border-left:1px solid var(--border); flex-shrink:0; overflow:hidden; opacity:0.3; }
+
+/* Panels */
+.panel { display:flex; flex-direction:column; border-top:1px solid var(--border); background:var(--bg-1); flex-shrink:0; }
+.panel-hdr { display:flex; align-items:center; padding:5px 10px; font-size:9px; font-weight:600; text-transform:uppercase; letter-spacing:0.6px; color:var(--fg-3); background:var(--bg-2); border-bottom:1px solid var(--border); flex-shrink:0; }
+.panel-hdr .ph-title { flex:1; display:flex; align-items:center; gap:5px; }
+.panel-hdr .ph-count { font-size:9px; background:var(--bg-3); color:var(--fg-3); padding:1px 5px; border-radius:10px; }
+.panel-hdr .ph-actions { display:flex; gap:1px; }
+.ph-btn { background:none; border:none; color:var(--fg-3); cursor:pointer; font-size:11px; padding:2px 4px; border-radius:3px; transition:all 0.1s; }
+.ph-btn:hover { color:var(--fg-1); background:var(--bg-3); }
+.panel-body { flex:1; overflow-y:auto; }
+.panel-resize { height:3px; background:transparent; cursor:ns-resize; flex-shrink:0; transition:background 0.1s; }
+.panel-resize:hover { background:var(--accent); }
+
+/* Statusbar */
+.statusbar { display:flex; align-items:center; height:var(--statusbar-h); background:linear-gradient(180deg,rgba(18,18,28,0.95),rgba(11,11,18,0.98)); backdrop-filter:blur(10px); color:var(--fg-2); font-size:10px; padding:0 8px; flex-shrink:0; border-top:1px solid var(--border); overflow:hidden; }
+.sb-left,.sb-right { display:flex; align-items:center; gap:0; }
+.sb-left { flex:1; }
+.sb-right { margin-left:auto; }
+.sb-item { display:flex; align-items:center; gap:3px; padding:0 6px; height:100%; cursor:pointer; white-space:nowrap; transition:background 0.1s; color:var(--fg-2); font-size:10px; }
+.sb-item:hover { background:rgba(255,255,255,0.04); color:var(--fg-1); }
+.sb-dot { width:5px; height:5px; border-radius:50%; }
+.sb-dot.connected { background:var(--success); box-shadow:0 0 4px rgba(52,211,153,0.5); }
+.sb-dot.error { background:var(--error); }
+.sb-dot.warning { background:var(--warning); }
+.sb-sep { width:1px; height:10px; background:var(--border); margin:0 1px; }
+
+/* Buttons */
+.btn { display:inline-flex; align-items:center; gap:5px; padding:5px 12px; border:1px solid transparent; border-radius:var(--radius-sm); font-size:var(--text-sm); font-weight:500; cursor:pointer; transition:all 0.15s; white-space:nowrap; outline:none; font-family:var(--font); background:transparent; color:var(--fg-1); }
+.btn:hover { text-decoration:none; transform:translateY(-1px); }
+.btn:active { transform:translateY(0); }
+.btn:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+.btn-primary { background:linear-gradient(135deg, var(--accent), #6366f1); color:#fff; border:none; box-shadow:0 2px 12px var(--accent-glow); }
+.btn-primary:hover { box-shadow:0 4px 20px var(--accent-glow); filter:brightness(1.1); }
+.btn-secondary { background:var(--bg-3); color:var(--fg-1); border:1px solid var(--border); }
+.btn-secondary:hover { background:var(--bg-4); border-color:var(--border-hover); }
+.btn-ghost { background:transparent; color:var(--fg-2); }
+.btn-ghost:hover { background:var(--bg-2); color:var(--fg-1); }
+.btn-icon { padding:4px 7px; min-width:26px; justify-content:center; border-radius:var(--radius-sm); }
+.btn-sm { padding:2px 8px; font-size:10px; height:24px; }
+.btn-lg { padding:7px 16px; font-size:var(--text-md); height:34px; }
+.btn:disabled { opacity:0.35; cursor:not-allowed; pointer-events:none; transform:none!important; }
+.btn .spinner { display:inline-block; width:12px; height:12px; border:2px solid rgba(255,255,255,0.2); border-top-color:#fff; border-radius:50%; animation:spin 0.5s linear infinite; }
+
+/* Inputs */
+.input { padding:5px 9px; border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--bg-input); color:var(--fg-0); font-size:var(--text-sm); font-family:var(--font); outline:none; transition:all 0.15s; height:28px; line-height:18px; }
+.input:focus { border-color:var(--border-focus); box-shadow:0 0 0 3px var(--accent-dim); }
+.input::placeholder { color:var(--fg-3); }
+.input.error { border-color:var(--error); box-shadow:0 0 0 3px var(--error-dim); }
+.input-sm { padding:2px 6px; font-size:10px; height:22px; }
+.input-lg { padding:7px 12px; font-size:var(--text-md); height:34px; }
+.input-block { width:100%; display:block; }
+select.input { appearance:none; padding-right:24px; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%238888a0'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 8px center; }
+textarea.input { height:auto; min-height:50px; resize:vertical; font-family:var(--font-mono); }
+
+/* Labels */
+.label { font-size:10px; font-weight:500; color:var(--fg-2); display:block; margin-bottom:3px; }
+.label .req { color:var(--error); margin-left:2px; }
+
+/* Form */
+.form-group { margin-bottom:10px; }
+.form-group-inline { display:flex; gap:10px; align-items:flex-start; }
+.form-group-inline > .form-group { flex:1; margin-bottom:0; }
+.form-section { margin-bottom:14px; }
+.form-section-title { font-size:9px; font-weight:600; text-transform:uppercase; letter-spacing:0.6px; color:var(--fg-3); margin-bottom:8px; padding-bottom:5px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:5px; }
+
+/* Cards */
+.card { background:var(--bg-1); border:1px solid var(--border); border-radius:var(--radius); margin-bottom:6px; transition:border-color 0.2s; }
+.card:hover { border-color:var(--border-hover); }
+.card-header { padding:8px 12px; font-size:var(--text-sm); font-weight:600; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; gap:6px; }
+.card-body { padding:12px; }
+.card-footer { padding:8px 12px; border-top:1px solid var(--border); display:flex; justify-content:flex-end; gap:6px; }
+
+/* Data Table */
+.dtable { width:100%; border-collapse:separate; border-spacing:0; font-size:var(--text-sm); }
+.dtable thead { position:sticky; top:0; z-index:2; }
+.dtable th { padding:7px 10px; text-align:left; font-size:9px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; color:var(--fg-3); background:var(--bg-2); border-bottom:1px solid var(--border); cursor:pointer; user-select:none; white-space:nowrap; transition:color 0.1s; }
+.dtable th:hover { color:var(--fg-1); }
+.dtable th .sort-icon { margin-left:3px; opacity:0.3; font-size:8px; }
+.dtable th.sorted .sort-icon { opacity:1; color:var(--accent); }
+.dtable td { padding:5px 10px; border-bottom:1px solid var(--border); white-space:nowrap; max-width:200px; overflow:hidden; text-overflow:ellipsis; transition:background 0.1s; }
+.dtable tbody tr { transition:background 0.1s; }
+.dtable tbody tr:hover { background:var(--bg-2); }
+.dtable tbody tr.selected { background:var(--accent-dim); }
+.dtable tbody tr.selected td:first-child { box-shadow:inset 3px 0 0 var(--accent); }
+.dtable tbody tr.error-row { background:var(--error-dim); }
+.dtable tbody tr.editing { background:var(--info-dim); }
+.dtable .null { color:var(--fg-3); font-style:italic; font-size:10px; }
+.dtable .json { color:var(--accent); cursor:pointer; font-family:var(--font-mono); font-size:10px; }
+.dtable .num { text-align:right; font-family:var(--font-mono); font-size:10px; }
+.dtable .bool { text-align:center; }
+.dtable .bool.true { color:var(--success); }
+.dtable .bool.false { color:var(--error); }
+.dtable .actions { display:flex; gap:3px; }
+
+/* Pagination */
+.pagination { display:flex; align-items:center; gap:2px; padding:5px 8px; font-size:10px; color:var(--fg-3); flex-shrink:0; }
+.pbtn { padding:2px 7px; border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--bg-1); color:var(--fg-1); cursor:pointer; font-size:10px; transition:all 0.1s; min-width:24px; text-align:center; }
+.pbtn:hover { border-color:var(--accent); color:var(--accent-hover); background:var(--accent-dim); }
+.pbtn.active { background:var(--accent); color:#fff; border-color:var(--accent); box-shadow:0 2px 8px var(--accent-glow); }
+.pbtn:disabled { opacity:0.3; cursor:not-allowed; }
+.pinfo { margin-left:auto; font-size:9px; color:var(--fg-3); }
+.psize { padding:1px 5px; border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--bg-input); color:var(--fg-1); font-size:9px; cursor:pointer; }
+
+/* Toolbar */
+.toolbar { display:flex; align-items:center; gap:2px; padding:4px 8px; background:var(--bg-2); border-bottom:1px solid var(--border); flex-shrink:0; flex-wrap:wrap; }
+.tgroup { display:flex; align-items:center; gap:1px; padding:0 5px; border-right:1px solid var(--border); }
+.tgroup:last-child { border-right:none; }
+.tsep { width:1px; height:16px; background:var(--border); margin:0 3px; }
+.tbtn { padding:3px 7px; border:none; background:transparent; color:var(--fg-2); cursor:pointer; font-size:10px; border-radius:var(--radius-sm); display:flex; align-items:center; gap:4px; transition:all 0.1s; font-family:var(--font); font-weight:500; }
+.tbtn:hover { background:var(--bg-3); color:var(--fg-1); }
+.tbtn:active { background:var(--bg-4); }
+.tbtn.active { background:var(--accent-dim); color:var(--accent-hover); }
+.tbtn .shortcut { font-size:8px; color:var(--fg-3); margin-left:3px; padding:1px 3px; background:var(--bg-3); border-radius:2px; font-family:var(--font-mono); }
+.tspacer { flex:1; }
+.tsearch { position:relative; }
+.tsearch .search-icon { position:absolute; left:6px; top:50%; transform:translateY(-50%); color:var(--fg-3); font-size:10px; pointer-events:none; }
+.tsearch .input { padding-left:22px; width:140px; font-size:10px; height:24px; }
+
+/* Tabs */
+.tabs { display:flex; border-bottom:1px solid var(--border); background:var(--bg-2); flex-shrink:0; }
+.tab { padding:5px 10px; cursor:pointer; font-size:10px; color:var(--fg-2); border-bottom:1px solid transparent; margin-bottom:-1px; transition:all 0.1s; display:flex; align-items:center; gap:4px; font-weight:500; }
+.tab:hover { color:var(--fg-1); background:var(--bg-3); }
+.tab.active { color:var(--fg-0); border-bottom-color:var(--accent); }
+.tab .close { font-size:9px; padding:1px 2px; border-radius:3px; opacity:0.3; }
+.tab .close:hover { opacity:1; background:var(--bg-4); }
+
+/* Badges */
+.badge { display:inline-flex; align-items:center; padding:1px 6px; border-radius:10px; font-size:9px; font-weight:500; line-height:1.4; gap:3px; }
+.badge-success { background:var(--success-dim); color:var(--success); }
+.badge-error { background:var(--error-dim); color:var(--error); }
+.badge-warning { background:var(--warning-dim); color:var(--warning); }
+.badge-info { background:var(--info-dim); color:var(--info); }
+.badge-default { background:var(--bg-3); color:var(--fg-3); }
+.badge-dot { width:4px; height:4px; border-radius:50%; display:inline-block; flex-shrink:0; }
+.badge-dot.success { background:var(--success); box-shadow:0 0 4px rgba(52,211,153,0.5); }
+.badge-dot.error { background:var(--error); }
+.badge-dot.warning { background:var(--warning); }
+.badge-dot.info { background:var(--info); }
+.badge-dot.connected { background:var(--success); box-shadow:0 0 5px rgba(52,211,153,0.6); }
+
+/* Chips */
+.chip { display:inline-flex; align-items:center; padding:1px 7px; border-radius:10px; font-size:9px; background:var(--bg-2); border:1px solid var(--border); gap:3px; color:var(--fg-2); }
+.chip .chip-x { cursor:pointer; opacity:0.4; font-size:9px; line-height:1; transition:all 0.1s; }
+.chip .chip-x:hover { opacity:1; color:var(--fg-0); }
+
+/* Alerts */
+.alert { padding:7px 10px; border-radius:var(--radius-sm); font-size:var(--text-sm); display:flex; align-items:flex-start; gap:6px; margin-bottom:5px; backdrop-filter:blur(8px); }
+.alert-success { background:var(--success-dim); border-left:3px solid var(--success); }
+.alert-error { background:var(--error-dim); border-left:3px solid var(--error); }
+.alert-warning { background:var(--warning-dim); border-left:3px solid var(--warning); }
+.alert-info { background:var(--info-dim); border-left:3px solid var(--info); }
+.alert .alert-icon { font-size:13px; flex-shrink:0; margin-top:1px; }
+.alert .alert-content { flex:1; }
+.alert .alert-title { font-weight:600; margin-bottom:1px; font-size:11px; }
+.alert .alert-desc { font-size:10px; color:var(--fg-2); }
+
+/* Empty State */
+.empty-state { display:flex; flex-direction:column; align-items:center; justify-content:center; padding:32px 16px; text-align:center; color:var(--fg-3); }
+.empty-state .es-icon { font-size:36px; margin-bottom:10px; opacity:0.2; }
+.empty-state .es-title { font-size:12px; font-weight:500; margin-bottom:3px; color:var(--fg-2); }
+.empty-state .es-desc { font-size:11px; margin-bottom:12px; max-width:260px; }
+.empty-state .es-actions { display:flex; gap:6px; }
+
+/* Progress */
+.progress-bar { height:2px; background:var(--bg-3); border-radius:2px; overflow:hidden; }
+.progress-fill { height:100%; background:linear-gradient(90deg, var(--accent), var(--accent2)); transition:width 0.5s cubic-bezier(0.4,0,0.2,1); border-radius:2px; box-shadow:0 0 6px var(--accent-glow); }
+.progress-text { font-size:9px; color:var(--fg-3); margin-top:3px; }
+
+/* Spinner */
+.spinner { display:inline-block; width:14px; height:14px; border:2px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin 0.5s linear infinite; }
+@keyframes spin { to { transform:rotate(360deg); } }
+
+/* Skeleton */
+.skeleton { background:linear-gradient(90deg, var(--bg-2) 25%, var(--bg-3) 50%, var(--bg-2) 75%); background-size:200% 100%; animation:shimmer 1.5s infinite; border-radius:var(--radius-sm); }
+@keyframes shimmer { 0% { background-position:200% 0; } 100% { background-position:-200% 0; } }
+.skeleton-text { height:10px; margin-bottom:6px; width:80%; border-radius:3px; }
+.skeleton-text.short { width:60%; }
+.skeleton-rect { height:60px; width:100%; border-radius:var(--radius-sm); }
+.skeleton-circle { width:32px; height:32px; border-radius:50%; }
+
+/* Breadcrumb */
+.breadcrumb { display:flex; align-items:center; gap:3px; font-size:10px; color:var(--fg-3); padding:3px 0; }
+.breadcrumb a { color:var(--fg-2); text-decoration:none; cursor:pointer; transition:color 0.1s; }
+.breadcrumb a:hover { color:var(--accent-hover); }
+.breadcrumb .sep { color:var(--fg-3); font-size:8px; }
+
+/* Context Menu */
+.ctx-menu { position:fixed; background:var(--bg-2); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); padding:3px 0; z-index:1000; min-width:160px; backdrop-filter:blur(16px); animation:ctxIn 0.1s ease; }
+.ctx-item { display:flex; align-items:center; gap:6px; padding:4px 10px; cursor:pointer; font-size:11px; color:var(--fg-1); transition:background 0.1s; }
+.ctx-item:hover { background:var(--accent-dim); color:var(--fg-0); }
+.ctx-item.disabled { opacity:0.3; cursor:default; pointer-events:none; }
+.ctx-item .ctx-icon { width:14px; text-align:center; font-size:11px; }
+.ctx-item .ctx-shortcut { margin-left:auto; font-size:9px; color:var(--fg-3); font-family:var(--font-mono); }
+.ctx-divider { height:1px; background:var(--border); margin:2px 0; }
+@keyframes ctxIn { from { opacity:0; transform:scale(0.95); } to { opacity:1; transform:scale(1); } }
+
+/* Toast */
+.toast-container { position:fixed; bottom:26px; right:10px; z-index:2000; display:flex; flex-direction:column; gap:6px; pointer-events:none; }
+.toast { display:flex; align-items:center; gap:6px; padding:8px 12px; border-radius:var(--radius); box-shadow:var(--shadow); font-size:11px; min-width:240px; max-width:360px; pointer-events:auto; backdrop-filter:blur(12px); animation:toastIn 0.2s cubic-bezier(0.4,0,0.2,1); border:1px solid var(--border); gap:6px; }
+.toast.success { background:rgba(52,211,153,0.1); border-color:rgba(52,211,153,0.25); }
+.toast.error { background:rgba(248,113,113,0.1); border-color:rgba(248,113,113,0.25); }
+.toast.warning { background:rgba(251,191,36,0.1); border-color:rgba(251,191,36,0.25); }
+.toast.info { background:rgba(96,165,250,0.1); border-color:rgba(96,165,250,0.25); }
+.toast .toast-icon { font-size:14px; flex-shrink:0; }
+.toast .toast-msg { flex:1; color:var(--fg-0); }
+.toast .toast-close { cursor:pointer; opacity:0.3; background:none; border:none; color:inherit; font-size:12px; padding:2px; transition:opacity 0.1s; }
+.toast .toast-close:hover { opacity:1; }
+.toast .toast-action { background:none; border:none; color:var(--accent-hover); cursor:pointer; font-size:10px; padding:0; text-decoration:underline; font-weight:500; }
+@keyframes toastIn { from { opacity:0; transform:translateX(20px) scale(0.95); } to { opacity:1; transform:translateX(0) scale(1); } }
+@keyframes toastOut { from { opacity:1; transform:translateX(0); } to { opacity:0; transform:translateX(20px); } }
+
+/* Dialog */
+.dialog-overlay { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); backdrop-filter:blur(4px); display:flex; align-items:center; justify-content:center; z-index:1000; animation:fadeIn 0.12s ease; }
+.dialog { background:var(--bg-1); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--shadow); width:480px; max-width:90vw; max-height:75vh; display:flex; flex-direction:column; animation:dialogIn 0.15s cubic-bezier(0.4,0,0.2,1); overflow:hidden; }
+.dialog-header { display:flex; align-items:center; padding:12px 16px; border-bottom:1px solid var(--border); }
+.dialog-title { font-size:var(--text-md); font-weight:600; flex:1; }
+.dialog-close { background:none; border:none; color:var(--fg-2); cursor:pointer; font-size:14px; padding:3px 6px; border-radius:var(--radius-sm); transition:all 0.1s; }
+.dialog-close:hover { background:var(--bg-3); color:var(--fg-0); }
+.dialog-body { padding:16px; overflow-y:auto; flex:1; }
+.dialog-footer { display:flex; justify-content:flex-end; gap:6px; padding:10px 16px; border-top:1px solid var(--border); }
+
+/* Quick Pick */
+.quick-pick { position:fixed; top:60px; left:50%; transform:translateX(-50%); background:var(--bg-1); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--shadow),0 0 30px var(--accent-dim); width:520px; max-width:90vw; z-index:1000; animation:dialogIn 0.1s ease; overflow:hidden; backdrop-filter:blur(20px); }
+.quick-pick-input { width:100%; padding:10px 14px; border:none; border-bottom:1px solid var(--border); background:transparent; color:var(--fg-0); font-size:13px; outline:none; font-family:var(--font); }
+.quick-pick-input::placeholder { color:var(--fg-3); }
+.quick-pick-list { max-height:280px; overflow-y:auto; }
+.qp-item { display:flex; align-items:center; gap:8px; padding:6px 14px; cursor:pointer; font-size:12px; transition:background 0.1s; }
+.qp-item:hover { background:var(--accent-dim); }
+.qp-item .qp-icon { width:20px; text-align:center; font-size:14px; }
+.qp-item .qp-label { flex:1; }
+.qp-item .qp-detail { font-size:10px; color:var(--fg-3); }
+.qp-item .qp-shortcut { font-size:9px; color:var(--fg-3); font-family:var(--font-mono); }
+.qp-item mark { background:rgba(251,191,36,0.2); color:var(--warning); padding:0 2px; border-radius:2px; }
+
+/* Color swatches */
+.color-swatches { display:flex; gap:4px; flex-wrap:wrap; }
+.color-swatch { width:28px; height:28px; border-radius:var(--radius-sm); border:2px solid var(--border); display:flex; flex-direction:column; align-items:center; justify-content:flex-end; padding:1px; font-size:7px; font-weight:600; color:#fff; text-shadow:0 1px 2px rgba(0,0,0,0.5); cursor:pointer; transition:transform 0.15s; }
+.color-swatch:hover { transform:scale(1.15); }
+
+/* Code block */
+.code-block { background:var(--bg-0); border:1px solid var(--border); border-radius:var(--radius-sm); padding:12px; font-family:var(--font-mono); font-size:11px; line-height:1.6; overflow-x:auto; color:var(--fg-1); }
+.code-block .kw { color:#c792ea; }
+.code-block .str { color:#c3e88d; }
+.code-block .num { color:#f78c6c; }
+.code-block .cmt { color:#546e7a; font-style:italic; }
+.code-block .fn { color:#82aaff; }
+.code-block .type { color:#ffcb6b; }
+
+/* Demo Sections */
+.demo-section { margin-bottom:16px; }
+.demo-section-title { font-size:var(--text-md); font-weight:600; margin-bottom:3px; color:var(--fg-0); display:flex; align-items:center; gap:6px; }
+.demo-section-title .sec-icon { font-size:14px; opacity:0.5; }
+.demo-section-desc { font-size:11px; color:var(--fg-3); margin-bottom:8px; }
+.demo-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:8px; }
+.demo-row { display:flex; gap:8px; align-items:flex-start; }
+.demo-col { flex:1; min-width:0; }
+.demo-label { font-size:9px; font-weight:600; text-transform:uppercase; letter-spacing:0.6px; color:var(--fg-3); margin-bottom:6px; display:flex; align-items:center; gap:4px; }
+.demo-divider { height:1px; background:var(--border); margin:10px 0; }
+
+/* Toggle */
+.toggle { display:flex; align-items:center; gap:7px; cursor:pointer; font-size:12px; }
+.toggle-track { width:32px; height:18px; background:var(--bg-3); border-radius:9px; position:relative; transition:background 0.2s; }
+.toggle-track.on { background:var(--accent); }
+.toggle-thumb { width:14px; height:14px; background:#fff; border-radius:50%; position:absolute; top:2px; left:2px; transition:transform 0.2s; box-shadow:0 1px 3px rgba(0,0,0,0.3); }
+.toggle-track.on .toggle-thumb { transform:translateX(14px); }
+
+/* Slider */
+.slider { width:100%; height:3px; background:var(--bg-3); border-radius:2px; appearance:none; outline:none; cursor:pointer; }
+.slider::-webkit-slider-thumb { appearance:none; width:12px; height:12px; border-radius:50%; background:var(--accent); cursor:pointer; border:2px solid var(--bg-0); box-shadow:0 0 4px var(--accent-glow); }
+
+/* Checkbox / Radio */
+.checkbox, .radio { display:flex; align-items:center; gap:6px; cursor:pointer; font-size:12px; color:var(--fg-1); }
+.checkbox input, .radio input { accent-color:var(--accent); width:14px; height:14px; cursor:pointer; }
+
+/* Keybinding */
+.keybinding { display:inline-block; padding:1px 5px; border:1px solid var(--border); border-radius:3px; font-size:9px; font-family:var(--font-mono); background:var(--bg-2); color:var(--fg-3); }
+
+/* Terminal */
+.terminal { font-family:var(--font-mono); font-size:11px; padding:8px 12px; background:var(--bg-0); color:var(--fg-1); line-height:1.6; }
+.terminal-line { display:flex; gap:6px; }
+.terminal-prompt { color:var(--success); font-weight:500; }
+.terminal-cmd { color:var(--fg-0); }
+.terminal-output { color:var(--fg-2); padding-left:18px; }
+.terminal-error { color:var(--error); }
+.terminal-success { color:var(--success); }
+
+/* Diff */
+.diff-line { font-family:var(--font-mono); font-size:11px; padding:1px 8px; line-height:1.5; }
+.diff-line.added { background:var(--success-dim); color:var(--success); }
+.diff-line.removed { background:var(--error-dim); color:var(--error); }
+.diff-line .diff-lnum { color:var(--fg-3); display:inline-block; width:32px; text-align:right; margin-right:6px; user-select:none; font-size:10px; }
+
+/* Problems */
+.problem-item { padding:4px 10px; font-size:11px; display:flex; align-items:flex-start; gap:6px; border-bottom:1px solid var(--border); cursor:pointer; transition:background 0.1s; }
+.problem-item:hover { background:var(--bg-2); }
+.problem-item .p-sev { width:6px; height:6px; border-radius:50%; margin-top:4px; flex-shrink:0; }
+.problem-item .p-sev.error { background:var(--error); box-shadow:0 0 4px rgba(248,113,113,0.5); }
+.problem-item .p-sev.warning { background:var(--warning); box-shadow:0 0 4px rgba(251,191,36,0.5); }
+.problem-item .p-sev.info { background:var(--info); box-shadow:0 0 4px rgba(96,165,250,0.5); }
+.problem-item .p-msg { flex:1; color:var(--fg-0); font-size:11px; }
+.problem-item .p-loc { font-size:9px; color:var(--fg-3); white-space:nowrap; font-family:var(--font-mono); }
+
+/* Search Results */
+.search-result { padding:6px 10px; border-bottom:1px solid var(--border); cursor:pointer; transition:background 0.1s; }
+.search-result:hover { background:var(--bg-2); }
+.search-result .sr-file { font-size:10px; color:var(--fg-3); margin-bottom:1px; }
+.search-result .sr-match { font-size:12px; color:var(--fg-0); }
+.search-result .sr-match mark { background:rgba(251,191,36,0.2); color:var(--warning); padding:0 1px; border-radius:2px; }
+
+/* Outline */
+.outline-item { padding:2px 6px 2px 12px; cursor:pointer; font-size:10px; color:var(--fg-2); display:flex; align-items:center; gap:4px; transition:all 0.1s; }
+.outline-item:hover { background:var(--bg-2); color:var(--fg-0); }
+.outline-item .oi-level { color:var(--fg-3); font-size:9px; }
+.outline-item .oi-name { font-family:var(--font-mono); font-size:10px; }
+
+/* Welcome */
+.welcome { display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; text-align:center; padding:32px; }
+.welcome-logo { font-size:40px; margin-bottom:10px; background:linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+.welcome-title { font-size:20px; font-weight:300; margin-bottom:4px; color:var(--fg-0); letter-spacing:-0.3px; }
+.welcome-subtitle { font-size:12px; color:var(--fg-2); margin-bottom:20px; max-width:360px; line-height:1.6; }
+.welcome-actions { display:flex; gap:6px; }
+.welcome-features { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:24px; max-width:580px; width:100%; }
+.welcome-feature { padding:14px; background:var(--bg-1); border:1px solid var(--border); border-radius:var(--radius); text-align:left; transition:all 0.2s; }
+.welcome-feature:hover { border-color:var(--border-hover); transform:translateY(-2px); box-shadow:var(--shadow); }
+.welcome-feature .wf-icon { font-size:20px; margin-bottom:6px; }
+.welcome-feature .wf-title { font-size:12px; font-weight:600; margin-bottom:2px; color:var(--fg-0); }
+.welcome-feature .wf-desc { font-size:10px; color:var(--fg-3); line-height:1.5; }
+
+/* Animations */
+@keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+@keyframes dialogIn { from { opacity:0; transform:translateY(-6px) scale(0.98); } to { opacity:1; transform:translateY(0) scale(1); } }
+@keyframes toastIn { from { opacity:0; transform:translateX(16px) scale(0.95); } to { opacity:1; transform:translateX(0) scale(1); } }
+@keyframes toastOut { from { opacity:1; transform:translateX(0); } to { opacity:0; transform:translateX(16px); } }
+
+/* Misc */
+.glass { background:var(--bg-glass); backdrop-filter:blur(12px); border:1px solid var(--border); border-radius:var(--radius); }
+.gradient-text { background:linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+.flex { display:flex; }
+.flex-col { flex-direction:column; }
+.items-center { align-items:center; }
+.justify-between { justify-content:space-between; }
+.gap-1 { gap:4px; }
+.gap-2 { gap:8px; }
+.gap-3 { gap:12px; }
+.p-2 { padding:8px; }
+.p-3 { padding:12px; }
+.p-4 { padding:16px; }
+.mt-2 { margin-top:8px; }
+.mt-3 { margin-top:12px; }
+.mb-2 { margin-bottom:8px; }
+.mb-3 { margin-bottom:12px; }
+.w-full { width:100%; }
+.flex-1 { flex:1; }
+.overflow-auto { overflow:auto; }
+.overflow-hidden { overflow:hidden; }
+.truncate { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.text-xs { font-size:var(--text-xs); }
+.text-sm { font-size:var(--text-sm); }
+.text-muted { color:var(--fg-3); }
+.text-secondary { color:var(--fg-2); }
+.text-primary { color:var(--fg-0); }
+.text-accent { color:var(--accent-hover); }
+.text-success { color:var(--success); }
+.text-error { color:var(--error); }
+.text-warning { color:var(--warning); }
+.text-info { color:var(--info); }
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- Titlebar -->
+<div class="titlebar">
+  <div class="tb-left">
+    <div class="tb-logo">DB</div>
+    <span class="tb-name">DB Client</span>
+  </div>
+  <div class="tb-center">
+    <div class="breadcrumb">
+      <a>my-postgres</a><span class="sep">›</span><a>public</a><span class="sep">›</span><span class="current">users</span>
+    </div>
+  </div>
+  <div class="tb-right">
+    <button class="tb-btn" title="Search">
+      <i data-lucide="search" style="width:13px;height:13px"></i>
+    </button>
+    <button class="tb-btn" title="Settings">
+      <i data-lucide="settings" style="width:13px;height:13px"></i>
+    </button>
+    <button class="tb-btn" title="Minimize">─</button>
+    <button class="tb-btn" title="Maximize">□</button>
+    <button class="tb-btn close" title="Close">✕</button>
+  </div>
+</div>
+
+<div class="main">
+<!-- Activitybar -->
+<div class="activitybar">
+  <div class="ab-item active" title="Explorer">
+    <i data-lucide="folder" class="ab-icon"></i><span class="ab-label">Exp</span>
+  </div>
+  <div class="ab-item" title="Search">
+    <i data-lucide="search" class="ab-icon"></i><span class="ab-label">Search</span>
+  </div>
+  <div class="ab-item" title="Source Control">
+    <i data-lucide="git-branch" class="ab-icon"></i><span class="ab-label">Git</span>
+  </div>
+  <div class="ab-item" title="Run">
+    <i data-lucide="play" class="ab-icon"></i><span class="ab-label">Run</span>
+  </div>
+  <div class="ab-item" title="Debug">
+    <i data-lucide="bug" class="ab-icon"></i><span class="ab-label">Debug</span>
+  </div>
+  <div class="ab-item" title="Extensions">
+    <i data-lucide="packages" class="ab-icon"></i><span class="ab-label">Ext</span>
+  </div>
+  <div class="ab-spacer"></div>
+  <div class="ab-item" title="Settings">
+    <i data-lucide="settings-2" class="ab-icon"></i><span class="ab-label">Set</span>
+  </div>
+</div>
+
+<!-- Sidebar -->
+<div class="sidebar">
+  <div class="sb-header">
+    <span>Explorer</span>
+    <div class="sb-actions">
+      <button class="sb-action" title="New File"><i data-lucide="file-plus" style="width:12px;height:12px"></i></button>
+      <button class="sb-action" title="Refresh"><i data-lucide="refresh-cw" style="width:12px;height:12px"></i></button>
+      <button class="sb-action" title="More"><i data-lucide="more-horizontal" style="width:12px;height:12px"></i></button>
+    </div>
+  </div>
+  <div class="sb-content">
+    <ul class="stree">
+      <li class="sti expanded">
+        <i data-lucide="chevron-right" class="st-chevron"></i>
+        <span class="st-icon"><i data-lucide="folder" style="width:12px;height:12px"></i></span>
+        <span class="st-name">Connections</span>
+        <span class="st-badge">3</span>
+        <ul class="st-children">
+          <li class="sti active">
+            <i data-lucide="chevron-right" class="st-chevron" style="visibility:hidden"></i>
+            <span class="st-icon"><i data-lucide="circle" style="width:8px;height:8px;color:var(--success)"></i></span>
+            <span class="st-name">my-postgres</span>
+          </li>
+          <li class="sti">
+            <i data-lucide="chevron-right" class="st-chevron" style="visibility:hidden"></i>
+            <span class="st-icon"><i data-lucide="circle" style="width:8px;height:8px;color:var(--warning)"></i></span>
+            <span class="st-name">staging-db</span>
+          </li>
+          <li class="sti">
+            <i data-lucide="chevron-right" class="st-chevron" style="visibility:hidden"></i>
+            <span class="st-icon"><i data-lucide="circle" style="width:8px;height:8px;color:var(--success)"></i></span>
+            <span class="st-name">dev-sqlite</span>
+          </li>
+        </ul>
+      </li>
+      <li class="sti expanded">
+        <i data-lucide="chevron-right" class="st-chevron"></i>
+        <span class="st-icon"><i data-lucide="file-text" style="width:12px;height:12px"></i></span>
+        <span class="st-name">Queries</span>
+        <span class="st-badge">5</span>
+        <ul class="st-children">
+          <li class="sti"><i data-lucide="chevron-right" class="st-chevron" style="visibility:hidden"></i><span class="st-icon"><i data-lucide="file" style="width:10px;height:10px"></i></span><span class="st-name">user_report.sql</span><span class="st-badge">★</span></li>
+          <li class="sti"><i data-lucide="chevron-right" class="st-chevron" style="visibility:hidden"></i><span class="st-icon"><i data-lucide="file" style="width:10px;height:10px"></i></span><span class="st-name">order_analysis.sql</span></li>
+          <li class="sti"><i data-lucide="chevron-right" class="st-chevron" style="visibility:hidden"></i><span class="st-icon"><i data-lucide="file" style="width:10px;height:10px"></i></span><span class="st-name">schema_audit.sql</span></li>
+        </ul>
+      </li>
+      <li class="sti expanded">
+        <i data-lucide="chevron-right" class="st-chevron"></i>
+        <span class="st-icon"><i data-lucide="database" style="width:12px;height:12px"></i></span>
+        <span class="st-name">Schemas</span>
+        <span class="st-badge">4</span>
+        <ul class="st-children">
+          <li class="sti"><i data-lucide="chevron-right" class="st-chevron" style="visibility:hidden"></i><span class="st-icon"><i data-lucide="folder" style="width:10px;height:10px"></i></span><span class="st-name">public</span><span class="st-badge">5</span></li>
+          <li class="sti"><i data-lucide="chevron-right" class="st-chevron" style="visibility:hidden"></i><span class="st-icon"><i data-lucide="folder" style="width:10px;height:10px"></i></span><span class="st-name">auth</span><span class="st-badge">3</span></li>
+          <li class="sti"><i data-lucide="chevron-right" class="st-chevron" style="visibility:hidden"></i><span class="st-icon"><i data-lucide="folder" style="width:10px;height:10px"></i></span><span class="st-name">storage</span><span class="st-badge">2</span></li>
+        </ul>
+      </li>
+      <li class="sti">
+        <i data-lucide="chevron-right" class="st-chevron" style="visibility:hidden"></i>
+        <span class="st-icon"><i data-lucide="download" style="width:12px;height:12px"></i></span>
+        <span class="st-name">Exports</span>
+      </li>
+      <li class="sti">
+        <i data-lucide="chevron-right" class="st-chevron" style="visibility:hidden"></i>
+        <span class="st-icon"><i data-lucide="settings-2" style="width:12px;height:12px"></i></span>
+        <span class="st-name">.vscode</span>
+      </li>
+    </ul>
+  </div>
+</div>
+
+<!-- Editor Area -->
+<div class="editor-area">
+  <!-- Tabs -->
+  <div class="editor-tabs">
+    <div class="etab active">
+      <i data-lucide="file-text" class="et-icon" style="width:10px;height:10px"></i>
+      <span class="et-name">user_report.sql</span>
+      <span class="et-mod"></span>
+      <i data-lucide="x" class="et-close" style="width:10px;height:10px"></i>
+    </div>
+    <div class="etab">
+      <i data-lucide="file-text" class="et-icon" style="width:10px;height:10px"></i>
+      <span class="et-name">order_analysis.sql</span>
+      <span class="et-mod"></span>
+      <i data-lucide="x" class="et-close" style="width:10px;height:10px"></i>
+    </div>
+    <div class="etab">
+      <i data-lucide="file-text" class="et-icon" style="width:10px;height:10px"></i>
+      <span class="et-name">schema_audit.sql</span>
+      <i data-lucide="x" class="et-close" style="width:10px;height:10px"></i>
+    </div>
+    <div class="etab">
+      <i data-lucide="file" class="et-icon" style="width:10px;height:10px"></i>
+      <span class="et-name">users_table.sql</span>
+      <i data-lucide="x" class="et-close" style="width:10px;height:10px"></i>
+    </div>
+  </div>
+
+  <!-- Editor Breadcrumb -->
+  <div class="editor-breadcrumb">
+    <a>my-postgres</a><span class="sep">›</span><a>public</a><span class="sep">›</span><a>users</a><span class="sep">›</span><span>users.sql</span>
+  </div>
+
+  <!-- Editor -->
+  <div class="editor-wrap">
+    <div class="editor-gutter">
+      <div class="gl"><span class="line-num">1</span></div>
+      <div class="gl"><span class="line-num">2</span></div>
+      <div class="gl active"><span class="line-num">3</span></div>
+      <div class="gl"><span class="line-num">4</span></div>
+      <div class="gl"><span class="line-num">5</span></div>
+      <div class="gl"><span class="line-num">6</span></div>
+      <div class="gl"><span class="line-num">7</span></div>
+      <div class="gl"><span class="line-num">8</span></div>
+      <div class="gl"><span class="line-num">9</span></div>
+      <div class="gl"><span class="line-num">10</span></div>
+      <div class="gl"><span class="line-num">11</span></div>
+      <div class="gl"><span class="line-num">12</span></div>
+      <div class="gl"><span class="line-num">13</span></div>
+      <div class="gl"><span class="line-num">14</span></div>
+      <div class="gl"><span class="line-num">15</span></div>
+      <div class="gl"><span class="line-num">16</span></div>
+      <div class="gl"><span class="line-num">17</span></div>
+      <div class="gl"><span class="line-num">18</span></div>
+      <div class="gl"><span class="line-num">19</span></div>
+      <div class="gl"><span class="line-num">20</span></div>
+      <div class="gl"><span class="line-num">21</span></div>
+      <div class="gl"><span class="line-num">22</span></div>
+      <div class="gl"><span class="line-num">23</span></div>
+      <div class="gl"><span class="line-num">24</span></div>
+      <div class="gl"><span class="line-num">25</span></div>
+      <div class="gl"><span class="line-num">26</span></div>
+      <div class="gl"><span class="line-num">27</span></div>
+      <div class="gl"><span class="line-num">28</span></div>
+      <div class="gl"><span class="line-num">29</span></div>
+      <div class="gl"><span class="line-num">30</span></div>
+    </div>
+    <div class="editor-scroll">
+      <textarea class="editor-area" spellcheck="false" placeholder="-- Start writing SQL here...">-- User Activity Report
+-- Generated: 2026-08-05
+SELECT
+    u.id,
+    u.name,
+    u.email,
+    u.role,
+    COUNT(o.id) AS order_count,
+    COALESCE(SUM(o.amount), 0) AS total_spent,
+    MAX(o.created_at) AS last_order_date,
+    u.created_at AS registered_at
+FROM users u
+LEFT JOIN orders o ON u.id = o.user_id
+WHERE u.status = 'active'
+  AND u.created_at >= '2024-01-01'
+  AND u.created_at < '2025-01-01'
+GROUP BY u.id, u.name, u.email, u.role, u.created_at
+HAVING COUNT(o.id) > 0
+ORDER BY total_spent DESC
+LIMIT 100;
+
+-- Alternative: Get top spenders with their latest order
+SELECT
+    u.name,
+    u.email,
+    o.id AS last_order_id,
+    o.amount AS last_order_amount,
+    o.created_at AS last_order_date
+FROM users u
+JOIN LATERAL (
+    SELECT id, amount, created_at
+    FROM orders
+    WHERE user_id = u.id
+    ORDER BY created_at DESC
+    LIMIT 1
+) o ON true
+WHERE u.status = 'active'
+ORDER BY o.amount DESC
+LIMIT 50;</textarea>
+    </div>
+    <div class="minimap">
+      <div style="position:absolute;top:0;left:0;right:0;height:60px;background:rgba(124,108,240,0.08);border:1px solid rgba(124,108,240,0.2);border-radius:2px"></div>
+      <div style="height:2px;background:var(--fg-3);margin:1px 3px;border-radius:1px;opacity:0.3"></div>
+      <div style="height:2px;background:var(--fg-3);margin:1px 3px;border-radius:1px;opacity:0.3"></div>
+      <div style="height:2px;background:var(--fg-3);margin:1px 3px;border-radius:1px;opacity:0.3"></div>
+      <div style="height:2px;background:var(--fg-3);margin:1px 3px;border-radius:1px;opacity:0.3"></div>
+      <div style="height:2px;background:var(--fg-3);margin:1px 3px;border-radius:1px;opacity:0.3"></div>
+      <div style="height:2px;background:var(--fg-3);margin:1px 3px;border-radius:1px;opacity:0.3"></div>
+      <div style="height:2px;background:var(--fg-3);margin:1px 3px;border-radius:1px;opacity:0.3"></div>
+      <div style="height:2px;background:var(--fg-3);margin:1px 3px;border-radius:1px;opacity:0.3"></div>
+      <div style="height:2px;background:var(--fg-3);margin:1px 3px;border-radius:1px;opacity:0.3"></div>
+      <div style="height:2px;background:var(--fg-3);margin:1px 3px;border-radius:1px;opacity:0.3"></div>
+      <div style="height:2px;background:var(--fg-3);margin:1px 3px;border-radius:1px;opacity:0.3"></div>
+      <div style="height:2px;background:var(--fg-3);margin:1px 3px;border-radius:1px;opacity:0.3"></div>
+      <div style="height:2px;background:var(--fg-3);margin:1px 3px;border-radius:1px;opacity:0.3"></div>
+      <div style="height:2px;background:var(--fg-3);margin:1px 3px;border-radius:1px;opacity:0.3"></div>
+      <div style="height:2px;background:var(--fg-3);margin:1px 3px;border-radius:1px;opacity:0.3"></div>
+      <div style="height:2px;background:var(--fg-3);margin:1px 3px;border-radius:1px;opacity:0.3"></div>
+      <div style="height:2px;background:var(--fg-3);margin:1px 3px;border-radius:1px;opacity:0.3"></div>
+      <div style="height:2px;background:var(--fg-3);margin:1px 3px;border-radius:1px;opacity:0.3"></div>
+      <div style="height:2px;background:var(--fg-3);margin:1px 3px;border-radius:1px;opacity:0.3"></div>
+      <div style="height:2px;background:var(--fg-3);margin:1px 3px;border-radius:1px;opacity:0.3"></div>
+      <div style="height:2px;background:var(--fg-3);margin:1px 3px;border-radius:1px;opacity:0.3"></div>
+      <div style="height:2px;background:var(--fg-3);margin:1px 3px;border-radius:1px;opacity:0.3"></div>
+      <div style="height:2px;background:var(--fg-3);margin:1px 3px;border-radius:1px;opacity:0.3"></div>
+      <div style="height:2px;background:var(--fg-3);margin:1px 3px;border-radius:1px;opacity:0.3"></div>
+      <div style="height:2px;background:var(--fg-3);margin:1px 3px;border-radius:1px;opacity:0.3"></div>
+      <div style="height:2px;background:var(--fg-3);margin:1px 3px;border-radius:1px;opacity:0.3"></div>
+      <div style="height:2px;background:var(--fg-3);margin:1px 3px;border-radius:1px;opacity:0.3"></div>
+      <div style="height:2px;background:var(--fg-3);margin:1px 3px;border-radius:1px;opacity:0.3"></div>
+    </div>
+  </div>
+
+  <!-- Problems Panel -->
+  <div class="panel" style="height:90px">
+    <div class="panel-hdr">
+      <span class="ph-title"><i data-lucide="alert-triangle" style="width:11px;height:11px;color:var(--warning)"></i> Problems <span class="ph-count">2</span></span>
+      <div class="ph-actions">
+        <button class="ph-btn" title="Filter"><i data-lucide="filter" style="width:10px;height:10px"></i></button>
+        <button class="ph-btn" title="Close"><i data-lucide="x" style="width:10px;height:10px"></i></button>
+      </div>
+    </div>
+    <div class="panel-body">
+      <div class="problem-item">
+        <span class="p-sev warning"></span>
+        <span class="p-msg">Column "total_spent" is ambiguous — use table alias</span>
+        <span class="p-loc">users_report.sql:8</span>
+      </div>
+      <div class="problem-item">
+        <span class="p-sev info"></span>
+        <span class="p-msg">Table "users" has no indexes on foreign key columns</span>
+        <span class="p-loc">users_report.sql:11</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Output Panel -->
+  <div class="panel" style="height:150px">
+    <div class="panel-hdr">
+      <span class="ph-title"><i data-lucide="terminal" style="width:10px;height:10px"></i> Output</span>
+      <div class="ph-actions">
+        <button class="ph-btn" title="Clear"><i data-lucide="trash-2" style="width:10px;height:10px"></i></button>
+        <button class="ph-btn" title="Close"><i data-lucide="x" style="width:10px;height:10px"></i></button>
+      </div>
+    </div>
+    <div class="panel-body">
+      <div class="terminal">
+        <div class="terminal-line"><span class="terminal-prompt">➜</span> <span class="terminal-cmd">psql -h localhost -U postgres -d mydb</span></div>
+        <div class="terminal-line"><span class="terminal-output">psql (15.4, server 15.3)</span></div>
+        <div class="terminal-line"><span class="terminal-output">Type "help" for help.</span></div>
+        <div class="terminal-line"><span class="terminal-prompt">mydb=#</span> <span class="terminal-cmd">\dt</span></div>
+        <div class="terminal-line"><span class="terminal-success">            List of relations</span></div>
+        <div class="terminal-line"><span class="terminal-output"> Schema |    Name    | Type  |  Owner   </span></div>
+        <div class="terminal-line"><span class="terminal-output">--------+------------+-------+----------</span></div>
+        <div class="terminal-line"><span class="terminal-output"> public | categories | table | postgres |</span></div>
+        <div class="terminal-line"><span class="terminal-output"> public | orders     | table | postgres |</span></div>
+        <div class="terminal-line"><span class="terminal-output"> public | products   | table | postgres |</span></div>
+        <div class="terminal-line"><span class="terminal-output"> public | users      | table | postgres |</span></div>
+        <div class="terminal-line"><span class="terminal-output">(4 rows)</span></div>
+        <div class="terminal-line"><span class="terminal-prompt">mydb=#</span> <span class="terminal-cmd">SELECT COUNT(*) FROM users;</span></div>
+        <div class="terminal-line"><span class="terminal-success"> count </span></div>
+        <div class="terminal-line"><span class="terminal-output">-------</span></div>
+        <div class="terminal-line"><span class="terminal-output"> 1,234</span></div>
+        <div class="terminal-line"><span class="terminal-output">(1 row)</span></div>
+        <div class="terminal-line"><span class="terminal-prompt">mydb=#</span> <span class="terminal-cmd">EXPLAIN ANALYZE SELECT * FROM users WHERE id = 1;</span></div>
+        <div class="terminal-line"><span class="terminal-output"> Limit  (cost=0.42..8.44 rows=1 width=68) (actual time=0.012..0.013 rows=1 loops=1)</span></div>
+        <div class="terminal-line"><span class="terminal-output">   ->  Index Scan using users_pkey on users  (cost=0.42..8.43 rows=1 width=68) (actual time=0.011..0.012 rows=1 loops=1)</span></div>
+        <div class="terminal-line"><span class="terminal-output"> Planning Time: 0.089 ms</span></div>
+        <div class="terminal-line"><span class="terminal-output"> Execution Time: 0.028 ms</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Right Panel: Data Grid -->
+<div style="width:50%;border-left:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0">
+  <!-- Tabs -->
+  <div class="tabs">
+    <div class="tab active"><i data-lucide="table-2" style="width:10px;height:10px"></i> Data (1,234 rows)</div>
+    <div class="tab"><i data-lucide="list" style="width:10px;height:10px"></i> Query Results</div>
+    <div class="tab"><i data-lucide="clock" style="width:10px;height:10px"></i> History</div>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <div class="tgroup">
+      <button class="tbtn"><i data-lucide="refresh-cw" style="width:10px;height:10px"></i> Refresh</button>
+      <button class="tbtn"><i data-lucide="download" style="width:10px;height:10px"></i> Export</button>
+    </div>
+    <div class="tgroup">
+      <button class="tbtn"><i data-lucide="settings-2" style="width:10px;height:10px"></i> Columns</button>
+      <button class="tbtn"><i data-lucide="filter" style="width:10px;height:10px"></i> Filter</button>
+    </div>
+    <div class="tsearch">
+      <i data-lucide="search" class="search-icon" style="width:10px;height:10px"></i>
+      <input class="input" style="padding-left:22px;width:120px;font-size:10px;height:22px" placeholder="Search...">
+    </div>
+    <div class="tspacer"></div>
+    <div class="tgroup">
+      <span class="badge badge-info">50 rows</span>
+    </div>
+  </div>
+
+  <!-- Data Table -->
+  <div style="flex:1;overflow:auto">
+  <table class="dtable">
+    <thead>
+      <tr>
+        <th style="width:26px"><input type="checkbox"></th>
+        <th class="sorted">id <span class="sort-icon">▲</span></th>
+        <th>name <span class="sort-icon"></span></th>
+        <th>email</th>
+        <th>status</th>
+        <th>role</th>
+        <th>last_login</th>
+        <th style="width:44px"></th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr class="selected">
+        <td><input type="checkbox" checked></td>
+        <td class="num">1</td>
+        <td><strong>John Doe</strong></td>
+        <td>john@example.com</td>
+        <td><span class="badge badge-success"><span class="badge-dot connected"></span>Active</span></td>
+        <td>Admin</td>
+        <td>2026-08-04</td>
+        <td><div class="actions"><button class="btn btn-icon btn-sm" title="Edit"><i data-lucide="pencil" style="width:10px;height:10px"></i></button><button class="btn btn-icon btn-sm" title="More"><i data-lucide="more-horizontal" style="width:10px;height:10px"></i></button></div></td>
+      </tr>
+      <tr>
+        <td><input type="checkbox"></td>
+        <td class="num">2</td>
+        <td><strong>Jane Smith</strong></td>
+        <td>jane@example.com</td>
+        <td><span class="badge badge-success"><span class="badge-dot connected"></span>Active</span></td>
+        <td>Editor</td>
+        <td>2026-08-03</td>
+        <td><div class="actions"><button class="btn btn-icon btn-sm" title="Edit"><i data-lucide="pencil" style="width:10px;height:10px"></i></button><button class="btn btn-icon btn-sm" title="More"><i data-lucide="more-horizontal" style="width:10px;height:10px"></i></button></div></td>
+      </tr>
+      <tr class="error-row">
+        <td><input type="checkbox"></td>
+        <td class="num">3</td>
+        <td><strong>Bob Brown</strong></td>
+        <td>bob@example.com</td>
+        <td><span class="badge badge-error"><span class="badge-dot error"></span>Inactive</span></td>
+        <td>Viewer</td>
+        <td>2026-07-28</td>
+        <td><div class="actions"><button class="btn btn-icon btn-sm" title="Edit"><i data-lucide="pencil" style="width:10px;height:10px"></i></button><button class="btn btn-icon btn-sm" title="More"><i data-lucide="more-horizontal" style="width:10px;height:10px"></i></button></div></td>
+      </tr>
+      <tr>
+        <td><input type="checkbox"></td>
+        <td class="num">4</td>
+        <td><strong>Alice Johnson</strong></td>
+        <td>alice@example.com</td>
+        <td><span class="badge badge-warning"><span class="badge-dot warning"></span>Pending</span></td>
+        <td>Editor</td>
+        <td>2026-08-01</td>
+        <td><div class="actions"><button class="btn btn-icon btn-sm" title="Edit"><i data-lucide="pencil" style="width:10px;height:10px"></i></button><button class="btn btn-icon btn-sm" title="More"><i data-lucide="more-horizontal" style="width:10px;height:10px"></i></button></div></td>
+      </tr>
+      <tr>
+        <td><input type="checkbox"></td>
+        <td class="num">5</td>
+        <td><strong>Charlie Wilson</strong></td>
+        <td>charlie@example.com</td>
+        <td><span class="badge badge-success"><span class="badge-dot connected"></span>Active</span></td>
+        <td>Admin</td>
+        <td>2026-08-05</td>
+        <td><div class="actions"><button class="btn btn-icon btn-sm" title="Edit"><i data-lucide="pencil" style="width:10px;height:10px"></i></button><button class="btn btn-icon btn-sm" title="More"><i data-lucide="more-horizontal" style="width:10px;height:10px"></i></button></div></td>
+      </tr>
+      <tr>
+        <td><input type="checkbox"></td>
+        <td class="num">6</td>
+        <td><strong>Diana Prince</strong></td>
+        <td>diana@example.com</td>
+        <td><span class="badge badge-success"><span class="badge-dot connected"></span>Active</span></td>
+        <td>Editor</td>
+        <td>2026-07-30</td>
+        <td><div class="actions"><button class="btn btn-icon btn-sm" title="Edit"><i data-lucide="pencil" style="width:10px;height:10px"></i></button><button class="btn btn-icon btn-sm" title="More"><i data-lucide="more-horizontal" style="width:10px;height:10px"></i></button></div></td>
+      </tr>
+      <tr>
+        <td><input type="checkbox"></td>
+        <td class="num">7</td>
+        <td><strong>Eve Davis</strong></td>
+        <td>eve@example.com</td>
+        <td><span class="badge badge-error"><span class="badge-dot error"></span>Suspended</span></td>
+        <td>Viewer</td>
+        <td>2026-06-15</td>
+        <td><div class="actions"><button class="btn btn-icon btn-sm" title="Edit"><i data-lucide="pencil" style="width:10px;height:10px"></i></button><button class="btn btn-icon btn-sm" title="More"><i data-lucide="more-horizontal" style="width:10px;height:10px"></i></button></div></td>
+      </tr>
+      <tr>
+        <td><input type="checkbox"></td>
+        <td class="num">8</td>
+        <td><strong>Frank Miller</strong></td>
+        <td>frank@example.com</td>
+        <td><span class="badge badge-success"><span class="badge-dot connected"></span>Active</span></td>
+        <td>Admin</td>
+        <td>2026-08-04</td>
+        <td><div class="actions"><button class="btn btn-icon btn-sm" title="Edit"><i data-lucide="pencil" style="width:10px;height:10px"></i></button><button class="btn btn-icon btn-sm" title="More"><i data-lucide="more-horizontal" style="width:10px;height:10px"></i></button></div></td>
+      </tr>
+      <tr>
+        <td><input type="checkbox"></td>
+        <td class="num">9</td>
+        <td><strong>Grace Lee</strong></td>
+        <td>grace@example.com</td>
+        <td><span class="badge badge-success"><span class="badge-dot connected"></span>Active</span></td>
+        <td>Editor</td>
+        <td>2026-08-05</td>
+        <td><div class="actions"><button class="btn btn-icon btn-sm" title="Edit"><i data-lucide="pencil" style="width:10px;height:10px"></i></button><button class="btn btn-icon btn-sm" title="More"><i data-lucide="more-horizontal" style="width:10px;height:10px"></i></button></div></td>
+      </tr>
+      <tr>
+        <td><input type="checkbox"></td>
+        <td class="num">10</td>
+        <td><strong>Henry Taylor</strong></td>
+        <td>henry@example.com</td>
+        <td><span class="badge badge-info"><span class="badge-dot info"></span>New</span></td>
+        <td>Viewer</td>
+        <td>2026-08-05</td>
+        <td><div class="actions"><button class="btn btn-icon btn-sm" title="Edit"><i data-lucide="pencil" style="width:10px;height:10px"></i></button><button class="btn btn-icon btn-sm" title="More"><i data-lucide="more-horizontal" style="width:10px;height:10px"></i></button></div></td>
+      </tr>
+      <tr><td colspan="8" class="null" style="text-align:center;padding:12px;font-size:10px">NULL values shown as <span class="null">NULL</span> · JSON columns are collapsible · Click row to select</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <!-- Pagination -->
+  <div class="pagination">
+    <button class="pbtn" disabled>«</button>
+    <button class="pbtn" disabled>‹</button>
+    <button class="pbtn active">1</button>
+    <button class="pbtn">2</button>
+    <button class="pbtn">3</button>
+    <button class="pbtn">4</button>
+    <button class="pbtn">5</button>
+    <span class="pinfo">…</span>
+    <button class="pbtn">›</button>
+    <button class="pbtn">»</button>
+    <span class="pinfo">Showing 1-12 of 1,234 rows</span>
+    <select class="psize">
+      <option>25</option><option selected>50</option><option>100</option><option>200</option>
+    </select>
+  </div>
+</div>
+</div>
+
+<!-- Statusbar -->
+<div class="statusbar">
+  <div class="sb-left">
+    <span class="sb-item"><span class="sb-dot connected"></span> main</span>
+    <span class="sb-item sb-branch">main</span>
+    <span class="sb-item sb-commit">abc1234</span>
+    <span class="sb-item">no changes</span>
+  </div>
+  <div class="sb-right">
+    <span class="sb-item">Ln 15, Col 1</span>
+    <span class="sb-sep"></span>
+    <span class="sb-item">UTF-8</span>
+    <span class="sb-sep"></span>
+    <span class="sb-item">PostgreSQL</span>
+    <span class="sb-sep"></span>
+    <span class="sb-item">1,234 rows</span>
+    <span class="sb-sep"></span>
+    <span class="sb-item">12ms</span>
+    <span class="sb-sep"></span>
+    <span class="sb-item">Auto-commit</span>
+    <span class="sb-sep"></span>
+    <span class="sb-item">Spaces: 2</span>
+    <span class="sb-sep"></span>
+    <span class="sb-item">DB Client v0.1.0</span>
+  </div>
+</div>
+
+<!-- Toast Container -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- Quick Pick -->
+<div class="quick-pick" id="quickPick" style="display:none">
+  <input class="quick-pick-input" type="text" placeholder="Type a command or search..." id="quickPickInput">
+  <div class="quick-pick-list">
+    <div class="qp-item">
+      <span class="qp-icon"><i data-lucide="file-plus" style="width:14px;height:14px"></i></span>
+      <span class="qp-label">New Query</span>
+      <span class="qp-shortcut">Ctrl+N</span>
+    </div>
+    <div class="qp-item">
+      <span class="qp-icon"><i data-lucide="plug" style="width:14px;height:14px"></i></span>
+      <span class="qp-label">Connect to Database</span>
+      <span class="qp-shortcut">Ctrl+Shift+C</span>
+    </div>
+    <div class="qp-item">
+      <span class="qp-icon"><i data-lucide="play" style="width:14px;height:14px"></i></span>
+      <span class="qp-label">Execute Query</span>
+      <span class="qp-shortcut">Ctrl+Enter</span>
+    </div>
+    <div class="qp-item">
+      <span class="qp-icon"><i data-lucide="search" style="width:14px;height:14px"></i></span>
+      <span class="qp-label">Search in Files</span>
+      <span class="qp-shortcut">Ctrl+Shift+F</span>
+    </div>
+    <div class="qp-item">
+      <span class="qp-icon"><i data-lucide="download" style="width:14px;height:14px"></i></span>
+      <span class="qp-label">Export Results</span>
+      <span class="qp-shortcut">Ctrl+Shift+E</span>
+    </div>
+    <div class="qp-item">
+      <span class="qp-icon"><i data-lucide="settings" style="width:14px;height:14px"></i></span>
+      <span class="qp-label">Settings</span>
+      <span class="qp-shortcut">Ctrl+,</span>
+    </div>
+    <div class="qp-item">
+      <span class="qp-icon"><i data-lucide="keyboard" style="width:14px;height:14px"></i></span>
+      <span class="qp-label">Keyboard Shortcuts</span>
+      <span class="qp-shortcut">Ctrl+K Ctrl+S</span>
+    </div>
+    <div class="qp-item">
+      <span class="qp-icon"><i data-lucide="database" style="width:14px;height:14px"></i></span>
+      <span class="qp-label">Schema Browser</span>
+      <span class="qp-shortcut">Ctrl+Shift+O</span>
+    </div>
+    <div class="qp-item">
+      <span class="qp-icon"><i data-lucide="database" style="width:14px;height:14px"></i></span>
+      <span class="qp-label">Connection Manager</span>
+    </div>
+    <div class="qp-item">
+      <span class="qp-icon"><i data-lucide="folder-open" style="width:14px;height:14px"></i></span>
+      <span class="qp-label">Open Folder</span>
+      <span class="qp-shortcut">Ctrl+K Ctrl+O</span>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<script>
+// Initialize Lucide icons
+lucide.createIcons();
+
+// Quick Pick
+document.addEventListener('keydown', function(e) {
+  if ((e.metaKey || e.ctrlKey) && e.key === 'p') {
+    e.preventDefault();
+    var qp = document.getElementById('quickPick');
+    qp.style.display = qp.style.display === 'none' ? 'block' : 'none';
+    if (qp.style.display === 'block') document.getElementById('quickPickInput').focus();
+  }
+  if (e.key === 'Escape') {
+    document.getElementById('quickPick').style.display = 'none';
+  }
+});
+document.getElementById('quickPickInput').addEventListener('input', function() {
+  var q = this.value.toLowerCase();
+  document.querySelectorAll('.qp-item').forEach(function(item) {
+    var text = item.textContent.toLowerCase();
+    item.style.display = text.indexOf(q) >= 0 ? '' : 'none';
+  });
+});
+
+// Activity bar navigation
+document.querySelectorAll('.ab-item').forEach(function(item) {
+  item.addEventListener('click', function() {
+    document.querySelectorAll('.ab-item').forEach(function(i) { i.classList.remove('active'); });
+    this.classList.add('active');
+  });
+});
+
+// Tree toggle
+document.querySelectorAll('[data-toggle]').forEach(function(item) {
+  item.addEventListener('click', function(e) {
+    document.querySelectorAll('.sti').forEach(function(i) { i.classList.remove('active'); });
+    this.classList.add('active');
+    var chevron = this.querySelector('.st-chevron');
+    if (chevron && chevron.style.visibility !== 'hidden') {
+      this.classList.toggle('expanded');
+    }
+  });
+});
+
+// Data table row click
+document.querySelectorAll('.dtable tbody tr').forEach(function(row) {
+  row.addEventListener('click', function(e) {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON' || e.target.closest('button')) return;
+    document.querySelectorAll('.dtable tbody tr').forEach(function(r) { r.classList.remove('selected'); });
+    this.classList.add('selected');
+  });
+});
+
+// Editor tabs
+document.querySelectorAll('.etab').forEach(function(tab) {
+  tab.addEventListener('click', function() {
+    document.querySelectorAll('.etab').forEach(function(t) { t.classList.remove('active'); });
+    this.classList.add('active');
+  });
+});
+
+// Panel tabs
+document.querySelectorAll('.tab').forEach(function(tab) {
+  tab.addEventListener('click', function() {
+    document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
+    this.classList.add('active');
+  });
+});
+
+// Toast function
+function showToast(type, message, actionText, actionFn) {
+  var container = document.getElementById('toastContainer');
+  var icons = { success: '✓', error: '✕', warning: '⚠', info: 'ℹ' };
+  var toast = document.createElement('div');
+  toast.className = 'toast ' + type;
+  var html = '<span class="toast-icon">' + icons[type] + '</span><span class="toast-msg">' + message + '</span>';
+  if (actionText && actionFn) {
+    html += '<button class="toast-action" onclick="' + actionFn + '">' + actionText + '</button>';
+  }
+  html += '<button class="toast-close" onclick="this.parentElement.remove()">✕</button>';
+  toast.innerHTML = html;
+  container.appendChild(toast);
+  setTimeout(function() {
+    toast.style.animation = 'toastOut 0.2s ease forwards';
+    setTimeout(function() { toast.remove(); }, 200);
+  }, 4000);
+}
+
+// Auto-show welcome toast
+setTimeout(function() {
+  showToast('info', 'Welcome to DB Client — press <span class="keybinding">Ctrl+P</span> for command palette');
+}, 600);
+
+// Simulate live status bar updates
+setInterval(function() {
+  var sbItems = document.querySelectorAll('.statusbar-right .sb-item');
+  if (sbItems.length > 8) {
+    var latency = Math.floor(Math.random() * 20) + 5;
+    sbItems[sbItems.length - 8].textContent = latency + 'ms';
+  }
+}, 3000);
+
+// Show a demo toast after 2 seconds
+setTimeout(function() {
+  showToast('success', 'Query executed successfully in 12ms');
+}, 2000);
+</script>
+</body>
+</html>
