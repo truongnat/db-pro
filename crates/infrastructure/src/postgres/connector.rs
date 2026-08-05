@@ -4,7 +4,7 @@ use db_pro_core::domain::error::DbError;
 use db_pro_core::domain::query::{QueryParam, QueryResult};
 use db_pro_core::domain::schema::IntrospectResult;
 use db_pro_core::ports::DbConnector;
-use sqlx::PgPool;
+use sqlx::{Executor as _, PgPool};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 use tokio::sync::RwLock;
@@ -84,12 +84,28 @@ impl DbConnector for PostgresConnector {
             let mut pg_args = sqlx::postgres::PgArguments::default();
             super::query_mapper::bind_params(params, &mut pg_args)?;
 
-            let rows = sqlx::query_with(sql, pg_args)
-                .fetch_all(&pool)
-                .await
-                .map_err(crate::error::from_sqlx)?;
+            let describe = pool.describe(sql).await.map_err(crate::error::from_sqlx)?;
+            let columns = super::query_mapper::columns_from_describe(&describe);
 
-            super::query_mapper::map_rows(&rows, max_rows)
+            use futures_util::StreamExt;
+            let mut stream = sqlx::query_with(sql, pg_args).fetch(&pool);
+            let mut result_rows = Vec::with_capacity(max_rows.min(1024) as usize);
+            while let Some(pg_row) = stream.next().await {
+                let pg_row = pg_row.map_err(crate::error::from_sqlx)?;
+                if result_rows.len() as u64 >= max_rows {
+                    break;
+                }
+                let row = super::query_mapper::map_row(&pg_row, &columns)?;
+                result_rows.push(row);
+            }
+
+            let row_count = result_rows.len() as u64;
+            Ok(QueryResult {
+                columns,
+                rows: result_rows,
+                row_count,
+                duration_ms: 0,
+            })
         };
 
         tokio::time::timeout(timeout, future)

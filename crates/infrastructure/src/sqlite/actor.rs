@@ -15,6 +15,7 @@ pub enum SqliteCommand {
     Execute {
         sql: String,
         params: Vec<QueryParam>,
+        max_rows: u64,
         responder: oneshot::Sender<Result<QueryResult, DbError>>,
     },
     Introspect {
@@ -47,11 +48,12 @@ pub struct SqliteHandle {
 
 impl SqliteHandle {
     /// Execute a parameterised query, returning a full `QueryResult`.
-    pub async fn execute(&self, sql: String, params: Vec<QueryParam>) -> Result<QueryResult, DbError> {
+    pub async fn execute(&self, sql: String, params: Vec<QueryParam>, max_rows: u64) -> Result<QueryResult, DbError> {
         let (tx, rx) = oneshot::channel();
         let cmd = SqliteCommand::Execute {
             sql,
             params,
+            max_rows,
             responder: tx,
         };
         let sender = self.sender.clone();
@@ -162,8 +164,13 @@ impl SqliteActor {
     fn run(self, receiver: mpsc::Receiver<SqliteCommand>) {
         for cmd in receiver {
             match cmd {
-                SqliteCommand::Execute { sql, params, responder } => {
-                    let _ = responder.send(self.handle_execute(&sql, &params));
+                SqliteCommand::Execute {
+                    sql,
+                    params,
+                    max_rows,
+                    responder,
+                } => {
+                    let _ = responder.send(self.handle_execute(&sql, &params, max_rows));
                 }
                 SqliteCommand::Introspect { responder } => {
                     let _ = responder.send(self.handle_introspect());
@@ -188,7 +195,7 @@ impl SqliteActor {
 
     // -- handlers -----------------------------------------------------------
 
-    fn handle_execute(&self, sql: &str, params: &[QueryParam]) -> Result<QueryResult, DbError> {
+    fn handle_execute(&self, sql: &str, params: &[QueryParam], max_rows: u64) -> Result<QueryResult, DbError> {
         let start = Instant::now();
 
         let mut stmt = self.conn.prepare(sql).map_err(crate::error::from_rusqlite)?;
@@ -213,6 +220,9 @@ impl SqliteActor {
         let mut raw_rows = stmt.query(param_refs.as_slice()).map_err(crate::error::from_rusqlite)?;
 
         while let Some(row) = raw_rows.next().map_err(crate::error::from_rusqlite)? {
+            if rows.len() as u64 >= max_rows {
+                break;
+            }
             let cells = map_row_to_cells(row)?;
             rows.push(Row(cells));
         }

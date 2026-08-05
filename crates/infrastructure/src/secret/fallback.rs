@@ -138,6 +138,14 @@ impl FallbackStore {
     }
 
     /// Write the current in-memory entries to disk as JSON (hex-encoded blobs).
+    ///
+    /// Uses atomic write (temp file + rename) to prevent corruption on crash.
+    /// Sets file permission to 0600 on Unix to restrict access to the owner.
+    ///
+    /// **Security note**: The encryption key is derived from the service name,
+    /// which is not a secret. This fallback is intended for development only.
+    /// Production deployments must use the OS keyring or a user-provided master
+    /// key stored in platform secure storage.
     fn persist(&self) -> Result<(), DbError> {
         let entries = self
             .entries
@@ -147,13 +155,24 @@ impl FallbackStore {
         let json = serde_json::to_string_pretty(&encoded)
             .map_err(|e| DbError::Internal(format!("failed to serialize fallback: {e}")))?;
 
-        // Ensure parent directory exists.
         if let Some(parent) = self.file_path.parent() {
             std::fs::create_dir_all(parent).map_err(|e| DbError::Io(format!("failed to create fallback dir: {e}")))?;
         }
 
-        std::fs::write(&self.file_path, json)
-            .map_err(|e| DbError::Io(format!("failed to write fallback file: {e}")))?;
+        let tmp_path = self.file_path.with_extension("json.tmp");
+        std::fs::write(&tmp_path, &json)
+            .map_err(|e| DbError::Io(format!("failed to write fallback temp file: {e}")))?;
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let perms = std::fs::Permissions::from_mode(0o600);
+            std::fs::set_permissions(&tmp_path, perms)
+                .map_err(|e| DbError::Io(format!("failed to set fallback file permissions: {e}")))?;
+        }
+
+        std::fs::rename(&tmp_path, &self.file_path)
+            .map_err(|e| DbError::Io(format!("failed to rename fallback temp file: {e}")))?;
         Ok(())
     }
 }

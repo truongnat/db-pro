@@ -41,9 +41,12 @@ impl KeyringVault {
 
     /// Derive a master encryption key from the service name.
     ///
-    /// For MVP the service name itself is used as the master password and a
-    /// deterministic salt is derived from it.  A production implementation
-    /// should prompt the user for a master password and store a random salt.
+    /// **DEV-ONLY**: The service name is not a secret — anyone who knows it can
+    /// derive the same key and decrypt the fallback file. This exists solely so
+    /// the application can run in environments without an OS keyring (e.g.
+    /// headless CI). Before production use, either the OS keyring must be
+    /// mandatory or the user must supply a master password that is stored in
+    /// platform secure storage.
     fn derive_master_key(&self, salt: &[u8]) -> Result<[u8; 32], DbError> {
         encryption::derive_key(&self.service_name, salt)
     }

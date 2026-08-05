@@ -676,6 +676,7 @@ dependencies = [
  "async-trait",
  "chrono",
  "db-pro-core",
+ "futures-util",
  "keyring",
  "mockall",
  "rand",

@@ -10,8 +10,13 @@ use tokio::sync::RwLock;
 
 use super::actor::SqliteHandle;
 
+pub struct ActorEntry {
+    pub handle: SqliteHandle,
+    pub max_rows: u64,
+}
+
 pub struct SQLiteConnector {
-    actors: RwLock<HashMap<u64, SqliteHandle>>,
+    actors: RwLock<HashMap<u64, ActorEntry>>,
     next_id: AtomicU64,
 }
 
@@ -40,13 +45,17 @@ impl DbConnector for SQLiteConnector {
         };
         let handle = super::actor::SqliteActor::spawn(db_path)?;
         let id = self.next_id.fetch_add(1, Ordering::SeqCst);
-        self.actors.write().await.insert(id, handle);
+        let entry = ActorEntry {
+            handle,
+            max_rows: config.max_rows,
+        };
+        self.actors.write().await.insert(id, entry);
         Ok(ConnectionHandle::new(id))
     }
 
     async fn disconnect(&self, handle: &ConnectionHandle) -> Result<(), DbError> {
-        if let Some(actor) = self.actors.write().await.remove(&handle.0) {
-            actor.shutdown().await;
+        if let Some(entry) = self.actors.write().await.remove(&handle.0) {
+            entry.handle.shutdown().await;
         }
         Ok(())
     }
@@ -54,35 +63,39 @@ impl DbConnector for SQLiteConnector {
     async fn test_connection(&self, config: &ConnectionConfig, password: &str) -> Result<(), DbError> {
         let handle = self.connect(config, password).await?;
         let actors = self.actors.read().await;
-        let actor = actors
+        let entry = actors
             .get(&handle.0)
             .ok_or_else(|| DbError::ConnectionFailed("handle not found".into()))?;
-        actor.execute("SELECT 1".into(), vec![]).await.map(|_| ())?;
+        entry
+            .handle
+            .execute("SELECT 1".into(), vec![], entry.max_rows)
+            .await
+            .map(|_| ())?;
         drop(actors);
         self.disconnect(&handle).await
     }
 
     async fn query(&self, handle: &ConnectionHandle, sql: &str, params: &[QueryParam]) -> Result<QueryResult, DbError> {
         let actors = self.actors.read().await;
-        let actor = actors
+        let entry = actors
             .get(&handle.0)
             .ok_or_else(|| DbError::ConnectionFailed("handle not found".into()))?;
-        actor.execute(sql.into(), params.to_vec()).await
+        entry.handle.execute(sql.into(), params.to_vec(), entry.max_rows).await
     }
 
     async fn introspect(&self, handle: &ConnectionHandle) -> Result<IntrospectResult, DbError> {
         let actors = self.actors.read().await;
-        let actor = actors
+        let entry = actors
             .get(&handle.0)
             .ok_or_else(|| DbError::ConnectionFailed("handle not found".into()))?;
-        actor.introspect().await
+        entry.handle.introspect().await
     }
 
     async fn explain(&self, handle: &ConnectionHandle, sql: &str) -> Result<serde_json::Value, DbError> {
         let actors = self.actors.read().await;
-        let actor = actors
+        let entry = actors
             .get(&handle.0)
             .ok_or_else(|| DbError::ConnectionFailed("handle not found".into()))?;
-        actor.explain(sql.into()).await
+        entry.handle.explain(sql.into()).await
     }
 }

@@ -9,30 +9,26 @@ pub fn run_introspection(conn: &rusqlite::Connection) -> Result<IntrospectResult
     let views = introspect_views(conn)?;
     let triggers = introspect_triggers(conn)?;
 
-    let primary_keys = tables
-        .iter()
-        .filter_map(|t| {
-            let mut stmt = conn
-                .prepare(&format!(
-                    "SELECT name FROM pragma_table_info('{}') WHERE pk > 0 ORDER BY pk",
-                    t.name
-                ))
-                .ok()?;
-            let pk_cols: Vec<String> = stmt
-                .query_map([], |row| row.get(0))
-                .ok()?
-                .filter_map(|r| r.ok())
-                .collect();
-            if pk_cols.is_empty() {
-                None
-            } else {
-                Some(PrimaryKey {
-                    constraint_name: format!("{}_pk", t.name),
-                    columns: pk_cols,
-                })
-            }
-        })
-        .collect();
+    let mut primary_keys = Vec::new();
+    for t in &tables {
+        let mut stmt = conn
+            .prepare(&format!(
+                "SELECT name FROM pragma_table_info('{}') WHERE pk > 0 ORDER BY pk",
+                t.name
+            ))
+            .map_err(crate::error::from_rusqlite)?;
+        let pk_cols: Vec<String> = stmt
+            .query_map([], |row| row.get(0))
+            .map_err(crate::error::from_rusqlite)?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(crate::error::from_rusqlite)?;
+        if !pk_cols.is_empty() {
+            primary_keys.push(PrimaryKey {
+                constraint_name: format!("{}_pk", t.name),
+                columns: pk_cols,
+            });
+        }
+    }
 
     let schemas = vec![Schema { name: "main".into() }];
 
@@ -63,8 +59,8 @@ fn introspect_tables(conn: &rusqlite::Connection) -> Result<Vec<Table>, DbError>
             })
         })
         .map_err(crate::error::from_rusqlite)?
-        .filter_map(|r| r.ok())
-        .collect();
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(crate::error::from_rusqlite)?;
     Ok(tables)
 }
 
@@ -75,8 +71,8 @@ fn introspect_columns(conn: &rusqlite::Connection) -> Result<Vec<Column>, DbErro
     let table_names: Vec<String> = table_stmt
         .query_map([], |row| row.get(0))
         .map_err(crate::error::from_rusqlite)?
-        .filter_map(|r| r.ok())
-        .collect();
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(crate::error::from_rusqlite)?;
 
     let mut columns = Vec::new();
     for table_name in &table_names {
@@ -99,8 +95,8 @@ fn introspect_columns(conn: &rusqlite::Connection) -> Result<Vec<Column>, DbErro
                 })
             })
             .map_err(crate::error::from_rusqlite)?
-            .filter_map(|r| r.ok())
-            .collect();
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(crate::error::from_rusqlite)?;
         columns.append(&mut cols);
     }
     Ok(columns)
@@ -113,8 +109,8 @@ fn introspect_indexes(conn: &rusqlite::Connection) -> Result<Vec<Index>, DbError
     let table_names: Vec<String> = table_stmt
         .query_map([], |row| row.get(0))
         .map_err(crate::error::from_rusqlite)?
-        .filter_map(|r| r.ok())
-        .collect();
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(crate::error::from_rusqlite)?;
 
     let mut indexes = Vec::new();
     for table_name in &table_names {
@@ -128,8 +124,8 @@ fn introspect_indexes(conn: &rusqlite::Connection) -> Result<Vec<Index>, DbError
                 Ok((name, unique))
             })
             .map_err(crate::error::from_rusqlite)?
-            .filter_map(|r| r.ok())
-            .collect();
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(crate::error::from_rusqlite)?;
 
         for (index_name, unique) in index_list {
             let mut info_stmt = conn
@@ -138,8 +134,8 @@ fn introspect_indexes(conn: &rusqlite::Connection) -> Result<Vec<Index>, DbError
             let cols: Vec<String> = info_stmt
                 .query_map([], |row| row.get(2))
                 .map_err(crate::error::from_rusqlite)?
-                .filter_map(|r| r.ok())
-                .collect();
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(crate::error::from_rusqlite)?;
             indexes.push(Index {
                 name: index_name,
                 columns: cols,
@@ -157,8 +153,8 @@ fn introspect_foreign_keys(conn: &rusqlite::Connection) -> Result<Vec<ForeignKey
     let table_names: Vec<String> = table_stmt
         .query_map([], |row| row.get(0))
         .map_err(crate::error::from_rusqlite)?
-        .filter_map(|r| r.ok())
-        .collect();
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(crate::error::from_rusqlite)?;
 
     let mut foreign_keys = Vec::new();
     for table_name in &table_names {
@@ -181,8 +177,8 @@ fn introspect_foreign_keys(conn: &rusqlite::Connection) -> Result<Vec<ForeignKey
                 })
             })
             .map_err(crate::error::from_rusqlite)?
-            .filter_map(|r| r.ok())
-            .collect();
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(crate::error::from_rusqlite)?;
         foreign_keys.extend(fks);
     }
     Ok(foreign_keys)
@@ -199,8 +195,8 @@ fn introspect_views(conn: &rusqlite::Connection) -> Result<Vec<View>, DbError> {
             Ok(View { name, definition })
         })
         .map_err(crate::error::from_rusqlite)?
-        .filter_map(|r| r.ok())
-        .collect();
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(crate::error::from_rusqlite)?;
     Ok(views)
 }
 
@@ -220,7 +216,7 @@ fn introspect_triggers(conn: &rusqlite::Connection) -> Result<Vec<Trigger>, DbEr
             })
         })
         .map_err(crate::error::from_rusqlite)?
-        .filter_map(|r| r.ok())
-        .collect();
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(crate::error::from_rusqlite)?;
     Ok(triggers)
 }
