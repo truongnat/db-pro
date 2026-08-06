@@ -57,7 +57,7 @@ export class MockQueryService {
 
   async executeMulti(_connectionId: string, _sql: string): Promise<MultiQueryResult> {
     const result = await this.execute(_connectionId, "SELECT 1");
-    return { results: [result], totalDurationMs: 84 };
+    return { results: [result], totalDurationMs: 84, error: null };
   }
 
   async explain(_connectionId: string, _sql: string): Promise<ExplainPlan> {

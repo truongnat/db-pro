@@ -237,6 +237,7 @@ impl From<QueryResult> for QueryResultDto {
 pub struct MultiQueryResultDto {
     pub results: Vec<QueryResultDto>,
     pub total_duration_ms: u64,
+    pub error: Option<(usize, String)>,
 }
 
 impl From<db_pro_core::application::MultiQueryResult> for MultiQueryResultDto {
@@ -244,6 +245,7 @@ impl From<db_pro_core::application::MultiQueryResult> for MultiQueryResultDto {
         Self {
             results: r.results.into_iter().map(Into::into).collect(),
             total_duration_ms: r.total_duration_ms,
+            error: r.error,
         }
     }
 }

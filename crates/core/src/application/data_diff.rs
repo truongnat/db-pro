@@ -43,15 +43,25 @@ impl DataDiffService {
                 DbError::ConnectionFailed(format!("connection {target_id} is not active"))
             })?;
 
-        let qualified = format!(
-            "\"{}\".\"{}\"",
-            schema.replace('"', "\"\""),
-            table.replace('"', "\"\"")
-        );
-        let sql = format!("SELECT COUNT(*) FROM {qualified}");
+        let source_dialect = self.connector.dialect(&source_handle)?;
+        let target_dialect = self.connector.dialect(&target_handle)?;
 
-        let source_result = self.connector.query(&source_handle, &sql, &[]).await?;
-        let target_result = self.connector.query(&target_handle, &sql, &[]).await?;
+        let source_qualified = format!(
+            "{}.{}",
+            source_dialect.quote_identifier(schema),
+            source_dialect.quote_identifier(table)
+        );
+        let target_qualified = format!(
+            "{}.{}",
+            target_dialect.quote_identifier(schema),
+            target_dialect.quote_identifier(table)
+        );
+
+        let source_sql = format!("SELECT COUNT(*) FROM {source_qualified}");
+        let target_sql = format!("SELECT COUNT(*) FROM {target_qualified}");
+
+        let source_result = self.connector.query(&source_handle, &source_sql, &[]).await?;
+        let target_result = self.connector.query(&target_handle, &target_sql, &[]).await?;
 
         let source_count = extract_count(&source_result)?;
         let target_count = extract_count(&target_result)?;

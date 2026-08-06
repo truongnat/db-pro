@@ -27,6 +27,7 @@ export interface QueryResult {
 export interface MultiQueryResult {
   results: QueryResult[];
   totalDurationMs: number;
+  error: [number, string] | null;
 }
 
 export interface QueryHistoryEntry {

@@ -13,6 +13,9 @@ use super::sql_policy::{reject_multi_statement, split_statements};
 pub struct MultiQueryResult {
     pub results: Vec<QueryResult>,
     pub total_duration_ms: u64,
+    /// If a statement failed, this holds the 0-based index and error message.
+    /// Earlier results were committed; later statements were not executed.
+    pub error: Option<(usize, String)>,
 }
 
 pub struct QueryService {
@@ -81,21 +84,60 @@ impl QueryService {
         let start = std::time::Instant::now();
         let mut results = Vec::with_capacity(statements.len());
 
-        for stmt in &statements {
-            let result = self.connector.query(&handle, stmt, &[]).await?;
-            result.validate().map_err(DbError::QueryFailed)?;
-            results.push(result);
+        for (idx, stmt) in statements.iter().enumerate() {
+            let stmt_start = std::time::Instant::now();
+
+            match classify_statement(stmt) {
+                StatementClass::Read => {
+                    match self.connector.query(&handle, stmt, &[]).await {
+                        Ok(result) => {
+                            result.validate().map_err(|e| DbError::QueryFailed(e))?;
+                            results.push(result);
+                        }
+                        Err(e) => {
+                            return Ok(MultiQueryResult {
+                                results,
+                                total_duration_ms: start.elapsed().as_millis() as u64,
+                                error: Some((idx, e.to_string())),
+                            });
+                        }
+                    }
+                }
+                StatementClass::Write => {
+                    match self.connector.execute(&handle, stmt, &[]).await {
+                        Ok(affected) => {
+                            let elapsed = stmt_start.elapsed().as_millis() as u64;
+                            results.push(QueryResult {
+                                columns: Vec::new(),
+                                rows: Vec::new(),
+                                row_count: affected,
+                                duration_ms: elapsed,
+                            });
+                        }
+                        Err(e) => {
+                            return Ok(MultiQueryResult {
+                                results,
+                                total_duration_ms: start.elapsed().as_millis() as u64,
+                                error: Some((idx, e.to_string())),
+                            });
+                        }
+                    }
+                }
+            }
         }
 
         let total_duration_ms = start.elapsed().as_millis() as u64;
 
-        if let Err(e) = self.history.save(connection_id, sql, results.first().unwrap()).await {
-            tracing::warn!("failed to save query history: {e}");
+        if let Some(first) = results.first() {
+            if let Err(e) = self.history.save(connection_id, sql, first).await {
+                tracing::warn!("failed to save query history: {e}");
+            }
         }
 
         Ok(MultiQueryResult {
             results,
             total_duration_ms,
+            error: None,
         })
     }
 
@@ -191,6 +233,26 @@ impl QueryService {
 
     pub async fn delete_run_config(&self, id: &uuid::Uuid) -> Result<(), DbError> {
         self.run_configs.delete(id).await
+    }
+}
+
+enum StatementClass {
+    Read,
+    Write,
+}
+
+fn classify_statement(sql: &str) -> StatementClass {
+    let trimmed = sql.trim_start();
+    let upper = trimmed.to_ascii_uppercase();
+    if upper.starts_with("SELECT")
+        || upper.starts_with("WITH")
+        || upper.starts_with("SHOW")
+        || upper.starts_with("EXPLAIN")
+        || upper.starts_with("TABLE")
+    {
+        StatementClass::Read
+    } else {
+        StatementClass::Write
     }
 }
 

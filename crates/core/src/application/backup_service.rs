@@ -33,8 +33,18 @@ impl BackupService {
             .ok_or_else(|| DbError::NotFound(format!("connection {conn_id} not found")))?;
 
         let secret_key = format!("connection/{}/password", conn_id);
-        let password = self.secrets.retrieve_secret(&secret_key).await?
-            .unwrap_or_default();
+        let password = match config.driver {
+            crate::domain::connection::DriverType::Postgres => {
+                self.secrets.retrieve_secret(&secret_key).await?
+                    .ok_or_else(|| DbError::Validation(
+                        "password not found — connect and save credentials before backup".into()
+                    ))?
+            }
+            crate::domain::connection::DriverType::SQLite => {
+                self.secrets.retrieve_secret(&secret_key).await?
+                    .unwrap_or_default()
+            }
+        };
 
         let engine = match config.driver {
             crate::domain::connection::DriverType::Postgres => {
@@ -56,8 +66,18 @@ impl BackupService {
             .ok_or_else(|| DbError::NotFound(format!("connection {conn_id} not found")))?;
 
         let secret_key = format!("connection/{}/password", conn_id);
-        let password = self.secrets.retrieve_secret(&secret_key).await?
-            .unwrap_or_default();
+        let password = match config.driver {
+            crate::domain::connection::DriverType::Postgres => {
+                self.secrets.retrieve_secret(&secret_key).await?
+                    .ok_or_else(|| DbError::Validation(
+                        "password not found — connect and save credentials before restore".into()
+                    ))?
+            }
+            crate::domain::connection::DriverType::SQLite => {
+                self.secrets.retrieve_secret(&secret_key).await?
+                    .unwrap_or_default()
+            }
+        };
 
         let engine = match config.driver {
             crate::domain::connection::DriverType::Postgres => {

@@ -1,9 +1,17 @@
 use crate::ports::dialect::SqlDialect;
 
+/// Column definition for DDL building.
+///
+/// **Warning**: `data_type` and `default` are raw SQL fragments — they are
+/// inserted verbatim into the generated SQL without sanitization. Callers
+/// must ensure these values come from trusted sources (e.g., the visual
+/// DDL editor UI, not arbitrary user input).
 pub struct ColumnDef {
     pub name: String,
+    /// Raw SQL type expression (e.g. `"VARCHAR(255)"`, `"INTEGER"`). Not sanitized.
     pub data_type: String,
     pub nullable: bool,
+    /// Raw SQL default expression (e.g. `"CURRENT_TIMESTAMP"`, `"0"`). Not sanitized.
     pub default: Option<String>,
     pub is_pk: bool,
 }
@@ -13,7 +21,7 @@ pub fn build_create_table(
     schema: &str,
     table: &str,
     columns: &[ColumnDef],
-) -> String {
+) -> Result<String, String> {
     let qualified = if schema.is_empty() {
         dialect.quote_identifier(table).to_string()
     } else {
@@ -24,6 +32,11 @@ pub fn build_create_table(
     let mut pk_cols = Vec::new();
 
     for col in columns {
+        validate_raw_fragment(&col.data_type, "data_type")?;
+        if let Some(ref default) = col.default {
+            validate_raw_fragment(default, "default")?;
+        }
+
         let mut def = format!(
             "    {} {}",
             dialect.quote_identifier(&col.name),
@@ -45,7 +58,7 @@ pub fn build_create_table(
         parts.push(format!("    PRIMARY KEY ({})", pk_cols.join(", ")));
     }
 
-    format!("CREATE TABLE {qualified} (\n{}\n)", parts.join(",\n"))
+    Ok(format!("CREATE TABLE {qualified} (\n{}\n)", parts.join(",\n")))
 }
 
 pub fn build_alter_table_add_column(
@@ -53,7 +66,12 @@ pub fn build_alter_table_add_column(
     schema: &str,
     table: &str,
     column: &ColumnDef,
-) -> String {
+) -> Result<String, String> {
+    validate_raw_fragment(&column.data_type, "data_type")?;
+    if let Some(ref default) = column.default {
+        validate_raw_fragment(default, "default")?;
+    }
+
     let qualified = qualify(dialect, schema, table);
     let mut def = format!(
         "ALTER TABLE {qualified} ADD COLUMN {} {}",
@@ -66,7 +84,7 @@ pub fn build_alter_table_add_column(
     if let Some(ref default) = column.default {
         def.push_str(&format!(" DEFAULT {default}"));
     }
-    def
+    Ok(def)
 }
 
 pub fn build_alter_table_drop_column(
@@ -100,14 +118,18 @@ pub fn build_drop_table(dialect: &dyn SqlDialect, schema: &str, table: &str) -> 
     format!("DROP TABLE {qualified}")
 }
 
+/// Build a CREATE VIEW statement.
+///
+/// **Warning**: `select_sql` is a raw SQL fragment inserted verbatim.
 pub fn build_create_view(
     dialect: &dyn SqlDialect,
     schema: &str,
     name: &str,
     select_sql: &str,
-) -> String {
+) -> Result<String, String> {
+    validate_raw_fragment(select_sql, "select_sql")?;
     let qualified = qualify(dialect, schema, name);
-    format!("CREATE VIEW {qualified} AS\n{select_sql}")
+    Ok(format!("CREATE VIEW {qualified} AS\n{select_sql}"))
 }
 
 pub fn build_drop_view(dialect: &dyn SqlDialect, schema: &str, name: &str) -> String {
@@ -138,6 +160,9 @@ pub fn build_drop_index(dialect: &dyn SqlDialect, schema: &str, index_name: &str
     format!("DROP INDEX {qualified}")
 }
 
+/// Build a CREATE TRIGGER statement.
+///
+/// **Warning**: `timing`, `event`, and `body` are raw SQL fragments inserted verbatim.
 pub fn build_create_trigger(
     dialect: &dyn SqlDialect,
     schema: &str,
@@ -146,12 +171,16 @@ pub fn build_create_trigger(
     timing: &str,
     event: &str,
     body: &str,
-) -> String {
+) -> Result<String, String> {
+    validate_raw_fragment(timing, "timing")?;
+    validate_raw_fragment(event, "event")?;
+    validate_raw_fragment(body, "body")?;
+
     let qualified_table = qualify(dialect, schema, table);
     let qualified_trigger = qualify(dialect, schema, trigger_name);
-    format!(
+    Ok(format!(
         "CREATE TRIGGER {qualified_trigger}\n  {timing} {event} ON {qualified_table}\n  {body}"
-    )
+    ))
 }
 
 pub fn build_drop_trigger(
@@ -175,6 +204,23 @@ fn qualify(dialect: &dyn SqlDialect, schema: &str, name: &str) -> String {
             dialect.quote_identifier(name)
         )
     }
+}
+
+/// Rejects raw SQL fragments that contain statement terminators or
+/// keywords that would alter the intended DDL structure.
+/// This is a guardrail, not a full sanitizer — callers must still
+/// ensure values come from trusted sources.
+fn validate_raw_fragment(value: &str, field_name: &str) -> Result<(), String> {
+    if value.contains(';') {
+        return Err(format!("{field_name} must not contain semicolons"));
+    }
+    let upper = value.to_ascii_uppercase();
+    for keyword in &["DROP ", "DELETE ", "INSERT ", "UPDATE "] {
+        if upper.contains(keyword) {
+            return Err(format!("{field_name} must not contain {keyword}statements"));
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -210,7 +256,7 @@ mod tests {
                 is_pk: false,
             },
         ];
-        let sql = build_create_table(&dialect, "public", "users", &cols);
+        let sql = build_create_table(&dialect, "public", "users", &cols).unwrap();
         assert!(sql.contains("CREATE TABLE"));
         assert!(sql.contains("\"public\".\"users\""));
         assert!(sql.contains("PRIMARY KEY"));
@@ -236,5 +282,40 @@ mod tests {
         );
         assert!(sql.contains("UNIQUE"));
         assert!(sql.contains("\"idx_email\""));
+    }
+
+    #[test]
+    fn validate_rejects_semicolon_in_data_type() {
+        let dialect = TestDialect;
+        let cols = vec![ColumnDef {
+            name: "id".into(),
+            data_type: "INTEGER; DROP TABLE users".into(),
+            nullable: false,
+            default: None,
+            is_pk: true,
+        }];
+        let err = build_create_table(&dialect, "public", "users", &cols).unwrap_err();
+        assert!(err.contains("semicolons"));
+    }
+
+    #[test]
+    fn validate_rejects_drop_in_default() {
+        let dialect = TestDialect;
+        let cols = vec![ColumnDef {
+            name: "id".into(),
+            data_type: "INTEGER".into(),
+            nullable: false,
+            default: Some("(SELECT DROP TABLE users)".into()),
+            is_pk: true,
+        }];
+        let err = build_create_table(&dialect, "public", "users", &cols).unwrap_err();
+        assert!(err.contains("DROP"));
+    }
+
+    #[test]
+    fn validate_rejects_semicolon_in_view_body() {
+        let dialect = TestDialect;
+        let err = build_create_view(&dialect, "public", "v1", "SELECT 1; DROP TABLE x").unwrap_err();
+        assert!(err.contains("semicolons"));
     }
 }
