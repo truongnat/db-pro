@@ -83,6 +83,15 @@ impl DbConnector for SQLiteConnector {
         entry.handle.execute(sql.into(), params.to_vec(), entry.max_rows).await
     }
 
+    async fn execute(&self, handle: &ConnectionHandle, sql: &str, params: &[QueryParam]) -> Result<u64, DbError> {
+        let actors = self.actors.read().await;
+        let entry = actors
+            .get(&handle.0)
+            .ok_or_else(|| DbError::ConnectionFailed("handle not found".into()))?;
+        let affected = entry.handle.execute_param(sql.into(), params.to_vec()).await?;
+        Ok(affected as u64)
+    }
+
     async fn introspect(&self, handle: &ConnectionHandle) -> Result<IntrospectResult, DbError> {
         let actors = self.actors.read().await;
         let entry = actors

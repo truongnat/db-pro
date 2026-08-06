@@ -3,7 +3,7 @@ mod dto;
 
 use std::sync::Arc;
 
-use db_pro_core::application::{ConnectionRegistry, ConnectionService, ExportService, QueryService, SchemaService};
+use db_pro_core::application::{ConnectionRegistry, ConnectionService, ExportService, QueryService, SchemaService, TableDataService};
 use db_pro_infrastructure::connector::CompositeConnector;
 use db_pro_infrastructure::meta::store::SQLiteMetaStore;
 use db_pro_infrastructure::secret::keyring_vault::KeyringVault;
@@ -59,10 +59,13 @@ pub fn run() {
 
                 let export_service = ExportService::new(Box::new(Arc::clone(&connector)), Arc::clone(&registry));
 
+                let table_data_service = TableDataService::new(Box::new(Arc::clone(&connector)), Arc::clone(&registry));
+
                 handle.manage(conn_service);
                 handle.manage(query_service);
                 handle.manage(schema_service);
                 handle.manage(export_service);
+                handle.manage(table_data_service);
             });
 
             Ok(())
@@ -89,6 +92,10 @@ pub fn run() {
             commands::export_csv,
             commands::export_json,
             commands::export_excel,
+            commands::fetch_table_rows,
+            commands::insert_table_row,
+            commands::update_table_row,
+            commands::delete_table_row,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

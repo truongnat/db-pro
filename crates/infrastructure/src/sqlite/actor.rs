@@ -34,6 +34,11 @@ pub enum SqliteCommand {
         sql: String,
         responder: oneshot::Sender<Result<usize, DbError>>,
     },
+    ExecuteStatementParam {
+        sql: String,
+        params: Vec<QueryParam>,
+        responder: oneshot::Sender<Result<usize, DbError>>,
+    },
     Shutdown,
 }
 
@@ -126,6 +131,24 @@ impl SqliteHandle {
             .map_err(|e| DbError::Internal(format!("oneshot recv error: {e}")))?
     }
 
+    /// Execute a parameterized statement and return rows affected.
+    pub async fn execute_param(&self, sql: String, params: Vec<QueryParam>) -> Result<usize, DbError> {
+        let (tx, rx) = oneshot::channel();
+        let cmd = SqliteCommand::ExecuteStatementParam {
+            sql,
+            params,
+            responder: tx,
+        };
+        let sender = self.sender.clone();
+        tokio::task::spawn_blocking(move || {
+            let _ = sender.send(cmd);
+        })
+        .await
+        .map_err(|e| DbError::Internal(format!("spawn_blocking join error: {e}")))?;
+        rx.await
+            .map_err(|e| DbError::Internal(format!("oneshot recv error: {e}")))?
+    }
+
     /// Tell the actor thread to shut down.
     pub async fn shutdown(&self) {
         let sender = self.sender.clone();
@@ -183,6 +206,9 @@ impl SqliteActor {
                 }
                 SqliteCommand::ExecuteStatement { sql, responder } => {
                     let _ = responder.send(self.handle_execute_statement(&sql));
+                }
+                SqliteCommand::ExecuteStatementParam { sql, params, responder } => {
+                    let _ = responder.send(self.handle_execute_statement_param(&sql, &params));
                 }
                 SqliteCommand::Shutdown => {
                     tracing::info!("sqlite actor received shutdown command");
@@ -308,6 +334,14 @@ impl SqliteActor {
 
     fn handle_execute_statement(&self, sql: &str) -> Result<usize, DbError> {
         let affected = self.conn.execute(sql, []).map_err(crate::error::from_rusqlite)?;
+        Ok(affected)
+    }
+
+    fn handle_execute_statement_param(&self, sql: &str, params: &[QueryParam]) -> Result<usize, DbError> {
+        let mut stmt = self.conn.prepare(sql).map_err(crate::error::from_rusqlite)?;
+        let rusqlite_params = to_rusqlite_params(params);
+        let param_refs: Vec<&dyn rusqlite::types::ToSql> = rusqlite_params.iter().map(|p| p.as_ref()).collect();
+        let affected = stmt.execute(param_refs.as_slice()).map_err(crate::error::from_rusqlite)?;
         Ok(affected)
     }
 }

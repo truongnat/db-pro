@@ -1,7 +1,8 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import { useConnectionStore } from "@/commons/stores/connection.store";
 import { useTranslation } from "@/commons/locales/useTranslation";
+import { ExportDialog } from "@/modules/export/components/export-dialog";
 
 import { ExplainPlanView } from "../components/explain-plan";
 import { QueryEditor } from "../components/query-editor";
@@ -33,6 +34,8 @@ export function QueryPage() {
   const setSort = useQueryModuleStore((s) => s.setSort);
   const historySearch = useQueryModuleStore((s) => s.historySearch);
   const setHistorySearch = useQueryModuleStore((s) => s.setHistorySearch);
+
+  const [exportOpen, setExportOpen] = useState(false);
 
   const executeMutation = useExecuteQuery();
   const explainMutation = useExplainPlan();
@@ -118,6 +121,7 @@ export function QueryPage() {
         onExecute={handleExecute}
         onExplain={handleExplain}
         onClear={handleClear}
+        onExport={() => setExportOpen(true)}
         isExecuting={executeMutation.isPending}
         isExplaining={explainMutation.isPending}
         hasConnection={!!activeConnectionId}
@@ -215,6 +219,13 @@ export function QueryPage() {
           )}
         </div>
       </div>
+
+      <ExportDialog
+        open={exportOpen}
+        onClose={() => setExportOpen(false)}
+        connectionId={activeConnectionId}
+        sql={sql.trim()}
+      />
     </div>
   );
 }

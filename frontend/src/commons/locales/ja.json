@@ -123,13 +123,33 @@
     "fkToTable": "参照先テーブル",
     "fkToColumn": "参照先カラム"
   },
+  "dataGrid": {
+    "title": "データ",
+    "selectTable": "テーブルを選択",
+    "connectFirst": "データを閲覧するにはデータベースに接続してください",
+    "noData": "データがありません",
+    "filter": "値",
+    "addFilter": "フィルタ追加",
+    "removeFilter": "フィルタ削除",
+    "page": "ページ",
+    "pageSize": "件/ページ",
+    "of": "/",
+    "confirmDelete": "この行を削除しますか？",
+    "error": {
+      "update": "行の更新に失敗しました",
+      "delete": "行の削除に失敗しました",
+      "insert": "行の追加に失敗しました"
+    }
+  },
   "export": {
     "title": "エクスポート",
     "csv": "CSVでエクスポート",
     "json": "JSONでエクスポート",
     "excel": "Excelでエクスポート",
     "success": "エクスポート完了",
-    "failed": "エクスポート失敗"
+    "failed": "エクスポート失敗",
+    "selectFormat": "形式を選択",
+    "exporting": "エクスポート中"
   },
   "settings": {
     "title": "設定",

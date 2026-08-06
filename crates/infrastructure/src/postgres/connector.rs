@@ -114,6 +114,32 @@ impl DbConnector for PostgresConnector {
             .map_err(|_| DbError::Timeout(format!("query timed out after {timeout:?}")))?
     }
 
+    async fn execute(&self, handle: &ConnectionHandle, sql: &str, params: &[QueryParam]) -> Result<u64, DbError> {
+        let pools = self.pools.read().await;
+        let entry = pools
+            .get(&handle.0)
+            .ok_or_else(|| DbError::ConnectionFailed("handle not found".into()))?;
+        let timeout = entry.query_timeout;
+        let pool = entry.pool.clone();
+        drop(pools);
+
+        let future = async {
+            let mut pg_args = sqlx::postgres::PgArguments::default();
+            super::query_mapper::bind_params(params, &mut pg_args)?;
+
+            let result = sqlx::query_with(sql, pg_args)
+                .execute(&pool)
+                .await
+                .map_err(crate::error::from_sqlx)?;
+
+            Ok(result.rows_affected())
+        };
+
+        tokio::time::timeout(timeout, future)
+            .await
+            .map_err(|_| DbError::Timeout(format!("execute timed out after {timeout:?}")))?
+    }
+
     async fn introspect(&self, handle: &ConnectionHandle) -> Result<IntrospectResult, DbError> {
         let pools = self.pools.read().await;
         let entry = pools

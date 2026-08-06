@@ -1,6 +1,8 @@
 import { DIContainer } from "@/commons/di/container";
 import { SERVICE_NAMES } from "@/commons/di/registry";
 import { createConnectionService } from "@/modules/connection/services/connection.service";
+import { createDataGridService } from "@/modules/data-grid/services/data-grid.service";
+import { createExportService } from "@/modules/export/services/export.service";
 import { createQueryService } from "@/modules/query/services/query.service";
 import { createSchemaService } from "@/modules/schema/services/schema.service";
 
@@ -22,9 +24,13 @@ export async function bootstrapServices(): Promise<DIContainer> {
     createSchemaService(),
   );
 
-  container.register(SERVICE_NAMES.EXPORT_SERVICE, () => {
-    throw new Error("ExportService not yet implemented (Phase 11)");
-  });
+  container.register(SERVICE_NAMES.DATA_GRID_SERVICE, () =>
+    createDataGridService(),
+  );
+
+  container.register(SERVICE_NAMES.EXPORT_SERVICE, () =>
+    createExportService(),
+  );
 
   container.freeze();
   bootstrapped = true;

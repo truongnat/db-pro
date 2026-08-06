@@ -8,6 +8,7 @@ const NAV_ITEMS = [
   { to: "/connections", label: "Connections" },
   { to: "/query", label: "Query" },
   { to: "/schema", label: "Schema" },
+  { to: "/data", label: "Data" },
 ] as const;
 
 function RootLayout() {

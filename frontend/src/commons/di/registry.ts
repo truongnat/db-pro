@@ -2,6 +2,7 @@ export const SERVICE_NAMES = {
   CONNECTION_SERVICE: "CONNECTION_SERVICE",
   QUERY_SERVICE: "QUERY_SERVICE",
   SCHEMA_SERVICE: "SCHEMA_SERVICE",
+  DATA_GRID_SERVICE: "DATA_GRID_SERVICE",
   EXPORT_SERVICE: "EXPORT_SERVICE",
 } as const;
 
@@ -47,6 +48,13 @@ export interface ISchemaService {
   invalidateCache(connectionId: string): Promise<void>;
 }
 
+export interface IDataGridService {
+  fetchRows(connectionId: string, request: unknown): Promise<unknown>;
+  insertRow(connectionId: string, request: unknown): Promise<unknown>;
+  updateRow(connectionId: string, request: unknown): Promise<unknown>;
+  deleteRow(connectionId: string, request: unknown): Promise<unknown>;
+}
+
 export interface IExportService {
   exportCsv(connectionId: string, sql: string): Promise<unknown>;
   exportJson(connectionId: string, sql: string): Promise<unknown>;
@@ -57,5 +65,6 @@ export interface ServiceRegistry {
   [SERVICE_NAMES.CONNECTION_SERVICE]: IConnectionService;
   [SERVICE_NAMES.QUERY_SERVICE]: IQueryService;
   [SERVICE_NAMES.SCHEMA_SERVICE]: ISchemaService;
+  [SERVICE_NAMES.DATA_GRID_SERVICE]: IDataGridService;
   [SERVICE_NAMES.EXPORT_SERVICE]: IExportService;
 }

@@ -4,6 +4,7 @@ interface QueryToolbarProps {
   onExecute: () => void;
   onExplain: () => void;
   onClear: () => void;
+  onExport: () => void;
   isExecuting: boolean;
   isExplaining: boolean;
   hasConnection: boolean;
@@ -14,6 +15,7 @@ export function QueryToolbar({
   onExecute,
   onExplain,
   onClear,
+  onExport,
   isExecuting,
   isExplaining,
   hasConnection,
@@ -56,6 +58,15 @@ export function QueryToolbar({
         disabled={!hasConnection || !hasSql || isExplaining}
       >
         {isExplaining ? t("common.states.loading") : t("query.explain")}
+      </button>
+
+      <button
+        className="rounded-[var(--radius-sm)] border px-3 py-1.5 text-sm transition-colors hover:bg-[var(--color-bg)] disabled:opacity-50"
+        style={secondaryStyle}
+        onClick={onExport}
+        disabled={!hasConnection || !hasSql}
+      >
+        {t("export.title")}
       </button>
 
       <div className="flex-1" />

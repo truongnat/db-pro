@@ -238,7 +238,7 @@ impl From<Row> for RowDto {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", content = "value", rename_all = "lowercase")]
 pub enum CellValueDto {
     Null,
@@ -533,6 +533,120 @@ impl From<db_pro_core::application::ExportResult> for ExportResultDto {
             file_name: r.filename,
             mime_type: r.mime_type,
             row_count: r.row_count,
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Table Data DTOs
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FetchRowsRequest {
+    pub schema: String,
+    pub table: String,
+    pub filters: Vec<FilterDto>,
+    pub sorts: Vec<SortDto>,
+    pub page: u64,
+    pub page_size: u64,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FilterDto {
+    pub column: String,
+    pub op: String,
+    pub value: CellValueDto,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SortDto {
+    pub column: String,
+    pub direction: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MutateRowRequest {
+    pub schema: String,
+    pub table: String,
+    pub columns: Vec<String>,
+    pub values: Vec<CellValueDto>,
+    pub pk_columns: Option<Vec<String>>,
+    pub pk_values: Option<Vec<CellValueDto>>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FetchRowsResultDto {
+    pub columns: Vec<ColumnMetaDto>,
+    pub rows: Vec<RowDto>,
+    pub total_count: u64,
+    pub duration_ms: u64,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MutateRowResultDto {
+    pub affected_rows: u64,
+}
+
+impl FilterDto {
+    pub fn to_domain(&self) -> Result<db_pro_core::application::sql_builder::TableFilter, CommandError> {
+        let op = match self.op.as_str() {
+            "eq" => db_pro_core::application::sql_builder::FilterOp::Eq,
+            "neq" => db_pro_core::application::sql_builder::FilterOp::Neq,
+            "lt" => db_pro_core::application::sql_builder::FilterOp::Lt,
+            "lte" => db_pro_core::application::sql_builder::FilterOp::Lte,
+            "gt" => db_pro_core::application::sql_builder::FilterOp::Gt,
+            "gte" => db_pro_core::application::sql_builder::FilterOp::Gte,
+            "like" => db_pro_core::application::sql_builder::FilterOp::Like,
+            "isNull" => db_pro_core::application::sql_builder::FilterOp::IsNull,
+            "isNotNull" => db_pro_core::application::sql_builder::FilterOp::IsNotNull,
+            other => {
+                return Err(CommandError {
+                    error: "VALIDATION".into(),
+                    message: format!("unknown filter operator: {other}"),
+                    message_id: "error.validation".into(),
+                    details: None,
+                })
+            }
+        };
+        Ok(db_pro_core::application::sql_builder::TableFilter {
+            column: self.column.clone(),
+            op,
+            value: self.value.clone().into(),
+        })
+    }
+}
+
+impl SortDto {
+    pub fn to_domain(&self) -> db_pro_core::application::sql_builder::SortClause {
+        let direction = match self.direction.as_str() {
+            "desc" => db_pro_core::application::sql_builder::SortDir::Desc,
+            _ => db_pro_core::application::sql_builder::SortDir::Asc,
+        };
+        db_pro_core::application::sql_builder::SortClause {
+            column: self.column.clone(),
+            direction,
+        }
+    }
+}
+
+impl From<CellValueDto> for CellValue {
+    fn from(d: CellValueDto) -> Self {
+        match d {
+            CellValueDto::Null => CellValue::Null,
+            CellValueDto::Bool(v) => CellValue::Bool(v),
+            CellValueDto::Int64(v) => CellValue::Int64(v),
+            CellValueDto::Float64(v) => CellValue::Float64(v),
+            CellValueDto::Text(v) => CellValue::Text(v),
+            CellValueDto::Bytes(v) => CellValue::Bytes(v),
+            CellValueDto::Uuid(v) => CellValue::Uuid(v),
+            CellValueDto::Datetime(v) => CellValue::DateTime(v),
+            CellValueDto::Json(v) => CellValue::Json(v),
         }
     }
 }
