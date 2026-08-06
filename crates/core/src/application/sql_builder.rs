@@ -591,7 +591,7 @@ mod tests {
     struct SqlServerDialect;
     impl SqlDialect for SqlServerDialect {
         fn placeholder(&self, index: usize) -> String {
-            format!("${index}")
+            format!("@p{index}")
         }
         fn quote_identifier(&self, name: &str) -> String {
             let escaped = name.replace(']', "]]");
@@ -667,7 +667,7 @@ mod tests {
         let (sql, params) = build_select(&SqlServerDialect, "dbo", "users", &[], &sorts, 50, 0).unwrap();
         assert_eq!(
             sql,
-            "SELECT * FROM [dbo].[users] ORDER BY [id] ASC OFFSET $2 ROWS FETCH NEXT $1 ROWS ONLY"
+            "SELECT * FROM [dbo].[users] ORDER BY [id] ASC OFFSET @p2 ROWS FETCH NEXT @p1 ROWS ONLY"
         );
         assert_eq!(params.len(), 2);
     }
