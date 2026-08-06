@@ -16,7 +16,7 @@ export interface IConnectionService {
   create(config: unknown, password: string): Promise<unknown>;
   update(id: string, config: unknown, password?: string): Promise<void>;
   delete(id: string): Promise<void>;
-  test(config: unknown, password: string): Promise<void>;
+  test(config: unknown, password: string, connectionId?: string): Promise<void>;
   connect(id: string): Promise<void>;
   disconnect(id: string): Promise<void>;
   testSshTunnel(config: unknown): Promise<void>;

@@ -51,8 +51,15 @@ export function useDeleteConnection() {
 
 export function useTestConnection() {
   return useMutation({
-    mutationFn: ({ config, password }: { config: ConnectionConfig; password: string }) =>
-      getConnectionService().test(config, password),
+    mutationFn: ({
+      config,
+      password,
+      connectionId,
+    }: {
+      config: ConnectionConfig;
+      password: string;
+      connectionId?: string;
+    }) => getConnectionService().test(config, password, connectionId),
   });
 }
 

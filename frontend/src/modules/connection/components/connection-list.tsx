@@ -24,6 +24,7 @@ export function ConnectionList({ onEdit, onBackup, onRestore }: ConnectionListPr
   const deleteMutation = useDeleteConnection();
   const activeConnectionId = useConnectionStore((s) => s.activeConnectionId);
   const statuses = useConnectionModuleStore((s) => s.statuses);
+  const connectionErrors = useConnectionModuleStore((s) => s.connectionErrors);
   const [filterTag, setFilterTag] = useState<string | null>(null);
   const [filterGroup, setFilterGroup] = useState<string | null>(null);
 
@@ -215,6 +216,7 @@ export function ConnectionList({ onEdit, onBackup, onRestore }: ConnectionListPr
               {filteredConnections.map((conn) => {
                 const status = getStatus(conn);
                 return (
+                  <>
                   <tr
                     key={conn.id}
                     className={cn(
@@ -332,6 +334,14 @@ export function ConnectionList({ onEdit, onBackup, onRestore }: ConnectionListPr
                       </div>
                     </td>
                   </tr>
+                  {connectionErrors[conn.id] && (
+                    <tr className="border-t border-border bg-destructive/5">
+                      <td colSpan={6} className="px-4 py-2 text-xs text-destructive">
+                        {connectionErrors[conn.id]}
+                      </td>
+                    </tr>
+                  )}
+                  </>
                 );
               })}
             </tbody>

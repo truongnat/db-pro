@@ -76,7 +76,7 @@ export function ConnectionEditPage() {
 
   const handleTest = (data: ConnectionFormData, password: string) => {
     testMutation.mutate(
-      { config: { ...data, sshTunnel: data.sshTunnel }, password },
+      { config: { ...data, sshTunnel: data.sshTunnel }, password, connectionId: editId ?? undefined },
       {
         onSuccess: () => snackbar.success(t("connection.testSuccess")),
         onError: () => snackbar.error(t("connection.testFailed")),

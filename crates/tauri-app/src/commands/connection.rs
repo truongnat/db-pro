@@ -71,9 +71,23 @@ pub async fn test_connection(
     service: State<'_, ConnectionService>,
     config: ConnectionConfigDto,
     password: String,
+    connection_id: Option<String>,
 ) -> Result<(), CommandError> {
     let domain_config = config.to_domain();
-    service.test_connectivity(&domain_config, &password).await?;
+    match connection_id {
+        Some(id) => {
+            let conn_id = ConnectionId::parse(&id).map_err(|e| CommandError {
+                error: "VALIDATION".into(),
+                message: format!("invalid connection id: {e}"),
+                message_id: "error.validation".into(),
+                details: None,
+            })?;
+            service
+                .test_connectivity_with_secret(&conn_id, &domain_config, &password)
+                .await?;
+        }
+        None => service.test_connectivity(&domain_config, &password).await?,
+    }
     Ok(())
 }
 

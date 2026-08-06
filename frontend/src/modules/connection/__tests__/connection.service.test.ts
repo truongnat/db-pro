@@ -98,6 +98,17 @@ describe("ConnectionService", () => {
     expect(mockInvoke).toHaveBeenCalledWith("test_connection", {
       config: sampleConfig,
       password: "secret",
+      connectionId: undefined,
+    });
+  });
+
+  it("test passes connectionId when provided", async () => {
+    mockInvoke.mockResolvedValue(undefined);
+    await service.test(sampleConfig, "", "conn-1");
+    expect(mockInvoke).toHaveBeenCalledWith("test_connection", {
+      config: sampleConfig,
+      password: "",
+      connectionId: "conn-1",
     });
   });
 

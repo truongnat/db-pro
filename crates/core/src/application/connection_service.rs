@@ -169,6 +169,23 @@ impl ConnectionService {
     pub async fn test_connectivity(&self, config: &ConnectionConfig, password: &str) -> Result<(), DbError> {
         self.connector.test_connection(config, password).await
     }
+
+    pub async fn test_connectivity_with_secret(
+        &self,
+        id: &ConnectionId,
+        config: &ConnectionConfig,
+        password: &str,
+    ) -> Result<(), DbError> {
+        let resolved = if password.is_empty() {
+            self.secrets
+                .retrieve_secret(&Self::secret_key(id))
+                .await?
+                .ok_or_else(|| DbError::AuthFailed("password not found in secret store".into()))?
+        } else {
+            password.to_string()
+        };
+        self.connector.test_connection(config, &resolved).await
+    }
 }
 
 #[cfg(test)]
@@ -342,6 +359,53 @@ mod tests {
 
         let svc = build_service(connector, MockConnectionRepository::new(), MockSecretStore::new());
         let result = svc.test_connectivity(&test_config(), "pass").await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_connectivity_with_secret_uses_saved_password_when_empty() {
+        let id = ConnectionId::new();
+        let key = ConnectionService::secret_key(&id);
+
+        let mut connector = MockDbConnector::new();
+        connector.expect_test_connection().returning(|_, password| {
+            assert_eq!(password, "saved-pass");
+            Ok(())
+        });
+
+        let mut secrets = MockSecretStore::new();
+        secrets.expect_retrieve_secret().returning({
+            let key = key.clone();
+            move |k| {
+                assert_eq!(k, &key);
+                Ok(Some("saved-pass".into()))
+            }
+        });
+
+        let svc = build_service(connector, MockConnectionRepository::new(), secrets);
+        let result = svc
+            .test_connectivity_with_secret(&id, &test_config(), "")
+            .await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_connectivity_with_secret_uses_provided_password_when_present() {
+        let id = ConnectionId::new();
+
+        let mut connector = MockDbConnector::new();
+        connector.expect_test_connection().returning(|_, password| {
+            assert_eq!(password, "typed-pass");
+            Ok(())
+        });
+
+        let mut secrets = MockSecretStore::new();
+        secrets.expect_retrieve_secret().returning(|_| Ok(Some("saved-pass".into())));
+
+        let svc = build_service(connector, MockConnectionRepository::new(), secrets);
+        let result = svc
+            .test_connectivity_with_secret(&id, &test_config(), "typed-pass")
+            .await;
         assert!(result.is_ok());
     }
 

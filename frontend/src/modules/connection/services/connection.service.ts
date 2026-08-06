@@ -23,8 +23,8 @@ export class ConnectionService {
     return apiInvoke<void>("delete_connection", { id });
   }
 
-  async test(config: ConnectionConfig, password: string): Promise<void> {
-    return apiInvoke<void>("test_connection", { config, password });
+  async test(config: ConnectionConfig, password: string, connectionId?: string): Promise<void> {
+    return apiInvoke<void>("test_connection", { config, password, connectionId });
   }
 
   async connect(id: string): Promise<void> {
