@@ -1,14 +1,21 @@
 use async_trait::async_trait;
 use db_pro_core::domain::connection::{ConnectionConfig, ConnectionHandle};
 use db_pro_core::domain::error::DbError;
-use db_pro_core::domain::query::{PlaceholderStyle, QueryParam, QueryResult};
+use db_pro_core::domain::query::{QueryParam, QueryResult};
 use db_pro_core::domain::schema::IntrospectResult;
-use db_pro_core::ports::DbConnector;
+use db_pro_core::ports::{DbConnector, SqlDialect};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 use tokio::sync::RwLock;
 
 use super::actor::SqliteHandle;
+
+struct SqliteDialect;
+impl SqlDialect for SqliteDialect {
+    fn placeholder(&self, _index: usize) -> String {
+        "?".to_string()
+    }
+}
 
 pub struct ActorEntry {
     pub handle: SqliteHandle,
@@ -108,7 +115,7 @@ impl DbConnector for SQLiteConnector {
         entry.handle.explain(sql.into()).await
     }
 
-    fn placeholder_style(&self, _handle: &ConnectionHandle) -> PlaceholderStyle {
-        PlaceholderStyle::Question
+    fn dialect(&self, _handle: &ConnectionHandle) -> Result<Box<dyn SqlDialect>, DbError> {
+        Ok(Box::new(SqliteDialect))
     }
 }

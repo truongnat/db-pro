@@ -29,10 +29,10 @@ impl TableDataService {
         offset: u64,
     ) -> Result<(QueryResult, u64), DbError> {
         let handle = self.resolve_handle(connection_id)?;
-        let style = self.connector.placeholder_style(&handle);
+        let dialect = self.connector.dialect(&handle)?;
 
-        let (select_sql, select_params) = sql_builder::build_select(style, schema, table, filters, sorts, limit, offset);
-        let (count_sql, count_params) = sql_builder::build_count(style, schema, table, filters);
+        let (select_sql, select_params) = sql_builder::build_select(dialect.as_ref(), schema, table, filters, sorts, limit, offset);
+        let (count_sql, count_params) = sql_builder::build_count(dialect.as_ref(), schema, table, filters);
 
         let count_result = self.connector.query(&handle, &count_sql, &count_params).await?;
         let data_result = self.connector.query(&handle, &select_sql, &select_params).await?;
@@ -66,8 +66,8 @@ impl TableDataService {
         values: &[CellValue],
     ) -> Result<u64, DbError> {
         let handle = self.resolve_handle(connection_id)?;
-        let style = self.connector.placeholder_style(&handle);
-        let (sql, params) = sql_builder::build_insert(style, schema, table, columns, values);
+        let dialect = self.connector.dialect(&handle)?;
+        let (sql, params) = sql_builder::build_insert(dialect.as_ref(), schema, table, columns, values);
         self.connector.execute(&handle, &sql, &params).await
     }
 
@@ -87,8 +87,8 @@ impl TableDataService {
             ));
         }
         let handle = self.resolve_handle(connection_id)?;
-        let style = self.connector.placeholder_style(&handle);
-        let (sql, params) = sql_builder::build_update(style, schema, table, columns, values, pk_columns, pk_values);
+        let dialect = self.connector.dialect(&handle)?;
+        let (sql, params) = sql_builder::build_update(dialect.as_ref(), schema, table, columns, values, pk_columns, pk_values);
         self.connector.execute(&handle, &sql, &params).await
     }
 
@@ -106,8 +106,8 @@ impl TableDataService {
             ));
         }
         let handle = self.resolve_handle(connection_id)?;
-        let style = self.connector.placeholder_style(&handle);
-        let (sql, params) = sql_builder::build_delete(style, schema, table, pk_columns, pk_values);
+        let dialect = self.connector.dialect(&handle)?;
+        let (sql, params) = sql_builder::build_delete(dialect.as_ref(), schema, table, pk_columns, pk_values);
         self.connector.execute(&handle, &sql, &params).await
     }
 
@@ -126,7 +126,15 @@ mod tests {
     use super::*;
     use crate::domain::connection::ConnectionHandle;
     use crate::domain::query::*;
+    use crate::ports::dialect::SqlDialect;
     use crate::ports::MockDbConnector;
+
+    struct QuestionDialect;
+    impl SqlDialect for QuestionDialect {
+        fn placeholder(&self, _index: usize) -> String {
+            "?".to_string()
+        }
+    }
 
     fn setup() -> (ConnectionId, Arc<ConnectionRegistry>) {
         let conn_id = ConnectionId::new();
@@ -140,7 +148,7 @@ mod tests {
         let (conn_id, registry) = setup();
 
         let mut connector = MockDbConnector::new();
-        connector.expect_placeholder_style().returning(|_| PlaceholderStyle::Question);
+        connector.expect_dialect().returning(|_| Ok(Box::new(QuestionDialect) as Box<dyn SqlDialect>));
         connector
             .expect_query()
             .times(2)
@@ -173,7 +181,7 @@ mod tests {
         let (conn_id, registry) = setup();
 
         let mut connector = MockDbConnector::new();
-        connector.expect_placeholder_style().returning(|_| PlaceholderStyle::Question);
+        connector.expect_dialect().returning(|_| Ok(Box::new(QuestionDialect) as Box<dyn SqlDialect>));
         connector.expect_execute().returning(|_, sql, _| {
             assert!(sql.contains("INSERT INTO"));
             Ok(1)
@@ -198,7 +206,7 @@ mod tests {
         let (conn_id, registry) = setup();
 
         let mut connector = MockDbConnector::new();
-        connector.expect_placeholder_style().returning(|_| PlaceholderStyle::Question);
+        connector.expect_dialect().returning(|_| Ok(Box::new(QuestionDialect) as Box<dyn SqlDialect>));
         connector.expect_execute().returning(|_, sql, params| {
             assert!(sql.contains("UPDATE"));
             assert!(sql.contains("WHERE"));
@@ -227,7 +235,7 @@ mod tests {
         let (conn_id, registry) = setup();
 
         let mut connector = MockDbConnector::new();
-        connector.expect_placeholder_style().returning(|_| PlaceholderStyle::Question);
+        connector.expect_dialect().returning(|_| Ok(Box::new(QuestionDialect) as Box<dyn SqlDialect>));
         connector.expect_execute().returning(|_, sql, params| {
             assert!(sql.contains("DELETE FROM"));
             assert_eq!(params.len(), 1);

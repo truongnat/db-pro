@@ -5,12 +5,26 @@ use std::sync::RwLock;
 use async_trait::async_trait;
 use db_pro_core::domain::connection::{ConnectionConfig, ConnectionHandle, DriverType};
 use db_pro_core::domain::error::DbError;
-use db_pro_core::domain::query::{PlaceholderStyle, QueryParam, QueryResult};
+use db_pro_core::domain::query::{QueryParam, QueryResult};
 use db_pro_core::domain::schema::IntrospectResult;
-use db_pro_core::ports::DbConnector;
+use db_pro_core::ports::{DbConnector, SqlDialect};
 
 use crate::postgres::connector::PostgresConnector;
 use crate::sqlite::connector::SQLiteConnector;
+
+struct PostgresDialect;
+impl SqlDialect for PostgresDialect {
+    fn placeholder(&self, index: usize) -> String {
+        format!("${index}")
+    }
+}
+
+struct SqliteDialect;
+impl SqlDialect for SqliteDialect {
+    fn placeholder(&self, _index: usize) -> String {
+        "?".to_string()
+    }
+}
 
 pub struct CompositeConnector {
     postgres: PostgresConnector,
@@ -148,11 +162,10 @@ impl DbConnector for CompositeConnector {
         }
     }
 
-    fn placeholder_style(&self, handle: &ConnectionHandle) -> PlaceholderStyle {
-        match self.driver_of(handle) {
-            Ok(DriverType::Postgres) => PlaceholderStyle::DollarN,
-            Ok(DriverType::SQLite) => PlaceholderStyle::Question,
-            Err(_) => PlaceholderStyle::Question,
+    fn dialect(&self, handle: &ConnectionHandle) -> Result<Box<dyn SqlDialect>, DbError> {
+        match self.driver_of(handle)? {
+            DriverType::Postgres => Ok(Box::new(PostgresDialect)),
+            DriverType::SQLite => Ok(Box::new(SqliteDialect)),
         }
     }
 }

@@ -1,5 +1,6 @@
 pub mod connection_repository;
 pub mod db_connector;
+pub mod dialect;
 pub mod introspection_cache;
 pub mod query_history_repository;
 pub mod saved_query_repository;
@@ -9,6 +10,7 @@ pub mod workspace_repository;
 
 pub use connection_repository::ConnectionRepository;
 pub use db_connector::DbConnector;
+pub use dialect::SqlDialect;
 pub use introspection_cache::IntrospectionCache;
 pub use query_history_repository::QueryHistoryRepository;
 pub use saved_query_repository::SavedQueryRepository;

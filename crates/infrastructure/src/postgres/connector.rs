@@ -1,13 +1,20 @@
 use async_trait::async_trait;
 use db_pro_core::domain::connection::{ConnectionConfig, ConnectionHandle};
 use db_pro_core::domain::error::DbError;
-use db_pro_core::domain::query::{PlaceholderStyle, QueryParam, QueryResult};
+use db_pro_core::domain::query::{QueryParam, QueryResult};
 use db_pro_core::domain::schema::IntrospectResult;
-use db_pro_core::ports::DbConnector;
+use db_pro_core::ports::{DbConnector, SqlDialect};
 use sqlx::{Executor as _, PgPool};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 use tokio::sync::RwLock;
+
+struct PostgresDialect;
+impl SqlDialect for PostgresDialect {
+    fn placeholder(&self, index: usize) -> String {
+        format!("${index}")
+    }
+}
 
 pub struct PoolEntry {
     pub pool: PgPool,
@@ -171,7 +178,7 @@ impl DbConnector for PostgresConnector {
         Ok(row.0)
     }
 
-    fn placeholder_style(&self, _handle: &ConnectionHandle) -> PlaceholderStyle {
-        PlaceholderStyle::DollarN
+    fn dialect(&self, _handle: &ConnectionHandle) -> Result<Box<dyn SqlDialect>, DbError> {
+        Ok(Box::new(PostgresDialect))
     }
 }

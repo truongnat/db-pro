@@ -4,8 +4,9 @@ use async_trait::async_trait;
 
 use crate::domain::connection::{ConnectionConfig, ConnectionHandle};
 use crate::domain::error::DbError;
-use crate::domain::query::{PlaceholderStyle, QueryParam, QueryResult};
+use crate::domain::query::{QueryParam, QueryResult};
 use crate::domain::schema::IntrospectResult;
+use crate::ports::dialect::SqlDialect;
 
 #[cfg_attr(test, mockall::automock)]
 #[async_trait]
@@ -24,7 +25,7 @@ pub trait DbConnector: Send + Sync {
 
     async fn explain(&self, handle: &ConnectionHandle, sql: &str) -> Result<serde_json::Value, DbError>;
 
-    fn placeholder_style(&self, handle: &ConnectionHandle) -> PlaceholderStyle;
+    fn dialect(&self, handle: &ConnectionHandle) -> Result<Box<dyn SqlDialect>, DbError>;
 }
 
 #[async_trait]
@@ -57,7 +58,7 @@ impl<T: DbConnector + ?Sized> DbConnector for Arc<T> {
         self.as_ref().explain(handle, sql).await
     }
 
-    fn placeholder_style(&self, handle: &ConnectionHandle) -> PlaceholderStyle {
-        self.as_ref().placeholder_style(handle)
+    fn dialect(&self, handle: &ConnectionHandle) -> Result<Box<dyn SqlDialect>, DbError> {
+        self.as_ref().dialect(handle)
     }
 }
