@@ -2,6 +2,7 @@ import { DIContainer } from "@/commons/di/container";
 import { SERVICE_NAMES } from "@/commons/di/registry";
 import { createConnectionService } from "@/modules/connection/services/connection.service";
 import { createQueryService } from "@/modules/query/services/query.service";
+import { createSchemaService } from "@/modules/schema/services/schema.service";
 
 const container = new DIContainer();
 let bootstrapped = false;
@@ -17,9 +18,9 @@ export async function bootstrapServices(): Promise<DIContainer> {
     createQueryService(),
   );
 
-  container.register(SERVICE_NAMES.SCHEMA_SERVICE, () => {
-    throw new Error("SchemaService not yet implemented (Phase 9)");
-  });
+  container.register(SERVICE_NAMES.SCHEMA_SERVICE, () =>
+    createSchemaService(),
+  );
 
   container.register(SERVICE_NAMES.EXPORT_SERVICE, () => {
     throw new Error("ExportService not yet implemented (Phase 11)");
