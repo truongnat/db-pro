@@ -91,7 +91,13 @@ impl QueryService {
                 StatementClass::Read => {
                     match self.connector.query(&handle, stmt, &[]).await {
                         Ok(result) => {
-                            result.validate().map_err(|e| DbError::QueryFailed(e))?;
+                            if let Err(e) = result.validate() {
+                                return Ok(MultiQueryResult {
+                                    results,
+                                    total_duration_ms: start.elapsed().as_millis() as u64,
+                                    error: Some((idx, e)),
+                                });
+                            }
                             results.push(result);
                         }
                         Err(e) => {
@@ -242,18 +248,92 @@ enum StatementClass {
 }
 
 fn classify_statement(sql: &str) -> StatementClass {
-    let trimmed = sql.trim_start();
-    let upper = trimmed.to_ascii_uppercase();
-    if upper.starts_with("SELECT")
-        || upper.starts_with("WITH")
-        || upper.starts_with("SHOW")
-        || upper.starts_with("EXPLAIN")
-        || upper.starts_with("TABLE")
-    {
-        StatementClass::Read
-    } else {
-        StatementClass::Write
+    let keyword = effective_keyword(sql);
+    match keyword {
+        Some(k) if is_read_keyword(&k) => StatementClass::Read,
+        _ => StatementClass::Write,
     }
+}
+
+fn is_read_keyword(word: &str) -> bool {
+    matches!(word, "SELECT" | "SHOW" | "EXPLAIN" | "TABLE")
+}
+
+/// Extracts the effective first keyword of a SQL statement, handling
+/// leading comments and WITH...CTE chains. For `WITH cte AS (...) UPDATE ...`,
+/// returns "UPDATE" (not "WITH").
+fn effective_keyword(sql: &str) -> Option<String> {
+    let trimmed = strip_leading_comments(sql).trim_start();
+    let upper = trimmed.to_ascii_uppercase();
+
+    let first = upper.split_whitespace().next()?;
+
+    if first != "WITH" && !first.starts_with("WITH") {
+        return Some(first.to_string());
+    }
+
+    // Check it's actually the keyword WITH (not WITHDRAWAL etc.)
+    let after_with = &trimmed[4..];
+    if !after_with.is_empty() && after_with.chars().next().unwrap().is_alphanumeric() {
+        return Some(first.to_string());
+    }
+
+    // WITH statement: scan past CTE definitions to find the main keyword.
+    // Track parenthesis depth; after the last CTE closes at depth 0,
+    // the next keyword is the actual statement type.
+    let chars: Vec<char> = trimmed.chars().collect();
+    let len = chars.len();
+    let mut i = 4; // skip "WITH"
+    let mut depth: i32 = 0;
+
+    while i < len {
+        match chars[i] {
+            '(' => depth += 1,
+            ')' => {
+                depth -= 1;
+                if depth == 0 {
+                    // Skip whitespace after closing paren
+                    i += 1;
+                    while i < len && chars[i].is_whitespace() {
+                        i += 1;
+                    }
+                    if i < len && chars[i] == ',' {
+                        // Another CTE follows — skip name + AS
+                        i += 1;
+                        continue;
+                    }
+                    // No comma: next word is the main statement keyword
+                    let remaining: String = chars[i..].iter().collect();
+                    return remaining
+                        .trim_start()
+                        .split_whitespace()
+                        .next()
+                        .map(|s| s.to_string());
+                }
+            }
+            _ => {}
+        }
+        i += 1;
+    }
+
+    // Fallback: couldn't parse past CTEs, treat WITH as read
+    Some("WITH".to_string())
+}
+
+fn strip_leading_comments(sql: &str) -> &str {
+    let mut s = sql.trim_start();
+    loop {
+        if s.starts_with("--") {
+            // Line comment: skip to end of line
+            s = s.find('\n').map(|i| &s[i + 1..]).unwrap_or("").trim_start();
+        } else if s.starts_with("/*") {
+            // Block comment: skip to */
+            s = s.find("*/").map(|i| &s[i + 2..]).unwrap_or("").trim_start();
+        } else {
+            break;
+        }
+    }
+    s
 }
 
 #[cfg(test)]
@@ -408,5 +488,51 @@ mod tests {
 
         let result = svc.execute(&conn_id, "SELECT 1", &[]).await;
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn classify_simple_select_is_read() {
+        assert!(matches!(classify_statement("SELECT 1"), StatementClass::Read));
+    }
+
+    #[test]
+    fn classify_simple_insert_is_write() {
+        assert!(matches!(classify_statement("INSERT INTO t VALUES (1)"), StatementClass::Write));
+    }
+
+    #[test]
+    fn classify_with_select_is_read() {
+        let sql = "WITH cte AS (SELECT id FROM t) SELECT * FROM cte";
+        assert!(matches!(classify_statement(sql), StatementClass::Read));
+    }
+
+    #[test]
+    fn classify_with_update_is_write() {
+        let sql = "WITH changed AS (SELECT id FROM t) UPDATE t SET x = 1 WHERE id IN (SELECT id FROM changed)";
+        assert!(matches!(classify_statement(sql), StatementClass::Write));
+    }
+
+    #[test]
+    fn classify_with_delete_is_write() {
+        let sql = "WITH deleted AS (SELECT id FROM t) DELETE FROM t WHERE id IN (SELECT id FROM deleted)";
+        assert!(matches!(classify_statement(sql), StatementClass::Write));
+    }
+
+    #[test]
+    fn classify_with_multiple_ctes_update_is_write() {
+        let sql = "WITH a AS (SELECT 1), b AS (SELECT 2) UPDATE t SET x = 1";
+        assert!(matches!(classify_statement(sql), StatementClass::Write));
+    }
+
+    #[test]
+    fn classify_leading_comment_stripped() {
+        let sql = "-- comment\nSELECT 1";
+        assert!(matches!(classify_statement(sql), StatementClass::Read));
+    }
+
+    #[test]
+    fn classify_leading_block_comment_stripped() {
+        let sql = "/* block */ INSERT INTO t VALUES (1)";
+        assert!(matches!(classify_statement(sql), StatementClass::Write));
     }
 }

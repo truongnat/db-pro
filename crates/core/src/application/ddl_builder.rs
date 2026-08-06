@@ -215,9 +215,16 @@ fn validate_raw_fragment(value: &str, field_name: &str) -> Result<(), String> {
         return Err(format!("{field_name} must not contain semicolons"));
     }
     let upper = value.to_ascii_uppercase();
-    for keyword in &["DROP ", "DELETE ", "INSERT ", "UPDATE "] {
-        if upper.contains(keyword) {
-            return Err(format!("{field_name} must not contain {keyword}statements"));
+    let tokens: Vec<&str> = upper
+        .split(|c: char| !c.is_alphanumeric() && c != '_')
+        .filter(|t| !t.is_empty())
+        .collect();
+    for token in &tokens {
+        match *token {
+            "DROP" | "DELETE" | "INSERT" | "UPDATE" => {
+                return Err(format!("{field_name} must not contain {token} statements"));
+            }
+            _ => {}
         }
     }
     Ok(())
@@ -317,5 +324,12 @@ mod tests {
         let dialect = TestDialect;
         let err = build_create_view(&dialect, "public", "v1", "SELECT 1; DROP TABLE x").unwrap_err();
         assert!(err.contains("semicolons"));
+    }
+
+    #[test]
+    fn validate_accepts_identifier_containing_keyword_substring() {
+        assert!(validate_raw_fragment("my_drop_column", "data_type").is_ok());
+        assert!(validate_raw_fragment("last_update_time", "data_type").is_ok());
+        assert!(validate_raw_fragment("auto_increment", "data_type").is_ok());
     }
 }
