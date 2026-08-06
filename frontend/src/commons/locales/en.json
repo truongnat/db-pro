@@ -1,0 +1,99 @@
+{
+  "error": {
+    "connection": {
+      "failed": "Connection failed"
+    },
+    "query": {
+      "failed": "Query execution failed"
+    },
+    "not_found": "Resource not found",
+    "auth": {
+      "failed": "Authentication failed"
+    },
+    "timeout": "Operation timed out",
+    "io": "I/O error occurred",
+    "introspection": {
+      "failed": "Schema introspection failed"
+    },
+    "encryption": {
+      "failed": "Encryption operation failed"
+    },
+    "validation": "Validation error",
+    "internal": "Internal error",
+    "unknown": "An unexpected error occurred"
+  },
+  "common": {
+    "actions": {
+      "save": "Save",
+      "cancel": "Cancel",
+      "delete": "Delete",
+      "confirm": "Confirm",
+      "retry": "Retry",
+      "close": "Close",
+      "copy": "Copy",
+      "refresh": "Refresh"
+    },
+    "states": {
+      "loading": "Loading...",
+      "empty": "No data",
+      "error": "Error",
+      "ready": "Ready",
+      "connected": "Connected",
+      "disconnected": "Disconnected"
+    },
+    "labels": {
+      "name": "Name",
+      "host": "Host",
+      "port": "Port",
+      "database": "Database",
+      "username": "Username",
+      "password": "Password"
+    }
+  },
+  "connection": {
+    "title": "Connections",
+    "new": "New Connection",
+    "edit": "Edit Connection",
+    "test": "Test Connection",
+    "testSuccess": "Connection test successful",
+    "testFailed": "Connection test failed"
+  },
+  "query": {
+    "title": "Query Editor",
+    "execute": "Execute",
+    "explain": "Explain",
+    "clear": "Clear",
+    "format": "Format SQL",
+    "history": "Query History",
+    "noResults": "No results",
+    "rowsAffected": "{{count}} row affected",
+    "rowsAffected_other": "{{count}} rows affected",
+    "duration": "{{duration}}ms"
+  },
+  "schema": {
+    "title": "Schema Browser",
+    "tables": "Tables",
+    "views": "Views",
+    "columns": "Columns",
+    "indexes": "Indexes",
+    "foreignKeys": "Foreign Keys"
+  },
+  "export": {
+    "title": "Export",
+    "csv": "Export as CSV",
+    "json": "Export as JSON",
+    "excel": "Export as Excel",
+    "success": "Export completed",
+    "failed": "Export failed"
+  },
+  "settings": {
+    "title": "Settings",
+    "language": "Language",
+    "theme": "Theme",
+    "pageSize": "Page Size",
+    "autoCommit": "Auto-commit"
+  },
+  "snackbar": {
+    "dismiss": "Dismiss"
+  }
+}

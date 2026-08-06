@@ -1,0 +1,99 @@
+{
+  "error": {
+    "connection": {
+      "failed": "接続に失敗しました"
+    },
+    "query": {
+      "failed": "クエリの実行に失敗しました"
+    },
+    "not_found": "リソースが見つかりません",
+    "auth": {
+      "failed": "認証に失敗しました"
+    },
+    "timeout": "操作がタイムアウトしました",
+    "io": "I/Oエラーが発生しました",
+    "introspection": {
+      "failed": "スキーマのイントロスペクションに失敗しました"
+    },
+    "encryption": {
+      "failed": "暗号化操作に失敗しました"
+    },
+    "validation": "バリデーションエラー",
+    "internal": "内部エラー",
+    "unknown": "予期しないエラーが発生しました"
+  },
+  "common": {
+    "actions": {
+      "save": "保存",
+      "cancel": "キャンセル",
+      "delete": "削除",
+      "confirm": "確認",
+      "retry": "再試行",
+      "close": "閉じる",
+      "copy": "コピー",
+      "refresh": "更新"
+    },
+    "states": {
+      "loading": "読み込み中...",
+      "empty": "データなし",
+      "error": "エラー",
+      "ready": "準備完了",
+      "connected": "接続済み",
+      "disconnected": "未接続"
+    },
+    "labels": {
+      "name": "名前",
+      "host": "ホスト",
+      "port": "ポート",
+      "database": "データベース",
+      "username": "ユーザー名",
+      "password": "パスワード"
+    }
+  },
+  "connection": {
+    "title": "接続一覧",
+    "new": "新規接続",
+    "edit": "接続編集",
+    "test": "接続テスト",
+    "testSuccess": "接続テスト成功",
+    "testFailed": "接続テスト失敗"
+  },
+  "query": {
+    "title": "クエリエディタ",
+    "execute": "実行",
+    "explain": "説明",
+    "clear": "クリア",
+    "format": "SQLフォーマット",
+    "history": "クエリ履歴",
+    "noResults": "結果なし",
+    "rowsAffected": "{{count}}行影響",
+    "rowsAffected_other": "{{count}}行影響",
+    "duration": "{{duration}}ms"
+  },
+  "schema": {
+    "title": "スキーマブラウザ",
+    "tables": "テーブル",
+    "views": "ビュー",
+    "columns": "カラム",
+    "indexes": "インデックス",
+    "foreignKeys": "外部キー"
+  },
+  "export": {
+    "title": "エクスポート",
+    "csv": "CSVでエクスポート",
+    "json": "JSONでエクスポート",
+    "excel": "Excelでエクスポート",
+    "success": "エクスポート完了",
+    "failed": "エクスポート失敗"
+  },
+  "settings": {
+    "title": "設定",
+    "language": "言語",
+    "theme": "テーマ",
+    "pageSize": "ページサイズ",
+    "autoCommit": "自動コミット"
+  },
+  "snackbar": {
+    "dismiss": "閉じる"
+  }
+}

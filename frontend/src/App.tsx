@@ -2,6 +2,8 @@ import { createRouter, RouterProvider } from "@tanstack/react-router";
 import { routeTree } from "./routeTree.gen";
 import { ThemeProvider } from "./app/providers/theme-provider";
 import { QueryProvider } from "./app/providers/query-provider";
+import { SnackbarProvider } from "./app/providers/snackbar.provider";
+import { ModalProvider } from "./app/providers/modal.provider";
 
 const router = createRouter({ routeTree });
 
@@ -15,7 +17,11 @@ function App() {
   return (
     <ThemeProvider>
       <QueryProvider>
-        <RouterProvider router={router} />
+        <SnackbarProvider>
+          <ModalProvider>
+            <RouterProvider router={router} />
+          </ModalProvider>
+        </SnackbarProvider>
       </QueryProvider>
     </ThemeProvider>
   );
