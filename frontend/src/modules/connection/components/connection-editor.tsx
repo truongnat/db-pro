@@ -2,10 +2,12 @@ import { useState } from "react";
 
 import { useTranslation } from "@/commons/locales/useTranslation";
 
-import type { ConnectionFormData, DriverType, SslMode } from "../types/connection.types";
+import type { ConnectionFormData, DriverType, SshTunnelConfig, SslMode } from "../types/connection.types";
+import { ColorPicker } from "./color-picker";
 import { FormCheckbox } from "./connection-form/form-checkbox";
 import { FormInput } from "./connection-form/form-input";
 import { FormSelect } from "./connection-form/form-select";
+import { TagInput } from "./tag-input";
 
 const DRIVER_OPTIONS = [
   { value: "postgres", label: "PostgreSQL" },
@@ -36,6 +38,7 @@ interface ConnectionEditorProps {
   isEdit?: boolean;
   onSubmit: (data: ConnectionFormData, password: string) => void;
   onTest?: (data: ConnectionFormData, password: string) => void;
+  onTestSshTunnel?: (config: SshTunnelConfig) => void;
   onCancel: () => void;
   isSubmitting?: boolean;
   isTesting?: boolean;
@@ -47,6 +50,7 @@ export function ConnectionEditor({
   isEdit = false,
   onSubmit,
   onTest,
+  onTestSshTunnel,
   onCancel,
   isSubmitting = false,
   isTesting = false,
@@ -104,6 +108,24 @@ export function ConnectionEditor({
         onChange={(e) => updateField("name", e.target.value)}
         required
         placeholder="My Database"
+      />
+
+      <div className="grid grid-cols-2 gap-4">
+        <ColorPicker
+          value={formData.color}
+          onChange={(color) => updateField("color", color)}
+        />
+        <FormInput
+          label={t("connection.group")}
+          value={formData.group ?? ""}
+          onChange={(e) => updateField("group", e.target.value || undefined)}
+          placeholder={t("connection.groupPlaceholder")}
+        />
+      </div>
+
+      <TagInput
+        tags={formData.tags ?? []}
+        onChange={(tags) => updateField("tags", tags)}
       />
 
       <div className="grid grid-cols-2 gap-4">
@@ -193,35 +215,56 @@ export function ConnectionEditor({
           <FormCheckbox label="Use SSH Tunnel" checked={showSsh} onChange={setShowSsh} />
 
           {showSsh && (
-            <div className="grid grid-cols-2 gap-4 rounded-[var(--radius-sm)] border p-4" style={{ borderColor: "var(--color-border)" }}>
-              <FormInput
-                label="SSH Host"
-                value={formData.sshTunnel?.host ?? ""}
-                onChange={(e) => updateSshField("host", e.target.value)}
-                required
-              />
-              <FormInput
-                label="SSH Port"
-                type="number"
-                value={formData.sshTunnel?.port ?? 22}
-                onChange={(e) => updateSshField("port", Number(e.target.value))}
-                required
-                min={1}
-                max={65535}
-              />
-              <FormInput
-                label="SSH User"
-                value={formData.sshTunnel?.user ?? ""}
-                onChange={(e) => updateSshField("user", e.target.value)}
-                required
-              />
-              <FormInput
-                label="Private Key Path"
-                value={formData.sshTunnel?.privateKeyPath ?? ""}
-                onChange={(e) => updateSshField("privateKeyPath", e.target.value)}
-                required
-                placeholder="~/.ssh/id_rsa"
-              />
+            <div className="flex flex-col gap-4 rounded-[var(--radius-sm)] border p-4" style={{ borderColor: "var(--color-border)" }}>
+              <div className="grid grid-cols-2 gap-4">
+                <FormInput
+                  label="SSH Host"
+                  value={formData.sshTunnel?.host ?? ""}
+                  onChange={(e) => updateSshField("host", e.target.value)}
+                  required
+                />
+                <FormInput
+                  label="SSH Port"
+                  type="number"
+                  value={formData.sshTunnel?.port ?? 22}
+                  onChange={(e) => updateSshField("port", Number(e.target.value))}
+                  required
+                  min={1}
+                  max={65535}
+                />
+                <FormInput
+                  label="SSH User"
+                  value={formData.sshTunnel?.user ?? ""}
+                  onChange={(e) => updateSshField("user", e.target.value)}
+                  required
+                />
+                <FormInput
+                  label="Private Key Path"
+                  value={formData.sshTunnel?.privateKeyPath ?? ""}
+                  onChange={(e) => updateSshField("privateKeyPath", e.target.value)}
+                  required
+                  placeholder="~/.ssh/id_rsa"
+                />
+                <FormInput
+                  label="Key Passphrase"
+                  type="password"
+                  value={formData.sshTunnel?.password ?? ""}
+                  onChange={(e) => updateSshField("password", e.target.value)}
+                  placeholder="(optional)"
+                />
+              </div>
+              <button
+                type="button"
+                className="self-start rounded-[var(--radius-sm)] border px-3 py-1.5 text-sm transition-colors hover:bg-[var(--color-surface)]"
+                style={{ borderColor: "var(--color-border)", color: "var(--color-text)" }}
+                onClick={() => {
+                  if (formData.sshTunnel) {
+                    onTestSshTunnel?.(formData.sshTunnel);
+                  }
+                }}
+              >
+                Test Tunnel
+              </button>
             </div>
           )}
         </div>

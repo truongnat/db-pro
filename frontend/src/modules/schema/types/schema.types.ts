@@ -67,7 +67,7 @@ export interface TableInfo {
   foreignKeys: SchemaForeignKeyDto[];
 }
 
-export type DetailTab = "columns" | "indexes" | "foreignKeys" | "ddl";
+export type DetailTab = "columns" | "indexes" | "foreignKeys" | "ddl" | "ddlEditor" | "generateCrud" | "triggers";
 
 export interface TreeNode {
   id: string;
@@ -162,4 +162,59 @@ export function sortColumnsForDisplay(
     if (a.isPrimaryKey !== b.isPrimaryKey) return a.isPrimaryKey ? -1 : 1;
     return a.name.localeCompare(b.name);
   });
+}
+
+export interface SchemaDiff {
+  tablesOnlyInSource: string[];
+  tablesOnlyInTarget: string[];
+  columnDiffs: TableColumnDiff[];
+  indexesOnlyInSource: string[];
+  indexesOnlyInTarget: string[];
+}
+
+export interface TableColumnDiff {
+  schema: string;
+  table: string;
+  columnsOnlyInSource: string[];
+  columnsOnlyInTarget: string[];
+  typeMismatches: ColumnTypeMismatch[];
+}
+
+export interface ColumnTypeMismatch {
+  column: string;
+  sourceType: string;
+  targetType: string;
+}
+
+export interface DataDiff {
+  schema: string;
+  table: string;
+  sourceRowCount: number;
+  targetRowCount: number;
+  rowCountDiff: number;
+}
+
+export interface ObjectDependency {
+  objectType: string;
+  objectName: string;
+  dependsOnType: string;
+  dependsOnName: string;
+}
+
+export interface PartitionInfo {
+  schema: string;
+  table: string;
+  partitionStrategy: string;
+  partitions: PartitionChild[];
+}
+
+export interface PartitionChild {
+  name: string;
+  boundExpr: string;
+}
+
+export interface TablespaceInfo {
+  name: string;
+  owner: string;
+  location: string;
 }

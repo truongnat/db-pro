@@ -7,14 +7,19 @@ import { useQueryHistoryStore } from "@/commons/stores/query-history.store";
 import { useQueryModuleStore } from "../state/query.store";
 import type {
   ExplainPlan,
+  MultiQueryResult,
   QueryHistoryEntry,
   QueryResult,
+  RunConfig,
   SavedQuery,
+  SavedQueryFolder,
 } from "../types/query.types";
 
 const QUERY_KEYS = {
   history: (connectionId: string) => ["query-history", connectionId] as const,
   saved: (connectionId: string) => ["saved-queries", connectionId] as const,
+  folders: (connectionId: string) => ["saved-query-folders", connectionId] as const,
+  runConfigs: (connectionId: string) => ["run-configs", connectionId] as const,
 };
 
 function getQueryService() {
@@ -44,6 +49,61 @@ export function useExecuteQuery() {
         executedAt: new Date().toISOString(),
         durationMs: data.durationMs,
         rowCount: data.rowCount,
+      });
+      qc.invalidateQueries({
+        queryKey: QUERY_KEYS.history(variables.connectionId),
+      });
+    },
+    onError: (err: unknown) => {
+      setStatus("error");
+      setError(
+        (err as { userMessage?: string }).userMessage ?? "Query execution failed",
+      );
+    },
+  });
+}
+
+export function useCancelQuery() {
+  const setStatus = useQueryModuleStore((s) => s.setStatus);
+  const setError = useQueryModuleStore((s) => s.setError);
+
+  return useMutation({
+    mutationFn: ({ connectionId }: { connectionId: string }) =>
+      getQueryService().cancel(connectionId),
+    onSuccess: () => {
+      setStatus("idle");
+      setError(null);
+    },
+  });
+}
+
+export function useExecuteQueryMulti() {
+  const qc = useQueryClient();
+  const setStatus = useQueryModuleStore((s) => s.setStatus);
+  const setError = useQueryModuleStore((s) => s.setError);
+  const setMultiResults = useQueryModuleStore((s) => s.setMultiResults);
+  const setResult = useQueryModuleStore((s) => s.setResult);
+
+  return useMutation({
+    mutationFn: ({ connectionId, sql }: { connectionId: string; sql: string }) =>
+      getQueryService().executeMulti(connectionId, sql) as Promise<MultiQueryResult>,
+    onMutate: () => {
+      setStatus("running");
+      setError(null);
+    },
+    onSuccess: (data, variables) => {
+      setStatus("success");
+      setMultiResults(data.results);
+      if (data.results.length > 0) {
+        setResult(data.results[0]);
+      }
+      useQueryHistoryStore.getState().addEntry({
+        id: crypto.randomUUID(),
+        connectionId: variables.connectionId,
+        sql: variables.sql,
+        executedAt: new Date().toISOString(),
+        durationMs: data.totalDurationMs,
+        rowCount: data.results.reduce((sum, r) => sum + r.rowCount, 0),
       });
       qc.invalidateQueries({
         queryKey: QUERY_KEYS.history(variables.connectionId),
@@ -117,6 +177,80 @@ export function useDeleteSavedQuery() {
       getQueryService().deleteSaved(id),
     onSuccess: (_, variables) => {
       qc.invalidateQueries({ queryKey: QUERY_KEYS.saved(variables.connectionId) });
+    },
+  });
+}
+
+export function useListFolders(connectionId: string) {
+  return useQuery({
+    queryKey: QUERY_KEYS.folders(connectionId),
+    queryFn: () =>
+      getQueryService().listFolders(connectionId) as Promise<SavedQueryFolder[]>,
+    enabled: !!connectionId,
+  });
+}
+
+export function useCreateFolder() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ connectionId, name }: { connectionId: string; name: string }) =>
+      getQueryService().createFolder(connectionId, name) as Promise<SavedQueryFolder>,
+    onSuccess: (_, variables) => {
+      qc.invalidateQueries({ queryKey: QUERY_KEYS.folders(variables.connectionId) });
+    },
+  });
+}
+
+export function useDeleteFolder() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, connectionId }: { id: string; connectionId: string }) =>
+      getQueryService().deleteFolder(id),
+    onSuccess: (_, variables) => {
+      qc.invalidateQueries({ queryKey: QUERY_KEYS.folders(variables.connectionId) });
+    },
+  });
+}
+
+export function useListRunConfigs(connectionId: string) {
+  return useQuery({
+    queryKey: QUERY_KEYS.runConfigs(connectionId),
+    queryFn: () =>
+      getQueryService().listRunConfigs(connectionId) as Promise<RunConfig[]>,
+    enabled: !!connectionId,
+  });
+}
+
+export function useSaveRunConfig() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      connectionId,
+      name,
+      sql,
+      timeoutMs,
+      maxRows,
+    }: {
+      connectionId: string;
+      name: string;
+      sql: string;
+      timeoutMs: number;
+      maxRows: number;
+    }) =>
+      getQueryService().saveRunConfig(connectionId, name, sql, timeoutMs, maxRows) as Promise<RunConfig>,
+    onSuccess: (_, variables) => {
+      qc.invalidateQueries({ queryKey: QUERY_KEYS.runConfigs(variables.connectionId) });
+    },
+  });
+}
+
+export function useDeleteRunConfig() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, connectionId }: { id: string; connectionId: string }) =>
+      getQueryService().deleteRunConfig(id),
+    onSuccess: (_, variables) => {
+      qc.invalidateQueries({ queryKey: QUERY_KEYS.runConfigs(variables.connectionId) });
     },
   });
 }

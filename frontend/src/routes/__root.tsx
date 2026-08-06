@@ -9,6 +9,7 @@ const NAV_ITEMS = [
   { to: "/query", label: "Query" },
   { to: "/schema", label: "Schema" },
   { to: "/data", label: "Data" },
+  { to: "/users", label: "Users" },
 ] as const;
 
 function RootLayout() {

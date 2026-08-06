@@ -1,10 +1,11 @@
-import { useRef, useCallback } from "react";
+import { useRef, useCallback, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 
 import { renderCellValue } from "@/modules/query/types/query.types";
 
 import { CellEditor } from "./cell-editor";
 import { ColumnHeader } from "./column-header";
+import { JsonCellRenderer } from "./json-cell-renderer";
 import { RowActions } from "./row-actions";
 import { EmptyState } from "./empty-state";
 import { LoadingOverlay } from "./loading-overlay";
@@ -23,6 +24,8 @@ interface DataGridProps {
   isDeleting: boolean;
   isLoading: boolean;
   pkColumns: string[];
+  frozenColumns?: string[];
+  onToggleFreezeColumn?: (column: string) => void;
 }
 
 export function DataGrid({
@@ -37,9 +40,12 @@ export function DataGrid({
   isDeleting,
   isLoading,
   pkColumns,
+  frozenColumns = [],
+  onToggleFreezeColumn,
 }: DataGridProps) {
   const parentRef = useRef<HTMLDivElement>(null);
   const canEdit = pkColumns.length > 0;
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; column: string } | null>(null);
 
   const virtualizer = useVirtualizer({
     count: rows.length,
@@ -56,19 +62,60 @@ export function DataGrid({
     [canEdit, onEditCell],
   );
 
+  const handleContextMenu = useCallback(
+    (e: React.MouseEvent, columnName: string) => {
+      if (!onToggleFreezeColumn) return;
+      e.preventDefault();
+      setContextMenu({ x: e.clientX, y: e.clientY, column: columnName });
+    },
+    [onToggleFreezeColumn],
+  );
+
   if (!columns.length) {
     return <EmptyState />;
   }
 
+  const frozenSet = new Set(frozenColumns);
+  const frozenCols = columns.filter((c) => frozenSet.has(c.name));
+  const normalCols = columns.filter((c) => !frozenSet.has(c.name));
+  const orderedCols = [...frozenCols, ...normalCols];
+
   const gridStyle: React.CSSProperties = {
-    gridTemplateColumns: `40px repeat(${columns.length}, minmax(120px, 1fr)) 40px`,
+    gridTemplateColumns: `40px repeat(${orderedCols.length}, minmax(120px, 1fr)) 40px`,
   };
 
   const sortMap = new Map(sorts.map((s) => [s.column, s]));
 
+  const getColumnIndex = (col: ColumnMeta) => columns.findIndex((c) => c.name === col.name);
+
   return (
     <div className="relative flex h-full flex-col">
       {isLoading && <LoadingOverlay />}
+
+      {contextMenu && (
+        <div
+          className="fixed z-50 rounded-[var(--radius-sm)] border py-1 shadow-lg"
+          style={{
+            left: contextMenu.x,
+            top: contextMenu.y,
+            backgroundColor: "var(--color-bg-secondary, #1e293b)",
+            borderColor: "var(--color-border)",
+          }}
+          onMouseLeave={() => setContextMenu(null)}
+        >
+          <button
+            type="button"
+            className="block w-full px-3 py-1 text-left text-xs hover:bg-[var(--color-bg)]"
+            style={{ color: "var(--color-text)" }}
+            onClick={() => {
+              onToggleFreezeColumn?.(contextMenu.column);
+              setContextMenu(null);
+            }}
+          >
+            {frozenSet.has(contextMenu.column) ? "Unfreeze" : "Freeze"} "{contextMenu.column}"
+          </button>
+        </div>
+      )}
 
       <div
         className="grid shrink-0 border-b text-xs font-medium"
@@ -81,13 +128,18 @@ export function DataGrid({
         <div className="px-2 py-2" style={{ color: "var(--color-text-secondary)" }}>
           #
         </div>
-        {columns.map((col) => (
-          <ColumnHeader
+        {orderedCols.map((col) => (
+          <div
             key={col.name}
-            column={col}
-            sort={sortMap.get(col.name)}
-            onSort={onSort}
-          />
+            onContextMenu={(e) => handleContextMenu(e, col.name)}
+            style={frozenSet.has(col.name) ? { backgroundColor: "var(--color-surface)", fontWeight: 600 } : undefined}
+          >
+            <ColumnHeader
+              column={col}
+              sort={sortMap.get(col.name)}
+              onSort={onSort}
+            />
+          </div>
         ))}
         <div />
       </div>
@@ -119,24 +171,29 @@ export function DataGrid({
                 >
                   {virtualRow.index + 1}
                 </div>
-                {row.map((cell, colIdx) => {
+                {orderedCols.map((col) => {
+                  const colIdx = getColumnIndex(col);
+                  const cell = row[colIdx];
                   const display = renderCellValue(cell);
                   const isNull = cell.type === "null";
+                  const isJson = cell.type === "json";
                   const isEditing =
                     editingCell?.row === virtualRow.index &&
                     editingCell?.col === colIdx;
+                  const isFrozen = frozenSet.has(col.name);
 
                   return (
                     <div
-                      key={colIdx}
+                      key={col.name}
                       className="relative overflow-hidden px-3 py-1.5 text-ellipsis whitespace-nowrap"
                       style={{
                         color: isNull
                           ? "var(--color-text-secondary)"
                           : "var(--color-text)",
                         fontStyle: isNull ? "italic" : undefined,
+                        backgroundColor: isFrozen ? "var(--color-surface)" : undefined,
                       }}
-                      title={display}
+                      title={isJson ? undefined : display}
                       onDoubleClick={() => handleDoubleClick(virtualRow.index, colIdx)}
                     >
                       {isEditing ? (
@@ -148,6 +205,8 @@ export function DataGrid({
                           }}
                           onCancel={() => onEditCell(null)}
                         />
+                      ) : isJson && cell.type === "json" ? (
+                        <JsonCellRenderer value={cell.value} />
                       ) : (
                         display
                       )}

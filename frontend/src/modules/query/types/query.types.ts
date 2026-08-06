@@ -24,6 +24,11 @@ export interface QueryResult {
   durationMs: number;
 }
 
+export interface MultiQueryResult {
+  results: QueryResult[];
+  totalDurationMs: number;
+}
+
 export interface QueryHistoryEntry {
   id: string;
   connectionId: string;
@@ -39,6 +44,23 @@ export interface SavedQuery {
   name: string;
   sql: string;
   folder?: string;
+  createdAt: string;
+}
+
+export interface SavedQueryFolder {
+  id: string;
+  connectionId: string;
+  name: string;
+  createdAt: string;
+}
+
+export interface RunConfig {
+  id: string;
+  connectionId: string;
+  name: string;
+  sql: string;
+  timeoutMs: number;
+  maxRows: number;
   createdAt: string;
 }
 

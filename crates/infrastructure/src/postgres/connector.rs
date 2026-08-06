@@ -44,6 +44,11 @@ impl PostgresConnector {
             next_id: AtomicU64::new(1),
         }
     }
+
+    pub async fn get_pool(&self, handle: &ConnectionHandle) -> Option<PgPool> {
+        let pools = self.pools.read().await;
+        pools.get(&handle.0).map(|entry| entry.pool.clone())
+    }
 }
 
 #[async_trait]
@@ -184,5 +189,53 @@ impl DbConnector for PostgresConnector {
 
     fn dialect(&self, _handle: &ConnectionHandle) -> Result<Box<dyn SqlDialect>, DbError> {
         Ok(Box::new(PostgresDialect))
+    }
+}
+
+impl PostgresConnector {
+    pub async fn get_object_dependencies(
+        &self,
+        handle: &ConnectionHandle,
+        schema: &str,
+        object_name: &str,
+    ) -> Result<Vec<db_pro_core::domain::cross_connection::ObjectDependency>, DbError> {
+        let pool = self.get_pool(handle).await.ok_or_else(|| {
+            DbError::ConnectionFailed("no pool for handle".into())
+        })?;
+        super::cross_connection::get_object_dependencies(&pool, schema, object_name).await
+    }
+
+    pub async fn list_partitions(
+        &self,
+        handle: &ConnectionHandle,
+    ) -> Result<Vec<db_pro_core::domain::cross_connection::PartitionInfo>, DbError> {
+        let pool = self.get_pool(handle).await.ok_or_else(|| {
+            DbError::ConnectionFailed("no pool for handle".into())
+        })?;
+        super::cross_connection::list_partitions(&pool).await
+    }
+
+    pub async fn list_tablespaces(
+        &self,
+        handle: &ConnectionHandle,
+    ) -> Result<Vec<db_pro_core::domain::cross_connection::TablespaceInfo>, DbError> {
+        let pool = self.get_pool(handle).await.ok_or_else(|| {
+            DbError::ConnectionFailed("no pool for handle".into())
+        })?;
+        super::cross_connection::list_tablespaces(&pool).await
+    }
+
+    pub async fn rename_schema_object(
+        &self,
+        handle: &ConnectionHandle,
+        object_type: &str,
+        schema: &str,
+        old_name: &str,
+        new_name: &str,
+    ) -> Result<(), DbError> {
+        let pool = self.get_pool(handle).await.ok_or_else(|| {
+            DbError::ConnectionFailed("no pool for handle".into())
+        })?;
+        super::cross_connection::rename_schema_object(&pool, object_type, schema, old_name, new_name).await
     }
 }

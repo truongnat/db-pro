@@ -1,17 +1,58 @@
 use tauri::State;
 
-use crate::dto::{CommandError, QueryHistoryDto, QueryResultDto, SavedQueryDto};
+use crate::cancel::CancelRegistry;
+use crate::dto::{CommandError, MultiQueryResultDto, QueryHistoryDto, QueryResultDto, RunConfigDto, SavedQueryDto, SavedQueryFolderDto};
 use db_pro_core::application::QueryService;
 use db_pro_core::domain::connection::ConnectionId;
 
 #[tauri::command]
 pub async fn execute_query(
     service: State<'_, QueryService>,
+    cancel_registry: State<'_, CancelRegistry>,
     connection_id: String,
     sql: String,
 ) -> Result<QueryResultDto, CommandError> {
     let conn_id = parse_connection_id(&connection_id)?;
-    let result = service.execute(&conn_id, &sql, &[]).await?;
+    let cancel_rx = cancel_registry.register(&connection_id);
+
+    let query_future = service.execute(&conn_id, &sql, &[]);
+    tokio::pin!(query_future);
+
+    let result = tokio::select! {
+        res = &mut query_future => res,
+        _ = cancel_rx => {
+            cancel_registry.unregister(&connection_id);
+            return Err(CommandError {
+                error: "CANCELLED".into(),
+                message: "Query was cancelled by user".into(),
+                message_id: "error.cancelled".into(),
+                details: None,
+            });
+        }
+    };
+
+    cancel_registry.unregister(&connection_id);
+    let result = result?;
+    Ok(result.into())
+}
+
+#[tauri::command]
+pub async fn cancel_query(
+    cancel_registry: State<'_, CancelRegistry>,
+    connection_id: String,
+) -> Result<(), CommandError> {
+    cancel_registry.cancel(&connection_id);
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn execute_query_multi(
+    service: State<'_, QueryService>,
+    connection_id: String,
+    sql: String,
+) -> Result<MultiQueryResultDto, CommandError> {
+    let conn_id = parse_connection_id(&connection_id)?;
+    let result = service.execute_multi(&conn_id, &sql).await?;
     Ok(result.into())
 }
 
@@ -68,6 +109,77 @@ pub async fn delete_saved_query(service: State<'_, QueryService>, id: String) ->
         details: None,
     })?;
     service.delete_saved_query(&uuid).await?;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn create_folder(
+    service: State<'_, QueryService>,
+    connection_id: String,
+    name: String,
+) -> Result<SavedQueryFolderDto, CommandError> {
+    let conn_id = parse_connection_id(&connection_id)?;
+    let folder = service.create_folder(&conn_id, &name).await?;
+    Ok(folder.into())
+}
+
+#[tauri::command]
+pub async fn list_folders(
+    service: State<'_, QueryService>,
+    connection_id: String,
+) -> Result<Vec<SavedQueryFolderDto>, CommandError> {
+    let conn_id = parse_connection_id(&connection_id)?;
+    let folders = service.list_folders(&conn_id).await?;
+    Ok(folders.into_iter().map(Into::into).collect())
+}
+
+#[tauri::command]
+pub async fn delete_folder(service: State<'_, QueryService>, id: String) -> Result<(), CommandError> {
+    let uuid = uuid::Uuid::parse_str(&id).map_err(|e| CommandError {
+        error: "VALIDATION".into(),
+        message: format!("invalid folder id: {e}"),
+        message_id: "error.validation".into(),
+        details: None,
+    })?;
+    service.delete_folder(&uuid).await?;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn save_run_config(
+    service: State<'_, QueryService>,
+    connection_id: String,
+    name: String,
+    sql: String,
+    timeout_ms: u64,
+    max_rows: u64,
+) -> Result<RunConfigDto, CommandError> {
+    let conn_id = parse_connection_id(&connection_id)?;
+    let config = service
+        .save_run_config(&conn_id, &name, &sql, timeout_ms, max_rows)
+        .await?;
+    Ok(config.into())
+}
+
+#[tauri::command]
+pub async fn list_run_configs(
+    service: State<'_, QueryService>,
+    connection_id: String,
+) -> Result<Vec<RunConfigDto>, CommandError> {
+    let conn_id = parse_connection_id(&connection_id)?;
+    let configs = service.list_run_configs(&conn_id).await?;
+    Ok(configs.into_iter().map(Into::into).collect())
+}
+
+#[tauri::command]
+pub async fn delete_run_config(service: State<'_, QueryService>, id: String) -> Result<(), CommandError> {
+    let uuid = uuid::Uuid::parse_str(&id).map_err(|e| CommandError {
+        error: "VALIDATION".into(),
+        message: format!("invalid run config id: {e}"),
+        message_id: "error.validation".into(),
+        details: None,
+    })?;
+    service.delete_run_config(&uuid).await?;
     Ok(())
 }
 

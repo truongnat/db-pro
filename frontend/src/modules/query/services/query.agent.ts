@@ -1,14 +1,18 @@
 import type {
   ExplainPlan,
+  MultiQueryResult,
   QueryHistoryEntry,
   QueryResult,
   Row,
+  RunConfig,
   SavedQuery,
+  SavedQueryFolder,
 } from "../types/query.types";
 
 export class MockQueryService {
   private history: QueryHistoryEntry[] = [];
   private saved: SavedQuery[] = [];
+  private runConfigs: RunConfig[] = [];
   private nextId = 1;
 
   async execute(_connectionId: string, sql: string): Promise<QueryResult> {
@@ -45,6 +49,15 @@ export class MockQueryService {
       rowCount: 2,
       durationMs: 42,
     };
+  }
+
+  async cancel(_connectionId: string): Promise<void> {
+    // mock: no-op
+  }
+
+  async executeMulti(_connectionId: string, _sql: string): Promise<MultiQueryResult> {
+    const result = await this.execute(_connectionId, "SELECT 1");
+    return { results: [result], totalDurationMs: 84 };
   }
 
   async explain(_connectionId: string, _sql: string): Promise<ExplainPlan> {
@@ -91,5 +104,51 @@ export class MockQueryService {
 
   async deleteSaved(id: string): Promise<void> {
     this.saved = this.saved.filter((s) => s.id !== id);
+  }
+
+  async createFolder(connectionId: string, name: string): Promise<SavedQueryFolder> {
+    const folder: SavedQueryFolder = {
+      id: String(this.nextId++),
+      connectionId,
+      name,
+      createdAt: new Date().toISOString(),
+    };
+    return folder;
+  }
+
+  async listFolders(_connectionId: string): Promise<SavedQueryFolder[]> {
+    return [];
+  }
+
+  async deleteFolder(_id: string): Promise<void> {
+    // mock: no-op
+  }
+
+  async saveRunConfig(
+    connectionId: string,
+    name: string,
+    sql: string,
+    timeoutMs: number,
+    maxRows: number,
+  ): Promise<RunConfig> {
+    const config: RunConfig = {
+      id: String(this.nextId++),
+      connectionId,
+      name,
+      sql,
+      timeoutMs,
+      maxRows,
+      createdAt: new Date().toISOString(),
+    };
+    this.runConfigs.push(config);
+    return config;
+  }
+
+  async listRunConfigs(_connectionId: string): Promise<RunConfig[]> {
+    return this.runConfigs;
+  }
+
+  async deleteRunConfig(id: string): Promise<void> {
+    this.runConfigs = this.runConfigs.filter((c) => c.id !== id);
   }
 }

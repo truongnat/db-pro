@@ -11,6 +11,7 @@
       "failed": "Authentication failed"
     },
     "timeout": "Operation timed out",
+    "cancelled": "Operation cancelled",
     "io": "I/O error occurred",
     "introspection": {
       "failed": "Schema introspection failed"
@@ -34,7 +35,9 @@
       "refresh": "Refresh",
       "connect": "Connect",
       "disconnect": "Disconnect",
-      "actions": "Actions"
+      "actions": "Actions",
+      "clear": "Clear All",
+      "create": "Create"
     },
     "states": {
       "loading": "Loading...",
@@ -45,6 +48,9 @@
       "disconnected": "Disconnected",
       "status": "Status"
     },
+    "yes": "Yes",
+    "no": "No",
+    "loading": "Loading...",
     "labels": {
       "name": "Name",
       "host": "Host",
@@ -63,7 +69,13 @@
     "testSuccess": "Connection test successful",
     "testFailed": "Connection test failed",
     "confirmDelete": "Are you sure you want to delete this connection?",
-    "filePath": "File Path"
+    "filePath": "File Path",
+    "color": "Color",
+    "customColor": "Custom",
+    "tags": "Tags",
+    "addTag": "Add tag...",
+    "group": "Group",
+    "groupPlaceholder": "e.g. Production"
   },
   "query": {
     "title": "Query Editor",
@@ -89,7 +101,31 @@
     "results": "Results",
     "searchHistory": "Search history...",
     "querySaved": "Query saved",
-    "queryDeleted": "Query deleted"
+    "queryDeleted": "Query deleted",
+    "templates": "Templates",
+    "newTab": "New Tab",
+    "closeTab": "Close Tab",
+    "localHistory": "Local History",
+    "zoomIn": "Zoom In",
+    "zoomOut": "Zoom Out",
+    "savedQueries": "Saved Queries",
+    "newFolder": "New Folder",
+    "folderName": "Folder name",
+    "noSavedQueries": "No saved queries",
+    "importSql": "Import .sql",
+    "exportSql": "Export .sql",
+    "runConfigs": "Run Configs",
+    "newRunConfig": "New Config",
+    "noRunConfigs": "No run configurations",
+    "configName": "Configuration Name",
+    "timeoutMs": "Timeout (ms)",
+    "maxRows": "Max Rows",
+    "metadata": {
+      "info": "Column info",
+      "name": "Name",
+      "dataType": "Data Type",
+      "nullable": "Nullable"
+    }
   },
   "schema": {
     "title": "Schema Browser",
@@ -121,7 +157,68 @@
     "fkName": "Name",
     "fkFromColumn": "From Column",
     "fkToTable": "To Table",
-    "fkToColumn": "To Column"
+    "fkToColumn": "To Column",
+    "ddlEditor": "DDL Editor",
+    "ddlOperation": "Operation",
+    "ddlSchema": "Schema",
+    "ddlTable": "Table",
+    "ddlColumns": "Columns",
+    "ddlAddColumn": "Add Column",
+    "ddlNewName": "New Name",
+    "ddlIndexName": "Index Name",
+    "ddlIndexColumns": "Columns (comma-separated)",
+    "ddlUnique": "Unique",
+    "ddlPreview": "SQL Preview",
+    "ddlExecute": "Execute DDL",
+    "ddlExecutedSuccessfully": "DDL executed successfully ({{affected}} rows affected)",
+    "ddlOp": {
+      "createTable": "Create Table",
+      "addColumn": "Add Column",
+      "dropColumn": "Drop Column",
+      "renameTable": "Rename Table",
+      "dropTable": "Drop Table",
+      "createView": "Create View",
+      "dropView": "Drop View",
+      "createIndex": "Create Index",
+      "dropIndex": "Drop Index"
+    },
+    "triggers": "Triggers",
+    "existingIndexes": "Existing Indexes",
+    "createIndex": "Create Index",
+    "createTrigger": "Create Trigger",
+    "dropTrigger": "Drop Trigger",
+    "triggerName": "Trigger Name",
+    "triggerTiming": "Timing",
+    "triggerEvent": "Event",
+    "triggerBody": "Body",
+    "crossConn": {
+      "selectTwo": "Select two connections to compare",
+      "compare": "Compare",
+      "identical": "Schemas are identical",
+      "onlyInSource": "Only in source",
+      "onlyInTarget": "Only in target",
+      "columnDifferences": "Column differences",
+      "indexesOnlySource": "Indexes only in source",
+      "indexesOnlyTarget": "Indexes only in target",
+      "schemaName": "Schema",
+      "tableName": "Table",
+      "sourceCount": "Source rows",
+      "targetCount": "Target rows",
+      "difference": "Difference",
+      "objectName": "Object name",
+      "viewDeps": "View Dependencies",
+      "noDeps": "No dependencies found",
+      "object": "Object",
+      "dependsOn": "Depends on",
+      "noPartitions": "No partitioned tables found",
+      "partitionName": "Partition",
+      "boundExpr": "Bound Expression",
+      "noTablespaces": "No tablespaces found",
+      "owner": "Owner",
+      "location": "Location",
+      "rename": "Rename",
+      "newName": "New name"
+    }
   },
   "dataGrid": {
     "title": "Data",
@@ -139,7 +236,20 @@
       "update": "Failed to update row",
       "delete": "Failed to delete row",
       "insert": "Failed to insert row"
-    }
+    },
+    "copyAsSql": "Copy as SQL",
+    "copyToClipboard": "Copy to Clipboard",
+    "generateCrud": "Generate SQL",
+    "gridView": "Grid",
+    "chartView": "Chart",
+    "chartConfig": "Configure Chart",
+    "chartType": "Chart Type",
+    "chartBar": "Bar Chart",
+    "chartLine": "Line Chart",
+    "chartPie": "Pie Chart",
+    "chartXAxis": "X Axis",
+    "chartYAxis": "Y Axis",
+    "configureChart": "Click 'Configure Chart' to set up a chart"
   },
   "export": {
     "title": "Export",
@@ -160,5 +270,44 @@
   },
   "snackbar": {
     "dismiss": "Dismiss"
+  },
+  "userManagement": {
+    "title": "User Management",
+    "roles": "Roles",
+    "superuser": "Superuser",
+    "login": "Login",
+    "noLogin": "No Login",
+    "dropRole": "Drop Role",
+    "createRole": "Create Role",
+    "roleName": "Role Name",
+    "canLogin": "Can Login",
+    "canCreateDb": "Create DB",
+    "canCreateRole": "Create Role",
+    "privileges": "Privileges",
+    "noPrivileges": "No privileges granted",
+    "grantPrivilege": "Grant Privilege",
+    "grant": "Grant",
+    "revoke": "Revoke",
+    "newRole": "New Role",
+    "connectFirst": "Connect to a database to manage users",
+    "selectRole": "Select a role to view details",
+    "confirmDrop": "Are you sure you want to drop role \"{{name}}\"?"
+  },
+  "backup": {
+    "title": "Backup Database",
+    "restoreTitle": "Restore Database",
+    "outputPath": "Output File Path",
+    "inputPath": "Input File Path",
+    "format": "Format",
+    "formatPlain": "Plain SQL",
+    "formatCustom": "Custom (pg_dump)",
+    "startBackup": "Start Backup",
+    "startRestore": "Start Restore",
+    "backupInProgress": "Backing up...",
+    "restoreInProgress": "Restoring...",
+    "restoreWarning": "Warning: Restore will overwrite the existing database data.",
+    "backupSuccess": "Backup completed ({{size}} bytes)",
+    "restoreSuccess": "Restore completed successfully",
+    "connectFirst": "Connect to a database to backup or restore"
   }
 }

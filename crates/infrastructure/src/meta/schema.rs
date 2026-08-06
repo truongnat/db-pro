@@ -30,6 +30,16 @@ CREATE TABLE IF NOT EXISTS saved_queries (
 CREATE INDEX IF NOT EXISTS idx_saved_queries_conn
     ON saved_queries(connection_id);
 
+CREATE TABLE IF NOT EXISTS saved_query_folders (
+    id TEXT PRIMARY KEY,
+    connection_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_saved_query_folders_conn
+    ON saved_query_folders(connection_id);
+
 CREATE TABLE IF NOT EXISTS workspaces (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
@@ -47,4 +57,17 @@ CREATE TABLE IF NOT EXISTS introspection_cache (
     data TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS run_configs (
+    id TEXT PRIMARY KEY,
+    connection_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    sql TEXT NOT NULL,
+    timeout_ms INTEGER NOT NULL DEFAULT 30000,
+    max_rows INTEGER NOT NULL DEFAULT 1000,
+    created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_run_configs_conn
+    ON run_configs(connection_id);
 "#;

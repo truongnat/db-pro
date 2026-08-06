@@ -2,11 +2,13 @@ use serde::{Deserialize, Serialize};
 
 use db_pro_core::domain::connection::{Connection, ConnectionConfig, DriverType, SshTunnelConfig, SslMode};
 use db_pro_core::domain::error::DbError;
-use db_pro_core::domain::history::{QueryHistory, SavedQuery};
+use db_pro_core::domain::history::{QueryHistory, SavedQuery, SavedQueryFolder};
 use db_pro_core::domain::query::{CellValue, ColumnMeta, QueryResult, Row};
+use db_pro_core::domain::run_config::RunConfig;
 use db_pro_core::domain::schema::{
     Column, ForeignKey, Index, IntrospectResult, PrimaryKey, Schema, Table, TableInfo, View,
 };
+use db_pro_core::domain::user::{DatabaseUser, Privilege};
 
 // ---------------------------------------------------------------------------
 // Error
@@ -34,6 +36,7 @@ impl From<DbError> for CommandError {
             DbError::NotFound(_) => ("NOT_FOUND", "error.not_found"),
             DbError::AuthFailed(_) => ("AUTH_FAILED", "error.auth.failed"),
             DbError::Timeout(_) => ("TIMEOUT", "error.timeout"),
+            DbError::Cancelled(_) => ("CANCELLED", "error.cancelled"),
             DbError::Io(_) => ("IO_ERROR", "error.io"),
             DbError::IntrospectionFailed(_) => ("INTROSPECTION_FAILED", "error.introspection.failed"),
             DbError::EncryptionFailed(_) => ("ENCRYPTION_FAILED", "error.encryption.failed"),
@@ -66,6 +69,9 @@ pub struct ConnectionDto {
     pub ssl_mode: SslModeDto,
     pub created_at: String,
     pub updated_at: String,
+    pub color: Option<String>,
+    pub tags: Vec<String>,
+    pub group: Option<String>,
 }
 
 impl From<Connection> for ConnectionDto {
@@ -81,6 +87,9 @@ impl From<Connection> for ConnectionDto {
             ssl_mode: c.config.ssl_mode.into(),
             created_at: c.created_at.to_rfc3339(),
             updated_at: c.updated_at.to_rfc3339(),
+            color: c.config.color,
+            tags: c.config.tags,
+            group: c.config.group,
         }
     }
 }
@@ -98,6 +107,12 @@ pub struct ConnectionConfigDto {
     pub ssh_tunnel: Option<SshTunnelConfigDto>,
     pub query_timeout_ms: u64,
     pub max_rows: u64,
+    #[serde(default)]
+    pub color: Option<String>,
+    #[serde(default)]
+    pub tags: Vec<String>,
+    #[serde(default)]
+    pub group: Option<String>,
 }
 
 impl ConnectionConfigDto {
@@ -115,9 +130,13 @@ impl ConnectionConfigDto {
                 port: s.port,
                 user: s.user.clone(),
                 private_key_path: s.private_key_path.clone(),
+                password: s.password.clone(),
             }),
             query_timeout_ms: self.query_timeout_ms,
             max_rows: self.max_rows,
+            color: self.color.clone(),
+            tags: self.tags.clone(),
+            group: self.group.clone(),
         }
     }
 }
@@ -185,6 +204,8 @@ pub struct SshTunnelConfigDto {
     pub port: u16,
     pub user: String,
     pub private_key_path: String,
+    #[serde(default)]
+    pub password: Option<String>,
 }
 
 // ---------------------------------------------------------------------------
@@ -207,6 +228,22 @@ impl From<QueryResult> for QueryResultDto {
             rows: r.rows.into_iter().map(Into::into).collect(),
             row_count: r.row_count,
             duration_ms: r.duration_ms,
+        }
+    }
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MultiQueryResultDto {
+    pub results: Vec<QueryResultDto>,
+    pub total_duration_ms: u64,
+}
+
+impl From<db_pro_core::application::MultiQueryResult> for MultiQueryResultDto {
+    fn from(r: db_pro_core::application::MultiQueryResult) -> Self {
+        Self {
+            results: r.results.into_iter().map(Into::into).collect(),
+            total_duration_ms: r.total_duration_ms,
         }
     }
 }
@@ -460,6 +497,12 @@ impl From<TableInfo> for TableInfoDto {
     }
 }
 
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DdlResultDto {
+    pub affected_rows: u64,
+}
+
 // ---------------------------------------------------------------------------
 // History DTOs
 // ---------------------------------------------------------------------------
@@ -508,6 +551,52 @@ impl From<SavedQuery> for SavedQueryDto {
             sql: q.sql,
             folder: q.folder,
             created_at: q.created_at.to_rfc3339(),
+        }
+    }
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SavedQueryFolderDto {
+    pub id: String,
+    pub connection_id: String,
+    pub name: String,
+    pub created_at: String,
+}
+
+impl From<SavedQueryFolder> for SavedQueryFolderDto {
+    fn from(f: SavedQueryFolder) -> Self {
+        Self {
+            id: f.id.to_string(),
+            connection_id: f.connection_id.to_string(),
+            name: f.name,
+            created_at: f.created_at.to_rfc3339(),
+        }
+    }
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RunConfigDto {
+    pub id: String,
+    pub connection_id: String,
+    pub name: String,
+    pub sql: String,
+    pub timeout_ms: u64,
+    pub max_rows: u64,
+    pub created_at: String,
+}
+
+impl From<RunConfig> for RunConfigDto {
+    fn from(c: RunConfig) -> Self {
+        Self {
+            id: c.id.to_string(),
+            connection_id: c.connection_id.to_string(),
+            name: c.name,
+            sql: c.sql,
+            timeout_ms: c.timeout_ms,
+            max_rows: c.max_rows,
+            created_at: c.created_at.to_rfc3339(),
         }
     }
 }
@@ -647,6 +736,255 @@ impl From<CellValueDto> for CellValue {
             CellValueDto::Uuid(v) => CellValue::Uuid(v),
             CellValueDto::Datetime(v) => CellValue::DateTime(v),
             CellValueDto::Json(v) => CellValue::Json(v),
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// User Management DTOs
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DatabaseUserDto {
+    pub name: String,
+    pub is_super: bool,
+    pub can_create_db: bool,
+    pub can_create_role: bool,
+    pub can_login: bool,
+}
+
+impl From<DatabaseUser> for DatabaseUserDto {
+    fn from(u: DatabaseUser) -> Self {
+        Self {
+            name: u.name,
+            is_super: u.is_super,
+            can_create_db: u.can_create_db,
+            can_create_role: u.can_create_role,
+            can_login: u.can_login,
+        }
+    }
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PrivilegeDto {
+    pub schema: String,
+    pub table: String,
+    pub privilege_type: String,
+}
+
+impl From<Privilege> for PrivilegeDto {
+    fn from(p: Privilege) -> Self {
+        Self {
+            schema: p.schema,
+            table: p.table,
+            privilege_type: p.privilege_type,
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Backup DTOs
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum BackupFormatDto {
+    Plain,
+    Custom,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BackupOptionsDto {
+    pub connection_id: String,
+    pub output_path: String,
+    pub format: BackupFormatDto,
+    pub schemas: Option<Vec<String>>,
+    pub tables: Option<Vec<String>>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RestoreOptionsDto {
+    pub connection_id: String,
+    pub input_path: String,
+    pub format: BackupFormatDto,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BackupResultDto {
+    pub output_path: String,
+    pub size_bytes: u64,
+}
+
+impl From<db_pro_core::domain::backup::BackupResult> for BackupResultDto {
+    fn from(r: db_pro_core::domain::backup::BackupResult) -> Self {
+        Self {
+            output_path: r.output_path,
+            size_bytes: r.size_bytes,
+        }
+    }
+}
+
+// --- Cross-connection DTOs ---
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SchemaDiffDto {
+    pub tables_only_in_source: Vec<String>,
+    pub tables_only_in_target: Vec<String>,
+    pub column_diffs: Vec<TableColumnDiffDto>,
+    pub indexes_only_in_source: Vec<String>,
+    pub indexes_only_in_target: Vec<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TableColumnDiffDto {
+    pub schema: String,
+    pub table: String,
+    pub columns_only_in_source: Vec<String>,
+    pub columns_only_in_target: Vec<String>,
+    pub type_mismatches: Vec<ColumnTypeMismatchDto>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ColumnTypeMismatchDto {
+    pub column: String,
+    pub source_type: String,
+    pub target_type: String,
+}
+
+impl From<db_pro_core::domain::cross_connection::SchemaDiff> for SchemaDiffDto {
+    fn from(d: db_pro_core::domain::cross_connection::SchemaDiff) -> Self {
+        Self {
+            tables_only_in_source: d.tables_only_in_source,
+            tables_only_in_target: d.tables_only_in_target,
+            column_diffs: d.column_diffs.into_iter().map(Into::into).collect(),
+            indexes_only_in_source: d.indexes_only_in_source,
+            indexes_only_in_target: d.indexes_only_in_target,
+        }
+    }
+}
+
+impl From<db_pro_core::domain::cross_connection::TableColumnDiff> for TableColumnDiffDto {
+    fn from(d: db_pro_core::domain::cross_connection::TableColumnDiff) -> Self {
+        Self {
+            schema: d.schema,
+            table: d.table,
+            columns_only_in_source: d.columns_only_in_source,
+            columns_only_in_target: d.columns_only_in_target,
+            type_mismatches: d.type_mismatches.into_iter().map(Into::into).collect(),
+        }
+    }
+}
+
+impl From<db_pro_core::domain::cross_connection::ColumnTypeMismatch> for ColumnTypeMismatchDto {
+    fn from(m: db_pro_core::domain::cross_connection::ColumnTypeMismatch) -> Self {
+        Self {
+            column: m.column,
+            source_type: m.source_type,
+            target_type: m.target_type,
+        }
+    }
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DataDiffDto {
+    pub schema: String,
+    pub table: String,
+    pub source_row_count: i64,
+    pub target_row_count: i64,
+    pub row_count_diff: i64,
+}
+
+impl From<db_pro_core::domain::cross_connection::DataDiff> for DataDiffDto {
+    fn from(d: db_pro_core::domain::cross_connection::DataDiff) -> Self {
+        Self {
+            schema: d.schema,
+            table: d.table,
+            source_row_count: d.source_row_count,
+            target_row_count: d.target_row_count,
+            row_count_diff: d.row_count_diff,
+        }
+    }
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ObjectDependencyDto {
+    pub object_type: String,
+    pub object_name: String,
+    pub depends_on_type: String,
+    pub depends_on_name: String,
+}
+
+impl From<db_pro_core::domain::cross_connection::ObjectDependency> for ObjectDependencyDto {
+    fn from(d: db_pro_core::domain::cross_connection::ObjectDependency) -> Self {
+        Self {
+            object_type: d.object_type,
+            object_name: d.object_name,
+            depends_on_type: d.depends_on_type,
+            depends_on_name: d.depends_on_name,
+        }
+    }
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PartitionInfoDto {
+    pub schema: String,
+    pub table: String,
+    pub partition_strategy: String,
+    pub partitions: Vec<PartitionChildDto>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PartitionChildDto {
+    pub name: String,
+    pub bound_expr: String,
+}
+
+impl From<db_pro_core::domain::cross_connection::PartitionInfo> for PartitionInfoDto {
+    fn from(p: db_pro_core::domain::cross_connection::PartitionInfo) -> Self {
+        Self {
+            schema: p.schema,
+            table: p.table,
+            partition_strategy: p.partition_strategy,
+            partitions: p.partitions.into_iter().map(Into::into).collect(),
+        }
+    }
+}
+
+impl From<db_pro_core::domain::cross_connection::PartitionChild> for PartitionChildDto {
+    fn from(c: db_pro_core::domain::cross_connection::PartitionChild) -> Self {
+        Self {
+            name: c.name,
+            bound_expr: c.bound_expr,
+        }
+    }
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TablespaceInfoDto {
+    pub name: String,
+    pub owner: String,
+    pub location: String,
+}
+
+impl From<db_pro_core::domain::cross_connection::TablespaceInfo> for TablespaceInfoDto {
+    fn from(t: db_pro_core::domain::cross_connection::TablespaceInfo) -> Self {
+        Self {
+            name: t.name,
+            owner: t.owner,
+            location: t.location,
         }
     }
 }

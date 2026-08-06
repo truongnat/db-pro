@@ -47,6 +47,9 @@ pub enum DbError {
     #[error("timeout: {0}")]
     Timeout(String),
 
+    #[error("query cancelled: {0}")]
+    Cancelled(String),
+
     #[error("io error: {0}")]
     Io(String),
 

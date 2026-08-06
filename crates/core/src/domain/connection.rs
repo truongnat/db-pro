@@ -58,6 +58,8 @@ pub struct SshTunnelConfig {
     pub port: u16,
     pub user: String,
     pub private_key_path: String,
+    #[serde(default)]
+    pub password: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -76,6 +78,12 @@ pub struct ConnectionConfig {
     pub query_timeout_ms: u64,
     #[serde(default = "default_max_rows")]
     pub max_rows: u64,
+    #[serde(default)]
+    pub color: Option<String>,
+    #[serde(default)]
+    pub tags: Vec<String>,
+    #[serde(default)]
+    pub group: Option<String>,
 }
 
 fn default_query_timeout() -> u64 {
@@ -243,6 +251,9 @@ mod tests {
             ssh_tunnel: None,
             query_timeout_ms: 30_000,
             max_rows: 500,
+            color: None,
+            tags: vec![],
+            group: None,
         }
     }
 
@@ -287,6 +298,9 @@ mod tests {
             ssh_tunnel: None,
             query_timeout_ms: 30_000,
             max_rows: 500,
+            color: None,
+            tags: vec![],
+            group: None,
         };
         let errors = config.validate().unwrap_err();
         assert_eq!(errors.len(), 5);
@@ -305,6 +319,9 @@ mod tests {
             ssh_tunnel: None,
             query_timeout_ms: 30_000,
             max_rows: 500,
+            color: None,
+            tags: vec![],
+            group: None,
         };
         assert!(config.validate().is_ok());
     }
@@ -350,6 +367,7 @@ mod tests {
             port: 0,
             user: "".into(),
             private_key_path: "".into(),
+            password: None,
         });
         let errors = config.validate().unwrap_err();
         let ssh_fields: Vec<&str> = errors

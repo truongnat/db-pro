@@ -4,9 +4,13 @@ import { useTableDdl, useTableInfo } from "../queries/schema.queries";
 import type { DetailTab } from "../types/schema.types";
 
 import { ColumnList } from "./column-list";
+import { DdlEditor } from "./ddl-editor/ddl-editor";
 import { DdlViewer } from "./ddl-viewer";
 import { ForeignKeyList } from "./foreign-key-list";
+import { GenerateCrud } from "./generate-crud";
+import { IndexManager } from "./index-manager";
 import { IndexList } from "./index-list";
+import { TriggerManager } from "./trigger-manager";
 
 interface SchemaDetailPanelProps {
   connectionId: string;
@@ -22,6 +26,9 @@ const TABLE_TABS: { key: DetailTab; labelKey: string }[] = [
   { key: "indexes", labelKey: "schema.indexes" },
   { key: "foreignKeys", labelKey: "schema.foreignKeys" },
   { key: "ddl", labelKey: "schema.ddl" },
+  { key: "ddlEditor", labelKey: "schema.ddlEditor" },
+  { key: "generateCrud", labelKey: "dataGrid.generateCrud" },
+  { key: "triggers", labelKey: "schema.triggers" },
 ];
 
 const VIEW_TABS: { key: DetailTab; labelKey: string }[] = [
@@ -94,7 +101,13 @@ export function SchemaDetailPanel({
         )}
 
         {activeTab === "indexes" && tableInfo.data && (
-          <IndexList indexes={tableInfo.data.indexes} />
+          <IndexManager
+            connectionId={connectionId}
+            schema={schema}
+            table={table}
+            columns={tableInfo.data.columns}
+            indexes={tableInfo.data.indexes}
+          />
         )}
 
         {activeTab === "foreignKeys" && tableInfo.data && (
@@ -110,6 +123,26 @@ export function SchemaDetailPanel({
                 ? (tableDdl.error as { userMessage?: string })?.userMessage ?? t("common.states.error")
                 : null
             }
+          />
+        )}
+
+        {activeTab === "ddlEditor" && (
+          <DdlEditor connectionId={connectionId} schema={schema} table={table} />
+        )}
+
+        {activeTab === "generateCrud" && tableInfo.data && (
+          <GenerateCrud
+            schema={schema}
+            table={table}
+            columns={tableInfo.data.columns}
+          />
+        )}
+
+        {activeTab === "triggers" && (
+          <TriggerManager
+            connectionId={connectionId}
+            schema={schema}
+            table={table}
           />
         )}
 

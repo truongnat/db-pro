@@ -100,3 +100,19 @@ pub async fn disconnect(service: State<'_, ConnectionService>, id: String) -> Re
     service.disconnect(&conn_id).await?;
     Ok(())
 }
+
+#[tauri::command]
+pub async fn test_ssh_tunnel(
+    connector: tauri::State<'_, db_pro_infrastructure::connector::CompositeConnector>,
+    config: crate::dto::SshTunnelConfigDto,
+) -> Result<(), CommandError> {
+    let domain_config = db_pro_core::domain::connection::SshTunnelConfig {
+        host: config.host,
+        port: config.port,
+        user: config.user,
+        private_key_path: config.private_key_path,
+        password: config.password,
+    };
+    connector.test_ssh_tunnel(&domain_config).await?;
+    Ok(())
+}

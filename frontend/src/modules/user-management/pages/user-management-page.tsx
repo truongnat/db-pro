@@ -1,0 +1,120 @@
+import { useState } from "react";
+import { useTranslation } from "react-i18next";
+
+import { useConnectionStore } from "@/commons/stores/connection.store";
+
+import { CreateRoleDialog } from "../components/create-role-dialog";
+import { UserDetailPanel } from "../components/user-detail-panel";
+import { UserList } from "../components/user-list";
+import {
+  useCreateRole,
+  useDropRole,
+  useGrantPrivilege,
+  useListPrivileges,
+  useListUsers,
+  useRevokePrivilege,
+} from "../queries/user.queries";
+
+export function UserManagementPage() {
+  const { t } = useTranslation();
+  const activeConnectionId = useConnectionStore((s) => s.activeConnectionId);
+  const [selectedUser, setSelectedUser] = useState<string | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
+
+  const { data: users = [], isLoading } = useListUsers(activeConnectionId);
+  const { data: privileges = [] } = useListPrivileges(
+    activeConnectionId,
+    selectedUser,
+  );
+  const createRole = useCreateRole(activeConnectionId);
+  const dropRole = useDropRole(activeConnectionId);
+  const grant = useGrantPrivilege(activeConnectionId, selectedUser);
+  const revoke = useRevokePrivilege(activeConnectionId, selectedUser);
+
+  if (!activeConnectionId) {
+    return (
+      <div
+        className="flex h-full items-center justify-center"
+        style={{ color: "var(--color-text-secondary)" }}
+      >
+        {t("userManagement.connectFirst")}
+      </div>
+    );
+  }
+
+  const selectedUserData = users.find((u) => u.name === selectedUser) ?? null;
+
+  return (
+    <div className="flex h-full gap-4">
+      <div
+        className="flex w-64 shrink-0 flex-col gap-2 overflow-auto border-r pr-4"
+        style={{ borderColor: "var(--color-border)" }}
+      >
+        <div className="flex items-center justify-between">
+          <h2
+            className="text-sm font-semibold"
+            style={{ color: "var(--color-text)" }}
+          >
+            {t("userManagement.title")}
+          </h2>
+          <button
+            onClick={() => setCreateOpen(true)}
+            className="rounded-[var(--radius-sm)] px-2 py-1 text-xs text-white transition-colors"
+            style={{ backgroundColor: "var(--color-primary)" }}
+          >
+            + {t("userManagement.newRole")}
+          </button>
+        </div>
+
+        {isLoading ? (
+          <p
+            className="text-xs"
+            style={{ color: "var(--color-text-secondary)" }}
+          >
+            {t("common.loading")}
+          </p>
+        ) : (
+          <UserList
+            users={users}
+            selectedUser={selectedUser}
+            onSelectUser={setSelectedUser}
+            onDropRole={(name) => {
+              if (confirm(t("userManagement.confirmDrop", { name }))) {
+                dropRole.mutate(name);
+                if (selectedUser === name) setSelectedUser(null);
+              }
+            }}
+          />
+        )}
+      </div>
+
+      <div className="flex-1 overflow-auto">
+        {selectedUserData ? (
+          <UserDetailPanel
+            user={selectedUserData}
+            privileges={privileges}
+            onGrant={(schema, table, privilege) =>
+              grant.mutate({ schema, table, privilege })
+            }
+            onRevoke={(schema, table, privilege) =>
+              revoke.mutate({ schema, table, privilege })
+            }
+          />
+        ) : (
+          <div
+            className="flex h-full items-center justify-center"
+            style={{ color: "var(--color-text-secondary)" }}
+          >
+            {t("userManagement.selectRole")}
+          </div>
+        )}
+      </div>
+
+      <CreateRoleDialog
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onCreate={(name, login) => createRole.mutate({ name, login })}
+      />
+    </div>
+  );
+}

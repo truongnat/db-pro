@@ -189,6 +189,9 @@ mod tests {
             ssh_tunnel: None,
             query_timeout_ms: 30_000,
             max_rows: 500,
+            color: None,
+            tags: vec![],
+            group: None,
         }
     }
 

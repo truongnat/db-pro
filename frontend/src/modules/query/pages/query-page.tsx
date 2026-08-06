@@ -1,51 +1,99 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { format as formatSql } from "sql-formatter";
 
 import { useConnectionStore } from "@/commons/stores/connection.store";
 import { useTranslation } from "@/commons/locales/useTranslation";
 import { ExportDialog } from "@/modules/export/components/export-dialog";
 
 import { ExplainPlanView } from "../components/explain-plan";
+import { LocalHistoryPanel } from "../components/local-history-panel";
 import { QueryEditor } from "../components/query-editor";
 import { QueryHistoryPanel } from "../components/query-history-panel";
+import { QueryTabs } from "../components/query-tabs";
 import { QueryToolbar } from "../components/query-toolbar";
 import { ResultGrid } from "../components/result-grid";
+import { ResultTabs } from "../components/result-tabs";
+import { RunConfigDialog } from "../components/run-config-dialog";
+import { RunConfigList } from "../components/run-config-list";
+import { SavedQueriesTree } from "../components/saved-queries-tree";
+import { SqlFileOperations } from "../components/sql-file-operations";
 import { TransactionBar } from "../components/transaction-bar";
 import {
+  useCancelQuery,
   useExecuteQuery,
+  useExecuteQueryMulti,
   useExplainPlan,
   useQueryHistory,
 } from "../queries/query.queries";
+import { pushLocalHistory } from "../services/local-history";
+import { debouncedSaveTabs, loadTabs } from "../services/tab-persistence";
 import { useQueryModuleStore } from "../state/query.store";
-import type { Row } from "../types/query.types";
+import type { Row, RunConfig } from "../types/query.types";
 
 export function QueryPage() {
   const { t } = useTranslation();
   const activeConnectionId = useConnectionStore((s) => s.activeConnectionId);
 
-  const sql = useQueryModuleStore((s) => s.sql);
+  const activeTab = useQueryModuleStore((s) =>
+    s.tabs.find((t) => t.id === s.activeTabId),
+  );
   const setSql = useQueryModuleStore((s) => s.setSql);
-  const status = useQueryModuleStore((s) => s.status);
-  const error = useQueryModuleStore((s) => s.error);
-  const result = useQueryModuleStore((s) => s.result);
-  const explainPlan = useQueryModuleStore((s) => s.explainPlan);
-  const activeTab = useQueryModuleStore((s) => s.activeTab);
-  const setActiveTab = useQueryModuleStore((s) => s.setActiveTab);
-  const sort = useQueryModuleStore((s) => s.sort);
+  const setStatus = useQueryModuleStore((s) => s.setStatus);
+  const setResult = useQueryModuleStore((s) => s.setResult);
+  const setExplainPlan = useQueryModuleStore((s) => s.setExplainPlan);
+  const panelTab = useQueryModuleStore((s) => s.activeTab);
+  const setPanelTab = useQueryModuleStore((s) => s.setActiveTab);
+  const sort = activeTab?.sort ?? { column: null, direction: null };
   const setSort = useQueryModuleStore((s) => s.setSort);
   const historySearch = useQueryModuleStore((s) => s.historySearch);
   const setHistorySearch = useQueryModuleStore((s) => s.setHistorySearch);
 
+  const sql = activeTab?.sql ?? "";
+  const status = activeTab?.status ?? "idle";
+  const error = activeTab?.error ?? null;
+  const result = activeTab?.result ?? null;
+  const explainPlan = activeTab?.explainPlan ?? null;
+
   const [exportOpen, setExportOpen] = useState(false);
+  const [runConfigOpen, setRunConfigOpen] = useState(false);
 
   const executeMutation = useExecuteQuery();
+  const executeMultiMutation = useExecuteQueryMulti();
   const explainMutation = useExplainPlan();
+  const cancelMutation = useCancelQuery();
   const historyQuery = useQueryHistory(activeConnectionId ?? "");
+
+  const restoredRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!activeConnectionId) return;
+    if (restoredRef.current === activeConnectionId) return;
+    restoredRef.current = activeConnectionId;
+    const persisted = loadTabs(activeConnectionId);
+    if (persisted && persisted.tabs.length > 0) {
+      useQueryModuleStore.getState().restoreTabs(persisted.tabs, persisted.activeTabId);
+    }
+  }, [activeConnectionId]);
+
+  useEffect(() => {
+    if (!activeConnectionId) return;
+    const unsub = useQueryModuleStore.subscribe((state) => {
+      debouncedSaveTabs(activeConnectionId, state.tabs, state.activeTabId);
+    });
+    return unsub;
+  }, [activeConnectionId]);
 
   const handleExecute = useCallback(() => {
     if (activeConnectionId && sql.trim()) {
-      executeMutation.mutate({ connectionId: activeConnectionId, sql: sql.trim() });
+      pushLocalHistory(sql.trim());
+      executeMultiMutation.mutate({ connectionId: activeConnectionId, sql: sql.trim() });
     }
-  }, [activeConnectionId, sql, executeMutation]);
+  }, [activeConnectionId, sql, executeMultiMutation]);
+
+  const handleCancel = useCallback(() => {
+    if (activeConnectionId) {
+      cancelMutation.mutate({ connectionId: activeConnectionId });
+    }
+  }, [activeConnectionId, cancelMutation]);
 
   const handleExplain = useCallback(() => {
     if (activeConnectionId && sql.trim()) {
@@ -56,6 +104,23 @@ export function QueryPage() {
   const handleClear = useCallback(() => {
     setSql("");
   }, [setSql]);
+
+  const handleFormat = useCallback(() => {
+    if (!sql.trim()) return;
+    try {
+      const formatted = formatSql(sql, { language: "postgresql" });
+      setSql(formatted);
+    } catch {
+      // leave SQL unchanged on format error
+    }
+  }, [sql, setSql]);
+
+  const handleInsertTemplate = useCallback(
+    (templateSql: string) => {
+      setSql(sql.trim() ? `${sql}\n${templateSql}` : templateSql);
+    },
+    [sql, setSql],
+  );
 
   const handleSort = useCallback(
     (column: string) => {
@@ -77,9 +142,23 @@ export function QueryPage() {
   const handleSelectHistoryEntry = useCallback(
     (entrySql: string) => {
       setSql(entrySql);
-      setActiveTab("results");
+      setPanelTab("results");
     },
-    [setSql, setActiveTab],
+    [setSql, setPanelTab],
+  );
+
+  const handleSelectSavedQuery = useCallback(
+    (querySql: string) => {
+      setSql(querySql);
+    },
+    [setSql],
+  );
+
+  const handleSelectRunConfig = useCallback(
+    (config: RunConfig) => {
+      setSql(config.sql);
+    },
+    [setSql],
   );
 
   const sortedRows = useMemo(() => {
@@ -113,22 +192,58 @@ export function QueryPage() {
     { id: "results" as const, label: t("query.results") },
     { id: "explain" as const, label: t("query.explain") },
     { id: "history" as const, label: t("query.history") },
+    { id: "local-history" as const, label: t("query.localHistory") },
   ];
 
   return (
-    <div className="flex h-full flex-col">
-      <QueryToolbar
+    <div className="flex h-full">
+      <div
+        className="flex flex-col border-r"
+        style={{
+          width: "220px",
+          minWidth: "180px",
+          borderColor: "var(--color-border)",
+        }}
+      >
+        <div className="border-b p-2" style={{ borderColor: "var(--color-border)" }}>
+          <SqlFileOperations sql={sql} onSqlLoaded={setSql} />
+        </div>
+        <div className="flex-1 overflow-auto">
+          <SavedQueriesTree
+            connectionId={activeConnectionId}
+            onSelectQuery={handleSelectSavedQuery}
+          />
+        </div>
+        <div
+          className="border-t"
+          style={{ borderColor: "var(--color-border)", maxHeight: "40%" }}
+        >
+          <RunConfigList
+            connectionId={activeConnectionId}
+            onSelect={handleSelectRunConfig}
+            onNew={() => setRunConfigOpen(true)}
+          />
+        </div>
+      </div>
+
+      <div className="flex flex-1 flex-col overflow-hidden">
+        <QueryToolbar
         onExecute={handleExecute}
+        onCancel={handleCancel}
         onExplain={handleExplain}
         onClear={handleClear}
         onExport={() => setExportOpen(true)}
-        isExecuting={executeMutation.isPending}
+        onFormat={handleFormat}
+        onInsertTemplate={handleInsertTemplate}
+        isExecuting={executeMultiMutation.isPending}
         isExplaining={explainMutation.isPending}
         hasConnection={!!activeConnectionId}
         hasSql={!!sql.trim()}
       />
 
       <TransactionBar />
+
+      <QueryTabs />
 
       <div className="h-[35%] min-h-[120px] border-b">
         <QueryEditor
@@ -149,15 +264,15 @@ export function QueryPage() {
               className="px-4 py-2 text-sm transition-colors"
               style={{
                 color:
-                  activeTab === tab.id
+                  panelTab === tab.id
                     ? "var(--color-text)"
                     : "var(--color-text-secondary)",
                 borderBottom:
-                  activeTab === tab.id
+                  panelTab === tab.id
                     ? "2px solid var(--color-primary,#3b82f6)"
                     : "2px solid transparent",
               }}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => setPanelTab(tab.id)}
             >
               {tab.label}
             </button>
@@ -165,7 +280,7 @@ export function QueryPage() {
         </div>
 
         <div className="min-h-0 flex-1">
-          {status === "error" && error && activeTab === "results" && (
+          {status === "error" && error && panelTab === "results" && (
             <div
               className="m-3 rounded-[var(--radius-sm)] px-3 py-2 text-sm"
               style={{
@@ -177,8 +292,10 @@ export function QueryPage() {
             </div>
           )}
 
-          {activeTab === "results" && result && (
-            <ResultGrid
+          {panelTab === "results" && result && (
+            <>
+              <ResultTabs />
+              <ResultGrid
               columns={result.columns}
               rows={sortedRows as Row[]}
               sort={sort}
@@ -186,9 +303,10 @@ export function QueryPage() {
               durationMs={result.durationMs}
               rowCount={result.rowCount}
             />
+            </>
           )}
 
-          {activeTab === "results" && !result && status !== "error" && (
+          {panelTab === "results" && !result && status !== "error" && (
             <div className="flex items-center justify-center py-12">
               <p style={{ color: "var(--color-text-secondary)" }}>
                 {t("query.enterSql")}
@@ -196,11 +314,11 @@ export function QueryPage() {
             </div>
           )}
 
-          {activeTab === "explain" && explainPlan && (
+          {panelTab === "explain" && explainPlan && (
             <ExplainPlanView plan={explainPlan} />
           )}
 
-          {activeTab === "explain" && !explainPlan && (
+          {panelTab === "explain" && !explainPlan && (
             <div className="flex items-center justify-center py-12">
               <p style={{ color: "var(--color-text-secondary)" }}>
                 {t("query.noResults")}
@@ -208,7 +326,7 @@ export function QueryPage() {
             </div>
           )}
 
-          {activeTab === "history" && (
+          {panelTab === "history" && (
             <QueryHistoryPanel
               entries={historyQuery.data ?? []}
               search={historySearch}
@@ -217,7 +335,12 @@ export function QueryPage() {
               isLoading={historyQuery.isLoading}
             />
           )}
+
+          {panelTab === "local-history" && (
+            <LocalHistoryPanel onSelectEntry={handleSelectHistoryEntry} />
+          )}
         </div>
+      </div>
       </div>
 
       <ExportDialog
@@ -225,6 +348,13 @@ export function QueryPage() {
         onClose={() => setExportOpen(false)}
         connectionId={activeConnectionId}
         sql={sql.trim()}
+      />
+
+      <RunConfigDialog
+        open={runConfigOpen}
+        onClose={() => setRunConfigOpen(false)}
+        connectionId={activeConnectionId}
+        defaultSql={sql.trim()}
       />
     </div>
   );

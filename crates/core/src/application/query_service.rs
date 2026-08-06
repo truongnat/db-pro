@@ -2,17 +2,24 @@ use std::sync::Arc;
 
 use crate::domain::connection::ConnectionId;
 use crate::domain::error::DbError;
-use crate::domain::history::{QueryHistory, SavedQuery};
+use crate::domain::history::{QueryHistory, SavedQuery, SavedQueryFolder};
 use crate::domain::query::{QueryParam, QueryResult};
-use crate::ports::{DbConnector, QueryHistoryRepository, SavedQueryRepository};
+use crate::domain::run_config::RunConfig;
+use crate::ports::{DbConnector, QueryHistoryRepository, RunConfigRepository, SavedQueryRepository};
 
 use super::registry::ConnectionRegistry;
-use super::sql_policy::reject_multi_statement;
+use super::sql_policy::{reject_multi_statement, split_statements};
+
+pub struct MultiQueryResult {
+    pub results: Vec<QueryResult>,
+    pub total_duration_ms: u64,
+}
 
 pub struct QueryService {
     connector: Box<dyn DbConnector>,
     history: Box<dyn QueryHistoryRepository>,
     saved_queries: Box<dyn SavedQueryRepository>,
+    run_configs: Box<dyn RunConfigRepository>,
     registry: Arc<ConnectionRegistry>,
 }
 
@@ -21,12 +28,14 @@ impl QueryService {
         connector: Box<dyn DbConnector>,
         history: Box<dyn QueryHistoryRepository>,
         saved_queries: Box<dyn SavedQueryRepository>,
+        run_configs: Box<dyn RunConfigRepository>,
         registry: Arc<ConnectionRegistry>,
     ) -> Self {
         Self {
             connector,
             history,
             saved_queries,
+            run_configs,
             registry,
         }
     }
@@ -52,6 +61,42 @@ impl QueryService {
         }
 
         Ok(result)
+    }
+
+    pub async fn execute_multi(
+        &self,
+        connection_id: &ConnectionId,
+        sql: &str,
+    ) -> Result<MultiQueryResult, DbError> {
+        let handle = self
+            .registry
+            .get(connection_id)
+            .ok_or_else(|| DbError::ConnectionFailed(format!("connection {connection_id} is not active")))?;
+
+        let statements = split_statements(sql);
+        if statements.is_empty() {
+            return Err(DbError::QueryFailed("empty SQL statement".into()));
+        }
+
+        let start = std::time::Instant::now();
+        let mut results = Vec::with_capacity(statements.len());
+
+        for stmt in &statements {
+            let result = self.connector.query(&handle, stmt, &[]).await?;
+            result.validate().map_err(DbError::QueryFailed)?;
+            results.push(result);
+        }
+
+        let total_duration_ms = start.elapsed().as_millis() as u64;
+
+        if let Err(e) = self.history.save(connection_id, sql, results.first().unwrap()).await {
+            tracing::warn!("failed to save query history: {e}");
+        }
+
+        Ok(MultiQueryResult {
+            results,
+            total_duration_ms,
+        })
     }
 
     pub async fn explain(&self, connection_id: &ConnectionId, sql: &str) -> Result<serde_json::Value, DbError> {
@@ -95,6 +140,58 @@ impl QueryService {
     pub async fn delete_saved_query(&self, id: &uuid::Uuid) -> Result<(), DbError> {
         self.saved_queries.delete(id).await
     }
+
+    pub async fn create_folder(
+        &self,
+        connection_id: &ConnectionId,
+        name: &str,
+    ) -> Result<SavedQueryFolder, DbError> {
+        let folder = SavedQueryFolder {
+            id: uuid::Uuid::new_v4(),
+            connection_id: *connection_id,
+            name: name.to_string(),
+            created_at: chrono::Utc::now(),
+        };
+        self.saved_queries.create_folder(&folder).await?;
+        Ok(folder)
+    }
+
+    pub async fn list_folders(&self, connection_id: &ConnectionId) -> Result<Vec<SavedQueryFolder>, DbError> {
+        self.saved_queries.list_folders(connection_id).await
+    }
+
+    pub async fn delete_folder(&self, id: &uuid::Uuid) -> Result<(), DbError> {
+        self.saved_queries.delete_folder(id).await
+    }
+
+    pub async fn save_run_config(
+        &self,
+        connection_id: &ConnectionId,
+        name: &str,
+        sql: &str,
+        timeout_ms: u64,
+        max_rows: u64,
+    ) -> Result<RunConfig, DbError> {
+        let config = RunConfig {
+            id: uuid::Uuid::new_v4(),
+            connection_id: *connection_id,
+            name: name.to_string(),
+            sql: sql.to_string(),
+            timeout_ms,
+            max_rows,
+            created_at: chrono::Utc::now(),
+        };
+        self.run_configs.save(&config).await?;
+        Ok(config)
+    }
+
+    pub async fn list_run_configs(&self, connection_id: &ConnectionId) -> Result<Vec<RunConfig>, DbError> {
+        self.run_configs.list(connection_id).await
+    }
+
+    pub async fn delete_run_config(&self, id: &uuid::Uuid) -> Result<(), DbError> {
+        self.run_configs.delete(id).await
+    }
 }
 
 #[cfg(test)]
@@ -102,7 +199,7 @@ mod tests {
     use super::*;
     use crate::domain::connection::ConnectionHandle;
     use crate::domain::query::{CellValue, ColumnMeta, Row};
-    use crate::ports::{MockDbConnector, MockQueryHistoryRepository, MockSavedQueryRepository};
+    use crate::ports::{MockDbConnector, MockQueryHistoryRepository, MockRunConfigRepository, MockSavedQueryRepository};
 
     fn test_result() -> QueryResult {
         QueryResult {
@@ -122,6 +219,7 @@ mod tests {
             Box::new(connector),
             Box::new(MockQueryHistoryRepository::new()),
             Box::new(MockSavedQueryRepository::new()),
+            Box::new(MockRunConfigRepository::new()),
             registry,
         )
     }
@@ -142,6 +240,7 @@ mod tests {
             Box::new(connector),
             Box::new(history),
             Box::new(MockSavedQueryRepository::new()),
+            Box::new(MockRunConfigRepository::new()),
             Arc::clone(&registry),
         );
 
@@ -191,6 +290,7 @@ mod tests {
             Box::new(connector),
             Box::new(history),
             Box::new(MockSavedQueryRepository::new()),
+            Box::new(MockRunConfigRepository::new()),
             Arc::clone(&registry),
         );
 
@@ -214,6 +314,7 @@ mod tests {
             Box::new(connector),
             Box::new(history),
             Box::new(MockSavedQueryRepository::new()),
+            Box::new(MockRunConfigRepository::new()),
             Arc::clone(&registry),
         );
 
@@ -239,6 +340,7 @@ mod tests {
             Box::new(connector),
             Box::new(history),
             Box::new(MockSavedQueryRepository::new()),
+            Box::new(MockRunConfigRepository::new()),
             Arc::clone(&registry),
         );
 

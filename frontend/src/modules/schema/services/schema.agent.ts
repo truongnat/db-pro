@@ -120,6 +120,13 @@ export class MockSchemaService {
     return DDL_MAP[`${schema}:${table}`] ?? `-- DDL for ${schema}.${table}`;
   }
 
+  async executeDdl(
+    _connectionId: string,
+    _sql: string,
+  ): Promise<{ affectedRows: number }> {
+    return { affectedRows: 0 };
+  }
+
   async invalidateCache(_connectionId: string): Promise<void> {}
 }
 

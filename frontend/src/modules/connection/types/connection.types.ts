@@ -7,6 +7,7 @@ export interface SshTunnelConfig {
   port: number;
   user: string;
   privateKeyPath: string;
+  password?: string;
 }
 
 export interface Connection {
@@ -23,6 +24,9 @@ export interface Connection {
   maxRows?: number;
   createdAt: string;
   updatedAt: string;
+  color?: string;
+  tags?: string[];
+  group?: string;
 }
 
 export interface ConnectionConfig {
@@ -36,6 +40,9 @@ export interface ConnectionConfig {
   sshTunnel?: SshTunnelConfig;
   queryTimeoutMs: number;
   maxRows: number;
+  color?: string;
+  tags?: string[];
+  group?: string;
 }
 
 export interface ConnectionFormData {
@@ -49,6 +56,9 @@ export interface ConnectionFormData {
   sshTunnel?: SshTunnelConfig;
   queryTimeoutMs: number;
   maxRows: number;
+  color?: string;
+  tags?: string[];
+  group?: string;
 }
 
 export type ConnectionStatus = "connected" | "disconnected" | "connecting" | "error";

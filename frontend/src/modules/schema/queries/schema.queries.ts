@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { container } from "@/app/app.module";
 import { SERVICE_NAMES, type ISchemaService } from "@/commons/di/registry";
 
-import type { IntrospectResult, TableInfo } from "../types/schema.types";
+import type { DataDiff, IntrospectResult, ObjectDependency, PartitionInfo, SchemaDiff, TableInfo, TablespaceInfo } from "../types/schema.types";
 
 const QUERY_KEYS = {
   introspect: (connectionId: string) =>
@@ -12,6 +12,16 @@ const QUERY_KEYS = {
     ["schema-table-info", connectionId, schema, table] as const,
   tableDdl: (connectionId: string, schema: string, table: string) =>
     ["schema-table-ddl", connectionId, schema, table] as const,
+  schemaDiff: (sourceId: string, targetId: string) =>
+    ["schema-diff", sourceId, targetId] as const,
+  dataDiff: (sourceId: string, targetId: string, schema: string, table: string) =>
+    ["data-diff", sourceId, targetId, schema, table] as const,
+  dependencies: (connectionId: string, schema: string, objectName: string) =>
+    ["object-dependencies", connectionId, schema, objectName] as const,
+  partitions: (connectionId: string) =>
+    ["partitions", connectionId] as const,
+  tablespaces: (connectionId: string) =>
+    ["tablespaces", connectionId] as const,
 };
 
 function getSchemaService() {
@@ -70,6 +80,128 @@ export function useInvalidateSchemaCache(connectionId: string | null) {
     },
     onError: (err: unknown) => {
       console.error("[Schema] Cache invalidation failed:", err);
+    },
+  });
+}
+
+export function useExecuteDdl(connectionId: string | null) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (sql: string) =>
+      getSchemaService().executeDdl(connectionId!, sql) as Promise<{
+        affectedRows: number;
+      }>,
+    onSuccess: () => {
+      if (connectionId) {
+        qc.invalidateQueries({ queryKey: QUERY_KEYS.introspect(connectionId) });
+      }
+    },
+  });
+}
+
+export function useDiffSchemas(
+  sourceId: string | null,
+  targetId: string | null,
+  enabled: boolean,
+) {
+  return useQuery({
+    queryKey: QUERY_KEYS.schemaDiff(sourceId ?? "", targetId ?? ""),
+    queryFn: () =>
+      getSchemaService().diffSchemas(sourceId!, targetId!) as Promise<SchemaDiff>,
+    enabled: enabled && !!sourceId && !!targetId,
+  });
+}
+
+export function useDiffTableData(
+  sourceId: string | null,
+  targetId: string | null,
+  schema: string | null,
+  table: string | null,
+  enabled: boolean,
+) {
+  return useQuery({
+    queryKey: QUERY_KEYS.dataDiff(
+      sourceId ?? "",
+      targetId ?? "",
+      schema ?? "",
+      table ?? "",
+    ),
+    queryFn: () =>
+      getSchemaService().diffTableData(
+        sourceId!,
+        targetId!,
+        schema!,
+        table!,
+      ) as Promise<DataDiff>,
+    enabled: enabled && !!sourceId && !!targetId && !!schema && !!table,
+  });
+}
+
+export function useObjectDependencies(
+  connectionId: string | null,
+  schema: string | null,
+  objectName: string | null,
+  enabled: boolean,
+) {
+  return useQuery({
+    queryKey: QUERY_KEYS.dependencies(
+      connectionId ?? "",
+      schema ?? "",
+      objectName ?? "",
+    ),
+    queryFn: () =>
+      getSchemaService().getObjectDependencies(
+        connectionId!,
+        schema!,
+        objectName!,
+      ) as Promise<ObjectDependency[]>,
+    enabled: enabled && !!connectionId && !!schema && !!objectName,
+  });
+}
+
+export function useListPartitions(connectionId: string | null, enabled: boolean) {
+  return useQuery({
+    queryKey: QUERY_KEYS.partitions(connectionId ?? ""),
+    queryFn: () =>
+      getSchemaService().listPartitions(connectionId!) as Promise<PartitionInfo[]>,
+    enabled: enabled && !!connectionId,
+  });
+}
+
+export function useListTablespaces(connectionId: string | null, enabled: boolean) {
+  return useQuery({
+    queryKey: QUERY_KEYS.tablespaces(connectionId ?? ""),
+    queryFn: () =>
+      getSchemaService().listTablespaces(connectionId!) as Promise<TablespaceInfo[]>,
+    enabled: enabled && !!connectionId,
+  });
+}
+
+export function useRenameSchemaObject(connectionId: string | null) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      objectType,
+      schema,
+      oldName,
+      newName,
+    }: {
+      objectType: string;
+      schema: string;
+      oldName: string;
+      newName: string;
+    }) =>
+      getSchemaService().renameSchemaObject(
+        connectionId!,
+        objectType,
+        schema,
+        oldName,
+        newName,
+      ),
+    onSuccess: () => {
+      if (connectionId) {
+        qc.invalidateQueries({ queryKey: QUERY_KEYS.introspect(connectionId) });
+      }
     },
   });
 }

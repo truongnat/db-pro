@@ -7,4 +7,6 @@ export {
   type IQueryService,
   type ISchemaService,
   type IExportService,
+  type IUserManagementService,
+  type IBackupService,
 } from "./registry";

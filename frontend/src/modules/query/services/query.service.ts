@@ -2,14 +2,30 @@ import { apiInvoke } from "@/commons/utils/api";
 
 import type {
   ExplainPlan,
+  MultiQueryResult,
   QueryHistoryEntry,
   QueryResult,
+  RunConfig,
   SavedQuery,
+  SavedQueryFolder,
 } from "../types/query.types";
 
 export class QueryService {
   async execute(connectionId: string, sql: string): Promise<QueryResult> {
     return apiInvoke<QueryResult>("execute_query", {
+      connection_id: connectionId,
+      sql,
+    });
+  }
+
+  async cancel(connectionId: string): Promise<void> {
+    return apiInvoke<void>("cancel_query", {
+      connection_id: connectionId,
+    });
+  }
+
+  async executeMulti(connectionId: string, sql: string): Promise<MultiQueryResult> {
+    return apiInvoke<MultiQueryResult>("execute_query_multi", {
       connection_id: connectionId,
       sql,
     });
@@ -54,6 +70,49 @@ export class QueryService {
 
   async deleteSaved(id: string): Promise<void> {
     return apiInvoke<void>("delete_saved_query", { id });
+  }
+
+  async createFolder(connectionId: string, name: string): Promise<SavedQueryFolder> {
+    return apiInvoke<SavedQueryFolder>("create_folder", {
+      connection_id: connectionId,
+      name,
+    });
+  }
+
+  async listFolders(connectionId: string): Promise<SavedQueryFolder[]> {
+    return apiInvoke<SavedQueryFolder[]>("list_folders", {
+      connection_id: connectionId,
+    });
+  }
+
+  async deleteFolder(id: string): Promise<void> {
+    return apiInvoke<void>("delete_folder", { id });
+  }
+
+  async saveRunConfig(
+    connectionId: string,
+    name: string,
+    sql: string,
+    timeoutMs: number,
+    maxRows: number,
+  ): Promise<RunConfig> {
+    return apiInvoke<RunConfig>("save_run_config", {
+      connection_id: connectionId,
+      name,
+      sql,
+      timeout_ms: timeoutMs,
+      max_rows: maxRows,
+    });
+  }
+
+  async listRunConfigs(connectionId: string): Promise<RunConfig[]> {
+    return apiInvoke<RunConfig[]>("list_run_configs", {
+      connection_id: connectionId,
+    });
+  }
+
+  async deleteRunConfig(id: string): Promise<void> {
+    return apiInvoke<void>("delete_run_config", { id });
   }
 }
 

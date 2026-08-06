@@ -21,5 +21,18 @@
     "security": {
       "csp": "default-src 'self'; script-src 'self' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: https://asset.local blob:; connect-src 'self' ipc: http://ipc.localhost ws://localhost:5173 ws://localhost:5173/; font-src 'self'"
     }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["deb", "appimage", "rpm", "dmg", "msi", "nsis"],
+    "icon": ["icons/icon.png"],
+    "linux": {
+      "deb": {
+        "depends": ["libwebkit2gtk-4.1-0", "libgtk-3-0"]
+      },
+      "rpm": {
+        "depends": ["webkit2gtk4.1", "gtk3"]
+      }
+    }
   }
 }

@@ -1,15 +1,23 @@
+pub mod backup_service;
 pub mod connection_service;
+pub mod data_diff;
+pub mod ddl_builder;
 pub mod export_service;
 pub mod query_service;
 pub mod registry;
+pub mod schema_diff;
 pub mod schema_service;
 pub mod sql_builder;
 pub mod table_data_service;
+pub mod user_service;
 mod sql_policy;
 
+pub use backup_service::BackupService;
 pub use connection_service::ConnectionService;
+pub use data_diff::DataDiffService;
 pub use export_service::{ExportResult, ExportService};
-pub use query_service::QueryService;
+pub use query_service::{MultiQueryResult, QueryService};
 pub use registry::ConnectionRegistry;
 pub use schema_service::SchemaService;
 pub use table_data_service::TableDataService;
+pub use user_service::UserService;

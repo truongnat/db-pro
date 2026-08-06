@@ -15,6 +15,44 @@ pub(crate) fn reject_multi_statement(sql: &str) -> Result<(), DbError> {
     Ok(())
 }
 
+pub fn split_statements(sql: &str) -> Vec<String> {
+    let mut statements = Vec::new();
+    let mut current = String::new();
+    let mut chars = sql.chars().peekable();
+    let mut in_quote = false;
+
+    while let Some(ch) = chars.next() {
+        if in_quote {
+            current.push(ch);
+            if ch == '\'' {
+                if chars.peek() == Some(&'\'') {
+                    current.push(chars.next().unwrap());
+                } else {
+                    in_quote = false;
+                }
+            }
+        } else if ch == '\'' {
+            in_quote = true;
+            current.push(ch);
+        } else if ch == ';' {
+            let stmt = current.trim().to_string();
+            if !stmt.is_empty() {
+                statements.push(stmt);
+            }
+            current.clear();
+        } else {
+            current.push(ch);
+        }
+    }
+
+    let stmt = current.trim().to_string();
+    if !stmt.is_empty() {
+        statements.push(stmt);
+    }
+
+    statements
+}
+
 fn strip_single_quoted_strings(sql: &str) -> String {
     let mut result = String::with_capacity(sql.len());
     let mut chars = sql.chars().peekable();
@@ -56,5 +94,29 @@ mod tests {
     fn strip_quoted_strings_handles_escapes() {
         assert_eq!(strip_single_quoted_strings("SELECT 'it''s'"), "SELECT ");
         assert_eq!(strip_single_quoted_strings("a;b'c;d'e"), "a;be");
+    }
+
+    #[test]
+    fn split_statements_basic() {
+        let stmts = split_statements("SELECT 1; SELECT 2");
+        assert_eq!(stmts, vec!["SELECT 1", "SELECT 2"]);
+    }
+
+    #[test]
+    fn split_statements_trailing_semicolon() {
+        let stmts = split_statements("SELECT 1; SELECT 2;");
+        assert_eq!(stmts, vec!["SELECT 1", "SELECT 2"]);
+    }
+
+    #[test]
+    fn split_statements_respects_quotes() {
+        let stmts = split_statements("SELECT ';'; SELECT 2");
+        assert_eq!(stmts, vec!["SELECT ';'", "SELECT 2"]);
+    }
+
+    #[test]
+    fn split_statements_empty() {
+        let stmts = split_statements("  ");
+        assert!(stmts.is_empty());
     }
 }

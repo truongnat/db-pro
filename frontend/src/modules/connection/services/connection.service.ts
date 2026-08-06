@@ -1,6 +1,6 @@
 import { apiInvoke } from "@/commons/utils/api";
 
-import type { Connection, ConnectionConfig } from "../types/connection.types";
+import type { Connection, ConnectionConfig, SshTunnelConfig } from "../types/connection.types";
 
 export class ConnectionService {
   async list(): Promise<Connection[]> {
@@ -33,6 +33,10 @@ export class ConnectionService {
 
   async disconnect(id: string): Promise<void> {
     return apiInvoke<void>("disconnect", { id });
+  }
+
+  async testSshTunnel(config: SshTunnelConfig): Promise<void> {
+    return apiInvoke<void>("test_ssh_tunnel", { config });
   }
 }
 

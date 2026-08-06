@@ -108,6 +108,25 @@ impl SchemaService {
         Ok(build_create_table_ddl(&info))
     }
 
+    pub async fn execute_ddl(
+        &self,
+        connection_id: &ConnectionId,
+        sql: &str,
+    ) -> Result<u64, DbError> {
+        let handle = self
+            .registry
+            .get(connection_id)
+            .ok_or_else(|| DbError::ConnectionFailed(format!("connection {connection_id} is not active")))?;
+
+        let affected = self.connector.execute(&handle, sql, &[]).await?;
+
+        if let Err(e) = self.cache.invalidate(connection_id).await {
+            tracing::warn!("failed to invalidate cache after DDL: {e}");
+        }
+
+        Ok(affected)
+    }
+
     pub async fn invalidate_cache(&self, connection_id: &ConnectionId) -> Result<(), DbError> {
         self.cache.invalidate(connection_id).await
     }

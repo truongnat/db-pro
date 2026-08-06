@@ -1,13 +1,16 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { useConnectionStore } from "@/commons/stores/connection.store";
 import { useTranslation } from "@/commons/locales/useTranslation";
 import { useIntrospect } from "@/modules/schema/queries/schema.queries";
 
+import { ChartConfigDialog } from "../components/chart-config-dialog";
+import { ChartView } from "../components/chart-view";
+import { CopyAsSqlDialog } from "../components/copy-as-sql-dialog";
 import { DataGrid } from "../components/data-grid";
-import { FilterBar } from "../components/filter-bar";
 import { Pagination } from "../components/pagination";
 import { EmptyState } from "../components/empty-state";
+import { VisualFilterBuilder } from "../components/visual-filter-builder";
 import { useDataGridModuleStore } from "../state/data-grid.store";
 import {
   useTableRows,
@@ -35,6 +38,14 @@ export function DataPage() {
   const setPage = useDataGridModuleStore((s) => s.setPage);
   const setPageSize = useDataGridModuleStore((s) => s.setPageSize);
   const setEditingCell = useDataGridModuleStore((s) => s.setEditingCell);
+  const frozenColumns = useDataGridModuleStore((s) => s.frozenColumns);
+  const chartConfig = useDataGridModuleStore((s) => s.chartConfig);
+  const toggleFrozenColumn = useDataGridModuleStore((s) => s.toggleFrozenColumn);
+  const setChartConfig = useDataGridModuleStore((s) => s.setChartConfig);
+
+  const [copySqlOpen, setCopySqlOpen] = useState(false);
+  const [chartConfigOpen, setChartConfigOpen] = useState(false);
+  const [viewTab, setViewTab] = useState<"grid" | "chart">("grid");
 
   useEffect(() => {
     if (storeConnectionId !== activeConnectionId) {
@@ -174,6 +185,17 @@ export function DataPage() {
             </option>
           ))}
         </select>
+
+        {rows.length > 0 && tableSchema && tableName && (
+          <button
+            type="button"
+            onClick={() => setCopySqlOpen(true)}
+            className="ml-auto rounded-[var(--radius-sm)] border px-3 py-1 text-xs transition-colors hover:bg-[var(--color-bg)]"
+            style={{ borderColor: "var(--color-border)", color: "var(--color-text)" }}
+          >
+            {t("dataGrid.copyAsSql")}
+          </button>
+        )}
       </div>
 
       {!tableName ? (
@@ -181,7 +203,7 @@ export function DataPage() {
       ) : (
         <>
           {columns.length > 0 && (
-            <FilterBar
+            <VisualFilterBuilder
               columns={columns}
               filters={filters}
               onAddFilter={addFilter}
@@ -189,20 +211,68 @@ export function DataPage() {
             />
           )}
 
+          <div
+            className="flex border-b px-3"
+            style={{ borderColor: "var(--color-border)" }}
+          >
+            <button
+              type="button"
+              className="px-3 py-1.5 text-xs transition-colors"
+              style={{
+                color: viewTab === "grid" ? "var(--color-text)" : "var(--color-text-secondary)",
+                borderBottom: viewTab === "grid" ? "2px solid var(--color-primary, #3b82f6)" : "2px solid transparent",
+              }}
+              onClick={() => setViewTab("grid")}
+            >
+              {t("dataGrid.gridView")}
+            </button>
+            <button
+              type="button"
+              className="px-3 py-1.5 text-xs transition-colors"
+              style={{
+                color: viewTab === "chart" ? "var(--color-text)" : "var(--color-text-secondary)",
+                borderBottom: viewTab === "chart" ? "2px solid var(--color-primary, #3b82f6)" : "2px solid transparent",
+              }}
+              onClick={() => setViewTab("chart")}
+            >
+              {t("dataGrid.chartView")}
+            </button>
+            {viewTab === "chart" && (
+              <button
+                type="button"
+                className="ml-auto px-3 py-1.5 text-xs transition-colors"
+                style={{ color: "var(--color-primary, #3b82f6)" }}
+                onClick={() => setChartConfigOpen(true)}
+              >
+                {t("dataGrid.chartConfig")}
+              </button>
+            )}
+          </div>
+
           <div className="relative flex-1 overflow-hidden">
-            <DataGrid
-              columns={columns}
-              rows={rows}
-              sorts={sorts}
-              onSort={handleSort}
-              editingCell={editingCell}
-              onEditCell={setEditingCell}
-              onCellSave={handleCellSave}
-              onDeleteRow={handleDeleteRow}
-              isDeleting={deleteRow.isPending}
-              isLoading={query.isFetching && !query.isPlaceholderData}
-              pkColumns={pkColumns}
-            />
+            {viewTab === "grid" ? (
+              <DataGrid
+                columns={columns}
+                rows={rows}
+                sorts={sorts}
+                onSort={handleSort}
+                editingCell={editingCell}
+                onEditCell={setEditingCell}
+                onCellSave={handleCellSave}
+                onDeleteRow={handleDeleteRow}
+                isDeleting={deleteRow.isPending}
+                isLoading={query.isFetching && !query.isPlaceholderData}
+                pkColumns={pkColumns}
+                frozenColumns={frozenColumns}
+                onToggleFreezeColumn={toggleFrozenColumn}
+              />
+            ) : chartConfig ? (
+              <ChartView columns={columns} rows={rows} config={chartConfig} />
+            ) : (
+              <div className="flex items-center justify-center py-12 text-sm" style={{ color: "var(--color-text-secondary)" }}>
+                {t("dataGrid.configureChart")}
+              </div>
+            )}
           </div>
 
           <Pagination
@@ -213,6 +283,28 @@ export function DataPage() {
             onPageSizeChange={setPageSize}
           />
         </>
+      )}
+
+      {tableSchema && tableName && (
+        <CopyAsSqlDialog
+          open={copySqlOpen}
+          onClose={() => setCopySqlOpen(false)}
+          schema={tableSchema}
+          table={tableName}
+          columns={columns}
+          rows={rows}
+          pkColumns={pkColumns}
+        />
+      )}
+
+      {columns.length > 0 && (
+        <ChartConfigDialog
+          open={chartConfigOpen}
+          onClose={() => setChartConfigOpen(false)}
+          columns={columns}
+          config={chartConfig}
+          onApply={setChartConfig}
+        />
       )}
     </div>
   );

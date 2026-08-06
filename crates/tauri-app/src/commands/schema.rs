@@ -1,6 +1,6 @@
 use tauri::State;
 
-use crate::dto::{CommandError, IntrospectResultDto, TableInfoDto};
+use crate::dto::{CommandError, DdlResultDto, IntrospectResultDto, TableInfoDto};
 use db_pro_core::application::SchemaService;
 use db_pro_core::domain::connection::ConnectionId;
 
@@ -36,6 +36,61 @@ pub async fn get_table_ddl(
 ) -> Result<String, CommandError> {
     let conn_id = parse_connection_id(&connection_id)?;
     Ok(service.get_table_ddl(&conn_id, &schema, &table).await?)
+}
+
+#[tauri::command]
+pub async fn execute_ddl(
+    service: State<'_, SchemaService>,
+    connection_id: String,
+    sql: String,
+) -> Result<DdlResultDto, CommandError> {
+    let conn_id = parse_connection_id(&connection_id)?;
+    let affected = service.execute_ddl(&conn_id, &sql).await?;
+    Ok(DdlResultDto { affected_rows: affected })
+}
+
+#[tauri::command]
+pub async fn create_index(
+    service: State<'_, SchemaService>,
+    connection_id: String,
+    sql: String,
+) -> Result<DdlResultDto, CommandError> {
+    let conn_id = parse_connection_id(&connection_id)?;
+    let affected = service.execute_ddl(&conn_id, &sql).await?;
+    Ok(DdlResultDto { affected_rows: affected })
+}
+
+#[tauri::command]
+pub async fn drop_index(
+    service: State<'_, SchemaService>,
+    connection_id: String,
+    sql: String,
+) -> Result<DdlResultDto, CommandError> {
+    let conn_id = parse_connection_id(&connection_id)?;
+    let affected = service.execute_ddl(&conn_id, &sql).await?;
+    Ok(DdlResultDto { affected_rows: affected })
+}
+
+#[tauri::command]
+pub async fn create_trigger(
+    service: State<'_, SchemaService>,
+    connection_id: String,
+    sql: String,
+) -> Result<DdlResultDto, CommandError> {
+    let conn_id = parse_connection_id(&connection_id)?;
+    let affected = service.execute_ddl(&conn_id, &sql).await?;
+    Ok(DdlResultDto { affected_rows: affected })
+}
+
+#[tauri::command]
+pub async fn drop_trigger(
+    service: State<'_, SchemaService>,
+    connection_id: String,
+    sql: String,
+) -> Result<DdlResultDto, CommandError> {
+    let conn_id = parse_connection_id(&connection_id)?;
+    let affected = service.execute_ddl(&conn_id, &sql).await?;
+    Ok(DdlResultDto { affected_rows: affected })
 }
 
 #[tauri::command]

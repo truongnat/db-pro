@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 
 import { useTranslation } from "@/commons/locales/useTranslation";
@@ -6,6 +6,8 @@ import { useTranslation } from "@/commons/locales/useTranslation";
 import type { ColumnMeta, Row } from "../types/query.types";
 import { renderCellValue } from "../types/query.types";
 import type { SortState } from "../state/query.store";
+import { ColumnMetadataPopover } from "./column-metadata-popover";
+import { ZoomControls } from "./zoom-controls";
 
 interface ResultGridProps {
   columns: ColumnMeta[];
@@ -26,6 +28,8 @@ export function ResultGrid({
 }: ResultGridProps) {
   const { t } = useTranslation();
   const parentRef = useRef<HTMLDivElement>(null);
+  const [zoom, setZoom] = useState(100);
+  const [metadataColumn, setMetadataColumn] = useState<{ column: ColumnMeta; el: HTMLElement } | null>(null);
 
   const virtualizer = useVirtualizer({
     count: rows.length,
@@ -50,6 +54,7 @@ export function ResultGrid({
 
   return (
     <div className="flex h-full flex-col">
+      <div style={{ zoom: zoom / 100 }} className="flex h-full flex-col">
       <div
         className="grid border-b text-xs font-medium"
         style={{
@@ -66,17 +71,32 @@ export function ResultGrid({
           return (
             <div
               key={col.name}
-              className="cursor-pointer select-none px-3 py-2 transition-colors hover:bg-[var(--color-bg)]"
+              className="flex items-center gap-1 px-3 py-2"
               style={{ color: "var(--color-text-secondary)" }}
-              onClick={() => onSort(col.name)}
-              title={`${col.name} (${col.dataType})`}
             >
-              <span>{col.name}</span>
-              {isSorted && (
-                <span className="ml-1">
-                  {sort.direction === "asc" ? "\u25B2" : "\u25BC"}
-                </span>
-              )}
+              <span
+                className="cursor-pointer select-none transition-colors hover:bg-[var(--color-bg)]"
+                onClick={() => onSort(col.name)}
+                title={`${col.name} (${col.dataType})`}
+              >
+                {col.name}
+                {isSorted && (
+                  <span className="ml-1">
+                    {sort.direction === "asc" ? "\u25B2" : "\u25BC"}
+                  </span>
+                )}
+              </span>
+              <button
+                className="shrink-0 rounded px-1 text-[10px] transition-colors hover:bg-[var(--color-bg)]"
+                style={{ color: "var(--color-text-secondary)" }}
+                title={t("query.metadata.info")}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMetadataColumn({ column: col, el: e.currentTarget });
+                }}
+              >
+                i
+              </button>
             </div>
           );
         })}
@@ -133,6 +153,7 @@ export function ResultGrid({
           })}
         </div>
       </div>
+      </div>
 
       <div
         className="flex items-center gap-4 border-t px-3 py-1.5 text-xs"
@@ -144,7 +165,17 @@ export function ResultGrid({
       >
         <span>{t("query.rowsAffected", { count: rowCount })}</span>
         <span>{t("query.duration", { duration: durationMs })}</span>
+        <div className="flex-1" />
+        <ZoomControls zoom={zoom} onZoomChange={setZoom} />
       </div>
+
+      {metadataColumn && (
+        <ColumnMetadataPopover
+          column={metadataColumn.column}
+          anchorEl={metadataColumn.el}
+          onClose={() => setMetadataColumn(null)}
+        />
+      )}
     </div>
   );
 }

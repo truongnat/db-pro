@@ -23,6 +23,14 @@ pub struct SavedQuery {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SavedQueryFolder {
+    pub id: uuid::Uuid,
+    pub connection_id: ConnectionId,
+    pub name: String,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Workspace {
     pub id: uuid::Uuid,
     pub name: String,

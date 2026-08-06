@@ -1,13 +1,19 @@
+mod cancel;
 mod commands;
 mod dto;
 
 use std::sync::Arc;
 
-use db_pro_core::application::{ConnectionRegistry, ConnectionService, ExportService, QueryService, SchemaService, TableDataService};
+use db_pro_core::application::{BackupService, ConnectionRegistry, ConnectionService, DataDiffService, ExportService, QueryService, SchemaService, TableDataService, UserService};
+use db_pro_infrastructure::backup::pg_dump::PgDumpEngine;
+use db_pro_infrastructure::backup::sqlite_backup::SqliteBackupEngine;
 use db_pro_infrastructure::connector::CompositeConnector;
 use db_pro_infrastructure::meta::store::SQLiteMetaStore;
+use db_pro_infrastructure::postgres::user_manager::PostgresUserManager;
 use db_pro_infrastructure::secret::keyring_vault::KeyringVault;
 use tauri::Manager;
+
+use crate::cancel::CancelRegistry;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -48,6 +54,7 @@ pub fn run() {
                     Box::new(Arc::clone(&connector)),
                     Box::new(meta_store.clone()),
                     Box::new(meta_store.clone()),
+                    Box::new(meta_store.clone()),
                     Arc::clone(&registry),
                 );
 
@@ -61,11 +68,67 @@ pub fn run() {
 
                 let table_data_service = TableDataService::new(Box::new(Arc::clone(&connector)), Arc::clone(&registry));
 
+                let pg_connector = connector.postgres_connector();
+                let user_manager = PostgresUserManager::new(pg_connector);
+                let user_service = UserService::new(Box::new(user_manager), Arc::clone(&registry));
+
+                let backup_service = BackupService::new(
+                    Box::new(meta_store.clone()),
+                    Box::new(Arc::clone(&secret_store)),
+                    Box::new(|host: &str, port: u16, database: &str, username: &str| {
+                        let config = db_pro_core::domain::connection::ConnectionConfig {
+                            name: String::new(),
+                            host: host.to_string(),
+                            port,
+                            database: database.to_string(),
+                            username: username.to_string(),
+                            driver: db_pro_core::domain::connection::DriverType::Postgres,
+                            ssl_mode: db_pro_core::domain::connection::SslMode::Disable,
+                            ssh_tunnel: None,
+                            query_timeout_ms: 30_000,
+                            max_rows: 500,
+                            color: None,
+                            tags: vec![],
+                            group: None,
+                        };
+                        Box::new(PgDumpEngine::new(config)) as Box<dyn db_pro_core::ports::BackupEngine>
+                    }),
+                    Box::new(|database: &str| {
+                        let config = db_pro_core::domain::connection::ConnectionConfig {
+                            name: String::new(),
+                            host: String::new(),
+                            port: 0,
+                            database: database.to_string(),
+                            username: String::new(),
+                            driver: db_pro_core::domain::connection::DriverType::SQLite,
+                            ssl_mode: db_pro_core::domain::connection::SslMode::Disable,
+                            ssh_tunnel: None,
+                            query_timeout_ms: 30_000,
+                            max_rows: 500,
+                            color: None,
+                            tags: vec![],
+                            group: None,
+                        };
+                        Box::new(SqliteBackupEngine::new(config)) as Box<dyn db_pro_core::ports::BackupEngine>
+                    }),
+                );
+
+                let data_diff_service = DataDiffService::new(
+                    Box::new(Arc::clone(&connector)),
+                    Arc::clone(&registry),
+                );
+
                 handle.manage(conn_service);
                 handle.manage(query_service);
                 handle.manage(schema_service);
                 handle.manage(export_service);
                 handle.manage(table_data_service);
+                handle.manage(user_service);
+                handle.manage(backup_service);
+                handle.manage(data_diff_service);
+                handle.manage(CancelRegistry::new());
+                handle.manage(Arc::clone(&connector) as Arc<CompositeConnector>);
+                handle.manage(Arc::clone(&registry) as Arc<ConnectionRegistry>);
             });
 
             Ok(())
@@ -79,15 +142,29 @@ pub fn run() {
             commands::test_connection,
             commands::connect,
             commands::disconnect,
+            commands::test_ssh_tunnel,
             commands::execute_query,
+            commands::cancel_query,
+            commands::execute_query_multi,
             commands::explain_query,
             commands::get_query_history,
             commands::save_query,
             commands::list_saved_queries,
             commands::delete_saved_query,
+            commands::create_folder,
+            commands::list_folders,
+            commands::delete_folder,
+            commands::save_run_config,
+            commands::list_run_configs,
+            commands::delete_run_config,
             commands::introspect,
             commands::get_table_info,
             commands::get_table_ddl,
+            commands::execute_ddl,
+            commands::create_index,
+            commands::drop_index,
+            commands::create_trigger,
+            commands::drop_trigger,
             commands::invalidate_cache,
             commands::export_csv,
             commands::export_json,
@@ -96,6 +173,20 @@ pub fn run() {
             commands::insert_table_row,
             commands::update_table_row,
             commands::delete_table_row,
+            commands::list_users,
+            commands::create_role,
+            commands::drop_role,
+            commands::list_privileges,
+            commands::grant_privilege,
+            commands::revoke_privilege,
+            commands::backup_database,
+            commands::restore_database,
+            commands::diff_schemas,
+            commands::diff_table_data,
+            commands::get_object_dependencies,
+            commands::list_partitions,
+            commands::list_tablespaces,
+            commands::rename_schema_object,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
