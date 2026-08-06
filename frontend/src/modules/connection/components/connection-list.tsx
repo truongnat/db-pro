@@ -96,7 +96,9 @@ export function ConnectionList({ onEdit }: { onEdit: (id: string) => void }) {
                 <td style={{ color: "var(--color-text-secondary)" }}>
                   {conn.driver === "sqlite" ? conn.database : `${conn.host}:${conn.port}`}
                 </td>
-                <td style={{ color: "var(--color-text-secondary)" }}>{conn.database}</td>
+                <td style={{ color: "var(--color-text-secondary)" }}>
+                  {conn.driver === "sqlite" ? "\u2014" : conn.database}
+                </td>
                 <td>
                   <span
                     className="rounded px-1.5 py-0.5 text-xs"

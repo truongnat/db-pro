@@ -82,6 +82,7 @@ export function useConnect() {
 export function useDisconnect() {
   const qc = useQueryClient();
   const setStatus = useConnectionModuleStore((s) => s.setStatus);
+  const setError = useConnectionModuleStore((s) => s.setError);
   const clearStatus = useConnectionModuleStore((s) => s.clearStatus);
   const setActiveConnection = useConnectionStore((s) => s.setActiveConnection);
   const activeConnectionId = useConnectionStore((s) => s.activeConnectionId);
@@ -95,6 +96,10 @@ export function useDisconnect() {
         setActiveConnection(null);
       }
       qc.invalidateQueries({ queryKey: QUERY_KEYS.connections });
+    },
+    onError: (err: unknown, id) => {
+      setStatus(id, "error");
+      setError(id, (err as { userMessage?: string }).userMessage ?? "Disconnect failed");
     },
   });
 }
