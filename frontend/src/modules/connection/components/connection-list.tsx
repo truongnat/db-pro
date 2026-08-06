@@ -94,7 +94,7 @@ export function ConnectionList({ onEdit }: { onEdit: (id: string) => void }) {
                   {conn.name}
                 </td>
                 <td style={{ color: "var(--color-text-secondary)" }}>
-                  {conn.host}:{conn.port}
+                  {conn.driver === "sqlite" ? conn.database : `${conn.host}:${conn.port}`}
                 </td>
                 <td style={{ color: "var(--color-text-secondary)" }}>{conn.database}</td>
                 <td>
@@ -143,7 +143,7 @@ export function ConnectionList({ onEdit }: { onEdit: (id: string) => void }) {
                       className="rounded px-2 py-1 text-xs transition-colors hover:bg-[var(--color-bg)]"
                       style={{ color: "var(--color-error)" }}
                       onClick={() => {
-                        if (confirm("Delete this connection?")) {
+                        if (confirm(t("connection.confirmDelete"))) {
                           deleteMutation.mutate(conn.id);
                         }
                       }}

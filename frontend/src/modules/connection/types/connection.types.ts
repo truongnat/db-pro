@@ -18,6 +18,9 @@ export interface Connection {
   username: string;
   driver: DriverType;
   sslMode: SslMode;
+  sshTunnel?: SshTunnelConfig;
+  queryTimeoutMs?: number;
+  maxRows?: number;
   createdAt: string;
   updatedAt: string;
 }

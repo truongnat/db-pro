@@ -60,6 +60,8 @@ export function ConnectionEditor({
   const [password, setPassword] = useState("");
   const [showSsh, setShowSsh] = useState(!!initialData?.sshTunnel);
 
+  const isPostgres = formData.driver === "postgres";
+
   const updateField = <K extends keyof ConnectionFormData>(key: K, value: ConnectionFormData[K]) => {
     setFormData((prev: ConnectionFormData) => ({ ...prev, [key]: value }));
   };
@@ -84,8 +86,14 @@ export function ConnectionEditor({
     setFormData((prev: ConnectionFormData) => ({
       ...prev,
       driver,
+      host: driver === "postgres" ? "localhost" : "",
       port: driver === "postgres" ? 5432 : 0,
+      username: driver === "postgres" ? "" : "",
+      sslMode: driver === "postgres" ? prev.sslMode : "disable",
     }));
+    if (driver === "sqlite") {
+      setShowSsh(false);
+    }
   };
 
   return (
@@ -100,98 +108,124 @@ export function ConnectionEditor({
 
       <div className="grid grid-cols-2 gap-4">
         <FormSelect
-          label="Driver"
+          label={t("common.labels.driver")}
           value={formData.driver}
           onChange={(e) => handleDriverChange(e.target.value as DriverType)}
           options={DRIVER_OPTIONS}
           required
         />
-        <FormSelect
-          label="SSL Mode"
-          value={formData.sslMode}
-          onChange={(e) => updateField("sslMode", e.target.value as SslMode)}
-          options={SSL_OPTIONS}
-        />
+        {isPostgres && (
+          <FormSelect
+            label="SSL Mode"
+            value={formData.sslMode}
+            onChange={(e) => updateField("sslMode", e.target.value as SslMode)}
+            options={SSL_OPTIONS}
+          />
+        )}
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      {isPostgres ? (
+        <div className="grid grid-cols-3 gap-4">
+          <FormInput
+            label={t("common.labels.host")}
+            value={formData.host}
+            onChange={(e) => updateField("host", e.target.value)}
+            required
+            placeholder="localhost"
+          />
+          <FormInput
+            label={t("common.labels.port")}
+            type="number"
+            value={formData.port}
+            onChange={(e) => updateField("port", Number(e.target.value))}
+            required
+            min={1}
+            max={65535}
+          />
+          <FormInput
+            label={t("common.labels.database")}
+            value={formData.database}
+            onChange={(e) => updateField("database", e.target.value)}
+            required
+          />
+        </div>
+      ) : (
         <FormInput
-          label={t("common.labels.host")}
-          value={formData.host}
-          onChange={(e) => updateField("host", e.target.value)}
-          required
-          placeholder="localhost"
-        />
-        <FormInput
-          label={t("common.labels.port")}
-          type="number"
-          value={formData.port}
-          onChange={(e) => updateField("port", Number(e.target.value))}
-          required
-          min={1}
-          max={65535}
-        />
-        <FormInput
-          label={t("common.labels.database")}
+          label={t("connection.filePath")}
           value={formData.database}
           onChange={(e) => updateField("database", e.target.value)}
           required
+          placeholder="/path/to/database.db"
         />
-      </div>
+      )}
 
-      <div className="grid grid-cols-2 gap-4">
-        <FormInput
-          label={t("common.labels.username")}
-          value={formData.username}
-          onChange={(e) => updateField("username", e.target.value)}
-          required
-        />
+      {isPostgres && (
+        <div className="grid grid-cols-2 gap-4">
+          <FormInput
+            label={t("common.labels.username")}
+            value={formData.username}
+            onChange={(e) => updateField("username", e.target.value)}
+            required
+          />
+          <FormInput
+            label={t("common.labels.password")}
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required={!isEdit}
+            placeholder={isEdit ? "(unchanged)" : ""}
+          />
+        </div>
+      )}
+
+      {!isPostgres && (
         <FormInput
           label={t("common.labels.password")}
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          required={!isEdit}
           placeholder={isEdit ? "(unchanged)" : ""}
         />
-      </div>
+      )}
 
-      <div className="flex flex-col gap-3">
-        <FormCheckbox label="Use SSH Tunnel" checked={showSsh} onChange={setShowSsh} />
+      {isPostgres && (
+        <div className="flex flex-col gap-3">
+          <FormCheckbox label="Use SSH Tunnel" checked={showSsh} onChange={setShowSsh} />
 
-        {showSsh && (
-          <div className="grid grid-cols-2 gap-4 rounded-[var(--radius-sm)] border p-4" style={{ borderColor: "var(--color-border)" }}>
-            <FormInput
-              label="SSH Host"
-              value={formData.sshTunnel?.host ?? ""}
-              onChange={(e) => updateSshField("host", e.target.value)}
-              required
-            />
-            <FormInput
-              label="SSH Port"
-              type="number"
-              value={formData.sshTunnel?.port ?? 22}
-              onChange={(e) => updateSshField("port", Number(e.target.value))}
-              required
-              min={1}
-              max={65535}
-            />
-            <FormInput
-              label="SSH User"
-              value={formData.sshTunnel?.user ?? ""}
-              onChange={(e) => updateSshField("user", e.target.value)}
-              required
-            />
-            <FormInput
-              label="Private Key Path"
-              value={formData.sshTunnel?.privateKeyPath ?? ""}
-              onChange={(e) => updateSshField("privateKeyPath", e.target.value)}
-              required
-              placeholder="~/.ssh/id_rsa"
-            />
-          </div>
-        )}
-      </div>
+          {showSsh && (
+            <div className="grid grid-cols-2 gap-4 rounded-[var(--radius-sm)] border p-4" style={{ borderColor: "var(--color-border)" }}>
+              <FormInput
+                label="SSH Host"
+                value={formData.sshTunnel?.host ?? ""}
+                onChange={(e) => updateSshField("host", e.target.value)}
+                required
+              />
+              <FormInput
+                label="SSH Port"
+                type="number"
+                value={formData.sshTunnel?.port ?? 22}
+                onChange={(e) => updateSshField("port", Number(e.target.value))}
+                required
+                min={1}
+                max={65535}
+              />
+              <FormInput
+                label="SSH User"
+                value={formData.sshTunnel?.user ?? ""}
+                onChange={(e) => updateSshField("user", e.target.value)}
+                required
+              />
+              <FormInput
+                label="Private Key Path"
+                value={formData.sshTunnel?.privateKeyPath ?? ""}
+                onChange={(e) => updateSshField("privateKeyPath", e.target.value)}
+                required
+                placeholder="~/.ssh/id_rsa"
+              />
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-4">
         <FormInput

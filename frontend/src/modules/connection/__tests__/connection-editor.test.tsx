@@ -11,11 +11,11 @@ i18n.use(initReactI18next).init({
     en: {
       translation: {
         common: {
-          labels: { name: "Name", host: "Host", port: "Port", database: "Database", username: "Username", password: "Password" },
+          labels: { name: "Name", host: "Host", port: "Port", database: "Database", username: "Username", password: "Password", driver: "Driver" },
           actions: { save: "Save", cancel: "Cancel" },
           states: { loading: "Loading..." },
         },
-        connection: { test: "Test Connection", testSuccess: "Test successful", testFailed: "Test failed" },
+        connection: { test: "Test Connection", testSuccess: "Test successful", testFailed: "Test failed", filePath: "File Path" },
       },
     },
   },
@@ -36,16 +36,18 @@ function renderEditor(props: Partial<React.ComponentProps<typeof ConnectionEdito
 }
 
 describe("ConnectionEditor", () => {
-  it("renders all form fields", () => {
+  it("renders all form fields for postgres", () => {
     renderEditor();
     expect(screen.getByPlaceholderText("My Database")).toBeInTheDocument();
     expect(screen.getByPlaceholderText("localhost")).toBeInTheDocument();
     expect(screen.getByText("Name")).toBeInTheDocument();
+    expect(screen.getByText("Driver")).toBeInTheDocument();
     expect(screen.getByText("Host")).toBeInTheDocument();
     expect(screen.getByText("Port")).toBeInTheDocument();
     expect(screen.getByText("Database")).toBeInTheDocument();
     expect(screen.getByText("Username")).toBeInTheDocument();
     expect(screen.getByText("Password")).toBeInTheDocument();
+    expect(screen.getByText("SSL Mode")).toBeInTheDocument();
   });
 
   it("renders with default values", () => {
@@ -144,5 +146,20 @@ describe("ConnectionEditor", () => {
     expect(screen.getByText("SSH Port")).toBeInTheDocument();
     expect(screen.getByText("SSH User")).toBeInTheDocument();
     expect(screen.getByText("Private Key Path")).toBeInTheDocument();
+  });
+
+  it("shows file path field for SQLite and hides network fields", async () => {
+    const user = userEvent.setup();
+    renderEditor();
+
+    const driverSelect = screen.getAllByRole("combobox")[0];
+    await user.selectOptions(driverSelect, "sqlite");
+
+    expect(screen.getByText("File Path")).toBeInTheDocument();
+    expect(screen.queryByText("Host")).not.toBeInTheDocument();
+    expect(screen.queryByText("Port")).not.toBeInTheDocument();
+    expect(screen.queryByText("Username")).not.toBeInTheDocument();
+    expect(screen.queryByText("SSL Mode")).not.toBeInTheDocument();
+    expect(screen.queryByText("Use SSH Tunnel")).not.toBeInTheDocument();
   });
 });

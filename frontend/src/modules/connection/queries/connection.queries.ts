@@ -1,8 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { container } from "@/app/app.module";
+import { useConnectionStore } from "@/commons/stores/connection.store";
 import { SERVICE_NAMES, type IConnectionService } from "@/commons/di/registry";
 
+import { useConnectionModuleStore } from "../state/connection.store";
 import type { Connection, ConnectionConfig } from "../types/connection.types";
 
 const QUERY_KEYS = {
@@ -56,16 +58,43 @@ export function useTestConnection() {
 
 export function useConnect() {
   const qc = useQueryClient();
+  const setStatus = useConnectionModuleStore((s) => s.setStatus);
+  const setError = useConnectionModuleStore((s) => s.setError);
+  const setActiveConnection = useConnectionStore((s) => s.setActiveConnection);
+
   return useMutation({
     mutationFn: (id: string) => getConnectionService().connect(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: QUERY_KEYS.connections }),
+    onMutate: (id) => {
+      setStatus(id, "connecting");
+    },
+    onSuccess: (_, id) => {
+      setStatus(id, "connected");
+      setActiveConnection(id);
+      qc.invalidateQueries({ queryKey: QUERY_KEYS.connections });
+    },
+    onError: (err: unknown, id) => {
+      setStatus(id, "error");
+      setError(id, (err as { userMessage?: string }).userMessage ?? "Connection failed");
+    },
   });
 }
 
 export function useDisconnect() {
   const qc = useQueryClient();
+  const setStatus = useConnectionModuleStore((s) => s.setStatus);
+  const clearStatus = useConnectionModuleStore((s) => s.clearStatus);
+  const setActiveConnection = useConnectionStore((s) => s.setActiveConnection);
+  const activeConnectionId = useConnectionStore((s) => s.activeConnectionId);
+
   return useMutation({
     mutationFn: (id: string) => getConnectionService().disconnect(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: QUERY_KEYS.connections }),
+    onSuccess: (_, id) => {
+      clearStatus(id);
+      setStatus(id, "disconnected");
+      if (activeConnectionId === id) {
+        setActiveConnection(null);
+      }
+      qc.invalidateQueries({ queryKey: QUERY_KEYS.connections });
+    },
   });
 }

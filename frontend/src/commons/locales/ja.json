@@ -61,7 +61,9 @@
     "edit": "接続編集",
     "test": "接続テスト",
     "testSuccess": "接続テスト成功",
-    "testFailed": "接続テスト失敗"
+    "testFailed": "接続テスト失敗",
+    "confirmDelete": "この接続を削除しますか？",
+    "filePath": "ファイルパス"
   },
   "query": {
     "title": "クエリエディタ",

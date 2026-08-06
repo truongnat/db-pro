@@ -23,6 +23,7 @@ export function ConnectionEditPage() {
 
   const [connection, setConnection] = useState<Connection | null>(null);
   const [loadingConnection, setLoadingConnection] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const createMutation = useCreateConnection();
   const updateMutation = useUpdateConnection();
@@ -31,10 +32,14 @@ export function ConnectionEditPage() {
   useEffect(() => {
     if (!editId) return;
     setLoadingConnection(true);
+    setLoadError(null);
     const service = container.resolve<IConnectionService>(SERVICE_NAMES.CONNECTION_SERVICE);
     service
       .get(editId)
       .then((conn: unknown) => setConnection(conn as Connection | null))
+      .catch((err: unknown) => {
+        setLoadError((err as { userMessage?: string }).userMessage ?? "Failed to load connection");
+      })
       .finally(() => setLoadingConnection(false));
   }, [editId]);
 
@@ -86,6 +91,21 @@ export function ConnectionEditPage() {
     );
   }
 
+  if (loadError) {
+    return (
+      <div className="flex flex-col items-center gap-2 py-12">
+        <p style={{ color: "var(--color-error)" }}>{loadError}</p>
+        <button
+          className="rounded-[var(--radius-sm)] px-4 py-2 text-sm transition-colors hover:bg-[var(--color-surface)]"
+          style={{ borderColor: "var(--color-border)", color: "var(--color-text)" }}
+          onClick={() => navigate({ to: "/connections" })}
+        >
+          {t("common.actions.close")}
+        </button>
+      </div>
+    );
+  }
+
   if (editId && !connection) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -112,6 +132,9 @@ export function ConnectionEditPage() {
                 username: connection.username,
                 driver: connection.driver,
                 sslMode: connection.sslMode,
+                sshTunnel: connection.sshTunnel,
+                queryTimeoutMs: connection.queryTimeoutMs ?? 30000,
+                maxRows: connection.maxRows ?? 500,
               }
             : undefined
         }
