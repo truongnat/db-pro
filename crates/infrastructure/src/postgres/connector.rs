@@ -14,6 +14,10 @@ impl SqlDialect for PostgresDialect {
     fn placeholder(&self, index: usize) -> String {
         format!("${index}")
     }
+    fn quote_identifier(&self, name: &str) -> String {
+        let escaped = name.replace('"', "\"\"");
+        format!("\"{escaped}\"")
+    }
 }
 
 pub struct PoolEntry {

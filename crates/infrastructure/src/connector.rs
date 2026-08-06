@@ -17,12 +17,20 @@ impl SqlDialect for PostgresDialect {
     fn placeholder(&self, index: usize) -> String {
         format!("${index}")
     }
+    fn quote_identifier(&self, name: &str) -> String {
+        let escaped = name.replace('"', "\"\"");
+        format!("\"{escaped}\"")
+    }
 }
 
 struct SqliteDialect;
 impl SqlDialect for SqliteDialect {
     fn placeholder(&self, _index: usize) -> String {
         "?".to_string()
+    }
+    fn quote_identifier(&self, name: &str) -> String {
+        let escaped = name.replace('"', "\"\"");
+        format!("\"{escaped}\"")
     }
 }
 

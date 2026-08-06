@@ -1,3 +1,4 @@
+use crate::domain::error::DbError;
 use crate::domain::query::{CellValue, QueryParam};
 use crate::ports::SqlDialect;
 
@@ -59,7 +60,7 @@ pub fn build_select(
     offset: u64,
 ) -> (String, Vec<QueryParam>) {
     let (where_clause, params) = build_where(dialect, filters);
-    let order_clause = build_order(sorts);
+    let order_clause = build_order(dialect, sorts);
     let mut pw = PlaceholderWriter::new(dialect);
     pw.counter = params.len();
     let limit_ph = pw.next();
@@ -67,8 +68,8 @@ pub fn build_select(
 
     let sql = format!(
         "SELECT * FROM {}.{}{}{} LIMIT {} OFFSET {}",
-        quote_ident(schema),
-        quote_ident(table),
+        dialect.quote_identifier(schema),
+        dialect.quote_identifier(table),
         where_clause,
         order_clause,
         limit_ph,
@@ -92,8 +93,8 @@ pub fn build_count(
 
     let sql = format!(
         "SELECT COUNT(*) FROM {}.{}{}",
-        quote_ident(schema),
-        quote_ident(table),
+        dialect.quote_identifier(schema),
+        dialect.quote_identifier(table),
         where_clause,
     );
 
@@ -106,21 +107,32 @@ pub fn build_insert(
     table: &str,
     columns: &[String],
     values: &[CellValue],
-) -> (String, Vec<QueryParam>) {
-    let cols = columns.iter().map(|c| quote_ident(c)).collect::<Vec<_>>().join(", ");
+) -> Result<(String, Vec<QueryParam>), DbError> {
+    if columns.len() != values.len() {
+        return Err(DbError::Validation(format!(
+            "column count ({}) does not match value count ({})",
+            columns.len(),
+            values.len()
+        )));
+    }
+    let cols = columns
+        .iter()
+        .map(|c| dialect.quote_identifier(c))
+        .collect::<Vec<_>>()
+        .join(", ");
     let mut pw = PlaceholderWriter::new(dialect);
     let placeholders = values.iter().map(|_| pw.next()).collect::<Vec<_>>().join(", ");
 
     let sql = format!(
         "INSERT INTO {}.{} ({}) VALUES ({})",
-        quote_ident(schema),
-        quote_ident(table),
+        dialect.quote_identifier(schema),
+        dialect.quote_identifier(table),
         cols,
         placeholders,
     );
 
     let params = values.iter().map(cell_to_param).collect();
-    (sql, params)
+    Ok((sql, params))
 }
 
 pub fn build_update(
@@ -131,22 +143,35 @@ pub fn build_update(
     values: &[CellValue],
     pk_columns: &[String],
     pk_values: &[CellValue],
-) -> (String, Vec<QueryParam>) {
+) -> Result<(String, Vec<QueryParam>), DbError> {
+    if columns.len() != values.len() {
+        return Err(DbError::Validation(format!(
+            "column count ({}) does not match value count ({})",
+            columns.len(),
+            values.len()
+        )));
+    }
     let mut pw = PlaceholderWriter::new(dialect);
-    let set_parts: Vec<String> = columns.iter().map(|c| format!("{} = {}", quote_ident(c), pw.next())).collect();
-    let pk_where: Vec<String> = pk_columns.iter().map(|c| format!("{} = {}", quote_ident(c), pw.next())).collect();
+    let set_parts: Vec<String> = columns
+        .iter()
+        .map(|c| format!("{} = {}", dialect.quote_identifier(c), pw.next()))
+        .collect();
+    let pk_where: Vec<String> = pk_columns
+        .iter()
+        .map(|c| format!("{} = {}", dialect.quote_identifier(c), pw.next()))
+        .collect();
 
     let sql = format!(
         "UPDATE {}.{} SET {} WHERE {}",
-        quote_ident(schema),
-        quote_ident(table),
+        dialect.quote_identifier(schema),
+        dialect.quote_identifier(table),
         set_parts.join(", "),
         pk_where.join(" AND "),
     );
 
     let mut params: Vec<QueryParam> = values.iter().map(cell_to_param).collect();
     params.extend(pk_values.iter().map(cell_to_param));
-    (sql, params)
+    Ok((sql, params))
 }
 
 pub fn build_delete(
@@ -157,12 +182,15 @@ pub fn build_delete(
     pk_values: &[CellValue],
 ) -> (String, Vec<QueryParam>) {
     let mut pw = PlaceholderWriter::new(dialect);
-    let pk_where: Vec<String> = pk_columns.iter().map(|c| format!("{} = {}", quote_ident(c), pw.next())).collect();
+    let pk_where: Vec<String> = pk_columns
+        .iter()
+        .map(|c| format!("{} = {}", dialect.quote_identifier(c), pw.next()))
+        .collect();
 
     let sql = format!(
         "DELETE FROM {}.{} WHERE {}",
-        quote_ident(schema),
-        quote_ident(table),
+        dialect.quote_identifier(schema),
+        dialect.quote_identifier(table),
         pk_where.join(" AND "),
     );
 
@@ -180,7 +208,7 @@ fn build_where(dialect: &dyn SqlDialect, filters: &[TableFilter]) -> (String, Ve
     let mut pw = PlaceholderWriter::new(dialect);
 
     for f in filters {
-        let col = quote_ident(&f.column);
+        let col = dialect.quote_identifier(&f.column);
         match f.op {
             FilterOp::IsNull => conditions.push(format!("{col} IS NULL")),
             FilterOp::IsNotNull => conditions.push(format!("{col} IS NOT NULL")),
@@ -218,7 +246,7 @@ fn build_where(dialect: &dyn SqlDialect, filters: &[TableFilter]) -> (String, Ve
     (format!(" WHERE {}", conditions.join(" AND ")), params)
 }
 
-fn build_order(sorts: &[SortClause]) -> String {
+fn build_order(dialect: &dyn SqlDialect, sorts: &[SortClause]) -> String {
     if sorts.is_empty() {
         return String::new();
     }
@@ -230,7 +258,7 @@ fn build_order(sorts: &[SortClause]) -> String {
                 SortDir::Asc => "ASC",
                 SortDir::Desc => "DESC",
             };
-            format!("{} {dir}", quote_ident(&s.column))
+            format!("{} {dir}", dialect.quote_identifier(&s.column))
         })
         .collect();
 
@@ -251,11 +279,6 @@ fn cell_to_param(cell: &CellValue) -> QueryParam {
     }
 }
 
-fn quote_ident(name: &str) -> String {
-    let escaped = name.replace('"', "\"\"");
-    format!("\"{escaped}\"")
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -265,12 +288,20 @@ mod tests {
         fn placeholder(&self, _index: usize) -> String {
             "?".to_string()
         }
+        fn quote_identifier(&self, name: &str) -> String {
+            let escaped = name.replace('"', "\"\"");
+            format!("\"{escaped}\"")
+        }
     }
 
     struct DollarNDialect;
     impl SqlDialect for DollarNDialect {
         fn placeholder(&self, index: usize) -> String {
             format!("${index}")
+        }
+        fn quote_identifier(&self, name: &str) -> String {
+            let escaped = name.replace('"', "\"\"");
+            format!("\"{escaped}\"")
         }
     }
 
@@ -338,7 +369,7 @@ mod tests {
     fn insert_basic() {
         let columns = vec!["name".into(), "email".into()];
         let values = vec![CellValue::Text("bob".into()), CellValue::Text("bob@test.com".into())];
-        let (sql, params) = build_insert(&QuestionDialect, "public", "users", &columns, &values);
+        let (sql, params) = build_insert(&QuestionDialect, "public", "users", &columns, &values).unwrap();
         assert_eq!(
             sql,
             r#"INSERT INTO "public"."users" ("name", "email") VALUES (?, ?)"#
@@ -352,7 +383,7 @@ mod tests {
         let values = vec![CellValue::Text("alice2".into())];
         let pk_columns = vec!["id".into()];
         let pk_values = vec![CellValue::Int64(1)];
-        let (sql, params) = build_update(&QuestionDialect, "public", "users", &columns, &values, &pk_columns, &pk_values);
+        let (sql, params) = build_update(&QuestionDialect, "public", "users", &columns, &values, &pk_columns, &pk_values).unwrap();
         assert_eq!(
             sql,
             r#"UPDATE "public"."users" SET "name" = ? WHERE "id" = ?"#
@@ -373,10 +404,11 @@ mod tests {
     }
 
     #[test]
-    fn quote_ident_special_chars() {
-        assert_eq!(quote_ident("table"), r#""table""#);
-        assert_eq!(quote_ident("my table"), r#""my table""#);
-        assert_eq!(quote_ident(r#"has"quote"#), r#""has""quote""#);
+    fn quote_identifier_special_chars() {
+        let d = QuestionDialect;
+        assert_eq!(d.quote_identifier("table"), r#""table""#);
+        assert_eq!(d.quote_identifier("my table"), r#""my table""#);
+        assert_eq!(d.quote_identifier(r#"has"quote"#), r#""has""quote""#);
     }
 
     #[test]
@@ -422,7 +454,7 @@ mod tests {
     fn dollar_n_insert() {
         let columns = vec!["name".into(), "email".into()];
         let values = vec![CellValue::Text("bob".into()), CellValue::Text("bob@test.com".into())];
-        let (sql, params) = build_insert(&DollarNDialect, "public", "users", &columns, &values);
+        let (sql, params) = build_insert(&DollarNDialect, "public", "users", &columns, &values).unwrap();
         assert_eq!(
             sql,
             r#"INSERT INTO "public"."users" ("name", "email") VALUES ($1, $2)"#
@@ -436,7 +468,7 @@ mod tests {
         let values = vec![CellValue::Text("alice2".into())];
         let pk_columns = vec!["id".into()];
         let pk_values = vec![CellValue::Int64(1)];
-        let (sql, params) = build_update(&DollarNDialect, "public", "users", &columns, &values, &pk_columns, &pk_values);
+        let (sql, params) = build_update(&DollarNDialect, "public", "users", &columns, &values, &pk_columns, &pk_values).unwrap();
         assert_eq!(
             sql,
             r#"UPDATE "public"."users" SET "name" = $1 WHERE "id" = $2"#
@@ -454,5 +486,29 @@ mod tests {
             r#"DELETE FROM "public"."order_items" WHERE "order_id" = $1 AND "product_id" = $2"#
         );
         assert_eq!(params.len(), 2);
+    }
+
+    #[test]
+    fn insert_rejects_column_value_mismatch() {
+        let columns = vec!["name".into(), "email".into()];
+        let values = vec![CellValue::Text("bob".into())];
+        let result = build_insert(&QuestionDialect, "public", "users", &columns, &values);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn update_rejects_column_value_mismatch() {
+        let columns = vec!["name".into(), "email".into()];
+        let values = vec![CellValue::Text("bob".into())];
+        let result = build_update(
+            &QuestionDialect,
+            "public",
+            "users",
+            &columns,
+            &values,
+            &["id".into()],
+            &[CellValue::Int64(1)],
+        );
+        assert!(result.is_err());
     }
 }

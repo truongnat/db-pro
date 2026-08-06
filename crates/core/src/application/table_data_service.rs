@@ -67,7 +67,7 @@ impl TableDataService {
     ) -> Result<u64, DbError> {
         let handle = self.resolve_handle(connection_id)?;
         let dialect = self.connector.dialect(&handle)?;
-        let (sql, params) = sql_builder::build_insert(dialect.as_ref(), schema, table, columns, values);
+        let (sql, params) = sql_builder::build_insert(dialect.as_ref(), schema, table, columns, values)?;
         self.connector.execute(&handle, &sql, &params).await
     }
 
@@ -88,7 +88,7 @@ impl TableDataService {
         }
         let handle = self.resolve_handle(connection_id)?;
         let dialect = self.connector.dialect(&handle)?;
-        let (sql, params) = sql_builder::build_update(dialect.as_ref(), schema, table, columns, values, pk_columns, pk_values);
+        let (sql, params) = sql_builder::build_update(dialect.as_ref(), schema, table, columns, values, pk_columns, pk_values)?;
         self.connector.execute(&handle, &sql, &params).await
     }
 
@@ -133,6 +133,10 @@ mod tests {
     impl SqlDialect for QuestionDialect {
         fn placeholder(&self, _index: usize) -> String {
             "?".to_string()
+        }
+        fn quote_identifier(&self, name: &str) -> String {
+            let escaped = name.replace('"', "\"\"");
+            format!("\"{escaped}\"")
         }
     }
 
@@ -324,5 +328,19 @@ mod tests {
             )
             .await;
         assert!(matches!(result, Err(DbError::Validation(_))));
+    }
+
+    #[tokio::test]
+    async fn fetch_rows_fails_when_dialect_errors() {
+        let (conn_id, registry) = setup();
+
+        let mut connector = MockDbConnector::new();
+        connector.expect_dialect().returning(|_| {
+            Err(DbError::ConnectionFailed("unknown handle".into()))
+        });
+
+        let svc = TableDataService::new(Box::new(connector), registry);
+        let result = svc.fetch_rows(&conn_id, "public", "users", &[], &[], 50, 0).await;
+        assert!(result.is_err());
     }
 }

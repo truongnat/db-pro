@@ -15,6 +15,10 @@ impl SqlDialect for SqliteDialect {
     fn placeholder(&self, _index: usize) -> String {
         "?".to_string()
     }
+    fn quote_identifier(&self, name: &str) -> String {
+        let escaped = name.replace('"', "\"\"");
+        format!("\"{escaped}\"")
+    }
 }
 
 pub struct ActorEntry {
