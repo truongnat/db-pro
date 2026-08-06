@@ -279,15 +279,29 @@ fn effective_keyword(sql: &str) -> Option<String> {
     }
 
     // WITH statement: scan past CTE definitions to find the main keyword.
-    // Track parenthesis depth; after the last CTE closes at depth 0,
-    // the next keyword is the actual statement type.
+    // Track parenthesis depth and string literals; after the last CTE closes
+    // at depth 0, the next keyword is the actual statement type.
     let chars: Vec<char> = trimmed.chars().collect();
     let len = chars.len();
     let mut i = 4; // skip "WITH"
     let mut depth: i32 = 0;
+    let mut in_string = false;
 
     while i < len {
+        if in_string {
+            if chars[i] == '\'' {
+                if i + 1 < len && chars[i + 1] == '\'' {
+                    i += 1; // skip escaped quote
+                } else {
+                    in_string = false;
+                }
+            }
+            i += 1;
+            continue;
+        }
+
         match chars[i] {
+            '\'' => in_string = true,
             '(' => depth += 1,
             ')' => {
                 depth -= 1;
@@ -534,5 +548,112 @@ mod tests {
     fn classify_leading_block_comment_stripped() {
         let sql = "/* block */ INSERT INTO t VALUES (1)";
         assert!(matches!(classify_statement(sql), StatementClass::Write));
+    }
+
+    #[test]
+    fn classify_with_paren_in_string_literal() {
+        let sql = "WITH cte AS (SELECT 'value )' AS text) UPDATE t SET x = 1";
+        assert!(matches!(classify_statement(sql), StatementClass::Write));
+    }
+
+    #[test]
+    fn classify_with_escaped_quote_in_string() {
+        let sql = "WITH cte AS (SELECT 'it''s )' AS text) SELECT * FROM cte";
+        assert!(matches!(classify_statement(sql), StatementClass::Read));
+    }
+
+    #[tokio::test]
+    async fn execute_multi_routes_select_then_update() {
+        let conn_id = ConnectionId::new();
+        let registry = Arc::new(ConnectionRegistry::new());
+        registry.register(conn_id, ConnectionHandle(1));
+
+        let mut connector = MockDbConnector::new();
+        connector.expect_query()
+            .withf(|_, sql, _| sql == "SELECT 1")
+            .returning(|_, _, _| Ok(test_result()));
+        connector.expect_execute()
+            .withf(|_, sql, _| sql == "UPDATE t SET x = 1")
+            .returning(|_, _, _| Ok(3));
+
+        let mut history = MockQueryHistoryRepository::new();
+        history.expect_save().returning(|_, _, _| Ok(()));
+
+        let svc = QueryService::new(
+            Box::new(connector),
+            Box::new(history),
+            Box::new(MockSavedQueryRepository::new()),
+            Box::new(MockRunConfigRepository::new()),
+            Arc::clone(&registry),
+        );
+
+        let result = svc.execute_multi(&conn_id, "SELECT 1; UPDATE t SET x = 1").await.unwrap();
+        assert!(result.error.is_none());
+        assert_eq!(result.results.len(), 2);
+        assert_eq!(result.results[0].row_count, 1);
+        assert_eq!(result.results[1].row_count, 3);
+    }
+
+    #[tokio::test]
+    async fn execute_multi_with_update_routes_to_execute() {
+        let conn_id = ConnectionId::new();
+        let registry = Arc::new(ConnectionRegistry::new());
+        registry.register(conn_id, ConnectionHandle(1));
+
+        let mut connector = MockDbConnector::new();
+        connector.expect_execute()
+            .returning(|_, _, _| Ok(5));
+
+        let mut history = MockQueryHistoryRepository::new();
+        history.expect_save().returning(|_, _, _| Ok(()));
+
+        let svc = QueryService::new(
+            Box::new(connector),
+            Box::new(history),
+            Box::new(MockSavedQueryRepository::new()),
+            Box::new(MockRunConfigRepository::new()),
+            Arc::clone(&registry),
+        );
+
+        let result = svc.execute_multi(
+            &conn_id,
+            "WITH cte AS (SELECT id FROM t) UPDATE t SET x = 1",
+        ).await.unwrap();
+        assert!(result.error.is_none());
+        assert_eq!(result.results.len(), 1);
+        assert_eq!(result.results[0].row_count, 5);
+    }
+
+    #[tokio::test]
+    async fn execute_multi_partial_failure_preserves_earlier_results() {
+        let conn_id = ConnectionId::new();
+        let registry = Arc::new(ConnectionRegistry::new());
+        registry.register(conn_id, ConnectionHandle(1));
+
+        let mut connector = MockDbConnector::new();
+        connector.expect_query()
+            .returning(|_, _, _| Ok(test_result()));
+        connector.expect_execute()
+            .returning(|_, _, _| Err(DbError::QueryFailed("permission denied".into())));
+
+        let svc = QueryService::new(
+            Box::new(connector),
+            Box::new(MockQueryHistoryRepository::new()),
+            Box::new(MockSavedQueryRepository::new()),
+            Box::new(MockRunConfigRepository::new()),
+            Arc::clone(&registry),
+        );
+
+        let result = svc.execute_multi(
+            &conn_id,
+            "SELECT 1; UPDATE t SET x = 1; SELECT 2",
+        ).await.unwrap();
+
+        assert!(result.error.is_some());
+        let (idx, msg) = result.error.unwrap();
+        assert_eq!(idx, 1);
+        assert!(msg.contains("permission denied"));
+        assert_eq!(result.results.len(), 1);
+        assert_eq!(result.results[0].row_count, 1);
     }
 }
