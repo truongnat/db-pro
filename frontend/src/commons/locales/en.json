@@ -75,7 +75,21 @@
     "noResults": "No results",
     "rowsAffected": "{{count}} row affected",
     "rowsAffected_other": "{{count}} rows affected",
-    "duration": "{{duration}}ms"
+    "duration": "{{duration}}ms",
+    "save": "Save Query",
+    "savedQueries": "Saved Queries",
+    "parameters": "Parameters",
+    "begin": "BEGIN",
+    "commit": "COMMIT",
+    "rollback": "ROLLBACK",
+    "transactionComingSoon": "Transaction controls coming soon",
+    "parametersComingSoon": "Parameterized queries coming soon",
+    "connectFirst": "Connect to a database to run queries",
+    "enterSql": "Enter a SQL query",
+    "results": "Results",
+    "searchHistory": "Search history...",
+    "querySaved": "Query saved",
+    "queryDeleted": "Query deleted"
   },
   "schema": {
     "title": "Schema Browser",

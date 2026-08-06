@@ -75,7 +75,21 @@
     "noResults": "結果なし",
     "rowsAffected": "{{count}}行影響",
     "rowsAffected_other": "{{count}}行影響",
-    "duration": "{{duration}}ms"
+    "duration": "{{duration}}ms",
+    "save": "クエリ保存",
+    "savedQueries": "保存クエリ",
+    "parameters": "パラメータ",
+    "begin": "BEGIN",
+    "commit": "COMMIT",
+    "rollback": "ROLLBACK",
+    "transactionComingSoon": "トランザクション制御は準備中です",
+    "parametersComingSoon": "パラメータ化クエリは準備中です",
+    "connectFirst": "クエリを実行するにはデータベースに接続してください",
+    "enterSql": "SQLクエリを入力してください",
+    "results": "結果",
+    "searchHistory": "履歴を検索...",
+    "querySaved": "クエリを保存しました",
+    "queryDeleted": "クエリを削除しました"
   },
   "schema": {
     "title": "スキーマブラウザ",
