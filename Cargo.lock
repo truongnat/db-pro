@@ -729,6 +729,8 @@ dependencies = [
 name = "db-pro-tauri"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
+ "chrono",
  "db-pro-core",
  "db-pro-infrastructure",
  "serde",
@@ -738,6 +740,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
+ "uuid",
 ]
 
 [[package]]

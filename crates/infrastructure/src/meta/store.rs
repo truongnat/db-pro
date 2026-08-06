@@ -3,6 +3,7 @@ use db_pro_core::domain::error::DbError;
 use super::schema::SCHEMA;
 use crate::sqlite::actor::{SqliteActor, SqliteHandle};
 
+#[derive(Clone)]
 pub struct SQLiteMetaStore {
     pub(crate) actor: SqliteHandle,
 }
