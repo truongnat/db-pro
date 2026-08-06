@@ -1,5 +1,6 @@
 import { DIContainer } from "@/commons/di/container";
 import { SERVICE_NAMES } from "@/commons/di/registry";
+import { createConnectionService } from "@/modules/connection/services/connection.service";
 
 const container = new DIContainer();
 let bootstrapped = false;
@@ -7,9 +8,9 @@ let bootstrapped = false;
 export async function bootstrapServices(): Promise<DIContainer> {
   if (bootstrapped) return container;
 
-  container.register(SERVICE_NAMES.CONNECTION_SERVICE, () => {
-    throw new Error("ConnectionService not yet implemented (Phase 7)");
-  });
+  container.register(SERVICE_NAMES.CONNECTION_SERVICE, () =>
+    createConnectionService(),
+  );
 
   container.register(SERVICE_NAMES.QUERY_SERVICE, () => {
     throw new Error("QueryService not yet implemented (Phase 8)");

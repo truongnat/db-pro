@@ -1,10 +1,18 @@
-import { createRootRoute, Outlet } from "@tanstack/react-router";
+import { createRootRoute, Link, Outlet, useLocation } from "@tanstack/react-router";
 
 export const Route = createRootRoute({
   component: RootLayout,
 });
 
+const NAV_ITEMS = [
+  { to: "/connections", label: "Connections" },
+  { to: "/query", label: "Query" },
+  { to: "/schema", label: "Schema" },
+] as const;
+
 function RootLayout() {
+  const location = useLocation();
+
   return (
     <div className="flex h-screen flex-col overflow-hidden">
       <header
@@ -29,8 +37,24 @@ function RootLayout() {
             backgroundColor: "var(--color-surface)",
           }}
         >
-          <div className="p-4">
-            <p style={{ color: "var(--color-text-secondary)" }}>Navigation</p>
+          <div className="flex flex-col gap-1 p-2">
+            {NAV_ITEMS.map((item) => {
+              const isActive = location.pathname.startsWith(item.to);
+              return (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  className="rounded-[var(--radius-sm)] px-3 py-2 text-sm transition-colors hover:bg-[var(--color-bg)]"
+                  style={{
+                    color: isActive ? "var(--color-text)" : "var(--color-text-secondary)",
+                    backgroundColor: isActive ? "var(--color-bg)" : undefined,
+                    fontWeight: isActive ? 500 : 400,
+                  }}
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
           </div>
         </nav>
 

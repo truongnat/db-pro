@@ -31,7 +31,10 @@
       "retry": "Retry",
       "close": "Close",
       "copy": "Copy",
-      "refresh": "Refresh"
+      "refresh": "Refresh",
+      "connect": "Connect",
+      "disconnect": "Disconnect",
+      "actions": "Actions"
     },
     "states": {
       "loading": "Loading...",
@@ -39,7 +42,8 @@
       "error": "Error",
       "ready": "Ready",
       "connected": "Connected",
-      "disconnected": "Disconnected"
+      "disconnected": "Disconnected",
+      "status": "Status"
     },
     "labels": {
       "name": "Name",
@@ -47,7 +51,8 @@
       "port": "Port",
       "database": "Database",
       "username": "Username",
-      "password": "Password"
+      "password": "Password",
+      "driver": "Driver"
     }
   },
   "connection": {
