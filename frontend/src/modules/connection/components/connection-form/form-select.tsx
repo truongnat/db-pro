@@ -1,5 +1,7 @@
 import type { ChangeEvent } from "react";
 
+import { cn } from "@/lib/utils";
+
 interface FormSelectProps {
   label: string;
   value: string;
@@ -21,21 +23,18 @@ export function FormSelect({
 }: FormSelectProps) {
   return (
     <div className="flex flex-col gap-1">
-      <label className="text-sm font-medium" style={{ color: "var(--color-text)" }}>
+      <label className="text-sm font-medium text-foreground">
         {label}
-        {required && <span style={{ color: "var(--color-error)" }}> *</span>}
+        {required && <span className="text-destructive"> *</span>}
       </label>
       <select
         value={value}
         onChange={onChange}
         disabled={disabled}
-        className="rounded-[var(--radius-sm)] border px-3 py-2 text-sm outline-none transition-colors focus:border-[var(--color-primary,#3b82f6)]"
-        style={{
-          borderColor: error ? "var(--color-error)" : "var(--color-border)",
-          backgroundColor: "var(--color-bg)",
-          color: "var(--color-text)",
-          height: "var(--input-height, 36px)",
-        }}
+        className={cn(
+          "h-9 rounded-sm border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-primary",
+          error && "border-destructive",
+        )}
       >
         {options.map((opt) => (
           <option key={opt.value} value={opt.value}>
@@ -44,7 +43,7 @@ export function FormSelect({
         ))}
       </select>
       {error && (
-        <span className="text-xs" style={{ color: "var(--color-error)" }}>
+        <span className="text-xs text-destructive">
           {error}
         </span>
       )}

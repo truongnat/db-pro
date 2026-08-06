@@ -13,7 +13,7 @@ export function TablespaceList({ connectionId }: TablespaceListProps) {
   if (!connectionId) {
     return (
       <div className="flex items-center justify-center py-12">
-        <p style={{ color: "var(--color-text-secondary)" }}>
+        <p className="text-muted-foreground">
           {t("schema.connectFirst")}
         </p>
       </div>
@@ -23,14 +23,14 @@ export function TablespaceList({ connectionId }: TablespaceListProps) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <p style={{ color: "var(--color-text-secondary)" }}>{t("common.states.loading")}</p>
+        <p className="text-muted-foreground">{t("common.states.loading")}</p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="rounded-[var(--radius-sm)] px-3 py-2 text-sm" style={{ backgroundColor: "var(--color-error,#ef4444)", color: "white" }}>
+      <div className="rounded-sm bg-destructive px-3 py-2 text-sm text-white">
         {(error as Error).message}
       </div>
     );
@@ -39,33 +39,33 @@ export function TablespaceList({ connectionId }: TablespaceListProps) {
   if (!tablespaces?.length) {
     return (
       <div className="flex items-center justify-center py-12">
-        <p style={{ color: "var(--color-text-secondary)" }}>{t("schema.crossConn.noTablespaces")}</p>
+        <p className="text-muted-foreground">{t("schema.crossConn.noTablespaces")}</p>
       </div>
     );
   }
 
   return (
-    <div className="overflow-hidden rounded-[var(--radius-md)] border" style={{ borderColor: "var(--color-border)" }}>
+    <div className="overflow-hidden rounded-md border border-border">
       <table className="w-full text-sm">
         <thead>
-          <tr style={{ backgroundColor: "var(--color-surface)" }}>
-            <th className="px-4 py-3 text-left font-medium" style={{ color: "var(--color-text-secondary)" }}>
+          <tr className="bg-card">
+            <th className="px-4 py-3 text-left font-medium text-muted-foreground">
               {t("common.labels.name")}
             </th>
-            <th className="px-4 py-3 text-left font-medium" style={{ color: "var(--color-text-secondary)" }}>
+            <th className="px-4 py-3 text-left font-medium text-muted-foreground">
               {t("schema.crossConn.owner")}
             </th>
-            <th className="px-4 py-3 text-left font-medium" style={{ color: "var(--color-text-secondary)" }}>
+            <th className="px-4 py-3 text-left font-medium text-muted-foreground">
               {t("schema.crossConn.location")}
             </th>
           </tr>
         </thead>
         <tbody>
           {tablespaces.map((ts) => (
-            <tr key={ts.name} className="border-t" style={{ borderColor: "var(--color-border)" }}>
-              <td className="px-4 py-3 font-medium" style={{ color: "var(--color-text)" }}>{ts.name}</td>
-              <td className="px-4 py-3" style={{ color: "var(--color-text-secondary)" }}>{ts.owner}</td>
-              <td className="px-4 py-3 font-mono text-xs" style={{ color: "var(--color-text-secondary)" }}>{ts.location || "(default)"}</td>
+            <tr key={ts.name} className="border-t border-border">
+              <td className="px-4 py-3 font-medium text-foreground">{ts.name}</td>
+              <td className="px-4 py-3 text-muted-foreground">{ts.owner}</td>
+              <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{ts.location || "(default)"}</td>
             </tr>
           ))}
         </tbody>

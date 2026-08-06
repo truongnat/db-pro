@@ -33,35 +33,33 @@ export function ColumnMetadataPopover({ column, anchorEl, onClose }: ColumnMetad
   return (
     <div
       ref={popoverRef}
-      className="fixed z-50 min-w-[200px] rounded-[var(--radius-sm)] border p-3 shadow-lg"
+      className="fixed z-50 min-w-[200px] rounded-sm border border-border bg-background p-3 shadow-lg"
       style={{
         top: pos.top,
         left: pos.left,
-        backgroundColor: "var(--color-bg)",
-        borderColor: "var(--color-border)",
       }}
     >
       <div className="mb-2">
-        <p className="text-xs font-medium" style={{ color: "var(--color-text-secondary)" }}>
+        <p className="text-xs font-medium text-muted-foreground">
           {t("query.metadata.name")}
         </p>
-        <p className="text-sm font-mono" style={{ color: "var(--color-text)" }}>
+        <p className="text-sm font-mono text-foreground">
           {column.name}
         </p>
       </div>
       <div className="mb-2">
-        <p className="text-xs font-medium" style={{ color: "var(--color-text-secondary)" }}>
+        <p className="text-xs font-medium text-muted-foreground">
           {t("query.metadata.dataType")}
         </p>
-        <p className="text-sm" style={{ color: "var(--color-text)" }}>
+        <p className="text-sm text-foreground">
           {column.dataType}
         </p>
       </div>
       <div>
-        <p className="text-xs font-medium" style={{ color: "var(--color-text-secondary)" }}>
+        <p className="text-xs font-medium text-muted-foreground">
           {t("query.metadata.nullable")}
         </p>
-        <p className="text-sm" style={{ color: column.nullable ? "var(--color-text)" : "var(--color-text-secondary)" }}>
+        <p className={`text-sm ${column.nullable ? "text-foreground" : "text-muted-foreground"}`}>
           {column.nullable ? t("common.yes") : t("common.no")}
         </p>
       </div>

@@ -5,8 +5,7 @@ interface ErrorCellProps {
 export function ErrorCell({ message }: ErrorCellProps) {
   return (
     <div
-      className="rounded px-2 py-0.5 text-xs"
-      style={{ backgroundColor: "var(--color-error, #ef4444)", color: "#fff" }}
+      className="rounded bg-destructive px-2 py-0.5 text-xs text-white"
       title={message}
     >
       {message}

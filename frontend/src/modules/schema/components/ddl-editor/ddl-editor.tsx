@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 
+import { Button } from "@/components/ui/button";
 import { useTranslation } from "@/commons/locales/useTranslation";
 
 import { useExecuteDdl } from "../../queries/schema.queries";
@@ -111,42 +112,32 @@ export function DdlEditor({ connectionId, schema, table }: DdlEditorProps) {
 
       <div className="grid grid-cols-2 gap-4">
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium" style={{ color: "var(--color-text)" }}>
+          <label className="text-sm font-medium text-foreground">
             {t("schema.ddlSchema")}
           </label>
           <input
             type="text"
             value={schema}
             readOnly
-            className="rounded-[var(--radius-sm)] border px-3 py-2 text-sm opacity-60"
-            style={{
-              borderColor: "var(--color-border)",
-              backgroundColor: "var(--color-bg)",
-              color: "var(--color-text)",
-            }}
+            className="rounded-sm border border-border bg-background px-3 py-2 text-sm text-foreground opacity-60"
           />
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium" style={{ color: "var(--color-text)" }}>
+          <label className="text-sm font-medium text-foreground">
             {t("schema.ddlTable")}
           </label>
           <input
             type="text"
             value={table}
             readOnly
-            className="rounded-[var(--radius-sm)] border px-3 py-2 text-sm opacity-60"
-            style={{
-              borderColor: "var(--color-border)",
-              backgroundColor: "var(--color-bg)",
-              color: "var(--color-text)",
-            }}
+            className="rounded-sm border border-border bg-background px-3 py-2 text-sm text-foreground opacity-60"
           />
         </div>
       </div>
 
       {showColumnDefs && (
         <div className="flex flex-col gap-2">
-          <label className="text-sm font-medium" style={{ color: "var(--color-text)" }}>
+          <label className="text-sm font-medium text-foreground">
             {t("schema.ddlColumns")}
           </label>
           {columns.map((col, i) => (
@@ -159,20 +150,21 @@ export function DdlEditor({ connectionId, schema, table }: DdlEditorProps) {
               canRemove={columns.length > 1}
             />
           ))}
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
+            className="self-start"
             onClick={handleAddColumn}
-            className="self-start rounded-[var(--radius-sm)] border px-3 py-1 text-sm transition-colors hover:bg-[var(--color-bg)]"
-            style={{ borderColor: "var(--color-border)", color: "var(--color-text-secondary)" }}
           >
             + {t("schema.ddlAddColumn")}
-          </button>
+          </Button>
         </div>
       )}
 
       {showColumnName && (
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium" style={{ color: "var(--color-text)" }}>
+          <label className="text-sm font-medium text-foreground">
             {t("schema.columnName")}
           </label>
           <input
@@ -180,19 +172,14 @@ export function DdlEditor({ connectionId, schema, table }: DdlEditorProps) {
             value={columnName}
             onChange={(e) => setColumnName(e.target.value)}
             placeholder="column_name"
-            className="rounded-[var(--radius-sm)] border px-3 py-2 text-sm outline-none focus:border-[var(--color-primary,#3b82f6)]"
-            style={{
-              borderColor: "var(--color-border)",
-              backgroundColor: "var(--color-bg)",
-              color: "var(--color-text)",
-            }}
+            className="rounded-sm border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
           />
         </div>
       )}
 
       {showNewName && (
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium" style={{ color: "var(--color-text)" }}>
+          <label className="text-sm font-medium text-foreground">
             {t("schema.ddlNewName")}
           </label>
           <input
@@ -200,19 +187,14 @@ export function DdlEditor({ connectionId, schema, table }: DdlEditorProps) {
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             placeholder="new_table_name"
-            className="rounded-[var(--radius-sm)] border px-3 py-2 text-sm outline-none focus:border-[var(--color-primary,#3b82f6)]"
-            style={{
-              borderColor: "var(--color-border)",
-              backgroundColor: "var(--color-bg)",
-              color: "var(--color-text)",
-            }}
+            className="rounded-sm border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
           />
         </div>
       )}
 
       {showSelectSql && (
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium" style={{ color: "var(--color-text)" }}>
+          <label className="text-sm font-medium text-foreground">
             SELECT Statement
           </label>
           <textarea
@@ -220,19 +202,14 @@ export function DdlEditor({ connectionId, schema, table }: DdlEditorProps) {
             onChange={(e) => setSelectSql(e.target.value)}
             placeholder="SELECT * FROM ..."
             rows={4}
-            className="rounded-[var(--radius-sm)] border px-3 py-2 font-mono text-sm outline-none focus:border-[var(--color-primary,#3b82f6)]"
-            style={{
-              borderColor: "var(--color-border)",
-              backgroundColor: "var(--color-bg)",
-              color: "var(--color-text)",
-            }}
+            className="rounded-sm border border-border px-3 py-2 font-mono text-sm text-foreground outline-none focus:border-primary"
           />
         </div>
       )}
 
       {showIndexName && (
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium" style={{ color: "var(--color-text)" }}>
+          <label className="text-sm font-medium text-foreground">
             {t("schema.ddlIndexName")}
           </label>
           <input
@@ -240,12 +217,7 @@ export function DdlEditor({ connectionId, schema, table }: DdlEditorProps) {
             value={indexName}
             onChange={(e) => setIndexName(e.target.value)}
             placeholder="index_name"
-            className="rounded-[var(--radius-sm)] border px-3 py-2 text-sm outline-none focus:border-[var(--color-primary,#3b82f6)]"
-            style={{
-              borderColor: "var(--color-border)",
-              backgroundColor: "var(--color-bg)",
-              color: "var(--color-text)",
-            }}
+            className="rounded-sm border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
           />
         </div>
       )}
@@ -253,7 +225,7 @@ export function DdlEditor({ connectionId, schema, table }: DdlEditorProps) {
       {showIndexConfig && (
         <>
           <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium" style={{ color: "var(--color-text)" }}>
+            <label className="text-sm font-medium text-foreground">
               {t("schema.ddlIndexName")}
             </label>
             <input
@@ -261,16 +233,11 @@ export function DdlEditor({ connectionId, schema, table }: DdlEditorProps) {
               value={indexName}
               onChange={(e) => setIndexName(e.target.value)}
               placeholder="idx_name"
-              className="rounded-[var(--radius-sm)] border px-3 py-2 text-sm outline-none focus:border-[var(--color-primary,#3b82f6)]"
-              style={{
-                borderColor: "var(--color-border)",
-                backgroundColor: "var(--color-bg)",
-                color: "var(--color-text)",
-              }}
+              className="rounded-sm border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
             />
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium" style={{ color: "var(--color-text)" }}>
+            <label className="text-sm font-medium text-foreground">
               {t("schema.ddlIndexColumns")}
             </label>
             <input
@@ -278,21 +245,15 @@ export function DdlEditor({ connectionId, schema, table }: DdlEditorProps) {
               value={indexColumns}
               onChange={(e) => setIndexColumns(e.target.value)}
               placeholder="col1, col2"
-              className="rounded-[var(--radius-sm)] border px-3 py-2 text-sm outline-none focus:border-[var(--color-primary,#3b82f6)]"
-              style={{
-                borderColor: "var(--color-border)",
-                backgroundColor: "var(--color-bg)",
-                color: "var(--color-text)",
-              }}
+              className="rounded-sm border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
             />
           </div>
-          <label className="flex items-center gap-2 text-sm" style={{ color: "var(--color-text)" }}>
+          <label className="flex items-center gap-2 text-sm text-foreground">
             <input
               type="checkbox"
               checked={unique}
               onChange={(e) => setUnique(e.target.checked)}
-              className="h-4 w-4 rounded border accent-[var(--color-primary,#3b82f6)]"
-              style={{ borderColor: "var(--color-border)" }}
+              className="h-4 w-4 rounded border border-border accent-primary"
             />
             {t("schema.ddlUnique")}
           </label>
@@ -300,31 +261,29 @@ export function DdlEditor({ connectionId, schema, table }: DdlEditorProps) {
       )}
 
       <div className="flex flex-col gap-2">
-        <label className="text-sm font-medium" style={{ color: "var(--color-text)" }}>
+        <label className="text-sm font-medium text-foreground">
           {t("schema.ddlPreview")}
         </label>
         <DdlPreview sql={previewSql} />
       </div>
 
       <div className="flex items-center gap-3">
-        <button
+        <Button
           type="button"
           onClick={handleExecute}
           disabled={!previewSql || executeDdl.isPending}
-          className="rounded-[var(--radius-sm)] px-4 py-2 text-sm font-medium text-white transition-colors disabled:opacity-50"
-          style={{ backgroundColor: "var(--color-primary, #3b82f6)" }}
         >
           {executeDdl.isPending ? t("common.states.loading") : t("schema.ddlExecute")}
-        </button>
+        </Button>
 
         {executeDdl.isError && (
-          <span className="text-sm" style={{ color: "var(--color-error, #ef4444)" }}>
+          <span className="text-sm text-destructive">
             {(executeDdl.error as { userMessage?: string })?.userMessage ?? t("common.states.error")}
           </span>
         )}
 
         {successMessage && (
-          <span className="text-sm" style={{ color: "var(--color-success, #22c55e)" }}>
+          <span className="text-sm text-success">
             {successMessage}
           </span>
         )}

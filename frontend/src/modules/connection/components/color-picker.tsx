@@ -1,6 +1,8 @@
 import { useState } from "react";
 
+import { cn } from "@/lib/utils";
 import { useTranslation } from "@/commons/locales/useTranslation";
+import { Button } from "@/components/ui/button";
 
 const PRESET_COLORS = [
   "#ef4444",
@@ -39,40 +41,43 @@ export function ColorPicker({ value, onChange }: ColorPickerProps) {
 
   return (
     <div className="flex flex-col gap-2">
-      <label className="text-sm font-medium" style={{ color: "var(--color-text)" }}>
+      <label className="text-sm font-medium text-foreground">
         {t("connection.color")}
       </label>
       <div className="flex flex-wrap items-center gap-1.5">
         {PRESET_COLORS.map((color) => (
-          <button
+          <Button
             key={color}
             type="button"
-            className="h-6 w-6 rounded-full border-2 transition-transform hover:scale-110"
-            style={{
-              backgroundColor: color,
-              borderColor: value === color ? "var(--color-text)" : "transparent",
-            }}
+            variant="ghost"
+            className={cn(
+              "h-6 w-6 cursor-pointer rounded-full border-2 p-0 transition-transform hover:scale-110",
+              value === color ? "border-foreground" : "border-transparent",
+            )}
+            style={{ backgroundColor: color }}
             onClick={() => handleSelect(color)}
             title={color}
           />
         ))}
-        <button
+        <Button
           type="button"
-          className="rounded px-2 py-1 text-xs transition-colors hover:bg-[var(--color-surface)]"
-          style={{ color: "var(--color-text-secondary)" }}
+          variant="ghost"
+          size="sm"
+          className="h-auto px-2 py-1 text-xs"
           onClick={() => setShowCustom(!showCustom)}
         >
           {t("connection.customColor")}
-        </button>
+        </Button>
         {value && (
-          <button
+          <Button
             type="button"
-            className="rounded px-2 py-1 text-xs transition-colors hover:bg-[var(--color-surface)]"
-            style={{ color: "var(--color-error)" }}
+            variant="ghost"
+            size="sm"
+            className="h-auto px-2 py-1 text-xs text-destructive"
             onClick={() => onChange(undefined)}
           >
             {t("common.actions.clear")}
-          </button>
+          </Button>
         )}
       </div>
       {showCustom && (
@@ -82,20 +87,19 @@ export function ColorPicker({ value, onChange }: ColorPickerProps) {
             value={customValue}
             onChange={(e) => setCustomValue(e.target.value)}
             placeholder="#3b82f6"
-            className="rounded-[var(--radius-sm)] border px-2 py-1 text-sm"
-            style={{ borderColor: "var(--color-border)", color: "var(--color-text)" }}
+            className="h-7 rounded-sm border border-border bg-background px-2 text-sm text-foreground outline-none focus:border-ring"
             onKeyDown={(e) => {
               if (e.key === "Enter") handleCustomSubmit();
             }}
           />
-          <button
+          <Button
             type="button"
-            className="rounded-[var(--radius-sm)] px-2 py-1 text-xs text-white"
-            style={{ backgroundColor: "var(--color-primary,#3b82f6)" }}
+            size="sm"
+            className="h-7 px-2 text-xs"
             onClick={handleCustomSubmit}
           >
             {t("common.actions.confirm")}
-          </button>
+          </Button>
         </div>
       )}
     </div>

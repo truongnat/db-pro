@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 
+import { Button } from "@/components/ui/button";
 import { useTranslation } from "@/commons/locales/useTranslation";
 import type { SchemaColumnDto } from "../types/schema.types";
 
@@ -90,42 +91,34 @@ export function GenerateCrud({ schema, table, columns }: GenerateCrudProps) {
     <div className="flex flex-col gap-3 p-4">
       <div className="flex gap-2">
         {types.map((type) => (
-          <button
+          <Button
             key={type.key}
             type="button"
+            size="sm"
             onClick={() => setActiveType(type.key)}
-            className="rounded-[var(--radius-sm)] border px-3 py-1.5 text-xs font-medium transition-colors"
-            style={{
-              borderColor: activeType === type.key ? "var(--color-primary, #3b82f6)" : "var(--color-border)",
-              backgroundColor: activeType === type.key ? "var(--color-primary, #3b82f6)" : "transparent",
-              color: activeType === type.key ? "white" : "var(--color-text)",
-            }}
+            variant={activeType === type.key ? "default" : "outline"}
           >
             {type.label}
-          </button>
+          </Button>
         ))}
       </div>
 
       <pre
-        className="overflow-auto rounded-[var(--radius-sm)] border p-3 font-mono text-xs leading-relaxed"
-        style={{
-          borderColor: "var(--color-border)",
-          color: "var(--color-text)",
-          backgroundColor: "var(--color-bg-secondary, var(--color-bg))",
-          maxHeight: "300px",
-        }}
+        className="overflow-auto rounded-sm border border-border p-3 font-mono text-xs leading-relaxed text-foreground bg-muted"
+        style={{ maxHeight: "300px" }}
       >
         <code>{sql}</code>
       </pre>
 
-      <button
+      <Button
         type="button"
+        variant="outline"
+        size="sm"
+        className="self-start"
         onClick={handleCopy}
-        className="self-start rounded-[var(--radius-sm)] border px-3 py-1.5 text-xs transition-colors hover:bg-[var(--color-bg)]"
-        style={{ borderColor: "var(--color-border)", color: "var(--color-text)" }}
       >
         {copied ? t("schema.copied") : t("schema.copyDdl")}
-      </button>
+      </Button>
     </div>
   );
 }

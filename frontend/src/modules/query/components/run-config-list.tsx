@@ -1,5 +1,6 @@
 import { useCallback } from "react";
 
+import { Button } from "@/components/ui/button";
 import { useTranslation } from "@/commons/locales/useTranslation";
 
 import {
@@ -31,50 +32,49 @@ export function RunConfigList({ connectionId, onSelect, onNew }: RunConfigListPr
   return (
     <div className="flex h-full flex-col overflow-auto p-2 text-sm">
       <div className="mb-2 flex items-center justify-between">
-        <span className="font-medium" style={{ color: "var(--color-text)" }}>
+        <span className="font-medium text-foreground">
           {t("query.runConfigs")}
         </span>
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="sm"
           onClick={onNew}
-          className="rounded-[var(--radius-sm)] px-2 py-0.5 text-xs transition-colors hover:bg-[var(--color-bg)]"
-          style={{ color: "var(--color-primary, #3b82f6)" }}
+          className="rounded-sm px-2 py-0.5 text-xs text-primary"
         >
           + {t("query.newRunConfig")}
-        </button>
+        </Button>
       </div>
 
       {configs.map((config) => (
         <div
           key={config.id}
-          className="group flex items-center justify-between rounded-[var(--radius-sm)] px-2 py-1 transition-colors hover:bg-[var(--color-bg)]"
+          className="group flex items-center justify-between rounded-sm px-2 py-1 transition-colors hover:bg-background"
         >
-          <button
+          <Button
             type="button"
-            className="flex-1 truncate text-left text-xs"
-            style={{ color: "var(--color-text)" }}
+            variant="ghost"
+            className="flex-1 justify-start truncate text-left text-xs text-foreground"
             onClick={() => onSelect(config)}
             title={config.name}
           >
             {config.name}
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
-            className="ml-1 opacity-0 transition-opacity group-hover:opacity-100"
-            style={{ color: "var(--color-error, #ef4444)" }}
+            variant="ghost"
+            size="sm"
+            className="ml-1 text-destructive opacity-0 transition-opacity group-hover:opacity-100"
             onClick={() => handleDelete(config.id)}
             title={t("common.actions.delete")}
           >
             ×
-          </button>
+          </Button>
         </div>
       ))}
 
       {configs.length === 0 && (
-        <div
-          className="py-4 text-center text-xs italic"
-          style={{ color: "var(--color-text-secondary)" }}
-        >
+        <div className="py-4 text-center text-xs italic text-muted-foreground">
           {t("query.noRunConfigs")}
         </div>
       )}

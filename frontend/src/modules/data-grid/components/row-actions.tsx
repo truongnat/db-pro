@@ -1,4 +1,5 @@
 import { useTranslation } from "@/commons/locales/useTranslation";
+import { Button } from "@/components/ui/button";
 
 interface RowActionsProps {
   onDelete: () => void;
@@ -9,9 +10,11 @@ export function RowActions({ onDelete, isDeleting }: RowActionsProps) {
   const { t } = useTranslation();
 
   return (
-    <button
-      className="rounded px-1.5 py-0.5 text-xs transition-colors hover:bg-[var(--color-error, #ef4444)] hover:text-white disabled:opacity-40"
-      style={{ color: "var(--color-error, #ef4444)" }}
+    <Button
+      type="button"
+      variant="ghost"
+      size="sm"
+      className="h-auto px-1.5 py-0.5 text-xs text-destructive hover:bg-destructive hover:text-white disabled:opacity-40"
       disabled={isDeleting}
       onClick={(e) => {
         e.stopPropagation();
@@ -19,10 +22,9 @@ export function RowActions({ onDelete, isDeleting }: RowActionsProps) {
           onDelete();
         }
       }}
-      type="button"
       title={t("common.actions.delete")}
     >
       &times;
-    </button>
+    </Button>
   );
 }

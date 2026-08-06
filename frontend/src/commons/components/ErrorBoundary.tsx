@@ -1,5 +1,7 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
 
+import { Button } from "@/components/ui/button";
+
 import { useTranslation } from "@/commons/locales/useTranslation";
 
 interface ErrorBoundaryProps {
@@ -50,44 +52,37 @@ class ErrorBoundaryInner extends Component<
 
       return (
         <div
+          className="text-foreground"
           style={{
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
             justifyContent: "center",
-            padding: "var(--space-8, 32px)",
-            gap: "var(--space-4, 16px)",
-            color: "var(--color-text)",
+            padding: "var(32px, 32px)",
+            gap: "var(16px, 16px)",
             textAlign: "center",
           }}
         >
           <div
+            className="text-destructive"
             style={{
-              fontSize: "var(--text-xl, 20px)",
+              fontSize: "var(20px, 20px)",
               fontWeight: 600,
-              color: "var(--color-error, #ef4444)",
             }}
           >
             {this.props.moduleName} — Error
           </div>
-          <div style={{ color: "var(--color-text-secondary, #9ca3af)" }}>
+          <div className="text-muted-foreground">
             {this.state.error.message}
           </div>
-          <button
+          <Button
             type="button"
+            variant="outline"
+            className="bg-card"
             onClick={this.reset}
-            style={{
-              height: "var(--button-height, 36px)",
-              padding: "0 var(--space-4, 16px)",
-              borderRadius: "var(--radius-md, 6px)",
-              border: "1px solid var(--color-border)",
-              background: "var(--color-surface)",
-              color: "var(--color-text)",
-              cursor: "pointer",
-            }}
           >
             Retry
-          </button>
+          </Button>
         </div>
       );
     }
@@ -107,36 +102,37 @@ export function ErrorBoundaryFallback({
 
   return (
     <div
+      className="text-foreground"
       style={{
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        padding: "var(--space-8, 32px)",
-        gap: "var(--space-4, 16px)",
-        color: "var(--color-text)",
+        padding: "var(32px, 32px)",
+        gap: "var(16px, 16px)",
         textAlign: "center",
       }}
     >
       <div
+        className="text-destructive"
         style={{
-          fontSize: "var(--text-xl, 20px)",
+          fontSize: "var(20px, 20px)",
           fontWeight: 600,
-          color: "var(--color-error, #ef4444)",
         }}
       >
         {t("common.states.error")}
       </div>
-      <div style={{ color: "var(--color-text-secondary, #9ca3af)" }}>
+      <div className="text-muted-foreground">
         {error.message}
       </div>
-      <button
+      <Button
         type="button"
+        variant="outline"
+        className="h-9 px-4 bg-card"
         onClick={reset}
-        className="h-[var(--button-height)] px-4 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text)] cursor-pointer"
       >
         {t("common.actions.retry")}
-      </button>
+      </Button>
     </div>
   );
 }

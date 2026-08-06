@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 
+import { Button } from "@/components/ui/button";
 import { useTranslation } from "@/commons/locales/useTranslation";
 import { formatRelativeTime } from "@/commons/utils/date-formatter";
 
@@ -46,38 +47,28 @@ export function LocalHistoryPanel({ onSelectEntry }: LocalHistoryPanelProps) {
 
   return (
     <div className="flex h-full flex-col">
-      <div
-        className="flex items-center gap-2 border-b px-3 py-2"
-        style={{ borderColor: "var(--color-border)" }}
-      >
+      <div className="flex items-center gap-2 border-b border-border px-3 py-2">
         <input
-          className="flex-1 rounded-[var(--radius-sm)] border px-2 py-1 text-sm"
-          style={{
-            borderColor: "var(--color-border)",
-            backgroundColor: "var(--color-bg)",
-            color: "var(--color-text)",
-          }}
+          className="flex-1 rounded-sm border border-border bg-background px-2 py-1 text-sm text-foreground"
           placeholder={t("query.searchHistory")}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
-        <button
-          className="rounded-[var(--radius-sm)] border px-2 py-1 text-xs transition-colors hover:bg-[var(--color-bg)]"
-          style={{
-            borderColor: "var(--color-border)",
-            color: "var(--color-text-secondary)",
-          }}
+        <Button
+          type="button"
+          variant="outline"
+          className="rounded-sm border px-2 py-1 text-xs text-muted-foreground"
           onClick={handleClear}
           disabled={entries.length === 0}
         >
           {t("common.actions.clear")}
-        </button>
+        </Button>
       </div>
 
       <div className="flex-1 overflow-auto">
         {filtered.length === 0 && (
           <div className="flex items-center justify-center py-8">
-            <p style={{ color: "var(--color-text-secondary)" }} className="text-sm">
+            <p className="text-sm text-muted-foreground">
               {t("common.states.empty")}
             </p>
           </div>
@@ -85,27 +76,25 @@ export function LocalHistoryPanel({ onSelectEntry }: LocalHistoryPanelProps) {
         {filtered.map((entry, idx) => (
           <div
             key={`${entry.timestamp}-${idx}`}
-            className="group flex cursor-pointer items-start gap-2 border-b px-3 py-2 transition-colors hover:bg-[var(--color-surface)]"
-            style={{ borderColor: "var(--color-border)" }}
+            className="group flex cursor-pointer items-start gap-2 border-b border-border px-3 py-2 transition-colors hover:bg-card"
             onClick={() => onSelectEntry(entry.sql)}
           >
             <div className="min-w-0 flex-1">
               <pre
-                className="overflow-hidden text-ellipsis whitespace-pre-wrap text-xs"
-                style={{ color: "var(--color-text)", maxHeight: "3em" }}
+                className="overflow-hidden text-ellipsis whitespace-pre-wrap text-xs text-foreground"
+                style={{ maxHeight: "3em" }}
               >
                 {entry.sql}
               </pre>
-              <span
-                className="mt-0.5 text-xs"
-                style={{ color: "var(--color-text-secondary)" }}
-              >
+              <span className="mt-0.5 text-xs text-muted-foreground">
                 {formatRelativeTime(new Date(entry.timestamp))}
               </span>
             </div>
-            <button
-              className="shrink-0 rounded px-1 text-xs opacity-0 transition-opacity group-hover:opacity-100"
-              style={{ color: "var(--color-text-secondary)" }}
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="shrink-0 rounded px-1 text-xs text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100"
               onClick={(e) => {
                 e.stopPropagation();
                 handleRemove(idx);
@@ -113,7 +102,7 @@ export function LocalHistoryPanel({ onSelectEntry }: LocalHistoryPanelProps) {
               title={t("common.actions.delete")}
             >
               ×
-            </button>
+            </Button>
           </div>
         ))}
       </div>

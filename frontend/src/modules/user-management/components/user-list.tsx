@@ -1,5 +1,9 @@
 import { useTranslation } from "react-i18next";
 
+import { cn } from "@/lib/utils";
+
+import { Button } from "@/components/ui/button";
+
 import type { DatabaseUser } from "../types/user.types";
 
 interface UserListProps {
@@ -19,33 +23,23 @@ export function UserList({
 
   return (
     <div className="flex flex-col gap-1">
-      <h3
-        className="px-2 py-1 text-xs font-semibold uppercase tracking-wide"
-        style={{ color: "var(--color-text-secondary)" }}
-      >
+      <h3 className="px-2 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         {t("userManagement.roles")}
       </h3>
       {users.map((user) => (
         <div
           key={user.name}
-          className="flex items-center justify-between rounded-[var(--radius-sm)] px-2 py-1.5 cursor-pointer transition-colors hover:bg-[var(--color-bg)]"
-          style={{
-            backgroundColor:
-              selectedUser === user.name ? "var(--color-surface)" : undefined,
-          }}
+          className={cn(
+            "flex items-center justify-between rounded-sm px-2 py-1.5 cursor-pointer transition-colors hover:bg-background",
+            selectedUser === user.name && "bg-card",
+          )}
           onClick={() => onSelectUser(user.name)}
         >
           <div className="flex flex-col min-w-0">
-            <span
-              className="text-sm font-medium truncate"
-              style={{ color: "var(--color-text)" }}
-            >
+            <span className="text-sm font-medium truncate text-foreground">
               {user.name}
             </span>
-            <span
-              className="text-xs truncate"
-              style={{ color: "var(--color-text-secondary)" }}
-            >
+            <span className="text-xs truncate text-muted-foreground">
               {user.isSuper
                 ? t("userManagement.superuser")
                 : user.canLogin
@@ -54,9 +48,11 @@ export function UserList({
             </span>
           </div>
           {!user.isSuper && (
-            <button
-              className="ml-2 shrink-0 rounded p-1 text-xs transition-colors hover:bg-[var(--color-border)]"
-              style={{ color: "var(--color-error)" }}
+            <Button
+              type="button"
+              variant="ghost"
+              size="xs"
+              className="ml-2 shrink-0 text-destructive hover:bg-border"
               title={t("userManagement.dropRole")}
               onClick={(e) => {
                 e.stopPropagation();
@@ -64,7 +60,7 @@ export function UserList({
               }}
             >
               {t("common.actions.delete")}
-            </button>
+            </Button>
           )}
         </div>
       ))}

@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 
+import { Button } from "@/components/ui/button";
 import { useTranslation } from "@/commons/locales/useTranslation";
 
 import type { ColumnMeta, Row } from "../types/query.types";
@@ -41,7 +42,7 @@ export function ResultGrid({
   if (!columns.length) {
     return (
       <div className="flex items-center justify-center py-12">
-        <p style={{ color: "var(--color-text-secondary)" }}>
+        <p className="text-muted-foreground">
           {t("query.noResults")}
         </p>
       </div>
@@ -56,14 +57,10 @@ export function ResultGrid({
     <div className="flex h-full flex-col">
       <div style={{ zoom: zoom / 100 }} className="flex h-full flex-col">
       <div
-        className="grid border-b text-xs font-medium"
-        style={{
-          ...gridStyle,
-          backgroundColor: "var(--color-surface)",
-          borderColor: "var(--color-border)",
-        }}
+        className="grid border-b border-border bg-card text-xs font-medium"
+        style={gridStyle}
       >
-        <div className="px-2 py-2" style={{ color: "var(--color-text-secondary)" }}>
+        <div className="px-2 py-2 text-muted-foreground">
           #
         </div>
         {columns.map((col) => {
@@ -71,11 +68,10 @@ export function ResultGrid({
           return (
             <div
               key={col.name}
-              className="flex items-center gap-1 px-3 py-2"
-              style={{ color: "var(--color-text-secondary)" }}
+              className="flex items-center gap-1 px-3 py-2 text-muted-foreground"
             >
               <span
-                className="cursor-pointer select-none transition-colors hover:bg-[var(--color-bg)]"
+                className="cursor-pointer select-none transition-colors hover:bg-background"
                 onClick={() => onSort(col.name)}
                 title={`${col.name} (${col.dataType})`}
               >
@@ -86,9 +82,11 @@ export function ResultGrid({
                   </span>
                 )}
               </span>
-              <button
-                className="shrink-0 rounded px-1 text-[10px] transition-colors hover:bg-[var(--color-bg)]"
-                style={{ color: "var(--color-text-secondary)" }}
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="shrink-0 rounded px-1 text-[10px] text-muted-foreground"
                 title={t("query.metadata.info")}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -96,7 +94,7 @@ export function ResultGrid({
                 }}
               >
                 i
-              </button>
+              </Button>
             </div>
           );
         })}
@@ -115,17 +113,15 @@ export function ResultGrid({
             return (
               <div
                 key={virtualRow.key}
-                className="grid absolute w-full border-b text-xs transition-colors hover:bg-[var(--color-surface)]"
+                className="grid absolute w-full border-b border-border text-xs transition-colors hover:bg-card"
                 style={{
                   ...gridStyle,
                   top: virtualRow.start,
-                  borderColor: "var(--color-border)",
                 }}
                 data-index={virtualRow.index}
               >
                 <div
-                  className="px-2 py-1.5"
-                  style={{ color: "var(--color-text-secondary)" }}
+                  className="px-2 py-1.5 text-muted-foreground"
                 >
                   {virtualRow.index + 1}
                 </div>
@@ -135,13 +131,10 @@ export function ResultGrid({
                   return (
                     <div
                       key={colIdx}
-                      className="overflow-hidden px-3 py-1.5 text-ellipsis whitespace-nowrap"
-                      style={{
-                        color: isNull
-                          ? "var(--color-text-secondary)"
-                          : "var(--color-text)",
-                        fontStyle: isNull ? "italic" : undefined,
-                      }}
+                      className={`overflow-hidden px-3 py-1.5 text-ellipsis whitespace-nowrap ${
+                        isNull ? "text-muted-foreground" : "text-foreground"
+                      }`}
+                      style={{ fontStyle: isNull ? "italic" : undefined }}
                       title={display}
                     >
                       {display}
@@ -155,14 +148,7 @@ export function ResultGrid({
       </div>
       </div>
 
-      <div
-        className="flex items-center gap-4 border-t px-3 py-1.5 text-xs"
-        style={{
-          borderColor: "var(--color-border)",
-          backgroundColor: "var(--color-surface)",
-          color: "var(--color-text-secondary)",
-        }}
-      >
+      <div className="flex items-center gap-4 border-t border-border bg-card px-3 py-1.5 text-xs text-muted-foreground">
         <span>{t("query.rowsAffected", { count: rowCount })}</span>
         <span>{t("query.duration", { duration: durationMs })}</span>
         <div className="flex-1" />

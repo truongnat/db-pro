@@ -9,14 +9,7 @@ export function DdlPreview({ sql }: DdlPreviewProps) {
 
   if (!sql) {
     return (
-      <div
-        className="rounded-[var(--radius-sm)] border p-4 text-sm italic"
-        style={{
-          borderColor: "var(--color-border)",
-          color: "var(--color-text-secondary)",
-          backgroundColor: "var(--color-bg-secondary, var(--color-bg))",
-        }}
-      >
+      <div className="rounded-sm border border-border bg-muted p-4 text-sm italic text-muted-foreground">
         {t("schema.ddlPreview")}
       </div>
     );
@@ -24,13 +17,8 @@ export function DdlPreview({ sql }: DdlPreviewProps) {
 
   return (
     <pre
-      className="overflow-auto rounded-[var(--radius-sm)] border p-4 font-mono text-xs leading-relaxed"
-      style={{
-        borderColor: "var(--color-border)",
-        color: "var(--color-text)",
-        backgroundColor: "var(--color-bg-secondary, var(--color-bg))",
-        maxHeight: "300px",
-      }}
+      className="overflow-auto rounded-sm border border-border bg-muted p-4 font-mono text-xs leading-relaxed text-foreground"
+      style={{ maxHeight: "300px" }}
     >
       <code>{sql}</code>
     </pre>

@@ -27,7 +27,7 @@ vi.mock("../state/connection.store", () => ({
   ),
 }));
 
-vi.mock("@/ui/lib/utils", () => ({
+vi.mock("@/lib/utils", () => ({
   cn: (...args: unknown[]) => args.filter(Boolean).join(" "),
 }));
 

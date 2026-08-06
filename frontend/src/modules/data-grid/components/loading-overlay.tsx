@@ -7,7 +7,7 @@ export function LoadingOverlay() {
       className="absolute inset-0 z-10 flex items-center justify-center"
       style={{ backgroundColor: "rgba(0,0,0,0.08)" }}
     >
-      <span className="text-sm" style={{ color: "var(--color-text-secondary)" }}>
+      <span className="text-sm text-muted-foreground">
         {t("common.states.loading")}
       </span>
     </div>

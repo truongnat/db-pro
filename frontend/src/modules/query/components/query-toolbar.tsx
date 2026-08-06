@@ -1,5 +1,6 @@
 import { useState } from "react";
 
+import { Button } from "@/components/ui/button";
 import { useTranslation } from "@/commons/locales/useTranslation";
 
 import { SQL_TEMPLATES } from "./sql-templates-data";
@@ -34,98 +35,82 @@ export function QueryToolbar({
   const { t } = useTranslation();
   const [templatesOpen, setTemplatesOpen] = useState(false);
 
-  const primaryStyle: React.CSSProperties = {
-    backgroundColor: "var(--color-primary,#3b82f6)",
-    color: "white",
-  };
-
-  const secondaryStyle: React.CSSProperties = {
-    borderColor: "var(--color-border)",
-    color: "var(--color-text)",
-  };
-
   return (
-    <div
-      className="flex items-center gap-2 border-b px-3 py-2"
-      style={{
-        borderColor: "var(--color-border)",
-        backgroundColor: "var(--color-surface)",
-      }}
-    >
-      <button
-        className="rounded-[var(--radius-sm)] px-4 py-1.5 text-sm font-medium transition-colors disabled:opacity-50"
-        style={primaryStyle}
+    <div className="flex items-center gap-2 border-b border-border bg-card px-3 py-2">
+      <Button
+        type="button"
+        className="rounded-sm px-4 py-1.5 text-sm font-medium"
         onClick={onExecute}
         disabled={!hasConnection || !hasSql || isExecuting}
         title="Ctrl+Enter"
       >
         {isExecuting ? t("common.states.loading") : t("query.execute")}
-      </button>
+      </Button>
 
       {isExecuting && (
-        <button
-          className="rounded-[var(--radius-sm)] px-3 py-1.5 text-sm font-medium transition-colors"
-          style={{ backgroundColor: "var(--color-error,#ef4444)", color: "white" }}
+        <Button
+          type="button"
+          className="rounded-sm bg-destructive px-3 py-1.5 text-sm font-medium text-white hover:bg-destructive/90"
           onClick={onCancel}
         >
           {t("common.actions.cancel")}
-        </button>
+        </Button>
       )}
 
-      <button
-        className="rounded-[var(--radius-sm)] border px-3 py-1.5 text-sm transition-colors disabled:opacity-50"
-        style={secondaryStyle}
+      <Button
+        type="button"
+        variant="outline"
+        className="rounded-sm border px-3 py-1.5 text-sm"
         onClick={onExplain}
         disabled={!hasConnection || !hasSql || isExplaining}
       >
         {isExplaining ? t("common.states.loading") : t("query.explain")}
-      </button>
+      </Button>
 
-      <button
-        className="rounded-[var(--radius-sm)] border px-3 py-1.5 text-sm transition-colors hover:bg-[var(--color-bg)] disabled:opacity-50"
-        style={secondaryStyle}
+      <Button
+        type="button"
+        variant="outline"
+        className="rounded-sm border px-3 py-1.5 text-sm"
         onClick={onExport}
         disabled={!hasConnection || !hasSql}
       >
         {t("export.title")}
-      </button>
+      </Button>
 
-      <button
-        className="rounded-[var(--radius-sm)] border px-3 py-1.5 text-sm transition-colors hover:bg-[var(--color-bg)] disabled:opacity-50"
-        style={secondaryStyle}
+      <Button
+        type="button"
+        variant="outline"
+        className="rounded-sm border px-3 py-1.5 text-sm"
         onClick={onFormat}
         disabled={!hasSql}
       >
         {t("query.format")}
-      </button>
+      </Button>
 
       <div style={{ position: "relative" }}>
-        <button
-          className="rounded-[var(--radius-sm)] border px-3 py-1.5 text-sm transition-colors hover:bg-[var(--color-bg)]"
-          style={secondaryStyle}
+        <Button
+          type="button"
+          variant="outline"
+          className="rounded-sm border px-3 py-1.5 text-sm"
           onClick={() => setTemplatesOpen((v) => !v)}
         >
           {t("query.templates")}
-        </button>
+        </Button>
         {templatesOpen && (
-          <div
-            className="absolute top-full left-0 z-50 mt-1 max-h-64 w-56 overflow-auto rounded-[var(--radius-sm)] border py-1 shadow-lg"
-            style={{
-              borderColor: "var(--color-border)",
-              backgroundColor: "var(--color-surface)",
-            }}
-          >
+          <div className="absolute top-full left-0 z-50 mt-1 max-h-64 w-56 overflow-auto rounded-sm border border-border bg-card py-1 shadow-lg">
             {SQL_TEMPLATES.map((tpl) => (
-              <button
+              <Button
                 key={tpl.label}
-                className="block w-full px-3 py-1.5 text-left text-sm transition-colors hover:bg-[var(--color-bg)]"
+                type="button"
+                variant="ghost"
+                className="w-full justify-start rounded-none border-0 px-3 py-1.5 text-left text-sm"
                 onClick={() => {
                   onInsertTemplate(tpl.sql);
                   setTemplatesOpen(false);
                 }}
               >
                 {tpl.label}
-              </button>
+              </Button>
             ))}
           </div>
         )}
@@ -133,13 +118,14 @@ export function QueryToolbar({
 
       <div className="flex-1" />
 
-      <button
-        className="rounded-[var(--radius-sm)] border px-3 py-1.5 text-sm transition-colors hover:bg-[var(--color-bg)]"
-        style={secondaryStyle}
+      <Button
+        type="button"
+        variant="outline"
+        className="rounded-sm border px-3 py-1.5 text-sm"
         onClick={onClear}
       >
         {t("query.clear")}
-      </button>
+      </Button>
     </div>
   );
 }

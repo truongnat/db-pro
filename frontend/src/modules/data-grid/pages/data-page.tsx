@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useConnectionStore } from "@/commons/stores/connection.store";
 import { useTranslation } from "@/commons/locales/useTranslation";
 import { useIntrospect } from "@/modules/schema/queries/schema.queries";
+import { Button } from "@/components/ui/button";
 
 import { ChartConfigDialog } from "../components/chart-config-dialog";
 import { ChartView } from "../components/chart-view";
@@ -145,7 +146,7 @@ export function DataPage() {
 
   if (!activeConnectionId) {
     return (
-      <div className="flex flex-1 items-center justify-center text-sm" style={{ color: "var(--color-text-secondary)" }}>
+      <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
         {t("dataGrid.connectFirst")}
       </div>
     );
@@ -153,20 +154,12 @@ export function DataPage() {
 
   return (
     <div className="flex h-full flex-col">
-      <div
-        className="flex items-center gap-2 border-b px-3 py-2"
-        style={{ borderColor: "var(--color-border)", backgroundColor: "var(--color-surface)" }}
-      >
-        <label className="text-xs font-medium" style={{ color: "var(--color-text-secondary)" }}>
+      <div className="flex items-center gap-2 border-b border-border bg-card px-3 py-2">
+        <label className="text-xs font-medium text-muted-foreground">
           {t("dataGrid.selectTable")}
         </label>
         <select
-          className="rounded border px-2 py-1 text-sm"
-          style={{
-            borderColor: "var(--color-border)",
-            backgroundColor: "var(--color-surface)",
-            color: "var(--color-text)",
-          }}
+          className="rounded border border-border bg-card px-2 py-1 text-sm text-foreground"
           value={tableName ? `${tableSchema}.${tableName}` : ""}
           onChange={(e) => {
             const val = e.target.value;
@@ -187,14 +180,14 @@ export function DataPage() {
         </select>
 
         {rows.length > 0 && tableSchema && tableName && (
-          <button
+          <Button
             type="button"
+            variant="outline"
             onClick={() => setCopySqlOpen(true)}
-            className="ml-auto rounded-[var(--radius-sm)] border px-3 py-1 text-xs transition-colors hover:bg-[var(--color-bg)]"
-            style={{ borderColor: "var(--color-border)", color: "var(--color-text)" }}
+            className="ml-auto text-xs"
           >
             {t("dataGrid.copyAsSql")}
-          </button>
+          </Button>
         )}
       </div>
 
@@ -211,41 +204,32 @@ export function DataPage() {
             />
           )}
 
-          <div
-            className="flex border-b px-3"
-            style={{ borderColor: "var(--color-border)" }}
-          >
-            <button
+          <div className="flex border-b border-border px-3">
+            <Button
               type="button"
-              className="px-3 py-1.5 text-xs transition-colors"
-              style={{
-                color: viewTab === "grid" ? "var(--color-text)" : "var(--color-text-secondary)",
-                borderBottom: viewTab === "grid" ? "2px solid var(--color-primary, #3b82f6)" : "2px solid transparent",
-              }}
+              variant="ghost"
+              className={`h-auto border-b-2 px-3 py-1.5 text-xs hover:bg-transparent ${viewTab === "grid" ? "border-primary text-foreground" : "border-transparent text-muted-foreground"}`}
               onClick={() => setViewTab("grid")}
             >
               {t("dataGrid.gridView")}
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
-              className="px-3 py-1.5 text-xs transition-colors"
-              style={{
-                color: viewTab === "chart" ? "var(--color-text)" : "var(--color-text-secondary)",
-                borderBottom: viewTab === "chart" ? "2px solid var(--color-primary, #3b82f6)" : "2px solid transparent",
-              }}
+              variant="ghost"
+              className={`h-auto border-b-2 px-3 py-1.5 text-xs hover:bg-transparent ${viewTab === "chart" ? "border-primary text-foreground" : "border-transparent text-muted-foreground"}`}
               onClick={() => setViewTab("chart")}
             >
               {t("dataGrid.chartView")}
-            </button>
+            </Button>
             {viewTab === "chart" && (
-              <button
+              <Button
                 type="button"
-                className="ml-auto px-3 py-1.5 text-xs transition-colors"
-                style={{ color: "var(--color-primary, #3b82f6)" }}
+                variant="ghost"
+                className="ml-auto h-auto px-3 py-1.5 text-xs text-primary hover:bg-transparent"
                 onClick={() => setChartConfigOpen(true)}
               >
                 {t("dataGrid.chartConfig")}
-              </button>
+              </Button>
             )}
           </div>
 
@@ -269,7 +253,7 @@ export function DataPage() {
             ) : chartConfig ? (
               <ChartView columns={columns} rows={rows} config={chartConfig} />
             ) : (
-              <div className="flex items-center justify-center py-12 text-sm" style={{ color: "var(--color-text-secondary)" }}>
+              <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
                 {t("dataGrid.configureChart")}
               </div>
             )}

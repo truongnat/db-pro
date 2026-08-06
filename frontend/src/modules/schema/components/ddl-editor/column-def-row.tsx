@@ -1,5 +1,6 @@
 import type { ChangeEvent } from "react";
 
+import { Button } from "@/components/ui/button";
 import { useTranslation } from "@/commons/locales/useTranslation";
 
 import type { ColumnDef } from "../../services/ddl-builder";
@@ -23,7 +24,7 @@ export function ColumnDefRow({ column, index, onChange, onRemove, canRemove }: C
     <div className="grid grid-cols-[1fr_1fr_80px_1fr_40px_32px] items-end gap-2">
       <div className="flex flex-col gap-1">
         {index === 0 && (
-          <label className="text-xs" style={{ color: "var(--color-text-secondary)" }}>
+          <label className="text-xs text-muted-foreground">
             {t("schema.columnName")}
           </label>
         )}
@@ -32,18 +33,13 @@ export function ColumnDefRow({ column, index, onChange, onRemove, canRemove }: C
           value={column.name}
           onChange={handleField("name")}
           placeholder="column_name"
-          className="rounded-[var(--radius-sm)] border px-2 py-1.5 text-sm outline-none focus:border-[var(--color-primary,#3b82f6)]"
-          style={{
-            borderColor: "var(--color-border)",
-            backgroundColor: "var(--color-bg)",
-            color: "var(--color-text)",
-          }}
+          className="rounded-sm border border-border bg-background px-2 py-1.5 text-sm text-foreground outline-none focus:border-primary"
         />
       </div>
 
       <div className="flex flex-col gap-1">
         {index === 0 && (
-          <label className="text-xs" style={{ color: "var(--color-text-secondary)" }}>
+          <label className="text-xs text-muted-foreground">
             {t("schema.columnDataType")}
           </label>
         )}
@@ -52,18 +48,13 @@ export function ColumnDefRow({ column, index, onChange, onRemove, canRemove }: C
           value={column.dataType}
           onChange={handleField("dataType")}
           placeholder="TEXT"
-          className="rounded-[var(--radius-sm)] border px-2 py-1.5 text-sm outline-none focus:border-[var(--color-primary,#3b82f6)]"
-          style={{
-            borderColor: "var(--color-border)",
-            backgroundColor: "var(--color-bg)",
-            color: "var(--color-text)",
-          }}
+          className="rounded-sm border border-border bg-background px-2 py-1.5 text-sm text-foreground outline-none focus:border-primary"
         />
       </div>
 
       <div className="flex flex-col gap-1">
         {index === 0 && (
-          <label className="text-xs" style={{ color: "var(--color-text-secondary)" }}>
+          <label className="text-xs text-muted-foreground">
             {t("schema.columnNullable")}
           </label>
         )}
@@ -72,15 +63,14 @@ export function ColumnDefRow({ column, index, onChange, onRemove, canRemove }: C
             type="checkbox"
             checked={column.nullable}
             onChange={(e) => onChange(index, "nullable", e.target.checked)}
-            className="h-4 w-4 rounded border accent-[var(--color-primary,#3b82f6)]"
-            style={{ borderColor: "var(--color-border)" }}
+            className="h-4 w-4 rounded border border-border accent-primary"
           />
         </label>
       </div>
 
       <div className="flex flex-col gap-1">
         {index === 0 && (
-          <label className="text-xs" style={{ color: "var(--color-text-secondary)" }}>
+          <label className="text-xs text-muted-foreground">
             {t("schema.columnDefault")}
           </label>
         )}
@@ -89,18 +79,13 @@ export function ColumnDefRow({ column, index, onChange, onRemove, canRemove }: C
           value={column.defaultValue}
           onChange={handleField("defaultValue")}
           placeholder="DEFAULT"
-          className="rounded-[var(--radius-sm)] border px-2 py-1.5 text-sm outline-none focus:border-[var(--color-primary,#3b82f6)]"
-          style={{
-            borderColor: "var(--color-border)",
-            backgroundColor: "var(--color-bg)",
-            color: "var(--color-text)",
-          }}
+          className="rounded-sm border border-border bg-background px-2 py-1.5 text-sm text-foreground outline-none focus:border-primary"
         />
       </div>
 
       <div className="flex flex-col gap-1">
         {index === 0 && (
-          <label className="text-xs" style={{ color: "var(--color-text-secondary)" }}>
+          <label className="text-xs text-muted-foreground">
             {t("schema.columnPk")}
           </label>
         )}
@@ -109,26 +94,26 @@ export function ColumnDefRow({ column, index, onChange, onRemove, canRemove }: C
             type="checkbox"
             checked={column.isPk}
             onChange={(e) => onChange(index, "isPk", e.target.checked)}
-            className="h-4 w-4 rounded border accent-[var(--color-primary,#3b82f6)]"
-            style={{ borderColor: "var(--color-border)" }}
+            className="h-4 w-4 rounded border border-border accent-primary"
           />
         </label>
       </div>
 
-      <button
+      <Button
         type="button"
+        variant="ghost"
+        size="icon"
         onClick={() => onRemove(index)}
         disabled={!canRemove}
-        className="flex items-center justify-center rounded-[var(--radius-sm)] text-sm transition-colors hover:bg-[var(--color-bg)]"
-        style={{
-          color: canRemove ? "var(--color-error, #ef4444)" : "var(--color-text-secondary)",
-          opacity: canRemove ? 1 : 0.3,
-          height: "var(--input-height, 36px)",
-        }}
+        aria-label={t("common.actions.delete")}
         title={t("common.actions.delete")}
+        className={`h-9 ${canRemove ? "text-destructive" : "text-muted-foreground"}`}
+        style={{
+          opacity: canRemove ? 1 : 0.3,
+        }}
       >
         ×
-      </button>
+      </Button>
     </div>
   );
 }

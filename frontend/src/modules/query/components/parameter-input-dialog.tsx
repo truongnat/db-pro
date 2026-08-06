@@ -1,5 +1,6 @@
 import * as Dialog from "@radix-ui/react-dialog";
 
+import { Button } from "@/components/ui/button";
 import { useTranslation } from "@/commons/locales/useTranslation";
 
 interface ParameterInputDialogProps {
@@ -18,32 +19,23 @@ export function ParameterInputDialog({
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 bg-black/50" />
         <Dialog.Content
-          className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-[400px] rounded-[var(--radius-lg)] border bg-[var(--color-surface)] p-6 shadow-xl"
-          style={{ borderColor: "var(--color-border)" }}
+          className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-[400px] rounded-lg border border-border bg-card p-6 shadow-xl"
         >
-          <Dialog.Title
-            className="text-lg font-semibold"
-            style={{ color: "var(--color-text)" }}
-          >
+          <Dialog.Title className="text-lg font-semibold text-foreground">
             {t("query.parameters")}
           </Dialog.Title>
-          <Dialog.Description
-            className="mt-3 text-sm"
-            style={{ color: "var(--color-text-secondary)" }}
-          >
+          <Dialog.Description className="mt-3 text-sm text-muted-foreground">
             {t("query.parametersComingSoon")}
           </Dialog.Description>
           <div className="mt-4 flex justify-end">
-            <button
-              className="rounded-[var(--radius-sm)] border px-4 py-2 text-sm transition-colors hover:bg-[var(--color-bg)]"
-              style={{
-                borderColor: "var(--color-border)",
-                color: "var(--color-text)",
-              }}
+            <Button
+              type="button"
+              variant="outline"
+              className="rounded-sm px-4 py-2 text-sm"
               onClick={onClose}
             >
               {t("common.actions.close")}
-            </button>
+            </Button>
           </div>
         </Dialog.Content>
       </Dialog.Portal>

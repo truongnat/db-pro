@@ -24,19 +24,13 @@ export function DdlTypeSelector({ operation, onChange }: DdlTypeSelectorProps) {
 
   return (
     <div className="flex flex-col gap-1">
-      <label className="text-sm font-medium" style={{ color: "var(--color-text)" }}>
+      <label className="text-sm font-medium text-foreground">
         {t("schema.ddlOperation")}
       </label>
       <select
         value={operation}
         onChange={(e) => onChange(e.target.value as DdlOperation)}
-        className="rounded-[var(--radius-sm)] border px-3 py-2 text-sm outline-none transition-colors focus:border-[var(--color-primary,#3b82f6)]"
-        style={{
-          borderColor: "var(--color-border)",
-          backgroundColor: "var(--color-bg)",
-          color: "var(--color-text)",
-          height: "var(--input-height, 36px)",
-        }}
+        className="h-9 rounded-sm border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-primary"
       >
         {OPERATIONS.map((op) => (
           <option key={op.value} value={op.value}>

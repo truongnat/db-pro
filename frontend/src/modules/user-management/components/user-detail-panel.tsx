@@ -1,5 +1,7 @@
 import { useTranslation } from "react-i18next";
 
+import { cn } from "@/lib/utils";
+
 import type { DatabaseUser } from "../types/user.types";
 import { PrivilegeManager } from "./privilege-manager";
 import type { Privilege } from "../types/user.types";
@@ -28,10 +30,7 @@ export function UserDetailPanel({
 
   return (
     <div className="flex flex-col gap-4">
-      <h2
-        className="text-lg font-semibold"
-        style={{ color: "var(--color-text)" }}
-      >
+      <h2 className="text-lg font-semibold text-foreground">
         {user.name}
       </h2>
 
@@ -39,16 +38,10 @@ export function UserDetailPanel({
         {attrs.map((attr) => (
           <span
             key={attr.label}
-            className="rounded-[var(--radius-sm)] px-2 py-1 text-xs"
-            style={{
-              backgroundColor: attr.value
-                ? "var(--color-success-bg, var(--color-surface))"
-                : "var(--color-surface)",
-              color: attr.value
-                ? "var(--color-success, var(--color-text))"
-                : "var(--color-text-secondary)",
-              border: "1px solid var(--color-border)",
-            }}
+            className={cn(
+              "rounded-sm border border-border px-2 py-1 text-xs",
+              attr.value ? "bg-success text-success" : "bg-card text-muted-foreground",
+            )}
           >
             {attr.label}: {attr.value ? t("common.yes") : t("common.no")}
           </span>

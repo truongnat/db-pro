@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 
+import { Button } from "@/components/ui/button";
 import { useTranslation } from "@/commons/locales/useTranslation";
 
 import { useSaveRunConfig } from "../queries/query.queries";
@@ -59,67 +60,41 @@ export function RunConfigDialog({
       onClick={onClose}
     >
       <div
-        className="w-[480px] rounded-[var(--radius-md)] p-4 shadow-lg"
-        style={{
-          backgroundColor: "var(--color-bg-secondary, #1e293b)",
-          border: "1px solid var(--color-border)",
-        }}
+        className="w-[480px] rounded-md border border-border bg-muted p-4 shadow-lg"
         onClick={(e) => e.stopPropagation()}
       >
-        <h3
-          className="mb-3 text-sm font-semibold"
-          style={{ color: "var(--color-text)" }}
-        >
+        <h3 className="mb-3 text-sm font-semibold text-foreground">
           {t("query.newRunConfig")}
         </h3>
 
         <div className="space-y-3">
           <div>
-            <label
-              className="mb-1 block text-xs"
-              style={{ color: "var(--color-text-secondary)" }}
-            >
+            <label className="mb-1 block text-xs text-muted-foreground">
               {t("query.configName")}
             </label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full rounded-[var(--radius-sm)] border px-2 py-1.5 text-sm outline-none focus:border-[var(--color-primary,#3b82f6)]"
-              style={{
-                borderColor: "var(--color-border)",
-                backgroundColor: "var(--color-bg)",
-                color: "var(--color-text)",
-              }}
+              className="w-full rounded-sm border border-border bg-background px-2 py-1.5 text-sm text-foreground outline-none focus:border-primary"
             />
           </div>
 
           <div>
-            <label
-              className="mb-1 block text-xs"
-              style={{ color: "var(--color-text-secondary)" }}
-            >
+            <label className="mb-1 block text-xs text-muted-foreground">
               SQL
             </label>
             <textarea
               value={sql}
               onChange={(e) => setSql(e.target.value)}
               rows={4}
-              className="w-full resize-y rounded-[var(--radius-sm)] border px-2 py-1.5 font-mono text-xs outline-none focus:border-[var(--color-primary,#3b82f6)]"
-              style={{
-                borderColor: "var(--color-border)",
-                backgroundColor: "var(--color-bg)",
-                color: "var(--color-text)",
-              }}
+              className="w-full resize-y rounded-sm border border-border bg-background px-2 py-1.5 font-mono text-xs text-foreground outline-none focus:border-primary"
             />
           </div>
 
           <div className="flex gap-3">
             <div className="flex-1">
-              <label
-                className="mb-1 block text-xs"
-                style={{ color: "var(--color-text-secondary)" }}
-              >
+              <label className="mb-1 block text-xs text-muted-foreground">
                 {t("query.timeoutMs")}
               </label>
               <input
@@ -128,19 +103,11 @@ export function RunConfigDialog({
                 onChange={(e) => setTimeoutMs(Number(e.target.value))}
                 min={1000}
                 step={1000}
-                className="w-full rounded-[var(--radius-sm)] border px-2 py-1.5 text-sm outline-none focus:border-[var(--color-primary,#3b82f6)]"
-                style={{
-                  borderColor: "var(--color-border)",
-                  backgroundColor: "var(--color-bg)",
-                  color: "var(--color-text)",
-                }}
+                className="w-full rounded-sm border border-border bg-background px-2 py-1.5 text-sm text-foreground outline-none focus:border-primary"
               />
             </div>
             <div className="flex-1">
-              <label
-                className="mb-1 block text-xs"
-                style={{ color: "var(--color-text-secondary)" }}
-              >
+              <label className="mb-1 block text-xs text-muted-foreground">
                 {t("query.maxRows")}
               </label>
               <input
@@ -148,35 +115,29 @@ export function RunConfigDialog({
                 value={maxRows}
                 onChange={(e) => setMaxRows(Number(e.target.value))}
                 min={1}
-                className="w-full rounded-[var(--radius-sm)] border px-2 py-1.5 text-sm outline-none focus:border-[var(--color-primary,#3b82f6)]"
-                style={{
-                  borderColor: "var(--color-border)",
-                  backgroundColor: "var(--color-bg)",
-                  color: "var(--color-text)",
-                }}
+                className="w-full rounded-sm border border-border bg-background px-2 py-1.5 text-sm text-foreground outline-none focus:border-primary"
               />
             </div>
           </div>
         </div>
 
         <div className="mt-4 flex justify-end gap-2">
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            className="rounded-sm px-3 py-1.5 text-sm text-muted-foreground"
             onClick={onClose}
-            className="rounded-[var(--radius-sm)] px-3 py-1.5 text-sm transition-colors hover:opacity-80"
-            style={{ color: "var(--color-text-secondary)" }}
           >
             {t("common.actions.cancel")}
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
             onClick={handleSave}
             disabled={!name.trim() || !sql.trim() || saveMutation.isPending}
-            className="rounded-[var(--radius-sm)] px-3 py-1.5 text-sm text-white transition-colors hover:opacity-90 disabled:opacity-50"
-            style={{ backgroundColor: "var(--color-primary, #3b82f6)" }}
+            className="rounded-sm px-3 py-1.5 text-sm"
           >
             {t("common.actions.save")}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

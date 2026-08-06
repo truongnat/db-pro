@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from "react";
 
+import { Button } from "@/components/ui/button";
 import { useConnectionStore } from "@/commons/stores/connection.store";
 import { useTranslation } from "@/commons/locales/useTranslation";
 
@@ -64,10 +65,7 @@ export function SchemaPage() {
 
   if (!activeConnectionId) {
     return (
-      <div
-        className="flex flex-1 items-center justify-center text-sm"
-        style={{ color: "var(--color-text-secondary)" }}
-      >
+      <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
         {t("schema.connectFirst")}
       </div>
     );
@@ -75,10 +73,7 @@ export function SchemaPage() {
 
   if (introspect.isLoading) {
     return (
-      <div
-        className="flex flex-1 items-center justify-center text-sm"
-        style={{ color: "var(--color-text-secondary)" }}
-      >
+      <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
         {t("common.states.loading")}
       </div>
     );
@@ -86,24 +81,17 @@ export function SchemaPage() {
 
   if (introspect.isError) {
     return (
-      <div
-        className="flex flex-1 flex-col items-center justify-center gap-3 text-sm"
-        style={{ color: "var(--color-error, #ef4444)" }}
-      >
+      <div className="flex flex-1 flex-col items-center justify-center gap-3 text-sm text-destructive">
         <span>
           {(introspect.error as { userMessage?: string })?.userMessage ?? t("error.introspection.failed")}
         </span>
-        <button
-          className="rounded-[var(--radius-sm)] border px-3 py-1 text-sm transition-colors hover:bg-[var(--color-bg)]"
-          style={{
-            borderColor: "var(--color-border)",
-            color: "var(--color-text)",
-          }}
+        <Button
+          variant="outline"
           onClick={() => introspect.refetch()}
           type="button"
         >
           {t("common.actions.retry")}
-        </button>
+        </Button>
       </div>
     );
   }
@@ -120,8 +108,8 @@ export function SchemaPage() {
 
       <div className="flex flex-1 overflow-hidden">
         <div
-          className="flex flex-col overflow-hidden border-r"
-          style={{ width: "30%", minWidth: "200px", borderColor: "var(--color-border)" }}
+          className="flex flex-col overflow-hidden border-r border-border"
+          style={{ width: "30%", minWidth: "200px" }}
         >
           <SchemaTree
             treeNodes={treeNodes}

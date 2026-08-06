@@ -1,6 +1,8 @@
 import { useState } from "react";
 
 import { useTranslation } from "@/commons/locales/useTranslation";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 import type { ConnectionFormData, DriverType, SshTunnelConfig, SslMode } from "../types/connection.types";
 import { ColorPicker } from "./color-picker";
@@ -215,7 +217,7 @@ export function ConnectionEditor({
           <FormCheckbox label="Use SSH Tunnel" checked={showSsh} onChange={setShowSsh} />
 
           {showSsh && (
-            <div className="flex flex-col gap-4 rounded-[var(--radius-sm)] border p-4" style={{ borderColor: "var(--color-border)" }}>
+            <div className="flex flex-col gap-4 rounded-sm border border-border p-4">
               <div className="grid grid-cols-2 gap-4">
                 <FormInput
                   label="SSH Host"
@@ -253,10 +255,10 @@ export function ConnectionEditor({
                   placeholder="(optional)"
                 />
               </div>
-              <button
+              <Button
                 type="button"
-                className="self-start rounded-[var(--radius-sm)] border px-3 py-1.5 text-sm transition-colors hover:bg-[var(--color-surface)]"
-                style={{ borderColor: "var(--color-border)", color: "var(--color-text)" }}
+                variant="outline"
+                size="sm"
                 onClick={() => {
                   if (formData.sshTunnel) {
                     onTestSshTunnel?.(formData.sshTunnel);
@@ -264,7 +266,7 @@ export function ConnectionEditor({
                 }}
               >
                 Test Tunnel
-              </button>
+              </Button>
             </div>
           )}
         </div>
@@ -291,44 +293,31 @@ export function ConnectionEditor({
 
       {testResult && (
         <div
-          className="rounded-[var(--radius-sm)] px-3 py-2 text-sm"
-          style={{
-            backgroundColor: testResult === "success" ? "var(--color-success,#22c55e)" : "var(--color-error,#ef4444)",
-            color: "white",
-          }}
+          className="flex items-center gap-2 rounded-sm border border-border px-4 py-3"
         >
-          {testResult === "success" ? t("connection.testSuccess") : t("connection.testFailed")}
+          <Badge variant={testResult === "success" ? "success" : "error"} dot>
+            {testResult === "success" ? t("connection.testSuccess") : t("connection.testFailed")}
+          </Badge>
         </div>
       )}
 
-      <div className="flex justify-end gap-2 border-t pt-4" style={{ borderColor: "var(--color-border)" }}>
-        <button
-          type="button"
-          onClick={onCancel}
-          className="rounded-[var(--radius-sm)] border px-4 py-2 text-sm transition-colors hover:bg-[var(--color-surface)]"
-          style={{ borderColor: "var(--color-border)", color: "var(--color-text)" }}
-        >
+      <div className="flex justify-end gap-2 border-t border-border pt-4">
+        <Button type="button" variant="outline" onClick={onCancel}>
           {t("common.actions.cancel")}
-        </button>
+        </Button>
         {onTest && (
-          <button
+          <Button
             type="button"
+            variant="outline"
             onClick={handleTest}
-            disabled={isTesting}
-            className="rounded-[var(--radius-sm)] border px-4 py-2 text-sm transition-colors hover:bg-[var(--color-surface)]"
-            style={{ borderColor: "var(--color-border)", color: "var(--color-text)" }}
+            loading={isTesting}
           >
             {isTesting ? t("common.states.loading") : t("connection.test")}
-          </button>
+          </Button>
         )}
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          className="rounded-[var(--radius-sm)] px-4 py-2 text-sm text-white transition-colors disabled:opacity-50"
-          style={{ backgroundColor: "var(--color-primary,#3b82f6)" }}
-        >
+        <Button type="submit" loading={isSubmitting}>
           {isSubmitting ? t("common.states.loading") : t("common.actions.save")}
-        </button>
+        </Button>
       </div>
     </form>
   );

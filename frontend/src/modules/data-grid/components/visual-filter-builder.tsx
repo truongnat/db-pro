@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import { useTranslation } from "@/commons/locales/useTranslation";
+import { Button } from "@/components/ui/button";
 
 import {
   FILTER_OPS,
@@ -44,34 +45,29 @@ export function VisualFilterBuilder({
   const opLabel = (o: FilterOp) => FILTER_OPS.find((f) => f.value === o)?.label ?? o;
 
   return (
-    <div
-      className="border-b px-3 py-2"
-      style={{ borderColor: "var(--color-border)", backgroundColor: "var(--color-surface)" }}
-    >
+    <div className="border-b border-border bg-card px-3 py-2">
       {filters.length > 0 && (
         <div className="mb-2 flex flex-wrap gap-1.5">
           {filters.map((f, i) => (
             <span
               key={i}
-              className="inline-flex items-center gap-1 rounded-[var(--radius-sm)] px-2 py-1 text-xs"
-              style={{
-                backgroundColor: "var(--color-primary, #3b82f6)",
-                color: "white",
-                opacity: 0.85,
-              }}
+              className="inline-flex items-center gap-1 rounded-sm bg-primary px-2 py-1 text-xs text-white"
+              style={{ opacity: 0.85 }}
             >
               <span className="font-medium">{f.column}</span>
               <span>{opLabel(f.op)}</span>
               {!VALUELESS_OPS.includes(f.op) && (
                 <span>"{VALUELESS_OPS.includes(f.op) ? "" : (f.value as { value?: string }).value ?? ""}"</span>
               )}
-              <button
-                className="ml-0.5 opacity-70 hover:opacity-100"
-                onClick={() => onRemoveFilter(i)}
+              <Button
                 type="button"
+                variant="ghost"
+                size="sm"
+                className="ml-0.5 h-auto px-0 py-0 text-xs text-white opacity-70 hover:bg-transparent hover:opacity-100"
+                onClick={() => onRemoveFilter(i)}
               >
                 ×
-              </button>
+              </Button>
             </span>
           ))}
         </div>
@@ -79,12 +75,7 @@ export function VisualFilterBuilder({
 
       <div className="flex items-center gap-2">
         <select
-          className="rounded-[var(--radius-sm)] border px-2 py-1 text-xs"
-          style={{
-            borderColor: "var(--color-border)",
-            backgroundColor: "var(--color-bg)",
-            color: "var(--color-text)",
-          }}
+          className="rounded-sm border border-border bg-background px-2 py-1 text-xs text-foreground"
           value={column}
           onChange={(e) => setColumn(e.target.value)}
         >
@@ -96,12 +87,7 @@ export function VisualFilterBuilder({
         </select>
 
         <select
-          className="rounded-[var(--radius-sm)] border px-2 py-1 text-xs"
-          style={{
-            borderColor: "var(--color-border)",
-            backgroundColor: "var(--color-bg)",
-            color: "var(--color-text)",
-          }}
+          className="rounded-sm border border-border bg-background px-2 py-1 text-xs text-foreground"
           value={op}
           onChange={(e) => setOp(e.target.value as FilterOp)}
         >
@@ -114,12 +100,7 @@ export function VisualFilterBuilder({
 
         {!VALUELESS_OPS.includes(op) && (
           <input
-            className="rounded-[var(--radius-sm)] border px-2 py-1 text-xs"
-            style={{
-              borderColor: "var(--color-border)",
-              backgroundColor: "var(--color-bg)",
-              color: "var(--color-text)",
-            }}
+            className="rounded-sm border border-border bg-background px-2 py-1 text-xs text-foreground"
             placeholder={t("dataGrid.filter")}
             value={value}
             onChange={(e) => setValue(e.target.value)}
@@ -129,14 +110,15 @@ export function VisualFilterBuilder({
           />
         )}
 
-        <button
-          className="rounded-[var(--radius-sm)] px-2 py-1 text-xs transition-colors hover:bg-[var(--color-bg)]"
-          style={{ color: "var(--color-primary, #3b82f6)" }}
-          onClick={handleAdd}
+        <Button
           type="button"
+          variant="ghost"
+          size="sm"
+          className="h-auto px-2 py-1 text-xs text-primary hover:bg-background"
+          onClick={handleAdd}
         >
           {t("dataGrid.addFilter")}
-        </button>
+        </Button>
       </div>
     </div>
   );

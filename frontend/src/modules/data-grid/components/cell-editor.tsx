@@ -51,12 +51,7 @@ export function CellEditor({ value, onSave, onCancel }: CellEditorProps) {
   return (
     <input
       ref={inputRef}
-      className="absolute inset-0 z-20 w-full border-2 px-2 text-xs outline-none"
-      style={{
-        borderColor: "var(--color-primary, #3b82f6)",
-        backgroundColor: "var(--color-surface)",
-        color: "var(--color-text)",
-      }}
+      className="absolute inset-0 z-20 w-full border-2 border-primary bg-card px-2 text-xs text-foreground outline-none"
       value={text}
       onChange={(e) => setText(e.target.value)}
       onKeyDown={(e) => {

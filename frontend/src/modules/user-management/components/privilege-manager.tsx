@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { Button } from "@/components/ui/button";
+
 import type { Privilege } from "../types/user.types";
 
 interface PrivilegeManagerProps {
@@ -37,10 +39,7 @@ export function PrivilegeManager({
 
   return (
     <div className="flex flex-col gap-4">
-      <h3
-        className="text-sm font-semibold"
-        style={{ color: "var(--color-text)" }}
-      >
+      <h3 className="text-sm font-semibold text-foreground">
         {t("userManagement.privileges")}
       </h3>
 
@@ -48,57 +47,42 @@ export function PrivilegeManager({
         {Array.from(grouped.entries()).map(([key, privs]) => (
           <div
             key={key}
-            className="rounded-[var(--radius-sm)] border p-2"
-            style={{ borderColor: "var(--color-border)" }}
+            className="rounded-sm border p-2 border-border"
           >
-            <div
-              className="mb-1 text-xs font-medium"
-              style={{ color: "var(--color-text-secondary)" }}
-            >
+            <div className="mb-1 text-xs font-medium text-muted-foreground">
               {key}
             </div>
             <div className="flex flex-wrap gap-1">
               {privs.map((p) => (
                 <span
                   key={p.privilegeType}
-                  className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs"
-                  style={{
-                    backgroundColor: "var(--color-surface)",
-                    color: "var(--color-text)",
-                  }}
+                  className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs bg-card text-foreground"
                 >
                   {p.privilegeType}
-                  <button
-                    className="ml-0.5 hover:opacity-70"
-                    style={{ color: "var(--color-error)" }}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="xs"
+                    className="ml-0.5 text-destructive"
                     title={t("userManagement.revoke")}
                     onClick={() => onRevoke(p.schema, p.table, p.privilegeType)}
                   >
                     x
-                  </button>
+                  </Button>
                 </span>
               ))}
             </div>
           </div>
         ))}
         {privileges.length === 0 && (
-          <p
-            className="text-xs italic"
-            style={{ color: "var(--color-text-secondary)" }}
-          >
+          <p className="text-xs italic text-muted-foreground">
             {t("userManagement.noPrivileges")}
           </p>
         )}
       </div>
 
-      <div
-        className="flex flex-col gap-2 rounded-[var(--radius-sm)] border p-3"
-        style={{ borderColor: "var(--color-border)" }}
-      >
-        <span
-          className="text-xs font-medium"
-          style={{ color: "var(--color-text-secondary)" }}
-        >
+      <div className="flex flex-col gap-2 rounded-sm border border-border p-3">
+        <span className="text-xs font-medium text-muted-foreground">
           {t("userManagement.grantPrivilege")}
         </span>
         <div className="flex gap-2">
@@ -107,34 +91,19 @@ export function PrivilegeManager({
             value={schema}
             onChange={(e) => setSchema(e.target.value)}
             placeholder="schema"
-            className="w-24 rounded-[var(--radius-sm)] border px-2 py-1 text-xs"
-            style={{
-              backgroundColor: "var(--color-surface)",
-              borderColor: "var(--color-border)",
-              color: "var(--color-text)",
-            }}
+            className="w-24 rounded-sm border border-border bg-card px-2 py-1 text-xs text-foreground"
           />
           <input
             type="text"
             value={table}
             onChange={(e) => setTable(e.target.value)}
             placeholder="table"
-            className="w-28 rounded-[var(--radius-sm)] border px-2 py-1 text-xs"
-            style={{
-              backgroundColor: "var(--color-surface)",
-              borderColor: "var(--color-border)",
-              color: "var(--color-text)",
-            }}
+            className="w-28 rounded-sm border border-border bg-card px-2 py-1 text-xs text-foreground"
           />
           <select
             value={privType}
             onChange={(e) => setPrivType(e.target.value)}
-            className="rounded-[var(--radius-sm)] border px-2 py-1 text-xs"
-            style={{
-              backgroundColor: "var(--color-surface)",
-              borderColor: "var(--color-border)",
-              color: "var(--color-text)",
-            }}
+            className="rounded-sm border border-border bg-card px-2 py-1 text-xs text-foreground"
           >
             {PRIVILEGE_TYPES.map((pt) => (
               <option key={pt} value={pt}>
@@ -142,14 +111,14 @@ export function PrivilegeManager({
               </option>
             ))}
           </select>
-          <button
+          <Button
+            type="button"
+            size="sm"
             onClick={handleGrant}
             disabled={!table.trim()}
-            className="rounded-[var(--radius-sm)] px-3 py-1 text-xs text-white transition-colors disabled:opacity-50"
-            style={{ backgroundColor: "var(--color-primary)" }}
           >
             {t("userManagement.grant")}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

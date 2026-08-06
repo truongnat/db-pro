@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button";
 import { useTranslation } from "@/commons/locales/useTranslation";
 
 interface SchemaToolbarProps {
@@ -17,49 +18,29 @@ export function SchemaToolbar({
 }: SchemaToolbarProps) {
   const { t } = useTranslation();
 
-  const inputStyle: React.CSSProperties = {
-    borderColor: "var(--color-border)",
-    backgroundColor: "var(--color-bg)",
-    color: "var(--color-text)",
-  };
-
-  const buttonStyle: React.CSSProperties = {
-    borderColor: "var(--color-border)",
-    color: "var(--color-text)",
-  };
-
   return (
-    <div
-      className="flex items-center gap-2 border-b px-3 py-2"
-      style={{
-        borderColor: "var(--color-border)",
-        backgroundColor: "var(--color-surface)",
-      }}
-    >
+    <div className="flex items-center gap-2 border-b border-border bg-card px-3 py-2">
       <input
         type="text"
-        className="flex-1 rounded-[var(--radius-sm)] border px-2 py-1 text-sm outline-none"
-        style={inputStyle}
+        className="flex-1 rounded-sm border border-border bg-background px-2 py-1 text-sm text-foreground outline-none"
         placeholder={t("schema.searchPlaceholder")}
         value={searchQuery}
         onChange={(e) => onSearchChange(e.target.value)}
       />
 
-      <span
-        className="text-xs"
-        style={{ color: "var(--color-text-secondary)" }}
-      >
+      <span className="text-xs text-muted-foreground">
         {tableCount}
       </span>
 
-      <button
-        className="rounded-[var(--radius-sm)] border px-3 py-1 text-sm transition-colors hover:bg-[var(--color-bg)] disabled:opacity-50"
-        style={buttonStyle}
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
         onClick={onRefresh}
         disabled={isRefreshing}
       >
         {isRefreshing ? t("common.states.loading") : t("common.actions.refresh")}
-      </button>
+      </Button>
     </div>
   );
 }

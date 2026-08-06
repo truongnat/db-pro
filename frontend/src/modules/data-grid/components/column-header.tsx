@@ -9,8 +9,7 @@ interface ColumnHeaderProps {
 export function ColumnHeader({ column, sort, onSort }: ColumnHeaderProps) {
   return (
     <div
-      className="cursor-pointer select-none px-3 py-2 text-xs font-medium transition-colors hover:bg-[var(--color-bg)]"
-      style={{ color: "var(--color-text-secondary)" }}
+      className="cursor-pointer select-none px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-background"
       onClick={() => onSort(column.name)}
       title={`${column.name} (${column.dataType})`}
     >

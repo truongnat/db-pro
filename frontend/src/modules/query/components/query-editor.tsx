@@ -31,7 +31,7 @@ export function QueryEditor({
   );
 
   return (
-    <div className="h-full w-full" style={{ border: "1px solid var(--color-border)" }}>
+    <div className="h-full w-full border border-border">
       <Editor
         height="100%"
         language="sql"

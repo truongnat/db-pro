@@ -1,5 +1,6 @@
 import { useState } from "react";
 
+import { Button } from "@/components/ui/button";
 import { useTranslation } from "@/commons/locales/useTranslation";
 
 interface DdlViewerProps {
@@ -14,10 +15,7 @@ export function DdlViewer({ ddl, isLoading, error }: DdlViewerProps) {
 
   if (isLoading) {
     return (
-      <div
-        className="p-4 text-sm"
-        style={{ color: "var(--color-text-secondary)" }}
-      >
+      <div className="p-4 text-sm text-muted-foreground">
         {t("common.states.loading")}
       </div>
     );
@@ -25,10 +23,7 @@ export function DdlViewer({ ddl, isLoading, error }: DdlViewerProps) {
 
   if (error) {
     return (
-      <div
-        className="p-4 text-sm"
-        style={{ color: "var(--color-error, #ef4444)" }}
-      >
+      <div className="p-4 text-sm text-destructive">
         {error}
       </div>
     );
@@ -36,10 +31,7 @@ export function DdlViewer({ ddl, isLoading, error }: DdlViewerProps) {
 
   if (!ddl) {
     return (
-      <div
-        className="p-4 text-sm"
-        style={{ color: "var(--color-text-secondary)" }}
-      >
+      <div className="p-4 text-sm text-muted-foreground">
         {t("schema.noDdl")}
       </div>
     );
@@ -53,21 +45,16 @@ export function DdlViewer({ ddl, isLoading, error }: DdlViewerProps) {
 
   return (
     <div className="relative flex-1 overflow-auto">
-      <button
-        className="absolute right-2 top-2 rounded-[var(--radius-sm)] border px-2 py-1 text-xs transition-colors hover:bg-[var(--color-bg)]"
-        style={{
-          borderColor: "var(--color-border)",
-          color: "var(--color-text-secondary)",
-        }}
-        onClick={handleCopy}
+      <Button
         type="button"
+        variant="outline"
+        size="sm"
+        className="absolute right-2 top-2"
+        onClick={handleCopy}
       >
         {copied ? t("schema.copied") : t("schema.copyDdl")}
-      </button>
-      <pre
-        className="overflow-auto p-4 font-mono text-xs leading-relaxed"
-        style={{ color: "var(--color-text)" }}
-      >
+      </Button>
+      <pre className="overflow-auto p-4 font-mono text-xs leading-relaxed text-foreground">
         <code>{ddl}</code>
       </pre>
     </div>

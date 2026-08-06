@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { Button } from "@/components/ui/button";
+
 interface CreateRoleDialogProps {
   open: boolean;
   onClose: () => void;
@@ -34,36 +36,21 @@ export function CreateRoleDialog({
     >
       <form
         onSubmit={handleSubmit}
-        className="flex w-96 flex-col gap-4 rounded-[var(--radius-md)] border p-6"
-        style={{
-          backgroundColor: "var(--color-bg)",
-          borderColor: "var(--color-border)",
-        }}
+        className="flex w-96 flex-col gap-4 rounded-md border border-border bg-background p-6"
       >
-        <h2
-          className="text-lg font-semibold"
-          style={{ color: "var(--color-text)" }}
-        >
+        <h2 className="text-lg font-semibold text-foreground">
           {t("userManagement.createRole")}
         </h2>
 
         <label className="flex flex-col gap-1">
-          <span
-            className="text-sm"
-            style={{ color: "var(--color-text-secondary)" }}
-          >
+          <span className="text-sm text-muted-foreground">
             {t("userManagement.roleName")}
           </span>
           <input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="rounded-[var(--radius-sm)] border px-3 py-2 text-sm"
-            style={{
-              backgroundColor: "var(--color-surface)",
-              borderColor: "var(--color-border)",
-              color: "var(--color-text)",
-            }}
+            className="rounded-sm border border-border bg-card px-3 py-2 text-sm text-foreground"
             autoFocus
           />
         </label>
@@ -74,31 +61,18 @@ export function CreateRoleDialog({
             checked={login}
             onChange={(e) => setLogin(e.target.checked)}
           />
-          <span className="text-sm" style={{ color: "var(--color-text)" }}>
+          <span className="text-sm text-foreground">
             {t("userManagement.canLogin")}
           </span>
         </label>
 
         <div className="flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-[var(--radius-sm)] border px-4 py-2 text-sm transition-colors hover:bg-[var(--color-bg)]"
-            style={{
-              borderColor: "var(--color-border)",
-              color: "var(--color-text)",
-            }}
-          >
+          <Button type="button" variant="outline" onClick={onClose}>
             {t("common.actions.cancel")}
-          </button>
-          <button
-            type="submit"
-            disabled={!name.trim()}
-            className="rounded-[var(--radius-sm)] px-4 py-2 text-sm text-white transition-colors disabled:opacity-50"
-            style={{ backgroundColor: "var(--color-primary)" }}
-          >
+          </Button>
+          <Button type="submit" disabled={!name.trim()}>
             {t("common.actions.create")}
-          </button>
+          </Button>
         </div>
       </form>
     </div>

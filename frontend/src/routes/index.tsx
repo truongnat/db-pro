@@ -7,7 +7,7 @@ export const Route = createFileRoute("/")({
 function IndexPage() {
   return (
     <div className="flex h-full items-center justify-center">
-      <p style={{ color: "var(--color-text-secondary)" }}>
+      <p className="text-muted-foreground">
         Select a connection to get started
       </p>
     </div>

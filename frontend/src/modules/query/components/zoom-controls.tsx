@@ -1,3 +1,5 @@
+import { Button } from "@/components/ui/button";
+
 interface ZoomControlsProps {
   zoom: number;
   onZoomChange: (zoom: number) => void;
@@ -10,27 +12,31 @@ const STEP = 10;
 export function ZoomControls({ zoom, onZoomChange }: ZoomControlsProps) {
   return (
     <div className="flex items-center gap-1">
-      <button
-        className="rounded px-1.5 py-0.5 text-xs transition-colors hover:bg-[var(--color-bg)]"
-        style={{ color: "var(--color-text-secondary)" }}
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="rounded px-1.5 py-0.5 text-xs text-muted-foreground"
         onClick={() => onZoomChange(Math.max(MIN_ZOOM, zoom - STEP))}
         disabled={zoom <= MIN_ZOOM}
         title="Alt+−"
       >
         −
-      </button>
-      <span className="min-w-[3ch] text-center text-xs" style={{ color: "var(--color-text-secondary)" }}>
+      </Button>
+      <span className="min-w-[3ch] text-center text-xs text-muted-foreground">
         {zoom}%
       </span>
-      <button
-        className="rounded px-1.5 py-0.5 text-xs transition-colors hover:bg-[var(--color-bg)]"
-        style={{ color: "var(--color-text-secondary)" }}
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="rounded px-1.5 py-0.5 text-xs text-muted-foreground"
         onClick={() => onZoomChange(Math.min(MAX_ZOOM, zoom + STEP))}
         disabled={zoom >= MAX_ZOOM}
         title="Alt++"
       >
         +
-      </button>
+      </Button>
     </div>
   );
 }

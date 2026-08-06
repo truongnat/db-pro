@@ -8,8 +8,8 @@ function renderNode(key: string, value: unknown, depth: number): React.ReactNode
   if (value === null || value === undefined) {
     return (
       <div key={key} style={{ paddingLeft: depth * 16 }}>
-        <span style={{ color: "var(--color-text-secondary)" }}>{key}: </span>
-        <span style={{ fontStyle: "italic", color: "var(--color-text-secondary)" }}>
+        <span className="text-muted-foreground">{key}: </span>
+        <span className="italic text-muted-foreground">
           null
         </span>
       </div>
@@ -21,8 +21,7 @@ function renderNode(key: string, value: unknown, depth: number): React.ReactNode
     return (
       <details key={key} open style={{ paddingLeft: depth * 16 }}>
         <summary
-          className="cursor-pointer select-none py-0.5"
-          style={{ color: "var(--color-text)" }}
+          className="cursor-pointer select-none py-0.5 text-foreground"
         >
           {key}
         </summary>
@@ -35,8 +34,7 @@ function renderNode(key: string, value: unknown, depth: number): React.ReactNode
     return (
       <details key={key} open style={{ paddingLeft: depth * 16 }}>
         <summary
-          className="cursor-pointer select-none py-0.5"
-          style={{ color: "var(--color-text)" }}
+          className="cursor-pointer select-none py-0.5 text-foreground"
         >
           {key} [{value.length}]
         </summary>
@@ -49,8 +47,8 @@ function renderNode(key: string, value: unknown, depth: number): React.ReactNode
 
   return (
     <div key={key} style={{ paddingLeft: depth * 16 }} className="py-0.5">
-      <span style={{ color: "var(--color-text-secondary)" }}>{key}: </span>
-      <span style={{ color: "var(--color-text)" }}>{String(value)}</span>
+      <span className="text-muted-foreground">{key}: </span>
+      <span className="text-foreground">{String(value)}</span>
     </div>
   );
 }

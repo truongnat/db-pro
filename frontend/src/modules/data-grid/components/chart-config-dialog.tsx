@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { useTranslation } from "@/commons/locales/useTranslation";
+import { Button } from "@/components/ui/button";
 
 import type { ChartConfig } from "../state/data-grid.store";
 import type { ColumnMeta } from "../types/data-grid.types";
@@ -48,29 +49,20 @@ export function ChartConfigDialog({
       onClick={onClose}
     >
       <div
-        className="w-[400px] rounded-[var(--radius-md)] p-4 shadow-lg"
-        style={{
-          backgroundColor: "var(--color-bg-secondary, #1e293b)",
-          border: "1px solid var(--color-border)",
-        }}
+        className="w-[400px] rounded-md border border-border bg-muted p-4 shadow-lg"
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="mb-3 text-sm font-semibold" style={{ color: "var(--color-text)" }}>
+        <h3 className="mb-3 text-sm font-semibold text-foreground">
           {t("dataGrid.chartConfig")}
         </h3>
 
         <div className="space-y-3">
           <div>
-            <label className="mb-1 block text-xs" style={{ color: "var(--color-text-secondary)" }}>
+            <label className="mb-1 block text-xs text-muted-foreground">
               {t("dataGrid.chartType")}
             </label>
             <select
-              className="w-full rounded-[var(--radius-sm)] border px-2 py-1.5 text-sm"
-              style={{
-                borderColor: "var(--color-border)",
-                backgroundColor: "var(--color-bg)",
-                color: "var(--color-text)",
-              }}
+              className="w-full rounded-sm border border-border bg-background px-2 py-1.5 text-sm text-foreground"
               value={type}
               onChange={(e) => setType(e.target.value as ChartConfig["type"])}
             >
@@ -81,16 +73,11 @@ export function ChartConfigDialog({
           </div>
 
           <div>
-            <label className="mb-1 block text-xs" style={{ color: "var(--color-text-secondary)" }}>
+            <label className="mb-1 block text-xs text-muted-foreground">
               {t("dataGrid.chartXAxis")}
             </label>
             <select
-              className="w-full rounded-[var(--radius-sm)] border px-2 py-1.5 text-sm"
-              style={{
-                borderColor: "var(--color-border)",
-                backgroundColor: "var(--color-bg)",
-                color: "var(--color-text)",
-              }}
+              className="w-full rounded-sm border border-border bg-background px-2 py-1.5 text-sm text-foreground"
               value={xColumn}
               onChange={(e) => setXColumn(e.target.value)}
             >
@@ -103,16 +90,11 @@ export function ChartConfigDialog({
           </div>
 
           <div>
-            <label className="mb-1 block text-xs" style={{ color: "var(--color-text-secondary)" }}>
+            <label className="mb-1 block text-xs text-muted-foreground">
               {t("dataGrid.chartYAxis")}
             </label>
             <select
-              className="w-full rounded-[var(--radius-sm)] border px-2 py-1.5 text-sm"
-              style={{
-                borderColor: "var(--color-border)",
-                backgroundColor: "var(--color-bg)",
-                color: "var(--color-text)",
-              }}
+              className="w-full rounded-sm border border-border bg-background px-2 py-1.5 text-sm text-foreground"
               value={yColumn}
               onChange={(e) => setYColumn(e.target.value)}
             >
@@ -126,23 +108,21 @@ export function ChartConfigDialog({
         </div>
 
         <div className="mt-4 flex justify-end gap-2">
-          <button
+          <Button
             type="button"
+            variant="ghost"
             onClick={onClose}
-            className="rounded-[var(--radius-sm)] px-3 py-1.5 text-sm"
-            style={{ color: "var(--color-text-secondary)" }}
+            className="text-muted-foreground"
           >
             {t("common.actions.cancel")}
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
             onClick={handleApply}
             disabled={!xColumn || !yColumn}
-            className="rounded-[var(--radius-sm)] px-3 py-1.5 text-sm text-white disabled:opacity-50"
-            style={{ backgroundColor: "var(--color-primary, #3b82f6)" }}
           >
             {t("common.actions.confirm")}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

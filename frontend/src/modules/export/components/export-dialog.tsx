@@ -1,6 +1,10 @@
 import { useState } from "react";
 
+import { Button } from "@/components/ui/button";
+
 import { useTranslation } from "@/commons/locales/useTranslation";
+
+import { cn } from "@/lib/utils";
 
 import { useExport } from "../queries/export.queries";
 import type { ExportFormat } from "../types/export.types";
@@ -47,45 +51,40 @@ export function ExportDialog({ open, onClose, connectionId, sql }: ExportDialogP
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: "rgba(0,0,0,0.4)" }}>
-      <div
-        className="w-96 rounded-[var(--radius-md)] p-4 shadow-lg"
-        style={{ backgroundColor: "var(--color-surface)", border: "1px solid var(--color-border)" }}
-      >
-        <h2 className="mb-3 text-sm font-semibold" style={{ color: "var(--color-text)" }}>
+      <div className="w-96 rounded-md border border-border bg-card p-4 shadow-lg">
+        <h2 className="mb-3 text-sm font-semibold text-foreground">
           {t("export.title")}
         </h2>
 
         <div className="mb-3">
-          <label className="mb-1 block text-xs" style={{ color: "var(--color-text-secondary)" }}>
+          <label className="mb-1 block text-xs text-muted-foreground">
             {t("export.selectFormat")}
           </label>
           <div className="flex gap-2">
             {FORMATS.map((f) => (
-              <button
+              <Button
                 key={f.value}
-                className="flex-1 rounded-[var(--radius-sm)] border px-3 py-1.5 text-xs transition-colors"
-                style={{
-                  borderColor: format === f.value ? "var(--color-primary, #3b82f6)" : "var(--color-border)",
-                  backgroundColor: format === f.value ? "var(--color-primary, #3b82f6)" : "transparent",
-                  color: format === f.value ? "white" : "var(--color-text)",
-                }}
+                variant="outline"
+                className={cn(
+                  "flex-1",
+                  format === f.value
+                    ? "border-primary bg-primary text-white"
+                    : "border-border bg-transparent text-foreground",
+                )}
                 onClick={() => setFormat(f.value)}
                 type="button"
               >
                 {t(f.labelKey)}
-              </button>
+              </Button>
             ))}
           </div>
         </div>
 
         <div className="mb-3">
-          <label className="mb-1 block text-xs" style={{ color: "var(--color-text-secondary)" }}>
+          <label className="mb-1 block text-xs text-muted-foreground">
             SQL
           </label>
-          <pre
-            className="max-h-24 overflow-auto rounded-[var(--radius-sm)] border p-2 text-xs"
-            style={{ borderColor: "var(--color-border)", color: "var(--color-text)", backgroundColor: "var(--color-bg)" }}
-          >
+          <pre className="max-h-24 overflow-auto rounded-sm border border-border bg-background p-2 text-xs text-foreground">
             {sql}
           </pre>
         </div>
@@ -95,29 +94,26 @@ export function ExportDialog({ open, onClose, connectionId, sql }: ExportDialogP
         )}
 
         {exportMutation.isError && (
-          <p className="mb-2 text-xs" style={{ color: "var(--color-error, #ef4444)" }}>
+          <p className="mb-2 text-xs text-destructive">
             {t("export.failed")}
           </p>
         )}
 
         <div className="flex justify-end gap-2">
-          <button
-            className="rounded-[var(--radius-sm)] border px-3 py-1.5 text-xs transition-colors hover:bg-[var(--color-bg)]"
-            style={{ borderColor: "var(--color-border)", color: "var(--color-text)" }}
-            onClick={onClose}
+          <Button
             type="button"
+            variant="outline"
+            onClick={onClose}
           >
             {t("common.actions.cancel")}
-          </button>
-          <button
-            className="rounded-[var(--radius-sm)] px-3 py-1.5 text-xs font-medium text-white transition-colors disabled:opacity-50"
-            style={{ backgroundColor: "var(--color-primary, #3b82f6)" }}
+          </Button>
+          <Button
+            type="button"
             onClick={handleExport}
             disabled={exportMutation.isPending}
-            type="button"
           >
             {t("export.title")}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

@@ -2,6 +2,7 @@ import { useRef, useCallback, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 
 import { renderCellValue } from "@/modules/query/types/query.types";
+import { Button } from "@/components/ui/button";
 
 import { CellEditor } from "./cell-editor";
 import { ColumnHeader } from "./column-header";
@@ -94,45 +95,41 @@ export function DataGrid({
 
       {contextMenu && (
         <div
-          className="fixed z-50 rounded-[var(--radius-sm)] border py-1 shadow-lg"
+          className="fixed z-50 rounded-sm border border-border bg-muted py-1 shadow-lg"
           style={{
             left: contextMenu.x,
             top: contextMenu.y,
-            backgroundColor: "var(--color-bg-secondary, #1e293b)",
-            borderColor: "var(--color-border)",
           }}
           onMouseLeave={() => setContextMenu(null)}
         >
-          <button
+          <Button
             type="button"
-            className="block w-full px-3 py-1 text-left text-xs hover:bg-[var(--color-bg)]"
-            style={{ color: "var(--color-text)" }}
+            variant="ghost"
+            size="sm"
+            className="block h-auto w-full px-3 py-1 text-left text-xs text-foreground hover:bg-background"
             onClick={() => {
               onToggleFreezeColumn?.(contextMenu.column);
               setContextMenu(null);
             }}
           >
             {frozenSet.has(contextMenu.column) ? "Unfreeze" : "Freeze"} "{contextMenu.column}"
-          </button>
+          </Button>
         </div>
       )}
 
       <div
-        className="grid shrink-0 border-b text-xs font-medium"
-        style={{
-          ...gridStyle,
-          backgroundColor: "var(--color-surface)",
-          borderColor: "var(--color-border)",
-        }}
+        className="grid shrink-0 border-b border-border bg-card text-xs font-medium"
+        style={gridStyle}
       >
-        <div className="px-2 py-2" style={{ color: "var(--color-text-secondary)" }}>
+        <div className="px-2 py-2 text-muted-foreground">
           #
         </div>
         {orderedCols.map((col) => (
           <div
             key={col.name}
             onContextMenu={(e) => handleContextMenu(e, col.name)}
-            style={frozenSet.has(col.name) ? { backgroundColor: "var(--color-surface)", fontWeight: 600 } : undefined}
+            className={frozenSet.has(col.name) ? "bg-card" : undefined}
+            style={frozenSet.has(col.name) ? { fontWeight: 600 } : undefined}
           >
             <ColumnHeader
               column={col}
@@ -157,18 +154,14 @@ export function DataGrid({
             return (
               <div
                 key={virtualRow.key}
-                className="grid absolute w-full border-b text-xs transition-colors hover:bg-[var(--color-surface)]"
+                className="grid absolute w-full border-b border-border text-xs transition-colors hover:bg-card"
                 style={{
                   ...gridStyle,
                   top: virtualRow.start,
-                  borderColor: "var(--color-border)",
                 }}
                 data-index={virtualRow.index}
               >
-                <div
-                  className="px-2 py-1.5"
-                  style={{ color: "var(--color-text-secondary)" }}
-                >
+                <div className="px-2 py-1.5 text-muted-foreground">
                   {virtualRow.index + 1}
                 </div>
                 {orderedCols.map((col) => {
@@ -185,14 +178,12 @@ export function DataGrid({
                   return (
                     <div
                       key={col.name}
-                      className="relative overflow-hidden px-3 py-1.5 text-ellipsis whitespace-nowrap"
-                      style={{
-                        color: isNull
-                          ? "var(--color-text-secondary)"
-                          : "var(--color-text)",
-                        fontStyle: isNull ? "italic" : undefined,
-                        backgroundColor: isFrozen ? "var(--color-surface)" : undefined,
-                      }}
+                      className={
+                        "relative overflow-hidden px-3 py-1.5 text-ellipsis whitespace-nowrap" +
+                        (isNull ? " text-muted-foreground" : " text-foreground") +
+                        (isFrozen ? " bg-card" : "")
+                      }
+                      style={isNull ? { fontStyle: "italic" } : undefined}
                       title={isJson ? undefined : display}
                       onDoubleClick={() => handleDoubleClick(virtualRow.index, colIdx)}
                     >

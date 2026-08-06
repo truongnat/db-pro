@@ -3,6 +3,7 @@ import { format as formatSql } from "sql-formatter";
 
 import { useConnectionStore } from "@/commons/stores/connection.store";
 import { useTranslation } from "@/commons/locales/useTranslation";
+import { Button } from "@/components/ui/button";
 import { ExportDialog } from "@/modules/export/components/export-dialog";
 
 import { ExplainPlanView } from "../components/explain-plan";
@@ -181,7 +182,7 @@ export function QueryPage() {
   if (!activeConnectionId) {
     return (
       <div className="flex items-center justify-center py-12">
-        <p style={{ color: "var(--color-text-secondary)" }}>
+        <p className="text-muted-foreground">
           {t("query.connectFirst")}
         </p>
       </div>
@@ -198,14 +199,13 @@ export function QueryPage() {
   return (
     <div className="flex h-full">
       <div
-        className="flex flex-col border-r"
+        className="flex flex-col border-r border-border"
         style={{
           width: "220px",
           minWidth: "180px",
-          borderColor: "var(--color-border)",
         }}
       >
-        <div className="border-b p-2" style={{ borderColor: "var(--color-border)" }}>
+        <div className="border-b border-border p-2">
           <SqlFileOperations sql={sql} onSqlLoaded={setSql} />
         </div>
         <div className="flex-1 overflow-auto">
@@ -215,8 +215,8 @@ export function QueryPage() {
           />
         </div>
         <div
-          className="border-t"
-          style={{ borderColor: "var(--color-border)", maxHeight: "40%" }}
+          className="border-t border-border"
+          style={{ maxHeight: "40%" }}
         >
           <RunConfigList
             connectionId={activeConnectionId}
@@ -254,40 +254,29 @@ export function QueryPage() {
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col">
-        <div
-          className="flex border-b"
-          style={{ borderColor: "var(--color-border)" }}
-        >
+        <div className="flex border-b border-border">
           {tabs.map((tab) => (
-            <button
+            <Button
               key={tab.id}
-              className="px-4 py-2 text-sm transition-colors"
-              style={{
-                color:
-                  panelTab === tab.id
-                    ? "var(--color-text)"
-                    : "var(--color-text-secondary)",
-                borderBottom:
-                  panelTab === tab.id
-                    ? "2px solid var(--color-primary,#3b82f6)"
-                    : "2px solid transparent",
-              }}
+              type="button"
+              variant="ghost"
+              className={`px-4 py-2 text-sm transition-colors ${
+                panelTab === tab.id ? "text-foreground" : "text-muted-foreground"
+              } ${
+                panelTab === tab.id
+                  ? "border-b-2 border-primary"
+                  : "border-b-2 border-transparent"
+              }`}
               onClick={() => setPanelTab(tab.id)}
             >
               {tab.label}
-            </button>
+            </Button>
           ))}
         </div>
 
         <div className="min-h-0 flex-1">
           {status === "error" && error && panelTab === "results" && (
-            <div
-              className="m-3 rounded-[var(--radius-sm)] px-3 py-2 text-sm"
-              style={{
-                backgroundColor: "var(--color-error,#ef4444)",
-                color: "white",
-              }}
-            >
+            <div className="m-3 rounded-sm bg-destructive px-3 py-2 text-sm text-white">
               {error}
             </div>
           )}
@@ -308,7 +297,7 @@ export function QueryPage() {
 
           {panelTab === "results" && !result && status !== "error" && (
             <div className="flex items-center justify-center py-12">
-              <p style={{ color: "var(--color-text-secondary)" }}>
+              <p className="text-muted-foreground">
                 {t("query.enterSql")}
               </p>
             </div>
@@ -320,7 +309,7 @@ export function QueryPage() {
 
           {panelTab === "explain" && !explainPlan && (
             <div className="flex items-center justify-center py-12">
-              <p style={{ color: "var(--color-text-secondary)" }}>
+              <p className="text-muted-foreground">
                 {t("query.noResults")}
               </p>
             </div>

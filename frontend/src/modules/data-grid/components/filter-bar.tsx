@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import { useTranslation } from "@/commons/locales/useTranslation";
+import { Button } from "@/components/ui/button";
 
 import { FILTER_OPS, VALUELESS_OPS, type ColumnMeta, type FilterOp, type GridFilter, type CellValue } from "../types/data-grid.types";
 
@@ -32,31 +33,28 @@ export function FilterBar({ columns, filters, onAddFilter, onRemoveFilter }: Fil
   const opLabel = (o: FilterOp) => FILTER_OPS.find((f) => f.value === o)?.label ?? o;
 
   return (
-    <div
-      className="flex flex-wrap items-center gap-2 border-b px-3 py-1.5"
-      style={{ borderColor: "var(--color-border)", backgroundColor: "var(--color-surface)" }}
-    >
+    <div className="flex flex-wrap items-center gap-2 border-b border-border bg-card px-3 py-1.5">
       {filters.map((f, i) => (
         <span
           key={i}
-          className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs"
-          style={{ backgroundColor: "var(--color-bg)", color: "var(--color-text)" }}
+          className="inline-flex items-center gap-1 rounded bg-background px-2 py-0.5 text-xs text-foreground"
         >
           {f.column} {opLabel(f.op)} {VALUELESS_OPS.includes(f.op) ? "" : JSON.stringify(f.value)}
-          <button
-            className="ml-0.5 opacity-60 hover:opacity-100"
-            onClick={() => onRemoveFilter(i)}
+          <Button
             type="button"
+            variant="ghost"
+            size="sm"
+            className="ml-0.5 h-auto px-0 py-0 text-xs opacity-60 hover:bg-transparent hover:opacity-100"
+            onClick={() => onRemoveFilter(i)}
           >
             &times;
-          </button>
+          </Button>
         </span>
       ))}
 
       <div className="flex items-center gap-1">
         <select
-          className="rounded border px-1.5 py-0.5 text-xs"
-          style={{ borderColor: "var(--color-border)", backgroundColor: "var(--color-surface)", color: "var(--color-text)" }}
+          className="rounded border border-border bg-card px-1.5 py-0.5 text-xs text-foreground"
           value={column}
           onChange={(e) => setColumn(e.target.value)}
         >
@@ -66,8 +64,7 @@ export function FilterBar({ columns, filters, onAddFilter, onRemoveFilter }: Fil
         </select>
 
         <select
-          className="rounded border px-1.5 py-0.5 text-xs"
-          style={{ borderColor: "var(--color-border)", backgroundColor: "var(--color-surface)", color: "var(--color-text)" }}
+          className="rounded border border-border bg-card px-1.5 py-0.5 text-xs text-foreground"
           value={op}
           onChange={(e) => setOp(e.target.value as FilterOp)}
         >
@@ -78,8 +75,7 @@ export function FilterBar({ columns, filters, onAddFilter, onRemoveFilter }: Fil
 
         {!VALUELESS_OPS.includes(op) && (
           <input
-            className="rounded border px-1.5 py-0.5 text-xs"
-            style={{ borderColor: "var(--color-border)", backgroundColor: "var(--color-surface)", color: "var(--color-text)" }}
+            className="rounded border border-border bg-card px-1.5 py-0.5 text-xs text-foreground"
             placeholder={t("dataGrid.filter")}
             value={value}
             onChange={(e) => setValue(e.target.value)}
@@ -87,14 +83,15 @@ export function FilterBar({ columns, filters, onAddFilter, onRemoveFilter }: Fil
           />
         )}
 
-        <button
-          className="rounded-[var(--radius-sm)] px-2 py-0.5 text-xs transition-colors hover:bg-[var(--color-bg)]"
-          style={{ color: "var(--color-primary, #3b82f6)" }}
-          onClick={handleAdd}
+        <Button
           type="button"
+          variant="ghost"
+          size="sm"
+          className="h-auto px-2 py-0.5 text-xs text-primary hover:bg-background"
+          onClick={handleAdd}
         >
           {t("dataGrid.addFilter")}
-        </button>
+        </Button>
       </div>
     </div>
   );

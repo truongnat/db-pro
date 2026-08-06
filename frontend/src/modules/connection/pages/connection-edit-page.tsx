@@ -5,6 +5,7 @@ import { container } from "@/app/app.module";
 import { SERVICE_NAMES, type IConnectionService } from "@/commons/di/registry";
 import { useTranslation } from "@/commons/locales/useTranslation";
 import { useSnackbar } from "@/app/providers/snackbar.provider";
+import { Button } from "@/components/ui/button";
 
 import { ConnectionEditor } from "../components/connection-editor";
 import {
@@ -86,7 +87,7 @@ export function ConnectionEditPage() {
   if (loadingConnection) {
     return (
       <div className="flex items-center justify-center py-12">
-        <p style={{ color: "var(--color-text-secondary)" }}>{t("common.states.loading")}</p>
+        <p className="text-muted-foreground">{t("common.states.loading")}</p>
       </div>
     );
   }
@@ -94,14 +95,13 @@ export function ConnectionEditPage() {
   if (loadError) {
     return (
       <div className="flex flex-col items-center gap-2 py-12">
-        <p style={{ color: "var(--color-error)" }}>{loadError}</p>
-        <button
-          className="rounded-[var(--radius-sm)] px-4 py-2 text-sm transition-colors hover:bg-[var(--color-surface)]"
-          style={{ borderColor: "var(--color-border)", color: "var(--color-text)" }}
+        <p className="text-destructive">{loadError}</p>
+        <Button
+          variant="outline"
           onClick={() => navigate({ to: "/connections" })}
         >
           {t("common.actions.close")}
-        </button>
+        </Button>
       </div>
     );
   }
@@ -109,14 +109,14 @@ export function ConnectionEditPage() {
   if (editId && !connection) {
     return (
       <div className="flex items-center justify-center py-12">
-        <p style={{ color: "var(--color-text-secondary)" }}>{t("error.not_found")}</p>
+        <p className="text-muted-foreground">{t("error.not_found")}</p>
       </div>
     );
   }
 
   return (
     <div className="mx-auto max-w-2xl">
-      <h1 className="mb-6 text-xl font-semibold" style={{ color: "var(--color-text)" }}>
+      <h1 className="mb-6 text-xl font-semibold text-foreground">
         {editId ? t("connection.edit") : t("connection.new")}
       </h1>
 

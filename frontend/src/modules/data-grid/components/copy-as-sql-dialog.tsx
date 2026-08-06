@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 
 import { useTranslation } from "@/commons/locales/useTranslation";
+import { Button } from "@/components/ui/button";
 import type { ColumnMeta, Row } from "@/modules/query/types/query.types";
 import {
   generateDeleteSQL,
@@ -70,78 +71,66 @@ export function CopyAsSqlDialog({
       onClick={onClose}
     >
       <div
-        className="flex max-h-[80vh] w-[600px] flex-col rounded-[var(--radius-md)] border shadow-lg"
-        style={{
-          borderColor: "var(--color-border)",
-          backgroundColor: "var(--color-bg-secondary, var(--color-bg))",
-        }}
+        className="flex max-h-[80vh] w-[600px] flex-col rounded-md border border-border bg-muted shadow-lg"
         onClick={(e) => e.stopPropagation()}
       >
-        <div
-          className="flex items-center justify-between border-b p-4"
-          style={{ borderColor: "var(--color-border)" }}
-        >
-          <h3 className="text-sm font-medium" style={{ color: "var(--color-text)" }}>
+        <div className="flex items-center justify-between border-b border-border p-4">
+          <h3 className="text-sm font-medium text-foreground">
             {t("dataGrid.copyAsSql")}
           </h3>
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="icon-sm"
             onClick={onClose}
-            className="text-lg"
-            style={{ color: "var(--color-text-secondary)" }}
+            className="text-lg text-muted-foreground"
           >
             ×
-          </button>
+          </Button>
         </div>
 
         <div className="flex flex-col gap-3 p-4">
           <div className="flex gap-2">
             {(["insert", "update", "delete"] as SqlFormat[]).map((f) => (
-              <button
+              <Button
                 key={f}
                 type="button"
+                variant="outline"
+                size="sm"
                 onClick={() => setFormat(f)}
-                className="rounded-[var(--radius-sm)] border px-3 py-1.5 text-xs font-medium transition-colors"
-                style={{
-                  borderColor: format === f ? "var(--color-primary, #3b82f6)" : "var(--color-border)",
-                  backgroundColor: format === f ? "var(--color-primary, #3b82f6)" : "transparent",
-                  color: format === f ? "white" : "var(--color-text)",
-                }}
+                className={
+                  "px-3 text-xs font-medium " +
+                  (format === f
+                    ? "border-primary bg-primary text-primary-foreground hover:bg-primary"
+                    : "text-foreground")
+                }
               >
                 {f.toUpperCase()}
-              </button>
+              </Button>
             ))}
           </div>
 
-          <pre
-            className="max-h-[400px] overflow-auto rounded-[var(--radius-sm)] border p-3 font-mono text-xs leading-relaxed"
-            style={{
-              borderColor: "var(--color-border)",
-              color: "var(--color-text)",
-              backgroundColor: "var(--color-bg)",
-            }}
-          >
+          <pre className="max-h-[400px] overflow-auto rounded-sm border border-border bg-background p-3 font-mono text-xs leading-relaxed text-foreground">
             <code>{generatedSql || t("dataGrid.noData")}</code>
           </pre>
 
           <div className="flex justify-end gap-2">
-            <button
+            <Button
               type="button"
+              variant="outline"
               onClick={onClose}
-              className="rounded-[var(--radius-sm)] border px-3 py-1.5 text-xs transition-colors hover:bg-[var(--color-bg)]"
-              style={{ borderColor: "var(--color-border)", color: "var(--color-text)" }}
+              className="text-xs"
             >
               {t("common.actions.cancel")}
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
               onClick={handleCopy}
               disabled={!generatedSql}
-              className="rounded-[var(--radius-sm)] px-3 py-1.5 text-xs font-medium text-white transition-colors disabled:opacity-50"
-              style={{ backgroundColor: "var(--color-primary, #3b82f6)" }}
+              className="text-xs font-medium"
             >
               {copied ? t("schema.copied") : t("dataGrid.copyToClipboard")}
-            </button>
+            </Button>
           </div>
         </div>
       </div>

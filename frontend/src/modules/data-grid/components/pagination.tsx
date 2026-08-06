@@ -1,4 +1,5 @@
 import { useTranslation } from "@/commons/locales/useTranslation";
+import { Button } from "@/components/ui/button";
 
 interface PaginationProps {
   page: number;
@@ -21,60 +22,56 @@ export function Pagination({
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
   return (
-    <div
-      className="flex items-center gap-3 border-t px-3 py-1.5 text-xs"
-      style={{
-        borderColor: "var(--color-border)",
-        backgroundColor: "var(--color-surface)",
-        color: "var(--color-text-secondary)",
-      }}
-    >
+    <div className="flex items-center gap-3 border-t border-border bg-card px-3 py-1.5 text-xs text-muted-foreground">
       <span>
         {t("dataGrid.page")} {page} {t("dataGrid.of")} {totalPages}
       </span>
 
       <div className="flex items-center gap-1">
-        <button
-          className="rounded px-1.5 py-0.5 transition-colors hover:bg-[var(--color-bg)] disabled:opacity-40"
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-auto px-1.5 py-0.5 text-xs hover:bg-background disabled:opacity-40"
           disabled={page <= 1}
           onClick={() => onPageChange(1)}
-          type="button"
         >
           &laquo;
-        </button>
-        <button
-          className="rounded px-1.5 py-0.5 transition-colors hover:bg-[var(--color-bg)] disabled:opacity-40"
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-auto px-1.5 py-0.5 text-xs hover:bg-background disabled:opacity-40"
           disabled={page <= 1}
           onClick={() => onPageChange(page - 1)}
-          type="button"
         >
           &lsaquo;
-        </button>
-        <button
-          className="rounded px-1.5 py-0.5 transition-colors hover:bg-[var(--color-bg)] disabled:opacity-40"
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-auto px-1.5 py-0.5 text-xs hover:bg-background disabled:opacity-40"
           disabled={page >= totalPages}
           onClick={() => onPageChange(page + 1)}
-          type="button"
         >
           &rsaquo;
-        </button>
-        <button
-          className="rounded px-1.5 py-0.5 transition-colors hover:bg-[var(--color-bg)] disabled:opacity-40"
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-auto px-1.5 py-0.5 text-xs hover:bg-background disabled:opacity-40"
           disabled={page >= totalPages}
           onClick={() => onPageChange(totalPages)}
-          type="button"
         >
           &raquo;
-        </button>
+        </Button>
       </div>
 
       <select
-        className="rounded border px-1.5 py-0.5 text-xs"
-        style={{
-          borderColor: "var(--color-border)",
-          backgroundColor: "var(--color-surface)",
-          color: "var(--color-text)",
-        }}
+        className="rounded border border-border bg-card px-1.5 py-0.5 text-xs text-foreground"
         value={pageSize}
         onChange={(e) => onPageSizeChange(Number(e.target.value))}
       >

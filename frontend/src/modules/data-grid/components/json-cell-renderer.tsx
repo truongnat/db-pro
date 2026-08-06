@@ -1,5 +1,7 @@
 import { useState } from "react";
 
+import { Button } from "@/components/ui/button";
+
 interface JsonCellRendererProps {
   value: unknown;
 }
@@ -13,36 +15,32 @@ export function JsonCellRenderer({ value }: JsonCellRendererProps) {
 
   if (!expanded) {
     return (
-      <button
+      <Button
         type="button"
-        className="cursor-pointer text-left font-mono text-xs"
-        style={{ color: "var(--color-primary, #3b82f6)" }}
+        variant="ghost"
+        size="sm"
+        className="h-auto cursor-pointer px-0 py-0 text-left font-mono text-xs text-primary hover:bg-transparent"
         onClick={() => setExpanded(true)}
         title={preview}
       >
         {"{ } "}
-        <span style={{ color: "var(--color-text-secondary)" }}>{shortPreview}</span>
-      </button>
+        <span className="text-muted-foreground">{shortPreview}</span>
+      </Button>
     );
   }
 
   return (
     <div className="font-mono text-xs">
-      <button
+      <Button
         type="button"
-        className="mb-1 text-xs underline"
-        style={{ color: "var(--color-primary, #3b82f6)" }}
+        variant="link"
+        size="sm"
+        className="mb-1 h-auto px-0 py-0 text-xs underline"
         onClick={() => setExpanded(false)}
       >
         collapse
-      </button>
-      <pre
-        className="max-h-[200px] max-w-[400px] overflow-auto whitespace-pre-wrap rounded p-1 text-xs"
-        style={{
-          backgroundColor: "var(--color-bg)",
-          color: "var(--color-text)",
-        }}
-      >
+      </Button>
+      <pre className="max-h-[200px] max-w-[400px] overflow-auto whitespace-pre-wrap rounded bg-background p-1 text-xs text-foreground">
         {JSON.stringify(value, null, 2)}
       </pre>
     </div>

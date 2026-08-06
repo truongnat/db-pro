@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 
 import { useTranslation } from "@/commons/locales/useTranslation";
+import { Button } from "@/components/ui/button";
 
 import { BackupDialog } from "@/modules/backup/components/backup-dialog";
 import { RestoreDialog } from "@/modules/backup/components/restore-dialog";
@@ -48,16 +49,12 @@ export function ConnectionsPage() {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold" style={{ color: "var(--color-text)" }}>
+        <h1 className="text-xl font-semibold text-foreground">
           {t("connection.title")}
         </h1>
-        <button
-          className="rounded-[var(--radius-sm)] px-4 py-2 text-sm text-white transition-colors hover:opacity-90"
-          style={{ backgroundColor: "var(--color-primary,#3b82f6)" }}
-          onClick={() => navigate({ to: "/connection-editor" })}
-        >
+        <Button type="button" onClick={() => navigate({ to: "/connection-editor" })}>
           {t("connection.new")}
-        </button>
+        </Button>
       </div>
 
       <ConnectionList

@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
 
+import { Button } from "@/components/ui/button";
 import { useTranslation } from "@/commons/locales/useTranslation";
 
 import {
@@ -83,17 +84,18 @@ export function SavedQueriesTree({ connectionId, onSelectQuery }: SavedQueriesTr
   return (
     <div className="flex h-full flex-col overflow-auto p-2 text-sm">
       <div className="mb-2 flex items-center justify-between">
-        <span className="font-medium" style={{ color: "var(--color-text)" }}>
+        <span className="font-medium text-foreground">
           {t("query.savedQueries")}
         </span>
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="sm"
           onClick={() => setShowNewFolderInput(!showNewFolderInput)}
-          className="rounded-[var(--radius-sm)] px-2 py-0.5 text-xs transition-colors hover:bg-[var(--color-bg)]"
-          style={{ color: "var(--color-primary, #3b82f6)" }}
+          className="rounded-sm px-2 py-0.5 text-xs text-primary"
         >
           + {t("query.newFolder")}
-        </button>
+        </Button>
       </div>
 
       {showNewFolderInput && (
@@ -103,22 +105,18 @@ export function SavedQueriesTree({ connectionId, onSelectQuery }: SavedQueriesTr
             value={newFolderName}
             onChange={(e) => setNewFolderName(e.target.value)}
             placeholder={t("query.folderName")}
-            className="flex-1 rounded-[var(--radius-sm)] border px-2 py-1 text-xs outline-none focus:border-[var(--color-primary,#3b82f6)]"
-            style={{
-              borderColor: "var(--color-border)",
-              backgroundColor: "var(--color-bg)",
-              color: "var(--color-text)",
-            }}
+            className="flex-1 rounded-sm border border-border bg-background px-2 py-1 text-xs text-foreground outline-none focus:border-primary"
             onKeyDown={(e) => e.key === "Enter" && handleCreateFolder()}
           />
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="sm"
             onClick={handleCreateFolder}
-            className="rounded-[var(--radius-sm)] px-2 py-1 text-xs"
-            style={{ color: "var(--color-primary, #3b82f6)" }}
+            className="rounded-sm px-2 py-1 text-xs text-primary"
           >
             {t("common.actions.save")}
-          </button>
+          </Button>
         </div>
       )}
 
@@ -127,26 +125,27 @@ export function SavedQueriesTree({ connectionId, onSelectQuery }: SavedQueriesTr
           {rootQueries.map((q) => (
             <div
               key={q.id}
-              className="group flex items-center justify-between rounded-[var(--radius-sm)] px-2 py-1 transition-colors hover:bg-[var(--color-bg)]"
+              className="group flex items-center justify-between rounded-sm px-2 py-1 transition-colors hover:bg-background"
             >
-              <button
+              <Button
                 type="button"
-                className="flex-1 truncate text-left text-xs"
-                style={{ color: "var(--color-text)" }}
+                variant="ghost"
+                className="flex-1 justify-start truncate text-left text-xs text-foreground"
                 onClick={() => onSelectQuery(q.sql)}
                 title={q.name}
               >
                 {q.name}
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
-                className="ml-1 opacity-0 transition-opacity group-hover:opacity-100"
-                style={{ color: "var(--color-error, #ef4444)" }}
+                variant="ghost"
+                size="sm"
+                className="ml-1 text-destructive opacity-0 transition-opacity group-hover:opacity-100"
                 onClick={() => handleDeleteQuery(q.id)}
                 title={t("common.actions.delete")}
               >
                 ×
-              </button>
+              </Button>
             </div>
           ))}
         </div>
@@ -158,31 +157,29 @@ export function SavedQueriesTree({ connectionId, onSelectQuery }: SavedQueriesTr
 
         return (
           <div key={folder.id} className="mb-1">
-            <div className="group flex items-center justify-between rounded-[var(--radius-sm)] px-2 py-1 transition-colors hover:bg-[var(--color-bg)]">
-              <button
+            <div className="group flex items-center justify-between rounded-sm px-2 py-1 transition-colors hover:bg-background">
+              <Button
                 type="button"
-                className="flex flex-1 items-center gap-1 text-left text-xs font-medium"
-                style={{ color: "var(--color-text)" }}
+                variant="ghost"
+                className="flex flex-1 items-center justify-start gap-1 rounded-none border-0 text-left text-xs font-medium text-foreground"
                 onClick={() => toggleFolder(folder.id)}
               >
                 <span>{isExpanded ? "▼" : "▶"}</span>
                 <span className="truncate">{folder.name}</span>
-                <span
-                  className="ml-auto text-xs"
-                  style={{ color: "var(--color-text-secondary)" }}
-                >
+                <span className="ml-auto text-xs text-muted-foreground">
                   ({folderQueries.length})
                 </span>
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
-                className="ml-1 opacity-0 transition-opacity group-hover:opacity-100"
-                style={{ color: "var(--color-error, #ef4444)" }}
+                variant="ghost"
+                size="sm"
+                className="ml-1 text-destructive opacity-0 transition-opacity group-hover:opacity-100"
                 onClick={() => handleDeleteFolder(folder.id)}
                 title={t("common.actions.delete")}
               >
                 ×
-              </button>
+              </Button>
             </div>
 
             {isExpanded && folderQueries.length > 0 && (
@@ -190,26 +187,27 @@ export function SavedQueriesTree({ connectionId, onSelectQuery }: SavedQueriesTr
                 {folderQueries.map((q) => (
                   <div
                     key={q.id}
-                    className="group flex items-center justify-between rounded-[var(--radius-sm)] px-2 py-1 transition-colors hover:bg-[var(--color-bg)]"
+                    className="group flex items-center justify-between rounded-sm px-2 py-1 transition-colors hover:bg-background"
                   >
-                    <button
+                    <Button
                       type="button"
-                      className="flex-1 truncate text-left text-xs"
-                      style={{ color: "var(--color-text)" }}
+                      variant="ghost"
+                      className="flex-1 justify-start truncate text-left text-xs text-foreground"
                       onClick={() => onSelectQuery(q.sql)}
                       title={q.name}
                     >
                       {q.name}
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                       type="button"
-                      className="ml-1 opacity-0 transition-opacity group-hover:opacity-100"
-                      style={{ color: "var(--color-error, #ef4444)" }}
+                      variant="ghost"
+                      size="sm"
+                      className="ml-1 text-destructive opacity-0 transition-opacity group-hover:opacity-100"
                       onClick={() => handleDeleteQuery(q.id)}
                       title={t("common.actions.delete")}
                     >
                       ×
-                    </button>
+                    </Button>
                   </div>
                 ))}
               </div>
@@ -219,10 +217,7 @@ export function SavedQueriesTree({ connectionId, onSelectQuery }: SavedQueriesTr
       })}
 
       {queries.length === 0 && folders.length === 0 && (
-        <div
-          className="py-4 text-center text-xs italic"
-          style={{ color: "var(--color-text-secondary)" }}
-        >
+        <div className="py-4 text-center text-xs italic text-muted-foreground">
           {t("query.noSavedQueries")}
         </div>
       )}

@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button";
 import { useTranslation } from "@/commons/locales/useTranslation";
 
 import { useTableDdl, useTableInfo } from "../queries/schema.queries";
@@ -48,10 +49,7 @@ export function SchemaDetailPanel({
 
   if (!schema || !table || !nodeType) {
     return (
-      <div
-        className="flex flex-1 items-center justify-center p-8 text-sm"
-        style={{ color: "var(--color-text-secondary)" }}
-      >
+      <div className="flex flex-1 items-center justify-center p-8 text-sm text-muted-foreground">
         {t("schema.selectTable")}
       </div>
     );
@@ -61,37 +59,30 @@ export function SchemaDetailPanel({
   const tableInfo = useTableInfo(connectionId, schema, table);
   const tableDdl = useTableDdl(connectionId, schema, table, activeTab === "ddl");
 
-  const tabStyle = (isActive: boolean): React.CSSProperties => ({
-    borderColor: isActive ? "var(--color-primary, #3b82f6)" : "transparent",
-    color: isActive ? "var(--color-primary, #3b82f6)" : "var(--color-text-secondary)",
-    borderBottomWidth: "2px",
-  });
+  const tabClassName = (isActive: boolean): string =>
+    `rounded-none border-b-2 px-3 py-2 text-sm transition-colors hover:opacity-80 ${
+      isActive ? "border-primary text-primary" : "border-transparent text-muted-foreground"
+    }`;
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
-      <div
-        className="flex gap-1 border-b px-3"
-        style={{ borderColor: "var(--color-border)" }}
-      >
+      <div className="flex gap-1 border-b border-border px-3">
         {tabs.map((tab) => (
-          <button
+          <Button
             key={tab.key}
-            className="px-3 py-2 text-sm transition-colors hover:opacity-80"
-            style={tabStyle(activeTab === tab.key)}
-            onClick={() => onTabChange(tab.key)}
             type="button"
+            variant="ghost"
+            className={tabClassName(activeTab === tab.key)}
+            onClick={() => onTabChange(tab.key)}
           >
             {t(tab.labelKey)}
-          </button>
+          </Button>
         ))}
       </div>
 
       <div className="flex-1 overflow-auto">
         {tableInfo.isError && (
-          <div
-            className="p-4 text-sm"
-            style={{ color: "var(--color-error, #ef4444)" }}
-          >
+          <div className="p-4 text-sm text-destructive">
             {(tableInfo.error as { userMessage?: string })?.userMessage ?? t("common.states.error")}
           </div>
         )}
@@ -147,10 +138,7 @@ export function SchemaDetailPanel({
         )}
 
         {tableInfo.isLoading && (activeTab === "columns" || activeTab === "indexes" || activeTab === "foreignKeys") && (
-          <div
-            className="p-4 text-sm"
-            style={{ color: "var(--color-text-secondary)" }}
-          >
+          <div className="p-4 text-sm text-muted-foreground">
             {t("common.states.loading")}
           </div>
         )}

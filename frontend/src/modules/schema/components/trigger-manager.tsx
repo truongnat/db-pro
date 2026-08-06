@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
 
+import { Button } from "@/components/ui/button";
 import { useTranslation } from "@/commons/locales/useTranslation";
 
 import { useExecuteDdl } from "../queries/schema.queries";
@@ -38,46 +39,33 @@ export function TriggerManager({ connectionId, schema, table }: TriggerManagerPr
 
   return (
     <div className="flex flex-col gap-4 p-3">
-      <div
-        className="rounded-[var(--radius-sm)] border p-3"
-        style={{ borderColor: "var(--color-border)" }}
-      >
-        <h4 className="mb-2 text-xs font-semibold" style={{ color: "var(--color-text)" }}>
+      <div className="rounded-sm border border-border p-3">
+        <h4 className="mb-2 text-xs font-semibold text-foreground">
           {t("schema.createTrigger")}
         </h4>
 
         <div className="space-y-2">
           <div>
-            <label className="mb-1 block text-xs" style={{ color: "var(--color-text-secondary)" }}>
+            <label className="mb-1 block text-xs text-muted-foreground">
               {t("schema.triggerName")}
             </label>
             <input
               type="text"
               value={triggerName}
               onChange={(e) => setTriggerName(e.target.value)}
-              className="w-full rounded-[var(--radius-sm)] border px-2 py-1 text-xs outline-none focus:border-[var(--color-primary,#3b82f6)]"
-              style={{
-                borderColor: "var(--color-border)",
-                backgroundColor: "var(--color-bg)",
-                color: "var(--color-text)",
-              }}
+              className="w-full rounded-sm border border-border bg-background px-2 py-1 text-xs text-foreground outline-none focus:border-primary"
             />
           </div>
 
           <div className="flex gap-2">
             <div className="flex-1">
-              <label className="mb-1 block text-xs" style={{ color: "var(--color-text-secondary)" }}>
+              <label className="mb-1 block text-xs text-muted-foreground">
                 {t("schema.triggerTiming")}
               </label>
               <select
                 value={timing}
                 onChange={(e) => setTiming(e.target.value)}
-                className="w-full rounded-[var(--radius-sm)] border px-2 py-1 text-xs"
-                style={{
-                  borderColor: "var(--color-border)",
-                  backgroundColor: "var(--color-bg)",
-                  color: "var(--color-text)",
-                }}
+                className="w-full rounded-sm border border-border bg-background px-2 py-1 text-xs text-foreground"
               >
                 <option value="BEFORE">BEFORE</option>
                 <option value="AFTER">AFTER</option>
@@ -85,18 +73,13 @@ export function TriggerManager({ connectionId, schema, table }: TriggerManagerPr
               </select>
             </div>
             <div className="flex-1">
-              <label className="mb-1 block text-xs" style={{ color: "var(--color-text-secondary)" }}>
+              <label className="mb-1 block text-xs text-muted-foreground">
                 {t("schema.triggerEvent")}
               </label>
               <select
                 value={event}
                 onChange={(e) => setEvent(e.target.value)}
-                className="w-full rounded-[var(--radius-sm)] border px-2 py-1 text-xs"
-                style={{
-                  borderColor: "var(--color-border)",
-                  backgroundColor: "var(--color-bg)",
-                  color: "var(--color-text)",
-                }}
+                className="w-full rounded-sm border border-border bg-background px-2 py-1 text-xs text-foreground"
               >
                 <option value="INSERT">INSERT</option>
                 <option value="UPDATE">UPDATE</option>
@@ -107,44 +90,36 @@ export function TriggerManager({ connectionId, schema, table }: TriggerManagerPr
           </div>
 
           <div>
-            <label className="mb-1 block text-xs" style={{ color: "var(--color-text-secondary)" }}>
+            <label className="mb-1 block text-xs text-muted-foreground">
               {t("schema.triggerBody")}
             </label>
             <textarea
               value={body}
               onChange={(e) => setBody(e.target.value)}
               rows={5}
-              className="w-full resize-y rounded-[var(--radius-sm)] border px-2 py-1.5 font-mono text-xs outline-none focus:border-[var(--color-primary,#3b82f6)]"
-              style={{
-                borderColor: "var(--color-border)",
-                backgroundColor: "var(--color-bg)",
-                color: "var(--color-text)",
-              }}
+              className="w-full resize-y rounded-sm border border-border bg-background px-2 py-1.5 font-mono text-xs text-foreground outline-none focus:border-primary"
             />
           </div>
 
           <div className="flex gap-2">
-            <button
+            <Button
               type="button"
+              size="sm"
               disabled={!triggerName.trim() || !body.trim() || executeDdl.isPending}
-              className="rounded-[var(--radius-sm)] px-3 py-1.5 text-xs text-white disabled:opacity-50"
-              style={{ backgroundColor: "var(--color-primary, #3b82f6)" }}
               onClick={handleCreate}
             >
               {t("schema.createTrigger")}
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              variant="outline"
+              size="sm"
+              className="text-destructive"
               disabled={!triggerName.trim() || executeDdl.isPending}
-              className="rounded-[var(--radius-sm)] border px-3 py-1.5 text-xs disabled:opacity-50"
-              style={{
-                borderColor: "var(--color-border)",
-                color: "var(--color-error, #ef4444)",
-              }}
               onClick={handleDrop}
             >
               {t("schema.dropTrigger")}
-            </button>
+            </Button>
           </div>
         </div>
       </div>

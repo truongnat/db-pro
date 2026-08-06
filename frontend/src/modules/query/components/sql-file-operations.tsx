@@ -2,6 +2,7 @@ import { useCallback } from "react";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { readTextFile, writeTextFile } from "@tauri-apps/plugin-fs";
 
+import { Button } from "@/components/ui/button";
 import { useTranslation } from "@/commons/locales/useTranslation";
 
 interface SqlFileOperationsProps {
@@ -47,29 +48,23 @@ export function SqlFileOperations({ sql, onSqlLoaded }: SqlFileOperationsProps) 
 
   return (
     <div className="flex gap-2">
-      <button
+      <Button
         type="button"
+        variant="outline"
         onClick={handleImport}
-        className="rounded-[var(--radius-sm)] border px-3 py-1.5 text-xs transition-colors hover:bg-[var(--color-bg)]"
-        style={{
-          borderColor: "var(--color-border)",
-          color: "var(--color-text)",
-        }}
+        className="rounded-sm border px-3 py-1.5 text-xs"
       >
         {t("query.importSql")}
-      </button>
-      <button
+      </Button>
+      <Button
         type="button"
+        variant="outline"
         onClick={handleExport}
         disabled={!sql.trim()}
-        className="rounded-[var(--radius-sm)] border px-3 py-1.5 text-xs transition-colors hover:bg-[var(--color-bg)] disabled:opacity-50"
-        style={{
-          borderColor: "var(--color-border)",
-          color: "var(--color-text)",
-        }}
+        className="rounded-sm border px-3 py-1.5 text-xs"
       >
         {t("query.exportSql")}
-      </button>
+      </Button>
     </div>
   );
 }

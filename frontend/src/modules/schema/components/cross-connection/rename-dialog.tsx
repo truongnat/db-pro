@@ -1,5 +1,6 @@
 import { useState } from "react";
 
+import { Button } from "@/components/ui/button";
 import { useTranslation } from "@/commons/locales/useTranslation";
 
 import { useRenameSchemaObject } from "../../queries/schema.queries";
@@ -33,30 +34,26 @@ export function RenameDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div
-        className="w-full max-w-md rounded-[var(--radius-md)] border p-6"
-        style={{ backgroundColor: "var(--color-bg)", borderColor: "var(--color-border)" }}
-      >
-        <h3 className="mb-4 text-lg font-medium" style={{ color: "var(--color-text)" }}>
+      <div className="w-full max-w-md rounded-md border border-border bg-background p-6">
+        <h3 className="mb-4 text-lg font-medium text-foreground">
           {t("schema.crossConn.rename")} {objectType}
         </h3>
 
         <div className="mb-4">
-          <p className="text-sm" style={{ color: "var(--color-text-secondary)" }}>
+          <p className="text-sm text-muted-foreground">
             {schema}.{oldName}
           </p>
         </div>
 
         <div className="mb-4">
-          <label className="mb-1 block text-sm font-medium" style={{ color: "var(--color-text)" }}>
+          <label className="mb-1 block text-sm font-medium text-foreground">
             {t("schema.crossConn.newName")}
           </label>
           <input
             type="text"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
-            className="w-full rounded-[var(--radius-sm)] border px-3 py-2 text-sm"
-            style={{ borderColor: "var(--color-border)", color: "var(--color-text)" }}
+            className="w-full rounded-sm border border-border px-3 py-2 text-sm text-foreground"
             placeholder={oldName}
             autoFocus
             onKeyDown={(e) => {
@@ -66,29 +63,26 @@ export function RenameDialog({
         </div>
 
         {mutation.error && (
-          <div className="mb-4 rounded-[var(--radius-sm)] px-3 py-2 text-sm" style={{ backgroundColor: "var(--color-error,#ef4444)", color: "white" }}>
+          <div className="mb-4 rounded-sm bg-destructive px-3 py-2 text-sm text-white">
             {(mutation.error as Error).message}
           </div>
         )}
 
         <div className="flex justify-end gap-2">
-          <button
+          <Button
             type="button"
+            variant="outline"
             onClick={onClose}
-            className="rounded-[var(--radius-sm)] border px-4 py-2 text-sm transition-colors hover:bg-[var(--color-surface)]"
-            style={{ borderColor: "var(--color-border)", color: "var(--color-text)" }}
           >
             {t("common.actions.cancel")}
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
             onClick={handleSubmit}
             disabled={!newName.trim() || mutation.isPending}
-            className="rounded-[var(--radius-sm)] px-4 py-2 text-sm text-white disabled:opacity-50"
-            style={{ backgroundColor: "var(--color-primary,#3b82f6)" }}
           >
             {mutation.isPending ? t("common.states.loading") : t("schema.crossConn.rename")}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { Button } from "@/components/ui/button";
+
 import { useConnectionStore } from "@/commons/stores/connection.store";
 
 import { CreateRoleDialog } from "../components/create-role-dialog";
@@ -33,10 +35,7 @@ export function UserManagementPage() {
 
   if (!activeConnectionId) {
     return (
-      <div
-        className="flex h-full items-center justify-center"
-        style={{ color: "var(--color-text-secondary)" }}
-      >
+      <div className="flex h-full items-center justify-center text-muted-foreground">
         {t("userManagement.connectFirst")}
       </div>
     );
@@ -46,31 +45,22 @@ export function UserManagementPage() {
 
   return (
     <div className="flex h-full gap-4">
-      <div
-        className="flex w-64 shrink-0 flex-col gap-2 overflow-auto border-r pr-4"
-        style={{ borderColor: "var(--color-border)" }}
-      >
+      <div className="flex w-64 shrink-0 flex-col gap-2 overflow-auto border-r border-border pr-4">
         <div className="flex items-center justify-between">
-          <h2
-            className="text-sm font-semibold"
-            style={{ color: "var(--color-text)" }}
-          >
+          <h2 className="text-sm font-semibold text-foreground">
             {t("userManagement.title")}
           </h2>
-          <button
+          <Button
+            type="button"
+            size="sm"
             onClick={() => setCreateOpen(true)}
-            className="rounded-[var(--radius-sm)] px-2 py-1 text-xs text-white transition-colors"
-            style={{ backgroundColor: "var(--color-primary)" }}
           >
             + {t("userManagement.newRole")}
-          </button>
+          </Button>
         </div>
 
         {isLoading ? (
-          <p
-            className="text-xs"
-            style={{ color: "var(--color-text-secondary)" }}
-          >
+          <p className="text-xs text-muted-foreground">
             {t("common.loading")}
           </p>
         ) : (
@@ -101,10 +91,7 @@ export function UserManagementPage() {
             }
           />
         ) : (
-          <div
-            className="flex h-full items-center justify-center"
-            style={{ color: "var(--color-text-secondary)" }}
-          >
+          <div className="flex h-full items-center justify-center text-muted-foreground">
             {t("userManagement.selectRole")}
           </div>
         )}

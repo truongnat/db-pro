@@ -1,5 +1,7 @@
 import { useState } from "react";
 
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 import { useTranslation } from "@/commons/locales/useTranslation";
 
 import { useDiffSchemas } from "../../queries/schema.queries";
@@ -25,7 +27,7 @@ export function SchemaDiffView({
   if (!sourceId || !targetId) {
     return (
       <div className="flex items-center justify-center py-12">
-        <p style={{ color: "var(--color-text-secondary)" }}>
+        <p className="text-muted-foreground">
           {t("schema.crossConn.selectTwo")}
         </p>
       </div>
@@ -35,25 +37,24 @@ export function SchemaDiffView({
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-3">
-        <span className="text-sm" style={{ color: "var(--color-text-secondary)" }}>
+        <span className="text-sm text-muted-foreground">
           {sourceLabel ?? sourceId}
         </span>
-        <span style={{ color: "var(--color-text-secondary)" }}>→</span>
-        <span className="text-sm" style={{ color: "var(--color-text-secondary)" }}>
+        <span className="text-muted-foreground">→</span>
+        <span className="text-sm text-muted-foreground">
           {targetLabel ?? targetId}
         </span>
-        <button
-          className="rounded-[var(--radius-sm)] px-3 py-1.5 text-sm text-white"
-          style={{ backgroundColor: "var(--color-primary,#3b82f6)" }}
+        <Button
+          type="button"
           onClick={() => setEnabled(true)}
           disabled={isLoading}
         >
           {isLoading ? t("common.states.loading") : t("schema.crossConn.compare")}
-        </button>
+        </Button>
       </div>
 
       {error && (
-        <div className="rounded-[var(--radius-sm)] px-3 py-2 text-sm" style={{ backgroundColor: "var(--color-error,#ef4444)", color: "white" }}>
+        <div className="rounded-sm bg-destructive px-3 py-2 text-sm text-white">
           {(error as Error).message}
         </div>
       )}
@@ -74,8 +75,8 @@ function DiffResults({ diff }: { diff: SchemaDiff }) {
 
   if (!hasDiffs) {
     return (
-      <div className="rounded-[var(--radius-sm)] border p-4 text-center" style={{ borderColor: "var(--color-border)" }}>
-        <p style={{ color: "var(--color-success,#22c55e)" }}>{t("schema.crossConn.identical")}</p>
+      <div className="rounded-sm border border-border p-4 text-center">
+        <p className="text-success">{t("schema.crossConn.identical")}</p>
       </div>
     );
   }
@@ -85,7 +86,7 @@ function DiffResults({ diff }: { diff: SchemaDiff }) {
       {diff.tablesOnlyInSource.length > 0 && (
         <DiffSection title={t("schema.crossConn.onlyInSource")}>
           {diff.tablesOnlyInSource.map((t) => (
-            <DiffItem key={t} label={t} color="var(--color-error,#ef4444)" />
+            <DiffItem key={t} label={t} color="text-destructive" />
           ))}
         </DiffSection>
       )}
@@ -93,7 +94,7 @@ function DiffResults({ diff }: { diff: SchemaDiff }) {
       {diff.tablesOnlyInTarget.length > 0 && (
         <DiffSection title={t("schema.crossConn.onlyInTarget")}>
           {diff.tablesOnlyInTarget.map((t) => (
-            <DiffItem key={t} label={t} color="var(--color-success,#22c55e)" />
+            <DiffItem key={t} label={t} color="text-success" />
           ))}
         </DiffSection>
       )}
@@ -102,17 +103,17 @@ function DiffResults({ diff }: { diff: SchemaDiff }) {
         <DiffSection title={t("schema.crossConn.columnDifferences")}>
           {diff.columnDiffs.map((cd) => (
             <div key={`${cd.schema}.${cd.table}`} className="mb-2">
-              <p className="text-sm font-medium" style={{ color: "var(--color-text)" }}>
+              <p className="text-sm font-medium text-foreground">
                 {cd.schema}.{cd.table}
               </p>
               {cd.columnsOnlyInSource.map((c) => (
-                <DiffItem key={c} label={`- ${c}`} color="var(--color-error,#ef4444)" />
+                <DiffItem key={c} label={`- ${c}`} color="text-destructive" />
               ))}
               {cd.columnsOnlyInTarget.map((c) => (
-                <DiffItem key={c} label={`+ ${c}`} color="var(--color-success,#22c55e)" />
+                <DiffItem key={c} label={`+ ${c}`} color="text-success" />
               ))}
               {cd.typeMismatches.map((m) => (
-                <p key={m.column} className="pl-4 text-xs" style={{ color: "var(--color-text-secondary)" }}>
+                <p key={m.column} className="pl-4 text-xs text-muted-foreground">
                   {m.column}: {m.sourceType} → {m.targetType}
                 </p>
               ))}
@@ -124,7 +125,7 @@ function DiffResults({ diff }: { diff: SchemaDiff }) {
       {diff.indexesOnlyInSource.length > 0 && (
         <DiffSection title={t("schema.crossConn.indexesOnlySource")}>
           {diff.indexesOnlyInSource.map((i) => (
-            <DiffItem key={i} label={i} color="var(--color-error,#ef4444)" />
+            <DiffItem key={i} label={i} color="text-destructive" />
           ))}
         </DiffSection>
       )}
@@ -132,7 +133,7 @@ function DiffResults({ diff }: { diff: SchemaDiff }) {
       {diff.indexesOnlyInTarget.length > 0 && (
         <DiffSection title={t("schema.crossConn.indexesOnlyTarget")}>
           {diff.indexesOnlyInTarget.map((i) => (
-            <DiffItem key={i} label={i} color="var(--color-success,#22c55e)" />
+            <DiffItem key={i} label={i} color="text-success" />
           ))}
         </DiffSection>
       )}
@@ -142,8 +143,8 @@ function DiffResults({ diff }: { diff: SchemaDiff }) {
 
 function DiffSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-[var(--radius-sm)] border p-3" style={{ borderColor: "var(--color-border)" }}>
-      <h4 className="mb-2 text-sm font-medium" style={{ color: "var(--color-text)" }}>{title}</h4>
+    <div className="rounded-sm border border-border p-3">
+      <h4 className="mb-2 text-sm font-medium text-foreground">{title}</h4>
       <div className="flex flex-col gap-1">{children}</div>
     </div>
   );
@@ -151,6 +152,6 @@ function DiffSection({ title, children }: { title: string; children: React.React
 
 function DiffItem({ label, color }: { label: string; color: string }) {
   return (
-    <p className="pl-2 text-xs font-mono" style={{ color }}>{label}</p>
+    <p className={cn("pl-2 text-xs font-mono", color)}>{label}</p>
   );
 }

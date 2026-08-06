@@ -8,16 +8,14 @@ interface FormCheckboxProps {
 export function FormCheckbox({ label, checked, onChange, disabled }: FormCheckboxProps) {
   return (
     <label
-      className="flex cursor-pointer items-center gap-2 text-sm"
-      style={{ color: "var(--color-text)" }}
+      className="flex cursor-pointer items-center gap-2 text-sm text-foreground"
     >
       <input
         type="checkbox"
         checked={checked}
         onChange={(e) => onChange(e.target.checked)}
         disabled={disabled}
-        className="h-4 w-4 rounded border accent-[var(--color-primary,#3b82f6)]"
-        style={{ borderColor: "var(--color-border)" }}
+        className="h-4 w-4 rounded border-border accent-primary"
       />
       {label}
     </label>

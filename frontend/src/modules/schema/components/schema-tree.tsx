@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button";
 import { useTranslation } from "@/commons/locales/useTranslation";
 import type { TreeNode } from "../types/schema.types";
 
@@ -20,10 +21,7 @@ export function SchemaTree({
 
   if (treeNodes.length === 0) {
     return (
-      <div
-        className="flex flex-1 items-center justify-center p-4 text-sm"
-        style={{ color: "var(--color-text-secondary)" }}
-      >
+      <div className="flex flex-1 items-center justify-center p-4 text-sm text-muted-foreground">
         {t("common.states.empty")}
       </div>
     );
@@ -85,22 +83,24 @@ function TreeNodeItem({
 
   return (
     <>
-      <button
-        className="flex w-full items-center gap-1.5 px-3 py-1 text-left text-sm transition-colors hover:bg-[var(--color-bg)]"
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className={`w-full justify-start gap-1.5 px-3 text-left text-sm ${
+          isSelected ? "bg-primary/10 text-primary" : "text-foreground"
+        }`}
         style={{
           paddingLeft: `${12 + depth * 16}px`,
-          backgroundColor: isSelected ? "var(--color-primary-light, rgba(59,130,246,0.1))" : undefined,
-          color: isSelected ? "var(--color-primary, #3b82f6)" : "var(--color-text)",
           fontWeight: node.type === "schema" ? 500 : 400,
         }}
         onClick={handleClick}
-        type="button"
       >
-        <span className="w-4 text-center text-xs" style={{ color: "var(--color-text-secondary)" }}>
+        <span className="w-4 text-center text-xs text-muted-foreground">
           {icon}
         </span>
         <span className="truncate">{node.label}</span>
-      </button>
+      </Button>
 
       {node.type === "schema" && isExpanded && node.children?.map((child) => (
         <TreeNodeItem

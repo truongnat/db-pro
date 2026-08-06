@@ -2,7 +2,8 @@ import { useMemo, useState } from "react";
 
 import { useConnectionStore } from "@/commons/stores/connection.store";
 import { useTranslation } from "@/commons/locales/useTranslation";
-import { cn } from "@/ui/lib/utils";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 
 import { useConnectionList, useConnect, useDeleteConnection, useDisconnect } from "../queries/connection.queries";
 import { useConnectionModuleStore } from "../state/connection.store";
@@ -58,7 +59,7 @@ export function ConnectionList({ onEdit, onBackup, onRestore }: ConnectionListPr
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <p style={{ color: "var(--color-text-secondary)" }}>{t("common.states.loading")}</p>
+        <p className="text-muted-foreground">{t("common.states.loading")}</p>
       </div>
     );
   }
@@ -66,8 +67,8 @@ export function ConnectionList({ onEdit, onBackup, onRestore }: ConnectionListPr
   if (error) {
     return (
       <div className="flex flex-col items-center gap-2 py-12">
-        <p style={{ color: "var(--color-error)" }}>{t("common.states.error")}</p>
-        <p className="text-sm" style={{ color: "var(--color-text-secondary)" }}>
+        <p className="text-destructive">{t("common.states.error")}</p>
+        <p className="text-sm text-muted-foreground">
           {(error as { userMessage?: string }).userMessage ?? (error as Error).message}
         </p>
       </div>
@@ -77,7 +78,7 @@ export function ConnectionList({ onEdit, onBackup, onRestore }: ConnectionListPr
   if (!connections?.length) {
     return (
       <div className="flex items-center justify-center py-12">
-        <p style={{ color: "var(--color-text-secondary)" }}>{t("common.states.empty")}</p>
+        <p className="text-muted-foreground">{t("common.states.empty")}</p>
       </div>
     );
   }
@@ -96,112 +97,116 @@ export function ConnectionList({ onEdit, onBackup, onRestore }: ConnectionListPr
         <div className="flex flex-wrap items-center gap-2">
           {uniqueGroups.length > 0 && (
             <div className="flex items-center gap-1">
-              <span className="text-xs" style={{ color: "var(--color-text-secondary)" }}>
+              <span className="text-xs text-muted-foreground">
                 {t("connection.group")}:
               </span>
               {filterGroup && (
-                <button
-                  className="rounded px-1.5 py-0.5 text-xs transition-colors hover:bg-[var(--color-surface)]"
-                  style={{ color: "var(--color-error)" }}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-auto px-1.5 py-0.5 text-xs text-destructive"
                   onClick={() => setFilterGroup(null)}
                 >
                   ×
-                </button>
+                </Button>
               )}
               {uniqueGroups.map((group) => (
-                <button
+                <Button
                   key={group}
+                  type="button"
+                  variant="ghost"
+                  size="sm"
                   className={cn(
-                    "rounded-full px-2 py-0.5 text-xs transition-colors",
-                    filterGroup === group && "ring-1",
+                    "h-auto rounded-full px-2 py-0.5 text-xs",
+                    filterGroup === group
+                      ? "bg-primary text-white hover:bg-primary/90"
+                      : "bg-card text-muted-foreground hover:bg-card",
                   )}
-                  style={{
-                    backgroundColor: filterGroup === group ? "var(--color-primary,#3b82f6)" : "var(--color-surface)",
-                    color: filterGroup === group ? "white" : "var(--color-text-secondary)",
-                  }}
                   onClick={() => setFilterGroup(filterGroup === group ? null : group)}
                 >
                   {group}
-                </button>
+                </Button>
               ))}
             </div>
           )}
           {uniqueTags.length > 0 && (
             <div className="flex items-center gap-1">
-              <span className="text-xs" style={{ color: "var(--color-text-secondary)" }}>
+              <span className="text-xs text-muted-foreground">
                 {t("connection.tags")}:
               </span>
               {filterTag && (
-                <button
-                  className="rounded px-1.5 py-0.5 text-xs transition-colors hover:bg-[var(--color-surface)]"
-                  style={{ color: "var(--color-error)" }}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-auto px-1.5 py-0.5 text-xs text-destructive"
                   onClick={() => setFilterTag(null)}
                 >
                   ×
-                </button>
+                </Button>
               )}
               {uniqueTags.map((tag) => (
-                <button
+                <Button
                   key={tag}
+                  type="button"
+                  variant="ghost"
+                  size="sm"
                   className={cn(
-                    "rounded-full border px-2 py-0.5 text-xs transition-colors",
-                    filterTag === tag && "ring-1",
+                    "h-auto rounded-full border px-2 py-0.5 text-xs",
+                    filterTag === tag
+                      ? "border-primary bg-primary text-white hover:bg-primary/90"
+                      : "border-border bg-transparent text-muted-foreground",
                   )}
-                  style={{
-                    borderColor: "var(--color-border)",
-                    backgroundColor: filterTag === tag ? "var(--color-primary,#3b82f6)" : "transparent",
-                    color: filterTag === tag ? "white" : "var(--color-text-secondary)",
-                  }}
                   onClick={() => setFilterTag(filterTag === tag ? null : tag)}
                 >
                   {tag}
-                </button>
+                </Button>
               ))}
             </div>
           )}
           {hasActiveFilters && (
-            <button
-              className="rounded px-2 py-0.5 text-xs transition-colors hover:bg-[var(--color-surface)]"
-              style={{ color: "var(--color-text-secondary)" }}
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-auto px-2 py-0.5 text-xs text-muted-foreground"
               onClick={() => {
                 setFilterTag(null);
                 setFilterGroup(null);
               }}
             >
               {t("common.actions.clear")}
-            </button>
+            </Button>
           )}
         </div>
       )}
 
       {filteredConnections.length === 0 ? (
         <div className="flex items-center justify-center py-12">
-          <p style={{ color: "var(--color-text-secondary)" }}>{t("common.states.empty")}</p>
+          <p className="text-muted-foreground">{t("common.states.empty")}</p>
         </div>
       ) : (
-        <div
-          className="overflow-hidden rounded-[var(--radius-md)] border"
-          style={{ borderColor: "var(--color-border)" }}
-        >
+        <div className="overflow-hidden rounded-md border border-border">
           <table className="w-full text-sm">
             <thead>
-              <tr style={{ backgroundColor: "var(--color-surface)" }}>
-                <th className="px-4 py-3 text-left font-medium" style={{ color: "var(--color-text-secondary)" }}>
+              <tr className="bg-card">
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">
                   {t("common.labels.name")}
                 </th>
-                <th className="px-4 py-3 text-left font-medium" style={{ color: "var(--color-text-secondary)" }}>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">
                   {t("common.labels.host")}
                 </th>
-                <th className="px-4 py-3 text-left font-medium" style={{ color: "var(--color-text-secondary)" }}>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">
                   {t("common.labels.database")}
                 </th>
-                <th className="px-4 py-3 text-left font-medium" style={{ color: "var(--color-text-secondary)" }}>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">
                   {t("common.labels.driver")}
                 </th>
-                <th className="px-4 py-3 text-left font-medium" style={{ color: "var(--color-text-secondary)" }}>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">
                   {t("common.states.status", "Status")}
                 </th>
-                <th className="px-4 py-3 text-right font-medium" style={{ color: "var(--color-text-secondary)" }}>
+                <th className="px-4 py-3 text-right font-medium text-muted-foreground">
                   {t("common.actions.actions", "Actions")}
                 </th>
               </tr>
@@ -213,10 +218,9 @@ export function ConnectionList({ onEdit, onBackup, onRestore }: ConnectionListPr
                   <tr
                     key={conn.id}
                     className={cn(
-                      "cursor-pointer border-t transition-colors hover:bg-[var(--color-surface)]",
-                      activeConnectionId === conn.id && "bg-[var(--color-surface)]",
+                      "cursor-pointer border-t border-border transition-colors hover:bg-card",
+                      activeConnectionId === conn.id && "bg-card",
                     )}
-                    style={{ borderColor: "var(--color-border)" }}
                     onClick={() => onEdit(conn.id)}
                   >
                     <td className="px-4 py-3">
@@ -227,37 +231,27 @@ export function ConnectionList({ onEdit, onBackup, onRestore }: ConnectionListPr
                             style={{ backgroundColor: conn.color }}
                           />
                         )}
-                        <span className="font-medium" style={{ color: "var(--color-text)" }}>
+                        <span className="font-medium text-foreground">
                           {conn.name}
                         </span>
                         {(conn.tags ?? []).map((tag) => (
                           <span
                             key={tag}
-                            className="rounded-full border px-1.5 py-0.5 text-[10px]"
-                            style={{
-                              borderColor: "var(--color-border)",
-                              color: "var(--color-text-secondary)",
-                            }}
+                            className="rounded-full border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground"
                           >
                             {tag}
                           </span>
                         ))}
                       </div>
                     </td>
-                    <td style={{ color: "var(--color-text-secondary)" }}>
+                    <td className="text-muted-foreground">
                       {conn.driver === "sqlite" ? conn.database : `${conn.host}:${conn.port}`}
                     </td>
-                    <td style={{ color: "var(--color-text-secondary)" }}>
+                    <td className="text-muted-foreground">
                       {conn.driver === "sqlite" ? "\u2014" : conn.database}
                     </td>
                     <td>
-                      <span
-                        className="rounded px-1.5 py-0.5 text-xs"
-                        style={{
-                          backgroundColor: "var(--color-bg)",
-                          color: "var(--color-text-secondary)",
-                        }}
-                      >
+                      <span className="rounded bg-background px-1.5 py-0.5 text-xs text-muted-foreground">
                         {conn.driver}
                       </span>
                     </td>
@@ -268,53 +262,65 @@ export function ConnectionList({ onEdit, onBackup, onRestore }: ConnectionListPr
                       <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
                         {status === "connected" ? (
                           <>
-                            <button
-                              className="rounded px-2 py-1 text-xs transition-colors hover:bg-[var(--color-bg)]"
-                              style={{ color: "var(--color-error)" }}
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-auto px-2 py-1 text-xs text-destructive"
                               onClick={() => disconnectMutation.mutate(conn.id)}
                               disabled={disconnectMutation.isPending}
                             >
                               {t("common.actions.disconnect")}
-                            </button>
+                            </Button>
                             {onBackup && (
-                              <button
-                                className="rounded px-2 py-1 text-xs transition-colors hover:bg-[var(--color-bg)]"
-                                style={{ color: "var(--color-primary,#3b82f6)" }}
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-auto px-2 py-1 text-xs text-primary"
                                 onClick={() => onBackup(conn.id)}
                               >
                                 {t("backup.title")}
-                              </button>
+                              </Button>
                             )}
                             {onRestore && (
-                              <button
-                                className="rounded px-2 py-1 text-xs transition-colors hover:bg-[var(--color-bg)]"
-                                style={{ color: "var(--color-text-secondary)" }}
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-auto px-2 py-1 text-xs text-muted-foreground"
                                 onClick={() => onRestore(conn.id)}
                               >
                                 {t("backup.restoreTitle")}
-                              </button>
+                              </Button>
                             )}
                           </>
                         ) : (
-                          <button
-                            className="rounded px-2 py-1 text-xs transition-colors hover:bg-[var(--color-bg)]"
-                            style={{ color: "var(--color-primary,#3b82f6)" }}
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-auto px-2 py-1 text-xs text-primary"
                             onClick={() => connectMutation.mutate(conn.id)}
                             disabled={status === "connecting"}
                           >
                             {t("common.actions.connect")}
-                          </button>
+                          </Button>
                         )}
-                        <button
-                          className="rounded px-2 py-1 text-xs transition-colors hover:bg-[var(--color-bg)]"
-                          style={{ color: "var(--color-text-secondary)" }}
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-auto px-2 py-1 text-xs text-muted-foreground"
                           onClick={() => onEdit(conn.id)}
                         >
                           {t("connection.edit")}
-                        </button>
-                        <button
-                          className="rounded px-2 py-1 text-xs transition-colors hover:bg-[var(--color-bg)]"
-                          style={{ color: "var(--color-error)" }}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-auto px-2 py-1 text-xs text-destructive"
                           onClick={() => {
                             if (confirm(t("connection.confirmDelete"))) {
                               deleteMutation.mutate(conn.id);
@@ -322,7 +328,7 @@ export function ConnectionList({ onEdit, onBackup, onRestore }: ConnectionListPr
                           }}
                         >
                           {t("common.actions.delete")}
-                        </button>
+                        </Button>
                       </div>
                     </td>
                   </tr>

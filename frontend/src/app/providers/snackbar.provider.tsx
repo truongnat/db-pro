@@ -73,10 +73,10 @@ export function useSnackbar(): SnackbarContextValue {
 }
 
 const VARIANT_STYLES: Record<SnackbarVariant, string> = {
-  success: "bg-[var(--color-success,#22c55e)] text-white",
-  error: "bg-[var(--color-error,#ef4444)] text-white",
-  warning: "bg-[var(--color-warning,#f59e0b)] text-white",
-  info: "bg-[var(--color-info,#3b82f6)] text-white",
+  success: "bg-success text-white",
+  error: "bg-destructive text-white",
+  warning: "bg-warning text-white",
+  info: "bg-info text-white",
 };
 
 function SnackbarItemComponent({
@@ -107,7 +107,7 @@ function SnackbarItemComponent({
     <div
       role="alert"
       aria-live="polite"
-      className={`px-4 py-3 rounded-[var(--radius-md)] shadow-lg min-w-[300px] max-w-[500px] cursor-pointer transition-all duration-200 ${VARIANT_STYLES[item.variant]}`}
+      className={`px-4 py-3 rounded-md shadow-lg min-w-[300px] max-w-[500px] cursor-pointer transition-all duration-200 ${VARIANT_STYLES[item.variant]}`}
       onClick={() => onDismiss(item.id)}
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}

@@ -1,5 +1,6 @@
 import { useState } from "react";
 
+import { Button } from "@/components/ui/button";
 import { useTranslation } from "@/commons/locales/useTranslation";
 
 import { useDiffTableData } from "../../queries/schema.queries";
@@ -19,7 +20,7 @@ export function DataDiffView({ sourceId, targetId }: DataDiffViewProps) {
   if (!sourceId || !targetId) {
     return (
       <div className="flex items-center justify-center py-12">
-        <p style={{ color: "var(--color-text-secondary)" }}>
+        <p className="text-muted-foreground">
           {t("schema.crossConn.selectTwo")}
         </p>
       </div>
@@ -34,57 +35,50 @@ export function DataDiffView({ sourceId, targetId }: DataDiffViewProps) {
           value={schema}
           onChange={(e) => setSchema(e.target.value)}
           placeholder={t("schema.crossConn.schemaName")}
-          className="rounded-[var(--radius-sm)] border px-3 py-2 text-sm"
-          style={{ borderColor: "var(--color-border)", color: "var(--color-text)" }}
+          className="rounded-sm border border-border px-3 py-2 text-sm text-foreground"
         />
         <input
           type="text"
           value={table}
           onChange={(e) => setTable(e.target.value)}
           placeholder={t("schema.crossConn.tableName")}
-          className="rounded-[var(--radius-sm)] border px-3 py-2 text-sm"
-          style={{ borderColor: "var(--color-border)", color: "var(--color-text)" }}
+          className="rounded-sm border border-border px-3 py-2 text-sm text-foreground"
         />
-        <button
-          className="rounded-[var(--radius-sm)] px-3 py-2 text-sm text-white"
-          style={{ backgroundColor: "var(--color-primary,#3b82f6)" }}
+        <Button
+          type="button"
           onClick={() => setEnabled(true)}
           disabled={isLoading || !schema || !table}
         >
           {isLoading ? t("common.states.loading") : t("schema.crossConn.compare")}
-        </button>
+        </Button>
       </div>
 
       {error && (
-        <div className="rounded-[var(--radius-sm)] px-3 py-2 text-sm" style={{ backgroundColor: "var(--color-error,#ef4444)", color: "white" }}>
+        <div className="rounded-sm bg-destructive px-3 py-2 text-sm text-white">
           {(error as Error).message}
         </div>
       )}
 
       {diff && (
-        <div className="rounded-[var(--radius-sm)] border p-4" style={{ borderColor: "var(--color-border)" }}>
-          <h4 className="mb-3 text-sm font-medium" style={{ color: "var(--color-text)" }}>
+        <div className="rounded-sm border border-border p-4">
+          <h4 className="mb-3 text-sm font-medium text-foreground">
             {diff.schema}.{diff.table}
           </h4>
           <div className="grid grid-cols-3 gap-4 text-sm">
             <div>
-              <p style={{ color: "var(--color-text-secondary)" }}>{t("schema.crossConn.sourceCount")}</p>
-              <p className="text-lg font-medium" style={{ color: "var(--color-text)" }}>{diff.sourceRowCount}</p>
+              <p className="text-muted-foreground">{t("schema.crossConn.sourceCount")}</p>
+              <p className="text-lg font-medium text-foreground">{diff.sourceRowCount}</p>
             </div>
             <div>
-              <p style={{ color: "var(--color-text-secondary)" }}>{t("schema.crossConn.targetCount")}</p>
-              <p className="text-lg font-medium" style={{ color: "var(--color-text)" }}>{diff.targetRowCount}</p>
+              <p className="text-muted-foreground">{t("schema.crossConn.targetCount")}</p>
+              <p className="text-lg font-medium text-foreground">{diff.targetRowCount}</p>
             </div>
             <div>
-              <p style={{ color: "var(--color-text-secondary)" }}>{t("schema.crossConn.difference")}</p>
+              <p className="text-muted-foreground">{t("schema.crossConn.difference")}</p>
               <p
-                className="text-lg font-medium"
-                style={{
-                  color:
-                    diff.rowCountDiff === 0
-                      ? "var(--color-success,#22c55e)"
-                      : "var(--color-error,#ef4444)",
-                }}
+                className={`text-lg font-medium ${
+                  diff.rowCountDiff === 0 ? "text-success" : "text-destructive"
+                }`}
               >
                 {diff.rowCountDiff > 0 ? "+" : ""}{diff.rowCountDiff}
               </p>

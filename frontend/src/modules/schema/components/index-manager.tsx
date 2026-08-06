@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
 
+import { Button } from "@/components/ui/button";
 import { useTranslation } from "@/commons/locales/useTranslation";
 
 import { useExecuteDdl } from "../queries/schema.queries";
@@ -58,11 +59,11 @@ export function IndexManager({
   return (
     <div className="flex flex-col gap-4 p-3">
       <div>
-        <h4 className="mb-2 text-xs font-semibold" style={{ color: "var(--color-text)" }}>
+        <h4 className="mb-2 text-xs font-semibold text-foreground">
           {t("schema.existingIndexes")}
         </h4>
         {indexes.length === 0 ? (
-          <p className="text-xs italic" style={{ color: "var(--color-text-secondary)" }}>
+          <p className="text-xs italic text-muted-foreground">
             {t("schema.noIndexes")}
           </p>
         ) : (
@@ -70,81 +71,64 @@ export function IndexManager({
             {indexes.map((idx) => (
               <div
                 key={idx.name}
-                className="group flex items-center justify-between rounded-[var(--radius-sm)] px-2 py-1 text-xs hover:bg-[var(--color-bg)]"
+                className="group flex items-center justify-between rounded-sm px-2 py-1 text-xs hover:bg-background"
               >
-                <span className="font-mono" style={{ color: "var(--color-text)" }}>
+                <span className="font-mono text-foreground">
                   {idx.name} ({idx.columns.join(", ")}){idx.unique ? " UNIQUE" : ""}
                 </span>
-                <button
+                <Button
                   type="button"
-                  className="opacity-0 transition-opacity group-hover:opacity-100"
-                  style={{ color: "var(--color-error, #ef4444)" }}
+                  variant="ghost"
+                  size="sm"
+                  className="text-destructive opacity-0 transition-opacity group-hover:opacity-100"
                   onClick={() => handleDrop(idx.name)}
                 >
                   {t("common.actions.delete")}
-                </button>
+                </Button>
               </div>
             ))}
           </div>
         )}
       </div>
 
-      <div
-        className="rounded-[var(--radius-sm)] border p-3"
-        style={{ borderColor: "var(--color-border)" }}
-      >
-        <h4 className="mb-2 text-xs font-semibold" style={{ color: "var(--color-text)" }}>
+      <div className="rounded-sm border border-border p-3">
+        <h4 className="mb-2 text-xs font-semibold text-foreground">
           {t("schema.createIndex")}
         </h4>
 
         <div className="space-y-2">
           <div>
-            <label className="mb-1 block text-xs" style={{ color: "var(--color-text-secondary)" }}>
+            <label className="mb-1 block text-xs text-muted-foreground">
               {t("schema.ddlIndexName")}
             </label>
             <input
               type="text"
               value={indexName}
               onChange={(e) => setIndexName(e.target.value)}
-              className="w-full rounded-[var(--radius-sm)] border px-2 py-1 text-xs outline-none focus:border-[var(--color-primary,#3b82f6)]"
-              style={{
-                borderColor: "var(--color-border)",
-                backgroundColor: "var(--color-bg)",
-                color: "var(--color-text)",
-              }}
+              className="w-full rounded-sm border border-border bg-background px-2 py-1 text-xs text-foreground outline-none focus:border-primary"
             />
           </div>
 
           <div>
-            <label className="mb-1 block text-xs" style={{ color: "var(--color-text-secondary)" }}>
+            <label className="mb-1 block text-xs text-muted-foreground">
               {t("schema.ddlIndexColumns")}
             </label>
             <div className="flex flex-wrap gap-1">
               {columns.map((col) => (
-                <button
+                <Button
                   key={col.name}
                   type="button"
-                  className="rounded-[var(--radius-sm)] border px-2 py-0.5 text-xs transition-colors"
-                  style={{
-                    borderColor: selectedColumns.includes(col.name)
-                      ? "var(--color-primary, #3b82f6)"
-                      : "var(--color-border)",
-                    backgroundColor: selectedColumns.includes(col.name)
-                      ? "var(--color-primary, #3b82f6)"
-                      : "var(--color-bg)",
-                    color: selectedColumns.includes(col.name)
-                      ? "white"
-                      : "var(--color-text)",
-                  }}
+                  size="sm"
+                  variant={selectedColumns.includes(col.name) ? "default" : "outline"}
                   onClick={() => toggleColumn(col.name)}
                 >
                   {col.name}
-                </button>
+                </Button>
               ))}
             </div>
           </div>
 
-          <label className="flex items-center gap-2 text-xs" style={{ color: "var(--color-text)" }}>
+          <label className="flex items-center gap-2 text-xs text-foreground">
             <input
               type="checkbox"
               checked={unique}
@@ -153,15 +137,14 @@ export function IndexManager({
             {t("schema.ddlUnique")}
           </label>
 
-          <button
+          <Button
             type="button"
+            size="sm"
             disabled={!indexName.trim() || selectedColumns.length === 0 || executeDdl.isPending}
-            className="rounded-[var(--radius-sm)] px-3 py-1.5 text-xs text-white disabled:opacity-50"
-            style={{ backgroundColor: "var(--color-primary, #3b82f6)" }}
             onClick={handleCreate}
           >
             {t("schema.createIndex")}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

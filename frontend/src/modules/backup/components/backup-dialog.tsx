@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { Button } from "@/components/ui/button";
+
 import type { BackupFormat } from "../types/backup.types";
 
 interface BackupDialogProps {
@@ -37,24 +39,14 @@ export function BackupDialog({
     >
       <form
         onSubmit={handleSubmit}
-        className="flex w-[28rem] flex-col gap-4 rounded-[var(--radius-md)] border p-6"
-        style={{
-          backgroundColor: "var(--color-bg)",
-          borderColor: "var(--color-border)",
-        }}
+        className="flex w-[28rem] flex-col gap-4 rounded-md border border-border bg-background p-6"
       >
-        <h2
-          className="text-lg font-semibold"
-          style={{ color: "var(--color-text)" }}
-        >
+        <h2 className="text-lg font-semibold text-foreground">
           {t("backup.title")}
         </h2>
 
         <label className="flex flex-col gap-1">
-          <span
-            className="text-sm"
-            style={{ color: "var(--color-text-secondary)" }}
-          >
+          <span className="text-sm text-muted-foreground">
             {t("backup.outputPath")}
           </span>
           <input
@@ -62,32 +54,19 @@ export function BackupDialog({
             value={outputPath}
             onChange={(e) => setOutputPath(e.target.value)}
             placeholder="/path/to/backup.sql"
-            className="rounded-[var(--radius-sm)] border px-3 py-2 text-sm"
-            style={{
-              backgroundColor: "var(--color-surface)",
-              borderColor: "var(--color-border)",
-              color: "var(--color-text)",
-            }}
+            className="rounded-sm border border-border bg-card px-3 py-2 text-sm text-foreground"
             autoFocus
           />
         </label>
 
         <label className="flex flex-col gap-1">
-          <span
-            className="text-sm"
-            style={{ color: "var(--color-text-secondary)" }}
-          >
+          <span className="text-sm text-muted-foreground">
             {t("backup.format")}
           </span>
           <select
             value={format}
             onChange={(e) => setFormat(e.target.value as BackupFormat)}
-            className="rounded-[var(--radius-sm)] border px-3 py-2 text-sm"
-            style={{
-              backgroundColor: "var(--color-surface)",
-              borderColor: "var(--color-border)",
-              color: "var(--color-text)",
-            }}
+            className="rounded-sm border border-border bg-card px-3 py-2 text-sm text-foreground"
           >
             <option value="plain">{t("backup.formatPlain")}</option>
             <option value="custom">{t("backup.formatCustom")}</option>
@@ -95,25 +74,15 @@ export function BackupDialog({
         </label>
 
         <div className="flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-[var(--radius-sm)] border px-4 py-2 text-sm transition-colors hover:bg-[var(--color-bg)]"
-            style={{
-              borderColor: "var(--color-border)",
-              color: "var(--color-text)",
-            }}
-          >
+          <Button type="button" variant="outline" onClick={onClose}>
             {t("common.actions.cancel")}
-          </button>
-          <button
+          </Button>
+          <Button
             type="submit"
             disabled={!outputPath.trim() || isPending}
-            className="rounded-[var(--radius-sm)] px-4 py-2 text-sm text-white transition-colors disabled:opacity-50"
-            style={{ backgroundColor: "var(--color-primary)" }}
           >
             {isPending ? t("backup.backupInProgress") : t("backup.startBackup")}
-          </button>
+          </Button>
         </div>
       </form>
     </div>
