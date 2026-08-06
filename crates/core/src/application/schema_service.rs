@@ -165,11 +165,11 @@ fn build_create_table_ddl(info: &TableInfo) -> String {
     }
 
     for fk in &info.foreign_keys {
+        let to_qualified = format!("{}.{}", quote_identifier(&fk.to_schema), quote_identifier(&fk.to_table));
         ddl.push_str(&format!(
-            "ALTER TABLE {qualified} ADD CONSTRAINT {} FOREIGN KEY ({}) REFERENCES {} ({});\n",
+            "ALTER TABLE {qualified} ADD CONSTRAINT {} FOREIGN KEY ({}) REFERENCES {to_qualified} ({});\n",
             quote_identifier(&fk.name),
             quote_identifier(&fk.from_column),
-            quote_identifier(&fk.to_table),
             quote_identifier(&fk.to_column)
         ));
     }
@@ -379,7 +379,7 @@ mod tests {
         };
 
         let ddl = build_create_table_ddl(&info);
-        assert!(ddl.contains("FOREIGN KEY (\"user_id\") REFERENCES \"users\" (\"id\")"));
+        assert!(ddl.contains("FOREIGN KEY (\"user_id\") REFERENCES \"public\".\"users\" (\"id\")"));
     }
 
     #[test]
