@@ -79,6 +79,11 @@ impl TableDataService {
         pk_columns: &[String],
         pk_values: &[CellValue],
     ) -> Result<u64, DbError> {
+        if pk_columns.is_empty() {
+            return Err(DbError::Validation(
+                "update requires a primary key".into(),
+            ));
+        }
         let handle = self.resolve_handle(connection_id)?;
         let (sql, params) = sql_builder::build_update(schema, table, columns, values, pk_columns, pk_values);
         self.connector.execute(&handle, &sql, &params).await
@@ -92,6 +97,11 @@ impl TableDataService {
         pk_columns: &[String],
         pk_values: &[CellValue],
     ) -> Result<u64, DbError> {
+        if pk_columns.is_empty() {
+            return Err(DbError::Validation(
+                "delete requires a primary key".into(),
+            ));
+        }
         let handle = self.resolve_handle(connection_id)?;
         let (sql, params) = sql_builder::build_delete(schema, table, pk_columns, pk_values);
         self.connector.execute(&handle, &sql, &params).await
@@ -232,5 +242,35 @@ mod tests {
         let fake_id = ConnectionId::new();
         let result = svc.fetch_rows(&fake_id, "public", "users", &[], &[], 50, 0).await;
         assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn update_row_rejects_empty_pk() {
+        let (conn_id, registry) = setup();
+        let connector = MockDbConnector::new();
+        let svc = TableDataService::new(Box::new(connector), registry);
+        let result = svc
+            .update_row(
+                &conn_id,
+                "public",
+                "users",
+                &["name".into()],
+                &[CellValue::Text("x".into())],
+                &[],
+                &[],
+            )
+            .await;
+        assert!(matches!(result, Err(DbError::Validation(_))));
+    }
+
+    #[tokio::test]
+    async fn delete_row_rejects_empty_pk() {
+        let (conn_id, registry) = setup();
+        let connector = MockDbConnector::new();
+        let svc = TableDataService::new(Box::new(connector), registry);
+        let result = svc
+            .delete_row(&conn_id, "public", "users", &[], &[])
+            .await;
+        assert!(matches!(result, Err(DbError::Validation(_))));
     }
 }

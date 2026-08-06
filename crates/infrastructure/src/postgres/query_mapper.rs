@@ -29,6 +29,54 @@ pub fn bind_params(params: &[QueryParam], args: &mut PgArguments) -> Result<(), 
     Ok(())
 }
 
+pub fn convert_placeholders(sql: &str) -> String {
+    let mut out = String::with_capacity(sql.len());
+    let mut param_idx = 0u32;
+    let mut chars = sql.chars().peekable();
+
+    while let Some(ch) = chars.next() {
+        match ch {
+            '\'' => {
+                out.push('\'');
+                while let Some(&c) = chars.peek() {
+                    out.push(c);
+                    chars.next();
+                    if c == '\'' {
+                        if chars.peek() == Some(&'\'') {
+                            out.push('\'');
+                            chars.next();
+                        } else {
+                            break;
+                        }
+                    }
+                }
+            }
+            '"' => {
+                out.push('"');
+                while let Some(&c) = chars.peek() {
+                    out.push(c);
+                    chars.next();
+                    if c == '"' {
+                        if chars.peek() == Some(&'"') {
+                            out.push('"');
+                            chars.next();
+                        } else {
+                            break;
+                        }
+                    }
+                }
+            }
+            '?' => {
+                param_idx += 1;
+                out.push_str(&format!("${param_idx}"));
+            }
+            _ => out.push(ch),
+        }
+    }
+
+    out
+}
+
 pub fn columns_from_describe(describe: &sqlx::Describe<sqlx::Postgres>) -> Vec<ColumnMeta> {
     describe
         .columns()
@@ -82,4 +130,55 @@ pub fn map_row(row: &sqlx::postgres::PgRow, columns: &[ColumnMeta]) -> Result<Ro
         cells.push(cell);
     }
     Ok(Row(cells))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn converts_basic_placeholders() {
+        assert_eq!(
+            convert_placeholders(r#"SELECT * FROM "users" WHERE "id" = ? LIMIT ? OFFSET ?"#),
+            r#"SELECT * FROM "users" WHERE "id" = $1 LIMIT $2 OFFSET $3"#,
+        );
+    }
+
+    #[test]
+    fn converts_insert_values() {
+        assert_eq!(
+            convert_placeholders(r#"INSERT INTO "t" ("a", "b") VALUES (?, ?)"#),
+            r#"INSERT INTO "t" ("a", "b") VALUES ($1, $2)"#,
+        );
+    }
+
+    #[test]
+    fn skips_question_mark_in_string_literal() {
+        assert_eq!(
+            convert_placeholders("SELECT * FROM t WHERE name = '?' AND id = ?"),
+            "SELECT * FROM t WHERE name = '?' AND id = $1",
+        );
+    }
+
+    #[test]
+    fn skips_question_mark_in_quoted_ident() {
+        assert_eq!(
+            convert_placeholders(r#"SELECT "?" FROM t WHERE id = ?"#),
+            r#"SELECT "?" FROM t WHERE id = $1"#,
+        );
+    }
+
+    #[test]
+    fn no_placeholders_returns_same_sql() {
+        let sql = r#"SELECT * FROM "users""#;
+        assert_eq!(convert_placeholders(sql), sql);
+    }
+
+    #[test]
+    fn handles_escaped_quotes_in_literal() {
+        assert_eq!(
+            convert_placeholders("SELECT * FROM t WHERE name = 'it''s?' AND id = ?"),
+            "SELECT * FROM t WHERE name = 'it''s?' AND id = $1",
+        );
+    }
 }
