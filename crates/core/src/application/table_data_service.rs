@@ -107,7 +107,7 @@ impl TableDataService {
         }
         let handle = self.resolve_handle(connection_id)?;
         let dialect = self.connector.dialect(&handle)?;
-        let (sql, params) = sql_builder::build_delete(dialect.as_ref(), schema, table, pk_columns, pk_values);
+        let (sql, params) = sql_builder::build_delete(dialect.as_ref(), schema, table, pk_columns, pk_values)?;
         self.connector.execute(&handle, &sql, &params).await
     }
 

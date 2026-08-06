@@ -66,14 +66,14 @@ pub fn build_select(
     let limit_ph = pw.next();
     let offset_ph = pw.next();
 
+    let pagination = dialect.pagination_clause(&limit_ph, &offset_ph);
+
     let sql = format!(
-        "SELECT * FROM {}.{}{}{} LIMIT {} OFFSET {}",
+        "SELECT * FROM {}.{}{}{}{pagination}",
         dialect.quote_identifier(schema),
         dialect.quote_identifier(table),
         where_clause,
         order_clause,
-        limit_ph,
-        offset_ph,
     );
 
     let mut all_params = params;
@@ -151,6 +151,13 @@ pub fn build_update(
             values.len()
         )));
     }
+    if pk_columns.is_empty() || pk_columns.len() != pk_values.len() {
+        return Err(DbError::Validation(format!(
+            "pk column count ({}) does not match pk value count ({})",
+            pk_columns.len(),
+            pk_values.len()
+        )));
+    }
     let mut pw = PlaceholderWriter::new(dialect);
     let set_parts: Vec<String> = columns
         .iter()
@@ -180,7 +187,14 @@ pub fn build_delete(
     table: &str,
     pk_columns: &[String],
     pk_values: &[CellValue],
-) -> (String, Vec<QueryParam>) {
+) -> Result<(String, Vec<QueryParam>), DbError> {
+    if pk_columns.is_empty() || pk_columns.len() != pk_values.len() {
+        return Err(DbError::Validation(format!(
+            "pk column count ({}) does not match pk value count ({})",
+            pk_columns.len(),
+            pk_values.len()
+        )));
+    }
     let mut pw = PlaceholderWriter::new(dialect);
     let pk_where: Vec<String> = pk_columns
         .iter()
@@ -195,7 +209,7 @@ pub fn build_delete(
     );
 
     let params = pk_values.iter().map(cell_to_param).collect();
-    (sql, params)
+    Ok((sql, params))
 }
 
 fn build_where(dialect: &dyn SqlDialect, filters: &[TableFilter]) -> (String, Vec<QueryParam>) {
@@ -395,7 +409,7 @@ mod tests {
     fn delete_with_composite_pk() {
         let pk_columns = vec!["order_id".into(), "product_id".into()];
         let pk_values = vec![CellValue::Int64(10), CellValue::Int64(20)];
-        let (sql, params) = build_delete(&QuestionDialect, "public", "order_items", &pk_columns, &pk_values);
+        let (sql, params) = build_delete(&QuestionDialect, "public", "order_items", &pk_columns, &pk_values).unwrap();
         assert_eq!(
             sql,
             r#"DELETE FROM "public"."order_items" WHERE "order_id" = ? AND "product_id" = ?"#
@@ -480,7 +494,7 @@ mod tests {
     fn dollar_n_delete() {
         let pk_columns = vec!["order_id".into(), "product_id".into()];
         let pk_values = vec![CellValue::Int64(10), CellValue::Int64(20)];
-        let (sql, params) = build_delete(&DollarNDialect, "public", "order_items", &pk_columns, &pk_values);
+        let (sql, params) = build_delete(&DollarNDialect, "public", "order_items", &pk_columns, &pk_values).unwrap();
         assert_eq!(
             sql,
             r#"DELETE FROM "public"."order_items" WHERE "order_id" = $1 AND "product_id" = $2"#
@@ -510,5 +524,120 @@ mod tests {
             &[CellValue::Int64(1)],
         );
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn delete_rejects_empty_pk() {
+        let result = build_delete(&QuestionDialect, "public", "users", &[], &[]);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn delete_rejects_pk_length_mismatch() {
+        let result = build_delete(
+            &QuestionDialect,
+            "public",
+            "users",
+            &["id".into(), "org_id".into()],
+            &[CellValue::Int64(1)],
+        );
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn update_rejects_empty_pk() {
+        let result = build_update(
+            &QuestionDialect,
+            "public",
+            "users",
+            &["name".into()],
+            &[CellValue::Text("x".into())],
+            &[],
+            &[],
+        );
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn update_rejects_pk_length_mismatch() {
+        let result = build_update(
+            &QuestionDialect,
+            "public",
+            "users",
+            &["name".into()],
+            &[CellValue::Text("x".into())],
+            &["id".into(), "org_id".into()],
+            &[CellValue::Int64(1)],
+        );
+        assert!(result.is_err());
+    }
+
+    struct BacktickDialect;
+    impl SqlDialect for BacktickDialect {
+        fn placeholder(&self, _index: usize) -> String {
+            "?".to_string()
+        }
+        fn quote_identifier(&self, name: &str) -> String {
+            let escaped = name.replace('`', "``");
+            format!("`{escaped}`")
+        }
+        fn pagination_clause(&self, limit_ph: &str, offset_ph: &str) -> String {
+            format!(" OFFSET {offset_ph} ROWS FETCH NEXT {limit_ph} ROWS ONLY")
+        }
+    }
+
+    #[test]
+    fn backtick_select_uses_backtick_quoting_and_custom_pagination() {
+        let (sql, params) = build_select(&BacktickDialect, "dbo", "users", &[], &[], 50, 0);
+        assert_eq!(
+            sql,
+            "SELECT * FROM `dbo`.`users` OFFSET ? ROWS FETCH NEXT ? ROWS ONLY"
+        );
+        assert_eq!(params.len(), 2);
+    }
+
+    #[test]
+    fn backtick_insert() {
+        let columns = vec!["name".into(), "email".into()];
+        let values = vec![CellValue::Text("bob".into()), CellValue::Text("bob@test.com".into())];
+        let (sql, params) = build_insert(&BacktickDialect, "dbo", "users", &columns, &values).unwrap();
+        assert_eq!(
+            sql,
+            "INSERT INTO `dbo`.`users` (`name`, `email`) VALUES (?, ?)"
+        );
+        assert_eq!(params.len(), 2);
+    }
+
+    #[test]
+    fn backtick_update_with_pk() {
+        let columns = vec!["name".into()];
+        let values = vec![CellValue::Text("alice2".into())];
+        let pk_columns = vec!["id".into()];
+        let pk_values = vec![CellValue::Int64(1)];
+        let (sql, params) = build_update(&BacktickDialect, "dbo", "users", &columns, &values, &pk_columns, &pk_values).unwrap();
+        assert_eq!(
+            sql,
+            "UPDATE `dbo`.`users` SET `name` = ? WHERE `id` = ?"
+        );
+        assert_eq!(params.len(), 2);
+    }
+
+    #[test]
+    fn backtick_delete() {
+        let pk_columns = vec!["id".into()];
+        let pk_values = vec![CellValue::Int64(1)];
+        let (sql, params) = build_delete(&BacktickDialect, "dbo", "users", &pk_columns, &pk_values).unwrap();
+        assert_eq!(
+            sql,
+            "DELETE FROM `dbo`.`users` WHERE `id` = ?"
+        );
+        assert_eq!(params.len(), 1);
+    }
+
+    #[test]
+    fn backtick_quoting_special_chars() {
+        let d = BacktickDialect;
+        assert_eq!(d.quote_identifier("table"), "`table`");
+        assert_eq!(d.quote_identifier("has`tick"), "`has``tick`");
     }
 }
