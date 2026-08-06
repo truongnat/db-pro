@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use db_pro_core::domain::connection::{ConnectionConfig, ConnectionHandle};
 use db_pro_core::domain::error::DbError;
-use db_pro_core::domain::query::{QueryParam, QueryResult};
+use db_pro_core::domain::query::{PlaceholderStyle, QueryParam, QueryResult};
 use db_pro_core::domain::schema::IntrospectResult;
 use db_pro_core::ports::DbConnector;
 use sqlx::{Executor as _, PgPool};
@@ -81,15 +81,14 @@ impl DbConnector for PostgresConnector {
         drop(pools);
 
         let future = async {
-            let sql = super::query_mapper::convert_placeholders(sql);
             let mut pg_args = sqlx::postgres::PgArguments::default();
             super::query_mapper::bind_params(params, &mut pg_args)?;
 
-            let describe = pool.describe(&sql).await.map_err(crate::error::from_sqlx)?;
+            let describe = pool.describe(sql).await.map_err(crate::error::from_sqlx)?;
             let columns = super::query_mapper::columns_from_describe(&describe);
 
             use futures_util::StreamExt;
-            let mut stream = sqlx::query_with(&sql, pg_args).fetch(&pool);
+            let mut stream = sqlx::query_with(sql, pg_args).fetch(&pool);
             let mut result_rows = Vec::with_capacity(max_rows.min(1024) as usize);
             while (result_rows.len() as u64) < max_rows {
                 let pg_row = match stream.next().await {
@@ -125,11 +124,10 @@ impl DbConnector for PostgresConnector {
         drop(pools);
 
         let future = async {
-            let sql = super::query_mapper::convert_placeholders(sql);
             let mut pg_args = sqlx::postgres::PgArguments::default();
             super::query_mapper::bind_params(params, &mut pg_args)?;
 
-            let result = sqlx::query_with(&sql, pg_args)
+            let result = sqlx::query_with(sql, pg_args)
                 .execute(&pool)
                 .await
                 .map_err(crate::error::from_sqlx)?;
@@ -171,5 +169,9 @@ impl DbConnector for PostgresConnector {
             .await
             .map_err(crate::error::from_sqlx)?;
         Ok(row.0)
+    }
+
+    fn placeholder_style(&self, _handle: &ConnectionHandle) -> PlaceholderStyle {
+        PlaceholderStyle::DollarN
     }
 }

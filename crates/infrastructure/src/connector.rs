@@ -5,7 +5,7 @@ use std::sync::RwLock;
 use async_trait::async_trait;
 use db_pro_core::domain::connection::{ConnectionConfig, ConnectionHandle, DriverType};
 use db_pro_core::domain::error::DbError;
-use db_pro_core::domain::query::{QueryParam, QueryResult};
+use db_pro_core::domain::query::{PlaceholderStyle, QueryParam, QueryResult};
 use db_pro_core::domain::schema::IntrospectResult;
 use db_pro_core::ports::DbConnector;
 
@@ -145,6 +145,14 @@ impl DbConnector for CompositeConnector {
         match driver {
             DriverType::Postgres => self.postgres.explain(&inner, sql).await,
             DriverType::SQLite => self.sqlite.explain(&inner, sql).await,
+        }
+    }
+
+    fn placeholder_style(&self, handle: &ConnectionHandle) -> PlaceholderStyle {
+        match self.driver_of(handle) {
+            Ok(DriverType::Postgres) => PlaceholderStyle::DollarN,
+            Ok(DriverType::SQLite) => PlaceholderStyle::Question,
+            Err(_) => PlaceholderStyle::Question,
         }
     }
 }

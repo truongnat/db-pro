@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use db_pro_core::domain::connection::{ConnectionConfig, ConnectionHandle};
 use db_pro_core::domain::error::DbError;
-use db_pro_core::domain::query::{QueryParam, QueryResult};
+use db_pro_core::domain::query::{PlaceholderStyle, QueryParam, QueryResult};
 use db_pro_core::domain::schema::IntrospectResult;
 use db_pro_core::ports::DbConnector;
 use std::collections::HashMap;
@@ -106,5 +106,9 @@ impl DbConnector for SQLiteConnector {
             .get(&handle.0)
             .ok_or_else(|| DbError::ConnectionFailed("handle not found".into()))?;
         entry.handle.explain(sql.into()).await
+    }
+
+    fn placeholder_style(&self, _handle: &ConnectionHandle) -> PlaceholderStyle {
+        PlaceholderStyle::Question
     }
 }
