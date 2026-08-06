@@ -27,31 +27,37 @@ pub fn run() {
                     .await
                     .expect("failed to initialize meta store");
 
-                let secret_store = Arc::new(KeyringVault::new("com.dbpro.app", secrets_dir).with_fallback());
+                let secret_store = {
+                    let vault = KeyringVault::new("com.dbpro.app", secrets_dir);
+                    #[cfg(debug_assertions)]
+                    let vault = vault.with_fallback();
+                    Arc::new(vault)
+                };
 
                 let registry = Arc::new(ConnectionRegistry::new());
+                let connector: Arc<CompositeConnector> = Arc::new(CompositeConnector::new());
 
                 let conn_service = ConnectionService::new(
-                    Box::new(CompositeConnector::new()),
+                    Box::new(Arc::clone(&connector)),
                     Box::new(meta_store.clone()),
                     Box::new(secret_store.clone()),
                     Arc::clone(&registry),
                 );
 
                 let query_service = QueryService::new(
-                    Box::new(CompositeConnector::new()),
+                    Box::new(Arc::clone(&connector)),
                     Box::new(meta_store.clone()),
                     Box::new(meta_store.clone()),
                     Arc::clone(&registry),
                 );
 
                 let schema_service = SchemaService::new(
-                    Box::new(CompositeConnector::new()),
+                    Box::new(Arc::clone(&connector)),
                     Box::new(meta_store.clone()),
                     Arc::clone(&registry),
                 );
 
-                let export_service = ExportService::new(Box::new(CompositeConnector::new()), Arc::clone(&registry));
+                let export_service = ExportService::new(Box::new(Arc::clone(&connector)), Arc::clone(&registry));
 
                 handle.manage(conn_service);
                 handle.manage(query_service);

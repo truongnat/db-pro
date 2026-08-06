@@ -93,11 +93,24 @@ impl ConnectionService {
         connection.config = config;
         connection.updated_at = chrono::Utc::now();
 
-        self.repo.save(&connection).await?;
+        let key = Self::secret_key(id);
+        let old_password = if password.is_some() {
+            self.secrets.retrieve_secret(&key).await?
+        } else {
+            None
+        };
 
         if let Some(pw) = password {
-            let key = Self::secret_key(id);
             self.secrets.store_secret(&key, pw).await?;
+        }
+
+        if let Err(e) = self.repo.save(&connection).await {
+            if let Some(old_pw) = old_password {
+                if let Err(restore_err) = self.secrets.store_secret(&key, &old_pw).await {
+                    tracing::error!("failed to restore previous secret after repo save failure: {restore_err}");
+                }
+            }
+            return Err(e);
         }
 
         Ok(())
