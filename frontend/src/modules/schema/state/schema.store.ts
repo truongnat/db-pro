@@ -3,6 +3,7 @@ import { create } from "zustand";
 import type { DetailTab } from "../types/schema.types";
 
 interface SchemaModuleState {
+  connectionId: string | null;
   selectedSchema: string | null;
   selectedTable: string | null;
   selectedNodeType: "table" | "view" | null;
@@ -22,6 +23,7 @@ interface SchemaModuleState {
 }
 
 const initialState = {
+  connectionId: null as string | null,
   selectedSchema: null,
   selectedTable: null,
   selectedNodeType: null as "table" | "view" | null,

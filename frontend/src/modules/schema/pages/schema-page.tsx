@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo } from "react";
 
 import { useConnectionStore } from "@/commons/stores/connection.store";
 import { useTranslation } from "@/commons/locales/useTranslation";
@@ -26,18 +26,17 @@ export function SchemaPage() {
   const setSelectedTable = useSchemaModuleStore((s) => s.setSelectedTable);
   const activeTab = useSchemaModuleStore((s) => s.activeTab);
   const setActiveTab = useSchemaModuleStore((s) => s.setActiveTab);
+  const storeConnectionId = useSchemaModuleStore((s) => s.connectionId);
 
   const introspect = useIntrospect(activeConnectionId);
   const invalidateCache = useInvalidateSchemaCache(activeConnectionId);
-  const resetStore = useSchemaModuleStore((s) => s.reset);
 
-  const prevConnectionId = useRef(activeConnectionId);
   useEffect(() => {
-    if (prevConnectionId.current !== activeConnectionId) {
-      prevConnectionId.current = activeConnectionId;
-      resetStore();
+    if (storeConnectionId !== activeConnectionId) {
+      useSchemaModuleStore.getState().reset();
+      useSchemaModuleStore.setState({ connectionId: activeConnectionId });
     }
-  }, [activeConnectionId, resetStore]);
+  }, [activeConnectionId, storeConnectionId]);
 
   const treeNodes = useMemo(() => {
     if (!introspect.data) return [];
