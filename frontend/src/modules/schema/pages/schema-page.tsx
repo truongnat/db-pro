@@ -55,8 +55,10 @@ export function SchemaPage() {
     );
   }, [introspect.data, searchQuery]);
 
+  const isStoreSynced = storeConnectionId === activeConnectionId;
+
   const selectedNodeId =
-    selectedSchema && selectedTable
+    isStoreSynced && selectedSchema && selectedTable
       ? `${selectedNodeType}:${selectedSchema}:${selectedTable}`
       : null;
 
@@ -133,9 +135,9 @@ export function SchemaPage() {
         <div className="flex flex-1 flex-col overflow-hidden">
           <SchemaDetailPanel
             connectionId={activeConnectionId}
-            schema={selectedSchema}
-            table={selectedTable}
-            nodeType={selectedNodeType}
+            schema={isStoreSynced ? selectedSchema : null}
+            table={isStoreSynced ? selectedTable : null}
+            nodeType={isStoreSynced ? selectedNodeType : null}
             activeTab={activeTab}
             onTabChange={setActiveTab}
           />
