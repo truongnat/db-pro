@@ -7,7 +7,7 @@
     <script>
       (function () {
         try {
-          var stored = JSON.parse(localStorage.getItem("db-client-theme"));
+          var stored = JSON.parse(localStorage.getItem("db-pro-theme"));
           var theme = stored && stored.state && stored.state.mode;
           if (theme) document.documentElement.setAttribute("data-theme", theme);
         } catch (e) {

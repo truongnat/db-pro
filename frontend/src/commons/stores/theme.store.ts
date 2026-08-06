@@ -17,7 +17,7 @@ export const useThemeStore = create<ThemeState>()(
       toggle: () => set((state) => ({ mode: state.mode === "light" ? "dark" : "light" })),
     }),
     {
-      name: "db-client-theme",
+      name: "db-pro-theme",
     },
   ),
 );
