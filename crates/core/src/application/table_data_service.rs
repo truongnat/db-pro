@@ -31,7 +31,7 @@ impl TableDataService {
         let handle = self.resolve_handle(connection_id)?;
         let dialect = self.connector.dialect(&handle)?;
 
-        let (select_sql, select_params) = sql_builder::build_select(dialect.as_ref(), schema, table, filters, sorts, limit, offset);
+        let (select_sql, select_params) = sql_builder::build_select(dialect.as_ref(), schema, table, filters, sorts, limit, offset)?;
         let (count_sql, count_params) = sql_builder::build_count(dialect.as_ref(), schema, table, filters);
 
         let count_result = self.connector.query(&handle, &count_sql, &count_params).await?;

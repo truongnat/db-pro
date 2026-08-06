@@ -58,7 +58,12 @@ pub fn build_select(
     sorts: &[SortClause],
     limit: u64,
     offset: u64,
-) -> (String, Vec<QueryParam>) {
+) -> Result<(String, Vec<QueryParam>), DbError> {
+    if dialect.pagination_requires_order_by() && sorts.is_empty() {
+        return Err(DbError::Validation(
+            "pagination requires an ORDER BY clause".into(),
+        ));
+    }
     let (where_clause, params) = build_where(dialect, filters);
     let order_clause = build_order(dialect, sorts);
     let mut pw = PlaceholderWriter::new(dialect);
@@ -80,7 +85,7 @@ pub fn build_select(
     all_params.push(QueryParam::Int64(limit as i64));
     all_params.push(QueryParam::Int64(offset as i64));
 
-    (sql, all_params)
+    Ok((sql, all_params))
 }
 
 pub fn build_count(
@@ -321,7 +326,7 @@ mod tests {
 
     #[test]
     fn select_no_filters_no_sorts() {
-        let (sql, params) = build_select(&QuestionDialect, "public", "users", &[], &[], 50, 0);
+        let (sql, params) = build_select(&QuestionDialect, "public", "users", &[], &[], 50, 0).unwrap();
         assert_eq!(sql, r#"SELECT * FROM "public"."users" LIMIT ? OFFSET ?"#);
         assert_eq!(params.len(), 2);
     }
@@ -344,7 +349,7 @@ mod tests {
             column: "name".into(),
             direction: SortDir::Asc,
         }];
-        let (sql, params) = build_select(&QuestionDialect, "public", "users", &filters, &sorts, 25, 50);
+        let (sql, params) = build_select(&QuestionDialect, "public", "users", &filters, &sorts, 25, 50).unwrap();
         assert_eq!(
             sql,
             r#"SELECT * FROM "public"."users" WHERE "name" = ? AND "age" >= ? ORDER BY "name" ASC LIMIT ? OFFSET ?"#
@@ -359,7 +364,7 @@ mod tests {
             op: FilterOp::IsNotNull,
             value: CellValue::Null,
         }];
-        let (sql, params) = build_select(&QuestionDialect, "public", "users", &filters, &[], 50, 0);
+        let (sql, params) = build_select(&QuestionDialect, "public", "users", &filters, &[], 50, 0).unwrap();
         assert_eq!(
             sql,
             r#"SELECT * FROM "public"."users" WHERE "email" IS NOT NULL LIMIT ? OFFSET ?"#
@@ -431,7 +436,7 @@ mod tests {
             SortClause { column: "last_name".into(), direction: SortDir::Asc },
             SortClause { column: "first_name".into(), direction: SortDir::Desc },
         ];
-        let (sql, _) = build_select(&QuestionDialect, "public", "users", &[], &sorts, 50, 0);
+        let (sql, _) = build_select(&QuestionDialect, "public", "users", &[], &sorts, 50, 0).unwrap();
         assert!(sql.contains(r#"ORDER BY "last_name" ASC, "first_name" DESC"#));
     }
 
@@ -442,7 +447,7 @@ mod tests {
             op: FilterOp::Like,
             value: CellValue::Text("%alice%".into()),
         }];
-        let (sql, params) = build_select(&QuestionDialect, "public", "users", &filters, &[], 50, 0);
+        let (sql, params) = build_select(&QuestionDialect, "public", "users", &filters, &[], 50, 0).unwrap();
         assert!(sql.contains(r#""name" LIKE ?"#));
         assert_eq!(params.len(), 3);
     }
@@ -456,7 +461,7 @@ mod tests {
                 value: CellValue::Text("alice".into()),
             },
         ];
-        let (sql, params) = build_select(&DollarNDialect, "public", "users", &filters, &[], 25, 50);
+        let (sql, params) = build_select(&DollarNDialect, "public", "users", &filters, &[], 25, 50).unwrap();
         assert_eq!(
             sql,
             r#"SELECT * FROM "public"."users" WHERE "name" = $1 LIMIT $2 OFFSET $3"#
@@ -572,8 +577,8 @@ mod tests {
         assert!(result.is_err());
     }
 
-    struct BacktickDialect;
-    impl SqlDialect for BacktickDialect {
+    struct MySqlDialect;
+    impl SqlDialect for MySqlDialect {
         fn placeholder(&self, _index: usize) -> String {
             "?".to_string()
         }
@@ -581,26 +586,41 @@ mod tests {
             let escaped = name.replace('`', "``");
             format!("`{escaped}`")
         }
+    }
+
+    struct SqlServerDialect;
+    impl SqlDialect for SqlServerDialect {
+        fn placeholder(&self, index: usize) -> String {
+            format!("${index}")
+        }
+        fn quote_identifier(&self, name: &str) -> String {
+            let escaped = name.replace(']', "]]");
+            format!("[{escaped}]")
+        }
         fn pagination_clause(&self, limit_ph: &str, offset_ph: &str) -> String {
             format!(" OFFSET {offset_ph} ROWS FETCH NEXT {limit_ph} ROWS ONLY")
+        }
+        fn pagination_requires_order_by(&self) -> bool {
+            true
         }
     }
 
     #[test]
-    fn backtick_select_uses_backtick_quoting_and_custom_pagination() {
-        let (sql, params) = build_select(&BacktickDialect, "dbo", "users", &[], &[], 50, 0);
+    fn mysql_select_uses_backtick_quoting() {
+        let sorts = vec![SortClause { column: "id".into(), direction: SortDir::Asc }];
+        let (sql, params) = build_select(&MySqlDialect, "dbo", "users", &[], &sorts, 50, 0).unwrap();
         assert_eq!(
             sql,
-            "SELECT * FROM `dbo`.`users` OFFSET ? ROWS FETCH NEXT ? ROWS ONLY"
+            "SELECT * FROM `dbo`.`users` ORDER BY `id` ASC LIMIT ? OFFSET ?"
         );
         assert_eq!(params.len(), 2);
     }
 
     #[test]
-    fn backtick_insert() {
+    fn mysql_insert() {
         let columns = vec!["name".into(), "email".into()];
         let values = vec![CellValue::Text("bob".into()), CellValue::Text("bob@test.com".into())];
-        let (sql, params) = build_insert(&BacktickDialect, "dbo", "users", &columns, &values).unwrap();
+        let (sql, params) = build_insert(&MySqlDialect, "dbo", "users", &columns, &values).unwrap();
         assert_eq!(
             sql,
             "INSERT INTO `dbo`.`users` (`name`, `email`) VALUES (?, ?)"
@@ -609,12 +629,12 @@ mod tests {
     }
 
     #[test]
-    fn backtick_update_with_pk() {
+    fn mysql_update_with_pk() {
         let columns = vec!["name".into()];
         let values = vec![CellValue::Text("alice2".into())];
         let pk_columns = vec!["id".into()];
         let pk_values = vec![CellValue::Int64(1)];
-        let (sql, params) = build_update(&BacktickDialect, "dbo", "users", &columns, &values, &pk_columns, &pk_values).unwrap();
+        let (sql, params) = build_update(&MySqlDialect, "dbo", "users", &columns, &values, &pk_columns, &pk_values).unwrap();
         assert_eq!(
             sql,
             "UPDATE `dbo`.`users` SET `name` = ? WHERE `id` = ?"
@@ -623,10 +643,10 @@ mod tests {
     }
 
     #[test]
-    fn backtick_delete() {
+    fn mysql_delete() {
         let pk_columns = vec!["id".into()];
         let pk_values = vec![CellValue::Int64(1)];
-        let (sql, params) = build_delete(&BacktickDialect, "dbo", "users", &pk_columns, &pk_values).unwrap();
+        let (sql, params) = build_delete(&MySqlDialect, "dbo", "users", &pk_columns, &pk_values).unwrap();
         assert_eq!(
             sql,
             "DELETE FROM `dbo`.`users` WHERE `id` = ?"
@@ -635,9 +655,33 @@ mod tests {
     }
 
     #[test]
-    fn backtick_quoting_special_chars() {
-        let d = BacktickDialect;
+    fn mysql_quoting_special_chars() {
+        let d = MySqlDialect;
         assert_eq!(d.quote_identifier("table"), "`table`");
         assert_eq!(d.quote_identifier("has`tick"), "`has``tick`");
+    }
+
+    #[test]
+    fn sqlserver_select_with_order_by() {
+        let sorts = vec![SortClause { column: "id".into(), direction: SortDir::Asc }];
+        let (sql, params) = build_select(&SqlServerDialect, "dbo", "users", &[], &sorts, 50, 0).unwrap();
+        assert_eq!(
+            sql,
+            "SELECT * FROM [dbo].[users] ORDER BY [id] ASC OFFSET $2 ROWS FETCH NEXT $1 ROWS ONLY"
+        );
+        assert_eq!(params.len(), 2);
+    }
+
+    #[test]
+    fn sqlserver_select_without_order_by_fails() {
+        let result = build_select(&SqlServerDialect, "dbo", "users", &[], &[], 50, 0);
+        assert!(matches!(result, Err(DbError::Validation(_))));
+    }
+
+    #[test]
+    fn sqlserver_quoting_special_chars() {
+        let d = SqlServerDialect;
+        assert_eq!(d.quote_identifier("table"), "[table]");
+        assert_eq!(d.quote_identifier("has]bracket"), "[has]]bracket]");
     }
 }
