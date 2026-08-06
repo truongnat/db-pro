@@ -5,6 +5,7 @@
 # Node
 frontend/node_modules/
 frontend/dist/
+frontend/src/routeTree.gen.ts
 node_modules
 
 # IDE
