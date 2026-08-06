@@ -131,6 +131,10 @@ impl ConnectionService {
     }
 
     pub async fn connect(&self, id: &ConnectionId) -> Result<ConnectionHandle, DbError> {
+        if self.registry.is_active(id) {
+            return Err(DbError::ConnectionFailed(format!("connection {id} is already active")));
+        }
+
         let connection = self
             .repo
             .get(id)
@@ -268,6 +272,23 @@ mod tests {
         let handle = svc.connect(&id).await.unwrap();
         assert_eq!(handle, ConnectionHandle(1));
         assert!(registry.is_active(&id));
+    }
+
+    #[tokio::test]
+    async fn connect_already_active_returns_error() {
+        let id = ConnectionId::new();
+        let registry = Arc::new(ConnectionRegistry::new());
+        registry.register(id, ConnectionHandle(1));
+
+        let svc = ConnectionService::new(
+            Box::new(MockDbConnector::new()),
+            Box::new(MockConnectionRepository::new()),
+            Box::new(MockSecretStore::new()),
+            Arc::clone(&registry),
+        );
+
+        let result = svc.connect(&id).await;
+        assert!(result.is_err());
     }
 
     #[tokio::test]

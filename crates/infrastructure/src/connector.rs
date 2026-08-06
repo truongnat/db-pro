@@ -78,20 +78,31 @@ impl DbConnector for CompositeConnector {
     }
 
     async fn disconnect(&self, handle: &ConnectionHandle) -> Result<(), DbError> {
-        let driver = self.handle_driver.read().unwrap().get(&handle.0).copied();
-        let inner = self.inner_handles.write().unwrap().remove(&handle.0);
-        self.handle_driver.write().unwrap().remove(&handle.0);
+        let driver = self
+            .handle_driver
+            .read()
+            .unwrap()
+            .get(&handle.0)
+            .copied()
+            .ok_or_else(|| DbError::ConnectionFailed(format!("unknown connection handle {}", handle.0)))?;
 
-        let inner = inner.ok_or_else(|| DbError::ConnectionFailed(format!("connection {} is not active", handle.0)))?;
+        let inner = self
+            .inner_handles
+            .read()
+            .unwrap()
+            .get(&handle.0)
+            .copied()
+            .ok_or_else(|| DbError::ConnectionFailed(format!("connection {} is not active", handle.0)))?;
 
         match driver {
-            Some(DriverType::Postgres) => self.postgres.disconnect(&inner).await,
-            Some(DriverType::SQLite) => self.sqlite.disconnect(&inner).await,
-            None => Err(DbError::ConnectionFailed(format!(
-                "unknown connection handle {}",
-                handle.0
-            ))),
+            DriverType::Postgres => self.postgres.disconnect(&inner).await?,
+            DriverType::SQLite => self.sqlite.disconnect(&inner).await?,
         }
+
+        self.handle_driver.write().unwrap().remove(&handle.0);
+        self.inner_handles.write().unwrap().remove(&handle.0);
+
+        Ok(())
     }
 
     async fn test_connection(&self, config: &ConnectionConfig, password: &str) -> Result<(), DbError> {
