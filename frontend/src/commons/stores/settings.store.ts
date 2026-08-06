@@ -43,6 +43,11 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     {
       name: "db-pro-settings",
+      onRehydrateStorage: () => (state) => {
+        if (state?.language) {
+          i18n.changeLanguage(state.language);
+        }
+      },
     },
   ),
 );

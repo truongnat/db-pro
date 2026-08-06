@@ -2,8 +2,11 @@ import { DIContainer } from "@/commons/di/container";
 import { SERVICE_NAMES } from "@/commons/di/registry";
 
 const container = new DIContainer();
+let bootstrapped = false;
 
 export async function bootstrapServices(): Promise<DIContainer> {
+  if (bootstrapped) return container;
+
   container.register(SERVICE_NAMES.CONNECTION_SERVICE, () => {
     throw new Error("ConnectionService not yet implemented (Phase 7)");
   });
@@ -21,6 +24,7 @@ export async function bootstrapServices(): Promise<DIContainer> {
   });
 
   container.freeze();
+  bootstrapped = true;
   return container;
 }
 

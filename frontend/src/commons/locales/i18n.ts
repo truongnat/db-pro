@@ -13,7 +13,6 @@ i18n
       en: { translation: en },
       ja: { translation: ja },
     },
-    lng: "en",
     fallbackLng: "en",
     interpolation: {
       escapeValue: false,
