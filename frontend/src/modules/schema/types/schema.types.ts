@@ -45,6 +45,7 @@ export interface SchemaForeignKeyDto {
 
 export interface ViewDto {
   name: string;
+  schema: string;
   definition: string;
 }
 
@@ -92,10 +93,9 @@ export function buildTreeData(
 
   const viewsBySchema = new Map<string, ViewDto[]>();
   for (const view of result.views) {
-    const schemaName = inferViewSchema(view.name, result.schemas);
-    const list = viewsBySchema.get(schemaName) ?? [];
+    const list = viewsBySchema.get(view.schema) ?? [];
     list.push(view);
-    viewsBySchema.set(schemaName, list);
+    viewsBySchema.set(view.schema, list);
   }
 
   const schemaNames = result.schemas.map((s) => s.name);
@@ -153,13 +153,6 @@ export function buildTreeData(
   }
 
   return nodes;
-}
-
-function inferViewSchema(
-  viewName: string,
-  schemas: SchemaDto[],
-): string {
-  return schemas.length > 0 ? schemas[0].name : "public";
 }
 
 export function sortColumnsForDisplay(

@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 
 import { useConnectionStore } from "@/commons/stores/connection.store";
 import { useTranslation } from "@/commons/locales/useTranslation";
@@ -29,6 +29,15 @@ export function SchemaPage() {
 
   const introspect = useIntrospect(activeConnectionId);
   const invalidateCache = useInvalidateSchemaCache(activeConnectionId);
+  const resetStore = useSchemaModuleStore((s) => s.reset);
+
+  const prevConnectionId = useRef(activeConnectionId);
+  useEffect(() => {
+    if (prevConnectionId.current !== activeConnectionId) {
+      prevConnectionId.current = activeConnectionId;
+      resetStore();
+    }
+  }, [activeConnectionId, resetStore]);
 
   const treeNodes = useMemo(() => {
     if (!introspect.data) return [];

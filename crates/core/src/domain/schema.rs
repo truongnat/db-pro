@@ -54,6 +54,7 @@ pub struct ForeignKey {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct View {
     pub name: String,
+    pub schema: String,
     pub definition: String,
 }
 

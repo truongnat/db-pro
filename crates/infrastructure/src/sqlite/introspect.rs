@@ -200,7 +200,7 @@ fn introspect_views(conn: &rusqlite::Connection) -> Result<Vec<View>, DbError> {
         .query_map([], |row| {
             let name: String = row.get(0)?;
             let definition: String = row.get(1)?;
-            Ok(View { name, definition })
+            Ok(View { name, schema: "main".into(), definition })
         })
         .map_err(crate::error::from_rusqlite)?
         .collect::<Result<Vec<_>, _>>()

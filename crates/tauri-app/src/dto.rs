@@ -424,6 +424,7 @@ impl From<ForeignKey> for SchemaForeignKeyDto {
 #[derive(Debug, Serialize)]
 pub struct ViewDto {
     pub name: String,
+    pub schema: String,
     pub definition: String,
 }
 
@@ -431,6 +432,7 @@ impl From<View> for ViewDto {
     fn from(v: View) -> Self {
         Self {
             name: v.name,
+            schema: v.schema,
             definition: v.definition,
         }
     }

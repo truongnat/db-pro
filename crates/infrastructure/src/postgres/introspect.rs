@@ -370,9 +370,10 @@ async fn introspect_views(pool: &sqlx::PgPool) -> Result<Vec<View>, DbError> {
     Ok(rows
         .into_iter()
         .map(|row| {
+            let schema: String = row.get("table_schema");
             let name: String = row.get("table_name");
             let definition: String = row.get("view_definition");
-            View { name, definition }
+            View { name, schema, definition }
         })
         .collect())
 }
