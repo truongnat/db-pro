@@ -42,5 +42,6 @@ fn parse_connection_id(id: &str) -> Result<db_pro_core::domain::connection::Conn
         message: format!("invalid connection id: {e}"),
         message_id: "error.validation".into(),
         details: None,
+        retryable: false,
     })
 }

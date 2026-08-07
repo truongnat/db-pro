@@ -181,7 +181,9 @@
       "name": "Name",
       "dataType": "Data Type",
       "nullable": "Nullable"
-    }
+    },
+    "statusRunning": "Running",
+    "largeResultWarning": "Large result set"
   },
   "schema": {
     "title": "Schema Browser",
@@ -334,10 +336,39 @@
     "csv": "Export as CSV",
     "json": "Export as JSON",
     "excel": "Export as Excel",
+    "sql": "Export as SQL",
     "success": "Export completed",
     "failed": "Export failed",
     "selectFormat": "Select format",
-    "exporting": "Exporting"
+    "exporting": "Exporting",
+    "scope": "Scope",
+    "allRows": "All rows",
+    "selectedRows": "Selected",
+    "delimiter": "Delimiter",
+    "includeHeaders": "Include headers",
+    "nullRepresentation": "NULL representation",
+    "tableName": "Table name",
+    "prettyPrint": "Pretty print"
+  },
+  "import": {
+    "title": "Import",
+    "selectFile": "Select File",
+    "mapColumns": "Map Columns",
+    "importResult": "Import Result",
+    "format": "Format",
+    "file": "File",
+    "hint": "Select a CSV or JSON file to import",
+    "rowsDetected": "{{count}} rows detected",
+    "skipColumn": "Skip column",
+    "mappedCount": "{{mapped}} of {{total}} columns mapped",
+    "backToFile": "Back to file",
+    "startImport": "Import",
+    "importing": "Importing...",
+    "importComplete": "Import complete",
+    "successCount": "{{count}} rows imported",
+    "errorCount": "{{count}} errors",
+    "errorColumn": "Column",
+    "errorMessage": "Message"
   },
   "settings": {
     "title": "Settings",

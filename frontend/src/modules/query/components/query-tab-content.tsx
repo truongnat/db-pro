@@ -14,6 +14,7 @@ import { LocalHistoryPanel } from "./local-history-panel";
 import { QueryContextStrip } from "./query-context-strip";
 import { QueryEditor } from "./query-editor";
 import { QueryHistoryPanel } from "./query-history-panel";
+import { QueryStatusBar } from "./query-status-bar";
 import { QueryToolbar } from "./query-toolbar";
 import { ResultGrid } from "./result-grid";
 import { ResultTabs } from "./result-tabs";
@@ -56,6 +57,8 @@ export function QueryTabContent({ tabId, onOpenRunConfig }: QueryTabContentProps
   const result = tabData?.result ?? null;
   const explainPlan = tabData?.explainPlan ?? null;
   const sort = tabData?.sort ?? { column: null, direction: null };
+  const timing = tabData?.timing ?? null;
+  const executionStartedAt = tabData?.executionStartedAt ?? null;
 
   const panelTab = tabData?.activePanel ?? "results";
   const [historySearch, setHistorySearch] = useState("");
@@ -360,6 +363,17 @@ export function QueryTabContent({ tabId, onOpenRunConfig }: QueryTabContentProps
         onClose={() => setExportOpen(false)}
         connectionId={tabConnectionId}
         sql={sql.trim()}
+        columns={result?.columns ?? []}
+        rows={sortedRows as Row[]}
+      />
+
+      <QueryStatusBar
+        tabId={tabId}
+        status={status}
+        executionStartedAt={executionStartedAt}
+        rowCount={result?.rowCount ?? 0}
+        timing={timing}
+        onCancel={handleCancel}
       />
 
       <input

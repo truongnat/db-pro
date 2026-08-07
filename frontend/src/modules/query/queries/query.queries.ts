@@ -8,9 +8,11 @@ import { useWorkspaceStore } from "@/commons/stores/workspace.store";
 import {
   setTabError,
   setTabExplainPlan,
+  setTabExecutionStartedAt,
   setTabMultiResults,
   setTabResult,
   setTabStatus,
+  setTabTiming,
 } from "../controllers/query-workspace.controller";
 import type {
   ExplainPlan,
@@ -21,6 +23,7 @@ import type {
   SavedQuery,
   SavedQueryFolder,
 } from "../types/query.types";
+import type { QueryTiming } from "@/commons/types/workspace.types";
 
 const QUERY_KEYS = {
   history: (connectionId: string) => ["query-history", connectionId] as const,
@@ -42,11 +45,26 @@ export function useExecuteQuery() {
     onMutate: (vars) => {
       setTabStatus(vars.tabId, "running");
       setTabError(vars.tabId, null);
+      setTabTiming(vars.tabId, null);
+      setTabExecutionStartedAt(vars.tabId, Date.now());
     },
     onSuccess: (data, variables) => {
+      const now = Date.now();
+      const tab = useWorkspaceStore.getState().tabs.find((t) => t.id === variables.tabId);
+      const startedAt =
+        tab?.kind === "query" ? (tab.data.executionStartedAt ?? now) : now;
+      const totalMs = now - startedAt;
+      const serverMs = data.durationMs;
+      const timing: QueryTiming = {
+        serverMs,
+        totalMs,
+        fetchMs: Math.max(0, totalMs - serverMs),
+        renderMs: 0,
+      };
       setTabStatus(variables.tabId, "success");
       setTabResult(variables.tabId, data);
-      const tab = useWorkspaceStore.getState().tabs.find((t) => t.id === variables.tabId);
+      setTabTiming(variables.tabId, timing);
+      setTabExecutionStartedAt(variables.tabId, null);
       const ctx = tab?.kind === "query" ? tab.data.context : null;
       useQueryHistoryStore.getState().addEntry({
         id: crypto.randomUUID(),
@@ -69,6 +87,7 @@ export function useExecuteQuery() {
         variables.tabId,
         (err as { userMessage?: string }).userMessage ?? "Query execution failed",
       );
+      setTabExecutionStartedAt(variables.tabId, null);
       const tab = useWorkspaceStore.getState().tabs.find((t) => t.id === variables.tabId);
       const ctx = tab?.kind === "query" ? tab.data.context : null;
       useQueryHistoryStore.getState().addEntry({
@@ -106,14 +125,29 @@ export function useExecuteQueryMulti() {
     onMutate: (vars) => {
       setTabStatus(vars.tabId, "running");
       setTabError(vars.tabId, null);
+      setTabTiming(vars.tabId, null);
+      setTabExecutionStartedAt(vars.tabId, Date.now());
     },
     onSuccess: (data, variables) => {
+      const now = Date.now();
+      const tab = useWorkspaceStore.getState().tabs.find((t) => t.id === variables.tabId);
+      const startedAt =
+        tab?.kind === "query" ? (tab.data.executionStartedAt ?? now) : now;
+      const totalMs = now - startedAt;
+      const serverMs = data.totalDurationMs;
+      const timing: QueryTiming = {
+        serverMs,
+        totalMs,
+        fetchMs: Math.max(0, totalMs - serverMs),
+        renderMs: 0,
+      };
       setTabStatus(variables.tabId, "success");
       setTabMultiResults(variables.tabId, data.results);
       if (data.results.length > 0) {
         setTabResult(variables.tabId, data.results[0]);
       }
-      const tab = useWorkspaceStore.getState().tabs.find((t) => t.id === variables.tabId);
+      setTabTiming(variables.tabId, timing);
+      setTabExecutionStartedAt(variables.tabId, null);
       const ctx = tab?.kind === "query" ? tab.data.context : null;
       useQueryHistoryStore.getState().addEntry({
         id: crypto.randomUUID(),
@@ -136,6 +170,7 @@ export function useExecuteQueryMulti() {
         variables.tabId,
         (err as { userMessage?: string }).userMessage ?? "Query execution failed",
       );
+      setTabExecutionStartedAt(variables.tabId, null);
       const tab = useWorkspaceStore.getState().tabs.find((t) => t.id === variables.tabId);
       const ctx = tab?.kind === "query" ? tab.data.context : null;
       useQueryHistoryStore.getState().addEntry({

@@ -20,6 +20,7 @@ pub struct CommandError {
     pub message: String,
     pub message_id: String,
     pub details: Option<serde_json::Value>,
+    pub retryable: bool,
 }
 
 impl std::fmt::Display for CommandError {
@@ -30,24 +31,12 @@ impl std::fmt::Display for CommandError {
 
 impl From<DbError> for CommandError {
     fn from(err: DbError) -> Self {
-        let (error, message_id) = match &err {
-            DbError::ConnectionFailed(_) => ("CONNECTION_FAILED", "error.connection.failed"),
-            DbError::QueryFailed(_) => ("QUERY_FAILED", "error.query.failed"),
-            DbError::NotFound(_) => ("NOT_FOUND", "error.not_found"),
-            DbError::AuthFailed(_) => ("AUTH_FAILED", "error.auth.failed"),
-            DbError::Timeout(_) => ("TIMEOUT", "error.timeout"),
-            DbError::Cancelled(_) => ("CANCELLED", "error.cancelled"),
-            DbError::Io(_) => ("IO_ERROR", "error.io"),
-            DbError::IntrospectionFailed(_) => ("INTROSPECTION_FAILED", "error.introspection.failed"),
-            DbError::EncryptionFailed(_) => ("ENCRYPTION_FAILED", "error.encryption.failed"),
-            DbError::Validation(_) => ("VALIDATION", "error.validation"),
-            DbError::Internal(_) => ("INTERNAL", "error.internal"),
-        };
         Self {
-            error: error.into(),
+            error: err.code().into(),
             message: err.to_string(),
-            message_id: message_id.into(),
+            message_id: err.message_id().into(),
             details: None,
+            retryable: err.retryable(),
         }
     }
 }

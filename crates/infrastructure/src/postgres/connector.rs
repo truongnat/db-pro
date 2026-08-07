@@ -127,7 +127,7 @@ impl DbConnector for PostgresConnector {
 
         tokio::time::timeout(timeout, future)
             .await
-            .map_err(|_| DbError::Timeout(format!("query timed out after {timeout:?}")))?
+            .map_err(|_| DbError::QueryTimeout { timeout_ms: timeout.as_millis() as u64 })?
     }
 
     async fn execute(&self, handle: &ConnectionHandle, sql: &str, params: &[QueryParam]) -> Result<u64, DbError> {
@@ -153,7 +153,7 @@ impl DbConnector for PostgresConnector {
 
         tokio::time::timeout(timeout, future)
             .await
-            .map_err(|_| DbError::Timeout(format!("execute timed out after {timeout:?}")))?
+            .map_err(|_| DbError::QueryTimeout { timeout_ms: timeout.as_millis() as u64 })?
     }
 
     async fn introspect(&self, handle: &ConnectionHandle) -> Result<IntrospectResult, DbError> {

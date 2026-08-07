@@ -181,7 +181,9 @@
       "name": "名前",
       "dataType": "データ型",
       "nullable": "NULL許可"
-    }
+    },
+    "statusRunning": "実行中",
+    "largeResultWarning": "大量の结果"
   },
   "schema": {
     "title": "スキーマブラウザ",
@@ -334,10 +336,39 @@
     "csv": "CSVでエクスポート",
     "json": "JSONでエクスポート",
     "excel": "Excelでエクスポート",
+    "sql": "SQLでエクスポート",
     "success": "エクスポート完了",
     "failed": "エクスポート失敗",
     "selectFormat": "形式を選択",
-    "exporting": "エクスポート中"
+    "exporting": "エクスポート中",
+    "scope": "範囲",
+    "allRows": "全行",
+    "selectedRows": "選択行",
+    "delimiter": "区切り文字",
+    "includeHeaders": "ヘッダーを含める",
+    "nullRepresentation": "NULL表現",
+    "tableName": "テーブル名",
+    "prettyPrint": "Pretty print"
+  },
+  "import": {
+    "title": "インポート",
+    "selectFile": "ファイルを選択",
+    "mapColumns": "カラムマッピング",
+    "importResult": "インポート結果",
+    "format": "形式",
+    "file": "ファイル",
+    "hint": "CSVまたはJSONファイルを選択してください",
+    "rowsDetected": "{{count}}行を検出しました",
+    "skipColumn": "スキップ",
+    "mappedCount": "{{total}}列中{{mapped}}列をマッピング",
+    "backToFile": "ファイルに戻る",
+    "startImport": "インポート",
+    "importing": "インポート中...",
+    "importComplete": "インポート完了",
+    "successCount": "{{count}}行をインポートしました",
+    "errorCount": "{{count}}件のエラー",
+    "errorColumn": "カラム",
+    "errorMessage": "メッセージ"
   },
   "settings": {
     "title": "設定",

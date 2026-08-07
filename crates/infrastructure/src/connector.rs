@@ -71,7 +71,7 @@ impl CompositeConnector {
     fn inner_handle(&self, handle: &ConnectionHandle) -> Result<ConnectionHandle, DbError> {
         self.inner_handles
             .read()
-            .unwrap()
+            .unwrap_or_else(|e| e.into_inner())
             .get(&handle.0)
             .copied()
             .ok_or_else(|| DbError::ConnectionFailed(format!("connection {} is not active", handle.0)))
@@ -80,7 +80,7 @@ impl CompositeConnector {
     fn driver_of(&self, handle: &ConnectionHandle) -> Result<DriverType, DbError> {
         self.handle_driver
             .read()
-            .unwrap()
+            .unwrap_or_else(|e| e.into_inner())
             .get(&handle.0)
             .copied()
             .ok_or_else(|| DbError::ConnectionFailed(format!("unknown connection handle {}", handle.0)))
@@ -135,9 +135,9 @@ impl DbConnector for CompositeConnector {
             };
 
             let id = self.next_id.fetch_add(1, Ordering::Relaxed);
-            self.handle_driver.write().unwrap().insert(id, driver);
-            self.inner_handles.write().unwrap().insert(id, inner_handle);
-            self.active_tunnels.write().unwrap().insert(id, tunnel);
+            self.handle_driver.write().unwrap_or_else(|e| e.into_inner()).insert(id, driver);
+            self.inner_handles.write().unwrap_or_else(|e| e.into_inner()).insert(id, inner_handle);
+            self.active_tunnels.write().unwrap_or_else(|e| e.into_inner()).insert(id, tunnel);
 
             return Ok(ConnectionHandle(id));
         }
@@ -154,8 +154,8 @@ impl DbConnector for CompositeConnector {
         };
 
         let id = self.next_id.fetch_add(1, Ordering::Relaxed);
-        self.handle_driver.write().unwrap().insert(id, driver);
-        self.inner_handles.write().unwrap().insert(id, inner_handle);
+        self.handle_driver.write().unwrap_or_else(|e| e.into_inner()).insert(id, driver);
+        self.inner_handles.write().unwrap_or_else(|e| e.into_inner()).insert(id, inner_handle);
 
         Ok(ConnectionHandle(id))
     }
@@ -164,7 +164,7 @@ impl DbConnector for CompositeConnector {
         let driver = self
             .handle_driver
             .read()
-            .unwrap()
+            .unwrap_or_else(|e| e.into_inner())
             .get(&handle.0)
             .copied()
             .ok_or_else(|| DbError::ConnectionFailed(format!("unknown connection handle {}", handle.0)))?;
@@ -172,7 +172,7 @@ impl DbConnector for CompositeConnector {
         let inner = self
             .inner_handles
             .read()
-            .unwrap()
+            .unwrap_or_else(|e| e.into_inner())
             .get(&handle.0)
             .copied()
             .ok_or_else(|| DbError::ConnectionFailed(format!("connection {} is not active", handle.0)))?;
@@ -182,9 +182,9 @@ impl DbConnector for CompositeConnector {
             DriverType::SQLite => self.sqlite.disconnect(&inner).await?,
         }
 
-        self.handle_driver.write().unwrap().remove(&handle.0);
-        self.inner_handles.write().unwrap().remove(&handle.0);
-        self.active_tunnels.write().unwrap().remove(&handle.0);
+        self.handle_driver.write().unwrap_or_else(|e| e.into_inner()).remove(&handle.0);
+        self.inner_handles.write().unwrap_or_else(|e| e.into_inner()).remove(&handle.0);
+        self.active_tunnels.write().unwrap_or_else(|e| e.into_inner()).remove(&handle.0);
 
         Ok(())
     }

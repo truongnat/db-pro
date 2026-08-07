@@ -5,6 +5,7 @@ import type {
   ExecutionStatus,
   QueryContext,
   QueryTabData,
+  QueryTiming,
   ResultPanelTab,
   SortState,
   WorkspaceTab,
@@ -133,4 +134,12 @@ export function setQueryTabConnection(
 
 export function setQueryTabSchema(tabId: string, schema: string | null): void {
   updateData(tabId, (data) => ({ ...data, context: { ...data.context, schema } }));
+}
+
+export function setTabTiming(tabId: string, timing: QueryTiming | null): void {
+  updateData(tabId, (data) => ({ ...data, timing }));
+}
+
+export function setTabExecutionStartedAt(tabId: string, at: number | null): void {
+  updateData(tabId, (data) => ({ ...data, executionStartedAt: at }));
 }

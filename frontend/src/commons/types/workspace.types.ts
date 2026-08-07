@@ -28,6 +28,20 @@ export interface QueryContext {
   schema: string | null;
 }
 
+/**
+ * Client-side timing breakdown for a query execution.
+ * - serverMs: time reported by the backend (DB execution)
+ * - totalMs: wall-clock time from submit to result received
+ * - fetchMs: totalMs - serverMs (network + serialization overhead)
+ * - renderMs: time to first render of the result grid
+ */
+export interface QueryTiming {
+  serverMs: number;
+  totalMs: number;
+  fetchMs: number;
+  renderMs: number;
+}
+
 export interface QueryTabData {
   context: QueryContext;
   sql: string;
@@ -39,6 +53,9 @@ export interface QueryTabData {
   multiResults: QueryResult[] | null;
   multiResultIndex: number;
   activePanel: ResultPanelTab;
+  timing: QueryTiming | null;
+  /** Timestamp (Date.now()) when the current execution started. */
+  executionStartedAt: number | null;
 }
 
 export type DbObjectSection = "data" | "columns" | "indexes" | "relations" | "ddl" | "triggers";

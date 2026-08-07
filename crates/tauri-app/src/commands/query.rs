@@ -23,10 +23,11 @@ pub async fn execute_query(
         _ = cancel_rx => {
             cancel_registry.unregister(&connection_id);
             return Err(CommandError {
-                error: "CANCELLED".into(),
+                error: "QUERY_CANCELLED".into(),
                 message: "Query was cancelled by user".into(),
-                message_id: "error.cancelled".into(),
+                message_id: "error.query.cancelled".into(),
                 details: None,
+                retryable: false,
             });
         }
     };
@@ -107,6 +108,7 @@ pub async fn delete_saved_query(service: State<'_, QueryService>, id: String) ->
         message: format!("invalid query id: {e}"),
         message_id: "error.validation".into(),
         details: None,
+        retryable: false,
     })?;
     service.delete_saved_query(&uuid).await?;
     Ok(())
@@ -140,6 +142,7 @@ pub async fn delete_folder(service: State<'_, QueryService>, id: String) -> Resu
         message: format!("invalid folder id: {e}"),
         message_id: "error.validation".into(),
         details: None,
+        retryable: false,
     })?;
     service.delete_folder(&uuid).await?;
     Ok(())
@@ -178,6 +181,7 @@ pub async fn delete_run_config(service: State<'_, QueryService>, id: String) -> 
         message: format!("invalid run config id: {e}"),
         message_id: "error.validation".into(),
         details: None,
+        retryable: false,
     })?;
     service.delete_run_config(&uuid).await?;
     Ok(())
@@ -189,5 +193,6 @@ fn parse_connection_id(id: &str) -> Result<ConnectionId, CommandError> {
         message: format!("invalid connection id: {e}"),
         message_id: "error.validation".into(),
         details: None,
+        retryable: false,
     })
 }

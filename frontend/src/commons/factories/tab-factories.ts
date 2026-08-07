@@ -39,6 +39,8 @@ function defaultQueryData(): QueryTabData {
     multiResults: null,
     multiResultIndex: 0,
     activePanel: "results",
+    timing: null,
+    executionStartedAt: null,
   };
 }
 

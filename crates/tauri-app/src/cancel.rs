@@ -18,13 +18,13 @@ impl CancelRegistry {
         let (tx, rx) = oneshot::channel();
         self.inner
             .lock()
-            .unwrap()
+            .unwrap_or_else(|e| e.into_inner())
             .insert(connection_id.to_string(), tx);
         rx
     }
 
     pub fn cancel(&self, connection_id: &str) -> bool {
-        let mut guard = self.inner.lock().unwrap();
+        let mut guard = self.inner.lock().unwrap_or_else(|e| e.into_inner());
         if let Some(tx) = guard.remove(connection_id) {
             let _ = tx.send(());
             true
@@ -34,7 +34,7 @@ impl CancelRegistry {
     }
 
     pub fn unregister(&self, connection_id: &str) {
-        self.inner.lock().unwrap().remove(connection_id);
+        self.inner.lock().unwrap_or_else(|e| e.into_inner()).remove(connection_id);
     }
 }
 

@@ -20,6 +20,7 @@ pub async fn get_connection(
         message: format!("invalid connection id: {e}"),
         message_id: "error.validation".into(),
         details: None,
+        retryable: false,
     })?;
     let connection = service.get(&conn_id).await?;
     Ok(connection.map(Into::into))
@@ -48,6 +49,7 @@ pub async fn update_connection(
         message: format!("invalid connection id: {e}"),
         message_id: "error.validation".into(),
         details: None,
+        retryable: false,
     })?;
     let domain_config = config.to_domain();
     service.update(&conn_id, domain_config, password.as_deref()).await?;
@@ -61,6 +63,7 @@ pub async fn delete_connection(service: State<'_, ConnectionService>, id: String
         message: format!("invalid connection id: {e}"),
         message_id: "error.validation".into(),
         details: None,
+        retryable: false,
     })?;
     service.delete(&conn_id).await?;
     Ok(())
@@ -81,6 +84,7 @@ pub async fn test_connection(
                 message: format!("invalid connection id: {e}"),
                 message_id: "error.validation".into(),
                 details: None,
+                retryable: false,
             })?;
             service
                 .test_connectivity_with_secret(&conn_id, &domain_config, &password)
@@ -98,6 +102,7 @@ pub async fn connect(service: State<'_, ConnectionService>, id: String) -> Resul
         message: format!("invalid connection id: {e}"),
         message_id: "error.validation".into(),
         details: None,
+        retryable: false,
     })?;
     service.connect(&conn_id).await?;
     Ok(())
@@ -110,6 +115,7 @@ pub async fn disconnect(service: State<'_, ConnectionService>, id: String) -> Re
         message: format!("invalid connection id: {e}"),
         message_id: "error.validation".into(),
         details: None,
+        retryable: false,
     })?;
     service.disconnect(&conn_id).await?;
     Ok(())

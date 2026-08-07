@@ -88,4 +88,96 @@ export const BUILT_IN_SNIPPETS: Snippet[] = [
     body: "JOIN $cursor ON ",
     builtIn: true,
   },
+  // Diagnostic queries (PostgreSQL)
+  {
+    trigger: "pgsize",
+    label: "DB Size (PG)",
+    body: "SELECT pg_size_pretty(pg_database_size(current_database())) AS database_size;",
+    builtIn: true,
+  },
+  {
+    trigger: "pgts",
+    label: "Table Sizes (PG)",
+    body: `SELECT
+  schemaname,
+  tablename,
+  pg_size_pretty(pg_total_relation_size(schemaname || '.' || tablename)) AS total_size,
+  pg_size_pretty(pg_relation_size(schemaname || '.' || tablename)) AS data_size,
+  pg_size_pretty(pg_indexes_size(schemaname || '.' || tablename::regclass)) AS index_size
+FROM pg_tables
+WHERE schemaname NOT IN ('pg_catalog', 'information_schema')
+ORDER BY pg_total_relation_size(schemaname || '.' || tablename) DESC
+LIMIT 50;`,
+    builtIn: true,
+  },
+  {
+    trigger: "pgsess",
+    label: "Active Sessions (PG)",
+    body: `SELECT
+  pid,
+  usename AS username,
+  datname AS database,
+  state,
+  query_start,
+  NOW() - query_start AS duration,
+  LEFT(query, 100) AS query
+FROM pg_stat_activity
+WHERE state != 'idle'
+ORDER BY query_start DESC;`,
+    builtIn: true,
+  },
+  {
+    trigger: "pgidx",
+    label: "Index Usage (PG)",
+    body: `SELECT
+  schemaname,
+  tablename,
+  indexname,
+  idx_scan AS scans,
+  idx_tup_read AS tuples_read,
+  idx_tup_fetch AS tuples_fetched
+FROM pg_stat_user_indexes
+ORDER BY idx_scan DESC;`,
+    builtIn: true,
+  },
+  {
+    trigger: "pglock",
+    label: "Locks (PG)",
+    body: `SELECT
+  l.pid,
+  l.mode,
+  l.granted,
+  a.usename,
+  a.query
+FROM pg_locks l
+JOIN pg_stat_activity a ON l.pid = a.pid
+WHERE NOT l.granted
+ORDER BY a.query_start;`,
+    builtIn: true,
+  },
+  // Diagnostic queries (SQLite)
+  {
+    trigger: "slsize",
+    label: "Table Sizes (SQLite)",
+    body: `SELECT
+  name AS table_name,
+  (SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = m.name) AS exists_flag
+FROM sqlite_master m
+WHERE type = 'table'
+ORDER BY name;`,
+    builtIn: true,
+  },
+  {
+    trigger: "slidx",
+    label: "Indexes (SQLite)",
+    body: `SELECT
+  m.name AS table_name,
+  i.name AS index_name,
+  i.sql AS index_sql
+FROM sqlite_master i
+JOIN sqlite_master m ON i.tbl_name = m.name
+WHERE i.type = 'index'
+ORDER BY m.name, i.name;`,
+    builtIn: true,
+  },
 ];

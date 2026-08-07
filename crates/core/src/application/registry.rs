@@ -21,14 +21,14 @@ impl ConnectionRegistry {
     }
 
     pub fn register(&self, id: ConnectionId, handle: ConnectionHandle) {
-        let mut map = self.inner.write().expect("registry lock poisoned");
+        let mut map = self.inner.write().unwrap_or_else(|e| e.into_inner());
         map.insert(id, handle);
     }
 
     /// Atomically register `handle` for `id`, or return the existing handle
     /// if another caller already registered it.
     pub fn register_or_get(&self, id: ConnectionId, handle: ConnectionHandle) -> RegisterResult {
-        let mut map = self.inner.write().expect("registry lock poisoned");
+        let mut map = self.inner.write().unwrap_or_else(|e| e.into_inner());
         if let Some(&existing) = map.get(&id) {
             return RegisterResult::Existing(existing);
         }
@@ -37,22 +37,22 @@ impl ConnectionRegistry {
     }
 
     pub fn unregister(&self, id: &ConnectionId) -> Option<ConnectionHandle> {
-        let mut map = self.inner.write().expect("registry lock poisoned");
+        let mut map = self.inner.write().unwrap_or_else(|e| e.into_inner());
         map.remove(id)
     }
 
     pub fn get(&self, id: &ConnectionId) -> Option<ConnectionHandle> {
-        let map = self.inner.read().expect("registry lock poisoned");
+        let map = self.inner.read().unwrap_or_else(|e| e.into_inner());
         map.get(id).copied()
     }
 
     pub fn is_active(&self, id: &ConnectionId) -> bool {
-        let map = self.inner.read().expect("registry lock poisoned");
+        let map = self.inner.read().unwrap_or_else(|e| e.into_inner());
         map.contains_key(id)
     }
 
     pub fn active_count(&self) -> usize {
-        let map = self.inner.read().expect("registry lock poisoned");
+        let map = self.inner.read().unwrap_or_else(|e| e.into_inner());
         map.len()
     }
 }
