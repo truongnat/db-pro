@@ -1,3 +1,5 @@
+import { createQueryTab, type CreateQueryTabOptions } from "@/commons/factories/tab-factories";
+import { useConnectionStore } from "@/commons/stores/connection.store";
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
 import type {
   ExecutionStatus,
@@ -7,9 +9,14 @@ import type {
   SortState,
   WorkspaceTab,
 } from "@/commons/types/workspace.types";
+import type { Connection } from "@/modules/connection/types/connection.types";
 import type { ExplainPlan, QueryResult } from "@/modules/query/types/query.types";
 
 type QueryWorkspaceTab = Omit<WorkspaceTab, "data"> & { data: QueryTabData };
+
+function getKnownConnections(): { id: string; database: string }[] {
+  return useConnectionStore.getState().connections as Connection[];
+}
 
 export function getActiveQueryTab(): QueryWorkspaceTab | undefined {
   const { tabs, activeTabId } = useWorkspaceStore.getState();
@@ -42,6 +49,27 @@ export function createExplorerQueryContext(
   explorerConnectionId: string | null,
 ): QueryContext {
   return buildQueryContext(connections, explorerConnectionId, null);
+}
+
+export function createQueryTabFromExplorerContext(
+  explorerConnectionId: string | null,
+  options?: CreateQueryTabOptions,
+): (WorkspaceTab & { kind: "query" }) | undefined {
+  if (!explorerConnectionId) return undefined;
+  const context = createExplorerQueryContext(
+    getKnownConnections(),
+    explorerConnectionId,
+  );
+  return createQueryTab(explorerConnectionId, { ...options, context });
+}
+
+export function createQueryTabForObject(
+  connectionId: string,
+  schema: string,
+  options?: CreateQueryTabOptions,
+): WorkspaceTab & { kind: "query" } {
+  const context = buildQueryContext(getKnownConnections(), connectionId, schema);
+  return createQueryTab(connectionId, { ...options, context });
 }
 
 function updateData(

@@ -1,7 +1,6 @@
 import type { AnyRouter } from "@tanstack/react-router";
 
 import { dispatchQueryAction } from "@/commons/commands/query-dispatch";
-import { createQueryTab } from "@/commons/factories/tab-factories";
 import { requestCloseTab } from "@/commons/services/request-close-tab";
 import { useCloseGuardStore } from "@/commons/stores/close-guard.store";
 import { useConnectionStore } from "@/commons/stores/connection.store";
@@ -9,6 +8,7 @@ import { useCommandStore } from "@/commons/stores/command.store";
 import { useRecentStore } from "@/commons/stores/recent.store";
 import { useShellStore } from "@/commons/stores/shell.store";
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
+import { createQueryTabFromExplorerContext } from "@/modules/query/controllers/query-workspace.controller";
 import type { QueryTabData, WorkspaceTab } from "@/commons/types/workspace.types";
 
 let registered = false;
@@ -108,7 +108,8 @@ export function registerAllCommands(router: AnyRouter): void {
       execute: () => {
         const connectionId = useConnectionStore.getState().explorerConnectionId;
         if (!connectionId) return;
-        useWorkspaceStore.getState().openTab(createQueryTab(connectionId));
+        const tab = createQueryTabFromExplorerContext(connectionId);
+        if (tab) useWorkspaceStore.getState().openTab(tab);
       },
     },
     {
@@ -191,7 +192,8 @@ export function registerAllCommands(router: AnyRouter): void {
         const { tabs, openTab, activateTab } = useWorkspaceStore.getState();
         const existing = tabs.find((t) => t.kind === "query" && t.connectionId === connectionId);
         if (!existing) {
-          openTab(createQueryTab(connectionId));
+          const tab = createQueryTabFromExplorerContext(connectionId);
+          if (tab) openTab(tab);
         } else {
           activateTab(existing.id);
         }

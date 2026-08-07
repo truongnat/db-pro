@@ -14,6 +14,8 @@ import { useSchemaCatalogStore } from "@/modules/query/stores/schema-catalog.sto
 
 import { setQueryTabConnection, setQueryTabSchema } from "../controllers/query-workspace.controller";
 
+const DEFAULT_SCHEMA = "__default__";
+
 interface QueryContextStripProps {
   tabId: string;
   connectionId: string | null;
@@ -34,10 +36,6 @@ export function QueryContextStrip({ tabId, connectionId, context }: QueryContext
     const next = connections?.find((c) => c.id === nextId);
     if (!next || next.id === connectionId) return;
     setQueryTabConnection(tabId, next.id, { database: next.database, schema: null });
-  };
-
-  const handleSchemaChange = (schema: string) => {
-    setQueryTabSchema(tabId, schema === "" ? null : schema);
   };
 
   return (
@@ -63,12 +61,17 @@ export function QueryContextStrip({ tabId, connectionId, context }: QueryContext
         </span>
       )}
       {schemas.length > 0 && (
-        <Select value={context.schema ?? ""} onValueChange={handleSchemaChange}>
+        <Select
+          value={context.schema ?? DEFAULT_SCHEMA}
+          onValueChange={(value) =>
+            setQueryTabSchema(tabId, value === DEFAULT_SCHEMA ? null : value)
+          }
+        >
           <SelectTrigger className="h-6 w-auto max-w-[180px] rounded-sm border px-2 py-0 text-xs">
             <SelectValue placeholder={t("query.contextDefaultSchema")} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">{t("query.contextDefaultSchema")}</SelectItem>
+            <SelectItem value={DEFAULT_SCHEMA}>{t("query.contextDefaultSchema")}</SelectItem>
             {schemas.map((schema) => (
               <SelectItem key={schema.name} value={schema.name}>
                 {schema.name}

@@ -22,7 +22,11 @@ function getConnectionService() {
 export function useConnectionList() {
   return useQuery({
     queryKey: QUERY_KEYS.connections,
-    queryFn: () => getConnectionService().list() as Promise<Connection[]>,
+    queryFn: async () => {
+      const connections = (await getConnectionService().list()) as Connection[];
+      useConnectionStore.getState().setConnections(connections);
+      return connections;
+    },
   });
 }
 

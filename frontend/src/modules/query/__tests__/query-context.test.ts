@@ -1,7 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import type { AnyRouter } from "@tanstack/react-router";
 
+import { registerAllCommands, resetCommandRegistration } from "@/commons/commands/register-commands";
 import { createQueryTab } from "@/commons/factories/tab-factories";
 import { migratePersistedWorkspace } from "@/commons/services/workspace-migrations";
+import { useCommandStore } from "@/commons/stores/command.store";
 import { useConnectionStore } from "@/commons/stores/connection.store";
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
 import type { QueryTabData, WorkspaceTab } from "@/commons/types/workspace.types";
@@ -9,8 +12,9 @@ import { useTabGridStateStore } from "@/modules/data-grid/state/tab-grid-state.s
 import type { ExplainPlan, QueryResult } from "../types/query.types";
 
 import {
-  buildQueryContext,
   createExplorerQueryContext,
+  createQueryTabForObject,
+  createQueryTabFromExplorerContext,
   setQueryTabConnection,
   setQueryTabSchema,
   setTabExplainPlan,
@@ -47,6 +51,7 @@ function resetStores() {
     isLoading: false,
     error: null,
   });
+  useCommandStore.setState({ commands: [], isOpen: false });
 }
 
 describe("per-tab query context (UX-R7.1)", () => {
@@ -63,19 +68,56 @@ describe("per-tab query context (UX-R7.1)", () => {
       });
     });
 
-    it("creates a query tab carrying the inherited context", () => {
-      const context = createExplorerQueryContext(CONNECTIONS, "local");
-      const tab = createQueryTab("local", { context });
-      useWorkspaceStore.getState().openTab(tab);
+    it("creates a query tab from the explorer context primitive", () => {
+      useConnectionStore.setState({ connections: CONNECTIONS, explorerConnectionId: "local" });
 
-      const opened = queryTabById(tab.id);
-      expect(opened?.connectionId).toBe("local");
-      expect(opened?.data.context).toEqual({ database: "local_db", schema: null });
+      const tab = createQueryTabFromExplorerContext("local");
+
+      expect(tab).toBeDefined();
+      expect(tab?.connectionId).toBe("local");
+      expect(tab?.data.context).toEqual({ database: "local_db", schema: null });
+    });
+
+    it("returns undefined without an explorer connection", () => {
+      const tab = createQueryTabFromExplorerContext(null);
+      expect(tab).toBeUndefined();
     });
 
     it("defaults to unbound context when no context is provided", () => {
       const tab = createQueryTab("local");
       expect(tab.data.context).toEqual({ database: null, schema: null });
+    });
+  });
+
+  describe("tabs.new command integration", () => {
+    it("opens a query tab that inherits the explorer context", () => {
+      useConnectionStore.setState({ connections: CONNECTIONS, explorerConnectionId: "local" });
+      resetCommandRegistration();
+      registerAllCommands({} as AnyRouter);
+
+      useCommandStore.getState().executeCommand("tabs.new");
+
+      const state = useWorkspaceStore.getState();
+      expect(state.tabs).toHaveLength(1);
+      expect(state.activeTabId).toBe(state.tabs[0].id);
+      const opened = queryTabById(state.tabs[0].id);
+      expect(opened?.connectionId).toBe("local");
+      expect(opened?.data.context).toEqual({ database: "local_db", schema: null });
+    });
+
+    it("nav.query reuses an existing tab instead of duplicating", () => {
+      useConnectionStore.setState({ connections: CONNECTIONS, explorerConnectionId: "local" });
+      resetCommandRegistration();
+      registerAllCommands({} as AnyRouter);
+
+      useCommandStore.getState().executeCommand("tabs.new");
+      const firstId = useWorkspaceStore.getState().tabs[0].id;
+
+      useCommandStore.getState().executeCommand("nav.query");
+
+      const state = useWorkspaceStore.getState();
+      expect(state.tabs).toHaveLength(1);
+      expect(state.activeTabId).toBe(firstId);
     });
   });
 
@@ -124,19 +166,26 @@ describe("per-tab query context (UX-R7.1)", () => {
   });
 
   describe("object → Open SELECT", () => {
-    it("inherits connection and schema from the db object", () => {
-      const context = buildQueryContext(CONNECTIONS, "production", "public");
-      expect(context).toEqual({ database: "prod_db", schema: "public" });
+    it("resolves connection, database and schema through the real creation path", () => {
+      useConnectionStore.setState({ connections: CONNECTIONS, explorerConnectionId: "local" });
 
-      const tab = createQueryTab("production", {
+      const tab = createQueryTabForObject("production", "public", {
         title: "SELECT users",
         sql: 'SELECT * FROM "public"."users" LIMIT 100;',
-        context,
       });
 
       expect(tab.connectionId).toBe("production");
       expect(tab.data.context).toEqual({ database: "prod_db", schema: "public" });
       expect(tab.data.sql).toContain('"users"');
+    });
+
+    it("keeps database null when the connection is not yet known", () => {
+      useConnectionStore.setState({ connections: [], explorerConnectionId: null });
+
+      const tab = createQueryTabForObject("production", "public", { sql: "SELECT 1" });
+
+      expect(tab.connectionId).toBe("production");
+      expect(tab.data.context).toEqual({ database: null, schema: "public" });
     });
   });
 

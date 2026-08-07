@@ -2,7 +2,7 @@ import { useState } from "react";
 
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
 import { useTranslation } from "@/commons/locales/useTranslation";
-import { createQueryTab } from "@/commons/factories/tab-factories";
+import { createQueryTabForObject } from "@/modules/query/controllers/query-workspace.controller";
 
 import { useTableInfo, useTableDdl } from "@/modules/schema/queries/schema.queries";
 import { ColumnList } from "@/modules/schema/components/column-list";
@@ -52,9 +52,8 @@ export function DbObjectTabContent({
   if (!connectionId) return null;
 
   const openQueryTab = (sql: string, title: string) => {
-    useWorkspaceStore.getState().openTab(
-      createQueryTab(connectionId, { title, sql, context: { database: null, schema } }),
-    );
+    const tab = createQueryTabForObject(connectionId, schema, { title, sql });
+    useWorkspaceStore.getState().openTab(tab);
   };
 
   const handleRefresh = () => {
