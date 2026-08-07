@@ -66,7 +66,7 @@ export function CommandPalette() {
         >
           <Command.Input
             placeholder={t("commandPalette.placeholder")}
-            className="flex h-10 w-full border-b border-border bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+            className="flex h-10 w-full border-b border-[var(--app-border-subtle)] bg-transparent text-sm outline-none placeholder:text-[var(--app-text-dim)]"
           />
           <Command.List className="max-h-[400px] overflow-y-auto overflow-x-hidden py-2">
             <Command.Empty className="px-3 py-6 text-center text-sm text-muted-foreground">
@@ -87,7 +87,7 @@ export function CommandPalette() {
                     {cmd.icon && <cmd.icon className="h-4 w-4" />}
                     <span>{t(cmd.labelKey)}</span>
                     {cmd.keybinding && (
-                      <kbd className="ml-auto pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+                      <kbd className="ml-auto pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-[var(--app-border-strong)] bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
                         {formatKeybinding(cmd.keybinding)}
                       </kbd>
                     )}

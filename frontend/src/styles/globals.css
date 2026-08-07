@@ -307,3 +307,31 @@
 [data-density="comfortable"] {
   --grid-row-height: var(--grid-row-height-comfortable);
 }
+
+/* ── IDE motion utilities ────────────────────────────────────── */
+
+.ide-transition-fast {
+  transition-duration: var(--motion-fast);
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ide-transition-default {
+  transition-duration: var(--motion-default);
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ide-transition-panel {
+  transition-duration: var(--motion-panel);
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ── Dark theme scrollbar refinement ─────────────────────────── */
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.15);
+  border-radius: 4px;
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.25);
+}

@@ -21,7 +21,7 @@ export function TabScrollLeft({ canScrollLeft, onScrollLeft }: Pick<TabScrollCon
       type="button"
       variant="ghost"
       size="icon"
-      className="h-full shrink-0 rounded-none border-r border-border px-1"
+      className="h-full shrink-0 rounded-none border-r border-[var(--app-border-subtle)] px-1"
       onClick={onScrollLeft}
       aria-label="Scroll tabs left"
       title="Scroll left"
@@ -38,7 +38,7 @@ export function TabScrollRight({ canScrollRight, onScrollRight }: Pick<TabScroll
       type="button"
       variant="ghost"
       size="icon"
-      className="h-full shrink-0 rounded-none border-l border-border px-1"
+      className="h-full shrink-0 rounded-none border-l border-[var(--app-border-subtle)] px-1"
       onClick={onScrollRight}
       aria-label="Scroll tabs right"
       title="Scroll right"
@@ -63,7 +63,7 @@ export function TabOverflowMenu({ isOverflowing }: Pick<TabScrollControlsProps, 
           type="button"
           variant="ghost"
           size="icon"
-          className="h-full shrink-0 rounded-none border-l border-border px-1"
+          className="h-full shrink-0 rounded-none border-l border-[var(--app-border-subtle)] px-1"
           aria-label="Show all tabs"
           title="Show all tabs"
         >

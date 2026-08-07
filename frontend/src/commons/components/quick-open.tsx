@@ -218,7 +218,7 @@ export function QuickOpen() {
             placeholder={t("quickOpen.placeholder")}
             value={query}
             onValueChange={setQuery}
-            className="flex h-10 w-full border-b border-border bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+            className="flex h-10 w-full border-b border-[var(--app-border-subtle)] bg-transparent text-sm outline-none placeholder:text-[var(--app-text-dim)]"
             autoFocus
           />
           <Command.List className="max-h-[400px] overflow-y-auto overflow-x-hidden py-2">

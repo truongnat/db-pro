@@ -6,7 +6,6 @@
 //! Run with: `cargo test --package db-pro-infrastructure --test integration`
 
 use db_pro_core::domain::connection::{ConnectionConfig, DriverType, SslMode};
-use db_pro_core::domain::query::QueryParam;
 use db_pro_infrastructure::sqlite::connector::SQLiteConnector;
 use db_pro_core::ports::DbConnector;
 
@@ -41,7 +40,8 @@ async fn setup_fixture() -> (SQLiteConnector, db_pro_core::domain::connection::C
     let fixture_sql = std::fs::read_to_string(FIXTURE_PATH)
         .unwrap_or_else(|e| panic!("failed to read fixture at {FIXTURE_PATH}: {e}"));
 
-    for statement in fixture_sql.split(';') {
+    // Split SQL into statements, respecting BEGIN...END blocks (triggers).
+    for statement in split_sql_statements(&fixture_sql) {
         let trimmed = statement.trim();
         if trimmed.is_empty() {
             continue;
@@ -335,7 +335,9 @@ async fn update_row() {
         .query(&handle, "SELECT name FROM categories WHERE id = 1", &[])
         .await
         .unwrap();
-    assert_eq!(result.rows[0].0[0], db_pro_core::domain::query::CellValue::Text("Gadgets".into()));
+    // Verify the value via serialization.
+    let json = serde_json::to_value(&result.rows[0].0[0]).unwrap();
+    assert_eq!(json, serde_json::json!({"type": "text", "value": "Gadgets"}));
 }
 
 #[tokio::test]
