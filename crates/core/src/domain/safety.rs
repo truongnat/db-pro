@@ -101,7 +101,7 @@ fn is_delete_without_where(sql: &str) -> bool {
 
 /// For WITH (CTE) statements, find the main keyword after the CTE definitions.
 fn classify_cte_safety(sql: &str) -> Option<StatementSafety> {
-    let upper = sql.to_ascii_uppercase();
+    let _upper = sql.to_ascii_uppercase();
     let trimmed = sql.trim();
     let chars: Vec<char> = trimmed.chars().collect();
     let len = chars.len();
