@@ -21,7 +21,7 @@ export interface WorkspaceTabBase {
   order: number;
 }
 
-export type ResultPanelTab = "results" | "explain" | "history" | "local-history";
+export type ResultPanelTab = "results" | "explain" | "history" | "local-history" | "snippets";
 
 export interface QueryContext {
   database: string | null;
@@ -60,6 +60,7 @@ export type WorkspaceTab = {
 }[WorkspaceTabKind];
 
 export interface PersistedWorkspaceState {
+  workspaceVersion: number;
   tabs: WorkspaceTab[];
   activeTabId: string | null;
   recentlyClosed: WorkspaceTab[];

@@ -1,7 +1,8 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-import { migratePersistedWorkspace } from "@/commons/services/workspace-migrations";
+import { migrateWorkspace, CURRENT_WORKSPACE_VERSION } from "@/commons/services/workspace-migrations";
+import { useConnectionStore } from "@/commons/stores/connection.store";
 import type { DbObjectSection, PersistedWorkspaceState, QueryContext, QueryTabData, WorkspaceTab } from "@/commons/types/workspace.types";
 import { useTabGridStateStore } from "@/modules/data-grid/state/tab-grid-state.store";
 
@@ -46,6 +47,7 @@ function gcGridState() {
 export const useWorkspaceStore = create<WorkspaceState>()(
   persist(
     (set, get) => ({
+      workspaceVersion: CURRENT_WORKSPACE_VERSION,
       tabs: [],
       activeTabId: null,
       recentlyClosed: [],
@@ -310,6 +312,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
     {
       name: "db-pro-workspace",
       partialize: (state) => ({
+        workspaceVersion: CURRENT_WORKSPACE_VERSION,
         tabs: state.tabs.map((t) =>
           t.kind === "query"
             ? { ...t, data: { ...t.data, result: null, explainPlan: null, status: "idle" as const, error: null, multiResults: null } }
@@ -320,9 +323,43 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       }),
       onRehydrateStorage: () => (state) => {
         if (!state) return;
-        const migrated = migratePersistedWorkspace(state.tabs);
-        if (migrated !== state.tabs) {
-          useWorkspaceStore.setState({ tabs: [...migrated] });
+
+        // Run versioned migrations
+        const persisted: PersistedWorkspaceState = {
+          workspaceVersion: state.workspaceVersion ?? 0,
+          tabs: state.tabs,
+          activeTabId: state.activeTabId,
+          recentlyClosed: state.recentlyClosed ?? [],
+        };
+        const migrated = migrateWorkspace(persisted);
+
+        // Validate connections — remove tabs referencing dead connections
+        const connectionStore = useConnectionStore.getState();
+        const validConnectionIds = new Set(
+          (connectionStore.connections as { id: string }[]).map((c) => c.id),
+        );
+        // Always allow null connectionId (not-yet-assigned query tabs)
+        validConnectionIds.add("");
+
+        const validTabs = migrated.tabs.filter(
+          (t) => !t.connectionId || validConnectionIds.has(t.connectionId),
+        );
+        const orphaned = migrated.tabs.length - validTabs.length;
+
+        if (validTabs.length !== migrated.tabs.length || migrated.workspaceVersion !== persisted.workspaceVersion) {
+          useWorkspaceStore.setState({
+            workspaceVersion: CURRENT_WORKSPACE_VERSION,
+            tabs: validTabs,
+            activeTabId:
+              migrated.activeTabId && validTabs.find((t) => t.id === migrated.activeTabId)
+                ? migrated.activeTabId
+                : validTabs[0]?.id ?? null,
+            recentlyClosed: migrated.recentlyClosed,
+          });
+        }
+
+        if (orphaned > 0) {
+          console.info(`[workspace] Removed ${orphaned} orphaned tab(s) with invalid connections`);
         }
       },
     },
