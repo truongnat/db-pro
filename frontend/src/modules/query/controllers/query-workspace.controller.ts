@@ -1,6 +1,7 @@
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
 import type {
   ExecutionStatus,
+  QueryContext,
   QueryTabData,
   ResultPanelTab,
   SortState,
@@ -21,6 +22,26 @@ export function getQueryTabData(tabId: string): QueryTabData | undefined {
   const { tabs } = useWorkspaceStore.getState();
   const tab = tabs.find((t) => t.id === tabId && t.kind === "query");
   return tab ? (tab.data as QueryTabData) : undefined;
+}
+
+export function getQueryContext(tabId: string): QueryContext | undefined {
+  return getQueryTabData(tabId)?.context;
+}
+
+export function buildQueryContext(
+  connections: { id: string; database: string }[],
+  connectionId: string | null,
+  schema: string | null,
+): QueryContext {
+  const conn = connections.find((c) => c.id === connectionId);
+  return { database: conn?.database ?? null, schema };
+}
+
+export function createExplorerQueryContext(
+  connections: { id: string; database: string }[],
+  explorerConnectionId: string | null,
+): QueryContext {
+  return buildQueryContext(connections, explorerConnectionId, null);
 }
 
 function updateData(
@@ -72,4 +93,16 @@ export function setTabMultiResultIndex(tabId: string, index: number): void {
 
 export function setTabActivePanel(tabId: string, panel: ResultPanelTab): void {
   updateData(tabId, (data) => ({ ...data, activePanel: panel }));
+}
+
+export function setQueryTabConnection(
+  tabId: string,
+  connectionId: string,
+  context: QueryContext,
+): void {
+  useWorkspaceStore.getState().setQueryTabConnection(tabId, connectionId, context);
+}
+
+export function setQueryTabSchema(tabId: string, schema: string | null): void {
+  updateData(tabId, (data) => ({ ...data, context: { ...data.context, schema } }));
 }

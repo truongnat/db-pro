@@ -52,7 +52,9 @@ export function DbObjectTabContent({
   if (!connectionId) return null;
 
   const openQueryTab = (sql: string, title: string) => {
-    useWorkspaceStore.getState().openTab(createQueryTab(connectionId, title, sql));
+    useWorkspaceStore.getState().openTab(
+      createQueryTab(connectionId, { title, sql, context: { database: null, schema } }),
+    );
   };
 
   const handleRefresh = () => {

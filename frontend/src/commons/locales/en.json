@@ -114,6 +114,8 @@
     "templates": "Templates",
     "newTab": "New Tab",
     "closeTab": "Close Tab",
+    "context": "Context",
+    "contextDefaultSchema": "default schema",
     "localHistory": "Local History",
     "zoomIn": "Zoom In",
     "zoomOut": "Zoom Out",

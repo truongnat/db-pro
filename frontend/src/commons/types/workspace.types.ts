@@ -23,7 +23,13 @@ export interface WorkspaceTabBase {
 
 export type ResultPanelTab = "results" | "explain" | "history" | "local-history";
 
+export interface QueryContext {
+  database: string | null;
+  schema: string | null;
+}
+
 export interface QueryTabData {
+  context: QueryContext;
   sql: string;
   status: ExecutionStatus;
   error: string | null;

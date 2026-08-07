@@ -19,7 +19,7 @@ describe("WorkspaceStore", () => {
 
   describe("openTab", () => {
     it("adds a new tab and activates it", () => {
-      const tab = createQueryTab("conn-1", "Query 1");
+      const tab = createQueryTab("conn-1", { title: "Query 1" });
       useWorkspaceStore.getState().openTab(tab);
 
       const state = useWorkspaceStore.getState();
@@ -40,11 +40,11 @@ describe("WorkspaceStore", () => {
     });
 
     it("replaces preview tab when opening same kind", () => {
-      const tab1 = createQueryTab("conn-1", "Preview 1");
+      const tab1 = createQueryTab("conn-1", { title: "Preview 1" });
       tab1.preview = true;
       useWorkspaceStore.getState().openTab(tab1);
 
-      const tab2 = createQueryTab("conn-1", "Preview 2");
+      const tab2 = createQueryTab("conn-1", { title: "Preview 2" });
       tab2.preview = true;
       useWorkspaceStore.getState().openTab(tab2);
 
@@ -55,7 +55,7 @@ describe("WorkspaceStore", () => {
     });
 
     it("promotes preview tab when non-preview opens with same resourceKey", () => {
-      const tab = createQueryTab("conn-1", "Preview");
+      const tab = createQueryTab("conn-1", { title: "Preview" });
       tab.preview = true;
       useWorkspaceStore.getState().openTab(tab);
 
@@ -70,9 +70,9 @@ describe("WorkspaceStore", () => {
 
   describe("closeTab", () => {
     it("closes tab and activates neighbor", () => {
-      const tab1 = createQueryTab("conn-1", "Q1");
-      const tab2 = createQueryTab("conn-1", "Q2");
-      const tab3 = createQueryTab("conn-1", "Q3");
+      const tab1 = createQueryTab("conn-1", { title: "Q1" });
+      const tab2 = createQueryTab("conn-1", { title: "Q2" });
+      const tab3 = createQueryTab("conn-1", { title: "Q3" });
       const { openTab, closeTab } = useWorkspaceStore.getState();
 
       openTab(tab1);
@@ -87,8 +87,8 @@ describe("WorkspaceStore", () => {
     });
 
     it("moves closed tab to recentlyClosed", () => {
-      const tab1 = createQueryTab("conn-1", "Q1");
-      const tab2 = createQueryTab("conn-1", "Q2");
+      const tab1 = createQueryTab("conn-1", { title: "Q1" });
+      const tab2 = createQueryTab("conn-1", { title: "Q2" });
       const { openTab, closeTab } = useWorkspaceStore.getState();
 
       openTab(tab1);
@@ -101,8 +101,8 @@ describe("WorkspaceStore", () => {
     });
 
     it("activates previous tab when closing the last tab", () => {
-      const tab1 = createQueryTab("conn-1", "Q1");
-      const tab2 = createQueryTab("conn-1", "Q2");
+      const tab1 = createQueryTab("conn-1", { title: "Q1" });
+      const tab2 = createQueryTab("conn-1", { title: "Q2" });
       const { openTab, closeTab } = useWorkspaceStore.getState();
 
       openTab(tab1);
@@ -115,7 +115,7 @@ describe("WorkspaceStore", () => {
     });
 
     it("allows closing the last tab", () => {
-      const tab = createQueryTab("conn-1", "Q1");
+      const tab = createQueryTab("conn-1", { title: "Q1" });
       const { openTab, closeTab } = useWorkspaceStore.getState();
 
       openTab(tab);
@@ -129,8 +129,8 @@ describe("WorkspaceStore", () => {
 
   describe("reopenLastClosed", () => {
     it("reopens the last closed tab preserving original id and resourceKey", () => {
-      const tab1 = createQueryTab("conn-1", "Q1");
-      const tab2 = createQueryTab("conn-1", "Q2");
+      const tab1 = createQueryTab("conn-1", { title: "Q1" });
+      const tab2 = createQueryTab("conn-1", { title: "Q2" });
       const { openTab, closeTab, reopenLastClosed } = useWorkspaceStore.getState();
 
       openTab(tab1);
@@ -149,7 +149,7 @@ describe("WorkspaceStore", () => {
     });
 
     it("does nothing when recentlyClosed is empty", () => {
-      const tab = createQueryTab("conn-1", "Q1");
+      const tab = createQueryTab("conn-1", { title: "Q1" });
       useWorkspaceStore.getState().openTab(tab);
 
       useWorkspaceStore.getState().reopenLastClosed();
@@ -161,9 +161,9 @@ describe("WorkspaceStore", () => {
 
   describe("closeOthers / closeRight", () => {
     it("closeOthers keeps only target + pinned tabs", () => {
-      const tab1 = createQueryTab("conn-1", "Q1");
-      const tab2 = createQueryTab("conn-1", "Q2");
-      const tab3 = createQueryTab("conn-1", "Q3");
+      const tab1 = createQueryTab("conn-1", { title: "Q1" });
+      const tab2 = createQueryTab("conn-1", { title: "Q2" });
+      const tab3 = createQueryTab("conn-1", { title: "Q3" });
       const { openTab, toggleTabPinned, closeOthers } = useWorkspaceStore.getState();
 
       openTab(tab1);
@@ -179,9 +179,9 @@ describe("WorkspaceStore", () => {
     });
 
     it("closeRight keeps tabs up to and including target + pinned", () => {
-      const tab1 = createQueryTab("conn-1", "Q1");
-      const tab2 = createQueryTab("conn-1", "Q2");
-      const tab3 = createQueryTab("conn-1", "Q3");
+      const tab1 = createQueryTab("conn-1", { title: "Q1" });
+      const tab2 = createQueryTab("conn-1", { title: "Q2" });
+      const tab3 = createQueryTab("conn-1", { title: "Q3" });
       const { openTab, closeRight } = useWorkspaceStore.getState();
 
       openTab(tab1);
@@ -195,9 +195,9 @@ describe("WorkspaceStore", () => {
     });
 
     it("closeOthers pushes evicted tabs to recentlyClosed", () => {
-      const tab1 = createQueryTab("conn-1", "Q1");
-      const tab2 = createQueryTab("conn-1", "Q2");
-      const tab3 = createQueryTab("conn-1", "Q3");
+      const tab1 = createQueryTab("conn-1", { title: "Q1" });
+      const tab2 = createQueryTab("conn-1", { title: "Q2" });
+      const tab3 = createQueryTab("conn-1", { title: "Q3" });
       const { openTab, closeOthers } = useWorkspaceStore.getState();
 
       openTab(tab1);
@@ -212,9 +212,9 @@ describe("WorkspaceStore", () => {
     });
 
     it("closeRight pushes evicted tabs to recentlyClosed", () => {
-      const tab1 = createQueryTab("conn-1", "Q1");
-      const tab2 = createQueryTab("conn-1", "Q2");
-      const tab3 = createQueryTab("conn-1", "Q3");
+      const tab1 = createQueryTab("conn-1", { title: "Q1" });
+      const tab2 = createQueryTab("conn-1", { title: "Q2" });
+      const tab3 = createQueryTab("conn-1", { title: "Q3" });
       const { openTab, closeRight } = useWorkspaceStore.getState();
 
       openTab(tab1);
@@ -231,9 +231,9 @@ describe("WorkspaceStore", () => {
 
   describe("closeTabs", () => {
     it("batch closes multiple tabs and populates recentlyClosed", () => {
-      const tab1 = createQueryTab("conn-1", "Q1");
-      const tab2 = createQueryTab("conn-1", "Q2");
-      const tab3 = createQueryTab("conn-1", "Q3");
+      const tab1 = createQueryTab("conn-1", { title: "Q1" });
+      const tab2 = createQueryTab("conn-1", { title: "Q2" });
+      const tab3 = createQueryTab("conn-1", { title: "Q3" });
       const { openTab, closeTabs } = useWorkspaceStore.getState();
 
       openTab(tab1);
@@ -248,8 +248,8 @@ describe("WorkspaceStore", () => {
     });
 
     it("skips pinned tabs in batch close", () => {
-      const tab1 = createQueryTab("conn-1", "Q1");
-      const tab2 = createQueryTab("conn-1", "Q2");
+      const tab1 = createQueryTab("conn-1", { title: "Q1" });
+      const tab2 = createQueryTab("conn-1", { title: "Q2" });
       const { openTab, toggleTabPinned, closeTabs } = useWorkspaceStore.getState();
 
       openTab(tab1);
@@ -265,7 +265,7 @@ describe("WorkspaceStore", () => {
 
   describe("updateTabData", () => {
     it("updates query tab data by id", () => {
-      const tab = createQueryTab("conn-1", "Q1", "SELECT 1");
+      const tab = createQueryTab("conn-1", { title: "Q1", sql: "SELECT 1" });
       useWorkspaceStore.getState().openTab(tab);
 
       useWorkspaceStore.getState().updateTabData(tab.id, (d) => ({
@@ -284,8 +284,8 @@ describe("WorkspaceStore", () => {
     });
 
     it("does not affect other tabs", () => {
-      const tab1 = createQueryTab("conn-1", "Q1", "SELECT 1");
-      const tab2 = createQueryTab("conn-1", "Q2", "SELECT 2");
+      const tab1 = createQueryTab("conn-1", { title: "Q1", sql: "SELECT 1" });
+      const tab2 = createQueryTab("conn-1", { title: "Q2", sql: "SELECT 2" });
       const { openTab, updateTabData } = useWorkspaceStore.getState();
 
       openTab(tab1);
@@ -303,7 +303,7 @@ describe("WorkspaceStore", () => {
 
   describe("tab metadata", () => {
     it("setTabDirty updates dirty flag", () => {
-      const tab = createQueryTab("conn-1", "Q1");
+      const tab = createQueryTab("conn-1", { title: "Q1" });
       useWorkspaceStore.getState().openTab(tab);
       useWorkspaceStore.getState().setTabDirty(tab.id, true);
 
@@ -311,7 +311,7 @@ describe("WorkspaceStore", () => {
     });
 
     it("toggleTabPinned flips pinned state", () => {
-      const tab = createQueryTab("conn-1", "Q1");
+      const tab = createQueryTab("conn-1", { title: "Q1" });
       useWorkspaceStore.getState().openTab(tab);
 
       useWorkspaceStore.getState().toggleTabPinned(tab.id);
@@ -322,7 +322,7 @@ describe("WorkspaceStore", () => {
     });
 
     it("promotePreview clears preview flag", () => {
-      const tab = createQueryTab("conn-1", "Q1");
+      const tab = createQueryTab("conn-1", { title: "Q1" });
       tab.preview = true;
       useWorkspaceStore.getState().openTab(tab);
       useWorkspaceStore.getState().promotePreview(tab.id);
@@ -331,7 +331,7 @@ describe("WorkspaceStore", () => {
     });
 
     it("setTabTitle updates title", () => {
-      const tab = createQueryTab("conn-1", "Q1");
+      const tab = createQueryTab("conn-1", { title: "Q1" });
       useWorkspaceStore.getState().openTab(tab);
       useWorkspaceStore.getState().setTabTitle(tab.id, "Renamed");
 
@@ -341,9 +341,9 @@ describe("WorkspaceStore", () => {
 
   describe("reorderTabs", () => {
     it("moves tab from one position to another", () => {
-      const tab1 = createQueryTab("conn-1", "Q1");
-      const tab2 = createQueryTab("conn-1", "Q2");
-      const tab3 = createQueryTab("conn-1", "Q3");
+      const tab1 = createQueryTab("conn-1", { title: "Q1" });
+      const tab2 = createQueryTab("conn-1", { title: "Q2" });
+      const tab3 = createQueryTab("conn-1", { title: "Q3" });
       const { openTab, reorderTabs } = useWorkspaceStore.getState();
 
       openTab(tab1);
@@ -358,9 +358,9 @@ describe("WorkspaceStore", () => {
     });
 
     it("refuses to move tabs into or from the pinned range", () => {
-      const tab1 = createQueryTab("conn-1", "Q1");
-      const tab2 = createQueryTab("conn-1", "Q2");
-      const tab3 = createQueryTab("conn-1", "Q3");
+      const tab1 = createQueryTab("conn-1", { title: "Q1" });
+      const tab2 = createQueryTab("conn-1", { title: "Q2" });
+      const tab3 = createQueryTab("conn-1", { title: "Q3" });
       const { openTab, toggleTabPinned, reorderTabs } = useWorkspaceStore.getState();
 
       openTab(tab1);
@@ -379,7 +379,7 @@ describe("WorkspaceStore", () => {
 
   describe("restoreState", () => {
     it("restores tabs and activeTabId", () => {
-      const tab = createQueryTab("conn-1", "Restored");
+      const tab = createQueryTab("conn-1", { title: "Restored" });
       useWorkspaceStore.getState().restoreState({
         tabs: [tab],
         activeTabId: tab.id,
@@ -392,7 +392,7 @@ describe("WorkspaceStore", () => {
     });
 
     it("falls back to first tab if activeTabId not found", () => {
-      const tab = createQueryTab("conn-1", "Q1");
+      const tab = createQueryTab("conn-1", { title: "Q1" });
       useWorkspaceStore.getState().restoreState({
         tabs: [tab],
         activeTabId: "nonexistent",

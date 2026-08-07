@@ -2,6 +2,7 @@ import { useWorkspaceStore } from "@/commons/stores/workspace.store";
 import type {
   DbObjectSection,
   DbObjectTabData,
+  QueryContext,
   QueryTabData,
   WorkspaceTab,
 } from "@/commons/types/workspace.types";
@@ -28,6 +29,7 @@ function nextQueryTitle(connectionId: string): string {
 
 function defaultQueryData(): QueryTabData {
   return {
+    context: { database: null, schema: null },
     sql: "",
     status: "idle",
     error: null,
@@ -40,12 +42,23 @@ function defaultQueryData(): QueryTabData {
   };
 }
 
-export function createQueryTab(connectionId: string, title?: string, sql?: string): WorkspaceTab & { kind: "query" } {
+export interface CreateQueryTabOptions {
+  title?: string;
+  sql?: string;
+  context?: QueryContext;
+}
+
+export function createQueryTab(
+  connectionId: string,
+  options?: CreateQueryTabOptions,
+): WorkspaceTab & { kind: "query" } {
   const id = crypto.randomUUID();
+  const title = options?.title ?? nextQueryTitle(connectionId);
+  const context = options?.context ?? { database: null, schema: null };
   return {
     id,
     kind: "query",
-    title: title ?? nextQueryTitle(connectionId),
+    title,
     connectionId,
     resourceKey: `query:${id}`,
     dirty: false,
@@ -54,7 +67,8 @@ export function createQueryTab(connectionId: string, title?: string, sql?: strin
     order: nextOrder(),
     data: {
       ...defaultQueryData(),
-      sql: sql ?? "",
+      context,
+      sql: options?.sql ?? "",
     },
   };
 }

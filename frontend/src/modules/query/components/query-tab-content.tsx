@@ -11,6 +11,7 @@ import { ExportDialog } from "@/modules/export/components/export-dialog";
 
 import { ExplainPlanView } from "./explain-plan";
 import { LocalHistoryPanel } from "./local-history-panel";
+import { QueryContextStrip } from "./query-context-strip";
 import { QueryEditor } from "./query-editor";
 import { QueryHistoryPanel } from "./query-history-panel";
 import { QueryToolbar } from "./query-toolbar";
@@ -225,6 +226,12 @@ export function QueryTabContent({ tabId, onOpenRunConfig }: QueryTabContentProps
         isExplaining={explainMutation.isPending}
         hasConnection={!!tabConnectionId}
         hasSql={!!sql.trim()}
+      />
+
+      <QueryContextStrip
+        tabId={tabId}
+        connectionId={tabConnectionId}
+        context={tabData?.context ?? { database: null, schema: null }}
       />
 
       <TransactionBar />

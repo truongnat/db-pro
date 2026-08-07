@@ -4,18 +4,20 @@ import { useConnectionStore } from "@/commons/stores/connection.store";
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
 import { useTranslation } from "@/commons/locales/useTranslation";
 import { createQueryTab } from "@/commons/factories/tab-factories";
+import { useConnectionList } from "@/modules/connection/queries/connection.queries";
 
 import { QueryTabContent } from "../components/query-tab-content";
 import { RunConfigDialog } from "../components/run-config-dialog";
 import { RunConfigList } from "../components/run-config-list";
 import { SavedQueriesTree } from "../components/saved-queries-tree";
 import { SqlFileOperations } from "../components/sql-file-operations";
-import { setTabSql } from "../controllers/query-workspace.controller";
+import { createExplorerQueryContext, setTabSql } from "../controllers/query-workspace.controller";
 import type { RunConfig } from "../types/query.types";
 
 export function QueryPage() {
   const { t } = useTranslation();
   const explorerConnectionId = useConnectionStore((s) => s.explorerConnectionId);
+  const { data: connections } = useConnectionList();
 
   const activeTab = useWorkspaceStore((s) => {
     const tab = s.tabs.find((t) => t.id === s.activeTabId);
@@ -39,10 +41,12 @@ export function QueryPage() {
       (t) => t.kind === "query" && t.connectionId === explorerConnectionId,
     );
     if (!hasTabsForConnection) {
-      const tab = createQueryTab(explorerConnectionId);
+      const tab = createQueryTab(explorerConnectionId, {
+        context: createExplorerQueryContext(connections ?? [], explorerConnectionId),
+      });
       useWorkspaceStore.getState().openTab(tab);
     }
-  }, [explorerConnectionId]);
+  }, [explorerConnectionId, connections]);
 
   const handleSelectSavedQuery = useCallback(
     (querySql: string) => {

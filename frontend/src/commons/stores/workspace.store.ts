@@ -1,7 +1,8 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-import type { DbObjectSection, PersistedWorkspaceState, QueryTabData, WorkspaceTab } from "@/commons/types/workspace.types";
+import { migratePersistedWorkspace } from "@/commons/services/workspace-migrations";
+import type { DbObjectSection, PersistedWorkspaceState, QueryContext, QueryTabData, WorkspaceTab } from "@/commons/types/workspace.types";
 import { useTabGridStateStore } from "@/modules/data-grid/state/tab-grid-state.store";
 
 const MAX_RECENTLY_CLOSED = 20;
@@ -23,6 +24,7 @@ interface WorkspaceState extends PersistedWorkspaceState {
   restoreState: (state: PersistedWorkspaceState) => void;
   setDbObjectSection: (id: string, section: DbObjectSection) => void;
   openDbObject: (tab: WorkspaceTab & { kind: "db-object" }) => void;
+  setQueryTabConnection: (id: string, connectionId: string, context: QueryContext) => void;
 }
 
 function findTabById(tabs: WorkspaceTab[], id: string): WorkspaceTab | undefined {
@@ -232,6 +234,28 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           ),
         })),
 
+      setQueryTabConnection: (id, connectionId, context) =>
+        set((state) => ({
+          tabs: updateTabInList(state.tabs, id, (t) =>
+            t.kind === "query"
+              ? {
+                  ...t,
+                  connectionId,
+                  data: {
+                    ...t.data,
+                    context,
+                    status: "idle",
+                    error: null,
+                    result: null,
+                    explainPlan: null,
+                    multiResults: null,
+                    multiResultIndex: 0,
+                  },
+                }
+              : t,
+          ),
+        })),
+
       openDbObject: (tab) => {
         let replacedPreviewId: string | null = null;
         set((state) => {
@@ -296,15 +320,9 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       }),
       onRehydrateStorage: () => (state) => {
         if (!state) return;
-        let migrated = false;
-        for (const tab of state.tabs) {
-          if (tab.kind === "db-object" && (tab.data.activeSection as string) === "structure") {
-            (tab.data as { activeSection: DbObjectSection }).activeSection = "columns";
-            migrated = true;
-          }
-        }
-        if (migrated) {
-          useWorkspaceStore.setState({ tabs: [...state.tabs] });
+        const migrated = migratePersistedWorkspace(state.tabs);
+        if (migrated !== state.tabs) {
+          useWorkspaceStore.setState({ tabs: [...migrated] });
         }
       },
     },
