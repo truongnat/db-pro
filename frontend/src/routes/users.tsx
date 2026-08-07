@@ -1,7 +1,17 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useEffect } from "react";
 
-import { UserManagementPage } from "@/modules/user-management/pages/user-management-page";
+import { useShellStore } from "@/commons/stores/shell.store";
 
 export const Route = createFileRoute("/users")({
-  component: UserManagementPage,
+  component: UsersRedirect,
 });
+
+function UsersRedirect() {
+  const navigate = useNavigate();
+  useEffect(() => {
+    useShellStore.getState().setSidebarView("users");
+    navigate({ to: "/" });
+  }, [navigate]);
+  return null;
+}

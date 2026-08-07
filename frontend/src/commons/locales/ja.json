@@ -291,7 +291,8 @@
     "newRole": "新規ロール",
     "connectFirst": "ユーザー管理するにはデータベースに接続してください",
     "selectRole": "ロールを選択して詳細を表示",
-    "confirmDrop": "ロール「{{name}}」を削除しますか？"
+    "confirmDrop": "ロール「{{name}}」を削除しますか？",
+    "sidebarHint": "ユーザー管理するには接続を選択してください"
   },
   "backup": {
     "title": "データベースバックアップ",
@@ -317,6 +318,7 @@
       "query": "クエリ",
       "data": "データ",
       "schema": "スキーマ",
+      "search": "検索",
       "users": "ユーザー"
     },
     "sidebar": {
@@ -326,7 +328,9 @@
       "connectFirst": "データベースに接続してください",
       "noRecentQueries": "最近のクエリなし",
       "settings": "設定",
-      "help": "ヘルプ"
+      "help": "ヘルプ",
+      "searchObjects": "オブジェクトを検索...",
+      "openData": "データを開く"
     },
     "topbar": {
       "noConnection": "接続なし",
@@ -361,7 +365,10 @@
     "tabs": {
       "new": "新しいタブ",
       "close": "タブを閉じる",
-      "reopen": "閉じたタブを復元"
+      "reopen": "閉じたタブを復元",
+      "pin": "タブをピン留め/解除",
+      "closeOthers": "他を閉じる",
+      "closeRight": "右を閉じる"
     },
     "nav": {
       "connections": "接続一覧へ移動",
@@ -398,5 +405,11 @@
       "descriptionSingle": "このタブには未保存の変更があります。それでも閉じますか？",
       "descriptionMultiple": "{{count}}個のタブに未保存の変更があります。それでも閉じますか？"
     }
+  },
+  "workspace": {
+    "connectToStart": "データベースに接続して開始してください",
+    "noTabsOpen": "タブが開いていません",
+    "hintSidebar": "エクスプローラーでテーブルをクリックして開きます",
+    "connectionUnavailable": "このタブの接続は利用できません"
   }
 }

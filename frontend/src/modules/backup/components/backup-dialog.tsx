@@ -55,8 +55,9 @@ export function BackupDialog({
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
-            <Label>{t("backup.outputPath")}</Label>
+            <Label htmlFor="backup-output-path">{t("backup.outputPath")}</Label>
             <Input
+              id="backup-output-path"
               value={outputPath}
               onChange={(e) => setOutputPath(e.target.value)}
               placeholder="/path/to/backup.sql"
@@ -65,9 +66,9 @@ export function BackupDialog({
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <Label>{t("backup.format")}</Label>
+            <Label htmlFor="backup-format">{t("backup.format")}</Label>
             <Select value={format} onValueChange={(v) => setFormat(v as BackupFormat)}>
-              <SelectTrigger>
+              <SelectTrigger id="backup-format">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -78,7 +79,7 @@ export function BackupDialog({
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={onClose}>
+            <Button type="button" variant="outline" onClick={onClose}>
               {t("common.actions.cancel")}
             </Button>
             <Button type="submit" disabled={!outputPath.trim() || isPending}>

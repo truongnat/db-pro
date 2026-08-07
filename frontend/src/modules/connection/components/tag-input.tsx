@@ -29,7 +29,7 @@ export function TagInput({ tags, onChange }: TagInputProps) {
 
   return (
     <div className="flex flex-col gap-1.5">
-      <Label className="text-xs font-medium">
+      <Label htmlFor="connection-tags" className="text-xs font-medium">
         {t("connection.tags")}
       </Label>
       <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-input bg-transparent px-2 py-1.5 focus-within:outline focus-within:outline-[var(--focus-ring-width)] focus-within:outline-offset-[var(--focus-ring-offset)] focus-within:outline-[var(--focus-ring-color)]">
@@ -49,6 +49,7 @@ export function TagInput({ tags, onChange }: TagInputProps) {
           </Badge>
         ))}
         <Input
+          id="connection-tags"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder={t("connection.addTag")}

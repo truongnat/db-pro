@@ -1,40 +1,41 @@
-import { Link, useLocation } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import {
-  Command,
   Database,
   FolderOpen,
   KeyRound,
   PanelLeftClose,
   PanelLeftOpen,
-  Table2,
+  Search,
+  Command,
 } from "lucide-react";
 import type { ComponentType } from "react";
 
-import { useShellStore } from "@/commons/stores/shell.store";
+import { useShellStore, type SidebarView } from "@/commons/stores/shell.store";
 import { useTranslation } from "@/commons/locales/useTranslation";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 interface NavItem {
-  to: string;
+  viewId: SidebarView;
   labelKey: string;
   icon: ComponentType<{ className?: string }>;
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { to: "/connections", labelKey: "shell.nav.connections", icon: Database },
-  { to: "/query", labelKey: "shell.nav.query", icon: Command },
-  { to: "/data", labelKey: "shell.nav.data", icon: Table2 },
-  { to: "/schema", labelKey: "shell.nav.schema", icon: FolderOpen },
-  { to: "/users", labelKey: "shell.nav.users", icon: KeyRound },
+  { viewId: "explorer", labelKey: "shell.nav.schema", icon: FolderOpen },
+  { viewId: "search", labelKey: "shell.nav.search", icon: Search },
+  { viewId: "query-saved", labelKey: "shell.nav.query", icon: Command },
+  { viewId: "users", labelKey: "shell.nav.users", icon: KeyRound },
+  { viewId: "connections", labelKey: "shell.nav.connections", icon: Database },
 ];
 
 export function ActivityBar() {
-  const location = useLocation();
   const { t } = useTranslation();
   const sidebarCollapsed = useShellStore((s) => s.sidebarCollapsed);
   const toggleSidebar = useShellStore((s) => s.toggleSidebar);
+  const sidebarView = useShellStore((s) => s.sidebarView);
+  const setSidebarView = useShellStore((s) => s.setSidebarView);
 
   return (
     <aside
@@ -47,22 +48,24 @@ export function ActivityBar() {
 
       <nav className="flex flex-1 flex-col items-center gap-1" role="navigation" aria-label={t("shell.nav.label")}>
         {NAV_ITEMS.map((item) => {
-          const isActive = location.pathname.startsWith(item.to);
+          const isActive = sidebarView === item.viewId;
           const Icon = item.icon;
           const label = t(item.labelKey);
           return (
-            <Tooltip key={item.to}>
+            <Tooltip key={item.viewId}>
               <TooltipTrigger asChild>
-                <Link
-                  to={item.to}
+                <Button
+                  type="button"
+                  variant="ghost"
                   className={cn(
-                    "grid h-9 w-9 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-[var(--app-hover)] hover:text-foreground",
+                    "h-9 w-9 p-0 text-muted-foreground hover:bg-[var(--app-hover)] hover:text-foreground",
                     isActive && "bg-[var(--app-active)] text-primary",
                   )}
+                  onClick={() => setSidebarView(item.viewId)}
                   aria-current={isActive ? "page" : undefined}
                 >
                   <Icon className="h-[18px] w-[18px]" />
-                </Link>
+                </Button>
               </TooltipTrigger>
               <TooltipContent side="right" sideOffset={8}>
                 {label}

@@ -24,6 +24,7 @@ export function TabScrollLeft({ canScrollLeft, onScrollLeft }: Pick<TabScrollCon
       className="h-full shrink-0 rounded-none border-r border-border px-1"
       onClick={onScrollLeft}
       aria-label="Scroll tabs left"
+      title="Scroll left"
     >
       <ChevronLeftIcon className="size-3.5" />
     </Button>
@@ -40,6 +41,7 @@ export function TabScrollRight({ canScrollRight, onScrollRight }: Pick<TabScroll
       className="h-full shrink-0 rounded-none border-l border-border px-1"
       onClick={onScrollRight}
       aria-label="Scroll tabs right"
+      title="Scroll right"
     >
       <ChevronRightIcon className="size-3.5" />
     </Button>
@@ -63,6 +65,7 @@ export function TabOverflowMenu({ isOverflowing }: Pick<TabScrollControlsProps, 
           size="icon"
           className="h-full shrink-0 rounded-none border-l border-border px-1"
           aria-label="Show all tabs"
+          title="Show all tabs"
         >
           <ListIcon className="size-3.5" />
         </Button>

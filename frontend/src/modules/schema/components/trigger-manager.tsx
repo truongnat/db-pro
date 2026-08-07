@@ -50,10 +50,11 @@ export function TriggerManager({ connectionId, schema, table }: TriggerManagerPr
 
         <div className="space-y-2">
           <div>
-            <Label className="mb-1 block text-xs text-muted-foreground">
+            <Label htmlFor="trigger-name" className="mb-1 block text-xs text-muted-foreground">
               {t("schema.triggerName")}
             </Label>
             <Input
+              id="trigger-name"
               type="text"
               value={triggerName}
               onChange={(e) => setTriggerName(e.target.value)}
@@ -63,11 +64,11 @@ export function TriggerManager({ connectionId, schema, table }: TriggerManagerPr
 
           <div className="flex gap-2">
             <div className="flex-1">
-              <Label className="mb-1 block text-xs text-muted-foreground">
+              <Label htmlFor="trigger-timing" className="mb-1 block text-xs text-muted-foreground">
                 {t("schema.triggerTiming")}
               </Label>
               <Select value={timing} onValueChange={setTiming}>
-                <SelectTrigger className="w-full rounded-sm border border-border bg-background px-2 py-1 text-xs text-foreground">
+                <SelectTrigger id="trigger-timing" className="w-full rounded-sm border border-border bg-background px-2 py-1 text-xs text-foreground">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -78,11 +79,11 @@ export function TriggerManager({ connectionId, schema, table }: TriggerManagerPr
               </Select>
             </div>
             <div className="flex-1">
-              <Label className="mb-1 block text-xs text-muted-foreground">
+              <Label htmlFor="trigger-event" className="mb-1 block text-xs text-muted-foreground">
                 {t("schema.triggerEvent")}
               </Label>
               <Select value={event} onValueChange={setEvent}>
-                <SelectTrigger className="w-full rounded-sm border border-border bg-background px-2 py-1 text-xs text-foreground">
+                <SelectTrigger id="trigger-event" className="w-full rounded-sm border border-border bg-background px-2 py-1 text-xs text-foreground">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -96,10 +97,11 @@ export function TriggerManager({ connectionId, schema, table }: TriggerManagerPr
           </div>
 
           <div>
-            <Label className="mb-1 block text-xs text-muted-foreground">
+            <Label htmlFor="trigger-body" className="mb-1 block text-xs text-muted-foreground">
               {t("schema.triggerBody")}
             </Label>
             <Textarea
+              id="trigger-body"
               value={body}
               onChange={(e) => setBody(e.target.value)}
               rows={5}

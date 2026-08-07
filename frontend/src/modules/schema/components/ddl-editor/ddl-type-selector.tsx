@@ -1,3 +1,5 @@
+import { useId } from "react";
+
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useTranslation } from "@/commons/locales/useTranslation";
@@ -23,14 +25,15 @@ const OPERATIONS: { value: DdlOperation; labelKey: string }[] = [
 
 export function DdlTypeSelector({ operation, onChange }: DdlTypeSelectorProps) {
   const { t } = useTranslation();
+  const id = useId();
 
   return (
     <div className="flex flex-col gap-1">
-      <Label className="text-sm font-medium text-foreground">
+      <Label htmlFor={id} className="text-sm font-medium text-foreground">
         {t("schema.ddlOperation")}
       </Label>
       <Select value={operation} onValueChange={(val) => onChange(val as DdlOperation)}>
-        <SelectTrigger className="h-9 rounded-sm border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-primary">
+        <SelectTrigger id={id} className="h-9 rounded-sm border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-primary">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>

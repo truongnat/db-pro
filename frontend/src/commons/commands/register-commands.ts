@@ -3,6 +3,7 @@ import type { AnyRouter } from "@tanstack/react-router";
 import { dispatchQueryAction } from "@/commons/commands/query-dispatch";
 import { createQueryTab } from "@/commons/factories/tab-factories";
 import { requestCloseTab } from "@/commons/services/request-close-tab";
+import { useCloseGuardStore } from "@/commons/stores/close-guard.store";
 import { useConnectionStore } from "@/commons/stores/connection.store";
 import { useCommandStore } from "@/commons/stores/command.store";
 import { useShellStore } from "@/commons/stores/shell.store";
@@ -35,8 +36,14 @@ export function registerAllCommands(router: AnyRouter): void {
     return tab as (Omit<WorkspaceTab, "data"> & { data: QueryTabData }) | undefined;
   }
 
-  function navigate(path: string) {
-    router.navigate({ to: path });
+  function requestCloseMany(ids: string[]) {
+    const { tabs } = useWorkspaceStore.getState();
+    const dirtyIds = ids.filter((id) => tabs.find((t) => t.id === id)?.dirty);
+    if (dirtyIds.length === 0) {
+      useWorkspaceStore.getState().closeTabs(ids);
+    } else {
+      useCloseGuardStore.getState().openDialog(ids, dirtyIds.length);
+    }
   }
 
   useCommandStore.getState().registerMany([
@@ -94,6 +101,7 @@ export function registerAllCommands(router: AnyRouter): void {
     {
       id: "tabs.new",
       labelKey: "commands.tabs.new",
+      keybinding: { ctrlKey: true, key: "t" },
       groupKey: "commands.groups.tabs",
       when: () => hasConnection(),
       execute: () => {
@@ -105,6 +113,7 @@ export function registerAllCommands(router: AnyRouter): void {
     {
       id: "tabs.close",
       labelKey: "commands.tabs.close",
+      keybinding: { ctrlKey: true, key: "w" },
       groupKey: "commands.groups.tabs",
       when: () => !!useWorkspaceStore.getState().activeTabId,
       execute: () => {
@@ -120,36 +129,90 @@ export function registerAllCommands(router: AnyRouter): void {
       when: () => useWorkspaceStore.getState().recentlyClosed.length > 0,
       execute: () => useWorkspaceStore.getState().reopenLastClosed(),
     },
+    {
+      id: "tabs.pin",
+      labelKey: "commands.tabs.pin",
+      keybinding: { ctrlKey: true, shiftKey: true, key: "p" },
+      groupKey: "commands.groups.tabs",
+      when: () => !!useWorkspaceStore.getState().activeTabId,
+      execute: () => {
+        const { activeTabId } = useWorkspaceStore.getState();
+        if (activeTabId) useWorkspaceStore.getState().toggleTabPinned(activeTabId);
+      },
+    },
+    {
+      id: "tabs.closeOthers",
+      labelKey: "commands.tabs.closeOthers",
+      groupKey: "commands.groups.tabs",
+      when: () => useWorkspaceStore.getState().tabs.length > 1,
+      execute: () => {
+        const { activeTabId, tabs } = useWorkspaceStore.getState();
+        if (!activeTabId) return;
+        const evictionIds = tabs.filter((t) => t.id !== activeTabId && !t.pinned).map((t) => t.id);
+        if (evictionIds.length === 0) return;
+        requestCloseMany(evictionIds);
+      },
+    },
+    {
+      id: "tabs.closeRight",
+      labelKey: "commands.tabs.closeRight",
+      groupKey: "commands.groups.tabs",
+      when: () => {
+        const { activeTabId, tabs } = useWorkspaceStore.getState();
+        if (!activeTabId) return false;
+        const idx = tabs.findIndex((t) => t.id === activeTabId);
+        return idx >= 0 && idx < tabs.length - 1;
+      },
+      execute: () => {
+        const { activeTabId, tabs } = useWorkspaceStore.getState();
+        if (!activeTabId) return;
+        const idx = tabs.findIndex((t) => t.id === activeTabId);
+        const evictionIds = tabs.filter((t, i) => i > idx && !t.pinned).map((t) => t.id);
+        if (evictionIds.length === 0) return;
+        requestCloseMany(evictionIds);
+      },
+    },
 
     {
       id: "nav.connections",
       labelKey: "commands.nav.connections",
       groupKey: "commands.groups.navigation",
-      execute: () => navigate("/connections"),
+      execute: () => useShellStore.getState().setSidebarView("connections"),
     },
     {
       id: "nav.query",
       labelKey: "commands.nav.query",
       groupKey: "commands.groups.navigation",
-      execute: () => navigate("/query"),
+      when: () => hasConnection(),
+      execute: () => {
+        const connectionId = useConnectionStore.getState().activeConnectionId;
+        if (!connectionId) return;
+        const { tabs, openTab, activateTab } = useWorkspaceStore.getState();
+        const existing = tabs.find((t) => t.kind === "query" && t.connectionId === connectionId);
+        if (!existing) {
+          openTab(createQueryTab(connectionId));
+        } else {
+          activateTab(existing.id);
+        }
+      },
     },
     {
       id: "nav.data",
       labelKey: "commands.nav.data",
       groupKey: "commands.groups.navigation",
-      execute: () => navigate("/data"),
+      execute: () => useShellStore.getState().setSidebarView("explorer"),
     },
     {
       id: "nav.schema",
       labelKey: "commands.nav.schema",
       groupKey: "commands.groups.navigation",
-      execute: () => navigate("/schema"),
+      execute: () => useShellStore.getState().setSidebarView("explorer"),
     },
     {
       id: "nav.users",
       labelKey: "commands.nav.users",
       groupKey: "commands.groups.navigation",
-      execute: () => navigate("/users"),
+      execute: () => useShellStore.getState().setSidebarView("users"),
     },
 
     {

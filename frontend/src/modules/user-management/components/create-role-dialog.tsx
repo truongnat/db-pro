@@ -46,8 +46,9 @@ export function CreateRoleDialog({
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
-            <Label>{t("userManagement.roleName")}</Label>
+            <Label htmlFor="role-name">{t("userManagement.roleName")}</Label>
             <Input
+              id="role-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               autoFocus
@@ -63,7 +64,7 @@ export function CreateRoleDialog({
           </Label>
 
           <DialogFooter>
-            <Button variant="outline" onClick={onClose}>
+            <Button type="button" variant="outline" onClick={onClose}>
               {t("common.actions.cancel")}
             </Button>
             <Button type="submit" disabled={!name.trim()}>

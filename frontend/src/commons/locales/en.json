@@ -291,7 +291,8 @@
     "newRole": "New Role",
     "connectFirst": "Connect to a database to manage users",
     "selectRole": "Select a role to view details",
-    "confirmDrop": "Are you sure you want to drop role \"{{name}}\"?"
+    "confirmDrop": "Are you sure you want to drop role \"{{name}}\"?",
+    "sidebarHint": "Select a connection to manage users and roles"
   },
   "backup": {
     "title": "Backup Database",
@@ -317,6 +318,7 @@
       "query": "Query",
       "data": "Data",
       "schema": "Schema",
+      "search": "Search",
       "users": "Users"
     },
     "sidebar": {
@@ -326,7 +328,9 @@
       "connectFirst": "Connect to a database",
       "noRecentQueries": "No recent queries",
       "settings": "Settings",
-      "help": "Help"
+      "help": "Help",
+      "searchObjects": "Search objects...",
+      "openData": "Open Data"
     },
     "topbar": {
       "noConnection": "No connection",
@@ -361,7 +365,10 @@
     "tabs": {
       "new": "New Tab",
       "close": "Close Tab",
-      "reopen": "Reopen Closed Tab"
+      "reopen": "Reopen Closed Tab",
+      "pin": "Pin/Unpin Tab",
+      "closeOthers": "Close Others",
+      "closeRight": "Close Right"
     },
     "nav": {
       "connections": "Go to Connections",
@@ -398,5 +405,11 @@
       "descriptionSingle": "This tab has unsaved changes. Close anyway?",
       "descriptionMultiple": "{{count}} tabs have unsaved changes. Close them anyway?"
     }
+  },
+  "workspace": {
+    "connectToStart": "Connect to a database to get started",
+    "noTabsOpen": "No tabs open",
+    "hintSidebar": "Click a table in the explorer to open it",
+    "connectionUnavailable": "The connection for this tab is no longer available"
   }
 }

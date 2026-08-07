@@ -1,28 +1,21 @@
-import { useLocation } from "@tanstack/react-router";
 import { ChevronRight, Command, Search } from "lucide-react";
 
 import { useTranslation } from "@/commons/locales/useTranslation";
 import { useCommandStore } from "@/commons/stores/command.store";
 import { useConnectionStore } from "@/commons/stores/connection.store";
+import { useWorkspaceStore } from "@/commons/stores/workspace.store";
 import { Button } from "@/components/ui/button";
 import { useConnectionList } from "@/modules/connection/queries/connection.queries";
 
-const PAGE_LABEL_KEYS: Record<string, string> = {
-  "/connections": "connection.title",
-  "/connection-editor": "connection.edit",
-  "/query": "query.title",
-  "/data": "dataGrid.title",
-  "/schema": "schema.title",
-  "/users": "userManagement.title",
-};
-
 export function Topbar() {
-  const location = useLocation();
   const { t } = useTranslation();
   const connections = useConnectionList();
   const activeConnectionId = useConnectionStore((s) => s.activeConnectionId);
   const activeConnection = connections.data?.find((c) => c.id === activeConnectionId) ?? null;
-  const pageLabelKey = PAGE_LABEL_KEYS[location.pathname] ?? "";
+  const activeTab = useWorkspaceStore((s) => {
+    if (!s.activeTabId) return null;
+    return s.tabs.find((t) => t.id === s.activeTabId) ?? null;
+  });
 
   return (
     <header
@@ -35,10 +28,10 @@ export function Topbar() {
         <strong className="font-medium text-foreground">
           {activeConnection?.name ?? t("shell.topbar.noConnection")}
         </strong>
-        {pageLabelKey && (
+        {activeTab && (
           <>
             <span>/</span>
-            <span>{t(pageLabelKey)}</span>
+            <span>{activeTab.title}</span>
           </>
         )}
       </div>

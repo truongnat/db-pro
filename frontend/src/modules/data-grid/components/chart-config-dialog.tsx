@@ -64,9 +64,9 @@ export function ChartConfigDialog({
 
         <div className="space-y-3">
           <div className="space-y-1.5">
-            <Label className="text-xs">{t("dataGrid.chartType")}</Label>
+            <Label htmlFor="chart-type" className="text-xs">{t("dataGrid.chartType")}</Label>
             <Select value={type} onValueChange={(v) => setType(v as ChartConfig["type"])}>
-              <SelectTrigger>
+              <SelectTrigger id="chart-type">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -78,9 +78,9 @@ export function ChartConfigDialog({
           </div>
 
           <div className="space-y-1.5">
-            <Label className="text-xs">{t("dataGrid.chartXAxis")}</Label>
+            <Label htmlFor="chart-x-axis" className="text-xs">{t("dataGrid.chartXAxis")}</Label>
             <Select value={xColumn} onValueChange={setXColumn}>
-              <SelectTrigger>
+              <SelectTrigger id="chart-x-axis">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -94,9 +94,9 @@ export function ChartConfigDialog({
           </div>
 
           <div className="space-y-1.5">
-            <Label className="text-xs">{t("dataGrid.chartYAxis")}</Label>
+            <Label htmlFor="chart-y-axis" className="text-xs">{t("dataGrid.chartYAxis")}</Label>
             <Select value={yColumn} onValueChange={setYColumn}>
-              <SelectTrigger>
+              <SelectTrigger id="chart-y-axis">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

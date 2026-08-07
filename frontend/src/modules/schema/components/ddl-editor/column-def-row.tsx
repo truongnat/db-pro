@@ -27,11 +27,12 @@ export function ColumnDefRow({ column, index, onChange, onRemove, canRemove }: C
     <div className="grid grid-cols-[1fr_1fr_80px_1fr_40px_32px] items-end gap-2">
       <div className="flex flex-col gap-1">
         {index === 0 && (
-          <Label className="text-xs text-muted-foreground">
+          <Label htmlFor={`col-name-${index}`} className="text-xs text-muted-foreground">
             {t("schema.columnName")}
           </Label>
         )}
         <Input
+          id={`col-name-${index}`}
           value={column.name}
           onChange={handleField("name")}
           placeholder="column_name"
@@ -41,11 +42,12 @@ export function ColumnDefRow({ column, index, onChange, onRemove, canRemove }: C
 
       <div className="flex flex-col gap-1">
         {index === 0 && (
-          <Label className="text-xs text-muted-foreground">
+          <Label htmlFor={`col-type-${index}`} className="text-xs text-muted-foreground">
             {t("schema.columnDataType")}
           </Label>
         )}
         <Input
+          id={`col-type-${index}`}
           value={column.dataType}
           onChange={handleField("dataType")}
           placeholder="TEXT"
@@ -55,12 +57,13 @@ export function ColumnDefRow({ column, index, onChange, onRemove, canRemove }: C
 
       <div className="flex flex-col gap-1">
         {index === 0 && (
-          <Label className="text-xs text-muted-foreground">
+          <Label htmlFor={`col-nullable-${index}`} className="text-xs text-muted-foreground">
             {t("schema.columnNullable")}
           </Label>
         )}
         <div className="flex items-center justify-center">
           <Checkbox
+            id={`col-nullable-${index}`}
             checked={column.nullable}
             onCheckedChange={(checked) => onChange(index, "nullable", !!checked)}
           />
@@ -69,11 +72,12 @@ export function ColumnDefRow({ column, index, onChange, onRemove, canRemove }: C
 
       <div className="flex flex-col gap-1">
         {index === 0 && (
-          <Label className="text-xs text-muted-foreground">
+          <Label htmlFor={`col-default-${index}`} className="text-xs text-muted-foreground">
             {t("schema.columnDefault")}
           </Label>
         )}
         <Input
+          id={`col-default-${index}`}
           value={column.defaultValue}
           onChange={handleField("defaultValue")}
           placeholder="DEFAULT"
@@ -83,12 +87,13 @@ export function ColumnDefRow({ column, index, onChange, onRemove, canRemove }: C
 
       <div className="flex flex-col gap-1">
         {index === 0 && (
-          <Label className="text-xs text-muted-foreground">
+          <Label htmlFor={`col-pk-${index}`} className="text-xs text-muted-foreground">
             {t("schema.columnPk")}
           </Label>
         )}
         <div className="flex items-center justify-center">
           <Checkbox
+            id={`col-pk-${index}`}
             checked={column.isPk}
             onCheckedChange={(checked) => onChange(index, "isPk", !!checked)}
           />

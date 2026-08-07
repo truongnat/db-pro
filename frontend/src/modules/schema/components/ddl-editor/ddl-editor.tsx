@@ -116,20 +116,22 @@ export function DdlEditor({ connectionId, schema, table }: DdlEditorProps) {
 
       <div className="grid grid-cols-2 gap-4">
         <div className="flex flex-col gap-1">
-          <Label className="text-sm font-medium text-foreground">
+          <Label htmlFor="ddl-schema" className="text-sm font-medium text-foreground">
             {t("schema.ddlSchema")}
           </Label>
           <Input
+            id="ddl-schema"
             value={schema}
             readOnly
             className="opacity-60"
           />
         </div>
         <div className="flex flex-col gap-1">
-          <Label className="text-sm font-medium text-foreground">
+          <Label htmlFor="ddl-table" className="text-sm font-medium text-foreground">
             {t("schema.ddlTable")}
           </Label>
           <Input
+            id="ddl-table"
             value={table}
             readOnly
             className="opacity-60"
@@ -166,10 +168,11 @@ export function DdlEditor({ connectionId, schema, table }: DdlEditorProps) {
 
       {showColumnName && (
         <div className="flex flex-col gap-1">
-          <Label className="text-sm font-medium text-foreground">
+          <Label htmlFor="ddl-column-name" className="text-sm font-medium text-foreground">
             {t("schema.columnName")}
           </Label>
           <Input
+            id="ddl-column-name"
             value={columnName}
             onChange={(e) => setColumnName(e.target.value)}
             placeholder="column_name"
@@ -179,10 +182,11 @@ export function DdlEditor({ connectionId, schema, table }: DdlEditorProps) {
 
       {showNewName && (
         <div className="flex flex-col gap-1">
-          <Label className="text-sm font-medium text-foreground">
+          <Label htmlFor="ddl-new-name" className="text-sm font-medium text-foreground">
             {t("schema.ddlNewName")}
           </Label>
           <Input
+            id="ddl-new-name"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             placeholder="new_table_name"
@@ -192,10 +196,11 @@ export function DdlEditor({ connectionId, schema, table }: DdlEditorProps) {
 
       {showSelectSql && (
         <div className="flex flex-col gap-1">
-          <Label className="text-sm font-medium text-foreground">
+          <Label htmlFor="ddl-select-sql" className="text-sm font-medium text-foreground">
             SELECT Statement
           </Label>
           <Textarea
+            id="ddl-select-sql"
             value={selectSql}
             onChange={(e) => setSelectSql(e.target.value)}
             placeholder="SELECT * FROM ..."
@@ -207,10 +212,11 @@ export function DdlEditor({ connectionId, schema, table }: DdlEditorProps) {
 
       {showIndexName && (
         <div className="flex flex-col gap-1">
-          <Label className="text-sm font-medium text-foreground">
+          <Label htmlFor="ddl-index-name" className="text-sm font-medium text-foreground">
             {t("schema.ddlIndexName")}
           </Label>
           <Input
+            id="ddl-index-name"
             value={indexName}
             onChange={(e) => setIndexName(e.target.value)}
             placeholder="index_name"
@@ -221,20 +227,22 @@ export function DdlEditor({ connectionId, schema, table }: DdlEditorProps) {
       {showIndexConfig && (
         <>
           <div className="flex flex-col gap-1">
-            <Label className="text-sm font-medium text-foreground">
+            <Label htmlFor="ddl-idx-name" className="text-sm font-medium text-foreground">
               {t("schema.ddlIndexName")}
             </Label>
             <Input
+              id="ddl-idx-name"
               value={indexName}
               onChange={(e) => setIndexName(e.target.value)}
               placeholder="idx_name"
             />
           </div>
           <div className="flex flex-col gap-1">
-            <Label className="text-sm font-medium text-foreground">
+            <Label htmlFor="ddl-idx-columns" className="text-sm font-medium text-foreground">
               {t("schema.ddlIndexColumns")}
             </Label>
             <Input
+              id="ddl-idx-columns"
               value={indexColumns}
               onChange={(e) => setIndexColumns(e.target.value)}
               placeholder="col1, col2"
@@ -242,10 +250,11 @@ export function DdlEditor({ connectionId, schema, table }: DdlEditorProps) {
           </div>
           <div className="flex items-center gap-2">
             <Checkbox
+              id="ddl-unique"
               checked={unique}
               onCheckedChange={(checked) => setUnique(!!checked)}
             />
-            <Label className="text-sm font-normal">{t("schema.ddlUnique")}</Label>
+            <Label htmlFor="ddl-unique" className="text-sm font-normal">{t("schema.ddlUnique")}</Label>
           </div>
         </>
       )}

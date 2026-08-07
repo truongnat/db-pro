@@ -63,6 +63,7 @@ function TabItem({
           : "text-muted-foreground hover:bg-muted/50",
       )}
       onClick={onActivate}
+      title={tab.title}
       onAuxClick={(e) => {
         if (e.button === 1) {
           e.preventDefault();

@@ -1,4 +1,4 @@
-import type { ChangeEvent } from "react";
+import { useId, type ChangeEvent } from "react";
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,13 +28,15 @@ export function FormInput({
   min,
   max,
 }: FormInputProps) {
+  const id = useId();
   return (
     <div className="flex flex-col gap-1.5">
-      <Label className="text-xs font-medium">
+      <Label htmlFor={id} className="text-xs font-medium">
         {label}
         {required && <span className="text-destructive"> *</span>}
       </Label>
       <Input
+        id={id}
         type={type}
         value={String(value)}
         onChange={onChange}

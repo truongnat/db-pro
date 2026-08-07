@@ -104,10 +104,10 @@ export function ExportDialog({ open, onClose, connectionId, sql }: ExportDialogP
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
+          <Button type="button" variant="outline" onClick={onClose}>
             {t("common.actions.cancel")}
           </Button>
-          <Button onClick={handleExport} disabled={exportMutation.isPending}>
+          <Button type="button" onClick={handleExport} disabled={exportMutation.isPending}>
             {t("export.title")}
           </Button>
         </DialogFooter>

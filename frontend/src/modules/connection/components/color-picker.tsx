@@ -43,7 +43,7 @@ export function ColorPicker({ value, onChange }: ColorPickerProps) {
 
   return (
     <div className="flex flex-col gap-1.5">
-      <Label className="text-xs font-medium">
+      <Label htmlFor="connection-custom-color" className="text-xs font-medium">
         {t("connection.color")}
       </Label>
       <div className="flex flex-wrap items-center gap-1.5">
@@ -85,6 +85,7 @@ export function ColorPicker({ value, onChange }: ColorPickerProps) {
       {showCustom && (
         <div className="flex items-center gap-2">
           <Input
+            id="connection-custom-color"
             size="sm"
             value={customValue}
             onChange={(e) => setCustomValue(e.target.value)}

@@ -101,10 +101,11 @@ export function IndexManager({
 
         <div className="space-y-2">
           <div>
-            <Label className="mb-1 block text-xs text-muted-foreground">
+            <Label htmlFor="index-name" className="mb-1 block text-xs text-muted-foreground">
               {t("schema.ddlIndexName")}
             </Label>
             <Input
+              id="index-name"
               type="text"
               value={indexName}
               onChange={(e) => setIndexName(e.target.value)}

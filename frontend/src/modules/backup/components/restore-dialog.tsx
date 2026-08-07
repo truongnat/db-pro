@@ -59,8 +59,9 @@ export function RestoreDialog({
           </p>
 
           <div className="flex flex-col gap-1.5">
-            <Label>{t("backup.inputPath")}</Label>
+            <Label htmlFor="restore-input-path">{t("backup.inputPath")}</Label>
             <Input
+              id="restore-input-path"
               value={inputPath}
               onChange={(e) => setInputPath(e.target.value)}
               placeholder="/path/to/backup.sql"
@@ -69,9 +70,9 @@ export function RestoreDialog({
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <Label>{t("backup.format")}</Label>
+            <Label htmlFor="restore-format">{t("backup.format")}</Label>
             <Select value={format} onValueChange={(v) => setFormat(v as BackupFormat)}>
-              <SelectTrigger>
+              <SelectTrigger id="restore-format">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -82,7 +83,7 @@ export function RestoreDialog({
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={onClose}>
+            <Button type="button" variant="outline" onClick={onClose}>
               {t("common.actions.cancel")}
             </Button>
             <Button type="submit" disabled={!inputPath.trim() || isPending}>
