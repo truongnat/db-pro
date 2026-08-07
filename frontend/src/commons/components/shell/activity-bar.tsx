@@ -45,7 +45,7 @@ export function ActivityBar() {
         DB
       </Link>
 
-      <nav className="flex flex-1 flex-col items-center gap-1" role="navigation" aria-label="Main">
+      <nav className="flex flex-1 flex-col items-center gap-1" role="navigation" aria-label={t("shell.nav.label")}>
         {NAV_ITEMS.map((item) => {
           const isActive = location.pathname.startsWith(item.to);
           const Icon = item.icon;

@@ -312,6 +312,7 @@
   },
   "shell": {
     "nav": {
+      "label": "メインナビゲーション",
       "connections": "接続一覧",
       "query": "クエリ",
       "data": "データ",
@@ -319,6 +320,7 @@
       "users": "ユーザー"
     },
     "sidebar": {
+      "label": "サイドバー",
       "connections": "接続一覧",
       "schemaExplorer": "スキーマエクスプローラー",
       "connectFirst": "データベースに接続してください",

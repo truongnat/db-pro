@@ -312,6 +312,7 @@
   },
   "shell": {
     "nav": {
+      "label": "Main navigation",
       "connections": "Connections",
       "query": "Query",
       "data": "Data",
@@ -319,6 +320,7 @@
       "users": "Users"
     },
     "sidebar": {
+      "label": "Sidebar",
       "connections": "Connections",
       "schemaExplorer": "Schema explorer",
       "connectFirst": "Connect to a database",

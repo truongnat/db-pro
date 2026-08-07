@@ -61,9 +61,14 @@ export function Sidebar() {
     <aside
       className="flex min-h-0 flex-col overflow-hidden border-r border-border bg-sidebar transition-[width] duration-200 ease-out"
       style={{ width: sidebarCollapsed ? "var(--app-sidebar-collapsed-width)" : "var(--app-sidebar-width)" }}
-      aria-label="Sidebar"
+      aria-label={t("shell.sidebar.label")}
     >
-      <div className="flex min-h-0 flex-col overflow-y-auto px-2.5 py-3">
+      <div
+        className="flex min-h-0 flex-col overflow-y-auto px-2.5 py-3"
+        aria-hidden={sidebarCollapsed}
+        inert={sidebarCollapsed ? true : undefined}
+        style={{ visibility: sidebarCollapsed ? "hidden" : undefined }}
+      >
         <ConnectionsSection
           connections={connections.data}
           isLoading={connections.isLoading}
@@ -128,6 +133,7 @@ export function Sidebar() {
                             key={view.name}
                             to="/schema"
                             className="flex items-center gap-2 rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-[var(--app-hover)] hover:text-foreground"
+                            onClick={() => useSchemaModuleStore.getState().setSelectedTable(schema.name, view.name, "view")}
                           >
                             <Columns3 className="h-3 w-3 shrink-0 text-primary" />
                             <span className="truncate">{view.name}</span>
