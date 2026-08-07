@@ -11,15 +11,13 @@ import { ExportDialog } from "@/modules/export/components/export-dialog";
 
 import { ExplainPlanView } from "./explain-plan";
 import { LocalHistoryPanel } from "./local-history-panel";
-import { QueryContextStrip } from "./query-context-strip";
+import { QueryCommandBar } from "./query-command-bar";
 import { QueryEditor } from "./query-editor";
 import { QueryHistoryPanel } from "./query-history-panel";
 import { QueryStatusBar } from "./query-status-bar";
-import { QueryToolbar } from "./query-toolbar";
 import { ResultGrid } from "./result-grid";
 import { ResultTabs } from "./result-tabs";
 import { SnippetPanel } from "./snippet-panel";
-import { TransactionBar } from "./transaction-bar";
 import {
   useCancelQuery,
   useExecuteQueryMulti,
@@ -230,7 +228,10 @@ export function QueryTabContent({ tabId, onOpenRunConfig }: QueryTabContentProps
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
-      <QueryToolbar
+      <QueryCommandBar
+        tabId={tabId}
+        connectionId={tabConnectionId}
+        context={tabData?.context ?? { database: null, schema: null }}
         onExecuteCurrent={() => dispatchQueryAction("executeCurrent")}
         onExecuteAll={handleExecuteAll}
         onCancel={handleCancel}
@@ -248,14 +249,6 @@ export function QueryTabContent({ tabId, onOpenRunConfig }: QueryTabContentProps
         hasSql={!!sql.trim()}
       />
 
-      <QueryContextStrip
-        tabId={tabId}
-        connectionId={tabConnectionId}
-        context={tabData?.context ?? { database: null, schema: null }}
-      />
-
-      <TransactionBar />
-
       <ResizableDock>
         <div className="h-full">
           <QueryEditor
@@ -268,30 +261,35 @@ export function QueryTabContent({ tabId, onOpenRunConfig }: QueryTabContentProps
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col">
-          <div className="flex border-b border-border">
+          <div className="flex items-center border-b border-[var(--app-border-subtle)]">
             {panelTabs.map((tab) => (
-              <Button
+              <button
                 key={tab.id}
                 type="button"
-                variant="ghost"
-                className={`px-4 py-2 text-sm transition-colors ${
-                  panelTab === tab.id ? "text-foreground" : "text-muted-foreground"
-                } ${
-                  panelTab === tab.id
-                    ? "border-b-2 border-primary"
-                    : "border-b-2 border-transparent"
+                className={`relative px-4 py-2 text-xs transition-colors ${
+                  panelTab === tab.id ? "text-foreground" : "text-muted-foreground hover:text-foreground"
                 }`}
                 onClick={() => setTabActivePanel(tabId, tab.id)}
               >
                 {tab.label}
-              </Button>
+                {panelTab === tab.id && (
+                  <span className="absolute inset-x-2 bottom-0 h-[2px] rounded-t-sm bg-primary" />
+                )}
+              </button>
             ))}
           </div>
 
           <div className="min-h-0 flex-1">
             {status === "error" && error && panelTab === "results" && (
-              <div className="m-3 rounded-sm bg-destructive px-3 py-2 text-sm text-white">
-                {error}
+              <div className="flex flex-col items-center justify-center py-12">
+                <div className="mb-3 grid h-10 w-10 place-items-center rounded-full bg-destructive/15">
+                  <span className="text-lg text-destructive">!</span>
+                </div>
+                <p className="mb-1 text-sm font-medium text-foreground">{t("query.queryError")}</p>
+                <p className="mb-4 max-w-md text-center text-xs text-muted-foreground">{error}</p>
+                <Button variant="outline" size="sm" onClick={handleExecuteAll}>
+                  {t("common.actions.retry")}
+                </Button>
               </div>
             )}
 

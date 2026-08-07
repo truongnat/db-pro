@@ -1,5 +1,6 @@
 use db_pro_core::domain::error::DbError;
 
+use super::migration;
 use super::schema::SCHEMA;
 use crate::sqlite::actor::{SqliteActor, SqliteHandle};
 
@@ -11,7 +12,10 @@ pub struct SQLiteMetaStore {
 impl SQLiteMetaStore {
     pub async fn new(db_path: &str) -> Result<Self, DbError> {
         let actor = SqliteActor::spawn(db_path)?;
+        // Create baseline schema (all tables use IF NOT EXISTS).
         actor.execute_statement(SCHEMA.into()).await?;
+        // Apply any pending migrations to bring schema up to date.
+        migration::migrate(&actor).await?;
         Ok(Self { actor })
     }
 

@@ -1,52 +1,63 @@
-import { ChevronRight, Command, Search } from "lucide-react";
+import { Command, Search } from "lucide-react";
 
 import { useTranslation } from "@/commons/locales/useTranslation";
 import { useCommandStore } from "@/commons/stores/command.store";
-import { useConnectionStore } from "@/commons/stores/connection.store";
-import { useWorkspaceStore } from "@/commons/stores/workspace.store";
-import { Button } from "@/components/ui/button";
-import { useConnectionList } from "@/modules/connection/queries/connection.queries";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 export function Topbar() {
   const { t } = useTranslation();
-  const connections = useConnectionList();
-  const explorerConnectionId = useConnectionStore((s) => s.explorerConnectionId);
-  const activeTab = useWorkspaceStore((s) => {
-    if (!s.activeTabId) return null;
-    return s.tabs.find((t) => t.id === s.activeTabId) ?? null;
-  });
-
-  const workspaceConnectionId = activeTab?.connectionId ?? explorerConnectionId;
-  const activeConnection = connections.data?.find((c) => c.id === workspaceConnectionId) ?? null;
 
   return (
     <header
-      className="flex items-center border-b border-border bg-card px-4"
+      className="flex items-center border-b border-[var(--app-border-subtle)] bg-background px-4"
       style={{ height: "var(--app-topbar-height)" }}
       role="banner"
     >
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        <ChevronRight className="h-3.5 w-3.5" />
-        <strong className="font-medium text-foreground">
-          {activeConnection?.name ?? t("shell.topbar.noConnection")}
-        </strong>
-        {activeTab && (
-          <>
-            <span>/</span>
-            <span>{activeTab.title}</span>
-          </>
-        )}
-      </div>
-      <div className="ml-auto flex items-center gap-1">
-        <Button type="button" variant="ghost" size="icon" className="h-7 w-7" title={t("shell.topbar.commandMenu")} onClick={() => useCommandStore.getState().open()}>
-          <Command className="h-3.5 w-3.5" />
-        </Button>
-        <Button type="button" variant="ghost" size="icon" className="h-7 w-7" title={t("shell.topbar.search")}>
-          <Search className="h-3.5 w-3.5" />
-        </Button>
-        <span className="ml-1 grid h-7 w-7 place-items-center rounded-full bg-muted text-[10px] font-semibold text-foreground">
+      {/* Left spacer for Mac traffic lights area */}
+      <div className="w-16" />
+
+      <div className="flex-1" />
+
+      {/* Right actions */}
+      <div className="flex items-center gap-1">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              className="flex h-7 items-center gap-1.5 rounded-md border border-[var(--app-border)] bg-muted/50 px-2.5 text-xs text-muted-foreground transition-colors hover:border-[var(--app-border-strong)] hover:text-foreground"
+              onClick={() => useCommandStore.getState().open()}
+            >
+              <Search className="h-3.5 w-3.5" />
+              <span>{t("shell.topbar.search")}</span>
+              <kbd className="ml-1 rounded border border-[var(--app-border-strong)] bg-background px-1 py-px text-[10px] font-medium text-muted-foreground">
+                ⌘K
+              </kbd>
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" sideOffset={4}>
+            {t("shell.topbar.commandMenu")}
+          </TooltipContent>
+        </Tooltip>
+
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-[var(--app-hover)] hover:text-foreground"
+              onClick={() => useCommandStore.getState().open()}
+            >
+              <Command className="h-3.5 w-3.5" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" sideOffset={4}>
+            {t("shell.topbar.commandMenu")}
+          </TooltipContent>
+        </Tooltip>
+
+        {/* Profile avatar */}
+        <div className="ml-1 grid h-7 w-7 place-items-center rounded-full bg-primary/15 text-[10px] font-semibold text-primary">
           T
-        </span>
+        </div>
       </div>
     </header>
   );

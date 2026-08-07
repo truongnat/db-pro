@@ -1,19 +1,23 @@
 use tauri::State;
 
-use crate::cancel::CancelRegistry;
+use crate::cancel::ExecutionRegistry;
 use crate::dto::{CommandError, MultiQueryResultDto, QueryHistoryDto, QueryResultDto, RunConfigDto, SavedQueryDto, SavedQueryFolderDto};
 use db_pro_core::application::QueryService;
 use db_pro_core::domain::connection::ConnectionId;
+use db_pro_core::domain::execution::ExecutionStatus;
 
 #[tauri::command]
 pub async fn execute_query(
     service: State<'_, QueryService>,
-    cancel_registry: State<'_, CancelRegistry>,
+    exec_registry: State<'_, ExecutionRegistry>,
     connection_id: String,
     sql: String,
 ) -> Result<QueryResultDto, CommandError> {
     let conn_id = parse_connection_id(&connection_id)?;
-    let cancel_rx = cancel_registry.register(&connection_id);
+
+    // Register execution in the lifecycle registry.
+    let (exec_id, cancel_rx) = exec_registry.register(conn_id);
+    exec_registry.start_execution(&exec_id);
 
     let query_future = service.execute(&conn_id, &sql, &[]);
     tokio::pin!(query_future);
@@ -21,7 +25,10 @@ pub async fn execute_query(
     let result = tokio::select! {
         res = &mut query_future => res,
         _ = cancel_rx => {
-            cancel_registry.unregister(&connection_id);
+            exec_registry.finish_execution(
+                &exec_id, ExecutionStatus::Cancelled, 0, 0, 0,
+            );
+            exec_registry.remove(&exec_id);
             return Err(CommandError {
                 error: "QUERY_CANCELLED".into(),
                 message: "Query was cancelled by user".into(),
@@ -32,17 +39,39 @@ pub async fn execute_query(
         }
     };
 
-    cancel_registry.unregister(&connection_id);
+    // Finish execution with appropriate lifecycle status.
+    match &result {
+        Ok(qr) => {
+            exec_registry.finish_execution(
+                &exec_id,
+                ExecutionStatus::Success,
+                qr.row_count,
+                0,
+                1,
+            );
+        }
+        Err(e) => {
+            let status = match e {
+                db_pro_core::domain::error::DbError::QueryTimeout { .. } => ExecutionStatus::TimedOut,
+                db_pro_core::domain::error::DbError::QueryCancelled => ExecutionStatus::Cancelled,
+                _ => ExecutionStatus::Error,
+            };
+            exec_registry.finish_execution(&exec_id, status, 0, 0, 0);
+        }
+    }
+    exec_registry.remove(&exec_id);
+
     let result = result?;
     Ok(result.into())
 }
 
 #[tauri::command]
 pub async fn cancel_query(
-    cancel_registry: State<'_, CancelRegistry>,
+    exec_registry: State<'_, ExecutionRegistry>,
     connection_id: String,
 ) -> Result<(), CommandError> {
-    cancel_registry.cancel(&connection_id);
+    // Cancel by connection ID — idempotent, no-op if not found.
+    exec_registry.cancel_by_connection(&connection_id);
     Ok(())
 }
 

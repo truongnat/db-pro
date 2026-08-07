@@ -6,6 +6,7 @@ import {
   Folder,
   FolderOpen,
   Plus,
+  Search,
   Table2,
 } from "lucide-react";
 
@@ -120,24 +121,17 @@ export function ExplorerView() {
 
   return (
     <div className="flex min-h-0 flex-col">
-      <div className="flex items-center justify-between px-2 pb-2">
-        <span className="text-[10px] font-semibold uppercase tracking-widest text-[var(--app-text-dim)]">
-          {t("shell.sidebar.explorer")}
-        </span>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="h-5 w-5 text-muted-foreground"
-              onClick={() => openConnectionDialog()}
-            >
-              <Plus className="h-3.5 w-3.5" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="right" sideOffset={4}>{t("connection.new")}</TooltipContent>
-        </Tooltip>
+      {/* Search bar */}
+      <div className="px-1 pb-2">
+        <div className="flex items-center gap-1.5 rounded-md border border-[var(--app-border)] bg-background px-2 py-1">
+          <Search className="h-3.5 w-3.5 shrink-0 text-[var(--app-text-dim)]" />
+          <input
+            type="text"
+            placeholder={`${t("shell.sidebar.searchObjects")}...`}
+            className="w-full bg-transparent text-xs text-foreground placeholder:text-[var(--app-text-dim)] focus:outline-none"
+          />
+          <kbd className="shrink-0 text-[9px] text-[var(--app-text-dim)]">⌘K</kbd>
+        </div>
       </div>
 
       <div className="flex flex-col gap-0.5">
@@ -157,8 +151,8 @@ export function ExplorerView() {
                   <button
                     type="button"
                     className={cn(
-                      "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-[var(--app-hover)] hover:text-foreground",
-                      explorerConnectionId === conn.id && "bg-[var(--app-active)] text-foreground",
+                      "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-[12.5px] text-muted-foreground transition-colors hover:bg-[var(--app-hover)] hover:text-foreground",
+                      explorerConnectionId === conn.id && "bg-[var(--app-active)] text-foreground font-medium",
                     )}
                     onClick={() => handleConnectionClick(conn.id)}
                     title={conn.name}
@@ -186,7 +180,7 @@ export function ExplorerView() {
                 <p className="ml-7 px-2 py-1 text-xs text-[var(--app-text-dim)]">{t("common.states.loading")}</p>
               )}
               {expanded && introspect.data && (
-                <div className="ml-5 flex flex-col gap-0.5 border-l border-border pl-2">
+                <div className="ml-5 flex flex-col gap-0.5 border-l border-[var(--app-border-subtle)] pl-2">
                   {introspect.data.schemas.map((schema) => {
                     const schemaExpanded = expandedNodes.includes(`schema:${conn.id}:${schema.name}`);
                     const tables = introspect.data.tables.filter((tbl) => tbl.schema === schema.name);
@@ -213,7 +207,7 @@ export function ExplorerView() {
                           </span>
                         </Button>
                         {schemaExpanded && (
-                          <div className="ml-[22px] flex flex-col gap-0.5 border-l border-border pl-2">
+                          <div className="ml-[22px] flex flex-col gap-0.5 border-l border-[var(--app-border-subtle)] pl-2">
                             {tables.length > 0 && (
                               <SchemaObjectGroup
                                 groupKey={`schema:${conn.id}:${schema.name}:tables`}

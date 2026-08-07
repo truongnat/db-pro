@@ -1,4 +1,10 @@
 pub const SCHEMA: &str = r#"
+CREATE TABLE IF NOT EXISTS schema_version (
+    version INTEGER PRIMARY KEY,
+    applied_at TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT ''
+);
+
 CREATE TABLE IF NOT EXISTS connections (
     id TEXT PRIMARY KEY,
     data TEXT NOT NULL,

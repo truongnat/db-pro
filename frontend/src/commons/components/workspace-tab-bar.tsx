@@ -22,7 +22,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Button } from "@/components/ui/button";
 import { useTranslation } from "@/commons/locales/useTranslation";
 import { cn } from "@/lib/utils";
 
@@ -57,10 +56,10 @@ function TabItem({
   return (
     <div
       className={cn(
-        "group flex shrink-0 cursor-pointer items-center gap-1.5 border-r border-border px-3 py-1.5 text-xs transition-colors",
+        "group relative flex shrink-0 cursor-pointer items-center gap-1.5 px-3 py-1.5 text-xs transition-colors",
         isActive
           ? "bg-background text-foreground"
-          : "text-muted-foreground hover:bg-muted/50",
+          : "text-muted-foreground hover:bg-[var(--app-hover)]",
       )}
       onClick={onActivate}
       title={tab.title}
@@ -100,6 +99,10 @@ function TabItem({
       {...dragListeners}
       {...dragAttributes}
     >
+      {/* Active indicator — top primary line */}
+      {isActive && (
+        <span className="absolute inset-x-0 top-0 h-[2px] rounded-b-sm bg-primary" />
+      )}
       {tab.dirty && (
         <span
           className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary"
@@ -107,17 +110,15 @@ function TabItem({
         />
       )}
       {tab.pinned && (
-        <PinIcon className="h-3 w-3 shrink-0" aria-label="Pinned" />
+        <PinIcon className="h-3 w-3 shrink-0 text-muted-foreground" aria-label="Pinned" />
       )}
       <span className={cn("max-w-[140px] truncate", tab.preview && "italic")}>
         {tab.title}
       </span>
       {!tab.pinned && (
-        <Button
+        <button
           type="button"
-          variant="ghost"
-          size="icon"
-          className="h-4 w-4 shrink-0 rounded px-0 text-muted-foreground opacity-0 transition-opacity hover:bg-border hover:text-foreground group-hover:opacity-100"
+          className="flex h-4 w-4 shrink-0 items-center justify-center rounded text-muted-foreground opacity-0 transition-opacity hover:bg-[var(--app-active)] hover:text-foreground group-hover:opacity-100"
           onClick={(e) => {
             e.stopPropagation();
             onClose(tab.id);
@@ -125,7 +126,7 @@ function TabItem({
           aria-label={`Close ${tab.title}`}
         >
           <XIcon className="h-3 w-3" />
-        </Button>
+        </button>
       )}
     </div>
   );
@@ -190,7 +191,7 @@ export function WorkspaceTabBar() {
         onDragEnd={handleDragEnd}
         onDragCancel={handleDragCancel}
       >
-        <div className="flex items-center border-b border-border bg-card">
+        <div className="flex items-center border-b border-[var(--app-border-subtle)] bg-sidebar">
           <TabScrollLeft canScrollLeft={canScrollLeft} onScrollLeft={scrollLeft} />
 
           <div

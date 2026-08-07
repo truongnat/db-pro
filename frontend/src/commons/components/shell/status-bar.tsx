@@ -34,28 +34,31 @@ export function StatusBar() {
 
   return (
     <footer
-      className="flex items-center border-t border-border bg-card px-3 text-[10px] text-[var(--app-text-dim)]"
+      className="flex items-center border-t border-[var(--app-border-subtle)] bg-background px-3 text-[11px] text-[var(--app-text-dim)]"
       style={{ height: "var(--app-statusbar-height)" }}
       role="contentinfo"
     >
+      {/* Left — connection context */}
       {activeConnection ? (
         <>
           <span className="flex items-center gap-1.5">
             {status === "connected" ? (
-              <Wifi className="h-3 w-3 text-success" />
+              <Wifi className="h-3 w-3 text-[var(--app-success)]" />
+            ) : status === "connecting" ? (
+              <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-[var(--app-warning)]" />
             ) : (
               <WifiOff className="h-3 w-3" />
             )}
-            <span className={cn(status === "connected" && "text-success")}>{statusLabel}</span>
+            <span className={cn(status === "connected" && "text-[var(--app-success)]")}>{statusLabel}</span>
           </span>
-          <span className="mx-2 text-border">|</span>
-          <span className="flex items-center gap-1.5">
+          <span className="mx-2 text-[var(--app-border-strong)]">·</span>
+          <span className="flex items-center gap-1">
             <Database className="h-3 w-3" />
             <span>{activeConnection.driver}</span>
           </span>
-          <span className="mx-2 text-border">|</span>
+          <span className="mx-2 text-[var(--app-border-strong)]">·</span>
           <span>{activeConnection.database}</span>
-          <span className="mx-2 text-border">|</span>
+          <span className="mx-2 text-[var(--app-border-strong)]">·</span>
           <span>
             {tableCount} {t("shell.statusbar.tables")}
           </span>
@@ -63,6 +66,8 @@ export function StatusBar() {
       ) : (
         <span>{t("shell.statusbar.noConnection")}</span>
       )}
+
+      {/* Right — metadata */}
       <span className="ml-auto">{t("shell.statusbar.version")}</span>
     </footer>
   );

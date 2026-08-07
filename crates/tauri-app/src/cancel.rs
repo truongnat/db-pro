@@ -45,7 +45,7 @@ impl ExecutionRegistry {
     pub fn register(&self, connection_id: ConnectionId) -> (QueryExecutionId, oneshot::Receiver<()>) {
         let (tx, rx) = oneshot::channel();
         let mut execution = QueryExecution::new(connection_id);
-        let exec_id = execution.id;
+        let exec_id = execution.id.clone();
 
         let entry = ExecutionEntry {
             execution,
@@ -130,6 +130,11 @@ impl ExecutionRegistry {
     ) {
         let mut guard = self.inner.lock().unwrap_or_else(|e| e.into_inner());
         if let Some(entry) = guard.get_mut(&exec_id.0) {
+            // Idempotent: if already terminal, only clean up the cancel token.
+            if entry.execution.status.is_terminal() {
+                entry.cancel_tx.take();
+                return;
+            }
             entry.execution.rows_returned = rows_returned;
             entry.execution.rows_affected = rows_affected;
             entry.execution.statement_count = statement_count;

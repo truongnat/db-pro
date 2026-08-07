@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use super::connection::ConnectionId;
 
 /// Unique identifier for a single query execution.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct QueryExecutionId(pub String);
 
 impl QueryExecutionId {

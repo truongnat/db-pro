@@ -9,4 +9,5 @@ pub mod query;
 pub mod run_config;
 pub mod safety;
 pub mod schema;
+pub mod secret;
 pub mod user;

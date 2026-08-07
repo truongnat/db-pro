@@ -1,5 +1,6 @@
 pub mod connection_repo;
 pub mod introspection_cache_repo;
+pub mod migration;
 pub mod query_history_repo;
 pub mod run_config_repo;
 pub mod saved_query_repo;

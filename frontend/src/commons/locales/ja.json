@@ -128,6 +128,7 @@
     "parametersComingSoon": "パラメータ化クエリは準備中です",
     "connectFirst": "クエリを実行するにはデータベースに接続してください",
     "enterSql": "SQLクエリを入力してください",
+        "queryError": "クエリを実行できませんでした",
     "results": "結果",
     "searchHistory": "履歴を検索...",
     "querySaved": "クエリを保存しました",

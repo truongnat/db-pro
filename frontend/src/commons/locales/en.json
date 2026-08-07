@@ -128,6 +128,7 @@
     "parametersComingSoon": "Parameterized queries coming soon",
     "connectFirst": "Connect to a database to run queries",
     "enterSql": "Enter a SQL query",
+    "queryError": "Couldn't execute query",
     "results": "Results",
     "searchHistory": "Search history...",
     "querySaved": "Query saved",

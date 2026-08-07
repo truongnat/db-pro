@@ -378,7 +378,9 @@ async fn introspect_views(pool: &sqlx::PgPool) -> Result<Vec<View>, DbError> {
         .map(|row| {
             let schema: String = row.get("table_schema");
             let name: String = row.get("table_name");
-            let definition: String = row.get("view_definition");
+            // view_definition can be NULL for some edge-case views
+            // (e.g. information_schema views with insufficient privileges).
+            let definition: String = row.try_get("view_definition").unwrap_or_default();
             View { name, schema, definition }
         })
         .collect())
@@ -400,8 +402,10 @@ async fn introspect_triggers(pool: &sqlx::PgPool) -> Result<Vec<Trigger>, DbErro
         .into_iter()
         .map(|row| {
             let name: String = row.get("trigger_name");
-            let event: String = row.get("event_manipulation");
-            let action: String = row.get("action_statement");
+            // event_manipulation can be NULL for non-DML triggers.
+            let event: String = row.try_get("event_manipulation").unwrap_or_default();
+            // action_statement can be NULL in edge cases.
+            let action: String = row.try_get("action_statement").unwrap_or_default();
             Trigger { name, event, action }
         })
         .collect())
