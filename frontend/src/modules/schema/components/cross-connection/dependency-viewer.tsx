@@ -40,13 +40,13 @@ export function DependencyViewer({ connectionId }: DependencyViewerProps) {
           value={schema}
           onChange={(e) => setSchema(e.target.value)}
           placeholder={t("schema.crossConn.schemaName")}
-          className="rounded-sm border border-border px-3 py-2 text-sm text-foreground"
+          className="rounded-sm border border-[var(--app-border)] px-3 py-2 text-sm text-foreground"
         />
         <Input
           value={objectName}
           onChange={(e) => setObjectName(e.target.value)}
           placeholder={t("schema.crossConn.objectName")}
-          className="rounded-sm border border-border px-3 py-2 text-sm text-foreground"
+          className="rounded-sm border border-[var(--app-border)] px-3 py-2 text-sm text-foreground"
         />
         <Button
           type="button"
@@ -64,35 +64,35 @@ export function DependencyViewer({ connectionId }: DependencyViewerProps) {
       )}
 
       {deps && deps.length === 0 && (
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sm text-[var(--app-text-muted)]">
           {t("schema.crossConn.noDeps")}
         </p>
       )}
 
       {deps && deps.length > 0 && (
-        <div className="rounded-sm border border-border">
+        <div className="rounded-sm border border-[var(--app-border)]">
           <Table className="w-full text-sm">
             <TableHeader>
-              <TableRow className="bg-card">
-                <TableHead className="px-3 py-2 text-left font-medium text-muted-foreground">
+              <TableRow className="bg-background">
+                <TableHead className="px-3 py-2 text-left font-medium text-[var(--app-text-muted)]">
                   {t("schema.crossConn.object")}
                 </TableHead>
-                <TableHead className="px-3 py-2 text-left font-medium text-muted-foreground">
+                <TableHead className="px-3 py-2 text-left font-medium text-[var(--app-text-muted)]">
                   {t("schema.crossConn.dependsOn")}
                 </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {deps.map((dep, i) => (
-                <TableRow key={i} className="border-t border-border">
+                <TableRow key={i} className="border-t border-[var(--app-border-subtle)]">
                   <TableCell className="px-3 py-2">
-                    <span className="rounded px-1.5 py-0.5 text-xs bg-background text-muted-foreground">
+                    <span className="rounded px-1.5 py-0.5 text-xs bg-background text-[var(--app-text-muted)]">
                       {dep.objectType}
                     </span>
                     <span className="ml-2 text-foreground">{dep.objectName}</span>
                   </TableCell>
                   <TableCell className="px-3 py-2">
-                    <span className="rounded px-1.5 py-0.5 text-xs bg-background text-muted-foreground">
+                    <span className="rounded px-1.5 py-0.5 text-xs bg-background text-[var(--app-text-muted)]">
                       {dep.dependsOnType}
                     </span>
                     <span className="ml-2 text-foreground">{dep.dependsOnName}</span>

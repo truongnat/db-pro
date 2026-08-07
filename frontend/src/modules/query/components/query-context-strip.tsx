@@ -39,9 +39,9 @@ export function QueryContextStrip({ tabId, connectionId, context }: QueryContext
   };
 
   return (
-    <div className="flex items-center gap-2 border-b border-border bg-card px-3 py-1">
-      <Database className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
-      <span className="text-[11px] text-muted-foreground">{t("query.context")}</span>
+    <div className="flex items-center gap-2 border-b border-[var(--app-border-subtle)] bg-background px-3 py-1">
+      <Database className="h-3.5 w-3.5 shrink-0 text-[var(--app-text-muted)]" aria-hidden />
+      <span className="text-[11px] text-[var(--app-text-muted)]">{t("query.context")}</span>
       <Select value={connectionId ?? ""} onValueChange={handleConnectionChange}>
         <SelectTrigger className="h-6 w-auto max-w-[180px] rounded-sm border px-2 py-0 text-xs">
           <SelectValue />

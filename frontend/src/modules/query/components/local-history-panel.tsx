@@ -48,7 +48,7 @@ export function LocalHistoryPanel({ onSelectEntry }: LocalHistoryPanelProps) {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center gap-2 border-b border-border px-3 py-2">
+      <div className="flex items-center gap-2 border-b border-[var(--app-border-subtle)] px-3 py-2">
         <Input
           className="flex-1"
           placeholder={t("query.searchHistory")}
@@ -58,7 +58,7 @@ export function LocalHistoryPanel({ onSelectEntry }: LocalHistoryPanelProps) {
         <Button
           type="button"
           variant="outline"
-          className="rounded-sm border px-2 py-1 text-xs text-muted-foreground"
+          className="rounded-sm border px-2 py-1 text-xs text-[var(--app-text-muted)]"
           onClick={handleClear}
           disabled={entries.length === 0}
         >
@@ -69,7 +69,7 @@ export function LocalHistoryPanel({ onSelectEntry }: LocalHistoryPanelProps) {
       <div className="flex-1 overflow-auto">
         {filtered.length === 0 && (
           <div className="flex items-center justify-center py-8">
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-[var(--app-text-muted)]">
               {t("common.states.empty")}
             </p>
           </div>
@@ -77,7 +77,7 @@ export function LocalHistoryPanel({ onSelectEntry }: LocalHistoryPanelProps) {
         {filtered.map((entry, idx) => (
           <div
             key={`${entry.timestamp}-${idx}`}
-            className="group flex cursor-pointer items-start gap-2 border-b border-border px-3 py-2 transition-colors hover:bg-card"
+            className="group flex cursor-pointer items-start gap-2 border-b border-[var(--app-border-subtle)] px-3 py-2 transition-colors hover:bg-background"
             onClick={() => onSelectEntry(entry.sql)}
           >
             <div className="min-w-0 flex-1">

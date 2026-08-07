@@ -72,13 +72,13 @@ class ErrorBoundaryInner extends Component<
           >
             {this.props.moduleName} — Error
           </div>
-          <div className="text-muted-foreground">
+          <div className="text-[var(--app-text-muted)]">
             {this.state.error.message}
           </div>
           <Button
             type="button"
             variant="outline"
-            className="bg-card"
+            className="bg-background"
             onClick={this.reset}
           >
             Retry
@@ -122,13 +122,13 @@ export function ErrorBoundaryFallback({
       >
         {t("common.states.error")}
       </div>
-      <div className="text-muted-foreground">
+      <div className="text-[var(--app-text-muted)]">
         {error.message}
       </div>
       <Button
         type="button"
         variant="outline"
-        className="h-9 px-4 bg-card"
+        className="h-9 px-4 bg-background"
         onClick={reset}
       >
         {t("common.actions.retry")}

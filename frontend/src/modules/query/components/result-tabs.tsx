@@ -19,7 +19,7 @@ export function ResultTabs() {
   if (!multiResults || multiResults.length <= 1 || !activeTabId) return null;
 
   return (
-    <div className="flex gap-1 border-b border-border bg-card px-3 py-1">
+    <div className="flex gap-1 border-b border-[var(--app-border-subtle)] bg-background px-3 py-1">
       {multiResults.map((r, idx) => (
         <Button
           key={idx}

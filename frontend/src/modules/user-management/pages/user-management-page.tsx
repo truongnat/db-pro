@@ -45,7 +45,7 @@ export function UserManagementPage() {
 
   return (
     <div className="flex h-full gap-4">
-      <div className="flex w-64 shrink-0 flex-col gap-2 overflow-auto border-r border-border pr-4">
+      <div className="flex w-64 shrink-0 flex-col gap-2 overflow-auto border-r border-[var(--app-border-subtle)] pr-4">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold text-foreground">
             {t("userManagement.title")}

@@ -31,7 +31,7 @@ export function UserList({
           key={user.name}
           className={cn(
             "flex items-center justify-between rounded-sm px-2 py-1.5 cursor-pointer transition-colors hover:bg-background",
-            selectedUser === user.name && "bg-card",
+            selectedUser === user.name && "bg-background",
           )}
           onClick={() => onSelectUser(user.name)}
         >

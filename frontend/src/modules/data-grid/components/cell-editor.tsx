@@ -53,7 +53,7 @@ export function CellEditor({ value, onSave, onCancel }: CellEditorProps) {
   return (
     <Input
       ref={inputRef}
-      className="absolute inset-0 z-20 h-full w-full rounded-none border-2 border-primary bg-card px-2 text-xs shadow-none focus-visible:ring-0"
+      className="absolute inset-0 z-20 h-full w-full rounded-none border-2 border-primary bg-background px-2 text-xs shadow-none focus-visible:ring-0"
       value={text}
       onChange={(e) => setText(e.target.value)}
       onKeyDown={(e) => {

@@ -35,13 +35,13 @@ export function DataDiffView({ sourceId, targetId }: DataDiffViewProps) {
           value={schema}
           onChange={(e) => setSchema(e.target.value)}
           placeholder={t("schema.crossConn.schemaName")}
-          className="rounded-sm border border-border px-3 py-2 text-sm text-foreground"
+          className="rounded-sm border border-[var(--app-border)] px-3 py-2 text-sm text-foreground"
         />
         <Input
           value={table}
           onChange={(e) => setTable(e.target.value)}
           placeholder={t("schema.crossConn.tableName")}
-          className="rounded-sm border border-border px-3 py-2 text-sm text-foreground"
+          className="rounded-sm border border-[var(--app-border)] px-3 py-2 text-sm text-foreground"
         />
         <Button
           type="button"
@@ -59,13 +59,13 @@ export function DataDiffView({ sourceId, targetId }: DataDiffViewProps) {
       )}
 
       {diff && (
-        <div className="rounded-sm border border-border p-4">
+        <div className="rounded-sm border border-[var(--app-border-subtle)] p-4">
           <h4 className="mb-3 text-sm font-medium text-foreground">
             {diff.schema}.{diff.table}
           </h4>
           <div className="grid grid-cols-3 gap-4 text-sm">
             <div>
-              <p className="text-muted-foreground">{t("schema.crossConn.sourceCount")}</p>
+              <p className="text-[var(--app-text-muted)]">{t("schema.crossConn.sourceCount")}</p>
               <p className="text-lg font-medium text-foreground">{diff.sourceRowCount}</p>
             </div>
             <div>

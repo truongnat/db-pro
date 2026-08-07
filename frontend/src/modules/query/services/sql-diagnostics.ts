@@ -232,30 +232,38 @@ export function registerSqlDiagnostics(monacoInstance: typeof monaco): void {
   // Validate on model content change (debounced)
   const timers = new Map<string, ReturnType<typeof setTimeout>>();
 
-  monacoInstance.editor.onDidChangeModelContent((event: { model: monaco.editor.ITextModel }) => {
-    const model = event.model;
-    if (model.getLanguageId() !== "sql") return;
-
-    const uri = model.uri.toString();
-    const existing = timers.get(uri);
-    if (existing) clearTimeout(existing);
-
-    timers.set(
-      uri,
-      setTimeout(() => {
-        timers.delete(uri);
-        validateModel(monacoInstance, model).catch(() => {});
-      }, 500),
-    );
-  });
-
-  // Also validate when a model is first opened
-  monacoInstance.editor.onDidCreateModel((model: monaco.editor.ITextModel) => {
+  function attachDiagnostics(model: monaco.editor.ITextModel) {
     if (model.getLanguageId() !== "sql") return;
     if (!model.uri.toString().startsWith("dbpro://query/")) return;
 
+    // Initial validation
     setTimeout(() => {
       validateModel(monacoInstance, model).catch(() => {});
     }, 300);
+
+    // Debounced re-validation on content change
+    model.onDidChangeContent(() => {
+      const uri = model.uri.toString();
+      const existing = timers.get(uri);
+      if (existing) clearTimeout(existing);
+
+      timers.set(
+        uri,
+        setTimeout(() => {
+          timers.delete(uri);
+          validateModel(monacoInstance, model).catch(() => {});
+        }, 500),
+      );
+    });
+  }
+
+  // Attach to existing models
+  for (const model of monacoInstance.editor.getModels()) {
+    attachDiagnostics(model);
+  }
+
+  // Attach to newly created models
+  monacoInstance.editor.onDidCreateModel((model: monaco.editor.ITextModel) => {
+    attachDiagnostics(model);
   });
 }

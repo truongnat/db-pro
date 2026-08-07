@@ -39,8 +39,8 @@ export function UserDetailPanel({
           <span
             key={attr.label}
             className={cn(
-              "rounded-sm border border-border px-2 py-1 text-xs",
-              attr.value ? "bg-success text-success" : "bg-card text-muted-foreground",
+              "rounded-sm border border-[var(--app-border-subtle)] px-2 py-1 text-xs",
+              attr.value ? "bg-success text-success" : "bg-background text-[var(--app-text-muted)]",
             )}
           >
             {attr.label}: {attr.value ? t("common.yes") : t("common.no")}

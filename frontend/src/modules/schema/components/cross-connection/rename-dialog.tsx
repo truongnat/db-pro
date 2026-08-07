@@ -36,13 +36,13 @@ export function RenameDialog({
 
   return (
     <div className="fixed inset-0 z-[var(--z-overlay)] flex items-center justify-center bg-black/50">
-      <div className="w-full max-w-md rounded-md border border-border bg-background p-6">
+      <div className="w-full max-w-md rounded-md border border-[var(--app-border)] bg-background p-6">
         <h3 className="mb-4 text-lg font-medium text-foreground">
           {t("schema.crossConn.rename")} {objectType}
         </h3>
 
         <div className="mb-4">
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-[var(--app-text-muted)]">
             {schema}.{oldName}
           </p>
         </div>
@@ -55,7 +55,7 @@ export function RenameDialog({
             id="rename-input"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
-            className="w-full rounded-sm border border-border px-3 py-2 text-sm text-foreground"
+            className="w-full rounded-sm border border-[var(--app-border)] px-3 py-2 text-sm text-foreground"
             placeholder={oldName}
             autoFocus
             onKeyDown={(e) => {

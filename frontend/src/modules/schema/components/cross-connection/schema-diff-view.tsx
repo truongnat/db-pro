@@ -75,7 +75,7 @@ function DiffResults({ diff }: { diff: SchemaDiff }) {
 
   if (!hasDiffs) {
     return (
-      <div className="rounded-sm border border-border p-4 text-center">
+      <div className="rounded-sm border border-[var(--app-border-subtle)] p-4 text-center">
         <p className="text-success">{t("schema.crossConn.identical")}</p>
       </div>
     );
@@ -113,7 +113,7 @@ function DiffResults({ diff }: { diff: SchemaDiff }) {
                 <DiffItem key={c} label={`+ ${c}`} color="text-success" />
               ))}
               {cd.typeMismatches.map((m) => (
-                <p key={m.column} className="pl-4 text-xs text-muted-foreground">
+                <p key={m.column} className="pl-4 text-xs text-[var(--app-text-muted)]">
                   {m.column}: {m.sourceType} → {m.targetType}
                 </p>
               ))}
@@ -143,7 +143,7 @@ function DiffResults({ diff }: { diff: SchemaDiff }) {
 
 function DiffSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-sm border border-border p-3">
+    <div className="rounded-sm border border-[var(--app-border-subtle)] p-3">
       <h4 className="mb-2 text-sm font-medium text-foreground">{title}</h4>
       <div className="flex flex-col gap-1">{children}</div>
     </div>

@@ -48,12 +48,12 @@ export function PartitionManager({ connectionId }: PartitionManagerProps) {
   return (
     <div className="flex flex-col gap-4">
       {partitions.map((p) => (
-        <div key={`${p.schema}.${p.table}`} className="rounded-sm border border-border">
-          <div className="flex items-center gap-2 border-b border-border bg-card px-4 py-3">
+        <div key={`${p.schema}.${p.table}`} className="rounded-sm border border-[var(--app-border)]">
+          <div className="flex items-center gap-2 border-b border-[var(--app-border-subtle)] bg-background px-4 py-3">
             <span className="font-medium text-foreground">
               {p.schema}.{p.table}
             </span>
-            <span className="rounded bg-background px-1.5 py-0.5 text-xs text-muted-foreground">
+            <span className="rounded bg-background px-1.5 py-0.5 text-xs text-[var(--app-text-muted)]">
               {p.partitionStrategy}
             </span>
           </div>
@@ -61,19 +61,19 @@ export function PartitionManager({ connectionId }: PartitionManagerProps) {
             <Table className="w-full text-sm">
               <TableHeader>
                 <TableRow className="bg-background">
-                  <TableHead className="px-4 py-2 text-left font-medium text-muted-foreground">
+                  <TableHead className="px-4 py-2 text-left font-medium text-[var(--app-text-muted)]">
                     {t("schema.crossConn.partitionName")}
                   </TableHead>
-                  <TableHead className="px-4 py-2 text-left font-medium text-muted-foreground">
+                  <TableHead className="px-4 py-2 text-left font-medium text-[var(--app-text-muted)]">
                     {t("schema.crossConn.boundExpr")}
                   </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {p.partitions.map((child) => (
-                  <TableRow key={child.name} className="border-t border-border">
+                  <TableRow key={child.name} className="border-t border-[var(--app-border-subtle)]">
                     <TableCell className="px-4 py-2 text-foreground">{child.name}</TableCell>
-                    <TableCell className="px-4 py-2 font-mono text-xs text-muted-foreground">{child.boundExpr}</TableCell>
+                    <TableCell className="px-4 py-2 font-mono text-xs text-[var(--app-text-muted)]">{child.boundExpr}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

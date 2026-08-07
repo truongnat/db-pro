@@ -18,7 +18,7 @@ export function IndexList({ indexes }: IndexListProps) {
     );
   }
 
-  const headerClass = "px-3 py-2 font-medium text-muted-foreground border-b border-border";
+  const headerClass = "px-3 py-2 font-medium text-[var(--app-text-muted)] border-b border-[var(--app-border-subtle)]";
 
   return (
     <Table className="w-full text-sm">

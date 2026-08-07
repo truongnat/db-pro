@@ -23,3 +23,9 @@ futures-util.workspace = true
 
 [dev-dependencies]
 mockall.workspace = true
+criterion.workspace = true
+tokio.workspace = true
+
+[[bench]]
+name = "sqlite_benchmarks"
+harness = false

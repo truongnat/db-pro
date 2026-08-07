@@ -43,14 +43,14 @@ export function TriggerManager({ connectionId, schema, table }: TriggerManagerPr
 
   return (
     <div className="flex flex-col gap-4 p-3">
-      <div className="rounded-sm border border-border p-3">
+      <div className="rounded-sm border border-[var(--app-border-subtle)] p-3">
         <h4 className="mb-2 text-xs font-semibold text-foreground">
           {t("schema.createTrigger")}
         </h4>
 
         <div className="space-y-2">
           <div>
-            <Label htmlFor="trigger-name" className="mb-1 block text-xs text-muted-foreground">
+            <Label htmlFor="trigger-name" className="mb-1 block text-xs text-[var(--app-text-muted)]">
               {t("schema.triggerName")}
             </Label>
             <Input
@@ -58,17 +58,17 @@ export function TriggerManager({ connectionId, schema, table }: TriggerManagerPr
               type="text"
               value={triggerName}
               onChange={(e) => setTriggerName(e.target.value)}
-              className="w-full rounded-sm border border-border bg-background px-2 py-1 text-xs text-foreground outline-none focus:border-primary"
+              className="w-full rounded-sm border border-[var(--app-border)] bg-background px-2 py-1 text-xs text-foreground outline-none focus:border-primary"
             />
           </div>
 
           <div className="flex gap-2">
             <div className="flex-1">
-              <Label htmlFor="trigger-timing" className="mb-1 block text-xs text-muted-foreground">
+              <Label htmlFor="trigger-timing" className="mb-1 block text-xs text-[var(--app-text-muted)]">
                 {t("schema.triggerTiming")}
               </Label>
               <Select value={timing} onValueChange={setTiming}>
-                <SelectTrigger id="trigger-timing" className="w-full rounded-sm border border-border bg-background px-2 py-1 text-xs text-foreground">
+                <SelectTrigger id="trigger-timing" className="w-full rounded-sm border border-[var(--app-border)] bg-background px-2 py-1 text-xs text-foreground">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -79,11 +79,11 @@ export function TriggerManager({ connectionId, schema, table }: TriggerManagerPr
               </Select>
             </div>
             <div className="flex-1">
-              <Label htmlFor="trigger-event" className="mb-1 block text-xs text-muted-foreground">
+              <Label htmlFor="trigger-event" className="mb-1 block text-xs text-[var(--app-text-muted)]">
                 {t("schema.triggerEvent")}
               </Label>
               <Select value={event} onValueChange={setEvent}>
-                <SelectTrigger id="trigger-event" className="w-full rounded-sm border border-border bg-background px-2 py-1 text-xs text-foreground">
+                <SelectTrigger id="trigger-event" className="w-full rounded-sm border border-[var(--app-border)] bg-background px-2 py-1 text-xs text-foreground">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -97,7 +97,7 @@ export function TriggerManager({ connectionId, schema, table }: TriggerManagerPr
           </div>
 
           <div>
-            <Label htmlFor="trigger-body" className="mb-1 block text-xs text-muted-foreground">
+            <Label htmlFor="trigger-body" className="mb-1 block text-xs text-[var(--app-text-muted)]">
               {t("schema.triggerBody")}
             </Label>
             <Textarea
@@ -105,7 +105,7 @@ export function TriggerManager({ connectionId, schema, table }: TriggerManagerPr
               value={body}
               onChange={(e) => setBody(e.target.value)}
               rows={5}
-              className="w-full resize-y rounded-sm border border-border bg-background px-2 py-1.5 font-mono text-xs text-foreground outline-none focus:border-primary"
+              className="w-full resize-y rounded-sm border border-[var(--app-border)] bg-background px-2 py-1.5 font-mono text-xs text-foreground outline-none focus:border-primary"
             />
           </div>
 

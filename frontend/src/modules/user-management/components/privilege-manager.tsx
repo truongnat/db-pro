@@ -56,16 +56,16 @@ export function PrivilegeManager({
         {Array.from(grouped.entries()).map(([key, privs]) => (
           <div
             key={key}
-            className="rounded-sm border p-2 border-border"
+            className="rounded-sm border p-2 border-[var(--app-border-subtle)]"
           >
-            <div className="mb-1 text-xs font-medium text-muted-foreground">
+            <div className="mb-1 text-xs font-medium text-[var(--app-text-muted)]">
               {key}
             </div>
             <div className="flex flex-wrap gap-1">
               {privs.map((p) => (
                 <span
                   key={p.privilegeType}
-                  className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs bg-card text-foreground"
+                  className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs bg-background text-foreground"
                 >
                   {p.privilegeType}
                   <Button
@@ -84,14 +84,14 @@ export function PrivilegeManager({
           </div>
         ))}
         {privileges.length === 0 && (
-          <p className="text-xs italic text-muted-foreground">
+          <p className="text-xs italic text-[var(--app-text-muted)]">
             {t("userManagement.noPrivileges")}
           </p>
         )}
       </div>
 
-      <div className="flex flex-col gap-2 rounded-sm border border-border p-3">
-        <Label className="text-xs font-medium text-muted-foreground">
+      <div className="flex flex-col gap-2 rounded-sm border border-[var(--app-border-subtle)] p-3">
+        <Label className="text-xs font-medium text-[var(--app-text-muted)]">
           {t("userManagement.grantPrivilege")}
         </Label>
         <div className="flex gap-2">

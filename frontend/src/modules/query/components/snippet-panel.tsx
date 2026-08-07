@@ -143,7 +143,7 @@ function SnippetRow({
 
   return (
     <div
-      className="group flex cursor-pointer items-start gap-2 border-b border-[var(--app-border-subtle)] px-3 py-2 transition-colors hover:bg-card"
+      className="group flex cursor-pointer items-start gap-2 border-b border-[var(--app-border-subtle)] px-3 py-2 transition-colors hover:bg-background"
       onClick={onSelect}
     >
       <div className="min-w-0 flex-1">

@@ -46,27 +46,27 @@ export function TablespaceList({ connectionId }: TablespaceListProps) {
   }
 
   return (
-    <div className="overflow-hidden rounded-md border border-border">
+    <div className="overflow-hidden rounded-md border border-[var(--app-border)]">
       <Table className="w-full text-sm">
         <TableHeader>
-          <TableRow className="bg-card">
-            <TableHead className="px-4 py-3 text-left font-medium text-muted-foreground">
+          <TableRow className="bg-background">
+            <TableHead className="px-4 py-3 text-left font-medium text-[var(--app-text-muted)]">
               {t("common.labels.name")}
             </TableHead>
-            <TableHead className="px-4 py-3 text-left font-medium text-muted-foreground">
+            <TableHead className="px-4 py-3 text-left font-medium text-[var(--app-text-muted)]">
               {t("schema.crossConn.owner")}
             </TableHead>
-            <TableHead className="px-4 py-3 text-left font-medium text-muted-foreground">
+            <TableHead className="px-4 py-3 text-left font-medium text-[var(--app-text-muted)]">
               {t("schema.crossConn.location")}
             </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {tablespaces.map((ts) => (
-            <TableRow key={ts.name} className="border-t border-border">
+            <TableRow key={ts.name} className="border-t border-[var(--app-border-subtle)]">
               <TableCell className="px-4 py-3 font-medium text-foreground">{ts.name}</TableCell>
-              <TableCell className="px-4 py-3 text-muted-foreground">{ts.owner}</TableCell>
-              <TableCell className="px-4 py-3 font-mono text-xs text-muted-foreground">{ts.location || "(default)"}</TableCell>
+              <TableCell className="px-4 py-3 text-[var(--app-text-muted)]">{ts.owner}</TableCell>
+              <TableCell className="px-4 py-3 font-mono text-xs text-[var(--app-text-muted)]">{ts.location || "(default)"}</TableCell>
             </TableRow>
           ))}
         </TableBody>

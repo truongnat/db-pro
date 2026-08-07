@@ -41,7 +41,7 @@ export function FilterBar({ columns, filters, onAddFilter, onRemoveFilter }: Fil
   const opLabel = (o: FilterOp) => FILTER_OPS.find((f) => f.value === o)?.label ?? o;
 
   return (
-    <div className="flex flex-wrap items-center gap-2 border-b border-border bg-card px-3 py-1.5">
+    <div className="flex flex-wrap items-center gap-2 border-b border-[var(--app-border-subtle)] bg-background px-3 py-1.5">
       {filters.map((f, i) => (
         <span
           key={i}

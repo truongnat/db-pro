@@ -94,14 +94,14 @@ export function IndexManager({
         )}
       </div>
 
-      <div className="rounded-sm border border-border p-3">
+      <div className="rounded-sm border border-[var(--app-border-subtle)] p-3">
         <h4 className="mb-2 text-xs font-semibold text-foreground">
           {t("schema.createIndex")}
         </h4>
 
         <div className="space-y-2">
           <div>
-            <Label htmlFor="index-name" className="mb-1 block text-xs text-muted-foreground">
+            <Label htmlFor="index-name" className="mb-1 block text-xs text-[var(--app-text-muted)]">
               {t("schema.ddlIndexName")}
             </Label>
             <Input
@@ -109,7 +109,7 @@ export function IndexManager({
               type="text"
               value={indexName}
               onChange={(e) => setIndexName(e.target.value)}
-              className="w-full rounded-sm border border-border bg-background px-2 py-1 text-xs text-foreground outline-none focus:border-primary"
+              className="w-full rounded-sm border border-[var(--app-border)] bg-background px-2 py-1 text-xs text-foreground outline-none focus:border-primary"
             />
           </div>
 
