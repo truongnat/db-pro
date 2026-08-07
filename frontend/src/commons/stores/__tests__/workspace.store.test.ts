@@ -524,4 +524,71 @@ describe("WorkspaceStore", () => {
       expect(gridState.filters).toHaveLength(0);
     });
   });
+
+  describe("setQueryTabConnection", () => {
+    it("updates connectionId and resets query state", () => {
+      const tab = createQueryTab("conn-1", { title: "Q1" });
+      const { openTab, setQueryTabConnection } = useWorkspaceStore.getState();
+      openTab(tab);
+
+      // Simulate a running query by updating tab data
+      useWorkspaceStore.getState().updateTabData(tab.id, (d) => ({
+        ...d,
+        status: "running",
+        error: null,
+      }));
+
+      setQueryTabConnection(tab.id, "conn-2", { schema: "public", database: "mydb" });
+
+      const state = useWorkspaceStore.getState();
+      const updatedTab = state.tabs.find((t) => t.id === tab.id)!;
+      expect(updatedTab.connectionId).toBe("conn-2");
+      expect(updatedTab.data.status).toBe("idle");
+      expect(updatedTab.data.error).toBeNull();
+      expect(updatedTab.data.result).toBeNull();
+      expect(updatedTab.data.context).toEqual({ schema: "public", database: "mydb" });
+    });
+
+    it("does not affect db-object tabs", () => {
+      const dbTab = createDbObjectTab("conn-1", "public", "users", "table", "columns", false);
+      const { openTab, setQueryTabConnection } = useWorkspaceStore.getState();
+      openTab(dbTab);
+
+      setQueryTabConnection(dbTab.id, "conn-2", { schema: "public", database: "mydb" });
+
+      const state = useWorkspaceStore.getState();
+      const updatedTab = state.tabs.find((t) => t.id === dbTab.id)!;
+      expect(updatedTab.connectionId).toBe("conn-1"); // unchanged
+    });
+  });
+
+  describe("setDbObjectSection", () => {
+    it("updates the active section on a db-object tab", () => {
+      const tab = createDbObjectTab("conn-1", "public", "users", "table", "columns", false);
+      const { openTab, setDbObjectSection } = useWorkspaceStore.getState();
+      openTab(tab);
+
+      setDbObjectSection(tab.id, "indexes");
+
+      const state = useWorkspaceStore.getState();
+      const updatedTab = state.tabs.find((t) => t.id === tab.id)!;
+      expect(updatedTab.kind).toBe("db-object");
+      if (updatedTab.kind === "db-object") {
+        expect(updatedTab.data.activeSection).toBe("indexes");
+      }
+    });
+
+    it("does not affect query tabs", () => {
+      const tab = createQueryTab("conn-1", { title: "Q1" });
+      const { openTab, setDbObjectSection } = useWorkspaceStore.getState();
+      openTab(tab);
+
+      // Should not throw
+      setDbObjectSection(tab.id, "indexes");
+
+      const state = useWorkspaceStore.getState();
+      const updatedTab = state.tabs.find((t) => t.id === tab.id)!;
+      expect(updatedTab.kind).toBe("query");
+    });
+  });
 });
