@@ -12,7 +12,7 @@ export function IndexList({ indexes }: IndexListProps) {
 
   if (indexes.length === 0) {
     return (
-      <div className="p-4 text-sm text-muted-foreground">
+      <div className="p-4 text-sm text-[var(--app-text-muted)]">
         {t("schema.noIndexes")}
       </div>
     );
@@ -36,10 +36,10 @@ export function IndexList({ indexes }: IndexListProps) {
             className="transition-colors hover:bg-background"
           >
             <TableCell className="px-3 py-1.5 font-mono text-sm">{idx.name}</TableCell>
-            <TableCell className="px-3 py-1.5 font-mono text-xs text-muted-foreground">
+            <TableCell className="px-3 py-1.5 font-mono text-xs text-[var(--app-text-muted)]">
               {idx.columns.join(", ")}
             </TableCell>
-            <TableCell className="px-3 py-1.5 text-center text-muted-foreground">
+            <TableCell className="px-3 py-1.5 text-center text-[var(--app-text-muted)]">
               {idx.unique ? "YES" : "NO"}
             </TableCell>
           </TableRow>

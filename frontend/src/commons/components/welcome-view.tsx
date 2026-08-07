@@ -93,7 +93,7 @@ export function WelcomeView() {
         {/* Header */}
         <div className="text-center">
           <h1 className="text-xl font-semibold text-foreground">{t("welcome.title")}</h1>
-          <p className="mt-1.5 text-sm text-muted-foreground">{t("welcome.subtitle")}</p>
+          <p className="mt-1.5 text-sm text-[var(--app-text-muted)]">{t("welcome.subtitle")}</p>
         </div>
 
         {/* Quick Actions */}
@@ -113,17 +113,17 @@ export function WelcomeView() {
           <h2 className="text-sm font-medium text-foreground">{t("welcome.recentConnections")}</h2>
 
           {isLoading ? (
-            <p className="text-sm text-muted-foreground">{t("common.states.loading")}</p>
+            <p className="text-sm text-[var(--app-text-muted)]">{t("common.states.loading")}</p>
           ) : !hasConnections ? (
             <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-[var(--app-border-strong)] py-10">
               <Database className="h-8 w-8 text-[var(--app-text-dim)]" />
               <div className="text-center">
-                <p className="text-sm text-muted-foreground">{t("welcome.noConnections")}</p>
-                <p className="mt-1 text-xs text-muted-foreground">{t("welcome.createFirstConnection")}</p>
+                <p className="text-sm text-[var(--app-text-muted)]">{t("welcome.noConnections")}</p>
+                <p className="mt-1 text-xs text-[var(--app-text-muted)]">{t("welcome.createFirstConnection")}</p>
               </div>
             </div>
           ) : recentWithDetails.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t("welcome.noRecentConnections")}</p>
+            <p className="text-sm text-[var(--app-text-muted)]">{t("welcome.noRecentConnections")}</p>
           ) : (
             <div className="space-y-1">
               {recentWithDetails.map((item) => {
@@ -148,7 +148,7 @@ export function WelcomeView() {
                           <span className="truncate text-sm font-medium text-foreground">{conn.name}</span>
                           <ConnectionStatusBadge status={status} />
                         </div>
-                        <p className="truncate text-xs text-muted-foreground">
+                        <p className="truncate text-xs text-[var(--app-text-muted)]">
                           {conn.host}:{conn.port} / {conn.database}
                         </p>
                       </div>
@@ -172,7 +172,7 @@ export function WelcomeView() {
                   </div>
                 );
               })}
-              <p className="pt-1 text-xs text-muted-foreground">{t("welcome.connectHint")}</p>
+              <p className="pt-1 text-xs text-[var(--app-text-muted)]">{t("welcome.connectHint")}</p>
             </div>
           )}
         </div>

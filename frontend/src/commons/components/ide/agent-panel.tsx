@@ -37,14 +37,14 @@ export function AgentPanel({ open, onClose, className }: AgentPanelProps) {
         <div className="flex items-center gap-1">
           <button
             type="button"
-            className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-[var(--app-hover)] hover:text-foreground"
+            className="flex h-6 w-6 items-center justify-center rounded text-[var(--app-text-muted)] transition-colors hover:bg-[var(--app-hover)] hover:text-foreground"
             title="New Chat"
           >
             <Plus className="h-3.5 w-3.5" />
           </button>
           <button
             type="button"
-            className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-[var(--app-hover)] hover:text-foreground"
+            className="flex h-6 w-6 items-center justify-center rounded text-[var(--app-text-muted)] transition-colors hover:bg-[var(--app-hover)] hover:text-foreground"
             onClick={onClose}
             title="Close Panel"
           >
@@ -76,7 +76,7 @@ export function AgentPanel({ open, onClose, className }: AgentPanelProps) {
               <button
                 key={action.label}
                 type="button"
-                className="flex items-center gap-2 rounded-lg border border-[var(--app-border)] px-3 py-2 text-xs text-muted-foreground transition-colors hover:border-[var(--app-border-strong)] hover:bg-[var(--app-hover)] hover:text-foreground"
+                className="flex items-center gap-2 rounded-lg border border-[var(--app-border)] px-3 py-2 text-xs text-[var(--app-text-muted)] transition-colors hover:border-[var(--app-border-strong)] hover:bg-[var(--app-hover)] hover:text-foreground"
               >
                 <span className="text-[var(--app-text-dim)]">{action.icon}</span>
                 {action.label}

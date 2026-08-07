@@ -12,7 +12,7 @@ function OrphanedTabView({ tabTitle }: { tabTitle: string }) {
     <div className="flex h-full items-center justify-center p-8">
       <div className="max-w-sm text-center">
         <p className="text-sm font-medium text-foreground">{tabTitle}</p>
-        <p className="mt-1 text-xs text-muted-foreground">{t("workspace.connectionUnavailable")}</p>
+        <p className="mt-1 text-xs text-[var(--app-text-muted)]">{t("workspace.connectionUnavailable")}</p>
       </div>
     </div>
   );

@@ -126,7 +126,7 @@ export function UnifiedGrid({
   if (!columns.length) {
     return (
       <div className="flex h-full min-h-0 items-center justify-center">
-        {emptyState ?? <p className="text-sm text-muted-foreground">No data</p>}
+        {emptyState ?? <p className="text-sm text-[var(--app-text-muted)]">No data</p>}
       </div>
     );
   }
@@ -137,7 +137,7 @@ export function UnifiedGrid({
       {/* Loading overlay */}
       {isLoading && (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60">
-          <span className="text-sm text-muted-foreground">Loading…</span>
+          <span className="text-sm text-[var(--app-text-muted)]">Loading…</span>
         </div>
       )}
 
@@ -355,7 +355,7 @@ function JsonPreview({ value }: { value: unknown }) {
   const text = JSON.stringify(value, null, 2);
   const isLong = text.length > 80;
   return (
-    <span className="text-muted-foreground" title={text}>
+    <span className="text-[var(--app-text-muted)]" title={text}>
       {isLong ? `${text.slice(0, 80)}…` : text}
     </span>
   );

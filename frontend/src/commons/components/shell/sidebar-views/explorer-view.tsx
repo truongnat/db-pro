@@ -72,7 +72,7 @@ function SchemaObjectGroup({ groupKey, label, count, icon, expandedNodes, onTogg
     <div>
       <button
         type="button"
-        className="flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-[var(--app-hover)] hover:text-foreground"
+        className="flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-[11px] font-medium text-[var(--app-text-muted)] transition-colors hover:bg-[var(--app-hover)] hover:text-foreground"
         onClick={() => onToggle(groupKey)}
         aria-expanded={isOpen}
       >
@@ -151,7 +151,7 @@ export function ExplorerView() {
                   <button
                     type="button"
                     className={cn(
-                      "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-[12.5px] text-muted-foreground transition-colors hover:bg-[var(--app-hover)] hover:text-foreground",
+                      "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-[12.5px] text-[var(--app-text-muted)] transition-colors hover:bg-[var(--app-hover)] hover:text-foreground",
                       explorerConnectionId === conn.id && "bg-[var(--app-active)] text-foreground font-medium",
                     )}
                     onClick={() => handleConnectionClick(conn.id)}
@@ -191,7 +191,7 @@ export function ExplorerView() {
                         <Button
                           type="button"
                           variant="ghost"
-                          className="flex h-auto w-full items-center gap-2 justify-start rounded-md px-2 py-1.5 text-xs text-muted-foreground"
+                          className="flex h-auto w-full items-center gap-2 justify-start rounded-md px-2 py-1.5 text-xs text-[var(--app-text-muted)]"
                           onClick={() => toggleNode(`schema:${conn.id}:${schema.name}`)}
                           aria-expanded={schemaExpanded}
                         >
@@ -213,7 +213,7 @@ export function ExplorerView() {
                                 groupKey={`schema:${conn.id}:${schema.name}:tables`}
                                 label={t("shell.sidebar.tables")}
                                 count={tables.length}
-                                icon={<Table2 className="h-3 w-3 shrink-0 text-muted-foreground" />}
+                                icon={<Table2 className="h-3 w-3 shrink-0 text-[var(--app-text-muted)]" />}
                                 expandedNodes={expandedNodes}
                                 onToggle={toggleNode}
                               >
@@ -228,7 +228,7 @@ export function ExplorerView() {
                                       <button
                                         type="button"
                                         title={`${schema.name}.${table.name}`}
-                                        className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-[var(--app-hover)] hover:text-foreground"
+                                        className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-xs text-[var(--app-text-muted)] transition-colors hover:bg-[var(--app-hover)] hover:text-foreground"
                                         onClick={() => openSchemaPreview(conn.id, schema.name, table.name, "table")}
                                         onDoubleClick={() => promoteSchemaPreview(conn.id, schema.name, table.name)}
                                       >
@@ -287,7 +287,7 @@ export function ExplorerView() {
                                 groupKey={`schema:${conn.id}:${schema.name}:views`}
                                 label={t("shell.sidebar.views")}
                                 count={views.length}
-                                icon={<Columns3 className="h-3 w-3 shrink-0 text-muted-foreground" />}
+                                icon={<Columns3 className="h-3 w-3 shrink-0 text-[var(--app-text-muted)]" />}
                                 expandedNodes={expandedNodes}
                                 onToggle={toggleNode}
                               >
@@ -297,7 +297,7 @@ export function ExplorerView() {
                                       <button
                                         type="button"
                                         title={`${schema.name}.${view.name}`}
-                                        className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-[var(--app-hover)] hover:text-foreground"
+                                        className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-xs text-[var(--app-text-muted)] transition-colors hover:bg-[var(--app-hover)] hover:text-foreground"
                                         onClick={() => openSchemaPreview(conn.id, schema.name, view.name, "view")}
                                         onDoubleClick={() => promoteSchemaPreview(conn.id, schema.name, view.name)}
                                       >

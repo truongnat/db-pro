@@ -23,7 +23,7 @@ export function UserList({
 
   return (
     <div className="flex flex-col gap-1">
-      <h3 className="px-2 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+      <h3 className="px-2 py-1 text-xs font-semibold uppercase tracking-wide text-[var(--app-text-muted)]">
         {t("userManagement.roles")}
       </h3>
       {users.map((user) => (
@@ -39,7 +39,7 @@ export function UserList({
             <span className="text-sm font-medium truncate text-foreground">
               {user.name}
             </span>
-            <span className="text-xs truncate text-muted-foreground">
+            <span className="text-xs truncate text-[var(--app-text-muted)]">
               {user.isSuper
                 ? t("userManagement.superuser")
                 : user.canLogin

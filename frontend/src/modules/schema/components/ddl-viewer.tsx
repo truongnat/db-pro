@@ -15,7 +15,7 @@ export function DdlViewer({ ddl, isLoading, error }: DdlViewerProps) {
 
   if (isLoading) {
     return (
-      <div className="p-4 text-sm text-muted-foreground">
+      <div className="p-4 text-sm text-[var(--app-text-muted)]">
         {t("common.states.loading")}
       </div>
     );
@@ -31,7 +31,7 @@ export function DdlViewer({ ddl, isLoading, error }: DdlViewerProps) {
 
   if (!ddl) {
     return (
-      <div className="p-4 text-sm text-muted-foreground">
+      <div className="p-4 text-sm text-[var(--app-text-muted)]">
         {t("schema.noDdl")}
       </div>
     );

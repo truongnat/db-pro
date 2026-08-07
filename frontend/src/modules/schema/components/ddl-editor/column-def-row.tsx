@@ -27,7 +27,7 @@ export function ColumnDefRow({ column, index, onChange, onRemove, canRemove }: C
     <div className="grid grid-cols-[1fr_1fr_80px_1fr_40px_32px] items-end gap-2">
       <div className="flex flex-col gap-1">
         {index === 0 && (
-          <Label htmlFor={`col-name-${index}`} className="text-xs text-muted-foreground">
+          <Label htmlFor={`col-name-${index}`} className="text-xs text-[var(--app-text-muted)]">
             {t("schema.columnName")}
           </Label>
         )}
@@ -42,7 +42,7 @@ export function ColumnDefRow({ column, index, onChange, onRemove, canRemove }: C
 
       <div className="flex flex-col gap-1">
         {index === 0 && (
-          <Label htmlFor={`col-type-${index}`} className="text-xs text-muted-foreground">
+          <Label htmlFor={`col-type-${index}`} className="text-xs text-[var(--app-text-muted)]">
             {t("schema.columnDataType")}
           </Label>
         )}
@@ -57,7 +57,7 @@ export function ColumnDefRow({ column, index, onChange, onRemove, canRemove }: C
 
       <div className="flex flex-col gap-1">
         {index === 0 && (
-          <Label htmlFor={`col-nullable-${index}`} className="text-xs text-muted-foreground">
+          <Label htmlFor={`col-nullable-${index}`} className="text-xs text-[var(--app-text-muted)]">
             {t("schema.columnNullable")}
           </Label>
         )}
@@ -72,7 +72,7 @@ export function ColumnDefRow({ column, index, onChange, onRemove, canRemove }: C
 
       <div className="flex flex-col gap-1">
         {index === 0 && (
-          <Label htmlFor={`col-default-${index}`} className="text-xs text-muted-foreground">
+          <Label htmlFor={`col-default-${index}`} className="text-xs text-[var(--app-text-muted)]">
             {t("schema.columnDefault")}
           </Label>
         )}
@@ -87,7 +87,7 @@ export function ColumnDefRow({ column, index, onChange, onRemove, canRemove }: C
 
       <div className="flex flex-col gap-1">
         {index === 0 && (
-          <Label htmlFor={`col-pk-${index}`} className="text-xs text-muted-foreground">
+          <Label htmlFor={`col-pk-${index}`} className="text-xs text-[var(--app-text-muted)]">
             {t("schema.columnPk")}
           </Label>
         )}
@@ -108,7 +108,7 @@ export function ColumnDefRow({ column, index, onChange, onRemove, canRemove }: C
         disabled={!canRemove}
         aria-label={t("common.actions.delete")}
         title={t("common.actions.delete")}
-        className={`h-9 ${canRemove ? "text-destructive" : "text-muted-foreground"}`}
+        className={`h-9 ${canRemove ? "text-destructive" : "text-[var(--app-text-muted)]"}`}
         style={{
           opacity: canRemove ? 1 : 0.3,
         }}

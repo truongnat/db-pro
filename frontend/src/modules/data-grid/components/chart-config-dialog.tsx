@@ -111,7 +111,7 @@ export function ChartConfigDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="ghost" onClick={onClose} className="text-muted-foreground">
+          <Button variant="ghost" onClick={onClose} className="text-[var(--app-text-muted)]">
             {t("common.actions.cancel")}
           </Button>
           <Button onClick={handleApply} disabled={!xColumn || !yColumn}>

@@ -69,11 +69,11 @@ export function DataDiffView({ sourceId, targetId }: DataDiffViewProps) {
               <p className="text-lg font-medium text-foreground">{diff.sourceRowCount}</p>
             </div>
             <div>
-              <p className="text-muted-foreground">{t("schema.crossConn.targetCount")}</p>
+              <p className="text-[var(--app-text-muted)]">{t("schema.crossConn.targetCount")}</p>
               <p className="text-lg font-medium text-foreground">{diff.targetRowCount}</p>
             </div>
             <div>
-              <p className="text-muted-foreground">{t("schema.crossConn.difference")}</p>
+              <p className="text-[var(--app-text-muted)]">{t("schema.crossConn.difference")}</p>
               <p
                 className={`text-lg font-medium ${
                   diff.rowCountDiff === 0 ? "text-success" : "text-destructive"

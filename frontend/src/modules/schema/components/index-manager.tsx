@@ -66,7 +66,7 @@ export function IndexManager({
           {t("schema.existingIndexes")}
         </h4>
         {indexes.length === 0 ? (
-          <p className="text-xs italic text-muted-foreground">
+          <p className="text-xs italic text-[var(--app-text-muted)]">
             {t("schema.noIndexes")}
           </p>
         ) : (
@@ -114,7 +114,7 @@ export function IndexManager({
           </div>
 
           <div>
-            <Label className="mb-1 block text-xs text-muted-foreground">
+            <Label className="mb-1 block text-xs text-[var(--app-text-muted)]">
               {t("schema.ddlIndexColumns")}
             </Label>
             <div className="flex flex-wrap gap-1">

@@ -40,7 +40,7 @@ export function TagInput({ tags, onChange }: TagInputProps) {
               type="button"
               variant="ghost"
               size="icon-xs"
-              className="size-3 p-0 text-muted-foreground hover:opacity-70"
+              className="size-3 p-0 text-[var(--app-text-muted)] hover:opacity-70"
               onClick={() => removeTag(tag)}
               aria-label={`Remove tag ${tag}`}
             >

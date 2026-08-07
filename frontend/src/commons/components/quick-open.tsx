@@ -177,7 +177,7 @@ export function QuickOpen() {
   const itemIcon = (item: QuickOpenItem) => {
     switch (item.kind) {
       case "tab":
-        return <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />;
+        return <FileText className="h-4 w-4 shrink-0 text-[var(--app-text-muted)]" />;
       case "db-object":
         return item.objectType === "view" ? (
           <Columns3 className="h-4 w-4 shrink-0 text-primary" />
@@ -187,7 +187,7 @@ export function QuickOpen() {
       case "schema":
         return <Folder className="h-4 w-4 shrink-0 text-primary" />;
       case "connection":
-        return <Database className="h-4 w-4 shrink-0 text-muted-foreground" />;
+        return <Database className="h-4 w-4 shrink-0 text-[var(--app-text-muted)]" />;
     }
   };
 
@@ -211,7 +211,7 @@ export function QuickOpen() {
       <DialogContent className="overflow-hidden p-0 shadow-lg">
         <Command
           shouldFilter={false}
-          className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group]]:px-2 [&_[cmdk-group]]:py-1 [&_[cmdk-input-wrapper]]:px-3 [&_[cmdk-input-wrapper]]:py-2 [&_[cmdk-item]]:px-3 [&_[cmdk-item]]:py-2"
+          className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-[var(--app-text-muted)] [&_[cmdk-group]]:px-2 [&_[cmdk-group]]:py-1 [&_[cmdk-input-wrapper]]:px-3 [&_[cmdk-input-wrapper]]:py-2 [&_[cmdk-item]]:px-3 [&_[cmdk-item]]:py-2"
           label="Quick open"
         >
           <Command.Input
@@ -223,7 +223,7 @@ export function QuickOpen() {
           />
           <Command.List className="max-h-[400px] overflow-y-auto overflow-x-hidden py-2">
             {groups.length === 0 && query.trim() && (
-              <Command.Empty className="px-3 py-6 text-center text-sm text-muted-foreground">
+              <Command.Empty className="px-3 py-6 text-center text-sm text-[var(--app-text-muted)]">
                 {t("quickOpen.noResults")}
               </Command.Empty>
             )}
@@ -238,7 +238,7 @@ export function QuickOpen() {
                   >
                     {itemIcon(item)}
                     <span className="flex-1 truncate">{itemTitle(item)}</span>
-                    <span className="truncate text-[11px] text-muted-foreground">
+                    <span className="truncate text-[11px] text-[var(--app-text-muted)]">
                       {itemMeta(item)}
                     </span>
                   </Command.Item>

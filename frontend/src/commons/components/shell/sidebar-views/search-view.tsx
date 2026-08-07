@@ -42,7 +42,7 @@ export function SearchView() {
               key={`${table.schema}.${table.name}`}
               type="button"
               title={`${table.schema}.${table.name}`}
-              className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-[var(--app-hover)] hover:text-foreground"
+              className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-xs text-[var(--app-text-muted)] transition-colors hover:bg-[var(--app-hover)] hover:text-foreground"
               onClick={() => openSchemaPreview(explorerConnectionId, table.schema, table.name, "table")}
               onDoubleClick={() => promoteSchemaPreview(explorerConnectionId, table.schema, table.name)}
             >
@@ -56,7 +56,7 @@ export function SearchView() {
               key={`${view.schema}.${view.name}`}
               type="button"
               title={`${view.schema}.${view.name}`}
-              className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-[var(--app-hover)] hover:text-foreground"
+              className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-xs text-[var(--app-text-muted)] transition-colors hover:bg-[var(--app-hover)] hover:text-foreground"
               onClick={() => openSchemaPreview(explorerConnectionId, view.schema, view.name, "view")}
               onDoubleClick={() => promoteSchemaPreview(explorerConnectionId, view.schema, view.name)}
             >

@@ -43,7 +43,7 @@ export function Sidebar() {
             <TooltipTrigger asChild>
               <button
                 type="button"
-                className="flex h-5 w-5 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-[var(--app-hover)] hover:text-foreground"
+                className="flex h-5 w-5 items-center justify-center rounded text-[var(--app-text-muted)] transition-colors hover:bg-[var(--app-hover)] hover:text-foreground"
                 onClick={() => openConnectionDialog()}
               >
                 <Plus className="h-3.5 w-3.5" />
@@ -65,14 +65,14 @@ export function Sidebar() {
         <div className="shrink-0 border-t border-[var(--app-border-subtle)] px-2 pt-2 pb-2">
           <button
             type="button"
-            className="flex h-auto w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-[var(--app-hover)] hover:text-foreground"
+            className="flex h-auto w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-xs text-[var(--app-text-muted)] transition-colors hover:bg-[var(--app-hover)] hover:text-foreground"
           >
             <Settings2 className="h-3.5 w-3.5 shrink-0 text-primary" />
             <span>{t("shell.sidebar.settings")}</span>
           </button>
           <button
             type="button"
-            className="flex h-auto w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-[var(--app-hover)] hover:text-foreground"
+            className="flex h-auto w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-xs text-[var(--app-text-muted)] transition-colors hover:bg-[var(--app-hover)] hover:text-foreground"
           >
             <CircleHelp className="h-3.5 w-3.5 shrink-0 text-primary" />
             <span>{t("shell.sidebar.help")}</span>

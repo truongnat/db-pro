@@ -31,7 +31,7 @@ export function IdeIconButton({
         <button
           type="button"
           className={cn(
-            "flex items-center justify-center rounded text-muted-foreground transition-colors",
+            "flex items-center justify-center rounded text-[var(--app-text-muted)] transition-colors",
             "hover:bg-[var(--app-hover)] hover:text-foreground",
             "disabled:pointer-events-none disabled:opacity-40",
             sizeClass,

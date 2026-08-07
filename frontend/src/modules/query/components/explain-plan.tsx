@@ -98,7 +98,7 @@ function PlanNodeView({ node, depth }: { node: PlanNode; depth: number }) {
         )}
       </div>
       
-      <div className="flex gap-4 text-xs text-muted-foreground">
+      <div className="flex gap-4 text-xs text-[var(--app-text-muted)]">
         {cost !== undefined && (
           <span>cost: {formatNumber(cost)}</span>
         )}
@@ -118,7 +118,7 @@ function PlanNodeView({ node, depth }: { node: PlanNode; depth: number }) {
       </div>
       
       {condition && (
-        <div className="text-xs text-muted-foreground italic">
+        <div className="text-xs text-[var(--app-text-muted)] italic">
           {condition}
         </div>
       )}
@@ -138,8 +138,8 @@ function renderGenericNode(key: string, value: unknown, depth: number): React.Re
   if (value === null || value === undefined) {
     return (
       <div key={key} style={{ paddingLeft: depth * 16 }}>
-        <span className="text-muted-foreground">{key}: </span>
-        <span className="italic text-muted-foreground">null</span>
+        <span className="text-[var(--app-text-muted)]">{key}: </span>
+        <span className="italic text-[var(--app-text-muted)]">null</span>
       </div>
     );
   }
@@ -171,7 +171,7 @@ function renderGenericNode(key: string, value: unknown, depth: number): React.Re
 
   return (
     <div key={key} style={{ paddingLeft: depth * 16 }} className="py-0.5">
-      <span className="text-muted-foreground">{key}: </span>
+      <span className="text-[var(--app-text-muted)]">{key}: </span>
       <span className="text-foreground">{String(value)}</span>
     </div>
   );

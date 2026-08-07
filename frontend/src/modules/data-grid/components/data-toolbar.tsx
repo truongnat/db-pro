@@ -71,7 +71,7 @@ export function DataToolbar({
   const dirLabel = (d: "asc" | "desc") => t(d === "asc" ? "dataGrid.sortAsc" : "dataGrid.sortDesc");
 
   const toolButton =
-    "h-auto gap-1 px-2 py-1 text-xs font-normal text-muted-foreground hover:bg-background hover:text-foreground";
+    "h-auto gap-1 px-2 py-1 text-xs font-normal text-[var(--app-text-muted)] hover:bg-background hover:text-foreground";
 
   return (
     <div className="flex items-center justify-between gap-2 border-b border-[var(--app-border-subtle)] bg-background px-2 py-1.5">
@@ -112,7 +112,7 @@ export function DataToolbar({
                       <div className="flex items-center gap-1">
                         <button
                           type="button"
-                          className="px-1 text-muted-foreground hover:text-foreground"
+                          className="px-1 text-[var(--app-text-muted)] hover:text-foreground"
                           onClick={() => {
                             onSetSorts(
                               sorts.map((x, idx) =>
@@ -189,7 +189,7 @@ export function DataToolbar({
           </PopoverTrigger>
           <PopoverContent align="start" sideOffset={6} className="w-64 p-2">
             <div className="mb-2 flex items-center justify-between">
-              <span className="text-xs font-medium text-muted-foreground">{t("dataGrid.toolbarColumns")}</span>
+              <span className="text-xs font-medium text-[var(--app-text-muted)]">{t("dataGrid.toolbarColumns")}</span>
               {hiddenColumns.length > 0 && (
                 <Button
                   type="button"

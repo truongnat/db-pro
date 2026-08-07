@@ -59,7 +59,7 @@ function TabItem({
         "group relative flex shrink-0 cursor-pointer items-center gap-1.5 px-3 py-1.5 text-xs transition-colors",
         isActive
           ? "bg-background text-foreground"
-          : "text-muted-foreground hover:bg-[var(--app-hover)]",
+          : "text-[var(--app-text-muted)] hover:bg-[var(--app-hover)]",
       )}
       onClick={onActivate}
       title={tab.title}
@@ -110,7 +110,7 @@ function TabItem({
         />
       )}
       {tab.pinned && (
-        <PinIcon className="h-3 w-3 shrink-0 text-muted-foreground" aria-label="Pinned" />
+        <PinIcon className="h-3 w-3 shrink-0 text-[var(--app-text-muted)]" aria-label="Pinned" />
       )}
       <span className={cn("max-w-[140px] truncate", tab.preview && "italic")}>
         {tab.title}
@@ -118,7 +118,7 @@ function TabItem({
       {!tab.pinned && (
         <button
           type="button"
-          className="flex h-4 w-4 shrink-0 items-center justify-center rounded text-muted-foreground opacity-0 transition-opacity hover:bg-[var(--app-active)] hover:text-foreground group-hover:opacity-100"
+          className="flex h-4 w-4 shrink-0 items-center justify-center rounded text-[var(--app-text-muted)] opacity-0 transition-opacity hover:bg-[var(--app-active)] hover:text-foreground group-hover:opacity-100"
           onClick={(e) => {
             e.stopPropagation();
             onClose(tab.id);

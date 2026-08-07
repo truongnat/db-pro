@@ -29,7 +29,7 @@ export function ObjectSectionTabs({ activeSection, onSelect }: ObjectSectionTabs
               "relative shrink-0 px-3 py-2 text-xs font-medium transition-colors hover:text-foreground",
               activeSection === section.id
                 ? "text-foreground"
-                : "text-muted-foreground",
+                : "text-[var(--app-text-muted)]",
             )}
             onClick={() => onSelect(section.id)}
           >

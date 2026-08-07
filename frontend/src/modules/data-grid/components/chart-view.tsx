@@ -33,7 +33,7 @@ export function ChartView({ columns, rows, config }: ChartViewProps) {
 
   if (xIdx === -1 || yIdx === -1) {
     return (
-      <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
+      <div className="flex items-center justify-center py-12 text-sm text-[var(--app-text-muted)]">
         Invalid chart configuration
       </div>
     );
@@ -46,7 +46,7 @@ export function ChartView({ columns, rows, config }: ChartViewProps) {
 
   if (data.length === 0) {
     return (
-      <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
+      <div className="flex items-center justify-center py-12 text-sm text-[var(--app-text-muted)]">
         No data to chart
       </div>
     );

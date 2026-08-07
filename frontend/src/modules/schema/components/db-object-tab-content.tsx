@@ -158,14 +158,14 @@ export function DbObjectTabContent({
             )}
             {!isTableOrView && (
               <div className="flex h-full items-center justify-center p-8">
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-[var(--app-text-muted)]">
                   {t("dbObject.unsupportedObjectType", { type: objectType })}
                 </p>
               </div>
             )}
             {tableInfo.isLoading && (activeSection === "columns" || activeSection === "indexes" || activeSection === "relations") && (
               <div className="flex h-full min-h-0 items-center justify-center">
-                <div className="p-4 text-sm text-muted-foreground">
+                <div className="p-4 text-sm text-[var(--app-text-muted)]">
                   {t("common.states.loading")}
                 </div>
               </div>

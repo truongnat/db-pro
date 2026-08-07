@@ -12,7 +12,7 @@ export function ForeignKeyList({ foreignKeys }: ForeignKeyListProps) {
 
   if (foreignKeys.length === 0) {
     return (
-      <div className="p-4 text-sm text-muted-foreground">
+      <div className="p-4 text-sm text-[var(--app-text-muted)]">
         {t("schema.noForeignKeys")}
       </div>
     );
@@ -37,13 +37,13 @@ export function ForeignKeyList({ foreignKeys }: ForeignKeyListProps) {
             className="transition-colors hover:bg-background"
           >
             <TableCell className="px-3 py-1.5 font-mono text-sm">{fk.name}</TableCell>
-            <TableCell className="px-3 py-1.5 font-mono text-xs text-muted-foreground">
+            <TableCell className="px-3 py-1.5 font-mono text-xs text-[var(--app-text-muted)]">
               {fk.fromColumn}
             </TableCell>
             <TableCell className="px-3 py-1.5 font-mono text-xs">
               {fk.toSchema !== fk.schema ? `${fk.toSchema}.` : ""}{fk.toTable}
             </TableCell>
-            <TableCell className="px-3 py-1.5 font-mono text-xs text-muted-foreground">
+            <TableCell className="px-3 py-1.5 font-mono text-xs text-[var(--app-text-muted)]">
               {fk.toColumn}
             </TableCell>
           </TableRow>

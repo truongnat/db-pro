@@ -61,7 +61,7 @@ export function CommandPalette() {
     <Dialog open={isOpen} onOpenChange={(open) => !open && close()}>
       <DialogContent className="overflow-hidden p-0 shadow-lg">
         <Command
-          className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group]]:px-2 [&_[cmdk-group]]:py-1 [&_[cmdk-input-wrapper]]:px-3 [&_[cmdk-input-wrapper]]:py-2 [&_[cmdk-item]]:px-3 [&_[cmdk-item]]:py-2"
+          className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-[var(--app-text-muted)] [&_[cmdk-group]]:px-2 [&_[cmdk-group]]:py-1 [&_[cmdk-input-wrapper]]:px-3 [&_[cmdk-input-wrapper]]:py-2 [&_[cmdk-item]]:px-3 [&_[cmdk-item]]:py-2"
           label="Command palette"
         >
           <Command.Input
@@ -69,7 +69,7 @@ export function CommandPalette() {
             className="flex h-10 w-full border-b border-[var(--app-border-subtle)] bg-transparent text-sm outline-none placeholder:text-[var(--app-text-dim)]"
           />
           <Command.List className="max-h-[400px] overflow-y-auto overflow-x-hidden py-2">
-            <Command.Empty className="px-3 py-6 text-center text-sm text-muted-foreground">
+            <Command.Empty className="px-3 py-6 text-center text-sm text-[var(--app-text-muted)]">
               {t("commandPalette.noResults")}
             </Command.Empty>
             {grouped.map(([groupKey, cmds]) => (
@@ -87,7 +87,7 @@ export function CommandPalette() {
                     {cmd.icon && <cmd.icon className="h-4 w-4" />}
                     <span>{t(cmd.labelKey)}</span>
                     {cmd.keybinding && (
-                      <kbd className="ml-auto pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-[var(--app-border-strong)] bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+                      <kbd className="ml-auto pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-[var(--app-border-strong)] bg-muted px-1.5 font-mono text-[10px] font-medium text-[var(--app-text-muted)]">
                         {formatKeybinding(cmd.keybinding)}
                       </kbd>
                     )}

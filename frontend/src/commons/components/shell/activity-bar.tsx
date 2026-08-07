@@ -59,7 +59,7 @@ export function ActivityBar() {
                 <button
                   type="button"
                   className={cn(
-                    "relative flex h-10 w-10 items-center justify-center rounded-md text-muted-foreground transition-colors duration-100",
+                    "relative flex h-10 w-10 items-center justify-center rounded-md text-[var(--app-text-muted)] transition-colors duration-100",
                     "hover:bg-[var(--app-hover)] hover:text-foreground",
                     isActive && "text-primary",
                   )}
@@ -87,7 +87,7 @@ export function ActivityBar() {
           <TooltipTrigger asChild>
             <button
               type="button"
-              className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors duration-100 hover:bg-[var(--app-hover)] hover:text-foreground"
+              className="flex h-8 w-8 items-center justify-center rounded-md text-[var(--app-text-muted)] transition-colors duration-100 hover:bg-[var(--app-hover)] hover:text-foreground"
               onClick={toggleSidebar}
               aria-label={sidebarCollapsed ? t("shell.expand") : t("shell.collapse")}
             >

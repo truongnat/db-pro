@@ -50,7 +50,7 @@ export function ResultGrid({
         onSort={onSort}
         contentStyle={zoom !== 100 ? { zoom: zoom / 100 } : undefined}
         emptyState={
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-[var(--app-text-muted)]">
             {t("query.noResults")}
           </p>
         }
@@ -59,7 +59,7 @@ export function ResultGrid({
             type="button"
             variant="ghost"
             size="sm"
-            className="shrink-0 rounded px-1 text-[10px] text-muted-foreground"
+            className="shrink-0 rounded px-1 text-[10px] text-[var(--app-text-muted)]"
             title={t("query.metadata.info")}
             onClick={(e) => {
               e.stopPropagation();

@@ -35,7 +35,7 @@ export function UserManagementPage() {
 
   if (!explorerConnectionId) {
     return (
-      <div className="flex h-full items-center justify-center text-muted-foreground">
+      <div className="flex h-full items-center justify-center text-[var(--app-text-muted)]">
         {t("userManagement.connectFirst")}
       </div>
     );
@@ -60,7 +60,7 @@ export function UserManagementPage() {
         </div>
 
         {isLoading ? (
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-[var(--app-text-muted)]">
             {t("common.loading")}
           </p>
         ) : (
@@ -91,7 +91,7 @@ export function UserManagementPage() {
             }
           />
         ) : (
-          <div className="flex h-full items-center justify-center text-muted-foreground">
+          <div className="flex h-full items-center justify-center text-[var(--app-text-muted)]">
             {t("userManagement.selectRole")}
           </div>
         )}

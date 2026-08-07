@@ -24,12 +24,12 @@ export function Topbar() {
           <TooltipTrigger asChild>
             <button
               type="button"
-              className="flex h-7 items-center gap-1.5 rounded-md border border-[var(--app-border)] bg-muted/50 px-2.5 text-xs text-muted-foreground transition-colors hover:border-[var(--app-border-strong)] hover:text-foreground"
+              className="flex h-7 items-center gap-1.5 rounded-md border border-[var(--app-border)] bg-muted/50 px-2.5 text-xs text-[var(--app-text-muted)] transition-colors hover:border-[var(--app-border-strong)] hover:text-foreground"
               onClick={() => useCommandStore.getState().open()}
             >
               <Search className="h-3.5 w-3.5" />
               <span>{t("shell.topbar.search")}</span>
-              <kbd className="ml-1 rounded border border-[var(--app-border-strong)] bg-background px-1 py-px text-[10px] font-medium text-muted-foreground">
+              <kbd className="ml-1 rounded border border-[var(--app-border-strong)] bg-background px-1 py-px text-[10px] font-medium text-[var(--app-text-muted)]">
                 ⌘K
               </kbd>
             </button>
@@ -43,7 +43,7 @@ export function Topbar() {
           <TooltipTrigger asChild>
             <button
               type="button"
-              className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-[var(--app-hover)] hover:text-foreground"
+              className="flex h-7 w-7 items-center justify-center rounded-md text-[var(--app-text-muted)] transition-colors hover:bg-[var(--app-hover)] hover:text-foreground"
               onClick={() => useCommandStore.getState().open()}
             >
               <Command className="h-3.5 w-3.5" />
