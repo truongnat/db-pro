@@ -6,6 +6,7 @@ import { requestCloseTab } from "@/commons/services/request-close-tab";
 import { useCloseGuardStore } from "@/commons/stores/close-guard.store";
 import { useConnectionStore } from "@/commons/stores/connection.store";
 import { useCommandStore } from "@/commons/stores/command.store";
+import { useRecentStore } from "@/commons/stores/recent.store";
 import { useShellStore } from "@/commons/stores/shell.store";
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
 import type { QueryTabData, WorkspaceTab } from "@/commons/types/workspace.types";
@@ -243,6 +244,13 @@ export function registerAllCommands(router: AnyRouter): void {
       groupKey: "commands.groups.file",
       when: () => hasSql(),
       execute: () => dispatchQueryAction("exportSql"),
+    },
+
+    {
+      id: "connection.new",
+      labelKey: "commands.connection.new",
+      groupKey: "commands.groups.connection",
+      execute: () => useRecentStore.getState().openConnectionDialog(),
     },
   ]);
 }

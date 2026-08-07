@@ -6,7 +6,9 @@ import {
   DialogContent,
 } from "@/components/ui/dialog";
 import { useCommandStore } from "@/commons/stores/command.store";
+import { useRecentStore } from "@/commons/stores/recent.store";
 import { useTranslation } from "@/commons/locales/useTranslation";
+import { useConnectionList, useConnect } from "@/modules/connection/queries/connection.queries";
 import type { Keybinding } from "@/commons/types/command.types";
 
 function formatKeybinding(kb: Keybinding): string {
@@ -30,6 +32,32 @@ export function CommandPalette() {
   const commands = useCommandStore((s) => s.getAvailableCommands());
   const close = useCommandStore((s) => s.close);
   const execute = useCommandStore((s) => s.executeCommand);
+
+  const recentConnections = useRecentStore((s) => s.recentConnections);
+  const addRecentConnection = useRecentStore((s) => s.addRecentConnection);
+  const { data: connections } = useConnectionList();
+  const connectMutation = useConnect();
+
+  const connectionMap = useMemo(() => {
+    const map = new Map<string, string>();
+    if (connections) {
+      for (const conn of connections) {
+        map.set(conn.id, conn.name);
+      }
+    }
+    return map;
+  }, [connections]);
+
+  const recentItems = useMemo(
+    () =>
+      recentConnections
+        .filter((rc) => connectionMap.has(rc.connectionId))
+        .map((rc) => ({
+          connectionId: rc.connectionId,
+          name: connectionMap.get(rc.connectionId)!,
+        })),
+    [recentConnections, connectionMap],
+  );
 
   const grouped = useMemo(() => {
     const map = new Map<string, typeof commands>();
@@ -72,6 +100,25 @@ export function CommandPalette() {
             <Command.Empty className="px-3 py-6 text-center text-sm text-muted-foreground">
               {t("commandPalette.noResults")}
             </Command.Empty>
+            {recentItems.length > 0 && (
+              <Command.Group heading={t("commands.groups.recent")}>
+                {recentItems.map((item) => (
+                  <Command.Item
+                    key={`recent-${item.connectionId}`}
+                    value={`recent:${item.name}`}
+                    onSelect={() => {
+                      connectMutation.mutate(item.connectionId, {
+                        onSuccess: () => addRecentConnection(item.connectionId),
+                      });
+                      close();
+                    }}
+                    className="relative flex cursor-default select-none items-center gap-2 rounded-sm text-sm outline-none aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[selected=true]:bg-accent data-[selected=true]:text-accent-foreground"
+                  >
+                    <span>{item.name}</span>
+                  </Command.Item>
+                ))}
+              </Command.Group>
+            )}
             {grouped.map(([groupKey, cmds]) => (
               <Command.Group key={groupKey} heading={t(groupKey)}>
                 {cmds.map((cmd) => (
