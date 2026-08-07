@@ -97,7 +97,7 @@ export function QueryToolbar({
           {t("query.templates")}
         </Button>
         {templatesOpen && (
-          <div className="absolute top-full left-0 z-50 mt-1 max-h-64 w-56 overflow-auto rounded-sm border border-border bg-card py-1 shadow-lg">
+          <div className="absolute top-full left-0 z-[var(--z-dropdown)] mt-1 max-h-64 w-56 overflow-auto rounded-sm border border-border bg-card py-1 shadow-lg">
             {SQL_TEMPLATES.map((tpl) => (
               <Button
                 key={tpl.label}

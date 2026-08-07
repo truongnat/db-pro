@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { I18nextProvider, initReactI18next } from "react-i18next";
 import i18n from "i18next";
@@ -152,10 +152,16 @@ describe("ConnectionEditor", () => {
     const user = userEvent.setup();
     renderEditor();
 
-    const driverSelect = screen.getAllByRole("combobox")[0];
-    await user.selectOptions(driverSelect, "sqlite");
+    const driverTrigger = screen.getAllByRole("combobox")[0];
+    await user.click(driverTrigger);
 
-    expect(screen.getByText("File Path")).toBeInTheDocument();
+    const sqliteOptions = await screen.findAllByText("SQLite", undefined, { timeout: 2000 });
+    const sqliteSpan = sqliteOptions.find((el) => el.tagName === "SPAN");
+    await user.click(sqliteSpan!);
+
+    await waitFor(() => {
+      expect(screen.getByText("File Path")).toBeInTheDocument();
+    });
     expect(screen.queryByText("Host")).not.toBeInTheDocument();
     expect(screen.queryByText("Port")).not.toBeInTheDocument();
     expect(screen.queryByText("Username")).not.toBeInTheDocument();

@@ -1,3 +1,5 @@
+import { Checkbox } from "@/components/ui/checkbox";
+
 interface FormCheckboxProps {
   label: string;
   checked: boolean;
@@ -7,15 +9,11 @@ interface FormCheckboxProps {
 
 export function FormCheckbox({ label, checked, onChange, disabled }: FormCheckboxProps) {
   return (
-    <label
-      className="flex cursor-pointer items-center gap-2 text-sm text-foreground"
-    >
-      <input
-        type="checkbox"
+    <label className="flex cursor-pointer items-center gap-2 text-sm text-foreground">
+      <Checkbox
         checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
+        onCheckedChange={(val) => onChange(val === true)}
         disabled={disabled}
-        className="h-4 w-4 rounded border-border accent-primary"
       />
       {label}
     </label>

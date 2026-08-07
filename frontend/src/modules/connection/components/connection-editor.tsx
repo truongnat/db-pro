@@ -134,7 +134,7 @@ export function ConnectionEditor({
         <FormSelect
           label={t("common.labels.driver")}
           value={formData.driver}
-          onChange={(e) => handleDriverChange(e.target.value as DriverType)}
+          onChange={(val) => handleDriverChange(val as DriverType)}
           options={DRIVER_OPTIONS}
           required
         />
@@ -142,7 +142,7 @@ export function ConnectionEditor({
           <FormSelect
             label="SSL Mode"
             value={formData.sslMode}
-            onChange={(e) => updateField("sslMode", e.target.value as SslMode)}
+            onChange={(val) => updateField("sslMode", val as SslMode)}
             options={SSL_OPTIONS}
           />
         )}
@@ -217,7 +217,7 @@ export function ConnectionEditor({
           <FormCheckbox label="Use SSH Tunnel" checked={showSsh} onChange={setShowSsh} />
 
           {showSsh && (
-            <div className="flex flex-col gap-4 rounded-sm border border-border p-4">
+            <div className="flex flex-col gap-4 rounded-lg border border-border bg-muted p-4">
               <div className="grid grid-cols-2 gap-4">
                 <FormInput
                   label="SSH Host"
@@ -293,7 +293,7 @@ export function ConnectionEditor({
 
       {testResult && (
         <div
-          className="flex items-center gap-2 rounded-sm border border-border px-4 py-3"
+          className="flex items-center gap-2 rounded-lg border border-border bg-muted px-4 py-3"
         >
           <Badge variant={testResult === "success" ? "success" : "error"} dot>
             {testResult === "success" ? t("connection.testSuccess") : t("connection.testFailed")}

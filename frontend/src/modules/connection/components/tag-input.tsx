@@ -1,7 +1,9 @@
 import { useState } from "react";
 
 import { useTranslation } from "@/commons/locales/useTranslation";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 interface TagInputProps {
   tags: string[];
@@ -25,35 +27,32 @@ export function TagInput({ tags, onChange }: TagInputProps) {
   };
 
   return (
-    <div className="flex flex-col gap-2">
-      <label className="text-sm font-medium text-foreground">
+    <div className="flex flex-col gap-1.5">
+      <label className="text-xs font-medium text-foreground">
         {t("connection.tags")}
       </label>
-      <div className="flex flex-wrap items-center gap-1.5">
+      <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-input bg-transparent px-2 py-1.5 focus-within:outline focus-within:outline-[var(--focus-ring-width)] focus-within:outline-offset-[var(--focus-ring-offset)] focus-within:outline-[var(--focus-ring-color)]">
         {tags.map((tag) => (
-          <span
-            key={tag}
-            className="inline-flex items-center gap-1 rounded-full border border-border bg-card px-2 py-0.5 text-xs text-foreground"
-          >
+          <Badge key={tag} variant="secondary" className="gap-1">
             {tag}
             <Button
               type="button"
               variant="ghost"
-              size="icon"
-              className="ml-0.5 size-4 p-0 text-xs text-muted-foreground hover:opacity-70"
+              size="icon-xs"
+              className="size-3 p-0 text-muted-foreground hover:opacity-70"
               onClick={() => removeTag(tag)}
               aria-label={`Remove tag ${tag}`}
             >
               ×
             </Button>
-          </span>
+          </Badge>
         ))}
         <input
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder={t("connection.addTag")}
-          className="min-w-[100px] flex-1 rounded-sm border border-border bg-transparent px-2 py-1 text-sm text-foreground outline-none transition-colors focus:border-ring"
+          className="min-w-[100px] flex-1 border-0 bg-transparent px-0 py-0 text-sm text-foreground outline-none placeholder:text-muted-foreground"
           onKeyDown={(e) => {
             if (e.key === "Enter") {
               e.preventDefault();

@@ -33,7 +33,7 @@ export function RenameDialog({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+    <div className="fixed inset-0 z-[var(--z-overlay)] flex items-center justify-center bg-black/50">
       <div className="w-full max-w-md rounded-md border border-border bg-background p-6">
         <h3 className="mb-4 text-lg font-medium text-foreground">
           {t("schema.crossConn.rename")} {objectType}

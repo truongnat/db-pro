@@ -95,7 +95,7 @@ export function DataGrid({
 
       {contextMenu && (
         <div
-          className="fixed z-50 rounded-sm border border-border bg-muted py-1 shadow-lg"
+          className="fixed z-[var(--z-popover)] rounded-sm border border-border bg-muted py-1 shadow-lg"
           style={{
             left: contextMenu.x,
             top: contextMenu.y,

@@ -50,7 +50,7 @@ export function ExportDialog({ open, onClose, connectionId, sql }: ExportDialogP
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: "rgba(0,0,0,0.4)" }}>
+    <div className="fixed inset-0 z-[var(--z-overlay)] flex items-center justify-center" style={{ backgroundColor: "rgba(0,0,0,0.4)" }}>
       <div className="w-96 rounded-md border border-border bg-card p-4 shadow-lg">
         <h2 className="mb-3 text-sm font-semibold text-foreground">
           {t("export.title")}

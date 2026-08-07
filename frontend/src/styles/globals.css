@@ -165,7 +165,7 @@
 :root {
   --app-hover: #f1f5f9;
   --app-active: #e2e8f0;
-  --app-text-dim: #78889a;
+  --app-text-dim: #64748b;
 
   --app-activity-bar-width: 44px;
   --app-sidebar-width: 260px;
@@ -211,8 +211,53 @@
   }
   body {
     @apply bg-background text-foreground;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
   html {
     @apply font-sans;
   }
+
+  :focus-visible {
+    outline: var(--focus-ring-width) solid var(--focus-ring-color);
+    outline-offset: var(--focus-ring-offset);
+  }
+
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--muted-foreground);
+  }
+}
+
+/* ── Focus ring utility ──────────────────────────────────────── */
+
+@layer utilities {
+  .focus-ring {
+    outline: var(--focus-ring-width) solid transparent;
+    outline-offset: var(--focus-ring-offset);
+  }
+
+  .focus-ring:focus-visible {
+    outline-color: var(--focus-ring-color);
+  }
+}
+
+/* ── Grid density switching ──────────────────────────────────── */
+
+[data-density="compact"] {
+  --grid-row-height: var(--grid-row-height-compact);
+}
+
+[data-density="comfortable"] {
+  --grid-row-height: var(--grid-row-height-comfortable);
 }

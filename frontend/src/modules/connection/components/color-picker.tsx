@@ -3,6 +3,7 @@ import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "@/commons/locales/useTranslation";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 const PRESET_COLORS = [
   "#ef4444",
@@ -40,8 +41,8 @@ export function ColorPicker({ value, onChange }: ColorPickerProps) {
   };
 
   return (
-    <div className="flex flex-col gap-2">
-      <label className="text-sm font-medium text-foreground">
+    <div className="flex flex-col gap-1.5">
+      <label className="text-xs font-medium text-foreground">
         {t("connection.color")}
       </label>
       <div className="flex flex-wrap items-center gap-1.5">
@@ -82,12 +83,11 @@ export function ColorPicker({ value, onChange }: ColorPickerProps) {
       </div>
       {showCustom && (
         <div className="flex items-center gap-2">
-          <input
-            type="text"
+          <Input
+            size="sm"
             value={customValue}
             onChange={(e) => setCustomValue(e.target.value)}
             placeholder="#3b82f6"
-            className="h-7 rounded-sm border border-border bg-background px-2 text-sm text-foreground outline-none focus:border-ring"
             onKeyDown={(e) => {
               if (e.key === "Enter") handleCustomSubmit();
             }}
@@ -95,7 +95,6 @@ export function ColorPicker({ value, onChange }: ColorPickerProps) {
           <Button
             type="button"
             size="sm"
-            className="h-7 px-2 text-xs"
             onClick={handleCustomSubmit}
           >
             {t("common.actions.confirm")}

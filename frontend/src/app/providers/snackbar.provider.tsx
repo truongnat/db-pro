@@ -137,7 +137,7 @@ export function SnackbarProvider({ children }: { children: ReactNode }) {
     <SnackbarContext.Provider value={contextValue}>
       {children}
       <div
-        className="fixed bottom-4 right-4 flex flex-col gap-2 z-50"
+        className="fixed bottom-4 right-4 flex flex-col gap-2 z-[var(--z-toast)]"
         aria-label="Notifications"
       >
         {items.map((item) => (

@@ -1,13 +1,13 @@
-import { cn } from "@/lib/utils";
 import { useTranslation } from "@/commons/locales/useTranslation";
+import { Badge } from "@/components/ui/badge";
 
 import type { ConnectionStatus } from "../types/connection.types";
 
-const STATUS_STYLES: Record<ConnectionStatus, string> = {
-  connected: "bg-success",
-  disconnected: "bg-muted-foreground",
-  connecting: "bg-warning",
-  error: "bg-destructive",
+const STATUS_VARIANT: Record<ConnectionStatus, "success" | "warning" | "error" | "secondary"> = {
+  connected: "success",
+  disconnected: "secondary",
+  connecting: "warning",
+  error: "error",
 };
 
 const STATUS_I18N_KEYS: Record<ConnectionStatus, string> = {
@@ -26,14 +26,8 @@ export function ConnectionStatusBadge({ status, className }: ConnectionStatusBad
   const { t } = useTranslation();
 
   return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1.5 text-xs text-muted-foreground",
-        className,
-      )}
-    >
-      <span className={cn("h-2 w-2 rounded-full", STATUS_STYLES[status])} />
+    <Badge variant={STATUS_VARIANT[status]} dot className={className}>
       {t(STATUS_I18N_KEYS[status])}
-    </span>
+    </Badge>
   );
 }

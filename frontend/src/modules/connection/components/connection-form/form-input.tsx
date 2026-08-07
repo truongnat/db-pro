@@ -1,6 +1,6 @@
 import type { ChangeEvent } from "react";
 
-import { cn } from "@/lib/utils";
+import { Input } from "@/components/ui/input";
 
 interface FormInputProps {
   label: string;
@@ -28,23 +28,20 @@ export function FormInput({
   max,
 }: FormInputProps) {
   return (
-    <div className="flex flex-col gap-1">
-      <label className="text-sm font-medium text-foreground">
+    <div className="flex flex-col gap-1.5">
+      <label className="text-xs font-medium text-foreground">
         {label}
         {required && <span className="text-destructive"> *</span>}
       </label>
-      <input
+      <Input
         type={type}
-        value={value}
+        value={String(value)}
         onChange={onChange}
         placeholder={placeholder}
         disabled={disabled}
         min={min}
         max={max}
-        className={cn(
-          "h-9 rounded-sm border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-primary",
-          error && "border-destructive",
-        )}
+        aria-invalid={!!error}
       />
       {error && (
         <span className="text-xs text-destructive">

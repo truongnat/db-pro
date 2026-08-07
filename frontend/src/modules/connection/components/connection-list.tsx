@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { useConnectionStore } from "@/commons/stores/connection.store";
 import { useTranslation } from "@/commons/locales/useTranslation";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
 import { useConnectionList, useConnect, useDeleteConnection, useDisconnect } from "../queries/connection.queries";
@@ -188,26 +189,26 @@ export function ConnectionList({ onEdit, onBackup, onRestore }: ConnectionListPr
           <p className="text-muted-foreground">{t("common.states.empty")}</p>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-md border border-border">
+        <div className="overflow-hidden rounded-lg border border-border">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-card">
-                <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+              <tr className="bg-muted">
+                <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground">
                   {t("common.labels.name")}
                 </th>
-                <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground">
                   {t("common.labels.host")}
                 </th>
-                <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground">
                   {t("common.labels.database")}
                 </th>
-                <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground">
                   {t("common.labels.driver")}
                 </th>
-                <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground">
                   {t("common.states.status", "Status")}
                 </th>
-                <th className="px-4 py-3 text-right font-medium text-muted-foreground">
+                <th className="px-4 py-2.5 text-right text-xs font-medium text-muted-foreground">
                   {t("common.actions.actions", "Actions")}
                 </th>
               </tr>
@@ -220,8 +221,8 @@ export function ConnectionList({ onEdit, onBackup, onRestore }: ConnectionListPr
                   <tr
                     key={conn.id}
                     className={cn(
-                      "cursor-pointer border-t border-border transition-colors hover:bg-card",
-                      activeConnectionId === conn.id && "bg-card",
+                      "cursor-pointer border-t border-border transition-colors hover:bg-muted",
+                      activeConnectionId === conn.id && "bg-muted",
                     )}
                     onClick={() => onEdit(conn.id)}
                   >
@@ -237,12 +238,9 @@ export function ConnectionList({ onEdit, onBackup, onRestore }: ConnectionListPr
                           {conn.name}
                         </span>
                         {(conn.tags ?? []).map((tag) => (
-                          <span
-                            key={tag}
-                            className="rounded-full border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground"
-                          >
+                          <Badge key={tag} variant="outline" className="text-[10px]">
                             {tag}
-                          </span>
+                          </Badge>
                         ))}
                       </div>
                     </td>
@@ -253,9 +251,7 @@ export function ConnectionList({ onEdit, onBackup, onRestore }: ConnectionListPr
                       {conn.driver === "sqlite" ? "\u2014" : conn.database}
                     </td>
                     <td>
-                      <span className="rounded bg-background px-1.5 py-0.5 text-xs text-muted-foreground">
-                        {conn.driver}
-                      </span>
+                      <Badge variant="outline">{conn.driver}</Badge>
                     </td>
                     <td>
                       <ConnectionStatusBadge status={status} />

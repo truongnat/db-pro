@@ -47,9 +47,9 @@ export function ConnectionsPage() {
   };
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex h-full flex-col gap-4 overflow-y-auto p-5">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-foreground">
+        <h1 className="text-lg font-semibold text-foreground">
           {t("connection.title")}
         </h1>
         <Button type="button" onClick={() => navigate({ to: "/connection-editor" })}>
