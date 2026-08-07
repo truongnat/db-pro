@@ -20,6 +20,17 @@ impl ConnectionRegistry {
         map.insert(id, handle);
     }
 
+    /// Atomically register only if `id` is not already present.
+    /// Returns `true` if registered, `false` if another caller won the race.
+    pub fn register_if_absent(&self, id: ConnectionId, handle: ConnectionHandle) -> bool {
+        let mut map = self.inner.write().expect("registry lock poisoned");
+        if map.contains_key(&id) {
+            return false;
+        }
+        map.insert(id, handle);
+        true
+    }
+
     pub fn unregister(&self, id: &ConnectionId) -> Option<ConnectionHandle> {
         let mut map = self.inner.write().expect("registry lock poisoned");
         map.remove(id)
@@ -106,5 +117,14 @@ mod tests {
         assert_eq!(reg.active_count(), 2);
         reg.unregister(&id1);
         assert_eq!(reg.active_count(), 1);
+    }
+
+    #[test]
+    fn register_if_absent_first_wins() {
+        let reg = ConnectionRegistry::new();
+        let id = conn_id();
+        assert!(reg.register_if_absent(id, handle(1)));
+        assert!(!reg.register_if_absent(id, handle(2)));
+        assert_eq!(reg.get(&id), Some(handle(1)));
     }
 }

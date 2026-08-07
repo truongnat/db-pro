@@ -313,20 +313,25 @@ async fn introspect_foreign_keys(pool: &sqlx::PgPool) -> Result<Vec<ForeignKey>,
             con.conname AS constraint_name,
             nsp.nspname AS from_schema,
             cls.relname AS from_table,
-            att.attname AS from_column,
+            src_att.attname AS from_column,
             fnsp.nspname AS to_schema,
             fcls.relname AS to_table,
-            fatt.attname AS to_column
+            dst_att.attname AS to_column
         FROM pg_constraint con
         JOIN pg_namespace nsp ON nsp.oid = con.connamespace
         JOIN pg_class cls ON cls.oid = con.conrelid
-        JOIN pg_attribute att ON att.attrelid = cls.oid AND att.attnum = ANY(con.conkey)
         JOIN pg_class fcls ON fcls.oid = con.confrelid
         JOIN pg_namespace fnsp ON fnsp.oid = fcls.relnamespace
-        JOIN pg_attribute fatt ON fatt.attrelid = fcls.oid AND fatt.attnum = ANY(con.confkey)
+        JOIN LATERAL unnest(con.conkey) WITH ORDINALITY AS src(attnum, ord) ON true
+        JOIN LATERAL unnest(con.confkey) WITH ORDINALITY AS dst(attnum, ord)
+            ON dst.ord = src.ord
+        JOIN pg_attribute src_att
+            ON src_att.attrelid = cls.oid AND src_att.attnum = src.attnum
+        JOIN pg_attribute dst_att
+            ON dst_att.attrelid = fcls.oid AND dst_att.attnum = dst.attnum
         WHERE con.contype = 'f'
           AND nsp.nspname NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
-        ORDER BY nsp.nspname, cls.relname, con.conname
+        ORDER BY nsp.nspname, cls.relname, con.conname, src.ord
         "#,
     )
     .fetch_all(pool)

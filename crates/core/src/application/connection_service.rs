@@ -153,7 +153,11 @@ impl ConnectionService {
             .ok_or_else(|| DbError::AuthFailed("password not found in secret store".into()))?;
 
         let handle = self.connector.connect(&connection.config, &password).await?;
-        self.registry.register(*id, handle);
+
+        if !self.registry.register_if_absent(*id, handle) {
+            self.connector.disconnect(&handle).await.ok();
+            return Ok(self.registry.get(id).expect("just registered"));
+        }
         Ok(handle)
     }
 
@@ -295,7 +299,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn connect_already_active_returns_error() {
+    async fn connect_already_active_returns_existing_handle() {
         let id = ConnectionId::new();
         let registry = Arc::new(ConnectionRegistry::new());
         registry.register(id, ConnectionHandle(1));
@@ -308,7 +312,8 @@ mod tests {
         );
 
         let result = svc.connect(&id).await;
-        assert!(result.is_err());
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), ConnectionHandle(1));
     }
 
     #[tokio::test]
