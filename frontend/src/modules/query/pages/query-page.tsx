@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { format as formatSql } from "sql-formatter";
 
+import { WorkspaceTabBar } from "@/commons/components/workspace-tab-bar";
+import { WorkspaceTabContent } from "@/commons/components/workspace-tab-content";
+import { migrateQueryTabsToWorkspace } from "@/commons/stores/workspace-bridge";
 import { useConnectionStore } from "@/commons/stores/connection.store";
 import { useTranslation } from "@/commons/locales/useTranslation";
 import { Button } from "@/components/ui/button";
@@ -10,7 +13,6 @@ import { ExplainPlanView } from "../components/explain-plan";
 import { LocalHistoryPanel } from "../components/local-history-panel";
 import { QueryEditor } from "../components/query-editor";
 import { QueryHistoryPanel } from "../components/query-history-panel";
-import { QueryTabs } from "../components/query-tabs";
 import { QueryToolbar } from "../components/query-toolbar";
 import { ResultGrid } from "../components/result-grid";
 import { ResultTabs } from "../components/result-tabs";
@@ -72,6 +74,7 @@ export function QueryPage() {
     const persisted = loadTabs(activeConnectionId);
     if (persisted && persisted.tabs.length > 0) {
       useQueryModuleStore.getState().restoreTabs(persisted.tabs, persisted.activeTabId);
+      migrateQueryTabsToWorkspace(persisted.tabs, persisted.activeTabId, activeConnectionId);
     }
   }, [activeConnectionId]);
 
@@ -243,8 +246,9 @@ export function QueryPage() {
 
       <TransactionBar />
 
-      <QueryTabs />
+      <WorkspaceTabBar />
 
+      <WorkspaceTabContent>
       <div className="h-[35%] min-h-[120px] border-b">
         <QueryEditor
           value={sql}
@@ -330,6 +334,7 @@ export function QueryPage() {
           )}
         </div>
       </div>
+      </WorkspaceTabContent>
       </div>
 
       <ExportDialog
