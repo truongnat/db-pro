@@ -423,8 +423,8 @@ async fn introspect_functions(pool: &sqlx::PgPool) -> Result<Vec<Function>, DbEr
         .into_iter()
         .map(|row| {
             let name: String = row.get("routine_name");
-            let routine_type: String = row.get("routine_type");
-            let data_type: String = row.get("data_type");
+            let routine_type: String = row.try_get("routine_type").unwrap_or_default();
+            let data_type: String = row.try_get("data_type").unwrap_or_default();
             Function {
                 name,
                 routine_type,
