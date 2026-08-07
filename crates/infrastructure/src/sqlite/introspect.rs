@@ -1,6 +1,14 @@
 use db_pro_core::domain::error::DbError;
 use db_pro_core::domain::schema::*;
 
+/// Escape a SQLite identifier by doubling any embedded double-quote characters
+/// and wrapping in double quotes. This is safe for interpolation into PRAGMA
+/// statements, which do not support `?` parameter binding for table names.
+fn escape_identifier(name: &str) -> String {
+    let escaped = name.replace('"', "\"\"");
+    format!("\"{escaped}\"")
+}
+
 pub fn run_introspection(conn: &rusqlite::Connection) -> Result<IntrospectResult, DbError> {
     let tables = introspect_tables(conn)?;
     let columns = introspect_columns(conn)?;
@@ -11,12 +19,16 @@ pub fn run_introspection(conn: &rusqlite::Connection) -> Result<IntrospectResult
 
     let mut primary_keys = Vec::new();
     for t in &tables {
-        // Use parameterized query to prevent SQL injection from weird table names.
+        // PRAGMA does not support ? parameters for table names;
+        // use safe identifier escaping instead.
+        let safe_name = escape_identifier(&t.name);
         let mut stmt = conn
-            .prepare("SELECT name FROM pragma_table_info(?) WHERE pk > 0 ORDER BY pk")
+            .prepare(&format!(
+                "SELECT name FROM pragma_table_info({safe_name}) WHERE pk > 0 ORDER BY pk"
+            ))
             .map_err(crate::error::from_rusqlite)?;
         let pk_cols: Vec<String> = stmt
-            .query_map([&t.name], |row| row.get(0))
+            .query_map([], |row| row.get(0))
             .map_err(crate::error::from_rusqlite)?
             .collect::<Result<Vec<_>, _>>()
             .map_err(crate::error::from_rusqlite)?;

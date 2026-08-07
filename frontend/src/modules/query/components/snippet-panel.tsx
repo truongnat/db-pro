@@ -43,7 +43,7 @@ export function SnippetPanel({ onInsertSnippet }: SnippetPanelProps) {
   return (
     <div className="flex h-full flex-col">
       {/* Search & add toolbar */}
-      <div className="flex items-center gap-1 border-b border-border p-2">
+      <div className="flex items-center gap-1 border-b border-[var(--app-border-subtle)] p-2">
         <Input
           className="flex-1 text-xs"
           placeholder={t("query.searchSnippets")}
@@ -63,7 +63,7 @@ export function SnippetPanel({ onInsertSnippet }: SnippetPanelProps) {
 
       {/* Add snippet form */}
       {showAddForm && (
-        <div className="space-y-2 border-b border-border p-2">
+        <div className="space-y-2 border-b border-[var(--app-border-subtle)] p-2">
           <div className="flex gap-2">
             <Input
               className="flex-1 text-xs"
@@ -79,7 +79,7 @@ export function SnippetPanel({ onInsertSnippet }: SnippetPanelProps) {
             />
           </div>
           <textarea
-            className="w-full rounded-sm border border-border bg-background p-2 font-mono text-xs text-foreground outline-none placeholder:text-muted-foreground"
+            className="w-full rounded-sm border border-[var(--app-border-subtle)] bg-background p-2 font-mono text-xs text-foreground outline-none placeholder:text-muted-foreground"
             rows={3}
             placeholder={"SELECT * FROM $cursor;"}
             value={newBody}
@@ -143,7 +143,7 @@ function SnippetRow({
 
   return (
     <div
-      className="group flex cursor-pointer items-start gap-2 border-b border-border px-3 py-2 transition-colors hover:bg-card"
+      className="group flex cursor-pointer items-start gap-2 border-b border-[var(--app-border-subtle)] px-3 py-2 transition-colors hover:bg-card"
       onClick={onSelect}
     >
       <div className="min-w-0 flex-1">

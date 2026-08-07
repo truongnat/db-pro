@@ -5,6 +5,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Command,
+  Search,
 } from "lucide-react";
 import type { ComponentType } from "react";
 

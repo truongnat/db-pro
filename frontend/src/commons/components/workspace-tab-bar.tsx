@@ -256,7 +256,7 @@ export function WorkspaceTabBar() {
 
         <DragOverlay>
           {draggingTab ? (
-            <div className="flex items-center gap-1.5 border border-border bg-card px-3 py-1.5 text-xs shadow-lg opacity-90">
+            <div className="flex items-center gap-1.5 border border-[var(--app-border)] bg-card px-3 py-1.5 text-xs shadow-lg opacity-90">
               {draggingTab.dirty && (
                 <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
               )}

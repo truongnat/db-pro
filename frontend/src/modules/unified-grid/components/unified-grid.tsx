@@ -144,7 +144,7 @@ export function UnifiedGrid({
       {/* Column freeze context menu */}
       {contextMenu && (
         <div
-          className="fixed z-[var(--z-floating)] rounded-sm border border-border bg-muted py-1 shadow-lg"
+          className="fixed z-[var(--z-floating)] rounded-md border border-[var(--app-border-strong)] bg-popover py-1 shadow-lg"
           style={{ left: contextMenu.x, top: contextMenu.y }}
           onMouseLeave={() => setContextMenu(null)}
         >

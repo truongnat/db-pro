@@ -367,3 +367,103 @@ async fn explain_select() {
     // SQLite returns a JSON array of plan steps.
     assert!(plan.is_array() || plan.is_object() || plan.is_string());
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SQL statement splitter (handles BEGIN...END blocks)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Split SQL text into individual statements, respecting BEGIN...END blocks
+/// and string literals. This is a simplified parser sufficient for fixture loading.
+fn split_sql_statements(sql: &str) -> Vec<String> {
+    let mut statements = Vec::new();
+    let mut current = String::new();
+    let mut chars = sql.chars().peekable();
+    let mut in_string = false;
+    let mut begin_depth: u32 = 0;
+
+    while let Some(ch) = chars.next() {
+        if in_string {
+            current.push(ch);
+            if ch == '\'' {
+                // Check for escaped quote ('').
+                if chars.peek() == Some(&'\'') {
+                    current.push(chars.next().unwrap());
+                } else {
+                    in_string = false;
+                }
+            }
+            continue;
+        }
+
+        match ch {
+            '\'' => {
+                in_string = true;
+                current.push(ch);
+            }
+            '-' if chars.peek() == Some(&'-') => {
+                // Line comment: skip to end of line.
+                current.push(ch);
+                current.push(chars.next().unwrap());
+                while let Some(&c) = chars.peek() {
+                    current.push(chars.next().unwrap());
+                    if c == '\n' {
+                        break;
+                    }
+                }
+            }
+            _ => {
+                current.push(ch);
+                // Track BEGIN/END for trigger bodies.
+                let upper_so_far = current.trim().to_ascii_uppercase();
+                if upper_so_far.ends_with("BEGIN") && begin_depth == 0 {
+                    // Check it's actually the keyword BEGIN.
+                    let before_begin = &upper_so_far[..upper_so_far.len() - 5];
+                    if before_begin.is_empty() || before_begin.ends_with(|c: char| !c.is_alphanumeric()) {
+                        begin_depth = 1;
+                    }
+                } else if begin_depth > 0 {
+                    // Check for nested BEGIN.
+                    let trimmed = current.trim().to_ascii_uppercase();
+                    if trimmed.ends_with("BEGIN") && !trimmed.ends_with("END BEGIN") {
+                        let before = &trimmed[..trimmed.len() - 5];
+                        if before.is_empty() || before.ends_with(|c: char| !c.is_alphanumeric()) {
+                            begin_depth += 1;
+                        }
+                    }
+                }
+
+                if ch == ';' && begin_depth == 0 {
+                    let stmt = current.trim().to_string();
+                    if !stmt.is_empty() {
+                        statements.push(stmt);
+                    }
+                    current.clear();
+                }
+
+                // Check for END; that closes a BEGIN block.
+                if ch == ';' && begin_depth > 0 {
+                    let trimmed = current.trim().to_ascii_uppercase();
+                    // Count ENDs in the current statement.
+                    let ends_count = trimmed.matches("END").count();
+                    let begins_count = trimmed.matches("BEGIN").count();
+                    if ends_count >= begins_count {
+                        begin_depth = 0;
+                        let stmt = current.trim().to_string();
+                        if !stmt.is_empty() {
+                            statements.push(stmt);
+                        }
+                        current.clear();
+                    }
+                }
+            }
+        }
+    }
+
+    // Handle final statement without trailing semicolon.
+    let remaining = current.trim().to_string();
+    if !remaining.is_empty() {
+        statements.push(remaining);
+    }
+
+    statements
+}

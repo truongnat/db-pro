@@ -60,7 +60,7 @@ export function QueryHistoryPanel({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center gap-1 border-b border-border p-2">
+      <div className="flex items-center gap-1 border-b border-[var(--app-border-subtle)] p-2">
         <Input
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
@@ -129,7 +129,7 @@ function HistoryEntryRow({
   const isError = entry.status === "error";
 
   return (
-    <div className="group flex flex-col border-b border-border px-3 py-2 transition-colors hover:bg-card">
+    <div className="group flex flex-col border-b border-[var(--app-border-subtle)] px-3 py-2 transition-colors hover:bg-card">
       {/* SQL line */}
       <div className="flex items-start gap-2">
         <button
