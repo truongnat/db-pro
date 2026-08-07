@@ -1,1 +1,1 @@
-{"default":{"identifier":"default","description":"Default capabilities for DB Pro","local":true,"windows":["main"],"permissions":["core:default"]}}
+{"default":{"identifier":"default","description":"Default capabilities for DB Pro","local":true,"windows":["main"],"permissions":["core:default","core:window:allow-close","core:window:allow-show","core:window:allow-hide"]}}

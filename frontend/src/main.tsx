@@ -1,5 +1,6 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
+import { invoke } from "@tauri-apps/api/core";
 import App from "./App";
 import { bootstrapServices } from "./app/app.module";
 import "./styles/globals.css";
@@ -13,6 +14,8 @@ async function main() {
       <App />
     </React.StrictMode>,
   );
+
+  invoke("close_splashscreen");
 }
 
 main();

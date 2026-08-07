@@ -187,6 +187,7 @@ pub fn run() {
             commands::list_partitions,
             commands::list_tablespaces,
             commands::rename_schema_object,
+            commands::close_splashscreen,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

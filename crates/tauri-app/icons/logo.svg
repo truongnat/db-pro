@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1e1b4b"/>
+      <stop offset="100%" style="stop-color:#3b82f6"/>
+    </linearGradient>
+    <linearGradient id="cyl" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#e0e7ff"/>
+      <stop offset="100%" style="stop-color:#a5b4fc"/>
+    </linearGradient>
+    <linearGradient id="cyl2" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#c7d2fe"/>
+      <stop offset="100%" style="stop-color:#818cf8"/>
+    </linearGradient>
+    <linearGradient id="bolt" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#fbbf24"/>
+      <stop offset="100%" style="stop-color:#f59e0b"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="4" stdDeviation="12" flood-color="#000" flood-opacity="0.25"/>
+    </filter>
+  </defs>
+  
+  <!-- Background rounded square -->
+  <rect x="0" y="0" width="1024" height="1024" rx="180" ry="180" fill="url(#bg)"/>
+  
+  <!-- Database cylinder - bottom layer -->
+  <g filter="url(#shadow)">
+    <!-- Bottom disk -->
+    <ellipse cx="460" cy="680" rx="220" ry="65" fill="url(#cyl2)" opacity="0.7"/>
+    <!-- Middle section -->
+    <rect x="240" y="530" width="440" height="150" fill="url(#cyl2)" opacity="0.7"/>
+    <!-- Middle disk -->
+    <ellipse cx="460" cy="530" rx="220" ry="65" fill="url(#cyl)" opacity="0.85"/>
+    
+    <!-- Top section -->
+    <rect x="240" y="380" width="440" height="150" fill="url(#cyl)" opacity="0.85"/>
+    <!-- Top disk -->
+    <ellipse cx="460" cy="380" rx="220" ry="65" fill="#e0e7ff"/>
+    
+    <!-- Highlight on top disk -->
+    <ellipse cx="440" cy="370" rx="160" ry="40" fill="white" opacity="0.3"/>
+  </g>
+  
+  <!-- Lightning bolt overlay -->
+  <g filter="url(#shadow)">
+    <polygon points="580,280 480,500 560,500 440,760 620,480 540,480 640,280" fill="url(#bolt)" opacity="0.95"/>
+  </g>
+  
+  <!-- Subtle ring accent -->
+  <circle cx="780" cy="260" r="80" fill="none" stroke="#60a5fa" stroke-width="6" opacity="0.3"/>
+  <circle cx="780" cy="260" r="50" fill="none" stroke="#60a5fa" stroke-width="4" opacity="0.2"/>
+</svg>
