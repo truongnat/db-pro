@@ -1,3 +1,6 @@
+// Platform API — some methods are consumed by future integration patches.
+#![allow(dead_code)]
+
 use std::collections::HashMap;
 use std::sync::Mutex;
 
@@ -18,6 +21,7 @@ struct ExecutionEntry {
 ///
 /// Cancel is idempotent: calling `cancel` on a finished or unknown execution
 /// returns `CancelResult::NotFound` without panicking.
+#[allow(dead_code)] // Platform API — methods consumed by future integration patches.
 pub struct ExecutionRegistry {
     inner: Mutex<HashMap<String, ExecutionEntry>>,
 }
@@ -44,7 +48,7 @@ impl ExecutionRegistry {
     /// when the query actually begins running.
     pub fn register(&self, connection_id: ConnectionId) -> (QueryExecutionId, oneshot::Receiver<()>) {
         let (tx, rx) = oneshot::channel();
-        let mut execution = QueryExecution::new(connection_id);
+        let execution = QueryExecution::new(connection_id);
         let exec_id = execution.id.clone();
 
         let entry = ExecutionEntry {
