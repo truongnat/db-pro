@@ -7,13 +7,15 @@ const STATUS_VARIANT: Record<ConnectionStatus, "success" | "warning" | "error" |
   connected: "success",
   disconnected: "secondary",
   connecting: "warning",
+  reconnecting: "warning",
   error: "error",
 };
 
 const STATUS_I18N_KEYS: Record<ConnectionStatus, string> = {
   connected: "common.states.connected",
   disconnected: "common.states.disconnected",
-  connecting: "common.states.loading",
+  connecting: "common.states.connecting",
+  reconnecting: "common.states.reconnecting",
   error: "common.states.error",
 };
 

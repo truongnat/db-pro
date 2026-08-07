@@ -203,6 +203,8 @@ export function ConnectionDialog() {
                       sshTunnel: connection.sshTunnel,
                       queryTimeoutMs: connection.queryTimeoutMs ?? 30000,
                       maxRows: connection.maxRows ?? 500,
+                      favorite: connection.favorite,
+                      readonly: connection.readonly,
                     }
                   : undefined
               }

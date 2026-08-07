@@ -37,7 +37,8 @@
       "disconnect": "Disconnect",
       "actions": "Actions",
       "clear": "Clear All",
-      "create": "Create"
+      "create": "Create",
+      "sort": "Sort"
     },
     "states": {
       "loading": "Loading...",
@@ -46,6 +47,8 @@
       "ready": "Ready",
       "connected": "Connected",
       "disconnected": "Disconnected",
+      "connecting": "Connecting...",
+      "reconnecting": "Reconnecting...",
       "status": "Status"
     },
     "yes": "Yes",
@@ -84,11 +87,29 @@
     "tags": "Tags",
     "addTag": "Add tag...",
     "group": "Group",
-    "groupPlaceholder": "e.g. Production"
+    "groupPlaceholder": "e.g. Production",
+    "favorite": "Favorite",
+    "unfavorite": "Remove from Favorites",
+    "toggleFavorite": "Toggle favorite",
+    "duplicate": "Duplicate",
+    "rename": "Rename",
+    "readonly": "Read-only",
+    "enableReadonly": "Enable Read-only",
+    "disableReadonly": "Disable Read-only",
+    "sort": {
+      "name": "Name",
+      "driver": "Driver",
+      "group": "Group"
+    }
   },
   "query": {
     "title": "Query Editor",
     "execute": "Execute",
+    "run": "Run",
+    "runCurrent": "Run Current",
+    "runAll": "Run All",
+    "runConfiguration": "Run Configuration",
+    "exportResults": "Export Results",
     "explain": "Explain",
     "clear": "Clear",
     "format": "Format SQL",
@@ -123,6 +144,30 @@
     "newFolder": "New Folder",
     "folderName": "Folder name",
     "noSavedQueries": "No saved queries",
+    "noMatchingQueries": "No queries match your search",
+    "searchSavedQueries": "Search saved queries...",
+    "favorites": "Favorites",
+    "favorite": "Favorite",
+    "unfavorite": "Remove from Favorites",
+    "rename": "Rename",
+    "duplicate": "Duplicate",
+    "addTag": "Add tag...",
+    "removeTag": "Click to remove",
+    "allTags": "All tags",
+    "sort": {
+      "name": "Name",
+      "created": "Created"
+    },
+    "snippets": "Snippets",
+    "searchSnippets": "Search snippets...",
+    "addSnippet": "Add Snippet",
+    "snippetTrigger": "Trigger",
+    "snippetLabel": "Label",
+    "builtIn": "Built-in",
+    "rerun": "Re-run",
+    "openInNewTab": "Open in New Tab",
+    "statusSuccess": "Success",
+    "statusError": "Error",
     "importSql": "Import .sql",
     "exportSql": "Export .sql",
     "runConfigs": "Run Configs",
@@ -182,6 +227,7 @@
     "ddlPreview": "SQL Preview",
     "ddlExecute": "Execute DDL",
     "ddlExecutedSuccessfully": "DDL executed successfully ({{affected}} rows affected)",
+    "ddlRebuildWarning": "This change requires rebuilding the table. Data will be copied to a new table structure.",
     "ddlOp": {
       "createTable": "Create Table",
       "addColumn": "Add Column",
@@ -270,7 +316,18 @@
     "chartPie": "Pie Chart",
     "chartXAxis": "X Axis",
     "chartYAxis": "Y Axis",
-    "configureChart": "Click 'Configure Chart' to set up a chart"
+    "configureChart": "Click 'Configure Chart' to set up a chart",
+    "changes": {
+      "pending_one": "{{count}} pending change",
+      "pending_other": "{{count}} pending changes",
+      "edits_one": "{{count}} edit",
+      "edits_other": "{{count}} edits",
+      "deletes_one": "{{count}} delete",
+      "deletes_other": "{{count}} deletes",
+      "apply": "Apply",
+      "applying": "Applying…",
+      "revertAll": "Revert all"
+    }
   },
   "export": {
     "title": "Export",
@@ -354,6 +411,10 @@
       "help": "Help",
       "searchObjects": "Search objects...",
       "openData": "Open Data",
+      "open": "Open",
+      "newQuery": "New Query",
+      "copyName": "Copy Name",
+      "copyQualifiedName": "Copy Qualified Name",
       "editConnection": "Edit connection",
       "tables": "Tables",
       "views": "Views"
@@ -446,6 +507,13 @@
     "connection": {
       "new": "New Connection"
     },
+    "productivity": {
+      "clearHistory": "Clear History",
+      "insertSnippet": "Insert Snippet",
+      "showSnippets": "Show Snippets",
+      "showHistory": "Show History",
+      "showSavedQueries": "Show Saved Queries"
+    },
     "groups": {
       "query": "Query",
       "tabs": "Tabs",
@@ -454,7 +522,8 @@
       "file": "File",
       "general": "General",
       "connection": "Connection",
-      "recent": "Recent"
+      "recent": "Recent",
+      "productivity": "Productivity"
     }
   },
   "dock": {

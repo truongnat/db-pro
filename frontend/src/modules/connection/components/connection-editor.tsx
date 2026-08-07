@@ -299,6 +299,12 @@ export function ConnectionEditor({
         />
       </div>
 
+      <FormCheckbox
+        label={t("connection.readonly")}
+        checked={formData.readonly ?? false}
+        onChange={(checked) => updateField("readonly", checked)}
+      />
+
       {testResult && (
         <div
           className="flex items-center gap-2 rounded-lg border border-border bg-muted px-4 py-3"

@@ -10,9 +10,13 @@ import * as queries from "../queries/connection.queries";
 
 vi.mock("../queries/connection.queries", () => ({
   useConnectionList: vi.fn(),
-  useConnect: vi.fn(),
-  useDisconnect: vi.fn(),
-  useDeleteConnection: vi.fn(),
+  useConnect: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
+  useDisconnect: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
+  useDeleteConnection: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
+  useDuplicateConnection: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
+  useRenameConnection: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
+  useToggleFavorite: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
+  useToggleReadonly: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
 }));
 
 vi.mock("@/commons/stores/connection.store", () => ({
@@ -23,7 +27,20 @@ vi.mock("@/commons/stores/connection.store", () => ({
 
 vi.mock("../state/connection.store", () => ({
   useConnectionModuleStore: vi.fn((selector) =>
-    selector({ statuses: {}, connectionErrors: {} }),
+    selector({
+      statuses: {},
+      connectionErrors: {},
+      favorites: {},
+      sortField: "name",
+      sortDirection: "asc",
+      filterTag: null,
+      filterGroup: null,
+      setSortField: vi.fn(),
+      setSortDirection: vi.fn(),
+      setFilterTag: vi.fn(),
+      setFilterGroup: vi.fn(),
+      clearFilters: vi.fn(),
+    }),
   ),
 }));
 
@@ -37,10 +54,18 @@ i18n.use(initReactI18next).init({
       translation: {
         common: {
           states: { loading: "Loading...", empty: "No data", error: "Error", connected: "Connected", disconnected: "Disconnected" },
-          labels: { name: "Name", host: "Host", database: "Database" },
-          actions: { delete: "Delete", connect: "Connect", disconnect: "Disconnect", edit: "Edit" },
+          labels: { name: "Name", host: "Host", database: "Database", driver: "Driver" },
+          actions: { delete: "Delete", connect: "Connect", disconnect: "Disconnect", edit: "Edit", clear: "Clear All", sort: "Sort" },
         },
-        connection: { edit: "Edit Connection" },
+        connection: {
+          edit: "Edit Connection",
+          group: "Group",
+          tags: "Tags",
+          confirmDelete: "Delete?",
+          toggleFavorite: "Toggle favorite",
+          readonly: "Read-only",
+          sort: { name: "Name", driver: "Driver", group: "Group" },
+        },
       },
     },
   },

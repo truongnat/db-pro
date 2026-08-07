@@ -27,6 +27,8 @@ export interface Connection {
   color?: string;
   tags?: string[];
   group?: string;
+  favorite?: boolean;
+  readonly?: boolean;
 }
 
 export interface ConnectionConfig {
@@ -43,6 +45,8 @@ export interface ConnectionConfig {
   color?: string;
   tags?: string[];
   group?: string;
+  favorite?: boolean;
+  readonly?: boolean;
 }
 
 export interface ConnectionFormData {
@@ -59,6 +63,8 @@ export interface ConnectionFormData {
   color?: string;
   tags?: string[];
   group?: string;
+  favorite?: boolean;
+  readonly?: boolean;
 }
 
-export type ConnectionStatus = "connected" | "disconnected" | "connecting" | "error";
+export type ConnectionStatus = "connected" | "disconnected" | "connecting" | "reconnecting" | "error";

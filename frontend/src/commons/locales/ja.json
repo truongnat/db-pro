@@ -37,7 +37,8 @@
       "disconnect": "切断",
       "actions": "操作",
       "clear": "すべてクリア",
-      "create": "作成"
+      "create": "作成",
+      "sort": "並び替え"
     },
     "states": {
       "loading": "読み込み中...",
@@ -46,6 +47,8 @@
       "ready": "準備完了",
       "connected": "接続済み",
       "disconnected": "未接続",
+      "connecting": "接続中...",
+      "reconnecting": "再接続中...",
       "status": "ステータス"
     },
     "yes": "はい",
@@ -84,11 +87,29 @@
     "tags": "タグ",
     "addTag": "タグを追加...",
     "group": "グループ",
-    "groupPlaceholder": "例: 本番環境"
+    "groupPlaceholder": "例: 本番環境",
+    "favorite": "お気に入り",
+    "unfavorite": "お気に入りから削除",
+    "toggleFavorite": "お気に入り切り替え",
+    "duplicate": "複製",
+    "rename": "名前を変更",
+    "readonly": "読み取り専用",
+    "enableReadonly": "読み取り専用を有効にする",
+    "disableReadonly": "読み取り専用を解除",
+    "sort": {
+      "name": "名前",
+      "driver": "ドライバー",
+      "group": "グループ"
+    }
   },
   "query": {
     "title": "クエリエディタ",
     "execute": "実行",
+    "run": "実行",
+    "runCurrent": "現在を実行",
+    "runAll": "すべて実行",
+    "runConfiguration": "実行設定",
+    "exportResults": "結果をエクスポート",
     "explain": "説明",
     "clear": "クリア",
     "format": "SQLフォーマット",
@@ -123,6 +144,30 @@
     "newFolder": "新規フォルダ",
     "folderName": "フォルダ名",
     "noSavedQueries": "保存済みクエリがありません",
+    "noMatchingQueries": "検索に一致するクエリがありません",
+    "searchSavedQueries": "保存クエリを検索...",
+    "favorites": "お気に入り",
+    "favorite": "お気に入り",
+    "unfavorite": "お気に入りから削除",
+    "rename": "名前を変更",
+    "duplicate": "複製",
+    "addTag": "タグを追加...",
+    "removeTag": "クリックして削除",
+    "allTags": "すべてのタグ",
+    "sort": {
+      "name": "名前",
+      "created": "作成日"
+    },
+    "snippets": "スニペット",
+    "searchSnippets": "スニペットを検索...",
+    "addSnippet": "スニペット追加",
+    "snippetTrigger": "トリガー",
+    "snippetLabel": "ラベル",
+    "builtIn": "組み込み",
+    "rerun": "再実行",
+    "openInNewTab": "新しいタブで開く",
+    "statusSuccess": "成功",
+    "statusError": "エラー",
     "importSql": "SQLインポート",
     "exportSql": "SQLエクスポート",
     "runConfigs": "実行設定",
@@ -182,6 +227,7 @@
     "ddlPreview": "SQLプレビュー",
     "ddlExecute": "DDL実行",
     "ddlExecutedSuccessfully": "DDLが正常に実行されました（{{affected}}行に影響）",
+    "ddlRebuildWarning": "この変更にはテーブルの再構築が必要です。データは新しいテーブル構造にコピーされます。",
     "ddlOp": {
       "createTable": "テーブル作成",
       "addColumn": "カラム追加",
@@ -270,7 +316,18 @@
     "chartPie": "円グラフ",
     "chartXAxis": "X軸",
     "chartYAxis": "Y軸",
-    "configureChart": "「チャート設定」をクリックしてチャートを設定してください"
+    "configureChart": "「チャート設定」をクリックしてチャートを設定してください",
+    "changes": {
+      "pending_one": "{{count}}件の保留中の変更",
+      "pending_other": "{{count}}件の保留中の変更",
+      "edits_one": "{{count}}件の編集",
+      "edits_other": "{{count}}件の編集",
+      "deletes_one": "{{count}}件の削除",
+      "deletes_other": "{{count}}件の削除",
+      "apply": "適用",
+      "applying": "適用中…",
+      "revertAll": "すべて戻す"
+    }
   },
   "export": {
     "title": "エクスポート",
@@ -354,6 +411,10 @@
       "help": "ヘルプ",
       "searchObjects": "オブジェクトを検索...",
       "openData": "データを開く",
+      "open": "開く",
+      "newQuery": "新しいクエリ",
+      "copyName": "名前をコピー",
+      "copyQualifiedName": "修飾名をコピー",
       "editConnection": "接続を編集",
       "tables": "テーブル",
       "views": "ビュー"
@@ -446,6 +507,13 @@
     "connection": {
       "new": "新規接続"
     },
+    "productivity": {
+      "clearHistory": "履歴をクリア",
+      "insertSnippet": "スニペットを挿入",
+      "showSnippets": "スニペットを表示",
+      "showHistory": "履歴を表示",
+      "showSavedQueries": "保存クエリを表示"
+    },
     "groups": {
       "query": "クエリ",
       "tabs": "タブ",
@@ -454,7 +522,8 @@
       "file": "ファイル",
       "general": "一般",
       "connection": "接続",
-      "recent": "最近使用"
+      "recent": "最近使用",
+      "productivity": "生産性"
     }
   },
   "dock": {
