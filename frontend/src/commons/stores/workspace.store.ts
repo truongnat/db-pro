@@ -232,7 +232,8 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           ),
         })),
 
-      openDbObject: (tab) =>
+      openDbObject: (tab) => {
+        let replacedPreviewId: string | null = null;
         set((state) => {
           const existing = state.tabs.find((t) => t.resourceKey === tab.resourceKey);
           if (existing && existing.kind === "db-object") {
@@ -250,11 +251,13 @@ export const useWorkspaceStore = create<WorkspaceState>()(
               (t) => t.preview && t.kind === "db-object" && t.connectionId === tab.connectionId,
             );
             if (previewIdx !== -1) {
+              const reusedId = state.tabs[previewIdx].id;
               const newTabs = [...state.tabs];
-              newTabs[previewIdx] = { ...tab, id: newTabs[previewIdx].id, order: newTabs[previewIdx].order };
+              newTabs[previewIdx] = { ...tab, id: reusedId, order: newTabs[previewIdx].order };
+              replacedPreviewId = reusedId;
               return {
                 tabs: newTabs,
-                activeTabId: newTabs[previewIdx].id,
+                activeTabId: reusedId,
               };
             }
           }
@@ -263,7 +266,11 @@ export const useWorkspaceStore = create<WorkspaceState>()(
             tabs: [...state.tabs, tab],
             activeTabId: tab.id,
           };
-        }),
+        });
+        if (replacedPreviewId) {
+          useTabGridStateStore.getState().resetTab(replacedPreviewId);
+        }
+      },
 
       restoreState: (restored) => {
         set({

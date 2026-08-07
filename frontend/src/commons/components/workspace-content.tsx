@@ -49,6 +49,7 @@ export function WorkspaceContent() {
     case "db-object":
       return (
         <DbObjectTabContent
+          key={activeTab.resourceKey}
           tabId={activeTab.id}
           connectionId={activeTab.connectionId}
           schema={activeTab.data.schema}

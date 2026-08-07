@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { createQueryTab, createDbObjectTab } from "@/commons/factories/tab-factories";
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
+import { useTabGridStateStore } from "@/modules/data-grid/state/tab-grid-state.store";
 
 function resetStore() {
   useWorkspaceStore.setState({
@@ -9,6 +10,7 @@ function resetStore() {
     activeTabId: null,
     recentlyClosed: [],
   });
+  useTabGridStateStore.setState({ states: {} });
 }
 
 describe("WorkspaceStore", () => {
@@ -500,6 +502,26 @@ describe("WorkspaceStore", () => {
       const state = useWorkspaceStore.getState();
       expect(state.tabs).toHaveLength(1);
       expect(state.tabs[0].title).toBe("products");
+    });
+
+    it("resets grid state when preview slot is replaced with different resource", () => {
+      const { openDbObject } = useWorkspaceStore.getState();
+
+      const previewA = createDbObjectTab("conn-1", "public", "users", "table", "columns", true);
+      openDbObject(previewA);
+
+      const reusedId = useWorkspaceStore.getState().tabs[0].id;
+      useTabGridStateStore.getState().setState(reusedId, { page: 8, filters: [{ column: "id", operator: "eq", value: "1", enabled: true }] });
+      expect(useTabGridStateStore.getState().getState(reusedId).page).toBe(8);
+
+      const previewB = createDbObjectTab("conn-1", "public", "orders", "table", "columns", true);
+      openDbObject(previewB);
+
+      expect(useWorkspaceStore.getState().tabs).toHaveLength(1);
+      expect(useWorkspaceStore.getState().tabs[0].id).toBe(reusedId);
+      const gridState = useTabGridStateStore.getState().getState(reusedId);
+      expect(gridState.page).toBe(1);
+      expect(gridState.filters).toHaveLength(0);
     });
   });
 });
