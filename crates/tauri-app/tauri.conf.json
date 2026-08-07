@@ -4,7 +4,7 @@
   "identifier": "com.dbpro.app",
   "build": {
     "frontendDist": "../../frontend/dist",
-    "devUrl": "http://localhost:5173",
+    "devUrl": "http://localhost:5174",
     "beforeDevCommand": "npm --prefix frontend run dev",
     "beforeBuildCommand": "npm --prefix frontend run build"
   },
@@ -20,7 +20,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: https://asset.local blob:; connect-src 'self' ipc: http://ipc.localhost ws://localhost:5173 ws://localhost:5173/; font-src 'self'"
+      "csp": "default-src 'self'; script-src 'self' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: https://asset.local blob:; connect-src 'self' ipc: http://ipc.localhost ws://localhost:5174 ws://localhost:5174/; font-src 'self'"
     }
   },
   "bundle": {
