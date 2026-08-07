@@ -26,7 +26,6 @@ import { SqlFileOperations } from "../components/sql-file-operations";
 import { TransactionBar } from "../components/transaction-bar";
 import {
   useCancelQuery,
-  useExecuteQuery,
   useExecuteQueryMulti,
   useExplainPlan,
   useQueryHistory,
@@ -48,6 +47,8 @@ export function QueryPage() {
   });
   const activeTabId = useWorkspaceStore((s) => s.activeTabId);
 
+  const tabConnectionId = activeTab?.connectionId ?? null;
+
   const [panelTab, setPanelTab] = useState<ResultPanelTab>("results");
   const [historySearch, setHistorySearch] = useState("");
 
@@ -63,11 +64,10 @@ export function QueryPage() {
   const [runConfigOpen, setRunConfigOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const executeMutation = useExecuteQuery();
   const executeMultiMutation = useExecuteQueryMulti();
   const explainMutation = useExplainPlan();
   const cancelMutation = useCancelQuery();
-  const historyQuery = useQueryHistory(activeConnectionId ?? "");
+  const historyQuery = useQueryHistory(tabConnectionId ?? "");
 
   const initializedRef = useRef<string | null>(null);
   useEffect(() => {
@@ -86,27 +86,33 @@ export function QueryPage() {
   }, [activeConnectionId]);
 
   const handleExecute = useCallback(() => {
-    if (activeConnectionId && activeTabId && sql.trim()) {
+    if (tabConnectionId && activeTabId && sql.trim()) {
       pushLocalHistory(sql.trim());
-      executeMultiMutation.mutate({ connectionId: activeConnectionId, sql: sql.trim(), tabId: activeTabId });
+      executeMultiMutation.mutate({ connectionId: tabConnectionId, sql: sql.trim(), tabId: activeTabId });
     }
-  }, [activeConnectionId, activeTabId, sql, executeMultiMutation]);
+  }, [tabConnectionId, activeTabId, sql, executeMultiMutation]);
 
   const handleCancel = useCallback(() => {
-    if (activeConnectionId && activeTabId) {
-      cancelMutation.mutate({ connectionId: activeConnectionId, tabId: activeTabId });
+    if (tabConnectionId && activeTabId) {
+      cancelMutation.mutate({ connectionId: tabConnectionId, tabId: activeTabId });
     }
-  }, [activeConnectionId, activeTabId, cancelMutation]);
+  }, [tabConnectionId, activeTabId, cancelMutation]);
 
   const handleExplain = useCallback(() => {
-    if (activeConnectionId && activeTabId && sql.trim()) {
+    if (tabConnectionId && activeTabId && sql.trim()) {
       const tabId = activeTabId;
       explainMutation.mutate(
-        { connectionId: activeConnectionId, sql: sql.trim(), tabId },
-        { onSuccess: () => setPanelTab("explain") },
+        { connectionId: tabConnectionId, sql: sql.trim(), tabId },
+        {
+          onSuccess: () => {
+            if (useWorkspaceStore.getState().activeTabId === tabId) {
+              setPanelTab("explain");
+            }
+          },
+        },
       );
     }
-  }, [activeConnectionId, activeTabId, sql, explainMutation]);
+  }, [tabConnectionId, activeTabId, sql, explainMutation]);
 
   const handleClear = useCallback(() => {
     if (activeTabId) setTabSql(activeTabId, "");
@@ -229,7 +235,7 @@ export function QueryPage() {
     return sort.direction === "desc" ? sorted.reverse() : sorted;
   }, [result, sort]);
 
-  if (!activeConnectionId) {
+  if (!tabConnectionId) {
     return (
       <div className="flex items-center justify-center py-12">
         <p className="text-muted-foreground">
@@ -260,7 +266,7 @@ export function QueryPage() {
         </div>
         <div className="flex-1 overflow-auto">
           <SavedQueriesTree
-            connectionId={activeConnectionId}
+            connectionId={tabConnectionId}
             onSelectQuery={handleSelectSavedQuery}
           />
         </div>
@@ -269,7 +275,7 @@ export function QueryPage() {
           style={{ maxHeight: "40%" }}
         >
           <RunConfigList
-            connectionId={activeConnectionId}
+            connectionId={tabConnectionId}
             onSelect={handleSelectRunConfig}
             onNew={() => setRunConfigOpen(true)}
           />
@@ -285,9 +291,9 @@ export function QueryPage() {
         onExport={() => setExportOpen(true)}
         onFormat={handleFormat}
         onInsertTemplate={handleInsertTemplate}
-        isExecuting={executeMultiMutation.isPending}
+        isExecuting={status === "running"}
         isExplaining={explainMutation.isPending}
-        hasConnection={!!activeConnectionId}
+        hasConnection={!!tabConnectionId}
         hasSql={!!sql.trim()}
       />
 
@@ -387,7 +393,7 @@ export function QueryPage() {
       <ExportDialog
         open={exportOpen}
         onClose={() => setExportOpen(false)}
-        connectionId={activeConnectionId}
+        connectionId={tabConnectionId}
         sql={sql.trim()}
       />
 
@@ -402,7 +408,7 @@ export function QueryPage() {
       <RunConfigDialog
         open={runConfigOpen}
         onClose={() => setRunConfigOpen(false)}
-        connectionId={activeConnectionId}
+        connectionId={tabConnectionId}
         defaultSql={sql.trim()}
       />
     </div>

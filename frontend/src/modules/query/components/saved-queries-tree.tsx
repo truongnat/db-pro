@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useTranslation } from "@/commons/locales/useTranslation";
 
 import {
@@ -100,12 +101,11 @@ export function SavedQueriesTree({ connectionId, onSelectQuery }: SavedQueriesTr
 
       {showNewFolderInput && (
         <div className="mb-2 flex gap-1">
-          <input
-            type="text"
+          <Input
             value={newFolderName}
             onChange={(e) => setNewFolderName(e.target.value)}
             placeholder={t("query.folderName")}
-            className="flex-1 rounded-sm border border-border bg-background px-2 py-1 text-xs text-foreground outline-none focus:border-primary"
+            className="flex-1 text-xs"
             onKeyDown={(e) => e.key === "Enter" && handleCreateFolder()}
           />
           <Button

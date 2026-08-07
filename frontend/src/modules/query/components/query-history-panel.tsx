@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useTranslation } from "@/commons/locales/useTranslation";
 
 import type { QueryHistoryEntry } from "../types/query.types";
@@ -29,12 +30,10 @@ export function QueryHistoryPanel({
   return (
     <div className="flex h-full flex-col">
       <div className="border-b border-border p-2">
-        <input
-          type="text"
+        <Input
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
           placeholder={t("query.searchHistory")}
-          className="w-full rounded-sm border border-border bg-background px-3 py-1.5 text-sm text-foreground outline-none transition-colors focus:border-primary"
         />
       </div>
 

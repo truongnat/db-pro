@@ -1,6 +1,16 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { useTranslation } from "@/commons/locales/useTranslation";
 
 import { useSaveRunConfig } from "../queries/query.queries";
@@ -51,95 +61,71 @@ export function RunConfigDialog({
     );
   }, [connectionId, name, sql, timeoutMs, maxRows, saveMutation, onClose]);
 
-  if (!open) return null;
-
   return (
-    <div
-      className="fixed inset-0 z-[var(--z-overlay)] flex items-center justify-center"
-      style={{ backgroundColor: "rgba(0,0,0,0.4)" }}
-      onClick={onClose}
-    >
-      <div
-        className="w-[480px] rounded-md border border-border bg-muted p-4 shadow-lg"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3 className="mb-3 text-sm font-semibold text-foreground">
-          {t("query.newRunConfig")}
-        </h3>
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-[480px]">
+        <DialogHeader>
+          <DialogTitle>{t("query.newRunConfig")}</DialogTitle>
+        </DialogHeader>
 
-        <div className="space-y-3">
-          <div>
-            <label className="mb-1 block text-xs text-muted-foreground">
-              {t("query.configName")}
-            </label>
-            <input
-              type="text"
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="run-config-name">{t("query.configName")}</Label>
+            <Input
+              id="run-config-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full rounded-sm border border-border bg-background px-2 py-1.5 text-sm text-foreground outline-none focus:border-primary"
             />
           </div>
 
-          <div>
-            <label className="mb-1 block text-xs text-muted-foreground">
-              SQL
-            </label>
-            <textarea
+          <div className="space-y-1.5">
+            <Label htmlFor="run-config-sql">SQL</Label>
+            <Textarea
+              id="run-config-sql"
               value={sql}
               onChange={(e) => setSql(e.target.value)}
               rows={4}
-              className="w-full resize-y rounded-sm border border-border bg-background px-2 py-1.5 font-mono text-xs text-foreground outline-none focus:border-primary"
+              className="font-mono text-xs"
             />
           </div>
 
           <div className="flex gap-3">
-            <div className="flex-1">
-              <label className="mb-1 block text-xs text-muted-foreground">
-                {t("query.timeoutMs")}
-              </label>
-              <input
+            <div className="flex-1 space-y-1.5">
+              <Label htmlFor="run-config-timeout">{t("query.timeoutMs")}</Label>
+              <Input
+                id="run-config-timeout"
                 type="number"
                 value={timeoutMs}
                 onChange={(e) => setTimeoutMs(Number(e.target.value))}
                 min={1000}
                 step={1000}
-                className="w-full rounded-sm border border-border bg-background px-2 py-1.5 text-sm text-foreground outline-none focus:border-primary"
               />
             </div>
-            <div className="flex-1">
-              <label className="mb-1 block text-xs text-muted-foreground">
-                {t("query.maxRows")}
-              </label>
-              <input
+            <div className="flex-1 space-y-1.5">
+              <Label htmlFor="run-config-maxrows">{t("query.maxRows")}</Label>
+              <Input
+                id="run-config-maxrows"
                 type="number"
                 value={maxRows}
                 onChange={(e) => setMaxRows(Number(e.target.value))}
                 min={1}
-                className="w-full rounded-sm border border-border bg-background px-2 py-1.5 text-sm text-foreground outline-none focus:border-primary"
               />
             </div>
           </div>
         </div>
 
-        <div className="mt-4 flex justify-end gap-2">
-          <Button
-            type="button"
-            variant="ghost"
-            className="rounded-sm px-3 py-1.5 text-sm text-muted-foreground"
-            onClick={onClose}
-          >
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>
             {t("common.actions.cancel")}
           </Button>
           <Button
-            type="button"
             onClick={handleSave}
             disabled={!name.trim() || !sql.trim() || saveMutation.isPending}
-            className="rounded-sm px-3 py-1.5 text-sm"
           >
             {t("common.actions.save")}
           </Button>
-        </div>
-      </div>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

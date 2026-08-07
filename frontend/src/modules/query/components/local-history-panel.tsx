@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useTranslation } from "@/commons/locales/useTranslation";
 import { formatRelativeTime } from "@/commons/utils/date-formatter";
 
@@ -48,8 +49,8 @@ export function LocalHistoryPanel({ onSelectEntry }: LocalHistoryPanelProps) {
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center gap-2 border-b border-border px-3 py-2">
-        <input
-          className="flex-1 rounded-sm border border-border bg-background px-2 py-1 text-sm text-foreground"
+        <Input
+          className="flex-1"
           placeholder={t("query.searchHistory")}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
