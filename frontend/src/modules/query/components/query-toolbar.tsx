@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "@/commons/locales/useTranslation";
-
-import { SQL_TEMPLATES } from "./sql-templates-data";
+import type { DriverType } from "@/modules/connection/types/connection.types";
+import { getSqlTemplates } from "@/modules/query/sql/templates";
 
 interface QueryToolbarProps {
   onExecute: () => void;
@@ -17,6 +17,7 @@ interface QueryToolbarProps {
   isExplaining: boolean;
   hasConnection: boolean;
   hasSql: boolean;
+  driver: DriverType;
 }
 
 export function QueryToolbar({
@@ -31,9 +32,11 @@ export function QueryToolbar({
   isExplaining,
   hasConnection,
   hasSql,
+  driver,
 }: QueryToolbarProps) {
   const { t } = useTranslation();
   const [templatesOpen, setTemplatesOpen] = useState(false);
+  const templates = useMemo(() => getSqlTemplates(driver), [driver]);
 
   return (
     <div className="flex items-center gap-2 border-b border-border bg-card px-3 py-2">
@@ -98,7 +101,7 @@ export function QueryToolbar({
         </Button>
         {templatesOpen && (
           <div className="absolute top-full left-0 z-[var(--z-sticky)] mt-1 max-h-64 w-56 overflow-auto rounded-sm border border-border bg-card py-1 shadow-lg">
-            {SQL_TEMPLATES.map((tpl) => (
+            {templates.map((tpl) => (
               <Button
                 key={tpl.label}
                 type="button"

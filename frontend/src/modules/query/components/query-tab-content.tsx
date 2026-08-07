@@ -229,6 +229,7 @@ export function QueryTabContent({ tabId, onOpenRunConfig }: QueryTabContentProps
         isExplaining={explainMutation.isPending}
         hasConnection={!!tabConnectionId}
         hasSql={!!sql.trim()}
+        driver={getDialectForConnection(tabConnectionId).driver}
       />
 
       <QueryContextStrip

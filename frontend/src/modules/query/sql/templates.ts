@@ -1,9 +1,11 @@
+import type { DriverType } from "@/modules/connection/types/connection.types";
+
 export interface SqlTemplate {
   label: string;
   sql: string;
 }
 
-export const SQL_TEMPLATES: SqlTemplate[] = [
+const TEMPLATES: SqlTemplate[] = [
   {
     label: "SELECT",
     sql: "SELECT * FROM table_name\nWHERE condition\nLIMIT 100;",
@@ -26,7 +28,7 @@ export const SQL_TEMPLATES: SqlTemplate[] = [
   },
   {
     label: "CREATE TABLE",
-    sql: "CREATE TABLE table_name (\n  id SERIAL PRIMARY KEY,\n  name VARCHAR(255) NOT NULL,\n  created_at TIMESTAMP DEFAULT NOW()\n);",
+    sql: "",
   },
   {
     label: "ALTER TABLE — add column",
@@ -53,3 +55,23 @@ export const SQL_TEMPLATES: SqlTemplate[] = [
     sql: "SELECT *\nFROM table_name\nWHERE id IN (\n  SELECT table_name_id\n  FROM other_table\n  WHERE condition\n);",
   },
 ];
+
+const POSTGRES_CREATE_TABLE: SqlTemplate = {
+  label: "CREATE TABLE",
+  sql: "CREATE TABLE table_name (\n  id SERIAL PRIMARY KEY,\n  name VARCHAR(255) NOT NULL,\n  created_at TIMESTAMP DEFAULT NOW()\n);",
+};
+
+const SQLITE_CREATE_TABLE: SqlTemplate = {
+  label: "CREATE TABLE",
+  sql: "CREATE TABLE table_name (\n  id INTEGER PRIMARY KEY,\n  name TEXT NOT NULL,\n  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP\n);",
+};
+
+export function getSqlTemplates(driver: DriverType): SqlTemplate[] {
+  return TEMPLATES.map((tpl) =>
+    tpl.label === "CREATE TABLE"
+      ? driver === "sqlite"
+        ? SQLITE_CREATE_TABLE
+        : POSTGRES_CREATE_TABLE
+      : tpl,
+  );
+}
