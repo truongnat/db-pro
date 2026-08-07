@@ -1,7 +1,10 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
+import type { RecentResource } from "@/commons/types/quick-open.types";
+
 const MAX_RECENT = 10;
+const MAX_RECENT_RESOURCES = 20;
 
 export interface RecentConnection {
   connectionId: string;
@@ -11,11 +14,14 @@ export interface RecentConnection {
 
 interface RecentState {
   recentConnections: RecentConnection[];
+  recentResources: RecentResource[];
   connectionDialogOpen: boolean;
   connectionDialogEditId: string | null;
 
   addRecentConnection: (connectionId: string) => void;
   removeRecentConnection: (connectionId: string) => void;
+  addRecentResource: (resource: Omit<RecentResource, "openedAt">) => void;
+  removeRecentResource: (resourceKey: string) => void;
   openConnectionDialog: (editId?: string) => void;
   closeConnectionDialog: () => void;
 }
@@ -24,6 +30,7 @@ export const useRecentStore = create<RecentState>()(
   persist(
     (set) => ({
       recentConnections: [],
+      recentResources: [],
       connectionDialogOpen: false,
       connectionDialogEditId: null,
 
@@ -57,6 +64,25 @@ export const useRecentStore = create<RecentState>()(
           ),
         })),
 
+      addRecentResource: (resource) =>
+        set((state) => {
+          const now = new Date().toISOString();
+          const updated = [
+            { ...resource, openedAt: now },
+            ...state.recentResources.filter(
+              (r) => r.resourceKey !== resource.resourceKey,
+            ),
+          ];
+          return { recentResources: updated.slice(0, MAX_RECENT_RESOURCES) };
+        }),
+
+      removeRecentResource: (resourceKey) =>
+        set((state) => ({
+          recentResources: state.recentResources.filter(
+            (r) => r.resourceKey !== resourceKey,
+          ),
+        })),
+
       openConnectionDialog: (editId) =>
         set({
           connectionDialogOpen: true,
@@ -73,6 +99,7 @@ export const useRecentStore = create<RecentState>()(
       name: "db-pro-recent",
       partialize: (state) => ({
         recentConnections: state.recentConnections,
+        recentResources: state.recentResources,
       }),
     },
   ),

@@ -377,6 +377,17 @@
     "placeholder": "コマンド、接続を検索...",
     "noResults": "結果が見つかりません。"
   },
+  "quickOpen": {
+    "placeholder": "テーブル、ビュー、接続を検索...",
+    "noResults": "一致するリソースがありません。",
+    "groups": {
+      "open": "開いている",
+      "tables": "テーブル",
+      "views": "ビュー",
+      "schemas": "スキーマ",
+      "connections": "接続"
+    }
+  },
   "commands": {
     "query": {
       "execute": "クエリを実行",

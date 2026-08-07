@@ -19,15 +19,13 @@ export interface CatalogTableEntry {
   kind: "table" | "view";
 }
 
-interface ConnectionCatalog {
+export interface ConnectionCatalog {
   schemas: { name: string }[];
   objects: CatalogTableEntry[];
   columnsByTable: Map<string, SchemaColumnDto[]>;
   columnsLoaded: Set<string>;
   columnsLoading: Map<string, Promise<SchemaColumnDto[]>>;
-}
-
-interface SchemaCatalogState {
+}interface SchemaCatalogState {
   catalogs: Map<string, ConnectionCatalog>;
   ensureLoaded: (connectionId: string) => Promise<void>;
   ensureTableColumns: (connectionId: string, schema: string, table: string) => Promise<SchemaColumnDto[]>;

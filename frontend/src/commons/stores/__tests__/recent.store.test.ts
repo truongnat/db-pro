@@ -5,6 +5,7 @@ import { useRecentStore } from "@/commons/stores/recent.store";
 function resetStore() {
   useRecentStore.setState({
     recentConnections: [],
+    recentResources: [],
     connectionDialogOpen: false,
     connectionDialogEditId: null,
   });
@@ -65,6 +66,84 @@ describe("RecentStore", () => {
       useRecentStore.getState().removeRecentConnection("nonexistent");
 
       expect(useRecentStore.getState().recentConnections).toHaveLength(1);
+    });
+  });
+
+  describe("addRecentResource", () => {
+    it("prepends a new resource entry", () => {
+      useRecentStore.getState().addRecentResource({
+        resourceKey: "dbobj:public.users:conn-1",
+        kind: "db-object",
+        connectionId: "conn-1",
+        schema: "public",
+        objectName: "users",
+      });
+
+      const { recentResources } = useRecentStore.getState();
+      expect(recentResources).toHaveLength(1);
+      expect(recentResources[0].resourceKey).toBe("dbobj:public.users:conn-1");
+      expect(recentResources[0].openedAt).toBeTruthy();
+    });
+
+    it("moves existing resource to front without duplicating", () => {
+      useRecentStore.getState().addRecentResource({
+        resourceKey: "dbobj:public.users:conn-1",
+        kind: "db-object",
+        connectionId: "conn-1",
+        schema: "public",
+        objectName: "users",
+      });
+      useRecentStore.getState().addRecentResource({
+        resourceKey: "dbobj:public.orders:conn-1",
+        kind: "db-object",
+        connectionId: "conn-1",
+        schema: "public",
+        objectName: "orders",
+      });
+      useRecentStore.getState().addRecentResource({
+        resourceKey: "dbobj:public.users:conn-1",
+        kind: "db-object",
+        connectionId: "conn-1",
+        schema: "public",
+        objectName: "users",
+      });
+
+      const { recentResources } = useRecentStore.getState();
+      expect(recentResources).toHaveLength(2);
+      expect(recentResources[0].resourceKey).toBe("dbobj:public.users:conn-1");
+      expect(recentResources[1].resourceKey).toBe("dbobj:public.orders:conn-1");
+    });
+
+    it("trims to MAX_RECENT_RESOURCES", () => {
+      for (let i = 1; i <= 25; i++) {
+        useRecentStore.getState().addRecentResource({
+          resourceKey: `dbobj:public.t${i}:conn-1`,
+          kind: "db-object",
+          connectionId: "conn-1",
+          schema: "public",
+          objectName: `t${i}`,
+        });
+      }
+
+      const { recentResources } = useRecentStore.getState();
+      expect(recentResources).toHaveLength(20);
+      expect(recentResources[0].objectName).toBe("t25");
+    });
+  });
+
+  describe("removeRecentResource", () => {
+    it("removes by resourceKey", () => {
+      useRecentStore.getState().addRecentResource({
+        resourceKey: "dbobj:public.users:conn-1",
+        kind: "db-object",
+        connectionId: "conn-1",
+        schema: "public",
+        objectName: "users",
+      });
+
+      useRecentStore.getState().removeRecentResource("dbobj:public.users:conn-1");
+
+      expect(useRecentStore.getState().recentResources).toHaveLength(0);
     });
   });
 

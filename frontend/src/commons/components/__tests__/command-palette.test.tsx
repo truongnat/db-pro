@@ -7,24 +7,6 @@ import i18n from "i18next";
 import { CommandPalette } from "@/commons/components/command-palette";
 import { useCommandStore } from "@/commons/stores/command.store";
 
-vi.mock("@/commons/stores/recent.store", () => ({
-  useRecentStore: vi.fn((selector) =>
-    selector({ recentConnections: [], addRecentConnection: vi.fn() }),
-  ),
-}));
-
-vi.mock("@/modules/connection/queries/connection.queries", () => ({
-  useConnectionList: vi.fn(() => ({ data: [] })),
-  useConnect: vi.fn(() => ({ mutate: vi.fn() })),
-}));
-
-vi.mock("@/app/providers/snackbar.provider", () => ({
-  useSnackbar: vi.fn(() => ({
-    success: vi.fn(),
-    error: vi.fn(),
-  })),
-}));
-
 vi.mock("@/lib/utils", () => ({
   cn: (...args: unknown[]) => args.filter(Boolean).join(" "),
 }));
@@ -34,7 +16,6 @@ i18n.use(initReactI18next).init({
     en: {
       translation: {
         commandPalette: { placeholder: "Search...", noResults: "No results" },
-        "commands.groups.recent": "Recent",
       },
     },
   },

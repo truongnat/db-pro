@@ -377,6 +377,17 @@
     "placeholder": "Type to search commands, connections...",
     "noResults": "No results found."
   },
+  "quickOpen": {
+    "placeholder": "Search tables, views, connections...",
+    "noResults": "No matching resources.",
+    "groups": {
+      "open": "Open",
+      "tables": "Tables",
+      "views": "Views",
+      "schemas": "Schemas",
+      "connections": "Connections"
+    }
+  },
   "commands": {
     "query": {
       "execute": "Execute Query",

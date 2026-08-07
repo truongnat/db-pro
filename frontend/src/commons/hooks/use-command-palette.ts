@@ -28,8 +28,8 @@ export function useCommandPalette() {
     function handleKeyDown(e: KeyboardEvent) {
       const state = useCommandStore.getState();
 
-      // Ctrl+K / Cmd+K or Ctrl+P / Cmd+P to toggle palette
-      if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === "k" || e.key.toLowerCase() === "p")) {
+      // Cmd/Ctrl+Shift+P to toggle command palette (Cmd/Ctrl+P is Quick Open)
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "p") {
         e.preventDefault();
         state.toggle();
         return;

@@ -1,7 +1,9 @@
 import { CommandPalette } from "@/commons/components/command-palette";
+import { QuickOpen } from "@/commons/components/quick-open";
 import { WorkspaceContent } from "@/commons/components/workspace-content";
 import { WorkspaceTabBar } from "@/commons/components/workspace-tab-bar";
 import { useCommandPalette } from "@/commons/hooks/use-command-palette";
+import { useQuickOpen } from "@/commons/hooks/use-quick-open";
 import { useShellStore } from "@/commons/stores/shell.store";
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
 import { ConnectionDialog } from "@/modules/connection/components/connection-dialog";
@@ -15,6 +17,7 @@ export function AppShell() {
   const sidebarCollapsed = useShellStore((s) => s.sidebarCollapsed);
   const hasTabs = useWorkspaceStore((s) => s.tabs.length > 0);
   useCommandPalette();
+  useQuickOpen();
 
   return (
     <>
@@ -46,6 +49,7 @@ export function AppShell() {
       </div>
     </div>
     <CommandPalette />
+    <QuickOpen />
     <ConnectionDialog />
     </>
   );
