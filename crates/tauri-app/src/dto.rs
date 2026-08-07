@@ -691,6 +691,7 @@ impl FilterDto {
                     message: format!("unknown filter operator: {other}"),
                     message_id: "error.validation".into(),
                     details: None,
+                    retryable: false,
                 })
             }
         };

@@ -100,7 +100,7 @@ impl Default for RequestId {
     }
 }
 
-#[derive(thiserror::Error, Debug)]
+#[derive(thiserror::Error, Debug, Clone)]
 pub enum QueryError {
     #[error("connection not found: {connection_id}")]
     ConnectionNotFound { connection_id: String },

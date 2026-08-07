@@ -22,3 +22,6 @@ Thumbs.db
 # Env
 .env
 .env.*
+coverage/
+.qoder/
+bun.lock

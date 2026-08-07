@@ -1,9 +1,12 @@
 pub mod backup;
+pub mod capabilities;
 pub mod connection;
 pub mod cross_connection;
 pub mod error;
+pub mod execution;
 pub mod history;
 pub mod query;
 pub mod run_config;
+pub mod safety;
 pub mod schema;
 pub mod user;

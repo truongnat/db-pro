@@ -13,7 +13,7 @@ use db_pro_infrastructure::postgres::user_manager::PostgresUserManager;
 use db_pro_infrastructure::secret::keyring_vault::KeyringVault;
 use tauri::Manager;
 
-use crate::cancel::CancelRegistry;
+use crate::cancel::ExecutionRegistry;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -135,7 +135,7 @@ pub fn run() {
                 handle.manage(user_service);
                 handle.manage(backup_service);
                 handle.manage(data_diff_service);
-                handle.manage(CancelRegistry::new());
+                handle.manage(ExecutionRegistry::new());
                 handle.manage(Arc::clone(&connector) as Arc<CompositeConnector>);
                 handle.manage(Arc::clone(&registry) as Arc<ConnectionRegistry>);
             });
