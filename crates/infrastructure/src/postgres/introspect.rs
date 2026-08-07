@@ -145,7 +145,7 @@ async fn introspect_tables(pool: &sqlx::PgPool) -> Result<Vec<Table>, DbError> {
     for row in count_rows {
         let schema: String = row.get("schema_name");
         let table: String = row.get("table_name");
-        let raw: f64 = row.get("row_count");
+        let raw: f32 = row.get("row_count");
         let count = if raw < 0.0 { None } else { Some(raw as u64) };
         row_counts.insert((schema, table), count);
     }
@@ -310,22 +310,23 @@ async fn introspect_foreign_keys(pool: &sqlx::PgPool) -> Result<Vec<ForeignKey>,
     let rows = sqlx::query(
         r#"
         SELECT
-            tc.constraint_name,
-            kcu.table_name AS from_table,
-            kcu.column_name AS from_column,
-            ccu.table_name AS to_table,
-            ccu.column_name AS to_column,
-            tc.table_schema AS from_schema,
-            ccu.table_schema AS to_schema
-        FROM information_schema.table_constraints tc
-        JOIN information_schema.key_column_usage kcu
-            ON tc.constraint_name = kcu.constraint_name
-            AND tc.table_schema = kcu.table_schema
-        JOIN information_schema.constraint_column_usage ccu
-            ON tc.constraint_name = ccu.constraint_name
-            AND tc.table_schema = ccu.table_schema
-        WHERE tc.constraint_type = 'FOREIGN KEY'
-          AND tc.table_schema NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
+            con.conname AS constraint_name,
+            nsp.nspname AS from_schema,
+            cls.relname AS from_table,
+            att.attname AS from_column,
+            fnsp.nspname AS to_schema,
+            fcls.relname AS to_table,
+            fatt.attname AS to_column
+        FROM pg_constraint con
+        JOIN pg_namespace nsp ON nsp.oid = con.connamespace
+        JOIN pg_class cls ON cls.oid = con.conrelid
+        JOIN pg_attribute att ON att.attrelid = cls.oid AND att.attnum = ANY(con.conkey)
+        JOIN pg_class fcls ON fcls.oid = con.confrelid
+        JOIN pg_namespace fnsp ON fnsp.oid = fcls.relnamespace
+        JOIN pg_attribute fatt ON fatt.attrelid = fcls.oid AND fatt.attnum = ANY(con.confkey)
+        WHERE con.contype = 'f'
+          AND nsp.nspname NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
+        ORDER BY nsp.nspname, cls.relname, con.conname
         "#,
     )
     .fetch_all(pool)

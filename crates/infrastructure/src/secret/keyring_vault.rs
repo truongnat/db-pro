@@ -121,7 +121,14 @@ impl SecretStore for KeyringVault {
         };
 
         match entry.set_password(value) {
-            Ok(()) => Ok(()),
+            Ok(()) => {
+                if self.allow_fallback {
+                    if let Err(e) = self.store_fallback(key, value) {
+                        tracing::warn!("fallback store failed after keyring success: {e}");
+                    }
+                }
+                Ok(())
+            }
             Err(e) if is_keyring_unavailable(&e) => {
                 tracing::warn!("OS keyring unavailable: {e}");
                 self.require_fallback()?;

@@ -13,7 +13,7 @@ export class DataGridService {
     request: FetchRowsRequest,
   ): Promise<FetchRowsResult> {
     return apiInvoke<FetchRowsResult>("fetch_table_rows", {
-      connection_id: connectionId,
+      connectionId: connectionId,
       request: {
         schema: request.schema,
         table: request.table,
@@ -27,7 +27,7 @@ export class DataGridService {
           direction: s.direction,
         })),
         page: request.page,
-        page_size: request.pageSize,
+        pageSize: request.pageSize,
       },
     });
   }
@@ -37,7 +37,7 @@ export class DataGridService {
     request: MutateRowRequest,
   ): Promise<MutateRowResult> {
     return apiInvoke<MutateRowResult>("insert_table_row", {
-      connection_id: connectionId,
+      connectionId: connectionId,
       request: {
         schema: request.schema,
         table: request.table,
@@ -52,14 +52,14 @@ export class DataGridService {
     request: MutateRowRequest,
   ): Promise<MutateRowResult> {
     return apiInvoke<MutateRowResult>("update_table_row", {
-      connection_id: connectionId,
+      connectionId: connectionId,
       request: {
         schema: request.schema,
         table: request.table,
         columns: request.columns,
         values: request.values,
-        pk_columns: request.pkColumns,
-        pk_values: request.pkValues,
+        pkColumns: request.pkColumns,
+        pkValues: request.pkValues,
       },
     });
   }
@@ -69,14 +69,14 @@ export class DataGridService {
     request: MutateRowRequest,
   ): Promise<MutateRowResult> {
     return apiInvoke<MutateRowResult>("delete_table_row", {
-      connection_id: connectionId,
+      connectionId: connectionId,
       request: {
         schema: request.schema,
         table: request.table,
         columns: request.columns,
         values: request.values,
-        pk_columns: request.pkColumns,
-        pk_values: request.pkValues,
+        pkColumns: request.pkColumns,
+        pkValues: request.pkValues,
       },
     });
   }

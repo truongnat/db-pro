@@ -131,8 +131,8 @@ impl ConnectionService {
     }
 
     pub async fn connect(&self, id: &ConnectionId) -> Result<ConnectionHandle, DbError> {
-        if self.registry.is_active(id) {
-            return Err(DbError::ConnectionFailed(format!("connection {id} is already active")));
+        if let Some(handle) = self.registry.get(id) {
+            return Ok(handle);
         }
 
         let connection = self

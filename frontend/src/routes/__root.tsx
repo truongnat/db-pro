@@ -77,6 +77,25 @@ function RootLayout() {
   const activeConnection = connections.data?.find((c) => c.id === activeConnectionId) ?? null;
   const pageLabel = PAGE_LABELS[location.pathname] ?? "";
 
+  // TODO: Auto-reconnect disabled temporarily due to hooks ordering issue
+  // const autoConnectAttempted = useRef(false);
+  // useEffect(() => {
+  //   if (autoConnectAttempted.current || !activeConnectionId) return;
+  //   autoConnectAttempted.current = true;
+  //
+  //   const connService = container.resolve<IConnectionService>(SERVICE_NAMES.CONNECTION_SERVICE);
+  //   const setStatus = useConnectionModuleStore.getState().setStatus;
+  //
+  //   setStatus(activeConnectionId, "connecting");
+  //   connService.connect(activeConnectionId).then(
+  //     () => setStatus(activeConnectionId, "connected"),
+  //     () => {
+  //       setStatus(activeConnectionId, "disconnected");
+  //       useConnectionStore.getState().setActiveConnection(null);
+  //     },
+  //   );
+  // }, [activeConnectionId]);
+
   const toggleSchema = (schema: string) =>
     setExpandedSchemas((prev) => {
       const next = new Set(prev);

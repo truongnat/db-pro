@@ -5,19 +5,23 @@ import type { BackupOptions, BackupResult, RestoreOptions } from "../types/backu
 export class BackupService {
   async backup(options: BackupOptions): Promise<BackupResult> {
     return apiInvoke<BackupResult>("backup_database", {
-      connection_id: options.connectionId,
-      output_path: options.outputPath,
-      format: options.format,
-      schemas: options.schemas,
-      tables: options.tables,
+      req: {
+        connectionId: options.connectionId,
+        outputPath: options.outputPath,
+        format: options.format,
+        schemas: options.schemas,
+        tables: options.tables,
+      },
     });
   }
 
   async restore(options: RestoreOptions): Promise<void> {
     return apiInvoke<void>("restore_database", {
-      connection_id: options.connectionId,
-      input_path: options.inputPath,
-      format: options.format,
+      req: {
+        connectionId: options.connectionId,
+        inputPath: options.inputPath,
+        format: options.format,
+      },
     });
   }
 }

@@ -5,7 +5,7 @@ import type { DatabaseUser, Privilege } from "../types/user.types";
 export class UserManagementService {
   async listUsers(connectionId: string): Promise<DatabaseUser[]> {
     return apiInvoke<DatabaseUser[]>("list_users", {
-      connection_id: connectionId,
+      req: { connectionId },
     });
   }
 
@@ -15,16 +15,13 @@ export class UserManagementService {
     login: boolean,
   ): Promise<void> {
     return apiInvoke<void>("create_role", {
-      connection_id: connectionId,
-      name,
-      login,
+      req: { connectionId, name, login },
     });
   }
 
   async dropRole(connectionId: string, name: string): Promise<void> {
     return apiInvoke<void>("drop_role", {
-      connection_id: connectionId,
-      name,
+      req: { connectionId, name },
     });
   }
 
@@ -33,8 +30,7 @@ export class UserManagementService {
     roleName: string,
   ): Promise<Privilege[]> {
     return apiInvoke<Privilege[]>("list_privileges", {
-      connection_id: connectionId,
-      role_name: roleName,
+      req: { connectionId, roleName },
     });
   }
 
@@ -46,11 +42,7 @@ export class UserManagementService {
     privilege: string,
   ): Promise<void> {
     return apiInvoke<void>("grant_privilege", {
-      connection_id: connectionId,
-      role_name: roleName,
-      schema,
-      table,
-      privilege,
+      req: { connectionId, roleName, schema, table, privilege },
     });
   }
 
@@ -62,11 +54,7 @@ export class UserManagementService {
     privilege: string,
   ): Promise<void> {
     return apiInvoke<void>("revoke_privilege", {
-      connection_id: connectionId,
-      role_name: roleName,
-      schema,
-      table,
-      privilege,
+      req: { connectionId, roleName, schema, table, privilege },
     });
   }
 }

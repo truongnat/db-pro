@@ -7,8 +7,8 @@ export class SchemaService {
     forceRefresh?: boolean,
   ): Promise<IntrospectResult> {
     return apiInvoke<IntrospectResult>("introspect", {
-      connection_id: connectionId,
-      force_refresh: forceRefresh,
+      connectionId,
+      forceRefresh,
     });
   }
 
@@ -18,7 +18,7 @@ export class SchemaService {
     table: string,
   ): Promise<TableInfo> {
     return apiInvoke<TableInfo>("get_table_info", {
-      connection_id: connectionId,
+      connectionId,
       schema,
       table,
     });
@@ -30,7 +30,7 @@ export class SchemaService {
     table: string,
   ): Promise<string> {
     return apiInvoke<string>("get_table_ddl", {
-      connection_id: connectionId,
+      connectionId,
       schema,
       table,
     });
@@ -41,14 +41,14 @@ export class SchemaService {
     sql: string,
   ): Promise<{ affectedRows: number }> {
     return apiInvoke<{ affectedRows: number }>("execute_ddl", {
-      connection_id: connectionId,
+      connectionId,
       sql,
     });
   }
 
   async invalidateCache(connectionId: string): Promise<void> {
     return apiInvoke<void>("invalidate_cache", {
-      connection_id: connectionId,
+      connectionId,
     });
   }
 
@@ -57,8 +57,8 @@ export class SchemaService {
     targetId: string,
   ): Promise<SchemaDiff> {
     return apiInvoke<SchemaDiff>("diff_schemas", {
-      source_id: sourceId,
-      target_id: targetId,
+      sourceId,
+      targetId,
     });
   }
 
@@ -69,8 +69,8 @@ export class SchemaService {
     table: string,
   ): Promise<DataDiff> {
     return apiInvoke<DataDiff>("diff_table_data", {
-      source_id: sourceId,
-      target_id: targetId,
+      sourceId,
+      targetId,
       schema,
       table,
     });
@@ -82,21 +82,21 @@ export class SchemaService {
     objectName: string,
   ): Promise<ObjectDependency[]> {
     return apiInvoke<ObjectDependency[]>("get_object_dependencies", {
-      connection_id: connectionId,
+      connectionId,
       schema,
-      object_name: objectName,
+      objectName,
     });
   }
 
   async listPartitions(connectionId: string): Promise<PartitionInfo[]> {
     return apiInvoke<PartitionInfo[]>("list_partitions", {
-      connection_id: connectionId,
+      connectionId,
     });
   }
 
   async listTablespaces(connectionId: string): Promise<TablespaceInfo[]> {
     return apiInvoke<TablespaceInfo[]>("list_tablespaces", {
-      connection_id: connectionId,
+      connectionId,
     });
   }
 
@@ -108,11 +108,11 @@ export class SchemaService {
     newName: string,
   ): Promise<void> {
     return apiInvoke<void>("rename_schema_object", {
-      connection_id: connectionId,
-      object_type: objectType,
+      connectionId,
+      objectType,
       schema,
-      old_name: oldName,
-      new_name: newName,
+      oldName,
+      newName,
     });
   }
 }

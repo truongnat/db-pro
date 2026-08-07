@@ -13,27 +13,27 @@ import type {
 export class QueryService {
   async execute(connectionId: string, sql: string): Promise<QueryResult> {
     return apiInvoke<QueryResult>("execute_query", {
-      connection_id: connectionId,
+      connectionId: connectionId,
       sql,
     });
   }
 
   async cancel(connectionId: string): Promise<void> {
     return apiInvoke<void>("cancel_query", {
-      connection_id: connectionId,
+      connectionId: connectionId,
     });
   }
 
   async executeMulti(connectionId: string, sql: string): Promise<MultiQueryResult> {
     return apiInvoke<MultiQueryResult>("execute_query_multi", {
-      connection_id: connectionId,
+      connectionId: connectionId,
       sql,
     });
   }
 
   async explain(connectionId: string, sql: string): Promise<ExplainPlan> {
     return apiInvoke<ExplainPlan>("explain_query", {
-      connection_id: connectionId,
+      connectionId: connectionId,
       sql,
     });
   }
@@ -43,7 +43,7 @@ export class QueryService {
     limit?: number,
   ): Promise<QueryHistoryEntry[]> {
     return apiInvoke<QueryHistoryEntry[]>("get_query_history", {
-      connection_id: connectionId,
+      connectionId: connectionId,
       limit,
     });
   }
@@ -55,7 +55,7 @@ export class QueryService {
     folder?: string,
   ): Promise<SavedQuery> {
     return apiInvoke<SavedQuery>("save_query", {
-      connection_id: connectionId,
+      connectionId: connectionId,
       name,
       sql,
       folder,
@@ -64,7 +64,7 @@ export class QueryService {
 
   async listSaved(connectionId: string): Promise<SavedQuery[]> {
     return apiInvoke<SavedQuery[]>("list_saved_queries", {
-      connection_id: connectionId,
+      connectionId: connectionId,
     });
   }
 
@@ -74,14 +74,14 @@ export class QueryService {
 
   async createFolder(connectionId: string, name: string): Promise<SavedQueryFolder> {
     return apiInvoke<SavedQueryFolder>("create_folder", {
-      connection_id: connectionId,
+      connectionId: connectionId,
       name,
     });
   }
 
   async listFolders(connectionId: string): Promise<SavedQueryFolder[]> {
     return apiInvoke<SavedQueryFolder[]>("list_folders", {
-      connection_id: connectionId,
+      connectionId: connectionId,
     });
   }
 
@@ -97,17 +97,17 @@ export class QueryService {
     maxRows: number,
   ): Promise<RunConfig> {
     return apiInvoke<RunConfig>("save_run_config", {
-      connection_id: connectionId,
+      connectionId: connectionId,
       name,
       sql,
-      timeout_ms: timeoutMs,
-      max_rows: maxRows,
+      timeoutMs: timeoutMs,
+      maxRows: maxRows,
     });
   }
 
   async listRunConfigs(connectionId: string): Promise<RunConfig[]> {
     return apiInvoke<RunConfig[]>("list_run_configs", {
-      connection_id: connectionId,
+      connectionId: connectionId,
     });
   }
 

@@ -46,6 +46,8 @@ export function SchemaDetailPanel({
   onTabChange,
 }: SchemaDetailPanelProps) {
   const { t } = useTranslation();
+  const tableInfo = useTableInfo(connectionId, schema, table);
+  const tableDdl = useTableDdl(connectionId, schema, table, activeTab === "ddl");
 
   if (!schema || !table || !nodeType) {
     return (
@@ -56,8 +58,6 @@ export function SchemaDetailPanel({
   }
 
   const tabs = nodeType === "view" ? VIEW_TABS : TABLE_TABS;
-  const tableInfo = useTableInfo(connectionId, schema, table);
-  const tableDdl = useTableDdl(connectionId, schema, table, activeTab === "ddl");
 
   const tabClassName = (isActive: boolean): string =>
     `rounded-none border-b-2 px-3 py-2 text-sm transition-colors hover:opacity-80 ${
