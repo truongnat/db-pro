@@ -196,7 +196,7 @@ export function SavedQueriesTree({ connectionId, onSelectQuery }: SavedQueriesTr
   return (
     <div className="flex h-full flex-col overflow-auto text-sm">
       {/* Search & filter toolbar */}
-      <div className="border-b border-border p-2">
+      <div className="border-b border-[var(--app-border-subtle)] p-2">
         <Input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -224,7 +224,7 @@ export function SavedQueriesTree({ connectionId, onSelectQuery }: SavedQueriesTr
           </Button>
           {allTags.length > 0 && (
             <select
-              className="h-6 rounded-sm border border-border bg-transparent px-1 text-xs text-foreground"
+              className="h-6 rounded-sm border border-[var(--app-border)] bg-transparent px-1 text-xs text-foreground"
               value={filterTag ?? ""}
               onChange={(e) => setFilterTag(e.target.value || null)}
             >
@@ -240,7 +240,7 @@ export function SavedQueriesTree({ connectionId, onSelectQuery }: SavedQueriesTr
       </div>
 
       {/* New folder button */}
-      <div className="flex items-center justify-between border-b border-border px-2 py-1">
+      <div className="flex items-center justify-between border-b border-[var(--app-border-subtle)] px-2 py-1">
         <span className="font-medium text-foreground">{t("query.savedQueries")}</span>
         <Button
           type="button"
@@ -254,7 +254,7 @@ export function SavedQueriesTree({ connectionId, onSelectQuery }: SavedQueriesTr
       </div>
 
       {showNewFolderInput && (
-        <div className="flex gap-1 border-b border-border p-2">
+        <div className="flex gap-1 border-b border-[var(--app-border-subtle)] p-2">
           <Input
             value={newFolderName}
             onChange={(e) => setNewFolderName(e.target.value)}
@@ -441,7 +441,7 @@ function SavedQueryItem({
             {/* Name / rename input */}
             {isRenaming ? (
               <input
-                className="flex-1 rounded-sm border border-border bg-background px-1 text-xs text-foreground outline-none"
+                className="flex-1 rounded-sm border border-[var(--app-border)] bg-background px-1 text-xs text-foreground outline-none"
                 value={renameValue}
                 onChange={(e) => onRenameValueChange(e.target.value)}
                 onKeyDown={(e) => {

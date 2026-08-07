@@ -74,7 +74,7 @@ export function DataToolbar({
     "h-auto gap-1 px-2 py-1 text-xs font-normal text-muted-foreground hover:bg-background hover:text-foreground";
 
   return (
-    <div className="flex items-center justify-between gap-2 border-b border-border bg-card px-2 py-1.5">
+    <div className="flex items-center justify-between gap-2 border-b border-[var(--app-border-subtle)] bg-background px-2 py-1.5">
       <div className="flex items-center gap-0.5">
         <Popover>
           <PopoverTrigger asChild>
@@ -239,7 +239,7 @@ export function DataToolbar({
         </Tooltip>
       </div>
 
-      <span className="px-1 text-xs text-muted-foreground">
+      <span className="px-1 text-[11px] text-[var(--app-text-muted)]">
         {t("dataGrid.rowsCount", { count: rowCount })}
       </span>
     </div>

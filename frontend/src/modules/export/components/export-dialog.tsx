@@ -160,7 +160,7 @@ export function ExportDialog({
                     "flex-1",
                     opts.format === f.value
                       ? "border-primary bg-primary text-white"
-                      : "border-border bg-transparent text-foreground",
+                      : "border-[var(--app-border-subtle)] bg-transparent text-foreground",
                   )}
                   onClick={() => update("format", f.value)}
                   type="button"
@@ -182,7 +182,7 @@ export function ExportDialog({
                   className={cn(
                     opts.scope === "all"
                       ? "border-primary text-primary"
-                      : "border-border text-foreground",
+                      : "border-[var(--app-border-subtle)] text-foreground",
                   )}
                   onClick={() => update("scope", "all")}
                   type="button"
@@ -195,7 +195,7 @@ export function ExportDialog({
                   className={cn(
                     opts.scope === "selected"
                       ? "border-primary text-primary"
-                      : "border-border text-foreground",
+                      : "border-[var(--app-border-subtle)] text-foreground",
                   )}
                   onClick={() => update("scope", "selected")}
                   type="button"
@@ -278,7 +278,7 @@ export function ExportDialog({
           {opts.format !== "excel" && (
             <div className="space-y-1.5">
               <Label>SQL</Label>
-              <pre className="max-h-16 overflow-auto rounded-sm border border-border bg-background p-2 text-xs text-foreground">
+              <pre className="max-h-16 overflow-auto rounded-sm border border-[var(--app-border-subtle)] bg-background p-2 text-xs text-foreground">
                 {sql}
               </pre>
             </div>

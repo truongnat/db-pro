@@ -277,9 +277,11 @@ async fn introspect_foreign_keys() {
     let (connector, handle) = setup_fixture().await;
     let result = connector.introspect(&handle).await.unwrap();
 
-    // orders.user_id references users.
-    let order_fk = result.foreign_keys.iter().find(|fk| fk.from_table == "orders").unwrap();
-    assert_eq!(order_fk.from_column, "user_id");
+    // order_items has FKs referencing both orders and products.
+    let oi_fks: Vec<_> = result.foreign_keys.iter().filter(|fk| fk.from_table == "order_items").collect();
+    assert!(oi_fks.len() >= 2, "expected at least 2 FKs from order_items");
+    assert!(oi_fks.iter().any(|fk| fk.from_column == "order_id" && fk.to_table == "orders"));
+    assert!(oi_fks.iter().any(|fk| fk.from_column == "product_id" && fk.to_table == "products"));
 }
 
 #[tokio::test]
@@ -343,17 +345,24 @@ async fn update_row() {
 #[tokio::test]
 async fn delete_row() {
     let (connector, handle) = setup_fixture().await;
+    // Delete an order_item first (referenced by composite PK).
     let affected = connector
-        .execute(&handle, "DELETE FROM categories WHERE id = 4", &[])
+        .execute(
+            &handle,
+            "DELETE FROM order_items WHERE order_id = 2 AND product_id = 'b1ffcd00-ad1c-5fg9-cc7e-7cc0ce491b22'",
+            &[],
+        )
         .await
         .unwrap();
     assert_eq!(affected, 1);
 
     let result = connector
-        .query(&handle, "SELECT COUNT(*) AS cnt FROM categories", &[])
+        .query(&handle, "SELECT COUNT(*) AS cnt FROM order_items", &[])
         .await
         .unwrap();
-    assert_eq!(result.row_count, 1);
+    // COUNT(*) returns 1 row; check the actual count value.
+    let json = serde_json::to_value(&result.rows[0].0[0]).unwrap();
+    assert_eq!(json, serde_json::json!({"type": "int64", "value": 5}));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

@@ -6,7 +6,7 @@ vi.mock("@tauri-apps/api/core", () => ({
   invoke: mockInvoke,
 }));
 
-import { ConnectionService } from "../services/connection.service";
+import { ConnectionService, createConnectionService } from "../services/connection.service";
 import type { ConnectionConfig } from "../types/connection.types";
 
 const sampleConfig: ConnectionConfig = {
@@ -122,5 +122,17 @@ describe("ConnectionService", () => {
     mockInvoke.mockResolvedValue(undefined);
     await service.disconnect("abc-123");
     expect(mockInvoke).toHaveBeenCalledWith("disconnect", { id: "abc-123" });
+  });
+
+  it("testSshTunnel calls test_ssh_tunnel with config", async () => {
+    mockInvoke.mockResolvedValue(undefined);
+    const sshConfig = { host: "ssh.example.com", port: 22, username: "deploy" };
+    await service.testSshTunnel(sshConfig);
+    expect(mockInvoke).toHaveBeenCalledWith("test_ssh_tunnel", { config: sshConfig });
+  });
+
+  it("createConnectionService returns a ConnectionService", () => {
+    const svc = createConnectionService();
+    expect(svc).toBeInstanceOf(ConnectionService);
   });
 });

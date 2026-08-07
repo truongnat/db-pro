@@ -110,7 +110,7 @@ export function QueryEditor({
   );
 
   return (
-    <div className="h-full w-full border border-border">
+    <div className="h-full w-full border border-[var(--app-border)]">
       <Editor
         height="100%"
         language="sql"

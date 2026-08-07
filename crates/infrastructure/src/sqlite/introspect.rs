@@ -88,12 +88,14 @@ fn introspect_columns(conn: &rusqlite::Connection) -> Result<Vec<Column>, DbErro
 
     let mut columns = Vec::new();
     for table_name in &table_names {
-        // Use parameterized query to prevent SQL injection from weird table names.
+        // PRAGMA does not support ? parameters for table names;
+        // use safe identifier escaping instead.
+        let safe_name = escape_identifier(table_name);
         let mut stmt = conn
-            .prepare("PRAGMA table_info(?)")
+            .prepare(&format!("PRAGMA table_info({safe_name})"))
             .map_err(crate::error::from_rusqlite)?;
         let mut cols: Vec<Column> = stmt
-            .query_map([table_name.as_str()], |row| {
+            .query_map([], |row| {
                 let name: String = row.get(1)?;
                 let data_type: String = row.get(2)?;
                 let notnull: bool = row.get(3)?;
@@ -129,12 +131,14 @@ fn introspect_indexes(conn: &rusqlite::Connection) -> Result<Vec<Index>, DbError
 
     let mut indexes = Vec::new();
     for table_name in &table_names {
-        // Use parameterized query to prevent SQL injection from weird table names.
+        // PRAGMA does not support ? parameters for table names;
+        // use safe identifier escaping instead.
+        let safe_name = escape_identifier(table_name);
         let mut stmt = conn
-            .prepare("PRAGMA index_list(?)")
+            .prepare(&format!("PRAGMA index_list({safe_name})"))
             .map_err(crate::error::from_rusqlite)?;
         let index_list: Vec<(String, bool)> = stmt
-            .query_map([table_name.as_str()], |row| {
+            .query_map([], |row| {
                 let name: String = row.get(1)?;
                 let unique: bool = row.get(2)?;
                 Ok((name, unique))
@@ -144,12 +148,14 @@ fn introspect_indexes(conn: &rusqlite::Connection) -> Result<Vec<Index>, DbError
             .map_err(crate::error::from_rusqlite)?;
 
         for (index_name, unique) in index_list {
-            // Use parameterized query to prevent SQL injection from weird index names.
+            // PRAGMA does not support ? parameters for index names;
+            // use safe identifier escaping instead.
+            let safe_idx = escape_identifier(&index_name);
             let mut info_stmt = conn
-                .prepare("PRAGMA index_info(?)")
+                .prepare(&format!("PRAGMA index_info({safe_idx})"))
                 .map_err(crate::error::from_rusqlite)?;
             let cols: Vec<String> = info_stmt
-                .query_map([index_name.as_str()], |row| row.get(2))
+                .query_map([], |row| row.get(2))
                 .map_err(crate::error::from_rusqlite)?
                 .collect::<Result<Vec<_>, _>>()
                 .map_err(crate::error::from_rusqlite)?;
@@ -177,12 +183,14 @@ fn introspect_foreign_keys(conn: &rusqlite::Connection) -> Result<Vec<ForeignKey
 
     let mut foreign_keys = Vec::new();
     for table_name in &table_names {
-        // Use parameterized query to prevent SQL injection from weird table names.
+        // PRAGMA does not support ? parameters for table names;
+        // use safe identifier escaping instead.
+        let safe_name = escape_identifier(table_name);
         let mut stmt = conn
-            .prepare("PRAGMA foreign_key_list(?)")
+            .prepare(&format!("PRAGMA foreign_key_list({safe_name})"))
             .map_err(crate::error::from_rusqlite)?;
         let fks: Vec<ForeignKey> = stmt
-            .query_map([table_name.as_str()], |row| {
+            .query_map([], |row| {
                 let _id: i32 = row.get(0)?;
                 let _seq: i32 = row.get(1)?;
                 let to_table: String = row.get(2)?;

@@ -6,7 +6,7 @@ vi.mock("@tauri-apps/api/core", () => ({
   invoke: mockInvoke,
 }));
 
-import { DataGridService } from "../services/data-grid.service";
+import { DataGridService, createDataGridService } from "../services/data-grid.service";
 
 const service = new DataGridService();
 
@@ -116,5 +116,10 @@ describe("DataGridService", () => {
         pkValues: [{ type: "int64", value: 1 }],
       },
     });
+  });
+
+  it("createDataGridService returns a DataGridService", () => {
+    const svc = createDataGridService();
+    expect(svc).toBeInstanceOf(DataGridService);
   });
 });

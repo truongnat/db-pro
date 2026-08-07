@@ -23,11 +23,11 @@ export function ChangeBar({ changes, isApplying, onApply, onRevertAll }: ChangeB
   if (deletes > 0) parts.push(t("dataGrid.changes.deletes", { count: deletes }));
 
   return (
-    <div className="flex items-center gap-2 border-b border-border bg-card px-3 py-1.5 text-xs">
+    <div className="flex items-center gap-2 border-b border-[var(--app-border-subtle)] bg-background px-3 py-1.5 text-xs">
       <span className="font-medium text-foreground">
         {t("dataGrid.changes.pending", { count: changes.length })}
       </span>
-      <span className="text-muted-foreground">
+      <span className="text-[var(--app-text-muted)]">
         {parts.join(", ")}
       </span>
       <div className="flex-1" />
@@ -35,7 +35,7 @@ export function ChangeBar({ changes, isApplying, onApply, onRevertAll }: ChangeB
         type="button"
         variant="ghost"
         size="sm"
-        className="h-auto px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground"
+        className="h-auto px-2 py-0.5 text-xs text-[var(--app-text-muted)] hover:text-foreground"
         onClick={onRevertAll}
         disabled={isApplying}
       >

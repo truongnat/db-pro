@@ -225,7 +225,7 @@ export function ConnectionEditor({
           <FormCheckbox label="Use SSH Tunnel" checked={showSsh} onChange={setShowSsh} />
 
           {showSsh && (
-            <div className="flex flex-col gap-4 rounded-lg border border-border bg-muted p-4">
+            <div className="flex flex-col gap-4 rounded-lg border border-[var(--app-border)] bg-muted p-4">
               <div className="grid grid-cols-2 gap-4">
                 <FormInput
                   label="SSH Host"
@@ -307,7 +307,7 @@ export function ConnectionEditor({
 
       {testResult && (
         <div
-          className="flex items-center gap-2 rounded-lg border border-border bg-muted px-4 py-3"
+          className="flex items-center gap-2 rounded-lg border border-[var(--app-border)] bg-muted px-4 py-3"
         >
           <Badge variant={testResult === "success" ? "success" : "error"} dot>
             {testResult === "success" ? t("connection.testSuccess") : t("connection.testFailed")}
@@ -323,7 +323,7 @@ export function ConnectionEditor({
         </div>
       )}
 
-      <div className="flex justify-end gap-2 border-t border-border pt-4">
+      <div className="flex justify-end gap-2 border-t border-[var(--app-border-subtle)] pt-4">
         <Button type="button" variant="outline" onClick={onCancel}>
           {t("common.actions.cancel")}
         </Button>

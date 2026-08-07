@@ -61,7 +61,7 @@ export function QueryToolbar({
   const { t } = useTranslation();
 
   return (
-    <div className="flex items-center gap-1.5 border-b border-border bg-card px-3 py-1.5">
+    <div className="flex items-center gap-1.5 border-b border-[var(--app-border-subtle)] bg-background px-3 py-1.5">
       {/* ── Run dropdown ── */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
@@ -79,12 +79,12 @@ export function QueryToolbar({
           <DropdownMenuItem onClick={onExecuteCurrent}>
             <Play className="mr-2 h-3.5 w-3.5" />
             {t("query.runCurrent")}
-            <span className="ml-auto text-[10px] text-muted-foreground">Ctrl+Enter</span>
+            <span className="ml-auto text-[10px] text-[var(--app-text-muted)]">Ctrl+Enter</span>
           </DropdownMenuItem>
           <DropdownMenuItem onClick={onExecuteAll}>
             <Play className="mr-2 h-3.5 w-3.5" />
             {t("query.runAll")}
-            <span className="ml-auto text-[10px] text-muted-foreground">Ctrl+Shift+Enter</span>
+            <span className="ml-auto text-[10px] text-[var(--app-text-muted)]">Ctrl+Shift+Enter</span>
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={onExplain} disabled={!hasSql || isExplaining}>

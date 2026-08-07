@@ -269,7 +269,7 @@ export function ConnectionList({ onEdit, onBackup, onRestore }: ConnectionListPr
                   "h-auto rounded-full border px-2 py-0.5 text-xs",
                   filterTag === tag
                     ? "border-primary bg-primary text-white hover:bg-primary/90"
-                    : "border-border bg-transparent text-muted-foreground",
+                    : "border-[var(--app-border-subtle)] bg-transparent text-[var(--app-text-muted)]",
                 )}
                 onClick={() => setFilterTag(filterTag === tag ? null : tag)}
               >
@@ -284,7 +284,7 @@ export function ConnectionList({ onEdit, onBackup, onRestore }: ConnectionListPr
             type="button"
             variant="ghost"
             size="sm"
-            className="h-auto px-2 py-0.5 text-xs text-muted-foreground"
+            className="h-auto px-2 py-0.5 text-xs text-[var(--app-text-muted)]"
             onClick={clearFilters}
           >
             {t("common.actions.clear")}
@@ -294,26 +294,26 @@ export function ConnectionList({ onEdit, onBackup, onRestore }: ConnectionListPr
 
       {filteredAndSorted.length === 0 ? (
         <div className="flex items-center justify-center py-12">
-          <p className="text-muted-foreground">{t("common.states.empty")}</p>
+          <p className="text-[var(--app-text-muted)]">{t("common.states.empty")}</p>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-lg border border-border">
+        <div className="overflow-hidden rounded-lg border border-[var(--app-border)]">
           <Table className="w-full text-sm">
             <TableHeader>
               <TableRow className="bg-muted hover:bg-muted">
-                <TableHead className="text-xs font-medium text-muted-foreground">
+                <TableHead className="text-xs font-medium text-[var(--app-text-muted)]">
                   {t("common.labels.name")}
                 </TableHead>
-                <TableHead className="text-xs font-medium text-muted-foreground">
+                <TableHead className="text-xs font-medium text-[var(--app-text-muted)]">
                   {t("common.labels.host")}
                 </TableHead>
-                <TableHead className="text-xs font-medium text-muted-foreground">
+                <TableHead className="text-xs font-medium text-[var(--app-text-muted)]">
                   {t("common.labels.database")}
                 </TableHead>
-                <TableHead className="text-xs font-medium text-muted-foreground">
+                <TableHead className="text-xs font-medium text-[var(--app-text-muted)]">
                   {t("common.labels.driver")}
                 </TableHead>
-                <TableHead className="text-xs font-medium text-muted-foreground">
+                <TableHead className="text-xs font-medium text-[var(--app-text-muted)]">
                   {t("common.states.status", "Status")}
                 </TableHead>
                 <TableHead className="text-right text-xs font-medium text-muted-foreground">
@@ -365,7 +365,7 @@ export function ConnectionList({ onEdit, onBackup, onRestore }: ConnectionListPr
                               )}
                               {renamingId === conn.id ? (
                                 <input
-                                  className="h-6 w-full min-w-0 rounded border border-border bg-background px-1 text-sm text-foreground outline-none focus:border-primary"
+                                  className="h-6 w-full min-w-0 rounded border border-[var(--app-border)] bg-background px-1 text-sm text-foreground outline-none focus:border-primary"
                                   value={renameValue}
                                   onChange={(e) => setRenameValue(e.target.value)}
                                   onBlur={() => handleCommitRename(conn.id)}
@@ -480,7 +480,7 @@ export function ConnectionList({ onEdit, onBackup, onRestore }: ConnectionListPr
                           </TableCell>
                         </TableRow>
                         {connectionErrors[conn.id] && (
-                          <TableRow className="border-t border-border bg-destructive/5">
+                          <TableRow className="border-t border-[var(--app-border-subtle)] bg-destructive/5">
                             <TableCell colSpan={6} className="px-4 py-2 text-xs text-destructive">
                               {connectionErrors[conn.id]}
                             </TableCell>
