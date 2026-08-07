@@ -90,4 +90,99 @@ describe("CellEditor", () => {
 
     expect(onSave).toHaveBeenCalledWith({ type: "null" });
   });
+
+  it("parses int64 values and calls onSave with number", async () => {
+    const onSave = vi.fn();
+    const user = userEvent.setup();
+
+    render(
+      <CellEditor
+        value={{ type: "int64", value: 42 }}
+        onSave={onSave}
+        onCancel={vi.fn()}
+      />,
+    );
+
+    const input = screen.getByRole("textbox");
+    await user.clear(input);
+    await user.type(input, "99{Enter}");
+
+    expect(onSave).toHaveBeenCalledWith({ type: "int64", value: 99 });
+  });
+
+  it("calls onCancel for invalid int64 input", async () => {
+    const onCancel = vi.fn();
+    const user = userEvent.setup();
+
+    render(
+      <CellEditor
+        value={{ type: "int64", value: 42 }}
+        onSave={vi.fn()}
+        onCancel={onCancel}
+      />,
+    );
+
+    const input = screen.getByRole("textbox");
+    await user.clear(input);
+    await user.type(input, "not-a-number{Enter}");
+
+    expect(onCancel).toHaveBeenCalled();
+  });
+
+  it("parses float64 values", async () => {
+    const onSave = vi.fn();
+    const user = userEvent.setup();
+
+    render(
+      <CellEditor
+        value={{ type: "float64", value: 3.14 }}
+        onSave={onSave}
+        onCancel={vi.fn()}
+      />,
+    );
+
+    const input = screen.getByRole("textbox");
+    await user.clear(input);
+    await user.type(input, "2.71{Enter}");
+
+    expect(onSave).toHaveBeenCalledWith({ type: "float64", value: 2.71 });
+  });
+
+  it("parses bool values from text", async () => {
+    const onSave = vi.fn();
+    const user = userEvent.setup();
+
+    render(
+      <CellEditor
+        value={{ type: "bool", value: false }}
+        onSave={onSave}
+        onCancel={vi.fn()}
+      />,
+    );
+
+    const input = screen.getByRole("textbox");
+    await user.clear(input);
+    await user.type(input, "true{Enter}");
+
+    expect(onSave).toHaveBeenCalledWith({ type: "bool", value: true });
+  });
+
+  it("parses bool false from non-'true' text", async () => {
+    const onSave = vi.fn();
+    const user = userEvent.setup();
+
+    render(
+      <CellEditor
+        value={{ type: "bool", value: true }}
+        onSave={onSave}
+        onCancel={vi.fn()}
+      />,
+    );
+
+    const input = screen.getByRole("textbox");
+    await user.clear(input);
+    await user.type(input, "no{Enter}");
+
+    expect(onSave).toHaveBeenCalledWith({ type: "bool", value: false });
+  });
 });
