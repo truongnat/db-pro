@@ -75,7 +75,7 @@ describe("DockSeparator", () => {
     );
 
     const el = container.firstElementChild as HTMLElement;
-    expect(el.getAttribute("aria-label")).toBe("Expand panel");
+    expect(el.getAttribute("aria-label")).toBe("dock.expandPanel");
   });
 
   it("shows resize label when expanded", () => {
@@ -85,6 +85,6 @@ describe("DockSeparator", () => {
     );
 
     const el = container.firstElementChild as HTMLElement;
-    expect(el.getAttribute("aria-label")).toBe("Resize panel");
+    expect(el.getAttribute("aria-label")).toBe("dock.resizePanel");
   });
 });

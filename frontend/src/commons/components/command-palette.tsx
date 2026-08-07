@@ -34,9 +34,9 @@ export function CommandPalette() {
   const grouped = useMemo(() => {
     const map = new Map<string, typeof commands>();
     for (const cmd of commands) {
-      const group = cmd.group ?? "General";
-      if (!map.has(group)) map.set(group, []);
-      map.get(group)!.push(cmd);
+      const groupKey = cmd.groupKey ?? "commands.groups.general";
+      if (!map.has(groupKey)) map.set(groupKey, []);
+      map.get(groupKey)!.push(cmd);
     }
     return Array.from(map.entries());
   }, [commands]);
@@ -72,8 +72,8 @@ export function CommandPalette() {
             <Command.Empty className="px-3 py-6 text-center text-sm text-muted-foreground">
               {t("commandPalette.noResults")}
             </Command.Empty>
-            {grouped.map(([group, cmds]) => (
-              <Command.Group key={group} heading={group}>
+            {grouped.map(([groupKey, cmds]) => (
+              <Command.Group key={groupKey} heading={t(groupKey)}>
                 {cmds.map((cmd) => (
                   <Command.Item
                     key={cmd.id}
@@ -85,7 +85,7 @@ export function CommandPalette() {
                     className="relative flex cursor-default select-none items-center gap-2 rounded-sm text-sm outline-none aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[selected=true]:bg-accent data-[selected=true]:text-accent-foreground"
                   >
                     {cmd.icon && <cmd.icon className="h-4 w-4" />}
-                    <span>{cmd.label}</span>
+                    <span>{t(cmd.labelKey)}</span>
                     {cmd.keybinding && (
                       <kbd className="ml-auto pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
                         {formatKeybinding(cmd.keybinding)}

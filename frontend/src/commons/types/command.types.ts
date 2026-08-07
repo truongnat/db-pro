@@ -10,10 +10,10 @@ export interface Keybinding {
 
 export interface Command {
   id: string;
-  label: string;
+  labelKey: string;
   icon?: ComponentType<{ className?: string }>;
   keybinding?: Keybinding;
-  group?: string;
+  groupKey?: string;
   when?: () => boolean;
   execute: () => void | Promise<void>;
 }

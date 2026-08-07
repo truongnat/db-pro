@@ -346,13 +346,49 @@
   },
   "commandPalette": {
     "placeholder": "コマンドを入力...",
-    "noResults": "結果が見つかりません。",
+    "noResults": "結果が見つかりません。"
+  },
+  "commands": {
+    "query": {
+      "execute": "クエリを実行",
+      "explain": "実行計画を表示",
+      "format": "SQLをフォーマット",
+      "clear": "エディタをクリア",
+      "cancel": "クエリをキャンセル",
+      "exportResults": "結果をエクスポート",
+      "saveQuery": "クエリを保存"
+    },
+    "tabs": {
+      "new": "新しいタブ",
+      "close": "タブを閉じる",
+      "reopen": "閉じたタブを復元"
+    },
+    "nav": {
+      "connections": "接続一覧へ移動",
+      "query": "クエリエディタへ移動",
+      "data": "データへ移動",
+      "schema": "スキーマへ移動",
+      "users": "ユーザー管理へ移動"
+    },
+    "shell": {
+      "toggleSidebar": "サイドバーの切り替え",
+      "settings": "設定を開く"
+    },
+    "file": {
+      "importSql": "SQLファイルをインポート",
+      "exportSql": "SQLファイルをエクスポート"
+    },
     "groups": {
       "query": "クエリ",
       "tabs": "タブ",
       "navigation": "ナビゲーション",
       "shell": "シェル",
-      "file": "ファイル"
+      "file": "ファイル",
+      "general": "一般"
     }
+  },
+  "dock": {
+    "expandPanel": "パネルを展開",
+    "resizePanel": "パネルをリサイズ"
   }
 }

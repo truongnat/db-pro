@@ -346,13 +346,49 @@
   },
   "commandPalette": {
     "placeholder": "Type a command...",
-    "noResults": "No results found.",
+    "noResults": "No results found."
+  },
+  "commands": {
+    "query": {
+      "execute": "Execute Query",
+      "explain": "Explain Plan",
+      "format": "Format SQL",
+      "clear": "Clear Editor",
+      "cancel": "Cancel Query",
+      "exportResults": "Export Results",
+      "saveQuery": "Save Query"
+    },
+    "tabs": {
+      "new": "New Tab",
+      "close": "Close Tab",
+      "reopen": "Reopen Closed Tab"
+    },
+    "nav": {
+      "connections": "Go to Connections",
+      "query": "Go to Query Editor",
+      "data": "Go to Data",
+      "schema": "Go to Schema",
+      "users": "Go to Users"
+    },
+    "shell": {
+      "toggleSidebar": "Toggle Sidebar",
+      "settings": "Open Settings"
+    },
+    "file": {
+      "importSql": "Import SQL File",
+      "exportSql": "Export SQL File"
+    },
     "groups": {
       "query": "Query",
       "tabs": "Tabs",
       "navigation": "Navigation",
       "shell": "Shell",
-      "file": "File"
+      "file": "File",
+      "general": "General"
     }
+  },
+  "dock": {
+    "expandPanel": "Expand panel",
+    "resizePanel": "Resize panel"
   }
 }

@@ -1,6 +1,8 @@
 import type { AnyRouter } from "@tanstack/react-router";
 
 import { dispatchQueryAction } from "@/commons/commands/query-dispatch";
+import { createQueryTab } from "@/commons/factories/tab-factories";
+import { requestCloseTab } from "@/commons/services/request-close-tab";
 import { useConnectionStore } from "@/commons/stores/connection.store";
 import { useCommandStore } from "@/commons/stores/command.store";
 import { useShellStore } from "@/commons/stores/shell.store";
@@ -40,144 +42,126 @@ export function registerAllCommands(router: AnyRouter): void {
   useCommandStore.getState().registerMany([
     {
       id: "query.execute",
-      label: "Execute Query",
+      labelKey: "commands.query.execute",
       keybinding: { ctrlKey: true, key: "Enter" },
-      group: "Query",
+      groupKey: "commands.groups.query",
       when: () => hasConnection() && hasSql(),
       execute: () => dispatchQueryAction("execute"),
     },
     {
       id: "query.explain",
-      label: "Explain Plan",
-      group: "Query",
+      labelKey: "commands.query.explain",
+      groupKey: "commands.groups.query",
       when: () => hasConnection() && hasSql(),
       execute: () => dispatchQueryAction("explain"),
     },
     {
       id: "query.format",
-      label: "Format SQL",
-      group: "Query",
+      labelKey: "commands.query.format",
+      groupKey: "commands.groups.query",
       when: () => hasSql(),
       execute: () => dispatchQueryAction("format"),
     },
     {
       id: "query.clear",
-      label: "Clear Editor",
-      group: "Query",
+      labelKey: "commands.query.clear",
+      groupKey: "commands.groups.query",
       when: () => hasSql(),
       execute: () => dispatchQueryAction("clear"),
     },
     {
       id: "query.cancel",
-      label: "Cancel Query",
-      group: "Query",
+      labelKey: "commands.query.cancel",
+      groupKey: "commands.groups.query",
       when: () => hasConnection() && isRunning(),
       execute: () => dispatchQueryAction("cancel"),
     },
     {
       id: "query.exportResults",
-      label: "Export Results",
-      group: "Query",
+      labelKey: "commands.query.exportResults",
+      groupKey: "commands.groups.query",
       when: () => hasResults(),
       execute: () => dispatchQueryAction("export"),
     },
     {
       id: "query.saveQuery",
-      label: "Save Query",
-      group: "Query",
+      labelKey: "commands.query.saveQuery",
+      groupKey: "commands.groups.query",
       when: () => hasConnection() && hasSql(),
       execute: () => dispatchQueryAction("saveQuery"),
     },
 
     {
       id: "tabs.new",
-      label: "New Tab",
-      group: "Tabs",
+      labelKey: "commands.tabs.new",
+      groupKey: "commands.groups.tabs",
+      when: () => hasConnection(),
       execute: () => {
-        const tab: WorkspaceTab = {
-          id: crypto.randomUUID(),
-          kind: "query",
-          title: "New Query",
-          connectionId: useConnectionStore.getState().activeConnectionId ?? "",
-          resourceKey: `query:${crypto.randomUUID()}`,
-          dirty: false,
-          pinned: false,
-          preview: false,
-          order: Date.now(),
-          data: {
-            sql: "",
-            status: "idle",
-            error: null,
-            result: null,
-            explainPlan: null,
-            sort: { column: null, direction: null },
-            multiResults: null,
-            multiResultIndex: 0,
-          },
-        };
-        useWorkspaceStore.getState().openTab(tab);
+        const connectionId = useConnectionStore.getState().activeConnectionId;
+        if (!connectionId) return;
+        useWorkspaceStore.getState().openTab(createQueryTab(connectionId));
       },
     },
     {
       id: "tabs.close",
-      label: "Close Tab",
-      group: "Tabs",
+      labelKey: "commands.tabs.close",
+      groupKey: "commands.groups.tabs",
       when: () => !!useWorkspaceStore.getState().activeTabId,
       execute: () => {
         const { activeTabId } = useWorkspaceStore.getState();
-        if (activeTabId) useWorkspaceStore.getState().closeTab(activeTabId);
+        if (activeTabId) requestCloseTab(activeTabId);
       },
     },
     {
       id: "tabs.reopen",
-      label: "Reopen Closed Tab",
+      labelKey: "commands.tabs.reopen",
       keybinding: { ctrlKey: true, shiftKey: true, key: "t" },
-      group: "Tabs",
+      groupKey: "commands.groups.tabs",
       when: () => useWorkspaceStore.getState().recentlyClosed.length > 0,
       execute: () => useWorkspaceStore.getState().reopenLastClosed(),
     },
 
     {
       id: "nav.connections",
-      label: "Go to Connections",
-      group: "Navigation",
+      labelKey: "commands.nav.connections",
+      groupKey: "commands.groups.navigation",
       execute: () => navigate("/connections"),
     },
     {
       id: "nav.query",
-      label: "Go to Query Editor",
-      group: "Navigation",
+      labelKey: "commands.nav.query",
+      groupKey: "commands.groups.navigation",
       execute: () => navigate("/query"),
     },
     {
       id: "nav.data",
-      label: "Go to Data",
-      group: "Navigation",
+      labelKey: "commands.nav.data",
+      groupKey: "commands.groups.navigation",
       execute: () => navigate("/data"),
     },
     {
       id: "nav.schema",
-      label: "Go to Schema",
-      group: "Navigation",
+      labelKey: "commands.nav.schema",
+      groupKey: "commands.groups.navigation",
       execute: () => navigate("/schema"),
     },
     {
       id: "nav.users",
-      label: "Go to Users",
-      group: "Navigation",
+      labelKey: "commands.nav.users",
+      groupKey: "commands.groups.navigation",
       execute: () => navigate("/users"),
     },
 
     {
       id: "shell.toggleSidebar",
-      label: "Toggle Sidebar",
-      group: "Shell",
+      labelKey: "commands.shell.toggleSidebar",
+      groupKey: "commands.groups.shell",
       execute: () => useShellStore.getState().toggleSidebar(),
     },
     {
       id: "shell.settings",
-      label: "Open Settings",
-      group: "Shell",
+      labelKey: "commands.shell.settings",
+      groupKey: "commands.groups.shell",
       execute: () => {
         const { toggle } = useCommandStore.getState();
         toggle();
@@ -186,14 +170,14 @@ export function registerAllCommands(router: AnyRouter): void {
 
     {
       id: "file.importSql",
-      label: "Import SQL File",
-      group: "File",
+      labelKey: "commands.file.importSql",
+      groupKey: "commands.groups.file",
       execute: () => dispatchQueryAction("importSql"),
     },
     {
       id: "file.exportSql",
-      label: "Export SQL File",
-      group: "File",
+      labelKey: "commands.file.exportSql",
+      groupKey: "commands.groups.file",
       when: () => hasSql(),
       execute: () => dispatchQueryAction("exportSql"),
     },

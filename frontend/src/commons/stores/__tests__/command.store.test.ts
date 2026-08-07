@@ -13,7 +13,7 @@ function resetStore() {
 function createCommand(overrides: Partial<Command> = {}): Command {
   return {
     id: "test.command",
-    label: "Test Command",
+    labelKey: "test.command",
     execute: vi.fn(),
     ...overrides,
   };
@@ -34,15 +34,15 @@ describe("CommandStore", () => {
     });
 
     it("replaces existing command with same id", () => {
-      const cmd1 = createCommand({ id: "cmd-1", label: "First" });
-      const cmd2 = createCommand({ id: "cmd-1", label: "Second" });
+      const cmd1 = createCommand({ id: "cmd-1", labelKey: "test.first" });
+      const cmd2 = createCommand({ id: "cmd-1", labelKey: "test.second" });
 
       useCommandStore.getState().register(cmd1);
       useCommandStore.getState().register(cmd2);
 
       const state = useCommandStore.getState();
       expect(state.commands).toHaveLength(1);
-      expect(state.commands[0].label).toBe("Second");
+      expect(state.commands[0].labelKey).toBe("test.second");
     });
   });
 
@@ -61,18 +61,18 @@ describe("CommandStore", () => {
     });
 
     it("replaces existing commands with same id", () => {
-      const cmd1 = createCommand({ id: "cmd-1", label: "First" });
+      const cmd1 = createCommand({ id: "cmd-1", labelKey: "test.first" });
       useCommandStore.getState().register(cmd1);
 
       const cmds = [
-        createCommand({ id: "cmd-1", label: "Updated" }),
+        createCommand({ id: "cmd-1", labelKey: "test.updated" }),
         createCommand({ id: "cmd-2" }),
       ];
       useCommandStore.getState().registerMany(cmds);
 
       const state = useCommandStore.getState();
       expect(state.commands).toHaveLength(2);
-      expect(state.commands[0].label).toBe("Updated");
+      expect(state.commands[0].labelKey).toBe("test.updated");
     });
   });
 
@@ -102,12 +102,12 @@ describe("CommandStore", () => {
 
   describe("getCommand", () => {
     it("returns the correct command", () => {
-      const cmd1 = createCommand({ id: "cmd-1", label: "First" });
-      const cmd2 = createCommand({ id: "cmd-2", label: "Second" });
+      const cmd1 = createCommand({ id: "cmd-1", labelKey: "test.first" });
+      const cmd2 = createCommand({ id: "cmd-2", labelKey: "test.second" });
       useCommandStore.getState().registerMany([cmd1, cmd2]);
 
       const result = useCommandStore.getState().getCommand("cmd-2");
-      expect(result?.label).toBe("Second");
+      expect(result?.labelKey).toBe("test.second");
     });
 
     it("returns undefined if not found", () => {

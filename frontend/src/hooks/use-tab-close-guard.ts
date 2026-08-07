@@ -1,32 +1,24 @@
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 
+import { requestCloseTab } from "@/commons/services/request-close-tab";
+import { useCloseGuardStore } from "@/commons/stores/close-guard.store";
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
 
-interface CloseGuardState {
-  open: boolean;
-  ids: string[];
-  count: number;
-}
-
-const INITIAL_STATE: CloseGuardState = { open: false, ids: [], count: 0 };
-
 export function useTabCloseGuard() {
-  const [state, setState] = useState<CloseGuardState>(INITIAL_STATE);
+  const open = useCloseGuardStore((s) => s.open);
+  const dirtyCount = useCloseGuardStore((s) => s.dirtyCount);
+  const tabIds = useCloseGuardStore((s) => s.tabIds);
+  const closeDialog = useCloseGuardStore((s) => s.closeDialog);
+  const openDialog = useCloseGuardStore((s) => s.openDialog);
 
-  const requestClose = useCallback(
-    (id: string, opts?: { skipDirtyCheck?: boolean }) => {
-      const tab = useWorkspaceStore.getState().tabs.find((t) => t.id === id);
-      if (!tab) return;
+  const onConfirm = useCallback(() => {
+    useWorkspaceStore.getState().closeTabs(tabIds);
+    closeDialog();
+  }, [tabIds, closeDialog]);
 
-      if (opts?.skipDirtyCheck || !tab.dirty) {
-        useWorkspaceStore.getState().closeTab(id);
-        return;
-      }
-
-      setState({ open: true, ids: [id], count: 1 });
-    },
-    [],
-  );
+  const onCancel = useCallback(() => {
+    closeDialog();
+  }, [closeDialog]);
 
   const requestCloseMany = useCallback(
     (ids: string[]) => {
@@ -38,26 +30,17 @@ export function useTabCloseGuard() {
         return;
       }
 
-      setState({ open: true, ids, count: dirtyIds.length });
+      openDialog(ids, dirtyIds.length);
     },
-    [],
+    [openDialog],
   );
 
-  const onConfirm = useCallback(() => {
-    useWorkspaceStore.getState().closeTabs(state.ids);
-    setState(INITIAL_STATE);
-  }, [state.ids]);
-
-  const onCancel = useCallback(() => {
-    setState(INITIAL_STATE);
-  }, []);
-
   return {
-    dialogOpen: state.open,
-    dirtyCount: state.count,
+    dialogOpen: open,
+    dirtyCount,
     onConfirm,
     onCancel,
-    requestClose,
+    requestClose: requestCloseTab,
     requestCloseMany,
   };
 }
