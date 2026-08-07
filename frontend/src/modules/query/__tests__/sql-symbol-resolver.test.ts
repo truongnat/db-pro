@@ -257,4 +257,25 @@ describe("resolveSymbolAtOffset — multi-statement", () => {
     expect(result!.kind).toBe("column");
     expect(result!.column!.name).toBe("email");
   });
+
+  it("finds trailing semicolon to bound the statement", () => {
+    // SELECT email FROM users; SELECT 1
+    //         ^^^^^
+    const sql = "SELECT email FROM users; SELECT 1";
+    const result = resolveSymbolAtOffset(sql, 8, catalog);
+    expect(result).not.toBeNull();
+    expect(result!.kind).toBe("column");
+    expect(result!.column!.name).toBe("email");
+  });
+
+  it("resolves table-qualified column without alias", () => {
+    // SELECT users.email FROM users
+    //               ^^^^^
+    const sql = "SELECT users.email FROM users";
+    const result = resolveSymbolAtOffset(sql, 14, catalog);
+    expect(result).not.toBeNull();
+    expect(result!.kind).toBe("column");
+    expect(result!.column!.name).toBe("email");
+    expect(result!.table).toBe("users");
+  });
 });
