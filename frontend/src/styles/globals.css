@@ -165,7 +165,7 @@
 :root {
   --app-hover: #f1f5f9;
   --app-active: #e2e8f0;
-  --app-text-dim: #94a3b8;
+  --app-text-dim: #78889a;
 
   --app-activity-bar-width: 44px;
   --app-sidebar-width: 260px;
@@ -174,12 +174,31 @@
   --app-statusbar-height: 24px;
 
   --app-shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.45);
+
+  --z-base: 0;
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-overlay: 300;
+  --z-modal: 400;
+  --z-popover: 500;
+  --z-toast: 600;
+  --z-tooltip: 700;
+
+  --focus-ring-width: 2px;
+  --focus-ring-offset: 2px;
+  --focus-ring-color: var(--ring);
+
+  --grid-row-height: 28px;
+  --grid-row-height-compact: 22px;
+  --grid-row-height-comfortable: 34px;
+  --grid-cell-padding-x: 12px;
+  --grid-header-height: 32px;
 }
 
 [data-theme="dark"] {
   --app-hover: #1e2235;
   --app-active: #252a40;
-  --app-text-dim: #64748b;
+  --app-text-dim: #7c8ba0;
 
   --app-shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.45);
 }
