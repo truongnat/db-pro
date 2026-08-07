@@ -6,7 +6,7 @@ import { useTranslation } from "@/commons/locales/useTranslation";
 
 import type { ColumnMeta, Row } from "../types/query.types";
 import { renderCellValue } from "../types/query.types";
-import type { SortState } from "../state/query.store";
+import type { SortState } from "@/commons/types/workspace.types";
 import { ColumnMetadataPopover } from "./column-metadata-popover";
 import { ZoomControls } from "./zoom-controls";
 
