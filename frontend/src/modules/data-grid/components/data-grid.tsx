@@ -73,7 +73,11 @@ export function DataGrid({
   );
 
   if (!columns.length) {
-    return <EmptyState />;
+    return (
+      <div className="flex h-full min-h-0 items-center justify-center">
+        <EmptyState />
+      </div>
+    );
   }
 
   const frozenSet = new Set(frozenColumns);

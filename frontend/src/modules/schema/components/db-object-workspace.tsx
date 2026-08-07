@@ -18,7 +18,7 @@ export function DbObjectWorkspace({
   children,
 }: DbObjectWorkspaceProps) {
   return (
-    <div className="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)]">
+    <div className="grid h-full min-h-0 overflow-hidden grid-rows-[auto_minmax(0,1fr)]">
       <ObjectSectionTabs activeSection={activeSection} onSelect={onSelectSection} trailing={tabActions} />
       <div className="min-h-0 overflow-hidden">{children}</div>
     </div>
