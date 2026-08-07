@@ -371,7 +371,17 @@
       "ddl": "DDL",
       "triggers": "Triggers"
     },
-    "unsupportedObjectType": "This object type is not yet supported."
+    "unsupportedObjectType": "This object type is not yet supported.",
+    "contextHeader": {
+      "refresh": "Refresh",
+      "sqlMenu": "SQL",
+      "openDdl": "Open DDL",
+      "openSelect": "Open SELECT",
+      "more": "More actions",
+      "ddlEditor": "DDL Editor",
+      "generateSql": "Generate SQL",
+      "connectionSubtitle": "{{schema}}.{{type}} · {{connection}}"
+    }
   },
   "commandPalette": {
     "placeholder": "Type to search commands, connections...",

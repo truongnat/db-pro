@@ -371,7 +371,17 @@
       "ddl": "DDL",
       "triggers": "トリガー"
     },
-    "unsupportedObjectType": "このオブジェクトタイプはまだサポートされていません。"
+    "unsupportedObjectType": "このオブジェクトタイプはまだサポートされていません。",
+    "contextHeader": {
+      "refresh": "更新",
+      "sqlMenu": "SQL",
+      "openDdl": "DDL を開く",
+      "openSelect": "SELECT を開く",
+      "more": "その他の操作",
+      "ddlEditor": "DDL エディター",
+      "generateSql": "SQL を生成",
+      "connectionSubtitle": "{{schema}}.{{type}} · {{connection}}"
+    }
   },
   "commandPalette": {
     "placeholder": "コマンド、接続を検索...",

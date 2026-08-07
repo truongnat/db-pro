@@ -1,5 +1,3 @@
-import type { ReactNode } from "react";
-
 import { useTranslation } from "@/commons/locales/useTranslation";
 import { cn } from "@/lib/utils";
 import type { DbObjectSection } from "@/commons/types/workspace.types";
@@ -16,10 +14,9 @@ export const OBJECT_SECTIONS: { id: DbObjectSection; labelKey: string }[] = [
 interface ObjectSectionTabsProps {
   activeSection: DbObjectSection;
   onSelect: (section: DbObjectSection) => void;
-  trailing?: ReactNode;
 }
 
-export function ObjectSectionTabs({ activeSection, onSelect, trailing }: ObjectSectionTabsProps) {
+export function ObjectSectionTabs({ activeSection, onSelect }: ObjectSectionTabsProps) {
   const { t } = useTranslation();
   return (
     <div className="flex items-center border-b border-border">
@@ -40,7 +37,6 @@ export function ObjectSectionTabs({ activeSection, onSelect, trailing }: ObjectS
           </button>
         ))}
       </div>
-      {trailing}
     </div>
   );
 }

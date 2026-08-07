@@ -2,7 +2,7 @@ import { useState } from "react";
 
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
 import { useTranslation } from "@/commons/locales/useTranslation";
-import { cn } from "@/lib/utils";
+import { createQueryTab } from "@/commons/factories/tab-factories";
 
 import { useTableInfo, useTableDdl } from "@/modules/schema/queries/schema.queries";
 import { ColumnList } from "@/modules/schema/components/column-list";
@@ -15,6 +15,7 @@ import { TriggerManager } from "@/modules/schema/components/trigger-manager";
 
 import { DbObjectWorkspace } from "./db-object-workspace";
 import { ObjectSectionLayout } from "./object-section-layout";
+import { ObjectContextHeader } from "./object-context-header";
 import { DataSection } from "./data/data-section";
 
 interface DbObjectTabContentProps {
@@ -46,41 +47,55 @@ export function DbObjectTabContent({
   const isTableOrView = objectType === "table" || objectType === "view";
 
   const tableInfo = useTableInfo(connectionId, schema, objectName);
-  const tableDdl = useTableDdl(connectionId, schema, objectName, activeSection === "ddl");
+  const tableDdl = useTableDdl(connectionId, schema, objectName, activeSection === "ddl" || toolbarAction === "ddlEditor");
 
   if (!connectionId) return null;
 
-  const tabActions = isTableOrView ? (
-    <div className="flex shrink-0 items-center gap-1 border-l border-border px-2">
-      <button
-        type="button"
-        className={cn(
-          "rounded-md px-2 py-1 text-[11px] transition-colors hover:bg-[var(--app-hover)]",
-          toolbarAction === "ddlEditor" ? "bg-[var(--app-active)] text-foreground" : "text-muted-foreground",
-        )}
-        onClick={() => setToolbarAction(toolbarAction === "ddlEditor" ? null : "ddlEditor")}
-      >
-        {t("schema.ddlEditor")}
-      </button>
-      <button
-        type="button"
-        className={cn(
-          "rounded-md px-2 py-1 text-[11px] transition-colors hover:bg-[var(--app-hover)]",
-          toolbarAction === "generateCrud" ? "bg-[var(--app-active)] text-foreground" : "text-muted-foreground",
-        )}
-        onClick={() => setToolbarAction(toolbarAction === "generateCrud" ? null : "generateCrud")}
-      >
-        {t("dataGrid.generateCrud")}
-      </button>
-    </div>
-  ) : null;
+  const openQueryTab = (sql: string, title: string) => {
+    useWorkspaceStore.getState().openTab(createQueryTab(connectionId, title, sql));
+  };
+
+  const handleRefresh = () => {
+    tableInfo.refetch();
+    if (activeSection === "ddl" || toolbarAction === "ddlEditor") {
+      tableDdl.refetch();
+    }
+  };
+
+  const handleOpenSelect = () => {
+    const qualified = `"${schema.replace(/"/g, '""')}"."${objectName.replace(/"/g, '""')}"`;
+    openQueryTab(`SELECT * FROM ${qualified} LIMIT 100;`, `SELECT ${objectName}`);
+  };
+
+  const handleOpenDdl = () => {
+    if (tableDdl.data) {
+      openQueryTab(tableDdl.data, `DDL ${objectName}`);
+    } else {
+      tableDdl.refetch().then((res) => {
+        if (res.data) openQueryTab(res.data, `DDL ${objectName}`);
+      });
+    }
+  };
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <ObjectContextHeader
+        connectionId={connectionId}
+        schema={schema}
+        objectName={objectName}
+        objectType={objectType}
+        onRefresh={handleRefresh}
+        onOpenSelect={handleOpenSelect}
+        onOpenDdl={handleOpenDdl}
+        onOpenDdlEditor={() => setToolbarAction("ddlEditor")}
+        onGenerateSql={() => setToolbarAction("generateCrud")}
+      />
       <DbObjectWorkspace
         activeSection={activeSection}
-        onSelectSection={(section) => setSection(tabId, section)}
-        tabActions={tabActions}
+        onSelectSection={(section) => {
+          setToolbarAction(null);
+          setSection(tabId, section);
+        }}
       >
         {toolbarAction === "ddlEditor" && isTableOrView && (
           <ObjectSectionLayout>
