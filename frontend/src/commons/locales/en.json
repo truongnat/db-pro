@@ -260,8 +260,6 @@
       "delete": "Failed to delete row",
       "insert": "Failed to insert row"
     },
-    "copyAsSql": "Copy as SQL",
-    "copyToClipboard": "Copy to Clipboard",
     "generateCrud": "Generate SQL",
     "gridView": "Grid",
     "chartView": "Chart",
