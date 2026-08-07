@@ -72,6 +72,8 @@
     "createFailed": "接続の作成に失敗しました",
     "updateSuccess": "接続を更新しました",
     "updateFailed": "接続の更新に失敗しました",
+    "connectFailed": "接続に失敗しました",
+    "confirmDeleteDescription": "この操作は取り消せません。接続設定が完全に削除されます。",
     "confirmDelete": "この接続を削除しますか？",
     "filePath": "ファイルパス",
     "color": "カラー",

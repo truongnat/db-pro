@@ -1,3 +1,5 @@
+import { useEffect, useMemo, useState } from "react";
+
 import { useTranslation } from "@/commons/locales/useTranslation";
 import { useCommandStore } from "@/commons/stores/command.store";
 import { useRecentStore } from "@/commons/stores/recent.store";
@@ -5,7 +7,18 @@ import { useConnectionModuleStore } from "@/modules/connection/state/connection.
 import { useConnectionList, useConnect, useDeleteConnection } from "@/modules/connection/queries/connection.queries";
 import { ConnectionStatusBadge } from "@/modules/connection/components/connection-status";
 import { ConnectionDialog } from "@/modules/connection/components/connection-dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { useSnackbar } from "@/app/providers/snackbar.provider";
 import { Plus, Command, Pencil, Trash2, Database } from "lucide-react";
 import type { Connection } from "@/modules/connection/types/connection.types";
 
@@ -18,6 +31,7 @@ function getConnectionStatus(
 
 export function WelcomeView() {
   const { t } = useTranslation();
+  const snackbar = useSnackbar();
   const { data: connections, isLoading } = useConnectionList();
   const connectMutation = useConnect();
   const deleteMutation = useDeleteConnection();
@@ -31,12 +45,27 @@ export function WelcomeView() {
   const openConnectionDialog = useRecentStore((s) => s.openConnectionDialog);
   const closeConnectionDialog = useRecentStore((s) => s.closeConnectionDialog);
 
-  const connectionMap = new Map<string, Connection>();
-  if (connections) {
-    for (const conn of connections) {
-      connectionMap.set(conn.id, conn);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+
+  const connectionMap = useMemo(() => {
+    const map = new Map<string, Connection>();
+    if (connections) {
+      for (const conn of connections) {
+        map.set(conn.id, conn);
+      }
     }
-  }
+    return map;
+  }, [connections]);
+
+  useEffect(() => {
+    if (!connections) return;
+    const validIds = new Set(connections.map((c) => c.id));
+    for (const rc of recentConnections) {
+      if (!validIds.has(rc.connectionId)) {
+        removeRecentConnection(rc.connectionId);
+      }
+    }
+  }, [connections, recentConnections, removeRecentConnection]);
 
   const recentWithDetails = recentConnections
     .map((rc) => ({
@@ -48,15 +77,18 @@ export function WelcomeView() {
   const handleConnect = (connectionId: string) => {
     connectMutation.mutate(connectionId, {
       onSuccess: () => addRecentConnection(connectionId),
+      onError: (err: unknown) =>
+        snackbar.error((err as { userMessage?: string }).userMessage ?? t("connection.connectFailed")),
     });
   };
 
-  const handleDelete = (connectionId: string) => {
-    if (confirm(t("connection.confirmDelete"))) {
-      deleteMutation.mutate(connectionId, {
-        onSuccess: () => removeRecentConnection(connectionId),
-      });
-    }
+  const handleDeleteConfirmed = () => {
+    if (!deleteConfirmId) return;
+    const id = deleteConfirmId;
+    setDeleteConfirmId(null);
+    deleteMutation.mutate(id, {
+      onSuccess: () => removeRecentConnection(id),
+    });
   };
 
   const hasConnections = connections != null && connections.length > 0;
@@ -138,7 +170,7 @@ export function WelcomeView() {
                       <Button
                         variant="ghost"
                         size="icon-sm"
-                        onClick={() => handleDelete(conn.id)}
+                        onClick={() => setDeleteConfirmId(conn.id)}
                       >
                         <Trash2 className="h-3.5 w-3.5 text-destructive" />
                       </Button>
@@ -158,6 +190,27 @@ export function WelcomeView() {
         onClose={closeConnectionDialog}
         editConnectionId={connectionDialogEditId ?? undefined}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteConfirmId != null} onOpenChange={(open) => !open && setDeleteConfirmId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("connection.confirmDelete")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("connection.confirmDeleteDescription")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("common.actions.cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-white hover:bg-destructive/90"
+              onClick={handleDeleteConfirmed}
+            >
+              {t("common.actions.delete")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

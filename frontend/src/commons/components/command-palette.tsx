@@ -9,6 +9,7 @@ import { useCommandStore } from "@/commons/stores/command.store";
 import { useRecentStore } from "@/commons/stores/recent.store";
 import { useTranslation } from "@/commons/locales/useTranslation";
 import { useConnectionList, useConnect } from "@/modules/connection/queries/connection.queries";
+import { useSnackbar } from "@/app/providers/snackbar.provider";
 import type { Keybinding } from "@/commons/types/command.types";
 
 function formatKeybinding(kb: Keybinding): string {
@@ -28,6 +29,7 @@ function formatKeybinding(kb: Keybinding): string {
 
 export function CommandPalette() {
   const { t } = useTranslation();
+  const snackbar = useSnackbar();
   const isOpen = useCommandStore((s) => s.isOpen);
   const commands = useCommandStore((s) => s.getAvailableCommands());
   const close = useCommandStore((s) => s.close);
@@ -109,6 +111,8 @@ export function CommandPalette() {
                     onSelect={() => {
                       connectMutation.mutate(item.connectionId, {
                         onSuccess: () => addRecentConnection(item.connectionId),
+                        onError: (err: unknown) =>
+                          snackbar.error((err as { userMessage?: string }).userMessage ?? t("connection.connectFailed")),
                       });
                       close();
                     }}

@@ -72,6 +72,8 @@
     "createFailed": "Failed to create connection",
     "updateSuccess": "Connection updated",
     "updateFailed": "Failed to update connection",
+    "connectFailed": "Failed to connect",
+    "confirmDeleteDescription": "This action cannot be undone. The connection configuration will be permanently removed.",
     "confirmDelete": "Are you sure you want to delete this connection?",
     "filePath": "File Path",
     "color": "Color",

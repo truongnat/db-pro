@@ -18,6 +18,13 @@ vi.mock("@/modules/connection/queries/connection.queries", () => ({
   useConnect: vi.fn(() => ({ mutate: vi.fn() })),
 }));
 
+vi.mock("@/app/providers/snackbar.provider", () => ({
+  useSnackbar: vi.fn(() => ({
+    success: vi.fn(),
+    error: vi.fn(),
+  })),
+}));
+
 vi.mock("@/lib/utils", () => ({
   cn: (...args: unknown[]) => args.filter(Boolean).join(" "),
 }));
