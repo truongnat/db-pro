@@ -76,7 +76,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       closeTab: (id) =>
         set((state) => {
           const tab = findTabById(state.tabs, id);
-          if (!tab || state.tabs.length <= 1 && !tab.pinned) return state;
+          if (!tab) return state;
 
           const idx = state.tabs.findIndex((t) => t.id === id);
           const newTabs = state.tabs.filter((t) => t.id !== id);
@@ -102,7 +102,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         set((state) => {
           if (state.recentlyClosed.length === 0) return state;
           const [tab, ...rest] = state.recentlyClosed;
-          const reopened = { ...tab, id: crypto.randomUUID() };
+          const reopened = { ...tab };
           return {
             tabs: [...state.tabs, reopened],
             activeTabId: reopened.id,

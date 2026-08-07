@@ -111,10 +111,22 @@ describe("WorkspaceStore", () => {
       const state = useWorkspaceStore.getState();
       expect(state.activeTabId).toBe(tab1.id);
     });
+
+    it("allows closing the last tab", () => {
+      const tab = createQueryTab("conn-1", "Q1");
+      const { openTab, closeTab } = useWorkspaceStore.getState();
+
+      openTab(tab);
+      closeTab(tab.id);
+
+      const state = useWorkspaceStore.getState();
+      expect(state.tabs).toHaveLength(0);
+      expect(state.activeTabId).toBeNull();
+    });
   });
 
   describe("reopenLastClosed", () => {
-    it("reopens the last closed tab with a new id", () => {
+    it("reopens the last closed tab preserving original id and resourceKey", () => {
       const tab1 = createQueryTab("conn-1", "Q1");
       const tab2 = createQueryTab("conn-1", "Q2");
       const { openTab, closeTab, reopenLastClosed } = useWorkspaceStore.getState();
@@ -130,7 +142,8 @@ describe("WorkspaceStore", () => {
       expect(state.recentlyClosed).toHaveLength(0);
       const reopened = state.tabs.find((t) => t.title === "Q1");
       expect(reopened).toBeDefined();
-      expect(reopened!.id).not.toBe(tab1.id);
+      expect(reopened!.id).toBe(tab1.id);
+      expect(reopened!.resourceKey).toBe(tab1.resourceKey);
     });
 
     it("does nothing when recentlyClosed is empty", () => {

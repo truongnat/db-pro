@@ -1,3 +1,4 @@
+import { useWorkspaceStore } from "@/commons/stores/workspace.store";
 import type {
   QueryTabData,
   SchemaObjectTabData,
@@ -5,10 +6,18 @@ import type {
   WorkspaceTab,
 } from "@/commons/types/workspace.types";
 
-let orderCounter = 0;
-
 function nextOrder(): number {
-  return ++orderCounter;
+  const tabs = useWorkspaceStore.getState().tabs;
+  if (tabs.length === 0) return 1;
+  return Math.max(...tabs.map((t) => t.order)) + 1;
+}
+
+function nextQueryTitle(connectionId: string): string {
+  const tabs = useWorkspaceStore.getState().tabs;
+  const queryCount = tabs.filter(
+    (t) => t.kind === "query" && t.connectionId === connectionId,
+  ).length;
+  return `Query ${queryCount + 1}`;
 }
 
 function defaultQueryData(): QueryTabData {
@@ -29,7 +38,7 @@ export function createQueryTab(connectionId: string, title?: string, sql?: strin
   return {
     id,
     kind: "query",
-    title: title ?? `Query ${orderCounter + 1}`,
+    title: title ?? nextQueryTitle(connectionId),
     connectionId,
     resourceKey: `query:${id}`,
     dirty: false,
