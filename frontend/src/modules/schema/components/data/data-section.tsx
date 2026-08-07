@@ -8,6 +8,7 @@ import { DataGrid } from "@/modules/data-grid/components/data-grid";
 import { Pagination } from "@/modules/data-grid/components/pagination";
 import { DataToolbar } from "@/modules/data-grid/components/data-toolbar";
 import { useTabGridStateStore } from "@/modules/data-grid/state/tab-grid-state.store";
+import { cycleColumnSort } from "@/modules/data-grid/utils/sort";
 import type { CellValue, FetchRowsRequest, GridSort } from "@/modules/data-grid/types/data-grid.types";
 
 import { ObjectSectionLayout } from "../object-section-layout";
@@ -57,7 +58,7 @@ export function DataSection({ tabId, connectionId, schema, table }: DataSectionP
   const totalCount = query.data?.totalCount ?? 0;
 
   const handleSort = (column: string) => {
-    store.setSorts(tabId, [{ column, direction: "asc" }]);
+    store.setSorts(tabId, cycleColumnSort(sorts, column));
   };
 
   const handleRefresh = () => {
