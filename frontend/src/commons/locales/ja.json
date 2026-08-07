@@ -309,5 +309,37 @@
     "backupSuccess": "バックアップ完了（{{size}}バイト）",
     "restoreSuccess": "復元が正常に完了しました",
     "connectFirst": "バックアップまたは復元するにはデータベースに接続してください"
+  },
+  "shell": {
+    "nav": {
+      "connections": "接続一覧",
+      "query": "クエリ",
+      "data": "データ",
+      "schema": "スキーマ",
+      "users": "ユーザー"
+    },
+    "sidebar": {
+      "connections": "接続一覧",
+      "schemaExplorer": "スキーマエクスプローラー",
+      "connectFirst": "データベースに接続してください",
+      "noRecentQueries": "最近のクエリなし",
+      "settings": "設定",
+      "help": "ヘルプ"
+    },
+    "topbar": {
+      "noConnection": "接続なし",
+      "commandMenu": "コマンドメニュー",
+      "search": "検索"
+    },
+    "statusbar": {
+      "connected": "接続済み",
+      "connecting": "接続中...",
+      "disconnected": "未接続",
+      "noConnection": "アクティブな接続なし",
+      "tables": "テーブル",
+      "version": "DB Pro v0.1.0"
+    },
+    "collapse": "サイドバーを折りたたむ",
+    "expand": "サイドバーを展開"
   }
 }

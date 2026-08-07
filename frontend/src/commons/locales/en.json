@@ -309,5 +309,37 @@
     "backupSuccess": "Backup completed ({{size}} bytes)",
     "restoreSuccess": "Restore completed successfully",
     "connectFirst": "Connect to a database to backup or restore"
+  },
+  "shell": {
+    "nav": {
+      "connections": "Connections",
+      "query": "Query",
+      "data": "Data",
+      "schema": "Schema",
+      "users": "Users"
+    },
+    "sidebar": {
+      "connections": "Connections",
+      "schemaExplorer": "Schema explorer",
+      "connectFirst": "Connect to a database",
+      "noRecentQueries": "No recent queries",
+      "settings": "Settings",
+      "help": "Help"
+    },
+    "topbar": {
+      "noConnection": "No connection",
+      "commandMenu": "Command menu",
+      "search": "Search"
+    },
+    "statusbar": {
+      "connected": "Connected",
+      "connecting": "Connecting...",
+      "disconnected": "Disconnected",
+      "noConnection": "No active connection",
+      "tables": "tables",
+      "version": "DB Pro v0.1.0"
+    },
+    "collapse": "Collapse sidebar",
+    "expand": "Expand sidebar"
   }
 }
