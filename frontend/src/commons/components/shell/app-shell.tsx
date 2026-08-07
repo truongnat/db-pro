@@ -1,5 +1,7 @@
 import { Outlet } from "@tanstack/react-router";
 
+import { CommandPalette } from "@/commons/components/command-palette";
+import { useCommandPalette } from "@/commons/hooks/use-command-palette";
 import { useShellStore } from "@/commons/stores/shell.store";
 
 import { ActivityBar } from "./activity-bar";
@@ -9,8 +11,10 @@ import { Topbar } from "./topbar";
 
 export function AppShell() {
   const sidebarCollapsed = useShellStore((s) => s.sidebarCollapsed);
+  useCommandPalette();
 
   return (
+    <>
     <div className="grid h-screen overflow-hidden" style={{ gridTemplateColumns: "var(--app-activity-bar-width) 1fr" }}>
       <ActivityBar />
 
@@ -35,5 +39,7 @@ export function AppShell() {
         <StatusBar />
       </div>
     </div>
+    <CommandPalette />
+    </>
   );
 }

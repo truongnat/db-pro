@@ -7,10 +7,10 @@ export function useTabKeyboard() {
     function handleKeyDown(e: KeyboardEvent) {
       if (!e.ctrlKey && !e.metaKey) return;
 
-      const { tabs, activeTabId, activateTab, reopenLastClosed } =
+      const { tabs, activeTabId, activateTab } =
         useWorkspaceStore.getState();
 
-      if (tabs.length === 0 && e.key !== "T") return;
+      if (tabs.length === 0) return;
 
       if (e.key === "Tab" && !e.shiftKey) {
         e.preventDefault();
@@ -26,11 +26,6 @@ export function useTabKeyboard() {
         const prev = (idx - 1 + tabs.length) % tabs.length;
         activateTab(tabs[prev].id);
         return;
-      }
-
-      if (e.shiftKey && (e.key === "T" || e.key === "t")) {
-        e.preventDefault();
-        reopenLastClosed();
       }
     }
 

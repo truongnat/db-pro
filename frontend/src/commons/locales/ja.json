@@ -343,5 +343,16 @@
     },
     "collapse": "サイドバーを折りたたむ",
     "expand": "サイドバーを展開"
+  },
+  "commandPalette": {
+    "placeholder": "コマンドを入力...",
+    "noResults": "結果が見つかりません。",
+    "groups": {
+      "query": "クエリ",
+      "tabs": "タブ",
+      "navigation": "ナビゲーション",
+      "shell": "シェル",
+      "file": "ファイル"
+    }
   }
 }

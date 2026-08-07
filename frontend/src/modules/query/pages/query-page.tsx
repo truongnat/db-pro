@@ -4,6 +4,7 @@ import { format as formatSql } from "sql-formatter";
 import { ResizableDock } from "@/commons/components/resizable-dock";
 import { WorkspaceTabBar } from "@/commons/components/workspace-tab-bar";
 import { WorkspaceTabContent } from "@/commons/components/workspace-tab-content";
+import { onQueryAction } from "@/commons/commands/query-dispatch";
 import { migrateQueryTabsToWorkspace } from "@/commons/stores/workspace-bridge";
 import { useConnectionStore } from "@/commons/stores/connection.store";
 import { useTranslation } from "@/commons/locales/useTranslation";
@@ -60,6 +61,7 @@ export function QueryPage() {
 
   const [exportOpen, setExportOpen] = useState(false);
   const [runConfigOpen, setRunConfigOpen] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const executeMutation = useExecuteQuery();
   const executeMultiMutation = useExecuteQueryMulti();
@@ -166,6 +168,45 @@ export function QueryPage() {
     [setSql],
   );
 
+  const handleFileImport = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const text = ev.target?.result;
+        if (typeof text === "string") setSql(text);
+      };
+      reader.readAsText(file);
+      e.target.value = "";
+    },
+    [setSql],
+  );
+
+  useEffect(() => {
+    const unsubs = [
+      onQueryAction("execute", handleExecute),
+      onQueryAction("explain", handleExplain),
+      onQueryAction("format", handleFormat),
+      onQueryAction("clear", handleClear),
+      onQueryAction("cancel", handleCancel),
+      onQueryAction("export", () => setExportOpen(true)),
+      onQueryAction("saveQuery", () => {}),
+      onQueryAction("importSql", () => fileInputRef.current?.click()),
+      onQueryAction("exportSql", () => {
+        if (!sql.trim()) return;
+        const blob = new Blob([sql], { type: "text/sql" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "query.sql";
+        a.click();
+        URL.revokeObjectURL(url);
+      }),
+    ];
+    return () => unsubs.forEach((u) => u());
+  }, [handleExecute, handleExplain, handleFormat, handleClear, handleCancel, sql]);
+
   const sortedRows = useMemo(() => {
     if (!result?.rows || !sort.column || !sort.direction) return result?.rows ?? [];
 
@@ -255,7 +296,6 @@ export function QueryPage() {
           <QueryEditor
             value={sql}
             onChange={setSql}
-            onExecute={handleExecute}
           />
         </div>
 
@@ -345,6 +385,14 @@ export function QueryPage() {
         onClose={() => setExportOpen(false)}
         connectionId={activeConnectionId}
         sql={sql.trim()}
+      />
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".sql,text/sql"
+        className="hidden"
+        onChange={handleFileImport}
       />
 
       <RunConfigDialog

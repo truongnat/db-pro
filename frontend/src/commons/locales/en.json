@@ -343,5 +343,16 @@
     },
     "collapse": "Collapse sidebar",
     "expand": "Expand sidebar"
+  },
+  "commandPalette": {
+    "placeholder": "Type a command...",
+    "noResults": "No results found.",
+    "groups": {
+      "query": "Query",
+      "tabs": "Tabs",
+      "navigation": "Navigation",
+      "shell": "Shell",
+      "file": "File"
+    }
   }
 }

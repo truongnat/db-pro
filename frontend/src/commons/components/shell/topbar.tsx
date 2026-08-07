@@ -2,6 +2,7 @@ import { useLocation } from "@tanstack/react-router";
 import { ChevronRight, Command, Search } from "lucide-react";
 
 import { useTranslation } from "@/commons/locales/useTranslation";
+import { useCommandStore } from "@/commons/stores/command.store";
 import { useConnectionStore } from "@/commons/stores/connection.store";
 import { Button } from "@/components/ui/button";
 import { useConnectionList } from "@/modules/connection/queries/connection.queries";
@@ -42,7 +43,7 @@ export function Topbar() {
         )}
       </div>
       <div className="ml-auto flex items-center gap-1">
-        <Button type="button" variant="ghost" size="icon" className="h-7 w-7" title={t("shell.topbar.commandMenu")}>
+        <Button type="button" variant="ghost" size="icon" className="h-7 w-7" title={t("shell.topbar.commandMenu")} onClick={() => useCommandStore.getState().open()}>
           <Command className="h-3.5 w-3.5" />
         </Button>
         <Button type="button" variant="ghost" size="icon" className="h-7 w-7" title={t("shell.topbar.search")}>
