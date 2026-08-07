@@ -36,7 +36,6 @@ export function CommandPalette() {
   const execute = useCommandStore((s) => s.executeCommand);
 
   const recentConnections = useRecentStore((s) => s.recentConnections);
-  const addRecentConnection = useRecentStore((s) => s.addRecentConnection);
   const { data: connections } = useConnectionList();
   const connectMutation = useConnect();
 
@@ -110,7 +109,6 @@ export function CommandPalette() {
                     value={`recent:${item.name}`}
                     onSelect={() => {
                       connectMutation.mutate(item.connectionId, {
-                        onSuccess: () => addRecentConnection(item.connectionId),
                         onError: (err: unknown) =>
                           snackbar.error((err as { userMessage?: string }).userMessage ?? t("connection.connectFailed")),
                       });

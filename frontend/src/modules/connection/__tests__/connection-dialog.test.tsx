@@ -5,12 +5,14 @@ import { I18nextProvider, initReactI18next } from "react-i18next";
 import i18n from "i18next";
 
 import { ConnectionDialog } from "../components/connection-dialog";
+import { useRecentStore } from "@/commons/stores/recent.store";
 import * as queries from "../queries/connection.queries";
 
 vi.mock("../queries/connection.queries", () => ({
   useCreateConnection: vi.fn(),
   useUpdateConnection: vi.fn(),
   useTestConnection: vi.fn(),
+  useConnect: vi.fn(),
 }));
 
 vi.mock("@/app/app.module", () => ({
@@ -72,6 +74,11 @@ function renderWithProviders(ui: React.ReactElement) {
 describe("ConnectionDialog", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    useRecentStore.setState({
+      recentConnections: [],
+      connectionDialogOpen: false,
+      connectionDialogEditId: null,
+    });
     vi.mocked(queries.useCreateConnection).mockReturnValue({
       mutate: vi.fn(),
       isPending: false,
@@ -86,26 +93,26 @@ describe("ConnectionDialog", () => {
       isSuccess: false,
       isError: false,
     } as unknown as ReturnType<typeof queries.useTestConnection>);
+    vi.mocked(queries.useConnect).mockReturnValue({
+      mutate: vi.fn(),
+      isPending: false,
+    } as unknown as ReturnType<typeof queries.useConnect>);
   });
 
-  it("does not render when open=false", () => {
-    renderWithProviders(
-      <ConnectionDialog open={false} onClose={vi.fn()} />,
-    );
+  it("does not render when closed", () => {
+    renderWithProviders(<ConnectionDialog />);
     expect(screen.queryByText("New Connection")).not.toBeInTheDocument();
   });
 
-  it("renders dialog title when open=true", () => {
-    renderWithProviders(
-      <ConnectionDialog open={true} onClose={vi.fn()} />,
-    );
+  it("renders new-connection title when opened without edit id", () => {
+    useRecentStore.getState().openConnectionDialog();
+    renderWithProviders(<ConnectionDialog />);
     expect(screen.getByText("New Connection")).toBeInTheDocument();
   });
 
-  it("renders edit title when editConnectionId is provided", () => {
-    renderWithProviders(
-      <ConnectionDialog open={true} onClose={vi.fn()} editConnectionId="conn-1" />,
-    );
+  it("renders edit title when opened with an edit id", () => {
+    useRecentStore.getState().openConnectionDialog("conn-1");
+    renderWithProviders(<ConnectionDialog />);
     expect(screen.getByText("Edit Connection")).toBeInTheDocument();
   });
 });

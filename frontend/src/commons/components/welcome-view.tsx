@@ -6,7 +6,6 @@ import { useRecentStore } from "@/commons/stores/recent.store";
 import { useConnectionModuleStore } from "@/modules/connection/state/connection.store";
 import { useConnectionList, useConnect, useDeleteConnection } from "@/modules/connection/queries/connection.queries";
 import { ConnectionStatusBadge } from "@/modules/connection/components/connection-status";
-import { ConnectionDialog } from "@/modules/connection/components/connection-dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -38,12 +37,8 @@ export function WelcomeView() {
   const statuses = useConnectionModuleStore((s) => s.statuses);
 
   const recentConnections = useRecentStore((s) => s.recentConnections);
-  const addRecentConnection = useRecentStore((s) => s.addRecentConnection);
   const removeRecentConnection = useRecentStore((s) => s.removeRecentConnection);
-  const connectionDialogOpen = useRecentStore((s) => s.connectionDialogOpen);
-  const connectionDialogEditId = useRecentStore((s) => s.connectionDialogEditId);
   const openConnectionDialog = useRecentStore((s) => s.openConnectionDialog);
-  const closeConnectionDialog = useRecentStore((s) => s.closeConnectionDialog);
 
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
@@ -76,7 +71,6 @@ export function WelcomeView() {
 
   const handleConnect = (connectionId: string) => {
     connectMutation.mutate(connectionId, {
-      onSuccess: () => addRecentConnection(connectionId),
       onError: (err: unknown) =>
         snackbar.error((err as { userMessage?: string }).userMessage ?? t("connection.connectFailed")),
     });
@@ -183,13 +177,6 @@ export function WelcomeView() {
           )}
         </div>
       </div>
-
-      {/* Connection Dialog */}
-      <ConnectionDialog
-        open={connectionDialogOpen}
-        onClose={closeConnectionDialog}
-        editConnectionId={connectionDialogEditId ?? undefined}
-      />
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteConfirmId != null} onOpenChange={(open) => !open && setDeleteConfirmId(null)}>

@@ -4,6 +4,7 @@ import { container } from "@/app/app.module";
 import { SERVICE_NAMES, type IConnectionService } from "@/commons/di/registry";
 import { useTranslation } from "@/commons/locales/useTranslation";
 import { useSnackbar } from "@/app/providers/snackbar.provider";
+import { useRecentStore } from "@/commons/stores/recent.store";
 import {
   Dialog,
   DialogContent,
@@ -13,21 +14,20 @@ import {
 
 import { ConnectionEditor } from "./connection-editor";
 import {
+  useConnect,
   useCreateConnection,
   useTestConnection,
   useUpdateConnection,
 } from "../queries/connection.queries";
 import type { Connection, ConnectionFormData } from "../types/connection.types";
 
-interface ConnectionDialogProps {
-  open: boolean;
-  onClose: () => void;
-  editConnectionId?: string;
-}
-
-export function ConnectionDialog({ open, onClose, editConnectionId }: ConnectionDialogProps) {
+export function ConnectionDialog() {
   const { t } = useTranslation();
   const snackbar = useSnackbar();
+
+  const open = useRecentStore((s) => s.connectionDialogOpen);
+  const editConnectionId = useRecentStore((s) => s.connectionDialogEditId);
+  const closeConnectionDialog = useRecentStore((s) => s.closeConnectionDialog);
 
   const [connection, setConnection] = useState<Connection | null>(null);
   const [loadingConnection, setLoadingConnection] = useState(false);
@@ -35,6 +35,7 @@ export function ConnectionDialog({ open, onClose, editConnectionId }: Connection
   const createMutation = useCreateConnection();
   const updateMutation = useUpdateConnection();
   const testMutation = useTestConnection();
+  const connectMutation = useConnect();
 
   useEffect(() => {
     if (!open || !editConnectionId) {
@@ -56,6 +57,13 @@ export function ConnectionDialog({ open, onClose, editConnectionId }: Connection
     }
   }, [open]);
 
+  const connectAfterSave = (connectionId: string) => {
+    connectMutation.mutate(connectionId, {
+      onError: (err: unknown) =>
+        snackbar.error((err as { userMessage?: string }).userMessage ?? t("connection.connectFailed")),
+    });
+  };
+
   const handleSubmit = (data: ConnectionFormData, password: string) => {
     const config = { ...data, sshTunnel: data.sshTunnel };
 
@@ -65,7 +73,8 @@ export function ConnectionDialog({ open, onClose, editConnectionId }: Connection
         {
           onSuccess: () => {
             snackbar.success(t("connection.updateSuccess"));
-            onClose();
+            closeConnectionDialog();
+            connectAfterSave(editConnectionId);
           },
           onError: (err: unknown) =>
             snackbar.error((err as { userMessage?: string }).userMessage ?? t("connection.updateFailed")),
@@ -75,9 +84,10 @@ export function ConnectionDialog({ open, onClose, editConnectionId }: Connection
       createMutation.mutate(
         { config, password },
         {
-          onSuccess: () => {
+          onSuccess: (created) => {
             snackbar.success(t("connection.createSuccess"));
-            onClose();
+            closeConnectionDialog();
+            connectAfterSave((created as Connection).id);
           },
           onError: (err: unknown) =>
             snackbar.error((err as { userMessage?: string }).userMessage ?? t("connection.createFailed")),
@@ -103,7 +113,7 @@ export function ConnectionDialog({ open, onClose, editConnectionId }: Connection
   const title = editConnectionId ? t("connection.edit") : t("connection.new");
 
   return (
-    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+    <Dialog open={open} onOpenChange={(v) => !v && closeConnectionDialog()}>
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
@@ -135,7 +145,7 @@ export function ConnectionDialog({ open, onClose, editConnectionId }: Connection
               }
               onSubmit={handleSubmit}
               onTest={handleTest}
-              onCancel={onClose}
+              onCancel={closeConnectionDialog}
               isSubmitting={createMutation.isPending || updateMutation.isPending}
               isTesting={testMutation.isPending}
               testResult={

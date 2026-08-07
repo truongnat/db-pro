@@ -1,4 +1,3 @@
-import { Link } from "@tanstack/react-router";
 import {
   ChevronDown,
   ChevronRight,
@@ -12,6 +11,7 @@ import {
 import { useTranslation } from "@/commons/locales/useTranslation";
 import { useConnectionStore } from "@/commons/stores/connection.store";
 import { useExplorerStore } from "@/commons/stores/explorer.store";
+import { useRecentStore } from "@/commons/stores/recent.store";
 import { useSidebarTabOps } from "@/commons/hooks/use-sidebar-tab-ops";
 import { StatusDot } from "@/commons/components/shell/status-dot";
 import { Button } from "@/components/ui/button";
@@ -75,6 +75,7 @@ export function ExplorerView() {
   const statuses = useConnectionModuleStore((s) => s.statuses);
   const explorerConnectionId = useConnectionStore((s) => s.explorerConnectionId);
   const setExplorerConnection = useConnectionStore((s) => s.setExplorerConnection);
+  const openConnectionDialog = useRecentStore((s) => s.openConnectionDialog);
   const connect = useConnect();
   const introspect = useIntrospect(explorerConnectionId);
 
@@ -101,11 +102,15 @@ export function ExplorerView() {
         </span>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Link to="/connection-editor">
-              <Button type="button" variant="ghost" size="icon" className="h-5 w-5 text-muted-foreground">
-                <Plus className="h-3.5 w-3.5" />
-              </Button>
-            </Link>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-5 w-5 text-muted-foreground"
+              onClick={() => openConnectionDialog()}
+            >
+              <Plus className="h-3.5 w-3.5" />
+            </Button>
           </TooltipTrigger>
           <TooltipContent side="right" sideOffset={4}>{t("connection.new")}</TooltipContent>
         </Tooltip>
@@ -147,10 +152,8 @@ export function ExplorerView() {
                   </button>
                 </ContextMenuTrigger>
                 <ContextMenuContent>
-                  <ContextMenuItem asChild>
-                    <Link to="/connection-editor" search={{ id: conn.id }}>
-                      {t("shell.sidebar.editConnection")}
-                    </Link>
+                  <ContextMenuItem onClick={() => openConnectionDialog(conn.id)}>
+                    {t("shell.sidebar.editConnection")}
                   </ContextMenuItem>
                 </ContextMenuContent>
               </ContextMenu>

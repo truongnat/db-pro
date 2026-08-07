@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { useNavigate } from "@tanstack/react-router";
 
 import { useTranslation } from "@/commons/locales/useTranslation";
+import { useRecentStore } from "@/commons/stores/recent.store";
 import { Button } from "@/components/ui/button";
 
 import { BackupDialog } from "@/modules/backup/components/backup-dialog";
@@ -13,7 +13,7 @@ import { ConnectionList } from "../components/connection-list";
 
 export function ConnectionsPage() {
   const { t } = useTranslation();
-  const navigate = useNavigate();
+  const openConnectionDialog = useRecentStore((s) => s.openConnectionDialog);
   const [backupConnId, setBackupConnId] = useState<string | null>(null);
   const [restoreConnId, setRestoreConnId] = useState<string | null>(null);
 
@@ -52,13 +52,13 @@ export function ConnectionsPage() {
         <h1 className="text-lg font-semibold text-foreground">
           {t("connection.title")}
         </h1>
-        <Button type="button" onClick={() => navigate({ to: "/connection-editor" })}>
+        <Button type="button" onClick={() => openConnectionDialog()}>
           {t("connection.new")}
         </Button>
       </div>
 
       <ConnectionList
-        onEdit={(id) => navigate({ to: "/connection-editor", search: { id } })}
+        onEdit={(id) => openConnectionDialog(id)}
         onBackup={(id) => setBackupConnId(id)}
         onRestore={(id) => setRestoreConnId(id)}
       />
