@@ -44,9 +44,9 @@ export function QueryStatusBar({
   // Running state
   if (status === "running") {
     return (
-      <div className="flex items-center gap-2 border-t border-border bg-muted/40 px-3 py-1 text-xs">
-        <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-blue-500" />
-        <span className="text-muted-foreground">
+      <div className="flex items-center gap-2 border-t border-[var(--app-border-subtle)] bg-muted/30 px-3 text-[11px]">
+        <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-[var(--app-primary)]" />
+        <span className="text-[var(--app-text-muted)]">
           {t("query.statusRunning")} · {formatElapsed(elapsed)}
         </span>
         <div className="flex-1" />
@@ -54,7 +54,7 @@ export function QueryStatusBar({
           type="button"
           variant="ghost"
           size="sm"
-          className="h-5 px-2 text-xs"
+          className="h-5 px-2 text-[11px]"
           onClick={onCancel}
         >
           {t("common.actions.cancel")}
@@ -67,13 +67,13 @@ export function QueryStatusBar({
   if (status === "success" && timing) {
     const isLarge = rowCount >= LARGE_RESULT_THRESHOLD;
     return (
-      <div className="flex items-center gap-2 border-t border-border bg-muted/40 px-3 py-1 text-xs">
+      <div className="flex items-center gap-2 border-t border-[var(--app-border-subtle)] bg-muted/30 px-3 text-[11px]">
         {isLarge && (
-          <span className="rounded bg-amber-100 px-1.5 py-0.5 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+          <span className="rounded bg-[var(--app-warning)]/15 px-1.5 py-0.5 text-[var(--app-warning)]">
             {t("query.largeResultWarning")}
           </span>
         )}
-        <span className="text-muted-foreground">
+        <span className="text-[var(--app-text-muted)]">
           {t("query.rowsAffected", { count: rowCount })} · {formatTiming(timing)}
         </span>
       </div>
@@ -83,7 +83,7 @@ export function QueryStatusBar({
   // Error state
   if (status === "error") {
     return (
-      <div className="flex items-center gap-2 border-t border-border bg-destructive/10 px-3 py-1 text-xs text-destructive">
+      <div className="flex items-center gap-2 border-t border-[var(--app-border-subtle)] bg-destructive/10 px-3 text-[11px] text-destructive">
         <span>{t("query.statusError")}</span>
       </div>
     );

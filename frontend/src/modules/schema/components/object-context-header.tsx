@@ -65,14 +65,14 @@ export function ObjectContextHeader({
   }, [connections, connectionId]);
 
   return (
-    <div className="flex shrink-0 items-center gap-3 border-b border-border px-3 py-2">
+    <div className="flex shrink-0 items-center gap-3 border-b border-[var(--app-border-subtle)] bg-background px-3 py-2">
       <Icon className="h-4 w-4 shrink-0 text-primary" />
 
       <div className="min-w-0 flex-1">
-        <div className="truncate text-sm font-medium text-foreground">
+        <div className="truncate text-[13px] font-medium text-foreground">
           {objectName}
         </div>
-        <div className="truncate text-[11px] text-muted-foreground">
+        <div className="truncate text-[11px] text-[var(--app-text-dim)]">
           {t("dbObject.contextHeader.connectionSubtitle", {
             schema,
             type: objectType,

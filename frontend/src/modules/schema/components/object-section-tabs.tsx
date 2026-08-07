@@ -19,21 +19,24 @@ interface ObjectSectionTabsProps {
 export function ObjectSectionTabs({ activeSection, onSelect }: ObjectSectionTabsProps) {
   const { t } = useTranslation();
   return (
-    <div className="flex items-center border-b border-border">
+    <div className="flex items-center border-b border-[var(--app-border-subtle)]">
       <div className="flex flex-1 overflow-x-auto">
         {OBJECT_SECTIONS.map((section) => (
           <button
             key={section.id}
             type="button"
             className={cn(
-              "shrink-0 px-3 py-2 text-xs font-medium transition-colors hover:bg-[var(--app-hover)]",
+              "relative shrink-0 px-3 py-2 text-xs font-medium transition-colors hover:text-foreground",
               activeSection === section.id
-                ? "border-b-2 border-primary text-foreground"
+                ? "text-foreground"
                 : "text-muted-foreground",
             )}
             onClick={() => onSelect(section.id)}
           >
             {t(section.labelKey)}
+            {activeSection === section.id && (
+              <span className="absolute inset-x-2 bottom-0 h-[2px] rounded-t-sm bg-primary" />
+            )}
           </button>
         ))}
       </div>

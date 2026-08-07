@@ -2,6 +2,7 @@ pub mod backup;
 pub mod capabilities;
 pub mod connection;
 pub mod cross_connection;
+pub mod diagnostics;
 pub mod error;
 pub mod execution;
 pub mod history;

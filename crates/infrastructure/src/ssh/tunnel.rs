@@ -124,6 +124,11 @@ impl SshTunnel {
 
 fn find_available_port() -> Result<u16, DbError> {
     TcpListener::bind("127.0.0.1:0")
-        .map(|listener| listener.local_addr().unwrap().port())
         .map_err(|e| DbError::ConnectionFailed(format!("failed to find available port: {e}")))
+        .and_then(|listener| {
+            listener
+                .local_addr()
+                .map(|addr| addr.port())
+                .map_err(|e| DbError::ConnectionFailed(format!("failed to read local addr: {e}")))
+        })
 }

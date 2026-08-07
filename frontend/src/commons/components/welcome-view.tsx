@@ -88,12 +88,12 @@ export function WelcomeView() {
   const hasConnections = connections != null && connections.length > 0;
 
   return (
-    <div className="flex flex-1 flex-col items-center overflow-y-auto px-6 py-12">
+    <div className="flex flex-1 flex-col items-center overflow-y-auto px-6 py-16">
       <div className="w-full max-w-xl space-y-8">
         {/* Header */}
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-foreground">{t("welcome.title")}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t("welcome.subtitle")}</p>
+          <h1 className="text-xl font-semibold text-foreground">{t("welcome.title")}</h1>
+          <p className="mt-1.5 text-sm text-muted-foreground">{t("welcome.subtitle")}</p>
         </div>
 
         {/* Quick Actions */}
@@ -115,8 +115,8 @@ export function WelcomeView() {
           {isLoading ? (
             <p className="text-sm text-muted-foreground">{t("common.states.loading")}</p>
           ) : !hasConnections ? (
-            <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-border py-8">
-              <Database className="h-8 w-8 text-muted-foreground" />
+            <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-[var(--app-border-strong)] py-10">
+              <Database className="h-8 w-8 text-[var(--app-text-dim)]" />
               <div className="text-center">
                 <p className="text-sm text-muted-foreground">{t("welcome.noConnections")}</p>
                 <p className="mt-1 text-xs text-muted-foreground">{t("welcome.createFirstConnection")}</p>
@@ -132,7 +132,7 @@ export function WelcomeView() {
                 return (
                   <div
                     key={conn.id}
-                    className="group flex items-center gap-3 rounded-lg border border-transparent px-3 py-2 hover:border-border hover:bg-muted/50"
+                    className="group flex items-center gap-3 rounded-lg border border-transparent px-3 py-2 transition-colors hover:border-[var(--app-border)] hover:bg-[var(--app-hover)]"
                   >
                     <button
                       type="button"
