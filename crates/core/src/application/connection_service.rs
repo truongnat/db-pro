@@ -319,6 +319,44 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn connect_duplicate_disconnect_failure_propagates() {
+        let id = ConnectionId::new();
+        let conn = Connection::new(test_config()).with_secret_ref("key".into());
+        let registry = Arc::new(ConnectionRegistry::new());
+
+        let mut repo = MockConnectionRepository::new();
+        repo.expect_get().returning(move |_| Ok(Some(conn.clone())));
+
+        let mut secrets = MockSecretStore::new();
+        secrets
+            .expect_retrieve_secret()
+            .returning(|_| Ok(Some("password".into())));
+
+        let reg_for_mock = Arc::clone(&registry);
+        let mut connector = MockDbConnector::new();
+        connector
+            .expect_connect()
+            .returning(move |_, _| {
+                reg_for_mock.register(id, ConnectionHandle(99));
+                Ok(ConnectionHandle(2))
+            });
+        connector
+            .expect_disconnect()
+            .returning(|_| Err(DbError::Internal("disconnect failed".into())));
+
+        let svc = ConnectionService::new(
+            Box::new(connector),
+            Box::new(repo),
+            Box::new(secrets),
+            Arc::clone(&registry),
+        );
+
+        let result = svc.connect(&id).await;
+        assert!(result.is_err());
+        assert_eq!(registry.get(&id), Some(ConnectionHandle(99)));
+    }
+
+    #[tokio::test]
     async fn connect_not_found() {
         let mut repo = MockConnectionRepository::new();
         repo.expect_get().returning(|_| Ok(None));
