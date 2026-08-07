@@ -22,7 +22,7 @@ describe("QueryService", () => {
     await service.execute("conn-1", "SELECT 1");
 
     expect(mockInvoke).toHaveBeenCalledWith("execute_query", {
-      connection_id: "conn-1",
+      connectionId: "conn-1",
       sql: "SELECT 1",
     });
   });
@@ -33,7 +33,7 @@ describe("QueryService", () => {
     await service.explain("conn-1", "SELECT 1");
 
     expect(mockInvoke).toHaveBeenCalledWith("explain_query", {
-      connection_id: "conn-1",
+      connectionId: "conn-1",
       sql: "SELECT 1",
     });
   });
@@ -44,7 +44,7 @@ describe("QueryService", () => {
     await service.getHistory("conn-1", 50);
 
     expect(mockInvoke).toHaveBeenCalledWith("get_query_history", {
-      connection_id: "conn-1",
+      connectionId: "conn-1",
       limit: 50,
     });
   });
@@ -55,7 +55,7 @@ describe("QueryService", () => {
     await service.getHistory("conn-1");
 
     expect(mockInvoke).toHaveBeenCalledWith("get_query_history", {
-      connection_id: "conn-1",
+      connectionId: "conn-1",
       limit: undefined,
     });
   });
@@ -72,7 +72,7 @@ describe("QueryService", () => {
     await service.save("conn-1", "My Query", "SELECT 1", "folder-1");
 
     expect(mockInvoke).toHaveBeenCalledWith("save_query", {
-      connection_id: "conn-1",
+      connectionId: "conn-1",
       name: "My Query",
       sql: "SELECT 1",
       folder: "folder-1",
@@ -91,7 +91,7 @@ describe("QueryService", () => {
     await service.save("conn-1", "My Query", "SELECT 1");
 
     expect(mockInvoke).toHaveBeenCalledWith("save_query", {
-      connection_id: "conn-1",
+      connectionId: "conn-1",
       name: "My Query",
       sql: "SELECT 1",
       folder: undefined,
@@ -104,7 +104,7 @@ describe("QueryService", () => {
     await service.listSaved("conn-1");
 
     expect(mockInvoke).toHaveBeenCalledWith("list_saved_queries", {
-      connection_id: "conn-1",
+      connectionId: "conn-1",
     });
   });
 

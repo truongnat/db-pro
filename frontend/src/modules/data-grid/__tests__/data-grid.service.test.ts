@@ -29,14 +29,14 @@ describe("DataGridService", () => {
     });
 
     expect(mockInvoke).toHaveBeenCalledWith("fetch_table_rows", {
-      connection_id: "conn-1",
+      connectionId: "conn-1",
       request: {
         schema: "public",
         table: "users",
         filters: [{ column: "id", op: "eq", value: { type: "int64", value: 1 } }],
         sorts: [{ column: "name", direction: "asc" }],
         page: 2,
-        page_size: 25,
+        pageSize: 25,
       },
     });
   });
@@ -52,7 +52,7 @@ describe("DataGridService", () => {
     });
 
     expect(mockInvoke).toHaveBeenCalledWith("insert_table_row", {
-      connection_id: "conn-1",
+      connectionId: "conn-1",
       request: {
         schema: "public",
         table: "users",
@@ -75,14 +75,14 @@ describe("DataGridService", () => {
     });
 
     expect(mockInvoke).toHaveBeenCalledWith("update_table_row", {
-      connection_id: "conn-1",
+      connectionId: "conn-1",
       request: {
         schema: "public",
         table: "users",
         columns: ["name"],
         values: [{ type: "text", value: "Bob" }],
-        pk_columns: ["id"],
-        pk_values: [{ type: "int64", value: 1 }],
+        pkColumns: ["id"],
+        pkValues: [{ type: "int64", value: 1 }],
       },
     });
   });
@@ -103,7 +103,7 @@ describe("DataGridService", () => {
     });
 
     expect(mockInvoke).toHaveBeenCalledWith("delete_table_row", {
-      connection_id: "conn-1",
+      connectionId: "conn-1",
       request: {
         schema: "public",
         table: "users",
@@ -112,8 +112,8 @@ describe("DataGridService", () => {
           { type: "int64", value: 1 },
           { type: "text", value: "Alice" },
         ],
-        pk_columns: ["id"],
-        pk_values: [{ type: "int64", value: 1 }],
+        pkColumns: ["id"],
+        pkValues: [{ type: "int64", value: 1 }],
       },
     });
   });

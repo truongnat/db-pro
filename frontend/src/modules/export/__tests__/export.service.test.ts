@@ -24,7 +24,7 @@ describe("ExportService", () => {
     await service.exportCsv("conn-1", "SELECT * FROM users");
 
     expect(mockInvoke).toHaveBeenCalledWith("export_csv", {
-      connection_id: "conn-1",
+      connectionId: "conn-1",
       sql: "SELECT * FROM users",
     });
   });
@@ -35,7 +35,7 @@ describe("ExportService", () => {
     await service.exportJson("conn-1", "SELECT 1");
 
     expect(mockInvoke).toHaveBeenCalledWith("export_json", {
-      connection_id: "conn-1",
+      connectionId: "conn-1",
       sql: "SELECT 1",
     });
   });
@@ -46,7 +46,7 @@ describe("ExportService", () => {
     await service.exportExcel("conn-1", "SELECT 1");
 
     expect(mockInvoke).toHaveBeenCalledWith("export_excel", {
-      connection_id: "conn-1",
+      connectionId: "conn-1",
       sql: "SELECT 1",
     });
   });

@@ -15,21 +15,21 @@ describe("SchemaService", () => {
     mockInvoke.mockReset();
   });
 
-  it("introspect calls introspect with connection_id", async () => {
+  it("introspect calls introspect with connectionId", async () => {
     mockInvoke.mockResolvedValueOnce({ schemas: [], tables: [], columns: [], primaryKeys: [], indexes: [], foreignKeys: [], views: [] });
     await service.introspect("conn-1");
     expect(mockInvoke).toHaveBeenCalledWith("introspect", {
-      connection_id: "conn-1",
-      force_refresh: undefined,
+      connectionId: "conn-1",
+      forceRefresh: undefined,
     });
   });
 
-  it("introspect passes force_refresh when specified", async () => {
+  it("introspect passes forceRefresh when specified", async () => {
     mockInvoke.mockResolvedValueOnce({ schemas: [], tables: [], columns: [], primaryKeys: [], indexes: [], foreignKeys: [], views: [] });
     await service.introspect("conn-1", true);
     expect(mockInvoke).toHaveBeenCalledWith("introspect", {
-      connection_id: "conn-1",
-      force_refresh: true,
+      connectionId: "conn-1",
+      forceRefresh: true,
     });
   });
 
@@ -37,7 +37,7 @@ describe("SchemaService", () => {
     mockInvoke.mockResolvedValueOnce({ table: {}, columns: [], primaryKey: null, indexes: [], foreignKeys: [] });
     await service.getTableInfo("conn-1", "public", "users");
     expect(mockInvoke).toHaveBeenCalledWith("get_table_info", {
-      connection_id: "conn-1",
+      connectionId: "conn-1",
       schema: "public",
       table: "users",
     });
@@ -47,18 +47,18 @@ describe("SchemaService", () => {
     mockInvoke.mockResolvedValueOnce("CREATE TABLE ...");
     const result = await service.getTableDdl("conn-1", "public", "users");
     expect(mockInvoke).toHaveBeenCalledWith("get_table_ddl", {
-      connection_id: "conn-1",
+      connectionId: "conn-1",
       schema: "public",
       table: "users",
     });
     expect(result).toBe("CREATE TABLE ...");
   });
 
-  it("invalidateCache calls invalidate_cache with connection_id", async () => {
+  it("invalidateCache calls invalidate_cache with connectionId", async () => {
     mockInvoke.mockResolvedValueOnce(undefined);
     await service.invalidateCache("conn-1");
     expect(mockInvoke).toHaveBeenCalledWith("invalidate_cache", {
-      connection_id: "conn-1",
+      connectionId: "conn-1",
     });
   });
 });
