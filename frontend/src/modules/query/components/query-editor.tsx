@@ -4,12 +4,14 @@ interface QueryEditorProps {
   value: string;
   onChange: (value: string) => void;
   readOnly?: boolean;
+  path?: string;
 }
 
 export function QueryEditor({
   value,
   onChange,
   readOnly = false,
+  path,
 }: QueryEditorProps) {
   return (
     <div className="h-full w-full border border-border">
@@ -17,6 +19,7 @@ export function QueryEditor({
         height="100%"
         language="sql"
         theme="vs-dark"
+        path={path}
         value={value}
         onChange={(v) => onChange(v ?? "")}
         options={{

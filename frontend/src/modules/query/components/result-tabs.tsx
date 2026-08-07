@@ -1,18 +1,22 @@
 import { Button } from "@/components/ui/button";
-
-import { useQueryModuleStore } from "../state/query.store";
+import { useWorkspaceStore } from "@/commons/stores/workspace.store";
+import type { QueryTabData } from "@/commons/types/workspace.types";
+import {
+  setTabMultiResultIndex,
+  setTabResult,
+} from "../controllers/query-workspace.controller";
 
 export function ResultTabs() {
-  const multiResults = useQueryModuleStore((s) =>
-    s.tabs.find((t) => t.id === s.activeTabId)?.multiResults ?? null,
-  );
-  const multiResultIndex = useQueryModuleStore((s) =>
-    s.tabs.find((t) => t.id === s.activeTabId)?.multiResultIndex ?? 0,
-  );
-  const setMultiResultIndex = useQueryModuleStore((s) => s.setMultiResultIndex);
-  const setResult = useQueryModuleStore((s) => s.setResult);
+  const activeTabId = useWorkspaceStore((s) => s.activeTabId);
+  const tabData = useWorkspaceStore((s) => {
+    const tab = s.tabs.find((t) => t.id === s.activeTabId);
+    return tab?.kind === "query" ? (tab.data as QueryTabData) : undefined;
+  });
 
-  if (!multiResults || multiResults.length <= 1) return null;
+  const multiResults = tabData?.multiResults ?? null;
+  const multiResultIndex = tabData?.multiResultIndex ?? 0;
+
+  if (!multiResults || multiResults.length <= 1 || !activeTabId) return null;
 
   return (
     <div className="flex gap-1 border-b border-border bg-card px-3 py-1">
@@ -31,8 +35,8 @@ export function ResultTabs() {
               : "border-b-2 border-transparent"
           }`}
           onClick={() => {
-            setMultiResultIndex(idx);
-            setResult(multiResults[idx]);
+            setTabMultiResultIndex(activeTabId, idx);
+            setTabResult(activeTabId, multiResults[idx]);
           }}
         >
           Result {idx + 1} ({r.rowCount} rows)

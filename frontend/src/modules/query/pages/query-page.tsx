@@ -3,11 +3,12 @@ import { format as formatSql } from "sql-formatter";
 
 import { ResizableDock } from "@/commons/components/resizable-dock";
 import { WorkspaceTabBar } from "@/commons/components/workspace-tab-bar";
-import { WorkspaceTabContent } from "@/commons/components/workspace-tab-content";
 import { onQueryAction } from "@/commons/commands/query-dispatch";
-import { migrateQueryTabsToWorkspace } from "@/commons/stores/workspace-bridge";
 import { useConnectionStore } from "@/commons/stores/connection.store";
+import { useWorkspaceStore } from "@/commons/stores/workspace.store";
+import type { ResultPanelTab } from "@/commons/types/workspace.types";
 import { useTranslation } from "@/commons/locales/useTranslation";
+import { createQueryTab } from "@/commons/factories/tab-factories";
 import { Button } from "@/components/ui/button";
 import { ExportDialog } from "@/modules/export/components/export-dialog";
 
@@ -31,33 +32,32 @@ import {
   useQueryHistory,
 } from "../queries/query.queries";
 import { pushLocalHistory } from "../services/local-history";
-import { debouncedSaveTabs, loadTabs } from "../services/tab-persistence";
-import { useQueryModuleStore } from "../state/query.store";
+import {
+  setTabSql,
+  setTabSort,
+} from "../controllers/query-workspace.controller";
 import type { Row, RunConfig } from "../types/query.types";
 
 export function QueryPage() {
   const { t } = useTranslation();
   const activeConnectionId = useConnectionStore((s) => s.activeConnectionId);
 
-  const activeTab = useQueryModuleStore((s) =>
-    s.tabs.find((t) => t.id === s.activeTabId),
-  );
-  const setSql = useQueryModuleStore((s) => s.setSql);
-  const setStatus = useQueryModuleStore((s) => s.setStatus);
-  const setResult = useQueryModuleStore((s) => s.setResult);
-  const setExplainPlan = useQueryModuleStore((s) => s.setExplainPlan);
-  const panelTab = useQueryModuleStore((s) => s.activeTab);
-  const setPanelTab = useQueryModuleStore((s) => s.setActiveTab);
-  const sort = activeTab?.sort ?? { column: null, direction: null };
-  const setSort = useQueryModuleStore((s) => s.setSort);
-  const historySearch = useQueryModuleStore((s) => s.historySearch);
-  const setHistorySearch = useQueryModuleStore((s) => s.setHistorySearch);
+  const activeTab = useWorkspaceStore((s) => {
+    const tab = s.tabs.find((t) => t.id === s.activeTabId);
+    return tab?.kind === "query" ? tab : undefined;
+  });
+  const activeTabId = useWorkspaceStore((s) => s.activeTabId);
 
-  const sql = activeTab?.sql ?? "";
-  const status = activeTab?.status ?? "idle";
-  const error = activeTab?.error ?? null;
-  const result = activeTab?.result ?? null;
-  const explainPlan = activeTab?.explainPlan ?? null;
+  const [panelTab, setPanelTab] = useState<ResultPanelTab>("results");
+  const [historySearch, setHistorySearch] = useState("");
+
+  const tabData = activeTab?.data;
+  const sql = tabData?.sql ?? "";
+  const status = tabData?.status ?? "idle";
+  const error = tabData?.error ?? null;
+  const result = tabData?.result ?? null;
+  const explainPlan = tabData?.explainPlan ?? null;
+  const sort = tabData?.sort ?? { column: null, direction: null };
 
   const [exportOpen, setExportOpen] = useState(false);
   const [runConfigOpen, setRunConfigOpen] = useState(false);
@@ -69,24 +69,20 @@ export function QueryPage() {
   const cancelMutation = useCancelQuery();
   const historyQuery = useQueryHistory(activeConnectionId ?? "");
 
-  const restoredRef = useRef<string | null>(null);
+  const initializedRef = useRef<string | null>(null);
   useEffect(() => {
     if (!activeConnectionId) return;
-    if (restoredRef.current === activeConnectionId) return;
-    restoredRef.current = activeConnectionId;
-    const persisted = loadTabs(activeConnectionId);
-    if (persisted && persisted.tabs.length > 0) {
-      useQueryModuleStore.getState().restoreTabs(persisted.tabs, persisted.activeTabId);
-      migrateQueryTabsToWorkspace(persisted.tabs, persisted.activeTabId, activeConnectionId);
-    }
-  }, [activeConnectionId]);
+    if (initializedRef.current === activeConnectionId) return;
+    initializedRef.current = activeConnectionId;
 
-  useEffect(() => {
-    if (!activeConnectionId) return;
-    const unsub = useQueryModuleStore.subscribe((state) => {
-      debouncedSaveTabs(activeConnectionId, state.tabs, state.activeTabId);
-    });
-    return unsub;
+    const { tabs } = useWorkspaceStore.getState();
+    const hasTabsForConnection = tabs.some(
+      (t) => t.kind === "query" && t.connectionId === activeConnectionId,
+    );
+    if (!hasTabsForConnection) {
+      const tab = createQueryTab(activeConnectionId);
+      useWorkspaceStore.getState().openTab(tab);
+    }
   }, [activeConnectionId]);
 
   const handleExecute = useCallback(() => {
@@ -109,78 +105,83 @@ export function QueryPage() {
   }, [activeConnectionId, sql, explainMutation]);
 
   const handleClear = useCallback(() => {
-    setSql("");
-  }, [setSql]);
+    if (activeTabId) setTabSql(activeTabId, "");
+  }, [activeTabId]);
 
   const handleFormat = useCallback(() => {
-    if (!sql.trim()) return;
+    if (!activeTabId || !sql.trim()) return;
     try {
       const formatted = formatSql(sql, { language: "postgresql" });
-      setSql(formatted);
+      setTabSql(activeTabId, formatted);
     } catch {
       // leave SQL unchanged on format error
     }
-  }, [sql, setSql]);
+  }, [activeTabId, sql, setTabSql]);
 
   const handleInsertTemplate = useCallback(
     (templateSql: string) => {
-      setSql(sql.trim() ? `${sql}\n${templateSql}` : templateSql);
+      if (!activeTabId) return;
+      setTabSql(activeTabId, sql.trim() ? `${sql}\n${templateSql}` : templateSql);
     },
-    [sql, setSql],
+    [activeTabId, sql, setTabSql],
   );
 
   const handleSort = useCallback(
     (column: string) => {
+      if (!activeTabId) return;
       if (sort.column === column) {
         if (sort.direction === "asc") {
-          setSort({ column, direction: "desc" });
+          setTabSort(activeTabId, { column, direction: "desc" });
         } else if (sort.direction === "desc") {
-          setSort({ column: null, direction: null });
+          setTabSort(activeTabId, { column: null, direction: null });
         } else {
-          setSort({ column, direction: "asc" });
+          setTabSort(activeTabId, { column, direction: "asc" });
         }
       } else {
-        setSort({ column, direction: "asc" });
+        setTabSort(activeTabId, { column, direction: "asc" });
       }
     },
-    [sort, setSort],
+    [activeTabId, sort, setTabSort],
   );
 
   const handleSelectHistoryEntry = useCallback(
     (entrySql: string) => {
-      setSql(entrySql);
+      if (!activeTabId) return;
+      setTabSql(activeTabId, entrySql);
       setPanelTab("results");
     },
-    [setSql, setPanelTab],
+    [activeTabId, setTabSql],
   );
 
   const handleSelectSavedQuery = useCallback(
     (querySql: string) => {
-      setSql(querySql);
+      if (!activeTabId) return;
+      setTabSql(activeTabId, querySql);
     },
-    [setSql],
+    [activeTabId, setTabSql],
   );
 
   const handleSelectRunConfig = useCallback(
     (config: RunConfig) => {
-      setSql(config.sql);
+      if (!activeTabId) return;
+      setTabSql(activeTabId, config.sql);
     },
-    [setSql],
+    [activeTabId, setTabSql],
   );
 
   const handleFileImport = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
-      if (!file) return;
+      if (!file || !activeTabId) return;
       const reader = new FileReader();
       reader.onload = (ev) => {
         const text = ev.target?.result;
-        if (typeof text === "string") setSql(text);
+        if (typeof text === "string") setTabSql(activeTabId, text);
       };
       reader.readAsText(file);
       e.target.value = "";
     },
-    [setSql],
+    [activeTabId, setTabSql],
   );
 
   useEffect(() => {
@@ -251,7 +252,7 @@ export function QueryPage() {
         }}
       >
         <div className="border-b border-border p-2">
-          <SqlFileOperations sql={sql} onSqlLoaded={setSql} />
+          <SqlFileOperations sql={sql} onSqlLoaded={(s) => activeTabId && setTabSql(activeTabId, s)} />
         </div>
         <div className="flex-1 overflow-auto">
           <SavedQueriesTree
@@ -290,12 +291,12 @@ export function QueryPage() {
 
       <WorkspaceTabBar />
 
-      <WorkspaceTabContent>
       <ResizableDock>
         <div className="h-full">
           <QueryEditor
             value={sql}
-            onChange={setSql}
+            onChange={(v) => activeTabId && setTabSql(activeTabId, v)}
+            path={activeTabId ? `dbpro://query/${activeTabId}.sql` : undefined}
           />
         </div>
 
@@ -377,7 +378,6 @@ export function QueryPage() {
           </div>
         </div>
       </ResizableDock>
-      </WorkspaceTabContent>
       </div>
 
       <ExportDialog
