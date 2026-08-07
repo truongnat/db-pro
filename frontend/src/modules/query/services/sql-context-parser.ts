@@ -95,14 +95,24 @@ function findCurrentClause(stmt: string): string {
   return bestClause;
 }
 
-function extractTableRefs(stmt: string): AliasInfo[] {
+export function extractTableRefs(stmt: string): AliasInfo[] {
   const refs: AliasInfo[] = [];
-  const pattern = /(?:FROM|JOIN)\s+([\w.]+)(?:\s+(?:AS\s+)?(\w+))?/gi;
+  const pattern = /(?:FROM|JOIN)\s+(\w+)/gi;
   let match: RegExpExecArray | null;
 
   while ((match = pattern.exec(stmt)) !== null) {
-    const fullName = match[1];
-    const alias = match[2];
+    let fullName = match[1];
+
+    // Check for schema-qualified name: if a dot follows, extend the name
+    const afterPos = match.index + match[0].length;
+    const afterText = stmt.slice(afterPos).trimStart();
+    if (afterText.startsWith(".")) {
+      const dotRest = afterText.slice(1).trimStart();
+      const nameMatch = dotRest.match(/^(\w+)/);
+      if (nameMatch) {
+        fullName = `${fullName}.${nameMatch[1]}`;
+      }
+    }
 
     let schema = "public";
     let table = fullName;
@@ -112,10 +122,29 @@ function extractTableRefs(stmt: string): AliasInfo[] {
       table = parts[1];
     }
 
-    const refAlias = alias && !CLAUSE_KEYWORDS.some((k) => k.split(" ").pop() === alias.toUpperCase())
-      ? alias
-      : table;
+    // Check for alias: next word after the table ref (if it's not a SQL keyword)
+    let searchFrom = afterPos;
+    if (afterText.startsWith(".")) {
+      const dotRest = afterText.slice(1).trimStart();
+      const nameMatch = dotRest.match(/^(\w+)/);
+      if (nameMatch) {
+        searchFrom = afterPos + (stmt.slice(afterPos).indexOf(nameMatch[1]) + nameMatch[1].length);
+      }
+    }
+    const rest = stmt.slice(searchFrom).trimStart();
+    const aliasMatch = rest.match(/^(?:AS\s+)?(\w+)/i);
+    let alias: string | undefined;
+    if (aliasMatch) {
+      const candidate = aliasMatch[1];
+      const isKeyword = CLAUSE_KEYWORDS.some(
+        (k) => k.split(" ").pop() === candidate.toUpperCase(),
+      );
+      if (!isKeyword) {
+        alias = candidate;
+      }
+    }
 
+    const refAlias = alias ?? table;
     refs.push({ alias: refAlias, schema, table });
   }
 

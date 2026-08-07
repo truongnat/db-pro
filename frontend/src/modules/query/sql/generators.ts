@@ -68,3 +68,12 @@ export function generateDeleteSQL(
     .join(" AND ");
   return `DELETE FROM ${q}\nWHERE ${whereClauses || "1 = 1 /* no PK */"};`;
 }
+
+export function generateCountSQL(
+  dialect: SqlDialect,
+  schema: string | null,
+  table: string,
+): string {
+  const q = dialect.qualify(schema, table);
+  return `SELECT COUNT(*) AS cnt\nFROM ${q};`;
+}

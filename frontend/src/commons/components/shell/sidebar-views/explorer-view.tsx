@@ -2,6 +2,7 @@ import {
   ChevronDown,
   ChevronRight,
   Columns3,
+  Copy,
   Folder,
   FolderOpen,
   Plus,
@@ -12,6 +13,7 @@ import { useTranslation } from "@/commons/locales/useTranslation";
 import { useConnectionStore } from "@/commons/stores/connection.store";
 import { useExplorerStore } from "@/commons/stores/explorer.store";
 import { useRecentStore } from "@/commons/stores/recent.store";
+import { useWorkspaceStore } from "@/commons/stores/workspace.store";
 import { useSidebarTabOps } from "@/commons/hooks/use-sidebar-tab-ops";
 import { StatusDot } from "@/commons/components/shell/status-dot";
 import { Button } from "@/components/ui/button";
@@ -19,6 +21,10 @@ import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuSub,
+  ContextMenuSubContent,
+  ContextMenuSubTrigger,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -26,9 +32,27 @@ import { cn } from "@/lib/utils";
 import { useConnectionList, useConnect } from "@/modules/connection/queries/connection.queries";
 import { useConnectionModuleStore } from "@/modules/connection/state/connection.store";
 import { useIntrospect } from "@/modules/schema/queries/schema.queries";
+import { createQueryTabForObject } from "@/modules/query/controllers/query-workspace.controller";
+import { getSqlDialect } from "@/modules/query/sql/dialect";
+import { generateCountSQL } from "@/modules/query/sql/generators";
+import type { Connection, DriverType } from "@/modules/connection/types/connection.types";
 
 function statusOf(statuses: Record<string, string>, id: string) {
   return statuses[id] ?? "disconnected";
+}
+
+function openNewQueryWithSql(connectionId: string, schema: string, objectName: string, sql: string) {
+  const tab = createQueryTabForObject(connectionId, schema, { sql });
+  useWorkspaceStore.getState().openTab(tab);
+}
+
+function copyToClipboard(text: string) {
+  navigator.clipboard.writeText(text);
+}
+
+function getDriverForConnection(connectionId: string): DriverType {
+  const connections = useConnectionStore.getState().connections as Connection[];
+  return connections.find((c) => c.id === connectionId)?.driver ?? "postgres";
 }
 
 interface SchemaObjectGroupProps {
@@ -199,7 +223,12 @@ export function ExplorerView() {
                                 expandedNodes={expandedNodes}
                                 onToggle={toggleNode}
                               >
-                                {tables.map((table) => (
+                                {tables.map((table) => {
+                                  const qualifiedName = `${schema.name}.${table.name}`;
+                                  const driver = getDriverForConnection(conn.id);
+                                  const dialect = getSqlDialect(driver);
+                                  const countSql = generateCountSQL(dialect, schema.name, table.name);
+                                  return (
                                   <ContextMenu key={table.name}>
                                     <ContextMenuTrigger asChild>
                                       <button
@@ -214,12 +243,49 @@ export function ExplorerView() {
                                       </button>
                                     </ContextMenuTrigger>
                                     <ContextMenuContent>
+                                      <ContextMenuItem onClick={() => openSchemaPreview(conn.id, schema.name, table.name, "table")}>
+                                        {t("shell.sidebar.open")}
+                                      </ContextMenuItem>
                                       <ContextMenuItem onClick={() => openTableData(conn.id, schema.name, table.name)}>
                                         {t("shell.sidebar.openData")}
                                       </ContextMenuItem>
+                                      <ContextMenuSeparator />
+                                      <ContextMenuSub>
+                                        <ContextMenuSubTrigger>
+                                          <Plus className="mr-1.5 h-3 w-3" />
+                                          {t("shell.sidebar.newQuery")}
+                                        </ContextMenuSubTrigger>
+                                        <ContextMenuSubContent>
+                                          <ContextMenuItem onClick={() => openNewQueryWithSql(conn.id, schema.name, table.name, dialect.generateSelect({ schema: schema.name, table: table.name, limit: 100 }))}>
+                                            SELECT
+                                          </ContextMenuItem>
+                                          <ContextMenuItem onClick={() => openNewQueryWithSql(conn.id, schema.name, table.name, countSql)}>
+                                            COUNT
+                                          </ContextMenuItem>
+                                          <ContextMenuItem onClick={() => openNewQueryWithSql(conn.id, schema.name, table.name, `INSERT INTO ${dialect.qualify(schema.name, table.name)} ()\nVALUES ();`)}>
+                                            INSERT
+                                          </ContextMenuItem>
+                                          <ContextMenuItem onClick={() => openNewQueryWithSql(conn.id, schema.name, table.name, `UPDATE ${dialect.qualify(schema.name, table.name)}\nSET \nWHERE ;`)}>
+                                            UPDATE
+                                          </ContextMenuItem>
+                                          <ContextMenuItem onClick={() => openNewQueryWithSql(conn.id, schema.name, table.name, `DELETE FROM ${dialect.qualify(schema.name, table.name)}\nWHERE ;`)}>
+                                            DELETE
+                                          </ContextMenuItem>
+                                        </ContextMenuSubContent>
+                                      </ContextMenuSub>
+                                      <ContextMenuSeparator />
+                                      <ContextMenuItem onClick={() => copyToClipboard(table.name)}>
+                                        <Copy className="mr-1.5 h-3 w-3" />
+                                        {t("shell.sidebar.copyName")}
+                                      </ContextMenuItem>
+                                      <ContextMenuItem onClick={() => copyToClipboard(qualifiedName)}>
+                                        <Copy className="mr-1.5 h-3 w-3" />
+                                        {t("shell.sidebar.copyQualifiedName")}
+                                      </ContextMenuItem>
                                     </ContextMenuContent>
                                   </ContextMenu>
-                                ))}
+                                  );
+                                })}
                               </SchemaObjectGroup>
                             )}
                             {views.length > 0 && (

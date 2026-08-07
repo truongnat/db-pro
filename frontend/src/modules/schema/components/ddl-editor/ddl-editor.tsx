@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 
+import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -14,6 +15,7 @@ import {
   type ColumnDef,
   type DdlOperation,
 } from "../../services/ddl-builder";
+import { checkOperationSupported } from "../../services/ddl-capabilities";
 
 import { ColumnDefRow } from "./column-def-row";
 import { DdlPreview } from "./ddl-preview";
@@ -66,9 +68,17 @@ export function DdlEditor({ connectionId, schema, table }: DdlEditorProps) {
     [columnName, newName, selectSql, indexName, indexColumns, unique],
   );
 
+  const dialect = getDialectForConnection(connectionId);
+
   const previewSql = useMemo(
-    () => generateDdlPreview(operation, schema, table, columns, extra, getDialectForConnection(connectionId)),
+    () => generateDdlPreview(operation, schema, table, columns, extra, dialect),
     [operation, schema, table, columns, extra, connectionId],
+  );
+
+  /* Capability check for current operation */
+  const capabilityCheck = useMemo(
+    () => checkOperationSupported(dialect.driver, operation),
+    [dialect.driver, operation],
   );
 
   const handleColumnChange = useCallback(
@@ -264,6 +274,16 @@ export function DdlEditor({ connectionId, schema, table }: DdlEditorProps) {
         <Label className="text-sm font-medium text-foreground">
           {t("schema.ddlPreview")}
         </Label>
+        {!capabilityCheck.supported && (
+          <Alert className="mb-2 border-warning text-warning">
+            {capabilityCheck.reason}
+            {capabilityCheck.requiresRebuild && (
+              <span className="mt-1 block text-xs opacity-80">
+                {t("schema.ddlRebuildWarning")}
+              </span>
+            )}
+          </Alert>
+        )}
         <DdlPreview sql={previewSql} />
       </div>
 

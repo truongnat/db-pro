@@ -1,5 +1,6 @@
 export type QueryAction =
   | "execute"
+  | "executeCurrent"
   | "explain"
   | "format"
   | "clear"
