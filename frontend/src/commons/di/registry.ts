@@ -10,10 +10,12 @@ export const SERVICE_NAMES = {
 
 export type ServiceName = (typeof SERVICE_NAMES)[keyof typeof SERVICE_NAMES];
 
+import type { Connection, ConnectionConfig } from "@/modules/connection/types/connection.types";
+
 export interface IConnectionService {
   list(): Promise<unknown[]>;
   get(id: string): Promise<unknown | null>;
-  create(config: unknown, password: string): Promise<unknown>;
+  create(config: ConnectionConfig, password: string): Promise<Connection>;
   update(id: string, config: unknown, password?: string): Promise<void>;
   delete(id: string): Promise<void>;
   test(config: unknown, password: string, connectionId?: string): Promise<void>;

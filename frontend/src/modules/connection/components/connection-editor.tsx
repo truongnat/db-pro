@@ -38,14 +38,18 @@ const DEFAULT_FORM_DATA: ConnectionFormData = {
 interface ConnectionEditorProps {
   initialData?: Partial<ConnectionFormData>;
   isEdit?: boolean;
-  onSubmit: (data: ConnectionFormData, password: string) => void;
+  onSubmit: (data: ConnectionFormData, password: string, intent: SaveIntent) => void;
   onTest?: (data: ConnectionFormData, password: string) => void;
   onTestSshTunnel?: (config: SshTunnelConfig) => void;
   onCancel: () => void;
   isSubmitting?: boolean;
   isTesting?: boolean;
+  isConnecting?: boolean;
   testResult?: "success" | "error" | null;
+  connectError?: string | null;
 }
+
+export type SaveIntent = "save" | "save-and-connect";
 
 export function ConnectionEditor({
   initialData,
@@ -56,7 +60,9 @@ export function ConnectionEditor({
   onCancel,
   isSubmitting = false,
   isTesting = false,
+  isConnecting = false,
   testResult = null,
+  connectError = null,
 }: ConnectionEditorProps) {
   const { t } = useTranslation();
   const [formData, setFormData] = useState<ConnectionFormData>({
@@ -81,7 +87,9 @@ export function ConnectionEditor({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit(formData, password);
+    const submitter = (e.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null;
+    const intent: SaveIntent = submitter?.name === "save-and-connect" ? "save-and-connect" : "save";
+    onSubmit(formData, password, intent);
   };
 
   const handleTest = () => {
@@ -301,6 +309,14 @@ export function ConnectionEditor({
         </div>
       )}
 
+      {connectError && (
+        <div className="flex items-center gap-2 rounded-lg border border-destructive/50 bg-destructive/5 px-4 py-3">
+          <Badge variant="error" dot>
+            {connectError}
+          </Badge>
+        </div>
+      )}
+
       <div className="flex justify-end gap-2 border-t border-border pt-4">
         <Button type="button" variant="outline" onClick={onCancel}>
           {t("common.actions.cancel")}
@@ -315,8 +331,16 @@ export function ConnectionEditor({
             {isTesting ? t("common.states.loading") : t("connection.test")}
           </Button>
         )}
-        <Button type="submit" loading={isSubmitting}>
+        <Button type="submit" name="save" loading={isSubmitting}>
           {isSubmitting ? t("common.states.loading") : t("common.actions.save")}
+        </Button>
+        <Button
+          type="submit"
+          name="save-and-connect"
+          variant="outline"
+          loading={isConnecting}
+        >
+          {isConnecting ? t("common.states.loading") : t("connection.saveAndConnect")}
         </Button>
       </div>
     </form>

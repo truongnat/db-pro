@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { container } from "@/app/app.module";
 import { SERVICE_NAMES, type IConnectionService } from "@/commons/di/registry";
 import { useTranslation } from "@/commons/locales/useTranslation";
 import { useSnackbar } from "@/app/providers/snackbar.provider";
 import { useRecentStore } from "@/commons/stores/recent.store";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -12,7 +13,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-import { ConnectionEditor } from "./connection-editor";
+import { ConnectionEditor, type SaveIntent } from "./connection-editor";
 import {
   useConnect,
   useCreateConnection,
@@ -20,6 +21,8 @@ import {
   useUpdateConnection,
 } from "../queries/connection.queries";
 import type { Connection, ConnectionFormData } from "../types/connection.types";
+
+type LoadState = "idle" | "loading" | "ready" | "not-found" | "error";
 
 export function ConnectionDialog() {
   const { t } = useTranslation();
@@ -30,42 +33,69 @@ export function ConnectionDialog() {
   const closeConnectionDialog = useRecentStore((s) => s.closeConnectionDialog);
 
   const [connection, setConnection] = useState<Connection | null>(null);
-  const [loadingConnection, setLoadingConnection] = useState(false);
+  const [loadState, setLoadState] = useState<LoadState>("idle");
+  const [connectError, setConnectError] = useState<string | null>(null);
 
   const createMutation = useCreateConnection();
   const updateMutation = useUpdateConnection();
   const testMutation = useTestConnection();
   const connectMutation = useConnect();
 
-  useEffect(() => {
-    if (!open || !editConnectionId) {
-      setConnection(null);
-      return;
-    }
-    setLoadingConnection(true);
+  const loadConnection = useCallback(async (id: string) => {
+    setLoadState("loading");
     const service = container.resolve<IConnectionService>(SERVICE_NAMES.CONNECTION_SERVICE);
-    service
-      .get(editConnectionId)
-      .then((conn: unknown) => setConnection(conn as Connection | null))
-      .finally(() => setLoadingConnection(false));
-  }, [open, editConnectionId]);
+    try {
+      const conn = (await service.get(id)) as Connection | null;
+      if (!conn) {
+        setLoadState("not-found");
+        return;
+      }
+      setConnection(conn);
+      setLoadState("ready");
+    } catch {
+      setLoadState("error");
+    }
+  }, []);
 
   useEffect(() => {
+    setConnectError(null);
     if (!open) {
       setConnection(null);
-      setLoadingConnection(false);
+      setLoadState("idle");
+      return;
     }
-  }, [open]);
+    if (!editConnectionId) {
+      setConnection(null);
+      setLoadState("ready");
+      return;
+    }
+    loadConnection(editConnectionId);
+  }, [open, editConnectionId, loadConnection]);
 
-  const connectAfterSave = (connectionId: string) => {
+  const persistAndConnect = (connectionId: string, intent: SaveIntent) => {
+    if (intent === "save") {
+      closeConnectionDialog();
+      return;
+    }
+
+    setConnectError(null);
     connectMutation.mutate(connectionId, {
-      onError: (err: unknown) =>
-        snackbar.error((err as { userMessage?: string }).userMessage ?? t("connection.connectFailed")),
+      onSuccess: () => {
+        closeConnectionDialog();
+      },
+      onError: (err: unknown) => {
+        setConnectError(
+          (err as { userMessage?: string }).userMessage ?? t("connection.connectFailed"),
+        );
+      },
     });
   };
 
-  const handleSubmit = (data: ConnectionFormData, password: string) => {
+  const handleSubmit = (data: ConnectionFormData, password: string, intent: SaveIntent) => {
     const config = { ...data, sshTunnel: data.sshTunnel };
+
+    const onPersistSuccess = (connectionId: string) =>
+      persistAndConnect(connectionId, intent);
 
     if (editConnectionId) {
       updateMutation.mutate(
@@ -73,8 +103,7 @@ export function ConnectionDialog() {
         {
           onSuccess: () => {
             snackbar.success(t("connection.updateSuccess"));
-            closeConnectionDialog();
-            connectAfterSave(editConnectionId);
+            onPersistSuccess(editConnectionId);
           },
           onError: (err: unknown) =>
             snackbar.error((err as { userMessage?: string }).userMessage ?? t("connection.updateFailed")),
@@ -84,11 +113,7 @@ export function ConnectionDialog() {
       createMutation.mutate(
         { config, password },
         {
-          onSuccess: (created) => {
-            snackbar.success(t("connection.createSuccess"));
-            closeConnectionDialog();
-            connectAfterSave((created as Connection).id);
-          },
+          onSuccess: (created) => onPersistSuccess(created.id),
           onError: (err: unknown) =>
             snackbar.error((err as { userMessage?: string }).userMessage ?? t("connection.createFailed")),
         },
@@ -110,21 +135,47 @@ export function ConnectionDialog() {
     );
   };
 
-  const title = editConnectionId ? t("connection.edit") : t("connection.new");
+  const isSubmitting = createMutation.isPending || updateMutation.isPending;
+  const isConnecting = connectMutation.isPending;
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && closeConnectionDialog()}>
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
+          <DialogTitle>{editConnectionId ? t("connection.edit") : t("connection.new")}</DialogTitle>
         </DialogHeader>
 
         <div className="max-h-[70vh] overflow-y-auto">
-          {loadingConnection ? (
+          {loadState === "loading" && (
             <div className="flex items-center justify-center py-8">
               <p className="text-muted-foreground">{t("common.states.loading")}</p>
             </div>
-          ) : (
+          )}
+
+          {loadState === "error" && (
+            <div className="flex flex-col items-center gap-3 py-8">
+              <p className="text-destructive">{t("connection.loadFailed")}</p>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => loadConnection(editConnectionId!)}>
+                  {t("common.actions.retry")}
+                </Button>
+                <Button variant="outline" onClick={closeConnectionDialog}>
+                  {t("common.actions.close")}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {loadState === "not-found" && (
+            <div className="flex flex-col items-center gap-3 py-8">
+              <p className="text-muted-foreground">{t("connection.notFound")}</p>
+              <Button variant="outline" onClick={closeConnectionDialog}>
+                {t("common.actions.close")}
+              </Button>
+            </div>
+          )}
+
+          {loadState === "ready" && (
             <ConnectionEditor
               isEdit={!!editConnectionId}
               initialData={
@@ -146,11 +197,13 @@ export function ConnectionDialog() {
               onSubmit={handleSubmit}
               onTest={handleTest}
               onCancel={closeConnectionDialog}
-              isSubmitting={createMutation.isPending || updateMutation.isPending}
+              isSubmitting={isSubmitting || isConnecting}
               isTesting={testMutation.isPending}
+              isConnecting={isConnecting}
               testResult={
                 testMutation.isSuccess ? "success" : testMutation.isError ? "error" : null
               }
+              connectError={connectError}
             />
           )}
         </div>
