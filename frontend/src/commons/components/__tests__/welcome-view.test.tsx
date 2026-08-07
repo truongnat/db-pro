@@ -8,6 +8,7 @@ import i18n from "i18next";
 import { WelcomeView } from "../welcome-view";
 import { useRecentStore } from "@/commons/stores/recent.store";
 import * as connectionQueries from "@/modules/connection/queries/connection.queries";
+import * as snackbarProvider from "@/app/providers/snackbar.provider";
 
 vi.mock("@/modules/connection/queries/connection.queries", () => ({
   useConnectionList: vi.fn(),
@@ -59,10 +60,12 @@ i18n.use(initReactI18next).init({
       translation: {
         common: {
           states: { loading: "Loading..." },
-          actions: { delete: "Delete" },
+          actions: { delete: "Delete", cancel: "Cancel" },
         },
         connection: {
           confirmDelete: "Are you sure?",
+          confirmDeleteDescription: "This cannot be undone.",
+          connectFailed: "Failed to connect",
         },
         welcome: {
           title: "DB Pro",
@@ -204,5 +207,59 @@ describe("WelcomeView", () => {
 
     renderWithProviders(<WelcomeView />);
     expect(screen.getByText("Loading...")).toBeInTheDocument();
+  });
+
+  it("prunes stale recent entries when connections data loads", () => {
+    useRecentStore.setState({
+      recentConnections: [
+        { connectionId: "conn-1", lastConnectedAt: "2026-01-01T00:00:00Z", connectCount: 1 },
+        { connectionId: "deleted-conn", lastConnectedAt: "2026-01-01T00:00:00Z", connectCount: 3 },
+      ],
+    });
+
+    vi.mocked(connectionQueries.useConnectionList).mockReturnValue({
+      data: mockConnections,
+      isLoading: false,
+    } as ReturnType<typeof connectionQueries.useConnectionList>);
+
+    renderWithProviders(<WelcomeView />);
+
+    const remaining = useRecentStore.getState().recentConnections;
+    expect(remaining).toHaveLength(1);
+    expect(remaining[0].connectionId).toBe("conn-1");
+  });
+
+  it("shows error snackbar when connection fails", () => {
+    const mockError = vi.fn();
+    vi.mocked(snackbarProvider.useSnackbar).mockReturnValueOnce({
+      success: vi.fn(),
+      error: mockError,
+      warning: vi.fn(),
+      info: vi.fn(),
+    });
+
+    vi.mocked(connectionQueries.useConnect).mockReturnValue({
+      mutate: vi.fn((_id: string, opts?: { onError?: (err: unknown) => void }) => {
+        opts?.onError?.({ userMessage: "Connection refused" });
+      }),
+    } as unknown as ReturnType<typeof connectionQueries.useConnect>);
+
+    vi.mocked(connectionQueries.useConnectionList).mockReturnValue({
+      data: mockConnections,
+      isLoading: false,
+    } as ReturnType<typeof connectionQueries.useConnectionList>);
+
+    useRecentStore.setState({
+      recentConnections: [
+        { connectionId: "conn-1", lastConnectedAt: "2026-01-01T00:00:00Z", connectCount: 1 },
+      ],
+    });
+
+    renderWithProviders(<WelcomeView />);
+    const connectButton = screen.getByText("Local PG").closest("button");
+    expect(connectButton).toBeTruthy();
+    connectButton!.click();
+
+    expect(mockError).toHaveBeenCalledWith("Connection refused");
   });
 });
