@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { format as formatSql } from "sql-formatter";
 
+import { ResizableDock } from "@/commons/components/resizable-dock";
 import { WorkspaceTabBar } from "@/commons/components/workspace-tab-bar";
 import { WorkspaceTabContent } from "@/commons/components/workspace-tab-content";
 import { migrateQueryTabsToWorkspace } from "@/commons/stores/workspace-bridge";
@@ -249,91 +250,93 @@ export function QueryPage() {
       <WorkspaceTabBar />
 
       <WorkspaceTabContent>
-      <div className="h-[35%] min-h-[120px] border-b">
-        <QueryEditor
-          value={sql}
-          onChange={setSql}
-          onExecute={handleExecute}
-        />
-      </div>
-
-      <div className="flex min-h-0 flex-1 flex-col">
-        <div className="flex border-b border-border">
-          {tabs.map((tab) => (
-            <Button
-              key={tab.id}
-              type="button"
-              variant="ghost"
-              className={`px-4 py-2 text-sm transition-colors ${
-                panelTab === tab.id ? "text-foreground" : "text-muted-foreground"
-              } ${
-                panelTab === tab.id
-                  ? "border-b-2 border-primary"
-                  : "border-b-2 border-transparent"
-              }`}
-              onClick={() => setPanelTab(tab.id)}
-            >
-              {tab.label}
-            </Button>
-          ))}
+      <ResizableDock>
+        <div className="h-full">
+          <QueryEditor
+            value={sql}
+            onChange={setSql}
+            onExecute={handleExecute}
+          />
         </div>
 
-        <div className="min-h-0 flex-1">
-          {status === "error" && error && panelTab === "results" && (
-            <div className="m-3 rounded-sm bg-destructive px-3 py-2 text-sm text-white">
-              {error}
-            </div>
-          )}
+        <div className="flex min-h-0 flex-1 flex-col">
+          <div className="flex border-b border-border">
+            {tabs.map((tab) => (
+              <Button
+                key={tab.id}
+                type="button"
+                variant="ghost"
+                className={`px-4 py-2 text-sm transition-colors ${
+                  panelTab === tab.id ? "text-foreground" : "text-muted-foreground"
+                } ${
+                  panelTab === tab.id
+                    ? "border-b-2 border-primary"
+                    : "border-b-2 border-transparent"
+                }`}
+                onClick={() => setPanelTab(tab.id)}
+              >
+                {tab.label}
+              </Button>
+            ))}
+          </div>
 
-          {panelTab === "results" && result && (
-            <>
-              <ResultTabs />
-              <ResultGrid
-              columns={result.columns}
-              rows={sortedRows as Row[]}
-              sort={sort}
-              onSort={handleSort}
-              durationMs={result.durationMs}
-              rowCount={result.rowCount}
-            />
-            </>
-          )}
+          <div className="min-h-0 flex-1">
+            {status === "error" && error && panelTab === "results" && (
+              <div className="m-3 rounded-sm bg-destructive px-3 py-2 text-sm text-white">
+                {error}
+              </div>
+            )}
 
-          {panelTab === "results" && !result && status !== "error" && (
-            <div className="flex items-center justify-center py-12">
-              <p className="text-muted-foreground">
-                {t("query.enterSql")}
-              </p>
-            </div>
-          )}
+            {panelTab === "results" && result && (
+              <>
+                <ResultTabs />
+                <ResultGrid
+                columns={result.columns}
+                rows={sortedRows as Row[]}
+                sort={sort}
+                onSort={handleSort}
+                durationMs={result.durationMs}
+                rowCount={result.rowCount}
+              />
+              </>
+            )}
 
-          {panelTab === "explain" && explainPlan && (
-            <ExplainPlanView plan={explainPlan} />
-          )}
+            {panelTab === "results" && !result && status !== "error" && (
+              <div className="flex items-center justify-center py-12">
+                <p className="text-muted-foreground">
+                  {t("query.enterSql")}
+                </p>
+              </div>
+            )}
 
-          {panelTab === "explain" && !explainPlan && (
-            <div className="flex items-center justify-center py-12">
-              <p className="text-muted-foreground">
-                {t("query.noResults")}
-              </p>
-            </div>
-          )}
+            {panelTab === "explain" && explainPlan && (
+              <ExplainPlanView plan={explainPlan} />
+            )}
 
-          {panelTab === "history" && (
-            <QueryHistoryPanel
-              entries={historyQuery.data ?? []}
-              search={historySearch}
-              onSearchChange={setHistorySearch}
-              onSelectEntry={handleSelectHistoryEntry}
-              isLoading={historyQuery.isLoading}
-            />
-          )}
+            {panelTab === "explain" && !explainPlan && (
+              <div className="flex items-center justify-center py-12">
+                <p className="text-muted-foreground">
+                  {t("query.noResults")}
+                </p>
+              </div>
+            )}
 
-          {panelTab === "local-history" && (
-            <LocalHistoryPanel onSelectEntry={handleSelectHistoryEntry} />
-          )}
+            {panelTab === "history" && (
+              <QueryHistoryPanel
+                entries={historyQuery.data ?? []}
+                search={historySearch}
+                onSearchChange={setHistorySearch}
+                onSelectEntry={handleSelectHistoryEntry}
+                isLoading={historyQuery.isLoading}
+              />
+            )}
+
+            {panelTab === "local-history" && (
+              <LocalHistoryPanel onSelectEntry={handleSelectHistoryEntry} />
+            )}
+          </div>
         </div>
-      </div>
+      </ResizableDock>
       </WorkspaceTabContent>
       </div>
 

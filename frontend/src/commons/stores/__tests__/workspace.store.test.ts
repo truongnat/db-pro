@@ -191,6 +191,74 @@ describe("WorkspaceStore", () => {
       expect(state.tabs).toHaveLength(1);
       expect(state.tabs[0].id).toBe(tab1.id);
     });
+
+    it("closeOthers pushes evicted tabs to recentlyClosed", () => {
+      const tab1 = createQueryTab("conn-1", "Q1");
+      const tab2 = createQueryTab("conn-1", "Q2");
+      const tab3 = createQueryTab("conn-1", "Q3");
+      const { openTab, closeOthers } = useWorkspaceStore.getState();
+
+      openTab(tab1);
+      openTab(tab2);
+      openTab(tab3);
+      closeOthers(tab3.id);
+
+      const state = useWorkspaceStore.getState();
+      expect(state.recentlyClosed).toHaveLength(2);
+      expect(state.recentlyClosed.map((t) => t.id)).toContain(tab1.id);
+      expect(state.recentlyClosed.map((t) => t.id)).toContain(tab2.id);
+    });
+
+    it("closeRight pushes evicted tabs to recentlyClosed", () => {
+      const tab1 = createQueryTab("conn-1", "Q1");
+      const tab2 = createQueryTab("conn-1", "Q2");
+      const tab3 = createQueryTab("conn-1", "Q3");
+      const { openTab, closeRight } = useWorkspaceStore.getState();
+
+      openTab(tab1);
+      openTab(tab2);
+      openTab(tab3);
+      closeRight(tab1.id);
+
+      const state = useWorkspaceStore.getState();
+      expect(state.recentlyClosed).toHaveLength(2);
+      expect(state.recentlyClosed.map((t) => t.id)).toContain(tab2.id);
+      expect(state.recentlyClosed.map((t) => t.id)).toContain(tab3.id);
+    });
+  });
+
+  describe("closeTabs", () => {
+    it("batch closes multiple tabs and populates recentlyClosed", () => {
+      const tab1 = createQueryTab("conn-1", "Q1");
+      const tab2 = createQueryTab("conn-1", "Q2");
+      const tab3 = createQueryTab("conn-1", "Q3");
+      const { openTab, closeTabs } = useWorkspaceStore.getState();
+
+      openTab(tab1);
+      openTab(tab2);
+      openTab(tab3);
+      closeTabs([tab1.id, tab2.id]);
+
+      const state = useWorkspaceStore.getState();
+      expect(state.tabs).toHaveLength(1);
+      expect(state.tabs[0].id).toBe(tab3.id);
+      expect(state.recentlyClosed).toHaveLength(2);
+    });
+
+    it("skips pinned tabs in batch close", () => {
+      const tab1 = createQueryTab("conn-1", "Q1");
+      const tab2 = createQueryTab("conn-1", "Q2");
+      const { openTab, toggleTabPinned, closeTabs } = useWorkspaceStore.getState();
+
+      openTab(tab1);
+      openTab(tab2);
+      toggleTabPinned(tab1.id);
+      closeTabs([tab1.id, tab2.id]);
+
+      const state = useWorkspaceStore.getState();
+      expect(state.tabs).toHaveLength(1);
+      expect(state.tabs[0].id).toBe(tab1.id);
+    });
   });
 
   describe("updateTabData", () => {
@@ -285,6 +353,25 @@ describe("WorkspaceStore", () => {
       expect(state.tabs[0].id).toBe(tab2.id);
       expect(state.tabs[1].id).toBe(tab3.id);
       expect(state.tabs[2].id).toBe(tab1.id);
+    });
+
+    it("refuses to move tabs into or from the pinned range", () => {
+      const tab1 = createQueryTab("conn-1", "Q1");
+      const tab2 = createQueryTab("conn-1", "Q2");
+      const tab3 = createQueryTab("conn-1", "Q3");
+      const { openTab, toggleTabPinned, reorderTabs } = useWorkspaceStore.getState();
+
+      openTab(tab1);
+      openTab(tab2);
+      openTab(tab3);
+      toggleTabPinned(tab1.id);
+
+      reorderTabs(0, 2);
+
+      const state = useWorkspaceStore.getState();
+      expect(state.tabs[0].id).toBe(tab1.id);
+      expect(state.tabs[1].id).toBe(tab2.id);
+      expect(state.tabs[2].id).toBe(tab3.id);
     });
   });
 

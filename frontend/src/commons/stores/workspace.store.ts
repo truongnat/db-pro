@@ -12,6 +12,7 @@ interface WorkspaceState extends PersistedWorkspaceState {
   reopenLastClosed: () => void;
   closeOthers: (id: string) => void;
   closeRight: (id: string) => void;
+  closeTabs: (ids: string[]) => void;
   updateTabData: (id: string, updater: (data: QueryTabData) => QueryTabData) => void;
   setTabTitle: (id: string, title: string) => void;
   setTabDirty: (id: string, dirty: boolean) => void;
@@ -112,11 +113,17 @@ export const useWorkspaceStore = create<WorkspaceState>()(
 
       closeOthers: (id) =>
         set((state) => {
+          const evicted = state.tabs.filter((t) => t.id !== id && !t.pinned);
           const kept = state.tabs.filter((t) => t.id === id || t.pinned);
-          if (kept.length === state.tabs.length) return state;
+          if (evicted.length === 0) return state;
+          const recentlyClosed = [
+            ...evicted.reverse(),
+            ...state.recentlyClosed,
+          ].slice(0, MAX_RECENTLY_CLOSED);
           return {
             tabs: kept,
             activeTabId: findTabById(kept, id) ? id : kept[0]?.id ?? null,
+            recentlyClosed,
           };
         }),
 
@@ -124,10 +131,17 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         set((state) => {
           const idx = state.tabs.findIndex((t) => t.id === id);
           if (idx === -1) return state;
+          const evicted = state.tabs.filter((t, i) => i > idx && !t.pinned);
           const kept = state.tabs.filter((t, i) => i <= idx || t.pinned);
+          if (evicted.length === 0) return state;
+          const recentlyClosed = [
+            ...evicted.reverse(),
+            ...state.recentlyClosed,
+          ].slice(0, MAX_RECENTLY_CLOSED);
           return {
             tabs: kept,
             activeTabId: findTabById(kept, state.activeTabId ?? "") ? state.activeTabId : kept[kept.length - 1]?.id ?? null,
+            recentlyClosed,
           };
         }),
 
@@ -160,12 +174,36 @@ export const useWorkspaceStore = create<WorkspaceState>()(
 
       reorderTabs: (fromIndex, toIndex) =>
         set((state) => {
-          if (fromIndex < 0 || fromIndex >= state.tabs.length) return state;
-          if (toIndex < 0 || toIndex >= state.tabs.length) return state;
+          const pinnedCount = state.tabs.filter((t) => t.pinned).length;
+          if (fromIndex < pinnedCount || toIndex < pinnedCount) return state;
+          if (fromIndex >= state.tabs.length || toIndex >= state.tabs.length) return state;
           const newTabs = [...state.tabs];
           const [moved] = newTabs.splice(fromIndex, 1);
           newTabs.splice(toIndex, 0, moved);
           return { tabs: newTabs };
+        }),
+
+      closeTabs: (ids) =>
+        set((state) => {
+          const idSet = new Set(ids);
+          const evicted = state.tabs.filter((t) => idSet.has(t.id) && !t.pinned);
+          if (evicted.length === 0) return state;
+          const kept = state.tabs.filter((t) => !idSet.has(t.id) || t.pinned);
+          const recentlyClosed = [
+            ...evicted.reverse(),
+            ...state.recentlyClosed,
+          ].slice(0, MAX_RECENTLY_CLOSED);
+          let newActiveId = state.activeTabId;
+          if (state.activeTabId && idSet.has(state.activeTabId)) {
+            const closedIdx = state.tabs.findIndex((t) => t.id === state.activeTabId);
+            const nextIdx = Math.min(closedIdx, kept.length - 1);
+            newActiveId = kept[nextIdx]?.id ?? null;
+          }
+          return {
+            tabs: kept,
+            activeTabId: newActiveId,
+            recentlyClosed,
+          };
         }),
 
       restoreState: (restored) =>

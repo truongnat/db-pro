@@ -1,24 +1,57 @@
-import { X } from "lucide-react";
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import { SortableContext, horizontalListSortingStrategy } from "@dnd-kit/sortable";
+import { PinIcon, XIcon } from "lucide-react";
+import { useCallback, useState } from "react";
+import type { DraggableAttributes } from "@dnd-kit/core";
+import type { SyntheticListenerMap } from "@dnd-kit/core/dist/hooks/utilities";
 
-import type { WorkspaceTab } from "@/commons/types/workspace.types";
-import { useWorkspaceStore } from "@/commons/stores/workspace.store";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-interface WorkspaceTabBarProps {
-  className?: string;
-}
+import { SortableTab } from "@/commons/components/sortable-tab";
+import { TabContextMenu } from "@/commons/components/tab-context-menu";
+import {
+  TabOverflowMenu,
+  TabScrollLeft,
+  TabScrollRight,
+} from "@/commons/components/tab-scroll-controls";
+import { useOverflowDetection } from "@/hooks/use-overflow-detection";
+import { useTabCloseGuard } from "@/hooks/use-tab-close-guard";
+import { useTabKeyboard } from "@/hooks/use-tab-keyboard";
+import { useWorkspaceStore } from "@/commons/stores/workspace.store";
+import type { WorkspaceTab } from "@/commons/types/workspace.types";
 
 function TabItem({
   tab,
   isActive,
   onActivate,
   onClose,
+  dragListeners,
+  dragAttributes,
 }: {
   tab: WorkspaceTab;
   isActive: boolean;
   onActivate: () => void;
-  onClose: () => void;
+  onClose: (id: string, opts?: { skipDirtyCheck?: boolean }) => void;
+  dragListeners?: SyntheticListenerMap;
+  dragAttributes?: DraggableAttributes;
 }) {
   return (
     <div
@@ -29,17 +62,54 @@ function TabItem({
           : "text-muted-foreground hover:bg-muted/50",
       )}
       onClick={onActivate}
+      onAuxClick={(e) => {
+        if (e.button === 1) {
+          e.preventDefault();
+          onClose(tab.id, { skipDirtyCheck: true });
+        }
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onActivate();
+        }
+        if (e.key === "ArrowRight") {
+          const next = (e.currentTarget.nextElementSibling ??
+            e.currentTarget.parentElement?.firstElementChild) as HTMLElement | null;
+          next?.focus();
+        }
+        if (e.key === "ArrowLeft") {
+          const prev = (e.currentTarget.previousElementSibling ??
+            e.currentTarget.parentElement?.lastElementChild) as HTMLElement | null;
+          prev?.focus();
+        }
+        if (e.key === "Home") {
+          const first = e.currentTarget.parentElement?.firstElementChild as HTMLElement | null;
+          first?.focus();
+        }
+        if (e.key === "End") {
+          const last = e.currentTarget.parentElement?.lastElementChild as HTMLElement | null;
+          last?.focus();
+        }
+      }}
       role="tab"
       aria-selected={isActive}
       tabIndex={isActive ? 0 : -1}
+      {...dragListeners}
+      {...dragAttributes}
     >
       {tab.dirty && (
-        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary" aria-label="Unsaved changes" />
+        <span
+          className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary"
+          aria-label="Unsaved changes"
+        />
       )}
       {tab.pinned && (
-        <span className="text-[10px]" aria-label="Pinned">📌</span>
+        <PinIcon className="h-3 w-3 shrink-0" aria-label="Pinned" />
       )}
-      <span className="max-w-[140px] truncate">{tab.title}</span>
+      <span className={cn("max-w-[140px] truncate", tab.preview && "italic")}>
+        {tab.title}
+      </span>
       {!tab.pinned && (
         <Button
           type="button"
@@ -48,42 +118,168 @@ function TabItem({
           className="h-4 w-4 shrink-0 rounded px-0 text-muted-foreground opacity-0 transition-opacity hover:bg-border hover:text-foreground group-hover:opacity-100"
           onClick={(e) => {
             e.stopPropagation();
-            onClose();
+            onClose(tab.id);
           }}
           aria-label={`Close ${tab.title}`}
         >
-          <X className="h-3 w-3" />
+          <XIcon className="h-3 w-3" />
         </Button>
       )}
     </div>
   );
 }
 
-export function WorkspaceTabBar({ className }: WorkspaceTabBarProps) {
+export function WorkspaceTabBar() {
   const tabs = useWorkspaceStore((s) => s.tabs);
   const activeTabId = useWorkspaceStore((s) => s.activeTabId);
   const activateTab = useWorkspaceStore((s) => s.activateTab);
-  const closeTab = useWorkspaceStore((s) => s.closeTab);
+  const reorderTabs = useWorkspaceStore((s) => s.reorderTabs);
 
-  if (tabs.length === 0) {
-    return null;
-  }
+  const { containerRef, isOverflowing, canScrollLeft, canScrollRight, scrollLeft, scrollRight } =
+    useOverflowDetection();
+  const { dialogOpen, dirtyCount, onConfirm, onCancel, requestClose, requestCloseMany } =
+    useTabCloseGuard();
+
+  useTabKeyboard();
+
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+  const [draggingTab, setDraggingTab] = useState<WorkspaceTab | null>(null);
+
+  const pinnedTabs = tabs.filter((t) => t.pinned);
+  const unpinnedTabs = tabs.filter((t) => !t.pinned);
+  const pinnedCount = pinnedTabs.length;
+
+  const handleDragStart = useCallback(
+    (event: DragEndEvent) => {
+      const tab = tabs.find((t) => t.id === event.active.id);
+      if (tab) setDraggingTab(tab);
+    },
+    [tabs],
+  );
+
+  const handleDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      setDraggingTab(null);
+      const { active, over } = event;
+      if (!over || active.id === over.id) return;
+
+      const fromIdx = tabs.findIndex((t) => t.id === active.id);
+      const toIdx = tabs.findIndex((t) => t.id === over.id);
+      if (fromIdx === -1 || toIdx === -1) return;
+      if (fromIdx < pinnedCount || toIdx < pinnedCount) return;
+
+      reorderTabs(fromIdx, toIdx);
+    },
+    [tabs, pinnedCount, reorderTabs],
+  );
+
+  const handleDragCancel = useCallback(() => {
+    setDraggingTab(null);
+  }, []);
+
+  if (tabs.length === 0) return null;
 
   return (
-    <div
-      className={cn("flex items-center gap-0 overflow-x-auto border-b border-border bg-card", className)}
-      role="tablist"
-      aria-label="Workspace tabs"
-    >
-      {tabs.map((tab) => (
-        <TabItem
-          key={tab.id}
-          tab={tab}
-          isActive={tab.id === activeTabId}
-          onActivate={() => activateTab(tab.id)}
-          onClose={() => closeTab(tab.id)}
-        />
-      ))}
-    </div>
+    <>
+      <DndContext
+        sensors={sensors}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+        onDragCancel={handleDragCancel}
+      >
+        <div className="flex items-center border-b border-border bg-card">
+          <TabScrollLeft canScrollLeft={canScrollLeft} onScrollLeft={scrollLeft} />
+
+          <div
+            ref={containerRef}
+            className="flex min-w-0 flex-1 overflow-x-auto scrollbar-none"
+            role="tablist"
+            aria-label="Workspace tabs"
+            aria-orientation="horizontal"
+          >
+            {pinnedTabs.map((tab) => (
+              <TabContextMenu
+                key={tab.id}
+                tab={tab}
+                onClose={requestClose}
+                onCloseMany={requestCloseMany}
+              >
+                <TabItem
+                  tab={tab}
+                  isActive={tab.id === activeTabId}
+                  onActivate={() => activateTab(tab.id)}
+                  onClose={requestClose}
+                />
+              </TabContextMenu>
+            ))}
+
+            <SortableContext
+              items={unpinnedTabs.map((t) => t.id)}
+              strategy={horizontalListSortingStrategy}
+            >
+              {unpinnedTabs.map((tab) => (
+                <TabContextMenu
+                  key={tab.id}
+                  tab={tab}
+                  onClose={requestClose}
+                  onCloseMany={requestCloseMany}
+                >
+                  <SortableTab
+                    tab={tab}
+                    isActive={tab.id === activeTabId}
+                    onActivate={() => activateTab(tab.id)}
+                    onClose={requestClose}
+                  >
+                    {(props) => (
+                      <TabItem
+                        tab={props.tab}
+                        isActive={props.isActive}
+                        onActivate={props.onActivate}
+                        onClose={props.onClose}
+                        dragListeners={props.dragListeners}
+                        dragAttributes={props.dragAttributes}
+                      />
+                    )}
+                  </SortableTab>
+                </TabContextMenu>
+              ))}
+            </SortableContext>
+          </div>
+
+          <TabScrollRight canScrollRight={canScrollRight} onScrollRight={scrollRight} />
+          <TabOverflowMenu isOverflowing={isOverflowing} />
+        </div>
+
+        <DragOverlay>
+          {draggingTab ? (
+            <div className="flex items-center gap-1.5 border border-border bg-card px-3 py-1.5 text-xs shadow-lg opacity-90">
+              {draggingTab.dirty && (
+                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+              )}
+              <span className={cn("max-w-[140px] truncate", draggingTab.preview && "italic")}>
+                {draggingTab.title}
+              </span>
+            </div>
+          ) : null}
+        </DragOverlay>
+      </DndContext>
+
+      <AlertDialog open={dialogOpen} onOpenChange={(open) => !open && onCancel()}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Close tab{dirtyCount > 1 ? "s" : ""}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {dirtyCount === 1
+                ? "This tab has unsaved changes. Close anyway?"
+                : `${dirtyCount} tabs have unsaved changes. Close them anyway?`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={onConfirm}>Close</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
