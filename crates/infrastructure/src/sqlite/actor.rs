@@ -334,6 +334,7 @@ impl SqliteActor {
 
     fn handle_execute_statement(&self, sql: &str) -> Result<usize, DbError> {
         self.conn.execute_batch(sql).map_err(crate::error::from_rusqlite)?;
+        // Note: changes() reflects only the last statement in the batch.
         Ok(self.conn.changes() as usize)
     }
 

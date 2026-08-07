@@ -3,6 +3,11 @@ use std::sync::{Arc, RwLock};
 
 use crate::domain::connection::{ConnectionHandle, ConnectionId};
 
+pub enum RegisterResult {
+    Inserted,
+    Existing(ConnectionHandle),
+}
+
 #[derive(Clone)]
 pub struct ConnectionRegistry {
     inner: Arc<RwLock<HashMap<ConnectionId, ConnectionHandle>>>,
@@ -20,15 +25,15 @@ impl ConnectionRegistry {
         map.insert(id, handle);
     }
 
-    /// Atomically register only if `id` is not already present.
-    /// Returns `true` if registered, `false` if another caller won the race.
-    pub fn register_if_absent(&self, id: ConnectionId, handle: ConnectionHandle) -> bool {
+    /// Atomically register `handle` for `id`, or return the existing handle
+    /// if another caller already registered it.
+    pub fn register_or_get(&self, id: ConnectionId, handle: ConnectionHandle) -> RegisterResult {
         let mut map = self.inner.write().expect("registry lock poisoned");
-        if map.contains_key(&id) {
-            return false;
+        if let Some(&existing) = map.get(&id) {
+            return RegisterResult::Existing(existing);
         }
         map.insert(id, handle);
-        true
+        RegisterResult::Inserted
     }
 
     pub fn unregister(&self, id: &ConnectionId) -> Option<ConnectionHandle> {
@@ -120,11 +125,14 @@ mod tests {
     }
 
     #[test]
-    fn register_if_absent_first_wins() {
+    fn register_or_get_first_wins() {
         let reg = ConnectionRegistry::new();
         let id = conn_id();
-        assert!(reg.register_if_absent(id, handle(1)));
-        assert!(!reg.register_if_absent(id, handle(2)));
+        assert!(matches!(reg.register_or_get(id, handle(1)), RegisterResult::Inserted));
+        match reg.register_or_get(id, handle(2)) {
+            RegisterResult::Existing(h) => assert_eq!(h, handle(1)),
+            _ => panic!("expected Existing"),
+        }
         assert_eq!(reg.get(&id), Some(handle(1)));
     }
 }

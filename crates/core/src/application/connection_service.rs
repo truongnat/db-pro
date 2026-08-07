@@ -4,7 +4,7 @@ use crate::domain::connection::{Connection, ConnectionConfig, ConnectionHandle, 
 use crate::domain::error::DbError;
 use crate::ports::{ConnectionRepository, DbConnector, SecretStore};
 
-use super::registry::ConnectionRegistry;
+use super::registry::{ConnectionRegistry, RegisterResult};
 
 pub struct ConnectionService {
     connector: Box<dyn DbConnector>,
@@ -154,11 +154,13 @@ impl ConnectionService {
 
         let handle = self.connector.connect(&connection.config, &password).await?;
 
-        if !self.registry.register_if_absent(*id, handle) {
-            self.connector.disconnect(&handle).await.ok();
-            return Ok(self.registry.get(id).expect("just registered"));
+        match self.registry.register_or_get(*id, handle) {
+            RegisterResult::Inserted => Ok(handle),
+            RegisterResult::Existing(existing) => {
+                self.connector.disconnect(&handle).await?;
+                Ok(existing)
+            }
         }
-        Ok(handle)
     }
 
     pub async fn disconnect(&self, id: &ConnectionId) -> Result<(), DbError> {
