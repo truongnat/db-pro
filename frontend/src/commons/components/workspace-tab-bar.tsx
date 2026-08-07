@@ -23,6 +23,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { useTranslation } from "@/commons/locales/useTranslation";
 import { cn } from "@/lib/utils";
 
 import { SortableTab } from "@/commons/components/sortable-tab";
@@ -65,7 +66,7 @@ function TabItem({
       onAuxClick={(e) => {
         if (e.button === 1) {
           e.preventDefault();
-          onClose(tab.id, { skipDirtyCheck: true });
+          onClose(tab.id);
         }
       }}
       onKeyDown={(e) => {
@@ -130,6 +131,7 @@ function TabItem({
 }
 
 export function WorkspaceTabBar() {
+  const { t } = useTranslation();
   const tabs = useWorkspaceStore((s) => s.tabs);
   const activeTabId = useWorkspaceStore((s) => s.activeTabId);
   const activateTab = useWorkspaceStore((s) => s.activateTab);
@@ -267,16 +269,16 @@ export function WorkspaceTabBar() {
       <AlertDialog open={dialogOpen} onOpenChange={(open) => !open && onCancel()}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Close tab{dirtyCount > 1 ? "s" : ""}?</AlertDialogTitle>
+            <AlertDialogTitle>{dirtyCount > 1 ? t("tabs.closeDialog.titleMultiple") : t("tabs.closeDialog.title")}</AlertDialogTitle>
             <AlertDialogDescription>
               {dirtyCount === 1
-                ? "This tab has unsaved changes. Close anyway?"
-                : `${dirtyCount} tabs have unsaved changes. Close them anyway?`}
+                ? t("tabs.closeDialog.descriptionSingle")
+                : t("tabs.closeDialog.descriptionMultiple", { count: dirtyCount })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={onConfirm}>Close</AlertDialogAction>
+            <AlertDialogCancel>{t("common.actions.cancel")}</AlertDialogCancel>
+            <AlertDialogAction onClick={onConfirm}>{t("common.actions.close")}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

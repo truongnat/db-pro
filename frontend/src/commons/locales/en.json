@@ -390,5 +390,13 @@
   "dock": {
     "expandPanel": "Expand panel",
     "resizePanel": "Resize panel"
+  },
+  "tabs": {
+    "closeDialog": {
+      "title": "Close tab?",
+      "titleMultiple": "Close tabs?",
+      "descriptionSingle": "This tab has unsaved changes. Close anyway?",
+      "descriptionMultiple": "{{count}} tabs have unsaved changes. Close them anyway?"
+    }
   }
 }

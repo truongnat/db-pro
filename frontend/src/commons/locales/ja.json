@@ -390,5 +390,13 @@
   "dock": {
     "expandPanel": "パネルを展開",
     "resizePanel": "パネルをリサイズ"
+  },
+  "tabs": {
+    "closeDialog": {
+      "title": "タブを閉じますか？",
+      "titleMultiple": "タブを閉じますか？",
+      "descriptionSingle": "このタブには未保存の変更があります。それでも閉じますか？",
+      "descriptionMultiple": "{{count}}個のタブに未保存の変更があります。それでも閉じますか？"
+    }
   }
 }
