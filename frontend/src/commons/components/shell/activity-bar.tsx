@@ -1,11 +1,9 @@
 import { Link } from "@tanstack/react-router";
 import {
-  Database,
   FolderOpen,
   KeyRound,
   PanelLeftClose,
   PanelLeftOpen,
-  Search,
   Command,
 } from "lucide-react";
 import type { ComponentType } from "react";

@@ -167,10 +167,10 @@ export function UnifiedGrid({
       <div style={contentStyle} className="flex h-full min-h-0 flex-col">
       {/* Header row */}
       <div
-        className="grid shrink-0 border-b border-border bg-card text-xs font-medium"
-        style={gridStyle}
+        className="grid shrink-0 border-b border-[var(--app-border)] bg-muted/30 text-[11px] font-medium"
+        style={{ ...gridStyle, minHeight: "var(--grid-header-height)" }}
       >
-        <div className="px-2 py-2 text-muted-foreground">#</div>
+        <div className="flex items-center px-2 py-2 text-[var(--app-text-dim)]">#</div>
         {orderedColumns.map((col) => {
           const sort = sortMap.get(col.name);
           const isFrozen = frozenSet.has(col.name);
@@ -178,24 +178,24 @@ export function UnifiedGrid({
             <div
               key={col.name}
               className={
-                "flex items-center gap-1 px-3 py-2 text-muted-foreground" +
-                (isFrozen ? " bg-card" : "")
+                "flex flex-col gap-0.5 px-3 py-1.5" +
+                (isFrozen ? " bg-muted/30" : "")
               }
               style={isFrozen ? { fontWeight: 600 } : undefined}
               onContextMenu={(e) => handleContextMenu(e, col.name)}
             >
               <span
-                className="cursor-pointer select-none transition-colors hover:bg-background"
+                className="flex cursor-pointer select-none items-center gap-1 text-[var(--app-text-muted)] transition-colors hover:text-foreground"
                 onClick={() => onSort(col.name)}
-                title={`${col.name} (${col.dataType})`}
               >
-                {col.name}
+                <span className="truncate font-medium">{col.name}</span>
                 {sort && (
-                  <span className="ml-1">
+                  <span className="text-[10px]">
                     {sort.direction === "asc" ? "\u25B2" : "\u25BC"}
                   </span>
                 )}
               </span>
+              <span className="truncate text-[10px] text-[var(--app-text-dim)]">{col.dataType}</span>
               {renderHeaderExtra?.(col)}
             </div>
           );
@@ -217,12 +217,12 @@ export function UnifiedGrid({
             return (
               <div
                 key={virtualRow.key}
-                className="grid absolute w-full border-b border-border text-xs transition-colors hover:bg-card"
-                style={{ ...gridStyle, top: virtualRow.start }}
+                className="grid absolute w-full border-b border-[var(--app-border-subtle)] text-[12.5px] transition-colors hover:bg-[var(--app-hover)]"
+                style={{ ...gridStyle, top: virtualRow.start, height: "var(--grid-row-height)" }}
                 data-index={virtualRow.index}
               >
                 {/* Row number */}
-                <div className="px-2 py-1.5 text-muted-foreground">
+                <div className="flex items-center px-2 text-[11px] text-[var(--app-text-dim)]">
                   {virtualRow.index + 1}
                 </div>
 
@@ -242,9 +242,9 @@ export function UnifiedGrid({
                     <div
                       key={col.name}
                       className={
-                        "relative overflow-hidden px-3 py-1.5 text-ellipsis whitespace-nowrap" +
-                        (isNull ? " text-muted-foreground" : " text-foreground") +
-                        (isFrozen ? " bg-card" : "")
+                        "flex items-center overflow-hidden px-3 text-ellipsis whitespace-nowrap" +
+                        (isNull ? " text-[var(--app-text-dim)]" : " text-foreground") +
+                        (isFrozen ? " bg-muted/20" : "")
                       }
                       style={isNull ? { fontStyle: "italic" } : undefined}
                       title={isJson ? undefined : display}
@@ -301,7 +301,7 @@ export function UnifiedGrid({
 
       {/* Footer */}
       {footer && (
-        <div className="flex items-center gap-4 border-t border-border bg-card px-3 py-1.5 text-xs text-muted-foreground">
+        <div className="flex items-center gap-4 border-t border-[var(--app-border-subtle)] bg-muted/20 px-3 py-1.5 text-[11px] text-[var(--app-text-muted)]">
           {footer}
         </div>
       )}
