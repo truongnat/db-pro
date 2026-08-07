@@ -1,3 +1,4 @@
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useTranslation } from "@/commons/locales/useTranslation";
 
 import { useListPartitions } from "../../queries/schema.queries";
@@ -57,26 +58,26 @@ export function PartitionManager({ connectionId }: PartitionManagerProps) {
             </span>
           </div>
           {p.partitions.length > 0 && (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-background">
-                  <th className="px-4 py-2 text-left font-medium text-muted-foreground">
+            <Table className="w-full text-sm">
+              <TableHeader>
+                <TableRow className="bg-background">
+                  <TableHead className="px-4 py-2 text-left font-medium text-muted-foreground">
                     {t("schema.crossConn.partitionName")}
-                  </th>
-                  <th className="px-4 py-2 text-left font-medium text-muted-foreground">
+                  </TableHead>
+                  <TableHead className="px-4 py-2 text-left font-medium text-muted-foreground">
                     {t("schema.crossConn.boundExpr")}
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {p.partitions.map((child) => (
-                  <tr key={child.name} className="border-t border-border">
-                    <td className="px-4 py-2 text-foreground">{child.name}</td>
-                    <td className="px-4 py-2 font-mono text-xs text-muted-foreground">{child.boundExpr}</td>
-                  </tr>
+                  <TableRow key={child.name} className="border-t border-border">
+                    <TableCell className="px-4 py-2 text-foreground">{child.name}</TableCell>
+                    <TableCell className="px-4 py-2 font-mono text-xs text-muted-foreground">{child.boundExpr}</TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           )}
         </div>
       ))}

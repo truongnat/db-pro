@@ -1,5 +1,12 @@
 import { useTranslation } from "@/commons/locales/useTranslation";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface PaginationProps {
   page: number;
@@ -70,17 +77,18 @@ export function Pagination({
         </Button>
       </div>
 
-      <select
-        className="rounded border border-border bg-card px-1.5 py-0.5 text-xs text-foreground"
-        value={pageSize}
-        onChange={(e) => onPageSizeChange(Number(e.target.value))}
-      >
-        {PAGE_SIZES.map((size) => (
-          <option key={size} value={size}>
-            {size} {t("dataGrid.pageSize")}
-          </option>
-        ))}
-      </select>
+      <Select value={String(pageSize)} onValueChange={(v) => onPageSizeChange(Number(v))}>
+        <SelectTrigger className="h-auto w-auto text-xs">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {PAGE_SIZES.map((size) => (
+            <SelectItem key={size} value={String(size)}>
+              {size} {t("dataGrid.pageSize")}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
 
       <span>
         {totalCount} {t("query.rowsAffected", { count: totalCount }).replace(/^\d+\s*/, "")}

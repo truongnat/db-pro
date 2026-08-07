@@ -4,6 +4,14 @@ import { useConnectionStore } from "@/commons/stores/connection.store";
 import { useTranslation } from "@/commons/locales/useTranslation";
 import { useIntrospect } from "@/modules/schema/queries/schema.queries";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 import { ChartConfigDialog } from "../components/chart-config-dialog";
 import { ChartView } from "../components/chart-view";
@@ -155,14 +163,12 @@ export function DataPage() {
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center gap-2 border-b border-border bg-card px-3 py-2">
-        <label className="text-xs font-medium text-muted-foreground">
+        <Label className="text-xs font-medium text-muted-foreground">
           {t("dataGrid.selectTable")}
-        </label>
-        <select
-          className="rounded border border-border bg-card px-2 py-1 text-sm text-foreground"
+        </Label>
+        <Select
           value={tableName ? `${tableSchema}.${tableName}` : ""}
-          onChange={(e) => {
-            const val = e.target.value;
+          onValueChange={(val) => {
             if (!val) {
               setTable(null, null);
             } else {
@@ -171,13 +177,17 @@ export function DataPage() {
             }
           }}
         >
-          <option value="">{t("dataGrid.selectTable")}</option>
-          {tableOptions.map((opt) => (
-            <option key={`${opt.schema}.${opt.name}`} value={`${opt.schema}.${opt.name}`}>
-              {opt.schema}.{opt.name}
-            </option>
-          ))}
-        </select>
+          <SelectTrigger className="w-auto text-sm">
+            <SelectValue placeholder={t("dataGrid.selectTable")} />
+          </SelectTrigger>
+          <SelectContent>
+            {tableOptions.map((opt) => (
+              <SelectItem key={`${opt.schema}.${opt.name}`} value={`${opt.schema}.${opt.name}`}>
+                {opt.schema}.{opt.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
         {rows.length > 0 && tableSchema && tableName && (
           <Button

@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import { useTranslation } from "@/commons/locales/useTranslation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 const PRESET_COLORS = [
   "#ef4444",
@@ -42,9 +43,9 @@ export function ColorPicker({ value, onChange }: ColorPickerProps) {
 
   return (
     <div className="flex flex-col gap-1.5">
-      <label className="text-xs font-medium text-foreground">
+      <Label className="text-xs font-medium">
         {t("connection.color")}
-      </label>
+      </Label>
       <div className="flex flex-wrap items-center gap-1.5">
         {PRESET_COLORS.map((color) => (
           <Button

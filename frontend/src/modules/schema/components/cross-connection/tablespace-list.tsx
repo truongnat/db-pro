@@ -1,3 +1,4 @@
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useTranslation } from "@/commons/locales/useTranslation";
 
 import { useListTablespaces } from "../../queries/schema.queries";
@@ -46,30 +47,30 @@ export function TablespaceList({ connectionId }: TablespaceListProps) {
 
   return (
     <div className="overflow-hidden rounded-md border border-border">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="bg-card">
-            <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+      <Table className="w-full text-sm">
+        <TableHeader>
+          <TableRow className="bg-card">
+            <TableHead className="px-4 py-3 text-left font-medium text-muted-foreground">
               {t("common.labels.name")}
-            </th>
-            <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+            </TableHead>
+            <TableHead className="px-4 py-3 text-left font-medium text-muted-foreground">
               {t("schema.crossConn.owner")}
-            </th>
-            <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+            </TableHead>
+            <TableHead className="px-4 py-3 text-left font-medium text-muted-foreground">
               {t("schema.crossConn.location")}
-            </th>
-          </tr>
-        </thead>
-        <tbody>
+            </TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {tablespaces.map((ts) => (
-            <tr key={ts.name} className="border-t border-border">
-              <td className="px-4 py-3 font-medium text-foreground">{ts.name}</td>
-              <td className="px-4 py-3 text-muted-foreground">{ts.owner}</td>
-              <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{ts.location || "(default)"}</td>
-            </tr>
+            <TableRow key={ts.name} className="border-t border-border">
+              <TableCell className="px-4 py-3 font-medium text-foreground">{ts.name}</TableCell>
+              <TableCell className="px-4 py-3 text-muted-foreground">{ts.owner}</TableCell>
+              <TableCell className="px-4 py-3 font-mono text-xs text-muted-foreground">{ts.location || "(default)"}</TableCell>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
     </div>
   );
 }

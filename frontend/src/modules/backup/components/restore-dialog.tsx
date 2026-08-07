@@ -2,6 +2,22 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 import type { BackupFormat } from "../types/backup.types";
 
@@ -24,8 +40,6 @@ export function RestoreDialog({
   const [inputPath, setInputPath] = useState("");
   const [format, setFormat] = useState<BackupFormat>("plain");
 
-  if (!open) return null;
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputPath.trim()) return;
@@ -33,62 +47,50 @@ export function RestoreDialog({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-[var(--z-overlay)] flex items-center justify-center"
-      style={{ backgroundColor: "rgba(0,0,0,0.4)" }}
-    >
-      <form
-        onSubmit={handleSubmit}
-        className="flex w-[28rem] flex-col gap-4 rounded-md border border-border bg-background p-6"
-      >
-        <h2 className="text-lg font-semibold text-foreground">
-          {t("backup.restoreTitle")}
-        </h2>
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-[28rem]">
+        <DialogHeader>
+          <DialogTitle>{t("backup.restoreTitle")}</DialogTitle>
+        </DialogHeader>
 
-        <p className="text-xs text-destructive">
-          {t("backup.restoreWarning")}
-        </p>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <p className="text-xs text-destructive">
+            {t("backup.restoreWarning")}
+          </p>
 
-        <label className="flex flex-col gap-1">
-          <span className="text-sm text-muted-foreground">
-            {t("backup.inputPath")}
-          </span>
-          <input
-            type="text"
-            value={inputPath}
-            onChange={(e) => setInputPath(e.target.value)}
-            placeholder="/path/to/backup.sql"
-            className="rounded-sm border border-border bg-card px-3 py-2 text-sm text-foreground"
-            autoFocus
-          />
-        </label>
+          <div className="flex flex-col gap-1.5">
+            <Label>{t("backup.inputPath")}</Label>
+            <Input
+              value={inputPath}
+              onChange={(e) => setInputPath(e.target.value)}
+              placeholder="/path/to/backup.sql"
+              autoFocus
+            />
+          </div>
 
-        <label className="flex flex-col gap-1">
-          <span className="text-sm text-muted-foreground">
-            {t("backup.format")}
-          </span>
-          <select
-            value={format}
-            onChange={(e) => setFormat(e.target.value as BackupFormat)}
-            className="rounded-sm border border-border bg-card px-3 py-2 text-sm text-foreground"
-          >
-            <option value="plain">{t("backup.formatPlain")}</option>
-            <option value="custom">{t("backup.formatCustom")}</option>
-          </select>
-        </label>
+          <div className="flex flex-col gap-1.5">
+            <Label>{t("backup.format")}</Label>
+            <Select value={format} onValueChange={(v) => setFormat(v as BackupFormat)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="plain">{t("backup.formatPlain")}</SelectItem>
+                <SelectItem value="custom">{t("backup.formatCustom")}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-        <div className="flex justify-end gap-2">
-          <Button type="button" variant="outline" onClick={onClose}>
-            {t("common.actions.cancel")}
-          </Button>
-          <Button
-            type="submit"
-            disabled={!inputPath.trim() || isPending}
-          >
-            {isPending ? t("backup.restoreInProgress") : t("backup.startRestore")}
-          </Button>
-        </div>
-      </form>
-    </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={onClose}>
+              {t("common.actions.cancel")}
+            </Button>
+            <Button type="submit" disabled={!inputPath.trim() || isPending}>
+              {isPending ? t("backup.restoreInProgress") : t("backup.startRestore")}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -1,6 +1,8 @@
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useTranslation } from "@/commons/locales/useTranslation";
 
 import { useRenameSchemaObject } from "../../queries/schema.queries";
@@ -46,11 +48,11 @@ export function RenameDialog({
         </div>
 
         <div className="mb-4">
-          <label className="mb-1 block text-sm font-medium text-foreground">
+          <Label className="mb-1 block text-sm font-medium text-foreground" htmlFor="rename-input">
             {t("schema.crossConn.newName")}
-          </label>
-          <input
-            type="text"
+          </Label>
+          <Input
+            id="rename-input"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             className="w-full rounded-sm border border-border px-3 py-2 text-sm text-foreground"

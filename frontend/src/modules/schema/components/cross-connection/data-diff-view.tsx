@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useTranslation } from "@/commons/locales/useTranslation";
 
 import { useDiffTableData } from "../../queries/schema.queries";
@@ -30,15 +31,13 @@ export function DataDiffView({ sourceId, targetId }: DataDiffViewProps) {
   return (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-3 gap-3">
-        <input
-          type="text"
+        <Input
           value={schema}
           onChange={(e) => setSchema(e.target.value)}
           placeholder={t("schema.crossConn.schemaName")}
           className="rounded-sm border border-border px-3 py-2 text-sm text-foreground"
         />
-        <input
-          type="text"
+        <Input
           value={table}
           onChange={(e) => setTable(e.target.value)}
           placeholder={t("schema.crossConn.tableName")}

@@ -1,4 +1,5 @@
 import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 
 interface FormCheckboxProps {
   label: string;
@@ -9,13 +10,13 @@ interface FormCheckboxProps {
 
 export function FormCheckbox({ label, checked, onChange, disabled }: FormCheckboxProps) {
   return (
-    <label className="flex cursor-pointer items-center gap-2 text-sm text-foreground">
+    <Label className="flex cursor-pointer items-center gap-2 text-sm font-normal">
       <Checkbox
         checked={checked}
         onCheckedChange={(val) => onChange(val === true)}
         disabled={disabled}
       />
       {label}
-    </label>
+    </Label>
   );
 }

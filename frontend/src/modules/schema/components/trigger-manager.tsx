@@ -1,6 +1,10 @@
 import { useCallback, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useTranslation } from "@/commons/locales/useTranslation";
 
 import { useExecuteDdl } from "../queries/schema.queries";
@@ -46,10 +50,10 @@ export function TriggerManager({ connectionId, schema, table }: TriggerManagerPr
 
         <div className="space-y-2">
           <div>
-            <label className="mb-1 block text-xs text-muted-foreground">
+            <Label className="mb-1 block text-xs text-muted-foreground">
               {t("schema.triggerName")}
-            </label>
-            <input
+            </Label>
+            <Input
               type="text"
               value={triggerName}
               onChange={(e) => setTriggerName(e.target.value)}
@@ -59,41 +63,43 @@ export function TriggerManager({ connectionId, schema, table }: TriggerManagerPr
 
           <div className="flex gap-2">
             <div className="flex-1">
-              <label className="mb-1 block text-xs text-muted-foreground">
+              <Label className="mb-1 block text-xs text-muted-foreground">
                 {t("schema.triggerTiming")}
-              </label>
-              <select
-                value={timing}
-                onChange={(e) => setTiming(e.target.value)}
-                className="w-full rounded-sm border border-border bg-background px-2 py-1 text-xs text-foreground"
-              >
-                <option value="BEFORE">BEFORE</option>
-                <option value="AFTER">AFTER</option>
-                <option value="INSTEAD OF">INSTEAD OF</option>
-              </select>
+              </Label>
+              <Select value={timing} onValueChange={setTiming}>
+                <SelectTrigger className="w-full rounded-sm border border-border bg-background px-2 py-1 text-xs text-foreground">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="BEFORE">BEFORE</SelectItem>
+                  <SelectItem value="AFTER">AFTER</SelectItem>
+                  <SelectItem value="INSTEAD OF">INSTEAD OF</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="flex-1">
-              <label className="mb-1 block text-xs text-muted-foreground">
+              <Label className="mb-1 block text-xs text-muted-foreground">
                 {t("schema.triggerEvent")}
-              </label>
-              <select
-                value={event}
-                onChange={(e) => setEvent(e.target.value)}
-                className="w-full rounded-sm border border-border bg-background px-2 py-1 text-xs text-foreground"
-              >
-                <option value="INSERT">INSERT</option>
-                <option value="UPDATE">UPDATE</option>
-                <option value="DELETE">DELETE</option>
-                <option value="INSERT OR UPDATE">INSERT OR UPDATE</option>
-              </select>
+              </Label>
+              <Select value={event} onValueChange={setEvent}>
+                <SelectTrigger className="w-full rounded-sm border border-border bg-background px-2 py-1 text-xs text-foreground">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="INSERT">INSERT</SelectItem>
+                  <SelectItem value="UPDATE">UPDATE</SelectItem>
+                  <SelectItem value="DELETE">DELETE</SelectItem>
+                  <SelectItem value="INSERT OR UPDATE">INSERT OR UPDATE</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
           <div>
-            <label className="mb-1 block text-xs text-muted-foreground">
+            <Label className="mb-1 block text-xs text-muted-foreground">
               {t("schema.triggerBody")}
-            </label>
-            <textarea
+            </Label>
+            <Textarea
               value={body}
               onChange={(e) => setBody(e.target.value)}
               rows={5}

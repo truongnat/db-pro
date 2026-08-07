@@ -1,6 +1,14 @@
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 
 import { useTranslation } from "@/commons/locales/useTranslation";
 
@@ -29,8 +37,6 @@ export function ExportDialog({ open, onClose, connectionId, sql }: ExportDialogP
 
   const exportMutation = useExport(connectionId, format, sql);
 
-  if (!open) return null;
-
   const handleExport = () => {
     exportMutation.mutate(undefined, {
       onSuccess: (result) => {
@@ -50,72 +56,62 @@ export function ExportDialog({ open, onClose, connectionId, sql }: ExportDialogP
   };
 
   return (
-    <div className="fixed inset-0 z-[var(--z-overlay)] flex items-center justify-center" style={{ backgroundColor: "rgba(0,0,0,0.4)" }}>
-      <div className="w-96 rounded-md border border-border bg-card p-4 shadow-lg">
-        <h2 className="mb-3 text-sm font-semibold text-foreground">
-          {t("export.title")}
-        </h2>
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-[384px]">
+        <DialogHeader>
+          <DialogTitle>{t("export.title")}</DialogTitle>
+        </DialogHeader>
 
-        <div className="mb-3">
-          <label className="mb-1 block text-xs text-muted-foreground">
-            {t("export.selectFormat")}
-          </label>
-          <div className="flex gap-2">
-            {FORMATS.map((f) => (
-              <Button
-                key={f.value}
-                variant="outline"
-                className={cn(
-                  "flex-1",
-                  format === f.value
-                    ? "border-primary bg-primary text-white"
-                    : "border-border bg-transparent text-foreground",
-                )}
-                onClick={() => setFormat(f.value)}
-                type="button"
-              >
-                {t(f.labelKey)}
-              </Button>
-            ))}
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <Label>{t("export.selectFormat")}</Label>
+            <div className="flex gap-2">
+              {FORMATS.map((f) => (
+                <Button
+                  key={f.value}
+                  variant="outline"
+                  className={cn(
+                    "flex-1",
+                    format === f.value
+                      ? "border-primary bg-primary text-white"
+                      : "border-border bg-transparent text-foreground",
+                  )}
+                  onClick={() => setFormat(f.value)}
+                  type="button"
+                >
+                  {t(f.labelKey)}
+                </Button>
+              ))}
+            </div>
           </div>
+
+          <div className="space-y-1.5">
+            <Label>SQL</Label>
+            <pre className="max-h-24 overflow-auto rounded-sm border border-border bg-background p-2 text-xs text-foreground">
+              {sql}
+            </pre>
+          </div>
+
+          {exportMutation.isPending && (
+            <ExportProgress format={format} rowCount={null} />
+          )}
+
+          {exportMutation.isError && (
+            <p className="text-xs text-destructive">
+              {t("export.failed")}
+            </p>
+          )}
         </div>
 
-        <div className="mb-3">
-          <label className="mb-1 block text-xs text-muted-foreground">
-            SQL
-          </label>
-          <pre className="max-h-24 overflow-auto rounded-sm border border-border bg-background p-2 text-xs text-foreground">
-            {sql}
-          </pre>
-        </div>
-
-        {exportMutation.isPending && (
-          <ExportProgress format={format} rowCount={null} />
-        )}
-
-        {exportMutation.isError && (
-          <p className="mb-2 text-xs text-destructive">
-            {t("export.failed")}
-          </p>
-        )}
-
-        <div className="flex justify-end gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={onClose}
-          >
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
             {t("common.actions.cancel")}
           </Button>
-          <Button
-            type="button"
-            onClick={handleExport}
-            disabled={exportMutation.isPending}
-          >
+          <Button onClick={handleExport} disabled={exportMutation.isPending}>
             {t("export.title")}
           </Button>
-        </div>
-      </div>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

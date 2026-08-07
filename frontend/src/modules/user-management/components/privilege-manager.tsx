@@ -2,6 +2,15 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 import type { Privilege } from "../types/user.types";
 
@@ -82,35 +91,34 @@ export function PrivilegeManager({
       </div>
 
       <div className="flex flex-col gap-2 rounded-sm border border-border p-3">
-        <span className="text-xs font-medium text-muted-foreground">
+        <Label className="text-xs font-medium text-muted-foreground">
           {t("userManagement.grantPrivilege")}
-        </span>
+        </Label>
         <div className="flex gap-2">
-          <input
-            type="text"
+          <Input
             value={schema}
             onChange={(e) => setSchema(e.target.value)}
             placeholder="schema"
-            className="w-24 rounded-sm border border-border bg-card px-2 py-1 text-xs text-foreground"
+            className="w-24 text-xs"
           />
-          <input
-            type="text"
+          <Input
             value={table}
             onChange={(e) => setTable(e.target.value)}
             placeholder="table"
-            className="w-28 rounded-sm border border-border bg-card px-2 py-1 text-xs text-foreground"
+            className="w-28 text-xs"
           />
-          <select
-            value={privType}
-            onChange={(e) => setPrivType(e.target.value)}
-            className="rounded-sm border border-border bg-card px-2 py-1 text-xs text-foreground"
-          >
-            {PRIVILEGE_TYPES.map((pt) => (
-              <option key={pt} value={pt}>
-                {pt}
-              </option>
-            ))}
-          </select>
+          <Select value={privType} onValueChange={setPrivType}>
+            <SelectTrigger className="w-auto text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PRIVILEGE_TYPES.map((pt) => (
+                <SelectItem key={pt} value={pt}>
+                  {pt}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Button
             type="button"
             size="sm"

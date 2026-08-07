@@ -1,6 +1,7 @@
 import type { ChangeEvent } from "react";
 
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 interface FormInputProps {
   label: string;
@@ -29,10 +30,10 @@ export function FormInput({
 }: FormInputProps) {
   return (
     <div className="flex flex-col gap-1.5">
-      <label className="text-xs font-medium text-foreground">
+      <Label className="text-xs font-medium">
         {label}
         {required && <span className="text-destructive"> *</span>}
-      </label>
+      </Label>
       <Input
         type={type}
         value={String(value)}

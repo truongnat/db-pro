@@ -70,11 +70,12 @@ export function TabOverflowMenu({ isOverflowing }: Pick<TabScrollControlsProps, 
       <PopoverContent align="end" className="w-56 p-1">
         <div className="flex flex-col">
           {tabs.map((tab) => (
-            <button
+            <Button
               key={tab.id}
               type="button"
+              variant="ghost"
               className={cn(
-                "flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent",
+                "flex h-auto w-full items-center gap-2 justify-start rounded-md px-2 py-1.5 text-left text-sm transition-colors",
                 tab.id === activeTabId && "bg-accent text-accent-foreground",
               )}
               onClick={() => {
@@ -89,7 +90,7 @@ export function TabOverflowMenu({ isOverflowing }: Pick<TabScrollControlsProps, 
               <span className={cn("truncate", tab.preview && "italic")}>
                 {tab.title}
               </span>
-            </button>
+            </Button>
           ))}
         </div>
       </PopoverContent>

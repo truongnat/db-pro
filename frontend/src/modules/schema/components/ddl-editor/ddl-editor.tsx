@@ -1,6 +1,10 @@
 import { useCallback, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { useTranslation } from "@/commons/locales/useTranslation";
 
 import { useExecuteDdl } from "../../queries/schema.queries";
@@ -112,34 +116,32 @@ export function DdlEditor({ connectionId, schema, table }: DdlEditorProps) {
 
       <div className="grid grid-cols-2 gap-4">
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-foreground">
+          <Label className="text-sm font-medium text-foreground">
             {t("schema.ddlSchema")}
-          </label>
-          <input
-            type="text"
+          </Label>
+          <Input
             value={schema}
             readOnly
-            className="rounded-sm border border-border bg-background px-3 py-2 text-sm text-foreground opacity-60"
+            className="opacity-60"
           />
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-foreground">
+          <Label className="text-sm font-medium text-foreground">
             {t("schema.ddlTable")}
-          </label>
-          <input
-            type="text"
+          </Label>
+          <Input
             value={table}
             readOnly
-            className="rounded-sm border border-border bg-background px-3 py-2 text-sm text-foreground opacity-60"
+            className="opacity-60"
           />
         </div>
       </div>
 
       {showColumnDefs && (
         <div className="flex flex-col gap-2">
-          <label className="text-sm font-medium text-foreground">
+          <Label className="text-sm font-medium text-foreground">
             {t("schema.ddlColumns")}
-          </label>
+          </Label>
           {columns.map((col, i) => (
             <ColumnDefRow
               key={i}
@@ -164,60 +166,54 @@ export function DdlEditor({ connectionId, schema, table }: DdlEditorProps) {
 
       {showColumnName && (
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-foreground">
+          <Label className="text-sm font-medium text-foreground">
             {t("schema.columnName")}
-          </label>
-          <input
-            type="text"
+          </Label>
+          <Input
             value={columnName}
             onChange={(e) => setColumnName(e.target.value)}
             placeholder="column_name"
-            className="rounded-sm border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
           />
         </div>
       )}
 
       {showNewName && (
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-foreground">
+          <Label className="text-sm font-medium text-foreground">
             {t("schema.ddlNewName")}
-          </label>
-          <input
-            type="text"
+          </Label>
+          <Input
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             placeholder="new_table_name"
-            className="rounded-sm border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
           />
         </div>
       )}
 
       {showSelectSql && (
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-foreground">
+          <Label className="text-sm font-medium text-foreground">
             SELECT Statement
-          </label>
-          <textarea
+          </Label>
+          <Textarea
             value={selectSql}
             onChange={(e) => setSelectSql(e.target.value)}
             placeholder="SELECT * FROM ..."
             rows={4}
-            className="rounded-sm border border-border px-3 py-2 font-mono text-sm text-foreground outline-none focus:border-primary"
+            className="font-mono"
           />
         </div>
       )}
 
       {showIndexName && (
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-foreground">
+          <Label className="text-sm font-medium text-foreground">
             {t("schema.ddlIndexName")}
-          </label>
-          <input
-            type="text"
+          </Label>
+          <Input
             value={indexName}
             onChange={(e) => setIndexName(e.target.value)}
             placeholder="index_name"
-            className="rounded-sm border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
           />
         </div>
       )}
@@ -225,45 +221,39 @@ export function DdlEditor({ connectionId, schema, table }: DdlEditorProps) {
       {showIndexConfig && (
         <>
           <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-foreground">
+            <Label className="text-sm font-medium text-foreground">
               {t("schema.ddlIndexName")}
-            </label>
-            <input
-              type="text"
+            </Label>
+            <Input
               value={indexName}
               onChange={(e) => setIndexName(e.target.value)}
               placeholder="idx_name"
-              className="rounded-sm border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
             />
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-foreground">
+            <Label className="text-sm font-medium text-foreground">
               {t("schema.ddlIndexColumns")}
-            </label>
-            <input
-              type="text"
+            </Label>
+            <Input
               value={indexColumns}
               onChange={(e) => setIndexColumns(e.target.value)}
               placeholder="col1, col2"
-              className="rounded-sm border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
             />
           </div>
-          <label className="flex items-center gap-2 text-sm text-foreground">
-            <input
-              type="checkbox"
+          <div className="flex items-center gap-2">
+            <Checkbox
               checked={unique}
-              onChange={(e) => setUnique(e.target.checked)}
-              className="h-4 w-4 rounded border border-border accent-primary"
+              onCheckedChange={(checked) => setUnique(!!checked)}
             />
-            {t("schema.ddlUnique")}
-          </label>
+            <Label className="text-sm font-normal">{t("schema.ddlUnique")}</Label>
+          </div>
         </>
       )}
 
       <div className="flex flex-col gap-2">
-        <label className="text-sm font-medium text-foreground">
+        <Label className="text-sm font-medium text-foreground">
           {t("schema.ddlPreview")}
-        </label>
+        </Label>
         <DdlPreview sql={previewSql} />
       </div>
 

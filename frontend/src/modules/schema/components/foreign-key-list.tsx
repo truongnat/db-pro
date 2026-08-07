@@ -1,4 +1,5 @@
 import { useTranslation } from "@/commons/locales/useTranslation";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { SchemaForeignKeyDto } from "../types/schema.types";
 import { cn } from "@/lib/utils";
 
@@ -20,34 +21,34 @@ export function ForeignKeyList({ foreignKeys }: ForeignKeyListProps) {
   const headerClass = "px-3 py-2 font-medium text-muted-foreground border-b border-border";
 
   return (
-    <table className="w-full text-sm">
-      <thead>
-        <tr>
-          <th className={cn(headerClass, "text-left")}>{t("schema.fkName")}</th>
-          <th className={cn(headerClass, "text-left")}>{t("schema.fkFromColumn")}</th>
-          <th className={cn(headerClass, "text-left")}>{t("schema.fkToTable")}</th>
-          <th className={cn(headerClass, "text-left")}>{t("schema.fkToColumn")}</th>
-        </tr>
-      </thead>
-      <tbody>
+    <Table className="w-full text-sm">
+      <TableHeader>
+        <TableRow>
+          <TableHead className={cn(headerClass, "text-left")}>{t("schema.fkName")}</TableHead>
+          <TableHead className={cn(headerClass, "text-left")}>{t("schema.fkFromColumn")}</TableHead>
+          <TableHead className={cn(headerClass, "text-left")}>{t("schema.fkToTable")}</TableHead>
+          <TableHead className={cn(headerClass, "text-left")}>{t("schema.fkToColumn")}</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
         {foreignKeys.map((fk) => (
-          <tr
+          <TableRow
             key={fk.name}
             className="transition-colors hover:bg-background"
           >
-            <td className="px-3 py-1.5 font-mono text-sm">{fk.name}</td>
-            <td className="px-3 py-1.5 font-mono text-xs text-muted-foreground">
+            <TableCell className="px-3 py-1.5 font-mono text-sm">{fk.name}</TableCell>
+            <TableCell className="px-3 py-1.5 font-mono text-xs text-muted-foreground">
               {fk.fromColumn}
-            </td>
-            <td className="px-3 py-1.5 font-mono text-xs">
+            </TableCell>
+            <TableCell className="px-3 py-1.5 font-mono text-xs">
               {fk.toSchema !== fk.schema ? `${fk.toSchema}.` : ""}{fk.toTable}
-            </td>
-            <td className="px-3 py-1.5 font-mono text-xs text-muted-foreground">
+            </TableCell>
+            <TableCell className="px-3 py-1.5 font-mono text-xs text-muted-foreground">
               {fk.toColumn}
-            </td>
-          </tr>
+            </TableCell>
+          </TableRow>
         ))}
-      </tbody>
-    </table>
+      </TableBody>
+    </Table>
   );
 }

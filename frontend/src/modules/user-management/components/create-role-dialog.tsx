@@ -2,6 +2,16 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 interface CreateRoleDialogProps {
   open: boolean;
@@ -18,8 +28,6 @@ export function CreateRoleDialog({
   const [name, setName] = useState("");
   const [login, setLogin] = useState(true);
 
-  if (!open) return null;
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
@@ -30,51 +38,40 @@ export function CreateRoleDialog({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-[var(--z-overlay)] flex items-center justify-center"
-      style={{ backgroundColor: "rgba(0,0,0,0.4)" }}
-    >
-      <form
-        onSubmit={handleSubmit}
-        className="flex w-96 flex-col gap-4 rounded-md border border-border bg-background p-6"
-      >
-        <h2 className="text-lg font-semibold text-foreground">
-          {t("userManagement.createRole")}
-        </h2>
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-[384px]">
+        <DialogHeader>
+          <DialogTitle>{t("userManagement.createRole")}</DialogTitle>
+        </DialogHeader>
 
-        <label className="flex flex-col gap-1">
-          <span className="text-sm text-muted-foreground">
-            {t("userManagement.roleName")}
-          </span>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="rounded-sm border border-border bg-card px-3 py-2 text-sm text-foreground"
-            autoFocus
-          />
-        </label>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1.5">
+            <Label>{t("userManagement.roleName")}</Label>
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              autoFocus
+            />
+          </div>
 
-        <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={login}
-            onChange={(e) => setLogin(e.target.checked)}
-          />
-          <span className="text-sm text-foreground">
+          <Label className="flex items-center gap-2 font-normal">
+            <Checkbox
+              checked={login}
+              onCheckedChange={(val) => setLogin(val === true)}
+            />
             {t("userManagement.canLogin")}
-          </span>
-        </label>
+          </Label>
 
-        <div className="flex justify-end gap-2">
-          <Button type="button" variant="outline" onClick={onClose}>
-            {t("common.actions.cancel")}
-          </Button>
-          <Button type="submit" disabled={!name.trim()}>
-            {t("common.actions.create")}
-          </Button>
-        </div>
-      </form>
-    </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={onClose}>
+              {t("common.actions.cancel")}
+            </Button>
+            <Button type="submit" disabled={!name.trim()}>
+              {t("common.actions.create")}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }

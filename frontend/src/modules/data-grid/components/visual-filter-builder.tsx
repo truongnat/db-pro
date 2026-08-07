@@ -2,6 +2,14 @@ import { useState } from "react";
 
 import { useTranslation } from "@/commons/locales/useTranslation";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 import {
   FILTER_OPS,
@@ -74,33 +82,35 @@ export function VisualFilterBuilder({
       )}
 
       <div className="flex items-center gap-2">
-        <select
-          className="rounded-sm border border-border bg-background px-2 py-1 text-xs text-foreground"
-          value={column}
-          onChange={(e) => setColumn(e.target.value)}
-        >
-          {columns.map((c) => (
-            <option key={c.name} value={c.name}>
-              {c.name}
-            </option>
-          ))}
-        </select>
+        <Select value={column} onValueChange={setColumn}>
+          <SelectTrigger className="w-auto text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {columns.map((c) => (
+              <SelectItem key={c.name} value={c.name}>
+                {c.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
-        <select
-          className="rounded-sm border border-border bg-background px-2 py-1 text-xs text-foreground"
-          value={op}
-          onChange={(e) => setOp(e.target.value as FilterOp)}
-        >
-          {FILTER_OPS.map((f) => (
-            <option key={f.value} value={f.value}>
-              {f.label}
-            </option>
-          ))}
-        </select>
+        <Select value={op} onValueChange={(v) => setOp(v as FilterOp)}>
+          <SelectTrigger className="w-auto text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {FILTER_OPS.map((f) => (
+              <SelectItem key={f.value} value={f.value}>
+                {f.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
         {!VALUELESS_OPS.includes(op) && (
-          <input
-            className="rounded-sm border border-border bg-background px-2 py-1 text-xs text-foreground"
+          <Input
+            className="h-auto px-2 py-1 text-xs"
             placeholder={t("dataGrid.filter")}
             value={value}
             onChange={(e) => setValue(e.target.value)}

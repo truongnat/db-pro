@@ -1,3 +1,5 @@
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useTranslation } from "@/commons/locales/useTranslation";
 
 import type { DdlOperation } from "../../services/ddl-builder";
@@ -24,20 +26,21 @@ export function DdlTypeSelector({ operation, onChange }: DdlTypeSelectorProps) {
 
   return (
     <div className="flex flex-col gap-1">
-      <label className="text-sm font-medium text-foreground">
+      <Label className="text-sm font-medium text-foreground">
         {t("schema.ddlOperation")}
-      </label>
-      <select
-        value={operation}
-        onChange={(e) => onChange(e.target.value as DdlOperation)}
-        className="h-9 rounded-sm border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-primary"
-      >
-        {OPERATIONS.map((op) => (
-          <option key={op.value} value={op.value}>
-            {t(op.labelKey)}
-          </option>
-        ))}
-      </select>
+      </Label>
+      <Select value={operation} onValueChange={(val) => onChange(val as DdlOperation)}>
+        <SelectTrigger className="h-9 rounded-sm border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-primary">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {OPERATIONS.map((op) => (
+            <SelectItem key={op.value} value={op.value}>
+              {t(op.labelKey)}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   );
 }

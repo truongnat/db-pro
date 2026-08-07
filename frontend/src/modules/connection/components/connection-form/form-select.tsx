@@ -1,5 +1,6 @@
 import type { ChangeEvent } from "react";
 
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface FormSelectProps {
@@ -23,10 +24,10 @@ export function FormSelect({
 }: FormSelectProps) {
   return (
     <div className="flex flex-col gap-1.5">
-      <label className="text-xs font-medium text-foreground">
+      <Label className="text-xs font-medium">
         {label}
         {required && <span className="text-destructive"> *</span>}
-      </label>
+      </Label>
       <Select value={value} onValueChange={onChange} disabled={disabled}>
         <SelectTrigger className="w-full" aria-invalid={!!error}>
           <SelectValue />

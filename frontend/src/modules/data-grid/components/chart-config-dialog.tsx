@@ -2,6 +2,21 @@ import { useCallback, useEffect, useState } from "react";
 
 import { useTranslation } from "@/commons/locales/useTranslation";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 import type { ChartConfig } from "../state/data-grid.store";
 import type { ColumnMeta } from "../types/data-grid.types";
@@ -40,91 +55,70 @@ export function ChartConfigDialog({
     onClose();
   }, [type, xColumn, yColumn, onApply, onClose]);
 
-  if (!open) return null;
-
   return (
-    <div
-      className="fixed inset-0 z-[var(--z-overlay)] flex items-center justify-center"
-      style={{ backgroundColor: "rgba(0,0,0,0.4)" }}
-      onClick={onClose}
-    >
-      <div
-        className="w-[400px] rounded-md border border-border bg-muted p-4 shadow-lg"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3 className="mb-3 text-sm font-semibold text-foreground">
-          {t("dataGrid.chartConfig")}
-        </h3>
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-[400px]">
+        <DialogHeader>
+          <DialogTitle>{t("dataGrid.chartConfig")}</DialogTitle>
+        </DialogHeader>
 
         <div className="space-y-3">
-          <div>
-            <label className="mb-1 block text-xs text-muted-foreground">
-              {t("dataGrid.chartType")}
-            </label>
-            <select
-              className="w-full rounded-sm border border-border bg-background px-2 py-1.5 text-sm text-foreground"
-              value={type}
-              onChange={(e) => setType(e.target.value as ChartConfig["type"])}
-            >
-              <option value="bar">{t("dataGrid.chartBar")}</option>
-              <option value="line">{t("dataGrid.chartLine")}</option>
-              <option value="pie">{t("dataGrid.chartPie")}</option>
-            </select>
+          <div className="space-y-1.5">
+            <Label className="text-xs">{t("dataGrid.chartType")}</Label>
+            <Select value={type} onValueChange={(v) => setType(v as ChartConfig["type"])}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="bar">{t("dataGrid.chartBar")}</SelectItem>
+                <SelectItem value="line">{t("dataGrid.chartLine")}</SelectItem>
+                <SelectItem value="pie">{t("dataGrid.chartPie")}</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
-          <div>
-            <label className="mb-1 block text-xs text-muted-foreground">
-              {t("dataGrid.chartXAxis")}
-            </label>
-            <select
-              className="w-full rounded-sm border border-border bg-background px-2 py-1.5 text-sm text-foreground"
-              value={xColumn}
-              onChange={(e) => setXColumn(e.target.value)}
-            >
-              {columns.map((c) => (
-                <option key={c.name} value={c.name}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
+          <div className="space-y-1.5">
+            <Label className="text-xs">{t("dataGrid.chartXAxis")}</Label>
+            <Select value={xColumn} onValueChange={setXColumn}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {columns.map((c) => (
+                  <SelectItem key={c.name} value={c.name}>
+                    {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
-          <div>
-            <label className="mb-1 block text-xs text-muted-foreground">
-              {t("dataGrid.chartYAxis")}
-            </label>
-            <select
-              className="w-full rounded-sm border border-border bg-background px-2 py-1.5 text-sm text-foreground"
-              value={yColumn}
-              onChange={(e) => setYColumn(e.target.value)}
-            >
-              {columns.map((c) => (
-                <option key={c.name} value={c.name}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
+          <div className="space-y-1.5">
+            <Label className="text-xs">{t("dataGrid.chartYAxis")}</Label>
+            <Select value={yColumn} onValueChange={setYColumn}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {columns.map((c) => (
+                  <SelectItem key={c.name} value={c.name}>
+                    {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
-        <div className="mt-4 flex justify-end gap-2">
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={onClose}
-            className="text-muted-foreground"
-          >
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose} className="text-muted-foreground">
             {t("common.actions.cancel")}
           </Button>
-          <Button
-            type="button"
-            onClick={handleApply}
-            disabled={!xColumn || !yColumn}
-          >
+          <Button onClick={handleApply} disabled={!xColumn || !yColumn}>
             {t("common.actions.confirm")}
           </Button>
-        </div>
-      </div>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

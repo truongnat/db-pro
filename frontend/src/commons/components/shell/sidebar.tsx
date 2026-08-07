@@ -98,9 +98,10 @@ export function Sidebar() {
                 const Icon = expanded ? FolderOpen : Folder;
                 return (
                   <div key={schema.name}>
-                    <button
+                    <Button
                       type="button"
-                      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-[var(--app-hover)] hover:text-foreground"
+                      variant="ghost"
+                      className="flex h-auto w-full items-center gap-2 justify-start rounded-md px-2 py-1.5 text-xs text-muted-foreground"
                       onClick={() => toggleSchema(schema.name)}
                       aria-expanded={expanded}
                     >
@@ -114,7 +115,7 @@ export function Sidebar() {
                       <span className="text-[10px] text-[var(--app-text-dim)]">
                         {tables.length + views.length}
                       </span>
-                    </button>
+                    </Button>
                     {expanded && (
                       <div className="ml-[22px] flex flex-col gap-0.5 border-l border-border pl-2">
                         {tables.map((table) => (
@@ -162,13 +163,14 @@ export function Sidebar() {
             <Settings2 className="h-3.5 w-3.5 shrink-0 text-primary" />
             <span>{t("shell.sidebar.settings")}</span>
           </Link>
-          <button
+          <Button
             type="button"
-            className="flex items-center gap-2.5 rounded-md px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-[var(--app-hover)] hover:text-foreground"
+            variant="ghost"
+            className="flex h-auto w-full items-center gap-2.5 justify-start rounded-md px-2 py-1.5 text-xs text-muted-foreground"
           >
             <CircleHelp className="h-3.5 w-3.5 shrink-0 text-primary" />
             <span>{t("shell.sidebar.help")}</span>
-          </button>
+          </Button>
         </div>
       </div>
     </aside>

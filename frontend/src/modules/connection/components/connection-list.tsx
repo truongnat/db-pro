@@ -5,6 +5,14 @@ import { useTranslation } from "@/commons/locales/useTranslation";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 import { useConnectionList, useConnect, useDeleteConnection, useDisconnect } from "../queries/connection.queries";
 import { useConnectionModuleStore } from "../state/connection.store";
@@ -190,43 +198,43 @@ export function ConnectionList({ onEdit, onBackup, onRestore }: ConnectionListPr
         </div>
       ) : (
         <div className="overflow-hidden rounded-lg border border-border">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-muted">
-                <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground">
+          <Table className="w-full text-sm">
+            <TableHeader>
+              <TableRow className="bg-muted hover:bg-muted">
+                <TableHead className="text-xs font-medium text-muted-foreground">
                   {t("common.labels.name")}
-                </th>
-                <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground">
+                </TableHead>
+                <TableHead className="text-xs font-medium text-muted-foreground">
                   {t("common.labels.host")}
-                </th>
-                <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground">
+                </TableHead>
+                <TableHead className="text-xs font-medium text-muted-foreground">
                   {t("common.labels.database")}
-                </th>
-                <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground">
+                </TableHead>
+                <TableHead className="text-xs font-medium text-muted-foreground">
                   {t("common.labels.driver")}
-                </th>
-                <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground">
+                </TableHead>
+                <TableHead className="text-xs font-medium text-muted-foreground">
                   {t("common.states.status", "Status")}
-                </th>
-                <th className="px-4 py-2.5 text-right text-xs font-medium text-muted-foreground">
+                </TableHead>
+                <TableHead className="text-right text-xs font-medium text-muted-foreground">
                   {t("common.actions.actions", "Actions")}
-                </th>
-              </tr>
-            </thead>
-            <tbody>
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {filteredConnections.map((conn) => {
                 const status = getStatus(conn);
                 return (
                   <>
-                  <tr
+                  <TableRow
                     key={conn.id}
                     className={cn(
-                      "cursor-pointer border-t border-border transition-colors hover:bg-muted",
+                      "cursor-pointer transition-colors hover:bg-muted",
                       activeConnectionId === conn.id && "bg-muted",
                     )}
                     onClick={() => onEdit(conn.id)}
                   >
-                    <td className="px-4 py-3">
+                    <TableCell className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         {conn.color && (
                           <span
@@ -243,20 +251,20 @@ export function ConnectionList({ onEdit, onBackup, onRestore }: ConnectionListPr
                           </Badge>
                         ))}
                       </div>
-                    </td>
-                    <td className="text-muted-foreground">
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
                       {conn.driver === "sqlite" ? conn.database : `${conn.host}:${conn.port}`}
-                    </td>
-                    <td className="text-muted-foreground">
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
                       {conn.driver === "sqlite" ? "\u2014" : conn.database}
-                    </td>
-                    <td>
+                    </TableCell>
+                    <TableCell>
                       <Badge variant="outline">{conn.driver}</Badge>
-                    </td>
-                    <td>
+                    </TableCell>
+                    <TableCell>
                       <ConnectionStatusBadge status={status} />
-                    </td>
-                    <td className="px-4 py-3 text-right">
+                    </TableCell>
+                    <TableCell className="px-4 py-3 text-right">
                       <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
                         {status === "connected" ? (
                           <>
@@ -328,20 +336,20 @@ export function ConnectionList({ onEdit, onBackup, onRestore }: ConnectionListPr
                           {t("common.actions.delete")}
                         </Button>
                       </div>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                   {connectionErrors[conn.id] && (
-                    <tr className="border-t border-border bg-destructive/5">
-                      <td colSpan={6} className="px-4 py-2 text-xs text-destructive">
+                    <TableRow className="border-t border-border bg-destructive/5">
+                      <TableCell colSpan={6} className="px-4 py-2 text-xs text-destructive">
                         {connectionErrors[conn.id]}
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   )}
                   </>
                 );
               })}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       )}
     </div>

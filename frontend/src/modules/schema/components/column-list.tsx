@@ -1,4 +1,5 @@
 import { useTranslation } from "@/commons/locales/useTranslation";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { SchemaColumnDto } from "../types/schema.types";
 import { sortColumnsForDisplay } from "../types/schema.types";
 import { cn } from "@/lib/utils";
@@ -23,38 +24,38 @@ export function ColumnList({ columns }: ColumnListProps) {
   const headerClass = "px-3 py-2 font-medium text-muted-foreground border-b border-border";
 
   return (
-    <table className="w-full text-sm">
-      <thead>
-        <tr>
-          <th className={cn(headerClass, "text-left")}>{t("schema.columnName")}</th>
-          <th className={cn(headerClass, "text-left")}>{t("schema.columnDataType")}</th>
-          <th className={cn(headerClass, "text-left")}>{t("schema.columnNullable")}</th>
-          <th className={cn(headerClass, "text-left")}>{t("schema.columnDefault")}</th>
-          <th className={cn(headerClass, "text-center")}>{t("schema.columnPk")}</th>
-        </tr>
-      </thead>
-      <tbody>
+    <Table className="w-full text-sm">
+      <TableHeader>
+        <TableRow>
+          <TableHead className={cn(headerClass, "text-left")}>{t("schema.columnName")}</TableHead>
+          <TableHead className={cn(headerClass, "text-left")}>{t("schema.columnDataType")}</TableHead>
+          <TableHead className={cn(headerClass, "text-left")}>{t("schema.columnNullable")}</TableHead>
+          <TableHead className={cn(headerClass, "text-left")}>{t("schema.columnDefault")}</TableHead>
+          <TableHead className={cn(headerClass, "text-center")}>{t("schema.columnPk")}</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
         {sorted.map((col) => (
-          <tr
+          <TableRow
             key={col.name}
             className="transition-colors hover:bg-background"
           >
-            <td className="px-3 py-1.5 font-mono text-sm">{col.name}</td>
-            <td className="px-3 py-1.5 font-mono text-xs text-muted-foreground">
+            <TableCell className="px-3 py-1.5 font-mono text-sm">{col.name}</TableCell>
+            <TableCell className="px-3 py-1.5 font-mono text-xs text-muted-foreground">
               {col.dataType}
-            </td>
-            <td className="px-3 py-1.5 text-muted-foreground">
+            </TableCell>
+            <TableCell className="px-3 py-1.5 text-muted-foreground">
               {col.nullable ? "YES" : "NO"}
-            </td>
-            <td className="px-3 py-1.5 font-mono text-xs text-muted-foreground">
+            </TableCell>
+            <TableCell className="px-3 py-1.5 font-mono text-xs text-muted-foreground">
               {col.defaultValue ?? "\u2014"}
-            </td>
-            <td className="px-3 py-1.5 text-center">
+            </TableCell>
+            <TableCell className="px-3 py-1.5 text-center">
               {col.isPrimaryKey ? "\uD83D\uDD11" : ""}
-            </td>
-          </tr>
+            </TableCell>
+          </TableRow>
         ))}
-      </tbody>
-    </table>
+      </TableBody>
+    </Table>
   );
 }

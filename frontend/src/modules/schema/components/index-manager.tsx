@@ -1,6 +1,9 @@
 import { useCallback, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useTranslation } from "@/commons/locales/useTranslation";
 
 import { useExecuteDdl } from "../queries/schema.queries";
@@ -98,10 +101,10 @@ export function IndexManager({
 
         <div className="space-y-2">
           <div>
-            <label className="mb-1 block text-xs text-muted-foreground">
+            <Label className="mb-1 block text-xs text-muted-foreground">
               {t("schema.ddlIndexName")}
-            </label>
-            <input
+            </Label>
+            <Input
               type="text"
               value={indexName}
               onChange={(e) => setIndexName(e.target.value)}
@@ -110,9 +113,9 @@ export function IndexManager({
           </div>
 
           <div>
-            <label className="mb-1 block text-xs text-muted-foreground">
+            <Label className="mb-1 block text-xs text-muted-foreground">
               {t("schema.ddlIndexColumns")}
-            </label>
+            </Label>
             <div className="flex flex-wrap gap-1">
               {columns.map((col) => (
                 <Button
@@ -128,14 +131,13 @@ export function IndexManager({
             </div>
           </div>
 
-          <label className="flex items-center gap-2 text-xs text-foreground">
-            <input
-              type="checkbox"
+          <Label className="flex items-center gap-2 text-xs text-foreground">
+            <Checkbox
               checked={unique}
-              onChange={(e) => setUnique(e.target.checked)}
+              onCheckedChange={(checked) => setUnique(checked === true)}
             />
             {t("schema.ddlUnique")}
-          </label>
+          </Label>
 
           <Button
             type="button"

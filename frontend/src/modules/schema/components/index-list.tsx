@@ -1,4 +1,5 @@
 import { useTranslation } from "@/commons/locales/useTranslation";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { SchemaIndexDto } from "../types/schema.types";
 import { cn } from "@/lib/utils";
 
@@ -20,30 +21,30 @@ export function IndexList({ indexes }: IndexListProps) {
   const headerClass = "px-3 py-2 font-medium text-muted-foreground border-b border-border";
 
   return (
-    <table className="w-full text-sm">
-      <thead>
-        <tr>
-          <th className={cn(headerClass, "text-left")}>{t("schema.indexName")}</th>
-          <th className={cn(headerClass, "text-left")}>{t("schema.indexColumns")}</th>
-          <th className={cn(headerClass, "text-center")}>{t("schema.indexUnique")}</th>
-        </tr>
-      </thead>
-      <tbody>
+    <Table className="w-full text-sm">
+      <TableHeader>
+        <TableRow>
+          <TableHead className={cn(headerClass, "text-left")}>{t("schema.indexName")}</TableHead>
+          <TableHead className={cn(headerClass, "text-left")}>{t("schema.indexColumns")}</TableHead>
+          <TableHead className={cn(headerClass, "text-center")}>{t("schema.indexUnique")}</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
         {indexes.map((idx) => (
-          <tr
+          <TableRow
             key={idx.name}
             className="transition-colors hover:bg-background"
           >
-            <td className="px-3 py-1.5 font-mono text-sm">{idx.name}</td>
-            <td className="px-3 py-1.5 font-mono text-xs text-muted-foreground">
+            <TableCell className="px-3 py-1.5 font-mono text-sm">{idx.name}</TableCell>
+            <TableCell className="px-3 py-1.5 font-mono text-xs text-muted-foreground">
               {idx.columns.join(", ")}
-            </td>
-            <td className="px-3 py-1.5 text-center text-muted-foreground">
+            </TableCell>
+            <TableCell className="px-3 py-1.5 text-center text-muted-foreground">
               {idx.unique ? "YES" : "NO"}
-            </td>
-          </tr>
+            </TableCell>
+          </TableRow>
         ))}
-      </tbody>
-    </table>
+      </TableBody>
+    </Table>
   );
 }

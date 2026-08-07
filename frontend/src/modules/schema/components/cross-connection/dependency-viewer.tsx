@@ -1,6 +1,8 @@
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useTranslation } from "@/commons/locales/useTranslation";
 
 import { useObjectDependencies } from "../../queries/schema.queries";
@@ -34,15 +36,13 @@ export function DependencyViewer({ connectionId }: DependencyViewerProps) {
   return (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-3 gap-3">
-        <input
-          type="text"
+        <Input
           value={schema}
           onChange={(e) => setSchema(e.target.value)}
           placeholder={t("schema.crossConn.schemaName")}
           className="rounded-sm border border-border px-3 py-2 text-sm text-foreground"
         />
-        <input
-          type="text"
+        <Input
           value={objectName}
           onChange={(e) => setObjectName(e.target.value)}
           placeholder={t("schema.crossConn.objectName")}
@@ -71,36 +71,36 @@ export function DependencyViewer({ connectionId }: DependencyViewerProps) {
 
       {deps && deps.length > 0 && (
         <div className="rounded-sm border border-border">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-card">
-                <th className="px-3 py-2 text-left font-medium text-muted-foreground">
+          <Table className="w-full text-sm">
+            <TableHeader>
+              <TableRow className="bg-card">
+                <TableHead className="px-3 py-2 text-left font-medium text-muted-foreground">
                   {t("schema.crossConn.object")}
-                </th>
-                <th className="px-3 py-2 text-left font-medium text-muted-foreground">
+                </TableHead>
+                <TableHead className="px-3 py-2 text-left font-medium text-muted-foreground">
                   {t("schema.crossConn.dependsOn")}
-                </th>
-              </tr>
-            </thead>
-            <tbody>
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {deps.map((dep, i) => (
-                <tr key={i} className="border-t border-border">
-                  <td className="px-3 py-2">
+                <TableRow key={i} className="border-t border-border">
+                  <TableCell className="px-3 py-2">
                     <span className="rounded px-1.5 py-0.5 text-xs bg-background text-muted-foreground">
                       {dep.objectType}
                     </span>
                     <span className="ml-2 text-foreground">{dep.objectName}</span>
-                  </td>
-                  <td className="px-3 py-2">
+                  </TableCell>
+                  <TableCell className="px-3 py-2">
                     <span className="rounded px-1.5 py-0.5 text-xs bg-background text-muted-foreground">
                       {dep.dependsOnType}
                     </span>
                     <span className="ml-2 text-foreground">{dep.dependsOnName}</span>
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       )}
     </div>

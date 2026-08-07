@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
+import { Input } from "@/components/ui/input";
+
 import type { CellValue } from "../types/data-grid.types";
 import { renderCellValue } from "@/modules/query/types/query.types";
 
@@ -49,9 +51,9 @@ export function CellEditor({ value, onSave, onCancel }: CellEditorProps) {
   };
 
   return (
-    <input
+    <Input
       ref={inputRef}
-      className="absolute inset-0 z-20 w-full border-2 border-primary bg-card px-2 text-xs text-foreground outline-none"
+      className="absolute inset-0 z-20 h-full w-full rounded-none border-2 border-primary bg-card px-2 text-xs shadow-none focus-visible:ring-0"
       value={text}
       onChange={(e) => setText(e.target.value)}
       onKeyDown={(e) => {

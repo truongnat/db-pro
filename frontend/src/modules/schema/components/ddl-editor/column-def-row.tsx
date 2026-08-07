@@ -1,6 +1,9 @@
 import type { ChangeEvent } from "react";
 
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useTranslation } from "@/commons/locales/useTranslation";
 
 import type { ColumnDef } from "../../services/ddl-builder";
@@ -24,79 +27,72 @@ export function ColumnDefRow({ column, index, onChange, onRemove, canRemove }: C
     <div className="grid grid-cols-[1fr_1fr_80px_1fr_40px_32px] items-end gap-2">
       <div className="flex flex-col gap-1">
         {index === 0 && (
-          <label className="text-xs text-muted-foreground">
+          <Label className="text-xs text-muted-foreground">
             {t("schema.columnName")}
-          </label>
+          </Label>
         )}
-        <input
-          type="text"
+        <Input
           value={column.name}
           onChange={handleField("name")}
           placeholder="column_name"
-          className="rounded-sm border border-border bg-background px-2 py-1.5 text-sm text-foreground outline-none focus:border-primary"
+          className="text-sm"
         />
       </div>
 
       <div className="flex flex-col gap-1">
         {index === 0 && (
-          <label className="text-xs text-muted-foreground">
+          <Label className="text-xs text-muted-foreground">
             {t("schema.columnDataType")}
-          </label>
+          </Label>
         )}
-        <input
-          type="text"
+        <Input
           value={column.dataType}
           onChange={handleField("dataType")}
           placeholder="TEXT"
-          className="rounded-sm border border-border bg-background px-2 py-1.5 text-sm text-foreground outline-none focus:border-primary"
+          className="text-sm"
         />
       </div>
 
       <div className="flex flex-col gap-1">
         {index === 0 && (
-          <label className="text-xs text-muted-foreground">
+          <Label className="text-xs text-muted-foreground">
             {t("schema.columnNullable")}
-          </label>
+          </Label>
         )}
-        <label className="flex items-center justify-center">
-          <input
-            type="checkbox"
+        <div className="flex items-center justify-center">
+          <Checkbox
             checked={column.nullable}
-            onChange={(e) => onChange(index, "nullable", e.target.checked)}
-            className="h-4 w-4 rounded border border-border accent-primary"
+            onCheckedChange={(checked) => onChange(index, "nullable", !!checked)}
           />
-        </label>
+        </div>
       </div>
 
       <div className="flex flex-col gap-1">
         {index === 0 && (
-          <label className="text-xs text-muted-foreground">
+          <Label className="text-xs text-muted-foreground">
             {t("schema.columnDefault")}
-          </label>
+          </Label>
         )}
-        <input
-          type="text"
+        <Input
           value={column.defaultValue}
           onChange={handleField("defaultValue")}
           placeholder="DEFAULT"
-          className="rounded-sm border border-border bg-background px-2 py-1.5 text-sm text-foreground outline-none focus:border-primary"
+          className="text-sm"
         />
       </div>
 
       <div className="flex flex-col gap-1">
         {index === 0 && (
-          <label className="text-xs text-muted-foreground">
+          <Label className="text-xs text-muted-foreground">
             {t("schema.columnPk")}
-          </label>
+          </Label>
         )}
-        <label className="flex items-center justify-center">
-          <input
-            type="checkbox"
+        <div className="flex items-center justify-center">
+          <Checkbox
             checked={column.isPk}
-            onChange={(e) => onChange(index, "isPk", e.target.checked)}
-            className="h-4 w-4 rounded border border-border accent-primary"
+            onCheckedChange={(checked) => onChange(index, "isPk", !!checked)}
           />
-        </label>
+        </div>
       </div>
 
       <Button
