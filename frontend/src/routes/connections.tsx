@@ -10,7 +10,7 @@ export const Route = createFileRoute("/connections")({
 function ConnectionsRedirect() {
   const navigate = useNavigate();
   useEffect(() => {
-    useShellStore.getState().setSidebarView("connections");
+    useShellStore.getState().setSidebarView("explorer");
     navigate({ to: "/" });
   }, [navigate]);
   return null;

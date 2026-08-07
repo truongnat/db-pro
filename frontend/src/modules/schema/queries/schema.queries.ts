@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { container } from "@/app/app.module";
 import { SERVICE_NAMES, type ISchemaService } from "@/commons/di/registry";
+import { useSchemaCatalogStore } from "@/modules/query/stores/schema-catalog.store";
 
 import type { DataDiff, IntrospectResult, ObjectDependency, PartitionInfo, SchemaDiff, TableInfo, TablespaceInfo } from "../types/schema.types";
 
@@ -76,6 +77,7 @@ export function useInvalidateSchemaCache(connectionId: string | null) {
     onSuccess: () => {
       if (connectionId) {
         qc.invalidateQueries({ queryKey: QUERY_KEYS.introspect(connectionId) });
+        useSchemaCatalogStore.getState().invalidateConnection(connectionId);
       }
     },
     onError: (err: unknown) => {
@@ -94,6 +96,7 @@ export function useExecuteDdl(connectionId: string | null) {
     onSuccess: () => {
       if (connectionId) {
         qc.invalidateQueries({ queryKey: QUERY_KEYS.introspect(connectionId) });
+        useSchemaCatalogStore.getState().invalidateConnection(connectionId);
       }
     },
   });
@@ -201,6 +204,7 @@ export function useRenameSchemaObject(connectionId: string | null) {
     onSuccess: () => {
       if (connectionId) {
         qc.invalidateQueries({ queryKey: QUERY_KEYS.introspect(connectionId) });
+        useSchemaCatalogStore.getState().invalidateConnection(connectionId);
       }
     },
   });

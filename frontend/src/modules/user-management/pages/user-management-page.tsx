@@ -19,21 +19,21 @@ import {
 
 export function UserManagementPage() {
   const { t } = useTranslation();
-  const activeConnectionId = useConnectionStore((s) => s.activeConnectionId);
+  const explorerConnectionId = useConnectionStore((s) => s.explorerConnectionId);
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
 
-  const { data: users = [], isLoading } = useListUsers(activeConnectionId);
+  const { data: users = [], isLoading } = useListUsers(explorerConnectionId);
   const { data: privileges = [] } = useListPrivileges(
-    activeConnectionId,
+    explorerConnectionId,
     selectedUser,
   );
-  const createRole = useCreateRole(activeConnectionId);
-  const dropRole = useDropRole(activeConnectionId);
-  const grant = useGrantPrivilege(activeConnectionId, selectedUser);
-  const revoke = useRevokePrivilege(activeConnectionId, selectedUser);
+  const createRole = useCreateRole(explorerConnectionId);
+  const dropRole = useDropRole(explorerConnectionId);
+  const grant = useGrantPrivilege(explorerConnectionId, selectedUser);
+  const revoke = useRevokePrivilege(explorerConnectionId, selectedUser);
 
-  if (!activeConnectionId) {
+  if (!explorerConnectionId) {
     return (
       <div className="flex h-full items-center justify-center text-muted-foreground">
         {t("userManagement.connectFirst")}

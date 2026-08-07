@@ -10,12 +10,12 @@ import { useIntrospect } from "@/modules/schema/queries/schema.queries";
 export function StatusBar() {
   const { t } = useTranslation();
   const connections = useConnectionList();
-  const activeConnectionId = useConnectionStore((s) => s.activeConnectionId);
+  const explorerConnectionId = useConnectionStore((s) => s.explorerConnectionId);
   const statuses = useConnectionModuleStore((s) => s.statuses);
-  const activeConnection = connections.data?.find((c) => c.id === activeConnectionId) ?? null;
-  const introspect = useIntrospect(activeConnectionId);
+  const activeConnection = connections.data?.find((c) => c.id === explorerConnectionId) ?? null;
+  const introspect = useIntrospect(explorerConnectionId);
 
-  const status = activeConnectionId ? (statuses[activeConnectionId] ?? "disconnected") : null;
+  const status = explorerConnectionId ? (statuses[explorerConnectionId] ?? "disconnected") : null;
   const tableCount = introspect.data?.tables.length ?? 0;
 
   const statusLabel =

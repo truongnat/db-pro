@@ -15,7 +15,7 @@ import type { RunConfig } from "../types/query.types";
 
 export function QueryPage() {
   const { t } = useTranslation();
-  const activeConnectionId = useConnectionStore((s) => s.activeConnectionId);
+  const explorerConnectionId = useConnectionStore((s) => s.explorerConnectionId);
 
   const activeTab = useWorkspaceStore((s) => {
     const tab = s.tabs.find((t) => t.id === s.activeTabId);
@@ -30,19 +30,19 @@ export function QueryPage() {
 
   const initializedRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!activeConnectionId) return;
-    if (initializedRef.current === activeConnectionId) return;
-    initializedRef.current = activeConnectionId;
+    if (!explorerConnectionId) return;
+    if (initializedRef.current === explorerConnectionId) return;
+    initializedRef.current = explorerConnectionId;
 
     const { tabs } = useWorkspaceStore.getState();
     const hasTabsForConnection = tabs.some(
-      (t) => t.kind === "query" && t.connectionId === activeConnectionId,
+      (t) => t.kind === "query" && t.connectionId === explorerConnectionId,
     );
     if (!hasTabsForConnection) {
-      const tab = createQueryTab(activeConnectionId);
+      const tab = createQueryTab(explorerConnectionId);
       useWorkspaceStore.getState().openTab(tab);
     }
-  }, [activeConnectionId]);
+  }, [explorerConnectionId]);
 
   const handleSelectSavedQuery = useCallback(
     (querySql: string) => {

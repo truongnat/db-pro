@@ -9,14 +9,14 @@ import { SqlFileOperations } from "@/modules/query/components/sql-file-operation
 import type { RunConfig } from "@/modules/query/types/query.types";
 
 export function QuerySavedView() {
-  const activeConnectionId = useConnectionStore((s) => s.activeConnectionId);
+  const explorerConnectionId = useConnectionStore((s) => s.explorerConnectionId);
   const activeTab = useWorkspaceStore((s) => {
     const tab = s.tabs.find((t) => t.id === s.activeTabId);
     return tab?.kind === "query" ? tab : undefined;
   });
   const activeTabId = useWorkspaceStore((s) => s.activeTabId);
   const sql = activeTab?.data.sql ?? "";
-  const tabConnectionId = activeTab?.connectionId ?? activeConnectionId;
+  const tabConnectionId = activeTab?.connectionId ?? explorerConnectionId;
 
   const handleSelectSavedQuery = useCallback(
     (querySql: string) => {

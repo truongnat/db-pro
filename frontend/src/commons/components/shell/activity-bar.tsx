@@ -1,6 +1,5 @@
 import { Link } from "@tanstack/react-router";
 import {
-  Database,
   FolderOpen,
   KeyRound,
   PanelLeftClose,
@@ -23,11 +22,10 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { viewId: "explorer", labelKey: "shell.nav.schema", icon: FolderOpen },
+  { viewId: "explorer", labelKey: "shell.nav.explorer", icon: FolderOpen },
   { viewId: "search", labelKey: "shell.nav.search", icon: Search },
   { viewId: "query-saved", labelKey: "shell.nav.query", icon: Command },
   { viewId: "users", labelKey: "shell.nav.users", icon: KeyRound },
-  { viewId: "connections", labelKey: "shell.nav.connections", icon: Database },
 ];
 
 export function ActivityBar() {

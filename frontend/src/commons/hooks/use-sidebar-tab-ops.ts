@@ -1,11 +1,8 @@
 import { useCallback } from "react";
 
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
-import {
-  createSchemaObjectTab,
-  createTableDataTab,
-} from "@/commons/factories/tab-factories";
-import type { SchemaObjectTabData } from "@/commons/types/workspace.types";
+import { createDbObjectTab } from "@/commons/factories/tab-factories";
+import type { DbObjectTabData } from "@/commons/types/workspace.types";
 
 export function useSidebarTabOps() {
   const openTab = useWorkspaceStore((s) => s.openTab);
@@ -16,9 +13,9 @@ export function useSidebarTabOps() {
       connectionId: string,
       schema: string,
       objectName: string,
-      objectType: SchemaObjectTabData["objectType"],
+      objectType: DbObjectTabData["objectType"],
     ) => {
-      const tab = createSchemaObjectTab(connectionId, schema, objectName, objectType);
+      const tab = createDbObjectTab(connectionId, schema, objectName, objectType, "structure", true);
       openTab(tab);
     },
     [openTab],
@@ -30,7 +27,7 @@ export function useSidebarTabOps() {
       schema: string,
       objectName: string,
     ) => {
-      const resourceKey = `object:${schema}.${objectName}:${connectionId}`;
+      const resourceKey = `dbobj:${schema}.${objectName}:${connectionId}`;
       const tab = useWorkspaceStore.getState().tabs.find((t) => t.resourceKey === resourceKey);
       if (tab) promotePreview(tab.id);
     },
@@ -39,7 +36,7 @@ export function useSidebarTabOps() {
 
   const openTableData = useCallback(
     (connectionId: string, schema: string, table: string) => {
-      const tab = createTableDataTab(connectionId, schema, table);
+      const tab = createDbObjectTab(connectionId, schema, table, "table", "data", false);
       openTab(tab);
     },
     [openTab],

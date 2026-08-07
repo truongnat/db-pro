@@ -4,8 +4,8 @@ import { format as formatSql } from "sql-formatter";
 import { ResizableDock } from "@/commons/components/resizable-dock";
 import { onQueryAction } from "@/commons/commands/query-dispatch";
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
-import type { ResultPanelTab } from "@/commons/types/workspace.types";
 import { useTranslation } from "@/commons/locales/useTranslation";
+import { useSchemaCatalogStore } from "../stores/schema-catalog.store";
 import { Button } from "@/components/ui/button";
 import { ExportDialog } from "@/modules/export/components/export-dialog";
 
@@ -27,6 +27,7 @@ import { pushLocalHistory } from "../services/local-history";
 import {
   setTabSql,
   setTabSort,
+  setTabActivePanel,
 } from "../controllers/query-workspace.controller";
 import type { Row, RunConfig } from "../types/query.types";
 
@@ -52,7 +53,7 @@ export function QueryTabContent({ tabId, onOpenRunConfig }: QueryTabContentProps
   const explainPlan = tabData?.explainPlan ?? null;
   const sort = tabData?.sort ?? { column: null, direction: null };
 
-  const [panelTab, setPanelTab] = useState<ResultPanelTab>("results");
+  const panelTab = tabData?.activePanel ?? "results";
   const [historySearch, setHistorySearch] = useState("");
   const [exportOpen, setExportOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -83,7 +84,7 @@ export function QueryTabContent({ tabId, onOpenRunConfig }: QueryTabContentProps
         {
           onSuccess: () => {
             if (useWorkspaceStore.getState().activeTabId === currentTabId) {
-              setPanelTab("explain");
+              setTabActivePanel(currentTabId, "explain");
             }
           },
         },
@@ -132,7 +133,7 @@ export function QueryTabContent({ tabId, onOpenRunConfig }: QueryTabContentProps
   const handleSelectHistoryEntry = useCallback(
     (entrySql: string) => {
       setTabSql(tabId, entrySql);
-      setPanelTab("results");
+      setTabActivePanel(tabId, "results");
     },
     [tabId],
   );
@@ -174,6 +175,12 @@ export function QueryTabContent({ tabId, onOpenRunConfig }: QueryTabContentProps
     ];
     return () => unsubs.forEach((u) => u());
   }, [handleExecute, handleExplain, handleFormat, handleClear, handleCancel, sql]);
+
+  useEffect(() => {
+    if (tabConnectionId) {
+      useSchemaCatalogStore.getState().ensureLoaded(tabConnectionId);
+    }
+  }, [tabConnectionId]);
 
   const sortedRows = useMemo(() => {
     if (!result?.rows || !sort.column || !sort.direction) return result?.rows ?? [];
@@ -228,6 +235,7 @@ export function QueryTabContent({ tabId, onOpenRunConfig }: QueryTabContentProps
             value={sql}
             onChange={(v) => setTabSql(tabId, v)}
             path={`dbpro://query/${tabId}.sql`}
+            onExecute={handleExecute}
           />
         </div>
 
@@ -245,7 +253,7 @@ export function QueryTabContent({ tabId, onOpenRunConfig }: QueryTabContentProps
                     ? "border-b-2 border-primary"
                     : "border-b-2 border-transparent"
                 }`}
-                onClick={() => setPanelTab(tab.id)}
+                onClick={() => setTabActivePanel(tabId, tab.id)}
               >
                 {tab.label}
               </Button>

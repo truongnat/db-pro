@@ -10,8 +10,8 @@ import { useConnectionList } from "@/modules/connection/queries/connection.queri
 export function Topbar() {
   const { t } = useTranslation();
   const connections = useConnectionList();
-  const activeConnectionId = useConnectionStore((s) => s.activeConnectionId);
-  const activeConnection = connections.data?.find((c) => c.id === activeConnectionId) ?? null;
+  const explorerConnectionId = useConnectionStore((s) => s.explorerConnectionId);
+  const activeConnection = connections.data?.find((c) => c.id === explorerConnectionId) ?? null;
   const activeTab = useWorkspaceStore((s) => {
     if (!s.activeTabId) return null;
     return s.tabs.find((t) => t.id === s.activeTabId) ?? null;

@@ -17,7 +17,7 @@ vi.mock("../queries/connection.queries", () => ({
 
 vi.mock("@/commons/stores/connection.store", () => ({
   useConnectionStore: vi.fn((selector) =>
-    selector({ activeConnectionId: null }),
+    selector({ explorerConnectionId: null }),
   ),
 }));
 

@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-import type { PersistedWorkspaceState, QueryTabData, WorkspaceTab } from "@/commons/types/workspace.types";
+import type { DbObjectSection, PersistedWorkspaceState, QueryTabData, WorkspaceTab } from "@/commons/types/workspace.types";
 
 const MAX_RECENTLY_CLOSED = 20;
 
@@ -20,6 +20,7 @@ interface WorkspaceState extends PersistedWorkspaceState {
   promotePreview: (id: string) => void;
   reorderTabs: (fromIndex: number, toIndex: number) => void;
   restoreState: (state: PersistedWorkspaceState) => void;
+  setDbObjectSection: (id: string, section: DbObjectSection) => void;
 }
 
 function findTabById(tabs: WorkspaceTab[], id: string): WorkspaceTab | undefined {
@@ -205,6 +206,13 @@ export const useWorkspaceStore = create<WorkspaceState>()(
             recentlyClosed,
           };
         }),
+
+      setDbObjectSection: (id, section) =>
+        set((state) => ({
+          tabs: updateTabInList(state.tabs, id, (t) =>
+            t.kind === "db-object" ? { ...t, data: { ...t.data, activeSection: section } } : t,
+          ),
+        })),
 
       restoreState: (restored) =>
         set({

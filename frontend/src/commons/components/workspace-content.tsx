@@ -4,8 +4,7 @@ import { useWorkspaceStore } from "@/commons/stores/workspace.store";
 
 import { WelcomeView } from "./welcome-view";
 import { QueryTabContent } from "@/modules/query/components/query-tab-content";
-import { SchemaObjectTabContent } from "@/modules/schema/components/schema-object-tab-content";
-import { TableDataTabContent } from "@/modules/data-grid/components/table-data-tab-content";
+import { DbObjectTabContent } from "@/modules/schema/components/db-object-tab-content";
 
 function OrphanedTabView({ tabTitle }: { tabTitle: string }) {
   const { t } = useTranslation();
@@ -47,21 +46,14 @@ export function WorkspaceContent() {
           onOpenRunConfig={() => {}}
         />
       );
-    case "schema-object":
+    case "db-object":
       return (
-        <SchemaObjectTabContent
+        <DbObjectTabContent
+          tabId={activeTab.id}
           connectionId={activeTab.connectionId}
           schema={activeTab.data.schema}
           objectName={activeTab.data.objectName}
           objectType={activeTab.data.objectType}
-        />
-      );
-    case "table-data":
-      return (
-        <TableDataTabContent
-          connectionId={activeTab.connectionId}
-          schema={activeTab.data.schema}
-          table={activeTab.data.table}
         />
       );
     default:

@@ -5,12 +5,12 @@ import type { TranslatedError } from "@/commons/utils/error-types";
 
 interface ConnectionState {
   connections: unknown[];
-  activeConnectionId: string | null;
+  explorerConnectionId: string | null;
   isLoading: boolean;
   error: TranslatedError | null;
 
   setConnections: (connections: unknown[]) => void;
-  setActiveConnection: (id: string | null) => void;
+  setExplorerConnection: (id: string | null) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: TranslatedError | null) => void;
   addConnection: (connection: unknown) => void;
@@ -21,7 +21,7 @@ interface ConnectionState {
 
 const initialState = {
   connections: [],
-  activeConnectionId: null,
+  explorerConnectionId: null,
   isLoading: false,
   error: null,
 };
@@ -32,7 +32,7 @@ export const useConnectionStore = create<ConnectionState>()(
       ...initialState,
 
       setConnections: (connections) => set({ connections }),
-      setActiveConnection: (id) => set({ activeConnectionId: id }),
+      setExplorerConnection: (id) => set({ explorerConnectionId: id }),
       setLoading: (loading) => set({ isLoading: loading }),
       setError: (error) => set({ error }),
 
@@ -53,16 +53,16 @@ export const useConnectionStore = create<ConnectionState>()(
           connections: state.connections.filter(
             (c) => (c as { id: string }).id !== id,
           ),
-          activeConnectionId:
-            state.activeConnectionId === id ? null : state.activeConnectionId,
+          explorerConnectionId:
+            state.explorerConnectionId === id ? null : state.explorerConnectionId,
         })),
 
       reset: () => set(initialState),
     }),
     {
-      name: "db-pro-connection",
+      name: "db-pro-explorer-context",
       partialize: (state) => ({
-        activeConnectionId: state.activeConnectionId,
+        explorerConnectionId: state.explorerConnectionId,
       }),
     },
   ),

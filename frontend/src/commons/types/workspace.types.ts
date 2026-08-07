@@ -1,6 +1,6 @@
 import type { ExplainPlan, QueryResult } from "@/modules/query/types/query.types";
 
-export type WorkspaceTabKind = "query" | "table-data" | "schema-object";
+export type WorkspaceTabKind = "query" | "db-object";
 
 export type ExecutionStatus = "idle" | "running" | "success" | "error";
 
@@ -21,6 +21,8 @@ export interface WorkspaceTabBase {
   order: number;
 }
 
+export type ResultPanelTab = "results" | "explain" | "history" | "local-history";
+
 export interface QueryTabData {
   sql: string;
   status: ExecutionStatus;
@@ -30,30 +32,26 @@ export interface QueryTabData {
   sort: SortState;
   multiResults: QueryResult[] | null;
   multiResultIndex: number;
+  activePanel: ResultPanelTab;
 }
 
-export interface TableDataTabData {
-  schema: string;
-  table: string;
-}
+export type DbObjectSection = "data" | "structure" | "indexes" | "relations" | "ddl" | "triggers";
 
-export interface SchemaObjectTabData {
+export interface DbObjectTabData {
   schema: string;
   objectName: string;
   objectType: "table" | "view" | "function" | "sequence" | "type";
+  activeSection: DbObjectSection;
 }
 
 type WorkspaceTabDataMap = {
   query: QueryTabData;
-  "table-data": TableDataTabData;
-  "schema-object": SchemaObjectTabData;
+  "db-object": DbObjectTabData;
 };
 
 export type WorkspaceTab = {
   [K in WorkspaceTabKind]: WorkspaceTabBase & { kind: K; data: WorkspaceTabDataMap[K] };
 }[WorkspaceTabKind];
-
-export type ResultPanelTab = "results" | "explain" | "history" | "local-history";
 
 export interface PersistedWorkspaceState {
   tabs: WorkspaceTab[];

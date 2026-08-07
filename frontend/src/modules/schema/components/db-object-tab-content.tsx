@@ -1,31 +1,42 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 
-import { useConnectionStore } from "@/commons/stores/connection.store";
+import { useWorkspaceStore } from "@/commons/stores/workspace.store";
+import { useTranslation } from "@/commons/locales/useTranslation";
+import { cn } from "@/lib/utils";
+import { SchemaDetailPanel } from "./schema-detail-panel";
+import type { DetailTab } from "../types/schema.types";
+import type { DbObjectSection } from "@/commons/types/workspace.types";
+
 import { useIntrospect } from "@/modules/schema/queries/schema.queries";
-
-import { ChartView } from "./chart-view";
-import { DataGrid } from "./data-grid";
-import { Pagination } from "./pagination";
-import { VisualFilterBuilder } from "./visual-filter-builder";
-import { useDataGridModuleStore } from "../state/data-grid.store";
+import { DataGrid } from "@/modules/data-grid/components/data-grid";
+import { Pagination } from "@/modules/data-grid/components/pagination";
+import { VisualFilterBuilder } from "@/modules/data-grid/components/visual-filter-builder";
+import { useDataGridModuleStore } from "@/modules/data-grid/state/data-grid.store";
 import {
   useTableRows,
   useUpdateRow,
   useDeleteRow,
-} from "../queries/data-grid.queries";
-import type { CellValue, FetchRowsRequest, GridSort } from "../types/data-grid.types";
+} from "@/modules/data-grid/queries/data-grid.queries";
+import type { CellValue, FetchRowsRequest, GridSort } from "@/modules/data-grid/types/data-grid.types";
 
-interface TableDataTabContentProps {
+interface DbObjectTabContentProps {
+  tabId: string;
   connectionId: string | null;
   schema: string;
-  table: string;
+  objectName: string;
+  objectType: "table" | "view" | "function" | "sequence" | "type";
 }
 
-export function TableDataTabContent({
-  connectionId,
-  schema,
-  table,
-}: TableDataTabContentProps) {
+const SECTIONS: { id: DbObjectSection; labelKey: string }[] = [
+  { id: "structure", labelKey: "dbObject.sections.structure" },
+  { id: "data", labelKey: "dbObject.sections.data" },
+  { id: "indexes", labelKey: "dbObject.sections.indexes" },
+  { id: "relations", labelKey: "dbObject.sections.relations" },
+  { id: "ddl", labelKey: "dbObject.sections.ddl" },
+  { id: "triggers", labelKey: "dbObject.sections.triggers" },
+];
+
+function DataSection({ connectionId, schema, table }: { connectionId: string; schema: string; table: string }) {
   const storeConnectionId = useDataGridModuleStore((s) => s.connectionId);
   const tableSchema = useDataGridModuleStore((s) => s.tableSchema);
   const tableName = useDataGridModuleStore((s) => s.tableName);
@@ -35,7 +46,6 @@ export function TableDataTabContent({
   const pageSize = useDataGridModuleStore((s) => s.pageSize);
   const editingCell = useDataGridModuleStore((s) => s.editingCell);
   const frozenColumns = useDataGridModuleStore((s) => s.frozenColumns);
-  const chartConfig = useDataGridModuleStore((s) => s.chartConfig);
   const setTable = useDataGridModuleStore((s) => s.setTable);
   const addFilter = useDataGridModuleStore((s) => s.addFilter);
   const removeFilter = useDataGridModuleStore((s) => s.removeFilter);
@@ -135,7 +145,7 @@ export function TableDataTabContent({
   };
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex flex-1 flex-col overflow-hidden">
       {columns.length > 0 && (
         <VisualFilterBuilder
           columns={columns}
@@ -170,6 +180,112 @@ export function TableDataTabContent({
         onPageChange={setPage}
         onPageSizeChange={setPageSize}
       />
+    </div>
+  );
+}
+
+export function DbObjectTabContent({
+  tabId,
+  connectionId,
+  schema,
+  objectName,
+  objectType,
+}: DbObjectTabContentProps) {
+  const { t } = useTranslation();
+  const [detailTab, setDetailTab] = useState<DetailTab>("columns");
+
+  const activeSection = useWorkspaceStore((s) => {
+    const tab = s.tabs.find((t) => t.id === tabId);
+    return tab?.kind === "db-object" ? tab.data.activeSection : "structure";
+  });
+  const setSection = useWorkspaceStore((s) => s.setDbObjectSection);
+
+  if (!connectionId) return null;
+
+  const isTableOrView = objectType === "table" || objectType === "view";
+
+  return (
+    <div className="flex h-full flex-col">
+      <div className="flex border-b border-border">
+        {SECTIONS.map((section) => (
+          <button
+            key={section.id}
+            type="button"
+            className={cn(
+              "px-3 py-2 text-xs font-medium transition-colors hover:bg-[var(--app-hover)]",
+              activeSection === section.id
+                ? "border-b-2 border-primary text-foreground"
+                : "text-muted-foreground",
+            )}
+            onClick={() => setSection(tabId, section.id)}
+          >
+            {t(section.labelKey)}
+          </button>
+        ))}
+      </div>
+
+      <div className="flex-1 overflow-hidden">
+        {activeSection === "structure" && isTableOrView && (
+          <SchemaDetailPanel
+            connectionId={connectionId}
+            schema={schema}
+            table={objectName}
+            nodeType={objectType === "view" ? "view" : "table"}
+            activeTab={detailTab}
+            onTabChange={setDetailTab}
+          />
+        )}
+        {activeSection === "data" && isTableOrView && (
+          <DataSection connectionId={connectionId} schema={schema} table={objectName} />
+        )}
+        {activeSection === "indexes" && isTableOrView && (
+          <SchemaDetailPanel
+            connectionId={connectionId}
+            schema={schema}
+            table={objectName}
+            nodeType={objectType === "view" ? "view" : "table"}
+            activeTab="indexes"
+            onTabChange={setDetailTab}
+          />
+        )}
+        {activeSection === "relations" && isTableOrView && (
+          <SchemaDetailPanel
+            connectionId={connectionId}
+            schema={schema}
+            table={objectName}
+            nodeType={objectType === "view" ? "view" : "table"}
+            activeTab="foreignKeys"
+            onTabChange={setDetailTab}
+          />
+        )}
+        {activeSection === "ddl" && isTableOrView && (
+          <SchemaDetailPanel
+            connectionId={connectionId}
+            schema={schema}
+            table={objectName}
+            nodeType={objectType === "view" ? "view" : "table"}
+            activeTab="ddl"
+            onTabChange={setDetailTab}
+          />
+        )}
+        {activeSection === "triggers" && isTableOrView && (
+          <SchemaDetailPanel
+            connectionId={connectionId}
+            schema={schema}
+            table={objectName}
+            nodeType={objectType === "view" ? "view" : "table"}
+            activeTab="triggers"
+            onTabChange={setDetailTab}
+          />
+        )}
+        {!isTableOrView && (
+          <div className="flex h-full items-center justify-center p-8">
+            <p className="text-sm text-muted-foreground">
+              {t("dbObject.unsupportedObjectType", { type: objectType })}
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

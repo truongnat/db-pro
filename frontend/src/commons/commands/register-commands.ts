@@ -16,7 +16,7 @@ export function registerAllCommands(router: AnyRouter): void {
   if (registered) return;
   registered = true;
 
-  const hasConnection = () => !!useConnectionStore.getState().activeConnectionId;
+  const hasConnection = () => !!useConnectionStore.getState().explorerConnectionId;
   const hasSql = () => {
     const tab = getActiveQueryTab();
     return !!tab && tab.data.sql.trim().length > 0;
@@ -105,7 +105,7 @@ export function registerAllCommands(router: AnyRouter): void {
       groupKey: "commands.groups.tabs",
       when: () => hasConnection(),
       execute: () => {
-        const connectionId = useConnectionStore.getState().activeConnectionId;
+        const connectionId = useConnectionStore.getState().explorerConnectionId;
         if (!connectionId) return;
         useWorkspaceStore.getState().openTab(createQueryTab(connectionId));
       },
@@ -132,7 +132,7 @@ export function registerAllCommands(router: AnyRouter): void {
     {
       id: "tabs.pin",
       labelKey: "commands.tabs.pin",
-      keybinding: { ctrlKey: true, shiftKey: true, key: "p" },
+      keybinding: { altKey: true, shiftKey: true, key: "p" },
       groupKey: "commands.groups.tabs",
       when: () => !!useWorkspaceStore.getState().activeTabId,
       execute: () => {
@@ -177,7 +177,7 @@ export function registerAllCommands(router: AnyRouter): void {
       id: "nav.connections",
       labelKey: "commands.nav.connections",
       groupKey: "commands.groups.navigation",
-      execute: () => useShellStore.getState().setSidebarView("connections"),
+      execute: () => useShellStore.getState().setSidebarView("explorer"),
     },
     {
       id: "nav.query",
@@ -185,7 +185,7 @@ export function registerAllCommands(router: AnyRouter): void {
       groupKey: "commands.groups.navigation",
       when: () => hasConnection(),
       execute: () => {
-        const connectionId = useConnectionStore.getState().activeConnectionId;
+        const connectionId = useConnectionStore.getState().explorerConnectionId;
         if (!connectionId) return;
         const { tabs, openTab, activateTab } = useWorkspaceStore.getState();
         const existing = tabs.find((t) => t.kind === "query" && t.connectionId === connectionId);

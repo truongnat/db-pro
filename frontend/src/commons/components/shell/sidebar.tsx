@@ -3,17 +3,15 @@ import { CircleHelp, Settings2 } from "lucide-react";
 import { useTranslation } from "@/commons/locales/useTranslation";
 import { useShellStore } from "@/commons/stores/shell.store";
 import { Button } from "@/components/ui/button";
-import { ConnectionsView } from "./sidebar-views/connections-view";
 import { ExplorerView } from "./sidebar-views/explorer-view";
 import { QuerySavedView } from "./sidebar-views/query-saved-view";
 import { SearchView } from "./sidebar-views/search-view";
 import { UsersView } from "./sidebar-views/users-view";
 
 const VIEW_TITLES: Record<string, string> = {
-  explorer: "shell.sidebar.schemaExplorer",
+  explorer: "shell.sidebar.explorer",
   search: "shell.sidebar.searchObjects",
   "query-saved": "query.savedQueries",
-  connections: "connection.title",
   users: "userManagement.title",
 };
 
@@ -29,26 +27,25 @@ export function Sidebar() {
       aria-label={t("shell.sidebar.label")}
     >
       <div
-        className="flex min-h-0 flex-col overflow-y-auto px-2.5 py-3"
+        className="flex min-h-0 flex-col px-2.5 py-3"
         aria-hidden={sidebarCollapsed}
         inert={sidebarCollapsed ? true : undefined}
         style={{ visibility: sidebarCollapsed ? "hidden" : undefined }}
       >
-        <div className="px-2 pb-2">
+        <div className="shrink-0 px-2 pb-2">
           <span className="text-[10px] font-semibold uppercase tracking-widest text-[var(--app-text-dim)]">
             {t(VIEW_TITLES[sidebarView] ?? "")}
           </span>
         </div>
 
-        <div className="flex min-h-0 flex-1 flex-col">
+        <div className="min-h-0 flex-1 overflow-y-auto">
           {sidebarView === "explorer" && <ExplorerView />}
           {sidebarView === "search" && <SearchView />}
           {sidebarView === "query-saved" && <QuerySavedView />}
-          {sidebarView === "connections" && <ConnectionsView />}
           {sidebarView === "users" && <UsersView />}
         </div>
 
-        <div className="mt-auto flex flex-col gap-0.5 border-t border-border pt-2.5">
+        <div className="shrink-0 border-t border-border bg-sidebar pt-2">
           <Button
             type="button"
             variant="ghost"

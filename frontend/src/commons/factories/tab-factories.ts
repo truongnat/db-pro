@@ -1,8 +1,8 @@
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
 import type {
+  DbObjectSection,
+  DbObjectTabData,
   QueryTabData,
-  SchemaObjectTabData,
-  TableDataTabData,
   WorkspaceTab,
 } from "@/commons/types/workspace.types";
 
@@ -30,6 +30,7 @@ function defaultQueryData(): QueryTabData {
     sort: { column: null, direction: null },
     multiResults: null,
     multiResultIndex: 0,
+    activePanel: "results",
   };
 }
 
@@ -52,41 +53,24 @@ export function createQueryTab(connectionId: string, title?: string, sql?: strin
   };
 }
 
-export function createTableDataTab(
-  connectionId: string,
-  schema: string,
-  table: string,
-): WorkspaceTab & { kind: "table-data" } {
-  return {
-    id: crypto.randomUUID(),
-    kind: "table-data",
-    title: table,
-    connectionId,
-    resourceKey: `table:${schema}.${table}:${connectionId}`,
-    dirty: false,
-    pinned: false,
-    preview: false,
-    order: nextOrder(),
-    data: { schema, table } satisfies TableDataTabData,
-  };
-}
-
-export function createSchemaObjectTab(
+export function createDbObjectTab(
   connectionId: string,
   schema: string,
   objectName: string,
-  objectType: SchemaObjectTabData["objectType"],
-): WorkspaceTab & { kind: "schema-object" } {
+  objectType: DbObjectTabData["objectType"],
+  initialSection: DbObjectSection = "structure",
+  preview = true,
+): WorkspaceTab & { kind: "db-object" } {
   return {
     id: crypto.randomUUID(),
-    kind: "schema-object",
+    kind: "db-object",
     title: objectName,
     connectionId,
-    resourceKey: `object:${schema}.${objectName}:${connectionId}`,
+    resourceKey: `dbobj:${schema}.${objectName}:${connectionId}`,
     dirty: false,
     pinned: false,
-    preview: true,
+    preview,
     order: nextOrder(),
-    data: { schema, objectName, objectType } satisfies SchemaObjectTabData,
+    data: { schema, objectName, objectType, activeSection: initialSection } satisfies DbObjectTabData,
   };
 }

@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 
-import { createTableDataTab } from "@/commons/factories/tab-factories";
+import { createDbObjectTab } from "@/commons/factories/tab-factories";
 import { useConnectionStore } from "@/commons/stores/connection.store";
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
 
@@ -17,9 +17,11 @@ function DataRedirect() {
   const navigate = useNavigate();
   const { schema, table } = Route.useSearch();
   useEffect(() => {
-    const connectionId = useConnectionStore.getState().activeConnectionId;
+    const connectionId = useConnectionStore.getState().explorerConnectionId;
     if (connectionId && schema && table) {
-      useWorkspaceStore.getState().openTab(createTableDataTab(connectionId, schema, table));
+      useWorkspaceStore.getState().openTab(
+        createDbObjectTab(connectionId, schema, table, "table", "data", false),
+      );
     }
     navigate({ to: "/" });
   }, [schema, table, navigate]);

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { createQueryTab, createTableDataTab } from "@/commons/factories/tab-factories";
+import { createQueryTab, createDbObjectTab } from "@/commons/factories/tab-factories";
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
 
 function resetStore() {
@@ -26,8 +26,8 @@ describe("WorkspaceStore", () => {
     });
 
     it("deduplicates by resourceKey — activates existing tab", () => {
-      const tab1 = createTableDataTab("conn-1", "public", "users");
-      const tab2 = createTableDataTab("conn-1", "public", "users");
+      const tab1 = createDbObjectTab("conn-1", "public", "users", "table");
+      const tab2 = createDbObjectTab("conn-1", "public", "users", "table");
 
       useWorkspaceStore.getState().openTab(tab1);
       useWorkspaceStore.getState().openTab(tab2);

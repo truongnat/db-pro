@@ -31,7 +31,7 @@ export function ConnectionList({ onEdit, onBackup, onRestore }: ConnectionListPr
   const connectMutation = useConnect();
   const disconnectMutation = useDisconnect();
   const deleteMutation = useDeleteConnection();
-  const activeConnectionId = useConnectionStore((s) => s.activeConnectionId);
+  const explorerConnectionId = useConnectionStore((s) => s.explorerConnectionId);
   const statuses = useConnectionModuleStore((s) => s.statuses);
   const connectionErrors = useConnectionModuleStore((s) => s.connectionErrors);
   const [filterTag, setFilterTag] = useState<string | null>(null);
@@ -95,7 +95,7 @@ export function ConnectionList({ onEdit, onBackup, onRestore }: ConnectionListPr
 
   const getStatus = (conn: Connection) => {
     if (statuses[conn.id]) return statuses[conn.id];
-    if (activeConnectionId === conn.id) return "connected" as const;
+    if (explorerConnectionId === conn.id) return "connected" as const;
     return "disconnected" as const;
   };
 
@@ -230,7 +230,7 @@ export function ConnectionList({ onEdit, onBackup, onRestore }: ConnectionListPr
                     key={conn.id}
                     className={cn(
                       "cursor-pointer transition-colors hover:bg-muted",
-                      activeConnectionId === conn.id && "bg-muted",
+                      explorerConnectionId === conn.id && "bg-muted",
                     )}
                     onClick={() => onEdit(conn.id)}
                   >

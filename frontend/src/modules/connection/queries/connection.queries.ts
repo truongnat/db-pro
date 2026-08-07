@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { container } from "@/app/app.module";
 import { useConnectionStore } from "@/commons/stores/connection.store";
 import { SERVICE_NAMES, type IConnectionService } from "@/commons/di/registry";
+import { useSchemaCatalogStore } from "@/modules/query/stores/schema-catalog.store";
 
 import { useConnectionModuleStore } from "../state/connection.store";
 import type { Connection, ConnectionConfig } from "../types/connection.types";
@@ -67,7 +68,7 @@ export function useConnect() {
   const qc = useQueryClient();
   const setStatus = useConnectionModuleStore((s) => s.setStatus);
   const setError = useConnectionModuleStore((s) => s.setError);
-  const setActiveConnection = useConnectionStore((s) => s.setActiveConnection);
+  const setExplorerConnection = useConnectionStore((s) => s.setExplorerConnection);
 
   return useMutation({
     mutationFn: (id: string) => getConnectionService().connect(id),
@@ -76,7 +77,7 @@ export function useConnect() {
     },
     onSuccess: (_, id) => {
       setStatus(id, "connected");
-      setActiveConnection(id);
+      setExplorerConnection(id);
       qc.invalidateQueries({ queryKey: QUERY_KEYS.connections });
     },
     onError: (err: unknown, id) => {
@@ -91,18 +92,19 @@ export function useDisconnect() {
   const setStatus = useConnectionModuleStore((s) => s.setStatus);
   const setError = useConnectionModuleStore((s) => s.setError);
   const clearStatus = useConnectionModuleStore((s) => s.clearStatus);
-  const setActiveConnection = useConnectionStore((s) => s.setActiveConnection);
-  const activeConnectionId = useConnectionStore((s) => s.activeConnectionId);
+  const setExplorerConnection = useConnectionStore((s) => s.setExplorerConnection);
+  const explorerConnectionId = useConnectionStore((s) => s.explorerConnectionId);
 
   return useMutation({
     mutationFn: (id: string) => getConnectionService().disconnect(id),
     onSuccess: (_, id) => {
       clearStatus(id);
       setStatus(id, "disconnected");
-      if (activeConnectionId === id) {
-        setActiveConnection(null);
+      if (explorerConnectionId === id) {
+        setExplorerConnection(null);
       }
       qc.invalidateQueries({ queryKey: QUERY_KEYS.connections });
+      useSchemaCatalogStore.getState().invalidateConnection(id);
     },
     onError: (err: unknown, id) => {
       setStatus(id, "error");

@@ -2,6 +2,7 @@ import { useWorkspaceStore } from "@/commons/stores/workspace.store";
 import type {
   ExecutionStatus,
   QueryTabData,
+  ResultPanelTab,
   SortState,
   WorkspaceTab,
 } from "@/commons/types/workspace.types";
@@ -67,4 +68,8 @@ export function setTabMultiResults(
 
 export function setTabMultiResultIndex(tabId: string, index: number): void {
   updateData(tabId, (data) => ({ ...data, multiResultIndex: index }));
+}
+
+export function setTabActivePanel(tabId: string, panel: ResultPanelTab): void {
+  updateData(tabId, (data) => ({ ...data, activePanel: panel }));
 }

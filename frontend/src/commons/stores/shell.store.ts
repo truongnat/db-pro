@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-export type SidebarView = "explorer" | "search" | "query-saved" | "connections" | "users";
+export type SidebarView = "explorer" | "search" | "query-saved" | "users";
 
 interface ShellState {
   sidebarCollapsed: boolean;

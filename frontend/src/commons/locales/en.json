@@ -318,19 +318,24 @@
       "query": "Query",
       "data": "Data",
       "schema": "Schema",
+      "explorer": "Explorer",
       "search": "Search",
       "users": "Users"
     },
     "sidebar": {
       "label": "Sidebar",
       "connections": "Connections",
+      "explorer": "Explorer",
       "schemaExplorer": "Schema explorer",
       "connectFirst": "Connect to a database",
       "noRecentQueries": "No recent queries",
       "settings": "Settings",
       "help": "Help",
       "searchObjects": "Search objects...",
-      "openData": "Open Data"
+      "openData": "Open Data",
+      "editConnection": "Edit connection",
+      "tables": "Tables",
+      "views": "Views"
     },
     "topbar": {
       "noConnection": "No connection",
@@ -341,12 +346,23 @@
       "connected": "Connected",
       "connecting": "Connecting...",
       "disconnected": "Disconnected",
-      "noConnection": "No active connection",
+      "noConnection": "No connection selected",
       "tables": "tables",
       "version": "DB Pro v0.1.0"
     },
     "collapse": "Collapse sidebar",
     "expand": "Expand sidebar"
+  },
+  "dbObject": {
+    "sections": {
+      "structure": "Structure",
+      "data": "Data",
+      "indexes": "Indexes",
+      "relations": "Relations",
+      "ddl": "DDL",
+      "triggers": "Triggers"
+    },
+    "unsupportedObjectType": "This object type is not yet supported."
   },
   "commandPalette": {
     "placeholder": "Type a command...",

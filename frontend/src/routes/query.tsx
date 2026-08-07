@@ -12,7 +12,7 @@ export const Route = createFileRoute("/query")({
 function QueryRedirect() {
   const navigate = useNavigate();
   useEffect(() => {
-    const connectionId = useConnectionStore.getState().activeConnectionId;
+    const connectionId = useConnectionStore.getState().explorerConnectionId;
     if (connectionId) {
       const { tabs, openTab, activateTab } = useWorkspaceStore.getState();
       const existing = tabs.find((t) => t.kind === "query" && t.connectionId === connectionId);
