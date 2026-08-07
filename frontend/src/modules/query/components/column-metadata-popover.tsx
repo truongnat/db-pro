@@ -33,7 +33,7 @@ export function ColumnMetadataPopover({ column, anchorEl, onClose }: ColumnMetad
   return (
     <div
       ref={popoverRef}
-      className="fixed z-[var(--z-popover)] min-w-[200px] rounded-sm border border-border bg-background p-3 shadow-lg"
+      className="fixed z-[var(--z-floating)] min-w-[200px] rounded-sm border border-border bg-background p-3 shadow-lg"
       style={{
         top: pos.top,
         left: pos.left,
