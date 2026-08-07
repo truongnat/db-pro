@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { format as formatSql } from "sql-formatter";
 
 import { ResizableDock } from "@/commons/components/resizable-dock";
-import { onQueryAction } from "@/commons/commands/query-dispatch";
+import { onQueryAction, dispatchQueryAction } from "@/commons/commands/query-dispatch";
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
 import { useTranslation } from "@/commons/locales/useTranslation";
 import { useSchemaCatalogStore } from "../stores/schema-catalog.store";
@@ -17,6 +17,7 @@ import { QueryHistoryPanel } from "./query-history-panel";
 import { QueryToolbar } from "./query-toolbar";
 import { ResultGrid } from "./result-grid";
 import { ResultTabs } from "./result-tabs";
+import { SnippetPanel } from "./snippet-panel";
 import { TransactionBar } from "./transaction-bar";
 import {
   useCancelQuery,
@@ -30,8 +31,9 @@ import {
   setTabSql,
   setTabSort,
   setTabActivePanel,
+  createQueryTabFromExplorerContext,
 } from "../controllers/query-workspace.controller";
-import type { Row, RunConfig } from "../types/query.types";
+import type { Row } from "../types/query.types";
 
 interface QueryTabContentProps {
   tabId: string;
@@ -65,10 +67,24 @@ export function QueryTabContent({ tabId, onOpenRunConfig }: QueryTabContentProps
   const cancelMutation = useCancelQuery();
   const historyQuery = useQueryHistory(tabConnectionId ?? "");
 
-  const handleExecute = useCallback(() => {
-    if (tabConnectionId && tabId && sql.trim()) {
-      pushLocalHistory(sql.trim());
-      executeMultiMutation.mutate({ connectionId: tabConnectionId, sql: sql.trim(), tabId });
+  /** Execute a SQL fragment resolved by the editor (Ctrl+Enter / F5). */
+  const handleExecuteFragment = useCallback(
+    (fragmentSql: string) => {
+      const targetSql = fragmentSql.trim();
+      if (tabConnectionId && tabId && targetSql) {
+        pushLocalHistory(targetSql);
+        executeMultiMutation.mutate({ connectionId: tabConnectionId, sql: targetSql, tabId });
+      }
+    },
+    [tabConnectionId, tabId, executeMultiMutation],
+  );
+
+  /** Execute the entire editor content (Ctrl+Shift+Enter / toolbar Run). */
+  const handleExecuteAll = useCallback(() => {
+    const targetSql = sql.trim();
+    if (tabConnectionId && tabId && targetSql) {
+      pushLocalHistory(targetSql);
+      executeMultiMutation.mutate({ connectionId: tabConnectionId, sql: targetSql, tabId });
     }
   }, [tabConnectionId, tabId, sql, executeMultiMutation]);
 
@@ -109,13 +125,6 @@ export function QueryTabContent({ tabId, onOpenRunConfig }: QueryTabContentProps
       // leave SQL unchanged on format error
     }
   }, [tabId, sql, tabConnectionId]);
-
-  const handleInsertTemplate = useCallback(
-    (templateSql: string) => {
-      setTabSql(tabId, sql.trim() ? `${sql}\n${templateSql}` : templateSql);
-    },
-    [tabId, sql],
-  );
 
   const handleSort = useCallback(
     (column: string) => {
@@ -159,7 +168,7 @@ export function QueryTabContent({ tabId, onOpenRunConfig }: QueryTabContentProps
 
   useEffect(() => {
     const unsubs = [
-      onQueryAction("execute", handleExecute),
+      onQueryAction("execute", handleExecuteAll),
       onQueryAction("explain", handleExplain),
       onQueryAction("format", handleFormat),
       onQueryAction("clear", handleClear),
@@ -178,7 +187,7 @@ export function QueryTabContent({ tabId, onOpenRunConfig }: QueryTabContentProps
       }),
     ];
     return () => unsubs.forEach((u) => u());
-  }, [handleExecute, handleExplain, handleFormat, handleClear, handleCancel, sql]);
+  }, [handleExecuteAll, handleExplain, handleFormat, handleClear, handleCancel, sql]);
 
   useEffect(() => {
     if (tabConnectionId) {
@@ -213,23 +222,27 @@ export function QueryTabContent({ tabId, onOpenRunConfig }: QueryTabContentProps
     { id: "explain" as const, label: t("query.explain") },
     { id: "history" as const, label: t("query.history") },
     { id: "local-history" as const, label: t("query.localHistory") },
+    { id: "snippets" as const, label: t("query.snippets") },
   ];
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
       <QueryToolbar
-        onExecute={handleExecute}
+        onExecuteCurrent={() => dispatchQueryAction("executeCurrent")}
+        onExecuteAll={handleExecuteAll}
         onCancel={handleCancel}
         onExplain={handleExplain}
         onClear={handleClear}
         onExport={() => setExportOpen(true)}
         onFormat={handleFormat}
-        onInsertTemplate={handleInsertTemplate}
+        onSaveQuery={() => dispatchQueryAction("saveQuery")}
+        onExportSql={() => dispatchQueryAction("exportSql")}
+        onImportSql={() => dispatchQueryAction("importSql")}
+        onOpenRunConfig={onOpenRunConfig}
         isExecuting={status === "running"}
         isExplaining={explainMutation.isPending}
         hasConnection={!!tabConnectionId}
         hasSql={!!sql.trim()}
-        driver={getDialectForConnection(tabConnectionId).driver}
       />
 
       <QueryContextStrip
@@ -246,7 +259,8 @@ export function QueryTabContent({ tabId, onOpenRunConfig }: QueryTabContentProps
             value={sql}
             onChange={(v) => setTabSql(tabId, v)}
             path={`dbpro://query/${tabId}.sql`}
-            onExecute={handleExecute}
+            onExecute={handleExecuteFragment}
+            onCancel={handleCancel}
           />
         </div>
 
@@ -314,12 +328,28 @@ export function QueryTabContent({ tabId, onOpenRunConfig }: QueryTabContentProps
                 search={historySearch}
                 onSearchChange={setHistorySearch}
                 onSelectEntry={handleSelectHistoryEntry}
+                onOpenInNewTab={(sql) => {
+                  if (!tabConnectionId) return;
+                  const newTab = createQueryTabFromExplorerContext(tabConnectionId);
+                  if (newTab) {
+                    setTabSql(newTab.id, sql);
+                    useWorkspaceStore.getState().openTab(newTab);
+                  }
+                }}
                 isLoading={historyQuery.isLoading}
               />
             )}
 
             {panelTab === "local-history" && (
               <LocalHistoryPanel onSelectEntry={handleSelectHistoryEntry} />
+            )}
+
+            {panelTab === "snippets" && (
+              <SnippetPanel
+                onInsertSnippet={(snippetSql) => {
+                  setTabSql(tabId, sql + (sql.endsWith("\n") || !sql ? "" : "\n") + snippetSql);
+                }}
+              />
             )}
           </div>
         </div>

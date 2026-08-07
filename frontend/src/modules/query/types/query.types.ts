@@ -37,6 +37,9 @@ export interface QueryHistoryEntry {
   executedAt: string;
   durationMs: number;
   rowCount: number;
+  status: "success" | "error";
+  database: string | null;
+  schema: string | null;
 }
 
 export interface SavedQuery {
@@ -45,6 +48,8 @@ export interface SavedQuery {
   name: string;
   sql: string;
   folder?: string;
+  tags: string[];
+  favorite: boolean;
   createdAt: string;
 }
 

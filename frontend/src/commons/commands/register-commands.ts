@@ -5,10 +5,14 @@ import { requestCloseTab } from "@/commons/services/request-close-tab";
 import { useCloseGuardStore } from "@/commons/stores/close-guard.store";
 import { useConnectionStore } from "@/commons/stores/connection.store";
 import { useCommandStore } from "@/commons/stores/command.store";
+import { useQueryHistoryStore } from "@/commons/stores/query-history.store";
 import { useRecentStore } from "@/commons/stores/recent.store";
 import { useShellStore } from "@/commons/stores/shell.store";
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
-import { createQueryTabFromExplorerContext } from "@/modules/query/controllers/query-workspace.controller";
+import {
+  setTabActivePanel,
+  createQueryTabFromExplorerContext,
+} from "@/modules/query/controllers/query-workspace.controller";
 import type { QueryTabData, WorkspaceTab } from "@/commons/types/workspace.types";
 
 let registered = false;
@@ -253,6 +257,34 @@ export function registerAllCommands(router: AnyRouter): void {
       labelKey: "commands.connection.new",
       groupKey: "commands.groups.connection",
       execute: () => useRecentStore.getState().openConnectionDialog(),
+    },
+
+    // ── Productivity ──────────────────────────────────────────
+    {
+      id: "productivity.clearHistory",
+      labelKey: "commands.productivity.clearHistory",
+      groupKey: "commands.groups.productivity",
+      execute: () => useQueryHistoryStore.getState().clearHistory(),
+    },
+    {
+      id: "productivity.showSnippets",
+      labelKey: "commands.productivity.showSnippets",
+      groupKey: "commands.groups.productivity",
+      when: () => !!getActiveQueryTab(),
+      execute: () => {
+        const tab = getActiveQueryTab();
+        if (tab) setTabActivePanel(tab.id, "snippets");
+      },
+    },
+    {
+      id: "productivity.showHistory",
+      labelKey: "commands.productivity.showHistory",
+      groupKey: "commands.groups.productivity",
+      when: () => !!getActiveQueryTab(),
+      execute: () => {
+        const tab = getActiveQueryTab();
+        if (tab) setTabActivePanel(tab.id, "history");
+      },
     },
   ]);
 }

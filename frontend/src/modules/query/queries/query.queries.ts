@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { container } from "@/app/app.module";
 import { SERVICE_NAMES, type IQueryService } from "@/commons/di/registry";
 import { useQueryHistoryStore } from "@/commons/stores/query-history.store";
+import { useWorkspaceStore } from "@/commons/stores/workspace.store";
 
 import {
   setTabError,
@@ -45,6 +46,8 @@ export function useExecuteQuery() {
     onSuccess: (data, variables) => {
       setTabStatus(variables.tabId, "success");
       setTabResult(variables.tabId, data);
+      const tab = useWorkspaceStore.getState().tabs.find((t) => t.id === variables.tabId);
+      const ctx = tab?.kind === "query" ? tab.data.context : null;
       useQueryHistoryStore.getState().addEntry({
         id: crypto.randomUUID(),
         connectionId: variables.connectionId,
@@ -52,6 +55,9 @@ export function useExecuteQuery() {
         executedAt: new Date().toISOString(),
         durationMs: data.durationMs,
         rowCount: data.rowCount,
+        status: "success",
+        database: ctx?.database ?? null,
+        schema: ctx?.schema ?? null,
       });
       qc.invalidateQueries({
         queryKey: QUERY_KEYS.history(variables.connectionId),
@@ -63,6 +69,19 @@ export function useExecuteQuery() {
         variables.tabId,
         (err as { userMessage?: string }).userMessage ?? "Query execution failed",
       );
+      const tab = useWorkspaceStore.getState().tabs.find((t) => t.id === variables.tabId);
+      const ctx = tab?.kind === "query" ? tab.data.context : null;
+      useQueryHistoryStore.getState().addEntry({
+        id: crypto.randomUUID(),
+        connectionId: variables.connectionId,
+        sql: variables.sql,
+        executedAt: new Date().toISOString(),
+        durationMs: 0,
+        rowCount: 0,
+        status: "error",
+        database: ctx?.database ?? null,
+        schema: ctx?.schema ?? null,
+      });
     },
   });
 }
@@ -94,6 +113,8 @@ export function useExecuteQueryMulti() {
       if (data.results.length > 0) {
         setTabResult(variables.tabId, data.results[0]);
       }
+      const tab = useWorkspaceStore.getState().tabs.find((t) => t.id === variables.tabId);
+      const ctx = tab?.kind === "query" ? tab.data.context : null;
       useQueryHistoryStore.getState().addEntry({
         id: crypto.randomUUID(),
         connectionId: variables.connectionId,
@@ -101,6 +122,9 @@ export function useExecuteQueryMulti() {
         executedAt: new Date().toISOString(),
         durationMs: data.totalDurationMs,
         rowCount: data.results.reduce((sum, r) => sum + r.rowCount, 0),
+        status: "success",
+        database: ctx?.database ?? null,
+        schema: ctx?.schema ?? null,
       });
       qc.invalidateQueries({
         queryKey: QUERY_KEYS.history(variables.connectionId),
@@ -112,6 +136,19 @@ export function useExecuteQueryMulti() {
         variables.tabId,
         (err as { userMessage?: string }).userMessage ?? "Query execution failed",
       );
+      const tab = useWorkspaceStore.getState().tabs.find((t) => t.id === variables.tabId);
+      const ctx = tab?.kind === "query" ? tab.data.context : null;
+      useQueryHistoryStore.getState().addEntry({
+        id: crypto.randomUUID(),
+        connectionId: variables.connectionId,
+        sql: variables.sql,
+        executedAt: new Date().toISOString(),
+        durationMs: 0,
+        rowCount: 0,
+        status: "error",
+        database: ctx?.database ?? null,
+        schema: ctx?.schema ?? null,
+      });
     },
   });
 }
@@ -245,6 +282,70 @@ export function useDeleteRunConfig() {
       getQueryService().deleteRunConfig(id),
     onSuccess: (_, variables) => {
       qc.invalidateQueries({ queryKey: QUERY_KEYS.runConfigs(variables.connectionId) });
+    },
+  });
+}
+
+/**
+ * Rename a saved query by deleting and re-saving with a new name.
+ * Note: this changes the ID and created_at, which is acceptable for P11.
+ */
+export function useRenameSavedQuery() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      connectionId,
+      newName,
+    }: {
+      id: string;
+      connectionId: string;
+      newName: string;
+    }) => {
+      const queries =
+        (qc.getQueryData(QUERY_KEYS.saved(connectionId)) as SavedQuery[] | undefined) ?? [];
+      const existing = queries.find((q) => q.id === id);
+      if (!existing) throw new Error("Saved query not found");
+      await getQueryService().deleteSaved(id);
+      return getQueryService().save(
+        connectionId,
+        newName,
+        existing.sql,
+        existing.folder,
+      ) as Promise<SavedQuery>;
+    },
+    onSuccess: (_, variables) => {
+      qc.invalidateQueries({ queryKey: QUERY_KEYS.saved(variables.connectionId) });
+    },
+  });
+}
+
+/**
+ * Duplicate a saved query with a "(copy)" suffix.
+ */
+export function useDuplicateSavedQuery() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      connectionId,
+    }: {
+      id: string;
+      connectionId: string;
+    }) => {
+      const queries =
+        (qc.getQueryData(QUERY_KEYS.saved(connectionId)) as SavedQuery[] | undefined) ?? [];
+      const existing = queries.find((q) => q.id === id);
+      if (!existing) throw new Error("Saved query not found");
+      return getQueryService().save(
+        connectionId,
+        `${existing.name} (copy)`,
+        existing.sql,
+        existing.folder,
+      ) as Promise<SavedQuery>;
+    },
+    onSuccess: (_, variables) => {
+      qc.invalidateQueries({ queryKey: QUERY_KEYS.saved(variables.connectionId) });
     },
   });
 }
