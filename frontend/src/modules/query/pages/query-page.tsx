@@ -86,23 +86,27 @@ export function QueryPage() {
   }, [activeConnectionId]);
 
   const handleExecute = useCallback(() => {
-    if (activeConnectionId && sql.trim()) {
+    if (activeConnectionId && activeTabId && sql.trim()) {
       pushLocalHistory(sql.trim());
-      executeMultiMutation.mutate({ connectionId: activeConnectionId, sql: sql.trim() });
+      executeMultiMutation.mutate({ connectionId: activeConnectionId, sql: sql.trim(), tabId: activeTabId });
     }
-  }, [activeConnectionId, sql, executeMultiMutation]);
+  }, [activeConnectionId, activeTabId, sql, executeMultiMutation]);
 
   const handleCancel = useCallback(() => {
-    if (activeConnectionId) {
-      cancelMutation.mutate({ connectionId: activeConnectionId });
+    if (activeConnectionId && activeTabId) {
+      cancelMutation.mutate({ connectionId: activeConnectionId, tabId: activeTabId });
     }
-  }, [activeConnectionId, cancelMutation]);
+  }, [activeConnectionId, activeTabId, cancelMutation]);
 
   const handleExplain = useCallback(() => {
-    if (activeConnectionId && sql.trim()) {
-      explainMutation.mutate({ connectionId: activeConnectionId, sql: sql.trim() });
+    if (activeConnectionId && activeTabId && sql.trim()) {
+      const tabId = activeTabId;
+      explainMutation.mutate(
+        { connectionId: activeConnectionId, sql: sql.trim(), tabId },
+        { onSuccess: () => setPanelTab("explain") },
+      );
     }
-  }, [activeConnectionId, sql, explainMutation]);
+  }, [activeConnectionId, activeTabId, sql, explainMutation]);
 
   const handleClear = useCallback(() => {
     if (activeTabId) setTabSql(activeTabId, "");

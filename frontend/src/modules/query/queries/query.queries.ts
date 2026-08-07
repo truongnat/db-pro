@@ -4,7 +4,13 @@ import { container } from "@/app/app.module";
 import { SERVICE_NAMES, type IQueryService } from "@/commons/di/registry";
 import { useQueryHistoryStore } from "@/commons/stores/query-history.store";
 
-import { useQueryModuleStore } from "../state/query.store";
+import {
+  setTabError,
+  setTabExplainPlan,
+  setTabMultiResults,
+  setTabResult,
+  setTabStatus,
+} from "../controllers/query-workspace.controller";
 import type {
   ExplainPlan,
   MultiQueryResult,
@@ -28,20 +34,17 @@ function getQueryService() {
 
 export function useExecuteQuery() {
   const qc = useQueryClient();
-  const setStatus = useQueryModuleStore((s) => s.setStatus);
-  const setError = useQueryModuleStore((s) => s.setError);
-  const setResult = useQueryModuleStore((s) => s.setResult);
 
   return useMutation({
-    mutationFn: ({ connectionId, sql }: { connectionId: string; sql: string }) =>
+    mutationFn: ({ connectionId, sql, tabId }: { connectionId: string; sql: string; tabId: string }) =>
       getQueryService().execute(connectionId, sql) as Promise<QueryResult>,
-    onMutate: () => {
-      setStatus("running");
-      setError(null);
+    onMutate: (vars) => {
+      setTabStatus(vars.tabId, "running");
+      setTabError(vars.tabId, null);
     },
     onSuccess: (data, variables) => {
-      setStatus("success");
-      setResult(data);
+      setTabStatus(variables.tabId, "success");
+      setTabResult(variables.tabId, data);
       useQueryHistoryStore.getState().addEntry({
         id: crypto.randomUUID(),
         connectionId: variables.connectionId,
@@ -54,9 +57,10 @@ export function useExecuteQuery() {
         queryKey: QUERY_KEYS.history(variables.connectionId),
       });
     },
-    onError: (err: unknown) => {
-      setStatus("error");
-      setError(
+    onError: (err: unknown, variables) => {
+      setTabStatus(variables.tabId, "error");
+      setTabError(
+        variables.tabId,
         (err as { userMessage?: string }).userMessage ?? "Query execution failed",
       );
     },
@@ -64,38 +68,31 @@ export function useExecuteQuery() {
 }
 
 export function useCancelQuery() {
-  const setStatus = useQueryModuleStore((s) => s.setStatus);
-  const setError = useQueryModuleStore((s) => s.setError);
-
   return useMutation({
-    mutationFn: ({ connectionId }: { connectionId: string }) =>
+    mutationFn: ({ connectionId, tabId }: { connectionId: string; tabId: string }) =>
       getQueryService().cancel(connectionId),
-    onSuccess: () => {
-      setStatus("idle");
-      setError(null);
+    onSuccess: (_data, variables) => {
+      setTabStatus(variables.tabId, "idle");
+      setTabError(variables.tabId, null);
     },
   });
 }
 
 export function useExecuteQueryMulti() {
   const qc = useQueryClient();
-  const setStatus = useQueryModuleStore((s) => s.setStatus);
-  const setError = useQueryModuleStore((s) => s.setError);
-  const setMultiResults = useQueryModuleStore((s) => s.setMultiResults);
-  const setResult = useQueryModuleStore((s) => s.setResult);
 
   return useMutation({
-    mutationFn: ({ connectionId, sql }: { connectionId: string; sql: string }) =>
+    mutationFn: ({ connectionId, sql, tabId }: { connectionId: string; sql: string; tabId: string }) =>
       getQueryService().executeMulti(connectionId, sql) as Promise<MultiQueryResult>,
-    onMutate: () => {
-      setStatus("running");
-      setError(null);
+    onMutate: (vars) => {
+      setTabStatus(vars.tabId, "running");
+      setTabError(vars.tabId, null);
     },
     onSuccess: (data, variables) => {
-      setStatus("success");
-      setMultiResults(data.results);
+      setTabStatus(variables.tabId, "success");
+      setTabMultiResults(variables.tabId, data.results);
       if (data.results.length > 0) {
-        setResult(data.results[0]);
+        setTabResult(variables.tabId, data.results[0]);
       }
       useQueryHistoryStore.getState().addEntry({
         id: crypto.randomUUID(),
@@ -109,9 +106,10 @@ export function useExecuteQueryMulti() {
         queryKey: QUERY_KEYS.history(variables.connectionId),
       });
     },
-    onError: (err: unknown) => {
-      setStatus("error");
-      setError(
+    onError: (err: unknown, variables) => {
+      setTabStatus(variables.tabId, "error");
+      setTabError(
+        variables.tabId,
         (err as { userMessage?: string }).userMessage ?? "Query execution failed",
       );
     },
@@ -119,15 +117,11 @@ export function useExecuteQueryMulti() {
 }
 
 export function useExplainPlan() {
-  const setExplainPlan = useQueryModuleStore((s) => s.setExplainPlan);
-  const setActiveTab = useQueryModuleStore((s) => s.setActiveTab);
-
   return useMutation({
-    mutationFn: ({ connectionId, sql }: { connectionId: string; sql: string }) =>
+    mutationFn: ({ connectionId, sql, tabId }: { connectionId: string; sql: string; tabId: string }) =>
       getQueryService().explain(connectionId, sql) as Promise<ExplainPlan>,
-    onSuccess: (data) => {
-      setExplainPlan(data);
-      setActiveTab("explain");
+    onSuccess: (data, variables) => {
+      setTabExplainPlan(variables.tabId, data);
     },
   });
 }
