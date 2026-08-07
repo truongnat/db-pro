@@ -21,6 +21,15 @@ pub fn run() {
         .setup(|app| {
             let handle = app.handle().clone();
 
+            // Safety net: never let the main window stay hidden forever. If the
+            // frontend never invokes `finish_startup` (e.g. bootstrap throws),
+            // force the handoff after a short grace period.
+            let timeout_handle = handle.clone();
+            tauri::async_runtime::spawn(async move {
+                tokio::time::sleep(std::time::Duration::from_secs(6)).await;
+                let _ = crate::commands::finish_startup_inner(&timeout_handle);
+            });
+
             tauri::async_runtime::block_on(async move {
                 let data_dir = handle.path().app_data_dir().expect("failed to get app data dir");
                 std::fs::create_dir_all(&data_dir).expect("failed to create data dir");
@@ -187,7 +196,7 @@ pub fn run() {
             commands::list_partitions,
             commands::list_tablespaces,
             commands::rename_schema_object,
-            commands::close_splashscreen,
+            commands::finish_startup,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

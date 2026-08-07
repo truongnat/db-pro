@@ -18,13 +18,24 @@ pub use user_management::*;
 
 use tauri::{AppHandle, Manager};
 
-#[tauri::command]
-pub fn close_splashscreen(app: AppHandle) {
+/// Show the main window first, then close the splash screen. Errors are
+/// propagated to the frontend so it knows whether the handoff succeeded.
+pub(crate) fn finish_startup_inner(app: &AppHandle) -> Result<(), String> {
+    let main = app
+        .get_webview_window("main")
+        .ok_or_else(|| "main window missing".to_string())?;
+
+    main.show().map_err(|e| e.to_string())?;
+    main.set_focus().map_err(|e| e.to_string())?;
+
     if let Some(splash) = app.get_webview_window("splashscreen") {
-        let _ = splash.close();
+        splash.close().map_err(|e| e.to_string())?;
     }
-    if let Some(main) = app.get_webview_window("main") {
-        let _ = main.show();
-        let _ = main.set_focus();
-    }
+
+    Ok(())
+}
+
+#[tauri::command]
+pub fn finish_startup(app: AppHandle) -> Result<(), String> {
+    finish_startup_inner(&app)
 }
