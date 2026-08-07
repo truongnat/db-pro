@@ -27,7 +27,7 @@ export function SchemaDiffView({
   if (!sourceId || !targetId) {
     return (
       <div className="flex items-center justify-center py-12">
-        <p className="text-muted-foreground">
+        <p className="text-[var(--app-text-muted)]">
           {t("schema.crossConn.selectTwo")}
         </p>
       </div>
@@ -37,11 +37,11 @@ export function SchemaDiffView({
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-3">
-        <span className="text-sm text-muted-foreground">
+        <span className="text-sm text-[var(--app-text-muted)]">
           {sourceLabel ?? sourceId}
         </span>
-        <span className="text-muted-foreground">→</span>
-        <span className="text-sm text-muted-foreground">
+        <span className="text-[var(--app-text-muted)]">→</span>
+        <span className="text-sm text-[var(--app-text-muted)]">
           {targetLabel ?? targetId}
         </span>
         <Button

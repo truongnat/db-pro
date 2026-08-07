@@ -81,11 +81,11 @@ export function QueryHistoryPanel({
       <div className="flex-1 overflow-auto">
         {isLoading ? (
           <div className="flex items-center justify-center py-8">
-            <p className="text-muted-foreground">{t("common.states.loading")}</p>
+            <p className="text-[var(--app-text-muted)]">{t("common.states.loading")}</p>
           </div>
         ) : filtered.length === 0 ? (
           <div className="flex items-center justify-center py-8">
-            <p className="text-muted-foreground">{t("common.states.empty")}</p>
+            <p className="text-[var(--app-text-muted)]">{t("common.states.empty")}</p>
           </div>
         ) : (
           filtered.map((entry) => (
@@ -134,7 +134,7 @@ function HistoryEntryRow({
       <div className="flex items-start gap-2">
         <button
           type="button"
-          className="shrink-0 text-xs text-muted-foreground hover:text-warning"
+          className="shrink-0 text-xs text-[var(--app-text-muted)] hover:text-warning"
           onClick={onToggleFavorite}
           title={fav ? t("query.unfavorite") : t("query.favorite")}
         >
@@ -154,7 +154,7 @@ function HistoryEntryRow({
       </div>
 
       {/* Meta row */}
-      <div className="ml-6 mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+      <div className="ml-6 mt-1 flex flex-wrap items-center gap-2 text-xs text-[var(--app-text-muted)]">
         <Badge
           variant={isError ? "destructive" : "secondary"}
           className="px-1.5 py-0 text-[10px]"
@@ -165,7 +165,7 @@ function HistoryEntryRow({
         <span>{t("query.rowsAffected", { count: entry.rowCount })}</span>
         <span>{new Date(entry.executedAt).toLocaleTimeString()}</span>
         {entry.database && (
-          <span className="text-muted-foreground/70">
+          <span className="text-[var(--app-text-dim)]">
             {entry.database}
             {entry.schema ? `.${entry.schema}` : ""}
           </span>

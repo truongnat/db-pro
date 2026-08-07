@@ -87,7 +87,7 @@ export function LocalHistoryPanel({ onSelectEntry }: LocalHistoryPanelProps) {
               >
                 {entry.sql}
               </pre>
-              <span className="mt-0.5 text-xs text-muted-foreground">
+              <span className="mt-0.5 text-xs text-[var(--app-text-muted)]">
                 {formatRelativeTime(new Date(entry.timestamp))}
               </span>
             </div>
@@ -95,7 +95,7 @@ export function LocalHistoryPanel({ onSelectEntry }: LocalHistoryPanelProps) {
               type="button"
               variant="ghost"
               size="sm"
-              className="shrink-0 rounded px-1 text-xs text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100"
+              className="shrink-0 rounded px-1 text-xs text-[var(--app-text-muted)] opacity-0 transition-opacity group-hover:opacity-100"
               onClick={(e) => {
                 e.stopPropagation();
                 handleRemove(idx);

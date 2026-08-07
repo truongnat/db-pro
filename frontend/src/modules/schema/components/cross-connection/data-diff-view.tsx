@@ -21,7 +21,7 @@ export function DataDiffView({ sourceId, targetId }: DataDiffViewProps) {
   if (!sourceId || !targetId) {
     return (
       <div className="flex items-center justify-center py-12">
-        <p className="text-muted-foreground">
+        <p className="text-[var(--app-text-muted)]">
           {t("schema.crossConn.selectTwo")}
         </p>
       </div>

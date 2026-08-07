@@ -316,7 +316,7 @@ export function SavedQueriesTree({ connectionId, onSelectQuery }: SavedQueriesTr
                     >
                       <span>{isExpanded ? "▼" : "▶"}</span>
                       <span className="truncate">{folder.name}</span>
-                      <span className="ml-auto text-xs text-muted-foreground">
+                      <span className="ml-auto text-xs text-[var(--app-text-muted)]">
                         ({folderQueries.length})
                       </span>
                     </Button>
@@ -357,7 +357,7 @@ export function SavedQueriesTree({ connectionId, onSelectQuery }: SavedQueriesTr
         })}
 
         {filteredQueries.length === 0 && folders.length === 0 && (
-          <div className="py-4 text-center text-xs italic text-muted-foreground">
+          <div className="py-4 text-center text-xs italic text-[var(--app-text-muted)]">
             {search ? t("query.noMatchingQueries") : t("query.noSavedQueries")}
           </div>
         )}
@@ -428,7 +428,7 @@ function SavedQueryItem({
             {/* Favorite star */}
             <button
               type="button"
-              className="shrink-0 text-xs text-muted-foreground hover:text-warning"
+              className="shrink-0 text-xs text-[var(--app-text-muted)] hover:text-warning"
               onClick={(e) => {
                 e.stopPropagation();
                 onToggleFavorite();

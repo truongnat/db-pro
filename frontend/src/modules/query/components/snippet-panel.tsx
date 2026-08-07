@@ -79,7 +79,7 @@ export function SnippetPanel({ onInsertSnippet }: SnippetPanelProps) {
             />
           </div>
           <textarea
-            className="w-full rounded-sm border border-[var(--app-border-subtle)] bg-background p-2 font-mono text-xs text-foreground outline-none placeholder:text-muted-foreground"
+            className="w-full rounded-sm border border-[var(--app-border-subtle)] bg-background p-2 font-mono text-xs text-foreground outline-none placeholder:text-[var(--app-text-dim)]"
             rows={3}
             placeholder={"SELECT * FROM $cursor;"}
             value={newBody}
@@ -112,7 +112,7 @@ export function SnippetPanel({ onInsertSnippet }: SnippetPanelProps) {
       <div className="flex-1 overflow-auto">
         {results.length === 0 && (
           <div className="flex items-center justify-center py-8">
-            <p className="text-sm text-muted-foreground">{t("common.states.empty")}</p>
+            <p className="text-sm text-[var(--app-text-muted)]">{t("common.states.empty")}</p>
           </div>
         )}
         {results.map((snippet) => (
@@ -159,7 +159,7 @@ function SnippetRow({
           )}
         </div>
         <pre
-          className="mt-1 overflow-hidden text-ellipsis whitespace-pre-wrap text-[11px] text-muted-foreground"
+          className="mt-1 overflow-hidden text-ellipsis whitespace-pre-wrap text-[11px] text-[var(--app-text-muted)]"
           style={{ maxHeight: "2.5em" }}
         >
           {snippet.body}
@@ -170,7 +170,7 @@ function SnippetRow({
           type="button"
           variant="ghost"
           size="sm"
-          className="shrink-0 rounded px-1 text-xs text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100"
+          className="shrink-0 rounded px-1 text-xs text-[var(--app-text-muted)] opacity-0 transition-opacity group-hover:opacity-100"
           onClick={(e) => {
             e.stopPropagation();
             onDelete();

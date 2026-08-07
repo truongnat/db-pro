@@ -13,7 +13,7 @@ export function ColumnList({ columns }: ColumnListProps) {
 
   if (columns.length === 0) {
     return (
-      <div className="p-4 text-sm text-muted-foreground">
+      <div className="p-4 text-sm text-[var(--app-text-muted)]">
         {t("schema.noColumns")}
       </div>
     );
@@ -41,13 +41,13 @@ export function ColumnList({ columns }: ColumnListProps) {
             className="transition-colors hover:bg-background"
           >
             <TableCell className="px-3 py-1.5 font-mono text-sm">{col.name}</TableCell>
-            <TableCell className="px-3 py-1.5 font-mono text-xs text-muted-foreground">
+            <TableCell className="px-3 py-1.5 font-mono text-xs text-[var(--app-text-muted)]">
               {col.dataType}
             </TableCell>
-            <TableCell className="px-3 py-1.5 text-muted-foreground">
+            <TableCell className="px-3 py-1.5 text-[var(--app-text-muted)]">
               {col.nullable ? "YES" : "NO"}
             </TableCell>
-            <TableCell className="px-3 py-1.5 font-mono text-xs text-muted-foreground">
+            <TableCell className="px-3 py-1.5 font-mono text-xs text-[var(--app-text-muted)]">
               {col.defaultValue ?? "\u2014"}
             </TableCell>
             <TableCell className="px-3 py-1.5 text-center">

@@ -26,7 +26,7 @@ export function DependencyViewer({ connectionId }: DependencyViewerProps) {
   if (!connectionId) {
     return (
       <div className="flex items-center justify-center py-12">
-        <p className="text-muted-foreground">
+        <p className="text-[var(--app-text-muted)]">
           {t("schema.connectFirst")}
         </p>
       </div>

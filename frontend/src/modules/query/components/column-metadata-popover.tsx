@@ -40,7 +40,7 @@ export function ColumnMetadataPopover({ column, anchorEl, onClose }: ColumnMetad
       }}
     >
       <div className="mb-2">
-        <p className="text-xs font-medium text-muted-foreground">
+        <p className="text-xs font-medium text-[var(--app-text-muted)]">
           {t("query.metadata.name")}
         </p>
         <p className="text-sm font-mono text-foreground">
@@ -48,7 +48,7 @@ export function ColumnMetadataPopover({ column, anchorEl, onClose }: ColumnMetad
         </p>
       </div>
       <div className="mb-2">
-        <p className="text-xs font-medium text-muted-foreground">
+        <p className="text-xs font-medium text-[var(--app-text-muted)]">
           {t("query.metadata.dataType")}
         </p>
         <p className="text-sm text-foreground">
@@ -56,10 +56,10 @@ export function ColumnMetadataPopover({ column, anchorEl, onClose }: ColumnMetad
         </p>
       </div>
       <div>
-        <p className="text-xs font-medium text-muted-foreground">
+        <p className="text-xs font-medium text-[var(--app-text-muted)]">
           {t("query.metadata.nullable")}
         </p>
-        <p className={`text-sm ${column.nullable ? "text-foreground" : "text-muted-foreground"}`}>
+        <p className={`text-sm ${column.nullable ? "text-foreground" : "text-[var(--app-text-muted)]"}`}>
           {column.nullable ? t("common.yes") : t("common.no")}
         </p>
       </div>

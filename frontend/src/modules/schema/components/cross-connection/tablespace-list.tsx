@@ -14,7 +14,7 @@ export function TablespaceList({ connectionId }: TablespaceListProps) {
   if (!connectionId) {
     return (
       <div className="flex items-center justify-center py-12">
-        <p className="text-muted-foreground">
+        <p className="text-[var(--app-text-muted)]">
           {t("schema.connectFirst")}
         </p>
       </div>
@@ -24,7 +24,7 @@ export function TablespaceList({ connectionId }: TablespaceListProps) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <p className="text-muted-foreground">{t("common.states.loading")}</p>
+        <p className="text-[var(--app-text-muted)]">{t("common.states.loading")}</p>
       </div>
     );
   }
@@ -40,7 +40,7 @@ export function TablespaceList({ connectionId }: TablespaceListProps) {
   if (!tablespaces?.length) {
     return (
       <div className="flex items-center justify-center py-12">
-        <p className="text-muted-foreground">{t("schema.crossConn.noTablespaces")}</p>
+        <p className="text-[var(--app-text-muted)]">{t("schema.crossConn.noTablespaces")}</p>
       </div>
     );
   }
