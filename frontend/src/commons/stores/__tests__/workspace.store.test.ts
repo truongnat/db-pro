@@ -400,4 +400,106 @@ describe("WorkspaceStore", () => {
       expect(useWorkspaceStore.getState().activeTabId).toBe(tab.id);
     });
   });
+
+  describe("openDbObject", () => {
+    it("replaces preview when opening a different preview", () => {
+      const previewA = createDbObjectTab("conn-1", "public", "users", "table", "columns", true);
+      const previewB = createDbObjectTab("conn-1", "public", "orders", "table", "columns", true);
+      const { openDbObject } = useWorkspaceStore.getState();
+
+      openDbObject(previewA);
+      openDbObject(previewB);
+
+      const state = useWorkspaceStore.getState();
+      expect(state.tabs).toHaveLength(1);
+      expect(state.tabs[0].title).toBe("orders");
+      expect(state.tabs[0].preview).toBe(true);
+      expect(state.tabs[0].id).toBe(previewA.id);
+    });
+
+    it("promotes preview and changes section on Open Data", () => {
+      const preview = createDbObjectTab("conn-1", "public", "users", "table", "columns", true);
+      const { openDbObject, promotePreview, setDbObjectSection, activateTab } = useWorkspaceStore.getState();
+
+      openDbObject(preview);
+
+      const existing = useWorkspaceStore.getState().tabs[0];
+      expect(existing.preview).toBe(true);
+
+      promotePreview(existing.id);
+      setDbObjectSection(existing.id, "data");
+      activateTab(existing.id);
+
+      const state = useWorkspaceStore.getState();
+      expect(state.tabs).toHaveLength(1);
+      expect(state.tabs[0].preview).toBe(false);
+      expect(state.tabs[0].id).toBe(preview.id);
+      if (state.tabs[0].kind === "db-object") {
+        expect(state.tabs[0].data.activeSection).toBe("data");
+      }
+    });
+
+    it("ordinary click on existing tab preserves section", () => {
+      const tab = createDbObjectTab("conn-1", "public", "users", "table", "columns", false);
+      const { openDbObject, setDbObjectSection } = useWorkspaceStore.getState();
+
+      openDbObject(tab);
+      setDbObjectSection(tab.id, "data");
+
+      const clickTab = createDbObjectTab("conn-1", "public", "users", "table", "columns", false);
+      openDbObject(clickTab);
+
+      const state = useWorkspaceStore.getState();
+      expect(state.tabs).toHaveLength(1);
+      expect(state.activeTabId).toBe(tab.id);
+      if (state.tabs[0].kind === "db-object") {
+        expect(state.tabs[0].data.activeSection).toBe("data");
+      }
+    });
+
+    it("explicit setDbObjectSection changes section on persistent tab", () => {
+      const tab = createDbObjectTab("conn-1", "public", "users", "table", "columns", false);
+      const { openDbObject, setDbObjectSection } = useWorkspaceStore.getState();
+
+      openDbObject(tab);
+      setDbObjectSection(tab.id, "data");
+      setDbObjectSection(tab.id, "ddl");
+
+      const state = useWorkspaceStore.getState();
+      if (state.tabs[0].kind === "db-object") {
+        expect(state.tabs[0].data.activeSection).toBe("ddl");
+      }
+    });
+
+    it("preserves objectType for views on Open Data", () => {
+      const viewPreview = createDbObjectTab("conn-1", "public", "user_view", "view", "columns", true);
+      const { openDbObject, promotePreview, setDbObjectSection } = useWorkspaceStore.getState();
+
+      openDbObject(viewPreview);
+
+      const existing = useWorkspaceStore.getState().tabs[0];
+      promotePreview(existing.id);
+      setDbObjectSection(existing.id, "data");
+
+      const state = useWorkspaceStore.getState();
+      expect(state.tabs).toHaveLength(1);
+      if (state.tabs[0].kind === "db-object") {
+        expect(state.tabs[0].data.objectType).toBe("view");
+        expect(state.tabs[0].data.activeSection).toBe("data");
+      }
+    });
+
+    it("does not create duplicate preview tabs across multiple clicks", () => {
+      const { openDbObject } = useWorkspaceStore.getState();
+
+      for (const name of ["users", "orders", "customers", "products"]) {
+        const preview = createDbObjectTab("conn-1", "public", name, "table", "columns", true);
+        openDbObject(preview);
+      }
+
+      const state = useWorkspaceStore.getState();
+      expect(state.tabs).toHaveLength(1);
+      expect(state.tabs[0].title).toBe("products");
+    });
+  });
 });

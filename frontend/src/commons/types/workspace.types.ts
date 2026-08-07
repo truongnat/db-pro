@@ -35,7 +35,7 @@ export interface QueryTabData {
   activePanel: ResultPanelTab;
 }
 
-export type DbObjectSection = "data" | "structure" | "indexes" | "relations" | "ddl" | "triggers";
+export type DbObjectSection = "data" | "columns" | "indexes" | "relations" | "ddl" | "triggers";
 
 export interface DbObjectTabData {
   schema: string;

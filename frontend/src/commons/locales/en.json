@@ -355,7 +355,7 @@
   },
   "dbObject": {
     "sections": {
-      "structure": "Structure",
+      "columns": "Columns",
       "data": "Data",
       "indexes": "Indexes",
       "relations": "Relations",

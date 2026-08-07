@@ -15,7 +15,7 @@ export function useSidebarTabOps() {
       objectName: string,
       objectType: DbObjectTabData["objectType"],
     ) => {
-      const tab = createDbObjectTab(connectionId, schema, objectName, objectType, "structure", true);
+      const tab = createDbObjectTab(connectionId, schema, objectName, objectType, "columns", true);
       openDbObject(tab);
     },
     [openDbObject],
@@ -41,6 +41,18 @@ export function useSidebarTabOps() {
       objectName: string,
       objectType: DbObjectTabData["objectType"] = "table",
     ) => {
+      const resourceKey = `dbobj:${schema}.${objectName}:${connectionId}`;
+      const existing = useWorkspaceStore.getState().tabs.find((t) => t.resourceKey === resourceKey);
+
+      if (existing && existing.kind === "db-object") {
+        if (existing.preview) {
+          useWorkspaceStore.getState().promotePreview(existing.id);
+        }
+        useWorkspaceStore.getState().setDbObjectSection(existing.id, "data");
+        useWorkspaceStore.getState().activateTab(existing.id);
+        return;
+      }
+
       const tab = createDbObjectTab(connectionId, schema, objectName, objectType, "data", false);
       openDbObject(tab);
     },

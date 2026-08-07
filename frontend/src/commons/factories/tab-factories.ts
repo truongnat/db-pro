@@ -64,7 +64,7 @@ export function createDbObjectTab(
   schema: string,
   objectName: string,
   objectType: DbObjectTabData["objectType"],
-  initialSection: DbObjectSection = "structure",
+  initialSection: DbObjectSection = "columns",
   preview = true,
 ): WorkspaceTab & { kind: "db-object" } {
   return {

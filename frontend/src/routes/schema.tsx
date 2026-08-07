@@ -22,7 +22,7 @@ function SchemaRedirect() {
     const connectionId = useConnectionStore.getState().explorerConnectionId;
     if (connectionId && schema && object) {
       useWorkspaceStore.getState().openDbObject(
-        createDbObjectTab(connectionId, schema, object, type, "structure", true),
+        createDbObjectTab(connectionId, schema, object, type, "columns", true),
       );
     }
     navigate({ to: "/" });

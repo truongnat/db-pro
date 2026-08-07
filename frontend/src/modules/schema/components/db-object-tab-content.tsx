@@ -3,11 +3,16 @@ import { useMemo, useState } from "react";
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
 import { useTranslation } from "@/commons/locales/useTranslation";
 import { cn } from "@/lib/utils";
-import { SchemaDetailPanel } from "./schema-detail-panel";
-import type { DetailTab } from "../types/schema.types";
 import type { DbObjectSection } from "@/commons/types/workspace.types";
 
-import { useIntrospect } from "@/modules/schema/queries/schema.queries";
+import { useIntrospect, useTableInfo, useTableDdl } from "@/modules/schema/queries/schema.queries";
+import { ColumnList } from "@/modules/schema/components/column-list";
+import { DdlViewer } from "@/modules/schema/components/ddl-viewer";
+import { DdlEditor } from "@/modules/schema/components/ddl-editor/ddl-editor";
+import { ForeignKeyList } from "@/modules/schema/components/foreign-key-list";
+import { GenerateCrud } from "@/modules/schema/components/generate-crud";
+import { IndexManager } from "@/modules/schema/components/index-manager";
+import { TriggerManager } from "@/modules/schema/components/trigger-manager";
 import { DataGrid } from "@/modules/data-grid/components/data-grid";
 import { Pagination } from "@/modules/data-grid/components/pagination";
 import { VisualFilterBuilder } from "@/modules/data-grid/components/visual-filter-builder";
@@ -28,12 +33,12 @@ interface DbObjectTabContentProps {
 }
 
 const SECTIONS: { id: DbObjectSection; labelKey: string }[] = [
-  { id: "structure", labelKey: "dbObject.sections.structure" },
   { id: "data", labelKey: "dbObject.sections.data" },
+  { id: "columns", labelKey: "dbObject.sections.columns" },
   { id: "indexes", labelKey: "dbObject.sections.indexes" },
   { id: "relations", labelKey: "dbObject.sections.relations" },
-  { id: "ddl", labelKey: "dbObject.sections.ddl" },
   { id: "triggers", labelKey: "dbObject.sections.triggers" },
+  { id: "ddl", labelKey: "dbObject.sections.ddl" },
 ];
 
 function DataSection({ tabId, connectionId, schema, table }: { tabId: string; connectionId: string; schema: string; table: string }) {
@@ -163,6 +168,8 @@ function DataSection({ tabId, connectionId, schema, table }: { tabId: string; co
   );
 }
 
+type ToolbarAction = "ddlEditor" | "generateCrud";
+
 export function DbObjectTabContent({
   tabId,
   connectionId,
@@ -171,98 +178,137 @@ export function DbObjectTabContent({
   objectType,
 }: DbObjectTabContentProps) {
   const { t } = useTranslation();
-  const [detailTab, setDetailTab] = useState<DetailTab>("columns");
+  const [toolbarAction, setToolbarAction] = useState<ToolbarAction | null>(null);
 
   const activeSection = useWorkspaceStore((s) => {
     const tab = s.tabs.find((t) => t.id === tabId);
-    return tab?.kind === "db-object" ? tab.data.activeSection : "structure";
+    return tab?.kind === "db-object" ? tab.data.activeSection : "columns";
   });
   const setSection = useWorkspaceStore((s) => s.setDbObjectSection);
 
-  if (!connectionId) return null;
-
   const isTableOrView = objectType === "table" || objectType === "view";
+  const nodeType = objectType === "view" ? "view" : "table";
+
+  const tableInfo = useTableInfo(connectionId, schema, objectName);
+  const tableDdl = useTableDdl(connectionId, schema, objectName, activeSection === "ddl");
+
+  if (!connectionId) return null;
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex border-b border-border">
-        {SECTIONS.map((section) => (
-          <button
-            key={section.id}
-            type="button"
-            className={cn(
-              "px-3 py-2 text-xs font-medium transition-colors hover:bg-[var(--app-hover)]",
-              activeSection === section.id
-                ? "border-b-2 border-primary text-foreground"
-                : "text-muted-foreground",
-            )}
-            onClick={() => setSection(tabId, section.id)}
-          >
-            {t(section.labelKey)}
-          </button>
-        ))}
+      <div className="flex items-center border-b border-border">
+        <div className="flex flex-1 overflow-x-auto">
+          {SECTIONS.map((section) => (
+            <button
+              key={section.id}
+              type="button"
+              className={cn(
+                "shrink-0 px-3 py-2 text-xs font-medium transition-colors hover:bg-[var(--app-hover)]",
+                activeSection === section.id
+                  ? "border-b-2 border-primary text-foreground"
+                  : "text-muted-foreground",
+              )}
+              onClick={() => setSection(tabId, section.id)}
+            >
+              {t(section.labelKey)}
+            </button>
+          ))}
+        </div>
+        {isTableOrView && (
+          <div className="flex shrink-0 items-center gap-1 border-l border-border px-2">
+            <button
+              type="button"
+              className={cn(
+                "rounded-md px-2 py-1 text-[11px] transition-colors hover:bg-[var(--app-hover)]",
+                toolbarAction === "ddlEditor" ? "bg-[var(--app-active)] text-foreground" : "text-muted-foreground",
+              )}
+              onClick={() => setToolbarAction(toolbarAction === "ddlEditor" ? null : "ddlEditor")}
+            >
+              {t("schema.ddlEditor")}
+            </button>
+            <button
+              type="button"
+              className={cn(
+                "rounded-md px-2 py-1 text-[11px] transition-colors hover:bg-[var(--app-hover)]",
+                toolbarAction === "generateCrud" ? "bg-[var(--app-active)] text-foreground" : "text-muted-foreground",
+              )}
+              onClick={() => setToolbarAction(toolbarAction === "generateCrud" ? null : "generateCrud")}
+            >
+              {t("dataGrid.generateCrud")}
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="flex-1 overflow-hidden">
-        {activeSection === "structure" && isTableOrView && (
-          <SchemaDetailPanel
-            connectionId={connectionId}
-            schema={schema}
-            table={objectName}
-            nodeType={objectType === "view" ? "view" : "table"}
-            activeTab={detailTab}
-            onTabChange={setDetailTab}
-          />
+        {toolbarAction === "ddlEditor" && isTableOrView && (
+          <DdlEditor connectionId={connectionId} schema={schema} table={objectName} />
         )}
-        {activeSection === "data" && isTableOrView && (
-          <DataSection tabId={tabId} connectionId={connectionId} schema={schema} table={objectName} />
+        {toolbarAction === "generateCrud" && isTableOrView && tableInfo.data && (
+          <GenerateCrud schema={schema} table={objectName} columns={tableInfo.data.columns} />
         )}
-        {activeSection === "indexes" && isTableOrView && (
-          <SchemaDetailPanel
-            connectionId={connectionId}
-            schema={schema}
-            table={objectName}
-            nodeType={objectType === "view" ? "view" : "table"}
-            activeTab="indexes"
-            onTabChange={setDetailTab}
-          />
-        )}
-        {activeSection === "relations" && isTableOrView && (
-          <SchemaDetailPanel
-            connectionId={connectionId}
-            schema={schema}
-            table={objectName}
-            nodeType={objectType === "view" ? "view" : "table"}
-            activeTab="foreignKeys"
-            onTabChange={setDetailTab}
-          />
-        )}
-        {activeSection === "ddl" && isTableOrView && (
-          <SchemaDetailPanel
-            connectionId={connectionId}
-            schema={schema}
-            table={objectName}
-            nodeType={objectType === "view" ? "view" : "table"}
-            activeTab="ddl"
-            onTabChange={setDetailTab}
-          />
-        )}
-        {activeSection === "triggers" && isTableOrView && (
-          <SchemaDetailPanel
-            connectionId={connectionId}
-            schema={schema}
-            table={objectName}
-            nodeType={objectType === "view" ? "view" : "table"}
-            activeTab="triggers"
-            onTabChange={setDetailTab}
-          />
-        )}
-        {!isTableOrView && (
-          <div className="flex h-full items-center justify-center p-8">
-            <p className="text-sm text-muted-foreground">
-              {t("dbObject.unsupportedObjectType", { type: objectType })}
-            </p>
-          </div>
+        {!toolbarAction && (
+          <>
+            {activeSection === "data" && isTableOrView && (
+              <DataSection tabId={tabId} connectionId={connectionId} schema={schema} table={objectName} />
+            )}
+            {activeSection === "columns" && isTableOrView && tableInfo.data && (
+              <div className="flex-1 overflow-auto">
+                <ColumnList columns={tableInfo.data.columns} />
+              </div>
+            )}
+            {activeSection === "indexes" && isTableOrView && tableInfo.data && (
+              <div className="flex-1 overflow-auto">
+                <IndexManager
+                  connectionId={connectionId}
+                  schema={schema}
+                  table={objectName}
+                  columns={tableInfo.data.columns}
+                  indexes={tableInfo.data.indexes}
+                />
+              </div>
+            )}
+            {activeSection === "relations" && isTableOrView && tableInfo.data && (
+              <div className="flex-1 overflow-auto">
+                <ForeignKeyList foreignKeys={tableInfo.data.foreignKeys} />
+              </div>
+            )}
+            {activeSection === "triggers" && isTableOrView && (
+              <div className="flex-1 overflow-auto">
+                <TriggerManager connectionId={connectionId} schema={schema} table={objectName} />
+              </div>
+            )}
+            {activeSection === "ddl" && isTableOrView && (
+              <div className="flex-1 overflow-auto">
+                <DdlViewer
+                  ddl={tableDdl.data ?? null}
+                  isLoading={tableDdl.isLoading}
+                  error={
+                    tableDdl.isError
+                      ? (tableDdl.error as { userMessage?: string })?.userMessage ?? t("common.states.error")
+                      : null
+                  }
+                />
+              </div>
+            )}
+            {!isTableOrView && (
+              <div className="flex h-full items-center justify-center p-8">
+                <p className="text-sm text-muted-foreground">
+                  {t("dbObject.unsupportedObjectType", { type: objectType })}
+                </p>
+              </div>
+            )}
+            {tableInfo.isLoading && (activeSection === "columns" || activeSection === "indexes" || activeSection === "relations") && (
+              <div className="p-4 text-sm text-muted-foreground">
+                {t("common.states.loading")}
+              </div>
+            )}
+            {tableInfo.isError && (activeSection === "columns" || activeSection === "indexes" || activeSection === "relations") && (
+              <div className="p-4 text-sm text-destructive">
+                {(tableInfo.error as { userMessage?: string })?.userMessage ?? t("common.states.error")}
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

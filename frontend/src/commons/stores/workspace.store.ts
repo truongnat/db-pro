@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 import type { DbObjectSection, PersistedWorkspaceState, QueryTabData, WorkspaceTab } from "@/commons/types/workspace.types";
+import { useTabGridStateStore } from "@/modules/data-grid/state/tab-grid-state.store";
 
 const MAX_RECENTLY_CLOSED = 20;
 
@@ -30,6 +31,14 @@ function findTabById(tabs: WorkspaceTab[], id: string): WorkspaceTab | undefined
 
 function updateTabInList(tabs: WorkspaceTab[], id: string, updater: (tab: WorkspaceTab) => WorkspaceTab): WorkspaceTab[] {
   return tabs.map((t) => (t.id === id ? updater(t) : t));
+}
+
+function gcGridState() {
+  const { tabs, recentlyClosed } = useWorkspaceStore.getState();
+  const validIds = new Set<string>();
+  for (const t of tabs) validIds.add(t.id);
+  for (const t of recentlyClosed) validIds.add(t.id);
+  useTabGridStateStore.getState().gc(validIds);
 }
 
 export const useWorkspaceStore = create<WorkspaceState>()(
@@ -76,7 +85,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           return { activeTabId: id };
         }),
 
-      closeTab: (id) =>
+      closeTab: (id) => {
         set((state) => {
           const tab = findTabById(state.tabs, id);
           if (!tab) return state;
@@ -99,7 +108,9 @@ export const useWorkspaceStore = create<WorkspaceState>()(
             activeTabId: newActiveId,
             recentlyClosed,
           };
-        }),
+        });
+        gcGridState();
+      },
 
       reopenLastClosed: () =>
         set((state) => {
@@ -113,7 +124,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           };
         }),
 
-      closeOthers: (id) =>
+      closeOthers: (id) => {
         set((state) => {
           const evicted = state.tabs.filter((t) => t.id !== id && !t.pinned);
           const kept = state.tabs.filter((t) => t.id === id || t.pinned);
@@ -127,9 +138,11 @@ export const useWorkspaceStore = create<WorkspaceState>()(
             activeTabId: findTabById(kept, id) ? id : kept[0]?.id ?? null,
             recentlyClosed,
           };
-        }),
+        });
+        gcGridState();
+      },
 
-      closeRight: (id) =>
+      closeRight: (id) => {
         set((state) => {
           const idx = state.tabs.findIndex((t) => t.id === id);
           if (idx === -1) return state;
@@ -145,7 +158,9 @@ export const useWorkspaceStore = create<WorkspaceState>()(
             activeTabId: findTabById(kept, state.activeTabId ?? "") ? state.activeTabId : kept[kept.length - 1]?.id ?? null,
             recentlyClosed,
           };
-        }),
+        });
+        gcGridState();
+      },
 
       updateTabData: (id, updater) =>
         set((state) => ({
@@ -185,7 +200,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           return { tabs: newTabs };
         }),
 
-      closeTabs: (ids) =>
+      closeTabs: (ids) => {
         set((state) => {
           const idSet = new Set(ids);
           const evicted = state.tabs.filter((t) => idSet.has(t.id) && !t.pinned);
@@ -206,7 +221,9 @@ export const useWorkspaceStore = create<WorkspaceState>()(
             activeTabId: newActiveId,
             recentlyClosed,
           };
-        }),
+        });
+        gcGridState();
+      },
 
       setDbObjectSection: (id, section) =>
         set((state) => ({
@@ -221,31 +238,43 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           if (existing && existing.kind === "db-object") {
             const shouldPromote = existing.preview && !tab.preview;
             return {
-              tabs: updateTabInList(state.tabs, existing.id, (t) => {
-                if (t.kind !== "db-object") return t;
-                return {
-                  ...t,
-                  preview: shouldPromote ? false : t.preview,
-                  data: { ...t.data, activeSection: tab.data.activeSection },
-                };
-              }),
+              tabs: updateTabInList(state.tabs, existing.id, (t) =>
+                shouldPromote && t.kind === "db-object" ? { ...t, preview: false } : t,
+              ),
               activeTabId: existing.id,
             };
           }
+
+          if (tab.preview) {
+            const previewIdx = state.tabs.findIndex(
+              (t) => t.preview && t.kind === "db-object" && t.connectionId === tab.connectionId,
+            );
+            if (previewIdx !== -1) {
+              const newTabs = [...state.tabs];
+              newTabs[previewIdx] = { ...tab, id: newTabs[previewIdx].id, order: newTabs[previewIdx].order };
+              return {
+                tabs: newTabs,
+                activeTabId: newTabs[previewIdx].id,
+              };
+            }
+          }
+
           return {
             tabs: [...state.tabs, tab],
             activeTabId: tab.id,
           };
         }),
 
-      restoreState: (restored) =>
+      restoreState: (restored) => {
         set({
           tabs: restored.tabs,
           activeTabId: restored.activeTabId && findTabById(restored.tabs, restored.activeTabId)
             ? restored.activeTabId
             : restored.tabs[0]?.id ?? null,
           recentlyClosed: restored.recentlyClosed ?? [],
-        }),
+        });
+        gcGridState();
+      },
     }),
     {
       name: "db-pro-workspace",
@@ -258,6 +287,19 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         activeTabId: state.activeTabId,
         recentlyClosed: [],
       }),
+      onRehydrateStorage: () => (state) => {
+        if (!state) return;
+        let migrated = false;
+        for (const tab of state.tabs) {
+          if (tab.kind === "db-object" && (tab.data.activeSection as string) === "structure") {
+            (tab.data as { activeSection: DbObjectSection }).activeSection = "columns";
+            migrated = true;
+          }
+        }
+        if (migrated) {
+          useWorkspaceStore.setState({ tabs: [...state.tabs] });
+        }
+      },
     },
   ),
 );

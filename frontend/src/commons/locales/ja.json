@@ -355,7 +355,7 @@
   },
   "dbObject": {
     "sections": {
-      "structure": "構造",
+      "columns": "カラム",
       "data": "データ",
       "indexes": "インデックス",
       "relations": "リレーション",

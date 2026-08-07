@@ -36,6 +36,7 @@ interface TabGridStateStore {
   toggleFrozenColumn: (tabId: string, column: string) => void;
   setChartConfig: (tabId: string, config: ChartConfig | null) => void;
   resetTab: (tabId: string) => void;
+  gc: (validTabIds: Set<string>) => void;
 }
 
 function ensureTab(states: Record<string, GridTabState>, tabId: string): GridTabState {
@@ -126,5 +127,14 @@ export const useTabGridStateStore = create<TabGridStateStore>()((set, get) => ({
     set((s) => {
       const { [tabId]: _, ...rest } = s.states;
       return { states: rest };
+    }),
+
+  gc: (validTabIds) =>
+    set((s) => {
+      const cleaned: Record<string, GridTabState> = {};
+      for (const [id, state] of Object.entries(s.states)) {
+        if (validTabIds.has(id)) cleaned[id] = state;
+      }
+      return { states: cleaned };
     }),
 }));
