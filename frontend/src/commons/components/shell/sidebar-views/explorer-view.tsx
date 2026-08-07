@@ -243,7 +243,7 @@ export function ExplorerView() {
                                       </button>
                                     </ContextMenuTrigger>
                                     <ContextMenuContent>
-                                      <ContextMenuItem onClick={() => openTableData(conn.id, schema.name, view.name)}>
+                                      <ContextMenuItem onClick={() => openTableData(conn.id, schema.name, view.name, "view")}>
                                         {t("shell.sidebar.openData")}
                                       </ContextMenuItem>
                                     </ContextMenuContent>

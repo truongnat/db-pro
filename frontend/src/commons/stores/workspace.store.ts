@@ -21,6 +21,7 @@ interface WorkspaceState extends PersistedWorkspaceState {
   reorderTabs: (fromIndex: number, toIndex: number) => void;
   restoreState: (state: PersistedWorkspaceState) => void;
   setDbObjectSection: (id: string, section: DbObjectSection) => void;
+  openDbObject: (tab: WorkspaceTab & { kind: "db-object" }) => void;
 }
 
 function findTabById(tabs: WorkspaceTab[], id: string): WorkspaceTab | undefined {
@@ -213,6 +214,29 @@ export const useWorkspaceStore = create<WorkspaceState>()(
             t.kind === "db-object" ? { ...t, data: { ...t.data, activeSection: section } } : t,
           ),
         })),
+
+      openDbObject: (tab) =>
+        set((state) => {
+          const existing = state.tabs.find((t) => t.resourceKey === tab.resourceKey);
+          if (existing && existing.kind === "db-object") {
+            const shouldPromote = existing.preview && !tab.preview;
+            return {
+              tabs: updateTabInList(state.tabs, existing.id, (t) => {
+                if (t.kind !== "db-object") return t;
+                return {
+                  ...t,
+                  preview: shouldPromote ? false : t.preview,
+                  data: { ...t.data, activeSection: tab.data.activeSection },
+                };
+              }),
+              activeTabId: existing.id,
+            };
+          }
+          return {
+            tabs: [...state.tabs, tab],
+            activeTabId: tab.id,
+          };
+        }),
 
       restoreState: (restored) =>
         set({

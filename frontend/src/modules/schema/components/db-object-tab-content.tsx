@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
 import { useTranslation } from "@/commons/locales/useTranslation";
@@ -11,7 +11,7 @@ import { useIntrospect } from "@/modules/schema/queries/schema.queries";
 import { DataGrid } from "@/modules/data-grid/components/data-grid";
 import { Pagination } from "@/modules/data-grid/components/pagination";
 import { VisualFilterBuilder } from "@/modules/data-grid/components/visual-filter-builder";
-import { useDataGridModuleStore } from "@/modules/data-grid/state/data-grid.store";
+import { useTabGridStateStore } from "@/modules/data-grid/state/tab-grid-state.store";
 import {
   useTableRows,
   useUpdateRow,
@@ -36,37 +36,19 @@ const SECTIONS: { id: DbObjectSection; labelKey: string }[] = [
   { id: "triggers", labelKey: "dbObject.sections.triggers" },
 ];
 
-function DataSection({ connectionId, schema, table }: { connectionId: string; schema: string; table: string }) {
-  const storeConnectionId = useDataGridModuleStore((s) => s.connectionId);
-  const tableSchema = useDataGridModuleStore((s) => s.tableSchema);
-  const tableName = useDataGridModuleStore((s) => s.tableName);
-  const filters = useDataGridModuleStore((s) => s.filters);
-  const sorts = useDataGridModuleStore((s) => s.sorts);
-  const page = useDataGridModuleStore((s) => s.page);
-  const pageSize = useDataGridModuleStore((s) => s.pageSize);
-  const editingCell = useDataGridModuleStore((s) => s.editingCell);
-  const frozenColumns = useDataGridModuleStore((s) => s.frozenColumns);
-  const setTable = useDataGridModuleStore((s) => s.setTable);
-  const addFilter = useDataGridModuleStore((s) => s.addFilter);
-  const removeFilter = useDataGridModuleStore((s) => s.removeFilter);
-  const setSorts = useDataGridModuleStore((s) => s.setSorts);
-  const setPage = useDataGridModuleStore((s) => s.setPage);
-  const setPageSize = useDataGridModuleStore((s) => s.setPageSize);
-  const setEditingCell = useDataGridModuleStore((s) => s.setEditingCell);
-  const toggleFrozenColumn = useDataGridModuleStore((s) => s.toggleFrozenColumn);
+function DataSection({ tabId, connectionId, schema, table }: { tabId: string; connectionId: string; schema: string; table: string }) {
+  const tabState = useTabGridStateStore((s) => s.states[tabId]) ?? {
+    filters: [], sorts: [] as GridSort[], page: 1, pageSize: 50,
+    editingCell: null, frozenColumns: [] as string[], chartConfig: null,
+  };
+  const store = useTabGridStateStore.getState();
 
-  useEffect(() => {
-    if (storeConnectionId !== connectionId) {
-      useDataGridModuleStore.getState().reset();
-      useDataGridModuleStore.setState({ connectionId });
-    }
-  }, [connectionId, storeConnectionId]);
-
-  useEffect(() => {
-    if (tableSchema !== schema || tableName !== table) {
-      setTable(schema, table);
-    }
-  }, [schema, table, tableSchema, tableName, setTable]);
+  const filters = tabState.filters;
+  const sorts = tabState.sorts;
+  const page = tabState.page;
+  const pageSize = tabState.pageSize;
+  const editingCell = tabState.editingCell;
+  const frozenColumns = tabState.frozenColumns;
 
   const introspect = useIntrospect(connectionId);
 
@@ -79,10 +61,7 @@ function DataSection({ connectionId, schema, table }: { connectionId: string; sc
     );
   }, [introspect.data, schema, table]);
 
-  const request: FetchRowsRequest | null =
-    tableSchema && tableName
-      ? { schema: tableSchema, table: tableName, filters, sorts, page, pageSize }
-      : null;
+  const request: FetchRowsRequest = { schema, table, filters, sorts, page, pageSize };
 
   const query = useTableRows(connectionId, request);
   const updateRow = useUpdateRow(connectionId, request);
@@ -102,11 +81,11 @@ function DataSection({ connectionId, schema, table }: { connectionId: string; sc
     } else {
       newSorts = [];
     }
-    setSorts(newSorts);
+    store.setSorts(tabId, newSorts);
   };
 
   const handleCellSave = (rowIdx: number, colIdx: number, value: CellValue) => {
-    if (!tableSchema || !tableName || !pkColumns.length) return;
+    if (!pkColumns.length) return;
     const row = rows[rowIdx];
     const col = columns[colIdx];
     const colNameToIdx = new Map(columns.map((c, i) => [c.name, i]));
@@ -117,8 +96,8 @@ function DataSection({ connectionId, schema, table }: { connectionId: string; sc
       return idx !== undefined ? row[idx] : { type: "null" as const };
     });
     updateRow.mutate({
-      schema: tableSchema,
-      table: tableName,
+      schema,
+      table,
       columns: columns.map((c) => c.name),
       values: updatedRow,
       pkColumns,
@@ -127,7 +106,7 @@ function DataSection({ connectionId, schema, table }: { connectionId: string; sc
   };
 
   const handleDeleteRow = (rowIdx: number) => {
-    if (!tableSchema || !tableName || !pkColumns.length) return;
+    if (!pkColumns.length) return;
     const row = rows[rowIdx];
     const colNameToIdx = new Map(columns.map((c, i) => [c.name, i]));
     const pkValues = pkColumns.map((pkCol) => {
@@ -135,8 +114,8 @@ function DataSection({ connectionId, schema, table }: { connectionId: string; sc
       return idx !== undefined ? row[idx] : { type: "null" as const };
     });
     deleteRow.mutate({
-      schema: tableSchema,
-      table: tableName,
+      schema,
+      table,
       columns: columns.map((c) => c.name),
       values: row,
       pkColumns,
@@ -150,8 +129,8 @@ function DataSection({ connectionId, schema, table }: { connectionId: string; sc
         <VisualFilterBuilder
           columns={columns}
           filters={filters}
-          onAddFilter={addFilter}
-          onRemoveFilter={removeFilter}
+          onAddFilter={(f) => store.addFilter(tabId, f)}
+          onRemoveFilter={(i) => store.removeFilter(tabId, i)}
         />
       )}
 
@@ -162,14 +141,14 @@ function DataSection({ connectionId, schema, table }: { connectionId: string; sc
           sorts={sorts}
           onSort={handleSort}
           editingCell={editingCell}
-          onEditCell={setEditingCell}
+          onEditCell={(c) => store.setEditingCell(tabId, c)}
           onCellSave={handleCellSave}
           onDeleteRow={handleDeleteRow}
           isDeleting={deleteRow.isPending}
           isLoading={query.isFetching && !query.isPlaceholderData}
           pkColumns={pkColumns}
           frozenColumns={frozenColumns}
-          onToggleFreezeColumn={toggleFrozenColumn}
+          onToggleFreezeColumn={(c) => store.toggleFrozenColumn(tabId, c)}
         />
       </div>
 
@@ -177,8 +156,8 @@ function DataSection({ connectionId, schema, table }: { connectionId: string; sc
         page={page}
         pageSize={pageSize}
         totalCount={totalCount}
-        onPageChange={setPage}
-        onPageSizeChange={setPageSize}
+        onPageChange={(p) => store.setPage(tabId, p)}
+        onPageSizeChange={(s) => store.setPageSize(tabId, s)}
       />
     </div>
   );
@@ -236,7 +215,7 @@ export function DbObjectTabContent({
           />
         )}
         {activeSection === "data" && isTableOrView && (
-          <DataSection connectionId={connectionId} schema={schema} table={objectName} />
+          <DataSection tabId={tabId} connectionId={connectionId} schema={schema} table={objectName} />
         )}
         {activeSection === "indexes" && isTableOrView && (
           <SchemaDetailPanel

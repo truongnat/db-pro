@@ -2,6 +2,7 @@ import { Database, Wifi, WifiOff } from "lucide-react";
 
 import { useTranslation } from "@/commons/locales/useTranslation";
 import { useConnectionStore } from "@/commons/stores/connection.store";
+import { useWorkspaceStore } from "@/commons/stores/workspace.store";
 import { cn } from "@/lib/utils";
 import { useConnectionList } from "@/modules/connection/queries/connection.queries";
 import { useConnectionModuleStore } from "@/modules/connection/state/connection.store";
@@ -12,10 +13,16 @@ export function StatusBar() {
   const connections = useConnectionList();
   const explorerConnectionId = useConnectionStore((s) => s.explorerConnectionId);
   const statuses = useConnectionModuleStore((s) => s.statuses);
-  const activeConnection = connections.data?.find((c) => c.id === explorerConnectionId) ?? null;
-  const introspect = useIntrospect(explorerConnectionId);
+  const activeTab = useWorkspaceStore((s) => {
+    if (!s.activeTabId) return null;
+    return s.tabs.find((t) => t.id === s.activeTabId) ?? null;
+  });
 
-  const status = explorerConnectionId ? (statuses[explorerConnectionId] ?? "disconnected") : null;
+  const workspaceConnectionId = activeTab?.connectionId ?? explorerConnectionId;
+  const activeConnection = connections.data?.find((c) => c.id === workspaceConnectionId) ?? null;
+  const introspect = useIntrospect(workspaceConnectionId);
+
+  const status = workspaceConnectionId ? (statuses[workspaceConnectionId] ?? "disconnected") : null;
   const tableCount = introspect.data?.tables.length ?? 0;
 
   const statusLabel =

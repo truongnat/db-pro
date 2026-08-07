@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { container } from "@/app/app.module";
 import { useConnectionStore } from "@/commons/stores/connection.store";
+import { useExplorerStore } from "@/commons/stores/explorer.store";
 import { SERVICE_NAMES, type IConnectionService } from "@/commons/di/registry";
 import { useSchemaCatalogStore } from "@/modules/query/stores/schema-catalog.store";
 
@@ -78,6 +79,10 @@ export function useConnect() {
     onSuccess: (_, id) => {
       setStatus(id, "connected");
       setExplorerConnection(id);
+      const expandedNodes = useExplorerStore.getState().expandedNodes;
+      if (!expandedNodes.includes(`conn:${id}`)) {
+        useExplorerStore.getState().toggleNode(`conn:${id}`);
+      }
       qc.invalidateQueries({ queryKey: QUERY_KEYS.connections });
     },
     onError: (err: unknown, id) => {

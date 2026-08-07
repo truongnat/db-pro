@@ -11,11 +11,13 @@ export function Topbar() {
   const { t } = useTranslation();
   const connections = useConnectionList();
   const explorerConnectionId = useConnectionStore((s) => s.explorerConnectionId);
-  const activeConnection = connections.data?.find((c) => c.id === explorerConnectionId) ?? null;
   const activeTab = useWorkspaceStore((s) => {
     if (!s.activeTabId) return null;
     return s.tabs.find((t) => t.id === s.activeTabId) ?? null;
   });
+
+  const workspaceConnectionId = activeTab?.connectionId ?? explorerConnectionId;
+  const activeConnection = connections.data?.find((c) => c.id === workspaceConnectionId) ?? null;
 
   return (
     <header

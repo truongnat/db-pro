@@ -21,7 +21,7 @@ function SchemaRedirect() {
   useEffect(() => {
     const connectionId = useConnectionStore.getState().explorerConnectionId;
     if (connectionId && schema && object) {
-      useWorkspaceStore.getState().openTab(
+      useWorkspaceStore.getState().openDbObject(
         createDbObjectTab(connectionId, schema, object, type, "structure", true),
       );
     }

@@ -5,7 +5,7 @@ import { createDbObjectTab } from "@/commons/factories/tab-factories";
 import type { DbObjectTabData } from "@/commons/types/workspace.types";
 
 export function useSidebarTabOps() {
-  const openTab = useWorkspaceStore((s) => s.openTab);
+  const openDbObject = useWorkspaceStore((s) => s.openDbObject);
   const promotePreview = useWorkspaceStore((s) => s.promotePreview);
 
   const openSchemaPreview = useCallback(
@@ -16,9 +16,9 @@ export function useSidebarTabOps() {
       objectType: DbObjectTabData["objectType"],
     ) => {
       const tab = createDbObjectTab(connectionId, schema, objectName, objectType, "structure", true);
-      openTab(tab);
+      openDbObject(tab);
     },
-    [openTab],
+    [openDbObject],
   );
 
   const promoteSchemaPreview = useCallback(
@@ -35,11 +35,16 @@ export function useSidebarTabOps() {
   );
 
   const openTableData = useCallback(
-    (connectionId: string, schema: string, table: string) => {
-      const tab = createDbObjectTab(connectionId, schema, table, "table", "data", false);
-      openTab(tab);
+    (
+      connectionId: string,
+      schema: string,
+      objectName: string,
+      objectType: DbObjectTabData["objectType"] = "table",
+    ) => {
+      const tab = createDbObjectTab(connectionId, schema, objectName, objectType, "data", false);
+      openDbObject(tab);
     },
-    [openTab],
+    [openDbObject],
   );
 
   return { openSchemaPreview, promoteSchemaPreview, openTableData };

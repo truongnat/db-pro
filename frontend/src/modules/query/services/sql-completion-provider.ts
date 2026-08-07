@@ -179,15 +179,24 @@ export function createSqlCompletionProvider(
         }
 
         case "schema": {
+          if (!ctx.qualifier) return { suggestions: [] };
+
           await catalog.ensureLoaded(connectionId);
           const cat = catalog.getCatalog(connectionId);
           if (!cat) return { suggestions: [] };
+
+          const schemaExists = cat.schemas.some((s) => s.name === ctx.qualifier);
+          if (!schemaExists) return { suggestions: [] };
+
+          const tablesInSchema = cat.objects.filter((o) => o.schema === ctx.qualifier);
           return {
-            suggestions: cat.schemas.map((s) => ({
-              label: s.name,
-              kind: monacoInstance.languages.CompletionItemKind.Folder,
-              detail: "Schema",
-              insertText: s.name,
+            suggestions: tablesInSchema.map((obj) => ({
+              label: obj.name,
+              kind: obj.kind === "table"
+                ? monacoInstance.languages.CompletionItemKind.Struct
+                : monacoInstance.languages.CompletionItemKind.Interface,
+              detail: `${obj.kind} · ${obj.schema}`,
+              insertText: obj.name,
               range,
             })),
           };

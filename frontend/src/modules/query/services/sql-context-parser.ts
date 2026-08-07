@@ -139,10 +139,21 @@ export function parseSqlContext(sql: string, cursorOffset: number): SqlContext {
   const stmt = getCurrentStatement(cleaned, cursorOffset);
   const textUpToCursor = stmt;
 
+  const clause = findCurrentClause(textUpToCursor);
   const { prefix, qualifier } = extractPrefix(textUpToCursor);
 
   if (qualifier) {
     const tableRefs = extractTableRefs(stmt);
+
+    if (clause && TABLE_CLAUSES.has(clause)) {
+      return {
+        kind: "schema",
+        prefix,
+        qualifier,
+        tableRefs,
+      };
+    }
+
     return {
       kind: "qualifiedColumn",
       prefix,
@@ -150,8 +161,6 @@ export function parseSqlContext(sql: string, cursorOffset: number): SqlContext {
       tableRefs,
     };
   }
-
-  const clause = findCurrentClause(textUpToCursor);
 
   if (!clause) {
     return { kind: "keyword", prefix, tableRefs: [] };

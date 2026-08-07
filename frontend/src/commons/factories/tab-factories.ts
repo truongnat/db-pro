@@ -14,10 +14,16 @@ function nextOrder(): number {
 
 function nextQueryTitle(connectionId: string): string {
   const tabs = useWorkspaceStore.getState().tabs;
-  const queryCount = tabs.filter(
-    (t) => t.kind === "query" && t.connectionId === connectionId,
-  ).length;
-  return `Query ${queryCount + 1}`;
+  const usedNumbers = new Set<number>();
+  for (const t of tabs) {
+    if (t.kind === "query" && t.connectionId === connectionId) {
+      const match = t.title.match(/^Query (\d+)$/);
+      if (match) usedNumbers.add(parseInt(match[1], 10));
+    }
+  }
+  let n = 1;
+  while (usedNumbers.has(n)) n++;
+  return `Query ${n}`;
 }
 
 function defaultQueryData(): QueryTabData {

@@ -19,7 +19,7 @@ function DataRedirect() {
   useEffect(() => {
     const connectionId = useConnectionStore.getState().explorerConnectionId;
     if (connectionId && schema && table) {
-      useWorkspaceStore.getState().openTab(
+      useWorkspaceStore.getState().openDbObject(
         createDbObjectTab(connectionId, schema, table, "table", "data", false),
       );
     }
