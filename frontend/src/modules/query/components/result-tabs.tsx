@@ -28,7 +28,7 @@ export function ResultTabs() {
           className={`rounded-t px-3 py-1 text-xs transition-colors ${
             idx === multiResultIndex
               ? "bg-background text-foreground"
-              : "text-muted-foreground"
+              : "text-[var(--app-text-muted)]"
           } ${
             idx === multiResultIndex
               ? "border-b-2 border-primary"

@@ -213,7 +213,7 @@ export function QueryTabContent({ tabId, onOpenRunConfig }: QueryTabContentProps
   if (!tabConnectionId) {
     return (
       <div className="flex items-center justify-center py-12">
-        <p className="text-muted-foreground">{t("query.connectFirst")}</p>
+        <p className="text-[var(--app-text-muted)]">{t("query.connectFirst")}</p>
       </div>
     );
   }
@@ -267,7 +267,7 @@ export function QueryTabContent({ tabId, onOpenRunConfig }: QueryTabContentProps
                 key={tab.id}
                 type="button"
                 className={`relative px-4 py-2 text-xs transition-colors ${
-                  panelTab === tab.id ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+                  panelTab === tab.id ? "text-foreground" : "text-[var(--app-text-muted)] hover:text-foreground"
                 }`}
                 onClick={() => setTabActivePanel(tabId, tab.id)}
               >
@@ -286,7 +286,7 @@ export function QueryTabContent({ tabId, onOpenRunConfig }: QueryTabContentProps
                   <span className="text-lg text-destructive">!</span>
                 </div>
                 <p className="mb-1 text-sm font-medium text-foreground">{t("query.queryError")}</p>
-                <p className="mb-4 max-w-md text-center text-xs text-muted-foreground">{error}</p>
+                <p className="mb-4 max-w-md text-center text-xs text-[var(--app-text-muted)]">{error}</p>
                 <Button variant="outline" size="sm" onClick={handleExecuteAll}>
                   {t("common.actions.retry")}
                 </Button>
@@ -309,7 +309,7 @@ export function QueryTabContent({ tabId, onOpenRunConfig }: QueryTabContentProps
 
             {panelTab === "results" && !result && status !== "error" && (
               <div className="flex items-center justify-center py-12">
-                <p className="text-muted-foreground">{t("query.enterSql")}</p>
+                <p className="text-[var(--app-text-muted)]">{t("query.enterSql")}</p>
               </div>
             )}
 
@@ -319,7 +319,7 @@ export function QueryTabContent({ tabId, onOpenRunConfig }: QueryTabContentProps
 
             {panelTab === "explain" && !explainPlan && (
               <div className="flex items-center justify-center py-12">
-                <p className="text-muted-foreground">{t("query.noResults")}</p>
+                <p className="text-[var(--app-text-muted)]">{t("query.noResults")}</p>
               </div>
             )}
 

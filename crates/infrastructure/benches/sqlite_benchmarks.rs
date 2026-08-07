@@ -108,6 +108,8 @@ fn seed_n_orders(connector: &SQLiteConnector, handle: &db_pro_core::domain::conn
 fn seed_n_json_blob(connector: &SQLiteConnector, handle: &db_pro_core::domain::connection::ConnectionHandle, n: usize) {
     let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async {
+        // Insert a category so FK references are valid.
+        connector.execute(handle, "INSERT INTO categories (name) VALUES ('Bench')", &[]).await.unwrap();
         connector.execute(handle, "BEGIN", &[]).await.unwrap();
         for i in 0..n {
             let json = format!(r#"{{"id": {}, "tags": ["a", "b", "c"], "nested": {{"x": {}}}}}"#, i, i * 2);

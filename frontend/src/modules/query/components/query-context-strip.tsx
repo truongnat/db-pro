@@ -55,7 +55,7 @@ export function QueryContextStrip({ tabId, connectionId, context }: QueryContext
         </SelectContent>
       </Select>
       {database && (
-        <span className="truncate text-[11px] text-muted-foreground">
+        <span className="truncate text-[11px] text-[var(--app-text-muted)]">
           {database}
           {context.schema ? `.${context.schema}` : ""}
         </span>

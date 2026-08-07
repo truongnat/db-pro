@@ -160,12 +160,12 @@ export function QueryCommandBar({
             <DropdownMenuItem onClick={onExecuteCurrent}>
               <Play className="mr-2 h-3.5 w-3.5" />
               {t("query.runCurrent")}
-              <span className="ml-auto text-[10px] text-muted-foreground">Ctrl+Enter</span>
+              <span className="ml-auto text-[10px] text-[var(--app-text-muted)]">Ctrl+Enter</span>
             </DropdownMenuItem>
             <DropdownMenuItem onClick={onExecuteAll}>
               <Play className="mr-2 h-3.5 w-3.5" />
               {t("query.runAll")}
-              <span className="ml-auto text-[10px] text-muted-foreground">Ctrl+Shift+Enter</span>
+              <span className="ml-auto text-[10px] text-[var(--app-text-muted)]">Ctrl+Shift+Enter</span>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={onExplain} disabled={!hasSql || isExplaining}>
@@ -191,7 +191,7 @@ export function QueryCommandBar({
         <Button
           type="button"
           variant="ghost"
-          className="gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground"
+          className="gap-1 rounded-md px-2 py-1 text-xs text-[var(--app-text-muted)]"
           onClick={onExplain}
           disabled={!hasConnection || !hasSql || isExplaining}
         >
@@ -203,7 +203,7 @@ export function QueryCommandBar({
         <Button
           type="button"
           variant="ghost"
-          className="gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground"
+          className="gap-1 rounded-md px-2 py-1 text-xs text-[var(--app-text-muted)]"
           onClick={onFormat}
           disabled={!hasSql}
         >
@@ -218,7 +218,7 @@ export function QueryCommandBar({
               type="button"
               variant="ghost"
               size="icon"
-              className="h-7 w-7 rounded-md text-muted-foreground"
+              className="h-7 w-7 rounded-md text-[var(--app-text-muted)]"
             >
               <MoreHorizontal className="h-4 w-4" />
             </Button>
