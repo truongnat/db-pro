@@ -27,15 +27,14 @@ vi.mock("@/app/app.module", () => ({
   },
 }));
 
-vi.mock("@/commons/di/registry", () => ({
-  SERVICE_NAMES: { CONNECTION_SERVICE: "ConnectionService" },
-}));
+const snackbarMock = { success: vi.fn(), error: vi.fn() };
 
 vi.mock("@/app/providers/snackbar.provider", () => ({
-  useSnackbar: vi.fn(() => ({
-    success: vi.fn(),
-    error: vi.fn(),
-  })),
+  useSnackbar: () => snackbarMock,
+}));
+
+vi.mock("@/commons/di/registry", () => ({
+  SERVICE_NAMES: { CONNECTION_SERVICE: "ConnectionService" },
 }));
 
 vi.mock("@/lib/utils", () => ({
@@ -62,6 +61,7 @@ i18n.use(initReactI18next).init({
           connectFailed: "Failed to connect",
           loadFailed: "Unable to load connection",
           notFound: "Connection not found",
+          createSuccess: "Connection created",
         },
       },
     },
@@ -250,6 +250,42 @@ describe("ConnectionDialog", () => {
       updateMutate.mock.calls[0][1].onSuccess();
 
       expect(connectMutate.mock.calls[0][0]).toBe("new-1");
+    });
+
+    it("retry after create+connect-failure updates the created id instead of creating a duplicate", async () => {
+      const { createMutate, updateMutate, connectMutate } = mockDefaultQueries();
+      const user = userEvent.setup();
+      useRecentStore.getState().openConnectionDialog();
+      renderDialog();
+
+      // First submit: create succeeds, connect fails.
+      await user.click(await screen.findByText("Save & Connect"));
+      createMutate.mock.calls[0][1].onSuccess(fakeConnection);
+      connectMutate.mock.calls[0][1].onError({ userMessage: "bad password" });
+
+      expect(useRecentStore.getState().connectionDialogOpen).toBe(true);
+      expect(await screen.findByText("bad password")).toBeInTheDocument();
+
+      // Second submit after fixing credentials.
+      await user.click(await screen.findByText("Save & Connect"));
+
+      expect(createMutate).toHaveBeenCalledTimes(1);
+      expect(updateMutate).toHaveBeenCalledTimes(1);
+      expect(updateMutate.mock.calls[0][0].id).toBe("new-1");
+    });
+
+    it("shows create success feedback when a new connection is saved", async () => {
+      const { createMutate } = mockDefaultQueries();
+      const user = userEvent.setup();
+      useRecentStore.getState().openConnectionDialog();
+      renderDialog();
+
+      await user.click(await screen.findByText("Save"));
+
+      expect(createMutate).toHaveBeenCalledTimes(1);
+      createMutate.mock.calls[0][1].onSuccess(fakeConnection);
+
+      expect(snackbarMock.success).toHaveBeenCalledWith("Connection created");
     });
   });
 });
