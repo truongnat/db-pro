@@ -10,6 +10,7 @@ export interface GridTabState {
   pageSize: number;
   editingCell: { row: number; col: number } | null;
   frozenColumns: string[];
+  hiddenColumns: string[];
   chartConfig: ChartConfig | null;
 }
 
@@ -20,6 +21,7 @@ const defaultGridState: GridTabState = {
   pageSize: 50,
   editingCell: null,
   frozenColumns: [],
+  hiddenColumns: [],
   chartConfig: null,
 };
 
@@ -34,6 +36,8 @@ interface TabGridStateStore {
   setPageSize: (tabId: string, size: number) => void;
   setEditingCell: (tabId: string, cell: { row: number; col: number } | null) => void;
   toggleFrozenColumn: (tabId: string, column: string) => void;
+  toggleHiddenColumn: (tabId: string, column: string) => void;
+  setHiddenColumns: (tabId: string, columns: string[]) => void;
   setChartConfig: (tabId: string, config: ChartConfig | null) => void;
   resetTab: (tabId: string) => void;
   gc: (validTabIds: Set<string>) => void;
@@ -112,6 +116,25 @@ export const useTabGridStateStore = create<TabGridStateStore>()((set, get) => ({
         : [...current.frozenColumns, column];
       return {
         states: { ...s.states, [tabId]: { ...current, frozenColumns: frozen } },
+      };
+    }),
+
+  toggleHiddenColumn: (tabId, column) =>
+    set((s) => {
+      const current = ensureTab(s.states, tabId);
+      const hidden = current.hiddenColumns.includes(column)
+        ? current.hiddenColumns.filter((c) => c !== column)
+        : [...current.hiddenColumns, column];
+      return {
+        states: { ...s.states, [tabId]: { ...current, hiddenColumns: hidden } },
+      };
+    }),
+
+  setHiddenColumns: (tabId, columns) =>
+    set((s) => {
+      const current = ensureTab(s.states, tabId);
+      return {
+        states: { ...s.states, [tabId]: { ...current, hiddenColumns: columns } },
       };
     }),
 

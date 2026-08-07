@@ -53,9 +53,9 @@ export function VisualFilterBuilder({
   const opLabel = (o: FilterOp) => FILTER_OPS.find((f) => f.value === o)?.label ?? o;
 
   return (
-    <div className="border-b border-border bg-card px-3 py-2">
+    <div className="flex flex-col gap-2.5">
       {filters.length > 0 && (
-        <div className="mb-2 flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap gap-1.5">
           {filters.map((f, i) => (
             <span
               key={i}
@@ -111,7 +111,7 @@ export function VisualFilterBuilder({
         {!VALUELESS_OPS.includes(op) && (
           <Input
             className="h-auto px-2 py-1 text-xs"
-            placeholder={t("dataGrid.filter")}
+            placeholder={t("dataGrid.filterValue")}
             value={value}
             onChange={(e) => setValue(e.target.value)}
             onKeyDown={(e) => {

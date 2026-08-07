@@ -26,6 +26,7 @@ interface DataGridProps {
   isLoading: boolean;
   pkColumns: string[];
   frozenColumns?: string[];
+  hiddenColumns?: string[];
   onToggleFreezeColumn?: (column: string) => void;
 }
 
@@ -42,6 +43,7 @@ export function DataGrid({
   isLoading,
   pkColumns,
   frozenColumns = [],
+  hiddenColumns = [],
   onToggleFreezeColumn,
 }: DataGridProps) {
   const parentRef = useRef<HTMLDivElement>(null);
@@ -81,8 +83,10 @@ export function DataGrid({
   }
 
   const frozenSet = new Set(frozenColumns);
-  const frozenCols = columns.filter((c) => frozenSet.has(c.name));
-  const normalCols = columns.filter((c) => !frozenSet.has(c.name));
+  const hiddenSet = new Set(hiddenColumns);
+  const visibleColumns = columns.filter((c) => !hiddenSet.has(c.name));
+  const frozenCols = visibleColumns.filter((c) => frozenSet.has(c.name));
+  const normalCols = visibleColumns.filter((c) => !frozenSet.has(c.name));
   const orderedCols = [...frozenCols, ...normalCols];
 
   const gridStyle: React.CSSProperties = {
