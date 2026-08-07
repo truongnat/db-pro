@@ -49,7 +49,7 @@ export function QuickOpen() {
   const explorerConnectionId = useConnectionStore((s) => s.explorerConnectionId);
   const setExplorerConnection = useConnectionStore((s) => s.setExplorerConnection);
   const statuses = useConnectionModuleStore((s) => s.statuses);
-  const toggleNode = useExplorerStore((s) => s.toggleNode);
+  const expandNode = useExplorerStore((s) => s.expandNode);
   const recentResources = useRecentStore((s) => s.recentResources);
   const { openSchemaPreview } = useSidebarTabOps();
   const connectMutation = useConnect();
@@ -83,18 +83,22 @@ export function QuickOpen() {
     () => new Set(recentResources.map((r) => r.resourceKey)),
     [recentResources],
   );
+  const activeTabConnectionId = useMemo(
+    () => tabs.find((t) => t.id === activeTabId)?.connectionId ?? null,
+    [tabs, activeTabId],
+  );
 
   const ranked = useMemo(
     () =>
       rankQuickOpenItems(index, {
         query,
         activeTabId,
-        activeConnectionId: explorerConnectionId,
+        activeConnectionId: activeTabConnectionId,
         explorerConnectionId,
         openResourceKeys,
         recentResourceKeys,
       }),
-    [index, query, activeTabId, explorerConnectionId, openResourceKeys, recentResourceKeys],
+    [index, query, activeTabId, activeTabConnectionId, explorerConnectionId, openResourceKeys, recentResourceKeys],
   );
 
   const groups = useMemo(() => groupItems(ranked.map((r) => r.item)), [ranked]);
@@ -122,8 +126,8 @@ export function QuickOpen() {
       case "schema":
         setExplorerConnection(item.connectionId);
         useShellStore.getState().setSidebarView("explorer");
-        toggleNode(`conn:${item.connectionId}`);
-        toggleNode(`schema:${item.connectionId}:${item.schema}`);
+        expandNode(`conn:${item.connectionId}`);
+        expandNode(`schema:${item.connectionId}:${item.schema}`);
         break;
       case "connection": {
         const status = statuses[item.connectionId] ?? "disconnected";
@@ -133,7 +137,7 @@ export function QuickOpen() {
           setExplorerConnection(item.connectionId);
         }
         useShellStore.getState().setSidebarView("explorer");
-        toggleNode(`conn:${item.connectionId}`);
+        expandNode(`conn:${item.connectionId}`);
         break;
       }
     }

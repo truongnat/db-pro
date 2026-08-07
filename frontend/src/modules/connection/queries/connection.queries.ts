@@ -84,7 +84,7 @@ export function useConnect() {
       addRecentConnection(id);
       const expandedNodes = useExplorerStore.getState().expandedNodes;
       if (!expandedNodes.includes(`conn:${id}`)) {
-        useExplorerStore.getState().toggleNode(`conn:${id}`);
+        useExplorerStore.getState().expandNode(`conn:${id}`);
       }
       qc.invalidateQueries({ queryKey: QUERY_KEYS.connections });
     },

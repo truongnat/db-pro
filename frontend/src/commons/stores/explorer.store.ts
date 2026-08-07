@@ -5,6 +5,7 @@ interface ExplorerState {
   expandedNodes: string[];
   filter: string;
   toggleNode: (path: string) => void;
+  expandNode: (path: string) => void;
   setFilter: (filter: string) => void;
   collapseAll: () => void;
 }
@@ -23,6 +24,12 @@ export const useExplorerStore = create<ExplorerState>()(
               ? state.expandedNodes.filter((p) => p !== path)
               : [...state.expandedNodes, path],
           };
+        }),
+
+      expandNode: (path) =>
+        set((state) => {
+          if (state.expandedNodes.includes(path)) return state;
+          return { expandedNodes: [...state.expandedNodes, path] };
         }),
 
       setFilter: (filter) => set({ filter }),

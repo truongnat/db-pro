@@ -112,6 +112,31 @@ describe("rankQuickOpenItems", () => {
     expect(ranked.some((r) => r.item.connectionId === "conn-1")).toBe(true);
   });
 
+  it("boosts active tab connection independently of explorer connection", () => {
+    const items: QuickOpenItem[] = [
+      dbObj({ connectionId: "conn-1", connectionName: "Local", objectName: "users", searchText: "users public.users public Local" }),
+      dbObj({ connectionId: "conn-2", connectionName: "Production", objectName: "users", searchText: "users auth.users auth Production" }),
+    ];
+    const ranked = rankQuickOpenItems(
+      items,
+      ctx({ query: "users", activeConnectionId: "conn-2" }),
+    );
+    expect(ranked[0].item.connectionId).toBe("conn-2");
+  });
+
+  it("treats active and explorer connection boosts as separate axes", () => {
+    const items: QuickOpenItem[] = [
+      dbObj({ connectionId: "conn-1", connectionName: "Local", objectName: "users", searchText: "users public.users public Local" }),
+      dbObj({ connectionId: "conn-2", connectionName: "Production", objectName: "users", searchText: "users auth.users auth Production" }),
+    ];
+    const ranked = rankQuickOpenItems(
+      items,
+      ctx({ query: "users", activeConnectionId: "conn-2", explorerConnectionId: "conn-1" }),
+    );
+    expect(ranked[0].item.connectionId).toBe("conn-1");
+    expect(ranked[1].item.connectionId).toBe("conn-2");
+  });
+
   it("open tab ranks at top for empty query", () => {
     const items: QuickOpenItem[] = [
       dbObj(),

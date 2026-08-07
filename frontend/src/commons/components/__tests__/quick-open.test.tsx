@@ -59,6 +59,7 @@ vi.mock("@/modules/connection/queries/connection.queries", () => ({
 vi.mock("@/commons/stores/explorer.store", () => ({
   useExplorerStore: vi.fn(() => ({
     toggleNode: vi.fn(),
+    expandNode: vi.fn(),
   })),
 }));
 
