@@ -265,6 +265,17 @@ describe("DDL builder — generateDdlPreview", () => {
     expect(sql).toBe("");
   });
 
+  it("uses default index name when indexName is not provided", () => {
+    const sql = generateDdlPreview(
+      "createIndex", "public", "users",
+      [],
+      { indexColumns: "email", unique: "false" },
+      pg,
+    );
+    expect(sql).toContain('"idx_new"');
+    expect(sql).toContain("CREATE INDEX");
+  });
+
   it("dispatches dropIndex from extra.indexName", () => {
     const sql = generateDdlPreview("dropIndex", "public", "users", [], { indexName: "idx_old" }, pg);
     expect(sql).toContain("DROP INDEX");

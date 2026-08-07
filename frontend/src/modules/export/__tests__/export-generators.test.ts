@@ -119,4 +119,39 @@ describe("generateSqlInserts", () => {
     });
     expect(sql).toContain("VALUES (2, 'NULL', FALSE)");
   });
+
+  it("handles JSON cell type with escaped single quotes", () => {
+    const jsonColumns: ColumnMeta[] = [
+      { name: "id", data_type: "int", nullable: false },
+      { name: "metadata", data_type: "json", nullable: true },
+    ];
+    const jsonRows: Row[] = [
+      [
+        { type: "int64", value: 1 },
+        { type: "json", value: { key: "it's", nested: [1, 2] } },
+      ],
+    ];
+    const sql = generateSqlInserts(jsonColumns, jsonRows, {
+      tableName: "docs",
+      nullRepresentation: "",
+    });
+    expect(sql).toContain('INSERT INTO "docs"');
+    // JSON.stringify produces the string, then single quotes are escaped
+    expect(sql).toContain("it''s");
+  });
+
+  it("handles bytes cell type in CSV as [binary]", () => {
+    const binColumns: ColumnMeta[] = [
+      { name: "id", data_type: "int", nullable: false },
+      { name: "data", data_type: "bytea", nullable: true },
+    ];
+    const binRows: Row[] = [
+      [
+        { type: "int64", value: 1 },
+        { type: "bytes", value: "\x00\x01" },
+      ],
+    ];
+    const csv = generateCsv(binColumns, binRows);
+    expect(csv).toContain("[binary]");
+  });
 });

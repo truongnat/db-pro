@@ -118,6 +118,35 @@ describe("buildTreeData", () => {
     expect(tree[0].children).toHaveLength(1);
   });
 
+  it("sorts views alphabetically within schema", () => {
+    const result = makeResult({
+      schemas: [{ name: "public" }],
+      views: [
+        { name: "z_view", schema: "public", definition: "SELECT 1" },
+        { name: "a_view", schema: "public", definition: "SELECT 2" },
+        { name: "m_view", schema: "public", definition: "SELECT 3" },
+      ],
+    });
+    const tree = buildTreeData(result, "");
+    const viewNodes = tree[0].children!.filter((c) => c.type === "view");
+    expect(viewNodes.map((v) => v.label)).toEqual(["a_view", "m_view", "z_view"]);
+  });
+
+  it("filters views by search query", () => {
+    const result = makeResult({
+      schemas: [{ name: "public" }],
+      views: [
+        { name: "active_users", schema: "public", definition: "SELECT 1" },
+        { name: "order_summary", schema: "public", definition: "SELECT 2" },
+      ],
+    });
+    const tree = buildTreeData(result, "active");
+    expect(tree).toHaveLength(1);
+    const viewNodes = tree[0].children!.filter((c) => c.type === "view");
+    expect(viewNodes).toHaveLength(1);
+    expect(viewNodes[0].label).toBe("active_users");
+  });
+
   it("generates correct node ids", () => {
     const result = makeResult({
       schemas: [{ name: "public" }],

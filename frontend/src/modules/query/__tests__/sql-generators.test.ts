@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { getSqlDialect } from "../sql/dialect";
 import {
+  generateCountSQL,
   generateDeleteSQL,
   generateInsertSQL,
   generateSelectSQL,
@@ -58,6 +59,26 @@ describe("dialect-aware CRUD generators (UX-R7.2b)", () => {
     it("quotes pk columns on sqlite without schema", () => {
       expect(generateDeleteSQL(sqlite, null, "users", COLUMNS)).toBe(
         'DELETE FROM "users"\nWHERE "id" = <id>;',
+      );
+    });
+  });
+
+  describe("generateCountSQL", () => {
+    it("generates SELECT COUNT(*) with schema on postgres", () => {
+      expect(generateCountSQL(postgres, "public", "users")).toBe(
+        'SELECT COUNT(*) AS cnt\nFROM "public"."users";',
+      );
+    });
+
+    it("generates SELECT COUNT(*) without schema on sqlite", () => {
+      expect(generateCountSQL(sqlite, null, "users")).toBe(
+        'SELECT COUNT(*) AS cnt\nFROM "users";',
+      );
+    });
+
+    it("qualifies schema on sqlite when provided", () => {
+      expect(generateCountSQL(sqlite, "main", "orders")).toBe(
+        'SELECT COUNT(*) AS cnt\nFROM "main"."orders";',
       );
     });
   });
