@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
 import { useTranslation } from "@/commons/locales/useTranslation";
 import { createQueryTabForObject } from "@/modules/query/controllers/query-workspace.controller";
+import { getDialectForConnection } from "@/modules/query/sql/dialect";
 
 import { useTableInfo, useTableDdl } from "@/modules/schema/queries/schema.queries";
 import { ColumnList } from "@/modules/schema/components/column-list";
@@ -64,8 +65,11 @@ export function DbObjectTabContent({
   };
 
   const handleOpenSelect = () => {
-    const qualified = `"${schema.replace(/"/g, '""')}"."${objectName.replace(/"/g, '""')}"`;
-    openQueryTab(`SELECT * FROM ${qualified} LIMIT 100;`, `SELECT ${objectName}`);
+    const dialect = getDialectForConnection(connectionId);
+    openQueryTab(
+      dialect.generateSelect({ schema, table: objectName, limit: 100 }),
+      `SELECT ${objectName}`,
+    );
   };
 
   const handleOpenDdl = () => {
@@ -105,7 +109,7 @@ export function DbObjectTabContent({
         )}
         {toolbarAction === "generateCrud" && isTableOrView && tableInfo.data && (
           <ObjectSectionLayout>
-            <GenerateCrud schema={schema} table={objectName} columns={tableInfo.data.columns} />
+            <GenerateCrud connectionId={connectionId} schema={schema} table={objectName} columns={tableInfo.data.columns} />
           </ObjectSectionLayout>
         )}
         {!toolbarAction && (

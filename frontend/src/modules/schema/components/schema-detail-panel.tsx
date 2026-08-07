@@ -10,7 +10,6 @@ import { DdlViewer } from "./ddl-viewer";
 import { ForeignKeyList } from "./foreign-key-list";
 import { GenerateCrud } from "./generate-crud";
 import { IndexManager } from "./index-manager";
-import { IndexList } from "./index-list";
 import { TriggerManager } from "./trigger-manager";
 
 interface SchemaDetailPanelProps {
@@ -123,6 +122,7 @@ export function SchemaDetailPanel({
 
         {activeTab === "generateCrud" && tableInfo.data && (
           <GenerateCrud
+            connectionId={connectionId}
             schema={schema}
             table={table}
             columns={tableInfo.data.columns}

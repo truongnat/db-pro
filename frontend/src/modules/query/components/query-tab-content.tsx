@@ -25,6 +25,7 @@ import {
   useQueryHistory,
 } from "../queries/query.queries";
 import { pushLocalHistory } from "../services/local-history";
+import { getDialectForConnection } from "../sql/dialect";
 import {
   setTabSql,
   setTabSort,
@@ -100,12 +101,14 @@ export function QueryTabContent({ tabId, onOpenRunConfig }: QueryTabContentProps
   const handleFormat = useCallback(() => {
     if (!sql.trim()) return;
     try {
-      const formatted = formatSql(sql, { language: "postgresql" });
+      const formatted = formatSql(sql, {
+        language: getDialectForConnection(tabConnectionId).formatterLanguage,
+      });
       setTabSql(tabId, formatted);
     } catch {
       // leave SQL unchanged on format error
     }
-  }, [tabId, sql]);
+  }, [tabId, sql, tabConnectionId]);
 
   const handleInsertTemplate = useCallback(
     (templateSql: string) => {

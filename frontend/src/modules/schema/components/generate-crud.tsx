@@ -2,9 +2,17 @@ import { useCallback, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "@/commons/locales/useTranslation";
+import { getDialectForConnection } from "@/modules/query/sql/dialect";
+import {
+  generateDeleteSQL,
+  generateInsertSQL,
+  generateSelectSQL,
+  generateUpdateSQL,
+} from "@/modules/query/sql/generators";
 import type { SchemaColumnDto } from "../types/schema.types";
 
 interface GenerateCrudProps {
+  connectionId: string;
   schema: string;
   table: string;
   columns: SchemaColumnDto[];
@@ -12,67 +20,25 @@ interface GenerateCrudProps {
 
 type CrudType = "select" | "insert" | "update" | "delete";
 
-function quoteId(name: string): string {
-  return `"${name.replace(/"/g, '""')}"`;
-}
-
-function qualify(s: string, t: string): string {
-  return `${quoteId(s)}.${quoteId(t)}`;
-}
-
-function generateSelect(schema: string, table: string, columns: SchemaColumnDto[]): string {
-  const q = qualify(schema, table);
-  const cols = columns.map((c) => `  ${quoteId(c.name)}`).join(",\n");
-  return `SELECT\n${cols}\nFROM ${q};`;
-}
-
-function generateInsert(schema: string, table: string, columns: SchemaColumnDto[]): string {
-  const q = qualify(schema, table);
-  const colNames = columns.map((c) => quoteId(c.name)).join(", ");
-  const placeholders = columns.map((c) => {
-    if (c.isPrimaryKey && c.defaultValue) return "DEFAULT";
-    if (!c.nullable && !c.defaultValue) return `'<${c.name}>'`;
-    if (c.defaultValue) return c.defaultValue;
-    return "NULL";
-  });
-  return `INSERT INTO ${q} (${colNames})\nVALUES (${placeholders.join(", ")});`;
-}
-
-function generateUpdate(schema: string, table: string, columns: SchemaColumnDto[]): string {
-  const q = qualify(schema, table);
-  const pkCols = columns.filter((c) => c.isPrimaryKey);
-  const nonPkCols = columns.filter((c) => !c.isPrimaryKey);
-
-  const setClauses = nonPkCols.map((c) => `  ${quoteId(c.name)} = <${c.name}>`).join(",\n");
-  const whereClauses = pkCols.map((c) => `${quoteId(c.name)} = <${c.name}>`).join(" AND ");
-
-  return `UPDATE ${q}\nSET\n${setClauses}\nWHERE ${whereClauses || "1 = 1 /* no PK */"};`;
-}
-
-function generateDelete(schema: string, table: string, columns: SchemaColumnDto[]): string {
-  const q = qualify(schema, table);
-  const pkCols = columns.filter((c) => c.isPrimaryKey);
-  const whereClauses = pkCols.map((c) => `${quoteId(c.name)} = <${c.name}>`).join(" AND ");
-  return `DELETE FROM ${q}\nWHERE ${whereClauses || "1 = 1 /* no PK */"};`;
-}
-
-export function GenerateCrud({ schema, table, columns }: GenerateCrudProps) {
+export function GenerateCrud({ connectionId, schema, table, columns }: GenerateCrudProps) {
   const { t } = useTranslation();
   const [activeType, setActiveType] = useState<CrudType>("select");
   const [copied, setCopied] = useState(false);
 
+  const dialect = useMemo(() => getDialectForConnection(connectionId), [connectionId]);
+
   const sql = useMemo(() => {
     switch (activeType) {
       case "select":
-        return generateSelect(schema, table, columns);
+        return generateSelectSQL(dialect, schema, table, columns);
       case "insert":
-        return generateInsert(schema, table, columns);
+        return generateInsertSQL(dialect, schema, table, columns);
       case "update":
-        return generateUpdate(schema, table, columns);
+        return generateUpdateSQL(dialect, schema, table, columns);
       case "delete":
-        return generateDelete(schema, table, columns);
+        return generateDeleteSQL(dialect, schema, table, columns);
     }
-  }, [activeType, schema, table, columns]);
+  }, [activeType, dialect, schema, table, columns]);
 
   const handleCopy = useCallback(async () => {
     await navigator.clipboard.writeText(sql);

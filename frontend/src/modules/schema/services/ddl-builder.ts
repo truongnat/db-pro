@@ -1,3 +1,5 @@
+import { getSqlDialect, type SqlDialect } from "@/modules/query/sql/dialect";
+
 export interface ColumnDef {
   name: string;
   dataType: string;
@@ -17,57 +19,81 @@ export type DdlOperation =
   | "createIndex"
   | "dropIndex";
 
-function quote(name: string): string {
-  const escaped = name.replace(/"/g, '""');
-  return `"${escaped}"`;
-}
-
-function qualify(schema: string, table: string): string {
-  return `${quote(schema)}.${quote(table)}`;
-}
-
-export function buildCreateTable(schema: string, table: string, columns: ColumnDef[]): string {
-  const qualified = qualify(schema, table);
+export function buildCreateTable(
+  schema: string,
+  table: string,
+  columns: ColumnDef[],
+  dialect: SqlDialect = getSqlDialect("postgres"),
+): string {
+  const qualified = dialect.qualify(schema, table);
   const pkCols = columns.filter((c) => c.isPk);
   const lines = columns.map((col) => {
-    let line = `    ${quote(col.name)} ${col.dataType}`;
+    let line = `    ${dialect.quoteIdentifier(col.name)} ${col.dataType}`;
     if (!col.nullable) line += " NOT NULL";
     if (col.defaultValue.trim()) line += ` DEFAULT ${col.defaultValue}`;
     return line;
   });
 
   if (pkCols.length > 0) {
-    lines.push(`    PRIMARY KEY (${pkCols.map((c) => quote(c.name)).join(", ")})`);
+    lines.push(`    PRIMARY KEY (${pkCols.map((c) => dialect.quoteIdentifier(c.name)).join(", ")})`);
   }
 
   return `CREATE TABLE ${qualified} (\n${lines.join(",\n")}\n);`;
 }
 
-export function buildAddColumn(schema: string, table: string, column: ColumnDef): string {
-  let line = `ALTER TABLE ${qualify(schema, table)} ADD COLUMN ${quote(column.name)} ${column.dataType}`;
+export function buildAddColumn(
+  schema: string,
+  table: string,
+  column: ColumnDef,
+  dialect: SqlDialect = getSqlDialect("postgres"),
+): string {
+  let line = `ALTER TABLE ${dialect.qualify(schema, table)} ADD COLUMN ${dialect.quoteIdentifier(column.name)} ${column.dataType}`;
   if (!column.nullable) line += " NOT NULL";
   if (column.defaultValue.trim()) line += ` DEFAULT ${column.defaultValue}`;
   return `${line};`;
 }
 
-export function buildDropColumn(schema: string, table: string, columnName: string): string {
-  return `ALTER TABLE ${qualify(schema, table)} DROP COLUMN ${quote(columnName)};`;
+export function buildDropColumn(
+  schema: string,
+  table: string,
+  columnName: string,
+  dialect: SqlDialect = getSqlDialect("postgres"),
+): string {
+  return `ALTER TABLE ${dialect.qualify(schema, table)} DROP COLUMN ${dialect.quoteIdentifier(columnName)};`;
 }
 
-export function buildRenameTable(schema: string, table: string, newName: string): string {
-  return `ALTER TABLE ${qualify(schema, table)} RENAME TO ${quote(newName)};`;
+export function buildRenameTable(
+  schema: string,
+  table: string,
+  newName: string,
+  dialect: SqlDialect = getSqlDialect("postgres"),
+): string {
+  return `ALTER TABLE ${dialect.qualify(schema, table)} RENAME TO ${dialect.quoteIdentifier(newName)};`;
 }
 
-export function buildDropTable(schema: string, table: string): string {
-  return `DROP TABLE ${qualify(schema, table)};`;
+export function buildDropTable(
+  schema: string,
+  table: string,
+  dialect: SqlDialect = getSqlDialect("postgres"),
+): string {
+  return `DROP TABLE ${dialect.qualify(schema, table)};`;
 }
 
-export function buildCreateView(schema: string, name: string, selectSql: string): string {
-  return `CREATE VIEW ${qualify(schema, name)} AS\n${selectSql};`;
+export function buildCreateView(
+  schema: string,
+  name: string,
+  selectSql: string,
+  dialect: SqlDialect = getSqlDialect("postgres"),
+): string {
+  return `CREATE VIEW ${dialect.qualify(schema, name)} AS\n${selectSql};`;
 }
 
-export function buildDropView(schema: string, name: string): string {
-  return `DROP VIEW ${qualify(schema, name)};`;
+export function buildDropView(
+  schema: string,
+  name: string,
+  dialect: SqlDialect = getSqlDialect("postgres"),
+): string {
+  return `DROP VIEW ${dialect.qualify(schema, name)};`;
 }
 
 export function buildCreateIndex(
@@ -76,15 +102,20 @@ export function buildCreateIndex(
   indexName: string,
   columns: string[],
   unique: boolean,
+  dialect: SqlDialect = getSqlDialect("postgres"),
 ): string {
-  const qualified = qualify(schema, table);
-  const cols = columns.map(quote).join(", ");
+  const qualified = dialect.qualify(schema, table);
+  const cols = columns.map(dialect.quoteIdentifier).join(", ");
   const u = unique ? "UNIQUE " : "";
-  return `CREATE ${u}INDEX ${quote(indexName)} ON ${qualified} (${cols});`;
+  return `CREATE ${u}INDEX ${dialect.quoteIdentifier(indexName)} ON ${qualified} (${cols});`;
 }
 
-export function buildDropIndex(schema: string, indexName: string): string {
-  return `DROP INDEX ${qualify(schema, indexName)};`;
+export function buildDropIndex(
+  schema: string,
+  indexName: string,
+  dialect: SqlDialect = getSqlDialect("postgres"),
+): string {
+  return `DROP INDEX ${dialect.qualify(schema, indexName)};`;
 }
 
 export function generateDdlPreview(
@@ -93,22 +124,23 @@ export function generateDdlPreview(
   table: string,
   columns: ColumnDef[],
   extra: Record<string, string>,
+  dialect: SqlDialect = getSqlDialect("postgres"),
 ): string {
   switch (operation) {
     case "createTable":
-      return buildCreateTable(schema, table, columns);
+      return buildCreateTable(schema, table, columns, dialect);
     case "addColumn":
-      return columns.length > 0 ? buildAddColumn(schema, table, columns[0]) : "";
+      return columns.length > 0 ? buildAddColumn(schema, table, columns[0], dialect) : "";
     case "dropColumn":
-      return extra.columnName ? buildDropColumn(schema, table, extra.columnName) : "";
+      return extra.columnName ? buildDropColumn(schema, table, extra.columnName, dialect) : "";
     case "renameTable":
-      return extra.newName ? buildRenameTable(schema, table, extra.newName) : "";
+      return extra.newName ? buildRenameTable(schema, table, extra.newName, dialect) : "";
     case "dropTable":
-      return buildDropTable(schema, table);
+      return buildDropTable(schema, table, dialect);
     case "createView":
-      return extra.selectSql ? buildCreateView(schema, table, extra.selectSql) : "";
+      return extra.selectSql ? buildCreateView(schema, table, extra.selectSql, dialect) : "";
     case "dropView":
-      return buildDropView(schema, table);
+      return buildDropView(schema, table, dialect);
     case "createIndex":
       return extra.indexColumns
         ? buildCreateIndex(
@@ -117,10 +149,11 @@ export function generateDdlPreview(
             extra.indexName ?? "idx_new",
             extra.indexColumns.split(",").map((s) => s.trim()).filter(Boolean),
             extra.unique === "true",
+            dialect,
           )
         : "";
     case "dropIndex":
-      return extra.indexName ? buildDropIndex(schema, extra.indexName) : "";
+      return extra.indexName ? buildDropIndex(schema, extra.indexName, dialect) : "";
     default:
       return "";
   }

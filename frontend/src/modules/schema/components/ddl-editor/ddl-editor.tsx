@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useTranslation } from "@/commons/locales/useTranslation";
+import { getDialectForConnection } from "@/modules/query/sql/dialect";
 
 import { useExecuteDdl } from "../../queries/schema.queries";
 import {
@@ -66,8 +67,8 @@ export function DdlEditor({ connectionId, schema, table }: DdlEditorProps) {
   );
 
   const previewSql = useMemo(
-    () => generateDdlPreview(operation, schema, table, columns, extra),
-    [operation, schema, table, columns, extra],
+    () => generateDdlPreview(operation, schema, table, columns, extra, getDialectForConnection(connectionId)),
+    [operation, schema, table, columns, extra, connectionId],
   );
 
   const handleColumnChange = useCallback(
