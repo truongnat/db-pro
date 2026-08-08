@@ -31,14 +31,8 @@ fn compare_introspect_results(source: &IntrospectResult, target: &IntrospectResu
         .map(|t| format!("{}.{}", t.schema, t.name))
         .collect();
 
-    let tables_only_in_source: Vec<String> = source_tables
-        .difference(&target_tables)
-        .cloned()
-        .collect();
-    let tables_only_in_target: Vec<String> = target_tables
-        .difference(&source_tables)
-        .cloned()
-        .collect();
+    let tables_only_in_source: Vec<String> = source_tables.difference(&target_tables).cloned().collect();
+    let tables_only_in_target: Vec<String> = target_tables.difference(&source_tables).cloned().collect();
 
     let common_tables: Vec<&String> = source_tables.intersection(&target_tables).collect();
 
@@ -59,10 +53,8 @@ fn compare_introspect_results(source: &IntrospectResult, target: &IntrospectResu
             .map(|c| c.name.clone())
             .collect();
 
-        let cols_only_source: Vec<String> =
-            source_cols.difference(&target_cols).cloned().collect();
-        let cols_only_target: Vec<String> =
-            target_cols.difference(&source_cols).cloned().collect();
+        let cols_only_source: Vec<String> = source_cols.difference(&target_cols).cloned().collect();
+        let cols_only_target: Vec<String> = target_cols.difference(&source_cols).cloned().collect();
 
         let common_cols: Vec<&String> = source_cols.intersection(&target_cols).collect();
         let mut type_mismatches = Vec::new();
@@ -89,10 +81,7 @@ fn compare_introspect_results(source: &IntrospectResult, target: &IntrospectResu
             }
         }
 
-        if !cols_only_source.is_empty()
-            || !cols_only_target.is_empty()
-            || !type_mismatches.is_empty()
-        {
+        if !cols_only_source.is_empty() || !cols_only_target.is_empty() || !type_mismatches.is_empty() {
             column_diffs.push(TableColumnDiff {
                 schema: schema.to_string(),
                 table: table.to_string(),
@@ -114,10 +103,8 @@ fn compare_introspect_results(source: &IntrospectResult, target: &IntrospectResu
         .map(|i| format!("{}.{}", i.schema, i.name))
         .collect();
 
-    let indexes_only_in_source: Vec<String> =
-        source_indexes.difference(&target_indexes).cloned().collect();
-    let indexes_only_in_target: Vec<String> =
-        target_indexes.difference(&source_indexes).cloned().collect();
+    let indexes_only_in_source: Vec<String> = source_indexes.difference(&target_indexes).cloned().collect();
+    let indexes_only_in_target: Vec<String> = target_indexes.difference(&source_indexes).cloned().collect();
 
     SchemaDiff {
         tables_only_in_source,

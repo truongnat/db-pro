@@ -31,7 +31,10 @@ impl SchemaService {
     }
 
     async fn safety_policy_for(&self, connection_id: &ConnectionId) -> Result<ConnectionSafetyPolicy, DbError> {
-        let config = self.connections.get_config(connection_id).await?
+        let config = self
+            .connections
+            .get_config(connection_id)
+            .await?
             .ok_or_else(|| DbError::ConnectionFailed(format!("connection {connection_id} not found")))?;
         if config.readonly {
             Ok(ConnectionSafetyPolicy::read_only())
@@ -122,14 +125,10 @@ impl SchemaService {
         Ok(build_create_table_ddl(&info))
     }
 
-    pub async fn execute_ddl(
-        &self,
-        connection_id: &ConnectionId,
-        sql: &str,
-    ) -> Result<u64, DbError> {
+    pub async fn execute_ddl(&self, connection_id: &ConnectionId, sql: &str) -> Result<u64, DbError> {
         // Enforce safety policy: readonly connections cannot execute DDL.
         let policy = self.safety_policy_for(connection_id).await?;
-        validate_against_policy(sql, &policy).map_err(|e| DbError::QueryFailed(e))?;
+        validate_against_policy(sql, &policy).map_err(DbError::QueryFailed)?;
 
         let handle = self
             .registry
@@ -224,8 +223,8 @@ mod tests {
     use super::*;
     use crate::domain::connection::ConnectionHandle;
     use crate::domain::schema::*;
-    use crate::ports::{MockConnectionRepository, MockDbConnector};
     use crate::ports::MockIntrospectionCache;
+    use crate::ports::{MockConnectionRepository, MockDbConnector};
 
     fn mock_connections() -> MockConnectionRepository {
         let mut repo = MockConnectionRepository::new();
@@ -313,7 +312,12 @@ mod tests {
             .expect_introspect()
             .returning(|_| Ok(test_introspect_result()));
 
-        let svc = SchemaService::new(Box::new(connector), Box::new(cache), Arc::clone(&registry), Box::new(mock_connections()));
+        let svc = SchemaService::new(
+            Box::new(connector),
+            Box::new(cache),
+            Arc::clone(&registry),
+            Box::new(mock_connections()),
+        );
 
         let result = svc.introspect(&conn_id, false).await;
         assert!(result.is_ok());
@@ -329,7 +333,12 @@ mod tests {
 
         let connector = MockDbConnector::new();
 
-        let svc = SchemaService::new(Box::new(connector), Box::new(cache), Arc::clone(&registry), Box::new(mock_connections()));
+        let svc = SchemaService::new(
+            Box::new(connector),
+            Box::new(cache),
+            Arc::clone(&registry),
+            Box::new(mock_connections()),
+        );
 
         let result = svc.introspect(&conn_id, false).await;
         assert!(result.is_ok());
@@ -350,7 +359,12 @@ mod tests {
             .expect_introspect()
             .returning(|_| Ok(test_introspect_result()));
 
-        let svc = SchemaService::new(Box::new(connector), Box::new(cache), Arc::clone(&registry), Box::new(mock_connections()));
+        let svc = SchemaService::new(
+            Box::new(connector),
+            Box::new(cache),
+            Arc::clone(&registry),
+            Box::new(mock_connections()),
+        );
 
         let result = svc.introspect(&conn_id, true).await;
         assert!(result.is_ok());
@@ -365,7 +379,12 @@ mod tests {
         let mut cache = MockIntrospectionCache::new();
         cache.expect_get().returning(|_| Ok(Some(test_introspect_result())));
 
-        let svc = SchemaService::new(Box::new(MockDbConnector::new()), Box::new(cache), Arc::clone(&registry), Box::new(mock_connections()));
+        let svc = SchemaService::new(
+            Box::new(MockDbConnector::new()),
+            Box::new(cache),
+            Arc::clone(&registry),
+            Box::new(mock_connections()),
+        );
 
         let info = svc.get_table_info(&conn_id, "public", "users").await;
         assert!(info.is_ok());
@@ -384,7 +403,12 @@ mod tests {
         let mut cache = MockIntrospectionCache::new();
         cache.expect_get().returning(|_| Ok(Some(test_introspect_result())));
 
-        let svc = SchemaService::new(Box::new(MockDbConnector::new()), Box::new(cache), Arc::clone(&registry), Box::new(mock_connections()));
+        let svc = SchemaService::new(
+            Box::new(MockDbConnector::new()),
+            Box::new(cache),
+            Arc::clone(&registry),
+            Box::new(mock_connections()),
+        );
 
         let result = svc.get_table_info(&conn_id, "public", "nonexistent").await;
         assert!(result.is_err());
@@ -399,7 +423,12 @@ mod tests {
         let mut cache = MockIntrospectionCache::new();
         cache.expect_get().returning(|_| Ok(Some(test_introspect_result())));
 
-        let svc = SchemaService::new(Box::new(MockDbConnector::new()), Box::new(cache), Arc::clone(&registry), Box::new(mock_connections()));
+        let svc = SchemaService::new(
+            Box::new(MockDbConnector::new()),
+            Box::new(cache),
+            Arc::clone(&registry),
+            Box::new(mock_connections()),
+        );
 
         let ddl = svc.get_table_ddl(&conn_id, "public", "users").await.unwrap();
         assert!(ddl.contains("CREATE TABLE \"public\".\"users\""));

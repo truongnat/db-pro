@@ -151,9 +151,6 @@ mod tests {
 
     #[test]
     fn secret_key_format() {
-        assert_eq!(
-            secret_key("abc-123", fields::PASSWORD),
-            "connection:abc-123:password"
-        );
+        assert_eq!(secret_key("abc-123", fields::PASSWORD), "connection:abc-123:password");
     }
 }

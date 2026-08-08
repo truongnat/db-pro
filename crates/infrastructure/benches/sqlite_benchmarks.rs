@@ -33,6 +33,7 @@ fn memory_config() -> ConnectionConfig {
         color: None,
         tags: vec![],
         group: None,
+        readonly: false,
     }
 }
 
@@ -138,7 +139,10 @@ fn setup_large_schema(connector: &SQLiteConnector) -> db_pro_core::domain::conne
             connector.execute(&h, &sql, &[]).await.unwrap();
             // Insert a few rows.
             for r in 0..5 {
-                let vals = (0..19).map(|c| format!("'val_{t}_{c}_{r}'")).collect::<Vec<_>>().join(", ");
+                let vals = (0..19)
+                    .map(|c| format!("'val_{t}_{c}_{r}'"))
+                    .collect::<Vec<_>>()
+                    .join(", ");
                 let insert = format!("INSERT INTO bench_t{t} VALUES ({r}, {vals})");
                 connector.execute(&h, &insert, &[]).await.unwrap();
             }
@@ -155,9 +159,7 @@ fn bench_connect(c: &mut Criterion) {
         b.iter(|| {
             let connector = SQLiteConnector::new();
             let rt = tokio::runtime::Runtime::new().unwrap();
-            let handle = rt.block_on(async {
-                connector.connect(&memory_config(), "").await.unwrap()
-            });
+            let handle = rt.block_on(async { connector.connect(&memory_config(), "").await.unwrap() });
             rt.block_on(connector.disconnect(&handle)).unwrap();
         })
     });
@@ -169,11 +171,7 @@ fn bench_introspection_small(c: &mut Criterion) {
 
     c.bench_function("introspect_small_db", |b| {
         let rt = tokio::runtime::Runtime::new().unwrap();
-        b.iter(|| {
-            rt.block_on(async {
-                black_box(connector.introspect(&handle).await.unwrap())
-            })
-        })
+        b.iter(|| rt.block_on(async { black_box(connector.introspect(&handle).await.unwrap()) }))
     });
 }
 
@@ -183,11 +181,7 @@ fn bench_introspection_large(c: &mut Criterion) {
 
     c.bench_function("introspect_large_schema", |b| {
         let rt = tokio::runtime::Runtime::new().unwrap();
-        b.iter(|| {
-            rt.block_on(async {
-                black_box(connector.introspect(&handle).await.unwrap())
-            })
-        })
+        b.iter(|| rt.block_on(async { black_box(connector.introspect(&handle).await.unwrap()) }))
     });
 }
 
@@ -201,9 +195,7 @@ fn bench_query_10k_rows(c: &mut Criterion) {
     group.bench_function("select_10k", |b| {
         let rt = tokio::runtime::Runtime::new().unwrap();
         b.iter(|| {
-            rt.block_on(async {
-                black_box(connector.query(&handle, "SELECT * FROM orders", &[]).await.unwrap())
-            })
+            rt.block_on(async { black_box(connector.query(&handle, "SELECT * FROM orders", &[]).await.unwrap()) })
         })
     });
     group.finish();
@@ -220,9 +212,7 @@ fn bench_query_100k_rows(c: &mut Criterion) {
     group.bench_function("select_100k", |b| {
         let rt = tokio::runtime::Runtime::new().unwrap();
         b.iter(|| {
-            rt.block_on(async {
-                black_box(connector.query(&handle, "SELECT * FROM orders", &[]).await.unwrap())
-            })
+            rt.block_on(async { black_box(connector.query(&handle, "SELECT * FROM orders", &[]).await.unwrap()) })
         })
     });
     group.finish();
@@ -274,11 +264,7 @@ fn bench_serialize_large_text(c: &mut Criterion) {
     let mut group = c.benchmark_group("serialize_large_text");
     group.throughput(Throughput::Elements(1_000));
     group.bench_function("select_1k_large_text", |b| {
-        b.iter(|| {
-            rt.block_on(async {
-                black_box(connector.query(&handle, "SELECT * FROM docs", &[]).await.unwrap())
-            })
-        })
+        b.iter(|| rt.block_on(async { black_box(connector.query(&handle, "SELECT * FROM docs", &[]).await.unwrap()) }))
     });
     group.finish();
 }

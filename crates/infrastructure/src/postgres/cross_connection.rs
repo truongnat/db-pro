@@ -2,7 +2,11 @@ use db_pro_core::domain::cross_connection::{ObjectDependency, PartitionChild, Pa
 use db_pro_core::domain::error::DbError;
 use sqlx::PgPool;
 
-pub async fn get_object_dependencies(pool: &PgPool, schema: &str, object_name: &str) -> Result<Vec<ObjectDependency>, DbError> {
+pub async fn get_object_dependencies(
+    pool: &PgPool,
+    schema: &str,
+    object_name: &str,
+) -> Result<Vec<ObjectDependency>, DbError> {
     let sql = r#"
         SELECT
             source_class::regclass::text AS object_type,
@@ -45,12 +49,14 @@ pub async fn get_object_dependencies(pool: &PgPool, schema: &str, object_name: &
 
     Ok(rows
         .into_iter()
-        .map(|(object_type, object_name, depends_on_type, depends_on_name)| ObjectDependency {
-            object_type,
-            object_name,
-            depends_on_type,
-            depends_on_name,
-        })
+        .map(
+            |(object_type, object_name, depends_on_type, depends_on_name)| ObjectDependency {
+                object_type,
+                object_name,
+                depends_on_type,
+                depends_on_name,
+            },
+        )
         .collect())
 }
 
@@ -128,11 +134,7 @@ pub async fn list_tablespaces(pool: &PgPool) -> Result<Vec<TablespaceInfo>, DbEr
 
     Ok(rows
         .into_iter()
-        .map(|(name, owner, location)| TablespaceInfo {
-            name,
-            owner,
-            location,
-        })
+        .map(|(name, owner, location)| TablespaceInfo { name, owner, location })
         .collect())
 }
 
@@ -161,9 +163,7 @@ pub async fn rename_schema_object(
             ));
         }
         _ => {
-            return Err(DbError::Validation(format!(
-                "unsupported object type: {object_type}"
-            )));
+            return Err(DbError::Validation(format!("unsupported object type: {object_type}")));
         }
     };
 

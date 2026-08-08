@@ -42,8 +42,12 @@ impl RunConfigRepository for SQLiteMetaStore {
                     .map_err(|e| DbError::Internal(format!("invalid connection id: {e}")))?,
                 name: row[2].clone(),
                 sql: row[3].clone(),
-                timeout_ms: row[4].parse().map_err(|e| DbError::Internal(format!("invalid timeout_ms: {e}")))?,
-                max_rows: row[5].parse().map_err(|e| DbError::Internal(format!("invalid max_rows: {e}")))?,
+                timeout_ms: row[4]
+                    .parse()
+                    .map_err(|e| DbError::Internal(format!("invalid timeout_ms: {e}")))?,
+                max_rows: row[5]
+                    .parse()
+                    .map_err(|e| DbError::Internal(format!("invalid max_rows: {e}")))?,
                 created_at: chrono::DateTime::parse_from_rfc3339(&row[6])
                     .map_err(|e| DbError::Internal(format!("invalid datetime: {e}")))?
                     .with_timezone(&chrono::Utc),

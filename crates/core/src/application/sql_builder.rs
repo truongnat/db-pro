@@ -60,9 +60,7 @@ pub fn build_select(
     offset: u64,
 ) -> Result<(String, Vec<QueryParam>), DbError> {
     if dialect.pagination_requires_order_by() && sorts.is_empty() {
-        return Err(DbError::Validation(
-            "pagination requires an ORDER BY clause".into(),
-        ));
+        return Err(DbError::Validation("pagination requires an ORDER BY clause".into()));
     }
     let (where_clause, params) = build_where(dialect, filters);
     let order_clause = build_order(dialect, sorts);
@@ -389,10 +387,7 @@ mod tests {
         let columns = vec!["name".into(), "email".into()];
         let values = vec![CellValue::Text("bob".into()), CellValue::Text("bob@test.com".into())];
         let (sql, params) = build_insert(&QuestionDialect, "public", "users", &columns, &values).unwrap();
-        assert_eq!(
-            sql,
-            r#"INSERT INTO "public"."users" ("name", "email") VALUES (?, ?)"#
-        );
+        assert_eq!(sql, r#"INSERT INTO "public"."users" ("name", "email") VALUES (?, ?)"#);
         assert_eq!(params.len(), 2);
     }
 
@@ -402,11 +397,17 @@ mod tests {
         let values = vec![CellValue::Text("alice2".into())];
         let pk_columns = vec!["id".into()];
         let pk_values = vec![CellValue::Int64(1)];
-        let (sql, params) = build_update(&QuestionDialect, "public", "users", &columns, &values, &pk_columns, &pk_values).unwrap();
-        assert_eq!(
-            sql,
-            r#"UPDATE "public"."users" SET "name" = ? WHERE "id" = ?"#
-        );
+        let (sql, params) = build_update(
+            &QuestionDialect,
+            "public",
+            "users",
+            &columns,
+            &values,
+            &pk_columns,
+            &pk_values,
+        )
+        .unwrap();
+        assert_eq!(sql, r#"UPDATE "public"."users" SET "name" = ? WHERE "id" = ?"#);
         assert_eq!(params.len(), 2);
     }
 
@@ -433,8 +434,14 @@ mod tests {
     #[test]
     fn multi_sort() {
         let sorts = vec![
-            SortClause { column: "last_name".into(), direction: SortDir::Asc },
-            SortClause { column: "first_name".into(), direction: SortDir::Desc },
+            SortClause {
+                column: "last_name".into(),
+                direction: SortDir::Asc,
+            },
+            SortClause {
+                column: "first_name".into(),
+                direction: SortDir::Desc,
+            },
         ];
         let (sql, _) = build_select(&QuestionDialect, "public", "users", &[], &sorts, 50, 0).unwrap();
         assert!(sql.contains(r#"ORDER BY "last_name" ASC, "first_name" DESC"#));
@@ -454,13 +461,11 @@ mod tests {
 
     #[test]
     fn dollar_n_select_with_filters() {
-        let filters = vec![
-            TableFilter {
-                column: "name".into(),
-                op: FilterOp::Eq,
-                value: CellValue::Text("alice".into()),
-            },
-        ];
+        let filters = vec![TableFilter {
+            column: "name".into(),
+            op: FilterOp::Eq,
+            value: CellValue::Text("alice".into()),
+        }];
         let (sql, params) = build_select(&DollarNDialect, "public", "users", &filters, &[], 25, 50).unwrap();
         assert_eq!(
             sql,
@@ -474,10 +479,7 @@ mod tests {
         let columns = vec!["name".into(), "email".into()];
         let values = vec![CellValue::Text("bob".into()), CellValue::Text("bob@test.com".into())];
         let (sql, params) = build_insert(&DollarNDialect, "public", "users", &columns, &values).unwrap();
-        assert_eq!(
-            sql,
-            r#"INSERT INTO "public"."users" ("name", "email") VALUES ($1, $2)"#
-        );
+        assert_eq!(sql, r#"INSERT INTO "public"."users" ("name", "email") VALUES ($1, $2)"#);
         assert_eq!(params.len(), 2);
     }
 
@@ -487,11 +489,17 @@ mod tests {
         let values = vec![CellValue::Text("alice2".into())];
         let pk_columns = vec!["id".into()];
         let pk_values = vec![CellValue::Int64(1)];
-        let (sql, params) = build_update(&DollarNDialect, "public", "users", &columns, &values, &pk_columns, &pk_values).unwrap();
-        assert_eq!(
-            sql,
-            r#"UPDATE "public"."users" SET "name" = $1 WHERE "id" = $2"#
-        );
+        let (sql, params) = build_update(
+            &DollarNDialect,
+            "public",
+            "users",
+            &columns,
+            &values,
+            &pk_columns,
+            &pk_values,
+        )
+        .unwrap();
+        assert_eq!(sql, r#"UPDATE "public"."users" SET "name" = $1 WHERE "id" = $2"#);
         assert_eq!(params.len(), 2);
     }
 
@@ -607,12 +615,12 @@ mod tests {
 
     #[test]
     fn mysql_select_uses_backtick_quoting() {
-        let sorts = vec![SortClause { column: "id".into(), direction: SortDir::Asc }];
+        let sorts = vec![SortClause {
+            column: "id".into(),
+            direction: SortDir::Asc,
+        }];
         let (sql, params) = build_select(&MySqlDialect, "dbo", "users", &[], &sorts, 50, 0).unwrap();
-        assert_eq!(
-            sql,
-            "SELECT * FROM `dbo`.`users` ORDER BY `id` ASC LIMIT ? OFFSET ?"
-        );
+        assert_eq!(sql, "SELECT * FROM `dbo`.`users` ORDER BY `id` ASC LIMIT ? OFFSET ?");
         assert_eq!(params.len(), 2);
     }
 
@@ -621,10 +629,7 @@ mod tests {
         let columns = vec!["name".into(), "email".into()];
         let values = vec![CellValue::Text("bob".into()), CellValue::Text("bob@test.com".into())];
         let (sql, params) = build_insert(&MySqlDialect, "dbo", "users", &columns, &values).unwrap();
-        assert_eq!(
-            sql,
-            "INSERT INTO `dbo`.`users` (`name`, `email`) VALUES (?, ?)"
-        );
+        assert_eq!(sql, "INSERT INTO `dbo`.`users` (`name`, `email`) VALUES (?, ?)");
         assert_eq!(params.len(), 2);
     }
 
@@ -634,11 +639,17 @@ mod tests {
         let values = vec![CellValue::Text("alice2".into())];
         let pk_columns = vec!["id".into()];
         let pk_values = vec![CellValue::Int64(1)];
-        let (sql, params) = build_update(&MySqlDialect, "dbo", "users", &columns, &values, &pk_columns, &pk_values).unwrap();
-        assert_eq!(
-            sql,
-            "UPDATE `dbo`.`users` SET `name` = ? WHERE `id` = ?"
-        );
+        let (sql, params) = build_update(
+            &MySqlDialect,
+            "dbo",
+            "users",
+            &columns,
+            &values,
+            &pk_columns,
+            &pk_values,
+        )
+        .unwrap();
+        assert_eq!(sql, "UPDATE `dbo`.`users` SET `name` = ? WHERE `id` = ?");
         assert_eq!(params.len(), 2);
     }
 
@@ -647,10 +658,7 @@ mod tests {
         let pk_columns = vec!["id".into()];
         let pk_values = vec![CellValue::Int64(1)];
         let (sql, params) = build_delete(&MySqlDialect, "dbo", "users", &pk_columns, &pk_values).unwrap();
-        assert_eq!(
-            sql,
-            "DELETE FROM `dbo`.`users` WHERE `id` = ?"
-        );
+        assert_eq!(sql, "DELETE FROM `dbo`.`users` WHERE `id` = ?");
         assert_eq!(params.len(), 1);
     }
 
@@ -663,7 +671,10 @@ mod tests {
 
     #[test]
     fn sqlserver_select_with_order_by() {
-        let sorts = vec![SortClause { column: "id".into(), direction: SortDir::Asc }];
+        let sorts = vec![SortClause {
+            column: "id".into(),
+            direction: SortDir::Asc,
+        }];
         let (sql, params) = build_select(&SqlServerDialect, "dbo", "users", &[], &sorts, 50, 0).unwrap();
         assert_eq!(
             sql,

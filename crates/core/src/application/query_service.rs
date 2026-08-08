@@ -6,7 +6,9 @@ use crate::domain::history::{QueryHistory, SavedQuery, SavedQueryFolder};
 use crate::domain::query::{QueryParam, QueryResult};
 use crate::domain::run_config::RunConfig;
 use crate::domain::safety::{validate_against_policy, ConnectionSafetyPolicy};
-use crate::ports::{ConnectionRepository, DbConnector, QueryHistoryRepository, RunConfigRepository, SavedQueryRepository};
+use crate::ports::{
+    ConnectionRepository, DbConnector, QueryHistoryRepository, RunConfigRepository, SavedQueryRepository,
+};
 
 use super::registry::ConnectionRegistry;
 use super::sql_policy::{reject_multi_statement, split_statements};
@@ -49,7 +51,10 @@ impl QueryService {
 
     /// Build the safety policy for a connection based on its persisted config.
     async fn safety_policy_for(&self, connection_id: &ConnectionId) -> Result<ConnectionSafetyPolicy, DbError> {
-        let config = self.connections.get_config(connection_id).await?
+        let config = self
+            .connections
+            .get_config(connection_id)
+            .await?
             .ok_or_else(|| DbError::ConnectionFailed(format!("connection {connection_id} not found")))?;
         if config.readonly {
             Ok(ConnectionSafetyPolicy::read_only())
@@ -75,12 +80,22 @@ impl QueryService {
 
         // Enforce safety policy (readonly, etc.)
         let policy = self.safety_policy_for(connection_id).await?;
-        validate_against_policy(sql, &policy).map_err(|e| DbError::QueryFailed(e))?;
+        validate_against_policy(sql, &policy).map_err(DbError::QueryFailed)?;
 
         let result = self.connector.query(&handle, sql, params).await?;
         result.validate().map_err(DbError::QueryFailed)?;
 
-        if let Err(e) = self.history.save(connection_id, sql, &result, database.map(str::to_owned), schema.map(str::to_owned)).await {
+        if let Err(e) = self
+            .history
+            .save(
+                connection_id,
+                sql,
+                &result,
+                database.map(str::to_owned),
+                schema.map(str::to_owned),
+            )
+            .await
+        {
             tracing::warn!("failed to save query history: {e}");
         }
 
@@ -123,54 +138,60 @@ impl QueryService {
             }
 
             match classify_statement(stmt) {
-                StatementClass::Read => {
-                    match self.connector.query(&handle, stmt, &[]).await {
-                        Ok(result) => {
-                            if let Err(e) = result.validate() {
-                                return Ok(MultiQueryResult {
-                                    results,
-                                    total_duration_ms: start.elapsed().as_millis() as u64,
-                                    error: Some((idx, e)),
-                                });
-                            }
-                            results.push(result);
-                        }
-                        Err(e) => {
+                StatementClass::Read => match self.connector.query(&handle, stmt, &[]).await {
+                    Ok(result) => {
+                        if let Err(e) = result.validate() {
                             return Ok(MultiQueryResult {
                                 results,
                                 total_duration_ms: start.elapsed().as_millis() as u64,
-                                error: Some((idx, e.to_string())),
+                                error: Some((idx, e)),
                             });
                         }
+                        results.push(result);
                     }
-                }
-                StatementClass::Write => {
-                    match self.connector.execute(&handle, stmt, &[]).await {
-                        Ok(affected) => {
-                            let elapsed = stmt_start.elapsed().as_millis() as u64;
-                            results.push(QueryResult {
-                                columns: Vec::new(),
-                                rows: Vec::new(),
-                                row_count: affected,
-                                duration_ms: elapsed,
-                            });
-                        }
-                        Err(e) => {
-                            return Ok(MultiQueryResult {
-                                results,
-                                total_duration_ms: start.elapsed().as_millis() as u64,
-                                error: Some((idx, e.to_string())),
-                            });
-                        }
+                    Err(e) => {
+                        return Ok(MultiQueryResult {
+                            results,
+                            total_duration_ms: start.elapsed().as_millis() as u64,
+                            error: Some((idx, e.to_string())),
+                        });
                     }
-                }
+                },
+                StatementClass::Write => match self.connector.execute(&handle, stmt, &[]).await {
+                    Ok(affected) => {
+                        let elapsed = stmt_start.elapsed().as_millis() as u64;
+                        results.push(QueryResult {
+                            columns: Vec::new(),
+                            rows: Vec::new(),
+                            row_count: affected,
+                            duration_ms: elapsed,
+                        });
+                    }
+                    Err(e) => {
+                        return Ok(MultiQueryResult {
+                            results,
+                            total_duration_ms: start.elapsed().as_millis() as u64,
+                            error: Some((idx, e.to_string())),
+                        });
+                    }
+                },
             }
         }
 
         let total_duration_ms = start.elapsed().as_millis() as u64;
 
         if let Some(first) = results.first() {
-            if let Err(e) = self.history.save(connection_id, sql, first, database.map(str::to_owned), schema.map(str::to_owned)).await {
+            if let Err(e) = self
+                .history
+                .save(
+                    connection_id,
+                    sql,
+                    first,
+                    database.map(str::to_owned),
+                    schema.map(str::to_owned),
+                )
+                .await
+            {
                 tracing::warn!("failed to save query history: {e}");
             }
         }
@@ -224,11 +245,7 @@ impl QueryService {
         self.saved_queries.delete(id).await
     }
 
-    pub async fn create_folder(
-        &self,
-        connection_id: &ConnectionId,
-        name: &str,
-    ) -> Result<SavedQueryFolder, DbError> {
+    pub async fn create_folder(&self, connection_id: &ConnectionId, name: &str) -> Result<SavedQueryFolder, DbError> {
         let folder = SavedQueryFolder {
             id: uuid::Uuid::new_v4(),
             connection_id: *connection_id,
@@ -353,11 +370,7 @@ fn effective_keyword(sql: &str) -> Option<String> {
                     }
                     // No comma: next word is the main statement keyword
                     let remaining: String = chars[i..].iter().collect();
-                    return remaining
-                        .trim_start()
-                        .split_whitespace()
-                        .next()
-                        .map(|s| s.to_string());
+                    return remaining.split_whitespace().next().map(|s| s.to_string());
                 }
             }
             _ => {}
@@ -390,7 +403,10 @@ mod tests {
     use super::*;
     use crate::domain::connection::ConnectionHandle;
     use crate::domain::query::{CellValue, ColumnMeta, Row};
-    use crate::ports::{MockConnectionRepository, MockDbConnector, MockQueryHistoryRepository, MockRunConfigRepository, MockSavedQueryRepository};
+    use crate::ports::{
+        MockConnectionRepository, MockDbConnector, MockQueryHistoryRepository, MockRunConfigRepository,
+        MockSavedQueryRepository,
+    };
 
     fn test_result() -> QueryResult {
         QueryResult {
@@ -575,7 +591,10 @@ mod tests {
 
     #[test]
     fn classify_simple_insert_is_write() {
-        assert!(matches!(classify_statement("INSERT INTO t VALUES (1)"), StatementClass::Write));
+        assert!(matches!(
+            classify_statement("INSERT INTO t VALUES (1)"),
+            StatementClass::Write
+        ));
     }
 
     #[test]
@@ -633,10 +652,12 @@ mod tests {
         registry.register(conn_id, ConnectionHandle(1));
 
         let mut connector = MockDbConnector::new();
-        connector.expect_query()
+        connector
+            .expect_query()
             .withf(|_, sql, _| sql == "SELECT 1")
             .returning(|_, _, _| Ok(test_result()));
-        connector.expect_execute()
+        connector
+            .expect_execute()
             .withf(|_, sql, _| sql == "UPDATE t SET x = 1")
             .returning(|_, _, _| Ok(3));
 
@@ -652,7 +673,10 @@ mod tests {
             Box::new(mock_connections_full_access()),
         );
 
-        let result = svc.execute_multi(&conn_id, "SELECT 1; UPDATE t SET x = 1", None, None).await.unwrap();
+        let result = svc
+            .execute_multi(&conn_id, "SELECT 1; UPDATE t SET x = 1", None, None)
+            .await
+            .unwrap();
         assert!(result.error.is_none());
         assert_eq!(result.results.len(), 2);
         assert_eq!(result.results[0].row_count, 1);
@@ -666,8 +690,7 @@ mod tests {
         registry.register(conn_id, ConnectionHandle(1));
 
         let mut connector = MockDbConnector::new();
-        connector.expect_execute()
-            .returning(|_, _, _| Ok(5));
+        connector.expect_execute().returning(|_, _, _| Ok(5));
 
         let mut history = MockQueryHistoryRepository::new();
         history.expect_save().returning(|_, _, _, _, _| Ok(()));
@@ -681,11 +704,15 @@ mod tests {
             Box::new(mock_connections_full_access()),
         );
 
-        let result = svc.execute_multi(
-            &conn_id,
-            "WITH cte AS (SELECT id FROM t) UPDATE t SET x = 1",
-            None, None,
-        ).await.unwrap();
+        let result = svc
+            .execute_multi(
+                &conn_id,
+                "WITH cte AS (SELECT id FROM t) UPDATE t SET x = 1",
+                None,
+                None,
+            )
+            .await
+            .unwrap();
         assert!(result.error.is_none());
         assert_eq!(result.results.len(), 1);
         assert_eq!(result.results[0].row_count, 5);
@@ -698,9 +725,9 @@ mod tests {
         registry.register(conn_id, ConnectionHandle(1));
 
         let mut connector = MockDbConnector::new();
-        connector.expect_query()
-            .returning(|_, _, _| Ok(test_result()));
-        connector.expect_execute()
+        connector.expect_query().returning(|_, _, _| Ok(test_result()));
+        connector
+            .expect_execute()
             .returning(|_, _, _| Err(DbError::QueryFailed("permission denied".into())));
 
         let svc = QueryService::new(
@@ -712,11 +739,10 @@ mod tests {
             Box::new(mock_connections_full_access()),
         );
 
-        let result = svc.execute_multi(
-            &conn_id,
-            "SELECT 1; UPDATE t SET x = 1; SELECT 2",
-            None, None,
-        ).await.unwrap();
+        let result = svc
+            .execute_multi(&conn_id, "SELECT 1; UPDATE t SET x = 1; SELECT 2", None, None)
+            .await
+            .unwrap();
 
         assert!(result.error.is_some());
         let (idx, msg) = result.error.unwrap();

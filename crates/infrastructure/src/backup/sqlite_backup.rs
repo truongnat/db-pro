@@ -19,11 +19,12 @@ impl BackupEngine for SqliteBackupEngine {
         let src = &self.config.database;
         let dst = &options.output_path;
 
-        tokio::fs::copy(src, dst).await.map_err(|e| {
-            DbError::Internal(format!("failed to copy SQLite database: {e}"))
-        })?;
+        tokio::fs::copy(src, dst)
+            .await
+            .map_err(|e| DbError::Internal(format!("failed to copy SQLite database: {e}")))?;
 
-        let metadata = tokio::fs::metadata(dst).await
+        let metadata = tokio::fs::metadata(dst)
+            .await
             .map_err(|e| DbError::Internal(format!("failed to read backup file: {e}")))?;
 
         Ok(BackupResult {
@@ -36,9 +37,9 @@ impl BackupEngine for SqliteBackupEngine {
         let src = &options.input_path;
         let dst = &self.config.database;
 
-        tokio::fs::copy(src, dst).await.map_err(|e| {
-            DbError::Internal(format!("failed to restore SQLite database: {e}"))
-        })?;
+        tokio::fs::copy(src, dst)
+            .await
+            .map_err(|e| DbError::Internal(format!("failed to restore SQLite database: {e}")))?;
 
         Ok(())
     }

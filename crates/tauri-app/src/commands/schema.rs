@@ -46,7 +46,9 @@ pub async fn execute_ddl(
 ) -> Result<DdlResultDto, CommandError> {
     let conn_id = parse_connection_id(&connection_id)?;
     let affected = service.execute_ddl(&conn_id, &sql).await?;
-    Ok(DdlResultDto { affected_rows: affected })
+    Ok(DdlResultDto {
+        affected_rows: affected,
+    })
 }
 
 #[tauri::command]
@@ -57,7 +59,9 @@ pub async fn create_index(
 ) -> Result<DdlResultDto, CommandError> {
     let conn_id = parse_connection_id(&connection_id)?;
     let affected = service.execute_ddl(&conn_id, &sql).await?;
-    Ok(DdlResultDto { affected_rows: affected })
+    Ok(DdlResultDto {
+        affected_rows: affected,
+    })
 }
 
 #[tauri::command]
@@ -68,7 +72,9 @@ pub async fn drop_index(
 ) -> Result<DdlResultDto, CommandError> {
     let conn_id = parse_connection_id(&connection_id)?;
     let affected = service.execute_ddl(&conn_id, &sql).await?;
-    Ok(DdlResultDto { affected_rows: affected })
+    Ok(DdlResultDto {
+        affected_rows: affected,
+    })
 }
 
 #[tauri::command]
@@ -79,7 +85,9 @@ pub async fn create_trigger(
 ) -> Result<DdlResultDto, CommandError> {
     let conn_id = parse_connection_id(&connection_id)?;
     let affected = service.execute_ddl(&conn_id, &sql).await?;
-    Ok(DdlResultDto { affected_rows: affected })
+    Ok(DdlResultDto {
+        affected_rows: affected,
+    })
 }
 
 #[tauri::command]
@@ -90,7 +98,9 @@ pub async fn drop_trigger(
 ) -> Result<DdlResultDto, CommandError> {
     let conn_id = parse_connection_id(&connection_id)?;
     let affected = service.execute_ddl(&conn_id, &sql).await?;
-    Ok(DdlResultDto { affected_rows: affected })
+    Ok(DdlResultDto {
+        affected_rows: affected,
+    })
 }
 
 #[tauri::command]

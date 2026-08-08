@@ -6,14 +6,11 @@
 //! Run with: `cargo test --package db-pro-infrastructure --test integration`
 
 use db_pro_core::domain::connection::{ConnectionConfig, DriverType, SslMode};
-use db_pro_infrastructure::sqlite::connector::SQLiteConnector;
 use db_pro_core::ports::DbConnector;
+use db_pro_infrastructure::sqlite::connector::SQLiteConnector;
 
 /// Path to the SQLite fixture file, relative to workspace root.
-const FIXTURE_PATH: &str = concat!(
-    env!("CARGO_MANIFEST_DIR"),
-    "/../../fixtures/sqlite/fixture.sql"
-);
+const FIXTURE_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/sqlite/fixture.sql");
 
 /// Create a SQLite connector with an in-memory fixture database.
 async fn setup_fixture() -> (SQLiteConnector, db_pro_core::domain::connection::ConnectionHandle) {
@@ -240,7 +237,11 @@ async fn introspect_columns_include_nullable() {
     assert!(desc_col.nullable);
 
     // categories.name is NOT NULL.
-    let name_col = result.columns.iter().find(|c| c.name == "name" && c.table_name == "categories").unwrap();
+    let name_col = result
+        .columns
+        .iter()
+        .find(|c| c.name == "name" && c.table_name == "categories")
+        .unwrap();
     assert!(!name_col.nullable);
 }
 
@@ -250,11 +251,19 @@ async fn introspect_primary_keys() {
     let result = connector.introspect(&handle).await.unwrap();
 
     // categories has single-column PK.
-    let cat_pk = result.primary_keys.iter().find(|pk| pk.table_name == "categories").unwrap();
+    let cat_pk = result
+        .primary_keys
+        .iter()
+        .find(|pk| pk.table_name == "categories")
+        .unwrap();
     assert_eq!(cat_pk.columns, vec!["id"]);
 
     // order_items has composite PK.
-    let oi_pk = result.primary_keys.iter().find(|pk| pk.table_name == "order_items").unwrap();
+    let oi_pk = result
+        .primary_keys
+        .iter()
+        .find(|pk| pk.table_name == "order_items")
+        .unwrap();
     assert_eq!(oi_pk.columns.len(), 2);
 
     // audit_logs has no PK.
@@ -280,10 +289,18 @@ async fn introspect_foreign_keys() {
     let result = connector.introspect(&handle).await.unwrap();
 
     // order_items has FKs referencing both orders and products.
-    let oi_fks: Vec<_> = result.foreign_keys.iter().filter(|fk| fk.from_table == "order_items").collect();
+    let oi_fks: Vec<_> = result
+        .foreign_keys
+        .iter()
+        .filter(|fk| fk.from_table == "order_items")
+        .collect();
     assert!(oi_fks.len() >= 2, "expected at least 2 FKs from order_items");
-    assert!(oi_fks.iter().any(|fk| fk.from_column == "order_id" && fk.to_table == "orders"));
-    assert!(oi_fks.iter().any(|fk| fk.from_column == "product_id" && fk.to_table == "products"));
+    assert!(oi_fks
+        .iter()
+        .any(|fk| fk.from_column == "order_id" && fk.to_table == "orders"));
+    assert!(oi_fks
+        .iter()
+        .any(|fk| fk.from_column == "product_id" && fk.to_table == "products"));
 }
 
 #[tokio::test]
@@ -302,7 +319,7 @@ async fn introspect_triggers() {
     let (connector, handle) = setup_fixture().await;
     let result = connector.introspect(&handle).await.unwrap();
 
-    assert!(result.triggers.len() >= 1);
+    assert!(!result.triggers.is_empty());
     assert!(result.triggers.iter().any(|t| t.name == "products_updated_at"));
 }
 
@@ -314,7 +331,11 @@ async fn introspect_triggers() {
 async fn insert_and_query() {
     let (connector, handle) = setup_fixture().await;
     let affected = connector
-        .execute(&handle, "INSERT INTO categories (name, description) VALUES ('Toys', 'Fun stuff')", &[])
+        .execute(
+            &handle,
+            "INSERT INTO categories (name, description) VALUES ('Toys', 'Fun stuff')",
+            &[],
+        )
         .await
         .unwrap();
     assert_eq!(affected, 1);
@@ -374,7 +395,10 @@ async fn delete_row() {
 #[tokio::test]
 async fn explain_select() {
     let (connector, handle) = setup_fixture().await;
-    let plan = connector.explain(&handle, "SELECT * FROM categories WHERE id = 1").await.unwrap();
+    let plan = connector
+        .explain(&handle, "SELECT * FROM categories WHERE id = 1")
+        .await
+        .unwrap();
     // SQLite returns a JSON array of plan steps.
     assert!(plan.is_array() || plan.is_object() || plan.is_string());
 }

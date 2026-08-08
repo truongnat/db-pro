@@ -50,7 +50,9 @@ pub async fn insert_table_row(
     let affected = service
         .insert_row(&conn_id, &request.schema, &request.table, &request.columns, &values)
         .await?;
-    Ok(MutateRowResultDto { affected_rows: affected })
+    Ok(MutateRowResultDto {
+        affected_rows: affected,
+    })
 }
 
 #[tauri::command]
@@ -62,7 +64,12 @@ pub async fn update_table_row(
     let conn_id = parse_connection_id(&connection_id)?;
     let values: Vec<_> = request.values.into_iter().map(Into::into).collect();
     let pk_columns = request.pk_columns.unwrap_or_default();
-    let pk_values: Vec<_> = request.pk_values.unwrap_or_default().into_iter().map(Into::into).collect();
+    let pk_values: Vec<_> = request
+        .pk_values
+        .unwrap_or_default()
+        .into_iter()
+        .map(Into::into)
+        .collect();
 
     if pk_columns.is_empty() || pk_columns.len() != pk_values.len() {
         return Err(CommandError {
@@ -75,9 +82,19 @@ pub async fn update_table_row(
     }
 
     let affected = service
-        .update_row(&conn_id, &request.schema, &request.table, &request.columns, &values, &pk_columns, &pk_values)
+        .update_row(
+            &conn_id,
+            &request.schema,
+            &request.table,
+            &request.columns,
+            &values,
+            &pk_columns,
+            &pk_values,
+        )
         .await?;
-    Ok(MutateRowResultDto { affected_rows: affected })
+    Ok(MutateRowResultDto {
+        affected_rows: affected,
+    })
 }
 
 #[tauri::command]
@@ -88,7 +105,12 @@ pub async fn delete_table_row(
 ) -> Result<MutateRowResultDto, CommandError> {
     let conn_id = parse_connection_id(&connection_id)?;
     let pk_columns = request.pk_columns.unwrap_or_default();
-    let pk_values: Vec<_> = request.pk_values.unwrap_or_default().into_iter().map(Into::into).collect();
+    let pk_values: Vec<_> = request
+        .pk_values
+        .unwrap_or_default()
+        .into_iter()
+        .map(Into::into)
+        .collect();
 
     if pk_columns.is_empty() || pk_columns.len() != pk_values.len() {
         return Err(CommandError {
@@ -103,7 +125,9 @@ pub async fn delete_table_row(
     let affected = service
         .delete_row(&conn_id, &request.schema, &request.table, &pk_columns, &pk_values)
         .await?;
-    Ok(MutateRowResultDto { affected_rows: affected })
+    Ok(MutateRowResultDto {
+        affected_rows: affected,
+    })
 }
 
 fn parse_connection_id(id: &str) -> Result<ConnectionId, CommandError> {

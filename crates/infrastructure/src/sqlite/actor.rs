@@ -342,7 +342,9 @@ impl SqliteActor {
         let mut stmt = self.conn.prepare(sql).map_err(crate::error::from_rusqlite)?;
         let rusqlite_params = to_rusqlite_params(params);
         let param_refs: Vec<&dyn rusqlite::types::ToSql> = rusqlite_params.iter().map(|p| p.as_ref()).collect();
-        let affected = stmt.execute(param_refs.as_slice()).map_err(crate::error::from_rusqlite)?;
+        let affected = stmt
+            .execute(param_refs.as_slice())
+            .map_err(crate::error::from_rusqlite)?;
         Ok(affected)
     }
 }

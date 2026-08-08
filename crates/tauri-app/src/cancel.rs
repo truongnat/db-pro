@@ -6,8 +6,8 @@ use std::sync::Mutex;
 
 use tokio::sync::oneshot;
 
-use db_pro_core::domain::execution::{ExecutionStatus, QueryExecution, QueryExecutionId};
 use db_pro_core::domain::connection::ConnectionId;
+use db_pro_core::domain::execution::{ExecutionStatus, QueryExecution, QueryExecutionId};
 
 /// Tracks an in-flight execution's cancel sender and lifecycle state.
 struct ExecutionEntry {
@@ -68,11 +68,7 @@ impl ExecutionRegistry {
     ///
     /// This allows the frontend to correlate executions with tabs directly,
     /// enabling deterministic cancel-by-tab instead of cancel-by-connection.
-    pub fn register_with_id(
-        &self,
-        connection_id: ConnectionId,
-        exec_id: QueryExecutionId,
-    ) -> oneshot::Receiver<()> {
+    pub fn register_with_id(&self, connection_id: ConnectionId, exec_id: QueryExecutionId) -> oneshot::Receiver<()> {
         let (tx, rx) = oneshot::channel();
         let execution = QueryExecution {
             id: exec_id.clone(),
@@ -136,10 +132,9 @@ impl ExecutionRegistry {
     pub fn cancel_by_connection(&self, connection_id: &str) -> CancelResult {
         let mut guard = self.inner.lock().unwrap_or_else(|e| e.into_inner());
         // Find the active execution for this connection.
-        let entry = guard.values_mut().find(|e| {
-            e.execution.connection_id.to_string() == connection_id
-                && !e.execution.status.is_terminal()
-        });
+        let entry = guard
+            .values_mut()
+            .find(|e| e.execution.connection_id.to_string() == connection_id && !e.execution.status.is_terminal());
 
         if let Some(entry) = entry {
             if let Some(tx) = entry.cancel_tx.take() {
@@ -206,10 +201,7 @@ impl ExecutionRegistry {
 
     /// Remove an execution from the registry (cleanup after completion).
     pub fn remove(&self, exec_id: &QueryExecutionId) {
-        self.inner
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .remove(&exec_id.0);
+        self.inner.lock().unwrap_or_else(|e| e.into_inner()).remove(&exec_id.0);
     }
 
     /// Remove execution by connection ID (legacy cleanup API).

@@ -100,14 +100,11 @@ fn classify_explain_safety(sql: &str) -> Option<StatementSafety> {
     // Check for EXPLAIN ANALYZE — this actually executes the inner statement.
     if upper.contains("ANALYZE") || upper.contains("ANALYSE") {
         // Strip the EXPLAIN ANALYZE prefix and classify the inner statement.
-        let stripped = upper
-            .strip_prefix("EXPLAIN")
-            .unwrap_or(&upper)
-            .trim_start();
+        let stripped = upper.strip_prefix("EXPLAIN").unwrap_or(&upper).trim_start();
         let stripped = stripped
             .strip_prefix("ANALYZE")
             .or_else(|| stripped.strip_prefix("ANALYSE"))
-            .unwrap_or(&stripped)
+            .unwrap_or(stripped)
             .trim_start();
         // Re-classify the inner statement using the original-case SQL.
         let inner_start = sql.len() - stripped.len();
@@ -173,11 +170,7 @@ fn classify_cte_safety(sql: &str) -> Option<StatementSafety> {
                         continue;
                     }
                     let remaining: String = chars[i..].iter().collect();
-                    let kw = remaining
-                        .trim_start()
-                        .split_whitespace()
-                        .next()?
-                        .to_ascii_uppercase();
+                    let kw = remaining.split_whitespace().next()?.to_ascii_uppercase();
                     let outer_safety = match kw.as_str() {
                         "SELECT" | "SHOW" | "EXPLAIN" => Some(StatementSafety::Read),
                         "INSERT" | "UPDATE" => Some(StatementSafety::Write),
@@ -215,7 +208,7 @@ fn classify_cte_safety(sql: &str) -> Option<StatementSafety> {
                     {
                         // Verify it's a whole keyword (followed by whitespace).
                         let kw_len = rest_upper.split_whitespace().next().map(|s| s.len()).unwrap_or(0);
-                        if rest.len() > kw_len && rest.as_bytes().get(kw_len).map_or(false, |b| b.is_ascii_whitespace()) {
+                        if rest.len() > kw_len && rest.as_bytes().get(kw_len).is_some_and(|b| b.is_ascii_whitespace()) {
                             cte_has_mutation = true;
                         }
                     }
@@ -249,10 +242,7 @@ fn strip_leading_comments(sql: &str) -> &str {
 
 /// Validate a SQL statement against a safety policy.
 /// Returns `Ok(())` if the statement is allowed, or an error message.
-pub fn validate_against_policy(
-    sql: &str,
-    policy: &ConnectionSafetyPolicy,
-) -> Result<(), String> {
+pub fn validate_against_policy(sql: &str, policy: &ConnectionSafetyPolicy) -> Result<(), String> {
     let safety = match classify_statement_safety(sql) {
         Some(s) => s,
         None => return Err("empty SQL statement".into()),
@@ -451,11 +441,7 @@ mod tests {
     #[test]
     fn readonly_rejects_explain_analyze_delete() {
         let policy = ConnectionSafetyPolicy::read_only();
-        assert!(validate_against_policy(
-            "EXPLAIN ANALYZE DELETE FROM users WHERE id = 1",
-            &policy
-        )
-        .is_err());
+        assert!(validate_against_policy("EXPLAIN ANALYZE DELETE FROM users WHERE id = 1", &policy).is_err());
     }
 
     #[test]

@@ -9,7 +9,14 @@ use super::store::SQLiteMetaStore;
 
 #[async_trait]
 impl QueryHistoryRepository for SQLiteMetaStore {
-    async fn save(&self, connection_id: &ConnectionId, sql: &str, result: &QueryResult, database: Option<String>, schema: Option<String>) -> Result<(), DbError> {
+    async fn save(
+        &self,
+        connection_id: &ConnectionId,
+        sql: &str,
+        result: &QueryResult,
+        database: Option<String>,
+        schema: Option<String>,
+    ) -> Result<(), DbError> {
         let id = uuid::Uuid::new_v4().to_string();
         let executed_at = chrono::Utc::now().to_rfc3339();
         self.actor
@@ -22,8 +29,8 @@ impl QueryHistoryRepository for SQLiteMetaStore {
                     executed_at,
                     result.duration_ms.to_string(),
                     result.row_count.to_string(),
-                    database.unwrap_or_default().into(),
-                    schema.unwrap_or_default().into(),
+                    database.unwrap_or_default(),
+                    schema.unwrap_or_default(),
                 ],
             )
             .await?;

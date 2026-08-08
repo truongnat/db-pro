@@ -58,12 +58,8 @@ pub fn from_rusqlite(err: rusqlite::Error) -> DbError {
         rusqlite::Error::SqliteFailure(ref ffi, ref msg) => {
             let message = msg.clone().unwrap_or_else(|| err.to_string());
             match ffi.code {
-                rusqlite::ErrorCode::CannotOpen => {
-                    DbError::ConnectionFailed(message)
-                }
-                rusqlite::ErrorCode::ConstraintViolation => {
-                    DbError::DataFailed(message)
-                }
+                rusqlite::ErrorCode::CannotOpen => DbError::ConnectionFailed(message),
+                rusqlite::ErrorCode::ConstraintViolation => DbError::DataFailed(message),
                 _ => DbError::QueryFailed(message),
             }
         }

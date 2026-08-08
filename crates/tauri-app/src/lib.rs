@@ -4,7 +4,10 @@ mod dto;
 
 use std::sync::Arc;
 
-use db_pro_core::application::{BackupService, ConnectionRegistry, ConnectionService, DataDiffService, ExportService, QueryService, SchemaService, TableDataService, UserService};
+use db_pro_core::application::{
+    BackupService, ConnectionRegistry, ConnectionService, DataDiffService, ExportService, QueryService, SchemaService,
+    TableDataService, UserService,
+};
 use db_pro_infrastructure::backup::pg_dump::PgDumpEngine;
 use db_pro_infrastructure::backup::sqlite_backup::SqliteBackupEngine;
 use db_pro_infrastructure::connector::CompositeConnector;
@@ -85,7 +88,11 @@ pub fn run() {
 
                 let pg_connector = connector.postgres_connector();
                 let user_manager = PostgresUserManager::new(pg_connector);
-                let user_service = UserService::new(Box::new(user_manager), Arc::clone(&registry), Box::new(meta_store.clone()));
+                let user_service = UserService::new(
+                    Box::new(user_manager),
+                    Arc::clone(&registry),
+                    Box::new(meta_store.clone()),
+                );
 
                 let backup_service = BackupService::new(
                     Box::new(meta_store.clone()),
@@ -130,10 +137,7 @@ pub fn run() {
                     }),
                 );
 
-                let data_diff_service = DataDiffService::new(
-                    Box::new(Arc::clone(&connector)),
-                    Arc::clone(&registry),
-                );
+                let data_diff_service = DataDiffService::new(Box::new(Arc::clone(&connector)), Arc::clone(&registry));
 
                 handle.manage(conn_service);
                 handle.manage(query_service);

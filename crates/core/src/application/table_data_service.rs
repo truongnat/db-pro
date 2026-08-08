@@ -21,11 +21,18 @@ impl TableDataService {
         registry: Arc<ConnectionRegistry>,
         connections: Box<dyn ConnectionRepository>,
     ) -> Self {
-        Self { connector, registry, connections }
+        Self {
+            connector,
+            registry,
+            connections,
+        }
     }
 
     async fn safety_policy_for(&self, connection_id: &ConnectionId) -> Result<ConnectionSafetyPolicy, DbError> {
-        let config = self.connections.get_config(connection_id).await?
+        let config = self
+            .connections
+            .get_config(connection_id)
+            .await?
             .ok_or_else(|| DbError::ConnectionFailed(format!("connection {connection_id} not found")))?;
         if config.readonly {
             Ok(ConnectionSafetyPolicy::read_only())
@@ -34,6 +41,7 @@ impl TableDataService {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub async fn fetch_rows(
         &self,
         connection_id: &ConnectionId,
@@ -47,7 +55,8 @@ impl TableDataService {
         let handle = self.resolve_handle(connection_id)?;
         let dialect = self.connector.dialect(&handle)?;
 
-        let (select_sql, select_params) = sql_builder::build_select(dialect.as_ref(), schema, table, filters, sorts, limit, offset)?;
+        let (select_sql, select_params) =
+            sql_builder::build_select(dialect.as_ref(), schema, table, filters, sorts, limit, offset)?;
         let (count_sql, count_params) = sql_builder::build_count(dialect.as_ref(), schema, table, filters);
 
         let count_result = self.connector.query(&handle, &count_sql, &count_params).await?;
@@ -83,7 +92,9 @@ impl TableDataService {
     ) -> Result<u64, DbError> {
         let policy = self.safety_policy_for(connection_id).await?;
         if policy.read_only {
-            return Err(DbError::QueryFailed("connection is read-only; cannot insert rows".into()));
+            return Err(DbError::QueryFailed(
+                "connection is read-only; cannot insert rows".into(),
+            ));
         }
         let handle = self.resolve_handle(connection_id)?;
         let dialect = self.connector.dialect(&handle)?;
@@ -91,6 +102,7 @@ impl TableDataService {
         self.connector.execute(&handle, &sql, &params).await
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub async fn update_row(
         &self,
         connection_id: &ConnectionId,
@@ -102,17 +114,18 @@ impl TableDataService {
         pk_values: &[CellValue],
     ) -> Result<u64, DbError> {
         if pk_columns.is_empty() || pk_columns.len() != pk_values.len() {
-            return Err(DbError::Validation(
-                "update requires a primary key".into(),
-            ));
+            return Err(DbError::Validation("update requires a primary key".into()));
         }
         let policy = self.safety_policy_for(connection_id).await?;
         if policy.read_only {
-            return Err(DbError::QueryFailed("connection is read-only; cannot update rows".into()));
+            return Err(DbError::QueryFailed(
+                "connection is read-only; cannot update rows".into(),
+            ));
         }
         let handle = self.resolve_handle(connection_id)?;
         let dialect = self.connector.dialect(&handle)?;
-        let (sql, params) = sql_builder::build_update(dialect.as_ref(), schema, table, columns, values, pk_columns, pk_values)?;
+        let (sql, params) =
+            sql_builder::build_update(dialect.as_ref(), schema, table, columns, values, pk_columns, pk_values)?;
         self.connector.execute(&handle, &sql, &params).await
     }
 
@@ -125,13 +138,13 @@ impl TableDataService {
         pk_values: &[CellValue],
     ) -> Result<u64, DbError> {
         if pk_columns.is_empty() || pk_columns.len() != pk_values.len() {
-            return Err(DbError::Validation(
-                "delete requires a primary key".into(),
-            ));
+            return Err(DbError::Validation("delete requires a primary key".into()));
         }
         let policy = self.safety_policy_for(connection_id).await?;
         if policy.read_only {
-            return Err(DbError::QueryFailed("connection is read-only; cannot delete rows".into()));
+            return Err(DbError::QueryFailed(
+                "connection is read-only; cannot delete rows".into(),
+            ));
         }
         let handle = self.resolve_handle(connection_id)?;
         let dialect = self.connector.dialect(&handle)?;
@@ -171,7 +184,7 @@ mod tests {
     fn setup() -> (ConnectionId, Arc<ConnectionRegistry>) {
         let conn_id = ConnectionId::new();
         let registry = Arc::new(ConnectionRegistry::new());
-        registry.register(conn_id.clone(), ConnectionHandle(1));
+        registry.register(conn_id, ConnectionHandle(1));
         (conn_id, registry)
     }
 
@@ -203,30 +216,40 @@ mod tests {
         let (conn_id, registry) = setup();
 
         let mut connector = MockDbConnector::new();
-        connector.expect_dialect().returning(|_| Ok(Box::new(QuestionDialect) as Box<dyn SqlDialect>));
         connector
-            .expect_query()
-            .times(2)
-            .returning(|_handle, sql, _params| {
-                if sql.contains("COUNT(*)") {
-                    Ok(QueryResult {
-                        columns: vec![ColumnMeta { name: "count".into(), data_type: "INT".into(), nullable: false }],
-                        rows: vec![Row(vec![CellValue::Int64(42)])],
-                        row_count: 1,
-                        duration_ms: 1,
-                    })
-                } else {
-                    Ok(QueryResult {
-                        columns: vec![ColumnMeta { name: "id".into(), data_type: "INT".into(), nullable: false }],
-                        rows: vec![Row(vec![CellValue::Int64(1)])],
-                        row_count: 1,
-                        duration_ms: 2,
-                    })
-                }
-            });
+            .expect_dialect()
+            .returning(|_| Ok(Box::new(QuestionDialect) as Box<dyn SqlDialect>));
+        connector.expect_query().times(2).returning(|_handle, sql, _params| {
+            if sql.contains("COUNT(*)") {
+                Ok(QueryResult {
+                    columns: vec![ColumnMeta {
+                        name: "count".into(),
+                        data_type: "INT".into(),
+                        nullable: false,
+                    }],
+                    rows: vec![Row(vec![CellValue::Int64(42)])],
+                    row_count: 1,
+                    duration_ms: 1,
+                })
+            } else {
+                Ok(QueryResult {
+                    columns: vec![ColumnMeta {
+                        name: "id".into(),
+                        data_type: "INT".into(),
+                        nullable: false,
+                    }],
+                    rows: vec![Row(vec![CellValue::Int64(1)])],
+                    row_count: 1,
+                    duration_ms: 2,
+                })
+            }
+        });
 
         let svc = TableDataService::new(Box::new(connector), registry, Box::new(mock_connections()));
-        let (result, total) = svc.fetch_rows(&conn_id, "public", "users", &[], &[], 50, 0).await.unwrap();
+        let (result, total) = svc
+            .fetch_rows(&conn_id, "public", "users", &[], &[], 50, 0)
+            .await
+            .unwrap();
         assert_eq!(total, 42);
         assert_eq!(result.rows.len(), 1);
     }
@@ -236,7 +259,9 @@ mod tests {
         let (conn_id, registry) = setup();
 
         let mut connector = MockDbConnector::new();
-        connector.expect_dialect().returning(|_| Ok(Box::new(QuestionDialect) as Box<dyn SqlDialect>));
+        connector
+            .expect_dialect()
+            .returning(|_| Ok(Box::new(QuestionDialect) as Box<dyn SqlDialect>));
         connector.expect_execute().returning(|_, sql, _| {
             assert!(sql.contains("INSERT INTO"));
             Ok(1)
@@ -261,7 +286,9 @@ mod tests {
         let (conn_id, registry) = setup();
 
         let mut connector = MockDbConnector::new();
-        connector.expect_dialect().returning(|_| Ok(Box::new(QuestionDialect) as Box<dyn SqlDialect>));
+        connector
+            .expect_dialect()
+            .returning(|_| Ok(Box::new(QuestionDialect) as Box<dyn SqlDialect>));
         connector.expect_execute().returning(|_, sql, params| {
             assert!(sql.contains("UPDATE"));
             assert!(sql.contains("WHERE"));
@@ -290,7 +317,9 @@ mod tests {
         let (conn_id, registry) = setup();
 
         let mut connector = MockDbConnector::new();
-        connector.expect_dialect().returning(|_| Ok(Box::new(QuestionDialect) as Box<dyn SqlDialect>));
+        connector
+            .expect_dialect()
+            .returning(|_| Ok(Box::new(QuestionDialect) as Box<dyn SqlDialect>));
         connector.expect_execute().returning(|_, sql, params| {
             assert!(sql.contains("DELETE FROM"));
             assert_eq!(params.len(), 1);
@@ -339,9 +368,7 @@ mod tests {
         let (conn_id, registry) = setup();
         let connector = MockDbConnector::new();
         let svc = TableDataService::new(Box::new(connector), registry, Box::new(mock_connections()));
-        let result = svc
-            .delete_row(&conn_id, "public", "users", &[], &[])
-            .await;
+        let result = svc.delete_row(&conn_id, "public", "users", &[], &[]).await;
         assert!(matches!(result, Err(DbError::Validation(_))));
     }
 
@@ -386,9 +413,9 @@ mod tests {
         let (conn_id, registry) = setup();
 
         let mut connector = MockDbConnector::new();
-        connector.expect_dialect().returning(|_| {
-            Err(DbError::ConnectionFailed("unknown handle".into()))
-        });
+        connector
+            .expect_dialect()
+            .returning(|_| Err(DbError::ConnectionFailed("unknown handle".into())));
 
         let svc = TableDataService::new(Box::new(connector), registry, Box::new(mock_connections()));
         let result = svc.fetch_rows(&conn_id, "public", "users", &[], &[], 50, 0).await;
@@ -419,7 +446,15 @@ mod tests {
             }))
         });
         let svc = TableDataService::new(Box::new(connector), registry, Box::new(repo));
-        let result = svc.insert_row(&conn_id, "public", "users", &["name".into()], &[CellValue::Text("alice".into())]).await;
+        let result = svc
+            .insert_row(
+                &conn_id,
+                "public",
+                "users",
+                &["name".into()],
+                &[CellValue::Text("alice".into())],
+            )
+            .await;
         assert!(result.is_err());
     }
 }

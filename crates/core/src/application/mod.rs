@@ -8,9 +8,9 @@ pub mod registry;
 pub mod schema_diff;
 pub mod schema_service;
 pub mod sql_builder;
+mod sql_policy;
 pub mod table_data_service;
 pub mod user_service;
-mod sql_policy;
 
 pub use backup_service::BackupService;
 pub use connection_service::ConnectionService;

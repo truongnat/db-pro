@@ -20,16 +20,25 @@ impl PgDumpEngine {
 impl BackupEngine for PgDumpEngine {
     async fn backup(&self, options: &BackupOptions, password: &str) -> Result<BackupResult, DbError> {
         let mut cmd = Command::new("pg_dump");
-        cmd.arg("-h").arg(&self.config.host)
-            .arg("-p").arg(self.config.port.to_string())
-            .arg("-U").arg(&self.config.username)
-            .arg("-d").arg(&self.config.database)
-            .arg("-f").arg(&options.output_path)
+        cmd.arg("-h")
+            .arg(&self.config.host)
+            .arg("-p")
+            .arg(self.config.port.to_string())
+            .arg("-U")
+            .arg(&self.config.username)
+            .arg("-d")
+            .arg(&self.config.database)
+            .arg("-f")
+            .arg(&options.output_path)
             .env("PGPASSWORD", password);
 
         match options.format {
-            BackupFormat::Plain => { cmd.arg("--format=plain"); }
-            BackupFormat::Custom => { cmd.arg("--format=custom"); }
+            BackupFormat::Plain => {
+                cmd.arg("--format=plain");
+            }
+            BackupFormat::Custom => {
+                cmd.arg("--format=custom");
+            }
         }
 
         for schema in &options.schemas {
@@ -41,16 +50,18 @@ impl BackupEngine for PgDumpEngine {
 
         cmd.stdin(Stdio::null());
 
-        let output = cmd.output().await.map_err(|e| {
-            DbError::Internal(format!("failed to run pg_dump: {e}"))
-        })?;
+        let output = cmd
+            .output()
+            .await
+            .map_err(|e| DbError::Internal(format!("failed to run pg_dump: {e}")))?;
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
             return Err(DbError::Internal(format!("pg_dump failed: {stderr}")));
         }
 
-        let metadata = tokio::fs::metadata(&options.output_path).await
+        let metadata = tokio::fs::metadata(&options.output_path)
+            .await
             .map_err(|e| DbError::Internal(format!("failed to read backup file: {e}")))?;
 
         Ok(BackupResult {
@@ -63,11 +74,16 @@ impl BackupEngine for PgDumpEngine {
         let output = match options.format {
             BackupFormat::Plain => {
                 Command::new("psql")
-                    .arg("-h").arg(&self.config.host)
-                    .arg("-p").arg(self.config.port.to_string())
-                    .arg("-U").arg(&self.config.username)
-                    .arg("-d").arg(&self.config.database)
-                    .arg("-f").arg(&options.input_path)
+                    .arg("-h")
+                    .arg(&self.config.host)
+                    .arg("-p")
+                    .arg(self.config.port.to_string())
+                    .arg("-U")
+                    .arg(&self.config.username)
+                    .arg("-d")
+                    .arg(&self.config.database)
+                    .arg("-f")
+                    .arg(&options.input_path)
                     .env("PGPASSWORD", password)
                     .stdin(Stdio::null())
                     .output()
@@ -75,10 +91,14 @@ impl BackupEngine for PgDumpEngine {
             }
             BackupFormat::Custom => {
                 Command::new("pg_restore")
-                    .arg("-h").arg(&self.config.host)
-                    .arg("-p").arg(self.config.port.to_string())
-                    .arg("-U").arg(&self.config.username)
-                    .arg("-d").arg(&self.config.database)
+                    .arg("-h")
+                    .arg(&self.config.host)
+                    .arg("-p")
+                    .arg(self.config.port.to_string())
+                    .arg("-U")
+                    .arg(&self.config.username)
+                    .arg("-d")
+                    .arg(&self.config.database)
                     .arg(&options.input_path)
                     .env("PGPASSWORD", password)
                     .stdin(Stdio::null())
@@ -87,9 +107,7 @@ impl BackupEngine for PgDumpEngine {
             }
         };
 
-        let output = output.map_err(|e| {
-            DbError::Internal(format!("failed to run restore: {e}"))
-        })?;
+        let output = output.map_err(|e| DbError::Internal(format!("failed to run restore: {e}")))?;
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);

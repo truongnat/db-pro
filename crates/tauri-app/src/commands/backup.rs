@@ -6,7 +6,10 @@ use db_pro_core::domain::backup::{BackupFormat, BackupOptions, RestoreOptions};
 use crate::dto::{BackupOptionsDto, BackupResultDto, CommandError, RestoreOptionsDto};
 
 #[tauri::command]
-pub async fn backup_database(req: BackupOptionsDto, service: State<'_, BackupService>) -> Result<BackupResultDto, CommandError> {
+pub async fn backup_database(
+    req: BackupOptionsDto,
+    service: State<'_, BackupService>,
+) -> Result<BackupResultDto, CommandError> {
     let options = BackupOptions {
         connection_id: req.connection_id,
         output_path: req.output_path,

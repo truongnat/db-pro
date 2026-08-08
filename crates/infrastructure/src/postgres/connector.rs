@@ -127,7 +127,9 @@ impl DbConnector for PostgresConnector {
 
         tokio::time::timeout(timeout, future)
             .await
-            .map_err(|_| DbError::QueryTimeout { timeout_ms: timeout.as_millis() as u64 })?
+            .map_err(|_| DbError::QueryTimeout {
+                timeout_ms: timeout.as_millis() as u64,
+            })?
     }
 
     async fn execute(&self, handle: &ConnectionHandle, sql: &str, params: &[QueryParam]) -> Result<u64, DbError> {
@@ -153,7 +155,9 @@ impl DbConnector for PostgresConnector {
 
         tokio::time::timeout(timeout, future)
             .await
-            .map_err(|_| DbError::QueryTimeout { timeout_ms: timeout.as_millis() as u64 })?
+            .map_err(|_| DbError::QueryTimeout {
+                timeout_ms: timeout.as_millis() as u64,
+            })?
     }
 
     async fn introspect(&self, handle: &ConnectionHandle) -> Result<IntrospectResult, DbError> {
@@ -199,9 +203,10 @@ impl PostgresConnector {
         schema: &str,
         object_name: &str,
     ) -> Result<Vec<db_pro_core::domain::cross_connection::ObjectDependency>, DbError> {
-        let pool = self.get_pool(handle).await.ok_or_else(|| {
-            DbError::ConnectionFailed("no pool for handle".into())
-        })?;
+        let pool = self
+            .get_pool(handle)
+            .await
+            .ok_or_else(|| DbError::ConnectionFailed("no pool for handle".into()))?;
         super::cross_connection::get_object_dependencies(&pool, schema, object_name).await
     }
 
@@ -209,9 +214,10 @@ impl PostgresConnector {
         &self,
         handle: &ConnectionHandle,
     ) -> Result<Vec<db_pro_core::domain::cross_connection::PartitionInfo>, DbError> {
-        let pool = self.get_pool(handle).await.ok_or_else(|| {
-            DbError::ConnectionFailed("no pool for handle".into())
-        })?;
+        let pool = self
+            .get_pool(handle)
+            .await
+            .ok_or_else(|| DbError::ConnectionFailed("no pool for handle".into()))?;
         super::cross_connection::list_partitions(&pool).await
     }
 
@@ -219,9 +225,10 @@ impl PostgresConnector {
         &self,
         handle: &ConnectionHandle,
     ) -> Result<Vec<db_pro_core::domain::cross_connection::TablespaceInfo>, DbError> {
-        let pool = self.get_pool(handle).await.ok_or_else(|| {
-            DbError::ConnectionFailed("no pool for handle".into())
-        })?;
+        let pool = self
+            .get_pool(handle)
+            .await
+            .ok_or_else(|| DbError::ConnectionFailed("no pool for handle".into()))?;
         super::cross_connection::list_tablespaces(&pool).await
     }
 
@@ -233,9 +240,10 @@ impl PostgresConnector {
         old_name: &str,
         new_name: &str,
     ) -> Result<(), DbError> {
-        let pool = self.get_pool(handle).await.ok_or_else(|| {
-            DbError::ConnectionFailed("no pool for handle".into())
-        })?;
+        let pool = self
+            .get_pool(handle)
+            .await
+            .ok_or_else(|| DbError::ConnectionFailed("no pool for handle".into()))?;
         super::cross_connection::rename_schema_object(&pool, object_type, schema, old_name, new_name).await
     }
 }

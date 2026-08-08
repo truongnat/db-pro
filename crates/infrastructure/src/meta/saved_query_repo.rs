@@ -100,7 +100,10 @@ impl SavedQueryRepository for SQLiteMetaStore {
 
     async fn delete_folder(&self, id: &uuid::Uuid) -> Result<(), DbError> {
         self.actor
-            .raw_query("DELETE FROM saved_query_folders WHERE id = ?1".into(), vec![id.to_string()])
+            .raw_query(
+                "DELETE FROM saved_query_folders WHERE id = ?1".into(),
+                vec![id.to_string()],
+            )
             .await?;
         Ok(())
     }

@@ -86,7 +86,10 @@ impl CompositeConnector {
             .ok_or_else(|| DbError::ConnectionFailed(format!("unknown connection handle {}", handle.0)))
     }
 
-    pub async fn test_ssh_tunnel(&self, config: &db_pro_core::domain::connection::SshTunnelConfig) -> Result<(), DbError> {
+    pub async fn test_ssh_tunnel(
+        &self,
+        config: &db_pro_core::domain::connection::SshTunnelConfig,
+    ) -> Result<(), DbError> {
         let tunnel_config = SshTunnelConfig {
             host: config.host.clone(),
             port: config.port,
@@ -135,9 +138,18 @@ impl DbConnector for CompositeConnector {
             };
 
             let id = self.next_id.fetch_add(1, Ordering::Relaxed);
-            self.handle_driver.write().unwrap_or_else(|e| e.into_inner()).insert(id, driver);
-            self.inner_handles.write().unwrap_or_else(|e| e.into_inner()).insert(id, inner_handle);
-            self.active_tunnels.write().unwrap_or_else(|e| e.into_inner()).insert(id, tunnel);
+            self.handle_driver
+                .write()
+                .unwrap_or_else(|e| e.into_inner())
+                .insert(id, driver);
+            self.inner_handles
+                .write()
+                .unwrap_or_else(|e| e.into_inner())
+                .insert(id, inner_handle);
+            self.active_tunnels
+                .write()
+                .unwrap_or_else(|e| e.into_inner())
+                .insert(id, tunnel);
 
             return Ok(ConnectionHandle(id));
         }
@@ -154,8 +166,14 @@ impl DbConnector for CompositeConnector {
         };
 
         let id = self.next_id.fetch_add(1, Ordering::Relaxed);
-        self.handle_driver.write().unwrap_or_else(|e| e.into_inner()).insert(id, driver);
-        self.inner_handles.write().unwrap_or_else(|e| e.into_inner()).insert(id, inner_handle);
+        self.handle_driver
+            .write()
+            .unwrap_or_else(|e| e.into_inner())
+            .insert(id, driver);
+        self.inner_handles
+            .write()
+            .unwrap_or_else(|e| e.into_inner())
+            .insert(id, inner_handle);
 
         Ok(ConnectionHandle(id))
     }
@@ -182,9 +200,18 @@ impl DbConnector for CompositeConnector {
             DriverType::SQLite => self.sqlite.disconnect(&inner).await?,
         }
 
-        self.handle_driver.write().unwrap_or_else(|e| e.into_inner()).remove(&handle.0);
-        self.inner_handles.write().unwrap_or_else(|e| e.into_inner()).remove(&handle.0);
-        self.active_tunnels.write().unwrap_or_else(|e| e.into_inner()).remove(&handle.0);
+        self.handle_driver
+            .write()
+            .unwrap_or_else(|e| e.into_inner())
+            .remove(&handle.0);
+        self.inner_handles
+            .write()
+            .unwrap_or_else(|e| e.into_inner())
+            .remove(&handle.0);
+        self.active_tunnels
+            .write()
+            .unwrap_or_else(|e| e.into_inner())
+            .remove(&handle.0);
 
         Ok(())
     }

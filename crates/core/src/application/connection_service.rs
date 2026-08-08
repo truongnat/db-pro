@@ -335,12 +335,10 @@ mod tests {
 
         let reg_for_mock = Arc::clone(&registry);
         let mut connector = MockDbConnector::new();
-        connector
-            .expect_connect()
-            .returning(move |_, _| {
-                reg_for_mock.register(id, ConnectionHandle(99));
-                Ok(ConnectionHandle(2))
-            });
+        connector.expect_connect().returning(move |_, _| {
+            reg_for_mock.register(id, ConnectionHandle(99));
+            Ok(ConnectionHandle(2))
+        });
         connector
             .expect_disconnect()
             .returning(|_| Err(DbError::Internal("disconnect failed".into())));
@@ -429,9 +427,7 @@ mod tests {
         });
 
         let svc = build_service(connector, MockConnectionRepository::new(), secrets);
-        let result = svc
-            .test_connectivity_with_secret(&id, &test_config(), "")
-            .await;
+        let result = svc.test_connectivity_with_secret(&id, &test_config(), "").await;
         assert!(result.is_ok());
     }
 
@@ -446,7 +442,9 @@ mod tests {
         });
 
         let mut secrets = MockSecretStore::new();
-        secrets.expect_retrieve_secret().returning(|_| Ok(Some("saved-pass".into())));
+        secrets
+            .expect_retrieve_secret()
+            .returning(|_| Ok(Some("saved-pass".into())));
 
         let svc = build_service(connector, MockConnectionRepository::new(), secrets);
         let result = svc

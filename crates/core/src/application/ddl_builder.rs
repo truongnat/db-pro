@@ -25,7 +25,11 @@ pub fn build_create_table(
     let qualified = if schema.is_empty() {
         dialect.quote_identifier(table).to_string()
     } else {
-        format!("{}.{}", dialect.quote_identifier(schema), dialect.quote_identifier(table))
+        format!(
+            "{}.{}",
+            dialect.quote_identifier(schema),
+            dialect.quote_identifier(table)
+        )
     };
 
     let mut parts = Vec::new();
@@ -37,11 +41,7 @@ pub fn build_create_table(
             validate_raw_fragment(default, "default")?;
         }
 
-        let mut def = format!(
-            "    {} {}",
-            dialect.quote_identifier(&col.name),
-            col.data_type
-        );
+        let mut def = format!("    {} {}", dialect.quote_identifier(&col.name), col.data_type);
         if !col.nullable {
             def.push_str(" NOT NULL");
         }
@@ -87,12 +87,7 @@ pub fn build_alter_table_add_column(
     Ok(def)
 }
 
-pub fn build_alter_table_drop_column(
-    dialect: &dyn SqlDialect,
-    schema: &str,
-    table: &str,
-    column_name: &str,
-) -> String {
+pub fn build_alter_table_drop_column(dialect: &dyn SqlDialect, schema: &str, table: &str, column_name: &str) -> String {
     let qualified = qualify(dialect, schema, table);
     format!(
         "ALTER TABLE {qualified} DROP COLUMN {}",
@@ -100,12 +95,7 @@ pub fn build_alter_table_drop_column(
     )
 }
 
-pub fn build_alter_table_rename(
-    dialect: &dyn SqlDialect,
-    schema: &str,
-    table: &str,
-    new_name: &str,
-) -> String {
+pub fn build_alter_table_rename(dialect: &dyn SqlDialect, schema: &str, table: &str, new_name: &str) -> String {
     let qualified = qualify(dialect, schema, table);
     format!(
         "ALTER TABLE {qualified} RENAME TO {}",
@@ -147,7 +137,10 @@ pub fn build_create_index(
 ) -> String {
     let qualified_table = qualify(dialect, schema, table);
     let qualified_index = qualify(dialect, schema, index_name);
-    let cols: Vec<String> = columns.iter().map(|c| dialect.quote_identifier(c).to_string()).collect();
+    let cols: Vec<String> = columns
+        .iter()
+        .map(|c| dialect.quote_identifier(c).to_string())
+        .collect();
     let unique_kw = if unique { "UNIQUE " } else { "" };
     format!(
         "CREATE {unique_kw}INDEX {qualified_index} ON {qualified_table} ({})",
@@ -183,12 +176,7 @@ pub fn build_create_trigger(
     ))
 }
 
-pub fn build_drop_trigger(
-    dialect: &dyn SqlDialect,
-    schema: &str,
-    table: &str,
-    trigger_name: &str,
-) -> String {
+pub fn build_drop_trigger(dialect: &dyn SqlDialect, schema: &str, table: &str, trigger_name: &str) -> String {
     let qualified_table = qualify(dialect, schema, table);
     let qualified_trigger = qualify(dialect, schema, trigger_name);
     format!("DROP TRIGGER {qualified_trigger} ON {qualified_table}")
@@ -279,14 +267,7 @@ mod tests {
     #[test]
     fn create_index_unique() {
         let dialect = TestDialect;
-        let sql = build_create_index(
-            &dialect,
-            "public",
-            "users",
-            "idx_email",
-            &["email".into()],
-            true,
-        );
+        let sql = build_create_index(&dialect, "public", "users", "idx_email", &["email".into()], true);
         assert!(sql.contains("UNIQUE"));
         assert!(sql.contains("\"idx_email\""));
     }

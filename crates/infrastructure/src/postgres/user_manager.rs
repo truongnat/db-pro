@@ -78,11 +78,7 @@ impl UserManager for PostgresUserManager {
         Ok(())
     }
 
-    async fn list_privileges(
-        &self,
-        handle: &ConnectionHandle,
-        role_name: &str,
-    ) -> Result<Vec<Privilege>, DbError> {
+    async fn list_privileges(&self, handle: &ConnectionHandle, role_name: &str) -> Result<Vec<Privilege>, DbError> {
         let pool = pool(&self.connector, handle).await?;
         let rows: Vec<(String, String, String)> = sqlx::query_as(
             "SELECT table_schema, table_name, privilege_type FROM information_schema.role_table_grants WHERE grantee = $1 ORDER BY table_schema, table_name",

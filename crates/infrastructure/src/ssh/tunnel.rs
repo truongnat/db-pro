@@ -45,12 +45,18 @@ impl SshTunnel {
         let mut cmd = Command::new("ssh");
         cmd.args([
             "-N",
-            "-o", "StrictHostKeyChecking=no",
-            "-o", "ServerAliveInterval=30",
-            "-o", "ServerAliveCountMax=3",
-            "-i", &config.private_key_path,
-            "-L", &port_forward,
-            "-p", &config.port.to_string(),
+            "-o",
+            "StrictHostKeyChecking=no",
+            "-o",
+            "ServerAliveInterval=30",
+            "-o",
+            "ServerAliveCountMax=3",
+            "-i",
+            &config.private_key_path,
+            "-L",
+            &port_forward,
+            "-p",
+            &config.port.to_string(),
             &ssh_target,
         ]);
 
@@ -60,12 +66,18 @@ impl SshTunnel {
             sshpass.args(["-e"]);
             sshpass.arg("ssh").args([
                 "-N",
-                "-o", "StrictHostKeyChecking=no",
-                "-o", "ServerAliveInterval=30",
-                "-o", "ServerAliveCountMax=3",
-                "-i", &config.private_key_path,
-                "-L", &port_forward,
-                "-p", &config.port.to_string(),
+                "-o",
+                "StrictHostKeyChecking=no",
+                "-o",
+                "ServerAliveInterval=30",
+                "-o",
+                "ServerAliveCountMax=3",
+                "-i",
+                &config.private_key_path,
+                "-L",
+                &port_forward,
+                "-p",
+                &config.port.to_string(),
                 &ssh_target,
             ]);
             let child = sshpass
@@ -73,10 +85,7 @@ impl SshTunnel {
                 .spawn()
                 .map_err(|e| DbError::ConnectionFailed(format!("failed to start sshpass: {e}")))?;
 
-            return Ok(SshTunnelHandle {
-                local_port,
-                child,
-            });
+            return Ok(SshTunnelHandle { local_port, child });
         }
 
         let child = cmd
@@ -86,10 +95,7 @@ impl SshTunnel {
 
         tokio::time::sleep(std::time::Duration::from_millis(500)).await;
 
-        Ok(SshTunnelHandle {
-            local_port,
-            child,
-        })
+        Ok(SshTunnelHandle { local_port, child })
     }
 
     pub async fn test(config: &SshTunnelConfig) -> Result<(), DbError> {
@@ -97,13 +103,19 @@ impl SshTunnel {
 
         let mut cmd = Command::new("ssh");
         cmd.args([
-            "-o", "StrictHostKeyChecking=no",
-            "-o", "ConnectTimeout=10",
-            "-o", "BatchMode=yes",
-            "-i", &config.private_key_path,
-            "-p", &config.port.to_string(),
+            "-o",
+            "StrictHostKeyChecking=no",
+            "-o",
+            "ConnectTimeout=10",
+            "-o",
+            "BatchMode=yes",
+            "-i",
+            &config.private_key_path,
+            "-p",
+            &config.port.to_string(),
             &ssh_target,
-            "echo", "ok",
+            "echo",
+            "ok",
         ]);
 
         let output = cmd
@@ -115,9 +127,7 @@ impl SshTunnel {
             Ok(())
         } else {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            Err(DbError::ConnectionFailed(format!(
-                "SSH tunnel test failed: {stderr}"
-            )))
+            Err(DbError::ConnectionFailed(format!("SSH tunnel test failed: {stderr}")))
         }
     }
 }

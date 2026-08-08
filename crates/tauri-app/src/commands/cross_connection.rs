@@ -3,13 +3,11 @@ use tauri::State;
 
 use db_pro_core::application::{ConnectionRegistry, DataDiffService, SchemaService};
 use db_pro_core::domain::connection::ConnectionId;
+use db_pro_core::ports::ConnectionRepository;
 use db_pro_infrastructure::connector::CompositeConnector;
 use db_pro_infrastructure::meta::store::SQLiteMetaStore;
-use db_pro_core::ports::ConnectionRepository;
 
-use crate::dto::{
-    CommandError, DataDiffDto, ObjectDependencyDto, PartitionInfoDto, SchemaDiffDto, TablespaceInfoDto,
-};
+use crate::dto::{CommandError, DataDiffDto, ObjectDependencyDto, PartitionInfoDto, SchemaDiffDto, TablespaceInfoDto};
 
 #[tauri::command]
 pub async fn diff_schemas(
@@ -47,7 +45,10 @@ pub async fn get_object_dependencies(
 ) -> Result<Vec<ObjectDependencyDto>, CommandError> {
     let pg = connector.postgres_connector();
     let inner = resolve_postgres_handle(&connector, &registry, &connection_id)?;
-    let deps = pg.get_object_dependencies(&inner, &schema, &object_name).await.map_err(CommandError::from)?;
+    let deps = pg
+        .get_object_dependencies(&inner, &schema, &object_name)
+        .await
+        .map_err(CommandError::from)?;
     Ok(deps.into_iter().map(ObjectDependencyDto::from).collect())
 }
 
@@ -76,6 +77,7 @@ pub async fn list_tablespaces(
 }
 
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 pub async fn rename_schema_object(
     connector: State<'_, Arc<CompositeConnector>>,
     registry: State<'_, Arc<ConnectionRegistry>>,

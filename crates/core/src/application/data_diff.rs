@@ -13,14 +13,8 @@ pub struct DataDiffService {
 }
 
 impl DataDiffService {
-    pub fn new(
-        connector: Box<dyn DbConnector>,
-        registry: Arc<ConnectionRegistry>,
-    ) -> Self {
-        Self {
-            connector,
-            registry,
-        }
+    pub fn new(connector: Box<dyn DbConnector>, registry: Arc<ConnectionRegistry>) -> Self {
+        Self { connector, registry }
     }
 
     pub async fn diff_table_data(
@@ -33,15 +27,11 @@ impl DataDiffService {
         let source_handle = self
             .registry
             .get(source_id)
-            .ok_or_else(|| {
-                DbError::ConnectionFailed(format!("connection {source_id} is not active"))
-            })?;
+            .ok_or_else(|| DbError::ConnectionFailed(format!("connection {source_id} is not active")))?;
         let target_handle = self
             .registry
             .get(target_id)
-            .ok_or_else(|| {
-                DbError::ConnectionFailed(format!("connection {target_id} is not active"))
-            })?;
+            .ok_or_else(|| DbError::ConnectionFailed(format!("connection {target_id} is not active")))?;
 
         let source_dialect = self.connector.dialect(&source_handle)?;
         let target_dialect = self.connector.dialect(&target_handle)?;
@@ -76,9 +66,7 @@ impl DataDiffService {
     }
 }
 
-fn extract_count(
-    result: &crate::domain::query::QueryResult,
-) -> Result<i64, DbError> {
+fn extract_count(result: &crate::domain::query::QueryResult) -> Result<i64, DbError> {
     result
         .rows
         .first()

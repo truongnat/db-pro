@@ -1,7 +1,10 @@
 use tauri::State;
 
 use crate::cancel::ExecutionRegistry;
-use crate::dto::{CommandError, MultiQueryResultDto, QueryHistoryDto, QueryResultDto, RunConfigDto, SavedQueryDto, SavedQueryFolderDto};
+use crate::dto::{
+    CommandError, MultiQueryResultDto, QueryHistoryDto, QueryResultDto, RunConfigDto, SavedQueryDto,
+    SavedQueryFolderDto,
+};
 use db_pro_core::application::QueryService;
 use db_pro_core::domain::connection::ConnectionId;
 use db_pro_core::domain::execution::{ExecutionStatus, QueryExecutionId};
@@ -46,13 +49,7 @@ pub async fn execute_query(
     // Finish execution with appropriate lifecycle status.
     match &result {
         Ok(qr) => {
-            exec_registry.finish_execution(
-                &exec_id,
-                ExecutionStatus::Success,
-                qr.row_count,
-                0,
-                1,
-            );
+            exec_registry.finish_execution(&exec_id, ExecutionStatus::Success, qr.row_count, 0, 1);
         }
         Err(e) => {
             let status = match e {
@@ -126,13 +123,7 @@ pub async fn execute_query_multi(
             } else {
                 ExecutionStatus::Success
             };
-            exec_registry.finish_execution(
-                &exec_id,
-                status,
-                total_rows,
-                0,
-                mqr.results.len() as u32,
-            );
+            exec_registry.finish_execution(&exec_id, status, total_rows, 0, mqr.results.len() as u32);
         }
         Err(e) => {
             let status = match e {

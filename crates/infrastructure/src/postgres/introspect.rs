@@ -381,7 +381,11 @@ async fn introspect_views(pool: &sqlx::PgPool) -> Result<Vec<View>, DbError> {
             // view_definition can be NULL for some edge-case views
             // (e.g. information_schema views with insufficient privileges).
             let definition: String = row.try_get("view_definition").unwrap_or_default();
-            View { name, schema, definition }
+            View {
+                name,
+                schema,
+                definition,
+            }
         })
         .collect())
 }

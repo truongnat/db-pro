@@ -39,10 +39,7 @@ pub static MIGRATIONS: &[Migration] = &[
 /// Get the current schema version from the database, or 0 if no versioning exists.
 pub async fn current_version(handle: &SqliteHandle) -> Result<u32, DbError> {
     let rows = handle
-        .raw_query(
-            "SELECT COALESCE(MAX(version), 0) FROM schema_version".into(),
-            vec![],
-        )
+        .raw_query("SELECT COALESCE(MAX(version), 0) FROM schema_version".into(), vec![])
         .await?;
 
     let version = rows
@@ -73,19 +70,16 @@ pub async fn migrate(handle: &SqliteHandle) -> Result<u32, DbError> {
         // Record the migration.
         let now = chrono::Utc::now().to_rfc3339();
         handle
-            .execute_statement(
-                format!(
-                    "INSERT INTO schema_version (version, applied_at, description) VALUES ({}, '{}', '{}')",
-                    migration.version,
-                    now,
-                    migration.description.replace('\'', "''"),
-                )
-                .into(),
-            )
+            .execute_statement(format!(
+                "INSERT INTO schema_version (version, applied_at, description) VALUES ({}, '{}', '{}')",
+                migration.version,
+                now,
+                migration.description.replace('\'', "''"),
+            ))
             .await?;
     }
 
-    Ok(current_version(handle).await?)
+    current_version(handle).await
 }
 
 #[cfg(test)]

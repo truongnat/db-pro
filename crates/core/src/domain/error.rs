@@ -210,9 +210,7 @@ impl DbError {
             | Self::QueryCancelled
             | Self::QueryFailed(_) => ErrorCategory::Query,
 
-            Self::IntrospectionFailed(_)
-            | Self::SchemaFailed(_)
-            | Self::Unsupported(_) => ErrorCategory::Schema,
+            Self::IntrospectionFailed(_) | Self::SchemaFailed(_) | Self::Unsupported(_) => ErrorCategory::Schema,
 
             Self::DataFailed(_) | Self::NotFound(_) => ErrorCategory::Data,
 
@@ -246,20 +244,12 @@ impl From<QueryError> for DbError {
             QueryError::ConnectionNotFound { connection_id } => {
                 DbError::ConnectionFailed(format!("connection {connection_id} is not active"))
             }
-            QueryError::SyntaxError { line, message } => {
-                DbError::QuerySyntax(format!("line {line}: {message}"))
-            }
-            QueryError::PermissionDenied { table } => {
-                DbError::PermissionDenied(format!("table {table}"))
-            }
+            QueryError::SyntaxError { line, message } => DbError::QuerySyntax(format!("line {line}: {message}")),
+            QueryError::PermissionDenied { table } => DbError::PermissionDenied(format!("table {table}")),
             QueryError::Timeout { timeout_ms } => DbError::QueryTimeout { timeout_ms },
             QueryError::ConnectionLost => DbError::ConnectionLost("connection lost during query".into()),
-            QueryError::MultiStatementDisabled => {
-                DbError::Validation("multi-statement execution is disabled".into())
-            }
-            QueryError::UnsupportedParameterType(t) => {
-                DbError::Unsupported(format!("parameter type: {t}"))
-            }
+            QueryError::MultiStatementDisabled => DbError::Validation("multi-statement execution is disabled".into()),
+            QueryError::UnsupportedParameterType(t) => DbError::Unsupported(format!("parameter type: {t}")),
             QueryError::Validation(msg) => DbError::Validation(msg),
             QueryError::Internal(msg) => DbError::Internal(msg),
         }
@@ -319,7 +309,10 @@ mod tests {
 
     #[test]
     fn query_error_converts_to_correct_db_error() {
-        let qe = QueryError::SyntaxError { line: 1, message: "unexpected token".into() };
+        let qe = QueryError::SyntaxError {
+            line: 1,
+            message: "unexpected token".into(),
+        };
         let de = DbError::from(qe);
         assert!(matches!(de, DbError::QuerySyntax(_)));
         assert_eq!(de.code(), "QUERY_SYNTAX_ERROR");
@@ -335,7 +328,10 @@ mod tests {
     fn error_category_grouping() {
         assert_eq!(DbError::AuthFailed("x".into()).category(), ErrorCategory::Connection);
         assert_eq!(DbError::QuerySyntax("x".into()).category(), ErrorCategory::Query);
-        assert_eq!(DbError::IntrospectionFailed("x".into()).category(), ErrorCategory::Schema);
+        assert_eq!(
+            DbError::IntrospectionFailed("x".into()).category(),
+            ErrorCategory::Schema
+        );
         assert_eq!(DbError::DataFailed("x".into()).category(), ErrorCategory::Data);
         assert_eq!(DbError::Validation("x".into()).category(), ErrorCategory::Validation);
         assert_eq!(DbError::ReadOnlyViolation("x".into()).category(), ErrorCategory::Safety);
