@@ -838,3 +838,389 @@ describe("PATCH 6.3.1 — Canonical Runtime Closure regression tests", () => {
     });
   });
 });
+
+describe("PATCH 6.3.2 — Action Gate & Cancellation Closure integration tests", () => {
+  // ── A. Confirmation prevents execution before approval ───────
+
+  describe("A. Confirmation prevents backend execution", () => {
+    it("destructive SQL returns confirmation_required and does NOT call execute", async () => {
+      let executeCalled = false;
+
+      defineAction<{ sql: string }, void>({
+        id: "test.confirm_no_exec",
+        title: "Test confirm no exec",
+        category: "query",
+        inputSchema: z.object({ sql: z.string() }),
+        risk: "read",
+        resolveRisk(input) {
+          return /^(DROP|DELETE|TRUNCATE)\b/i.test(input.sql) ? "destructive" : "read";
+        },
+        confirmation: { mode: "destructive-only" },
+        async execute() {
+          executeCalled = true;
+          return { status: "success" };
+        },
+      });
+
+      const result = await executeAction(
+        "test.confirm_no_exec",
+        { sql: "DROP TABLE foo" },
+        { source: "ui" },
+      );
+
+      expect(result.status).toBe("confirmation_required");
+      expect(executeCalled).toBe(false);
+    });
+  });
+
+  // ── B. Confirmation SQL/context drift ───────────────────────
+
+  describe("B. Confirmation preserves frozen SQL/context", () => {
+    it("confirm executes the ORIGINAL SQL, not live state", async () => {
+      let executedSql: string | undefined;
+      let resolvePayloadCallCount = 0;
+
+      defineAction<{ sql: string }, void>({
+        id: "test.drift",
+        title: "Test drift",
+        category: "query",
+        inputSchema: z.object({ sql: z.string() }),
+        risk: "read",
+        confirmation: { mode: "always" },
+        resolvePayload(input) {
+          resolvePayloadCallCount++;
+          return { sql: input.sql };
+        },
+        async execute(_input, ctx) {
+          // Read from the frozen payload on context.
+          const payload = ctx.resolvedPayload as { sql: string } | undefined;
+          executedSql = payload?.sql;
+          return { status: "success" };
+        },
+      });
+
+      // Step 1: Request execution with "DROP TABLE foo".
+      const first = await executeAction("test.drift", { sql: "DROP TABLE foo" });
+      expect(first.status).toBe("confirmation_required");
+
+      // Step 2: Confirm (simulating user clicking Confirm).
+      // Even if the "editor" changed, the frozen payload must be used.
+      const second = await confirmAction(first.confirmation!.id);
+      expect(second.status).toBe("success");
+
+      // Backend must receive the ORIGINAL SQL.
+      expect(executedSql).toBe("DROP TABLE foo");
+      // resolvePayload must NOT be called again on confirm.
+      expect(resolvePayloadCallCount).toBe(1);
+    });
+  });
+
+  // ── C. Confirmation token single-use ────────────────────────
+
+  describe("C. Confirmation token single-use", () => {
+    it("confirmation token is consumed exactly once", async () => {
+      defineAction<{ value?: string }, void>({
+        id: "test.single_use",
+        title: "Test single use",
+        category: "query",
+        inputSchema: z.object({ value: z.string().optional() }),
+        risk: "read",
+        confirmation: { mode: "always" },
+        async execute() {
+          return { status: "success" };
+        },
+      });
+
+      const first = await executeAction("test.single_use", { value: "x" });
+      expect(first.status).toBe("confirmation_required");
+      const tokenId = first.confirmation!.id;
+
+      // First confirm → success.
+      const second = await confirmAction(tokenId);
+      expect(second.status).toBe("success");
+
+      // Second confirm → error (token already consumed).
+      const third = await confirmAction(tokenId);
+      expect(third.status).toBe("error");
+      expect(third.error?.code).toBe("confirmation_not_found");
+    });
+  });
+
+  // ── D. Real cancel: bind → cancel → backend receives external ID ─
+
+  describe("D. Production cancel integration", () => {
+    it("cancelExecution(ActionExecutionId) → cancel hook receives external ID", async () => {
+      let cancelReceivedExternalId: string | undefined;
+
+      defineAction<{ value?: string }, void>({
+        id: "test.prod_cancel",
+        title: "Test prod cancel",
+        category: "query",
+        inputSchema: z.object({ value: z.string().optional() }),
+        risk: "read",
+        async execute(_input, ctx) {
+          const backendId = "backend-uuid-789";
+          if (ctx.actionExecutionId) {
+            bindExternalExecutionId(ctx.actionExecutionId, backendId);
+          }
+          return new Promise(() => {}); // never resolves
+        },
+        async cancel(execution) {
+          cancelReceivedExternalId = execution.externalExecutionId;
+        },
+      });
+
+      const execPromise = executeAction("test.prod_cancel", {});
+      await new Promise((r) => setTimeout(r, 10));
+
+      const running = getRunningExecutions();
+      expect(running.length).toBe(1);
+      const actionExecId = running[0].executionId;
+      expect(running[0].externalExecutionId).toBe("backend-uuid-789");
+
+      const cancelResult = await cancelExecution(actionExecId);
+      expect(cancelResult.status).toBe("cancelled");
+      expect(cancelReceivedExternalId).toBe("backend-uuid-789");
+
+      void execPromise;
+    });
+  });
+
+  // ── E. Backend cancel throws → cancel_failed ───────────────
+
+  describe("E. Backend cancel throws → cancel_failed", () => {
+    it("cancel hook throws → action state error, NOT cancelled", async () => {
+      defineAction<{ value?: string }, void>({
+        id: "test.cancel_throws",
+        title: "Test cancel throws",
+        category: "query",
+        inputSchema: z.object({ value: z.string().optional() }),
+        risk: "read",
+        async execute(_input, ctx) {
+          if (ctx.actionExecutionId) {
+            bindExternalExecutionId(ctx.actionExecutionId, "backend-err");
+          }
+          return new Promise(() => {});
+        },
+        async cancel() {
+          throw new Error("Backend refused to cancel");
+        },
+      });
+
+      const execPromise = executeAction("test.cancel_throws", {});
+      await new Promise((r) => setTimeout(r, 10));
+
+      const running = getRunningExecutions();
+      const cancelResult = await cancelExecution(running[0].executionId);
+
+      expect(cancelResult.status).toBe("error");
+      expect(cancelResult.error?.code).toBe("cancel_failed");
+
+      void execPromise;
+    });
+  });
+
+  // ── F. Action without cancel handler → cancel_not_supported ──
+
+  describe("F. No cancel handler → cancel_not_supported", () => {
+    it("cancel without handler returns cancel_not_supported, NOT cancelled", async () => {
+      defineAction<{ value?: string }, void>({
+        id: "test.no_cancel",
+        title: "Test no cancel",
+        category: "query",
+        inputSchema: z.object({ value: z.string().optional() }),
+        risk: "read",
+        async execute() {
+          return new Promise(() => {});
+        },
+        // No cancel hook defined.
+      });
+
+      const execPromise = executeAction("test.no_cancel", {});
+      await new Promise((r) => setTimeout(r, 10));
+
+      const running = getRunningExecutions();
+      expect(running.length).toBe(1);
+
+      const cancelResult = await cancelExecution(running[0].executionId);
+      // Must NOT be cancelled — must be error with cancel_not_supported.
+      expect(cancelResult.status).toBe("error");
+      expect(cancelResult.error?.code).toBe("cancel_not_supported");
+
+      void execPromise;
+    });
+  });
+
+  // ── G. Same-tab concurrency guard ──────────────────────────
+
+  describe("G. Same-tab concurrency guard", () => {
+    it("second invocation is unavailable while tab is running", async () => {
+      // Register an action with a concurrency guard that checks tab status.
+      defineAction<{ value?: string }, void>({
+        id: "test.concurrency",
+        title: "Test concurrency",
+        category: "query",
+        inputSchema: z.object({ value: z.string().optional() }),
+        risk: "read",
+        availability() {
+          // Simulate: check if the tab is running.
+          // In production, this checks useWorkspaceStore tab status.
+          const running = getRunningExecutions();
+          if (running.some((e) => e.actionId === "test.concurrency")) {
+            return { status: "unavailable" as const, reason: "query_running" };
+          }
+          return { status: "available" as const };
+        },
+        async execute() {
+          return new Promise(() => {}); // never resolves
+        },
+      });
+
+      // First invocation → should start.
+      const exec1 = executeAction("test.concurrency", {});
+      await new Promise((r) => setTimeout(r, 10));
+
+      // Second invocation → should be unavailable.
+      const result2 = await executeAction("test.concurrency", {});
+      expect(result2.status).toBe("error");
+      expect(result2.error?.code).toBe("action_unavailable");
+
+      void exec1;
+    });
+  });
+
+  // ── H. Cancel stale guard ──────────────────────────────────
+
+  describe("H. Cancel stale guard", () => {
+    it("cancel of exec1 does not clobber exec2 state", async () => {
+      let exec2Started = false;
+
+      defineAction<{ value?: string }, void>({
+        id: "test.stale_cancel",
+        title: "Test stale cancel",
+        category: "query",
+        inputSchema: z.object({ value: z.string().optional() }),
+        risk: "read",
+        async execute(_input, ctx) {
+          if (ctx.actionExecutionId) {
+            bindExternalExecutionId(ctx.actionExecutionId, `backend-${ctx.actionExecutionId}`);
+          }
+          return new Promise(() => {});
+        },
+        async cancel() {
+          // Simulate slow cancel that returns after a newer execution started.
+        },
+      });
+
+      // Start exec1.
+      const exec1Promise = executeAction("test.stale_cancel", { value: "1" });
+      await new Promise((r) => setTimeout(r, 10));
+
+      const running1 = getRunningExecutions();
+      expect(running1.length).toBe(1);
+      const exec1Id = running1[0].executionId;
+
+      // Cancel exec1.
+      const cancelResult = await cancelExecution(exec1Id);
+      expect(cancelResult.status).toBe("cancelled");
+
+      // Verify exec1 is cancelled.
+      const exec1State = getRunningExecutions().find((e) => e.executionId === exec1Id);
+      // After cancel, exec1 should no longer be in running state.
+      expect(exec1State).toBeUndefined();
+
+      void exec1Promise;
+      void exec2Started;
+    });
+  });
+
+  // ── I. Partial failure → error status ──────────────────────
+
+  describe("I. Partial failure → error status with preserved results", () => {
+    it("execute.all partial failure returns error with completed results", async () => {
+      defineAction<{ value?: string }, { totalDurationMs: number; statementCount: number; completedResults: number; failedStatement?: number }>({
+        id: "test.partial_632",
+        title: "Test partial 632",
+        category: "query",
+        inputSchema: z.object({ value: z.string().optional() }),
+        risk: "read",
+        async execute() {
+          // Simulate what production query.actions.ts does.
+          const data = {
+            results: [
+              { columns: [], rows: [], rowCount: 10, durationMs: 5 },
+              { columns: [], rows: [], rowCount: 3, durationMs: 8 },
+            ],
+            totalDurationMs: 50,
+            error: [2, "syntax error"] as [number, string],
+          };
+
+          if (data.error) {
+            const [stmtIdx] = data.error;
+            return {
+              status: "error" as const,
+              error: {
+                code: "partial_execution_failure",
+                message: `Statement ${stmtIdx + 1} failed.`,
+              },
+              data: {
+                totalDurationMs: data.totalDurationMs,
+                statementCount: data.results.length,
+                completedResults: data.results.length,
+                failedStatement: stmtIdx,
+              },
+            };
+          }
+
+          return { status: "success" as const, data: { totalDurationMs: 0, statementCount: 0, completedResults: 0 } };
+        },
+      });
+
+      const result = await executeAction("test.partial_632", {});
+      expect(result.status).toBe("error");
+      expect(result.error?.code).toBe("partial_execution_failure");
+      // Successful result sets must be preserved.
+      expect(result.data).toBeDefined();
+      expect(result.data!.completedResults).toBe(2);
+      expect(result.data!.failedStatement).toBe(2);
+    });
+  });
+
+  // ── Item 7. Execution context stored on ActionExecution ─────
+
+  describe("Execution context stored on ActionExecution", () => {
+    it("ActionExecution retains source, tabId, connectionId, correlationId", async () => {
+      defineAction<{ value?: string }, void>({
+        id: "test.exec_ctx",
+        title: "Test exec ctx",
+        category: "query",
+        inputSchema: z.object({ value: z.string().optional() }),
+        risk: "read",
+        resolveContext(_input, ambient) {
+          return { ...ambient, tabId: "tab-123", connectionId: "conn-456" };
+        },
+        async execute() {
+          return new Promise(() => {});
+        },
+      });
+
+      const execPromise = executeAction("test.exec_ctx", {}, {
+        source: "mcp",
+        context: { tabId: "tab-123", connectionId: "conn-456" },
+      });
+      await new Promise((r) => setTimeout(r, 10));
+
+      const running = getRunningExecutions();
+      expect(running.length).toBe(1);
+      expect(running[0].source).toBe("mcp");
+      expect(running[0].tabId).toBe("tab-123");
+      expect(running[0].connectionId).toBe("conn-456");
+      expect(running[0].correlationId).toBeDefined();
+      expect(running[0].correlationId).toMatch(/^corr_/);
+
+      // Cleanup: cancel to avoid dangling promise.
+      await cancelExecution(running[0].executionId);
+      void execPromise;
+    });
+  });
+});

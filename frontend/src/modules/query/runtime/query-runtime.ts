@@ -329,6 +329,8 @@ export async function executeQueryMulti(params: {
  * Cancel a running query execution.
  *
  * Normalizes the cancel path — both UI and Action Platform use this.
+ * Includes stale guard: only mutates tab state if the cancelled
+ * execution is still the active one (doesn't clobber a newer exec).
  */
 export async function cancelQuery(params: {
   tabId: string;
@@ -338,6 +340,11 @@ export async function cancelQuery(params: {
 
   const service = createQueryService();
   await service.cancel(executionId);
+
+  // Stale guard: only update terminal state if this execution is
+  // still the active one. If a newer execution started while the
+  // cancel was in-flight, do NOT touch its state.
+  if (isStaleResponse(tabId, executionId)) return;
 
   setTabStatus(tabId, "cancelled");
   setTabError(tabId, null);

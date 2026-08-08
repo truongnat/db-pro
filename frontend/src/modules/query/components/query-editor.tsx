@@ -24,6 +24,7 @@ interface QueryEditorProps {
   readOnly?: boolean;
   path?: string;
   onExecute?: (sql: string) => void;
+  onExecuteAll?: () => void;
   onCancel?: () => void;
 }
 
@@ -33,11 +34,14 @@ export function QueryEditor({
   readOnly = false,
   path,
   onExecute,
+  onExecuteAll,
   onCancel,
 }: QueryEditorProps) {
   const onExecuteRef = useRef(onExecute);
+  const onExecuteAllRef = useRef(onExecuteAll);
   const onCancelRef = useRef(onCancel);
   onExecuteRef.current = onExecute;
+  onExecuteAllRef.current = onExecuteAll;
   onCancelRef.current = onCancel;
 
   const runTargetSql = useCallback((editor: MonacoEditorInstance): string | undefined => {
@@ -78,16 +82,16 @@ export function QueryEditor({
             if (sql) onExecuteRef.current?.(sql);
           },
         );
+      }
+      if (onExecuteAllRef.current) {
         editor.addCommand(
           monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyMod.Shift | monacoInstance.KeyCode.Enter,
           () => {
-            const sql = runAllSql(editor);
-            if (sql) onExecuteRef.current?.(sql);
+            onExecuteAllRef.current?.();
           },
         );
         editor.addCommand(monacoInstance.KeyCode.F5, () => {
-          const sql = runAllSql(editor);
-          if (sql) onExecuteRef.current?.(sql);
+          onExecuteAllRef.current?.();
         });
       }
 

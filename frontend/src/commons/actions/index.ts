@@ -7,7 +7,7 @@
 
 // Core
 export { defineAction, getAction, getRegisteredActions, getActionsByCategory, getActionsByRisk, resetActionRegistry } from "./registry";
-export { executeAction, confirmAction, rejectConfirmation, getPendingConfirmations, isActionAvailable, getExecution, updateExecutionProgress, bindExternalExecutionId, cancelExecution, cleanupExecutions } from "./bus";
+export { executeAction, confirmAction, rejectConfirmation, getPendingConfirmations, isActionAvailable, getExecution, updateExecutionProgress, bindExternalExecutionId, cancelExecution, cleanupExecutions, getRunningExecutions } from "./bus";
 export { buildActionContext, generateCorrelationId } from "./context";
 export { onAuditEvent, emitAuditEvent, getAuditBuffer, clearAuditBuffer } from "./audit";
 

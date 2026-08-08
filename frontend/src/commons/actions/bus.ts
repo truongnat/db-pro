@@ -18,12 +18,13 @@ import type {
  * Central execution engine for all actions.
  *
  * Every action invocation flows through this bus, which handles:
+ *   0. Confirmation token fast-path (execute frozen invocation directly)
  *   1. Input validation (via the action's inputSchema)
  *   2. Build ambient context
  *   3. Resolve target context from validated input (explicit targets beat ambient)
  *   4. Availability check (enabled/disabled)
  *   5. Dynamic risk resolution
- *   6. Safety gate (confirmation protocol with resolved context snapshot)
+ *   6. Safety gate (confirmation protocol with prepared invocation snapshot)
  *   7. Execution delegation to the action handler
  *   8. Audit event emission (start / complete / error / cancel)
  *   9. Execution tracking (for long-running actions & progress)
@@ -35,6 +36,24 @@ import type {
 // ─── Pending confirmations ───────────────────────────────────
 
 const pendingConfirmations = new Map<string, ActionConfirmation>();
+
+// ─── Prepared invocations (frozen at confirmation time) ──────
+
+/**
+ * A prepared invocation captures the COMPLETE resolved state at the
+ * moment confirmation was requested. On confirm, the bus executes
+ * THIS prepared invocation directly — no live re-resolution.
+ */
+interface PreparedActionInvocation {
+  actionId: ActionId;
+  validatedInput: Record<string, unknown>;
+  resolvedContext: ActionExecutionContext;
+  resolvedPayload: Record<string, unknown> | null;
+  effectiveRisk: ActionRisk;
+  source: ActionSource;
+}
+
+const preparedInvocations = new Map<string, PreparedActionInvocation>();
 
 // ─── Active executions (long-running tracking) ───────────────
 
@@ -71,6 +90,29 @@ export async function executeAction<TOutput = unknown>(
 
   const source = options?.source ?? "ui";
 
+  // ── 0. Confirmation token fast-path ───────────────────────
+  // If a valid confirmation token is provided, execute the FROZEN
+  // prepared invocation directly. Do NOT re-read the editor,
+  // re-resolve context, re-resolve payload, or re-classify risk.
+  // This prevents confirmation drift — the user confirmed SQL A,
+  // so SQL A executes even if the editor changed to SQL B.
+  if (options?.confirmationToken) {
+    const prepared = preparedInvocations.get(options.confirmationToken);
+    if (prepared && prepared.actionId === actionId) {
+      preparedInvocations.delete(options.confirmationToken);
+      pendingConfirmations.delete(options.confirmationToken);
+      return runExecution(
+        definition,
+        prepared.validatedInput,
+        prepared.resolvedContext,
+        prepared.resolvedPayload,
+        prepared.source,
+      ) as Promise<ActionResult<TOutput>>;
+    }
+    // Token invalid or mismatched — fall through to normal flow
+    // which will return confirmation_mismatch or re-evaluate.
+  }
+
   // ── 1. Validate input ──────────────────────────────────────
   const parseResult = definition.inputSchema.safeParse(input ?? {});
   if (!parseResult.success) {
@@ -84,15 +126,12 @@ export async function executeAction<TOutput = unknown>(
     };
   }
 
-  // Zod guarantees data is present on success, but our ActionSchema
-  // interface doesn't carry that narrowing — assert it here.
   const validatedInput = parseResult.data as NonNullable<typeof parseResult.data>;
 
   // ── 2. Build ambient context ───────────────────────────────
   const ambientCtx = buildActionContext(source, options?.context);
 
   // ── 3. Resolve target context from validated input ─────────
-  // Explicit action targets (e.g. tabId) control the COMPLETE execution context.
   let ctx = ambientCtx;
   if (definition.resolveContext) {
     const resolved = definition.resolveContext(validatedInput, ambientCtx);
@@ -114,11 +153,6 @@ export async function executeAction<TOutput = unknown>(
   }
 
   // ── 5. Resolve executable payload ONCE ─────────────────────
-  // This single resolved payload is used for:
-  //   - Risk classification (resolveRisk reads from ctx.resolvedPayload)
-  //   - Confirmation snapshot (frozen in pendingConfirmations)
-  //   - Execution (action reads from ctx.resolvedPayload)
-  // Never resolve the executable payload twice.
   let resolvedPayload: Record<string, unknown> | null = null;
   if (definition.resolvePayload) {
     resolvedPayload = definition.resolvePayload(validatedInput, ctx);
@@ -135,62 +169,93 @@ export async function executeAction<TOutput = unknown>(
 
   // ── 7. Confirmation gate ───────────────────────────────────
   if (requiresConfirmation(definition, source, effectiveRisk)) {
-    // If caller already has a valid confirmation token, proceed.
-    if (options?.confirmationToken) {
-      const conf = pendingConfirmations.get(options.confirmationToken);
-      if (conf && conf.actionId === actionId) {
-        pendingConfirmations.delete(options.confirmationToken);
-        // Restore the fully resolved context from the confirmation snapshot.
-        if (conf.resolvedContext) {
-          ctx = conf.resolvedContext;
-        }
-        // Restore the frozen payload on context — do NOT re-resolve from live state.
-        // The action reads ctx.resolvedPayload directly; no input spreading.
-        if (conf.resolvedPayload) {
-          ctx = { ...ctx, resolvedPayload: conf.resolvedPayload };
-        }
-        // Fall through to execution.
-      } else {
-        // Token doesn't match this action — reject.
-        return {
-          status: "error",
-          error: {
-            code: "confirmation_mismatch",
-            message: `Confirmation token does not match action "${actionId}"`,
-          },
-        } as ActionResult<TOutput>;
-      }
-    } else {
-      return createConfirmationResponse(
-        definition,
-        ctx,
-        input ?? {},
-        source,
-        effectiveRisk,
-        resolvedPayload,
-      ) as ActionResult<TOutput>;
-    }
+    // Store the prepared invocation for later execution on confirm.
+    const confirmationId = `confirm_${crypto.randomUUID()}`;
+    const confirmation: ActionConfirmation = {
+      id: confirmationId,
+      actionId: definition.id,
+      message:
+        definition.confirmation?.messageKey ??
+        `Confirm ${definition.title}?`,
+      risk: effectiveRisk ?? definition.risk ?? "write",
+      input: input ?? {},
+      resolvedContext: ctx,
+      resolvedPayload: resolvedPayload ?? undefined,
+      source,
+      createdAt: Date.now(),
+    };
+
+    pendingConfirmations.set(confirmationId, confirmation);
+    preparedInvocations.set(confirmationId, {
+      actionId: definition.id,
+      validatedInput: validatedInput as unknown as Record<string, unknown>,
+      resolvedContext: ctx,
+      resolvedPayload,
+      effectiveRisk,
+      source,
+    });
+
+    return {
+      status: "confirmation_required",
+      confirmation,
+      effects: [
+        {
+          type: "action.confirmation.requested",
+          confirmationId,
+          actionId: definition.id,
+          source: ctx.source,
+        },
+      ],
+    } as ActionResult<TOutput>;
   }
 
   // ── 8. Execute ─────────────────────────────────────────────
+  return runExecution(definition, validatedInput as unknown as Record<string, unknown>, ctx, resolvedPayload, source) as Promise<ActionResult<TOutput>>;
+}
+
+// ─── Execution helper ────────────────────────────────────────
+
+/**
+ * Execute a prepared/frozen action invocation.
+ *
+ * Shared between the normal flow and the confirmation fast-path.
+ * Creates the ActionExecution, injects actionExecutionId, runs the
+ * handler, tracks state, emits audit events.
+ */
+async function runExecution(
+  definition: ActionDefinition,
+  validatedInput: Record<string, unknown>,
+  ctx: ActionExecutionContext,
+  resolvedPayload: Record<string, unknown> | null,
+  source: ActionSource,
+): Promise<ActionResult> {
   const executionId = `exec_${crypto.randomUUID()}`;
   const startedAt = new Date().toISOString();
 
+  // Ensure the frozen payload is on context (for confirmation fast-path
+  // the ctx may not have it yet).
+  if (resolvedPayload && !ctx.resolvedPayload) {
+    ctx = { ...ctx, resolvedPayload };
+  }
+
   const execution: ActionExecution = {
     executionId,
-    actionId,
+    actionId: definition.id,
     state: "running",
     startedAt: Date.now(),
+    // Store execution context for cancellation.
+    source,
+    tabId: ctx.tabId,
+    connectionId: ctx.connectionId,
+    correlationId: ctx.correlationId,
   };
   activeExecutions.set(executionId, execution);
 
-  // Inject actionExecutionId into context AFTER creating the execution.
-  // Query actions use ctx.actionExecutionId for bindExternalExecutionId().
-  // correlationId is for tracing ONLY — never use it for execution lookup.
+  // Inject actionExecutionId into context.
   ctx = { ...ctx, actionExecutionId: executionId };
 
   emitAuditEvent({
-    actionId,
+    actionId: definition.id,
     source,
     startedAt,
     status: "started",
@@ -200,10 +265,7 @@ export async function executeAction<TOutput = unknown>(
   });
 
   try {
-    const result = await definition.execute(
-      validatedInput,
-      ctx,
-    );
+    const result = await definition.execute(validatedInput as unknown as never, ctx);
 
     const tracked = activeExecutions.get(executionId);
     if (tracked) {
@@ -224,7 +286,7 @@ export async function executeAction<TOutput = unknown>(
     }
 
     emitAuditEvent({
-      actionId,
+      actionId: definition.id,
       source,
       startedAt,
       completedAt: new Date().toISOString(),
@@ -241,9 +303,7 @@ export async function executeAction<TOutput = unknown>(
     });
 
     // The bus owns the executionId. Action handlers must NOT override it.
-    // This ensures callers always get the ActionExecutionId, not the
-    // backend execution ID. Backend identity is in externalExecutionId.
-    return { ...result, executionId } as ActionResult<TOutput>;
+    return { ...result, executionId };
   } catch (err) {
     const message =
       err instanceof Error ? err.message : "Unknown action error";
@@ -258,7 +318,7 @@ export async function executeAction<TOutput = unknown>(
     }
 
     emitAuditEvent({
-      actionId,
+      actionId: definition.id,
       source,
       startedAt,
       completedAt: new Date().toISOString(),
@@ -288,72 +348,24 @@ function requiresConfirmation(
   const effectiveRisk = risk ?? def.risk ?? "read";
   if (def.confirmation.mode === "always") return true;
   if (def.confirmation.mode === "destructive-only") {
-    // Even agent/MCP sources must confirm destructive actions.
     return effectiveRisk === "destructive";
   }
   return false;
 }
 
-function createConfirmationResponse(
-  def: ActionDefinition,
-  resolvedCtx: ActionExecutionContext,
-  input: Record<string, unknown>,
-  source?: ActionSource,
-  effectiveRisk?: ActionRisk,
-  resolvedPayload?: Record<string, unknown> | null,
-): ActionResult {
-  const confirmationId = `confirm_${crypto.randomUUID()}`;
-  const confirmation: ActionConfirmation = {
-    id: confirmationId,
-    actionId: def.id,
-    message:
-      def.confirmation?.messageKey ??
-      `Confirm ${def.title}?`,
-    risk: effectiveRisk ?? def.risk ?? "write",
-    input,
-    // Snapshot the FULLY RESOLVED context — not just overrides.
-    // This ensures that switching tabs/connections before confirming
-    // does NOT change the execution target.
-    resolvedContext: resolvedCtx,
-    // Snapshot the frozen executable payload.
-    // For query actions, this is the ResolvedQueryExecution.
-    // On confirm, the action uses this directly — no re-resolution.
-    resolvedPayload: resolvedPayload ?? undefined,
-    source,
-    createdAt: Date.now(),
-  };
-
-  pendingConfirmations.set(confirmationId, confirmation);
-
-  return {
-    status: "confirmation_required",
-    confirmation,
-    effects: [
-      {
-        type: "action.confirmation.requested",
-        confirmationId,
-        actionId: def.id,
-        source: resolvedCtx.source,
-      },
-    ],
-  };
-}
-
 /**
- * Confirm a pending action and re-execute it.
+ * Confirm a pending action and execute the frozen prepared invocation.
  *
- * Called by the UI after the user approves a confirmation dialog,
- * or by MCP after the end-user confirms remotely.
- *
- * The confirmation snapshot contains the fully resolved context,
- * so re-execution uses the ORIGINAL target — not whatever is
- * currently active.
+ * The prepared invocation was captured at the moment confirmation was
+ * requested. It contains the frozen validated input, resolved context,
+ * and resolved payload. We execute THAT invocation directly — no live
+ * re-resolution of editor, tab, connection, or risk.
  */
 export async function confirmAction(
   confirmationId: string,
 ): Promise<ActionResult> {
-  const confirmation = pendingConfirmations.get(confirmationId);
-  if (!confirmation) {
+  const prepared = preparedInvocations.get(confirmationId);
+  if (!prepared) {
     return {
       status: "error",
       error: {
@@ -363,21 +375,31 @@ export async function confirmAction(
     };
   }
 
-  // Re-execute with the original input and the SNAPSHOT context.
-  // The snapshot ensures the target doesn't drift.
-  return executeAction(confirmation.actionId, confirmation.input, {
-    source: confirmation.source ?? "ui",
-    context: confirmation.resolvedContext
-      ? {
-          tabId: confirmation.resolvedContext.tabId,
-          connectionId: confirmation.resolvedContext.connectionId,
-          database: confirmation.resolvedContext.database,
-          schema: confirmation.resolvedContext.schema,
-          correlationId: confirmation.resolvedContext.correlationId,
-        }
-      : undefined,
-    confirmationToken: confirmationId,
-  });
+  const definition = getAction(prepared.actionId);
+  if (!definition) {
+    preparedInvocations.delete(confirmationId);
+    pendingConfirmations.delete(confirmationId);
+    return {
+      status: "error",
+      error: {
+        code: "action_not_found",
+        message: `Action "${prepared.actionId}" is no longer registered`,
+      },
+    };
+  }
+
+  // Execute the frozen prepared invocation directly.
+  // No live re-resolution of context, payload, or risk.
+  preparedInvocations.delete(confirmationId);
+  pendingConfirmations.delete(confirmationId);
+
+  return runExecution(
+    definition,
+    prepared.validatedInput,
+    prepared.resolvedContext,
+    prepared.resolvedPayload,
+    prepared.source,
+  );
 }
 
 /** List all pending confirmations (for UI rendering). */
@@ -467,25 +489,41 @@ export async function cancelExecution(
 
   // Delegate to the action's cancel mechanism if available.
   const def = getAction(exec.actionId);
-  if (def?.cancel) {
-    try {
-      const ctx = buildActionContext("ui");
-      await def.cancel(exec, ctx);
-    } catch (err) {
-      // Cancel hook FAILED — do NOT mark as cancelled.
-      // Report the error so the caller knows cancellation didn't succeed.
-      const message = err instanceof Error ? err.message : "Cancel failed";
-      exec.state = "error";
-      exec.result = {
-        status: "error",
-        error: { code: "cancel_failed", message },
-      };
-      return {
-        status: "error",
-        error: { code: "cancel_failed", message },
-        executionId,
-      };
-    }
+  if (!def?.cancel) {
+    // No cancel handler — do NOT fake cancellation.
+    // The backend query keeps running; report error to caller.
+    return {
+      status: "error",
+      error: {
+        code: "cancel_not_supported",
+        message: `Action "${exec.actionId}" does not support cancellation`,
+      },
+      executionId,
+    };
+  }
+
+  try {
+    // Use the STORED execution context from the ActionExecution,
+    // not the CURRENT active UI tab. Cancellation belongs to the
+    // execution being cancelled.
+    const cancelCtx = buildActionContext(exec.source ?? "ui", {
+      tabId: exec.tabId,
+      connectionId: exec.connectionId,
+      correlationId: exec.correlationId,
+    });
+    await def.cancel(exec, cancelCtx);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Cancel failed";
+    exec.state = "error";
+    exec.result = {
+      status: "error",
+      error: { code: "cancel_failed", message },
+    };
+    return {
+      status: "error",
+      error: { code: "cancel_failed", message },
+      executionId,
+    };
   }
 
   exec.state = "cancelled";

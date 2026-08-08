@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { defineAction } from "../registry";
-import { bindExternalExecutionId } from "../bus";
+import { bindExternalExecutionId, cancelExecution } from "../bus";
 import { getActiveQueryTab, getQueryTabData, setTabSql, setTabStatus } from "@/modules/query/controllers/query-workspace.controller";
 import { resolveRunTarget } from "@/modules/query/services/statement-splitter";
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
@@ -111,6 +111,29 @@ function requireSql(sql: string): ActionResult | null {
   return null;
 }
 
+/**
+ * Check if the target tab is already running a query.
+ * Returns true if the tab is busy (concurrent execution guard).
+ */
+function isTabRunning(tabId?: string): boolean {
+  if (!tabId) return false;
+  const tab = useWorkspaceStore.getState().tabs.find((t) => t.id === tabId);
+  return tab?.kind === "query" && tab.data.status === "running";
+}
+
+/**
+ * Shared cancel hook for all execute actions.
+ * Uses the external execution ID (backend query ID) for real
+ * cancellation at the database level.
+ */
+async function cancelQueryExecution(execution: { externalExecutionId?: string }): Promise<void> {
+  const externalId = execution.externalExecutionId;
+  if (!externalId) {
+    throw new Error("No external execution ID bound — cannot cancel backend query");
+  }
+  await runtimeCancelQuery({ tabId: "", executionId: externalId });
+}
+
 // ─── query.execute.current ───────────────────────────────────
 
 export const executeCurrentAction = defineAction<
@@ -159,6 +182,10 @@ export const executeCurrentAction = defineAction<
     if (!ctx.connectionId)
       return { status: "unavailable", reason: "connection_required" };
     if (!hasSql) return { status: "unavailable", reason: "sql_required" };
+    // Same-tab concurrency guard: prevent Agent/MCP from starting
+    // a second execution while the tab is already running.
+    if (isTabRunning(ctx.tabId))
+      return { status: "unavailable", reason: "query_running" };
     return { status: "available" };
   },
 
@@ -171,6 +198,10 @@ export const executeCurrentAction = defineAction<
       cursorOffset: editorCtx.cursorOffset,
       selection: editorCtx.selection,
     };
+  },
+
+  async cancel(execution) {
+    await cancelQueryExecution(execution);
   },
 
   async execute(input, ctx): Promise<ActionResult<{ rowCount: number; durationMs: number }>> {
@@ -262,6 +293,18 @@ export const executeSelectionAction = defineAction<
     return classifySqlRisk(payload.sql);
   },
 
+  availability(ctx) {
+    if (!ctx.connectionId)
+      return { status: "unavailable", reason: "connection_required" };
+    if (isTabRunning(ctx.tabId))
+      return { status: "unavailable", reason: "query_running" };
+    return { status: "available" };
+  },
+
+  async cancel(execution) {
+    await cancelQueryExecution(execution);
+  },
+
   async execute(input, ctx): Promise<ActionResult<{ rowCount: number; durationMs: number }>> {
     const connErr = requireConnection(ctx);
     if (connErr) return connErr as ActionResult<never>;
@@ -343,6 +386,21 @@ export const executeAllAction = defineAction<
     return tab ? { tabId: tab.id } : undefined;
   },
 
+  availability(ctx) {
+    if (!ctx.connectionId)
+      return { status: "unavailable", reason: "connection_required" };
+    const tab = resolveQueryTab({ tabId: ctx.tabId });
+    const hasSql = tab ? tab.data.sql.trim().length > 0 : false;
+    if (!hasSql) return { status: "unavailable", reason: "sql_required" };
+    if (isTabRunning(ctx.tabId))
+      return { status: "unavailable", reason: "query_running" };
+    return { status: "available" };
+  },
+
+  async cancel(execution) {
+    await cancelQueryExecution(execution);
+  },
+
   async execute(input, ctx): Promise<ActionResult<{ totalDurationMs: number; statementCount: number; completedResults: number; failedStatement?: number }>> {
     const connErr = requireConnection(ctx);
     if (connErr) return connErr as ActionResult<never>;
@@ -406,7 +464,7 @@ export const executeAllAction = defineAction<
 // ─── query.cancel ────────────────────────────────────────────
 
 export const cancelQueryAction = defineAction<
-  { executionId?: string; tabId?: string },
+  { tabId?: string },
   void
 >({
   id: "query.cancel",
@@ -414,7 +472,6 @@ export const cancelQueryAction = defineAction<
   description: "Cancel the currently running query execution.",
   category: "query",
   inputSchema: z.object({
-    executionId: z.string().optional(),
     tabId: z.string().optional(),
   }),
   risk: "read",
@@ -435,36 +492,33 @@ export const cancelQueryAction = defineAction<
 
   async execute(input, ctx) {
     const tab = resolveQueryTab(input);
-    const execId = input.executionId ?? tab?.data.activeExecutionId;
-    if (!execId) {
+    const tabId = tab?.id ?? ctx.tabId;
+    if (!tabId) {
+      return { status: "error", error: { code: "no_tab", message: "No active tab" } };
+    }
+
+    // Resolve the ActionExecutionId from the tab's active execution.
+    // Public cancellation identity is ALWAYS ActionExecutionId.
+    // Backend execution ID is internal — never exposed to callers.
+    const actionExecId = tab?.data.activeExecutionId;
+    if (!actionExecId) {
       return {
         status: "error",
         error: { code: "no_execution", message: "No running execution to cancel" },
       };
     }
 
-    const tabId = tab?.id ?? ctx.tabId;
-    if (!tabId) {
-      return { status: "error", error: { code: "no_tab", message: "No active tab" } };
+    // Delegate to the generic Action Bus cancellation.
+    // The bus finds the ActionExecution, calls its cancel hook,
+    // which uses the external (backend) execution ID.
+    const result = await cancelExecution(actionExecId);
+    if (result.status === "error") {
+      return result as ActionResult<never>;
     }
 
-    try {
-      await runtimeCancelQuery({ tabId, executionId: execId });
-      return { status: "success" };
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Cancel failed";
-      return { status: "error", error: { code: "cancel_failed", message } };
-    }
-  },
-
-  async cancel(execution) {
-    // The cancel hook uses the EXTERNAL execution ID (backend query ID)
-    // for real cancellation at the database level.
-    const externalId = execution.externalExecutionId;
-    if (externalId) {
-      const { cancelQuery } = await import("@/modules/query/runtime/query-runtime");
-      await cancelQuery({ tabId: "", executionId: externalId });
-    }
+    // Update tab state after successful cancellation.
+    setTabStatus(tabId, "cancelled");
+    return { status: "success" as const };
   },
 });
 

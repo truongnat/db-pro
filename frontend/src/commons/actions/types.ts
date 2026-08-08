@@ -328,6 +328,16 @@ export interface ActionExecution {
    * Used for real cancellation — cancel must use this, not the action-level ID.
    */
   externalExecutionId?: string;
+  /**
+   * Resolved execution context snapshot.
+   * Stored by the bus at execution start so that cancelExecution()
+   * does not need to rebuild cancellation context from the CURRENT
+   * active UI tab — cancellation belongs to the execution being cancelled.
+   */
+  source?: ActionSource;
+  tabId?: string;
+  connectionId?: string;
+  correlationId?: string;
 }
 
 export interface ActionProgress {

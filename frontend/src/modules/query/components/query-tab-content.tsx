@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { format as formatSql } from "sql-formatter";
 
 import { ResizableDock } from "@/commons/components/resizable-dock";
 import { onQueryAction, dispatchQueryAction } from "@/commons/commands/query-dispatch";
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
 import { useTranslation } from "@/commons/locales/useTranslation";
+import { useActionExecution } from "@/commons/actions/hooks/use-action-execution";
+import { ActionConfirmationDialog } from "@/commons/components/action-confirmation-dialog";
 import { useSchemaCatalogStore } from "../stores/schema-catalog.store";
 import { Button } from "@/components/ui/button";
 import { ExportDialog } from "@/modules/export/components/export-dialog";
@@ -26,12 +27,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ChevronDown, History, Clock, BookOpen, HelpCircle, Database, MessageSquare } from "lucide-react";
 import {
-  useCancelQuery,
-  useExecuteQueryMulti,
   useExplainPlan,
   useQueryHistory,
 } from "../queries/query.queries";
-import { getDialectForConnection } from "../sql/dialect";
 import { createQueryTab } from "@/commons/factories/tab-factories";
 import {
   setTabSql,
@@ -62,61 +60,40 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
   const sort = tabData?.sort ?? { column: null, direction: null };
   const timing = tabData?.timing ?? null;
   const executionStartedAt = tabData?.executionStartedAt ?? null;
-  const tabDatabase = tabData?.context?.database ?? null;
-  const tabSchema = tabData?.context?.schema ?? null;
 
   const panelTab = tabData?.activePanel ?? "results";
   const [historySearch, setHistorySearch] = useState("");
   const [exportOpen, setExportOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const executeMultiMutation = useExecuteQueryMulti();
+  // Action Platform execution — all meaningful query intents go through here.
+  const { execute: executeQueryAction, confirm, reject, pendingConfirmation } = useActionExecution();
   const explainMutation = useExplainPlan();
-  const cancelMutation = useCancelQuery();
   const historyQuery = useQueryHistory(tabConnectionId ?? "");
 
-  /** Execute a SQL fragment resolved by the editor (Ctrl+Enter / F5). */
+  /** Execute current statement via Action Platform (Ctrl+Enter). */
   const handleExecuteFragment = useCallback(
-    (fragmentSql: string) => {
-      const targetSql = fragmentSql.trim();
-      if (tabConnectionId && tabId && targetSql && status !== "running") {
-        const executionId = crypto.randomUUID();
-        // Local history is recorded by the canonical runtime.
-        executeMultiMutation.mutate({
-          connectionId: tabConnectionId,
-          database: tabDatabase,
-          schema: tabSchema,
-          sql: targetSql,
-          executionId,
-          tabId,
-        });
+    (_fragmentSql: string) => {
+      if (tabConnectionId && tabId && status !== "running") {
+        void executeQueryAction("query.execute.current", { tabId });
       }
     },
-    [tabConnectionId, tabId, tabDatabase, tabSchema, status, executeMultiMutation],
+    [tabConnectionId, tabId, status, executeQueryAction],
   );
 
-  /** Execute the entire editor content (Ctrl+Shift+Enter / toolbar Run). */
+  /** Execute all statements via Action Platform (Ctrl+Shift+Enter / F5 / toolbar). */
   const handleExecuteAll = useCallback(() => {
-    const targetSql = sql.trim();
-    if (tabConnectionId && tabId && targetSql && status !== "running") {
-      const executionId = crypto.randomUUID();
-      // Local history is recorded by the canonical runtime.
-      executeMultiMutation.mutate({
-        connectionId: tabConnectionId,
-        database: tabDatabase,
-        schema: tabSchema,
-        sql: targetSql,
-        executionId,
-        tabId,
-      });
+    if (tabConnectionId && tabId && sql.trim() && status !== "running") {
+      void executeQueryAction("query.execute.all", { tabId });
     }
-  }, [tabConnectionId, tabId, tabDatabase, tabSchema, sql, status, executeMultiMutation]);
+  }, [tabConnectionId, tabId, sql, status, executeQueryAction]);
 
+  /** Cancel via Action Platform. */
   const handleCancel = useCallback(() => {
-    if (tabId && tabData?.activeExecutionId) {
-      cancelMutation.mutate({ tabId, executionId: tabData.activeExecutionId });
+    if (tabId) {
+      void executeQueryAction("query.cancel", { tabId });
     }
-  }, [tabId, tabData?.activeExecutionId, cancelMutation]);
+  }, [tabId, executeQueryAction]);
 
   const handleExplain = useCallback(() => {
     if (tabConnectionId && tabId && sql.trim()) {
@@ -138,17 +115,12 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
     setTabSql(tabId, "");
   }, [tabId]);
 
+  /** Format via Action Platform. */
   const handleFormat = useCallback(() => {
-    if (!sql.trim()) return;
-    try {
-      const formatted = formatSql(sql, {
-        language: getDialectForConnection(tabConnectionId).formatterLanguage,
-      });
-      setTabSql(tabId, formatted);
-    } catch {
-      // leave SQL unchanged on format error
+    if (sql.trim() && tabId) {
+      void executeQueryAction("query.format", { tabId });
     }
-  }, [tabId, sql, tabConnectionId]);
+  }, [tabId, sql, executeQueryAction]);
 
   const handleSort = useCallback(
     (column: string) => {
@@ -300,6 +272,7 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
             onChange={(v) => setTabSql(tabId, v)}
             path={`dbpro://query/${tabId}.sql`}
             onExecute={handleExecuteFragment}
+            onExecuteAll={handleExecuteAll}
             onCancel={handleCancel}
           />
         </div>
@@ -521,6 +494,14 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
         className="hidden"
         onChange={handleFileImport}
       />
+
+      {pendingConfirmation && (
+        <ActionConfirmationDialog
+          confirmation={pendingConfirmation}
+          onConfirm={() => { void confirm(); }}
+          onCancel={reject}
+        />
+      )}
     </div>
   );
 }
