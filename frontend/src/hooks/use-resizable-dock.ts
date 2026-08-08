@@ -134,8 +134,12 @@ export function useResizableDock(
   }, []);
 
   const handleDoubleClick = useCallback(() => {
-    toggleCollapse();
-  }, [toggleCollapse]);
+    // Reset to default ratio on double-click
+    setRatio(initialRatio);
+    setCollapsed(false);
+    saveRatio(storageKey, initialRatio);
+    lastRatioRef.current = initialRatio;
+  }, [initialRatio, storageKey]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {

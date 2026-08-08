@@ -166,18 +166,18 @@ export function QueryCommandBar({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="min-w-[220px]">
-            <DropdownMenuItem onClick={onExecuteCurrent} className="h-[30px]">
+            <DropdownMenuItem onClick={onExecuteCurrent} className="h-[32px]">
               <Play className="mr-2 h-3.5 w-3.5" />
               {t("query.runCurrent")}
               <span className="ml-auto text-[11px] text-[var(--app-text-muted)]">Ctrl+Enter</span>
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={onExecuteAll} className="h-[30px]">
+            <DropdownMenuItem onClick={onExecuteAll} className="h-[32px]">
               <Play className="mr-2 h-3.5 w-3.5" />
               {t("query.runAll")}
               <span className="ml-auto text-[11px] text-[var(--app-text-muted)]">Ctrl+Shift+Enter</span>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={onExplain} disabled={!hasSql || isExplaining} className="h-[30px]">
+            <DropdownMenuItem onClick={onExplain} disabled={!hasSql || isExplaining} className="h-[32px]">
               <HelpCircle className="mr-2 h-3.5 w-3.5" />
               {t("query.explain")}
             </DropdownMenuItem>
