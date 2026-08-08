@@ -1,19 +1,18 @@
 import type { AnyRouter } from "@tanstack/react-router";
 
 import { dispatchQueryAction } from "@/commons/commands/query-dispatch";
-import { requestCloseTab } from "@/commons/services/request-close-tab";
 import { useCloseGuardStore } from "@/commons/stores/close-guard.store";
 import { useConnectionStore } from "@/commons/stores/connection.store";
 import { useCommandStore } from "@/commons/stores/command.store";
 import { useQueryHistoryStore } from "@/commons/stores/query-history.store";
-import { useRecentStore } from "@/commons/stores/recent.store";
 import { useShellStore } from "@/commons/stores/shell.store";
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
 import {
-  setTabActivePanel,
   createQueryTabFromExplorerContext,
 } from "@/modules/query/controllers/query-workspace.controller";
 import type { QueryTabData, WorkspaceTab } from "@/commons/types/workspace.types";
+import { commandFromAction, executeAction } from "@/commons/actions";
+import type { Keybinding } from "@/commons/types/command.types";
 
 let registered = false;
 
@@ -51,56 +50,36 @@ export function registerAllCommands(router: AnyRouter): void {
     }
   }
 
+  /**
+   * Helper: create a Command from an Action, optionally adding a keybinding.
+   * This is the gradual migration path — commands that have Action Platform
+   * equivalents delegate to the action bus; the rest stay as-is.
+   */
+  function actionCommand(
+    actionId: string,
+    keybinding?: Keybinding,
+  ) {
+    const cmd = commandFromAction(actionId);
+    if (keybinding) cmd.keybinding = keybinding;
+    return cmd;
+  }
+
   useCommandStore.getState().registerMany([
-    {
-      id: "query.execute",
-      labelKey: "commands.query.execute",
-      keybinding: { ctrlKey: true, key: "Enter" },
-      groupKey: "commands.groups.query",
-      when: () => hasConnection() && hasSql(),
-      execute: () => dispatchQueryAction("execute"),
-    },
-    {
-      id: "query.explain",
-      labelKey: "commands.query.explain",
-      groupKey: "commands.groups.query",
-      when: () => hasConnection() && hasSql(),
-      execute: () => dispatchQueryAction("explain"),
-    },
-    {
-      id: "query.format",
-      labelKey: "commands.query.format",
-      groupKey: "commands.groups.query",
-      when: () => hasSql(),
-      execute: () => dispatchQueryAction("format"),
-    },
-    {
-      id: "query.clear",
-      labelKey: "commands.query.clear",
-      groupKey: "commands.groups.query",
-      when: () => hasSql(),
-      execute: () => dispatchQueryAction("clear"),
-    },
-    {
-      id: "query.cancel",
-      labelKey: "commands.query.cancel",
-      groupKey: "commands.groups.query",
-      when: () => hasConnection() && isRunning(),
-      execute: () => dispatchQueryAction("cancel"),
-    },
+    // ── Query — delegated to Action Platform ──────────────────
+    actionCommand("query.execute.current", { ctrlKey: true, key: "Enter" }),
+    actionCommand("query.explain"),
+    actionCommand("query.format"),
+    actionCommand("query.clear"),
+    actionCommand("query.cancel"),
+    actionCommand("query.save"),
+
+    // ── Query — still using dispatch (no direct action yet) ──
     {
       id: "query.exportResults",
       labelKey: "commands.query.exportResults",
       groupKey: "commands.groups.query",
       when: () => hasResults(),
       execute: () => dispatchQueryAction("export"),
-    },
-    {
-      id: "query.saveQuery",
-      labelKey: "commands.query.saveQuery",
-      groupKey: "commands.groups.query",
-      when: () => hasConnection() && hasSql(),
-      execute: () => dispatchQueryAction("saveQuery"),
     },
 
     {
@@ -116,17 +95,11 @@ export function registerAllCommands(router: AnyRouter): void {
         if (tab) useWorkspaceStore.getState().openTab(tab);
       },
     },
-    {
-      id: "tabs.close",
-      labelKey: "commands.tabs.close",
-      keybinding: { ctrlKey: true, key: "w" },
-      groupKey: "commands.groups.tabs",
-      when: () => !!useWorkspaceStore.getState().activeTabId,
-      execute: () => {
-        const { activeTabId } = useWorkspaceStore.getState();
-        if (activeTabId) requestCloseTab(activeTabId);
-      },
-    },
+    // ── Tabs — close/pin delegated to Action Platform ────────
+    actionCommand("workspace.tab.close", { ctrlKey: true, key: "w" }),
+    actionCommand("workspace.tab.pin", { altKey: true, shiftKey: true, key: "p" }),
+
+    // ── Tabs — remaining still imperative ─────────────────────
     {
       id: "tabs.reopen",
       labelKey: "commands.tabs.reopen",
@@ -134,17 +107,6 @@ export function registerAllCommands(router: AnyRouter): void {
       groupKey: "commands.groups.tabs",
       when: () => useWorkspaceStore.getState().recentlyClosed.length > 0,
       execute: () => useWorkspaceStore.getState().reopenLastClosed(),
-    },
-    {
-      id: "tabs.pin",
-      labelKey: "commands.tabs.pin",
-      keybinding: { altKey: true, shiftKey: true, key: "p" },
-      groupKey: "commands.groups.tabs",
-      when: () => !!useWorkspaceStore.getState().activeTabId,
-      execute: () => {
-        const { activeTabId } = useWorkspaceStore.getState();
-        if (activeTabId) useWorkspaceStore.getState().toggleTabPinned(activeTabId);
-      },
     },
     {
       id: "tabs.closeOthers",
@@ -252,14 +214,10 @@ export function registerAllCommands(router: AnyRouter): void {
       execute: () => dispatchQueryAction("exportSql"),
     },
 
-    {
-      id: "connection.new",
-      labelKey: "commands.connection.new",
-      groupKey: "commands.groups.connection",
-      execute: () => useRecentStore.getState().openConnectionDialog(),
-    },
+    // ── Connection — delegated to Action Platform ─────────────
+    actionCommand("connection.new"),
 
-    // ── Productivity ──────────────────────────────────────────
+    // ── Productivity — panel actions delegated ────────────────
     {
       id: "productivity.clearHistory",
       labelKey: "commands.productivity.clearHistory",
@@ -272,8 +230,7 @@ export function registerAllCommands(router: AnyRouter): void {
       groupKey: "commands.groups.productivity",
       when: () => !!getActiveQueryTab(),
       execute: () => {
-        const tab = getActiveQueryTab();
-        if (tab) setTabActivePanel(tab.id, "snippets");
+        executeAction("workspace.panel.set", { panel: "snippets" }, { source: "command-palette" });
       },
     },
     {
@@ -282,8 +239,7 @@ export function registerAllCommands(router: AnyRouter): void {
       groupKey: "commands.groups.productivity",
       when: () => !!getActiveQueryTab(),
       execute: () => {
-        const tab = getActiveQueryTab();
-        if (tab) setTabActivePanel(tab.id, "history");
+        executeAction("workspace.panel.set", { panel: "history" }, { source: "command-palette" });
       },
     },
   ]);

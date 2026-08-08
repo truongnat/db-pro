@@ -5,6 +5,7 @@ import App from "./App";
 import { bootstrapServices } from "./app/app.module";
 import "./styles/globals.css";
 import "@/commons/locales/i18n";
+import "@/commons/actions";
 
 async function main() {
   try {
