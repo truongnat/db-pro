@@ -51,8 +51,26 @@ pub fn map_row(row: &sqlx::postgres::PgRow, columns: &[ColumnMeta]) -> Result<Ro
         } else {
             match col.data_type.as_str() {
                 "BOOL" => CellValue::Bool(row.try_get(i).map_err(crate::error::from_sqlx)?),
-                "INT2" | "INT4" | "INT8" => CellValue::Int64(row.try_get(i).map_err(crate::error::from_sqlx)?),
-                "FLOAT4" | "FLOAT8" => CellValue::Float64(row.try_get(i).map_err(crate::error::from_sqlx)?),
+                "INT2" => {
+                    let v: i16 = row.try_get(i).map_err(crate::error::from_sqlx)?;
+                    CellValue::Int64(v as i64)
+                }
+                "INT4" => {
+                    let v: i32 = row.try_get(i).map_err(crate::error::from_sqlx)?;
+                    CellValue::Int64(v as i64)
+                }
+                "INT8" => {
+                    let v: i64 = row.try_get(i).map_err(crate::error::from_sqlx)?;
+                    CellValue::Int64(v)
+                }
+                "FLOAT4" => {
+                    let v: f32 = row.try_get(i).map_err(crate::error::from_sqlx)?;
+                    CellValue::Float64(v as f64)
+                }
+                "FLOAT8" => {
+                    let v: f64 = row.try_get(i).map_err(crate::error::from_sqlx)?;
+                    CellValue::Float64(v)
+                }
                 "UUID" => {
                     let v: uuid::Uuid = row.try_get(i).map_err(crate::error::from_sqlx)?;
                     CellValue::Uuid(v.to_string())
