@@ -1,8 +1,8 @@
 import { z } from "zod";
 
 import { defineAction } from "../registry";
-import { bindExternalExecutionId, cancelExecution } from "../bus";
-import { getActiveQueryTab, getQueryTabData, setTabSql, setTabStatus } from "@/modules/query/controllers/query-workspace.controller";
+import { bindExternalExecutionId, cancelExecution, findRunningExecutionForTab } from "../bus";
+import { getActiveQueryTab, getQueryTabData, setTabSql } from "@/modules/query/controllers/query-workspace.controller";
 import { resolveRunTarget } from "@/modules/query/services/statement-splitter";
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
 import { useQueryEditorContextStore } from "@/commons/stores/query-editor-context.store";
@@ -125,13 +125,18 @@ function isTabRunning(tabId?: string): boolean {
  * Shared cancel hook for all execute actions.
  * Uses the external execution ID (backend query ID) for real
  * cancellation at the database level.
+ * Uses the stored execution.tabId — never passes empty string.
  */
-async function cancelQueryExecution(execution: { externalExecutionId?: string }): Promise<void> {
+async function cancelQueryExecution(execution: { externalExecutionId?: string; tabId?: string }): Promise<void> {
   const externalId = execution.externalExecutionId;
+  const tabId = execution.tabId;
   if (!externalId) {
     throw new Error("No external execution ID bound — cannot cancel backend query");
   }
-  await runtimeCancelQuery({ tabId: "", executionId: externalId });
+  if (!tabId) {
+    throw new Error("No tabId stored on execution — cannot cancel with stale guard");
+  }
+  await runtimeCancelQuery({ tabId, executionId: externalId });
 }
 
 // ─── query.execute.current ───────────────────────────────────
@@ -497,11 +502,16 @@ export const cancelQueryAction = defineAction<
       return { status: "error", error: { code: "no_tab", message: "No active tab" } };
     }
 
-    // Resolve the ActionExecutionId from the tab's active execution.
+    // Resolve the ActionExecutionId from the bus — NOT from tab.data.activeExecutionId.
+    // tab.data.activeExecutionId stores the BackendExecutionId, which is a different identity.
     // Public cancellation identity is ALWAYS ActionExecutionId.
-    // Backend execution ID is internal — never exposed to callers.
-    const actionExecId = tab?.data.activeExecutionId;
-    if (!actionExecId) {
+    const QUERY_EXECUTE_IDS = [
+      "query.execute.current",
+      "query.execute.selection",
+      "query.execute.all",
+    ] as const;
+    const actionExecution = findRunningExecutionForTab(tabId, QUERY_EXECUTE_IDS);
+    if (!actionExecution) {
       return {
         status: "error",
         error: { code: "no_execution", message: "No running execution to cancel" },
@@ -511,13 +521,11 @@ export const cancelQueryAction = defineAction<
     // Delegate to the generic Action Bus cancellation.
     // The bus finds the ActionExecution, calls its cancel hook,
     // which uses the external (backend) execution ID.
-    const result = await cancelExecution(actionExecId);
+    const result = await cancelExecution(actionExecution.executionId);
     if (result.status === "error") {
       return result as ActionResult<never>;
     }
 
-    // Update tab state after successful cancellation.
-    setTabStatus(tabId, "cancelled");
     return { status: "success" as const };
   },
 });

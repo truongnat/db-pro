@@ -4,8 +4,8 @@ import { ResizableDock } from "@/commons/components/resizable-dock";
 import { onQueryAction, dispatchQueryAction } from "@/commons/commands/query-dispatch";
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
 import { useTranslation } from "@/commons/locales/useTranslation";
-import { useActionExecution } from "@/commons/actions/hooks/use-action-execution";
-import { ActionConfirmationDialog } from "@/commons/components/action-confirmation-dialog";
+import { executeAction } from "@/commons/actions/bus";
+import { useActionConfirmationStore } from "@/commons/stores/action-confirmation.store";
 import { useSchemaCatalogStore } from "../stores/schema-catalog.store";
 import { Button } from "@/components/ui/button";
 import { ExportDialog } from "@/modules/export/components/export-dialog";
@@ -27,7 +27,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ChevronDown, History, Clock, BookOpen, HelpCircle, Database, MessageSquare } from "lucide-react";
 import {
-  useExplainPlan,
   useQueryHistory,
 } from "../queries/query.queries";
 import { createQueryTab } from "@/commons/factories/tab-factories";
@@ -67,49 +66,53 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Action Platform execution — all meaningful query intents go through here.
-  const { execute: executeQueryAction, confirm, reject, pendingConfirmation } = useActionExecution();
-  const explainMutation = useExplainPlan();
+  // Confirmation is routed to the global ActionConfirmationHost in AppShell.
+  const [isExplaining, setIsExplaining] = useState(false);
+  const [explainError, setExplainError] = useState<string | null>(null);
   const historyQuery = useQueryHistory(tabConnectionId ?? "");
 
   /** Execute current statement via Action Platform (Ctrl+Enter). */
   const handleExecuteFragment = useCallback(
-    (_fragmentSql: string) => {
+    async (_fragmentSql: string) => {
       if (tabConnectionId && tabId && status !== "running") {
-        void executeQueryAction("query.execute.current", { tabId });
+        const result = await executeAction("query.execute.current", { tabId }, { source: "ui" });
+        if (result.status === "confirmation_required" && result.confirmation) {
+          useActionConfirmationStore.getState().setPending(result.confirmation);
+        }
       }
     },
-    [tabConnectionId, tabId, status, executeQueryAction],
+    [tabConnectionId, tabId, status],
   );
 
   /** Execute all statements via Action Platform (Ctrl+Shift+Enter / F5 / toolbar). */
-  const handleExecuteAll = useCallback(() => {
+  const handleExecuteAll = useCallback(async () => {
     if (tabConnectionId && tabId && sql.trim() && status !== "running") {
-      void executeQueryAction("query.execute.all", { tabId });
+      const result = await executeAction("query.execute.all", { tabId }, { source: "ui" });
+      if (result.status === "confirmation_required" && result.confirmation) {
+        useActionConfirmationStore.getState().setPending(result.confirmation);
+      }
     }
-  }, [tabConnectionId, tabId, sql, status, executeQueryAction]);
+  }, [tabConnectionId, tabId, sql, status]);
 
   /** Cancel via Action Platform. */
   const handleCancel = useCallback(() => {
     if (tabId) {
-      void executeQueryAction("query.cancel", { tabId });
+      void executeAction("query.cancel", { tabId }, { source: "ui" });
     }
-  }, [tabId, executeQueryAction]);
+  }, [tabId]);
 
-  const handleExplain = useCallback(() => {
+  /** Explain via Action Platform — no direct hook bypass. */
+  const handleExplain = useCallback(async () => {
     if (tabConnectionId && tabId && sql.trim()) {
-      const currentTabId = tabId;
-      explainMutation.mutate(
-        { connectionId: tabConnectionId, sql: sql.trim(), tabId: currentTabId },
-        {
-          onSuccess: () => {
-            if (useWorkspaceStore.getState().activeTabId === currentTabId) {
-              setTabActivePanel(currentTabId, "explain");
-            }
-          },
-        },
-      );
+      setIsExplaining(true);
+      setExplainError(null);
+      const result = await executeAction("query.explain", { tabId }, { source: "ui" });
+      if (result.status === "error") {
+        setExplainError(result.error?.message ?? "Explain failed");
+      }
+      setIsExplaining(false);
     }
-  }, [tabConnectionId, tabId, sql, explainMutation]);
+  }, [tabConnectionId, tabId, sql]);
 
   const handleClear = useCallback(() => {
     setTabSql(tabId, "");
@@ -118,9 +121,9 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
   /** Format via Action Platform. */
   const handleFormat = useCallback(() => {
     if (sql.trim() && tabId) {
-      void executeQueryAction("query.format", { tabId });
+      void executeAction("query.format", { tabId }, { source: "ui" });
     }
-  }, [tabId, sql, executeQueryAction]);
+  }, [tabId, sql]);
 
   const handleSort = useCallback(
     (column: string) => {
@@ -260,7 +263,7 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
         onExportSql={() => dispatchQueryAction("exportSql")}
         onImportSql={() => dispatchQueryAction("importSql")}
         isExecuting={status === "running"}
-        isExplaining={explainMutation.isPending}
+        isExplaining={isExplaining}
         hasConnection={!!tabConnectionId}
         hasSql={!!sql.trim()}
       />
@@ -356,7 +359,7 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
               <ExplainPlanView plan={explainPlan} />
             )}
 
-            {panelTab === "explain" && explainMutation.isError && (
+            {panelTab === "explain" && explainError && (
               <div className="flex flex-col items-start px-6 py-6">
                 <div className="mb-2 flex items-center gap-2">
                   <div className="grid h-7 w-7 place-items-center rounded-md bg-destructive/15">
@@ -365,21 +368,21 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
                   <p className="text-[13px] font-medium text-foreground">Explain failed</p>
                 </div>
                 <p className="mb-4 max-w-lg text-[13px] leading-relaxed text-[var(--app-text-muted)]">
-                  {explainMutation.error instanceof Error ? explainMutation.error.message : "Unable to retrieve execution plan."}
+                  {explainError}
                 </p>
                 <Button
                   variant="outline"
                   size="sm"
                   className="h-7 rounded-[5px] text-[13px]"
                   onClick={handleExplain}
-                  disabled={!tabConnectionId || !sql.trim() || explainMutation.isPending}
+                  disabled={!tabConnectionId || !sql.trim() || isExplaining}
                 >
                   {t("common.actions.retry")}
                 </Button>
               </div>
             )}
 
-            {panelTab === "explain" && !explainPlan && !explainMutation.isError && (
+            {panelTab === "explain" && !explainPlan && !explainError && (
               <div className="flex flex-col items-center justify-center py-12">
                 <div className="mb-3 grid h-9 w-9 place-items-center rounded-lg bg-[var(--app-surface-2)]">
                   <HelpCircle className="h-4 w-4 text-[var(--app-text-muted)]" />
@@ -393,7 +396,7 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
                   size="sm"
                   className="h-7 rounded-[5px] text-[13px]"
                   onClick={handleExplain}
-                  disabled={!tabConnectionId || !sql.trim() || explainMutation.isPending}
+                  disabled={!tabConnectionId || !sql.trim() || isExplaining}
                 >
                   <HelpCircle className="mr-1.5 h-3.5 w-3.5" />
                   {t("query.explain")}
@@ -494,14 +497,6 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
         className="hidden"
         onChange={handleFileImport}
       />
-
-      {pendingConfirmation && (
-        <ActionConfirmationDialog
-          confirmation={pendingConfirmation}
-          onConfirm={() => { void confirm(); }}
-          onCancel={reject}
-        />
-      )}
     </div>
   );
 }

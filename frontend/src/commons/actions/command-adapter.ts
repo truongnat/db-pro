@@ -2,6 +2,7 @@ import type { Command } from "@/commons/types/command.types";
 import { getAction, getRegisteredActions } from "./registry";
 import { executeAction, isActionAvailable } from "./bus";
 import { buildActionContext } from "./context";
+import { useActionConfirmationStore } from "@/commons/stores/action-confirmation.store";
 
 import type { ActionId } from "./types";
 
@@ -47,12 +48,19 @@ export function commandFromAction(
     labelKey: `actions.${def.id}`,
     groupKey: `commands.groups.${def.category}`,
     when: () => isActionAvailable(def.id).available,
-    execute: () => {
+    execute: async () => {
       const input =
         options?.inputProvider?.() ??
         def.commandInput?.() ??
         undefined;
-      executeAction(def.id, input as Record<string, unknown> | undefined, { source: "command-palette" });
+      const result = await executeAction(def.id, input as Record<string, unknown> | undefined, { source: "command-palette" });
+
+      // Route confirmation to the global Action Confirmation Host.
+      // This ensures destructive actions from Command Palette show the
+      // same confirmation dialog as toolbar/keyboard invocations.
+      if (result.status === "confirmation_required" && result.confirmation) {
+        useActionConfirmationStore.getState().setPending(result.confirmation);
+      }
     },
   };
 }

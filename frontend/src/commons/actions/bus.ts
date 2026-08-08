@@ -18,7 +18,6 @@ import type {
  * Central execution engine for all actions.
  *
  * Every action invocation flows through this bus, which handles:
- *   0. Confirmation token fast-path (execute frozen invocation directly)
  *   1. Input validation (via the action's inputSchema)
  *   2. Build ambient context
  *   3. Resolve target context from validated input (explicit targets beat ambient)
@@ -28,6 +27,11 @@ import type {
  *   7. Execution delegation to the action handler
  *   8. Audit event emission (start / complete / error / cancel)
  *   9. Execution tracking (for long-running actions & progress)
+ *
+ * Confirmation API:
+ *   executeAction() → confirmation_required
+ *   confirmAction(id) → executes frozen prepared invocation
+ *   rejectConfirmation(id) → destroys both pending + prepared maps
  *
  * The bus is UI-framework agnostic — it can be called from React
  * components, keyboard handlers, the command palette, or MCP.
@@ -66,7 +70,14 @@ const activeExecutions = new Map<string, ActionExecution>();
  *
  * @param actionId  Stable action identifier (e.g. "query.execute.current")
  * @param input     Input matching the action's inputSchema
- * @param options   Source, context overrides, confirmation token
+ * @param options   Source and context overrides
+ *
+ * Confirmation is a two-step protocol:
+ *   1. executeAction() returns confirmation_required with an ActionConfirmation
+ *   2. confirmAction(confirmationId) executes the frozen prepared invocation
+ *
+ * There is NO confirmationToken fast-path. All confirmations go through
+ * confirmAction(id) — the single official confirmation API.
  */
 export async function executeAction<TOutput = unknown>(
   actionId: ActionId,
@@ -74,7 +85,6 @@ export async function executeAction<TOutput = unknown>(
   options?: {
     source?: ActionSource;
     context?: Partial<ActionExecutionContext>;
-    confirmationToken?: string;
   },
 ): Promise<ActionResult<TOutput>> {
   const definition = getAction(actionId);
@@ -89,29 +99,6 @@ export async function executeAction<TOutput = unknown>(
   }
 
   const source = options?.source ?? "ui";
-
-  // ── 0. Confirmation token fast-path ───────────────────────
-  // If a valid confirmation token is provided, execute the FROZEN
-  // prepared invocation directly. Do NOT re-read the editor,
-  // re-resolve context, re-resolve payload, or re-classify risk.
-  // This prevents confirmation drift — the user confirmed SQL A,
-  // so SQL A executes even if the editor changed to SQL B.
-  if (options?.confirmationToken) {
-    const prepared = preparedInvocations.get(options.confirmationToken);
-    if (prepared && prepared.actionId === actionId) {
-      preparedInvocations.delete(options.confirmationToken);
-      pendingConfirmations.delete(options.confirmationToken);
-      return runExecution(
-        definition,
-        prepared.validatedInput,
-        prepared.resolvedContext,
-        prepared.resolvedPayload,
-        prepared.source,
-      ) as Promise<ActionResult<TOutput>>;
-    }
-    // Token invalid or mismatched — fall through to normal flow
-    // which will return confirmation_mismatch or re-evaluate.
-  }
 
   // ── 1. Validate input ──────────────────────────────────────
   const parseResult = definition.inputSchema.safeParse(input ?? {});
@@ -407,9 +394,10 @@ export function getPendingConfirmations(): readonly ActionConfirmation[] {
   return Array.from(pendingConfirmations.values());
 }
 
-/** Discard a pending confirmation (user rejected). */
+/** Discard a pending confirmation (user rejected). Destroys BOTH maps. */
 export function rejectConfirmation(confirmationId: string): void {
   pendingConfirmations.delete(confirmationId);
+  preparedInvocations.delete(confirmationId);
 }
 
 // ─── Availability query ──────────────────────────────────────
@@ -546,11 +534,33 @@ export function cleanupExecutions(maxAgeMs = 60_000): void {
 /**
  * Get all currently running executions.
  *
- * Exposed for testing — real cancellation tests need to observe
- * running ActionExecution IDs to verify bind + cancel flow.
+ * Used by concurrency guards and the cancel identity resolver.
  */
 export function getRunningExecutions(): readonly ActionExecution[] {
   return Array.from(activeExecutions.values()).filter(
     (e) => e.state === "running",
+  );
+}
+
+/**
+ * Find the running ActionExecution for a specific tab.
+ *
+ * This is the canonical way to resolve the ActionExecutionId from a tabId.
+ * Used by query.cancel to find the correct ActionExecution to cancel —
+ * never use tab.data.activeExecutionId for this, as it stores the
+ * BackendExecutionId, not the ActionExecutionId.
+ *
+ * @param tabId      The tab to find the execution for
+ * @param actionIds  Optional filter: only match these action IDs
+ */
+export function findRunningExecutionForTab(
+  tabId: string,
+  actionIds?: readonly ActionId[],
+): ActionExecution | undefined {
+  return Array.from(activeExecutions.values()).find(
+    (e) =>
+      e.state === "running" &&
+      e.tabId === tabId &&
+      (!actionIds || actionIds.includes(e.actionId)),
   );
 }

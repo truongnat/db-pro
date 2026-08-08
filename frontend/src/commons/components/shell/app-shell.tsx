@@ -10,6 +10,7 @@ import { useShellStore } from "@/commons/stores/shell.store";
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
 import { useRegisterRuntimeCacheInvalidation } from "@/modules/query/queries/query.queries";
 import { ConnectionDialog } from "@/modules/connection/components/connection-dialog";
+import { ActionConfirmationHost } from "../action-confirmation-host";
 
 import { ActivityBar } from "./activity-bar";
 import { AgentPanel } from "../ide/agent-panel";
@@ -164,6 +165,7 @@ export function AppShell() {
     <CommandPalette />
     <QuickOpen />
     <ConnectionDialog />
+    <ActionConfirmationHost />
     </>
   );
 }

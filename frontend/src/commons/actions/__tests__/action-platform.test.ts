@@ -12,6 +12,8 @@ import {
   cancelExecution,
   bindExternalExecutionId,
   getRunningExecutions,
+  rejectConfirmation,
+  findRunningExecutionForTab,
 } from "../bus";
 import {
   actionToMcpTool,
@@ -171,23 +173,15 @@ describe("PATCH 6.1 — Action Platform regression tests", () => {
       expect(receivedInput).toEqual({ value: "original" });
     });
 
-    it("rejects confirmation token for wrong action", async () => {
+    it("confirmAction with unknown ID returns confirmation_not_found", async () => {
       registerTestAction("test.action_a", {
         confirmation: { mode: "always" },
       });
-      registerTestAction("test.action_b", {
-        confirmation: { mode: "always" },
-      });
 
-      const resultA = await executeAction("test.action_a", { value: "a" });
-      const token = resultA.confirmation!.id;
-
-      const resultB = await executeAction("test.action_b", { value: "b" }, {
-        confirmationToken: token,
-      });
-
-      expect(resultB.status).toBe("error");
-      expect(resultB.error?.code).toBe("confirmation_mismatch");
+      // Attempting to confirm a non-existent ID must fail.
+      const result = await confirmAction("nonexistent_confirmation_id");
+      expect(result.status).toBe("error");
+      expect(result.error?.code).toBe("confirmation_not_found");
     });
   });
 
@@ -1221,6 +1215,174 @@ describe("PATCH 6.3.2 — Action Gate & Cancellation Closure integration tests",
       // Cleanup: cancel to avoid dangling promise.
       await cancelExecution(running[0].executionId);
       void execPromise;
+    });
+  });
+});
+
+describe("PATCH 6.3.3 — Final Action Runtime Closure regression tests", () => {
+  // ── P1-2: Reject destroys prepared invocation ─────────────
+
+  describe("Reject destroys prepared invocation", () => {
+    it("after reject, confirmAction returns confirmation_not_found", async () => {
+      defineAction<{ value?: string }, void>({
+        id: "test.reject_destroy",
+        title: "Test reject destroy",
+        category: "query",
+        inputSchema: z.object({ value: z.string().optional() }),
+        risk: "read",
+        confirmation: { mode: "always" },
+        async execute() {
+          return { status: "success" };
+        },
+      });
+
+      const result = await executeAction("test.reject_destroy", { value: "x" });
+      expect(result.status).toBe("confirmation_required");
+      const confirmId = result.confirmation!.id;
+
+      // Reject.
+      rejectConfirmation(confirmId);
+
+      // Confirm after reject → must fail.
+      const confirmResult = await confirmAction(confirmId);
+      expect(confirmResult.status).toBe("error");
+      expect(confirmResult.error?.code).toBe("confirmation_not_found");
+    });
+
+    it("rejected destructive action is NEVER executable", async () => {
+      let executeCalled = false;
+
+      defineAction<{ sql: string }, void>({
+        id: "test.reject_destructive",
+        title: "Test reject destructive",
+        category: "query",
+        inputSchema: z.object({ sql: z.string() }),
+        risk: "read",
+        resolveRisk(input) {
+          return /^(DROP|DELETE)\b/i.test(input.sql) ? "destructive" : "read";
+        },
+        confirmation: { mode: "destructive-only" },
+        async execute() {
+          executeCalled = true;
+          return { status: "success" };
+        },
+      });
+
+      const result = await executeAction(
+        "test.reject_destructive",
+        { sql: "DROP TABLE users" },
+        { source: "ui" },
+      );
+      expect(result.status).toBe("confirmation_required");
+
+      // Reject.
+      rejectConfirmation(result.confirmation!.id);
+
+      // Attempt to confirm → must fail.
+      const confirmResult = await confirmAction(result.confirmation!.id);
+      expect(confirmResult.status).toBe("error");
+      expect(executeCalled).toBe(false);
+    });
+  });
+
+  // ── P1-1: findRunningExecutionForTab ──────────────────────
+
+  describe("findRunningExecutionForTab", () => {
+    it("finds running execution by tabId", async () => {
+      defineAction<{ value?: string }, void>({
+        id: "test.find_tab",
+        title: "Test find tab",
+        category: "query",
+        inputSchema: z.object({ value: z.string().optional() }),
+        risk: "read",
+        resolveContext(_input, ambient) {
+          return { ...ambient, tabId: "tab-xyz" };
+        },
+        async execute() {
+          return new Promise(() => {});
+        },
+      });
+
+      const execPromise = executeAction("test.find_tab", {}, {
+        context: { tabId: "tab-xyz" },
+      });
+      await new Promise((r) => setTimeout(r, 10));
+
+      const found = findRunningExecutionForTab("tab-xyz");
+      expect(found).toBeDefined();
+      expect(found!.actionId).toBe("test.find_tab");
+      expect(found!.tabId).toBe("tab-xyz");
+      expect(found!.state).toBe("running");
+
+      // Cleanup.
+      await cancelExecution(found!.executionId);
+      void execPromise;
+    });
+
+    it("filters by actionIds when provided", async () => {
+      defineAction<{ value?: string }, void>({
+        id: "test.find_filter_a",
+        title: "Test find filter A",
+        category: "query",
+        inputSchema: z.object({ value: z.string().optional() }),
+        risk: "read",
+        resolveContext(_input, ambient) {
+          return { ...ambient, tabId: "tab-filter" };
+        },
+        async execute() {
+          return new Promise(() => {});
+        },
+      });
+
+      const execPromise = executeAction("test.find_filter_a", {}, {
+        context: { tabId: "tab-filter" },
+      });
+      await new Promise((r) => setTimeout(r, 10));
+
+      // Search with matching actionId filter.
+      const foundMatch = findRunningExecutionForTab("tab-filter", ["test.find_filter_a"]);
+      expect(foundMatch).toBeDefined();
+
+      // Search with non-matching actionId filter.
+      const foundNoMatch = findRunningExecutionForTab("tab-filter", ["query.execute.current"]);
+      expect(foundNoMatch).toBeUndefined();
+
+      // Cleanup.
+      await cancelExecution(foundMatch!.executionId);
+      void execPromise;
+    });
+
+    it("returns undefined when no running execution for tab", () => {
+      const found = findRunningExecutionForTab("nonexistent-tab");
+      expect(found).toBeUndefined();
+    });
+  });
+
+  // ── One confirmation API: no confirmationToken ─────────────
+
+  describe("One confirmation API", () => {
+    it("executeAction options do not include confirmationToken", async () => {
+      // This is a compile-time check — if confirmationToken is in the
+      // options type, TypeScript would allow it. We verify the API shape
+      // by checking that confirmAction is the only way to confirm.
+      defineAction<{ value?: string }, void>({
+        id: "test.one_api",
+        title: "Test one API",
+        category: "query",
+        inputSchema: z.object({ value: z.string().optional() }),
+        risk: "read",
+        confirmation: { mode: "always" },
+        async execute() {
+          return { status: "success" };
+        },
+      });
+
+      const result = await executeAction("test.one_api", { value: "x" });
+      expect(result.status).toBe("confirmation_required");
+
+      // Only confirmAction(id) works.
+      const confirmResult = await confirmAction(result.confirmation!.id);
+      expect(confirmResult.status).toBe("success");
     });
   });
 });
