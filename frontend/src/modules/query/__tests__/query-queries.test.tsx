@@ -20,6 +20,8 @@ const {
   mockDeleteRunConfig,
   mockRenameSavedQuery,
   mockDuplicateSavedQuery,
+  mockRuntimeCancelQuery,
+  mockRuntimeExplainQuery,
 } = vi.hoisted(() => ({
   mockExecute: vi.fn(),
   mockCancel: vi.fn(),
@@ -37,6 +39,8 @@ const {
   mockDeleteRunConfig: vi.fn(),
   mockRenameSavedQuery: vi.fn(),
   mockDuplicateSavedQuery: vi.fn(),
+  mockRuntimeCancelQuery: vi.fn(),
+  mockRuntimeExplainQuery: vi.fn(),
 }));
 
 vi.mock("@/app/app.module", () => ({
@@ -60,6 +64,14 @@ vi.mock("@/app/app.module", () => ({
       duplicateSavedQuery: mockDuplicateSavedQuery,
     })),
   },
+}));
+
+vi.mock("../runtime/query-runtime", () => ({
+  cancelQuery: (args: unknown) => mockRuntimeCancelQuery(args),
+  explainQuery: (args: unknown) => mockRuntimeExplainQuery(args),
+  executeQuery: vi.fn(),
+  executeQueryMulti: vi.fn(),
+  registerCacheInvalidation: vi.fn(() => vi.fn()),
 }));
 
 vi.mock("@/commons/stores/query-history.store", () => ({
@@ -122,26 +134,29 @@ describe("query.queries", () => {
 
   describe("useCancelQuery", () => {
     it("cancels query", async () => {
-      mockCancel.mockResolvedValue(undefined);
+      mockRuntimeCancelQuery.mockResolvedValue(undefined);
 
       const { result } = renderHook(() => useCancelQuery(), {
         wrapper: createWrapper(),
       });
 
-      result.current.mutate({ connectionId: "conn-1", tabId: "tab-1" });
+      result.current.mutate({ tabId: "tab-1", executionId: "exec-1" });
 
       await waitFor(() => {
         expect(result.current.isSuccess).toBe(true);
       });
 
-      expect(mockCancel).toHaveBeenCalledWith("conn-1");
+      expect(mockRuntimeCancelQuery).toHaveBeenCalledWith({
+        tabId: "tab-1",
+        executionId: "exec-1",
+      });
     });
   });
 
   describe("useExplainPlan", () => {
     it("gets explain plan", async () => {
       const mockPlan = { plan: "Seq Scan on users" };
-      mockExplain.mockResolvedValue(mockPlan);
+      mockRuntimeExplainQuery.mockResolvedValue(mockPlan);
 
       const { result } = renderHook(() => useExplainPlan(), {
         wrapper: createWrapper(),
@@ -153,7 +168,11 @@ describe("query.queries", () => {
         expect(result.current.isSuccess).toBe(true);
       });
 
-      expect(mockExplain).toHaveBeenCalledWith("conn-1", "SELECT * FROM users");
+      expect(mockRuntimeExplainQuery).toHaveBeenCalledWith({
+        connectionId: "conn-1",
+        sql: "SELECT * FROM users",
+        tabId: "tab-1",
+      });
     });
   });
 

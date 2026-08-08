@@ -24,6 +24,9 @@ describe("QueryService", () => {
     expect(mockInvoke).toHaveBeenCalledWith("execute_query", {
       connectionId: "conn-1",
       sql: "SELECT 1",
+      executionId: undefined,
+      database: null,
+      schema: null,
     });
   });
 

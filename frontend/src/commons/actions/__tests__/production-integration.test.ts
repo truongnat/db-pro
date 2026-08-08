@@ -62,7 +62,6 @@ import {
 // ─── Test constants ──────────────────────────────────────────
 
 const TAB_A = "tab-test-a";
-const TAB_B = "tab-test-b";
 const CONN_ID = "conn-test-1";
 
 // ─── Helpers ─────────────────────────────────────────────────
@@ -118,6 +117,9 @@ beforeEach(async () => {
   // registry and module instances.
   bus = await import("@/commons/actions/bus");
   queryActions = await import("@/commons/actions/definitions/query.actions");
+
+  // Clear stale active executions from previous tests.
+  bus.resetActiveExecutions();
 
   // Suppress unused variable warnings — the import side-effect
   // registers the production actions in the shared registry.

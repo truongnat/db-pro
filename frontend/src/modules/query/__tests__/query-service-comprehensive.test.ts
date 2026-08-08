@@ -16,11 +16,11 @@ describe("QueryService — comprehensive", () => {
   });
 
   describe("cancel", () => {
-    it("calls cancel_query with connectionId", async () => {
+    it("calls cancel_query with executionId", async () => {
       mockInvoke.mockResolvedValueOnce(undefined);
-      await service.cancel("conn-1");
+      await service.cancel("exec-1");
       expect(mockInvoke).toHaveBeenCalledWith("cancel_query", {
-        connectionId: "conn-1",
+        executionId: "exec-1",
       });
     });
   });
@@ -38,6 +38,9 @@ describe("QueryService — comprehensive", () => {
       expect(mockInvoke).toHaveBeenCalledWith("execute_query_multi", {
         connectionId: "conn-1",
         sql: "SELECT 1; SELECT 2;",
+        executionId: undefined,
+        database: null,
+        schema: null,
       });
       expect(result.results).toHaveLength(2);
     });

@@ -15,6 +15,7 @@ import {
   getExecution,
   rejectConfirmation,
   findRunningExecutionForTab,
+  resetActiveExecutions,
 } from "../bus";
 import {
   actionToMcpTool,
@@ -50,6 +51,7 @@ function registerTestAction(
 
 beforeEach(() => {
   resetActionRegistry();
+  resetActiveExecutions();
 });
 
 describe("PATCH 6.1 — Action Platform regression tests", () => {

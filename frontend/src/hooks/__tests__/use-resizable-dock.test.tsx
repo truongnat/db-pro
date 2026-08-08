@@ -1,4 +1,4 @@
-import { render, act, screen } from "@testing-library/react";
+import { render, act } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useResizableDock } from "@/hooks/use-resizable-dock";
@@ -83,10 +83,10 @@ function renderWithRealDom(options?: Parameters<typeof useResizableDock>[0]) {
 }
 
 describe("useResizableDock", () => {
-  it("uses initial ratio of 0.35 by default", () => {
+  it("uses initial ratio of 0.65 by default", () => {
     const result = renderWithRealDom({ storageKey: STORAGE_KEY + "-1" });
 
-    expect(result.current.topHeight).toBe(350);
+    expect(result.current.topHeight).toBe(650);
     expect(result.current.isCollapsed).toBe(false);
   });
 
@@ -113,7 +113,7 @@ describe("useResizableDock", () => {
     const { separatorProps } = result.current;
     expect(separatorProps.role).toBe("separator");
     expect(separatorProps["aria-orientation"]).toBe("horizontal");
-    expect(separatorProps["aria-valuenow"]).toBe(35);
+    expect(separatorProps["aria-valuenow"]).toBe(65);
     expect(separatorProps.tabIndex).toBe(0);
   });
 
@@ -138,7 +138,7 @@ describe("useResizableDock", () => {
       } as unknown as React.KeyboardEvent);
     });
 
-    expect(result.current.separatorProps["aria-valuenow"]).toBe(34);
+    expect(result.current.separatorProps["aria-valuenow"]).toBe(64);
   });
 
   it("adjusts ratio with ArrowDown key", () => {
@@ -151,7 +151,7 @@ describe("useResizableDock", () => {
       } as unknown as React.KeyboardEvent);
     });
 
-    expect(result.current.separatorProps["aria-valuenow"]).toBe(36);
+    expect(result.current.separatorProps["aria-valuenow"]).toBe(66);
   });
 
   it("jumps to min with Home key", () => {
@@ -188,32 +188,44 @@ describe("useResizableDock", () => {
     expect(result.current.separatorProps["aria-valuenow"]).toBe(85);
   });
 
-  it("collapses on double-click", () => {
-    const result = renderWithRealDom({ storageKey: STORAGE_KEY + "-9" });
+  it("resets to default ratio on double-click", () => {
+    const result = renderWithRealDom({
+      initialRatio: 0.5,
+      storageKey: STORAGE_KEY + "-9",
+    });
+
+    // Change ratio first via keyboard.
+    act(() => {
+      result.current.separatorProps.onKeyDown({
+        key: "ArrowDown",
+        preventDefault: vi.fn(),
+      } as unknown as React.KeyboardEvent);
+    });
+
+    // Double-click should reset to initialRatio (0.5).
+    act(() => {
+      result.current.separatorProps.onDoubleClick();
+    });
 
     expect(result.current.isCollapsed).toBe(false);
-
-    act(() => {
-      result.current.separatorProps.onDoubleClick();
-    });
-
-    expect(result.current.isCollapsed).toBe(true);
-    expect(result.current.topHeight).toBe(0);
+    expect(result.current.topHeight).toBe(500);
   });
 
-  it("restores last ratio when expanding from collapse", () => {
+  it("toggleCollapse then double-click resets to initial ratio", () => {
     const result = renderWithRealDom({ storageKey: STORAGE_KEY + "-10" });
 
-    act(() => {
-      result.current.separatorProps.onDoubleClick();
-    });
-    expect(result.current.isCollapsed).toBe(true);
-
+    // Collapse via toggleCollapse.
     act(() => {
       result.current.toggleCollapse();
     });
+    expect(result.current.isCollapsed).toBe(true);
+
+    // Double-click restores (resets to initialRatio and uncollapses).
+    act(() => {
+      result.current.separatorProps.onDoubleClick();
+    });
     expect(result.current.isCollapsed).toBe(false);
-    expect(result.current.topHeight).toBe(350);
+    expect(result.current.topHeight).toBe(650);
   });
 
   it("toggleCollapse toggles state", () => {
@@ -241,7 +253,7 @@ describe("useResizableDock", () => {
     });
 
     const stored = localStorage.getItem(STORAGE_KEY);
-    expect(stored).toBe("0.36");
+    expect(stored).toBe("0.66");
   });
 
   it("ignores non-handled keys", () => {

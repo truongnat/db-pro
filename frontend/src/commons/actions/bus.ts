@@ -567,6 +567,11 @@ export function cleanupExecutions(maxAgeMs = 60_000): void {
   }
 }
 
+/** Clear all active executions — test helper only. */
+export function resetActiveExecutions(): void {
+  activeExecutions.clear();
+}
+
 /**
  * Get all currently running executions.
  *
