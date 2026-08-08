@@ -1,10 +1,11 @@
-import { ChevronLeftIcon, ChevronRightIcon, ListIcon } from "lucide-react";
+import { ChevronLeftIcon, ChevronRightIcon, DatabaseIcon, ListIcon, TableIcon } from "lucide-react";
 import { useState } from "react";
 
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import type { WorkspaceTab } from "@/commons/types/workspace.types";
 
 interface TabScrollControlsProps {
   canScrollLeft: boolean;
@@ -70,7 +71,7 @@ export function TabOverflowMenu({ isOverflowing }: Pick<TabScrollControlsProps, 
           <ListIcon className="size-3.5" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-56 p-1">
+      <PopoverContent align="end" className="w-64 p-1">
         <div className="flex flex-col">
           {tabs.map((tab) => (
             <Button
@@ -78,7 +79,7 @@ export function TabOverflowMenu({ isOverflowing }: Pick<TabScrollControlsProps, 
               type="button"
               variant="ghost"
               className={cn(
-                "flex h-auto w-full items-center gap-2 justify-start rounded-md px-2 py-1.5 text-left text-sm transition-colors",
+                "flex h-auto w-full items-center gap-2 justify-start rounded-md px-2 py-1.5 text-left text-[13px] transition-colors",
                 tab.id === activeTabId && "bg-accent text-accent-foreground",
               )}
               onClick={() => {
@@ -86,11 +87,16 @@ export function TabOverflowMenu({ isOverflowing }: Pick<TabScrollControlsProps, 
                 setOpen(false);
               }}
             >
+              {tab.kind === "db-object" ? (
+                <TableIcon className="h-3.5 w-3.5 shrink-0 text-[var(--app-text-muted)]" />
+              ) : (
+                <DatabaseIcon className="h-3.5 w-3.5 shrink-0 text-[var(--app-text-muted)]" />
+              )}
               {tab.dirty && (
-                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+                <span className="h-2 w-2 shrink-0 rounded-full bg-primary" />
               )}
               {tab.pinned && <span className="text-[10px]">📌</span>}
-              <span className={cn("truncate", tab.preview && "italic")}>
+              <span className={cn("flex-1 truncate", tab.preview && "italic opacity-70")}>
                 {tab.title}
               </span>
             </Button>

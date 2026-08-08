@@ -7,7 +7,7 @@ import {
   type DragEndEvent,
 } from "@dnd-kit/core";
 import { SortableContext, horizontalListSortingStrategy } from "@dnd-kit/sortable";
-import { PinIcon, XIcon } from "lucide-react";
+import { DatabaseIcon, PinIcon, TableIcon, XIcon } from "lucide-react";
 import { useCallback, useState } from "react";
 import type { DraggableAttributes } from "@dnd-kit/core";
 import type { SyntheticListenerMap } from "@dnd-kit/core/dist/hooks/utilities";
@@ -38,6 +38,13 @@ import { useTabKeyboard } from "@/hooks/use-tab-keyboard";
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
 import type { WorkspaceTab } from "@/commons/types/workspace.types";
 
+function TabKindIcon({ kind }: { kind: WorkspaceTab["kind"] }) {
+  if (kind === "db-object") {
+    return <TableIcon className="h-3.5 w-3.5 shrink-0 text-[var(--app-text-muted)]" />;
+  }
+  return <DatabaseIcon className="h-3.5 w-3.5 shrink-0 text-[var(--app-text-muted)]" />;
+}
+
 function TabItem({
   tab,
   isActive,
@@ -56,10 +63,11 @@ function TabItem({
   return (
     <div
       className={cn(
-        "group relative flex shrink-0 cursor-pointer items-center gap-1.5 px-3 py-1.5 text-xs transition-colors",
+        "group relative flex shrink-0 cursor-pointer items-center gap-1.5 px-3 py-2 text-[13px] transition-colors",
+        "min-w-[110px] max-w-[220px]",
         isActive
-          ? "bg-background text-foreground"
-          : "text-[var(--app-text-muted)] hover:bg-[var(--app-hover)]",
+          ? "bg-[var(--app-surface-3)] text-foreground"
+          : "text-[var(--app-text-muted)] hover:bg-[var(--app-surface-2)] hover:text-foreground",
       )}
       onClick={onActivate}
       title={tab.title}
@@ -99,26 +107,33 @@ function TabItem({
       {...dragListeners}
       {...dragAttributes}
     >
-      {/* Active indicator — top primary line */}
+      {/* Active indicator — top 2px line */}
       {isActive && (
-        <span className="absolute inset-x-0 top-0 h-[2px] rounded-b-sm bg-primary" />
+        <span className="absolute inset-x-0 top-0 h-[2px] bg-primary" />
       )}
-      {tab.dirty && (
+      {/* Kind icon */}
+      <TabKindIcon kind={tab.kind} />
+      {/* Dirty dot — replaces close button when dirty and not hovered */}
+      {tab.dirty && !tab.pinned && (
         <span
-          className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary"
+          className="h-2 w-2 shrink-0 rounded-full bg-primary group-hover:hidden"
           aria-label="Unsaved changes"
         />
       )}
       {tab.pinned && (
         <PinIcon className="h-3 w-3 shrink-0 text-[var(--app-text-muted)]" aria-label="Pinned" />
       )}
-      <span className={cn("max-w-[140px] truncate", tab.preview && "italic")}>
+      <span className={cn("flex-1 truncate text-[13px]", tab.preview && "italic opacity-70")}>
         {tab.title}
       </span>
+      {/* Close button — visible on hover, hidden when dirty (dot shows instead) */}
       {!tab.pinned && (
         <button
           type="button"
-          className="flex h-4 w-4 shrink-0 items-center justify-center rounded text-[var(--app-text-muted)] opacity-0 transition-opacity hover:bg-[var(--app-active)] hover:text-foreground group-hover:opacity-100"
+          className={cn(
+            "flex h-4 w-4 shrink-0 items-center justify-center rounded text-[var(--app-text-muted)] transition-opacity hover:bg-[var(--app-active)] hover:text-foreground",
+            tab.dirty ? "opacity-0 group-hover:opacity-100" : "opacity-0 group-hover:opacity-100",
+          )}
           onClick={(e) => {
             e.stopPropagation();
             onClose(tab.id);
@@ -191,7 +206,7 @@ export function WorkspaceTabBar() {
         onDragEnd={handleDragEnd}
         onDragCancel={handleDragCancel}
       >
-        <div className="flex items-center border-b border-[var(--app-border-subtle)] bg-sidebar">
+        <div className="flex items-center border-b border-[var(--app-border-subtle)] bg-[var(--app-surface-1)]">
           <TabScrollLeft canScrollLeft={canScrollLeft} onScrollLeft={scrollLeft} />
 
           <div
@@ -256,11 +271,12 @@ export function WorkspaceTabBar() {
 
         <DragOverlay>
           {draggingTab ? (
-            <div className="flex items-center gap-1.5 border border-[var(--app-border)] bg-card px-3 py-1.5 text-xs shadow-lg opacity-90">
+            <div className="flex items-center gap-1.5 border border-[var(--app-border)] bg-[var(--app-surface-3)] px-3 py-2 text-[13px] shadow-lg opacity-90">
+              <TabKindIcon kind={draggingTab.kind} />
               {draggingTab.dirty && (
-                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+                <span className="h-2 w-2 shrink-0 rounded-full bg-primary" />
               )}
-              <span className={cn("max-w-[140px] truncate", draggingTab.preview && "italic")}>
+              <span className={cn("max-w-[180px] truncate", draggingTab.preview && "italic opacity-70")}>
                 {draggingTab.title}
               </span>
             </div>
