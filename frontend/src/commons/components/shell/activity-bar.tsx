@@ -64,9 +64,11 @@ export function ActivityBar() {
                   className={cn(
                     "relative flex h-10 w-10 items-center justify-center rounded-md text-[var(--app-text-muted)] transition-colors duration-100",
                     "hover:bg-[var(--app-hover)] hover:text-foreground",
+                    "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus-ring-color)]",
                     isActive ? "bg-primary/10 text-primary" : "text-[var(--app-text-muted)]",
                   )}
                   onClick={() => setSidebarView(item.viewId)}
+                  aria-label={label}
                   aria-current={isActive ? "page" : undefined}
                 >
                   {/* Active indicator — 2px left bar */}
