@@ -118,8 +118,8 @@ export function AgentPanel({ open, onClose, width, className }: AgentPanelProps)
               <MessageSquare className="h-4 w-4 text-primary" />
             </div>
             <div>
-              <p className="text-[13px] font-medium leading-tight text-foreground">How can I help?</p>
-              <p className="text-[11px] text-[var(--app-text-muted)]">Ask about schemas, queries, optimization</p>
+              <p className="text-[13px] font-semibold leading-tight text-foreground">How can I help with this database?</p>
+              <p className="text-[12px] text-[var(--app-text-muted)]">Ask about schemas, queries, optimization</p>
             </div>
           </div>
 
