@@ -23,9 +23,9 @@ interface QueryEditorProps {
   onChange: (value: string) => void;
   readOnly?: boolean;
   path?: string;
-  onExecute?: (sql: string) => void;
-  onExecuteAll?: () => void;
-  onCancel?: () => void;
+  onExecute?: (sql: string, source: "keyboard" | "ui") => void;
+  onExecuteAll?: (source: "keyboard" | "ui") => void;
+  onCancel?: (source: "keyboard" | "ui") => void;
 }
 
 export function QueryEditor({
@@ -79,7 +79,7 @@ export function QueryEditor({
           monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.Enter,
           () => {
             const sql = runTargetSql(editor);
-            if (sql) onExecuteRef.current?.(sql);
+            if (sql) onExecuteRef.current?.(sql, "keyboard");
           },
         );
       }
@@ -87,18 +87,18 @@ export function QueryEditor({
         editor.addCommand(
           monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyMod.Shift | monacoInstance.KeyCode.Enter,
           () => {
-            onExecuteAllRef.current?.();
+            onExecuteAllRef.current?.("keyboard");
           },
         );
         editor.addCommand(monacoInstance.KeyCode.F5, () => {
-          onExecuteAllRef.current?.();
+          onExecuteAllRef.current?.("keyboard");
         });
       }
 
       // Escape → cancel (independent of onExecute so it always works)
       if (onCancelRef.current) {
         editor.addCommand(monacoInstance.KeyCode.Escape, () => {
-          onCancelRef.current?.();
+          onCancelRef.current?.("keyboard");
         });
       }
 
@@ -140,7 +140,7 @@ export function QueryEditor({
     return onQueryAction("executeCurrent", () => {
       if (!editorRef.current) return;
       const sql = runTargetSql(editorRef.current);
-      if (sql) onExecuteRef.current?.(sql);
+      if (sql) onExecuteRef.current?.(sql, "ui");
     });
   }, [runTargetSql]);
 

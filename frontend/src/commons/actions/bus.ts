@@ -200,6 +200,38 @@ export async function executeAction<TOutput = unknown>(
   return runExecution(definition, validatedInput as unknown as Record<string, unknown>, ctx, resolvedPayload, source) as Promise<ActionResult<TOutput>>;
 }
 
+// ─── Execution state machine ─────────────────────────────────
+
+/**
+ * Transition an ActionExecution to a new state.
+ *
+ * Terminal states (completed, error, cancelled) are IMMUTABLE.
+ * Once an execution reaches a terminal state, no further transitions
+ * are allowed. This prevents late async results from overwriting
+ * a cancellation or error state.
+ *
+ * Returns true if the transition was applied, false if forbidden.
+ */
+function transitionExecution(
+  execution: ActionExecution,
+  nextState: ActionExecution["state"],
+): boolean {
+  // Terminal states are immutable.
+  if (
+    execution.state === "completed" ||
+    execution.state === "error" ||
+    execution.state === "cancelled"
+  ) {
+    return false;
+  }
+  // Only allow running → terminal transitions.
+  if (execution.state !== "running") {
+    return false;
+  }
+  execution.state = nextState;
+  return true;
+}
+
 // ─── Execution helper ────────────────────────────────────────
 
 /**
@@ -255,39 +287,39 @@ async function runExecution(
     const result = await definition.execute(validatedInput as unknown as never, ctx);
 
     const tracked = activeExecutions.get(executionId);
+    let auditStatus: "completed" | "error" | "cancelled" = "completed";
     if (tracked) {
-      switch (result.status) {
-        case "success":
-          tracked.state = "completed";
-          break;
-        case "error":
-          tracked.state = "error";
-          break;
-        case "cancelled":
-          tracked.state = "cancelled";
-          break;
-        default:
-          tracked.state = "completed";
+      // Determine the result status.
+      if (result.status === "error") auditStatus = "error";
+      else if (result.status === "cancelled") auditStatus = "cancelled";
+
+      // Apply state transition — terminal states are immutable.
+      // If cancelExecution() already set state to "cancelled", a late
+      // success/error result MUST NOT overwrite it.
+      const transitioned = transitionExecution(tracked, auditStatus);
+      if (transitioned) {
+        tracked.result = result;
       }
-      tracked.result = result;
+      // If not transitioned, the execution was already terminal.
+      // Keep the existing state and result.
     }
 
-    emitAuditEvent({
-      actionId: definition.id,
-      source,
-      startedAt,
-      completedAt: new Date().toISOString(),
-      status:
-        result.status === "error"
-          ? "error"
-          : result.status === "cancelled"
-            ? "cancelled"
-            : "completed",
-      connectionId: ctx.connectionId,
-      correlationId: ctx.correlationId,
-      executionId,
-      durationMs: Date.now() - new Date(startedAt).getTime(),
-    });
+    // Only emit completion audit if the state was not already terminal.
+    // A late result resolving after cancellation should not produce a
+    // misleading "completed" audit event.
+    if (tracked && tracked.state === auditStatus) {
+      emitAuditEvent({
+        actionId: definition.id,
+        source,
+        startedAt,
+        completedAt: new Date().toISOString(),
+        status: auditStatus,
+        connectionId: ctx.connectionId,
+        correlationId: ctx.correlationId,
+        executionId,
+        durationMs: Date.now() - new Date(startedAt).getTime(),
+      });
+    }
 
     // The bus owns the executionId. Action handlers must NOT override it.
     return { ...result, executionId };
@@ -296,25 +328,29 @@ async function runExecution(
       err instanceof Error ? err.message : "Unknown action error";
 
     const tracked = activeExecutions.get(executionId);
-    if (tracked) {
-      tracked.state = "error";
+    // Apply error state — terminal states are immutable.
+    const transitioned = tracked ? transitionExecution(tracked, "error") : false;
+    if (tracked && transitioned) {
       tracked.result = {
         status: "error",
         error: { code: "execution_error", message },
       };
     }
 
-    emitAuditEvent({
-      actionId: definition.id,
-      source,
-      startedAt,
-      completedAt: new Date().toISOString(),
-      status: "error",
-      connectionId: ctx.connectionId,
-      correlationId: ctx.correlationId,
-      executionId,
-      durationMs: Date.now() - new Date(startedAt).getTime(),
-    });
+    // Only emit error audit if the transition was applied.
+    if (tracked && transitioned) {
+      emitAuditEvent({
+        actionId: definition.id,
+        source,
+        startedAt,
+        completedAt: new Date().toISOString(),
+        status: "error",
+        connectionId: ctx.connectionId,
+        correlationId: ctx.correlationId,
+        executionId,
+        durationMs: Date.now() - new Date(startedAt).getTime(),
+      });
+    }
 
     return {
       status: "error",

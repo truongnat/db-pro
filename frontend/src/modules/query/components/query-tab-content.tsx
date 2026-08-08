@@ -73,9 +73,9 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
 
   /** Execute current statement via Action Platform (Ctrl+Enter). */
   const handleExecuteFragment = useCallback(
-    async (_fragmentSql: string) => {
+    async (_fragmentSql: string, source: "keyboard" | "ui" = "ui") => {
       if (tabConnectionId && tabId && status !== "running") {
-        const result = await executeAction("query.execute.current", { tabId }, { source: "ui" });
+        const result = await executeAction("query.execute.current", { tabId }, { source });
         if (result.status === "confirmation_required" && result.confirmation) {
           useActionConfirmationStore.getState().setPending(result.confirmation);
         }
@@ -85,9 +85,9 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
   );
 
   /** Execute all statements via Action Platform (Ctrl+Shift+Enter / F5 / toolbar). */
-  const handleExecuteAll = useCallback(async () => {
+  const handleExecuteAll = useCallback(async (source: "keyboard" | "ui" = "ui") => {
     if (tabConnectionId && tabId && sql.trim() && status !== "running") {
-      const result = await executeAction("query.execute.all", { tabId }, { source: "ui" });
+      const result = await executeAction("query.execute.all", { tabId }, { source });
       if (result.status === "confirmation_required" && result.confirmation) {
         useActionConfirmationStore.getState().setPending(result.confirmation);
       }
@@ -95,9 +95,9 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
   }, [tabConnectionId, tabId, sql, status]);
 
   /** Cancel via Action Platform. */
-  const handleCancel = useCallback(() => {
+  const handleCancel = useCallback((source: "keyboard" | "ui" = "ui") => {
     if (tabId) {
-      void executeAction("query.cancel", { tabId }, { source: "ui" });
+      void executeAction("query.cancel", { tabId }, { source });
     }
   }, [tabId]);
 
@@ -324,7 +324,7 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
                 </div>
                 <p className="mb-4 max-w-lg text-[13px] leading-relaxed text-[var(--app-text-muted)]">{error}</p>
                 <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm" className="h-7 rounded-[5px] text-[13px]" onClick={handleExecuteAll}>
+                  <Button variant="outline" size="sm" className="h-7 rounded-[5px] text-[13px]" onClick={() => { void handleExecuteAll("ui"); }}>
                     {t("common.actions.retry")}
                   </Button>
                 </div>

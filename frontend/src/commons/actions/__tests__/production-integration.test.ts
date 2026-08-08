@@ -47,19 +47,17 @@ vi.mock("../services/local-history", () => ({
   pushLocalHistory: vi.fn(),
 }));
 
-// Mock cache invalidation (no React layer in tests).
-vi.mock("../query-runtime", async () => {
-  const actual = await vi.importActual("../query-runtime");
-  return {
-    ...actual,
-  };
-});
-
 // ─── Store imports (real Zustand stores) ─────────────────────
 
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
 import { useQueryEditorContextStore } from "@/commons/stores/query-editor-context.store";
 import { useActionConfirmationStore } from "@/commons/stores/action-confirmation.store";
+
+// ─── Runtime imports (for stale cancel test) ─────────────────
+
+import {
+  cancelQuery as runtimeCancelQuery,
+} from "@/modules/query/runtime/query-runtime";
 
 // ─── Test constants ──────────────────────────────────────────
 
@@ -355,67 +353,76 @@ describe("PATCH 6.3.3 — Production Action/Query Integration", () => {
   // H. Stale cancel does not clobber newer execution
 
   describe("H. Stale cancel does not clobber newer execution", () => {
-    it("cancel of exec1 that resolves after exec2 started does not affect exec2", async () => {
+    it("late cancel of exec1 does not overwrite exec2 workspace state", async () => {
       setupQueryTab(TAB_A, "SELECT 1");
 
-      let resolveExec1: (() => void) | null = null;
-      let cancelCallCount = 0;
+      const EXEC1_ID = "backend-exec-1";
+      const EXEC2_ID = "backend-exec-2";
 
-      mockExecute.mockImplementation((_connId: string, _sql: string, execId: string) => {
-        if (!resolveExec1) {
-          // First execution — hold it.
-          return new Promise<void>((resolve) => {
-            resolveExec1 = resolve as () => void;
-          });
-        }
-        // Second execution — resolve immediately.
-        return Promise.resolve({
-          columns: [],
-          rows: [],
-          rowCount: 0,
-          durationMs: 5,
-        });
-      });
-
-      mockCancel.mockImplementation(async () => {
-        cancelCallCount++;
-        // Delay cancel resolution so exec2 can start first.
-        await new Promise((r) => setTimeout(r, 50));
-      });
-
-      // Start exec1.
-      const exec1Promise = bus.executeAction(
-        "query.execute.current",
-        { tabId: TAB_A },
-        { source: "ui" },
+      // Delayed backend cancel.
+      mockCancel.mockImplementation(
+        () => new Promise<void>((resolve) => setTimeout(resolve, 50)),
       );
-      await new Promise((r) => setTimeout(r, 20));
 
-      const running1 = bus.getRunningExecutions();
-      const exec1Action = running1.find(
-        (e) => e.actionId === "query.execute.current" && e.tabId === TAB_A,
-      );
-      expect(exec1Action).toBeDefined();
-      const exec1BackendId = exec1Action!.externalExecutionId;
+      // Step 1: exec1 is active in the runtime.
+      // Manually set the workspace state as if executeQuery set it.
+      useWorkspaceStore.setState((s) => ({
+        tabs: s.tabs.map((t) =>
+          t.id === TAB_A && t.kind === "query"
+            ? {
+                ...t,
+                data: {
+                  ...t.data,
+                  status: "running" as const,
+                  activeExecutionId: EXEC1_ID,
+                  executionStartedAt: 1000,
+                },
+              }
+            : t,
+        ),
+      }));
 
-      // Start cancelling exec1 (but it will be delayed).
-      const cancelPromise = bus.cancelExecution(exec1Action!.executionId);
+      // Step 2: Begin cancelling exec1 (backend cancel is delayed).
+      const cancelPromise = runtimeCancelQuery({
+        tabId: TAB_A,
+        executionId: EXEC1_ID,
+      });
 
       // Wait for cancel to be called but not yet resolved.
       await new Promise((r) => setTimeout(r, 10));
-      expect(mockCancel).toHaveBeenCalledWith(exec1BackendId);
+      expect(mockCancel).toHaveBeenCalledWith(EXEC1_ID);
 
-      // The tab is still in "running" state (cancel hasn't resolved yet).
-      // Now simulate exec2 starting on the same tab by resetting the tab status.
-      // In reality, this can't happen because of the concurrency guard,
-      // but the stale guard in the runtime protects against it.
+      // Step 3: Before cancel resolves, install exec2 state
+      // (simulating a newer execution starting on the same tab).
+      useWorkspaceStore.setState((s) => ({
+        tabs: s.tabs.map((t) =>
+          t.id === TAB_A && t.kind === "query"
+            ? {
+                ...t,
+                data: {
+                  ...t.data,
+                  status: "running" as const,
+                  activeExecutionId: EXEC2_ID,
+                  executionStartedAt: 2000,
+                },
+              }
+            : t,
+        ),
+      }));
 
-      // Resolve the cancel.
+      // Step 4: Let the cancel of exec1 resolve.
       await cancelPromise;
 
-      // After cancel, the runtime's stale guard checks if exec1 is still active.
-      // Since no exec2 started, the tab should be cancelled.
-      void exec1Promise;
+      // Step 5: Assert exec2 state is UNAFFECTED.
+      const tab = useWorkspaceStore.getState().tabs.find((t) => t.id === TAB_A);
+      expect(tab?.kind).toBe("query");
+      if (tab?.kind === "query") {
+        // The stale guard must have prevented exec1's cancel from
+        // overwriting exec2's state.
+        expect(tab.data.activeExecutionId).toBe(EXEC2_ID);
+        expect(tab.data.status).toBe("running");
+        expect(tab.data.executionStartedAt).toBe(2000);
+      }
     });
   });
 
@@ -450,29 +457,26 @@ describe("PATCH 6.3.3 — Production Action/Query Integration", () => {
   // J. Command Palette destructive query → global confirmation host
 
   describe("J. Command Palette destructive → global confirmation store", () => {
-    it("command-palette source destructive query sets global confirmation store", async () => {
+    it("commandFromAction().execute() routes destructive confirmation to global store", async () => {
       setupQueryTab(TAB_A, "DROP TABLE users");
 
-      const result = await bus.executeAction(
-        "query.execute.all",
-        { tabId: TAB_A },
-        { source: "command-palette" },
-      );
+      // Import the real command adapter.
+      const { commandFromAction } = await import("@/commons/actions/command-adapter");
 
-      expect(result.status).toBe("confirmation_required");
-      expect(result.confirmation).toBeDefined();
+      // Create a real Command from the action definition.
+      const command = commandFromAction("query.execute.all", {
+        inputProvider: () => ({ tabId: TAB_A }),
+      });
 
-      // The command adapter routes this to the global store.
-      // Simulate what command-adapter.ts does:
-      if (result.status === "confirmation_required" && result.confirmation) {
-        useActionConfirmationStore.getState().setPending(result.confirmation);
-      }
+      // Invoke the command's execute — this is the REAL code path.
+      await command.execute!();
 
       // Verify the global store has the pending confirmation.
       const pending = useActionConfirmationStore.getState().pending;
       expect(pending).toBeDefined();
       expect(pending!.actionId).toBe("query.execute.all");
       expect(pending!.risk).toBe("destructive");
+      expect(pending!.source).toBe("command-palette");
 
       // Confirm through the global store.
       mockExecuteMulti.mockResolvedValue({

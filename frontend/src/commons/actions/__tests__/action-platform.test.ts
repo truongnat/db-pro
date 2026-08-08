@@ -12,6 +12,7 @@ import {
   cancelExecution,
   bindExternalExecutionId,
   getRunningExecutions,
+  getExecution,
   rejectConfirmation,
   findRunningExecutionForTab,
 } from "../bus";
@@ -1383,6 +1384,208 @@ describe("PATCH 6.3.3 — Final Action Runtime Closure regression tests", () => 
       // Only confirmAction(id) works.
       const confirmResult = await confirmAction(result.confirmation!.id);
       expect(confirmResult.status).toBe("success");
+    });
+  });
+});
+
+describe("PATCH 6.3-FINAL — Terminal state & confirmation queue", () => {
+  // ── Terminal state immutability ────────────────────────────
+
+  describe("ActionExecution terminal state is immutable", () => {
+    it("cancelled execution cannot be overwritten to completed by late resolve", async () => {
+      let resolveExecute: (() => void) | null = null;
+
+      defineAction<{ value?: string }, void>({
+        id: "test.terminal_cancel",
+        title: "Test terminal cancel",
+        category: "query",
+        inputSchema: z.object({ value: z.string().optional() }),
+        risk: "read",
+        resolveContext(_input, ambient) {
+          return { ...ambient, tabId: "tab-terminal" };
+        },
+        async execute() {
+          // Hold the execute promise until we manually resolve it.
+          await new Promise<void>((resolve) => {
+            resolveExecute = resolve as () => void;
+          });
+          return { status: "success" };
+        },
+        async cancel() {
+          // Cancel resolves immediately.
+        },
+      });
+
+      // Start execution.
+      const execPromise = executeAction("test.terminal_cancel", {}, {
+        context: { tabId: "tab-terminal" },
+      });
+      await new Promise((r) => setTimeout(r, 10));
+
+      // Verify running.
+      const running = getRunningExecutions();
+      const exec = running.find((e) => e.tabId === "tab-terminal");
+      expect(exec).toBeDefined();
+      expect(exec!.state).toBe("running");
+
+      // Cancel — sets state to "cancelled".
+      const cancelResult = await cancelExecution(exec!.executionId);
+      expect(cancelResult.status).toBe("cancelled");
+
+      // Verify cancelled.
+      const afterCancel = getRunningExecutions().find(
+        (e) => e.executionId === exec!.executionId,
+      );
+      // After cancel, the execution may or may not be in getRunningExecutions
+      // (since state is no longer "running"). Check getExecution instead.
+      const tracked = getExecution(exec!.executionId);
+      expect(tracked).toBeDefined();
+      expect(tracked!.state).toBe("cancelled");
+
+      // Now resolve the original execute late.
+      expect(resolveExecute).toBeTruthy();
+      resolveExecute!();
+      await execPromise;
+
+      // State MUST still be "cancelled" — late success must not overwrite.
+      const afterLateResolve = getExecution(exec!.executionId);
+      expect(afterLateResolve).toBeDefined();
+      expect(afterLateResolve!.state).toBe("cancelled");
+    });
+
+    it("completed execution cannot transition to error", async () => {
+      defineAction<{ value?: string }, void>({
+        id: "test.terminal_complete",
+        title: "Test terminal complete",
+        category: "query",
+        inputSchema: z.object({ value: z.string().optional() }),
+        risk: "read",
+        resolveContext(_input, ambient) {
+          return { ...ambient, tabId: "tab-complete" };
+        },
+        async execute() {
+          return { status: "success" };
+        },
+      });
+
+      const result = await executeAction("test.terminal_complete", {}, {
+        context: { tabId: "tab-complete" },
+      });
+      expect(result.status).toBe("success");
+
+      const execId = result.executionId!;
+      const tracked = getExecution(execId);
+      expect(tracked!.state).toBe("completed");
+
+      // Attempting to cancel a completed execution should fail.
+      const cancelResult = await cancelExecution(execId);
+      expect(cancelResult.status).toBe("error");
+      expect(cancelResult.error?.code).toBe("execution_not_found");
+
+      // State is still "completed".
+      const still = getExecution(execId);
+      expect(still!.state).toBe("completed");
+    });
+  });
+
+  // ── Confirmation queue / orphan prevention ─────────────────
+
+  describe("Confirmation store must not orphan prepared invocations", () => {
+    it("setPending with new confirmation rejects the old one", async () => {
+      // Dynamic import to get the real store.
+      const { useActionConfirmationStore } = await import(
+        "@/commons/stores/action-confirmation.store"
+      );
+
+      defineAction<{ value?: string }, void>({
+        id: "test.queue_a",
+        title: "Test queue A",
+        category: "query",
+        inputSchema: z.object({ value: z.string().optional() }),
+        risk: "read",
+        confirmation: { mode: "always" },
+        async execute() {
+          return { status: "success" };
+        },
+      });
+
+      defineAction<{ value?: string }, void>({
+        id: "test.queue_b",
+        title: "Test queue B",
+        category: "query",
+        inputSchema: z.object({ value: z.string().optional() }),
+        risk: "read",
+        confirmation: { mode: "always" },
+        async execute() {
+          return { status: "success" };
+        },
+      });
+
+      // Request confirmation A.
+      const resultA = await executeAction("test.queue_a", { value: "a" });
+      expect(resultA.status).toBe("confirmation_required");
+      const confirmIdA = resultA.confirmation!.id;
+
+      // Push A into the global store.
+      useActionConfirmationStore.getState().setPending(resultA.confirmation!);
+      expect(useActionConfirmationStore.getState().pending!.id).toBe(confirmIdA);
+
+      // Request confirmation B.
+      const resultB = await executeAction("test.queue_b", { value: "b" });
+      expect(resultB.status).toBe("confirmation_required");
+
+      // Push B into the global store — A should be auto-rejected.
+      useActionConfirmationStore.getState().setPending(resultB.confirmation!);
+
+      // Current pending is B.
+      expect(useActionConfirmationStore.getState().pending!.id).toBe(
+        resultB.confirmation!.id,
+      );
+
+      // A's prepared invocation must have been destroyed.
+      const confirmA = await confirmAction(confirmIdA);
+      expect(confirmA.status).toBe("error");
+      expect(confirmA.error?.code).toBe("confirmation_not_found");
+
+      // Cleanup.
+      useActionConfirmationStore.getState().reject();
+    });
+
+    it("clearPending rejects the prepared invocation", async () => {
+      const { useActionConfirmationStore } = await import(
+        "@/commons/stores/action-confirmation.store"
+      );
+
+      defineAction<{ value?: string }, void>({
+        id: "test.clear_pending",
+        title: "Test clear pending",
+        category: "query",
+        inputSchema: z.object({ value: z.string().optional() }),
+        risk: "read",
+        confirmation: { mode: "always" },
+        async execute() {
+          return { status: "success" };
+        },
+      });
+
+      // Request confirmation.
+      const result = await executeAction("test.clear_pending", { value: "x" });
+      expect(result.status).toBe("confirmation_required");
+      const confirmId = result.confirmation!.id;
+
+      // Push into store.
+      useActionConfirmationStore.getState().setPending(result.confirmation!);
+
+      // Clear pending — must reject the prepared invocation.
+      useActionConfirmationStore.getState().clearPending();
+
+      // Pending is null.
+      expect(useActionConfirmationStore.getState().pending).toBeNull();
+
+      // Attempting to confirm → confirmation_not_found.
+      const confirmResult = await confirmAction(confirmId);
+      expect(confirmResult.status).toBe("error");
+      expect(confirmResult.error?.code).toBe("confirmation_not_found");
     });
   });
 });
