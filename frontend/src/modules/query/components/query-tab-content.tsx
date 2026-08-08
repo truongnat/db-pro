@@ -214,7 +214,7 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
   if (!tabConnectionId) {
     return (
       <div className="flex items-center justify-center py-12">
-        <p className="text-[var(--app-text-muted)]">{t("query.connectFirst")}</p>
+        <p className="text-[13px] text-[var(--app-text-muted)]">{t("query.connectFirst")}</p>
       </div>
     );
   }
@@ -261,19 +261,21 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col">
-          <div className="flex items-center border-b border-[var(--app-border-subtle)]">
+          <div className="flex h-[32px] items-center border-b border-[var(--app-border-subtle)] bg-[var(--app-surface-1)]">
             {panelTabs.map((tab) => (
               <button
                 key={tab.id}
                 type="button"
-                className={`relative px-4 py-2 text-xs transition-colors ${
-                  panelTab === tab.id ? "text-foreground" : "text-[var(--app-text-muted)] hover:text-foreground"
+                className={`relative h-full px-3 text-[13px] transition-colors ${
+                  panelTab === tab.id
+                    ? "text-foreground"
+                    : "text-[var(--app-text-muted)] hover:text-foreground"
                 }`}
                 onClick={() => setTabActivePanel(tabId, tab.id)}
               >
                 {tab.label}
                 {panelTab === tab.id && (
-                  <span className="absolute inset-x-2 bottom-0 h-[2px] rounded-t-sm bg-primary" />
+                  <span className="absolute inset-x-3 bottom-0 h-[2px] bg-primary" />
                 )}
               </button>
             ))}
@@ -281,13 +283,15 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
 
           <div className="min-h-0 flex-1">
             {status === "error" && error && panelTab === "results" && (
-              <div className="flex flex-col items-center justify-center py-12">
-                <div className="mb-3 grid h-10 w-10 place-items-center rounded-full bg-destructive/15">
-                  <span className="text-lg text-destructive">!</span>
+              <div className="flex flex-col items-start justify-center px-6 py-6">
+                <div className="mb-2 flex items-center gap-2">
+                  <div className="grid h-6 w-6 place-items-center rounded bg-destructive/15">
+                    <span className="text-xs font-bold text-destructive">!</span>
+                  </div>
+                  <p className="text-[13px] font-medium text-foreground">{t("query.queryError")}</p>
                 </div>
-                <p className="mb-1 text-sm font-medium text-foreground">{t("query.queryError")}</p>
-                <p className="mb-4 max-w-md text-center text-xs text-[var(--app-text-muted)]">{error}</p>
-                <Button variant="outline" size="sm" onClick={handleExecuteAll}>
+                <p className="mb-4 max-w-lg text-[13px] leading-relaxed text-[var(--app-text-muted)]">{error}</p>
+                <Button variant="outline" size="sm" className="h-7 rounded-[5px] text-[13px]" onClick={handleExecuteAll}>
                   {t("common.actions.retry")}
                 </Button>
               </div>
@@ -309,7 +313,7 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
 
             {panelTab === "results" && !result && status !== "error" && (
               <div className="flex items-center justify-center py-12">
-                <p className="text-[var(--app-text-muted)]">{t("query.enterSql")}</p>
+                <p className="text-[13px] text-[var(--app-text-muted)]">{t("query.enterSql")}</p>
               </div>
             )}
 
@@ -319,7 +323,7 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
 
             {panelTab === "explain" && !explainPlan && (
               <div className="flex items-center justify-center py-12">
-                <p className="text-[var(--app-text-muted)]">{t("query.noResults")}</p>
+                <p className="text-[13px] text-[var(--app-text-muted)]">{t("query.noResults")}</p>
               </div>
             )}
 

@@ -28,7 +28,7 @@ interface UseResizableDockReturn {
 }
 
 const DEFAULT_STORAGE_KEY = "db-pro-dock-size";
-const DEFAULT_INITIAL_RATIO = 0.35;
+const DEFAULT_INITIAL_RATIO = 0.65;
 const DEFAULT_MIN_TOP = 100;
 const DEFAULT_MIN_BOTTOM = 150;
 const KEYBOARD_STEP = 0.01;

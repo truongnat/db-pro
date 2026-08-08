@@ -92,12 +92,12 @@ export function QueryCommandBar({
   };
 
   return (
-    <div className="flex items-center gap-2 border-b border-[var(--app-border-subtle)] bg-background px-3 py-1.5">
-      {/* Left — connection/schema context */}
-      <div className="flex items-center gap-1.5">
-        <Database className="h-3.5 w-3.5 shrink-0 text-[var(--app-text-dim)]" aria-hidden />
+    <div className="flex h-[36px] items-center gap-2 border-b border-[var(--app-border-subtle)] bg-[var(--app-surface-2)] px-3">
+      {/* Left — compact context breadcrumb */}
+      <div className="flex items-center gap-1 text-[13px]">
+        <Database className="h-3.5 w-3.5 shrink-0 text-[var(--app-text-muted)]" aria-hidden />
         <Select value={connectionId ?? ""} onValueChange={handleConnectionChange}>
-          <SelectTrigger className="h-6 w-auto max-w-[160px] rounded border border-[var(--app-border)] bg-transparent px-2 py-0 text-xs">
+          <SelectTrigger className="h-6 w-auto max-w-[160px] rounded border-none bg-transparent px-1.5 py-0 text-[13px] font-medium shadow-none hover:bg-[var(--app-hover)]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -109,10 +109,20 @@ export function QueryCommandBar({
           </SelectContent>
         </Select>
         {database && (
-          <span className="truncate text-[11px] text-[var(--app-text-dim)]">
-            {database}
-            {context.schema ? `.${context.schema}` : ""}
-          </span>
+          <>
+            <span className="text-[var(--app-text-dim)]">/</span>
+            <span className="truncate text-[13px] text-[var(--app-text-muted)]">
+              {database}
+            </span>
+          </>
+        )}
+        {context.schema && (
+          <>
+            <span className="text-[var(--app-text-dim)]">/</span>
+            <span className="truncate text-[13px] text-[var(--app-text-muted)]">
+              {context.schema}
+            </span>
+          </>
         )}
         {schemas.length > 0 && (
           <Select
@@ -121,7 +131,7 @@ export function QueryCommandBar({
               setQueryTabSchema(tabId, value === DEFAULT_SCHEMA ? null : value)
             }
           >
-            <SelectTrigger className="h-6 w-auto max-w-[140px] rounded border border-[var(--app-border)] bg-transparent px-2 py-0 text-xs">
+            <SelectTrigger className="h-5 w-auto max-w-[120px] rounded border-none bg-transparent px-1 py-0 text-[11px] text-[var(--app-text-dim)] shadow-none hover:bg-[var(--app-hover)]">
               <SelectValue placeholder={t("query.contextDefaultSchema")} />
             </SelectTrigger>
             <SelectContent>
@@ -139,13 +149,13 @@ export function QueryCommandBar({
       <div className="flex-1" />
 
       {/* Right — actions */}
-      <div className="flex items-center gap-1">
-        {/* Run dropdown — primary action */}
+      <div className="flex items-center gap-1.5">
+        {/* Run — primary action */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
               type="button"
-              className="gap-1 rounded-md px-3 py-1 text-xs font-medium"
+              className="h-7 gap-1 rounded-[5px] px-2.5 text-[13px] font-medium"
               disabled={!hasConnection || !hasSql || isExecuting}
             >
               <Play className="h-3.5 w-3.5" />
@@ -177,7 +187,7 @@ export function QueryCommandBar({
           <Button
             type="button"
             variant="destructive"
-            className="gap-1 rounded-md px-2 py-1 text-xs"
+            className="h-7 gap-1 rounded-[5px] px-2 text-[13px]"
             onClick={onCancel}
           >
             <Square className="h-3 w-3" />
@@ -188,7 +198,7 @@ export function QueryCommandBar({
         <Button
           type="button"
           variant="ghost"
-          className="gap-1 rounded-md px-2 py-1 text-xs text-[var(--app-text-muted)]"
+          className="h-7 gap-1 rounded-[5px] px-2 text-[13px] text-[var(--app-text-muted)]"
           onClick={onExplain}
           disabled={!hasConnection || !hasSql || isExplaining}
         >
@@ -200,7 +210,7 @@ export function QueryCommandBar({
         <Button
           type="button"
           variant="ghost"
-          className="gap-1 rounded-md px-2 py-1 text-xs text-[var(--app-text-muted)]"
+          className="h-7 gap-1 rounded-[5px] px-2 text-[13px] text-[var(--app-text-muted)]"
           onClick={onFormat}
           disabled={!hasSql}
         >

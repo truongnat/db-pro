@@ -17,7 +17,7 @@ export function ResizableDock({ children, options }: ResizableDockProps) {
   return (
     <div ref={containerRef} className="flex min-h-0 flex-1 flex-col">
       {!isCollapsed && (
-        <div className="overflow-hidden border-b" style={{ height: topHeight }}>
+        <div className="overflow-hidden" style={{ height: topHeight }}>
           {topPanel}
         </div>
       )}

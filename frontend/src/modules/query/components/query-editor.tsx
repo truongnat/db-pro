@@ -110,7 +110,7 @@ export function QueryEditor({
   );
 
   return (
-    <div className="h-full w-full border border-[var(--app-border)]">
+    <div className="h-full w-full bg-[var(--app-editor-bg,var(--app-surface-3))]">
       <Editor
         height="100%"
         language="sql"
@@ -124,10 +124,12 @@ export function QueryEditor({
           lineNumbers: "on",
           scrollBeyondLastLine: false,
           fontSize: 14,
+          lineHeight: 22,
           wordWrap: "on",
           readOnly,
           automaticLayout: true,
-          padding: { top: 8 },
+          padding: { top: 12, bottom: 12 },
+          renderLineHighlight: "line",
           suggest: {
             showKeywords: true,
             showWords: false,
