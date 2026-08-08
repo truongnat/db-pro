@@ -368,14 +368,37 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
               <ExplainPlanView plan={explainPlan} />
             )}
 
-            {panelTab === "explain" && !explainPlan && (
+            {panelTab === "explain" && explainMutation.isError && (
+              <div className="flex flex-col items-start px-6 py-6">
+                <div className="mb-2 flex items-center gap-2">
+                  <div className="grid h-7 w-7 place-items-center rounded-md bg-destructive/15">
+                    <span className="text-[13px] font-bold text-destructive">!</span>
+                  </div>
+                  <p className="text-[13px] font-medium text-foreground">Explain failed</p>
+                </div>
+                <p className="mb-4 max-w-lg text-[13px] leading-relaxed text-[var(--app-text-muted)]">
+                  {explainMutation.error instanceof Error ? explainMutation.error.message : "Unable to retrieve execution plan."}
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 rounded-[5px] text-[13px]"
+                  onClick={handleExplain}
+                  disabled={!tabConnectionId || !sql.trim() || explainMutation.isPending}
+                >
+                  {t("common.actions.retry")}
+                </Button>
+              </div>
+            )}
+
+            {panelTab === "explain" && !explainPlan && !explainMutation.isError && (
               <div className="flex flex-col items-center justify-center py-12">
                 <div className="mb-3 grid h-9 w-9 place-items-center rounded-lg bg-[var(--app-surface-2)]">
                   <HelpCircle className="h-4 w-4 text-[var(--app-text-muted)]" />
                 </div>
                 <p className="mb-1 text-[13px] font-medium text-foreground">No execution plan yet</p>
-                <p className="mb-4 text-center text-[12px] text-[var(--app-text-muted)]">
-                  Run Explain to inspect how the database plans this query.
+                <p className="mb-4 max-w-xs text-center text-[12px] leading-relaxed text-[var(--app-text-muted)]">
+                  Run Explain to inspect how PostgreSQL plans the current statement.
                 </p>
                 <Button
                   variant="outline"
@@ -399,7 +422,7 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
                       Query completed
                     </div>
                     <div className="flex flex-col gap-1 text-[12px] text-[var(--app-text-muted)]">
-                      <span>{t("query.rowsAffected", { count: rowCount })}</span>
+                      <span>{t("query.rowsAffected", { count: result?.rowCount ?? 0 })}</span>
                       <span>{t("query.duration", { duration: timing.totalMs })}</span>
                       {timing.serverMs > 0 && <span>Server: {timing.serverMs}ms</span>}
                     </div>

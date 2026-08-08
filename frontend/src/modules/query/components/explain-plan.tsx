@@ -85,10 +85,10 @@ function PlanSummary({ node }: { node: PlanNode }) {
   const width = getWidth(node);
 
   return (
-    <div className="mb-4 flex flex-wrap gap-x-6 gap-y-2 rounded-md bg-[var(--app-surface-2)] px-4 py-3">
+    <div className="mb-4 flex flex-wrap gap-x-6 gap-y-3 rounded-md bg-[var(--app-surface-2)] px-4 py-3">
       <SummaryItem label="Total Cost" value={formatNumber(cost)} />
       <SummaryItem label="Startup Cost" value={formatNumber(startup)} />
-      <SummaryItem label="Estimated Rows" value={formatNumber(rows)} />
+      <SummaryItem label="Est. Rows" value={formatNumber(rows)} />
       <SummaryItem label="Width" value={formatNumber(width)} />
     </div>
   );
@@ -96,8 +96,8 @@ function PlanSummary({ node }: { node: PlanNode }) {
 
 function SummaryItem({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-baseline gap-2">
-      <span className="text-[11px] text-[var(--app-text-muted)]">{label}</span>
+    <div className="flex flex-col gap-0.5">
+      <span className="text-[11px] uppercase tracking-wide text-[var(--app-text-dim)]">{label}</span>
       <span className="text-[13px] font-medium tabular-nums text-foreground">{value}</span>
     </div>
   );
@@ -130,36 +130,31 @@ function TreeNode({
   const depth = path.split(".").length - 1;
 
   return (
-    <div style={{ paddingLeft: depth * 24 }}>
+    <div style={{ paddingLeft: depth * 16 }}>
       <div
-        className={`cursor-pointer rounded-md px-3 py-2 transition-colors ${
+        className={`cursor-pointer rounded-sm px-3 py-1.5 transition-colors ${
           isSelected
-            ? "bg-[var(--app-active)] ring-1 ring-inset ring-primary/30"
+            ? "bg-primary/8"
             : "hover:bg-[var(--app-hover)]"
         }`}
         onClick={() => onSelect(path, node)}
       >
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           <span className="text-[13px] font-medium text-foreground">{nodeType}</span>
-          {relation && (
-            <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[11px] text-primary">
-              {relation}
-            </span>
-          )}
-          {index && (
-            <span className="rounded bg-emerald-500/10 px-1.5 py-0.5 text-[11px] text-emerald-500">
-              {index}
+          {(relation || index) && (
+            <span className="text-[12px] text-[var(--app-text-muted)]">
+              · {relation || index}
             </span>
           )}
         </div>
-        <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-[11px] text-[var(--app-text-muted)]">
-          {cost !== undefined && <span>cost {formatNumber(cost)}</span>}
-          {rows !== undefined && <span>rows {formatNumber(rows)}</span>}
+        <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-[var(--app-text-dim)]">
+          {cost !== undefined && <span>Cost {formatNumber(cost)}</span>}
+          {rows !== undefined && <span>Rows {formatNumber(rows)}</span>}
           {actualTime !== undefined && (
-            <span className="text-amber-500">time {formatNumber(actualTime)}ms</span>
+            <span>Time {formatNumber(actualTime)}ms</span>
           )}
           {actualRows !== undefined && (
-            <span className="text-amber-500">actual {formatNumber(actualRows)}</span>
+            <span>Actual {formatNumber(actualRows)}</span>
           )}
         </div>
       </div>
@@ -198,14 +193,19 @@ function NodeDetails({ node }: { node: PlanNode }) {
       <div>
         <h3 className="text-[13px] font-medium text-foreground">{nodeType}</h3>
         {relation && (
-          <p className="text-[11px] text-[var(--app-text-muted)]">on {relation}</p>
+          <p className="text-[11px] text-[var(--app-text-muted)]">Relation {relation}</p>
         )}
       </div>
-      <div className="flex flex-col gap-1">
-        {properties.map(([key, value]) => (
-          <div key={key} className="flex items-baseline justify-between gap-2 text-[12px]">
-            <span className="text-[var(--app-text-muted)]">{humanizeKey(key)}</span>
-            <span className="tabular-nums text-foreground">{formatValue(value)}</span>
+      <div className="flex flex-col">
+        {properties.map(([key, value], i) => (
+          <div
+            key={key}
+            className={`flex items-baseline justify-between gap-3 py-1.5 text-[12px] ${
+              i > 0 ? "border-t border-[var(--app-border-subtle)]/40" : ""
+            }`}
+          >
+            <span className="shrink-0 text-[var(--app-text-muted)]">{humanizeKey(key)}</span>
+            <span className="tabular-nums text-right text-foreground">{formatValue(value)}</span>
           </div>
         ))}
       </div>
