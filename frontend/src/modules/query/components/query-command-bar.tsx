@@ -7,7 +7,6 @@ import {
   Download,
   Upload,
   Trash2,
-  Settings2,
   Save,
   AlignLeft,
   HelpCircle,
@@ -52,7 +51,6 @@ interface QueryCommandBarProps {
   onSaveQuery: () => void;
   onExportSql: () => void;
   onImportSql: () => void;
-  onOpenRunConfig: () => void;
   isExecuting: boolean;
   isExplaining: boolean;
   hasConnection: boolean;
@@ -73,7 +71,6 @@ export function QueryCommandBar({
   onSaveQuery,
   onExportSql,
   onImportSql,
-  onOpenRunConfig,
   isExecuting,
   isExplaining,
   hasConnection,
@@ -249,10 +246,6 @@ export function QueryCommandBar({
             <DropdownMenuItem onClick={onClear}>
               <Trash2 className="mr-2 h-3.5 w-3.5" />
               {t("query.clear")}
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={onOpenRunConfig}>
-              <Settings2 className="mr-2 h-3.5 w-3.5" />
-              {t("query.runConfiguration")}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

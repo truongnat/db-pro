@@ -11,23 +11,26 @@ import type {
 } from "../types/query.types";
 
 export class QueryService {
-  async execute(connectionId: string, sql: string): Promise<QueryResult> {
+  async execute(connectionId: string, sql: string, tabId: string): Promise<QueryResult> {
     return apiInvoke<QueryResult>("execute_query", {
       connectionId: connectionId,
       sql,
+      tabId,
     });
   }
 
-  async cancel(connectionId: string): Promise<void> {
+  async cancel(connectionId: string, tabId: string): Promise<void> {
     return apiInvoke<void>("cancel_query", {
       connectionId: connectionId,
+      tabId,
     });
   }
 
-  async executeMulti(connectionId: string, sql: string): Promise<MultiQueryResult> {
+  async executeMulti(connectionId: string, sql: string, tabId: string): Promise<MultiQueryResult> {
     return apiInvoke<MultiQueryResult>("execute_query_multi", {
       connectionId: connectionId,
       sql,
+      tabId,
     });
   }
 

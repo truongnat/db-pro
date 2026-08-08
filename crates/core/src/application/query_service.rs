@@ -5,7 +5,8 @@ use crate::domain::error::DbError;
 use crate::domain::history::{QueryHistory, SavedQuery, SavedQueryFolder};
 use crate::domain::query::{QueryParam, QueryResult};
 use crate::domain::run_config::RunConfig;
-use crate::ports::{DbConnector, QueryHistoryRepository, RunConfigRepository, SavedQueryRepository};
+use crate::domain::safety::{validate_against_policy, ConnectionSafetyPolicy};
+use crate::ports::{ConnectionRepository, DbConnector, QueryHistoryRepository, RunConfigRepository, SavedQueryRepository};
 
 use super::registry::ConnectionRegistry;
 use super::sql_policy::{reject_multi_statement, split_statements};
@@ -24,6 +25,7 @@ pub struct QueryService {
     saved_queries: Box<dyn SavedQueryRepository>,
     run_configs: Box<dyn RunConfigRepository>,
     registry: Arc<ConnectionRegistry>,
+    connections: Box<dyn ConnectionRepository>,
 }
 
 impl QueryService {
@@ -33,6 +35,7 @@ impl QueryService {
         saved_queries: Box<dyn SavedQueryRepository>,
         run_configs: Box<dyn RunConfigRepository>,
         registry: Arc<ConnectionRegistry>,
+        connections: Box<dyn ConnectionRepository>,
     ) -> Self {
         Self {
             connector,
@@ -40,6 +43,18 @@ impl QueryService {
             saved_queries,
             run_configs,
             registry,
+            connections,
+        }
+    }
+
+    /// Build the safety policy for a connection based on its persisted config.
+    async fn safety_policy_for(&self, connection_id: &ConnectionId) -> Result<ConnectionSafetyPolicy, DbError> {
+        let config = self.connections.get_config(connection_id).await?
+            .ok_or_else(|| DbError::ConnectionFailed(format!("connection {connection_id} not found")))?;
+        if config.readonly {
+            Ok(ConnectionSafetyPolicy::read_only())
+        } else {
+            Ok(ConnectionSafetyPolicy::full_access())
         }
     }
 
@@ -55,6 +70,10 @@ impl QueryService {
             .registry
             .get(connection_id)
             .ok_or_else(|| DbError::ConnectionFailed(format!("connection {connection_id} is not active")))?;
+
+        // Enforce safety policy (readonly, etc.)
+        let policy = self.safety_policy_for(connection_id).await?;
+        validate_against_policy(sql, &policy).map_err(|e| DbError::QueryFailed(e))?;
 
         let result = self.connector.query(&handle, sql, params).await?;
         result.validate().map_err(DbError::QueryFailed)?;
@@ -76,6 +95,9 @@ impl QueryService {
             .get(connection_id)
             .ok_or_else(|| DbError::ConnectionFailed(format!("connection {connection_id} is not active")))?;
 
+        // Enforce safety policy for each statement in the script.
+        let policy = self.safety_policy_for(connection_id).await?;
+
         let statements = split_statements(sql);
         if statements.is_empty() {
             return Err(DbError::QueryFailed("empty SQL statement".into()));
@@ -86,6 +108,15 @@ impl QueryService {
 
         for (idx, stmt) in statements.iter().enumerate() {
             let stmt_start = std::time::Instant::now();
+
+            // Validate each statement against the safety policy before execution.
+            if let Err(msg) = validate_against_policy(stmt, &policy) {
+                return Ok(MultiQueryResult {
+                    results,
+                    total_duration_ms: start.elapsed().as_millis() as u64,
+                    error: Some((idx, msg)),
+                });
+            }
 
             match classify_statement(stmt) {
                 StatementClass::Read => {
@@ -355,7 +386,7 @@ mod tests {
     use super::*;
     use crate::domain::connection::ConnectionHandle;
     use crate::domain::query::{CellValue, ColumnMeta, Row};
-    use crate::ports::{MockDbConnector, MockQueryHistoryRepository, MockRunConfigRepository, MockSavedQueryRepository};
+    use crate::ports::{MockConnectionRepository, MockDbConnector, MockQueryHistoryRepository, MockRunConfigRepository, MockSavedQueryRepository};
 
     fn test_result() -> QueryResult {
         QueryResult {
@@ -377,7 +408,32 @@ mod tests {
             Box::new(MockSavedQueryRepository::new()),
             Box::new(MockRunConfigRepository::new()),
             registry,
+            Box::new(MockConnectionRepository::new()),
         )
+    }
+
+    /// Create a mock ConnectionRepository that returns a non-readonly config for any connection.
+    fn mock_connections_full_access() -> MockConnectionRepository {
+        let mut repo = MockConnectionRepository::new();
+        repo.expect_get_config().returning(|_id| {
+            Ok(Some(crate::domain::connection::ConnectionConfig {
+                name: "test".into(),
+                host: "localhost".into(),
+                port: 5432,
+                database: "testdb".into(),
+                username: "user".into(),
+                driver: crate::domain::connection::DriverType::Postgres,
+                ssl_mode: crate::domain::connection::SslMode::Disable,
+                ssh_tunnel: None,
+                query_timeout_ms: 30_000,
+                max_rows: 500,
+                color: None,
+                tags: vec![],
+                group: None,
+                readonly: false,
+            }))
+        });
+        repo
     }
 
     #[tokio::test]
@@ -398,6 +454,7 @@ mod tests {
             Box::new(MockSavedQueryRepository::new()),
             Box::new(MockRunConfigRepository::new()),
             Arc::clone(&registry),
+            Box::new(mock_connections_full_access()),
         );
 
         let result = svc.execute(&conn_id, "SELECT 1", &[]).await;
@@ -448,6 +505,7 @@ mod tests {
             Box::new(MockSavedQueryRepository::new()),
             Box::new(MockRunConfigRepository::new()),
             Arc::clone(&registry),
+            Box::new(mock_connections_full_access()),
         );
 
         let result = svc.execute(&conn_id, "SELECT 1;", &[]).await;
@@ -472,6 +530,7 @@ mod tests {
             Box::new(MockSavedQueryRepository::new()),
             Box::new(MockRunConfigRepository::new()),
             Arc::clone(&registry),
+            Box::new(mock_connections_full_access()),
         );
 
         let result = svc.execute(&conn_id, "SELECT ';' FROM t", &[]).await;
@@ -498,6 +557,7 @@ mod tests {
             Box::new(MockSavedQueryRepository::new()),
             Box::new(MockRunConfigRepository::new()),
             Arc::clone(&registry),
+            Box::new(mock_connections_full_access()),
         );
 
         let result = svc.execute(&conn_id, "SELECT 1", &[]).await;
@@ -585,6 +645,7 @@ mod tests {
             Box::new(MockSavedQueryRepository::new()),
             Box::new(MockRunConfigRepository::new()),
             Arc::clone(&registry),
+            Box::new(mock_connections_full_access()),
         );
 
         let result = svc.execute_multi(&conn_id, "SELECT 1; UPDATE t SET x = 1").await.unwrap();
@@ -613,6 +674,7 @@ mod tests {
             Box::new(MockSavedQueryRepository::new()),
             Box::new(MockRunConfigRepository::new()),
             Arc::clone(&registry),
+            Box::new(mock_connections_full_access()),
         );
 
         let result = svc.execute_multi(
@@ -642,6 +704,7 @@ mod tests {
             Box::new(MockSavedQueryRepository::new()),
             Box::new(MockRunConfigRepository::new()),
             Arc::clone(&registry),
+            Box::new(mock_connections_full_access()),
         );
 
         let result = svc.execute_multi(

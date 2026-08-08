@@ -65,6 +65,7 @@ pub fn run() {
                     Box::new(meta_store.clone()),
                     Box::new(meta_store.clone()),
                     Arc::clone(&registry),
+                    Box::new(meta_store.clone()),
                 );
 
                 let schema_service = SchemaService::new(
@@ -99,6 +100,7 @@ pub fn run() {
                             color: None,
                             tags: vec![],
                             group: None,
+                            readonly: false,
                         };
                         Box::new(PgDumpEngine::new(config)) as Box<dyn db_pro_core::ports::BackupEngine>
                     }),
@@ -117,6 +119,7 @@ pub fn run() {
                             color: None,
                             tags: vec![],
                             group: None,
+                            readonly: false,
                         };
                         Box::new(SqliteBackupEngine::new(config)) as Box<dyn db_pro_core::ports::BackupEngine>
                     }),

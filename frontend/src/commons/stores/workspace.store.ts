@@ -333,35 +333,42 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         };
         const migrated = migrateWorkspace(persisted);
 
-        // Validate connections — remove tabs referencing dead connections
-        const connectionStore = useConnectionStore.getState();
-        const validConnectionIds = new Set(
-          (connectionStore.connections as { id: string }[]).map((c) => c.id),
-        );
-        // Always allow null connectionId (not-yet-assigned query tabs)
-        validConnectionIds.add("");
-
-        const validTabs = migrated.tabs.filter(
-          (t) => !t.connectionId || validConnectionIds.has(t.connectionId),
-        );
-        const orphaned = migrated.tabs.length - validTabs.length;
-
-        if (validTabs.length !== migrated.tabs.length || migrated.workspaceVersion !== persisted.workspaceVersion) {
+        // IMPORTANT: Do NOT prune tabs here based on connections.
+        // At rehydrate time, the connection list is still empty (loaded async).
+        // Pruning here would delete all persisted tabs — a data-loss race.
+        // Instead, call reconcileWorkspaceTabs() after connections are loaded.
+        if (migrated.workspaceVersion !== persisted.workspaceVersion) {
           useWorkspaceStore.setState({
             workspaceVersion: CURRENT_WORKSPACE_VERSION,
-            tabs: validTabs,
-            activeTabId:
-              migrated.activeTabId && validTabs.find((t) => t.id === migrated.activeTabId)
-                ? migrated.activeTabId
-                : validTabs[0]?.id ?? null,
+            tabs: migrated.tabs,
+            activeTabId: migrated.activeTabId,
             recentlyClosed: migrated.recentlyClosed,
           });
-        }
-
-        if (orphaned > 0) {
-          console.info(`[workspace] Removed ${orphaned} orphaned tab(s) with invalid connections`);
         }
       },
     },
   ),
 );
+
+/**
+ * Reconcile persisted workspace tabs against the now-loaded connection list.
+ *
+ * Call this AFTER connections have been fetched (e.g. from useConnectionList onSuccess).
+ * Tabs referencing connections that no longer exist are preserved but marked orphan
+ * via the WorkspaceContent OrphanedTabView — they are NOT deleted, so the user can
+ * decide what to do. Only tabs with empty connectionId are always kept.
+ */
+export function reconcileWorkspaceTabs(): void {
+  const { tabs, activeTabId } = useWorkspaceStore.getState();
+  const connections = useConnectionStore.getState().connections;
+  const validIds = new Set(connections.map((c) => c.id));
+
+  // We don't delete orphaned tabs — WorkspaceContent already shows OrphanedTabView
+  // for tabs whose connectionId doesn't match any known connection. This is the
+  // safe path: the user sees the tab and can close it manually.
+  // The only thing we fix here is the activeTabId if it pointed to a now-removed tab.
+  const activeStillValid = activeTabId && tabs.some((t) => t.id === activeTabId);
+  if (!activeStillValid && tabs.length > 0) {
+    useWorkspaceStore.setState({ activeTabId: tabs[0].id });
+  }
+}

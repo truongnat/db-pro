@@ -10,13 +10,12 @@ import type {
   SortState,
   WorkspaceTab,
 } from "@/commons/types/workspace.types";
-import type { Connection } from "@/modules/connection/types/connection.types";
 import type { ExplainPlan, QueryResult } from "@/modules/query/types/query.types";
 
 type QueryWorkspaceTab = Omit<WorkspaceTab, "data"> & { data: QueryTabData };
 
 function getKnownConnections(): { id: string; database: string }[] {
-  return useConnectionStore.getState().connections as Connection[];
+  return useConnectionStore.getState().connections;
 }
 
 export function getActiveQueryTab(): QueryWorkspaceTab | undefined {

@@ -26,20 +26,19 @@ import {
 } from "../queries/query.queries";
 import { pushLocalHistory } from "../services/local-history";
 import { getDialectForConnection } from "../sql/dialect";
+import { createQueryTab } from "@/commons/factories/tab-factories";
 import {
   setTabSql,
   setTabSort,
   setTabActivePanel,
-  createQueryTabFromExplorerContext,
 } from "../controllers/query-workspace.controller";
 import type { Row } from "../types/query.types";
 
 interface QueryTabContentProps {
   tabId: string;
-  onOpenRunConfig: () => void;
 }
 
-export function QueryTabContent({ tabId, onOpenRunConfig }: QueryTabContentProps) {
+export function QueryTabContent({ tabId }: QueryTabContentProps) {
   const { t } = useTranslation();
 
   const tab = useWorkspaceStore((s) => {
@@ -242,7 +241,6 @@ export function QueryTabContent({ tabId, onOpenRunConfig }: QueryTabContentProps
         onSaveQuery={() => dispatchQueryAction("saveQuery")}
         onExportSql={() => dispatchQueryAction("exportSql")}
         onImportSql={() => dispatchQueryAction("importSql")}
-        onOpenRunConfig={onOpenRunConfig}
         isExecuting={status === "running"}
         isExplaining={explainMutation.isPending}
         hasConnection={!!tabConnectionId}
@@ -329,13 +327,14 @@ export function QueryTabContent({ tabId, onOpenRunConfig }: QueryTabContentProps
                 search={historySearch}
                 onSearchChange={setHistorySearch}
                 onSelectEntry={handleSelectHistoryEntry}
-                onOpenInNewTab={(sql) => {
+                onOpenInNewTab={(historySql) => {
                   if (!tabConnectionId) return;
-                  const newTab = createQueryTabFromExplorerContext(tabConnectionId);
-                  if (newTab) {
-                    setTabSql(newTab.id, sql);
-                    useWorkspaceStore.getState().openTab(newTab);
-                  }
+                  // Create tab atomically with SQL + current tab's exact context.
+                  const newTab = createQueryTab(tabConnectionId, {
+                    sql: historySql,
+                    context: tabData?.context ?? { database: null, schema: null },
+                  });
+                  useWorkspaceStore.getState().openTab(newTab);
                 }}
                 isLoading={historyQuery.isLoading}
               />

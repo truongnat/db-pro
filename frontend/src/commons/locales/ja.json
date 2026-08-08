@@ -465,7 +465,8 @@
       "version": "DB Pro v0.1.0"
     },
     "collapse": "サイドバーを折りたたむ",
-    "expand": "サイドバーを展開"
+    "expand": "サイドバーを展開",
+    "agentToggle": "AIアシスタント"
   },
   "dbObject": {
     "sections": {

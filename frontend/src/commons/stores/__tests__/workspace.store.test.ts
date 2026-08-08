@@ -1,8 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { createQueryTab, createDbObjectTab } from "@/commons/factories/tab-factories";
-import { useWorkspaceStore } from "@/commons/stores/workspace.store";
+import { useWorkspaceStore, reconcileWorkspaceTabs } from "@/commons/stores/workspace.store";
+import { useConnectionStore } from "@/commons/stores/connection.store";
 import { useTabGridStateStore } from "@/modules/data-grid/state/tab-grid-state.store";
+import type { Connection } from "@/modules/connection/types/connection.types";
 
 function resetStore() {
   useWorkspaceStore.setState({
@@ -10,7 +12,25 @@ function resetStore() {
     activeTabId: null,
     recentlyClosed: [],
   });
+  useConnectionStore.setState({
+    connections: [],
+  });
   useTabGridStateStore.setState({ states: {} });
+}
+
+function mockConnection(id: string): Connection {
+  return {
+    id,
+    name: `conn-${id}`,
+    host: "localhost",
+    port: 5432,
+    database: "testdb",
+    username: "user",
+    driver: "postgres",
+    sslMode: "disable",
+    createdAt: "2024-01-01",
+    updatedAt: "2024-01-01",
+  };
 }
 
 describe("WorkspaceStore", () => {
@@ -589,6 +609,71 @@ describe("WorkspaceStore", () => {
       const state = useWorkspaceStore.getState();
       const updatedTab = state.tabs.find((t) => t.id === tab.id)!;
       expect(updatedTab.kind).toBe("query");
+    });
+  });
+
+  describe("reconcileWorkspaceTabs", () => {
+    it("does NOT prune tabs when connections are empty (startup race)", () => {
+      // Simulate persisted tabs from a previous session
+      const tab1 = createQueryTab("conn-1", { title: "Query 1" });
+      const tab2 = createQueryTab("conn-2", { title: "Query 2" });
+      useWorkspaceStore.setState({
+        tabs: [tab1, tab2],
+        activeTabId: tab1.id,
+      });
+
+      // Connections haven't loaded yet (empty store)
+      useConnectionStore.setState({ connections: [] });
+
+      // Reconcile should NOT delete any tabs
+      reconcileWorkspaceTabs();
+
+      const state = useWorkspaceStore.getState();
+      expect(state.tabs).toHaveLength(2);
+      expect(state.tabs[0].id).toBe(tab1.id);
+      expect(state.tabs[1].id).toBe(tab2.id);
+    });
+
+    it("preserves tabs after connections load — marks known connections valid", () => {
+      const tab1 = createQueryTab("conn-1", { title: "Query 1" });
+      const tab2 = createQueryTab("conn-2", { title: "Query 2" });
+      useWorkspaceStore.setState({
+        tabs: [tab1, tab2],
+        activeTabId: tab1.id,
+      });
+
+      // Connections load
+      useConnectionStore.setState({
+        connections: [mockConnection("conn-1"), mockConnection("conn-2")],
+      });
+
+      reconcileWorkspaceTabs();
+
+      const state = useWorkspaceStore.getState();
+      expect(state.tabs).toHaveLength(2);
+      expect(state.activeTabId).toBe(tab1.id);
+    });
+
+    it("fixes activeTabId if active tab's connection no longer exists", () => {
+      const tab1 = createQueryTab("conn-1", { title: "Query 1" });
+      const tab2 = createQueryTab("conn-gone", { title: "Orphan" });
+      useWorkspaceStore.setState({
+        tabs: [tab1, tab2],
+        activeTabId: tab2.id, // active tab has a connection that no longer exists
+      });
+
+      // Only conn-1 exists
+      useConnectionStore.setState({
+        connections: [mockConnection("conn-1")],
+      });
+
+      reconcileWorkspaceTabs();
+
+      const state = useWorkspaceStore.getState();
+      // Tabs are preserved (not deleted)
+      expect(state.tabs).toHaveLength(2);
+      // But activeTabId is still valid (the tab still exists in the store)
+      expect(state.activeTabId).toBe(tab2.id);
     });
   });
 });

@@ -61,6 +61,7 @@ pub struct ConnectionDto {
     pub color: Option<String>,
     pub tags: Vec<String>,
     pub group: Option<String>,
+    pub readonly: bool,
 }
 
 impl From<Connection> for ConnectionDto {
@@ -79,6 +80,7 @@ impl From<Connection> for ConnectionDto {
             color: c.config.color,
             tags: c.config.tags,
             group: c.config.group,
+            readonly: c.config.readonly,
         }
     }
 }
@@ -102,6 +104,8 @@ pub struct ConnectionConfigDto {
     pub tags: Vec<String>,
     #[serde(default)]
     pub group: Option<String>,
+    #[serde(default)]
+    pub readonly: bool,
 }
 
 impl ConnectionConfigDto {
@@ -126,6 +130,7 @@ impl ConnectionConfigDto {
             color: self.color.clone(),
             tags: self.tags.clone(),
             group: self.group.clone(),
+            readonly: self.readonly,
         }
     }
 }

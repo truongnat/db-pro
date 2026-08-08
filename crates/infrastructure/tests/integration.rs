@@ -32,6 +32,7 @@ async fn setup_fixture() -> (SQLiteConnector, db_pro_core::domain::connection::C
         color: None,
         tags: vec![],
         group: None,
+        readonly: false,
     };
 
     let handle = connector.connect(&config, "").await.expect("connect failed");
@@ -86,6 +87,7 @@ async fn test_connection_succeeds() {
         color: None,
         tags: vec![],
         group: None,
+        readonly: false,
     };
     connector.test_connection(&config, "").await.unwrap();
 }

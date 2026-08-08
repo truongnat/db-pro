@@ -1,20 +1,21 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
+import type { Connection } from "@/modules/connection/types/connection.types";
 import type { TranslatedError } from "@/commons/utils/error-types";
 
 interface ConnectionState {
-  connections: unknown[];
+  connections: Connection[];
   explorerConnectionId: string | null;
   isLoading: boolean;
   error: TranslatedError | null;
 
-  setConnections: (connections: unknown[]) => void;
+  setConnections: (connections: Connection[]) => void;
   setExplorerConnection: (id: string | null) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: TranslatedError | null) => void;
-  addConnection: (connection: unknown) => void;
-  updateConnection: (id: string, connection: unknown) => void;
+  addConnection: (connection: Connection) => void;
+  updateConnection: (id: string, connection: Connection) => void;
   removeConnection: (id: string) => void;
   reset: () => void;
 }
@@ -44,14 +45,14 @@ export const useConnectionStore = create<ConnectionState>()(
       updateConnection: (id, connection) =>
         set((state) => ({
           connections: state.connections.map((c) =>
-            (c as { id: string }).id === id ? connection : c,
+            c.id === id ? connection : c,
           ),
         })),
 
       removeConnection: (id) =>
         set((state) => ({
           connections: state.connections.filter(
-            (c) => (c as { id: string }).id !== id,
+            (c) => c.id !== id,
           ),
           explorerConnectionId:
             state.explorerConnectionId === id ? null : state.explorerConnectionId,

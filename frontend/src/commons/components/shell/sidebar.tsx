@@ -9,6 +9,9 @@ import { QuerySavedView } from "./sidebar-views/query-saved-view";
 import { SearchView } from "./sidebar-views/search-view";
 import { UsersView } from "./sidebar-views/users-view";
 
+// TODO: Wire to real settings/help views when available.
+const FOOTER_ENABLED = false;
+
 const VIEW_TITLES: Record<string, string> = {
   explorer: "shell.sidebar.explorer",
   search: "shell.sidebar.searchObjects",
@@ -16,7 +19,11 @@ const VIEW_TITLES: Record<string, string> = {
   users: "userManagement.title",
 };
 
-export function Sidebar() {
+interface SidebarProps {
+  width: number;
+}
+
+export function Sidebar({ width }: SidebarProps) {
   const { t } = useTranslation();
   const sidebarCollapsed = useShellStore((s) => s.sidebarCollapsed);
   const sidebarView = useShellStore((s) => s.sidebarView);
@@ -24,8 +31,8 @@ export function Sidebar() {
 
   return (
     <aside
-      className="flex min-h-0 flex-col overflow-hidden border-r border-[var(--app-border-subtle)] bg-sidebar transition-[width] duration-200 ease-out"
-      style={{ width: sidebarCollapsed ? "var(--app-sidebar-collapsed-width)" : "var(--app-sidebar-width)" }}
+      className="flex min-h-0 flex-col overflow-hidden border-r border-[var(--app-border-subtle)] bg-sidebar"
+      style={{ width }}
       aria-label={t("shell.sidebar.label")}
     >
       <div
@@ -62,22 +69,24 @@ export function Sidebar() {
         </div>
 
         {/* Footer */}
-        <div className="shrink-0 border-t border-[var(--app-border-subtle)] px-2 pt-2 pb-2">
-          <button
-            type="button"
-            className="flex h-auto w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-xs text-[var(--app-text-muted)] transition-colors hover:bg-[var(--app-hover)] hover:text-foreground"
-          >
-            <Settings2 className="h-3.5 w-3.5 shrink-0 text-primary" />
-            <span>{t("shell.sidebar.settings")}</span>
-          </button>
-          <button
-            type="button"
-            className="flex h-auto w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-xs text-[var(--app-text-muted)] transition-colors hover:bg-[var(--app-hover)] hover:text-foreground"
-          >
-            <CircleHelp className="h-3.5 w-3.5 shrink-0 text-primary" />
-            <span>{t("shell.sidebar.help")}</span>
-          </button>
-        </div>
+        {FOOTER_ENABLED && (
+          <div className="shrink-0 border-t border-[var(--app-border-subtle)] px-2 pt-2 pb-2">
+            <button
+              type="button"
+              className="flex h-auto w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-xs text-[var(--app-text-muted)] transition-colors hover:bg-[var(--app-hover)] hover:text-foreground"
+            >
+              <Settings2 className="h-3.5 w-3.5 shrink-0 text-primary" />
+              <span>{t("shell.sidebar.settings")}</span>
+            </button>
+            <button
+              type="button"
+              className="flex h-auto w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-xs text-[var(--app-text-muted)] transition-colors hover:bg-[var(--app-hover)] hover:text-foreground"
+            >
+              <CircleHelp className="h-3.5 w-3.5 shrink-0 text-primary" />
+              <span>{t("shell.sidebar.help")}</span>
+            </button>
+          </div>
+        )}
       </div>
     </aside>
   );

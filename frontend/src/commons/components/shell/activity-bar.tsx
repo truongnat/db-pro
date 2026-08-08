@@ -6,6 +6,7 @@ import {
   PanelLeftOpen,
   Command,
   Search,
+  Sparkles,
 } from "lucide-react";
 import type { ComponentType } from "react";
 
@@ -33,6 +34,8 @@ export function ActivityBar() {
   const toggleSidebar = useShellStore((s) => s.toggleSidebar);
   const sidebarView = useShellStore((s) => s.sidebarView);
   const setSidebarView = useShellStore((s) => s.setSidebarView);
+  const agentOpen = useShellStore((s) => s.agentOpen);
+  const toggleAgent = useShellStore((s) => s.toggleAgent);
 
   return (
     <aside
@@ -81,8 +84,27 @@ export function ActivityBar() {
         })}
       </nav>
 
-      {/* Bottom — collapse toggle */}
-      <div className="pb-2">
+      {/* Bottom — agent toggle + collapse toggle */}
+      <div className="flex flex-col items-center gap-0.5 pb-2">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              className={cn(
+                "flex h-8 w-8 items-center justify-center rounded-md text-[var(--app-text-muted)] transition-colors duration-100 hover:bg-[var(--app-hover)] hover:text-foreground",
+                agentOpen && "text-primary",
+              )}
+              onClick={toggleAgent}
+              aria-label={t("shell.agentToggle")}
+            >
+              <Sparkles className="h-4 w-4" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="right" sideOffset={8}>
+            {t("shell.agentToggle")}
+          </TooltipContent>
+        </Tooltip>
+
         <Tooltip>
           <TooltipTrigger asChild>
             <button

@@ -215,6 +215,7 @@ mod tests {
             color: None,
             tags: vec![],
             group: None,
+            readonly: false,
         }
     }
 

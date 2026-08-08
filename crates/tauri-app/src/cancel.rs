@@ -64,6 +64,40 @@ impl ExecutionRegistry {
         (exec_id, rx)
     }
 
+    /// Register a new execution with a caller-specified ID (e.g. tab ID).
+    ///
+    /// This allows the frontend to correlate executions with tabs directly,
+    /// enabling deterministic cancel-by-tab instead of cancel-by-connection.
+    pub fn register_with_id(
+        &self,
+        connection_id: ConnectionId,
+        exec_id: QueryExecutionId,
+    ) -> oneshot::Receiver<()> {
+        let (tx, rx) = oneshot::channel();
+        let execution = QueryExecution {
+            id: exec_id.clone(),
+            connection_id,
+            status: ExecutionStatus::Created,
+            started_at: chrono::Utc::now(),
+            finished_at: None,
+            statement_count: 0,
+            rows_affected: 0,
+            rows_returned: 0,
+        };
+
+        let entry = ExecutionEntry {
+            execution,
+            cancel_tx: Some(tx),
+        };
+
+        self.inner
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .insert(exec_id.0.clone(), entry);
+
+        rx
+    }
+
     /// Transition an execution from Created to Running.
     pub fn start_execution(&self, exec_id: &QueryExecutionId) {
         let mut guard = self.inner.lock().unwrap_or_else(|e| e.into_inner());
@@ -108,6 +142,28 @@ impl ExecutionRegistry {
         });
 
         if let Some(entry) = entry {
+            if let Some(tx) = entry.cancel_tx.take() {
+                let _ = tx.send(());
+                entry.execution.finish(ExecutionStatus::Cancelled);
+                CancelResult::Sent
+            } else {
+                CancelResult::NotFound
+            }
+        } else {
+            CancelResult::NotFound
+        }
+    }
+
+    /// Cancel an execution by its caller-specified ID (e.g. tab ID).
+    ///
+    /// This is the deterministic cancel path: each tab has a unique ID,
+    /// so cancelling by tab ID always targets the correct execution.
+    pub fn cancel_by_id(&self, exec_id: &str) -> CancelResult {
+        let mut guard = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some(entry) = guard.get_mut(exec_id) {
+            if entry.execution.status.is_terminal() {
+                return CancelResult::NotFound;
+            }
             if let Some(tx) = entry.cancel_tx.take() {
                 let _ = tx.send(());
                 entry.execution.finish(ExecutionStatus::Cancelled);
@@ -365,5 +421,55 @@ mod tests {
         assert!(exec.finished_at.is_some());
         // Cancel token should be cleaned up.
         assert_eq!(registry.cancel(&exec_id), CancelResult::NotFound);
+    }
+
+    /// Regression: two tabs sharing the same connection must cancel independently
+    /// when using cancel_by_id (tab-scoped). This verifies the deterministic
+    /// cancel path that replaced the non-deterministic cancel_by_connection.
+    #[test]
+    fn cancel_by_id_targets_correct_tab_on_same_connection() {
+        let registry = ExecutionRegistry::new();
+        let conn_id = ConnectionId::new();
+
+        // Two tabs running queries on the same connection.
+        let tab_a = QueryExecutionId("tab-a".to_string());
+        let tab_b = QueryExecutionId("tab-b".to_string());
+        let _rx_a = registry.register_with_id(conn_id, tab_a.clone());
+        let _rx_b = registry.register_with_id(conn_id, tab_b.clone());
+        registry.start_execution(&tab_a);
+        registry.start_execution(&tab_b);
+
+        // Cancel only tab-B.
+        let result = registry.cancel_by_id("tab-b");
+        assert_eq!(result, CancelResult::Sent);
+
+        // Tab-B should be cancelled.
+        let exec_b = registry.get_execution(&tab_b).unwrap();
+        assert_eq!(exec_b.status, ExecutionStatus::Cancelled);
+
+        // Tab-A should still be running — not affected by tab-B's cancel.
+        let exec_a = registry.get_execution(&tab_a).unwrap();
+        assert_eq!(exec_a.status, ExecutionStatus::Running);
+
+        // Both executions are on the same connection.
+        assert_eq!(exec_a.connection_id, exec_b.connection_id);
+    }
+
+    #[test]
+    fn register_with_id_and_cancel_by_id_roundtrip() {
+        let registry = ExecutionRegistry::new();
+        let conn_id = ConnectionId::new();
+        let exec_id = QueryExecutionId("my-tab-123".to_string());
+
+        let mut rx = registry.register_with_id(conn_id, exec_id.clone());
+        registry.start_execution(&exec_id);
+
+        // The receiver should get the cancel signal.
+        let result = registry.cancel_by_id("my-tab-123");
+        assert_eq!(result, CancelResult::Sent);
+        assert!(rx.try_recv().is_ok());
+
+        let exec = registry.get_execution(&exec_id).unwrap();
+        assert_eq!(exec.status, ExecutionStatus::Cancelled);
     }
 }

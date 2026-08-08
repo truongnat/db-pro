@@ -36,7 +36,7 @@ import { useIntrospect } from "@/modules/schema/queries/schema.queries";
 import { createQueryTabForObject } from "@/modules/query/controllers/query-workspace.controller";
 import { getSqlDialect } from "@/modules/query/sql/dialect";
 import { generateCountSQL } from "@/modules/query/sql/generators";
-import type { Connection, DriverType } from "@/modules/connection/types/connection.types";
+import type { DriverType } from "@/modules/connection/types/connection.types";
 
 function statusOf(statuses: Record<string, string>, id: string) {
   return statuses[id] ?? "disconnected";
@@ -52,7 +52,7 @@ function copyToClipboard(text: string) {
 }
 
 function getDriverForConnection(connectionId: string): DriverType {
-  const connections = useConnectionStore.getState().connections as Connection[];
+  const connections = useConnectionStore.getState().connections;
   return connections.find((c) => c.id === connectionId)?.driver ?? "postgres";
 }
 

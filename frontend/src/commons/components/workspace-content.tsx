@@ -43,7 +43,6 @@ export function WorkspaceContent() {
       return (
         <QueryTabContent
           tabId={activeTab.id}
-          onOpenRunConfig={() => {}}
         />
       );
     case "db-object":

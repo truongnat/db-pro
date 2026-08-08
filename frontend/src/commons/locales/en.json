@@ -465,7 +465,8 @@
       "version": "DB Pro v0.1.0"
     },
     "collapse": "Collapse sidebar",
-    "expand": "Expand sidebar"
+    "expand": "Expand sidebar",
+    "agentToggle": "AI Assistant"
   },
   "dbObject": {
     "sections": {

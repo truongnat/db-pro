@@ -4,6 +4,7 @@ import { container } from "@/app/app.module";
 import { useConnectionStore } from "@/commons/stores/connection.store";
 import { useExplorerStore } from "@/commons/stores/explorer.store";
 import { useRecentStore } from "@/commons/stores/recent.store";
+import { reconcileWorkspaceTabs } from "@/commons/stores/workspace.store";
 import { SERVICE_NAMES, type IConnectionService } from "@/commons/di/registry";
 import { useSchemaCatalogStore } from "@/modules/query/stores/schema-catalog.store";
 
@@ -24,6 +25,8 @@ export function useConnectionList() {
     queryFn: async () => {
       const connections = (await getConnectionService().list()) as Connection[];
       useConnectionStore.getState().setConnections(connections);
+      // Connections are now loaded — reconcile persisted workspace tabs.
+      reconcileWorkspaceTabs();
       return connections;
     },
   });

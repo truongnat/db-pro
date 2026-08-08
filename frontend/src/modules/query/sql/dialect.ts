@@ -1,7 +1,7 @@
 import type { SqlLanguage } from "sql-formatter";
 
 import { useConnectionStore } from "@/commons/stores/connection.store";
-import type { Connection, DriverType } from "@/modules/connection/types/connection.types";
+import type { DriverType } from "@/modules/connection/types/connection.types";
 
 import { postgresDialect } from "./postgres";
 import { sqliteDialect } from "./sqlite";
@@ -30,7 +30,7 @@ export function getSqlDialect(driver: DriverType): SqlDialect {
 }
 
 export function getDialectForConnection(connectionId: string | null): SqlDialect {
-  const connection = (useConnectionStore.getState().connections as Connection[]).find(
+  const connection = useConnectionStore.getState().connections.find(
     (c) => c.id === connectionId,
   );
   return connection ? getSqlDialect(connection.driver) : postgresDialect;

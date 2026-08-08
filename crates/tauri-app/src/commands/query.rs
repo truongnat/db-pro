@@ -4,7 +4,7 @@ use crate::cancel::ExecutionRegistry;
 use crate::dto::{CommandError, MultiQueryResultDto, QueryHistoryDto, QueryResultDto, RunConfigDto, SavedQueryDto, SavedQueryFolderDto};
 use db_pro_core::application::QueryService;
 use db_pro_core::domain::connection::ConnectionId;
-use db_pro_core::domain::execution::ExecutionStatus;
+use db_pro_core::domain::execution::{ExecutionStatus, QueryExecutionId};
 
 #[tauri::command]
 pub async fn execute_query(
@@ -12,11 +12,13 @@ pub async fn execute_query(
     exec_registry: State<'_, ExecutionRegistry>,
     connection_id: String,
     sql: String,
+    tab_id: String,
 ) -> Result<QueryResultDto, CommandError> {
     let conn_id = parse_connection_id(&connection_id)?;
 
-    // Register execution in the lifecycle registry.
-    let (exec_id, cancel_rx) = exec_registry.register(conn_id);
+    // Register execution in the lifecycle registry using tab_id as the execution key.
+    let exec_id = QueryExecutionId(tab_id.clone());
+    let cancel_rx = exec_registry.register_with_id(conn_id, exec_id.clone());
     exec_registry.start_execution(&exec_id);
 
     let query_future = service.execute(&conn_id, &sql, &[]);
@@ -69,20 +71,82 @@ pub async fn execute_query(
 pub async fn cancel_query(
     exec_registry: State<'_, ExecutionRegistry>,
     connection_id: String,
+    tab_id: String,
 ) -> Result<(), CommandError> {
-    // Cancel by connection ID — idempotent, no-op if not found.
-    exec_registry.cancel_by_connection(&connection_id);
+    // Prefer deterministic cancel-by-tab-id. Fall back to legacy cancel-by-connection
+    // if the tab-scoped execution is not found (e.g. older frontend code paths).
+    let exec_id = QueryExecutionId(tab_id);
+    let result = exec_registry.cancel_by_id(&exec_id.0);
+    if result == crate::cancel::CancelResult::NotFound {
+        exec_registry.cancel_by_connection(&connection_id);
+    }
     Ok(())
 }
 
 #[tauri::command]
 pub async fn execute_query_multi(
     service: State<'_, QueryService>,
+    exec_registry: State<'_, ExecutionRegistry>,
     connection_id: String,
     sql: String,
+    tab_id: String,
 ) -> Result<MultiQueryResultDto, CommandError> {
     let conn_id = parse_connection_id(&connection_id)?;
-    let result = service.execute_multi(&conn_id, &sql).await?;
+
+    // Register execution in the lifecycle registry using tab_id as the key.
+    let exec_id = QueryExecutionId(tab_id);
+    let cancel_rx = exec_registry.register_with_id(conn_id, exec_id.clone());
+    exec_registry.start_execution(&exec_id);
+
+    let multi_future = service.execute_multi(&conn_id, &sql);
+    tokio::pin!(multi_future);
+
+    let result = tokio::select! {
+        res = &mut multi_future => res,
+        _ = cancel_rx => {
+            exec_registry.finish_execution(
+                &exec_id, ExecutionStatus::Cancelled, 0, 0, 0,
+            );
+            exec_registry.remove(&exec_id);
+            return Err(CommandError {
+                error: "QUERY_CANCELLED".into(),
+                message: "Query was cancelled by user".into(),
+                message_id: "error.query.cancelled".into(),
+                details: None,
+                retryable: false,
+            });
+        }
+    };
+
+    // Finish execution with appropriate lifecycle status.
+    match &result {
+        Ok(mqr) => {
+            let total_rows: u64 = mqr.results.iter().map(|r| r.row_count).sum();
+            let status = if mqr.error.is_some() {
+                ExecutionStatus::Error
+            } else {
+                ExecutionStatus::Success
+            };
+            exec_registry.finish_execution(
+                &exec_id,
+                status,
+                total_rows,
+                0,
+                mqr.results.len() as u32,
+            );
+        }
+        Err(e) => {
+            let status = match e {
+                db_pro_core::domain::error::DbError::QueryTimeout { .. } => ExecutionStatus::TimedOut,
+                db_pro_core::domain::error::DbError::QueryCancelled => ExecutionStatus::Cancelled,
+                _ => ExecutionStatus::Error,
+            };
+            exec_registry.finish_execution(&exec_id, status, 0, 0, 0);
+        }
+    }
+    exec_registry.remove(&exec_id);
+
+    let result = result?;
     Ok(result.into())
 }
 

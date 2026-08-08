@@ -41,7 +41,7 @@ export function useExecuteQuery() {
 
   return useMutation({
     mutationFn: ({ connectionId, sql, tabId }: { connectionId: string; sql: string; tabId: string }) =>
-      getQueryService().execute(connectionId, sql) as Promise<QueryResult>,
+      getQueryService().execute(connectionId, sql, tabId) as Promise<QueryResult>,
     onMutate: (vars) => {
       setTabStatus(vars.tabId, "running");
       setTabError(vars.tabId, null);
@@ -108,7 +108,7 @@ export function useExecuteQuery() {
 export function useCancelQuery() {
   return useMutation({
     mutationFn: ({ connectionId, tabId }: { connectionId: string; tabId: string }) =>
-      getQueryService().cancel(connectionId),
+      getQueryService().cancel(connectionId, tabId),
     onSuccess: (_data, variables) => {
       setTabStatus(variables.tabId, "idle");
       setTabError(variables.tabId, null);
@@ -121,7 +121,7 @@ export function useExecuteQueryMulti() {
 
   return useMutation({
     mutationFn: ({ connectionId, sql, tabId }: { connectionId: string; sql: string; tabId: string }) =>
-      getQueryService().executeMulti(connectionId, sql) as Promise<MultiQueryResult>,
+      getQueryService().executeMulti(connectionId, sql, tabId) as Promise<MultiQueryResult>,
     onMutate: (vars) => {
       setTabStatus(vars.tabId, "running");
       setTabError(vars.tabId, null);
@@ -141,13 +141,31 @@ export function useExecuteQueryMulti() {
         fetchMs: Math.max(0, totalMs - serverMs),
         renderMs: 0,
       };
-      setTabStatus(variables.tabId, "success");
+
+      // Check for partial failure: data.error is [statementIndex, errorMessage]
+      const hasPartialError = data.error !== null && data.error !== undefined;
+
+      // Always preserve successful results (even on partial failure)
       setTabMultiResults(variables.tabId, data.results);
       if (data.results.length > 0) {
         setTabResult(variables.tabId, data.results[0]);
       }
       setTabTiming(variables.tabId, timing);
       setTabExecutionStartedAt(variables.tabId, null);
+
+      if (hasPartialError) {
+        const [stmtIdx, errorMsg] = data.error!;
+        const completedCount = data.results.length;
+        const message = completedCount > 0
+          ? `${completedCount} result(s) completed · Statement ${stmtIdx + 1} failed: ${errorMsg}`
+          : `Statement ${stmtIdx + 1} failed: ${errorMsg}`;
+        setTabStatus(variables.tabId, "error");
+        setTabError(variables.tabId, message);
+      } else {
+        setTabStatus(variables.tabId, "success");
+        setTabError(variables.tabId, null);
+      }
+
       const ctx = tab?.kind === "query" ? tab.data.context : null;
       useQueryHistoryStore.getState().addEntry({
         id: crypto.randomUUID(),
@@ -156,7 +174,7 @@ export function useExecuteQueryMulti() {
         executedAt: new Date().toISOString(),
         durationMs: data.totalDurationMs,
         rowCount: data.results.reduce((sum, r) => sum + r.rowCount, 0),
-        status: "success",
+        status: hasPartialError ? "error" : "success",
         database: ctx?.database ?? null,
         schema: ctx?.schema ?? null,
       });

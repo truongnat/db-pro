@@ -84,6 +84,10 @@ pub struct ConnectionConfig {
     pub tags: Vec<String>,
     #[serde(default)]
     pub group: Option<String>,
+    /// If true, only read-only queries (SELECT, SHOW, EXPLAIN) are allowed.
+    /// Enforced at the backend application layer.
+    #[serde(default)]
+    pub readonly: bool,
 }
 
 fn default_query_timeout() -> u64 {
@@ -254,6 +258,7 @@ mod tests {
             color: None,
             tags: vec![],
             group: None,
+            readonly: false,
         }
     }
 
@@ -301,6 +306,7 @@ mod tests {
             color: None,
             tags: vec![],
             group: None,
+            readonly: false,
         };
         let errors = config.validate().unwrap_err();
         assert_eq!(errors.len(), 5);
@@ -322,6 +328,7 @@ mod tests {
             color: None,
             tags: vec![],
             group: None,
+            readonly: false,
         };
         assert!(config.validate().is_ok());
     }
