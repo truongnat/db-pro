@@ -14,8 +14,9 @@
  *   - partial multi-query failure handling
  *   - timing computation
  *   - error normalization (QUERY_CANCELLED → cancelled status)
- *   - history recording
- *   - TanStack Query cache invalidation
+ *   - history recording (from snapshot — not live tab context)
+ *   - local history recording
+ *   - cache invalidation signaling (for all invocation sources)
  *
  * Architecture:
  *
@@ -30,6 +31,7 @@
 
 import { useQueryHistoryStore } from "@/commons/stores/query-history.store";
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
+import { pushLocalHistory } from "../services/local-history";
 
 import {
   setTabActiveExecutionId,
@@ -47,6 +49,35 @@ import { createQueryService } from "../services/query.service";
 
 import type { ExplainPlan, MultiQueryResult, QueryResult } from "../types/query.types";
 import type { QueryTiming } from "@/commons/types/workspace.types";
+
+// ─── Cache invalidation signaling ────────────────────────────
+
+/**
+ * Callbacks registered by the React layer to invalidate TanStack Query
+ * caches after execution. This ensures that query history panel updates
+ * after Action/MCP invocations — not just React hook invocations.
+ */
+const cacheInvalidationCallbacks: Array<(connectionId: string) => void> = [];
+
+/**
+ * Register a callback to be called after query execution for cache
+ * invalidation. Called by the React layer during app initialization.
+ */
+export function registerCacheInvalidation(
+  callback: (connectionId: string) => void,
+): () => void {
+  cacheInvalidationCallbacks.push(callback);
+  return () => {
+    const idx = cacheInvalidationCallbacks.indexOf(callback);
+    if (idx >= 0) cacheInvalidationCallbacks.splice(idx, 1);
+  };
+}
+
+function notifyCacheInvalidation(connectionId: string): void {
+  for (const cb of cacheInvalidationCallbacks) {
+    try { cb(connectionId); } catch { /* ignore */ }
+  }
+}
 
 // ─── Helpers ─────────────────────────────────────────────────
 
@@ -78,18 +109,6 @@ function computeTiming(tabId: string, serverMs: number): QueryTiming {
   };
 }
 
-/** Read tab context for history recording. */
-function getTabContext(tabId: string): { database: string | null; schema: string | null } {
-  const tab = useWorkspaceStore.getState().tabs.find((t) => t.id === tabId);
-  if (tab?.kind === "query") {
-    return {
-      database: tab.data.context.database ?? null,
-      schema: tab.data.context.schema ?? null,
-    };
-  }
-  return { database: null, schema: null };
-}
-
 /** Normalize error message for display. */
 function normalizeErrorMessage(err: unknown): string {
   const translated = err as { userMessage?: string; technicalMessage?: string };
@@ -101,16 +120,24 @@ function normalizeErrorMessage(err: unknown): string {
   return "Query execution failed";
 }
 
-/** Add a history entry and invalidate TanStack cache. */
+/**
+ * Record a history entry from the EXECUTION SNAPSHOT — not from the live tab.
+ *
+ * The database/schema parameters come from the ResolvedQueryExecution
+ * that was frozen at invocation time. This ensures that changing the
+ * tab context while a query is running does NOT alter the historical
+ * execution context.
+ */
 function recordHistory(
   connectionId: string,
+  database: string | null,
+  schema: string | null,
   sql: string,
   tabId: string,
   status: "success" | "error",
   durationMs: number,
   rowCount: number,
 ): void {
-  const ctx = getTabContext(tabId);
   useQueryHistoryStore.getState().addEntry({
     id: crypto.randomUUID(),
     connectionId,
@@ -119,8 +146,8 @@ function recordHistory(
     durationMs,
     rowCount,
     status,
-    database: ctx.database,
-    schema: ctx.schema,
+    database,
+    schema,
   });
 }
 
@@ -132,15 +159,19 @@ function recordHistory(
  * Called by both React hooks and Action Platform.
  * Returns the raw QueryResult on success.
  * Throws on failure (caller handles error path).
+ *
+ * IMPORTANT: database and schema are passed explicitly from the
+ * ResolvedQueryExecution snapshot — NOT derived from the live tab.
  */
 export async function executeQuery(params: {
   connectionId: string;
+  database: string | null;
+  schema: string | null;
   sql: string;
   executionId: string;
   tabId: string;
 }): Promise<QueryResult> {
-  const { connectionId, sql, executionId, tabId } = params;
-  const ctx = getTabContext(tabId);
+  const { connectionId, database, schema, sql, executionId, tabId } = params;
 
   // Set running state.
   setTabStatus(tabId, "running");
@@ -149,9 +180,12 @@ export async function executeQuery(params: {
   setTabExecutionStartedAt(tabId, Date.now());
   setTabActiveExecutionId(tabId, executionId);
 
+  // Record local history (all invocation sources).
+  pushLocalHistory(sql);
+
   try {
     const service = createQueryService();
-    const result = await service.execute(connectionId, sql, executionId, ctx.database, ctx.schema);
+    const result = await service.execute(connectionId, sql, executionId, database, schema);
 
     // Stale response guard — if a newer execution started, skip state mutation.
     if (isStaleResponse(tabId, executionId)) return result;
@@ -163,7 +197,9 @@ export async function executeQuery(params: {
     setTabExecutionStartedAt(tabId, null);
     setTabActiveExecutionId(tabId, null);
 
-    recordHistory(connectionId, sql, tabId, "success", result.durationMs, result.rowCount);
+    // Record history from snapshot (not live tab).
+    recordHistory(connectionId, database, schema, sql, tabId, "success", result.durationMs, result.rowCount);
+    notifyCacheInvalidation(connectionId);
 
     return result;
   } catch (err) {
@@ -184,7 +220,8 @@ export async function executeQuery(params: {
     const display = normalizeErrorMessage(err);
     setTabError(tabId, display);
 
-    recordHistory(connectionId, sql, tabId, "error", 0, 0);
+    recordHistory(connectionId, database, schema, sql, tabId, "error", 0, 0);
+    notifyCacheInvalidation(connectionId);
 
     throw err;
   }
@@ -194,15 +231,18 @@ export async function executeQuery(params: {
  * Execute multiple SQL statements with full lifecycle management.
  *
  * Handles partial failure: preserves successful results + reports error.
+ *
+ * IMPORTANT: database and schema come from the frozen snapshot.
  */
 export async function executeQueryMulti(params: {
   connectionId: string;
+  database: string | null;
+  schema: string | null;
   sql: string;
   executionId: string;
   tabId: string;
 }): Promise<MultiQueryResult> {
-  const { connectionId, sql, executionId, tabId } = params;
-  const ctx = getTabContext(tabId);
+  const { connectionId, database, schema, sql, executionId, tabId } = params;
 
   // Set running state.
   setTabStatus(tabId, "running");
@@ -211,9 +251,12 @@ export async function executeQueryMulti(params: {
   setTabExecutionStartedAt(tabId, Date.now());
   setTabActiveExecutionId(tabId, executionId);
 
+  // Record local history (all invocation sources).
+  pushLocalHistory(sql);
+
   try {
     const service = createQueryService();
-    const data = await service.executeMulti(connectionId, sql, executionId, ctx.database, ctx.schema);
+    const data = await service.executeMulti(connectionId, sql, executionId, database, schema);
 
     // Stale response guard.
     if (isStaleResponse(tabId, executionId)) return data;
@@ -247,12 +290,15 @@ export async function executeQueryMulti(params: {
 
     recordHistory(
       connectionId,
+      database,
+      schema,
       sql,
       tabId,
       hasPartialError ? "error" : "success",
       data.totalDurationMs,
       data.results.reduce((sum, r) => sum + r.rowCount, 0),
     );
+    notifyCacheInvalidation(connectionId);
 
     return data;
   } catch (err) {
@@ -272,7 +318,8 @@ export async function executeQueryMulti(params: {
     const display = normalizeErrorMessage(err);
     setTabError(tabId, display);
 
-    recordHistory(connectionId, sql, tabId, "error", 0, 0);
+    recordHistory(connectionId, database, schema, sql, tabId, "error", 0, 0);
+    notifyCacheInvalidation(connectionId);
 
     throw err;
   }
@@ -318,16 +365,24 @@ export async function explainQuery(params: {
 }
 
 /**
- * Format SQL and update the target tab.
+ * Format SQL using the dialect-aware formatter language.
+ *
+ * Uses the target connection's SqlDialect formatterLanguage so that
+ * UI, Command Palette, Agent, and future MCP all produce the same
+ * formatting output.
  */
 export async function formatSql(params: {
   tabId: string;
+  connectionId: string;
   sql: string;
 }): Promise<string> {
-  const { tabId, sql } = params;
+  const { tabId, connectionId, sql } = params;
 
+  const { getDialectForConnection } = await import("../sql/dialect");
   const { format } = await import("sql-formatter");
-  const formatted = format(sql);
+
+  const language = getDialectForConnection(connectionId).formatterLanguage;
+  const formatted = format(sql, { language });
 
   setTabSql(tabId, formatted);
 

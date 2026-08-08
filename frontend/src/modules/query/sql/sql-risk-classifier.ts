@@ -3,6 +3,98 @@ import { splitStatementsWithRanges } from "../services/statement-splitter";
 import type { ActionRisk } from "@/commons/actions/types";
 
 /**
+ * Mask string literals, double-quoted identifiers, line comments,
+ * block comments, and Postgres dollar-quoted bodies with spaces.
+ *
+ * This prevents false positives when mutation keywords appear
+ * inside strings, comments, or dollar-quoted function bodies.
+ */
+function maskNonCodeTokens(sql: string): string {
+  let result = "";
+  let i = 0;
+  while (i < sql.length) {
+    // Single-quoted string literal
+    if (sql[i] === "'") {
+      let j = i + 1;
+      while (j < sql.length) {
+        if (sql[j] === "'") {
+          if (sql[j + 1] === "'") { j += 2; continue; }
+          j++; break;
+        }
+        j++;
+      }
+      result += " ".repeat(j - i);
+      i = j;
+      continue;
+    }
+    // Double-quoted identifier
+    if (sql[i] === '"') {
+      let j = i + 1;
+      while (j < sql.length) {
+        if (sql[j] === '"') {
+          if (sql[j + 1] === '"') { j += 2; continue; }
+          j++; break;
+        }
+        j++;
+      }
+      result += " ".repeat(j - i);
+      i = j;
+      continue;
+    }
+    // Dollar-quoted body ($tag$...$tag$)
+    if (sql[i] === "$") {
+      let j = i + 1;
+      while (j < sql.length && /[A-Za-z0-9_]/.test(sql[j])) j++;
+      if (j > i + 1 || sql[j] === "$") {
+        // Could be a dollar quote — check for closing $
+        if (sql[j] === "$") {
+          const tag = sql.slice(i, j + 1);
+          let k = j + 1;
+          while (k < sql.length) {
+            if (sql.startsWith(tag, k)) {
+              k += tag.length;
+              break;
+            }
+            k++;
+          }
+          result += " ".repeat(k - i);
+          i = k;
+          continue;
+        }
+      }
+      // Not a dollar quote — just a $ character
+      result += sql[i];
+      i++;
+      continue;
+    }
+    // Line comment
+    if (sql[i] === "-" && sql[i + 1] === "-") {
+      let j = i;
+      while (j < sql.length && sql[j] !== "\n") j++;
+      result += " ".repeat(j - i);
+      i = j;
+      continue;
+    }
+    // Block comment
+    if (sql[i] === "/" && sql[i + 1] === "*") {
+      let j = i + 2;
+      let depth = 1;
+      while (j < sql.length && depth > 0) {
+        if (sql[j] === "/" && sql[j + 1] === "*") { depth++; j += 2; }
+        else if (sql[j] === "*" && sql[j + 1] === "/") { depth--; j += 2; }
+        else j++;
+      }
+      result += " ".repeat(j - i);
+      i = j;
+      continue;
+    }
+    result += sql[i];
+    i++;
+  }
+  return result;
+}
+
+/**
  * Canonical SQL safety classifier.
  *
  * Classifies a single SQL statement into a risk level:
@@ -14,7 +106,8 @@ import type { ActionRisk } from "@/commons/actions/types";
  *   - Leading comments (-- and block comments)
  *   - WITH mutating CTE (INSERT/UPDATE/DELETE inside WITH)
  *   - EXPLAIN [ANALYZE] [VERBOSE] mutation (both bare and parenthesized)
- *   - String literals (don't false-positive on keywords inside strings)
+ *   - String literals, dollar-quoted bodies, comments
+ *     (no false positives on keywords inside non-code tokens)
  */
 export function classifySqlRisk(sql: string): ActionRisk {
   // Strip leading block and line comments.
@@ -62,11 +155,14 @@ export function classifySqlRisk(sql: string): ActionRisk {
   }
 
   // WITH ... mutating CTE detection.
-  // Look for INSERT/UPDATE/DELETE inside WITH blocks.
+  // Mask strings/comments/dollar-quotes BEFORE checking for mutation keywords.
+  // This prevents false positives on:
+  //   WITH x AS (SELECT 'DELETE FROM users') SELECT * FROM x
+  //   WITH x AS (SELECT 1 /* DELETE FROM users */) SELECT * FROM x
   if (/^WITH\b/i.test(upper)) {
-    // Check if the WITH body contains mutating keywords.
-    // This is a heuristic — we look for DML keywords after the WITH ... AS.
-    const body = upper.replace(/^WITH\b[\s\S]*?\bAS\b\s*\(/, "");
+    const masked = maskNonCodeTokens(stripped);
+    const maskedUpper = masked.toUpperCase();
+    const body = maskedUpper.replace(/^WITH\b[\s\S]*?\bAS\b\s*\(/, "");
     if (/\b(INSERT|UPDATE|DELETE)\b/.test(body)) return "destructive";
     return "read";
   }

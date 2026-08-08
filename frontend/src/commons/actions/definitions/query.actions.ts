@@ -43,7 +43,9 @@ function resolveQueryTab(input: { tabId?: string }) {
  * the backend. Risk classification, confirmation, execution, audit and
  * history ALL use the same resolved SQL value.
  *
- * Never resolve SQL twice in two places.
+ * Called ONCE by the bus via resolvePayload(). The result is stored on
+ * ctx.resolvedPayload and reused by resolveRisk and execute — never
+ * resolved twice.
  */
 function resolveExecutableQuery(
   input: { tabId?: string; cursorOffset?: number; selection?: { start: number; end: number } | null },
@@ -58,7 +60,7 @@ function resolveExecutableQuery(
   if (mode === "selection" && (input as { sql?: string }).sql) {
     sql = (input as { sql: string }).sql;
   } else if (mode === "current") {
-    // Use editor cursor context store for accurate statement resolution.
+    // Use editor cursor context store for accurate statement resolutions.
     const editorCtx = useQueryEditorContextStore.getState().getEditorContext(tab.id);
     const cursorOffset = input.cursorOffset ?? editorCtx.cursorOffset;
     const selection = input.selection !== undefined ? input.selection : editorCtx.selection;
@@ -85,23 +87,14 @@ function resolveExecutableQuery(
 }
 
 /**
- * Resolve the execution payload, checking for frozen payload from confirmation first.
- * When a confirmation is approved, the bus merges resolvedPayload into input.
- * We use the frozen values directly — no re-resolution from live workspace.
+ * Read the frozen ResolvedQueryExecution from context.
+ *
+ * The bus resolves the payload ONCE and stores it on ctx.resolvedPayload.
+ * Both resolveRisk and execute read from this same instance.
  */
-function resolveExecutionPayload(
-  input: Record<string, unknown>,
-  ctx: ActionExecutionContext,
-  mode: "current" | "selection" | "all",
-): ResolvedQueryExecution | null {
-  if (input.__frozenPayload) {
-    return input.__frozenPayload as ResolvedQueryExecution;
-  }
-  return resolveExecutableQuery(
-    input as { tabId?: string; cursorOffset?: number; selection?: { start: number; end: number } | null },
-    ctx,
-    mode,
-  );
+function getResolvedPayload(ctx: ActionExecutionContext): ResolvedQueryExecution | null {
+  if (!ctx.resolvedPayload) return null;
+  return ctx.resolvedPayload as unknown as ResolvedQueryExecution;
 }
 
 function requireConnection(ctx: ActionExecutionContext): ActionResult | null {
@@ -148,15 +141,16 @@ export const executeCurrentAction = defineAction<
     };
   },
 
-  resolveRisk(input, ctx) {
-    const resolved = resolveExecutableQuery(input, ctx, "current");
-    if (!resolved) return "read";
-    return classifySqlRisk(resolved.sql);
-  },
-
   resolvePayload(input, ctx) {
     const resolved = resolveExecutableQuery(input, ctx, "current");
     return resolved ? (resolved as unknown as Record<string, unknown>) : null;
+  },
+
+  resolveRisk(_input, ctx) {
+    // Read from the already-resolved payload — never resolve twice.
+    const payload = getResolvedPayload(ctx);
+    if (!payload) return "read";
+    return classifySqlRisk(payload.sql);
   },
 
   availability(ctx) {
@@ -183,17 +177,25 @@ export const executeCurrentAction = defineAction<
     const connErr = requireConnection(ctx);
     if (connErr) return connErr as ActionResult<never>;
 
-    const resolved = resolveExecutionPayload(input as Record<string, unknown>, ctx, "current");
+    // Read the frozen payload from context — not from live workspace.
+    const resolved = getResolvedPayload(ctx);
     if (!resolved) {
       return { status: "error", error: { code: "no_tab", message: "No active query tab" } } as ActionResult<never>;
     }
 
     const backendExecId = crypto.randomUUID();
-    try { bindExternalExecutionId(ctx.correlationId, backendExecId); } catch { /* best-effort */ }
+
+    // Bind using actionExecutionId (NOT correlationId).
+    // correlationId is for tracing only.
+    if (ctx.actionExecutionId) {
+      bindExternalExecutionId(ctx.actionExecutionId, backendExecId);
+    }
 
     try {
       const result = await runtimeExecuteQuery({
         connectionId: resolved.connectionId,
+        database: resolved.database,
+        schema: resolved.schema,
         sql: resolved.sql,
         executionId: backendExecId,
         tabId: resolved.tabId,
@@ -201,7 +203,6 @@ export const executeCurrentAction = defineAction<
       return {
         status: "success",
         data: { rowCount: result.rowCount, durationMs: result.durationMs },
-        executionId: backendExecId,
       };
     } catch (err) {
       if ((err as { code?: string })?.code === "QUERY_CANCELLED") {
@@ -241,10 +242,6 @@ export const executeSelectionAction = defineAction<
     };
   },
 
-  resolveRisk(input) {
-    return classifySqlRisk(input.sql);
-  },
-
   resolvePayload(input, ctx) {
     const tab = resolveQueryTab(input);
     if (!tab || !tab.connectionId) return null;
@@ -259,21 +256,31 @@ export const executeSelectionAction = defineAction<
     return resolved as unknown as Record<string, unknown>;
   },
 
+  resolveRisk(_input, ctx) {
+    const payload = getResolvedPayload(ctx);
+    if (!payload) return "read";
+    return classifySqlRisk(payload.sql);
+  },
+
   async execute(input, ctx): Promise<ActionResult<{ rowCount: number; durationMs: number }>> {
     const connErr = requireConnection(ctx);
     if (connErr) return connErr as ActionResult<never>;
 
-    const resolved = resolveExecutionPayload(input as Record<string, unknown>, ctx, "selection");
+    const resolved = getResolvedPayload(ctx);
     if (!resolved) {
       return { status: "error", error: { code: "no_tab", message: "No active query tab" } } as ActionResult<never>;
     }
 
     const backendExecId = crypto.randomUUID();
-    try { bindExternalExecutionId(ctx.correlationId, backendExecId); } catch { /* best-effort */ }
+    if (ctx.actionExecutionId) {
+      bindExternalExecutionId(ctx.actionExecutionId, backendExecId);
+    }
 
     try {
       const result = await runtimeExecuteQuery({
         connectionId: resolved.connectionId,
+        database: resolved.database,
+        schema: resolved.schema,
         sql: resolved.sql,
         executionId: backendExecId,
         tabId: resolved.tabId,
@@ -281,7 +288,6 @@ export const executeSelectionAction = defineAction<
       return {
         status: "success",
         data: { rowCount: result.rowCount, durationMs: result.durationMs },
-        executionId: backendExecId,
       };
     } catch (err) {
       if ((err as { code?: string })?.code === "QUERY_CANCELLED") {
@@ -297,7 +303,7 @@ export const executeSelectionAction = defineAction<
 
 export const executeAllAction = defineAction<
   { tabId?: string },
-  { totalDurationMs: number; statementCount: number }
+  { totalDurationMs: number; statementCount: number; completedResults: number; failedStatement?: number }
 >({
   id: "query.execute.all",
   title: "Run all statements",
@@ -318,17 +324,18 @@ export const executeAllAction = defineAction<
     };
   },
 
-  resolveRisk(input, ctx) {
-    const resolved = resolveExecutableQuery(input, ctx, "all");
-    if (!resolved) return "read";
-    // Use classifyScriptRisk for multi-statement: splits, classifies each, returns max.
-    // SELECT 1; DROP TABLE users → destructive (not read).
-    return classifyScriptRisk(resolved.sql);
-  },
-
   resolvePayload(input, ctx) {
     const resolved = resolveExecutableQuery(input, ctx, "all");
     return resolved ? (resolved as unknown as Record<string, unknown>) : null;
+  },
+
+  resolveRisk(_input, ctx) {
+    // Read from the already-resolved payload — never resolve twice.
+    const payload = getResolvedPayload(ctx);
+    if (!payload) return "read";
+    // Use classifyScriptRisk for multi-statement: splits, classifies each, returns max.
+    // SELECT 1; DROP TABLE users → destructive (not read).
+    return classifyScriptRisk(payload.sql);
   },
 
   commandInput() {
@@ -336,32 +343,55 @@ export const executeAllAction = defineAction<
     return tab ? { tabId: tab.id } : undefined;
   },
 
-  async execute(input, ctx): Promise<ActionResult<{ totalDurationMs: number; statementCount: number }>> {
+  async execute(input, ctx): Promise<ActionResult<{ totalDurationMs: number; statementCount: number; completedResults: number; failedStatement?: number }>> {
     const connErr = requireConnection(ctx);
     if (connErr) return connErr as ActionResult<never>;
 
-    const resolved = resolveExecutionPayload(input as Record<string, unknown>, ctx, "all");
+    const resolved = getResolvedPayload(ctx);
     if (!resolved) {
       return { status: "error", error: { code: "no_tab", message: "No active query tab" } } as ActionResult<never>;
     }
 
     const backendExecId = crypto.randomUUID();
-    try { bindExternalExecutionId(ctx.correlationId, backendExecId); } catch { /* best-effort */ }
+    if (ctx.actionExecutionId) {
+      bindExternalExecutionId(ctx.actionExecutionId, backendExecId);
+    }
 
     try {
       const data = await runtimeExecuteQueryMulti({
         connectionId: resolved.connectionId,
+        database: resolved.database,
+        schema: resolved.schema,
         sql: resolved.sql,
         executionId: backendExecId,
         tabId: resolved.tabId,
       });
+
+      // P1-4: Check for partial failure — never return success for partial failure.
+      if (data.error) {
+        const [stmtIdx] = data.error;
+        return {
+          status: "error",
+          error: {
+            code: "partial_execution_failure",
+            message: `Statement ${stmtIdx + 1} failed. ${data.results.length} of ${stmtIdx + 1} statements completed.`,
+          },
+          data: {
+            totalDurationMs: data.totalDurationMs,
+            statementCount: data.results.length,
+            completedResults: data.results.length,
+            failedStatement: stmtIdx,
+          },
+        };
+      }
+
       return {
         status: "success",
         data: {
           totalDurationMs: data.totalDurationMs,
           statementCount: data.results.length,
+          completedResults: data.results.length,
         },
-        executionId: backendExecId,
       };
     } catch (err) {
       if ((err as { code?: string })?.code === "QUERY_CANCELLED") {
@@ -420,7 +450,7 @@ export const cancelQueryAction = defineAction<
 
     try {
       await runtimeCancelQuery({ tabId, executionId: execId });
-      return { status: "success", executionId: execId };
+      return { status: "success" };
     } catch (err) {
       const message = err instanceof Error ? err.message : "Cancel failed";
       return { status: "error", error: { code: "cancel_failed", message } };
@@ -433,8 +463,6 @@ export const cancelQueryAction = defineAction<
     const externalId = execution.externalExecutionId;
     if (externalId) {
       const { cancelQuery } = await import("@/modules/query/runtime/query-runtime");
-      // We don't have a tabId here, but the runtime only needs it for state.
-      // The actual backend cancel uses the executionId.
       await cancelQuery({ tabId: "", executionId: externalId });
     }
   },
@@ -516,7 +544,10 @@ export const formatSqlAction = defineAction<
   resolveContext(input, ambient) {
     const tab = resolveQueryTab(input);
     if (!tab) return {};
-    return { tabId: tab.id };
+    return {
+      tabId: tab.id,
+      connectionId: tab.connectionId ?? ambient.connectionId,
+    };
   },
 
   commandInput() {
@@ -539,8 +570,14 @@ export const formatSqlAction = defineAction<
       return { status: "error", error: { code: "no_tab", message: "No active query tab" } } as ActionResult<never>;
     }
 
+    // P1-6: Pass connectionId for dialect-aware formatting.
+    const connectionId = ctx.connectionId;
+    if (!connectionId) {
+      return { status: "error", error: { code: "connection_required", message: "No active connection" } } as ActionResult<never>;
+    }
+
     try {
-      const formatted = await runtimeFormatSql({ tabId, sql });
+      const formatted = await runtimeFormatSql({ tabId, connectionId, sql });
       return { status: "success", data: { formattedSql: formatted } };
     } catch (err) {
       const message = err instanceof Error ? err.message : "Format failed";

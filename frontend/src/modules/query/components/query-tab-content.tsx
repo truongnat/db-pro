@@ -31,7 +31,6 @@ import {
   useExplainPlan,
   useQueryHistory,
 } from "../queries/query.queries";
-import { pushLocalHistory } from "../services/local-history";
 import { getDialectForConnection } from "../sql/dialect";
 import { createQueryTab } from "@/commons/factories/tab-factories";
 import {
@@ -63,6 +62,8 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
   const sort = tabData?.sort ?? { column: null, direction: null };
   const timing = tabData?.timing ?? null;
   const executionStartedAt = tabData?.executionStartedAt ?? null;
+  const tabDatabase = tabData?.context?.database ?? null;
+  const tabSchema = tabData?.context?.schema ?? null;
 
   const panelTab = tabData?.activePanel ?? "results";
   const [historySearch, setHistorySearch] = useState("");
@@ -80,11 +81,18 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
       const targetSql = fragmentSql.trim();
       if (tabConnectionId && tabId && targetSql && status !== "running") {
         const executionId = crypto.randomUUID();
-        pushLocalHistory(targetSql);
-        executeMultiMutation.mutate({ connectionId: tabConnectionId, sql: targetSql, executionId, tabId });
+        // Local history is recorded by the canonical runtime.
+        executeMultiMutation.mutate({
+          connectionId: tabConnectionId,
+          database: tabDatabase,
+          schema: tabSchema,
+          sql: targetSql,
+          executionId,
+          tabId,
+        });
       }
     },
-    [tabConnectionId, tabId, status, executeMultiMutation],
+    [tabConnectionId, tabId, tabDatabase, tabSchema, status, executeMultiMutation],
   );
 
   /** Execute the entire editor content (Ctrl+Shift+Enter / toolbar Run). */
@@ -92,10 +100,17 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
     const targetSql = sql.trim();
     if (tabConnectionId && tabId && targetSql && status !== "running") {
       const executionId = crypto.randomUUID();
-      pushLocalHistory(targetSql);
-      executeMultiMutation.mutate({ connectionId: tabConnectionId, sql: targetSql, executionId, tabId });
+      // Local history is recorded by the canonical runtime.
+      executeMultiMutation.mutate({
+        connectionId: tabConnectionId,
+        database: tabDatabase,
+        schema: tabSchema,
+        sql: targetSql,
+        executionId,
+        tabId,
+      });
     }
-  }, [tabConnectionId, tabId, sql, status, executeMultiMutation]);
+  }, [tabConnectionId, tabId, tabDatabase, tabSchema, sql, status, executeMultiMutation]);
 
   const handleCancel = useCallback(() => {
     if (tabId && tabData?.activeExecutionId) {

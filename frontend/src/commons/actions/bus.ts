@@ -86,7 +86,7 @@ export async function executeAction<TOutput = unknown>(
 
   // Zod guarantees data is present on success, but our ActionSchema
   // interface doesn't carry that narrowing — assert it here.
-  let validatedInput = parseResult.data as NonNullable<typeof parseResult.data>;
+  const validatedInput = parseResult.data as NonNullable<typeof parseResult.data>;
 
   // ── 2. Build ambient context ───────────────────────────────
   const ambientCtx = buildActionContext(source, options?.context);
@@ -113,19 +113,27 @@ export async function executeAction<TOutput = unknown>(
     }
   }
 
-  // ── 5. Dynamic risk resolution ─────────────────────────────
+  // ── 5. Resolve executable payload ONCE ─────────────────────
+  // This single resolved payload is used for:
+  //   - Risk classification (resolveRisk reads from ctx.resolvedPayload)
+  //   - Confirmation snapshot (frozen in pendingConfirmations)
+  //   - Execution (action reads from ctx.resolvedPayload)
+  // Never resolve the executable payload twice.
+  let resolvedPayload: Record<string, unknown> | null = null;
+  if (definition.resolvePayload) {
+    resolvedPayload = definition.resolvePayload(validatedInput, ctx);
+  }
+  if (resolvedPayload) {
+    ctx = { ...ctx, resolvedPayload };
+  }
+
+  // ── 6. Dynamic risk resolution ─────────────────────────────
   let effectiveRisk = definition.risk ?? "read";
   if (definition.resolveRisk) {
     effectiveRisk = definition.resolveRisk(validatedInput, ctx);
   }
 
-  // ── 5b. Resolve executable payload (for confirmation freeze) ─
-  let resolvedPayload: Record<string, unknown> | null = null;
-  if (definition.resolvePayload) {
-    resolvedPayload = definition.resolvePayload(validatedInput, ctx);
-  }
-
-  // ── 6. Confirmation gate ───────────────────────────────────
+  // ── 7. Confirmation gate ───────────────────────────────────
   if (requiresConfirmation(definition, source, effectiveRisk)) {
     // If caller already has a valid confirmation token, proceed.
     if (options?.confirmationToken) {
@@ -136,9 +144,10 @@ export async function executeAction<TOutput = unknown>(
         if (conf.resolvedContext) {
           ctx = conf.resolvedContext;
         }
-        // Restore the frozen payload — do NOT re-resolve from live state.
+        // Restore the frozen payload on context — do NOT re-resolve from live state.
+        // The action reads ctx.resolvedPayload directly; no input spreading.
         if (conf.resolvedPayload) {
-          validatedInput = { ...(validatedInput as unknown as Record<string, unknown>), ...conf.resolvedPayload } as unknown as typeof validatedInput;
+          ctx = { ...ctx, resolvedPayload: conf.resolvedPayload };
         }
         // Fall through to execution.
       } else {
@@ -163,7 +172,7 @@ export async function executeAction<TOutput = unknown>(
     }
   }
 
-  // ── 7. Execute ─────────────────────────────────────────────
+  // ── 8. Execute ─────────────────────────────────────────────
   const executionId = `exec_${crypto.randomUUID()}`;
   const startedAt = new Date().toISOString();
 
@@ -174,6 +183,11 @@ export async function executeAction<TOutput = unknown>(
     startedAt: Date.now(),
   };
   activeExecutions.set(executionId, execution);
+
+  // Inject actionExecutionId into context AFTER creating the execution.
+  // Query actions use ctx.actionExecutionId for bindExternalExecutionId().
+  // correlationId is for tracing ONLY — never use it for execution lookup.
+  ctx = { ...ctx, actionExecutionId: executionId };
 
   emitAuditEvent({
     actionId,
@@ -226,7 +240,10 @@ export async function executeAction<TOutput = unknown>(
       durationMs: Date.now() - new Date(startedAt).getTime(),
     });
 
-    return { ...result, executionId: result.executionId ?? executionId } as ActionResult<TOutput>;
+    // The bus owns the executionId. Action handlers must NOT override it.
+    // This ensures callers always get the ActionExecutionId, not the
+    // backend execution ID. Backend identity is in externalExecutionId.
+    return { ...result, executionId } as ActionResult<TOutput>;
   } catch (err) {
     const message =
       err instanceof Error ? err.message : "Unknown action error";
@@ -486,4 +503,16 @@ export function cleanupExecutions(maxAgeMs = 60_000): void {
       activeExecutions.delete(id);
     }
   }
+}
+
+/**
+ * Get all currently running executions.
+ *
+ * Exposed for testing — real cancellation tests need to observe
+ * running ActionExecution IDs to verify bind + cancel flow.
+ */
+export function getRunningExecutions(): readonly ActionExecution[] {
+  return Array.from(activeExecutions.values()).filter(
+    (e) => e.state === "running",
+  );
 }

@@ -10,6 +10,8 @@ import {
   executeAction,
   confirmAction,
   cancelExecution,
+  bindExternalExecutionId,
+  getRunningExecutions,
 } from "../bus";
 import {
   actionToMcpTool,
@@ -374,38 +376,13 @@ describe("PATCH 6.2 — Action Runtime Unification regression tests", () => {
   // ── P6.2-5: Cancel failure reports error ───────────────────
 
   describe("Cancel failure handling", () => {
-    it("reports error when cancel hook throws", async () => {
-      defineAction<{ value?: string }, void>({
-        id: "test.cancel_fail",
-        title: "Test cancel failure",
-        category: "query",
-        inputSchema: z.object({ value: z.string().optional() }),
-        risk: "read",
-        async execute() {
-          return new Promise(() => {}); // never resolves
-        },
-        async cancel() {
-          throw new Error("Backend cancel failed");
-        },
-      });
-
-      // Start execution (don't await — it never resolves).
-      const execPromise = executeAction("test.cancel_fail", {});
-      await new Promise((r) => setTimeout(r, 10));
-
-      // Find the running execution ID from the bus.
-      // We can't get it directly, but we know the format: exec_<uuid>.
-      // Instead, test the contract: canceling a non-existent ID returns error.
+    it("canceling a non-existent execution returns error", async () => {
       const cancelResult = await cancelExecution("nonexistent_id");
       expect(cancelResult.status).toBe("error");
       expect(cancelResult.error?.code).toBe("execution_not_found");
-
-      void execPromise;
     });
 
     it("cancel hook throw → action state becomes error, NOT cancelled", async () => {
-      let capturedExecId = "";
-
       defineAction<{ value?: string }, void>({
         id: "test.cancel_hook_error",
         title: "Test cancel hook error state",
@@ -420,21 +397,21 @@ describe("PATCH 6.2 — Action Runtime Unification regression tests", () => {
         },
       });
 
-      // Start execution.
+      // Start execution (never resolves).
       const execPromise = executeAction("test.cancel_hook_error", {});
       await new Promise((r) => setTimeout(r, 10));
 
-      // We need the execution ID. Since the bus generates it internally,
-      // we test via the getExecution function after a failed cancel.
-      // The bus doesn't expose the ID directly, but we can verify the
-      // contract: cancelExecution returns error with code "cancel_failed".
-      // We'd need the actual exec ID to test this fully.
-      // For now, verify the API contract via cancelExecution on non-existent.
-      const result = await cancelExecution("nonexistent");
-      expect(result.status).toBe("error");
+      // Find the running execution.
+      const running = getRunningExecutions();
+      expect(running.length).toBe(1);
+      const execId = running[0].executionId;
+
+      // Cancel should fail because the cancel hook throws.
+      const cancelResult = await cancelExecution(execId);
+      expect(cancelResult.status).toBe("error");
+      expect(cancelResult.error?.code).toBe("cancel_failed");
 
       void execPromise;
-      void capturedExecId;
     });
   });
 
@@ -600,8 +577,8 @@ describe("PATCH 6.3 — Canonical Query Runtime regression tests", () => {
       expect(conf.resolvedPayload!.connectionId).toBe("frozen-conn");
     });
 
-    it("on confirm, frozen payload is merged into input (no re-resolution)", async () => {
-      let receivedInput: Record<string, unknown> | undefined;
+    it("on confirm, frozen payload is available on ctx.resolvedPayload (no input spreading)", async () => {
+      let receivedPayload: Record<string, unknown> | undefined;
 
       defineAction<{ sql: string }, void>({
         id: "test.payload_confirm",
@@ -611,10 +588,11 @@ describe("PATCH 6.3 — Canonical Query Runtime regression tests", () => {
         risk: "read",
         confirmation: { mode: "always" },
         resolvePayload(input) {
-          return { sql: input.sql, __frozen: true };
+          return { sql: input.sql, frozen: true };
         },
-        async execute(input) {
-          receivedInput = input as Record<string, unknown>;
+        async execute(_input, ctx) {
+          // The action reads the frozen payload from context.
+          receivedPayload = ctx.resolvedPayload;
           return { status: "success" };
         },
       });
@@ -627,26 +605,31 @@ describe("PATCH 6.3 — Canonical Query Runtime regression tests", () => {
       const second = await confirmAction(first.confirmation!.id);
       expect(second.status).toBe("success");
 
-      // The input must contain the frozen payload values.
-      expect(receivedInput).toBeDefined();
-      expect(receivedInput!.sql).toBe("DROP TABLE foo");
-      expect(receivedInput!.__frozen).toBe(true);
+      // The action must have received the frozen payload on context.
+      expect(receivedPayload).toBeDefined();
+      expect(receivedPayload!.sql).toBe("DROP TABLE foo");
+      expect(receivedPayload!.frozen).toBe(true);
     });
   });
 
   // ── P6.3-3: bindExternalExecutionId integration ────────────
 
   describe("bindExternalExecutionId", () => {
-    it("cancel hook receives externalExecutionId from bind", async () => {
+    it("real cancel integration: bind → cancel → cancel hook receives external ID", async () => {
       let cancelReceivedExternalId: string | undefined;
 
       defineAction<{ value?: string }, void>({
-        id: "test.bind_external",
-        title: "Test bind external",
+        id: "test.bind_cancel",
+        title: "Test bind and cancel",
         category: "query",
         inputSchema: z.object({ value: z.string().optional() }),
         risk: "read",
-        async execute() {
+        async execute(_input, ctx) {
+          // Bind the backend execution ID using actionExecutionId.
+          const backendId = "backend-query-exec-123";
+          if (ctx.actionExecutionId) {
+            bindExternalExecutionId(ctx.actionExecutionId, backendId);
+          }
           return new Promise(() => {}); // never resolves
         },
         async cancel(execution) {
@@ -655,16 +638,203 @@ describe("PATCH 6.3 — Canonical Query Runtime regression tests", () => {
       });
 
       // Start execution.
-      const execPromise = executeAction("test.bind_external", {});
-      await new Promise((r) => setTimeout(r, 5));
+      const execPromise = executeAction("test.bind_cancel", {});
+      await new Promise((r) => setTimeout(r, 10));
 
-      // We can't easily get the exec ID from the bus, but we verify
-      // that the cancel hook receives the execution object with the
-      // externalExecutionId field available.
-      // The actual binding is done by query actions via bindExternalExecutionId().
+      // Find the running execution.
+      const running = getRunningExecutions();
+      expect(running.length).toBe(1);
+      const actionExecId = running[0].executionId;
+
+      // Verify the external ID was bound.
+      expect(running[0].externalExecutionId).toBe("backend-query-exec-123");
+
+      // Cancel using the action execution ID.
+      const cancelResult = await cancelExecution(actionExecId);
+      expect(cancelResult.status).toBe("cancelled");
+
+      // Verify the cancel hook received the backend external ID.
+      expect(cancelReceivedExternalId).toBe("backend-query-exec-123");
 
       void execPromise;
-      void cancelReceivedExternalId;
+    });
+
+    it("cancel hook throws → cancel_failed, execution state = error", async () => {
+      defineAction<{ value?: string }, void>({
+        id: "test.bind_cancel_fail",
+        title: "Test bind cancel fail",
+        category: "query",
+        inputSchema: z.object({ value: z.string().optional() }),
+        risk: "read",
+        async execute(_input, ctx) {
+          if (ctx.actionExecutionId) {
+            bindExternalExecutionId(ctx.actionExecutionId, "backend-456");
+          }
+          return new Promise(() => {}); // never resolves
+        },
+        async cancel() {
+          throw new Error("Backend refused");
+        },
+      });
+
+      const execPromise = executeAction("test.bind_cancel_fail", {});
+      await new Promise((r) => setTimeout(r, 10));
+
+      const running = getRunningExecutions();
+      expect(running.length).toBe(1);
+      const actionExecId = running[0].executionId;
+      expect(running[0].externalExecutionId).toBe("backend-456");
+
+      // Cancel should fail.
+      const cancelResult = await cancelExecution(actionExecId);
+      expect(cancelResult.status).toBe("error");
+      expect(cancelResult.error?.code).toBe("cancel_failed");
+
+      void execPromise;
+    });
+  });
+});
+
+describe("PATCH 6.3.1 — Canonical Runtime Closure regression tests", () => {
+  // ── P1-1: Execution identity ────────────────────────────────
+
+  describe("Execution identity (actionExecutionId vs correlationId)", () => {
+    it("action receives actionExecutionId that matches the bus execution ID", async () => {
+      let receivedActionExecId: string | undefined;
+
+      defineAction<{ value?: string }, void>({
+        id: "test.exec_identity",
+        title: "Test exec identity",
+        category: "query",
+        inputSchema: z.object({ value: z.string().optional() }),
+        risk: "read",
+        async execute(_input, ctx) {
+          receivedActionExecId = ctx.actionExecutionId;
+          return { status: "success" };
+        },
+      });
+
+      const result = await executeAction("test.exec_identity", {});
+      expect(result.status).toBe("success");
+      expect(result.executionId).toBeDefined();
+      // The action's actionExecutionId must match the result executionId.
+      expect(receivedActionExecId).toBe(result.executionId);
+      // Must start with exec_ prefix (not corr_).
+      expect(receivedActionExecId).toMatch(/^exec_/);
+    });
+
+    it("bus always uses its own executionId, not handler-returned ID", async () => {
+      defineAction<{ value?: string }, void>({
+        id: "test.exec_id_override",
+        title: "Test exec ID override",
+        category: "query",
+        inputSchema: z.object({ value: z.string().optional() }),
+        risk: "read",
+        async execute() {
+          // Handler tries to return its own executionId.
+          return { status: "success" as const, executionId: "handler-should-not-override" };
+        },
+      });
+
+      const result = await executeAction("test.exec_id_override", {});
+      expect(result.status).toBe("success");
+      // Bus must use its own executionId, not the handler's.
+      expect(result.executionId).toMatch(/^exec_/);
+      expect(result.executionId).not.toBe("handler-should-not-override");
+    });
+  });
+
+  // ── P1-4: Partial failure ────────────────────────────────────
+
+  describe("Multi partial failure result", () => {
+    it("action returns error status when multi execution has partial failure", async () => {
+      defineAction<{ value?: string }, { totalDurationMs: number; statementCount: number; completedResults: number; failedStatement?: number }>({
+        id: "test.partial_failure",
+        title: "Test partial failure",
+        category: "query",
+        inputSchema: z.object({ value: z.string().optional() }),
+        risk: "read",
+        async execute() {
+          // Simulate what query.actions.ts does: runtime returns MultiQueryResult
+          // with error, action checks data.error and returns error status.
+          const data = {
+            results: [{ columns: [], rows: [], rowCount: 5, durationMs: 10 }],
+            totalDurationMs: 50,
+            error: [1, "syntax error at statement 2"] as [number, string],
+          };
+
+          if (data.error) {
+            const [stmtIdx] = data.error;
+            return {
+              status: "error" as const,
+              error: {
+                code: "partial_execution_failure",
+                message: `Statement ${stmtIdx + 1} failed.`,
+              },
+              data: {
+                totalDurationMs: data.totalDurationMs,
+                statementCount: data.results.length,
+                completedResults: data.results.length,
+                failedStatement: stmtIdx,
+              },
+            };
+          }
+
+          return { status: "success" as const, data: { totalDurationMs: 0, statementCount: 0, completedResults: 0 } };
+        },
+      });
+
+      const result = await executeAction("test.partial_failure", {});
+      // Must be error, NOT success.
+      expect(result.status).toBe("error");
+      expect(result.error?.code).toBe("partial_execution_failure");
+      // Must include structured partial result info.
+      expect(result.data).toBeDefined();
+      expect(result.data!.completedResults).toBe(1);
+      expect(result.data!.failedStatement).toBe(1);
+    });
+  });
+
+  // ── P2-1: Resolve once ───────────────────────────────────────
+
+  describe("Resolve payload once", () => {
+    it("resolvePayload called once, shared between resolveRisk and execute", async () => {
+      let resolvePayloadCallCount = 0;
+      let riskReadPayload: Record<string, unknown> | undefined;
+      let executeReadPayload: Record<string, unknown> | undefined;
+
+      defineAction<{ sql: string }, void>({
+        id: "test.resolve_once",
+        title: "Test resolve once",
+        category: "query",
+        inputSchema: z.object({ sql: z.string() }),
+        risk: "read",
+        confirmation: { mode: "destructive-only" },
+        resolvePayload(input) {
+          resolvePayloadCallCount++;
+          return { sql: input.sql };
+        },
+        resolveRisk(_input, ctx) {
+          riskReadPayload = ctx.resolvedPayload;
+          return "read" as const;
+        },
+        async execute(_input, ctx) {
+          executeReadPayload = ctx.resolvedPayload;
+          return { status: "success" };
+        },
+      });
+
+      const result = await executeAction("test.resolve_once", { sql: "SELECT 1" });
+      expect(result.status).toBe("success");
+
+      // resolvePayload must be called exactly once.
+      expect(resolvePayloadCallCount).toBe(1);
+
+      // Both resolveRisk and execute must read the SAME payload instance.
+      expect(riskReadPayload).toBeDefined();
+      expect(executeReadPayload).toBeDefined();
+      expect(riskReadPayload).toBe(executeReadPayload);
+      expect(riskReadPayload!.sql).toBe("SELECT 1");
     });
   });
 });

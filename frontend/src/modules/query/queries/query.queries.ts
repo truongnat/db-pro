@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect } from "react";
 
 import { container } from "@/app/app.module";
 import { SERVICE_NAMES, type IQueryService } from "@/commons/di/registry";
@@ -8,6 +9,7 @@ import {
   executeQueryMulti,
   cancelQuery,
   explainQuery,
+  registerCacheInvalidation,
 } from "../runtime/query-runtime";
 import type {
   ExplainPlan,
@@ -31,6 +33,20 @@ function getQueryService() {
 }
 
 /**
+ * Hook to register TanStack Query cache invalidation with the canonical
+ * runtime. Call once at the app root so that ALL execution sources
+ * (UI, Action, MCP) trigger history panel refresh.
+ */
+export function useRegisterRuntimeCacheInvalidation() {
+  const qc = useQueryClient();
+  useEffect(() => {
+    return registerCacheInvalidation((connectionId: string) => {
+      qc.invalidateQueries({ queryKey: QUERY_KEYS.history(connectionId) });
+    });
+  }, [qc]);
+}
+
+/**
  * Execute a single query — delegates to the canonical runtime.
  *
  * The runtime owns ALL lifecycle behavior:
@@ -38,22 +54,21 @@ function getQueryService() {
  *   - stale response guard
  *   - result, timing, history recording
  *   - error normalization (QUERY_CANCELLED → cancelled)
+ *   - cache invalidation signaling
  *
- * The hook adds TanStack Query cache invalidation on top.
+ * The hook no longer needs its own cache invalidation — the runtime
+ * handles it for ALL invocation sources.
  */
 export function useExecuteQuery() {
-  const qc = useQueryClient();
-
   return useMutation({
-    mutationFn: ({ connectionId, sql, executionId, tabId }: {
+    mutationFn: ({ connectionId, database, schema, sql, executionId, tabId }: {
       connectionId: string;
+      database: string | null;
+      schema: string | null;
       sql: string;
       executionId: string;
       tabId: string;
-    }) => executeQuery({ connectionId, sql, executionId, tabId }) as Promise<QueryResult>,
-    onSuccess: (_data, variables) => {
-      qc.invalidateQueries({ queryKey: QUERY_KEYS.history(variables.connectionId) });
-    },
+    }) => executeQuery({ connectionId, database, schema, sql, executionId, tabId }) as Promise<QueryResult>,
   });
 }
 
@@ -70,22 +85,18 @@ export function useCancelQuery() {
 /**
  * Execute multiple statements — delegates to the canonical runtime.
  *
- * The runtime handles partial failure, history, timing, and all
- * lifecycle behavior. The hook adds TanStack cache invalidation.
+ * The runtime handles partial failure, history, timing, cache invalidation.
  */
 export function useExecuteQueryMulti() {
-  const qc = useQueryClient();
-
   return useMutation({
-    mutationFn: ({ connectionId, sql, executionId, tabId }: {
+    mutationFn: ({ connectionId, database, schema, sql, executionId, tabId }: {
       connectionId: string;
+      database: string | null;
+      schema: string | null;
       sql: string;
       executionId: string;
       tabId: string;
-    }) => executeQueryMulti({ connectionId, sql, executionId, tabId }) as Promise<MultiQueryResult>,
-    onSuccess: (_data, variables) => {
-      qc.invalidateQueries({ queryKey: QUERY_KEYS.history(variables.connectionId) });
-    },
+    }) => executeQueryMulti({ connectionId, database, schema, sql, executionId, tabId }) as Promise<MultiQueryResult>,
   });
 }
 

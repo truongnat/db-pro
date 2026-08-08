@@ -63,6 +63,23 @@ export interface ActionExecutionContext {
   schema?: string | null;
   correlationId: string;
   idempotencyKey?: string;
+  /**
+   * Action Bus runtime identity for this specific execution.
+   * Injected by the bus AFTER creating the ActionExecution.
+   * Used for bindExternalExecutionId() — NOT correlationId.
+   *
+   * correlationId = tracing only.
+   * actionExecutionId = Action Bus runtime identity.
+   * backendExecutionId = database cancellation identity.
+   */
+  actionExecutionId?: string;
+  /**
+   * Frozen executable payload resolved ONCE by the bus.
+   * For query actions, this is the ResolvedQueryExecution.
+   * Risk classification, confirmation, and execution ALL use
+   * this same payload instance — never resolve twice.
+   */
+  resolvedPayload?: Record<string, unknown>;
 }
 
 /**

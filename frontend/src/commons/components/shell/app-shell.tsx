@@ -8,6 +8,7 @@ import { useCommandPalette } from "@/commons/hooks/use-command-palette";
 import { useQuickOpen } from "@/commons/hooks/use-quick-open";
 import { useShellStore } from "@/commons/stores/shell.store";
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
+import { useRegisterRuntimeCacheInvalidation } from "@/modules/query/queries/query.queries";
 import { ConnectionDialog } from "@/modules/connection/components/connection-dialog";
 
 import { ActivityBar } from "./activity-bar";
@@ -28,6 +29,9 @@ export function AppShell() {
   const draggingRef = useRef(false);
   useCommandPalette();
   useQuickOpen();
+  // Register TanStack Query cache invalidation with the canonical runtime
+  // so that ALL execution sources (UI, Action, MCP) trigger history refresh.
+  useRegisterRuntimeCacheInvalidation();
 
   const handleSidebarResizeStart = useCallback(
     (e: React.MouseEvent) => {
