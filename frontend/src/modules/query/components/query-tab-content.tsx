@@ -24,7 +24,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ChevronDown, History, Clock, BookOpen, HelpCircle, Database } from "lucide-react";
+import { ChevronDown, History, Clock, BookOpen, HelpCircle, Database, MessageSquare } from "lucide-react";
 import {
   useCancelQuery,
   useExecuteQueryMulti,
@@ -229,6 +229,7 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
   const primaryTabs = [
     { id: "results" as const, label: t("query.results") },
     { id: "explain" as const, label: t("query.explain") },
+    { id: "messages" as const, label: t("query.messages") },
   ];
 
   const renderTabButton = (tab: { id: typeof panelTab; label: string }) => (
@@ -386,6 +387,36 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
                   <HelpCircle className="mr-1.5 h-3.5 w-3.5" />
                   {t("query.explain")}
                 </Button>
+              </div>
+            )}
+
+            {panelTab === "messages" && (
+              <div className="flex flex-col gap-2 px-4 py-4">
+                {status === "success" && timing ? (
+                  <>
+                    <div className="flex items-center gap-2 text-[13px] text-foreground">
+                      <span className="h-2 w-2 rounded-full bg-[var(--app-success)]" />
+                      Query completed
+                    </div>
+                    <div className="flex flex-col gap-1 text-[12px] text-[var(--app-text-muted)]">
+                      <span>{t("query.rowsAffected", { count: rowCount })}</span>
+                      <span>{t("query.duration", { duration: timing.totalMs })}</span>
+                      {timing.serverMs > 0 && <span>Server: {timing.serverMs}ms</span>}
+                    </div>
+                  </>
+                ) : status === "error" ? (
+                  <div className="flex items-center gap-2 text-[13px] text-destructive">
+                    <span className="h-2 w-2 rounded-full bg-destructive" />
+                    {error ?? t("query.statusError")}
+                  </div>
+                ) : status === "cancelled" ? (
+                  <div className="flex items-center gap-2 text-[13px] text-[var(--app-text-muted)]">
+                    <span className="h-2 w-2 rounded-full bg-[var(--app-text-dim)]" />
+                    Execution cancelled
+                  </div>
+                ) : (
+                  <div className="text-[13px] text-[var(--app-text-muted)]">No messages yet.</div>
+                )}
               </div>
             )}
 

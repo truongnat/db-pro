@@ -72,6 +72,7 @@ export function ResultGrid({
         footer={
           <>
             <span>{t("query.rowsAffected", { count: rowCount })}</span>
+            <span>{t("query.columnsCount", { count: columns.length })}</span>
             <span>{t("query.duration", { duration: durationMs })}</span>
             <div className="flex-1" />
             <ZoomControls zoom={zoom} onZoomChange={setZoom} />
