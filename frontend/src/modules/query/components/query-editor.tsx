@@ -2,10 +2,21 @@ import Editor, { type OnMount } from "@monaco-editor/react";
 import { useCallback, useEffect, useRef } from "react";
 
 import { onQueryAction } from "@/commons/commands/query-dispatch";
+import { useQueryEditorContextStore } from "@/commons/stores/query-editor-context.store";
 import { registerSqlProviders } from "../services/sql-providers";
 import { resolveRunTarget } from "../services/statement-splitter";
 
 type MonacoEditorInstance = Parameters<OnMount>[0];
+
+/**
+ * Extract tabId from the Monaco editor path.
+ * Path format: `dbpro://query/<tabId>.sql`
+ */
+function extractTabId(path: string | undefined): string | null {
+  if (!path) return null;
+  const match = path.match(/dbpro:\/\/query\/(.+?)\.sql$/);
+  return match?.[1] ?? null;
+}
 
 interface QueryEditorProps {
   value: string;
@@ -86,8 +97,38 @@ export function QueryEditor({
           onCancelRef.current?.();
         });
       }
+
+      // Track cursor/selection state for the Action Platform.
+      // Command Palette and Keyboard read from this store to resolve
+      // "current statement" instead of hardcoding cursorOffset=0.
+      const tabId = extractTabId(path);
+      if (tabId) {
+        const updateContext = () => {
+          const model = editor.getModel();
+          if (!model) return;
+          const pos = editor.getPosition();
+          const offset = pos ? model.getOffsetAt(pos) : 0;
+          const sel = editor.getSelection();
+          const selectionRange =
+            sel && !sel.isEmpty()
+              ? {
+                  start: model.getOffsetAt(sel.getStartPosition()),
+                  end: model.getOffsetAt(sel.getEndPosition()),
+                }
+              : null;
+          useQueryEditorContextStore
+            .getState()
+            .setEditorContext(tabId, { cursorOffset: offset, selection: selectionRange });
+        };
+
+        editor.onDidChangeCursorPosition(updateContext);
+        editor.onDidChangeCursorSelection(updateContext);
+
+        // Seed initial state.
+        updateContext();
+      }
     },
-    [runTargetSql, runAllSql],
+    [runTargetSql, runAllSql, path],
   );
 
   // Listen for "executeCurrent" dispatch from toolbar
@@ -98,6 +139,15 @@ export function QueryEditor({
       if (sql) onExecuteRef.current?.(sql);
     });
   }, [runTargetSql]);
+
+  // Clean up editor context when the component unmounts (tab close).
+  useEffect(() => {
+    const tabId = extractTabId(path);
+    if (!tabId) return;
+    return () => {
+      useQueryEditorContextStore.getState().removeEditorContext(tabId);
+    };
+  }, [path]);
 
   const editorRef = useRef<MonacoEditorInstance | null>(null);
 
