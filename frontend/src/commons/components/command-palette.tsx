@@ -59,16 +59,16 @@ export function CommandPalette() {
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && close()}>
-      <DialogContent className="overflow-hidden p-0 shadow-lg">
+      <DialogContent className="!top-[16vh] !w-[640px] !max-w-[640px] -translate-x-1/2 !-translate-y-0 overflow-hidden p-0 shadow-lg">
         <Command
-          className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-[var(--app-text-muted)] [&_[cmdk-group]]:px-2 [&_[cmdk-group]]:py-1 [&_[cmdk-input-wrapper]]:px-3 [&_[cmdk-input-wrapper]]:py-2 [&_[cmdk-item]]:px-3 [&_[cmdk-item]]:py-2"
+          className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-[var(--app-text-muted)] [&_[cmdk-group]]:px-2 [&_[cmdk-group]]:py-1 [&_[cmdk-input-wrapper]]:px-3 [&_[cmdk-input-wrapper]]:py-2 [&_[cmdk-item]]:px-3 [&_[cmdk-item]]:py-2.5"
           label="Command palette"
         >
           <Command.Input
             placeholder={t("commandPalette.placeholder")}
-            className="flex h-10 w-full border-b border-[var(--app-border-subtle)] bg-transparent text-sm outline-none placeholder:text-[var(--app-text-dim)]"
+            className="flex h-11 w-full border-b border-[var(--app-border-subtle)] bg-transparent text-[13px] outline-none placeholder:text-[var(--app-text-dim)]"
           />
-          <Command.List className="max-h-[400px] overflow-y-auto overflow-x-hidden py-2">
+          <Command.List className="max-h-[520px] overflow-y-auto overflow-x-hidden py-2">
             <Command.Empty className="px-3 py-6 text-center text-sm text-[var(--app-text-muted)]">
               {t("commandPalette.noResults")}
             </Command.Empty>
