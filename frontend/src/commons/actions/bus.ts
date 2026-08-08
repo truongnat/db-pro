@@ -86,7 +86,7 @@ export async function executeAction<TOutput = unknown>(
 
   // Zod guarantees data is present on success, but our ActionSchema
   // interface doesn't carry that narrowing — assert it here.
-  const validatedInput = parseResult.data as NonNullable<typeof parseResult.data>;
+  let validatedInput = parseResult.data as NonNullable<typeof parseResult.data>;
 
   // ── 2. Build ambient context ───────────────────────────────
   const ambientCtx = buildActionContext(source, options?.context);
@@ -119,6 +119,12 @@ export async function executeAction<TOutput = unknown>(
     effectiveRisk = definition.resolveRisk(validatedInput, ctx);
   }
 
+  // ── 5b. Resolve executable payload (for confirmation freeze) ─
+  let resolvedPayload: Record<string, unknown> | null = null;
+  if (definition.resolvePayload) {
+    resolvedPayload = definition.resolvePayload(validatedInput, ctx);
+  }
+
   // ── 6. Confirmation gate ───────────────────────────────────
   if (requiresConfirmation(definition, source, effectiveRisk)) {
     // If caller already has a valid confirmation token, proceed.
@@ -129,6 +135,10 @@ export async function executeAction<TOutput = unknown>(
         // Restore the fully resolved context from the confirmation snapshot.
         if (conf.resolvedContext) {
           ctx = conf.resolvedContext;
+        }
+        // Restore the frozen payload — do NOT re-resolve from live state.
+        if (conf.resolvedPayload) {
+          validatedInput = { ...(validatedInput as unknown as Record<string, unknown>), ...conf.resolvedPayload } as unknown as typeof validatedInput;
         }
         // Fall through to execution.
       } else {
@@ -148,6 +158,7 @@ export async function executeAction<TOutput = unknown>(
         input ?? {},
         source,
         effectiveRisk,
+        resolvedPayload,
       ) as ActionResult<TOutput>;
     }
   }
@@ -182,8 +193,19 @@ export async function executeAction<TOutput = unknown>(
 
     const tracked = activeExecutions.get(executionId);
     if (tracked) {
-      tracked.state =
-        result.status === "cancelled" ? "cancelled" : "completed";
+      switch (result.status) {
+        case "success":
+          tracked.state = "completed";
+          break;
+        case "error":
+          tracked.state = "error";
+          break;
+        case "cancelled":
+          tracked.state = "cancelled";
+          break;
+        default:
+          tracked.state = "completed";
+      }
       tracked.result = result;
     }
 
@@ -261,6 +283,7 @@ function createConfirmationResponse(
   input: Record<string, unknown>,
   source?: ActionSource,
   effectiveRisk?: ActionRisk,
+  resolvedPayload?: Record<string, unknown> | null,
 ): ActionResult {
   const confirmationId = `confirm_${crypto.randomUUID()}`;
   const confirmation: ActionConfirmation = {
@@ -275,6 +298,10 @@ function createConfirmationResponse(
     // This ensures that switching tabs/connections before confirming
     // does NOT change the execution target.
     resolvedContext: resolvedCtx,
+    // Snapshot the frozen executable payload.
+    // For query actions, this is the ResolvedQueryExecution.
+    // On confirm, the action uses this directly — no re-resolution.
+    resolvedPayload: resolvedPayload ?? undefined,
     source,
     createdAt: Date.now(),
   };

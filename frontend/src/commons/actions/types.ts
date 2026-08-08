@@ -184,6 +184,19 @@ export interface ActionDefinition<TInput = void, TOutput = unknown> {
     ambientContext: ActionExecutionContext,
   ): Partial<ActionExecutionContext>;
 
+  /**
+   * Resolve the frozen executable payload for confirmation snapshot.
+   * Called before the confirmation gate. The returned payload is stored
+   * in the confirmation and used directly on confirm — the action must
+   * NOT re-resolve SQL/context from the live workspace.
+   *
+   * For query actions, this returns the ResolvedQueryExecution.
+   */
+  resolvePayload?(
+    input: TInput,
+    context: ActionExecutionContext,
+  ): Record<string, unknown> | null;
+
   risk?: ActionRisk;
   confirmation?: ConfirmationPolicy;
   permissions?: ActionPermission[];
@@ -244,6 +257,15 @@ export interface ActionConfirmation {
    * change the execution target.
    */
   resolvedContext?: ActionExecutionContext;
+  /**
+   * Frozen executable payload snapshot at confirmation time.
+   * For query actions, this is the ResolvedQueryExecution.
+   * On confirm, the action uses this payload directly instead
+   * of re-resolving SQL/context from the live workspace.
+   * This prevents confirmation drift — editing SQL between
+   * request and confirm does NOT change what gets executed.
+   */
+  resolvedPayload?: Record<string, unknown>;
   /** Original source of the invocation. */
   source?: ActionSource;
   /** When the confirmation was created. */

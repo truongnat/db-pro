@@ -1,79 +1,16 @@
-import { describe, expect, it, beforeEach } from "vitest";
-import { z } from "zod";
-
-import {
-  resetActionRegistry,
-  defineAction,
-  executeAction,
-} from "../index";
+import { describe, expect, it } from "vitest";
 
 /**
- * Regression tests for the SQL safety classifier used in query actions.
+ * Regression tests for the PRODUCTION SQL safety classifier.
  *
- * The classifier must correctly identify risk levels for:
- *   - Standard DML/DDL keywords
- *   - Leading comments (line and block)
- *   - WITH mutating CTE
- *   - EXPLAIN ANALYZE mutation
- *   - String literals containing keywords (no false positives)
- *   - Multi-statement scripts (cursor-based resolution)
+ * These tests import the actual production implementation from
+ * modules/query/sql/sql-risk-classifier.ts — NOT a copy.
  *
- * Since classifySqlRisk is not exported, we test it indirectly through
- * the resolveRisk hook on a test action that uses the same logic.
+ * If the production classifier is broken, these tests WILL fail.
  */
+import { classifySqlRisk, classifyScriptRisk } from "@/modules/query/sql/sql-risk-classifier";
 
-// Re-implement the classifier here to test it in isolation.
-// This mirrors the implementation in query.actions.ts.
-function classifySqlRisk(sql: string): "read" | "write" | "destructive" {
-  let stripped = sql.trim();
-  while (true) {
-    if (stripped.startsWith("--")) {
-      const nl = stripped.indexOf("\n");
-      if (nl === -1) return "read";
-      stripped = stripped.slice(nl + 1).trim();
-      continue;
-    }
-    if (stripped.startsWith("/*")) {
-      const end = stripped.indexOf("*/");
-      if (end === -1) return "read";
-      stripped = stripped.slice(end + 2).trim();
-      continue;
-    }
-    break;
-  }
-
-  if (!stripped) return "read";
-  const upper = stripped.toUpperCase();
-
-  if (/^EXPLAIN\b/i.test(upper)) {
-    const inner = stripped
-      .replace(/^EXPLAIN\b/i, "")
-      .replace(/^\s+ANALYZE\b/i, "")
-      .replace(/^\s+VERBOSE\b/i, "")
-      .trim();
-    if (inner) return classifySqlRisk(inner);
-    return "read";
-  }
-
-  if (/^WITH\b/i.test(upper)) {
-    const body = upper.replace(/^WITH\b[\s\S]*?\bAS\b\s*\(/, "");
-    if (/\b(INSERT|UPDATE|DELETE)\b/.test(body)) return "destructive";
-    return "read";
-  }
-
-  const noStrings = upper.replace(/'[^']*'/g, "''");
-
-  if (/^(DROP|TRUNCATE)\b/.test(noStrings)) return "destructive";
-  if (/^DELETE\b/.test(noStrings)) return "destructive";
-  if (/^(INSERT|UPDATE|ALTER|CREATE|REPLACE)\b/.test(noStrings)) return "write";
-  return "read";
-}
-
-beforeEach(() => {
-  resetActionRegistry();
-});
-
-describe("SQL Safety Classifier", () => {
+describe("SQL Safety Classifier — classifySqlRisk (production)", () => {
   // ── Standard keywords ───────────────────────────────────────
 
   describe("Standard SQL keywords", () => {
@@ -152,6 +89,10 @@ describe("SQL Safety Classifier", () => {
     it("WITH ... SELECT → read", () => {
       expect(classifySqlRisk("WITH x AS (SELECT * FROM t) SELECT * FROM x")).toBe("read");
     });
+
+    it("WITH string containing DELETE → read (no false positive)", () => {
+      expect(classifySqlRisk("WITH x AS (SELECT 'DELETE FROM users') SELECT * FROM x")).toBe("read");
+    });
   });
 
   // ── EXPLAIN ANALYZE ────────────────────────────────────────
@@ -167,6 +108,14 @@ describe("SQL Safety Classifier", () => {
 
     it("EXPLAIN ANALYZE VERBOSE DELETE → destructive", () => {
       expect(classifySqlRisk("EXPLAIN ANALYZE VERBOSE DELETE FROM users")).toBe("destructive");
+    });
+
+    it("EXPLAIN (ANALYZE, VERBOSE) DELETE → destructive", () => {
+      expect(classifySqlRisk("EXPLAIN (ANALYZE, VERBOSE) DELETE FROM users")).toBe("destructive");
+    });
+
+    it("EXPLAIN (ANALYZE) DROP → destructive", () => {
+      expect(classifySqlRisk("EXPLAIN (ANALYZE) DROP TABLE users")).toBe("destructive");
     });
 
     it("EXPLAIN SELECT → read", () => {
@@ -214,5 +163,47 @@ describe("SQL Safety Classifier", () => {
     it("REPLACE → write", () => {
       expect(classifySqlRisk("REPLACE INTO t VALUES (1)")).toBe("write");
     });
+  });
+});
+
+describe("SQL Safety Classifier — classifyScriptRisk (production)", () => {
+  it("SELECT 1; DROP TABLE users → destructive (max risk)", () => {
+    expect(classifyScriptRisk("SELECT 1; DROP TABLE users;")).toBe("destructive");
+  });
+
+  it("SELECT 1; UPDATE users SET → write (max risk)", () => {
+    expect(classifyScriptRisk("SELECT 1; UPDATE users SET name = 'x';")).toBe("write");
+  });
+
+  it("SELECT 1; SELECT 2 → read", () => {
+    expect(classifyScriptRisk("SELECT 1; SELECT 2;")).toBe("read");
+  });
+
+  it("INSERT; DELETE → destructive", () => {
+    expect(classifyScriptRisk("INSERT INTO t VALUES (1); DELETE FROM t;")).toBe("destructive");
+  });
+
+  it("single SELECT → read", () => {
+    expect(classifyScriptRisk("SELECT * FROM users")).toBe("read");
+  });
+
+  it("single DROP → destructive", () => {
+    expect(classifyScriptRisk("DROP TABLE users")).toBe("destructive");
+  });
+
+  it("empty script → read", () => {
+    expect(classifyScriptRisk("")).toBe("read");
+  });
+
+  it("comments only → read", () => {
+    expect(classifyScriptRisk("-- comment\n/* block */")).toBe("read");
+  });
+
+  it("mixed read and write → write", () => {
+    expect(classifyScriptRisk("SELECT 1; INSERT INTO t VALUES (1);")).toBe("write");
+  });
+
+  it("all destructive → destructive", () => {
+    expect(classifyScriptRisk("DROP TABLE a; DROP TABLE b;")).toBe("destructive");
   });
 });

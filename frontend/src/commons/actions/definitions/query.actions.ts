@@ -2,14 +2,21 @@ import { z } from "zod";
 
 import { defineAction } from "../registry";
 import { bindExternalExecutionId } from "../bus";
-import { createQueryService } from "@/modules/query/services/query.service";
-import { getActiveQueryTab, getQueryTabData, setTabSql, setTabStatus, setTabResult, setTabError, setTabExplainPlan, setTabActivePanel, setTabTiming, setTabExecutionStartedAt, setTabActiveExecutionId, setTabMultiResults } from "@/modules/query/controllers/query-workspace.controller";
+import { getActiveQueryTab, getQueryTabData, setTabSql, setTabStatus } from "@/modules/query/controllers/query-workspace.controller";
 import { resolveRunTarget } from "@/modules/query/services/statement-splitter";
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
 import { useQueryEditorContextStore } from "@/commons/stores/query-editor-context.store";
+import { classifySqlRisk, classifyScriptRisk } from "@/modules/query/sql/sql-risk-classifier";
+import {
+  executeQuery as runtimeExecuteQuery,
+  executeQueryMulti as runtimeExecuteQueryMulti,
+  cancelQuery as runtimeCancelQuery,
+  explainQuery as runtimeExplainQuery,
+  formatSql as runtimeFormatSql,
+} from "@/modules/query/runtime/query-runtime";
 
 import type { ActionExecutionContext, ActionResult, ActionRisk, ResolvedQueryExecution } from "../types";
-import type { ExplainPlan, QueryResult } from "@/modules/query/types/query.types";
+import type { ExplainPlan } from "@/modules/query/types/query.types";
 
 // ─── Helpers ─────────────────────────────────────────────────
 
@@ -78,124 +85,37 @@ function resolveExecutableQuery(
 }
 
 /**
- * Classify SQL content into a risk level.
- *
- * Handles:
- *   - Leading comments (-- and /* *\/)
- *   - WITH mutating CTE (INSERT/UPDATE/DELETE inside WITH)
- *   - EXPLAIN ANALYZE mutation
- *   - String literals (don't false-positive on keywords inside strings)
- *   - Standard DML/DDL keywords
+ * Resolve the execution payload, checking for frozen payload from confirmation first.
+ * When a confirmation is approved, the bus merges resolvedPayload into input.
+ * We use the frozen values directly — no re-resolution from live workspace.
  */
-function classifySqlRisk(sql: string): ActionRisk {
-  // Strip leading block and line comments.
-  let stripped = sql.trim();
-  while (true) {
-    if (stripped.startsWith("--")) {
-      const nl = stripped.indexOf("\n");
-      if (nl === -1) return "read"; // only comments
-      stripped = stripped.slice(nl + 1).trim();
-      continue;
-    }
-    if (stripped.startsWith("/*")) {
-      const end = stripped.indexOf("*/");
-      if (end === -1) return "read"; // unclosed comment
-      stripped = stripped.slice(end + 2).trim();
-      continue;
-    }
-    break;
+function resolveExecutionPayload(
+  input: Record<string, unknown>,
+  ctx: ActionExecutionContext,
+  mode: "current" | "selection" | "all",
+): ResolvedQueryExecution | null {
+  if (input.__frozenPayload) {
+    return input.__frozenPayload as ResolvedQueryExecution;
   }
-
-  if (!stripped) return "read";
-
-  const upper = stripped.toUpperCase();
-
-  // EXPLAIN / EXPLAIN ANALYZE — classify the inner statement.
-  if (/^EXPLAIN\b/.test(upper)) {
-    // Strip the EXPLAIN [ANALYZE] [VERBOSE] prefix to get the inner SQL.
-    const inner = stripped
-      .replace(/^EXPLAIN\b/i, "")
-      .replace(/^\s+ANALYZE\b/i, "")
-      .replace(/^\s+VERBOSE\b/i, "")
-      .trim();
-    if (inner) return classifySqlRisk(inner);
-    return "read";
-  }
-
-  // WITH ... mutating CTE detection.
-  // Look for INSERT/UPDATE/DELETE inside WITH blocks.
-  if (/^WITH\b/i.test(upper)) {
-    // Check if the WITH body contains mutating keywords.
-    // This is a heuristic — we look for DML keywords after the WITH ... AS.
-    const body = upper.replace(/^WITH\b[\s\S]*?\bAS\b\s*\(/, "");
-    if (/\b(INSERT|UPDATE|DELETE)\b/.test(body)) return "destructive";
-    // If the main query after WITH is SELECT, it's read.
-    return "read";
-  }
-
-  // Strip string literals to avoid false positives on keywords inside strings.
-  const noStrings = upper.replace(/'[^']*'/g, "''");
-
-  // Destructive: DROP, TRUNCATE, DELETE
-  if (/^(DROP|TRUNCATE)\b/.test(noStrings)) return "destructive";
-  if (/^DELETE\b/.test(noStrings)) return "destructive";
-
-  // Write: INSERT, UPDATE, ALTER, CREATE, REPLACE
-  if (/^(INSERT|UPDATE|ALTER|CREATE|REPLACE)\b/.test(noStrings)) return "write";
-
-  // Default: read-only
-  return "read";
+  return resolveExecutableQuery(
+    input as { tabId?: string; cursorOffset?: number; selection?: { start: number; end: number } | null },
+    ctx,
+    mode,
+  );
 }
 
 function requireConnection(ctx: ActionExecutionContext): ActionResult | null {
   if (!ctx.connectionId) {
-    return {
-      status: "error",
-      error: { code: "connection_required", message: "No active connection" },
-    };
+    return { status: "error", error: { code: "connection_required", message: "No active connection" } };
   }
   return null;
 }
 
 function requireSql(sql: string): ActionResult | null {
   if (!sql || !sql.trim()) {
-    return {
-      status: "error",
-      error: { code: "sql_required", message: "No SQL content" },
-    };
+    return { status: "error", error: { code: "sql_required", message: "No SQL content" } };
   }
   return null;
-}
-
-/**
- * Apply workspace state updates for a successful query execution.
- * This is the canonical application runtime — the same path that
- * React hooks use, now also used by the Action Platform.
- */
-function applyQueryResultToWorkspace(tabId: string, result: QueryResult): void {
-  setTabStatus(tabId, "success");
-  setTabResult(tabId, result);
-  setTabError(tabId, null);
-  setTabTiming(tabId, {
-    serverMs: result.durationMs,
-    totalMs: result.durationMs,
-    fetchMs: 0,
-    renderMs: 0,
-  });
-  setTabActiveExecutionId(tabId, null);
-}
-
-function applyQueryErrorToWorkspace(tabId: string, message: string): void {
-  setTabStatus(tabId, "error");
-  setTabError(tabId, message);
-  setTabActiveExecutionId(tabId, null);
-}
-
-function applyMultiResultToWorkspace(tabId: string, results: QueryResult[]): void {
-  setTabStatus(tabId, "success");
-  setTabMultiResults(tabId, results);
-  setTabError(tabId, null);
-  setTabActiveExecutionId(tabId, null);
 }
 
 // ─── query.execute.current ───────────────────────────────────
@@ -234,6 +154,11 @@ export const executeCurrentAction = defineAction<
     return classifySqlRisk(resolved.sql);
   },
 
+  resolvePayload(input, ctx) {
+    const resolved = resolveExecutableQuery(input, ctx, "current");
+    return resolved ? (resolved as unknown as Record<string, unknown>) : null;
+  },
+
   availability(ctx) {
     const tab = resolveQueryTab({ tabId: ctx.tabId });
     const hasSql = tab ? tab.data.sql.trim().length > 0 : false;
@@ -246,7 +171,6 @@ export const executeCurrentAction = defineAction<
   commandInput() {
     const tab = getActiveQueryTab();
     if (!tab) return undefined;
-    // Read real cursor state from the editor context store.
     const editorCtx = useQueryEditorContextStore.getState().getEditorContext(tab.id);
     return {
       tabId: tab.id,
@@ -257,49 +181,34 @@ export const executeCurrentAction = defineAction<
 
   async execute(input, ctx): Promise<ActionResult<{ rowCount: number; durationMs: number }>> {
     const connErr = requireConnection(ctx);
-    if (connErr) return connErr as ActionResult<{ rowCount: number; durationMs: number }>;
+    if (connErr) return connErr as ActionResult<never>;
 
-    const resolved = resolveExecutableQuery(input, ctx, "current");
+    const resolved = resolveExecutionPayload(input as Record<string, unknown>, ctx, "current");
     if (!resolved) {
-      return { status: "error", error: { code: "no_tab", message: "No active query tab" } } as ActionResult<{ rowCount: number; durationMs: number }>;
+      return { status: "error", error: { code: "no_tab", message: "No active query tab" } } as ActionResult<never>;
     }
 
-    const sqlErr = requireSql(resolved.sql);
-    if (sqlErr) return sqlErr as ActionResult<{ rowCount: number; durationMs: number }>;
-
     const backendExecId = crypto.randomUUID();
-    const service = createQueryService();
-
-    // Set running state.
-    setTabStatus(resolved.tabId, "running");
-    setTabError(resolved.tabId, null);
-    setTabExecutionStartedAt(resolved.tabId, Date.now());
-    setTabActiveExecutionId(resolved.tabId, backendExecId);
+    try { bindExternalExecutionId(ctx.correlationId, backendExecId); } catch { /* best-effort */ }
 
     try {
-      const result = await service.execute(
-        resolved.connectionId,
-        resolved.sql,
-        backendExecId,
-        resolved.database,
-        resolved.schema,
-      );
-
-      // Apply result to workspace state (canonical runtime).
-      applyQueryResultToWorkspace(resolved.tabId, result);
-
+      const result = await runtimeExecuteQuery({
+        connectionId: resolved.connectionId,
+        sql: resolved.sql,
+        executionId: backendExecId,
+        tabId: resolved.tabId,
+      });
       return {
         status: "success",
         data: { rowCount: result.rowCount, durationMs: result.durationMs },
         executionId: backendExecId,
       };
     } catch (err) {
+      if ((err as { code?: string })?.code === "QUERY_CANCELLED") {
+        return { status: "cancelled" } as ActionResult<never>;
+      }
       const message = err instanceof Error ? err.message : "Query execution failed";
-      applyQueryErrorToWorkspace(resolved.tabId, message);
-      return {
-        status: "error",
-        error: { code: "query_error", message },
-      } as ActionResult<{ rowCount: number; durationMs: number }>;
+      return { status: "error", error: { code: "query_error", message } } as ActionResult<never>;
     }
   },
 });
@@ -336,48 +245,50 @@ export const executeSelectionAction = defineAction<
     return classifySqlRisk(input.sql);
   },
 
+  resolvePayload(input, ctx) {
+    const tab = resolveQueryTab(input);
+    if (!tab || !tab.connectionId) return null;
+    const resolved: ResolvedQueryExecution = {
+      tabId: tab.id,
+      connectionId: tab.connectionId,
+      database: tab.data.context.database ?? null,
+      schema: tab.data.context.schema ?? null,
+      sql: input.sql,
+      executionMode: "selection",
+    };
+    return resolved as unknown as Record<string, unknown>;
+  },
+
   async execute(input, ctx): Promise<ActionResult<{ rowCount: number; durationMs: number }>> {
     const connErr = requireConnection(ctx);
-    if (connErr) return connErr as ActionResult<{ rowCount: number; durationMs: number }>;
-    const sqlErr = requireSql(input.sql);
-    if (sqlErr) return sqlErr as ActionResult<{ rowCount: number; durationMs: number }>;
+    if (connErr) return connErr as ActionResult<never>;
 
-    const tab = resolveQueryTab(input);
-    const tabId = tab?.id ?? ctx.tabId;
-
-    const backendExecId = crypto.randomUUID();
-    const service = createQueryService();
-
-    if (tabId) {
-      setTabStatus(tabId, "running");
-      setTabError(tabId, null);
-      setTabExecutionStartedAt(tabId, Date.now());
-      setTabActiveExecutionId(tabId, backendExecId);
+    const resolved = resolveExecutionPayload(input as Record<string, unknown>, ctx, "selection");
+    if (!resolved) {
+      return { status: "error", error: { code: "no_tab", message: "No active query tab" } } as ActionResult<never>;
     }
 
+    const backendExecId = crypto.randomUUID();
+    try { bindExternalExecutionId(ctx.correlationId, backendExecId); } catch { /* best-effort */ }
+
     try {
-      const result = await service.execute(
-        ctx.connectionId!,
-        input.sql,
-        backendExecId,
-        ctx.database,
-        ctx.schema,
-      );
-
-      if (tabId) applyQueryResultToWorkspace(tabId, result);
-
+      const result = await runtimeExecuteQuery({
+        connectionId: resolved.connectionId,
+        sql: resolved.sql,
+        executionId: backendExecId,
+        tabId: resolved.tabId,
+      });
       return {
         status: "success",
         data: { rowCount: result.rowCount, durationMs: result.durationMs },
         executionId: backendExecId,
       };
     } catch (err) {
+      if ((err as { code?: string })?.code === "QUERY_CANCELLED") {
+        return { status: "cancelled" } as ActionResult<never>;
+      }
       const message = err instanceof Error ? err.message : "Query execution failed";
-      if (tabId) applyQueryErrorToWorkspace(tabId, message);
-      return {
-        status: "error",
-        error: { code: "query_error", message },
-      } as ActionResult<{ rowCount: number; durationMs: number }>;
+      return { status: "error", error: { code: "query_error", message } } as ActionResult<never>;
     }
   },
 });
@@ -407,10 +318,17 @@ export const executeAllAction = defineAction<
     };
   },
 
-  resolveRisk(input, _ctx) {
-    const resolved = resolveExecutableQuery(input, _ctx, "all");
+  resolveRisk(input, ctx) {
+    const resolved = resolveExecutableQuery(input, ctx, "all");
     if (!resolved) return "read";
-    return classifySqlRisk(resolved.sql);
+    // Use classifyScriptRisk for multi-statement: splits, classifies each, returns max.
+    // SELECT 1; DROP TABLE users → destructive (not read).
+    return classifyScriptRisk(resolved.sql);
+  },
+
+  resolvePayload(input, ctx) {
+    const resolved = resolveExecutableQuery(input, ctx, "all");
+    return resolved ? (resolved as unknown as Record<string, unknown>) : null;
   },
 
   commandInput() {
@@ -420,50 +338,37 @@ export const executeAllAction = defineAction<
 
   async execute(input, ctx): Promise<ActionResult<{ totalDurationMs: number; statementCount: number }>> {
     const connErr = requireConnection(ctx);
-    if (connErr) return connErr as ActionResult<{ totalDurationMs: number; statementCount: number }>;
+    if (connErr) return connErr as ActionResult<never>;
 
-    const resolved = resolveExecutableQuery(input, ctx, "all");
+    const resolved = resolveExecutionPayload(input as Record<string, unknown>, ctx, "all");
     if (!resolved) {
-      return { status: "error", error: { code: "no_tab", message: "No active query tab" } } as ActionResult<{ totalDurationMs: number; statementCount: number }>;
+      return { status: "error", error: { code: "no_tab", message: "No active query tab" } } as ActionResult<never>;
     }
 
-    const sqlErr = requireSql(resolved.sql);
-    if (sqlErr) return sqlErr as ActionResult<{ totalDurationMs: number; statementCount: number }>;
-
     const backendExecId = crypto.randomUUID();
-    const service = createQueryService();
-
-    setTabStatus(resolved.tabId, "running");
-    setTabError(resolved.tabId, null);
-    setTabExecutionStartedAt(resolved.tabId, Date.now());
-    setTabActiveExecutionId(resolved.tabId, backendExecId);
+    try { bindExternalExecutionId(ctx.correlationId, backendExecId); } catch { /* best-effort */ }
 
     try {
-      const result = await service.executeMulti(
-        resolved.connectionId,
-        resolved.sql,
-        backendExecId,
-        resolved.database,
-        resolved.schema,
-      );
-
-      applyMultiResultToWorkspace(resolved.tabId, result.results);
-
+      const data = await runtimeExecuteQueryMulti({
+        connectionId: resolved.connectionId,
+        sql: resolved.sql,
+        executionId: backendExecId,
+        tabId: resolved.tabId,
+      });
       return {
         status: "success",
         data: {
-          totalDurationMs: result.totalDurationMs,
-          statementCount: result.results.length,
+          totalDurationMs: data.totalDurationMs,
+          statementCount: data.results.length,
         },
         executionId: backendExecId,
       };
     } catch (err) {
+      if ((err as { code?: string })?.code === "QUERY_CANCELLED") {
+        return { status: "cancelled" } as ActionResult<never>;
+      }
       const message = err instanceof Error ? err.message : "Query execution failed";
-      applyQueryErrorToWorkspace(resolved.tabId, message);
-      return {
-        status: "error",
-        error: { code: "query_error", message },
-      } as ActionResult<{ totalDurationMs: number; statementCount: number }>;
+      return { status: "error", error: { code: "query_error", message } } as ActionResult<never>;
     }
   },
 });
@@ -500,8 +405,7 @@ export const cancelQueryAction = defineAction<
 
   async execute(input, ctx) {
     const tab = resolveQueryTab(input);
-    const execId =
-      input.executionId ?? tab?.data.activeExecutionId;
+    const execId = input.executionId ?? tab?.data.activeExecutionId;
     if (!execId) {
       return {
         status: "error",
@@ -509,28 +413,29 @@ export const cancelQueryAction = defineAction<
       };
     }
 
-    const service = createQueryService();
-    await service.cancel(execId);
-
     const tabId = tab?.id ?? ctx.tabId;
-    if (tabId) {
-      setTabStatus(tabId, "cancelled");
-      setTabActiveExecutionId(tabId, null);
+    if (!tabId) {
+      return { status: "error", error: { code: "no_tab", message: "No active tab" } };
     }
 
-    return {
-      status: "success",
-      executionId: execId,
-    };
+    try {
+      await runtimeCancelQuery({ tabId, executionId: execId });
+      return { status: "success", executionId: execId };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Cancel failed";
+      return { status: "error", error: { code: "cancel_failed", message } };
+    }
   },
 
   async cancel(execution) {
-    // The cancel hook is called by the bus for any cancelExecution().
-    // Use the EXTERNAL execution ID (backend query ID), not the action-level ID.
+    // The cancel hook uses the EXTERNAL execution ID (backend query ID)
+    // for real cancellation at the database level.
     const externalId = execution.externalExecutionId;
     if (externalId) {
-      const service = createQueryService();
-      await service.cancel(externalId);
+      const { cancelQuery } = await import("@/modules/query/runtime/query-runtime");
+      // We don't have a tabId here, but the runtime only needs it for state.
+      // The actual backend cancel uses the executionId.
+      await cancelQuery({ tabId: "", executionId: externalId });
     }
   },
 });
@@ -566,27 +471,29 @@ export const explainQueryAction = defineAction<
 
   async execute(input, ctx): Promise<ActionResult<{ plan: ExplainPlan }>> {
     const connErr = requireConnection(ctx);
-    if (connErr) return connErr as ActionResult<{ plan: ExplainPlan }>;
+    if (connErr) return connErr as ActionResult<never>;
 
     const tab = resolveQueryTab(input);
     const sql = tab?.data.sql ?? "";
     const sqlErr = requireSql(sql);
-    if (sqlErr) return sqlErr as ActionResult<{ plan: ExplainPlan }>;
+    if (sqlErr) return sqlErr as ActionResult<never>;
 
-    const service = createQueryService();
-    const plan = await service.explain(ctx.connectionId!, sql);
-
-    // Actually update workspace state — populate explain plan and activate panel.
     const tabId = tab?.id ?? ctx.tabId;
-    if (tabId) {
-      setTabExplainPlan(tabId, plan);
-      setTabActivePanel(tabId, "explain");
+    if (!tabId) {
+      return { status: "error", error: { code: "no_tab", message: "No active query tab" } } as ActionResult<never>;
     }
 
-    return {
-      status: "success",
-      data: { plan },
-    };
+    try {
+      const plan = await runtimeExplainQuery({
+        connectionId: ctx.connectionId!,
+        sql,
+        tabId,
+      });
+      return { status: "success", data: { plan } };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Explain failed";
+      return { status: "error", error: { code: "explain_failed", message } } as ActionResult<never>;
+    }
   },
 });
 
@@ -617,30 +524,28 @@ export const formatSqlAction = defineAction<
     return tab ? { tabId: tab.id, sql: tab.data.sql } : undefined;
   },
 
-  async execute(input, ctx) {
+  async execute(input, ctx): Promise<ActionResult<{ formattedSql: string }>> {
     const tab = resolveQueryTab(input);
     const sql = input.sql ?? tab?.data.sql ?? "";
     if (!sql.trim()) {
       return {
         status: "error",
         error: { code: "sql_required", message: "No SQL content to format" },
-      };
+      } as ActionResult<never>;
     }
 
-    // Dynamic import to avoid loading sql-formatter unless needed.
-    const { format } = await import("sql-formatter");
-    const formatted = format(sql);
-
-    // Actually update the editor SQL.
     const tabId = tab?.id ?? ctx.tabId;
-    if (tabId) {
-      setTabSql(tabId, formatted);
+    if (!tabId) {
+      return { status: "error", error: { code: "no_tab", message: "No active query tab" } } as ActionResult<never>;
     }
 
-    return {
-      status: "success",
-      data: { formattedSql: formatted },
-    } satisfies ActionResult<{ formattedSql: string }>;
+    try {
+      const formatted = await runtimeFormatSql({ tabId, sql });
+      return { status: "success", data: { formattedSql: formatted } };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Format failed";
+      return { status: "error", error: { code: "format_failed", message } } as ActionResult<never>;
+    }
   },
 });
 
@@ -728,6 +633,7 @@ export const saveQueryAction = defineAction<
       };
     }
 
+    const { createQueryService } = await import("@/modules/query/services/query.service");
     const service = createQueryService();
     const saved = await service.save(ctx.connectionId!, input.name, sql);
 

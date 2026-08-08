@@ -2,19 +2,13 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { container } from "@/app/app.module";
 import { SERVICE_NAMES, type IQueryService } from "@/commons/di/registry";
-import { useQueryHistoryStore } from "@/commons/stores/query-history.store";
-import { useWorkspaceStore } from "@/commons/stores/workspace.store";
 
 import {
-  setTabError,
-  setTabExplainPlan,
-  setTabExecutionStartedAt,
-  setTabMultiResults,
-  setTabResult,
-  setTabStatus,
-  setTabTiming,
-  setTabActiveExecutionId,
-} from "../controllers/query-workspace.controller";
+  executeQuery,
+  executeQueryMulti,
+  cancelQuery,
+  explainQuery,
+} from "../runtime/query-runtime";
 import type {
   ExplainPlan,
   MultiQueryResult,
@@ -24,7 +18,6 @@ import type {
   SavedQuery,
   SavedQueryFolder,
 } from "../types/query.types";
-import type { QueryTiming } from "@/commons/types/workspace.types";
 
 const QUERY_KEYS = {
   history: (connectionId: string) => ["query-history", connectionId] as const,
@@ -37,238 +30,81 @@ function getQueryService() {
   return container.resolve<IQueryService>(SERVICE_NAMES.QUERY_SERVICE);
 }
 
-/** Check if an error is a user-initiated cancel. */
-function isCancelledError(err: unknown): boolean {
-  return (err as { code?: string })?.code === "QUERY_CANCELLED";
-}
-
 /**
- * Guard: returns true if a terminal callback should be IGNORED because a newer
- * execution has already started on the same tab (stale response race).
+ * Execute a single query — delegates to the canonical runtime.
+ *
+ * The runtime owns ALL lifecycle behavior:
+ *   - status management (running/success/error/cancelled)
+ *   - stale response guard
+ *   - result, timing, history recording
+ *   - error normalization (QUERY_CANCELLED → cancelled)
+ *
+ * The hook adds TanStack Query cache invalidation on top.
  */
-function isStaleResponse(tabId: string, executionId: string): boolean {
-  const tab = useWorkspaceStore.getState().tabs.find((t) => t.id === tabId);
-  return tab?.kind === "query" && tab.data.activeExecutionId !== executionId;
-}
-
 export function useExecuteQuery() {
   const qc = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ connectionId, sql, executionId, tabId }: { connectionId: string; sql: string; executionId: string; tabId: string }) => {
-      // Read tab context at execution time for historical preservation
-      const tab = useWorkspaceStore.getState().tabs.find((t) => t.id === tabId);
-      const ctx = tab?.kind === "query" ? tab.data.context : null;
-      return getQueryService().execute(connectionId, sql, executionId, ctx?.database, ctx?.schema) as Promise<QueryResult>;
-    },
-    onMutate: (vars) => {
-      setTabStatus(vars.tabId, "running");
-      setTabError(vars.tabId, null);
-      setTabTiming(vars.tabId, null);
-      setTabExecutionStartedAt(vars.tabId, Date.now());
-      setTabActiveExecutionId(vars.tabId, vars.executionId);
-    },
-    onSuccess: (data, variables) => {
-      // Ignore stale responses: if a newer execution started, skip state mutation.
-      if (isStaleResponse(variables.tabId, variables.executionId)) return;
-      const now = Date.now();
-      const tab = useWorkspaceStore.getState().tabs.find((t) => t.id === variables.tabId);
-      const startedAt =
-        tab?.kind === "query" ? (tab.data.executionStartedAt ?? now) : now;
-      const totalMs = now - startedAt;
-      const serverMs = data.durationMs;
-      const timing: QueryTiming = {
-        serverMs,
-        totalMs,
-        fetchMs: Math.max(0, totalMs - serverMs),
-        renderMs: 0,
-      };
-      setTabStatus(variables.tabId, "success");
-      setTabResult(variables.tabId, data);
-      setTabTiming(variables.tabId, timing);
-      setTabExecutionStartedAt(variables.tabId, null);
-      setTabActiveExecutionId(variables.tabId, null);
-      const ctx = tab?.kind === "query" ? tab.data.context : null;
-      useQueryHistoryStore.getState().addEntry({
-        id: crypto.randomUUID(),
-        connectionId: variables.connectionId,
-        sql: variables.sql,
-        executedAt: new Date().toISOString(),
-        durationMs: data.durationMs,
-        rowCount: data.rowCount,
-        status: "success",
-        database: ctx?.database ?? null,
-        schema: ctx?.schema ?? null,
-      });
-      qc.invalidateQueries({
-        queryKey: QUERY_KEYS.history(variables.connectionId),
-      });
-    },
-    onError: (err: unknown, variables) => {
-      // Ignore stale responses: if a newer execution started, skip state mutation.
-      if (isStaleResponse(variables.tabId, variables.executionId)) return;
-      setTabActiveExecutionId(variables.tabId, null);
-      setTabExecutionStartedAt(variables.tabId, null);
-      // Normalize cancelled queries — don't write generic error history.
-      if (isCancelledError(err)) {
-        setTabStatus(variables.tabId, "cancelled");
-        setTabError(variables.tabId, null);
-        return;
-      }
-      setTabStatus(variables.tabId, "error");
-      const translated = err as { userMessage?: string; technicalMessage?: string };
-      // Prefer technicalMessage for actionable detail, fall back to userMessage.
-      const display = translated.technicalMessage
-        ? `${translated.userMessage ?? "Query execution failed"}: ${translated.technicalMessage}`
-        : translated.userMessage ?? "Query execution failed";
-      setTabError(variables.tabId, display);
-      const tab = useWorkspaceStore.getState().tabs.find((t) => t.id === variables.tabId);
-      const ctx = tab?.kind === "query" ? tab.data.context : null;
-      useQueryHistoryStore.getState().addEntry({
-        id: crypto.randomUUID(),
-        connectionId: variables.connectionId,
-        sql: variables.sql,
-        executedAt: new Date().toISOString(),
-        durationMs: 0,
-        rowCount: 0,
-        status: "error",
-        database: ctx?.database ?? null,
-        schema: ctx?.schema ?? null,
-      });
+    mutationFn: ({ connectionId, sql, executionId, tabId }: {
+      connectionId: string;
+      sql: string;
+      executionId: string;
+      tabId: string;
+    }) => executeQuery({ connectionId, sql, executionId, tabId }) as Promise<QueryResult>,
+    onSuccess: (_data, variables) => {
+      qc.invalidateQueries({ queryKey: QUERY_KEYS.history(variables.connectionId) });
     },
   });
 }
 
+/**
+ * Cancel a running query — delegates to the canonical runtime.
+ */
 export function useCancelQuery() {
   return useMutation({
     mutationFn: ({ tabId, executionId }: { tabId: string; executionId: string }) =>
-      getQueryService().cancel(executionId),
-    onSuccess: (_data, variables) => {
-      setTabStatus(variables.tabId, "cancelled");
-      setTabError(variables.tabId, null);
-      setTabActiveExecutionId(variables.tabId, null);
-    },
+      cancelQuery({ tabId, executionId }),
   });
 }
 
+/**
+ * Execute multiple statements — delegates to the canonical runtime.
+ *
+ * The runtime handles partial failure, history, timing, and all
+ * lifecycle behavior. The hook adds TanStack cache invalidation.
+ */
 export function useExecuteQueryMulti() {
   const qc = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ connectionId, sql, executionId, tabId }: { connectionId: string; sql: string; executionId: string; tabId: string }) => {
-      // Read tab context at execution time for historical preservation
-      const tab = useWorkspaceStore.getState().tabs.find((t) => t.id === tabId);
-      const ctx = tab?.kind === "query" ? tab.data.context : null;
-      return getQueryService().executeMulti(connectionId, sql, executionId, ctx?.database, ctx?.schema) as Promise<MultiQueryResult>;
-    },
-    onMutate: (vars) => {
-      setTabStatus(vars.tabId, "running");
-      setTabError(vars.tabId, null);
-      setTabTiming(vars.tabId, null);
-      setTabExecutionStartedAt(vars.tabId, Date.now());
-      setTabActiveExecutionId(vars.tabId, vars.executionId);
-    },
-    onSuccess: (data, variables) => {
-      // Ignore stale responses: if a newer execution started, skip state mutation.
-      if (isStaleResponse(variables.tabId, variables.executionId)) return;
-      const now = Date.now();
-      const tab = useWorkspaceStore.getState().tabs.find((t) => t.id === variables.tabId);
-      const startedAt =
-        tab?.kind === "query" ? (tab.data.executionStartedAt ?? now) : now;
-      const totalMs = now - startedAt;
-      const serverMs = data.totalDurationMs;
-      const timing: QueryTiming = {
-        serverMs,
-        totalMs,
-        fetchMs: Math.max(0, totalMs - serverMs),
-        renderMs: 0,
-      };
-
-      // Check for partial failure: data.error is [statementIndex, errorMessage]
-      const hasPartialError = data.error !== null && data.error !== undefined;
-
-      // Always preserve successful results (even on partial failure)
-      setTabMultiResults(variables.tabId, data.results);
-      if (data.results.length > 0) {
-        setTabResult(variables.tabId, data.results[0]);
-      }
-      setTabTiming(variables.tabId, timing);
-      setTabExecutionStartedAt(variables.tabId, null);
-      setTabActiveExecutionId(variables.tabId, null);
-
-      if (hasPartialError) {
-        const [stmtIdx, errorMsg] = data.error!;
-        const completedCount = data.results.length;
-        const message = completedCount > 0
-          ? `${completedCount} result(s) completed · Statement ${stmtIdx + 1} failed: ${errorMsg}`
-          : `Statement ${stmtIdx + 1} failed: ${errorMsg}`;
-        setTabStatus(variables.tabId, "error");
-        setTabError(variables.tabId, message);
-      } else {
-        setTabStatus(variables.tabId, "success");
-        setTabError(variables.tabId, null);
-      }
-
-      const ctx = tab?.kind === "query" ? tab.data.context : null;
-      useQueryHistoryStore.getState().addEntry({
-        id: crypto.randomUUID(),
-        connectionId: variables.connectionId,
-        sql: variables.sql,
-        executedAt: new Date().toISOString(),
-        durationMs: data.totalDurationMs,
-        rowCount: data.results.reduce((sum, r) => sum + r.rowCount, 0),
-        status: hasPartialError ? "error" : "success",
-        database: ctx?.database ?? null,
-        schema: ctx?.schema ?? null,
-      });
-      qc.invalidateQueries({
-        queryKey: QUERY_KEYS.history(variables.connectionId),
-      });
-    },
-    onError: (err: unknown, variables) => {
-      // Ignore stale responses: if a newer execution started, skip state mutation.
-      if (isStaleResponse(variables.tabId, variables.executionId)) return;
-      setTabActiveExecutionId(variables.tabId, null);
-      setTabExecutionStartedAt(variables.tabId, null);
-      // Normalize cancelled queries — don't write generic error history.
-      if (isCancelledError(err)) {
-        setTabStatus(variables.tabId, "cancelled");
-        setTabError(variables.tabId, null);
-        return;
-      }
-      setTabStatus(variables.tabId, "error");
-      const translated = err as { userMessage?: string; technicalMessage?: string };
-      // Prefer technicalMessage for actionable detail, fall back to userMessage.
-      const display = translated.technicalMessage
-        ? `${translated.userMessage ?? "Query execution failed"}: ${translated.technicalMessage}`
-        : translated.userMessage ?? "Query execution failed";
-      setTabError(variables.tabId, display);
-      const tab = useWorkspaceStore.getState().tabs.find((t) => t.id === variables.tabId);
-      const ctx = tab?.kind === "query" ? tab.data.context : null;
-      useQueryHistoryStore.getState().addEntry({
-        id: crypto.randomUUID(),
-        connectionId: variables.connectionId,
-        sql: variables.sql,
-        executedAt: new Date().toISOString(),
-        durationMs: 0,
-        rowCount: 0,
-        status: "error",
-        database: ctx?.database ?? null,
-        schema: ctx?.schema ?? null,
-      });
+    mutationFn: ({ connectionId, sql, executionId, tabId }: {
+      connectionId: string;
+      sql: string;
+      executionId: string;
+      tabId: string;
+    }) => executeQueryMulti({ connectionId, sql, executionId, tabId }) as Promise<MultiQueryResult>,
+    onSuccess: (_data, variables) => {
+      qc.invalidateQueries({ queryKey: QUERY_KEYS.history(variables.connectionId) });
     },
   });
 }
 
+/**
+ * Explain a query — delegates to the canonical runtime.
+ *
+ * The runtime populates the explain plan and activates the panel.
+ */
 export function useExplainPlan() {
   return useMutation({
-    mutationFn: ({ connectionId, sql, tabId }: { connectionId: string; sql: string; tabId: string }) =>
-      getQueryService().explain(connectionId, sql) as Promise<ExplainPlan>,
-    onSuccess: (data, variables) => {
-      setTabExplainPlan(variables.tabId, data);
-    },
+    mutationFn: ({ connectionId, sql, tabId }: {
+      connectionId: string;
+      sql: string;
+      tabId: string;
+    }) => explainQuery({ connectionId, sql, tabId }) as Promise<ExplainPlan>,
   });
 }
+
+// ─── CRUD hooks (unchanged — these don't use the query runtime) ──
 
 export function useQueryHistory(connectionId: string) {
   return useQuery({
