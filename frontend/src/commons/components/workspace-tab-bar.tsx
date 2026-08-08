@@ -64,9 +64,9 @@ function TabItem({
     <div
       className={cn(
         "group relative flex shrink-0 cursor-pointer items-center gap-1.5 px-3 py-2 text-[13px] transition-colors",
-        "min-w-[110px] max-w-[220px]",
+        "min-w-[120px] max-w-[220px]",
         isActive
-          ? "bg-[var(--app-surface-3)] text-foreground"
+          ? "bg-[var(--app-surface-3)] text-foreground font-medium"
           : "text-[var(--app-text-muted)] hover:bg-[var(--app-surface-2)] hover:text-foreground",
       )}
       onClick={onActivate}

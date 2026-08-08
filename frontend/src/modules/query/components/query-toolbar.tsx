@@ -72,19 +72,19 @@ export function QueryToolbar({
             <ChevronDown className="h-3 w-3 opacity-60" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start">
-          <DropdownMenuItem onClick={onExecuteCurrent}>
+        <DropdownMenuContent align="start" className="min-w-[220px]">
+          <DropdownMenuItem onClick={onExecuteCurrent} className="h-[30px]">
             <Play className="mr-2 h-3.5 w-3.5" />
             {t("query.runCurrent")}
             <span className="ml-auto text-[11px] text-[var(--app-text-muted)]">Ctrl+Enter</span>
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={onExecuteAll}>
+          <DropdownMenuItem onClick={onExecuteAll} className="h-[30px]">
             <Play className="mr-2 h-3.5 w-3.5" />
             {t("query.runAll")}
             <span className="ml-auto text-[11px] text-[var(--app-text-muted)]">Ctrl+Shift+Enter</span>
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={onExplain} disabled={!hasSql || isExplaining}>
+          <DropdownMenuItem onClick={onExplain} disabled={!hasSql || isExplaining} className="h-[30px]">
             <HelpCircle className="mr-2 h-3.5 w-3.5" />
             {t("query.explain")}
           </DropdownMenuItem>

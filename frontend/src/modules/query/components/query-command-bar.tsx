@@ -92,7 +92,7 @@ export function QueryCommandBar({
   };
 
   return (
-    <div className="flex h-[36px] items-center gap-2 border-b border-[var(--app-border-subtle)] bg-[var(--app-surface-2)] px-3">
+    <div className="flex h-[38px] items-center gap-2 border-b border-[var(--app-border-subtle)] bg-[var(--app-surface-2)] px-3">
       {/* Left — compact context breadcrumb */}
       <div className="flex items-center gap-1 text-[13px]">
         <Database className="h-3.5 w-3.5 shrink-0 text-[var(--app-text-muted)]" aria-hidden />
@@ -157,7 +157,7 @@ export function QueryCommandBar({
           <DropdownMenuTrigger asChild>
             <Button
               type="button"
-              className="h-7 gap-1 rounded-[5px] px-2.5 text-[13px] font-medium"
+              className="h-[30px] gap-1.5 rounded-[5px] px-3 text-[13px] font-medium"
               disabled={!hasConnection || !hasSql || isExecuting}
             >
               <Play className="h-3.5 w-3.5" />
@@ -165,19 +165,19 @@ export function QueryCommandBar({
               <ChevronDown className="h-3 w-3 opacity-60" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={onExecuteCurrent}>
+          <DropdownMenuContent align="end" className="min-w-[220px]">
+            <DropdownMenuItem onClick={onExecuteCurrent} className="h-[30px]">
               <Play className="mr-2 h-3.5 w-3.5" />
               {t("query.runCurrent")}
               <span className="ml-auto text-[11px] text-[var(--app-text-muted)]">Ctrl+Enter</span>
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={onExecuteAll}>
+            <DropdownMenuItem onClick={onExecuteAll} className="h-[30px]">
               <Play className="mr-2 h-3.5 w-3.5" />
               {t("query.runAll")}
               <span className="ml-auto text-[11px] text-[var(--app-text-muted)]">Ctrl+Shift+Enter</span>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={onExplain} disabled={!hasSql || isExplaining}>
+            <DropdownMenuItem onClick={onExplain} disabled={!hasSql || isExplaining} className="h-[30px]">
               <HelpCircle className="mr-2 h-3.5 w-3.5" />
               {t("query.explain")}
             </DropdownMenuItem>
@@ -189,7 +189,7 @@ export function QueryCommandBar({
           <Button
             type="button"
             variant="destructive"
-            className="h-7 gap-1 rounded-[5px] px-2 text-[13px]"
+            className="h-[30px] gap-1 rounded-[5px] px-2 text-[13px]"
             onClick={onCancel}
           >
             <Square className="h-3 w-3" />
@@ -200,7 +200,7 @@ export function QueryCommandBar({
         <Button
           type="button"
           variant="ghost"
-          className="h-7 gap-1 rounded-[5px] px-2 text-[13px] text-[var(--app-text-muted)]"
+          className="h-[28px] gap-1 rounded-[5px] px-2 text-[13px] text-[var(--app-text-muted)]"
           onClick={onExplain}
           disabled={!hasConnection || !hasSql || isExplaining}
         >
@@ -212,7 +212,7 @@ export function QueryCommandBar({
         <Button
           type="button"
           variant="ghost"
-          className="h-7 gap-1 rounded-[5px] px-2 text-[13px] text-[var(--app-text-muted)]"
+          className="h-[28px] gap-1 rounded-[5px] px-2 text-[13px] text-[var(--app-text-muted)]"
           onClick={onFormat}
           disabled={!hasSql}
         >

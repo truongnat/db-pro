@@ -19,6 +19,13 @@ import { ResultGrid } from "./result-grid";
 import { ResultTabs } from "./result-tabs";
 import { SnippetPanel } from "./snippet-panel";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { ChevronDown, History, Clock, BookOpen, HelpCircle, Database } from "lucide-react";
+import {
   useCancelQuery,
   useExecuteQueryMulti,
   useExplainPlan,
@@ -223,19 +230,14 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
     { id: "results" as const, label: t("query.results") },
     { id: "explain" as const, label: t("query.explain") },
   ];
-  const secondaryTabs = [
-    { id: "history" as const, label: t("query.history") },
-    { id: "local-history" as const, label: t("query.localHistory") },
-    { id: "snippets" as const, label: t("query.snippets") },
-  ];
 
   const renderTabButton = (tab: { id: typeof panelTab; label: string }) => (
     <button
       key={tab.id}
       type="button"
-      className={`relative h-full px-3 text-[13px] transition-colors ${
+      className={`relative h-full px-3.5 text-[13px] transition-colors ${
         panelTab === tab.id
-          ? "text-foreground"
+          ? "font-medium text-foreground"
           : "text-[var(--app-text-muted)] hover:text-foreground"
       }`}
       onClick={() => setTabActivePanel(tabId, tab.id)}
@@ -246,6 +248,12 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
       )}
     </button>
   );
+
+  const secondaryTabLabels: Record<string, { label: string; icon: React.ComponentType<{ className?: string }> }> = {
+    "history": { label: t("query.history"), icon: History },
+    "local-history": { label: t("query.localHistory"), icon: Clock },
+    "snippets": { label: t("query.snippets"), icon: BookOpen },
+  };
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
@@ -281,25 +289,53 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col">
-          <div className="flex h-[32px] items-center border-b border-[var(--app-border-subtle)] bg-[var(--app-surface-1)]">
+          <div className="flex h-[34px] items-center border-b border-[var(--app-border-subtle)] bg-[var(--app-surface-1)]">
             {primaryTabs.map(renderTabButton)}
-            <span className="mx-1 h-4 w-px bg-[var(--app-border-subtle)]" aria-hidden />
-            {secondaryTabs.map(renderTabButton)}
+            <div className="flex-1" />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className={`flex h-full items-center gap-1 px-3 text-[13px] transition-colors ${
+                    ["history", "local-history", "snippets"].includes(panelTab)
+                      ? "font-medium text-foreground"
+                      : "text-[var(--app-text-muted)] hover:text-foreground"
+                  }`}
+                >
+                  {secondaryTabLabels[panelTab]?.label ?? "More"}
+                  <ChevronDown className="h-3 w-3 opacity-60" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="min-w-[180px]">
+                {Object.entries(secondaryTabLabels).map(([id, { label, icon: Icon }]) => (
+                  <DropdownMenuItem
+                    key={id}
+                    className="h-[30px]"
+                    onClick={() => setTabActivePanel(tabId, id as typeof panelTab)}
+                  >
+                    <Icon className="mr-2 h-3.5 w-3.5" />
+                    {label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
           <div className="min-h-0 flex-1">
             {status === "error" && error && panelTab === "results" && (
               <div className="flex flex-col items-start justify-center px-6 py-6">
                 <div className="mb-2 flex items-center gap-2">
-                  <div className="grid h-6 w-6 place-items-center rounded bg-destructive/15">
-                    <span className="text-xs font-bold text-destructive">!</span>
+                  <div className="grid h-7 w-7 place-items-center rounded-md bg-destructive/15">
+                    <span className="text-[13px] font-bold text-destructive">!</span>
                   </div>
                   <p className="text-[13px] font-medium text-foreground">{t("query.queryError")}</p>
                 </div>
                 <p className="mb-4 max-w-lg text-[13px] leading-relaxed text-[var(--app-text-muted)]">{error}</p>
-                <Button variant="outline" size="sm" className="h-7 rounded-[5px] text-[13px]" onClick={handleExecuteAll}>
-                  {t("common.actions.retry")}
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" className="h-7 rounded-[5px] text-[13px]" onClick={handleExecuteAll}>
+                    {t("common.actions.retry")}
+                  </Button>
+                </div>
               </div>
             )}
 
@@ -318,8 +354,12 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
             )}
 
             {panelTab === "results" && !result && status !== "error" && (
-              <div className="flex items-center justify-center py-12">
-                <p className="text-[13px] text-[var(--app-text-muted)]">{t("query.enterSql")}</p>
+              <div className="flex flex-col items-center justify-center py-12">
+                <div className="mb-3 grid h-9 w-9 place-items-center rounded-lg bg-[var(--app-surface-2)]">
+                  <Database className="h-4 w-4 text-[var(--app-text-muted)]" />
+                </div>
+                <p className="mb-1 text-[13px] font-medium text-foreground">No query results yet</p>
+                <p className="text-[12px] text-[var(--app-text-muted)]">Run the current statement to see results here.</p>
               </div>
             )}
 
@@ -328,8 +368,24 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
             )}
 
             {panelTab === "explain" && !explainPlan && (
-              <div className="flex items-center justify-center py-12">
-                <p className="text-[13px] text-[var(--app-text-muted)]">{t("query.noResults")}</p>
+              <div className="flex flex-col items-center justify-center py-12">
+                <div className="mb-3 grid h-9 w-9 place-items-center rounded-lg bg-[var(--app-surface-2)]">
+                  <HelpCircle className="h-4 w-4 text-[var(--app-text-muted)]" />
+                </div>
+                <p className="mb-1 text-[13px] font-medium text-foreground">No execution plan yet</p>
+                <p className="mb-4 text-center text-[12px] text-[var(--app-text-muted)]">
+                  Run Explain to inspect how the database plans this query.
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 rounded-[5px] text-[13px]"
+                  onClick={handleExplain}
+                  disabled={!tabConnectionId || !sql.trim() || explainMutation.isPending}
+                >
+                  <HelpCircle className="mr-1.5 h-3.5 w-3.5" />
+                  {t("query.explain")}
+                </Button>
               </div>
             )}
 

@@ -1,10 +1,28 @@
-# Runtime UX Audit v2 — PATCH 5.1 Closure
+# Runtime UX Audit v2 — PATCH 5.2 Closure
 
 **Date:** 2026-08-08  
 **Viewport:** 1440×900 (target)  
 **Commit baseline:** `6f4db1b`  
 **PATCH 5 commits:** `6f4db1b..753d610` (D1–D9)  
-**PATCH 5.1 commits:** After `753d610` (acceptance gap fixes)
+**PATCH 5.1 commit:** `2001db9` (acceptance gap fixes)  
+**PATCH 5.2 commit:** After `2001db9` (pixel-level runtime corrections)
+
+## PATCH 5.2 — Pixel-level Runtime Corrections
+
+| # | Fix | Files Changed |
+|---|-----|---------------|
+| 1 | **Agent panel** — 330px default, 300-520px range, top-aligned content, 1-column starters 36px, context chips with icons | `agent-panel.tsx`, `shell.store.ts` |
+| 2 | **Explorer** — Indent 14px→10px, table/view icons muted (no primary color) | `explorer-view.tsx` |
+| 3 | **Workspace tabs** — min 120px, stronger active state with font-medium | `workspace-tab-bar.tsx` |
+| 4 | **Query command bar** — 38px height, Run 30px, Explain/Format 28px | `query-command-bar.tsx` |
+| 5 | **Run dropdown** — min-width 220px, rows 30px | `query-command-bar.tsx`, `query-toolbar.tsx` |
+| 6 | **Output IA** — Results\|Explain primary, History/Snippets in More dropdown | `query-tab-content.tsx` |
+| 7 | **Output header** — 34px height, stronger active state | `query-tab-content.tsx` |
+| 8 | **Empty states** — Structured messages with icons and actions | `query-tab-content.tsx` |
+| 9 | **Error strip** — Added status dot, improved visual | `query-status-bar.tsx` |
+| 10 | **Status bar** — Only show metadata when connected; disconnected shows name only | `status-bar.tsx` |
+| 11 | **Activity bar** — Increased inactive contrast, logo text 11px | `activity-bar.tsx` |
+| 12 | **Tab overflow pin** — Replaced 📌 emoji with Lucide PinIcon | `tab-scroll-controls.tsx` |
 
 ## PATCH 5.1 — Acceptance Gap Fixes
 

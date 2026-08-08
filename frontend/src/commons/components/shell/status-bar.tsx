@@ -3,7 +3,6 @@ import { Database, Wifi, WifiOff } from "lucide-react";
 import { useTranslation } from "@/commons/locales/useTranslation";
 import { useConnectionStore } from "@/commons/stores/connection.store";
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
-import { cn } from "@/lib/utils";
 import { useConnectionList } from "@/modules/connection/queries/connection.queries";
 import { useConnectionModuleStore } from "@/modules/connection/state/connection.store";
 import { useIntrospect } from "@/modules/schema/queries/schema.queries";
@@ -39,17 +38,11 @@ export function StatusBar() {
       role="contentinfo"
     >
       {/* Left — connection context */}
-      {activeConnection ? (
+      {activeConnection && status === "connected" ? (
         <>
           <span className="flex items-center gap-1.5">
-            {status === "connected" ? (
-              <Wifi className="h-3 w-3 text-[var(--app-success)]" />
-            ) : status === "connecting" ? (
-              <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-[var(--app-warning)]" />
-            ) : (
-              <WifiOff className="h-3 w-3" />
-            )}
-            <span className={cn(status === "connected" && "text-[var(--app-success)]")}>{statusLabel}</span>
+            <Wifi className="h-3 w-3 text-[var(--app-success)]" />
+            <span className="text-[var(--app-success)]">{statusLabel}</span>
           </span>
           <span className="mx-2 text-[var(--app-border-strong)]">·</span>
           <span className="flex items-center gap-1">
@@ -62,6 +55,19 @@ export function StatusBar() {
           <span>
             {tableCount} {t("shell.statusbar.tables")}
           </span>
+        </>
+      ) : activeConnection ? (
+        <>
+          <span className="flex items-center gap-1.5">
+            {status === "connecting" ? (
+              <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-[var(--app-warning)]" />
+            ) : (
+              <WifiOff className="h-3 w-3" />
+            )}
+            <span>{statusLabel}</span>
+          </span>
+          <span className="mx-2 text-[var(--app-border-strong)]">·</span>
+          <span>{activeConnection.name}</span>
         </>
       ) : (
         <span>{t("shell.statusbar.noConnection")}</span>

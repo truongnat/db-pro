@@ -7,9 +7,9 @@ const SIDEBAR_DEFAULT = 288;
 const SIDEBAR_MIN = 240;
 const SIDEBAR_MAX = 420;
 
-const AGENT_DEFAULT = 320;
-const AGENT_MIN = 260;
-const AGENT_MAX = 500;
+const AGENT_DEFAULT = 330;
+const AGENT_MIN = 300;
+const AGENT_MAX = 520;
 
 interface ShellState {
   sidebarCollapsed: boolean;

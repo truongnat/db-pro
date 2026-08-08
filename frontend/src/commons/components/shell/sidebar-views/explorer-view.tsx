@@ -85,7 +85,7 @@ function SchemaObjectGroup({ groupKey, label, count, icon, expandedNodes, onTogg
         <span className="flex-1 truncate">{label}</span>
         <span className="text-[11px] tabular-nums text-[var(--app-text-dim)]">{count}</span>
       </button>
-      {isOpen && <div className="ml-[14px] flex flex-col">{children}</div>}
+      {isOpen && <div className="ml-[10px] flex flex-col">{children}</div>}
     </div>
   );
 }
@@ -206,7 +206,7 @@ export function ExplorerView() {
                           </span>
                         </button>
                         {schemaExpanded && (
-                          <div className="ml-[14px] flex flex-col gap-0.5">
+                          <div className="ml-[10px] flex flex-col gap-0.5">
                             {tables.length > 0 && (
                               <SchemaObjectGroup
                                 groupKey={`schema:${conn.id}:${schema.name}:tables`}
@@ -231,7 +231,7 @@ export function ExplorerView() {
                                         onClick={() => openSchemaPreview(conn.id, schema.name, table.name, "table")}
                                         onDoubleClick={() => promoteSchemaPreview(conn.id, schema.name, table.name)}
                                       >
-                                        <Table2 className="h-3.5 w-3.5 shrink-0 text-primary/70" />
+                                        <Table2 className="h-3.5 w-3.5 shrink-0 text-[var(--app-text-muted)]" />
                                         <span className="flex-1 truncate">{table.name}</span>
                                       </button>
                                     </ContextMenuTrigger>
@@ -300,7 +300,7 @@ export function ExplorerView() {
                                         onClick={() => openSchemaPreview(conn.id, schema.name, view.name, "view")}
                                         onDoubleClick={() => promoteSchemaPreview(conn.id, schema.name, view.name)}
                                       >
-                                        <Columns3 className="h-3.5 w-3.5 shrink-0 text-primary/70" />
+                                        <Columns3 className="h-3.5 w-3.5 shrink-0 text-[var(--app-text-muted)]" />
                                         <span className="flex-1 truncate">{view.name}</span>
                                       </button>
                                     </ContextMenuTrigger>

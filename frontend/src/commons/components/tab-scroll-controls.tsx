@@ -1,4 +1,4 @@
-import { ChevronLeftIcon, ChevronRightIcon, DatabaseIcon, ListIcon, TableIcon } from "lucide-react";
+import { ChevronLeftIcon, ChevronRightIcon, DatabaseIcon, ListIcon, PinIcon, TableIcon } from "lucide-react";
 import { useState } from "react";
 
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
@@ -95,7 +95,7 @@ export function TabOverflowMenu({ isOverflowing }: Pick<TabScrollControlsProps, 
               {tab.dirty && (
                 <span className="h-2 w-2 shrink-0 rounded-full bg-primary" />
               )}
-              {tab.pinned && <span className="text-[11px]">📌</span>}
+              {tab.pinned && <PinIcon className="h-3 w-3 shrink-0 text-[var(--app-text-muted)]" />}
               <span className={cn("flex-1 truncate", tab.preview && "italic opacity-70")}>
                 {tab.title}
               </span>

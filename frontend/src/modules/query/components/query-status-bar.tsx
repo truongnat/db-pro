@@ -80,11 +80,12 @@ export function QueryStatusBar({
     );
   }
 
-  // Error state
+  // Error state — show only while running or as a subtle indicator, not a standalone strip
   if (status === "error") {
     return (
-      <div className="flex items-center gap-2 border-t border-[var(--app-border-subtle)] bg-destructive/10 px-3 text-[11px] text-destructive">
-        <span>{t("query.statusError")}</span>
+      <div className="flex items-center gap-2 border-t border-[var(--app-border-subtle)] bg-destructive/10 px-3 text-[11px]">
+        <span className="h-2 w-2 shrink-0 rounded-full bg-destructive" />
+        <span className="text-destructive">{t("query.statusError")}</span>
       </div>
     );
   }

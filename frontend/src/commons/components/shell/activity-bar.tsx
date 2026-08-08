@@ -45,7 +45,7 @@ export function ActivityBar() {
       {/* Logo */}
       <Link
         to="/"
-        className="mb-2 mt-2 grid h-8 w-8 place-items-center rounded-lg bg-primary text-[10px] font-bold text-primary-foreground"
+        className="mb-2 mt-2 grid h-8 w-8 place-items-center rounded-lg bg-primary text-[11px] font-bold text-primary-foreground"
       >
         DB
       </Link>
@@ -64,7 +64,7 @@ export function ActivityBar() {
                   className={cn(
                     "relative flex h-10 w-10 items-center justify-center rounded-md text-[var(--app-text-muted)] transition-colors duration-100",
                     "hover:bg-[var(--app-hover)] hover:text-foreground",
-                    isActive && "bg-[var(--app-primary-soft)] text-primary",
+                    isActive ? "bg-primary/10 text-primary" : "opacity-80",
                   )}
                   onClick={() => setSidebarView(item.viewId)}
                   aria-current={isActive ? "page" : undefined}
