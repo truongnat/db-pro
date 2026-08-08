@@ -5,7 +5,10 @@
     },
     "query": {
       "failed": "Query execution failed",
-      "cancelled": "Query was cancelled by user"
+      "cancelled": "Query was cancelled by user",
+      "syntax": "Query syntax error",
+      "permission": "Permission denied",
+      "timeout": "Query timed out"
     },
     "not_found": "Resource not found",
     "auth": {
@@ -21,7 +24,28 @@
     },
     "validation": "Validation error",
     "internal": "Internal error",
-    "unknown": "An unexpected error occurred"
+    "unknown": "An unexpected error occurred",
+    "db": {
+      "auth_failed": "Authentication failed",
+      "connection_refused": "Connection refused",
+      "connection_failed": "Connection failed",
+      "connection_lost": "Connection lost",
+      "connection_timeout": "Connection timed out",
+      "database_not_found": "Database not found",
+      "ssl_error": "SSL connection error"
+    },
+    "schema": {
+      "failed": "Schema operation failed"
+    },
+    "operation": {
+      "unsupported": "Unsupported operation"
+    },
+    "data": {
+      "failed": "Data operation failed"
+    },
+    "safety": {
+      "read_only": "Connection is read-only"
+    }
   },
   "common": {
     "actions": {

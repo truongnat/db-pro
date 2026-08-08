@@ -15,8 +15,41 @@ function isCommandErrorShape(err: unknown): err is CommandErrorShape {
   );
 }
 
+/** Map backend error codes (which may use DB_ prefix) to frontend ErrorCode. */
 function resolveCode(raw: string): ErrorCode {
-  return isValidErrorCode(raw) ? raw : "UNKNOWN";
+  if (isValidErrorCode(raw)) return raw;
+  // Backend uses DB_ prefix for connection-level errors — strip it.
+  if (raw.startsWith("DB_")) {
+    const stripped = raw.slice(3);
+    switch (stripped) {
+      case "CONNECTION_REFUSED":
+      case "CONNECTION_FAILED":
+      case "CONNECTION_LOST":
+      case "SSL_ERROR":
+        return "CONNECTION_FAILED";
+      case "CONNECTION_TIMEOUT":
+        return "TIMEOUT";
+      case "DATABASE_NOT_FOUND":
+        return "NOT_FOUND";
+      case "AUTH_FAILED":
+        return "AUTH_FAILED";
+      default:
+        return "CONNECTION_FAILED";
+    }
+  }
+  // Backend query/schema/data codes that need mapping.
+  switch (raw) {
+    case "SCHEMA_FAILED":
+    case "OPERATION_UNSUPPORTED":
+    case "DATA_FAILED":
+      return "INTERNAL";
+    case "VALIDATION_ERROR":
+      return "VALIDATION";
+    case "INTERNAL_ERROR":
+      return "INTERNAL";
+    default:
+      return "UNKNOWN";
+  }
 }
 
 export function normalizeServerError(error: unknown): NormalizedError {

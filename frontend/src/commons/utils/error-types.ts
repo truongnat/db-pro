@@ -2,6 +2,9 @@ export type ErrorCode =
   | "CONNECTION_FAILED"
   | "QUERY_FAILED"
   | "QUERY_CANCELLED"
+  | "QUERY_SYNTAX_ERROR"
+  | "QUERY_TIMEOUT"
+  | "QUERY_PERMISSION_DENIED"
   | "NOT_FOUND"
   | "AUTH_FAILED"
   | "TIMEOUT"
@@ -9,6 +12,7 @@ export type ErrorCode =
   | "INTROSPECTION_FAILED"
   | "ENCRYPTION_FAILED"
   | "VALIDATION"
+  | "READ_ONLY_VIOLATION"
   | "INTERNAL"
   | "UNKNOWN";
 
@@ -16,6 +20,9 @@ const VALID_ERROR_CODES: ReadonlySet<string> = new Set<string>([
   "CONNECTION_FAILED",
   "QUERY_FAILED",
   "QUERY_CANCELLED",
+  "QUERY_SYNTAX_ERROR",
+  "QUERY_TIMEOUT",
+  "QUERY_PERMISSION_DENIED",
   "NOT_FOUND",
   "AUTH_FAILED",
   "TIMEOUT",
@@ -23,6 +30,7 @@ const VALID_ERROR_CODES: ReadonlySet<string> = new Set<string>([
   "INTROSPECTION_FAILED",
   "ENCRYPTION_FAILED",
   "VALIDATION",
+  "READ_ONLY_VIOLATION",
   "INTERNAL",
 ]);
 

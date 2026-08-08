@@ -116,10 +116,12 @@ export function useExecuteQuery() {
         return;
       }
       setTabStatus(variables.tabId, "error");
-      setTabError(
-        variables.tabId,
-        (err as { userMessage?: string }).userMessage ?? "Query execution failed",
-      );
+      const translated = err as { userMessage?: string; technicalMessage?: string };
+      // Prefer technicalMessage for actionable detail, fall back to userMessage.
+      const display = translated.technicalMessage
+        ? `${translated.userMessage ?? "Query execution failed"}: ${translated.technicalMessage}`
+        : translated.userMessage ?? "Query execution failed";
+      setTabError(variables.tabId, display);
       const tab = useWorkspaceStore.getState().tabs.find((t) => t.id === variables.tabId);
       const ctx = tab?.kind === "query" ? tab.data.context : null;
       useQueryHistoryStore.getState().addEntry({
@@ -235,10 +237,12 @@ export function useExecuteQueryMulti() {
         return;
       }
       setTabStatus(variables.tabId, "error");
-      setTabError(
-        variables.tabId,
-        (err as { userMessage?: string }).userMessage ?? "Query execution failed",
-      );
+      const translated = err as { userMessage?: string; technicalMessage?: string };
+      // Prefer technicalMessage for actionable detail, fall back to userMessage.
+      const display = translated.technicalMessage
+        ? `${translated.userMessage ?? "Query execution failed"}: ${translated.technicalMessage}`
+        : translated.userMessage ?? "Query execution failed";
+      setTabError(variables.tabId, display);
       const tab = useWorkspaceStore.getState().tabs.find((t) => t.id === variables.tabId);
       const ctx = tab?.kind === "query" ? tab.data.context : null;
       useQueryHistoryStore.getState().addEntry({
