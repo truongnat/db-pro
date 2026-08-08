@@ -382,12 +382,12 @@ export function ConnectionList({ onEdit, onBackup, onRestore }: ConnectionListPr
                                 </span>
                               )}
                               {conn.readonly && (
-                                <Badge variant="outline" className="text-[10px]">
+                                <Badge variant="outline" className="text-[11px]">
                                   {t("connection.readonly")}
                                 </Badge>
                               )}
                               {(conn.tags ?? []).map((tag) => (
-                                <Badge key={tag} variant="outline" className="text-[10px]">
+                                <Badge key={tag} variant="outline" className="text-[11px]">
                                   {tag}
                                 </Badge>
                               ))}

@@ -289,7 +289,7 @@ export function ExplainPlanView({ plan }: ExplainPlanViewProps) {
 
         {/* Right — node details (40%) */}
         {selectedNode && (
-          <div className="flex-[2] overflow-auto border-l border-[var(--app-border-subtle)] bg-[var(--app-surface-1)] p-4">
+          <div className="flex-[2] overflow-auto bg-[var(--app-surface-1)] p-4">
             <NodeDetails node={selectedNode} />
           </div>
         )}

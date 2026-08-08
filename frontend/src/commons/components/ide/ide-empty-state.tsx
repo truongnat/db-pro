@@ -24,7 +24,7 @@ export function IdeEmptyState({
 }: IdeEmptyStateProps) {
   return (
     <div className={cn("flex flex-col items-center justify-center px-6 py-12", className)}>
-      <div className="mb-4 grid h-10 w-10 place-items-center rounded-xl bg-muted">
+      <div className="mb-4 grid h-10 w-10 place-items-center rounded-lg bg-muted">
         <Icon className="h-5 w-5 text-[var(--app-text-dim)]" />
       </div>
       <p className="mb-1 text-sm font-medium text-foreground">{title}</p>

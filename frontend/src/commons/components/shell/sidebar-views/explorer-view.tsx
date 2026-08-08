@@ -180,7 +180,7 @@ export function ExplorerView() {
                 <p className="ml-7 px-2 py-1 text-xs text-[var(--app-text-dim)]">{t("common.states.loading")}</p>
               )}
               {expanded && introspect.data && (
-                <div className="ml-4 flex flex-col gap-0.5 border-l border-[var(--app-border-subtle)]/50 pl-3">
+                <div className="ml-4 flex flex-col gap-0.5 pl-3">
                   {introspect.data.schemas.map((schema) => {
                     const schemaExpanded = expandedNodes.includes(`schema:${conn.id}:${schema.name}`);
                     const tables = introspect.data.tables.filter((tbl) => tbl.schema === schema.name);

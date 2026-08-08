@@ -58,7 +58,7 @@ export function DataToolbar({
 
   const countBadge = (n: number) =>
     n > 0 ? (
-      <span className="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-medium leading-none text-primary-foreground">
+      <span className="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[11px] font-medium leading-none text-primary-foreground">
         {n}
       </span>
     ) : null;

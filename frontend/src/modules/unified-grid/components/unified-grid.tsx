@@ -190,12 +190,12 @@ export function UnifiedGrid({
               >
                 <span className="truncate font-medium">{col.name}</span>
                 {sort && (
-                  <span className="text-[10px]">
+                  <span className="text-[11px]">
                     {sort.direction === "asc" ? "\u25B2" : "\u25BC"}
                   </span>
                 )}
               </span>
-              <span className="truncate text-[10px] text-[var(--app-text-dim)]">{col.dataType}</span>
+              <span className="truncate text-[11px] text-[var(--app-text-dim)]">{col.dataType}</span>
               {renderHeaderExtra?.(col)}
             </div>
           );

@@ -48,7 +48,7 @@ export function SearchView() {
             >
               <Table2 className="h-3 w-3 shrink-0 text-primary" />
               <span className="truncate">{table.name}</span>
-              <span className="ml-auto text-[10px] text-[var(--app-text-dim)]">{table.schema}</span>
+              <span className="ml-auto text-[11px] text-[var(--app-text-dim)]">{table.schema}</span>
             </button>
           ))}
           {filteredViews.map((view) => (
@@ -62,7 +62,7 @@ export function SearchView() {
             >
               <Columns3 className="h-3 w-3 shrink-0 text-primary" />
               <span className="truncate">{view.name}</span>
-              <span className="ml-auto text-[10px] text-[var(--app-text-dim)]">{view.schema}</span>
+              <span className="ml-auto text-[11px] text-[var(--app-text-dim)]">{view.schema}</span>
             </button>
           ))}
           {filteredTables.length === 0 && filteredViews.length === 0 && (

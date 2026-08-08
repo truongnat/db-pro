@@ -30,7 +30,7 @@ export function Topbar() {
             >
               <Search className="h-3.5 w-3.5 shrink-0" />
               <span className="flex-1 text-left">{t("shell.topbar.search")}</span>
-              <kbd className="ml-1 rounded border border-[var(--app-border-strong)] bg-background px-1 py-px text-[10px] font-medium text-[var(--app-text-dim)]">
+              <kbd className="ml-1 rounded border border-[var(--app-border-strong)] bg-background px-1 py-px text-[11px] font-medium text-[var(--app-text-dim)]">
                 ⌘K
               </kbd>
             </button>
@@ -41,7 +41,7 @@ export function Topbar() {
         </Tooltip>
 
         {/* Profile avatar */}
-        <div className="grid h-6 w-6 place-items-center rounded-full bg-primary/15 text-[10px] font-semibold text-primary">
+        <div className="grid h-6 w-6 place-items-center rounded-full bg-primary/15 text-[11px] font-semibold text-primary">
           T
         </div>
       </div>

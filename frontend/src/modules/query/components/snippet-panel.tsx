@@ -148,12 +148,12 @@ function SnippetRow({
     >
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <Badge variant="outline" className="shrink-0 px-1.5 py-0 font-mono text-[10px]">
+          <Badge variant="outline" className="shrink-0 px-1.5 py-0 font-mono text-[11px]">
             {snippet.trigger}
           </Badge>
           <span className="truncate text-xs text-foreground">{snippet.label}</span>
           {snippet.builtIn && (
-            <Badge variant="secondary" className="shrink-0 px-1 py-0 text-[9px]">
+            <Badge variant="secondary" className="shrink-0 px-1 py-0 text-[11px]">
               {t("query.builtIn")}
             </Badge>
           )}

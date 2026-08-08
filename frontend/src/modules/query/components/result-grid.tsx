@@ -59,7 +59,7 @@ export function ResultGrid({
             type="button"
             variant="ghost"
             size="sm"
-            className="shrink-0 rounded px-1 text-[10px] text-[var(--app-text-muted)]"
+            className="shrink-0 rounded px-1 text-[11px] text-[var(--app-text-muted)]"
             title={t("query.metadata.info")}
             onClick={(e) => {
               e.stopPropagation();

@@ -87,7 +87,7 @@ export function CommandPalette() {
                     {cmd.icon && <cmd.icon className="h-4 w-4" />}
                     <span>{t(cmd.labelKey)}</span>
                     {cmd.keybinding && (
-                      <kbd className="ml-auto pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-[var(--app-border-strong)] bg-muted px-1.5 font-mono text-[10px] font-medium text-[var(--app-text-muted)]">
+                      <kbd className="ml-auto pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-[var(--app-border-strong)] bg-muted px-1.5 font-mono text-[11px] font-medium text-[var(--app-text-muted)]">
                         {formatKeybinding(cmd.keybinding)}
                       </kbd>
                     )}

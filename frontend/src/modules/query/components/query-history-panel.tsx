@@ -157,7 +157,7 @@ function HistoryEntryRow({
       <div className="ml-6 mt-1 flex flex-wrap items-center gap-2 text-xs text-[var(--app-text-muted)]">
         <Badge
           variant={isError ? "destructive" : "secondary"}
-          className="px-1.5 py-0 text-[10px]"
+          className="px-1.5 py-0 text-[11px]"
         >
           {isError ? t("query.statusError") : t("query.statusSuccess")}
         </Badge>
@@ -178,7 +178,7 @@ function HistoryEntryRow({
           type="button"
           variant="ghost"
           size="sm"
-          className="h-6 px-2 text-[10px]"
+          className="h-6 px-2 text-[11px]"
           onClick={onRerun}
         >
           {t("query.rerun")}
@@ -187,7 +187,7 @@ function HistoryEntryRow({
           type="button"
           variant="ghost"
           size="sm"
-          className="h-6 px-2 text-[10px]"
+          className="h-6 px-2 text-[11px]"
           onClick={onCopy}
         >
           {t("common.actions.copy")}
@@ -197,7 +197,7 @@ function HistoryEntryRow({
             type="button"
             variant="ghost"
             size="sm"
-            className="h-6 px-2 text-[10px]"
+            className="h-6 px-2 text-[11px]"
             onClick={onOpenInNewTab}
           >
             {t("query.openInNewTab")}

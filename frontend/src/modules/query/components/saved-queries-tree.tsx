@@ -472,7 +472,7 @@ function SavedQueryItem({
                 <Badge
                   key={tag}
                   variant="secondary"
-                  className="cursor-pointer px-1.5 py-0 text-[10px]"
+                  className="cursor-pointer px-1.5 py-0 text-[11px]"
                   onClick={(e) => {
                     e.stopPropagation();
                     onRemoveTag(tag);
@@ -489,7 +489,7 @@ function SavedQueryItem({
           {showTagInput && (
             <div className="ml-5 mt-0.5 flex gap-1">
               <Input
-                className="h-5 flex-1 text-[10px]"
+                className="h-5 flex-1 text-[11px]"
                 value={tagValue}
                 onChange={(e) => setTagValue(e.target.value)}
                 placeholder={t("query.addTag")}
