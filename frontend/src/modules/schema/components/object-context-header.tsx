@@ -65,19 +65,17 @@ export function ObjectContextHeader({
   }, [connections, connectionId]);
 
   return (
-    <div className="flex shrink-0 items-center gap-3 border-b border-[var(--app-border-subtle)] bg-background px-3 py-2">
+    <div className="flex h-[40px] shrink-0 items-center gap-3 border-b border-[var(--app-border-subtle)] bg-[var(--app-surface-2)] px-3">
       <Icon className="h-4 w-4 shrink-0 text-primary" />
 
       <div className="min-w-0 flex-1">
-        <div className="truncate text-[13px] font-medium text-foreground">
-          {objectName}
-        </div>
-        <div className="truncate text-[11px] text-[var(--app-text-dim)]">
-          {t("dbObject.contextHeader.connectionSubtitle", {
-            schema,
-            type: objectType,
-            connection: connectionName,
-          })}
+        <div className="flex items-baseline gap-2">
+          <span className="truncate text-[13px] font-semibold text-foreground">
+            {objectName}
+          </span>
+          <span className="shrink-0 text-[11px] text-[var(--app-text-dim)]">
+            {schema} · {objectType} · {connectionName}
+          </span>
         </div>
       </div>
 
