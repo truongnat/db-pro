@@ -65,7 +65,7 @@ export function ObjectContextHeader({
   }, [connections, connectionId]);
 
   return (
-    <div className="flex h-[40px] shrink-0 items-center gap-3 border-b border-[var(--app-border-subtle)] bg-[var(--app-surface-2)] px-3">
+    <div className="flex h-[46px] shrink-0 items-center gap-3 border-b border-[var(--app-border-subtle)] bg-[var(--app-surface-2)] px-3">
       <Icon className="h-4 w-4 shrink-0 text-primary" />
 
       <div className="min-w-0 flex-1">

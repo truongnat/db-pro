@@ -1,5 +1,6 @@
 import { useTranslation } from "@/commons/locales/useTranslation";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Key } from "lucide-react";
 import type { SchemaColumnDto } from "../types/schema.types";
 import { sortColumnsForDisplay } from "../types/schema.types";
 import { cn } from "@/lib/utils";
@@ -21,10 +22,10 @@ export function ColumnList({ columns }: ColumnListProps) {
 
   const sorted = sortColumnsForDisplay(columns);
 
-  const headerClass = "px-3 py-2 font-medium text-[var(--app-text-muted)] border-b border-[var(--app-border-subtle)]";
+  const headerClass = "px-3 py-2 font-medium text-[12.5px] text-[var(--app-text-muted)] border-b border-[var(--app-border-subtle)]";
 
   return (
-    <Table className="w-full text-sm">
+    <Table className="w-full text-[13px]">
       <TableHeader>
         <TableRow>
           <TableHead className={cn(headerClass, "text-left")}>{t("schema.columnName")}</TableHead>
@@ -38,20 +39,20 @@ export function ColumnList({ columns }: ColumnListProps) {
         {sorted.map((col) => (
           <TableRow
             key={col.name}
-            className="transition-colors hover:bg-background"
+            className="transition-colors hover:bg-[var(--app-hover)]"
           >
-            <TableCell className="px-3 py-1.5 font-mono text-sm">{col.name}</TableCell>
-            <TableCell className="px-3 py-1.5 font-mono text-xs text-[var(--app-text-muted)]">
+            <TableCell className="px-3 py-1.5 font-mono text-[13px]">{col.name}</TableCell>
+            <TableCell className="px-3 py-1.5 font-mono text-[11px] text-[var(--app-text-muted)]">
               {col.dataType}
             </TableCell>
-            <TableCell className="px-3 py-1.5 text-[var(--app-text-muted)]">
+            <TableCell className="px-3 py-1.5 text-[12px] text-[var(--app-text-muted)]">
               {col.nullable ? "YES" : "NO"}
             </TableCell>
-            <TableCell className="px-3 py-1.5 font-mono text-xs text-[var(--app-text-muted)]">
+            <TableCell className="px-3 py-1.5 font-mono text-[11px] text-[var(--app-text-muted)]">
               {col.defaultValue ?? "\u2014"}
             </TableCell>
             <TableCell className="px-3 py-1.5 text-center">
-              {col.isPrimaryKey ? "\uD83D\uDD11" : ""}
+              {col.isPrimaryKey && <Key className="inline h-3.5 w-3.5 text-primary" />}
             </TableCell>
           </TableRow>
         ))}

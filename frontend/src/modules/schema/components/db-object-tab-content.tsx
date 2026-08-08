@@ -153,6 +153,7 @@ export function DbObjectTabContent({
                       ? (tableDdl.error as { userMessage?: string })?.userMessage ?? t("common.states.error")
                       : null
                   }
+                  onOpenInQuery={handleOpenDdl}
                 />
               </ObjectSectionLayout>
             )}

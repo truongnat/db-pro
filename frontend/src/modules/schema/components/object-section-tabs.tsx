@@ -19,7 +19,7 @@ interface ObjectSectionTabsProps {
 export function ObjectSectionTabs({ activeSection, onSelect }: ObjectSectionTabsProps) {
   const { t } = useTranslation();
   return (
-    <div className="flex h-[32px] items-center border-b border-[var(--app-border-subtle)] bg-[var(--app-surface-1)]">
+    <div className="flex h-[34px] items-center border-b border-[var(--app-border-subtle)] bg-[var(--app-surface-1)]">
       <div className="flex flex-1 overflow-x-auto">
         {OBJECT_SECTIONS.map((section) => (
           <button
