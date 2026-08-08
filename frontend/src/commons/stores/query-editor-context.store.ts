@@ -46,6 +46,7 @@ export const useQueryEditorContextStore = create<QueryEditorContextState>((set, 
 
   removeEditorContext(tabId) {
     set((s) => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { [tabId]: _, ...rest } = s.contexts;
       return { contexts: rest };
     });

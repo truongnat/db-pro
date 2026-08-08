@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AppError, isValidErrorCode, type ErrorCode } from "../utils/error-types";
+import { AppError, isValidErrorCode } from "../utils/error-types";
 
 describe("error-types", () => {
   describe("isValidErrorCode", () => {

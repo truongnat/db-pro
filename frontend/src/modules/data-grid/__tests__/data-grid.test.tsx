@@ -40,7 +40,7 @@ vi.mock("@tanstack/react-virtual", () => ({
 }));
 
 import { DataGrid } from "../components/data-grid";
-import type { CellValue, ColumnMeta, Row } from "../types/data-grid.types";
+import type { ColumnMeta, Row } from "../types/data-grid.types";
 
 const columns: ColumnMeta[] = [
   { name: "id", dataType: "INTEGER", nullable: false },

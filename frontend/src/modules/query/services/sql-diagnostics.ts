@@ -156,7 +156,6 @@ function findUnknownQualifiedColumns(
 /* ------------------------------------------------------------------ */
 
 const DIAGNOSTIC_SOURCE = "dbpro-sql";
-const DIAGNOSTIC_MARKER_TAG = "unknown-column";
 
 function offsetToPosition(
   model: monaco.editor.ITextModel,
@@ -185,7 +184,6 @@ async function validateModel(
   const cleaned = stripStringsAndComments(sql);
 
   // Clear existing markers from our diagnostics
-  const existingMarkers = monacoInstance.editor.getModelMarkers({ owner: DIAGNOSTIC_SOURCE });
   monacoInstance.editor.setModelMarkers(model, DIAGNOSTIC_SOURCE, []);
 
   const markers: monaco.editor.IMarkerData[] = [];

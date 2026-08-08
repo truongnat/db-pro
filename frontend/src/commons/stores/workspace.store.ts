@@ -46,7 +46,7 @@ function gcGridState() {
 
 export const useWorkspaceStore = create<WorkspaceState>()(
   persist(
-    (set, get) => ({
+    (set, _get) => ({
       workspaceVersion: CURRENT_WORKSPACE_VERSION,
       tabs: [],
       activeTabId: null,
@@ -363,7 +363,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
 export function reconcileWorkspaceTabs(): void {
   const { tabs, activeTabId } = useWorkspaceStore.getState();
   const connections = useConnectionStore.getState().connections;
-  const validIds = new Set(connections.map((c) => c.id));
+  void connections; // reserved for future reconciliation logic
 
   // We don't delete orphaned tabs — WorkspaceContent already shows OrphanedTabView
   // for tabs whose connectionId doesn't match any known connection. This is the

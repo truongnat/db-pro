@@ -148,6 +148,7 @@ export const useTabGridStateStore = create<TabGridStateStore>()((set, get) => ({
 
   resetTab: (tabId) =>
     set((s) => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { [tabId]: _, ...rest } = s.states;
       return { states: rest };
     }),

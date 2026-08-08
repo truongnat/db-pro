@@ -51,8 +51,10 @@ export const useConnectionModuleStore = create<ConnectionModuleState>()((set) =>
 
   clearStatus: (id) =>
     set((state) => {
-      const { [id]: _s, ...restStatuses } = state.statuses;
-      const { [id]: _e, ...restErrors } = state.connectionErrors;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { [id]: _, ...restStatuses } = state.statuses;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { [id]: __, ...restErrors } = state.connectionErrors;
       return { statuses: restStatuses, connectionErrors: restErrors };
     }),
 

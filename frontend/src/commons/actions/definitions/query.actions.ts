@@ -15,7 +15,7 @@ import {
   formatSql as runtimeFormatSql,
 } from "@/modules/query/runtime/query-runtime";
 
-import type { ActionExecutionContext, ActionResult, ActionRisk, ResolvedQueryExecution } from "../types";
+import type { ActionExecutionContext, ActionResult, ResolvedQueryExecution } from "../types";
 import type { ExplainPlan } from "@/modules/query/types/query.types";
 
 // ─── Helpers ─────────────────────────────────────────────────
@@ -278,7 +278,7 @@ export const executeSelectionAction = defineAction<
     };
   },
 
-  resolvePayload(input, ctx) {
+  resolvePayload(input, _ctx) {
     const tab = resolveQueryTab(input);
     if (!tab || !tab.connectionId) return null;
     const resolved: ResolvedQueryExecution = {
@@ -481,7 +481,7 @@ export const cancelQueryAction = defineAction<
   }),
   risk: "read",
 
-  resolveContext(input, ambient) {
+  resolveContext(input, _ambient) {
     const tab = resolveQueryTab(input);
     if (!tab) return {};
     return { tabId: tab.id };
@@ -658,7 +658,7 @@ export const clearSqlAction = defineAction<{ tabId?: string }, void>({
   inputSchema: z.object({ tabId: z.string().optional() }),
   risk: "read",
 
-  resolveContext(input, ambient) {
+  resolveContext(input, _ambient) {
     const tab = resolveQueryTab(input);
     if (!tab) return {};
     return { tabId: tab.id };

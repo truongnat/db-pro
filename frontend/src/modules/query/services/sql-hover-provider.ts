@@ -47,7 +47,7 @@ function formatTableHover(
 }
 
 export function createSqlHoverProvider(
-  monacoInstance: typeof monaco,
+  _monacoInstance: typeof monaco,
 ): monaco.languages.HoverProvider {
   return {
     provideHover: async (

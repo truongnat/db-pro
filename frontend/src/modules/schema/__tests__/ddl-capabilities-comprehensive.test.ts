@@ -130,7 +130,6 @@ describe("checkOperationSupported", () => {
 });
 
 describe("buildSqliteTableRebuild", () => {
-  const pg = getSqlDialect("postgres");
   const sqlite = getSqlDialect("sqlite");
 
   const baseInput: TableRebuildInput = {

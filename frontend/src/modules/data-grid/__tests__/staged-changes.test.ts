@@ -2,10 +2,8 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import {
   useStagedChangesStore,
-  useStagedChangeCount,
-  useTabStagedChanges,
 } from "../state/staged-changes.store";
-import type { CellValue, StagedCellEdit, StagedRowDelete } from "../state/staged-changes.store";
+import type { CellValue, StagedCellEdit } from "../state/staged-changes.store";
 
 /* ---- helpers ---- */
 

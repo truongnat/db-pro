@@ -1,4 +1,4 @@
-import { getSqlDialect, type SqlDialect } from "@/modules/query/sql/dialect";
+import type { SqlDialect } from "@/modules/query/sql/dialect";
 import type { DriverType } from "@/modules/connection/types/connection.types";
 
 /* ------------------------------------------------------------------ */
@@ -218,7 +218,6 @@ export function buildSqliteTableRebuild(input: TableRebuildInput, dialect: SqlDi
 
   // Copy data — only columns that exist in both old and new
   const oldNames = new Set(input.currentColumns.map((c) => c.name));
-  const newNames = new Set(input.newColumns.map((c) => c.name));
   const commonCols = input.newColumns.filter((c) => oldNames.has(c.name));
   const colList = commonCols.map((c) => q(c.name)).join(", ");
 

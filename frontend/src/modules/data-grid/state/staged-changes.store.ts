@@ -65,7 +65,7 @@ function pkKey(pkValues: CellValue[]): string {
 /*  Store                                                              */
 /* ------------------------------------------------------------------ */
 
-export const useStagedChangesStore = create<StagedChangesStore>()((set, get) => ({
+export const useStagedChangesStore = create<StagedChangesStore>()((set, _get) => ({
   changes: {},
 
   stageCellEdit: (tabId, edit) =>
@@ -106,13 +106,15 @@ export const useStagedChangesStore = create<StagedChangesStore>()((set, get) => 
 
   revertAll: (tabId) =>
     set((s) => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { [tabId]: _, ...rest } = s.changes;
       return { changes: rest };
     }),
 
   clearChanges: (tabId) =>
     set((s) => {
-      const { [tabId]: _, ...rest } = s.changes;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { [tabId]: __, ...rest } = s.changes;
       return { changes: rest };
     }),
 

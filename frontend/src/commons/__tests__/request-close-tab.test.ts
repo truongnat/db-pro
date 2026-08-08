@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
 import { useCloseGuardStore } from "@/commons/stores/close-guard.store";
 import { requestCloseTab } from "../services/request-close-tab";

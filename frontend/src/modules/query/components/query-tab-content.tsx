@@ -25,7 +25,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ChevronDown, History, Clock, BookOpen, HelpCircle, Database, MessageSquare } from "lucide-react";
+import { ChevronDown, History, Clock, BookOpen, HelpCircle, Database } from "lucide-react";
 import {
   useQueryHistory,
 } from "../queries/query.queries";

@@ -40,16 +40,6 @@ function tableKey(schema: string, table: string): string {
   return `${schema}.${table}`;
 }
 
-function createEmptyCatalog(): ConnectionCatalog {
-  return {
-    schemas: [],
-    objects: [],
-    columnsByTable: new Map(),
-    columnsLoaded: new Set(),
-    columnsLoading: new Map(),
-  };
-}
-
 export const useSchemaCatalogStore = create<SchemaCatalogState>()((set, get) => ({
   catalogs: new Map(),
 

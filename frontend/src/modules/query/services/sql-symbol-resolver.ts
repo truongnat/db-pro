@@ -94,7 +94,7 @@ function getIdentifierAfterDot(text: string, end: number): string | null {
   while (pos < text.length && (text[pos] === " " || text[pos] === "\t")) pos++;
   if (pos >= text.length || !isIdentChar(text[pos])) return null;
 
-  let wordStart = pos;
+  const wordStart = pos;
   while (pos < text.length && isIdentChar(text[pos])) pos++;
   return text.slice(wordStart, pos);
 }
@@ -105,12 +105,11 @@ function getQualifierBeforeDot(text: string, start: number): string | null {
   while (dotPos >= 0 && (text[dotPos] === " " || text[dotPos] === "\t")) dotPos--;
   if (dotPos < 0 || text[dotPos] !== ".") return null;
 
-  let end = dotPos;
   let pos = dotPos - 1;
   while (pos >= 0 && (text[pos] === " " || text[pos] === "\t")) pos--;
   if (pos < 0 || !isIdentChar(text[pos])) return null;
 
-  let wordEnd = pos + 1;
+  const wordEnd = pos + 1;
   while (pos > 0 && isIdentChar(text[pos - 1])) pos--;
 
   return text.slice(pos, wordEnd);

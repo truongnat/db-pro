@@ -5,7 +5,6 @@ import { useWorkspaceStore } from "@/commons/stores/workspace.store";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import type { WorkspaceTab } from "@/commons/types/workspace.types";
 
 interface TabScrollControlsProps {
   canScrollLeft: boolean;

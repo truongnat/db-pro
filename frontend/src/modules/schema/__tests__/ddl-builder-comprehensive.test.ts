@@ -288,7 +288,7 @@ describe("DDL builder — generateDdlPreview", () => {
   });
 
   it("returns empty for unknown operation", () => {
-    const sql = generateDdlPreview("unknownOp" as any, "public", "users", [], {}, pg);
+    const sql = generateDdlPreview("unknownOp" as unknown as "create_table", "public", "users", [], {}, pg);
     expect(sql).toBe("");
   });
 });

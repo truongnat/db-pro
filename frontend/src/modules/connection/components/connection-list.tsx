@@ -91,7 +91,7 @@ export function ConnectionList({ onEdit, onBackup, onRestore }: ConnectionListPr
 
   const filteredAndSorted = useMemo(() => {
     if (!connections) return [];
-    let result = connections.filter((conn) => {
+    const result = connections.filter((conn) => {
       if (filterTag && !(conn.tags ?? []).includes(filterTag)) return false;
       if (filterGroup && conn.group !== filterGroup) return false;
       return true;

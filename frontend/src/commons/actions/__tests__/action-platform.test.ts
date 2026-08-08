@@ -1090,7 +1090,7 @@ describe("PATCH 6.3.2 — Action Gate & Cancellation Closure integration tests",
 
   describe("H. Cancel stale guard", () => {
     it("cancel of exec1 does not clobber exec2 state", async () => {
-      let exec2Started = false;
+      const exec2Started = false;
 
       defineAction<{ value?: string }, void>({
         id: "test.stale_cancel",
@@ -1434,12 +1434,7 @@ describe("PATCH 6.3-FINAL — Terminal state & confirmation queue", () => {
       const cancelResult = await cancelExecution(exec!.executionId);
       expect(cancelResult.status).toBe("cancelled");
 
-      // Verify cancelled.
-      const afterCancel = getRunningExecutions().find(
-        (e) => e.executionId === exec!.executionId,
-      );
-      // After cancel, the execution may or may not be in getRunningExecutions
-      // (since state is no longer "running"). Check getExecution instead.
+      // Verify cancelled state via getExecution (not getRunningExecutions).
       const tracked = getExecution(exec!.executionId);
       expect(tracked).toBeDefined();
       expect(tracked!.state).toBe("cancelled");

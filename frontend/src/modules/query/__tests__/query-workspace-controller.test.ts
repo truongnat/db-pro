@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { createQueryTab } from "@/commons/factories/tab-factories";
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
-import type { QueryTabData, QueryTiming } from "@/commons/types/workspace.types";
+import type { QueryTiming } from "@/commons/types/workspace.types";
 import {
   getActiveQueryTab,
   getQueryContext,

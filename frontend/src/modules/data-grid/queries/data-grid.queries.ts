@@ -96,8 +96,6 @@ function invalidateRows(
   connectionId: string,
   request: FetchRowsRequest,
 ) {
-  const filtersKey = JSON.stringify(request.filters);
-  const sortsKey = JSON.stringify(request.sorts);
   qc.invalidateQueries({
     queryKey: ["data-grid-rows", connectionId, request.schema, request.table],
   });

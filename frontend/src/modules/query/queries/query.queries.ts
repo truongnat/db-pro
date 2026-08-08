@@ -158,7 +158,7 @@ export function useListSavedQueries(connectionId: string) {
 export function useDeleteSavedQuery() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, connectionId }: { id: string; connectionId: string }) =>
+    mutationFn: ({ id, connectionId: _connectionId }: { id: string; connectionId: string }) =>
       getQueryService().deleteSaved(id),
     onSuccess: (_, variables) => {
       qc.invalidateQueries({ queryKey: QUERY_KEYS.saved(variables.connectionId) });
@@ -189,7 +189,7 @@ export function useCreateFolder() {
 export function useDeleteFolder() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, connectionId }: { id: string; connectionId: string }) =>
+    mutationFn: ({ id, connectionId: _connectionId }: { id: string; connectionId: string }) =>
       getQueryService().deleteFolder(id),
     onSuccess: (_, variables) => {
       qc.invalidateQueries({ queryKey: QUERY_KEYS.folders(variables.connectionId) });
@@ -232,7 +232,7 @@ export function useSaveRunConfig() {
 export function useDeleteRunConfig() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, connectionId }: { id: string; connectionId: string }) =>
+    mutationFn: ({ id, connectionId: _connectionId }: { id: string; connectionId: string }) =>
       getQueryService().deleteRunConfig(id),
     onSuccess: (_, variables) => {
       qc.invalidateQueries({ queryKey: QUERY_KEYS.runConfigs(variables.connectionId) });

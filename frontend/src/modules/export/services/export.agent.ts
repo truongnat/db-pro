@@ -5,7 +5,7 @@ function base64Encode(text: string): string {
 }
 
 export class MockExportService {
-  async exportCsv(_connectionId: string, sql: string): Promise<ExportResult> {
+  async exportCsv(_connectionId: string, _sql: string): Promise<ExportResult> {
     const content = "id,name\n1,Alice\n2,Bob\n";
     return {
       fileContent: base64Encode(content),
@@ -15,7 +15,7 @@ export class MockExportService {
     };
   }
 
-  async exportJson(_connectionId: string, sql: string): Promise<ExportResult> {
+  async exportJson(_connectionId: string, _sql: string): Promise<ExportResult> {
     const content = JSON.stringify([{ id: 1, name: "Alice" }, { id: 2, name: "Bob" }]);
     return {
       fileContent: base64Encode(content),
@@ -25,7 +25,7 @@ export class MockExportService {
     };
   }
 
-  async exportExcel(_connectionId: string, sql: string): Promise<ExportResult> {
+  async exportExcel(_connectionId: string, _sql: string): Promise<ExportResult> {
     return {
       fileContent: base64Encode("mock-excel-content"),
       fileName: "export.xlsx",

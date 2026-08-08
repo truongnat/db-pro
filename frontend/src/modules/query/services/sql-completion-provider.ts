@@ -1,22 +1,10 @@
 import type * as monaco from "monaco-editor";
 
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
-import type { QueryTabData } from "@/commons/types/workspace.types";
 
 import { useSchemaCatalogStore } from "../stores/schema-catalog.store";
 import { parseSqlContext } from "./sql-context-parser";
 import { SQL_KEYWORDS } from "./sql-keywords";
-
-function getConnectionIdForModel(modelUri: string): string | null {
-  const match = modelUri.match(/dbpro:\/\/query\/(.+)\.sql/);
-  if (!match) return null;
-  const tabId = match[1];
-  const tab = useWorkspaceStore.getState().tabs.find(
-    (t) => t.id === tabId && t.kind === "query",
-  );
-  if (!tab || tab.kind !== "query") return null;
-  return (tab.data as QueryTabData).sql !== undefined ? tab.connectionId : null;
-}
 
 function modelUriToTabId(modelUri: string): string | null {
   const match = modelUri.match(/dbpro:\/\/query\/(.+)\.sql/);
