@@ -6,7 +6,7 @@ import { useCloseGuardStore } from "@/commons/stores/close-guard.store";
 import { setTabActivePanel } from "@/modules/query/controllers/query-workspace.controller";
 
 import type { ActionResult } from "../types";
-import type { ResultPanelTab } from "@/commons/types/workspace.types";
+import type { ResultPanelTab, WorkspaceTab } from "@/commons/types/workspace.types";
 
 // ─── workspace.tab.open ──────────────────────────────────────
 
@@ -26,7 +26,7 @@ export const openTabAction = defineAction<
   risk: "read",
 
   async execute(input) {
-    const tab = input.tab as Parameters<typeof useWorkspaceStore.getState()["openTab"]>[0];
+    const tab = input.tab as WorkspaceTab;
     useWorkspaceStore.getState().openTab(tab);
 
     return {
@@ -61,7 +61,7 @@ export const closeTabAction = defineAction<
     return { status: "available" };
   },
 
-  async execute(input, ctx) {
+  async execute(input) {
     const { activeTabId, tabs } = useWorkspaceStore.getState();
     const tabId = input.tabId ?? activeTabId;
 
@@ -149,7 +149,7 @@ export const pinTabAction = defineAction<
   inputSchema: z.object({ tabId: z.string().optional() }),
   risk: "read",
 
-  async execute(input, ctx) {
+  async execute(input) {
     const { activeTabId, tabs, toggleTabPinned } = useWorkspaceStore.getState();
     const tabId = input.tabId ?? activeTabId;
 

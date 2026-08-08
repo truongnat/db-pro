@@ -16,7 +16,7 @@ import type { Keybinding } from "@/commons/types/command.types";
 
 let registered = false;
 
-export function registerAllCommands(router: AnyRouter): void {
+export function registerAllCommands(_router: AnyRouter): void {
   if (registered) return;
   registered = true;
 
@@ -24,10 +24,6 @@ export function registerAllCommands(router: AnyRouter): void {
   const hasSql = () => {
     const tab = getActiveQueryTab();
     return !!tab && tab.data.sql.trim().length > 0;
-  };
-  const isRunning = () => {
-    const tab = getActiveQueryTab();
-    return !!tab && tab.data.status === "running";
   };
   const hasResults = () => {
     const tab = getActiveQueryTab();

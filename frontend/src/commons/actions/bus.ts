@@ -112,7 +112,7 @@ export async function executeAction<TOutput = unknown>(
       pendingConfirmations.delete(options.confirmationToken);
       // Fall through to execution.
     } else {
-      return createConfirmationResponse(definition, ctx);
+      return createConfirmationResponse(definition, ctx) as ActionResult<TOutput>;
     }
   }
 
@@ -167,7 +167,7 @@ export async function executeAction<TOutput = unknown>(
       durationMs: Date.now() - new Date(startedAt).getTime(),
     });
 
-    return { ...result, executionId: result.executionId ?? executionId };
+    return { ...result, executionId: result.executionId ?? executionId } as ActionResult<TOutput>;
   } catch (err) {
     const message =
       err instanceof Error ? err.message : "Unknown action error";
@@ -205,7 +205,7 @@ export async function executeAction<TOutput = unknown>(
 
 function requiresConfirmation(
   def: ActionDefinition,
-  source: ActionSource,
+  _source: ActionSource,
 ): boolean {
   if (!def.confirmation) return false;
   if (def.confirmation.mode === "always") return true;
@@ -299,7 +299,11 @@ export function isActionAvailable(
   if (!def.availability) return { available: true };
 
   const ctx = buildActionContext("ui", contextOverrides);
-  return def.availability(ctx);
+  const avail = def.availability(ctx);
+  if (avail.status === "unavailable") {
+    return { available: false, reason: avail.reason };
+  }
+  return { available: true };
 }
 
 // ─── Execution tracking ──────────────────────────────────────

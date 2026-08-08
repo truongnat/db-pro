@@ -5,7 +5,7 @@ import { createQueryService } from "@/modules/query/services/query.service";
 import { getActiveQueryTab } from "@/modules/query/controllers/query-workspace.controller";
 
 import type { ActionExecutionContext, ActionResult } from "../types";
-import type { ExplainPlan, QueryResult } from "@/modules/query/types/query.types";
+import type { ExplainPlan } from "@/modules/query/types/query.types";
 
 // ─── Helpers ─────────────────────────────────────────────────
 
@@ -55,14 +55,14 @@ export const executeCurrentAction = defineAction<
     return { status: "available" };
   },
 
-  async execute(input, ctx) {
+  async execute(input, ctx): Promise<ActionResult<{ rowCount: number; durationMs: number }>> {
     const connErr = requireConnection(ctx);
-    if (connErr) return connErr;
+    if (connErr) return connErr as ActionResult<{ rowCount: number; durationMs: number }>;
 
     const tab = getActiveQueryTab();
     const sql = tab?.data.sql ?? "";
     const sqlErr = requireSql(sql);
-    if (sqlErr) return sqlErr;
+    if (sqlErr) return sqlErr as ActionResult<{ rowCount: number; durationMs: number }>;
 
     const executionId = crypto.randomUUID();
     const service = createQueryService();
@@ -85,7 +85,7 @@ export const executeCurrentAction = defineAction<
           rowCount: result.rowCount,
         },
       ],
-    } satisfies ActionResult<{ rowCount: number; durationMs: number }>;
+    };
   },
 });
 
@@ -105,11 +105,11 @@ export const executeSelectionAction = defineAction<
   }),
   risk: "read",
 
-  async execute(input, ctx) {
+  async execute(input, ctx): Promise<ActionResult<{ rowCount: number; durationMs: number }>> {
     const connErr = requireConnection(ctx);
-    if (connErr) return connErr;
+    if (connErr) return connErr as ActionResult<{ rowCount: number; durationMs: number }>;
     const sqlErr = requireSql(input.sql);
-    if (sqlErr) return sqlErr;
+    if (sqlErr) return sqlErr as ActionResult<{ rowCount: number; durationMs: number }>;
 
     const executionId = crypto.randomUUID();
     const service = createQueryService();
@@ -128,7 +128,7 @@ export const executeSelectionAction = defineAction<
       effects: [
         { type: "query.result.updated", tabId: ctx.tabId, rowCount: result.rowCount },
       ],
-    } satisfies ActionResult<{ rowCount: number; durationMs: number }>;
+    };
   },
 });
 
@@ -145,14 +145,14 @@ export const executeAllAction = defineAction<
   inputSchema: z.object({ tabId: z.string().optional() }),
   risk: "read",
 
-  async execute(input, ctx) {
+  async execute(input, ctx): Promise<ActionResult<{ totalDurationMs: number; statementCount: number }>> {
     const connErr = requireConnection(ctx);
-    if (connErr) return connErr;
+    if (connErr) return connErr as ActionResult<{ totalDurationMs: number; statementCount: number }>;
 
     const tab = getActiveQueryTab();
     const sql = tab?.data.sql ?? "";
     const sqlErr = requireSql(sql);
-    if (sqlErr) return sqlErr;
+    if (sqlErr) return sqlErr as ActionResult<{ totalDurationMs: number; statementCount: number }>;
 
     const executionId = crypto.randomUUID();
     const service = createQueryService();
@@ -178,7 +178,7 @@ export const executeAllAction = defineAction<
           statementCount: result.results.length,
         },
       ],
-    } satisfies ActionResult<{ totalDurationMs: number; statementCount: number }>;
+    };
   },
 });
 
@@ -195,7 +195,7 @@ export const cancelQueryAction = defineAction<
   inputSchema: z.object({ executionId: z.string().optional() }),
   risk: "read",
 
-  availability(ctx) {
+  availability(_ctx) {
     const tab = getActiveQueryTab();
     if (!tab || tab.data.status !== "running") {
       return { status: "unavailable", reason: "no_running_query" };
@@ -236,14 +236,14 @@ export const explainQueryAction = defineAction<
   inputSchema: z.object({ tabId: z.string().optional() }),
   risk: "read",
 
-  async execute(input, ctx) {
+  async execute(input, ctx): Promise<ActionResult<{ plan: ExplainPlan }>> {
     const connErr = requireConnection(ctx);
-    if (connErr) return connErr;
+    if (connErr) return connErr as ActionResult<{ plan: ExplainPlan }>;
 
     const tab = getActiveQueryTab();
     const sql = tab?.data.sql ?? "";
     const sqlErr = requireSql(sql);
-    if (sqlErr) return sqlErr;
+    if (sqlErr) return sqlErr as ActionResult<{ plan: ExplainPlan }>;
 
     const service = createQueryService();
     const plan = await service.explain(ctx.connectionId!, sql);
@@ -252,7 +252,7 @@ export const explainQueryAction = defineAction<
       status: "success",
       data: { plan },
       effects: [{ type: "query.explain.updated", tabId: ctx.tabId }],
-    } satisfies ActionResult<{ plan: ExplainPlan }>;
+    };
   },
 });
 
@@ -330,14 +330,14 @@ export const saveQueryAction = defineAction<
   }),
   risk: "read",
 
-  async execute(input, ctx) {
+  async execute(input, ctx): Promise<ActionResult<{ savedQueryId: string }>> {
     const connErr = requireConnection(ctx);
-    if (connErr) return connErr;
+    if (connErr) return connErr as ActionResult<{ savedQueryId: string }>;
 
     const tab = getActiveQueryTab();
     const sql = tab?.data.sql ?? "";
     const sqlErr = requireSql(sql);
-    if (sqlErr) return sqlErr;
+    if (sqlErr) return sqlErr as ActionResult<{ savedQueryId: string }>;
 
     const service = createQueryService();
     const saved = await service.save(ctx.connectionId!, input.name, sql);
@@ -346,7 +346,7 @@ export const saveQueryAction = defineAction<
       status: "success",
       data: { savedQueryId: saved.id },
       effects: [{ type: "query.saved", savedQueryId: saved.id }],
-    } satisfies ActionResult<{ savedQueryId: string }>;
+    };
   },
 });
 
@@ -369,7 +369,7 @@ export const getQueryContextAction = defineAction<
   inputSchema: z.object({ tabId: z.string().optional() }),
   risk: "read",
 
-  async execute(input, ctx) {
+  async execute(_input, _ctx) {
     const tab = getActiveQueryTab();
     if (!tab) {
       return {
@@ -404,7 +404,7 @@ export const getQuerySqlAction = defineAction<
   inputSchema: z.object({ tabId: z.string().optional() }),
   risk: "read",
 
-  async execute(input, ctx) {
+  async execute(_input, _ctx) {
     const tab = getActiveQueryTab();
     if (!tab) {
       return {
@@ -439,7 +439,7 @@ export const getQueryResultAction = defineAction<
   inputSchema: z.object({ tabId: z.string().optional() }),
   risk: "read",
 
-  async execute(input, ctx) {
+  async execute(_input, _ctx) {
     const tab = getActiveQueryTab();
     if (!tab) {
       return {

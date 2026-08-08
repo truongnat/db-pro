@@ -3,8 +3,6 @@ import { z } from "zod";
 import { defineAction } from "../registry";
 import { createConnectionService } from "@/modules/connection/services/connection.service";
 
-import type { ActionResult } from "../types";
-
 // ─── database.connect ────────────────────────────────────────
 
 export const connectDatabaseAction = defineAction<
