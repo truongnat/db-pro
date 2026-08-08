@@ -9,8 +9,8 @@ import { useShellStore } from "@/commons/stores/shell.store";
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
 import {
   createQueryTabFromExplorerContext,
+  getActiveQueryTab,
 } from "@/modules/query/controllers/query-workspace.controller";
-import type { QueryTabData, WorkspaceTab } from "@/commons/types/workspace.types";
 import { commandFromAction, executeAction } from "@/commons/actions";
 import type { Keybinding } from "@/commons/types/command.types";
 
@@ -30,12 +30,6 @@ export function registerAllCommands(_router: AnyRouter): void {
     return !!tab && tab.data.result !== null;
   };
 
-  function getActiveQueryTab(): (Omit<WorkspaceTab, "data"> & { data: QueryTabData }) | undefined {
-    const { tabs, activeTabId } = useWorkspaceStore.getState();
-    const tab = tabs.find((t) => t.id === activeTabId && t.kind === "query");
-    return tab as (Omit<WorkspaceTab, "data"> & { data: QueryTabData }) | undefined;
-  }
-
   function requestCloseMany(ids: string[]) {
     const { tabs } = useWorkspaceStore.getState();
     const dirtyIds = ids.filter((id) => tabs.find((t) => t.id === id)?.dirty);
@@ -54,15 +48,26 @@ export function registerAllCommands(_router: AnyRouter): void {
   function actionCommand(
     actionId: string,
     keybinding?: Keybinding,
+    options?: { inputProvider?: () => Record<string, unknown> | undefined },
   ) {
-    const cmd = commandFromAction(actionId);
+    const cmd = commandFromAction(actionId, options);
     if (keybinding) cmd.keybinding = keybinding;
     return cmd;
   }
 
   useCommandStore.getState().registerMany([
     // ── Query — delegated to Action Platform ──────────────────
-    actionCommand("query.execute.current", { ctrlKey: true, key: "Enter" }),
+    actionCommand("query.execute.current", { ctrlKey: true, key: "Enter" }, {
+      inputProvider: () => {
+        const tab = getActiveQueryTab();
+        if (!tab) return undefined;
+        return {
+          tabId: tab.id,
+          cursorOffset: 0,
+          selection: null,
+        };
+      },
+    }),
     actionCommand("query.explain"),
     actionCommand("query.format"),
     actionCommand("query.clear"),

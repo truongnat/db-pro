@@ -23,8 +23,16 @@ import type { ActionId } from "./types";
  *   - Uses the action's `availability()` for the `when()` guard
  *   - Delegates `execute()` to the action bus with source = "command-palette"
  *   - Derives `labelKey` from the action title (convention: "actions.<id>")
+ *
+ * Input resolution order:
+ *   1. Explicit `inputProvider` argument (caller-supplied)
+ *   2. Action's own `commandInput()` hook
+ *   3. undefined (zero-input actions)
  */
-export function commandFromAction(actionId: ActionId): Command {
+export function commandFromAction(
+  actionId: ActionId,
+  options?: { inputProvider?: () => Record<string, unknown> | undefined },
+): Command {
   const def = getAction(actionId);
   if (!def) {
     throw new Error(
@@ -40,7 +48,11 @@ export function commandFromAction(actionId: ActionId): Command {
     groupKey: `commands.groups.${def.category}`,
     when: () => isActionAvailable(def.id).available,
     execute: () => {
-      executeAction(def.id, undefined, { source: "command-palette" });
+      const input =
+        options?.inputProvider?.() ??
+        def.commandInput?.() ??
+        undefined;
+      executeAction(def.id, input as Record<string, unknown> | undefined, { source: "command-palette" });
     },
   };
 }

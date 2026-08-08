@@ -1,4 +1,7 @@
+import { z } from "zod";
+
 import { getRegisteredActions } from "./registry";
+import { buildActionContext } from "./context";
 
 import type { ActionDefinition, ActionId, ActionRisk } from "./types";
 
@@ -101,23 +104,18 @@ export function getToolName(actionId: ActionId): string {
 /**
  * Convert an action's inputSchema to a JSON Schema object.
  *
- * Uses Zod v4's native `toJSONSchema()` method for accurate conversion.
+ * Uses Zod v4's `z.toJSONSchema()` static method for accurate conversion.
  * This ensures all Zod types (enums, records, optionals, etc.) are
  * correctly represented in the MCP tool definitions.
  */
 function schemaToJsonSchema(schema: ActionDefinition["inputSchema"]): Record<string, unknown> {
   try {
-    // Zod v4 schemas expose toJSONSchema() natively.
-    const toJSONSchema = (schema as unknown as { toJSONSchema?: () => Record<string, unknown> }).toJSONSchema;
-    if (typeof toJSONSchema === "function") {
-      return toJSONSchema.call(schema);
-    }
+    // Zod v4: z.toJSONSchema() is the official API.
+    return z.toJSONSchema(schema as z.ZodType, { io: "input" });
   } catch {
-    // Fall through to generic schema.
+    // Fallback: accept any object.
+    return { type: "object", properties: {} };
   }
-
-  // Fallback: accept any object.
-  return { type: "object", properties: {} };
 }
 
 // ─── Tool generation ─────────────────────────────────────────
@@ -135,7 +133,19 @@ export function actionToMcpTool(def: ActionDefinition): McpToolDefinition {
 
 /** Generate MCP tool definitions for all registered actions. */
 export function generateMcpTools(): McpToolDefinition[] {
-  return getRegisteredActions().map(actionToMcpTool);
+  return getRegisteredActions()
+    .filter((action) => {
+      // Exclude actions that are not implemented or currently unavailable.
+      if (action.availability) {
+        const ctx = buildActionContext("mcp");
+        const avail = action.availability(ctx);
+        if (avail.status === "unavailable" && avail.reason === "not_implemented") {
+          return false;
+        }
+      }
+      return true;
+    })
+    .map(actionToMcpTool);
 }
 
 /** Generate MCP tools filtered by category. */
@@ -143,7 +153,17 @@ export function generateMcpToolsByCategory(
   category: string,
 ): McpToolDefinition[] {
   return getRegisteredActions()
-    .filter((a) => a.category === category)
+    .filter((a) => {
+      if (a.category !== category) return false;
+      if (a.availability) {
+        const ctx = buildActionContext("mcp");
+        const avail = a.availability(ctx);
+        if (avail.status === "unavailable" && avail.reason === "not_implemented") {
+          return false;
+        }
+      }
+      return true;
+    })
     .map(actionToMcpTool);
 }
 

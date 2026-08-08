@@ -74,8 +74,9 @@ export function AgentPanel({ open, onClose, width, className }: AgentPanelProps)
         <div className="flex items-center gap-1">
           <button
             type="button"
-            className="flex h-7 items-center gap-1 rounded-md px-2 text-[12px] text-[var(--app-text-muted)] transition-colors hover:bg-[var(--app-hover)] hover:text-foreground"
-            title="New Chat"
+            className="flex h-7 items-center gap-1 rounded-md px-2 text-[12px] text-[var(--app-text-muted)] opacity-50 cursor-not-allowed"
+            title="Coming soon"
+            disabled
           >
             <Plus className="h-3.5 w-3.5" />
             New
@@ -137,6 +138,7 @@ export function AgentPanel({ open, onClose, width, className }: AgentPanelProps)
                   key={action.label}
                   type="button"
                   className="flex h-[36px] w-full items-center gap-2.5 rounded-md border border-[var(--app-border-subtle)] px-3 text-[13px] text-[var(--app-text-muted)] transition-colors hover:border-[var(--app-border)] hover:bg-[var(--app-hover)] hover:text-foreground"
+                  onClick={() => setInput(action.label === "Explain this table" ? "Explain the current table structure" : action.label === "Write a SELECT query" ? "SELECT * FROM " : action.label === "Find relations" ? "Show foreign key relationships for " : "")}
                 >
                   <Icon className="h-4 w-4 shrink-0 text-[var(--app-text-dim)]" />
                   <span className="flex-1 text-left">{action.label}</span>
@@ -159,7 +161,7 @@ export function AgentPanel({ open, onClose, width, className }: AgentPanelProps)
             className="flex-1 bg-transparent text-[13px] text-foreground placeholder:text-[var(--app-text-dim)] focus:outline-none"
             onKeyDown={(e) => {
               if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && input.trim()) {
-                // submit
+                setInput("");
               }
             }}
           />
@@ -174,6 +176,7 @@ export function AgentPanel({ open, onClose, width, className }: AgentPanelProps)
                   : "text-[var(--app-text-dim)]",
               )}
               disabled={!input.trim()}
+              onClick={() => { if (input.trim()) setInput(""); }}
             >
               <Send className="h-3 w-3" />
             </button>

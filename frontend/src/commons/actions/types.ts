@@ -129,6 +129,33 @@ export interface ActionDefinition<TInput = void, TOutput = unknown> {
     context: ActionExecutionContext,
   ): ActionAvailability;
 
+  /**
+   * Optional cancel hook for long-running executions.
+   * Called by the bus when cancelExecution() is invoked.
+   */
+  cancel?(
+    execution: ActionExecution,
+    context: ActionExecutionContext,
+  ): Promise<void>;
+
+  /**
+   * Dynamic risk resolution based on actual input.
+   * When present, overrides the static `risk` field.
+   * Called after input validation but before confirmation gate.
+   */
+  resolveRisk?(
+    input: TInput,
+    context: ActionExecutionContext,
+  ): ActionRisk;
+
+  /**
+   * Provides default input when invoked from the command palette.
+   * Actions that require specific input (e.g. sql, name) should
+   * define this so command palette invocations don't fail with
+   * invalid_input.
+   */
+  commandInput?(): Partial<TInput> | undefined;
+
   risk?: ActionRisk;
   confirmation?: ConfirmationPolicy;
   permissions?: ActionPermission[];
@@ -180,6 +207,14 @@ export interface ActionConfirmation {
   actionId: ActionId;
   message: string;
   risk: ActionRisk;
+  /** Original input to replay on confirm. */
+  input?: Record<string, unknown>;
+  /** Original context overrides to replay on confirm. */
+  context?: Partial<ActionExecutionContext>;
+  /** Original source of the invocation. */
+  source?: ActionSource;
+  /** When the confirmation was created. */
+  createdAt: number;
   /** Present when the confirmation has been approved. */
   confirmed?: boolean;
   /** Who confirmed it (e.g. "user", "agent"). */

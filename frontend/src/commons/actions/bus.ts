@@ -10,6 +10,7 @@ import type {
   ActionId,
   ActionProgress,
   ActionResult,
+  ActionRisk,
   ActionSource,
 } from "./types";
 
@@ -99,20 +100,38 @@ export async function executeAction<TOutput = unknown>(
     }
   }
 
+  // ── 2b. Dynamic risk resolution ─────────────────────────────
+  let effectiveRisk = definition.risk ?? "read";
+  if (definition.resolveRisk) {
+    effectiveRisk = definition.resolveRisk(validatedInput, ctx);
+  }
+
   // ── 3. Confirmation gate ───────────────────────────────────
-  if (requiresConfirmation(definition, source)) {
+  if (requiresConfirmation(definition, source, effectiveRisk)) {
     // If caller already has a valid confirmation token, proceed.
-    if (
-      options?.confirmationToken &&
-      pendingConfirmations.has(options.confirmationToken)
-    ) {
-      const conf = pendingConfirmations.get(options.confirmationToken)!;
-      conf.confirmed = true;
-      conf.confirmedBy = source;
-      pendingConfirmations.delete(options.confirmationToken);
-      // Fall through to execution.
+    if (options?.confirmationToken) {
+      const conf = pendingConfirmations.get(options.confirmationToken);
+      if (conf && conf.actionId === actionId) {
+        pendingConfirmations.delete(options.confirmationToken);
+        // Fall through to execution.
+      } else {
+        // Token doesn't match this action — reject.
+        return {
+          status: "error",
+          error: {
+            code: "confirmation_mismatch",
+            message: `Confirmation token does not match action "${actionId}"`,
+          },
+        } as ActionResult<TOutput>;
+      }
     } else {
-      return createConfirmationResponse(definition, ctx) as ActionResult<TOutput>;
+      return createConfirmationResponse(
+        definition,
+        ctx,
+        input ?? {},
+        options?.context,
+        source,
+      ) as ActionResult<TOutput>;
     }
   }
 
@@ -206,12 +225,14 @@ export async function executeAction<TOutput = unknown>(
 function requiresConfirmation(
   def: ActionDefinition,
   _source: ActionSource,
+  risk?: ActionRisk,
 ): boolean {
   if (!def.confirmation) return false;
+  const effectiveRisk = risk ?? def.risk ?? "read";
   if (def.confirmation.mode === "always") return true;
   if (def.confirmation.mode === "destructive-only") {
     // Even agent/MCP sources must confirm destructive actions.
-    return def.risk === "destructive";
+    return effectiveRisk === "destructive";
   }
   return false;
 }
@@ -219,6 +240,9 @@ function requiresConfirmation(
 function createConfirmationResponse(
   def: ActionDefinition,
   ctx: ActionExecutionContext,
+  input: Record<string, unknown>,
+  contextOverrides?: Partial<ActionExecutionContext>,
+  source?: ActionSource,
 ): ActionResult {
   const confirmationId = `confirm_${crypto.randomUUID()}`;
   const confirmation: ActionConfirmation = {
@@ -228,6 +252,10 @@ function createConfirmationResponse(
       def.confirmation?.messageKey ??
       `Confirm ${def.title}?`,
     risk: def.risk ?? "write",
+    input,
+    context: contextOverrides,
+    source,
+    createdAt: Date.now(),
   };
 
   pendingConfirmations.set(confirmationId, confirmation);
@@ -266,8 +294,10 @@ export async function confirmAction(
     };
   }
 
-  // Re-execute with the confirmation token so the gate passes.
-  return executeAction(confirmation.actionId, undefined, {
+  // Re-execute with the original input, context, and confirmation token.
+  return executeAction(confirmation.actionId, confirmation.input, {
+    source: confirmation.source ?? "ui",
+    context: confirmation.context,
     confirmationToken: confirmationId,
   });
 }
@@ -342,7 +372,16 @@ export async function cancelExecution(
   }
 
   // Delegate to the action's cancel mechanism if available.
-  // For query actions, this calls the backend cancel.
+  const def = getAction(exec.actionId);
+  if (def?.cancel) {
+    try {
+      const ctx = buildActionContext("ui");
+      await def.cancel(exec, ctx);
+    } catch {
+      // Cancel hook failed — still mark as cancelled but note the error.
+    }
+  }
+
   exec.state = "cancelled";
   return { status: "cancelled", executionId };
 }

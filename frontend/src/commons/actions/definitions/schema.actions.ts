@@ -40,6 +40,10 @@ export const createTableAction = defineAction<
   risk: "write",
   confirmation: { mode: "always", messageKey: "schema.confirmCreateTable" },
 
+  availability() {
+    return { status: "unavailable", reason: "not_implemented" };
+  },
+
   async execute(input) {
     // TODO: wire to ISchemaService.executeDdl via DI container.
     // For now, generate the DDL and return it.
@@ -94,6 +98,10 @@ export const alterTableAction = defineAction<
   risk: "write",
   confirmation: { mode: "always", messageKey: "schema.confirmAlterTable" },
 
+  availability() {
+    return { status: "unavailable", reason: "not_implemented" };
+  },
+
   async execute(input) {
     // TODO: wire to ISchemaService.executeDdl via DI container.
 
@@ -129,6 +137,10 @@ export const dropTableAction = defineAction<
   }),
   risk: "destructive",
   confirmation: { mode: "always", messageKey: "schema.confirmDropTable" },
+
+  availability() {
+    return { status: "unavailable", reason: "not_implemented" };
+  },
 
   async execute(input) {
     // TODO: wire to ISchemaService.executeDdl via DI container.

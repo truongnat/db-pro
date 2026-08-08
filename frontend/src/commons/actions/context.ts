@@ -20,31 +20,41 @@ export function generateCorrelationId(): string {
  * This is the bridge between the "ambient" state (active tab, active
  * connection, etc.) and the explicit parameters an action receives.
  *
- * Callers can override any field via the `overrides` parameter.
+ * Resolution order:
+ *   1. Explicit overrides (caller-provided values)
+ *   2. Target tab (if tabId override points to a specific tab)
+ *   3. Active tab (ambient workspace state)
+ *   4. Explorer connection (fallback for connectionId)
  */
 export function buildActionContext(
   source: ActionSource,
   overrides?: Partial<ActionExecutionContext>,
 ): ActionExecutionContext {
   const { tabs, activeTabId } = useWorkspaceStore.getState();
-  const activeTab = tabs.find((t) => t.id === activeTabId);
+
+  // Resolve the "target tab": explicit tabId override first, then active.
+  const targetTabId = overrides?.tabId ?? activeTabId;
+  const targetTab = targetTabId
+    ? tabs.find((t) => t.id === targetTabId)
+    : undefined;
+
   const explorerConnectionId =
     useConnectionStore.getState().explorerConnectionId;
 
   const connectionId =
     overrides?.connectionId ??
-    activeTab?.connectionId ??
+    targetTab?.connectionId ??
     explorerConnectionId ??
     undefined;
 
-  const tabId = overrides?.tabId ?? activeTabId ?? undefined;
+  const tabId = targetTabId ?? undefined;
 
   let database: string | null | undefined;
   let schema: string | null | undefined;
 
-  if (activeTab && activeTab.kind === "query") {
-    database = activeTab.data.context.database;
-    schema = activeTab.data.context.schema;
+  if (targetTab && targetTab.kind === "query") {
+    database = targetTab.data.context.database;
+    schema = targetTab.data.context.schema;
   }
 
   return {

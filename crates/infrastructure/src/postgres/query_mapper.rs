@@ -92,7 +92,7 @@ pub fn map_row(row: &sqlx::postgres::PgRow, columns: &[ColumnMeta]) -> Result<Ro
                     CellValue::Bytes(v)
                 }
                 _ => {
-                    let v: String = row.try_get(i).unwrap_or_default();
+                    let v: String = row.try_get(i).map_err(crate::error::from_sqlx)?;
                     CellValue::Text(v)
                 }
             }

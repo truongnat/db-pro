@@ -2,12 +2,45 @@ import { z } from "zod";
 
 import { defineAction } from "../registry";
 import { createQueryService } from "@/modules/query/services/query.service";
-import { getActiveQueryTab } from "@/modules/query/controllers/query-workspace.controller";
+import { getActiveQueryTab, getQueryTabData } from "@/modules/query/controllers/query-workspace.controller";
+import { resolveRunTarget } from "@/modules/query/services/statement-splitter";
+import { useWorkspaceStore } from "@/commons/stores/workspace.store";
 
-import type { ActionExecutionContext, ActionResult } from "../types";
+import type { ActionExecutionContext, ActionResult, ActionRisk } from "../types";
 import type { ExplainPlan } from "@/modules/query/types/query.types";
 
 // ─── Helpers ─────────────────────────────────────────────────
+
+/**
+ * Resolve the query tab from explicit input.tabId or fall back to active.
+ * This ensures tabId addressability per the Action Platform contract.
+ */
+function resolveQueryTab(input: { tabId?: string }) {
+  if (input.tabId) {
+    const data = getQueryTabData(input.tabId);
+    if (data) {
+      const tab = useWorkspaceStore.getState().tabs.find((t) => t.id === input.tabId);
+      if (tab) return { id: tab.id, data, connectionId: tab.connectionId };
+    }
+  }
+  const active = getActiveQueryTab();
+  return active ? { id: active.id, data: active.data, connectionId: active.connectionId } : undefined;
+}
+
+/**
+ * Classify SQL content into a risk level.
+ * Used for dynamic risk resolution of query execution actions.
+ */
+function classifySqlRisk(sql: string): ActionRisk {
+  const normalized = sql.trim().replace(/^\(.*\)/, "").trim().toUpperCase();
+  // Destructive: DROP, TRUNCATE, DELETE without WHERE safety
+  if (/^(DROP|TRUNCATE)\b/.test(normalized)) return "destructive";
+  if (/^DELETE\b/.test(normalized)) return "destructive";
+  // Write: INSERT, UPDATE, ALTER, CREATE, REPLACE
+  if (/^(INSERT|UPDATE|ALTER|CREATE|REPLACE)\b/.test(normalized)) return "write";
+  // Default: read-only
+  return "read";
+}
 
 function requireConnection(ctx: ActionExecutionContext): ActionResult | null {
   if (!ctx.connectionId) {
@@ -32,7 +65,7 @@ function requireSql(sql: string): ActionResult | null {
 // ─── query.execute.current ───────────────────────────────────
 
 export const executeCurrentAction = defineAction<
-  { tabId?: string },
+  { tabId?: string; cursorOffset?: number; selection?: { start: number; end: number } | null },
   { rowCount: number; durationMs: number }
 >({
   id: "query.execute.current",
@@ -40,27 +73,54 @@ export const executeCurrentAction = defineAction<
   description:
     "Execute the SQL statement at the cursor position in the active query tab.",
   category: "query",
-  inputSchema: z.object({ tabId: z.string().optional() }),
+  inputSchema: z.object({
+    tabId: z.string().optional(),
+    cursorOffset: z.number().int().min(0).optional(),
+    selection: z.object({ start: z.number(), end: z.number() }).nullable().optional(),
+  }),
   risk: "read",
 
+  resolveRisk(input, ctx) {
+    const tab = resolveQueryTab(input);
+    const sql = tab?.data.sql ?? "";
+    return classifySqlRisk(sql);
+  },
+
   availability(ctx) {
-    const tabId = ctx.tabId;
-    const tab = tabId
-      ? undefined // would need to look up tab — simplified here
-      : getActiveQueryTab();
-    const hasSql = tab ? tab.data.sql.trim().length > 0 : true;
+    const tab = resolveQueryTab({ tabId: ctx.tabId });
+    const hasSql = tab ? tab.data.sql.trim().length > 0 : false;
     if (!ctx.connectionId)
       return { status: "unavailable", reason: "connection_required" };
     if (!hasSql) return { status: "unavailable", reason: "sql_required" };
     return { status: "available" };
   },
 
+  commandInput() {
+    const tab = getActiveQueryTab();
+    if (!tab) return undefined;
+    return {
+      tabId: tab.id,
+      cursorOffset: 0,
+      selection: null,
+    };
+  },
+
   async execute(input, ctx): Promise<ActionResult<{ rowCount: number; durationMs: number }>> {
     const connErr = requireConnection(ctx);
     if (connErr) return connErr as ActionResult<{ rowCount: number; durationMs: number }>;
 
-    const tab = getActiveQueryTab();
-    const sql = tab?.data.sql ?? "";
+    const tab = resolveQueryTab(input);
+    if (!tab) {
+      return { status: "error", error: { code: "no_tab", message: "No active query tab" } } as ActionResult<{ rowCount: number; durationMs: number }>;
+    }
+
+    // Use the statement resolver: selection > statement at cursor > full sql.
+    const sql = resolveRunTarget({
+      value: tab.data.sql,
+      selection: input.selection ?? null,
+      cursorOffset: input.cursorOffset ?? 0,
+    }) ?? tab.data.sql;
+
     const sqlErr = requireSql(sql);
     if (sqlErr) return sqlErr as ActionResult<{ rowCount: number; durationMs: number }>;
 
@@ -105,6 +165,10 @@ export const executeSelectionAction = defineAction<
   }),
   risk: "read",
 
+  resolveRisk(input) {
+    return classifySqlRisk(input.sql);
+  },
+
   async execute(input, ctx): Promise<ActionResult<{ rowCount: number; durationMs: number }>> {
     const connErr = requireConnection(ctx);
     if (connErr) return connErr as ActionResult<{ rowCount: number; durationMs: number }>;
@@ -145,11 +209,22 @@ export const executeAllAction = defineAction<
   inputSchema: z.object({ tabId: z.string().optional() }),
   risk: "read",
 
+  resolveRisk(input, _ctx) {
+    const tab = resolveQueryTab(input);
+    const sql = tab?.data.sql ?? "";
+    return classifySqlRisk(sql);
+  },
+
+  commandInput() {
+    const tab = getActiveQueryTab();
+    return tab ? { tabId: tab.id } : undefined;
+  },
+
   async execute(input, ctx): Promise<ActionResult<{ totalDurationMs: number; statementCount: number }>> {
     const connErr = requireConnection(ctx);
     if (connErr) return connErr as ActionResult<{ totalDurationMs: number; statementCount: number }>;
 
-    const tab = getActiveQueryTab();
+    const tab = resolveQueryTab(input);
     const sql = tab?.data.sql ?? "";
     const sqlErr = requireSql(sql);
     if (sqlErr) return sqlErr as ActionResult<{ totalDurationMs: number; statementCount: number }>;
@@ -221,6 +296,16 @@ export const cancelQueryAction = defineAction<
       effects: [{ type: "query.cancelled", executionId: execId, tabId: ctx.tabId }],
     };
   },
+
+  async cancel(execution) {
+    // The cancel hook is called by the bus for any cancelExecution().
+    // For query actions, delegate to the backend via the query service.
+    const execId = execution.executionId;
+    if (execId) {
+      const service = createQueryService();
+      await service.cancel(execId);
+    }
+  },
 });
 
 // ─── query.explain ───────────────────────────────────────────
@@ -236,11 +321,16 @@ export const explainQueryAction = defineAction<
   inputSchema: z.object({ tabId: z.string().optional() }),
   risk: "read",
 
+  commandInput() {
+    const tab = getActiveQueryTab();
+    return tab ? { tabId: tab.id } : undefined;
+  },
+
   async execute(input, ctx): Promise<ActionResult<{ plan: ExplainPlan }>> {
     const connErr = requireConnection(ctx);
     if (connErr) return connErr as ActionResult<{ plan: ExplainPlan }>;
 
-    const tab = getActiveQueryTab();
+    const tab = resolveQueryTab(input);
     const sql = tab?.data.sql ?? "";
     const sqlErr = requireSql(sql);
     if (sqlErr) return sqlErr as ActionResult<{ plan: ExplainPlan }>;
@@ -268,6 +358,11 @@ export const formatSqlAction = defineAction<
   category: "query",
   inputSchema: z.object({ sql: z.string().min(1) }),
   risk: "read",
+
+  commandInput() {
+    const tab = getActiveQueryTab();
+    return tab ? { sql: tab.data.sql } : undefined;
+  },
 
   async execute(input) {
     // Dynamic import to avoid loading sql-formatter unless needed.
@@ -330,11 +425,16 @@ export const saveQueryAction = defineAction<
   }),
   risk: "read",
 
+  commandInput() {
+    const tab = getActiveQueryTab();
+    return tab ? { tabId: tab.id } : undefined;
+  },
+
   async execute(input, ctx): Promise<ActionResult<{ savedQueryId: string }>> {
     const connErr = requireConnection(ctx);
     if (connErr) return connErr as ActionResult<{ savedQueryId: string }>;
 
-    const tab = getActiveQueryTab();
+    const tab = resolveQueryTab(input);
     const sql = tab?.data.sql ?? "";
     const sqlErr = requireSql(sql);
     if (sqlErr) return sqlErr as ActionResult<{ savedQueryId: string }>;
@@ -369,8 +469,13 @@ export const getQueryContextAction = defineAction<
   inputSchema: z.object({ tabId: z.string().optional() }),
   risk: "read",
 
-  async execute(_input, _ctx) {
+  commandInput() {
     const tab = getActiveQueryTab();
+    return tab ? { tabId: tab.id } : undefined;
+  },
+
+  async execute(input, _ctx) {
+    const tab = resolveQueryTab(input);
     if (!tab) {
       return {
         status: "error",
@@ -404,8 +509,13 @@ export const getQuerySqlAction = defineAction<
   inputSchema: z.object({ tabId: z.string().optional() }),
   risk: "read",
 
-  async execute(_input, _ctx) {
+  commandInput() {
     const tab = getActiveQueryTab();
+    return tab ? { tabId: tab.id } : undefined;
+  },
+
+  async execute(input, _ctx) {
+    const tab = resolveQueryTab(input);
     if (!tab) {
       return {
         status: "error",
@@ -439,8 +549,13 @@ export const getQueryResultAction = defineAction<
   inputSchema: z.object({ tabId: z.string().optional() }),
   risk: "read",
 
-  async execute(_input, _ctx) {
+  commandInput() {
     const tab = getActiveQueryTab();
+    return tab ? { tabId: tab.id } : undefined;
+  },
+
+  async execute(input, _ctx) {
+    const tab = resolveQueryTab(input);
     if (!tab) {
       return {
         status: "error",

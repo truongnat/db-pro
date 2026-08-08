@@ -90,6 +90,7 @@ export const closeTabAction = defineAction<
           actionId: "workspace.tab.close",
           message: `Tab "${tab.title}" has unsaved changes. Close anyway?`,
           risk: "read",
+          createdAt: Date.now(),
         },
       };
     }

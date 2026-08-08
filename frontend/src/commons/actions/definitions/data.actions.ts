@@ -22,6 +22,10 @@ export const refreshDataAction = defineAction<
   }),
   risk: "read",
 
+  availability() {
+    return { status: "unavailable", reason: "not_implemented" };
+  },
+
   async execute(input) {
     // TODO: wire to IDataGridService.fetchRows via DI container.
     // The service will re-fetch from the backend and update TanStack Query cache.
@@ -63,6 +67,10 @@ export const insertRowAction = defineAction<
   }),
   risk: "write",
   confirmation: { mode: "destructive-only", messageKey: "data.confirmInsert" },
+
+  availability() {
+    return { status: "unavailable", reason: "not_implemented" };
+  },
 
   async execute(input) {
     // TODO: wire to IDataGridService.insertRow via DI container.
@@ -108,6 +116,10 @@ export const updateRowAction = defineAction<
   risk: "write",
   confirmation: { mode: "destructive-only", messageKey: "data.confirmUpdate" },
 
+  availability() {
+    return { status: "unavailable", reason: "not_implemented" };
+  },
+
   async execute(input) {
     // TODO: wire to IDataGridService.updateRow via DI container.
 
@@ -149,6 +161,10 @@ export const deleteRowAction = defineAction<
   }),
   risk: "destructive",
   confirmation: { mode: "always", messageKey: "data.confirmDelete" },
+
+  availability() {
+    return { status: "unavailable", reason: "not_implemented" };
+  },
 
   async execute(input) {
     // TODO: wire to IDataGridService.deleteRow via DI container.
