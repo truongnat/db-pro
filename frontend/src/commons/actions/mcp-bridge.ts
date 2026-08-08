@@ -31,7 +31,14 @@ export interface McpToolDefinition {
   inputSchema: Record<string, unknown>;
   /** The action ID this tool delegates to. */
   actionId: ActionId;
+  /**
+   * Risk level. "dynamic" means the risk depends on input content
+   * (e.g. query.execute.* can be read or destructive depending on SQL).
+   * Do NOT advertise dynamic actions as statically "read".
+   */
   risk: ActionRisk;
+  /** When risk is dynamic, this describes the policy. */
+  riskPolicy?: string;
 }
 
 // ─── Action ID → MCP tool name mapping ───────────────────────
@@ -122,12 +129,15 @@ function schemaToJsonSchema(schema: ActionDefinition["inputSchema"]): Record<str
 
 /** Generate an MCP tool definition from an action. */
 export function actionToMcpTool(def: ActionDefinition): McpToolDefinition {
+  const hasDynamicRisk = !!def.resolveRisk;
   return {
     name: getToolName(def.id),
     description: def.description ?? def.title,
     inputSchema: schemaToJsonSchema(def.inputSchema),
     actionId: def.id,
-    risk: def.risk ?? "read",
+    // If the action has resolveRisk(), risk is dynamic — don't lie.
+    risk: hasDynamicRisk ? "dynamic" : (def.risk ?? "read"),
+    riskPolicy: hasDynamicRisk ? "sql" : undefined,
   };
 }
 

@@ -19,11 +19,14 @@ import type {
  *
  * Every action invocation flows through this bus, which handles:
  *   1. Input validation (via the action's inputSchema)
- *   2. Availability check (enabled/disabled)
- *   3. Safety gate (risk + confirmation protocol)
- *   4. Execution delegation to the action handler
- *   5. Audit event emission (start / complete / error / cancel)
- *   6. Execution tracking (for long-running actions & progress)
+ *   2. Build ambient context
+ *   3. Resolve target context from validated input (explicit targets beat ambient)
+ *   4. Availability check (enabled/disabled)
+ *   5. Dynamic risk resolution
+ *   6. Safety gate (confirmation protocol with resolved context snapshot)
+ *   7. Execution delegation to the action handler
+ *   8. Audit event emission (start / complete / error / cancel)
+ *   9. Execution tracking (for long-running actions & progress)
  *
  * The bus is UI-framework agnostic — it can be called from React
  * components, keyboard handlers, the command palette, or MCP.
@@ -67,7 +70,6 @@ export async function executeAction<TOutput = unknown>(
   }
 
   const source = options?.source ?? "ui";
-  const ctx = buildActionContext(source, options?.context);
 
   // ── 1. Validate input ──────────────────────────────────────
   const parseResult = definition.inputSchema.safeParse(input ?? {});
@@ -86,7 +88,18 @@ export async function executeAction<TOutput = unknown>(
   // interface doesn't carry that narrowing — assert it here.
   const validatedInput = parseResult.data as NonNullable<typeof parseResult.data>;
 
-  // ── 2. Availability check ──────────────────────────────────
+  // ── 2. Build ambient context ───────────────────────────────
+  const ambientCtx = buildActionContext(source, options?.context);
+
+  // ── 3. Resolve target context from validated input ─────────
+  // Explicit action targets (e.g. tabId) control the COMPLETE execution context.
+  let ctx = ambientCtx;
+  if (definition.resolveContext) {
+    const resolved = definition.resolveContext(validatedInput, ambientCtx);
+    ctx = { ...ambientCtx, ...resolved };
+  }
+
+  // ── 4. Availability check ──────────────────────────────────
   if (definition.availability) {
     const avail = definition.availability(ctx);
     if (avail.status === "unavailable") {
@@ -100,19 +113,23 @@ export async function executeAction<TOutput = unknown>(
     }
   }
 
-  // ── 2b. Dynamic risk resolution ─────────────────────────────
+  // ── 5. Dynamic risk resolution ─────────────────────────────
   let effectiveRisk = definition.risk ?? "read";
   if (definition.resolveRisk) {
     effectiveRisk = definition.resolveRisk(validatedInput, ctx);
   }
 
-  // ── 3. Confirmation gate ───────────────────────────────────
+  // ── 6. Confirmation gate ───────────────────────────────────
   if (requiresConfirmation(definition, source, effectiveRisk)) {
     // If caller already has a valid confirmation token, proceed.
     if (options?.confirmationToken) {
       const conf = pendingConfirmations.get(options.confirmationToken);
       if (conf && conf.actionId === actionId) {
         pendingConfirmations.delete(options.confirmationToken);
+        // Restore the fully resolved context from the confirmation snapshot.
+        if (conf.resolvedContext) {
+          ctx = conf.resolvedContext;
+        }
         // Fall through to execution.
       } else {
         // Token doesn't match this action — reject.
@@ -129,22 +146,23 @@ export async function executeAction<TOutput = unknown>(
         definition,
         ctx,
         input ?? {},
-        options?.context,
         source,
+        effectiveRisk,
       ) as ActionResult<TOutput>;
     }
   }
 
-  // ── 4. Execute ─────────────────────────────────────────────
+  // ── 7. Execute ─────────────────────────────────────────────
   const executionId = `exec_${crypto.randomUUID()}`;
   const startedAt = new Date().toISOString();
 
-  activeExecutions.set(executionId, {
+  const execution: ActionExecution = {
     executionId,
     actionId,
     state: "running",
     startedAt: Date.now(),
-  });
+  };
+  activeExecutions.set(executionId, execution);
 
   emitAuditEvent({
     actionId,
@@ -162,11 +180,11 @@ export async function executeAction<TOutput = unknown>(
       ctx,
     );
 
-    const execution = activeExecutions.get(executionId);
-    if (execution) {
-      execution.state =
+    const tracked = activeExecutions.get(executionId);
+    if (tracked) {
+      tracked.state =
         result.status === "cancelled" ? "cancelled" : "completed";
-      execution.result = result;
+      tracked.result = result;
     }
 
     emitAuditEvent({
@@ -191,10 +209,10 @@ export async function executeAction<TOutput = unknown>(
     const message =
       err instanceof Error ? err.message : "Unknown action error";
 
-    const execution = activeExecutions.get(executionId);
-    if (execution) {
-      execution.state = "error";
-      execution.result = {
+    const tracked = activeExecutions.get(executionId);
+    if (tracked) {
+      tracked.state = "error";
+      tracked.result = {
         status: "error",
         error: { code: "execution_error", message },
       };
@@ -239,10 +257,10 @@ function requiresConfirmation(
 
 function createConfirmationResponse(
   def: ActionDefinition,
-  ctx: ActionExecutionContext,
+  resolvedCtx: ActionExecutionContext,
   input: Record<string, unknown>,
-  contextOverrides?: Partial<ActionExecutionContext>,
   source?: ActionSource,
+  effectiveRisk?: ActionRisk,
 ): ActionResult {
   const confirmationId = `confirm_${crypto.randomUUID()}`;
   const confirmation: ActionConfirmation = {
@@ -251,9 +269,12 @@ function createConfirmationResponse(
     message:
       def.confirmation?.messageKey ??
       `Confirm ${def.title}?`,
-    risk: def.risk ?? "write",
+    risk: effectiveRisk ?? def.risk ?? "write",
     input,
-    context: contextOverrides,
+    // Snapshot the FULLY RESOLVED context — not just overrides.
+    // This ensures that switching tabs/connections before confirming
+    // does NOT change the execution target.
+    resolvedContext: resolvedCtx,
     source,
     createdAt: Date.now(),
   };
@@ -268,7 +289,7 @@ function createConfirmationResponse(
         type: "action.confirmation.requested",
         confirmationId,
         actionId: def.id,
-        source: ctx.source,
+        source: resolvedCtx.source,
       },
     ],
   };
@@ -279,6 +300,10 @@ function createConfirmationResponse(
  *
  * Called by the UI after the user approves a confirmation dialog,
  * or by MCP after the end-user confirms remotely.
+ *
+ * The confirmation snapshot contains the fully resolved context,
+ * so re-execution uses the ORIGINAL target — not whatever is
+ * currently active.
  */
 export async function confirmAction(
   confirmationId: string,
@@ -294,10 +319,19 @@ export async function confirmAction(
     };
   }
 
-  // Re-execute with the original input, context, and confirmation token.
+  // Re-execute with the original input and the SNAPSHOT context.
+  // The snapshot ensures the target doesn't drift.
   return executeAction(confirmation.actionId, confirmation.input, {
     source: confirmation.source ?? "ui",
-    context: confirmation.context,
+    context: confirmation.resolvedContext
+      ? {
+          tabId: confirmation.resolvedContext.tabId,
+          connectionId: confirmation.resolvedContext.connectionId,
+          database: confirmation.resolvedContext.database,
+          schema: confirmation.resolvedContext.schema,
+          correlationId: confirmation.resolvedContext.correlationId,
+        }
+      : undefined,
     confirmationToken: confirmationId,
   });
 }
@@ -356,6 +390,22 @@ export function updateExecutionProgress(
   }
 }
 
+/**
+ * Bind an external (backend) execution ID to an active action execution.
+ *
+ * Called by action handlers right before they invoke the backend service.
+ * This allows cancelExecution() to use the real backend ID for cancellation.
+ */
+export function bindExternalExecutionId(
+  actionExecutionId: string,
+  externalExecutionId: string,
+): void {
+  const exec = activeExecutions.get(actionExecutionId);
+  if (exec) {
+    exec.externalExecutionId = externalExecutionId;
+  }
+}
+
 /** Cancel a running execution. */
 export async function cancelExecution(
   executionId: string,
@@ -377,8 +427,20 @@ export async function cancelExecution(
     try {
       const ctx = buildActionContext("ui");
       await def.cancel(exec, ctx);
-    } catch {
-      // Cancel hook failed — still mark as cancelled but note the error.
+    } catch (err) {
+      // Cancel hook FAILED — do NOT mark as cancelled.
+      // Report the error so the caller knows cancellation didn't succeed.
+      const message = err instanceof Error ? err.message : "Cancel failed";
+      exec.state = "error";
+      exec.result = {
+        status: "error",
+        error: { code: "cancel_failed", message },
+      };
+      return {
+        status: "error",
+        error: { code: "cancel_failed", message },
+        executionId,
+      };
     }
   }
 

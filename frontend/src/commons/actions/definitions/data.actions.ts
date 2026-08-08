@@ -207,6 +207,10 @@ export const filterDataAction = defineAction<
   }),
   risk: "read",
 
+  availability() {
+    return { status: "unavailable", reason: "not_implemented" };
+  },
+
   async execute(input) {
     // TODO: wire to data grid store / TanStack Query cache to apply filter.
 
@@ -249,6 +253,10 @@ export const sortDataAction = defineAction<
     direction: z.enum(["asc", "desc"]),
   }),
   risk: "read",
+
+  availability() {
+    return { status: "unavailable", reason: "not_implemented" };
+  },
 
   async execute(input) {
     // TODO: wire to data grid store / TanStack Query cache to apply sort.

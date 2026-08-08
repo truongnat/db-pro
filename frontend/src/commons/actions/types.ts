@@ -31,7 +31,7 @@ export type ActionSource =
  * - write:       INSERT, UPDATE, ALTER — modifies data/schema
  * - destructive: DELETE, DROP, TRUNCATE — potentially irreversible
  */
-export type ActionRisk = "read" | "write" | "destructive";
+export type ActionRisk = "read" | "write" | "destructive" | "dynamic";
 
 // ─── Category ────────────────────────────────────────────────
 
@@ -63,6 +63,23 @@ export interface ActionExecutionContext {
   schema?: string | null;
   correlationId: string;
   idempotencyKey?: string;
+}
+
+/**
+ * Canonical resolved query execution — the single source of truth
+ * for the SQL that will be sent to the backend, along with all
+ * connection context needed to execute it.
+ *
+ * Risk classification, confirmation, execution, audit and history
+ * must ALL use the same resolved SQL value.
+ */
+export interface ResolvedQueryExecution {
+  tabId: string;
+  connectionId: string;
+  database: string | null;
+  schema: string | null;
+  sql: string;
+  executionMode: "current" | "selection" | "all";
 }
 
 // ─── Availability ────────────────────────────────────────────
@@ -156,6 +173,17 @@ export interface ActionDefinition<TInput = void, TOutput = unknown> {
    */
   commandInput?(): Partial<TInput> | undefined;
 
+  /**
+   * Resolve execution context from validated input, overriding ambient context.
+   * Called after input validation but before availability/risk/confirmation.
+   * This ensures that explicit targets (e.g. tabId) control the COMPLETE
+   * execution context — connection, database, schema, SQL.
+   */
+  resolveContext?(
+    input: TInput,
+    ambientContext: ActionExecutionContext,
+  ): Partial<ActionExecutionContext>;
+
   risk?: ActionRisk;
   confirmation?: ConfirmationPolicy;
   permissions?: ActionPermission[];
@@ -209,8 +237,13 @@ export interface ActionConfirmation {
   risk: ActionRisk;
   /** Original input to replay on confirm. */
   input?: Record<string, unknown>;
-  /** Original context overrides to replay on confirm. */
-  context?: Partial<ActionExecutionContext>;
+  /**
+   * Fully resolved context snapshot at confirmation time.
+   * This is NOT just overrides — it's the complete resolved context
+   * so that switching tabs/connections before confirming doesn't
+   * change the execution target.
+   */
+  resolvedContext?: ActionExecutionContext;
   /** Original source of the invocation. */
   source?: ActionSource;
   /** When the confirmation was created. */
@@ -250,6 +283,12 @@ export interface ActionExecution {
   progress?: ActionProgress;
   result?: ActionResult;
   startedAt: number;
+  /**
+   * Backend-level execution ID (e.g. query execution ID from the database).
+   * Bound by the action handler before awaiting the backend call.
+   * Used for real cancellation — cancel must use this, not the action-level ID.
+   */
+  externalExecutionId?: string;
 }
 
 export interface ActionProgress {

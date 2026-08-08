@@ -12,6 +12,7 @@ import {
   getActiveQueryTab,
 } from "@/modules/query/controllers/query-workspace.controller";
 import { commandFromAction, executeAction } from "@/commons/actions";
+import { useQueryEditorContextStore } from "@/commons/stores/query-editor-context.store";
 import type { Keybinding } from "@/commons/types/command.types";
 
 let registered = false;
@@ -61,10 +62,12 @@ export function registerAllCommands(_router: AnyRouter): void {
       inputProvider: () => {
         const tab = getActiveQueryTab();
         if (!tab) return undefined;
+        // Read real cursor state from the editor context store.
+        const editorCtx = useQueryEditorContextStore.getState().getEditorContext(tab.id);
         return {
           tabId: tab.id,
-          cursorOffset: 0,
-          selection: null,
+          cursorOffset: editorCtx.cursorOffset,
+          selection: editorCtx.selection,
         };
       },
     }),
@@ -72,7 +75,9 @@ export function registerAllCommands(_router: AnyRouter): void {
     actionCommand("query.format"),
     actionCommand("query.clear"),
     actionCommand("query.cancel"),
-    actionCommand("query.save"),
+    // query.save requires a name — Command Palette cannot provide one.
+    // Do not expose a broken command. The toolbar Save button handles this.
+    // actionCommand("query.save"),  // disabled until dialog flow exists
 
     // ── Query — still using dispatch (no direct action yet) ──
     {

@@ -160,8 +160,9 @@ export function AgentPanel({ open, onClose, width, className }: AgentPanelProps)
             placeholder="Ask about this database..."
             className="flex-1 bg-transparent text-[13px] text-foreground placeholder:text-[var(--app-text-dim)] focus:outline-none"
             onKeyDown={(e) => {
+              // Agent backend not yet implemented — do not pretend to submit.
               if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && input.trim()) {
-                setInput("");
+                e.preventDefault();
               }
             }}
           />
@@ -169,14 +170,9 @@ export function AgentPanel({ open, onClose, width, className }: AgentPanelProps)
             <kbd className="text-[11px] text-[var(--app-text-dim)]">⌘↵</kbd>
             <button
               type="button"
-              className={cn(
-                "flex h-6 w-6 items-center justify-center rounded transition-colors",
-                input.trim()
-                  ? "bg-primary text-primary-foreground"
-                  : "text-[var(--app-text-dim)]",
-              )}
-              disabled={!input.trim()}
-              onClick={() => { if (input.trim()) setInput(""); }}
+              className="flex h-6 w-6 items-center justify-center rounded text-[var(--app-text-dim)] opacity-50 cursor-not-allowed"
+              disabled
+              title="Coming soon"
             >
               <Send className="h-3 w-3" />
             </button>
