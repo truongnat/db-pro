@@ -42,12 +42,18 @@ export function ActivityBar() {
       className="flex flex-col items-center border-r border-[var(--app-border-subtle)] bg-[var(--app-surface-1)]"
       style={{ width: "var(--app-activity-bar-width)" }}
     >
-      {/* Logo */}
+      {/* Brand mark */}
       <Link
         to="/"
-        className="mb-2 mt-2 grid h-8 w-8 place-items-center rounded-lg bg-primary text-[11px] font-bold text-primary-foreground"
+        aria-label="DB Pro"
+        className="mb-2 mt-2 grid h-8 w-8 place-items-center overflow-hidden rounded-lg bg-[var(--app-surface-3)] ring-1 ring-inset ring-[var(--app-border-subtle)] transition-colors hover:bg-[var(--app-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus-ring-color)]"
       >
-        DB
+        <img
+          src="/brand/db-pro-logo.svg"
+          alt=""
+          aria-hidden="true"
+          className="h-8 w-8 object-contain"
+        />
       </Link>
 
       {/* Navigation */}
