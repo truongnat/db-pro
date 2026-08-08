@@ -152,7 +152,7 @@ export function ConnectionDialog() {
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && closeConnectionDialog()}>
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent className="sm:max-w-[640px]">
         <DialogHeader>
           <DialogTitle>{editConnectionId ? t("connection.edit") : t("connection.new")}</DialogTitle>
         </DialogHeader>
