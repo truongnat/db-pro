@@ -169,6 +169,7 @@
     "openInNewTab": "新しいタブで開く",
     "statusSuccess": "成功",
     "statusError": "エラー",
+        "statusCancelled": "キャンセル",
     "importSql": "SQLインポート",
     "exportSql": "SQLエクスポート",
     "runConfigs": "実行設定",

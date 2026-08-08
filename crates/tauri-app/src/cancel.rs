@@ -472,4 +472,57 @@ mod tests {
         let exec = registry.get_execution(&exec_id).unwrap();
         assert_eq!(exec.status, ExecutionStatus::Cancelled);
     }
+
+    /// Regression: same tab running two sequential queries must use different execution IDs.
+    /// When run #1 finishes and run #2 starts with a new execution ID, the old ID is gone.
+    #[test]
+    fn sequential_runs_same_tab_different_execution_ids() {
+        let registry = ExecutionRegistry::new();
+        let conn_id = ConnectionId::new();
+
+        // Run #1 with exec-1
+        let exec_1 = QueryExecutionId("exec-1".to_string());
+        let _rx_1 = registry.register_with_id(conn_id, exec_1.clone());
+        registry.start_execution(&exec_1);
+        registry.finish_execution(&exec_1, ExecutionStatus::Success, 10, 0, 1);
+        registry.remove(&exec_1);
+
+        // Run #2 with exec-2 (new UUID in production)
+        let exec_2 = QueryExecutionId("exec-2".to_string());
+        let _rx_2 = registry.register_with_id(conn_id, exec_2.clone());
+        registry.start_execution(&exec_2);
+
+        // exec-1 no longer exists
+        assert!(registry.get_execution(&exec_1).is_none());
+        // exec-2 is running
+        let exec = registry.get_execution(&exec_2).unwrap();
+        assert_eq!(exec.status, ExecutionStatus::Running);
+    }
+
+    /// Regression: stale cancel for exec-1 must NOT cancel exec-2.
+    #[test]
+    fn stale_cancel_cannot_cancel_different_execution() {
+        let registry = ExecutionRegistry::new();
+        let conn_id = ConnectionId::new();
+
+        // Run #1 finished
+        let exec_1 = QueryExecutionId("exec-1".to_string());
+        let _rx_1 = registry.register_with_id(conn_id, exec_1.clone());
+        registry.start_execution(&exec_1);
+        registry.finish_execution(&exec_1, ExecutionStatus::Success, 5, 0, 1);
+        registry.remove(&exec_1);
+
+        // Run #2 running
+        let exec_2 = QueryExecutionId("exec-2".to_string());
+        let _rx_2 = registry.register_with_id(conn_id, exec_2.clone());
+        registry.start_execution(&exec_2);
+
+        // Stale cancel targeting exec-1 (already removed) — idempotent no-op
+        let result = registry.cancel_by_id("exec-1");
+        assert_eq!(result, CancelResult::NotFound);
+
+        // exec-2 must still be running
+        let exec = registry.get_execution(&exec_2).unwrap();
+        assert_eq!(exec.status, ExecutionStatus::Running);
+    }
 }

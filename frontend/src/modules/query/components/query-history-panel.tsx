@@ -13,7 +13,7 @@ interface QueryHistoryPanelProps {
   search: string;
   onSearchChange: (search: string) => void;
   onSelectEntry: (sql: string) => void;
-  onOpenInNewTab?: (sql: string) => void;
+  onOpenInNewTab?: (entry: QueryHistoryEntry) => void;
   isLoading: boolean;
 }
 
@@ -97,7 +97,7 @@ export function QueryHistoryPanel({
               onSelect={() => onSelectEntry(entry.sql)}
               onRerun={() => handleRerun(entry.sql)}
               onCopy={() => handleCopy(entry.sql)}
-              onOpenInNewTab={onOpenInNewTab ? () => onOpenInNewTab(entry.sql) : undefined}
+              onOpenInNewTab={onOpenInNewTab ? () => onOpenInNewTab(entry) : undefined}
             />
           ))
         )}

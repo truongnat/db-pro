@@ -41,6 +41,7 @@ function defaultQueryData(): QueryTabData {
     activePanel: "results",
     timing: null,
     executionStartedAt: null,
+    activeExecutionId: null,
   };
 }
 

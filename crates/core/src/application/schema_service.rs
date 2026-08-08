@@ -2,8 +2,9 @@ use std::sync::Arc;
 
 use crate::domain::connection::ConnectionId;
 use crate::domain::error::DbError;
+use crate::domain::safety::{validate_against_policy, ConnectionSafetyPolicy};
 use crate::domain::schema::{IntrospectResult, TableInfo};
-use crate::ports::{DbConnector, IntrospectionCache};
+use crate::ports::{ConnectionRepository, DbConnector, IntrospectionCache};
 
 use super::registry::ConnectionRegistry;
 
@@ -11,6 +12,7 @@ pub struct SchemaService {
     connector: Box<dyn DbConnector>,
     cache: Box<dyn IntrospectionCache>,
     registry: Arc<ConnectionRegistry>,
+    connections: Box<dyn ConnectionRepository>,
 }
 
 impl SchemaService {
@@ -18,11 +20,23 @@ impl SchemaService {
         connector: Box<dyn DbConnector>,
         cache: Box<dyn IntrospectionCache>,
         registry: Arc<ConnectionRegistry>,
+        connections: Box<dyn ConnectionRepository>,
     ) -> Self {
         Self {
             connector,
             cache,
             registry,
+            connections,
+        }
+    }
+
+    async fn safety_policy_for(&self, connection_id: &ConnectionId) -> Result<ConnectionSafetyPolicy, DbError> {
+        let config = self.connections.get_config(connection_id).await?
+            .ok_or_else(|| DbError::ConnectionFailed(format!("connection {connection_id} not found")))?;
+        if config.readonly {
+            Ok(ConnectionSafetyPolicy::read_only())
+        } else {
+            Ok(ConnectionSafetyPolicy::full_access())
         }
     }
 
@@ -113,6 +127,10 @@ impl SchemaService {
         connection_id: &ConnectionId,
         sql: &str,
     ) -> Result<u64, DbError> {
+        // Enforce safety policy: readonly connections cannot execute DDL.
+        let policy = self.safety_policy_for(connection_id).await?;
+        validate_against_policy(sql, &policy).map_err(|e| DbError::QueryFailed(e))?;
+
         let handle = self
             .registry
             .get(connection_id)
@@ -206,8 +224,31 @@ mod tests {
     use super::*;
     use crate::domain::connection::ConnectionHandle;
     use crate::domain::schema::*;
-    use crate::ports::MockDbConnector;
+    use crate::ports::{MockConnectionRepository, MockDbConnector};
     use crate::ports::MockIntrospectionCache;
+
+    fn mock_connections() -> MockConnectionRepository {
+        let mut repo = MockConnectionRepository::new();
+        repo.expect_get_config().returning(|_id| {
+            Ok(Some(crate::domain::connection::ConnectionConfig {
+                name: "test".into(),
+                host: "localhost".into(),
+                port: 5432,
+                database: "testdb".into(),
+                username: "user".into(),
+                driver: crate::domain::connection::DriverType::Postgres,
+                ssl_mode: crate::domain::connection::SslMode::Disable,
+                ssh_tunnel: None,
+                query_timeout_ms: 30_000,
+                max_rows: 500,
+                color: None,
+                tags: vec![],
+                group: None,
+                readonly: false,
+            }))
+        });
+        repo
+    }
 
     fn test_introspect_result() -> IntrospectResult {
         IntrospectResult {
@@ -272,7 +313,7 @@ mod tests {
             .expect_introspect()
             .returning(|_| Ok(test_introspect_result()));
 
-        let svc = SchemaService::new(Box::new(connector), Box::new(cache), Arc::clone(&registry));
+        let svc = SchemaService::new(Box::new(connector), Box::new(cache), Arc::clone(&registry), Box::new(mock_connections()));
 
         let result = svc.introspect(&conn_id, false).await;
         assert!(result.is_ok());
@@ -288,7 +329,7 @@ mod tests {
 
         let connector = MockDbConnector::new();
 
-        let svc = SchemaService::new(Box::new(connector), Box::new(cache), Arc::clone(&registry));
+        let svc = SchemaService::new(Box::new(connector), Box::new(cache), Arc::clone(&registry), Box::new(mock_connections()));
 
         let result = svc.introspect(&conn_id, false).await;
         assert!(result.is_ok());
@@ -309,7 +350,7 @@ mod tests {
             .expect_introspect()
             .returning(|_| Ok(test_introspect_result()));
 
-        let svc = SchemaService::new(Box::new(connector), Box::new(cache), Arc::clone(&registry));
+        let svc = SchemaService::new(Box::new(connector), Box::new(cache), Arc::clone(&registry), Box::new(mock_connections()));
 
         let result = svc.introspect(&conn_id, true).await;
         assert!(result.is_ok());
@@ -324,7 +365,7 @@ mod tests {
         let mut cache = MockIntrospectionCache::new();
         cache.expect_get().returning(|_| Ok(Some(test_introspect_result())));
 
-        let svc = SchemaService::new(Box::new(MockDbConnector::new()), Box::new(cache), Arc::clone(&registry));
+        let svc = SchemaService::new(Box::new(MockDbConnector::new()), Box::new(cache), Arc::clone(&registry), Box::new(mock_connections()));
 
         let info = svc.get_table_info(&conn_id, "public", "users").await;
         assert!(info.is_ok());
@@ -343,7 +384,7 @@ mod tests {
         let mut cache = MockIntrospectionCache::new();
         cache.expect_get().returning(|_| Ok(Some(test_introspect_result())));
 
-        let svc = SchemaService::new(Box::new(MockDbConnector::new()), Box::new(cache), Arc::clone(&registry));
+        let svc = SchemaService::new(Box::new(MockDbConnector::new()), Box::new(cache), Arc::clone(&registry), Box::new(mock_connections()));
 
         let result = svc.get_table_info(&conn_id, "public", "nonexistent").await;
         assert!(result.is_err());
@@ -358,7 +399,7 @@ mod tests {
         let mut cache = MockIntrospectionCache::new();
         cache.expect_get().returning(|_| Ok(Some(test_introspect_result())));
 
-        let svc = SchemaService::new(Box::new(MockDbConnector::new()), Box::new(cache), Arc::clone(&registry));
+        let svc = SchemaService::new(Box::new(MockDbConnector::new()), Box::new(cache), Arc::clone(&registry), Box::new(mock_connections()));
 
         let ddl = svc.get_table_ddl(&conn_id, "public", "users").await.unwrap();
         assert!(ddl.contains("CREATE TABLE \"public\".\"users\""));

@@ -6,10 +6,11 @@ import { cn } from "@/lib/utils";
 interface AgentPanelProps {
   open: boolean;
   onClose: () => void;
+  width?: number;
   className?: string;
 }
 
-export function AgentPanel({ open, onClose, className }: AgentPanelProps) {
+export function AgentPanel({ open, onClose, width, className }: AgentPanelProps) {
   const [input, setInput] = useState("");
 
   if (!open) return null;
@@ -20,11 +21,7 @@ export function AgentPanel({ open, onClose, className }: AgentPanelProps) {
         "flex min-h-0 flex-col border-l border-[var(--app-border-subtle)] bg-sidebar",
         className,
       )}
-      style={{
-        width: "var(--app-agent-panel-width)",
-        minWidth: "var(--app-agent-panel-min)",
-        maxWidth: "var(--app-agent-panel-max)",
-      }}
+      style={width ? { width: `${width}px`, minWidth: `${width}px`, maxWidth: `${width}px` } : undefined}
     >
       {/* Header */}
       <div className="flex shrink-0 items-center justify-between border-b border-[var(--app-border-subtle)] px-3 py-2">

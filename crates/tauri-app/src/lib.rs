@@ -72,15 +72,20 @@ pub fn run() {
                     Box::new(Arc::clone(&connector)),
                     Box::new(meta_store.clone()),
                     Arc::clone(&registry),
+                    Box::new(meta_store.clone()),
                 );
 
                 let export_service = ExportService::new(Box::new(Arc::clone(&connector)), Arc::clone(&registry));
 
-                let table_data_service = TableDataService::new(Box::new(Arc::clone(&connector)), Arc::clone(&registry));
+                let table_data_service = TableDataService::new(
+                    Box::new(Arc::clone(&connector)),
+                    Arc::clone(&registry),
+                    Box::new(meta_store.clone()),
+                );
 
                 let pg_connector = connector.postgres_connector();
                 let user_manager = PostgresUserManager::new(pg_connector);
-                let user_service = UserService::new(Box::new(user_manager), Arc::clone(&registry));
+                let user_service = UserService::new(Box::new(user_manager), Arc::clone(&registry), Box::new(meta_store.clone()));
 
                 let backup_service = BackupService::new(
                     Box::new(meta_store.clone()),
@@ -141,6 +146,7 @@ pub fn run() {
                 handle.manage(ExecutionRegistry::new());
                 handle.manage(Arc::clone(&connector) as Arc<CompositeConnector>);
                 handle.manage(Arc::clone(&registry) as Arc<ConnectionRegistry>);
+                handle.manage(meta_store);
             });
 
             Ok(())

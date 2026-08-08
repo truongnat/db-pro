@@ -22,12 +22,14 @@ export function AppShell() {
   const setSidebarWidth = useShellStore((s) => s.setSidebarWidth);
   const agentOpen = useShellStore((s) => s.agentOpen);
   const setAgentOpen = useShellStore((s) => s.setAgentOpen);
+  const agentWidth = useShellStore((s) => s.agentWidth);
+  const setAgentWidth = useShellStore((s) => s.setAgentWidth);
   const hasTabs = useWorkspaceStore((s) => s.tabs.length > 0);
   const draggingRef = useRef(false);
   useCommandPalette();
   useQuickOpen();
 
-  const handleResizeStart = useCallback(
+  const handleSidebarResizeStart = useCallback(
     (e: React.MouseEvent) => {
       e.preventDefault();
       draggingRef.current = true;
@@ -57,7 +59,47 @@ export function AppShell() {
     [sidebarWidth, setSidebarWidth],
   );
 
+  const handleAgentResizeStart = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      draggingRef.current = true;
+      document.body.style.cursor = "col-resize";
+      document.body.style.userSelect = "none";
+
+      const startX = e.clientX;
+      const startWidth = agentWidth;
+
+      const onMouseMove = (moveEvent: MouseEvent) => {
+        if (!draggingRef.current) return;
+        // Agent is on the right: dragging left increases width
+        const delta = startX - moveEvent.clientX;
+        setAgentWidth(startWidth + delta);
+      };
+
+      const onMouseUp = () => {
+        draggingRef.current = false;
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
+        document.removeEventListener("mousemove", onMouseMove);
+        document.removeEventListener("mouseup", onMouseUp);
+      };
+
+      document.addEventListener("mousemove", onMouseMove);
+      document.addEventListener("mouseup", onMouseUp);
+    },
+    [agentWidth, setAgentWidth],
+  );
+
   const effectiveSidebarWidth = sidebarCollapsed ? 0 : sidebarWidth;
+
+  // Grid columns: sidebar [resize] main [resize] agent
+  const contentColumns = sidebarCollapsed && !agentOpen
+    ? "1fr"
+    : sidebarCollapsed
+      ? `1fr 3px ${agentWidth}px`
+      : agentOpen
+        ? `${effectiveSidebarWidth}px 3px minmax(0, 1fr) 3px ${agentWidth}px`
+        : `${effectiveSidebarWidth}px 3px minmax(0, 1fr)`;
 
   return (
     <>
@@ -69,24 +111,22 @@ export function AppShell() {
 
         <div
           className="grid min-h-0 min-w-0"
-          style={{
-            gridTemplateColumns: sidebarCollapsed
-              ? "0px 1fr"
-              : `${effectiveSidebarWidth}px 3px 1fr`,
-          }}
+          style={{ gridTemplateColumns: contentColumns }}
         >
-          <Sidebar width={effectiveSidebarWidth} />
+          {/* Sidebar */}
+          {!sidebarCollapsed && <Sidebar width={effectiveSidebarWidth} />}
 
-          {/* Resize handle */}
+          {/* Sidebar resize handle */}
           {!sidebarCollapsed && (
             <div
               className="group relative z-10 w-[3px] shrink-0 cursor-col-resize bg-transparent transition-colors hover:bg-[var(--app-border-subtle)] active:bg-primary"
-              onMouseDown={handleResizeStart}
+              onMouseDown={handleSidebarResizeStart}
             >
               <div className="absolute inset-y-0 -left-1 -right-1" />
             </div>
           )}
 
+          {/* Main content */}
           <main className="flex min-h-0 min-w-0 flex-col overflow-hidden bg-background">
             <div className="flex h-full flex-col">
               {hasTabs && <WorkspaceTabBar />}
@@ -94,10 +134,24 @@ export function AppShell() {
             </div>
           </main>
 
-          <AgentPanel
-            open={agentOpen}
-            onClose={() => setAgentOpen(false)}
-          />
+          {/* Agent resize handle */}
+          {agentOpen && (
+            <div
+              className="group relative z-10 w-[3px] shrink-0 cursor-col-resize bg-transparent transition-colors hover:bg-[var(--app-border-subtle)] active:bg-primary"
+              onMouseDown={handleAgentResizeStart}
+            >
+              <div className="absolute inset-y-0 -left-1 -right-1" />
+            </div>
+          )}
+
+          {/* Agent panel */}
+          {agentOpen && (
+            <AgentPanel
+              open={agentOpen}
+              onClose={() => setAgentOpen(false)}
+              width={agentWidth}
+            />
+          )}
         </div>
 
         <StatusBar />

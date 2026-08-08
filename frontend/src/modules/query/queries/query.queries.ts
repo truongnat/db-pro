@@ -13,6 +13,7 @@ import {
   setTabResult,
   setTabStatus,
   setTabTiming,
+  setTabActiveExecutionId,
 } from "../controllers/query-workspace.controller";
 import type {
   ExplainPlan,
@@ -36,17 +37,30 @@ function getQueryService() {
   return container.resolve<IQueryService>(SERVICE_NAMES.QUERY_SERVICE);
 }
 
+/** Check if an error is a user-initiated cancel. */
+function isCancelledError(err: unknown): boolean {
+  const msg = (err as { userMessage?: string; message?: string }).userMessage
+    ?? (err as { message?: string }).message
+    ?? "";
+  return msg.includes("QUERY_CANCELLED");
+}
+
 export function useExecuteQuery() {
   const qc = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ connectionId, sql, tabId }: { connectionId: string; sql: string; tabId: string }) =>
-      getQueryService().execute(connectionId, sql, tabId) as Promise<QueryResult>,
+    mutationFn: ({ connectionId, sql, executionId, tabId }: { connectionId: string; sql: string; executionId: string; tabId: string }) => {
+      // Read tab context at execution time for historical preservation
+      const tab = useWorkspaceStore.getState().tabs.find((t) => t.id === tabId);
+      const ctx = tab?.kind === "query" ? tab.data.context : null;
+      return getQueryService().execute(connectionId, sql, executionId, ctx?.database, ctx?.schema) as Promise<QueryResult>;
+    },
     onMutate: (vars) => {
       setTabStatus(vars.tabId, "running");
       setTabError(vars.tabId, null);
       setTabTiming(vars.tabId, null);
       setTabExecutionStartedAt(vars.tabId, Date.now());
+      setTabActiveExecutionId(vars.tabId, vars.executionId);
     },
     onSuccess: (data, variables) => {
       const now = Date.now();
@@ -65,6 +79,7 @@ export function useExecuteQuery() {
       setTabResult(variables.tabId, data);
       setTabTiming(variables.tabId, timing);
       setTabExecutionStartedAt(variables.tabId, null);
+      setTabActiveExecutionId(variables.tabId, null);
       const ctx = tab?.kind === "query" ? tab.data.context : null;
       useQueryHistoryStore.getState().addEntry({
         id: crypto.randomUUID(),
@@ -82,12 +97,19 @@ export function useExecuteQuery() {
       });
     },
     onError: (err: unknown, variables) => {
+      setTabActiveExecutionId(variables.tabId, null);
+      setTabExecutionStartedAt(variables.tabId, null);
+      // Normalize cancelled queries — don't write generic error history.
+      if (isCancelledError(err)) {
+        setTabStatus(variables.tabId, "cancelled");
+        setTabError(variables.tabId, null);
+        return;
+      }
       setTabStatus(variables.tabId, "error");
       setTabError(
         variables.tabId,
         (err as { userMessage?: string }).userMessage ?? "Query execution failed",
       );
-      setTabExecutionStartedAt(variables.tabId, null);
       const tab = useWorkspaceStore.getState().tabs.find((t) => t.id === variables.tabId);
       const ctx = tab?.kind === "query" ? tab.data.context : null;
       useQueryHistoryStore.getState().addEntry({
@@ -107,11 +129,12 @@ export function useExecuteQuery() {
 
 export function useCancelQuery() {
   return useMutation({
-    mutationFn: ({ connectionId, tabId }: { connectionId: string; tabId: string }) =>
-      getQueryService().cancel(connectionId, tabId),
+    mutationFn: ({ tabId, executionId }: { tabId: string; executionId: string }) =>
+      getQueryService().cancel(executionId),
     onSuccess: (_data, variables) => {
-      setTabStatus(variables.tabId, "idle");
+      setTabStatus(variables.tabId, "cancelled");
       setTabError(variables.tabId, null);
+      setTabActiveExecutionId(variables.tabId, null);
     },
   });
 }
@@ -120,13 +143,18 @@ export function useExecuteQueryMulti() {
   const qc = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ connectionId, sql, tabId }: { connectionId: string; sql: string; tabId: string }) =>
-      getQueryService().executeMulti(connectionId, sql, tabId) as Promise<MultiQueryResult>,
+    mutationFn: ({ connectionId, sql, executionId, tabId }: { connectionId: string; sql: string; executionId: string; tabId: string }) => {
+      // Read tab context at execution time for historical preservation
+      const tab = useWorkspaceStore.getState().tabs.find((t) => t.id === tabId);
+      const ctx = tab?.kind === "query" ? tab.data.context : null;
+      return getQueryService().executeMulti(connectionId, sql, executionId, ctx?.database, ctx?.schema) as Promise<MultiQueryResult>;
+    },
     onMutate: (vars) => {
       setTabStatus(vars.tabId, "running");
       setTabError(vars.tabId, null);
       setTabTiming(vars.tabId, null);
       setTabExecutionStartedAt(vars.tabId, Date.now());
+      setTabActiveExecutionId(vars.tabId, vars.executionId);
     },
     onSuccess: (data, variables) => {
       const now = Date.now();
@@ -152,6 +180,7 @@ export function useExecuteQueryMulti() {
       }
       setTabTiming(variables.tabId, timing);
       setTabExecutionStartedAt(variables.tabId, null);
+      setTabActiveExecutionId(variables.tabId, null);
 
       if (hasPartialError) {
         const [stmtIdx, errorMsg] = data.error!;
@@ -183,12 +212,19 @@ export function useExecuteQueryMulti() {
       });
     },
     onError: (err: unknown, variables) => {
+      setTabActiveExecutionId(variables.tabId, null);
+      setTabExecutionStartedAt(variables.tabId, null);
+      // Normalize cancelled queries — don't write generic error history.
+      if (isCancelledError(err)) {
+        setTabStatus(variables.tabId, "cancelled");
+        setTabError(variables.tabId, null);
+        return;
+      }
       setTabStatus(variables.tabId, "error");
       setTabError(
         variables.tabId,
         (err as { userMessage?: string }).userMessage ?? "Query execution failed",
       );
-      setTabExecutionStartedAt(variables.tabId, null);
       const tab = useWorkspaceStore.getState().tabs.find((t) => t.id === variables.tabId);
       const ctx = tab?.kind === "query" ? tab.data.context : null;
       useQueryHistoryStore.getState().addEntry({

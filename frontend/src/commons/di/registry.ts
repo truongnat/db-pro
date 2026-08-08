@@ -25,9 +25,9 @@ export interface IConnectionService {
 }
 
 export interface IQueryService {
-  execute(connectionId: string, sql: string, tabId: string): Promise<unknown>;
-  cancel(connectionId: string, tabId: string): Promise<void>;
-  executeMulti(connectionId: string, sql: string, tabId: string): Promise<unknown>;
+  execute(connectionId: string, sql: string, executionId: string, database?: string | null, schema?: string | null): Promise<unknown>;
+  cancel(executionId: string): Promise<void>;
+  executeMulti(connectionId: string, sql: string, executionId: string, database?: string | null, schema?: string | null): Promise<unknown>;
   explain(connectionId: string, sql: string): Promise<unknown>;
   getHistory(connectionId: string, limit?: number): Promise<unknown[]>;
   save(

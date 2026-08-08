@@ -512,6 +512,8 @@ pub struct QueryHistoryDto {
     pub executed_at: String,
     pub duration_ms: u64,
     pub row_count: u64,
+    pub database: Option<String>,
+    pub schema: Option<String>,
 }
 
 impl From<QueryHistory> for QueryHistoryDto {
@@ -523,6 +525,8 @@ impl From<QueryHistory> for QueryHistoryDto {
             executed_at: h.executed_at.to_rfc3339(),
             duration_ms: h.duration_ms,
             row_count: h.row_count,
+            database: h.database,
+            schema: h.schema,
         }
     }
 }

@@ -169,6 +169,7 @@
     "openInNewTab": "Open in New Tab",
     "statusSuccess": "Success",
     "statusError": "Error",
+        "statusCancelled": "Cancelled",
     "importSql": "Import .sql",
     "exportSql": "Export .sql",
     "runConfigs": "Run Configs",

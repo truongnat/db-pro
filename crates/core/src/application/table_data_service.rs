@@ -3,7 +3,8 @@ use std::sync::Arc;
 use crate::domain::connection::ConnectionId;
 use crate::domain::error::DbError;
 use crate::domain::query::{CellValue, QueryResult};
-use crate::ports::DbConnector;
+use crate::domain::safety::ConnectionSafetyPolicy;
+use crate::ports::{ConnectionRepository, DbConnector};
 
 use super::registry::ConnectionRegistry;
 use super::sql_builder::{self, SortClause, TableFilter};
@@ -11,11 +12,26 @@ use super::sql_builder::{self, SortClause, TableFilter};
 pub struct TableDataService {
     connector: Box<dyn DbConnector>,
     registry: Arc<ConnectionRegistry>,
+    connections: Box<dyn ConnectionRepository>,
 }
 
 impl TableDataService {
-    pub fn new(connector: Box<dyn DbConnector>, registry: Arc<ConnectionRegistry>) -> Self {
-        Self { connector, registry }
+    pub fn new(
+        connector: Box<dyn DbConnector>,
+        registry: Arc<ConnectionRegistry>,
+        connections: Box<dyn ConnectionRepository>,
+    ) -> Self {
+        Self { connector, registry, connections }
+    }
+
+    async fn safety_policy_for(&self, connection_id: &ConnectionId) -> Result<ConnectionSafetyPolicy, DbError> {
+        let config = self.connections.get_config(connection_id).await?
+            .ok_or_else(|| DbError::ConnectionFailed(format!("connection {connection_id} not found")))?;
+        if config.readonly {
+            Ok(ConnectionSafetyPolicy::read_only())
+        } else {
+            Ok(ConnectionSafetyPolicy::full_access())
+        }
     }
 
     pub async fn fetch_rows(
@@ -65,6 +81,10 @@ impl TableDataService {
         columns: &[String],
         values: &[CellValue],
     ) -> Result<u64, DbError> {
+        let policy = self.safety_policy_for(connection_id).await?;
+        if policy.read_only {
+            return Err(DbError::QueryFailed("connection is read-only; cannot insert rows".into()));
+        }
         let handle = self.resolve_handle(connection_id)?;
         let dialect = self.connector.dialect(&handle)?;
         let (sql, params) = sql_builder::build_insert(dialect.as_ref(), schema, table, columns, values)?;
@@ -86,6 +106,10 @@ impl TableDataService {
                 "update requires a primary key".into(),
             ));
         }
+        let policy = self.safety_policy_for(connection_id).await?;
+        if policy.read_only {
+            return Err(DbError::QueryFailed("connection is read-only; cannot update rows".into()));
+        }
         let handle = self.resolve_handle(connection_id)?;
         let dialect = self.connector.dialect(&handle)?;
         let (sql, params) = sql_builder::build_update(dialect.as_ref(), schema, table, columns, values, pk_columns, pk_values)?;
@@ -104,6 +128,10 @@ impl TableDataService {
             return Err(DbError::Validation(
                 "delete requires a primary key".into(),
             ));
+        }
+        let policy = self.safety_policy_for(connection_id).await?;
+        if policy.read_only {
+            return Err(DbError::QueryFailed("connection is read-only; cannot delete rows".into()));
         }
         let handle = self.resolve_handle(connection_id)?;
         let dialect = self.connector.dialect(&handle)?;
@@ -127,7 +155,7 @@ mod tests {
     use crate::domain::connection::ConnectionHandle;
     use crate::domain::query::*;
     use crate::ports::dialect::SqlDialect;
-    use crate::ports::MockDbConnector;
+    use crate::ports::{MockConnectionRepository, MockDbConnector};
 
     struct QuestionDialect;
     impl SqlDialect for QuestionDialect {
@@ -145,6 +173,29 @@ mod tests {
         let registry = Arc::new(ConnectionRegistry::new());
         registry.register(conn_id.clone(), ConnectionHandle(1));
         (conn_id, registry)
+    }
+
+    fn mock_connections() -> MockConnectionRepository {
+        let mut repo = MockConnectionRepository::new();
+        repo.expect_get_config().returning(|_id| {
+            Ok(Some(crate::domain::connection::ConnectionConfig {
+                name: "test".into(),
+                host: "localhost".into(),
+                port: 5432,
+                database: "testdb".into(),
+                username: "user".into(),
+                driver: crate::domain::connection::DriverType::Postgres,
+                ssl_mode: crate::domain::connection::SslMode::Disable,
+                ssh_tunnel: None,
+                query_timeout_ms: 30_000,
+                max_rows: 500,
+                color: None,
+                tags: vec![],
+                group: None,
+                readonly: false,
+            }))
+        });
+        repo
     }
 
     #[tokio::test]
@@ -174,7 +225,7 @@ mod tests {
                 }
             });
 
-        let svc = TableDataService::new(Box::new(connector), registry);
+        let svc = TableDataService::new(Box::new(connector), registry, Box::new(mock_connections()));
         let (result, total) = svc.fetch_rows(&conn_id, "public", "users", &[], &[], 50, 0).await.unwrap();
         assert_eq!(total, 42);
         assert_eq!(result.rows.len(), 1);
@@ -191,7 +242,7 @@ mod tests {
             Ok(1)
         });
 
-        let svc = TableDataService::new(Box::new(connector), registry);
+        let svc = TableDataService::new(Box::new(connector), registry, Box::new(mock_connections()));
         let affected = svc
             .insert_row(
                 &conn_id,
@@ -218,7 +269,7 @@ mod tests {
             Ok(1)
         });
 
-        let svc = TableDataService::new(Box::new(connector), registry);
+        let svc = TableDataService::new(Box::new(connector), registry, Box::new(mock_connections()));
         let affected = svc
             .update_row(
                 &conn_id,
@@ -246,7 +297,7 @@ mod tests {
             Ok(1)
         });
 
-        let svc = TableDataService::new(Box::new(connector), registry);
+        let svc = TableDataService::new(Box::new(connector), registry, Box::new(mock_connections()));
         let affected = svc
             .delete_row(&conn_id, "public", "users", &["id".into()], &[CellValue::Int64(1)])
             .await
@@ -258,7 +309,7 @@ mod tests {
     async fn fetch_rows_connection_not_active() {
         let registry = Arc::new(ConnectionRegistry::new());
         let connector = MockDbConnector::new();
-        let svc = TableDataService::new(Box::new(connector), registry);
+        let svc = TableDataService::new(Box::new(connector), registry, Box::new(mock_connections()));
         let fake_id = ConnectionId::new();
         let result = svc.fetch_rows(&fake_id, "public", "users", &[], &[], 50, 0).await;
         assert!(result.is_err());
@@ -268,7 +319,7 @@ mod tests {
     async fn update_row_rejects_empty_pk() {
         let (conn_id, registry) = setup();
         let connector = MockDbConnector::new();
-        let svc = TableDataService::new(Box::new(connector), registry);
+        let svc = TableDataService::new(Box::new(connector), registry, Box::new(mock_connections()));
         let result = svc
             .update_row(
                 &conn_id,
@@ -287,7 +338,7 @@ mod tests {
     async fn delete_row_rejects_empty_pk() {
         let (conn_id, registry) = setup();
         let connector = MockDbConnector::new();
-        let svc = TableDataService::new(Box::new(connector), registry);
+        let svc = TableDataService::new(Box::new(connector), registry, Box::new(mock_connections()));
         let result = svc
             .delete_row(&conn_id, "public", "users", &[], &[])
             .await;
@@ -298,7 +349,7 @@ mod tests {
     async fn update_row_rejects_pk_length_mismatch() {
         let (conn_id, registry) = setup();
         let connector = MockDbConnector::new();
-        let svc = TableDataService::new(Box::new(connector), registry);
+        let svc = TableDataService::new(Box::new(connector), registry, Box::new(mock_connections()));
         let result = svc
             .update_row(
                 &conn_id,
@@ -317,7 +368,7 @@ mod tests {
     async fn delete_row_rejects_pk_length_mismatch() {
         let (conn_id, registry) = setup();
         let connector = MockDbConnector::new();
-        let svc = TableDataService::new(Box::new(connector), registry);
+        let svc = TableDataService::new(Box::new(connector), registry, Box::new(mock_connections()));
         let result = svc
             .delete_row(
                 &conn_id,
@@ -339,8 +390,36 @@ mod tests {
             Err(DbError::ConnectionFailed("unknown handle".into()))
         });
 
-        let svc = TableDataService::new(Box::new(connector), registry);
+        let svc = TableDataService::new(Box::new(connector), registry, Box::new(mock_connections()));
         let result = svc.fetch_rows(&conn_id, "public", "users", &[], &[], 50, 0).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn insert_row_blocked_on_readonly() {
+        let (conn_id, registry) = setup();
+        let connector = MockDbConnector::new();
+        let mut repo = MockConnectionRepository::new();
+        repo.expect_get_config().returning(|_id| {
+            Ok(Some(crate::domain::connection::ConnectionConfig {
+                name: "test".into(),
+                host: "localhost".into(),
+                port: 5432,
+                database: "testdb".into(),
+                username: "user".into(),
+                driver: crate::domain::connection::DriverType::Postgres,
+                ssl_mode: crate::domain::connection::SslMode::Disable,
+                ssh_tunnel: None,
+                query_timeout_ms: 30_000,
+                max_rows: 500,
+                color: None,
+                tags: vec![],
+                group: None,
+                readonly: true,
+            }))
+        });
+        let svc = TableDataService::new(Box::new(connector), registry, Box::new(repo));
+        let result = svc.insert_row(&conn_id, "public", "users", &["name".into()], &[CellValue::Text("alice".into())]).await;
         assert!(result.is_err());
     }
 }

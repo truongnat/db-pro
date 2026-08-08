@@ -71,28 +71,30 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
   const handleExecuteFragment = useCallback(
     (fragmentSql: string) => {
       const targetSql = fragmentSql.trim();
-      if (tabConnectionId && tabId && targetSql) {
+      if (tabConnectionId && tabId && targetSql && status !== "running") {
+        const executionId = crypto.randomUUID();
         pushLocalHistory(targetSql);
-        executeMultiMutation.mutate({ connectionId: tabConnectionId, sql: targetSql, tabId });
+        executeMultiMutation.mutate({ connectionId: tabConnectionId, sql: targetSql, executionId, tabId });
       }
     },
-    [tabConnectionId, tabId, executeMultiMutation],
+    [tabConnectionId, tabId, status, executeMultiMutation],
   );
 
   /** Execute the entire editor content (Ctrl+Shift+Enter / toolbar Run). */
   const handleExecuteAll = useCallback(() => {
     const targetSql = sql.trim();
-    if (tabConnectionId && tabId && targetSql) {
+    if (tabConnectionId && tabId && targetSql && status !== "running") {
+      const executionId = crypto.randomUUID();
       pushLocalHistory(targetSql);
-      executeMultiMutation.mutate({ connectionId: tabConnectionId, sql: targetSql, tabId });
+      executeMultiMutation.mutate({ connectionId: tabConnectionId, sql: targetSql, executionId, tabId });
     }
-  }, [tabConnectionId, tabId, sql, executeMultiMutation]);
+  }, [tabConnectionId, tabId, sql, status, executeMultiMutation]);
 
   const handleCancel = useCallback(() => {
-    if (tabConnectionId && tabId) {
-      cancelMutation.mutate({ connectionId: tabConnectionId, tabId });
+    if (tabId && tabData?.activeExecutionId) {
+      cancelMutation.mutate({ tabId, executionId: tabData.activeExecutionId });
     }
-  }, [tabConnectionId, tabId, cancelMutation]);
+  }, [tabId, tabData?.activeExecutionId, cancelMutation]);
 
   const handleExplain = useCallback(() => {
     if (tabConnectionId && tabId && sql.trim()) {
@@ -327,12 +329,16 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
                 search={historySearch}
                 onSearchChange={setHistorySearch}
                 onSelectEntry={handleSelectHistoryEntry}
-                onOpenInNewTab={(historySql) => {
+                onOpenInNewTab={(entry) => {
                   if (!tabConnectionId) return;
-                  // Create tab atomically with SQL + current tab's exact context.
+                  // Use historical database/schema from the entry, fallback to current tab context.
+                  const context = {
+                    database: entry.database ?? tabData?.context?.database ?? null,
+                    schema: entry.schema ?? tabData?.context?.schema ?? null,
+                  };
                   const newTab = createQueryTab(tabConnectionId, {
-                    sql: historySql,
-                    context: tabData?.context ?? { database: null, schema: null },
+                    sql: entry.sql,
+                    context,
                   });
                   useWorkspaceStore.getState().openTab(newTab);
                 }}

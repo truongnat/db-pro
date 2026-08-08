@@ -18,7 +18,7 @@ pub struct Migration {
 /// 2. Increment `LATEST_VERSION`.
 /// 3. Write the SQL as `ALTER TABLE` / `CREATE TABLE IF NOT EXISTS` etc.
 /// 4. Never modify an already-applied migration — only add new ones.
-pub const LATEST_VERSION: u32 = 1;
+pub const LATEST_VERSION: u32 = 2;
 
 pub static MIGRATIONS: &[Migration] = &[
     // v1 is the baseline schema created by `SCHEMA` constant.
@@ -28,6 +28,11 @@ pub static MIGRATIONS: &[Migration] = &[
         version: 1,
         description: "initial schema with versioning table",
         sql: "",
+    },
+    Migration {
+        version: 2,
+        description: "add database and schema columns to query_history",
+        sql: "ALTER TABLE query_history ADD COLUMN database TEXT; ALTER TABLE query_history ADD COLUMN schema TEXT;",
     },
 ];
 

@@ -142,3 +142,7 @@ export function setTabTiming(tabId: string, timing: QueryTiming | null): void {
 export function setTabExecutionStartedAt(tabId: string, at: number | null): void {
   updateData(tabId, (data) => ({ ...data, executionStartedAt: at }));
 }
+
+export function setTabActiveExecutionId(tabId: string, executionId: string | null): void {
+  updateData(tabId, (data) => ({ ...data, activeExecutionId: executionId }));
+}

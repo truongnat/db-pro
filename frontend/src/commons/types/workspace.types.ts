@@ -2,7 +2,7 @@ import type { ExplainPlan, QueryResult } from "@/modules/query/types/query.types
 
 export type WorkspaceTabKind = "query" | "db-object";
 
-export type ExecutionStatus = "idle" | "running" | "success" | "error";
+export type ExecutionStatus = "idle" | "running" | "success" | "error" | "cancelled";
 
 export interface SortState {
   column: string | null;
@@ -56,6 +56,8 @@ export interface QueryTabData {
   timing: QueryTiming | null;
   /** Timestamp (Date.now()) when the current execution started. */
   executionStartedAt: number | null;
+  /** Unique execution ID for the current in-flight query. Null when idle. */
+  activeExecutionId: string | null;
 }
 
 export type DbObjectSection = "data" | "columns" | "indexes" | "relations" | "ddl" | "triggers";

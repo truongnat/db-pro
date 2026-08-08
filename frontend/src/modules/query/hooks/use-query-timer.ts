@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
  * elapsed value is frozen at the final reading.
  */
 export function useQueryTimer(
-  status: "idle" | "running" | "success" | "error",
+  status: "idle" | "running" | "success" | "error" | "cancelled",
   startedAt: number | null,
 ): number {
   const [elapsed, setElapsed] = useState(0);

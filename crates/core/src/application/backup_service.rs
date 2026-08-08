@@ -65,6 +65,13 @@ impl BackupService {
         let config = self.connections.get_config(&conn_id).await?
             .ok_or_else(|| DbError::NotFound(format!("connection {conn_id} not found")))?;
 
+        // Restore is a mutating operation — block on read-only connections.
+        if config.readonly {
+            return Err(DbError::QueryFailed(
+                "connection is read-only — restore operations are not allowed".into(),
+            ));
+        }
+
         let secret_key = format!("connection/{}/password", conn_id);
         let password = match config.driver {
             crate::domain::connection::DriverType::Postgres => {

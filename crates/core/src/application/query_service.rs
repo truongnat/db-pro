@@ -63,6 +63,8 @@ impl QueryService {
         connection_id: &ConnectionId,
         sql: &str,
         params: &[QueryParam],
+        database: Option<&str>,
+        schema: Option<&str>,
     ) -> Result<QueryResult, DbError> {
         reject_multi_statement(sql)?;
 
@@ -78,7 +80,7 @@ impl QueryService {
         let result = self.connector.query(&handle, sql, params).await?;
         result.validate().map_err(DbError::QueryFailed)?;
 
-        if let Err(e) = self.history.save(connection_id, sql, &result).await {
+        if let Err(e) = self.history.save(connection_id, sql, &result, database.map(str::to_owned), schema.map(str::to_owned)).await {
             tracing::warn!("failed to save query history: {e}");
         }
 
@@ -89,6 +91,8 @@ impl QueryService {
         &self,
         connection_id: &ConnectionId,
         sql: &str,
+        database: Option<&str>,
+        schema: Option<&str>,
     ) -> Result<MultiQueryResult, DbError> {
         let handle = self
             .registry
@@ -166,7 +170,7 @@ impl QueryService {
         let total_duration_ms = start.elapsed().as_millis() as u64;
 
         if let Some(first) = results.first() {
-            if let Err(e) = self.history.save(connection_id, sql, first).await {
+            if let Err(e) = self.history.save(connection_id, sql, first, database.map(str::to_owned), schema.map(str::to_owned)).await {
                 tracing::warn!("failed to save query history: {e}");
             }
         }
@@ -446,7 +450,7 @@ mod tests {
         connector.expect_query().returning(|_, _, _| Ok(test_result()));
 
         let mut history = MockQueryHistoryRepository::new();
-        history.expect_save().returning(|_, _, _| Ok(()));
+        history.expect_save().returning(|_, _, _, _, _| Ok(()));
 
         let svc = QueryService::new(
             Box::new(connector),
@@ -457,7 +461,7 @@ mod tests {
             Box::new(mock_connections_full_access()),
         );
 
-        let result = svc.execute(&conn_id, "SELECT 1", &[]).await;
+        let result = svc.execute(&conn_id, "SELECT 1", &[], None, None).await;
         assert!(result.is_ok());
         assert_eq!(result.unwrap().row_count, 1);
     }
@@ -465,7 +469,7 @@ mod tests {
     #[tokio::test]
     async fn execute_not_active() {
         let svc = build_service(MockDbConnector::new(), Arc::new(ConnectionRegistry::new()));
-        let result = svc.execute(&ConnectionId::new(), "SELECT 1", &[]).await;
+        let result = svc.execute(&ConnectionId::new(), "SELECT 1", &[], None, None).await;
         assert!(result.is_err());
     }
 
@@ -476,14 +480,14 @@ mod tests {
         registry.register(conn_id, ConnectionHandle(1));
 
         let svc = build_service(MockDbConnector::new(), Arc::clone(&registry));
-        let result = svc.execute(&conn_id, "SELECT 1; SELECT 2", &[]).await;
+        let result = svc.execute(&conn_id, "SELECT 1; SELECT 2", &[], None, None).await;
         assert!(result.is_err());
     }
 
     #[tokio::test]
     async fn execute_empty_sql_rejected() {
         let svc = build_service(MockDbConnector::new(), Arc::new(ConnectionRegistry::new()));
-        let result = svc.execute(&ConnectionId::new(), "  ", &[]).await;
+        let result = svc.execute(&ConnectionId::new(), "  ", &[], None, None).await;
         assert!(result.is_err());
     }
 
@@ -497,7 +501,7 @@ mod tests {
         connector.expect_query().returning(|_, _, _| Ok(test_result()));
 
         let mut history = MockQueryHistoryRepository::new();
-        history.expect_save().returning(|_, _, _| Ok(()));
+        history.expect_save().returning(|_, _, _, _, _| Ok(()));
 
         let svc = QueryService::new(
             Box::new(connector),
@@ -508,7 +512,7 @@ mod tests {
             Box::new(mock_connections_full_access()),
         );
 
-        let result = svc.execute(&conn_id, "SELECT 1;", &[]).await;
+        let result = svc.execute(&conn_id, "SELECT 1;", &[], None, None).await;
         assert!(result.is_ok());
     }
 
@@ -522,7 +526,7 @@ mod tests {
         connector.expect_query().returning(|_, _, _| Ok(test_result()));
 
         let mut history = MockQueryHistoryRepository::new();
-        history.expect_save().returning(|_, _, _| Ok(()));
+        history.expect_save().returning(|_, _, _, _, _| Ok(()));
 
         let svc = QueryService::new(
             Box::new(connector),
@@ -533,7 +537,7 @@ mod tests {
             Box::new(mock_connections_full_access()),
         );
 
-        let result = svc.execute(&conn_id, "SELECT ';' FROM t", &[]).await;
+        let result = svc.execute(&conn_id, "SELECT ';' FROM t", &[], None, None).await;
         assert!(result.is_ok());
     }
 
@@ -549,7 +553,7 @@ mod tests {
         let mut history = MockQueryHistoryRepository::new();
         history
             .expect_save()
-            .returning(|_, _, _| Err(DbError::Internal("disk full".into())));
+            .returning(|_, _, _, _, _| Err(DbError::Internal("disk full".into())));
 
         let svc = QueryService::new(
             Box::new(connector),
@@ -560,7 +564,7 @@ mod tests {
             Box::new(mock_connections_full_access()),
         );
 
-        let result = svc.execute(&conn_id, "SELECT 1", &[]).await;
+        let result = svc.execute(&conn_id, "SELECT 1", &[], None, None).await;
         assert!(result.is_ok());
     }
 
@@ -637,7 +641,7 @@ mod tests {
             .returning(|_, _, _| Ok(3));
 
         let mut history = MockQueryHistoryRepository::new();
-        history.expect_save().returning(|_, _, _| Ok(()));
+        history.expect_save().returning(|_, _, _, _, _| Ok(()));
 
         let svc = QueryService::new(
             Box::new(connector),
@@ -648,7 +652,7 @@ mod tests {
             Box::new(mock_connections_full_access()),
         );
 
-        let result = svc.execute_multi(&conn_id, "SELECT 1; UPDATE t SET x = 1").await.unwrap();
+        let result = svc.execute_multi(&conn_id, "SELECT 1; UPDATE t SET x = 1", None, None).await.unwrap();
         assert!(result.error.is_none());
         assert_eq!(result.results.len(), 2);
         assert_eq!(result.results[0].row_count, 1);
@@ -666,7 +670,7 @@ mod tests {
             .returning(|_, _, _| Ok(5));
 
         let mut history = MockQueryHistoryRepository::new();
-        history.expect_save().returning(|_, _, _| Ok(()));
+        history.expect_save().returning(|_, _, _, _, _| Ok(()));
 
         let svc = QueryService::new(
             Box::new(connector),
@@ -680,6 +684,7 @@ mod tests {
         let result = svc.execute_multi(
             &conn_id,
             "WITH cte AS (SELECT id FROM t) UPDATE t SET x = 1",
+            None, None,
         ).await.unwrap();
         assert!(result.error.is_none());
         assert_eq!(result.results.len(), 1);
@@ -710,6 +715,7 @@ mod tests {
         let result = svc.execute_multi(
             &conn_id,
             "SELECT 1; UPDATE t SET x = 1; SELECT 2",
+            None, None,
         ).await.unwrap();
 
         assert!(result.error.is_some());

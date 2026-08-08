@@ -12,16 +12,18 @@ pub async fn execute_query(
     exec_registry: State<'_, ExecutionRegistry>,
     connection_id: String,
     sql: String,
-    tab_id: String,
+    execution_id: String,
+    database: Option<String>,
+    schema: Option<String>,
 ) -> Result<QueryResultDto, CommandError> {
     let conn_id = parse_connection_id(&connection_id)?;
 
-    // Register execution in the lifecycle registry using tab_id as the execution key.
-    let exec_id = QueryExecutionId(tab_id.clone());
+    // Register execution in the lifecycle registry using execution_id as the key.
+    let exec_id = QueryExecutionId(execution_id.clone());
     let cancel_rx = exec_registry.register_with_id(conn_id, exec_id.clone());
     exec_registry.start_execution(&exec_id);
 
-    let query_future = service.execute(&conn_id, &sql, &[]);
+    let query_future = service.execute(&conn_id, &sql, &[], database.as_deref(), schema.as_deref());
     tokio::pin!(query_future);
 
     let result = tokio::select! {
@@ -70,16 +72,11 @@ pub async fn execute_query(
 #[tauri::command]
 pub async fn cancel_query(
     exec_registry: State<'_, ExecutionRegistry>,
-    connection_id: String,
-    tab_id: String,
+    execution_id: String,
 ) -> Result<(), CommandError> {
-    // Prefer deterministic cancel-by-tab-id. Fall back to legacy cancel-by-connection
-    // if the tab-scoped execution is not found (e.g. older frontend code paths).
-    let exec_id = QueryExecutionId(tab_id);
-    let result = exec_registry.cancel_by_id(&exec_id.0);
-    if result == crate::cancel::CancelResult::NotFound {
-        exec_registry.cancel_by_connection(&connection_id);
-    }
+    // Deterministic cancel-by-execution-id only. No fallback to connection-scoped cancel:
+    // if the execution is not found, it is already finished or was never started (idempotent no-op).
+    let _ = exec_registry.cancel_by_id(&execution_id);
     Ok(())
 }
 
@@ -89,16 +86,18 @@ pub async fn execute_query_multi(
     exec_registry: State<'_, ExecutionRegistry>,
     connection_id: String,
     sql: String,
-    tab_id: String,
+    execution_id: String,
+    database: Option<String>,
+    schema: Option<String>,
 ) -> Result<MultiQueryResultDto, CommandError> {
     let conn_id = parse_connection_id(&connection_id)?;
 
-    // Register execution in the lifecycle registry using tab_id as the key.
-    let exec_id = QueryExecutionId(tab_id);
+    // Register execution in the lifecycle registry using execution_id as the key.
+    let exec_id = QueryExecutionId(execution_id);
     let cancel_rx = exec_registry.register_with_id(conn_id, exec_id.clone());
     exec_registry.start_execution(&exec_id);
 
-    let multi_future = service.execute_multi(&conn_id, &sql);
+    let multi_future = service.execute_multi(&conn_id, &sql, database.as_deref(), schema.as_deref());
     tokio::pin!(multi_future);
 
     let result = tokio::select! {

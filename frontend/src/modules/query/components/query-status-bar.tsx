@@ -24,7 +24,7 @@ function formatTiming(t: QueryTiming): string {
 
 interface QueryStatusBarProps {
   tabId: string;
-  status: "idle" | "running" | "success" | "error";
+  status: "idle" | "running" | "success" | "error" | "cancelled";
   executionStartedAt: number | null;
   rowCount: number;
   timing: QueryTiming | null;
@@ -85,6 +85,15 @@ export function QueryStatusBar({
     return (
       <div className="flex items-center gap-2 border-t border-[var(--app-border-subtle)] bg-destructive/10 px-3 text-[11px] text-destructive">
         <span>{t("query.statusError")}</span>
+      </div>
+    );
+  }
+
+  // Cancelled state
+  if (status === "cancelled") {
+    return (
+      <div className="flex items-center gap-2 border-t border-[var(--app-border-subtle)] bg-muted/30 px-3 text-[11px]">
+        <span className="text-[var(--app-text-muted)]">{t("query.statusCancelled")}</span>
       </div>
     );
   }

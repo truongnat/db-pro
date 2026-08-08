@@ -4,6 +4,8 @@ use tauri::State;
 use db_pro_core::application::{ConnectionRegistry, DataDiffService, SchemaService};
 use db_pro_core::domain::connection::ConnectionId;
 use db_pro_infrastructure::connector::CompositeConnector;
+use db_pro_infrastructure::meta::store::SQLiteMetaStore;
+use db_pro_core::ports::ConnectionRepository;
 
 use crate::dto::{
     CommandError, DataDiffDto, ObjectDependencyDto, PartitionInfoDto, SchemaDiffDto, TablespaceInfoDto,
@@ -77,12 +79,27 @@ pub async fn list_tablespaces(
 pub async fn rename_schema_object(
     connector: State<'_, Arc<CompositeConnector>>,
     registry: State<'_, Arc<ConnectionRegistry>>,
+    meta_store: State<'_, SQLiteMetaStore>,
     connection_id: String,
     object_type: String,
     schema: String,
     old_name: String,
     new_name: String,
 ) -> Result<(), CommandError> {
+    // Enforce readonly policy before mutating schema.
+    let conn_id = parse_connection_id(&connection_id)?;
+    if let Some(config) = meta_store.get_config(&conn_id).await? {
+        if config.readonly {
+            return Err(CommandError {
+                error: "SAFETY".into(),
+                message: "connection is read-only — schema rename is not allowed".into(),
+                message_id: "error.safety.readonly".into(),
+                details: None,
+                retryable: false,
+            });
+        }
+    }
+
     let pg = connector.postgres_connector();
     let inner = resolve_postgres_handle(&connector, &registry, &connection_id)?;
     pg.rename_schema_object(&inner, &object_type, &schema, &old_name, &new_name)

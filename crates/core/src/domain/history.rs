@@ -10,6 +10,8 @@ pub struct QueryHistory {
     pub executed_at: chrono::DateTime<chrono::Utc>,
     pub duration_ms: u64,
     pub row_count: u64,
+    pub database: Option<String>,
+    pub schema: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

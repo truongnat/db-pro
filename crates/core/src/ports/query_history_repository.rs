@@ -8,7 +8,7 @@ use crate::domain::query::QueryResult;
 #[cfg_attr(test, mockall::automock)]
 #[async_trait]
 pub trait QueryHistoryRepository: Send + Sync {
-    async fn save(&self, connection_id: &ConnectionId, sql: &str, result: &QueryResult) -> Result<(), DbError>;
+    async fn save(&self, connection_id: &ConnectionId, sql: &str, result: &QueryResult, database: Option<String>, schema: Option<String>) -> Result<(), DbError>;
 
     async fn list(&self, connection_id: &ConnectionId, limit: u32) -> Result<Vec<QueryHistory>, DbError>;
 }
