@@ -210,7 +210,7 @@ export function ExplorerView() {
                       <div key={schema.name}>
                         <button
                           type="button"
-                          className="flex h-[28px] w-full items-center gap-1.5 rounded-md px-2 text-[13px] font-medium text-foreground transition-colors hover:bg-[var(--app-hover)]"
+                          className="flex h-[28px] w-full items-center gap-1.5 rounded-md px-2 text-left text-[13px] font-medium text-foreground transition-colors hover:bg-[var(--app-hover)]"
                           onClick={() => toggleNode(`schema:${conn.id}:${schema.name}`)}
                           aria-expanded={schemaExpanded}
                         >
@@ -247,7 +247,7 @@ export function ExplorerView() {
                                       <button
                                         type="button"
                                         title={`${schema.name}.${table.name}`}
-                                        className="group flex h-[26px] w-full items-center gap-2 rounded-md px-2 text-[13px] text-[var(--app-text-muted)] transition-colors hover:bg-[var(--app-hover)] hover:text-foreground"
+                                        className="group flex h-[26px] w-full items-center gap-2 rounded-md px-2 text-left text-[13px] text-[var(--app-text-muted)] transition-colors hover:bg-[var(--app-hover)] hover:text-foreground"
                                         onClick={() => openSchemaPreview(conn.id, schema.name, table.name, "table")}
                                         onDoubleClick={() => promoteSchemaPreview(conn.id, schema.name, table.name)}
                                       >
@@ -316,7 +316,7 @@ export function ExplorerView() {
                                       <button
                                         type="button"
                                         title={`${schema.name}.${view.name}`}
-                                        className="group flex h-[26px] w-full items-center gap-2 rounded-md px-2 text-[13px] text-[var(--app-text-muted)] transition-colors hover:bg-[var(--app-hover)] hover:text-foreground"
+                                        className="group flex h-[26px] w-full items-center gap-2 rounded-md px-2 text-left text-[13px] text-[var(--app-text-muted)] transition-colors hover:bg-[var(--app-hover)] hover:text-foreground"
                                         onClick={() => openSchemaPreview(conn.id, schema.name, view.name, "view")}
                                         onDoubleClick={() => promoteSchemaPreview(conn.id, schema.name, view.name)}
                                       >
