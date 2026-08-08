@@ -7,6 +7,7 @@ describe("error-types", () => {
       const validCodes: string[] = [
         "CONNECTION_FAILED",
         "QUERY_FAILED",
+        "QUERY_CANCELLED",
         "NOT_FOUND",
         "AUTH_FAILED",
         "TIMEOUT",

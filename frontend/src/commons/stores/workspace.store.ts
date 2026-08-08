@@ -252,6 +252,8 @@ export const useWorkspaceStore = create<WorkspaceState>()(
                     explainPlan: null,
                     multiResults: null,
                     multiResultIndex: 0,
+                    activeExecutionId: null,
+                    executionStartedAt: null,
                   },
                 }
               : t,
@@ -315,7 +317,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         workspaceVersion: CURRENT_WORKSPACE_VERSION,
         tabs: state.tabs.map((t) =>
           t.kind === "query"
-            ? { ...t, data: { ...t.data, result: null, explainPlan: null, status: "idle" as const, error: null, multiResults: null } }
+            ? { ...t, data: { ...t.data, result: null, explainPlan: null, status: "idle" as const, error: null, multiResults: null, activeExecutionId: null, executionStartedAt: null } }
             : t,
         ),
         activeTabId: state.activeTabId,

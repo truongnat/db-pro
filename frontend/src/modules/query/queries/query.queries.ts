@@ -39,10 +39,16 @@ function getQueryService() {
 
 /** Check if an error is a user-initiated cancel. */
 function isCancelledError(err: unknown): boolean {
-  const msg = (err as { userMessage?: string; message?: string }).userMessage
-    ?? (err as { message?: string }).message
-    ?? "";
-  return msg.includes("QUERY_CANCELLED");
+  return (err as { code?: string })?.code === "QUERY_CANCELLED";
+}
+
+/**
+ * Guard: returns true if a terminal callback should be IGNORED because a newer
+ * execution has already started on the same tab (stale response race).
+ */
+function isStaleResponse(tabId: string, executionId: string): boolean {
+  const tab = useWorkspaceStore.getState().tabs.find((t) => t.id === tabId);
+  return tab?.kind === "query" && tab.data.activeExecutionId !== executionId;
 }
 
 export function useExecuteQuery() {
@@ -63,6 +69,8 @@ export function useExecuteQuery() {
       setTabActiveExecutionId(vars.tabId, vars.executionId);
     },
     onSuccess: (data, variables) => {
+      // Ignore stale responses: if a newer execution started, skip state mutation.
+      if (isStaleResponse(variables.tabId, variables.executionId)) return;
       const now = Date.now();
       const tab = useWorkspaceStore.getState().tabs.find((t) => t.id === variables.tabId);
       const startedAt =
@@ -97,6 +105,8 @@ export function useExecuteQuery() {
       });
     },
     onError: (err: unknown, variables) => {
+      // Ignore stale responses: if a newer execution started, skip state mutation.
+      if (isStaleResponse(variables.tabId, variables.executionId)) return;
       setTabActiveExecutionId(variables.tabId, null);
       setTabExecutionStartedAt(variables.tabId, null);
       // Normalize cancelled queries — don't write generic error history.
@@ -157,6 +167,8 @@ export function useExecuteQueryMulti() {
       setTabActiveExecutionId(vars.tabId, vars.executionId);
     },
     onSuccess: (data, variables) => {
+      // Ignore stale responses: if a newer execution started, skip state mutation.
+      if (isStaleResponse(variables.tabId, variables.executionId)) return;
       const now = Date.now();
       const tab = useWorkspaceStore.getState().tabs.find((t) => t.id === variables.tabId);
       const startedAt =
@@ -212,6 +224,8 @@ export function useExecuteQueryMulti() {
       });
     },
     onError: (err: unknown, variables) => {
+      // Ignore stale responses: if a newer execution started, skip state mutation.
+      if (isStaleResponse(variables.tabId, variables.executionId)) return;
       setTabActiveExecutionId(variables.tabId, null);
       setTabExecutionStartedAt(variables.tabId, null);
       // Normalize cancelled queries — don't write generic error history.

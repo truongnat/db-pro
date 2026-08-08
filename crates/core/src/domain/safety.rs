@@ -75,7 +75,8 @@ pub fn classify_statement_safety(sql: &str) -> Option<StatementSafety> {
     let keyword = upper.split_whitespace().next()?;
 
     match keyword {
-        "SELECT" | "SHOW" | "EXPLAIN" | "TABLE" => Some(StatementSafety::Read),
+        "SELECT" | "SHOW" | "TABLE" => Some(StatementSafety::Read),
+        "EXPLAIN" => classify_explain_safety(trimmed),
         "WITH" => classify_cte_safety(trimmed),
         "INSERT" | "UPDATE" => Some(StatementSafety::Write),
         "DELETE" => {
@@ -92,6 +93,31 @@ pub fn classify_statement_safety(sql: &str) -> Option<StatementSafety> {
     }
 }
 
+/// For EXPLAIN statements: plain EXPLAIN is Read, but EXPLAIN ANALYZE actually
+/// executes the inner statement, so its safety depends on the inner statement.
+fn classify_explain_safety(sql: &str) -> Option<StatementSafety> {
+    let upper = sql.to_ascii_uppercase();
+    // Check for EXPLAIN ANALYZE — this actually executes the inner statement.
+    if upper.contains("ANALYZE") || upper.contains("ANALYSE") {
+        // Strip the EXPLAIN ANALYZE prefix and classify the inner statement.
+        let stripped = upper
+            .strip_prefix("EXPLAIN")
+            .unwrap_or(&upper)
+            .trim_start();
+        let stripped = stripped
+            .strip_prefix("ANALYZE")
+            .or_else(|| stripped.strip_prefix("ANALYSE"))
+            .unwrap_or(&stripped)
+            .trim_start();
+        // Re-classify the inner statement using the original-case SQL.
+        let inner_start = sql.len() - stripped.len();
+        let inner_sql = &sql[inner_start..];
+        classify_statement_safety(inner_sql)
+    } else {
+        Some(StatementSafety::Read)
+    }
+}
+
 /// Check whether a DELETE statement lacks a WHERE clause.
 fn is_delete_without_where(sql: &str) -> bool {
     let upper = sql.to_ascii_uppercase();
@@ -100,6 +126,9 @@ fn is_delete_without_where(sql: &str) -> bool {
 }
 
 /// For WITH (CTE) statements, find the main keyword after the CTE definitions.
+/// Also scans CTE bodies for data-modifying operations (INSERT/UPDATE/DELETE),
+/// because in PostgreSQL a data-modifying CTE executes its mutation as a side
+/// effect regardless of the outer query.
 fn classify_cte_safety(sql: &str) -> Option<StatementSafety> {
     let _upper = sql.to_ascii_uppercase();
     let trimmed = sql.trim();
@@ -110,6 +139,7 @@ fn classify_cte_safety(sql: &str) -> Option<StatementSafety> {
     let mut i = 4;
     let mut depth: i32 = 0;
     let mut in_string = false;
+    let mut cte_has_mutation = false;
 
     while i < len {
         if in_string {
@@ -126,7 +156,11 @@ fn classify_cte_safety(sql: &str) -> Option<StatementSafety> {
 
         match chars[i] {
             '\'' => in_string = true,
-            '(' => depth += 1,
+            '(' => {
+                depth += 1;
+                // Scan inside CTE body for mutation keywords.
+                // We check the content within each parenthesized CTE body.
+            }
             ')' => {
                 depth -= 1;
                 if depth == 0 {
@@ -144,7 +178,7 @@ fn classify_cte_safety(sql: &str) -> Option<StatementSafety> {
                         .split_whitespace()
                         .next()?
                         .to_ascii_uppercase();
-                    return match kw.as_str() {
+                    let outer_safety = match kw.as_str() {
                         "SELECT" | "SHOW" | "EXPLAIN" => Some(StatementSafety::Read),
                         "INSERT" | "UPDATE" => Some(StatementSafety::Write),
                         "DELETE" => {
@@ -156,15 +190,47 @@ fn classify_cte_safety(sql: &str) -> Option<StatementSafety> {
                         }
                         _ => Some(StatementSafety::Write),
                     };
+                    // If any CTE body contained a mutation, the whole statement is
+                    // at least Write (even if the outer query is SELECT).
+                    if cte_has_mutation {
+                        return if outer_safety == Some(StatementSafety::Read) {
+                            Some(StatementSafety::Write)
+                        } else {
+                            outer_safety
+                        };
+                    }
+                    return outer_safety;
                 }
             }
-            _ => {}
+            _ => {
+                // Inside a CTE body (depth > 0): check for mutation keywords.
+                if depth > 0 {
+                    let rest: String = chars[i..].iter().take(10).collect();
+                    let rest_upper = rest.to_ascii_uppercase();
+                    if rest_upper.starts_with("INSERT")
+                        || rest_upper.starts_with("UPDATE")
+                        || rest_upper.starts_with("DELETE")
+                        || rest_upper.starts_with("DROP")
+                        || rest_upper.starts_with("TRUNCATE")
+                    {
+                        // Verify it's a whole keyword (followed by whitespace).
+                        let kw_len = rest_upper.split_whitespace().next().map(|s| s.len()).unwrap_or(0);
+                        if rest.len() > kw_len && rest.as_bytes().get(kw_len).map_or(false, |b| b.is_ascii_whitespace()) {
+                            cte_has_mutation = true;
+                        }
+                    }
+                }
+            }
         }
         i += 1;
     }
 
-    // Fallback: treat WITH as read
-    Some(StatementSafety::Read)
+    // Fallback: if CTE had mutation but we couldn't find outer keyword, treat as Write.
+    if cte_has_mutation {
+        Some(StatementSafety::Write)
+    } else {
+        Some(StatementSafety::Read)
+    }
 }
 
 fn strip_leading_comments(sql: &str) -> &str {
@@ -347,5 +413,79 @@ mod tests {
             classify_statement_safety("/* block */ DROP TABLE t"),
             Some(StatementSafety::Destructive)
         );
+    }
+
+    #[test]
+    fn explain_plain_select_is_read() {
+        assert_eq!(
+            classify_statement_safety("EXPLAIN SELECT * FROM t"),
+            Some(StatementSafety::Read)
+        );
+    }
+
+    #[test]
+    fn explain_analyze_select_is_read() {
+        assert_eq!(
+            classify_statement_safety("EXPLAIN ANALYZE SELECT * FROM t"),
+            Some(StatementSafety::Read)
+        );
+    }
+
+    #[test]
+    fn explain_analyze_delete_is_write() {
+        // EXPLAIN ANALYZE actually executes the statement — must NOT be Read.
+        assert_eq!(
+            classify_statement_safety("EXPLAIN ANALYZE DELETE FROM users WHERE id = 1"),
+            Some(StatementSafety::Write)
+        );
+    }
+
+    #[test]
+    fn explain_analyze_insert_is_write() {
+        assert_eq!(
+            classify_statement_safety("EXPLAIN ANALYZE INSERT INTO t VALUES (1)"),
+            Some(StatementSafety::Write)
+        );
+    }
+
+    #[test]
+    fn readonly_rejects_explain_analyze_delete() {
+        let policy = ConnectionSafetyPolicy::read_only();
+        assert!(validate_against_policy(
+            "EXPLAIN ANALYZE DELETE FROM users WHERE id = 1",
+            &policy
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn mutating_cte_with_delete_is_write() {
+        // Data-modifying CTE: even though outer query is SELECT, the CTE mutates.
+        assert_eq!(
+            classify_statement_safety(
+                "WITH deleted AS (DELETE FROM users WHERE id = 1 RETURNING *) SELECT * FROM deleted"
+            ),
+            Some(StatementSafety::Write)
+        );
+    }
+
+    #[test]
+    fn mutating_cte_with_insert_is_write() {
+        assert_eq!(
+            classify_statement_safety(
+                "WITH moved AS (INSERT INTO t2 SELECT * FROM t1 RETURNING *) SELECT * FROM moved"
+            ),
+            Some(StatementSafety::Write)
+        );
+    }
+
+    #[test]
+    fn readonly_rejects_mutating_cte() {
+        let policy = ConnectionSafetyPolicy::read_only();
+        assert!(validate_against_policy(
+            "WITH deleted AS (DELETE FROM users RETURNING *) SELECT * FROM deleted",
+            &policy
+        )
+        .is_err());
     }
 }

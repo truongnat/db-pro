@@ -1,6 +1,7 @@
 export type ErrorCode =
   | "CONNECTION_FAILED"
   | "QUERY_FAILED"
+  | "QUERY_CANCELLED"
   | "NOT_FOUND"
   | "AUTH_FAILED"
   | "TIMEOUT"
@@ -14,6 +15,7 @@ export type ErrorCode =
 const VALID_ERROR_CODES: ReadonlySet<string> = new Set<string>([
   "CONNECTION_FAILED",
   "QUERY_FAILED",
+  "QUERY_CANCELLED",
   "NOT_FOUND",
   "AUTH_FAILED",
   "TIMEOUT",
