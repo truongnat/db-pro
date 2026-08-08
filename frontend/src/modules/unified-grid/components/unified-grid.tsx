@@ -83,7 +83,7 @@ export function UnifiedGrid({
   const virtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 32,
+    estimateSize: () => 30,
     overscan: 10,
   });
 
@@ -167,7 +167,7 @@ export function UnifiedGrid({
       <div style={contentStyle} className="flex h-full min-h-0 flex-col">
       {/* Header row */}
       <div
-        className="grid shrink-0 border-b border-[var(--app-border)] bg-muted/30 text-[11px] font-medium"
+        className="grid shrink-0 border-b border-[var(--app-border)] bg-muted/30 text-[11px]"
         style={{ ...gridStyle, minHeight: "var(--grid-header-height)" }}
       >
         <div className="flex items-center px-2 py-2 text-[var(--app-text-dim)]">#</div>
@@ -185,12 +185,12 @@ export function UnifiedGrid({
               onContextMenu={(e) => handleContextMenu(e, col.name)}
             >
               <span
-                className="flex cursor-pointer select-none items-center gap-1 text-[var(--app-text-muted)] transition-colors hover:text-foreground"
+                className="flex cursor-pointer select-none items-center gap-1 text-[12.5px] font-medium text-[var(--app-text-muted)] transition-colors hover:text-foreground"
                 onClick={() => onSort(col.name)}
               >
-                <span className="truncate font-medium">{col.name}</span>
+                <span className="truncate">{col.name}</span>
                 {sort && (
-                  <span className="text-[11px]">
+                  <span className="text-[11px] text-[var(--app-text-dim)]">
                     {sort.direction === "asc" ? "\u25B2" : "\u25BC"}
                   </span>
                 )}
@@ -217,7 +217,7 @@ export function UnifiedGrid({
             return (
               <div
                 key={virtualRow.key}
-                className="grid absolute w-full border-b border-[var(--app-border-subtle)] text-[12.5px] transition-colors hover:bg-[var(--app-hover)]"
+                className="grid absolute w-full border-b border-[var(--app-border-subtle)]/60 text-[12.5px] transition-colors hover:bg-[var(--app-hover)]"
                 style={{ ...gridStyle, top: virtualRow.start, height: "var(--grid-row-height)" }}
                 data-index={virtualRow.index}
               >
@@ -352,11 +352,44 @@ function InlineCellEditor({
 /* ------------------------------------------------------------------ */
 
 function JsonPreview({ value }: { value: unknown }) {
+  const [expanded, setExpanded] = useState(false);
   const text = JSON.stringify(value, null, 2);
   const isLong = text.length > 80;
+
+  if (isLong && !expanded) {
+    return (
+      <button
+        type="button"
+        className="cursor-text text-left text-[var(--app-text-muted)] hover:text-foreground"
+        onClick={(e) => {
+          e.stopPropagation();
+          setExpanded(true);
+        }}
+        title={text}
+      >
+        {"{\u2026}"}
+      </button>
+    );
+  }
+
+  if (isLong && expanded) {
+    return (
+      <button
+        type="button"
+        className="cursor-text whitespace-pre-wrap text-left text-[var(--app-text-muted)] hover:text-foreground"
+        onClick={(e) => {
+          e.stopPropagation();
+          setExpanded(false);
+        }}
+      >
+        {text}
+      </button>
+    );
+  }
+
   return (
     <span className="text-[var(--app-text-muted)]" title={text}>
-      {isLong ? `${text.slice(0, 80)}…` : text}
+      {text}
     </span>
   );
 }
