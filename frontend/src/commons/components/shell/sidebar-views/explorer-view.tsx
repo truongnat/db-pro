@@ -17,7 +17,6 @@ import { useRecentStore } from "@/commons/stores/recent.store";
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
 import { useSidebarTabOps } from "@/commons/hooks/use-sidebar-tab-ops";
 import { StatusDot } from "@/commons/components/shell/status-dot";
-import { Button } from "@/components/ui/button";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -72,7 +71,7 @@ function SchemaObjectGroup({ groupKey, label, count, icon, expandedNodes, onTogg
     <div>
       <button
         type="button"
-        className="flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-[11px] font-medium text-[var(--app-text-muted)] transition-colors hover:bg-[var(--app-hover)] hover:text-foreground"
+        className="flex h-[26px] w-full items-center gap-1.5 rounded-md px-1.5 text-[12px] font-medium text-[var(--app-text-muted)] transition-colors hover:bg-[var(--app-hover)] hover:text-foreground"
         onClick={() => onToggle(groupKey)}
         aria-expanded={isOpen}
       >
@@ -83,9 +82,9 @@ function SchemaObjectGroup({ groupKey, label, count, icon, expandedNodes, onTogg
         )}
         {icon}
         <span className="flex-1 truncate">{label}</span>
-        <span className="text-[10px] text-[var(--app-text-dim)]">{count}</span>
+        <span className="text-[10px] tabular-nums text-[var(--app-text-dim)]">{count}</span>
       </button>
-      {isOpen && <div className="ml-3 flex flex-col gap-0.5">{children}</div>}
+      {isOpen && <div className="ml-[14px] flex flex-col">{children}</div>}
     </div>
   );
 }
@@ -122,15 +121,15 @@ export function ExplorerView() {
   return (
     <div className="flex min-h-0 flex-col">
       {/* Search bar */}
-      <div className="px-1 pb-2">
-        <div className="flex items-center gap-1.5 rounded-md border border-[var(--app-border)] bg-background px-2 py-1">
-          <Search className="h-3.5 w-3.5 shrink-0 text-[var(--app-text-dim)]" />
+      <div className="px-2 pb-2 pt-1">
+        <div className="flex h-[28px] items-center gap-1.5 rounded-md border border-[var(--app-border)] bg-background px-2 transition-colors focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/20">
+          <Search className="h-3.5 w-3.5 shrink-0 text-[var(--app-text-muted)]" />
           <input
             type="text"
             placeholder={`${t("shell.sidebar.searchObjects")}...`}
-            className="w-full bg-transparent text-xs text-foreground placeholder:text-[var(--app-text-dim)] focus:outline-none"
+            className="w-full bg-transparent text-[13px] text-foreground placeholder:text-[var(--app-text-dim)] focus:outline-none"
           />
-          <kbd className="shrink-0 text-[9px] text-[var(--app-text-dim)]">⌘K</kbd>
+          <kbd className="shrink-0 text-[10px] text-[var(--app-text-dim)]">⌘K</kbd>
         </div>
       </div>
 
@@ -151,8 +150,8 @@ export function ExplorerView() {
                   <button
                     type="button"
                     className={cn(
-                      "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-[12.5px] text-[var(--app-text-muted)] transition-colors hover:bg-[var(--app-hover)] hover:text-foreground",
-                      explorerConnectionId === conn.id && "bg-[var(--app-active)] text-foreground font-medium",
+                      "flex w-full items-center gap-2 rounded-md px-2 py-[6px] text-[13px] transition-colors hover:bg-[var(--app-hover)] hover:text-foreground",
+                      explorerConnectionId === conn.id && "bg-[var(--app-active)] text-foreground font-semibold",
                     )}
                     onClick={() => handleConnectionClick(conn.id)}
                     title={conn.name}
@@ -180,7 +179,7 @@ export function ExplorerView() {
                 <p className="ml-7 px-2 py-1 text-xs text-[var(--app-text-dim)]">{t("common.states.loading")}</p>
               )}
               {expanded && introspect.data && (
-                <div className="ml-5 flex flex-col gap-0.5 border-l border-[var(--app-border-subtle)] pl-2">
+                <div className="ml-4 flex flex-col gap-0.5 border-l border-[var(--app-border-subtle)]/50 pl-3">
                   {introspect.data.schemas.map((schema) => {
                     const schemaExpanded = expandedNodes.includes(`schema:${conn.id}:${schema.name}`);
                     const tables = introspect.data.tables.filter((tbl) => tbl.schema === schema.name);
@@ -188,10 +187,9 @@ export function ExplorerView() {
                     const Icon = schemaExpanded ? FolderOpen : Folder;
                     return (
                       <div key={schema.name}>
-                        <Button
+                        <button
                           type="button"
-                          variant="ghost"
-                          className="flex h-auto w-full items-center gap-2 justify-start rounded-md px-2 py-1.5 text-xs text-[var(--app-text-muted)]"
+                          className="flex h-[28px] w-full items-center gap-1.5 rounded-md px-2 text-[13px] font-medium text-foreground transition-colors hover:bg-[var(--app-hover)]"
                           onClick={() => toggleNode(`schema:${conn.id}:${schema.name}`)}
                           aria-expanded={schemaExpanded}
                         >
@@ -202,12 +200,12 @@ export function ExplorerView() {
                           )}
                           <Icon className="h-3.5 w-3.5 shrink-0 text-primary" />
                           <span className="flex-1 truncate">{schema.name}</span>
-                          <span className="text-[10px] text-[var(--app-text-dim)]">
+                          <span className="text-[11px] tabular-nums text-[var(--app-text-dim)]">
                             {tables.length + views.length}
                           </span>
-                        </Button>
+                        </button>
                         {schemaExpanded && (
-                          <div className="ml-[22px] flex flex-col gap-0.5 border-l border-[var(--app-border-subtle)] pl-2">
+                          <div className="ml-[14px] flex flex-col gap-0.5">
                             {tables.length > 0 && (
                               <SchemaObjectGroup
                                 groupKey={`schema:${conn.id}:${schema.name}:tables`}
@@ -228,12 +226,12 @@ export function ExplorerView() {
                                       <button
                                         type="button"
                                         title={`${schema.name}.${table.name}`}
-                                        className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-xs text-[var(--app-text-muted)] transition-colors hover:bg-[var(--app-hover)] hover:text-foreground"
+                                        className="group flex h-[25px] w-full items-center gap-2 rounded-md px-2 text-[13px] text-[var(--app-text-muted)] transition-colors hover:bg-[var(--app-hover)] hover:text-foreground"
                                         onClick={() => openSchemaPreview(conn.id, schema.name, table.name, "table")}
                                         onDoubleClick={() => promoteSchemaPreview(conn.id, schema.name, table.name)}
                                       >
-                                        <Table2 className="h-3 w-3 shrink-0 text-primary" />
-                                        <span className="truncate">{table.name}</span>
+                                        <Table2 className="h-3.5 w-3.5 shrink-0 text-primary/70" />
+                                        <span className="flex-1 truncate">{table.name}</span>
                                       </button>
                                     </ContextMenuTrigger>
                                     <ContextMenuContent>
@@ -297,12 +295,12 @@ export function ExplorerView() {
                                       <button
                                         type="button"
                                         title={`${schema.name}.${view.name}`}
-                                        className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-xs text-[var(--app-text-muted)] transition-colors hover:bg-[var(--app-hover)] hover:text-foreground"
+                                        className="group flex h-[25px] w-full items-center gap-2 rounded-md px-2 text-[13px] text-[var(--app-text-muted)] transition-colors hover:bg-[var(--app-hover)] hover:text-foreground"
                                         onClick={() => openSchemaPreview(conn.id, schema.name, view.name, "view")}
                                         onDoubleClick={() => promoteSchemaPreview(conn.id, schema.name, view.name)}
                                       >
-                                        <Columns3 className="h-3 w-3 shrink-0 text-primary" />
-                                        <span className="truncate">{view.name}</span>
+                                        <Columns3 className="h-3.5 w-3.5 shrink-0 text-primary/70" />
+                                        <span className="flex-1 truncate">{view.name}</span>
                                       </button>
                                     </ContextMenuTrigger>
                                     <ContextMenuContent>
