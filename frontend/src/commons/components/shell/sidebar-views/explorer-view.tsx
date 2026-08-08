@@ -44,7 +44,9 @@ function statusOf(statuses: Record<string, string>, id: string) {
 }
 
 function openNewQueryWithSql(connectionId: string, schema: string, objectName: string, sql: string) {
-  const tab = createQueryTabForObject(connectionId, schema, { sql });
+  const verb = sql.trim().split(/\s+/)[0]?.toUpperCase() ?? "Query";
+  const title = `${verb} \u00B7 ${objectName}`;
+  const tab = createQueryTabForObject(connectionId, schema, { title, sql });
   useWorkspaceStore.getState().openTab(tab);
 }
 

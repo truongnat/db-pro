@@ -7,7 +7,7 @@ import {
   type DragEndEvent,
 } from "@dnd-kit/core";
 import { SortableContext, horizontalListSortingStrategy } from "@dnd-kit/sortable";
-import { DatabaseIcon, PinIcon, TableIcon, XIcon } from "lucide-react";
+import { Code2, Loader2, PinIcon, TableIcon, XIcon } from "lucide-react";
 import { useCallback, useState } from "react";
 import type { DraggableAttributes } from "@dnd-kit/core";
 import type { SyntheticListenerMap } from "@dnd-kit/core/dist/hooks/utilities";
@@ -38,11 +38,14 @@ import { useTabKeyboard } from "@/hooks/use-tab-keyboard";
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
 import type { WorkspaceTab } from "@/commons/types/workspace.types";
 
-function TabKindIcon({ kind }: { kind: WorkspaceTab["kind"] }) {
-  if (kind === "db-object") {
-    return <TableIcon className="h-3.5 w-3.5 shrink-0 text-[var(--app-text-muted)]" />;
+function TabKindIcon({ tab }: { tab: WorkspaceTab }) {
+  if (tab.kind === "query") {
+    return <Code2 className="h-3.5 w-3.5 shrink-0 text-[var(--app-text-muted)]" />;
   }
-  return <DatabaseIcon className="h-3.5 w-3.5 shrink-0 text-[var(--app-text-muted)]" />;
+  if (tab.data.objectType === "view") {
+    return <TableIcon className="h-3.5 w-3.5 shrink-0 text-[var(--app-text-muted)] opacity-70" />;
+  }
+  return <TableIcon className="h-3.5 w-3.5 shrink-0 text-[var(--app-text-muted)]" />;
 }
 
 function TabItem({
@@ -111,8 +114,14 @@ function TabItem({
       {isActive && (
         <span className="absolute inset-x-0 top-0 h-[2px] bg-primary" />
       )}
-      {/* Kind icon */}
-      <TabKindIcon kind={tab.kind} />
+      {/* Kind icon / running spinner / error dot */}
+      {tab.kind === "query" && tab.data.status === "running" ? (
+        <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-primary" />
+      ) : tab.kind === "query" && tab.data.status === "error" ? (
+        <span className="h-2 w-2 shrink-0 rounded-full bg-[var(--app-danger)]" />
+      ) : (
+        <TabKindIcon tab={tab} />
+      )}
       {/* Dirty dot — replaces close button when dirty and not hovered */}
       {tab.dirty && !tab.pinned && (
         <span
@@ -272,7 +281,11 @@ export function WorkspaceTabBar() {
         <DragOverlay>
           {draggingTab ? (
             <div className="flex items-center gap-1.5 border border-[var(--app-border)] bg-[var(--app-surface-3)] px-3 py-2 text-[13px] shadow-lg opacity-90">
-              <TabKindIcon kind={draggingTab.kind} />
+              {draggingTab.kind === "query" && draggingTab.data.status === "running" ? (
+                <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-primary" />
+              ) : (
+                <TabKindIcon tab={draggingTab} />
+              )}
               {draggingTab.dirty && (
                 <span className="h-2 w-2 shrink-0 rounded-full bg-primary" />
               )}
