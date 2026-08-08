@@ -3,8 +3,8 @@ import { persist } from "zustand/middleware";
 
 export type SidebarView = "explorer" | "search" | "query-saved" | "users";
 
-const SIDEBAR_DEFAULT = 260;
-const SIDEBAR_MIN = 220;
+const SIDEBAR_DEFAULT = 288;
+const SIDEBAR_MIN = 240;
 const SIDEBAR_MAX = 420;
 
 const AGENT_DEFAULT = 320;

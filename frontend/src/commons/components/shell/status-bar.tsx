@@ -34,7 +34,7 @@ export function StatusBar() {
 
   return (
     <footer
-      className="flex items-center border-t border-[var(--app-border-subtle)] bg-background px-3 text-[11px] text-[var(--app-text-dim)]"
+      className="flex items-center border-t border-[var(--app-border-subtle)] bg-[var(--app-surface-2)] px-3 text-[11px] text-[var(--app-text-dim)]"
       style={{ height: "var(--app-statusbar-height)" }}
       role="contentinfo"
     >

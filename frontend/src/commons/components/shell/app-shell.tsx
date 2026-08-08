@@ -103,7 +103,7 @@ export function AppShell() {
 
   return (
     <>
-    <div className="grid h-screen overflow-hidden" style={{ gridTemplateColumns: "var(--app-activity-bar-width) 1fr" }}>
+    <div className="grid h-screen overflow-hidden bg-[var(--app-surface-0)]" style={{ gridTemplateColumns: "var(--app-activity-bar-width) 1fr" }}>
       <ActivityBar />
 
       <div className="grid min-h-0 min-w-0" style={{ gridTemplateRows: "var(--app-topbar-height) 1fr var(--app-statusbar-height)" }}>
@@ -127,7 +127,7 @@ export function AppShell() {
           )}
 
           {/* Main content */}
-          <main className="flex min-h-0 min-w-0 flex-col overflow-hidden bg-background">
+          <main className="flex min-h-0 min-w-0 flex-col overflow-hidden bg-[var(--app-surface-3)]">
             <div className="flex h-full flex-col">
               {hasTabs && <WorkspaceTabBar />}
               <WorkspaceContent />

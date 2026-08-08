@@ -39,7 +39,7 @@ export function ActivityBar() {
 
   return (
     <aside
-      className="flex flex-col items-center border-r border-[var(--app-border-subtle)] bg-sidebar"
+      className="flex flex-col items-center border-r border-[var(--app-border-subtle)] bg-[var(--app-surface-1)]"
       style={{ width: "var(--app-activity-bar-width)" }}
     >
       {/* Logo */}
@@ -64,7 +64,7 @@ export function ActivityBar() {
                   className={cn(
                     "relative flex h-10 w-10 items-center justify-center rounded-md text-[var(--app-text-muted)] transition-colors duration-100",
                     "hover:bg-[var(--app-hover)] hover:text-foreground",
-                    isActive && "text-primary",
+                    isActive && "bg-[var(--app-primary-soft)] text-primary",
                   )}
                   onClick={() => setSidebarView(item.viewId)}
                   aria-current={isActive ? "page" : undefined}

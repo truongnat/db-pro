@@ -31,7 +31,7 @@ export function Sidebar({ width }: SidebarProps) {
 
   return (
     <aside
-      className="flex min-h-0 flex-col overflow-hidden border-r border-[var(--app-border-subtle)] bg-sidebar"
+      className="flex min-h-0 flex-col overflow-hidden border-r border-[var(--app-border-subtle)] bg-[var(--app-surface-2)]"
       style={{ width }}
       aria-label={t("shell.sidebar.label")}
     >
