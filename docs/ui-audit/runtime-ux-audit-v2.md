@@ -2,7 +2,8 @@
 
 **Date:** 2026-08-08  
 **Viewport:** 1440×900 (target)  
-**Commit baseline:** `6f4db1b`
+**Commit baseline:** `6f4db1b`  
+**Commit after:** `035a0ec` (D8 complete)
 
 ## Screenshot Inventory
 
@@ -18,6 +19,26 @@
 | 08 | Empty workspace | `before/08-empty-workspace.png` | Pending manual capture |
 
 **Note:** Automated GUI screenshot navigation was not feasible in the agent environment. The user-provided screenshot from pre-PATCH 5 review serves as the primary baseline evidence for Query + Explain screens.
+
+## Implementation Summary
+
+| Step | Commit | Description |
+|------|--------|-------------|
+| D1 | `88ba9d7` | Shell geometry: ActivityBar 46px, Explorer 288px, Topbar 32px, StatusBar 22px |
+| D2 | `e1a3e56` | Tab system: kind icons, 110-220px width, surface active state |
+| D3 | `ad516dc` | Query workbench: 36px toolbar, editor surface, 65:35 split, 32px result tabs |
+| D4+D5 | `6fed33c` | Explain redesign: summary + tree + node details split view |
+| D6 | `1041955` | Explorer: 28px search, row density, 14px indent, hierarchy typography |
+| D7 | `3a62755` | DB Object: 40px header breadcrumb, 32px section tabs |
+| D8 | `035a0ec` | Agent: context chips, starter suggestions, ⌘↵ composer |
+
+## Verification
+
+| Check | Result |
+|-------|--------|
+| cargo check | clean (0 errors, 0 warnings) |
+| cargo test | 217 passed, 0 failed |
+| tsc --noEmit | 0 errors |
 
 ## Baseline Findings (from user-provided screenshot + spec review)
 
