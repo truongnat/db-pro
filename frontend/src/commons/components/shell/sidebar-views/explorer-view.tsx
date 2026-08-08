@@ -6,6 +6,7 @@ import {
   Folder,
   FolderOpen,
   Plus,
+  RefreshCw,
   Search,
   Table2,
 } from "lucide-react";
@@ -177,7 +178,24 @@ export function ExplorerView() {
               </ContextMenu>
 
               {expanded && introspect.isLoading && (
-                <p className="ml-7 px-2 py-1 text-xs text-[var(--app-text-dim)]">{t("common.states.loading")}</p>
+                <div className="ml-7 flex flex-col gap-1 px-2 py-1">
+                  <div className="h-[26px] animate-pulse rounded bg-[var(--app-hover)]" />
+                  <div className="h-[26px] animate-pulse rounded bg-[var(--app-hover)]" />
+                  <div className="h-[26px] animate-pulse rounded bg-[var(--app-hover)]" />
+                </div>
+              )}
+              {expanded && introspect.isError && (
+                <div className="ml-7 flex flex-col gap-1 px-2 py-2">
+                  <p className="text-[12px] text-[var(--app-danger)]">{t("common.states.error")}</p>
+                  <button
+                    type="button"
+                    className="flex items-center gap-1.5 text-[12px] text-[var(--app-primary)] hover:underline"
+                    onClick={() => introspect.refetch()}
+                  >
+                    <RefreshCw className="h-3 w-3" />
+                    {t("common.actions.retry")}
+                  </button>
+                </div>
               )}
               {expanded && introspect.data && (
                 <div className="ml-4 flex flex-col gap-0.5 pl-3">
@@ -227,7 +245,7 @@ export function ExplorerView() {
                                       <button
                                         type="button"
                                         title={`${schema.name}.${table.name}`}
-                                        className="group flex h-[25px] w-full items-center gap-2 rounded-md px-2 text-[13px] text-[var(--app-text-muted)] transition-colors hover:bg-[var(--app-hover)] hover:text-foreground"
+                                        className="group flex h-[26px] w-full items-center gap-2 rounded-md px-2 text-[13px] text-[var(--app-text-muted)] transition-colors hover:bg-[var(--app-hover)] hover:text-foreground"
                                         onClick={() => openSchemaPreview(conn.id, schema.name, table.name, "table")}
                                         onDoubleClick={() => promoteSchemaPreview(conn.id, schema.name, table.name)}
                                       >
@@ -296,7 +314,7 @@ export function ExplorerView() {
                                       <button
                                         type="button"
                                         title={`${schema.name}.${view.name}`}
-                                        className="group flex h-[25px] w-full items-center gap-2 rounded-md px-2 text-[13px] text-[var(--app-text-muted)] transition-colors hover:bg-[var(--app-hover)] hover:text-foreground"
+                                        className="group flex h-[26px] w-full items-center gap-2 rounded-md px-2 text-[13px] text-[var(--app-text-muted)] transition-colors hover:bg-[var(--app-hover)] hover:text-foreground"
                                         onClick={() => openSchemaPreview(conn.id, schema.name, view.name, "view")}
                                         onDoubleClick={() => promoteSchemaPreview(conn.id, schema.name, view.name)}
                                       >
