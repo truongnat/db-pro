@@ -219,13 +219,33 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
     );
   }
 
-  const panelTabs = [
+  const primaryTabs = [
     { id: "results" as const, label: t("query.results") },
     { id: "explain" as const, label: t("query.explain") },
+  ];
+  const secondaryTabs = [
     { id: "history" as const, label: t("query.history") },
     { id: "local-history" as const, label: t("query.localHistory") },
     { id: "snippets" as const, label: t("query.snippets") },
   ];
+
+  const renderTabButton = (tab: { id: typeof panelTab; label: string }) => (
+    <button
+      key={tab.id}
+      type="button"
+      className={`relative h-full px-3 text-[13px] transition-colors ${
+        panelTab === tab.id
+          ? "text-foreground"
+          : "text-[var(--app-text-muted)] hover:text-foreground"
+      }`}
+      onClick={() => setTabActivePanel(tabId, tab.id)}
+    >
+      {tab.label}
+      {panelTab === tab.id && (
+        <span className="absolute inset-x-3 bottom-0 h-[2px] bg-primary" />
+      )}
+    </button>
+  );
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
@@ -262,23 +282,9 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
 
         <div className="flex min-h-0 flex-1 flex-col">
           <div className="flex h-[32px] items-center border-b border-[var(--app-border-subtle)] bg-[var(--app-surface-1)]">
-            {panelTabs.map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                className={`relative h-full px-3 text-[13px] transition-colors ${
-                  panelTab === tab.id
-                    ? "text-foreground"
-                    : "text-[var(--app-text-muted)] hover:text-foreground"
-                }`}
-                onClick={() => setTabActivePanel(tabId, tab.id)}
-              >
-                {tab.label}
-                {panelTab === tab.id && (
-                  <span className="absolute inset-x-3 bottom-0 h-[2px] bg-primary" />
-                )}
-              </button>
-            ))}
+            {primaryTabs.map(renderTabButton)}
+            <span className="mx-1 h-4 w-px bg-[var(--app-border-subtle)]" aria-hidden />
+            {secondaryTabs.map(renderTabButton)}
           </div>
 
           <div className="min-h-0 flex-1">

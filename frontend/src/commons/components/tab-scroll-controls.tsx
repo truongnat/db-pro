@@ -95,7 +95,7 @@ export function TabOverflowMenu({ isOverflowing }: Pick<TabScrollControlsProps, 
               {tab.dirty && (
                 <span className="h-2 w-2 shrink-0 rounded-full bg-primary" />
               )}
-              {tab.pinned && <span className="text-[10px]">📌</span>}
+              {tab.pinned && <span className="text-[11px]">📌</span>}
               <span className={cn("flex-1 truncate", tab.preview && "italic opacity-70")}>
                 {tab.title}
               </span>

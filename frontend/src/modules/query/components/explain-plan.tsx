@@ -107,12 +107,12 @@ function SummaryItem({ label, value }: { label: string; value: string }) {
 
 function TreeNode({
   node,
-  depth,
+  path,
   selectedId,
   onSelect,
 }: {
   node: PlanNode;
-  depth: number;
+  path: string;
   selectedId: string | null;
   onSelect: (id: string, node: PlanNode) => void;
 }) {
@@ -125,8 +125,9 @@ function TreeNode({
   const actualRows = getActualRows(node);
   const subplans = getSubplans(node);
 
-  const nodeId = `${nodeType}-${relation}-${depth}`;
-  const isSelected = selectedId === nodeId;
+  const isSelected = selectedId === path;
+
+  const depth = path.split(".").length - 1;
 
   return (
     <div style={{ paddingLeft: depth * 24 }}>
@@ -136,7 +137,7 @@ function TreeNode({
             ? "bg-[var(--app-active)] ring-1 ring-inset ring-primary/30"
             : "hover:bg-[var(--app-hover)]"
         }`}
-        onClick={() => onSelect(nodeId, node)}
+        onClick={() => onSelect(path, node)}
       >
         <div className="flex items-center gap-2">
           <span className="text-[13px] font-medium text-foreground">{nodeType}</span>
@@ -167,9 +168,9 @@ function TreeNode({
         <div className="mt-0.5">
           {subplans.map((sub, i) => (
             <TreeNode
-              key={i}
+              key={`${path}.${i}`}
               node={sub}
-              depth={depth + 1}
+              path={`${path}.${i}`}
               selectedId={selectedId}
               onSelect={onSelect}
             />
@@ -282,7 +283,7 @@ export function ExplainPlanView({ plan }: ExplainPlanViewProps) {
         <div className="flex min-w-0 flex-[3] flex-col overflow-auto">
           <div className="p-4">
             <PlanSummary node={rootNode} />
-            <TreeNode node={rootNode} depth={0} selectedId={selectedId} onSelect={handleSelect} />
+            <TreeNode node={rootNode} path="0" selectedId={selectedId} onSelect={handleSelect} />
           </div>
         </div>
 

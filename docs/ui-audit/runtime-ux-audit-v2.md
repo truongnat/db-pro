@@ -1,9 +1,21 @@
-# Runtime UX Audit v2 — PATCH 5 Baseline
+# Runtime UX Audit v2 — PATCH 5.1 Closure
 
 **Date:** 2026-08-08  
 **Viewport:** 1440×900 (target)  
 **Commit baseline:** `6f4db1b`  
-**Commit after:** `035a0ec` (D8 complete)
+**PATCH 5 commits:** `6f4db1b..753d610` (D1–D9)  
+**PATCH 5.1 commits:** After `753d610` (acceptance gap fixes)
+
+## PATCH 5.1 — Acceptance Gap Fixes
+
+| # | Fix | Files Changed |
+|---|-----|---------------|
+| 1 | **Output IA** — Split primary (Results, Explain) from secondary (History, Local History, Snippets) with visual separator | `query-tab-content.tsx` |
+| 2 | **Context bar** — Removed duplicate schema display; now single `[schema ▾]` selector | `query-command-bar.tsx` |
+| 3 | **Explorer search** — Converted fake input to Quick Open trigger button | `explorer-view.tsx` |
+| 4 | **Typography** — Removed all `text-[10px]` from PATCH 5 surfaces; enforced ≥11px | `query-command-bar.tsx`, `query-toolbar.tsx`, `explorer-view.tsx`, `agent-panel.tsx`, `tab-scroll-controls.tsx` |
+| 5 | **Agent icons** — Replaced Unicode (▦ ⌘ ↔ ▶) with Lucide (Table2, Code2, Network, Sparkles) | `agent-panel.tsx` |
+| 6 | **Explain tree IDs** — Changed from `nodeType-relation-depth` to path-based identity (`0`, `0.0`, `0.1.2`) | `explain-plan.tsx` |
 
 ## Screenshot Inventory
 
@@ -18,9 +30,9 @@
 | 07 | Agent open | `before/07-agent-open.png` | Pending manual capture |
 | 08 | Empty workspace | `before/08-empty-workspace.png` | Pending manual capture |
 
-**Note:** Automated GUI screenshot navigation was not feasible in the agent environment. The user-provided screenshot from pre-PATCH 5 review serves as the primary baseline evidence for Query + Explain screens.
+**Note:** Runtime screenshots require manual capture by the user. PATCH 5.1 code changes are complete; visual verification pending golden screen review.
 
-## Implementation Summary
+## PATCH 5 Implementation Summary (D1–D9)
 
 | Step | Commit | Description |
 |------|--------|-------------|

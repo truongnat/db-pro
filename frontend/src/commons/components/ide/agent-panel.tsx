@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { MessageSquare, Plus, Send, Sparkles, X } from "lucide-react";
+import { MessageSquare, Plus, Send, Sparkles, Table2, Code2, Network, X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
@@ -102,20 +102,23 @@ export function AgentPanel({ open, onClose, width, className }: AgentPanelProps)
           {/* Starter suggestions */}
           <div className="grid w-full grid-cols-2 gap-1.5">
             {[
-              { label: "Explain this table", icon: "▦" },
-              { label: "Write SELECT", icon: "⌘" },
-              { label: "Find relations", icon: "↔" },
-              { label: "Optimize query", icon: "▶" },
-            ].map((action) => (
-              <button
-                key={action.label}
-                type="button"
-                className="flex items-center gap-2 rounded-md border border-[var(--app-border-subtle)] px-2.5 py-2 text-[12px] text-[var(--app-text-muted)] transition-colors hover:border-[var(--app-border)] hover:bg-[var(--app-hover)] hover:text-foreground"
-              >
-                <span className="text-[11px] text-[var(--app-text-dim)]">{action.icon}</span>
-                {action.label}
-              </button>
-            ))}
+              { label: "Explain this table", icon: Table2 },
+              { label: "Write SELECT", icon: Code2 },
+              { label: "Find relations", icon: Network },
+              { label: "Optimize query", icon: Sparkles },
+            ].map((action) => {
+              const Icon = action.icon;
+              return (
+                <button
+                  key={action.label}
+                  type="button"
+                  className="flex items-center gap-2 rounded-md border border-[var(--app-border-subtle)] px-2.5 py-2 text-[12px] text-[var(--app-text-muted)] transition-colors hover:border-[var(--app-border)] hover:bg-[var(--app-hover)] hover:text-foreground"
+                >
+                  <Icon className="h-3.5 w-3.5 shrink-0 text-[var(--app-text-dim)]" />
+                  <span className="text-[12px]">{action.label}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -135,7 +138,7 @@ export function AgentPanel({ open, onClose, width, className }: AgentPanelProps)
               }}
             />
             <div className="flex items-center gap-1.5">
-              <kbd className="text-[10px] text-[var(--app-text-dim)]">⌘↵</kbd>
+              <kbd className="text-[11px] text-[var(--app-text-dim)]">⌘↵</kbd>
               <button
                 type="button"
                 className={cn(

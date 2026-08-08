@@ -116,34 +116,36 @@ export function QueryCommandBar({
             </span>
           </>
         )}
-        {context.schema && (
+        {schemas.length > 0 ? (
+          <>
+            {database && <span className="text-[var(--app-text-dim)]">/</span>}
+            <Select
+              value={context.schema ?? DEFAULT_SCHEMA}
+              onValueChange={(value) =>
+                setQueryTabSchema(tabId, value === DEFAULT_SCHEMA ? null : value)
+              }
+            >
+              <SelectTrigger className="h-6 w-auto max-w-[140px] rounded border-none bg-transparent px-1.5 py-0 text-[13px] text-[var(--app-text-muted)] shadow-none hover:bg-[var(--app-hover)]">
+                <SelectValue placeholder={t("query.contextDefaultSchema")} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={DEFAULT_SCHEMA}>{t("query.contextDefaultSchema")}</SelectItem>
+                {schemas.map((schema) => (
+                  <SelectItem key={schema.name} value={schema.name}>
+                    {schema.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </>
+        ) : context.schema ? (
           <>
             <span className="text-[var(--app-text-dim)]">/</span>
             <span className="truncate text-[13px] text-[var(--app-text-muted)]">
               {context.schema}
             </span>
           </>
-        )}
-        {schemas.length > 0 && (
-          <Select
-            value={context.schema ?? DEFAULT_SCHEMA}
-            onValueChange={(value) =>
-              setQueryTabSchema(tabId, value === DEFAULT_SCHEMA ? null : value)
-            }
-          >
-            <SelectTrigger className="h-5 w-auto max-w-[120px] rounded border-none bg-transparent px-1 py-0 text-[11px] text-[var(--app-text-dim)] shadow-none hover:bg-[var(--app-hover)]">
-              <SelectValue placeholder={t("query.contextDefaultSchema")} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={DEFAULT_SCHEMA}>{t("query.contextDefaultSchema")}</SelectItem>
-              {schemas.map((schema) => (
-                <SelectItem key={schema.name} value={schema.name}>
-                  {schema.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
+        ) : null}
       </div>
 
       <div className="flex-1" />
@@ -167,12 +169,12 @@ export function QueryCommandBar({
             <DropdownMenuItem onClick={onExecuteCurrent}>
               <Play className="mr-2 h-3.5 w-3.5" />
               {t("query.runCurrent")}
-              <span className="ml-auto text-[10px] text-[var(--app-text-muted)]">Ctrl+Enter</span>
+              <span className="ml-auto text-[11px] text-[var(--app-text-muted)]">Ctrl+Enter</span>
             </DropdownMenuItem>
             <DropdownMenuItem onClick={onExecuteAll}>
               <Play className="mr-2 h-3.5 w-3.5" />
               {t("query.runAll")}
-              <span className="ml-auto text-[10px] text-[var(--app-text-muted)]">Ctrl+Shift+Enter</span>
+              <span className="ml-auto text-[11px] text-[var(--app-text-muted)]">Ctrl+Shift+Enter</span>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={onExplain} disabled={!hasSql || isExplaining}>

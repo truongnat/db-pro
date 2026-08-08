@@ -13,6 +13,7 @@ import {
 import { useTranslation } from "@/commons/locales/useTranslation";
 import { useConnectionStore } from "@/commons/stores/connection.store";
 import { useExplorerStore } from "@/commons/stores/explorer.store";
+import { useQuickOpenStore } from "@/commons/stores/quick-open.store";
 import { useRecentStore } from "@/commons/stores/recent.store";
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
 import { useSidebarTabOps } from "@/commons/hooks/use-sidebar-tab-ops";
@@ -82,7 +83,7 @@ function SchemaObjectGroup({ groupKey, label, count, icon, expandedNodes, onTogg
         )}
         {icon}
         <span className="flex-1 truncate">{label}</span>
-        <span className="text-[10px] tabular-nums text-[var(--app-text-dim)]">{count}</span>
+        <span className="text-[11px] tabular-nums text-[var(--app-text-dim)]">{count}</span>
       </button>
       {isOpen && <div className="ml-[14px] flex flex-col">{children}</div>}
     </div>
@@ -120,22 +121,22 @@ export function ExplorerView() {
 
   return (
     <div className="flex min-h-0 flex-col">
-      {/* Search bar */}
+      {/* Quick Open trigger */}
       <div className="px-2 pb-2 pt-1">
-        <div className="flex h-[28px] items-center gap-1.5 rounded-md border border-[var(--app-border)] bg-background px-2 transition-colors focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/20">
+        <button
+          type="button"
+          onClick={() => useQuickOpenStore.getState().open()}
+          className="flex h-[28px] w-full items-center gap-1.5 rounded-md border border-[var(--app-border)] bg-background px-2 transition-colors hover:border-primary/50 hover:bg-[var(--app-hover)]"
+        >
           <Search className="h-3.5 w-3.5 shrink-0 text-[var(--app-text-muted)]" />
-          <input
-            type="text"
-            placeholder={`${t("shell.sidebar.searchObjects")}...`}
-            className="w-full bg-transparent text-[13px] text-foreground placeholder:text-[var(--app-text-dim)] focus:outline-none"
-          />
-          <kbd className="shrink-0 text-[10px] text-[var(--app-text-dim)]">⌘K</kbd>
-        </div>
+          <span className="w-full text-left text-[13px] text-[var(--app-text-dim)]">{`${t("shell.sidebar.searchObjects")}...`}</span>
+          <kbd className="shrink-0 text-[11px] text-[var(--app-text-dim)]">⌘K</kbd>
+        </button>
       </div>
 
       <div className="flex flex-col gap-0.5">
         {connections.isLoading && (
-          <p className="px-2 py-1 text-xs text-[var(--app-text-dim)]">{t("common.states.loading")}</p>
+          <p className="px-2 py-1 text-[11px] text-[var(--app-text-dim)]">{t("common.states.loading")}</p>
         )}
         {!connections.isLoading && (connections.data?.length ?? 0) === 0 && (
           <p className="px-2 py-1 text-xs text-[var(--app-text-dim)]">{t("common.states.empty")}</p>
@@ -164,7 +165,7 @@ export function ExplorerView() {
                     <StatusDot status={status} />
                     <span className="flex-1 truncate text-left">{conn.name}</span>
                     {conn.group && (
-                      <small className="text-[10px] text-[var(--app-text-dim)]">{conn.group}</small>
+                      <small className="text-[11px] text-[var(--app-text-dim)]">{conn.group}</small>
                     )}
                   </button>
                 </ContextMenuTrigger>
