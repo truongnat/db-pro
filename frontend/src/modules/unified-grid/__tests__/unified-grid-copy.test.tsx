@@ -66,10 +66,17 @@ function renderGrid(props: Partial<React.ComponentProps<typeof UnifiedGrid>> = {
 }
 
 describe("UnifiedGrid — copy keyboard scope", () => {
-  let writeTextSpy: ReturnType<typeof vi.spyOn>;
+  let writeTextSpy: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
-    writeTextSpy = vi.spyOn(navigator.clipboard, "writeText").mockResolvedValue();
+    // jsdom does not implement navigator.clipboard — mock it
+    const mockClipboard = { writeText: vi.fn().mockResolvedValue(undefined) };
+    Object.defineProperty(navigator, "clipboard", {
+      value: mockClipboard,
+      writable: true,
+      configurable: true,
+    });
+    writeTextSpy = mockClipboard.writeText;
   });
 
   it("does NOT call clipboard when Cmd+C is pressed inside an INPUT", () => {

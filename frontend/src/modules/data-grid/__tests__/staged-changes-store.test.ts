@@ -328,10 +328,10 @@ describe("StagedChangesStore — patch model", () => {
       const id = changes("tab-1")![0].id;
 
       store.markInFlight("tab-1", [id]);
-      expect(store.inFlightIds.has(id)).toBe(true);
+      expect(useStagedChangesStore.getState().inFlightIds.has(id)).toBe(true);
 
       store.removeByIds("tab-1", [id]);
-      expect(store.inFlightIds.has(id)).toBe(false);
+      expect(useStagedChangesStore.getState().inFlightIds.has(id)).toBe(false);
     });
 
     it("markFailedByIds clears inFlightIds", () => {
@@ -341,7 +341,7 @@ describe("StagedChangesStore — patch model", () => {
 
       store.markInFlight("tab-1", [id]);
       store.markFailedByIds("tab-1", [{ id, error: "fail" }]);
-      expect(store.inFlightIds.has(id)).toBe(false);
+      expect(useStagedChangesStore.getState().inFlightIds.has(id)).toBe(false);
     });
   });
 });

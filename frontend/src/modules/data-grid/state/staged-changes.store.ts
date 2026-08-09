@@ -100,7 +100,7 @@ export interface StagedChangesState {
    * Stage a row delete. Removes any existing cell-edit for the same PK
    * (since the delete supersedes them). Creates a new revision.
    */
-  stageDeleteRow: (tabId: string, deleteOp: Omit<StagedRowDelete, "id" | "kind" | "error">) => void;
+  stageDeleteRow: (tabId: string, pkValues: CellValue[]) => void;
 
   /**
    * Mark specific staged revisions as in-flight (being sent to backend).
@@ -179,10 +179,10 @@ export const useStagedChangesStore = create<StagedChangesState>()(
                 },
               };
             }
-            // Not in-flight: merge into existing revision (same ID)
+            // Not in-flight: compose patches into existing revision (same ID)
             const merged: StagedCellEdit = {
               ...prev,
-              changes: { ...edit.changes },
+              changes: { ...prev.changes, ...edit.changes },
             };
             const next = [...existing];
             next[editIdx] = merged;
@@ -209,10 +209,10 @@ export const useStagedChangesStore = create<StagedChangesState>()(
           };
         }),
 
-      stageDeleteRow: (tabId, deleteOp) =>
+      stageDeleteRow: (tabId, pkValues) =>
         set((s) => {
           const existing = s.changes[tabId] ?? [];
-          const key = pkKey(deleteOp.pkValues);
+          const key = pkKey(pkValues);
 
           // Remove any cell-edit or delete for same PK (delete supersedes)
           const filtered = existing.filter(
@@ -226,7 +226,7 @@ export const useStagedChangesStore = create<StagedChangesState>()(
           return {
             changes: {
               ...s.changes,
-              [tabId]: [...filtered, { ...deleteOp, kind: "row-delete" as const, id: generateChangeId(), error: null }],
+              [tabId]: [...filtered, { pkValues, kind: "row-delete" as const, id: generateChangeId(), error: null }],
             },
           };
         }),
