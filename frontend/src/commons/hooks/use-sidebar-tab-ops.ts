@@ -23,6 +23,14 @@ export function useSidebarTabOps() {
   const openDbObject = useWorkspaceStore((s) => s.openDbObject);
   const promotePreview = useWorkspaceStore((s) => s.promotePreview);
 
+  /**
+   * Single-click object preview.
+   *
+   * Data is the primary user intent when opening a table/view from Explorer,
+   * so previews open directly on the Data section instead of configuration
+   * metadata (Columns). The preview behavior is preserved so navigating the
+   * tree does not create a permanent tab for every click.
+   */
   const openSchemaPreview = useCallback(
     (
       connectionId: string,
@@ -30,7 +38,14 @@ export function useSidebarTabOps() {
       objectName: string,
       objectType: DbObjectTabData["objectType"],
     ) => {
-      const tab = createDbObjectTab(connectionId, schema, objectName, objectType, "columns", true);
+      const tab = createDbObjectTab(
+        connectionId,
+        schema,
+        objectName,
+        objectType,
+        "data",
+        true,
+      );
       openDbObject(tab);
       recordRecentResource(connectionId, schema, objectName);
     },
