@@ -152,37 +152,44 @@ export function QueryCommandBar({
 
       {/* Right — actions */}
       <div className="flex items-center gap-1.5">
-        {/* Run — primary action */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              type="button"
-              className="h-[30px] gap-1.5 rounded-[5px] px-3 text-[13px] font-medium"
-              disabled={!hasConnection || !hasSql || isExecuting}
-            >
-              <Play className="h-3.5 w-3.5" />
-              {t("query.run")}
-              <ChevronDown className="h-3 w-3 opacity-60" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="min-w-[220px]">
-            <DropdownMenuItem onClick={onExecuteCurrent} className="h-[32px]">
-              <Play className="mr-2 h-3.5 w-3.5" />
-              {t("query.runCurrent")}
-              <span className="ml-auto text-[11px] text-[var(--app-text-muted)]">Ctrl+Enter</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={onExecuteAll} className="h-[32px]">
-              <Play className="mr-2 h-3.5 w-3.5" />
-              {t("query.runAll")}
-              <span className="ml-auto text-[11px] text-[var(--app-text-muted)]">Ctrl+Shift+Enter</span>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={onExplain} disabled={!hasSql || isExplaining} className="h-[32px]">
-              <HelpCircle className="mr-2 h-3.5 w-3.5" />
-              {t("query.explain")}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {/* Run — split button */}
+        <div className="inline-flex">
+          <Button
+            type="button"
+            className="h-[30px] gap-1.5 rounded-r-none border-r border-r-white/20 px-3 text-[13px] font-medium"
+            disabled={!hasConnection || !hasSql || isExecuting}
+            onClick={onExecuteCurrent}
+          >
+            <Play className="h-3.5 w-3.5" />
+            {t("query.run")}
+          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant="default"
+                size="icon"
+                className="h-[30px] w-[28px] rounded-l-none px-0"
+                aria-label="Run options"
+                disabled={!hasConnection || !hasSql || isExecuting}
+              >
+                <ChevronDown className="h-3 w-3" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-[220px]">
+              <DropdownMenuItem onClick={onExecuteCurrent} className="h-[32px]">
+                <Play className="mr-2 h-3.5 w-3.5" />
+                {t("query.runCurrent")}
+                <span className="ml-auto text-[11px] text-[var(--app-text-muted)]">Ctrl+Enter</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={onExecuteAll} className="h-[32px]">
+                <Play className="mr-2 h-3.5 w-3.5" />
+                {t("query.runAll")}
+                <span className="ml-auto text-[11px] text-[var(--app-text-muted)]">Ctrl+Shift+Enter</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
 
         {/* Stop — visible only while running */}
         {isExecuting && (

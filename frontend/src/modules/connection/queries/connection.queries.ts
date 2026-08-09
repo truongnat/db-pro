@@ -19,6 +19,70 @@ function getConnectionService() {
   return container.resolve<IConnectionService>(SERVICE_NAMES.CONNECTION_SERVICE);
 }
 
+const RECONNECT_CONCURRENCY = 3;
+
+/**
+ * Reconnect connections that were active in the previous session.
+ * Only IDs that still exist in the saved connection list are attempted.
+ * Failures are silent (no toast) — StatusDot in Explorer is sufficient.
+ */
+function restoreSession(connections: Connection[]) {
+  const { activeConnectionIds } = useConnectionStore.getState();
+  if (activeConnectionIds.length === 0) return;
+
+  const validIds = activeConnectionIds.filter((id) =>
+    connections.some((c) => c.id === id),
+  );
+  // Clean up stale IDs that no longer exist.
+  for (const staleId of activeConnectionIds) {
+    if (!connections.some((c) => c.id === staleId)) {
+      useConnectionStore.getState().removeActiveConnection(staleId);
+    }
+  }
+  if (validIds.length === 0) return;
+
+  const service = getConnectionService();
+  const setStatus = useConnectionModuleStore.getState().setStatus;
+  const setError = useConnectionModuleStore.getState().setError;
+  const setExplorerConnection = useConnectionStore.getState().setExplorerConnection;
+  const { explorerConnectionId } = useConnectionStore.getState();
+
+  let index = 0;
+
+  async function runNext(): Promise<void> {
+    const i = index++;
+    if (i >= validIds.length) return;
+    const id = validIds[i];
+    setStatus(id, "reconnecting");
+    try {
+      await service.connect(id);
+      useConnectionModuleStore.getState().setStatus(id, "connected");
+      // Restore explorer context for the first successfully reconnected
+      // connection that matches the persisted explorer reference.
+      if (explorerConnectionId === id) {
+        setExplorerConnection(id);
+        const expandedNodes = useExplorerStore.getState().expandedNodes;
+        if (!expandedNodes.includes(`conn:${id}`)) {
+          useExplorerStore.getState().expandNode(`conn:${id}`);
+        }
+      }
+    } catch {
+      useConnectionModuleStore.getState().setStatus(id, "error");
+      setError(id, "Reconnect failed");
+    }
+    await runNext();
+  }
+
+  // Launch up to RECONNECT_CONCURRENCY parallel chains.
+  const workers = Array.from({ length: Math.min(RECONNECT_CONCURRENCY, validIds.length) }, () =>
+    runNext(),
+  );
+  Promise.allSettled(workers).then(() => {
+    // Invalidate to refresh the connection list UI after reconnect.
+    useConnectionStore.getState().setConnections(connections);
+  });
+}
+
 export function useConnectionList() {
   return useQuery({
     queryKey: QUERY_KEYS.connections,
@@ -27,6 +91,8 @@ export function useConnectionList() {
       useConnectionStore.getState().setConnections(connections);
       // Connections are now loaded — reconcile persisted workspace tabs.
       reconcileWorkspaceTabs();
+      // Restore previously active connections from the last session.
+      restoreSession(connections);
       return connections;
     },
   });
@@ -77,6 +143,7 @@ export function useConnect() {
   const setStatus = useConnectionModuleStore((s) => s.setStatus);
   const setError = useConnectionModuleStore((s) => s.setError);
   const setExplorerConnection = useConnectionStore((s) => s.setExplorerConnection);
+  const setActiveConnection = useConnectionStore((s) => s.setActiveConnection);
   const addRecentConnection = useRecentStore((s) => s.addRecentConnection);
 
   return useMutation({
@@ -87,6 +154,7 @@ export function useConnect() {
     onSuccess: (_, id) => {
       setStatus(id, "connected");
       setExplorerConnection(id);
+      setActiveConnection(id);
       addRecentConnection(id);
       const expandedNodes = useExplorerStore.getState().expandedNodes;
       if (!expandedNodes.includes(`conn:${id}`)) {
@@ -107,6 +175,7 @@ export function useDisconnect() {
   const setError = useConnectionModuleStore((s) => s.setError);
   const clearStatus = useConnectionModuleStore((s) => s.clearStatus);
   const setExplorerConnection = useConnectionStore((s) => s.setExplorerConnection);
+  const removeActiveConnection = useConnectionStore((s) => s.removeActiveConnection);
   const explorerConnectionId = useConnectionStore((s) => s.explorerConnectionId);
 
   return useMutation({
@@ -114,6 +183,7 @@ export function useDisconnect() {
     onSuccess: (_, id) => {
       clearStatus(id);
       setStatus(id, "disconnected");
+      removeActiveConnection(id);
       if (explorerConnectionId === id) {
         setExplorerConnection(null);
       }

@@ -94,7 +94,7 @@ function SchemaObjectGroup({ groupKey, label, count, icon, expandedNodes, onTogg
 
 export function ExplorerView() {
   const { t } = useTranslation();
-  const { openSchemaPreview, promoteSchemaPreview, openTableData } = useSidebarTabOps();
+  const { openSchemaPreview, openTableData } = useSidebarTabOps();
   const expandedNodes = useExplorerStore((s) => s.expandedNodes);
   const toggleNode = useExplorerStore((s) => s.toggleNode);
 
@@ -248,7 +248,7 @@ export function ExplorerView() {
                                         title={`${schema.name}.${table.name}`}
                                         className="group flex h-[26px] w-full items-center gap-2 rounded-md px-2 text-left text-[13px] text-[var(--app-text-muted)] transition-colors hover:bg-[var(--app-hover)] hover:text-foreground"
                                         onClick={() => openSchemaPreview(conn.id, schema.name, table.name, "table")}
-                                        onDoubleClick={() => promoteSchemaPreview(conn.id, schema.name, table.name)}
+                                        onDoubleClick={() => openTableData(conn.id, schema.name, table.name, "table")}
                                       >
                                         <Table2 className="h-3.5 w-3.5 shrink-0 text-[var(--app-text-muted)]" />
                                         <span className="flex-1 truncate">{table.name}</span>
@@ -317,7 +317,7 @@ export function ExplorerView() {
                                         title={`${schema.name}.${view.name}`}
                                         className="group flex h-[26px] w-full items-center gap-2 rounded-md px-2 text-left text-[13px] text-[var(--app-text-muted)] transition-colors hover:bg-[var(--app-hover)] hover:text-foreground"
                                         onClick={() => openSchemaPreview(conn.id, schema.name, view.name, "view")}
-                                        onDoubleClick={() => promoteSchemaPreview(conn.id, schema.name, view.name)}
+                                        onDoubleClick={() => openTableData(conn.id, schema.name, view.name, "view")}
                                       >
                                         <Columns3 className="h-3.5 w-3.5 shrink-0 text-[var(--app-text-muted)]" />
                                         <span className="flex-1 truncate">{view.name}</span>

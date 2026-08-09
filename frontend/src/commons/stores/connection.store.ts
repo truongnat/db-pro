@@ -7,11 +7,14 @@ import type { TranslatedError } from "@/commons/utils/error-types";
 interface ConnectionState {
   connections: Connection[];
   explorerConnectionId: string | null;
+  activeConnectionIds: string[];
   isLoading: boolean;
   error: TranslatedError | null;
 
   setConnections: (connections: Connection[]) => void;
   setExplorerConnection: (id: string | null) => void;
+  setActiveConnection: (id: string) => void;
+  removeActiveConnection: (id: string) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: TranslatedError | null) => void;
   addConnection: (connection: Connection) => void;
@@ -23,6 +26,7 @@ interface ConnectionState {
 const initialState = {
   connections: [],
   explorerConnectionId: null,
+  activeConnectionIds: [] as string[],
   isLoading: false,
   error: null,
 };
@@ -34,6 +38,16 @@ export const useConnectionStore = create<ConnectionState>()(
 
       setConnections: (connections) => set({ connections }),
       setExplorerConnection: (id) => set({ explorerConnectionId: id }),
+      setActiveConnection: (id) =>
+        set((state) => ({
+          activeConnectionIds: state.activeConnectionIds.includes(id)
+            ? state.activeConnectionIds
+            : [...state.activeConnectionIds, id],
+        })),
+      removeActiveConnection: (id) =>
+        set((state) => ({
+          activeConnectionIds: state.activeConnectionIds.filter((cid) => cid !== id),
+        })),
       setLoading: (loading) => set({ isLoading: loading }),
       setError: (error) => set({ error }),
 
@@ -56,6 +70,9 @@ export const useConnectionStore = create<ConnectionState>()(
           ),
           explorerConnectionId:
             state.explorerConnectionId === id ? null : state.explorerConnectionId,
+          activeConnectionIds: state.activeConnectionIds.filter(
+            (cid) => cid !== id,
+          ),
         })),
 
       reset: () => set(initialState),
@@ -64,6 +81,7 @@ export const useConnectionStore = create<ConnectionState>()(
       name: "db-pro-explorer-context",
       partialize: (state) => ({
         explorerConnectionId: state.explorerConnectionId,
+        activeConnectionIds: state.activeConnectionIds,
       }),
     },
   ),

@@ -12,7 +12,7 @@ export function SearchView() {
   const [query, setQuery] = useState("");
   const explorerConnectionId = useConnectionStore((s) => s.explorerConnectionId);
   const introspect = useIntrospect(explorerConnectionId);
-  const { openSchemaPreview, promoteSchemaPreview } = useSidebarTabOps();
+  const { openSchemaPreview, openTableData } = useSidebarTabOps();
 
   const lowerQuery = query.toLowerCase();
   const filteredTables = introspect.data?.tables.filter((t) =>
@@ -44,7 +44,7 @@ export function SearchView() {
               title={`${table.schema}.${table.name}`}
               className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-xs text-[var(--app-text-muted)] transition-colors hover:bg-[var(--app-hover)] hover:text-foreground"
               onClick={() => openSchemaPreview(explorerConnectionId, table.schema, table.name, "table")}
-              onDoubleClick={() => promoteSchemaPreview(explorerConnectionId, table.schema, table.name)}
+              onDoubleClick={() => openTableData(explorerConnectionId, table.schema, table.name, "table")}
             >
               <Table2 className="h-3 w-3 shrink-0 text-primary" />
               <span className="truncate">{table.name}</span>
@@ -58,7 +58,7 @@ export function SearchView() {
               title={`${view.schema}.${view.name}`}
               className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-xs text-[var(--app-text-muted)] transition-colors hover:bg-[var(--app-hover)] hover:text-foreground"
               onClick={() => openSchemaPreview(explorerConnectionId, view.schema, view.name, "view")}
-              onDoubleClick={() => promoteSchemaPreview(explorerConnectionId, view.schema, view.name)}
+              onDoubleClick={() => openTableData(explorerConnectionId, view.schema, view.name, "view")}
             >
               <Columns3 className="h-3 w-3 shrink-0 text-primary" />
               <span className="truncate">{view.name}</span>
