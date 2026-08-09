@@ -10,6 +10,7 @@ import { Pagination } from "@/modules/data-grid/components/pagination";
 import { DataToolbar } from "@/modules/data-grid/components/data-toolbar";
 import { useTabGridStateStore } from "@/modules/data-grid/state/tab-grid-state.store";
 import { useStagedChangesStore, useTabStagedChanges } from "@/modules/data-grid/state/staged-changes.store";
+import type { StagedChange } from "@/modules/data-grid/state/staged-changes.store";
 import { cycleColumnSort } from "@/modules/data-grid/utils/sort";
 import type { CellValue, FetchRowsRequest, GridSort } from "@/modules/data-grid/types/data-grid.types";
 
@@ -129,15 +130,16 @@ export function DataSection({ tabId, connectionId, schema, table, refreshCounter
 
   /* ---- apply all staged changes ---- */
 
-  const handleApply = useCallback(async () => {
-    if (isApplying || stagedChanges.length === 0) return;
+  const applyChanges = useCallback(async (changesToApply: StagedChange[]) => {
+    if (isApplying || changesToApply.length === 0) return;
     setIsApplying(true);
     setApplyError(null);
 
-    const changes = [...stagedChanges];
-    let failed = false;
+    const failedIndices: number[] = [];
+    let firstError: string | null = null;
 
-    for (const change of changes) {
+    for (let i = 0; i < changesToApply.length; i++) {
+      const change = changesToApply[i];
       try {
         if (change.kind === "cell-edit") {
           await updateRow.mutateAsync({
@@ -149,31 +151,62 @@ export function DataSection({ tabId, connectionId, schema, table, refreshCounter
             pkValues: change.pkValues,
           });
         } else if (change.kind === "row-delete") {
-          // For delete we need the full row values — find from current data or use pkValues
           await deleteRow.mutateAsync({
             schema,
             table,
             columns: columns.map((c) => c.name),
-            values: change.pkValues, // backend only needs PK columns for WHERE clause
+            values: change.pkValues,
             pkColumns,
             pkValues: change.pkValues,
           });
         }
       } catch (err) {
-        failed = true;
-        const msg = err instanceof Error ? err.message : String(err);
-        setApplyError(msg);
-        break;
+        failedIndices.push(i);
+        if (!firstError) {
+          firstError = err instanceof Error ? err.message : String(err);
+        }
       }
     }
 
-    if (!failed) {
+    if (failedIndices.length === 0) {
       useStagedChangesStore.getState().clearChanges(tabId);
       query.refetch();
+    } else if (failedIndices.length < changesToApply.length) {
+      // Partial success: mark failed indices, clear successful ones
+      useStagedChangesStore.getState().markFailed(tabId, failedIndices, firstError ?? "Unknown error");
+      query.refetch();
+    } else {
+      // All failed
+      setApplyError(firstError);
+      useStagedChangesStore.getState().markFailed(tabId, failedIndices, firstError ?? "Unknown error");
     }
 
     setIsApplying(false);
-  }, [isApplying, stagedChanges, tabId, schema, table, columns, pkColumns, updateRow, deleteRow, query]);
+  }, [isApplying, tabId, schema, table, columns, pkColumns, updateRow, deleteRow, query]);
+
+  const handleApply = useCallback(async () => {
+    if (isApplying || stagedChanges.length === 0) return;
+
+    const deletes = stagedChanges.filter((c) => c.kind === "row-delete").length;
+    if (deletes > 0) {
+      const msg = deletes === 1
+        ? t("dataGrid.confirmDeleteWithChanges", { count: stagedChanges.length })
+        : t("dataGrid.confirmDeleteWithChanges", { count: stagedChanges.length });
+      if (!window.confirm(msg)) return;
+    }
+
+    await applyChanges(stagedChanges);
+  }, [isApplying, stagedChanges, applyChanges, t]);
+
+  /* ---- retry failed ---- */
+
+  const handleRetryFailed = useCallback(async () => {
+    const failedChanges = stagedChanges.filter((c) => c.error);
+    if (failedChanges.length === 0) return;
+    // Clear error flags before retry
+    useStagedChangesStore.getState().clearFailed(tabId);
+    await applyChanges(failedChanges);
+  }, [stagedChanges, tabId, applyChanges]);
 
   /* ---- revert all ---- */
 
@@ -225,6 +258,7 @@ export function DataSection({ tabId, connectionId, schema, table, refreshCounter
             isApplying={isApplying}
             onApply={handleApply}
             onRevertAll={handleRevertAll}
+            onRetryFailed={handleRetryFailed}
           />
           {applyError && (
             <div className="mx-3 mt-2 rounded-sm bg-destructive px-3 py-1.5 text-xs text-white">

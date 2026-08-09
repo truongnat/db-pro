@@ -1,4 +1,5 @@
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
+import { useConnectionStore } from "@/commons/stores/connection.store";
 import type {
   DbObjectSection,
   DbObjectTabData,
@@ -45,6 +46,20 @@ function defaultQueryData(): QueryTabData {
   };
 }
 
+/**
+ * If another open tab already has `title`, append the connection name
+ * as a disambiguator: "users (prod-pg)".
+ */
+function deduplicateTabTitle(title: string, connectionId: string): string {
+  const tabs = useWorkspaceStore.getState().tabs;
+  const collision = tabs.some((t) => t.title === title && t.id !== undefined);
+  if (!collision) return title;
+
+  const connections = useConnectionStore.getState().connections;
+  const connName = connections.find((c) => c.id === connectionId)?.name ?? connectionId;
+  return `${title} (${connName})`;
+}
+
 export interface CreateQueryTabOptions {
   title?: string;
   sql?: string;
@@ -84,10 +99,11 @@ export function createDbObjectTab(
   initialSection: DbObjectSection = "columns",
   preview = true,
 ): WorkspaceTab & { kind: "db-object" } {
+  const title = deduplicateTabTitle(objectName, connectionId);
   return {
     id: crypto.randomUUID(),
     kind: "db-object",
-    title: objectName,
+    title,
     connectionId,
     resourceKey: `dbobj:${schema}.${objectName}:${connectionId}`,
     dirty: false,

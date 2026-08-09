@@ -7,7 +7,7 @@ import {
   type DragEndEvent,
 } from "@dnd-kit/core";
 import { SortableContext, horizontalListSortingStrategy } from "@dnd-kit/sortable";
-import { Code2, Loader2, PinIcon, TableIcon, XIcon } from "lucide-react";
+import { DatabaseIcon, Loader2, PinIcon, TableIcon, XIcon } from "lucide-react";
 import { useCallback, useState } from "react";
 import type { DraggableAttributes } from "@dnd-kit/core";
 import type { SyntheticListenerMap } from "@dnd-kit/core/dist/hooks/utilities";
@@ -40,7 +40,7 @@ import type { WorkspaceTab } from "@/commons/types/workspace.types";
 
 function TabKindIcon({ tab }: { tab: WorkspaceTab }) {
   if (tab.kind === "query") {
-    return <Code2 className="h-3.5 w-3.5 shrink-0 text-[var(--app-text-muted)]" />;
+    return <DatabaseIcon className="h-3.5 w-3.5 shrink-0 text-[var(--app-text-muted)]" />;
   }
   if (tab.data.objectType === "view") {
     return <TableIcon className="h-3.5 w-3.5 shrink-0 text-[var(--app-text-muted)] opacity-70" />;
@@ -63,11 +63,15 @@ function TabItem({
   dragListeners?: SyntheticListenerMap;
   dragAttributes?: DraggableAttributes;
 }) {
+  const isPinnedInactive = tab.pinned && !isActive;
+
   return (
     <div
       className={cn(
-        "group relative flex shrink-0 cursor-pointer items-center gap-1.5 px-3 py-2 text-[13px] transition-colors",
-        "min-w-[120px] max-w-[220px]",
+        "group relative flex shrink-0 cursor-pointer items-center gap-1.5 py-2 text-[13px] transition-colors",
+        isPinnedInactive
+          ? "w-[36px] justify-center px-0"
+          : "min-w-[120px] max-w-[220px] px-3",
         isActive
           ? "bg-[var(--app-surface-3)] text-foreground font-medium"
           : "text-[var(--app-text-muted)] hover:bg-[var(--app-surface-2)] hover:text-foreground",
@@ -129,14 +133,16 @@ function TabItem({
           aria-label="Unsaved changes"
         />
       )}
-      {tab.pinned && (
+      {tab.pinned && !isActive && (
         <PinIcon className="h-3 w-3 shrink-0 text-[var(--app-text-muted)]" aria-label="Pinned" />
       )}
-      <span className={cn("flex-1 truncate text-[13px]", tab.preview && "italic opacity-70")}>
-        {tab.title}
-      </span>
+      {!isPinnedInactive && (
+        <span className={cn("flex-1 truncate text-[13px]", tab.preview && "italic opacity-70")}>
+          {tab.title}
+        </span>
+      )}
       {/* Close button — visible on hover, hidden when dirty (dot shows instead) */}
-      {!tab.pinned && (
+      {!tab.pinned && !isPinnedInactive && (
         <button
           type="button"
           className={cn(

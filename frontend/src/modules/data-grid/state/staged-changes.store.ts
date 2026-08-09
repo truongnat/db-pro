@@ -25,7 +25,7 @@ export interface StagedRowDelete {
   pkValues: CellValue[];
 }
 
-export type StagedChange = StagedCellEdit | StagedRowDelete;
+export type StagedChange = (StagedCellEdit | StagedRowDelete) & { error?: string };
 
 /* ------------------------------------------------------------------ */
 /*  Store shape                                                        */
@@ -47,6 +47,10 @@ interface StagedChangesActions {
   revertAll: (tabId: string) => void;
   /** Clear staged changes after successful apply. */
   clearChanges: (tabId: string) => void;
+  /** Mark specific change indices as failed with an error message. */
+  markFailed: (tabId: string, indices: number[], error: string) => void;
+  /** Clear error flags from all changes for a tab. */
+  clearFailed: (tabId: string) => void;
   /** Garbage-collect tabs no longer open. */
   gc: (validTabIds: Set<string>) => void;
 }
@@ -116,6 +120,28 @@ export const useStagedChangesStore = create<StagedChangesStore>()((set, _get) =>
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { [tabId]: __, ...rest } = s.changes;
       return { changes: rest };
+    }),
+
+  markFailed: (tabId, indices, error) =>
+    set((s) => {
+      const existing = s.changes[tabId] ?? [];
+      const failSet = new Set(indices);
+      const updated = existing.map((c, i) => (failSet.has(i) ? { ...c, error } : c));
+      return { changes: { ...s.changes, [tabId]: updated } };
+    }),
+
+  clearFailed: (tabId) =>
+    set((s) => {
+      const existing = s.changes[tabId] ?? [];
+      const updated = existing.map((c) => {
+        if (c.error) {
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          const { error: _, ...rest } = c;
+          return rest as typeof c;
+        }
+        return c;
+      });
+      return { changes: { ...s.changes, [tabId]: updated } };
     }),
 
   gc: (validTabIds) =>

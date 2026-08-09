@@ -311,6 +311,7 @@
     "pageSize": "件/ページ",
     "of": "/",
     "confirmDelete": "この行を削除しますか？",
+    "confirmDeleteWithChanges": "行削除を含む{{count}}件の変更を適用しますか？",
     "error": {
       "update": "行の更新に失敗しました",
       "delete": "行の削除に失敗しました",
@@ -336,7 +337,10 @@
       "deletes_other": "{{count}}件の削除",
       "apply": "適用",
       "applying": "適用中…",
-      "revertAll": "すべて戻す"
+      "revertAll": "すべて戻す",
+      "applyPartial": "{{total}}件中{{applied}}件を適用",
+      "failedCount": "{{count}}件が失敗",
+      "retryFailed": "失敗を再試行"
     }
   },
   "export": {
