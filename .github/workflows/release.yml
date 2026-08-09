@@ -120,7 +120,7 @@ jobs:
 
       # Tauri CLI
       - name: Install Tauri CLI
-        run: cargo install tauri-cli --version "2.11.5" --locked
+        run: cargo install tauri-cli --version "2.11.4" --locked
 
       # Build
       - name: Build Tauri app
