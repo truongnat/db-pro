@@ -1,70 +1,176 @@
 # DB Pro
 
-DB Pro is a planned Tauri 2 desktop database client for Ubuntu. It combines a Rust backend with a React/TypeScript frontend and targets PostgreSQL first, followed by SQLite.
+A native desktop database IDE for PostgreSQL and SQLite. Built with Tauri 2, Rust, and React.
 
-> Current status: planning/design stage. The repository does not yet contain the Rust workspace, frontend application, tests, or CI pipeline. `demo.html` is currently a UI design prototype.
+DB Pro provides a DBeaver-like workflow — connection management, SQL editing with IntelliSense, query execution with cancellation, schema browsing, data grid, and export — in a lightweight, secure desktop application.
 
-## Product direction
+## Current release
 
-- DBeaver-like desktop workflow focused on PostgreSQL and SQLite.
-- Secure connection management with OS keyring integration.
-- SQL editor, query execution, history, cancellation, explain plans, and transactions.
-- Schema browsing, table details, DDL inspection, editable data grid, and CSV/JSON/Excel export.
-- Tauri 2 shell with Clean Architecture boundaries: domain → ports → infrastructure → application services → Tauri commands.
-- React/TypeScript frontend with Monaco, TanStack Query, Zustand, shadcn/ui, Radix UI, Tailwind CSS, i18n, and virtualized data rendering.
+**v0.1.0** — PostgreSQL and SQLite support. See [release notes](docs/release/0.1.0-release-notes.md).
 
-## Repository layout
+## Features
+
+### Connection management
+- PostgreSQL and SQLite connections
+- Secure credential storage with OS keyring integration
+- SSH tunnel support
+- Connection testing and health monitoring
+
+### SQL editor
+- Monaco editor with SQL syntax highlighting
+- Auto-completion from live schema (tables, columns, keywords)
+- Multi-tab query workspace with keyboard navigation
+- SQL formatting and diagnostics
+
+### Query execution
+- Run full query or selection (Ctrl/Cmd+Enter, Shift+Enter, F5)
+- Execution cancellation with proper cleanup
+- Explain plan visualization
+- Query history with re-run
+- Result grid with virtualized rendering
+
+### Schema browsing
+- Database/object explorer tree
+- Table details: columns, indexes, constraints, foreign keys
+- DDL inspection and generation
+- Multi-database and schema switching
+
+### Data grid
+- Editable data grid with inline cell editing
+- Staged changes with commit/rollback
+- Filtering and sorting
+- CSV, JSON, and Excel export
+
+### Agent workspace (Preview)
+- Agent-native architecture for future AI-assisted workflows
+- Action Platform with typed execution lifecycle, confirmation gates, and cancellation support
+- MCP integration is not shipped in 0.1.0
+
+## Architecture
 
 ```text
-demo.html                 UI design prototype
-plans/00-index.md         Plan index and task map
-plans/01-overview.md      Product phases, milestones, risks
-plans/02-backend-tasks.md Rust backend tasks (B-001…B-105)
-plans/03-frontend-tasks.md Frontend tasks (F-001…F-150)
-plans/04-testing-tasks.md Testing tasks (T-001…T-078)
-plans/05-cicd-tasks.md    CI/CD and packaging tasks (C-001…C-060)
-plans/06-database-tasks.md Database, crypto, and meta-store tasks (D-001…D-107)
-docs/08-technology-decisions.md Chosen stack, runtime model, security, and query strategy
-docs/09-architecture-decisions.md Ratified architecture decisions before implementation
+┌──────────────────────────────────────────────────────┐
+│  Frontend (React / TypeScript / TanStack Router)     │
+│  Monaco · Zustand · TanStack Query · shadcn/ui       │
+├──────────────────────────────────────────────────────┤
+│  Tauri Command Boundary (dto.rs → CommandError)      │
+├──────────────────────────────────────────────────────┤
+│  Application Layer (services)                        │
+│  QueryService · ConnectionService · SchemaService    │
+│  TableDataService · ExportService · BackupService    │
+├──────────────────────────────────────────────────────┤
+│  Domain Layer (core types, no I/O)                   │
+│  error · query · schema · connection · execution     │
+│  capabilities · safety · secret · diagnostics        │
+├──────────────────────────────────────────────────────┤
+│  Ports (traits)                                      │
+│  DbConnector · SecretStore · *Repository             │
+├──────────────────────────────────────────────────────┤
+│  Infrastructure                                      │
+│  postgres/ · sqlite/ · meta/ · secret/ · ssh/        │
+└──────────────────────────────────────────────────────┘
 ```
 
-## Planned delivery phases
+### Crate layout
 
-| Phase | Outcome |
-|---|---|
-| 0 | Rust/Tauri/frontend scaffolding and quality gates |
-| 1–2 | Domain model, ports, PostgreSQL/SQLite adapters, vault, meta-store |
-| 3–4 | Application services and Tauri command boundary |
-| 5–7 | Frontend foundation and connection module |
-| 8–11 | SQL/query, schema, data grid, and export modules |
-| 12 | SSH tunnel, DDL editing, roles, backup/restore |
-| 13–14 | Tests, CI/CD, Linux packaging, and release workflow |
+| Crate | Path | Responsibility |
+|-------|------|----------------|
+| `db-pro-core` | `crates/core` | Domain types, application services, port traits |
+| `db-pro-infrastructure` | `crates/infrastructure` | PostgreSQL, SQLite, metadata store, secrets, SSH |
+| `db-pro-tauri` | `crates/tauri-app` | Tauri commands, DTOs, cancel/execution registry |
 
-The plan estimates approximately 47 working days. The first useful vertical slice should be smaller: scaffold → save/test PostgreSQL connection → execute a read-only query → render results.
+### Tech stack
 
-## Proposed first milestone
+**Backend:** Rust (edition 2021), Tauri 2, sqlx (PostgreSQL), rusqlite (SQLite), keyring, AES-GCM encryption, Argon2  
+**Frontend:** React 19, TypeScript 5, Vite 6, TanStack Router, TanStack Query, Zustand, Monaco Editor, shadcn/ui, Radix UI, Tailwind CSS 4, i18next, Recharts  
+**Testing:** Vitest (1000 frontend tests), cargo test (17 Rust tests)  
+**CI:** GitHub Actions with release matrix (macOS / Windows / Linux)
 
-1. Create the Cargo workspace and minimal Vite/Tauri app.
-2. Define shared connection/query/result DTOs and error envelope.
-3. Implement PostgreSQL connection testing and one read-only query.
-4. Add a real PostgreSQL integration fixture and a basic frontend result table.
-5. Add `cargo fmt`, Clippy, TypeScript typecheck, unit tests, and one CI workflow.
+## Development
 
-## Ratified architecture decisions
+### Prerequisites
 
-The nine pre-implementation decisions are ratified in [`docs/09-architecture-decisions.md`](docs/09-architecture-decisions.md). The technology rationale remains in [`docs/08-technology-decisions.md`](docs/08-technology-decisions.md).
+- Rust 1.77.2+ (see `rust-toolchain.toml`)
+- Node.js 22+
+- npm 10+
+- System dependencies for Tauri (see [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/))
 
-- Add the referenced `docs/` set (`01-features.md` through `07-fe-architecture.md`), or remove those references from the plans.
+### Setup
 
-## Suggested development rules
+```bash
+# Clone
+git clone https://github.com/truongnat/db-pro.git
+cd db-pro
 
-- Build vertical slices and keep each phase independently runnable.
-- Treat `demo.html` as the visual approval baseline; implement the approved design in source-owned shadcn/Radix components.
-- Keep database-specific types inside infrastructure adapters; expose stable domain/DTO types to the UI.
-- Never log passwords, connection strings, bound parameters, or raw secrets.
-- Default to read-only or confirmation-gated destructive operations.
-- Test against real PostgreSQL and SQLite fixtures, not only mocks.
-- Pin dependency versions and verify Linux packaging in CI.
+# Frontend
+cd frontend
+npm ci
+npm run dev          # starts Vite dev server on :5174
+
+# In another terminal — Tauri dev
+cargo tauri dev
+```
+
+### Frontend commands
+
+```bash
+npm run dev            # Vite dev server
+npm run build          # Production build (route gen + typecheck + vite build)
+npm run typecheck      # TypeScript check (tsc --noEmit)
+npm run lint           # ESLint
+npm run format:check   # Prettier check
+npm run test           # Vitest (all tests)
+npm run test:watch     # Vitest watch mode
+```
+
+### Rust commands
+
+```bash
+cargo fmt --all --check                        # Format check
+cargo check --workspace                        # Type check
+cargo clippy --workspace --all-targets -- -D warnings  # Lint
+cargo test --workspace                         # Test
+```
+
+### Tauri build
+
+```bash
+# Development
+cargo tauri dev
+
+# Release build (runs frontend build automatically)
+cargo tauri build
+```
+
+Release artifacts: DMG (macOS), MSI/NSIS (Windows), DEB/AppImage/RPM (Linux).
+
+## Known limitations (0.1.0)
+
+- Data CRUD (INSERT/UPDATE/DELETE via grid) — not wired to backend
+- Schema DDL editing — read-only inspection, no live ALTER
+- MCP integration — not shipped
+- Agent workspace — Preview status, not production-ready
+- No code signing on release artifacts
+- SSH tunnel — implemented but not end-to-end tested in CI
+
+## Repository structure
+
+```text
+crates/                     Rust workspace
+  core/                     Domain, application services, ports
+  infrastructure/           Database drivers, secrets, metadata
+  tauri-app/                Tauri entry point, commands, DTOs
+frontend/                   React/TypeScript application
+  src/
+    commons/                Shared stores, actions, components, services
+    modules/                Feature modules (query, schema, data-grid, connection, export, backup)
+    components/ui/          shadcn/ui primitives
+    routes/                 TanStack Router file-based routes
+docs/                       Architecture and release documentation
+plans/                      Implementation plan and task tracking
+.github/workflows/          CI and release pipelines
+fixtures/                   PostgreSQL and SQLite test fixtures
+```
 
 ## License
 
