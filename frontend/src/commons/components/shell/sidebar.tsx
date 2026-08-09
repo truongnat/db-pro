@@ -46,18 +46,21 @@ export function Sidebar({ width }: SidebarProps) {
           <span className="text-[11px] font-semibold uppercase tracking-[0.04em] text-[var(--app-text-dim)]">
             {t(VIEW_TITLES[sidebarView] ?? "")}
           </span>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                type="button"
-                className="flex h-5 w-5 items-center justify-center rounded text-[var(--app-text-muted)] transition-colors hover:bg-[var(--app-hover)] hover:text-foreground"
-                onClick={() => openConnectionDialog()}
-              >
-                <Plus className="h-3.5 w-3.5" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="right" sideOffset={4}>{t("connection.new")}</TooltipContent>
-          </Tooltip>
+          {/* Only show + button on Explorer view (context-aware for v0.1) */}
+          {sidebarView === "explorer" && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  className="flex h-5 w-5 items-center justify-center rounded text-[var(--app-text-muted)] transition-colors hover:bg-[var(--app-hover)] hover:text-foreground"
+                  onClick={() => openConnectionDialog()}
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right" sideOffset={4}>{t("connection.new")}</TooltipContent>
+            </Tooltip>
+          )}
         </div>
 
         {/* Content */}

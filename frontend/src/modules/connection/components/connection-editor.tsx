@@ -267,13 +267,14 @@ export function ConnectionEditor({
                 type="button"
                 variant="outline"
                 size="sm"
+                disabled={!onTestSshTunnel}
                 onClick={() => {
                   if (formData.sshTunnel) {
                     onTestSshTunnel?.(formData.sshTunnel);
                   }
                 }}
               >
-                Test Tunnel
+                {onTestSshTunnel ? "Test Tunnel" : "Test Tunnel (Coming soon)"}
               </Button>
             </div>
           )}

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useTranslation } from "@/commons/locales/useTranslation";
 
@@ -20,9 +20,11 @@ interface DataSectionProps {
   connectionId: string;
   schema: string;
   table: string;
+  /** Incremented by the parent when the header Refresh is clicked. */
+  refreshCounter?: number;
 }
 
-export function DataSection({ tabId, connectionId, schema, table }: DataSectionProps) {
+export function DataSection({ tabId, connectionId, schema, table, refreshCounter = 0 }: DataSectionProps) {
   const { t } = useTranslation();
   const tabState = useTabGridStateStore((s) => s.states[tabId]) ?? {
     filters: [], sorts: [] as GridSort[], page: 1, pageSize: 50,
@@ -86,6 +88,15 @@ export function DataSection({ tabId, connectionId, schema, table }: DataSectionP
   const handleRefresh = () => {
     query.refetch();
   };
+
+  // React to header Refresh clicks — refetch rows when the counter increments.
+  const prevRefreshCounter = useRef(refreshCounter);
+  useEffect(() => {
+    if (refreshCounter !== prevRefreshCounter.current) {
+      prevRefreshCounter.current = refreshCounter;
+      query.refetch();
+    }
+  }, [refreshCounter, query]);
 
   /* ---- staged cell edit (no immediate backend call) ---- */
 

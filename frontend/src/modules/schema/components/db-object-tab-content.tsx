@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
 import { useTranslation } from "@/commons/locales/useTranslation";
@@ -38,6 +38,7 @@ export function DbObjectTabContent({
 }: DbObjectTabContentProps) {
   const { t } = useTranslation();
   const [toolbarAction, setToolbarAction] = useState<ToolbarAction | null>(null);
+  const [dataRefreshCounter, setDataRefreshCounter] = useState(0);
 
   const activeSection = useWorkspaceStore((s) => {
     const tab = s.tabs.find((t) => t.id === tabId);
@@ -57,12 +58,15 @@ export function DbObjectTabContent({
     useWorkspaceStore.getState().openTab(tab);
   };
 
-  const handleRefresh = () => {
+  const handleRefresh = useCallback(() => {
     tableInfo.refetch();
+    if (activeSection === "data") {
+      setDataRefreshCounter((c) => c + 1);
+    }
     if (activeSection === "ddl" || toolbarAction === "ddlEditor") {
       tableDdl.refetch();
     }
-  };
+  }, [tableInfo, tableDdl, activeSection, toolbarAction]);
 
   const handleOpenSelect = () => {
     const dialect = getDialectForConnection(connectionId);
@@ -115,7 +119,7 @@ export function DbObjectTabContent({
         {!toolbarAction && (
           <>
             {activeSection === "data" && isTableOrView && (
-              <DataSection tabId={tabId} connectionId={connectionId} schema={schema} table={objectName} />
+              <DataSection tabId={tabId} connectionId={connectionId} schema={schema} table={objectName} refreshCounter={dataRefreshCounter} />
             )}
             {activeSection === "columns" && isTableOrView && tableInfo.data && (
               <ObjectSectionLayout>

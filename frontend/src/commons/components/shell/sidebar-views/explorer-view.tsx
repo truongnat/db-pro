@@ -29,6 +29,7 @@ import {
   ContextMenuSubTrigger,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
+import { isMac } from "@/commons/utils/platform";
 import { cn } from "@/lib/utils";
 import { useConnectionList, useConnect } from "@/modules/connection/queries/connection.queries";
 import { useConnectionModuleStore } from "@/modules/connection/state/connection.store";
@@ -132,7 +133,7 @@ export function ExplorerView() {
         >
           <Search className="h-3.5 w-3.5 shrink-0 text-[var(--app-text-muted)]" />
           <span className="w-full text-left text-[13px] text-[var(--app-text-dim)]">{`${t("shell.sidebar.searchObjects")}...`}</span>
-          <kbd className="shrink-0 text-[11px] text-[var(--app-text-dim)]">⌘K</kbd>
+          <kbd className="shrink-0 text-[11px] text-[var(--app-text-dim)]">{isMac ? "⌘P" : "Ctrl+P"}</kbd>
         </button>
       </div>
 
@@ -255,11 +256,11 @@ export function ExplorerView() {
                                       </button>
                                     </ContextMenuTrigger>
                                     <ContextMenuContent>
-                                      <ContextMenuItem onClick={() => openSchemaPreview(conn.id, schema.name, table.name, "table")}>
-                                        {t("shell.sidebar.open")}
-                                      </ContextMenuItem>
                                       <ContextMenuItem onClick={() => openTableData(conn.id, schema.name, table.name)}>
                                         {t("shell.sidebar.openData")}
+                                      </ContextMenuItem>
+                                      <ContextMenuItem onClick={() => openSchemaPreview(conn.id, schema.name, table.name, "table")}>
+                                        {t("shell.sidebar.openStructure")}
                                       </ContextMenuItem>
                                       <ContextMenuSeparator />
                                       <ContextMenuSub>

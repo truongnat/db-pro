@@ -8,6 +8,7 @@ import { executeAction } from "@/commons/actions/bus";
 import { useActionConfirmationStore } from "@/commons/stores/action-confirmation.store";
 import { useSchemaCatalogStore } from "../stores/schema-catalog.store";
 import { Button } from "@/components/ui/button";
+import { useSnackbar } from "@/app/providers/snackbar.provider";
 import { ExportDialog } from "@/modules/export/components/export-dialog";
 
 import { ExplainPlanView } from "./explain-plan";
@@ -43,6 +44,7 @@ interface QueryTabContentProps {
 
 export function QueryTabContent({ tabId }: QueryTabContentProps) {
   const { t } = useTranslation();
+  const snackbar = useSnackbar();
 
   const tab = useWorkspaceStore((s) => {
     const found = s.tabs.find((t) => t.id === tabId);
@@ -69,12 +71,14 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
   // Confirmation is routed to the global ActionConfirmationHost in AppShell.
   const [isExplaining, setIsExplaining] = useState(false);
   const [explainError, setExplainError] = useState<string | null>(null);
+  const [lastExecMode, setLastExecMode] = useState<"current" | "all">("all");
   const historyQuery = useQueryHistory(tabConnectionId ?? "");
 
   /** Execute current statement via Action Platform (Ctrl+Enter). */
   const handleExecuteFragment = useCallback(
     async (_fragmentSql: string, source: "keyboard" | "ui" = "ui") => {
       if (tabConnectionId && tabId && status !== "running") {
+        setLastExecMode("current");
         const result = await executeAction("query.execute.current", { tabId }, { source });
         if (result.status === "confirmation_required" && result.confirmation) {
           useActionConfirmationStore.getState().setPending(result.confirmation);
@@ -87,6 +91,7 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
   /** Execute all statements via Action Platform (Ctrl+Shift+Enter / F5 / toolbar). */
   const handleExecuteAll = useCallback(async (source: "keyboard" | "ui" = "ui") => {
     if (tabConnectionId && tabId && sql.trim() && status !== "running") {
+      setLastExecMode("all");
       const result = await executeAction("query.execute.all", { tabId }, { source });
       if (result.status === "confirmation_required" && result.confirmation) {
         useActionConfirmationStore.getState().setPending(result.confirmation);
@@ -184,9 +189,12 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
         a.click();
         URL.revokeObjectURL(url);
       }),
+      onQueryAction("saveQuery", () => {
+        snackbar.info(t("query.saveComingSoon"));
+      }),
     ];
     return () => unsubs.forEach((u) => u());
-  }, [handleExecuteAll, handleExplain, handleFormat, handleClear, handleCancel, sql]);
+  }, [handleExecuteAll, handleExplain, handleFormat, handleClear, handleCancel, sql, snackbar, t]);
 
   useEffect(() => {
     if (tabConnectionId) {
@@ -324,7 +332,13 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
                 </div>
                 <p className="mb-4 max-w-lg text-[13px] leading-relaxed text-[var(--app-text-muted)]">{error}</p>
                 <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm" className="h-7 rounded-[5px] text-[13px]" onClick={() => { void handleExecuteAll("ui"); }}>
+                  <Button variant="outline" size="sm" className="h-7 rounded-[5px] text-[13px]" onClick={() => {
+                    if (lastExecMode === "current") {
+                      void handleExecuteFragment("", "ui");
+                    } else {
+                      void handleExecuteAll("ui");
+                    }
+                  }}>
                     {t("common.actions.retry")}
                   </Button>
                 </div>

@@ -21,6 +21,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useTranslation } from "@/commons/locales/useTranslation";
+import { formatShortcut } from "@/commons/utils/platform";
 
 interface QueryToolbarProps {
   onExecuteCurrent: () => void;
@@ -87,12 +88,12 @@ export function QueryToolbar({
             <DropdownMenuItem onClick={onExecuteCurrent} className="h-[32px]">
               <Play className="mr-2 h-3.5 w-3.5" />
               {t("query.runCurrent")}
-              <span className="ml-auto text-[11px] text-[var(--app-text-muted)]">Ctrl+Enter</span>
+              <span className="ml-auto text-[11px] text-[var(--app-text-muted)]">{formatShortcut({ ctrlKey: true, key: "Enter" })}</span>
             </DropdownMenuItem>
             <DropdownMenuItem onClick={onExecuteAll} className="h-[32px]">
               <Play className="mr-2 h-3.5 w-3.5" />
               {t("query.runAll")}
-              <span className="ml-auto text-[11px] text-[var(--app-text-muted)]">Ctrl+Shift+Enter</span>
+              <span className="ml-auto text-[11px] text-[var(--app-text-muted)]">{formatShortcut({ ctrlKey: true, shiftKey: true, key: "Enter" })}</span>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

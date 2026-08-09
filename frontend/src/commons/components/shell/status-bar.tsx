@@ -29,7 +29,11 @@ export function StatusBar() {
       ? t("shell.statusbar.connected")
       : status === "connecting"
         ? t("shell.statusbar.connecting")
-        : t("shell.statusbar.disconnected");
+        : status === "reconnecting"
+          ? t("shell.statusbar.reconnecting")
+          : status === "error"
+            ? t("shell.statusbar.connectionError")
+            : t("shell.statusbar.disconnected");
 
   return (
     <footer
@@ -59,12 +63,14 @@ export function StatusBar() {
       ) : activeConnection ? (
         <>
           <span className="flex items-center gap-1.5">
-            {status === "connecting" ? (
+            {status === "connecting" || status === "reconnecting" ? (
               <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-[var(--app-warning)]" />
+            ) : status === "error" ? (
+              <span className="h-2.5 w-2.5 rounded-full bg-[var(--app-danger)]" />
             ) : (
               <WifiOff className="h-3 w-3" />
             )}
-            <span>{statusLabel}</span>
+            <span className={status === "error" ? "text-[var(--app-danger)]" : undefined}>{statusLabel}</span>
           </span>
           <span className="mx-2 text-[var(--app-border-strong)]">·</span>
           <span>{activeConnection.name}</span>

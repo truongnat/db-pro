@@ -7,22 +7,7 @@ import {
 } from "@/components/ui/dialog";
 import { useCommandStore } from "@/commons/stores/command.store";
 import { useTranslation } from "@/commons/locales/useTranslation";
-import type { Keybinding } from "@/commons/types/command.types";
-
-function formatKeybinding(kb: Keybinding): string {
-  const isMac = navigator.platform.toLowerCase().includes("mac");
-  const parts: string[] = [];
-
-  if (kb.ctrlKey) parts.push(isMac ? "⌃" : "Ctrl");
-  if (kb.metaKey) parts.push(isMac ? "⌘" : "Win");
-  if (kb.shiftKey) parts.push(isMac ? "⇧" : "Shift");
-  if (kb.altKey) parts.push(isMac ? "⌥" : "Alt");
-
-  const key = kb.key.length === 1 ? kb.key.toUpperCase() : kb.key;
-  parts.push(key);
-
-  return isMac ? parts.join("") : parts.join("+");
-}
+import { formatShortcut } from "@/commons/utils/platform";
 
 export function CommandPalette() {
   const { t } = useTranslation();
@@ -88,7 +73,7 @@ export function CommandPalette() {
                     <span>{t(cmd.labelKey)}</span>
                     {cmd.keybinding && (
                       <kbd className="ml-auto pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-[var(--app-border-strong)] bg-muted px-1.5 font-mono text-[11px] font-medium text-[var(--app-text-muted)]">
-                        {formatKeybinding(cmd.keybinding)}
+                        {formatShortcut(cmd.keybinding)}
                       </kbd>
                     )}
                   </Command.Item>

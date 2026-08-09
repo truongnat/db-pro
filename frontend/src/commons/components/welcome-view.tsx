@@ -4,6 +4,9 @@ import { useTranslation } from "@/commons/locales/useTranslation";
 import { useCommandStore } from "@/commons/stores/command.store";
 import { useRecentStore } from "@/commons/stores/recent.store";
 import { useConnectionModuleStore } from "@/modules/connection/state/connection.store";
+import { useConnectionStore } from "@/commons/stores/connection.store";
+import { useShellStore } from "@/commons/stores/shell.store";
+import { useExplorerStore } from "@/commons/stores/explorer.store";
 import { useConnectionList, useConnect, useDeleteConnection } from "@/modules/connection/queries/connection.queries";
 import { ConnectionStatusBadge } from "@/modules/connection/components/connection-status";
 import {
@@ -70,6 +73,19 @@ export function WelcomeView() {
     .filter((item) => item.connection != null);
 
   const handleConnect = (connectionId: string) => {
+    const status = (statuses[connectionId] as string) ?? "disconnected";
+
+    // Already connected → focus in Explorer instead of reconnecting.
+    if (status === "connected") {
+      useConnectionStore.getState().setExplorerConnection(connectionId);
+      useShellStore.getState().setSidebarView("explorer");
+      useExplorerStore.getState().expandNode(`conn:${connectionId}`);
+      return;
+    }
+
+    // Connecting / reconnecting → ignore.
+    if (status === "connecting" || status === "reconnecting") return;
+
     connectMutation.mutate(connectionId, {
       onError: (err: unknown) =>
         snackbar.error((err as { userMessage?: string }).userMessage ?? t("connection.connectFailed")),

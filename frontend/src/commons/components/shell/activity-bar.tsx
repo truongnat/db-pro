@@ -1,7 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import {
   FolderOpen,
-  KeyRound,
   PanelLeftClose,
   PanelLeftOpen,
   Command,
@@ -25,7 +24,8 @@ const NAV_ITEMS: NavItem[] = [
   { viewId: "explorer", labelKey: "shell.nav.explorer", icon: FolderOpen },
   { viewId: "search", labelKey: "shell.nav.search", icon: Search },
   { viewId: "query-saved", labelKey: "shell.nav.query", icon: Command },
-  { viewId: "users", labelKey: "shell.nav.users", icon: KeyRound },
+  // Users module hidden for v0.1 — no real workbench behind it yet.
+  // { viewId: "users", labelKey: "shell.nav.users", icon: KeyRound },
 ];
 
 export function ActivityBar() {
