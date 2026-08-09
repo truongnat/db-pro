@@ -26,6 +26,7 @@ interface WorkspaceState extends PersistedWorkspaceState {
   setDbObjectSection: (id: string, section: DbObjectSection) => void;
   openDbObject: (tab: WorkspaceTab & { kind: "db-object" }) => void;
   setQueryTabConnection: (id: string, connectionId: string, context: QueryContext) => void;
+  reassignTabConnection: (id: string, newConnectionId: string) => void;
 }
 
 function findTabById(tabs: WorkspaceTab[], id: string): WorkspaceTab | undefined {
@@ -299,6 +300,20 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           useTabGridStateStore.getState().resetTab(replacedPreviewId);
         }
       },
+
+      reassignTabConnection: (id, newConnectionId) =>
+        set((state) => ({
+          tabs: updateTabInList(state.tabs, id, (t) => {
+            if (t.kind === "db-object") {
+              return {
+                ...t,
+                connectionId: newConnectionId,
+                resourceKey: `dbobj:${t.data.schema}.${t.data.objectName}:${newConnectionId}`,
+              };
+            }
+            return { ...t, connectionId: newConnectionId };
+          }),
+        })),
 
       restoreState: (restored) => {
         set({

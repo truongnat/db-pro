@@ -213,7 +213,8 @@
       "nullable": "Nullable"
     },
     "statusRunning": "Running",
-    "largeResultWarning": "Large result set"
+    "largeResultWarning": "Large result set",
+    "dirtyReplaceConfirm": "Current query has unsaved changes. Replace?"
   },
   "schema": {
     "title": "Schema Browser",
@@ -479,6 +480,7 @@
       "copyName": "Copy Name",
       "copyQualifiedName": "Copy Qualified Name",
       "editConnection": "Edit connection",
+      "copyConnectionName": "Copy Connection Name",
       "tables": "Tables",
       "views": "Views"
     },
@@ -609,7 +611,9 @@
     "connectToStart": "Connect to a database to get started",
     "noTabsOpen": "No tabs open",
     "hintSidebar": "Click a table in the explorer to open it",
-    "connectionUnavailable": "The connection for this tab is no longer available"
+    "connectionUnavailable": "The connection for this tab is no longer available",
+    "reconnect": "Reconnect",
+    "changeConnection": "Change Connection"
   },
   "welcome": {
     "title": "DB Pro",

@@ -189,7 +189,8 @@
       "nullable": "NULL許可"
     },
     "statusRunning": "実行中",
-    "largeResultWarning": "大量の结果"
+    "largeResultWarning": "大量の结果",
+    "dirtyReplaceConfirm": "現在のクエリに未保存の変更があります。置き換えますか？"
   },
   "schema": {
     "title": "スキーマブラウザ",
@@ -455,6 +456,7 @@
       "copyName": "名前をコピー",
       "copyQualifiedName": "修飾名をコピー",
       "editConnection": "接続を編集",
+      "copyConnectionName": "接続名をコピー",
       "tables": "テーブル",
       "views": "ビュー"
     },
@@ -585,7 +587,9 @@
     "connectToStart": "データベースに接続して開始してください",
     "noTabsOpen": "タブが開いていません",
     "hintSidebar": "エクスプローラーでテーブルをクリックして開きます",
-    "connectionUnavailable": "このタブの接続は利用できません"
+    "connectionUnavailable": "このタブの接続は利用できません",
+    "reconnect": "再接続",
+    "changeConnection": "接続を変更"
   },
   "welcome": {
     "title": "DB Pro",

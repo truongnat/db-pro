@@ -144,12 +144,17 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
     [tabId, sort],
   );
 
+  const tabDirty = tab?.dirty ?? false;
+
   const handleSelectHistoryEntry = useCallback(
     (entrySql: string) => {
+      if (tabDirty && sql.trim() && sql !== entrySql) {
+        if (!window.confirm(t("query.dirtyReplaceConfirm"))) return;
+      }
       setTabSql(tabId, entrySql);
       setTabActivePanel(tabId, "results");
     },
-    [tabId],
+    [tabId, tabDirty, sql, t],
   );
 
   const handleFileImport = useCallback(
@@ -159,12 +164,17 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
       const reader = new FileReader();
       reader.onload = (ev) => {
         const text = ev.target?.result;
-        if (typeof text === "string") setTabSql(tabId, text);
+        if (typeof text === "string") {
+          if (tabDirty && sql.trim()) {
+            if (!window.confirm(t("query.dirtyReplaceConfirm"))) return;
+          }
+          setTabSql(tabId, text);
+        }
       };
       reader.readAsText(file);
       e.target.value = "";
     },
-    [tabId],
+    [tabId, tabDirty, sql, t],
   );
 
   useEffect(() => {

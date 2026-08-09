@@ -9,6 +9,8 @@ import {
   RefreshCw,
   Search,
   Table2,
+  Zap,
+  ZapOff,
 } from "lucide-react";
 
 import { useTranslation } from "@/commons/locales/useTranslation";
@@ -31,10 +33,11 @@ import {
 } from "@/components/ui/context-menu";
 import { isMac } from "@/commons/utils/platform";
 import { cn } from "@/lib/utils";
-import { useConnectionList, useConnect } from "@/modules/connection/queries/connection.queries";
+import { useConnectionList, useConnect, useDisconnect } from "@/modules/connection/queries/connection.queries";
 import { useConnectionModuleStore } from "@/modules/connection/state/connection.store";
 import { useIntrospect } from "@/modules/schema/queries/schema.queries";
 import { createQueryTabForObject } from "@/modules/query/controllers/query-workspace.controller";
+import { createQueryTab } from "@/commons/factories/tab-factories";
 import { getSqlDialect } from "@/modules/query/sql/dialect";
 import { generateCountSQL } from "@/modules/query/sql/generators";
 import type { DriverType } from "@/modules/connection/types/connection.types";
@@ -105,6 +108,7 @@ export function ExplorerView() {
   const setExplorerConnection = useConnectionStore((s) => s.setExplorerConnection);
   const openConnectionDialog = useRecentStore((s) => s.openConnectionDialog);
   const connect = useConnect();
+  const disconnect = useDisconnect();
   const introspect = useIntrospect(explorerConnectionId);
 
   const handleConnectionClick = (connId: string) => {
@@ -173,8 +177,36 @@ export function ExplorerView() {
                   </button>
                 </ContextMenuTrigger>
                 <ContextMenuContent>
+                  {status === "connected" ? (
+                    <ContextMenuItem onClick={() => disconnect.mutate(conn.id)}>
+                      <ZapOff className="mr-1.5 h-3 w-3" />
+                      {t("common.actions.disconnect")}
+                    </ContextMenuItem>
+                  ) : (
+                    <ContextMenuItem onClick={() => connect.mutate(conn.id)}>
+                      <Zap className="mr-1.5 h-3 w-3" />
+                      {t("common.actions.connect")}
+                    </ContextMenuItem>
+                  )}
+                  <ContextMenuSeparator />
                   <ContextMenuItem onClick={() => openConnectionDialog(conn.id)}>
                     {t("shell.sidebar.editConnection")}
+                  </ContextMenuItem>
+                  <ContextMenuSeparator />
+                  <ContextMenuItem onClick={() => {
+                    const tab = createQueryTab(conn.id);
+                    useWorkspaceStore.getState().openTab(tab);
+                  }}>
+                    <Plus className="mr-1.5 h-3 w-3" />
+                    {t("shell.sidebar.newQuery")}
+                  </ContextMenuItem>
+                  <ContextMenuItem onClick={() => introspect.refetch()}>
+                    <RefreshCw className="mr-1.5 h-3 w-3" />
+                    {t("common.actions.refresh")}
+                  </ContextMenuItem>
+                  <ContextMenuItem onClick={() => copyToClipboard(conn.name)}>
+                    <Copy className="mr-1.5 h-3 w-3" />
+                    {t("shell.sidebar.copyConnectionName")}
                   </ContextMenuItem>
                 </ContextMenuContent>
               </ContextMenu>
