@@ -10,6 +10,7 @@ import {
 } from "@/modules/data-grid/queries/data-grid.queries";
 import { DataGrid } from "@/modules/data-grid/components/data-grid";
 import { ChangeBar } from "@/modules/data-grid/components/change-bar";
+import { TransactionFeedback } from "@/modules/data-grid/components/transaction-feedback";
 import { Pagination } from "@/modules/data-grid/components/pagination";
 import { DataToolbar } from "@/modules/data-grid/components/data-toolbar";
 import { useTabGridStateStore } from "@/modules/data-grid/state/tab-grid-state.store";
@@ -20,6 +21,7 @@ import {
 } from "@/modules/data-grid/state/staged-changes.store";
 import type { StagedChange } from "@/modules/data-grid/state/staged-changes.store";
 import { cycleColumnSort } from "@/modules/data-grid/utils/sort";
+import { classifyConstraintError } from "@/modules/data-grid/utils/constraint-errors";
 import type {
   CellValue,
   FetchRowsRequest,
@@ -48,6 +50,8 @@ export function DataSection({
   const tabState = useTabGridStateStore((s) => s.states[tabId]) ?? {
     filters: [],
     sorts: [] as GridSort[],
+    draftFilters: [],
+    draftSorts: [] as GridSort[],
     page: 1,
     pageSize: 50,
     editingCell: null,
@@ -60,6 +64,8 @@ export function DataSection({
 
   const filters = tabState.filters;
   const sorts = tabState.sorts;
+  const draftFilters = tabState.draftFilters;
+  const draftSorts = tabState.draftSorts;
   const page = tabState.page;
   const pageSize = tabState.pageSize;
   const editingCell = tabState.editingCell;
@@ -70,6 +76,12 @@ export function DataSection({
   const stagedChanges = useTabStagedChanges(tabId);
   const [isApplying, setIsApplying] = useState(false);
   const [applyError, setApplyError] = useState<string | null>(null);
+  const [transactionResult, setTransactionResult] = useState<{
+    kind: "success" | "partial" | "failure";
+    succeeded: number;
+    failed: number;
+    durationMs: number;
+  } | null>(null);
 
   const introspect = useIntrospect(connectionId);
 
@@ -105,10 +117,6 @@ export function DataSection({
 
   const handleSort = (column: string) => {
     store.setSorts(tabId, cycleColumnSort(sorts, column));
-  };
-
-  const handleRefresh = () => {
-    query.refetch();
   };
 
   // React to header Refresh clicks — refetch rows when the counter increments.
@@ -162,6 +170,7 @@ export function DataSection({
 
       const successIds: string[] = [];
       const failures: Array<{ id: string; error: string }> = [];
+      const startTime = Date.now();
 
       for (const change of changesToApply) {
         try {
@@ -187,24 +196,31 @@ export function DataSection({
           }
           successIds.push(change.id);
         } catch (err) {
+          const rawMsg = err instanceof Error ? err.message : String(err);
+          const classified = classifyConstraintError(rawMsg);
           failures.push({
             id: change.id,
-            error: err instanceof Error ? err.message : String(err),
+            error: classified.userMessage,
           });
         }
       }
 
+      const durationMs = Date.now() - startTime;
+
       if (failures.length === 0) {
         useStagedChangesStore.getState().removeByIds(tabId, successIds);
         query.refetch();
+        setTransactionResult({ kind: "success", succeeded: successIds.length, failed: 0, durationMs });
       } else if (successIds.length > 0) {
         useStagedChangesStore.getState().removeByIds(tabId, successIds);
         useStagedChangesStore.getState().markFailedByIds(tabId, failures);
         setApplyError(failures[0].error);
         query.refetch();
+        setTransactionResult({ kind: "partial", succeeded: successIds.length, failed: failures.length, durationMs });
       } else {
         setApplyError(failures[0].error);
         useStagedChangesStore.getState().markFailedByIds(tabId, failures);
+        setTransactionResult({ kind: "failure", succeeded: 0, failed: failures.length, durationMs });
       }
 
       setIsApplying(false);
@@ -242,7 +258,36 @@ export function DataSection({
   const handleRevertAll = useCallback(() => {
     useStagedChangesStore.getState().clearTab(tabId);
     setApplyError(null);
+    setTransactionResult(null);
   }, [tabId]);
+
+  /* ---- Cmd/Ctrl+Enter: apply staged changes ---- */
+
+  const handleGridKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter" && stagedChanges.length > 0 && !isApplying) {
+        e.preventDefault();
+        handleApply();
+      }
+    },
+    [stagedChanges.length, isApplying, handleApply],
+  );
+
+  /* ---- batch delete selected rows ---- */
+
+  const handleBatchDelete = useCallback(
+    (selectedRows: Set<number>) => {
+      if (!pkColumns.length || selectedRows.size === 0) return;
+      for (const rowIdx of selectedRows) {
+        const row = rows[rowIdx];
+        if (row) {
+          const pkValues = getPkValues(row);
+          useStagedChangesStore.getState().stageDeleteRow(tabId, pkValues);
+        }
+      }
+    },
+    [pkColumns, rows, getPkValues, tabId],
+  );
 
   const errorMessage = query.isError
     ? ((query.error as { userMessage?: string })?.userMessage ?? t("common.states.error"))
@@ -256,14 +301,19 @@ export function DataSection({
           rowCount={totalCount}
           filters={filters}
           sorts={sorts}
+          draftFilters={draftFilters}
+          draftSorts={draftSorts}
           hiddenColumns={hiddenColumns}
-          onAddFilter={(f) => store.addFilter(tabId, f)}
-          onRemoveFilter={(i) => store.removeFilter(tabId, i)}
-          onSetSorts={(s) => store.setSorts(tabId, s)}
+          onAddDraftFilter={(f) => store.addDraftFilter(tabId, f)}
+          onRemoveDraftFilter={(i) => store.removeDraftFilter(tabId, i)}
+          onApplyFilters={() => store.applyFilters(tabId)}
+          onClearFilters={() => store.clearFilters(tabId)}
+          onAddDraftSort={(s) => store.addDraftSort(tabId, s)}
+          onRemoveDraftSort={(i) => store.removeDraftSort(tabId, i)}
+          onApplySorts={() => store.applySorts(tabId)}
+          onClearSorts={() => store.clearSorts(tabId)}
           onToggleHiddenColumn={(c) => store.toggleHiddenColumn(tabId, c)}
           onShowAllColumns={() => store.setHiddenColumns(tabId, [])}
-          onRefresh={handleRefresh}
-          isRefreshing={query.isRefetching}
         />
       }
       footer={
@@ -288,7 +338,9 @@ export function DataSection({
             onApply={handleApply}
             onRevertAll={handleRevertAll}
             onRetryFailed={handleRetryFailed}
+            onBatchDelete={handleBatchDelete}
           />
+          <TransactionFeedback result={transactionResult} onDismiss={() => setTransactionResult(null)} />
           {applyError && (
             <div className="mx-3 mt-2 rounded-sm bg-destructive px-3 py-1.5 text-xs text-white">
               {applyError}
@@ -311,6 +363,7 @@ export function DataSection({
             onToggleFreezeColumn={(c) => store.toggleFrozenColumn(tabId, c)}
             columnWidths={columnWidths}
             onColumnWidthsChange={(w) => store.setColumnWidths(tabId, w)}
+            onKeyDown={handleGridKeyDown}
           />
         </>
       )}

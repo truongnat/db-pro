@@ -1,6 +1,5 @@
 import { useState } from "react";
-
-import { ArrowUpDown, Columns3, Filter, RefreshCw } from "lucide-react";
+import { ArrowUpDown, Columns3, Filter, Trash2 } from "lucide-react";
 
 import { useTranslation } from "@/commons/locales/useTranslation";
 import { Button } from "@/components/ui/button";
@@ -22,16 +21,25 @@ import { VisualFilterBuilder } from "./visual-filter-builder";
 interface DataToolbarProps {
   columns: ColumnMeta[];
   rowCount: number;
+  /** Applied filters (drive the query). */
   filters: GridFilter[];
+  /** Applied sorts (drive the query). */
   sorts: GridSort[];
+  /** Draft filters (UI-only, not yet applied). */
+  draftFilters: GridFilter[];
+  /** Draft sorts (UI-only, not yet applied). */
+  draftSorts: GridSort[];
   hiddenColumns: string[];
-  onAddFilter: (filter: GridFilter) => void;
-  onRemoveFilter: (index: number) => void;
-  onSetSorts: (sorts: GridSort[]) => void;
+  onAddDraftFilter: (filter: GridFilter) => void;
+  onRemoveDraftFilter: (index: number) => void;
+  onApplyFilters: () => void;
+  onClearFilters: () => void;
+  onAddDraftSort: (sort: GridSort) => void;
+  onRemoveDraftSort: (index: number) => void;
+  onApplySorts: () => void;
+  onClearSorts: () => void;
   onToggleHiddenColumn: (column: string) => void;
   onShowAllColumns: () => void;
-  onRefresh: () => void;
-  isRefreshing: boolean;
 }
 
 export function DataToolbar({
@@ -39,14 +47,19 @@ export function DataToolbar({
   rowCount,
   filters,
   sorts,
+  draftFilters,
+  draftSorts,
   hiddenColumns,
-  onAddFilter,
-  onRemoveFilter,
-  onSetSorts,
+  onAddDraftFilter,
+  onRemoveDraftFilter,
+  onApplyFilters,
+  onClearFilters,
+  onAddDraftSort,
+  onRemoveDraftSort,
+  onApplySorts,
+  onClearSorts,
   onToggleHiddenColumn,
   onShowAllColumns,
-  onRefresh,
-  isRefreshing,
 }: DataToolbarProps) {
   const { t } = useTranslation();
   const [sortColumn, setSortColumn] = useState(columns[0]?.name ?? "");
@@ -61,10 +74,7 @@ export function DataToolbar({
 
   const handleAddSort = () => {
     if (!sortColumn) return;
-    onSetSorts([
-      ...sorts.filter((s) => s.column !== sortColumn),
-      { column: sortColumn, direction: sortDir },
-    ]);
+    onAddDraftSort({ column: sortColumn, direction: sortDir });
   };
 
   const dirLabel = (d: "asc" | "desc") => t(d === "asc" ? "dataGrid.sortAsc" : "dataGrid.sortDesc");
@@ -86,9 +96,12 @@ export function DataToolbar({
           <PopoverContent align="start" sideOffset={6} className="w-80">
             <VisualFilterBuilder
               columns={columns}
-              filters={filters}
-              onAddFilter={onAddFilter}
-              onRemoveFilter={onRemoveFilter}
+              draftFilters={draftFilters}
+              onAddDraftFilter={onAddDraftFilter}
+              onRemoveDraftFilter={onRemoveDraftFilter}
+              onApply={onApplyFilters}
+              onClear={onClearFilters}
+              appliedCount={filters.length}
             />
           </PopoverContent>
         </Popover>
@@ -102,50 +115,42 @@ export function DataToolbar({
             </Button>
           </PopoverTrigger>
           <PopoverContent align="start" sideOffset={6} className="w-80">
-            <div className="flex flex-col gap-2.5">
-              {sorts.length > 0 && (
-                <div className="flex flex-col gap-1">
-                  {sorts.map((s, i) => (
+            <div className="flex flex-col gap-2.5 p-1">
+              {/* Draft sort rows */}
+              {draftSorts.length > 0 && (
+                <div className="flex flex-col gap-1.5">
+                  {draftSorts.map((s, i) => (
                     <div
-                      key={s.column}
-                      className="flex items-center justify-between gap-2 rounded-sm bg-muted px-2 py-1 text-xs"
+                      key={`${s.column}-${i}`}
+                      className="flex items-center gap-2 rounded-md bg-muted/50 px-2 py-1.5 text-xs"
                     >
-                      <span className="font-medium">{s.column}</span>
-                      <div className="flex items-center gap-1">
-                        <button
-                          type="button"
-                          className="px-1 text-[var(--app-text-muted)] hover:text-foreground"
-                          onClick={() => {
-                            onSetSorts(
-                              sorts.map((x, idx) =>
-                                idx === i
-                                  ? { ...x, direction: x.direction === "asc" ? "desc" : "asc" }
-                                  : x,
-                              ),
-                            );
-                          }}
-                          title={dirLabel(s.direction)}
-                        >
-                          {s.direction === "asc" ? "\u25B2" : "\u25BC"}
-                        </button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="h-auto px-1 py-0 text-xs opacity-60 hover:bg-transparent hover:opacity-100"
-                          onClick={() => onSetSorts(sorts.filter((_, idx) => idx !== i))}
-                        >
-                          ×
-                        </Button>
-                      </div>
+                      <span className="font-medium text-foreground">{s.column}</span>
+                      <span className="text-[var(--app-text-muted)]">
+                        {dirLabel(s.direction)}
+                      </span>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="ml-auto h-5 w-5 p-0 text-[var(--app-text-muted)] hover:bg-destructive/10 hover:text-destructive"
+                            onClick={() => onRemoveDraftSort(i)}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Remove sort</TooltipContent>
+                      </Tooltip>
                     </div>
                   ))}
                 </div>
               )}
 
+              {/* Add sort row */}
               <div className="flex items-center gap-2">
                 <Select value={sortColumn} onValueChange={setSortColumn}>
-                  <SelectTrigger className="w-auto text-xs">
+                  <SelectTrigger className="h-7 w-auto text-xs">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -158,7 +163,7 @@ export function DataToolbar({
                 </Select>
 
                 <Select value={sortDir} onValueChange={(v) => setSortDir(v as "asc" | "desc")}>
-                  <SelectTrigger className="w-auto text-xs">
+                  <SelectTrigger className="h-7 w-auto text-xs">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -171,10 +176,33 @@ export function DataToolbar({
                   type="button"
                   variant="ghost"
                   size="sm"
-                  className="h-auto px-2 py-1 text-xs text-primary hover:bg-background"
+                  className="h-7 shrink-0 px-2 text-xs text-primary hover:bg-background"
                   onClick={handleAddSort}
                 >
-                  {t("dataGrid.addSort")}
+                  + {t("dataGrid.addSort")}
+                </Button>
+              </div>
+
+              {/* Footer: Apply / Clear */}
+              <div className="flex items-center justify-between border-t border-[var(--app-border-subtle)] pt-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-xs text-[var(--app-text-muted)] hover:bg-background"
+                  onClick={onClearSorts}
+                  disabled={sorts.length === 0 && draftSorts.length === 0}
+                >
+                  {t("common.actions.clear")}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-7 px-3 text-xs"
+                  onClick={onApplySorts}
+                  disabled={draftSorts.length === 0}
+                >
+                  {t("common.actions.apply")}
                 </Button>
               </div>
             </div>
@@ -224,23 +252,6 @@ export function DataToolbar({
             </ScrollArea>
           </PopoverContent>
         </Popover>
-
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              type="button"
-              variant="ghost"
-              className={toolButton}
-              onClick={onRefresh}
-              disabled={isRefreshing}
-              aria-label={t("dataGrid.refresh")}
-            >
-              <RefreshCw className={isRefreshing ? "animate-spin" : undefined} />
-              {t("dataGrid.refresh")}
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>{t("dataGrid.refresh")}</TooltipContent>
-        </Tooltip>
       </div>
 
       <span className="px-1 text-[11px] text-[var(--app-text-muted)]">

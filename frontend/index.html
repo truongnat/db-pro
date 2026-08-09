@@ -10,7 +10,12 @@
         try {
           var stored = JSON.parse(localStorage.getItem("db-pro-theme"));
           var theme = stored && stored.state && stored.state.mode;
-          if (theme) document.documentElement.setAttribute("data-theme", theme);
+          var resolved = "dark";
+          if (theme === "light") resolved = "light";
+          else if (theme === "system" || !theme) {
+            resolved = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+          }
+          document.documentElement.setAttribute("data-theme", resolved);
         } catch (e) {
           /* ignore */
         }

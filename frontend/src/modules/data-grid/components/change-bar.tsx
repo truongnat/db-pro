@@ -9,6 +9,7 @@ interface ChangeBarProps {
   onApply: () => void;
   onRevertAll: () => void;
   onRetryFailed?: () => void;
+  onBatchDelete?: (selectedRows: Set<number>) => void;
 }
 
 export function ChangeBar({
@@ -17,6 +18,7 @@ export function ChangeBar({
   onApply,
   onRevertAll,
   onRetryFailed,
+  onBatchDelete,
 }: ChangeBarProps) {
   const { t } = useTranslation();
 

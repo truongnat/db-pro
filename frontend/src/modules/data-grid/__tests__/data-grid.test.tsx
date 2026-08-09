@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { I18nextProvider, initReactI18next } from "react-i18next";
 import i18n from "i18next";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 i18n.use(initReactI18next).init({
   resources: {
@@ -74,7 +75,9 @@ function renderGrid(props: Partial<React.ComponentProps<typeof DataGrid>> = {}) 
   };
   return render(
     <I18nextProvider i18n={i18n}>
-      <DataGrid {...defaults} {...props} />
+      <TooltipProvider>
+        <DataGrid {...defaults} {...props} />
+      </TooltipProvider>
     </I18nextProvider>,
   );
 }

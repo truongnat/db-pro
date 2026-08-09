@@ -515,7 +515,8 @@
       "indexes": "Indexes",
       "relations": "Relations",
       "ddl": "DDL",
-      "triggers": "Triggers"
+      "triggers": "Triggers",
+      "diagram": "Diagram"
     },
     "unsupportedObjectType": "This object type is not yet supported.",
     "contextHeader": {

@@ -26,11 +26,11 @@
 | Data Grid insert | DEFERRED | not a complete 0.1.0 workflow |
 | Export | DONE release subset | manual smoke required |
 | SSH tunnel | PARTIAL | plumbing exists; cross-platform E2E not complete |
-| Schema mutation / users/roles | DEFERRED | post-0.1 |
+| Schema mutation / users/roles | PARTIAL | Column editing workbench shipped (P2.7); full schema mutation/users/roles post-0.1 |
 | Agent | PREVIEW | production Agent execution excluded |
 | MCP | DEFERRED | not shipped in 0.1.0 |
-| Frontend typecheck/lint/format | PASS at `912588f` (local report) | typecheck 0 errors; lint 0 errors / 1 pre-existing warning; Prettier clean |
-| Frontend full tests/build | PENDING | known tab-factories failure fixed; full Vitest/build still not executed at `912588f` |
+| Frontend typecheck/lint/format | PASS | 0 typecheck errors; 1109/1109 tests pass; Vite build clean |
+| P2 Hardening Program | DONE | P2.0–P2.11 all complete; see docs/quality/p2-hardening-code-audit.md |
 | Packaging workflow | DONE definition | current release artifacts not proven |
 | Release verification | BLOCKED | full automated + artifact + manual runtime evidence incomplete |
 
@@ -98,6 +98,31 @@ No Wave C/MCP work should begin before release gates close.
 
 ---
 
+## P2 Hardening Program — Complete
+
+All 11 waves of the P2 Hardening Program are complete. See `docs/quality/p2-hardening-code-audit.md` for the full audit report.
+
+| Wave | Focus | Status |
+|---|---|---|
+| P2.0 | Fixture database (postgres-p2-hardening/) | DONE |
+| P2.1 | Theme system/light/dark + text selection audit | DONE |
+| P2.2 | Workspace tab IDE context actions | DONE |
+| P2.3 | DB Object header action hierarchy | DONE |
+| P2.4 | Filter + Sort draft/apply rearchitecture | DONE |
+| P2.5 | Data Grid scroll/layout/cell UX | DONE |
+| P2.6 | Edit modes + batch delete + transaction feedback | DONE |
+| P2.7 | Column/schema editing safety workbench | DONE |
+| P2.8 | Index/Relation/Trigger/DDL hardening | DONE |
+| P2.9 | ER Diagram (React Flow + dagre) | DONE |
+| P2.10 | Code quality / modern API audit | DONE |
+| P2.11 | Full regression (1109 tests, 0 TS errors, build clean) | DONE |
+
+**Test counts:** 96 test files, 1109 tests, all passing.  
+**TypeScript:** 0 errors.  
+**Vite build:** successful.
+
+---
+
 ## Current Release Blockers (P1)
 
 ### P1-1 — Exact-SHA automated verification is incomplete
@@ -152,12 +177,14 @@ Verify startup/reconnect, PostgreSQL error paths, SQLite Browse, Explorer refres
 - Unsigned release artifacts unless signing is added.
 - SSH tunnel not yet E2E-qualified across release targets.
 - Complete row insertion deferred.
-- Advanced schema mutation/users/roles deferred.
+- Advanced schema mutation/users/roles deferred (column editing workbench shipped in P2.7).
 - Agent remains Preview; MCP deferred.
 - JSON cell inspection/context-menu accessibility can improve.
 - Clipboard failure feedback can improve.
 - Historical coverage percentage targets need re-measurement.
 - Public project license is not defined.
+- Grid context menu uses custom `fixed div` rather than Radix ContextMenu (future improvement).
+- Query key stale time could be tuned for introspection data (low-risk).
 
 ---
 

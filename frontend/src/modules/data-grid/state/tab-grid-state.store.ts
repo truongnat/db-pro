@@ -7,6 +7,8 @@ import type { ChartConfig } from "./data-grid.store";
 export interface GridTabState {
   filters: GridFilter[];
   sorts: GridSort[];
+  draftFilters: GridFilter[];
+  draftSorts: GridSort[];
   page: number;
   pageSize: number;
   editingCell: { row: number; col: number } | null;
@@ -19,6 +21,8 @@ export interface GridTabState {
 const defaultGridState: GridTabState = {
   filters: [],
   sorts: [],
+  draftFilters: [],
+  draftSorts: [],
   page: 1,
   pageSize: 50,
   editingCell: null,
@@ -32,8 +36,27 @@ interface TabGridStateStore {
   states: Record<string, GridTabState>;
   getState: (tabId: string) => GridTabState;
   setState: (tabId: string, partial: Partial<GridTabState>) => void;
-  addFilter: (tabId: string, filter: GridFilter) => void;
-  removeFilter: (tabId: string, index: number) => void;
+  /** Add a filter to the draft list (does NOT trigger fetch). */
+  addDraftFilter: (tabId: string, filter: GridFilter) => void;
+  /** Remove a filter from the draft list by index (does NOT trigger fetch). */
+  removeDraftFilter: (tabId: string, index: number) => void;
+  /** Set draft filters (does NOT trigger fetch). */
+  setDraftFilters: (tabId: string, filters: GridFilter[]) => void;
+  /** Apply draft filters → applied filters, reset page, trigger fetch. */
+  applyFilters: (tabId: string) => void;
+  /** Clear all filters (draft + applied), reset page. */
+  clearFilters: (tabId: string) => void;
+  /** Add a sort to the draft list (does NOT trigger fetch). */
+  addDraftSort: (tabId: string, sort: GridSort) => void;
+  /** Remove a sort from the draft list by index (does NOT trigger fetch). */
+  removeDraftSort: (tabId: string, index: number) => void;
+  /** Set draft sorts (does NOT trigger fetch). */
+  setDraftSorts: (tabId: string, sorts: GridSort[]) => void;
+  /** Apply draft sorts → applied sorts, trigger fetch. */
+  applySorts: (tabId: string) => void;
+  /** Clear all sorts (draft + applied). */
+  clearSorts: (tabId: string) => void;
+  /** Set applied sorts directly (for header-click immediate sort). */
   setSorts: (tabId: string, sorts: GridSort[]) => void;
   setPage: (tabId: string, page: number) => void;
   setPageSize: (tabId: string, size: number) => void;
@@ -66,29 +89,107 @@ export const useTabGridStateStore = create<TabGridStateStore>()(
           },
         })),
 
-      addFilter: (tabId, filter) =>
-        set((s) => ({
-          states: {
-            ...s.states,
-            [tabId]: {
-              ...ensureTab(s.states, tabId),
-              filters: [...ensureTab(s.states, tabId).filters, filter],
-              page: 1,
+      addDraftFilter: (tabId, filter) =>
+        set((s) => {
+          const current = ensureTab(s.states, tabId);
+          return {
+            states: {
+              ...s.states,
+              [tabId]: { ...current, draftFilters: [...current.draftFilters, filter] },
             },
-          },
-        })),
+          };
+        }),
 
-      removeFilter: (tabId, index) =>
-        set((s) => ({
-          states: {
-            ...s.states,
-            [tabId]: {
-              ...ensureTab(s.states, tabId),
-              filters: ensureTab(s.states, tabId).filters.filter((_, i) => i !== index),
-              page: 1,
+      removeDraftFilter: (tabId, index) =>
+        set((s) => {
+          const current = ensureTab(s.states, tabId);
+          return {
+            states: {
+              ...s.states,
+              [tabId]: {
+                ...current,
+                draftFilters: current.draftFilters.filter((_, i) => i !== index),
+              },
             },
-          },
-        })),
+          };
+        }),
+
+      setDraftFilters: (tabId, filters) =>
+        set((s) => {
+          const current = ensureTab(s.states, tabId);
+          return { states: { ...s.states, [tabId]: { ...current, draftFilters: filters } } };
+        }),
+
+      applyFilters: (tabId) =>
+        set((s) => {
+          const current = ensureTab(s.states, tabId);
+          return {
+            states: {
+              ...s.states,
+              [tabId]: { ...current, filters: [...current.draftFilters], page: 1 },
+            },
+          };
+        }),
+
+      clearFilters: (tabId) =>
+        set((s) => {
+          const current = ensureTab(s.states, tabId);
+          return {
+            states: {
+              ...s.states,
+              [tabId]: { ...current, filters: [], draftFilters: [], page: 1 },
+            },
+          };
+        }),
+
+      addDraftSort: (tabId, sort) =>
+        set((s) => {
+          const current = ensureTab(s.states, tabId);
+          const next = [...current.draftSorts.filter((x) => x.column !== sort.column), sort];
+          return { states: { ...s.states, [tabId]: { ...current, draftSorts: next } } };
+        }),
+
+      removeDraftSort: (tabId, index) =>
+        set((s) => {
+          const current = ensureTab(s.states, tabId);
+          return {
+            states: {
+              ...s.states,
+              [tabId]: {
+                ...current,
+                draftSorts: current.draftSorts.filter((_, i) => i !== index),
+              },
+            },
+          };
+        }),
+
+      setDraftSorts: (tabId, sorts) =>
+        set((s) => {
+          const current = ensureTab(s.states, tabId);
+          return { states: { ...s.states, [tabId]: { ...current, draftSorts: sorts } } };
+        }),
+
+      applySorts: (tabId) =>
+        set((s) => {
+          const current = ensureTab(s.states, tabId);
+          return {
+            states: {
+              ...s.states,
+              [tabId]: { ...current, sorts: [...current.draftSorts] },
+            },
+          };
+        }),
+
+      clearSorts: (tabId) =>
+        set((s) => {
+          const current = ensureTab(s.states, tabId);
+          return {
+            states: {
+              ...s.states,
+              [tabId]: { ...current, sorts: [], draftSorts: [] },
+            },
+          };
+        }),
 
       setSorts: (tabId, sorts) =>
         set((s) => ({

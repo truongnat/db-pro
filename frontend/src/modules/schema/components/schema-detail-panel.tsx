@@ -101,7 +101,7 @@ export function SchemaDetailPanel({
         )}
 
         {activeTab === "foreignKeys" && tableInfo.data && (
-          <ForeignKeyList foreignKeys={tableInfo.data.foreignKeys} />
+          <ForeignKeyList foreignKeys={tableInfo.data.foreignKeys} connectionId={connectionId} />
         )}
 
         {activeTab === "ddl" && (

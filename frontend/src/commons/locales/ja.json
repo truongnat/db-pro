@@ -491,7 +491,8 @@
       "indexes": "インデックス",
       "relations": "リレーション",
       "ddl": "DDL",
-      "triggers": "トリガー"
+      "triggers": "トリガー",
+      "diagram": "ダイアグラム"
     },
     "unsupportedObjectType": "このオブジェクトタイプはまだサポートされていません。",
     "contextHeader": {

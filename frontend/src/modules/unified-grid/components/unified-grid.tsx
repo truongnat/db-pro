@@ -1,8 +1,10 @@
 import { useRef, useCallback, useState, useEffect } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
+import { Trash2 } from "lucide-react";
 
 import { renderCellValue } from "@/modules/query/types/query.types";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 import type { CellValue, ColumnMeta, GridSort, Row } from "../types";
 
@@ -64,6 +66,7 @@ export interface UnifiedGridProps {
   renderHeaderExtra?: (col: ColumnMeta) => React.ReactNode;
   renderCellEditor?: (cell: CellValue) => React.ReactNode;
   renderJsonCell?: (value: unknown) => React.ReactNode;
+  onKeyDown?: (e: React.KeyboardEvent) => void;
 }
 
 /* ------------------------------------------------------------------ */
@@ -96,6 +99,7 @@ export function UnifiedGrid({
   renderHeaderExtra,
   renderCellEditor,
   renderJsonCell,
+  onKeyDown: externalKeyDown,
 }: UnifiedGridProps) {
   const parentRef = useRef<HTMLDivElement>(null);
   const gridContainerRef = useRef<HTMLDivElement>(null);
@@ -234,6 +238,10 @@ export function UnifiedGrid({
   /* ---- keyboard copy (B1.2 / B1.3) — scoped to grid focus ---- */
   const handleGridKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
+      // Let external handler run first (e.g. Cmd+Enter to apply)
+      externalKeyDown?.(e);
+      if (e.defaultPrevented) return;
+
       // Do not intercept copy when focus is inside an editable element
       const target = e.target as HTMLElement;
       if (
@@ -260,7 +268,7 @@ export function UnifiedGrid({
         navigator.clipboard.writeText(lines.join("\n")).catch(() => {});
       }
     },
-    [selection, rows, orderedColumns, columns],
+    [selection, rows, orderedColumns, columns, externalKeyDown],
   );
 
   /* ---- handlers ---- */
@@ -410,11 +418,15 @@ export function UnifiedGrid({
         </div>
       )}
 
-      {/* Zoomable content wrapper (header + rows) */}
-      <div style={contentStyle} className="flex h-full min-h-0 flex-col">
-        {/* Header row */}
+      {/* Grid viewport — single scroll owner for both axes */}
+      <div
+        ref={parentRef}
+        style={contentStyle}
+        className="flex h-full min-h-0 flex-col overflow-auto"
+      >
+        {/* Sticky header — scrolls horizontally with body, stays on top vertically */}
         <div
-          className="grid shrink-0 border-b border-[var(--app-border)] bg-muted/30 text-[11px]"
+          className="grid sticky top-0 z-[2] shrink-0 border-b border-[var(--app-border)] bg-muted text-[11px]"
           style={{ ...gridStyle, minHeight: "var(--grid-header-height)" }}
         >
           <div className="flex items-center px-2 py-2 text-[var(--app-text-dim)]">#</div>
@@ -425,9 +437,8 @@ export function UnifiedGrid({
               <div
                 key={col.name}
                 className={
-                  "relative flex flex-col gap-0.5 px-3 py-1.5" + (isFrozen ? " bg-muted/30" : "")
+                  "relative flex flex-col gap-0.5 bg-muted px-3 py-1.5" + (isFrozen ? " font-semibold" : "")
                 }
-                style={isFrozen ? { fontWeight: 600 } : undefined}
                 onContextMenu={(e) => handleColumnContextMenu(e, col.name)}
               >
                 <span
@@ -457,112 +468,114 @@ export function UnifiedGrid({
         </div>
 
         {/* Virtual rows */}
-        <div ref={parentRef} className="flex-1 overflow-auto">
-          <div
-            style={{
-              height: virtualizer.getTotalSize(),
-              width: "100%",
-              position: "relative",
-            }}
-          >
-            {virtualizer.getVirtualItems().map((virtualRow) => {
-              const row = rows[virtualRow.index];
-              const isSelected = selection.has(virtualRow.index);
-              return (
+        <div
+          style={{
+            height: virtualizer.getTotalSize(),
+            width: "100%",
+            position: "relative",
+          }}
+        >
+          {virtualizer.getVirtualItems().map((virtualRow) => {
+            const row = rows[virtualRow.index];
+            const isSelected = selection.has(virtualRow.index);
+            return (
+              <div
+                key={virtualRow.key}
+                className={
+                  "grid absolute w-full border-b border-[var(--app-border-subtle)]/60 text-[12.5px] transition-colors" +
+                  (isSelected ? " bg-primary/10" : " hover:bg-[var(--app-hover)]")
+                }
+                style={{ ...gridStyle, top: virtualRow.start, height: "var(--grid-row-height)" }}
+                data-index={virtualRow.index}
+              >
+                {/* Row number — clickable for selection (B1.3) */}
                 <div
-                  key={virtualRow.key}
                   className={
-                    "grid absolute w-full border-b border-[var(--app-border-subtle)]/60 text-[12.5px] transition-colors" +
-                    (isSelected ? " bg-primary/10" : " hover:bg-[var(--app-hover)]")
+                    "flex cursor-pointer select-none items-center px-2 text-[11px]" +
+                    (isSelected
+                      ? " bg-primary/20 font-medium text-primary"
+                      : " text-[var(--app-text-dim)]")
                   }
-                  style={{ ...gridStyle, top: virtualRow.start, height: "var(--grid-row-height)" }}
-                  data-index={virtualRow.index}
+                  onClick={(e) => handleRowNumberClick(e, virtualRow.index)}
                 >
-                  {/* Row number — clickable for selection (B1.3) */}
-                  <div
-                    className={
-                      "flex cursor-pointer select-none items-center px-2 text-[11px]" +
-                      (isSelected
-                        ? " bg-primary/20 font-medium text-primary"
-                        : " text-[var(--app-text-dim)]")
-                    }
-                    onClick={(e) => handleRowNumberClick(e, virtualRow.index)}
-                  >
-                    {virtualRow.index + 1}
-                  </div>
-
-                  {/* Cells */}
-                  {orderedColumns.map((col) => {
-                    const colIdx = getColumnIndex(col);
-                    const cell = row[colIdx];
-                    const display = renderCellValue(cell);
-                    const isNull = cell.type === "null";
-                    const isJson = cell.type === "json";
-                    const isEditing =
-                      editingCell?.row === virtualRow.index && editingCell?.col === colIdx;
-                    const isFrozen = frozenSet.has(col.name);
-
-                    return (
-                      <div
-                        key={col.name}
-                        className={
-                          "flex items-center overflow-hidden px-3 text-ellipsis whitespace-nowrap" +
-                          (isNull ? " text-[var(--app-text-dim)]" : " text-foreground") +
-                          (isFrozen ? " bg-muted/20" : "")
-                        }
-                        style={isNull ? { fontStyle: "italic" } : undefined}
-                        title={isJson ? undefined : display}
-                        onDoubleClick={() => handleDoubleClick(virtualRow.index, colIdx)}
-                        onContextMenu={(e) =>
-                          handleCellContextMenu(e, col.name, virtualRow.index, colIdx)
-                        }
-                      >
-                        {isEditing && onCellSave && onEditCell ? (
-                          renderCellEditor ? (
-                            renderCellEditor(cell)
-                          ) : (
-                            <InlineCellEditor
-                              value={cell}
-                              onSave={(newValue) => {
-                                onCellSave(virtualRow.index, colIdx, newValue);
-                                onEditCell(null);
-                              }}
-                              onCancel={() => onEditCell(null)}
-                            />
-                          )
-                        ) : isJson && cell.type === "json" ? (
-                          renderJsonCell ? (
-                            renderJsonCell(cell.value)
-                          ) : (
-                            <JsonPreview value={cell.value} />
-                          )
-                        ) : (
-                          display
-                        )}
-                      </div>
-                    );
-                  })}
-
-                  {/* Row actions */}
-                  {hasRowActions && (
-                    <div className="flex items-center justify-center px-1">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 w-6 p-0 text-destructive hover:text-destructive"
-                        disabled={isDeleting}
-                        onClick={() => onDeleteRow!(virtualRow.index)}
-                        title="Delete row"
-                      >
-                        ×
-                      </Button>
-                    </div>
-                  )}
+                  {virtualRow.index + 1}
                 </div>
-              );
-            })}
-          </div>
+
+                {/* Cells */}
+                {orderedColumns.map((col) => {
+                  const colIdx = getColumnIndex(col);
+                  const cell = row[colIdx];
+                  const display = renderCellValue(cell);
+                  const isNull = cell.type === "null";
+                  const isJson = cell.type === "json";
+                  const isEditing =
+                    editingCell?.row === virtualRow.index && editingCell?.col === colIdx;
+                  const isFrozen = frozenSet.has(col.name);
+
+                  return (
+                    <div
+                      key={col.name}
+                      className={
+                        "relative flex items-center overflow-hidden px-3 text-ellipsis whitespace-nowrap" +
+                        (isNull ? " text-[var(--app-text-dim)]" : " text-foreground") +
+                        (isFrozen ? " bg-muted/20" : "")
+                      }
+                      style={isNull ? { fontStyle: "italic" } : undefined}
+                      title={isJson ? undefined : display}
+                      onDoubleClick={() => handleDoubleClick(virtualRow.index, colIdx)}
+                      onContextMenu={(e) =>
+                        handleCellContextMenu(e, col.name, virtualRow.index, colIdx)
+                      }
+                    >
+                      {isEditing && onCellSave && onEditCell ? (
+                        renderCellEditor ? (
+                          renderCellEditor(cell)
+                        ) : (
+                          <InlineCellEditor
+                            value={cell}
+                            onSave={(newValue) => {
+                              onCellSave(virtualRow.index, colIdx, newValue);
+                              onEditCell(null);
+                            }}
+                            onCancel={() => onEditCell(null)}
+                          />
+                        )
+                      ) : isJson && cell.type === "json" ? (
+                        renderJsonCell ? (
+                          renderJsonCell(cell.value)
+                        ) : (
+                          <JsonPreview value={cell.value} />
+                        )
+                      ) : (
+                        display
+                      )}
+                    </div>
+                  );
+                })}
+
+                {/* Row actions */}
+                {hasRowActions && (
+                  <div className="flex items-center justify-center px-1">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0 text-[var(--app-text-muted)] hover:bg-destructive/10 hover:text-destructive"
+                          disabled={isDeleting}
+                          onClick={() => onDeleteRow!(virtualRow.index)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Delete row</TooltipContent>
+                    </Tooltip>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -605,7 +618,7 @@ function InlineCellEditor({
 
   return (
     <input
-      className="absolute inset-0 z-10 w-full border border-primary bg-background px-2 py-0 text-xs outline-none"
+      className="absolute inset-0 z-10 h-full w-full border border-primary bg-background px-2 text-xs outline-none"
       value={text}
       onChange={(e) => setText(e.target.value)}
       onKeyDown={handleKeyDown}

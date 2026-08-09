@@ -47,34 +47,92 @@ describe("TabGridStateStore", () => {
     });
   });
 
-  describe("addFilter / removeFilter", () => {
-    it("addFilter appends filter and resets page to 1", () => {
-      const { addFilter, setState, getState } = useTabGridStateStore.getState();
-      setState("tab-1", { page: 5 });
-      addFilter("tab-1", { column: "name", operator: "contains", value: "John", enabled: true });
+  describe("draft filters (addDraftFilter / removeDraftFilter / applyFilters / clearFilters)", () => {
+    it("addDraftFilter appends to draftFilters without changing applied filters", () => {
+      const { addDraftFilter, getState } = useTabGridStateStore.getState();
+      addDraftFilter("tab-1", { column: "name", op: "like", value: { type: "text", value: "John" } });
       const state = getState("tab-1");
-      expect(state.filters).toHaveLength(1);
+      expect(state.draftFilters).toHaveLength(1);
+      expect(state.draftFilters[0].column).toBe("name");
+      expect(state.filters).toHaveLength(0); // applied unchanged
+    });
+
+    it("applyFilters copies draft → applied and resets page", () => {
+      const { addDraftFilter, setState, applyFilters, getState } = useTabGridStateStore.getState();
+      setState("tab-1", { page: 5 });
+      addDraftFilter("tab-1", { column: "name", op: "like", value: { type: "text", value: "A" } });
+      addDraftFilter("tab-1", { column: "age", op: "gt", value: { type: "int64", value: 18 } });
+      applyFilters("tab-1");
+      const state = getState("tab-1");
+      expect(state.filters).toHaveLength(2);
       expect(state.filters[0].column).toBe("name");
+      expect(state.filters[1].column).toBe("age");
       expect(state.page).toBe(1);
     });
 
-    it("addFilter supports multiple filters", () => {
-      const { addFilter, getState } = useTabGridStateStore.getState();
-      addFilter("tab-1", { column: "name", operator: "contains", value: "A", enabled: true });
-      addFilter("tab-1", { column: "age", operator: "gt", value: "18", enabled: true });
-      expect(getState("tab-1").filters).toHaveLength(2);
-    });
-
-    it("removeFilter removes by index and resets page", () => {
-      const { addFilter, removeFilter, setState, getState } = useTabGridStateStore.getState();
-      setState("tab-1", { page: 5 });
-      addFilter("tab-1", { column: "a", operator: "eq", value: "1", enabled: true });
-      addFilter("tab-1", { column: "b", operator: "eq", value: "2", enabled: true });
-      removeFilter("tab-1", 0);
+    it("removeDraftFilter removes by index from draft list", () => {
+      const { addDraftFilter, removeDraftFilter, getState } = useTabGridStateStore.getState();
+      addDraftFilter("tab-1", { column: "a", op: "eq", value: { type: "text", value: "1" } });
+      addDraftFilter("tab-1", { column: "b", op: "eq", value: { type: "text", value: "2" } });
+      removeDraftFilter("tab-1", 0);
       const state = getState("tab-1");
-      expect(state.filters).toHaveLength(1);
-      expect(state.filters[0].column).toBe("b");
+      expect(state.draftFilters).toHaveLength(1);
+      expect(state.draftFilters[0].column).toBe("b");
+    });
+
+    it("clearFilters clears both draft and applied, resets page", () => {
+      const { addDraftFilter, applyFilters, clearFilters, setState, getState } =
+        useTabGridStateStore.getState();
+      setState("tab-1", { page: 3 });
+      addDraftFilter("tab-1", { column: "x", op: "eq", value: { type: "text", value: "y" } });
+      applyFilters("tab-1");
+      expect(getState("tab-1").filters).toHaveLength(1);
+      clearFilters("tab-1");
+      const state = getState("tab-1");
+      expect(state.filters).toHaveLength(0);
+      expect(state.draftFilters).toHaveLength(0);
       expect(state.page).toBe(1);
+    });
+  });
+
+  describe("draft sorts (addDraftSort / removeDraftSort / applySorts / clearSorts)", () => {
+    it("addDraftSort appends to draftSorts without changing applied sorts", () => {
+      const { addDraftSort, getState } = useTabGridStateStore.getState();
+      addDraftSort("tab-1", { column: "name", direction: "asc" });
+      const state = getState("tab-1");
+      expect(state.draftSorts).toHaveLength(1);
+      expect(state.sorts).toHaveLength(0); // applied unchanged
+    });
+
+    it("applySorts copies draft → applied", () => {
+      const { addDraftSort, applySorts, getState } = useTabGridStateStore.getState();
+      addDraftSort("tab-1", { column: "name", direction: "asc" });
+      addDraftSort("tab-1", { column: "age", direction: "desc" });
+      applySorts("tab-1");
+      const state = getState("tab-1");
+      expect(state.sorts).toHaveLength(2);
+      expect(state.sorts[0]).toEqual({ column: "name", direction: "asc" });
+    });
+
+    it("removeDraftSort removes by index from draft list", () => {
+      const { addDraftSort, removeDraftSort, getState } = useTabGridStateStore.getState();
+      addDraftSort("tab-1", { column: "a", direction: "asc" });
+      addDraftSort("tab-1", { column: "b", direction: "desc" });
+      removeDraftSort("tab-1", 0);
+      const state = getState("tab-1");
+      expect(state.draftSorts).toHaveLength(1);
+      expect(state.draftSorts[0].column).toBe("b");
+    });
+
+    it("clearSorts clears both draft and applied", () => {
+      const { addDraftSort, applySorts, clearSorts, getState } = useTabGridStateStore.getState();
+      addDraftSort("tab-1", { column: "x", direction: "asc" });
+      applySorts("tab-1");
+      expect(getState("tab-1").sorts).toHaveLength(1);
+      clearSorts("tab-1");
+      const state = getState("tab-1");
+      expect(state.sorts).toHaveLength(0);
+      expect(state.draftSorts).toHaveLength(0);
     });
   });
 

@@ -24,6 +24,7 @@ interface WorkspaceState extends PersistedWorkspaceState {
   reopenLastClosed: () => void;
   closeOthers: (id: string) => void;
   closeRight: (id: string) => void;
+  closeAll: () => void;
   closeTabs: (ids: string[]) => void;
   updateTabData: (id: string, updater: (data: QueryTabData) => QueryTabData) => void;
   setTabTitle: (id: string, title: string) => void;
@@ -182,6 +183,24 @@ export const useWorkspaceStore = create<WorkspaceState>()(
             activeTabId: findTabById(kept, state.activeTabId ?? "")
               ? state.activeTabId
               : (kept[kept.length - 1]?.id ?? null),
+            recentlyClosed,
+          };
+        });
+        gcGridState();
+      },
+
+      closeAll: () => {
+        set((state) => {
+          const evicted = state.tabs.filter((t) => !t.pinned);
+          const kept = state.tabs.filter((t) => t.pinned);
+          if (evicted.length === 0) return state;
+          const recentlyClosed = [...evicted.reverse(), ...state.recentlyClosed].slice(
+            0,
+            MAX_RECENTLY_CLOSED,
+          );
+          return {
+            tabs: kept,
+            activeTabId: kept[0]?.id ?? null,
             recentlyClosed,
           };
         });

@@ -1,7 +1,9 @@
-import { useState } from "react";
-import { Copy, FileCode2 } from "lucide-react";
+import { useState, useCallback } from "react";
+import Editor from "@monaco-editor/react";
+import { Copy, Check, FileCode2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useTranslation } from "@/commons/locales/useTranslation";
 
 interface DdlViewerProps {
@@ -14,6 +16,13 @@ interface DdlViewerProps {
 export function DdlViewer({ ddl, isLoading, error, onOpenInQuery }: DdlViewerProps) {
   const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
+
+  const handleCopy = useCallback(async () => {
+    if (!ddl) return;
+    await navigator.clipboard.writeText(ddl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }, [ddl]);
 
   if (isLoading) {
     return (
@@ -31,41 +40,72 @@ export function DdlViewer({ ddl, isLoading, error, onOpenInQuery }: DdlViewerPro
     return <div className="p-4 text-[13px] text-[var(--app-text-muted)]">{t("schema.noDdl")}</div>;
   }
 
-  const handleCopy = async () => {
-    await navigator.clipboard.writeText(ddl);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
   return (
-    <div className="relative flex-1 overflow-auto">
-      <div className="absolute right-2 top-2 z-10 flex items-center gap-1.5">
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="h-7 gap-1.5 rounded-[5px] text-[12px]"
-          onClick={handleCopy}
-        >
-          <Copy className="h-3 w-3" />
-          {copied ? t("schema.copied") : t("schema.copyDdl")}
-        </Button>
+    <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
+      {/* Toolbar */}
+      <div className="flex items-center gap-1.5 px-2 py-1.5">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 gap-1.5 rounded-[5px] text-[12px]"
+              onClick={handleCopy}
+            >
+              {copied ? (
+                <Check className="h-3 w-3 text-emerald-500" />
+              ) : (
+                <Copy className="h-3 w-3" />
+              )}
+              {copied ? t("schema.copied") : t("schema.copyDdl")}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Copy DDL to clipboard</TooltipContent>
+        </Tooltip>
         {onOpenInQuery && (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-7 gap-1.5 rounded-[5px] text-[12px]"
-            onClick={onOpenInQuery}
-          >
-            <FileCode2 className="h-3 w-3" />
-            {t("dbObject.contextHeader.openDdl")}
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 gap-1.5 rounded-[5px] text-[12px]"
+                onClick={onOpenInQuery}
+              >
+                <FileCode2 className="h-3 w-3" />
+                {t("dbObject.contextHeader.openDdl")}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Open DDL in query editor</TooltipContent>
+          </Tooltip>
         )}
       </div>
-      <pre className="overflow-auto p-4 pt-10 font-mono text-[13px] leading-relaxed text-foreground">
-        <code>{ddl}</code>
-      </pre>
+
+      {/* Monaco read-only editor */}
+      <div className="min-h-0 flex-1">
+        <Editor
+          height="100%"
+          language="sql"
+          value={ddl}
+          options={{
+            readOnly: true,
+            domReadOnly: true,
+            minimap: { enabled: false },
+            scrollBeyondLastLine: false,
+            fontSize: 13,
+            lineNumbers: "on",
+            renderLineHighlight: "none",
+            wordWrap: "on",
+            automaticLayout: true,
+            padding: { top: 8 },
+            scrollbar: {
+              verticalScrollbarSize: 8,
+              horizontalScrollbarSize: 8,
+            },
+          }}
+        />
+      </div>
     </div>
   );
 }

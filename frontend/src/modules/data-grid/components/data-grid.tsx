@@ -25,6 +25,7 @@ interface DataGridProps {
   onToggleFreezeColumn?: (column: string) => void;
   columnWidths?: Record<string, number>;
   onColumnWidthsChange?: (widths: Record<string, number>) => void;
+  onKeyDown?: (e: React.KeyboardEvent) => void;
 }
 
 export function DataGrid({
@@ -44,6 +45,7 @@ export function DataGrid({
   onToggleFreezeColumn,
   columnWidths,
   onColumnWidthsChange,
+  onKeyDown,
 }: DataGridProps) {
   const { t } = useTranslation();
   const canEdit = pkColumns.length > 0;
@@ -74,6 +76,7 @@ export function DataGrid({
         columnWidths={columnWidths}
         onColumnWidthsChange={onColumnWidthsChange}
         emptyState={<EmptyState />}
+        onKeyDown={onKeyDown}
         renderCellEditor={(cell) => (
           <CellEditor
             value={cell}
