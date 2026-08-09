@@ -3,6 +3,7 @@
   "description": "Default capabilities for DB Pro",
   "windows": ["main"],
   "permissions": [
-    "core:default"
+    "core:default",
+    "dialog:allow-open"
   ]
 }
