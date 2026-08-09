@@ -6,14 +6,30 @@ import "@testing-library/jest-dom/vitest";
 if (typeof globalThis.localStorage === "undefined" || globalThis.localStorage === null) {
   const memStore = new Map<string, string>();
   const memLocalStorage = {
-    getItem(key: string) { return memStore.get(key) ?? null; },
-    setItem(key: string, value: string) { memStore.set(key, String(value)); },
-    removeItem(key: string) { memStore.delete(key); },
-    clear() { memStore.clear(); },
-    get length() { return memStore.size; },
-    key(i: number) { return [...memStore.keys()][i] ?? null; },
+    getItem(key: string) {
+      return memStore.get(key) ?? null;
+    },
+    setItem(key: string, value: string) {
+      memStore.set(key, String(value));
+    },
+    removeItem(key: string) {
+      memStore.delete(key);
+    },
+    clear() {
+      memStore.clear();
+    },
+    get length() {
+      return memStore.size;
+    },
+    key(i: number) {
+      return [...memStore.keys()][i] ?? null;
+    },
   };
-  Object.defineProperty(globalThis, "localStorage", { value: memLocalStorage, writable: true, configurable: true });
+  Object.defineProperty(globalThis, "localStorage", {
+    value: memLocalStorage,
+    writable: true,
+    configurable: true,
+  });
 }
 
 globalThis.ResizeObserver = class ResizeObserver {
