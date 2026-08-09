@@ -3,7 +3,6 @@ import {
   FolderOpen,
   PanelLeftClose,
   PanelLeftOpen,
-  Command,
   Search,
   Sparkles,
 } from "lucide-react";
@@ -23,7 +22,8 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { viewId: "explorer", labelKey: "shell.nav.explorer", icon: FolderOpen },
   { viewId: "search", labelKey: "shell.nav.search", icon: Search },
-  { viewId: "query-saved", labelKey: "shell.nav.query", icon: Command },
+  // Saved Queries hidden for v0.1 — no real save/load workflow yet.
+  // { viewId: "query-saved", labelKey: "shell.nav.query", icon: Command },
   // Users module hidden for v0.1 — no real workbench behind it yet.
   // { viewId: "users", labelKey: "shell.nav.users", icon: KeyRound },
 ];
