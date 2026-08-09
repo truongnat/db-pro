@@ -1,50 +1,88 @@
 # DB Pro
 
-A native desktop database IDE for PostgreSQL and SQLite. Built with Tauri 2, Rust, and React.
+A native desktop Database IDE for PostgreSQL and SQLite, built with Tauri 2, Rust, React, and TypeScript.
 
-DB Pro provides a DBeaver-like workflow — connection management, SQL editing with IntelliSense, query execution with cancellation, schema browsing, data grid, and export — in a lightweight, secure desktop application.
+DB Pro focuses on the core desktop database workflow: connect, explore, open resources, write SQL, inspect results, edit table data safely, and keep workspace context across tabs.
 
-## Current release
+## Current status
 
-**v0.1.0** — PostgreSQL and SQLite support. See [release notes](docs/release/0.1.0-release-notes.md).
+**0.1.0 Release Candidate — not yet release-signed-off.**
+
+The intended 0.1.0 feature scope is largely implemented, but the project still requires current-HEAD automated verification, cross-platform Tauri artifacts, and manual desktop smoke before tagging.
+
+See:
+- [`plans/07-current-status.md`](plans/07-current-status.md)
+- [`docs/release/0.1.0-readiness.md`](docs/release/0.1.0-readiness.md)
+- [`docs/release/0.1.0-release-checklist.md`](docs/release/0.1.0-release-checklist.md)
 
 ## Features
 
 ### Connection management
+
 - PostgreSQL and SQLite connections
-- Secure credential storage with OS keyring integration
-- SSH tunnel support
-- Connection testing and health monitoring
+- Create, test, connect, disconnect, reconnect, edit, and delete flows
+- Secure credential storage with OS keyring integration and encrypted fallback support
+- Startup reconnect source flow for previously active connections
+- SQLite native file picker wiring
+- SSH tunnel plumbing exists, but is not yet qualified end-to-end across all release targets
 
 ### SQL editor
+
 - Monaco editor with SQL syntax highlighting
-- Auto-completion from live schema (tables, columns, keywords)
-- Multi-tab query workspace with keyboard navigation
-- SQL formatting and diagnostics
+- Schema-aware completion foundation
+- Multi-tab query workspace
+- SQL formatting
+- Query history
 
 ### Query execution
-- Run full query or selection (Ctrl/Cmd+Enter, Shift+Enter, F5)
-- Execution cancellation with proper cleanup
-- Explain plan visualization
-- Query history with re-run
-- Result grid with virtualized rendering
+
+- Current-statement execution
+- Selection execution
+- Run-all / multi-statement execution
+- Split Run button for direct execution + options
+- Query cancellation via Stop / Escape flow
+- Explain
+- Result grid with row/timing metadata
 
 ### Schema browsing
-- Database/object explorer tree
-- Table details: columns, indexes, constraints, foreign keys
-- DDL inspection and generation
-- Multi-database and schema switching
+
+- Database/object Explorer tree
+- Schemas, tables, and views
+- Targeted metadata refresh
+- Data-first table/view navigation
+- DB Object workbench: Data, Columns, Indexes, Relations, DDL inspection
 
 ### Data grid
-- Editable data grid with inline cell editing
-- Staged changes with commit/rollback
-- Filtering and sorting
-- CSV, JSON, and Excel export
+
+- Virtualized data grid
+- Filtering, sorting, pagination
+- Column resize and persisted layout state
+- Row selection and scoped keyboard copy
+- Copy cell / row / column-name actions
+- Inline PK-based staged row updates
+- Staged row deletes
+- Patch-style updates that only send changed columns
+- Same-row multi-cell patch composition
+- Revision-safe partial success/failure handling
+- Clear read-only behavior for tables without a primary key
+
+### Workspace
+
+- Query and DB Object tabs
+- Preview / permanent / pinned tabs
+- Compact inactive pinned tabs
+- Collision-aware object titles
+- Orphan-tab recovery
+- Workspace persistence
+- Quick Open (`Cmd/Ctrl+P`)
+- Command Palette (`Cmd/Ctrl+Shift+P`)
 
 ### Agent workspace (Preview)
-- Agent-native architecture for future AI-assisted workflows
-- Action Platform with typed execution lifecycle, confirmation gates, and cancellation support
-- MCP integration is not shipped in 0.1.0
+
+- Agent-ready Action Platform architecture
+- Typed execution lifecycle, confirmation gates, cancellation identity, and audit hooks
+- Preview UI only in 0.1.0
+- MCP server is not shipped in 0.1.0
 
 ## Architecture
 
@@ -53,105 +91,113 @@ DB Pro provides a DBeaver-like workflow — connection management, SQL editing w
 │  Frontend (React / TypeScript / TanStack Router)     │
 │  Monaco · Zustand · TanStack Query · shadcn/ui       │
 ├──────────────────────────────────────────────────────┤
-│  Tauri Command Boundary (dto.rs → CommandError)      │
+│  Action Platform / Workspace / Query Runtime         │
 ├──────────────────────────────────────────────────────┤
-│  Application Layer (services)                        │
-│  QueryService · ConnectionService · SchemaService    │
-│  TableDataService · ExportService · BackupService    │
+│  Tauri Command Boundary (DTO → structured error)     │
 ├──────────────────────────────────────────────────────┤
-│  Domain Layer (core types, no I/O)                   │
-│  error · query · schema · connection · execution     │
-│  capabilities · safety · secret · diagnostics        │
+│  Application Layer                                   │
+│  Query · Connection · Schema · TableData · Export    │
 ├──────────────────────────────────────────────────────┤
-│  Ports (traits)                                      │
-│  DbConnector · SecretStore · *Repository             │
+│  Domain Layer                                        │
+│  query · schema · connection · execution · safety    │
 ├──────────────────────────────────────────────────────┤
-│  Infrastructure                                      │
-│  postgres/ · sqlite/ · meta/ · secret/ · ssh/        │
+│  Ports / Infrastructure                              │
+│  PostgreSQL · SQLite · secrets · metadata · SSH      │
 └──────────────────────────────────────────────────────┘
 ```
 
 ### Crate layout
 
 | Crate | Path | Responsibility |
-|-------|------|----------------|
+|---|---|---|
 | `db-pro-core` | `crates/core` | Domain types, application services, port traits |
-| `db-pro-infrastructure` | `crates/infrastructure` | PostgreSQL, SQLite, metadata store, secrets, SSH |
-| `db-pro-tauri` | `crates/tauri-app` | Tauri commands, DTOs, cancel/execution registry |
+| `db-pro-infrastructure` | `crates/infrastructure` | PostgreSQL, SQLite, metadata, secrets, SSH plumbing |
+| `db-pro-tauri` | `crates/tauri-app` | Tauri commands, DTOs, runtime registries |
 
 ### Tech stack
 
-**Backend:** Rust (edition 2021), Tauri 2, sqlx (PostgreSQL), rusqlite (SQLite), keyring, AES-GCM encryption, Argon2  
-**Frontend:** React 19, TypeScript 5, Vite 6, TanStack Router, TanStack Query, Zustand, Monaco Editor, shadcn/ui, Radix UI, Tailwind CSS 4, i18next, Recharts  
-**Testing:** Vitest (1000 frontend tests), cargo test (17 Rust tests)  
-**CI:** GitHub Actions with release matrix (macOS / Windows / Linux)
+**Backend:** Rust, Tauri 2, sqlx/PostgreSQL, rusqlite/SQLite, keyring, AES-GCM, Argon2  
+**Frontend:** React 19, TypeScript, Vite, TanStack Router/Query/Virtual, Zustand, Monaco Editor, shadcn/ui, Radix UI, Tailwind CSS 4, i18next  
+**Testing:** Vitest + Rust unit/integration tests  
+**CI/Release:** GitHub Actions with macOS / Windows / Linux release matrix
 
 ## Development
 
 ### Prerequisites
 
-- Rust 1.77.2+ (see `rust-toolchain.toml`)
+- Rust toolchain from `rust-toolchain.toml`
 - Node.js 22+
 - npm 10+
-- System dependencies for Tauri (see [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/))
+- Tauri system prerequisites for the host OS
 
 ### Setup
 
 ```bash
-# Clone
 git clone https://github.com/truongnat/db-pro.git
 cd db-pro
 
-# Frontend
 cd frontend
 npm ci
-npm run dev          # starts Vite dev server on :5174
+npm run dev
+```
 
-# In another terminal — Tauri dev
+In another terminal:
+
+```bash
 cargo tauri dev
 ```
 
-### Frontend commands
+### Frontend quality gates
 
 ```bash
-npm run dev            # Vite dev server
-npm run build          # Production build (route gen + typecheck + vite build)
-npm run typecheck      # TypeScript check (tsc --noEmit)
-npm run lint           # ESLint
-npm run format:check   # Prettier check
-npm run test           # Vitest (all tests)
-npm run test:watch     # Vitest watch mode
+cd frontend
+npm ci
+npm run typecheck
+npm run lint
+npm run format:check
+npm run test
+npm run build
 ```
 
-### Rust commands
+### Rust quality gates
 
 ```bash
-cargo fmt --all --check                        # Format check
-cargo check --workspace                        # Type check
-cargo clippy --workspace --all-targets -- -D warnings  # Lint
-cargo test --workspace                         # Test
+cargo fmt --all --check
+cargo check --workspace
+cargo clippy --workspace --all-targets -- -D warnings
+cargo test --workspace
 ```
 
 ### Tauri build
 
 ```bash
-# Development
-cargo tauri dev
-
-# Release build (runs frontend build automatically)
 cargo tauri build
 ```
 
-Release artifacts: DMG (macOS), MSI/NSIS (Windows), DEB/AppImage/RPM (Linux).
+Configured release formats include macOS DMG/app bundle, Windows MSI/NSIS, and Linux DEB/AppImage/RPM.
 
-## Known limitations (0.1.0)
+## Known limitations for 0.1.0
 
-- Data CRUD (INSERT/UPDATE/DELETE via grid) — not wired to backend
-- Schema DDL editing — read-only inspection, no live ALTER
-- MCP integration — not shipped
-- Agent workspace — Preview status, not production-ready
-- No code signing on release artifacts
-- SSH tunnel — implemented but not end-to-end tested in CI
+- Complete row insertion workflow is not shipped.
+- Grid update/delete requires a primary key; no-PK tables are read-only.
+- Advanced schema mutation/DDL execution UI is deferred; inspection is available.
+- Users/roles workbench is deferred.
+- Agent workspace is Preview only.
+- MCP server is not included.
+- SSH tunnel plumbing is not yet end-to-end qualified across all target platforms.
+- Release artifacts are unsigned unless signing/notarization is added before distribution.
+- Only PostgreSQL and SQLite are supported.
+- Project license is not yet defined.
+
+## Release readiness
+
+Do not tag `v0.1.0` until the current release candidate SHA has:
+
+1. fully green frontend tests;
+2. green `format:check`;
+3. green frontend + Rust quality gates;
+4. successful macOS, Windows, and Linux Tauri release builds;
+5. completed manual runtime smoke.
 
 ## Repository structure
 
@@ -163,13 +209,13 @@ crates/                     Rust workspace
 frontend/                   React/TypeScript application
   src/
     commons/                Shared stores, actions, components, services
-    modules/                Feature modules (query, schema, data-grid, connection, export, backup)
+    modules/                Query, schema, data-grid, connection, export, etc.
     components/ui/          shadcn/ui primitives
-    routes/                 TanStack Router file-based routes
+    routes/                 TanStack Router routes
 docs/                       Architecture and release documentation
-plans/                      Implementation plan and task tracking
+plans/                      Implementation plans + current status
 .github/workflows/          CI and release pipelines
-fixtures/                   PostgreSQL and SQLite test fixtures
+fixtures/                   Database test fixtures
 ```
 
 ## License
