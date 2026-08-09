@@ -23,6 +23,8 @@ interface DataGridProps {
   frozenColumns?: string[];
   hiddenColumns?: string[];
   onToggleFreezeColumn?: (column: string) => void;
+  columnWidths?: Record<string, number>;
+  onColumnWidthsChange?: (widths: Record<string, number>) => void;
 }
 
 export function DataGrid({
@@ -40,6 +42,8 @@ export function DataGrid({
   frozenColumns,
   hiddenColumns,
   onToggleFreezeColumn,
+  columnWidths,
+  onColumnWidthsChange,
 }: DataGridProps) {
   const { t } = useTranslation();
   const canEdit = pkColumns.length > 0;
@@ -67,6 +71,8 @@ export function DataGrid({
       frozenColumns={frozenColumns}
       hiddenColumns={hiddenColumns}
       onToggleFreezeColumn={onToggleFreezeColumn}
+      columnWidths={columnWidths}
+      onColumnWidthsChange={onColumnWidthsChange}
       emptyState={<EmptyState />}
       renderCellEditor={(cell) => (
         <CellEditor

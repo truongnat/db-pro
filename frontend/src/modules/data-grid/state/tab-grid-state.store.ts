@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 
 import type { GridFilter, GridSort } from "../types/data-grid.types";
 import type { ChartConfig } from "./data-grid.store";
@@ -11,6 +12,7 @@ export interface GridTabState {
   editingCell: { row: number; col: number } | null;
   frozenColumns: string[];
   hiddenColumns: string[];
+  columnWidths: Record<string, number>;
   chartConfig: ChartConfig | null;
 }
 
@@ -22,6 +24,7 @@ const defaultGridState: GridTabState = {
   editingCell: null,
   frozenColumns: [],
   hiddenColumns: [],
+  columnWidths: {},
   chartConfig: null,
 };
 
@@ -38,6 +41,7 @@ interface TabGridStateStore {
   toggleFrozenColumn: (tabId: string, column: string) => void;
   toggleHiddenColumn: (tabId: string, column: string) => void;
   setHiddenColumns: (tabId: string, columns: string[]) => void;
+  setColumnWidths: (tabId: string, widths: Record<string, number>) => void;
   setChartConfig: (tabId: string, config: ChartConfig | null) => void;
   resetTab: (tabId: string) => void;
   gc: (validTabIds: Set<string>) => void;
@@ -47,7 +51,9 @@ function ensureTab(states: Record<string, GridTabState>, tabId: string): GridTab
   return states[tabId] ?? { ...defaultGridState };
 }
 
-export const useTabGridStateStore = create<TabGridStateStore>()((set, get) => ({
+export const useTabGridStateStore = create<TabGridStateStore>()(
+  persist(
+    (set, get) => ({
   states: {},
 
   getState: (tabId) => ensureTab(get().states, tabId),
@@ -138,6 +144,14 @@ export const useTabGridStateStore = create<TabGridStateStore>()((set, get) => ({
       };
     }),
 
+  setColumnWidths: (tabId, widths) =>
+    set((s) => {
+      const current = ensureTab(s.states, tabId);
+      return {
+        states: { ...s.states, [tabId]: { ...current, columnWidths: widths } },
+      };
+    }),
+
   setChartConfig: (tabId, config) =>
     set((s) => ({
       states: {
@@ -161,4 +175,10 @@ export const useTabGridStateStore = create<TabGridStateStore>()((set, get) => ({
       }
       return { states: cleaned };
     }),
-}));
+    }),
+    {
+      name: "dbpro:grid",
+      partialize: (s) => ({ states: s.states }),
+    },
+  ),
+);

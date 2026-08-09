@@ -28,7 +28,8 @@ export function DataSection({ tabId, connectionId, schema, table, refreshCounter
   const { t } = useTranslation();
   const tabState = useTabGridStateStore((s) => s.states[tabId]) ?? {
     filters: [], sorts: [] as GridSort[], page: 1, pageSize: 50,
-    editingCell: null, frozenColumns: [] as string[], hiddenColumns: [] as string[], chartConfig: null,
+    editingCell: null, frozenColumns: [] as string[], hiddenColumns: [] as string[],
+    columnWidths: {} as Record<string, number>, chartConfig: null,
   };
   const store = useTabGridStateStore.getState();
 
@@ -39,6 +40,7 @@ export function DataSection({ tabId, connectionId, schema, table, refreshCounter
   const editingCell = tabState.editingCell;
   const frozenColumns = tabState.frozenColumns;
   const hiddenColumns = tabState.hiddenColumns;
+  const columnWidths = tabState.columnWidths;
 
   const stagedChanges = useTabStagedChanges(tabId);
   const [isApplying, setIsApplying] = useState(false);
@@ -244,6 +246,8 @@ export function DataSection({ tabId, connectionId, schema, table, refreshCounter
             frozenColumns={frozenColumns}
             hiddenColumns={hiddenColumns}
             onToggleFreezeColumn={(c) => store.toggleFrozenColumn(tabId, c)}
+            columnWidths={columnWidths}
+            onColumnWidthsChange={(w) => store.setColumnWidths(tabId, w)}
           />
         </>
       )}
