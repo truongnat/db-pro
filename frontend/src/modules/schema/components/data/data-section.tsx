@@ -128,18 +128,18 @@ export function DataSection({ tabId, connectionId, schema, table, refreshCounter
     useStagedChangesStore.getState().stageDeleteRow(tabId, pkValues);
   };
 
-  /* ---- apply all staged changes ---- */
+  /* ---- apply staged changes (identity-safe) ---- */
 
   const applyChanges = useCallback(async (changesToApply: StagedChange[]) => {
     if (isApplying || changesToApply.length === 0) return;
     setIsApplying(true);
     setApplyError(null);
 
-    const failedIndices: number[] = [];
-    let firstError: string | null = null;
+    // Only changes in this execution snapshot are touched on completion
+    const successIds: string[] = [];
+    const failures: Array<{ id: string; error: string }> = [];
 
-    for (let i = 0; i < changesToApply.length; i++) {
-      const change = changesToApply[i];
+    for (const change of changesToApply) {
       try {
         if (change.kind === "cell-edit") {
           await updateRow.mutateAsync({
@@ -160,31 +160,29 @@ export function DataSection({ tabId, connectionId, schema, table, refreshCounter
             pkValues: change.pkValues,
           });
         }
+        successIds.push(change.id);
       } catch (err) {
-        failedIndices.push(i);
-        if (!firstError) {
-          firstError = err instanceof Error ? err.message : String(err);
-        }
+        failures.push({
+          id: change.id,
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
     }
 
-    if (failedIndices.length === 0) {
-      useStagedChangesStore.getState().clearChanges(tabId);
+    if (failures.length === 0) {
+      // All succeeded — remove only the snapshot IDs, preserving any new edits
+      useStagedChangesStore.getState().removeByIds(tabId, successIds);
       query.refetch();
-    } else if (failedIndices.length < changesToApply.length) {
-      // Partial success: keep only failed changes, remove successful ones
-      useStagedChangesStore.getState().keepOnlyIndices(tabId, failedIndices);
-      const failCount = failedIndices.length;
-      useStagedChangesStore.getState().markFailed(
-        tabId,
-        Array.from({ length: failCount }, (_, i) => i),
-        firstError ?? "Unknown error",
-      );
+    } else if (successIds.length > 0) {
+      // Partial success: remove successful IDs, mark failed IDs with error
+      useStagedChangesStore.getState().removeByIds(tabId, successIds);
+      useStagedChangesStore.getState().markFailedByIds(tabId, failures);
+      setApplyError(failures[0].error);
       query.refetch();
     } else {
       // All failed
-      setApplyError(firstError);
-      useStagedChangesStore.getState().markFailed(tabId, failedIndices, firstError ?? "Unknown error");
+      setApplyError(failures[0].error);
+      useStagedChangesStore.getState().markFailedByIds(tabId, failures);
     }
 
     setIsApplying(false);

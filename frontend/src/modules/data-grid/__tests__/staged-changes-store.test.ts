@@ -239,6 +239,122 @@ describe("StagedChangesStore", () => {
     });
   });
 
+  describe("removeByIds (identity-safe apply)", () => {
+    it("removes only changes with matching IDs", () => {
+      const store = useStagedChangesStore.getState();
+      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "a" }));
+      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "b" }));
+      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "c" }));
+      const allIds = changes("tab-1")!.map((c) => c.id);
+
+      // Remove first two by ID
+      store.removeByIds("tab-1", [allIds[0], allIds[1]]);
+      const c = changes("tab-1");
+      expect(c).toHaveLength(1);
+      expect((c![0] as StagedCellEdit).columnName).toBe("c");
+    });
+
+    it("preserves changes staged during apply (concurrency safety)", () => {
+      const store = useStagedChangesStore.getState();
+      // Initial: stage A
+      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "a" }));
+      const idA = changes("tab-1")![0].id;
+
+      // While A is "in flight", user stages B
+      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "b" }));
+
+      // A succeeds → removeByIds only removes A's ID
+      store.removeByIds("tab-1", [idA]);
+
+      const c = changes("tab-1");
+      expect(c).toHaveLength(1);
+      expect((c![0] as StagedCellEdit).columnName).toBe("b");
+    });
+
+    it("handles retry-failed with pending changes safely", () => {
+      const store = useStagedChangesStore.getState();
+      // A failed, B is new pending
+      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "a" }));
+      store.markFailed("tab-1", [0], "DB error");
+      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "b" }));
+
+      const idA = changes("tab-1")![0].id;
+      expect(changes("tab-1")).toHaveLength(2);
+
+      // Retry Failed: only A is retried, A succeeds
+      store.removeByIds("tab-1", [idA]);
+
+      const c = changes("tab-1");
+      expect(c).toHaveLength(1);
+      expect((c![0] as StagedCellEdit).columnName).toBe("b");
+      expect(c![0].error).toBeUndefined(); // B was never touched
+    });
+
+    it("partial retry: A(error) B(error) C(pending) → A success B fail", () => {
+      const store = useStagedChangesStore.getState();
+      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "a" }));
+      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "b" }));
+      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "c" }));
+      store.markFailed("tab-1", [0, 1], "fail");
+
+      const all = changes("tab-1")!;
+      const idA = all[0].id;
+      const idB = all[1].id;
+
+      // Retry Failed: A and B retried. A succeeds, B fails again.
+      store.removeByIds("tab-1", [idA]); // A succeeded
+      store.markFailedByIds("tab-1", [{ id: idB, error: "still failing" }]);
+
+      const c = changes("tab-1");
+      expect(c).toHaveLength(2);
+      // B should have error, C should be pending (no error)
+      const bChange = c!.find((ch) => (ch as StagedCellEdit).columnName === "b");
+      const cChange = c!.find((ch) => (ch as StagedCellEdit).columnName === "c");
+      expect(bChange!.error).toBe("still failing");
+      expect(cChange!.error).toBeUndefined();
+    });
+
+    it("handles unknown tab gracefully", () => {
+      useStagedChangesStore.getState().removeByIds("unknown", ["x"]);
+      // Should not throw
+    });
+  });
+
+  describe("markFailedByIds", () => {
+    it("marks specific changes by ID with error", () => {
+      const store = useStagedChangesStore.getState();
+      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "a" }));
+      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "b" }));
+      const ids = changes("tab-1")!.map((c) => c.id);
+
+      store.markFailedByIds("tab-1", [{ id: ids[1], error: "DB error" }]);
+      const c = changes("tab-1");
+      expect(c![0].error).toBeUndefined();
+      expect(c![1].error).toBe("DB error");
+    });
+
+    it("ignores unknown IDs", () => {
+      const store = useStagedChangesStore.getState();
+      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "a" }));
+      store.markFailedByIds("tab-1", [{ id: "nonexistent", error: "x" }]);
+      expect(changes("tab-1")![0].error).toBeUndefined();
+    });
+  });
+
+  describe("revertById", () => {
+    it("removes change by ID", () => {
+      const store = useStagedChangesStore.getState();
+      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "a" }));
+      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "b" }));
+      const id = changes("tab-1")![0].id;
+
+      store.revertById("tab-1", id);
+      const c = changes("tab-1");
+      expect(c).toHaveLength(1);
+      expect((c![0] as StagedCellEdit).columnName).toBe("b");
+    });
+  });
+
   describe("clearFailed", () => {
     it("removes error flags from all changes", () => {
       const store = useStagedChangesStore.getState();

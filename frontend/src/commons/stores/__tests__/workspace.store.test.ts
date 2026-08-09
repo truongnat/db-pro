@@ -692,6 +692,14 @@ describe("WorkspaceStore", () => {
       });
       useWorkspaceStore.getState().openTab(tab);
 
+      // Simulate stale runtime state
+      useWorkspaceStore.getState().updateTabData(tab.id, (d) => ({
+        ...d,
+        activeExecutionId: "exec-123",
+        executionStartedAt: 1234567890,
+        timing: { elapsed: 42 },
+      } as typeof d));
+
       useWorkspaceStore.getState().reassignTabConnection(tab.id, "conn-2");
 
       const updated = useWorkspaceStore.getState().tabs.find((t) => t.id === tab.id)!;
@@ -700,6 +708,9 @@ describe("WorkspaceStore", () => {
       expect(updated.data.context.schema).toBeNull();
       expect(updated.data.status).toBe("idle");
       expect(updated.data.result).toBeNull();
+      expect(updated.data.activeExecutionId).toBeNull();
+      expect(updated.data.executionStartedAt).toBeNull();
+      expect(updated.data.timing).toBeNull();
     });
 
     it("updates db-object tab resourceKey with new connection", () => {

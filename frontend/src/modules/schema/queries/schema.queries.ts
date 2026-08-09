@@ -29,8 +29,14 @@ function getSchemaService() {
   return container.resolve<ISchemaService>(SERVICE_NAMES.SCHEMA_SERVICE);
 }
 
-/** Imperatively invalidate introspection cache for a specific connection. */
-export function refreshIntrospection(queryClient: QueryClient, connectionId: string) {
+/** Imperatively force-refresh introspection for a specific connection.
+ *  Invalidates backend cache, schema catalog, and React Query cache. */
+export async function refreshIntrospection(queryClient: QueryClient, connectionId: string) {
+  // 1. Invalidate backend introspection cache so next call bypasses it
+  await getSchemaService().invalidateCache(connectionId);
+  // 2. Invalidate schema catalog store (has its own client-side cache)
+  useSchemaCatalogStore.getState().invalidateConnection(connectionId);
+  // 3. Invalidate React Query cache — triggers refetch with fresh data
   queryClient.invalidateQueries({ queryKey: QUERY_KEYS.introspect(connectionId) });
 }
 

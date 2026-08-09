@@ -25,7 +25,11 @@ export interface StagedRowDelete {
   pkValues: CellValue[];
 }
 
-export type StagedChange = (StagedCellEdit | StagedRowDelete) & { error?: string };
+export type StagedChange = (StagedCellEdit | StagedRowDelete) & {
+  /** Stable identity for safe subset / concurrent apply. */
+  id: string;
+  error?: string;
+};
 
 /* ------------------------------------------------------------------ */
 /*  Store shape                                                        */
@@ -43,14 +47,20 @@ interface StagedChangesActions {
   stageDeleteRow: (tabId: string, pkValues: CellValue[]) => void;
   /** Revert a single staged change by index. */
   revertAt: (tabId: string, index: number) => void;
+  /** Revert a single staged change by stable ID. */
+  revertById: (tabId: string, id: string) => void;
   /** Revert all staged changes for a tab. */
   revertAll: (tabId: string) => void;
-  /** Clear staged changes after successful apply. */
+  /** Clear all staged changes after successful full apply. */
   clearChanges: (tabId: string) => void;
   /** Mark specific change indices as failed with an error message. */
   markFailed: (tabId: string, indices: number[], error: string) => void;
+  /** Mark specific changes by ID as failed with an error message. */
+  markFailedByIds: (tabId: string, failures: Array<{ id: string; error: string }>) => void;
   /** Clear error flags from all changes for a tab. */
   clearFailed: (tabId: string) => void;
+  /** Remove changes by stable ID (identity-safe apply result handling). */
+  removeByIds: (tabId: string, ids: string[]) => void;
   /** Keep only changes at given indices (remove successful ones after partial apply). */
   keepOnlyIndices: (tabId: string, indices: number[]) => void;
   /** Garbage-collect tabs no longer open. */
@@ -65,6 +75,11 @@ export type StagedChangesStore = StagedChangesState & StagedChangesActions;
 
 function pkKey(pkValues: CellValue[]): string {
   return pkValues.map((v) => JSON.stringify(v)).join("|");
+}
+
+let _nextChangeId = 0;
+function generateChangeId(): string {
+  return `sc-${Date.now().toString(36)}-${(++_nextChangeId).toString(36)}`;
 }
 
 /* ------------------------------------------------------------------ */
@@ -83,7 +98,8 @@ export const useStagedChangesStore = create<StagedChangesStore>()((set, _get) =>
         const sameRow = pkKey(c.pkValues) === pkKey(edit.pkValues);
         return !(sameRow && c.columnName === edit.columnName);
       });
-      return { changes: { ...s.changes, [tabId]: [...filtered, edit] } };
+      const id = generateChangeId();
+      return { changes: { ...s.changes, [tabId]: [...filtered, { ...edit, id }] } };
     }),
 
   stageDeleteRow: (tabId, pkValues) =>
@@ -96,8 +112,9 @@ export const useStagedChangesStore = create<StagedChangesStore>()((set, _get) =>
         if (c.kind === "row-delete") return pkKey(c.pkValues) !== key;
         return true;
       });
+      const id = generateChangeId();
       return {
-        changes: { ...s.changes, [tabId]: [...filtered, { kind: "row-delete", pkValues }] },
+        changes: { ...s.changes, [tabId]: [...filtered, { kind: "row-delete", pkValues, id }] },
       };
     }),
 
@@ -107,6 +124,13 @@ export const useStagedChangesStore = create<StagedChangesStore>()((set, _get) =>
       if (index < 0 || index >= existing.length) return s;
       const next = [...existing];
       next.splice(index, 1);
+      return { changes: { ...s.changes, [tabId]: next } };
+    }),
+
+  revertById: (tabId, id) =>
+    set((s) => {
+      const existing = s.changes[tabId] ?? [];
+      const next = existing.filter((c) => c.id !== id);
       return { changes: { ...s.changes, [tabId]: next } };
     }),
 
@@ -152,6 +176,24 @@ export const useStagedChangesStore = create<StagedChangesStore>()((set, _get) =>
       const keepSet = new Set(indices);
       const kept = existing.filter((_, i) => keepSet.has(i));
       return { changes: { ...s.changes, [tabId]: kept } };
+    }),
+
+  removeByIds: (tabId, ids) =>
+    set((s) => {
+      const existing = s.changes[tabId] ?? [];
+      const idSet = new Set(ids);
+      const kept = existing.filter((c) => !idSet.has(c.id));
+      return { changes: { ...s.changes, [tabId]: kept } };
+    }),
+
+  markFailedByIds: (tabId, failures) =>
+    set((s) => {
+      const existing = s.changes[tabId] ?? [];
+      const failMap = new Map(failures.map((f) => [f.id, f.error]));
+      const updated = existing.map((c) =>
+        failMap.has(c.id) ? { ...c, error: failMap.get(c.id) } : c,
+      );
+      return { changes: { ...s.changes, [tabId]: updated } };
     }),
 
   gc: (validTabIds) =>

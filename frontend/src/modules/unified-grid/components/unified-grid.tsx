@@ -220,9 +220,9 @@ export function UnifiedGrid({
   const sortMap = new Map(sorts.map((s) => [s.column, s]));
   const getColumnIndex = (col: ColumnMeta) => columns.findIndex((c) => c.name === col.name);
 
-  /* ---- keyboard copy (B1.2 / B1.3) ---- */
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
+  /* ---- keyboard copy (B1.2 / B1.3) — scoped to grid focus ---- */
+  const handleGridKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "c" && selection.size > 0) {
         const selectedIndices = Array.from(selection).sort((a, b) => a - b);
         const lines = selectedIndices.map((rowIdx) => {
@@ -235,10 +235,9 @@ export function UnifiedGrid({
         });
         navigator.clipboard.writeText(lines.join("\n")).catch(() => {});
       }
-    };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, [selection, rows, orderedColumns, columns]);
+    },
+    [selection, rows, orderedColumns, columns],
+  );
 
   /* ---- handlers ---- */
   const handleDoubleClick = useCallback(
@@ -301,7 +300,7 @@ export function UnifiedGrid({
 
   /* ---- render ---- */
   return (
-    <div ref={gridContainerRef} className={`relative flex h-full flex-col${className ? ` ${className}` : ""}`}>
+    <div ref={gridContainerRef} tabIndex={0} onKeyDown={handleGridKeyDown} className={`relative flex h-full flex-col${className ? ` ${className}` : ""}`}>
       {/* Loading overlay */}
       {isLoading && (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60">

@@ -327,6 +327,9 @@ export const useWorkspaceStore = create<WorkspaceState>()(
                 explainPlan: null,
                 multiResults: null,
                 multiResultIndex: 0,
+                activeExecutionId: null,
+                executionStartedAt: null,
+                timing: null,
               },
             };
           }),
