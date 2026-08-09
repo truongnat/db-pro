@@ -197,6 +197,7 @@ export function registerAllCommands(_router: AnyRouter): void {
     {
       id: "shell.toggleSidebar",
       labelKey: "commands.shell.toggleSidebar",
+      keybinding: { primary: true, key: "b" },
       groupKey: "commands.groups.shell",
       execute: () => useShellStore.getState().toggleSidebar(),
     },

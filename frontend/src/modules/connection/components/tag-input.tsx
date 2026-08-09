@@ -3,7 +3,6 @@ import { useState } from "react";
 import { useTranslation } from "@/commons/locales/useTranslation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 interface TagInputProps {
@@ -32,7 +31,12 @@ export function TagInput({ tags, onChange }: TagInputProps) {
       <Label htmlFor="connection-tags" className="text-xs font-medium">
         {t("connection.tags")}
       </Label>
-      <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-input bg-transparent px-2 py-1.5 focus-within:outline focus-within:outline-[var(--focus-ring-width)] focus-within:outline-offset-[var(--focus-ring-offset)] focus-within:outline-[var(--focus-ring-color)]">
+      {/*
+        Focus ring uses border-color (not outline) because outline is clipped
+        by the dialog's overflow-y-auto scroll container. Border is always
+        within the element's box and can never be clipped by overflow.
+      */}
+      <div className="flex min-h-8 flex-wrap items-center gap-1.5 rounded-lg border border-input bg-transparent px-2.5 py-1 transition-colors focus-within:border-primary">
         {tags.map((tag) => (
           <Badge key={tag} variant="secondary" className="gap-1">
             {tag}
@@ -48,12 +52,13 @@ export function TagInput({ tags, onChange }: TagInputProps) {
             </Button>
           </Badge>
         ))}
-        <Input
+        <input
           id="connection-tags"
+          type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder={t("connection.addTag")}
-          className="min-w-[100px] flex-1 border-0 bg-transparent px-0 py-0 shadow-none focus-visible:ring-0"
+          className="min-w-[100px] flex-1 border-0 bg-transparent p-0 text-sm outline-none placeholder:text-muted-foreground focus-visible:outline-none"
           onKeyDown={(e) => {
             if (e.key === "Enter") {
               e.preventDefault();

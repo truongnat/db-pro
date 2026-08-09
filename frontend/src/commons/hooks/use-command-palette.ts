@@ -7,7 +7,10 @@ function matchesKeybinding(event: KeyboardEvent, keybinding: Keybinding): boolea
   if (event.key.toLowerCase() !== keybinding.key.toLowerCase()) {
     return false;
   }
-  const wantCtrlOrCmd = (keybinding.ctrlKey ?? false) || (keybinding.metaKey ?? false);
+  const wantCtrlOrCmd =
+    (keybinding.primary ?? false) ||
+    (keybinding.ctrlKey ?? false) ||
+    (keybinding.metaKey ?? false);
   if (wantCtrlOrCmd && !event.ctrlKey && !event.metaKey) {
     return false;
   }

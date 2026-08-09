@@ -96,7 +96,7 @@ function SchemaObjectGroup({
     <div>
       <button
         type="button"
-        className="flex h-[26px] w-full items-center gap-1.5 rounded-md px-1.5 text-[12px] font-medium text-[var(--app-text-muted)] transition-colors hover:bg-[var(--app-hover)] hover:text-foreground"
+        className="flex h-[26px] w-full cursor-pointer items-center gap-1.5 rounded-md border-l-2 border-l-transparent px-1.5 text-[12px] font-medium text-[var(--app-text-muted)] transition-colors hover:border-l-primary hover:bg-[var(--app-hover)] hover:text-foreground active:bg-[var(--app-active)]"
         onClick={() => onToggle(groupKey)}
         aria-expanded={isOpen}
       >
@@ -106,7 +106,7 @@ function SchemaObjectGroup({
           <ChevronRight className="h-3 w-3 shrink-0" />
         )}
         {icon}
-        <span className="flex-1 truncate">{label}</span>
+        <span className="flex-1 truncate text-left">{label}</span>
         <span className="text-[11px] tabular-nums text-[var(--app-text-dim)]">{count}</span>
       </button>
       {isOpen && <div className="ml-[10px] flex flex-col">{children}</div>}
@@ -146,13 +146,13 @@ export function ExplorerView() {
     explorerConnectionId === connId && expandedNodes.includes(`conn:${connId}`);
 
   return (
-    <div className="flex min-h-0 flex-col">
+    <div className="flex min-h-0 flex-col" onContextMenu={(e) => e.preventDefault()}>
       {/* Quick Open trigger */}
       <div className="px-2 pb-2 pt-1">
         <button
           type="button"
           onClick={() => useQuickOpenStore.getState().open()}
-          className="flex h-[28px] w-full items-center gap-1.5 rounded-md border border-[var(--app-border)] bg-background px-2 transition-colors hover:border-primary/50 hover:bg-[var(--app-hover)]"
+          className="flex h-[28px] w-full cursor-pointer items-center gap-1.5 rounded-md border border-[var(--app-border)] bg-background px-2 transition-colors hover:border-primary/50 hover:bg-[var(--app-hover)]"
         >
           <Search className="h-3.5 w-3.5 shrink-0 text-[var(--app-text-muted)]" />
           <span className="w-full text-left text-[13px] text-[var(--app-text-dim)]">{`${t("shell.sidebar.searchObjects")}...`}</span>
@@ -181,7 +181,7 @@ export function ExplorerView() {
                   <button
                     type="button"
                     className={cn(
-                      "flex w-full items-center gap-2 rounded-md px-2 py-[6px] text-[13px] transition-colors hover:bg-[var(--app-hover)] hover:text-foreground",
+                      "flex w-full cursor-pointer items-center gap-2 rounded-md border-l-2 border-l-transparent px-2 py-[6px] text-[13px] transition-colors hover:border-l-primary hover:bg-[var(--app-hover)] hover:text-foreground active:bg-[var(--app-active)]",
                       explorerConnectionId === conn.id &&
                         "bg-[var(--app-active)] text-foreground font-semibold",
                     )}
@@ -249,7 +249,7 @@ export function ExplorerView() {
                   <p className="text-[12px] text-[var(--app-danger)]">{t("common.states.error")}</p>
                   <button
                     type="button"
-                    className="flex items-center gap-1.5 text-[12px] text-[var(--app-primary)] hover:underline"
+                    className="flex cursor-pointer items-center gap-1.5 text-[12px] text-[var(--app-primary)] hover:underline"
                     onClick={() => introspect.refetch()}
                   >
                     <RefreshCw className="h-3 w-3" />
@@ -272,7 +272,7 @@ export function ExplorerView() {
                       <div key={schema.name}>
                         <button
                           type="button"
-                          className="flex h-[28px] w-full items-center gap-1.5 rounded-md px-2 text-left text-[13px] font-medium text-foreground transition-colors hover:bg-[var(--app-hover)]"
+                          className="flex h-[28px] w-full cursor-pointer items-center gap-1.5 rounded-md border-l-2 border-l-transparent px-2 text-left text-[13px] font-medium text-foreground transition-colors hover:border-l-primary hover:bg-[var(--app-hover)] active:bg-[var(--app-active)]"
                           onClick={() => toggleNode(`schema:${conn.id}:${schema.name}`)}
                           aria-expanded={schemaExpanded}
                         >
@@ -315,7 +315,7 @@ export function ExplorerView() {
                                         <button
                                           type="button"
                                           title={`${schema.name}.${table.name}`}
-                                          className="group flex h-[26px] w-full items-center gap-2 rounded-md px-2 text-left text-[13px] text-[var(--app-text-muted)] transition-colors hover:bg-[var(--app-hover)] hover:text-foreground"
+                                          className="group flex h-[26px] w-full cursor-pointer items-center gap-2 rounded-md border-l-2 border-l-transparent px-2 text-left text-[13px] text-[var(--app-text-muted)] transition-colors hover:border-l-primary hover:bg-[var(--app-hover)] hover:text-foreground active:bg-[var(--app-active)]"
                                           onClick={() =>
                                             openSchemaPreview(
                                               conn.id,
@@ -461,7 +461,7 @@ export function ExplorerView() {
                                       <button
                                         type="button"
                                         title={`${schema.name}.${view.name}`}
-                                        className="group flex h-[26px] w-full items-center gap-2 rounded-md px-2 text-left text-[13px] text-[var(--app-text-muted)] transition-colors hover:bg-[var(--app-hover)] hover:text-foreground"
+                                        className="group flex h-[26px] w-full cursor-pointer items-center gap-2 rounded-md border-l-2 border-l-transparent px-2 text-left text-[13px] text-[var(--app-text-muted)] transition-colors hover:border-l-primary hover:bg-[var(--app-hover)] hover:text-foreground active:bg-[var(--app-active)]"
                                         onClick={() =>
                                           openSchemaPreview(conn.id, schema.name, view.name, "view")
                                         }

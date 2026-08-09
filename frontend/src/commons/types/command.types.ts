@@ -1,6 +1,8 @@
 import type { ComponentType } from "react";
 
 export interface Keybinding {
+  /** When true, matches Ctrl on all platforms and displays as ⌘ on macOS, Ctrl elsewhere. */
+  primary?: boolean;
   ctrlKey?: boolean;
   metaKey?: boolean;
   shiftKey?: boolean;

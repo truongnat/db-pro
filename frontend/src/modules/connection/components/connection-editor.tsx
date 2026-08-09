@@ -77,6 +77,7 @@ export function ConnectionEditor({
   });
   const [password, setPassword] = useState("");
   const [showSsh, setShowSsh] = useState(!!initialData?.sshTunnel);
+  const [driverChanged, setDriverChanged] = useState(false);
 
   const isPostgres = formData.driver === "postgres";
 
@@ -106,6 +107,10 @@ export function ConnectionEditor({
   };
 
   const handleDriverChange = (driver: DriverType) => {
+    if (driver !== formData.driver) {
+      setDriverChanged(true);
+      setPassword("");
+    }
     setFormData((prev: ConnectionFormData) => ({
       ...prev,
       driver,
@@ -234,8 +239,8 @@ export function ConnectionEditor({
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            required={!isEdit}
-            placeholder={isEdit ? "(unchanged)" : ""}
+            required={!isEdit || driverChanged}
+            placeholder={driverChanged ? "" : isEdit ? "(unchanged)" : ""}
           />
         </div>
       )}
@@ -246,7 +251,8 @@ export function ConnectionEditor({
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          placeholder={isEdit ? "(unchanged)" : ""}
+          required={!isEdit || driverChanged}
+          placeholder={driverChanged ? "" : isEdit ? "(unchanged)" : ""}
         />
       )}
 
