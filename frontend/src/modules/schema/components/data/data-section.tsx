@@ -9,7 +9,7 @@ import { ChangeBar } from "@/modules/data-grid/components/change-bar";
 import { Pagination } from "@/modules/data-grid/components/pagination";
 import { DataToolbar } from "@/modules/data-grid/components/data-toolbar";
 import { useTabGridStateStore } from "@/modules/data-grid/state/tab-grid-state.store";
-import { useStagedChangesStore, useTabStagedChanges } from "@/modules/data-grid/state/staged-changes.store";
+import { useStagedChangesStore, useTabStagedChanges, pkKey } from "@/modules/data-grid/state/staged-changes.store";
 import type { StagedChange } from "@/modules/data-grid/state/staged-changes.store";
 import { cycleColumnSort } from "@/modules/data-grid/utils/sort";
 import type { CellValue, FetchRowsRequest, GridSort } from "@/modules/data-grid/types/data-grid.types";
@@ -101,22 +101,24 @@ export function DataSection({ tabId, connectionId, schema, table, refreshCounter
     }
   }, [refreshCounter, query]);
 
-  /* ---- staged cell edit (no immediate backend call) ---- */
+  /* ---- staged cell edit (patch model — no immediate backend call) ---- */
 
   const handleCellSave = (rowIdx: number, colIdx: number, value: CellValue) => {
     if (!pkColumns.length) return;
+    const colName = columns[colIdx].name;
     const row = rows[rowIdx];
-    const updatedRow = [...row];
-    updatedRow[colIdx] = value;
     const pkValues = getPkValues(row);
 
-    useStagedChangesStore.getState().stageCellEdit(tabId, {
-      kind: "cell-edit",
-      pkValues,
-      currentValues: updatedRow,
-      columnName: columns[colIdx].name,
-      newValue: value,
-    });
+    // Compose patch: start from base row, overlay existing staged changes, then new edit
+    const existingChange = stagedChanges.find(
+      (c) => c.kind === "cell-edit" && pkKey(c.pkValues) === pkKey(pkValues),
+    );
+    const changes: Record<string, CellValue> = existingChange?.kind === "cell-edit"
+      ? { ...existingChange.changes }
+      : {};
+    changes[colName] = value;
+
+    useStagedChangesStore.getState().stageCellEdit(tabId, { pkValues, changes });
   };
 
   /* ---- staged row delete (no immediate backend call) ---- */
@@ -128,25 +130,29 @@ export function DataSection({ tabId, connectionId, schema, table, refreshCounter
     useStagedChangesStore.getState().stageDeleteRow(tabId, pkValues);
   };
 
-  /* ---- apply staged changes (identity-safe) ---- */
+  /* ---- apply staged changes (patch model + revision-safe) ---- */
 
   const applyChanges = useCallback(async (changesToApply: StagedChange[]) => {
     if (isApplying || changesToApply.length === 0) return;
     setIsApplying(true);
     setApplyError(null);
 
-    // Only changes in this execution snapshot are touched on completion
+    // Mark these revisions as in-flight so new edits create new revisions
+    const snapshotIds = changesToApply.map((c) => c.id);
+    useStagedChangesStore.getState().markInFlight(tabId, snapshotIds);
+
     const successIds: string[] = [];
     const failures: Array<{ id: string; error: string }> = [];
 
     for (const change of changesToApply) {
       try {
         if (change.kind === "cell-edit") {
+          const changedCols = Object.keys(change.changes);
           await updateRow.mutateAsync({
             schema,
             table,
-            columns: columns.map((c) => c.name),
-            values: change.currentValues,
+            columns: changedCols,
+            values: changedCols.map((col) => change.changes[col]),
             pkColumns,
             pkValues: change.pkValues,
           });
@@ -170,17 +176,14 @@ export function DataSection({ tabId, connectionId, schema, table, refreshCounter
     }
 
     if (failures.length === 0) {
-      // All succeeded — remove only the snapshot IDs, preserving any new edits
       useStagedChangesStore.getState().removeByIds(tabId, successIds);
       query.refetch();
     } else if (successIds.length > 0) {
-      // Partial success: remove successful IDs, mark failed IDs with error
       useStagedChangesStore.getState().removeByIds(tabId, successIds);
       useStagedChangesStore.getState().markFailedByIds(tabId, failures);
       setApplyError(failures[0].error);
       query.refetch();
     } else {
-      // All failed
       setApplyError(failures[0].error);
       useStagedChangesStore.getState().markFailedByIds(tabId, failures);
     }
@@ -205,7 +208,7 @@ export function DataSection({ tabId, connectionId, schema, table, refreshCounter
   /* ---- retry failed ---- */
 
   const handleRetryFailed = useCallback(async () => {
-    const failedChanges = stagedChanges.filter((c) => c.error);
+    const failedChanges = stagedChanges.filter((c) => "error" in c && c.error);
     if (failedChanges.length === 0) return;
     // Clear error flags before retry
     useStagedChangesStore.getState().clearFailed(tabId);
@@ -215,7 +218,7 @@ export function DataSection({ tabId, connectionId, schema, table, refreshCounter
   /* ---- revert all ---- */
 
   const handleRevertAll = useCallback(() => {
-    useStagedChangesStore.getState().revertAll(tabId);
+    useStagedChangesStore.getState().clearTab(tabId);
     setApplyError(null);
   }, [tabId]);
 

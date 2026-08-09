@@ -1,236 +1,358 @@
-import { create } from "zustand";
-
 import type { CellValue } from "@/modules/query/types/query.types";
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
 
-/* ------------------------------------------------------------------ */
-/*  Types                                                              */
-/* ------------------------------------------------------------------ */
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-/** A single cell modification staged for review / apply.
- *  Multiple edits to the same row (by PK) are merged into one entry
- *  so that Apply sends a single composed UPDATE. */
+/**
+ * A patch-style row update. `changes` is a map of column name → new value.
+ * Only modified columns are included; untouched columns are absent.
+ */
 export interface StagedCellEdit {
+  id: string;
   kind: "cell-edit";
-  /** Primary-key column values that identify the row. */
   pkValues: CellValue[];
-  /** All column values *after* all edits (composed row snapshot). */
-  currentValues: CellValue[];
-  /** Column name of the latest edit in this merged entry. */
-  columnName: string;
-  /** The latest value typed (informational; currentValues is authoritative). */
-  newValue: CellValue;
+  changes: Record<string, CellValue>;
+  /** Non-null when the most recent apply attempt for this revision failed. */
+  error: string | null;
 }
 
-/** A row deletion staged for review / apply. */
+export interface StagedRowInsert {
+  id: string;
+  kind: "row-insert";
+  values: CellValue[];
+}
+
 export interface StagedRowDelete {
+  id: string;
   kind: "row-delete";
   pkValues: CellValue[];
+  /** Non-null when the most recent apply attempt for this revision failed. */
+  error: string | null;
 }
 
-export type StagedChange = (StagedCellEdit | StagedRowDelete) & {
-  /** Stable identity for safe subset / concurrent apply. */
-  id: string;
-  error?: string;
-};
+export type StagedChange = StagedCellEdit | StagedRowInsert | StagedRowDelete;
 
-/* ------------------------------------------------------------------ */
-/*  Store shape                                                        */
-/* ------------------------------------------------------------------ */
+export type StagedChangeKind = StagedChange["kind"];
 
-interface StagedChangesState {
-  /** Per-tab list of staged changes. */
+/**
+ * Filter predicate for staged changes. Accepts either a kind string
+ * or a predicate function for more complex filtering.
+ */
+export type StagedChangeFilter =
+  | StagedChangeKind
+  | ((change: StagedChange) => boolean);
+
+/**
+ * Convert a StagedChangeFilter to a predicate function.
+ */
+function toPredicate(filter?: StagedChangeFilter): (change: StagedChange) => boolean {
+  if (!filter) return () => true;
+  if (typeof filter === "function") return filter;
+  return (change: StagedChange) => change.kind === filter;
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+let idCounter = 0;
+
+/** Generate a stable, unique ID for each staged revision. */
+export function generateChangeId(): string {
+  return `sc-${Date.now().toString(36)}-${(++idCounter).toString(36)}`;
+}
+
+/** Create a canonical string key from primary key values for comparison. */
+export function pkKey(pkValues: CellValue[]): string {
+  return pkValues
+    .map((v) => {
+      if (v.type === "null") return "NULL";
+      return `${v.type}:${String(v.value)}`;
+    })
+    .join("|");
+}
+
+// ─── Store State ──────────────────────────────────────────────────────────────
+
+export interface StagedChangesState {
+  /**
+   * Map of tabId → array of staged changes.
+   * Each entry is an immutable revision: once created, its ID never changes.
+   * When the user edits an in-flight revision, a NEW revision is created.
+   */
   changes: Record<string, StagedChange[]>;
-}
 
-interface StagedChangesActions {
-  /** Stage a cell edit. Merges into any existing edit for the same row (by PK). */
-  stageCellEdit: (tabId: string, edit: StagedCellEdit) => void;
-  /** Stage a row deletion. */
-  stageDeleteRow: (tabId: string, pkValues: CellValue[]) => void;
-  /** Revert a single staged change by index. */
-  revertAt: (tabId: string, index: number) => void;
-  /** Revert a single staged change by stable ID. */
-  revertById: (tabId: string, id: string) => void;
-  /** Revert all staged changes for a tab. */
-  revertAll: (tabId: string) => void;
-  /** Clear all staged changes after successful full apply. */
-  clearChanges: (tabId: string) => void;
-  /** Mark specific change indices as failed with an error message. */
-  markFailed: (tabId: string, indices: number[], error: string) => void;
-  /** Mark specific changes by ID as failed with an error message. */
-  markFailedByIds: (tabId: string, failures: Array<{ id: string; error: string }>) => void;
-  /** Clear error flags from all changes for a tab. */
-  clearFailed: (tabId: string) => void;
-  /** Remove changes by stable ID (identity-safe apply result handling). */
+  /** IDs currently being sent to the backend by applyChanges. */
+  inFlightIds: Set<string>;
+
+  // ─── Actions ──────────────────────────────────────────────────────────────
+
+  /**
+   * Stage a cell edit as a patch. If a non-in-flight entry exists for the
+   * same PK, the patch is merged into it (same ID). If the existing entry
+   * is in-flight, a NEW revision is created with a new ID.
+   */
+  stageCellEdit: (tabId: string, edit: Omit<StagedCellEdit, "id" | "kind" | "error">) => void;
+
+  /** Stage a new row insert. */
+  stageRowInsert: (tabId: string, insert: Omit<StagedRowInsert, "id" | "kind">) => void;
+
+  /**
+   * Stage a row delete. Removes any existing cell-edit for the same PK
+   * (since the delete supersedes them). Creates a new revision.
+   */
+  stageDeleteRow: (tabId: string, deleteOp: Omit<StagedRowDelete, "id" | "kind" | "error">) => void;
+
+  /**
+   * Mark specific staged revisions as in-flight (being sent to backend).
+   * While in-flight, edits to the same row create new revisions.
+   */
+  markInFlight: (tabId: string, ids: string[]) => void;
+
+  /** Remove specific staged revisions by ID (successful apply cleanup). */
   removeByIds: (tabId: string, ids: string[]) => void;
-  /** Keep only changes at given indices (remove successful ones after partial apply). */
-  keepOnlyIndices: (tabId: string, indices: number[]) => void;
-  /** Garbage-collect tabs no longer open. */
-  gc: (validTabIds: Set<string>) => void;
+
+  /** Mark specific revisions as failed with error messages. */
+  markFailedByIds: (tabId: string, failures: Array<{ id: string; error: string }>) => void;
+
+  /** Revert a specific staged revision by ID. */
+  revertById: (tabId: string, id: string) => void;
+
+  /** Clear all failed states for a tab. */
+  clearFailed: (tabId: string) => void;
+
+  /** Clear all staged revisions for a tab. */
+  clearTab: (tabId: string) => void;
+
+  /** Clear all staged revisions across all tabs. */
+  clearAll: () => void;
+
+  // ─── Selectors ────────────────────────────────────────────────────────────
+
+  /** Get all staged revisions for a tab. */
+  getChanges: (tabId: string) => StagedChange[];
+
+  /** Get staged revisions for a tab, optionally filtered. */
+  getFilteredChanges: (tabId: string, filter?: StagedChangeFilter) => StagedChange[];
+
+  /** Get count of staged revisions for a tab. */
+  getCount: (tabId: string) => number;
+
+  /** Get count of staged revisions for a tab, optionally filtered. */
+  getFilteredCount: (tabId: string, filter?: StagedChangeFilter) => number;
+
+  /** Check if a specific revision has an error. */
+  hasError: (tabId: string, id: string) => boolean;
+
+  /** Check if any revision for a tab has an error, optionally filtered by kind. */
+  hasErrors: (tabId: string, filter?: StagedChangeKind) => boolean;
+
+  /** Get all revision IDs that have errors for a tab. */
+  getErrorIds: (tabId: string, filter?: StagedChangeKind) => string[];
 }
 
-export type StagedChangesStore = StagedChangesState & StagedChangesActions;
+// ─── Store ────────────────────────────────────────────────────────────────────
 
-/* ------------------------------------------------------------------ */
-/*  Helpers                                                            */
-/* ------------------------------------------------------------------ */
+export const useStagedChangesStore = create<StagedChangesState>()(
+  persist(
+    (set, get) => ({
+      changes: {},
+      inFlightIds: new Set<string>(),
 
-function pkKey(pkValues: CellValue[]): string {
-  return pkValues.map((v) => JSON.stringify(v)).join("|");
-}
+      stageCellEdit: (tabId, edit) =>
+        set((s) => {
+          const existing = s.changes[tabId] ?? [];
+          const key = pkKey(edit.pkValues);
 
-let _nextChangeId = 0;
-function generateChangeId(): string {
-  return `sc-${Date.now().toString(36)}-${(++_nextChangeId).toString(36)}`;
-}
+          // Find existing cell-edit for same PK
+          const editIdx = existing.findIndex(
+            (c) => c.kind === "cell-edit" && pkKey(c.pkValues) === key,
+          );
 
-/* ------------------------------------------------------------------ */
-/*  Store                                                              */
-/* ------------------------------------------------------------------ */
+          if (editIdx !== -1) {
+            const prev = existing[editIdx] as StagedCellEdit;
+            if (s.inFlightIds.has(prev.id)) {
+              // In-flight: create NEW revision (caller composed the patch)
+              return {
+                changes: {
+                  ...s.changes,
+                  [tabId]: [...existing, { ...edit, kind: "cell-edit" as const, id: generateChangeId(), error: null }],
+                },
+              };
+            }
+            // Not in-flight: merge into existing revision (same ID)
+            const merged: StagedCellEdit = {
+              ...prev,
+              changes: { ...edit.changes },
+            };
+            const next = [...existing];
+            next[editIdx] = merged;
+            return { changes: { ...s.changes, [tabId]: next } };
+          }
 
-export const useStagedChangesStore = create<StagedChangesStore>()((set, _get) => ({
-  changes: {},
+          // No existing entry — create new revision
+          return {
+            changes: {
+              ...s.changes,
+              [tabId]: [...existing, { ...edit, kind: "cell-edit" as const, id: generateChangeId(), error: null }],
+            },
+          };
+        }),
 
-  stageCellEdit: (tabId, edit) =>
-    set((s) => {
-      const existing = s.changes[tabId] ?? [];
-      const key = pkKey(edit.pkValues);
+      stageRowInsert: (tabId, insert) =>
+        set((s) => {
+          const existing = s.changes[tabId] ?? [];
+          return {
+            changes: {
+              ...s.changes,
+              [tabId]: [...existing, { ...insert, kind: "row-insert" as const, id: generateChangeId() }],
+            },
+          };
+        }),
 
-      // Merge into existing cell-edit for the same row (multi-cell compose)
-      const mergeIdx = existing.findIndex(
-        (c) => c.kind === "cell-edit" && pkKey(c.pkValues) === key,
-      );
-      if (mergeIdx !== -1) {
-        const prev = existing[mergeIdx] as StagedCellEdit;
-        const merged: StagedCellEdit = {
-          ...prev,
-          currentValues: [...edit.currentValues],
-          columnName: edit.columnName,
-          newValue: edit.newValue,
-        };
-        const next = [...existing];
-        next[mergeIdx] = { ...merged, id: prev.id };
-        return { changes: { ...s.changes, [tabId]: next } };
-      }
+      stageDeleteRow: (tabId, deleteOp) =>
+        set((s) => {
+          const existing = s.changes[tabId] ?? [];
+          const key = pkKey(deleteOp.pkValues);
 
-      const id = generateChangeId();
-      return { changes: { ...s.changes, [tabId]: [...existing, { ...edit, id }] } };
+          // Remove any cell-edit or delete for same PK (delete supersedes)
+          const filtered = existing.filter(
+            (c) =>
+              !(
+                (c.kind === "cell-edit" || c.kind === "row-delete") &&
+                pkKey(c.pkValues) === key
+              ),
+          );
+
+          return {
+            changes: {
+              ...s.changes,
+              [tabId]: [...filtered, { ...deleteOp, kind: "row-delete" as const, id: generateChangeId(), error: null }],
+            },
+          };
+        }),
+
+      markInFlight: (tabId, ids) =>
+        set((s) => {
+          const next = new Set(s.inFlightIds);
+          for (const id of ids) next.add(id);
+          return { inFlightIds: next };
+        }),
+
+      removeByIds: (tabId, ids) =>
+        set((s) => {
+          const idSet = new Set(ids);
+          const existing = s.changes[tabId] ?? [];
+          const nextInFlight = new Set(s.inFlightIds);
+          for (const id of ids) nextInFlight.delete(id);
+          return {
+            changes: {
+              ...s.changes,
+              [tabId]: existing.filter((c) => !idSet.has(c.id)),
+            },
+            inFlightIds: nextInFlight,
+          };
+        }),
+
+      markFailedByIds: (tabId, failures) =>
+        set((s) => {
+          const failureMap = new Map(failures.map((f) => [f.id, f.error]));
+          const existing = s.changes[tabId] ?? [];
+          const nextInFlight = new Set(s.inFlightIds);
+          for (const id of failureMap.keys()) nextInFlight.delete(id);
+          return {
+            changes: {
+              ...s.changes,
+              [tabId]: existing.map((c) =>
+                failureMap.has(c.id) ? { ...c, error: failureMap.get(c.id)! } : c,
+              ),
+            },
+            inFlightIds: nextInFlight,
+          };
+        }),
+
+      revertById: (tabId, id) =>
+        set((s) => {
+          const existing = s.changes[tabId] ?? [];
+          return {
+            changes: {
+              ...s.changes,
+              [tabId]: existing.filter((c) => c.id !== id),
+            },
+          };
+        }),
+
+      clearFailed: (tabId) =>
+        set((s) => {
+          const existing = s.changes[tabId] ?? [];
+          return {
+            changes: {
+              ...s.changes,
+              [tabId]: existing.map((c) =>
+                c.kind !== "row-insert" ? { ...c, error: null } : c,
+              ),
+            },
+          };
+        }),
+
+      clearTab: (tabId) =>
+        set((s) => {
+          const next: Record<string, StagedChange[]> = { ...s.changes };
+          delete next[tabId];
+          return { changes: next };
+        }),
+
+      clearAll: () => set({ changes: {} }),
+
+      getChanges: (tabId) => get().changes[tabId] ?? [],
+
+      getFilteredChanges: (tabId, filter) => {
+        const predicate = toPredicate(filter);
+        return get().changes[tabId]?.filter(predicate) ?? [];
+      },
+
+      getCount: (tabId) => get().changes[tabId]?.length ?? 0,
+
+      getFilteredCount: (tabId, filter) => {
+        const predicate = toPredicate(filter);
+        const changes = get().changes[tabId] ?? [];
+        return changes.filter(predicate).length;
+      },
+
+      hasError: (tabId, id) => {
+        const changes = get().changes[tabId] ?? [];
+        return changes.some((c) => c.id === id && c.kind !== "row-insert" && c.error !== null);
+      },
+
+      hasErrors: (tabId, filter) => {
+        const changes = get().changes[tabId] ?? [];
+        return changes.some((c) => {
+          if (c.kind === "row-insert") return false;
+          if (filter && c.kind !== filter) return false;
+          return c.error !== null;
+        });
+      },
+
+      getErrorIds: (tabId, filter) => {
+        const changes = get().changes[tabId] ?? [];
+        return changes
+          .filter((c) => {
+            if (c.kind === "row-insert") return false;
+            if (filter && c.kind !== filter) return false;
+            return c.error !== null;
+          })
+          .map((c) => c.id);
+      },
     }),
+    {
+      name: "db-pro-staged-changes",
+      partialize: (state) => ({
+        changes: state.changes,
+      }),
+    },
+  ),
+);
 
-  stageDeleteRow: (tabId, pkValues) =>
-    set((s) => {
-      const existing = s.changes[tabId] ?? [];
-      // Remove any cell-edits for this row (they're subsumed by the delete)
-      const key = pkKey(pkValues);
-      const filtered = existing.filter((c) => {
-        if (c.kind === "cell-edit") return pkKey(c.pkValues) !== key;
-        if (c.kind === "row-delete") return pkKey(c.pkValues) !== key;
-        return true;
-      });
-      const id = generateChangeId();
-      return {
-        changes: { ...s.changes, [tabId]: [...filtered, { kind: "row-delete", pkValues, id }] },
-      };
-    }),
-
-  revertAt: (tabId, index) =>
-    set((s) => {
-      const existing = s.changes[tabId] ?? [];
-      if (index < 0 || index >= existing.length) return s;
-      const next = [...existing];
-      next.splice(index, 1);
-      return { changes: { ...s.changes, [tabId]: next } };
-    }),
-
-  revertById: (tabId, id) =>
-    set((s) => {
-      const existing = s.changes[tabId] ?? [];
-      const next = existing.filter((c) => c.id !== id);
-      return { changes: { ...s.changes, [tabId]: next } };
-    }),
-
-  revertAll: (tabId) =>
-    set((s) => {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { [tabId]: _, ...rest } = s.changes;
-      return { changes: rest };
-    }),
-
-  clearChanges: (tabId) =>
-    set((s) => {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { [tabId]: __, ...rest } = s.changes;
-      return { changes: rest };
-    }),
-
-  markFailed: (tabId, indices, error) =>
-    set((s) => {
-      const existing = s.changes[tabId] ?? [];
-      const failSet = new Set(indices);
-      const updated = existing.map((c, i) => (failSet.has(i) ? { ...c, error } : c));
-      return { changes: { ...s.changes, [tabId]: updated } };
-    }),
-
-  clearFailed: (tabId) =>
-    set((s) => {
-      const existing = s.changes[tabId] ?? [];
-      const updated = existing.map((c) => {
-        if (c.error) {
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          const { error: _, ...rest } = c;
-          return rest as typeof c;
-        }
-        return c;
-      });
-      return { changes: { ...s.changes, [tabId]: updated } };
-    }),
-
-  keepOnlyIndices: (tabId, indices) =>
-    set((s) => {
-      const existing = s.changes[tabId] ?? [];
-      const keepSet = new Set(indices);
-      const kept = existing.filter((_, i) => keepSet.has(i));
-      return { changes: { ...s.changes, [tabId]: kept } };
-    }),
-
-  removeByIds: (tabId, ids) =>
-    set((s) => {
-      const existing = s.changes[tabId] ?? [];
-      const idSet = new Set(ids);
-      const kept = existing.filter((c) => !idSet.has(c.id));
-      return { changes: { ...s.changes, [tabId]: kept } };
-    }),
-
-  markFailedByIds: (tabId, failures) =>
-    set((s) => {
-      const existing = s.changes[tabId] ?? [];
-      const failMap = new Map(failures.map((f) => [f.id, f.error]));
-      const updated = existing.map((c) =>
-        failMap.has(c.id) ? { ...c, error: failMap.get(c.id) } : c,
-      );
-      return { changes: { ...s.changes, [tabId]: updated } };
-    }),
-
-  gc: (validTabIds) =>
-    set((s) => {
-      const cleaned: Record<string, StagedChange[]> = {};
-      for (const [id, changes] of Object.entries(s.changes)) {
-        if (validTabIds.has(id)) cleaned[id] = changes;
-      }
-      return { changes: cleaned };
-    }),
-}));
-
-/* ------------------------------------------------------------------ */
-/*  Selectors                                                          */
-/* ------------------------------------------------------------------ */
-
-/** Get the staged changes for a specific tab. */
+/** Reactive selector: staged changes for a specific tab. */
 export function useTabStagedChanges(tabId: string): StagedChange[] {
   return useStagedChangesStore((s) => s.changes[tabId] ?? []);
-}
-
-/** Get just the count of staged changes for a tab. */
-export function useStagedChangeCount(tabId: string): number {
-  return useStagedChangesStore((s) => (s.changes[tabId] ?? []).length);
 }

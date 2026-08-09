@@ -229,7 +229,18 @@ export function UnifiedGrid({
   /* ---- keyboard copy (B1.2 / B1.3) — scoped to grid focus ---- */
   const handleGridKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
+      // Do not intercept copy when focus is inside an editable element
+      const target = e.target as HTMLElement;
+      if (
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLSelectElement ||
+        target.isContentEditable
+      ) {
+        return;
+      }
       if ((e.ctrlKey || e.metaKey) && e.key === "c" && selection.size > 0) {
+        e.preventDefault();
         const selectedIndices = Array.from(selection).sort((a, b) => a - b);
         const lines = selectedIndices.map((rowIdx) => {
           const row = rows[rowIdx];

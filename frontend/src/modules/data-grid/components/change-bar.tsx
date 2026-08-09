@@ -18,7 +18,7 @@ export function ChangeBar({ changes, isApplying, onApply, onRevertAll, onRetryFa
 
   const edits = changes.filter((c) => c.kind === "cell-edit").length;
   const deletes = changes.filter((c) => c.kind === "row-delete").length;
-  const failed = changes.filter((c) => c.error).length;
+  const failed = changes.filter((c) => "error" in c && c.error).length;
 
   const parts: string[] = [];
   if (edits > 0) parts.push(t("dataGrid.changes.edits", { count: edits }));
