@@ -1,11 +1,11 @@
 # DB Pro — Current Project Status
 
 **Updated:** 2026-08-09  
-**Code baseline reviewed:** `669d1fa`  
+**Code baseline reviewed:** `912588f`  
 **Release target:** `0.1.0` Release Candidate  
 **Status authority:** this file + `docs/release/0.1.0-readiness.md`
 
-> Documentation-only status commits may exist after `669d1fa`. `669d1fa` is the latest behavior-changing code baseline reviewed for this report. Detailed `02–06` plan files are historical task definitions; do not infer live completion from their unchecked rows.
+> `120b250` fixed the known `tab-factories` collision-title test setup by using non-preview tabs so collision cases coexist. `912588f` normalized the frontend source with Prettier and cleared the historical format drift. Full Vitest/build/Rust final verification is still required at the exact release SHA.
 
 ---
 
@@ -29,8 +29,10 @@
 | Schema mutation / users/roles | DEFERRED | post-0.1 |
 | Agent | PREVIEW | production Agent execution excluded |
 | MCP | DEFERRED | not shipped in 0.1.0 |
+| Frontend typecheck/lint/format | PASS at `912588f` (local report) | typecheck 0 errors; lint 0 errors / 1 pre-existing warning; Prettier clean |
+| Frontend full tests/build | PENDING | known tab-factories failure fixed; full Vitest/build still not executed at `912588f` |
 | Packaging workflow | DONE definition | current release artifacts not proven |
-| Release verification | BLOCKED | current release SHA lacks complete green evidence |
+| Release verification | BLOCKED | full automated + artifact + manual runtime evidence incomplete |
 
 ---
 
@@ -51,7 +53,7 @@
 | 10 | DataGrid | DONE release scope / PARTIAL historical full scope |
 | 11 | Export | DONE release subset |
 | 12 | Advanced features | PARTIAL / DEFERRED for 0.1 |
-| 13 | Testing | BLOCKED / verification incomplete |
+| 13 | Testing | PARTIAL / final full-suite verification pending |
 | 14 | CI/CD + packaging | BLOCKED / artifacts incomplete |
 
 ---
@@ -72,7 +74,7 @@ Includes split Run interaction, shortcut semantics, Data-first table navigation,
 
 ### Wave B — Core usability / data safety
 
-**SOURCE MOSTLY CLOSED; RELEASE VERIFICATION BLOCKED.**
+**SOURCE CLOSED FOR THE 0.1.0 SCOPE; RELEASE VERIFICATION PENDING.**
 
 Implemented:
 - grid column resize/layout persistence
@@ -89,6 +91,8 @@ Implemented:
 - query context cleanup on connection reassignment
 - collision-aware titles / compact pinned tabs
 - portable frontend lockfile root dependencies
+- collision-title regression test setup corrected (`120b250`)
+- frontend Prettier normalization (`912588f`)
 
 No Wave C/MCP work should begin before release gates close.
 
@@ -96,47 +100,11 @@ No Wave C/MCP work should begin before release gates close.
 
 ## Current Release Blockers (P1)
 
-### P1-1 — Frontend suite not fully green/proven at release baseline
+### P1-1 — Exact-SHA automated verification is incomplete
 
-Latest behavior-changing commit `669d1fa` explicitly records a pre-existing `tab-factories` test failure. The older `1000/1000` verification predates Wave A/B.
+The known `tab-factories` test failure has been fixed in `120b250`, and `typecheck`, `lint`, and `format:check` were reported green after `912588f`. However, the full Vitest suite and production frontend build have not been executed successfully at this exact release-train SHA. Final Rust gates also need an exact-SHA rerun.
 
-**Exit:** run complete current suite, fix the failing test/root behavior, record exact Test Files / Tests / Passed / Failed with 0 failures.
-
-### P1-2 — `format:check` / release preflight unresolved
-
-Release workflow runs `npm run format:check`; historical verification recorded broad Prettier drift.
-
-**Exit:** make `format:check` PASS at the final SHA, or intentionally change and document the release quality policy.
-
-### P1-3 — Cross-platform release artifacts not proven
-
-Workflow exists but no current release evidence proves macOS + Windows + Linux Tauri artifacts.
-
-**Exit:** green release matrix and retained artifacts for all three platforms.
-
-### P1-4 — Manual desktop runtime smoke pending
-
-Verify startup/reconnect, PostgreSQL error paths, SQLite Browse, Explorer refresh, Data-first navigation, Run/cancel, destructive confirmation/read-only, staged multi-cell updates/deletes, copy isolation, workspace restore and packaged-app stability.
-
-**Exit:** complete `docs/release/0.1.0-manual-smoke.md` and record failures/sign-off.
-
----
-
-## Known P2 / Post-0.1 Debt
-
-- Unsigned release artifacts unless signing is added.
-- SSH tunnel not yet E2E-qualified across release targets.
-- Complete row insertion deferred.
-- Advanced schema mutation/users/roles deferred.
-- Agent remains Preview; MCP deferred.
-- JSON cell inspection/context-menu accessibility can improve.
-- Clipboard failure feedback can improve.
-- Historical coverage percentage targets need re-measurement.
-- Public project license is not defined.
-
----
-
-## Required Final Verification
+**Exit:** run and record exact results with 0 failures:
 
 ```bash
 cd frontend
@@ -155,13 +123,53 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
 ```
 
-Then:
+Record exact Test Files / Tests / Passed / Failed. Do not carry forward old counts.
 
-1. Run the Tauri Release Build matrix.
-2. Install/run at least the host packaged artifact.
-3. Complete manual smoke + screenshots.
-4. Update verification/readiness to the exact tag candidate SHA.
-5. Only then tag `v0.1.0`.
+### P1-2 — Cross-platform release artifacts not proven
+
+Workflow exists but no current release evidence proves macOS + Windows + Linux Tauri artifacts.
+
+**Exit:** green release matrix and retained artifacts for all three platforms.
+
+### P1-3 — Manual desktop runtime smoke pending
+
+Verify startup/reconnect, PostgreSQL error paths, SQLite Browse, Explorer refresh, Data-first navigation, Run/cancel, destructive confirmation/read-only, staged multi-cell updates/deletes, copy isolation, workspace restore and packaged-app stability.
+
+**Exit:** complete `docs/release/0.1.0-manual-smoke.md` and record failures/sign-off.
+
+---
+
+## Closed Release Blockers
+
+- `tab-factories` known failure root cause: **FIXED** at `120b250`.
+- Frontend Prettier drift / `format:check`: **FIXED** at `912588f` (253 files normalized; local check reported PASS).
+- Darwin-only Rollup root dependency: **FIXED** by portable lockfile regeneration.
+
+---
+
+## Known P2 / Post-0.1 Debt
+
+- Unsigned release artifacts unless signing is added.
+- SSH tunnel not yet E2E-qualified across release targets.
+- Complete row insertion deferred.
+- Advanced schema mutation/users/roles deferred.
+- Agent remains Preview; MCP deferred.
+- JSON cell inspection/context-menu accessibility can improve.
+- Clipboard failure feedback can improve.
+- Historical coverage percentage targets need re-measurement.
+- Public project license is not defined.
+
+---
+
+## Final Release Sequence
+
+1. Run exact-SHA full automated verification (frontend + Rust) and record exact counts.
+2. Trigger the Tauri Release Build matrix.
+3. Retain/download macOS, Windows, and Linux artifacts.
+4. Install/run at least the host packaged artifact.
+5. Complete manual smoke + screenshots.
+6. Update verification/readiness to the final tag candidate SHA.
+7. Only then tag `v0.1.0`.
 
 ---
 
@@ -169,4 +177,6 @@ Then:
 
 **READY_FOR_RELEASE: NO**
 
-The intended 0.1.0 feature scope is sufficiently implemented to stop feature development and enter final RC verification. The remaining work is release evidence, not another feature wave.
+**Current P1 blockers: 3.**
+
+The intended 0.1.0 feature scope is sufficiently implemented and Wave A/B source work is closed for release scope. Remaining work is exact-SHA automated verification, cross-platform artifact proof, and runtime/manual sign-off — not another feature wave.
