@@ -1,68 +1,108 @@
 # Changelog
 
-## [0.1.0] — 2026-08-XX
+## [Unreleased]
 
-### Initial Release
+### 0.1.0 Release Candidate
 
-DB Pro 0.1.0 — premium desktop Database IDE with Agent-native architecture.
+DB Pro 0.1.0 is currently in release-candidate verification. The intended release scope is largely implemented, but final automated gates, cross-platform artifacts, and manual runtime smoke are still pending.
 
-**Database Support:**
-- PostgreSQL: connect, test, disconnect, reconnect, credential management
-- SQLite: file-based open/reopen
+### Added / Completed
 
-**Schema Explorer:**
-- Tree-view with schemas, tables, views
-- Metadata introspection with refresh
-- DB Object workbench: Data, Columns, Indexes, Relations, DDL tabs
+**Database support**
+- PostgreSQL connection lifecycle
+- SQLite file connections + native Browse wiring
+- startup reconnect source flow
 
-**Query Workbench:**
-- Monaco SQL editor with syntax highlighting
-- Statement-aware execution (cursor position)
-- Selection execution (Cmd/Ctrl+Enter)
-- Multi-statement execution (Cmd/Ctrl+Shift+Enter, F5)
-- Explain / Explain Analyze
-- SQL formatting
-- Result grid with row count and timing
-- Query history with favorites
-- Export to CSV and Excel
+**Explorer / DB Object**
+- schemas, tables, views
+- targeted connection metadata refresh
+- Data-first table/view navigation
+- Data / Columns / Indexes / Relations / DDL inspection
 
-**Workspace:**
-- Multi-tab workspace with query and table tabs
-- Pin/unpin, preview mode
-- Workspace persistence across sessions
-- Quick Open (Cmd/Ctrl+P) and Command Palette (Cmd/Ctrl+Shift+P)
+**Query workbench**
+- Monaco SQL editor
+- current-statement execution
+- selection execution
+- run-all / multi-statement execution
+- split Run button
+- Explain
+- SQL format
+- query history
+- result grid
+- Stop/Escape cancellation source flow
 
-**Safety:**
-- Destructive query confirmation (DROP, TRUNCATE, DELETE without WHERE)
-- Read-only connection mode
-- SQL safety classifier with CTE awareness
+**Workspace / navigation**
+- query and DB Object tabs
+- preview/pin/close/navigation
+- compact inactive pinned tabs
+- collision-aware resource titles
+- orphan-tab recovery
+- Quick Open and Command Palette
 
-**Architecture:**
-- Action Platform with canonical runtime and audit trail
-- Command Palette integration via action-to-command adapter
-- Agent workspace panel (Preview / Coming Soon)
-- OS keyring credential storage with encrypted fallback
+**Data Grid**
+- virtualization
+- filtering, sorting, pagination
+- column resize/layout persistence
+- row selection/copy
+- PK-based staged update/delete
+- patch-style row updates (only changed columns sent)
+- same-row multi-cell patch composition
+- stable staged revision IDs and in-flight safety
+- partial-success/failure cleanup by exact revision ID
+- apply confirmation for destructive staged changes
 
-**Tech Stack:**
-- Tauri 2, Rust, React 19, TypeScript, Vite, shadcn/ui, Radix, Tailwind CSS 4, Monaco
+**Architecture / safety**
+- canonical Action Platform runtime
+- confirmation lifecycle
+- cancellation identity
+- read-only backend policy
+- secret/keyring infrastructure
+
+### Fixed during release UX closure
+
+- table single-click now opens Data preview rather than structure/config
+- table/view double-click promotes Data without duplicate tabs
+- Open Structure explicitly opens Columns
+- Run main segment executes directly; chevron only opens options
+- shortcut labels aligned across macOS/Windows/Linux semantics
+- status bar distinguishes reconnecting/error states
+- startup reconnect behavior corrected
+- SQLite dialog plugin registered on Rust side with minimal capability
+- Explorer Refresh targets the clicked connection and invalidates backend/client metadata caches
+- row selection copy no longer uses a document-global keyboard listener
+- staged writes no longer replay already-successful changes after partial apply
+- staged row edits no longer use stale full-row snapshots
+- platform-specific Rollup native binary removed from root dependencies; lockfile regenerated
+
+### Explicitly deferred from 0.1.0
+
+- complete row insertion workflow
+- advanced schema mutation / DDL execution workbench
+- users / roles workbench
+- production Agent execution
+- MCP server
+- additional database drivers
+
+### Known release limitations
+
+- SSH tunnel plumbing is not yet end-to-end qualified on all release targets.
+- Release artifacts are unsigned unless signing/notarization is added before distribution.
+- Tables without primary keys are read-only in the Data Grid.
+- Agent panel is Preview only.
+- Project license is not yet defined.
+
+### Remaining release gates
+
+- current frontend test suite: must reach 0 failures
+- `npm run format:check`: must pass because release preflight enforces it
+- exact-SHA frontend + Rust verification
+- macOS / Windows / Linux Tauri release builds + artifacts
+- packaged/manual runtime smoke
+
+See `plans/07-current-status.md` and `docs/release/0.1.0-readiness.md` for current status.
 
 ---
 
-## [Unreleased]
+## [0.1.0]
 
-### Fixes
-
-**Auto-prune stale recent connections** (`db175e4`)
-Recent connection entries persisted in localStorage even after the underlying connection was deleted (e.g., via API sync or another device). The Welcome screen now cross-references recent entries against the live connection list on load and silently removes any orphans. No more ghost entries accumulating over time.
-
-**AlertDialog replaces native `confirm()` for delete** (`db175e4`)
-The delete connection flow previously used the browser's native `confirm()` dialog, which broke the visual consistency of the shadcn-based UI. Replaced with a styled `AlertDialog` matching the rest of the app — same typography, spacing, and button treatment. Includes a destructive-styled confirm button and proper i18n support (en + ja).
-
-**Error toast on failed reconnection** (`db175e4`)
-Clicking a recent connection on the Welcome screen or selecting one from the Quick Open palette (Ctrl+K / Ctrl+P) now shows an error snackbar if the connection fails. Previously, failures were silent — the status badge changed but no message appeared. The error message comes from the backend when available, falling back to a localized "Failed to connect" string.
-
-### Testing
-
-- Added 2 new test cases for stale entry pruning and error feedback (`72c0056`)
-- 190/190 tests passing
-- TypeScript: clean
+Not released yet. This section will be finalized when the release candidate passes all gates and the tag is created.
