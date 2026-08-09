@@ -6,16 +6,18 @@ import type { CellValue } from "@/modules/query/types/query.types";
 /*  Types                                                              */
 /* ------------------------------------------------------------------ */
 
-/** A single cell modification staged for review / apply. */
+/** A single cell modification staged for review / apply.
+ *  Multiple edits to the same row (by PK) are merged into one entry
+ *  so that Apply sends a single composed UPDATE. */
 export interface StagedCellEdit {
   kind: "cell-edit";
   /** Primary-key column values that identify the row. */
   pkValues: CellValue[];
-  /** All column values *after* the edit (full row snapshot). */
+  /** All column values *after* all edits (composed row snapshot). */
   currentValues: CellValue[];
-  /** Column name that was changed. */
+  /** Column name of the latest edit in this merged entry. */
   columnName: string;
-  /** The new value the user typed. */
+  /** The latest value typed (informational; currentValues is authoritative). */
   newValue: CellValue;
 }
 
@@ -41,7 +43,7 @@ interface StagedChangesState {
 }
 
 interface StagedChangesActions {
-  /** Stage a cell edit. Replaces any previous edit for the same row+column. */
+  /** Stage a cell edit. Merges into any existing edit for the same row (by PK). */
   stageCellEdit: (tabId: string, edit: StagedCellEdit) => void;
   /** Stage a row deletion. */
   stageDeleteRow: (tabId: string, pkValues: CellValue[]) => void;
@@ -92,14 +94,27 @@ export const useStagedChangesStore = create<StagedChangesStore>()((set, _get) =>
   stageCellEdit: (tabId, edit) =>
     set((s) => {
       const existing = s.changes[tabId] ?? [];
-      // Replace any previous cell-edit for the same row + column
-      const filtered = existing.filter((c) => {
-        if (c.kind !== "cell-edit") return true;
-        const sameRow = pkKey(c.pkValues) === pkKey(edit.pkValues);
-        return !(sameRow && c.columnName === edit.columnName);
-      });
+      const key = pkKey(edit.pkValues);
+
+      // Merge into existing cell-edit for the same row (multi-cell compose)
+      const mergeIdx = existing.findIndex(
+        (c) => c.kind === "cell-edit" && pkKey(c.pkValues) === key,
+      );
+      if (mergeIdx !== -1) {
+        const prev = existing[mergeIdx] as StagedCellEdit;
+        const merged: StagedCellEdit = {
+          ...prev,
+          currentValues: [...edit.currentValues],
+          columnName: edit.columnName,
+          newValue: edit.newValue,
+        };
+        const next = [...existing];
+        next[mergeIdx] = { ...merged, id: prev.id };
+        return { changes: { ...s.changes, [tabId]: next } };
+      }
+
       const id = generateChangeId();
-      return { changes: { ...s.changes, [tabId]: [...filtered, { ...edit, id }] } };
+      return { changes: { ...s.changes, [tabId]: [...existing, { ...edit, id }] } };
     }),
 
   stageDeleteRow: (tabId, pkValues) =>

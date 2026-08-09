@@ -173,6 +173,12 @@ export function UnifiedGrid({
   const handleRowNumberClick = useCallback(
     (e: React.MouseEvent, rowIdx: number) => {
       e.stopPropagation();
+      // Establish grid keyboard ownership so Cmd/Ctrl+C works after selection.
+      // Skip if user is actively editing a cell (input inside grid container).
+      const active = document.activeElement;
+      if (!(active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement)) {
+        gridContainerRef.current?.focus({ preventScroll: true });
+      }
       if (e.shiftKey && lastSelectedRow.current != null) {
         const from = Math.min(lastSelectedRow.current, rowIdx);
         const to = Math.max(lastSelectedRow.current, rowIdx);

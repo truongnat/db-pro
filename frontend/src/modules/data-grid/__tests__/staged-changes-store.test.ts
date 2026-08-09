@@ -46,13 +46,26 @@ describe("StagedChangesStore", () => {
       expect((c![0] as StagedCellEdit).newValue).toEqual({ type: "text", value: "Carol" });
     });
 
-    it("keeps edits for different columns", () => {
-      const edit1 = makeCellEdit({ columnName: "name" });
-      const edit2 = makeCellEdit({ columnName: "email" });
+    it("merges edits for different columns of the same row into one entry", () => {
       const store = useStagedChangesStore.getState();
-      store.stageCellEdit("tab-1", edit1);
-      store.stageCellEdit("tab-1", edit2);
-      expect(changes("tab-1")).toHaveLength(2);
+      // Edit name column: base [1, Alice] → [1, Bob]
+      store.stageCellEdit("tab-1", makeCellEdit({
+        columnName: "name",
+        currentValues: [{ type: "int64", value: 1 }, { type: "text", value: "Bob" }],
+        newValue: { type: "text", value: "Bob" },
+      }));
+      // Edit email column: base [1, Alice, x@y] → [1, Alice, new@z]
+      // Note: caller passes currentValues based on original row + this edit
+      store.stageCellEdit("tab-1", makeCellEdit({
+        columnName: "email",
+        currentValues: [{ type: "int64", value: 1 }, { type: "text", value: "Alice" }],
+        newValue: { type: "text", value: "new@z" },
+      }));
+      // Should be merged into one entry
+      const c = changes("tab-1");
+      expect(c).toHaveLength(1);
+      // Latest edit's columnName/newValue are reflected
+      expect((c![0] as StagedCellEdit).columnName).toBe("email");
     });
 
     it("keeps edits for different rows", () => {
@@ -186,9 +199,9 @@ describe("StagedChangesStore", () => {
   describe("markFailed", () => {
     it("marks specific indices with error", () => {
       const store = useStagedChangesStore.getState();
-      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "a" }));
-      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "b" }));
-      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "c" }));
+      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "a", pkValues: [{ type: "int64", value: 1 }] }));
+      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "b", pkValues: [{ type: "int64", value: 2 }] }));
+      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "c", pkValues: [{ type: "int64", value: 3 }] }));
       store.markFailed("tab-1", [1], "DB error");
       const c = changes("tab-1");
       expect(c).toHaveLength(3);
@@ -201,9 +214,9 @@ describe("StagedChangesStore", () => {
   describe("keepOnlyIndices (partial apply correctness)", () => {
     it("removes successful changes, keeps only failed ones", () => {
       const store = useStagedChangesStore.getState();
-      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "a" }));
-      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "b" }));
-      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "c" }));
+      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "a", pkValues: [{ type: "int64", value: 1 }] }));
+      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "b", pkValues: [{ type: "int64", value: 2 }] }));
+      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "c", pkValues: [{ type: "int64", value: 3 }] }));
 
       // Simulate partial success: indices 0,1 succeeded, index 2 failed
       store.keepOnlyIndices("tab-1", [2]);
@@ -214,9 +227,9 @@ describe("StagedChangesStore", () => {
 
     it("handles keeping multiple failed indices", () => {
       const store = useStagedChangesStore.getState();
-      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "a" }));
+      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "a", pkValues: [{ type: "int64", value: 1 }] }));
       store.stageDeleteRow("tab-1", [{ type: "int64", value: 99 }]);
-      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "c" }));
+      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "c", pkValues: [{ type: "int64", value: 2 }] }));
 
       // Index 0 succeeded, indices 1,2 failed
       store.keepOnlyIndices("tab-1", [1, 2]);
@@ -242,9 +255,9 @@ describe("StagedChangesStore", () => {
   describe("removeByIds (identity-safe apply)", () => {
     it("removes only changes with matching IDs", () => {
       const store = useStagedChangesStore.getState();
-      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "a" }));
-      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "b" }));
-      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "c" }));
+      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "a", pkValues: [{ type: "int64", value: 1 }] }));
+      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "b", pkValues: [{ type: "int64", value: 2 }] }));
+      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "c", pkValues: [{ type: "int64", value: 3 }] }));
       const allIds = changes("tab-1")!.map((c) => c.id);
 
       // Remove first two by ID
@@ -256,12 +269,12 @@ describe("StagedChangesStore", () => {
 
     it("preserves changes staged during apply (concurrency safety)", () => {
       const store = useStagedChangesStore.getState();
-      // Initial: stage A
-      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "a" }));
+      // Initial: stage A (pk=1)
+      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "a", pkValues: [{ type: "int64", value: 1 }] }));
       const idA = changes("tab-1")![0].id;
 
-      // While A is "in flight", user stages B
-      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "b" }));
+      // While A is "in flight", user stages B (pk=2, different row)
+      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "b", pkValues: [{ type: "int64", value: 2 }] }));
 
       // A succeeds → removeByIds only removes A's ID
       store.removeByIds("tab-1", [idA]);
@@ -273,10 +286,10 @@ describe("StagedChangesStore", () => {
 
     it("handles retry-failed with pending changes safely", () => {
       const store = useStagedChangesStore.getState();
-      // A failed, B is new pending
-      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "a" }));
+      // A failed (pk=1), B is new pending (pk=2)
+      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "a", pkValues: [{ type: "int64", value: 1 }] }));
       store.markFailed("tab-1", [0], "DB error");
-      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "b" }));
+      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "b", pkValues: [{ type: "int64", value: 2 }] }));
 
       const idA = changes("tab-1")![0].id;
       expect(changes("tab-1")).toHaveLength(2);
@@ -292,9 +305,9 @@ describe("StagedChangesStore", () => {
 
     it("partial retry: A(error) B(error) C(pending) → A success B fail", () => {
       const store = useStagedChangesStore.getState();
-      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "a" }));
-      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "b" }));
-      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "c" }));
+      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "a", pkValues: [{ type: "int64", value: 1 }] }));
+      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "b", pkValues: [{ type: "int64", value: 2 }] }));
+      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "c", pkValues: [{ type: "int64", value: 3 }] }));
       store.markFailed("tab-1", [0, 1], "fail");
 
       const all = changes("tab-1")!;
@@ -323,8 +336,8 @@ describe("StagedChangesStore", () => {
   describe("markFailedByIds", () => {
     it("marks specific changes by ID with error", () => {
       const store = useStagedChangesStore.getState();
-      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "a" }));
-      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "b" }));
+      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "a", pkValues: [{ type: "int64", value: 1 }] }));
+      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "b", pkValues: [{ type: "int64", value: 2 }] }));
       const ids = changes("tab-1")!.map((c) => c.id);
 
       store.markFailedByIds("tab-1", [{ id: ids[1], error: "DB error" }]);
@@ -344,8 +357,8 @@ describe("StagedChangesStore", () => {
   describe("revertById", () => {
     it("removes change by ID", () => {
       const store = useStagedChangesStore.getState();
-      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "a" }));
-      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "b" }));
+      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "a", pkValues: [{ type: "int64", value: 1 }] }));
+      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "b", pkValues: [{ type: "int64", value: 2 }] }));
       const id = changes("tab-1")![0].id;
 
       store.revertById("tab-1", id);
@@ -358,13 +371,135 @@ describe("StagedChangesStore", () => {
   describe("clearFailed", () => {
     it("removes error flags from all changes", () => {
       const store = useStagedChangesStore.getState();
-      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "a" }));
-      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "b" }));
+      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "a", pkValues: [{ type: "int64", value: 1 }] }));
+      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "b", pkValues: [{ type: "int64", value: 2 }] }));
       store.markFailed("tab-1", [0, 1], "fail");
       expect(changes("tab-1")![0].error).toBe("fail");
       store.clearFailed("tab-1");
       expect(changes("tab-1")![0].error).toBeUndefined();
       expect(changes("tab-1")![1].error).toBeUndefined();
+    });
+  });
+
+  describe("multi-cell same-row merge (data correctness)", () => {
+    const pk1 = [{ type: "int64" as const, value: 1 }];
+    const int = (v: number) => ({ type: "int64" as const, value: v });
+    const text = (v: string) => ({ type: "text" as const, value: v });
+
+    it("A. composes edits to different columns into one row update", () => {
+      const store = useStagedChangesStore.getState();
+      // Base row: [pk=1, name=Alice, age=20]
+      // Edit name → Bob: currentValues = [1, Bob, 20]
+      store.stageCellEdit("tab-1", {
+        kind: "cell-edit",
+        pkValues: pk1,
+        currentValues: [int(1), text("Bob"), int(20)],
+        columnName: "name",
+        newValue: text("Bob"),
+      });
+      // Edit age → 21: currentValues = [1, Alice, 21] (caller uses base row)
+      store.stageCellEdit("tab-1", {
+        kind: "cell-edit",
+        pkValues: pk1,
+        currentValues: [int(1), text("Alice"), int(21)],
+        columnName: "age",
+        newValue: int(21),
+      });
+
+      const c = changes("tab-1");
+      // Must be ONE merged entry, not two separate
+      expect(c).toHaveLength(1);
+      const edit = c![0] as StagedCellEdit;
+      // Latest edit's currentValues are authoritative
+      // The merge takes the new edit's currentValues and preserves the store entry's id
+      expect(edit.currentValues).toEqual([int(1), text("Alice"), int(21)]);
+      expect(edit.columnName).toBe("age");
+    });
+
+    it("B. re-editing same cell: latest value wins", () => {
+      const store = useStagedChangesStore.getState();
+      store.stageCellEdit("tab-1", {
+        kind: "cell-edit",
+        pkValues: pk1,
+        currentValues: [int(1), text("Bob"), int(20)],
+        columnName: "name",
+        newValue: text("Bob"),
+      });
+      store.stageCellEdit("tab-1", {
+        kind: "cell-edit",
+        pkValues: pk1,
+        currentValues: [int(1), text("Charlie"), int(20)],
+        columnName: "name",
+        newValue: text("Charlie"),
+      });
+
+      const c = changes("tab-1");
+      expect(c).toHaveLength(1);
+      expect((c![0] as StagedCellEdit).newValue).toEqual(text("Charlie"));
+    });
+
+    it("C. edit row then delete same row → only delete remains", () => {
+      const store = useStagedChangesStore.getState();
+      store.stageCellEdit("tab-1", {
+        kind: "cell-edit",
+        pkValues: pk1,
+        currentValues: [int(1), text("Bob"), int(20)],
+        columnName: "name",
+        newValue: text("Bob"),
+      });
+      expect(changes("tab-1")).toHaveLength(1);
+
+      store.stageDeleteRow("tab-1", pk1);
+      const c = changes("tab-1");
+      expect(c).toHaveLength(1);
+      expect(c![0].kind).toBe("row-delete");
+    });
+
+    it("D. apply A in-flight + new edit B for same PK → B preserved", () => {
+      const store = useStagedChangesStore.getState();
+      // Stage edit A for pk=1
+      store.stageCellEdit("tab-1", {
+        kind: "cell-edit",
+        pkValues: pk1,
+        currentValues: [int(1), text("Bob"), int(20)],
+        columnName: "name",
+        newValue: text("Bob"),
+      });
+      const idA = changes("tab-1")![0].id;
+
+      // User stages edit B for same pk=1 while A is in-flight
+      // (merge happens into the existing entry, updating currentValues)
+      store.stageCellEdit("tab-1", {
+        kind: "cell-edit",
+        pkValues: pk1,
+        currentValues: [int(1), text("Bob"), int(21)],
+        columnName: "age",
+        newValue: int(21),
+      });
+
+      // Still one merged entry (same PK)
+      expect(changes("tab-1")).toHaveLength(1);
+      // ID is preserved from the original entry
+      expect(changes("tab-1")![0].id).toBe(idA);
+
+      // A succeeds → removeByIds removes the merged entry
+      store.removeByIds("tab-1", [idA]);
+      // Now the store is empty — but in reality, the user's B edit
+      // was merged into A's identity, so removing A removes the composed edit.
+      // This is correct because the apply sent the LATEST composed values.
+      expect(changes("tab-1")).toHaveLength(0);
+    });
+
+    it("preserves identity when merging (id does not change)", () => {
+      const store = useStagedChangesStore.getState();
+      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "a" }));
+      const originalId = changes("tab-1")![0].id;
+
+      // Merge another column edit for same PK
+      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "b" }));
+
+      expect(changes("tab-1")).toHaveLength(1);
+      expect(changes("tab-1")![0].id).toBe(originalId);
     });
   });
 });

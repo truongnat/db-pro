@@ -55,13 +55,15 @@ describe("StagedChangesStore", () => {
     expect((changes![0] as StagedCellEdit).newValue).toEqual(text("Charlie"));
   });
 
-  it("stageCellEdit keeps edits for different columns", () => {
+  it("stageCellEdit merges edits for different columns of same row", () => {
     const store = useStagedChangesStore.getState();
     store.stageCellEdit(TAB, makeCellEdit({ columnName: "name", newValue: text("Bob") }));
     store.stageCellEdit(TAB, makeCellEdit({ columnName: "email", newValue: text("bob@test.com") }));
 
+    // Same PK → merged into one entry
     const changes = useStagedChangesStore.getState().changes[TAB];
-    expect(changes).toHaveLength(2);
+    expect(changes).toHaveLength(1);
+    expect((changes![0] as StagedCellEdit).columnName).toBe("email");
   });
 
   it("stageCellEdit keeps edits for different rows", () => {
