@@ -129,7 +129,7 @@ describe("tab-factories", () => {
 
       it("uses schema.objectName on collision", () => {
         useConnectionStore.setState({ connections: [mockConnection("conn-1", "prod")] });
-        const tab1 = createDbObjectTab("conn-1", "public", "users", "table");
+        const tab1 = createDbObjectTab("conn-1", "public", "users", "table", "columns", false);
         useWorkspaceStore.getState().openTab(tab1);
 
         const tab2 = createDbObjectTab("conn-1", "audit", "users", "table");
@@ -138,15 +138,12 @@ describe("tab-factories", () => {
 
       it("uses connection prefix when schema-qualified also collides", () => {
         useConnectionStore.setState({
-          connections: [
-            mockConnection("conn-1", "prod"),
-            mockConnection("conn-2", "staging"),
-          ],
+          connections: [mockConnection("conn-1", "prod"), mockConnection("conn-2", "staging")],
         });
-        const tab1 = createDbObjectTab("conn-1", "public", "users", "table");
+        const tab1 = createDbObjectTab("conn-1", "public", "users", "table", "columns", false);
         useWorkspaceStore.getState().openTab(tab1);
 
-        const tab2 = createDbObjectTab("conn-1", "audit", "users", "table");
+        const tab2 = createDbObjectTab("conn-1", "audit", "users", "table", "columns", false);
         useWorkspaceStore.getState().openTab(tab2);
 
         // Now both "users" and "audit.users" are taken
