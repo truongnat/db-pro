@@ -35,7 +35,8 @@ import { isMac } from "@/commons/utils/platform";
 import { cn } from "@/lib/utils";
 import { useConnectionList, useConnect, useDisconnect } from "@/modules/connection/queries/connection.queries";
 import { useConnectionModuleStore } from "@/modules/connection/state/connection.store";
-import { useIntrospect } from "@/modules/schema/queries/schema.queries";
+import { useIntrospect, refreshIntrospection } from "@/modules/schema/queries/schema.queries";
+import { useQueryClient } from "@tanstack/react-query";
 import { createQueryTabForObject } from "@/modules/query/controllers/query-workspace.controller";
 import { createQueryTab } from "@/commons/factories/tab-factories";
 import { getSqlDialect } from "@/modules/query/sql/dialect";
@@ -110,6 +111,7 @@ export function ExplorerView() {
   const connect = useConnect();
   const disconnect = useDisconnect();
   const introspect = useIntrospect(explorerConnectionId);
+  const queryClient = useQueryClient();
 
   const handleConnectionClick = (connId: string) => {
     const status = statusOf(statuses, connId);
@@ -200,7 +202,7 @@ export function ExplorerView() {
                     <Plus className="mr-1.5 h-3 w-3" />
                     {t("shell.sidebar.newQuery")}
                   </ContextMenuItem>
-                  <ContextMenuItem onClick={() => introspect.refetch()}>
+                  <ContextMenuItem onClick={() => refreshIntrospection(queryClient, conn.id)}>
                     <RefreshCw className="mr-1.5 h-3 w-3" />
                     {t("common.actions.refresh")}
                   </ContextMenuItem>

@@ -160,6 +160,16 @@ export function UnifiedGrid({
   );
   const lastSelectedRow = useRef<number | null>(null);
 
+  /* ---- clear selection when dataset changes (pagination/sort/filter/refresh) ---- */
+  const prevRowsRef = useRef(rows);
+  useEffect(() => {
+    if (prevRowsRef.current !== rows) {
+      setSelection(new Set());
+      lastSelectedRow.current = null;
+      prevRowsRef.current = rows;
+    }
+  }, [rows, setSelection]);
+
   const handleRowNumberClick = useCallback(
     (e: React.MouseEvent, rowIdx: number) => {
       e.stopPropagation();

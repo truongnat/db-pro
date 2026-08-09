@@ -51,6 +51,8 @@ interface StagedChangesActions {
   markFailed: (tabId: string, indices: number[], error: string) => void;
   /** Clear error flags from all changes for a tab. */
   clearFailed: (tabId: string) => void;
+  /** Keep only changes at given indices (remove successful ones after partial apply). */
+  keepOnlyIndices: (tabId: string, indices: number[]) => void;
   /** Garbage-collect tabs no longer open. */
   gc: (validTabIds: Set<string>) => void;
 }
@@ -142,6 +144,14 @@ export const useStagedChangesStore = create<StagedChangesStore>()((set, _get) =>
         return c;
       });
       return { changes: { ...s.changes, [tabId]: updated } };
+    }),
+
+  keepOnlyIndices: (tabId, indices) =>
+    set((s) => {
+      const existing = s.changes[tabId] ?? [];
+      const keepSet = new Set(indices);
+      const kept = existing.filter((_, i) => keepSet.has(i));
+      return { changes: { ...s.changes, [tabId]: kept } };
     }),
 
   gc: (validTabIds) =>

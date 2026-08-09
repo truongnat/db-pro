@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 
 import { container } from "@/app/app.module";
 import { SERVICE_NAMES, type ISchemaService } from "@/commons/di/registry";
@@ -27,6 +27,11 @@ const QUERY_KEYS = {
 
 function getSchemaService() {
   return container.resolve<ISchemaService>(SERVICE_NAMES.SCHEMA_SERVICE);
+}
+
+/** Imperatively invalidate introspection cache for a specific connection. */
+export function refreshIntrospection(queryClient: QueryClient, connectionId: string) {
+  queryClient.invalidateQueries({ queryKey: QUERY_KEYS.introspect(connectionId) });
 }
 
 export function useIntrospect(connectionId: string | null) {

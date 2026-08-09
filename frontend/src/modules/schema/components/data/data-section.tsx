@@ -172,8 +172,14 @@ export function DataSection({ tabId, connectionId, schema, table, refreshCounter
       useStagedChangesStore.getState().clearChanges(tabId);
       query.refetch();
     } else if (failedIndices.length < changesToApply.length) {
-      // Partial success: mark failed indices, clear successful ones
-      useStagedChangesStore.getState().markFailed(tabId, failedIndices, firstError ?? "Unknown error");
+      // Partial success: keep only failed changes, remove successful ones
+      useStagedChangesStore.getState().keepOnlyIndices(tabId, failedIndices);
+      const failCount = failedIndices.length;
+      useStagedChangesStore.getState().markFailed(
+        tabId,
+        Array.from({ length: failCount }, (_, i) => i),
+        firstError ?? "Unknown error",
+      );
       query.refetch();
     } else {
       // All failed

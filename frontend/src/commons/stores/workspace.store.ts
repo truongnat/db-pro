@@ -311,7 +311,24 @@ export const useWorkspaceStore = create<WorkspaceState>()(
                 resourceKey: `dbobj:${t.data.schema}.${t.data.objectName}:${newConnectionId}`,
               };
             }
-            return { ...t, connectionId: newConnectionId };
+            // Query tab: reset context to new connection's default database
+            const connections = useConnectionStore.getState().connections;
+            const newConn = connections.find((c) => c.id === newConnectionId);
+            const defaultDb = newConn?.database ?? null;
+            return {
+              ...t,
+              connectionId: newConnectionId,
+              data: {
+                ...t.data,
+                context: { database: defaultDb, schema: null },
+                status: "idle" as const,
+                error: null,
+                result: null,
+                explainPlan: null,
+                multiResults: null,
+                multiResultIndex: 0,
+              },
+            };
           }),
         })),
 

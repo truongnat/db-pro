@@ -182,4 +182,73 @@ describe("StagedChangesStore", () => {
       expect(Object.keys(useStagedChangesStore.getState().changes)).toHaveLength(0);
     });
   });
+
+  describe("markFailed", () => {
+    it("marks specific indices with error", () => {
+      const store = useStagedChangesStore.getState();
+      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "a" }));
+      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "b" }));
+      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "c" }));
+      store.markFailed("tab-1", [1], "DB error");
+      const c = changes("tab-1");
+      expect(c).toHaveLength(3);
+      expect(c![0].error).toBeUndefined();
+      expect(c![1].error).toBe("DB error");
+      expect(c![2].error).toBeUndefined();
+    });
+  });
+
+  describe("keepOnlyIndices (partial apply correctness)", () => {
+    it("removes successful changes, keeps only failed ones", () => {
+      const store = useStagedChangesStore.getState();
+      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "a" }));
+      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "b" }));
+      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "c" }));
+
+      // Simulate partial success: indices 0,1 succeeded, index 2 failed
+      store.keepOnlyIndices("tab-1", [2]);
+      const c = changes("tab-1");
+      expect(c).toHaveLength(1);
+      expect((c![0] as StagedCellEdit).columnName).toBe("c");
+    });
+
+    it("handles keeping multiple failed indices", () => {
+      const store = useStagedChangesStore.getState();
+      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "a" }));
+      store.stageDeleteRow("tab-1", [{ type: "int64", value: 99 }]);
+      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "c" }));
+
+      // Index 0 succeeded, indices 1,2 failed
+      store.keepOnlyIndices("tab-1", [1, 2]);
+      const c = changes("tab-1");
+      expect(c).toHaveLength(2);
+      expect(c![0].kind).toBe("row-delete");
+      expect((c![1] as StagedCellEdit).columnName).toBe("c");
+    });
+
+    it("handles empty keep set (all succeeded)", () => {
+      const store = useStagedChangesStore.getState();
+      store.stageCellEdit("tab-1", makeCellEdit());
+      store.keepOnlyIndices("tab-1", []);
+      expect(changes("tab-1")).toHaveLength(0);
+    });
+
+    it("handles unknown tab gracefully", () => {
+      useStagedChangesStore.getState().keepOnlyIndices("unknown", [0]);
+      // Should not throw
+    });
+  });
+
+  describe("clearFailed", () => {
+    it("removes error flags from all changes", () => {
+      const store = useStagedChangesStore.getState();
+      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "a" }));
+      store.stageCellEdit("tab-1", makeCellEdit({ columnName: "b" }));
+      store.markFailed("tab-1", [0, 1], "fail");
+      expect(changes("tab-1")![0].error).toBe("fail");
+      store.clearFailed("tab-1");
+      expect(changes("tab-1")![0].error).toBeUndefined();
+      expect(changes("tab-1")![1].error).toBeUndefined();
+    });
+  });
 });

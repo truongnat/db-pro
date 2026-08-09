@@ -47,17 +47,26 @@ function defaultQueryData(): QueryTabData {
 }
 
 /**
- * If another open tab already has `title`, append the connection name
- * as a disambiguator: "users (prod-pg)".
+ * Deterministic collision resolution for db-object tab titles:
+ * 1. Try `objectName` (e.g. "users")
+ * 2. If collision: try `schema.objectName` (e.g. "audit.users")
+ * 3. If still collision: "schema.objectName (connectionName)"
  */
-function deduplicateTabTitle(title: string, connectionId: string): string {
+function deduplicateTabTitle(objectName: string, schema: string, connectionId: string): string {
   const tabs = useWorkspaceStore.getState().tabs;
-  const collision = tabs.some((t) => t.title === title && t.id !== undefined);
-  if (!collision) return title;
-
   const connections = useConnectionStore.getState().connections;
   const connName = connections.find((c) => c.id === connectionId)?.name ?? connectionId;
-  return `${title} (${connName})`;
+
+  // Level 1: bare object name
+  const bare = objectName;
+  if (!tabs.some((t) => t.title === bare)) return bare;
+
+  // Level 2: schema.objectName
+  const qualified = `${schema}.${objectName}`;
+  if (!tabs.some((t) => t.title === qualified)) return qualified;
+
+  // Level 3: fully qualified with connection
+  return `${connName} \u00B7 ${qualified}`;
 }
 
 export interface CreateQueryTabOptions {
@@ -99,7 +108,7 @@ export function createDbObjectTab(
   initialSection: DbObjectSection = "columns",
   preview = true,
 ): WorkspaceTab & { kind: "db-object" } {
-  const title = deduplicateTabTitle(objectName, connectionId);
+  const title = deduplicateTabTitle(objectName, schema, connectionId);
   return {
     id: crypto.randomUUID(),
     kind: "db-object",

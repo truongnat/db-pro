@@ -1,9 +1,27 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
+import { useConnectionStore } from "@/commons/stores/connection.store";
 import { createQueryTab, createDbObjectTab } from "../tab-factories";
+import type { Connection } from "@/modules/connection/types/connection.types";
 
 function resetStore() {
   useWorkspaceStore.setState({ tabs: [], activeTabId: null, recentlyClosed: [] });
+  useConnectionStore.setState({ connections: [] });
+}
+
+function mockConnection(id: string, name?: string): Connection {
+  return {
+    id,
+    name: name ?? `conn-${id}`,
+    host: "localhost",
+    port: 5432,
+    database: "testdb",
+    username: "user",
+    driver: "postgres",
+    sslMode: "disable",
+    createdAt: "2024-01-01",
+    updatedAt: "2024-01-01",
+  };
 }
 
 describe("tab-factories", () => {
@@ -101,6 +119,40 @@ describe("tab-factories", () => {
     it("supports different initial sections", () => {
       const tab = createDbObjectTab("conn-1", "public", "users", "table", "indexes");
       expect(tab.data.activeSection).toBe("indexes");
+    });
+
+    describe("collision-aware titles", () => {
+      it("uses bare name when no collision", () => {
+        const tab = createDbObjectTab("conn-1", "public", "users", "table");
+        expect(tab.title).toBe("users");
+      });
+
+      it("uses schema.objectName on collision", () => {
+        useConnectionStore.setState({ connections: [mockConnection("conn-1", "prod")] });
+        const tab1 = createDbObjectTab("conn-1", "public", "users", "table");
+        useWorkspaceStore.getState().openTab(tab1);
+
+        const tab2 = createDbObjectTab("conn-1", "audit", "users", "table");
+        expect(tab2.title).toBe("audit.users");
+      });
+
+      it("uses connection prefix when schema-qualified also collides", () => {
+        useConnectionStore.setState({
+          connections: [
+            mockConnection("conn-1", "prod"),
+            mockConnection("conn-2", "staging"),
+          ],
+        });
+        const tab1 = createDbObjectTab("conn-1", "public", "users", "table");
+        useWorkspaceStore.getState().openTab(tab1);
+
+        const tab2 = createDbObjectTab("conn-1", "audit", "users", "table");
+        useWorkspaceStore.getState().openTab(tab2);
+
+        // Now both "users" and "audit.users" are taken
+        const tab3 = createDbObjectTab("conn-2", "audit", "users", "table");
+        expect(tab3.title).toBe("staging \u00B7 audit.users");
+      });
     });
   });
 });

@@ -676,4 +676,41 @@ describe("WorkspaceStore", () => {
       expect(state.activeTabId).toBe(tab2.id);
     });
   });
+
+  describe("reassignTabConnection", () => {
+    it("resets query tab context to new connection's default database", () => {
+      useConnectionStore.setState({
+        connections: [
+          { ...mockConnection("conn-1"), database: "olddb" },
+          { ...mockConnection("conn-2"), database: "newdb" },
+        ],
+      });
+
+      const tab = createQueryTab("conn-1", {
+        title: "Q1",
+        context: { database: "olddb", schema: "finance" },
+      });
+      useWorkspaceStore.getState().openTab(tab);
+
+      useWorkspaceStore.getState().reassignTabConnection(tab.id, "conn-2");
+
+      const updated = useWorkspaceStore.getState().tabs.find((t) => t.id === tab.id)!;
+      expect(updated.connectionId).toBe("conn-2");
+      expect(updated.data.context.database).toBe("newdb");
+      expect(updated.data.context.schema).toBeNull();
+      expect(updated.data.status).toBe("idle");
+      expect(updated.data.result).toBeNull();
+    });
+
+    it("updates db-object tab resourceKey with new connection", () => {
+      const tab = createDbObjectTab("conn-1", "public", "users", "table");
+      useWorkspaceStore.getState().openTab(tab);
+
+      useWorkspaceStore.getState().reassignTabConnection(tab.id, "conn-2");
+
+      const updated = useWorkspaceStore.getState().tabs.find((t) => t.id === tab.id)!;
+      expect(updated.connectionId).toBe("conn-2");
+      expect(updated.resourceKey).toBe("dbobj:public.users:conn-2");
+    });
+  });
 });
