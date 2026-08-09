@@ -71,14 +71,12 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
   // Confirmation is routed to the global ActionConfirmationHost in AppShell.
   const [isExplaining, setIsExplaining] = useState(false);
   const [explainError, setExplainError] = useState<string | null>(null);
-  const [lastExecMode, setLastExecMode] = useState<"current" | "all">("all");
   const historyQuery = useQueryHistory(tabConnectionId ?? "");
 
   /** Execute current statement via Action Platform (Ctrl+Enter). */
   const handleExecuteFragment = useCallback(
     async (_fragmentSql: string, source: "keyboard" | "ui" = "ui") => {
       if (tabConnectionId && tabId && status !== "running") {
-        setLastExecMode("current");
         const result = await executeAction("query.execute.current", { tabId }, { source });
         if (result.status === "confirmation_required" && result.confirmation) {
           useActionConfirmationStore.getState().setPending(result.confirmation);
@@ -91,7 +89,6 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
   /** Execute all statements via Action Platform (Ctrl+Shift+Enter / F5 / toolbar). */
   const handleExecuteAll = useCallback(async (source: "keyboard" | "ui" = "ui") => {
     if (tabConnectionId && tabId && sql.trim() && status !== "running") {
-      setLastExecMode("all");
       const result = await executeAction("query.execute.all", { tabId }, { source });
       if (result.status === "confirmation_required" && result.confirmation) {
         useActionConfirmationStore.getState().setPending(result.confirmation);
@@ -267,7 +264,6 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
         onClear={handleClear}
         onExport={() => setExportOpen(true)}
         onFormat={handleFormat}
-        onSaveQuery={() => dispatchQueryAction("saveQuery")}
         onExportSql={() => dispatchQueryAction("exportSql")}
         onImportSql={() => dispatchQueryAction("importSql")}
         isExecuting={status === "running"}
@@ -333,13 +329,9 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
                 <p className="mb-4 max-w-lg text-[13px] leading-relaxed text-[var(--app-text-muted)]">{error}</p>
                 <div className="flex items-center gap-2">
                   <Button variant="outline" size="sm" className="h-7 rounded-[5px] text-[13px]" onClick={() => {
-                    if (lastExecMode === "current") {
-                      void handleExecuteFragment("", "ui");
-                    } else {
-                      void handleExecuteAll("ui");
-                    }
+                    void handleExecuteFragment("", "ui");
                   }}>
-                    {t("common.actions.retry")}
+                    {t("query.runCurrent")}
                   </Button>
                 </div>
               </div>

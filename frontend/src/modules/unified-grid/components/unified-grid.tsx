@@ -158,7 +158,7 @@ export function UnifiedGrid({
               setContextMenu(null);
             }}
           >
-            {frozenSet.has(contextMenu.column) ? "Unfreeze" : "Freeze"} "{contextMenu.column}"
+            {frozenSet.has(contextMenu.column) ? "Restore order" : "Move to front"} "{contextMenu.column}"
           </Button>
         </div>
       )}

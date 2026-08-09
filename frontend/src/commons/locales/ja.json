@@ -461,6 +461,7 @@
     "topbar": {
       "noConnection": "接続なし",
       "commandMenu": "コマンドメニュー",
+      "quickOpen": "クイックオープン",
       "search": "検索"
     },
     "statusbar": {

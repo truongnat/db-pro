@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { open } from "@tauri-apps/plugin-dialog";
 
 import { useTranslation } from "@/commons/locales/useTranslation";
 import { Badge } from "@/components/ui/badge";
@@ -182,13 +183,37 @@ export function ConnectionEditor({
           />
         </div>
       ) : (
-        <FormInput
-          label={t("connection.filePath")}
-          value={formData.database}
-          onChange={(e) => updateField("database", e.target.value)}
-          required
-          placeholder="/path/to/database.db"
-        />
+        <div className="flex flex-col gap-1.5">
+          <label className="text-[12px] font-medium text-foreground">
+            {t("connection.filePath")}
+          </label>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              className="flex-1 rounded-md border border-[var(--app-border)] bg-background px-3 py-1.5 text-[13px] outline-none transition-colors focus:border-primary"
+              value={formData.database}
+              onChange={(e) => updateField("database", e.target.value)}
+              required
+              placeholder="/path/to/database.db"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              className="h-[34px] shrink-0 px-3 text-[13px]"
+              onClick={async () => {
+                const selected = await open({
+                  filters: [{ name: "SQLite", extensions: ["db", "sqlite", "sqlite3"] }, { name: "All Files", extensions: ["*"] }],
+                  defaultPath: formData.database || undefined,
+                });
+                if (selected) {
+                  updateField("database", selected);
+                }
+              }}
+            >
+              Browse…
+            </Button>
+          </div>
+        </div>
       )}
 
       {isPostgres && (

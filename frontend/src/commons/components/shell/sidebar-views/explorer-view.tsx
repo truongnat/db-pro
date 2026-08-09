@@ -95,7 +95,7 @@ function SchemaObjectGroup({ groupKey, label, count, icon, expandedNodes, onTogg
 
 export function ExplorerView() {
   const { t } = useTranslation();
-  const { openSchemaPreview, openTableData } = useSidebarTabOps();
+  const { openSchemaPreview, openTableData, openObjectStructure } = useSidebarTabOps();
   const expandedNodes = useExplorerStore((s) => s.expandedNodes);
   const toggleNode = useExplorerStore((s) => s.toggleNode);
 
@@ -259,7 +259,7 @@ export function ExplorerView() {
                                       <ContextMenuItem onClick={() => openTableData(conn.id, schema.name, table.name)}>
                                         {t("shell.sidebar.openData")}
                                       </ContextMenuItem>
-                                      <ContextMenuItem onClick={() => openSchemaPreview(conn.id, schema.name, table.name, "table")}>
+                                      <ContextMenuItem onClick={() => openObjectStructure(conn.id, schema.name, table.name, "table")}>
                                         {t("shell.sidebar.openStructure")}
                                       </ContextMenuItem>
                                       <ContextMenuSeparator />

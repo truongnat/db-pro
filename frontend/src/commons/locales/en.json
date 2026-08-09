@@ -485,6 +485,7 @@
     "topbar": {
       "noConnection": "No connection",
       "commandMenu": "Command menu",
+      "quickOpen": "Quick Open",
       "search": "Search"
     },
     "statusbar": {

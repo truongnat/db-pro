@@ -7,7 +7,6 @@ import {
   Download,
   Upload,
   Trash2,
-  Save,
   AlignLeft,
   HelpCircle,
 } from "lucide-react";
@@ -31,7 +30,6 @@ interface QueryToolbarProps {
   onClear: () => void;
   onExport: () => void;
   onFormat: () => void;
-  onSaveQuery: () => void;
   onExportSql: () => void;
   onImportSql: () => void;
   isExecuting: boolean;
@@ -48,7 +46,6 @@ export function QueryToolbar({
   onClear,
   onExport,
   onFormat,
-  onSaveQuery,
   onExportSql,
   onImportSql,
   isExecuting,
@@ -88,12 +85,12 @@ export function QueryToolbar({
             <DropdownMenuItem onClick={onExecuteCurrent} className="h-[32px]">
               <Play className="mr-2 h-3.5 w-3.5" />
               {t("query.runCurrent")}
-              <span className="ml-auto text-[11px] text-[var(--app-text-muted)]">{formatShortcut({ ctrlKey: true, key: "Enter" })}</span>
+              <span className="ml-auto text-[11px] text-[var(--app-text-muted)]">{formatShortcut({ primary: true, key: "Enter" })}</span>
             </DropdownMenuItem>
             <DropdownMenuItem onClick={onExecuteAll} className="h-[32px]">
               <Play className="mr-2 h-3.5 w-3.5" />
               {t("query.runAll")}
-              <span className="ml-auto text-[11px] text-[var(--app-text-muted)]">{formatShortcut({ ctrlKey: true, shiftKey: true, key: "Enter" })}</span>
+              <span className="ml-auto text-[11px] text-[var(--app-text-muted)]">{formatShortcut({ primary: true, shiftKey: true, key: "Enter" })}</span>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -155,11 +152,6 @@ export function QueryToolbar({
             <AlignLeft className="mr-2 h-3.5 w-3.5" />
             {t("query.format")}
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={onSaveQuery} disabled={!hasSql}>
-            <Save className="mr-2 h-3.5 w-3.5" />
-            {t("query.save")}
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
           <DropdownMenuItem onClick={onExportSql} disabled={!hasSql}>
             <FileText className="mr-2 h-3.5 w-3.5" />
             {t("query.exportSql")}

@@ -91,5 +91,35 @@ export function useSidebarTabOps() {
     [openDbObject],
   );
 
-  return { openSchemaPreview, promoteSchemaPreview, openTableData };
+  /**
+   * Open a DB Object tab with the Columns/Structure section active.
+   * If a tab already exists for this resource it is reused and activated.
+   */
+  const openObjectStructure = useCallback(
+    (
+      connectionId: string,
+      schema: string,
+      objectName: string,
+      objectType: DbObjectTabData["objectType"],
+    ) => {
+      const resourceKey = `dbobj:${schema}.${objectName}:${connectionId}`;
+      const existing = useWorkspaceStore.getState().tabs.find((t) => t.resourceKey === resourceKey);
+
+      if (existing && existing.kind === "db-object") {
+        if (existing.preview) {
+          useWorkspaceStore.getState().promotePreview(existing.id);
+        }
+        useWorkspaceStore.getState().setDbObjectSection(existing.id, "columns");
+        useWorkspaceStore.getState().activateTab(existing.id);
+        return;
+      }
+
+      const tab = createDbObjectTab(connectionId, schema, objectName, objectType, "columns", false);
+      openDbObject(tab);
+      recordRecentResource(connectionId, schema, objectName);
+    },
+    [openDbObject],
+  );
+
+  return { openSchemaPreview, promoteSchemaPreview, openTableData, openObjectStructure };
 }
