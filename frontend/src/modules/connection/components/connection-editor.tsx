@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 
 import { useTranslation } from "@/commons/locales/useTranslation";
@@ -75,6 +75,7 @@ export function ConnectionEditor({
     ...DEFAULT_FORM_DATA,
     ...initialData,
   });
+  const formRef = useRef<HTMLFormElement>(null);
   const [password, setPassword] = useState("");
   const [showSsh, setShowSsh] = useState(!!initialData?.sshTunnel);
   const [driverChanged, setDriverChanged] = useState(false);
@@ -103,6 +104,16 @@ export function ConnectionEditor({
   };
 
   const handleTest = () => {
+    // Run browser validation on the form first
+    if (formRef.current && !formRef.current.checkValidity()) {
+      formRef.current.reportValidity();
+      return;
+    }
+    // Block Test when driver changed but password not yet entered —
+    // prevents backend from silently reusing the old driver's secret.
+    if (driverChanged && !password) {
+      return;
+    }
     onTest?.(formData, password);
   };
 
@@ -117,7 +128,9 @@ export function ConnectionEditor({
       host: driver === "postgres" ? "localhost" : "",
       port: driver === "postgres" ? 5432 : 0,
       username: driver === "postgres" ? "" : "",
+      database: "",
       sslMode: driver === "postgres" ? prev.sslMode : "disable",
+      sshTunnel: undefined,
     }));
     if (driver === "sqlite") {
       setShowSsh(false);
@@ -125,7 +138,7 @@ export function ConnectionEditor({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+    <form ref={formRef} onSubmit={handleSubmit} className="flex flex-col gap-5">
       <FormInput
         label={t("common.labels.name")}
         value={formData.name}
