@@ -66,12 +66,7 @@ export class AppError extends Error {
   public readonly messageId: string;
   public readonly details?: unknown;
 
-  constructor(
-    code: ErrorCode,
-    message: string,
-    messageId: string,
-    details?: unknown,
-  ) {
+  constructor(code: ErrorCode, message: string, messageId: string, details?: unknown) {
     super(message);
     this.name = "AppError";
     this.code = code;

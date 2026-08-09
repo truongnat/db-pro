@@ -67,4 +67,5 @@ export interface ConnectionFormData {
   readonly?: boolean;
 }
 
-export type ConnectionStatus = "connected" | "disconnected" | "connecting" | "reconnecting" | "error";
+export type ConnectionStatus =
+  "connected" | "disconnected" | "connecting" | "reconnecting" | "error";

@@ -79,11 +79,7 @@ function createWrapper() {
   });
 
   return function Wrapper({ children }: { children: ReactNode }) {
-    return (
-      <QueryClientProvider client={queryClient}>
-        {children}
-      </QueryClientProvider>
-    );
+    return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
   };
 }
 
@@ -122,10 +118,9 @@ describe("schema.queries", () => {
       const mockResult = { columns: [], indexes: [] };
       mockGetTableInfo.mockResolvedValue(mockResult);
 
-      const { result } = renderHook(
-        () => useTableInfo("conn-1", "public", "users"),
-        { wrapper: createWrapper() },
-      );
+      const { result } = renderHook(() => useTableInfo("conn-1", "public", "users"), {
+        wrapper: createWrapper(),
+      });
 
       await waitFor(() => {
         expect(result.current.isSuccess).toBe(true);
@@ -135,10 +130,9 @@ describe("schema.queries", () => {
     });
 
     it("does not fetch when any param is null", () => {
-      const { result } = renderHook(
-        () => useTableInfo("conn-1", null, "users"),
-        { wrapper: createWrapper() },
-      );
+      const { result } = renderHook(() => useTableInfo("conn-1", null, "users"), {
+        wrapper: createWrapper(),
+      });
 
       expect(result.current.fetchStatus).toBe("idle");
     });
@@ -149,10 +143,9 @@ describe("schema.queries", () => {
       const mockResult = "CREATE TABLE users (...)";
       mockGetTableDdl.mockResolvedValue(mockResult);
 
-      const { result } = renderHook(
-        () => useTableDdl("conn-1", "public", "users", true),
-        { wrapper: createWrapper() },
-      );
+      const { result } = renderHook(() => useTableDdl("conn-1", "public", "users", true), {
+        wrapper: createWrapper(),
+      });
 
       await waitFor(() => {
         expect(result.current.isSuccess).toBe(true);
@@ -162,10 +155,9 @@ describe("schema.queries", () => {
     });
 
     it("does not fetch when disabled", () => {
-      const { result } = renderHook(
-        () => useTableDdl("conn-1", "public", "users", false),
-        { wrapper: createWrapper() },
-      );
+      const { result } = renderHook(() => useTableDdl("conn-1", "public", "users", false), {
+        wrapper: createWrapper(),
+      });
 
       expect(result.current.fetchStatus).toBe("idle");
     });
@@ -204,7 +196,10 @@ describe("schema.queries", () => {
         expect(result.current.isSuccess).toBe(true);
       });
 
-      expect(mockExecuteDdl).toHaveBeenCalledWith("conn-1", "ALTER TABLE users ADD COLUMN email TEXT");
+      expect(mockExecuteDdl).toHaveBeenCalledWith(
+        "conn-1",
+        "ALTER TABLE users ADD COLUMN email TEXT",
+      );
     });
   });
 
@@ -213,10 +208,9 @@ describe("schema.queries", () => {
       const mockResult = { added: [], removed: [], modified: [] };
       mockDiffSchemas.mockResolvedValue(mockResult);
 
-      const { result } = renderHook(
-        () => useDiffSchemas("conn-1", "conn-2", true),
-        { wrapper: createWrapper() },
-      );
+      const { result } = renderHook(() => useDiffSchemas("conn-1", "conn-2", true), {
+        wrapper: createWrapper(),
+      });
 
       await waitFor(() => {
         expect(result.current.isSuccess).toBe(true);
@@ -226,10 +220,9 @@ describe("schema.queries", () => {
     });
 
     it("does not fetch when disabled", () => {
-      const { result } = renderHook(
-        () => useDiffSchemas("conn-1", "conn-2", false),
-        { wrapper: createWrapper() },
-      );
+      const { result } = renderHook(() => useDiffSchemas("conn-1", "conn-2", false), {
+        wrapper: createWrapper(),
+      });
 
       expect(result.current.fetchStatus).toBe("idle");
     });
@@ -285,10 +278,9 @@ describe("schema.queries", () => {
       const mockResult = [{ name: "part1", parent: "users" }];
       mockListPartitions.mockResolvedValue(mockResult);
 
-      const { result } = renderHook(
-        () => useListPartitions("conn-1", true),
-        { wrapper: createWrapper() },
-      );
+      const { result } = renderHook(() => useListPartitions("conn-1", true), {
+        wrapper: createWrapper(),
+      });
 
       await waitFor(() => {
         expect(result.current.isSuccess).toBe(true);
@@ -303,10 +295,9 @@ describe("schema.queries", () => {
       const mockResult = [{ name: "pg_default", location: "/data" }];
       mockListTablespaces.mockResolvedValue(mockResult);
 
-      const { result } = renderHook(
-        () => useListTablespaces("conn-1", true),
-        { wrapper: createWrapper() },
-      );
+      const { result } = renderHook(() => useListTablespaces("conn-1", true), {
+        wrapper: createWrapper(),
+      });
 
       await waitFor(() => {
         expect(result.current.isSuccess).toBe(true);
@@ -335,7 +326,13 @@ describe("schema.queries", () => {
         expect(result.current.isSuccess).toBe(true);
       });
 
-      expect(mockRenameSchemaObject).toHaveBeenCalledWith("conn-1", "TABLE", "public", "users", "accounts");
+      expect(mockRenameSchemaObject).toHaveBeenCalledWith(
+        "conn-1",
+        "TABLE",
+        "public",
+        "users",
+        "accounts",
+      );
     });
   });
 });

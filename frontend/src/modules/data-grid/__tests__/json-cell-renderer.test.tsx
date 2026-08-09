@@ -26,7 +26,7 @@ describe("JsonCellRenderer", () => {
     render(<JsonCellRenderer value={{ a: 1 }} />);
     const btn = screen.getByRole("button");
     fireEvent.click(btn);
-  
+
     expect(screen.getByText("collapse")).toBeTruthy();
     const pre = document.querySelector("pre");
     expect(pre).toBeTruthy();
@@ -34,7 +34,7 @@ describe("JsonCellRenderer", () => {
   });
 
   it("collapses again when clicking collapse button", () => {
-    render(<JsonCellRenderer value={ { a: 1 } } />);
+    render(<JsonCellRenderer value={{ a: 1 }} />);
     fireEvent.click(screen.getByRole("button"));
     fireEvent.click(screen.getByText("collapse"));
 

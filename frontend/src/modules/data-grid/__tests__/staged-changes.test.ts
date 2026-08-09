@@ -1,8 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 
-import {
-  useStagedChangesStore,
-} from "../state/staged-changes.store";
+import { useStagedChangesStore } from "../state/staged-changes.store";
 import type { StagedCellEdit } from "../state/staged-changes.store";
 import type { CellValue } from "@/modules/query/types/query.types";
 
@@ -17,7 +15,9 @@ function resetStore() {
   useStagedChangesStore.getState().clearTab(TAB);
 }
 
-function makeCellEdit(overrides: { pkValues?: CellValue[]; changes?: Record<string, CellValue> } = {}) {
+function makeCellEdit(
+  overrides: { pkValues?: CellValue[]; changes?: Record<string, CellValue> } = {},
+) {
   return {
     pkValues: overrides.pkValues ?? [int(1)],
     changes: overrides.changes ?? { name: text("Bob") },

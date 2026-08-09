@@ -11,7 +11,13 @@ import type {
 } from "../types/query.types";
 
 export class QueryService {
-  async execute(connectionId: string, sql: string, executionId: string, database?: string | null, schema?: string | null): Promise<QueryResult> {
+  async execute(
+    connectionId: string,
+    sql: string,
+    executionId: string,
+    database?: string | null,
+    schema?: string | null,
+  ): Promise<QueryResult> {
     return apiInvoke<QueryResult>("execute_query", {
       connectionId: connectionId,
       sql,
@@ -27,7 +33,13 @@ export class QueryService {
     });
   }
 
-  async executeMulti(connectionId: string, sql: string, executionId: string, database?: string | null, schema?: string | null): Promise<MultiQueryResult> {
+  async executeMulti(
+    connectionId: string,
+    sql: string,
+    executionId: string,
+    database?: string | null,
+    schema?: string | null,
+  ): Promise<MultiQueryResult> {
     return apiInvoke<MultiQueryResult>("execute_query_multi", {
       connectionId: connectionId,
       sql,
@@ -44,10 +56,7 @@ export class QueryService {
     });
   }
 
-  async getHistory(
-    connectionId: string,
-    limit?: number,
-  ): Promise<QueryHistoryEntry[]> {
+  async getHistory(connectionId: string, limit?: number): Promise<QueryHistoryEntry[]> {
     return apiInvoke<QueryHistoryEntry[]>("get_query_history", {
       connectionId: connectionId,
       limit,

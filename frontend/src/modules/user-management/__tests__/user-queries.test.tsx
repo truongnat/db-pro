@@ -51,11 +51,7 @@ function createWrapper() {
   });
 
   return function Wrapper({ children }: { children: ReactNode }) {
-    return (
-      <QueryClientProvider client={queryClient}>
-        {children}
-      </QueryClientProvider>
-    );
+    return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
   };
 }
 
@@ -168,7 +164,13 @@ describe("user.queries", () => {
         expect(result.current.isSuccess).toBe(true);
       });
 
-      expect(mockGrantPrivilege).toHaveBeenCalledWith("conn-1", "admin", "public", "users", "SELECT");
+      expect(mockGrantPrivilege).toHaveBeenCalledWith(
+        "conn-1",
+        "admin",
+        "public",
+        "users",
+        "SELECT",
+      );
     });
   });
 
@@ -186,7 +188,13 @@ describe("user.queries", () => {
         expect(result.current.isSuccess).toBe(true);
       });
 
-      expect(mockRevokePrivilege).toHaveBeenCalledWith("conn-1", "admin", "public", "users", "SELECT");
+      expect(mockRevokePrivilege).toHaveBeenCalledWith(
+        "conn-1",
+        "admin",
+        "public",
+        "users",
+        "SELECT",
+      );
     });
   });
 });

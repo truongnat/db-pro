@@ -8,10 +8,7 @@ import type {
 } from "../types/data-grid.types";
 
 export class DataGridService {
-  async fetchRows(
-    connectionId: string,
-    request: FetchRowsRequest,
-  ): Promise<FetchRowsResult> {
+  async fetchRows(connectionId: string, request: FetchRowsRequest): Promise<FetchRowsResult> {
     return apiInvoke<FetchRowsResult>("fetch_table_rows", {
       connectionId: connectionId,
       request: {
@@ -32,10 +29,7 @@ export class DataGridService {
     });
   }
 
-  async insertRow(
-    connectionId: string,
-    request: MutateRowRequest,
-  ): Promise<MutateRowResult> {
+  async insertRow(connectionId: string, request: MutateRowRequest): Promise<MutateRowResult> {
     return apiInvoke<MutateRowResult>("insert_table_row", {
       connectionId: connectionId,
       request: {
@@ -47,10 +41,7 @@ export class DataGridService {
     });
   }
 
-  async updateRow(
-    connectionId: string,
-    request: MutateRowRequest,
-  ): Promise<MutateRowResult> {
+  async updateRow(connectionId: string, request: MutateRowRequest): Promise<MutateRowResult> {
     return apiInvoke<MutateRowResult>("update_table_row", {
       connectionId: connectionId,
       request: {
@@ -64,10 +55,7 @@ export class DataGridService {
     });
   }
 
-  async deleteRow(
-    connectionId: string,
-    request: MutateRowRequest,
-  ): Promise<MutateRowResult> {
+  async deleteRow(connectionId: string, request: MutateRowRequest): Promise<MutateRowResult> {
     return apiInvoke<MutateRowResult>("delete_table_row", {
       connectionId: connectionId,
       request: {

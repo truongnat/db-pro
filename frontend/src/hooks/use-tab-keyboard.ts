@@ -7,8 +7,7 @@ export function useTabKeyboard() {
     function handleKeyDown(e: KeyboardEvent) {
       if (!e.ctrlKey && !e.metaKey) return;
 
-      const { tabs, activeTabId, activateTab } =
-        useWorkspaceStore.getState();
+      const { tabs, activeTabId, activateTab } = useWorkspaceStore.getState();
 
       if (tabs.length === 0) return;
 

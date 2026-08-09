@@ -1,10 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
 import type { QueryTabData } from "@/commons/types/workspace.types";
-import {
-  setTabMultiResultIndex,
-  setTabResult,
-} from "../controllers/query-workspace.controller";
+import { setTabMultiResultIndex, setTabResult } from "../controllers/query-workspace.controller";
 
 export function ResultTabs() {
   const activeTabId = useWorkspaceStore((s) => s.activeTabId);
@@ -30,9 +27,7 @@ export function ResultTabs() {
               ? "bg-background text-foreground"
               : "text-[var(--app-text-muted)]"
           } ${
-            idx === multiResultIndex
-              ? "border-b-2 border-primary"
-              : "border-b-2 border-transparent"
+            idx === multiResultIndex ? "border-b-2 border-primary" : "border-b-2 border-transparent"
           }`}
           onClick={() => {
             setTabMultiResultIndex(activeTabId, idx);

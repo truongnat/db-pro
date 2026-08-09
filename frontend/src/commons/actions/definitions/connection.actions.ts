@@ -68,9 +68,7 @@ export const setActiveConnectionAction = defineAction<
     return {
       status: "success",
       data: { connectionId: input.connectionId },
-      effects: [
-        { type: "connection.activated", connectionId: input.connectionId },
-      ],
+      effects: [{ type: "connection.activated", connectionId: input.connectionId }],
     } satisfies ActionResult<{ connectionId: string }>;
   },
 });

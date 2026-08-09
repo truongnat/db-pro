@@ -1,4 +1,8 @@
-import type { PersistedWorkspaceState, QueryTabData, WorkspaceTab } from "@/commons/types/workspace.types";
+import type {
+  PersistedWorkspaceState,
+  QueryTabData,
+  WorkspaceTab,
+} from "@/commons/types/workspace.types";
 
 /**
  * Current workspace schema version.

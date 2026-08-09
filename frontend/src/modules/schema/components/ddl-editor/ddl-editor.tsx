@@ -10,11 +10,7 @@ import { useTranslation } from "@/commons/locales/useTranslation";
 import { getDialectForConnection } from "@/modules/query/sql/dialect";
 
 import { useExecuteDdl } from "../../queries/schema.queries";
-import {
-  generateDdlPreview,
-  type ColumnDef,
-  type DdlOperation,
-} from "../../services/ddl-builder";
+import { generateDdlPreview, type ColumnDef, type DdlOperation } from "../../services/ddl-builder";
 import { checkOperationSupported } from "../../services/ddl-capabilities";
 
 import { ColumnDefRow } from "./column-def-row";
@@ -47,7 +43,9 @@ export function DdlEditor({ connectionId, schema, table }: DdlEditorProps) {
   const executeDdl = useExecuteDdl(connectionId);
 
   const [operation, setOperation] = useState<DdlOperation>("createTable");
-  const [columns, setColumns] = useState<ColumnDef[]>([{ ...EMPTY_COLUMN, name: "id", isPk: true, nullable: false }]);
+  const [columns, setColumns] = useState<ColumnDef[]>([
+    { ...EMPTY_COLUMN, name: "id", isPk: true, nullable: false },
+  ]);
   const [columnName, setColumnName] = useState("");
   const [newName, setNewName] = useState("");
   const [selectSql, setSelectSql] = useState("");
@@ -83,9 +81,7 @@ export function DdlEditor({ connectionId, schema, table }: DdlEditorProps) {
 
   const handleColumnChange = useCallback(
     (index: number, field: keyof ColumnDef, value: string | boolean) => {
-      setColumns((prev) =>
-        prev.map((col, i) => (i === index ? { ...col, [field]: value } : col)),
-      );
+      setColumns((prev) => prev.map((col, i) => (i === index ? { ...col, [field]: value } : col)));
     },
     [],
   );
@@ -130,31 +126,19 @@ export function DdlEditor({ connectionId, schema, table }: DdlEditorProps) {
           <Label htmlFor="ddl-schema" className="text-sm font-medium text-foreground">
             {t("schema.ddlSchema")}
           </Label>
-          <Input
-            id="ddl-schema"
-            value={schema}
-            readOnly
-            className="opacity-60"
-          />
+          <Input id="ddl-schema" value={schema} readOnly className="opacity-60" />
         </div>
         <div className="flex flex-col gap-1">
           <Label htmlFor="ddl-table" className="text-sm font-medium text-foreground">
             {t("schema.ddlTable")}
           </Label>
-          <Input
-            id="ddl-table"
-            value={table}
-            readOnly
-            className="opacity-60"
-          />
+          <Input id="ddl-table" value={table} readOnly className="opacity-60" />
         </div>
       </div>
 
       {showColumnDefs && (
         <div className="flex flex-col gap-2">
-          <Label className="text-sm font-medium text-foreground">
-            {t("schema.ddlColumns")}
-          </Label>
+          <Label className="text-sm font-medium text-foreground">{t("schema.ddlColumns")}</Label>
           {columns.map((col, i) => (
             <ColumnDefRow
               key={i}
@@ -265,22 +249,20 @@ export function DdlEditor({ connectionId, schema, table }: DdlEditorProps) {
               checked={unique}
               onCheckedChange={(checked) => setUnique(!!checked)}
             />
-            <Label htmlFor="ddl-unique" className="text-sm font-normal">{t("schema.ddlUnique")}</Label>
+            <Label htmlFor="ddl-unique" className="text-sm font-normal">
+              {t("schema.ddlUnique")}
+            </Label>
           </div>
         </>
       )}
 
       <div className="flex flex-col gap-2">
-        <Label className="text-sm font-medium text-foreground">
-          {t("schema.ddlPreview")}
-        </Label>
+        <Label className="text-sm font-medium text-foreground">{t("schema.ddlPreview")}</Label>
         {!capabilityCheck.supported && (
           <Alert className="mb-2 border-warning text-warning">
             {capabilityCheck.reason}
             {capabilityCheck.requiresRebuild && (
-              <span className="mt-1 block text-xs opacity-80">
-                {t("schema.ddlRebuildWarning")}
-              </span>
+              <span className="mt-1 block text-xs opacity-80">{t("schema.ddlRebuildWarning")}</span>
             )}
           </Alert>
         )}
@@ -298,15 +280,12 @@ export function DdlEditor({ connectionId, schema, table }: DdlEditorProps) {
 
         {executeDdl.isError && (
           <span className="text-sm text-destructive">
-            {(executeDdl.error as { userMessage?: string })?.userMessage ?? t("common.states.error")}
+            {(executeDdl.error as { userMessage?: string })?.userMessage ??
+              t("common.states.error")}
           </span>
         )}
 
-        {successMessage && (
-          <span className="text-sm text-success">
-            {successMessage}
-          </span>
-        )}
+        {successMessage && <span className="text-sm text-success">{successMessage}</span>}
       </div>
     </div>
   );

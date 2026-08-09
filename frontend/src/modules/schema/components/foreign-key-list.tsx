@@ -1,5 +1,12 @@
 import { useTranslation } from "@/commons/locales/useTranslation";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import type { SchemaForeignKeyDto } from "../types/schema.types";
 import { cn } from "@/lib/utils";
 
@@ -12,13 +19,12 @@ export function ForeignKeyList({ foreignKeys }: ForeignKeyListProps) {
 
   if (foreignKeys.length === 0) {
     return (
-      <div className="p-4 text-sm text-[var(--app-text-muted)]">
-        {t("schema.noForeignKeys")}
-      </div>
+      <div className="p-4 text-sm text-[var(--app-text-muted)]">{t("schema.noForeignKeys")}</div>
     );
   }
 
-  const headerClass = "px-3 py-2 font-medium text-[var(--app-text-muted)] border-b border-[var(--app-border-subtle)]";
+  const headerClass =
+    "px-3 py-2 font-medium text-[var(--app-text-muted)] border-b border-[var(--app-border-subtle)]";
 
   return (
     <Table className="w-full text-sm">
@@ -32,16 +38,14 @@ export function ForeignKeyList({ foreignKeys }: ForeignKeyListProps) {
       </TableHeader>
       <TableBody>
         {foreignKeys.map((fk) => (
-          <TableRow
-            key={fk.name}
-            className="transition-colors hover:bg-background"
-          >
+          <TableRow key={fk.name} className="transition-colors hover:bg-background">
             <TableCell className="px-3 py-1.5 font-mono text-sm">{fk.name}</TableCell>
             <TableCell className="px-3 py-1.5 font-mono text-xs text-[var(--app-text-muted)]">
               {fk.fromColumn}
             </TableCell>
             <TableCell className="px-3 py-1.5 font-mono text-xs">
-              {fk.toSchema !== fk.schema ? `${fk.toSchema}.` : ""}{fk.toTable}
+              {fk.toSchema !== fk.schema ? `${fk.toSchema}.` : ""}
+              {fk.toTable}
             </TableCell>
             <TableCell className="px-3 py-1.5 font-mono text-xs text-[var(--app-text-muted)]">
               {fk.toColumn}

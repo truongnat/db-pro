@@ -75,17 +75,16 @@ export function QueryEditor({
       registerSqlProviders(monacoInstance);
 
       if (onExecuteRef.current) {
-        editor.addCommand(
-          monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.Enter,
-          () => {
-            const sql = runTargetSql(editor);
-            if (sql) onExecuteRef.current?.(sql, "keyboard");
-          },
-        );
+        editor.addCommand(monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.Enter, () => {
+          const sql = runTargetSql(editor);
+          if (sql) onExecuteRef.current?.(sql, "keyboard");
+        });
       }
       if (onExecuteAllRef.current) {
         editor.addCommand(
-          monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyMod.Shift | monacoInstance.KeyCode.Enter,
+          monacoInstance.KeyMod.CtrlCmd |
+            monacoInstance.KeyMod.Shift |
+            monacoInstance.KeyCode.Enter,
           () => {
             onExecuteAllRef.current?.("keyboard");
           },

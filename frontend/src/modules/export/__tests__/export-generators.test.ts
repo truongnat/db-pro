@@ -14,11 +14,7 @@ const rows: Row[] = [
     { type: "text", value: "Alice" },
     { type: "bool", value: true },
   ],
-  [
-    { type: "int64", value: 2 },
-    { type: "null" },
-    { type: "bool", value: false },
-  ],
+  [{ type: "int64", value: 2 }, { type: "null" }, { type: "bool", value: false }],
   [
     { type: "int64", value: 3 },
     { type: "text", value: "has,comma" },

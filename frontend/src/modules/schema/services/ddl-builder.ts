@@ -35,7 +35,9 @@ export function buildCreateTable(
   });
 
   if (pkCols.length > 0) {
-    lines.push(`    PRIMARY KEY (${pkCols.map((c) => dialect.quoteIdentifier(c.name)).join(", ")})`);
+    lines.push(
+      `    PRIMARY KEY (${pkCols.map((c) => dialect.quoteIdentifier(c.name)).join(", ")})`,
+    );
   }
 
   return `CREATE TABLE ${qualified} (\n${lines.join(",\n")}\n);`;
@@ -147,7 +149,10 @@ export function generateDdlPreview(
             schema,
             table,
             extra.indexName ?? "idx_new",
-            extra.indexColumns.split(",").map((s) => s.trim()).filter(Boolean),
+            extra.indexColumns
+              .split(",")
+              .map((s) => s.trim())
+              .filter(Boolean),
             extra.unique === "true",
             dialect,
           )

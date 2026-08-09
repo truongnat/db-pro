@@ -1,11 +1,7 @@
 import { describe, expect, it, beforeEach } from "vitest";
 import { z } from "zod";
 
-import {
-  resetActionRegistry,
-  defineAction,
-  getRegisteredActions,
-} from "../registry";
+import { resetActionRegistry, defineAction, getRegisteredActions } from "../registry";
 import {
   executeAction,
   confirmAction,
@@ -17,10 +13,7 @@ import {
   findRunningExecutionForTab,
   resetActiveExecutions,
 } from "../bus";
-import {
-  actionToMcpTool,
-  generateMcpTools,
-} from "../mcp-bridge";
+import { actionToMcpTool, generateMcpTools } from "../mcp-bridge";
 
 // ─── Helpers ─────────────────────────────────────────────────
 
@@ -134,9 +127,13 @@ describe("PATCH 6.1 — Action Platform regression tests", () => {
         confirmation: { mode: "always", messageKey: "test.confirm" },
       });
 
-      const result = await executeAction("test.confirm", { value: "hello" }, {
-        source: "ui",
-      });
+      const result = await executeAction(
+        "test.confirm",
+        { value: "hello" },
+        {
+          source: "ui",
+        },
+      );
 
       expect(result.status).toBe("confirmation_required");
       expect(result.confirmation).toBeDefined();
@@ -270,9 +267,13 @@ describe("PATCH 6.2 — Action Runtime Unification regression tests", () => {
         },
       });
 
-      const result = await executeAction("test.ctx_snapshot", { value: "x" }, {
-        source: "mcp",
-      });
+      const result = await executeAction(
+        "test.ctx_snapshot",
+        { value: "x" },
+        {
+          source: "mcp",
+        },
+      );
 
       expect(result.status).toBe("confirmation_required");
       const conf = result.confirmation!;
@@ -305,10 +306,14 @@ describe("PATCH 6.2 — Action Runtime Unification regression tests", () => {
         },
       });
 
-      await executeAction("test.resolve_ctx", {}, {
-        source: "ui",
-        context: { connectionId: "ambient-conn" },
-      });
+      await executeAction(
+        "test.resolve_ctx",
+        {},
+        {
+          source: "ui",
+          context: { connectionId: "ambient-conn" },
+        },
+      );
 
       expect(receivedCtx?.connectionId).toBe("explicit-conn");
     });
@@ -563,9 +568,13 @@ describe("PATCH 6.3 — Canonical Query Runtime regression tests", () => {
         },
       });
 
-      const result = await executeAction("test.payload_freeze", { sql: "DROP TABLE foo" }, {
-        source: "ui",
-      });
+      const result = await executeAction(
+        "test.payload_freeze",
+        { sql: "DROP TABLE foo" },
+        {
+          source: "ui",
+        },
+      );
 
       expect(result.status).toBe("confirmation_required");
       const conf = result.confirmation!;
@@ -745,7 +754,15 @@ describe("PATCH 6.3.1 — Canonical Runtime Closure regression tests", () => {
 
   describe("Multi partial failure result", () => {
     it("action returns error status when multi execution has partial failure", async () => {
-      defineAction<{ value?: string }, { totalDurationMs: number; statementCount: number; completedResults: number; failedStatement?: number }>({
+      defineAction<
+        { value?: string },
+        {
+          totalDurationMs: number;
+          statementCount: number;
+          completedResults: number;
+          failedStatement?: number;
+        }
+      >({
         id: "test.partial_failure",
         title: "Test partial failure",
         category: "query",
@@ -777,7 +794,10 @@ describe("PATCH 6.3.1 — Canonical Runtime Closure regression tests", () => {
             };
           }
 
-          return { status: "success" as const, data: { totalDurationMs: 0, statementCount: 0, completedResults: 0 } };
+          return {
+            status: "success" as const,
+            data: { totalDurationMs: 0, statementCount: 0, completedResults: 0 },
+          };
         },
       });
 
@@ -1135,7 +1155,15 @@ describe("PATCH 6.3.2 — Action Gate & Cancellation Closure integration tests",
 
   describe("I. Partial failure → error status with preserved results", () => {
     it("execute.all partial failure returns error with completed results", async () => {
-      defineAction<{ value?: string }, { totalDurationMs: number; statementCount: number; completedResults: number; failedStatement?: number }>({
+      defineAction<
+        { value?: string },
+        {
+          totalDurationMs: number;
+          statementCount: number;
+          completedResults: number;
+          failedStatement?: number;
+        }
+      >({
         id: "test.partial_632",
         title: "Test partial 632",
         category: "query",
@@ -1169,7 +1197,10 @@ describe("PATCH 6.3.2 — Action Gate & Cancellation Closure integration tests",
             };
           }
 
-          return { status: "success" as const, data: { totalDurationMs: 0, statementCount: 0, completedResults: 0 } };
+          return {
+            status: "success" as const,
+            data: { totalDurationMs: 0, statementCount: 0, completedResults: 0 },
+          };
         },
       });
 
@@ -1201,10 +1232,14 @@ describe("PATCH 6.3.2 — Action Gate & Cancellation Closure integration tests",
         },
       });
 
-      const execPromise = executeAction("test.exec_ctx", {}, {
-        source: "mcp",
-        context: { tabId: "tab-123", connectionId: "conn-456" },
-      });
+      const execPromise = executeAction(
+        "test.exec_ctx",
+        {},
+        {
+          source: "mcp",
+          context: { tabId: "tab-123", connectionId: "conn-456" },
+        },
+      );
       await new Promise((r) => setTimeout(r, 10));
 
       const running = getRunningExecutions();
@@ -1306,9 +1341,13 @@ describe("PATCH 6.3.3 — Final Action Runtime Closure regression tests", () => 
         },
       });
 
-      const execPromise = executeAction("test.find_tab", {}, {
-        context: { tabId: "tab-xyz" },
-      });
+      const execPromise = executeAction(
+        "test.find_tab",
+        {},
+        {
+          context: { tabId: "tab-xyz" },
+        },
+      );
       await new Promise((r) => setTimeout(r, 10));
 
       const found = findRunningExecutionForTab("tab-xyz");
@@ -1337,9 +1376,13 @@ describe("PATCH 6.3.3 — Final Action Runtime Closure regression tests", () => 
         },
       });
 
-      const execPromise = executeAction("test.find_filter_a", {}, {
-        context: { tabId: "tab-filter" },
-      });
+      const execPromise = executeAction(
+        "test.find_filter_a",
+        {},
+        {
+          context: { tabId: "tab-filter" },
+        },
+      );
       await new Promise((r) => setTimeout(r, 10));
 
       // Search with matching actionId filter.
@@ -1419,9 +1462,13 @@ describe("PATCH 6.3-FINAL — Terminal state & confirmation queue", () => {
       });
 
       // Start execution.
-      const execPromise = executeAction("test.terminal_cancel", {}, {
-        context: { tabId: "tab-terminal" },
-      });
+      const execPromise = executeAction(
+        "test.terminal_cancel",
+        {},
+        {
+          context: { tabId: "tab-terminal" },
+        },
+      );
       await new Promise((r) => setTimeout(r, 10));
 
       // Verify running.
@@ -1465,9 +1512,13 @@ describe("PATCH 6.3-FINAL — Terminal state & confirmation queue", () => {
         },
       });
 
-      const result = await executeAction("test.terminal_complete", {}, {
-        context: { tabId: "tab-complete" },
-      });
+      const result = await executeAction(
+        "test.terminal_complete",
+        {},
+        {
+          context: { tabId: "tab-complete" },
+        },
+      );
       expect(result.status).toBe("success");
 
       const execId = result.executionId!;
@@ -1490,9 +1541,8 @@ describe("PATCH 6.3-FINAL — Terminal state & confirmation queue", () => {
   describe("Confirmation store must not orphan prepared invocations", () => {
     it("setPending with new confirmation rejects the old one", async () => {
       // Dynamic import to get the real store.
-      const { useActionConfirmationStore } = await import(
-        "@/commons/stores/action-confirmation.store"
-      );
+      const { useActionConfirmationStore } =
+        await import("@/commons/stores/action-confirmation.store");
 
       defineAction<{ value?: string }, void>({
         id: "test.queue_a",
@@ -1535,9 +1585,7 @@ describe("PATCH 6.3-FINAL — Terminal state & confirmation queue", () => {
       useActionConfirmationStore.getState().setPending(resultB.confirmation!);
 
       // Current pending is B.
-      expect(useActionConfirmationStore.getState().pending!.id).toBe(
-        resultB.confirmation!.id,
-      );
+      expect(useActionConfirmationStore.getState().pending!.id).toBe(resultB.confirmation!.id);
 
       // A's prepared invocation must have been destroyed.
       const confirmA = await confirmAction(confirmIdA);
@@ -1549,9 +1597,8 @@ describe("PATCH 6.3-FINAL — Terminal state & confirmation queue", () => {
     });
 
     it("clearPending rejects the prepared invocation", async () => {
-      const { useActionConfirmationStore } = await import(
-        "@/commons/stores/action-confirmation.store"
-      );
+      const { useActionConfirmationStore } =
+        await import("@/commons/stores/action-confirmation.store");
 
       defineAction<{ value?: string }, void>({
         id: "test.clear_pending",

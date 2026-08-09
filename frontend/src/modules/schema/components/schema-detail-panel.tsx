@@ -110,7 +110,8 @@ export function SchemaDetailPanel({
             isLoading={tableDdl.isLoading}
             error={
               tableDdl.isError
-                ? (tableDdl.error as { userMessage?: string })?.userMessage ?? t("common.states.error")
+                ? ((tableDdl.error as { userMessage?: string })?.userMessage ??
+                  t("common.states.error"))
                 : null
             }
           />
@@ -130,18 +131,15 @@ export function SchemaDetailPanel({
         )}
 
         {activeTab === "triggers" && (
-          <TriggerManager
-            connectionId={connectionId}
-            schema={schema}
-            table={table}
-          />
+          <TriggerManager connectionId={connectionId} schema={schema} table={table} />
         )}
 
-        {tableInfo.isLoading && (activeTab === "columns" || activeTab === "indexes" || activeTab === "foreignKeys") && (
-          <div className="p-4 text-sm text-[var(--app-text-muted)]">
-            {t("common.states.loading")}
-          </div>
-        )}
+        {tableInfo.isLoading &&
+          (activeTab === "columns" || activeTab === "indexes" || activeTab === "foreignKeys") && (
+            <div className="p-4 text-sm text-[var(--app-text-muted)]">
+              {t("common.states.loading")}
+            </div>
+          )}
       </div>
     </div>
   );

@@ -140,10 +140,7 @@ function HistoryEntryRow({
         >
           {fav ? "★" : "☆"}
         </button>
-        <div
-          className="min-w-0 flex-1 cursor-pointer"
-          onClick={onSelect}
-        >
+        <div className="min-w-0 flex-1 cursor-pointer" onClick={onSelect}>
           <div
             className={`truncate font-mono text-sm ${isError ? "text-destructive" : "text-foreground"}`}
             title={entry.sql}
@@ -155,10 +152,7 @@ function HistoryEntryRow({
 
       {/* Meta row */}
       <div className="ml-6 mt-1 flex flex-wrap items-center gap-2 text-xs text-[var(--app-text-muted)]">
-        <Badge
-          variant={isError ? "destructive" : "secondary"}
-          className="px-1.5 py-0 text-[11px]"
-        >
+        <Badge variant={isError ? "destructive" : "secondary"} className="px-1.5 py-0 text-[11px]">
           {isError ? t("query.statusError") : t("query.statusSuccess")}
         </Badge>
         <span>{t("query.duration", { duration: entry.durationMs })}</span>

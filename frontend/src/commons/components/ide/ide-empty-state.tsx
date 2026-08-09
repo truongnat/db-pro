@@ -35,7 +35,9 @@ export function IdeEmptyState({
       </div>
       <p className="mb-1 text-[13px] font-medium text-foreground">{title}</p>
       {description && (
-        <p className="mb-4 max-w-xs text-center text-[12px] leading-relaxed text-[var(--app-text-muted)]">{description}</p>
+        <p className="mb-4 max-w-xs text-center text-[12px] leading-relaxed text-[var(--app-text-muted)]">
+          {description}
+        </p>
       )}
       {action && (
         <Button

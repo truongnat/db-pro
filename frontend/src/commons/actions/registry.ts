@@ -1,8 +1,4 @@
-import type {
-  ActionCategory,
-  ActionDefinition,
-  ActionId,
-} from "./types";
+import type { ActionCategory, ActionDefinition, ActionId } from "./types";
 
 /**
  * Central registry of all action definitions.
@@ -31,9 +27,7 @@ export function defineAction<TInput, TOutput>(
   definition: ActionDefinition<TInput, TOutput>,
 ): ActionDefinition<TInput, TOutput> {
   if (actions.has(definition.id)) {
-    console.warn(
-      `[ActionRegistry] Overwriting action "${definition.id}"`,
-    );
+    console.warn(`[ActionRegistry] Overwriting action "${definition.id}"`);
   }
   actions.set(definition.id, definition as ActionDefinition);
   return definition;
@@ -50,9 +44,7 @@ export function getAction(id: ActionId): ActionDefinition | undefined {
 }
 
 /** Get all actions in a given category. */
-export function getActionsByCategory(
-  category: ActionCategory,
-): ActionDefinition[] {
+export function getActionsByCategory(category: ActionCategory): ActionDefinition[] {
   return Array.from(actions.values()).filter((a) => a.category === category);
 }
 

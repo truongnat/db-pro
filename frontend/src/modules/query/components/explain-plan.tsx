@@ -97,7 +97,9 @@ function PlanSummary({ node }: { node: PlanNode }) {
 function SummaryItem({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-col gap-0.5">
-      <span className="text-[11px] uppercase tracking-wide text-[var(--app-text-dim)]">{label}</span>
+      <span className="text-[11px] uppercase tracking-wide text-[var(--app-text-dim)]">
+        {label}
+      </span>
       <span className="text-[13px] font-medium tabular-nums text-foreground">{value}</span>
     </div>
   );
@@ -133,29 +135,21 @@ function TreeNode({
     <div style={{ paddingLeft: depth * 16 }}>
       <div
         className={`cursor-pointer rounded-sm px-3 py-1.5 transition-colors ${
-          isSelected
-            ? "bg-primary/8"
-            : "hover:bg-[var(--app-hover)]"
+          isSelected ? "bg-primary/8" : "hover:bg-[var(--app-hover)]"
         }`}
         onClick={() => onSelect(path, node)}
       >
         <div className="flex items-center gap-1.5">
           <span className="text-[13px] font-medium text-foreground">{nodeType}</span>
           {(relation || index) && (
-            <span className="text-[12px] text-[var(--app-text-muted)]">
-              · {relation || index}
-            </span>
+            <span className="text-[12px] text-[var(--app-text-muted)]">· {relation || index}</span>
           )}
         </div>
         <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-[var(--app-text-dim)]">
           {cost !== undefined && <span>Cost {formatNumber(cost)}</span>}
           {rows !== undefined && <span>Rows {formatNumber(rows)}</span>}
-          {actualTime !== undefined && (
-            <span>Time {formatNumber(actualTime)}ms</span>
-          )}
-          {actualRows !== undefined && (
-            <span>Actual {formatNumber(actualRows)}</span>
-          )}
+          {actualTime !== undefined && <span>Time {formatNumber(actualTime)}ms</span>}
+          {actualRows !== undefined && <span>Actual {formatNumber(actualRows)}</span>}
         </div>
       </div>
 
@@ -183,7 +177,15 @@ function NodeDetails({ node }: { node: PlanNode }) {
   const relation = getRelation(node);
 
   // Collect detail properties (exclude sub-plans and already-shown fields)
-  const skipKeys = new Set(["Plans", "plans", "Subplan", "subplan", "Node Type", "nodeType", "type"]);
+  const skipKeys = new Set([
+    "Plans",
+    "plans",
+    "Subplan",
+    "subplan",
+    "Node Type",
+    "nodeType",
+    "type",
+  ]);
   const properties = Object.entries(node).filter(
     ([key]) => !skipKeys.has(key) && typeof node[key] !== "object",
   );
@@ -242,7 +244,9 @@ function renderGenericNode(key: string, value: unknown, depth: number): React.Re
     const entries = Object.entries(value as Record<string, unknown>);
     return (
       <details key={key} open style={{ paddingLeft: depth * 16 }}>
-        <summary className="cursor-pointer select-none py-0.5 text-[12px] text-foreground">{key}</summary>
+        <summary className="cursor-pointer select-none py-0.5 text-[12px] text-foreground">
+          {key}
+        </summary>
         <div>{entries.map(([k, v]) => renderGenericNode(k, v, depth + 1))}</div>
       </details>
     );
@@ -250,7 +254,9 @@ function renderGenericNode(key: string, value: unknown, depth: number): React.Re
   if (Array.isArray(value)) {
     return (
       <details key={key} open style={{ paddingLeft: depth * 16 }}>
-        <summary className="cursor-pointer select-none py-0.5 text-[12px] text-foreground">{key} [{value.length}]</summary>
+        <summary className="cursor-pointer select-none py-0.5 text-[12px] text-foreground">
+          {key} [{value.length}]
+        </summary>
         <div>{value.map((item, i) => renderGenericNode(`[${i}]`, item, depth + 1))}</div>
       </details>
     );

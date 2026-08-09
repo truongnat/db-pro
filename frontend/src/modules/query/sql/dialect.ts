@@ -30,8 +30,6 @@ export function getSqlDialect(driver: DriverType): SqlDialect {
 }
 
 export function getDialectForConnection(connectionId: string | null): SqlDialect {
-  const connection = useConnectionStore.getState().connections.find(
-    (c) => c.id === connectionId,
-  );
+  const connection = useConnectionStore.getState().connections.find((c) => c.id === connectionId);
   return connection ? getSqlDialect(connection.driver) : postgresDialect;
 }

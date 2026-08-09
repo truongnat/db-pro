@@ -30,23 +30,17 @@ export function TabContextMenu({ tab, children, onClose, onCloseMany }: TabConte
 
   return (
     <ContextMenu>
-      <ContextMenuTrigger asChild>
-        {children}
-      </ContextMenuTrigger>
+      <ContextMenuTrigger asChild>{children}</ContextMenuTrigger>
       <ContextMenuContent>
         <ContextMenuItem onClick={() => onClose(tab.id)}>
           <XIcon className="size-3.5" />
           Close
         </ContextMenuItem>
         {tabs.length > 1 && (
-          <ContextMenuItem onClick={() => onCloseMany(otherIds)}>
-            Close Others
-          </ContextMenuItem>
+          <ContextMenuItem onClick={() => onCloseMany(otherIds)}>Close Others</ContextMenuItem>
         )}
         {rightIds.length > 0 && (
-          <ContextMenuItem onClick={() => onCloseMany(rightIds)}>
-            Close to Right
-          </ContextMenuItem>
+          <ContextMenuItem onClick={() => onCloseMany(rightIds)}>Close to Right</ContextMenuItem>
         )}
         <ContextMenuSeparator />
         <ContextMenuItem onClick={() => toggleTabPinned(tab.id)}>
@@ -54,10 +48,7 @@ export function TabContextMenu({ tab, children, onClose, onCloseMany }: TabConte
           {tab.pinned ? "Unpin" : "Pin"}
         </ContextMenuItem>
         <ContextMenuSeparator />
-        <ContextMenuItem
-          onClick={() => reopenLastClosed()}
-          disabled={recentlyClosedCount === 0}
-        >
+        <ContextMenuItem onClick={() => reopenLastClosed()} disabled={recentlyClosedCount === 0}>
           Reopen Closed Tab
           <ContextMenuShortcut>Ctrl+Shift+T</ContextMenuShortcut>
         </ContextMenuItem>

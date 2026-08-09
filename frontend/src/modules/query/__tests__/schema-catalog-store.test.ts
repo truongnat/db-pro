@@ -90,10 +90,32 @@ describe("SchemaCatalogStore", () => {
     it("fetches and caches columns", async () => {
       mockIntrospect.mockResolvedValueOnce(MOCK_INTROSPECT_RESULT);
       const columns = [
-        { name: "id", dataType: "INT", nullable: false, defaultValue: null, isPrimaryKey: true, tableName: "users", schema: "public" },
-        { name: "name", dataType: "TEXT", nullable: true, defaultValue: null, isPrimaryKey: false, tableName: "users", schema: "public" },
+        {
+          name: "id",
+          dataType: "INT",
+          nullable: false,
+          defaultValue: null,
+          isPrimaryKey: true,
+          tableName: "users",
+          schema: "public",
+        },
+        {
+          name: "name",
+          dataType: "TEXT",
+          nullable: true,
+          defaultValue: null,
+          isPrimaryKey: false,
+          tableName: "users",
+          schema: "public",
+        },
       ];
-      mockGetTableInfo.mockResolvedValueOnce({ table: {}, columns, primaryKey: null, indexes: [], foreignKeys: [] });
+      mockGetTableInfo.mockResolvedValueOnce({
+        table: {},
+        columns,
+        primaryKey: null,
+        indexes: [],
+        foreignKeys: [],
+      });
 
       const store = useSchemaCatalogStore.getState();
       await store.ensureLoaded("conn-1");
@@ -106,9 +128,23 @@ describe("SchemaCatalogStore", () => {
     it("returns cached columns without refetching", async () => {
       mockIntrospect.mockResolvedValueOnce(MOCK_INTROSPECT_RESULT);
       const columns = [
-        { name: "id", dataType: "INT", nullable: false, defaultValue: null, isPrimaryKey: true, tableName: "users", schema: "public" },
+        {
+          name: "id",
+          dataType: "INT",
+          nullable: false,
+          defaultValue: null,
+          isPrimaryKey: true,
+          tableName: "users",
+          schema: "public",
+        },
       ];
-      mockGetTableInfo.mockResolvedValueOnce({ table: {}, columns, primaryKey: null, indexes: [], foreignKeys: [] });
+      mockGetTableInfo.mockResolvedValueOnce({
+        table: {},
+        columns,
+        primaryKey: null,
+        indexes: [],
+        foreignKeys: [],
+      });
 
       const store = useSchemaCatalogStore.getState();
       await store.ensureLoaded("conn-1");
@@ -122,13 +158,17 @@ describe("SchemaCatalogStore", () => {
 
   describe("getColumns", () => {
     it("returns undefined for unknown connection", () => {
-      expect(useSchemaCatalogStore.getState().getColumns("unknown", "public", "users")).toBeUndefined();
+      expect(
+        useSchemaCatalogStore.getState().getColumns("unknown", "public", "users"),
+      ).toBeUndefined();
     });
 
     it("returns undefined for table without loaded columns", async () => {
       mockIntrospect.mockResolvedValueOnce(MOCK_INTROSPECT_RESULT);
       await useSchemaCatalogStore.getState().ensureLoaded("conn-1");
-      expect(useSchemaCatalogStore.getState().getColumns("conn-1", "public", "users")).toBeUndefined();
+      expect(
+        useSchemaCatalogStore.getState().getColumns("conn-1", "public", "users"),
+      ).toBeUndefined();
     });
   });
 
@@ -151,8 +191,24 @@ describe("SchemaCatalogStore", () => {
   describe("invalidateTable", () => {
     it("removes cached columns for specific table", async () => {
       mockIntrospect.mockResolvedValueOnce(MOCK_INTROSPECT_RESULT);
-      const columns = [{ name: "id", dataType: "INT", nullable: false, defaultValue: null, isPrimaryKey: true, tableName: "users", schema: "public" }];
-      mockGetTableInfo.mockResolvedValue({ table: {}, columns, primaryKey: null, indexes: [], foreignKeys: [] });
+      const columns = [
+        {
+          name: "id",
+          dataType: "INT",
+          nullable: false,
+          defaultValue: null,
+          isPrimaryKey: true,
+          tableName: "users",
+          schema: "public",
+        },
+      ];
+      mockGetTableInfo.mockResolvedValue({
+        table: {},
+        columns,
+        primaryKey: null,
+        indexes: [],
+        foreignKeys: [],
+      });
 
       const store = useSchemaCatalogStore.getState();
       await store.ensureLoaded("conn-1");

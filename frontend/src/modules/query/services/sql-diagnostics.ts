@@ -11,9 +11,7 @@ import { extractTableRefs, type AliasInfo } from "./sql-context-parser";
 /* ------------------------------------------------------------------ */
 
 function getConnectionIdForTab(tabId: string): string | null {
-  const tab = useWorkspaceStore.getState().tabs.find(
-    (t) => t.id === tabId && t.kind === "query",
-  );
+  const tab = useWorkspaceStore.getState().tabs.find((t) => t.id === tabId && t.kind === "query");
   if (!tab || tab.kind !== "query") return null;
   return (tab.data as QueryTabData).sql !== undefined ? tab.connectionId : null;
 }
@@ -41,7 +39,8 @@ function stripStringsAndComments(text: string): string {
       result += " ";
     } else if (text[i] === "/" && i + 1 < text.length && text[i + 1] === "*") {
       i += 2;
-      while (i < text.length && !(text[i] === "*" && i + 1 < text.length && text[i + 1] === "/")) i++;
+      while (i < text.length && !(text[i] === "*" && i + 1 < text.length && text[i + 1] === "/"))
+        i++;
       i += 2;
       result += " ";
     } else {
@@ -58,11 +57,17 @@ function getCurrentStatementRange(
 ): { start: number; text: string } {
   let lastSemi = -1;
   for (let i = offset - 1; i >= 0; i--) {
-    if (cleaned[i] === ";") { lastSemi = i; break; }
+    if (cleaned[i] === ";") {
+      lastSemi = i;
+      break;
+    }
   }
   let nextSemi = cleaned.length;
   for (let i = offset; i < cleaned.length; i++) {
-    if (cleaned[i] === ";") { nextSemi = i; break; }
+    if (cleaned[i] === ";") {
+      nextSemi = i;
+      break;
+    }
   }
   return { start: lastSemi + 1, text: cleaned.slice(lastSemi + 1, nextSemi) };
 }
@@ -104,7 +109,11 @@ function findUnknownQualifiedColumns(
     const columnName = match[2];
 
     // Skip if qualifier is a SQL keyword
-    if (/^(SELECT|FROM|WHERE|JOIN|INNER|LEFT|RIGHT|FULL|CROSS|ON|ORDER|GROUP|BY|HAVING|INSERT|INTO|UPDATE|SET|DELETE|AND|OR|NOT|IN|EXISTS|BETWEEN|LIKE|ILIKE|IS|NULL|AS|CASE|WHEN|THEN|ELSE|END|DISTINCT|UNION|ALL|LIMIT|OFFSET|WITH|RETURNING|VALUES|TRUNCATE|CREATE|ALTER|DROP|TABLE|VIEW|SCHEMA|INDEX|GRANT|REVOKE|TO|ROLE|OWNER)$/i.test(qualifier)) {
+    if (
+      /^(SELECT|FROM|WHERE|JOIN|INNER|LEFT|RIGHT|FULL|CROSS|ON|ORDER|GROUP|BY|HAVING|INSERT|INTO|UPDATE|SET|DELETE|AND|OR|NOT|IN|EXISTS|BETWEEN|LIKE|ILIKE|IS|NULL|AS|CASE|WHEN|THEN|ELSE|END|DISTINCT|UNION|ALL|LIMIT|OFFSET|WITH|RETURNING|VALUES|TRUNCATE|CREATE|ALTER|DROP|TABLE|VIEW|SCHEMA|INDEX|GRANT|REVOKE|TO|ROLE|OWNER)$/i.test(
+        qualifier,
+      )
+    ) {
       continue;
     }
 
@@ -133,7 +142,9 @@ function findUnknownQualifiedColumns(
     const columns = catalog.columnsByTable.get(`${schema}.${table}`);
     if (!columns) continue; // columns not loaded — can't validate
 
-    const colExists = columns.some((c: { name: string }) => c.name.toLowerCase() === columnName.toLowerCase());
+    const colExists = columns.some(
+      (c: { name: string }) => c.name.toLowerCase() === columnName.toLowerCase(),
+    );
     if (colExists) continue;
 
     // Compute offset in original SQL

@@ -2,7 +2,11 @@ import { z } from "zod";
 
 import { defineAction } from "../registry";
 import { bindExternalExecutionId, cancelExecution, findRunningExecutionForTab } from "../bus";
-import { getActiveQueryTab, getQueryTabData, setTabSql } from "@/modules/query/controllers/query-workspace.controller";
+import {
+  getActiveQueryTab,
+  getQueryTabData,
+  setTabSql,
+} from "@/modules/query/controllers/query-workspace.controller";
 import { resolveRunTarget } from "@/modules/query/services/statement-splitter";
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
 import { useQueryEditorContextStore } from "@/commons/stores/query-editor-context.store";
@@ -33,7 +37,9 @@ function resolveQueryTab(input: { tabId?: string }) {
     }
   }
   const active = getActiveQueryTab();
-  return active ? { id: active.id, data: active.data, connectionId: active.connectionId } : undefined;
+  return active
+    ? { id: active.id, data: active.data, connectionId: active.connectionId }
+    : undefined;
 }
 
 /**
@@ -48,7 +54,11 @@ function resolveQueryTab(input: { tabId?: string }) {
  * resolved twice.
  */
 function resolveExecutableQuery(
-  input: { tabId?: string; cursorOffset?: number; selection?: { start: number; end: number } | null },
+  input: {
+    tabId?: string;
+    cursorOffset?: number;
+    selection?: { start: number; end: number } | null;
+  },
   ctx: ActionExecutionContext,
   mode: "current" | "selection" | "all",
 ): ResolvedQueryExecution | null {
@@ -65,11 +75,12 @@ function resolveExecutableQuery(
     const cursorOffset = input.cursorOffset ?? editorCtx.cursorOffset;
     const selection = input.selection !== undefined ? input.selection : editorCtx.selection;
 
-    sql = resolveRunTarget({
-      value: tab.data.sql,
-      selection,
-      cursorOffset,
-    }) ?? tab.data.sql;
+    sql =
+      resolveRunTarget({
+        value: tab.data.sql,
+        selection,
+        cursorOffset,
+      }) ?? tab.data.sql;
   } else {
     sql = tab.data.sql;
   }
@@ -99,7 +110,10 @@ function getResolvedPayload(ctx: ActionExecutionContext): ResolvedQueryExecution
 
 function requireConnection(ctx: ActionExecutionContext): ActionResult | null {
   if (!ctx.connectionId) {
-    return { status: "error", error: { code: "connection_required", message: "No active connection" } };
+    return {
+      status: "error",
+      error: { code: "connection_required", message: "No active connection" },
+    };
   }
   return null;
 }
@@ -127,7 +141,10 @@ function isTabRunning(tabId?: string): boolean {
  * cancellation at the database level.
  * Uses the stored execution.tabId — never passes empty string.
  */
-async function cancelQueryExecution(execution: { externalExecutionId?: string; tabId?: string }): Promise<void> {
+async function cancelQueryExecution(execution: {
+  externalExecutionId?: string;
+  tabId?: string;
+}): Promise<void> {
   const externalId = execution.externalExecutionId;
   const tabId = execution.tabId;
   if (!externalId) {
@@ -147,8 +164,7 @@ export const executeCurrentAction = defineAction<
 >({
   id: "query.execute.current",
   title: "Run current statement",
-  description:
-    "Execute the SQL statement at the cursor position in the active query tab.",
+  description: "Execute the SQL statement at the cursor position in the active query tab.",
   category: "query",
   inputSchema: z.object({
     tabId: z.string().optional(),
@@ -184,13 +200,11 @@ export const executeCurrentAction = defineAction<
   availability(ctx) {
     const tab = resolveQueryTab({ tabId: ctx.tabId });
     const hasSql = tab ? tab.data.sql.trim().length > 0 : false;
-    if (!ctx.connectionId)
-      return { status: "unavailable", reason: "connection_required" };
+    if (!ctx.connectionId) return { status: "unavailable", reason: "connection_required" };
     if (!hasSql) return { status: "unavailable", reason: "sql_required" };
     // Same-tab concurrency guard: prevent Agent/MCP from starting
     // a second execution while the tab is already running.
-    if (isTabRunning(ctx.tabId))
-      return { status: "unavailable", reason: "query_running" };
+    if (isTabRunning(ctx.tabId)) return { status: "unavailable", reason: "query_running" };
     return { status: "available" };
   },
 
@@ -216,7 +230,10 @@ export const executeCurrentAction = defineAction<
     // Read the frozen payload from context — not from live workspace.
     const resolved = getResolvedPayload(ctx);
     if (!resolved) {
-      return { status: "error", error: { code: "no_tab", message: "No active query tab" } } as ActionResult<never>;
+      return {
+        status: "error",
+        error: { code: "no_tab", message: "No active query tab" },
+      } as ActionResult<never>;
     }
 
     const backendExecId = crypto.randomUUID();
@@ -299,10 +316,8 @@ export const executeSelectionAction = defineAction<
   },
 
   availability(ctx) {
-    if (!ctx.connectionId)
-      return { status: "unavailable", reason: "connection_required" };
-    if (isTabRunning(ctx.tabId))
-      return { status: "unavailable", reason: "query_running" };
+    if (!ctx.connectionId) return { status: "unavailable", reason: "connection_required" };
+    if (isTabRunning(ctx.tabId)) return { status: "unavailable", reason: "query_running" };
     return { status: "available" };
   },
 
@@ -316,7 +331,10 @@ export const executeSelectionAction = defineAction<
 
     const resolved = getResolvedPayload(ctx);
     if (!resolved) {
-      return { status: "error", error: { code: "no_tab", message: "No active query tab" } } as ActionResult<never>;
+      return {
+        status: "error",
+        error: { code: "no_tab", message: "No active query tab" },
+      } as ActionResult<never>;
     }
 
     const backendExecId = crypto.randomUUID();
@@ -351,7 +369,12 @@ export const executeSelectionAction = defineAction<
 
 export const executeAllAction = defineAction<
   { tabId?: string },
-  { totalDurationMs: number; statementCount: number; completedResults: number; failedStatement?: number }
+  {
+    totalDurationMs: number;
+    statementCount: number;
+    completedResults: number;
+    failedStatement?: number;
+  }
 >({
   id: "query.execute.all",
   title: "Run all statements",
@@ -392,13 +415,11 @@ export const executeAllAction = defineAction<
   },
 
   availability(ctx) {
-    if (!ctx.connectionId)
-      return { status: "unavailable", reason: "connection_required" };
+    if (!ctx.connectionId) return { status: "unavailable", reason: "connection_required" };
     const tab = resolveQueryTab({ tabId: ctx.tabId });
     const hasSql = tab ? tab.data.sql.trim().length > 0 : false;
     if (!hasSql) return { status: "unavailable", reason: "sql_required" };
-    if (isTabRunning(ctx.tabId))
-      return { status: "unavailable", reason: "query_running" };
+    if (isTabRunning(ctx.tabId)) return { status: "unavailable", reason: "query_running" };
     return { status: "available" };
   },
 
@@ -406,13 +427,26 @@ export const executeAllAction = defineAction<
     await cancelQueryExecution(execution);
   },
 
-  async execute(input, ctx): Promise<ActionResult<{ totalDurationMs: number; statementCount: number; completedResults: number; failedStatement?: number }>> {
+  async execute(
+    input,
+    ctx,
+  ): Promise<
+    ActionResult<{
+      totalDurationMs: number;
+      statementCount: number;
+      completedResults: number;
+      failedStatement?: number;
+    }>
+  > {
     const connErr = requireConnection(ctx);
     if (connErr) return connErr as ActionResult<never>;
 
     const resolved = getResolvedPayload(ctx);
     if (!resolved) {
-      return { status: "error", error: { code: "no_tab", message: "No active query tab" } } as ActionResult<never>;
+      return {
+        status: "error",
+        error: { code: "no_tab", message: "No active query tab" },
+      } as ActionResult<never>;
     }
 
     const backendExecId = crypto.randomUUID();
@@ -468,10 +502,7 @@ export const executeAllAction = defineAction<
 
 // ─── query.cancel ────────────────────────────────────────────
 
-export const cancelQueryAction = defineAction<
-  { tabId?: string },
-  void
->({
+export const cancelQueryAction = defineAction<{ tabId?: string }, void>({
   id: "query.cancel",
   title: "Cancel query",
   description: "Cancel the currently running query execution.",
@@ -532,10 +563,7 @@ export const cancelQueryAction = defineAction<
 
 // ─── query.explain ───────────────────────────────────────────
 
-export const explainQueryAction = defineAction<
-  { tabId?: string },
-  { plan: ExplainPlan }
->({
+export const explainQueryAction = defineAction<{ tabId?: string }, { plan: ExplainPlan }>({
   id: "query.explain",
   title: "Explain query",
   description: "Show the query execution plan for the current SQL.",
@@ -570,7 +598,10 @@ export const explainQueryAction = defineAction<
 
     const tabId = tab?.id ?? ctx.tabId;
     if (!tabId) {
-      return { status: "error", error: { code: "no_tab", message: "No active query tab" } } as ActionResult<never>;
+      return {
+        status: "error",
+        error: { code: "no_tab", message: "No active query tab" },
+      } as ActionResult<never>;
     }
 
     try {
@@ -629,13 +660,19 @@ export const formatSqlAction = defineAction<
 
     const tabId = tab?.id ?? ctx.tabId;
     if (!tabId) {
-      return { status: "error", error: { code: "no_tab", message: "No active query tab" } } as ActionResult<never>;
+      return {
+        status: "error",
+        error: { code: "no_tab", message: "No active query tab" },
+      } as ActionResult<never>;
     }
 
     // P1-6: Pass connectionId for dialect-aware formatting.
     const connectionId = ctx.connectionId;
     if (!connectionId) {
-      return { status: "error", error: { code: "connection_required", message: "No active connection" } } as ActionResult<never>;
+      return {
+        status: "error",
+        error: { code: "connection_required", message: "No active connection" },
+      } as ActionResult<never>;
     }
 
     try {
@@ -757,7 +794,8 @@ export const getQueryContextAction = defineAction<
 >({
   id: "query.get_context",
   title: "Get query context",
-  description: "Return the connection, database, schema, and execution status of the active query tab.",
+  description:
+    "Return the connection, database, schema, and execution status of the active query tab.",
   category: "query",
   inputSchema: z.object({ tabId: z.string().optional() }),
   risk: "read",
@@ -791,10 +829,7 @@ export const getQueryContextAction = defineAction<
 
 // ─── query.get_sql ───────────────────────────────────────────
 
-export const getQuerySqlAction = defineAction<
-  { tabId?: string },
-  { tabId: string; sql: string }
->({
+export const getQuerySqlAction = defineAction<{ tabId?: string }, { tabId: string; sql: string }>({
   id: "query.get_sql",
   title: "Get SQL content",
   description: "Return the SQL content of the active query tab.",

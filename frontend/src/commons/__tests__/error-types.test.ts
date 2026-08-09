@@ -36,7 +36,9 @@ describe("error-types", () => {
 
   describe("AppError", () => {
     it("creates error with all properties", () => {
-      const err = new AppError("CONNECTION_FAILED", "Could not connect", "err.conn.failed", { host: "localhost" });
+      const err = new AppError("CONNECTION_FAILED", "Could not connect", "err.conn.failed", {
+        host: "localhost",
+      });
       expect(err).toBeInstanceOf(Error);
       expect(err).toBeInstanceOf(AppError);
       expect(err.name).toBe("AppError");

@@ -35,7 +35,9 @@ function ctx(overrides: Partial<QuickOpenRankContext> = {}): QuickOpenRankContex
 
 describe("matchScore", () => {
   it("exact match ranks highest", () => {
-    expect(matchScore("client", "client")).toBeGreaterThan(matchScore("client_attributes", "client"));
+    expect(matchScore("client", "client")).toBeGreaterThan(
+      matchScore("client_attributes", "client"),
+    );
   });
 
   it("prefix ranks above qualified", () => {
@@ -66,8 +68,16 @@ describe("matchScore", () => {
 describe("rankQuickOpenItems", () => {
   it("ranks exact prefix above substring", () => {
     const items: QuickOpenItem[] = [
-      dbObj({ objectName: "my_client_archive", resourceKey: "a", searchText: "my_client_archive public.my_client_archive public Local" }),
-      dbObj({ objectName: "client", resourceKey: "b", searchText: "client public.client public Local" }),
+      dbObj({
+        objectName: "my_client_archive",
+        resourceKey: "a",
+        searchText: "my_client_archive public.my_client_archive public Local",
+      }),
+      dbObj({
+        objectName: "client",
+        resourceKey: "b",
+        searchText: "client public.client public Local",
+      }),
     ];
     const ranked = rankQuickOpenItems(items, ctx({ query: "client" }));
     expect(ranked[0].item.resourceKey).toBe("b");
@@ -76,7 +86,11 @@ describe("rankQuickOpenItems", () => {
   it("boosts open resources above catalog objects with equal match", () => {
     const openKey = "dbobj:public.client:conn-1";
     const items: QuickOpenItem[] = [
-      dbObj({ objectName: "orders", resourceKey: "dbobj:public.orders:conn-1", searchText: "orders public.orders public Local" }),
+      dbObj({
+        objectName: "orders",
+        resourceKey: "dbobj:public.orders:conn-1",
+        searchText: "orders public.orders public Local",
+      }),
       dbObj({ resourceKey: openKey }),
     ];
     const ranked = rankQuickOpenItems(
@@ -89,7 +103,11 @@ describe("rankQuickOpenItems", () => {
   it("boosts recent resources", () => {
     const recentKey = "dbobj:public.client:conn-1";
     const items: QuickOpenItem[] = [
-      dbObj({ objectName: "orders", resourceKey: "dbobj:public.orders:conn-1", searchText: "orders public.orders public Local" }),
+      dbObj({
+        objectName: "orders",
+        resourceKey: "dbobj:public.orders:conn-1",
+        searchText: "orders public.orders public Local",
+      }),
       dbObj({ resourceKey: recentKey }),
     ];
     const ranked = rankQuickOpenItems(
@@ -101,8 +119,18 @@ describe("rankQuickOpenItems", () => {
 
   it("boosts explorer connection without hiding others", () => {
     const items: QuickOpenItem[] = [
-      dbObj({ connectionId: "conn-2", connectionName: "Production", objectName: "users", searchText: "users auth.users auth Production" }),
-      dbObj({ connectionId: "conn-1", connectionName: "Local", objectName: "users", searchText: "users public.users public Local" }),
+      dbObj({
+        connectionId: "conn-2",
+        connectionName: "Production",
+        objectName: "users",
+        searchText: "users auth.users auth Production",
+      }),
+      dbObj({
+        connectionId: "conn-1",
+        connectionName: "Local",
+        objectName: "users",
+        searchText: "users public.users public Local",
+      }),
     ];
     const ranked = rankQuickOpenItems(
       items,
@@ -114,20 +142,37 @@ describe("rankQuickOpenItems", () => {
 
   it("boosts active tab connection independently of explorer connection", () => {
     const items: QuickOpenItem[] = [
-      dbObj({ connectionId: "conn-1", connectionName: "Local", objectName: "users", searchText: "users public.users public Local" }),
-      dbObj({ connectionId: "conn-2", connectionName: "Production", objectName: "users", searchText: "users auth.users auth Production" }),
+      dbObj({
+        connectionId: "conn-1",
+        connectionName: "Local",
+        objectName: "users",
+        searchText: "users public.users public Local",
+      }),
+      dbObj({
+        connectionId: "conn-2",
+        connectionName: "Production",
+        objectName: "users",
+        searchText: "users auth.users auth Production",
+      }),
     ];
-    const ranked = rankQuickOpenItems(
-      items,
-      ctx({ query: "users", activeConnectionId: "conn-2" }),
-    );
+    const ranked = rankQuickOpenItems(items, ctx({ query: "users", activeConnectionId: "conn-2" }));
     expect(ranked[0].item.connectionId).toBe("conn-2");
   });
 
   it("treats active and explorer connection boosts as separate axes", () => {
     const items: QuickOpenItem[] = [
-      dbObj({ connectionId: "conn-1", connectionName: "Local", objectName: "users", searchText: "users public.users public Local" }),
-      dbObj({ connectionId: "conn-2", connectionName: "Production", objectName: "users", searchText: "users auth.users auth Production" }),
+      dbObj({
+        connectionId: "conn-1",
+        connectionName: "Local",
+        objectName: "users",
+        searchText: "users public.users public Local",
+      }),
+      dbObj({
+        connectionId: "conn-2",
+        connectionName: "Production",
+        objectName: "users",
+        searchText: "users auth.users auth Production",
+      }),
     ];
     const ranked = rankQuickOpenItems(
       items,
@@ -155,7 +200,9 @@ describe("rankQuickOpenItems", () => {
   });
 
   it("drops non-matching items", () => {
-    const items: QuickOpenItem[] = [dbObj({ objectName: "orders", searchText: "orders public.orders" })];
+    const items: QuickOpenItem[] = [
+      dbObj({ objectName: "orders", searchText: "orders public.orders" }),
+    ];
     const ranked = rankQuickOpenItems(items, ctx({ query: "client" }));
     expect(ranked).toHaveLength(0);
   });

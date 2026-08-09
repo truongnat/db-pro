@@ -12,10 +12,7 @@ export type QueryAction =
 
 const listeners = new Map<QueryAction, Set<() => void>>();
 
-export function onQueryAction(
-  action: QueryAction,
-  handler: () => void,
-): () => void {
+export function onQueryAction(action: QueryAction, handler: () => void): () => void {
   if (!listeners.has(action)) {
     listeners.set(action, new Set());
   }

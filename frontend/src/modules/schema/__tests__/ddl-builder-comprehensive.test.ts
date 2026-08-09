@@ -79,26 +79,50 @@ describe("DDL builder — buildCreateTable", () => {
 
 describe("DDL builder — buildAddColumn", () => {
   it("generates ALTER TABLE ADD COLUMN for postgres", () => {
-    const col: ColumnDef = { name: "age", dataType: "INTEGER", nullable: true, defaultValue: "", isPk: false };
+    const col: ColumnDef = {
+      name: "age",
+      dataType: "INTEGER",
+      nullable: true,
+      defaultValue: "",
+      isPk: false,
+    };
     const sql = buildAddColumn("public", "users", col, pg);
     expect(sql).toBe('ALTER TABLE "public"."users" ADD COLUMN "age" INTEGER;');
   });
 
   it("includes NOT NULL when column is not nullable", () => {
-    const col: ColumnDef = { name: "age", dataType: "INTEGER", nullable: false, defaultValue: "", isPk: false };
+    const col: ColumnDef = {
+      name: "age",
+      dataType: "INTEGER",
+      nullable: false,
+      defaultValue: "",
+      isPk: false,
+    };
     const sql = buildAddColumn("public", "users", col, pg);
     expect(sql).toContain("NOT NULL");
   });
 
   it("includes DEFAULT when present", () => {
-    const col: ColumnDef = { name: "status", dataType: "TEXT", nullable: false, defaultValue: "'active'", isPk: false };
+    const col: ColumnDef = {
+      name: "status",
+      dataType: "TEXT",
+      nullable: false,
+      defaultValue: "'active'",
+      isPk: false,
+    };
     const sql = buildAddColumn("public", "users", col, pg);
     expect(sql).toContain("DEFAULT 'active'");
     expect(sql).toContain("NOT NULL");
   });
 
   it("works with sqlite dialect", () => {
-    const col: ColumnDef = { name: "email", dataType: "TEXT", nullable: true, defaultValue: "", isPk: false };
+    const col: ColumnDef = {
+      name: "email",
+      dataType: "TEXT",
+      nullable: true,
+      defaultValue: "",
+      isPk: false,
+    };
     const sql = buildAddColumn("main", "users", col, sqlite);
     expect(sql).toBe('ALTER TABLE "main"."users" ADD COLUMN "email" TEXT;');
   });
@@ -142,12 +166,24 @@ describe("DDL builder — buildDropTable", () => {
 
 describe("DDL builder — buildCreateView", () => {
   it("generates CREATE VIEW AS", () => {
-    const sql = buildCreateView("public", "active_users", "SELECT * FROM users WHERE active = true", pg);
-    expect(sql).toBe('CREATE VIEW "public"."active_users" AS\nSELECT * FROM users WHERE active = true;');
+    const sql = buildCreateView(
+      "public",
+      "active_users",
+      "SELECT * FROM users WHERE active = true",
+      pg,
+    );
+    expect(sql).toBe(
+      'CREATE VIEW "public"."active_users" AS\nSELECT * FROM users WHERE active = true;',
+    );
   });
 
   it("works with sqlite dialect", () => {
-    const sql = buildCreateView("main", "active_users", "SELECT * FROM users WHERE active = 1", sqlite);
+    const sql = buildCreateView(
+      "main",
+      "active_users",
+      "SELECT * FROM users WHERE active = 1",
+      sqlite,
+    );
     expect(sql).toContain('CREATE VIEW "main"."active_users"');
   });
 });
@@ -171,7 +207,14 @@ describe("DDL builder — buildCreateIndex", () => {
   });
 
   it("generates index with multiple columns", () => {
-    const sql = buildCreateIndex("public", "orders", "idx_orders_user_status", ["user_id", "status"], false, pg);
+    const sql = buildCreateIndex(
+      "public",
+      "orders",
+      "idx_orders_user_status",
+      ["user_id", "status"],
+      false,
+      pg,
+    );
     expect(sql).toContain('("user_id", "status")');
   });
 
@@ -195,7 +238,13 @@ describe("DDL builder — generateDdlPreview", () => {
   });
 
   it("dispatches addColumn with first column", () => {
-    const col: ColumnDef = { name: "age", dataType: "INT", nullable: true, defaultValue: "", isPk: false };
+    const col: ColumnDef = {
+      name: "age",
+      dataType: "INT",
+      nullable: true,
+      defaultValue: "",
+      isPk: false,
+    };
     const sql = generateDdlPreview("addColumn", "public", "users", [col], {}, pg);
     expect(sql).toContain("ADD COLUMN");
     expect(sql).toContain('"age"');
@@ -218,7 +267,14 @@ describe("DDL builder — generateDdlPreview", () => {
   });
 
   it("dispatches renameTable from extra.newName", () => {
-    const sql = generateDdlPreview("renameTable", "public", "users", [], { newName: "accounts" }, pg);
+    const sql = generateDdlPreview(
+      "renameTable",
+      "public",
+      "users",
+      [],
+      { newName: "accounts" },
+      pg,
+    );
     expect(sql).toContain("RENAME TO");
     expect(sql).toContain('"accounts"');
   });
@@ -251,7 +307,9 @@ describe("DDL builder — generateDdlPreview", () => {
 
   it("dispatches createIndex from extra.indexColumns", () => {
     const sql = generateDdlPreview(
-      "createIndex", "public", "users",
+      "createIndex",
+      "public",
+      "users",
       [],
       { indexName: "idx_email", indexColumns: "email", unique: "true" },
       pg,
@@ -267,7 +325,9 @@ describe("DDL builder — generateDdlPreview", () => {
 
   it("uses default index name when indexName is not provided", () => {
     const sql = generateDdlPreview(
-      "createIndex", "public", "users",
+      "createIndex",
+      "public",
+      "users",
       [],
       { indexColumns: "email", unique: "false" },
       pg,
@@ -277,7 +337,14 @@ describe("DDL builder — generateDdlPreview", () => {
   });
 
   it("dispatches dropIndex from extra.indexName", () => {
-    const sql = generateDdlPreview("dropIndex", "public", "users", [], { indexName: "idx_old" }, pg);
+    const sql = generateDdlPreview(
+      "dropIndex",
+      "public",
+      "users",
+      [],
+      { indexName: "idx_old" },
+      pg,
+    );
     expect(sql).toContain("DROP INDEX");
     expect(sql).toContain('"idx_old"');
   });
@@ -288,7 +355,14 @@ describe("DDL builder — generateDdlPreview", () => {
   });
 
   it("returns empty for unknown operation", () => {
-    const sql = generateDdlPreview("unknownOp" as unknown as "create_table", "public", "users", [], {}, pg);
+    const sql = generateDdlPreview(
+      "unknownOp" as unknown as "create_table",
+      "public",
+      "users",
+      [],
+      {},
+      pg,
+    );
     expect(sql).toBe("");
   });
 });

@@ -11,7 +11,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-import { FILTER_OPS, VALUELESS_OPS, type ColumnMeta, type FilterOp, type GridFilter, type CellValue } from "../types/data-grid.types";
+import {
+  FILTER_OPS,
+  VALUELESS_OPS,
+  type ColumnMeta,
+  type FilterOp,
+  type GridFilter,
+  type CellValue,
+} from "../types/data-grid.types";
 
 interface FilterBarProps {
   columns: ColumnMeta[];
@@ -67,7 +74,9 @@ export function FilterBar({ columns, filters, onAddFilter, onRemoveFilter }: Fil
           </SelectTrigger>
           <SelectContent>
             {columns.map((c) => (
-              <SelectItem key={c.name} value={c.name}>{c.name}</SelectItem>
+              <SelectItem key={c.name} value={c.name}>
+                {c.name}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -78,7 +87,9 @@ export function FilterBar({ columns, filters, onAddFilter, onRemoveFilter }: Fil
           </SelectTrigger>
           <SelectContent>
             {FILTER_OPS.map((f) => (
-              <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>
+              <SelectItem key={f.value} value={f.value}>
+                {f.label}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -89,7 +100,9 @@ export function FilterBar({ columns, filters, onAddFilter, onRemoveFilter }: Fil
             placeholder={t("dataGrid.filter")}
             value={value}
             onChange={(e) => setValue(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") handleAdd(); }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleAdd();
+            }}
           />
         )}
 

@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { buildTreeData, sortColumnsForDisplay, type IntrospectResult, type SchemaColumnDto } from "../types/schema.types";
+import {
+  buildTreeData,
+  sortColumnsForDisplay,
+  type IntrospectResult,
+  type SchemaColumnDto,
+} from "../types/schema.types";
 
 const EMPTY_RESULT: IntrospectResult = {
   schemas: [],

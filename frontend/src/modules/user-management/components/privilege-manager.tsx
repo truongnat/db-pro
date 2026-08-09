@@ -20,13 +20,17 @@ interface PrivilegeManagerProps {
   onRevoke: (schema: string, table: string, privilege: string) => void;
 }
 
-const PRIVILEGE_TYPES = ["SELECT", "INSERT", "UPDATE", "DELETE", "TRUNCATE", "REFERENCES", "TRIGGER"];
+const PRIVILEGE_TYPES = [
+  "SELECT",
+  "INSERT",
+  "UPDATE",
+  "DELETE",
+  "TRUNCATE",
+  "REFERENCES",
+  "TRIGGER",
+];
 
-export function PrivilegeManager({
-  privileges,
-  onGrant,
-  onRevoke,
-}: PrivilegeManagerProps) {
+export function PrivilegeManager({ privileges, onGrant, onRevoke }: PrivilegeManagerProps) {
   const { t } = useTranslation();
   const [schema, setSchema] = useState("public");
   const [table, setTable] = useState("");
@@ -48,19 +52,12 @@ export function PrivilegeManager({
 
   return (
     <div className="flex flex-col gap-4">
-      <h3 className="text-sm font-semibold text-foreground">
-        {t("userManagement.privileges")}
-      </h3>
+      <h3 className="text-sm font-semibold text-foreground">{t("userManagement.privileges")}</h3>
 
       <div className="flex flex-col gap-2">
         {Array.from(grouped.entries()).map(([key, privs]) => (
-          <div
-            key={key}
-            className="rounded-sm border p-2 border-[var(--app-border-subtle)]"
-          >
-            <div className="mb-1 text-xs font-medium text-[var(--app-text-muted)]">
-              {key}
-            </div>
+          <div key={key} className="rounded-sm border p-2 border-[var(--app-border-subtle)]">
+            <div className="mb-1 text-xs font-medium text-[var(--app-text-muted)]">{key}</div>
             <div className="flex flex-wrap gap-1">
               {privs.map((p) => (
                 <span
@@ -119,12 +116,7 @@ export function PrivilegeManager({
               ))}
             </SelectContent>
           </Select>
-          <Button
-            type="button"
-            size="sm"
-            onClick={handleGrant}
-            disabled={!table.trim()}
-          >
+          <Button type="button" size="sm" onClick={handleGrant} disabled={!table.trim()}>
             {t("userManagement.grant")}
           </Button>
         </div>

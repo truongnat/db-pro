@@ -61,13 +61,23 @@ describe("ConnectionStore", () => {
 
   describe("setError", () => {
     it("sets error", () => {
-      const error = { code: "CONNECTION_FAILED" as const, userMessage: "Failed", technicalMessage: "timeout", messageId: "err.conn" };
+      const error = {
+        code: "CONNECTION_FAILED" as const,
+        userMessage: "Failed",
+        technicalMessage: "timeout",
+        messageId: "err.conn",
+      };
       useConnectionStore.getState().setError(error);
       expect(useConnectionStore.getState().error).toEqual(error);
     });
 
     it("clears error with null", () => {
-      useConnectionStore.getState().setError({ code: "CONNECTION_FAILED" as const, userMessage: "x", technicalMessage: "y", messageId: "z" });
+      useConnectionStore.getState().setError({
+        code: "CONNECTION_FAILED" as const,
+        userMessage: "x",
+        technicalMessage: "y",
+        messageId: "z",
+      });
       useConnectionStore.getState().setError(null);
       expect(useConnectionStore.getState().error).toBeNull();
     });
@@ -136,7 +146,12 @@ describe("ConnectionStore", () => {
       store.setConnections([{ id: "c1", name: "A" }]);
       store.setExplorerConnection("c1");
       store.setLoading(true);
-      store.setError({ code: "CONNECTION_FAILED" as const, userMessage: "x", technicalMessage: "y", messageId: "z" });
+      store.setError({
+        code: "CONNECTION_FAILED" as const,
+        userMessage: "x",
+        technicalMessage: "y",
+        messageId: "z",
+      });
 
       store.reset();
 

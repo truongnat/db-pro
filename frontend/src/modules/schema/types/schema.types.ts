@@ -67,7 +67,8 @@ export interface TableInfo {
   foreignKeys: SchemaForeignKeyDto[];
 }
 
-export type DetailTab = "columns" | "indexes" | "foreignKeys" | "ddl" | "ddlEditor" | "generateCrud" | "triggers";
+export type DetailTab =
+  "columns" | "indexes" | "foreignKeys" | "ddl" | "ddlEditor" | "generateCrud" | "triggers";
 
 export interface TreeNode {
   id: string;
@@ -78,10 +79,7 @@ export interface TreeNode {
   children?: TreeNode[];
 }
 
-export function buildTreeData(
-  result: IntrospectResult,
-  searchQuery: string,
-): TreeNode[] {
+export function buildTreeData(result: IntrospectResult, searchQuery: string): TreeNode[] {
   const query = searchQuery.toLowerCase().trim();
 
   const tablesBySchema = new Map<string, TableDto[]>();
@@ -108,11 +106,11 @@ export function buildTreeData(
   const nodes: TreeNode[] = [];
 
   for (const schemaName of [...allSchemaNames].sort()) {
-    let tables = [...(tablesBySchema.get(schemaName) ?? [])].sort(
-      (a: TableDto, b: TableDto) => a.name.localeCompare(b.name),
+    let tables = [...(tablesBySchema.get(schemaName) ?? [])].sort((a: TableDto, b: TableDto) =>
+      a.name.localeCompare(b.name),
     );
-    let views = [...(viewsBySchema.get(schemaName) ?? [])].sort(
-      (a: ViewDto, b: ViewDto) => a.name.localeCompare(b.name),
+    let views = [...(viewsBySchema.get(schemaName) ?? [])].sort((a: ViewDto, b: ViewDto) =>
+      a.name.localeCompare(b.name),
     );
 
     if (query) {
@@ -123,24 +121,20 @@ export function buildTreeData(
     if (tables.length === 0 && views.length === 0) continue;
 
     const children: TreeNode[] = [
-      ...tables.map(
-        (t): TreeNode => ({
-          id: `table:${t.schema}:${t.name}`,
-          type: "table",
-          label: t.name,
-          schemaName: t.schema,
-          tableName: t.name,
-        }),
-      ),
-      ...views.map(
-        (v): TreeNode => ({
-          id: `view:${schemaName}:${v.name}`,
-          type: "view",
-          label: v.name,
-          schemaName,
-          tableName: v.name,
-        }),
-      ),
+      ...tables.map((t): TreeNode => ({
+        id: `table:${t.schema}:${t.name}`,
+        type: "table",
+        label: t.name,
+        schemaName: t.schema,
+        tableName: t.name,
+      })),
+      ...views.map((v): TreeNode => ({
+        id: `view:${schemaName}:${v.name}`,
+        type: "view",
+        label: v.name,
+        schemaName,
+        tableName: v.name,
+      })),
     ];
 
     nodes.push({
@@ -155,9 +149,7 @@ export function buildTreeData(
   return nodes;
 }
 
-export function sortColumnsForDisplay(
-  columns: SchemaColumnDto[],
-): SchemaColumnDto[] {
+export function sortColumnsForDisplay(columns: SchemaColumnDto[]): SchemaColumnDto[] {
   return [...columns].sort((a, b) => {
     if (a.isPrimaryKey !== b.isPrimaryKey) return a.isPrimaryKey ? -1 : 1;
     return a.name.localeCompare(b.name);

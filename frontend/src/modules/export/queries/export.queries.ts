@@ -11,11 +11,7 @@ function getExportService() {
 
 type BackendExportFormat = "csv" | "json" | "excel";
 
-export function useExport(
-  connectionId: string | null,
-  format: BackendExportFormat,
-  sql: string,
-) {
+export function useExport(connectionId: string | null, format: BackendExportFormat, sql: string) {
   const methodMap: Record<BackendExportFormat, keyof IExportService> = {
     csv: "exportCsv",
     json: "exportJson",

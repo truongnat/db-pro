@@ -27,7 +27,9 @@ export function ActionConfirmationHost() {
   return (
     <ActionConfirmationDialog
       confirmation={pending}
-      onConfirm={() => { void confirm(); }}
+      onConfirm={() => {
+        void confirm();
+      }}
       onCancel={reject}
     />
   );

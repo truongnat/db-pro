@@ -9,11 +9,7 @@ export class UserManagementService {
     });
   }
 
-  async createRole(
-    connectionId: string,
-    name: string,
-    login: boolean,
-  ): Promise<void> {
+  async createRole(connectionId: string, name: string, login: boolean): Promise<void> {
     return apiInvoke<void>("create_role", {
       req: { connectionId, name, login },
     });
@@ -25,10 +21,7 @@ export class UserManagementService {
     });
   }
 
-  async listPrivileges(
-    connectionId: string,
-    roleName: string,
-  ): Promise<Privilege[]> {
+  async listPrivileges(connectionId: string, roleName: string): Promise<Privilege[]> {
     return apiInvoke<Privilege[]>("list_privileges", {
       req: { connectionId, roleName },
     });

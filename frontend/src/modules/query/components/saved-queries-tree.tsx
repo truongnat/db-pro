@@ -220,7 +220,8 @@ export function SavedQueriesTree({ connectionId, onSelectQuery }: SavedQueriesTr
             className="h-6 px-2 text-xs"
             onClick={() => setSortField(sortField === "name" ? "created" : "name")}
           >
-            {t("common.actions.sort")}: {sortField === "name" ? t("query.sort.name") : t("query.sort.created")}
+            {t("common.actions.sort")}:{" "}
+            {sortField === "name" ? t("query.sort.name") : t("query.sort.created")}
           </Button>
           {allTags.length > 0 && (
             <select
@@ -507,15 +508,11 @@ function SavedQueryItem({
         <ContextMenuItem onClick={onToggleFavorite}>
           {query.favorite ? t("query.unfavorite") : t("query.favorite")}
         </ContextMenuItem>
-        <ContextMenuItem
-          onClick={() => onStartRename(query.id, query.name)}
-        >
+        <ContextMenuItem onClick={() => onStartRename(query.id, query.name)}>
           {t("query.rename")}
         </ContextMenuItem>
         <ContextMenuItem onClick={onDuplicate}>{t("query.duplicate")}</ContextMenuItem>
-        <ContextMenuItem onClick={() => setShowTagInput(true)}>
-          {t("query.addTag")}
-        </ContextMenuItem>
+        <ContextMenuItem onClick={() => setShowTagInput(true)}>{t("query.addTag")}</ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem className="text-destructive" onClick={onDelete}>
           {t("common.actions.delete")}

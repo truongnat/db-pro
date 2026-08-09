@@ -19,11 +19,7 @@ interface CreateRoleDialogProps {
   onCreate: (name: string, login: boolean) => void;
 }
 
-export function CreateRoleDialog({
-  open,
-  onClose,
-  onCreate,
-}: CreateRoleDialogProps) {
+export function CreateRoleDialog({ open, onClose, onCreate }: CreateRoleDialogProps) {
   const { t } = useTranslation();
   const [name, setName] = useState("");
   const [login, setLogin] = useState(true);
@@ -56,10 +52,7 @@ export function CreateRoleDialog({
           </div>
 
           <Label className="flex items-center gap-2 font-normal">
-            <Checkbox
-              checked={login}
-              onCheckedChange={(val) => setLogin(val === true)}
-            />
+            <Checkbox checked={login} onCheckedChange={(val) => setLogin(val === true)} />
             {t("userManagement.canLogin")}
           </Label>
 

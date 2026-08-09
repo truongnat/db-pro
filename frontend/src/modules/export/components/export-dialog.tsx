@@ -254,10 +254,7 @@ export function ExportDialog({
           {opts.format === "json" && (
             <div className="flex items-center justify-between">
               <Label>{t("export.prettyPrint")}</Label>
-              <Switch
-                checked={opts.prettyJson}
-                onCheckedChange={(v) => update("prettyJson", v)}
-              />
+              <Switch checked={opts.prettyJson} onCheckedChange={(v) => update("prettyJson", v)} />
             </div>
           )}
 
@@ -284,9 +281,7 @@ export function ExportDialog({
             </div>
           )}
 
-          {exportMutation.isPending && (
-            <ExportProgress format={opts.format} rowCount={null} />
-          )}
+          {exportMutation.isPending && <ExportProgress format={opts.format} rowCount={null} />}
 
           {exportMutation.isError && (
             <p className="text-xs text-destructive">{t("export.failed")}</p>
@@ -297,11 +292,7 @@ export function ExportDialog({
           <Button type="button" variant="outline" onClick={onClose}>
             {t("common.actions.cancel")}
           </Button>
-          <Button
-            type="button"
-            onClick={handleExport}
-            disabled={exportMutation.isPending}
-          >
+          <Button type="button" onClick={handleExport} disabled={exportMutation.isPending}>
             {t("export.title")}
           </Button>
         </DialogFooter>

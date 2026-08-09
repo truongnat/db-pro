@@ -27,9 +27,7 @@ export function SchemaDiffView({
   if (!sourceId || !targetId) {
     return (
       <div className="flex items-center justify-center py-12">
-        <p className="text-[var(--app-text-muted)]">
-          {t("schema.crossConn.selectTwo")}
-        </p>
+        <p className="text-[var(--app-text-muted)]">{t("schema.crossConn.selectTwo")}</p>
       </div>
     );
   }
@@ -37,18 +35,10 @@ export function SchemaDiffView({
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-3">
-        <span className="text-sm text-[var(--app-text-muted)]">
-          {sourceLabel ?? sourceId}
-        </span>
+        <span className="text-sm text-[var(--app-text-muted)]">{sourceLabel ?? sourceId}</span>
         <span className="text-[var(--app-text-muted)]">→</span>
-        <span className="text-sm text-[var(--app-text-muted)]">
-          {targetLabel ?? targetId}
-        </span>
-        <Button
-          type="button"
-          onClick={() => setEnabled(true)}
-          disabled={isLoading}
-        >
+        <span className="text-sm text-[var(--app-text-muted)]">{targetLabel ?? targetId}</span>
+        <Button type="button" onClick={() => setEnabled(true)} disabled={isLoading}>
           {isLoading ? t("common.states.loading") : t("schema.crossConn.compare")}
         </Button>
       </div>
@@ -151,7 +141,5 @@ function DiffSection({ title, children }: { title: string; children: React.React
 }
 
 function DiffItem({ label, color }: { label: string; color: string }) {
-  return (
-    <p className={cn("pl-2 text-xs font-mono", color)}>{label}</p>
-  );
+  return <p className={cn("pl-2 text-xs font-mono", color)}>{label}</p>;
 }

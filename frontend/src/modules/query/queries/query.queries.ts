@@ -61,14 +61,29 @@ export function useRegisterRuntimeCacheInvalidation() {
  */
 export function useExecuteQuery() {
   return useMutation({
-    mutationFn: ({ connectionId, database, schema, sql, executionId, tabId }: {
+    mutationFn: ({
+      connectionId,
+      database,
+      schema,
+      sql,
+      executionId,
+      tabId,
+    }: {
       connectionId: string;
       database: string | null;
       schema: string | null;
       sql: string;
       executionId: string;
       tabId: string;
-    }) => executeQuery({ connectionId, database, schema, sql, executionId, tabId }) as Promise<QueryResult>,
+    }) =>
+      executeQuery({
+        connectionId,
+        database,
+        schema,
+        sql,
+        executionId,
+        tabId,
+      }) as Promise<QueryResult>,
   });
 }
 
@@ -89,14 +104,29 @@ export function useCancelQuery() {
  */
 export function useExecuteQueryMulti() {
   return useMutation({
-    mutationFn: ({ connectionId, database, schema, sql, executionId, tabId }: {
+    mutationFn: ({
+      connectionId,
+      database,
+      schema,
+      sql,
+      executionId,
+      tabId,
+    }: {
       connectionId: string;
       database: string | null;
       schema: string | null;
       sql: string;
       executionId: string;
       tabId: string;
-    }) => executeQueryMulti({ connectionId, database, schema, sql, executionId, tabId }) as Promise<MultiQueryResult>,
+    }) =>
+      executeQueryMulti({
+        connectionId,
+        database,
+        schema,
+        sql,
+        executionId,
+        tabId,
+      }) as Promise<MultiQueryResult>,
   });
 }
 
@@ -107,7 +137,11 @@ export function useExecuteQueryMulti() {
  */
 export function useExplainPlan() {
   return useMutation({
-    mutationFn: ({ connectionId, sql, tabId }: {
+    mutationFn: ({
+      connectionId,
+      sql,
+      tabId,
+    }: {
       connectionId: string;
       sql: string;
       tabId: string;
@@ -120,8 +154,7 @@ export function useExplainPlan() {
 export function useQueryHistory(connectionId: string) {
   return useQuery({
     queryKey: QUERY_KEYS.history(connectionId),
-    queryFn: () =>
-      getQueryService().getHistory(connectionId) as Promise<QueryHistoryEntry[]>,
+    queryFn: () => getQueryService().getHistory(connectionId) as Promise<QueryHistoryEntry[]>,
     enabled: !!connectionId,
   });
 }
@@ -149,8 +182,7 @@ export function useSaveQuery() {
 export function useListSavedQueries(connectionId: string) {
   return useQuery({
     queryKey: QUERY_KEYS.saved(connectionId),
-    queryFn: () =>
-      getQueryService().listSaved(connectionId) as Promise<SavedQuery[]>,
+    queryFn: () => getQueryService().listSaved(connectionId) as Promise<SavedQuery[]>,
     enabled: !!connectionId,
   });
 }
@@ -169,8 +201,7 @@ export function useDeleteSavedQuery() {
 export function useListFolders(connectionId: string) {
   return useQuery({
     queryKey: QUERY_KEYS.folders(connectionId),
-    queryFn: () =>
-      getQueryService().listFolders(connectionId) as Promise<SavedQueryFolder[]>,
+    queryFn: () => getQueryService().listFolders(connectionId) as Promise<SavedQueryFolder[]>,
     enabled: !!connectionId,
   });
 }
@@ -200,8 +231,7 @@ export function useDeleteFolder() {
 export function useListRunConfigs(connectionId: string) {
   return useQuery({
     queryKey: QUERY_KEYS.runConfigs(connectionId),
-    queryFn: () =>
-      getQueryService().listRunConfigs(connectionId) as Promise<RunConfig[]>,
+    queryFn: () => getQueryService().listRunConfigs(connectionId) as Promise<RunConfig[]>,
     enabled: !!connectionId,
   });
 }
@@ -222,7 +252,13 @@ export function useSaveRunConfig() {
       timeoutMs: number;
       maxRows: number;
     }) =>
-      getQueryService().saveRunConfig(connectionId, name, sql, timeoutMs, maxRows) as Promise<RunConfig>,
+      getQueryService().saveRunConfig(
+        connectionId,
+        name,
+        sql,
+        timeoutMs,
+        maxRows,
+      ) as Promise<RunConfig>,
     onSuccess: (_, variables) => {
       qc.invalidateQueries({ queryKey: QUERY_KEYS.runConfigs(variables.connectionId) });
     },
@@ -280,13 +316,7 @@ export function useRenameSavedQuery() {
 export function useDuplicateSavedQuery() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({
-      id,
-      connectionId,
-    }: {
-      id: string;
-      connectionId: string;
-    }) => {
+    mutationFn: async ({ id, connectionId }: { id: string; connectionId: string }) => {
       const queries =
         (qc.getQueryData(QUERY_KEYS.saved(connectionId)) as SavedQuery[] | undefined) ?? [];
       const existing = queries.find((q) => q.id === id);

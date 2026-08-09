@@ -33,7 +33,9 @@ function OrphanedTabView({ tabId, tabTitle }: { tabId: string; tabTitle: string 
     <div className="flex h-full items-center justify-center p-8">
       <div className="max-w-sm space-y-3 text-center">
         <p className="text-sm font-medium text-foreground">{tabTitle}</p>
-        <p className="text-xs text-[var(--app-text-muted)]">{t("workspace.connectionUnavailable")}</p>
+        <p className="text-xs text-[var(--app-text-muted)]">
+          {t("workspace.connectionUnavailable")}
+        </p>
         <div className="flex flex-col gap-2">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -49,10 +51,7 @@ function OrphanedTabView({ tabId, tabTitle }: { tabId: string; tabTitle: string 
             </DropdownMenuTrigger>
             <DropdownMenuContent align="center">
               {availableConnections.map((conn) => (
-                <DropdownMenuItem
-                  key={conn.id}
-                  onClick={() => handleChangeConnection(conn.id)}
-                >
+                <DropdownMenuItem key={conn.id} onClick={() => handleChangeConnection(conn.id)}>
                   {conn.name}
                 </DropdownMenuItem>
               ))}
@@ -98,11 +97,7 @@ export function WorkspaceContent() {
 
   switch (activeTab.kind) {
     case "query":
-      return (
-        <QueryTabContent
-          tabId={activeTab.id}
-        />
-      );
+      return <QueryTabContent tabId={activeTab.id} />;
     case "db-object":
       return (
         <DbObjectTabContent

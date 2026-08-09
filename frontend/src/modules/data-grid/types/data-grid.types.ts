@@ -2,16 +2,7 @@ import type { CellValue, ColumnMeta, Row } from "@/modules/query/types/query.typ
 
 export type { CellValue, ColumnMeta, Row };
 
-export type FilterOp =
-  | "eq"
-  | "neq"
-  | "lt"
-  | "lte"
-  | "gt"
-  | "gte"
-  | "like"
-  | "isNull"
-  | "isNotNull";
+export type FilterOp = "eq" | "neq" | "lt" | "lte" | "gt" | "gte" | "like" | "isNull" | "isNotNull";
 
 export interface GridFilter {
   column: string;

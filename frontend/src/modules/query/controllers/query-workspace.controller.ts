@@ -20,9 +20,8 @@ function getKnownConnections(): { id: string; database: string }[] {
 
 export function getActiveQueryTab(): QueryWorkspaceTab | undefined {
   const { tabs, activeTabId } = useWorkspaceStore.getState();
-  return tabs.find(
-    (t) => t.id === activeTabId && t.kind === "query",
-  ) as QueryWorkspaceTab | undefined;
+  return tabs.find((t) => t.id === activeTabId && t.kind === "query") as
+    QueryWorkspaceTab | undefined;
 }
 
 export function getQueryTabData(tabId: string): QueryTabData | undefined {
@@ -56,10 +55,7 @@ export function createQueryTabFromExplorerContext(
   options?: CreateQueryTabOptions,
 ): (WorkspaceTab & { kind: "query" }) | undefined {
   if (!explorerConnectionId) return undefined;
-  const context = createExplorerQueryContext(
-    getKnownConnections(),
-    explorerConnectionId,
-  );
+  const context = createExplorerQueryContext(getKnownConnections(), explorerConnectionId);
   return createQueryTab(explorerConnectionId, { ...options, context });
 }
 
@@ -72,10 +68,7 @@ export function createQueryTabForObject(
   return createQueryTab(connectionId, { ...options, context });
 }
 
-function updateData(
-  tabId: string,
-  updater: (data: QueryTabData) => QueryTabData,
-): void {
+function updateData(tabId: string, updater: (data: QueryTabData) => QueryTabData): void {
   useWorkspaceStore.getState().updateTabData(tabId, updater);
 }
 
@@ -108,10 +101,7 @@ export function setTabSort(tabId: string, sort: SortState): void {
   updateData(tabId, (data) => ({ ...data, sort }));
 }
 
-export function setTabMultiResults(
-  tabId: string,
-  results: QueryResult[] | null,
-): void {
+export function setTabMultiResults(tabId: string, results: QueryResult[] | null): void {
   updateData(tabId, (data) => ({ ...data, multiResults: results, multiResultIndex: 0 }));
 }
 

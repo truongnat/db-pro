@@ -93,10 +93,13 @@ export function rankQuickOpenItems(
   for (const item of items) {
     if (!q) {
       const base =
-        item.kind === "tab" ? 400
-        : item.kind === "db-object" ? 300
-        : item.kind === "schema" ? 200
-        : 100;
+        item.kind === "tab"
+          ? 400
+          : item.kind === "db-object"
+            ? 300
+            : item.kind === "schema"
+              ? 200
+              : 100;
       ranked.push({ item, score: base + boostScore(item, ctx) });
       continue;
     }

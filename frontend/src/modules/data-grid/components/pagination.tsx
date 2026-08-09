@@ -28,8 +28,7 @@ export function Pagination({
   const { t } = useTranslation();
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
-  const navButton =
-    "h-auto px-1.5 py-0.5 text-xs hover:bg-background disabled:opacity-40";
+  const navButton = "h-auto px-1.5 py-0.5 text-xs hover:bg-background disabled:opacity-40";
 
   return (
     <div className="flex items-center justify-between gap-3 border-t border-[var(--app-border-subtle)] bg-background px-3 py-1.5 text-xs text-[var(--app-text-muted)]">

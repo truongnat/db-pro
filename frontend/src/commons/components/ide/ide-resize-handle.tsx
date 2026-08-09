@@ -31,10 +31,7 @@ export function IdeResizeHandle({
       />
       {/* Wider hit area */}
       <div
-        className={cn(
-          "absolute",
-          isVertical ? "-inset-x-1 inset-y-0" : "inset-x-0 -inset-y-1",
-        )}
+        className={cn("absolute", isVertical ? "-inset-x-1 inset-y-0" : "inset-x-0 -inset-y-1")}
       />
     </div>
   );

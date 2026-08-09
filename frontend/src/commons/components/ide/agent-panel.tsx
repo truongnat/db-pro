@@ -63,7 +63,9 @@ export function AgentPanel({ open, onClose, width, className }: AgentPanelProps)
         "flex min-h-0 flex-col border-l border-[var(--app-border-subtle)] bg-[var(--app-surface-2)]",
         className,
       )}
-      style={width ? { width: `${width}px`, minWidth: `${width}px`, maxWidth: `${width}px` } : undefined}
+      style={
+        width ? { width: `${width}px`, minWidth: `${width}px`, maxWidth: `${width}px` } : undefined
+      }
     >
       {/* Header */}
       <div className="flex h-[38px] shrink-0 items-center justify-between border-b border-[var(--app-border-subtle)] px-3">
@@ -119,8 +121,12 @@ export function AgentPanel({ open, onClose, width, className }: AgentPanelProps)
               <MessageSquare className="h-4 w-4 text-primary" />
             </div>
             <div>
-              <p className="text-[13px] font-semibold leading-tight text-foreground">How can I help with this database?</p>
-              <p className="text-[12px] text-[var(--app-text-muted)]">Ask about schemas, queries, optimization</p>
+              <p className="text-[13px] font-semibold leading-tight text-foreground">
+                How can I help with this database?
+              </p>
+              <p className="text-[12px] text-[var(--app-text-muted)]">
+                Ask about schemas, queries, optimization
+              </p>
             </div>
           </div>
 
@@ -138,7 +144,17 @@ export function AgentPanel({ open, onClose, width, className }: AgentPanelProps)
                   key={action.label}
                   type="button"
                   className="flex h-[36px] w-full items-center gap-2.5 rounded-md border border-[var(--app-border-subtle)] px-3 text-[13px] text-[var(--app-text-muted)] transition-colors hover:border-[var(--app-border)] hover:bg-[var(--app-hover)] hover:text-foreground"
-                  onClick={() => setInput(action.label === "Explain this table" ? "Explain the current table structure" : action.label === "Write a SELECT query" ? "SELECT * FROM " : action.label === "Find relations" ? "Show foreign key relationships for " : "")}
+                  onClick={() =>
+                    setInput(
+                      action.label === "Explain this table"
+                        ? "Explain the current table structure"
+                        : action.label === "Write a SELECT query"
+                          ? "SELECT * FROM "
+                          : action.label === "Find relations"
+                            ? "Show foreign key relationships for "
+                            : "",
+                    )
+                  }
                 >
                   <Icon className="h-4 w-4 shrink-0 text-[var(--app-text-dim)]" />
                   <span className="flex-1 text-left">{action.label}</span>

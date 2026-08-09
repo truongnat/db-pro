@@ -39,10 +39,7 @@ describe("statement splitter (UX-R7.3a)", () => {
 
     it("ignores semicolons inside line comments", () => {
       const stmts = splitStatementsWithRanges("SELECT 1; -- note; comment\nSELECT 2");
-      expect(stmts.map((s) => s.sql)).toEqual([
-        "SELECT 1",
-        "-- note; comment\nSELECT 2",
-      ]);
+      expect(stmts.map((s) => s.sql)).toEqual(["SELECT 1", "-- note; comment\nSELECT 2"]);
     });
 
     it("ignores semicolons inside block comments", () => {
@@ -109,9 +106,7 @@ describe("statement splitter (UX-R7.3a)", () => {
     });
 
     it("runs the statement under cursor without a selection", () => {
-      expect(resolveRunTarget({ value: sql, selection: null, cursorOffset: 12 })).toBe(
-        "SELECT 2",
-      );
+      expect(resolveRunTarget({ value: sql, selection: null, cursorOffset: 12 })).toBe("SELECT 2");
     });
 
     it("trims whitespace-only selections and falls back to the statement", () => {
@@ -121,9 +116,7 @@ describe("statement splitter (UX-R7.3a)", () => {
     });
 
     it("returns undefined when the editor is blank", () => {
-      expect(
-        resolveRunTarget({ value: "  ", selection: null, cursorOffset: 1 }),
-      ).toBeUndefined();
+      expect(resolveRunTarget({ value: "  ", selection: null, cursorOffset: 1 })).toBeUndefined();
     });
   });
 });

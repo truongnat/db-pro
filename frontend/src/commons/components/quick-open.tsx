@@ -2,10 +2,7 @@ import { Command } from "cmdk";
 import { useEffect, useMemo } from "react";
 import { Columns3, Database, FileText, Folder, Table2 } from "lucide-react";
 
-import {
-  Dialog,
-  DialogContent,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useTranslation } from "@/commons/locales/useTranslation";
 import { useCommandStore } from "@/commons/stores/command.store";
 import { useConnectionStore } from "@/commons/stores/connection.store";
@@ -64,9 +61,12 @@ export function QuickOpen() {
       if (tab.connectionId) ids.add(tab.connectionId);
     }
     for (const id of ids) {
-      useSchemaCatalogStore.getState().ensureLoaded(id).catch(() => {
-        /* catalog is best-effort */
-      });
+      useSchemaCatalogStore
+        .getState()
+        .ensureLoaded(id)
+        .catch(() => {
+          /* catalog is best-effort */
+        });
     }
   }, [isOpen, explorerConnectionId, tabs]);
 
@@ -75,10 +75,7 @@ export function QuickOpen() {
     [connections.data, catalogs, tabs],
   );
 
-  const openResourceKeys = useMemo(
-    () => new Set(tabs.map((t) => t.resourceKey)),
-    [tabs],
-  );
+  const openResourceKeys = useMemo(() => new Set(tabs.map((t) => t.resourceKey)), [tabs]);
   const recentResourceKeys = useMemo(
     () => new Set(recentResources.map((r) => r.resourceKey)),
     [recentResources],
@@ -98,7 +95,15 @@ export function QuickOpen() {
         openResourceKeys,
         recentResourceKeys,
       }),
-    [index, query, activeTabId, activeTabConnectionId, explorerConnectionId, openResourceKeys, recentResourceKeys],
+    [
+      index,
+      query,
+      activeTabId,
+      activeTabConnectionId,
+      explorerConnectionId,
+      openResourceKeys,
+      recentResourceKeys,
+    ],
   );
 
   const groups = useMemo(() => groupItems(ranked.map((r) => r.item)), [ranked]);

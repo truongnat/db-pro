@@ -27,9 +27,7 @@ export function ObjectSectionTabs({ activeSection, onSelect }: ObjectSectionTabs
             type="button"
             className={cn(
               "relative h-full shrink-0 px-3 text-[13px] font-medium transition-colors hover:text-foreground",
-              activeSection === section.id
-                ? "text-foreground"
-                : "text-[var(--app-text-muted)]",
+              activeSection === section.id ? "text-foreground" : "text-[var(--app-text-muted)]",
             )}
             onClick={() => onSelect(section.id)}
           >

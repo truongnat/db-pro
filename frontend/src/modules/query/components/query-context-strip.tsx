@@ -12,7 +12,10 @@ import type { QueryContext } from "@/commons/types/workspace.types";
 import { useConnectionList } from "@/modules/connection/queries/connection.queries";
 import { useSchemaCatalogStore } from "@/modules/query/stores/schema-catalog.store";
 
-import { setQueryTabConnection, setQueryTabSchema } from "../controllers/query-workspace.controller";
+import {
+  setQueryTabConnection,
+  setQueryTabSchema,
+} from "../controllers/query-workspace.controller";
 
 const DEFAULT_SCHEMA = "__default__";
 

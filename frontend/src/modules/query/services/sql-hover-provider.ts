@@ -7,9 +7,7 @@ import { useSchemaCatalogStore } from "../stores/schema-catalog.store";
 import { resolveSymbolAtOffset } from "./sql-symbol-resolver";
 
 function getConnectionIdForTab(tabId: string): string | null {
-  const tab = useWorkspaceStore.getState().tabs.find(
-    (t) => t.id === tabId && t.kind === "query",
-  );
+  const tab = useWorkspaceStore.getState().tabs.find((t) => t.id === tabId && t.kind === "query");
   if (!tab || tab.kind !== "query") return null;
   return (tab.data as QueryTabData).sql !== undefined ? tab.connectionId : null;
 }
@@ -20,7 +18,13 @@ function modelUriToTabId(modelUri: string): string | null {
 }
 
 function formatColumnHover(
-  col: { name: string; dataType: string; nullable: boolean; isPrimaryKey: boolean; defaultValue: string | null },
+  col: {
+    name: string;
+    dataType: string;
+    nullable: boolean;
+    isPrimaryKey: boolean;
+    defaultValue: string | null;
+  },
   schema?: string,
   table?: string,
 ): string {
@@ -35,9 +39,12 @@ function formatColumnHover(
   return lines.join("\n");
 }
 
-function formatTableHover(
-  obj: { name: string; schema: string; kind: string; rowCount: number | null },
-): string {
+function formatTableHover(obj: {
+  name: string;
+  schema: string;
+  kind: string;
+  rowCount: number | null;
+}): string {
   const lines: string[] = [];
   lines.push(`**${obj.schema}.${obj.name}**`);
   lines.push("");

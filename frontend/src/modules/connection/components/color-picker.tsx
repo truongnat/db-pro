@@ -94,11 +94,7 @@ export function ColorPicker({ value, onChange }: ColorPickerProps) {
               if (e.key === "Enter") handleCustomSubmit();
             }}
           />
-          <Button
-            type="button"
-            size="sm"
-            onClick={handleCustomSubmit}
-          >
+          <Button type="button" size="sm" onClick={handleCustomSubmit}>
             {t("common.actions.confirm")}
           </Button>
         </div>

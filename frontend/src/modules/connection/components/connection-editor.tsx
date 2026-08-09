@@ -5,7 +5,12 @@ import { useTranslation } from "@/commons/locales/useTranslation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
-import type { ConnectionFormData, DriverType, SshTunnelConfig, SslMode } from "../types/connection.types";
+import type {
+  ConnectionFormData,
+  DriverType,
+  SshTunnelConfig,
+  SslMode,
+} from "../types/connection.types";
 import { ColorPicker } from "./color-picker";
 import { FormCheckbox } from "./connection-form/form-checkbox";
 import { FormInput } from "./connection-form/form-input";
@@ -75,7 +80,10 @@ export function ConnectionEditor({
 
   const isPostgres = formData.driver === "postgres";
 
-  const updateField = <K extends keyof ConnectionFormData>(key: K, value: ConnectionFormData[K]) => {
+  const updateField = <K extends keyof ConnectionFormData>(
+    key: K,
+    value: ConnectionFormData[K],
+  ) => {
     setFormData((prev: ConnectionFormData) => ({ ...prev, [key]: value }));
   };
 
@@ -122,10 +130,7 @@ export function ConnectionEditor({
       />
 
       <div className="grid grid-cols-2 gap-4">
-        <ColorPicker
-          value={formData.color}
-          onChange={(color) => updateField("color", color)}
-        />
+        <ColorPicker value={formData.color} onChange={(color) => updateField("color", color)} />
         <FormInput
           label={t("connection.group")}
           value={formData.group ?? ""}
@@ -134,10 +139,7 @@ export function ConnectionEditor({
         />
       </div>
 
-      <TagInput
-        tags={formData.tags ?? []}
-        onChange={(tags) => updateField("tags", tags)}
-      />
+      <TagInput tags={formData.tags ?? []} onChange={(tags) => updateField("tags", tags)} />
 
       <div className="grid grid-cols-2 gap-4">
         <FormSelect
@@ -202,7 +204,10 @@ export function ConnectionEditor({
               className="h-[34px] shrink-0 px-3 text-[13px]"
               onClick={async () => {
                 const selected = await open({
-                  filters: [{ name: "SQLite", extensions: ["db", "sqlite", "sqlite3"] }, { name: "All Files", extensions: ["*"] }],
+                  filters: [
+                    { name: "SQLite", extensions: ["db", "sqlite", "sqlite3"] },
+                    { name: "All Files", extensions: ["*"] },
+                  ],
                   defaultPath: formData.database || undefined,
                 });
                 if (selected) {
@@ -332,9 +337,7 @@ export function ConnectionEditor({
       />
 
       {testResult && (
-        <div
-          className="flex items-center gap-2 rounded-lg border border-[var(--app-border)] bg-muted px-4 py-3"
-        >
+        <div className="flex items-center gap-2 rounded-lg border border-[var(--app-border)] bg-muted px-4 py-3">
           <Badge variant={testResult === "success" ? "success" : "error"} dot>
             {testResult === "success" ? t("connection.testSuccess") : t("connection.testFailed")}
           </Badge>
@@ -354,24 +357,14 @@ export function ConnectionEditor({
           {t("common.actions.cancel")}
         </Button>
         {onTest && (
-          <Button
-            type="button"
-            variant="outline"
-            onClick={handleTest}
-            loading={isTesting}
-          >
+          <Button type="button" variant="outline" onClick={handleTest} loading={isTesting}>
             {isTesting ? t("common.states.loading") : t("connection.test")}
           </Button>
         )}
         <Button type="submit" name="save" loading={isSubmitting}>
           {isSubmitting ? t("common.states.loading") : t("common.actions.save")}
         </Button>
-        <Button
-          type="submit"
-          name="save-and-connect"
-          variant="outline"
-          loading={isConnecting}
-        >
+        <Button type="submit" name="save-and-connect" variant="outline" loading={isConnecting}>
           {isConnecting ? t("common.states.loading") : t("connection.saveAndConnect")}
         </Button>
       </div>

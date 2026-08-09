@@ -54,9 +54,7 @@ export function RestoreDialog({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <p className="text-xs text-destructive">
-            {t("backup.restoreWarning")}
-          </p>
+          <p className="text-xs text-destructive">{t("backup.restoreWarning")}</p>
 
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="restore-input-path">{t("backup.inputPath")}</Label>

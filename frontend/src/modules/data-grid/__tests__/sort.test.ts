@@ -8,15 +8,13 @@ describe("cycleColumnSort", () => {
   });
 
   it("second click flips to desc", () => {
-    expect(
-      cycleColumnSort([{ column: "id", direction: "asc" }], "id"),
-    ).toEqual([{ column: "id", direction: "desc" }]);
+    expect(cycleColumnSort([{ column: "id", direction: "asc" }], "id")).toEqual([
+      { column: "id", direction: "desc" },
+    ]);
   });
 
   it("third click clears sort", () => {
-    expect(
-      cycleColumnSort([{ column: "id", direction: "desc" }], "id"),
-    ).toEqual([]);
+    expect(cycleColumnSort([{ column: "id", direction: "desc" }], "id")).toEqual([]);
   });
 
   it("sorting a new column replaces prior sorts (single-column header behavior)", () => {

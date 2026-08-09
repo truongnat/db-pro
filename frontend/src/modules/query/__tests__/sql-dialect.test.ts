@@ -3,11 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { useConnectionStore } from "@/commons/stores/connection.store";
 import type { Connection } from "@/modules/connection/types/connection.types";
 
-import {
-  getDialectForConnection,
-  getSqlDialect,
-  type SqlDialect,
-} from "../sql/dialect";
+import { getDialectForConnection, getSqlDialect, type SqlDialect } from "../sql/dialect";
 
 const CONNECTION_POSTGRES: Connection = {
   id: "pg-1",
@@ -93,9 +89,9 @@ describe("SQL dialect capabilities (UX-R7.2a)", () => {
     });
 
     it("applies limit on postgres", () => {
-      expect(
-        postgres.generateSelect({ schema: "public", table: "users", limit: 100 }),
-      ).toBe('SELECT * FROM "public"."users" LIMIT 100;');
+      expect(postgres.generateSelect({ schema: "public", table: "users", limit: 100 })).toBe(
+        'SELECT * FROM "public"."users" LIMIT 100;',
+      );
     });
 
     it("generates unqualified SELECT on sqlite without schema", () => {

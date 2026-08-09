@@ -54,65 +54,64 @@ interface ActionConfirmationState {
   reject: () => void;
 }
 
-export const useActionConfirmationStore =
-  create<ActionConfirmationState>()((set, get) => ({
-    pending: null,
-    isConfirming: false,
-    lastResult: null,
+export const useActionConfirmationStore = create<ActionConfirmationState>()((set, get) => ({
+  pending: null,
+  isConfirming: false,
+  lastResult: null,
 
-    setPending: (confirmation) => {
-      const current = get().pending;
-      // If a different confirmation is pending, reject it first.
-      // This destroys the old prepared invocation — the destructive
-      // action can NEVER be executed after being replaced.
-      if (current && current.id !== confirmation.id) {
-        rejectConfirmation(current.id);
-      }
-      set({ pending: confirmation });
-    },
+  setPending: (confirmation) => {
+    const current = get().pending;
+    // If a different confirmation is pending, reject it first.
+    // This destroys the old prepared invocation — the destructive
+    // action can NEVER be executed after being replaced.
+    if (current && current.id !== confirmation.id) {
+      rejectConfirmation(current.id);
+    }
+    set({ pending: confirmation });
+  },
 
-    clearPending: () => {
-      const current = get().pending;
-      // Reject the prepared invocation before clearing UI state.
-      // Hiding the confirmation WITHOUT rejecting would leave a
-      // live prepared invocation in the bus — a safety violation.
-      if (current) {
-        rejectConfirmation(current.id);
-      }
-      set({ pending: null, isConfirming: false });
-    },
+  clearPending: () => {
+    const current = get().pending;
+    // Reject the prepared invocation before clearing UI state.
+    // Hiding the confirmation WITHOUT rejecting would leave a
+    // live prepared invocation in the bus — a safety violation.
+    if (current) {
+      rejectConfirmation(current.id);
+    }
+    set({ pending: null, isConfirming: false });
+  },
 
-    confirm: async () => {
-      const { pending } = get();
-      if (!pending) {
-        return {
-          status: "error" as const,
-          error: { code: "no_confirmation", message: "No pending confirmation" },
-        };
-      }
+  confirm: async () => {
+    const { pending } = get();
+    if (!pending) {
+      return {
+        status: "error" as const,
+        error: { code: "no_confirmation", message: "No pending confirmation" },
+      };
+    }
 
-      const confirmationId = pending.id;
-      set({ isConfirming: true });
+    const confirmationId = pending.id;
+    set({ isConfirming: true });
 
-      try {
-        const result = await confirmAction(confirmationId);
-        set({ lastResult: result, pending: null, isConfirming: false });
-        return result;
-      } catch (err) {
-        const message = err instanceof Error ? err.message : "Confirm failed";
-        const result: ActionResult = {
-          status: "error",
-          error: { code: "confirm_failed", message },
-        };
-        set({ lastResult: result, pending: null, isConfirming: false });
-        return result;
-      }
-    },
+    try {
+      const result = await confirmAction(confirmationId);
+      set({ lastResult: result, pending: null, isConfirming: false });
+      return result;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Confirm failed";
+      const result: ActionResult = {
+        status: "error",
+        error: { code: "confirm_failed", message },
+      };
+      set({ lastResult: result, pending: null, isConfirming: false });
+      return result;
+    }
+  },
 
-    reject: () => {
-      const { pending } = get();
-      if (!pending) return;
-      rejectConfirmation(pending.id);
-      set({ pending: null, isConfirming: false });
-    },
-  }));
+  reject: () => {
+    const { pending } = get();
+    if (!pending) return;
+    rejectConfirmation(pending.id);
+    set({ pending: null, isConfirming: false });
+  },
+}));

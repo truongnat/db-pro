@@ -441,7 +441,8 @@ describe("WorkspaceStore", () => {
 
     it("promotes preview and changes section on Open Data", () => {
       const preview = createDbObjectTab("conn-1", "public", "users", "table", "columns", true);
-      const { openDbObject, promotePreview, setDbObjectSection, activateTab } = useWorkspaceStore.getState();
+      const { openDbObject, promotePreview, setDbObjectSection, activateTab } =
+        useWorkspaceStore.getState();
 
       openDbObject(preview);
 
@@ -494,7 +495,14 @@ describe("WorkspaceStore", () => {
     });
 
     it("preserves objectType for views on Open Data", () => {
-      const viewPreview = createDbObjectTab("conn-1", "public", "user_view", "view", "columns", true);
+      const viewPreview = createDbObjectTab(
+        "conn-1",
+        "public",
+        "user_view",
+        "view",
+        "columns",
+        true,
+      );
       const { openDbObject, promotePreview, setDbObjectSection } = useWorkspaceStore.getState();
 
       openDbObject(viewPreview);
@@ -531,7 +539,10 @@ describe("WorkspaceStore", () => {
       openDbObject(previewA);
 
       const reusedId = useWorkspaceStore.getState().tabs[0].id;
-      useTabGridStateStore.getState().setState(reusedId, { page: 8, filters: [{ column: "id", operator: "eq", value: "1", enabled: true }] });
+      useTabGridStateStore.getState().setState(reusedId, {
+        page: 8,
+        filters: [{ column: "id", operator: "eq", value: "1", enabled: true }],
+      });
       expect(useTabGridStateStore.getState().getState(reusedId).page).toBe(8);
 
       const previewB = createDbObjectTab("conn-1", "public", "orders", "table", "columns", true);
@@ -693,12 +704,16 @@ describe("WorkspaceStore", () => {
       useWorkspaceStore.getState().openTab(tab);
 
       // Simulate stale runtime state
-      useWorkspaceStore.getState().updateTabData(tab.id, (d) => ({
-        ...d,
-        activeExecutionId: "exec-123",
-        executionStartedAt: 1234567890,
-        timing: { elapsed: 42 },
-      } as typeof d));
+      useWorkspaceStore.getState().updateTabData(
+        tab.id,
+        (d) =>
+          ({
+            ...d,
+            activeExecutionId: "exec-123",
+            executionStartedAt: 1234567890,
+            timing: { elapsed: 42 },
+          }) as typeof d,
+      );
 
       useWorkspaceStore.getState().reassignTabConnection(tab.id, "conn-2");
 

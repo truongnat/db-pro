@@ -28,9 +28,9 @@ describe("QueryHistoryStore (enhanced)", () => {
   });
 
   it("adds entry with status and context", () => {
-    useQueryHistoryStore.getState().addEntry(
-      makeEntry({ status: "success", database: "mydb", schema: "public" }),
-    );
+    useQueryHistoryStore
+      .getState()
+      .addEntry(makeEntry({ status: "success", database: "mydb", schema: "public" }));
     const entries = useQueryHistoryStore.getState().entries;
     expect(entries).toHaveLength(1);
     expect(entries[0].status).toBe("success");

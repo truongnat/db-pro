@@ -1,8 +1,4 @@
-import type {
-  CommandErrorShape,
-  ErrorCode,
-  NormalizedError,
-} from "./error-types";
+import type { CommandErrorShape, ErrorCode, NormalizedError } from "./error-types";
 import { isValidErrorCode } from "./error-types";
 
 function isCommandErrorShape(err: unknown): err is CommandErrorShape {

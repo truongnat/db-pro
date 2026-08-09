@@ -9,8 +9,7 @@ interface ResizableDockProps {
 }
 
 export function ResizableDock({ children, options }: ResizableDockProps) {
-  const { topHeight, separatorProps, isCollapsed, containerRef } =
-    useResizableDock(options);
+  const { topHeight, separatorProps, isCollapsed, containerRef } = useResizableDock(options);
 
   const [topPanel, bottomPanel] = children;
 
@@ -21,10 +20,7 @@ export function ResizableDock({ children, options }: ResizableDockProps) {
           {topPanel}
         </div>
       )}
-      <DockSeparator
-        separatorProps={separatorProps}
-        isCollapsed={isCollapsed}
-      />
+      <DockSeparator separatorProps={separatorProps} isCollapsed={isCollapsed} />
       <div className="flex min-h-0 flex-1 flex-col">{bottomPanel}</div>
     </div>
   );

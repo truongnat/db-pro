@@ -119,6 +119,11 @@ export function createDbObjectTab(
     pinned: false,
     preview,
     order: nextOrder(),
-    data: { schema, objectName, objectType, activeSection: initialSection } satisfies DbObjectTabData,
+    data: {
+      schema,
+      objectName,
+      objectType,
+      activeSection: initialSection,
+    } satisfies DbObjectTabData,
   };
 }

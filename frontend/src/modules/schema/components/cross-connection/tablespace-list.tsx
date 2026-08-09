@@ -1,4 +1,11 @@
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { useTranslation } from "@/commons/locales/useTranslation";
 
 import { useListTablespaces } from "../../queries/schema.queries";
@@ -14,9 +21,7 @@ export function TablespaceList({ connectionId }: TablespaceListProps) {
   if (!connectionId) {
     return (
       <div className="flex items-center justify-center py-12">
-        <p className="text-[var(--app-text-muted)]">
-          {t("schema.connectFirst")}
-        </p>
+        <p className="text-[var(--app-text-muted)]">{t("schema.connectFirst")}</p>
       </div>
     );
   }
@@ -66,7 +71,9 @@ export function TablespaceList({ connectionId }: TablespaceListProps) {
             <TableRow key={ts.name} className="border-t border-[var(--app-border-subtle)]">
               <TableCell className="px-4 py-3 font-medium text-foreground">{ts.name}</TableCell>
               <TableCell className="px-4 py-3 text-[var(--app-text-muted)]">{ts.owner}</TableCell>
-              <TableCell className="px-4 py-3 font-mono text-xs text-[var(--app-text-muted)]">{ts.location || "(default)"}</TableCell>
+              <TableCell className="px-4 py-3 font-mono text-xs text-[var(--app-text-muted)]">
+                {ts.location || "(default)"}
+              </TableCell>
             </TableRow>
           ))}
         </TableBody>

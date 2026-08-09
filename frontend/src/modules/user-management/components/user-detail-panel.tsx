@@ -13,12 +13,7 @@ interface UserDetailPanelProps {
   onRevoke: (schema: string, table: string, privilege: string) => void;
 }
 
-export function UserDetailPanel({
-  user,
-  privileges,
-  onGrant,
-  onRevoke,
-}: UserDetailPanelProps) {
+export function UserDetailPanel({ user, privileges, onGrant, onRevoke }: UserDetailPanelProps) {
   const { t } = useTranslation();
 
   const attrs = [
@@ -30,9 +25,7 @@ export function UserDetailPanel({
 
   return (
     <div className="flex flex-col gap-4">
-      <h2 className="text-lg font-semibold text-foreground">
-        {user.name}
-      </h2>
+      <h2 className="text-lg font-semibold text-foreground">{user.name}</h2>
 
       <div className="flex flex-wrap gap-2">
         {attrs.map((attr) => (
@@ -48,11 +41,7 @@ export function UserDetailPanel({
         ))}
       </div>
 
-      <PrivilegeManager
-        privileges={privileges}
-        onGrant={onGrant}
-        onRevoke={onRevoke}
-      />
+      <PrivilegeManager privileges={privileges} onGrant={onGrant} onRevoke={onRevoke} />
     </div>
   );
 }

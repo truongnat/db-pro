@@ -45,9 +45,7 @@ export const useSnippetStore = create<SnippetState>()(
 
       updateSnippet: (trigger, label, body) =>
         set((state) => ({
-          custom: state.custom.map((s) =>
-            s.trigger === trigger ? { ...s, label, body } : s,
-          ),
+          custom: state.custom.map((s) => (s.trigger === trigger ? { ...s, label, body } : s)),
         })),
 
       getAll: () => {
@@ -59,9 +57,7 @@ export const useSnippetStore = create<SnippetState>()(
         const all = [...BUILT_IN_SNIPPETS, ...get().custom];
         if (!q) return all;
         return all.filter(
-          (s) =>
-            s.trigger.toLowerCase().includes(q) ||
-            s.label.toLowerCase().includes(q),
+          (s) => s.trigger.toLowerCase().includes(q) || s.label.toLowerCase().includes(q),
         );
       },
     }),

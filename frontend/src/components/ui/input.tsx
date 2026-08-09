@@ -1,9 +1,14 @@
-import * as React from "react"
+import * as React from "react";
 
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/utils";
 
-function Input({ className, type, size = "default", ...props }: Omit<React.ComponentProps<"input">, "size"> & {
-  size?: "sm" | "default" | "lg"
+function Input({
+  className,
+  type,
+  size = "default",
+  ...props
+}: Omit<React.ComponentProps<"input">, "size"> & {
+  size?: "sm" | "default" | "lg";
 }) {
   return (
     <input
@@ -15,11 +20,11 @@ function Input({ className, type, size = "default", ...props }: Omit<React.Compo
         size === "sm" && "h-7 px-2 text-xs",
         size === "default" && "h-8 px-2.5",
         size === "lg" && "h-9 px-3 text-md",
-        className
+        className,
       )}
       {...props}
     />
-  )
+  );
 }
 
-export { Input }
+export { Input };

@@ -11,11 +11,24 @@ i18n.use(initReactI18next).init({
     en: {
       translation: {
         common: {
-          labels: { name: "Name", host: "Host", port: "Port", database: "Database", username: "Username", password: "Password", driver: "Driver" },
+          labels: {
+            name: "Name",
+            host: "Host",
+            port: "Port",
+            database: "Database",
+            username: "Username",
+            password: "Password",
+            driver: "Driver",
+          },
           actions: { save: "Save", cancel: "Cancel" },
           states: { loading: "Loading..." },
         },
-        connection: { test: "Test Connection", testSuccess: "Test successful", testFailed: "Test failed", filePath: "File Path" },
+        connection: {
+          test: "Test Connection",
+          testSuccess: "Test successful",
+          testFailed: "Test failed",
+          filePath: "File Path",
+        },
       },
     },
   },

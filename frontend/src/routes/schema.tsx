@@ -21,9 +21,9 @@ function SchemaRedirect() {
   useEffect(() => {
     const connectionId = useConnectionStore.getState().explorerConnectionId;
     if (connectionId && schema && object) {
-      useWorkspaceStore.getState().openDbObject(
-        createDbObjectTab(connectionId, schema, object, type, "columns", true),
-      );
+      useWorkspaceStore
+        .getState()
+        .openDbObject(createDbObjectTab(connectionId, schema, object, type, "columns", true));
     }
     navigate({ to: "/" });
   }, [schema, object, type, navigate]);

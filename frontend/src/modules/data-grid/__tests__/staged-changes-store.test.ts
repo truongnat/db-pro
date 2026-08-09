@@ -10,10 +10,7 @@ const int = (v: number): CellValue => ({ type: "int64", value: v });
 const text = (v: string): CellValue => ({ type: "text", value: v });
 
 /** Helper: stage a cell edit using the patch model. */
-function patchEdit(
-  pkValues: CellValue[],
-  changes: Record<string, CellValue>,
-) {
+function patchEdit(pkValues: CellValue[], changes: Record<string, CellValue>) {
   return { pkValues, changes };
 }
 
@@ -28,9 +25,9 @@ describe("StagedChangesStore — patch model", () => {
 
   describe("stageCellEdit", () => {
     it("stages a cell edit as a patch", () => {
-      useStagedChangesStore.getState().stageCellEdit("tab-1", patchEdit(
-        [int(1)], { name: text("Bob") },
-      ));
+      useStagedChangesStore
+        .getState()
+        .stageCellEdit("tab-1", patchEdit([int(1)], { name: text("Bob") }));
       const c = changes("tab-1");
       expect(c).toHaveLength(1);
       expect(c![0].kind).toBe("cell-edit");
@@ -180,7 +177,10 @@ describe("StagedChangesStore — patch model", () => {
       store.stageCellEdit("tab-1", patchEdit([int(1)], { a: text("x") }));
       store.stageCellEdit("tab-1", patchEdit([int(2)], { b: text("y") }));
       const ids = changes("tab-1")!.map((c) => c.id);
-      store.markFailedByIds("tab-1", ids.map((id) => ({ id, error: "fail" })));
+      store.markFailedByIds(
+        "tab-1",
+        ids.map((id) => ({ id, error: "fail" })),
+      );
       expect(changes("tab-1")![0].error).toBe("fail");
       store.clearFailed("tab-1");
       expect(changes("tab-1")![0].error).toBeNull();

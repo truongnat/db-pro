@@ -29,11 +29,7 @@ export function SnippetPanel({ onInsertSnippet }: SnippetPanelProps) {
 
   const handleAdd = useCallback(() => {
     if (!newTrigger.trim() || !newBody.trim()) return;
-    addSnippet(
-      newTrigger.trim(),
-      newLabel.trim() || newTrigger.trim(),
-      newBody.trim(),
-    );
+    addSnippet(newTrigger.trim(), newLabel.trim() || newTrigger.trim(), newBody.trim());
     setNewTrigger("");
     setNewLabel("");
     setNewBody("");

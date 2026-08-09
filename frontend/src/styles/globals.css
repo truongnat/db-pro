@@ -11,12 +11,12 @@
   --font-sans: "Geist Variable", sans-serif;
   --font-mono: "JetBrains Mono", "Fira Code", "Cascadia Code", "Consolas", monospace;
 
-  --font-size-xs: 0.6875rem;   /* 11px — micro labels, status bar */
-  --font-size-sm: 0.75rem;     /* 12px — secondary metadata */
+  --font-size-xs: 0.6875rem; /* 11px — micro labels, status bar */
+  --font-size-sm: 0.75rem; /* 12px — secondary metadata */
   --font-size-base: 0.8125rem; /* 13px — main UI text */
-  --font-size-md: 0.875rem;    /* 14px — editor, emphasized */
-  --font-size-lg: 1rem;        /* 16px — headings */
-  --font-size-xl: 1.125rem;    /* 18px — large headings */
+  --font-size-md: 0.875rem; /* 14px — editor, emphasized */
+  --font-size-lg: 1rem; /* 16px — headings */
+  --font-size-xl: 1.125rem; /* 18px — large headings */
 
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -188,11 +188,11 @@
   --app-shadow-popover: 0 4px 24px rgba(0, 0, 0, 0.35);
 
   /* Surface layers */
-  --app-surface-0: #090d14;   /* deepest background (app frame) */
-  --app-surface-1: #0c121c;   /* navigation / activity bar */
-  --app-surface-2: #0e131b;   /* sidebar / panels */
-  --app-surface-3: #10151d;   /* editor surface (slightly elevated) */
-  --app-surface-4: #151d2e;   /* elevated / popover / cards */
+  --app-surface-0: #090d14; /* deepest background (app frame) */
+  --app-surface-1: #0c121c; /* navigation / activity bar */
+  --app-surface-2: #0e131b; /* sidebar / panels */
+  --app-surface-3: #10151d; /* editor surface (slightly elevated) */
+  --app-surface-4: #151d2e; /* elevated / popover / cards */
 
   /* Border opacity layers */
   --app-border-subtle: rgba(148, 163, 184, 0.08);
@@ -243,11 +243,11 @@
 
 [data-theme="dark"] {
   --app-hover: rgba(148, 163, 184, 0.06);
-  --app-active: rgba(148, 163, 184, 0.10);
+  --app-active: rgba(148, 163, 184, 0.1);
   --app-text-dim: #66778f;
 
   --app-shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.55);
-  --app-shadow-popover: 0 4px 24px rgba(0, 0, 0, 0.50);
+  --app-shadow-popover: 0 4px 24px rgba(0, 0, 0, 0.5);
 }
 
 /* ── Base styles ─────────────────────────────────────────────── */

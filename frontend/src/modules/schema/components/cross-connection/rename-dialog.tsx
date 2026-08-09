@@ -71,11 +71,7 @@ export function RenameDialog({
         )}
 
         <div className="flex justify-end gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={onClose}
-          >
+          <Button type="button" variant="outline" onClick={onClose}>
             {t("common.actions.cancel")}
           </Button>
           <Button

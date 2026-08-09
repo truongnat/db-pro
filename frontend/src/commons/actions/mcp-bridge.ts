@@ -159,9 +159,7 @@ export function generateMcpTools(): McpToolDefinition[] {
 }
 
 /** Generate MCP tools filtered by category. */
-export function generateMcpToolsByCategory(
-  category: string,
-): McpToolDefinition[] {
+export function generateMcpToolsByCategory(category: string): McpToolDefinition[] {
   return getRegisteredActions()
     .filter((a) => {
       if (a.category !== category) return false;
@@ -194,9 +192,7 @@ export function resolveToolToAction(toolName: string): ActionId | undefined {
   if (!toolName.startsWith(prefix)) return undefined;
 
   const actionId = toolName.slice(prefix.length).replace(/_/g, ".");
-  return getRegisteredActions().some((a) => a.id === actionId)
-    ? actionId
-    : undefined;
+  return getRegisteredActions().some((a) => a.id === actionId) ? actionId : undefined;
 }
 
 // ─── Generic fallback tool ───────────────────────────────────

@@ -2,7 +2,14 @@ import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { useTranslation } from "@/commons/locales/useTranslation";
 
 import { useObjectDependencies } from "../../queries/schema.queries";
@@ -16,19 +23,16 @@ export function DependencyViewer({ connectionId }: DependencyViewerProps) {
   const [schema, setSchema] = useState("");
   const [objectName, setObjectName] = useState("");
   const [enabled, setEnabled] = useState(false);
-  const { data: deps, isLoading, error } = useObjectDependencies(
-    connectionId,
-    schema || null,
-    objectName || null,
-    enabled,
-  );
+  const {
+    data: deps,
+    isLoading,
+    error,
+  } = useObjectDependencies(connectionId, schema || null, objectName || null, enabled);
 
   if (!connectionId) {
     return (
       <div className="flex items-center justify-center py-12">
-        <p className="text-[var(--app-text-muted)]">
-          {t("schema.connectFirst")}
-        </p>
+        <p className="text-[var(--app-text-muted)]">{t("schema.connectFirst")}</p>
       </div>
     );
   }
@@ -64,9 +68,7 @@ export function DependencyViewer({ connectionId }: DependencyViewerProps) {
       )}
 
       {deps && deps.length === 0 && (
-        <p className="text-sm text-[var(--app-text-muted)]">
-          {t("schema.crossConn.noDeps")}
-        </p>
+        <p className="text-sm text-[var(--app-text-muted)]">{t("schema.crossConn.noDeps")}</p>
       )}
 
       {deps && deps.length > 0 && (

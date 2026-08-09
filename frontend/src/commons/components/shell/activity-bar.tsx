@@ -1,11 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import {
-  FolderOpen,
-  PanelLeftClose,
-  PanelLeftOpen,
-  Search,
-  Sparkles,
-} from "lucide-react";
+import { FolderOpen, PanelLeftClose, PanelLeftOpen, Search, Sparkles } from "lucide-react";
 import type { ComponentType } from "react";
 
 import { useShellStore, type SidebarView } from "@/commons/stores/shell.store";
@@ -57,7 +51,11 @@ export function ActivityBar() {
       </Link>
 
       {/* Navigation */}
-      <nav className="flex flex-1 flex-col items-center gap-0.5 pt-1" role="navigation" aria-label={t("shell.nav.label")}>
+      <nav
+        className="flex flex-1 flex-col items-center gap-0.5 pt-1"
+        role="navigation"
+        aria-label={t("shell.nav.label")}
+      >
         {NAV_ITEMS.map((item) => {
           const isActive = sidebarView === item.viewId;
           const Icon = item.icon;

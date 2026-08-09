@@ -8,22 +8,21 @@ export class MockUserManagementService {
   ];
 
   private privileges: Map<string, Privilege[]> = new Map([
-    ["app_user", [
-      { schema: "public", table: "users", privilegeType: "SELECT" },
-      { schema: "public", table: "users", privilegeType: "INSERT" },
-      { schema: "public", table: "orders", privilegeType: "SELECT" },
-    ]],
+    [
+      "app_user",
+      [
+        { schema: "public", table: "users", privilegeType: "SELECT" },
+        { schema: "public", table: "users", privilegeType: "INSERT" },
+        { schema: "public", table: "orders", privilegeType: "SELECT" },
+      ],
+    ],
   ]);
 
   async listUsers(_connectionId: string): Promise<DatabaseUser[]> {
     return this.users;
   }
 
-  async createRole(
-    _connectionId: string,
-    name: string,
-    login: boolean,
-  ): Promise<void> {
+  async createRole(_connectionId: string, name: string, login: boolean): Promise<void> {
     this.users.push({
       name,
       isSuper: false,
@@ -38,10 +37,7 @@ export class MockUserManagementService {
     this.privileges.delete(name);
   }
 
-  async listPrivileges(
-    _connectionId: string,
-    roleName: string,
-  ): Promise<Privilege[]> {
+  async listPrivileges(_connectionId: string, roleName: string): Promise<Privilege[]> {
     return this.privileges.get(roleName) ?? [];
   }
 
@@ -68,8 +64,7 @@ export class MockUserManagementService {
     this.privileges.set(
       roleName,
       list.filter(
-        (p) =>
-          !(p.schema === schema && p.table === table && p.privilegeType === privilege),
+        (p) => !(p.schema === schema && p.table === table && p.privilegeType === privilege),
       ),
     );
   }

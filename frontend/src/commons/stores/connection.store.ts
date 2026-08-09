@@ -58,21 +58,15 @@ export const useConnectionStore = create<ConnectionState>()(
 
       updateConnection: (id, connection) =>
         set((state) => ({
-          connections: state.connections.map((c) =>
-            c.id === id ? connection : c,
-          ),
+          connections: state.connections.map((c) => (c.id === id ? connection : c)),
         })),
 
       removeConnection: (id) =>
         set((state) => ({
-          connections: state.connections.filter(
-            (c) => c.id !== id,
-          ),
+          connections: state.connections.filter((c) => c.id !== id),
           explorerConnectionId:
             state.explorerConnectionId === id ? null : state.explorerConnectionId,
-          activeConnectionIds: state.activeConnectionIds.filter(
-            (cid) => cid !== id,
-          ),
+          activeConnectionIds: state.activeConnectionIds.filter((cid) => cid !== id),
         })),
 
       reset: () => set(initialState),

@@ -34,21 +34,28 @@ export function ActionConfirmationDialog({
   const isDestructive = confirmation.risk === "destructive";
 
   return (
-    <AlertDialog open onOpenChange={(open) => { if (!open) onCancel(); }}>
+    <AlertDialog
+      open
+      onOpenChange={(open) => {
+        if (!open) onCancel();
+      }}
+    >
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>
             {isDestructive ? "Destructive action" : "Confirm action"}
           </AlertDialogTitle>
-          <AlertDialogDescription>
-            {confirmation.message}
-          </AlertDialogDescription>
+          <AlertDialogDescription>{confirmation.message}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel onClick={onCancel}>Cancel</AlertDialogCancel>
           <AlertDialogAction
             onClick={onConfirm}
-            className={isDestructive ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : undefined}
+            className={
+              isDestructive
+                ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                : undefined
+            }
           >
             {isDestructive ? "Execute anyway" : "Confirm"}
           </AlertDialogAction>

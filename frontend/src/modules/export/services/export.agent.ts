@@ -16,7 +16,10 @@ export class MockExportService {
   }
 
   async exportJson(_connectionId: string, _sql: string): Promise<ExportResult> {
-    const content = JSON.stringify([{ id: 1, name: "Alice" }, { id: 2, name: "Bob" }]);
+    const content = JSON.stringify([
+      { id: 1, name: "Alice" },
+      { id: 2, name: "Bob" },
+    ]);
     return {
       fileContent: base64Encode(content),
       fileName: "export.json",

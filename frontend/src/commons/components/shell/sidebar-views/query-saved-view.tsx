@@ -39,13 +39,13 @@ export function QuerySavedView() {
   return (
     <div className="flex min-h-0 flex-col">
       <div className="border-b border-[var(--app-border-subtle)] p-2">
-        <SqlFileOperations sql={sql} onSqlLoaded={(s) => activeTabId && setTabSql(activeTabId, s)} />
+        <SqlFileOperations
+          sql={sql}
+          onSqlLoaded={(s) => activeTabId && setTabSql(activeTabId, s)}
+        />
       </div>
       <div className="flex-1 overflow-auto">
-        <SavedQueriesTree
-          connectionId={tabConnectionId}
-          onSelectQuery={handleSelectSavedQuery}
-        />
+        <SavedQueriesTree connectionId={tabConnectionId} onSelectQuery={handleSelectSavedQuery} />
       </div>
       <div className="border-t border-[var(--app-border-subtle)]" style={{ maxHeight: "40%" }}>
         <RunConfigList

@@ -161,9 +161,7 @@ export async function executeAction<TOutput = unknown>(
     const confirmation: ActionConfirmation = {
       id: confirmationId,
       actionId: definition.id,
-      message:
-        definition.confirmation?.messageKey ??
-        `Confirm ${definition.title}?`,
+      message: definition.confirmation?.messageKey ?? `Confirm ${definition.title}?`,
       risk: effectiveRisk ?? definition.risk ?? "write",
       input: input ?? {},
       resolvedContext: ctx,
@@ -197,7 +195,13 @@ export async function executeAction<TOutput = unknown>(
   }
 
   // ── 8. Execute ─────────────────────────────────────────────
-  return runExecution(definition, validatedInput as unknown as Record<string, unknown>, ctx, resolvedPayload, source) as Promise<ActionResult<TOutput>>;
+  return runExecution(
+    definition,
+    validatedInput as unknown as Record<string, unknown>,
+    ctx,
+    resolvedPayload,
+    source,
+  ) as Promise<ActionResult<TOutput>>;
 }
 
 // ─── Execution state machine ─────────────────────────────────
@@ -324,8 +328,7 @@ async function runExecution(
     // The bus owns the executionId. Action handlers must NOT override it.
     return { ...result, executionId };
   } catch (err) {
-    const message =
-      err instanceof Error ? err.message : "Unknown action error";
+    const message = err instanceof Error ? err.message : "Unknown action error";
 
     const tracked = activeExecutions.get(executionId);
     // Apply error state — terminal states are immutable.
@@ -384,9 +387,7 @@ function requiresConfirmation(
  * and resolved payload. We execute THAT invocation directly — no live
  * re-resolution of editor, tab, connection, or risk.
  */
-export async function confirmAction(
-  confirmationId: string,
-): Promise<ActionResult> {
+export async function confirmAction(confirmationId: string): Promise<ActionResult> {
   const prepared = preparedInvocations.get(confirmationId);
   if (!prepared) {
     return {
@@ -463,17 +464,12 @@ export function isActionAvailable(
 // ─── Execution tracking ──────────────────────────────────────
 
 /** Get the status of a running or completed execution. */
-export function getExecution(
-  executionId: string,
-): ActionExecution | undefined {
+export function getExecution(executionId: string): ActionExecution | undefined {
   return activeExecutions.get(executionId);
 }
 
 /** Update progress for a running execution. */
-export function updateExecutionProgress(
-  executionId: string,
-  progress: ActionProgress,
-): void {
+export function updateExecutionProgress(executionId: string, progress: ActionProgress): void {
   const exec = activeExecutions.get(executionId);
   if (exec) {
     exec.progress = progress;
@@ -497,9 +493,7 @@ export function bindExternalExecutionId(
 }
 
 /** Cancel a running execution. */
-export async function cancelExecution(
-  executionId: string,
-): Promise<ActionResult> {
+export async function cancelExecution(executionId: string): Promise<ActionResult> {
   const exec = activeExecutions.get(executionId);
   if (!exec || exec.state !== "running") {
     return {
@@ -558,10 +552,7 @@ export async function cancelExecution(
 export function cleanupExecutions(maxAgeMs = 60_000): void {
   const now = Date.now();
   for (const [id, exec] of activeExecutions) {
-    if (
-      exec.state !== "running" &&
-      now - exec.startedAt > maxAgeMs
-    ) {
+    if (exec.state !== "running" && now - exec.startedAt > maxAgeMs) {
       activeExecutions.delete(id);
     }
   }
@@ -578,9 +569,7 @@ export function resetActiveExecutions(): void {
  * Used by concurrency guards and the cancel identity resolver.
  */
 export function getRunningExecutions(): readonly ActionExecution[] {
-  return Array.from(activeExecutions.values()).filter(
-    (e) => e.state === "running",
-  );
+  return Array.from(activeExecutions.values()).filter((e) => e.state === "running");
 }
 
 /**
@@ -600,8 +589,6 @@ export function findRunningExecutionForTab(
 ): ActionExecution | undefined {
   return Array.from(activeExecutions.values()).find(
     (e) =>
-      e.state === "running" &&
-      e.tabId === tabId &&
-      (!actionIds || actionIds.includes(e.actionId)),
+      e.state === "running" && e.tabId === tabId && (!actionIds || actionIds.includes(e.actionId)),
   );
 }

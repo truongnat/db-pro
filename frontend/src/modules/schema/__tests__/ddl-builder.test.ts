@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import { getSqlDialect } from "@/modules/query/sql/dialect";
-import { buildCreateTable, generateDdlPreview, type ColumnDef } from "@/modules/schema/services/ddl-builder";
+import {
+  buildCreateTable,
+  generateDdlPreview,
+  type ColumnDef,
+} from "@/modules/schema/services/ddl-builder";
 
 const COLUMNS: ColumnDef[] = [
   { name: "id", dataType: "BIGSERIAL", nullable: false, defaultValue: "", isPk: true },
@@ -18,7 +22,9 @@ describe("dialect-aware DDL builder (UX-R7.2b)", () => {
   it("escapes identifiers via the dialect", () => {
     const pg = getSqlDialect("postgres");
     const sqlite = getSqlDialect("sqlite");
-    const oddCol: ColumnDef[] = [{ name: 'a"b', dataType: "TEXT", nullable: true, defaultValue: "", isPk: false }];
+    const oddCol: ColumnDef[] = [
+      { name: 'a"b', dataType: "TEXT", nullable: true, defaultValue: "", isPk: false },
+    ];
     expect(buildCreateTable("public", "t", oddCol, pg)).toContain('"a""b" TEXT');
     expect(buildCreateTable("main", "t", oddCol, sqlite)).toContain('"a""b" TEXT');
   });

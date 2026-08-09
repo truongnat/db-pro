@@ -140,11 +140,15 @@ describe("DDL capabilities", () => {
         ],
         newColumns: [
           { name: "id", dataType: "INTEGER", nullable: false, defaultValue: null, isPk: true },
-          { name: "email", dataType: "VARCHAR(255)", nullable: false, defaultValue: null, isPk: false },
+          {
+            name: "email",
+            dataType: "VARCHAR(255)",
+            nullable: false,
+            defaultValue: null,
+            isPk: false,
+          },
         ],
-        indexes: [
-          { name: "idx_email", columns: ["email"], unique: true },
-        ],
+        indexes: [{ name: "idx_email", columns: ["email"], unique: true }],
       };
 
       const plan = buildSqliteTableRebuild(input, dialect);

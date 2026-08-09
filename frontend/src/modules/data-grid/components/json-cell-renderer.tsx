@@ -10,8 +10,7 @@ export function JsonCellRenderer({ value }: JsonCellRendererProps) {
   const [expanded, setExpanded] = useState(false);
 
   const preview = typeof value === "string" ? value : JSON.stringify(value);
-  const shortPreview =
-    preview && preview.length > 40 ? `${preview.slice(0, 40)}...` : preview;
+  const shortPreview = preview && preview.length > 40 ? `${preview.slice(0, 40)}...` : preview;
 
   if (!expanded) {
     return (

@@ -57,36 +57,36 @@ export function DataGrid({
         </div>
       )}
       <UnifiedGrid
-      columns={columns}
-      rows={rows}
-      sorts={sorts}
-      onSort={onSort}
-      editingCell={editingCell}
-      onEditCell={onEditCell}
-      onCellSave={onCellSave}
-      canEditRows={canEdit}
-      onDeleteRow={onDeleteRow}
-      isDeleting={isDeleting}
-      isLoading={isLoading}
-      frozenColumns={frozenColumns}
-      hiddenColumns={hiddenColumns}
-      onToggleFreezeColumn={onToggleFreezeColumn}
-      columnWidths={columnWidths}
-      onColumnWidthsChange={onColumnWidthsChange}
-      emptyState={<EmptyState />}
-      renderCellEditor={(cell) => (
-        <CellEditor
-          value={cell}
-          onSave={(newValue) => {
-            if (editingCell) {
-              onCellSave(editingCell.row, editingCell.col, newValue);
-              onEditCell(null);
-            }
-          }}
-          onCancel={() => onEditCell(null)}
-        />
-      )}
-      renderJsonCell={(value) => <JsonCellRenderer value={value} />}
+        columns={columns}
+        rows={rows}
+        sorts={sorts}
+        onSort={onSort}
+        editingCell={editingCell}
+        onEditCell={onEditCell}
+        onCellSave={onCellSave}
+        canEditRows={canEdit}
+        onDeleteRow={onDeleteRow}
+        isDeleting={isDeleting}
+        isLoading={isLoading}
+        frozenColumns={frozenColumns}
+        hiddenColumns={hiddenColumns}
+        onToggleFreezeColumn={onToggleFreezeColumn}
+        columnWidths={columnWidths}
+        onColumnWidthsChange={onColumnWidthsChange}
+        emptyState={<EmptyState />}
+        renderCellEditor={(cell) => (
+          <CellEditor
+            value={cell}
+            onSave={(newValue) => {
+              if (editingCell) {
+                onCellSave(editingCell.row, editingCell.col, newValue);
+                onEditCell(null);
+              }
+            }}
+            onCancel={() => onEditCell(null)}
+          />
+        )}
+        renderJsonCell={(value) => <JsonCellRenderer value={value} />}
       />
     </div>
   );

@@ -55,9 +55,7 @@ import { useActionConfirmationStore } from "@/commons/stores/action-confirmation
 
 // ─── Runtime imports (for stale cancel test) ─────────────────
 
-import {
-  cancelQuery as runtimeCancelQuery,
-} from "@/modules/query/runtime/query-runtime";
+import { cancelQuery as runtimeCancelQuery } from "@/modules/query/runtime/query-runtime";
 
 // ─── Test constants ──────────────────────────────────────────
 
@@ -327,11 +325,7 @@ describe("PATCH 6.3.3 — Production Action/Query Integration", () => {
       mockExecute.mockImplementation(() => new Promise(() => {}));
 
       // First execution → starts running.
-      const exec1 = bus.executeAction(
-        "query.execute.current",
-        { tabId: TAB_A },
-        { source: "ui" },
-      );
+      const exec1 = bus.executeAction("query.execute.current", { tabId: TAB_A }, { source: "ui" });
       await new Promise((r) => setTimeout(r, 20));
 
       // The runtime sets tab status to "running".
@@ -362,9 +356,7 @@ describe("PATCH 6.3.3 — Production Action/Query Integration", () => {
       const EXEC2_ID = "backend-exec-2";
 
       // Delayed backend cancel.
-      mockCancel.mockImplementation(
-        () => new Promise<void>((resolve) => setTimeout(resolve, 50)),
-      );
+      mockCancel.mockImplementation(() => new Promise<void>((resolve) => setTimeout(resolve, 50)));
 
       // Step 1: exec1 is active in the runtime.
       // Manually set the workspace state as if executeQuery set it.
@@ -435,7 +427,12 @@ describe("PATCH 6.3.3 — Production Action/Query Integration", () => {
       setupQueryTab(TAB_A, "SELECT 1; INVALID SQL;");
       mockExecuteMulti.mockResolvedValue({
         results: [
-          { columns: [{ name: "id", type: "int64" }], rows: [{ id: 1 }], rowCount: 1, durationMs: 5 },
+          {
+            columns: [{ name: "id", type: "int64" }],
+            rows: [{ id: 1 }],
+            rowCount: 1,
+            durationMs: 5,
+          },
         ],
         totalDurationMs: 50,
         error: [1, "syntax error at statement 2"],
@@ -505,11 +502,7 @@ describe("PATCH 6.3.3 — Production Action/Query Integration", () => {
       };
       mockExplain.mockResolvedValue(mockPlan);
 
-      const result = await bus.executeAction(
-        "query.explain",
-        { tabId: TAB_A },
-        { source: "ui" },
-      );
+      const result = await bus.executeAction("query.explain", { tabId: TAB_A }, { source: "ui" });
 
       expect(result.status).toBe("success");
       expect(result.data).toBeDefined();

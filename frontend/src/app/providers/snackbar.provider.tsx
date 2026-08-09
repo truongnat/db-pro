@@ -121,15 +121,9 @@ export function SnackbarProvider({ children }: { children: ReactNode }) {
   const { items, dismiss, add } = useSnackbarStore();
 
   const contextValue: SnackbarContextValue = {
-    success: useCallback(
-      (message: string) => add("success", message),
-      [add],
-    ),
+    success: useCallback((message: string) => add("success", message), [add]),
     error: useCallback((message: string) => add("error", message), [add]),
-    warning: useCallback(
-      (message: string) => add("warning", message),
-      [add],
-    ),
+    warning: useCallback((message: string) => add("warning", message), [add]),
     info: useCallback((message: string) => add("info", message), [add]),
   };
 
@@ -141,11 +135,7 @@ export function SnackbarProvider({ children }: { children: ReactNode }) {
         aria-label="Notifications"
       >
         {items.map((item) => (
-          <SnackbarItemComponent
-            key={item.id}
-            item={item}
-            onDismiss={dismiss}
-          />
+          <SnackbarItemComponent key={item.id} item={item} onDismiss={dismiss} />
         ))}
       </div>
     </SnackbarContext.Provider>

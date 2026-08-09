@@ -12,8 +12,7 @@ export function ExportProgress({ format, rowCount }: ExportProgressProps) {
     <div className="flex items-center gap-2 px-3 py-2 text-sm text-[var(--app-text-muted)]">
       <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
       <span>
-        {t("export.exporting")} ({format.toUpperCase()})
-        {rowCount !== null && ` — ${rowCount} rows`}
+        {t("export.exporting")} ({format.toUpperCase()}){rowCount !== null && ` — ${rowCount} rows`}
       </span>
     </div>
   );

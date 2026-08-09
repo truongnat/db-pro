@@ -63,9 +63,7 @@ const cacheInvalidationCallbacks: Array<(connectionId: string) => void> = [];
  * Register a callback to be called after query execution for cache
  * invalidation. Called by the React layer during app initialization.
  */
-export function registerCacheInvalidation(
-  callback: (connectionId: string) => void,
-): () => void {
+export function registerCacheInvalidation(callback: (connectionId: string) => void): () => void {
   cacheInvalidationCallbacks.push(callback);
   return () => {
     const idx = cacheInvalidationCallbacks.indexOf(callback);
@@ -75,7 +73,11 @@ export function registerCacheInvalidation(
 
 function notifyCacheInvalidation(connectionId: string): void {
   for (const cb of cacheInvalidationCallbacks) {
-    try { cb(connectionId); } catch { /* ignore */ }
+    try {
+      cb(connectionId);
+    } catch {
+      /* ignore */
+    }
   }
 }
 
@@ -198,7 +200,16 @@ export async function executeQuery(params: {
     setTabActiveExecutionId(tabId, null);
 
     // Record history from snapshot (not live tab).
-    recordHistory(connectionId, database, schema, sql, tabId, "success", result.durationMs, result.rowCount);
+    recordHistory(
+      connectionId,
+      database,
+      schema,
+      sql,
+      tabId,
+      "success",
+      result.durationMs,
+      result.rowCount,
+    );
     notifyCacheInvalidation(connectionId);
 
     return result;
@@ -278,9 +289,10 @@ export async function executeQueryMulti(params: {
     if (hasPartialError) {
       const [stmtIdx, errorMsg] = data.error!;
       const completedCount = data.results.length;
-      const message = completedCount > 0
-        ? `${completedCount} result(s) completed · Statement ${stmtIdx + 1} failed: ${errorMsg}`
-        : `Statement ${stmtIdx + 1} failed: ${errorMsg}`;
+      const message =
+        completedCount > 0
+          ? `${completedCount} result(s) completed · Statement ${stmtIdx + 1} failed: ${errorMsg}`
+          : `Statement ${stmtIdx + 1} failed: ${errorMsg}`;
       setTabStatus(tabId, "error");
       setTabError(tabId, message);
     } else {
@@ -332,10 +344,7 @@ export async function executeQueryMulti(params: {
  * Includes stale guard: only mutates tab state if the cancelled
  * execution is still the active one (doesn't clobber a newer exec).
  */
-export async function cancelQuery(params: {
-  tabId: string;
-  executionId: string;
-}): Promise<void> {
+export async function cancelQuery(params: { tabId: string; executionId: string }): Promise<void> {
   const { tabId, executionId } = params;
 
   const service = createQueryService();

@@ -48,8 +48,14 @@ const columns: ColumnMeta[] = [
 ];
 
 const rows: Row[] = [
-  [{ type: "int64", value: 1 }, { type: "text", value: "Alice" }],
-  [{ type: "int64", value: 2 }, { type: "text", value: "Bob" }],
+  [
+    { type: "int64", value: 1 },
+    { type: "text", value: "Alice" },
+  ],
+  [
+    { type: "int64", value: 2 },
+    { type: "text", value: "Bob" },
+  ],
 ];
 
 function renderGrid(props: Partial<React.ComponentProps<typeof DataGrid>> = {}) {

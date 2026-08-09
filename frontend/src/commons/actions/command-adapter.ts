@@ -36,9 +36,7 @@ export function commandFromAction(
 ): Command {
   const def = getAction(actionId);
   if (!def) {
-    throw new Error(
-      `[commandFromAction] Action "${actionId}" is not registered`,
-    );
+    throw new Error(`[commandFromAction] Action "${actionId}" is not registered`);
   }
 
   return {
@@ -49,11 +47,10 @@ export function commandFromAction(
     groupKey: `commands.groups.${def.category}`,
     when: () => isActionAvailable(def.id).available,
     execute: async () => {
-      const input =
-        options?.inputProvider?.() ??
-        def.commandInput?.() ??
-        undefined;
-      const result = await executeAction(def.id, input as Record<string, unknown> | undefined, { source: "command-palette" });
+      const input = options?.inputProvider?.() ?? def.commandInput?.() ?? undefined;
+      const result = await executeAction(def.id, input as Record<string, unknown> | undefined, {
+        source: "command-palette",
+      });
 
       // Route confirmation to the global Action Confirmation Host.
       // This ensures destructive actions from Command Palette show the
@@ -91,8 +88,6 @@ export function commandsFromAllActions(): Command[] {
  *
  * Helper for the command adapter to avoid repeating the source literal.
  */
-export function buildCommandContext(
-  overrides?: Partial<ReturnType<typeof buildActionContext>>,
-) {
+export function buildCommandContext(overrides?: Partial<ReturnType<typeof buildActionContext>>) {
   return buildActionContext("command-palette", overrides);
 }

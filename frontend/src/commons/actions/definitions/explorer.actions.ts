@@ -8,10 +8,7 @@ import type { ActionResult } from "../types";
 
 // ─── explorer.refresh ────────────────────────────────────────
 
-export const refreshExplorerAction = defineAction<
-  { connectionId?: string },
-  void
->({
+export const refreshExplorerAction = defineAction<{ connectionId?: string }, void>({
   id: "explorer.refresh",
   title: "Refresh explorer",
   description: "Refresh the schema tree for the active or specified connection.",
@@ -49,37 +46,33 @@ export const refreshExplorerAction = defineAction<
 
 // ─── explorer.toggleNode ─────────────────────────────────────
 
-export const toggleNodeAction = defineAction<
-  { path: string },
-  { path: string; expanded: boolean }
->({
-  id: "explorer.toggleNode",
-  title: "Toggle explorer node",
-  description: "Expand or collapse a node in the explorer tree.",
-  category: "explorer",
-  inputSchema: z.object({ path: z.string().min(1) }),
-  risk: "read",
+export const toggleNodeAction = defineAction<{ path: string }, { path: string; expanded: boolean }>(
+  {
+    id: "explorer.toggleNode",
+    title: "Toggle explorer node",
+    description: "Expand or collapse a node in the explorer tree.",
+    category: "explorer",
+    inputSchema: z.object({ path: z.string().min(1) }),
+    risk: "read",
 
-  async execute(input) {
-    const { toggleNode } = useExplorerStore.getState();
-    toggleNode(input.path);
+    async execute(input) {
+      const { toggleNode } = useExplorerStore.getState();
+      toggleNode(input.path);
 
-    const isNowExpanded = useExplorerStore.getState().expandedNodes.includes(input.path);
+      const isNowExpanded = useExplorerStore.getState().expandedNodes.includes(input.path);
 
-    return {
-      status: "success",
-      data: { path: input.path, expanded: isNowExpanded },
-      effects: [{ type: "explorer.node.toggled", path: input.path, expanded: isNowExpanded }],
-    } satisfies ActionResult<{ path: string; expanded: boolean }>;
+      return {
+        status: "success",
+        data: { path: input.path, expanded: isNowExpanded },
+        effects: [{ type: "explorer.node.toggled", path: input.path, expanded: isNowExpanded }],
+      } satisfies ActionResult<{ path: string; expanded: boolean }>;
+    },
   },
-});
+);
 
 // ─── explorer.expandNode ─────────────────────────────────────
 
-export const expandNodeAction = defineAction<
-  { path: string },
-  { path: string }
->({
+export const expandNodeAction = defineAction<{ path: string }, { path: string }>({
   id: "explorer.expandNode",
   title: "Expand explorer node",
   description: "Expand a specific node in the explorer tree.",
@@ -112,8 +105,7 @@ export const openObjectAction = defineAction<
 >({
   id: "explorer.openObject",
   title: "Open database object",
-  description:
-    "Open a table, view, function, or other database object in a new tab.",
+  description: "Open a table, view, function, or other database object in a new tab.",
   category: "explorer",
   inputSchema: z.object({
     connectionId: z.string().min(1),
@@ -126,19 +118,16 @@ export const openObjectAction = defineAction<
 
   async execute(input) {
     // Import dynamically to avoid circular deps at module init.
-    const { createDbObjectTab } = await import(
-      "@/commons/factories/tab-factories"
-    );
-    const { useWorkspaceStore } = await import(
-      "@/commons/stores/workspace.store"
-    );
+    const { createDbObjectTab } = await import("@/commons/factories/tab-factories");
+    const { useWorkspaceStore } = await import("@/commons/stores/workspace.store");
 
     const tab = createDbObjectTab(
       input.connectionId,
       input.schema,
       input.name,
       (input.objectType as "table" | "view" | "function" | "sequence" | "type") ?? "table",
-      (input.section as "data" | "columns" | "indexes" | "relations" | "ddl" | "triggers") ?? "columns",
+      (input.section as "data" | "columns" | "indexes" | "relations" | "ddl" | "triggers") ??
+        "columns",
     );
 
     useWorkspaceStore.getState().openDbObject(tab);

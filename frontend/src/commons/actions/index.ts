@@ -6,8 +6,28 @@
  */
 
 // Core
-export { defineAction, getAction, getRegisteredActions, getActionsByCategory, getActionsByRisk, resetActionRegistry } from "./registry";
-export { executeAction, confirmAction, rejectConfirmation, getPendingConfirmations, isActionAvailable, getExecution, updateExecutionProgress, bindExternalExecutionId, cancelExecution, cleanupExecutions, getRunningExecutions, findRunningExecutionForTab } from "./bus";
+export {
+  defineAction,
+  getAction,
+  getRegisteredActions,
+  getActionsByCategory,
+  getActionsByRisk,
+  resetActionRegistry,
+} from "./registry";
+export {
+  executeAction,
+  confirmAction,
+  rejectConfirmation,
+  getPendingConfirmations,
+  isActionAvailable,
+  getExecution,
+  updateExecutionProgress,
+  bindExternalExecutionId,
+  cancelExecution,
+  cleanupExecutions,
+  getRunningExecutions,
+  findRunningExecutionForTab,
+} from "./bus";
 export { buildActionContext, generateCorrelationId } from "./context";
 export { onAuditEvent, emitAuditEvent, getAuditBuffer, clearAuditBuffer } from "./audit";
 
@@ -36,8 +56,20 @@ export type {
 } from "./types";
 
 // Adapters
-export { commandFromAction, commandsFromCategory, commandsFromAllActions, buildCommandContext } from "./command-adapter";
-export { generateMcpTools, generateMcpToolsByCategory, actionToMcpTool, getToolName, resolveToolToAction, GENERIC_TOOL } from "./mcp-bridge";
+export {
+  commandFromAction,
+  commandsFromCategory,
+  commandsFromAllActions,
+  buildCommandContext,
+} from "./command-adapter";
+export {
+  generateMcpTools,
+  generateMcpToolsByCategory,
+  actionToMcpTool,
+  getToolName,
+  resolveToolToAction,
+  GENERIC_TOOL,
+} from "./mcp-bridge";
 export type { McpToolDefinition } from "./mcp-bridge";
 
 // ─── Register all action definitions ─────────────────────────

@@ -76,13 +76,7 @@ export function GenerateCrud({ connectionId, schema, table, columns }: GenerateC
         <code>{sql}</code>
       </pre>
 
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        className="self-start"
-        onClick={handleCopy}
-      >
+      <Button type="button" variant="outline" size="sm" className="self-start" onClick={handleCopy}>
         {copied ? t("schema.copied") : t("schema.copyDdl")}
       </Button>
     </div>

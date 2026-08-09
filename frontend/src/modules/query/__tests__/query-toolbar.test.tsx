@@ -108,9 +108,7 @@ describe("QueryToolbar — Run split button", () => {
     renderToolbar();
     // There should be an Explain button in the toolbar (not in dropdown)
     const explainButtons = screen.getAllByRole("button");
-    const explainButton = explainButtons.find((btn) =>
-      btn.textContent?.includes("query.explain"),
-    );
+    const explainButton = explainButtons.find((btn) => btn.textContent?.includes("query.explain"));
     expect(explainButton).toBeDefined();
   });
 });

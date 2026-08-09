@@ -21,7 +21,12 @@ vi.mock("@/app/app.module", () => ({
   },
 }));
 
-import { useTableRows, useInsertRow, useUpdateRow, useDeleteRow } from "../queries/data-grid.queries";
+import {
+  useTableRows,
+  useInsertRow,
+  useUpdateRow,
+  useDeleteRow,
+} from "../queries/data-grid.queries";
 
 function createWrapper() {
   const queryClient = new QueryClient({
@@ -33,11 +38,7 @@ function createWrapper() {
   });
 
   return function Wrapper({ children }: { children: ReactNode }) {
-    return (
-      <QueryClientProvider client={queryClient}>
-        {children}
-      </QueryClientProvider>
-    );
+    return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
   };
 }
 
@@ -52,7 +53,15 @@ describe("data-grid.queries", () => {
       mockFetchRows.mockResolvedValue(mockResult);
 
       const { result } = renderHook(
-        () => useTableRows("conn-1", { table: "users", schema: "public", page: 1, pageSize: 50, filters: [], sorts: [] }),
+        () =>
+          useTableRows("conn-1", {
+            table: "users",
+            schema: "public",
+            page: 1,
+            pageSize: 50,
+            filters: [],
+            sorts: [],
+          }),
         { wrapper: createWrapper() },
       );
 
@@ -74,7 +83,15 @@ describe("data-grid.queries", () => {
 
     it("does not fetch when connectionId is null", () => {
       const { result } = renderHook(
-        () => useTableRows(null, { table: "users", schema: "public", page: 1, pageSize: 50, filters: [], sorts: [] }),
+        () =>
+          useTableRows(null, {
+            table: "users",
+            schema: "public",
+            page: 1,
+            pageSize: 50,
+            filters: [],
+            sorts: [],
+          }),
         { wrapper: createWrapper() },
       );
 
@@ -83,10 +100,9 @@ describe("data-grid.queries", () => {
     });
 
     it("does not fetch when request is null", () => {
-      const { result } = renderHook(
-        () => useTableRows("conn-1", null),
-        { wrapper: createWrapper() },
-      );
+      const { result } = renderHook(() => useTableRows("conn-1", null), {
+        wrapper: createWrapper(),
+      });
 
       expect(result.current.fetchStatus).toBe("idle");
       expect(mockFetchRows).not.toHaveBeenCalled();
@@ -99,7 +115,15 @@ describe("data-grid.queries", () => {
       mockInsertRow.mockResolvedValue(mockResult);
 
       const { result } = renderHook(
-        () => useInsertRow("conn-1", { table: "users", schema: "public", page: 1, pageSize: 50, filters: [], sorts: [] }),
+        () =>
+          useInsertRow("conn-1", {
+            table: "users",
+            schema: "public",
+            page: 1,
+            pageSize: 50,
+            filters: [],
+            sorts: [],
+          }),
         { wrapper: createWrapper() },
       );
 
@@ -123,7 +147,15 @@ describe("data-grid.queries", () => {
       mockUpdateRow.mockResolvedValue(mockResult);
 
       const { result } = renderHook(
-        () => useUpdateRow("conn-1", { table: "users", schema: "public", page: 1, pageSize: 50, filters: [], sorts: [] }),
+        () =>
+          useUpdateRow("conn-1", {
+            table: "users",
+            schema: "public",
+            page: 1,
+            pageSize: 50,
+            filters: [],
+            sorts: [],
+          }),
         { wrapper: createWrapper() },
       );
 
@@ -147,7 +179,15 @@ describe("data-grid.queries", () => {
       mockDeleteRow.mockResolvedValue(mockResult);
 
       const { result } = renderHook(
-        () => useDeleteRow("conn-1", { table: "users", schema: "public", page: 1, pageSize: 50, filters: [], sorts: [] }),
+        () =>
+          useDeleteRow("conn-1", {
+            table: "users",
+            schema: "public",
+            page: 1,
+            pageSize: 50,
+            filters: [],
+            sorts: [],
+          }),
         { wrapper: createWrapper() },
       );
 

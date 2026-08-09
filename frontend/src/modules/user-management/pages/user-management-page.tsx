@@ -24,10 +24,7 @@ export function UserManagementPage() {
   const [createOpen, setCreateOpen] = useState(false);
 
   const { data: users = [], isLoading } = useListUsers(explorerConnectionId);
-  const { data: privileges = [] } = useListPrivileges(
-    explorerConnectionId,
-    selectedUser,
-  );
+  const { data: privileges = [] } = useListPrivileges(explorerConnectionId, selectedUser);
   const createRole = useCreateRole(explorerConnectionId);
   const dropRole = useDropRole(explorerConnectionId);
   const grant = useGrantPrivilege(explorerConnectionId, selectedUser);
@@ -47,22 +44,14 @@ export function UserManagementPage() {
     <div className="flex h-full gap-4">
       <div className="flex w-64 shrink-0 flex-col gap-2 overflow-auto border-r border-[var(--app-border-subtle)] pr-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-foreground">
-            {t("userManagement.title")}
-          </h2>
-          <Button
-            type="button"
-            size="sm"
-            onClick={() => setCreateOpen(true)}
-          >
+          <h2 className="text-sm font-semibold text-foreground">{t("userManagement.title")}</h2>
+          <Button type="button" size="sm" onClick={() => setCreateOpen(true)}>
             + {t("userManagement.newRole")}
           </Button>
         </div>
 
         {isLoading ? (
-          <p className="text-xs text-[var(--app-text-muted)]">
-            {t("common.loading")}
-          </p>
+          <p className="text-xs text-[var(--app-text-muted)]">{t("common.loading")}</p>
         ) : (
           <UserList
             users={users}
@@ -83,12 +72,8 @@ export function UserManagementPage() {
           <UserDetailPanel
             user={selectedUserData}
             privileges={privileges}
-            onGrant={(schema, table, privilege) =>
-              grant.mutate({ schema, table, privilege })
-            }
-            onRevoke={(schema, table, privilege) =>
-              revoke.mutate({ schema, table, privilege })
-            }
+            onGrant={(schema, table, privilege) => grant.mutate({ schema, table, privilege })}
+            onRevoke={(schema, table, privilege) => revoke.mutate({ schema, table, privilege })}
           />
         ) : (
           <div className="flex h-full items-center justify-center text-[var(--app-text-muted)]">

@@ -299,9 +299,7 @@ export const exportDataAction = defineAction<
   risk: "read",
 
   async execute(input) {
-    const { createExportService } = await import(
-      "@/modules/export/services/export.service"
-    );
+    const { createExportService } = await import("@/modules/export/services/export.service");
     const service = createExportService();
 
     let result: ExportResult;

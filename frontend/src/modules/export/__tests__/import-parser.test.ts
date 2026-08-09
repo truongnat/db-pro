@@ -11,7 +11,10 @@ describe("parseCsv", () => {
   it("parses basic CSV", () => {
     const { headers, rows } = parseCsv("id,name\n1,Alice\n2,Bob");
     expect(headers).toEqual(["id", "name"]);
-    expect(rows).toEqual([["1", "Alice"], ["2", "Bob"]]);
+    expect(rows).toEqual([
+      ["1", "Alice"],
+      ["2", "Bob"],
+    ]);
   });
 
   it("handles quoted fields with commas", () => {
@@ -43,7 +46,10 @@ describe("parseCsv", () => {
 
   it("handles CRLF line endings", () => {
     const { rows } = parseCsv("id,name\r\n1,Alice\r\n2,Bob");
-    expect(rows).toEqual([["1", "Alice"], ["2", "Bob"]]);
+    expect(rows).toEqual([
+      ["1", "Alice"],
+      ["2", "Bob"],
+    ]);
   });
 });
 
@@ -75,11 +81,7 @@ describe("detectFormat", () => {
 
 describe("buildImportPreview", () => {
   it("builds preview for CSV with auto-mapping", () => {
-    const preview = buildImportPreview(
-      "id,name\n1,Alice\n2,Bob",
-      "csv",
-      ["id", "name", "email"],
-    );
+    const preview = buildImportPreview("id,name\n1,Alice\n2,Bob", "csv", ["id", "name", "email"]);
     expect(preview.sourceColumns).toEqual(["id", "name"]);
     expect(preview.totalRowCount).toBe(2);
     expect(preview.sampleRows).toHaveLength(2);
@@ -88,11 +90,7 @@ describe("buildImportPreview", () => {
   });
 
   it("builds preview for JSON", () => {
-    const preview = buildImportPreview(
-      '[{"id":1,"name":"Alice"}]',
-      "json",
-      ["id", "name"],
-    );
+    const preview = buildImportPreview('[{"id":1,"name":"Alice"}]', "json", ["id", "name"]);
     expect(preview.sourceColumns).toEqual(["id", "name"]);
     expect(preview.totalRowCount).toBe(1);
     expect(preview.mappings[0].targetColumn).toBe("id");

@@ -14,14 +14,7 @@ import {
   useToggleReadonly,
 } from "../queries/connection.queries";
 
-const {
-  mockList,
-  mockCreate,
-  mockGet,
-  mockUpdate,
-  mockDelete,
-  mockTest,
-} = vi.hoisted(() => ({
+const { mockList, mockCreate, mockGet, mockUpdate, mockDelete, mockTest } = vi.hoisted(() => ({
   mockList: vi.fn(),
   mockCreate: vi.fn(),
   mockGet: vi.fn(),
@@ -120,9 +113,7 @@ describe("useTestConnection", () => {
     const config = { ...sampleConnection };
     act(() => result.current.mutate({ config, password: "pw", connectionId: "conn-1" }));
 
-    await waitFor(() =>
-      expect(mockTest).toHaveBeenCalledWith(config, "pw", "conn-1"),
-    );
+    await waitFor(() => expect(mockTest).toHaveBeenCalledWith(config, "pw", "conn-1"));
   });
 });
 

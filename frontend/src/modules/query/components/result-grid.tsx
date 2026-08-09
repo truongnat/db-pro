@@ -20,24 +20,18 @@ interface ResultGridProps {
   rowCount: number;
 }
 
-export function ResultGrid({
-  columns,
-  rows,
-  sort,
-  onSort,
-  durationMs,
-  rowCount,
-}: ResultGridProps) {
+export function ResultGrid({ columns, rows, sort, onSort, durationMs, rowCount }: ResultGridProps) {
   const { t } = useTranslation();
   const [zoom, setZoom] = useState(100);
-  const [metadataColumn, setMetadataColumn] = useState<{ column: ColumnMeta; el: HTMLElement } | null>(null);
+  const [metadataColumn, setMetadataColumn] = useState<{
+    column: ColumnMeta;
+    el: HTMLElement;
+  } | null>(null);
 
   /* Adapt single SortState → GridSort[] for UnifiedGrid */
   const sorts = useMemo<GridSort[]>(
     () =>
-      sort.column && sort.direction
-        ? [{ column: sort.column, direction: sort.direction }]
-        : [],
+      sort.column && sort.direction ? [{ column: sort.column, direction: sort.direction }] : [],
     [sort],
   );
 
@@ -49,11 +43,7 @@ export function ResultGrid({
         sorts={sorts}
         onSort={onSort}
         contentStyle={zoom !== 100 ? { zoom: zoom / 100 } : undefined}
-        emptyState={
-          <p className="text-sm text-[var(--app-text-muted)]">
-            {t("query.noResults")}
-          </p>
-        }
+        emptyState={<p className="text-sm text-[var(--app-text-muted)]">{t("query.noResults")}</p>}
         renderHeaderExtra={(col) => (
           <Button
             type="button"

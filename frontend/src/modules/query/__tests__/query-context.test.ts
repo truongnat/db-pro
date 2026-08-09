@@ -1,7 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { AnyRouter } from "@tanstack/react-router";
 
-import { registerAllCommands, resetCommandRegistration } from "@/commons/commands/register-commands";
+import {
+  registerAllCommands,
+  resetCommandRegistration,
+} from "@/commons/commands/register-commands";
 import { createQueryTab } from "@/commons/factories/tab-factories";
 import { migratePersistedWorkspace } from "@/commons/services/workspace-migrations";
 import { useCommandStore } from "@/commons/stores/command.store";

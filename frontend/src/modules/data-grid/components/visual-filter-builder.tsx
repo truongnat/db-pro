@@ -65,7 +65,13 @@ export function VisualFilterBuilder({
               <span className="font-medium">{f.column}</span>
               <span>{opLabel(f.op)}</span>
               {!VALUELESS_OPS.includes(f.op) && (
-                <span>"{VALUELESS_OPS.includes(f.op) ? "" : (f.value as { value?: string }).value ?? ""}"</span>
+                <span>
+                  "
+                  {VALUELESS_OPS.includes(f.op)
+                    ? ""
+                    : ((f.value as { value?: string }).value ?? "")}
+                  "
+                </span>
               )}
               <Button
                 type="button"

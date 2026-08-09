@@ -39,10 +39,7 @@ export interface QuickOpenConnectionItem {
 }
 
 export type QuickOpenItem =
-  | QuickOpenTabItem
-  | QuickOpenDbObjectItem
-  | QuickOpenSchemaItem
-  | QuickOpenConnectionItem;
+  QuickOpenTabItem | QuickOpenDbObjectItem | QuickOpenSchemaItem | QuickOpenConnectionItem;
 
 export interface RecentResource {
   resourceKey: string;

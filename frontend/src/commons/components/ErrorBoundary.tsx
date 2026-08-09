@@ -16,10 +16,7 @@ interface ErrorBoundaryState {
   error: Error | null;
 }
 
-class ErrorBoundaryInner extends Component<
-  ErrorBoundaryProps,
-  ErrorBoundaryState
-> {
+class ErrorBoundaryInner extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false, error: null };
@@ -72,15 +69,8 @@ class ErrorBoundaryInner extends Component<
           >
             {this.props.moduleName} — Error
           </div>
-          <div className="text-[var(--app-text-muted)]">
-            {this.state.error.message}
-          </div>
-          <Button
-            type="button"
-            variant="outline"
-            className="bg-background"
-            onClick={this.reset}
-          >
+          <div className="text-[var(--app-text-muted)]">{this.state.error.message}</div>
+          <Button type="button" variant="outline" className="bg-background" onClick={this.reset}>
             Retry
           </Button>
         </div>
@@ -91,13 +81,7 @@ class ErrorBoundaryInner extends Component<
   }
 }
 
-export function ErrorBoundaryFallback({
-  error,
-  reset,
-}: {
-  error: Error;
-  reset: () => void;
-}) {
+export function ErrorBoundaryFallback({ error, reset }: { error: Error; reset: () => void }) {
   const { t } = useTranslation();
 
   return (
@@ -122,15 +106,8 @@ export function ErrorBoundaryFallback({
       >
         {t("common.states.error")}
       </div>
-      <div className="text-[var(--app-text-muted)]">
-        {error.message}
-      </div>
-      <Button
-        type="button"
-        variant="outline"
-        className="h-9 px-4 bg-background"
-        onClick={reset}
-      >
+      <div className="text-[var(--app-text-muted)]">{error.message}</div>
+      <Button type="button" variant="outline" className="h-9 px-4 bg-background" onClick={reset}>
         {t("common.actions.retry")}
       </Button>
     </div>

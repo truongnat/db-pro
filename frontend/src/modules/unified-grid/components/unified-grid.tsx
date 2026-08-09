@@ -102,8 +102,11 @@ export function UnifiedGrid({
 
   /* ---- context menu (column + cell) ---- */
   const [contextMenu, setContextMenu] = useState<{
-    x: number; y: number; column: string;
-    cellRow?: number; cellCol?: number;
+    x: number;
+    y: number;
+    column: string;
+    cellRow?: number;
+    cellCol?: number;
   } | null>(null);
 
   /* ---- column widths (B1.1) ---- */
@@ -218,7 +221,9 @@ export function UnifiedGrid({
   const extraTrailingCol = hasRowActions ? ` ${ROW_ACTION_WIDTH}px` : "";
 
   /* ---- grid template from widths (B1.1) ---- */
-  const colWidthPx = orderedColumns.map((c) => `${widths[c.name] ?? DEFAULT_COL_WIDTH}px`).join(" ");
+  const colWidthPx = orderedColumns
+    .map((c) => `${widths[c.name] ?? DEFAULT_COL_WIDTH}px`)
+    .join(" ");
   const gridStyle: React.CSSProperties = {
     gridTemplateColumns: `${ROW_NUMBER_WIDTH}px ${colWidthPx}${extraTrailingCol}`,
   };
@@ -245,10 +250,12 @@ export function UnifiedGrid({
         const lines = selectedIndices.map((rowIdx) => {
           const row = rows[rowIdx];
           if (!row) return "";
-          return orderedColumns.map((col) => {
-            const colIdx = getColumnIndex(col);
-            return renderCellValue(row[colIdx]);
-          }).join("\t");
+          return orderedColumns
+            .map((col) => {
+              const colIdx = getColumnIndex(col);
+              return renderCellValue(row[colIdx]);
+            })
+            .join("\t");
         });
         navigator.clipboard.writeText(lines.join("\n")).catch(() => {});
       }
@@ -265,20 +272,23 @@ export function UnifiedGrid({
     [canEditRows, onEditCell],
   );
 
-  const handleColumnContextMenu = useCallback(
-    (e: React.MouseEvent, columnName: string) => {
-      e.preventDefault();
-      e.stopPropagation();
-      setContextMenu({ x: e.clientX, y: e.clientY, column: columnName });
-    },
-    [],
-  );
+  const handleColumnContextMenu = useCallback((e: React.MouseEvent, columnName: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu({ x: e.clientX, y: e.clientY, column: columnName });
+  }, []);
 
   const handleCellContextMenu = useCallback(
     (e: React.MouseEvent, columnName: string, rowIdx: number, colIdx: number) => {
       e.preventDefault();
       e.stopPropagation();
-      setContextMenu({ x: e.clientX, y: e.clientY, column: columnName, cellRow: rowIdx, cellCol: colIdx });
+      setContextMenu({
+        x: e.clientX,
+        y: e.clientY,
+        column: columnName,
+        cellRow: rowIdx,
+        cellCol: colIdx,
+      });
     },
     [],
   );
@@ -295,10 +305,12 @@ export function UnifiedGrid({
   const copyRowValues = (rowIdx: number) => {
     const row = rows[rowIdx];
     if (!row) return;
-    const text = orderedColumns.map((col) => {
-      const colIdx = getColumnIndex(col);
-      return renderCellValue(row[colIdx]);
-    }).join("\t");
+    const text = orderedColumns
+      .map((col) => {
+        const colIdx = getColumnIndex(col);
+        return renderCellValue(row[colIdx]);
+      })
+      .join("\t");
     navigator.clipboard.writeText(text).catch(() => {});
   };
 
@@ -317,7 +329,12 @@ export function UnifiedGrid({
 
   /* ---- render ---- */
   return (
-    <div ref={gridContainerRef} tabIndex={0} onKeyDown={handleGridKeyDown} className={`relative flex h-full flex-col${className ? ` ${className}` : ""}`}>
+    <div
+      ref={gridContainerRef}
+      tabIndex={0}
+      onKeyDown={handleGridKeyDown}
+      className={`relative flex h-full flex-col${className ? ` ${className}` : ""}`}
+    >
       {/* Loading overlay */}
       {isLoading && (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60">
@@ -344,7 +361,8 @@ export function UnifiedGrid({
                 setContextMenu(null);
               }}
             >
-              {frozenSet.has(contextMenu.column) ? "Restore order" : "Move to front"} "{contextMenu.column}"
+              {frozenSet.has(contextMenu.column) ? "Restore order" : "Move to front"} "
+              {contextMenu.column}"
             </Button>
           )}
           <Button
@@ -352,7 +370,10 @@ export function UnifiedGrid({
             variant="ghost"
             size="sm"
             className="block h-auto w-full px-3 py-1 text-left text-xs text-foreground hover:bg-background"
-            onClick={() => { copyColumnName(contextMenu.column); setContextMenu(null); }}
+            onClick={() => {
+              copyColumnName(contextMenu.column);
+              setContextMenu(null);
+            }}
           >
             Copy column name
           </Button>
@@ -365,7 +386,10 @@ export function UnifiedGrid({
                 variant="ghost"
                 size="sm"
                 className="block h-auto w-full px-3 py-1 text-left text-xs text-foreground hover:bg-background"
-                onClick={() => { copyCellValue(contextMenu.cellRow!, contextMenu.column); setContextMenu(null); }}
+                onClick={() => {
+                  copyCellValue(contextMenu.cellRow!, contextMenu.column);
+                  setContextMenu(null);
+                }}
               >
                 Copy cell value
               </Button>
@@ -374,7 +398,10 @@ export function UnifiedGrid({
                 variant="ghost"
                 size="sm"
                 className="block h-auto w-full px-3 py-1 text-left text-xs text-foreground hover:bg-background"
-                onClick={() => { copyRowValues(contextMenu.cellRow!); setContextMenu(null); }}
+                onClick={() => {
+                  copyRowValues(contextMenu.cellRow!);
+                  setContextMenu(null);
+                }}
               >
                 Copy row
               </Button>
@@ -385,154 +412,158 @@ export function UnifiedGrid({
 
       {/* Zoomable content wrapper (header + rows) */}
       <div style={contentStyle} className="flex h-full min-h-0 flex-col">
-      {/* Header row */}
-      <div
-        className="grid shrink-0 border-b border-[var(--app-border)] bg-muted/30 text-[11px]"
-        style={{ ...gridStyle, minHeight: "var(--grid-header-height)" }}
-      >
-        <div className="flex items-center px-2 py-2 text-[var(--app-text-dim)]">#</div>
-        {orderedColumns.map((col) => {
-          const sort = sortMap.get(col.name);
-          const isFrozen = frozenSet.has(col.name);
-          return (
-            <div
-              key={col.name}
-              className={
-                "relative flex flex-col gap-0.5 px-3 py-1.5" +
-                (isFrozen ? " bg-muted/30" : "")
-              }
-              style={isFrozen ? { fontWeight: 600 } : undefined}
-              onContextMenu={(e) => handleColumnContextMenu(e, col.name)}
-            >
-              <span
-                className="flex cursor-pointer select-none items-center gap-1 text-[12.5px] font-medium text-[var(--app-text-muted)] transition-colors hover:text-foreground"
-                onClick={() => onSort(col.name)}
-              >
-                <span className="truncate">{col.name}</span>
-                {sort && (
-                  <span className="text-[11px] text-[var(--app-text-dim)]">
-                    {sort.direction === "asc" ? "\u25B2" : "\u25BC"}
-                  </span>
-                )}
-              </span>
-              <span className="truncate text-[11px] text-[var(--app-text-dim)]">{col.dataType}</span>
-              {renderHeaderExtra?.(col)}
-              {/* Resize handle (B1.1) */}
-              <div
-                className="absolute right-0 top-0 h-full w-[3px] cursor-col-resize hover:bg-primary/40 active:bg-primary"
-                onMouseDown={(e) => handleResizeStart(e, col.name)}
-              />
-            </div>
-          );
-        })}
-        {hasRowActions && <div />}
-      </div>
-
-      {/* Virtual rows */}
-      <div ref={parentRef} className="flex-1 overflow-auto">
+        {/* Header row */}
         <div
-          style={{
-            height: virtualizer.getTotalSize(),
-            width: "100%",
-            position: "relative",
-          }}
+          className="grid shrink-0 border-b border-[var(--app-border)] bg-muted/30 text-[11px]"
+          style={{ ...gridStyle, minHeight: "var(--grid-header-height)" }}
         >
-          {virtualizer.getVirtualItems().map((virtualRow) => {
-            const row = rows[virtualRow.index];
-            const isSelected = selection.has(virtualRow.index);
+          <div className="flex items-center px-2 py-2 text-[var(--app-text-dim)]">#</div>
+          {orderedColumns.map((col) => {
+            const sort = sortMap.get(col.name);
+            const isFrozen = frozenSet.has(col.name);
             return (
               <div
-                key={virtualRow.key}
+                key={col.name}
                 className={
-                  "grid absolute w-full border-b border-[var(--app-border-subtle)]/60 text-[12.5px] transition-colors" +
-                  (isSelected ? " bg-primary/10" : " hover:bg-[var(--app-hover)]")
+                  "relative flex flex-col gap-0.5 px-3 py-1.5" + (isFrozen ? " bg-muted/30" : "")
                 }
-                style={{ ...gridStyle, top: virtualRow.start, height: "var(--grid-row-height)" }}
-                data-index={virtualRow.index}
+                style={isFrozen ? { fontWeight: 600 } : undefined}
+                onContextMenu={(e) => handleColumnContextMenu(e, col.name)}
               >
-                {/* Row number — clickable for selection (B1.3) */}
-                <div
-                  className={
-                    "flex cursor-pointer select-none items-center px-2 text-[11px]" +
-                    (isSelected ? " bg-primary/20 font-medium text-primary" : " text-[var(--app-text-dim)]")
-                  }
-                  onClick={(e) => handleRowNumberClick(e, virtualRow.index)}
+                <span
+                  className="flex cursor-pointer select-none items-center gap-1 text-[12.5px] font-medium text-[var(--app-text-muted)] transition-colors hover:text-foreground"
+                  onClick={() => onSort(col.name)}
                 >
-                  {virtualRow.index + 1}
-                </div>
-
-                {/* Cells */}
-                {orderedColumns.map((col) => {
-                  const colIdx = getColumnIndex(col);
-                  const cell = row[colIdx];
-                  const display = renderCellValue(cell);
-                  const isNull = cell.type === "null";
-                  const isJson = cell.type === "json";
-                  const isEditing =
-                    editingCell?.row === virtualRow.index &&
-                    editingCell?.col === colIdx;
-                  const isFrozen = frozenSet.has(col.name);
-
-                  return (
-                    <div
-                      key={col.name}
-                      className={
-                        "flex items-center overflow-hidden px-3 text-ellipsis whitespace-nowrap" +
-                        (isNull ? " text-[var(--app-text-dim)]" : " text-foreground") +
-                        (isFrozen ? " bg-muted/20" : "")
-                      }
-                      style={isNull ? { fontStyle: "italic" } : undefined}
-                      title={isJson ? undefined : display}
-                      onDoubleClick={() => handleDoubleClick(virtualRow.index, colIdx)}
-                      onContextMenu={(e) => handleCellContextMenu(e, col.name, virtualRow.index, colIdx)}
-                    >
-                      {isEditing && onCellSave && onEditCell ? (
-                        renderCellEditor ? (
-                          renderCellEditor(cell)
-                        ) : (
-                          <InlineCellEditor
-                            value={cell}
-                            onSave={(newValue) => {
-                              onCellSave(virtualRow.index, colIdx, newValue);
-                              onEditCell(null);
-                            }}
-                            onCancel={() => onEditCell(null)}
-                          />
-                        )
-                      ) : isJson && cell.type === "json" ? (
-                        renderJsonCell ? (
-                          renderJsonCell(cell.value)
-                        ) : (
-                          <JsonPreview value={cell.value} />
-                        )
-                      ) : (
-                        display
-                      )}
-                    </div>
-                  );
-                })}
-
-                {/* Row actions */}
-                {hasRowActions && (
-                  <div className="flex items-center justify-center px-1">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 w-6 p-0 text-destructive hover:text-destructive"
-                      disabled={isDeleting}
-                      onClick={() => onDeleteRow!(virtualRow.index)}
-                      title="Delete row"
-                    >
-                      ×
-                    </Button>
-                  </div>
-                )}
+                  <span className="truncate">{col.name}</span>
+                  {sort && (
+                    <span className="text-[11px] text-[var(--app-text-dim)]">
+                      {sort.direction === "asc" ? "\u25B2" : "\u25BC"}
+                    </span>
+                  )}
+                </span>
+                <span className="truncate text-[11px] text-[var(--app-text-dim)]">
+                  {col.dataType}
+                </span>
+                {renderHeaderExtra?.(col)}
+                {/* Resize handle (B1.1) */}
+                <div
+                  className="absolute right-0 top-0 h-full w-[3px] cursor-col-resize hover:bg-primary/40 active:bg-primary"
+                  onMouseDown={(e) => handleResizeStart(e, col.name)}
+                />
               </div>
             );
           })}
+          {hasRowActions && <div />}
         </div>
-      </div>
+
+        {/* Virtual rows */}
+        <div ref={parentRef} className="flex-1 overflow-auto">
+          <div
+            style={{
+              height: virtualizer.getTotalSize(),
+              width: "100%",
+              position: "relative",
+            }}
+          >
+            {virtualizer.getVirtualItems().map((virtualRow) => {
+              const row = rows[virtualRow.index];
+              const isSelected = selection.has(virtualRow.index);
+              return (
+                <div
+                  key={virtualRow.key}
+                  className={
+                    "grid absolute w-full border-b border-[var(--app-border-subtle)]/60 text-[12.5px] transition-colors" +
+                    (isSelected ? " bg-primary/10" : " hover:bg-[var(--app-hover)]")
+                  }
+                  style={{ ...gridStyle, top: virtualRow.start, height: "var(--grid-row-height)" }}
+                  data-index={virtualRow.index}
+                >
+                  {/* Row number — clickable for selection (B1.3) */}
+                  <div
+                    className={
+                      "flex cursor-pointer select-none items-center px-2 text-[11px]" +
+                      (isSelected
+                        ? " bg-primary/20 font-medium text-primary"
+                        : " text-[var(--app-text-dim)]")
+                    }
+                    onClick={(e) => handleRowNumberClick(e, virtualRow.index)}
+                  >
+                    {virtualRow.index + 1}
+                  </div>
+
+                  {/* Cells */}
+                  {orderedColumns.map((col) => {
+                    const colIdx = getColumnIndex(col);
+                    const cell = row[colIdx];
+                    const display = renderCellValue(cell);
+                    const isNull = cell.type === "null";
+                    const isJson = cell.type === "json";
+                    const isEditing =
+                      editingCell?.row === virtualRow.index && editingCell?.col === colIdx;
+                    const isFrozen = frozenSet.has(col.name);
+
+                    return (
+                      <div
+                        key={col.name}
+                        className={
+                          "flex items-center overflow-hidden px-3 text-ellipsis whitespace-nowrap" +
+                          (isNull ? " text-[var(--app-text-dim)]" : " text-foreground") +
+                          (isFrozen ? " bg-muted/20" : "")
+                        }
+                        style={isNull ? { fontStyle: "italic" } : undefined}
+                        title={isJson ? undefined : display}
+                        onDoubleClick={() => handleDoubleClick(virtualRow.index, colIdx)}
+                        onContextMenu={(e) =>
+                          handleCellContextMenu(e, col.name, virtualRow.index, colIdx)
+                        }
+                      >
+                        {isEditing && onCellSave && onEditCell ? (
+                          renderCellEditor ? (
+                            renderCellEditor(cell)
+                          ) : (
+                            <InlineCellEditor
+                              value={cell}
+                              onSave={(newValue) => {
+                                onCellSave(virtualRow.index, colIdx, newValue);
+                                onEditCell(null);
+                              }}
+                              onCancel={() => onEditCell(null)}
+                            />
+                          )
+                        ) : isJson && cell.type === "json" ? (
+                          renderJsonCell ? (
+                            renderJsonCell(cell.value)
+                          ) : (
+                            <JsonPreview value={cell.value} />
+                          )
+                        ) : (
+                          display
+                        )}
+                      </div>
+                    );
+                  })}
+
+                  {/* Row actions */}
+                  {hasRowActions && (
+                    <div className="flex items-center justify-center px-1">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                        disabled={isDeleting}
+                        onClick={() => onDeleteRow!(virtualRow.index)}
+                        title="Delete row"
+                      >
+                        ×
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
       {/* Footer */}
@@ -558,7 +589,8 @@ function InlineCellEditor({
   onSave: (value: CellValue) => void;
   onCancel: () => void;
 }) {
-  const initialText = value.type === "null" ? "" : String((value as { value: unknown }).value ?? "");
+  const initialText =
+    value.type === "null" ? "" : String((value as { value: unknown }).value ?? "");
   const [text, setText] = useState(initialText);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {

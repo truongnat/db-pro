@@ -31,11 +31,7 @@ function createWrapper() {
   });
 
   return function Wrapper({ children }: { children: ReactNode }) {
-    return (
-      <QueryClientProvider client={queryClient}>
-        {children}
-      </QueryClientProvider>
-    );
+    return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
   };
 }
 
@@ -49,10 +45,9 @@ describe("export.queries", () => {
       const mockResult = { success: true, rowCount: 10 };
       mockExportCsv.mockResolvedValue(mockResult);
 
-      const { result } = renderHook(
-        () => useExport("conn-1", "csv", "SELECT * FROM users"),
-        { wrapper: createWrapper() },
-      );
+      const { result } = renderHook(() => useExport("conn-1", "csv", "SELECT * FROM users"), {
+        wrapper: createWrapper(),
+      });
 
       result.current.mutate();
 
@@ -68,10 +63,9 @@ describe("export.queries", () => {
       const mockResult = { success: true, rowCount: 5 };
       mockExportJson.mockResolvedValue(mockResult);
 
-      const { result } = renderHook(
-        () => useExport("conn-1", "json", "SELECT * FROM products"),
-        { wrapper: createWrapper() },
-      );
+      const { result } = renderHook(() => useExport("conn-1", "json", "SELECT * FROM products"), {
+        wrapper: createWrapper(),
+      });
 
       result.current.mutate();
 
@@ -86,10 +80,9 @@ describe("export.queries", () => {
       const mockResult = { success: true, rowCount: 20 };
       mockExportExcel.mockResolvedValue(mockResult);
 
-      const { result } = renderHook(
-        () => useExport("conn-1", "excel", "SELECT * FROM orders"),
-        { wrapper: createWrapper() },
-      );
+      const { result } = renderHook(() => useExport("conn-1", "excel", "SELECT * FROM orders"), {
+        wrapper: createWrapper(),
+      });
 
       result.current.mutate();
 
@@ -106,10 +99,9 @@ describe("export.queries", () => {
 
       const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
-      const { result } = renderHook(
-        () => useExport("conn-1", "csv", "SELECT * FROM users"),
-        { wrapper: createWrapper() },
-      );
+      const { result } = renderHook(() => useExport("conn-1", "csv", "SELECT * FROM users"), {
+        wrapper: createWrapper(),
+      });
 
       result.current.mutate();
 

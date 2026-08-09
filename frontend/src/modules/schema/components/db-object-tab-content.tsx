@@ -49,7 +49,12 @@ export function DbObjectTabContent({
   const isTableOrView = objectType === "table" || objectType === "view";
 
   const tableInfo = useTableInfo(connectionId, schema, objectName);
-  const tableDdl = useTableDdl(connectionId, schema, objectName, activeSection === "ddl" || toolbarAction === "ddlEditor");
+  const tableDdl = useTableDdl(
+    connectionId,
+    schema,
+    objectName,
+    activeSection === "ddl" || toolbarAction === "ddlEditor",
+  );
 
   if (!connectionId) return null;
 
@@ -113,13 +118,24 @@ export function DbObjectTabContent({
         )}
         {toolbarAction === "generateCrud" && isTableOrView && tableInfo.data && (
           <ObjectSectionLayout>
-            <GenerateCrud connectionId={connectionId} schema={schema} table={objectName} columns={tableInfo.data.columns} />
+            <GenerateCrud
+              connectionId={connectionId}
+              schema={schema}
+              table={objectName}
+              columns={tableInfo.data.columns}
+            />
           </ObjectSectionLayout>
         )}
         {!toolbarAction && (
           <>
             {activeSection === "data" && isTableOrView && (
-              <DataSection tabId={tabId} connectionId={connectionId} schema={schema} table={objectName} refreshCounter={dataRefreshCounter} />
+              <DataSection
+                tabId={tabId}
+                connectionId={connectionId}
+                schema={schema}
+                table={objectName}
+                refreshCounter={dataRefreshCounter}
+              />
             )}
             {activeSection === "columns" && isTableOrView && tableInfo.data && (
               <ObjectSectionLayout>
@@ -154,7 +170,8 @@ export function DbObjectTabContent({
                   isLoading={tableDdl.isLoading}
                   error={
                     tableDdl.isError
-                      ? (tableDdl.error as { userMessage?: string })?.userMessage ?? t("common.states.error")
+                      ? ((tableDdl.error as { userMessage?: string })?.userMessage ??
+                        t("common.states.error"))
                       : null
                   }
                   onOpenInQuery={handleOpenDdl}
@@ -168,20 +185,27 @@ export function DbObjectTabContent({
                 </p>
               </div>
             )}
-            {tableInfo.isLoading && (activeSection === "columns" || activeSection === "indexes" || activeSection === "relations") && (
-              <div className="flex h-full min-h-0 items-center justify-center">
-                <div className="p-4 text-[13px] text-[var(--app-text-muted)]">
-                  {t("common.states.loading")}
+            {tableInfo.isLoading &&
+              (activeSection === "columns" ||
+                activeSection === "indexes" ||
+                activeSection === "relations") && (
+                <div className="flex h-full min-h-0 items-center justify-center">
+                  <div className="p-4 text-[13px] text-[var(--app-text-muted)]">
+                    {t("common.states.loading")}
+                  </div>
                 </div>
-              </div>
-            )}
-            {tableInfo.isError && (activeSection === "columns" || activeSection === "indexes" || activeSection === "relations") && (
-              <div className="flex h-full min-h-0 items-center justify-center">
-                <div className="p-4 text-[13px] text-destructive">
-                  {(tableInfo.error as { userMessage?: string })?.userMessage ?? t("common.states.error")}
+              )}
+            {tableInfo.isError &&
+              (activeSection === "columns" ||
+                activeSection === "indexes" ||
+                activeSection === "relations") && (
+                <div className="flex h-full min-h-0 items-center justify-center">
+                  <div className="p-4 text-[13px] text-destructive">
+                    {(tableInfo.error as { userMessage?: string })?.userMessage ??
+                      t("common.states.error")}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
           </>
         )}
       </DbObjectWorkspace>

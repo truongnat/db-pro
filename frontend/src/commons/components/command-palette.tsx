@@ -1,10 +1,7 @@
 import { Command } from "cmdk";
 import { useEffect, useMemo } from "react";
 
-import {
-  Dialog,
-  DialogContent,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useCommandStore } from "@/commons/stores/command.store";
 import { useTranslation } from "@/commons/locales/useTranslation";
 import { formatShortcut } from "@/commons/utils/platform";

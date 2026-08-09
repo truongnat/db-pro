@@ -16,14 +16,16 @@ export function DataDiffView({ sourceId, targetId }: DataDiffViewProps) {
   const [schema, setSchema] = useState("");
   const [table, setTable] = useState("");
   const [enabled, setEnabled] = useState(false);
-  const { data: diff, isLoading, error } = useDiffTableData(sourceId, targetId, schema || null, table || null, enabled);
+  const {
+    data: diff,
+    isLoading,
+    error,
+  } = useDiffTableData(sourceId, targetId, schema || null, table || null, enabled);
 
   if (!sourceId || !targetId) {
     return (
       <div className="flex items-center justify-center py-12">
-        <p className="text-[var(--app-text-muted)]">
-          {t("schema.crossConn.selectTwo")}
-        </p>
+        <p className="text-[var(--app-text-muted)]">{t("schema.crossConn.selectTwo")}</p>
       </div>
     );
   }
@@ -79,7 +81,8 @@ export function DataDiffView({ sourceId, targetId }: DataDiffViewProps) {
                   diff.rowCountDiff === 0 ? "text-success" : "text-destructive"
                 }`}
               >
-                {diff.rowCountDiff > 0 ? "+" : ""}{diff.rowCountDiff}
+                {diff.rowCountDiff > 0 ? "+" : ""}
+                {diff.rowCountDiff}
               </p>
             </div>
           </div>

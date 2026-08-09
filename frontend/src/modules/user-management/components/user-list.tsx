@@ -13,12 +13,7 @@ interface UserListProps {
   onDropRole: (name: string) => void;
 }
 
-export function UserList({
-  users,
-  selectedUser,
-  onSelectUser,
-  onDropRole,
-}: UserListProps) {
+export function UserList({ users, selectedUser, onSelectUser, onDropRole }: UserListProps) {
   const { t } = useTranslation();
 
   return (
@@ -36,9 +31,7 @@ export function UserList({
           onClick={() => onSelectUser(user.name)}
         >
           <div className="flex flex-col min-w-0">
-            <span className="text-sm font-medium truncate text-foreground">
-              {user.name}
-            </span>
+            <span className="text-sm font-medium truncate text-foreground">{user.name}</span>
             <span className="text-xs truncate text-[var(--app-text-muted)]">
               {user.isSuper
                 ? t("userManagement.superuser")

@@ -39,9 +39,7 @@ export type StagedChangeKind = StagedChange["kind"];
  * Filter predicate for staged changes. Accepts either a kind string
  * or a predicate function for more complex filtering.
  */
-export type StagedChangeFilter =
-  | StagedChangeKind
-  | ((change: StagedChange) => boolean);
+export type StagedChangeFilter = StagedChangeKind | ((change: StagedChange) => boolean);
 
 /**
  * Convert a StagedChangeFilter to a predicate function.
@@ -175,7 +173,10 @@ export const useStagedChangesStore = create<StagedChangesState>()(
               return {
                 changes: {
                   ...s.changes,
-                  [tabId]: [...existing, { ...edit, kind: "cell-edit" as const, id: generateChangeId(), error: null }],
+                  [tabId]: [
+                    ...existing,
+                    { ...edit, kind: "cell-edit" as const, id: generateChangeId(), error: null },
+                  ],
                 },
               };
             }
@@ -193,7 +194,10 @@ export const useStagedChangesStore = create<StagedChangesState>()(
           return {
             changes: {
               ...s.changes,
-              [tabId]: [...existing, { ...edit, kind: "cell-edit" as const, id: generateChangeId(), error: null }],
+              [tabId]: [
+                ...existing,
+                { ...edit, kind: "cell-edit" as const, id: generateChangeId(), error: null },
+              ],
             },
           };
         }),
@@ -204,7 +208,10 @@ export const useStagedChangesStore = create<StagedChangesState>()(
           return {
             changes: {
               ...s.changes,
-              [tabId]: [...existing, { ...insert, kind: "row-insert" as const, id: generateChangeId() }],
+              [tabId]: [
+                ...existing,
+                { ...insert, kind: "row-insert" as const, id: generateChangeId() },
+              ],
             },
           };
         }),
@@ -217,16 +224,16 @@ export const useStagedChangesStore = create<StagedChangesState>()(
           // Remove any cell-edit or delete for same PK (delete supersedes)
           const filtered = existing.filter(
             (c) =>
-              !(
-                (c.kind === "cell-edit" || c.kind === "row-delete") &&
-                pkKey(c.pkValues) === key
-              ),
+              !((c.kind === "cell-edit" || c.kind === "row-delete") && pkKey(c.pkValues) === key),
           );
 
           return {
             changes: {
               ...s.changes,
-              [tabId]: [...filtered, { pkValues, kind: "row-delete" as const, id: generateChangeId(), error: null }],
+              [tabId]: [
+                ...filtered,
+                { pkValues, kind: "row-delete" as const, id: generateChangeId(), error: null },
+              ],
             },
           };
         }),
@@ -287,9 +294,7 @@ export const useStagedChangesStore = create<StagedChangesState>()(
           return {
             changes: {
               ...s.changes,
-              [tabId]: existing.map((c) =>
-                c.kind !== "row-insert" ? { ...c, error: null } : c,
-              ),
+              [tabId]: existing.map((c) => (c.kind !== "row-insert" ? { ...c, error: null } : c)),
             },
           };
         }),

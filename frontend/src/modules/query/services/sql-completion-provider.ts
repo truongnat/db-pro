@@ -27,9 +27,9 @@ export function createSqlCompletionProvider(
       const tabId = modelUriToTabId(model.uri.toString());
       if (!tabId) return { suggestions: [] };
 
-      const tab = useWorkspaceStore.getState().tabs.find(
-        (t) => t.id === tabId && t.kind === "query",
-      );
+      const tab = useWorkspaceStore
+        .getState()
+        .tabs.find((t) => t.id === tabId && t.kind === "query");
       if (!tab || tab.kind !== "query") return { suggestions: [] };
 
       const connectionId = tab.connectionId;
@@ -79,14 +79,13 @@ export function createSqlCompletionProvider(
           }
 
           for (const obj of cat.objects) {
-            const insertText = obj.schema === "public"
-              ? obj.name
-              : `${obj.schema}.${obj.name}`;
+            const insertText = obj.schema === "public" ? obj.name : `${obj.schema}.${obj.name}`;
             suggestions.push({
               label: obj.name,
-              kind: obj.kind === "table"
-                ? monacoInstance.languages.CompletionItemKind.Struct
-                : monacoInstance.languages.CompletionItemKind.Interface,
+              kind:
+                obj.kind === "table"
+                  ? monacoInstance.languages.CompletionItemKind.Struct
+                  : monacoInstance.languages.CompletionItemKind.Interface,
               detail: `${obj.kind} · ${obj.schema}`,
               insertText,
               range,
@@ -180,9 +179,10 @@ export function createSqlCompletionProvider(
           return {
             suggestions: tablesInSchema.map((obj) => ({
               label: obj.name,
-              kind: obj.kind === "table"
-                ? monacoInstance.languages.CompletionItemKind.Struct
-                : monacoInstance.languages.CompletionItemKind.Interface,
+              kind:
+                obj.kind === "table"
+                  ? monacoInstance.languages.CompletionItemKind.Struct
+                  : monacoInstance.languages.CompletionItemKind.Interface,
               detail: `${obj.kind} · ${obj.schema}`,
               insertText: obj.name,
               range,

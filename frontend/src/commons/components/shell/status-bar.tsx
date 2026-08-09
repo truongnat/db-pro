@@ -70,7 +70,9 @@ export function StatusBar() {
             ) : (
               <WifiOff className="h-3 w-3" />
             )}
-            <span className={status === "error" ? "text-[var(--app-danger)]" : undefined}>{statusLabel}</span>
+            <span className={status === "error" ? "text-[var(--app-danger)]" : undefined}>
+              {statusLabel}
+            </span>
           </span>
           <span className="mx-2 text-[var(--app-border-strong)]">·</span>
           <span>{activeConnection.name}</span>

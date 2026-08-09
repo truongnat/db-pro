@@ -16,7 +16,15 @@ describe("SchemaService", () => {
   });
 
   it("introspect calls introspect with connectionId", async () => {
-    mockInvoke.mockResolvedValueOnce({ schemas: [], tables: [], columns: [], primaryKeys: [], indexes: [], foreignKeys: [], views: [] });
+    mockInvoke.mockResolvedValueOnce({
+      schemas: [],
+      tables: [],
+      columns: [],
+      primaryKeys: [],
+      indexes: [],
+      foreignKeys: [],
+      views: [],
+    });
     await service.introspect("conn-1");
     expect(mockInvoke).toHaveBeenCalledWith("introspect", {
       connectionId: "conn-1",
@@ -25,7 +33,15 @@ describe("SchemaService", () => {
   });
 
   it("introspect passes forceRefresh when specified", async () => {
-    mockInvoke.mockResolvedValueOnce({ schemas: [], tables: [], columns: [], primaryKeys: [], indexes: [], foreignKeys: [], views: [] });
+    mockInvoke.mockResolvedValueOnce({
+      schemas: [],
+      tables: [],
+      columns: [],
+      primaryKeys: [],
+      indexes: [],
+      foreignKeys: [],
+      views: [],
+    });
     await service.introspect("conn-1", true);
     expect(mockInvoke).toHaveBeenCalledWith("introspect", {
       connectionId: "conn-1",
@@ -34,7 +50,13 @@ describe("SchemaService", () => {
   });
 
   it("getTableInfo calls get_table_info with all args", async () => {
-    mockInvoke.mockResolvedValueOnce({ table: {}, columns: [], primaryKey: null, indexes: [], foreignKeys: [] });
+    mockInvoke.mockResolvedValueOnce({
+      table: {},
+      columns: [],
+      primaryKey: null,
+      indexes: [],
+      foreignKeys: [],
+    });
     await service.getTableInfo("conn-1", "public", "users");
     expect(mockInvoke).toHaveBeenCalledWith("get_table_info", {
       connectionId: "conn-1",

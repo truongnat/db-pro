@@ -118,10 +118,7 @@ describe("CommandStore", () => {
 
   describe("getAvailableCommands", () => {
     it("returns all commands without when predicate", () => {
-      const cmds = [
-        createCommand({ id: "cmd-1" }),
-        createCommand({ id: "cmd-2" }),
-      ];
+      const cmds = [createCommand({ id: "cmd-1" }), createCommand({ id: "cmd-2" })];
       useCommandStore.getState().registerMany(cmds);
 
       const available = useCommandStore.getState().getAvailableCommands();

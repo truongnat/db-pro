@@ -15,10 +15,7 @@ export function registerSqlProviders(monacoInstance: typeof monaco): void {
     createSqlCompletionProvider(monacoInstance),
   );
 
-  monacoInstance.languages.registerHoverProvider(
-    "sql",
-    createSqlHoverProvider(monacoInstance),
-  );
+  monacoInstance.languages.registerHoverProvider("sql", createSqlHoverProvider(monacoInstance));
 
   registerSqlDiagnostics(monacoInstance);
 }

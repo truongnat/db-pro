@@ -1,4 +1,11 @@
-import { ChevronLeftIcon, ChevronRightIcon, DatabaseIcon, ListIcon, PinIcon, TableIcon } from "lucide-react";
+import {
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  DatabaseIcon,
+  ListIcon,
+  PinIcon,
+  TableIcon,
+} from "lucide-react";
 import { useState } from "react";
 
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
@@ -14,7 +21,10 @@ interface TabScrollControlsProps {
   onScrollRight: () => void;
 }
 
-export function TabScrollLeft({ canScrollLeft, onScrollLeft }: Pick<TabScrollControlsProps, "canScrollLeft" | "onScrollLeft">) {
+export function TabScrollLeft({
+  canScrollLeft,
+  onScrollLeft,
+}: Pick<TabScrollControlsProps, "canScrollLeft" | "onScrollLeft">) {
   if (!canScrollLeft) return null;
   return (
     <Button
@@ -31,7 +41,10 @@ export function TabScrollLeft({ canScrollLeft, onScrollLeft }: Pick<TabScrollCon
   );
 }
 
-export function TabScrollRight({ canScrollRight, onScrollRight }: Pick<TabScrollControlsProps, "canScrollRight" | "onScrollRight">) {
+export function TabScrollRight({
+  canScrollRight,
+  onScrollRight,
+}: Pick<TabScrollControlsProps, "canScrollRight" | "onScrollRight">) {
   if (!canScrollRight) return null;
   return (
     <Button
@@ -91,9 +104,7 @@ export function TabOverflowMenu({ isOverflowing }: Pick<TabScrollControlsProps, 
               ) : (
                 <DatabaseIcon className="h-3.5 w-3.5 shrink-0 text-[var(--app-text-muted)]" />
               )}
-              {tab.dirty && (
-                <span className="h-2 w-2 shrink-0 rounded-full bg-primary" />
-              )}
+              {tab.dirty && <span className="h-2 w-2 shrink-0 rounded-full bg-primary" />}
               {tab.pinned && <PinIcon className="h-3 w-3 shrink-0 text-[var(--app-text-muted)]" />}
               <span className={cn("flex-1 truncate", tab.preview && "italic opacity-70")}>
                 {tab.title}

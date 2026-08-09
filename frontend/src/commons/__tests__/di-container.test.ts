@@ -26,10 +26,14 @@ describe("DIContainer", () => {
     it("creates new instances for non-singletons", () => {
       const container = new DIContainer();
       let callCount = 0;
-      container.register("svc", () => {
-        callCount++;
-        return { id: callCount };
-      }, false);
+      container.register(
+        "svc",
+        () => {
+          callCount++;
+          return { id: callCount };
+        },
+        false,
+      );
       const a = container.resolve<{ id: number }>("svc");
       const b = container.resolve<{ id: number }>("svc");
       expect(a.id).toBe(1);

@@ -19,10 +19,7 @@ interface QueryEditorContextState {
   contexts: Record<string, EditorCursorState>;
 
   /** Update cursor state for a given tab (called by Monaco). */
-  setEditorContext: (
-    tabId: string,
-    state: EditorCursorState,
-  ) => void;
+  setEditorContext: (tabId: string, state: EditorCursorState) => void;
 
   /** Get cursor state for a tab. Returns default if not tracked. */
   getEditorContext: (tabId: string) => EditorCursorState;

@@ -7,11 +7,7 @@ import { CellEditor } from "../components/cell-editor";
 describe("CellEditor", () => {
   it("renders input with current value", () => {
     render(
-      <CellEditor
-        value={{ type: "text", value: "hello" }}
-        onSave={vi.fn()}
-        onCancel={vi.fn()}
-      />,
+      <CellEditor value={{ type: "text", value: "hello" }} onSave={vi.fn()} onCancel={vi.fn()} />,
     );
     const input = screen.getByRole("textbox");
     expect(input).toHaveValue("hello");
@@ -22,11 +18,7 @@ describe("CellEditor", () => {
     const user = userEvent.setup();
 
     render(
-      <CellEditor
-        value={{ type: "text", value: "hello" }}
-        onSave={onSave}
-        onCancel={vi.fn()}
-      />,
+      <CellEditor value={{ type: "text", value: "hello" }} onSave={onSave} onCancel={vi.fn()} />,
     );
 
     const input = screen.getByRole("textbox");
@@ -41,11 +33,7 @@ describe("CellEditor", () => {
     const user = userEvent.setup();
 
     render(
-      <CellEditor
-        value={{ type: "text", value: "hello" }}
-        onSave={vi.fn()}
-        onCancel={onCancel}
-      />,
+      <CellEditor value={{ type: "text", value: "hello" }} onSave={vi.fn()} onCancel={onCancel} />,
     );
 
     const input = screen.getByRole("textbox");
@@ -59,11 +47,7 @@ describe("CellEditor", () => {
     const user = userEvent.setup();
 
     render(
-      <CellEditor
-        value={{ type: "text", value: "hello" }}
-        onSave={vi.fn()}
-        onCancel={onCancel}
-      />,
+      <CellEditor value={{ type: "text", value: "hello" }} onSave={vi.fn()} onCancel={onCancel} />,
     );
 
     const input = screen.getByRole("textbox");
@@ -77,11 +61,7 @@ describe("CellEditor", () => {
     const user = userEvent.setup();
 
     render(
-      <CellEditor
-        value={{ type: "text", value: "hello" }}
-        onSave={onSave}
-        onCancel={vi.fn()}
-      />,
+      <CellEditor value={{ type: "text", value: "hello" }} onSave={onSave} onCancel={vi.fn()} />,
     );
 
     const input = screen.getByRole("textbox");
@@ -95,13 +75,7 @@ describe("CellEditor", () => {
     const onSave = vi.fn();
     const user = userEvent.setup();
 
-    render(
-      <CellEditor
-        value={{ type: "int64", value: 42 }}
-        onSave={onSave}
-        onCancel={vi.fn()}
-      />,
-    );
+    render(<CellEditor value={{ type: "int64", value: 42 }} onSave={onSave} onCancel={vi.fn()} />);
 
     const input = screen.getByRole("textbox");
     await user.clear(input);
@@ -115,11 +89,7 @@ describe("CellEditor", () => {
     const user = userEvent.setup();
 
     render(
-      <CellEditor
-        value={{ type: "int64", value: 42 }}
-        onSave={vi.fn()}
-        onCancel={onCancel}
-      />,
+      <CellEditor value={{ type: "int64", value: 42 }} onSave={vi.fn()} onCancel={onCancel} />,
     );
 
     const input = screen.getByRole("textbox");
@@ -134,11 +104,7 @@ describe("CellEditor", () => {
     const user = userEvent.setup();
 
     render(
-      <CellEditor
-        value={{ type: "float64", value: 3.14 }}
-        onSave={onSave}
-        onCancel={vi.fn()}
-      />,
+      <CellEditor value={{ type: "float64", value: 3.14 }} onSave={onSave} onCancel={vi.fn()} />,
     );
 
     const input = screen.getByRole("textbox");
@@ -153,11 +119,7 @@ describe("CellEditor", () => {
     const user = userEvent.setup();
 
     render(
-      <CellEditor
-        value={{ type: "bool", value: false }}
-        onSave={onSave}
-        onCancel={vi.fn()}
-      />,
+      <CellEditor value={{ type: "bool", value: false }} onSave={onSave} onCancel={vi.fn()} />,
     );
 
     const input = screen.getByRole("textbox");
@@ -171,13 +133,7 @@ describe("CellEditor", () => {
     const onSave = vi.fn();
     const user = userEvent.setup();
 
-    render(
-      <CellEditor
-        value={{ type: "bool", value: true }}
-        onSave={onSave}
-        onCancel={vi.fn()}
-      />,
-    );
+    render(<CellEditor value={{ type: "bool", value: true }} onSave={onSave} onCancel={vi.fn()} />);
 
     const input = screen.getByRole("textbox");
     await user.clear(input);

@@ -52,9 +52,7 @@ function saveRatio(storageKey: string, ratio: number) {
   }
 }
 
-export function useResizableDock(
-  options: UseResizableDockOptions = {},
-): UseResizableDockReturn {
+export function useResizableDock(options: UseResizableDockOptions = {}): UseResizableDockReturn {
   const {
     initialRatio = DEFAULT_INITIAL_RATIO,
     minTop = DEFAULT_MIN_TOP,

@@ -23,9 +23,7 @@ export function ZoomControls({ zoom, onZoomChange }: ZoomControlsProps) {
       >
         −
       </Button>
-      <span className="min-w-[3ch] text-center text-xs text-[var(--app-text-muted)]">
-        {zoom}%
-      </span>
+      <span className="min-w-[3ch] text-center text-xs text-[var(--app-text-muted)]">{zoom}%</span>
       <Button
         type="button"
         variant="ghost"

@@ -1,22 +1,23 @@
 import { apiInvoke } from "@/commons/utils/api";
-import type { DataDiff, IntrospectResult, ObjectDependency, PartitionInfo, SchemaDiff, TableInfo, TablespaceInfo } from "../types/schema.types";
+import type {
+  DataDiff,
+  IntrospectResult,
+  ObjectDependency,
+  PartitionInfo,
+  SchemaDiff,
+  TableInfo,
+  TablespaceInfo,
+} from "../types/schema.types";
 
 export class SchemaService {
-  async introspect(
-    connectionId: string,
-    forceRefresh?: boolean,
-  ): Promise<IntrospectResult> {
+  async introspect(connectionId: string, forceRefresh?: boolean): Promise<IntrospectResult> {
     return apiInvoke<IntrospectResult>("introspect", {
       connectionId,
       forceRefresh,
     });
   }
 
-  async getTableInfo(
-    connectionId: string,
-    schema: string,
-    table: string,
-  ): Promise<TableInfo> {
+  async getTableInfo(connectionId: string, schema: string, table: string): Promise<TableInfo> {
     return apiInvoke<TableInfo>("get_table_info", {
       connectionId,
       schema,
@@ -24,11 +25,7 @@ export class SchemaService {
     });
   }
 
-  async getTableDdl(
-    connectionId: string,
-    schema: string,
-    table: string,
-  ): Promise<string> {
+  async getTableDdl(connectionId: string, schema: string, table: string): Promise<string> {
     return apiInvoke<string>("get_table_ddl", {
       connectionId,
       schema,
@@ -36,10 +33,7 @@ export class SchemaService {
     });
   }
 
-  async executeDdl(
-    connectionId: string,
-    sql: string,
-  ): Promise<{ affectedRows: number }> {
+  async executeDdl(connectionId: string, sql: string): Promise<{ affectedRows: number }> {
     return apiInvoke<{ affectedRows: number }>("execute_ddl", {
       connectionId,
       sql,
@@ -52,10 +46,7 @@ export class SchemaService {
     });
   }
 
-  async diffSchemas(
-    sourceId: string,
-    targetId: string,
-  ): Promise<SchemaDiff> {
+  async diffSchemas(sourceId: string, targetId: string): Promise<SchemaDiff> {
     return apiInvoke<SchemaDiff>("diff_schemas", {
       sourceId,
       targetId,

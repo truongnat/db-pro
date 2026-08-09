@@ -70,8 +70,13 @@ describe("useQueryTimer", () => {
 
   it("resets to 0 when returning to idle with null startedAt", () => {
     const { result, rerender } = renderHook(
-      ({ status, startedAt }: { status: "idle" | "running" | "success"; startedAt: number | null }) =>
-        useQueryTimer(status, startedAt),
+      ({
+        status,
+        startedAt,
+      }: {
+        status: "idle" | "running" | "success";
+        startedAt: number | null;
+      }) => useQueryTimer(status, startedAt),
       { initialProps: { status: "running" as const, startedAt: 999000 } },
     );
 

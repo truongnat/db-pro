@@ -10,10 +10,7 @@ import type { ResultPanelTab, WorkspaceTab } from "@/commons/types/workspace.typ
 
 // ─── workspace.tab.open ──────────────────────────────────────
 
-export const openTabAction = defineAction<
-  { tab: unknown },
-  { tabId: string }
->({
+export const openTabAction = defineAction<{ tab: unknown }, { tabId: string }>({
   id: "workspace.tab.open",
   title: "Open tab",
   description: "Open a new workspace tab (query or db-object).",
@@ -32,19 +29,14 @@ export const openTabAction = defineAction<
     return {
       status: "success",
       data: { tabId: tab.id },
-      effects: [
-        { type: "workspace.tab.opened", tabId: tab.id, kind: tab.kind },
-      ],
+      effects: [{ type: "workspace.tab.opened", tabId: tab.id, kind: tab.kind }],
     } satisfies ActionResult<{ tabId: string }>;
   },
 });
 
 // ─── workspace.tab.close ─────────────────────────────────────
 
-export const closeTabAction = defineAction<
-  { tabId?: string },
-  { closedTabId: string }
->({
+export const closeTabAction = defineAction<{ tabId?: string }, { closedTabId: string }>({
   id: "workspace.tab.close",
   title: "Close tab",
   description: "Close the active or specified workspace tab.",
@@ -107,10 +99,7 @@ export const closeTabAction = defineAction<
 
 // ─── workspace.tab.activate ──────────────────────────────────
 
-export const activateTabAction = defineAction<
-  { tabId: string },
-  { tabId: string }
->({
+export const activateTabAction = defineAction<{ tabId: string }, { tabId: string }>({
   id: "workspace.tab.activate",
   title: "Activate tab",
   description: "Switch focus to the specified workspace tab.",
@@ -139,10 +128,7 @@ export const activateTabAction = defineAction<
 
 // ─── workspace.tab.pin ───────────────────────────────────────
 
-export const pinTabAction = defineAction<
-  { tabId?: string },
-  { tabId: string; pinned: boolean }
->({
+export const pinTabAction = defineAction<{ tabId?: string }, { tabId: string; pinned: boolean }>({
   id: "workspace.tab.pin",
   title: "Pin / unpin tab",
   description: "Toggle the pinned state of the active or specified tab.",
@@ -174,14 +160,10 @@ export const pinTabAction = defineAction<
 
 // ─── workspace.panel.set ─────────────────────────────────────
 
-export const setPanelAction = defineAction<
-  { tabId?: string; panel: string },
-  { panel: string }
->({
+export const setPanelAction = defineAction<{ tabId?: string; panel: string }, { panel: string }>({
   id: "workspace.panel.set",
   title: "Set result panel",
-  description:
-    "Switch the result panel tab (results, explain, history, local-history, snippets).",
+  description: "Switch the result panel tab (results, explain, history, local-history, snippets).",
   category: "workspace",
   inputSchema: z.object({
     tabId: z.string().optional(),

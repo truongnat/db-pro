@@ -3,10 +3,7 @@ import { useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "@/commons/locales/useTranslation";
 
-import {
-  useDeleteRunConfig,
-  useListRunConfigs,
-} from "../queries/query.queries";
+import { useDeleteRunConfig, useListRunConfigs } from "../queries/query.queries";
 import type { RunConfig } from "../types/query.types";
 
 interface RunConfigListProps {
@@ -32,9 +29,7 @@ export function RunConfigList({ connectionId, onSelect, onNew }: RunConfigListPr
   return (
     <div className="flex h-full flex-col overflow-auto p-2 text-sm">
       <div className="mb-2 flex items-center justify-between">
-        <span className="font-medium text-foreground">
-          {t("query.runConfigs")}
-        </span>
+        <span className="font-medium text-foreground">{t("query.runConfigs")}</span>
         <Button
           type="button"
           variant="ghost"

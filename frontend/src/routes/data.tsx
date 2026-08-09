@@ -26,9 +26,9 @@ function DataRedirect() {
         useWorkspaceStore.getState().setDbObjectSection(existing.id, "data");
         useWorkspaceStore.getState().activateTab(existing.id);
       } else {
-        useWorkspaceStore.getState().openDbObject(
-          createDbObjectTab(connectionId, schema, table, "table", "data", false),
-        );
+        useWorkspaceStore
+          .getState()
+          .openDbObject(createDbObjectTab(connectionId, schema, table, "table", "data", false));
       }
     }
     navigate({ to: "/" });

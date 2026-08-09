@@ -15,10 +15,10 @@ export function IdeSurface({
   children?: React.ReactNode;
 } & React.HTMLAttributes<HTMLDivElement>) {
   const bgClass = [
-    "bg-background",       // L0
-    "bg-sidebar",          // L1
-    "bg-card",             // L2
-    "bg-popover",          // L3
+    "bg-background", // L0
+    "bg-sidebar", // L1
+    "bg-card", // L2
+    "bg-popover", // L3
   ][layer];
 
   return (

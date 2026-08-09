@@ -4,7 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useTranslation } from "@/commons/locales/useTranslation";
 
 import { useExecuteDdl } from "../queries/schema.queries";
@@ -44,13 +50,14 @@ export function TriggerManager({ connectionId, schema, table }: TriggerManagerPr
   return (
     <div className="flex flex-col gap-4 p-3">
       <div className="rounded-sm border border-[var(--app-border-subtle)] p-3">
-        <h4 className="mb-2 text-xs font-semibold text-foreground">
-          {t("schema.createTrigger")}
-        </h4>
+        <h4 className="mb-2 text-xs font-semibold text-foreground">{t("schema.createTrigger")}</h4>
 
         <div className="space-y-2">
           <div>
-            <Label htmlFor="trigger-name" className="mb-1 block text-xs text-[var(--app-text-muted)]">
+            <Label
+              htmlFor="trigger-name"
+              className="mb-1 block text-xs text-[var(--app-text-muted)]"
+            >
               {t("schema.triggerName")}
             </Label>
             <Input
@@ -64,11 +71,17 @@ export function TriggerManager({ connectionId, schema, table }: TriggerManagerPr
 
           <div className="flex gap-2">
             <div className="flex-1">
-              <Label htmlFor="trigger-timing" className="mb-1 block text-xs text-[var(--app-text-muted)]">
+              <Label
+                htmlFor="trigger-timing"
+                className="mb-1 block text-xs text-[var(--app-text-muted)]"
+              >
                 {t("schema.triggerTiming")}
               </Label>
               <Select value={timing} onValueChange={setTiming}>
-                <SelectTrigger id="trigger-timing" className="w-full rounded-sm border border-[var(--app-border)] bg-background px-2 py-1 text-xs text-foreground">
+                <SelectTrigger
+                  id="trigger-timing"
+                  className="w-full rounded-sm border border-[var(--app-border)] bg-background px-2 py-1 text-xs text-foreground"
+                >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -79,11 +92,17 @@ export function TriggerManager({ connectionId, schema, table }: TriggerManagerPr
               </Select>
             </div>
             <div className="flex-1">
-              <Label htmlFor="trigger-event" className="mb-1 block text-xs text-[var(--app-text-muted)]">
+              <Label
+                htmlFor="trigger-event"
+                className="mb-1 block text-xs text-[var(--app-text-muted)]"
+              >
                 {t("schema.triggerEvent")}
               </Label>
               <Select value={event} onValueChange={setEvent}>
-                <SelectTrigger id="trigger-event" className="w-full rounded-sm border border-[var(--app-border)] bg-background px-2 py-1 text-xs text-foreground">
+                <SelectTrigger
+                  id="trigger-event"
+                  className="w-full rounded-sm border border-[var(--app-border)] bg-background px-2 py-1 text-xs text-foreground"
+                >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -97,7 +116,10 @@ export function TriggerManager({ connectionId, schema, table }: TriggerManagerPr
           </div>
 
           <div>
-            <Label htmlFor="trigger-body" className="mb-1 block text-xs text-[var(--app-text-muted)]">
+            <Label
+              htmlFor="trigger-body"
+              className="mb-1 block text-xs text-[var(--app-text-muted)]"
+            >
               {t("schema.triggerBody")}
             </Label>
             <Textarea

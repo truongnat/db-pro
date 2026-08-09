@@ -15,12 +15,7 @@ export type ActionId = string;
 // ─── Source ──────────────────────────────────────────────────
 
 /** Where the action invocation originated. */
-export type ActionSource =
-  | "ui"
-  | "keyboard"
-  | "command-palette"
-  | "agent"
-  | "mcp";
+export type ActionSource = "ui" | "keyboard" | "command-palette" | "agent" | "mcp";
 
 // ─── Risk ────────────────────────────────────────────────────
 
@@ -154,33 +149,22 @@ export interface ActionDefinition<TInput = void, TOutput = unknown> {
   inputSchema: ActionSchema<TInput>;
   outputSchema?: ActionSchema<TOutput>;
 
-  execute(
-    input: TInput,
-    context: ActionExecutionContext,
-  ): Promise<ActionResult<TOutput>>;
+  execute(input: TInput, context: ActionExecutionContext): Promise<ActionResult<TOutput>>;
 
-  availability?(
-    context: ActionExecutionContext,
-  ): ActionAvailability;
+  availability?(context: ActionExecutionContext): ActionAvailability;
 
   /**
    * Optional cancel hook for long-running executions.
    * Called by the bus when cancelExecution() is invoked.
    */
-  cancel?(
-    execution: ActionExecution,
-    context: ActionExecutionContext,
-  ): Promise<void>;
+  cancel?(execution: ActionExecution, context: ActionExecutionContext): Promise<void>;
 
   /**
    * Dynamic risk resolution based on actual input.
    * When present, overrides the static `risk` field.
    * Called after input validation but before confirmation gate.
    */
-  resolveRisk?(
-    input: TInput,
-    context: ActionExecutionContext,
-  ): ActionRisk;
+  resolveRisk?(input: TInput, context: ActionExecutionContext): ActionRisk;
 
   /**
    * Provides default input when invoked from the command palette.
@@ -209,10 +193,7 @@ export interface ActionDefinition<TInput = void, TOutput = unknown> {
    *
    * For query actions, this returns the ResolvedQueryExecution.
    */
-  resolvePayload?(
-    input: TInput,
-    context: ActionExecutionContext,
-  ): Record<string, unknown> | null;
+  resolvePayload?(input: TInput, context: ActionExecutionContext): Record<string, unknown> | null;
 
   risk?: ActionRisk;
   confirmation?: ConfirmationPolicy;

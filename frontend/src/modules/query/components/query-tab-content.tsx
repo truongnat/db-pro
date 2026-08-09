@@ -27,9 +27,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ChevronDown, History, Clock, BookOpen, HelpCircle, Database } from "lucide-react";
-import {
-  useQueryHistory,
-} from "../queries/query.queries";
+import { useQueryHistory } from "../queries/query.queries";
 import { createQueryTab } from "@/commons/factories/tab-factories";
 import {
   setTabSql,
@@ -87,21 +85,27 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
   );
 
   /** Execute all statements via Action Platform (Ctrl+Shift+Enter / F5 / toolbar). */
-  const handleExecuteAll = useCallback(async (source: "keyboard" | "ui" = "ui") => {
-    if (tabConnectionId && tabId && sql.trim() && status !== "running") {
-      const result = await executeAction("query.execute.all", { tabId }, { source });
-      if (result.status === "confirmation_required" && result.confirmation) {
-        useActionConfirmationStore.getState().setPending(result.confirmation);
+  const handleExecuteAll = useCallback(
+    async (source: "keyboard" | "ui" = "ui") => {
+      if (tabConnectionId && tabId && sql.trim() && status !== "running") {
+        const result = await executeAction("query.execute.all", { tabId }, { source });
+        if (result.status === "confirmation_required" && result.confirmation) {
+          useActionConfirmationStore.getState().setPending(result.confirmation);
+        }
       }
-    }
-  }, [tabConnectionId, tabId, sql, status]);
+    },
+    [tabConnectionId, tabId, sql, status],
+  );
 
   /** Cancel via Action Platform. */
-  const handleCancel = useCallback((source: "keyboard" | "ui" = "ui") => {
-    if (tabId) {
-      void executeAction("query.cancel", { tabId }, { source });
-    }
-  }, [tabId]);
+  const handleCancel = useCallback(
+    (source: "keyboard" | "ui" = "ui") => {
+      if (tabId) {
+        void executeAction("query.cancel", { tabId }, { source });
+      }
+    },
+    [tabId],
+  );
 
   /** Explain via Action Platform — no direct hook bypass. */
   const handleExplain = useCallback(async () => {
@@ -249,16 +253,17 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
       onClick={() => setTabActivePanel(tabId, tab.id)}
     >
       {tab.label}
-      {panelTab === tab.id && (
-        <span className="absolute inset-x-3 bottom-0 h-[2px] bg-primary" />
-      )}
+      {panelTab === tab.id && <span className="absolute inset-x-3 bottom-0 h-[2px] bg-primary" />}
     </button>
   );
 
-  const secondaryTabLabels: Record<string, { label: string; icon: React.ComponentType<{ className?: string }> }> = {
-    "history": { label: t("query.history"), icon: History },
+  const secondaryTabLabels: Record<
+    string,
+    { label: string; icon: React.ComponentType<{ className?: string }> }
+  > = {
+    history: { label: t("query.history"), icon: History },
     "local-history": { label: t("query.localHistory"), icon: Clock },
-    "snippets": { label: t("query.snippets"), icon: BookOpen },
+    snippets: { label: t("query.snippets"), icon: BookOpen },
   };
 
   return (
@@ -336,11 +341,18 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
                   </div>
                   <p className="text-[13px] font-medium text-foreground">{t("query.queryError")}</p>
                 </div>
-                <p className="mb-4 max-w-lg text-[13px] leading-relaxed text-[var(--app-text-muted)]">{error}</p>
+                <p className="mb-4 max-w-lg text-[13px] leading-relaxed text-[var(--app-text-muted)]">
+                  {error}
+                </p>
                 <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm" className="h-7 rounded-[5px] text-[13px]" onClick={() => {
-                    void handleExecuteFragment("", "ui");
-                  }}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 rounded-[5px] text-[13px]"
+                    onClick={() => {
+                      void handleExecuteFragment("", "ui");
+                    }}
+                  >
                     {t("query.runCurrent")}
                   </Button>
                 </div>
@@ -367,13 +379,13 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
                   <Database className="h-4 w-4 text-[var(--app-text-muted)]" />
                 </div>
                 <p className="mb-1 text-[13px] font-medium text-foreground">No query results yet</p>
-                <p className="text-[12px] text-[var(--app-text-muted)]">Run the current statement to see results here.</p>
+                <p className="text-[12px] text-[var(--app-text-muted)]">
+                  Run the current statement to see results here.
+                </p>
               </div>
             )}
 
-            {panelTab === "explain" && explainPlan && (
-              <ExplainPlanView plan={explainPlan} />
-            )}
+            {panelTab === "explain" && explainPlan && <ExplainPlanView plan={explainPlan} />}
 
             {panelTab === "explain" && explainError && (
               <div className="flex flex-col items-start px-6 py-6">
@@ -403,7 +415,9 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
                 <div className="mb-3 grid h-9 w-9 place-items-center rounded-lg bg-[var(--app-surface-2)]">
                   <HelpCircle className="h-4 w-4 text-[var(--app-text-muted)]" />
                 </div>
-                <p className="mb-1 text-[13px] font-medium text-foreground">No execution plan yet</p>
+                <p className="mb-1 text-[13px] font-medium text-foreground">
+                  No execution plan yet
+                </p>
                 <p className="mb-4 max-w-xs text-center text-[12px] leading-relaxed text-[var(--app-text-muted)]">
                   Run Explain to inspect how PostgreSQL plans the current statement.
                 </p>

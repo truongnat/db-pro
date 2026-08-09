@@ -20,9 +20,7 @@ vi.mock("../queries/connection.queries", () => ({
 }));
 
 vi.mock("@/commons/stores/connection.store", () => ({
-  useConnectionStore: vi.fn((selector) =>
-    selector({ explorerConnectionId: null }),
-  ),
+  useConnectionStore: vi.fn((selector) => selector({ explorerConnectionId: null })),
 }));
 
 vi.mock("../state/connection.store", () => ({
@@ -53,9 +51,22 @@ i18n.use(initReactI18next).init({
     en: {
       translation: {
         common: {
-          states: { loading: "Loading...", empty: "No data", error: "Error", connected: "Connected", disconnected: "Disconnected" },
+          states: {
+            loading: "Loading...",
+            empty: "No data",
+            error: "Error",
+            connected: "Connected",
+            disconnected: "Disconnected",
+          },
           labels: { name: "Name", host: "Host", database: "Database", driver: "Driver" },
-          actions: { delete: "Delete", connect: "Connect", disconnect: "Disconnect", edit: "Edit", clear: "Clear All", sort: "Sort" },
+          actions: {
+            delete: "Delete",
+            connect: "Connect",
+            disconnect: "Disconnect",
+            edit: "Edit",
+            clear: "Clear All",
+            sort: "Sort",
+          },
         },
         connection: {
           edit: "Edit Connection",

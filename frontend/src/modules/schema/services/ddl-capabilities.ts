@@ -30,10 +30,7 @@ export interface DdlCapabilities {
   requiresTableRebuild: TableRebuildOp[];
 }
 
-export type TableRebuildOp =
-  | "dropColumn"
-  | "alterColumn"
-  | "addForeignKey";
+export type TableRebuildOp = "dropColumn" | "alterColumn" | "addForeignKey";
 
 /* ------------------------------------------------------------------ */
 /*  Per-dialect capabilities                                           */
@@ -87,8 +84,7 @@ export function getDdlCapabilitiesForDialect(dialect: SqlDialect): DdlCapabiliti
 /* ------------------------------------------------------------------ */
 
 export type CapabilityCheckResult =
-  | { supported: true }
-  | { supported: false; reason: string; requiresRebuild?: boolean };
+  { supported: true } | { supported: false; reason: string; requiresRebuild?: boolean };
 
 /**
  * Check whether a DDL operation is supported by the given dialect.
@@ -189,14 +185,29 @@ export interface TableRebuildInput {
   schema: string;
   table: string;
   /** Current column definitions. */
-  currentColumns: { name: string; dataType: string; nullable: boolean; defaultValue: string | null; isPk: boolean }[];
+  currentColumns: {
+    name: string;
+    dataType: string;
+    nullable: boolean;
+    defaultValue: string | null;
+    isPk: boolean;
+  }[];
   /** New column definitions (after the change). */
-  newColumns: { name: string; dataType: string; nullable: boolean; defaultValue: string | null; isPk: boolean }[];
+  newColumns: {
+    name: string;
+    dataType: string;
+    nullable: boolean;
+    defaultValue: string | null;
+    isPk: boolean;
+  }[];
   /** Existing indexes to recreate. */
   indexes?: { name: string; columns: string[]; unique: boolean }[];
 }
 
-export function buildSqliteTableRebuild(input: TableRebuildInput, dialect: SqlDialect): TableRebuildPlan {
+export function buildSqliteTableRebuild(
+  input: TableRebuildInput,
+  dialect: SqlDialect,
+): TableRebuildPlan {
   const qualified = dialect.qualify(input.schema, input.table);
   const tempName = `_rebuild_${input.table}`;
   const tempQualified = dialect.qualify(input.schema, tempName);

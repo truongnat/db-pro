@@ -38,10 +38,9 @@ describe("ConnectionStore — activeConnectionIds", () => {
   });
 
   it("removing a connection also removes it from activeConnectionIds", () => {
-    useConnectionStore.getState().setConnections([
-      { id: "c1", name: "A" } as never,
-      { id: "c2", name: "B" } as never,
-    ]);
+    useConnectionStore
+      .getState()
+      .setConnections([{ id: "c1", name: "A" } as never, { id: "c2", name: "B" } as never]);
     useConnectionStore.getState().setActiveConnection("c1");
     useConnectionStore.getState().setActiveConnection("c2");
     useConnectionStore.getState().removeConnection("c1");

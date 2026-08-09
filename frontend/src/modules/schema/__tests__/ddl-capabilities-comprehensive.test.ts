@@ -78,7 +78,14 @@ describe("DDL Capabilities — per-driver", () => {
 describe("checkOperationSupported", () => {
   describe("PostgreSQL", () => {
     it("all operations are supported", () => {
-      const ops = ["dropColumn", "alterColumn", "renameTable", "renameColumn", "addForeignKey", "addConstraint"];
+      const ops = [
+        "dropColumn",
+        "alterColumn",
+        "renameTable",
+        "renameColumn",
+        "addForeignKey",
+        "addConstraint",
+      ];
       for (const op of ops) {
         const result = checkOperationSupported("postgres", op);
         expect(result.supported, `Expected ${op} to be supported`).toBe(true);
@@ -146,9 +153,7 @@ describe("buildSqliteTableRebuild", () => {
       { name: "email", dataType: "TEXT", nullable: false, defaultValue: null, isPk: false },
       { name: "age", dataType: "INTEGER", nullable: true, defaultValue: null, isPk: false },
     ],
-    indexes: [
-      { name: "idx_email", columns: ["email"], unique: true },
-    ],
+    indexes: [{ name: "idx_email", columns: ["email"], unique: true }],
   };
 
   it("generates correct sequence of SQL statements", () => {

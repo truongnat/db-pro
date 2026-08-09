@@ -25,17 +25,24 @@ export interface IConnectionService {
 }
 
 export interface IQueryService {
-  execute(connectionId: string, sql: string, executionId: string, database?: string | null, schema?: string | null): Promise<unknown>;
+  execute(
+    connectionId: string,
+    sql: string,
+    executionId: string,
+    database?: string | null,
+    schema?: string | null,
+  ): Promise<unknown>;
   cancel(executionId: string): Promise<void>;
-  executeMulti(connectionId: string, sql: string, executionId: string, database?: string | null, schema?: string | null): Promise<unknown>;
+  executeMulti(
+    connectionId: string,
+    sql: string,
+    executionId: string,
+    database?: string | null,
+    schema?: string | null,
+  ): Promise<unknown>;
   explain(connectionId: string, sql: string): Promise<unknown>;
   getHistory(connectionId: string, limit?: number): Promise<unknown[]>;
-  save(
-    connectionId: string,
-    name: string,
-    sql: string,
-    folder?: string,
-  ): Promise<unknown>;
+  save(connectionId: string, name: string, sql: string, folder?: string): Promise<unknown>;
   listSaved(connectionId: string): Promise<unknown[]>;
   deleteSaved(id: string): Promise<void>;
   createFolder(connectionId: string, name: string): Promise<unknown>;
@@ -54,16 +61,8 @@ export interface IQueryService {
 
 export interface ISchemaService {
   introspect(connectionId: string, forceRefresh?: boolean): Promise<unknown>;
-  getTableInfo(
-    connectionId: string,
-    schema: string,
-    table: string,
-  ): Promise<unknown>;
-  getTableDdl(
-    connectionId: string,
-    schema: string,
-    table: string,
-  ): Promise<string>;
+  getTableInfo(connectionId: string, schema: string, table: string): Promise<unknown>;
+  getTableDdl(connectionId: string, schema: string, table: string): Promise<string>;
   executeDdl(connectionId: string, sql: string): Promise<unknown>;
   invalidateCache(connectionId: string): Promise<void>;
   diffSchemas(sourceId: string, targetId: string): Promise<unknown>;
@@ -73,11 +72,7 @@ export interface ISchemaService {
     schema: string,
     table: string,
   ): Promise<unknown>;
-  getObjectDependencies(
-    connectionId: string,
-    schema: string,
-    objectName: string,
-  ): Promise<unknown>;
+  getObjectDependencies(connectionId: string, schema: string, objectName: string): Promise<unknown>;
   listPartitions(connectionId: string): Promise<unknown>;
   listTablespaces(connectionId: string): Promise<unknown>;
   renameSchemaObject(

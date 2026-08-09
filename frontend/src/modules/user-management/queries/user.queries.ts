@@ -12,16 +12,13 @@ const USER_KEYS = {
 };
 
 function getUserService() {
-  return container.resolve<IUserManagementService>(
-    SERVICE_NAMES.USER_MANAGEMENT_SERVICE,
-  );
+  return container.resolve<IUserManagementService>(SERVICE_NAMES.USER_MANAGEMENT_SERVICE);
 }
 
 export function useListUsers(connectionId: string | null) {
   return useQuery({
     queryKey: USER_KEYS.list(connectionId ?? ""),
-    queryFn: () =>
-      getUserService().listUsers(connectionId!) as Promise<DatabaseUser[]>,
+    queryFn: () => getUserService().listUsers(connectionId!) as Promise<DatabaseUser[]>,
     enabled: !!connectionId,
   });
 }
@@ -51,10 +48,7 @@ export function useDropRole(connectionId: string | null) {
   });
 }
 
-export function useListPrivileges(
-  connectionId: string | null,
-  roleName: string | null,
-) {
+export function useListPrivileges(connectionId: string | null, roleName: string | null) {
   return useQuery({
     queryKey: USER_KEYS.privileges(connectionId ?? "", roleName ?? ""),
     queryFn: () =>
@@ -63,10 +57,7 @@ export function useListPrivileges(
   });
 }
 
-export function useGrantPrivilege(
-  connectionId: string | null,
-  roleName: string | null,
-) {
+export function useGrantPrivilege(connectionId: string | null, roleName: string | null) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({
@@ -77,14 +68,7 @@ export function useGrantPrivilege(
       schema: string;
       table: string;
       privilege: string;
-    }) =>
-      getUserService().grantPrivilege(
-        connectionId!,
-        roleName!,
-        schema,
-        table,
-        privilege,
-      ),
+    }) => getUserService().grantPrivilege(connectionId!, roleName!, schema, table, privilege),
     onSuccess: () => {
       if (connectionId && roleName) {
         qc.invalidateQueries({
@@ -95,10 +79,7 @@ export function useGrantPrivilege(
   });
 }
 
-export function useRevokePrivilege(
-  connectionId: string | null,
-  roleName: string | null,
-) {
+export function useRevokePrivilege(connectionId: string | null, roleName: string | null) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({
@@ -109,14 +90,7 @@ export function useRevokePrivilege(
       schema: string;
       table: string;
       privilege: string;
-    }) =>
-      getUserService().revokePrivilege(
-        connectionId!,
-        roleName!,
-        schema,
-        table,
-        privilege,
-      ),
+    }) => getUserService().revokePrivilege(connectionId!, roleName!, schema, table, privilege),
     onSuccess: () => {
       if (connectionId && roleName) {
         qc.invalidateQueries({

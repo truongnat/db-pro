@@ -15,12 +15,10 @@ export function SearchView() {
   const { openSchemaPreview, openTableData } = useSidebarTabOps();
 
   const lowerQuery = query.toLowerCase();
-  const filteredTables = introspect.data?.tables.filter((t) =>
-    t.name.toLowerCase().includes(lowerQuery),
-  ) ?? [];
-  const filteredViews = introspect.data?.views.filter((v) =>
-    v.name.toLowerCase().includes(lowerQuery),
-  ) ?? [];
+  const filteredTables =
+    introspect.data?.tables.filter((t) => t.name.toLowerCase().includes(lowerQuery)) ?? [];
+  const filteredViews =
+    introspect.data?.views.filter((v) => v.name.toLowerCase().includes(lowerQuery)) ?? [];
 
   return (
     <div className="flex min-h-0 flex-col gap-2">
@@ -32,7 +30,9 @@ export function SearchView() {
       />
 
       {!explorerConnectionId && (
-        <p className="px-2 py-1 text-xs text-[var(--app-text-dim)]">{t("shell.sidebar.connectFirst")}</p>
+        <p className="px-2 py-1 text-xs text-[var(--app-text-dim)]">
+          {t("shell.sidebar.connectFirst")}
+        </p>
       )}
 
       {explorerConnectionId && query && (
@@ -43,8 +43,12 @@ export function SearchView() {
               type="button"
               title={`${table.schema}.${table.name}`}
               className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-xs text-[var(--app-text-muted)] transition-colors hover:bg-[var(--app-hover)] hover:text-foreground"
-              onClick={() => openSchemaPreview(explorerConnectionId, table.schema, table.name, "table")}
-              onDoubleClick={() => openTableData(explorerConnectionId, table.schema, table.name, "table")}
+              onClick={() =>
+                openSchemaPreview(explorerConnectionId, table.schema, table.name, "table")
+              }
+              onDoubleClick={() =>
+                openTableData(explorerConnectionId, table.schema, table.name, "table")
+              }
             >
               <Table2 className="h-3 w-3 shrink-0 text-primary" />
               <span className="truncate">{table.name}</span>
@@ -57,8 +61,12 @@ export function SearchView() {
               type="button"
               title={`${view.schema}.${view.name}`}
               className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-xs text-[var(--app-text-muted)] transition-colors hover:bg-[var(--app-hover)] hover:text-foreground"
-              onClick={() => openSchemaPreview(explorerConnectionId, view.schema, view.name, "view")}
-              onDoubleClick={() => openTableData(explorerConnectionId, view.schema, view.name, "view")}
+              onClick={() =>
+                openSchemaPreview(explorerConnectionId, view.schema, view.name, "view")
+              }
+              onDoubleClick={() =>
+                openTableData(explorerConnectionId, view.schema, view.name, "view")
+              }
             >
               <Columns3 className="h-3 w-3 shrink-0 text-primary" />
               <span className="truncate">{view.name}</span>
@@ -66,7 +74,9 @@ export function SearchView() {
             </button>
           ))}
           {filteredTables.length === 0 && filteredViews.length === 0 && (
-            <p className="px-2 py-1 text-xs text-[var(--app-text-dim)]">{t("common.states.empty")}</p>
+            <p className="px-2 py-1 text-xs text-[var(--app-text-dim)]">
+              {t("common.states.empty")}
+            </p>
           )}
         </div>
       )}

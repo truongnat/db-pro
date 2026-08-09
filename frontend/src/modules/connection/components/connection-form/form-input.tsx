@@ -46,11 +46,7 @@ export function FormInput({
         max={max}
         aria-invalid={!!error}
       />
-      {error && (
-        <span className="text-xs text-destructive">
-          {error}
-        </span>
-      )}
+      {error && <span className="text-xs text-destructive">{error}</span>}
     </div>
   );
 }

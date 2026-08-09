@@ -6,11 +6,7 @@ import { extractTableRefs, type AliasInfo } from "./sql-context-parser";
 /*  Symbol kinds produced by the resolver                              */
 /* ------------------------------------------------------------------ */
 
-export type ResolvedSymbolKind =
-  | "column"
-  | "table"
-  | "schema"
-  | "unknown";
+export type ResolvedSymbolKind = "column" | "table" | "schema" | "unknown";
 
 export interface ResolvedSymbol {
   kind: ResolvedSymbolKind;
@@ -25,21 +21,109 @@ export interface ResolvedSymbol {
 /* ------------------------------------------------------------------ */
 
 const SQL_KEYWORD_SET = new Set([
-  "SELECT", "FROM", "WHERE", "JOIN", "INNER", "LEFT", "RIGHT", "FULL",
-  "CROSS", "ON", "ORDER", "GROUP", "BY", "HAVING", "INSERT", "INTO",
-  "UPDATE", "SET", "DELETE", "TRUNCATE", "CREATE", "ALTER", "DROP",
-  "TABLE", "VIEW", "SCHEMA", "DATABASE", "INDEX", "AS", "AND", "OR",
-  "NOT", "IN", "EXISTS", "BETWEEN", "LIKE", "ILIKE", "IS", "NULL",
-  "CASE", "WHEN", "THEN", "ELSE", "END", "DISTINCT", "ALL", "UNION",
-  "INTERSECT", "EXCEPT", "LIMIT", "OFFSET", "FETCH", "ASC", "DESC",
-  "WITH", "RECURSIVE", "RETURNING", "VALUES", "LATERAL", "OVER",
-  "PARTITION", "ROWS", "RANGE", "TRUE", "FALSE", "BEGIN", "COMMIT",
-  "ROLLBACK", "PRIMARY", "KEY", "FOREIGN", "REFERENCES", "CONSTRAINT",
-  "DEFAULT", "CHECK", "UNIQUE", "CASCADE", "RESTRICT", "IF", "REPLACE",
-  "TEMPORARY", "TEMP", "MATERIALIZED", "CONCURRENTLY", "ONLY",
-  "USING", "EXPLAIN", "ANALYZE", "VERBOSE", "COSTS", "BUFFERS",
-  "FORMAT", "LANGUAGE", "FUNCTION", "PROCEDURE", "TRIGGER", "TYPE",
-  "EXTENSION", "GRANT", "REVOKE", "TO", "ROLE", "OWNER",
+  "SELECT",
+  "FROM",
+  "WHERE",
+  "JOIN",
+  "INNER",
+  "LEFT",
+  "RIGHT",
+  "FULL",
+  "CROSS",
+  "ON",
+  "ORDER",
+  "GROUP",
+  "BY",
+  "HAVING",
+  "INSERT",
+  "INTO",
+  "UPDATE",
+  "SET",
+  "DELETE",
+  "TRUNCATE",
+  "CREATE",
+  "ALTER",
+  "DROP",
+  "TABLE",
+  "VIEW",
+  "SCHEMA",
+  "DATABASE",
+  "INDEX",
+  "AS",
+  "AND",
+  "OR",
+  "NOT",
+  "IN",
+  "EXISTS",
+  "BETWEEN",
+  "LIKE",
+  "ILIKE",
+  "IS",
+  "NULL",
+  "CASE",
+  "WHEN",
+  "THEN",
+  "ELSE",
+  "END",
+  "DISTINCT",
+  "ALL",
+  "UNION",
+  "INTERSECT",
+  "EXCEPT",
+  "LIMIT",
+  "OFFSET",
+  "FETCH",
+  "ASC",
+  "DESC",
+  "WITH",
+  "RECURSIVE",
+  "RETURNING",
+  "VALUES",
+  "LATERAL",
+  "OVER",
+  "PARTITION",
+  "ROWS",
+  "RANGE",
+  "TRUE",
+  "FALSE",
+  "BEGIN",
+  "COMMIT",
+  "ROLLBACK",
+  "PRIMARY",
+  "KEY",
+  "FOREIGN",
+  "REFERENCES",
+  "CONSTRAINT",
+  "DEFAULT",
+  "CHECK",
+  "UNIQUE",
+  "CASCADE",
+  "RESTRICT",
+  "IF",
+  "REPLACE",
+  "TEMPORARY",
+  "TEMP",
+  "MATERIALIZED",
+  "CONCURRENTLY",
+  "ONLY",
+  "USING",
+  "EXPLAIN",
+  "ANALYZE",
+  "VERBOSE",
+  "COSTS",
+  "BUFFERS",
+  "FORMAT",
+  "LANGUAGE",
+  "FUNCTION",
+  "PROCEDURE",
+  "TRIGGER",
+  "TYPE",
+  "EXTENSION",
+  "GRANT",
+  "REVOKE",
+  "TO",
+  "ROLE",
+  "OWNER",
 ]);
 
 /* ------------------------------------------------------------------ */
@@ -141,30 +225,19 @@ function getFullStatementAtOffset(sql: string, offset: number): string {
 /*  Catalog lookup helpers                                             */
 /* ------------------------------------------------------------------ */
 
-function findAlias(
-  tableRefs: AliasInfo[],
-  name: string,
-): AliasInfo | undefined {
+function findAlias(tableRefs: AliasInfo[], name: string): AliasInfo | undefined {
   const lower = name.toLowerCase();
   return tableRefs.find((r) => r.alias.toLowerCase() === lower);
 }
 
-function findObject(
-  catalog: ConnectionCatalog,
-  name: string,
-) {
+function findObject(catalog: ConnectionCatalog, name: string) {
   const lower = name.toLowerCase();
   return catalog.objects.find(
-    (o) =>
-      o.name.toLowerCase() === lower ||
-      `${o.schema}.${o.name}`.toLowerCase() === lower,
+    (o) => o.name.toLowerCase() === lower || `${o.schema}.${o.name}`.toLowerCase() === lower,
   );
 }
 
-function findColumn(
-  columns: SchemaColumnDto[],
-  name: string,
-): SchemaColumnDto | undefined {
+function findColumn(columns: SchemaColumnDto[], name: string): SchemaColumnDto | undefined {
   const lower = name.toLowerCase();
   return columns.find((c) => c.name.toLowerCase() === lower);
 }
@@ -245,9 +318,7 @@ export function resolveSymbolAtOffset(
   }
 
   // Schema name?
-  const schemaMatch = catalog.schemas.find(
-    (s) => s.name.toLowerCase() === word.toLowerCase(),
-  );
+  const schemaMatch = catalog.schemas.find((s) => s.name.toLowerCase() === word.toLowerCase());
   if (schemaMatch) {
     return { kind: "schema", schema: schemaMatch.name };
   }

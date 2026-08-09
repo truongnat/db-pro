@@ -6,12 +6,7 @@ import { useTranslation } from "@/commons/locales/useTranslation";
 import { useSnackbar } from "@/app/providers/snackbar.provider";
 import { useRecentStore } from "@/commons/stores/recent.store";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 import { ConnectionEditor, type SaveIntent } from "./connection-editor";
 import {
@@ -114,7 +109,9 @@ export function ConnectionDialog() {
             persistAndConnect(effectiveConnectionId, intent);
           },
           onError: (err: unknown) =>
-            snackbar.error((err as { userMessage?: string }).userMessage ?? t("connection.updateFailed")),
+            snackbar.error(
+              (err as { userMessage?: string }).userMessage ?? t("connection.updateFailed"),
+            ),
         },
       );
     } else {
@@ -127,7 +124,9 @@ export function ConnectionDialog() {
             persistAndConnect(created.id, intent);
           },
           onError: (err: unknown) =>
-            snackbar.error((err as { userMessage?: string }).userMessage ?? t("connection.createFailed")),
+            snackbar.error(
+              (err as { userMessage?: string }).userMessage ?? t("connection.createFailed"),
+            ),
         },
       );
     }

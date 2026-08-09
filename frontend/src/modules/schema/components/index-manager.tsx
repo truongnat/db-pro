@@ -17,13 +17,7 @@ interface IndexManagerProps {
   indexes: SchemaIndexDto[];
 }
 
-export function IndexManager({
-  connectionId,
-  schema,
-  table,
-  columns,
-  indexes,
-}: IndexManagerProps) {
+export function IndexManager({ connectionId, schema, table, columns, indexes }: IndexManagerProps) {
   const { t } = useTranslation();
   const executeDdl = useExecuteDdl(connectionId);
 
@@ -66,9 +60,7 @@ export function IndexManager({
           {t("schema.existingIndexes")}
         </h4>
         {indexes.length === 0 ? (
-          <p className="text-xs italic text-[var(--app-text-muted)]">
-            {t("schema.noIndexes")}
-          </p>
+          <p className="text-xs italic text-[var(--app-text-muted)]">{t("schema.noIndexes")}</p>
         ) : (
           <div className="space-y-1">
             {indexes.map((idx) => (
@@ -95,9 +87,7 @@ export function IndexManager({
       </div>
 
       <div className="rounded-sm border border-[var(--app-border-subtle)] p-3">
-        <h4 className="mb-2 text-xs font-semibold text-foreground">
-          {t("schema.createIndex")}
-        </h4>
+        <h4 className="mb-2 text-xs font-semibold text-foreground">{t("schema.createIndex")}</h4>
 
         <div className="space-y-2">
           <div>
@@ -133,10 +123,7 @@ export function IndexManager({
           </div>
 
           <Label className="flex items-center gap-2 text-xs text-foreground">
-            <Checkbox
-              checked={unique}
-              onCheckedChange={(checked) => setUnique(checked === true)}
-            />
+            <Checkbox checked={unique} onCheckedChange={(checked) => setUnique(checked === true)} />
             {t("schema.ddlUnique")}
           </Label>
 

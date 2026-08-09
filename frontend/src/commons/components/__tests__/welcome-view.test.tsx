@@ -39,15 +39,11 @@ vi.mock("@/commons/di/registry", () => ({
 }));
 
 vi.mock("@/modules/connection/state/connection.store", () => ({
-  useConnectionModuleStore: vi.fn((selector) =>
-    selector({ statuses: {}, connectionErrors: {} }),
-  ),
+  useConnectionModuleStore: vi.fn((selector) => selector({ statuses: {}, connectionErrors: {} })),
 }));
 
 vi.mock("@/commons/stores/connection.store", () => ({
-  useConnectionStore: vi.fn((selector) =>
-    selector({ explorerConnectionId: null }),
-  ),
+  useConnectionStore: vi.fn((selector) => selector({ explorerConnectionId: null })),
 }));
 
 vi.mock("@/lib/utils", () => ({
@@ -119,7 +115,11 @@ const mockConnections = [
 describe("WelcomeView", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    useRecentStore.setState({ recentConnections: [], connectionDialogOpen: false, connectionDialogEditId: null });
+    useRecentStore.setState({
+      recentConnections: [],
+      connectionDialogOpen: false,
+      connectionDialogEditId: null,
+    });
     vi.mocked(connectionQueries.useConnect).mockReturnValue({
       mutate: vi.fn(),
     } as unknown as ReturnType<typeof connectionQueries.useConnect>);

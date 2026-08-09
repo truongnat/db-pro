@@ -32,7 +32,9 @@ describe("renderCellValue", () => {
   });
 
   it("renders datetime", () => {
-    expect(renderCellValue({ type: "datetime", value: "2024-01-01T00:00:00Z" })).toBe("2024-01-01T00:00:00Z");
+    expect(renderCellValue({ type: "datetime", value: "2024-01-01T00:00:00Z" })).toBe(
+      "2024-01-01T00:00:00Z",
+    );
   });
 
   it("renders bytes with length", () => {

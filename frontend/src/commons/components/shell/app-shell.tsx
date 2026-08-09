@@ -98,74 +98,74 @@ export function AppShell() {
   const effectiveSidebarWidth = sidebarCollapsed ? 0 : sidebarWidth;
 
   // Grid columns: sidebar [resize] main [resize] agent
-  const contentColumns = sidebarCollapsed && !agentOpen
-    ? "1fr"
-    : sidebarCollapsed
-      ? `1fr 3px ${agentWidth}px`
-      : agentOpen
-        ? `${effectiveSidebarWidth}px 3px minmax(0, 1fr) 3px ${agentWidth}px`
-        : `${effectiveSidebarWidth}px 3px minmax(0, 1fr)`;
+  const contentColumns =
+    sidebarCollapsed && !agentOpen
+      ? "1fr"
+      : sidebarCollapsed
+        ? `1fr 3px ${agentWidth}px`
+        : agentOpen
+          ? `${effectiveSidebarWidth}px 3px minmax(0, 1fr) 3px ${agentWidth}px`
+          : `${effectiveSidebarWidth}px 3px minmax(0, 1fr)`;
 
   return (
     <>
-    <div className="grid h-screen overflow-hidden bg-[var(--app-surface-0)]" style={{ gridTemplateColumns: "var(--app-activity-bar-width) 1fr" }}>
-      <ActivityBar />
-
-      <div className="grid min-h-0 min-w-0" style={{ gridTemplateRows: "var(--app-topbar-height) 1fr var(--app-statusbar-height)" }}>
-        <Topbar />
+      <div
+        className="grid h-screen overflow-hidden bg-[var(--app-surface-0)]"
+        style={{ gridTemplateColumns: "var(--app-activity-bar-width) 1fr" }}
+      >
+        <ActivityBar />
 
         <div
           className="grid min-h-0 min-w-0"
-          style={{ gridTemplateColumns: contentColumns }}
+          style={{ gridTemplateRows: "var(--app-topbar-height) 1fr var(--app-statusbar-height)" }}
         >
-          {/* Sidebar */}
-          {!sidebarCollapsed && <Sidebar width={effectiveSidebarWidth} />}
+          <Topbar />
 
-          {/* Sidebar resize handle */}
-          {!sidebarCollapsed && (
-            <div
-              className="group relative z-10 w-[3px] shrink-0 cursor-col-resize bg-transparent transition-colors hover:bg-[var(--app-border-subtle)] active:bg-primary"
-              onMouseDown={handleSidebarResizeStart}
-            >
-              <div className="absolute inset-y-0 -left-1 -right-1" />
-            </div>
-          )}
+          <div className="grid min-h-0 min-w-0" style={{ gridTemplateColumns: contentColumns }}>
+            {/* Sidebar */}
+            {!sidebarCollapsed && <Sidebar width={effectiveSidebarWidth} />}
 
-          {/* Main content */}
-          <main className="flex min-h-0 min-w-0 flex-col overflow-hidden bg-[var(--app-surface-3)]">
-            <div className="flex h-full flex-col">
-              {hasTabs && <WorkspaceTabBar />}
-              <WorkspaceContent />
-            </div>
-          </main>
+            {/* Sidebar resize handle */}
+            {!sidebarCollapsed && (
+              <div
+                className="group relative z-10 w-[3px] shrink-0 cursor-col-resize bg-transparent transition-colors hover:bg-[var(--app-border-subtle)] active:bg-primary"
+                onMouseDown={handleSidebarResizeStart}
+              >
+                <div className="absolute inset-y-0 -left-1 -right-1" />
+              </div>
+            )}
 
-          {/* Agent resize handle */}
-          {agentOpen && (
-            <div
-              className="group relative z-10 w-[3px] shrink-0 cursor-col-resize bg-transparent transition-colors hover:bg-[var(--app-border-subtle)] active:bg-primary"
-              onMouseDown={handleAgentResizeStart}
-            >
-              <div className="absolute inset-y-0 -left-1 -right-1" />
-            </div>
-          )}
+            {/* Main content */}
+            <main className="flex min-h-0 min-w-0 flex-col overflow-hidden bg-[var(--app-surface-3)]">
+              <div className="flex h-full flex-col">
+                {hasTabs && <WorkspaceTabBar />}
+                <WorkspaceContent />
+              </div>
+            </main>
 
-          {/* Agent panel */}
-          {agentOpen && (
-            <AgentPanel
-              open={agentOpen}
-              onClose={() => setAgentOpen(false)}
-              width={agentWidth}
-            />
-          )}
+            {/* Agent resize handle */}
+            {agentOpen && (
+              <div
+                className="group relative z-10 w-[3px] shrink-0 cursor-col-resize bg-transparent transition-colors hover:bg-[var(--app-border-subtle)] active:bg-primary"
+                onMouseDown={handleAgentResizeStart}
+              >
+                <div className="absolute inset-y-0 -left-1 -right-1" />
+              </div>
+            )}
+
+            {/* Agent panel */}
+            {agentOpen && (
+              <AgentPanel open={agentOpen} onClose={() => setAgentOpen(false)} width={agentWidth} />
+            )}
+          </div>
+
+          <StatusBar />
         </div>
-
-        <StatusBar />
       </div>
-    </div>
-    <CommandPalette />
-    <QuickOpen />
-    <ConnectionDialog />
-    <ActionConfirmationHost />
+      <CommandPalette />
+      <QuickOpen />
+      <ConnectionDialog />
+      <ActionConfirmationHost />
     </>
   );
 }

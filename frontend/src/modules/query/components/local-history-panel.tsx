@@ -19,9 +19,7 @@ interface LocalHistoryPanelProps {
 export function LocalHistoryPanel({ onSelectEntry }: LocalHistoryPanelProps) {
   const { t } = useTranslation();
   const [search, setSearch] = useState("");
-  const [entries, setEntries] = useState<LocalHistoryEntry[]>(() =>
-    getLocalHistory(),
-  );
+  const [entries, setEntries] = useState<LocalHistoryEntry[]>(() => getLocalHistory());
 
   const filtered = useMemo(() => {
     if (!search.trim()) return entries;
@@ -69,9 +67,7 @@ export function LocalHistoryPanel({ onSelectEntry }: LocalHistoryPanelProps) {
       <div className="flex-1 overflow-auto">
         {filtered.length === 0 && (
           <div className="flex items-center justify-center py-8">
-            <p className="text-sm text-[var(--app-text-muted)]">
-              {t("common.states.empty")}
-            </p>
+            <p className="text-sm text-[var(--app-text-muted)]">{t("common.states.empty")}</p>
           </div>
         )}
         {filtered.map((entry, idx) => (

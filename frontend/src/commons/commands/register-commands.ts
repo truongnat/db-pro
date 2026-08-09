@@ -58,19 +58,23 @@ export function registerAllCommands(_router: AnyRouter): void {
 
   useCommandStore.getState().registerMany([
     // ── Query — delegated to Action Platform ──────────────────
-    actionCommand("query.execute.current", { ctrlKey: true, key: "Enter" }, {
-      inputProvider: () => {
-        const tab = getActiveQueryTab();
-        if (!tab) return undefined;
-        // Read real cursor state from the editor context store.
-        const editorCtx = useQueryEditorContextStore.getState().getEditorContext(tab.id);
-        return {
-          tabId: tab.id,
-          cursorOffset: editorCtx.cursorOffset,
-          selection: editorCtx.selection,
-        };
+    actionCommand(
+      "query.execute.current",
+      { ctrlKey: true, key: "Enter" },
+      {
+        inputProvider: () => {
+          const tab = getActiveQueryTab();
+          if (!tab) return undefined;
+          // Read real cursor state from the editor context store.
+          const editorCtx = useQueryEditorContextStore.getState().getEditorContext(tab.id);
+          return {
+            tabId: tab.id,
+            cursorOffset: editorCtx.cursorOffset,
+            selection: editorCtx.selection,
+          };
+        },
       },
-    }),
+    ),
     actionCommand("query.explain"),
     actionCommand("query.format"),
     actionCommand("query.clear"),

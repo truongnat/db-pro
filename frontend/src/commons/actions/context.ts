@@ -1,10 +1,7 @@
 import { useConnectionStore } from "@/commons/stores/connection.store";
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
 
-import type {
-  ActionExecutionContext,
-  ActionSource,
-} from "./types";
+import type { ActionExecutionContext, ActionSource } from "./types";
 
 let correlationCounter = 0;
 
@@ -34,18 +31,12 @@ export function buildActionContext(
 
   // Resolve the "target tab": explicit tabId override first, then active.
   const targetTabId = overrides?.tabId ?? activeTabId;
-  const targetTab = targetTabId
-    ? tabs.find((t) => t.id === targetTabId)
-    : undefined;
+  const targetTab = targetTabId ? tabs.find((t) => t.id === targetTabId) : undefined;
 
-  const explorerConnectionId =
-    useConnectionStore.getState().explorerConnectionId;
+  const explorerConnectionId = useConnectionStore.getState().explorerConnectionId;
 
   const connectionId =
-    overrides?.connectionId ??
-    targetTab?.connectionId ??
-    explorerConnectionId ??
-    undefined;
+    overrides?.connectionId ?? targetTab?.connectionId ?? explorerConnectionId ?? undefined;
 
   const tabId = targetTabId ?? undefined;
 

@@ -24,10 +24,7 @@ function makeRow(id: number) {
 const ALL_ROWS = Array.from({ length: 87 }, (_, i) => makeRow(i + 1));
 
 export class MockDataGridService {
-  async fetchRows(
-    _connectionId: string,
-    request: FetchRowsRequest,
-  ): Promise<FetchRowsResult> {
+  async fetchRows(_connectionId: string, request: FetchRowsRequest): Promise<FetchRowsResult> {
     const offset = (request.page - 1) * request.pageSize;
     const rows = ALL_ROWS.slice(offset, offset + request.pageSize);
     return {
@@ -38,24 +35,15 @@ export class MockDataGridService {
     };
   }
 
-  async insertRow(
-    _connectionId: string,
-    _request: MutateRowRequest,
-  ): Promise<MutateRowResult> {
+  async insertRow(_connectionId: string, _request: MutateRowRequest): Promise<MutateRowResult> {
     return { affectedRows: 1 };
   }
 
-  async updateRow(
-    _connectionId: string,
-    _request: MutateRowRequest,
-  ): Promise<MutateRowResult> {
+  async updateRow(_connectionId: string, _request: MutateRowRequest): Promise<MutateRowResult> {
     return { affectedRows: 1 };
   }
 
-  async deleteRow(
-    _connectionId: string,
-    _request: MutateRowRequest,
-  ): Promise<MutateRowResult> {
+  async deleteRow(_connectionId: string, _request: MutateRowRequest): Promise<MutateRowResult> {
     return { affectedRows: 1 };
   }
 }

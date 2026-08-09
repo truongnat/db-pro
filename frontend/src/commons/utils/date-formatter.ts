@@ -42,10 +42,7 @@ export function formatDuration(ms: number): string {
   return `${hours}h ${remainingMinutes}m`;
 }
 
-export function formatRelativeTime(
-  date: string | Date,
-  locale?: string,
-): string {
+export function formatRelativeTime(date: string | Date, locale?: string): string {
   const d = typeof date === "string" ? new Date(date) : date;
   const now = new Date();
   const diffMs = now.getTime() - d.getTime();

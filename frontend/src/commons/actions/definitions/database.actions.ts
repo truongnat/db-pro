@@ -5,10 +5,7 @@ import { createConnectionService } from "@/modules/connection/services/connectio
 
 // ─── database.connect ────────────────────────────────────────
 
-export const connectDatabaseAction = defineAction<
-  { connectionId: string },
-  void
->({
+export const connectDatabaseAction = defineAction<{ connectionId: string }, void>({
   id: "database.connect",
   title: "Connect to database",
   description: "Establish a connection to the database.",
@@ -22,19 +19,14 @@ export const connectDatabaseAction = defineAction<
 
     return {
       status: "success",
-      effects: [
-        { type: "connection.connected", connectionId: input.connectionId },
-      ],
+      effects: [{ type: "connection.connected", connectionId: input.connectionId }],
     };
   },
 });
 
 // ─── database.disconnect ─────────────────────────────────────
 
-export const disconnectDatabaseAction = defineAction<
-  { connectionId: string },
-  void
->({
+export const disconnectDatabaseAction = defineAction<{ connectionId: string }, void>({
   id: "database.disconnect",
   title: "Disconnect from database",
   description: "Close the active database connection.",
@@ -48,19 +40,14 @@ export const disconnectDatabaseAction = defineAction<
 
     return {
       status: "success",
-      effects: [
-        { type: "connection.disconnected", connectionId: input.connectionId },
-      ],
+      effects: [{ type: "connection.disconnected", connectionId: input.connectionId }],
     };
   },
 });
 
 // ─── database.reconnect ──────────────────────────────────────
 
-export const reconnectDatabaseAction = defineAction<
-  { connectionId: string },
-  void
->({
+export const reconnectDatabaseAction = defineAction<{ connectionId: string }, void>({
   id: "database.reconnect",
   title: "Reconnect to database",
   description: "Disconnect and re-establish the database connection.",
@@ -75,9 +62,7 @@ export const reconnectDatabaseAction = defineAction<
 
     return {
       status: "success",
-      effects: [
-        { type: "connection.reconnected", connectionId: input.connectionId },
-      ],
+      effects: [{ type: "connection.reconnected", connectionId: input.connectionId }],
     };
   },
 });

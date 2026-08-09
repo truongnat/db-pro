@@ -11,18 +11,22 @@ import type {
 } from "../types/data-grid.types";
 
 const QUERY_KEYS = {
-  tableRows: (connectionId: string, schema: string, table: string, page: number, pageSize: number, filters: string, sorts: string) =>
-    ["data-grid-rows", connectionId, schema, table, page, pageSize, filters, sorts] as const,
+  tableRows: (
+    connectionId: string,
+    schema: string,
+    table: string,
+    page: number,
+    pageSize: number,
+    filters: string,
+    sorts: string,
+  ) => ["data-grid-rows", connectionId, schema, table, page, pageSize, filters, sorts] as const,
 };
 
 function getDataGridService() {
   return container.resolve<IDataGridService>(SERVICE_NAMES.DATA_GRID_SERVICE);
 }
 
-export function useTableRows(
-  connectionId: string | null,
-  request: FetchRowsRequest | null,
-) {
+export function useTableRows(connectionId: string | null, request: FetchRowsRequest | null) {
   const enabled = !!connectionId && !!request && !!request.table;
   const filtersKey = JSON.stringify(request?.filters ?? []);
   const sortsKey = JSON.stringify(request?.sorts ?? []);

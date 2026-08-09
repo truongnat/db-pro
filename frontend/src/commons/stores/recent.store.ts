@@ -36,9 +36,7 @@ export const useRecentStore = create<RecentState>()(
 
       addRecentConnection: (connectionId) =>
         set((state) => {
-          const existing = state.recentConnections.find(
-            (rc) => rc.connectionId === connectionId,
-          );
+          const existing = state.recentConnections.find((rc) => rc.connectionId === connectionId);
           const now = new Date().toISOString();
 
           let updated: RecentConnection[];
@@ -69,18 +67,14 @@ export const useRecentStore = create<RecentState>()(
           const now = new Date().toISOString();
           const updated = [
             { ...resource, openedAt: now },
-            ...state.recentResources.filter(
-              (r) => r.resourceKey !== resource.resourceKey,
-            ),
+            ...state.recentResources.filter((r) => r.resourceKey !== resource.resourceKey),
           ];
           return { recentResources: updated.slice(0, MAX_RECENT_RESOURCES) };
         }),
 
       removeRecentResource: (resourceKey) =>
         set((state) => ({
-          recentResources: state.recentResources.filter(
-            (r) => r.resourceKey !== resourceKey,
-          ),
+          recentResources: state.recentResources.filter((r) => r.resourceKey !== resourceKey),
         })),
 
       openConnectionDialog: (editId) =>

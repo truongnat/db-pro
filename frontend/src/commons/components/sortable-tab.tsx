@@ -20,14 +20,9 @@ interface SortableTabProps {
 }
 
 export function SortableTab({ tab, isActive, onActivate, onClose, children }: SortableTabProps) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: tab.id });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: tab.id,
+  });
 
   const style = {
     transform: CSS.Transform.toString(transform),

@@ -87,7 +87,8 @@ describe("Performance budgets", () => {
 
   describe("Statement splitter", () => {
     it("splits 100 statements within budget", async () => {
-      const { splitStatementsWithRanges } = await import("@/modules/query/services/statement-splitter");
+      const { splitStatementsWithRanges } =
+        await import("@/modules/query/services/statement-splitter");
       const sql = Array.from({ length: 100 }, (_, i) => `SELECT ${i} FROM table_${i};`).join("\n");
 
       const start = performance.now();
@@ -173,8 +174,9 @@ describe("Performance budgets", () => {
     it("parses CSV with 10k rows within budget", async () => {
       const { buildImportPreview } = await import("@/modules/export/services/import-parser");
       const csvHeader = "id,name,email,status,created_at";
-      const csvRows = Array.from({ length: 10_000 }, (_, i) =>
-        `${i + 1},User ${i + 1},user${i + 1}@example.com,active,2025-01-01`,
+      const csvRows = Array.from(
+        { length: 10_000 },
+        (_, i) => `${i + 1},User ${i + 1},user${i + 1}@example.com,active,2025-01-01`,
       ).join("\n");
       const content = `${csvHeader}\n${csvRows}`;
 
@@ -197,7 +199,9 @@ describe("Performance budgets", () => {
       }));
 
       const result = {
-        schemas: Array.from({ length: 10 }, (_, i) => ({ name: i === 0 ? "public" : `schema_${i}` })),
+        schemas: Array.from({ length: 10 }, (_, i) => ({
+          name: i === 0 ? "public" : `schema_${i}`,
+        })),
         tables,
         columns: [],
         primaryKeys: [],

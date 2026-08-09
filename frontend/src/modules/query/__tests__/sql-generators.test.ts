@@ -71,9 +71,7 @@ describe("dialect-aware CRUD generators (UX-R7.2b)", () => {
     });
 
     it("generates SELECT COUNT(*) without schema on sqlite", () => {
-      expect(generateCountSQL(sqlite, null, "users")).toBe(
-        'SELECT COUNT(*) AS cnt\nFROM "users";',
-      );
+      expect(generateCountSQL(sqlite, null, "users")).toBe('SELECT COUNT(*) AS cnt\nFROM "users";');
     });
 
     it("qualifies schema on sqlite when provided", () => {
@@ -89,9 +87,7 @@ describe("dialect-aware CRUD generators (UX-R7.2b)", () => {
       expect(generateSelectSQL(postgres, "public", "t", weird)).toBe(
         `SELECT\n  "weird""col"\nFROM "public"."t";`,
       );
-      expect(generateSelectSQL(sqlite, null, "t", weird)).toBe(
-        `SELECT\n  "weird""col"\nFROM "t";`,
-      );
+      expect(generateSelectSQL(sqlite, null, "t", weird)).toBe(`SELECT\n  "weird""col"\nFROM "t";`);
     });
   });
 });

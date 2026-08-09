@@ -5,11 +5,7 @@ import { useRecentStore } from "@/commons/stores/recent.store";
 import { createDbObjectTab } from "@/commons/factories/tab-factories";
 import type { DbObjectTabData } from "@/commons/types/workspace.types";
 
-function recordRecentResource(
-  connectionId: string,
-  schema: string,
-  objectName: string,
-) {
+function recordRecentResource(connectionId: string, schema: string, objectName: string) {
   useRecentStore.getState().addRecentResource({
     resourceKey: `dbobj:${schema}.${objectName}:${connectionId}`,
     kind: "db-object",
@@ -38,14 +34,7 @@ export function useSidebarTabOps() {
       objectName: string,
       objectType: DbObjectTabData["objectType"],
     ) => {
-      const tab = createDbObjectTab(
-        connectionId,
-        schema,
-        objectName,
-        objectType,
-        "data",
-        true,
-      );
+      const tab = createDbObjectTab(connectionId, schema, objectName, objectType, "data", true);
       openDbObject(tab);
       recordRecentResource(connectionId, schema, objectName);
     },
@@ -53,11 +42,7 @@ export function useSidebarTabOps() {
   );
 
   const promoteSchemaPreview = useCallback(
-    (
-      connectionId: string,
-      schema: string,
-      objectName: string,
-    ) => {
+    (connectionId: string, schema: string, objectName: string) => {
       const resourceKey = `dbobj:${schema}.${objectName}:${connectionId}`;
       const tab = useWorkspaceStore.getState().tabs.find((t) => t.resourceKey === resourceKey);
       if (tab) promotePreview(tab.id);

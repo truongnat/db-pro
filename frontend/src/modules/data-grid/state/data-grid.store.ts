@@ -49,7 +49,16 @@ export const useDataGridModuleStore = create<DataGridModuleState>()((set) => ({
   ...initialState,
 
   setTable: (schema, name) =>
-    set({ tableSchema: schema, tableName: name, page: 1, filters: [], sorts: [], editingCell: null, frozenColumns: [], chartConfig: null }),
+    set({
+      tableSchema: schema,
+      tableName: name,
+      page: 1,
+      filters: [],
+      sorts: [],
+      editingCell: null,
+      frozenColumns: [],
+      chartConfig: null,
+    }),
 
   addFilter: (filter) => set((s) => ({ filters: [...s.filters, filter], page: 1 })),
 

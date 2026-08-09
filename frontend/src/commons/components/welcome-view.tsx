@@ -7,7 +7,11 @@ import { useConnectionModuleStore } from "@/modules/connection/state/connection.
 import { useConnectionStore } from "@/commons/stores/connection.store";
 import { useShellStore } from "@/commons/stores/shell.store";
 import { useExplorerStore } from "@/commons/stores/explorer.store";
-import { useConnectionList, useConnect, useDeleteConnection } from "@/modules/connection/queries/connection.queries";
+import {
+  useConnectionList,
+  useConnect,
+  useDeleteConnection,
+} from "@/modules/connection/queries/connection.queries";
 import { ConnectionStatusBadge } from "@/modules/connection/components/connection-status";
 import {
   AlertDialog,
@@ -28,7 +32,10 @@ function getConnectionStatus(
   connectionId: string,
   statuses: Record<string, string>,
 ): "connected" | "disconnected" | "connecting" | "error" {
-  return (statuses[connectionId] as "connected" | "disconnected" | "connecting" | "error") ?? "disconnected";
+  return (
+    (statuses[connectionId] as "connected" | "disconnected" | "connecting" | "error") ??
+    "disconnected"
+  );
 }
 
 export function WelcomeView() {
@@ -88,7 +95,9 @@ export function WelcomeView() {
 
     connectMutation.mutate(connectionId, {
       onError: (err: unknown) =>
-        snackbar.error((err as { userMessage?: string }).userMessage ?? t("connection.connectFailed")),
+        snackbar.error(
+          (err as { userMessage?: string }).userMessage ?? t("connection.connectFailed"),
+        ),
     });
   };
 
@@ -135,11 +144,15 @@ export function WelcomeView() {
               <Database className="h-8 w-8 text-[var(--app-text-dim)]" />
               <div className="text-center">
                 <p className="text-sm text-[var(--app-text-muted)]">{t("welcome.noConnections")}</p>
-                <p className="mt-1 text-xs text-[var(--app-text-muted)]">{t("welcome.createFirstConnection")}</p>
+                <p className="mt-1 text-xs text-[var(--app-text-muted)]">
+                  {t("welcome.createFirstConnection")}
+                </p>
               </div>
             </div>
           ) : recentWithDetails.length === 0 ? (
-            <p className="text-sm text-[var(--app-text-muted)]">{t("welcome.noRecentConnections")}</p>
+            <p className="text-sm text-[var(--app-text-muted)]">
+              {t("welcome.noRecentConnections")}
+            </p>
           ) : (
             <div className="space-y-1">
               {recentWithDetails.map((item) => {
@@ -161,7 +174,9 @@ export function WelcomeView() {
                       />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                          <span className="truncate text-sm font-medium text-foreground">{conn.name}</span>
+                          <span className="truncate text-sm font-medium text-foreground">
+                            {conn.name}
+                          </span>
                           <ConnectionStatusBadge status={status} />
                         </div>
                         <p className="truncate text-xs text-[var(--app-text-muted)]">
@@ -188,14 +203,19 @@ export function WelcomeView() {
                   </div>
                 );
               })}
-              <p className="pt-1 text-xs text-[var(--app-text-muted)]">{t("welcome.connectHint")}</p>
+              <p className="pt-1 text-xs text-[var(--app-text-muted)]">
+                {t("welcome.connectHint")}
+              </p>
             </div>
           )}
         </div>
       </div>
 
       {/* Delete Confirmation Dialog */}
-      <AlertDialog open={deleteConfirmId != null} onOpenChange={(open) => !open && setDeleteConfirmId(null)}>
+      <AlertDialog
+        open={deleteConfirmId != null}
+        onOpenChange={(open) => !open && setDeleteConfirmId(null)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{t("connection.confirmDelete")}</AlertDialogTitle>

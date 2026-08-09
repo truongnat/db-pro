@@ -36,7 +36,10 @@ describe("QueryWorkspaceController", () => {
   afterEach(resetStore);
 
   function openQueryTab(opts?: { sql?: string; title?: string }) {
-    const tab = createQueryTab("conn-1", { title: opts?.title ?? "Q1", sql: opts?.sql ?? "SELECT 1" });
+    const tab = createQueryTab("conn-1", {
+      title: opts?.title ?? "Q1",
+      sql: opts?.sql ?? "SELECT 1",
+    });
     useWorkspaceStore.getState().openTab(tab);
     return tab;
   }

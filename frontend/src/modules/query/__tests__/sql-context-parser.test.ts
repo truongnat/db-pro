@@ -125,10 +125,7 @@ describe("parseSqlContext", () => {
     });
 
     it("extracts multiple table refs from JOIN", () => {
-      const ctx = parseSqlContext(
-        "SELECT * FROM users u JOIN orders o ON ",
-        40,
-      );
+      const ctx = parseSqlContext("SELECT * FROM users u JOIN orders o ON ", 40);
       expect(ctx.tableRefs).toHaveLength(2);
       expect(ctx.tableRefs[0]).toEqual({ alias: "u", schema: "public", table: "users" });
       expect(ctx.tableRefs[1]).toEqual({ alias: "o", schema: "public", table: "orders" });

@@ -14,19 +14,41 @@ export interface SqlContext {
 }
 
 const CLAUSE_KEYWORDS = [
-  "SELECT", "FROM", "WHERE", "JOIN", "INNER JOIN", "LEFT JOIN", "RIGHT JOIN",
-  "FULL JOIN", "CROSS JOIN", "ON", "ORDER BY", "GROUP BY", "HAVING",
-  "INSERT INTO", "UPDATE", "SET", "DELETE FROM", "TRUNCATE",
+  "SELECT",
+  "FROM",
+  "WHERE",
+  "JOIN",
+  "INNER JOIN",
+  "LEFT JOIN",
+  "RIGHT JOIN",
+  "FULL JOIN",
+  "CROSS JOIN",
+  "ON",
+  "ORDER BY",
+  "GROUP BY",
+  "HAVING",
+  "INSERT INTO",
+  "UPDATE",
+  "SET",
+  "DELETE FROM",
+  "TRUNCATE",
 ];
 
 const TABLE_CLAUSES = new Set([
-  "FROM", "JOIN", "INNER JOIN", "LEFT JOIN", "RIGHT JOIN",
-  "FULL JOIN", "CROSS JOIN", "INSERT INTO", "UPDATE", "DELETE FROM", "TRUNCATE",
+  "FROM",
+  "JOIN",
+  "INNER JOIN",
+  "LEFT JOIN",
+  "RIGHT JOIN",
+  "FULL JOIN",
+  "CROSS JOIN",
+  "INSERT INTO",
+  "UPDATE",
+  "DELETE FROM",
+  "TRUNCATE",
 ]);
 
-const COLUMN_CLAUSES = new Set([
-  "SELECT", "WHERE", "ON", "ORDER BY", "GROUP BY", "HAVING", "SET",
-]);
+const COLUMN_CLAUSES = new Set(["SELECT", "WHERE", "ON", "ORDER BY", "GROUP BY", "HAVING", "SET"]);
 
 function stripStringsAndComments(text: string): string {
   let result = "";
@@ -48,7 +70,8 @@ function stripStringsAndComments(text: string): string {
       result += " ";
     } else if (text[i] === "/" && i + 1 < text.length && text[i + 1] === "*") {
       i += 2;
-      while (i < text.length && !(text[i] === "*" && i + 1 < text.length && text[i + 1] === "/")) i++;
+      while (i < text.length && !(text[i] === "*" && i + 1 < text.length && text[i + 1] === "/"))
+        i++;
       i += 2;
       result += " ";
     } else {
@@ -136,9 +159,7 @@ export function extractTableRefs(stmt: string): AliasInfo[] {
     let alias: string | undefined;
     if (aliasMatch) {
       const candidate = aliasMatch[1];
-      const isKeyword = CLAUSE_KEYWORDS.some(
-        (k) => k.split(" ").pop() === candidate.toUpperCase(),
-      );
+      const isKeyword = CLAUSE_KEYWORDS.some((k) => k.split(" ").pop() === candidate.toUpperCase());
       if (!isKeyword) {
         alias = candidate;
       }

@@ -5,11 +5,7 @@ import { ArrowUpDown, Columns3, Filter, RefreshCw } from "lucide-react";
 import { useTranslation } from "@/commons/locales/useTranslation";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Select,
@@ -65,7 +61,10 @@ export function DataToolbar({
 
   const handleAddSort = () => {
     if (!sortColumn) return;
-    onSetSorts([...sorts.filter((s) => s.column !== sortColumn), { column: sortColumn, direction: sortDir }]);
+    onSetSorts([
+      ...sorts.filter((s) => s.column !== sortColumn),
+      { column: sortColumn, direction: sortDir },
+    ]);
   };
 
   const dirLabel = (d: "asc" | "desc") => t(d === "asc" ? "dataGrid.sortAsc" : "dataGrid.sortDesc");
@@ -107,7 +106,10 @@ export function DataToolbar({
               {sorts.length > 0 && (
                 <div className="flex flex-col gap-1">
                   {sorts.map((s, i) => (
-                    <div key={s.column} className="flex items-center justify-between gap-2 rounded-sm bg-muted px-2 py-1 text-xs">
+                    <div
+                      key={s.column}
+                      className="flex items-center justify-between gap-2 rounded-sm bg-muted px-2 py-1 text-xs"
+                    >
                       <span className="font-medium">{s.column}</span>
                       <div className="flex items-center gap-1">
                         <button
@@ -189,7 +191,9 @@ export function DataToolbar({
           </PopoverTrigger>
           <PopoverContent align="start" sideOffset={6} className="w-64 p-2">
             <div className="mb-2 flex items-center justify-between">
-              <span className="text-xs font-medium text-[var(--app-text-muted)]">{t("dataGrid.toolbarColumns")}</span>
+              <span className="text-xs font-medium text-[var(--app-text-muted)]">
+                {t("dataGrid.toolbarColumns")}
+              </span>
               {hiddenColumns.length > 0 && (
                 <Button
                   type="button"

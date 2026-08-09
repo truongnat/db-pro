@@ -1,7 +1,13 @@
 import { useId } from "react";
 
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useTranslation } from "@/commons/locales/useTranslation";
 
 import type { DdlOperation } from "../../services/ddl-builder";
@@ -33,7 +39,10 @@ export function DdlTypeSelector({ operation, onChange }: DdlTypeSelectorProps) {
         {t("schema.ddlOperation")}
       </Label>
       <Select value={operation} onValueChange={(val) => onChange(val as DdlOperation)}>
-        <SelectTrigger id={id} className="h-9 rounded-sm border border-[var(--app-border)] bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-primary">
+        <SelectTrigger
+          id={id}
+          className="h-9 rounded-sm border border-[var(--app-border)] bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-primary"
+        >
           <SelectValue />
         </SelectTrigger>
         <SelectContent>

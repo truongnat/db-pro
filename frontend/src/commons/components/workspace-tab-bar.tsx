@@ -69,9 +69,7 @@ function TabItem({
     <div
       className={cn(
         "group relative flex shrink-0 cursor-pointer items-center gap-1.5 py-2 text-[13px] transition-colors",
-        isPinnedInactive
-          ? "w-[36px] justify-center px-0"
-          : "min-w-[120px] max-w-[220px] px-3",
+        isPinnedInactive ? "w-[36px] justify-center px-0" : "min-w-[120px] max-w-[220px] px-3",
         isActive
           ? "bg-[var(--app-surface-3)] text-foreground font-medium"
           : "text-[var(--app-text-muted)] hover:bg-[var(--app-surface-2)] hover:text-foreground",
@@ -115,9 +113,7 @@ function TabItem({
       {...dragAttributes}
     >
       {/* Active indicator — top 2px line */}
-      {isActive && (
-        <span className="absolute inset-x-0 top-0 h-[2px] bg-primary" />
-      )}
+      {isActive && <span className="absolute inset-x-0 top-0 h-[2px] bg-primary" />}
       {/* Kind icon / running spinner / error dot */}
       {tab.kind === "query" && tab.data.status === "running" ? (
         <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-primary" />
@@ -292,10 +288,10 @@ export function WorkspaceTabBar() {
               ) : (
                 <TabKindIcon tab={draggingTab} />
               )}
-              {draggingTab.dirty && (
-                <span className="h-2 w-2 shrink-0 rounded-full bg-primary" />
-              )}
-              <span className={cn("max-w-[180px] truncate", draggingTab.preview && "italic opacity-70")}>
+              {draggingTab.dirty && <span className="h-2 w-2 shrink-0 rounded-full bg-primary" />}
+              <span
+                className={cn("max-w-[180px] truncate", draggingTab.preview && "italic opacity-70")}
+              >
                 {draggingTab.title}
               </span>
             </div>
@@ -306,7 +302,9 @@ export function WorkspaceTabBar() {
       <AlertDialog open={dialogOpen} onOpenChange={(open) => !open && onCancel()}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{dirtyCount > 1 ? t("tabs.closeDialog.titleMultiple") : t("tabs.closeDialog.title")}</AlertDialogTitle>
+            <AlertDialogTitle>
+              {dirtyCount > 1 ? t("tabs.closeDialog.titleMultiple") : t("tabs.closeDialog.title")}
+            </AlertDialogTitle>
             <AlertDialogDescription>
               {dirtyCount === 1
                 ? t("tabs.closeDialog.descriptionSingle")

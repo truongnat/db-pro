@@ -8,9 +8,7 @@ export function UsersView() {
       <span className="text-[11px] font-semibold uppercase tracking-widest text-[var(--app-text-dim)]">
         {t("userManagement.title")}
       </span>
-      <p className="py-1 text-xs text-[var(--app-text-dim)]">
-        {t("userManagement.sidebarHint")}
-      </p>
+      <p className="py-1 text-xs text-[var(--app-text-dim)]">{t("userManagement.sidebarHint")}</p>
     </div>
   );
 }

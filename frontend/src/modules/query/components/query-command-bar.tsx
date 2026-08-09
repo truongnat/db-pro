@@ -33,7 +33,10 @@ import type { QueryContext } from "@/commons/types/workspace.types";
 import { useConnectionList } from "@/modules/connection/queries/connection.queries";
 import { useSchemaCatalogStore } from "../stores/schema-catalog.store";
 
-import { setQueryTabConnection, setQueryTabSchema } from "../controllers/query-workspace.controller";
+import {
+  setQueryTabConnection,
+  setQueryTabSchema,
+} from "../controllers/query-workspace.controller";
 
 const DEFAULT_SCHEMA = "__default__";
 
@@ -109,9 +112,7 @@ export function QueryCommandBar({
         {database && (
           <>
             <span className="text-[var(--app-text-dim)]">/</span>
-            <span className="truncate text-[13px] text-[var(--app-text-muted)]">
-              {database}
-            </span>
+            <span className="truncate text-[13px] text-[var(--app-text-muted)]">{database}</span>
           </>
         )}
         {schemas.length > 0 ? (
@@ -178,12 +179,16 @@ export function QueryCommandBar({
               <DropdownMenuItem onClick={onExecuteCurrent} className="h-[32px]">
                 <Play className="mr-2 h-3.5 w-3.5" />
                 {t("query.runCurrent")}
-                <span className="ml-auto text-[11px] text-[var(--app-text-muted)]">{formatShortcut({ primary: true, key: "Enter" })}</span>
+                <span className="ml-auto text-[11px] text-[var(--app-text-muted)]">
+                  {formatShortcut({ primary: true, key: "Enter" })}
+                </span>
               </DropdownMenuItem>
               <DropdownMenuItem onClick={onExecuteAll} className="h-[32px]">
                 <Play className="mr-2 h-3.5 w-3.5" />
                 {t("query.runAll")}
-                <span className="ml-auto text-[11px] text-[var(--app-text-muted)]">{formatShortcut({ primary: true, shiftKey: true, key: "Enter" })}</span>
+                <span className="ml-auto text-[11px] text-[var(--app-text-muted)]">
+                  {formatShortcut({ primary: true, shiftKey: true, key: "Enter" })}
+                </span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

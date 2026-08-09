@@ -65,10 +65,9 @@ describe("useSidebarTabOps — openTableData (double-click behavior)", () => {
     act(() => {
       result.current.openTableData("conn-1", "public", "users", "table");
     });
-    useWorkspaceStore.getState().setDbObjectSection(
-      useWorkspaceStore.getState().tabs[0].id,
-      "columns",
-    );
+    useWorkspaceStore
+      .getState()
+      .setDbObjectSection(useWorkspaceStore.getState().tabs[0].id, "columns");
 
     // Double-click again → should reuse and switch to Data
     act(() => {

@@ -49,7 +49,9 @@ export function generateCsv(
   }
 
   for (const row of rows) {
-    const fields = row.map((cell) => csvEscape(cellToString(cell, opts.nullRepresentation), opts.delimiter));
+    const fields = row.map((cell) =>
+      csvEscape(cellToString(cell, opts.nullRepresentation), opts.delimiter),
+    );
     lines.push(fields.join(opts.delimiter));
   }
 
@@ -68,10 +70,7 @@ const DEFAULT_JSON_OPTIONS: JsonOptions = {
   nullRepresentation: "",
 };
 
-function cellToJson(
-  cell: { type: string; value?: unknown } | undefined,
-  nullRep: string,
-): unknown {
+function cellToJson(cell: { type: string; value?: unknown } | undefined, nullRep: string): unknown {
   if (!cell || cell.type === "null") return nullRep === "" ? null : nullRep;
   if (cell.type === "bytes") return "[binary]";
   return cell.value ?? null;
@@ -101,10 +100,7 @@ export interface SqlExportOptions {
   nullRepresentation: string;
 }
 
-function sqlLiteral(
-  cell: { type: string; value?: unknown } | undefined,
-  nullRep: string,
-): string {
+function sqlLiteral(cell: { type: string; value?: unknown } | undefined, nullRep: string): string {
   if (!cell || cell.type === "null") return nullRep === "" ? "NULL" : `'${nullRep}'`;
   if (cell.value == null) return "NULL";
   switch (cell.type) {

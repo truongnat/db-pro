@@ -21,9 +21,7 @@ function createSeparatorProps(overrides: Record<string, unknown> = {}) {
 describe("DockSeparator", () => {
   it("renders with correct ARIA attributes", () => {
     const props = createSeparatorProps();
-    const { container } = render(
-      <DockSeparator separatorProps={props} isCollapsed={false} />,
-    );
+    const { container } = render(<DockSeparator separatorProps={props} isCollapsed={false} />);
 
     const el = container.firstElementChild as HTMLElement;
     expect(el).toBeTruthy();
@@ -38,9 +36,7 @@ describe("DockSeparator", () => {
   it("calls onDoubleClick from separatorProps when double-clicked", () => {
     const onDoubleClick = vi.fn();
     const props = createSeparatorProps({ onDoubleClick });
-    const { container } = render(
-      <DockSeparator separatorProps={props} isCollapsed={false} />,
-    );
+    const { container } = render(<DockSeparator separatorProps={props} isCollapsed={false} />);
 
     fireEvent.doubleClick(container.firstElementChild!);
     expect(onDoubleClick).toHaveBeenCalledOnce();
@@ -49,9 +45,7 @@ describe("DockSeparator", () => {
   it("forwards mouseDown to separatorProps handler", () => {
     const onMouseDown = vi.fn();
     const props = createSeparatorProps({ onMouseDown });
-    const { container } = render(
-      <DockSeparator separatorProps={props} isCollapsed={false} />,
-    );
+    const { container } = render(<DockSeparator separatorProps={props} isCollapsed={false} />);
 
     fireEvent.mouseDown(container.firstElementChild!);
     expect(onMouseDown).toHaveBeenCalledOnce();
@@ -60,9 +54,7 @@ describe("DockSeparator", () => {
   it("forwards keyDown to separatorProps handler", () => {
     const onKeyDown = vi.fn();
     const props = createSeparatorProps({ onKeyDown });
-    const { container } = render(
-      <DockSeparator separatorProps={props} isCollapsed={false} />,
-    );
+    const { container } = render(<DockSeparator separatorProps={props} isCollapsed={false} />);
 
     fireEvent.keyDown(container.firstElementChild!, { key: "ArrowUp" });
     expect(onKeyDown).toHaveBeenCalledOnce();
@@ -70,9 +62,7 @@ describe("DockSeparator", () => {
 
   it("shows expand label when collapsed", () => {
     const props = createSeparatorProps();
-    const { container } = render(
-      <DockSeparator separatorProps={props} isCollapsed={true} />,
-    );
+    const { container } = render(<DockSeparator separatorProps={props} isCollapsed={true} />);
 
     const el = container.firstElementChild as HTMLElement;
     expect(el.getAttribute("aria-label")).toBe("dock.expandPanel");
@@ -80,9 +70,7 @@ describe("DockSeparator", () => {
 
   it("shows resize label when expanded", () => {
     const props = createSeparatorProps();
-    const { container } = render(
-      <DockSeparator separatorProps={props} isCollapsed={false} />,
-    );
+    const { container } = render(<DockSeparator separatorProps={props} isCollapsed={false} />);
 
     const el = container.firstElementChild as HTMLElement;
     expect(el.getAttribute("aria-label")).toBe("dock.resizePanel");

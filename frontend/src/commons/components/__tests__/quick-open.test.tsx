@@ -80,7 +80,13 @@ i18n.use(initReactI18next).init({
         quickOpen: {
           placeholder: "Search tables, views, connections...",
           noResults: "No matching resources.",
-          groups: { open: "Open", tables: "Tables", views: "Views", schemas: "Schemas", connections: "Connections" },
+          groups: {
+            open: "Open",
+            tables: "Tables",
+            views: "Views",
+            schemas: "Schemas",
+            connections: "Connections",
+          },
         },
       },
     },
@@ -107,7 +113,12 @@ function renderWithProviders(ui: React.ReactElement) {
 function resetStores() {
   useQuickOpenStore.setState({ isOpen: false, query: "", selectedIndex: 0 });
   useWorkspaceStore.setState({ tabs: [], activeTabId: null, recentlyClosed: [] });
-  useConnectionStore.setState({ connections: [], explorerConnectionId: null, isLoading: false, error: null });
+  useConnectionStore.setState({
+    connections: [],
+    explorerConnectionId: null,
+    isLoading: false,
+    error: null,
+  });
   useSchemaCatalogStore.setState({ catalogs: new Map() });
 }
 
@@ -189,7 +200,12 @@ describe("QuickOpen", () => {
           pinned: false,
           preview: false,
           order: 1,
-          data: { schema: "public", objectName: "client", objectType: "table", activeSection: "columns" },
+          data: {
+            schema: "public",
+            objectName: "client",
+            objectType: "table",
+            activeSection: "columns",
+          },
         },
       ],
       activeTabId: "existing-tab",

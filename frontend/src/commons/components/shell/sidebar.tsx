@@ -58,7 +58,9 @@ export function Sidebar({ width }: SidebarProps) {
                   <Plus className="h-3.5 w-3.5" />
                 </button>
               </TooltipTrigger>
-              <TooltipContent side="right" sideOffset={4}>{t("connection.new")}</TooltipContent>
+              <TooltipContent side="right" sideOffset={4}>
+                {t("connection.new")}
+              </TooltipContent>
             </Tooltip>
           )}
         </div>

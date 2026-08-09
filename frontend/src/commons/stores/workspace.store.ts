@@ -1,9 +1,18 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-import { migrateWorkspace, CURRENT_WORKSPACE_VERSION } from "@/commons/services/workspace-migrations";
+import {
+  migrateWorkspace,
+  CURRENT_WORKSPACE_VERSION,
+} from "@/commons/services/workspace-migrations";
 import { useConnectionStore } from "@/commons/stores/connection.store";
-import type { DbObjectSection, PersistedWorkspaceState, QueryContext, QueryTabData, WorkspaceTab } from "@/commons/types/workspace.types";
+import type {
+  DbObjectSection,
+  PersistedWorkspaceState,
+  QueryContext,
+  QueryTabData,
+  WorkspaceTab,
+} from "@/commons/types/workspace.types";
 import { useTabGridStateStore } from "@/modules/data-grid/state/tab-grid-state.store";
 
 const MAX_RECENTLY_CLOSED = 20;
@@ -33,7 +42,11 @@ function findTabById(tabs: WorkspaceTab[], id: string): WorkspaceTab | undefined
   return tabs.find((t) => t.id === id);
 }
 
-function updateTabInList(tabs: WorkspaceTab[], id: string, updater: (tab: WorkspaceTab) => WorkspaceTab): WorkspaceTab[] {
+function updateTabInList(
+  tabs: WorkspaceTab[],
+  id: string,
+  updater: (tab: WorkspaceTab) => WorkspaceTab,
+): WorkspaceTab[] {
   return tabs.map((t) => (t.id === id ? updater(t) : t));
 }
 
@@ -67,10 +80,16 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           }
 
           if (tab.preview) {
-            const previewIdx = state.tabs.findIndex((t) => t.preview && t.kind === tab.kind && t.connectionId === tab.connectionId);
+            const previewIdx = state.tabs.findIndex(
+              (t) => t.preview && t.kind === tab.kind && t.connectionId === tab.connectionId,
+            );
             if (previewIdx !== -1) {
               const newTabs = [...state.tabs];
-              newTabs[previewIdx] = { ...tab, id: newTabs[previewIdx].id, order: newTabs[previewIdx].order };
+              newTabs[previewIdx] = {
+                ...tab,
+                id: newTabs[previewIdx].id,
+                order: newTabs[previewIdx].order,
+              };
               return {
                 tabs: newTabs,
                 activeTabId: newTabs[previewIdx].id,
@@ -134,13 +153,13 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           const evicted = state.tabs.filter((t) => t.id !== id && !t.pinned);
           const kept = state.tabs.filter((t) => t.id === id || t.pinned);
           if (evicted.length === 0) return state;
-          const recentlyClosed = [
-            ...evicted.reverse(),
-            ...state.recentlyClosed,
-          ].slice(0, MAX_RECENTLY_CLOSED);
+          const recentlyClosed = [...evicted.reverse(), ...state.recentlyClosed].slice(
+            0,
+            MAX_RECENTLY_CLOSED,
+          );
           return {
             tabs: kept,
-            activeTabId: findTabById(kept, id) ? id : kept[0]?.id ?? null,
+            activeTabId: findTabById(kept, id) ? id : (kept[0]?.id ?? null),
             recentlyClosed,
           };
         });
@@ -154,13 +173,15 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           const evicted = state.tabs.filter((t, i) => i > idx && !t.pinned);
           const kept = state.tabs.filter((t, i) => i <= idx || t.pinned);
           if (evicted.length === 0) return state;
-          const recentlyClosed = [
-            ...evicted.reverse(),
-            ...state.recentlyClosed,
-          ].slice(0, MAX_RECENTLY_CLOSED);
+          const recentlyClosed = [...evicted.reverse(), ...state.recentlyClosed].slice(
+            0,
+            MAX_RECENTLY_CLOSED,
+          );
           return {
             tabs: kept,
-            activeTabId: findTabById(kept, state.activeTabId ?? "") ? state.activeTabId : kept[kept.length - 1]?.id ?? null,
+            activeTabId: findTabById(kept, state.activeTabId ?? "")
+              ? state.activeTabId
+              : (kept[kept.length - 1]?.id ?? null),
             recentlyClosed,
           };
         });
@@ -211,10 +232,10 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           const evicted = state.tabs.filter((t) => idSet.has(t.id) && !t.pinned);
           if (evicted.length === 0) return state;
           const kept = state.tabs.filter((t) => !idSet.has(t.id) || t.pinned);
-          const recentlyClosed = [
-            ...evicted.reverse(),
-            ...state.recentlyClosed,
-          ].slice(0, MAX_RECENTLY_CLOSED);
+          const recentlyClosed = [...evicted.reverse(), ...state.recentlyClosed].slice(
+            0,
+            MAX_RECENTLY_CLOSED,
+          );
           let newActiveId = state.activeTabId;
           if (state.activeTabId && idSet.has(state.activeTabId)) {
             const closedIdx = state.tabs.findIndex((t) => t.id === state.activeTabId);
@@ -338,9 +359,10 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       restoreState: (restored) => {
         set({
           tabs: restored.tabs,
-          activeTabId: restored.activeTabId && findTabById(restored.tabs, restored.activeTabId)
-            ? restored.activeTabId
-            : restored.tabs[0]?.id ?? null,
+          activeTabId:
+            restored.activeTabId && findTabById(restored.tabs, restored.activeTabId)
+              ? restored.activeTabId
+              : (restored.tabs[0]?.id ?? null),
           recentlyClosed: restored.recentlyClosed ?? [],
         });
         gcGridState();
@@ -352,7 +374,19 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         workspaceVersion: CURRENT_WORKSPACE_VERSION,
         tabs: state.tabs.map((t) =>
           t.kind === "query"
-            ? { ...t, data: { ...t.data, result: null, explainPlan: null, status: "idle" as const, error: null, multiResults: null, activeExecutionId: null, executionStartedAt: null } }
+            ? {
+                ...t,
+                data: {
+                  ...t.data,
+                  result: null,
+                  explainPlan: null,
+                  status: "idle" as const,
+                  error: null,
+                  multiResults: null,
+                  activeExecutionId: null,
+                  executionStartedAt: null,
+                },
+              }
             : t,
         ),
         activeTabId: state.activeTabId,

@@ -30,9 +30,7 @@ function restoreSession(connections: Connection[]) {
   const { activeConnectionIds } = useConnectionStore.getState();
   if (activeConnectionIds.length === 0) return;
 
-  const validIds = activeConnectionIds.filter((id) =>
-    connections.some((c) => c.id === id),
-  );
+  const validIds = activeConnectionIds.filter((id) => connections.some((c) => c.id === id));
   // Clean up stale IDs that no longer exist.
   for (const staleId of activeConnectionIds) {
     if (!connections.some((c) => c.id === staleId)) {
@@ -110,8 +108,15 @@ export function useCreateConnection() {
 export function useUpdateConnection() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, config, password }: { id: string; config: ConnectionConfig; password?: string }) =>
-      getConnectionService().update(id, config, password),
+    mutationFn: ({
+      id,
+      config,
+      password,
+    }: {
+      id: string;
+      config: ConnectionConfig;
+      password?: string;
+    }) => getConnectionService().update(id, config, password),
     onSuccess: () => qc.invalidateQueries({ queryKey: QUERY_KEYS.connections }),
   });
 }

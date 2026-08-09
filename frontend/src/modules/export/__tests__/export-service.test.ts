@@ -11,7 +11,12 @@ import { ExportService, createExportService } from "../services/export.service";
 describe("ExportService", () => {
   describe("exportCsv", () => {
     it("calls apiInvoke with export_csv command", async () => {
-      const result = { fileContent: "a,b\n1,2", fileName: "export.csv", mimeType: "text/csv", rowCount: 1 };
+      const result = {
+        fileContent: "a,b\n1,2",
+        fileName: "export.csv",
+        mimeType: "text/csv",
+        rowCount: 1,
+      };
       mockApiInvoke.mockResolvedValueOnce(result);
 
       const svc = new ExportService();
@@ -27,7 +32,12 @@ describe("ExportService", () => {
 
   describe("exportJson", () => {
     it("calls apiInvoke with export_json command", async () => {
-      const result = { fileContent: "[]", fileName: "export.json", mimeType: "application/json", rowCount: 0 };
+      const result = {
+        fileContent: "[]",
+        fileName: "export.json",
+        mimeType: "application/json",
+        rowCount: 0,
+      };
       mockApiInvoke.mockResolvedValueOnce(result);
 
       const svc = new ExportService();
@@ -43,7 +53,12 @@ describe("ExportService", () => {
 
   describe("exportExcel", () => {
     it("calls apiInvoke with export_excel command", async () => {
-      const result = { fileContent: "base64...", fileName: "export.xlsx", mimeType: "application/vnd.ms-excel", rowCount: 5 };
+      const result = {
+        fileContent: "base64...",
+        fileName: "export.xlsx",
+        mimeType: "application/vnd.ms-excel",
+        rowCount: 5,
+      };
       mockApiInvoke.mockResolvedValueOnce(result);
 
       const svc = new ExportService();

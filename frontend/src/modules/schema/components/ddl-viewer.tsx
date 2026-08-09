@@ -24,19 +24,11 @@ export function DdlViewer({ ddl, isLoading, error, onOpenInQuery }: DdlViewerPro
   }
 
   if (error) {
-    return (
-      <div className="p-4 text-[13px] text-destructive">
-        {error}
-      </div>
-    );
+    return <div className="p-4 text-[13px] text-destructive">{error}</div>;
   }
 
   if (!ddl) {
-    return (
-      <div className="p-4 text-[13px] text-[var(--app-text-muted)]">
-        {t("schema.noDdl")}
-      </div>
-    );
+    return <div className="p-4 text-[13px] text-[var(--app-text-muted)]">{t("schema.noDdl")}</div>;
   }
 
   const handleCopy = async () => {

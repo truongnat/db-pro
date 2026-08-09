@@ -30,7 +30,11 @@ describe("ExportService", () => {
   });
 
   it("exportJson calls export_json with connection_id and sql", async () => {
-    mockInvoke.mockResolvedValueOnce({ ...mockResult, fileName: "export.json", mimeType: "application/json" });
+    mockInvoke.mockResolvedValueOnce({
+      ...mockResult,
+      fileName: "export.json",
+      mimeType: "application/json",
+    });
 
     await service.exportJson("conn-1", "SELECT 1");
 

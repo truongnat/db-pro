@@ -75,15 +75,21 @@ describe("SQL Safety Classifier — classifySqlRisk (production)", () => {
 
   describe("WITH mutating CTE", () => {
     it("WITH ... DELETE → destructive", () => {
-      expect(classifySqlRisk("WITH x AS (DELETE FROM users RETURNING *) SELECT * FROM x")).toBe("destructive");
+      expect(classifySqlRisk("WITH x AS (DELETE FROM users RETURNING *) SELECT * FROM x")).toBe(
+        "destructive",
+      );
     });
 
     it("WITH ... INSERT → destructive", () => {
-      expect(classifySqlRisk("WITH x AS (INSERT INTO t VALUES (1) RETURNING *) SELECT * FROM x")).toBe("destructive");
+      expect(
+        classifySqlRisk("WITH x AS (INSERT INTO t VALUES (1) RETURNING *) SELECT * FROM x"),
+      ).toBe("destructive");
     });
 
     it("WITH ... UPDATE → destructive", () => {
-      expect(classifySqlRisk("WITH x AS (UPDATE t SET a = 1 RETURNING *) SELECT * FROM x")).toBe("destructive");
+      expect(classifySqlRisk("WITH x AS (UPDATE t SET a = 1 RETURNING *) SELECT * FROM x")).toBe(
+        "destructive",
+      );
     });
 
     it("WITH ... SELECT → read", () => {
@@ -91,27 +97,39 @@ describe("SQL Safety Classifier — classifySqlRisk (production)", () => {
     });
 
     it("WITH string containing DELETE → read (no false positive)", () => {
-      expect(classifySqlRisk("WITH x AS (SELECT 'DELETE FROM users') SELECT * FROM x")).toBe("read");
+      expect(classifySqlRisk("WITH x AS (SELECT 'DELETE FROM users') SELECT * FROM x")).toBe(
+        "read",
+      );
     });
 
     it("WITH block comment containing DELETE → read (no false positive)", () => {
-      expect(classifySqlRisk("WITH x AS (\n  SELECT 1 /* DELETE FROM users */\n) SELECT * FROM x")).toBe("read");
+      expect(
+        classifySqlRisk("WITH x AS (\n  SELECT 1 /* DELETE FROM users */\n) SELECT * FROM x"),
+      ).toBe("read");
     });
 
     it("WITH line comment containing DELETE → read (no false positive)", () => {
-      expect(classifySqlRisk("WITH x AS (\n  SELECT 1 -- DELETE FROM users\n) SELECT * FROM x")).toBe("read");
+      expect(
+        classifySqlRisk("WITH x AS (\n  SELECT 1 -- DELETE FROM users\n) SELECT * FROM x"),
+      ).toBe("read");
     });
 
     it("WITH actual mutating CTE → destructive", () => {
-      expect(classifySqlRisk("WITH x AS (DELETE FROM users RETURNING *) SELECT * FROM x")).toBe("destructive");
+      expect(classifySqlRisk("WITH x AS (DELETE FROM users RETURNING *) SELECT * FROM x")).toBe(
+        "destructive",
+      );
     });
 
     it("WITH dollar-quoted DELETE → read (no false positive)", () => {
-      expect(classifySqlRisk("WITH x AS (SELECT $$DELETE FROM users$$) SELECT * FROM x")).toBe("read");
+      expect(classifySqlRisk("WITH x AS (SELECT $$DELETE FROM users$$) SELECT * FROM x")).toBe(
+        "read",
+      );
     });
 
     it("WITH double-quoted identifier containing DELETE → read", () => {
-      expect(classifySqlRisk('WITH x AS (SELECT 1 AS "DELETE FROM users") SELECT * FROM x')).toBe("read");
+      expect(classifySqlRisk('WITH x AS (SELECT 1 AS "DELETE FROM users") SELECT * FROM x')).toBe(
+        "read",
+      );
     });
   });
 
@@ -228,7 +246,9 @@ describe("SQL Safety Classifier — classifyScriptRisk (production)", () => {
   });
 
   it("WITH string literal DELETE in script → read", () => {
-    expect(classifyScriptRisk("WITH x AS (SELECT 'DELETE FROM users') SELECT * FROM x")).toBe("read");
+    expect(classifyScriptRisk("WITH x AS (SELECT 'DELETE FROM users') SELECT * FROM x")).toBe(
+      "read",
+    );
   });
 
   it("dollar-quoted DELETE in script → read", () => {

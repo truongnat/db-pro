@@ -14,33 +14,19 @@ let bootstrapped = false;
 export async function bootstrapServices(): Promise<DIContainer> {
   if (bootstrapped) return container;
 
-  container.register(SERVICE_NAMES.CONNECTION_SERVICE, () =>
-    createConnectionService(),
-  );
+  container.register(SERVICE_NAMES.CONNECTION_SERVICE, () => createConnectionService());
 
-  container.register(SERVICE_NAMES.QUERY_SERVICE, () =>
-    createQueryService(),
-  );
+  container.register(SERVICE_NAMES.QUERY_SERVICE, () => createQueryService());
 
-  container.register(SERVICE_NAMES.SCHEMA_SERVICE, () =>
-    createSchemaService(),
-  );
+  container.register(SERVICE_NAMES.SCHEMA_SERVICE, () => createSchemaService());
 
-  container.register(SERVICE_NAMES.DATA_GRID_SERVICE, () =>
-    createDataGridService(),
-  );
+  container.register(SERVICE_NAMES.DATA_GRID_SERVICE, () => createDataGridService());
 
-  container.register(SERVICE_NAMES.EXPORT_SERVICE, () =>
-    createExportService(),
-  );
+  container.register(SERVICE_NAMES.EXPORT_SERVICE, () => createExportService());
 
-  container.register(SERVICE_NAMES.USER_MANAGEMENT_SERVICE, () =>
-    createUserManagementService(),
-  );
+  container.register(SERVICE_NAMES.USER_MANAGEMENT_SERVICE, () => createUserManagementService());
 
-  container.register(SERVICE_NAMES.BACKUP_SERVICE, () =>
-    createBackupService(),
-  );
+  container.register(SERVICE_NAMES.BACKUP_SERVICE, () => createBackupService());
 
   container.freeze();
   bootstrapped = true;

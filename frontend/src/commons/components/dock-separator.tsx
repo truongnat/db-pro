@@ -7,10 +7,7 @@ interface DockSeparatorProps {
   isCollapsed: boolean;
 }
 
-export function DockSeparator({
-  separatorProps,
-  isCollapsed,
-}: DockSeparatorProps) {
+export function DockSeparator({ separatorProps, isCollapsed }: DockSeparatorProps) {
   const { t } = useTranslation();
 
   return (

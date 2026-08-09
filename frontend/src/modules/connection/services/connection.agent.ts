@@ -27,7 +27,11 @@ export class MockConnectionService {
   async update(id: string, config: ConnectionConfig, _password?: string): Promise<void> {
     const index = this.connections.findIndex((c) => c.id === id);
     if (index === -1) throw new Error(`Connection ${id} not found`);
-    this.connections[index] = { ...this.connections[index], ...config, updatedAt: new Date().toISOString() };
+    this.connections[index] = {
+      ...this.connections[index],
+      ...config,
+      updatedAt: new Date().toISOString(),
+    };
   }
 
   async delete(id: string): Promise<void> {

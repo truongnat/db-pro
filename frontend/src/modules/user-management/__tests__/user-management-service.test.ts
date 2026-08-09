@@ -14,7 +14,9 @@ import {
 describe("UserManagementService", () => {
   describe("listUsers", () => {
     it("calls apiInvoke with connectionId", async () => {
-      const users = [{ name: "alice", isSuper: true, canCreateDb: false, canCreateRole: false, canLogin: true }];
+      const users = [
+        { name: "alice", isSuper: true, canCreateDb: false, canCreateRole: false, canLogin: true },
+      ];
       mockApiInvoke.mockResolvedValueOnce(users);
 
       const svc = new UserManagementService();
@@ -76,7 +78,13 @@ describe("UserManagementService", () => {
       await svc.grantPrivilege("conn-1", "bob", "public", "users", "SELECT");
 
       expect(mockApiInvoke).toHaveBeenCalledWith("grant_privilege", {
-        req: { connectionId: "conn-1", roleName: "bob", schema: "public", table: "users", privilege: "SELECT" },
+        req: {
+          connectionId: "conn-1",
+          roleName: "bob",
+          schema: "public",
+          table: "users",
+          privilege: "SELECT",
+        },
       });
     });
   });
@@ -89,7 +97,13 @@ describe("UserManagementService", () => {
       await svc.revokePrivilege("conn-1", "bob", "public", "users", "DELETE");
 
       expect(mockApiInvoke).toHaveBeenCalledWith("revoke_privilege", {
-        req: { connectionId: "conn-1", roleName: "bob", schema: "public", table: "users", privilege: "DELETE" },
+        req: {
+          connectionId: "conn-1",
+          roleName: "bob",
+          schema: "public",
+          table: "users",
+          privilege: "DELETE",
+        },
       });
     });
   });

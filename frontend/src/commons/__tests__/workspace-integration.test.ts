@@ -21,7 +21,8 @@ describe("Workspace integration flows", () => {
 
   describe("query tab lifecycle", () => {
     it("create → edit → execute → close → reopen preserves SQL", () => {
-      const { openTab, closeTab, updateTabData, reopenLastClosed, setTabDirty } = useWorkspaceStore.getState();
+      const { openTab, closeTab, updateTabData, reopenLastClosed, setTabDirty } =
+        useWorkspaceStore.getState();
 
       // 1. Create query tab
       const tab = createQueryTab("conn-1", { title: "My Query", sql: "SELECT 1" });
@@ -29,7 +30,10 @@ describe("Workspace integration flows", () => {
       expect(useWorkspaceStore.getState().tabs).toHaveLength(1);
 
       // 2. Edit SQL
-      updateTabData(tab.id, (d: QueryTabData) => ({ ...d, sql: "SELECT * FROM users WHERE id = 1" }));
+      updateTabData(tab.id, (d: QueryTabData) => ({
+        ...d,
+        sql: "SELECT * FROM users WHERE id = 1",
+      }));
       setTabDirty(tab.id, true);
 
       // 3. Simulate execution result

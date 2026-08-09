@@ -70,9 +70,7 @@ export function ObjectContextHeader({
 
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline gap-2">
-          <span className="truncate text-[13px] font-semibold text-foreground">
-            {objectName}
-          </span>
+          <span className="truncate text-[13px] font-semibold text-foreground">{objectName}</span>
           <span className="shrink-0 text-[11px] text-[var(--app-text-dim)]">
             {schema} · {objectType} · {connectionName}
           </span>

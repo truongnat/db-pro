@@ -19,7 +19,16 @@ import { renderCellValue } from "@/modules/query/types/query.types";
 import type { ChartConfig } from "../state/data-grid.store";
 import type { ColumnMeta, Row } from "../types/data-grid.types";
 
-const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#06b6d4", "#84cc16"];
+const COLORS = [
+  "#3b82f6",
+  "#10b981",
+  "#f59e0b",
+  "#ef4444",
+  "#8b5cf6",
+  "#ec4899",
+  "#06b6d4",
+  "#84cc16",
+];
 
 interface ChartViewProps {
   columns: ColumnMeta[];

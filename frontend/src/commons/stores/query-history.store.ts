@@ -67,7 +67,7 @@ export const useQueryHistoryStore = create<QueryHistoryState>()(
         favorites: Array.from(state.favorites),
       }),
       merge: (persisted, current) => {
-        const p = persisted as Partial<QueryHistoryState> & { favorites?: string[] } | undefined;
+        const p = persisted as (Partial<QueryHistoryState> & { favorites?: string[] }) | undefined;
         if (!p) return current;
         return {
           ...current,

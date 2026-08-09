@@ -18,7 +18,6 @@ export function useBackupDatabase() {
 
 export function useRestoreDatabase() {
   return useMutation({
-    mutationFn: (options: RestoreOptions) =>
-      getBackupService().restore(options),
+    mutationFn: (options: RestoreOptions) => getBackupService().restore(options),
   });
 }

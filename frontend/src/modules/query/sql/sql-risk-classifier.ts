@@ -18,8 +18,12 @@ function maskNonCodeTokens(sql: string): string {
       let j = i + 1;
       while (j < sql.length) {
         if (sql[j] === "'") {
-          if (sql[j + 1] === "'") { j += 2; continue; }
-          j++; break;
+          if (sql[j + 1] === "'") {
+            j += 2;
+            continue;
+          }
+          j++;
+          break;
         }
         j++;
       }
@@ -32,8 +36,12 @@ function maskNonCodeTokens(sql: string): string {
       let j = i + 1;
       while (j < sql.length) {
         if (sql[j] === '"') {
-          if (sql[j + 1] === '"') { j += 2; continue; }
-          j++; break;
+          if (sql[j + 1] === '"') {
+            j += 2;
+            continue;
+          }
+          j++;
+          break;
         }
         j++;
       }
@@ -80,9 +88,13 @@ function maskNonCodeTokens(sql: string): string {
       let j = i + 2;
       let depth = 1;
       while (j < sql.length && depth > 0) {
-        if (sql[j] === "/" && sql[j + 1] === "*") { depth++; j += 2; }
-        else if (sql[j] === "*" && sql[j + 1] === "/") { depth--; j += 2; }
-        else j++;
+        if (sql[j] === "/" && sql[j + 1] === "*") {
+          depth++;
+          j += 2;
+        } else if (sql[j] === "*" && sql[j + 1] === "/") {
+          depth--;
+          j += 2;
+        } else j++;
       }
       result += " ".repeat(j - i);
       i = j;

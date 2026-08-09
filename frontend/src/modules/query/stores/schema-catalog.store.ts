@@ -25,11 +25,20 @@ export interface ConnectionCatalog {
   columnsByTable: Map<string, SchemaColumnDto[]>;
   columnsLoaded: Set<string>;
   columnsLoading: Map<string, Promise<SchemaColumnDto[]>>;
-}interface SchemaCatalogState {
+}
+interface SchemaCatalogState {
   catalogs: Map<string, ConnectionCatalog>;
   ensureLoaded: (connectionId: string) => Promise<void>;
-  ensureTableColumns: (connectionId: string, schema: string, table: string) => Promise<SchemaColumnDto[]>;
-  getColumns: (connectionId: string, schema: string, table: string) => SchemaColumnDto[] | undefined;
+  ensureTableColumns: (
+    connectionId: string,
+    schema: string,
+    table: string,
+  ) => Promise<SchemaColumnDto[]>;
+  getColumns: (
+    connectionId: string,
+    schema: string,
+    table: string,
+  ) => SchemaColumnDto[] | undefined;
   getCatalog: (connectionId: string) => ConnectionCatalog | undefined;
   invalidateConnection: (connectionId: string) => void;
   invalidateTable: (connectionId: string, schema: string, table: string) => void;
@@ -47,11 +56,21 @@ export const useSchemaCatalogStore = create<SchemaCatalogState>()((set, get) => 
     const existing = get().catalogs.get(connectionId);
     if (existing && existing.schemas.length > 0) return;
 
-    const result = await getSchemaService().introspect(connectionId) as IntrospectResult;
+    const result = (await getSchemaService().introspect(connectionId)) as IntrospectResult;
 
     const objects: CatalogTableEntry[] = [
-      ...result.tables.map((t) => ({ name: t.name, schema: t.schema, rowCount: t.rowCount, kind: "table" as const })),
-      ...result.views.map((v) => ({ name: v.name, schema: v.schema, rowCount: null, kind: "view" as const })),
+      ...result.tables.map((t) => ({
+        name: t.name,
+        schema: t.schema,
+        rowCount: t.rowCount,
+        kind: "table" as const,
+      })),
+      ...result.views.map((v) => ({
+        name: v.name,
+        schema: v.schema,
+        rowCount: null,
+        kind: "view" as const,
+      })),
     ];
 
     const catalog: ConnectionCatalog = {
@@ -81,7 +100,11 @@ export const useSchemaCatalogStore = create<SchemaCatalogState>()((set, get) => 
     if (inFlight) return inFlight;
 
     const fetchPromise = (async () => {
-      const info = await getSchemaService().getTableInfo(connectionId, schema, table) as TableInfo;
+      const info = (await getSchemaService().getTableInfo(
+        connectionId,
+        schema,
+        table,
+      )) as TableInfo;
       const columns = info.columns;
 
       set((state) => {

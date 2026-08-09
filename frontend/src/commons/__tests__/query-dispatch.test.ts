@@ -54,8 +54,16 @@ describe("query-dispatch", () => {
 
   it("supports all action types", () => {
     const actions = [
-      "execute", "executeCurrent", "explain", "format",
-      "clear", "cancel", "export", "importSql", "exportSql", "saveQuery",
+      "execute",
+      "executeCurrent",
+      "explain",
+      "format",
+      "clear",
+      "cancel",
+      "export",
+      "importSql",
+      "exportSql",
+      "saveQuery",
     ] as const;
 
     for (const action of actions) {

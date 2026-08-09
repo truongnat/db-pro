@@ -11,15 +11,9 @@ export class DIContainer {
   private resolving = new Set<string>();
   private frozen = false;
 
-  register<T>(
-    name: string,
-    factory: Factory<T>,
-    singleton = true,
-  ): void {
+  register<T>(name: string, factory: Factory<T>, singleton = true): void {
     if (this.frozen) {
-      throw new Error(
-        `Cannot register "${name}": container is frozen after bootstrap`,
-      );
+      throw new Error(`Cannot register "${name}": container is frozen after bootstrap`);
     }
     this.factories.set(name, { factory, singleton });
   }
@@ -35,9 +29,7 @@ export class DIContainer {
     }
 
     if (this.resolving.has(name)) {
-      throw new Error(
-        `Circular dependency detected while resolving "${name}"`,
-      );
+      throw new Error(`Circular dependency detected while resolving "${name}"`);
     }
 
     this.resolving.add(name);

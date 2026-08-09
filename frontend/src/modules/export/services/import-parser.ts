@@ -6,10 +6,7 @@ const PREVIEW_ROWS = 10;
  * Parse a CSV string into headers + rows.
  * Handles quoted fields, escaped quotes, and newlines within quotes.
  */
-export function parseCsv(
-  text: string,
-  delimiter = ",",
-): { headers: string[]; rows: string[][] } {
+export function parseCsv(text: string, delimiter = ","): { headers: string[]; rows: string[][] } {
   const rows: string[][] = [];
   let current: string[] = [];
   let field = "";
@@ -171,10 +168,7 @@ function autoMapColumn(sourceName: string, targetColumns: string[]): string | nu
 /**
  * Parse all rows from file content for import execution.
  */
-export function parseAllRows(
-  content: string,
-  format: ImportFormat,
-): Record<string, string>[] {
+export function parseAllRows(content: string, format: ImportFormat): Record<string, string>[] {
   if (format === "csv") {
     const { headers, rows } = parseCsv(content);
     return rows.map((row) => {

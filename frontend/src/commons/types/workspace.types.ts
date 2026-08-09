@@ -21,7 +21,8 @@ export interface WorkspaceTabBase {
   order: number;
 }
 
-export type ResultPanelTab = "results" | "explain" | "messages" | "history" | "local-history" | "snippets";
+export type ResultPanelTab =
+  "results" | "explain" | "messages" | "history" | "local-history" | "snippets";
 
 export interface QueryContext {
   database: string | null;

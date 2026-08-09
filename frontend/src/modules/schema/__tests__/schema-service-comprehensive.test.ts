@@ -70,7 +70,12 @@ describe("SchemaService — comprehensive", () => {
   describe("getObjectDependencies", () => {
     it("calls get_object_dependencies with all parameters", async () => {
       const deps = [
-        { objectType: "view", objectName: "v_users", dependsOnType: "table", dependsOnName: "users" },
+        {
+          objectType: "view",
+          objectName: "v_users",
+          dependsOnType: "table",
+          dependsOnName: "users",
+        },
       ];
       mockInvoke.mockResolvedValueOnce(deps);
       const result = await service.getObjectDependencies("conn-1", "public", "users");

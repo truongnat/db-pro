@@ -54,127 +54,135 @@ function ensureTab(states: Record<string, GridTabState>, tabId: string): GridTab
 export const useTabGridStateStore = create<TabGridStateStore>()(
   persist(
     (set, get) => ({
-  states: {},
+      states: {},
 
-  getState: (tabId) => ensureTab(get().states, tabId),
+      getState: (tabId) => ensureTab(get().states, tabId),
 
-  setState: (tabId, partial) =>
-    set((s) => ({
-      states: {
-        ...s.states,
-        [tabId]: { ...ensureTab(s.states, tabId), ...partial },
-      },
-    })),
+      setState: (tabId, partial) =>
+        set((s) => ({
+          states: {
+            ...s.states,
+            [tabId]: { ...ensureTab(s.states, tabId), ...partial },
+          },
+        })),
 
-  addFilter: (tabId, filter) =>
-    set((s) => ({
-      states: {
-        ...s.states,
-        [tabId]: { ...ensureTab(s.states, tabId), filters: [...ensureTab(s.states, tabId).filters, filter], page: 1 },
-      },
-    })),
+      addFilter: (tabId, filter) =>
+        set((s) => ({
+          states: {
+            ...s.states,
+            [tabId]: {
+              ...ensureTab(s.states, tabId),
+              filters: [...ensureTab(s.states, tabId).filters, filter],
+              page: 1,
+            },
+          },
+        })),
 
-  removeFilter: (tabId, index) =>
-    set((s) => ({
-      states: {
-        ...s.states,
-        [tabId]: { ...ensureTab(s.states, tabId), filters: ensureTab(s.states, tabId).filters.filter((_, i) => i !== index), page: 1 },
-      },
-    })),
+      removeFilter: (tabId, index) =>
+        set((s) => ({
+          states: {
+            ...s.states,
+            [tabId]: {
+              ...ensureTab(s.states, tabId),
+              filters: ensureTab(s.states, tabId).filters.filter((_, i) => i !== index),
+              page: 1,
+            },
+          },
+        })),
 
-  setSorts: (tabId, sorts) =>
-    set((s) => ({
-      states: {
-        ...s.states,
-        [tabId]: { ...ensureTab(s.states, tabId), sorts },
-      },
-    })),
+      setSorts: (tabId, sorts) =>
+        set((s) => ({
+          states: {
+            ...s.states,
+            [tabId]: { ...ensureTab(s.states, tabId), sorts },
+          },
+        })),
 
-  setPage: (tabId, page) =>
-    set((s) => ({
-      states: {
-        ...s.states,
-        [tabId]: { ...ensureTab(s.states, tabId), page },
-      },
-    })),
+      setPage: (tabId, page) =>
+        set((s) => ({
+          states: {
+            ...s.states,
+            [tabId]: { ...ensureTab(s.states, tabId), page },
+          },
+        })),
 
-  setPageSize: (tabId, size) =>
-    set((s) => ({
-      states: {
-        ...s.states,
-        [tabId]: { ...ensureTab(s.states, tabId), pageSize: size, page: 1 },
-      },
-    })),
+      setPageSize: (tabId, size) =>
+        set((s) => ({
+          states: {
+            ...s.states,
+            [tabId]: { ...ensureTab(s.states, tabId), pageSize: size, page: 1 },
+          },
+        })),
 
-  setEditingCell: (tabId, cell) =>
-    set((s) => ({
-      states: {
-        ...s.states,
-        [tabId]: { ...ensureTab(s.states, tabId), editingCell: cell },
-      },
-    })),
+      setEditingCell: (tabId, cell) =>
+        set((s) => ({
+          states: {
+            ...s.states,
+            [tabId]: { ...ensureTab(s.states, tabId), editingCell: cell },
+          },
+        })),
 
-  toggleFrozenColumn: (tabId, column) =>
-    set((s) => {
-      const current = ensureTab(s.states, tabId);
-      const frozen = current.frozenColumns.includes(column)
-        ? current.frozenColumns.filter((c) => c !== column)
-        : [...current.frozenColumns, column];
-      return {
-        states: { ...s.states, [tabId]: { ...current, frozenColumns: frozen } },
-      };
-    }),
+      toggleFrozenColumn: (tabId, column) =>
+        set((s) => {
+          const current = ensureTab(s.states, tabId);
+          const frozen = current.frozenColumns.includes(column)
+            ? current.frozenColumns.filter((c) => c !== column)
+            : [...current.frozenColumns, column];
+          return {
+            states: { ...s.states, [tabId]: { ...current, frozenColumns: frozen } },
+          };
+        }),
 
-  toggleHiddenColumn: (tabId, column) =>
-    set((s) => {
-      const current = ensureTab(s.states, tabId);
-      const hidden = current.hiddenColumns.includes(column)
-        ? current.hiddenColumns.filter((c) => c !== column)
-        : [...current.hiddenColumns, column];
-      return {
-        states: { ...s.states, [tabId]: { ...current, hiddenColumns: hidden } },
-      };
-    }),
+      toggleHiddenColumn: (tabId, column) =>
+        set((s) => {
+          const current = ensureTab(s.states, tabId);
+          const hidden = current.hiddenColumns.includes(column)
+            ? current.hiddenColumns.filter((c) => c !== column)
+            : [...current.hiddenColumns, column];
+          return {
+            states: { ...s.states, [tabId]: { ...current, hiddenColumns: hidden } },
+          };
+        }),
 
-  setHiddenColumns: (tabId, columns) =>
-    set((s) => {
-      const current = ensureTab(s.states, tabId);
-      return {
-        states: { ...s.states, [tabId]: { ...current, hiddenColumns: columns } },
-      };
-    }),
+      setHiddenColumns: (tabId, columns) =>
+        set((s) => {
+          const current = ensureTab(s.states, tabId);
+          return {
+            states: { ...s.states, [tabId]: { ...current, hiddenColumns: columns } },
+          };
+        }),
 
-  setColumnWidths: (tabId, widths) =>
-    set((s) => {
-      const current = ensureTab(s.states, tabId);
-      return {
-        states: { ...s.states, [tabId]: { ...current, columnWidths: widths } },
-      };
-    }),
+      setColumnWidths: (tabId, widths) =>
+        set((s) => {
+          const current = ensureTab(s.states, tabId);
+          return {
+            states: { ...s.states, [tabId]: { ...current, columnWidths: widths } },
+          };
+        }),
 
-  setChartConfig: (tabId, config) =>
-    set((s) => ({
-      states: {
-        ...s.states,
-        [tabId]: { ...ensureTab(s.states, tabId), chartConfig: config },
-      },
-    })),
+      setChartConfig: (tabId, config) =>
+        set((s) => ({
+          states: {
+            ...s.states,
+            [tabId]: { ...ensureTab(s.states, tabId), chartConfig: config },
+          },
+        })),
 
-  resetTab: (tabId) =>
-    set((s) => {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { [tabId]: _, ...rest } = s.states;
-      return { states: rest };
-    }),
+      resetTab: (tabId) =>
+        set((s) => {
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          const { [tabId]: _, ...rest } = s.states;
+          return { states: rest };
+        }),
 
-  gc: (validTabIds) =>
-    set((s) => {
-      const cleaned: Record<string, GridTabState> = {};
-      for (const [id, state] of Object.entries(s.states)) {
-        if (validTabIds.has(id)) cleaned[id] = state;
-      }
-      return { states: cleaned };
-    }),
+      gc: (validTabIds) =>
+        set((s) => {
+          const cleaned: Record<string, GridTabState> = {};
+          for (const [id, state] of Object.entries(s.states)) {
+            if (validTabIds.has(id)) cleaned[id] = state;
+          }
+          return { states: cleaned };
+        }),
     }),
     {
       name: "dbpro:grid",

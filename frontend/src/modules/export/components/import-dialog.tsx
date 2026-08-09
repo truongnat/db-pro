@@ -29,7 +29,12 @@ import {
 import { useTranslation } from "@/commons/locales/useTranslation";
 
 import { buildImportPreview, detectFormat, parseAllRows } from "../services/import-parser";
-import type { ImportColumnMapping, ImportFormat, ImportPreview, ImportResult } from "../types/import.types";
+import type {
+  ImportColumnMapping,
+  ImportFormat,
+  ImportPreview,
+  ImportResult,
+} from "../types/import.types";
 
 interface ImportDialogProps {
   open: boolean;
@@ -96,15 +101,10 @@ export function ImportDialog({
   };
 
   const updateMapping = (index: number, targetColumn: string | null) => {
-    setMappings((prev) =>
-      prev.map((m, i) => (i === index ? { ...m, targetColumn } : m)),
-    );
+    setMappings((prev) => prev.map((m, i) => (i === index ? { ...m, targetColumn } : m)));
   };
 
-  const mappedColumns = useMemo(
-    () => mappings.filter((m) => m.targetColumn != null),
-    [mappings],
-  );
+  const mappedColumns = useMemo(() => mappings.filter((m) => m.targetColumn != null), [mappings]);
 
   const handleImport = async () => {
     if (!preview || mappedColumns.length === 0) return;
@@ -117,9 +117,7 @@ export function ImportDialog({
 
     for (let i = 0; i < allRows.length; i++) {
       const row = allRows[i];
-      const values = mappedColumns
-        .map((m) => sqlValue(row[m.sourceName] ?? ""))
-        .join(", ");
+      const values = mappedColumns.map((m) => sqlValue(row[m.sourceName] ?? "")).join(", ");
       const sql = `INSERT INTO "${tableName}" (${colList}) VALUES (${values})`;
       try {
         onExecuteSql(sql);
@@ -162,7 +160,11 @@ export function ImportDialog({
               <div className="flex gap-2">
                 <Button
                   variant="outline"
-                  className={format === "csv" ? "border-primary text-primary" : "border-[var(--app-border-subtle)]"}
+                  className={
+                    format === "csv"
+                      ? "border-primary text-primary"
+                      : "border-[var(--app-border-subtle)]"
+                  }
                   onClick={() => setFormat("csv")}
                   type="button"
                 >
@@ -170,7 +172,11 @@ export function ImportDialog({
                 </Button>
                 <Button
                   variant="outline"
-                  className={format === "json" ? "border-primary text-primary" : "border-[var(--app-border-subtle)]"}
+                  className={
+                    format === "json"
+                      ? "border-primary text-primary"
+                      : "border-[var(--app-border-subtle)]"
+                  }
                   onClick={() => setFormat("json")}
                   type="button"
                 >
@@ -188,9 +194,7 @@ export function ImportDialog({
                 className="h-8"
               />
             </div>
-            <p className="text-xs text-[var(--app-text-muted)]">
-              {t("import.hint")}
-            </p>
+            <p className="text-xs text-[var(--app-text-muted)]">{t("import.hint")}</p>
           </div>
         )}
 
@@ -211,9 +215,7 @@ export function ImportDialog({
                   <span className="text-xs">→</span>
                   <Select
                     value={m.targetColumn ?? "__none__"}
-                    onValueChange={(v) =>
-                      updateMapping(i, v === "__none__" ? null : v)
-                    }
+                    onValueChange={(v) => updateMapping(i, v === "__none__" ? null : v)}
                   >
                     <SelectTrigger className="h-7 flex-1 text-xs">
                       <SelectValue placeholder={t("import.skipColumn")} />
@@ -272,9 +274,7 @@ export function ImportDialog({
         {step === "result" && result && (
           <div className="space-y-3">
             <div className="rounded border border-[var(--app-border)] p-3">
-              <p className="text-sm font-medium">
-                {t("import.importComplete")}
-              </p>
+              <p className="text-sm font-medium">{t("import.importComplete")}</p>
               <p className="text-xs text-[var(--app-text-muted)]">
                 {t("import.successCount", { count: result.successCount })}
                 {result.errorCount > 0 && (
@@ -289,9 +289,7 @@ export function ImportDialog({
                   <TableHeader>
                     <TableRow>
                       <TableHead className="px-2 py-1 text-xs">#</TableHead>
-                      <TableHead className="px-2 py-1 text-xs">
-                        {t("import.errorColumn")}
-                      </TableHead>
+                      <TableHead className="px-2 py-1 text-xs">{t("import.errorColumn")}</TableHead>
                       <TableHead className="px-2 py-1 text-xs">
                         {t("import.errorMessage")}
                       </TableHead>

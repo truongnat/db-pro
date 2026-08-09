@@ -11,7 +11,13 @@ interface ChangeBarProps {
   onRetryFailed?: () => void;
 }
 
-export function ChangeBar({ changes, isApplying, onApply, onRevertAll, onRetryFailed }: ChangeBarProps) {
+export function ChangeBar({
+  changes,
+  isApplying,
+  onApply,
+  onRevertAll,
+  onRetryFailed,
+}: ChangeBarProps) {
   const { t } = useTranslation();
 
   if (changes.length === 0) return null;
@@ -29,7 +35,10 @@ export function ChangeBar({ changes, isApplying, onApply, onRevertAll, onRetryFa
       {failed > 0 ? (
         <>
           <span className="font-medium text-destructive">
-            {t("dataGrid.changes.applyPartial", { applied: changes.length - failed, total: changes.length })}
+            {t("dataGrid.changes.applyPartial", {
+              applied: changes.length - failed,
+              total: changes.length,
+            })}
           </span>
           <span className="text-[var(--app-text-muted)]">
             {t("dataGrid.changes.failedCount", { count: failed })}
@@ -40,9 +49,7 @@ export function ChangeBar({ changes, isApplying, onApply, onRevertAll, onRetryFa
           <span className="font-medium text-foreground">
             {t("dataGrid.changes.pending", { count: changes.length })}
           </span>
-          <span className="text-[var(--app-text-muted)]">
-            {parts.join(", ")}
-          </span>
+          <span className="text-[var(--app-text-muted)]">{parts.join(", ")}</span>
         </>
       )}
       <div className="flex-1" />

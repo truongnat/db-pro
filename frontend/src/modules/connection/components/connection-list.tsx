@@ -31,10 +31,7 @@ import {
   useToggleFavorite,
   useToggleReadonly,
 } from "../queries/connection.queries";
-import {
-  useConnectionModuleStore,
-  type ConnectionSortField,
-} from "../state/connection.store";
+import { useConnectionModuleStore, type ConnectionSortField } from "../state/connection.store";
 import type { Connection } from "../types/connection.types";
 import { ConnectionStatusBadge } from "./connection-status";
 
@@ -209,9 +206,7 @@ export function ConnectionList({ onEdit, onBackup, onRestore }: ConnectionListPr
 
         {uniqueGroups.length > 0 && (
           <div className="flex items-center gap-1">
-            <span className="text-xs text-[var(--app-text-muted)]">
-              {t("connection.group")}:
-            </span>
+            <span className="text-xs text-[var(--app-text-muted)]">{t("connection.group")}:</span>
             {filterGroup && (
               <Button
                 type="button"
@@ -245,9 +240,7 @@ export function ConnectionList({ onEdit, onBackup, onRestore }: ConnectionListPr
 
         {uniqueTags.length > 0 && (
           <div className="flex items-center gap-1">
-            <span className="text-xs text-[var(--app-text-muted)]">
-              {t("connection.tags")}:
-            </span>
+            <span className="text-xs text-[var(--app-text-muted)]">{t("connection.tags")}:</span>
             {filterTag && (
               <Button
                 type="button"
@@ -377,9 +370,7 @@ export function ConnectionList({ onEdit, onBackup, onRestore }: ConnectionListPr
                                   autoFocus
                                 />
                               ) : (
-                                <span className="font-medium text-foreground">
-                                  {conn.name}
-                                </span>
+                                <span className="font-medium text-foreground">{conn.name}</span>
                               )}
                               {conn.readonly && (
                                 <Badge variant="outline" className="text-[11px]">
@@ -406,7 +397,10 @@ export function ConnectionList({ onEdit, onBackup, onRestore }: ConnectionListPr
                             <ConnectionStatusBadge status={status} />
                           </TableCell>
                           <TableCell className="px-4 py-3 text-right">
-                            <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                            <div
+                              className="flex justify-end gap-1"
+                              onClick={(e) => e.stopPropagation()}
+                            >
                               {status === "connected" ? (
                                 <>
                                   <Button
@@ -489,7 +483,11 @@ export function ConnectionList({ onEdit, onBackup, onRestore }: ConnectionListPr
                       </>
                     </ContextMenuTrigger>
                     <ContextMenuContent>
-                      <ContextMenuItem onClick={() => toggleFavoriteMutation.mutate({ id: conn.id, favorite: !isFav })}>
+                      <ContextMenuItem
+                        onClick={() =>
+                          toggleFavoriteMutation.mutate({ id: conn.id, favorite: !isFav })
+                        }
+                      >
                         {isFav ? t("connection.unfavorite") : t("connection.favorite")}
                       </ContextMenuItem>
                       <ContextMenuItem onClick={() => handleStartRename(conn)}>
