@@ -16,7 +16,11 @@ interface LayoutOptions {
  * Compute node positions using dagre layout.
  * Returns a new array of nodes with `position` set.
  */
-export function layoutGraph(nodes: Node[], _edges: Edge[], options: LayoutOptions = {}): Node[] {
+export function layoutGraph(
+  nodes: Node[],
+  _edges: Edge[],
+  options: LayoutOptions = {},
+): Node[] {
   const { direction = "LR", nodeSep = 60, rankSep = 100 } = options;
 
   const g = new dagre.graphlib.Graph();
@@ -32,7 +36,9 @@ export function layoutGraph(nodes: Node[], _edges: Edge[], options: LayoutOption
   for (const node of nodes) {
     const data = node.data as { columns?: unknown[]; compact?: boolean };
     const colCount = data?.columns?.length ?? 0;
-    const height = data?.compact ? 50 : HEADER_HEIGHT + colCount * ROW_HEIGHT + 8;
+    const height = data?.compact
+      ? 50
+      : HEADER_HEIGHT + colCount * ROW_HEIGHT + 8;
     g.setNode(node.id, { width: NODE_WIDTH, height });
   }
 

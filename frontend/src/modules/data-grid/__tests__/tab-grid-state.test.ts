@@ -50,11 +50,7 @@ describe("TabGridStateStore", () => {
   describe("draft filters (addDraftFilter / removeDraftFilter / applyFilters / clearFilters)", () => {
     it("addDraftFilter appends to draftFilters without changing applied filters", () => {
       const { addDraftFilter, getState } = useTabGridStateStore.getState();
-      addDraftFilter("tab-1", {
-        column: "name",
-        op: "like",
-        value: { type: "text", value: "John" },
-      });
+      addDraftFilter("tab-1", { column: "name", op: "like", value: { type: "text", value: "John" } });
       const state = getState("tab-1");
       expect(state.draftFilters).toHaveLength(1);
       expect(state.draftFilters[0].column).toBe("name");
@@ -148,8 +144,7 @@ describe("TabGridStateStore", () => {
     });
 
     it("clearSorts resets page to 1", () => {
-      const { setPage, addDraftSort, applySorts, clearSorts, getState } =
-        useTabGridStateStore.getState();
+      const { setPage, addDraftSort, applySorts, clearSorts, getState } = useTabGridStateStore.getState();
       setPage("tab-1", 3);
       addDraftSort("tab-1", { column: "x", direction: "asc" });
       applySorts("tab-1");

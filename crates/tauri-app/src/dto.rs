@@ -512,7 +512,6 @@ impl From<TableInfo> for TableInfoDto {
 #[serde(rename_all = "camelCase")]
 pub struct DdlResultDto {
     pub affected_rows: u64,
-    pub cache_invalidated: bool,
 }
 
 // ---------------------------------------------------------------------------

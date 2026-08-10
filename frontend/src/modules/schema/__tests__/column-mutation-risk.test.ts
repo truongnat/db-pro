@@ -183,8 +183,8 @@ describe("classifyColumnMutation", () => {
   it("takes worst risk when multiple operations combined", () => {
     const draft = makeDraft({
       newName: "email_addr", // medium (rename)
-      newDataType: "text", // low (varchar→text)
-      newNullable: false, // medium (nullable→NOT NULL)
+      newDataType: "text",   // low (varchar→text)
+      newNullable: false,    // medium (nullable→NOT NULL)
     });
     const result = classifyColumnMutation(draft, "public", "users");
 
@@ -410,73 +410,5 @@ describe("validateDataType", () => {
   it("is used by classifyColumnMutation for type change SQL", () => {
     const draft = makeDraft({ newDataType: "integer; DROP TABLE users" });
     expect(() => classifyColumnMutation(draft, "public", "users")).toThrow("statement separators");
-  });
-});
-
-describe("SQLite capability gating", () => {
-  it("allows rename on SQLite", () => {
-    const draft = makeDraft({ newName: "email_addr" });
-    const result = classifyColumnMutation(draft, "public", "users", "sqlite");
-
-    expect(result.operations).toHaveLength(1);
-    expect(result.operations[0]).toContain("Rename");
-    expect(result.sql[0]).toContain("RENAME COLUMN");
-    expect(result.unsupported).toHaveLength(0);
-  });
-
-  it("blocks type change on SQLite", () => {
-    const draft = makeDraft({
-      original: { name: "email", dataType: "varchar", nullable: true, defaultValue: null },
-      newDataType: "text",
-    });
-    const result = classifyColumnMutation(draft, "public", "users", "sqlite");
-
-    expect(result.operations).toHaveLength(0);
-    expect(result.sql).toHaveLength(0);
-    expect(result.unsupported).toHaveLength(1);
-    expect(result.unsupported[0]).toContain("not supported by SQLite");
-    expect(result.unsupported[0]).toContain("Change type");
-  });
-
-  it("blocks nullable change on SQLite", () => {
-    const draft = makeDraft({ newNullable: false });
-    const result = classifyColumnMutation(draft, "public", "users", "sqlite");
-
-    expect(result.operations).toHaveLength(0);
-    expect(result.sql).toHaveLength(0);
-    expect(result.unsupported).toHaveLength(1);
-    expect(result.unsupported[0]).toContain("NOT NULL");
-  });
-
-  it("blocks default value change on SQLite", () => {
-    const draft = makeDraft({ newDefaultValue: "'test'" });
-    const result = classifyColumnMutation(draft, "public", "users", "sqlite");
-
-    expect(result.operations).toHaveLength(0);
-    expect(result.sql).toHaveLength(0);
-    expect(result.unsupported).toHaveLength(1);
-    expect(result.unsupported[0]).toContain("Set default");
-  });
-
-  it("blocks all unsupported ops while allowing rename in combined draft", () => {
-    const draft = makeDraft({
-      newName: "email_addr",
-      newDataType: "text",
-      newNullable: false,
-      newDefaultValue: "'x'",
-    });
-    const result = classifyColumnMutation(draft, "public", "users", "sqlite");
-
-    expect(result.operations).toHaveLength(1);
-    expect(result.operations[0]).toContain("Rename");
-    expect(result.unsupported).toHaveLength(3);
-  });
-
-  it("returns empty unsupported for postgres (default)", () => {
-    const draft = makeDraft({ newDataType: "text" });
-    const result = classifyColumnMutation(draft, "public", "users");
-
-    expect(result.unsupported).toHaveLength(0);
-    expect(result.operations).toHaveLength(1);
   });
 });

@@ -85,7 +85,9 @@ export const TableNode = memo(function TableNode({ data, selected }: NodeProps) 
               </span>
 
               {/* Nullable marker */}
-              {col.nullable && <span className="text-[9px] text-[var(--app-text-dim)]">?</span>}
+              {col.nullable && (
+                <span className="text-[9px] text-[var(--app-text-dim)]">?</span>
+              )}
 
               {/* Handle for PK columns (source for edges) */}
               {col.isPrimaryKey && (

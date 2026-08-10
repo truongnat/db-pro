@@ -45,10 +45,9 @@ pub async fn execute_ddl(
     sql: String,
 ) -> Result<DdlResultDto, CommandError> {
     let conn_id = parse_connection_id(&connection_id)?;
-    let (affected, cache_invalidated) = service.execute_ddl(&conn_id, &sql).await?;
+    let affected = service.execute_ddl(&conn_id, &sql).await?;
     Ok(DdlResultDto {
         affected_rows: affected,
-        cache_invalidated,
     })
 }
 
@@ -59,10 +58,9 @@ pub async fn execute_ddl_batch(
     statements: Vec<String>,
 ) -> Result<DdlResultDto, CommandError> {
     let conn_id = parse_connection_id(&connection_id)?;
-    let (affected, cache_invalidated) = service.execute_ddl_batch(&conn_id, &statements).await?;
+    let affected = service.execute_ddl_batch(&conn_id, &statements).await?;
     Ok(DdlResultDto {
         affected_rows: affected,
-        cache_invalidated,
     })
 }
 
@@ -73,10 +71,9 @@ pub async fn create_index(
     sql: String,
 ) -> Result<DdlResultDto, CommandError> {
     let conn_id = parse_connection_id(&connection_id)?;
-    let (affected, cache_invalidated) = service.execute_ddl(&conn_id, &sql).await?;
+    let affected = service.execute_ddl(&conn_id, &sql).await?;
     Ok(DdlResultDto {
         affected_rows: affected,
-        cache_invalidated,
     })
 }
 
@@ -87,10 +84,9 @@ pub async fn drop_index(
     sql: String,
 ) -> Result<DdlResultDto, CommandError> {
     let conn_id = parse_connection_id(&connection_id)?;
-    let (affected, cache_invalidated) = service.execute_ddl(&conn_id, &sql).await?;
+    let affected = service.execute_ddl(&conn_id, &sql).await?;
     Ok(DdlResultDto {
         affected_rows: affected,
-        cache_invalidated,
     })
 }
 
@@ -101,10 +97,9 @@ pub async fn create_trigger(
     sql: String,
 ) -> Result<DdlResultDto, CommandError> {
     let conn_id = parse_connection_id(&connection_id)?;
-    let (affected, cache_invalidated) = service.execute_ddl(&conn_id, &sql).await?;
+    let affected = service.execute_ddl(&conn_id, &sql).await?;
     Ok(DdlResultDto {
         affected_rows: affected,
-        cache_invalidated,
     })
 }
 
@@ -115,10 +110,9 @@ pub async fn drop_trigger(
     sql: String,
 ) -> Result<DdlResultDto, CommandError> {
     let conn_id = parse_connection_id(&connection_id)?;
-    let (affected, cache_invalidated) = service.execute_ddl(&conn_id, &sql).await?;
+    let affected = service.execute_ddl(&conn_id, &sql).await?;
     Ok(DdlResultDto {
         affected_rows: affected,
-        cache_invalidated,
     })
 }
 

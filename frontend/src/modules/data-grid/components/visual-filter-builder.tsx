@@ -85,11 +85,7 @@ export function VisualFilterBuilder({
               </span>
               {!VALUELESS_OPS.includes(f.op) && (
                 <span className="text-foreground">
-                  "
-                  {VALUELESS_OPS.includes(f.op)
-                    ? ""
-                    : ((f.value as { value?: string }).value ?? "")}
-                  "
+                  "{VALUELESS_OPS.includes(f.op) ? "" : ((f.value as { value?: string }).value ?? "")}"
                 </span>
               )}
               <Tooltip>

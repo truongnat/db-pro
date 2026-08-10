@@ -24,7 +24,6 @@ import {
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
 import { useTranslation } from "@/commons/locales/useTranslation";
-import { normalizeAppError } from "@/commons/utils";
 import { useExecuteDdlBatch } from "@/modules/schema/queries/schema.queries";
 import { AlertTriangle, Info, ShieldAlert, ShieldX } from "lucide-react";
 
@@ -41,15 +40,11 @@ interface ColumnEditDialogProps {
   schemaName: string;
   tableName: string;
   connectionId: string;
-  driverType?: string;
   onClose: () => void;
   onApplied: () => void;
 }
 
-const RISK_BADGE_VARIANT: Record<
-  MutationRiskLevel,
-  "success" | "info" | "warning" | "destructive"
-> = {
+const RISK_BADGE_VARIANT: Record<MutationRiskLevel, "success" | "info" | "warning" | "destructive"> = {
   low: "success",
   medium: "info",
   high: "warning",
@@ -84,13 +79,11 @@ export function ColumnEditDialog({
   schemaName,
   tableName,
   connectionId,
-  driverType,
   onClose,
   onApplied,
 }: ColumnEditDialogProps) {
   const { t } = useTranslation();
   const executeBatch = useExecuteDdlBatch(connectionId);
-  const isSqlite = driverType === "sqlite";
 
   const [newName, setNewName] = useState(column.name);
   const [newDataType, setNewDataType] = useState(column.dataType);
@@ -107,14 +100,15 @@ export function ColumnEditDialog({
       defaultValue: column.defaultValue,
     },
     newName,
-    newDataType: isSqlite ? column.dataType : newDataType,
-    newNullable: isSqlite ? column.nullable : newNullable,
-    newDefaultValue: isSqlite ? (column.defaultValue ?? null) : newDefault || null,
+    newDataType,
+    newNullable,
+    newDefaultValue: newDefault || null,
   };
 
   const classified = useMemo(
-    () => classifyColumnMutation(draft, schemaName, tableName, driverType),
-    [newName, newDataType, newNullable, newDefault, schemaName, tableName, column, driverType],
+    () => classifyColumnMutation(draft, schemaName, tableName),
+
+    [draft, schemaName, tableName, column],
   );
   const changed = useMemo(() => hasChanges(draft), [draft]);
 
@@ -150,7 +144,7 @@ export function ColumnEditDialog({
       onApplied();
       onClose();
     } catch (err) {
-      setApplyError(normalizeAppError(err).userMessage);
+      setApplyError(err instanceof Error ? err.message : String(err));
     }
   }, [classified.sql, executeBatch, onApplied, onClose]);
 
@@ -170,12 +164,7 @@ export function ColumnEditDialog({
 
   return (
     <>
-      <Dialog
-        open
-        onOpenChange={(open) => {
-          if (!open) onClose();
-        }}
-      >
+      <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
         <DialogContent className="sm:max-w-md" onKeyDown={handleKeyDown}>
           <DialogHeader>
             <DialogTitle className="text-sm">Edit Column</DialogTitle>
@@ -194,16 +183,17 @@ export function ColumnEditDialog({
                 from={column.nullable ? "YES" : "NO"}
                 to={newNullable ? "YES" : "NO"}
               />
-              <DiffRow label="Default" from={column.defaultValue ?? ""} to={newDefault} />
+              <DiffRow
+                label="Default"
+                from={column.defaultValue ?? ""}
+                to={newDefault}
+              />
             </div>
 
             {/* Editable fields — compact */}
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <Label
-                  htmlFor="col-edit-name"
-                  className="mb-0.5 block text-[11px] text-[var(--app-text-muted)]"
-                >
+                <Label htmlFor="col-edit-name" className="mb-0.5 block text-[11px] text-[var(--app-text-muted)]">
                   Column name
                 </Label>
                 <Input
@@ -220,17 +210,13 @@ export function ColumnEditDialog({
                 )}
               </div>
               <div>
-                <Label
-                  htmlFor="col-edit-type"
-                  className="mb-0.5 block text-[11px] text-[var(--app-text-muted)]"
-                >
+                <Label htmlFor="col-edit-type" className="mb-0.5 block text-[11px] text-[var(--app-text-muted)]">
                   Data type
                 </Label>
                 <Input
                   id="col-edit-type"
                   value={newDataType}
                   onChange={(e) => setNewDataType(e.target.value)}
-                  disabled={isSqlite}
                   className="h-7 w-full font-mono text-xs"
                   placeholder={column.dataType}
                 />
@@ -242,40 +228,24 @@ export function ColumnEditDialog({
                 id="col-edit-nullable"
                 checked={newNullable}
                 onCheckedChange={(checked) => setNewNullable(checked === true)}
-                disabled={isSqlite}
               />
-              <Label
-                htmlFor="col-edit-nullable"
-                className={`text-xs font-normal ${isSqlite ? "opacity-50" : ""}`}
-              >
+              <Label htmlFor="col-edit-nullable" className="text-xs font-normal">
                 Nullable
               </Label>
             </div>
 
             <div>
-              <Label
-                htmlFor="col-edit-default"
-                className="mb-0.5 block text-[11px] text-[var(--app-text-muted)]"
-              >
+              <Label htmlFor="col-edit-default" className="mb-0.5 block text-[11px] text-[var(--app-text-muted)]">
                 Default value
               </Label>
               <Input
                 id="col-edit-default"
                 value={newDefault}
                 onChange={(e) => setNewDefault(e.target.value)}
-                disabled={isSqlite}
                 className="h-7 w-full font-mono text-xs"
                 placeholder={column.defaultValue ?? "(none)"}
               />
             </div>
-
-            {isSqlite && (
-              <div className="rounded-sm bg-warning/10 px-2.5 py-1.5 text-[11px] text-warning">
-                SQLite only supports <span className="font-mono">RENAME COLUMN</span> and{" "}
-                <span className="font-mono">ADD COLUMN</span> via ALTER TABLE. Type, nullable, and
-                default changes are disabled.
-              </div>
-            )}
 
             {/* SQL Preview + Risk */}
             {changed && classified.operations.length > 0 && (
@@ -288,8 +258,7 @@ export function ColumnEditDialog({
                     </Badge>
                   </div>
                   <span className="text-[10px] text-[var(--app-text-muted)]">
-                    {classified.operations.length} change
-                    {classified.operations.length > 1 ? "s" : ""}
+                    {classified.operations.length} change{classified.operations.length > 1 ? "s" : ""}
                   </span>
                 </div>
 
@@ -346,12 +315,7 @@ export function ColumnEditDialog({
         </DialogContent>
       </Dialog>
 
-      <AlertDialog
-        open={showConfirm}
-        onOpenChange={(open) => {
-          if (!open) handleConfirmCancel();
-        }}
-      >
+      <AlertDialog open={showConfirm} onOpenChange={(open) => { if (!open) handleConfirmCancel(); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2 text-sm">
@@ -386,7 +350,9 @@ export function ColumnEditDialog({
             <AlertDialogCancel onClick={handleConfirmCancel}>
               {t("common.actions.cancel")}
             </AlertDialogCancel>
-            <AlertDialogAction onClick={executeStatements}>Apply Changes</AlertDialogAction>
+            <AlertDialogAction onClick={executeStatements}>
+              Apply Changes
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

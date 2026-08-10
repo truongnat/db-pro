@@ -55,9 +55,7 @@ export function ErDiagram({ connectionId, data }: ErDiagramProps) {
         const schemaName = data.schemas[0]?.name ?? "public";
         const raw = localStorage.getItem(positionStorageKey(connectionId, schemaName));
         if (raw) return new Map(JSON.parse(raw));
-      } catch {
-        /* ignore */
-      }
+      } catch { /* ignore */ }
       return new Map();
     },
   );
@@ -67,13 +65,8 @@ export function ErDiagram({ connectionId, data }: ErDiagramProps) {
     (positions: Map<string, { x: number; y: number }>) => {
       try {
         const schemaName = data.schemas[0]?.name ?? "public";
-        localStorage.setItem(
-          positionStorageKey(connectionId, schemaName),
-          JSON.stringify([...positions]),
-        );
-      } catch {
-        /* ignore */
-      }
+        localStorage.setItem(positionStorageKey(connectionId, schemaName), JSON.stringify([...positions]));
+      } catch { /* ignore */ }
     },
     [connectionId, data.schemas],
   );
@@ -85,9 +78,7 @@ export function ErDiagram({ connectionId, data }: ErDiagramProps) {
       fkColumns.add(`${fk.fromTable}:${fk.fromColumn}`);
     }
 
-    const tables = data.tables.filter(
-      (tbl) => tbl.schema === data.schemas[0]?.name || data.schemas.length === 0,
-    );
+    const tables = data.tables.filter((tbl) => tbl.schema === data.schemas[0]?.name || data.schemas.length === 0);
 
     const nodes: Node[] = tables.map((table) => {
       const cols = data.columns.filter(
@@ -168,22 +159,13 @@ export function ErDiagram({ connectionId, data }: ErDiagramProps) {
       selectedEdgeId
         ? initialEdges.map((e) => ({
             ...e,
-            style:
-              e.id === selectedEdgeId
-                ? { strokeWidth: 2.5, stroke: "var(--primary)" }
-                : { strokeWidth: 1, opacity: 0.3 },
+            style: e.id === selectedEdgeId
+              ? { strokeWidth: 2.5, stroke: "var(--primary)" }
+              : { strokeWidth: 1, opacity: 0.3 },
           }))
         : initialEdges,
     );
-  }, [
-    initialNodes,
-    initialEdges,
-    layoutDirection,
-    manualPositions,
-    selectedEdgeId,
-    setNodes,
-    setEdges,
-  ]);
+  }, [initialNodes, initialEdges, layoutDirection, manualPositions, selectedEdgeId, setNodes, setEdges]);
 
   // Filter nodes by search
   useEffect(() => {
@@ -196,17 +178,22 @@ export function ErDiagram({ connectionId, data }: ErDiagramProps) {
       laidOutNodes.map((n) => ({
         ...n,
         style: {
-          ...((n.data as TableNodeData).label.toLowerCase().includes(q) ? {} : { opacity: 0.3 }),
+          ...(n.data as TableNodeData).label.toLowerCase().includes(q)
+            ? {}
+            : { opacity: 0.3 },
         },
       })),
     );
   }, [searchQuery, laidOutNodes, setNodes]);
 
   // Fit view on first render
-  const onInit = useCallback((instance: { fitView: (opts?: Record<string, unknown>) => void }) => {
-    // Small delay to ensure nodes are rendered
-    setTimeout(() => instance.fitView({ padding: 0.2 }), 100);
-  }, []);
+  const onInit = useCallback(
+    (instance: { fitView: (opts?: Record<string, unknown>) => void }) => {
+      // Small delay to ensure nodes are rendered
+      setTimeout(() => instance.fitView({ padding: 0.2 }), 100);
+    },
+    [],
+  );
 
   // Click node → open table tab
   const onNodeClick = useCallback(
@@ -252,10 +239,9 @@ export function ErDiagram({ connectionId, data }: ErDiagramProps) {
     setEdges(
       initialEdges.map((e) => ({
         ...e,
-        style:
-          e.id === selectedEdgeId
-            ? { strokeWidth: 2.5, stroke: "var(--primary)" }
-            : { strokeWidth: 1, opacity: 0.3 },
+        style: e.id === selectedEdgeId
+          ? { strokeWidth: 2.5, stroke: "var(--primary)" }
+          : { strokeWidth: 1, opacity: 0.3 },
         animated: e.id === selectedEdgeId,
       })),
     );
@@ -267,8 +253,7 @@ export function ErDiagram({ connectionId, data }: ErDiagramProps) {
       const detail = (e as CustomEvent).detail as { tableName: string; columnName: string };
       const schemaName = data.schemas[0]?.name ?? "public";
       const table = data.tables.find(
-        (t) =>
-          t.name === detail.tableName && (t.schema === schemaName || data.schemas.length === 0),
+        (t) => t.name === detail.tableName && (t.schema === schemaName || data.schemas.length === 0),
       );
       if (!table) return;
       useWorkspaceStore.getState().openDbObject({
@@ -340,12 +325,7 @@ export function ErDiagram({ connectionId, data }: ErDiagramProps) {
         deleteKeyCode={null}
         className="bg-background"
       >
-        <Background
-          variant={BackgroundVariant.Dots}
-          gap={20}
-          size={1}
-          color="var(--app-border-subtle)"
-        />
+        <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="var(--app-border-subtle)" />
         <Controls showInteractive={false} />
         <MiniMap
           nodeColor={(n) => {

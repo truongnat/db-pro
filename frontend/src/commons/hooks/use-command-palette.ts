@@ -8,7 +8,9 @@ function matchesKeybinding(event: KeyboardEvent, keybinding: Keybinding): boolea
     return false;
   }
   const wantCtrlOrCmd =
-    (keybinding.primary ?? false) || (keybinding.ctrlKey ?? false) || (keybinding.metaKey ?? false);
+    (keybinding.primary ?? false) ||
+    (keybinding.ctrlKey ?? false) ||
+    (keybinding.metaKey ?? false);
   if (wantCtrlOrCmd && !event.ctrlKey && !event.metaKey) {
     return false;
   }

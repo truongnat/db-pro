@@ -377,7 +377,7 @@ impl SqliteActor {
         let mut total: u64 = 0;
         for stmt_sql in statements {
             tx.execute_batch(stmt_sql).map_err(crate::error::from_rusqlite)?;
-            total += tx.changes();
+            total += tx.changes() as u64;
         }
         tx.commit().map_err(crate::error::from_rusqlite)?;
         Ok(total)

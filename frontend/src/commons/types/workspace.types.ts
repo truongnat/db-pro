@@ -61,8 +61,7 @@ export interface QueryTabData {
   activeExecutionId: string | null;
 }
 
-export type DbObjectSection =
-  "data" | "columns" | "indexes" | "relations" | "ddl" | "triggers" | "diagram";
+export type DbObjectSection = "data" | "columns" | "indexes" | "relations" | "ddl" | "triggers" | "diagram";
 
 export interface DbObjectTabData {
   schema: string;
