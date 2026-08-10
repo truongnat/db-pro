@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Trash2 } from "lucide-react";
 
 import { useTranslation } from "@/commons/locales/useTranslation";
@@ -46,6 +46,12 @@ export function VisualFilterBuilder({
   const [column, setColumn] = useState(columns[0]?.name ?? "");
   const [op, setOp] = useState<FilterOp>("eq");
   const [value, setValue] = useState("");
+
+  useEffect(() => {
+    if (columns.length > 0 && !columns.some((c) => c.name === column)) {
+      setColumn(columns[0].name);
+    }
+  }, [columns, column]);
 
   const selectedColumn = columns.find((c) => c.name === column);
 
