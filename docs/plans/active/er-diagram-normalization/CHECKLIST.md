@@ -26,6 +26,6 @@
 - [x] Full suite: 1316 tests, 105 files, ALL PASSING
 
 ## Review gate
-- [ ] P0 = 0
-- [ ] P1 = 0
-- [ ] CI passing (pending push)
+- [x] P0 = 0
+- [x] P1 = 0
+- [x] CI passing (run 31428343540 — Rust + Frontend green)
