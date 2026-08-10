@@ -27,10 +27,7 @@ pub fn from_sqlx(err: sqlx::Error) -> DbError {
                 if let Some(ct) = constraint_type_from_sqlstate(code_str) {
                     return DbError::ConstraintViolation {
                         constraint_type: ct,
-                        constraint: db_err
-                            .constraint()
-                            .unwrap_or_default()
-                            .to_string(),
+                        constraint: db_err.constraint().unwrap_or_default().to_string(),
                         table: db_err.table().unwrap_or_default().to_string(),
                         column: None,
                         message: db_err.message().to_string(),
@@ -68,7 +65,7 @@ pub fn from_rusqlite(err: rusqlite::Error) -> DbError {
                 rusqlite::ErrorCode::CannotOpen => DbError::ConnectionFailed(message),
                 rusqlite::ErrorCode::ConstraintViolation => {
                     let constraint_type = match ffi.extended_code {
-                        2067 => ConstraintType::Unique,   // SQLITE_CONSTRAINT_UNIQUE
+                        2067 => ConstraintType::Unique,    // SQLITE_CONSTRAINT_UNIQUE
                         787 => ConstraintType::ForeignKey, // SQLITE_CONSTRAINT_FOREIGNKEY
                         1299 => ConstraintType::NotNull,   // SQLITE_CONSTRAINT_NOTNULL
                         275 => ConstraintType::Check,      // SQLITE_CONSTRAINT_CHECK

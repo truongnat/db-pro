@@ -148,7 +148,11 @@ impl SchemaService {
         Ok((affected, cache_ok))
     }
 
-    pub async fn execute_ddl_batch(&self, connection_id: &ConnectionId, statements: &[String]) -> Result<(u64, bool), DbError> {
+    pub async fn execute_ddl_batch(
+        &self,
+        connection_id: &ConnectionId,
+        statements: &[String],
+    ) -> Result<(u64, bool), DbError> {
         let policy = self.safety_policy_for(connection_id).await?;
         for sql in statements {
             reject_multi_statement(sql)?;
