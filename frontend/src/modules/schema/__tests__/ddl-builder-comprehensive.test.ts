@@ -434,6 +434,12 @@ describe("buildSetTriggerEnabled", () => {
     expect(sql).toContain('"tr""name"');
     expect(sql).toContain('"my""schema"."my""table"');
   });
+
+  it("returns empty string for SQLite (unsupported)", () => {
+    const sqlite = getSqlDialect("sqlite");
+    const sql = buildSetTriggerEnabled("main", "users", "tr_audit", true, sqlite);
+    expect(sql).toBe("");
+  });
 });
 
 describe("generateDdlPreview trigger operations", () => {

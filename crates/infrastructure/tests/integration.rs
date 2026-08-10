@@ -327,6 +327,7 @@ async fn introspect_triggers() {
         .expect("fixture trigger should exist");
 
     // Verify all S4 fields are populated.
+    assert_eq!(trigger.schema, "main");
     assert_eq!(trigger.table_name, "products");
     assert_eq!(trigger.timing, "AFTER");
     assert_eq!(trigger.event, "UPDATE");
