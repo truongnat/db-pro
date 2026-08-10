@@ -238,17 +238,32 @@ export function DataSection({
       if (failures.length === 0) {
         useStagedChangesStore.getState().removeByIds(tabId, successIds);
         query.refetch();
-        setTransactionResult({ kind: "success", succeeded: successIds.length, failed: 0, durationMs });
+        setTransactionResult({
+          kind: "success",
+          succeeded: successIds.length,
+          failed: 0,
+          durationMs,
+        });
       } else if (successIds.length > 0) {
         useStagedChangesStore.getState().removeByIds(tabId, successIds);
         useStagedChangesStore.getState().markFailedByIds(tabId, failures);
         setApplyError(failures[0].error);
         query.refetch();
-        setTransactionResult({ kind: "partial", succeeded: successIds.length, failed: failures.length, durationMs });
+        setTransactionResult({
+          kind: "partial",
+          succeeded: successIds.length,
+          failed: failures.length,
+          durationMs,
+        });
       } else {
         setApplyError(failures[0].error);
         useStagedChangesStore.getState().markFailedByIds(tabId, failures);
-        setTransactionResult({ kind: "failure", succeeded: 0, failed: failures.length, durationMs });
+        setTransactionResult({
+          kind: "failure",
+          succeeded: 0,
+          failed: failures.length,
+          durationMs,
+        });
       }
 
       setIsApplying(false);
