@@ -1,25 +1,63 @@
-# Schema Indexes Runtime Verification - Plan
+# S2 — Schema Indexes Runtime Verification
 
-## Phase 1: Planning and setup
-1. Set up the plan, checklist, findings, and verification documents.
-2. Ensure we are on the `feature/schema-indexes-runtime` branch.
+State: RUNTIME_VERIFY
+Merged implementation: PR #2 / `aa77ece`
 
-## Phase 2: Runtime Verification Implementation
-1. Notice that `create_index` and `drop_index` are already implemented in both frontend and Rust backend. Provider-aware quoting and unique/composite indexes features are fully functional.
-2. The UI fully supports viewing indexes, dropping them, and creating unique and composite indexes.
-3. Caching and refreshing metadata are already integrated.
-4. Hence, we implement a backend validation integration test in `crates/infrastructure/tests/schema_indexes_runtime_verification.rs` to prove these index DDL commands mutate the schema properly on actual database connections and are verified by the introspection mechanisms.
+## Goal
 
-## Phase 3: Runtime Verification & Tests
-1. Write Rust tests for index introspection, creation and dropping operations.
-2. Run the tests via `cargo test`.
-3. Record findings in `FINDINGS.md` and complete `CHECKLIST.md`.
+Index management must preserve database truth across create/list/drop operations and provider boundaries.
 
-## Phase 4: Quality Gates
-1. Run all Rust quality gates (`cargo fmt`, `cargo check`, `cargo clippy`, `cargo test`).
-2. Run all frontend quality gates (`npm run typecheck`, `npm run lint`, `npm run format:check`, `npm run test`, `npm run build`).
+```text
+UI index action
+→ dialect-aware SQL
+→ DDL command/service
+→ database mutation
+→ introspection
+→ refreshed index UI
+```
 
-## Phase 5: Final Review & Pre-Commit
-1. Self-review architecture, security, and correctness.
-2. Complete pre-commit step for the repository.
-3. Publish PR.
+## Scope
+
+- list indexes
+- create normal index
+- create unique index
+- create composite index
+- drop index
+- provider-aware identifier quoting
+- metadata/cache refresh
+- PostgreSQL and SQLite runtime accounting
+
+## Non-goals
+
+- relations/foreign keys
+- triggers
+- ER diagram
+- expression/partial index editor UX unless explicitly added later
+
+## Current evidence
+
+The merged S2 work added a SQLite integration test proving:
+
+- `CREATE UNIQUE INDEX`
+- composite `CREATE INDEX`
+- `DROP INDEX`
+- SQLite introspection via `PRAGMA index_list` / `PRAGMA index_info`
+
+This is SQLite automated evidence only. It does not prove PostgreSQL runtime behavior or the UI refresh lifecycle.
+
+## Provider matrix
+
+| Provider | Declared support | Automated evidence | Live/UI runtime evidence |
+|---|---|---|---|
+| PostgreSQL | yes | source only | PENDING |
+| SQLite | yes | PASS: integration test | PENDING UI round-trip |
+
+## Completion criteria
+
+- [x] SQLite create/unique/composite/drop introspection regression test
+- [ ] PostgreSQL create/unique/composite/drop verified against a real PostgreSQL provider
+- [ ] UI create/drop → refreshed index list verified
+- [ ] cache invalidation verified through the user-facing lifecycle
+- [ ] P0 = 0 and P1 = 0
+
+S2 remains `RUNTIME_VERIFY` until the pending provider/UI evidence is recorded.
