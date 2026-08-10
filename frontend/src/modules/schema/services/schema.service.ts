@@ -40,7 +40,10 @@ export class SchemaService {
     });
   }
 
-  async executeDdlBatch(connectionId: string, statements: string[]): Promise<{ affectedRows: number }> {
+  async executeDdlBatch(
+    connectionId: string,
+    statements: string[],
+  ): Promise<{ affectedRows: number }> {
     return apiInvoke<{ affectedRows: number }>("execute_ddl_batch", {
       connectionId,
       statements,

@@ -1,5 +1,14 @@
 import { Link } from "@tanstack/react-router";
-import { FolderOpen, Monitor, Moon, PanelLeftClose, PanelLeftOpen, Search, Sparkles, Sun } from "lucide-react";
+import {
+  FolderOpen,
+  Monitor,
+  Moon,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Search,
+  Sparkles,
+  Sun,
+} from "lucide-react";
 import type { ComponentType } from "react";
 
 import { useShellStore, type SidebarView } from "@/commons/stores/shell.store";
@@ -145,7 +154,11 @@ function ThemeToggleButton() {
 
   const Icon = mode === "system" ? Monitor : mode === "light" ? Sun : Moon;
   const label =
-    mode === "system" ? t("settings.appearance.system") : mode === "light" ? t("settings.appearance.light") : t("settings.appearance.dark");
+    mode === "system"
+      ? t("settings.appearance.system")
+      : mode === "light"
+        ? t("settings.appearance.light")
+        : t("settings.appearance.dark");
 
   return (
     <Tooltip>

@@ -131,9 +131,7 @@ export function DataToolbar({
                       className="flex items-center gap-2 rounded-md bg-muted/50 px-2 py-1.5 text-xs"
                     >
                       <span className="font-medium text-foreground">{s.column}</span>
-                      <span className="text-[var(--app-text-muted)]">
-                        {dirLabel(s.direction)}
-                      </span>
+                      <span className="text-[var(--app-text-muted)]">{dirLabel(s.direction)}</span>
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <Button

@@ -11,7 +11,8 @@ vi.mock("@/commons/locales/useTranslation", () => ({
       if (key === "dataGrid.changes.applying") return "Applying…";
       if (key === "dataGrid.changes.revertAll") return "Revert all";
       if (key === "dataGrid.changes.retryFailed") return "Retry failed";
-      if (key === "dataGrid.changes.applyPartial") return `Applied ${params?.applied} of ${params?.total}`;
+      if (key === "dataGrid.changes.applyPartial")
+        return `Applied ${params?.applied} of ${params?.total}`;
       if (key === "dataGrid.changes.failedCount") return `${params?.count} failed`;
       if (key === "dataGrid.changes.deleteSelected") return `Delete ${params?.count} selected`;
       return key;
@@ -23,7 +24,13 @@ import { ChangeBar } from "../components/change-bar";
 import type { StagedChange } from "../state/staged-changes.store";
 
 function makeEdit(id: string): StagedChange {
-  return { id, kind: "cell-edit", pkValues: [{ type: "int64", value: 1 }], changes: { name: { type: "text", value: "x" } }, error: null };
+  return {
+    id,
+    kind: "cell-edit",
+    pkValues: [{ type: "int64", value: 1 }],
+    changes: { name: { type: "text", value: "x" } },
+    error: null,
+  };
 }
 
 function makeDelete(id: string): StagedChange {
@@ -31,7 +38,13 @@ function makeDelete(id: string): StagedChange {
 }
 
 function makeFailedEdit(id: string): StagedChange {
-  return { id, kind: "cell-edit", pkValues: [{ type: "int64", value: 1 }], changes: { name: { type: "text", value: "x" } }, error: "unique violation" };
+  return {
+    id,
+    kind: "cell-edit",
+    pkValues: [{ type: "int64", value: 1 }],
+    changes: { name: { type: "text", value: "x" } },
+    error: "unique violation",
+  };
 }
 
 describe("ChangeBar", () => {
@@ -49,10 +62,7 @@ describe("ChangeBar", () => {
 
   it("shows pending count with edits and deletes", () => {
     render(
-      <ChangeBar
-        {...defaultProps}
-        changes={[makeEdit("1"), makeEdit("2"), makeDelete("3")]}
-      />,
+      <ChangeBar {...defaultProps} changes={[makeEdit("1"), makeEdit("2"), makeDelete("3")]} />,
     );
     expect(screen.getByText("3 pending changes")).toBeTruthy();
   });
@@ -79,11 +89,7 @@ describe("ChangeBar", () => {
   it("shows Retry failed button when failures exist", () => {
     const onRetryFailed = vi.fn();
     render(
-      <ChangeBar
-        {...defaultProps}
-        changes={[makeFailedEdit("1")]}
-        onRetryFailed={onRetryFailed}
-      />,
+      <ChangeBar {...defaultProps} changes={[makeFailedEdit("1")]} onRetryFailed={onRetryFailed} />,
     );
     const retryBtn = screen.getByText("Retry failed");
     expect(retryBtn).toBeTruthy();
@@ -92,23 +98,12 @@ describe("ChangeBar", () => {
   });
 
   it("does not show Retry failed when no failures", () => {
-    render(
-      <ChangeBar
-        {...defaultProps}
-        changes={[makeEdit("1")]}
-        onRetryFailed={vi.fn()}
-      />,
-    );
+    render(<ChangeBar {...defaultProps} changes={[makeEdit("1")]} onRetryFailed={vi.fn()} />);
     expect(screen.queryByText("Retry failed")).toBeNull();
   });
 
   it("shows partial failure message", () => {
-    render(
-      <ChangeBar
-        {...defaultProps}
-        changes={[makeEdit("1"), makeFailedEdit("2")]}
-      />,
-    );
+    render(<ChangeBar {...defaultProps} changes={[makeEdit("1"), makeFailedEdit("2")]} />);
     expect(screen.getByText("Applied 1 of 2")).toBeTruthy();
     expect(screen.getByText("1 failed")).toBeTruthy();
   });
@@ -130,13 +125,7 @@ describe("ChangeBar", () => {
   });
 
   it("shows ChangeBar when only selection exists (no changes)", () => {
-    render(
-      <ChangeBar
-        {...defaultProps}
-        onBatchDelete={vi.fn()}
-        selectedRows={new Set([0])}
-      />,
-    );
+    render(<ChangeBar {...defaultProps} onBatchDelete={vi.fn()} selectedRows={new Set([0])} />);
     expect(screen.getByText("Delete 1 selected")).toBeTruthy();
   });
 

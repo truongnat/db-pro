@@ -19,9 +19,7 @@ describe("TransactionFeedback", () => {
   });
 
   it("renders nothing when result is null", () => {
-    const { container } = render(
-      <TransactionFeedback result={null} onDismiss={vi.fn()} />,
-    );
+    const { container } = render(<TransactionFeedback result={null} onDismiss={vi.fn()} />);
     expect(container.innerHTML).toBe("");
   });
 
@@ -119,9 +117,7 @@ describe("TransactionFeedback", () => {
 
     expect(screen.getByText("1 change applied")).toBeTruthy();
 
-    rerender(
-      <TransactionFeedback result={null} onDismiss={vi.fn()} />,
-    );
+    rerender(<TransactionFeedback result={null} onDismiss={vi.fn()} />);
 
     expect(screen.queryByText("1 change applied")).toBeNull();
   });

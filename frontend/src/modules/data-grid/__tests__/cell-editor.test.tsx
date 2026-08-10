@@ -88,9 +88,7 @@ describe("CellEditor", () => {
     const onSave = vi.fn();
     const user = userEvent.setup();
 
-    render(
-      <CellEditor value={{ type: "int64", value: 42 }} onSave={onSave} onCancel={vi.fn()} />,
-    );
+    render(<CellEditor value={{ type: "int64", value: 42 }} onSave={onSave} onCancel={vi.fn()} />);
 
     const input = screen.getByRole("textbox");
     await user.clear(input);
@@ -118,9 +116,7 @@ describe("CellEditor", () => {
   it("renders checkbox for bool values", () => {
     const onSave = vi.fn();
 
-    render(
-      <CellEditor value={{ type: "bool", value: true }} onSave={onSave} onCancel={vi.fn()} />,
-    );
+    render(<CellEditor value={{ type: "bool", value: true }} onSave={onSave} onCancel={vi.fn()} />);
 
     const checkbox = screen.getByRole("checkbox") as HTMLInputElement;
     expect(checkbox.checked).toBe(true);

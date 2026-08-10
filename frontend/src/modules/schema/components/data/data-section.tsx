@@ -204,7 +204,10 @@ export function DataSection({
               throw makeConflictError("ROW_NOT_FOUND", t("dataGrid.error.rowNotFound"));
             }
             if (result.affectedRows > 1) {
-              throw makeConflictError("INVARIANT_VIOLATION", t("dataGrid.error.invariantViolation"));
+              throw makeConflictError(
+                "INVARIANT_VIOLATION",
+                t("dataGrid.error.invariantViolation"),
+              );
             }
           } else if (change.kind === "row-delete") {
             const result = await deleteRow.mutateAsync({
@@ -219,13 +222,19 @@ export function DataSection({
               throw makeConflictError("ROW_NOT_FOUND", t("dataGrid.error.rowNotFound"));
             }
             if (result.affectedRows > 1) {
-              throw makeConflictError("INVARIANT_VIOLATION", t("dataGrid.error.invariantViolation"));
+              throw makeConflictError(
+                "INVARIANT_VIOLATION",
+                t("dataGrid.error.invariantViolation"),
+              );
             }
           }
           successIds.push(change.id);
         } catch (err) {
           const normalized = normalizeMutationError(err);
-          const classified = classifyConstraintError(normalized.technicalMessage, normalized.details);
+          const classified = classifyConstraintError(
+            normalized.technicalMessage,
+            normalized.details,
+          );
           failures.push({
             id: change.id,
             error: classified.userMessage,
@@ -238,17 +247,32 @@ export function DataSection({
       if (failures.length === 0) {
         useStagedChangesStore.getState().removeByIds(tabId, successIds);
         query.refetch();
-        setTransactionResult({ kind: "success", succeeded: successIds.length, failed: 0, durationMs });
+        setTransactionResult({
+          kind: "success",
+          succeeded: successIds.length,
+          failed: 0,
+          durationMs,
+        });
       } else if (successIds.length > 0) {
         useStagedChangesStore.getState().removeByIds(tabId, successIds);
         useStagedChangesStore.getState().markFailedByIds(tabId, failures);
         setApplyError(failures[0].error);
         query.refetch();
-        setTransactionResult({ kind: "partial", succeeded: successIds.length, failed: failures.length, durationMs });
+        setTransactionResult({
+          kind: "partial",
+          succeeded: successIds.length,
+          failed: failures.length,
+          durationMs,
+        });
       } else {
         setApplyError(failures[0].error);
         useStagedChangesStore.getState().markFailedByIds(tabId, failures);
-        setTransactionResult({ kind: "failure", succeeded: 0, failed: failures.length, durationMs });
+        setTransactionResult({
+          kind: "failure",
+          succeeded: 0,
+          failed: failures.length,
+          durationMs,
+        });
       }
 
       setIsApplying(false);
@@ -297,7 +321,12 @@ export function DataSection({
 
   const handleGridKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === "Enter" && stagedChanges.length > 0 && !isApplying) {
+      if (
+        (e.ctrlKey || e.metaKey) &&
+        e.key === "Enter" &&
+        stagedChanges.length > 0 &&
+        !isApplying
+      ) {
         e.preventDefault();
         handleApply();
       }
@@ -395,7 +424,10 @@ export function DataSection({
             deleteCount={stagedChanges.filter((c) => c.kind === "row-delete").length}
             totalChanges={stagedChanges.length}
           />
-          <TransactionFeedback result={transactionResult} onDismiss={() => setTransactionResult(null)} />
+          <TransactionFeedback
+            result={transactionResult}
+            onDismiss={() => setTransactionResult(null)}
+          />
           {applyError && (
             <div className="mx-3 mt-2 rounded-sm bg-destructive px-3 py-1.5 text-xs text-white">
               {applyError}
@@ -426,7 +458,9 @@ export function DataSection({
           {editingRowIdx != null && rows[editingRowIdx] && (
             <RowEditDialog
               open={editingRowIdx != null}
-              onOpenChange={(open) => { if (!open) setEditingRowIdx(null); }}
+              onOpenChange={(open) => {
+                if (!open) setEditingRowIdx(null);
+              }}
               columns={columns}
               row={rows[editingRowIdx]}
               onSave={handleRowSave}
