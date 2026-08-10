@@ -273,9 +273,7 @@ fn parse_sqlite_trigger_sql(sql: &str) -> (String, String) {
     // Split at the first standalone BEGIN keyword to isolate the trigger header.
     // We search for " BEGIN" (with leading space) to avoid matching trigger names
     // or identifiers that contain "begin" as a substring (e.g. "begin_audit").
-    let header = upper
-        .find(" BEGIN")
-        .map_or(upper.as_str(), |idx| &upper[..idx]);
+    let header = upper.find(" BEGIN").map_or(upper.as_str(), |idx| &upper[..idx]);
 
     let timing = if header.contains("INSTEAD OF") {
         "INSTEAD OF"
