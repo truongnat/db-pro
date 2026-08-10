@@ -50,7 +50,7 @@ fn pg_config() -> Option<ConnectionConfig> {
         port,
         database: database.to_string(),
         username,
-        driver: DriverType::PostgreSQL,
+        driver: DriverType::Postgres,
         ssl_mode: SslMode::Disable,
         ssh_tunnel: None,
         query_timeout_ms: 30_000,
