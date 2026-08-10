@@ -79,7 +79,6 @@ export function ErDiagram({ connectionId, data }: ErDiagramProps) {
     }
 
     const tables = data.tables.filter((tbl) => tbl.schema === data.schemas[0]?.name || data.schemas.length === 0);
-    const schemaName = data.schemas[0]?.name ?? "public";
 
     const nodes: Node[] = tables.map((table) => {
       const cols = data.columns.filter(

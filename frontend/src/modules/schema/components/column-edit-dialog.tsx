@@ -33,7 +33,6 @@ import {
   classifyColumnMutation,
   hasChanges,
   type ColumnMutationDraft,
-  type ClassifiedMutation,
   type MutationRiskLevel,
 } from "../utils/column-mutation-risk";
 
@@ -112,7 +111,6 @@ export function ColumnEditDialog({
 
   const classified = useMemo(
     () => classifyColumnMutation(draft, schemaName, tableName, driverType),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [newName, newDataType, newNullable, newDefault, schemaName, tableName, column, driverType],
   );
   const changed = useMemo(() => hasChanges(draft), [draft]);
