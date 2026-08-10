@@ -115,7 +115,7 @@ All 11 waves of the P2 Hardening Program are complete. See `docs/quality/p2-hard
 | P2.8 | Index/Relation/Trigger/DDL hardening | DONE |
 | P2.9 | ER Diagram (React Flow + dagre) | DONE |
 | P2.10 | Code quality / modern API audit | DONE |
-| P2.11 | Full regression (1109 tests, 0 TS errors, build clean) | DONE |
+| P2.11 | Full regression (1319 FE + 39 Rust tests, 0 TS errors, build clean) | DONE |
 
 **Test counts:** 105 test files, 1319 frontend tests + 39 Rust integration tests (30 SQLite + 9 PG), all passing.  
 **TypeScript:** 0 errors.  
