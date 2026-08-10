@@ -29,14 +29,15 @@
 - [x] SQLite: CREATE trigger → DML → observe effect → introspect → DROP
 - [x] SQLite: trigger with special identifiers
 - [x] SQLite: introspection captures all fields
-- [x] PostgreSQL: introspection source verification (SQL reviewed; live PG pending)
+- [x] PostgreSQL: introspection source verification (PG integration tests PASS in CI)
 - [x] Frontend: trigger list rendering test (7 tests in trigger-manager.test.tsx)
 
 ## Provider/runtime evidence
 - [x] SQLite trigger CREATE/DROP/introspect runtime test PASS (5 integration tests)
 - [x] SQLite trigger schema verified as 'main' (integration test assertion added)
-- [ ] PostgreSQL trigger introspection verified against live provider
-- [ ] PostgreSQL trigger CREATE/DROP verified against live provider
+- [x] PostgreSQL trigger introspection verified against live provider (CI: pg_introspect_triggers PASS)
+- [x] PostgreSQL trigger function_def verified via pg_get_functiondef (CI: pg_introspect_triggers PASS)
+- [x] PostgreSQL tables, views, indexes, FK introspection verified (CI: 6 pg_integration tests PASS)
 - [x] CI: Rust checks PASS, Frontend checks PASS
 - [x] Cache invalidation after trigger mutation verified (execute_ddl invalidates cache)
 
