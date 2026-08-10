@@ -26,6 +26,7 @@ coverage/
 .qoder/
 bun.lock
 
-# Allow plan docs (overrides global gitignore)
+# Allow plan docs and agent instructions (overrides global gitignore)
 !docs/
 !docs/**
+!AGENTS.md
