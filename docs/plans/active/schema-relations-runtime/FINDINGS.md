@@ -49,4 +49,41 @@ The current S3 scope fixes relation truth in introspection, DDL reconstruction a
 
 ## Gate
 
-All source-level P1 fixes validated by CI. Cubic review found only P3 issues (no P0/P1). S3 is ready for RUNTIME_VERIFY once PostgreSQL credentials and UI runtime evidence are available.
+All source-level P1 fixes validated by CI. S3 is ready for RUNTIME_VERIFY once PostgreSQL credentials and UI runtime evidence are available.
+
+## VPS Kilo Review #1 Triage (commit b7e9c8d)
+
+### P1-003 — FK enforcement test did not enable PRAGMA foreign_keys
+- **Classification**: CONFIRMED
+- **Severity**: P1 (test proving nothing without FK enforcement enabled)
+- **Fix**: Added `PRAGMA foreign_keys = ON` before table creation + readback assertion to verify pragma took effect
+- **Commit**: f2a2805
+
+### P2 — S1 atomicity test only covers SQLite
+- **Classification**: CONFIRMED, ACCEPTED as known gap
+- **Action**: PostgreSQL rollback coverage belongs to S1 RUNTIME_VERIFY, not S3 scope
+
+### P2 — Frontend groupForeignKeys test coverage gaps
+- **Classification**: CONFIRMED, ACCEPTED as known gap
+- **Action**: Single-column FK grouping is trivially correct; no regression risk
+
+### P2 — S3 plan has pending runtime evidence
+- **Classification**: CONFIRMED, TRACKED
+- **Action**: Documented in VERIFICATION.md
+
+### Rejected patterns (correct as-is)
+- SQLite FK synthetic name `{table}_fk_{id}`: correct, uses PRAGMA `id`
+- `group_foreign_keys_for_ddl` omits `from_table`: safe, TableInfo already filtered
+- `\^@` separator in frontend key: safe, SQL identifiers cannot contain null bytes
+- DDL `ALTER TABLE ADD CONSTRAINT` on SQLite: viewer-only, not executed
+
+## Cubic Review Triage
+
+### P3 — FINDINGS.md doc accuracy (P1-002 format)
+- **Classification**: CONFIRMED, FIXED in d1d27d7
+
+### P3 — Duplicated test setup helper
+- **Classification**: CONFIRMED, DEFERRED (polish, not merge blocker)
+
+### P3 — VPS review prompt `${BASE_REF}` placeholder
+- **Classification**: CONFIRMED, FIXED in ea3312f
