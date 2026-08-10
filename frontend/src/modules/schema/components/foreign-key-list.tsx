@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ArrowRight, ExternalLink } from "lucide-react";
 import type { SchemaForeignKeyDto } from "../types/schema.types";
+import { groupForeignKeys } from "../utils/foreign-key-groups";
 import { cn } from "@/lib/utils";
 
 interface ForeignKeyListProps {
@@ -21,8 +22,9 @@ interface ForeignKeyListProps {
 
 export function ForeignKeyList({ foreignKeys, connectionId }: ForeignKeyListProps) {
   const { t } = useTranslation();
+  const relations = groupForeignKeys(foreignKeys);
 
-  if (foreignKeys.length === 0) {
+  if (relations.length === 0) {
     return (
       <div className="p-4 text-sm text-[var(--app-text-muted)]">{t("schema.noForeignKeys")}</div>
     );
@@ -63,13 +65,16 @@ export function ForeignKeyList({ foreignKeys, connectionId }: ForeignKeyListProp
         </TableRow>
       </TableHeader>
       <TableBody>
-        {foreignKeys.map((fk) => (
-          <TableRow key={fk.name} className="group transition-colors hover:bg-[var(--app-hover)]">
+        {relations.map((relation) => (
+          <TableRow
+            key={relation.key}
+            className="group transition-colors hover:bg-[var(--app-hover)]"
+          >
             <TableCell className="px-3 py-1.5 font-mono text-[13px] select-text">
-              {fk.name}
+              {relation.name}
             </TableCell>
             <TableCell className="px-3 py-1.5 font-mono text-[12px] text-[var(--app-text-muted)] select-text">
-              {fk.fromColumn}
+              {relation.fromColumns.join(", ")}
             </TableCell>
             <TableCell className="px-1 py-1.5 text-center">
               <ArrowRight className="inline h-3 w-3 text-[var(--app-text-muted)]" />
@@ -82,20 +87,20 @@ export function ForeignKeyList({ foreignKeys, connectionId }: ForeignKeyListProp
                     variant="ghost"
                     size="sm"
                     className="h-auto gap-1 p-0 font-mono text-[12px] text-primary hover:bg-transparent hover:underline"
-                    onClick={() => openTargetTable(fk.toSchema, fk.toTable)}
+                    onClick={() => openTargetTable(relation.toSchema, relation.toTable)}
                   >
-                    {fk.toSchema !== fk.schema ? `${fk.toSchema}.` : ""}
-                    {fk.toTable}
+                    {relation.toSchema !== relation.schema ? `${relation.toSchema}.` : ""}
+                    {relation.toTable}
                     <ExternalLink className="h-3 w-3 opacity-50" />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  Open {fk.toSchema}.{fk.toTable}
+                  Open {relation.toSchema}.{relation.toTable}
                 </TooltipContent>
               </Tooltip>
             </TableCell>
             <TableCell className="px-3 py-1.5 font-mono text-[12px] text-[var(--app-text-muted)] select-text">
-              {fk.toColumn}
+              {relation.toColumns.join(", ")}
             </TableCell>
           </TableRow>
         ))}
