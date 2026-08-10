@@ -1,4 +1,5 @@
 use db_pro_core::domain::error::DbError;
+use db_pro_core::domain::query::QueryParam;
 
 use crate::sqlite::actor::SqliteHandle;
 
@@ -70,12 +71,14 @@ pub async fn migrate(handle: &SqliteHandle) -> Result<u32, DbError> {
         // Record the migration.
         let now = chrono::Utc::now().to_rfc3339();
         handle
-            .execute_statement(format!(
-                "INSERT INTO schema_version (version, applied_at, description) VALUES ({}, '{}', '{}')",
-                migration.version,
-                now,
-                migration.description.replace('\'', "''"),
-            ))
+            .execute_param(
+                "INSERT INTO schema_version (version, applied_at, description) VALUES (?, ?, ?)".into(),
+                vec![
+                    QueryParam::Int64(migration.version as i64),
+                    QueryParam::Text(now),
+                    QueryParam::Text(migration.description.to_string()),
+                ],
+            )
             .await?;
     }
 
@@ -117,5 +120,35 @@ mod tests {
                 m.version
             );
         }
+    }
+
+    #[tokio::test]
+    async fn test_migration_execution() {
+        use crate::meta::schema::SCHEMA;
+        use crate::sqlite::actor::SqliteActor;
+
+        // Use in-memory SQLite
+        let handle = SqliteActor::spawn(":memory:").unwrap();
+
+        // Setup schema baseline
+        handle.execute_statement(SCHEMA.into()).await.unwrap();
+
+        // Run migrate
+        let final_version = migrate(&handle).await.unwrap();
+        assert_eq!(final_version, LATEST_VERSION);
+
+        // Introspect schema_version to ensure it is inserted properly
+        let rows = handle
+            .raw_query(
+                "SELECT version, description FROM schema_version ORDER BY version ASC".into(),
+                vec![],
+            )
+            .await
+            .unwrap();
+        assert_eq!(rows.len() as u32, LATEST_VERSION);
+        assert_eq!(rows[0][0], "1");
+        assert_eq!(rows[0][1], "initial schema with versioning table");
+        assert_eq!(rows[1][0], "2");
+        assert_eq!(rows[1][1], "add database and schema columns to query_history");
     }
 }

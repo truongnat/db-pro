@@ -18,9 +18,7 @@ CREATE TABLE IF NOT EXISTS query_history (
     sql TEXT NOT NULL,
     executed_at TEXT NOT NULL,
     duration_ms INTEGER NOT NULL,
-    row_count INTEGER NOT NULL,
-    database TEXT,
-    schema TEXT
+    row_count INTEGER NOT NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_query_history_conn
