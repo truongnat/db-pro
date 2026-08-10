@@ -62,10 +62,7 @@ async fn trigger_lifecycle_create_introspect_drop() {
 
     // ── Phase 1: no triggers yet ───────────────────────────────────────
     let result = connector.introspect(&handle).await.unwrap();
-    assert!(
-        result.triggers.is_empty(),
-        "should have no triggers before CREATE"
-    );
+    assert!(result.triggers.is_empty(), "should have no triggers before CREATE");
 
     // ── Phase 2: CREATE trigger ────────────────────────────────────────
     connector
@@ -128,10 +125,7 @@ async fn trigger_lifecycle_create_introspect_drop() {
         .unwrap();
 
     let result = connector.introspect(&handle).await.unwrap();
-    assert!(
-        result.triggers.is_empty(),
-        "trigger should be gone after DROP"
-    );
+    assert!(result.triggers.is_empty(), "trigger should be gone after DROP");
 
     // ── Phase 6: DML after DROP → no more trigger effect ───────────────
     connector
@@ -156,11 +150,7 @@ async fn trigger_before_insert_introspection() {
     let (connector, handle) = setup().await;
 
     connector
-        .execute(
-            &handle,
-            "CREATE TABLE logs (id INTEGER PRIMARY KEY, msg TEXT)",
-            &[],
-        )
+        .execute(&handle, "CREATE TABLE logs (id INTEGER PRIMARY KEY, msg TEXT)", &[])
         .await
         .unwrap();
 
@@ -238,11 +228,7 @@ async fn multiple_triggers_on_same_table() {
     let (connector, handle) = setup().await;
 
     connector
-        .execute(
-            &handle,
-            "CREATE TABLE events (id INTEGER PRIMARY KEY, data TEXT)",
-            &[],
-        )
+        .execute(&handle, "CREATE TABLE events (id INTEGER PRIMARY KEY, data TEXT)", &[])
         .await
         .unwrap();
 
