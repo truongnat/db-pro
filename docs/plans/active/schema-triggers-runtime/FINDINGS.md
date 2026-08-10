@@ -40,3 +40,16 @@ duplicate rows when the same trigger name exists on multiple tables.
 `action_statement` stores the EXECUTE FUNCTION call, not the function body.
 Retrieving the full body via `pg_get_functiondef(tgfoid)` is a DDL display
 enhancement, deferred to S5 DDL scope.
+
+### Cubic Review #2 (PR #8)
+
+**P2 #1: Trigger row Drop button only fills form** (FIXED)
+Renamed button to "Select to drop" to clarify it pre-fills the name
+rather than executing the drop immediately.
+
+**P2 #2: Parser matches BEGIN in trigger names** (FIXED)
+Changed from `find("BEGIN")` to `find(" BEGIN")` (with leading space)
+to avoid matching identifiers containing "begin" as substring.
+
+**P2 #3: COUNT(*) assertion checked rows.len() not value** (FIXED)
+Changed to check `CellValue::Int64(1)` from the actual count cell.
