@@ -3,7 +3,7 @@ use std::sync::Arc;
 use crate::domain::connection::ConnectionId;
 use crate::domain::error::DbError;
 use crate::domain::safety::{validate_against_policy, ConnectionSafetyPolicy};
-use crate::domain::schema::{IntrospectResult, TableInfo};
+use crate::domain::schema::{IntrospectResult, TableInfo, Trigger};
 use crate::ports::{ConnectionRepository, DbConnector, IntrospectionCache};
 
 use super::registry::ConnectionRegistry;
@@ -122,8 +122,59 @@ impl SchemaService {
         schema: &str,
         table: &str,
     ) -> Result<String, DbError> {
-        let info = self.get_table_info(connection_id, schema, table).await?;
-        Ok(build_create_table_ddl(&info))
+        let introspect = self.introspect(connection_id, false).await?;
+
+        let tbl = introspect
+            .tables
+            .iter()
+            .find(|t| t.schema == schema && t.name == table)
+            .ok_or_else(|| DbError::NotFound(format!("table {schema}.{table}")))?
+            .clone();
+
+        let columns: Vec<_> = introspect
+            .columns
+            .into_iter()
+            .filter(|c| c.schema == schema && c.table_name == table)
+            .collect();
+
+        let primary_key = introspect
+            .primary_keys
+            .into_iter()
+            .find(|pk| pk.schema == schema && pk.table_name == table);
+
+        let indexes: Vec<_> = introspect
+            .indexes
+            .into_iter()
+            .filter(|i| i.schema == schema && i.table_name == table)
+            .collect();
+
+        let foreign_keys: Vec<_> = introspect
+            .foreign_keys
+            .into_iter()
+            .filter(|fk| fk.from_table == table && fk.schema == schema)
+            .collect();
+
+        let triggers: Vec<_> = introspect
+            .triggers
+            .into_iter()
+            .filter(|tr| tr.table_name == table && tr.schema == schema)
+            .collect();
+
+        let info = TableInfo {
+            table: tbl,
+            columns,
+            primary_key,
+            indexes,
+            foreign_keys,
+        };
+
+        let mut ddl = build_create_table_ddl(&info);
+        for trigger in &triggers {
+            ddl.push_str(&format_trigger_ddl(trigger));
+            ddl.push('\n');
+        }
+
+        Ok(ddl)
     }
 
     pub async fn execute_ddl(&self, connection_id: &ConnectionId, sql: &str) -> Result<u64, DbError> {
@@ -237,6 +288,28 @@ fn build_create_table_ddl(info: &TableInfo) -> String {
     ddl
 }
 
+fn format_trigger_ddl(trigger: &Trigger) -> String {
+    // SQLite: definition is the full CREATE TRIGGER SQL from sqlite_master.
+    // PostgreSQL: definition is action_statement (body only), so reconstruct from parts.
+    if trigger.definition.to_ascii_uppercase().starts_with("CREATE TRIGGER") {
+        format!("{};\n", trigger.definition)
+    } else {
+        let qualified = format!(
+            "{}.{}",
+            quote_identifier(&trigger.schema),
+            quote_identifier(&trigger.table_name)
+        );
+        format!(
+            "CREATE TRIGGER {}\n  {} {} ON {}\n  {};\n",
+            quote_identifier(&trigger.name),
+            trigger.timing,
+            trigger.event,
+            qualified,
+            trigger.definition
+        )
+    }
+}
+
 fn quote_identifier(name: &str) -> String {
     let escaped = name.replace('"', "\"\"");
     format!("\"{escaped}\"")
@@ -316,7 +389,15 @@ mod tests {
             }],
             foreign_keys: vec![],
             views: vec![],
-            triggers: vec![],
+            triggers: vec![Trigger {
+                name: "audit_insert".into(),
+                table_name: "users".into(),
+                schema: "public".into(),
+                timing: "AFTER".into(),
+                event: "INSERT".into(),
+                definition: "EXECUTE FUNCTION audit_fn()".into(),
+                enabled: true,
+            }],
             functions: vec![],
         }
     }
@@ -459,6 +540,9 @@ mod tests {
         assert!(ddl.contains("\"id\" INTEGER NOT NULL"));
         assert!(ddl.contains("PRIMARY KEY (\"id\")"));
         assert!(ddl.contains("CREATE UNIQUE INDEX \"idx_email\""));
+        assert!(ddl.contains("CREATE TRIGGER"));
+        assert!(ddl.contains("audit_insert"));
+        assert!(ddl.contains("AFTER INSERT"));
     }
 
     #[test]
@@ -493,6 +577,42 @@ mod tests {
 
         let ddl = build_create_table_ddl(&info);
         assert!(ddl.contains("FOREIGN KEY (\"user_id\") REFERENCES \"public\".\"users\" (\"id\")"));
+    }
+
+    #[test]
+    fn format_trigger_ddl_reconstructs_from_parts() {
+        let trigger = Trigger {
+            name: "tr_audit".into(),
+            table_name: "users".into(),
+            schema: "public".into(),
+            timing: "AFTER".into(),
+            event: "INSERT".into(),
+            definition: "EXECUTE FUNCTION audit_fn()".into(),
+            enabled: true,
+        };
+        let ddl = format_trigger_ddl(&trigger);
+        assert!(ddl.contains("CREATE TRIGGER"));
+        assert!(ddl.contains("\"tr_audit\""));
+        assert!(ddl.contains("AFTER INSERT ON"));
+        assert!(ddl.contains("\"public\".\"users\""));
+        assert!(ddl.contains("EXECUTE FUNCTION audit_fn()"));
+    }
+
+    #[test]
+    fn format_trigger_ddl_uses_full_definition_when_available() {
+        let full_sql = "CREATE TRIGGER tr_audit AFTER INSERT ON users BEGIN SELECT 1; END";
+        let trigger = Trigger {
+            name: "tr_audit".into(),
+            table_name: "users".into(),
+            schema: "main".into(),
+            timing: "AFTER".into(),
+            event: "INSERT".into(),
+            definition: full_sql.into(),
+            enabled: true,
+        };
+        let ddl = format_trigger_ddl(&trigger);
+        assert!(ddl.starts_with(full_sql));
+        assert!(ddl.ends_with(";\n"));
     }
 
     #[test]

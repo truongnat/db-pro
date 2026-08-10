@@ -23,7 +23,7 @@
 - [x] trigger list component (TriggerManager shows existing triggers with badges)
 - [x] CREATE trigger dialog (pre-existing form, now functional with introspection)
 - [x] DROP trigger with destructive confirmation (pre-existing button)
-- [ ] DDL viewer integration for triggers
+- [x] DDL viewer integration for triggers
 
 ## Regression tests
 - [x] SQLite: CREATE trigger → DML → observe effect → introspect → DROP
