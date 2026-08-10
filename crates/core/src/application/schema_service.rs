@@ -124,11 +124,16 @@ impl SchemaService {
     ) -> Result<String, DbError> {
         let introspect = self.introspect(connection_id, false).await?;
 
+        // Check if this is a view first — views use their stored definition.
+        if let Some(view) = introspect.views.iter().find(|v| v.schema == schema && v.name == table) {
+            return Ok(format!("{};\n", view.definition));
+        }
+
         let tbl = introspect
             .tables
             .iter()
             .find(|t| t.schema == schema && t.name == table)
-            .ok_or_else(|| DbError::NotFound(format!("table {schema}.{table}")))?
+            .ok_or_else(|| DbError::NotFound(format!("table or view {schema}.{table}")))?
             .clone();
 
         let columns: Vec<_> = introspect
@@ -388,7 +393,11 @@ mod tests {
                 schema: "public".into(),
             }],
             foreign_keys: vec![],
-            views: vec![],
+            views: vec![View {
+                name: "active_users".into(),
+                schema: "public".into(),
+                definition: "SELECT id, email FROM users WHERE active = true".into(),
+            }],
             triggers: vec![Trigger {
                 name: "audit_insert".into(),
                 table_name: "users".into(),
@@ -517,6 +526,26 @@ mod tests {
 
         let result = svc.get_table_info(&conn_id, "public", "nonexistent").await;
         assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn get_table_ddl_view() {
+        let conn_id = ConnectionId::new();
+        let registry = Arc::new(ConnectionRegistry::new());
+        registry.register(conn_id, ConnectionHandle(1));
+
+        let mut cache = MockIntrospectionCache::new();
+        cache.expect_get().returning(|_| Ok(Some(test_introspect_result())));
+
+        let svc = SchemaService::new(
+            Box::new(MockDbConnector::new()),
+            Box::new(cache),
+            Arc::clone(&registry),
+            Box::new(mock_connections()),
+        );
+
+        let ddl = svc.get_table_ddl(&conn_id, "public", "active_users").await.unwrap();
+        assert!(ddl.contains("SELECT id, email FROM users WHERE active = true"));
     }
 
     #[tokio::test]
