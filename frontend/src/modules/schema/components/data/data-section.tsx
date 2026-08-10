@@ -24,7 +24,7 @@ import {
 import type { StagedChange } from "@/modules/data-grid/state/staged-changes.store";
 import { cycleColumnSort } from "@/modules/data-grid/utils/sort";
 import { classifyConstraintError } from "@/modules/data-grid/utils/constraint-errors";
-import type { ConstraintDetails } from "@/modules/data-grid/utils/constraint-errors";
+import { normalizeMutationError } from "@/modules/data-grid/utils/mutation-error";
 import type {
   CellValue,
   FetchRowsRequest,
@@ -202,9 +202,8 @@ export function DataSection({
           }
           successIds.push(change.id);
         } catch (err) {
-          const rawMsg = err instanceof Error ? err.message : String(err);
-          const details = (err as { details?: ConstraintDetails })?.details ?? null;
-          const classified = classifyConstraintError(rawMsg, details);
+          const normalized = normalizeMutationError(err);
+          const classified = classifyConstraintError(normalized.technicalMessage, normalized.details);
           failures.push({
             id: change.id,
             error: classified.userMessage,
