@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowUpDown, Columns3, Filter, Trash2 } from "lucide-react";
 
 import { useTranslation } from "@/commons/locales/useTranslation";
@@ -64,6 +64,12 @@ export function DataToolbar({
   const { t } = useTranslation();
   const [sortColumn, setSortColumn] = useState(columns[0]?.name ?? "");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+
+  useEffect(() => {
+    if (columns.length > 0 && !columns.some((c) => c.name === sortColumn)) {
+      setSortColumn(columns[0].name);
+    }
+  }, [columns, sortColumn]);
 
   const countBadge = (n: number) =>
     n > 0 ? (

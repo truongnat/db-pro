@@ -175,7 +175,7 @@ export const useTabGridStateStore = create<TabGridStateStore>()(
           return {
             states: {
               ...s.states,
-              [tabId]: { ...current, sorts: [...current.draftSorts] },
+              [tabId]: { ...current, sorts: [...current.draftSorts], page: 1 },
             },
           };
         }),
@@ -186,7 +186,7 @@ export const useTabGridStateStore = create<TabGridStateStore>()(
           return {
             states: {
               ...s.states,
-              [tabId]: { ...current, sorts: [], draftSorts: [] },
+              [tabId]: { ...current, sorts: [], draftSorts: [], page: 1 },
             },
           };
         }),
@@ -195,7 +195,7 @@ export const useTabGridStateStore = create<TabGridStateStore>()(
         set((s) => ({
           states: {
             ...s.states,
-            [tabId]: { ...ensureTab(s.states, tabId), sorts },
+            [tabId]: { ...ensureTab(s.states, tabId), sorts, page: 1 },
           },
         })),
 

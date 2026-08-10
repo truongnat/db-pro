@@ -114,6 +114,14 @@ describe("TabGridStateStore", () => {
       expect(state.sorts[0]).toEqual({ column: "name", direction: "asc" });
     });
 
+    it("applySorts resets page to 1", () => {
+      const { setPage, addDraftSort, applySorts, getState } = useTabGridStateStore.getState();
+      setPage("tab-1", 5);
+      addDraftSort("tab-1", { column: "name", direction: "asc" });
+      applySorts("tab-1");
+      expect(getState("tab-1").page).toBe(1);
+    });
+
     it("removeDraftSort removes by index from draft list", () => {
       const { addDraftSort, removeDraftSort, getState } = useTabGridStateStore.getState();
       addDraftSort("tab-1", { column: "a", direction: "asc" });
@@ -134,6 +142,15 @@ describe("TabGridStateStore", () => {
       expect(state.sorts).toHaveLength(0);
       expect(state.draftSorts).toHaveLength(0);
     });
+
+    it("clearSorts resets page to 1", () => {
+      const { setPage, addDraftSort, applySorts, clearSorts, getState } = useTabGridStateStore.getState();
+      setPage("tab-1", 3);
+      addDraftSort("tab-1", { column: "x", direction: "asc" });
+      applySorts("tab-1");
+      clearSorts("tab-1");
+      expect(getState("tab-1").page).toBe(1);
+    });
   });
 
   describe("setSorts", () => {
@@ -148,6 +165,13 @@ describe("TabGridStateStore", () => {
       setSorts("tab-1", [{ column: "name", direction: "asc" }]);
       setSorts("tab-1", [{ column: "age", direction: "desc" }]);
       expect(getState("tab-1").sorts).toEqual([{ column: "age", direction: "desc" }]);
+    });
+
+    it("setSorts resets page to 1", () => {
+      const { setPage, setSorts, getState } = useTabGridStateStore.getState();
+      setPage("tab-1", 7);
+      setSorts("tab-1", [{ column: "name", direction: "asc" }]);
+      expect(getState("tab-1").page).toBe(1);
     });
   });
 
