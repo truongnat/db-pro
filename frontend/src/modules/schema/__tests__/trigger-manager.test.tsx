@@ -64,10 +64,11 @@ describe("TriggerManager", () => {
   it("displays timing and event badges", () => {
     render(<TriggerManager connectionId="conn-1" schema="public" table="users" />);
 
-    expect(screen.getByText("AFTER")).toBeTruthy();
-    expect(screen.getByText("BEFORE")).toBeTruthy();
-    expect(screen.getByText("UPDATE")).toBeTruthy();
-    expect(screen.getByText("INSERT")).toBeTruthy();
+    // AFTER and BEFORE appear both as badges and as Select options.
+    expect(screen.getAllByText("AFTER").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("BEFORE").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("UPDATE").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("INSERT").length).toBeGreaterThanOrEqual(1);
   });
 
   it("shows trigger count in header", () => {
@@ -93,7 +94,9 @@ describe("TriggerManager", () => {
   it("renders CREATE trigger form", () => {
     render(<TriggerManager connectionId="conn-1" schema="public" table="users" />);
 
-    expect(screen.getByText("schema.createTrigger")).toBeTruthy();
+    // The form section header
+    const createHeaders = screen.getAllByText("schema.createTrigger");
+    expect(createHeaders.length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("schema.triggerName")).toBeTruthy();
     expect(screen.getByText("schema.triggerTiming")).toBeTruthy();
     expect(screen.getByText("schema.triggerEvent")).toBeTruthy();
