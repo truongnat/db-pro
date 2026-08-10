@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,8 +14,9 @@ import {
 } from "@/components/ui/select";
 import { useTranslation } from "@/commons/locales/useTranslation";
 
-import { useExecuteDdl } from "../queries/schema.queries";
+import { useExecuteDdl, useIntrospect } from "../queries/schema.queries";
 import { buildCreateTrigger, buildDropTrigger } from "../services/ddl-builder";
+import type { TriggerDto } from "../types/schema.types";
 
 interface TriggerManagerProps {
   connectionId: string;
@@ -25,6 +27,11 @@ interface TriggerManagerProps {
 export function TriggerManager({ connectionId, schema, table }: TriggerManagerProps) {
   const { t } = useTranslation();
   const executeDdl = useExecuteDdl(connectionId);
+  const introspect = useIntrospect(connectionId);
+
+  const tableTriggers = (introspect.data?.triggers ?? []).filter(
+    (tr) => tr.tableName === table && tr.schema === schema,
+  );
 
   const [triggerName, setTriggerName] = useState("");
   const [timing, setTiming] = useState("BEFORE");
@@ -50,6 +57,30 @@ export function TriggerManager({ connectionId, schema, table }: TriggerManagerPr
 
   return (
     <div className="flex flex-col gap-4 p-3">
+      {/* Existing triggers list */}
+      <div className="rounded-sm border border-[var(--app-border-subtle)] p-3">
+        <h4 className="mb-2 text-xs font-semibold text-foreground">
+          {t("schema.triggers")} ({tableTriggers.length})
+        </h4>
+        {tableTriggers.length === 0 ? (
+          <p className="text-xs text-[var(--app-text-muted)]">{t("schema.noTriggers")}</p>
+        ) : (
+          <div className="space-y-1.5">
+            {tableTriggers.map((tr) => (
+              <TriggerRow
+                key={tr.name}
+                trigger={tr}
+                onDrop={() => {
+                  setTriggerName(tr.name);
+                }}
+                isPending={executeDdl.isPending}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* CREATE / DROP form */}
       <div className="rounded-sm border border-[var(--app-border-subtle)] p-3">
         <h4 className="mb-2 text-xs font-semibold text-foreground">{t("schema.createTrigger")}</h4>
 
@@ -154,6 +185,48 @@ export function TriggerManager({ connectionId, schema, table }: TriggerManagerPr
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function TriggerRow({
+  trigger,
+  onDrop,
+  isPending,
+}: {
+  trigger: TriggerDto;
+  onDrop: () => void;
+  isPending: boolean;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div className="flex items-center justify-between rounded-sm border border-[var(--app-border-subtle)] px-2.5 py-1.5">
+      <div className="flex flex-col gap-0.5">
+        <span className="text-xs font-medium text-foreground">{trigger.name}</span>
+        <div className="flex gap-1.5">
+          <Badge variant="secondary" className="text-[10px]">
+            {trigger.timing}
+          </Badge>
+          <Badge variant="secondary" className="text-[10px]">
+            {trigger.event}
+          </Badge>
+          {!trigger.enabled && (
+            <Badge variant="destructive" className="text-[10px]">
+              DISABLED
+            </Badge>
+          )}
+        </div>
+      </div>
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="h-6 text-[10px] text-destructive"
+        disabled={isPending}
+        onClick={onDrop}
+      >
+        {t("schema.dropTrigger")}
+      </Button>
     </div>
   );
 }

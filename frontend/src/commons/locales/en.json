@@ -281,6 +281,7 @@
     "triggerTiming": "Timing",
     "triggerEvent": "Event",
     "triggerBody": "Body",
+    "noTriggers": "No triggers on this table.",
     "crossConn": {
       "selectTwo": "Select two connections to compare",
       "compare": "Compare",
