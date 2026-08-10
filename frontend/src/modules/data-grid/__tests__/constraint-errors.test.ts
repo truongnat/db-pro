@@ -90,4 +90,58 @@ describe("classifyConstraintError", () => {
     const result = classifyConstraintError(err);
     expect(result.userMessage.length).toBeLessThanOrEqual(201); // 200 + …
   });
+
+  describe("structured details", () => {
+    it("uses structured details for unique violation", () => {
+      const result = classifyConstraintError("ignored", {
+        constraint_type: "unique",
+        constraint: "users_email_key",
+        table: "users",
+        column: "email",
+      });
+      expect(result.kind).toBe("unique-violation");
+      expect(result.userMessage).toContain("email");
+      expect(result.constraint).toBe("users_email_key");
+      expect(result.table).toBe("users");
+    });
+
+    it("uses structured details for foreign key violation", () => {
+      const result = classifyConstraintError("ignored", {
+        constraint_type: "foreign_key",
+        constraint: "orders_user_id_fkey",
+        table: "orders",
+        column: null,
+      });
+      expect(result.kind).toBe("foreign-key-violation");
+      expect(result.constraint).toBe("orders_user_id_fkey");
+    });
+
+    it("uses structured details for not-null violation", () => {
+      const result = classifyConstraintError("ignored", {
+        constraint_type: "not_null",
+        constraint: "",
+        table: "users",
+        column: "name",
+      });
+      expect(result.kind).toBe("not-null-violation");
+      expect(result.userMessage).toContain("name");
+    });
+
+    it("uses structured details for check violation", () => {
+      const result = classifyConstraintError("ignored", {
+        constraint_type: "check",
+        constraint: "users_age_check",
+        table: "users",
+        column: null,
+      });
+      expect(result.kind).toBe("check-violation");
+      expect(result.userMessage).toContain("users_age_check");
+    });
+
+    it("falls back to regex when details is null", () => {
+      const err = 'null value in column "email" violates not-null constraint';
+      const result = classifyConstraintError(err, null);
+      expect(result.kind).toBe("not-null-violation");
+    });
+  });
 });

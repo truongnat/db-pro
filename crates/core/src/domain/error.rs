@@ -41,6 +41,16 @@ impl ErrorEnvelope {
     }
 }
 
+/// Type of constraint that was violated.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ConstraintType {
+    Unique,
+    ForeignKey,
+    NotNull,
+    Check,
+}
+
 /// Unified error taxonomy for the entire application.
 ///
 /// Every error that crosses a service or transport boundary must be converted
@@ -100,6 +110,15 @@ pub enum DbError {
     #[error("data operation failed: {0}")]
     DataFailed(String),
 
+    #[error("constraint violation ({constraint_type:?}) on {table}: {message}")]
+    ConstraintViolation {
+        constraint_type: ConstraintType,
+        constraint: String,
+        table: String,
+        column: Option<String>,
+        message: String,
+    },
+
     #[error("not found: {0}")]
     NotFound(String),
 
@@ -143,6 +162,7 @@ impl DbError {
             Self::SchemaFailed(_) => "SCHEMA_FAILED",
             Self::Unsupported(_) => "OPERATION_UNSUPPORTED",
             Self::DataFailed(_) => "DATA_FAILED",
+            Self::ConstraintViolation { .. } => "CONSTRAINT_VIOLATION",
             Self::NotFound(_) => "NOT_FOUND",
             Self::Validation(_) => "VALIDATION_ERROR",
             Self::ReadOnlyViolation(_) => "READ_ONLY_VIOLATION",
@@ -171,6 +191,7 @@ impl DbError {
             Self::SchemaFailed(_) => "error.schema.failed",
             Self::Unsupported(_) => "error.operation.unsupported",
             Self::DataFailed(_) => "error.data.failed",
+            Self::ConstraintViolation { .. } => "error.data.constraint_violation",
             Self::NotFound(_) => "error.not_found",
             Self::Validation(_) => "error.validation",
             Self::ReadOnlyViolation(_) => "error.safety.read_only",
@@ -212,7 +233,7 @@ impl DbError {
 
             Self::IntrospectionFailed(_) | Self::SchemaFailed(_) | Self::Unsupported(_) => ErrorCategory::Schema,
 
-            Self::DataFailed(_) | Self::NotFound(_) => ErrorCategory::Data,
+            Self::DataFailed(_) | Self::ConstraintViolation { .. } | Self::NotFound(_) => ErrorCategory::Data,
 
             Self::Validation(_) => ErrorCategory::Validation,
 
@@ -279,6 +300,13 @@ mod tests {
             DbError::SchemaFailed("test".into()),
             DbError::Unsupported("test".into()),
             DbError::DataFailed("test".into()),
+            DbError::ConstraintViolation {
+                constraint_type: ConstraintType::Unique,
+                constraint: "test".into(),
+                table: "test".into(),
+                column: None,
+                message: "test".into(),
+            },
             DbError::NotFound("test".into()),
             DbError::Validation("test".into()),
             DbError::ReadOnlyViolation("test".into()),
@@ -333,6 +361,17 @@ mod tests {
             ErrorCategory::Schema
         );
         assert_eq!(DbError::DataFailed("x".into()).category(), ErrorCategory::Data);
+        assert_eq!(
+            DbError::ConstraintViolation {
+                constraint_type: ConstraintType::Unique,
+                constraint: "x".into(),
+                table: "x".into(),
+                column: None,
+                message: "x".into(),
+            }
+            .category(),
+            ErrorCategory::Data
+        );
         assert_eq!(DbError::Validation("x".into()).category(), ErrorCategory::Validation);
         assert_eq!(DbError::ReadOnlyViolation("x".into()).category(), ErrorCategory::Safety);
         assert_eq!(DbError::Internal("x".into()).category(), ErrorCategory::Internal);

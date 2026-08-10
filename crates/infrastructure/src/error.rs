@@ -1,4 +1,4 @@
-use db_pro_core::domain::error::DbError;
+use db_pro_core::domain::error::{ConstraintType, DbError};
 
 pub fn from_sqlx(err: sqlx::Error) -> DbError {
     match err {
@@ -17,27 +17,24 @@ pub fn from_sqlx(err: sqlx::Error) -> DbError {
                 }
                 // Syntax errors (SQLSTATE 42xxx)
                 if code_str.starts_with("42") {
+                    // Permission denied (SQLSTATE 42501) — check before generic syntax
+                    if code_str == "42501" {
+                        return DbError::PermissionDenied(db_err.message().into());
+                    }
                     return DbError::QuerySyntax(db_err.message().into());
                 }
-                // Permission denied (SQLSTATE 42501)
-                if code_str == "42501" {
-                    return DbError::PermissionDenied(db_err.message().into());
-                }
-                // Unique constraint violation (SQLSTATE 23505)
-                if code_str == "23505" {
-                    return DbError::DataFailed(format!("unique constraint violation: {}", db_err.message()));
-                }
-                // Foreign key violation (SQLSTATE 23503)
-                if code_str == "23503" {
-                    return DbError::DataFailed(format!("foreign key violation: {}", db_err.message()));
-                }
-                // Not-null violation (SQLSTATE 23502)
-                if code_str == "23502" {
-                    return DbError::DataFailed(format!("not-null constraint violation: {}", db_err.message()));
-                }
-                // Check violation (SQLSTATE 23514)
-                if code_str == "23514" {
-                    return DbError::DataFailed(format!("check constraint violation: {}", db_err.message()));
+                // Constraint violations (SQLSTATE 23xxx)
+                if let Some(ct) = constraint_type_from_sqlstate(code_str) {
+                    return DbError::ConstraintViolation {
+                        constraint_type: ct,
+                        constraint: db_err
+                            .constraint()
+                            .unwrap_or_default()
+                            .to_string(),
+                        table: db_err.table().unwrap_or_default().to_string(),
+                        column: None,
+                        message: db_err.message().to_string(),
+                    };
                 }
                 // Database not found (SQLSTATE 3D000)
                 if code_str == "3D000" {
@@ -52,6 +49,16 @@ pub fn from_sqlx(err: sqlx::Error) -> DbError {
     }
 }
 
+fn constraint_type_from_sqlstate(code: &str) -> Option<ConstraintType> {
+    match code {
+        "23505" => Some(ConstraintType::Unique),
+        "23503" => Some(ConstraintType::ForeignKey),
+        "23502" => Some(ConstraintType::NotNull),
+        "23514" => Some(ConstraintType::Check),
+        _ => None,
+    }
+}
+
 pub fn from_rusqlite(err: rusqlite::Error) -> DbError {
     match err {
         rusqlite::Error::QueryReturnedNoRows => DbError::NotFound("no rows returned".into()),
@@ -59,7 +66,22 @@ pub fn from_rusqlite(err: rusqlite::Error) -> DbError {
             let message = msg.clone().unwrap_or_else(|| err.to_string());
             match ffi.code {
                 rusqlite::ErrorCode::CannotOpen => DbError::ConnectionFailed(message),
-                rusqlite::ErrorCode::ConstraintViolation => DbError::DataFailed(message),
+                rusqlite::ErrorCode::ConstraintViolation => {
+                    let constraint_type = match ffi.extended_code {
+                        2067 => ConstraintType::Unique,   // SQLITE_CONSTRAINT_UNIQUE
+                        787 => ConstraintType::ForeignKey, // SQLITE_CONSTRAINT_FOREIGNKEY
+                        1299 => ConstraintType::NotNull,   // SQLITE_CONSTRAINT_NOTNULL
+                        275 => ConstraintType::Check,      // SQLITE_CONSTRAINT_CHECK
+                        _ => ConstraintType::Check,        // fallback for generic constraint
+                    };
+                    DbError::ConstraintViolation {
+                        constraint_type,
+                        constraint: String::new(),
+                        table: String::new(),
+                        column: None,
+                        message,
+                    }
+                }
                 _ => DbError::QueryFailed(message),
             }
         }

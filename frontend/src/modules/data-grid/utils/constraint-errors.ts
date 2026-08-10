@@ -1,9 +1,16 @@
 /**
  * Map PostgreSQL / SQLite error messages to user-friendly constraint descriptions.
  *
- * This helps users understand *why* a mutation failed instead of seeing
- * a raw "Update failed" or an opaque error code.
+ * When the backend provides structured constraint metadata (via CommandError.details),
+ * we use it directly. Otherwise, we fall back to regex-parsing the error message.
  */
+
+export interface ConstraintDetails {
+  constraint_type: "unique" | "foreign_key" | "not_null" | "check";
+  constraint: string;
+  table: string;
+  column: string | null;
+}
 
 export interface ConstraintErrorInfo {
   kind:
@@ -24,13 +31,70 @@ export interface ConstraintErrorInfo {
   columns?: string[];
   /** The constraint name, if detectable. */
   constraint?: string;
+  /** The table involved, if known. */
+  table?: string;
 }
 
 /**
- * Classify a database error message into a structured ConstraintErrorInfo.
- * Works for PostgreSQL error messages; falls back gracefully for SQLite.
+ * Classify a database error into a structured ConstraintErrorInfo.
+ * Prefers structured `details` from the backend when available;
+ * falls back to regex-parsing the raw error message.
  */
-export function classifyConstraintError(rawError: string): ConstraintErrorInfo {
+export function classifyConstraintError(
+  rawError: string,
+  details?: ConstraintDetails | null,
+): ConstraintErrorInfo {
+  if (details) {
+    return classifyFromDetails(details);
+  }
+  return classifyFromMessage(rawError);
+}
+
+function classifyFromDetails(details: ConstraintDetails): ConstraintErrorInfo {
+  const col = details.column ?? undefined;
+  const constraint = details.constraint || undefined;
+  const table = details.table || undefined;
+
+  switch (details.constraint_type) {
+    case "unique":
+      return {
+        kind: "unique-violation",
+        userMessage: col
+          ? `A row with this value for "${col}" already exists.`
+          : "A row with these values already exists (unique constraint).",
+        columns: col ? [col] : undefined,
+        constraint,
+        table,
+      };
+    case "foreign_key":
+      return {
+        kind: "foreign-key-violation",
+        userMessage:
+          "This value violates a foreign key constraint — the referenced row does not exist.",
+        constraint,
+        table,
+      };
+    case "not_null":
+      return {
+        kind: "not-null-violation",
+        userMessage: col
+          ? `Column "${col}" cannot be set to NULL.`
+          : "This column cannot be set to NULL.",
+        columns: col ? [col] : undefined,
+        constraint,
+        table,
+      };
+    case "check":
+      return {
+        kind: "check-violation",
+        userMessage: `The value does not satisfy the check constraint${constraint ? ` "${constraint}"` : ""}.`,
+        constraint,
+        table,
+      };
+  }
+}
+
+function classifyFromMessage(rawError: string): ConstraintErrorInfo {
   const msg = rawError.toLowerCase();
 
   // Unique violation (PostgreSQL 23505, SQLite UNIQUE constraint)

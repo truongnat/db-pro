@@ -31,11 +31,26 @@ impl std::fmt::Display for CommandError {
 
 impl From<DbError> for CommandError {
     fn from(err: DbError) -> Self {
+        let details = match &err {
+            DbError::ConstraintViolation {
+                constraint_type,
+                constraint,
+                table,
+                column,
+                ..
+            } => Some(serde_json::json!({
+                "constraint_type": constraint_type,
+                "constraint": constraint,
+                "table": table,
+                "column": column,
+            })),
+            _ => None,
+        };
         Self {
             error: err.code().into(),
             message: err.to_string(),
             message_id: err.message_id().into(),
-            details: None,
+            details,
             retryable: err.retryable(),
         }
     }
