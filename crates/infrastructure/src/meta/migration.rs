@@ -66,8 +66,8 @@ pub async fn migrate(handle: &SqliteHandle) -> Result<u32, DbError> {
         // Execute migration SQL if non-empty.
         if !migration.sql.is_empty() {
             if migration.version == 2 {
-                // To avoid duplicate column errors on a clean installation where SCHEMA already
-                // includes the v2 columns, check if both "database" and "schema" exist.
+                // To avoid duplicate column errors, check each column individually
+                // and only add missing ones. This handles partially applied v2 migrations.
                 let table_info = handle
                     .raw_query("PRAGMA table_info(query_history)".into(), vec![])
                     .await?;
@@ -78,8 +78,15 @@ pub async fn migrate(handle: &SqliteHandle) -> Result<u32, DbError> {
                     .iter()
                     .any(|col| col.get(1).map(|name| name.as_str()) == Some("schema"));
 
-                if !has_database || !has_schema {
-                    handle.execute_statement(migration.sql.into()).await?;
+                if !has_database {
+                    handle
+                        .execute_statement("ALTER TABLE query_history ADD COLUMN database TEXT".into())
+                        .await?;
+                }
+                if !has_schema {
+                    handle
+                        .execute_statement("ALTER TABLE query_history ADD COLUMN schema TEXT".into())
+                        .await?;
                 }
             } else {
                 handle.execute_statement(migration.sql.into()).await?;
@@ -240,7 +247,10 @@ mod tests {
             .await
             .unwrap();
         let schema_sql = &rows[0][0];
-        assert!(schema_sql.contains("database"), "query_history should have database column");
+        assert!(
+            schema_sql.contains("database"),
+            "query_history should have database column"
+        );
         assert!(schema_sql.contains("schema"), "query_history should have schema column");
     }
 }
