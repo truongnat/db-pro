@@ -30,6 +30,21 @@ async fn composite_foreign_key_preserves_constraint_identity_and_order() {
     let (connector, handle) = setup_sqlite_connector().await;
 
     connector
+        .execute(&handle, "PRAGMA foreign_keys = ON", &[])
+        .await
+        .unwrap();
+
+    // Verify FK enforcement is actually active
+    let fk_status = connector
+        .query(&handle, "PRAGMA foreign_keys", &[])
+        .await
+        .unwrap();
+    assert!(
+        matches!(fk_status.rows.first().map(|r| &r.0[0]), Some(db_pro_core::domain::query::CellValue::Int64(1))),
+        "PRAGMA foreign_keys must be ON for FK enforcement assertions to be meaningful"
+    );
+
+    connector
         .execute(
             &handle,
             "CREATE TABLE parent (tenant_id INTEGER NOT NULL, id INTEGER NOT NULL, PRIMARY KEY (tenant_id, id))",
