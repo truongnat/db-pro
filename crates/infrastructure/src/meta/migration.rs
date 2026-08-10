@@ -55,6 +55,7 @@ pub async fn current_version(handle: &SqliteHandle) -> Result<u32, DbError> {
 /// Apply all pending migrations to bring the schema up to `LATEST_VERSION`.
 ///
 /// This is idempotent: already-applied versions are skipped.
+/// Each migration is wrapped in a transaction for atomicity.
 pub async fn migrate(handle: &SqliteHandle) -> Result<u32, DbError> {
     let current = current_version(handle).await?;
 
@@ -63,14 +64,20 @@ pub async fn migrate(handle: &SqliteHandle) -> Result<u32, DbError> {
             continue;
         }
 
+        // Begin transaction for atomicity.
+        handle.execute_statement("BEGIN TRANSACTION".into()).await?;
+
         // Execute migration SQL if non-empty.
         if !migration.sql.is_empty() {
-            handle.execute_statement(migration.sql.into()).await?;
+            if let Err(e) = handle.execute_statement(migration.sql.into()).await {
+                handle.execute_statement("ROLLBACK".into()).await.ok();
+                return Err(e);
+            }
         }
 
         // Record the migration.
         let now = chrono::Utc::now().to_rfc3339();
-        handle
+        if let Err(e) = handle
             .execute_param(
                 "INSERT INTO schema_version (version, applied_at, description) VALUES (?, ?, ?)".into(),
                 vec![
@@ -79,7 +86,14 @@ pub async fn migrate(handle: &SqliteHandle) -> Result<u32, DbError> {
                     QueryParam::Text(migration.description.to_string()),
                 ],
             )
-            .await?;
+            .await
+        {
+            handle.execute_statement("ROLLBACK".into()).await.ok();
+            return Err(e);
+        }
+
+        // Commit transaction.
+        handle.execute_statement("COMMIT".into()).await?;
     }
 
     current_version(handle).await
@@ -150,5 +164,80 @@ mod tests {
         assert_eq!(rows[0][1], "initial schema with versioning table");
         assert_eq!(rows[1][0], "2");
         assert_eq!(rows[1][1], "add database and schema columns to query_history");
+    }
+
+    #[tokio::test]
+    async fn test_migration_idempotency() {
+        use crate::meta::schema::SCHEMA;
+        use crate::sqlite::actor::SqliteActor;
+
+        let handle = SqliteActor::spawn(":memory:").unwrap();
+        handle.execute_statement(SCHEMA.into()).await.unwrap();
+
+        // Run migrate twice
+        let v1 = migrate(&handle).await.unwrap();
+        let v2 = migrate(&handle).await.unwrap();
+
+        // Should be idempotent
+        assert_eq!(v1, LATEST_VERSION);
+        assert_eq!(v2, LATEST_VERSION);
+
+        // Should only have LATEST_VERSION rows in schema_version
+        let rows = handle
+            .raw_query("SELECT COUNT(*) FROM schema_version".into(), vec![])
+            .await
+            .unwrap();
+        assert_eq!(rows[0][0], LATEST_VERSION.to_string());
+    }
+
+    #[tokio::test]
+    async fn test_migration_upgrade_from_old_schema() {
+        use crate::meta::schema::SCHEMA;
+        use crate::sqlite::actor::SqliteActor;
+
+        let handle = SqliteActor::spawn(":memory:").unwrap();
+
+        // Simulate old schema WITHOUT database/schema columns
+        let old_schema = r#"
+            CREATE TABLE IF NOT EXISTS schema_version (
+                version INTEGER PRIMARY KEY,
+                applied_at TEXT NOT NULL,
+                description TEXT NOT NULL DEFAULT ''
+            );
+            CREATE TABLE IF NOT EXISTS query_history (
+                id TEXT PRIMARY KEY,
+                connection_id TEXT NOT NULL,
+                sql TEXT NOT NULL,
+                executed_at TEXT NOT NULL,
+                duration_ms INTEGER NOT NULL,
+                row_count INTEGER NOT NULL
+            );
+        "#;
+        handle.execute_statement(old_schema.into()).await.unwrap();
+
+        // Insert v1 as already applied
+        handle
+            .raw_query(
+                "INSERT INTO schema_version (version, applied_at, description) VALUES (1, '2024-01-01T00:00:00Z', 'initial')".into(),
+                vec![],
+            )
+            .await
+            .unwrap();
+
+        // Run migrate - should apply v2 successfully
+        let final_version = migrate(&handle).await.unwrap();
+        assert_eq!(final_version, LATEST_VERSION);
+
+        // Verify columns were added
+        let rows = handle
+            .raw_query(
+                "SELECT sql FROM sqlite_master WHERE name = 'query_history'".into(),
+                vec![],
+            )
+            .await
+            .unwrap();
+        let schema_sql = &rows[0][0];
+        assert!(schema_sql.contains("database"), "query_history should have database column");
+        assert!(schema_sql.contains("schema"), "query_history should have schema column");
     }
 }
