@@ -30,7 +30,7 @@ fn pg_config() -> Option<ConnectionConfig> {
         (None, auth_host_db)
     };
 
-    let (username, password) = auth
+    let (username, _password) = auth
         .map(|a| {
             let (u, p) = a.split_once(':').unwrap_or((a, ""));
             (u.to_string(), p.to_string())
