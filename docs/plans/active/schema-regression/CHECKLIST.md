@@ -27,5 +27,5 @@
 ## Review gate
 - [x] P0 = 0
 - [x] P1 = 0
-- [ ] CI passing
+- [x] CI passing
 - [x] VERIFICATION.md updated

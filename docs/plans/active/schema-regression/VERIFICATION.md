@@ -1,13 +1,13 @@
 # S7 — Schema Regression Verification
 
-State: IMPLEMENTING (regression matrix complete; gap-filling tests added; awaiting CI)
+State: IMPLEMENTING (regression matrix complete; gap-filling tests added; CI green)
 
 ## CI Evidence
 
 | Check | Run | Result |
 |---|---|---|
-| Rust checks (cargo fmt + clippy + build + test) | [31432622639](https://github.com/truongnat/db-pro/actions/runs/31432622639) | PASS |
-| Frontend checks (tsc + eslint + prettier + build + test) | [31432622639](https://github.com/truongnat/db-pro/actions/runs/31432622639) | PASS |
+| Rust checks (cargo fmt + clippy + build + test) | [31434543130](https://github.com/truongnat/db-pro/actions/runs/31434543130) | PASS |
+| Frontend checks (tsc + eslint + prettier + build + test) | [31434543130](https://github.com/truongnat/db-pro/actions/runs/31434543130) | PASS |
 | Frontend tests (local) | npm test -- --run | 105 files, 1319 tests PASS |
 | PR #8 mergeable | MERGEABLE | — |
 
@@ -42,13 +42,13 @@ State: IMPLEMENTING (regression matrix complete; gap-filling tests added; awaiti
 
 | Gap | Test | Status |
 |---|---|---|
-| PG composite FK detail | `pg_integration.rs::pg_composite_fk_detail` | DONE |
-| PG index lifecycle | `pg_integration.rs::pg_index_lifecycle` | DONE |
-| PG special identifiers | `pg_integration.rs::pg_special_identifiers` | DONE |
+| PG composite FK detail | `pg_integration.rs::pg_composite_fk_detail` | DONE — CI PASS |
+| PG index lifecycle | `pg_integration.rs::pg_index_lifecycle` | DONE — CI PASS |
+| PG special identifiers | `pg_integration.rs::pg_special_identifiers` | DONE — CI PASS |
 
 ## Review gate
 
 - [x] P0 = 0
 - [x] P1 = 0
-- [ ] CI passing after gap-filling tests
+- [x] CI passing
 - [x] VERIFICATION.md updated
