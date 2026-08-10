@@ -267,11 +267,7 @@ async fn pg_index_lifecycle() {
 
     // CREATE INDEX.
     connector
-        .execute(
-            &handle,
-            "CREATE INDEX idx_s7_test_lifecycle ON categories(name)",
-            &[],
-        )
+        .execute(&handle, "CREATE INDEX idx_s7_test_lifecycle ON categories(name)", &[])
         .await
         .unwrap();
 
@@ -294,10 +290,7 @@ async fn pg_index_lifecycle() {
     // Verify the index is gone.
     let result = connector.introspect(&handle).await.unwrap();
     assert!(
-        !result
-            .indexes
-            .iter()
-            .any(|i| i.name == "idx_s7_test_lifecycle"),
+        !result.indexes.iter().any(|i| i.name == "idx_s7_test_lifecycle"),
         "test index should be gone after DROP"
     );
 
@@ -353,11 +346,7 @@ async fn pg_special_identifiers() {
 
     // Verify we can query these tables.
     let q = connector
-        .query(
-            &handle,
-            "SELECT \"émâil\" FROM \"Ünïcödé Üsers\" ORDER BY id",
-            &[],
-        )
+        .query(&handle, "SELECT \"émâil\" FROM \"Ünïcödé Üsers\" ORDER BY id", &[])
         .await
         .unwrap();
     assert!(q.row_count > 0, "should be able to query unicode table");
