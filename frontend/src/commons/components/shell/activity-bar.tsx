@@ -145,7 +145,7 @@ function ThemeToggleButton() {
 
   const Icon = mode === "system" ? Monitor : mode === "light" ? Sun : Moon;
   const label =
-    mode === "system" ? "System" : mode === "light" ? "Light" : "Dark";
+    mode === "system" ? t("settings.appearance.system") : mode === "light" ? t("settings.appearance.light") : t("settings.appearance.dark");
 
   return (
     <Tooltip>
@@ -154,7 +154,7 @@ function ThemeToggleButton() {
           type="button"
           className="flex h-8 w-8 items-center justify-center rounded-md text-[var(--app-text-muted)] transition-colors duration-100 hover:bg-[var(--app-hover)] hover:text-foreground"
           onClick={toggle}
-          aria-label={`Theme: ${label}`}
+          aria-label={`${t("settings.theme")}: ${label}`}
         >
           <Icon className="h-4 w-4" />
         </button>

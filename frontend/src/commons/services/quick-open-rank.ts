@@ -12,8 +12,10 @@ export interface QuickOpenRankContext {
 export interface RankedQuickOpenItem {
   item: QuickOpenItem;
   score: number;
-  /** Indices of matched characters in the primary text, for highlighting. */
+  /** Indices of matched characters — may refer to searchText when match fell through. */
   matchIndices: number[];
+  /** Indices within the primary title text only — empty when match was in searchText, not title. */
+  titleMatchIndices: number[];
 }
 
 function primaryText(item: QuickOpenItem): string {
@@ -181,7 +183,7 @@ export function rankQuickOpenItems(
             : item.kind === "schema"
               ? 200
               : 100;
-      ranked.push({ item, score: base + boostScore(item, ctx), matchIndices: [] });
+      ranked.push({ item, score: base + boostScore(item, ctx), matchIndices: [], titleMatchIndices: [] });
       continue;
     }
 
@@ -194,14 +196,14 @@ export function rankQuickOpenItems(
     const bestScore = Math.max(primaryResult.score, fullResult.score);
     if (bestScore === 0) continue;
 
-    const matchIndices = primaryResult.score >= fullResult.score
-      ? primaryResult.indices
-      : fullResult.indices;
+    const matchedTitle = primaryResult.score >= fullResult.score;
+    const matchIndices = matchedTitle ? primaryResult.indices : fullResult.indices;
 
     ranked.push({
       item,
       score: bestScore + boostScore(item, ctx),
       matchIndices,
+      titleMatchIndices: matchedTitle ? primaryResult.indices : [],
     });
   }
 

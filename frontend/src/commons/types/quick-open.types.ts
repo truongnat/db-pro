@@ -41,11 +41,14 @@ export interface QuickOpenConnectionItem {
 export type QuickOpenItem =
   QuickOpenTabItem | QuickOpenDbObjectItem | QuickOpenSchemaItem | QuickOpenConnectionItem;
 
+export type DbObjectType = "table" | "view" | "function" | "sequence" | "type";
+
 export interface RecentResource {
   resourceKey: string;
   kind: "db-object" | "query" | "connection";
   connectionId: string;
   schema?: string;
   objectName?: string;
+  objectType?: DbObjectType;
   openedAt: string;
 }

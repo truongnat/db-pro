@@ -1,5 +1,5 @@
 import { Command } from "cmdk";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Columns3,
   Database,
@@ -140,6 +140,8 @@ export function QuickOpen() {
 
   // Track selected value for preview-on-navigate
   const [selectedValue, setSelectedValue] = useState<string>("");
+  const lastPreviewedRef = useRef<string>("");
+  const isInitialMountRef = useRef(true);
 
   // Parse prefix filter from query
   const { prefix, cleanQuery } = useMemo(() => parsePrefix(query), [query]);
@@ -200,29 +202,33 @@ export function QuickOpen() {
   // Build recent items for empty-query recent group
   const recentRanked = useMemo<RankedQuickOpenItem[]>(() => {
     if (cleanQuery.trim() || prefix) return [];
-    return recentResources
-      .filter((r) => r.kind === "db-object")
-      .slice(0, 5)
-      .map((r) => {
-        const found = index.find((item) => item.resourceKey === r.resourceKey);
-        if (found) return { item: found, score: 10000, matchIndices: [] };
-        // Synthesize an item from recent data
-        const connName = connections.data?.find((c) => c.id === r.connectionId)?.name ?? r.connectionId;
-        return {
-          item: {
-            kind: "db-object" as const,
-            connectionId: r.connectionId,
-            connectionName: connName,
-            schema: r.schema ?? "",
-            objectName: r.objectName ?? r.resourceKey,
-            objectType: "table" as const,
-            resourceKey: r.resourceKey,
-            searchText: `${r.objectName ?? ""} ${r.schema ?? ""} ${connName}`,
-          },
-          score: 10000,
-          matchIndices: [],
-        };
+    const result: RankedQuickOpenItem[] = [];
+    const sources = recentResources.filter((r) => r.kind === "db-object").slice(0, 5);
+    for (const r of sources) {
+      const found = index.find((item) => item.resourceKey === r.resourceKey);
+      if (found) {
+        result.push({ item: found, score: 10000, matchIndices: [], titleMatchIndices: [] });
+        continue;
+      }
+      if (!r.objectType || !r.objectName) continue;
+      const connName = connections.data?.find((c) => c.id === r.connectionId)?.name ?? r.connectionId;
+      result.push({
+        item: {
+          kind: "db-object" as const,
+          connectionId: r.connectionId,
+          connectionName: connName,
+          schema: r.schema ?? "",
+          objectName: r.objectName,
+          objectType: r.objectType,
+          resourceKey: r.resourceKey,
+          searchText: `${r.objectName} ${r.schema ?? ""} ${connName}`,
+        },
+        score: 10000,
+        matchIndices: [],
+        titleMatchIndices: [],
       });
+    }
+    return result;
   }, [cleanQuery, prefix, recentResources, index, connections.data]);
 
   // Combine: recent group + ranked results
@@ -242,16 +248,23 @@ export function QuickOpen() {
   // Preview on navigate: when selected value changes, open as preview tab
   useEffect(() => {
     if (!isOpen || !selectedValue) return;
+    if (isInitialMountRef.current) {
+      isInitialMountRef.current = false;
+      return;
+    }
+    if (selectedValue === lastPreviewedRef.current) return;
     const found = allRanked.find((r) => r.item.resourceKey === selectedValue);
     if (!found) return;
     const item = found.item;
     if (item.kind === "db-object") {
+      lastPreviewedRef.current = selectedValue;
       openSchemaPreview(item.connectionId, item.schema, item.objectName, item.objectType);
     }
   }, [selectedValue, isOpen, allRanked, openSchemaPreview]);
 
   useEffect(() => {
     if (!isOpen) return;
+    isInitialMountRef.current = true;
     useCommandStore.getState().close();
   }, [isOpen]);
 
@@ -269,6 +282,7 @@ export function QuickOpen() {
             connectionId: item.connectionId,
             schema: item.schema,
             objectName: item.objectName,
+            objectType: item.objectType,
           });
           break;
         case "schema":
@@ -294,12 +308,22 @@ export function QuickOpen() {
     [close, openSchemaPreview, setExplorerConnection, expandNode, statuses, connectMutation],
   );
 
-  const handleRemoveRecent = useCallback(
-    (e: React.KeyboardEvent, item: QuickOpenItem) => {
-      if (e.key === "Backspace" || e.key === "Delete") {
-        e.preventDefault();
-        removeRecentResource(item.resourceKey);
-      }
+  const handleRemoveRecentByKey = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key !== "Backspace" && e.key !== "Delete") return;
+      if (!selectedValue) return;
+      const isRecent = recentKeysSet.has(selectedValue);
+      if (!isRecent) return;
+      e.preventDefault();
+      removeRecentResource(selectedValue);
+    },
+    [selectedValue, recentKeysSet, removeRecentResource],
+  );
+
+  const handleRemoveRecentClick = useCallback(
+    (e: React.MouseEvent, resourceKey: string) => {
+      e.stopPropagation();
+      removeRecentResource(resourceKey);
     },
     [removeRecentResource],
   );
@@ -380,15 +404,6 @@ export function QuickOpen() {
     }
   };
 
-  // Find ranked item by resourceKey for highlight indices
-  const rankedMap = useMemo(() => {
-    const map = new Map<string, RankedQuickOpenItem>();
-    for (const r of allRanked) {
-      map.set(r.item.resourceKey, r);
-    }
-    return map;
-  }, [allRanked]);
-
   if (!isOpen) return null;
 
   const showHint = !query.trim() && !prefix;
@@ -399,6 +414,9 @@ export function QuickOpen() {
       <DialogContent className="!w-[680px] !max-w-[680px] -translate-x-1/2 overflow-hidden p-0 shadow-lg">
         <Command
           shouldFilter={false}
+          value={selectedValue}
+          onValueChange={setSelectedValue}
+          onKeyDown={handleRemoveRecentByKey}
           className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-[var(--app-text-muted)] [&_[cmdk-group]]:px-2 [&_[cmdk-group]]:py-1 [&_[cmdk-input-wrapper]]:px-3 [&_[cmdk-input-wrapper]]:py-2 [&_[cmdk-item]]:px-3 [&_[cmdk-item]]:py-2"
           label="Quick open"
         >
@@ -408,6 +426,7 @@ export function QuickOpen() {
             onValueChange={(v) => {
               setQuery(v);
               setSelectedValue("");
+              lastPreviewedRef.current = "";
             }}
             className="flex h-10 w-full border-b border-[var(--app-border-subtle)] bg-transparent px-3 text-sm outline-none placeholder:text-[var(--app-text-dim)]"
             autoFocus
@@ -450,22 +469,25 @@ export function QuickOpen() {
                       key={item.resourceKey}
                       value={item.resourceKey}
                       onSelect={() => handleOpenItem(item)}
-                      onKeyDown={(e) => isRecent && handleRemoveRecent(e, item)}
-                      className="relative flex cursor-default select-none items-center gap-2 rounded-sm text-sm outline-none aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[selected=true]:bg-accent data-[selected=true]:text-accent-foreground"
+                      className="group relative flex cursor-default select-none items-center gap-2 rounded-sm text-sm outline-none aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[selected=true]:bg-accent data-[selected=true]:text-accent-foreground"
                     >
                       {itemIcon(item)}
                       <span className="min-w-0 flex-1 break-words text-sm leading-snug">
-                        <HighlightedText text={title} indices={ranked.matchIndices} />
+                        <HighlightedText text={title} indices={ranked.titleMatchIndices} />
                       </span>
                       <span className="flex shrink-0 items-center gap-1">
                         <span className="max-w-[220px] truncate text-[11px] text-[var(--app-text-muted)]">
                           {meta}
                         </span>
                         {isRecent && (
-                          <X
-                            className="h-3 w-3 shrink-0 text-[var(--app-text-dim)] opacity-0 transition-opacity group-hover:opacity-100 data-[selected=true]:opacity-60"
-                            aria-hidden
-                          />
+                          <button
+                            type="button"
+                            className="flex h-4 w-4 items-center justify-center rounded text-[var(--app-text-dim)] opacity-0 transition-opacity group-hover:opacity-100 data-[selected=true]:opacity-60 hover:text-foreground"
+                            aria-label={t("quickOpen.removeRecent")}
+                            onClick={(e) => handleRemoveRecentClick(e, item.resourceKey)}
+                          >
+                            <X className="h-3 w-3 shrink-0" aria-hidden />
+                          </button>
                         )}
                       </span>
                     </Command.Item>

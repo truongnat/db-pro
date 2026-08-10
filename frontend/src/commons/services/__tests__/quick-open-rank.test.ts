@@ -98,12 +98,24 @@ describe("rankQuickOpenItems — matchIndices", () => {
     const ranked = rankQuickOpenItems(items, ctx({ query: "cli" }));
     expect(ranked).toHaveLength(1);
     expect(ranked[0].matchIndices).toEqual([0, 1, 2]); // c-l-i
+    expect(ranked[0].titleMatchIndices).toEqual([0, 1, 2]);
   });
 
   it("returns empty matchIndices when query is empty", () => {
     const items: QuickOpenItem[] = [dbObj()];
     const ranked = rankQuickOpenItems(items, ctx({ query: "" }));
     expect(ranked[0].matchIndices).toEqual([]);
+    expect(ranked[0].titleMatchIndices).toEqual([]);
+  });
+
+  it("titleMatchIndices is empty when match falls through to searchText", () => {
+    const items: QuickOpenItem[] = [
+      dbObj({ objectName: "orders", resourceKey: "a", searchText: "orders public.orders Local" }),
+    ];
+    const ranked = rankQuickOpenItems(items, ctx({ query: "public" }));
+    expect(ranked).toHaveLength(1);
+    expect(ranked[0].matchIndices.length).toBeGreaterThan(0);
+    expect(ranked[0].titleMatchIndices).toEqual([]);
   });
 });
 

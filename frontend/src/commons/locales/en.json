@@ -410,6 +410,11 @@
     "title": "Settings",
     "language": "Language",
     "theme": "Theme",
+    "appearance": {
+      "system": "System",
+      "light": "Light",
+      "dark": "Dark"
+    },
     "pageSize": "Page Size",
     "autoCommit": "Auto-commit"
   },
@@ -537,6 +542,7 @@
   "quickOpen": {
     "placeholder": "Search tables, views, connections...",
     "noResults": "No matching resources.",
+    "removeRecent": "Remove from recent",
     "groups": {
       "recent": "Recent",
       "open": "Open",
@@ -579,7 +585,7 @@
     },
     "shell": {
       "toggleSidebar": "Toggle Sidebar",
-      "toggleTheme": "Toggle Theme (Light/Dark)",
+      "toggleTheme": "Cycle Appearance",
       "settings": "Open Settings"
     },
     "file": {

@@ -5,13 +5,14 @@ import { useRecentStore } from "@/commons/stores/recent.store";
 import { createDbObjectTab } from "@/commons/factories/tab-factories";
 import type { DbObjectTabData } from "@/commons/types/workspace.types";
 
-function recordRecentResource(connectionId: string, schema: string, objectName: string) {
+function recordRecentResource(connectionId: string, schema: string, objectName: string, objectType: DbObjectTabData["objectType"]) {
   useRecentStore.getState().addRecentResource({
     resourceKey: `dbobj:${schema}.${objectName}:${connectionId}`,
     kind: "db-object",
     connectionId,
     schema,
     objectName,
+    objectType,
   });
 }
 
@@ -36,7 +37,7 @@ export function useSidebarTabOps() {
     ) => {
       const tab = createDbObjectTab(connectionId, schema, objectName, objectType, "data", true);
       openDbObject(tab);
-      recordRecentResource(connectionId, schema, objectName);
+      recordRecentResource(connectionId, schema, objectName, objectType);
     },
     [openDbObject],
   );
@@ -71,7 +72,7 @@ export function useSidebarTabOps() {
 
       const tab = createDbObjectTab(connectionId, schema, objectName, objectType, "data", false);
       openDbObject(tab);
-      recordRecentResource(connectionId, schema, objectName);
+      recordRecentResource(connectionId, schema, objectName, objectType);
     },
     [openDbObject],
   );
@@ -101,7 +102,7 @@ export function useSidebarTabOps() {
 
       const tab = createDbObjectTab(connectionId, schema, objectName, objectType, "columns", false);
       openDbObject(tab);
-      recordRecentResource(connectionId, schema, objectName);
+      recordRecentResource(connectionId, schema, objectName, objectType);
     },
     [openDbObject],
   );

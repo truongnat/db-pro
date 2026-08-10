@@ -386,6 +386,11 @@
     "title": "設定",
     "language": "言語",
     "theme": "テーマ",
+    "appearance": {
+      "system": "システム",
+      "light": "ライト",
+      "dark": "ダーク"
+    },
     "pageSize": "ページサイズ",
     "autoCommit": "自動コミット"
   },
@@ -513,6 +518,7 @@
   "quickOpen": {
     "placeholder": "テーブル、ビュー、接続を検索...",
     "noResults": "一致するリソースがありません。",
+    "removeRecent": "最近から削除",
     "groups": {
       "open": "開いている",
       "tables": "テーブル",
@@ -548,7 +554,7 @@
     },
     "shell": {
       "toggleSidebar": "サイドバーの切り替え",
-      "toggleTheme": "テーマの切り替え（ライト/ダーク）",
+      "toggleTheme": "外観の切り替え",
       "settings": "設定を開く"
     },
     "file": {
