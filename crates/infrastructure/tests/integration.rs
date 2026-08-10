@@ -320,7 +320,21 @@ async fn introspect_triggers() {
     let result = connector.introspect(&handle).await.unwrap();
 
     assert!(!result.triggers.is_empty());
-    assert!(result.triggers.iter().any(|t| t.name == "products_updated_at"));
+    let trigger = result
+        .triggers
+        .iter()
+        .find(|t| t.name == "products_updated_at")
+        .expect("fixture trigger should exist");
+
+    // Verify all S4 fields are populated.
+    assert_eq!(trigger.table_name, "products");
+    assert_eq!(trigger.timing, "AFTER");
+    assert_eq!(trigger.event, "UPDATE");
+    assert!(
+        trigger.definition.contains("products_updated_at"),
+        "definition should contain the CREATE TRIGGER SQL"
+    );
+    assert!(trigger.enabled, "SQLite triggers are always enabled");
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

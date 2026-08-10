@@ -9,9 +9,9 @@
 - [x] scope/non-goals explicit
 
 ## Implementation
-- [ ] extend `Trigger` domain struct with table_name, timing, definition, enabled, schema
-- [ ] fix SQLite introspection to populate all fields (parse SQL body)
-- [ ] fix PostgreSQL introspection to capture table, timing, function body, enabled
+- [x] extend `Trigger` domain struct with table_name, timing, definition, enabled, schema
+- [x] fix SQLite introspection to populate all fields (parse SQL body)
+- [x] fix PostgreSQL introspection to capture table, timing, function body, enabled
 - [ ] add trigger CREATE command (SchemaService + Tauri command)
 - [ ] add trigger DROP command (SchemaService + Tauri command)
 - [ ] add trigger DDL reconstruction in schema_service.rs
@@ -26,9 +26,9 @@
 - [ ] DDL viewer integration for triggers
 
 ## Regression tests
-- [ ] SQLite: CREATE trigger → DML → observe effect → introspect → DROP
-- [ ] SQLite: trigger with special identifiers
-- [ ] SQLite: introspection captures all fields
+- [x] SQLite: CREATE trigger → DML → observe effect → introspect → DROP
+- [x] SQLite: trigger with special identifiers
+- [x] SQLite: introspection captures all fields
 - [ ] PostgreSQL: introspection source verification
 - [ ] Frontend: trigger list rendering test
 
