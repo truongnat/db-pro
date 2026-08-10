@@ -163,6 +163,61 @@ function quoteLiteral(val: string): string {
 }
 
 /**
+ * Format a column default value for SQL.
+ *
+ * SQL expressions (function calls, keywords, numbers, already-quoted strings)
+ * pass through with validation. Plain unquoted strings are treated as literals.
+ */
+function formatDefault(value: string): string {
+  const trimmed = value.trim();
+
+  if (/^'.*'$/.test(trimmed)) return trimmed;
+
+  if (/^-?\d+(\.\d+)?$/.test(trimmed)) return trimmed;
+
+  const upper = trimmed.toUpperCase();
+  if (
+    upper === "NULL" ||
+    upper === "TRUE" ||
+    upper === "FALSE" ||
+    upper === "CURRENT_TIMESTAMP" ||
+    upper === "CURRENT_DATE" ||
+    upper === "CURRENT_TIME" ||
+    upper === "CURRENT_USER" ||
+    upper === "LOCALTIMESTAMP" ||
+    upper === "LOCALTIME" ||
+    upper === "SESSION_USER"
+  ) {
+    return trimmed;
+  }
+
+  if (trimmed.includes("(")) {
+    validateExpression(trimmed);
+    return trimmed;
+  }
+
+  return quoteLiteral(trimmed);
+}
+
+/**
+ * Validate that a SQL expression is safe for embedding in DDL.
+ * Rejects statement separators, comments, and DDL/DML keywords.
+ */
+function validateExpression(expr: string): void {
+  if (expr.includes(";")) {
+    throw new Error("Default expression must not contain statement separators (';')");
+  }
+  if (expr.includes("--") || expr.includes("/*")) {
+    throw new Error("Default expression must not contain SQL comments");
+  }
+  const upper = expr.toUpperCase().trim();
+  const forbidden = /^(DROP|CREATE|ALTER|DELETE|INSERT|UPDATE|TRUNCATE|EXEC|EXECUTE)\b/;
+  if (forbidden.test(upper)) {
+    throw new Error("Default expression must not contain DDL/DML statements");
+  }
+}
+
+/**
  * Classify all mutations in a draft and produce SQL + risk + warnings.
  */
 export function classifyColumnMutation(
@@ -244,7 +299,7 @@ export function classifyColumnMutation(
     } else {
       operations.push(`Set default of "${colName}" to ${draft.newDefaultValue}`);
       sql.push(
-        `ALTER TABLE ${tableRef} ALTER COLUMN ${quoteIdent(colName)} SET DEFAULT ${quoteLiteral(draft.newDefaultValue)};`,
+        `ALTER TABLE ${tableRef} ALTER COLUMN ${quoteIdent(colName)} SET DEFAULT ${formatDefault(draft.newDefaultValue)};`,
       );
     }
     // Default changes are low risk (doesn't affect existing data)

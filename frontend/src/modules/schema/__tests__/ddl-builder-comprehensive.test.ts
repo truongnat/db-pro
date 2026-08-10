@@ -5,10 +5,12 @@ import {
   buildAddColumn,
   buildCreateIndex,
   buildCreateTable,
+  buildCreateTrigger,
   buildCreateView,
   buildDropColumn,
   buildDropIndex,
   buildDropTable,
+  buildDropTrigger,
   buildDropView,
   buildRenameTable,
   generateDdlPreview,
@@ -364,5 +366,53 @@ describe("DDL builder — generateDdlPreview", () => {
       pg,
     );
     expect(sql).toBe("");
+  });
+});
+
+describe("buildCreateTrigger", () => {
+  it("generates CREATE TRIGGER with quoted identifiers", () => {
+    const sql = buildCreateTrigger(
+      "public",
+      "users",
+      "tr_audit",
+      "BEFORE",
+      "INSERT",
+      "BEGIN\n  NEW.updated_at = now();\nEND;",
+    );
+    expect(sql).toContain('CREATE TRIGGER "tr_audit"');
+    expect(sql).toContain("BEFORE INSERT");
+    expect(sql).toContain('"public"."users"');
+    expect(sql).toContain("BEGIN");
+  });
+
+  it("escapes double quotes in trigger name", () => {
+    const sql = buildCreateTrigger("public", "users", 'tr"name', "AFTER", "UPDATE", "BEGIN END;");
+    expect(sql).toContain('"tr""name"');
+  });
+
+  it("escapes double quotes in schema and table", () => {
+    const sql = buildCreateTrigger(
+      'company"data',
+      'user"events',
+      "tr_log",
+      "BEFORE",
+      "DELETE",
+      "BEGIN END;",
+    );
+    expect(sql).toContain('"company""data"."user""events"');
+  });
+});
+
+describe("buildDropTrigger", () => {
+  it("generates DROP TRIGGER with qualified table", () => {
+    const sql = buildDropTrigger("public", "users", "tr_audit");
+    expect(sql).toContain('DROP TRIGGER "tr_audit"');
+    expect(sql).toContain('ON "public"."users"');
+  });
+
+  it("escapes double quotes in all identifiers", () => {
+    const sql = buildDropTrigger('my"schema', 'my"table', 'tr"name');
+    expect(sql).toContain('"tr""name"');
+    expect(sql).toContain('"my""schema"."my""table"');
   });
 });

@@ -245,3 +245,87 @@ describe("hasChanges", () => {
     expect(hasChanges(draft)).toBe(false);
   });
 });
+
+describe("default value formatting", () => {
+  function defaultSql(value: string) {
+    const draft = makeDraft({ newDefaultValue: value });
+    return classifyColumnMutation(draft, "public", "users").sql[0];
+  }
+
+  it("passes through already-quoted string literals", () => {
+    const sql = defaultSql("'hello'");
+    expect(sql).toContain("SET DEFAULT 'hello'");
+  });
+
+  it("passes through integer literals", () => {
+    const sql = defaultSql("0");
+    expect(sql).toContain("SET DEFAULT 0");
+  });
+
+  it("passes through decimal literals", () => {
+    const sql = defaultSql("3.14");
+    expect(sql).toContain("SET DEFAULT 3.14");
+  });
+
+  it("passes through negative numbers", () => {
+    const sql = defaultSql("-1");
+    expect(sql).toContain("SET DEFAULT -1");
+  });
+
+  it("passes through NULL keyword", () => {
+    const sql = defaultSql("NULL");
+    expect(sql).toContain("SET DEFAULT NULL");
+  });
+
+  it("passes through boolean TRUE", () => {
+    const sql = defaultSql("true");
+    expect(sql).toContain("SET DEFAULT true");
+  });
+
+  it("passes through boolean FALSE", () => {
+    const sql = defaultSql("FALSE");
+    expect(sql).toContain("SET DEFAULT FALSE");
+  });
+
+  it("passes through CURRENT_TIMESTAMP", () => {
+    const sql = defaultSql("CURRENT_TIMESTAMP");
+    expect(sql).toContain("SET DEFAULT CURRENT_TIMESTAMP");
+  });
+
+  it("passes through now() function call", () => {
+    const sql = defaultSql("now()");
+    expect(sql).toContain("SET DEFAULT now()");
+  });
+
+  it("passes through gen_random_uuid() function call", () => {
+    const sql = defaultSql("gen_random_uuid()");
+    expect(sql).toContain("SET DEFAULT gen_random_uuid()");
+  });
+
+  it("wraps bare strings as quoted literals", () => {
+    const sql = defaultSql("hello");
+    expect(sql).toContain("SET DEFAULT 'hello'");
+  });
+
+  it("escapes single quotes in bare strings", () => {
+    const sql = defaultSql("it's");
+    expect(sql).toContain("SET DEFAULT 'it''s'");
+  });
+
+  it("throws on expression with semicolon (injection guard)", () => {
+    expect(() => defaultSql("now(); DROP TABLE users")).toThrow("statement separators");
+  });
+
+  it("throws on expression with SQL comment", () => {
+    expect(() => defaultSql("now() -- comment")).toThrow("SQL comments");
+  });
+
+  it("throws on expression with DDL keyword", () => {
+    expect(() => defaultSql("delete()")).toThrow("DDL/DML");
+  });
+
+  it("safely quotes bare DDL-like strings as literals", () => {
+    const sql = defaultSql("DROP TABLE users");
+    expect(sql).toContain("SET DEFAULT 'DROP TABLE users'");
+  });
+});

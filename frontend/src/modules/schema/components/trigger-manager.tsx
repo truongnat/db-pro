@@ -14,6 +14,7 @@ import {
 import { useTranslation } from "@/commons/locales/useTranslation";
 
 import { useExecuteDdl } from "../queries/schema.queries";
+import { buildCreateTrigger, buildDropTrigger } from "../services/ddl-builder";
 
 interface TriggerManagerProps {
   connectionId: string;
@@ -32,8 +33,7 @@ export function TriggerManager({ connectionId, schema, table }: TriggerManagerPr
 
   const handleCreate = useCallback(() => {
     if (!triggerName.trim() || !body.trim()) return;
-    const safeName = triggerName.trim().replace(/"/g, '""');
-    const sql = `CREATE TRIGGER "${safeName}"\n  ${timing} ${event} ON "${schema}"."${table}"\n  ${body}`;
+    const sql = buildCreateTrigger(schema, table, triggerName.trim(), timing, event, body);
     executeDdl.mutate(sql, {
       onSuccess: () => {
         setTriggerName("");
@@ -44,8 +44,7 @@ export function TriggerManager({ connectionId, schema, table }: TriggerManagerPr
 
   const handleDrop = useCallback(() => {
     if (!triggerName.trim()) return;
-    const safeName = triggerName.trim().replace(/"/g, '""');
-    const sql = `DROP TRIGGER "${safeName}" ON "${schema}"."${table}"`;
+    const sql = buildDropTrigger(schema, table, triggerName.trim());
     executeDdl.mutate(sql);
   }, [triggerName, schema, table, executeDdl]);
 

@@ -120,6 +120,31 @@ export function buildDropIndex(
   return `DROP INDEX ${dialect.qualify(schema, indexName)};`;
 }
 
+export function buildCreateTrigger(
+  schema: string,
+  table: string,
+  triggerName: string,
+  timing: string,
+  event: string,
+  body: string,
+  dialect: SqlDialect = getSqlDialect("postgres"),
+): string {
+  const qualified = dialect.qualify(schema, table);
+  const name = dialect.quoteIdentifier(triggerName);
+  return `CREATE TRIGGER ${name}\n  ${timing} ${event} ON ${qualified}\n  ${body}`;
+}
+
+export function buildDropTrigger(
+  schema: string,
+  table: string,
+  triggerName: string,
+  dialect: SqlDialect = getSqlDialect("postgres"),
+): string {
+  const qualified = dialect.qualify(schema, table);
+  const name = dialect.quoteIdentifier(triggerName);
+  return `DROP TRIGGER ${name} ON ${qualified};`;
+}
+
 export function generateDdlPreview(
   operation: DdlOperation,
   schema: string,
