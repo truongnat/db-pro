@@ -538,11 +538,18 @@
     "placeholder": "Search tables, views, connections...",
     "noResults": "No matching resources.",
     "groups": {
+      "recent": "Recent",
       "open": "Open",
       "tables": "Tables",
       "views": "Views",
+      "functions": "Functions",
+      "sequences": "Sequences",
+      "types": "Types",
       "schemas": "Schemas",
       "connections": "Connections"
+    },
+    "hints": {
+      "prefix": "@ tables  ·  : views  ·  # schemas"
     }
   },
   "commands": {
@@ -572,6 +579,7 @@
     },
     "shell": {
       "toggleSidebar": "Toggle Sidebar",
+      "toggleTheme": "Toggle Theme (Light/Dark)",
       "settings": "Open Settings"
     },
     "file": {

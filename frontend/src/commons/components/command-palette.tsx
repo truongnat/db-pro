@@ -48,7 +48,7 @@ export function CommandPalette() {
         >
           <Command.Input
             placeholder={t("commandPalette.placeholder")}
-            className="flex h-11 w-full border-b border-[var(--app-border-subtle)] bg-transparent text-[13px] outline-none placeholder:text-[var(--app-text-dim)]"
+            className="flex h-11 w-full border-b border-[var(--app-border-subtle)] bg-transparent px-3 text-[13px] outline-none placeholder:text-[var(--app-text-dim)]"
           />
           <Command.List className="max-h-[520px] overflow-y-auto overflow-x-hidden py-2">
             <Command.Empty className="px-3 py-6 text-center text-sm text-[var(--app-text-muted)]">

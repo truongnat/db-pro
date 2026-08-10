@@ -12,6 +12,8 @@ export interface QuickOpenRankContext {
 export interface RankedQuickOpenItem {
   item: QuickOpenItem;
   score: number;
+  /** Indices of matched characters in the primary text, for highlighting. */
+  matchIndices: number[];
 }
 
 function primaryText(item: QuickOpenItem): string {
@@ -31,27 +33,106 @@ function searchTextOf(item: QuickOpenItem): string {
   return item.searchText;
 }
 
-export function matchScore(text: string, query: string): number {
+/**
+ * Fuzzy match: finds query characters sequentially in text.
+ * Returns matched indices (for highlighting) and a score.
+ * Returns { indices: [], score: 0 } if not all query chars are found.
+ */
+export function fuzzyMatch(
+  text: string,
+  query: string,
+): { indices: number[]; score: number } {
   const q = query.trim().toLowerCase();
-  if (!q) return 0;
+  if (!q) return { indices: [], score: 0 };
   const t = text.toLowerCase();
 
-  if (t === q) return 1000;
-  if (t.startsWith(q)) return 900;
+  // Exact match — highest score
+  if (t === q) {
+    return { indices: Array.from({ length: q.length }, (_, i) => i), score: 1000 };
+  }
 
+  // Prefix match
+  if (t.startsWith(q)) {
+    return { indices: Array.from({ length: q.length }, (_, i) => i), score: 900 };
+  }
+
+  // Token-level match (space-separated tokens)
   const tokens = t.split(/\s+/);
-  if (tokens.includes(q)) return 800;
+  const exactToken = tokens.indexOf(q);
+  if (exactToken >= 0) {
+    const offset = tokens.slice(0, exactToken).join(" ").length + 1;
+    return {
+      indices: Array.from({ length: q.length }, (_, i) => offset + i),
+      score: 800,
+    };
+  }
 
+  // Token prefix match
   const prefixToken = tokens.find((token) => token.startsWith(q));
-  if (prefixToken) return 700;
+  if (prefixToken) {
+    const offset = t.indexOf(prefixToken);
+    return {
+      indices: Array.from({ length: q.length }, (_, i) => offset + i),
+      score: 700,
+    };
+  }
 
-  const qualified = t.includes(".");
-  if (qualified && t.includes(q)) return 650;
+  // Fuzzy sequential match: each query char must appear in order
+  let qi = 0;
+  const indices: number[] = [];
+  let consecutive = 0;
+  let maxConsecutive = 0;
+  let lastMatchIdx = -2;
 
-  const idx = t.indexOf(q);
-  if (idx >= 0) return 500 - idx * 0.5;
+  for (let ti = 0; ti < t.length && qi < q.length; ti++) {
+    if (t[ti] === q[qi]) {
+      indices.push(ti);
+      if (ti === lastMatchIdx + 1) {
+        consecutive++;
+        maxConsecutive = Math.max(maxConsecutive, consecutive);
+      } else {
+        consecutive = 1;
+      }
+      lastMatchIdx = ti;
+      qi++;
+    }
+  }
 
-  return 0;
+  // All query chars must be found
+  if (qi < q.length) return { indices: [], score: 0 };
+
+  // Score: base 500, bonuses for consecutive matches, early positions, word boundaries
+  let score = 500;
+
+  // Consecutive bonus (up to +150)
+  score += maxConsecutive * 15;
+
+  // Early position bonus (up to +100)
+  if (indices.length > 0) {
+    score += Math.max(0, 100 - indices[0] * 5);
+  }
+
+  // Word boundary bonus: matches at start of word (after separator or uppercase)
+  for (const idx of indices) {
+    if (idx === 0 || text[idx - 1] === "." || text[idx - 1] === "_" || text[idx - 1] === " ") {
+      score += 20;
+    }
+  }
+
+  // Compactness bonus: fewer gaps between first and last match
+  if (indices.length > 1) {
+    const span = indices[indices.length - 1] - indices[0] + 1;
+    const density = indices.length / span;
+    score += Math.round(density * 80);
+  }
+
+  return { indices, score };
+}
+
+/** Backward-compatible substring match (used for searchText fallback). */
+export function matchScore(text: string, query: string): number {
+  const result = fuzzyMatch(text, query);
+  return result.score;
 }
 
 function boostScore(item: QuickOpenItem, ctx: QuickOpenRankContext): number {
@@ -100,16 +181,28 @@ export function rankQuickOpenItems(
             : item.kind === "schema"
               ? 200
               : 100;
-      ranked.push({ item, score: base + boostScore(item, ctx) });
+      ranked.push({ item, score: base + boostScore(item, ctx), matchIndices: [] });
       continue;
     }
 
-    const primary = matchScore(primaryText(item), q);
-    if (primary === 0) continue;
+    // Try primary text first (better highlight), then full searchText
+    const primaryResult = fuzzyMatch(primaryText(item), q);
+    const fullResult = primaryResult.score > 0
+      ? { indices: [], score: 0 }
+      : fuzzyMatch(searchTextOf(item), q);
 
-    const full = matchScore(searchTextOf(item), q);
-    const score = Math.max(primary, full) + boostScore(item, ctx);
-    ranked.push({ item, score });
+    const bestScore = Math.max(primaryResult.score, fullResult.score);
+    if (bestScore === 0) continue;
+
+    const matchIndices = primaryResult.score >= fullResult.score
+      ? primaryResult.indices
+      : fullResult.indices;
+
+    ranked.push({
+      item,
+      score: bestScore + boostScore(item, ctx),
+      matchIndices,
+    });
   }
 
   return ranked.sort((a, b) => {

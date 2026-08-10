@@ -548,6 +548,7 @@
     },
     "shell": {
       "toggleSidebar": "サイドバーの切り替え",
+      "toggleTheme": "テーマの切り替え（ライト/ダーク）",
       "settings": "設定を開く"
     },
     "file": {

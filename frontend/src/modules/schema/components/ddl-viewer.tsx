@@ -1,10 +1,11 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import Editor from "@monaco-editor/react";
 import { Copy, Check, FileCode2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useTranslation } from "@/commons/locales/useTranslation";
+import { useThemeStore, resolveThemeMode } from "@/commons/stores/theme.store";
 
 interface DdlViewerProps {
   ddl: string | null;
@@ -16,6 +17,21 @@ interface DdlViewerProps {
 export function DdlViewer({ ddl, isLoading, error, onOpenInQuery }: DdlViewerProps) {
   const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
+
+  // Resolve Monaco theme from theme store
+  const themeMode = useThemeStore((s) => s.mode);
+  const monacoTheme = useMemo(() => {
+    const resolved = resolveThemeMode(
+      themeMode === "system"
+        ? typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches
+          ? "dark"
+          : "light"
+        : themeMode === "light"
+          ? "light"
+          : "dark",
+    );
+    return resolved === "dark" ? "vs-dark" : "vs";
+  }, [themeMode]);
 
   const handleCopy = useCallback(async () => {
     if (!ddl) return;
@@ -87,6 +103,7 @@ export function DdlViewer({ ddl, isLoading, error, onOpenInQuery }: DdlViewerPro
         <Editor
           height="100%"
           language="sql"
+          theme={monacoTheme}
           value={ddl}
           options={{
             readOnly: true,

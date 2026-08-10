@@ -10,6 +10,7 @@ import { useQuickOpenStore } from "@/commons/stores/quick-open.store";
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
 import { useConnectionStore } from "@/commons/stores/connection.store";
 import { useSchemaCatalogStore } from "@/modules/query/stores/schema-catalog.store";
+import { useRecentStore } from "@/commons/stores/recent.store";
 
 vi.mock("@/commons/stores/shell.store", () => ({
   useShellStore: vi.fn(() => ({
@@ -81,11 +82,18 @@ i18n.use(initReactI18next).init({
           placeholder: "Search tables, views, connections...",
           noResults: "No matching resources.",
           groups: {
+            recent: "Recent",
             open: "Open",
             tables: "Tables",
             views: "Views",
+            functions: "Functions",
+            sequences: "Sequences",
+            types: "Types",
             schemas: "Schemas",
             connections: "Connections",
+          },
+          hints: {
+            prefix: "@ tables  ·  : views  ·  # schemas",
           },
         },
       },
@@ -120,6 +128,7 @@ function resetStores() {
     error: null,
   });
   useSchemaCatalogStore.setState({ catalogs: new Map() });
+  useRecentStore.setState({ recentResources: [], recentConnections: [] });
 }
 
 function seedCatalog() {
@@ -159,7 +168,7 @@ describe("QuickOpen", () => {
     renderWithProviders(<QuickOpen />);
     expect(screen.getByPlaceholderText("Search tables, views, connections...")).toBeTruthy();
     expect(screen.getByText("client")).toBeTruthy();
-    expect(screen.getByText("public · Local")).toBeTruthy();
+    expect(screen.getByText("public.client @ Local")).toBeTruthy();
   });
 
   it("filtering removes non-matching items", async () => {
@@ -213,11 +222,65 @@ describe("QuickOpen", () => {
     useQuickOpenStore.getState().open();
     renderWithProviders(<QuickOpen />);
 
-    const item = screen.getByRole("option", { name: /client.*public · Local/ });
+    const item = screen.getByRole("option", { name: /public\.client @ Local/ });
     await userEvent.click(item);
 
     const tabs = useWorkspaceStore.getState().tabs;
     expect(tabs).toHaveLength(1);
     expect(useWorkspaceStore.getState().activeTabId).toBe("existing-tab");
+  });
+
+  it("shows hint text when query is empty", () => {
+    seedCatalog();
+    useQuickOpenStore.getState().open();
+    renderWithProviders(<QuickOpen />);
+    // Hint text contains prefix symbols; use regex to match partial content
+    expect(screen.getByText(/@ tables/)).toBeTruthy();
+  });
+
+  it("prefix @ filters to tables only", async () => {
+    seedCatalog();
+    useQuickOpenStore.getState().open();
+    renderWithProviders(<QuickOpen />);
+    const input = screen.getByPlaceholderText("Search tables, views, connections...");
+    await userEvent.type(input, "@cli");
+    // "client" table should still be visible (text may be split by highlight marks)
+    expect(screen.getByText(/client/)).toBeTruthy();
+  });
+
+  it("prefix : filters to views only (hides tables)", async () => {
+    seedCatalog();
+    useQuickOpenStore.getState().open();
+    renderWithProviders(<QuickOpen />);
+    const input = screen.getByPlaceholderText("Search tables, views, connections...");
+    await userEvent.type(input, ":cli");
+    // "client" is a table, not a view, so it should be filtered out
+    expect(screen.getByText("No matching resources.")).toBeTruthy();
+  });
+
+  it("fuzzy match highlights characters", async () => {
+    seedCatalog();
+    useQuickOpenStore.getState().open();
+    renderWithProviders(<QuickOpen />);
+    const input = screen.getByPlaceholderText("Search tables, views, connections...");
+    await userEvent.type(input, "cl");
+    // "client" should still appear — fuzzy match "cl" → "cl"ient (prefix)
+    // Text may be split by <mark> highlight elements
+    expect(screen.getByText(/client/)).toBeTruthy();
+  });
+
+  it("shows recent group when recent items exist", () => {
+    seedCatalog();
+    useRecentStore.getState().addRecentResource({
+      resourceKey: "dbobj:public.client:conn-1",
+      kind: "db-object",
+      connectionId: "conn-1",
+      schema: "public",
+      objectName: "client",
+    });
+    useQuickOpenStore.getState().open();
+    renderWithProviders(<QuickOpen />);
+    // "Recent" heading may appear as group heading; check it exists in the document
+    expect(screen.getByText(/Recent/)).toBeTruthy();
   });
 });

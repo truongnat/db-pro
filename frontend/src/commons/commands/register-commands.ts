@@ -1,3 +1,4 @@
+import { useThemeStore } from "@/commons/stores/theme.store";
 import type { AnyRouter } from "@tanstack/react-router";
 
 import { dispatchQueryAction } from "@/commons/commands/query-dispatch";
@@ -200,6 +201,12 @@ export function registerAllCommands(_router: AnyRouter): void {
       keybinding: { primary: true, key: "b" },
       groupKey: "commands.groups.shell",
       execute: () => useShellStore.getState().toggleSidebar(),
+    },
+    {
+      id: "shell.toggleTheme",
+      labelKey: "commands.shell.toggleTheme",
+      groupKey: "commands.groups.shell",
+      execute: () => useThemeStore.getState().toggle(),
     },
     {
       id: "shell.settings",

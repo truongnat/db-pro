@@ -1,8 +1,9 @@
 import { Link } from "@tanstack/react-router";
-import { FolderOpen, PanelLeftClose, PanelLeftOpen, Search, Sparkles } from "lucide-react";
+import { FolderOpen, Monitor, Moon, PanelLeftClose, PanelLeftOpen, Search, Sparkles, Sun } from "lucide-react";
 import type { ComponentType } from "react";
 
 import { useShellStore, type SidebarView } from "@/commons/stores/shell.store";
+import { useThemeStore } from "@/commons/stores/theme.store";
 import { useTranslation } from "@/commons/locales/useTranslation";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
@@ -90,8 +91,10 @@ export function ActivityBar() {
         })}
       </nav>
 
-      {/* Bottom — agent toggle + collapse toggle */}
+      {/* Bottom — theme toggle + agent toggle + collapse toggle */}
       <div className="flex flex-col items-center gap-0.5 pb-2">
+        <ThemeToggleButton />
+
         <Tooltip>
           <TooltipTrigger asChild>
             <button
@@ -132,5 +135,33 @@ export function ActivityBar() {
         </Tooltip>
       </div>
     </aside>
+  );
+}
+
+function ThemeToggleButton() {
+  const { t } = useTranslation();
+  const mode = useThemeStore((s) => s.mode);
+  const toggle = useThemeStore((s) => s.toggle);
+
+  const Icon = mode === "system" ? Monitor : mode === "light" ? Sun : Moon;
+  const label =
+    mode === "system" ? "System" : mode === "light" ? "Light" : "Dark";
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          className="flex h-8 w-8 items-center justify-center rounded-md text-[var(--app-text-muted)] transition-colors duration-100 hover:bg-[var(--app-hover)] hover:text-foreground"
+          onClick={toggle}
+          aria-label={`Theme: ${label}`}
+        >
+          <Icon className="h-4 w-4" />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="right" sideOffset={8}>
+        {label}
+      </TooltipContent>
+    </Tooltip>
   );
 }

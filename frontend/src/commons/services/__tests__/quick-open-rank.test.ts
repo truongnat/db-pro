@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  fuzzyMatch,
   matchScore,
   rankQuickOpenItems,
   type QuickOpenRankContext,
@@ -32,6 +33,79 @@ function ctx(overrides: Partial<QuickOpenRankContext> = {}): QuickOpenRankContex
     ...overrides,
   };
 }
+
+describe("fuzzyMatch", () => {
+  it("returns empty for empty query", () => {
+    const result = fuzzyMatch("client", "");
+    expect(result.score).toBe(0);
+    expect(result.indices).toEqual([]);
+  });
+
+  it("exact match scores highest", () => {
+    const result = fuzzyMatch("client", "client");
+    expect(result.score).toBe(1000);
+    expect(result.indices).toEqual([0, 1, 2, 3, 4, 5]);
+  });
+
+  it("prefix match scores second highest", () => {
+    const result = fuzzyMatch("client_attributes", "client");
+    expect(result.score).toBe(900);
+    expect(result.indices).toEqual([0, 1, 2, 3, 4, 5]);
+  });
+
+  it("fuzzy sequential match finds characters in order", () => {
+    const result = fuzzyMatch("client", "clt");
+    expect(result.score).toBeGreaterThan(0);
+    expect(result.indices).toEqual([0, 1, 5]); // c-l-i-e-n-t → c(0) l(1) t(5)
+  });
+
+  it("returns 0 when not all query chars found", () => {
+    const result = fuzzyMatch("client", "xyz");
+    expect(result.score).toBe(0);
+    expect(result.indices).toEqual([]);
+  });
+
+  it("is case insensitive", () => {
+    const result = fuzzyMatch("CLIENT", "client");
+    expect(result.score).toBe(1000);
+  });
+
+  it("word boundary match gets bonus", () => {
+    const underscore = fuzzyMatch("my_client", "client");
+    const midString = fuzzyMatch("xclient", "client");
+    // Word boundary (after _) should score higher than mid-string
+    expect(underscore.score).toBeGreaterThan(midString.score);
+  });
+
+  it("consecutive chars get bonus over scattered", () => {
+    const consecutive = fuzzyMatch("abcdef", "abc");
+    const scattered = fuzzyMatch("axbxcdef", "abc");
+    expect(consecutive.score).toBeGreaterThan(scattered.score);
+  });
+
+  it("compactness bonus: tighter matches score higher", () => {
+    const tight = fuzzyMatch("ab__cd", "abcd");
+    const loose = fuzzyMatch("a____b__c_d", "abcd");
+    expect(tight.score).toBeGreaterThan(loose.score);
+  });
+});
+
+describe("rankQuickOpenItems — matchIndices", () => {
+  it("returns matchIndices for highlighted rendering", () => {
+    const items: QuickOpenItem[] = [
+      dbObj({ objectName: "client", resourceKey: "a", searchText: "client public.client" }),
+    ];
+    const ranked = rankQuickOpenItems(items, ctx({ query: "cli" }));
+    expect(ranked).toHaveLength(1);
+    expect(ranked[0].matchIndices).toEqual([0, 1, 2]); // c-l-i
+  });
+
+  it("returns empty matchIndices when query is empty", () => {
+    const items: QuickOpenItem[] = [dbObj()];
+    const ranked = rankQuickOpenItems(items, ctx({ query: "" }));
+    expect(ranked[0].matchIndices).toEqual([]);
+  });
+});
 
 describe("matchScore", () => {
   it("exact match ranks highest", () => {

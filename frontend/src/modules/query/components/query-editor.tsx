@@ -1,8 +1,9 @@
 import Editor, { type OnMount } from "@monaco-editor/react";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useMemo } from "react";
 
 import { onQueryAction } from "@/commons/commands/query-dispatch";
 import { useQueryEditorContextStore } from "@/commons/stores/query-editor-context.store";
+import { useThemeStore, resolveThemeMode } from "@/commons/stores/theme.store";
 import { registerSqlProviders } from "../services/sql-providers";
 import { resolveRunTarget } from "../services/statement-splitter";
 
@@ -154,6 +155,13 @@ export function QueryEditor({
 
   const editorRef = useRef<MonacoEditorInstance | null>(null);
 
+  // Resolve Monaco theme from theme store
+  const themeMode = useThemeStore((s) => s.mode);
+  const monacoTheme = useMemo(() => {
+    const resolved = resolveThemeMode(themeMode === "system" ? (typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light") : themeMode === "light" ? "light" : "dark");
+    return resolved === "dark" ? "vs-dark" : "vs";
+  }, [themeMode]);
+
   const handleMountWrapped: OnMount = useCallback(
     (editor, monacoInstance) => {
       editorRef.current = editor;
@@ -167,7 +175,7 @@ export function QueryEditor({
       <Editor
         height="100%"
         language="sql"
-        theme="vs-dark"
+        theme={monacoTheme}
         path={path}
         value={value}
         onChange={(v) => onChange(v ?? "")}

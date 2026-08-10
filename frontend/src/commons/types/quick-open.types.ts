@@ -16,7 +16,7 @@ export interface QuickOpenDbObjectItem {
   connectionName: string;
   schema: string;
   objectName: string;
-  objectType: "table" | "view";
+  objectType: "table" | "view" | "function" | "sequence" | "type";
   resourceKey: string;
   searchText: string;
 }
