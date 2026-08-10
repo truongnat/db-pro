@@ -130,12 +130,6 @@ PR opened
   │
   ├─ CI (lint / test / build / clippy)
   │
-  ├─ Gemini Security Reviewer
-  │     Focus: SQL injection, safety bypass, input validation
-  │
-  ├─ Gemini Correctness Reviewer
-  │     Focus: transaction atomicity, PG vs SQLite, precision, rollback
-  │
   └─ Kilo Code Review
         Focus: bugs, architecture, tests (uses REVIEW.md from base branch)
               │
@@ -153,7 +147,7 @@ PR opened
         Implementer (Jules) fixes only accepted findings
               │
               ▼
-        All reviewers rerun on new commit
+        Kilo reruns on new commit
               │
               ▼
         P0/P1 = 0 → MERGE
@@ -164,8 +158,6 @@ PR opened
 | Role | Agent | Responsibility |
 |------|-------|----------------|
 | Implementer | Jules | Write code, fix accepted findings |
-| Security reviewer | Gemini | Red-team SQL injection, safety bypass |
-| Correctness reviewer | Gemini | DB semantics, transactions, precision |
 | Independent reviewer | Kilo | Bugs, architecture, tests (REVIEW.md) |
 | Adversarial challenger | Kilo (@kilocode-bot) | Challenge prior findings |
 | Arbiter | ChatGPT | Deduplicate, reject false positives |
@@ -173,7 +165,6 @@ PR opened
 ### Principles
 
 - Reviewer diversity > reviewer count
-- Reviewers do NOT read each other's conclusions (blind review)
 - Implementer never self-judges; arbiter never codes
 - Source reasoning != runtime evidence
 - REVIEW.md lives on base branch (code under review cannot rewrite its own rubric)
@@ -187,13 +178,6 @@ Repository: truongnat/db-pro
 Style: Strict
 Focus: Security, Bugs, Testing, Performance
 Use REVIEW.md: ON
-```
-
-### Gemini setup
-
-```
-GitHub repo → Settings → Secrets → GEMINI_API_KEY
-Workflow: .github/workflows/gemini-review.yml
 ```
 
 ## Runtime verification
