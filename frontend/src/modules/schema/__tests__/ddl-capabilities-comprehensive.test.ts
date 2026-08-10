@@ -232,3 +232,35 @@ describe("buildSqliteTableRebuild", () => {
     expect(plan.statements).toHaveLength(6);
   });
 });
+
+describe("trigger toggle capability", () => {
+  it("PostgreSQL supports trigger toggle", () => {
+    const result = checkOperationSupported("postgres", "enableTrigger");
+    expect(result.supported).toBe(true);
+  });
+
+  it("PostgreSQL supports disable trigger", () => {
+    const result = checkOperationSupported("postgres", "disableTrigger");
+    expect(result.supported).toBe(true);
+  });
+
+  it("SQLite does not support trigger toggle", () => {
+    const result = checkOperationSupported("sqlite", "enableTrigger");
+    expect(result.supported).toBe(false);
+    if (!result.supported) {
+      expect(result.reason).toContain("sqlite");
+    }
+  });
+
+  it("SQLite does not support disable trigger", () => {
+    const result = checkOperationSupported("sqlite", "disableTrigger");
+    expect(result.supported).toBe(false);
+  });
+
+  it("capabilities include supportsTriggerToggle flag", () => {
+    const pgCaps = getDdlCapabilities("postgres");
+    const sqliteCaps = getDdlCapabilities("sqlite");
+    expect(pgCaps.supportsTriggerToggle).toBe(true);
+    expect(sqliteCaps.supportsTriggerToggle).toBe(false);
+  });
+});
