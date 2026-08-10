@@ -35,6 +35,7 @@ const MOCK_INTROSPECT_RESULT = {
   indexes: [],
   foreignKeys: [],
   views: [{ name: "v_active", schema: "public", definition: "SELECT 1" }],
+  triggers: [],
 };
 
 describe("SchemaCatalogStore", () => {

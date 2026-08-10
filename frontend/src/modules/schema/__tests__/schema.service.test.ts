@@ -24,6 +24,7 @@ describe("SchemaService", () => {
       indexes: [],
       foreignKeys: [],
       views: [],
+      triggers: [],
     });
     await service.introspect("conn-1");
     expect(mockInvoke).toHaveBeenCalledWith("introspect", {
@@ -41,6 +42,7 @@ describe("SchemaService", () => {
       indexes: [],
       foreignKeys: [],
       views: [],
+      triggers: [],
     });
     await service.introspect("conn-1", true);
     expect(mockInvoke).toHaveBeenCalledWith("introspect", {

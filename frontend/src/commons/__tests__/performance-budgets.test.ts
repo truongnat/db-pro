@@ -208,6 +208,7 @@ describe("Performance budgets", () => {
         indexes: [],
         foreignKeys: [],
         views: [],
+        triggers: [],
       };
 
       const start = performance.now();

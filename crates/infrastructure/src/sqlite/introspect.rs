@@ -241,16 +241,50 @@ fn introspect_triggers(conn: &rusqlite::Connection) -> Result<Vec<Trigger>, DbEr
     let triggers = stmt
         .query_map([], |row| {
             let name: String = row.get(0)?;
-            let _table: String = row.get(1)?;
+            let table_name: String = row.get(1)?;
             let sql: Option<String> = row.get(2)?;
+            let definition = sql.clone().unwrap_or_default();
+            let (timing, event) = parse_sqlite_trigger_sql(&definition);
             Ok(Trigger {
                 name,
-                event: sql.unwrap_or_default(),
-                action: String::new(),
+                table_name,
+                schema: String::new(),
+                timing,
+                event,
+                definition,
+                enabled: true,
             })
         })
         .map_err(crate::error::from_rusqlite)?
         .collect::<Result<Vec<_>, _>>()
         .map_err(crate::error::from_rusqlite)?;
     Ok(triggers)
+}
+
+/// Parse timing (BEFORE/AFTER/INSTEAD OF) and event (INSERT/UPDATE/DELETE) from
+/// a SQLite CREATE TRIGGER SQL body. Returns (timing, event) with empty fallbacks.
+fn parse_sqlite_trigger_sql(sql: &str) -> (String, String) {
+    let upper = sql.to_uppercase();
+
+    let timing = if upper.contains("INSTEAD OF") {
+        "INSTEAD OF"
+    } else if upper.contains("BEFORE") {
+        "BEFORE"
+    } else if upper.contains("AFTER") {
+        "AFTER"
+    } else {
+        ""
+    };
+
+    let event = if upper.contains("INSERT") {
+        "INSERT"
+    } else if upper.contains("UPDATE") {
+        "UPDATE"
+    } else if upper.contains("DELETE") {
+        "DELETE"
+    } else {
+        ""
+    };
+
+    (timing.to_string(), event.to_string())
 }

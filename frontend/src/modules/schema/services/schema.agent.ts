@@ -207,6 +207,7 @@ export class MockSchemaService {
       indexes: INDEXES,
       foreignKeys: FOREIGN_KEYS,
       views: [],
+      triggers: [],
     };
   }
 
