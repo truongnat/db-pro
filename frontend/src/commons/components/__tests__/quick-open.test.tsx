@@ -285,19 +285,24 @@ describe("QuickOpen", () => {
     expect(screen.getByText(/Recent/)).toBeTruthy();
   });
 
-  it("close and reopen does not create stale preview tabs", async () => {
+  it("close and reopen without unmount does not create stale preview tabs", async () => {
     seedCatalog();
+    renderWithProviders(<QuickOpen />);
+
     useQuickOpenStore.getState().open();
-    const { unmount } = renderWithProviders(<QuickOpen />);
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText("Search tables, views, connections...")).toBeTruthy();
+    });
 
     useQuickOpenStore.getState().close();
-    unmount();
-
-    expect(useWorkspaceStore.getState().tabs).toHaveLength(0);
+    await waitFor(() => {
+      expect(screen.queryByPlaceholderText("Search tables, views, connections...")).toBeNull();
+    });
 
     useQuickOpenStore.getState().open();
-    renderWithProviders(<QuickOpen />);
-    expect(screen.getByPlaceholderText("Search tables, views, connections...")).toBeTruthy();
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText("Search tables, views, connections...")).toBeTruthy();
+    });
 
     expect(useWorkspaceStore.getState().tabs).toHaveLength(0);
   });
@@ -326,7 +331,7 @@ describe("QuickOpen", () => {
     expect(useQuickOpenStore.getState().isOpen).toBe(true);
   });
 
-  it("arrow down navigates selection and triggers preview", async () => {
+  it("arrow navigation replaces preview tab instead of creating duplicates", async () => {
     useSchemaCatalogStore.setState({
       catalogs: new Map([
         [
@@ -352,8 +357,33 @@ describe("QuickOpen", () => {
     input.focus();
 
     await userEvent.keyboard("{ArrowDown}");
+    expect(useWorkspaceStore.getState().tabs).toHaveLength(1);
 
-    const tabs = useWorkspaceStore.getState().tabs;
-    expect(tabs.length).toBeGreaterThanOrEqual(1);
+    await userEvent.keyboard("{ArrowDown}");
+    expect(useWorkspaceStore.getState().tabs).toHaveLength(1);
+
+    await userEvent.keyboard("{ArrowDown}");
+    expect(useWorkspaceStore.getState().tabs).toHaveLength(1);
+  });
+
+  it("Delete key removes selected recent item", async () => {
+    seedCatalog();
+    useRecentStore.getState().addRecentResource({
+      resourceKey: "dbobj:public.client:conn-1",
+      kind: "db-object",
+      connectionId: "conn-1",
+      schema: "public",
+      objectName: "client",
+    });
+    useQuickOpenStore.getState().open();
+    renderWithProviders(<QuickOpen />);
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Remove")).toBeTruthy();
+    });
+
+    await userEvent.keyboard("{Delete}");
+
+    expect(useRecentStore.getState().recentResources).toHaveLength(0);
   });
 });
