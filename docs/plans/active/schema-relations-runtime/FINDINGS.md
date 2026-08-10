@@ -87,3 +87,13 @@ All source-level P1 fixes validated by CI. S3 is ready for RUNTIME_VERIFY once P
 
 ### P3 — VPS review prompt `${BASE_REF}` placeholder
 - **Classification**: CONFIRMED, FIXED in ea3312f
+
+## Cubic Review #3 Triage (commits f2a2805–ffd2c00)
+
+### P2 — VERIFICATION.md internal contradiction (CI table vs completion decision)
+- **Classification**: CONFIRMED
+- **Fix**: Updated CI evidence table to reflect actual review state (Cubic COMMENTED, VPS IN_PROGRESS), updated commit ref to ffd2c00
+
+### P3 — `cargo check` claim inaccurate
+- **Classification**: CONFIRMED
+- **Fix**: Replaced `cargo check → CI PASS (via cargo build)` with `cargo build → CI PASS`. Added note that `cargo check` was not run as a separate command.
