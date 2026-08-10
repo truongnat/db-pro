@@ -12,6 +12,11 @@ import { Input } from "@/components/ui/input";
 
 import type { CellValue, ColumnMeta } from "../types/data-grid.types";
 import { renderCellValue } from "@/modules/query/types/query.types";
+import {
+  normalizeColumnType,
+  isCellTypeEditable,
+  getUnsupportedEditReason,
+} from "../utils/column-value-codec";
 
 interface RowEditDialogProps {
   open: boolean;
@@ -60,6 +65,9 @@ export function RowEditDialog({ open, onOpenChange, columns, row, onSave }: RowE
       const original = row[columns.indexOf(col)];
       const originalText = original?.type === "null" ? "" : renderCellValue(original ?? { type: "null" });
 
+      const cellType = normalizeColumnType(col.dataType);
+      if (!isCellTypeEditable(cellType)) continue;
+
       if (field.isNull) {
         if (original?.type !== "null") {
           changes[col.name] = { type: "null" };
@@ -69,7 +77,6 @@ export function RowEditDialog({ open, onOpenChange, columns, row, onSave }: RowE
 
       if (field.value === originalText) continue;
 
-      const cellType = normalizeColumnType(col.dataType);
       switch (cellType) {
         case "int64": {
           const n = Number(field.value);
@@ -142,6 +149,7 @@ export function RowEditDialog({ open, onOpenChange, columns, row, onSave }: RowE
           {columns.map((col) => {
             const field = fields[col.name];
             const cellType = normalizeColumnType(col.dataType);
+            const editable = isCellTypeEditable(cellType);
             return (
               <div key={col.name} className="flex flex-col gap-1">
                 <div className="flex items-center gap-2">
@@ -150,17 +158,23 @@ export function RowEditDialog({ open, onOpenChange, columns, row, onSave }: RowE
                   </label>
                   <span className="text-[10px] text-[var(--app-text-dim)]">{col.dataType}</span>
                   <div className="flex-1" />
-                  <label className="flex items-center gap-1 text-[10px] text-[var(--app-text-muted)]">
-                    <input
-                      type="checkbox"
-                      className="h-3 w-3 accent-primary"
-                      checked={field.isNull}
-                      onChange={(e) => updateField(col.name, { isNull: e.target.checked })}
-                    />
-                    NULL
-                  </label>
+                  {editable && (
+                    <label className="flex items-center gap-1 text-[10px] text-[var(--app-text-muted)]">
+                      <input
+                        type="checkbox"
+                        className="h-3 w-3 accent-primary"
+                        checked={field.isNull}
+                        onChange={(e) => updateField(col.name, { isNull: e.target.checked })}
+                      />
+                      NULL
+                    </label>
+                  )}
                 </div>
-                {field.isNull ? (
+                {!editable ? (
+                  <div className="h-8 rounded bg-muted/30 px-2 py-1 text-xs italic text-[var(--app-text-dim)]">
+                    {getUnsupportedEditReason(cellType)}
+                  </div>
+                ) : field.isNull ? (
                   <div className="h-8 rounded bg-muted/30 px-2 py-1 text-xs italic text-[var(--app-text-dim)]">
                     NULL
                   </div>
@@ -202,16 +216,4 @@ export function RowEditDialog({ open, onOpenChange, columns, row, onSave }: RowE
       </DialogContent>
     </Dialog>
   );
-}
-
-function normalizeColumnType(dataType: string): CellValue["type"] {
-  const dt = dataType.toLowerCase();
-  if (dt === "boolean" || dt === "bool") return "bool";
-  if (dt === "uuid") return "uuid";
-  if (dt === "json" || dt === "jsonb") return "json";
-  if (dt.includes("int")) return "int64";
-  if (dt.includes("float") || dt.includes("double") || dt.includes("numeric") || dt.includes("decimal") || dt.includes("real")) return "float64";
-  if (dt.includes("timestamp") || dt.includes("date") || dt.includes("time")) return "datetime";
-  if (dt.includes("bytea") || dt.includes("blob")) return "bytes";
-  return "text";
 }

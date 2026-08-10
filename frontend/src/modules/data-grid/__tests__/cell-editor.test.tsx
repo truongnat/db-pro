@@ -247,4 +247,46 @@ describe("CellEditor", () => {
 
     expect(onSave).toHaveBeenCalledWith({ type: "int64", value: 42 });
   });
+
+  it("renders readonly for bytea column type", () => {
+    render(
+      <CellEditor
+        value={{ type: "bytes", value: [1, 2, 3] }}
+        columnType="bytea"
+        onSave={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByRole("textbox")).toBeNull();
+    expect(screen.getByText(/Binary editing is not supported/)).toBeTruthy();
+  });
+
+  it("renders readonly for numeric column type", () => {
+    render(
+      <CellEditor
+        value={{ type: "float64", value: 3.14 }}
+        columnType="numeric(30,10)"
+        onSave={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByRole("textbox")).toBeNull();
+    expect(screen.getByText(/decimal editing is not supported/)).toBeTruthy();
+  });
+
+  it("renders readonly for decimal column type", () => {
+    render(
+      <CellEditor
+        value={{ type: "float64", value: 99.99 }}
+        columnType="decimal(38,18)"
+        onSave={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByRole("textbox")).toBeNull();
+    expect(screen.getByText(/decimal editing is not supported/)).toBeTruthy();
+  });
 });

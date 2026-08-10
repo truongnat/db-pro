@@ -4,6 +4,11 @@ import { Input } from "@/components/ui/input";
 
 import type { CellValue } from "../types/data-grid.types";
 import { renderCellValue } from "@/modules/query/types/query.types";
+import {
+  normalizeColumnType,
+  isCellTypeEditable,
+  getUnsupportedEditReason,
+} from "../utils/column-value-codec";
 
 interface CellEditorProps {
   value: CellValue;
@@ -23,6 +28,16 @@ export function CellEditor({ value, onSave, onCancel, columnType }: CellEditorPr
   }, []);
 
   const effectiveType = columnType ? normalizeColumnType(columnType) : value.type;
+
+  if (!isCellTypeEditable(effectiveType)) {
+    return (
+      <div className="absolute inset-0 z-20 flex items-center bg-muted/40 px-2">
+        <span className="truncate text-xs italic text-[var(--app-text-dim)]">
+          {getUnsupportedEditReason(effectiveType)}
+        </span>
+      </div>
+    );
+  }
 
   const commit = () => {
     if (text === renderCellValue(value)) {
@@ -77,9 +92,6 @@ export function CellEditor({ value, onSave, onCancel, columnType }: CellEditorPr
         return;
       case "datetime":
         onSave({ type: "datetime", value: text });
-        return;
-      case "bytes":
-        onSave({ type: "text", value: text });
         return;
       default:
         onSave({ type: "text", value: text });
@@ -136,16 +148,4 @@ export function CellEditor({ value, onSave, onCancel, columnType }: CellEditorPr
       )}
     </div>
   );
-}
-
-function normalizeColumnType(dataType: string): CellValue["type"] {
-  const dt = dataType.toLowerCase();
-  if (dt === "boolean" || dt === "bool") return "bool";
-  if (dt === "uuid") return "uuid";
-  if (dt === "json" || dt === "jsonb") return "json";
-  if (dt.includes("int")) return "int64";
-  if (dt.includes("float") || dt.includes("double") || dt.includes("numeric") || dt.includes("decimal") || dt.includes("real")) return "float64";
-  if (dt.includes("timestamp") || dt.includes("date") || dt.includes("time")) return "datetime";
-  if (dt.includes("bytea") || dt.includes("blob")) return "bytes";
-  return "text";
 }
