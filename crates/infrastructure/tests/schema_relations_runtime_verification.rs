@@ -2,10 +2,7 @@ use db_pro_core::domain::connection::{ConnectionConfig, DriverType, SslMode};
 use db_pro_core::ports::DbConnector;
 use db_pro_infrastructure::sqlite::connector::SQLiteConnector;
 
-async fn setup_sqlite_connector() -> (
-    SQLiteConnector,
-    db_pro_core::domain::connection::ConnectionHandle,
-) {
+async fn setup_sqlite_connector() -> (SQLiteConnector, db_pro_core::domain::connection::ConnectionHandle) {
     let connector = SQLiteConnector::new();
     let config = ConnectionConfig {
         name: "schema-relations-runtime".into(),
@@ -57,19 +54,22 @@ async fn composite_foreign_key_preserves_constraint_identity_and_order() {
         .filter(|fk| fk.from_table == "child" && fk.to_table == "parent")
         .collect();
 
-    assert_eq!(fk_rows.len(), 2, "composite FK should expose two ordered column mappings");
-    assert_eq!(fk_rows[0].name, fk_rows[1].name, "composite FK rows must share one constraint identity");
+    assert_eq!(
+        fk_rows.len(),
+        2,
+        "composite FK should expose two ordered column mappings"
+    );
+    assert_eq!(
+        fk_rows[0].name, fk_rows[1].name,
+        "composite FK rows must share one constraint identity"
+    );
     assert_eq!(fk_rows[0].from_column, "tenant_id");
     assert_eq!(fk_rows[0].to_column, "tenant_id");
     assert_eq!(fk_rows[1].from_column, "parent_id");
     assert_eq!(fk_rows[1].to_column, "id");
 
     connector
-        .execute(
-            &handle,
-            "INSERT INTO parent (tenant_id, id) VALUES (7, 42)",
-            &[],
-        )
+        .execute(&handle, "INSERT INTO parent (tenant_id, id) VALUES (7, 42)", &[])
         .await
         .unwrap();
 
@@ -90,5 +90,8 @@ async fn composite_foreign_key_preserves_constraint_identity_and_order() {
         )
         .await;
 
-    assert!(invalid_insert.is_err(), "SQLite foreign-key enforcement must reject invalid relation rows");
+    assert!(
+        invalid_insert.is_err(),
+        "SQLite foreign-key enforcement must reject invalid relation rows"
+    );
 }

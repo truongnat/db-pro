@@ -23,7 +23,7 @@ Evidence:
 SQLite `PRAGMA foreign_key_list` returns `id` and `seq`, where all mappings for one composite constraint share `id`. Previous code named each mapping from `from_column`, splitting one constraint into multiple apparent relations.
 
 Fix:
-Use `table_fk_<id>` as the shared synthetic identity. Preserve PRAGMA row order for the mappings.
+Use `{table_name}_fk_{id}` as the shared synthetic identity (e.g., `child_fk_0` for the first FK on the `child` table). Preserve PRAGMA row order for the mappings.
 
 ## P2-001 — Foreign Keys UI rendered mapping rows rather than constraints
 
