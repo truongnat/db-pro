@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CheckCircle2, AlertTriangle, XCircle, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -23,18 +23,20 @@ export function TransactionFeedback({
   autoDismissMs = 5000,
 }: TransactionFeedbackProps) {
   const [visible, setVisible] = useState(false);
+  const onDismissRef = useRef(onDismiss);
+  onDismissRef.current = onDismiss;
 
   useEffect(() => {
     if (result) {
       setVisible(true);
       const timer = setTimeout(() => {
         setVisible(false);
-        onDismiss();
+        onDismissRef.current();
       }, autoDismissMs);
       return () => clearTimeout(timer);
     }
     setVisible(false);
-  }, [result, autoDismissMs, onDismiss]);
+  }, [result, autoDismissMs]);
 
   if (!result || !visible) return null;
 

@@ -20,7 +20,7 @@ export function ObjectSectionLayout({ toolbar, footer, children }: ObjectSection
   return (
     <div className={cn("grid h-full min-h-0 overflow-hidden", rows)}>
       {toolbar}
-      <div className="min-h-0 overflow-auto">{children}</div>
+      <div className="flex min-h-0 flex-col overflow-auto">{children}</div>
       {footer}
     </div>
   );

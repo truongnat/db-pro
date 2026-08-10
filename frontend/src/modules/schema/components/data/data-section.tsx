@@ -233,10 +233,7 @@ export function DataSection({
 
     const deletes = stagedChanges.filter((c) => c.kind === "row-delete").length;
     if (deletes > 0) {
-      const msg =
-        deletes === 1
-          ? t("dataGrid.confirmDeleteWithChanges", { count: stagedChanges.length })
-          : t("dataGrid.confirmDeleteWithChanges", { count: stagedChanges.length });
+      const msg = t("dataGrid.confirmDeleteWithChanges", { count: stagedChanges.length });
       if (!window.confirm(msg)) return;
     }
 
