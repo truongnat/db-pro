@@ -301,12 +301,16 @@ export const useStagedChangesStore = create<StagedChangesState>()(
 
       clearTab: (tabId) =>
         set((s) => {
+          const tabChanges = s.changes[tabId] ?? [];
+          const tabIds = new Set(tabChanges.map((c) => c.id));
           const next: Record<string, StagedChange[]> = { ...s.changes };
           delete next[tabId];
-          return { changes: next };
+          const nextInFlight = new Set(s.inFlightIds);
+          for (const id of tabIds) nextInFlight.delete(id);
+          return { changes: next, inFlightIds: nextInFlight };
         }),
 
-      clearAll: () => set({ changes: {} }),
+      clearAll: () => set({ changes: {}, inFlightIds: new Set() }),
 
       getChanges: (tabId) => get().changes[tabId] ?? [],
 

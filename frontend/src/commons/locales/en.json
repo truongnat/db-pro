@@ -336,6 +336,13 @@
     "of": "of",
     "confirmDelete": "Are you sure you want to delete this row?",
     "confirmDeleteWithChanges": "Apply {{count}} changes including row deletions?",
+    "confirmDeleteTitle": "Confirm apply with deletions",
+    "confirmDeleteDescription": "This will apply {{totalCount}} changes including {{deleteCount}} row deletion(s). This action cannot be undone.",
+    "confirmDeleteAction": "Apply changes",
+    "rowEdit": {
+      "title": "Edit row",
+      "enterValue": "Enter value"
+    },
     "error": {
       "update": "Failed to update row",
       "delete": "Failed to delete row",
@@ -364,7 +371,9 @@
       "revertAll": "Revert all",
       "applyPartial": "Applied {{applied}} of {{total}}",
       "failedCount": "{{count}} failed",
-      "retryFailed": "Retry failed"
+      "retryFailed": "Retry failed",
+      "deleteSelected_one": "Delete {{count}} selected",
+      "deleteSelected_other": "Delete {{count}} selected"
     }
   },
   "export": {

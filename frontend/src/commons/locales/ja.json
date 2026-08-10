@@ -312,6 +312,13 @@
     "of": "/",
     "confirmDelete": "この行を削除しますか？",
     "confirmDeleteWithChanges": "行削除を含む{{count}}件の変更を適用しますか？",
+    "confirmDeleteTitle": "削除を含む適用の確認",
+    "confirmDeleteDescription": "{{totalCount}}件の変更（{{deleteCount}}件の行削除を含む）を適用します。この操作は取り消せません。",
+    "confirmDeleteAction": "変更を適用",
+    "rowEdit": {
+      "title": "行を編集",
+      "enterValue": "値を入力"
+    },
     "error": {
       "update": "行の更新に失敗しました",
       "delete": "行の削除に失敗しました",
@@ -340,7 +347,9 @@
       "revertAll": "すべて戻す",
       "applyPartial": "{{total}}件中{{applied}}件を適用",
       "failedCount": "{{count}}件が失敗",
-      "retryFailed": "失敗を再試行"
+      "retryFailed": "失敗を再試行",
+      "deleteSelected_one": "{{count}}件を選択削除",
+      "deleteSelected_other": "{{count}}件を選択削除"
     }
   },
   "export": {

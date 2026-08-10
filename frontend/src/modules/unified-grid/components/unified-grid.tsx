@@ -1,6 +1,6 @@
 import { useRef, useCallback, useState, useEffect } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { Trash2 } from "lucide-react";
+import { Trash2, Pencil } from "lucide-react";
 
 import { renderCellValue } from "@/modules/query/types/query.types";
 import { Button } from "@/components/ui/button";
@@ -37,6 +37,7 @@ export interface UnifiedGridProps {
 
   /* ---- row actions (optional) ---- */
   onDeleteRow?: (rowIdx: number) => void;
+  onEditRow?: (rowIdx: number) => void;
   isDeleting?: boolean;
   canEditRows?: boolean;
 
@@ -64,7 +65,7 @@ export interface UnifiedGridProps {
   className?: string;
   contentStyle?: React.CSSProperties;
   renderHeaderExtra?: (col: ColumnMeta) => React.ReactNode;
-  renderCellEditor?: (cell: CellValue) => React.ReactNode;
+  renderCellEditor?: (cell: CellValue, columnName: string) => React.ReactNode;
   renderJsonCell?: (value: unknown) => React.ReactNode;
   onKeyDown?: (e: React.KeyboardEvent) => void;
 }
@@ -82,6 +83,7 @@ export function UnifiedGrid({
   onEditCell,
   onCellSave,
   onDeleteRow,
+  onEditRow,
   isDeleting,
   canEditRows,
   frozenColumns = [],
@@ -221,8 +223,10 @@ export function UnifiedGrid({
   const normalCols = visibleColumns.filter((c) => !frozenSet.has(c.name));
   const orderedColumns = [...frozenCols, ...normalCols];
 
-  const hasRowActions = canEditRows && onDeleteRow != null;
-  const extraTrailingCol = hasRowActions ? ` ${ROW_ACTION_WIDTH}px` : "";
+  const hasRowActions = canEditRows && (onDeleteRow != null || onEditRow != null);
+  const rowActionCount = (onDeleteRow ? 1 : 0) + (onEditRow ? 1 : 0);
+  const rowActionsWidth = rowActionCount * ROW_ACTION_WIDTH;
+  const extraTrailingCol = hasRowActions ? ` ${rowActionsWidth}px` : "";
 
   /* ---- grid template from widths (B1.1) ---- */
   const colWidthPx = orderedColumns
@@ -429,7 +433,23 @@ export function UnifiedGrid({
           className="grid sticky top-0 z-[2] shrink-0 border-b border-[var(--app-border)] bg-muted text-[11px]"
           style={{ ...gridStyle, minHeight: "var(--grid-header-height)" }}
         >
-          <div className="flex items-center px-2 py-2 text-[var(--app-text-dim)]">#</div>
+          <div className="flex items-center px-2 py-2 text-[var(--app-text-dim)]">
+            {onSelectionChange && (
+              <input
+                type="checkbox"
+                className="h-3 w-3 cursor-pointer accent-primary"
+                checked={selection.size === rows.length && rows.length > 0}
+                ref={(el) => {
+                  if (el) el.indeterminate = selection.size > 0 && selection.size < rows.length;
+                }}
+                onChange={() => {
+                  if (selection.size === rows.length) setSelection(new Set());
+                  else setSelection(new Set(rows.map((_, i) => i)));
+                }}
+              />
+            )}
+            {(!onSelectionChange) && "#"}
+          </div>
           {orderedColumns.map((col) => {
             const sort = sortMap.get(col.name);
             const isFrozen = frozenSet.has(col.name);
@@ -529,7 +549,7 @@ export function UnifiedGrid({
                     >
                       {isEditing && onCellSave && onEditCell ? (
                         renderCellEditor ? (
-                          renderCellEditor(cell)
+                          renderCellEditor(cell, col.name)
                         ) : (
                           <InlineCellEditor
                             value={cell}
@@ -555,22 +575,40 @@ export function UnifiedGrid({
 
                 {/* Row actions */}
                 {hasRowActions && (
-                  <div className="flex items-center justify-center px-1">
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 w-6 p-0 text-[var(--app-text-muted)] hover:bg-destructive/10 hover:text-destructive"
-                          disabled={isDeleting}
-                          onClick={() => onDeleteRow!(virtualRow.index)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Delete row</TooltipContent>
-                    </Tooltip>
+                  <div className="flex items-center justify-center gap-0.5 px-1">
+                    {onEditRow && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0 text-[var(--app-text-muted)] hover:bg-primary/10 hover:text-primary"
+                            onClick={() => onEditRow(virtualRow.index)}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Edit row</TooltipContent>
+                      </Tooltip>
+                    )}
+                    {onDeleteRow && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0 text-[var(--app-text-muted)] hover:bg-destructive/10 hover:text-destructive"
+                            disabled={isDeleting}
+                            onClick={() => onDeleteRow(virtualRow.index)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Delete row</TooltipContent>
+                      </Tooltip>
+                    )}
                   </div>
                 )}
               </div>

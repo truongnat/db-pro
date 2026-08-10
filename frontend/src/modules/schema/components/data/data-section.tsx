@@ -13,6 +13,8 @@ import { ChangeBar } from "@/modules/data-grid/components/change-bar";
 import { TransactionFeedback } from "@/modules/data-grid/components/transaction-feedback";
 import { Pagination } from "@/modules/data-grid/components/pagination";
 import { DataToolbar } from "@/modules/data-grid/components/data-toolbar";
+import { DeleteConfirmationDialog } from "@/modules/data-grid/components/delete-confirmation-dialog";
+import { RowEditDialog } from "@/modules/data-grid/components/row-edit-dialog";
 import { useTabGridStateStore } from "@/modules/data-grid/state/tab-grid-state.store";
 import {
   useStagedChangesStore,
@@ -22,6 +24,7 @@ import {
 import type { StagedChange } from "@/modules/data-grid/state/staged-changes.store";
 import { cycleColumnSort } from "@/modules/data-grid/utils/sort";
 import { classifyConstraintError } from "@/modules/data-grid/utils/constraint-errors";
+import type { ConstraintDetails } from "@/modules/data-grid/utils/constraint-errors";
 import type {
   CellValue,
   FetchRowsRequest,
@@ -76,6 +79,9 @@ export function DataSection({
   const stagedChanges = useTabStagedChanges(tabId);
   const [isApplying, setIsApplying] = useState(false);
   const [applyError, setApplyError] = useState<string | null>(null);
+  const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [editingRowIdx, setEditingRowIdx] = useState<number | null>(null);
   const [transactionResult, setTransactionResult] = useState<{
     kind: "success" | "partial" | "failure";
     succeeded: number;
@@ -197,7 +203,8 @@ export function DataSection({
           successIds.push(change.id);
         } catch (err) {
           const rawMsg = err instanceof Error ? err.message : String(err);
-          const classified = classifyConstraintError(rawMsg);
+          const details = (err as { details?: ConstraintDetails })?.details ?? null;
+          const classified = classifyConstraintError(rawMsg, details);
           failures.push({
             id: change.id,
             error: classified.userMessage,
@@ -224,21 +231,27 @@ export function DataSection({
       }
 
       setIsApplying(false);
+      setSelectedRows(new Set());
     },
     [isApplying, tabId, schema, table, columns, pkColumns, updateRow, deleteRow, query],
   );
 
-  const handleApply = useCallback(async () => {
+  const handleApply = useCallback(() => {
     if (isApplying || stagedChanges.length === 0) return;
 
     const deletes = stagedChanges.filter((c) => c.kind === "row-delete").length;
     if (deletes > 0) {
-      const msg = t("dataGrid.confirmDeleteWithChanges", { count: stagedChanges.length });
-      if (!window.confirm(msg)) return;
+      setDeleteDialogOpen(true);
+      return;
     }
 
-    await applyChanges(stagedChanges);
-  }, [isApplying, stagedChanges, applyChanges, t]);
+    applyChanges(stagedChanges);
+  }, [isApplying, stagedChanges, applyChanges]);
+
+  const handleConfirmApply = useCallback(() => {
+    setDeleteDialogOpen(false);
+    applyChanges(stagedChanges);
+  }, [stagedChanges, applyChanges]);
 
   /* ---- retry failed ---- */
 
@@ -256,6 +269,7 @@ export function DataSection({
     useStagedChangesStore.getState().clearTab(tabId);
     setApplyError(null);
     setTransactionResult(null);
+    setSelectedRows(new Set());
   }, [tabId]);
 
   /* ---- Cmd/Ctrl+Enter: apply staged changes ---- */
@@ -273,17 +287,32 @@ export function DataSection({
   /* ---- batch delete selected rows ---- */
 
   const handleBatchDelete = useCallback(
-    (selectedRows: Set<number>) => {
-      if (!pkColumns.length || selectedRows.size === 0) return;
-      for (const rowIdx of selectedRows) {
+    (selected: Set<number>) => {
+      if (!pkColumns.length || selected.size === 0) return;
+      for (const rowIdx of selected) {
         const row = rows[rowIdx];
         if (row) {
           const pkValues = getPkValues(row);
           useStagedChangesStore.getState().stageDeleteRow(tabId, pkValues);
         }
       }
+      setSelectedRows(new Set());
     },
     [pkColumns, rows, getPkValues, tabId],
+  );
+
+  /* ---- row edit dialog save ---- */
+
+  const handleRowSave = useCallback(
+    (changes: Record<string, CellValue>) => {
+      if (editingRowIdx == null || !pkColumns.length) return;
+      const row = rows[editingRowIdx];
+      if (!row) return;
+      const pkValues = getPkValues(row);
+      useStagedChangesStore.getState().stageCellEdit(tabId, { pkValues, changes });
+      setEditingRowIdx(null);
+    },
+    [editingRowIdx, pkColumns, rows, getPkValues, tabId],
   );
 
   const errorMessage = query.isError
@@ -336,6 +365,14 @@ export function DataSection({
             onRevertAll={handleRevertAll}
             onRetryFailed={handleRetryFailed}
             onBatchDelete={handleBatchDelete}
+            selectedRows={selectedRows}
+          />
+          <DeleteConfirmationDialog
+            open={deleteDialogOpen}
+            onOpenChange={setDeleteDialogOpen}
+            onConfirm={handleConfirmApply}
+            deleteCount={stagedChanges.filter((c) => c.kind === "row-delete").length}
+            totalChanges={stagedChanges.length}
           />
           <TransactionFeedback result={transactionResult} onDismiss={() => setTransactionResult(null)} />
           {applyError && (
@@ -352,6 +389,7 @@ export function DataSection({
             onEditCell={(c) => store.setEditingCell(tabId, c)}
             onCellSave={handleCellSave}
             onDeleteRow={handleDeleteRow}
+            onEditRow={(idx) => setEditingRowIdx(idx)}
             isDeleting={isApplying}
             isLoading={query.isFetching && !query.isPlaceholderData}
             pkColumns={pkColumns}
@@ -361,7 +399,18 @@ export function DataSection({
             columnWidths={columnWidths}
             onColumnWidthsChange={(w) => store.setColumnWidths(tabId, w)}
             onKeyDown={handleGridKeyDown}
+            selectedRows={selectedRows}
+            onSelectionChange={setSelectedRows}
           />
+          {editingRowIdx != null && rows[editingRowIdx] && (
+            <RowEditDialog
+              open={editingRowIdx != null}
+              onOpenChange={(open) => { if (!open) setEditingRowIdx(null); }}
+              columns={columns}
+              row={rows[editingRowIdx]}
+              onSave={handleRowSave}
+            />
+          )}
         </>
       )}
     </ObjectSectionLayout>

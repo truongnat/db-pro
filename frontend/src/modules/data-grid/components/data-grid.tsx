@@ -17,6 +17,7 @@ interface DataGridProps {
   onEditCell: (cell: { row: number; col: number } | null) => void;
   onCellSave: (rowIdx: number, colIdx: number, value: CellValue) => void;
   onDeleteRow: (rowIdx: number) => void;
+  onEditRow?: (rowIdx: number) => void;
   isDeleting: boolean;
   isLoading: boolean;
   pkColumns: string[];
@@ -26,6 +27,8 @@ interface DataGridProps {
   columnWidths?: Record<string, number>;
   onColumnWidthsChange?: (widths: Record<string, number>) => void;
   onKeyDown?: (e: React.KeyboardEvent) => void;
+  selectedRows?: Set<number>;
+  onSelectionChange?: (selected: Set<number>) => void;
 }
 
 export function DataGrid({
@@ -37,6 +40,7 @@ export function DataGrid({
   onEditCell,
   onCellSave,
   onDeleteRow,
+  onEditRow,
   isDeleting,
   isLoading,
   pkColumns,
@@ -46,6 +50,8 @@ export function DataGrid({
   columnWidths,
   onColumnWidthsChange,
   onKeyDown,
+  selectedRows,
+  onSelectionChange,
 }: DataGridProps) {
   const { t } = useTranslation();
   const canEdit = pkColumns.length > 0;
@@ -68,6 +74,7 @@ export function DataGrid({
         onCellSave={onCellSave}
         canEditRows={canEdit}
         onDeleteRow={onDeleteRow}
+        onEditRow={onEditRow}
         isDeleting={isDeleting}
         isLoading={isLoading}
         frozenColumns={frozenColumns}
@@ -75,11 +82,14 @@ export function DataGrid({
         onToggleFreezeColumn={onToggleFreezeColumn}
         columnWidths={columnWidths}
         onColumnWidthsChange={onColumnWidthsChange}
+        selectedRows={selectedRows}
+        onSelectionChange={onSelectionChange}
         emptyState={<EmptyState />}
         onKeyDown={onKeyDown}
-        renderCellEditor={(cell) => (
+        renderCellEditor={(cell, colName) => (
           <CellEditor
             value={cell}
+            columnType={columns.find((c) => c.name === colName)?.dataType}
             onSave={(newValue) => {
               if (editingCell) {
                 onCellSave(editingCell.row, editingCell.col, newValue);
