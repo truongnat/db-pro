@@ -343,5 +343,28 @@ describe("StagedChangesStore — patch model", () => {
       store.markFailedByIds("tab-1", [{ id, error: "fail" }]);
       expect(useStagedChangesStore.getState().inFlightIds.has(id)).toBe(false);
     });
+
+    it("clearTab clears inFlightIds for the tab", () => {
+      const store = useStagedChangesStore.getState();
+      store.stageCellEdit("tab-1", patchEdit([int(1)], { a: text("x") }));
+      const id = changes("tab-1")![0].id;
+
+      store.markInFlight("tab-1", [id]);
+      expect(useStagedChangesStore.getState().inFlightIds.has(id)).toBe(true);
+
+      store.clearTab("tab-1");
+      expect(useStagedChangesStore.getState().inFlightIds.has(id)).toBe(false);
+      expect(useStagedChangesStore.getState().changes["tab-1"]).toBeUndefined();
+    });
+
+    it("clearAll clears inFlightIds", () => {
+      const store = useStagedChangesStore.getState();
+      store.stageCellEdit("tab-1", patchEdit([int(1)], { a: text("x") }));
+      const id = changes("tab-1")![0].id;
+
+      store.markInFlight("tab-1", [id]);
+      store.clearAll();
+      expect(useStagedChangesStore.getState().inFlightIds.size).toBe(0);
+    });
   });
 });
