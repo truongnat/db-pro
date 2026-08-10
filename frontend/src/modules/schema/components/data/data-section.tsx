@@ -33,6 +33,16 @@ import type {
 
 import { ObjectSectionLayout } from "../object-section-layout";
 
+function makeConflictError(code: string, message: string) {
+  return {
+    code,
+    userMessage: message,
+    technicalMessage: message,
+    messageId: "",
+    details: undefined,
+  };
+}
+
 interface DataSectionProps {
   tabId: string;
   connectionId: string;
@@ -182,7 +192,7 @@ export function DataSection({
         try {
           if (change.kind === "cell-edit") {
             const changedCols = Object.keys(change.changes);
-            await updateRow.mutateAsync({
+            const result = await updateRow.mutateAsync({
               schema,
               table,
               columns: changedCols,
@@ -190,8 +200,14 @@ export function DataSection({
               pkColumns,
               pkValues: change.pkValues,
             });
+            if (result.affectedRows === 0) {
+              throw makeConflictError("ROW_NOT_FOUND", t("dataGrid.error.rowNotFound"));
+            }
+            if (result.affectedRows > 1) {
+              throw makeConflictError("INVARIANT_VIOLATION", t("dataGrid.error.invariantViolation"));
+            }
           } else if (change.kind === "row-delete") {
-            await deleteRow.mutateAsync({
+            const result = await deleteRow.mutateAsync({
               schema,
               table,
               columns: columns.map((c) => c.name),
@@ -199,6 +215,12 @@ export function DataSection({
               pkColumns,
               pkValues: change.pkValues,
             });
+            if (result.affectedRows === 0) {
+              throw makeConflictError("ROW_NOT_FOUND", t("dataGrid.error.rowNotFound"));
+            }
+            if (result.affectedRows > 1) {
+              throw makeConflictError("INVARIANT_VIOLATION", t("dataGrid.error.invariantViolation"));
+            }
           }
           successIds.push(change.id);
         } catch (err) {
@@ -232,7 +254,7 @@ export function DataSection({
       setIsApplying(false);
       setSelectedRows(new Set());
     },
-    [isApplying, tabId, schema, table, columns, pkColumns, updateRow, deleteRow, query],
+    [isApplying, tabId, schema, table, columns, pkColumns, updateRow, deleteRow, query, t],
   );
 
   const handleApply = useCallback(() => {

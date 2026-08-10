@@ -346,7 +346,9 @@
     "error": {
       "update": "Failed to update row",
       "delete": "Failed to delete row",
-      "insert": "Failed to insert row"
+      "insert": "Failed to insert row",
+      "rowNotFound": "Row was modified or deleted by another process",
+      "invariantViolation": "Unexpected: multiple rows affected by single-row operation"
     },
     "generateCrud": "Generate SQL",
     "gridView": "Grid",
