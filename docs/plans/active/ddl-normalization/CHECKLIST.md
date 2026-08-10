@@ -27,8 +27,8 @@
 
 ## Provider/runtime evidence
 - [x] CI: Rust checks PASS, Frontend checks PASS
-- [ ] View DDL verified for PostgreSQL syntax
-- [ ] View DDL verified for SQLite syntax
+- [x] View DDL verified for PostgreSQL syntax (pg_introspect_views PASS in CI)
+- [x] View DDL verified for SQLite syntax (introspect_views PASS in SQLite integration tests)
 
 ## Review gate
 - [x] P0 = 0
@@ -36,6 +36,9 @@
 - [x] quality gates actually executed (CI passing)
 - [x] VERIFICATION.md updated with observed evidence
 
-## Cubic review fixes (P2)
+## Cubic review fixes
 - [x] CR1: PG trigger function body — added `function_def` to Trigger + PG introspection + DDL formatter
 - [x] CR2: SQLite BEGIN parsing — quote-aware header search + 5 unit tests
+- [x] CR3: PG DDL ordering — CREATE FUNCTION emitted before CREATE TRIGGER
+- [x] CR4: SQLite trigger schema — changed from empty to "main"
+- [x] CR5: SQLite trigger toggle — returns empty for SQLite dialect
