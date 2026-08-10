@@ -1,13 +1,13 @@
 # S5 — DDL Normalization Verification
 
-State: REVIEW (Cubic P2 fixes applied; CI pending)
+State: REVIEW (Cubic P2 fixes applied; CI passing)
 
 ## CI Evidence
 
 | Check | Run | Result |
 |---|---|---|
-| Rust checks (cargo fmt + cargo test) | [31426168014](https://github.com/truongnat/db-pro/actions/runs/31426168014) | PASS |
-| Frontend checks (typecheck + lint + prettier + test + build) | [31426168014](https://github.com/truongnat/db-pro/actions/runs/31426168014) | PASS |
+| Rust checks (cargo fmt + cargo test) | [31427087527](https://github.com/truongnat/db-pro/actions/runs/31427087527) | PASS |
+| Frontend checks (typecheck + lint + prettier + test + build) | [31427087527](https://github.com/truongnat/db-pro/actions/runs/31427087527) | PASS |
 | Frontend typecheck (local) | tsc --noEmit | 0 errors |
 | Frontend tests (local) | vitest run | 104 files, 1309 tests PASS |
 | PR #8 mergeable | MERGEABLE | — |
