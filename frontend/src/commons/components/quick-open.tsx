@@ -250,6 +250,7 @@ export function QuickOpen() {
     if (!isOpen || !selectedValue) return;
     if (isInitialMountRef.current) {
       isInitialMountRef.current = false;
+      lastPreviewedRef.current = selectedValue;
       return;
     }
     if (selectedValue === lastPreviewedRef.current) return;
@@ -263,9 +264,14 @@ export function QuickOpen() {
   }, [selectedValue, isOpen, allRanked, openSchemaPreview]);
 
   useEffect(() => {
-    if (!isOpen) return;
-    isInitialMountRef.current = true;
-    useCommandStore.getState().close();
+    if (isOpen) {
+      isInitialMountRef.current = true;
+      useCommandStore.getState().close();
+    } else {
+      setSelectedValue("");
+      lastPreviewedRef.current = "";
+      isInitialMountRef.current = true;
+    }
   }, [isOpen]);
 
   const handleOpenItem = useCallback(

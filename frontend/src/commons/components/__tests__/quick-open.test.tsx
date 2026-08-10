@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -95,6 +95,7 @@ i18n.use(initReactI18next).init({
           hints: {
             prefix: "@ tables  ·  : views  ·  # schemas",
           },
+          removeRecent: "Remove",
         },
       },
     },
@@ -282,5 +283,77 @@ describe("QuickOpen", () => {
     renderWithProviders(<QuickOpen />);
     // "Recent" heading may appear as group heading; check it exists in the document
     expect(screen.getByText(/Recent/)).toBeTruthy();
+  });
+
+  it("close and reopen does not create stale preview tabs", async () => {
+    seedCatalog();
+    useQuickOpenStore.getState().open();
+    const { unmount } = renderWithProviders(<QuickOpen />);
+
+    useQuickOpenStore.getState().close();
+    unmount();
+
+    expect(useWorkspaceStore.getState().tabs).toHaveLength(0);
+
+    useQuickOpenStore.getState().open();
+    renderWithProviders(<QuickOpen />);
+    expect(screen.getByPlaceholderText("Search tables, views, connections...")).toBeTruthy();
+
+    expect(useWorkspaceStore.getState().tabs).toHaveLength(0);
+  });
+
+  it("clicking X on recent item removes it without opening a tab", async () => {
+    seedCatalog();
+    useRecentStore.getState().addRecentResource({
+      resourceKey: "dbobj:public.client:conn-1",
+      kind: "db-object",
+      connectionId: "conn-1",
+      schema: "public",
+      objectName: "client",
+    });
+    useQuickOpenStore.getState().open();
+    renderWithProviders(<QuickOpen />);
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Remove")).toBeTruthy();
+    });
+
+    const removeButton = screen.getByLabelText("Remove");
+    await userEvent.click(removeButton);
+
+    expect(useRecentStore.getState().recentResources).toHaveLength(0);
+    expect(useWorkspaceStore.getState().tabs).toHaveLength(0);
+    expect(useQuickOpenStore.getState().isOpen).toBe(true);
+  });
+
+  it("arrow down navigates selection and triggers preview", async () => {
+    useSchemaCatalogStore.setState({
+      catalogs: new Map([
+        [
+          "conn-1",
+          {
+            schemas: [{ name: "public" }],
+            objects: [
+              { name: "alpha", schema: "public", rowCount: 1, kind: "table" as const },
+              { name: "beta", schema: "public", rowCount: 2, kind: "table" as const },
+            ],
+            columnsByTable: new Map(),
+            columnsLoaded: new Set(),
+            columnsLoading: new Map(),
+          },
+        ],
+      ]),
+    });
+
+    useQuickOpenStore.getState().open();
+    renderWithProviders(<QuickOpen />);
+
+    const input = screen.getByPlaceholderText("Search tables, views, connections...");
+    input.focus();
+
+    await userEvent.keyboard("{ArrowDown}");
+
+    const tabs = useWorkspaceStore.getState().tabs;
+    expect(tabs.length).toBeGreaterThanOrEqual(1);
   });
 });
