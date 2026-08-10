@@ -201,3 +201,166 @@ async fn pg_query_categories() {
 
     connector.disconnect(&handle).await.unwrap();
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// S7 — Gap-filling tests
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// S7: Verify composite FK introspection details (column mapping, constraint identity).
+#[tokio::test]
+#[ignore]
+async fn pg_composite_fk_detail() {
+    let (connector, handle) = setup().await;
+    let result = connector.introspect(&handle).await.unwrap();
+
+    // order_items has a composite PK (order_id, product_id) with FKs to orders and products.
+    let oi_fks: Vec<_> = result
+        .foreign_keys
+        .iter()
+        .filter(|fk| fk.from_table == "order_items")
+        .collect();
+    assert!(oi_fks.len() >= 2, "order_items should have at least 2 FKs");
+
+    // Verify FK to orders: order_id → id
+    let fk_to_orders = oi_fks
+        .iter()
+        .find(|fk| fk.to_table == "orders")
+        .expect("FK from order_items to orders should exist");
+    assert_eq!(fk_to_orders.from_column, "order_id");
+    assert_eq!(fk_to_orders.to_column, "id");
+    assert_eq!(fk_to_orders.schema, "public");
+    assert_eq!(fk_to_orders.to_schema, "public");
+
+    // Verify FK to products: product_id → id
+    let fk_to_products = oi_fks
+        .iter()
+        .find(|fk| fk.to_table == "products")
+        .expect("FK from order_items to products should exist");
+    assert_eq!(fk_to_products.from_column, "product_id");
+    assert_eq!(fk_to_products.to_column, "id");
+
+    // Verify composite PK is introspected correctly.
+    let oi_pk = result
+        .primary_keys
+        .iter()
+        .find(|pk| pk.table_name == "order_items")
+        .expect("order_items should have a composite PK");
+    assert_eq!(oi_pk.columns.len(), 2);
+    assert_eq!(oi_pk.columns[0], "order_id");
+    assert_eq!(oi_pk.columns[1], "product_id");
+
+    connector.disconnect(&handle).await.unwrap();
+}
+
+/// S7: Verify index lifecycle — CREATE INDEX → introspect → DROP INDEX → verify gone.
+#[tokio::test]
+#[ignore]
+async fn pg_index_lifecycle() {
+    let (connector, handle) = setup().await;
+
+    // Ensure the test index does not already exist.
+    let result = connector.introspect(&handle).await.unwrap();
+    assert!(
+        !result.indexes.iter().any(|i| i.name == "idx_s7_test_lifecycle"),
+        "test index should not exist before CREATE"
+    );
+
+    // CREATE INDEX.
+    connector
+        .execute(
+            &handle,
+            "CREATE INDEX idx_s7_test_lifecycle ON categories(name)",
+            &[],
+        )
+        .await
+        .unwrap();
+
+    // Introspect and verify the new index exists.
+    let result = connector.introspect(&handle).await.unwrap();
+    let idx = result
+        .indexes
+        .iter()
+        .find(|i| i.name == "idx_s7_test_lifecycle")
+        .expect("test index should exist after CREATE");
+    assert_eq!(idx.columns, vec!["name"]);
+    assert!(!idx.unique, "test index should not be unique");
+
+    // DROP INDEX.
+    connector
+        .execute(&handle, "DROP INDEX idx_s7_test_lifecycle", &[])
+        .await
+        .unwrap();
+
+    // Verify the index is gone.
+    let result = connector.introspect(&handle).await.unwrap();
+    assert!(
+        !result
+            .indexes
+            .iter()
+            .any(|i| i.name == "idx_s7_test_lifecycle"),
+        "test index should be gone after DROP"
+    );
+
+    connector.disconnect(&handle).await.unwrap();
+}
+
+/// S7: Verify special identifiers — unicode table/column, quoted names, reserved words.
+#[tokio::test]
+#[ignore]
+async fn pg_special_identifiers() {
+    let (connector, handle) = setup().await;
+    let result = connector.introspect(&handle).await.unwrap();
+
+    // Unicode table name: "Ünïcödé Üsers"
+    let unicode_table = result
+        .tables
+        .iter()
+        .find(|t| t.name.contains("Ünïcödé"))
+        .expect("unicode table should exist");
+    assert_eq!(unicode_table.schema, "public");
+
+    // Unicode column: "émâil"
+    let unicode_col = result
+        .columns
+        .iter()
+        .find(|c| c.table_name.contains("Ünïcödé") && c.name == "émâil")
+        .expect("unicode column should exist");
+    assert!(!unicode_col.nullable, "émâil should be NOT NULL");
+
+    // Weird-name table: "weird""name"
+    let weird_table = result
+        .tables
+        .iter()
+        .find(|t| t.name.contains("weird"))
+        .expect("weird-name table should exist");
+    assert_eq!(weird_table.schema, "public");
+
+    // Column with spaces: "col with spaces"
+    let spaces_col = result
+        .columns
+        .iter()
+        .find(|c| c.table_name.contains("weird") && c.name == "col with spaces")
+        .expect("column with spaces should exist");
+    assert!(spaces_col.nullable);
+
+    // Reserved word column: "SELECT"
+    let reserved_col = result
+        .columns
+        .iter()
+        .find(|c| c.table_name.contains("weird") && c.name == "SELECT")
+        .expect("reserved-word column should exist");
+    assert!(reserved_col.nullable);
+
+    // Verify we can query these tables.
+    let q = connector
+        .query(
+            &handle,
+            "SELECT \"émâil\" FROM \"Ünïcödé Üsers\" ORDER BY id",
+            &[],
+        )
+        .await
+        .unwrap();
+    assert!(q.row_count > 0, "should be able to query unicode table");
+
+    connector.disconnect(&handle).await.unwrap();
+}

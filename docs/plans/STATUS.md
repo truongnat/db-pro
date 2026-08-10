@@ -10,7 +10,7 @@ Canonical lifecycle: `BACKLOG → PLANNING → IMPLEMENTING → REVIEW → RUNTI
 | S4 Triggers | feature/schema-triggers-runtime | #8 | RUNTIME_VERIFY | all impl + tests done; PG + SQLite runtime evidence via CI; MERGEABLE |
 | S5 DDL | feature/schema-triggers-runtime | #8 | REVIEW | all Cubic CR1–CR5 FIXED; CI passing; MERGEABLE |
 | S6 ER Diagram | feature/schema-triggers-runtime | #8 | REVIEW | composite FK grouping + edge identity + Cubic CR1/CR2 FIXED; CI green |
-| S7 Full Schema Regression | — | — | BACKLOG | PG integration tests cover S1–S6 introspection; UI regression pending |
+| S7 Full Schema Regression | feature/schema-triggers-runtime | #8 | IMPLEMENTING | regression matrix complete; 3 PG gap-filling tests added; readiness report done |
 
 ## Rules
 
