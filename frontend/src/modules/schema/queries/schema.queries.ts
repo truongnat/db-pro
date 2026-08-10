@@ -109,10 +109,14 @@ export function useExecuteDdl(connectionId: string | null) {
     mutationFn: (sql: string) =>
       getSchemaService().executeDdl(connectionId!, sql) as Promise<{
         affectedRows: number;
+        cacheInvalidated: boolean;
       }>,
-    onSuccess: () => {
+    onSuccess: (result) => {
       if (connectionId) {
         invalidateAllSchemaCaches(qc, connectionId);
+      }
+      if (!result.cacheInvalidated) {
+        console.warn("[Schema] DDL committed but backend cache invalidation failed. Metadata may be stale.");
       }
     },
   });
@@ -124,10 +128,14 @@ export function useExecuteDdlBatch(connectionId: string | null) {
     mutationFn: (statements: string[]) =>
       getSchemaService().executeDdlBatch(connectionId!, statements) as Promise<{
         affectedRows: number;
+        cacheInvalidated: boolean;
       }>,
-    onSuccess: () => {
+    onSuccess: (result) => {
       if (connectionId) {
         invalidateAllSchemaCaches(qc, connectionId);
+      }
+      if (!result.cacheInvalidated) {
+        console.warn("[Schema] Batch DDL committed but backend cache invalidation failed. Metadata may be stale.");
       }
     },
   });

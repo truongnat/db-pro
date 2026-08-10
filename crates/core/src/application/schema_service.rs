@@ -126,7 +126,7 @@ impl SchemaService {
         Ok(build_create_table_ddl(&info))
     }
 
-    pub async fn execute_ddl(&self, connection_id: &ConnectionId, sql: &str) -> Result<u64, DbError> {
+    pub async fn execute_ddl(&self, connection_id: &ConnectionId, sql: &str) -> Result<(u64, bool), DbError> {
         reject_multi_statement(sql)?;
 
         // Enforce safety policy: readonly connections cannot execute DDL.
@@ -140,14 +140,15 @@ impl SchemaService {
 
         let affected = self.connector.execute(&handle, sql, &[]).await?;
 
-        if let Err(e) = self.cache.invalidate(connection_id).await {
-            tracing::warn!("failed to invalidate cache after DDL: {e}");
+        let cache_ok = self.cache.invalidate(connection_id).await.is_ok();
+        if !cache_ok {
+            tracing::warn!("failed to invalidate cache after DDL for {connection_id}");
         }
 
-        Ok(affected)
+        Ok((affected, cache_ok))
     }
 
-    pub async fn execute_ddl_batch(&self, connection_id: &ConnectionId, statements: &[String]) -> Result<u64, DbError> {
+    pub async fn execute_ddl_batch(&self, connection_id: &ConnectionId, statements: &[String]) -> Result<(u64, bool), DbError> {
         let policy = self.safety_policy_for(connection_id).await?;
         for sql in statements {
             reject_multi_statement(sql)?;
@@ -161,11 +162,12 @@ impl SchemaService {
 
         let affected = self.connector.execute_batch(&handle, statements).await?;
 
-        if let Err(e) = self.cache.invalidate(connection_id).await {
-            tracing::warn!("failed to invalidate cache after batch DDL: {e}");
+        let cache_ok = self.cache.invalidate(connection_id).await.is_ok();
+        if !cache_ok {
+            tracing::warn!("failed to invalidate cache after batch DDL for {connection_id}");
         }
 
-        Ok(affected)
+        Ok((affected, cache_ok))
     }
 
     pub async fn invalidate_cache(&self, connection_id: &ConnectionId) -> Result<(), DbError> {

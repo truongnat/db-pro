@@ -12,3 +12,4 @@ export {
 export { connectionConfigSchema, sqlQuerySchema, validateInput } from "./validation";
 export { copyToClipboard } from "./clipboard";
 export { formatDate, formatDuration, formatRelativeTime } from "./date-formatter";
+export { normalizeAppError, type NormalizedAppError } from "./normalize-app-error";

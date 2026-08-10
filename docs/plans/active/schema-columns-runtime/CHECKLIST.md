@@ -31,13 +31,18 @@
 - [x] `schemaCatalogStore` (Zustand) invalidated
 - [x] Backend `IntrospectionCache` invalidated
 
-## S1.5 Runtime matrix
+## S1.5 Runtime matrix — SOURCE ONLY, NOT RUNTIME VERIFIED
 
-- [x] PostgreSQL transaction support via sqlx
-- [x] SQLite transaction support via rusqlite
-- [x] Success path: all statements commit
-- [x] Failure path: transaction rolls back automatically
-- [x] Partial failure impossible (single transaction)
+- [x] PostgreSQL transaction support via sqlx (source)
+- [x] SQLite transaction support via rusqlite (source)
+- [ ] PostgreSQL: rename + type + nullable combined → verify all three applied
+- [ ] PostgreSQL: type narrowing failure → verify rollback (no partial changes)
+- [ ] SQLite: rename column
+- [x] SQLite: change type — capability-gated (disabled in UI, not sent to backend)
+- [x] SQLite: nullable ON/OFF — capability-gated (disabled in UI, not sent to backend)
+- [x] SQLite: default value — capability-gated (disabled in UI, not sent to backend)
+- [ ] SQLite: combined mutation
+- [x] Capability-gate unsupported SQLite operations in UI
 
 ## S1.6 UX
 
@@ -46,3 +51,14 @@
 - [x] Space-in-identifier warning
 - [x] Risk badge + change count inline
 - [x] Cmd/Ctrl+Enter keyboard shortcut preserved
+
+## S1.7 Closure (open)
+
+- [x] Normalize schema mutation errors (P1-3)
+- [x] Add atomic rollback regression tests (P2-2)
+- [x] Surface cache invalidation failure in response (P2-1)
+- [x] SQLite capability-gate column operations (P1-2)
+- [ ] Live PostgreSQL runtime matrix
+- [ ] Verify DDL/tableInfo/dependencies refresh after mutation
+- [x] Update VERIFICATION.md with evidence
+- [ ] Only then: active/ → completed/, STATUS → COMPLETED

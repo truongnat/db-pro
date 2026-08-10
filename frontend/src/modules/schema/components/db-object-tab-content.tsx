@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
 
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
+import { useConnectionStore } from "@/commons/stores/connection.store";
 import { useTranslation } from "@/commons/locales/useTranslation";
 import { createQueryTabForObject } from "@/modules/query/controllers/query-workspace.controller";
 import { getDialectForConnection } from "@/modules/query/sql/dialect";
@@ -49,6 +50,11 @@ export function DbObjectTabContent({
     return tab?.kind === "db-object" ? tab.data.activeSection : "columns";
   });
   const setSection = useWorkspaceStore((s) => s.setDbObjectSection);
+
+  const driverType = useConnectionStore((s) => {
+    const conn = s.connections.find((c) => c.id === connectionId);
+    return conn?.driver;
+  });
 
   const isTableOrView = objectType === "table" || objectType === "view";
 
@@ -245,6 +251,7 @@ export function DbObjectTabContent({
           schemaName={schema}
           tableName={objectName}
           connectionId={connectionId}
+          driverType={driverType}
           onClose={() => setEditingColumn(null)}
           onApplied={() => {
             tableInfo.refetch();

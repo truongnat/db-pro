@@ -141,6 +141,8 @@ export interface ClassifiedMutation {
   risk: RiskClassification;
   /** Combined warning messages. */
   warnings: string[];
+  /** Operations the driver does not support (not generated). */
+  unsupported: string[];
 }
 
 const RISK_ORDER: Record<MutationRiskLevel, number> = {
@@ -284,12 +286,15 @@ export function classifyColumnMutation(
   draft: ColumnMutationDraft,
   schemaName: string,
   tableName: string,
+  driverType?: string,
 ): ClassifiedMutation {
   const { original } = draft;
   const operations: string[] = [];
   const sql: string[] = [];
   const warnings: string[] = [];
+  const unsupported: string[] = [];
   let overallRisk: MutationRiskLevel = "low";
+  const isSqlite = driverType === "sqlite";
 
   const tableRef = `${quoteIdent(schemaName)}.${quoteIdent(tableName)}`;
 
@@ -308,28 +313,38 @@ export function classifyColumnMutation(
 
   // 2. Type change
   if (draft.newDataType.toLowerCase().replace(/\s+/g, " ").trim() !== original.dataType.toLowerCase().replace(/\s+/g, " ").trim()) {
-    const validatedType = validateDataType(draft.newDataType);
-    const typeRisk = classifyTypeChange(original.dataType, draft.newDataType);
-    operations.push(`Change type "${original.dataType}" → "${draft.newDataType}"`);
-    sql.push(
-      `ALTER TABLE ${tableRef} ALTER COLUMN ${quoteIdent(draft.newName || original.name)} TYPE ${validatedType};`,
-    );
-    overallRisk = worstRisk(overallRisk, typeRisk);
-    if (typeRisk === "high") {
-      warnings.push(
-        `Changing type from "${original.dataType}" to "${draft.newDataType}" may rewrite the table. Existing values may not be castable.`,
+    if (isSqlite) {
+      unsupported.push(`Change type "${original.dataType}" → "${draft.newDataType}" (not supported by SQLite)`);
+    } else {
+      const validatedType = validateDataType(draft.newDataType);
+      const typeRisk = classifyTypeChange(original.dataType, draft.newDataType);
+      operations.push(`Change type "${original.dataType}" → "${draft.newDataType}"`);
+      sql.push(
+        `ALTER TABLE ${tableRef} ALTER COLUMN ${quoteIdent(draft.newName || original.name)} TYPE ${validatedType};`,
       );
-    } else if (typeRisk === "medium") {
-      warnings.push(
-        `Type change from "${original.dataType}" to "${draft.newDataType}" may lock the table briefly.`,
-      );
+      overallRisk = worstRisk(overallRisk, typeRisk);
+      if (typeRisk === "high") {
+        warnings.push(
+          `Changing type from "${original.dataType}" to "${draft.newDataType}" may rewrite the table. Existing values may not be castable.`,
+        );
+      } else if (typeRisk === "medium") {
+        warnings.push(
+          `Type change from "${original.dataType}" to "${draft.newDataType}" may lock the table briefly.`,
+        );
+      }
     }
   }
 
   // 3. Nullable change
   if (draft.newNullable !== original.nullable) {
     const colName = draft.newName || original.name;
-    if (draft.newNullable) {
+    if (isSqlite) {
+      unsupported.push(
+        draft.newNullable
+          ? `Allow NULL on "${colName}" (not supported by SQLite)`
+          : `Set NOT NULL on "${colName}" (not supported by SQLite)`,
+      );
+    } else if (draft.newNullable) {
       // NOT NULL → nullable: low risk (relaxing constraint)
       operations.push(`Allow NULL on "${colName}"`);
       sql.push(
@@ -352,7 +367,13 @@ export function classifyColumnMutation(
   // 4. Default value change
   if ((draft.newDefaultValue || null) !== (original.defaultValue ?? null)) {
     const colName = draft.newName || original.name;
-    if (draft.newDefaultValue === null || draft.newDefaultValue === "") {
+    if (isSqlite) {
+      unsupported.push(
+        (draft.newDefaultValue === null || draft.newDefaultValue === "")
+          ? `Remove default from "${colName}" (not supported by SQLite)`
+          : `Set default of "${colName}" to ${draft.newDefaultValue} (not supported by SQLite)`,
+      );
+    } else if (draft.newDefaultValue === null || draft.newDefaultValue === "") {
       operations.push(`Remove default from "${colName}"`);
       sql.push(
         `ALTER TABLE ${tableRef} ALTER COLUMN ${quoteIdent(colName)} DROP DEFAULT;`,
@@ -378,6 +399,7 @@ export function classifyColumnMutation(
       requiresConfirmation: overallRisk !== "low",
     },
     warnings,
+    unsupported,
   };
 }
 
