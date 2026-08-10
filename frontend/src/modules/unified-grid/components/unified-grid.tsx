@@ -280,11 +280,11 @@ export function UnifiedGrid({
   const handleDoubleClick = useCallback(
     (rowIdx: number, colIdx: number) => {
       if (!canEditRows || !onEditCell) return;
-      const col = orderedColumns[colIdx];
+      const col = columns[colIdx];
       if (col && !isCellTypeEditable(normalizeColumnType(col.dataType))) return;
       onEditCell({ row: rowIdx, col: colIdx });
     },
-    [canEditRows, onEditCell, orderedColumns],
+    [canEditRows, onEditCell, columns],
   );
 
   const handleColumnContextMenu = useCallback((e: React.MouseEvent, columnName: string) => {

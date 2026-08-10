@@ -118,3 +118,83 @@ describe("UnifiedGrid — copy keyboard scope", () => {
     expect(writeTextSpy).toHaveBeenCalled();
   });
 });
+
+describe("UnifiedGrid — editor capability guard", () => {
+  const bigintCols: ColumnMeta[] = [
+    { name: "id", dataType: "BIGINT", nullable: false },
+    { name: "name", dataType: "TEXT", nullable: false },
+  ];
+
+  const testRows: Row[] = [
+    [
+      { type: "int64", value: 1 },
+      { type: "text", value: "Alice" },
+    ],
+  ];
+
+  it("blocks double-click on BIGINT column in normal order", () => {
+    const onEditCell = vi.fn();
+    const { container } = renderGrid({
+      columns: bigintCols,
+      rows: testRows,
+      canEditRows: true,
+      onEditCell,
+    });
+
+    const cells = container.querySelectorAll('[data-index="0"] > div');
+    const bigintCell = cells[1];
+    fireEvent.doubleClick(bigintCell);
+
+    expect(onEditCell).not.toHaveBeenCalled();
+  });
+
+  it("allows double-click on TEXT column in normal order", () => {
+    const onEditCell = vi.fn();
+    const { container } = renderGrid({
+      columns: bigintCols,
+      rows: testRows,
+      canEditRows: true,
+      onEditCell,
+    });
+
+    const cells = container.querySelectorAll('[data-index="0"] > div');
+    const textCell = cells[2];
+    fireEvent.doubleClick(textCell);
+
+    expect(onEditCell).toHaveBeenCalledWith({ row: 0, col: 1 });
+  });
+
+  it("blocks double-click on BIGINT when TEXT is frozen (index reorder)", () => {
+    const onEditCell = vi.fn();
+    const { container } = renderGrid({
+      columns: bigintCols,
+      rows: testRows,
+      canEditRows: true,
+      onEditCell,
+      frozenColumns: ["name"],
+    });
+
+    const cells = container.querySelectorAll('[data-index="0"] > div');
+    const bigintCell = cells[2];
+    fireEvent.doubleClick(bigintCell);
+
+    expect(onEditCell).not.toHaveBeenCalled();
+  });
+
+  it("allows double-click on TEXT when it is frozen (moved to front)", () => {
+    const onEditCell = vi.fn();
+    const { container } = renderGrid({
+      columns: bigintCols,
+      rows: testRows,
+      canEditRows: true,
+      onEditCell,
+      frozenColumns: ["name"],
+    });
+
+    const cells = container.querySelectorAll('[data-index="0"] > div');
+    const textCell = cells[1];
+    fireEvent.doubleClick(textCell);
+
+    expect(onEditCell).toHaveBeenCalledWith({ row: 0, col: 1 });
+  });
+});
