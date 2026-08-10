@@ -29,7 +29,7 @@
 | Schema mutation / users/roles | PARTIAL | Column editing workbench shipped (P2.7); full schema mutation/users/roles post-0.1 |
 | Agent | PREVIEW | production Agent execution excluded |
 | MCP | DEFERRED | not shipped in 0.1.0 |
-| Frontend typecheck/lint/format | PASS | 0 typecheck errors; 1109/1109 tests pass; Vite build clean |
+| Frontend typecheck/lint/format | PASS | 0 typecheck errors; 1319/1319 frontend tests + 39 Rust integration tests pass; Vite build clean |
 | P2 Hardening Program | DONE | P2.0–P2.11 all complete; see docs/quality/p2-hardening-code-audit.md |
 | Packaging workflow | DONE definition | current release artifacts not proven |
 | Release verification | BLOCKED | full automated + artifact + manual runtime evidence incomplete |
@@ -117,7 +117,7 @@ All 11 waves of the P2 Hardening Program are complete. See `docs/quality/p2-hard
 | P2.10 | Code quality / modern API audit | DONE |
 | P2.11 | Full regression (1109 tests, 0 TS errors, build clean) | DONE |
 
-**Test counts:** 96 test files, 1109 tests, all passing.  
+**Test counts:** 105 test files, 1319 frontend tests + 39 Rust integration tests (30 SQLite + 9 PG), all passing.  
 **TypeScript:** 0 errors.  
 **Vite build:** successful.
 
