@@ -402,7 +402,13 @@ async fn introspect_triggers(pool: &sqlx::PgPool) -> Result<Vec<Trigger>, DbErro
             t.action_statement,
             COALESCE(pg_t.tgenabled, 'O') AS enabled_flag
         FROM information_schema.triggers t
-        LEFT JOIN pg_trigger pg_t ON pg_t.tgname = t.trigger_name
+        LEFT JOIN (
+            pg_trigger pg_t
+            JOIN pg_class c ON c.oid = pg_t.tgrelid
+            JOIN pg_namespace n ON n.oid = c.relnamespace
+        ) ON pg_t.tgname = t.trigger_name
+            AND n.nspname = t.event_object_schema
+            AND c.relname = t.event_object_table
         WHERE t.trigger_schema NOT IN ('pg_catalog', 'information_schema')
         ORDER BY t.event_object_schema, t.event_object_table, t.trigger_name
         "#,

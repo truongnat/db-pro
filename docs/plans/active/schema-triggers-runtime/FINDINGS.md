@@ -29,4 +29,14 @@ SQLite does not support `INSTEAD OF` triggers on tables — only on views.
 Test adjusted to use a view for INSTEAD OF testing.
 
 ## Review Triage
-Pending Cubic review on PR #8.
+
+### Cubic Review #1 (PR #8)
+
+**P1: pg_trigger join keyed only on name — cross-match bug** (FIXED)
+Join now constrains on schema + table via pg_class/pg_namespace, preventing
+duplicate rows when the same trigger name exists on multiple tables.
+
+**P2: PostgreSQL definition omits trigger function body** (ACCEPTED AS FOLLOW-UP)
+`action_statement` stores the EXECUTE FUNCTION call, not the function body.
+Retrieving the full body via `pg_get_functiondef(tgfoid)` is a DDL display
+enhancement, deferred to S5 DDL scope.
