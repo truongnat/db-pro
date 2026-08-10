@@ -12,11 +12,11 @@
 - [x] extend `Trigger` domain struct with table_name, timing, definition, enabled, schema
 - [x] fix SQLite introspection to populate all fields (parse SQL body)
 - [x] fix PostgreSQL introspection to capture table, timing, function body, enabled
-- [ ] add trigger CREATE command (SchemaService + Tauri command)
-- [ ] add trigger DROP command (SchemaService + Tauri command)
-- [ ] add trigger DDL reconstruction in schema_service.rs
+- [x] add trigger CREATE command (SchemaService + Tauri command)
+- [x] add trigger DROP command (SchemaService + Tauri command)
+- [x] add trigger DDL reconstruction in schema_service.rs
 - [ ] add trigger enabled/disabled toggle (PostgreSQL only, capability-gate for SQLite)
-- [ ] cache invalidation after trigger mutations
+- [x] cache invalidation after trigger mutations
 
 ## Frontend
 - [x] trigger tab in schema object viewer (pre-existing, now wired to introspection data)
@@ -37,7 +37,7 @@
 - [ ] PostgreSQL trigger introspection verified against live provider
 - [ ] PostgreSQL trigger CREATE/DROP verified against live provider
 - [x] CI: Rust checks PASS, Frontend checks PASS
-- [ ] Cache invalidation after trigger mutation verified
+- [x] Cache invalidation after trigger mutation verified (execute_ddl invalidates cache)
 
 ## Review gate
 - [x] Cubic review #1: P1 fixed (pg_trigger join), P2 deferred to S5
