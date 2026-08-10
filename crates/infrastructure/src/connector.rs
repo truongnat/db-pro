@@ -241,6 +241,15 @@ impl DbConnector for CompositeConnector {
         }
     }
 
+    async fn execute_batch(&self, handle: &ConnectionHandle, statements: &[String]) -> Result<u64, DbError> {
+        let inner = self.inner_handle(handle)?;
+        let driver = self.driver_of(handle)?;
+        match driver {
+            DriverType::Postgres => self.postgres.execute_batch(&inner, statements).await,
+            DriverType::SQLite => self.sqlite.execute_batch(&inner, statements).await,
+        }
+    }
+
     async fn introspect(&self, handle: &ConnectionHandle) -> Result<IntrospectResult, DbError> {
         let inner = self.inner_handle(handle)?;
         let driver = self.driver_of(handle)?;

@@ -147,6 +147,27 @@ impl SchemaService {
         Ok(affected)
     }
 
+    pub async fn execute_ddl_batch(&self, connection_id: &ConnectionId, statements: &[String]) -> Result<u64, DbError> {
+        let policy = self.safety_policy_for(connection_id).await?;
+        for sql in statements {
+            reject_multi_statement(sql)?;
+            validate_against_policy(sql, &policy).map_err(DbError::QueryFailed)?;
+        }
+
+        let handle = self
+            .registry
+            .get(connection_id)
+            .ok_or_else(|| DbError::ConnectionFailed(format!("connection {connection_id} is not active")))?;
+
+        let affected = self.connector.execute_batch(&handle, statements).await?;
+
+        if let Err(e) = self.cache.invalidate(connection_id).await {
+            tracing::warn!("failed to invalidate cache after batch DDL: {e}");
+        }
+
+        Ok(affected)
+    }
+
     pub async fn invalidate_cache(&self, connection_id: &ConnectionId) -> Result<(), DbError> {
         self.cache.invalidate(connection_id).await
     }

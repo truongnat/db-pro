@@ -39,6 +39,10 @@ pub enum SqliteCommand {
         params: Vec<QueryParam>,
         responder: oneshot::Sender<Result<usize, DbError>>,
     },
+    ExecuteBatch {
+        statements: Vec<String>,
+        responder: oneshot::Sender<Result<u64, DbError>>,
+    },
     Shutdown,
 }
 
@@ -149,6 +153,23 @@ impl SqliteHandle {
             .map_err(|e| DbError::Internal(format!("oneshot recv error: {e}")))?
     }
 
+    /// Execute multiple statements atomically inside a transaction.
+    pub async fn execute_batch(&self, statements: Vec<String>) -> Result<u64, DbError> {
+        let (tx, rx) = oneshot::channel();
+        let cmd = SqliteCommand::ExecuteBatch {
+            statements,
+            responder: tx,
+        };
+        let sender = self.sender.clone();
+        tokio::task::spawn_blocking(move || {
+            let _ = sender.send(cmd);
+        })
+        .await
+        .map_err(|e| DbError::Internal(format!("spawn_blocking join error: {e}")))?;
+        rx.await
+            .map_err(|e| DbError::Internal(format!("oneshot recv error: {e}")))?
+    }
+
     /// Tell the actor thread to shut down.
     pub async fn shutdown(&self) {
         let sender = self.sender.clone();
@@ -209,6 +230,9 @@ impl SqliteActor {
                 }
                 SqliteCommand::ExecuteStatementParam { sql, params, responder } => {
                     let _ = responder.send(self.handle_execute_statement_param(&sql, &params));
+                }
+                SqliteCommand::ExecuteBatch { statements, responder } => {
+                    let _ = responder.send(self.handle_execute_batch(&statements));
                 }
                 SqliteCommand::Shutdown => {
                     tracing::info!("sqlite actor received shutdown command");
@@ -346,6 +370,17 @@ impl SqliteActor {
             .execute(param_refs.as_slice())
             .map_err(crate::error::from_rusqlite)?;
         Ok(affected)
+    }
+
+    fn handle_execute_batch(&self, statements: &[String]) -> Result<u64, DbError> {
+        let tx = self.conn.unchecked_transaction().map_err(crate::error::from_rusqlite)?;
+        let mut total: u64 = 0;
+        for stmt_sql in statements {
+            tx.execute_batch(stmt_sql).map_err(crate::error::from_rusqlite)?;
+            total += tx.changes() as u64;
+        }
+        tx.commit().map_err(crate::error::from_rusqlite)?;
+        Ok(total)
     }
 }
 

@@ -160,6 +160,38 @@ impl DbConnector for PostgresConnector {
             })?
     }
 
+    async fn execute_batch(&self, handle: &ConnectionHandle, statements: &[String]) -> Result<u64, DbError> {
+        let pools = self.pools.read().await;
+        let entry = pools
+            .get(&handle.0)
+            .ok_or_else(|| DbError::ConnectionFailed("handle not found".into()))?;
+        let timeout = entry.query_timeout;
+        let pool = entry.pool.clone();
+        drop(pools);
+
+        let future = async {
+            let mut tx = pool.begin().await.map_err(crate::error::from_sqlx)?;
+            let mut total_affected: u64 = 0;
+
+            for stmt in statements {
+                let result = sqlx::query(stmt)
+                    .execute(&mut *tx)
+                    .await
+                    .map_err(crate::error::from_sqlx)?;
+                total_affected += result.rows_affected();
+            }
+
+            tx.commit().await.map_err(crate::error::from_sqlx)?;
+            Ok(total_affected)
+        };
+
+        tokio::time::timeout(timeout, future)
+            .await
+            .map_err(|_| DbError::QueryTimeout {
+                timeout_ms: timeout.as_millis() as u64,
+            })?
+    }
+
     async fn introspect(&self, handle: &ConnectionHandle) -> Result<IntrospectResult, DbError> {
         let pools = self.pools.read().await;
         let entry = pools

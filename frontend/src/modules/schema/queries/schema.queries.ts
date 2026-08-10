@@ -95,6 +95,14 @@ export function useInvalidateSchemaCache(connectionId: string | null) {
   });
 }
 
+function invalidateAllSchemaCaches(qc: ReturnType<typeof useQueryClient>, connectionId: string) {
+  qc.invalidateQueries({ queryKey: QUERY_KEYS.introspect(connectionId) });
+  qc.invalidateQueries({ queryKey: ["schema-table-info"] });
+  qc.invalidateQueries({ queryKey: ["schema-table-ddl"] });
+  qc.invalidateQueries({ queryKey: ["object-dependencies"] });
+  useSchemaCatalogStore.getState().invalidateConnection(connectionId);
+}
+
 export function useExecuteDdl(connectionId: string | null) {
   const qc = useQueryClient();
   return useMutation({
@@ -104,8 +112,22 @@ export function useExecuteDdl(connectionId: string | null) {
       }>,
     onSuccess: () => {
       if (connectionId) {
-        qc.invalidateQueries({ queryKey: QUERY_KEYS.introspect(connectionId) });
-        useSchemaCatalogStore.getState().invalidateConnection(connectionId);
+        invalidateAllSchemaCaches(qc, connectionId);
+      }
+    },
+  });
+}
+
+export function useExecuteDdlBatch(connectionId: string | null) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (statements: string[]) =>
+      getSchemaService().executeDdlBatch(connectionId!, statements) as Promise<{
+        affectedRows: number;
+      }>,
+    onSuccess: () => {
+      if (connectionId) {
+        invalidateAllSchemaCaches(qc, connectionId);
       }
     },
   });

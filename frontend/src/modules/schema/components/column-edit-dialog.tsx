@@ -24,7 +24,7 @@ import {
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
 import { useTranslation } from "@/commons/locales/useTranslation";
-import { useExecuteDdl } from "@/modules/schema/queries/schema.queries";
+import { useExecuteDdlBatch } from "@/modules/schema/queries/schema.queries";
 import { AlertTriangle, Info, ShieldAlert, ShieldX } from "lucide-react";
 
 import type { SchemaColumnDto } from "../types/schema.types";
@@ -59,6 +59,22 @@ const RISK_ICON: Record<MutationRiskLevel, typeof Info> = {
   destructive: ShieldX,
 };
 
+function DiffRow({ label, from, to }: { label: string; from: string; to: string }) {
+  const changed = from !== to;
+  return (
+    <div className="flex items-baseline gap-2 text-xs">
+      <span className="w-16 shrink-0 text-[var(--app-text-muted)]">{label}</span>
+      <span className={`font-mono ${changed ? "line-through opacity-50" : ""}`}>{from || "—"}</span>
+      {changed && (
+        <>
+          <span className="text-[var(--app-text-muted)]">→</span>
+          <span className="font-mono font-medium">{to || "—"}</span>
+        </>
+      )}
+    </div>
+  );
+}
+
 export function ColumnEditDialog({
   column,
   schemaName,
@@ -68,9 +84,8 @@ export function ColumnEditDialog({
   onApplied,
 }: ColumnEditDialogProps) {
   const { t } = useTranslation();
-  const executeDdl = useExecuteDdl(connectionId);
+  const executeBatch = useExecuteDdlBatch(connectionId);
 
-  // Draft state initialised from the current column
   const [newName, setNewName] = useState(column.name);
   const [newDataType, setNewDataType] = useState(column.dataType);
   const [newNullable, setNewNullable] = useState(column.nullable);
@@ -98,7 +113,8 @@ export function ColumnEditDialog({
   );
   const changed = useMemo(() => hasChanges(draft), [draft]);
 
-  // Cmd/Ctrl+Enter to apply (but opens confirmation if risky)
+  const nameHasSpace = newName.includes(" ") && newName !== column.name;
+
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && changed) {
@@ -125,22 +141,18 @@ export function ColumnEditDialog({
     setApplyError(null);
 
     try {
-      for (const stmt of classified.sql) {
-        await executeDdl.mutateAsync(stmt);
-      }
+      await executeBatch.mutateAsync(classified.sql);
       onApplied();
       onClose();
     } catch (err) {
       setApplyError(err instanceof Error ? err.message : String(err));
     }
-  }, [classified.sql, executeDdl, onApplied, onClose]);
+  }, [classified.sql, executeBatch, onApplied, onClose]);
 
-  // Close confirmation without applying
   const handleConfirmCancel = useCallback(() => {
     setShowConfirm(false);
   }, []);
 
-  // Focus trap: auto-focus the name input on mount
   useEffect(() => {
     const timer = setTimeout(() => {
       const nameInput = document.getElementById("col-edit-name");
@@ -154,103 +166,121 @@ export function ColumnEditDialog({
   return (
     <>
       <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
-        <DialogContent className="sm:max-w-lg" onKeyDown={handleKeyDown}>
+        <DialogContent className="sm:max-w-md" onKeyDown={handleKeyDown}>
           <DialogHeader>
-            <DialogTitle>Edit Column</DialogTitle>
-            <DialogDescription>
-              {schemaName}.{tableName}.{column.name}
+            <DialogTitle className="text-sm">Edit Column</DialogTitle>
+            <DialogDescription className="font-mono text-xs">
+              {schemaName}.{tableName}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="flex flex-col gap-4">
-            {/* Rename */}
-            <div>
-              <Label htmlFor="col-edit-name" className="mb-1 block text-xs text-[var(--app-text-muted)]">
-                Column name
-              </Label>
-              <Input
-                id="col-edit-name"
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                className="w-full font-mono text-sm"
-                placeholder={column.name}
+          <div className="flex flex-col gap-3">
+            {/* Diff summary */}
+            <div className="rounded-md border border-[var(--app-border-subtle)] p-2.5">
+              <DiffRow label="Name" from={column.name} to={newName} />
+              <DiffRow label="Type" from={column.dataType} to={newDataType} />
+              <DiffRow
+                label="Nullable"
+                from={column.nullable ? "YES" : "NO"}
+                to={newNullable ? "YES" : "NO"}
+              />
+              <DiffRow
+                label="Default"
+                from={column.defaultValue ?? ""}
+                to={newDefault}
               />
             </div>
 
-            {/* Type */}
-            <div>
-              <Label htmlFor="col-edit-type" className="mb-1 block text-xs text-[var(--app-text-muted)]">
-                Data type
-              </Label>
-              <Input
-                id="col-edit-type"
-                value={newDataType}
-                onChange={(e) => setNewDataType(e.target.value)}
-                className="w-full font-mono text-sm"
-                placeholder={column.dataType}
-              />
+            {/* Editable fields — compact */}
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label htmlFor="col-edit-name" className="mb-0.5 block text-[11px] text-[var(--app-text-muted)]">
+                  Column name
+                </Label>
+                <Input
+                  id="col-edit-name"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  className="h-7 w-full font-mono text-xs"
+                  placeholder={column.name}
+                />
+                {nameHasSpace && (
+                  <p className="mt-0.5 text-[10px] text-warning">
+                    Contains spaces — will require quoting in SQL.
+                  </p>
+                )}
+              </div>
+              <div>
+                <Label htmlFor="col-edit-type" className="mb-0.5 block text-[11px] text-[var(--app-text-muted)]">
+                  Data type
+                </Label>
+                <Input
+                  id="col-edit-type"
+                  value={newDataType}
+                  onChange={(e) => setNewDataType(e.target.value)}
+                  className="h-7 w-full font-mono text-xs"
+                  placeholder={column.dataType}
+                />
+              </div>
             </div>
 
-            {/* Nullable */}
             <div className="flex items-center gap-2">
               <Checkbox
                 id="col-edit-nullable"
                 checked={newNullable}
                 onCheckedChange={(checked) => setNewNullable(checked === true)}
               />
-              <Label htmlFor="col-edit-nullable" className="text-sm font-normal">
+              <Label htmlFor="col-edit-nullable" className="text-xs font-normal">
                 Nullable
               </Label>
             </div>
 
-            {/* Default */}
             <div>
-              <Label htmlFor="col-edit-default" className="mb-1 block text-xs text-[var(--app-text-muted)]">
+              <Label htmlFor="col-edit-default" className="mb-0.5 block text-[11px] text-[var(--app-text-muted)]">
                 Default value
               </Label>
               <Input
                 id="col-edit-default"
                 value={newDefault}
                 onChange={(e) => setNewDefault(e.target.value)}
-                className="w-full font-mono text-sm"
+                className="h-7 w-full font-mono text-xs"
                 placeholder={column.defaultValue ?? "(none)"}
               />
-              <p className="mt-1 text-[11px] text-[var(--app-text-muted)]">
-                Leave empty to remove default. Use SQL expressions like <code className="rounded bg-muted px-1">now()</code>, <code className="rounded bg-muted px-1">0</code>, <code className="rounded bg-muted px-1">'value'</code>.
-              </p>
             </div>
 
             {/* SQL Preview + Risk */}
             {changed && classified.operations.length > 0 && (
-              <div className="rounded-md border border-[var(--app-border-subtle)] p-3">
-                <div className="mb-2 flex items-center gap-2">
-                  <RiskIcon className="h-3.5 w-3.5" />
-                  <Badge variant={RISK_BADGE_VARIANT[classified.risk.level]} dot>
-                    {classified.risk.label}
-                  </Badge>
+              <div className="rounded-md border border-[var(--app-border-subtle)] p-2.5">
+                <div className="mb-1.5 flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <RiskIcon className="h-3 w-3" />
+                    <Badge variant={RISK_BADGE_VARIANT[classified.risk.level]} dot>
+                      {classified.risk.label}
+                    </Badge>
+                  </div>
+                  <span className="text-[10px] text-[var(--app-text-muted)]">
+                    {classified.operations.length} change{classified.operations.length > 1 ? "s" : ""}
+                  </span>
                 </div>
 
-                {/* Operations list */}
-                <ul className="mb-2 space-y-0.5 text-xs text-[var(--app-text-muted)]">
+                <ul className="mb-1.5 space-y-0.5 text-[11px] text-[var(--app-text-muted)]">
                   {classified.operations.map((op, i) => (
-                    <li key={i} className="flex items-start gap-1.5">
-                      <span className="mt-0.5 text-[10px]">•</span>
+                    <li key={i} className="flex items-start gap-1">
+                      <span className="mt-px text-[8px]">•</span>
                       <span>{op}</span>
                     </li>
                   ))}
                 </ul>
 
-                {/* SQL preview */}
-                <pre className="overflow-x-auto rounded bg-muted p-2 font-mono text-[11px] leading-relaxed text-foreground">
+                <pre className="overflow-x-auto rounded bg-muted p-1.5 font-mono text-[10px] leading-relaxed text-foreground">
                   {classified.sql.join("\n")}
                 </pre>
 
-                {/* Warnings */}
                 {classified.warnings.length > 0 && (
-                  <div className="mt-2 space-y-1">
+                  <div className="mt-1.5 space-y-0.5">
                     {classified.warnings.map((w, i) => (
-                      <div key={i} className="flex items-start gap-1.5 text-xs text-warning">
-                        <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
+                      <div key={i} className="flex items-start gap-1 text-[10px] text-warning">
+                        <AlertTriangle className="mt-px h-2.5 w-2.5 shrink-0" />
                         <span>{w}</span>
                       </div>
                     ))}
@@ -259,24 +289,24 @@ export function ColumnEditDialog({
               </div>
             )}
 
-            {/* Error */}
             {applyError && (
-              <div className="rounded-sm bg-destructive/10 px-3 py-2 text-xs text-destructive">
+              <div className="rounded-sm bg-destructive/10 px-2.5 py-1.5 text-[11px] text-destructive">
                 {applyError}
               </div>
             )}
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>
+            <Button type="button" variant="outline" size="sm" onClick={onClose}>
               {t("common.actions.cancel")}
             </Button>
             <Button
               type="button"
-              disabled={!changed || executeDdl.isPending}
+              size="sm"
+              disabled={!changed || executeBatch.isPending}
               onClick={handleApply}
             >
-              {executeDdl.isPending
+              {executeBatch.isPending
                 ? t("common.states.loading")
                 : classified.risk.requiresConfirmation
                   ? "Review & Apply…"
@@ -286,11 +316,10 @@ export function ColumnEditDialog({
         </DialogContent>
       </Dialog>
 
-      {/* Confirmation dialog for risky operations */}
       <AlertDialog open={showConfirm} onOpenChange={(open) => { if (!open) handleConfirmCancel(); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
+            <AlertDialogTitle className="flex items-center gap-2 text-sm">
               <AlertTriangle className="h-4 w-4 text-warning" />
               Confirm Schema Change
             </AlertDialogTitle>
@@ -301,12 +330,12 @@ export function ColumnEditDialog({
                 </Badge>
               </span>
               {classified.risk.warning && (
-                <span className="mb-2 block">{classified.risk.warning}</span>
+                <span className="mb-2 block text-xs">{classified.risk.warning}</span>
               )}
               {classified.warnings.length > 0 && (
                 <ul className="mt-2 space-y-1">
                   {classified.warnings.map((w, i) => (
-                    <li key={i} className="flex items-start gap-1.5">
+                    <li key={i} className="flex items-start gap-1.5 text-xs">
                       <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0 text-warning" />
                       <span>{w}</span>
                     </li>

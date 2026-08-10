@@ -21,6 +21,10 @@ pub trait DbConnector: Send + Sync {
 
     async fn execute(&self, handle: &ConnectionHandle, sql: &str, params: &[QueryParam]) -> Result<u64, DbError>;
 
+    /// Execute multiple SQL statements atomically inside a single transaction.
+    /// If any statement fails, all changes are rolled back.
+    async fn execute_batch(&self, handle: &ConnectionHandle, statements: &[String]) -> Result<u64, DbError>;
+
     async fn introspect(&self, handle: &ConnectionHandle) -> Result<IntrospectResult, DbError>;
 
     async fn explain(&self, handle: &ConnectionHandle, sql: &str) -> Result<serde_json::Value, DbError>;
@@ -48,6 +52,10 @@ impl<T: DbConnector + ?Sized> DbConnector for Arc<T> {
 
     async fn execute(&self, handle: &ConnectionHandle, sql: &str, params: &[QueryParam]) -> Result<u64, DbError> {
         self.as_ref().execute(handle, sql, params).await
+    }
+
+    async fn execute_batch(&self, handle: &ConnectionHandle, statements: &[String]) -> Result<u64, DbError> {
+        self.as_ref().execute_batch(handle, statements).await
     }
 
     async fn introspect(&self, handle: &ConnectionHandle) -> Result<IntrospectResult, DbError> {

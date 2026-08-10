@@ -64,6 +64,7 @@ export interface ISchemaService {
   getTableInfo(connectionId: string, schema: string, table: string): Promise<unknown>;
   getTableDdl(connectionId: string, schema: string, table: string): Promise<string>;
   executeDdl(connectionId: string, sql: string): Promise<unknown>;
+  executeDdlBatch(connectionId: string, statements: string[]): Promise<unknown>;
   invalidateCache(connectionId: string): Promise<void>;
   diffSchemas(sourceId: string, targetId: string): Promise<unknown>;
   diffTableData(

@@ -184,6 +184,7 @@ pub fn run() {
             commands::get_table_info,
             commands::get_table_ddl,
             commands::execute_ddl,
+            commands::execute_ddl_batch,
             commands::create_index,
             commands::drop_index,
             commands::create_trigger,

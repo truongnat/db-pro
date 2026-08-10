@@ -52,6 +52,19 @@ pub async fn execute_ddl(
 }
 
 #[tauri::command]
+pub async fn execute_ddl_batch(
+    service: State<'_, SchemaService>,
+    connection_id: String,
+    statements: Vec<String>,
+) -> Result<DdlResultDto, CommandError> {
+    let conn_id = parse_connection_id(&connection_id)?;
+    let affected = service.execute_ddl_batch(&conn_id, &statements).await?;
+    Ok(DdlResultDto {
+        affected_rows: affected,
+    })
+}
+
+#[tauri::command]
 pub async fn create_index(
     service: State<'_, SchemaService>,
     connection_id: String,
