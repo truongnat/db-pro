@@ -171,7 +171,7 @@ function quoteLiteral(val: string): string {
 function formatDefault(value: string): string {
   const trimmed = value.trim();
 
-  if (/^'.*'$/.test(trimmed)) return trimmed;
+  if (/^'(?:''|[^'])*'$/.test(trimmed)) return trimmed;
 
   if (/^-?\d+(\.\d+)?$/.test(trimmed)) return trimmed;
 
@@ -218,6 +218,66 @@ function validateExpression(expr: string): void {
 }
 
 /**
+ * Validate a PostgreSQL data type string for safe embedding in DDL.
+ *
+ * Accepts: `integer`, `varchar(255)`, `numeric(10,2)`,
+ *          `timestamp with time zone`, `text[]`, etc.
+ *
+ * Rejects: semicolons, comments, SQL keywords (ALTER, DROP, USING, …),
+ *          commas outside parameter clauses, and anything that is not
+ *          a valid type name.
+ */
+export function validateDataType(input: string): string {
+  const trimmed = input.trim();
+  if (!trimmed) {
+    throw new Error("Data type must not be empty");
+  }
+
+  if (trimmed.includes(";")) {
+    throw new Error("Data type must not contain statement separators (';')");
+  }
+  if (trimmed.includes("--") || trimmed.includes("/*")) {
+    throw new Error("Data type must not contain SQL comments");
+  }
+
+  const upper = trimmed.toUpperCase();
+  const forbiddenKeywords = [
+    "ALTER", "DROP", "CREATE", "DELETE", "INSERT", "UPDATE", "TRUNCATE",
+    "SELECT", "FROM", "WHERE", "SET", "TABLE", "COLUMN", "INDEX",
+    "USING", "DEFAULT", "CONSTRAINT", "ADD", "RENAME", "GRANT", "REVOKE",
+    "EXEC", "EXECUTE", "INTO", "VALUES",
+  ];
+  for (const kw of forbiddenKeywords) {
+    const re = new RegExp(`\\b${kw}\\b`, "i");
+    if (re.test(upper)) {
+      throw new Error(`Data type must not contain SQL keyword "${kw}"`);
+    }
+  }
+
+  let work = trimmed;
+
+  // Strip array suffixes: text[], integer[][], etc.
+  work = work.replace(/(\[\s*\])+$/, "");
+
+  // Extract and validate parameter clause: varchar(255), numeric(10,2)
+  const parenMatch = work.match(/^(.+?)\((.+)\)$/s);
+  if (parenMatch) {
+    const params = parenMatch[2];
+    if (!/^[\d,\s]+$/.test(params)) {
+      throw new Error("Data type parameters must be numeric (e.g. varchar(255), numeric(10,2))");
+    }
+    work = parenMatch[1].trim();
+  }
+
+  // Remaining must be a valid type name: letters, digits, underscores, spaces, dots
+  if (!/^[a-zA-Z_][a-zA-Z0-9_\s.]*$/.test(work)) {
+    throw new Error(`Invalid data type: "${trimmed}"`);
+  }
+
+  return trimmed;
+}
+
+/**
  * Classify all mutations in a draft and produce SQL + risk + warnings.
  */
 export function classifyColumnMutation(
@@ -248,10 +308,11 @@ export function classifyColumnMutation(
 
   // 2. Type change
   if (draft.newDataType.toLowerCase().replace(/\s+/g, " ").trim() !== original.dataType.toLowerCase().replace(/\s+/g, " ").trim()) {
+    const validatedType = validateDataType(draft.newDataType);
     const typeRisk = classifyTypeChange(original.dataType, draft.newDataType);
     operations.push(`Change type "${original.dataType}" → "${draft.newDataType}"`);
     sql.push(
-      `ALTER TABLE ${tableRef} ALTER COLUMN ${quoteIdent(draft.newName || original.name)} TYPE ${draft.newDataType};`,
+      `ALTER TABLE ${tableRef} ALTER COLUMN ${quoteIdent(draft.newName || original.name)} TYPE ${validatedType};`,
     );
     overallRisk = worstRisk(overallRisk, typeRisk);
     if (typeRisk === "high") {

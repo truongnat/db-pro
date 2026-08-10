@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   classifyColumnMutation,
   hasChanges,
+  validateDataType,
   type ColumnMutationDraft,
 } from "../utils/column-mutation-risk";
 
@@ -327,5 +328,87 @@ describe("default value formatting", () => {
   it("safely quotes bare DDL-like strings as literals", () => {
     const sql = defaultSql("DROP TABLE users");
     expect(sql).toContain("SET DEFAULT 'DROP TABLE users'");
+  });
+
+  it("validates concatenation expression through expression path, not literal bypass", () => {
+    const sql = defaultSql("'a' || now() || 'b'");
+    expect(sql).toContain("SET DEFAULT 'a' || now() || 'b'");
+  });
+
+  it("safely quotes input with semicolons when not a function expression", () => {
+    const sql = defaultSql("'a'; DROP TABLE users -- '");
+    const afterDefault = sql.split("SET DEFAULT ")[1];
+    expect(afterDefault[0]).toBe("'");
+  });
+});
+
+describe("validateDataType", () => {
+  it("accepts simple types", () => {
+    expect(validateDataType("integer")).toBe("integer");
+    expect(validateDataType("text")).toBe("text");
+    expect(validateDataType("uuid")).toBe("uuid");
+    expect(validateDataType("boolean")).toBe("boolean");
+    expect(validateDataType("date")).toBe("date");
+    expect(validateDataType("jsonb")).toBe("jsonb");
+  });
+
+  it("accepts types with numeric parameters", () => {
+    expect(validateDataType("varchar(255)")).toBe("varchar(255)");
+    expect(validateDataType("numeric(10,2)")).toBe("numeric(10,2)");
+    expect(validateDataType("char(1)")).toBe("char(1)");
+    expect(validateDataType("decimal(5, 3)")).toBe("decimal(5, 3)");
+  });
+
+  it("accepts multi-word types", () => {
+    expect(validateDataType("timestamp with time zone")).toBe("timestamp with time zone");
+    expect(validateDataType("character varying")).toBe("character varying");
+    expect(validateDataType("double precision")).toBe("double precision");
+    expect(validateDataType("time without time zone")).toBe("time without time zone");
+  });
+
+  it("accepts array types", () => {
+    expect(validateDataType("integer[]")).toBe("integer[]");
+    expect(validateDataType("text[][]")).toBe("text[][]");
+  });
+
+  it("rejects empty input", () => {
+    expect(() => validateDataType("")).toThrow("must not be empty");
+    expect(() => validateDataType("  ")).toThrow("must not be empty");
+  });
+
+  it("rejects semicolons", () => {
+    expect(() => validateDataType("integer; DROP TABLE users")).toThrow("statement separators");
+  });
+
+  it("rejects SQL comments", () => {
+    expect(() => validateDataType("integer -- comment")).toThrow("SQL comments");
+    expect(() => validateDataType("integer /* comment */")).toThrow("SQL comments");
+  });
+
+  it("rejects USING keyword", () => {
+    expect(() => validateDataType("integer USING old_col::int")).toThrow("USING");
+  });
+
+  it("rejects ALTER keyword", () => {
+    expect(() => validateDataType("integer ALTER TABLE x")).toThrow("ALTER");
+  });
+
+  it("rejects DROP keyword", () => {
+    expect(() => validateDataType("integer; DROP TABLE x")).toThrow("statement separators");
+  });
+
+  it("rejects non-numeric parameters", () => {
+    expect(() => validateDataType("varchar(foo)")).toThrow("parameters must be numeric");
+    expect(() => validateDataType("varchar('255')")).toThrow("parameters must be numeric");
+  });
+
+  it("rejects special characters in type name", () => {
+    expect(() => validateDataType("integer@evil")).toThrow("Invalid data type");
+    expect(() => validateDataType("int=1")).toThrow("Invalid data type");
+  });
+
+  it("is used by classifyColumnMutation for type change SQL", () => {
+    const draft = makeDraft({ newDataType: "integer; DROP TABLE users" });
+    expect(() => classifyColumnMutation(draft, "public", "users")).toThrow("statement separators");
   });
 });
