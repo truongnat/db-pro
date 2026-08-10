@@ -45,6 +45,52 @@ For every feature:
    - review test coverage
    - record remaining P0/P1/P2
 
+## Analyst-first policy
+
+For autonomous or scheduled work:
+
+Never start coding immediately after identifying an issue.
+
+First establish:
+
+1. Evidence — concrete code path or test failure
+2. Failure scenario — how this breaks in production
+3. Severity — P0/P1/P2 with justification
+4. Scope — smallest coherent fix
+5. Existing coverage — is another PR already addressing this?
+6. Provider impact — PostgreSQL vs SQLite behavior
+7. Runtime testability — can we prove the fix works?
+
+A suspicious code pattern is not automatically a bug.
+
+Prefer proving one important defect over fixing five speculative issues.
+
+### Priorities (in order)
+
+1. P0/P1 correctness or data-safety issues
+2. Database mutation correctness
+3. Transaction / rollback defects
+4. PostgreSQL vs SQLite capability mismatches
+5. Stale state or cache correctness
+6. Error propagation
+7. Missing regression protection for important invariants
+8. Active feature-plan gaps
+9. Significant UX/runtime defects
+10. Measurable performance problems
+
+### Avoid
+
+- Cosmetic refactoring
+- Dependency churn
+- Formatting-only work
+- Speculative abstractions
+- Broad rewrites
+- Work outside the current product direction
+
+### One PR per analysis
+
+One scheduled run should produce at most ONE focused Pull Request.
+
 ## Severity
 
 P0:
