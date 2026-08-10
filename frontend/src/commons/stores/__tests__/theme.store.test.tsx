@@ -1,11 +1,7 @@
 import { act, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import {
-  resolveThemeMode,
-  useThemeStore,
-  useResolvedTheme,
-} from "@/commons/stores/theme.store";
+import { resolveThemeMode, useThemeStore, useResolvedTheme } from "@/commons/stores/theme.store";
 
 function mockMatchMedia(matches: boolean) {
   const listeners: Array<(e: { matches: boolean }) => void> = [];

@@ -19,8 +19,7 @@ describe("classifyConstraintError", () => {
   });
 
   it("classifies not-null violation", () => {
-    const err =
-      'null value in column "email" of relation "users" violates not-null constraint';
+    const err = 'null value in column "email" of relation "users" violates not-null constraint';
     const result = classifyConstraintError(err);
     expect(result.kind).toBe("not-null-violation");
     expect(result.userMessage).toContain("cannot be set to NULL");

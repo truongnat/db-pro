@@ -34,8 +34,7 @@ const RISK_META: Record<MutationRiskLevel, { label: string; warning: string | nu
   },
   destructive: {
     label: "Destructive",
-    warning:
-      "This operation is irreversible. Data in this column will be permanently lost.",
+    warning: "This operation is irreversible. Data in this column will be permanently lost.",
   },
 };
 
@@ -46,10 +45,43 @@ const RISK_META: Record<MutationRiskLevel, { label: string; warning: string | nu
  * We normalise PostgreSQL type names into these families.
  */
 function typeFamily(dtype: string): string {
-  const d = dtype.toLowerCase().replace(/\(.*\)/, "").trim();
-  if (d.startsWith("varchar") || d.startsWith("character varying") || d === "text" || d === "char" || d.startsWith("char") || d === "bpchar" || d === "name") return "text";
-  if (d === "int2" || d === "smallint" || d === "integer" || d === "int" || d === "int4" || d === "bigint" || d === "int8" || d === "serial" || d === "bigserial") return "integer";
-  if (d === "float4" || d === "real" || d === "float8" || d === "double precision" || d === "numeric" || d === "decimal" || d.startsWith("numeric") || d.startsWith("decimal")) return "numeric";
+  const d = dtype
+    .toLowerCase()
+    .replace(/\(.*\)/, "")
+    .trim();
+  if (
+    d.startsWith("varchar") ||
+    d.startsWith("character varying") ||
+    d === "text" ||
+    d === "char" ||
+    d.startsWith("char") ||
+    d === "bpchar" ||
+    d === "name"
+  )
+    return "text";
+  if (
+    d === "int2" ||
+    d === "smallint" ||
+    d === "integer" ||
+    d === "int" ||
+    d === "int4" ||
+    d === "bigint" ||
+    d === "int8" ||
+    d === "serial" ||
+    d === "bigserial"
+  )
+    return "integer";
+  if (
+    d === "float4" ||
+    d === "real" ||
+    d === "float8" ||
+    d === "double precision" ||
+    d === "numeric" ||
+    d === "decimal" ||
+    d.startsWith("numeric") ||
+    d.startsWith("decimal")
+  )
+    return "numeric";
   if (d === "bool" || d === "boolean") return "boolean";
   if (d === "date") return "date";
   if (d.startsWith("timestamp") || d === "timestamptz") return "timestamp";
@@ -79,8 +111,14 @@ const SAFE_WIDENING: Record<string, Set<string>> = {
 };
 
 function classifyTypeChange(fromType: string, toType: string): MutationRiskLevel {
-  const fromNorm = fromType.toLowerCase().replace(/\(.*\)/, "").trim();
-  const toNorm = toType.toLowerCase().replace(/\(.*\)/, "").trim();
+  const fromNorm = fromType
+    .toLowerCase()
+    .replace(/\(.*\)/, "")
+    .trim();
+  const toNorm = toType
+    .toLowerCase()
+    .replace(/\(.*\)/, "")
+    .trim();
 
   if (fromNorm === toNorm) return "low";
 
@@ -109,7 +147,13 @@ function classifyTypeChange(fromType: string, toType: string): MutationRiskLevel
   if (fromFamily === "timestamp" && toFamily === "date") return "medium";
 
   // Anything involving json/binary = high
-  if (toFamily === "json" || toFamily === "binary" || fromFamily === "json" || fromFamily === "binary") return "high";
+  if (
+    toFamily === "json" ||
+    toFamily === "binary" ||
+    fromFamily === "json" ||
+    fromFamily === "binary"
+  )
+    return "high";
 
   // Default: high risk for cross-family conversions
   return "high";
@@ -244,10 +288,31 @@ export function validateDataType(input: string): string {
 
   const upper = trimmed.toUpperCase();
   const forbiddenKeywords = [
-    "ALTER", "DROP", "CREATE", "DELETE", "INSERT", "UPDATE", "TRUNCATE",
-    "SELECT", "FROM", "WHERE", "SET", "TABLE", "COLUMN", "INDEX",
-    "USING", "DEFAULT", "CONSTRAINT", "ADD", "RENAME", "GRANT", "REVOKE",
-    "EXEC", "EXECUTE", "INTO", "VALUES",
+    "ALTER",
+    "DROP",
+    "CREATE",
+    "DELETE",
+    "INSERT",
+    "UPDATE",
+    "TRUNCATE",
+    "SELECT",
+    "FROM",
+    "WHERE",
+    "SET",
+    "TABLE",
+    "COLUMN",
+    "INDEX",
+    "USING",
+    "DEFAULT",
+    "CONSTRAINT",
+    "ADD",
+    "RENAME",
+    "GRANT",
+    "REVOKE",
+    "EXEC",
+    "EXECUTE",
+    "INTO",
+    "VALUES",
   ];
   for (const kw of forbiddenKeywords) {
     const re = new RegExp(`\\b${kw}\\b`, "i");
@@ -312,9 +377,14 @@ export function classifyColumnMutation(
   }
 
   // 2. Type change
-  if (draft.newDataType.toLowerCase().replace(/\s+/g, " ").trim() !== original.dataType.toLowerCase().replace(/\s+/g, " ").trim()) {
+  if (
+    draft.newDataType.toLowerCase().replace(/\s+/g, " ").trim() !==
+    original.dataType.toLowerCase().replace(/\s+/g, " ").trim()
+  ) {
     if (isSqlite) {
-      unsupported.push(`Change type "${original.dataType}" → "${draft.newDataType}" (not supported by SQLite)`);
+      unsupported.push(
+        `Change type "${original.dataType}" → "${draft.newDataType}" (not supported by SQLite)`,
+      );
     } else {
       const validatedType = validateDataType(draft.newDataType);
       const typeRisk = classifyTypeChange(original.dataType, draft.newDataType);
@@ -347,16 +417,12 @@ export function classifyColumnMutation(
     } else if (draft.newNullable) {
       // NOT NULL → nullable: low risk (relaxing constraint)
       operations.push(`Allow NULL on "${colName}"`);
-      sql.push(
-        `ALTER TABLE ${tableRef} ALTER COLUMN ${quoteIdent(colName)} DROP NOT NULL;`,
-      );
+      sql.push(`ALTER TABLE ${tableRef} ALTER COLUMN ${quoteIdent(colName)} DROP NOT NULL;`);
       // stays at current risk — low
     } else {
       // nullable → NOT NULL: requires data validation
       operations.push(`Set NOT NULL on "${colName}"`);
-      sql.push(
-        `ALTER TABLE ${tableRef} ALTER COLUMN ${quoteIdent(colName)} SET NOT NULL;`,
-      );
+      sql.push(`ALTER TABLE ${tableRef} ALTER COLUMN ${quoteIdent(colName)} SET NOT NULL;`);
       overallRisk = worstRisk(overallRisk, "medium");
       warnings.push(
         `Setting NOT NULL on "${colName}" will fail if any existing rows contain NULL values. Ensure data is validated first.`,
@@ -369,15 +435,13 @@ export function classifyColumnMutation(
     const colName = draft.newName || original.name;
     if (isSqlite) {
       unsupported.push(
-        (draft.newDefaultValue === null || draft.newDefaultValue === "")
+        draft.newDefaultValue === null || draft.newDefaultValue === ""
           ? `Remove default from "${colName}" (not supported by SQLite)`
           : `Set default of "${colName}" to ${draft.newDefaultValue} (not supported by SQLite)`,
       );
     } else if (draft.newDefaultValue === null || draft.newDefaultValue === "") {
       operations.push(`Remove default from "${colName}"`);
-      sql.push(
-        `ALTER TABLE ${tableRef} ALTER COLUMN ${quoteIdent(colName)} DROP DEFAULT;`,
-      );
+      sql.push(`ALTER TABLE ${tableRef} ALTER COLUMN ${quoteIdent(colName)} DROP DEFAULT;`);
     } else {
       operations.push(`Set default of "${colName}" to ${draft.newDefaultValue}`);
       sql.push(
@@ -409,7 +473,8 @@ export function classifyColumnMutation(
 export function hasChanges(draft: ColumnMutationDraft): boolean {
   return (
     draft.newName !== draft.original.name ||
-    draft.newDataType.toLowerCase().replace(/\s+/g, " ").trim() !== draft.original.dataType.toLowerCase().replace(/\s+/g, " ").trim() ||
+    draft.newDataType.toLowerCase().replace(/\s+/g, " ").trim() !==
+      draft.original.dataType.toLowerCase().replace(/\s+/g, " ").trim() ||
     draft.newNullable !== draft.original.nullable ||
     (draft.newDefaultValue || null) !== (draft.original.defaultValue ?? null)
   );

@@ -116,7 +116,9 @@ export function useExecuteDdl(connectionId: string | null) {
         invalidateAllSchemaCaches(qc, connectionId);
       }
       if (!result.cacheInvalidated) {
-        console.warn("[Schema] DDL committed but backend cache invalidation failed. Metadata may be stale.");
+        console.warn(
+          "[Schema] DDL committed but backend cache invalidation failed. Metadata may be stale.",
+        );
       }
     },
   });
@@ -135,7 +137,9 @@ export function useExecuteDdlBatch(connectionId: string | null) {
         invalidateAllSchemaCaches(qc, connectionId);
       }
       if (!result.cacheInvalidated) {
-        console.warn("[Schema] Batch DDL committed but backend cache invalidation failed. Metadata may be stale.");
+        console.warn(
+          "[Schema] Batch DDL committed but backend cache invalidation failed. Metadata may be stale.",
+        );
       }
     },
   });

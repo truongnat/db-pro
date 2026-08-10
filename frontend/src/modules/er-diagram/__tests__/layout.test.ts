@@ -30,7 +30,11 @@ describe("layoutGraph", () => {
 
   it("handles single node", () => {
     const nodes: Node[] = [
-      { id: "solo", position: { x: 0, y: 0 }, data: { label: "Solo", columns: [], compact: false } },
+      {
+        id: "solo",
+        position: { x: 0, y: 0 },
+        data: { label: "Solo", columns: [], compact: false },
+      },
     ];
     const result = layoutGraph(nodes, []);
     expect(result).toHaveLength(1);
@@ -49,9 +53,11 @@ describe("layoutGraph", () => {
     const tb = layoutGraph(nodes, edges, { direction: "TB" });
 
     // LR: b should be to the right of a
-    const lrRight = lr.find((n) => n.id === "b")!.position.x > lr.find((n) => n.id === "a")!.position.x;
+    const lrRight =
+      lr.find((n) => n.id === "b")!.position.x > lr.find((n) => n.id === "a")!.position.x;
     // TB: b should be below a
-    const tbBelow = tb.find((n) => n.id === "b")!.position.y > tb.find((n) => n.id === "a")!.position.y;
+    const tbBelow =
+      tb.find((n) => n.id === "b")!.position.y > tb.find((n) => n.id === "a")!.position.y;
 
     expect(lrRight).toBe(true);
     expect(tbBelow).toBe(true);

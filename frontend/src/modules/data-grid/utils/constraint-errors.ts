@@ -112,11 +112,7 @@ function classifyFromMessage(rawError: string): ConstraintErrorInfo {
   }
 
   // Foreign key violation (PostgreSQL 23503)
-  if (
-    msg.includes("foreign key") ||
-    msg.includes("23503") ||
-    msg.includes("references")
-  ) {
+  if (msg.includes("foreign key") || msg.includes("23503") || msg.includes("references")) {
     const detail = extractDetail(rawError);
     return {
       kind: "foreign-key-violation",
@@ -160,11 +156,7 @@ function classifyFromMessage(rawError: string): ConstraintErrorInfo {
   }
 
   // Value too long (PostgreSQL 22001)
-  if (
-    msg.includes("too long") ||
-    msg.includes("22001") ||
-    msg.includes("exceeds")
-  ) {
+  if (msg.includes("too long") || msg.includes("22001") || msg.includes("exceeds")) {
     return {
       kind: "value-too-long",
       userMessage: "The value exceeds the maximum allowed length for this column.",
@@ -204,7 +196,11 @@ function classifyFromMessage(rawError: string): ConstraintErrorInfo {
   }
 
   // Read-only
-  if (msg.includes("read-only") || msg.includes("read only") || msg.includes("cannot be modified")) {
+  if (
+    msg.includes("read-only") ||
+    msg.includes("read only") ||
+    msg.includes("cannot be modified")
+  ) {
     return {
       kind: "read-only",
       userMessage: "This table or connection is read-only.",

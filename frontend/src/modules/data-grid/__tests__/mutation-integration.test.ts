@@ -8,7 +8,7 @@ describe("mutation error pipeline", () => {
     const apiError = {
       code: "QUERY_FAILED",
       userMessage: "Query execution failed",
-      technicalMessage: "ERROR 23505: duplicate key value violates unique constraint \"uq_email\"",
+      technicalMessage: 'ERROR 23505: duplicate key value violates unique constraint "uq_email"',
       messageId: "error.query.failed",
       details: {
         constraint_type: "unique" as const,
@@ -64,7 +64,7 @@ describe("mutation error pipeline", () => {
       code: "QUERY_FAILED",
       userMessage: "Query execution failed",
       technicalMessage:
-        "ERROR 23503: insert or update on table \"orders\" violates foreign key constraint \"fk_user\"",
+        'ERROR 23503: insert or update on table "orders" violates foreign key constraint "fk_user"',
       messageId: "error.query.failed",
       details: {
         constraint_type: "foreign_key" as const,

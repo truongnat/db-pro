@@ -5,7 +5,10 @@ import { Trash2, Pencil } from "lucide-react";
 import { renderCellValue } from "@/modules/query/types/query.types";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { normalizeColumnType, isCellTypeEditable } from "@/modules/data-grid/utils/column-value-codec";
+import {
+  normalizeColumnType,
+  isCellTypeEditable,
+} from "@/modules/data-grid/utils/column-value-codec";
 
 import type { CellValue, ColumnMeta, GridSort, Row } from "../types";
 
@@ -451,7 +454,7 @@ export function UnifiedGrid({
                 }}
               />
             )}
-            {(!onSelectionChange) && "#"}
+            {!onSelectionChange && "#"}
           </div>
           {orderedColumns.map((col) => {
             const sort = sortMap.get(col.name);
@@ -460,7 +463,8 @@ export function UnifiedGrid({
               <div
                 key={col.name}
                 className={
-                  "relative flex flex-col gap-0.5 bg-muted px-3 py-1.5" + (isFrozen ? " font-semibold" : "")
+                  "relative flex flex-col gap-0.5 bg-muted px-3 py-1.5" +
+                  (isFrozen ? " font-semibold" : "")
                 }
                 onContextMenu={(e) => handleColumnContextMenu(e, col.name)}
               >

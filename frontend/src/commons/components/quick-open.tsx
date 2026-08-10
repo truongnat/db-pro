@@ -37,7 +37,17 @@ interface ItemGroup {
 }
 
 function groupRankedItems(items: RankedQuickOpenItem[], recentKeys: Set<string>): ItemGroup[] {
-  const order = ["recent", "tab", "table", "view", "function", "sequence", "type", "schema", "connection"] as const;
+  const order = [
+    "recent",
+    "tab",
+    "table",
+    "view",
+    "function",
+    "sequence",
+    "type",
+    "schema",
+    "connection",
+  ] as const;
   const groups = new Map<string, RankedQuickOpenItem[]>();
   for (const ranked of items) {
     const item = ranked.item;
@@ -197,7 +207,16 @@ export function QuickOpen() {
     }
 
     return results;
-  }, [index, cleanQuery, activeTabId, activeTabConnectionId, explorerConnectionId, openResourceKeys, recentResourceKeys, prefix]);
+  }, [
+    index,
+    cleanQuery,
+    activeTabId,
+    activeTabConnectionId,
+    explorerConnectionId,
+    openResourceKeys,
+    recentResourceKeys,
+    prefix,
+  ]);
 
   // Build recent items for empty-query recent group
   const recentRanked = useMemo<RankedQuickOpenItem[]>(() => {
@@ -211,7 +230,8 @@ export function QuickOpen() {
         continue;
       }
       if (!r.objectType || !r.objectName) continue;
-      const connName = connections.data?.find((c) => c.id === r.connectionId)?.name ?? r.connectionId;
+      const connName =
+        connections.data?.find((c) => c.id === r.connectionId)?.name ?? r.connectionId;
       result.push({
         item: {
           kind: "db-object" as const,
@@ -242,8 +262,14 @@ export function QuickOpen() {
     return ranked;
   }, [ranked, recentRanked]);
 
-  const recentKeysSet = useMemo(() => new Set(recentRanked.map((r) => r.item.resourceKey)), [recentRanked]);
-  const groups = useMemo(() => groupRankedItems(allRanked, recentKeysSet), [allRanked, recentKeysSet]);
+  const recentKeysSet = useMemo(
+    () => new Set(recentRanked.map((r) => r.item.resourceKey)),
+    [recentRanked],
+  );
+  const groups = useMemo(
+    () => groupRankedItems(allRanked, recentKeysSet),
+    [allRanked, recentKeysSet],
+  );
 
   // Preview on navigate: when selected value changes, open as preview tab
   useEffect(() => {
