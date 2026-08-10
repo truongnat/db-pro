@@ -241,11 +241,10 @@ fn group_foreign_keys_for_ddl(foreign_keys: &[ForeignKey]) -> Vec<ForeignKeyDdlG
     let mut groups: Vec<ForeignKeyDdlGroup<'_>> = Vec::new();
 
     for fk in foreign_keys {
-        if let Some(group) = groups.iter_mut().find(|group| {
-            group.name == fk.name
-                && group.to_schema == fk.to_schema
-                && group.to_table == fk.to_table
-        }) {
+        if let Some(group) = groups
+            .iter_mut()
+            .find(|group| group.name == fk.name && group.to_schema == fk.to_schema && group.to_table == fk.to_table)
+        {
             group.from_columns.push(&fk.from_column);
             group.to_columns.push(&fk.to_column);
         } else {
@@ -314,11 +313,7 @@ fn build_create_table_ddl(info: &TableInfo) -> String {
     }
 
     for fk in group_foreign_keys_for_ddl(&info.foreign_keys) {
-        let to_qualified = format!(
-            "{}.{}",
-            quote_identifier(fk.to_schema),
-            quote_identifier(fk.to_table)
-        );
+        let to_qualified = format!("{}.{}", quote_identifier(fk.to_schema), quote_identifier(fk.to_table));
         let from_columns = fk
             .from_columns
             .iter()

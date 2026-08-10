@@ -2,10 +2,7 @@ use db_pro_core::domain::connection::{ConnectionConfig, DriverType, SslMode};
 use db_pro_core::ports::DbConnector;
 use db_pro_infrastructure::sqlite::connector::SQLiteConnector;
 
-async fn setup_sqlite_connector() -> (
-    SQLiteConnector,
-    db_pro_core::domain::connection::ConnectionHandle,
-) {
+async fn setup_sqlite_connector() -> (SQLiteConnector, db_pro_core::domain::connection::ConnectionHandle) {
     let connector = SQLiteConnector::new();
     let config = ConnectionConfig {
         name: "schema-columns-atomicity".into(),
