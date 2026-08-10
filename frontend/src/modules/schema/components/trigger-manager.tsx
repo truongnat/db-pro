@@ -16,7 +16,11 @@ import {
 import { useTranslation } from "@/commons/locales/useTranslation";
 
 import { useExecuteDdl, useIntrospect } from "../queries/schema.queries";
-import { buildCreateTrigger, buildDropTrigger, buildSetTriggerEnabled } from "../services/ddl-builder";
+import {
+  buildCreateTrigger,
+  buildDropTrigger,
+  buildSetTriggerEnabled,
+} from "../services/ddl-builder";
 import { getDdlCapabilities } from "../services/ddl-capabilities";
 import type { TriggerDto } from "../types/schema.types";
 
@@ -30,7 +34,9 @@ export function TriggerManager({ connectionId, schema, table }: TriggerManagerPr
   const { t } = useTranslation();
   const executeDdl = useExecuteDdl(connectionId);
   const introspect = useIntrospect(connectionId);
-  const driver = useConnectionStore((s) => s.connections.find((c) => c.id === connectionId)?.driver ?? "postgres");
+  const driver = useConnectionStore(
+    (s) => s.connections.find((c) => c.id === connectionId)?.driver ?? "postgres",
+  );
   const canToggle = getDdlCapabilities(driver).supportsTriggerToggle;
 
   const tableTriggers = (introspect.data?.triggers ?? []).filter(

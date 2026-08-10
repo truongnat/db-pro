@@ -10,8 +10,9 @@ vi.mock("@/commons/locales/useTranslation", () => ({
 }));
 
 vi.mock("@/commons/stores", () => ({
-  useConnectionStore: (selector: (s: { connections: { id: string; driver: string }[] }) => unknown) =>
-    selector({ connections: [{ id: "conn-1", driver: "postgres" }] }),
+  useConnectionStore: (
+    selector: (s: { connections: { id: string; driver: string }[] }) => unknown,
+  ) => selector({ connections: [{ id: "conn-1", driver: "postgres" }] }),
 }));
 
 const mockTriggers = [
