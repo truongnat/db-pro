@@ -141,8 +141,12 @@ async fn trigger_lifecycle_create_introspect_drop() {
         .query(&handle, "SELECT COUNT(*) AS cnt FROM audit_log", &[])
         .await
         .unwrap();
-    // Still only 1 row from the earlier trigger fire.
-    assert_eq!(audit.rows.len(), 1);
+    // COUNT(*) always returns one row; check the actual count value.
+    let count_cell = &audit.rows[0].0[0];
+    assert!(
+        matches!(count_cell, db_pro_core::domain::query::CellValue::Int64(1)),
+        "audit_log should still have exactly 1 row (trigger should not fire after DROP)"
+    );
 }
 
 #[tokio::test]

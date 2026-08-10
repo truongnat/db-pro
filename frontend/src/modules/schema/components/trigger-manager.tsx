@@ -221,11 +221,11 @@ function TriggerRow({
         type="button"
         variant="ghost"
         size="sm"
-        className="h-6 text-[10px] text-destructive"
+        className="h-6 text-[10px]"
         disabled={isPending}
         onClick={onDrop}
       >
-        {t("schema.dropTrigger")}
+        {t("schema.selectForDrop")}
       </Button>
     </div>
   );

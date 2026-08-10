@@ -282,6 +282,7 @@
     "triggerEvent": "Event",
     "triggerBody": "Body",
     "noTriggers": "No triggers on this table.",
+    "selectForDrop": "Select to drop",
     "crossConn": {
       "selectTwo": "Select two connections to compare",
       "compare": "Compare",
