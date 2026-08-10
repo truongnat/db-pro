@@ -11,13 +11,13 @@
 - [x] View DDL test added
 - [x] Trigger enable/disable added to frontend DDL builder (buildSetTriggerEnabled)
 - [x] supportsTriggerToggle capability flag added
-- [ ] Add trigger enable/disable to DDL editor operation type
-- [ ] Add DDL editor test for trigger toggle preview
+- [x] Add trigger enable/disable to DDL editor operation type
+- [x] Add DDL editor test for trigger toggle preview
 
 ## Frontend
 - [x] DDL viewer already handles view DDL (same component)
 - [x] DDL editor has capability checks for unsupported operations
-- [ ] DDL editor type selector includes trigger toggle option
+- [x] DDL editor type selector includes trigger toggle option
 
 ## Regression tests
 - [x] View DDL returns definition from introspection
