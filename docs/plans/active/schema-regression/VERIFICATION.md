@@ -1,13 +1,15 @@
 # S7 — Schema Regression Verification
 
-State: IMPLEMENTING (regression matrix complete; gap-filling tests added; CI green)
+State: REVIEW (regression matrix complete; gap-filling tests added; CI green; all Cubic reviews classified)
 
 ## CI Evidence
 
 | Check | Run | Result |
 |---|---|---|
-| Rust checks (cargo fmt + clippy + build + test) | [31434543130](https://github.com/truongnat/db-pro/actions/runs/31434543130) | PASS |
-| Frontend checks (tsc + eslint + prettier + build + test) | [31434543130](https://github.com/truongnat/db-pro/actions/runs/31434543130) | PASS |
+| Rust checks (cargo fmt + clippy + build + test) | [31436500294](https://github.com/truongnat/db-pro/actions/runs/31436500294) | PASS |
+| Frontend checks (tsc + eslint + prettier + build + test) | [31436500294](https://github.com/truongnat/db-pro/actions/runs/31436500294) | PASS |
+| Rust checks (prior) | [31435411795](https://github.com/truongnat/db-pro/actions/runs/31435411795) | PASS |
+| Frontend checks (prior) | [31435411795](https://github.com/truongnat/db-pro/actions/runs/31435411795) | PASS |
 | Frontend tests (local) | npm test -- --run | 105 files, 1319 tests PASS |
 | PR #8 mergeable | MERGEABLE | — |
 
@@ -50,5 +52,7 @@ State: IMPLEMENTING (regression matrix complete; gap-filling tests added; CI gre
 
 - [x] P0 = 0
 - [x] P1 = 0
-- [x] CI passing
+- [x] CI passing (3 consecutive green runs)
 - [x] VERIFICATION.md updated
+- [x] Cubic ci.yml P3 (apt-get update): CONFIRMED, FIXED in `314dcfe`
+- [x] Cubic ci.yml P2 (--include-ignored): REJECTED — by design, PG tests must run in CI
