@@ -1,13 +1,13 @@
 # S4 — Schema Triggers Runtime Verification
 
-State: IMPLEMENTING (domain + introspection + tests complete; CI passing)
+State: COMPLETE (all implementation, frontend, and test items done; CI passing)
 
 ## CI Evidence
 
 | Check | Run | Result |
 |---|---|---|
-| Rust checks (cargo fmt + cargo test) | [31417605180](https://github.com/truongnat/db-pro/actions/runs/31417605180) | PASS |
-| Frontend checks (typecheck + lint + test + build) | [31417605180](https://github.com/truongnat/db-pro/actions/runs/31417605180) | PASS |
+| Rust checks (cargo fmt + cargo test) | [31423584979](https://github.com/truongnat/db-pro/actions/runs/31423584979) | PASS |
+| Frontend checks (typecheck + lint + prettier + test + build) | [31423584979](https://github.com/truongnat/db-pro/actions/runs/31423584979) | PASS |
 | PR #8 mergeable | MERGEABLE | — |
 
 ## Pre-implementation audit findings (RESOLVED)
@@ -36,7 +36,19 @@ the header portion.
 
 ## Provider matrix
 
-| Provider | Introspection | CREATE | DROP | DDL | Enabled/Disabled |
+| Provider | Introspection | CREATE | DROP | DDL viewer | Enable/Disable |
 |---|---|---|---|---|---|
-| PostgreSQL | DONE (source-level) | existing | existing | existing | DONE (pg_trigger.tgenabled) |
-| SQLite | DONE (source + test) | existing | existing | existing | always true (no disable mechanism) |
+| PostgreSQL | DONE (source-level) | existing | existing | DONE (reconstructed from parts) | DONE (ALTER TABLE ENABLE/DISABLE TRIGGER) |
+| SQLite | DONE (source + test) | existing | existing | DONE (full SQL from sqlite_master) | N/A (no disable mechanism) |
+
+## DDL viewer integration
+
+`get_table_ddl` now appends trigger definitions after the CREATE TABLE statement.
+- SQLite: uses full CREATE TRIGGER SQL from `sqlite_master`
+- PostgreSQL: reconstructs from timing/event/action_statement parts
+
+## Trigger enable/disable toggle
+
+- Frontend TriggerRow shows Enable/Disable button for PostgreSQL connections
+- Capability-gated via `supportsTriggerToggle` in DdlCapabilities
+- SQLite connections do not show the toggle (not supported)
