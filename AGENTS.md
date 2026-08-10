@@ -123,31 +123,27 @@ Report:
 
 ## Review Council
 
-Every PR goes through an adversarial multi-agent review pipeline before merge.
+Every PR goes through an adversarial review pipeline before merge.
 
 ```
 PR opened
   │
   ├─ CI (lint / test / build / clippy)
   │
-  └─ Kilo Code Review
-        Focus: bugs, architecture, tests (uses REVIEW.md from base branch)
-              │
-              ▼
-        ADVERSARIAL ROUND
-        @kilocode-bot challenges all P0/P1 findings
-        CONFIRM / REJECT / DOWNGRADE each with evidence
+  └─ Cubic AI Review (auto on PR open/update)
+        Focus: security, bugs, testing, performance
+        Reads REVIEW.md from base branch
               │
               ▼
         ARBITER (ChatGPT)
-        Deduplicate, reject false positives
-        Output: ACCEPTED_P0, ACCEPTED_P1, REJECTED, DISAGREEMENTS
+        Review Cubic findings
+        ACCEPT / REJECT / DOWNGRADE each with evidence
               │
               ▼
-        Implementer (Jules) fixes only accepted findings
+        Implementer (Jules) fixes accepted findings
               │
               ▼
-        Kilo reruns on new commit
+        Cubic re-reviews on new commit
               │
               ▼
         P0/P1 = 0 → MERGE
@@ -157,27 +153,24 @@ PR opened
 
 | Role | Agent | Responsibility |
 |------|-------|----------------|
-| Implementer | Jules | Write code, fix accepted findings |
-| Independent reviewer | Kilo | Bugs, architecture, tests (REVIEW.md) |
-| Adversarial challenger | Kilo (@kilocode-bot) | Challenge prior findings |
-| Arbiter | ChatGPT | Deduplicate, reject false positives |
+| Implementer | Jules / Qoder | Write code, fix accepted findings |
+| AI reviewer | Cubic AI | Auto-review on PR open/update |
+| Arbiter | ChatGPT | Accept/reject findings, resolve disagreements |
+| Human reviewer | Owner | Final merge decision |
 
 ### Principles
 
-- Reviewer diversity > reviewer count
 - Implementer never self-judges; arbiter never codes
 - Source reasoning != runtime evidence
 - REVIEW.md lives on base branch (code under review cannot rewrite its own rubric)
+- Cubic AI is free for public repos (unlimited PR reviews)
 
-### Kilo setup
+### Cubic AI setup
 
 ```
-app.kilo.ai → Integrations → GitHub → install Kilo Code Bot
-Code Reviews → Enable AI Code Review: ON
-Repository: truongnat/db-pro
-Style: Strict
-Focus: Security, Bugs, Testing, Performance
-Use REVIEW.md: ON
+cubic.dev → sign in with GitHub
+Install Cubic AI GitHub App on truongnat/db-pro
+Auto-review: ON
 ```
 
 ## Runtime verification
