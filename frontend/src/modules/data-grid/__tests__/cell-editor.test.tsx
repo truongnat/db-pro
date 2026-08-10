@@ -84,19 +84,20 @@ describe("CellEditor", () => {
     expect(onSave).toHaveBeenCalledWith({ type: "int64", value: 99 });
   });
 
-  it("calls onCancel for invalid int64 input", async () => {
-    const onCancel = vi.fn();
+  it("shows error for invalid int64 input", async () => {
+    const onSave = vi.fn();
     const user = userEvent.setup();
 
     render(
-      <CellEditor value={{ type: "int64", value: 42 }} onSave={vi.fn()} onCancel={onCancel} />,
+      <CellEditor value={{ type: "int64", value: 42 }} onSave={onSave} onCancel={vi.fn()} />,
     );
 
     const input = screen.getByRole("textbox");
     await user.clear(input);
     await user.type(input, "not-a-number{Enter}");
 
-    expect(onCancel).toHaveBeenCalled();
+    expect(onSave).not.toHaveBeenCalled();
+    expect(screen.getByText("Enter a valid integer")).toBeTruthy();
   });
 
   it("parses float64 values", async () => {
@@ -114,7 +115,18 @@ describe("CellEditor", () => {
     expect(onSave).toHaveBeenCalledWith({ type: "float64", value: 2.71 });
   });
 
-  it("parses bool values from text", async () => {
+  it("renders checkbox for bool values", () => {
+    const onSave = vi.fn();
+
+    render(
+      <CellEditor value={{ type: "bool", value: true }} onSave={onSave} onCancel={vi.fn()} />,
+    );
+
+    const checkbox = screen.getByRole("checkbox") as HTMLInputElement;
+    expect(checkbox.checked).toBe(true);
+  });
+
+  it("toggles bool value via checkbox", async () => {
     const onSave = vi.fn();
     const user = userEvent.setup();
 
@@ -122,23 +134,117 @@ describe("CellEditor", () => {
       <CellEditor value={{ type: "bool", value: false }} onSave={onSave} onCancel={vi.fn()} />,
     );
 
-    const input = screen.getByRole("textbox");
-    await user.clear(input);
-    await user.type(input, "true{Enter}");
+    const checkbox = screen.getByRole("checkbox");
+    await user.click(checkbox);
 
     expect(onSave).toHaveBeenCalledWith({ type: "bool", value: true });
   });
 
-  it("parses bool false from non-'true' text", async () => {
+  it("emits uuid type for uuid values", async () => {
     const onSave = vi.fn();
     const user = userEvent.setup();
 
-    render(<CellEditor value={{ type: "bool", value: true }} onSave={onSave} onCancel={vi.fn()} />);
+    render(
+      <CellEditor
+        value={{ type: "uuid", value: "00000000-0000-0000-0000-000000000000" }}
+        onSave={onSave}
+        onCancel={vi.fn()}
+      />,
+    );
 
     const input = screen.getByRole("textbox");
     await user.clear(input);
-    await user.type(input, "no{Enter}");
+    await user.type(input, "550e8400-e29b-41d4-a716-446655440000{Enter}");
 
-    expect(onSave).toHaveBeenCalledWith({ type: "bool", value: false });
+    expect(onSave).toHaveBeenCalledWith({
+      type: "uuid",
+      value: "550e8400-e29b-41d4-a716-446655440000",
+    });
+  });
+
+  it("emits datetime type for datetime values", async () => {
+    const onSave = vi.fn();
+    const user = userEvent.setup();
+
+    render(
+      <CellEditor
+        value={{ type: "datetime", value: "2024-01-01T00:00:00Z" }}
+        onSave={onSave}
+        onCancel={vi.fn()}
+      />,
+    );
+
+    const input = screen.getByRole("textbox");
+    await user.clear(input);
+    await user.type(input, "2025-06-15T12:00:00Z{Enter}");
+
+    expect(onSave).toHaveBeenCalledWith({
+      type: "datetime",
+      value: "2025-06-15T12:00:00Z",
+    });
+  });
+
+  it("validates and emits json type", async () => {
+    const onSave = vi.fn();
+
+    const { container } = render(
+      <CellEditor
+        value={{ type: "json", value: { key: "val" } }}
+        onSave={onSave}
+        onCancel={vi.fn()}
+      />,
+    );
+
+    const input = container.querySelector("input")!;
+    input.focus();
+    const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+      window.HTMLInputElement.prototype,
+      "value",
+    )!.set!;
+    nativeInputValueSetter.call(input, '{"a":1}');
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+
+    expect(onSave).toHaveBeenCalledWith({ type: "json", value: { a: 1 } });
+  });
+
+  it("shows error for invalid json", async () => {
+    const onSave = vi.fn();
+    const user = userEvent.setup();
+
+    render(
+      <CellEditor
+        value={{ type: "json", value: { key: "val" } }}
+        onSave={onSave}
+        onCancel={vi.fn()}
+      />,
+    );
+
+    const input = screen.getByRole("textbox");
+    await user.clear(input);
+    await user.type(input, "not-json{Enter}");
+
+    expect(onSave).not.toHaveBeenCalled();
+    expect(screen.getByText("Invalid JSON")).toBeTruthy();
+  });
+
+  it("uses columnType prop to determine type", async () => {
+    const onSave = vi.fn();
+    const user = userEvent.setup();
+
+    render(
+      <CellEditor
+        value={{ type: "text", value: "hello" }}
+        columnType="integer"
+        onSave={onSave}
+        onCancel={vi.fn()}
+      />,
+    );
+
+    const input = screen.getByRole("textbox");
+    await user.clear(input);
+    await user.type(input, "42{Enter}");
+
+    expect(onSave).toHaveBeenCalledWith({ type: "int64", value: 42 });
   });
 });
