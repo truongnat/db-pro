@@ -30,10 +30,12 @@ fn pg_config() -> Option<ConnectionConfig> {
         (None, auth_host_db)
     };
 
-    let (username, password) = auth.map(|a| {
-        let (u, p) = a.split_once(':').unwrap_or((a, ""));
-        (u.to_string(), p.to_string())
-    }).unwrap_or_else(|| ("postgres".to_string(), String::new()));
+    let (username, password) = auth
+        .map(|a| {
+            let (u, p) = a.split_once(':').unwrap_or((a, ""));
+            (u.to_string(), p.to_string())
+        })
+        .unwrap_or_else(|| ("postgres".to_string(), String::new()));
 
     let (host_port, database) = host_db.rsplit_once('/').unwrap_or((host_db, "postgres"));
     let (host, port) = if let Some((h, p)) = host_port.rsplit_once(':') {
@@ -95,8 +97,14 @@ async fn pg_introspect_tables() {
     assert!(table_names.contains(&"empty_table"), "should find empty_table");
     assert!(table_names.contains(&"employees"), "should find employees table");
     // Unicode and weird-name tables
-    assert!(table_names.iter().any(|n| n.contains("Ünïcödé")), "should find unicode table");
-    assert!(table_names.iter().any(|n| n.contains("weird")), "should find weird-name table");
+    assert!(
+        table_names.iter().any(|n| n.contains("Ünïcödé")),
+        "should find unicode table"
+    );
+    assert!(
+        table_names.iter().any(|n| n.contains("weird")),
+        "should find weird-name table"
+    );
 
     connector.disconnect(&handle).await.unwrap();
 }
@@ -171,8 +179,12 @@ async fn pg_introspect_foreign_keys() {
         .filter(|fk| fk.from_table == "order_items")
         .collect();
     assert!(oi_fks.len() >= 2, "order_items should have at least 2 FKs");
-    assert!(oi_fks.iter().any(|fk| fk.from_column == "order_id" && fk.to_table == "orders"));
-    assert!(oi_fks.iter().any(|fk| fk.from_column == "product_id" && fk.to_table == "products"));
+    assert!(oi_fks
+        .iter()
+        .any(|fk| fk.from_column == "order_id" && fk.to_table == "orders"));
+    assert!(oi_fks
+        .iter()
+        .any(|fk| fk.from_column == "product_id" && fk.to_table == "products"));
 
     connector.disconnect(&handle).await.unwrap();
 }
