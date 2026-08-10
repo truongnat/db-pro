@@ -497,6 +497,7 @@ pub struct TriggerDto {
     pub timing: String,
     pub event: String,
     pub definition: String,
+    pub function_def: String,
     pub enabled: bool,
 }
 
@@ -509,6 +510,7 @@ impl From<Trigger> for TriggerDto {
             timing: t.timing,
             event: t.event,
             definition: t.definition,
+            function_def: t.function_def,
             enabled: t.enabled,
         }
     }

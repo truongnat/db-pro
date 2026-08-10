@@ -23,7 +23,7 @@
 - [x] View DDL returns definition from introspection
 - [x] Table DDL includes triggers
 - [x] format_trigger_ddl handles both SQLite and PostgreSQL paths
-- [ ] DDL editor trigger toggle preview test
+- [x] DDL editor trigger toggle preview test
 
 ## Provider/runtime evidence
 - [x] CI: Rust checks PASS, Frontend checks PASS
@@ -31,7 +31,11 @@
 - [ ] View DDL verified for SQLite syntax
 
 ## Review gate
-- [ ] P0 = 0
-- [ ] P1 = 0
-- [ ] quality gates actually executed (CI passing)
-- [ ] VERIFICATION.md updated with observed evidence
+- [x] P0 = 0
+- [x] P1 = 0
+- [x] quality gates actually executed (CI passing)
+- [x] VERIFICATION.md updated with observed evidence
+
+## Cubic review fixes (P2)
+- [x] CR1: PG trigger function body — added `function_def` to Trigger + PG introspection + DDL formatter
+- [x] CR2: SQLite BEGIN parsing — quote-aware header search + 5 unit tests

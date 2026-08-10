@@ -66,6 +66,9 @@ pub struct Trigger {
     pub timing: String,
     pub event: String,
     pub definition: String,
+    /// PostgreSQL trigger function body (CREATE FUNCTION ...); empty for SQLite.
+    #[serde(default)]
+    pub function_def: String,
     pub enabled: bool,
 }
 

@@ -23,6 +23,7 @@ const mockTriggers = [
     timing: "AFTER",
     event: "UPDATE",
     definition: "CREATE TRIGGER log_update AFTER UPDATE ON users BEGIN SELECT 1; END",
+    functionDef: "",
     enabled: true,
   },
   {
@@ -32,6 +33,7 @@ const mockTriggers = [
     timing: "BEFORE",
     event: "INSERT",
     definition: "CREATE TRIGGER validate_insert BEFORE INSERT ON users BEGIN SELECT 1; END",
+    functionDef: "",
     enabled: true,
   },
   {
@@ -41,6 +43,7 @@ const mockTriggers = [
     timing: "AFTER",
     event: "DELETE",
     definition: "CREATE TRIGGER audit_delete AFTER DELETE ON orders BEGIN SELECT 1; END",
+    functionDef: "",
     enabled: false,
   },
 ];

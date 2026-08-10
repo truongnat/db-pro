@@ -56,6 +56,7 @@ export interface TriggerDto {
   timing: string;
   event: string;
   definition: string;
+  functionDef: string;
   enabled: boolean;
 }
 

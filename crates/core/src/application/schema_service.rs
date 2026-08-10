@@ -295,7 +295,8 @@ fn build_create_table_ddl(info: &TableInfo) -> String {
 
 fn format_trigger_ddl(trigger: &Trigger) -> String {
     // SQLite: definition is the full CREATE TRIGGER SQL from sqlite_master.
-    // PostgreSQL: definition is action_statement (body only), so reconstruct from parts.
+    // PostgreSQL: definition is action_statement (EXECUTE FUNCTION ...),
+    //   so reconstruct the CREATE TRIGGER and append the function definition.
     if trigger.definition.to_ascii_uppercase().starts_with("CREATE TRIGGER") {
         format!("{};\n", trigger.definition)
     } else {
@@ -304,14 +305,22 @@ fn format_trigger_ddl(trigger: &Trigger) -> String {
             quote_identifier(&trigger.schema),
             quote_identifier(&trigger.table_name)
         );
-        format!(
+        let mut ddl = format!(
             "CREATE TRIGGER {}\n  {} {} ON {}\n  {};\n",
             quote_identifier(&trigger.name),
             trigger.timing,
             trigger.event,
             qualified,
             trigger.definition
-        )
+        );
+        if !trigger.function_def.is_empty() {
+            ddl.push('\n');
+            ddl.push_str(&trigger.function_def);
+            if !ddl.ends_with('\n') {
+                ddl.push('\n');
+            }
+        }
+        ddl
     }
 }
 
@@ -405,6 +414,7 @@ mod tests {
                 timing: "AFTER".into(),
                 event: "INSERT".into(),
                 definition: "EXECUTE FUNCTION audit_fn()".into(),
+                function_def: String::new(),
                 enabled: true,
             }],
             functions: vec![],
@@ -617,6 +627,7 @@ mod tests {
             timing: "AFTER".into(),
             event: "INSERT".into(),
             definition: "EXECUTE FUNCTION audit_fn()".into(),
+            function_def: String::new(),
             enabled: true,
         };
         let ddl = format_trigger_ddl(&trigger);
@@ -625,6 +636,26 @@ mod tests {
         assert!(ddl.contains("AFTER INSERT ON"));
         assert!(ddl.contains("\"public\".\"users\""));
         assert!(ddl.contains("EXECUTE FUNCTION audit_fn()"));
+    }
+
+    #[test]
+    fn format_trigger_ddl_includes_function_def_when_present() {
+        let func_body = "CREATE FUNCTION audit_fn() RETURNS trigger AS $$ BEGIN RETURN NEW; END; $$ LANGUAGE plpgsql";
+        let trigger = Trigger {
+            name: "tr_audit".into(),
+            table_name: "users".into(),
+            schema: "public".into(),
+            timing: "AFTER".into(),
+            event: "INSERT".into(),
+            definition: "EXECUTE FUNCTION audit_fn()".into(),
+            function_def: func_body.into(),
+            enabled: true,
+        };
+        let ddl = format_trigger_ddl(&trigger);
+        assert!(ddl.contains("CREATE TRIGGER"));
+        assert!(ddl.contains("EXECUTE FUNCTION audit_fn()"));
+        assert!(ddl.contains("CREATE FUNCTION audit_fn()"));
+        assert!(ddl.contains("RETURN NEW"));
     }
 
     #[test]
@@ -637,6 +668,7 @@ mod tests {
             timing: "AFTER".into(),
             event: "INSERT".into(),
             definition: full_sql.into(),
+            function_def: String::new(),
             enabled: true,
         };
         let ddl = format_trigger_ddl(&trigger);
