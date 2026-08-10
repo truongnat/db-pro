@@ -7,6 +7,7 @@ use crate::domain::schema::{IntrospectResult, TableInfo};
 use crate::ports::{ConnectionRepository, DbConnector, IntrospectionCache};
 
 use super::registry::ConnectionRegistry;
+use super::sql_policy::reject_multi_statement;
 
 pub struct SchemaService {
     connector: Box<dyn DbConnector>,
@@ -126,6 +127,8 @@ impl SchemaService {
     }
 
     pub async fn execute_ddl(&self, connection_id: &ConnectionId, sql: &str) -> Result<u64, DbError> {
+        reject_multi_statement(sql)?;
+
         // Enforce safety policy: readonly connections cannot execute DDL.
         let policy = self.safety_policy_for(connection_id).await?;
         validate_against_policy(sql, &policy).map_err(DbError::QueryFailed)?;

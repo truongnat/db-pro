@@ -32,7 +32,8 @@ export function TriggerManager({ connectionId, schema, table }: TriggerManagerPr
 
   const handleCreate = useCallback(() => {
     if (!triggerName.trim() || !body.trim()) return;
-    const sql = `CREATE TRIGGER "${triggerName.trim()}"\n  ${timing} ${event} ON "${schema}"."${table}"\n  ${body}`;
+    const safeName = triggerName.trim().replace(/"/g, '""');
+    const sql = `CREATE TRIGGER "${safeName}"\n  ${timing} ${event} ON "${schema}"."${table}"\n  ${body}`;
     executeDdl.mutate(sql, {
       onSuccess: () => {
         setTriggerName("");
@@ -43,7 +44,8 @@ export function TriggerManager({ connectionId, schema, table }: TriggerManagerPr
 
   const handleDrop = useCallback(() => {
     if (!triggerName.trim()) return;
-    const sql = `DROP TRIGGER "${triggerName.trim()}" ON "${schema}"."${table}"`;
+    const safeName = triggerName.trim().replace(/"/g, '""');
+    const sql = `DROP TRIGGER "${safeName}" ON "${schema}"."${table}"`;
     executeDdl.mutate(sql);
   }, [triggerName, schema, table, executeDdl]);
 

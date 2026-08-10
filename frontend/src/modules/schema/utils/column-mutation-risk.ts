@@ -60,23 +60,37 @@ function typeFamily(dtype: string): string {
   return d;
 }
 
-/** Safe widening within the same family. */
+/**
+ * Safe widening pairs within the same type family.
+ * Key = source type, Value = set of types it can safely widen to.
+ */
 const SAFE_WIDENING: Record<string, Set<string>> = {
-  text: new Set(["text"]),          // varchar→text, char→text etc.
-  integer: new Set(["integer", "numeric"]), // int2→int4→int8 safe
-  numeric: new Set(["numeric"]),
+  int2: new Set(["int4", "integer", "int8", "bigint"]),
+  smallint: new Set(["int4", "integer", "int8", "bigint", "int2"]),
+  int4: new Set(["int8", "bigint"]),
+  integer: new Set(["int8", "bigint"]),
+  int8: new Set(),
+  bigint: new Set(),
+  float4: new Set(["float8", "real", "double precision"]),
+  real: new Set(["float8", "double precision"]),
+  varchar: new Set(["text"]),
+  "character varying": new Set(["text"]),
+  char: new Set(["text", "varchar"]),
 };
 
 function classifyTypeChange(fromType: string, toType: string): MutationRiskLevel {
+  const fromNorm = fromType.toLowerCase().replace(/\(.*\)/, "").trim();
+  const toNorm = toType.toLowerCase().replace(/\(.*\)/, "").trim();
+
+  if (fromNorm === toNorm) return "low";
+
   const fromFamily = typeFamily(fromType);
   const toFamily = typeFamily(toType);
 
-  // Same family → check safe widening
   if (fromFamily === toFamily) {
-    const safeSet = SAFE_WIDENING[fromFamily];
-    if (safeSet && safeSet.has(toFamily)) return "low";
-    // Same family but not explicitly safe widening (e.g. numeric precision change)
-    return "low";
+    const safeSet = SAFE_WIDENING[fromNorm];
+    if (safeSet && safeSet.has(toNorm)) return "low";
+    return "medium";
   }
 
   // text → integer/numeric/boolean/timestamp/uuid = high risk (needs cast, may fail)
@@ -87,9 +101,6 @@ function classifyTypeChange(fromType: string, toType: string): MutationRiskLevel
 
   // date → timestamp = low (safe widening)
   if (fromFamily === "date" && toFamily === "timestamp") return "low";
-
-  // integer → numeric = low (safe widening)
-  if (fromFamily === "integer" && toFamily === "numeric") return "low";
 
   // numeric → integer = high (may lose precision)
   if (fromFamily === "numeric" && toFamily === "integer") return "high";
@@ -233,7 +244,7 @@ export function classifyColumnMutation(
     } else {
       operations.push(`Set default of "${colName}" to ${draft.newDefaultValue}`);
       sql.push(
-        `ALTER TABLE ${tableRef} ALTER COLUMN ${quoteIdent(colName)} SET DEFAULT ${draft.newDefaultValue};`,
+        `ALTER TABLE ${tableRef} ALTER COLUMN ${quoteIdent(colName)} SET DEFAULT ${quoteLiteral(draft.newDefaultValue)};`,
       );
     }
     // Default changes are low risk (doesn't affect existing data)

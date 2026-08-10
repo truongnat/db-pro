@@ -43,6 +43,7 @@ import { MoreHorizontal, Trash2, Plus, Copy, Check } from "lucide-react";
 
 import { useExecuteDdl } from "../queries/schema.queries";
 import type { SchemaColumnDto, SchemaIndexDto } from "../types/schema.types";
+import { buildCreateIndex, buildDropIndex } from "../services/ddl-builder";
 import { cn } from "@/lib/utils";
 
 interface IndexManagerProps {
@@ -69,7 +70,7 @@ export function IndexManager({ connectionId, schema, table, columns, indexes }: 
 
   const handleConfirmDrop = useCallback(() => {
     if (!droppingIndex) return;
-    const sql = `DROP INDEX "${schema}"."${droppingIndex}"`;
+    const sql = buildDropIndex(schema, droppingIndex);
     executeDdl.mutate(sql, {
       onSuccess: () => setDroppingIndex(null),
     });
@@ -234,9 +235,7 @@ function CreateIndexDialog({ schema, table, columns, connectionId, onClose }: Cr
 
   const sql = (() => {
     if (!indexName.trim() || selectedColumns.length === 0) return null;
-    const cols = selectedColumns.map((c) => `"${c}"`).join(", ");
-    const uniqueKw = unique ? "UNIQUE " : "";
-    return `CREATE ${uniqueKw}INDEX "${indexName.trim()}" ON "${schema}"."${table}" (${cols})`;
+    return buildCreateIndex(schema, table, indexName.trim(), selectedColumns, unique);
   })();
 
   const handleCreate = useCallback(() => {
