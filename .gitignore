@@ -25,3 +25,7 @@ Thumbs.db
 coverage/
 .qoder/
 bun.lock
+
+# Allow plan docs (overrides global gitignore)
+!docs/
+!docs/**
