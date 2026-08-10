@@ -46,7 +46,7 @@ describe("Performance budgets", () => {
         updatedAt: "2025-01-01",
       }));
       const catalogs = new Map();
-      const tabs: any[] = [];
+      const tabs: unknown[] = [];
 
       const start = performance.now();
       const items = buildQuickOpenIndex({ connections, catalogs, tabs });

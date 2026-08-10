@@ -33,11 +33,8 @@ export class SchemaService {
     });
   }
 
-  async executeDdl(
-    connectionId: string,
-    sql: string,
-  ): Promise<{ affectedRows: number; cacheInvalidated: boolean }> {
-    return apiInvoke<{ affectedRows: number; cacheInvalidated: boolean }>("execute_ddl", {
+  async executeDdl(connectionId: string, sql: string): Promise<{ affectedRows: number }> {
+    return apiInvoke<{ affectedRows: number }>("execute_ddl", {
       connectionId,
       sql,
     });
@@ -46,8 +43,8 @@ export class SchemaService {
   async executeDdlBatch(
     connectionId: string,
     statements: string[],
-  ): Promise<{ affectedRows: number; cacheInvalidated: boolean }> {
-    return apiInvoke<{ affectedRows: number; cacheInvalidated: boolean }>("execute_ddl_batch", {
+  ): Promise<{ affectedRows: number }> {
+    return apiInvoke<{ affectedRows: number }>("execute_ddl_batch", {
       connectionId,
       statements,
     });

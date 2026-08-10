@@ -24,7 +24,6 @@ import {
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
 import { useTranslation } from "@/commons/locales/useTranslation";
-import { normalizeAppError } from "@/commons/utils";
 import { useExecuteDdlBatch } from "@/modules/schema/queries/schema.queries";
 import { AlertTriangle, Info, ShieldAlert, ShieldX } from "lucide-react";
 
@@ -41,7 +40,6 @@ interface ColumnEditDialogProps {
   schemaName: string;
   tableName: string;
   connectionId: string;
-  driverType?: string;
   onClose: () => void;
   onApplied: () => void;
 }
@@ -84,13 +82,11 @@ export function ColumnEditDialog({
   schemaName,
   tableName,
   connectionId,
-  driverType,
   onClose,
   onApplied,
 }: ColumnEditDialogProps) {
   const { t } = useTranslation();
   const executeBatch = useExecuteDdlBatch(connectionId);
-  const isSqlite = driverType === "sqlite";
 
   const [newName, setNewName] = useState(column.name);
   const [newDataType, setNewDataType] = useState(column.dataType);
@@ -107,14 +103,15 @@ export function ColumnEditDialog({
       defaultValue: column.defaultValue,
     },
     newName,
-    newDataType: isSqlite ? column.dataType : newDataType,
-    newNullable: isSqlite ? column.nullable : newNullable,
-    newDefaultValue: isSqlite ? (column.defaultValue ?? null) : newDefault || null,
+    newDataType,
+    newNullable,
+    newDefaultValue: newDefault || null,
   };
 
   const classified = useMemo(
-    () => classifyColumnMutation(draft, schemaName, tableName, driverType),
-    [newName, newDataType, newNullable, newDefault, schemaName, tableName, column, driverType],
+    () => classifyColumnMutation(draft, schemaName, tableName),
+
+    [draft, schemaName, tableName, column],
   );
   const changed = useMemo(() => hasChanges(draft), [draft]);
 
@@ -150,7 +147,7 @@ export function ColumnEditDialog({
       onApplied();
       onClose();
     } catch (err) {
-      setApplyError(normalizeAppError(err).userMessage);
+      setApplyError(err instanceof Error ? err.message : String(err));
     }
   }, [classified.sql, executeBatch, onApplied, onClose]);
 
@@ -230,7 +227,6 @@ export function ColumnEditDialog({
                   id="col-edit-type"
                   value={newDataType}
                   onChange={(e) => setNewDataType(e.target.value)}
-                  disabled={isSqlite}
                   className="h-7 w-full font-mono text-xs"
                   placeholder={column.dataType}
                 />
@@ -242,12 +238,8 @@ export function ColumnEditDialog({
                 id="col-edit-nullable"
                 checked={newNullable}
                 onCheckedChange={(checked) => setNewNullable(checked === true)}
-                disabled={isSqlite}
               />
-              <Label
-                htmlFor="col-edit-nullable"
-                className={`text-xs font-normal ${isSqlite ? "opacity-50" : ""}`}
-              >
+              <Label htmlFor="col-edit-nullable" className="text-xs font-normal">
                 Nullable
               </Label>
             </div>
@@ -263,19 +255,10 @@ export function ColumnEditDialog({
                 id="col-edit-default"
                 value={newDefault}
                 onChange={(e) => setNewDefault(e.target.value)}
-                disabled={isSqlite}
                 className="h-7 w-full font-mono text-xs"
                 placeholder={column.defaultValue ?? "(none)"}
               />
             </div>
-
-            {isSqlite && (
-              <div className="rounded-sm bg-warning/10 px-2.5 py-1.5 text-[11px] text-warning">
-                SQLite only supports <span className="font-mono">RENAME COLUMN</span> and{" "}
-                <span className="font-mono">ADD COLUMN</span> via ALTER TABLE. Type, nullable, and
-                default changes are disabled.
-              </div>
-            )}
 
             {/* SQL Preview + Risk */}
             {changed && classified.operations.length > 0 && (
