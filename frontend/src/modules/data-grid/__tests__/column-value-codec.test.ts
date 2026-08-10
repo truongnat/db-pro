@@ -20,11 +20,32 @@ describe("normalizeColumnType", () => {
     expect(normalizeColumnType("JSONB")).toBe("json");
   });
 
-  it("maps integer types to int64", () => {
+  it("maps safe integer types to int64", () => {
     expect(normalizeColumnType("integer")).toBe("int64");
     expect(normalizeColumnType("INT")).toBe("int64");
-    expect(normalizeColumnType("bigint")).toBe("int64");
     expect(normalizeColumnType("smallint")).toBe("int64");
+    expect(normalizeColumnType("serial")).toBe("int64");
+    expect(normalizeColumnType("smallserial")).toBe("int64");
+    expect(normalizeColumnType("int2")).toBe("int64");
+    expect(normalizeColumnType("int4")).toBe("int64");
+  });
+
+  it("maps bigint/int8/bigserial to bigint (non-editable)", () => {
+    expect(normalizeColumnType("bigint")).toBe("bigint");
+    expect(normalizeColumnType("BIGINT")).toBe("bigint");
+    expect(normalizeColumnType("int8")).toBe("bigint");
+    expect(normalizeColumnType("bigserial")).toBe("bigint");
+  });
+
+  it("maps interval to text (not int64)", () => {
+    expect(normalizeColumnType("interval")).toBe("text");
+    expect(normalizeColumnType("INTERVAL")).toBe("text");
+  });
+
+  it("strips precision before classifying", () => {
+    expect(normalizeColumnType("varchar(255)")).toBe("text");
+    expect(normalizeColumnType("numeric(30,10)")).toBe("numeric");
+    expect(normalizeColumnType("decimal(38,18)")).toBe("decimal");
   });
 
   it("maps numeric to numeric (not float64)", () => {
@@ -74,6 +95,10 @@ describe("isCellTypeEditable", () => {
     expect(isCellTypeEditable("decimal")).toBe(false);
   });
 
+  it("returns false for bigint", () => {
+    expect(isCellTypeEditable("bigint")).toBe(false);
+  });
+
   it("returns true for editable types", () => {
     expect(isCellTypeEditable("text")).toBe(true);
     expect(isCellTypeEditable("int64")).toBe(true);
@@ -96,6 +121,10 @@ describe("getUnsupportedEditReason", () => {
 
   it("returns reason for decimal", () => {
     expect(getUnsupportedEditReason("decimal")).toContain("decimal");
+  });
+
+  it("returns reason for bigint", () => {
+    expect(getUnsupportedEditReason("bigint")).toContain("integer");
   });
 
   it("returns null for editable types", () => {

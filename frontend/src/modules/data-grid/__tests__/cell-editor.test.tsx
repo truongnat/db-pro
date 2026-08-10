@@ -289,4 +289,18 @@ describe("CellEditor", () => {
     expect(screen.queryByRole("textbox")).toBeNull();
     expect(screen.getByText(/decimal editing is not supported/)).toBeTruthy();
   });
+
+  it("renders readonly for bigint column type", () => {
+    render(
+      <CellEditor
+        value={{ type: "int64", value: 42 }}
+        columnType="bigint"
+        onSave={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByRole("textbox")).toBeNull();
+    expect(screen.getByText(/integer editing is not supported/)).toBeTruthy();
+  });
 });

@@ -103,13 +103,18 @@ describe("non-editable column types", () => {
     { dataType: "numeric(30,10)", expectedEditable: false },
     { dataType: "decimal", expectedEditable: false },
     { dataType: "decimal(38,18)", expectedEditable: false },
+    { dataType: "bigint", expectedEditable: false },
+    { dataType: "int8", expectedEditable: false },
+    { dataType: "bigserial", expectedEditable: false },
     { dataType: "integer", expectedEditable: true },
+    { dataType: "serial", expectedEditable: true },
     { dataType: "text", expectedEditable: true },
     { dataType: "boolean", expectedEditable: true },
     { dataType: "uuid", expectedEditable: true },
     { dataType: "jsonb", expectedEditable: true },
     { dataType: "timestamp", expectedEditable: true },
     { dataType: "float8", expectedEditable: true },
+    { dataType: "interval", expectedEditable: true },
   ];
 
   for (const { dataType, expectedEditable } of cases) {

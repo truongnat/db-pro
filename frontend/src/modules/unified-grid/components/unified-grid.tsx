@@ -5,6 +5,7 @@ import { Trash2, Pencil } from "lucide-react";
 import { renderCellValue } from "@/modules/query/types/query.types";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { normalizeColumnType, isCellTypeEditable } from "@/modules/data-grid/utils/column-value-codec";
 
 import type { CellValue, ColumnMeta, GridSort, Row } from "../types";
 
@@ -279,9 +280,11 @@ export function UnifiedGrid({
   const handleDoubleClick = useCallback(
     (rowIdx: number, colIdx: number) => {
       if (!canEditRows || !onEditCell) return;
+      const col = orderedColumns[colIdx];
+      if (col && !isCellTypeEditable(normalizeColumnType(col.dataType))) return;
       onEditCell({ row: rowIdx, col: colIdx });
     },
-    [canEditRows, onEditCell],
+    [canEditRows, onEditCell, orderedColumns],
   );
 
   const handleColumnContextMenu = useCallback((e: React.MouseEvent, columnName: string) => {

@@ -158,7 +158,7 @@ export function RowEditDialog({ open, onOpenChange, columns, row, onSave }: RowE
                   </label>
                   <span className="text-[10px] text-[var(--app-text-dim)]">{col.dataType}</span>
                   <div className="flex-1" />
-                  {editable && (
+                  {editable && col.nullable && (
                     <label className="flex items-center gap-1 text-[10px] text-[var(--app-text-muted)]">
                       <input
                         type="checkbox"
