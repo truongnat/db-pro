@@ -1,0 +1,43 @@
+name: VPS PR Review
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+concurrency:
+  group: vps-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    name: Kilo Reviewer (VPS)
+    runs-on: self-hosted
+    if: >
+      github.event.pull_request.draft == false &&
+      github.event.pull_request.head.repo.full_name == github.repository
+
+    steps:
+      - name: Checkout PR
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Fetch base branch
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: git fetch origin "$BASE_REF"
+
+      - name: Run Kilo reviewer
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          echo "Running Kilo reviewer for PR #${PR_NUMBER}"
+          kilo run \
+            --agent .kilo/agents/db-pro-reviewer.md \
+            --prompt ".github/review-prompts/vps-review.md" \
+            --non-interactive \
+            --max-turns 30
