@@ -158,6 +158,16 @@ export function checkOperationSupported(
       }
       return { supported: true };
 
+    case "enableTrigger":
+    case "disableTrigger":
+      if (!caps.supportsTriggerToggle) {
+        return {
+          supported: false,
+          reason: `${driver} does not support ENABLE/DISABLE TRIGGER. Triggers can only be dropped and recreated.`,
+        };
+      }
+      return { supported: true };
+
     default:
       return { supported: true };
   }

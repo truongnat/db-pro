@@ -37,6 +37,7 @@ const NEEDS_NEW_NAME: DdlOperation[] = ["renameTable"];
 const NEEDS_SELECT_SQL: DdlOperation[] = ["createView"];
 const NEEDS_INDEX_CONFIG: DdlOperation[] = ["createIndex"];
 const NEEDS_INDEX_NAME: DdlOperation[] = ["dropIndex"];
+const NEEDS_TRIGGER_NAME: DdlOperation[] = ["enableTrigger", "disableTrigger"];
 
 export function DdlEditor({ connectionId, schema, table }: DdlEditorProps) {
   const { t } = useTranslation();
@@ -52,6 +53,7 @@ export function DdlEditor({ connectionId, schema, table }: DdlEditorProps) {
   const [indexName, setIndexName] = useState("");
   const [indexColumns, setIndexColumns] = useState("");
   const [unique, setUnique] = useState(false);
+  const [triggerName, setTriggerName] = useState("");
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const extra = useMemo(
@@ -61,9 +63,10 @@ export function DdlEditor({ connectionId, schema, table }: DdlEditorProps) {
       selectSql,
       indexName,
       indexColumns,
+      triggerName,
       unique: String(unique),
     }),
-    [columnName, newName, selectSql, indexName, indexColumns, unique],
+    [columnName, newName, selectSql, indexName, indexColumns, triggerName, unique],
   );
 
   const dialect = getDialectForConnection(connectionId);
@@ -116,6 +119,7 @@ export function DdlEditor({ connectionId, schema, table }: DdlEditorProps) {
   const showSelectSql = NEEDS_SELECT_SQL.includes(operation);
   const showIndexConfig = NEEDS_INDEX_CONFIG.includes(operation);
   const showIndexName = NEEDS_INDEX_NAME.includes(operation);
+  const showTriggerName = NEEDS_TRIGGER_NAME.includes(operation);
 
   return (
     <div className="flex flex-col gap-4 overflow-auto p-4">
@@ -254,6 +258,20 @@ export function DdlEditor({ connectionId, schema, table }: DdlEditorProps) {
             </Label>
           </div>
         </>
+      )}
+
+      {showTriggerName && (
+        <div className="flex flex-col gap-1">
+          <Label htmlFor="ddl-trigger-name" className="text-sm font-medium text-foreground">
+            {t("schema.triggerName")}
+          </Label>
+          <Input
+            id="ddl-trigger-name"
+            value={triggerName}
+            onChange={(e) => setTriggerName(e.target.value)}
+            placeholder="trigger_name"
+          />
+        </div>
       )}
 
       <div className="flex flex-col gap-2">

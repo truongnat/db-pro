@@ -27,6 +27,8 @@ const OPERATIONS: { value: DdlOperation; labelKey: string }[] = [
   { value: "dropView", labelKey: "schema.ddlOp.dropView" },
   { value: "createIndex", labelKey: "schema.ddlOp.createIndex" },
   { value: "dropIndex", labelKey: "schema.ddlOp.dropIndex" },
+  { value: "enableTrigger", labelKey: "schema.ddlOp.enableTrigger" },
+  { value: "disableTrigger", labelKey: "schema.ddlOp.disableTrigger" },
 ];
 
 export function DdlTypeSelector({ operation, onChange }: DdlTypeSelectorProps) {

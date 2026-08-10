@@ -246,7 +246,9 @@
       "createView": "ビュー作成",
       "dropView": "ビュー削除",
       "createIndex": "インデックス作成",
-      "dropIndex": "インデックス削除"
+      "dropIndex": "インデックス削除",
+      "enableTrigger": "トリガー有効化",
+      "disableTrigger": "トリガー無効化"
     },
     "triggers": "トリガー",
     "existingIndexes": "既存インデックス",

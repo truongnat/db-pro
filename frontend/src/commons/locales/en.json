@@ -270,7 +270,9 @@
       "createView": "Create View",
       "dropView": "Drop View",
       "createIndex": "Create Index",
-      "dropIndex": "Drop Index"
+      "dropIndex": "Drop Index",
+      "enableTrigger": "Enable Trigger",
+      "disableTrigger": "Disable Trigger"
     },
     "triggers": "Triggers",
     "existingIndexes": "Existing Indexes",

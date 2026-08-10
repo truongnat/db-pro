@@ -17,7 +17,9 @@ export type DdlOperation =
   | "createView"
   | "dropView"
   | "createIndex"
-  | "dropIndex";
+  | "dropIndex"
+  | "enableTrigger"
+  | "disableTrigger";
 
 export function buildCreateTable(
   schema: string,
@@ -197,6 +199,14 @@ export function generateDdlPreview(
         : "";
     case "dropIndex":
       return extra.indexName ? buildDropIndex(schema, extra.indexName, dialect) : "";
+    case "enableTrigger":
+      return extra.triggerName
+        ? buildSetTriggerEnabled(schema, table, extra.triggerName, true, dialect)
+        : "";
+    case "disableTrigger":
+      return extra.triggerName
+        ? buildSetTriggerEnabled(schema, table, extra.triggerName, false, dialect)
+        : "";
     default:
       return "";
   }
