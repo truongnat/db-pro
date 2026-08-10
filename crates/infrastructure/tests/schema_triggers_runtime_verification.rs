@@ -197,11 +197,12 @@ async fn trigger_with_special_identifiers() {
         .await
         .unwrap();
 
+    // BEFORE trigger on table with special name.
     connector
         .execute(
             &handle,
             "CREATE TRIGGER \"special_trig\" \
-             INSTEAD OF UPDATE ON \"Ünïcödé table\" \
+             BEFORE UPDATE ON \"Ünïcödé table\" \
              FOR EACH ROW \
              BEGIN \
                  SELECT 1; \
@@ -219,8 +220,49 @@ async fn trigger_with_special_identifiers() {
         .expect("trigger with special identifiers should exist");
 
     assert_eq!(trigger.table_name, "Ünïcödé table");
-    assert_eq!(trigger.timing, "INSTEAD OF");
+    assert_eq!(trigger.timing, "BEFORE");
     assert_eq!(trigger.event, "UPDATE");
+}
+
+#[tokio::test]
+async fn trigger_instead_of_on_view() {
+    let (connector, handle) = setup().await;
+
+    connector
+        .execute(&handle, "CREATE TABLE base_tbl (id INTEGER PRIMARY KEY, val TEXT)", &[])
+        .await
+        .unwrap();
+
+    connector
+        .execute(&handle, "CREATE VIEW my_view AS SELECT id, val FROM base_tbl", &[])
+        .await
+        .unwrap();
+
+    // SQLite supports INSTEAD OF triggers only on views.
+    connector
+        .execute(
+            &handle,
+            "CREATE TRIGGER view_insert_trig \
+             INSTEAD OF INSERT ON my_view \
+             FOR EACH ROW \
+             BEGIN \
+                 INSERT INTO base_tbl(id, val) VALUES (NEW.id, NEW.val); \
+             END",
+            &[],
+        )
+        .await
+        .unwrap();
+
+    let result = connector.introspect(&handle).await.unwrap();
+    let trigger = result
+        .triggers
+        .iter()
+        .find(|t| t.name == "view_insert_trig")
+        .expect("INSTEAD OF trigger on view should exist");
+
+    assert_eq!(trigger.table_name, "my_view");
+    assert_eq!(trigger.timing, "INSTEAD OF");
+    assert_eq!(trigger.event, "INSERT");
 }
 
 #[tokio::test]

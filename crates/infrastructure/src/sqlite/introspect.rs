@@ -263,24 +263,33 @@ fn introspect_triggers(conn: &rusqlite::Connection) -> Result<Vec<Trigger>, DbEr
 
 /// Parse timing (BEFORE/AFTER/INSTEAD OF) and event (INSERT/UPDATE/DELETE) from
 /// a SQLite CREATE TRIGGER SQL body. Returns (timing, event) with empty fallbacks.
+///
+/// Only the header portion (before BEGIN) is inspected for the event type,
+/// because the trigger body may contain DML keywords that would produce
+/// false positives (e.g. an AFTER UPDATE trigger whose body does INSERT).
 fn parse_sqlite_trigger_sql(sql: &str) -> (String, String) {
     let upper = sql.to_uppercase();
 
-    let timing = if upper.contains("INSTEAD OF") {
+    // Split at the first BEGIN to isolate the trigger header.
+    let header = upper
+        .find("BEGIN")
+        .map_or(upper.as_str(), |idx| &upper[..idx]);
+
+    let timing = if header.contains("INSTEAD OF") {
         "INSTEAD OF"
-    } else if upper.contains("BEFORE") {
+    } else if header.contains("BEFORE") {
         "BEFORE"
-    } else if upper.contains("AFTER") {
+    } else if header.contains("AFTER") {
         "AFTER"
     } else {
         ""
     };
 
-    let event = if upper.contains("INSERT") {
+    let event = if header.contains("INSERT") {
         "INSERT"
-    } else if upper.contains("UPDATE") {
+    } else if header.contains("UPDATE") {
         "UPDATE"
-    } else if upper.contains("DELETE") {
+    } else if header.contains("DELETE") {
         "DELETE"
     } else {
         ""
