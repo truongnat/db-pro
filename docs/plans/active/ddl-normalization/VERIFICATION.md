@@ -1,15 +1,15 @@
 # S5 — DDL Normalization Verification
 
-State: REVIEW (Cubic P2 fixes applied; CI passing)
+State: REVIEW (All Cubic review findings resolved; CI passing)
 
 ## CI Evidence
 
 | Check | Run | Result |
 |---|---|---|
-| Rust checks (cargo fmt + cargo test) | [31427087527](https://github.com/truongnat/db-pro/actions/runs/31427087527) | PASS |
-| Frontend checks (typecheck + lint + prettier + test + build) | [31427087527](https://github.com/truongnat/db-pro/actions/runs/31427087527) | PASS |
+| Rust checks (cargo fmt + clippy + build + test) | [31429564670](https://github.com/truongnat/db-pro/actions/runs/31429564670) | PASS |
+| Frontend checks (tsc + eslint + prettier + build + test) | [31429564670](https://github.com/truongnat/db-pro/actions/runs/31429564670) | PASS |
 | Frontend typecheck (local) | tsc --noEmit | 0 errors |
-| Frontend tests (local) | vitest run | 104 files, 1309 tests PASS |
+| Frontend tests (local) | vitest run | 105 files, 1318 tests PASS |
 | PR #8 mergeable | MERGEABLE | — |
 
 ## Changes
@@ -40,6 +40,19 @@ State: REVIEW (Cubic P2 fixes applied; CI passing)
 - Extracted `find_trigger_header()` helper with quote-aware search
 - Walks forward past double-quoted identifiers to avoid matching BEGIN inside names
 - 5 new unit tests: standard, BEFORE, INSTEAD OF, unquoted BEGIN-in-name, quoted BEGIN-in-name
+
+#### CR3: PG DDL ordering (FIXED)
+- `format_trigger_ddl` now emits `function_def` BEFORE `CREATE TRIGGER` statement
+- Ensures DDL replay succeeds (function exists before trigger references it)
+- Added ordering assertion in test
+
+#### CR4: SQLite trigger schema (FIXED)
+- Changed `schema: String::new()` → `schema: "main".into()` in SQLite trigger introspection
+- `get_table_ddl` filter now correctly includes SQLite triggers
+
+#### CR5: SQLite trigger toggle (FIXED)
+- `buildSetTriggerEnabled` returns empty string for SQLite dialect
+- `ALTER TABLE ENABLE/DISABLE TRIGGER` is PostgreSQL-only
 
 ### Provider Matrix
 

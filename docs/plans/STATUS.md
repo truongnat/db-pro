@@ -8,8 +8,8 @@ Canonical lifecycle: `BACKLOG → PLANNING → IMPLEMENTING → REVIEW → RUNTI
 | S2 Indexes | main | aa77ece | RUNTIME_VERIFY | PR merged; PG + UI runtime evidence pending |
 | S3 Relations | feature/schema-relations-runtime | #7 | RUNTIME_VERIFY | source + CI clean, P0=0 P1=0; MERGEABLE; PG + UI runtime pending |
 | S4 Triggers | feature/schema-triggers-runtime | #8 | RUNTIME_VERIFY | all impl + frontend + tests done; CI passing; MERGEABLE; PG runtime pending |
-| S5 DDL | feature/schema-triggers-runtime | #8 | REVIEW | view DDL + trigger function_def + DDL editor ops + Cubic P2 fixes; CI passing |
-| S6 ER Diagram | feature/schema-triggers-runtime | #8 | IMPLEMENTING | composite FK edge grouping + constraint-name edge IDs; tests passing |
+| S5 DDL | feature/schema-triggers-runtime | #8 | REVIEW | all Cubic CR1–CR5 FIXED; CI passing; MERGEABLE |
+| S6 ER Diagram | feature/schema-triggers-runtime | #8 | REVIEW | composite FK grouping + edge identity + Cubic CR1/CR2 FIXED; CI green |
 | S7 Full Schema Regression | — | — | BACKLOG | run after S1–S6 evidence closure |
 
 ## Rules
