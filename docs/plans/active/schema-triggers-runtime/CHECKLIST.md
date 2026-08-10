@@ -30,7 +30,7 @@
 - [x] SQLite: trigger with special identifiers
 - [x] SQLite: introspection captures all fields
 - [ ] PostgreSQL: introspection source verification
-- [ ] Frontend: trigger list rendering test
+- [x] Frontend: trigger list rendering test (6 tests in trigger-manager.test.tsx)
 
 ## Provider/runtime evidence
 - [x] SQLite trigger CREATE/DROP/introspect runtime test PASS (5 integration tests)
