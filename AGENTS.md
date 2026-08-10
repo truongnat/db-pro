@@ -14,6 +14,21 @@ Tech:
 - Tailwind CSS
 - PostgreSQL + SQLite
 
+## Canonical feature lifecycle
+
+Read `docs/plans/FEATURE_LIFECYCLE.md` before non-trivial work.
+
+Allowed states:
+
+```text
+BACKLOG → PLANNING → IMPLEMENTING → REVIEW → RUNTIME_VERIFY → COMPLETED
+```
+
+`BLOCKED` is allowed when an external dependency prevents progress.
+
+Never mark a feature `COMPLETED` when runtime/provider evidence is still pending.
+Never leave a `RUNTIME_VERIFY` feature under `docs/plans/completed/`.
+
 ## Working model
 
 Never implement a non-trivial feature directly on main.
@@ -21,29 +36,51 @@ Never implement a non-trivial feature directly on main.
 For every feature:
 
 1. Read:
-   - docs/plans/STATUS.md
-   - relevant docs/plans/active/<feature>/*
+   - `docs/plans/STATUS.md`
+   - `docs/plans/FEATURE_LIFECYCLE.md`
+   - relevant `docs/plans/active/<feature>/*`
    - architecture documentation
 
 2. Create or work on:
-   feature/<feature-slug>
+   - `feature/<feature-slug>` for product work
+   - `fix/<feature-slug>` for focused correctness/security fixes
 
-3. Maintain:
-   docs/plans/active/<feature>/
-     PLAN.md
-     CHECKLIST.md
-     FINDINGS.md
-     VERIFICATION.md
+3. Maintain exactly one plan directory:
+
+```text
+docs/plans/active/<feature>/
+  PLAN.md
+  CHECKLIST.md
+  FINDINGS.md
+  VERIFICATION.md
+```
 
 4. Implement in coherent commits.
-
 5. Do not silently expand scope.
-
 6. Before publishing a PR:
    - self-review architecture
    - review correctness/security
    - review test coverage
    - record remaining P0/P1/P2
+7. Move the plan to `docs/plans/completed/` only in the change that actually satisfies all completion gates.
+
+## Analyst-first policy
+
+For autonomous or scheduled work, never start coding immediately after identifying a suspicious pattern.
+
+First establish:
+
+1. Evidence — concrete code path, invariant, or failing test
+2. Failure scenario — how the behavior fails in a realistic case
+3. Severity — P0/P1/P2 with justification
+4. Scope — smallest coherent fix
+5. Existing coverage — whether another active PR already addresses it
+6. Provider impact — PostgreSQL and SQLite independently
+7. Runtime testability — what evidence can actually be collected
+
+A suspicious code pattern is not automatically a bug.
+Prefer proving one important defect over fixing five speculative issues.
+One autonomous analysis run should produce at most one focused PR.
 
 ## Severity
 
@@ -58,6 +95,7 @@ P1:
 - unsafe SQL
 - broken transaction semantics
 - stale state causing incorrect behavior
+- provider-specific correctness failure
 - major user flow broken
 
 P2:
@@ -78,14 +116,15 @@ Never:
 - claim atomicity without a transaction
 - treat affectedRows=0 as mutation success
 - silently coerce precision-sensitive values
+- infer one provider's runtime behavior from another provider's tests
 
-All provider-specific behavior must respect capabilities.
+All provider-specific behavior must respect explicit capabilities.
+Unsupported operations must be capability-gated with a clear reason instead of emitting unsupported SQL.
 
 ## Frontend quality gates
 
 ```bash
 cd frontend
-
 npm run typecheck
 npm run lint
 npm run format:check
@@ -106,7 +145,7 @@ Do not claim a command passed unless it was actually executed.
 
 ## PR workflow
 
-Publish a PR instead of pushing directly to main.
+Publish a PR instead of pushing a non-trivial feature directly to main.
 
 PR must reference:
 - PLAN.md
@@ -116,8 +155,8 @@ PR must reference:
 Report:
 - commits
 - files changed
-- tests executed
-- runtime evidence
+- tests actually executed
+- runtime evidence actually collected
 - P0/P1/P2
 - known limitations
 
@@ -125,9 +164,9 @@ Report:
 
 Source inspection alone is not runtime evidence.
 
-For database features verify when environment allows:
+For database features verify when applicable:
 
-```
+```text
 UI
 → command
 → backend
@@ -136,4 +175,16 @@ UI
 → refreshed UI state
 ```
 
-Never mark runtime verification complete based only on source reasoning.
+Every database-facing feature must independently account for PostgreSQL and SQLite as supported, unsupported, or pending.
+
+## Review infrastructure
+
+The repository intentionally uses a read-only VPS/Kilo reviewer.
+Do not delete these as cleanup unless the task explicitly replaces the review system:
+
+- `REVIEW.md`
+- `.kilo/`
+- `.github/review-prompts/`
+- `.github/workflows/vps-pr-review.yml`
+
+The implementer must not treat its own self-review as independent approval. P0/P1 findings from external reviewers must be resolved, rejected, or downgraded with evidence before merge.
