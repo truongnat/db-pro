@@ -40,7 +40,7 @@ The DDL editor's `DdlOperation` type now includes `enableTrigger`/`disableTrigge
 `action_statement` from `information_schema.triggers` only returns `EXECUTE FUNCTION func_name()`, not the function body. Fixed by:
 - Adding `function_def` field to `Trigger` domain struct
 - Extending PG introspection SQL to `LEFT JOIN pg_proc` and fetch `pg_get_functiondef(pg_proc.oid)`
-- Updating `format_trigger_ddl` to append function definition after CREATE TRIGGER statement
+- Updating `format_trigger_ddl` to emit function definition BEFORE CREATE TRIGGER statement (correct replay order)
 - Propagating `functionDef` through `TriggerDto` (Rust) and `TriggerDto` (TypeScript)
 
 ### CR2: SQLite BEGIN parsing fragile for trigger names containing BEGIN (P2 — FIXED)
@@ -48,3 +48,12 @@ The DDL editor's `DdlOperation` type now includes `enableTrigger`/`disableTrigge
 - Extracting `find_trigger_header()` helper that walks forward past double-quoted identifiers
 - Counting unbalanced quotes to detect when a match is inside a quoted identifier
 - Added 5 unit tests covering standard, BEFORE, INSTEAD OF, unquoted BEGIN-in-name, and quoted BEGIN-in-name cases
+
+### CR3: PG DDL ordering — CREATE FUNCTION must precede CREATE TRIGGER (P1 — FIXED)
+`format_trigger_ddl` emitted CREATE TRIGGER before the function definition, causing replay failures. Fixed by emitting `function_def` first, then the CREATE TRIGGER statement.
+
+### CR4: SQLite trigger schema mismatch (P1 — FIXED)
+SQLite trigger introspection set `schema: String::new()` (empty), but `get_table_ddl` filters by `tr.schema == schema` where schema is `"main"`. Fixed by setting `schema: "main".into()` in SQLite trigger introspection.
+
+### CR5: SQLite trigger toggle emits unsupported ALTER TABLE syntax (P2 — FIXED)
+`buildSetTriggerEnabled` emitted `ALTER TABLE … ENABLE/DISABLE TRIGGER` for all dialects. SQLite doesn't support this. Fixed by returning empty string when `dialect.driver === "sqlite"`.

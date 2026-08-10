@@ -154,6 +154,8 @@ export function buildSetTriggerEnabled(
   enabled: boolean,
   dialect: SqlDialect = getSqlDialect("postgres"),
 ): string {
+  // SQLite does not support ALTER TABLE … ENABLE/DISABLE TRIGGER.
+  if (dialect.driver === "sqlite") return "";
   const qualified = dialect.qualify(schema, table);
   const name = dialect.quoteIdentifier(triggerName);
   const action = enabled ? "ENABLE" : "DISABLE";

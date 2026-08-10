@@ -296,7 +296,7 @@ fn build_create_table_ddl(info: &TableInfo) -> String {
 fn format_trigger_ddl(trigger: &Trigger) -> String {
     // SQLite: definition is the full CREATE TRIGGER SQL from sqlite_master.
     // PostgreSQL: definition is action_statement (EXECUTE FUNCTION ...),
-    //   so reconstruct the CREATE TRIGGER and append the function definition.
+    //   so emit the function definition first, then the CREATE TRIGGER.
     if trigger.definition.to_ascii_uppercase().starts_with("CREATE TRIGGER") {
         format!("{};\n", trigger.definition)
     } else {
@@ -305,7 +305,7 @@ fn format_trigger_ddl(trigger: &Trigger) -> String {
             quote_identifier(&trigger.schema),
             quote_identifier(&trigger.table_name)
         );
-        let mut ddl = format!(
+        let trigger_stmt = format!(
             "CREATE TRIGGER {}\n  {} {} ON {}\n  {};\n",
             quote_identifier(&trigger.name),
             trigger.timing,
@@ -314,13 +314,17 @@ fn format_trigger_ddl(trigger: &Trigger) -> String {
             trigger.definition
         );
         if !trigger.function_def.is_empty() {
-            ddl.push('\n');
+            let mut ddl = String::new();
             ddl.push_str(&trigger.function_def);
-            if !ddl.ends_with('\n') {
+            if !trigger.function_def.ends_with('\n') {
                 ddl.push('\n');
             }
+            ddl.push('\n');
+            ddl.push_str(&trigger_stmt);
+            ddl
+        } else {
+            trigger_stmt
         }
-        ddl
     }
 }
 
@@ -656,6 +660,10 @@ mod tests {
         assert!(ddl.contains("EXECUTE FUNCTION audit_fn()"));
         assert!(ddl.contains("CREATE FUNCTION audit_fn()"));
         assert!(ddl.contains("RETURN NEW"));
+        // Function definition must come BEFORE the CREATE TRIGGER statement.
+        let func_pos = ddl.find("CREATE FUNCTION").unwrap();
+        let trigger_pos = ddl.find("CREATE TRIGGER").unwrap();
+        assert!(func_pos < trigger_pos, "function_def must preced CREATE TRIGGER");
     }
 
     #[test]

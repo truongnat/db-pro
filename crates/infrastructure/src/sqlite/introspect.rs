@@ -248,7 +248,7 @@ fn introspect_triggers(conn: &rusqlite::Connection) -> Result<Vec<Trigger>, DbEr
             Ok(Trigger {
                 name,
                 table_name,
-                schema: String::new(),
+                schema: "main".into(),
                 timing,
                 event,
                 definition,
