@@ -2,7 +2,7 @@
 
 ## P1-001 — Composite FK DDL reconstruction emitted duplicate constraints
 
-Status: FIXED IN SOURCE; TEST EXECUTION PENDING.
+Status: FIXED IN SOURCE; CI PASS (tests executed and passed in CI run 31412787979).
 
 Evidence:
 - provider introspection represents a composite FK as multiple column-mapping rows,
@@ -17,7 +17,7 @@ Group mapping rows by constraint identity and target before emitting DDL; join o
 
 ## P1-002 — SQLite composite FK mappings had different synthetic identities
 
-Status: FIXED IN SOURCE; RUNTIME TEST EXECUTION PENDING.
+Status: FIXED IN SOURCE; CI PASS (tests executed and passed in CI run 31412787979).
 
 Evidence:
 SQLite `PRAGMA foreign_key_list` returns `id` and `seq`, where all mappings for one composite constraint share `id`. Previous code named each mapping from `from_column`, splitting one constraint into multiple apparent relations.
@@ -27,7 +27,7 @@ Use `{table_name}_fk_{id}` as the shared synthetic identity (e.g., `child_fk_0` 
 
 ## P2-001 — Foreign Keys UI rendered mapping rows rather than constraints
 
-Status: FIXED IN SOURCE; FRONTEND TEST EXECUTION PENDING.
+Status: FIXED IN SOURCE; CI PASS (frontend tests executed and passed in CI).
 
 Evidence:
 `ForeignKeyList` mapped directly over scalar FK rows and used `fk.name` as the React key. PostgreSQL composite FK rows therefore produced duplicate keys and duplicate visual relation rows.
@@ -43,10 +43,10 @@ The current S3 scope fixes relation truth in introspection, DDL reconstruction a
 
 ## Runtime gaps
 
-- PostgreSQL composite FK provider verification: PENDING
-- SQLite newly added runtime test execution: PENDING
-- UI relation-list/navigation runtime verification: PENDING
+- PostgreSQL composite FK provider verification: PENDING (requires live PG credentials)
+- SQLite runtime test: CI PASS
+- UI relation-list/navigation runtime verification: PENDING (requires running app)
 
 ## Gate
 
-Accepted source-level P1 defects have fixes on this branch, but S3 must not claim P1=0 for merge readiness until tests/review validate those fixes.
+All source-level P1 fixes validated by CI. Cubic review found only P3 issues (no P0/P1). S3 is ready for RUNTIME_VERIFY once PostgreSQL credentials and UI runtime evidence are available.

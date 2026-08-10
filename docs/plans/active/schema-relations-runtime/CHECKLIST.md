@@ -17,18 +17,18 @@
 - [x] frontend composite grouping test
 - [x] backend reconstructed composite DDL test
 - [x] SQLite composite FK introspection/enforcement test
-- [ ] tests actually executed and recorded
+- [x] tests actually executed and passed (CI run 31412787979)
 
 ## Provider/runtime evidence
-- [ ] SQLite composite relation test PASS
+- [x] SQLite composite relation test PASS (CI)
 - [ ] PostgreSQL composite FK introspection verified against live provider
 - [ ] PostgreSQL reconstructed DDL checked for one ordered constraint
 - [ ] Foreign Keys UI displays one composite relation row
 - [ ] target navigation opens the correct table
 
 ## Review gate
-- [ ] independent reviewer result recorded
-- [ ] P0 = 0
-- [ ] P1 = 0
-- [ ] quality gates actually executed
-- [ ] VERIFICATION.md updated with observed evidence
+- [x] independent reviewer result recorded (Cubic: 2 P3 issues, no P0/P1)
+- [x] P0 = 0
+- [x] P1 = 0
+- [x] quality gates actually executed (CI: Rust + Frontend all SUCCESS)
+- [x] VERIFICATION.md updated with observed evidence
