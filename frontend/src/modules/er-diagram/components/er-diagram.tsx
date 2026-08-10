@@ -131,7 +131,7 @@ export function ErDiagram({ connectionId, data }: ErDiagramProps) {
     const fkGroups = groupForeignKeys(data.foreignKeys, visibleTableKeys);
 
     const edges: Edge[] = fkGroups.map((group) => ({
-      id: `fk:${group.fk.schema}.${group.fk.name}`,
+      id: `fk:${group.key}`,
       source: `${group.fk.toSchema}.${group.fk.toTable}`,
       target: `${group.fk.schema}.${group.fk.fromTable}`,
       sourceHandle: `pk:${group.fk.toColumn}`,

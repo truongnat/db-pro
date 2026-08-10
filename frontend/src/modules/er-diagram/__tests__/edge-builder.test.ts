@@ -54,7 +54,7 @@ describe("groupForeignKeys", () => {
     const groups = groupForeignKeys(fks, visible);
 
     expect(groups).toHaveLength(1);
-    expect(groups[0].key).toBe("public.fk_composite");
+    expect(groups[0].key).toBe("public.child.fk_composite");
     expect(groups[0].columns).toHaveLength(2);
     expect(groups[0].columns[0]).toEqual({ from: "tenant_id", to: "tenant_id" });
     expect(groups[0].columns[1]).toEqual({ from: "parent_id", to: "id" });
@@ -76,7 +76,7 @@ describe("groupForeignKeys", () => {
       fk({ name: "fk_visible", fromTable: "orders" }),
       fk({ name: "fk_hidden", fromTable: "hidden_table" }),
     ];
-    const visible = new Set(["public.orders"]);
+    const visible = new Set(["public.orders", "public.users"]);
     const groups = groupForeignKeys(fks, visible);
 
     expect(groups).toHaveLength(1);
@@ -111,7 +111,45 @@ describe("groupForeignKeys", () => {
     const visible = new Set(["public.orders", "public.users"]);
     const groups = groupForeignKeys(fks, visible);
 
-    // Key should be schema-qualified constraint name, not a sequential index.
-    expect(groups[0].key).toBe("public.orders_user_fkey");
+    // Key should include schema + fromTable + constraint name, not a sequential index.
+    expect(groups[0].key).toBe("public.orders.orders_user_fkey");
+  });
+
+  it("does not merge same-named FKs on different tables", () => {
+    const fks = [
+      fk({
+        name: "fk_same",
+        fromTable: "orders",
+        fromColumn: "user_id",
+        toTable: "users",
+        toColumn: "id",
+      }),
+      fk({
+        name: "fk_same",
+        fromTable: "products",
+        fromColumn: "user_id",
+        toTable: "users",
+        toColumn: "id",
+      }),
+    ];
+    const visible = new Set(["public.orders", "public.products", "public.users"]);
+    const groups = groupForeignKeys(fks, visible);
+
+    // Same constraint name but different fromTable → must NOT merge.
+    expect(groups).toHaveLength(2);
+    expect(groups[0].key).toBe("public.orders.fk_same");
+    expect(groups[1].key).toBe("public.products.fk_same");
+  });
+
+  it("excludes FKs whose toTable is not visible (cross-schema)", () => {
+    const fks = [
+      fk({ name: "fk_local", fromTable: "orders", toTable: "users" }),
+      fk({ name: "fk_remote", fromTable: "orders", toTable: "external_ref", toSchema: "other" }),
+    ];
+    const visible = new Set(["public.orders", "public.users"]);
+    const groups = groupForeignKeys(fks, visible);
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0].fk.name).toBe("fk_local");
   });
 });
