@@ -15,7 +15,7 @@
 - [x] add trigger CREATE command (SchemaService + Tauri command)
 - [x] add trigger DROP command (SchemaService + Tauri command)
 - [x] add trigger DDL reconstruction in schema_service.rs
-- [ ] add trigger enabled/disabled toggle (PostgreSQL only, capability-gate for SQLite)
+- [x] add trigger enabled/disabled toggle (PostgreSQL only, capability-gate for SQLite)
 - [x] cache invalidation after trigger mutations
 
 ## Frontend

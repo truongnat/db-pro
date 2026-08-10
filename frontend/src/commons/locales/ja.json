@@ -259,6 +259,8 @@
     "triggerBody": "本体",
     "noTriggers": "このテーブルにはトリガーがありません。",
     "selectForDrop": "選択して削除",
+    "enableTrigger": "有効",
+    "disableTrigger": "無効",
     "crossConn": {
       "selectTwo": "比較する接続を2つ選択してください",
       "compare": "比較",

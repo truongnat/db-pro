@@ -145,6 +145,19 @@ export function buildDropTrigger(
   return `DROP TRIGGER ${name} ON ${qualified};`;
 }
 
+export function buildSetTriggerEnabled(
+  schema: string,
+  table: string,
+  triggerName: string,
+  enabled: boolean,
+  dialect: SqlDialect = getSqlDialect("postgres"),
+): string {
+  const qualified = dialect.qualify(schema, table);
+  const name = dialect.quoteIdentifier(triggerName);
+  const action = enabled ? "ENABLE" : "DISABLE";
+  return `ALTER TABLE ${qualified} ${action} TRIGGER ${name};`;
+}
+
 export function generateDdlPreview(
   operation: DdlOperation,
   schema: string,

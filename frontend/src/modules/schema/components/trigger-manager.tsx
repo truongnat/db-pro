@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
 
+import { useConnectionStore } from "@/commons/stores";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,7 +16,8 @@ import {
 import { useTranslation } from "@/commons/locales/useTranslation";
 
 import { useExecuteDdl, useIntrospect } from "../queries/schema.queries";
-import { buildCreateTrigger, buildDropTrigger } from "../services/ddl-builder";
+import { buildCreateTrigger, buildDropTrigger, buildSetTriggerEnabled } from "../services/ddl-builder";
+import { getDdlCapabilities } from "../services/ddl-capabilities";
 import type { TriggerDto } from "../types/schema.types";
 
 interface TriggerManagerProps {
@@ -28,6 +30,8 @@ export function TriggerManager({ connectionId, schema, table }: TriggerManagerPr
   const { t } = useTranslation();
   const executeDdl = useExecuteDdl(connectionId);
   const introspect = useIntrospect(connectionId);
+  const driver = useConnectionStore((s) => s.connections.find((c) => c.id === connectionId)?.driver ?? "postgres");
+  const canToggle = getDdlCapabilities(driver).supportsTriggerToggle;
 
   const tableTriggers = (introspect.data?.triggers ?? []).filter(
     (tr) => tr.tableName === table && tr.schema === schema,
@@ -73,7 +77,12 @@ export function TriggerManager({ connectionId, schema, table }: TriggerManagerPr
                 onDrop={() => {
                   setTriggerName(tr.name);
                 }}
+                onToggle={(enabled) => {
+                  const sql = buildSetTriggerEnabled(schema, table, tr.name, enabled);
+                  executeDdl.mutate(sql);
+                }}
                 isPending={executeDdl.isPending}
+                canToggle={canToggle}
               />
             ))}
           </div>
@@ -192,11 +201,15 @@ export function TriggerManager({ connectionId, schema, table }: TriggerManagerPr
 function TriggerRow({
   trigger,
   onDrop,
+  onToggle,
   isPending,
+  canToggle,
 }: {
   trigger: TriggerDto;
   onDrop: () => void;
+  onToggle: (enabled: boolean) => void;
   isPending: boolean;
+  canToggle: boolean;
 }) {
   const { t } = useTranslation();
   return (
@@ -217,16 +230,30 @@ function TriggerRow({
           )}
         </div>
       </div>
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        className="h-6 text-[10px]"
-        disabled={isPending}
-        onClick={onDrop}
-      >
-        {t("schema.selectForDrop")}
-      </Button>
+      <div className="flex items-center gap-1">
+        {canToggle && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-6 text-[10px]"
+            disabled={isPending}
+            onClick={() => onToggle(!trigger.enabled)}
+          >
+            {trigger.enabled ? t("schema.disableTrigger") : t("schema.enableTrigger")}
+          </Button>
+        )}
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-6 text-[10px]"
+          disabled={isPending}
+          onClick={onDrop}
+        >
+          {t("schema.selectForDrop")}
+        </Button>
+      </div>
     </div>
   );
 }

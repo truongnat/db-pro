@@ -9,6 +9,11 @@ vi.mock("@/commons/locales/useTranslation", () => ({
   }),
 }));
 
+vi.mock("@/commons/stores", () => ({
+  useConnectionStore: (selector: (s: { connections: { id: string; driver: string }[] }) => unknown) =>
+    selector({ connections: [{ id: "conn-1", driver: "postgres" }] }),
+}));
+
 const mockTriggers = [
   {
     name: "log_update",
@@ -101,5 +106,13 @@ describe("TriggerManager", () => {
     expect(screen.getByText("schema.triggerTiming")).toBeTruthy();
     expect(screen.getByText("schema.triggerEvent")).toBeTruthy();
     expect(screen.getByText("schema.triggerBody")).toBeTruthy();
+  });
+
+  it("renders enable/disable toggle for PostgreSQL connections", () => {
+    render(<TriggerManager connectionId="conn-1" schema="public" table="users" />);
+
+    // Both triggers on "users" are enabled, so should show "Disable" button
+    const disableButtons = screen.getAllByText("schema.disableTrigger");
+    expect(disableButtons.length).toBe(2);
   });
 });
