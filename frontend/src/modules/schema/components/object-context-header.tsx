@@ -46,12 +46,7 @@ interface ObjectContextHeaderProps {
   schema: string;
   objectName: string;
   objectType: string;
-  columns?: {
-    name: string;
-    isPrimaryKey?: boolean;
-    nullable?: boolean;
-    defaultValue?: string | null;
-  }[];
+  columns?: { name: string; isPrimaryKey?: boolean; nullable?: boolean; defaultValue?: string | null }[];
   onRefresh: () => void;
   onOpenSelect: () => void;
   onOpenDdl: () => void;

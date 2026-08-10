@@ -86,13 +86,7 @@ export function IndexManager({ connectionId, schema, table, columns, indexes }: 
           <span className="text-xs font-semibold text-foreground">
             {indexes.length} {indexes.length === 1 ? "index" : "indexes"}
           </span>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-7 gap-1.5 text-[12px]"
-            onClick={() => setShowCreate(true)}
-          >
+          <Button type="button" variant="outline" size="sm" className="h-7 gap-1.5 text-[12px]" onClick={() => setShowCreate(true)}>
             <Plus className="h-3 w-3" />
             {t("schema.createIndex")}
           </Button>
@@ -106,12 +100,8 @@ export function IndexManager({ connectionId, schema, table, columns, indexes }: 
           <Table className="w-full text-[13px]">
             <TableHeader>
               <TableRow>
-                <TableHead className={cn(headerClass, "text-left")}>
-                  {t("schema.ddlIndexName")}
-                </TableHead>
-                <TableHead className={cn(headerClass, "text-left")}>
-                  {t("schema.ddlIndexColumns")}
-                </TableHead>
+                <TableHead className={cn(headerClass, "text-left")}>{t("schema.ddlIndexName")}</TableHead>
+                <TableHead className={cn(headerClass, "text-left")}>{t("schema.ddlIndexColumns")}</TableHead>
                 <TableHead className={cn(headerClass, "text-center")}>Unique</TableHead>
                 <TableHead className={cn(headerClass, "w-10")} />
               </TableRow>
@@ -198,19 +188,13 @@ export function IndexManager({ connectionId, schema, table, columns, indexes }: 
       )}
 
       {/* Confirm Drop Index */}
-      <AlertDialog
-        open={!!droppingIndex}
-        onOpenChange={(open) => {
-          if (!open) setDroppingIndex(null);
-        }}
-      >
+      <AlertDialog open={!!droppingIndex} onOpenChange={(open) => { if (!open) setDroppingIndex(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Drop Index</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to drop index{" "}
-              <code className="rounded bg-muted px-1 font-mono">{droppingIndex}</code>? This action
-              cannot be undone.
+              Are you sure you want to drop index <code className="rounded bg-muted px-1 font-mono">{droppingIndex}</code>?
+              This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -235,13 +219,7 @@ interface CreateIndexDialogProps {
   onClose: () => void;
 }
 
-function CreateIndexDialog({
-  schema,
-  table,
-  columns,
-  connectionId,
-  onClose,
-}: CreateIndexDialogProps) {
+function CreateIndexDialog({ schema, table, columns, connectionId, onClose }: CreateIndexDialogProps) {
   const { t } = useTranslation();
   const executeDdl = useExecuteDdl(connectionId);
 
@@ -276,12 +254,7 @@ function CreateIndexDialog({
   );
 
   return (
-    <Dialog
-      open
-      onOpenChange={(open) => {
-        if (!open) onClose();
-      }}
-    >
+    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
       <DialogContent className="sm:max-w-md" onKeyDown={handleKeyDown}>
         <DialogHeader>
           <DialogTitle>{t("schema.createIndex")}</DialogTitle>

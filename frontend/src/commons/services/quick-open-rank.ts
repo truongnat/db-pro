@@ -40,7 +40,10 @@ function searchTextOf(item: QuickOpenItem): string {
  * Returns matched indices (for highlighting) and a score.
  * Returns { indices: [], score: 0 } if not all query chars are found.
  */
-export function fuzzyMatch(text: string, query: string): { indices: number[]; score: number } {
+export function fuzzyMatch(
+  text: string,
+  query: string,
+): { indices: number[]; score: number } {
   const q = query.trim().toLowerCase();
   if (!q) return { indices: [], score: 0 };
   const t = text.toLowerCase();
@@ -180,19 +183,15 @@ export function rankQuickOpenItems(
             : item.kind === "schema"
               ? 200
               : 100;
-      ranked.push({
-        item,
-        score: base + boostScore(item, ctx),
-        matchIndices: [],
-        titleMatchIndices: [],
-      });
+      ranked.push({ item, score: base + boostScore(item, ctx), matchIndices: [], titleMatchIndices: [] });
       continue;
     }
 
     // Try primary text first (better highlight), then full searchText
     const primaryResult = fuzzyMatch(primaryText(item), q);
-    const fullResult =
-      primaryResult.score > 0 ? { indices: [], score: 0 } : fuzzyMatch(searchTextOf(item), q);
+    const fullResult = primaryResult.score > 0
+      ? { indices: [], score: 0 }
+      : fuzzyMatch(searchTextOf(item), q);
 
     const bestScore = Math.max(primaryResult.score, fullResult.score);
     if (bestScore === 0) continue;

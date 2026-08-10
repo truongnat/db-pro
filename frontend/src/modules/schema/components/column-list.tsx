@@ -59,7 +59,10 @@ export function ColumnList({ columns, onEditColumn }: ColumnListProps) {
       </TableHeader>
       <TableBody>
         {sorted.map((col) => (
-          <TableRow key={col.name} className="group transition-colors hover:bg-[var(--app-hover)]">
+          <TableRow
+            key={col.name}
+            className="group transition-colors hover:bg-[var(--app-hover)]"
+          >
             <TableCell className="px-3 py-1.5 font-mono text-[13px]">
               <div className="flex items-center gap-1.5">
                 <span className="select-text">{col.name}</span>

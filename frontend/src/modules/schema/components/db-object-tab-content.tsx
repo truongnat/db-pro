@@ -65,7 +65,9 @@ export function DbObjectTabContent({
     objectName,
     activeSection === "ddl" || toolbarAction === "ddlEditor",
   );
-  const introspect = useIntrospect(activeSection === "diagram" ? connectionId : null);
+  const introspect = useIntrospect(
+    activeSection === "diagram" ? connectionId : null,
+  );
 
   if (!connectionId) return null;
 
@@ -171,10 +173,7 @@ export function DbObjectTabContent({
             )}
             {activeSection === "relations" && isTableOrView && tableInfo.data && (
               <ObjectSectionLayout>
-                <ForeignKeyList
-                  foreignKeys={tableInfo.data.foreignKeys}
-                  connectionId={connectionId}
-                />
+                <ForeignKeyList foreignKeys={tableInfo.data.foreignKeys} connectionId={connectionId} />
               </ObjectSectionLayout>
             )}
             {activeSection === "triggers" && isTableOrView && (
@@ -186,9 +185,7 @@ export function DbObjectTabContent({
               <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
                 {introspect.isLoading && (
                   <div className="flex h-full items-center justify-center p-4">
-                    <span className="text-[13px] text-[var(--app-text-muted)]">
-                      {t("common.states.loading")}
-                    </span>
+                    <span className="text-[13px] text-[var(--app-text-muted)]">{t("common.states.loading")}</span>
                   </div>
                 )}
                 {introspect.isError && (

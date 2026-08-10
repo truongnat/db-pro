@@ -420,11 +420,7 @@ async fn execute_batch_all_valid_commits() {
     assert_eq!(affected, 2);
 
     let result = connector
-        .query(
-            &handle,
-            "SELECT COUNT(*) AS cnt FROM categories WHERE name IN ('Batch1', 'Batch2')",
-            &[],
-        )
+        .query(&handle, "SELECT COUNT(*) AS cnt FROM categories WHERE name IN ('Batch1', 'Batch2')", &[])
         .await
         .unwrap();
     let json = serde_json::to_value(&result.rows[0].0[0]).unwrap();
@@ -448,10 +444,7 @@ async fn execute_batch_middle_failure_rolls_back_all() {
     ];
 
     let result = connector.execute_batch(&handle, &statements).await;
-    assert!(
-        result.is_err(),
-        "execute_batch should fail when any statement is invalid"
-    );
+    assert!(result.is_err(), "execute_batch should fail when any statement is invalid");
 
     let count_after = connector
         .query(&handle, "SELECT COUNT(*) AS cnt FROM categories", &[])
@@ -461,11 +454,7 @@ async fn execute_batch_middle_failure_rolls_back_all() {
     assert_eq!(json_before, json_after, "row count must be unchanged after rollback");
 
     let check = connector
-        .query(
-            &handle,
-            "SELECT COUNT(*) AS cnt FROM categories WHERE name = 'ShouldRollback'",
-            &[],
-        )
+        .query(&handle, "SELECT COUNT(*) AS cnt FROM categories WHERE name = 'ShouldRollback'", &[])
         .await
         .unwrap();
     let json_check = serde_json::to_value(&check.rows[0].0[0]).unwrap();
@@ -485,11 +474,7 @@ async fn execute_batch_first_failure_rolls_back() {
     assert!(result.is_err());
 
     let check = connector
-        .query(
-            &handle,
-            "SELECT COUNT(*) AS cnt FROM categories WHERE name = 'AfterFailure'",
-            &[],
-        )
+        .query(&handle, "SELECT COUNT(*) AS cnt FROM categories WHERE name = 'AfterFailure'", &[])
         .await
         .unwrap();
     let json = serde_json::to_value(&check.rows[0].0[0]).unwrap();

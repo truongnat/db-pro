@@ -29,6 +29,7 @@ export function TabContextMenu({ tab, children, onClose, onCloseMany }: TabConte
   const tabs = useWorkspaceStore((s) => s.tabs);
   const toggleTabPinned = useWorkspaceStore((s) => s.toggleTabPinned);
   const reopenLastClosed = useWorkspaceStore((s) => s.reopenLastClosed);
+  const closeAll = useWorkspaceStore((s) => s.closeAll);
   const recentlyClosedCount = useWorkspaceStore((s) => s.recentlyClosed.length);
 
   const tabIdx = tabs.findIndex((t) => t.id === tab.id);

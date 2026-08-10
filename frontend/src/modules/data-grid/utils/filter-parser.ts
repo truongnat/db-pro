@@ -5,7 +5,10 @@ import type { CellValue, ColumnMeta } from "../types/data-grid.types";
  * This ensures filter values are correctly typed for the backend,
  * rather than always being sent as { type: "text" }.
  */
-export function parseFilterValue(column: ColumnMeta, rawInput: string): CellValue {
+export function parseFilterValue(
+  column: ColumnMeta,
+  rawInput: string,
+): CellValue {
   const dt = column.dataType.toLowerCase();
 
   // Boolean
@@ -23,15 +26,9 @@ export function parseFilterValue(column: ColumnMeta, rawInput: string): CellValu
 
   // Integer types
   if (
-    dt === "int2" ||
-    dt === "int4" ||
-    dt === "int8" ||
-    dt === "integer" ||
-    dt === "smallint" ||
-    dt === "bigint" ||
-    dt === "serial" ||
-    dt === "bigserial" ||
-    dt === "smallserial"
+    dt === "int2" || dt === "int4" || dt === "int8" ||
+    dt === "integer" || dt === "smallint" || dt === "bigint" ||
+    dt === "serial" || dt === "bigserial" || dt === "smallserial"
   ) {
     const parsed = Number.parseInt(rawInput, 10);
     if (!Number.isNaN(parsed)) {
@@ -42,14 +39,9 @@ export function parseFilterValue(column: ColumnMeta, rawInput: string): CellValu
 
   // Float / numeric / decimal / real / double
   if (
-    dt === "float4" ||
-    dt === "float8" ||
-    dt === "numeric" ||
-    dt === "decimal" ||
-    dt === "real" ||
-    dt === "double precision" ||
-    dt.startsWith("numeric(") ||
-    dt.startsWith("decimal(")
+    dt === "float4" || dt === "float8" || dt === "numeric" ||
+    dt === "decimal" || dt === "real" || dt === "double precision" ||
+    dt.startsWith("numeric(") || dt.startsWith("decimal(")
   ) {
     const parsed = Number.parseFloat(rawInput);
     if (!Number.isNaN(parsed)) {
@@ -65,13 +57,9 @@ export function parseFilterValue(column: ColumnMeta, rawInput: string): CellValu
 
   // Date / time / timestamp
   if (
-    dt === "date" ||
-    dt === "time" ||
-    dt === "timetz" ||
-    dt === "timestamp" ||
-    dt === "timestamptz" ||
-    dt.startsWith("timestamp") ||
-    dt.startsWith("time")
+    dt === "date" || dt === "time" || dt === "timetz" ||
+    dt === "timestamp" || dt === "timestamptz" ||
+    dt.startsWith("timestamp") || dt.startsWith("time")
   ) {
     return { type: "datetime", value: rawInput.trim() };
   }

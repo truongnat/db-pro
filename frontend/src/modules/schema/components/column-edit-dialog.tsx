@@ -33,6 +33,7 @@ import {
   classifyColumnMutation,
   hasChanges,
   type ColumnMutationDraft,
+  type ClassifiedMutation,
   type MutationRiskLevel,
 } from "../utils/column-mutation-risk";
 
@@ -46,10 +47,7 @@ interface ColumnEditDialogProps {
   onApplied: () => void;
 }
 
-const RISK_BADGE_VARIANT: Record<
-  MutationRiskLevel,
-  "success" | "info" | "warning" | "destructive"
-> = {
+const RISK_BADGE_VARIANT: Record<MutationRiskLevel, "success" | "info" | "warning" | "destructive"> = {
   low: "success",
   medium: "info",
   high: "warning",
@@ -109,11 +107,12 @@ export function ColumnEditDialog({
     newName,
     newDataType: isSqlite ? column.dataType : newDataType,
     newNullable: isSqlite ? column.nullable : newNullable,
-    newDefaultValue: isSqlite ? (column.defaultValue ?? null) : newDefault || null,
+    newDefaultValue: isSqlite ? (column.defaultValue ?? null) : (newDefault || null),
   };
 
   const classified = useMemo(
     () => classifyColumnMutation(draft, schemaName, tableName, driverType),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [newName, newDataType, newNullable, newDefault, schemaName, tableName, column, driverType],
   );
   const changed = useMemo(() => hasChanges(draft), [draft]);
@@ -170,12 +169,7 @@ export function ColumnEditDialog({
 
   return (
     <>
-      <Dialog
-        open
-        onOpenChange={(open) => {
-          if (!open) onClose();
-        }}
-      >
+      <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
         <DialogContent className="sm:max-w-md" onKeyDown={handleKeyDown}>
           <DialogHeader>
             <DialogTitle className="text-sm">Edit Column</DialogTitle>
@@ -194,16 +188,17 @@ export function ColumnEditDialog({
                 from={column.nullable ? "YES" : "NO"}
                 to={newNullable ? "YES" : "NO"}
               />
-              <DiffRow label="Default" from={column.defaultValue ?? ""} to={newDefault} />
+              <DiffRow
+                label="Default"
+                from={column.defaultValue ?? ""}
+                to={newDefault}
+              />
             </div>
 
             {/* Editable fields — compact */}
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <Label
-                  htmlFor="col-edit-name"
-                  className="mb-0.5 block text-[11px] text-[var(--app-text-muted)]"
-                >
+                <Label htmlFor="col-edit-name" className="mb-0.5 block text-[11px] text-[var(--app-text-muted)]">
                   Column name
                 </Label>
                 <Input
@@ -220,10 +215,7 @@ export function ColumnEditDialog({
                 )}
               </div>
               <div>
-                <Label
-                  htmlFor="col-edit-type"
-                  className="mb-0.5 block text-[11px] text-[var(--app-text-muted)]"
-                >
+                <Label htmlFor="col-edit-type" className="mb-0.5 block text-[11px] text-[var(--app-text-muted)]">
                   Data type
                 </Label>
                 <Input
@@ -244,19 +236,13 @@ export function ColumnEditDialog({
                 onCheckedChange={(checked) => setNewNullable(checked === true)}
                 disabled={isSqlite}
               />
-              <Label
-                htmlFor="col-edit-nullable"
-                className={`text-xs font-normal ${isSqlite ? "opacity-50" : ""}`}
-              >
+              <Label htmlFor="col-edit-nullable" className={`text-xs font-normal ${isSqlite ? "opacity-50" : ""}`}>
                 Nullable
               </Label>
             </div>
 
             <div>
-              <Label
-                htmlFor="col-edit-default"
-                className="mb-0.5 block text-[11px] text-[var(--app-text-muted)]"
-              >
+              <Label htmlFor="col-edit-default" className="mb-0.5 block text-[11px] text-[var(--app-text-muted)]">
                 Default value
               </Label>
               <Input
@@ -271,9 +257,8 @@ export function ColumnEditDialog({
 
             {isSqlite && (
               <div className="rounded-sm bg-warning/10 px-2.5 py-1.5 text-[11px] text-warning">
-                SQLite only supports <span className="font-mono">RENAME COLUMN</span> and{" "}
-                <span className="font-mono">ADD COLUMN</span> via ALTER TABLE. Type, nullable, and
-                default changes are disabled.
+                SQLite only supports <span className="font-mono">RENAME COLUMN</span> and <span className="font-mono">ADD COLUMN</span> via ALTER TABLE.
+                Type, nullable, and default changes are disabled.
               </div>
             )}
 
@@ -288,8 +273,7 @@ export function ColumnEditDialog({
                     </Badge>
                   </div>
                   <span className="text-[10px] text-[var(--app-text-muted)]">
-                    {classified.operations.length} change
-                    {classified.operations.length > 1 ? "s" : ""}
+                    {classified.operations.length} change{classified.operations.length > 1 ? "s" : ""}
                   </span>
                 </div>
 
@@ -346,12 +330,7 @@ export function ColumnEditDialog({
         </DialogContent>
       </Dialog>
 
-      <AlertDialog
-        open={showConfirm}
-        onOpenChange={(open) => {
-          if (!open) handleConfirmCancel();
-        }}
-      >
+      <AlertDialog open={showConfirm} onOpenChange={(open) => { if (!open) handleConfirmCancel(); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2 text-sm">
@@ -386,7 +365,9 @@ export function ColumnEditDialog({
             <AlertDialogCancel onClick={handleConfirmCancel}>
               {t("common.actions.cancel")}
             </AlertDialogCancel>
-            <AlertDialogAction onClick={executeStatements}>Apply Changes</AlertDialogAction>
+            <AlertDialogAction onClick={executeStatements}>
+              Apply Changes
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

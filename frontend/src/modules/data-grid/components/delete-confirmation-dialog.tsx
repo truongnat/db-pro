@@ -41,9 +41,7 @@ export function DeleteConfirmationDialog({
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>{t("common.actions.cancel")}</AlertDialogCancel>
-          <AlertDialogAction onClick={onConfirm}>
-            {t("dataGrid.confirmDeleteAction")}
-          </AlertDialogAction>
+          <AlertDialogAction onClick={onConfirm}>{t("dataGrid.confirmDeleteAction")}</AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

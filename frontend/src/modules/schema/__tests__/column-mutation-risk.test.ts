@@ -183,8 +183,8 @@ describe("classifyColumnMutation", () => {
   it("takes worst risk when multiple operations combined", () => {
     const draft = makeDraft({
       newName: "email_addr", // medium (rename)
-      newDataType: "text", // low (varchar→text)
-      newNullable: false, // medium (nullable→NOT NULL)
+      newDataType: "text",   // low (varchar→text)
+      newNullable: false,    // medium (nullable→NOT NULL)
     });
     const result = classifyColumnMutation(draft, "public", "users");
 

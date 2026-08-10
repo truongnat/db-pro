@@ -15,12 +15,7 @@ export function normalizeAppError(err: unknown): NormalizedAppError {
       code: te.code,
     };
   }
-  if (
-    err &&
-    typeof err === "object" &&
-    "message" in err &&
-    typeof (err as Record<string, unknown>).message === "string"
-  ) {
+  if (err && typeof err === "object" && "message" in err && typeof (err as Record<string, unknown>).message === "string") {
     const msg = (err as { message: string }).message;
     return { userMessage: msg, technicalMessage: msg, code: "UNKNOWN" };
   }

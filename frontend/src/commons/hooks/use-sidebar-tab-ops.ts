@@ -5,12 +5,7 @@ import { useRecentStore } from "@/commons/stores/recent.store";
 import { createDbObjectTab } from "@/commons/factories/tab-factories";
 import type { DbObjectTabData } from "@/commons/types/workspace.types";
 
-function recordRecentResource(
-  connectionId: string,
-  schema: string,
-  objectName: string,
-  objectType: DbObjectTabData["objectType"],
-) {
+function recordRecentResource(connectionId: string, schema: string, objectName: string, objectType: DbObjectTabData["objectType"]) {
   useRecentStore.getState().addRecentResource({
     resourceKey: `dbobj:${schema}.${objectName}:${connectionId}`,
     kind: "db-object",

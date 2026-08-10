@@ -89,9 +89,7 @@ export function ForeignKeyList({ foreignKeys, connectionId }: ForeignKeyListProp
                     <ExternalLink className="h-3 w-3 opacity-50" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>
-                  Open {fk.toSchema}.{fk.toTable}
-                </TooltipContent>
+                <TooltipContent>Open {fk.toSchema}.{fk.toTable}</TooltipContent>
               </Tooltip>
             </TableCell>
             <TableCell className="px-3 py-1.5 font-mono text-[12px] text-[var(--app-text-muted)] select-text">

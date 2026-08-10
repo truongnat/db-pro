@@ -63,8 +63,7 @@ export function RowEditDialog({ open, onOpenChange, columns, row, onSave }: RowE
     for (const col of columns) {
       const field = fields[col.name];
       const original = row[columns.indexOf(col)];
-      const originalText =
-        original?.type === "null" ? "" : renderCellValue(original ?? { type: "null" });
+      const originalText = original?.type === "null" ? "" : renderCellValue(original ?? { type: "null" });
 
       const cellType = normalizeColumnType(col.dataType);
       if (!isCellTypeEditable(cellType)) continue;
@@ -154,10 +153,7 @@ export function RowEditDialog({ open, onOpenChange, columns, row, onSave }: RowE
             return (
               <div key={col.name} className="flex flex-col gap-1">
                 <div className="flex items-center gap-2">
-                  <label
-                    className="w-32 shrink-0 truncate text-xs font-medium text-foreground"
-                    title={col.name}
-                  >
+                  <label className="w-32 shrink-0 truncate text-xs font-medium text-foreground" title={col.name}>
                     {col.name}
                   </label>
                   <span className="text-[10px] text-[var(--app-text-dim)]">{col.dataType}</span>
@@ -188,14 +184,10 @@ export function RowEditDialog({ open, onOpenChange, columns, row, onSave }: RowE
                       type="checkbox"
                       className="h-4 w-4 accent-primary"
                       checked={field.value.toLowerCase() === "true" || field.value === "1"}
-                      onChange={(e) =>
-                        updateField(col.name, { value: e.target.checked ? "true" : "false" })
-                      }
+                      onChange={(e) => updateField(col.name, { value: e.target.checked ? "true" : "false" })}
                     />
                     <span className="text-xs text-foreground">
-                      {field.value.toLowerCase() === "true" || field.value === "1"
-                        ? "true"
-                        : "false"}
+                      {field.value.toLowerCase() === "true" || field.value === "1" ? "true" : "false"}
                     </span>
                   </label>
                 ) : (
@@ -206,7 +198,9 @@ export function RowEditDialog({ open, onOpenChange, columns, row, onSave }: RowE
                     placeholder={t("dataGrid.rowEdit.enterValue")}
                   />
                 )}
-                {field.error && <span className="text-[10px] text-destructive">{field.error}</span>}
+                {field.error && (
+                  <span className="text-[10px] text-destructive">{field.error}</span>
+                )}
               </div>
             );
           })}

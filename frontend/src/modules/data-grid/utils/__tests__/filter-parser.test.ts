@@ -15,10 +15,7 @@ describe("parseFilterValue", () => {
     });
 
     it("parses int8 (bigint)", () => {
-      expect(parseFilterValue(col("INT8"), "9999999999")).toEqual({
-        type: "int64",
-        value: 9999999999,
-      });
+      expect(parseFilterValue(col("INT8"), "9999999999")).toEqual({ type: "int64", value: 9999999999 });
     });
 
     it("parses int2 (smallint)", () => {
@@ -54,22 +51,13 @@ describe("parseFilterValue", () => {
 
     it("parses numeric/decimal with precision", () => {
       expect(parseFilterValue(col("numeric"), "99.99")).toEqual({ type: "float64", value: 99.99 });
-      expect(parseFilterValue(col("numeric(10,2)"), "123.45")).toEqual({
-        type: "float64",
-        value: 123.45,
-      });
-      expect(parseFilterValue(col("decimal(8,3)"), "1.234")).toEqual({
-        type: "float64",
-        value: 1.234,
-      });
+      expect(parseFilterValue(col("numeric(10,2)"), "123.45")).toEqual({ type: "float64", value: 123.45 });
+      expect(parseFilterValue(col("decimal(8,3)"), "1.234")).toEqual({ type: "float64", value: 1.234 });
     });
 
     it("parses real and double precision", () => {
       expect(parseFilterValue(col("real"), "1.5")).toEqual({ type: "float64", value: 1.5 });
-      expect(parseFilterValue(col("double precision"), "2.5")).toEqual({
-        type: "float64",
-        value: 2.5,
-      });
+      expect(parseFilterValue(col("double precision"), "2.5")).toEqual({ type: "float64", value: 2.5 });
     });
 
     it("falls back to text for non-numeric input on float column", () => {
