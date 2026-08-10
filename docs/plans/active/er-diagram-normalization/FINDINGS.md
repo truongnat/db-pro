@@ -30,26 +30,36 @@
 
 ## Findings
 
-### F1: Composite FK creates multiple edges (P1 — CONFIRMED)
+### F1: Composite FK creates multiple edges (P1 — FIXED)
 **Evidence:** `er-diagram.tsx:125-139` maps each FK entry to a separate edge.
 **Impact:** A composite FK like `(tenant_id, parent_id) REFERENCES parent(tenant_id, id)` produces 2 parallel edges instead of 1 logical edge.
 **Root cause:** FK domain model uses singular `from_column`/`to_column`, so composite FKs are stored as multiple entries sharing the same constraint `name`.
-**Fix:** Group FK entries by constraint name before creating edges.
+**Fix:** Created `edge-builder.ts` with `groupForeignKeys()` that merges entries by constraint identity (`schema.fromTable.name`). Refactored `er-diagram.tsx` to use it.
 
-### F2: Edge IDs use sequential index (P2 — CONFIRMED)
+### F2: Edge IDs use sequential index (P2 — FIXED)
 **Evidence:** `er-diagram.tsx:128` uses `id: edge-${i}`.
 **Impact:** Edge IDs change when FK array order changes (e.g., after introspection refresh). This could break edge selection persistence.
-**Fix:** Use constraint name + table pair as edge ID.
+**Fix:** Edge IDs now use `fk:${group.key}` where key = `schema.fromTable.constraintName`.
 
 ### F3: Only first schema shown (P3 — DEFERRED)
 **Evidence:** `er-diagram.tsx:89` filters by `data.schemas[0]?.name`.
 **Impact:** Multi-schema databases only show one schema's tables.
 **Decision:** Defer — multi-schema visualization is a separate feature.
 
-### F4: Cross-schema edge targets may be orphaned (P3 — DEFERRED)
+### F4: Cross-schema edge targets may be orphaned (P3 — FIXED)
 **Evidence:** Edge source uses `${fk.toSchema}.${fk.toTable}` but target node may not exist if toSchema differs from the displayed schema.
 **Impact:** Edge points to non-existent node.
-**Decision:** Defer — related to F3 multi-schema support.
+**Fix:** `groupForeignKeys()` now requires both `fromTable` AND `toTable` to be in the visible set, preventing dangling edges.
+
+## Cubic Review Findings
+
+### CR1 (S6 commit): Grouping key not unique across tables (P1 — FIXED)
+**Issue:** `${schema}.${name}` could collapse same-named FKs on different tables (SQLite constraint names aren't database-wide unique).
+**Fix:** Key now includes `fromTable`: `${schema}.${fromTable}.${name}`.
+
+### CR2 (S6 commit): Cross-schema dangling edges (P2 — FIXED)
+**Issue:** Only `fromTable` visibility was checked; `toTable` could be hidden.
+**Fix:** Both `fromTable` and `toTable` must be visible.
 
 ### Verified OK
 - Node identity: schema-qualified ✅
