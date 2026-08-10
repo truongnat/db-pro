@@ -271,9 +271,7 @@ fn parse_sqlite_trigger_sql(sql: &str) -> (String, String) {
     let upper = sql.to_uppercase();
 
     // Split at the first BEGIN to isolate the trigger header.
-    let header = upper
-        .find("BEGIN")
-        .map_or(upper.as_str(), |idx| &upper[..idx]);
+    let header = upper.find("BEGIN").map_or(upper.as_str(), |idx| &upper[..idx]);
 
     let timing = if header.contains("INSTEAD OF") {
         "INSTEAD OF"
