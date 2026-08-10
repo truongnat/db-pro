@@ -51,7 +51,7 @@ jobs:
       - name: Run Kilo reviewer
         run: |
           echo "Running Kilo reviewer for PR #${PR_NUMBER}"
-          PROMPT="$(cat .github/review-prompts/vps-review.md)"
+          PROMPT="$(sed "s/\${BASE_REF}/${BASE_REF}/g" .github/review-prompts/vps-review.md)"
           kilo run \
             --auto \
             --agent db-pro-reviewer \
