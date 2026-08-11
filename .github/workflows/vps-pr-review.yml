@@ -1,0 +1,88 @@
+name: VPS PR Review
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+concurrency:
+  group: vps-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  review:
+    name: Kilo Reviewer (VPS)
+
+    if: >
+      github.event.pull_request.draft == false &&
+      github.event.pull_request.head.repo.full_name == github.repository
+
+    runs-on:
+      - self-hosted
+      - Linux
+      - X64
+      - db-pro-review-vps
+
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+      BASE_REF: ${{ github.base_ref }}
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+
+    steps:
+      - name: Checkout PR
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Fetch base branch
+        run: git fetch origin "${BASE_REF}"
+
+      - name: Verify Kilo
+        run: |
+          kilo --version
+          kilo agent list
+
+      - name: Run Kilo reviewer
+        run: |
+          echo "Running Kilo reviewer for PR #${PR_NUMBER}"
+          PROMPT="$(sed "s/\${BASE_REF}/${BASE_REF}/g" .github/review-prompts/vps-review.md)"
+          kilo run \
+            --auto \
+            --agent db-pro-reviewer \
+            -m kilo/kilo-auto/free \
+            "${PROMPT}
+
+          Base branch: ${BASE_REF}
+          Review this exact diff: origin/${BASE_REF}...HEAD" \
+            > "${RUNNER_TEMP}/kilo-review.md"
+
+      - name: Verify read-only invariant
+        run: |
+          if ! git diff --quiet || [ -n "$(git status --porcelain)" ]; then
+            echo "::error::Kilo modified the repository during read-only review."
+            git status --short
+            git diff
+            exit 1
+          fi
+
+      - name: Publish review
+        run: |
+          {
+            echo "<!-- db-pro-vps-review -->"
+            echo
+            echo "## VPS Kilo Adversarial Review"
+            echo
+            echo "**Commit:** \`${HEAD_SHA}\`"
+            echo
+            cat "${RUNNER_TEMP}/kilo-review.md"
+          } > "${RUNNER_TEMP}/github-review.md"
+
+          gh pr comment "${PR_NUMBER}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --body-file "${RUNNER_TEMP}/github-review.md"

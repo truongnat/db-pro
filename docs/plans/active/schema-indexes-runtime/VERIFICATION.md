@@ -1,23 +1,50 @@
-# Schema Indexes Runtime Verification - Evidence
+# S2 — Schema Indexes Runtime Verification
 
-## Evidence
+State: RUNTIME_VERIFY
 
-The verification process included a backend integration test confirming the `UI -> command -> backend -> database -> introspection -> refreshed UI state` lifecycle (partially automated in integration test).
+## Automated evidence recorded by merged S2 work
 
-Execution results:
-```bash
-$ cargo test --test schema_indexes_runtime_verification
+Command recorded in the S2 implementation:
+
+```text
+cargo test --test schema_indexes_runtime_verification
+```
+
+Recorded result:
+
+```text
 running 1 test
 test verify_create_and_drop_index ... ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+test result: ok. 1 passed; 0 failed
 ```
 
-The test correctly proved:
-1. `CREATE UNIQUE INDEX` creates an index marked as `unique` targeting a specific column.
-2. `CREATE INDEX` mapping to multiple columns maps safely to a `composite` index format.
-3. Both appear during SQLite `PRAGMA index_list` and `PRAGMA index_info` checks via `connector.introspect(&handle)`.
-4. `DROP INDEX` successfully removes the index, proven by verifying absence post-introspection.
-5. All schema diffing operations refresh accurately.
+The test uses SQLite and proves:
 
-The feature effectively functions perfectly.
+1. `CREATE UNIQUE INDEX` is visible through SQLite introspection and marked unique.
+2. a composite `CREATE INDEX` preserves ordered columns.
+3. `DROP INDEX` removes the target index while leaving the other index intact.
+
+## Provider matrix
+
+| Provider | Automated | Live/runtime | Notes |
+|---|---|---|---|
+| PostgreSQL | PENDING | PENDING | source implementation exists; no provider runtime result recorded |
+| SQLite | PASS | PARTIAL | backend integration proven; UI round-trip still pending |
+
+## UI lifecycle
+
+```text
+UI create/drop
+→ DDL service
+→ database
+→ cache invalidation
+→ introspection
+→ refreshed index list
+```
+
+Status: PENDING runtime evidence.
+
+## Completion decision
+
+Not completed. S2 has valid SQLite automated evidence but still requires PostgreSQL provider evidence and the user-facing refresh lifecycle before moving to `docs/plans/completed/`.

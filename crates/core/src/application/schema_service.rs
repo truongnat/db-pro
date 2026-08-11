@@ -3,7 +3,7 @@ use std::sync::Arc;
 use crate::domain::connection::ConnectionId;
 use crate::domain::error::DbError;
 use crate::domain::safety::{validate_against_policy, ConnectionSafetyPolicy};
-use crate::domain::schema::{IntrospectResult, TableInfo, Trigger};
+use crate::domain::schema::{ForeignKey, IntrospectResult, TableInfo, Trigger};
 use crate::ports::{ConnectionRepository, DbConnector, IntrospectionCache};
 
 use super::registry::ConnectionRegistry;
@@ -229,6 +229,38 @@ impl SchemaService {
     }
 }
 
+struct ForeignKeyDdlGroup<'a> {
+    name: &'a str,
+    from_columns: Vec<&'a str>,
+    to_table: &'a str,
+    to_columns: Vec<&'a str>,
+    to_schema: &'a str,
+}
+
+fn group_foreign_keys_for_ddl(foreign_keys: &[ForeignKey]) -> Vec<ForeignKeyDdlGroup<'_>> {
+    let mut groups: Vec<ForeignKeyDdlGroup<'_>> = Vec::new();
+
+    for fk in foreign_keys {
+        if let Some(group) = groups
+            .iter_mut()
+            .find(|group| group.name == fk.name && group.to_schema == fk.to_schema && group.to_table == fk.to_table)
+        {
+            group.from_columns.push(&fk.from_column);
+            group.to_columns.push(&fk.to_column);
+        } else {
+            groups.push(ForeignKeyDdlGroup {
+                name: &fk.name,
+                from_columns: vec![&fk.from_column],
+                to_table: &fk.to_table,
+                to_columns: vec![&fk.to_column],
+                to_schema: &fk.to_schema,
+            });
+        }
+    }
+
+    groups
+}
+
 fn build_create_table_ddl(info: &TableInfo) -> String {
     let mut ddl = String::new();
     let qualified = format!(
@@ -280,13 +312,24 @@ fn build_create_table_ddl(info: &TableInfo) -> String {
         ));
     }
 
-    for fk in &info.foreign_keys {
-        let to_qualified = format!("{}.{}", quote_identifier(&fk.to_schema), quote_identifier(&fk.to_table));
+    for fk in group_foreign_keys_for_ddl(&info.foreign_keys) {
+        let to_qualified = format!("{}.{}", quote_identifier(fk.to_schema), quote_identifier(fk.to_table));
+        let from_columns = fk
+            .from_columns
+            .iter()
+            .map(|column| quote_identifier(column))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let to_columns = fk
+            .to_columns
+            .iter()
+            .map(|column| quote_identifier(column))
+            .collect::<Vec<_>>()
+            .join(", ");
+
         ddl.push_str(&format!(
-            "ALTER TABLE {qualified} ADD CONSTRAINT {} FOREIGN KEY ({}) REFERENCES {to_qualified} ({});\n",
-            quote_identifier(&fk.name),
-            quote_identifier(&fk.from_column),
-            quote_identifier(&fk.to_column)
+            "ALTER TABLE {qualified} ADD CONSTRAINT {} FOREIGN KEY ({from_columns}) REFERENCES {to_qualified} ({to_columns});\n",
+            quote_identifier(fk.name),
         ));
     }
 
@@ -682,6 +725,65 @@ mod tests {
         let ddl = format_trigger_ddl(&trigger);
         assert!(ddl.starts_with(full_sql));
         assert!(ddl.ends_with(";\n"));
+    }
+
+    #[test]
+    fn ddl_generation_groups_composite_fk_rows_into_one_constraint() {
+        let info = TableInfo {
+            table: Table {
+                name: "child".into(),
+                schema: "public".into(),
+                row_count: None,
+            },
+            columns: vec![
+                Column {
+                    name: "tenant_id".into(),
+                    data_type: "INTEGER".into(),
+                    nullable: false,
+                    default: None,
+                    is_primary_key: false,
+                    table_name: "child".into(),
+                    schema: "public".into(),
+                },
+                Column {
+                    name: "parent_id".into(),
+                    data_type: "INTEGER".into(),
+                    nullable: false,
+                    default: None,
+                    is_primary_key: false,
+                    table_name: "child".into(),
+                    schema: "public".into(),
+                },
+            ],
+            primary_key: None,
+            indexes: vec![],
+            foreign_keys: vec![
+                ForeignKey {
+                    name: "fk_parent".into(),
+                    from_table: "child".into(),
+                    from_column: "tenant_id".into(),
+                    to_table: "parent".into(),
+                    to_column: "tenant_id".into(),
+                    schema: "public".into(),
+                    to_schema: "public".into(),
+                },
+                ForeignKey {
+                    name: "fk_parent".into(),
+                    from_table: "child".into(),
+                    from_column: "parent_id".into(),
+                    to_table: "parent".into(),
+                    to_column: "id".into(),
+                    schema: "public".into(),
+                    to_schema: "public".into(),
+                },
+            ],
+        };
+
+        let ddl = build_create_table_ddl(&info);
+        assert_eq!(ddl.matches("ADD CONSTRAINT \"fk_parent\"").count(), 1);
+        assert!(ddl.contains(
+            "FOREIGN KEY (\"tenant_id\", \"parent_id\") REFERENCES \"public\".\"parent\" (\"tenant_id\", \"id\")"
+        ));
     }
 
     #[test]

@@ -191,13 +191,16 @@ fn introspect_foreign_keys(conn: &rusqlite::Connection) -> Result<Vec<ForeignKey
             .map_err(crate::error::from_rusqlite)?;
         let fks: Vec<ForeignKey> = stmt
             .query_map([], |row| {
-                let _id: i32 = row.get(0)?;
+                // SQLite returns one row per column mapping. All rows sharing the
+                // same `id` belong to the same FK constraint; `seq` preserves
+                // composite-column order. Use `id` for a stable shared identity.
+                let id: i32 = row.get(0)?;
                 let _seq: i32 = row.get(1)?;
                 let to_table: String = row.get(2)?;
                 let from_column: String = row.get(3)?;
                 let to_column: String = row.get(4)?;
                 Ok(ForeignKey {
-                    name: format!("{table_name}_{from_column}_fkey"),
+                    name: format!("{table_name}_fk_{id}"),
                     from_table: table_name.clone(),
                     from_column,
                     to_table,
