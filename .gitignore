@@ -26,6 +26,9 @@ coverage/
 .qoder/
 bun.lock
 
+# Generated test fixtures (use scripts/generate-fixtures.mjs)
+frontend/test/fixtures/schemas/*.json
+
 # Allow plan docs and agent instructions (overrides global gitignore)
 !docs/
 !docs/**
