@@ -50,11 +50,11 @@ const columns: ColumnMeta[] = [
 
 const rows: Row[] = [
   [
-    { type: "int64", value: 1 },
+    { type: "int64", value: "1" },
     { type: "text", value: "Alice" },
   ],
   [
-    { type: "int64", value: 2 },
+    { type: "int64", value: "2" },
     { type: "text", value: "Bob" },
   ],
 ];

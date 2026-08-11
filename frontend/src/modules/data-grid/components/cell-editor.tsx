@@ -61,9 +61,9 @@ export function CellEditor({ value, onSave, onCancel, columnType }: CellEditorPr
         return;
       }
       case "int64": {
-        const n = Number(text);
-        if (Number.isInteger(n)) {
-          onSave({ type: "int64", value: n });
+        const trimmed = text.trim();
+        if (/^-?\d+$/.test(trimmed)) {
+          onSave({ type: "int64", value: trimmed });
         } else {
           setError("Enter a valid integer");
         }

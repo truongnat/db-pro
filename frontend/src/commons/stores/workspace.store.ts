@@ -15,6 +15,7 @@ import type {
   WorkspaceTab,
 } from "@/commons/types/workspace.types";
 import { useTabGridStateStore } from "@/modules/data-grid/state/tab-grid-state.store";
+import { useStagedChangesStore } from "@/modules/data-grid/state/staged-changes.store";
 
 const MAX_RECENTLY_CLOSED = 20;
 
@@ -69,7 +70,8 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       activeTabId: null,
       recentlyClosed: [],
 
-      openTab: (tab) =>
+      openTab: (tab) => {
+        let replacedPreviewId: string | null = null;
         set((state) => {
           const existing = state.tabs.find((t) => t.resourceKey === tab.resourceKey);
           if (existing) {
@@ -87,6 +89,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
               (t) => t.preview && t.kind === tab.kind && t.connectionId === tab.connectionId,
             );
             if (previewIdx !== -1) {
+              replacedPreviewId = state.tabs[previewIdx].id;
               const newTabs = [...state.tabs];
               newTabs[previewIdx] = {
                 ...tab,
@@ -104,7 +107,11 @@ export const useWorkspaceStore = create<WorkspaceState>()(
             tabs: [...state.tabs, tab],
             activeTabId: tab.id,
           };
-        }),
+        });
+        if (replacedPreviewId) {
+          useStagedChangesStore.getState().clearTab(replacedPreviewId);
+        }
+      },
 
       activateTab: (id) =>
         set((state) => {
@@ -349,6 +356,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         });
         if (replacedPreviewId) {
           useTabGridStateStore.getState().resetTab(replacedPreviewId);
+          useStagedChangesStore.getState().clearTab(replacedPreviewId);
         }
       },
 

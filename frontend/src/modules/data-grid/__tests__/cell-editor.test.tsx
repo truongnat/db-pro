@@ -71,24 +71,28 @@ describe("CellEditor", () => {
     expect(onSave).toHaveBeenCalledWith({ type: "null" });
   });
 
-  it("parses int64 values and calls onSave with number", async () => {
+  it("parses int64 values and calls onSave with string", async () => {
     const onSave = vi.fn();
     const user = userEvent.setup();
 
-    render(<CellEditor value={{ type: "int64", value: 42 }} onSave={onSave} onCancel={vi.fn()} />);
+    render(
+      <CellEditor value={{ type: "int64", value: "42" }} onSave={onSave} onCancel={vi.fn()} />,
+    );
 
     const input = screen.getByRole("textbox");
     await user.clear(input);
     await user.type(input, "99{Enter}");
 
-    expect(onSave).toHaveBeenCalledWith({ type: "int64", value: 99 });
+    expect(onSave).toHaveBeenCalledWith({ type: "int64", value: "99" });
   });
 
   it("shows error for invalid int64 input", async () => {
     const onSave = vi.fn();
     const user = userEvent.setup();
 
-    render(<CellEditor value={{ type: "int64", value: 42 }} onSave={onSave} onCancel={vi.fn()} />);
+    render(
+      <CellEditor value={{ type: "int64", value: "42" }} onSave={onSave} onCancel={vi.fn()} />,
+    );
 
     const input = screen.getByRole("textbox");
     await user.clear(input);
@@ -241,7 +245,7 @@ describe("CellEditor", () => {
     await user.clear(input);
     await user.type(input, "42{Enter}");
 
-    expect(onSave).toHaveBeenCalledWith({ type: "int64", value: 42 });
+    expect(onSave).toHaveBeenCalledWith({ type: "int64", value: "42" });
   });
 
   it("renders readonly for bytea column type", () => {
@@ -289,7 +293,7 @@ describe("CellEditor", () => {
   it("renders readonly for bigint column type", () => {
     render(
       <CellEditor
-        value={{ type: "int64", value: 42 }}
+        value={{ type: "int64", value: "42" }}
         columnType="bigint"
         onSave={vi.fn()}
         onCancel={vi.fn()}

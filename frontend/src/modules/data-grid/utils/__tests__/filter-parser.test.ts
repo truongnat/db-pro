@@ -10,31 +10,31 @@ function col(dataType: string, name = "test_col"): ColumnMeta {
 describe("parseFilterValue", () => {
   describe("integer types", () => {
     it("parses int4 (PostgreSQL sqlx format)", () => {
-      expect(parseFilterValue(col("INT4"), "42")).toEqual({ type: "int64", value: 42 });
-      expect(parseFilterValue(col("int4"), "42")).toEqual({ type: "int64", value: 42 });
+      expect(parseFilterValue(col("INT4"), "42")).toEqual({ type: "int64", value: "42" });
+      expect(parseFilterValue(col("int4"), "42")).toEqual({ type: "int64", value: "42" });
     });
 
     it("parses int8 (bigint)", () => {
       expect(parseFilterValue(col("INT8"), "9999999999")).toEqual({
         type: "int64",
-        value: 9999999999,
+        value: "9999999999",
       });
     });
 
     it("parses int2 (smallint)", () => {
-      expect(parseFilterValue(col("INT2"), "7")).toEqual({ type: "int64", value: 7 });
+      expect(parseFilterValue(col("INT2"), "7")).toEqual({ type: "int64", value: "7" });
     });
 
     it("parses information_schema format: integer, bigint, smallint", () => {
-      expect(parseFilterValue(col("integer"), "10")).toEqual({ type: "int64", value: 10 });
-      expect(parseFilterValue(col("bigint"), "20")).toEqual({ type: "int64", value: 20 });
-      expect(parseFilterValue(col("smallint"), "5")).toEqual({ type: "int64", value: 5 });
+      expect(parseFilterValue(col("integer"), "10")).toEqual({ type: "int64", value: "10" });
+      expect(parseFilterValue(col("bigint"), "20")).toEqual({ type: "int64", value: "20" });
+      expect(parseFilterValue(col("smallint"), "5")).toEqual({ type: "int64", value: "5" });
     });
 
     it("parses serial types", () => {
-      expect(parseFilterValue(col("serial"), "1")).toEqual({ type: "int64", value: 1 });
-      expect(parseFilterValue(col("bigserial"), "2")).toEqual({ type: "int64", value: 2 });
-      expect(parseFilterValue(col("smallserial"), "3")).toEqual({ type: "int64", value: 3 });
+      expect(parseFilterValue(col("serial"), "1")).toEqual({ type: "int64", value: "1" });
+      expect(parseFilterValue(col("bigserial"), "2")).toEqual({ type: "int64", value: "2" });
+      expect(parseFilterValue(col("smallserial"), "3")).toEqual({ type: "int64", value: "3" });
     });
 
     it("falls back to text for non-numeric input on integer column", () => {
@@ -42,7 +42,7 @@ describe("parseFilterValue", () => {
     });
 
     it("handles negative integers", () => {
-      expect(parseFilterValue(col("INT4"), "-5")).toEqual({ type: "int64", value: -5 });
+      expect(parseFilterValue(col("INT4"), "-5")).toEqual({ type: "int64", value: "-5" });
     });
   });
 

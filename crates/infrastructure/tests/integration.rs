@@ -400,7 +400,7 @@ async fn delete_row() {
         .unwrap();
     // COUNT(*) returns 1 row; check the actual count value.
     let json = serde_json::to_value(&result.rows[0].0[0]).unwrap();
-    assert_eq!(json, serde_json::json!({"type": "int64", "value": 5}));
+    assert_eq!(json, serde_json::json!({"type": "int64", "value": "5"}));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

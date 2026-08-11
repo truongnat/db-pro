@@ -1,7 +1,7 @@
 export type CellValue =
   | { type: "null" }
   | { type: "bool"; value: boolean }
-  | { type: "int64"; value: number }
+  | { type: "int64"; value: string }
   | { type: "float64"; value: number }
   | { type: "text"; value: string }
   | { type: "bytes"; value: number[] }

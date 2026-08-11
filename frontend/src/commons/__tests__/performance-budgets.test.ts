@@ -110,7 +110,7 @@ describe("Performance budgets", () => {
     ];
     const generateRows = (count: number) =>
       Array.from({ length: count }, (_, i) => [
-        { type: "int64" as const, value: i + 1 },
+        { type: "int64" as const, value: String(i + 1) },
         { type: "text" as const, value: `User ${i + 1}` },
         { type: "text" as const, value: `user${i + 1}@example.com` },
         { type: "text" as const, value: i % 2 === 0 ? "active" : "inactive" },

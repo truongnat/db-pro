@@ -21,7 +21,7 @@ export function parseFilterValue(column: ColumnMeta, rawInput: string): CellValu
     return { type: "text", value: rawInput };
   }
 
-  // Integer types
+  // Integer types — preserve as string to avoid BIGINT precision loss
   if (
     dt === "int2" ||
     dt === "int4" ||
@@ -33,9 +33,9 @@ export function parseFilterValue(column: ColumnMeta, rawInput: string): CellValu
     dt === "bigserial" ||
     dt === "smallserial"
   ) {
-    const parsed = Number.parseInt(rawInput, 10);
-    if (!Number.isNaN(parsed)) {
-      return { type: "int64", value: parsed };
+    const trimmed = rawInput.trim();
+    if (/^-?\d+$/.test(trimmed)) {
+      return { type: "int64", value: trimmed };
     }
     return { type: "text", value: rawInput };
   }

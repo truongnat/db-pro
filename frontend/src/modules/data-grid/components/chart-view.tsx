@@ -99,7 +99,10 @@ export function ChartView({ columns, rows, config }: ChartViewProps) {
 }
 
 function getNumericValue(cell: { type: string; value?: unknown }): number {
-  if (cell.type === "int64" || cell.type === "float64") return cell.value as number;
+  if (cell.type === "int64" || cell.type === "float64") {
+    const n = Number(cell.value);
+    return Number.isFinite(n) ? n : 0;
+  }
   if (cell.type === "text") {
     const n = Number(cell.value);
     return Number.isFinite(n) ? n : 0;

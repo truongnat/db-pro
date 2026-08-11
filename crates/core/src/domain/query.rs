@@ -1,5 +1,24 @@
 use serde::{Deserialize, Serialize};
 
+mod string_i64 {
+    use serde::{self, Deserialize, Deserializer, Serializer};
+
+    pub fn serialize<S>(value: &i64, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&value.to_string())
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<i64, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        s.parse::<i64>().map_err(serde::de::Error::custom)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", content = "value")]
 pub enum QueryParam {
@@ -8,7 +27,7 @@ pub enum QueryParam {
     #[serde(rename = "bool")]
     Bool(bool),
     #[serde(rename = "int64")]
-    Int64(i64),
+    Int64(#[serde(with = "string_i64")] i64),
     #[serde(rename = "float64")]
     Float64(f64),
     #[serde(rename = "text")]
@@ -31,7 +50,7 @@ pub enum CellValue {
     #[serde(rename = "bool")]
     Bool(bool),
     #[serde(rename = "int64")]
-    Int64(i64),
+    Int64(#[serde(with = "string_i64")] i64),
     #[serde(rename = "float64")]
     Float64(f64),
     #[serde(rename = "text")]
@@ -212,5 +231,47 @@ mod tests {
             duration_ms: 0,
         };
         assert!(result.validate().is_err());
+    }
+
+    #[test]
+    fn int64_serializes_as_string_for_lossless_ipc() {
+        let cell = CellValue::Int64(9_007_199_254_740_993); // 2^53 + 1
+        let json = serde_json::to_string(&cell).unwrap();
+        assert!(
+            json.contains("\"9007199254740993\""),
+            "i64 must serialize as string: {json}"
+        );
+        let back: CellValue = serde_json::from_str(&json).unwrap();
+        assert!(matches!(back, CellValue::Int64(9_007_199_254_740_993)));
+    }
+
+    #[test]
+    fn int64_boundary_values_round_trip() {
+        for &v in &[
+            0i64,
+            1,
+            -1,
+            i64::MAX,
+            i64::MIN,
+            (1i64 << 53) - 1,
+            1i64 << 53,
+            (1i64 << 53) + 1,
+        ] {
+            let cell = CellValue::Int64(v);
+            let json = serde_json::to_string(&cell).unwrap();
+            let back: CellValue = serde_json::from_str(&json).unwrap();
+            assert!(
+                matches!(back, CellValue::Int64(x) if x == v),
+                "round-trip failed for {v}"
+            );
+        }
+    }
+
+    #[test]
+    fn query_param_int64_string_round_trip() {
+        let param = QueryParam::Int64(i64::MAX);
+        let json = serde_json::to_string(&param).unwrap();
+        let back: QueryParam = serde_json::from_str(&json).unwrap();
+        assert!(matches!(back, QueryParam::Int64(x) if x == i64::MAX));
     }
 }

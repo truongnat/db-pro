@@ -16,7 +16,7 @@ describe("renderCellValue", () => {
   });
 
   it("renders int64", () => {
-    expect(renderCellValue({ type: "int64", value: 42 })).toBe("42");
+    expect(renderCellValue({ type: "int64", value: "42" })).toBe("42");
   });
 
   it("renders float64", () => {
