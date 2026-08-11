@@ -1,11 +1,11 @@
 # DB Pro — Current Project Status
 
-**Updated:** 2026-08-09  
-**Code baseline reviewed:** `912588f`  
+**Updated:** 2026-08-11  
+**Code baseline reviewed:** `56c3a94`  
 **Release target:** `0.1.0` Release Candidate  
 **Status authority:** this file + `docs/release/0.1.0-readiness.md`
 
-> `120b250` fixed the known `tab-factories` collision-title test setup by using non-preview tabs so collision cases coexist. `912588f` normalized the frontend source with Prettier and cleared the historical format drift. Full Vitest/build/Rust final verification is still required at the exact release SHA.
+> `56c3a94` fixes Rust 1.96.0 clippy `needless_borrow` lint (release preflight blocker). PR #9 (ER Diagram IA refactor) merged at preceding commit. Frontend: 106 files, 1324 tests. Exact-SHA automated verification complete. Cross-platform artifacts and manual smoke in progress.
 
 ---
 
@@ -20,7 +20,8 @@
 | Explorer / metadata | DONE source | schemas/tables/views, targeted refresh, Data-first navigation |
 | Query workbench | DONE source | Monaco, current/selection/all, cancel, explain, format, history |
 | Action Platform | DONE | canonical execution, confirmation, cancellation identity |
-| DB Object workbench | DONE source | Data, Columns, Indexes, Relations, DDL inspection |
+| DB Object workbench | DONE source | Data, Columns, Indexes, Relations, Triggers, DDL inspection |
+| ER Diagram | DONE source | Schema-level workspace tab (PR #9); composite FK; position persistence |
 | Data Grid read/productivity | DONE source | virtualized rows, filter/sort/page, resize, selection/copy |
 | Data Grid update/delete | DONE source | PK staged patch mutations + revision-safe apply model |
 | Data Grid insert | DEFERRED | not a complete 0.1.0 workflow |
@@ -29,10 +30,10 @@
 | Schema mutation / users/roles | PARTIAL | Column editing workbench shipped (P2.7); full schema mutation/users/roles post-0.1 |
 | Agent | PREVIEW | production Agent execution excluded |
 | MCP | DEFERRED | not shipped in 0.1.0 |
-| Frontend typecheck/lint/format | PASS | 0 typecheck errors; 1319/1319 frontend tests + 39 Rust integration tests pass; Vite build clean |
+| Frontend typecheck/lint/format | PASS | 0 typecheck errors; 1324/1324 frontend tests + 238 Rust unit tests pass; Vite build clean |
 | P2 Hardening Program | DONE | P2.0–P2.11 all complete; see docs/quality/p2-hardening-code-audit.md |
-| Packaging workflow | DONE definition | current release artifacts not proven |
-| Release verification | BLOCKED | full automated + artifact + manual runtime evidence incomplete |
+| Packaging workflow | DONE definition | cross-platform build IN PROGRESS |
+| Release verification | IN PROGRESS | exact-SHA automated verification DONE; artifacts + manual smoke pending |
 
 ---
 
@@ -53,8 +54,8 @@
 | 10 | DataGrid | DONE release scope / PARTIAL historical full scope |
 | 11 | Export | DONE release subset |
 | 12 | Advanced features | PARTIAL / DEFERRED for 0.1 |
-| 13 | Testing | PARTIAL / final full-suite verification pending |
-| 14 | CI/CD + packaging | BLOCKED / artifacts incomplete |
+| 13 | Testing | DONE source / final full-suite verification DONE at `56c3a94` |
+| 14 | CI/CD + packaging | IN PROGRESS / cross-platform artifacts building |
 
 ---
 
