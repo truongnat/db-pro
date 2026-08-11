@@ -536,11 +536,18 @@
     "noResults": "一致するリソースがありません。",
     "removeRecent": "最近から削除",
     "groups": {
+      "recent": "最近",
       "open": "開いている",
       "tables": "テーブル",
       "views": "ビュー",
+      "functions": "関数",
+      "sequences": "シーケンス",
+      "types": "型",
       "schemas": "スキーマ",
       "connections": "接続"
+    },
+    "hints": {
+      "prefix": "@ テーブル  ·  : ビュー  ·  # スキーマ"
     }
   },
   "commands": {
@@ -596,8 +603,19 @@
       "general": "一般",
       "connection": "接続",
       "recent": "最近使用",
-      "productivity": "生産性"
+      "productivity": "生産性",
+      "workspace": "ワークスペース"
     }
+  },
+  "actions": {
+    "query.execute.current": "現在のステートメントを実行",
+    "query.explain": "クエリを実行計画を表示",
+    "query.format": "SQLをフォーマット",
+    "query.clear": "SQLエディタをクリア",
+    "query.cancel": "クエリをキャンセル",
+    "workspace.tab.close": "タブを閉じる",
+    "workspace.tab.pin": "タブのピン留め/解除",
+    "connection.new": "新しい接続"
   },
   "dock": {
     "expandPanel": "パネルを展開",

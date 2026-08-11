@@ -627,8 +627,19 @@
       "general": "General",
       "connection": "Connection",
       "recent": "Recent",
-      "productivity": "Productivity"
+      "productivity": "Productivity",
+      "workspace": "Workspace"
     }
+  },
+  "actions": {
+    "query.execute.current": "Run Current Statement",
+    "query.explain": "Explain Query",
+    "query.format": "Format SQL",
+    "query.clear": "Clear SQL Editor",
+    "query.cancel": "Cancel Query",
+    "workspace.tab.close": "Close Tab",
+    "workspace.tab.pin": "Pin / Unpin Tab",
+    "connection.new": "New Connection"
   },
   "dock": {
     "expandPanel": "Expand panel",
