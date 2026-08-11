@@ -513,8 +513,7 @@
       "indexes": "インデックス",
       "relations": "リレーション",
       "ddl": "DDL",
-      "triggers": "トリガー",
-      "diagram": "ダイアグラム"
+      "triggers": "トリガー"
     },
     "unsupportedObjectType": "このオブジェクトタイプはまだサポートされていません。",
     "contextHeader": {
@@ -630,5 +629,15 @@
     "createFirstConnection": "最初の接続を作成して始めましょう",
     "noRecentConnections": "最近の接続はありません",
     "connectHint": "接続をクリックして接続します"
+  },
+  "schemaWorkspace": {
+    "sections": {
+      "diagram": "ERダイアグラム",
+      "overview": "概要"
+    },
+    "actions": {
+      "openDiagram": "ERダイアグラムを開く"
+    },
+    "overviewComingSoon": "スキーマ概要は近日公開予定です。"
   }
 }

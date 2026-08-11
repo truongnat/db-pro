@@ -5,6 +5,7 @@ import type {
   DbObjectTabData,
   QueryContext,
   QueryTabData,
+  SchemaWorkspaceSection,
   WorkspaceTab,
 } from "@/commons/types/workspace.types";
 
@@ -125,5 +126,27 @@ export function createDbObjectTab(
       objectType,
       activeSection: initialSection,
     } satisfies DbObjectTabData,
+  };
+}
+
+export function createSchemaWorkspaceTab(
+  connectionId: string,
+  schema: string,
+  initialSection: SchemaWorkspaceSection = "diagram",
+): WorkspaceTab & { kind: "schema-workspace" } {
+  return {
+    id: crypto.randomUUID(),
+    kind: "schema-workspace",
+    title: `ER: ${schema}`,
+    connectionId,
+    resourceKey: `schema-ws:${schema}:${connectionId}`,
+    dirty: false,
+    pinned: false,
+    preview: false,
+    order: nextOrder(),
+    data: {
+      schema,
+      activeSection: initialSection,
+    },
   };
 }

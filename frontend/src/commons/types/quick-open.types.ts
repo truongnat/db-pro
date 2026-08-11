@@ -45,7 +45,7 @@ export type DbObjectType = "table" | "view" | "function" | "sequence" | "type";
 
 export interface RecentResource {
   resourceKey: string;
-  kind: "db-object" | "query" | "connection";
+  kind: "db-object" | "query" | "connection" | "schema-workspace";
   connectionId: string;
   schema?: string;
   objectName?: string;

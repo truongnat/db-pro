@@ -8,7 +8,7 @@ import type {
  * Current workspace schema version.
  * Increment when adding new migrations.
  */
-export const CURRENT_WORKSPACE_VERSION = 2;
+export const CURRENT_WORKSPACE_VERSION = 3;
 
 type MigrationFn = (state: PersistedWorkspaceState) => PersistedWorkspaceState;
 
@@ -25,7 +25,7 @@ const migrateV0toV1: MigrationFn = (state) => {
       const activeSection = tab.data.activeSection as string;
       if (activeSection === "structure") {
         changed = true;
-        return { ...tab, data: { ...tab.data, activeSection: "columns" } };
+        return { ...tab, data: { ...tab.data, activeSection: "columns" } } as WorkspaceTab;
       }
       return tab;
     }
@@ -35,7 +35,7 @@ const migrateV0toV1: MigrationFn = (state) => {
       return {
         ...tab,
         data: { ...data, context: { database: null, schema: null } },
-      };
+      } as WorkspaceTab;
     }
     return tab;
   });
@@ -54,7 +54,7 @@ const migrateV1toV2: MigrationFn = (state) => {
       const data = tab.data as QueryTabData;
       if (!data.activePanel) {
         changed = true;
-        return { ...tab, data: { ...data, activePanel: "results" } };
+        return { ...tab, data: { ...data, activePanel: "results" } } as WorkspaceTab;
       }
     }
     return tab;
@@ -64,9 +64,28 @@ const migrateV1toV2: MigrationFn = (state) => {
     : { ...state, workspaceVersion: 2 };
 };
 
+/**
+ * v2 → v3: Remove "diagram" section from db-object tabs.
+ * Tabs on the "diagram" section are migrated to "columns".
+ */
+const migrateV2toV3: MigrationFn = (state) => {
+  let changed = false;
+  const migratedTabs: WorkspaceTab[] = state.tabs.map((tab) => {
+    if (tab.kind === "db-object" && (tab.data.activeSection as string) === "diagram") {
+      changed = true;
+      return { ...tab, data: { ...tab.data, activeSection: "columns" as const } } as WorkspaceTab;
+    }
+    return tab;
+  });
+  return changed
+    ? { ...state, workspaceVersion: 3, tabs: migratedTabs }
+    : { ...state, workspaceVersion: 3 };
+};
+
 const migrations: Record<number, MigrationFn> = {
   0: migrateV0toV1,
   1: migrateV1toV2,
+  2: migrateV2toV3,
 };
 
 /**

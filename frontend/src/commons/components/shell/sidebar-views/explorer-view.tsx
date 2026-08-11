@@ -116,7 +116,8 @@ function SchemaObjectGroup({
 
 export function ExplorerView() {
   const { t } = useTranslation();
-  const { openSchemaPreview, openTableData, openObjectStructure } = useSidebarTabOps();
+  const { openSchemaPreview, openTableData, openObjectStructure, openSchemaWorkspace } =
+    useSidebarTabOps();
   const expandedNodes = useExplorerStore((s) => s.expandedNodes);
   const toggleNode = useExplorerStore((s) => s.toggleNode);
 
@@ -270,23 +271,40 @@ export function ExplorerView() {
                     const Icon = schemaExpanded ? FolderOpen : Folder;
                     return (
                       <div key={schema.name}>
-                        <button
-                          type="button"
-                          className="flex h-[28px] w-full cursor-pointer items-center gap-1.5 rounded-md border-l-2 border-l-transparent px-2 text-left text-[13px] font-medium text-foreground transition-colors hover:border-l-primary hover:bg-[var(--app-hover)] active:bg-[var(--app-active)]"
-                          onClick={() => toggleNode(`schema:${conn.id}:${schema.name}`)}
-                          aria-expanded={schemaExpanded}
-                        >
-                          {schemaExpanded ? (
-                            <ChevronDown className="h-3 w-3 shrink-0" />
-                          ) : (
-                            <ChevronRight className="h-3 w-3 shrink-0" />
-                          )}
-                          <Icon className="h-3.5 w-3.5 shrink-0 text-primary" />
-                          <span className="flex-1 truncate">{schema.name}</span>
-                          <span className="text-[11px] tabular-nums text-[var(--app-text-dim)]">
-                            {tables.length + views.length}
-                          </span>
-                        </button>
+                        <ContextMenu>
+                          <ContextMenuTrigger asChild>
+                            <button
+                              type="button"
+                              className="flex h-[28px] w-full cursor-pointer items-center gap-1.5 rounded-md border-l-2 border-l-transparent px-2 text-left text-[13px] font-medium text-foreground transition-colors hover:border-l-primary hover:bg-[var(--app-hover)] active:bg-[var(--app-active)]"
+                              onClick={() => toggleNode(`schema:${conn.id}:${schema.name}`)}
+                              aria-expanded={schemaExpanded}
+                            >
+                              {schemaExpanded ? (
+                                <ChevronDown className="h-3 w-3 shrink-0" />
+                              ) : (
+                                <ChevronRight className="h-3 w-3 shrink-0" />
+                              )}
+                              <Icon className="h-3.5 w-3.5 shrink-0 text-primary" />
+                              <span className="flex-1 truncate">{schema.name}</span>
+                              <span className="text-[11px] tabular-nums text-[var(--app-text-dim)]">
+                                {tables.length + views.length}
+                              </span>
+                            </button>
+                          </ContextMenuTrigger>
+                          <ContextMenuContent>
+                            <ContextMenuItem
+                              onClick={() => openSchemaWorkspace(conn.id, schema.name)}
+                            >
+                              {t("schemaWorkspace.actions.openDiagram")}
+                            </ContextMenuItem>
+                            <ContextMenuSeparator />
+                            <ContextMenuItem
+                              onClick={() => navigator.clipboard.writeText(schema.name)}
+                            >
+                              {t("common.actions.copyName")}
+                            </ContextMenuItem>
+                          </ContextMenuContent>
+                        </ContextMenu>
                         {schemaExpanded && (
                           <div className="ml-[10px] flex flex-col gap-0.5">
                             {tables.length > 0 && (

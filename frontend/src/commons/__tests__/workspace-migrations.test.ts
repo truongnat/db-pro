@@ -57,8 +57,8 @@ function makeDbObjectTab(overrides: Record<string, unknown> = {}): WorkspaceTab 
 
 describe("Workspace migrations", () => {
   describe("CURRENT_WORKSPACE_VERSION", () => {
-    it("is 2", () => {
-      expect(CURRENT_WORKSPACE_VERSION).toBe(2);
+    it("is 3", () => {
+      expect(CURRENT_WORKSPACE_VERSION).toBe(3);
     });
   });
 
@@ -150,6 +150,51 @@ describe("Workspace migrations", () => {
       const migratedTab = result.tabs[0];
       if (migratedTab.kind === "query") {
         expect(migratedTab.data.activePanel).toBe("results");
+      }
+    });
+
+    it("v2→v3: migrates 'diagram' section to 'columns'", () => {
+      const tab = makeDbObjectTab({
+        data: {
+          schema: "public",
+          objectName: "users",
+          objectType: "table",
+          activeSection: "diagram",
+        },
+      });
+      const state: PersistedWorkspaceState = {
+        workspaceVersion: 2,
+        tabs: [tab],
+        activeTabId: null,
+        recentlyClosed: [],
+      };
+      const result = migrateWorkspace(state);
+      expect(result.workspaceVersion).toBe(3);
+      const migratedTab = result.tabs[0];
+      if (migratedTab.kind === "db-object") {
+        expect(migratedTab.data.activeSection).toBe("columns");
+      }
+    });
+
+    it("v2→v3: does not affect tabs with other sections", () => {
+      const tab = makeDbObjectTab({
+        data: {
+          schema: "public",
+          objectName: "users",
+          objectType: "table",
+          activeSection: "data",
+        },
+      });
+      const state: PersistedWorkspaceState = {
+        workspaceVersion: 2,
+        tabs: [tab],
+        activeTabId: null,
+        recentlyClosed: [],
+      };
+      const result = migrateWorkspace(state);
+      expect(result.workspaceVersion).toBe(3);
+      if (result.tabs[0].kind === "db-object") {
+        expect(result.tabs[0].data.activeSection).toBe("data");
       }
     });
 

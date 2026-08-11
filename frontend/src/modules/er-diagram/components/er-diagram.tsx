@@ -30,6 +30,7 @@ import type { IntrospectResult } from "@/modules/schema/types/schema.types";
 
 interface ErDiagramProps {
   connectionId: string;
+  schema: string;
   data: IntrospectResult;
 }
 
@@ -40,7 +41,7 @@ function positionStorageKey(connectionId: string, schemaName: string) {
   return `er-diagram-positions:${connectionId}:${schemaName}`;
 }
 
-export function ErDiagram({ connectionId, data }: ErDiagramProps) {
+export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
   const { t } = useTranslation();
   const reactFlowRef = useRef<HTMLDivElement>(null);
 
@@ -53,8 +54,7 @@ export function ErDiagram({ connectionId, data }: ErDiagramProps) {
   const [manualPositions, setManualPositions] = useState<Map<string, { x: number; y: number }>>(
     () => {
       try {
-        const schemaName = data.schemas[0]?.name ?? "public";
-        const raw = localStorage.getItem(positionStorageKey(connectionId, schemaName));
+        const raw = localStorage.getItem(positionStorageKey(connectionId, schema));
         if (raw) return new Map(JSON.parse(raw));
       } catch {
         /* ignore */
@@ -67,16 +67,15 @@ export function ErDiagram({ connectionId, data }: ErDiagramProps) {
   const savePositions = useCallback(
     (positions: Map<string, { x: number; y: number }>) => {
       try {
-        const schemaName = data.schemas[0]?.name ?? "public";
         localStorage.setItem(
-          positionStorageKey(connectionId, schemaName),
+          positionStorageKey(connectionId, schema),
           JSON.stringify([...positions]),
         );
       } catch {
         /* ignore */
       }
     },
-    [connectionId, data.schemas],
+    [connectionId, schema],
   );
 
   // Build nodes and edges from introspection data
@@ -86,9 +85,7 @@ export function ErDiagram({ connectionId, data }: ErDiagramProps) {
       fkColumns.add(`${fk.fromTable}:${fk.fromColumn}`);
     }
 
-    const tables = data.tables.filter(
-      (tbl) => tbl.schema === data.schemas[0]?.name || data.schemas.length === 0,
-    );
+    const tables = data.tables.filter((tbl) => tbl.schema === schema);
 
     const nodes: Node[] = tables.map((table) => {
       const cols = data.columns.filter(
@@ -145,7 +142,7 @@ export function ErDiagram({ connectionId, data }: ErDiagramProps) {
     }));
 
     return { initialNodes: nodes, initialEdges: edges };
-  }, [data, compact]);
+  }, [data, compact, schema]);
 
   // Apply layout, respecting manual positions for dragged nodes
   const laidOutNodes = useMemo(() => {
@@ -271,11 +268,7 @@ export function ErDiagram({ connectionId, data }: ErDiagramProps) {
   useEffect(() => {
     const handler = (e: Event) => {
       const detail = (e as CustomEvent).detail as { tableName: string; columnName: string };
-      const schemaName = data.schemas[0]?.name ?? "public";
-      const table = data.tables.find(
-        (t) =>
-          t.name === detail.tableName && (t.schema === schemaName || data.schemas.length === 0),
-      );
+      const table = data.tables.find((t) => t.name === detail.tableName && t.schema === schema);
       if (!table) return;
       useWorkspaceStore.getState().openDbObject({
         id: `dbobj:${table.schema}.${table.name}:${connectionId}`,
@@ -297,7 +290,7 @@ export function ErDiagram({ connectionId, data }: ErDiagramProps) {
     };
     document.addEventListener("er-column-click", handler);
     return () => document.removeEventListener("er-column-click", handler);
-  }, [connectionId, data.tables, data.schemas]);
+  }, [connectionId, data.tables, schema]);
 
   // Persist node position after drag
   const onNodeDragStop = useCallback(

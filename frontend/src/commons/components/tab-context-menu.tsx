@@ -19,6 +19,9 @@ interface TabContextMenuProps {
 }
 
 function getTabResourceName(tab: WorkspaceTab): string {
+  if (tab.kind === "schema-workspace") {
+    return tab.data.schema;
+  }
   if (tab.kind === "db-object") {
     return `${tab.data.schema}.${tab.data.objectName}`;
   }

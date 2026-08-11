@@ -2,7 +2,7 @@ import { useCallback } from "react";
 
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
 import { useRecentStore } from "@/commons/stores/recent.store";
-import { createDbObjectTab } from "@/commons/factories/tab-factories";
+import { createDbObjectTab, createSchemaWorkspaceTab } from "@/commons/factories/tab-factories";
 import type { DbObjectTabData } from "@/commons/types/workspace.types";
 
 function recordRecentResource(
@@ -112,5 +112,22 @@ export function useSidebarTabOps() {
     [openDbObject],
   );
 
-  return { openSchemaPreview, promoteSchemaPreview, openTableData, openObjectStructure };
+  const openSchemaWorkspace = useCallback((connectionId: string, schema: string) => {
+    const tab = createSchemaWorkspaceTab(connectionId, schema);
+    useWorkspaceStore.getState().openTab(tab);
+    useRecentStore.getState().addRecentResource({
+      resourceKey: `schema-ws:${schema}:${connectionId}`,
+      kind: "schema-workspace",
+      connectionId,
+      schema,
+    });
+  }, []);
+
+  return {
+    openSchemaPreview,
+    promoteSchemaPreview,
+    openTableData,
+    openObjectStructure,
+    openSchemaWorkspace,
+  };
 }

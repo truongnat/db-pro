@@ -5,7 +5,7 @@ import { useTranslation } from "@/commons/locales/useTranslation";
 import { createQueryTabForObject } from "@/modules/query/controllers/query-workspace.controller";
 import { getDialectForConnection } from "@/modules/query/sql/dialect";
 
-import { useTableInfo, useTableDdl, useIntrospect } from "@/modules/schema/queries/schema.queries";
+import { useTableInfo, useTableDdl } from "@/modules/schema/queries/schema.queries";
 import { ColumnList } from "@/modules/schema/components/column-list";
 import { ColumnEditDialog } from "@/modules/schema/components/column-edit-dialog";
 import { DdlViewer } from "@/modules/schema/components/ddl-viewer";
@@ -14,7 +14,6 @@ import { ForeignKeyList } from "@/modules/schema/components/foreign-key-list";
 import { GenerateCrud } from "@/modules/schema/components/generate-crud";
 import { IndexManager } from "@/modules/schema/components/index-manager";
 import { TriggerManager } from "@/modules/schema/components/trigger-manager";
-import { ErDiagram } from "@/modules/er-diagram/components/er-diagram";
 import type { SchemaColumnDto } from "@/modules/schema/types/schema.types";
 
 import { DbObjectWorkspace } from "./db-object-workspace";
@@ -59,7 +58,6 @@ export function DbObjectTabContent({
     objectName,
     activeSection === "ddl" || toolbarAction === "ddlEditor",
   );
-  const introspect = useIntrospect(activeSection === "diagram" ? connectionId : null);
 
   if (!connectionId) return null;
 
@@ -175,25 +173,6 @@ export function DbObjectTabContent({
               <ObjectSectionLayout>
                 <TriggerManager connectionId={connectionId} schema={schema} table={objectName} />
               </ObjectSectionLayout>
-            )}
-            {activeSection === "diagram" && isTableOrView && (
-              <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-                {introspect.isLoading && (
-                  <div className="flex h-full items-center justify-center p-4">
-                    <span className="text-[13px] text-[var(--app-text-muted)]">
-                      {t("common.states.loading")}
-                    </span>
-                  </div>
-                )}
-                {introspect.isError && (
-                  <div className="flex h-full items-center justify-center p-4">
-                    <span className="text-[13px] text-destructive">{t("common.states.error")}</span>
-                  </div>
-                )}
-                {introspect.data && (
-                  <ErDiagram connectionId={connectionId} data={introspect.data} />
-                )}
-              </div>
             )}
             {activeSection === "ddl" && isTableOrView && (
               <ObjectSectionLayout>

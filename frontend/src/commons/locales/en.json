@@ -537,8 +537,7 @@
       "indexes": "Indexes",
       "relations": "Relations",
       "ddl": "DDL",
-      "triggers": "Triggers",
-      "diagram": "Diagram"
+      "triggers": "Triggers"
     },
     "unsupportedObjectType": "This object type is not yet supported.",
     "contextHeader": {
@@ -661,5 +660,15 @@
     "createFirstConnection": "Create your first connection to get started",
     "noRecentConnections": "No recent connections",
     "connectHint": "Click a connection to connect"
+  },
+  "schemaWorkspace": {
+    "sections": {
+      "diagram": "ER Diagram",
+      "overview": "Overview"
+    },
+    "actions": {
+      "openDiagram": "Open ER Diagram"
+    },
+    "overviewComingSoon": "Schema overview is coming soon."
   }
 }
