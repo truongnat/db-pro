@@ -230,9 +230,12 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
     const sorted = [...result.rows].sort((a, b) => {
       const aVal = getSortValue(a[colIdx]);
       const bVal = getSortValue(b[colIdx]);
-      if (aVal < bVal) return -1;
-      if (aVal > bVal) return 1;
-      return 0;
+      if (aVal === bVal) return 0;
+      if (aVal === "") return 1;
+      if (bVal === "") return -1;
+      if (typeof aVal === "bigint" && typeof bVal === "bigint") return aVal < bVal ? -1 : 1;
+      if (typeof aVal === "number" && typeof bVal === "number") return aVal - bVal;
+      return String(aVal).localeCompare(String(bVal));
     });
     return sort.direction === "desc" ? sorted.reverse() : sorted;
   }, [result, sort]);
@@ -541,8 +544,17 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
   );
 }
 
-function getSortValue(cell: { type: string; value?: unknown } | undefined): string | number {
+function getSortValue(
+  cell: { type: string; value?: unknown } | undefined,
+): string | number | bigint {
   if (!cell || cell.type === "null") return "";
-  if (cell.type === "int64" || cell.type === "float64") return cell.value as number;
+  if (cell.type === "int64") {
+    try {
+      return BigInt(cell.value as string);
+    } catch {
+      return 0n;
+    }
+  }
+  if (cell.type === "float64") return cell.value as number;
   return String(cell.value ?? "");
 }

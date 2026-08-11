@@ -10,6 +10,25 @@ use db_pro_core::domain::schema::{
 };
 use db_pro_core::domain::user::{DatabaseUser, Privilege};
 
+mod string_i64 {
+    use serde::{self, Deserialize, Deserializer, Serializer};
+
+    pub fn serialize<S>(value: &i64, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&value.to_string())
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<i64, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        s.parse::<i64>().map_err(serde::de::Error::custom)
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Error
 // ---------------------------------------------------------------------------
@@ -291,7 +310,7 @@ impl From<Row> for RowDto {
 pub enum CellValueDto {
     Null,
     Bool(bool),
-    Int64(i64),
+    Int64(#[serde(with = "string_i64")] i64),
     Float64(f64),
     Text(String),
     Bytes(Vec<u8>),

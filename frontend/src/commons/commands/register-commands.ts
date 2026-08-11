@@ -8,6 +8,7 @@ import { useCommandStore } from "@/commons/stores/command.store";
 import { useQueryHistoryStore } from "@/commons/stores/query-history.store";
 import { useShellStore } from "@/commons/stores/shell.store";
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
+import { useStagedChangesStore } from "@/modules/data-grid/state/staged-changes.store";
 import {
   createQueryTabFromExplorerContext,
   getActiveQueryTab,
@@ -34,11 +35,18 @@ export function registerAllCommands(_router: AnyRouter): void {
 
   function requestCloseMany(ids: string[]) {
     const { tabs } = useWorkspaceStore.getState();
-    const dirtyIds = ids.filter((id) => tabs.find((t) => t.id === id)?.dirty);
-    if (dirtyIds.length === 0) {
+    const stagedStore = useStagedChangesStore.getState();
+    const unsavedIds = ids.filter((id) => {
+      const tab = tabs.find((t) => t.id === id);
+      if (!tab) return false;
+      if (tab.dirty) return true;
+      return stagedStore.getCount(id) > 0;
+    });
+    if (unsavedIds.length === 0) {
+      for (const id of ids) stagedStore.clearTab(id);
       useWorkspaceStore.getState().closeTabs(ids);
     } else {
-      useCloseGuardStore.getState().openDialog(ids, dirtyIds.length);
+      useCloseGuardStore.getState().openDialog(ids, unsavedIds.length);
     }
   }
 

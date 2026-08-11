@@ -86,6 +86,12 @@ export function RowEditDialog({ open, onOpenChange, columns, row, onSave }: RowE
             setFields(nextFields);
             return;
           }
+          const n = BigInt(trimmed);
+          if (n < -9223372036854775808n || n > 9223372036854775807n) {
+            nextFields[col.name] = { ...field, error: "Integer out of range" };
+            setFields(nextFields);
+            return;
+          }
           changes[col.name] = { type: "int64", value: trimmed };
           break;
         }

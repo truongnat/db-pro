@@ -63,7 +63,12 @@ export function CellEditor({ value, onSave, onCancel, columnType }: CellEditorPr
       case "int64": {
         const trimmed = text.trim();
         if (/^-?\d+$/.test(trimmed)) {
-          onSave({ type: "int64", value: trimmed });
+          const n = BigInt(trimmed);
+          if (n < -9223372036854775808n || n > 9223372036854775807n) {
+            setError("Integer out of range");
+          } else {
+            onSave({ type: "int64", value: trimmed });
+          }
         } else {
           setError("Enter a valid integer");
         }
