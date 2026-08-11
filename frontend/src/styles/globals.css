@@ -391,3 +391,32 @@
   user-select: none;
   -webkit-user-select: none;
 }
+
+/* ── React Flow controls theme override ──────────────────────── */
+
+.react-flow__controls {
+  background: var(--popover);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: none;
+}
+
+.react-flow__controls-button {
+  background: var(--popover);
+  border: none;
+  border-bottom: 1px solid var(--border);
+  color: var(--foreground);
+  fill: var(--foreground);
+}
+
+.react-flow__controls-button:last-child {
+  border-bottom: none;
+}
+
+.react-flow__controls-button:hover {
+  background: var(--muted);
+}
+
+.react-flow__controls-button svg {
+  fill: var(--foreground);
+}
