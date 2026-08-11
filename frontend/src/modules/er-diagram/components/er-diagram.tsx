@@ -8,6 +8,7 @@ import {
   useEdgesState,
   type Node,
   type Edge,
+  type Viewport,
   MarkerType,
   BackgroundVariant,
   Panel,
@@ -36,6 +37,15 @@ interface ErDiagramProps {
 
 const nodeTypes = { table: TableNode };
 
+type ZoomTier = 0 | 1 | 2;
+const TIER_THRESHOLDS: [number, number] = [0.3, 0.7];
+
+function zoomTier(zoom: number): ZoomTier {
+  if (zoom < TIER_THRESHOLDS[0]) return 0;
+  if (zoom < TIER_THRESHOLDS[1]) return 1;
+  return 2;
+}
+
 /** Build a storage key for persisting node positions per connection + schema. */
 function positionStorageKey(connectionId: string, schemaName: string) {
   return `er-diagram-positions:${connectionId}:${schemaName}`;
@@ -49,6 +59,14 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [layoutDirection, setLayoutDirection] = useState<"LR" | "TB">("LR");
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
+  const [currentTier, setCurrentTier] = useState<ZoomTier>(2);
+
+  const onViewportChange = useCallback((viewport: Viewport) => {
+    setCurrentTier((prev) => {
+      const next = zoomTier(viewport.zoom);
+      return next === prev ? prev : next;
+    });
+  }, []);
 
   // Persisted manual positions: nodeId → { x, y }
   const [manualPositions, setManualPositions] = useState<Map<string, { x: number; y: number }>>(
@@ -134,6 +152,7 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
         schema: table.schema,
         columns: columnData,
         compact,
+        zoomTier: 2,
       };
 
       return {
@@ -167,7 +186,6 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
   // Apply layout, respecting manual positions for dragged nodes
   const laidOutNodes = useMemo(() => {
     const autoLaid = layoutGraph(initialNodes, initialEdges, { direction: layoutDirection });
-    // Override with manual positions where they exist
     return autoLaid.map((node) => {
       const manual = manualPositions.get(node.id);
       if (manual) return { ...node, position: manual };
@@ -175,13 +193,22 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
     });
   }, [initialNodes, initialEdges, layoutDirection, manualPositions]);
 
+  // Inject current zoom tier into node data — only recomputes when tier changes
+  const tieredNodes = useMemo(() => {
+    return laidOutNodes.map((node) => {
+      const d = node.data as TableNodeData;
+      if (d.zoomTier === currentTier) return node;
+      return { ...node, data: { ...d, zoomTier: currentTier } };
+    });
+  }, [laidOutNodes, currentTier]);
+
   const [nodes, setNodes, onNodesChange] = useNodesState(laidOutNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
 
-  // Sync laidOutNodes to React Flow state (layout already computed in useMemo above)
+  // Sync tieredNodes to React Flow state (layout already computed in useMemo above)
   useEffect(() => {
-    setNodes(laidOutNodes);
-  }, [laidOutNodes, setNodes]);
+    setNodes(tieredNodes);
+  }, [tieredNodes, setNodes]);
 
   // Edge highlighting only — no layout re-computation
   useEffect(() => {
@@ -204,19 +231,19 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
   // Filter nodes by search
   useEffect(() => {
     if (!searchQuery.trim()) {
-      setNodes(laidOutNodes);
+      setNodes(tieredNodes);
       return;
     }
     const q = searchQuery.toLowerCase();
     setNodes(
-      laidOutNodes.map((n) => ({
+      tieredNodes.map((n) => ({
         ...n,
         style: {
           ...((n.data as TableNodeData).label.toLowerCase().includes(q) ? {} : { opacity: 0.3 }),
         },
       })),
     );
-  }, [searchQuery, laidOutNodes, setNodes]);
+  }, [searchQuery, tieredNodes, setNodes]);
 
   // Fit view on first render
   const onInit = useCallback((instance: { fitView: (opts?: Record<string, unknown>) => void }) => {
@@ -311,13 +338,28 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
     rfNode?.dispatchEvent(new KeyboardEvent("keydown", { key: "1" }));
   }, []);
 
+  // Simplify edges at low zoom tiers
+  const displayEdges = useMemo(() => {
+    if (currentTier === 0) {
+      return edges.map((e) => ({
+        ...e,
+        label: undefined,
+        style: { ...e.style, strokeWidth: 1 },
+      }));
+    }
+    return edges;
+  }, [edges, currentTier]);
+
+  const showMiniMap = initialNodes.length <= 200;
+
   return (
     <div className="flex min-h-0 flex-1 flex-col" ref={reactFlowRef}>
       <ReactFlow
         nodes={nodes}
-        edges={edges}
+        edges={displayEdges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
+        onViewportChange={onViewportChange}
         onInit={onInit}
         onNodeClick={onNodeClick}
         onEdgeClick={onEdgeClick}
@@ -341,14 +383,16 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
           color="var(--app-border-subtle)"
         />
         <Controls showInteractive={false} />
-        <MiniMap
-          nodeColor={(n) => {
-            const d = n.data as TableNodeData;
-            return d.columns?.some((c) => c.isForeignKey) ? "var(--info)" : "var(--primary)";
-          }}
-          maskColor="rgba(0,0,0,0.08)"
-          className="!bg-popover !border-[var(--app-border)]"
-        />
+        {showMiniMap && (
+          <MiniMap
+            nodeColor={(n) => {
+              const d = n.data as TableNodeData;
+              return d.columns?.some((c) => c.isForeignKey) ? "var(--info)" : "var(--primary)";
+            }}
+            maskColor="rgba(0,0,0,0.08)"
+            className="!bg-popover !border-[var(--app-border)]"
+          />
+        )}
 
         {/* Top panel: search + controls */}
         <Panel position="top-left" className="m-2">

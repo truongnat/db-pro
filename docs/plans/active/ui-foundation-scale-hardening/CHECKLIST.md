@@ -23,14 +23,14 @@
 
 ## Phase 3: Rendering LOD
 
-- [ ] **3.1** Add viewport zoom tracking (`useViewport()` or `onViewportChange`)
-- [ ] **3.2** Define zoom tier thresholds (initial: <0.3, 0.3-0.7, >0.7)
-- [ ] **3.3** Pass zoom tier to `TableNode` via node data
-- [ ] **3.4** Implement tiered rendering in `TableNode`: name-only, count, full columns
-- [ ] **3.5** Memoize `TableNode` properly — ensure data changes don't break memo
-- [ ] **3.6** Simplify edges at low zoom (thinner, no labels)
-- [ ] **3.7** Conditionally disable MiniMap for large graphs (>200 nodes)
-- [ ] **3.8** Test zoom transitions for visual smoothness
+- [x] **3.1** Add viewport zoom tracking (`useViewport()` or `onViewportChange`)
+- [x] **3.2** Define zoom tier thresholds (initial: <0.3, 0.3-0.7, >0.7)
+- [x] **3.3** Pass zoom tier to `TableNode` via node data
+- [x] **3.4** Implement tiered rendering in `TableNode`: name-only, count, full columns
+- [x] **3.5** Memoize `TableNode` properly — ensure data changes don't break memo
+- [x] **3.6** Simplify edges at low zoom (thinner, no labels)
+- [x] **3.7** Conditionally disable MiniMap for large graphs (>200 nodes)
+- [x] **3.8** Test zoom transitions for visual smoothness
 
 ## Phase 4: Large Schema Mode
 
