@@ -258,6 +258,12 @@ async fn pg_composite_fk_detail() {
 async fn pg_index_lifecycle() {
     let (connector, handle) = setup().await;
 
+    // Pre-cleanup: drop leftover index from a previous failed run.
+    connector
+        .execute(&handle, "DROP INDEX IF EXISTS idx_s7_test_lifecycle", &[])
+        .await
+        .unwrap();
+
     // Ensure the test index does not already exist.
     let result = connector.introspect(&handle).await.unwrap();
     assert!(

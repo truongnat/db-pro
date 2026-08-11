@@ -19,7 +19,7 @@ State: REVIEW (regression matrix complete; gap-filling tests added; CI green; al
 
 | File | Tests | Coverage |
 |---|---|---|
-| `integration.rs` | 18 | Connection, query, introspection (tables, columns, PKs, indexes, FKs, views, triggers), mutation, explain |
+| `integration.rs` | 24 | Connection, query, introspection (tables, columns, PKs, indexes, FKs, views, triggers), mutation, explain |
 | `schema_indexes_runtime_verification.rs` | 1 | Index lifecycle: create unique → create composite → introspect → drop → verify |
 | `schema_triggers_runtime_verification.rs` | 5 | Trigger lifecycle, BEFORE INSERT, special identifiers, INSTEAD OF, multiple triggers |
 
@@ -52,7 +52,7 @@ State: REVIEW (regression matrix complete; gap-filling tests added; CI green; al
 
 - [x] P0 = 0
 - [x] P1 = 0
-- [x] CI passing (3 consecutive green runs)
+- [x] CI passing (consecutive green runs on latest HEAD)
 - [x] VERIFICATION.md updated
 - [x] Cubic ci.yml P3 (apt-get update): CONFIRMED, FIXED in `314dcfe`
 - [x] Cubic ci.yml P2 (--include-ignored): REJECTED — by design, PG tests must run in CI
