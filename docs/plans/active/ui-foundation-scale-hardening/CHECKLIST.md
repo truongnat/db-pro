@@ -13,12 +13,12 @@
 
 ## Phase 2: Design Token Contract
 
-- [ ] **2.1** Define canonical token naming convention (`--surface-*`, `--text-*`, `--border-*`, `--accent-*`, `--state-*`)
-- [ ] **2.2** Migrate `--app-surface-*` → canonical names (or keep `--app-*` as canonical and document)
-- [ ] **2.3** Make shadcn tokens (`--background`, `--popover`, etc.) alias to canonical tokens
-- [ ] **2.4** Remove duplicate color definitions from shadcn `:root` / `[data-theme="dark"]` blocks
-- [ ] **2.5** Verify no visual regression (light + dark theme)
-- [ ] **2.6** Document token contract and `shadcn add` safety rule
+- [x] **2.1** Define canonical token naming convention (`--surface-*`, `--text-*`, `--border-*`, `--accent-*`, `--state-*`)
+- [x] **2.2** Migrate `--app-surface-*` → canonical names (or keep `--app-*` as canonical and document)
+- [x] **2.3** Make shadcn tokens (`--background`, `--popover`, etc.) alias to canonical tokens
+- [x] **2.4** Remove duplicate color definitions from shadcn `:root` / `[data-theme="dark"]` blocks
+- [x] **2.5** Verify no visual regression (light + dark theme)
+- [x] **2.6** Document token contract and `shadcn add` safety rule
 - [ ] **2.7** Add CI check or script to detect token drift
 
 ## Phase 3: Rendering LOD
