@@ -20,7 +20,9 @@ fn pg_config() -> Option<ConnectionConfig> {
     let url = std::env::var("DATABASE_URL").ok()?;
     // Parse postgres://user:pass@host:port/dbname
     let without_scheme = url.strip_prefix("postgres://")?;
-    let (auth_host_db, _) = without_scheme.split_once('?').unwrap_or((&without_scheme, ""));
+    let (auth_host_db, _) = without_scheme
+        .split_once('?')
+        .unwrap_or((without_scheme, ""));
 
     // Split auth from host+db
     let (auth, host_db) = if auth_host_db.contains('@') {
