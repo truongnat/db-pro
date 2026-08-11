@@ -115,6 +115,12 @@ export function useSidebarTabOps() {
   const openSchemaWorkspace = useCallback((connectionId: string, schema: string) => {
     const tab = createSchemaWorkspaceTab(connectionId, schema);
     useWorkspaceStore.getState().openTab(tab);
+    useRecentStore.getState().addRecentResource({
+      resourceKey: `schema-ws:${schema}:${connectionId}`,
+      kind: "schema-workspace",
+      connectionId,
+      schema,
+    });
   }, []);
 
   return {

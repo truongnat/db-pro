@@ -142,7 +142,7 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
     }));
 
     return { initialNodes: nodes, initialEdges: edges };
-  }, [data, compact]);
+  }, [data, compact, schema]);
 
   // Apply layout, respecting manual positions for dragged nodes
   const laidOutNodes = useMemo(() => {
