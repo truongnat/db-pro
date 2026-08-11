@@ -14,6 +14,7 @@ export interface TableNodeData {
     isForeignKey: boolean;
   }[];
   compact: boolean;
+  zoomTier: number;
   [key: string]: unknown;
 }
 
@@ -22,12 +23,11 @@ export interface TableNodeData {
  * with PK/FK indicators and column types.
  */
 export const TableNode = memo(function TableNode({ data, selected }: NodeProps) {
-  const { label, columns, compact } = data as TableNodeData;
+  const { label, columns, compact, zoomTier: tier } = data as TableNodeData;
 
   const handleColumnClick = useCallback(
     (e: React.MouseEvent, colName: string) => {
       e.stopPropagation();
-      // Dispatch a custom event so the parent ErDiagram can handle navigation
       const event = new CustomEvent("er-column-click", {
         detail: { tableName: label, columnName: colName },
         bubbles: true,
@@ -36,6 +36,9 @@ export const TableNode = memo(function TableNode({ data, selected }: NodeProps) 
     },
     [label],
   );
+
+  const showColumns = tier === 2 && !compact;
+  const showColumnCount = tier === 1 || (tier === 2 && compact);
 
   return (
     <div
@@ -50,8 +53,8 @@ export const TableNode = memo(function TableNode({ data, selected }: NodeProps) 
         <span className="truncate text-[12px] font-semibold">{label}</span>
       </div>
 
-      {/* Columns */}
-      {!compact && (
+      {/* Tier 2: full column list */}
+      {showColumns && (
         <div className="flex flex-col">
           {columns.map((col) => (
             <div
@@ -61,7 +64,6 @@ export const TableNode = memo(function TableNode({ data, selected }: NodeProps) 
               onClick={(e) => handleColumnClick(e, col.name)}
               title={`Open ${label}.${col.name} in Columns`}
             >
-              {/* PK / FK indicators */}
               <span className="flex w-4 shrink-0 items-center justify-center">
                 {col.isPrimaryKey && <Key className="h-2.5 w-2.5 text-primary" />}
                 {col.isForeignKey && !col.isPrimaryKey && (
@@ -69,7 +71,6 @@ export const TableNode = memo(function TableNode({ data, selected }: NodeProps) 
                 )}
               </span>
 
-              {/* Column name */}
               <span
                 className={cn(
                   "flex-1 truncate font-mono",
@@ -79,15 +80,12 @@ export const TableNode = memo(function TableNode({ data, selected }: NodeProps) 
                 {col.name}
               </span>
 
-              {/* Data type */}
               <span className="shrink-0 font-mono text-[10px] text-[var(--app-text-muted)]">
                 {col.dataType}
               </span>
 
-              {/* Nullable marker */}
               {col.nullable && <span className="text-[9px] text-[var(--app-text-dim)]">?</span>}
 
-              {/* Handle for PK columns (source for edges) */}
               {col.isPrimaryKey && (
                 <Handle
                   type="source"
@@ -97,7 +95,6 @@ export const TableNode = memo(function TableNode({ data, selected }: NodeProps) 
                 />
               )}
 
-              {/* Handle for FK columns (target for edges) */}
               {col.isForeignKey && (
                 <Handle
                   type="target"
@@ -111,8 +108,8 @@ export const TableNode = memo(function TableNode({ data, selected }: NodeProps) 
         </div>
       )}
 
-      {/* Compact mode: just show count */}
-      {compact && (
+      {/* Tier 1 or compact: column count summary */}
+      {showColumnCount && (
         <div className="px-2.5 py-1 text-[10px] text-[var(--app-text-muted)]">
           {columns.length} columns
         </div>

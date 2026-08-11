@@ -13,6 +13,7 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write src/",
     "format:check": "prettier --check src/",
+    "check:tokens": "node scripts/check-token-drift.mjs",
     "test": "vitest run",
     "test:watch": "vitest"
   },

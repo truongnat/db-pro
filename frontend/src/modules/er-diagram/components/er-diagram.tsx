@@ -8,6 +8,7 @@ import {
   useEdgesState,
   type Node,
   type Edge,
+  type Viewport,
   MarkerType,
   BackgroundVariant,
   Panel,
@@ -20,13 +21,17 @@ import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useTranslation } from "@/commons/locales/useTranslation";
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
-import { Search, Maximize2, LayoutGrid, Columns2, Table2, RotateCcw } from "lucide-react";
+import { Search, Maximize2, LayoutGrid, Columns2, Table2, RotateCcw, Eye, Focus } from "lucide-react";
 
 import { TableNode, type TableNodeData } from "./table-node";
 import { layoutGraph } from "../utils/layout";
 import { groupForeignKeys } from "../utils/edge-builder";
+import { buildAdjacencyMap, getNeighborhood } from "../utils/neighborhood";
 
-import type { IntrospectResult } from "@/modules/schema/types/schema.types";
+import type { IntrospectResult, SchemaColumnDto } from "@/modules/schema/types/schema.types";
+
+const LARGE_SCHEMA_THRESHOLD = 200;
+const NEIGHBORHOOD_HOPS = 2;
 
 interface ErDiagramProps {
   connectionId: string;
@@ -35,6 +40,15 @@ interface ErDiagramProps {
 }
 
 const nodeTypes = { table: TableNode };
+
+type ZoomTier = 0 | 1 | 2;
+const TIER_THRESHOLDS: [number, number] = [0.3, 0.7];
+
+function zoomTier(zoom: number): ZoomTier {
+  if (zoom < TIER_THRESHOLDS[0]) return 0;
+  if (zoom < TIER_THRESHOLDS[1]) return 1;
+  return 2;
+}
 
 /** Build a storage key for persisting node positions per connection + schema. */
 function positionStorageKey(connectionId: string, schemaName: string) {
@@ -49,6 +63,27 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [layoutDirection, setLayoutDirection] = useState<"LR" | "TB">("LR");
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
+  const [currentTier, setCurrentTier] = useState<ZoomTier>(2);
+
+  const onViewportChange = useCallback((viewport: Viewport) => {
+    setCurrentTier((prev) => {
+      const next = zoomTier(viewport.zoom);
+      return next === prev ? prev : next;
+    });
+  }, []);
+
+  // Neighborhood mode for large schemas
+  const tablesInSchema = data.tables.filter((t) => t.schema === schema);
+  const isLargeSchema = tablesInSchema.length > LARGE_SCHEMA_THRESHOLD;
+  const [neighborhoodSeed, setNeighborhoodSeed] = useState<string | null>(null);
+  const [showAll, setShowAll] = useState(false);
+
+  const adjacencyMap = useMemo(() => buildAdjacencyMap(data.foreignKeys), [data.foreignKeys]);
+
+  const neighborhoodSet = useMemo(() => {
+    if (!isLargeSchema || showAll || !neighborhoodSeed) return null;
+    return getNeighborhood(adjacencyMap, neighborhoodSeed, NEIGHBORHOOD_HOPS);
+  }, [isLargeSchema, showAll, neighborhoodSeed, adjacencyMap]);
 
   // Persisted manual positions: nodeId → { x, y }
   const [manualPositions, setManualPositions] = useState<Map<string, { x: number; y: number }>>(
@@ -78,31 +113,57 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
     [connectionId, schema],
   );
 
-  // Build nodes and edges from introspection data
-  const { initialNodes, initialEdges } = useMemo(() => {
-    const fkColumns = new Set<string>();
-    for (const fk of data.foreignKeys) {
-      fkColumns.add(`${fk.fromTable}:${fk.fromColumn}`);
+  // Pre-index metadata by schema.tableName — O(C + P + F) once, O(1) per table lookup
+  const columnsByTable = useMemo(() => {
+    const map = new Map<string, SchemaColumnDto[]>();
+    for (const col of data.columns) {
+      const key = `${col.schema}.${col.tableName}`;
+      const list = map.get(key);
+      if (list) list.push(col);
+      else map.set(key, [col]);
     }
+    return map;
+  }, [data.columns]);
 
-    const tables = data.tables.filter((tbl) => tbl.schema === schema);
+  const primaryKeysByTable = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    for (const pk of data.primaryKeys) {
+      const key = `${pk.schema}.${pk.tableName}`;
+      const existing = map.get(key);
+      if (existing) {
+        for (const c of pk.columns) existing.add(c);
+      } else {
+        map.set(key, new Set(pk.columns));
+      }
+    }
+    return map;
+  }, [data.primaryKeys]);
+
+  const fkColumnSet = useMemo(() => {
+    const set = new Set<string>();
+    for (const fk of data.foreignKeys) {
+      set.add(`${fk.schema}.${fk.fromTable}:${fk.fromColumn}`);
+    }
+    return set;
+  }, [data.foreignKeys]);
+
+  // Build nodes and edges from introspection data using pre-indexed maps
+  const { initialNodes, initialEdges } = useMemo(() => {
+    const tables = neighborhoodSet
+      ? data.tables.filter((t) => t.schema === schema && neighborhoodSet.has(`${t.schema}.${t.name}`))
+      : data.tables.filter((tbl) => tbl.schema === schema);
 
     const nodes: Node[] = tables.map((table) => {
-      const cols = data.columns.filter(
-        (c) => c.tableName === table.name && c.schema === table.schema,
-      );
-      const pkCols = new Set(
-        data.primaryKeys
-          .filter((pk) => pk.tableName === table.name && pk.schema === table.schema)
-          .flatMap((pk) => pk.columns),
-      );
+      const tableKey = `${table.schema}.${table.name}`;
+      const cols = columnsByTable.get(tableKey);
+      const pkCols = primaryKeysByTable.get(tableKey);
 
-      const columnData = cols.map((col) => ({
+      const columnData = (cols ?? []).map((col) => ({
         name: col.name,
         dataType: col.dataType,
         nullable: col.nullable,
-        isPrimaryKey: pkCols.has(col.name),
-        isForeignKey: fkColumns.has(`${col.tableName}:${col.name}`),
+        isPrimaryKey: pkCols?.has(col.name) ?? false,
+        isForeignKey: fkColumnSet.has(`${tableKey}:${col.name}`),
       }));
 
       const nodeData: TableNodeData = {
@@ -110,20 +171,17 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
         schema: table.schema,
         columns: columnData,
         compact,
+        zoomTier: 2,
       };
 
       return {
-        id: `${table.schema}.${table.name}`,
+        id: tableKey,
         type: "table",
         position: { x: 0, y: 0 },
         data: nodeData,
       };
     });
 
-    // Group FKs by constraint name to handle composite foreign keys.
-    // A composite FK like (tenant_id, parent_id) REFERENCES parent(tenant_id, id)
-    // produces multiple ForeignKey entries with the same constraint name.
-    // We merge them into a single edge per logical constraint.
     const visibleTableKeys = new Set(tables.map((t) => `${t.schema}.${t.name}`));
     const fkGroups = groupForeignKeys(data.foreignKeys, visibleTableKeys);
 
@@ -142,12 +200,11 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
     }));
 
     return { initialNodes: nodes, initialEdges: edges };
-  }, [data, compact, schema]);
+  }, [data, compact, schema, columnsByTable, primaryKeysByTable, fkColumnSet, neighborhoodSet]);
 
   // Apply layout, respecting manual positions for dragged nodes
   const laidOutNodes = useMemo(() => {
     const autoLaid = layoutGraph(initialNodes, initialEdges, { direction: layoutDirection });
-    // Override with manual positions where they exist
     return autoLaid.map((node) => {
       const manual = manualPositions.get(node.id);
       if (manual) return { ...node, position: manual };
@@ -155,55 +212,73 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
     });
   }, [initialNodes, initialEdges, layoutDirection, manualPositions]);
 
+  // Inject current zoom tier into node data — only recomputes when tier changes
+  const tieredNodes = useMemo(() => {
+    return laidOutNodes.map((node) => {
+      const d = node.data as TableNodeData;
+      if (d.zoomTier === currentTier) return node;
+      return { ...node, data: { ...d, zoomTier: currentTier } };
+    });
+  }, [laidOutNodes, currentTier]);
+
   const [nodes, setNodes, onNodesChange] = useNodesState(laidOutNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
 
-  // Re-layout when layout params change (keep manual positions)
+  // Sync tieredNodes to React Flow state (layout already computed in useMemo above)
   useEffect(() => {
-    const relaid = layoutGraph(initialNodes, initialEdges, { direction: layoutDirection });
-    const merged = relaid.map((node) => {
-      const manual = manualPositions.get(node.id);
-      if (manual) return { ...node, position: manual };
-      return node;
-    });
-    setNodes(merged);
-    setEdges(
-      selectedEdgeId
-        ? initialEdges.map((e) => ({
-            ...e,
-            style:
-              e.id === selectedEdgeId
-                ? { strokeWidth: 2.5, stroke: "var(--primary)" }
-                : { strokeWidth: 1, opacity: 0.3 },
-          }))
-        : initialEdges,
-    );
-  }, [
-    initialNodes,
-    initialEdges,
-    layoutDirection,
-    manualPositions,
-    selectedEdgeId,
-    setNodes,
-    setEdges,
-  ]);
+    setNodes(tieredNodes);
+  }, [tieredNodes, setNodes]);
 
-  // Filter nodes by search
+  // Edge highlighting only — no layout re-computation
   useEffect(() => {
+    if (!selectedEdgeId) {
+      setEdges(initialEdges);
+      return;
+    }
+    setEdges(
+      initialEdges.map((e) => ({
+        ...e,
+        style:
+          e.id === selectedEdgeId
+            ? { strokeWidth: 2.5, stroke: "var(--primary)" }
+            : { strokeWidth: 1, opacity: 0.3 },
+        animated: e.id === selectedEdgeId,
+      })),
+    );
+  }, [selectedEdgeId, initialEdges, setEdges]);
+
+  // In large schemas, search triggers neighborhood mode
+  useEffect(() => {
+    if (!isLargeSchema) return;
     if (!searchQuery.trim()) {
-      setNodes(laidOutNodes);
+      if (!showAll) setNeighborhoodSeed(null);
+      return;
+    }
+    const q = searchQuery.toLowerCase();
+    const match = tablesInSchema.find((t) => t.name.toLowerCase().includes(q));
+    if (match) {
+      setNeighborhoodSeed(`${match.schema}.${match.name}`);
+      setShowAll(false);
+    }
+  }, [searchQuery, isLargeSchema, tablesInSchema, showAll]);
+
+  // Filter nodes by search (small schemas only — large schemas use neighborhood)
+  useEffect(() => {
+    if (isLargeSchema) return;
+    if (!searchQuery.trim()) {
+      setNodes(tieredNodes);
       return;
     }
     const q = searchQuery.toLowerCase();
     setNodes(
-      laidOutNodes.map((n) => ({
+      tieredNodes.map((n) => ({
         ...n,
         style: {
           ...((n.data as TableNodeData).label.toLowerCase().includes(q) ? {} : { opacity: 0.3 }),
         },
       })),
     );
-  }, [searchQuery, laidOutNodes, setNodes]);
+  }, [searchQuery, tieredNodes, setNodes, isLargeSchema]);
 
   // Fit view on first render
   const onInit = useCallback((instance: { fitView: (opts?: Record<string, unknown>) => void }) => {
@@ -245,24 +320,6 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
   const onPaneClick = useCallback(() => {
     setSelectedEdgeId(null);
   }, []);
-
-  // Track edge styles based on selection
-  useEffect(() => {
-    if (!selectedEdgeId) {
-      setEdges(initialEdges);
-      return;
-    }
-    setEdges(
-      initialEdges.map((e) => ({
-        ...e,
-        style:
-          e.id === selectedEdgeId
-            ? { strokeWidth: 2.5, stroke: "var(--primary)" }
-            : { strokeWidth: 1, opacity: 0.3 },
-        animated: e.id === selectedEdgeId,
-      })),
-    );
-  }, [selectedEdgeId, initialEdges, setEdges]);
 
   // Listen for column click events from TableNode → navigate to Columns section
   useEffect(() => {
@@ -316,13 +373,28 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
     rfNode?.dispatchEvent(new KeyboardEvent("keydown", { key: "1" }));
   }, []);
 
+  // Simplify edges at low zoom tiers
+  const displayEdges = useMemo(() => {
+    if (currentTier === 0) {
+      return edges.map((e) => ({
+        ...e,
+        label: undefined,
+        style: { ...e.style, strokeWidth: 1 },
+      }));
+    }
+    return edges;
+  }, [edges, currentTier]);
+
+  const showMiniMap = initialNodes.length <= 200;
+
   return (
     <div className="flex min-h-0 flex-1 flex-col" ref={reactFlowRef}>
       <ReactFlow
         nodes={nodes}
-        edges={edges}
+        edges={displayEdges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
+        onViewportChange={onViewportChange}
         onInit={onInit}
         onNodeClick={onNodeClick}
         onEdgeClick={onEdgeClick}
@@ -346,14 +418,16 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
           color="var(--app-border-subtle)"
         />
         <Controls showInteractive={false} />
-        <MiniMap
-          nodeColor={(n) => {
-            const d = n.data as TableNodeData;
-            return d.columns?.some((c) => c.isForeignKey) ? "var(--info)" : "var(--primary)";
-          }}
-          maskColor="rgba(0,0,0,0.08)"
-          className="!bg-popover !border-[var(--app-border)]"
-        />
+        {showMiniMap && (
+          <MiniMap
+            nodeColor={(n) => {
+              const d = n.data as TableNodeData;
+              return d.columns?.some((c) => c.isForeignKey) ? "var(--info)" : "var(--primary)";
+            }}
+            maskColor="rgba(0,0,0,0.08)"
+            className="!bg-popover !border-[var(--app-border)]"
+          />
+        )}
 
         {/* Top panel: search + controls */}
         <Panel position="top-left" className="m-2">
@@ -369,8 +443,50 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
             </div>
             <Badge variant="outline" className="h-7 text-[11px]">
               <Table2 className="mr-1 h-3 w-3" />
-              {initialNodes.length} tables
+              {initialNodes.length}
+              {neighborhoodSet ? ` / ${tablesInSchema.length}` : ""} tables
             </Badge>
+            {isLargeSchema && neighborhoodSet && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-[11px]"
+                    onClick={() => {
+                      setShowAll(true);
+                      setNeighborhoodSeed(null);
+                    }}
+                  >
+                    <Eye className="mr-1 h-3 w-3" />
+                    Show all {tablesInSchema.length}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Render all tables in schema</TooltipContent>
+              </Tooltip>
+            )}
+            {isLargeSchema && showAll && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-[11px]"
+                    onClick={() => {
+                      setShowAll(false);
+                      setNeighborhoodSeed(null);
+                      setSearchQuery("");
+                    }}
+                  >
+                    <Focus className="mr-1 h-3 w-3" />
+                    Neighborhood mode
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Search a table to focus its neighborhood</TooltipContent>
+              </Tooltip>
+            )}
           </div>
         </Panel>
 
