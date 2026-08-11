@@ -26,7 +26,7 @@ import { TableNode, type TableNodeData } from "./table-node";
 import { layoutGraph } from "../utils/layout";
 import { groupForeignKeys } from "../utils/edge-builder";
 
-import type { IntrospectResult } from "@/modules/schema/types/schema.types";
+import type { IntrospectResult, SchemaColumnDto } from "@/modules/schema/types/schema.types";
 
 interface ErDiagramProps {
   connectionId: string;
@@ -78,31 +78,55 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
     [connectionId, schema],
   );
 
-  // Build nodes and edges from introspection data
-  const { initialNodes, initialEdges } = useMemo(() => {
-    const fkColumns = new Set<string>();
-    for (const fk of data.foreignKeys) {
-      fkColumns.add(`${fk.fromTable}:${fk.fromColumn}`);
+  // Pre-index metadata by schema.tableName — O(C + P + F) once, O(1) per table lookup
+  const columnsByTable = useMemo(() => {
+    const map = new Map<string, SchemaColumnDto[]>();
+    for (const col of data.columns) {
+      const key = `${col.schema}.${col.tableName}`;
+      const list = map.get(key);
+      if (list) list.push(col);
+      else map.set(key, [col]);
     }
+    return map;
+  }, [data.columns]);
 
+  const primaryKeysByTable = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    for (const pk of data.primaryKeys) {
+      const key = `${pk.schema}.${pk.tableName}`;
+      const existing = map.get(key);
+      if (existing) {
+        for (const c of pk.columns) existing.add(c);
+      } else {
+        map.set(key, new Set(pk.columns));
+      }
+    }
+    return map;
+  }, [data.primaryKeys]);
+
+  const fkColumnSet = useMemo(() => {
+    const set = new Set<string>();
+    for (const fk of data.foreignKeys) {
+      set.add(`${fk.schema}.${fk.fromTable}:${fk.fromColumn}`);
+    }
+    return set;
+  }, [data.foreignKeys]);
+
+  // Build nodes and edges from introspection data using pre-indexed maps
+  const { initialNodes, initialEdges } = useMemo(() => {
     const tables = data.tables.filter((tbl) => tbl.schema === schema);
 
     const nodes: Node[] = tables.map((table) => {
-      const cols = data.columns.filter(
-        (c) => c.tableName === table.name && c.schema === table.schema,
-      );
-      const pkCols = new Set(
-        data.primaryKeys
-          .filter((pk) => pk.tableName === table.name && pk.schema === table.schema)
-          .flatMap((pk) => pk.columns),
-      );
+      const tableKey = `${table.schema}.${table.name}`;
+      const cols = columnsByTable.get(tableKey);
+      const pkCols = primaryKeysByTable.get(tableKey);
 
-      const columnData = cols.map((col) => ({
+      const columnData = (cols ?? []).map((col) => ({
         name: col.name,
         dataType: col.dataType,
         nullable: col.nullable,
-        isPrimaryKey: pkCols.has(col.name),
-        isForeignKey: fkColumns.has(`${col.tableName}:${col.name}`),
+        isPrimaryKey: pkCols?.has(col.name) ?? false,
+        isForeignKey: fkColumnSet.has(`${tableKey}:${col.name}`),
       }));
 
       const nodeData: TableNodeData = {
@@ -113,17 +137,13 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
       };
 
       return {
-        id: `${table.schema}.${table.name}`,
+        id: tableKey,
         type: "table",
         position: { x: 0, y: 0 },
         data: nodeData,
       };
     });
 
-    // Group FKs by constraint name to handle composite foreign keys.
-    // A composite FK like (tenant_id, parent_id) REFERENCES parent(tenant_id, id)
-    // produces multiple ForeignKey entries with the same constraint name.
-    // We merge them into a single edge per logical constraint.
     const visibleTableKeys = new Set(tables.map((t) => `${t.schema}.${t.name}`));
     const fkGroups = groupForeignKeys(data.foreignKeys, visibleTableKeys);
 
@@ -142,7 +162,7 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
     }));
 
     return { initialNodes: nodes, initialEdges: edges };
-  }, [data, compact, schema]);
+  }, [data, compact, schema, columnsByTable, primaryKeysByTable, fkColumnSet]);
 
   // Apply layout, respecting manual positions for dragged nodes
   const laidOutNodes = useMemo(() => {
@@ -158,35 +178,28 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
   const [nodes, setNodes, onNodesChange] = useNodesState(laidOutNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
 
-  // Re-layout when layout params change (keep manual positions)
+  // Sync laidOutNodes to React Flow state (layout already computed in useMemo above)
   useEffect(() => {
-    const relaid = layoutGraph(initialNodes, initialEdges, { direction: layoutDirection });
-    const merged = relaid.map((node) => {
-      const manual = manualPositions.get(node.id);
-      if (manual) return { ...node, position: manual };
-      return node;
-    });
-    setNodes(merged);
+    setNodes(laidOutNodes);
+  }, [laidOutNodes, setNodes]);
+
+  // Edge highlighting only — no layout re-computation
+  useEffect(() => {
+    if (!selectedEdgeId) {
+      setEdges(initialEdges);
+      return;
+    }
     setEdges(
-      selectedEdgeId
-        ? initialEdges.map((e) => ({
-            ...e,
-            style:
-              e.id === selectedEdgeId
-                ? { strokeWidth: 2.5, stroke: "var(--primary)" }
-                : { strokeWidth: 1, opacity: 0.3 },
-          }))
-        : initialEdges,
+      initialEdges.map((e) => ({
+        ...e,
+        style:
+          e.id === selectedEdgeId
+            ? { strokeWidth: 2.5, stroke: "var(--primary)" }
+            : { strokeWidth: 1, opacity: 0.3 },
+        animated: e.id === selectedEdgeId,
+      })),
     );
-  }, [
-    initialNodes,
-    initialEdges,
-    layoutDirection,
-    manualPositions,
-    selectedEdgeId,
-    setNodes,
-    setEdges,
-  ]);
+  }, [selectedEdgeId, initialEdges, setEdges]);
 
   // Filter nodes by search
   useEffect(() => {
@@ -245,24 +258,6 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
   const onPaneClick = useCallback(() => {
     setSelectedEdgeId(null);
   }, []);
-
-  // Track edge styles based on selection
-  useEffect(() => {
-    if (!selectedEdgeId) {
-      setEdges(initialEdges);
-      return;
-    }
-    setEdges(
-      initialEdges.map((e) => ({
-        ...e,
-        style:
-          e.id === selectedEdgeId
-            ? { strokeWidth: 2.5, stroke: "var(--primary)" }
-            : { strokeWidth: 1, opacity: 0.3 },
-        animated: e.id === selectedEdgeId,
-      })),
-    );
-  }, [selectedEdgeId, initialEdges, setEdges]);
 
   // Listen for column click events from TableNode → navigate to Columns section
   useEffect(() => {

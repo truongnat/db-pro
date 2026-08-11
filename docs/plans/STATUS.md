@@ -12,6 +12,21 @@ Canonical lifecycle: `BACKLOG → PLANNING → IMPLEMENTING → REVIEW → RUNTI
 | S6 ER Diagram | main | #9 (89f11a9) | RUNTIME_VERIFY | merged; schema-level workspace tab; explicit schema prop; composite FK edge grouping; position persistence; workspace migration v2→v3 |
 | S7 Full Schema Regression | main | #9 (89f11a9) | RUNTIME_VERIFY | merged; regression matrix complete; 39 Rust + 1324 FE tests; CI integrated PASS |
 
+## P3 — UI Foundation & Scale Hardening
+
+Pre-release hardening program. Blocks v0.1.
+
+| Sub-program | State | Notes |
+|---|---|---|
+| P3.1 Design Token Contract | PLANNING | Dual token vocabulary in globals.css; shadcn + --app-* coexist |
+| P3.2 shadcn Integration Safety | PLANNING | No guard against `npx shadcn add` breaking token contract |
+| P3.3 ER Diagram Algorithm | PLANNING | O(T×C) column/PK filter per table; pre-index needed |
+| P3.4 ER Diagram Duplicate Layout | PLANNING | layoutGraph() called twice per dependency change |
+| P3.5 ER Diagram Rendering LOD | PLANNING | No zoom-aware detail tiers; 50k+ DOM nodes at 500 tables |
+| P3.6 ER Diagram Large Schema Mode | PLANNING | Neighborhood mode for 200+ table schemas |
+| P3.7 Performance Budgets | PLANNING | No benchmark fixtures or budgets defined |
+| P3.8 Data Grid / Metadata List Audit | PLANNING | Audit of O(N) scan patterns pending |
+
 ## Rules
 
 - A plan with pending runtime/provider evidence stays under `docs/plans/active/`.
