@@ -301,7 +301,7 @@ export function ExplorerView() {
                             <ContextMenuItem
                               onClick={() => navigator.clipboard.writeText(schema.name)}
                             >
-                              {t("common.actions.copyName")}
+                              {t("shell.sidebar.copyName")}
                             </ContextMenuItem>
                           </ContextMenuContent>
                         </ContextMenu>
