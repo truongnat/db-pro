@@ -1,11 +1,11 @@
 # DB Pro — Current Project Status
 
 **Updated:** 2026-08-11  
-**Code baseline reviewed:** `56c3a94`  
+**Code baseline reviewed:** `a2ce14c`  
 **Release target:** `0.1.0` Release Candidate  
 **Status authority:** this file + `docs/release/0.1.0-readiness.md`
 
-> `56c3a94` fixes Rust 1.96.0 clippy `needless_borrow` lint (release preflight blocker). PR #9 (ER Diagram IA refactor) merged at preceding commit. Frontend: 106 files, 1324 tests. Exact-SHA automated verification complete. Cross-platform artifacts and manual smoke in progress.
+> `a2ce14c` fixes Rust 1.96.0 clippy `needless_borrow` lint (release preflight blocker). PR #9 (ER Diagram IA refactor) merged at preceding commit. Frontend: 106 files, 1324 tests. Exact-SHA automated verification complete. Cross-platform artifacts and manual smoke in progress.
 
 ---
 
@@ -54,7 +54,7 @@
 | 10 | DataGrid | DONE release scope / PARTIAL historical full scope |
 | 11 | Export | DONE release subset |
 | 12 | Advanced features | PARTIAL / DEFERRED for 0.1 |
-| 13 | Testing | DONE source / final full-suite verification DONE at `56c3a94` |
+| 13 | Testing | DONE source / final full-suite verification DONE at `a2ce14c` |
 | 14 | CI/CD + packaging | IN PROGRESS / cross-platform artifacts building |
 
 ---
