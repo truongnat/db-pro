@@ -258,16 +258,27 @@ export function ExplorerView() {
                   </button>
                 </div>
               )}
-              {expanded && introspect.data && (
-                <div className="ml-4 flex flex-col gap-0.5 pl-3">
-                  {introspect.data.schemas.map((schema) => {
+              {expanded && introspect.data && (() => {
+                    const tablesBySchema = new Map<string, typeof introspect.data.tables>();
+                    for (const tbl of introspect.data.tables) {
+                      const list = tablesBySchema.get(tbl.schema);
+                      if (list) list.push(tbl);
+                      else tablesBySchema.set(tbl.schema, [tbl]);
+                    }
+                    const viewsBySchema = new Map<string, typeof introspect.data.views>();
+                    for (const v of introspect.data.views) {
+                      const list = viewsBySchema.get(v.schema);
+                      if (list) list.push(v);
+                      else viewsBySchema.set(v.schema, [v]);
+                    }
+                    return (
+                      <div className="ml-4 flex flex-col gap-0.5 pl-3">
+                        {introspect.data.schemas.map((schema) => {
                     const schemaExpanded = expandedNodes.includes(
                       `schema:${conn.id}:${schema.name}`,
                     );
-                    const tables = introspect.data.tables.filter(
-                      (tbl) => tbl.schema === schema.name,
-                    );
-                    const views = introspect.data.views.filter((v) => v.schema === schema.name);
+                    const tables = tablesBySchema.get(schema.name) ?? [];
+                    const views = viewsBySchema.get(schema.name) ?? [];
                     const Icon = schemaExpanded ? FolderOpen : Folder;
                     return (
                       <div key={schema.name}>
@@ -510,7 +521,8 @@ export function ExplorerView() {
                     );
                   })}
                 </div>
-              )}
+              );
+            })()}
             </div>
           );
         })}
