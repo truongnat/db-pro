@@ -18,12 +18,12 @@ Pre-release hardening program. Blocks v0.1.
 
 | Sub-program | State | Notes |
 |---|---|---|
-| P3.1 Design Token Contract | PLANNING | Dual token vocabulary in globals.css; shadcn + --app-* coexist |
-| P3.2 shadcn Integration Safety | PLANNING | No guard against `npx shadcn add` breaking token contract |
-| P3.3 ER Diagram Algorithm | PLANNING | O(T×C) column/PK filter per table; pre-index needed |
-| P3.4 ER Diagram Duplicate Layout | PLANNING | layoutGraph() called twice per dependency change |
-| P3.5 ER Diagram Rendering LOD | PLANNING | No zoom-aware detail tiers; 50k+ DOM nodes at 500 tables |
-| P3.6 ER Diagram Large Schema Mode | PLANNING | Neighborhood mode for 200+ table schemas |
+| P3.1 Design Token Contract | IMPLEMENTING | shadcn tokens now alias --app-* canonical layer |
+| P3.2 shadcn Integration Safety | IMPLEMENTING | Contract documented in globals.css; CI check pending |
+| P3.3 ER Diagram Algorithm | IMPLEMENTING | Pre-indexed maps replace O(T×C) filter scans |
+| P3.4 ER Diagram Duplicate Layout | IMPLEMENTING | Single layoutGraph() call in useMemo |
+| P3.5 ER Diagram Rendering LOD | IMPLEMENTING | 3-tier zoom LOD: name-only / count / full columns |
+| P3.6 ER Diagram Large Schema Mode | IMPLEMENTING | Neighborhood mode with 2-hop FK BFS for 200+ tables |
 | P3.7 Performance Budgets | PLANNING | No benchmark fixtures or budgets defined |
 | P3.8 Data Grid / Metadata List Audit | PLANNING | Audit of O(N) scan patterns pending |
 
