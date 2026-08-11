@@ -13,6 +13,7 @@ import {
   buildDropTrigger,
   buildDropView,
   buildRenameTable,
+  buildSetTriggerEnabled,
   generateDdlPreview,
   type ColumnDef,
 } from "../services/ddl-builder";
@@ -414,5 +415,62 @@ describe("buildDropTrigger", () => {
     const sql = buildDropTrigger('my"schema', 'my"table', 'tr"name');
     expect(sql).toContain('"tr""name"');
     expect(sql).toContain('"my""schema"."my""table"');
+  });
+});
+
+describe("buildSetTriggerEnabled", () => {
+  it("generates ENABLE TRIGGER for PostgreSQL", () => {
+    const sql = buildSetTriggerEnabled("public", "users", "tr_audit", true, pg);
+    expect(sql).toContain('ALTER TABLE "public"."users" ENABLE TRIGGER "tr_audit"');
+  });
+
+  it("generates DISABLE TRIGGER for PostgreSQL", () => {
+    const sql = buildSetTriggerEnabled("public", "users", "tr_audit", false, pg);
+    expect(sql).toContain('ALTER TABLE "public"."users" DISABLE TRIGGER "tr_audit"');
+  });
+
+  it("escapes identifiers with special characters", () => {
+    const sql = buildSetTriggerEnabled('my"schema', 'my"table', 'tr"name', true, pg);
+    expect(sql).toContain('"tr""name"');
+    expect(sql).toContain('"my""schema"."my""table"');
+  });
+
+  it("returns empty string for SQLite (unsupported)", () => {
+    const sqlite = getSqlDialect("sqlite");
+    const sql = buildSetTriggerEnabled("main", "users", "tr_audit", true, sqlite);
+    expect(sql).toBe("");
+  });
+});
+
+describe("generateDdlPreview trigger operations", () => {
+  it("generates enable trigger preview", () => {
+    const sql = generateDdlPreview(
+      "enableTrigger",
+      "public",
+      "users",
+      [],
+      { triggerName: "tr_audit" },
+      pg,
+    );
+    expect(sql).toContain("ENABLE TRIGGER");
+    expect(sql).toContain('"tr_audit"');
+  });
+
+  it("generates disable trigger preview", () => {
+    const sql = generateDdlPreview(
+      "disableTrigger",
+      "public",
+      "users",
+      [],
+      { triggerName: "tr_audit" },
+      pg,
+    );
+    expect(sql).toContain("DISABLE TRIGGER");
+    expect(sql).toContain('"tr_audit"');
+  });
+
+  it("returns empty string when triggerName is missing", () => {
+    const sql = generateDdlPreview("enableTrigger", "public", "users", [], {}, pg);
+    expect(sql).toBe("");
   });
 });

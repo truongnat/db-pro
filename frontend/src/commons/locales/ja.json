@@ -246,7 +246,9 @@
       "createView": "ビュー作成",
       "dropView": "ビュー削除",
       "createIndex": "インデックス作成",
-      "dropIndex": "インデックス削除"
+      "dropIndex": "インデックス削除",
+      "enableTrigger": "トリガー有効化",
+      "disableTrigger": "トリガー無効化"
     },
     "triggers": "トリガー",
     "existingIndexes": "既存インデックス",
@@ -257,6 +259,10 @@
     "triggerTiming": "タイミング",
     "triggerEvent": "イベント",
     "triggerBody": "本体",
+    "noTriggers": "このテーブルにはトリガーがありません。",
+    "selectForDrop": "選択して削除",
+    "enableTrigger": "有効",
+    "disableTrigger": "無効",
     "crossConn": {
       "selectTwo": "比較する接続を2つ選択してください",
       "compare": "比較",

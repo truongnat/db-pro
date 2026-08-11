@@ -61,8 +61,15 @@ pub struct View {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Trigger {
     pub name: String,
+    pub table_name: String,
+    pub schema: String,
+    pub timing: String,
     pub event: String,
-    pub action: String,
+    pub definition: String,
+    /// PostgreSQL trigger function body (CREATE FUNCTION ...); empty for SQLite.
+    #[serde(default)]
+    pub function_def: String,
+    pub enabled: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

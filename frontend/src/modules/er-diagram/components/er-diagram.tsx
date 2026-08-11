@@ -24,6 +24,7 @@ import { Search, Maximize2, LayoutGrid, Columns2, Table2, RotateCcw } from "luci
 
 import { TableNode, type TableNodeData } from "./table-node";
 import { layoutGraph } from "../utils/layout";
+import { groupForeignKeys } from "../utils/edge-builder";
 
 import type { IntrospectResult } from "@/modules/schema/types/schema.types";
 
@@ -122,21 +123,26 @@ export function ErDiagram({ connectionId, data }: ErDiagramProps) {
       };
     });
 
-    const edges: Edge[] = data.foreignKeys
-      .filter((fk) => tables.some((t) => t.name === fk.fromTable && t.schema === fk.schema))
-      .map((fk, i) => ({
-        id: `edge-${i}`,
-        source: `${fk.toSchema}.${fk.toTable}`,
-        target: `${fk.schema}.${fk.fromTable}`,
-        sourceHandle: `pk:${fk.toColumn}`,
-        targetHandle: `fk:${fk.fromColumn}`,
-        type: "smoothstep",
-        animated: false,
-        markerEnd: { type: MarkerType.ArrowClosed, width: 12, height: 12 },
-        style: { strokeWidth: 1.5 },
-        label: fk.name,
-        labelStyle: { fontSize: 9, opacity: 0.6 },
-      }));
+    // Group FKs by constraint name to handle composite foreign keys.
+    // A composite FK like (tenant_id, parent_id) REFERENCES parent(tenant_id, id)
+    // produces multiple ForeignKey entries with the same constraint name.
+    // We merge them into a single edge per logical constraint.
+    const visibleTableKeys = new Set(tables.map((t) => `${t.schema}.${t.name}`));
+    const fkGroups = groupForeignKeys(data.foreignKeys, visibleTableKeys);
+
+    const edges: Edge[] = fkGroups.map((group) => ({
+      id: `fk:${group.key}`,
+      source: `${group.fk.toSchema}.${group.fk.toTable}`,
+      target: `${group.fk.schema}.${group.fk.fromTable}`,
+      sourceHandle: `pk:${group.fk.toColumn}`,
+      targetHandle: `fk:${group.fk.fromColumn}`,
+      type: "smoothstep",
+      animated: false,
+      markerEnd: { type: MarkerType.ArrowClosed, width: 12, height: 12 },
+      style: { strokeWidth: 1.5 },
+      label: group.fk.name,
+      labelStyle: { fontSize: 9, opacity: 0.6 },
+    }));
 
     return { initialNodes: nodes, initialEdges: edges };
   }, [data, compact]);

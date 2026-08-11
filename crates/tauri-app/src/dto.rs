@@ -6,7 +6,7 @@ use db_pro_core::domain::history::{QueryHistory, SavedQuery, SavedQueryFolder};
 use db_pro_core::domain::query::{CellValue, ColumnMeta, QueryResult, Row};
 use db_pro_core::domain::run_config::RunConfig;
 use db_pro_core::domain::schema::{
-    Column, ForeignKey, Index, IntrospectResult, PrimaryKey, Schema, Table, TableInfo, View,
+    Column, ForeignKey, Index, IntrospectResult, PrimaryKey, Schema, Table, TableInfo, Trigger, View,
 };
 use db_pro_core::domain::user::{DatabaseUser, Privilege};
 
@@ -330,6 +330,7 @@ pub struct IntrospectResultDto {
     pub indexes: Vec<SchemaIndexDto>,
     pub foreign_keys: Vec<SchemaForeignKeyDto>,
     pub views: Vec<ViewDto>,
+    pub triggers: Vec<TriggerDto>,
 }
 
 impl From<IntrospectResult> for IntrospectResultDto {
@@ -342,6 +343,7 @@ impl From<IntrospectResult> for IntrospectResultDto {
             indexes: r.indexes.into_iter().map(Into::into).collect(),
             foreign_keys: r.foreign_keys.into_iter().map(Into::into).collect(),
             views: r.views.into_iter().map(Into::into).collect(),
+            triggers: r.triggers.into_iter().map(Into::into).collect(),
         }
     }
 }
@@ -482,6 +484,34 @@ impl From<View> for ViewDto {
             name: v.name,
             schema: v.schema,
             definition: v.definition,
+        }
+    }
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TriggerDto {
+    pub name: String,
+    pub table_name: String,
+    pub schema: String,
+    pub timing: String,
+    pub event: String,
+    pub definition: String,
+    pub function_def: String,
+    pub enabled: bool,
+}
+
+impl From<Trigger> for TriggerDto {
+    fn from(t: Trigger) -> Self {
+        Self {
+            name: t.name,
+            table_name: t.table_name,
+            schema: t.schema,
+            timing: t.timing,
+            event: t.event,
+            definition: t.definition,
+            function_def: t.function_def,
+            enabled: t.enabled,
         }
     }
 }

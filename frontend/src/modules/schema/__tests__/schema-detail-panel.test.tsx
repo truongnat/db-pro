@@ -54,6 +54,7 @@ describe("SchemaDetailPanel", () => {
     expect(screen.getByText("schema.indexes")).toBeTruthy();
     expect(screen.getByText("schema.foreignKeys")).toBeTruthy();
     expect(screen.getByText("schema.ddl")).toBeTruthy();
+    expect(screen.getByText("schema.triggers")).toBeTruthy();
   });
 
   it("renders only columns and ddl tabs for view node", () => {
@@ -71,6 +72,7 @@ describe("SchemaDetailPanel", () => {
     expect(screen.getByText("schema.ddl")).toBeTruthy();
     expect(screen.queryByText("schema.indexes")).toBeNull();
     expect(screen.queryByText("schema.foreignKeys")).toBeNull();
+    expect(screen.queryByText("schema.triggers")).toBeNull();
   });
 
   it("calls onTabChange when clicking a tab", () => {

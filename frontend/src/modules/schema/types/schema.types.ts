@@ -49,6 +49,17 @@ export interface ViewDto {
   definition: string;
 }
 
+export interface TriggerDto {
+  name: string;
+  tableName: string;
+  schema: string;
+  timing: string;
+  event: string;
+  definition: string;
+  functionDef: string;
+  enabled: boolean;
+}
+
 export interface IntrospectResult {
   schemas: SchemaDto[];
   tables: TableDto[];
@@ -57,6 +68,7 @@ export interface IntrospectResult {
   indexes: SchemaIndexDto[];
   foreignKeys: SchemaForeignKeyDto[];
   views: ViewDto[];
+  triggers: TriggerDto[];
 }
 
 export interface TableInfo {

@@ -1,5 +1,7 @@
 import { useCallback, useState } from "react";
 
+import { useConnectionStore } from "@/commons/stores";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,8 +15,14 @@ import {
 } from "@/components/ui/select";
 import { useTranslation } from "@/commons/locales/useTranslation";
 
-import { useExecuteDdl } from "../queries/schema.queries";
-import { buildCreateTrigger, buildDropTrigger } from "../services/ddl-builder";
+import { useExecuteDdl, useIntrospect } from "../queries/schema.queries";
+import {
+  buildCreateTrigger,
+  buildDropTrigger,
+  buildSetTriggerEnabled,
+} from "../services/ddl-builder";
+import { getDdlCapabilities } from "../services/ddl-capabilities";
+import type { TriggerDto } from "../types/schema.types";
 
 interface TriggerManagerProps {
   connectionId: string;
@@ -25,6 +33,15 @@ interface TriggerManagerProps {
 export function TriggerManager({ connectionId, schema, table }: TriggerManagerProps) {
   const { t } = useTranslation();
   const executeDdl = useExecuteDdl(connectionId);
+  const introspect = useIntrospect(connectionId);
+  const driver = useConnectionStore(
+    (s) => s.connections.find((c) => c.id === connectionId)?.driver ?? "postgres",
+  );
+  const canToggle = getDdlCapabilities(driver).supportsTriggerToggle;
+
+  const tableTriggers = (introspect.data?.triggers ?? []).filter(
+    (tr) => tr.tableName === table && tr.schema === schema,
+  );
 
   const [triggerName, setTriggerName] = useState("");
   const [timing, setTiming] = useState("BEFORE");
@@ -50,6 +67,35 @@ export function TriggerManager({ connectionId, schema, table }: TriggerManagerPr
 
   return (
     <div className="flex flex-col gap-4 p-3">
+      {/* Existing triggers list */}
+      <div className="rounded-sm border border-[var(--app-border-subtle)] p-3">
+        <h4 className="mb-2 text-xs font-semibold text-foreground">
+          {t("schema.triggers")} ({tableTriggers.length})
+        </h4>
+        {tableTriggers.length === 0 ? (
+          <p className="text-xs text-[var(--app-text-muted)]">{t("schema.noTriggers")}</p>
+        ) : (
+          <div className="space-y-1.5">
+            {tableTriggers.map((tr) => (
+              <TriggerRow
+                key={tr.name}
+                trigger={tr}
+                onDrop={() => {
+                  setTriggerName(tr.name);
+                }}
+                onToggle={(enabled) => {
+                  const sql = buildSetTriggerEnabled(schema, table, tr.name, enabled);
+                  executeDdl.mutate(sql);
+                }}
+                isPending={executeDdl.isPending}
+                canToggle={canToggle}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* CREATE / DROP form */}
       <div className="rounded-sm border border-[var(--app-border-subtle)] p-3">
         <h4 className="mb-2 text-xs font-semibold text-foreground">{t("schema.createTrigger")}</h4>
 
@@ -153,6 +199,66 @@ export function TriggerManager({ connectionId, schema, table }: TriggerManagerPr
             </Button>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function TriggerRow({
+  trigger,
+  onDrop,
+  onToggle,
+  isPending,
+  canToggle,
+}: {
+  trigger: TriggerDto;
+  onDrop: () => void;
+  onToggle: (enabled: boolean) => void;
+  isPending: boolean;
+  canToggle: boolean;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div className="flex items-center justify-between rounded-sm border border-[var(--app-border-subtle)] px-2.5 py-1.5">
+      <div className="flex flex-col gap-0.5">
+        <span className="text-xs font-medium text-foreground">{trigger.name}</span>
+        <div className="flex gap-1.5">
+          <Badge variant="secondary" className="text-[10px]">
+            {trigger.timing}
+          </Badge>
+          <Badge variant="secondary" className="text-[10px]">
+            {trigger.event}
+          </Badge>
+          {!trigger.enabled && (
+            <Badge variant="destructive" className="text-[10px]">
+              DISABLED
+            </Badge>
+          )}
+        </div>
+      </div>
+      <div className="flex items-center gap-1">
+        {canToggle && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-6 text-[10px]"
+            disabled={isPending}
+            onClick={() => onToggle(!trigger.enabled)}
+          >
+            {trigger.enabled ? t("schema.disableTrigger") : t("schema.enableTrigger")}
+          </Button>
+        )}
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-6 text-[10px]"
+          disabled={isPending}
+          onClick={onDrop}
+        >
+          {t("schema.selectForDrop")}
+        </Button>
       </div>
     </div>
   );

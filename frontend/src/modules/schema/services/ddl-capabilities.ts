@@ -26,6 +26,8 @@ export interface DdlCapabilities {
   supportsIdentity: boolean;
   /** CREATE TRIGGER is supported. */
   supportsTriggers: boolean;
+  /** ALTER TABLE … ENABLE/DISABLE TRIGGER is supported (PostgreSQL only). */
+  supportsTriggerToggle: boolean;
   /** Operations that require rebuilding the table (SQLite pattern). */
   requiresTableRebuild: TableRebuildOp[];
 }
@@ -45,6 +47,7 @@ const postgresCapabilities: DdlCapabilities = {
   supportsTransactionalDdl: true,
   supportsIdentity: true,
   supportsTriggers: true,
+  supportsTriggerToggle: true,
   requiresTableRebuild: [],
 };
 
@@ -59,6 +62,7 @@ const sqliteCapabilities: DdlCapabilities = {
   supportsTransactionalDdl: false,
   supportsIdentity: false,
   supportsTriggers: true,
+  supportsTriggerToggle: false,
   requiresTableRebuild: ["alterColumn", "addForeignKey"],
 };
 
@@ -150,6 +154,16 @@ export function checkOperationSupported(
         return {
           supported: false,
           reason: `${driver} ADD COLUMN does not support PRIMARY KEY or UNIQUE constraints.`,
+        };
+      }
+      return { supported: true };
+
+    case "enableTrigger":
+    case "disableTrigger":
+      if (!caps.supportsTriggerToggle) {
+        return {
+          supported: false,
+          reason: `${driver} does not support ENABLE/DISABLE TRIGGER. Triggers can only be dropped and recreated.`,
         };
       }
       return { supported: true };

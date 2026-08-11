@@ -17,7 +17,9 @@ export type DdlOperation =
   | "createView"
   | "dropView"
   | "createIndex"
-  | "dropIndex";
+  | "dropIndex"
+  | "enableTrigger"
+  | "disableTrigger";
 
 export function buildCreateTable(
   schema: string,
@@ -145,6 +147,21 @@ export function buildDropTrigger(
   return `DROP TRIGGER ${name} ON ${qualified};`;
 }
 
+export function buildSetTriggerEnabled(
+  schema: string,
+  table: string,
+  triggerName: string,
+  enabled: boolean,
+  dialect: SqlDialect = getSqlDialect("postgres"),
+): string {
+  // SQLite does not support ALTER TABLE … ENABLE/DISABLE TRIGGER.
+  if (dialect.driver === "sqlite") return "";
+  const qualified = dialect.qualify(schema, table);
+  const name = dialect.quoteIdentifier(triggerName);
+  const action = enabled ? "ENABLE" : "DISABLE";
+  return `ALTER TABLE ${qualified} ${action} TRIGGER ${name};`;
+}
+
 export function generateDdlPreview(
   operation: DdlOperation,
   schema: string,
@@ -184,6 +201,14 @@ export function generateDdlPreview(
         : "";
     case "dropIndex":
       return extra.indexName ? buildDropIndex(schema, extra.indexName, dialect) : "";
+    case "enableTrigger":
+      return extra.triggerName
+        ? buildSetTriggerEnabled(schema, table, extra.triggerName, true, dialect)
+        : "";
+    case "disableTrigger":
+      return extra.triggerName
+        ? buildSetTriggerEnabled(schema, table, extra.triggerName, false, dialect)
+        : "";
     default:
       return "";
   }

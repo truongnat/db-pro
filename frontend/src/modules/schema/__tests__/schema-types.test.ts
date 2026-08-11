@@ -14,6 +14,7 @@ const EMPTY_RESULT: IntrospectResult = {
   indexes: [],
   foreignKeys: [],
   views: [],
+  triggers: [],
 };
 
 function makeResult(overrides: Partial<IntrospectResult>): IntrospectResult {

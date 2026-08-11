@@ -270,7 +270,9 @@
       "createView": "Create View",
       "dropView": "Drop View",
       "createIndex": "Create Index",
-      "dropIndex": "Drop Index"
+      "dropIndex": "Drop Index",
+      "enableTrigger": "Enable Trigger",
+      "disableTrigger": "Disable Trigger"
     },
     "triggers": "Triggers",
     "existingIndexes": "Existing Indexes",
@@ -281,6 +283,10 @@
     "triggerTiming": "Timing",
     "triggerEvent": "Event",
     "triggerBody": "Body",
+    "noTriggers": "No triggers on this table.",
+    "selectForDrop": "Select to drop",
+    "enableTrigger": "Enable",
+    "disableTrigger": "Disable",
     "crossConn": {
       "selectTwo": "Select two connections to compare",
       "compare": "Compare",

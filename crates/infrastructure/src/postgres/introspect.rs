@@ -393,9 +393,26 @@ async fn introspect_views(pool: &sqlx::PgPool) -> Result<Vec<View>, DbError> {
 async fn introspect_triggers(pool: &sqlx::PgPool) -> Result<Vec<Trigger>, DbError> {
     let rows = sqlx::query(
         r#"
-        SELECT trigger_name, event_manipulation, action_statement
-        FROM information_schema.triggers
-        WHERE trigger_schema NOT IN ('pg_catalog', 'information_schema')
+        SELECT
+            t.trigger_name,
+            t.event_object_table,
+            t.event_object_schema,
+            t.action_timing,
+            t.event_manipulation,
+            t.action_statement,
+            COALESCE(pg_t.tgenabled, 'O') AS enabled_flag,
+            COALESCE(pg_get_functiondef(pg_proc.oid), '') AS function_def
+        FROM information_schema.triggers t
+        LEFT JOIN (
+            pg_trigger pg_t
+            JOIN pg_class c ON c.oid = pg_t.tgrelid
+            JOIN pg_namespace n ON n.oid = c.relnamespace
+        ) ON pg_t.tgname = t.trigger_name
+            AND n.nspname = t.event_object_schema
+            AND c.relname = t.event_object_table
+        LEFT JOIN pg_proc ON pg_proc.oid = pg_t.tgfoid
+        WHERE t.trigger_schema NOT IN ('pg_catalog', 'information_schema')
+        ORDER BY t.event_object_schema, t.event_object_table, t.trigger_name
         "#,
     )
     .fetch_all(pool)
@@ -406,11 +423,24 @@ async fn introspect_triggers(pool: &sqlx::PgPool) -> Result<Vec<Trigger>, DbErro
         .into_iter()
         .map(|row| {
             let name: String = row.get("trigger_name");
-            // event_manipulation can be NULL for non-DML triggers.
+            let table_name: String = row.try_get("event_object_table").unwrap_or_default();
+            let schema: String = row.try_get("event_object_schema").unwrap_or_default();
+            let timing: String = row.try_get("action_timing").unwrap_or_default();
             let event: String = row.try_get("event_manipulation").unwrap_or_default();
-            // action_statement can be NULL in edge cases.
-            let action: String = row.try_get("action_statement").unwrap_or_default();
-            Trigger { name, event, action }
+            let definition: String = row.try_get("action_statement").unwrap_or_default();
+            let enabled_flag: String = row.try_get("enabled_flag").unwrap_or_else(|_| "O".into());
+            let enabled = enabled_flag != "D";
+            let function_def: String = row.try_get("function_def").unwrap_or_default();
+            Trigger {
+                name,
+                table_name,
+                schema,
+                timing,
+                event,
+                definition,
+                function_def,
+                enabled,
+            }
         })
         .collect())
 }
