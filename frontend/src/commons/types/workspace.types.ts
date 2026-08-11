@@ -1,6 +1,6 @@
 import type { ExplainPlan, QueryResult } from "@/modules/query/types/query.types";
 
-export type WorkspaceTabKind = "query" | "db-object";
+export type WorkspaceTabKind = "query" | "db-object" | "schema-workspace";
 
 export type ExecutionStatus = "idle" | "running" | "success" | "error" | "cancelled";
 
@@ -61,8 +61,7 @@ export interface QueryTabData {
   activeExecutionId: string | null;
 }
 
-export type DbObjectSection =
-  "data" | "columns" | "indexes" | "relations" | "ddl" | "triggers" | "diagram";
+export type DbObjectSection = "data" | "columns" | "indexes" | "relations" | "ddl" | "triggers";
 
 export interface DbObjectTabData {
   schema: string;
@@ -71,9 +70,17 @@ export interface DbObjectTabData {
   activeSection: DbObjectSection;
 }
 
+export type SchemaWorkspaceSection = "diagram" | "overview";
+
+export interface SchemaWorkspaceTabData {
+  schema: string;
+  activeSection: SchemaWorkspaceSection;
+}
+
 type WorkspaceTabDataMap = {
   query: QueryTabData;
   "db-object": DbObjectTabData;
+  "schema-workspace": SchemaWorkspaceTabData;
 };
 
 export type WorkspaceTab = {

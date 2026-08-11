@@ -11,6 +11,7 @@ import type {
   PersistedWorkspaceState,
   QueryContext,
   QueryTabData,
+  SchemaWorkspaceSection,
   WorkspaceTab,
 } from "@/commons/types/workspace.types";
 import { useTabGridStateStore } from "@/modules/data-grid/state/tab-grid-state.store";
@@ -34,6 +35,7 @@ interface WorkspaceState extends PersistedWorkspaceState {
   reorderTabs: (fromIndex: number, toIndex: number) => void;
   restoreState: (state: PersistedWorkspaceState) => void;
   setDbObjectSection: (id: string, section: DbObjectSection) => void;
+  setSchemaWorkspaceSection: (id: string, section: SchemaWorkspaceSection) => void;
   openDbObject: (tab: WorkspaceTab & { kind: "db-object" }) => void;
   setQueryTabConnection: (id: string, connectionId: string, context: QueryContext) => void;
   reassignTabConnection: (id: string, newConnectionId: string) => void;
@@ -277,6 +279,15 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           ),
         })),
 
+      setSchemaWorkspaceSection: (id, section) =>
+        set((state) => ({
+          tabs: updateTabInList(state.tabs, id, (t) =>
+            t.kind === "schema-workspace"
+              ? { ...t, data: { ...t.data, activeSection: section } }
+              : t,
+          ),
+        })),
+
       setQueryTabConnection: (id, connectionId, context) =>
         set((state) => ({
           tabs: updateTabInList(state.tabs, id, (t) =>
@@ -344,6 +355,13 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       reassignTabConnection: (id, newConnectionId) =>
         set((state) => ({
           tabs: updateTabInList(state.tabs, id, (t) => {
+            if (t.kind === "schema-workspace") {
+              return {
+                ...t,
+                connectionId: newConnectionId,
+                resourceKey: `schema-ws:${t.data.schema}:${newConnectionId}`,
+              };
+            }
             if (t.kind === "db-object") {
               return {
                 ...t,

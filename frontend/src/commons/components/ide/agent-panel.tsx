@@ -53,6 +53,8 @@ export function AgentPanel({ open, onClose, width, className }: AgentPanelProps)
   } else if (activeTab?.kind === "db-object") {
     contextChips.push({ label: activeTab.data.schema, icon: Layers });
     contextChips.push({ label: activeTab.data.objectName, icon: TableIcon });
+  } else if (activeTab?.kind === "schema-workspace") {
+    contextChips.push({ label: activeTab.data.schema, icon: Layers });
   }
 
   if (!open) return null;

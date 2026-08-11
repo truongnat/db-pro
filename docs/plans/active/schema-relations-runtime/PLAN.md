@@ -1,7 +1,7 @@
 # S3 — Schema Relations Runtime Verification
 
-State: REVIEW
-Branch: `feature/schema-relations-runtime`
+State: RUNTIME_VERIFY
+Branch: main (merged via PR #7, squash commit 7facb95)
 
 ## Goal
 
@@ -78,10 +78,10 @@ Normalize scalar mapping rows with `groupForeignKeys()` and render joined ordere
 - [x] Foreign Keys UI groups composite mappings into one relation row in source
 - [x] regression tests added for grouping and DDL reconstruction
 - [x] SQLite runtime test added for composite introspection + FK enforcement
-- [ ] Rust/frontend quality gates actually executed
+- [x] Rust/frontend quality gates executed — integrated CI PASS at 7facb95
 - [ ] PostgreSQL composite FK runtime evidence recorded
 - [ ] UI relation list/navigation runtime evidence recorded
 - [ ] P0 = 0
 - [ ] P1 = 0
 
-Until execution/review evidence is available S3 stays in `REVIEW` and must not be marked completed.
+S3 stays in `RUNTIME_VERIFY` until PG live + UI runtime evidence is recorded.

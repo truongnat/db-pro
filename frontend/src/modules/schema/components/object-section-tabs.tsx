@@ -8,7 +8,6 @@ export const OBJECT_SECTIONS: { id: DbObjectSection; labelKey: string }[] = [
   { id: "indexes", labelKey: "dbObject.sections.indexes" },
   { id: "relations", labelKey: "dbObject.sections.relations" },
   { id: "triggers", labelKey: "dbObject.sections.triggers" },
-  { id: "diagram", labelKey: "dbObject.sections.diagram" },
   { id: "ddl", labelKey: "dbObject.sections.ddl" },
 ];
 

@@ -7,7 +7,7 @@ import {
   type DragEndEvent,
 } from "@dnd-kit/core";
 import { SortableContext, horizontalListSortingStrategy } from "@dnd-kit/sortable";
-import { DatabaseIcon, Loader2, PinIcon, TableIcon, XIcon } from "lucide-react";
+import { DatabaseIcon, Layers, Loader2, PinIcon, TableIcon, XIcon } from "lucide-react";
 import { useCallback, useState } from "react";
 import type { DraggableAttributes } from "@dnd-kit/core";
 import type { SyntheticListenerMap } from "@dnd-kit/core/dist/hooks/utilities";
@@ -41,6 +41,9 @@ import type { WorkspaceTab } from "@/commons/types/workspace.types";
 function TabKindIcon({ tab }: { tab: WorkspaceTab }) {
   if (tab.kind === "query") {
     return <DatabaseIcon className="h-3.5 w-3.5 shrink-0 text-[var(--app-text-muted)]" />;
+  }
+  if (tab.kind === "schema-workspace") {
+    return <Layers className="h-3.5 w-3.5 shrink-0 text-primary" />;
   }
   if (tab.data.objectType === "view") {
     return <TableIcon className="h-3.5 w-3.5 shrink-0 text-[var(--app-text-muted)] opacity-70" />;

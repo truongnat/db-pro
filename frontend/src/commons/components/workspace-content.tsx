@@ -14,6 +14,7 @@ import { ChevronDown } from "lucide-react";
 import { WelcomeView } from "./welcome-view";
 import { QueryTabContent } from "@/modules/query/components/query-tab-content";
 import { DbObjectTabContent } from "@/modules/schema/components/db-object-tab-content";
+import { SchemaWorkspaceContent } from "@/modules/schema/components/schema-workspace-content";
 
 function OrphanedTabView({ tabId, tabTitle }: { tabId: string; tabTitle: string }) {
   const { t } = useTranslation();
@@ -107,6 +108,15 @@ export function WorkspaceContent() {
           schema={activeTab.data.schema}
           objectName={activeTab.data.objectName}
           objectType={activeTab.data.objectType}
+        />
+      );
+    case "schema-workspace":
+      return (
+        <SchemaWorkspaceContent
+          key={activeTab.resourceKey}
+          tabId={activeTab.id}
+          connectionId={activeTab.connectionId!}
+          schema={activeTab.data.schema}
         />
       );
     default:

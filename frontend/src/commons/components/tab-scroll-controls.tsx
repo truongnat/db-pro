@@ -2,6 +2,7 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   DatabaseIcon,
+  Layers,
   ListIcon,
   PinIcon,
   TableIcon,
@@ -99,7 +100,9 @@ export function TabOverflowMenu({ isOverflowing }: Pick<TabScrollControlsProps, 
                 setOpen(false);
               }}
             >
-              {tab.kind === "db-object" ? (
+              {tab.kind === "schema-workspace" ? (
+                <Layers className="h-3.5 w-3.5 shrink-0 text-primary" />
+              ) : tab.kind === "db-object" ? (
                 <TableIcon className="h-3.5 w-3.5 shrink-0 text-[var(--app-text-muted)]" />
               ) : (
                 <DatabaseIcon className="h-3.5 w-3.5 shrink-0 text-[var(--app-text-muted)]" />

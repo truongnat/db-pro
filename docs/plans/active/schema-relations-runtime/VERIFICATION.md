@@ -1,21 +1,34 @@
 # S3 — Schema Relations Runtime Verification
 
-State: REVIEW
+State: RUNTIME_VERIFY
 
 ## CI evidence
 
-### PR #7 — `feature/schema-relations-runtime` (latest: commit ffd2c00)
+### Integrated main — `7facb95` (PR #7 squash merged)
+
+| Gate | Result | Evidence |
+|---|---|---|
+| Rust checks (cargo fmt + clippy + build + test) | SUCCESS | CI on main@7facb95 |
+| Frontend checks (typecheck + lint + format + build + test) | SUCCESS | CI on main@7facb95 |
+| VPS Kilo Review | SUCCESS | PR #7 review |
+| Cubic AI Review | NEUTRAL | 2 findings (P2 + P3), triaged |
+| Socket Security | SUCCESS | — |
+
+### PR #7 branch — pre-merge CI
 
 | Gate | Result | Run |
 |---|---|---|
-| Rust checks (cargo fmt + clippy + build + test) | SUCCESS | [31413785432](https://github.com/truongnat/db-pro/actions/runs/31413785432) |
-| Frontend checks (typecheck + lint + format + build + test) | SUCCESS | [31413785432](https://github.com/truongnat/db-pro/actions/runs/31413785432) |
-| VPS Kilo Review | IN_PROGRESS | review #2 pending |
-| Cubic AI Review | COMMENTED | 2 findings (P2 + P3), triaged below |
-| Socket Security | SUCCESS | — |
-| Mergeable | MERGEABLE | — |
+| Rust checks | SUCCESS | [31416039171](https://github.com/truongnat/db-pro/actions/runs/31416039171) |
+| Frontend checks | SUCCESS | [31416039171](https://github.com/truongnat/db-pro/actions/runs/31416039171) |
+| VPS Kilo Review | SUCCESS | [31416039236](https://github.com/truongnat/db-pro/actions/runs/31416039236) |
 
 All Rust and Frontend CI gates pass. Tests were actually executed by CI.
+
+## Rebase notes
+
+PR #7 was rebased onto main after PR #6 + PR #8 were already merged. One conflict resolved in `schema_service.rs`:
+- Import: kept both `ForeignKey` (PR #7) + `Trigger` (PR #8)
+- Tests: kept both trigger DDL tests (PR #8) + composite FK grouping test (PR #7)
 
 ## Tests added
 
@@ -61,29 +74,8 @@ DB foreign key
 
 Status: CI PASS for automated gates. Live UI runtime evidence still PENDING.
 
-## Quality gates required
-
-```text
-cargo fmt --all -- --check          → CI PASS
-cargo clippy --workspace --all-targets → CI PASS
-cargo build --workspace             → CI PASS
-cargo test --workspace              → CI PASS
-
-cd frontend
-npm run typecheck                   → CI PASS
-npm run lint                        → CI PASS
-npm run format:check                → CI PASS
-npm run test                        → CI PASS
-npm run build                       → CI PASS
-```
-
-All automated quality gates pass via CI run 31413785432.
-
-Note: CI runs `cargo build` (which subsumes `cargo check`). `cargo check` was not executed as a separate command.
-
 ## Completion decision
 
-S3 REVIEW status: CI gates pass, branch is MERGEABLE. P1 fixes applied (VPS P1-003 FK pragma). Cubic review triage recorded in FINDINGS.md. Remaining:
-- VPS Kilo Review #2 results (pending)
+S3 RUNTIME_VERIFY: all CI gates pass on integrated main. P1 fixes applied (VPS P1-003 FK pragma). Cubic review triage recorded in FINDINGS.md. Remaining:
 - PostgreSQL live runtime verification (requires PG credentials)
 - UI runtime verification (requires running app)
