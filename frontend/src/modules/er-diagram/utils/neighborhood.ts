@@ -21,11 +21,7 @@ export function buildAdjacencyMap(foreignKeys: IntrospectResult["foreignKeys"]):
   return adj;
 }
 
-export function getNeighborhood(
-  adjacency: AdjacencyMap,
-  seed: string,
-  hops: number,
-): Set<string> {
+export function getNeighborhood(adjacency: AdjacencyMap, seed: string, hops: number): Set<string> {
   const visited = new Set<string>();
   let frontier = new Set<string>([seed]);
 

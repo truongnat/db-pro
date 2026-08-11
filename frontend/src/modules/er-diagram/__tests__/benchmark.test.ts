@@ -9,16 +9,49 @@ import type {
 } from "@/modules/schema/types/schema.types";
 
 const COLUMN_TYPES = [
-  "integer", "bigint", "text", "varchar(255)", "boolean",
-  "timestamp", "date", "uuid", "numeric(10,2)", "jsonb",
-  "serial", "bytea", "inet", "interval", "char(1)",
+  "integer",
+  "bigint",
+  "text",
+  "varchar(255)",
+  "boolean",
+  "timestamp",
+  "date",
+  "uuid",
+  "numeric(10,2)",
+  "jsonb",
+  "serial",
+  "bytea",
+  "inet",
+  "interval",
+  "char(1)",
 ];
 
 const TABLE_PREFIXES = [
-  "app", "auth", "billing", "catalog", "config", "core", "data",
-  "event", "geo", "iam", "integration", "log", "media", "meta",
-  "notification", "order", "payment", "report", "schema", "session",
-  "system", "task", "tenant", "user", "workflow",
+  "app",
+  "auth",
+  "billing",
+  "catalog",
+  "config",
+  "core",
+  "data",
+  "event",
+  "geo",
+  "iam",
+  "integration",
+  "log",
+  "media",
+  "meta",
+  "notification",
+  "order",
+  "payment",
+  "report",
+  "schema",
+  "session",
+  "system",
+  "task",
+  "tenant",
+  "user",
+  "workflow",
 ];
 
 function seededRandom(seed: number) {
@@ -194,7 +227,9 @@ describe("ER diagram node build performance", () => {
       expect(avg).toBeLessThan(budgetMs);
 
       if (p95 > budgetMs * 2) {
-        console.warn(`WARNING: ${name} p95 (${p95.toFixed(1)}ms) exceeds 2x budget (${budgetMs}ms)`);
+        console.warn(
+          `WARNING: ${name} p95 (${p95.toFixed(1)}ms) exceeds 2x budget (${budgetMs}ms)`,
+        );
       }
     });
   }

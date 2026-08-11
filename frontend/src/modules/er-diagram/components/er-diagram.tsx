@@ -21,7 +21,16 @@ import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useTranslation } from "@/commons/locales/useTranslation";
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
-import { Search, Maximize2, LayoutGrid, Columns2, Table2, RotateCcw, Eye, Focus } from "lucide-react";
+import {
+  Search,
+  Maximize2,
+  LayoutGrid,
+  Columns2,
+  Table2,
+  RotateCcw,
+  Eye,
+  Focus,
+} from "lucide-react";
 
 import { TableNode, type TableNodeData } from "./table-node";
 import { layoutGraph } from "../utils/layout";
@@ -150,7 +159,9 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
   // Build nodes and edges from introspection data using pre-indexed maps
   const { initialNodes, initialEdges } = useMemo(() => {
     const tables = neighborhoodSet
-      ? data.tables.filter((t) => t.schema === schema && neighborhoodSet.has(`${t.schema}.${t.name}`))
+      ? data.tables.filter(
+          (t) => t.schema === schema && neighborhoodSet.has(`${t.schema}.${t.name}`),
+        )
       : data.tables.filter((tbl) => tbl.schema === schema);
 
     const nodes: Node[] = tables.map((table) => {

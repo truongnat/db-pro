@@ -258,271 +258,283 @@ export function ExplorerView() {
                   </button>
                 </div>
               )}
-              {expanded && introspect.data && (() => {
-                    const tablesBySchema = new Map<string, typeof introspect.data.tables>();
-                    for (const tbl of introspect.data.tables) {
-                      const list = tablesBySchema.get(tbl.schema);
-                      if (list) list.push(tbl);
-                      else tablesBySchema.set(tbl.schema, [tbl]);
-                    }
-                    const viewsBySchema = new Map<string, typeof introspect.data.views>();
-                    for (const v of introspect.data.views) {
-                      const list = viewsBySchema.get(v.schema);
-                      if (list) list.push(v);
-                      else viewsBySchema.set(v.schema, [v]);
-                    }
-                    return (
-                      <div className="ml-4 flex flex-col gap-0.5 pl-3">
-                        {introspect.data.schemas.map((schema) => {
-                    const schemaExpanded = expandedNodes.includes(
-                      `schema:${conn.id}:${schema.name}`,
-                    );
-                    const tables = tablesBySchema.get(schema.name) ?? [];
-                    const views = viewsBySchema.get(schema.name) ?? [];
-                    const Icon = schemaExpanded ? FolderOpen : Folder;
-                    return (
-                      <div key={schema.name}>
-                        <ContextMenu>
-                          <ContextMenuTrigger asChild>
-                            <button
-                              type="button"
-                              className="flex h-[28px] w-full cursor-pointer items-center gap-1.5 rounded-md border-l-2 border-l-transparent px-2 text-left text-[13px] font-medium text-foreground transition-colors hover:border-l-primary hover:bg-[var(--app-hover)] active:bg-[var(--app-active)]"
-                              onClick={() => toggleNode(`schema:${conn.id}:${schema.name}`)}
-                              aria-expanded={schemaExpanded}
-                            >
-                              {schemaExpanded ? (
-                                <ChevronDown className="h-3 w-3 shrink-0" />
-                              ) : (
-                                <ChevronRight className="h-3 w-3 shrink-0" />
-                              )}
-                              <Icon className="h-3.5 w-3.5 shrink-0 text-primary" />
-                              <span className="flex-1 truncate">{schema.name}</span>
-                              <span className="text-[11px] tabular-nums text-[var(--app-text-dim)]">
-                                {tables.length + views.length}
-                              </span>
-                            </button>
-                          </ContextMenuTrigger>
-                          <ContextMenuContent>
-                            <ContextMenuItem
-                              onClick={() => openSchemaWorkspace(conn.id, schema.name)}
-                            >
-                              {t("schemaWorkspace.actions.openDiagram")}
-                            </ContextMenuItem>
-                            <ContextMenuSeparator />
-                            <ContextMenuItem
-                              onClick={() => navigator.clipboard.writeText(schema.name)}
-                            >
-                              {t("shell.sidebar.copyName")}
-                            </ContextMenuItem>
-                          </ContextMenuContent>
-                        </ContextMenu>
-                        {schemaExpanded && (
-                          <div className="ml-[10px] flex flex-col gap-0.5">
-                            {tables.length > 0 && (
-                              <SchemaObjectGroup
-                                groupKey={`schema:${conn.id}:${schema.name}:tables`}
-                                label={t("shell.sidebar.tables")}
-                                count={tables.length}
-                                icon={
-                                  <Table2 className="h-3 w-3 shrink-0 text-[var(--app-text-muted)]" />
-                                }
-                                expandedNodes={expandedNodes}
-                                onToggle={toggleNode}
-                              >
-                                {tables.map((table) => {
-                                  const qualifiedName = `${schema.name}.${table.name}`;
-                                  const driver = getDriverForConnection(conn.id);
-                                  const dialect = getSqlDialect(driver);
-                                  const countSql = generateCountSQL(
-                                    dialect,
-                                    schema.name,
-                                    table.name,
-                                  );
-                                  return (
-                                    <ContextMenu key={table.name}>
-                                      <ContextMenuTrigger asChild>
-                                        <button
-                                          type="button"
-                                          title={`${schema.name}.${table.name}`}
-                                          className="group flex h-[26px] w-full cursor-pointer items-center gap-2 rounded-md border-l-2 border-l-transparent px-2 text-left text-[13px] text-[var(--app-text-muted)] transition-colors hover:border-l-primary hover:bg-[var(--app-hover)] hover:text-foreground active:bg-[var(--app-active)]"
-                                          onClick={() =>
-                                            openSchemaPreview(
-                                              conn.id,
-                                              schema.name,
-                                              table.name,
-                                              "table",
-                                            )
-                                          }
-                                          onDoubleClick={() =>
-                                            openTableData(conn.id, schema.name, table.name, "table")
-                                          }
-                                        >
-                                          <Table2 className="h-3.5 w-3.5 shrink-0 text-[var(--app-text-muted)]" />
-                                          <span className="flex-1 truncate">{table.name}</span>
-                                        </button>
-                                      </ContextMenuTrigger>
-                                      <ContextMenuContent>
-                                        <ContextMenuItem
-                                          onClick={() =>
-                                            openTableData(conn.id, schema.name, table.name)
-                                          }
-                                        >
-                                          {t("shell.sidebar.openData")}
-                                        </ContextMenuItem>
-                                        <ContextMenuItem
-                                          onClick={() =>
-                                            openObjectStructure(
-                                              conn.id,
-                                              schema.name,
-                                              table.name,
-                                              "table",
-                                            )
-                                          }
-                                        >
-                                          {t("shell.sidebar.openStructure")}
-                                        </ContextMenuItem>
-                                        <ContextMenuSeparator />
-                                        <ContextMenuSub>
-                                          <ContextMenuSubTrigger>
-                                            <Plus className="mr-1.5 h-3 w-3" />
-                                            {t("shell.sidebar.newQuery")}
-                                          </ContextMenuSubTrigger>
-                                          <ContextMenuSubContent>
-                                            <ContextMenuItem
+              {expanded &&
+                introspect.data &&
+                (() => {
+                  const tablesBySchema = new Map<string, typeof introspect.data.tables>();
+                  for (const tbl of introspect.data.tables) {
+                    const list = tablesBySchema.get(tbl.schema);
+                    if (list) list.push(tbl);
+                    else tablesBySchema.set(tbl.schema, [tbl]);
+                  }
+                  const viewsBySchema = new Map<string, typeof introspect.data.views>();
+                  for (const v of introspect.data.views) {
+                    const list = viewsBySchema.get(v.schema);
+                    if (list) list.push(v);
+                    else viewsBySchema.set(v.schema, [v]);
+                  }
+                  return (
+                    <div className="ml-4 flex flex-col gap-0.5 pl-3">
+                      {introspect.data.schemas.map((schema) => {
+                        const schemaExpanded = expandedNodes.includes(
+                          `schema:${conn.id}:${schema.name}`,
+                        );
+                        const tables = tablesBySchema.get(schema.name) ?? [];
+                        const views = viewsBySchema.get(schema.name) ?? [];
+                        const Icon = schemaExpanded ? FolderOpen : Folder;
+                        return (
+                          <div key={schema.name}>
+                            <ContextMenu>
+                              <ContextMenuTrigger asChild>
+                                <button
+                                  type="button"
+                                  className="flex h-[28px] w-full cursor-pointer items-center gap-1.5 rounded-md border-l-2 border-l-transparent px-2 text-left text-[13px] font-medium text-foreground transition-colors hover:border-l-primary hover:bg-[var(--app-hover)] active:bg-[var(--app-active)]"
+                                  onClick={() => toggleNode(`schema:${conn.id}:${schema.name}`)}
+                                  aria-expanded={schemaExpanded}
+                                >
+                                  {schemaExpanded ? (
+                                    <ChevronDown className="h-3 w-3 shrink-0" />
+                                  ) : (
+                                    <ChevronRight className="h-3 w-3 shrink-0" />
+                                  )}
+                                  <Icon className="h-3.5 w-3.5 shrink-0 text-primary" />
+                                  <span className="flex-1 truncate">{schema.name}</span>
+                                  <span className="text-[11px] tabular-nums text-[var(--app-text-dim)]">
+                                    {tables.length + views.length}
+                                  </span>
+                                </button>
+                              </ContextMenuTrigger>
+                              <ContextMenuContent>
+                                <ContextMenuItem
+                                  onClick={() => openSchemaWorkspace(conn.id, schema.name)}
+                                >
+                                  {t("schemaWorkspace.actions.openDiagram")}
+                                </ContextMenuItem>
+                                <ContextMenuSeparator />
+                                <ContextMenuItem
+                                  onClick={() => navigator.clipboard.writeText(schema.name)}
+                                >
+                                  {t("shell.sidebar.copyName")}
+                                </ContextMenuItem>
+                              </ContextMenuContent>
+                            </ContextMenu>
+                            {schemaExpanded && (
+                              <div className="ml-[10px] flex flex-col gap-0.5">
+                                {tables.length > 0 && (
+                                  <SchemaObjectGroup
+                                    groupKey={`schema:${conn.id}:${schema.name}:tables`}
+                                    label={t("shell.sidebar.tables")}
+                                    count={tables.length}
+                                    icon={
+                                      <Table2 className="h-3 w-3 shrink-0 text-[var(--app-text-muted)]" />
+                                    }
+                                    expandedNodes={expandedNodes}
+                                    onToggle={toggleNode}
+                                  >
+                                    {tables.map((table) => {
+                                      const qualifiedName = `${schema.name}.${table.name}`;
+                                      const driver = getDriverForConnection(conn.id);
+                                      const dialect = getSqlDialect(driver);
+                                      const countSql = generateCountSQL(
+                                        dialect,
+                                        schema.name,
+                                        table.name,
+                                      );
+                                      return (
+                                        <ContextMenu key={table.name}>
+                                          <ContextMenuTrigger asChild>
+                                            <button
+                                              type="button"
+                                              title={`${schema.name}.${table.name}`}
+                                              className="group flex h-[26px] w-full cursor-pointer items-center gap-2 rounded-md border-l-2 border-l-transparent px-2 text-left text-[13px] text-[var(--app-text-muted)] transition-colors hover:border-l-primary hover:bg-[var(--app-hover)] hover:text-foreground active:bg-[var(--app-active)]"
                                               onClick={() =>
-                                                openNewQueryWithSql(
+                                                openSchemaPreview(
                                                   conn.id,
                                                   schema.name,
                                                   table.name,
-                                                  dialect.generateSelect({
-                                                    schema: schema.name,
-                                                    table: table.name,
-                                                    limit: 100,
-                                                  }),
+                                                  "table",
                                                 )
                                               }
-                                            >
-                                              SELECT
-                                            </ContextMenuItem>
-                                            <ContextMenuItem
-                                              onClick={() =>
-                                                openNewQueryWithSql(
+                                              onDoubleClick={() =>
+                                                openTableData(
                                                   conn.id,
                                                   schema.name,
                                                   table.name,
-                                                  countSql,
+                                                  "table",
                                                 )
                                               }
                                             >
-                                              COUNT
+                                              <Table2 className="h-3.5 w-3.5 shrink-0 text-[var(--app-text-muted)]" />
+                                              <span className="flex-1 truncate">{table.name}</span>
+                                            </button>
+                                          </ContextMenuTrigger>
+                                          <ContextMenuContent>
+                                            <ContextMenuItem
+                                              onClick={() =>
+                                                openTableData(conn.id, schema.name, table.name)
+                                              }
+                                            >
+                                              {t("shell.sidebar.openData")}
                                             </ContextMenuItem>
                                             <ContextMenuItem
                                               onClick={() =>
-                                                openNewQueryWithSql(
+                                                openObjectStructure(
                                                   conn.id,
                                                   schema.name,
                                                   table.name,
-                                                  `INSERT INTO ${dialect.qualify(schema.name, table.name)} ()\nVALUES ();`,
+                                                  "table",
                                                 )
                                               }
                                             >
-                                              INSERT
+                                              {t("shell.sidebar.openStructure")}
+                                            </ContextMenuItem>
+                                            <ContextMenuSeparator />
+                                            <ContextMenuSub>
+                                              <ContextMenuSubTrigger>
+                                                <Plus className="mr-1.5 h-3 w-3" />
+                                                {t("shell.sidebar.newQuery")}
+                                              </ContextMenuSubTrigger>
+                                              <ContextMenuSubContent>
+                                                <ContextMenuItem
+                                                  onClick={() =>
+                                                    openNewQueryWithSql(
+                                                      conn.id,
+                                                      schema.name,
+                                                      table.name,
+                                                      dialect.generateSelect({
+                                                        schema: schema.name,
+                                                        table: table.name,
+                                                        limit: 100,
+                                                      }),
+                                                    )
+                                                  }
+                                                >
+                                                  SELECT
+                                                </ContextMenuItem>
+                                                <ContextMenuItem
+                                                  onClick={() =>
+                                                    openNewQueryWithSql(
+                                                      conn.id,
+                                                      schema.name,
+                                                      table.name,
+                                                      countSql,
+                                                    )
+                                                  }
+                                                >
+                                                  COUNT
+                                                </ContextMenuItem>
+                                                <ContextMenuItem
+                                                  onClick={() =>
+                                                    openNewQueryWithSql(
+                                                      conn.id,
+                                                      schema.name,
+                                                      table.name,
+                                                      `INSERT INTO ${dialect.qualify(schema.name, table.name)} ()\nVALUES ();`,
+                                                    )
+                                                  }
+                                                >
+                                                  INSERT
+                                                </ContextMenuItem>
+                                                <ContextMenuItem
+                                                  onClick={() =>
+                                                    openNewQueryWithSql(
+                                                      conn.id,
+                                                      schema.name,
+                                                      table.name,
+                                                      `UPDATE ${dialect.qualify(schema.name, table.name)}\nSET \nWHERE ;`,
+                                                    )
+                                                  }
+                                                >
+                                                  UPDATE
+                                                </ContextMenuItem>
+                                                <ContextMenuItem
+                                                  onClick={() =>
+                                                    openNewQueryWithSql(
+                                                      conn.id,
+                                                      schema.name,
+                                                      table.name,
+                                                      `DELETE FROM ${dialect.qualify(schema.name, table.name)}\nWHERE ;`,
+                                                    )
+                                                  }
+                                                >
+                                                  DELETE
+                                                </ContextMenuItem>
+                                              </ContextMenuSubContent>
+                                            </ContextMenuSub>
+                                            <ContextMenuSeparator />
+                                            <ContextMenuItem
+                                              onClick={() => copyToClipboard(table.name)}
+                                            >
+                                              <Copy className="mr-1.5 h-3 w-3" />
+                                              {t("shell.sidebar.copyName")}
                                             </ContextMenuItem>
                                             <ContextMenuItem
-                                              onClick={() =>
-                                                openNewQueryWithSql(
-                                                  conn.id,
-                                                  schema.name,
-                                                  table.name,
-                                                  `UPDATE ${dialect.qualify(schema.name, table.name)}\nSET \nWHERE ;`,
-                                                )
-                                              }
+                                              onClick={() => copyToClipboard(qualifiedName)}
                                             >
-                                              UPDATE
+                                              <Copy className="mr-1.5 h-3 w-3" />
+                                              {t("shell.sidebar.copyQualifiedName")}
                                             </ContextMenuItem>
-                                            <ContextMenuItem
-                                              onClick={() =>
-                                                openNewQueryWithSql(
-                                                  conn.id,
-                                                  schema.name,
-                                                  table.name,
-                                                  `DELETE FROM ${dialect.qualify(schema.name, table.name)}\nWHERE ;`,
-                                                )
-                                              }
-                                            >
-                                              DELETE
-                                            </ContextMenuItem>
-                                          </ContextMenuSubContent>
-                                        </ContextMenuSub>
-                                        <ContextMenuSeparator />
-                                        <ContextMenuItem
-                                          onClick={() => copyToClipboard(table.name)}
-                                        >
-                                          <Copy className="mr-1.5 h-3 w-3" />
-                                          {t("shell.sidebar.copyName")}
-                                        </ContextMenuItem>
-                                        <ContextMenuItem
-                                          onClick={() => copyToClipboard(qualifiedName)}
-                                        >
-                                          <Copy className="mr-1.5 h-3 w-3" />
-                                          {t("shell.sidebar.copyQualifiedName")}
-                                        </ContextMenuItem>
-                                      </ContextMenuContent>
-                                    </ContextMenu>
-                                  );
-                                })}
-                              </SchemaObjectGroup>
-                            )}
-                            {views.length > 0 && (
-                              <SchemaObjectGroup
-                                groupKey={`schema:${conn.id}:${schema.name}:views`}
-                                label={t("shell.sidebar.views")}
-                                count={views.length}
-                                icon={
-                                  <Columns3 className="h-3 w-3 shrink-0 text-[var(--app-text-muted)]" />
-                                }
-                                expandedNodes={expandedNodes}
-                                onToggle={toggleNode}
-                              >
-                                {views.map((view) => (
-                                  <ContextMenu key={view.name}>
-                                    <ContextMenuTrigger asChild>
-                                      <button
-                                        type="button"
-                                        title={`${schema.name}.${view.name}`}
-                                        className="group flex h-[26px] w-full cursor-pointer items-center gap-2 rounded-md border-l-2 border-l-transparent px-2 text-left text-[13px] text-[var(--app-text-muted)] transition-colors hover:border-l-primary hover:bg-[var(--app-hover)] hover:text-foreground active:bg-[var(--app-active)]"
-                                        onClick={() =>
-                                          openSchemaPreview(conn.id, schema.name, view.name, "view")
-                                        }
-                                        onDoubleClick={() =>
-                                          openTableData(conn.id, schema.name, view.name, "view")
-                                        }
-                                      >
-                                        <Columns3 className="h-3.5 w-3.5 shrink-0 text-[var(--app-text-muted)]" />
-                                        <span className="flex-1 truncate">{view.name}</span>
-                                      </button>
-                                    </ContextMenuTrigger>
-                                    <ContextMenuContent>
-                                      <ContextMenuItem
-                                        onClick={() =>
-                                          openTableData(conn.id, schema.name, view.name, "view")
-                                        }
-                                      >
-                                        {t("shell.sidebar.openData")}
-                                      </ContextMenuItem>
-                                    </ContextMenuContent>
-                                  </ContextMenu>
-                                ))}
-                              </SchemaObjectGroup>
+                                          </ContextMenuContent>
+                                        </ContextMenu>
+                                      );
+                                    })}
+                                  </SchemaObjectGroup>
+                                )}
+                                {views.length > 0 && (
+                                  <SchemaObjectGroup
+                                    groupKey={`schema:${conn.id}:${schema.name}:views`}
+                                    label={t("shell.sidebar.views")}
+                                    count={views.length}
+                                    icon={
+                                      <Columns3 className="h-3 w-3 shrink-0 text-[var(--app-text-muted)]" />
+                                    }
+                                    expandedNodes={expandedNodes}
+                                    onToggle={toggleNode}
+                                  >
+                                    {views.map((view) => (
+                                      <ContextMenu key={view.name}>
+                                        <ContextMenuTrigger asChild>
+                                          <button
+                                            type="button"
+                                            title={`${schema.name}.${view.name}`}
+                                            className="group flex h-[26px] w-full cursor-pointer items-center gap-2 rounded-md border-l-2 border-l-transparent px-2 text-left text-[13px] text-[var(--app-text-muted)] transition-colors hover:border-l-primary hover:bg-[var(--app-hover)] hover:text-foreground active:bg-[var(--app-active)]"
+                                            onClick={() =>
+                                              openSchemaPreview(
+                                                conn.id,
+                                                schema.name,
+                                                view.name,
+                                                "view",
+                                              )
+                                            }
+                                            onDoubleClick={() =>
+                                              openTableData(conn.id, schema.name, view.name, "view")
+                                            }
+                                          >
+                                            <Columns3 className="h-3.5 w-3.5 shrink-0 text-[var(--app-text-muted)]" />
+                                            <span className="flex-1 truncate">{view.name}</span>
+                                          </button>
+                                        </ContextMenuTrigger>
+                                        <ContextMenuContent>
+                                          <ContextMenuItem
+                                            onClick={() =>
+                                              openTableData(conn.id, schema.name, view.name, "view")
+                                            }
+                                          >
+                                            {t("shell.sidebar.openData")}
+                                          </ContextMenuItem>
+                                        </ContextMenuContent>
+                                      </ContextMenu>
+                                    ))}
+                                  </SchemaObjectGroup>
+                                )}
+                              </div>
                             )}
                           </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-            })()}
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
             </div>
           );
         })}
