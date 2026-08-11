@@ -21,13 +21,17 @@ import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useTranslation } from "@/commons/locales/useTranslation";
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
-import { Search, Maximize2, LayoutGrid, Columns2, Table2, RotateCcw } from "lucide-react";
+import { Search, Maximize2, LayoutGrid, Columns2, Table2, RotateCcw, Eye, Focus } from "lucide-react";
 
 import { TableNode, type TableNodeData } from "./table-node";
 import { layoutGraph } from "../utils/layout";
 import { groupForeignKeys } from "../utils/edge-builder";
+import { buildAdjacencyMap, getNeighborhood } from "../utils/neighborhood";
 
 import type { IntrospectResult, SchemaColumnDto } from "@/modules/schema/types/schema.types";
+
+const LARGE_SCHEMA_THRESHOLD = 200;
+const NEIGHBORHOOD_HOPS = 2;
 
 interface ErDiagramProps {
   connectionId: string;
@@ -67,6 +71,19 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
       return next === prev ? prev : next;
     });
   }, []);
+
+  // Neighborhood mode for large schemas
+  const tablesInSchema = data.tables.filter((t) => t.schema === schema);
+  const isLargeSchema = tablesInSchema.length > LARGE_SCHEMA_THRESHOLD;
+  const [neighborhoodSeed, setNeighborhoodSeed] = useState<string | null>(null);
+  const [showAll, setShowAll] = useState(false);
+
+  const adjacencyMap = useMemo(() => buildAdjacencyMap(data.foreignKeys), [data.foreignKeys]);
+
+  const neighborhoodSet = useMemo(() => {
+    if (!isLargeSchema || showAll || !neighborhoodSeed) return null;
+    return getNeighborhood(adjacencyMap, neighborhoodSeed, NEIGHBORHOOD_HOPS);
+  }, [isLargeSchema, showAll, neighborhoodSeed, adjacencyMap]);
 
   // Persisted manual positions: nodeId → { x, y }
   const [manualPositions, setManualPositions] = useState<Map<string, { x: number; y: number }>>(
@@ -132,7 +149,9 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
 
   // Build nodes and edges from introspection data using pre-indexed maps
   const { initialNodes, initialEdges } = useMemo(() => {
-    const tables = data.tables.filter((tbl) => tbl.schema === schema);
+    const tables = neighborhoodSet
+      ? data.tables.filter((t) => t.schema === schema && neighborhoodSet.has(`${t.schema}.${t.name}`))
+      : data.tables.filter((tbl) => tbl.schema === schema);
 
     const nodes: Node[] = tables.map((table) => {
       const tableKey = `${table.schema}.${table.name}`;
@@ -181,7 +200,7 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
     }));
 
     return { initialNodes: nodes, initialEdges: edges };
-  }, [data, compact, schema, columnsByTable, primaryKeysByTable, fkColumnSet]);
+  }, [data, compact, schema, columnsByTable, primaryKeysByTable, fkColumnSet, neighborhoodSet]);
 
   // Apply layout, respecting manual positions for dragged nodes
   const laidOutNodes = useMemo(() => {
@@ -228,8 +247,24 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
     );
   }, [selectedEdgeId, initialEdges, setEdges]);
 
-  // Filter nodes by search
+  // In large schemas, search triggers neighborhood mode
   useEffect(() => {
+    if (!isLargeSchema) return;
+    if (!searchQuery.trim()) {
+      if (!showAll) setNeighborhoodSeed(null);
+      return;
+    }
+    const q = searchQuery.toLowerCase();
+    const match = tablesInSchema.find((t) => t.name.toLowerCase().includes(q));
+    if (match) {
+      setNeighborhoodSeed(`${match.schema}.${match.name}`);
+      setShowAll(false);
+    }
+  }, [searchQuery, isLargeSchema, tablesInSchema, showAll]);
+
+  // Filter nodes by search (small schemas only — large schemas use neighborhood)
+  useEffect(() => {
+    if (isLargeSchema) return;
     if (!searchQuery.trim()) {
       setNodes(tieredNodes);
       return;
@@ -243,7 +278,7 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
         },
       })),
     );
-  }, [searchQuery, tieredNodes, setNodes]);
+  }, [searchQuery, tieredNodes, setNodes, isLargeSchema]);
 
   // Fit view on first render
   const onInit = useCallback((instance: { fitView: (opts?: Record<string, unknown>) => void }) => {
@@ -408,8 +443,50 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
             </div>
             <Badge variant="outline" className="h-7 text-[11px]">
               <Table2 className="mr-1 h-3 w-3" />
-              {initialNodes.length} tables
+              {initialNodes.length}
+              {neighborhoodSet ? ` / ${tablesInSchema.length}` : ""} tables
             </Badge>
+            {isLargeSchema && neighborhoodSet && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-[11px]"
+                    onClick={() => {
+                      setShowAll(true);
+                      setNeighborhoodSeed(null);
+                    }}
+                  >
+                    <Eye className="mr-1 h-3 w-3" />
+                    Show all {tablesInSchema.length}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Render all tables in schema</TooltipContent>
+              </Tooltip>
+            )}
+            {isLargeSchema && showAll && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-[11px]"
+                    onClick={() => {
+                      setShowAll(false);
+                      setNeighborhoodSeed(null);
+                      setSearchQuery("");
+                    }}
+                  >
+                    <Focus className="mr-1 h-3 w-3" />
+                    Neighborhood mode
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Search a table to focus its neighborhood</TooltipContent>
+              </Tooltip>
+            )}
           </div>
         </Panel>
 

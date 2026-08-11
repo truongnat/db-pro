@@ -34,11 +34,11 @@
 
 ## Phase 4: Large Schema Mode
 
-- [ ] **4.1** Detect schema size and select rendering mode (full / compact / overview / large)
-- [ ] **4.2** Implement search-first default for schemas > 200 tables
-- [ ] **4.3** Implement neighborhood mode: selected table + N-hop FK neighbors
-- [ ] **4.4** Add "Show all N tables" explicit action
-- [ ] **4.5** Cache layout result — don't re-layout on search/selection changes
+- [x] **4.1** Detect schema size and select rendering mode (full / compact / overview / large)
+- [x] **4.2** Implement search-first default for schemas > 200 tables
+- [x] **4.3** Implement neighborhood mode: selected table + N-hop FK neighbors
+- [x] **4.4** Add "Show all N tables" explicit action
+- [x] **4.5** Cache layout result — don't re-layout on search/selection changes
 - [ ] **4.6** Debounce resize/layout changes
 - [ ] **4.7** Consider Web Worker for Dagre layout if still slow at 500+ nodes
 
