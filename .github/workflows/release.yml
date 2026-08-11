@@ -120,11 +120,13 @@ jobs:
 
       # Tauri CLI
       - name: Install Tauri CLI
-        run: cargo install tauri-cli --version "2.11.4" --locked
+        run: cargo install tauri-cli --version "2.11.4" --locked --force
 
       # Build
       - name: Build Tauri app
         run: cargo tauri build
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: 1
 
       # Upload artifacts
       - name: Upload artifacts (macOS)
