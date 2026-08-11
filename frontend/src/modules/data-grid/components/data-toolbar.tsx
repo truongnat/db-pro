@@ -241,16 +241,17 @@ export function DataToolbar({
             <ScrollArea className="max-h-64">
               <div className="flex flex-col gap-1">
                 {columns.map((c) => (
-                  <label
+                  <div
                     key={c.name}
                     className="flex cursor-pointer items-center gap-2 rounded-sm px-1 py-1 text-xs hover:bg-muted"
+                    onClick={() => onToggleHiddenColumn(c.name)}
                   >
                     <Checkbox
                       checked={!hiddenColumns.includes(c.name)}
                       onCheckedChange={() => onToggleHiddenColumn(c.name)}
                     />
                     <span className="truncate">{c.name}</span>
-                  </label>
+                  </div>
                 ))}
               </div>
             </ScrollArea>
