@@ -19,7 +19,7 @@
 - [x] **2.4** Remove duplicate color definitions from shadcn `:root` / `[data-theme="dark"]` blocks
 - [x] **2.5** Verify no visual regression (light + dark theme)
 - [x] **2.6** Document token contract and `shadcn add` safety rule
-- [ ] **2.7** Add CI check or script to detect token drift
+- [x] **2.7** Add CI check or script to detect token drift
 
 ## Phase 3: Rendering LOD
 
@@ -39,18 +39,18 @@
 - [x] **4.3** Implement neighborhood mode: selected table + N-hop FK neighbors
 - [x] **4.4** Add "Show all N tables" explicit action
 - [x] **4.5** Cache layout result — don't re-layout on search/selection changes
-- [ ] **4.6** Debounce resize/layout changes
-- [ ] **4.7** Consider Web Worker for Dagre layout if still slow at 500+ nodes
+- [-] **4.6** Debounce resize/layout changes — not needed after layout dedup (P3.4)
+- [-] **4.7** Consider Web Worker for Dagre layout — not needed with LOD + neighborhood reducing visible nodes
 
 ## Phase 5: Audit + Budgets
 
-- [ ] **5.1** Audit schema explorer for O(N) scan patterns
-- [ ] **5.2** Audit data grid for O(N) scan patterns
-- [ ] **5.3** Audit connection list for O(N) scan patterns
-- [ ] **5.4** Fix P0/P1 issues found in audit
-- [ ] **5.5** Create benchmark fixtures (20, 100, 500, 1000 tables)
-- [ ] **5.6** Define performance budgets in VERIFICATION.md
-- [ ] **5.7** Add at least one automated performance regression test
+- [x] **5.1** Audit schema explorer for O(N) scan patterns
+- [x] **5.2** Audit data grid for O(N) scan patterns
+- [x] **5.3** Audit connection list for O(N) scan patterns
+- [x] **5.4** Fix P0/P1 issues found in audit
+- [x] **5.5** Create benchmark fixtures (20, 100, 500, 1000 tables)
+- [x] **5.6** Define performance budgets in VERIFICATION.md
+- [x] **5.7** Add at least one automated performance regression test
 
 ## Gates
 
