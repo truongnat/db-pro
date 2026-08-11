@@ -18,14 +18,14 @@ Pre-release hardening program. Blocks v0.1.
 
 | Sub-program | State | Notes |
 |---|---|---|
-| P3.1 Design Token Contract | IMPLEMENTING | shadcn tokens now alias --app-* canonical layer |
-| P3.2 shadcn Integration Safety | IMPLEMENTING | Contract documented in globals.css; CI check pending |
-| P3.3 ER Diagram Algorithm | IMPLEMENTING | Pre-indexed maps replace O(T×C) filter scans |
-| P3.4 ER Diagram Duplicate Layout | IMPLEMENTING | Single layoutGraph() call in useMemo |
-| P3.5 ER Diagram Rendering LOD | IMPLEMENTING | 3-tier zoom LOD: name-only / count / full columns |
-| P3.6 ER Diagram Large Schema Mode | IMPLEMENTING | Neighborhood mode with 2-hop FK BFS for 200+ tables |
-| P3.7 Performance Budgets | PLANNING | No benchmark fixtures or budgets defined |
-| P3.8 Data Grid / Metadata List Audit | PLANNING | Audit of O(N) scan patterns pending |
+| P3.1 Design Token Contract | REVIEW | shadcn tokens alias --app-* canonical layer; drift check passes |
+| P3.2 shadcn Integration Safety | REVIEW | `npm run check:tokens` detects drift; contract in globals.css |
+| P3.3 ER Diagram Algorithm | REVIEW | Pre-indexed maps; benchmark 500t=16ms, 1000t=26ms |
+| P3.4 ER Diagram Duplicate Layout | REVIEW | Single layoutGraph() in useMemo; edge highlight separated |
+| P3.5 ER Diagram Rendering LOD | REVIEW | 3-tier zoom LOD; MiniMap disabled >200 nodes |
+| P3.6 ER Diagram Large Schema Mode | REVIEW | Neighborhood BFS for 200+ tables; search-first default |
+| P3.7 Performance Budgets | REVIEW | Fixtures at 20/100/500/1000; automated regression test |
+| P3.8 Data Grid / Metadata List Audit | REVIEW | Explorer O(S×T) fixed; data grid/connection list clean |
 
 ## Rules
 
