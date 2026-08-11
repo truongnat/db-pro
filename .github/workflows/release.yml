@@ -123,10 +123,13 @@ jobs:
         run: cargo install tauri-cli --version "2.11.4" --locked --force
 
       # Build
-      - name: Build Tauri app
+      - name: Build Tauri app (Linux)
+        if: matrix.platform == 'Linux'
+        run: cargo tauri build --bundles deb,rpm
+
+      - name: Build Tauri app (macOS/Windows)
+        if: matrix.platform != 'Linux'
         run: cargo tauri build
-        env:
-          APPIMAGE_EXTRACT_AND_RUN: 1
 
       # Upload artifacts
       - name: Upload artifacts (macOS)
@@ -154,5 +157,4 @@ jobs:
           name: db-pro-linux
           path: |
             target/release/bundle/deb/*.deb
-            target/release/bundle/appimage/*.AppImage
             target/release/bundle/rpm/*.rpm
