@@ -9,7 +9,7 @@
 - [x] **1.5** Eliminate duplicate `layoutGraph()` call — remove from `useEffect`, keep only in `useMemo`
 - [x] **1.6** Separate edge highlighting logic from layout re-computation
 - [x] **1.7** Run existing ER diagram tests — all pass
-- [ ] **1.8** Measure layout + build time before/after with 500-table fixture
+- [x] **1.8** Measure layout + build time before/after with 500-table fixture — DONE via P1.7/P1.8: sync dagre 8.1s main-thread block before → worker-side + cache after (HUD reads worker duration); full 100/500/1000 matrix in VERIFICATION.md (layout 0.15/8/122s pre-worker)
 
 ## Phase 2: Design Token Contract
 
