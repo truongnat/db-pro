@@ -40,6 +40,7 @@ import { buildAdjacencyMap, getNeighborhood } from "../utils/neighborhood";
 import { ErPerfMonitor } from "../utils/instrumentation";
 import { resolveLod, type LodLevel } from "../utils/lod";
 import { aggregateRelations, resolveEdgeLod, type EdgeLodLevel } from "../utils/edge-lod";
+import { SpatialIndex } from "../utils/spatial-index";
 
 import type { IntrospectResult, SchemaColumnDto } from "@/modules/schema/types/schema.types";
 
@@ -451,6 +452,27 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
     rfNode?.dispatchEvent(new KeyboardEvent("keydown", { key: "1" }));
   }, []);
 
+  // P1.5 spatial index over the live React Flow node/edge state.
+  //
+  // Rebuild-on-identity-change is deliberate: `nodes` is replaced by React
+  // Flow on measurement updates, drag frames, and LOD-threshold crossings, and
+  // rebuilding keeps the index faithful to measured sizes + drag positions.
+  // Each rebuild is O(N) with cheap map ops — do not memoize this into a stale
+  // snapshot. Viewport queries stay O(cells + overlaps). Consumed by the HUD;
+  // later by the Viewport Engine (P1.6) and a future Canvas renderer.
+  const spatialIndex = useMemo(() => {
+    const index = new SpatialIndex();
+    index.build(
+      nodes.map((n) => ({
+        id: n.id,
+        position: n.position,
+        measured: n.measured,
+      })),
+      edges.map((e) => ({ id: e.id, source: e.source, target: e.target })),
+    );
+    return index;
+  }, [nodes, edges]);
+
   // Edge LOD (P1.4) + node-LOD handle interplay (P1.3).
   //
   // Per-column handle ids only exist on detail nodes. React Flow drops edges
@@ -543,7 +565,7 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
         {perfEnabled && perfMonitorRef.current && (
           <ErPerfHud
             monitor={perfMonitorRef.current}
-            nodes={nodes}
+            spatialIndex={spatialIndex}
             edgeCount={edges.length}
             viewportRef={viewportRef}
           />

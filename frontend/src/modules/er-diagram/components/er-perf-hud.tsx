@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
-import { Panel, type Node, type Viewport } from "@xyflow/react";
+import { Panel, type Viewport } from "@xyflow/react";
 
-import { computeVisibleNodeIds, type ErPerfMonitor } from "../utils/instrumentation";
+import type { ErPerfMonitor } from "../utils/instrumentation";
+import type { SpatialIndex } from "../utils/spatial-index";
 
 interface ErPerfHudProps {
   monitor: ErPerfMonitor;
-  /** Nodes currently held by React Flow state (positions + measured sizes). */
-  nodes: Node[];
+  /** P1.5 spatial index over the current graph (positions + measured sizes). */
+  spatialIndex: SpatialIndex;
   edgeCount: number;
   /** Live viewport ref — read on the HUD's own refresh tick, never via state. */
   viewportRef: React.MutableRefObject<Viewport | null>;
@@ -21,7 +22,7 @@ interface ErPerfHudProps {
  *
  * Enabled via `localStorage.setItem("er-perf-hud", "1")` — dev tool, not shipped UI.
  */
-export function ErPerfHud({ monitor, nodes, edgeCount, viewportRef }: ErPerfHudProps) {
+export function ErPerfHud({ monitor, spatialIndex, edgeCount, viewportRef }: ErPerfHudProps) {
   // Re-render periodically so DOM-derived counts stay live while panning/zooming.
   const [, setTick] = useState(0);
   useEffect(() => {
@@ -32,7 +33,12 @@ export function ErPerfHud({ monitor, nodes, edgeCount, viewportRef }: ErPerfHudP
   const containerSize = monitor.getContainerSize();
   const viewport = viewportRef.current;
   const erViewport = viewport && containerSize ? { ...viewport, ...containerSize } : null;
-  const viewportCount = erViewport ? computeVisibleNodeIds(nodes, erViewport).size : 0;
+  // "visible edges" = FK edges whose BOTH endpoints are in viewport, evaluated
+  // on the full edge set (pre edge-LOD aggregation) — distinct from the
+  // "rendered edges" DOM count, which reflects P1.4 aggregation at low zoom.
+  const spatialResult = erViewport ? spatialIndex.queryViewport(erViewport) : null;
+  const viewportCount = spatialResult?.nodeIds.size ?? 0;
+  const visibleEdges = spatialResult?.edgeIds.size ?? 0;
 
   const initMs = monitor.getInitMs();
   const layoutMs = monitor.getLayoutMs();
@@ -65,11 +71,12 @@ export function ErPerfHud({ monitor, nodes, edgeCount, viewportRef }: ErPerfHudP
             ? "—"
             : `${frameStats.avgMs.toFixed(1)} / ${frameStats.p95Ms.toFixed(1)}ms`,
         )}
-        {row("graph tables", String(nodes.length))}
+        {row("graph tables", String(spatialIndex.size))}
         {row("viewport tables", String(viewportCount))}
         {row("rendered tables", String(renderedNodes))}
         {row("detailed tables", String(detailedNodes))}
         {row("graph edges", String(edgeCount))}
+        {row("visible edges", String(visibleEdges))}
         {row("rendered edges", String(renderedEdges))}
       </div>
     </Panel>

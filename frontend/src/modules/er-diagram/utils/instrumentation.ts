@@ -9,8 +9,10 @@
  *   - pan/zoom frame time
  *   - graph / viewport / rendered / detailed node counts + rendered edge count
  *
- * Pure helpers (`computeFrameStats`, `computeVisibleNodeIds`) are unit-tested;
- * `ErPerfMonitor` is `performance`/DOM-backed and used by the dev HUD overlay.
+ * Pure helper `computeFrameStats` is unit-tested; `ErPerfMonitor` is
+ * `performance`/DOM-backed and used by the dev HUD overlay.
+ *
+ * Viewport/spatial queries live in `../utils/spatial-index` (P1.5).
  */
 
 export interface FrameStats {
@@ -24,9 +26,6 @@ export interface LongTaskRecord {
   start: number;
   duration: number;
 }
-
-const DEFAULT_NODE_WIDTH = 220;
-const DEFAULT_NODE_HEIGHT = 120;
 
 function percentile(sorted: number[], p: number): number {
   if (sorted.length === 0) return 0;
@@ -45,52 +44,6 @@ export function computeFrameStats(samples: number[]): FrameStats {
     maxMs: sorted[sorted.length - 1],
     p95Ms: percentile(sorted, 0.95),
   };
-}
-
-export interface ErViewport {
-  x: number;
-  y: number;
-  zoom: number;
-  width: number;
-  height: number;
-}
-
-export interface ErViewportNode {
-  id: string;
-  position: { x: number; y: number };
-  measured?: { width?: number; height?: number };
-}
-
-/**
- * IDs of nodes whose bounding box intersects the current viewport.
- *
- * Pure function — unit-tested. This is the spatial-query precursor that P1.5
- * will turn into a proper Spatial Index; for now it backs the `viewportTables`
- * instrumentation metric. Note: unmeasured nodes fall back to a fixed default
- * size, so the count is approximate for tall tier-2 nodes — acceptable for a
- * dev HUD, not for the P1.5 spatial index.
- */
-export function computeVisibleNodeIds(nodes: ErViewportNode[], viewport: ErViewport): Set<string> {
-  if (viewport.width <= 0 || viewport.height <= 0 || viewport.zoom <= 0) return new Set();
-
-  const viewLeft = -viewport.x / viewport.zoom;
-  const viewTop = -viewport.y / viewport.zoom;
-  const viewRight = viewLeft + viewport.width / viewport.zoom;
-  const viewBottom = viewTop + viewport.height / viewport.zoom;
-
-  const visible = new Set<string>();
-  for (const node of nodes) {
-    const w = node.measured?.width ?? DEFAULT_NODE_WIDTH;
-    const h = node.measured?.height ?? DEFAULT_NODE_HEIGHT;
-    const left = node.position.x;
-    const top = node.position.y;
-    const right = left + w;
-    const bottom = top + h;
-    if (right >= viewLeft && left <= viewRight && bottom >= viewTop && top <= viewBottom) {
-      visible.add(node.id);
-    }
-  }
-  return visible;
 }
 
 export class ErPerfMonitor {
