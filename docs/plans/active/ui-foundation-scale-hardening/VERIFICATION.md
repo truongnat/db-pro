@@ -385,7 +385,7 @@ open large ER (500-table fixture)
 → focus cleared, search ring + query preserved
 ```
 
-- `cytoscape-view.test.tsx` (6) — real view, mocked renderer: single tap issues the exact fade+highlight selection and never calls `onOpenTable`; dbltap + Open-table navigate; background tap keeps ring + query; re-tap after background still focuses.
+- `cytoscape-view.test.tsx` (8) — real view, mocked renderer: single tap issues the exact fade+highlight selection and never calls `onOpenTable`; dbltap + Open-table navigate; background tap keeps ring + query; re-tap after background still focuses; search ring survives clicking a different table; re-focus clears the previous focus.
 - `er-diagram-navigation.test.tsx` (2) — real ErDiagram + 500-table L-tier fixture, lazy overview harnessed: workspace stays active until the explicit action; `openDbObject` receives `{kind:"db-object", schema, objectName, objectType:"table"}`.
 - `cytoscape-renderer.test.ts` +1 — tap routes to `onNodeClick`, dbltap to `onNodeDoubleClick` (real headless renderer).
 
