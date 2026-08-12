@@ -3,7 +3,7 @@
  *
  * Measures the locked P1 acceptance metrics:
  *   - time to interactive shell (init marks)
- *   - layout duration (main thread until P1.7 moves it to a Worker)
+ *   - layout duration (dagre in the P1.7 Worker; no main-thread block)
  *   - max main-thread long task
  *   - initial detailed DOM count
  *   - pan/zoom frame time

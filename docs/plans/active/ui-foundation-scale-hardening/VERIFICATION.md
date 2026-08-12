@@ -72,7 +72,7 @@ Recorded per fixture via the P1.1 HUD (`er-perf-hud=1` in localStorage):
 | Metric | Source |
 |---|---|
 | Time to interactive shell | `er:init:start` → `er:init:end` measure |
-| Layout duration | `er:layout:start` → `er:layout:end` measure (main thread until P1.7) |
+| Layout duration | `er:layout:start` → `er:layout:end` measure (dagre in the P1.7 Worker — no main-thread block; cached by schema hash) |
 | Max main-thread long task | `PerformanceObserver('longtask')` |
 | Initial detailed DOM count | `[data-tier="2"]` node count |
 | Pan / zoom frame time | rAF frame sampler over pan/zoom gesture |
@@ -140,6 +140,16 @@ Screenshots: `bench/er-cytoscape-{100,500,1000}.png`, `bench/er-reactflow-{100,5
 | Date | Phase | Evidence | Result |
 |---|---|---|---|
 | 2026-08-12 | P1.8 | A/B harness full matrix 100/500/1000 (see section above) | Cytoscape: 31 DOM at all scales, layout 0.2/2/36 s · React Flow: 1,143/6,143/11,817 DOM, layout 0.15/8/122 s, overview pan 60/34/18.6 fps |
+| 2026-08-12 | P1.7 | Layout worker + cache shipped (see Implementation notes below); quality gates: 1,393 FE tests pass, build emits `er-layout.worker.js` (~92 kB, dagre split out of the main bundle) | dagre runs off the main thread; cold 1,000-table layout no longer freezes the UI (worker), repeat opens are instant (cache) — the 0.15/8/122 s main-thread blocks measured in P1.8 become worker-side durations with the shell interactive |
+
+### P1.7 implementation notes
+
+- **`utils/layout.ts`** — split into pure `computeLayoutPositions(LayoutInput, options)` (runs in the worker) + `layoutGraph` wrapper (sync fallback, still used by tests); shared geometry constants so main/worker cannot drift.
+- **`utils/layout-hash.ts`** — `computeLayoutHash`: deterministic, order-independent 64-bit FNV-1a over node sizes + edge topology + options; the `schemaHash → positions` cache key.
+- **`utils/layout-cache.ts`** — `LayoutCache`: in-memory session cache + localStorage persistence (repeat opens of a 1,000-table schema skip dagre entirely), node-id-set integrity check, oldest-first eviction beyond 20 entries.
+- **`er-layout.worker.ts` + `utils/layout-runner.ts`** — module worker runs dagre and posts one atomic result per requestId; a sync fallback runner covers non-worker environments (jsdom, exotic webviews).
+- **`hooks/use-worker-layout.ts`** — cache-first, stale-discard (effect cleanup + requestId), single atomic position commit (locked: no streamed/unstable positions).
+- **`er-diagram.tsx`** — replaced the sync `layoutGraph` useMemo; shows an "Arranging N tables…" overlay while computing; fit-view fires on computing → ready instead of the old fixed-80ms timer; HUD `layout ms` now reports the worker's dagre time.
 
 ## Provider matrix
 

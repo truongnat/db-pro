@@ -21,12 +21,18 @@ import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useTranslation } from "@/commons/locales/useTranslation";
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
-import { Search, Maximize2, LayoutGrid, Columns2, Table2, RotateCcw } from "lucide-react";
+import { Search, Maximize2, LayoutGrid, Columns2, Table2, RotateCcw, Loader2 } from "lucide-react";
 
 import { ErTableNode, type TableNodeData } from "./lod/er-table-node";
 import { ErPerfHud } from "./er-perf-hud";
 import { NeighborhoodExplorer } from "./neighborhood-explorer";
-import { layoutGraph } from "../utils/layout";
+import { useWorkerLayout } from "../hooks/use-worker-layout";
+import {
+  layoutNodeHeight,
+  LAYOUT_NODE_WIDTH,
+  type LayoutInput,
+  type LayoutPosition,
+} from "../utils/layout";
 import { groupForeignKeys } from "../utils/edge-builder";
 import {
   buildAdjacencyMap,
@@ -293,17 +299,55 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
     landing,
   ]);
 
-  // Apply layout, respecting manual positions for dragged nodes
+  // P1.7 — layout off the main thread.
+  //
+  // Build a plain (worker-serializable) layout input from the RF nodes, run
+  // dagre in the Worker (cache-first by content hash), and commit positions
+  // atomically when the result lands. The UI stays interactive meanwhile and
+  // shows an "Arranging N tables…" overlay (locked: no fake progressive
+  // layout — positions only appear once stable).
+  const layoutInput = useMemo<LayoutInput | null>(() => {
+    if (initialNodes.length === 0) return null;
+    return {
+      nodes: initialNodes.map((n) => {
+        const d = n.data as TableNodeData;
+        return {
+          id: n.id,
+          height: layoutNodeHeight(d.columns?.length ?? 0, d.compact ?? false),
+          width: LAYOUT_NODE_WIDTH,
+        };
+      }),
+      edges: initialEdges.map((e) => ({ source: e.source, target: e.target })),
+    };
+  }, [initialNodes, initialEdges]);
+
+  // Stable identity — `useWorkerLayout` re-runs layout only when the hash
+  // (content + options) changes, not on every render.
+  const layoutOptions = useMemo(() => ({ direction: layoutDirection }), [layoutDirection]);
+
+  const layout = useWorkerLayout(layoutInput, layoutOptions);
+
+  // Record the layout duration for the P1.1 HUD (now the worker's dagre time;
+  // no main-thread block).
+  useEffect(() => {
+    if (perfEnabled && layout.layoutMs != null) {
+      perfMonitorRef.current?.recordLayout(layout.layoutMs);
+    }
+  }, [perfEnabled, layout.layoutMs]);
+
+  // Apply worker positions, respecting manual positions for dragged nodes.
+  // Atomic: the whole position Map lands in one commit.
   const laidOutNodes = useMemo(() => {
-    const layoutStart = performance.now();
-    const autoLaid = layoutGraph(initialNodes, initialEdges, { direction: layoutDirection });
-    if (perfEnabled) perfMonitorRef.current?.recordLayout(performance.now() - layoutStart);
-    return autoLaid.map((node) => {
+    const positions = layout.positions;
+    if (!positions || positions.size === 0) return initialNodes;
+    return initialNodes.map((node) => {
       const manual = manualPositions.get(node.id);
       if (manual) return { ...node, position: manual };
+      const auto = positions.get(node.id);
+      if (auto) return { ...node, position: auto };
       return node;
     });
-  }, [initialNodes, initialEdges, layoutDirection, manualPositions, perfEnabled]);
+  }, [initialNodes, layout.positions, manualPositions]);
 
   // Inject current LOD into node data — only recomputes when the level changes.
   // The dispatcher (ErTableNode) switches render trees on `lod`.
@@ -356,15 +400,22 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
     }
   }, [searchQuery, isLargeSchema, tablesInSchema, showAll]);
 
-  // Fit the new neighborhood when the explore scope changes (P1.6).
+  // Fit view once a new position set commits (P1.7). Keyed on the position
+  // Map identity, so it fires for both the worker path (computing → ready) and
+  // the cache-hit path (idle → ready, which never passes through computing),
+  // exactly once per distinct layout. Replaces the old fixed-80ms timer, which
+  // could fire before positions landed.
+  const fittedPositionsRef = useRef<Map<string, LayoutPosition> | null>(null);
   useEffect(() => {
-    if (!isLargeSchema || landing) return;
+    if (layout.status !== "ready" || !layout.positions) return;
+    if (fittedPositionsRef.current === layout.positions) return;
+    fittedPositionsRef.current = layout.positions;
     const timer = setTimeout(() => {
       const rfNode = reactFlowRef.current?.querySelector(".react-flow") as HTMLElement | null;
       rfNode?.dispatchEvent(new KeyboardEvent("keydown", { key: "1" }));
-    }, 80);
+    }, 60);
     return () => clearTimeout(timer);
-  }, [isLargeSchema, landing, neighborhoodSeed, neighborhoodHops, showAll]);
+  }, [layout.status, layout.positions]);
 
   // Filter nodes by search (small schemas only — large schemas use neighborhood)
   useEffect(() => {
@@ -614,6 +665,24 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
           color="var(--app-border-subtle)"
         />
         <Controls showInteractive={false} />
+
+        {/* P1.7 — layout is computing in the Worker; shell stays interactive. */}
+        {layout.status === "computing" && (
+          <Panel position="top-center" className="m-2">
+            <div className="flex items-center gap-2 rounded-md border bg-popover px-3 py-1.5 text-[12px] text-muted-foreground shadow-sm">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              Arranging {layout.nodeCount} tables…
+            </div>
+          </Panel>
+        )}
+        {layout.status === "error" && (
+          <Panel position="top-center" className="m-2">
+            <div className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-1.5 text-[12px] text-destructive">
+              Layout failed: {layout.error}
+            </div>
+          </Panel>
+        )}
+
         {perfEnabled && perfMonitorRef.current && (
           <ErPerfHud
             monitor={perfMonitorRef.current}
