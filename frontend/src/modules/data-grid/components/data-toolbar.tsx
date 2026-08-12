@@ -86,10 +86,10 @@ export function DataToolbar({
   const dirLabel = (d: "asc" | "desc") => t(d === "asc" ? "dataGrid.sortAsc" : "dataGrid.sortDesc");
 
   const toolButton =
-    "h-auto gap-1 px-2 py-1 text-xs font-normal text-[var(--app-text-muted)] hover:bg-background hover:text-foreground";
+    "h-auto gap-1 px-2 py-1 text-xs font-normal text-[var(--text-secondary)] hover:bg-background hover:text-foreground";
 
   return (
-    <div className="flex items-center justify-between gap-2 border-b border-[var(--app-border-subtle)] bg-background px-2 py-1.5">
+    <div className="flex items-center justify-between gap-2 border-b border-[var(--border-subtle)] bg-background px-2 py-1.5">
       <div className="flex items-center gap-0.5">
         <Popover>
           <PopoverTrigger asChild>
@@ -131,14 +131,14 @@ export function DataToolbar({
                       className="flex items-center gap-2 rounded-md bg-muted/50 px-2 py-1.5 text-xs"
                     >
                       <span className="font-medium text-foreground">{s.column}</span>
-                      <span className="text-[var(--app-text-muted)]">{dirLabel(s.direction)}</span>
+                      <span className="text-[var(--text-secondary)]">{dirLabel(s.direction)}</span>
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <Button
                             type="button"
                             variant="ghost"
                             size="sm"
-                            className="ml-auto h-5 w-5 p-0 text-[var(--app-text-muted)] hover:bg-destructive/10 hover:text-destructive"
+                            className="ml-auto h-5 w-5 p-0 text-[var(--text-secondary)] hover:bg-destructive/10 hover:text-destructive"
                             onClick={() => onRemoveDraftSort(i)}
                           >
                             <Trash2 className="h-3 w-3" />
@@ -188,12 +188,12 @@ export function DataToolbar({
               </div>
 
               {/* Footer: Apply / Clear */}
-              <div className="flex items-center justify-between border-t border-[var(--app-border-subtle)] pt-2">
+              <div className="flex items-center justify-between border-t border-[var(--border-subtle)] pt-2">
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
-                  className="h-7 px-2 text-xs text-[var(--app-text-muted)] hover:bg-background"
+                  className="h-7 px-2 text-xs text-[var(--text-secondary)] hover:bg-background"
                   onClick={onClearSorts}
                   disabled={sorts.length === 0 && draftSorts.length === 0}
                 >
@@ -223,7 +223,7 @@ export function DataToolbar({
           </PopoverTrigger>
           <PopoverContent align="start" sideOffset={6} className="w-64 p-2">
             <div className="mb-2 flex items-center justify-between">
-              <span className="text-xs font-medium text-[var(--app-text-muted)]">
+              <span className="text-xs font-medium text-[var(--text-secondary)]">
                 {t("dataGrid.toolbarColumns")}
               </span>
               {hiddenColumns.length > 0 && (
@@ -259,7 +259,7 @@ export function DataToolbar({
         </Popover>
       </div>
 
-      <span className="px-1 text-[11px] text-[var(--app-text-muted)]">
+      <span className="px-1 text-[11px] text-[var(--text-secondary)]">
         {t("dataGrid.rowsCount", { count: rowCount })}
       </span>
     </div>

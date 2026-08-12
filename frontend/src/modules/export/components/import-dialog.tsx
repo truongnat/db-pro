@@ -163,7 +163,7 @@ export function ImportDialog({
                   className={
                     format === "csv"
                       ? "border-primary text-primary"
-                      : "border-[var(--app-border-subtle)]"
+                      : "border-[var(--border-subtle)]"
                   }
                   onClick={() => setFormat("csv")}
                   type="button"
@@ -175,7 +175,7 @@ export function ImportDialog({
                   className={
                     format === "json"
                       ? "border-primary text-primary"
-                      : "border-[var(--app-border-subtle)]"
+                      : "border-[var(--border-subtle)]"
                   }
                   onClick={() => setFormat("json")}
                   type="button"
@@ -194,22 +194,22 @@ export function ImportDialog({
                 className="h-8"
               />
             </div>
-            <p className="text-xs text-[var(--app-text-muted)]">{t("import.hint")}</p>
+            <p className="text-xs text-[var(--text-secondary)]">{t("import.hint")}</p>
           </div>
         )}
 
         {/* Step 2: Column mapping */}
         {step === "mapping" && preview && (
           <div className="space-y-3">
-            <p className="text-xs text-[var(--app-text-muted)]">
+            <p className="text-xs text-[var(--text-secondary)]">
               {t("import.rowsDetected", { count: preview.totalRowCount })}
             </p>
 
             {/* Mapping table */}
-            <div className="max-h-40 space-y-1 overflow-auto rounded border border-[var(--app-border)]">
+            <div className="max-h-40 space-y-1 overflow-auto rounded border border-[var(--border-default)]">
               {mappings.map((m, i) => (
                 <div key={i} className="flex items-center gap-2 px-2 py-1">
-                  <span className="w-24 truncate text-xs text-[var(--app-text-muted)]">
+                  <span className="w-24 truncate text-xs text-[var(--text-secondary)]">
                     {m.sourceName}
                   </span>
                   <span className="text-xs">→</span>
@@ -235,7 +235,7 @@ export function ImportDialog({
 
             {/* Preview table */}
             {preview.sampleRows.length > 0 && (
-              <div className="max-h-32 overflow-auto rounded border border-[var(--app-border)]">
+              <div className="max-h-32 overflow-auto rounded border border-[var(--border-default)]">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -261,7 +261,7 @@ export function ImportDialog({
               </div>
             )}
 
-            <p className="text-xs text-[var(--app-text-muted)]">
+            <p className="text-xs text-[var(--text-secondary)]">
               {t("import.mappedCount", {
                 mapped: mappedColumns.length,
                 total: mappings.length,
@@ -273,9 +273,9 @@ export function ImportDialog({
         {/* Step 3: Result */}
         {step === "result" && result && (
           <div className="space-y-3">
-            <div className="rounded border border-[var(--app-border)] p-3">
+            <div className="rounded border border-[var(--border-default)] p-3">
               <p className="text-sm font-medium">{t("import.importComplete")}</p>
-              <p className="text-xs text-[var(--app-text-muted)]">
+              <p className="text-xs text-[var(--text-secondary)]">
                 {t("import.successCount", { count: result.successCount })}
                 {result.errorCount > 0 && (
                   <> · {t("import.errorCount", { count: result.errorCount })}</>

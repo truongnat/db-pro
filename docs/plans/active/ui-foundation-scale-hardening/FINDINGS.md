@@ -23,6 +23,8 @@ These are not aligned. `--background` maps to neither `--app-surface-0` nor `--a
 
 **Severity:** P1 — foundation risk. Not a visible bug today, but becomes worse with every new component.
 
+**Resolution (2026-08-12, P3.1 + P3.2):** single canonical vocabulary landed — `--surface-*` / `--text-*` / `--border-*` / `--accent-*` / `--state-*` / `--elevation-*` replace all 21 `--app-*` color tokens (604 occurrences across 96 files → 0); the shadcn compatibility layer is now alias-only; `--app-*` is reserved for layout metrics. `npm run check:tokens` (CI) enforces theme completeness, value snapshots, alias-only shadcn layer, and bans `--app-*` color tokens / raw shadcn vars in components. Visual regression: 96/96 resolved token pairs identical (bench/token-contract.html, light + dark).
+
 ## F2: O(T x C) column indexing in ER diagram (P1 Performance)
 
 **Evidence:** `er-diagram.tsx` lines 91-98:

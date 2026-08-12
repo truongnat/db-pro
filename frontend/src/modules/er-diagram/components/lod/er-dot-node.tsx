@@ -23,7 +23,7 @@ export const ErDotNode = memo(function ErDotNode({ data, selected }: NodeProps) 
       title={label}
       className={cn(
         "h-3.5 w-3.5 rounded-full border bg-primary/40 transition-colors",
-        selected ? "border-primary ring-2 ring-primary/30" : "border-[var(--app-border)]",
+        selected ? "border-primary ring-2 ring-primary/30" : "border-[var(--border-default)]",
       )}
     >
       <Handle

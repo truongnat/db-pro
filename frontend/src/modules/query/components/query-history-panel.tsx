@@ -60,7 +60,7 @@ export function QueryHistoryPanel({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center gap-1 border-b border-[var(--app-border-subtle)] p-2">
+      <div className="flex items-center gap-1 border-b border-[var(--border-subtle)] p-2">
         <Input
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
@@ -81,11 +81,11 @@ export function QueryHistoryPanel({
       <div className="flex-1 overflow-auto">
         {isLoading ? (
           <div className="flex items-center justify-center py-8">
-            <p className="text-[var(--app-text-muted)]">{t("common.states.loading")}</p>
+            <p className="text-[var(--text-secondary)]">{t("common.states.loading")}</p>
           </div>
         ) : filtered.length === 0 ? (
           <div className="flex items-center justify-center py-8">
-            <p className="text-[var(--app-text-muted)]">{t("common.states.empty")}</p>
+            <p className="text-[var(--text-secondary)]">{t("common.states.empty")}</p>
           </div>
         ) : (
           filtered.map((entry) => (
@@ -129,12 +129,12 @@ function HistoryEntryRow({
   const isError = entry.status === "error";
 
   return (
-    <div className="group flex flex-col border-b border-[var(--app-border-subtle)] px-3 py-2 transition-colors hover:bg-background">
+    <div className="group flex flex-col border-b border-[var(--border-subtle)] px-3 py-2 transition-colors hover:bg-background">
       {/* SQL line */}
       <div className="flex items-start gap-2">
         <button
           type="button"
-          className="shrink-0 text-xs text-[var(--app-text-muted)] hover:text-warning"
+          className="shrink-0 text-xs text-[var(--text-secondary)] hover:text-warning"
           onClick={onToggleFavorite}
           title={fav ? t("query.unfavorite") : t("query.favorite")}
         >
@@ -151,7 +151,7 @@ function HistoryEntryRow({
       </div>
 
       {/* Meta row */}
-      <div className="ml-6 mt-1 flex flex-wrap items-center gap-2 text-xs text-[var(--app-text-muted)]">
+      <div className="ml-6 mt-1 flex flex-wrap items-center gap-2 text-xs text-[var(--text-secondary)]">
         <Badge variant={isError ? "destructive" : "secondary"} className="px-1.5 py-0 text-[11px]">
           {isError ? t("query.statusError") : t("query.statusSuccess")}
         </Badge>
@@ -159,7 +159,7 @@ function HistoryEntryRow({
         <span>{t("query.rowsAffected", { count: entry.rowCount })}</span>
         <span>{new Date(entry.executedAt).toLocaleTimeString()}</span>
         {entry.database && (
-          <span className="text-[var(--app-text-dim)]">
+          <span className="text-[var(--text-tertiary)]">
             {entry.database}
             {entry.schema ? `.${entry.schema}` : ""}
           </span>

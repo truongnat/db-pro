@@ -80,7 +80,7 @@ export function VisualFilterBuilder({
               className="flex items-center gap-2 rounded-md bg-muted/50 px-2 py-1.5 text-xs"
             >
               <span className="font-medium text-foreground">{f.column}</span>
-              <span className="text-[var(--app-text-muted)]">
+              <span className="text-[var(--text-secondary)]">
                 {FILTER_OPS.find((o) => o.value === f.op)?.label ?? f.op}
               </span>
               {!VALUELESS_OPS.includes(f.op) && (
@@ -98,7 +98,7 @@ export function VisualFilterBuilder({
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="ml-auto h-5 w-5 p-0 text-[var(--app-text-muted)] hover:bg-destructive/10 hover:text-destructive"
+                    className="ml-auto h-5 w-5 p-0 text-[var(--text-secondary)] hover:bg-destructive/10 hover:text-destructive"
                     onClick={() => onRemoveDraftFilter(i)}
                   >
                     <Trash2 className="h-3 w-3" />
@@ -163,12 +163,12 @@ export function VisualFilterBuilder({
       </div>
 
       {/* Footer: Apply / Clear */}
-      <div className="flex items-center justify-between border-t border-[var(--app-border-subtle)] pt-2">
+      <div className="flex items-center justify-between border-t border-[var(--border-subtle)] pt-2">
         <Button
           type="button"
           variant="ghost"
           size="sm"
-          className="h-7 px-2 text-xs text-[var(--app-text-muted)] hover:bg-background"
+          className="h-7 px-2 text-xs text-[var(--text-secondary)] hover:bg-background"
           onClick={onClear}
           disabled={!hasChanges}
         >

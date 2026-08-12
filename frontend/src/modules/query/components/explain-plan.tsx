@@ -85,7 +85,7 @@ function PlanSummary({ node }: { node: PlanNode }) {
   const width = getWidth(node);
 
   return (
-    <div className="mb-4 flex flex-wrap gap-x-6 gap-y-3 rounded-md bg-[var(--app-surface-2)] px-4 py-3">
+    <div className="mb-4 flex flex-wrap gap-x-6 gap-y-3 rounded-md bg-[var(--surface-panel)] px-4 py-3">
       <SummaryItem label="Total Cost" value={formatNumber(cost)} />
       <SummaryItem label="Startup Cost" value={formatNumber(startup)} />
       <SummaryItem label="Est. Rows" value={formatNumber(rows)} />
@@ -97,7 +97,7 @@ function PlanSummary({ node }: { node: PlanNode }) {
 function SummaryItem({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-col gap-0.5">
-      <span className="text-[11px] uppercase tracking-wide text-[var(--app-text-dim)]">
+      <span className="text-[11px] uppercase tracking-wide text-[var(--text-tertiary)]">
         {label}
       </span>
       <span className="text-[13px] font-medium tabular-nums text-foreground">{value}</span>
@@ -135,17 +135,17 @@ function TreeNode({
     <div style={{ paddingLeft: depth * 16 }}>
       <div
         className={`cursor-pointer rounded-sm px-3 py-1.5 transition-colors ${
-          isSelected ? "bg-primary/8" : "hover:bg-[var(--app-hover)]"
+          isSelected ? "bg-primary/8" : "hover:bg-[var(--surface-hover)]"
         }`}
         onClick={() => onSelect(path, node)}
       >
         <div className="flex items-center gap-1.5">
           <span className="text-[13px] font-medium text-foreground">{nodeType}</span>
           {(relation || index) && (
-            <span className="text-[12px] text-[var(--app-text-muted)]">· {relation || index}</span>
+            <span className="text-[12px] text-[var(--text-secondary)]">· {relation || index}</span>
           )}
         </div>
-        <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-[var(--app-text-dim)]">
+        <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-[var(--text-tertiary)]">
           {cost !== undefined && <span>Cost {formatNumber(cost)}</span>}
           {rows !== undefined && <span>Rows {formatNumber(rows)}</span>}
           {actualTime !== undefined && <span>Time {formatNumber(actualTime)}ms</span>}
@@ -195,7 +195,7 @@ function NodeDetails({ node }: { node: PlanNode }) {
       <div>
         <h3 className="text-[13px] font-medium text-foreground">{nodeType}</h3>
         {relation && (
-          <p className="text-[11px] text-[var(--app-text-muted)]">Relation {relation}</p>
+          <p className="text-[11px] text-[var(--text-secondary)]">Relation {relation}</p>
         )}
       </div>
       <div className="flex flex-col">
@@ -203,10 +203,10 @@ function NodeDetails({ node }: { node: PlanNode }) {
           <div
             key={key}
             className={`flex items-baseline justify-between gap-3 py-1.5 text-[12px] ${
-              i > 0 ? "border-t border-[var(--app-border-subtle)]/40" : ""
+              i > 0 ? "border-t border-[var(--border-subtle)]/40" : ""
             }`}
           >
-            <span className="shrink-0 text-[var(--app-text-muted)]">{humanizeKey(key)}</span>
+            <span className="shrink-0 text-[var(--text-secondary)]">{humanizeKey(key)}</span>
             <span className="tabular-nums text-right text-foreground">{formatValue(value)}</span>
           </div>
         ))}
@@ -235,8 +235,8 @@ function renderGenericNode(key: string, value: unknown, depth: number): React.Re
   if (value === null || value === undefined) {
     return (
       <div key={key} style={{ paddingLeft: depth * 16 }} className="py-0.5 text-[12px]">
-        <span className="text-[var(--app-text-muted)]">{key}: </span>
-        <span className="italic text-[var(--app-text-muted)]">null</span>
+        <span className="text-[var(--text-secondary)]">{key}: </span>
+        <span className="italic text-[var(--text-secondary)]">null</span>
       </div>
     );
   }
@@ -263,7 +263,7 @@ function renderGenericNode(key: string, value: unknown, depth: number): React.Re
   }
   return (
     <div key={key} style={{ paddingLeft: depth * 16 }} className="py-0.5 text-[12px]">
-      <span className="text-[var(--app-text-muted)]">{key}: </span>
+      <span className="text-[var(--text-secondary)]">{key}: </span>
       <span className="text-foreground">{String(value)}</span>
     </div>
   );
@@ -295,7 +295,7 @@ export function ExplainPlanView({ plan }: ExplainPlanViewProps) {
 
         {/* Right — node details (40%) */}
         {selectedNode && (
-          <div className="flex-[2] overflow-auto bg-[var(--app-surface-1)] p-4">
+          <div className="flex-[2] overflow-auto bg-[var(--surface-nav)] p-4">
             <NodeDetails node={selectedNode} />
           </div>
         )}

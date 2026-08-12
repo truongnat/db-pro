@@ -42,7 +42,7 @@ export function ChartView({ columns, rows, config }: ChartViewProps) {
 
   if (xIdx === -1 || yIdx === -1) {
     return (
-      <div className="flex items-center justify-center py-12 text-sm text-[var(--app-text-muted)]">
+      <div className="flex items-center justify-center py-12 text-sm text-[var(--text-secondary)]">
         Invalid chart configuration
       </div>
     );
@@ -55,7 +55,7 @@ export function ChartView({ columns, rows, config }: ChartViewProps) {
 
   if (data.length === 0) {
     return (
-      <div className="flex items-center justify-center py-12 text-sm text-[var(--app-text-muted)]">
+      <div className="flex items-center justify-center py-12 text-sm text-[var(--text-secondary)]">
         No data to chart
       </div>
     );
@@ -66,7 +66,7 @@ export function ChartView({ columns, rows, config }: ChartViewProps) {
       <ResponsiveContainer width="100%" height="100%">
         {config.type === "bar" ? (
           <BarChart data={data}>
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border-default)" />
             <XAxis dataKey="name" tick={{ fontSize: 11 }} />
             <YAxis tick={{ fontSize: 11 }} />
             <Tooltip />
@@ -75,7 +75,7 @@ export function ChartView({ columns, rows, config }: ChartViewProps) {
           </BarChart>
         ) : config.type === "line" ? (
           <LineChart data={data}>
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border-default)" />
             <XAxis dataKey="name" tick={{ fontSize: 11 }} />
             <YAxis tick={{ fontSize: 11 }} />
             <Tooltip />

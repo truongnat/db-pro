@@ -59,8 +59,8 @@ export function DataGrid({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       {!canEdit && (
-        <div className="flex items-center gap-1.5 border-b border-[var(--app-border-subtle)] bg-[var(--app-surface-2)] px-3 py-1 text-[11px] text-[var(--app-text-muted)]">
-          <span className="text-[var(--app-warning)]">●</span>
+        <div className="flex items-center gap-1.5 border-b border-[var(--border-subtle)] bg-[var(--surface-panel)] px-3 py-1 text-[11px] text-[var(--text-secondary)]">
+          <span className="text-[var(--state-warning)]">●</span>
           {t("dataGrid.readOnlyNoPk")}
         </div>
       )}

@@ -50,7 +50,7 @@ export function SchemaDetailPanel({
 
   if (!schema || !table || !nodeType) {
     return (
-      <div className="flex flex-1 items-center justify-center p-8 text-sm text-[var(--app-text-muted)]">
+      <div className="flex flex-1 items-center justify-center p-8 text-sm text-[var(--text-secondary)]">
         {t("schema.selectTable")}
       </div>
     );
@@ -60,12 +60,12 @@ export function SchemaDetailPanel({
 
   const tabClassName = (isActive: boolean): string =>
     `rounded-none border-b-2 px-3 py-2 text-sm transition-colors hover:opacity-80 ${
-      isActive ? "border-primary text-primary" : "border-transparent text-[var(--app-text-muted)]"
+      isActive ? "border-primary text-primary" : "border-transparent text-[var(--text-secondary)]"
     }`;
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
-      <div className="flex gap-1 border-b border-[var(--app-border-subtle)] px-3">
+      <div className="flex gap-1 border-b border-[var(--border-subtle)] px-3">
         {tabs.map((tab) => (
           <Button
             key={tab.key}
@@ -136,7 +136,7 @@ export function SchemaDetailPanel({
 
         {tableInfo.isLoading &&
           (activeTab === "columns" || activeTab === "indexes" || activeTab === "foreignKeys") && (
-            <div className="p-4 text-sm text-[var(--app-text-muted)]">
+            <div className="p-4 text-sm text-[var(--text-secondary)]">
               {t("common.states.loading")}
             </div>
           )}

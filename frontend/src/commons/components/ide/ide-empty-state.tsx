@@ -30,12 +30,12 @@ export function IdeEmptyState({
 }: IdeEmptyStateProps) {
   return (
     <div className={cn("flex flex-col items-center justify-center px-6 py-12", className)}>
-      <div className="mb-4 grid h-9 w-9 place-items-center rounded-lg bg-[var(--app-surface-2)]">
-        <Icon className="h-4 w-4 text-[var(--app-text-muted)]" />
+      <div className="mb-4 grid h-9 w-9 place-items-center rounded-lg bg-[var(--surface-panel)]">
+        <Icon className="h-4 w-4 text-[var(--text-secondary)]" />
       </div>
       <p className="mb-1 text-[13px] font-medium text-foreground">{title}</p>
       {description && (
-        <p className="mb-4 max-w-xs text-center text-[12px] leading-relaxed text-[var(--app-text-muted)]">
+        <p className="mb-4 max-w-xs text-center text-[12px] leading-relaxed text-[var(--text-secondary)]">
           {description}
         </p>
       )}
@@ -53,7 +53,7 @@ export function IdeEmptyState({
       {secondaryAction && (
         <button
           type="button"
-          className="mt-2 text-[12px] text-[var(--app-text-muted)] underline-offset-2 hover:text-foreground hover:underline"
+          className="mt-2 text-[12px] text-[var(--text-secondary)] underline-offset-2 hover:text-foreground hover:underline"
           onClick={secondaryAction.onClick}
         >
           {secondaryAction.label}

@@ -5,7 +5,7 @@ export function TransactionBar() {
   const { t } = useTranslation();
 
   return (
-    <div className="flex items-center gap-2 border-b border-[var(--app-border-subtle)] bg-background px-3 py-1.5">
+    <div className="flex items-center gap-2 border-b border-[var(--border-subtle)] bg-background px-3 py-1.5">
       <Button
         type="button"
         variant="outline"

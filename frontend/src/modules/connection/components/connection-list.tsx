@@ -148,7 +148,7 @@ export function ConnectionList({ onEdit, onBackup, onRestore }: ConnectionListPr
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <p className="text-[var(--app-text-muted)]">{t("common.states.loading")}</p>
+        <p className="text-[var(--text-secondary)]">{t("common.states.loading")}</p>
       </div>
     );
   }
@@ -157,7 +157,7 @@ export function ConnectionList({ onEdit, onBackup, onRestore }: ConnectionListPr
     return (
       <div className="flex flex-col items-center gap-2 py-12">
         <p className="text-destructive">{t("common.states.error")}</p>
-        <p className="text-sm text-[var(--app-text-muted)]">
+        <p className="text-sm text-[var(--text-secondary)]">
           {(error as { userMessage?: string }).userMessage ?? (error as Error).message}
         </p>
       </div>
@@ -167,7 +167,7 @@ export function ConnectionList({ onEdit, onBackup, onRestore }: ConnectionListPr
   if (!connections?.length) {
     return (
       <div className="flex items-center justify-center py-12">
-        <p className="text-[var(--app-text-muted)]">{t("common.states.empty")}</p>
+        <p className="text-[var(--text-secondary)]">{t("common.states.empty")}</p>
       </div>
     );
   }
@@ -184,7 +184,7 @@ export function ConnectionList({ onEdit, onBackup, onRestore }: ConnectionListPr
     <div className="flex flex-col gap-3">
       {/* Sort + filter toolbar */}
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs text-[var(--app-text-muted)]">{t("common.actions.sort")}:</span>
+        <span className="text-xs text-[var(--text-secondary)]">{t("common.actions.sort")}:</span>
         {(["name", "driver", "group"] as ConnectionSortField[]).map((field) => (
           <Button
             key={field}
@@ -195,7 +195,7 @@ export function ConnectionList({ onEdit, onBackup, onRestore }: ConnectionListPr
               "h-auto rounded-full px-2 py-0.5 text-xs",
               sortField === field
                 ? "bg-primary text-white hover:bg-primary/90"
-                : "bg-background text-[var(--app-text-muted)] hover:bg-muted",
+                : "bg-background text-[var(--text-secondary)] hover:bg-muted",
             )}
             onClick={() => handleSortToggle(field)}
           >
@@ -206,7 +206,7 @@ export function ConnectionList({ onEdit, onBackup, onRestore }: ConnectionListPr
 
         {uniqueGroups.length > 0 && (
           <div className="flex items-center gap-1">
-            <span className="text-xs text-[var(--app-text-muted)]">{t("connection.group")}:</span>
+            <span className="text-xs text-[var(--text-secondary)]">{t("connection.group")}:</span>
             {filterGroup && (
               <Button
                 type="button"
@@ -228,7 +228,7 @@ export function ConnectionList({ onEdit, onBackup, onRestore }: ConnectionListPr
                   "h-auto rounded-full px-2 py-0.5 text-xs",
                   filterGroup === group
                     ? "bg-primary text-white hover:bg-primary/90"
-                    : "bg-background text-[var(--app-text-muted)] hover:bg-muted",
+                    : "bg-background text-[var(--text-secondary)] hover:bg-muted",
                 )}
                 onClick={() => setFilterGroup(filterGroup === group ? null : group)}
               >
@@ -240,7 +240,7 @@ export function ConnectionList({ onEdit, onBackup, onRestore }: ConnectionListPr
 
         {uniqueTags.length > 0 && (
           <div className="flex items-center gap-1">
-            <span className="text-xs text-[var(--app-text-muted)]">{t("connection.tags")}:</span>
+            <span className="text-xs text-[var(--text-secondary)]">{t("connection.tags")}:</span>
             {filterTag && (
               <Button
                 type="button"
@@ -262,7 +262,7 @@ export function ConnectionList({ onEdit, onBackup, onRestore }: ConnectionListPr
                   "h-auto rounded-full border px-2 py-0.5 text-xs",
                   filterTag === tag
                     ? "border-primary bg-primary text-white hover:bg-primary/90"
-                    : "border-[var(--app-border-subtle)] bg-transparent text-[var(--app-text-muted)]",
+                    : "border-[var(--border-subtle)] bg-transparent text-[var(--text-secondary)]",
                 )}
                 onClick={() => setFilterTag(filterTag === tag ? null : tag)}
               >
@@ -277,7 +277,7 @@ export function ConnectionList({ onEdit, onBackup, onRestore }: ConnectionListPr
             type="button"
             variant="ghost"
             size="sm"
-            className="h-auto px-2 py-0.5 text-xs text-[var(--app-text-muted)]"
+            className="h-auto px-2 py-0.5 text-xs text-[var(--text-secondary)]"
             onClick={clearFilters}
           >
             {t("common.actions.clear")}
@@ -287,29 +287,29 @@ export function ConnectionList({ onEdit, onBackup, onRestore }: ConnectionListPr
 
       {filteredAndSorted.length === 0 ? (
         <div className="flex items-center justify-center py-12">
-          <p className="text-[var(--app-text-muted)]">{t("common.states.empty")}</p>
+          <p className="text-[var(--text-secondary)]">{t("common.states.empty")}</p>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-lg border border-[var(--app-border)]">
+        <div className="overflow-hidden rounded-lg border border-[var(--border-default)]">
           <Table className="w-full text-sm">
             <TableHeader>
               <TableRow className="bg-muted hover:bg-muted">
-                <TableHead className="text-xs font-medium text-[var(--app-text-muted)]">
+                <TableHead className="text-xs font-medium text-[var(--text-secondary)]">
                   {t("common.labels.name")}
                 </TableHead>
-                <TableHead className="text-xs font-medium text-[var(--app-text-muted)]">
+                <TableHead className="text-xs font-medium text-[var(--text-secondary)]">
                   {t("common.labels.host")}
                 </TableHead>
-                <TableHead className="text-xs font-medium text-[var(--app-text-muted)]">
+                <TableHead className="text-xs font-medium text-[var(--text-secondary)]">
                   {t("common.labels.database")}
                 </TableHead>
-                <TableHead className="text-xs font-medium text-[var(--app-text-muted)]">
+                <TableHead className="text-xs font-medium text-[var(--text-secondary)]">
                   {t("common.labels.driver")}
                 </TableHead>
-                <TableHead className="text-xs font-medium text-[var(--app-text-muted)]">
+                <TableHead className="text-xs font-medium text-[var(--text-secondary)]">
                   {t("common.states.status", "Status")}
                 </TableHead>
-                <TableHead className="text-right text-xs font-medium text-[var(--app-text-muted)]">
+                <TableHead className="text-right text-xs font-medium text-[var(--text-secondary)]">
                   {t("common.actions.actions", "Actions")}
                 </TableHead>
               </TableRow>
@@ -337,7 +337,7 @@ export function ConnectionList({ onEdit, onBackup, onRestore }: ConnectionListPr
                                   "shrink-0 text-sm transition-colors",
                                   isFav
                                     ? "text-warning"
-                                    : "text-[var(--app-text-dim)] hover:text-warning",
+                                    : "text-[var(--text-tertiary)] hover:text-warning",
                                 )}
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -358,7 +358,7 @@ export function ConnectionList({ onEdit, onBackup, onRestore }: ConnectionListPr
                               )}
                               {renamingId === conn.id ? (
                                 <input
-                                  className="h-6 w-full min-w-0 rounded border border-[var(--app-border)] bg-background px-1 text-sm text-foreground outline-none focus:border-primary"
+                                  className="h-6 w-full min-w-0 rounded border border-[var(--border-default)] bg-background px-1 text-sm text-foreground outline-none focus:border-primary"
                                   value={renameValue}
                                   onChange={(e) => setRenameValue(e.target.value)}
                                   onBlur={() => handleCommitRename(conn.id)}
@@ -384,10 +384,10 @@ export function ConnectionList({ onEdit, onBackup, onRestore }: ConnectionListPr
                               ))}
                             </div>
                           </TableCell>
-                          <TableCell className="text-[var(--app-text-muted)]">
+                          <TableCell className="text-[var(--text-secondary)]">
                             {conn.driver === "sqlite" ? conn.database : `${conn.host}:${conn.port}`}
                           </TableCell>
-                          <TableCell className="text-[var(--app-text-muted)]">
+                          <TableCell className="text-[var(--text-secondary)]">
                             {conn.driver === "sqlite" ? "\u2014" : conn.database}
                           </TableCell>
                           <TableCell>
@@ -429,7 +429,7 @@ export function ConnectionList({ onEdit, onBackup, onRestore }: ConnectionListPr
                                       type="button"
                                       variant="ghost"
                                       size="sm"
-                                      className="h-auto px-2 py-1 text-xs text-[var(--app-text-muted)]"
+                                      className="h-auto px-2 py-1 text-xs text-[var(--text-secondary)]"
                                       onClick={() => onRestore(conn.id)}
                                     >
                                       {t("backup.restoreTitle")}
@@ -452,7 +452,7 @@ export function ConnectionList({ onEdit, onBackup, onRestore }: ConnectionListPr
                                 type="button"
                                 variant="ghost"
                                 size="sm"
-                                className="h-auto px-2 py-1 text-xs text-[var(--app-text-muted)]"
+                                className="h-auto px-2 py-1 text-xs text-[var(--text-secondary)]"
                                 onClick={() => onEdit(conn.id)}
                               >
                                 {t("connection.edit")}
@@ -474,7 +474,7 @@ export function ConnectionList({ onEdit, onBackup, onRestore }: ConnectionListPr
                           </TableCell>
                         </TableRow>
                         {connectionErrors[conn.id] && (
-                          <TableRow className="border-t border-[var(--app-border-subtle)] bg-destructive/5">
+                          <TableRow className="border-t border-[var(--border-subtle)] bg-destructive/5">
                             <TableCell colSpan={6} className="px-4 py-2 text-xs text-destructive">
                               {connectionErrors[conn.id]}
                             </TableCell>

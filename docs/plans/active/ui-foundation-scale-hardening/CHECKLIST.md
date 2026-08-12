@@ -13,13 +13,13 @@
 
 ## Phase 2: Design Token Contract
 
-- [x] **2.1** Define canonical token naming convention (`--surface-*`, `--text-*`, `--border-*`, `--accent-*`, `--state-*`)
-- [x] **2.2** Migrate `--app-surface-*` → canonical names (or keep `--app-*` as canonical and document)
-- [x] **2.3** Make shadcn tokens (`--background`, `--popover`, etc.) alias to canonical tokens
-- [x] **2.4** Remove duplicate color definitions from shadcn `:root` / `[data-theme="dark"]` blocks
-- [x] **2.5** Verify no visual regression (light + dark theme)
-- [x] **2.6** Document token contract and `shadcn add` safety rule
-- [x] **2.7** Add CI check or script to detect token drift
+- [x] **2.1** Define canonical token naming convention — locked `--surface-*` / `--text-*` / `--border-*` / `--accent-*` / `--state-*` + `--elevation-*` (shadows); `--app-*` prefix reserved for layout metrics only; canonical layer in `globals.css` defines each color value once per theme (light + dark)
+- [x] **2.2** Migrate `--app-*` color tokens → canonical names — 21 tokens renamed across **96 files / 604 occurrences → 0** (perl migration, longest-first to avoid prefix collisions: `--app-primary-hover` before `--app-primary`, etc.); `--app-shadow-*` had zero component consumers; `--app-sidebar-*`/heights kept as layout metrics
+- [x] **2.3** Make shadcn tokens (`--background`, `--popover`, etc.) alias to canonical tokens — compat layer is now alias-only; shadcn's `--accent` hover role moved to `@theme inline` (`--color-accent: var(--surface-active)`) so `bg-accent` components keep identical colors while bare `--accent` becomes the canonical brand family
+- [x] **2.4** Remove duplicate color definitions from shadcn `:root` / `[data-theme="dark"]` blocks — done; `check-token-drift.mjs` rejects any raw color in the compat layer (allowed primitives only: `--radius`, `--chart-*`, `*-foreground`, `--overlay`)
+- [x] **2.5** Verify no visual regression (light + dark) — `bench/token-contract.html` CDP harness: **96/96 resolved-value pairs identical** (48 tokens × both themes) between pre-migration and canonical CSS; screenshot `bench/token-contract.png`; also pinned by the drift-check value snapshot
+- [x] **2.6** Document token contract and `shadcn add` safety rule — contract header in `globals.css`, rule in AGENTS.md ("shadcn add must not modify semantic token definitions"), drift guard wired into CI (`npm run check:tokens`)
+- [x] **2.7** Add CI check or script to detect token drift — `scripts/check-token-drift.mjs` upgraded to 5 checks (compat alias-only, canonical theme completeness, canonical value snapshot, no `--app-*` color tokens in src **and** shipped `public/` + `index.html` + other css, no raw shadcn vars in components); added to `.github/workflows/ci.yml` frontend job + AGENTS.md gates
 
 ## Phase 3: Rendering LOD
 
@@ -69,7 +69,7 @@
 ## Gates
 
 - [x] All Phase 1 items complete before merging — P1.1–P1.9 + code-split + 6.11 all `[x]` above; pre-merge review found 0 P0 / 0 P1
-- [ ] Phase 2 complete before adding new shadcn components
+- [x] Phase 2 complete before adding new shadcn components — P3.1 + P3.2 landed (canonical vocabulary + shadcn alias layer + drift guard in CI); verified 96/96 token values unchanged
 - [ ] Phase 3+4 complete before v0.1 release
 - [ ] P0 = 0, P1 = 0 across all phases — holds for the P1 series (review-verified); Phase 2–4 not yet audited
 - [x] P1 invariants hold per fixture (`graphTables ≠ renderedTables ≠ detailedTables`) — verified mechanically by `__tests__/rendering-invariant.test.ts` on the A500 fixture (SpatialIndex culling + resolveLod at overview zoom); strict `≠` is an overview-scale property (all visible nodes are detailed at zoom ≥ 0.7 by design)

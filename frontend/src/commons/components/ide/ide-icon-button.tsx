@@ -31,11 +31,11 @@ export function IdeIconButton({
         <button
           type="button"
           className={cn(
-            "flex items-center justify-center rounded text-[var(--app-text-muted)] transition-colors",
-            "hover:bg-[var(--app-hover)] hover:text-foreground",
+            "flex items-center justify-center rounded text-[var(--text-secondary)] transition-colors",
+            "hover:bg-[var(--surface-hover)] hover:text-foreground",
             "disabled:pointer-events-none disabled:opacity-40",
             sizeClass,
-            active && "bg-[var(--app-primary-soft)] text-primary",
+            active && "bg-[var(--accent-soft)] text-primary",
             className,
           )}
           onClick={onClick}

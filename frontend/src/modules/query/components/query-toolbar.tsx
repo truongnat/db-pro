@@ -56,7 +56,7 @@ export function QueryToolbar({
   const { t } = useTranslation();
 
   return (
-    <div className="flex items-center gap-1.5 border-b border-[var(--app-border-subtle)] bg-background px-3 py-1.5">
+    <div className="flex items-center gap-1.5 border-b border-[var(--border-subtle)] bg-background px-3 py-1.5">
       {/* ── Run split button ── */}
       <div className="inline-flex">
         <Button
@@ -85,14 +85,14 @@ export function QueryToolbar({
             <DropdownMenuItem onClick={onExecuteCurrent} className="h-[32px]">
               <Play className="mr-2 h-3.5 w-3.5" />
               {t("query.runCurrent")}
-              <span className="ml-auto text-[11px] text-[var(--app-text-muted)]">
+              <span className="ml-auto text-[11px] text-[var(--text-secondary)]">
                 {formatShortcut({ primary: true, key: "Enter" })}
               </span>
             </DropdownMenuItem>
             <DropdownMenuItem onClick={onExecuteAll} className="h-[32px]">
               <Play className="mr-2 h-3.5 w-3.5" />
               {t("query.runAll")}
-              <span className="ml-auto text-[11px] text-[var(--app-text-muted)]">
+              <span className="ml-auto text-[11px] text-[var(--text-secondary)]">
                 {formatShortcut({ primary: true, shiftKey: true, key: "Enter" })}
               </span>
             </DropdownMenuItem>

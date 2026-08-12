@@ -191,7 +191,7 @@ export function DbObjectTabContent({
             )}
             {!isTableOrView && (
               <div className="flex h-full items-center justify-center p-8">
-                <p className="text-[13px] text-[var(--app-text-muted)]">
+                <p className="text-[13px] text-[var(--text-secondary)]">
                   {t("dbObject.unsupportedObjectType", { type: objectType })}
                 </p>
               </div>
@@ -201,7 +201,7 @@ export function DbObjectTabContent({
                 activeSection === "indexes" ||
                 activeSection === "relations") && (
                 <div className="flex h-full min-h-0 items-center justify-center">
-                  <div className="p-4 text-[13px] text-[var(--app-text-muted)]">
+                  <div className="p-4 text-[13px] text-[var(--text-secondary)]">
                     {t("common.states.loading")}
                   </div>
                 </div>

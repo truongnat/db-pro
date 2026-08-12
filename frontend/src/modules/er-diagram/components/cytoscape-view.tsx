@@ -92,7 +92,7 @@ export function CytoscapeErView({
       <div className="pointer-events-none absolute left-2 top-2 z-10 flex flex-col items-start gap-2">
         <div className="pointer-events-auto flex items-center gap-2">
           <div className="relative">
-            <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--app-text-muted)]" />
+            <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--text-secondary)]" />
             <Input
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}

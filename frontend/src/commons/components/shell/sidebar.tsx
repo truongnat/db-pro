@@ -31,7 +31,7 @@ export function Sidebar({ width }: SidebarProps) {
 
   return (
     <aside
-      className="flex min-h-0 flex-col overflow-hidden border-r border-[var(--app-border-subtle)] bg-[var(--app-surface-2)]"
+      className="flex min-h-0 flex-col overflow-hidden border-r border-[var(--border-subtle)] bg-[var(--surface-panel)]"
       style={{ width }}
       aria-label={t("shell.sidebar.label")}
     >
@@ -43,7 +43,7 @@ export function Sidebar({ width }: SidebarProps) {
       >
         {/* Header */}
         <div className="flex shrink-0 items-center justify-between px-3 pt-3 pb-2">
-          <span className="text-[11px] font-semibold uppercase tracking-[0.04em] text-[var(--app-text-dim)]">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.04em] text-[var(--text-tertiary)]">
             {t(VIEW_TITLES[sidebarView] ?? "")}
           </span>
           {/* Only show + button on Explorer view (context-aware for v0.1) */}
@@ -52,7 +52,7 @@ export function Sidebar({ width }: SidebarProps) {
               <TooltipTrigger asChild>
                 <button
                   type="button"
-                  className="flex h-5 w-5 items-center justify-center rounded text-[var(--app-text-muted)] transition-colors hover:bg-[var(--app-hover)] hover:text-foreground"
+                  className="flex h-5 w-5 items-center justify-center rounded text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-hover)] hover:text-foreground"
                   onClick={() => openConnectionDialog()}
                 >
                   <Plus className="h-3.5 w-3.5" />
@@ -78,14 +78,14 @@ export function Sidebar({ width }: SidebarProps) {
           <div className="shrink-0 px-2 pt-2 pb-2">
             <button
               type="button"
-              className="flex h-auto w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-xs text-[var(--app-text-muted)] transition-colors hover:bg-[var(--app-hover)] hover:text-foreground"
+              className="flex h-auto w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-xs text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-hover)] hover:text-foreground"
             >
               <Settings2 className="h-3.5 w-3.5 shrink-0 text-primary" />
               <span>{t("shell.sidebar.settings")}</span>
             </button>
             <button
               type="button"
-              className="flex h-auto w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-xs text-[var(--app-text-muted)] transition-colors hover:bg-[var(--app-hover)] hover:text-foreground"
+              className="flex h-auto w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-xs text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-hover)] hover:text-foreground"
             >
               <CircleHelp className="h-3.5 w-3.5 shrink-0 text-primary" />
               <span>{t("shell.sidebar.help")}</span>

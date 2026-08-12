@@ -21,10 +21,10 @@ Establish a single-source-of-truth design token architecture and make the ER dia
 
 `components.json` writes directly to `globals.css` with `cssVariables: true`. Every `npx shadcn add` can silently reintroduce shadcn-native assumptions.
 
-**Current evidence:**
-- 476 occurrences of `--app-*` tokens across 90 files
-- 112 occurrences of shadcn utility classes (`bg-background`, `bg-popover`, `text-muted-foreground`, etc.) across 57 files
-- shadcn `:root` and `[data-theme="dark"]` blocks define raw color values independently of `--app-*` tokens
+**Current evidence** *(pre-migration, 2026-08-12 — post-migration state in VERIFICATION.md P3.1):*
+- 476 occurrences of `--app-*` tokens across 90 files (now 0 — canonical `--surface-*`/`--text-*`/`--border-*`/`--accent-*`/`--state-*`/`--elevation-*` layer)
+- 112 occurrences of shadcn utility classes (`bg-background`, `bg-popover`, `text-muted-foreground`, etc.) across 57 files (kept — they consume the alias layer)
+- shadcn `:root` and `[data-theme="dark"]` blocks define raw color values independently of `--app-*` tokens (fixed — alias-only compat layer)
 
 **Target architecture:**
 
@@ -38,7 +38,7 @@ shadcn compatibility aliases (mapping layer)
 Components (consume either vocabulary, same values)
 ```
 
-The `--app-*` tokens become the canonical semantic layer. shadcn tokens (`--background`, `--popover`, `--border`, etc.) become **aliases** that point to the `--app-*` values, not independent definitions.
+**Locked decision (2026-08-12):** the canonical semantic layer is RENAMED off the `--app-*` prefix onto role-based families — `--surface-*` (backgrounds incl. hover/active), `--text-*` (primary/secondary/tertiary), `--border-*` (subtle/default/strong), `--accent-*` (brand + hover + soft + foreground), `--state-*` (success/warning/danger/info), `--elevation-*` (shadows). The `--app-*` prefix is reserved for layout metrics only. shadcn tokens (`--background`, `--popover`, `--border`, etc.) become **aliases** that point to the canonical values, never independent definitions. shadcn's `--accent` hover-highlight role is mapped at the `@theme inline` layer (`--color-accent: var(--surface-active)`), freeing bare `--accent` for the canonical brand family without changing what `bg-accent` components resolve to.
 
 ```css
 /* Canonical */
@@ -58,10 +58,10 @@ The `--app-*` tokens become the canonical semantic layer. shadcn tokens (`--back
 ```
 
 **Acceptance criteria:**
-- [ ] Single set of primitive color values per theme (light/dark), defined once
-- [ ] shadcn tokens are aliases to `--app-*` tokens, not independent values
-- [ ] `npx shadcn add` does not break the token contract (documented guard)
-- [ ] No visual regression across the app
+- [x] Single set of primitive color values per theme (light/dark), defined once — canonical layer in `globals.css`, value snapshot pinned by `check-token-drift.mjs`
+- [x] shadcn tokens are aliases to canonical tokens, not independent values — alias-only compat layer, enforced by CI
+- [x] `npx shadcn add` does not break the token contract (documented guard) — rule in `globals.css` header + AGENTS.md + `npm run check:tokens` in CI
+- [x] No visual regression across the app — 96/96 resolved-value pairs identical (bench/token-contract.html, light + dark)
 
 ### P3.2 — shadcn Integration Safety
 
@@ -73,8 +73,8 @@ The `--app-*` tokens become the canonical semantic layer. shadcn tokens (`--back
 - Alternatively, split shadcn's generated CSS into a separate file that is explicitly reviewed
 
 **Acceptance criteria:**
-- [ ] Documented rule: "shadcn add must not modify semantic token definitions"
-- [ ] Mechanism (script, CI check, or file split) that catches token drift
+- [x] Documented rule: "shadcn add must not modify semantic token definitions" — token-contract header in `globals.css` + AGENTS.md
+- [x] Mechanism (script, CI check, or file split) that catches token drift — `scripts/check-token-drift.mjs` (5 checks) + `npm run check:tokens` in `.github/workflows/ci.yml`
 
 ### P3.3 — ER Diagram Algorithm (Phase A)
 

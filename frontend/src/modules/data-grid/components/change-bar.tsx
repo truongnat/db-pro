@@ -38,7 +38,7 @@ export function ChangeBar({
   const selectionCount = selectedRows?.size ?? 0;
 
   return (
-    <div className="flex items-center gap-2 border-b border-[var(--app-border-subtle)] bg-background px-3 py-1.5 text-xs">
+    <div className="flex items-center gap-2 border-b border-[var(--border-subtle)] bg-background px-3 py-1.5 text-xs">
       {failed > 0 ? (
         <>
           <span className="font-medium text-destructive">
@@ -47,7 +47,7 @@ export function ChangeBar({
               total: changes.length,
             })}
           </span>
-          <span className="text-[var(--app-text-muted)]">
+          <span className="text-[var(--text-secondary)]">
             {t("dataGrid.changes.failedCount", { count: failed })}
           </span>
         </>
@@ -56,7 +56,7 @@ export function ChangeBar({
           <span className="font-medium text-foreground">
             {t("dataGrid.changes.pending", { count: changes.length })}
           </span>
-          <span className="text-[var(--app-text-muted)]">{parts.join(", ")}</span>
+          <span className="text-[var(--text-secondary)]">{parts.join(", ")}</span>
         </>
       ) : null}
       <div className="flex-1" />
@@ -90,7 +90,7 @@ export function ChangeBar({
           type="button"
           variant="ghost"
           size="sm"
-          className="h-auto px-2 py-0.5 text-xs text-[var(--app-text-muted)] hover:text-foreground"
+          className="h-auto px-2 py-0.5 text-xs text-[var(--text-secondary)] hover:text-foreground"
           onClick={onRevertAll}
           disabled={isApplying}
         >

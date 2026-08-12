@@ -69,7 +69,7 @@ export function RunConfigList({ connectionId, onSelect, onNew }: RunConfigListPr
       ))}
 
       {configs.length === 0 && (
-        <div className="py-4 text-center text-xs italic text-[var(--app-text-muted)]">
+        <div className="py-4 text-center text-xs italic text-[var(--text-secondary)]">
           {t("query.noRunConfigs")}
         </div>
       )}

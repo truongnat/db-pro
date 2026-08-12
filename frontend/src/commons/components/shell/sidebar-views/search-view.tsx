@@ -30,7 +30,7 @@ export function SearchView() {
       />
 
       {!explorerConnectionId && (
-        <p className="px-2 py-1 text-xs text-[var(--app-text-dim)]">
+        <p className="px-2 py-1 text-xs text-[var(--text-tertiary)]">
           {t("shell.sidebar.connectFirst")}
         </p>
       )}
@@ -42,7 +42,7 @@ export function SearchView() {
               key={`${table.schema}.${table.name}`}
               type="button"
               title={`${table.schema}.${table.name}`}
-              className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-xs text-[var(--app-text-muted)] transition-colors hover:bg-[var(--app-hover)] hover:text-foreground"
+              className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-xs text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-hover)] hover:text-foreground"
               onClick={() =>
                 openSchemaPreview(explorerConnectionId, table.schema, table.name, "table")
               }
@@ -52,7 +52,9 @@ export function SearchView() {
             >
               <Table2 className="h-3 w-3 shrink-0 text-primary" />
               <span className="truncate">{table.name}</span>
-              <span className="ml-auto text-[11px] text-[var(--app-text-dim)]">{table.schema}</span>
+              <span className="ml-auto text-[11px] text-[var(--text-tertiary)]">
+                {table.schema}
+              </span>
             </button>
           ))}
           {filteredViews.map((view) => (
@@ -60,7 +62,7 @@ export function SearchView() {
               key={`${view.schema}.${view.name}`}
               type="button"
               title={`${view.schema}.${view.name}`}
-              className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-xs text-[var(--app-text-muted)] transition-colors hover:bg-[var(--app-hover)] hover:text-foreground"
+              className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-xs text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-hover)] hover:text-foreground"
               onClick={() =>
                 openSchemaPreview(explorerConnectionId, view.schema, view.name, "view")
               }
@@ -70,11 +72,11 @@ export function SearchView() {
             >
               <Columns3 className="h-3 w-3 shrink-0 text-primary" />
               <span className="truncate">{view.name}</span>
-              <span className="ml-auto text-[11px] text-[var(--app-text-dim)]">{view.schema}</span>
+              <span className="ml-auto text-[11px] text-[var(--text-tertiary)]">{view.schema}</span>
             </button>
           ))}
           {filteredTables.length === 0 && filteredViews.length === 0 && (
-            <p className="px-2 py-1 text-xs text-[var(--app-text-dim)]">
+            <p className="px-2 py-1 text-xs text-[var(--text-tertiary)]">
               {t("common.states.empty")}
             </p>
           )}

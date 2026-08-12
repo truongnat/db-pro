@@ -23,7 +23,7 @@ export function JsonCellRenderer({ value }: JsonCellRendererProps) {
         title={preview}
       >
         {"{ } "}
-        <span className="text-[var(--app-text-muted)]">{shortPreview}</span>
+        <span className="text-[var(--text-secondary)]">{shortPreview}</span>
       </Button>
     );
   }

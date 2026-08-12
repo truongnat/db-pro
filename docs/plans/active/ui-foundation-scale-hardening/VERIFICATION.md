@@ -8,6 +8,7 @@ cd frontend
 npm run typecheck
 npm run lint
 npm run format:check
+npm run check:tokens
 npm run test
 npm run build
 ```
@@ -39,9 +40,11 @@ cargo test --workspace
 
 | Check | Method |
 |---|---|
-| No duplicate token definitions | Grep `globals.css` for raw color values in shadcn block — should all be `var(--*)` references |
-| `npx shadcn add` safety | Run `npx shadcn add button` on a test branch, verify `globals.css` token section unchanged |
-| Visual regression | Manual: open app in light + dark, verify all surfaces match pre-migration |
+| Single source of truth | `npm run check:tokens` — the canonical layer (`--surface-*`/`--text-*`/`--border-*`/`--accent-*`/`--state-*`/`--elevation-*`) must define every token in BOTH `:root` and `[data-theme="dark"]` with the recorded snapshot values (theme drift fails CI) |
+| shadcn layer aliases only | `scripts/check-token-drift.mjs` rejects any raw color value in the shadcn compatibility layer (allowed primitives: `--radius`, `--chart-*`, `*-foreground`, `--overlay`) |
+| No `--app-*` color tokens in components | The same script scans `src/**/*.{ts,tsx}` + shipped `public/**` + `index.html` + any other css for the 21 removed tokens AND raw shadcn semantic vars (`var(--primary)`, `var(--info)`, …) — any hit fails |
+| `npx shadcn add` safety | Rule documented in `globals.css` token-contract header + AGENTS.md; CI runs `npm run check:tokens` (frontend job) |
+| Visual regression | `bench/token-contract.html` — 96 resolved-value pairs (48 tokens × light/dark) compared between pre-migration and canonical CSS in headless Chrome: **0 diffs** |
 
 ## Benchmark fixtures
 
@@ -129,6 +132,39 @@ Environment: Chrome 150 headless, software rendering, 1600x1000 viewport. One se
 
 Screenshots: `bench/er-cytoscape-{100,500,1000}.png`, `bench/er-reactflow-{100,500,1000}.png`.
 
+## P3.1 — Design Token Contract (F1 reconciliation)
+
+Locked canonical vocabulary (single source of truth for color values):
+
+| Canonical token(s) | Old name (removed) |
+|---|---|
+| `--surface-app` / `--surface-nav` / `--surface-panel` / `--surface-editor` / `--surface-floating` | `--app-surface-0` … `--app-surface-4` |
+| `--surface-hover` / `--surface-active` | `--app-hover` / `--app-active` |
+| `--text-primary` / `--text-secondary` / `--text-tertiary` | `--app-text` / `--app-text-muted` / `--app-text-dim` |
+| `--border-subtle` / `--border-default` / `--border-strong` | `--app-border-subtle` / `--app-border` / `--app-border-strong` |
+| `--accent` / `--accent-hover` / `--accent-soft` / `--accent-foreground` | `--app-primary` / `--app-primary-hover` / `--app-primary-soft` (+ `--primary-foreground` pulled in) |
+| `--state-success` / `--state-warning` / `--state-danger` / `--state-info` | `--app-success` / `--app-warning` / `--app-danger` / `--info` |
+| `--elevation-lg` / `--elevation-popover` | `--app-shadow-lg` / `--app-shadow-popover` |
+
+Semantic note: shadcn's old `--accent`/`--accent-foreground` (hover-highlight surface role) moved to the `@theme inline` mapping (`--color-accent: var(--surface-active)`, `--color-accent-foreground: var(--text-primary)`); the bare `--accent` name is now the canonical **brand** family. Components consuming `bg-accent` keep the exact same resolved colors.
+
+The `--app-*` prefix is now reserved for layout metrics only (`--app-sidebar-width`, `--app-topbar-height`, `--app-activity-bar-width`, …) — a color token may never use it.
+
+**Migration:** 96 files / 604 `--app-*` occurrences migrated (perl, longest-first to avoid prefix collisions); 21 color tokens renamed. `--app-shadow-*` had zero component consumers — renamed in the canonical layer only.
+
+**Component rule:** components reference canonical tokens (`var(--surface-panel)`) or shadcn utility classes (`bg-background`, `text-muted-foreground`); they must not reference raw shadcn semantic vars or any `--app-*` color token. The few raw `var(--primary)` / `var(--info)` / `var(--border)` / `var(--secondary)` / `var(--foreground)` usages were migrated to canonical tokens.
+
+### Runtime evidence — no visual regression
+
+`bench/token-contract.html` (CDP harness, Chrome headless, same runner as P1.8) compares the pre-migration `globals.css` (from git HEAD) against the canonical rewrite through probe elements (custom properties keep `var()` chains unresolved, so each token is measured as a consumed computed style: `background-color` / `color` / `box-shadow`).
+
+| Theme | Token pairs compared | Differences |
+|---|---|---|
+| Light | 48 | 0 |
+| Dark | 48 | 0 |
+
+Result: **all 96 resolved-value pairs identical** (shadcn aliases + canonical renames + the accent hover-role mapping). Screenshot: `bench/token-contract.png`. Guard: `npm run check:tokens` (see budget table) now runs in CI and enforces theme completeness + snapshot values + alias-only shadcn layer + no `--app-*` color tokens in components.
+
 ### Caveats
 
 - **DOM counts are the robust claim** (stable across all runs/cells). Layout numbers are directional: both layouts run at cold-start right after vendor scripts parse, so absolute figures are inflated versus a warm page — but the scaling trend (fCoSE 0.2→36 s, dagre 0.15→122 s) and the conclusion (layout off-thread is mandatory) hold.
@@ -143,7 +179,7 @@ Screenshots: `bench/er-cytoscape-{100,500,1000}.png`, `bench/er-reactflow-{100,5
 | 2026-08-12 | P1.7 | Layout worker + cache shipped (see Implementation notes below); quality gates: 1,393 FE tests pass, build emits `er-layout.worker.js` (~92 kB, dagre split out of the main bundle) | dagre runs off the main thread; cold 1,000-table layout no longer freezes the UI (worker), repeat opens are instant (cache) — the 0.15/8/122 s main-thread blocks measured in P1.8 become worker-side durations with the shell interactive |
 | 2026-08-12 | P1.9 | CytoscapeErRenderer benchmark against the REAL app source (vite-dev harness `bench-hybrid.html` served from `frontend/public/`, Chrome 150 headless, same protocol as P1.8; harness removed from `public/` after evidence collection to keep the production bundle clean — recoverable from git, standalone A/B harnesses remain in `bench/`) | see table below — 18 DOM elements + ~60 fps overview pan at 500 AND 1,000 tables |
 | 2026-08-12 | 6.11-review | Merge-gate invariant mechanically verified: `__tests__/rendering-invariant.test.ts` asserts `graphTables ≠ renderedTables ≠ detailedTables` on the A500 fixture (500 tables, 25×20 grid) via the app's `SpatialIndex` (culling) + `resolveLod` (overview zoom → non-detail). Also documented: at zoom ≥ 0.7 all visible nodes are detailed by design — the strict `≠` is an overview-scale property. Full P1-series pre-merge review: 0 P0 / 0 P1 (see review summary in commit); P2s resolved: dev harness removed from `public/` (was shipping in `dist/`), gates closed. |
-| 2026-08-12 | 6.11 | Complexity score replaces hardcoded thresholds (`LARGE_SCHEMA_THRESHOLD=200` removed); tier boundaries tuned from P1.8 fixture scores — A100=310.4→M, A500=1,802.5→L, A1000=3,765.2→XL; 1,403 FE tests pass, build OK | `isLargeSchema = tier ∈ {L, XL}`; A100 stays on the full React Flow graph (60 fps evidence) while A500/A1000 get the exploration UX + canvas overview — matches the locked evidence-driven mapping. Note: `XL` currently carries no distinct behavior beyond `L` (classification reserved for future tuning per hard rule #5). |
+| 2026-08-12 | P3.1 | Design Token Contract (F1): canonical vocabulary `--surface-*`/`--text-*`/`--border-*`/`--accent-*`/`--state-*`/`--elevation-*` replaces 21 `--app-*` color tokens across 96 files (604 occurrences → 0); shadcn compat layer is alias-only; `--app-*` reserved for layout metrics; guard `npm run check:tokens` upgraded (theme completeness + value snapshot + alias-only + component scan) and wired into CI + AGENTS.md. 1,406 FE tests pass, typecheck/lint/prettier clean, build OK | **No visual regression:** `bench/token-contract.html` — 96/96 resolved-value pairs identical (48 tokens × light/dark) between pre-migration and canonical CSS in headless Chrome; 0 console errors. shadcn `bg-accent` hover semantics preserved via `@theme inline` remap |
 
 ### P1.9 renderer verification (real app code)
 

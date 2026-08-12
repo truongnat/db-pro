@@ -160,10 +160,10 @@ export function RowEditDialog({ open, onOpenChange, columns, row, onSave }: RowE
                   >
                     {col.name}
                   </label>
-                  <span className="text-[10px] text-[var(--app-text-dim)]">{col.dataType}</span>
+                  <span className="text-[10px] text-[var(--text-tertiary)]">{col.dataType}</span>
                   <div className="flex-1" />
                   {editable && col.nullable && (
-                    <label className="flex items-center gap-1 text-[10px] text-[var(--app-text-muted)]">
+                    <label className="flex items-center gap-1 text-[10px] text-[var(--text-secondary)]">
                       <input
                         type="checkbox"
                         className="h-3 w-3 accent-primary"
@@ -175,11 +175,11 @@ export function RowEditDialog({ open, onOpenChange, columns, row, onSave }: RowE
                   )}
                 </div>
                 {!editable ? (
-                  <div className="h-8 rounded bg-muted/30 px-2 py-1 text-xs italic text-[var(--app-text-dim)]">
+                  <div className="h-8 rounded bg-muted/30 px-2 py-1 text-xs italic text-[var(--text-tertiary)]">
                     {getUnsupportedEditReason(cellType)}
                   </div>
                 ) : field.isNull ? (
-                  <div className="h-8 rounded bg-muted/30 px-2 py-1 text-xs italic text-[var(--app-text-dim)]">
+                  <div className="h-8 rounded bg-muted/30 px-2 py-1 text-xs italic text-[var(--text-tertiary)]">
                     NULL
                   </div>
                 ) : cellType === "bool" ? (

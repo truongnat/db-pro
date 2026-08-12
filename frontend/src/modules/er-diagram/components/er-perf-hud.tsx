@@ -51,15 +51,15 @@ export function ErPerfHud({ monitor, spatialIndex, edgeCount, viewportRef }: ErP
 
   const row = (label: string, value: string) => (
     <div className="flex items-center justify-between gap-3">
-      <span className="text-[var(--app-text-muted)]">{label}</span>
-      <span className="tabular-nums text-[var(--app-text-primary)]">{value}</span>
+      <span className="text-[var(--text-secondary)]">{label}</span>
+      <span className="tabular-nums text-[var(--text-primary-primary)]">{value}</span>
     </div>
   );
 
   return (
     <Panel position="top-right" className="m-2">
-      <div className="pointer-events-none w-56 select-none rounded-md border border-[var(--app-border)] bg-popover/95 p-2 font-mono text-[10px] leading-4 shadow-sm backdrop-blur">
-        <div className="mb-1 border-b border-[var(--app-border)] pb-1 font-sans text-[10px] font-semibold uppercase tracking-wide text-[var(--app-text-muted)]">
+      <div className="pointer-events-none w-56 select-none rounded-md border border-[var(--border-default)] bg-popover/95 p-2 font-mono text-[10px] leading-4 shadow-sm backdrop-blur">
+        <div className="mb-1 border-b border-[var(--border-default)] pb-1 font-sans text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
           ER perf · P1.1
         </div>
         {row("init", initMs === null ? "—" : `${initMs.toFixed(1)}ms`)}

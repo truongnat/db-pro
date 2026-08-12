@@ -43,7 +43,7 @@ export function DdlTypeSelector({ operation, onChange }: DdlTypeSelectorProps) {
       <Select value={operation} onValueChange={(val) => onChange(val as DdlOperation)}>
         <SelectTrigger
           id={id}
-          className="h-9 rounded-sm border border-[var(--app-border)] bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-primary"
+          className="h-9 rounded-sm border border-[var(--border-default)] bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-primary"
         >
           <SelectValue />
         </SelectTrigger>

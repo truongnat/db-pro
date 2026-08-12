@@ -56,8 +56,8 @@ export function PrivilegeManager({ privileges, onGrant, onRevoke }: PrivilegeMan
 
       <div className="flex flex-col gap-2">
         {Array.from(grouped.entries()).map(([key, privs]) => (
-          <div key={key} className="rounded-sm border p-2 border-[var(--app-border-subtle)]">
-            <div className="mb-1 text-xs font-medium text-[var(--app-text-muted)]">{key}</div>
+          <div key={key} className="rounded-sm border p-2 border-[var(--border-subtle)]">
+            <div className="mb-1 text-xs font-medium text-[var(--text-secondary)]">{key}</div>
             <div className="flex flex-wrap gap-1">
               {privs.map((p) => (
                 <span
@@ -81,14 +81,14 @@ export function PrivilegeManager({ privileges, onGrant, onRevoke }: PrivilegeMan
           </div>
         ))}
         {privileges.length === 0 && (
-          <p className="text-xs italic text-[var(--app-text-muted)]">
+          <p className="text-xs italic text-[var(--text-secondary)]">
             {t("userManagement.noPrivileges")}
           </p>
         )}
       </div>
 
-      <div className="flex flex-col gap-2 rounded-sm border border-[var(--app-border-subtle)] p-3">
-        <Label className="text-xs font-medium text-[var(--app-text-muted)]">
+      <div className="flex flex-col gap-2 rounded-sm border border-[var(--border-subtle)] p-3">
+        <Label className="text-xs font-medium text-[var(--text-secondary)]">
           {t("userManagement.grantPrivilege")}
         </Label>
         <div className="flex gap-2">

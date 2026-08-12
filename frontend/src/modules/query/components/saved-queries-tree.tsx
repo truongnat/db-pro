@@ -196,7 +196,7 @@ export function SavedQueriesTree({ connectionId, onSelectQuery }: SavedQueriesTr
   return (
     <div className="flex h-full flex-col overflow-auto text-sm">
       {/* Search & filter toolbar */}
-      <div className="border-b border-[var(--app-border-subtle)] p-2">
+      <div className="border-b border-[var(--border-subtle)] p-2">
         <Input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -225,7 +225,7 @@ export function SavedQueriesTree({ connectionId, onSelectQuery }: SavedQueriesTr
           </Button>
           {allTags.length > 0 && (
             <select
-              className="h-6 rounded-sm border border-[var(--app-border)] bg-transparent px-1 text-xs text-foreground"
+              className="h-6 rounded-sm border border-[var(--border-default)] bg-transparent px-1 text-xs text-foreground"
               value={filterTag ?? ""}
               onChange={(e) => setFilterTag(e.target.value || null)}
             >
@@ -241,7 +241,7 @@ export function SavedQueriesTree({ connectionId, onSelectQuery }: SavedQueriesTr
       </div>
 
       {/* New folder button */}
-      <div className="flex items-center justify-between border-b border-[var(--app-border-subtle)] px-2 py-1">
+      <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-2 py-1">
         <span className="font-medium text-foreground">{t("query.savedQueries")}</span>
         <Button
           type="button"
@@ -255,7 +255,7 @@ export function SavedQueriesTree({ connectionId, onSelectQuery }: SavedQueriesTr
       </div>
 
       {showNewFolderInput && (
-        <div className="flex gap-1 border-b border-[var(--app-border-subtle)] p-2">
+        <div className="flex gap-1 border-b border-[var(--border-subtle)] p-2">
           <Input
             value={newFolderName}
             onChange={(e) => setNewFolderName(e.target.value)}
@@ -317,7 +317,7 @@ export function SavedQueriesTree({ connectionId, onSelectQuery }: SavedQueriesTr
                     >
                       <span>{isExpanded ? "▼" : "▶"}</span>
                       <span className="truncate">{folder.name}</span>
-                      <span className="ml-auto text-xs text-[var(--app-text-muted)]">
+                      <span className="ml-auto text-xs text-[var(--text-secondary)]">
                         ({folderQueries.length})
                       </span>
                     </Button>
@@ -358,7 +358,7 @@ export function SavedQueriesTree({ connectionId, onSelectQuery }: SavedQueriesTr
         })}
 
         {filteredQueries.length === 0 && folders.length === 0 && (
-          <div className="py-4 text-center text-xs italic text-[var(--app-text-muted)]">
+          <div className="py-4 text-center text-xs italic text-[var(--text-secondary)]">
             {search ? t("query.noMatchingQueries") : t("query.noSavedQueries")}
           </div>
         )}
@@ -429,7 +429,7 @@ function SavedQueryItem({
             {/* Favorite star */}
             <button
               type="button"
-              className="shrink-0 text-xs text-[var(--app-text-muted)] hover:text-warning"
+              className="shrink-0 text-xs text-[var(--text-secondary)] hover:text-warning"
               onClick={(e) => {
                 e.stopPropagation();
                 onToggleFavorite();
@@ -442,7 +442,7 @@ function SavedQueryItem({
             {/* Name / rename input */}
             {isRenaming ? (
               <input
-                className="flex-1 rounded-sm border border-[var(--app-border)] bg-background px-1 text-xs text-foreground outline-none"
+                className="flex-1 rounded-sm border border-[var(--border-default)] bg-background px-1 text-xs text-foreground outline-none"
                 value={renameValue}
                 onChange={(e) => onRenameValueChange(e.target.value)}
                 onKeyDown={(e) => {

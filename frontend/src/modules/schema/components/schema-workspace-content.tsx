@@ -25,7 +25,7 @@ function SchemaSectionTabs({
 }) {
   const { t } = useTranslation();
   return (
-    <div className="flex h-[34px] items-center border-b border-[var(--app-border-subtle)] bg-[var(--app-surface-1)]">
+    <div className="flex h-[34px] items-center border-b border-[var(--border-subtle)] bg-[var(--surface-nav)]">
       <div className="flex flex-1 overflow-x-auto">
         {SCHEMA_SECTIONS.map((section) => (
           <button
@@ -33,7 +33,7 @@ function SchemaSectionTabs({
             type="button"
             className={cn(
               "relative h-full shrink-0 px-3 text-[13px] font-medium transition-colors hover:text-foreground",
-              activeSection === section.id ? "text-foreground" : "text-[var(--app-text-muted)]",
+              activeSection === section.id ? "text-foreground" : "text-[var(--text-secondary)]",
             )}
             onClick={() => onSelect(section.id)}
           >
@@ -73,7 +73,7 @@ export function SchemaWorkspaceContent({
           <>
             {introspect.isLoading && (
               <div className="flex h-full items-center justify-center p-4">
-                <span className="text-[13px] text-[var(--app-text-muted)]">
+                <span className="text-[13px] text-[var(--text-secondary)]">
                   {t("common.states.loading")}
                 </span>
               </div>
@@ -90,7 +90,7 @@ export function SchemaWorkspaceContent({
         )}
         {activeSection === "overview" && (
           <div className="flex h-full items-center justify-center p-8">
-            <p className="text-[13px] text-[var(--app-text-muted)]">
+            <p className="text-[13px] text-[var(--text-secondary)]">
               {t("schemaWorkspace.overviewComingSoon")}
             </p>
           </div>

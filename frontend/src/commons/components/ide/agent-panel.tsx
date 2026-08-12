@@ -62,7 +62,7 @@ export function AgentPanel({ open, onClose, width, className }: AgentPanelProps)
   return (
     <aside
       className={cn(
-        "flex min-h-0 flex-col border-l border-[var(--app-border-subtle)] bg-[var(--app-surface-2)]",
+        "flex min-h-0 flex-col border-l border-[var(--border-subtle)] bg-[var(--surface-panel)]",
         className,
       )}
       style={
@@ -70,7 +70,7 @@ export function AgentPanel({ open, onClose, width, className }: AgentPanelProps)
       }
     >
       {/* Header */}
-      <div className="flex h-[38px] shrink-0 items-center justify-between border-b border-[var(--app-border-subtle)] px-3">
+      <div className="flex h-[38px] shrink-0 items-center justify-between border-b border-[var(--border-subtle)] px-3">
         <div className="flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-primary" />
           <span className="text-[13px] font-semibold text-foreground">Agent</span>
@@ -78,7 +78,7 @@ export function AgentPanel({ open, onClose, width, className }: AgentPanelProps)
         <div className="flex items-center gap-1">
           <button
             type="button"
-            className="flex h-7 items-center gap-1 rounded-md px-2 text-[12px] text-[var(--app-text-muted)] opacity-50 cursor-not-allowed"
+            className="flex h-7 items-center gap-1 rounded-md px-2 text-[12px] text-[var(--text-secondary)] opacity-50 cursor-not-allowed"
             title="Coming soon"
             disabled
           >
@@ -87,7 +87,7 @@ export function AgentPanel({ open, onClose, width, className }: AgentPanelProps)
           </button>
           <button
             type="button"
-            className="flex h-7 w-7 items-center justify-center rounded text-[var(--app-text-muted)] transition-colors hover:bg-[var(--app-hover)] hover:text-foreground"
+            className="flex h-7 w-7 items-center justify-center rounded text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-hover)] hover:text-foreground"
             onClick={onClose}
             title="Close Panel"
           >
@@ -126,7 +126,7 @@ export function AgentPanel({ open, onClose, width, className }: AgentPanelProps)
               <p className="text-[13px] font-semibold leading-tight text-foreground">
                 How can I help with this database?
               </p>
-              <p className="text-[12px] text-[var(--app-text-muted)]">
+              <p className="text-[12px] text-[var(--text-secondary)]">
                 Ask about schemas, queries, optimization
               </p>
             </div>
@@ -145,7 +145,7 @@ export function AgentPanel({ open, onClose, width, className }: AgentPanelProps)
                 <button
                   key={action.label}
                   type="button"
-                  className="flex h-[36px] w-full items-center gap-2.5 rounded-md border border-[var(--app-border-subtle)] px-3 text-[13px] text-[var(--app-text-muted)] transition-colors hover:border-[var(--app-border)] hover:bg-[var(--app-hover)] hover:text-foreground"
+                  className="flex h-[36px] w-full items-center gap-2.5 rounded-md border border-[var(--border-subtle)] px-3 text-[13px] text-[var(--text-secondary)] transition-colors hover:border-[var(--border-default)] hover:bg-[var(--surface-hover)] hover:text-foreground"
                   onClick={() =>
                     setInput(
                       action.label === "Explain this table"
@@ -158,9 +158,9 @@ export function AgentPanel({ open, onClose, width, className }: AgentPanelProps)
                     )
                   }
                 >
-                  <Icon className="h-4 w-4 shrink-0 text-[var(--app-text-dim)]" />
+                  <Icon className="h-4 w-4 shrink-0 text-[var(--text-tertiary)]" />
                   <span className="flex-1 text-left">{action.label}</span>
-                  <ChevronRight className="h-3 w-3 text-[var(--app-text-dim)]" />
+                  <ChevronRight className="h-3 w-3 text-[var(--text-tertiary)]" />
                 </button>
               );
             })}
@@ -169,14 +169,14 @@ export function AgentPanel({ open, onClose, width, className }: AgentPanelProps)
       </div>
 
       {/* Composer — pinned to bottom */}
-      <div className="shrink-0 border-t border-[var(--app-border-subtle)] px-3 py-2.5">
-        <div className="flex items-center gap-2 rounded-lg border border-[var(--app-border)] bg-background px-3 py-2 transition-colors focus-within:border-primary/40 focus-within:ring-1 focus-within:ring-primary/20">
+      <div className="shrink-0 border-t border-[var(--border-subtle)] px-3 py-2.5">
+        <div className="flex items-center gap-2 rounded-lg border border-[var(--border-default)] bg-background px-3 py-2 transition-colors focus-within:border-primary/40 focus-within:ring-1 focus-within:ring-primary/20">
           <input
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Ask about this database..."
-            className="flex-1 bg-transparent text-[13px] text-foreground placeholder:text-[var(--app-text-dim)] focus:outline-none"
+            className="flex-1 bg-transparent text-[13px] text-foreground placeholder:text-[var(--text-tertiary)] focus:outline-none"
             onKeyDown={(e) => {
               // Agent backend not yet implemented — do not pretend to submit.
               if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && input.trim()) {
@@ -185,10 +185,10 @@ export function AgentPanel({ open, onClose, width, className }: AgentPanelProps)
             }}
           />
           <div className="flex items-center gap-1.5">
-            <kbd className="text-[11px] text-[var(--app-text-dim)]">⌘↵</kbd>
+            <kbd className="text-[11px] text-[var(--text-tertiary)]">⌘↵</kbd>
             <button
               type="button"
-              className="flex h-6 w-6 items-center justify-center rounded text-[var(--app-text-dim)] opacity-50 cursor-not-allowed"
+              className="flex h-6 w-6 items-center justify-center rounded text-[var(--text-tertiary)] opacity-50 cursor-not-allowed"
               disabled
               title="Coming soon"
             >

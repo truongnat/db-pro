@@ -128,13 +128,13 @@ export function ObjectContextHeader({
   };
 
   return (
-    <div className="flex h-[46px] shrink-0 items-center gap-3 border-b border-[var(--app-border-subtle)] bg-[var(--app-surface-2)] px-3">
+    <div className="flex h-[46px] shrink-0 items-center gap-3 border-b border-[var(--border-subtle)] bg-[var(--surface-panel)] px-3">
       <Icon className="h-4 w-4 shrink-0 text-primary" />
 
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline gap-2">
           <span className="truncate text-[13px] font-semibold text-foreground">{objectName}</span>
-          <span className="shrink-0 text-[11px] text-[var(--app-text-dim)]">
+          <span className="shrink-0 text-[11px] text-[var(--text-tertiary)]">
             {schema} · {objectType} · {connectionName}
           </span>
         </div>

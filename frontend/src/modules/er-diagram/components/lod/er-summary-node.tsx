@@ -20,14 +20,14 @@ export const ErSummaryNode = memo(function ErSummaryNode({ data, selected }: Nod
       data-tier={lodTier("summary")}
       className={cn(
         "min-w-[150px] max-w-[220px] overflow-hidden rounded-md border bg-popover shadow-sm transition-shadow",
-        selected ? "border-primary ring-1 ring-primary/30" : "border-[var(--app-border)]",
+        selected ? "border-primary ring-1 ring-primary/30" : "border-[var(--border-default)]",
       )}
     >
       <div className="flex items-center gap-1.5 border-b bg-muted/50 px-2.5 py-1.5">
         <span className="h-2 w-2 shrink-0 rounded-sm bg-primary/60" />
         <span className="truncate text-[12px] font-semibold">{label}</span>
       </div>
-      <div className="flex items-center gap-3 px-2.5 py-1 text-[10px] text-[var(--app-text-muted)]">
+      <div className="flex items-center gap-3 px-2.5 py-1 text-[10px] text-[var(--text-secondary)]">
         <span className="tabular-nums">
           {columns.length} {columns.length === 1 ? "col" : "cols"}
         </span>

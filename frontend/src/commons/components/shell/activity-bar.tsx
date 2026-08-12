@@ -43,14 +43,14 @@ export function ActivityBar() {
 
   return (
     <aside
-      className="flex flex-col items-center border-r border-[var(--app-border-subtle)] bg-[var(--app-surface-1)]"
+      className="flex flex-col items-center border-r border-[var(--border-subtle)] bg-[var(--surface-nav)]"
       style={{ width: "var(--app-activity-bar-width)" }}
     >
       {/* Brand mark */}
       <Link
         to="/"
         aria-label="DB Pro"
-        className="mb-2 mt-2 grid h-8 w-8 place-items-center overflow-hidden rounded-lg bg-[var(--app-surface-3)] ring-1 ring-inset ring-[var(--app-border-subtle)] transition-colors hover:bg-[var(--app-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus-ring-color)]"
+        className="mb-2 mt-2 grid h-8 w-8 place-items-center overflow-hidden rounded-lg bg-[var(--surface-editor)] ring-1 ring-inset ring-[var(--border-subtle)] transition-colors hover:bg-[var(--surface-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus-ring-color)]"
       >
         <img
           src="/brand/db-pro-logo.svg"
@@ -76,10 +76,10 @@ export function ActivityBar() {
                 <button
                   type="button"
                   className={cn(
-                    "relative flex h-10 w-10 items-center justify-center rounded-md text-[var(--app-text-muted)] transition-colors duration-100",
-                    "hover:bg-[var(--app-hover)] hover:text-foreground",
+                    "relative flex h-10 w-10 items-center justify-center rounded-md text-[var(--text-secondary)] transition-colors duration-100",
+                    "hover:bg-[var(--surface-hover)] hover:text-foreground",
                     "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus-ring-color)]",
-                    isActive ? "bg-primary/10 text-primary" : "text-[var(--app-text-muted)]",
+                    isActive ? "bg-primary/10 text-primary" : "text-[var(--text-secondary)]",
                   )}
                   onClick={() => setSidebarView(item.viewId)}
                   aria-label={label}
@@ -109,7 +109,7 @@ export function ActivityBar() {
             <button
               type="button"
               className={cn(
-                "flex h-8 w-8 items-center justify-center rounded-md text-[var(--app-text-muted)] transition-colors duration-100 hover:bg-[var(--app-hover)] hover:text-foreground",
+                "flex h-8 w-8 items-center justify-center rounded-md text-[var(--text-secondary)] transition-colors duration-100 hover:bg-[var(--surface-hover)] hover:text-foreground",
                 agentOpen && "text-primary",
               )}
               onClick={toggleAgent}
@@ -127,7 +127,7 @@ export function ActivityBar() {
           <TooltipTrigger asChild>
             <button
               type="button"
-              className="flex h-8 w-8 items-center justify-center rounded-md text-[var(--app-text-muted)] transition-colors duration-100 hover:bg-[var(--app-hover)] hover:text-foreground"
+              className="flex h-8 w-8 items-center justify-center rounded-md text-[var(--text-secondary)] transition-colors duration-100 hover:bg-[var(--surface-hover)] hover:text-foreground"
               onClick={toggleSidebar}
               aria-label={sidebarCollapsed ? t("shell.expand") : t("shell.collapse")}
             >
@@ -165,7 +165,7 @@ function ThemeToggleButton() {
       <TooltipTrigger asChild>
         <button
           type="button"
-          className="flex h-8 w-8 items-center justify-center rounded-md text-[var(--app-text-muted)] transition-colors duration-100 hover:bg-[var(--app-hover)] hover:text-foreground"
+          className="flex h-8 w-8 items-center justify-center rounded-md text-[var(--text-secondary)] transition-colors duration-100 hover:bg-[var(--surface-hover)] hover:text-foreground"
           onClick={toggle}
           aria-label={`${t("settings.theme")}: ${label}`}
         >

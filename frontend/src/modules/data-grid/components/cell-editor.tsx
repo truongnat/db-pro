@@ -32,7 +32,7 @@ export function CellEditor({ value, onSave, onCancel, columnType }: CellEditorPr
   if (!isCellTypeEditable(effectiveType)) {
     return (
       <div className="absolute inset-0 z-20 flex items-center bg-muted/40 px-2">
-        <span className="truncate text-xs italic text-[var(--app-text-dim)]">
+        <span className="truncate text-xs italic text-[var(--text-tertiary)]">
           {getUnsupportedEditReason(effectiveType)}
         </span>
       </div>

@@ -27,7 +27,7 @@ export function SchemaDiffView({
   if (!sourceId || !targetId) {
     return (
       <div className="flex items-center justify-center py-12">
-        <p className="text-[var(--app-text-muted)]">{t("schema.crossConn.selectTwo")}</p>
+        <p className="text-[var(--text-secondary)]">{t("schema.crossConn.selectTwo")}</p>
       </div>
     );
   }
@@ -35,9 +35,9 @@ export function SchemaDiffView({
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-3">
-        <span className="text-sm text-[var(--app-text-muted)]">{sourceLabel ?? sourceId}</span>
-        <span className="text-[var(--app-text-muted)]">→</span>
-        <span className="text-sm text-[var(--app-text-muted)]">{targetLabel ?? targetId}</span>
+        <span className="text-sm text-[var(--text-secondary)]">{sourceLabel ?? sourceId}</span>
+        <span className="text-[var(--text-secondary)]">→</span>
+        <span className="text-sm text-[var(--text-secondary)]">{targetLabel ?? targetId}</span>
         <Button type="button" onClick={() => setEnabled(true)} disabled={isLoading}>
           {isLoading ? t("common.states.loading") : t("schema.crossConn.compare")}
         </Button>
@@ -65,7 +65,7 @@ function DiffResults({ diff }: { diff: SchemaDiff }) {
 
   if (!hasDiffs) {
     return (
-      <div className="rounded-sm border border-[var(--app-border-subtle)] p-4 text-center">
+      <div className="rounded-sm border border-[var(--border-subtle)] p-4 text-center">
         <p className="text-success">{t("schema.crossConn.identical")}</p>
       </div>
     );
@@ -103,7 +103,7 @@ function DiffResults({ diff }: { diff: SchemaDiff }) {
                 <DiffItem key={c} label={`+ ${c}`} color="text-success" />
               ))}
               {cd.typeMismatches.map((m) => (
-                <p key={m.column} className="pl-4 text-xs text-[var(--app-text-muted)]">
+                <p key={m.column} className="pl-4 text-xs text-[var(--text-secondary)]">
                   {m.column}: {m.sourceType} → {m.targetType}
                 </p>
               ))}
@@ -133,7 +133,7 @@ function DiffResults({ diff }: { diff: SchemaDiff }) {
 
 function DiffSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-sm border border-[var(--app-border-subtle)] p-3">
+    <div className="rounded-sm border border-[var(--border-subtle)] p-3">
       <h4 className="mb-2 text-sm font-medium text-foreground">{title}</h4>
       <div className="flex flex-col gap-1">{children}</div>
     </div>

@@ -84,13 +84,13 @@ export function TransactionFeedback({
     >
       <Icon className={`h-3.5 w-3.5 shrink-0 ${config.iconColor}`} />
       <span className={`font-medium ${config.text}`}>{message}</span>
-      <span className="text-[var(--app-text-muted)]">{duration}</span>
+      <span className="text-[var(--text-secondary)]">{duration}</span>
       <div className="flex-1" />
       <Button
         type="button"
         variant="ghost"
         size="sm"
-        className="h-5 w-5 p-0 text-[var(--app-text-muted)] hover:text-foreground"
+        className="h-5 w-5 p-0 text-[var(--text-secondary)] hover:text-foreground"
         onClick={() => {
           setVisible(false);
           onDismiss();

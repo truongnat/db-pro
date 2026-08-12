@@ -17,7 +17,7 @@ export const ErCompactNode = memo(function ErCompactNode({ data, selected }: Nod
       data-tier={lodTier("compact")}
       className={cn(
         "flex min-w-[120px] max-w-[200px] items-center gap-1.5 rounded-md border bg-popover px-2.5 py-1.5 shadow-sm transition-shadow",
-        selected ? "border-primary ring-1 ring-primary/30" : "border-[var(--app-border)]",
+        selected ? "border-primary ring-1 ring-primary/30" : "border-[var(--border-default)]",
       )}
     >
       <span className="h-2 w-2 shrink-0 rounded-sm bg-primary/60" />

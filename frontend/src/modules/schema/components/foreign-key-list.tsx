@@ -26,7 +26,7 @@ export function ForeignKeyList({ foreignKeys, connectionId }: ForeignKeyListProp
 
   if (relations.length === 0) {
     return (
-      <div className="p-4 text-sm text-[var(--app-text-muted)]">{t("schema.noForeignKeys")}</div>
+      <div className="p-4 text-sm text-[var(--text-secondary)]">{t("schema.noForeignKeys")}</div>
     );
   }
 
@@ -51,7 +51,7 @@ export function ForeignKeyList({ foreignKeys, connectionId }: ForeignKeyListProp
   };
 
   const headerClass =
-    "px-3 py-2 font-medium text-[var(--app-text-muted)] border-b border-[var(--app-border-subtle)]";
+    "px-3 py-2 font-medium text-[var(--text-secondary)] border-b border-[var(--border-subtle)]";
 
   return (
     <Table className="w-full text-[13px]">
@@ -68,16 +68,16 @@ export function ForeignKeyList({ foreignKeys, connectionId }: ForeignKeyListProp
         {relations.map((relation) => (
           <TableRow
             key={relation.key}
-            className="group transition-colors hover:bg-[var(--app-hover)]"
+            className="group transition-colors hover:bg-[var(--surface-hover)]"
           >
             <TableCell className="px-3 py-1.5 font-mono text-[13px] select-text">
               {relation.name}
             </TableCell>
-            <TableCell className="px-3 py-1.5 font-mono text-[12px] text-[var(--app-text-muted)] select-text">
+            <TableCell className="px-3 py-1.5 font-mono text-[12px] text-[var(--text-secondary)] select-text">
               {relation.fromColumns.join(", ")}
             </TableCell>
             <TableCell className="px-1 py-1.5 text-center">
-              <ArrowRight className="inline h-3 w-3 text-[var(--app-text-muted)]" />
+              <ArrowRight className="inline h-3 w-3 text-[var(--text-secondary)]" />
             </TableCell>
             <TableCell className="px-3 py-1.5">
               <Tooltip>
@@ -99,7 +99,7 @@ export function ForeignKeyList({ foreignKeys, connectionId }: ForeignKeyListProp
                 </TooltipContent>
               </Tooltip>
             </TableCell>
-            <TableCell className="px-3 py-1.5 font-mono text-[12px] text-[var(--app-text-muted)] select-text">
+            <TableCell className="px-3 py-1.5 font-mono text-[12px] text-[var(--text-secondary)] select-text">
               {relation.toColumns.join(", ")}
             </TableCell>
           </TableRow>

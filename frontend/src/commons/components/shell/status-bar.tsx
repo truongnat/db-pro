@@ -37,7 +37,7 @@ export function StatusBar() {
 
   return (
     <footer
-      className="flex items-center border-t border-[var(--app-border-subtle)] bg-[var(--app-surface-2)] px-3 text-[11px] text-[var(--app-text-dim)]"
+      className="flex items-center border-t border-[var(--border-subtle)] bg-[var(--surface-panel)] px-3 text-[11px] text-[var(--text-tertiary)]"
       style={{ height: "var(--app-statusbar-height)" }}
       role="contentinfo"
     >
@@ -45,17 +45,17 @@ export function StatusBar() {
       {activeConnection && status === "connected" ? (
         <>
           <span className="flex items-center gap-1.5">
-            <Wifi className="h-3 w-3 text-[var(--app-success)]" />
-            <span className="text-[var(--app-success)]">{statusLabel}</span>
+            <Wifi className="h-3 w-3 text-[var(--state-success)]" />
+            <span className="text-[var(--state-success)]">{statusLabel}</span>
           </span>
-          <span className="mx-2 text-[var(--app-border-strong)]">·</span>
+          <span className="mx-2 text-[var(--border-strong)]">·</span>
           <span className="flex items-center gap-1">
             <Database className="h-3 w-3" />
             <span>{activeConnection.driver}</span>
           </span>
-          <span className="mx-2 text-[var(--app-border-strong)]">·</span>
+          <span className="mx-2 text-[var(--border-strong)]">·</span>
           <span>{activeConnection.database}</span>
-          <span className="mx-2 text-[var(--app-border-strong)]">·</span>
+          <span className="mx-2 text-[var(--border-strong)]">·</span>
           <span>
             {tableCount} {t("shell.statusbar.tables")}
           </span>
@@ -64,17 +64,17 @@ export function StatusBar() {
         <>
           <span className="flex items-center gap-1.5">
             {status === "connecting" || status === "reconnecting" ? (
-              <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-[var(--app-warning)]" />
+              <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-[var(--state-warning)]" />
             ) : status === "error" ? (
-              <span className="h-2.5 w-2.5 rounded-full bg-[var(--app-danger)]" />
+              <span className="h-2.5 w-2.5 rounded-full bg-[var(--state-danger)]" />
             ) : (
               <WifiOff className="h-3 w-3" />
             )}
-            <span className={status === "error" ? "text-[var(--app-danger)]" : undefined}>
+            <span className={status === "error" ? "text-[var(--state-danger)]" : undefined}>
               {statusLabel}
             </span>
           </span>
-          <span className="mx-2 text-[var(--app-border-strong)]">·</span>
+          <span className="mx-2 text-[var(--border-strong)]">·</span>
           <span>{activeConnection.name}</span>
         </>
       ) : (

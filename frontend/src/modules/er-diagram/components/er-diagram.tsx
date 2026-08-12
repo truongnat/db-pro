@@ -410,7 +410,7 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
         ...e,
         style:
           e.id === selectedEdgeId
-            ? { strokeWidth: 2.5, stroke: "var(--primary)" }
+            ? { strokeWidth: 2.5, stroke: "var(--accent)" }
             : { strokeWidth: 1, opacity: 0.3 },
         animated: e.id === selectedEdgeId,
       })),
@@ -719,7 +719,7 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
       {useCytoscapeForOverview ? (
         <Suspense
           fallback={
-            <div className="flex min-h-0 flex-1 items-center justify-center gap-2 text-[12px] text-[var(--app-text-muted)]">
+            <div className="flex min-h-0 flex-1 items-center justify-center gap-2 text-[12px] text-[var(--text-secondary)]">
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
               Loading overview…
             </div>
@@ -778,7 +778,7 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
             variant={BackgroundVariant.Dots}
             gap={20}
             size={1}
-            color="var(--app-border-subtle)"
+            color="var(--border-subtle)"
           />
           <Controls showInteractive={false} />
 
@@ -811,10 +811,12 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
             <MiniMap
               nodeColor={(n) => {
                 const d = n.data as TableNodeData;
-                return d.columns?.some((c) => c.isForeignKey) ? "var(--info)" : "var(--primary)";
+                return d.columns?.some((c) => c.isForeignKey)
+                  ? "var(--state-info)"
+                  : "var(--accent)";
               }}
               maskColor="rgba(0,0,0,0.08)"
-              className="!bg-popover !border-[var(--app-border)]"
+              className="!bg-popover !border-[var(--border-default)]"
             />
           )}
 
@@ -823,7 +825,7 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
             <div className="flex flex-col items-start gap-2">
               <div className="flex items-center gap-2">
                 <div className="relative">
-                  <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--app-text-muted)]" />
+                  <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--text-secondary)]" />
                   <Input
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}

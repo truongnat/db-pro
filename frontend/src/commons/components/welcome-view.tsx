@@ -118,7 +118,7 @@ export function WelcomeView() {
         {/* Header */}
         <div className="text-center">
           <h1 className="text-xl font-semibold text-foreground">{t("welcome.title")}</h1>
-          <p className="mt-1.5 text-sm text-[var(--app-text-muted)]">{t("welcome.subtitle")}</p>
+          <p className="mt-1.5 text-sm text-[var(--text-secondary)]">{t("welcome.subtitle")}</p>
         </div>
 
         {/* Quick Actions */}
@@ -138,19 +138,19 @@ export function WelcomeView() {
           <h2 className="text-sm font-medium text-foreground">{t("welcome.recentConnections")}</h2>
 
           {isLoading ? (
-            <p className="text-sm text-[var(--app-text-muted)]">{t("common.states.loading")}</p>
+            <p className="text-sm text-[var(--text-secondary)]">{t("common.states.loading")}</p>
           ) : !hasConnections ? (
-            <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-[var(--app-border-strong)] py-10">
-              <Database className="h-8 w-8 text-[var(--app-text-dim)]" />
+            <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-[var(--border-strong)] py-10">
+              <Database className="h-8 w-8 text-[var(--text-tertiary)]" />
               <div className="text-center">
-                <p className="text-sm text-[var(--app-text-muted)]">{t("welcome.noConnections")}</p>
-                <p className="mt-1 text-xs text-[var(--app-text-muted)]">
+                <p className="text-sm text-[var(--text-secondary)]">{t("welcome.noConnections")}</p>
+                <p className="mt-1 text-xs text-[var(--text-secondary)]">
                   {t("welcome.createFirstConnection")}
                 </p>
               </div>
             </div>
           ) : recentWithDetails.length === 0 ? (
-            <p className="text-sm text-[var(--app-text-muted)]">
+            <p className="text-sm text-[var(--text-secondary)]">
               {t("welcome.noRecentConnections")}
             </p>
           ) : (
@@ -161,7 +161,7 @@ export function WelcomeView() {
                 return (
                   <div
                     key={conn.id}
-                    className="group flex items-center gap-3 rounded-lg border border-transparent px-3 py-2 transition-colors hover:border-[var(--app-border)] hover:bg-[var(--app-hover)]"
+                    className="group flex items-center gap-3 rounded-lg border border-transparent px-3 py-2 transition-colors hover:border-[var(--border-default)] hover:bg-[var(--surface-hover)]"
                   >
                     <button
                       type="button"
@@ -170,7 +170,7 @@ export function WelcomeView() {
                     >
                       <div
                         className="h-2.5 w-2.5 shrink-0 rounded-full"
-                        style={{ backgroundColor: conn.color ?? "var(--foreground)" }}
+                        style={{ backgroundColor: conn.color ?? "var(--text-primary)" }}
                       />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
@@ -179,7 +179,7 @@ export function WelcomeView() {
                           </span>
                           <ConnectionStatusBadge status={status} />
                         </div>
-                        <p className="truncate text-xs text-[var(--app-text-muted)]">
+                        <p className="truncate text-xs text-[var(--text-secondary)]">
                           {conn.host}:{conn.port} / {conn.database}
                         </p>
                       </div>
@@ -203,7 +203,7 @@ export function WelcomeView() {
                   </div>
                 );
               })}
-              <p className="pt-1 text-xs text-[var(--app-text-muted)]">
+              <p className="pt-1 text-xs text-[var(--text-secondary)]">
                 {t("welcome.connectHint")}
               </p>
             </div>

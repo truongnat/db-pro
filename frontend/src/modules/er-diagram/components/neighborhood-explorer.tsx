@@ -71,8 +71,8 @@ export function NeighborhoodExplorer({
   // Landing — no seed yet: stats + suggested starting points.
   if (!seedLabel) {
     return (
-      <div className="flex w-[260px] flex-col gap-2 rounded-md border border-[var(--app-border)] bg-popover p-2.5 shadow-sm">
-        <div className="flex items-center gap-2 text-[10px] text-[var(--app-text-muted)]">
+      <div className="flex w-[260px] flex-col gap-2 rounded-md border border-[var(--border-default)] bg-popover p-2.5 shadow-sm">
+        <div className="flex items-center gap-2 text-[10px] text-[var(--text-secondary)]">
           <Badge variant="outline" className="h-5 gap-1 px-1.5 text-[10px]">
             <Table2 className="h-2.5 w-2.5" />
             {totalTables}
@@ -87,7 +87,7 @@ export function NeighborhoodExplorer({
           </Badge>
         </div>
 
-        <div className="text-[10px] font-semibold uppercase tracking-wide text-[var(--app-text-muted)]">
+        <div className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
           Suggested starting points
         </div>
         <div className="flex flex-wrap gap-1">
@@ -106,7 +106,7 @@ export function NeighborhoodExplorer({
         </div>
 
         <div className="flex items-center gap-1">
-          <span className="text-[10px] text-[var(--app-text-muted)]">Explore:</span>
+          <span className="text-[10px] text-[var(--text-secondary)]">Explore:</span>
           {HOP_SCOPES.map((s) => (
             <Button
               key={s.value}
@@ -135,8 +135,8 @@ export function NeighborhoodExplorer({
 
   // Seed active — hop scope selector for the focused neighborhood.
   return (
-    <div className="flex items-center gap-1 rounded-md border border-[var(--app-border)] bg-popover p-1 shadow-sm">
-      <span className="px-1.5 text-[10px] font-medium text-[var(--app-text-muted)]">
+    <div className="flex items-center gap-1 rounded-md border border-[var(--border-default)] bg-popover p-1 shadow-sm">
+      <span className="px-1.5 text-[10px] font-medium text-[var(--text-secondary)]">
         {seedLabel}
       </span>
       {HOP_SCOPES.map((s) => (

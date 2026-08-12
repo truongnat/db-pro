@@ -159,7 +159,7 @@ export function ConnectionDialog() {
         <div className="max-h-[70vh] overflow-y-auto">
           {loadState === "loading" && (
             <div className="flex items-center justify-center py-8">
-              <p className="text-[var(--app-text-muted)]">{t("common.states.loading")}</p>
+              <p className="text-[var(--text-secondary)]">{t("common.states.loading")}</p>
             </div>
           )}
 
@@ -179,7 +179,7 @@ export function ConnectionDialog() {
 
           {loadState === "not-found" && (
             <div className="flex flex-col items-center gap-3 py-8">
-              <p className="text-[var(--app-text-muted)]">{t("connection.notFound")}</p>
+              <p className="text-[var(--text-secondary)]">{t("connection.notFound")}</p>
               <Button variant="outline" onClick={closeConnectionDialog}>
                 {t("common.actions.close")}
               </Button>

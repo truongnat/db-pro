@@ -34,7 +34,7 @@ function OrphanedTabView({ tabId, tabTitle }: { tabId: string; tabTitle: string 
     <div className="flex h-full items-center justify-center p-8">
       <div className="max-w-sm space-y-3 text-center">
         <p className="text-sm font-medium text-foreground">{tabTitle}</p>
-        <p className="text-xs text-[var(--app-text-muted)]">
+        <p className="text-xs text-[var(--text-secondary)]">
           {t("workspace.connectionUnavailable")}
         </p>
         <div className="flex flex-col gap-2">
@@ -65,7 +65,7 @@ function OrphanedTabView({ tabId, tabTitle }: { tabId: string; tabTitle: string 
             type="button"
             size="sm"
             variant="ghost"
-            className="text-xs text-[var(--app-text-muted)]"
+            className="text-xs text-[var(--text-secondary)]"
             onClick={handleCloseTab}
           >
             {t("common.actions.close")}

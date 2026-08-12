@@ -30,7 +30,7 @@ export const ErDetailedNode = memo(function ErDetailedNode({ data, selected }: N
       data-tier={lodTier("detail")}
       className={cn(
         "min-w-[180px] max-w-[260px] overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-sm transition-shadow",
-        selected ? "border-primary ring-1 ring-primary/30" : "border-[var(--app-border)]",
+        selected ? "border-primary ring-1 ring-primary/30" : "border-[var(--border-default)]",
       )}
     >
       {/* Header */}
@@ -44,7 +44,7 @@ export const ErDetailedNode = memo(function ErDetailedNode({ data, selected }: N
         {columns.map((col) => (
           <div
             key={col.name}
-            className="group flex cursor-pointer items-center gap-1 px-2 py-[3px] text-[11px] hover:bg-[var(--app-hover)]"
+            className="group flex cursor-pointer items-center gap-1 px-2 py-[3px] text-[11px] hover:bg-[var(--surface-hover)]"
             data-column={col.name}
             onClick={(e) => handleColumnClick(e, col.name)}
             title={`Open ${label}.${col.name} in Columns`}
@@ -63,11 +63,11 @@ export const ErDetailedNode = memo(function ErDetailedNode({ data, selected }: N
               {col.name}
             </span>
 
-            <span className="shrink-0 font-mono text-[10px] text-[var(--app-text-muted)]">
+            <span className="shrink-0 font-mono text-[10px] text-[var(--text-secondary)]">
               {col.dataType}
             </span>
 
-            {col.nullable && <span className="text-[9px] text-[var(--app-text-dim)]">?</span>}
+            {col.nullable && <span className="text-[9px] text-[var(--text-tertiary)]">?</span>}
 
             {col.isPrimaryKey && (
               <Handle

@@ -16,19 +16,19 @@ export function ZoomControls({ zoom, onZoomChange }: ZoomControlsProps) {
         type="button"
         variant="ghost"
         size="sm"
-        className="rounded px-1.5 py-0.5 text-xs text-[var(--app-text-muted)]"
+        className="rounded px-1.5 py-0.5 text-xs text-[var(--text-secondary)]"
         onClick={() => onZoomChange(Math.max(MIN_ZOOM, zoom - STEP))}
         disabled={zoom <= MIN_ZOOM}
         title="Alt+−"
       >
         −
       </Button>
-      <span className="min-w-[3ch] text-center text-xs text-[var(--app-text-muted)]">{zoom}%</span>
+      <span className="min-w-[3ch] text-center text-xs text-[var(--text-secondary)]">{zoom}%</span>
       <Button
         type="button"
         variant="ghost"
         size="sm"
-        className="rounded px-1.5 py-0.5 text-xs text-[var(--app-text-muted)]"
+        className="rounded px-1.5 py-0.5 text-xs text-[var(--text-secondary)]"
         onClick={() => onZoomChange(Math.min(MAX_ZOOM, zoom + STEP))}
         disabled={zoom >= MAX_ZOOM}
         title="Alt++"

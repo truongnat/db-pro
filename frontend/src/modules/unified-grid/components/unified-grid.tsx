@@ -340,7 +340,7 @@ export function UnifiedGrid({
   if (!columns.length) {
     return (
       <div className="flex h-full min-h-0 items-center justify-center">
-        {emptyState ?? <p className="text-sm text-[var(--app-text-muted)]">No data</p>}
+        {emptyState ?? <p className="text-sm text-[var(--text-secondary)]">No data</p>}
       </div>
     );
   }
@@ -356,14 +356,14 @@ export function UnifiedGrid({
       {/* Loading overlay */}
       {isLoading && (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60">
-          <span className="text-sm text-[var(--app-text-muted)]">Loading…</span>
+          <span className="text-sm text-[var(--text-secondary)]">Loading…</span>
         </div>
       )}
 
       {/* Context menu (B1.2 — extended with copy items) */}
       {contextMenu && (
         <div
-          className="fixed z-[var(--z-floating)] rounded-md border border-[var(--app-border-strong)] bg-popover py-1 shadow-lg"
+          className="fixed z-[var(--z-floating)] rounded-md border border-[var(--border-strong)] bg-popover py-1 shadow-lg"
           style={{ left: contextMenu.x, top: contextMenu.y }}
           onMouseLeave={() => setContextMenu(null)}
         >
@@ -398,7 +398,7 @@ export function UnifiedGrid({
           {/* Cell / row copy (only when right-clicked on a cell) */}
           {contextMenu.cellRow != null && (
             <>
-              <div className="my-1 border-t border-[var(--app-border-subtle)]" />
+              <div className="my-1 border-t border-[var(--border-subtle)]" />
               <Button
                 type="button"
                 variant="ghost"
@@ -436,10 +436,10 @@ export function UnifiedGrid({
       >
         {/* Sticky header — scrolls horizontally with body, stays on top vertically */}
         <div
-          className="grid sticky top-0 z-[2] shrink-0 border-b border-[var(--app-border)] bg-muted text-[11px]"
+          className="grid sticky top-0 z-[2] shrink-0 border-b border-[var(--border-default)] bg-muted text-[11px]"
           style={{ ...gridStyle, minHeight: "var(--grid-header-height)" }}
         >
-          <div className="flex items-center px-2 py-2 text-[var(--app-text-dim)]">
+          <div className="flex items-center px-2 py-2 text-[var(--text-tertiary)]">
             {onSelectionChange && (
               <input
                 type="checkbox"
@@ -469,17 +469,17 @@ export function UnifiedGrid({
                 onContextMenu={(e) => handleColumnContextMenu(e, col.name)}
               >
                 <span
-                  className="flex cursor-pointer select-none items-center gap-1 text-[12.5px] font-medium text-[var(--app-text-muted)] transition-colors hover:text-foreground"
+                  className="flex cursor-pointer select-none items-center gap-1 text-[12.5px] font-medium text-[var(--text-secondary)] transition-colors hover:text-foreground"
                   onClick={() => onSort(col.name)}
                 >
                   <span className="truncate">{col.name}</span>
                   {sort && (
-                    <span className="text-[11px] text-[var(--app-text-dim)]">
+                    <span className="text-[11px] text-[var(--text-tertiary)]">
                       {sort.direction === "asc" ? "\u25B2" : "\u25BC"}
                     </span>
                   )}
                 </span>
-                <span className="truncate text-[11px] text-[var(--app-text-dim)]">
+                <span className="truncate text-[11px] text-[var(--text-tertiary)]">
                   {col.dataType}
                 </span>
                 {renderHeaderExtra?.(col)}
@@ -509,8 +509,8 @@ export function UnifiedGrid({
               <div
                 key={virtualRow.key}
                 className={
-                  "grid absolute w-full border-b border-[var(--app-border-subtle)]/60 text-[12.5px] transition-colors" +
-                  (isSelected ? " bg-primary/10" : " hover:bg-[var(--app-hover)]")
+                  "grid absolute w-full border-b border-[var(--border-subtle)]/60 text-[12.5px] transition-colors" +
+                  (isSelected ? " bg-primary/10" : " hover:bg-[var(--surface-hover)]")
                 }
                 style={{ ...gridStyle, top: virtualRow.start, height: "var(--grid-row-height)" }}
                 data-index={virtualRow.index}
@@ -521,7 +521,7 @@ export function UnifiedGrid({
                     "flex cursor-pointer select-none items-center px-2 text-[11px]" +
                     (isSelected
                       ? " bg-primary/20 font-medium text-primary"
-                      : " text-[var(--app-text-dim)]")
+                      : " text-[var(--text-tertiary)]")
                   }
                   onClick={(e) => handleRowNumberClick(e, virtualRow.index)}
                 >
@@ -544,7 +544,7 @@ export function UnifiedGrid({
                       key={col.name}
                       className={
                         "relative flex items-center overflow-hidden px-3 text-ellipsis whitespace-nowrap" +
-                        (isNull ? " text-[var(--app-text-dim)]" : " text-foreground") +
+                        (isNull ? " text-[var(--text-tertiary)]" : " text-foreground") +
                         (isFrozen ? " bg-muted/20" : "")
                       }
                       style={isNull ? { fontStyle: "italic" } : undefined}
@@ -590,7 +590,7 @@ export function UnifiedGrid({
                             type="button"
                             variant="ghost"
                             size="sm"
-                            className="h-6 w-6 p-0 text-[var(--app-text-muted)] hover:bg-primary/10 hover:text-primary"
+                            className="h-6 w-6 p-0 text-[var(--text-secondary)] hover:bg-primary/10 hover:text-primary"
                             onClick={() => onEditRow(virtualRow.index)}
                           >
                             <Pencil className="h-3.5 w-3.5" />
@@ -606,7 +606,7 @@ export function UnifiedGrid({
                             type="button"
                             variant="ghost"
                             size="sm"
-                            className="h-6 w-6 p-0 text-[var(--app-text-muted)] hover:bg-destructive/10 hover:text-destructive"
+                            className="h-6 w-6 p-0 text-[var(--text-secondary)] hover:bg-destructive/10 hover:text-destructive"
                             disabled={isDeleting}
                             onClick={() => onDeleteRow(virtualRow.index)}
                           >
@@ -626,7 +626,7 @@ export function UnifiedGrid({
 
       {/* Footer */}
       {footer && (
-        <div className="flex items-center gap-4 border-t border-[var(--app-border-subtle)] bg-muted/20 px-3 py-1.5 text-[11px] text-[var(--app-text-muted)]">
+        <div className="flex items-center gap-4 border-t border-[var(--border-subtle)] bg-muted/20 px-3 py-1.5 text-[11px] text-[var(--text-secondary)]">
           {footer}
         </div>
       )}
@@ -686,7 +686,7 @@ function JsonPreview({ value }: { value: unknown }) {
     return (
       <button
         type="button"
-        className="cursor-text text-left text-[var(--app-text-muted)] hover:text-foreground"
+        className="cursor-text text-left text-[var(--text-secondary)] hover:text-foreground"
         onClick={(e) => {
           e.stopPropagation();
           setExpanded(true);
@@ -702,7 +702,7 @@ function JsonPreview({ value }: { value: unknown }) {
     return (
       <button
         type="button"
-        className="cursor-text whitespace-pre-wrap text-left text-[var(--app-text-muted)] hover:text-foreground"
+        className="cursor-text whitespace-pre-wrap text-left text-[var(--text-secondary)] hover:text-foreground"
         onClick={(e) => {
           e.stopPropagation();
           setExpanded(false);
@@ -714,7 +714,7 @@ function JsonPreview({ value }: { value: unknown }) {
   }
 
   return (
-    <span className="text-[var(--app-text-muted)]" title={text}>
+    <span className="text-[var(--text-secondary)]" title={text}>
       {text}
     </span>
   );
