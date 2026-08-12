@@ -20,6 +20,11 @@
 //      is reserved for layout metrics only).
 //   5. Components do not reference raw shadcn semantic vars (var(--primary),
 //      var(--info), ...) — use canonical tokens or shadcn utility classes.
+//   6. Every `--<token>` name mentioned anywhere in src / public / index.html
+//      (comments, strings, className arbitrary values) must be a token that is
+//      actually DEFINED in globals.css — catches stale names left behind by
+//      renames (e.g. a perl rename produced `--text-primary-primary`; a
+//      vestigial `--app-editor-bg` reference survived the migration).
 //
 // Exit 0 = clean, Exit 1 = contract violation, Exit 2 = structural error.
 
@@ -306,6 +311,49 @@ for (const file of targets) {
     const unique = [...new Set(rawVars.map((v) => v.slice(5, -1)))];
     fail(
       `${rel}: raw shadcn semantic var(s) ${unique.join(", ")} — use canonical tokens (e.g. var(--accent)) or shadcn utility classes`,
+    );
+  }
+}
+
+/* ── 6. Token-name drift: every --token mention must be a defined token ── */
+
+// Every custom property name defined anywhere in globals.css (canonical layer,
+// shadcn compatibility layer, @theme inline mappings, layout metrics, …).
+const definedTokenRe = /--[a-zA-Z][a-zA-Z0-9-]*\s*:/g;
+const definedTokens = new Set();
+for (const m of css.matchAll(definedTokenRe)) {
+  definedTokens.add(m[0].replace(/\s*:$/, "").trim());
+}
+
+// Library / tooling internals that legitimately use `--` names without being
+// part of the design-token contract (Radix injects --radix-* at runtime;
+// Tailwind v4 arbitrary properties + its spacing() function are component-local;
+// a Node/jsdom CLI flag mentioned in a test-setup comment).
+const IGNORED_TOKEN_PREFIXES = ["--radix-"];
+const IGNORED_TOKEN_EXACT = new Set(["--spacing", "--card-spacing", "--localstorage-file"]);
+
+const mentionRe = /--[a-zA-Z][a-zA-Z0-9-]*/g;
+for (const file of targets) {
+  const rel = file.slice(root.length + 1);
+  const content = readFileSync(file, "utf-8");
+  const mentions = content.match(mentionRe);
+  if (!mentions) continue;
+  const unknown = [
+    ...new Set(
+      mentions.filter(
+        (tok) =>
+          !definedTokens.has(tok) &&
+          !IGNORED_TOKEN_EXACT.has(tok) &&
+          !IGNORED_TOKEN_PREFIXES.some((p) => tok.startsWith(p)),
+      ),
+    ),
+  ];
+  if (unknown.length > 0) {
+    fail(
+      `${rel}: unknown token name(s) mentioned: ${unknown.join(", ")} — not defined in globals.css`,
+    );
+    console.error(
+      `  → Define it in globals.css, fix the reference, or (library internal) add it to the ignore list`,
     );
   }
 }

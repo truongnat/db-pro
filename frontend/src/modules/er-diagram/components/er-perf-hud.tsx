@@ -52,7 +52,7 @@ export function ErPerfHud({ monitor, spatialIndex, edgeCount, viewportRef }: ErP
   const row = (label: string, value: string) => (
     <div className="flex items-center justify-between gap-3">
       <span className="text-[var(--text-secondary)]">{label}</span>
-      <span className="tabular-nums text-[var(--text-primary-primary)]">{value}</span>
+      <span className="tabular-nums text-[var(--text-primary)]">{value}</span>
     </div>
   );
 
