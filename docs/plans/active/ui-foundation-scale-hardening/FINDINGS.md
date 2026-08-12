@@ -112,6 +112,14 @@ Scope: every list view that iterates schema metadata (schema explorer, data grid
 
 **Tracked:** keep in the P2 backlog; not worth a code change now.
 
+### Merge-review P2s (tracked, 2026-08-12 — final pre-merge review of the full branch)
+
+- **F-MR-1:** fit-view triggers via a synthetic `keydown "1"` dispatch on `.react-flow` (P1.7) — depends on React Flow's default fit-view shortcut; if defaults change, auto-fit silently breaks (the manual fit button remains). Prefer the captured instance's `fitView()` when convenient.
+- **F-MR-2:** `useWorkerLayout`'s module-level worker singleton — a one-time worker-creation failure permanently downgrades the session to the synchronous fallback runner (sticky catch). A per-attempt fallback or retry would be more robust.
+- **F-MR-3:** `format:check` drift on `frontend/scripts/generate-fixtures.mjs` was pre-existing on main (CI red there too) — fixed on this branch to unblock the merge gate; the root cause (main CI being red) is tracked so the drift does not silently recur.
+- **F-MR-4:** the token migration did not mechanically verify string/comment drift (the perl rename + `check-token-drift` guard cover CSS / `var()` usage, and the 96/96 visual regression covers resolved values) — stray token names inside comments are harmless; optionally scan comments in the guard later.
+- **Fixed during review:** `tablesInSchema` was unmemoized in `er-diagram.tsx` (recreated every render, defeating `schemaStats` O(F+C) and `suggestedPoints` O(T log T) memoization) — wrapped in `useMemo([data.tables, schema])`.
+
 ## F7: Large-schema ER rendering architecture does not scale (P1)
 
 **Evidence:** At 500 tables the diagram feeds ~500 `TableNode` components (up to 7,500 column rows) into React reconciliation simultaneously. The current LOD tiers (P3.5) switch content inside one component via conditional rendering — the render tree is a single path, not a per-LOD component switch — and React Flow's `onlyRenderVisibleElements` is not enabled, so off-viewport nodes still mount. Every edge keeps labels, markers, and smoothstep paths at every zoom. Dagre layout runs on the main thread with no cache.

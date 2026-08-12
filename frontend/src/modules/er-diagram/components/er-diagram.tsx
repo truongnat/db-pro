@@ -136,8 +136,13 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
     });
   }, [compact]);
 
-  // Neighborhood mode for large schemas (P1.6 exploration UX)
-  const tablesInSchema = data.tables.filter((t) => t.schema === schema);
+  // Neighborhood mode for large schemas (P1.6 exploration UX). Memoized on
+  // the atomic introspection snapshot so dependent memos (schemaStats,
+  // suggestedPoints) keep their stable identities (pre-merge review P2 fix).
+  const tablesInSchema = useMemo(
+    () => data.tables.filter((t) => t.schema === schema),
+    [data.tables, schema],
+  );
 
   // P1.9 — renderer-agnostic graph model, shared by the Cytoscape overview.
   const graphModel = useMemo<ErGraphModel>(() => buildErGraphModel(data, schema), [data, schema]);
