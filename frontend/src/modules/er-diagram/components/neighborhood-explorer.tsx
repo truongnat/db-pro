@@ -10,7 +10,7 @@ export interface SuggestedPoint {
   label: string;
 }
 
-interface NeighborhoodExplorerProps {
+export interface NeighborhoodExplorerProps {
   totalTables: number;
   relationCount: number;
   columnCount: number;

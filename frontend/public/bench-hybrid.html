@@ -1,0 +1,248 @@
+<!--
+  DEV-ONLY evidence tool — not linked from the app.
+  Benchmarks the REAL CytoscapeErRenderer source through Vite dev (Chrome
+  headless + bench/run-bench.js). Fixture recipe mirrors bench/fixture-gen.js
+  (mulberry32 seed 42); keep the two in sync when changing presets.
+  Served at /bench-hybrid.html?n=100|500|1000 during `npm run dev`.
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>ER Bench — CytoscapeErRenderer (app code)</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: #0f172a; color: #e2e8f0;
+    font: 13px/1.4 ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif; }
+  #hud { position: fixed; top: 0; left: 0; right: 0; z-index: 20;
+    display: flex; align-items: center; gap: 14px; padding: 8px 14px;
+    background: #111c2e; border-bottom: 1px solid #1e293b; font-size: 12px;
+    color: #94a3b8; pointer-events: none; }
+  #hud .tag { background: #1e293b; border: 1px solid #334155; border-radius: 6px;
+    padding: 2px 8px; color: #7dd3fc; }
+  #phase { color: #fbbf24; font-weight: 600; }
+  #app { position: fixed; inset: 40px 0 0 0; }
+  #results { position: absolute; right: 14px; bottom: 14px; z-index: 10;
+    width: 360px; background: rgba(15,23,42,0.92); border: 1px solid #334155;
+    border-radius: 10px; padding: 12px; font-size: 12px; }
+  #results h3 { font-size: 12px; color: #7dd3fc; margin-bottom: 8px; }
+  #results table { width: 100%; border-collapse: collapse; }
+  #results td { padding: 3px 6px; border-bottom: 1px solid #1e293b; }
+  #results td:first-child { color: #94a3b8; }
+  #results td:last-child { text-align: right; color: #e2e8f0; }
+</style>
+</head>
+<body>
+<div id="hud">
+  <span class="tag">CytoscapeErRenderer (app source, via Vite)</span>
+  <span id="stat"></span>
+  <span id="phase">idle</span>
+</div>
+<div id="app"></div>
+<div id="results"></div>
+
+<script type="module">
+  import { CytoscapeErRenderer } from "/src/modules/er-diagram/renderer/cytoscape-renderer.ts";
+  import { buildErGraphModel } from "/src/modules/er-diagram/renderer/er-graph-model.ts";
+  import { computeLayoutPositions } from "/src/modules/er-diagram/utils/layout.ts";
+
+  const N = new URLSearchParams(location.search).get("n") || "500";
+
+  // ---- deterministic fixture (same mulberry32 recipe as bench/fixture-gen.js) ----
+  function mulberry32(seed) {
+    let a = seed >>> 0;
+    return function () {
+      a |= 0; a = (a + 0x6d2b79f5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  const PRESETS = {
+    "100":  { tables: 100,  relations: 150,  domains: 10 },
+    "500":  { tables: 500,  relations: 900,  domains: 20 },
+    "1000": { tables: 1000, relations: 2000, domains: 20 },
+  };
+  const COL_TYPES = ["bigint","integer","varchar(255)","text","timestamp","timestamptz","boolean","numeric(12,2)","uuid","date","jsonb"];
+  const DOMAINS = ["customers","orders","products","payments","accounts","shipping","inventory","billing","hr","crm","marketing","support","analytics","content","subscriptions","warehouse","finance","logistics","catalog","reports"];
+
+  function generateData(scale) {
+    const p = PRESETS[scale];
+    const rand = mulberry32(42);
+    const pick = (arr) => arr[Math.floor(rand() * arr.length)];
+    const randInt = (min, max) => min + Math.floor(rand() * (max - min + 1));
+    const domains = DOMAINS.slice(0, p.domains);
+    const perDomain = Math.round(p.tables / p.domains);
+    const tables = [];
+    const columns = [];
+    const foreignKeys = [];
+    const primaryKeys = [];
+    const tableById = new Map();
+    let seq = 1;
+
+    for (const domain of domains) {
+      for (let i = 0; i < perDomain; i++) {
+        const id = "t" + String(seq++).padStart(4, "0");
+        const name = i === 0 ? domain : domain + "_" + i;
+        tables.push({ schema: "public", name });
+        tableById.set(id, name);
+        primaryKeys.push({ schema: "public", tableName: name, columns: ["id"] });
+        const nCols = randInt(10, 20);
+        for (let c = 0; c < nCols; c++) {
+          columns.push({
+            schema: "public", tableName: name, name: c === 0 ? "id" : "col_" + c,
+            dataType: c === 0 ? "bigint" : pick(COL_TYPES), nullable: false,
+          });
+        }
+      }
+    }
+    const ids = [...tableById.keys()];
+    const seen = new Set();
+    let guard = 0;
+    while (foreignKeys.length < p.relations && guard++ < p.relations * 40) {
+      const source = ids[Math.floor(rand() * ids.length)];
+      const target = ids[Math.floor(rand() * ids.length)];
+      if (source === target || seen.has(source + ">" + target)) continue;
+      seen.add(source + ">" + target);
+      const sourceName = tableById.get(source);
+      const targetName = tableById.get(target);
+      foreignKeys.push({
+        schema: "public", fromTable: sourceName, fromColumn: targetName + "_id",
+        toSchema: "public", toTable: targetName, toColumn: "id", name: "fk_" + foreignKeys.length,
+      });
+      columns.push({
+        schema: "public", tableName: sourceName, name: targetName + "_id",
+        dataType: "bigint", nullable: true,
+      });
+    }
+    return { tables, columns, foreignKeys, primaryKeys };
+  }
+
+  // ---- benchmark ----
+  const phaseEl = document.getElementById("phase");
+  const setPhase = (p) => { phaseEl.textContent = p; };
+  document.getElementById("stat").textContent = N + " tables";
+
+  const longTasks = [];
+  if (typeof PerformanceObserver !== "undefined") {
+    try {
+      new PerformanceObserver((list) => {
+        for (const e of list.getEntries()) longTasks.push({ start: Math.round(e.startTime), duration: Math.round(e.duration) });
+      }).observe({ entryTypes: ["longtask"] });
+    } catch (_) {}
+  }
+
+  const nextFrame = () => new Promise((r) => requestAnimationFrame(r));
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  async function measureFrames(frames, stepFn) {
+    const times = [];
+    const warm = 10;
+    for (let i = 0; i < frames + warm; i++) {
+      const t0 = performance.now();
+      stepFn(i);
+      await nextFrame();
+      if (i >= warm) times.push(performance.now() - t0);
+    }
+    times.sort((a, b) => a - b);
+    const sum = times.reduce((a, b) => a + b, 0);
+    const avg = sum / times.length;
+    return { frames: times.length, avgMs: +avg.toFixed(2), p95Ms: +times[Math.floor(times.length * 0.95)].toFixed(2), maxMs: +times[times.length - 1].toFixed(2), fps: +(1000 / avg).toFixed(1) };
+  }
+
+  const results = { harness: "cytoscape-er-renderer-source", scale: N, metrics: {} };
+  const container = document.getElementById("app");
+
+  async function run() {
+    const data = generateData(N);
+    const model = buildErGraphModel(data, "public");
+    results.metrics.modelStats = model.stats;
+
+    // Shared layout engine (dagre) — same function the P1.7 worker runs.
+    setPhase("dagre layout…");
+    const layoutInput = {
+      nodes: model.tables.map((t) => ({ id: t.id, height: 32, width: 160 })),
+      edges: model.relations.map((r) => ({ source: r.source, target: r.target })),
+    };
+    const tLayout = performance.now();
+    const positions = computeLayoutPositions(layoutInput, {});
+    results.metrics.layoutMs = Math.round(performance.now() - tLayout);
+
+    // Real app renderer.
+    setPhase("mount…");
+    const tMount = performance.now();
+    const renderer = new CytoscapeErRenderer({ container });
+    renderer.mount(model, positions);
+    await nextFrame();
+    results.metrics.mountMs = Math.round(performance.now() - tMount);
+    results.metrics.domCount = document.querySelectorAll("*").length;
+    results.metrics.canvasCount = document.querySelectorAll("canvas").length;
+
+    // Pan FPS at overview.
+    setPhase("pan @ overview…");
+    const vp0 = { x: 0, y: 0, zoom: 0.1, width: innerWidth, height: innerHeight - 40 };
+    renderer.updateViewport(vp0);
+    await nextFrame();
+    results.metrics.panOverview = await measureFrames(110, (i) => {
+      renderer.updateViewport({ x: Math.sin(i / 10) * 400, y: Math.cos(i / 7) * 300, zoom: vp0.zoom, width: innerWidth, height: innerHeight - 40 });
+    });
+
+    // Zoom to detail level, then pan.
+    setPhase("zoom to 1.0…");
+    const tZoom = performance.now();
+    for (let i = 0; i <= 40; i++) {
+      const f = i / 40;
+      const z = vp0.zoom + (1.0 - vp0.zoom) * f;
+      renderer.updateViewport({ x: vp0.x, y: vp0.y, zoom: z, width: innerWidth, height: innerHeight - 40 });
+      await nextFrame();
+    }
+    await sleep(150);
+    await nextFrame();
+    results.metrics.zoomMs = Math.round(performance.now() - tZoom);
+    results.metrics.domCountDetail = document.querySelectorAll("*").length;
+
+    setPhase("pan @ detail…");
+    results.metrics.panDetail = await measureFrames(110, (i) => {
+      renderer.updateViewport({ x: Math.sin(i / 9) * 140, y: Math.cos(i / 6) * 110, zoom: 1.0, width: innerWidth, height: innerHeight - 40 });
+    });
+
+    const total = longTasks.reduce((s, l) => s + l.duration, 0);
+    results.metrics.longTasks = {
+      count: longTasks.length,
+      totalMs: total,
+      maxMs: longTasks.length ? Math.max(...longTasks.map((l) => l.duration)) : 0,
+    };
+    results.metrics.memoryUsedMB = performance.memory ? +(performance.memory.usedJSHeapSize / 1048576).toFixed(1) : null;
+
+    renderer.dispose();
+    setPhase("done");
+    renderResults();
+    window.__bench = results;
+    document.title = "BENCH_READY " + results.metrics.layoutMs;
+  }
+
+  function renderResults() {
+    const m = results.metrics;
+    const rows = [
+      ["Graph", m.modelStats.tables + " tables / " + m.modelStats.relations + " rels / " + m.modelStats.columns + " cols"],
+      ["Layout (dagre)", m.layoutMs + " ms"],
+      ["Mount renderer", m.mountMs + " ms"],
+      ["DOM elements", m.domCount.toLocaleString()],
+      ["Canvas count", m.canvasCount],
+      ["Pan FPS (overview)", m.panOverview.fps + " (p95 " + m.panOverview.p95Ms + " ms)"],
+      ["Zoom to 1.0", m.zoomMs + " ms"],
+      ["DOM at detail", m.domCountDetail.toLocaleString()],
+      ["Pan FPS (detail)", m.panDetail.fps + " (p95 " + m.panDetail.p95Ms + " ms)"],
+      ["Long tasks", m.longTasks.count + " · " + m.longTasks.totalMs + " ms · max " + m.longTasks.maxMs + " ms"],
+      ["Heap", m.memoryUsedMB === null ? "n/a" : m.memoryUsedMB + " MB"],
+    ];
+    document.getElementById("results").innerHTML =
+      "<h3>CytoscapeErRenderer · " + N + " tables</h3><table>" +
+      rows.map(([k, v]) => "<tr><td>" + k + "</td><td>" + v + "</td></tr>").join("") + "</table>";
+  }
+
+  requestAnimationFrame(() => requestAnimationFrame(run));
+</script>
+</body>
+</html>

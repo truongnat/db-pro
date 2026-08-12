@@ -141,6 +141,25 @@ Screenshots: `bench/er-cytoscape-{100,500,1000}.png`, `bench/er-reactflow-{100,5
 |---|---|---|---|
 | 2026-08-12 | P1.8 | A/B harness full matrix 100/500/1000 (see section above) | Cytoscape: 31 DOM at all scales, layout 0.2/2/36 s · React Flow: 1,143/6,143/11,817 DOM, layout 0.15/8/122 s, overview pan 60/34/18.6 fps |
 | 2026-08-12 | P1.7 | Layout worker + cache shipped (see Implementation notes below); quality gates: 1,393 FE tests pass, build emits `er-layout.worker.js` (~92 kB, dagre split out of the main bundle) | dagre runs off the main thread; cold 1,000-table layout no longer freezes the UI (worker), repeat opens are instant (cache) — the 0.15/8/122 s main-thread blocks measured in P1.8 become worker-side durations with the shell interactive |
+| 2026-08-12 | P1.9 | CytoscapeErRenderer benchmark against the REAL app source (vite-dev harness `frontend/public/bench-hybrid.html`, Chrome 150 headless, same protocol as P1.8) | see table below — 18 DOM elements + ~60 fps overview pan at 500 AND 1,000 tables |
+
+### P1.9 renderer verification (real app code)
+
+`frontend/public/bench-hybrid.html` imports `renderer/cytoscape-renderer.ts` + `renderer/er-graph-model.ts` + `utils/layout.ts` directly via Vite dev — this measures the shipped renderer, not a re-implementation. Same fixture recipes (mulberry32 seed 42) and frame-sampling protocol as the P1.8 standalone harnesses.
+
+| Metric | React Flow 500 | **CytoscapeErRenderer 500** | React Flow 1000 | **CytoscapeErRenderer 1000** |
+|---|---|---|---|---|
+| DOM elements (overview) | 6,143 | **18** | 11,817 | **18** |
+| Pan FPS @ overview | 34.0 | **59.6** | 18.6 | **59.9** |
+| Pan FPS @ detail | 60.0 | 60.0 | 60.0 | 60.0 |
+| Renderer mount | — | 479 ms | — | 896 ms |
+| Long tasks (beyond dagre) | — | 0 | — | 0 |
+
+Layout durations shown by the harness (dagre run synchronously for measurement) remain the dominant cost (7.3 s @500, 96 s @1000) — in the app these run in the P1.7 Worker with the schemaHash cache, so they are not a main-thread block.
+
+Conclusion: the hybrid selection (React Flow ≤ threshold + neighborhood; Cytoscape overview for the explicit "All N tables" of large schemas) is validated end-to-end. React Flow keeps its interaction richness where the node count is small; the canvas renderer carries the full-graph overview at ~60 fps with 18 DOM elements regardless of size.
+
+Screenshot: `bench/hybrid-cytoscape-500.png`. Bundle note: cytoscape adds ~450 kB min (~180 kB gzip) to the main chunk; a dynamic-import code split of the renderer is a follow-up.
 
 ### P1.7 implementation notes
 

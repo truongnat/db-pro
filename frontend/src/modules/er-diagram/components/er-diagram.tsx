@@ -26,6 +26,9 @@ import { Search, Maximize2, LayoutGrid, Columns2, Table2, RotateCcw, Loader2 } f
 import { ErTableNode, type TableNodeData } from "./lod/er-table-node";
 import { ErPerfHud } from "./er-perf-hud";
 import { NeighborhoodExplorer } from "./neighborhood-explorer";
+import { CytoscapeErView } from "./cytoscape-view";
+import { buildErGraphModel } from "../renderer/er-graph-model";
+import type { ErGraphModel, ErViewport } from "../renderer/types";
 import { useWorkerLayout } from "../hooks/use-worker-layout";
 import {
   layoutNodeHeight,
@@ -130,6 +133,14 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
   const [neighborhoodHops, setNeighborhoodHops] = useState<NeighborhoodScope>(2);
 
   const adjacencyMap = useMemo(() => buildAdjacencyMap(data.foreignKeys), [data.foreignKeys]);
+
+  // P1.9 — renderer-agnostic graph model, shared by the Cytoscape overview.
+  const graphModel = useMemo<ErGraphModel>(() => buildErGraphModel(data, schema), [data, schema]);
+
+  // P1.9 — the explicit "All N tables" overview of a large schema renders on
+  // the canvas renderer (CytoscapeErRenderer). Landing and neighborhood modes
+  // keep React Flow (small node sets where its interaction richness wins).
+  const useCytoscapeForOverview = isLargeSchema && showAll;
 
   // Landing = large schema, no seed yet, not showing everything: exploration
   // mode, empty canvas (full schema is not the default experience).
@@ -457,23 +468,22 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
     if (perfEnabled) perfMonitorRef.current?.endFrameSampling();
   }, [perfEnabled]);
 
-  // Click node → open table tab
-  const onNodeClick = useCallback(
-    (_: React.MouseEvent, node: Node) => {
-      const nodeData = node.data as TableNodeData;
+  // Open the table's detail tab — shared by the React Flow and Cytoscape views.
+  const openTableObject = useCallback(
+    (schemaName: string, tableName: string) => {
       useWorkspaceStore.getState().openDbObject({
-        id: `dbobj:${nodeData.schema}.${nodeData.label}:${connectionId}`,
+        id: `dbobj:${schemaName}.${tableName}:${connectionId}`,
         kind: "db-object",
-        title: nodeData.label,
+        title: tableName,
         connectionId,
-        resourceKey: `dbobj:${nodeData.schema}.${nodeData.label}:${connectionId}`,
+        resourceKey: `dbobj:${schemaName}.${tableName}:${connectionId}`,
         dirty: false,
         pinned: false,
         preview: false,
         order: Date.now(),
         data: {
-          schema: nodeData.schema,
-          objectName: nodeData.label,
+          schema: schemaName,
+          objectName: tableName,
           objectType: "table",
           activeSection: "columns",
         },
@@ -481,6 +491,28 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
     },
     [connectionId],
   );
+
+  // Click node → open table tab (React Flow view).
+  const onNodeClick = useCallback(
+    (_: React.MouseEvent, node: Node) => {
+      const nodeData = node.data as TableNodeData;
+      openTableObject(nodeData.schema, nodeData.label);
+    },
+    [openTableObject],
+  );
+
+  // Click node → open table tab (Cytoscape overview view).
+  const onCytoscapeNodeClick = useCallback(
+    (nodeId: string) => {
+      const table = graphModel.tables.find((t) => t.id === nodeId);
+      if (table) openTableObject(table.schema, table.label);
+    },
+    [graphModel, openTableObject],
+  );
+
+  const onCytoscapeViewportChange = useCallback((viewport: ErViewport) => {
+    viewportRef.current = { x: viewport.x, y: viewport.y, zoom: viewport.zoom };
+  }, []);
 
   // Click edge → highlight it (only meaningful at full edge LOD, where edge
   // ids are stable; aggregated/simple edges are transient render artifacts).
@@ -629,188 +661,178 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
     return edges;
   }, [edges, currentLod, currentEdgeLod]);
 
+  // Exploration handlers shared by both renderer views (P1.6 + P1.9).
+  const handleSelectPoint = useCallback((key: string) => {
+    // Do NOT clear searchQuery here: clearing it re-runs the search effect,
+    // which would null the seed we just set.
+    setNeighborhoodSeed(key);
+    setShowAll(false);
+  }, []);
+  const handleSelectHops = useCallback(
+    (hops: NeighborhoodScope) => {
+      // Landing: picking a hop scope auto-focuses the top hub.
+      if (landing && suggestedPoints[0]) setNeighborhoodSeed(suggestedPoints[0].key);
+      setNeighborhoodHops(hops);
+      setShowAll(false);
+    },
+    [landing, suggestedPoints],
+  );
+  const handleShowAll = useCallback(() => {
+    // Clear leftover search text so the search effect cannot match a stale
+    // term and flip showAll back off.
+    setSearchQuery("");
+    setShowAll(true);
+    setNeighborhoodSeed(null);
+  }, []);
+  const handleResetExploration = useCallback(() => {
+    setShowAll(false);
+    setNeighborhoodSeed(null);
+    setSearchQuery("");
+    setNeighborhoodHops(2);
+  }, []);
+
   const showMiniMap = !landing && initialNodes.length <= 200;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col" ref={reactFlowRef}>
-      <ReactFlow
-        nodes={nodes}
-        edges={displayEdges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onViewportChange={onViewportChange}
-        onMoveStart={onMoveStart}
-        onMoveEnd={onMoveEnd}
-        onInit={onInit}
-        onNodeClick={onNodeClick}
-        onEdgeClick={onEdgeClick}
-        onPaneClick={onPaneClick}
-        onNodeDragStop={onNodeDragStop}
-        nodeTypes={nodeTypes}
-        fitView
-        fitViewOptions={{ padding: 0.2 }}
-        onlyRenderVisibleElements
-        minZoom={0.1}
-        maxZoom={2}
-        proOptions={{ hideAttribution: true }}
-        nodesDraggable
-        nodesConnectable={false}
-        deleteKeyCode={null}
-        className="bg-background"
-      >
-        <Background
-          variant={BackgroundVariant.Dots}
-          gap={20}
-          size={1}
-          color="var(--app-border-subtle)"
+      {useCytoscapeForOverview ? (
+        <CytoscapeErView
+          model={graphModel}
+          positions={layout.status === "ready" ? layout.positions : null}
+          layoutStatus={layout.status}
+          onViewportChange={onCytoscapeViewportChange}
+          onNodeClick={onCytoscapeNodeClick}
+          explorer={{
+            totalTables: tablesInSchema.length,
+            relationCount: schemaStats.relations,
+            columnCount: schemaStats.columns,
+            suggestedPoints,
+            seedLabel: null,
+            hops: neighborhoodHops,
+            showAll: true,
+            onSelectPoint: handleSelectPoint,
+            onSelectHops: handleSelectHops,
+            onShowAll: handleShowAll,
+            onReset: handleResetExploration,
+          }}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
         />
-        <Controls showInteractive={false} />
-
-        {/* P1.7 — layout is computing in the Worker; shell stays interactive. */}
-        {layout.status === "computing" && (
-          <Panel position="top-center" className="m-2">
-            <div className="flex items-center gap-2 rounded-md border bg-popover px-3 py-1.5 text-[12px] text-muted-foreground shadow-sm">
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              Arranging {layout.nodeCount} tables…
-            </div>
-          </Panel>
-        )}
-        {layout.status === "error" && (
-          <Panel position="top-center" className="m-2">
-            <div className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-1.5 text-[12px] text-destructive">
-              Layout failed: {layout.error}
-            </div>
-          </Panel>
-        )}
-
-        {perfEnabled && perfMonitorRef.current && (
-          <ErPerfHud
-            monitor={perfMonitorRef.current}
-            spatialIndex={spatialIndex}
-            edgeCount={edges.length}
-            viewportRef={viewportRef}
+      ) : (
+        <ReactFlow
+          nodes={nodes}
+          edges={displayEdges}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          onViewportChange={onViewportChange}
+          onMoveStart={onMoveStart}
+          onMoveEnd={onMoveEnd}
+          onInit={onInit}
+          onNodeClick={onNodeClick}
+          onEdgeClick={onEdgeClick}
+          onPaneClick={onPaneClick}
+          onNodeDragStop={onNodeDragStop}
+          nodeTypes={nodeTypes}
+          fitView
+          fitViewOptions={{ padding: 0.2 }}
+          onlyRenderVisibleElements
+          minZoom={0.1}
+          maxZoom={2}
+          proOptions={{ hideAttribution: true }}
+          nodesDraggable
+          nodesConnectable={false}
+          deleteKeyCode={null}
+          className="bg-background"
+        >
+          <Background
+            variant={BackgroundVariant.Dots}
+            gap={20}
+            size={1}
+            color="var(--app-border-subtle)"
           />
-        )}
-        {showMiniMap && (
-          <MiniMap
-            nodeColor={(n) => {
-              const d = n.data as TableNodeData;
-              return d.columns?.some((c) => c.isForeignKey) ? "var(--info)" : "var(--primary)";
-            }}
-            maskColor="rgba(0,0,0,0.08)"
-            className="!bg-popover !border-[var(--app-border)]"
-          />
-        )}
+          <Controls showInteractive={false} />
 
-        {/* Top-left panel: search + P1.6 neighborhood exploration */}
-        <Panel position="top-left" className="m-2">
-          <div className="flex flex-col items-start gap-2">
-            <div className="flex items-center gap-2">
-              <div className="relative">
-                <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--app-text-muted)]" />
-                <Input
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder={`${t("shell.sidebar.searchObjects")}...`}
-                  className="h-7 w-48 rounded-md pl-7 text-[12px]"
-                />
+          {/* P1.7 — layout is computing in the Worker; shell stays interactive. */}
+          {layout.status === "computing" && (
+            <Panel position="top-center" className="m-2">
+              <div className="flex items-center gap-2 rounded-md border bg-popover px-3 py-1.5 text-[12px] text-muted-foreground shadow-sm">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Arranging {layout.nodeCount} tables…
               </div>
-              {!isLargeSchema && (
-                <Badge variant="outline" className="h-7 text-[11px]">
-                  <Table2 className="mr-1 h-3 w-3" />
-                  {initialNodes.length} tables
-                </Badge>
+            </Panel>
+          )}
+          {layout.status === "error" && (
+            <Panel position="top-center" className="m-2">
+              <div className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-1.5 text-[12px] text-destructive">
+                Layout failed: {layout.error}
+              </div>
+            </Panel>
+          )}
+
+          {perfEnabled && perfMonitorRef.current && (
+            <ErPerfHud
+              monitor={perfMonitorRef.current}
+              spatialIndex={spatialIndex}
+              edgeCount={edges.length}
+              viewportRef={viewportRef}
+            />
+          )}
+          {showMiniMap && (
+            <MiniMap
+              nodeColor={(n) => {
+                const d = n.data as TableNodeData;
+                return d.columns?.some((c) => c.isForeignKey) ? "var(--info)" : "var(--primary)";
+              }}
+              maskColor="rgba(0,0,0,0.08)"
+              className="!bg-popover !border-[var(--app-border)]"
+            />
+          )}
+
+          {/* Top-left panel: search + P1.6 neighborhood exploration */}
+          <Panel position="top-left" className="m-2">
+            <div className="flex flex-col items-start gap-2">
+              <div className="flex items-center gap-2">
+                <div className="relative">
+                  <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--app-text-muted)]" />
+                  <Input
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder={`${t("shell.sidebar.searchObjects")}...`}
+                    className="h-7 w-48 rounded-md pl-7 text-[12px]"
+                  />
+                </div>
+                {!isLargeSchema && (
+                  <Badge variant="outline" className="h-7 text-[11px]">
+                    <Table2 className="mr-1 h-3 w-3" />
+                    {initialNodes.length} tables
+                  </Badge>
+                )}
+              </div>
+              {isLargeSchema && (
+                <NeighborhoodExplorer
+                  totalTables={tablesInSchema.length}
+                  relationCount={schemaStats.relations}
+                  columnCount={schemaStats.columns}
+                  suggestedPoints={suggestedPoints}
+                  seedLabel={
+                    neighborhoodSeed
+                      ? neighborhoodSeed.slice(neighborhoodSeed.indexOf(".") + 1)
+                      : null
+                  }
+                  hops={neighborhoodHops}
+                  showAll={showAll}
+                  onSelectPoint={handleSelectPoint}
+                  onSelectHops={handleSelectHops}
+                  onShowAll={handleShowAll}
+                  onReset={handleResetExploration}
+                />
               )}
             </div>
-            {isLargeSchema && (
-              <NeighborhoodExplorer
-                totalTables={tablesInSchema.length}
-                relationCount={schemaStats.relations}
-                columnCount={schemaStats.columns}
-                suggestedPoints={suggestedPoints}
-                seedLabel={
-                  neighborhoodSeed
-                    ? neighborhoodSeed.slice(neighborhoodSeed.indexOf(".") + 1)
-                    : null
-                }
-                hops={neighborhoodHops}
-                showAll={showAll}
-                onSelectPoint={(key) => {
-                  // Do NOT clear searchQuery here: clearing it re-runs the
-                  // search effect, which would null the seed we just set.
-                  setNeighborhoodSeed(key);
-                  setShowAll(false);
-                }}
-                onSelectHops={(hops) => {
-                  // Landing: picking a hop scope auto-focuses the top hub.
-                  if (landing && suggestedPoints[0]) setNeighborhoodSeed(suggestedPoints[0].key);
-                  setNeighborhoodHops(hops);
-                  setShowAll(false);
-                }}
-                onShowAll={() => {
-                  // Clear leftover search text so the search effect cannot
-                  // match a stale term and flip showAll back off.
-                  setSearchQuery("");
-                  setShowAll(true);
-                  setNeighborhoodSeed(null);
-                }}
-                onReset={() => {
-                  setShowAll(false);
-                  setNeighborhoodSeed(null);
-                  setSearchQuery("");
-                  setNeighborhoodHops(2);
-                }}
-              />
-            )}
-          </div>
-        </Panel>
+          </Panel>
 
-        {/* Bottom-left: layout controls */}
-        <Panel position="bottom-left" className="m-2">
-          <div className="flex items-center gap-1">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-7 w-7 p-0"
-                  onClick={() => setLayoutDirection((d) => (d === "LR" ? "TB" : "LR"))}
-                >
-                  <LayoutGrid className="h-3.5 w-3.5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Toggle layout direction</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-7 w-7 p-0"
-                  onClick={() => setCompact((c) => !c)}
-                >
-                  <Columns2 className="h-3.5 w-3.5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>{compact ? "Show columns" : "Compact mode"}</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-7 w-7 p-0"
-                  onClick={handleFitView}
-                >
-                  <Maximize2 className="h-3.5 w-3.5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Fit view</TooltipContent>
-            </Tooltip>
-            {manualPositions.size > 0 && (
+          {/* Bottom-left: layout controls */}
+          <Panel position="bottom-left" className="m-2">
+            <div className="flex items-center gap-1">
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -818,17 +840,61 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
                     variant="outline"
                     size="sm"
                     className="h-7 w-7 p-0"
-                    onClick={handleResetLayout}
+                    onClick={() => setLayoutDirection((d) => (d === "LR" ? "TB" : "LR"))}
                   >
-                    <RotateCcw className="h-3.5 w-3.5" />
+                    <LayoutGrid className="h-3.5 w-3.5" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>Reset layout</TooltipContent>
+                <TooltipContent>Toggle layout direction</TooltipContent>
               </Tooltip>
-            )}
-          </div>
-        </Panel>
-      </ReactFlow>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 w-7 p-0"
+                    onClick={() => setCompact((c) => !c)}
+                  >
+                    <Columns2 className="h-3.5 w-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>{compact ? "Show columns" : "Compact mode"}</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 w-7 p-0"
+                    onClick={handleFitView}
+                  >
+                    <Maximize2 className="h-3.5 w-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Fit view</TooltipContent>
+              </Tooltip>
+              {manualPositions.size > 0 && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 w-7 p-0"
+                      onClick={handleResetLayout}
+                    >
+                      <RotateCcw className="h-3.5 w-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Reset layout</TooltipContent>
+                </Tooltip>
+              )}
+            </div>
+          </Panel>
+        </ReactFlow>
+      )}
     </div>
   );
 }
