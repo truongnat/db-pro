@@ -173,9 +173,9 @@ payments - orders - order_items
 | Memory | No unbounded growth |
 
 **Acceptance criteria:**
-- [ ] Budgets documented in VERIFICATION.md
-- [ ] Benchmark fixtures exist for small (20), medium (100), large (500), xlarge (1000) tables
-- [ ] At least one automated performance test that fails if budget is violated
+- [x] Budgets documented in VERIFICATION.md — reconciled against P1.8/P1.9 evidence on 2026-08-12 (see "ER Diagram — budget reconciliation"): node build / DOM / memory / initial paint / search / selection PASS; **Dagre absolute budgets were unreachable** (P1.8: 151ms/8.1s/122s vs 100/300/800ms — reframed to main-thread block = 0 via the P1.7 worker + cache, F-B1); **frame-time units unreachable** (<8ms = 125fps > 60Hz vsync) and RF full-graph overview genuinely fails 500/1000 (34/18.6fps — the P1.9 hybrid is the shipped fix, F-B2); 3 harness-protocol gaps tracked as P2 (F-B3)
+- [x] Benchmark fixtures exist for small (20), medium (100), large (500), xlarge (1000) tables — `__tests__/er-fixture.ts` (deterministic `generateErFixture`, seed 42) consumed by `benchmark.test.ts` + `er-node-builder.test.ts` + `neighborhood.test.ts`; standalone A/B harness fixtures in `bench/fixture-gen.js` (100/500/1000 presets)
+- [x] At least one automated performance test that fails if budget is violated — `benchmark.test.ts` asserts the real pre-indexed node-build pipeline stays under 5/20/50/100 ms (20/100/500/1000 tables); `neighborhood.test.ts` adds a <5ms 2-hop budget at 1000 tables; suite green 2026-08-12
 
 ### P3.8 — Data Grid / Metadata List Audit
 

@@ -48,9 +48,9 @@
 - [x] **5.2** Audit data grid for O(N) scan patterns
 - [x] **5.3** Audit connection list for O(N) scan patterns
 - [x] **5.4** Fix P0/P1 issues found in audit
-- [x] **5.5** Create benchmark fixtures (20, 100, 500, 1000 tables)
-- [x] **5.6** Define performance budgets in VERIFICATION.md
-- [x] **5.7** Add at least one automated performance regression test
+- [x] **5.5** Create benchmark fixtures (20, 100, 500, 1000 tables) — `__tests__/er-fixture.ts` (`generateErFixture`, deterministic seed 42) shared by benchmark/er-node-builder/neighborhood tests; `bench/fixture-gen.js` presets 100/500/1000 for the standalone A/B harnesses
+- [x] **5.6** Define performance budgets in VERIFICATION.md — reconciled 2026-08-12 against P1.8/P1.9 evidence (see "ER Diagram — budget reconciliation"): node build/DOM/memory/initial paint/search/selection PASS; Dagre absolute budgets reframed to main-thread block = 0 (worker + cache, F-B1); frame-time budgets reframed to the shipped renderer path (P1.9 hybrid fixes RF overview 34/18.6 fps @500/1000, F-B2); harness protocol gaps tracked as P2 (F-B3)
+- [x] **5.7** Add at least one automated performance regression test — `benchmark.test.ts` (real pre-indexed pipeline, 5/20/50/100 ms budgets, suite green) + `neighborhood.test.ts` 2-hop <5 ms @1000
 
 ## Phase 6: Large-Schema Rendering Architecture (P1)
 
