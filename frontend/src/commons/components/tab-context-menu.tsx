@@ -9,36 +9,41 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
-import type { WorkspaceTab } from "@/commons/types/workspace.types";
 
 interface TabContextMenuProps {
-  tab: WorkspaceTab;
+  tab: {
+    id: string;
+    title: string;
+    pinned: boolean;
+    kind: string;
+    resourceName: string;
+  };
   children: React.ReactNode;
   onClose: (id: string, opts?: { skipDirtyCheck?: boolean }) => void;
   onCloseMany: (ids: string[]) => void;
 }
 
-function getTabResourceName(tab: WorkspaceTab): string {
-  if (tab.kind === "schema-workspace") {
-    return tab.data.schema;
-  }
-  if (tab.kind === "db-object") {
-    return `${tab.data.schema}.${tab.data.objectName}`;
-  }
-  return tab.title;
-}
-
 export function TabContextMenu({ tab, children, onClose, onCloseMany }: TabContextMenuProps) {
-  const tabs = useWorkspaceStore((s) => s.tabs);
+  const tabOrderKey = useWorkspaceStore((s) =>
+    s.tabs.map((t) => `${t.id}:${Number(t.pinned)}`).join("|"),
+  );
   const toggleTabPinned = useWorkspaceStore((s) => s.toggleTabPinned);
   const reopenLastClosed = useWorkspaceStore((s) => s.reopenLastClosed);
 
   const recentlyClosedCount = useWorkspaceStore((s) => s.recentlyClosed.length);
 
-  const tabIdx = tabs.findIndex((t) => t.id === tab.id);
-  const otherIds = tabs.filter((t) => t.id !== tab.id && !t.pinned).map((t) => t.id);
-  const rightIds = tabs.filter((_, i) => i > tabIdx && !_.pinned).map((t) => t.id);
-  const allUnpinnedIds = tabs.filter((t) => !t.pinned).map((t) => t.id);
+  const tabEntries = tabOrderKey.split("|").map((entry) => {
+    const [id, pinned] = entry.split(":");
+    return { id, pinned: pinned === "1" };
+  });
+
+  const tabIdx = tabEntries.findIndex((t) => t.id === tab.id);
+  const otherIds = tabEntries.filter((t) => t.id !== tab.id && !t.pinned).map((t) => t.id);
+  const rightIds = tabEntries
+    .filter((_, i) => i > tabIdx)
+    .filter((t) => !t.pinned)
+    .map((t) => t.id);
+  const allUnpinnedIds = tabEntries.filter((t) => !t.pinned).map((t) => t.id);
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text).catch(() => {});
@@ -74,7 +79,7 @@ export function TabContextMenu({ tab, children, onClose, onCloseMany }: TabConte
           Copy Tab Title
         </ContextMenuItem>
         {tab.kind === "db-object" && (
-          <ContextMenuItem onClick={() => copyToClipboard(getTabResourceName(tab))}>
+          <ContextMenuItem onClick={() => copyToClipboard(tab.resourceName)}>
             <CopyIcon className="size-3.5" />
             Copy Resource Name
           </ContextMenuItem>

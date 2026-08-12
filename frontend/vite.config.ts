@@ -25,5 +25,17 @@ export default defineConfig({
   build: {
     outDir: "dist",
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          "vendor-tanstack": [
+            "@tanstack/react-query",
+            "@tanstack/react-router",
+            "@tanstack/react-virtual",
+          ],
+          "vendor-ui": ["@dnd-kit/core", "@dnd-kit/sortable", "cmdk", "lucide-react"],
+        },
+      },
+    },
   },
 });

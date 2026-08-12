@@ -38,14 +38,77 @@ import { useTabKeyboard } from "@/hooks/use-tab-keyboard";
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
 import type { WorkspaceTab } from "@/commons/types/workspace.types";
 
-function TabKindIcon({ tab }: { tab: WorkspaceTab }) {
+export interface TabBarInfo {
+  id: string;
+  title: string;
+  dirty: boolean;
+  pinned: boolean;
+  preview: boolean;
+  kind: WorkspaceTab["kind"];
+  connectionId: string | null;
+  status: "idle" | "running" | "success" | "error" | "cancelled" | null;
+  objectType: string | null;
+  resourceName: string;
+}
+
+function projectTabForBar(tab: WorkspaceTab): TabBarInfo {
+  const base = {
+    id: tab.id,
+    title: tab.title,
+    dirty: tab.dirty,
+    pinned: tab.pinned,
+    preview: tab.preview,
+    kind: tab.kind,
+    connectionId: tab.connectionId,
+  };
+
+  if (tab.kind === "query") {
+    return { ...base, status: tab.data.status, objectType: null, resourceName: tab.title };
+  }
+  if (tab.kind === "db-object") {
+    return {
+      ...base,
+      status: null,
+      objectType: tab.data.objectType,
+      resourceName: `${tab.data.schema}.${tab.data.objectName}`,
+    };
+  }
+  return {
+    ...base,
+    status: null,
+    objectType: null,
+    resourceName: tab.data.schema,
+  };
+}
+
+function tabBarInfoEqual(a: TabBarInfo, b: TabBarInfo): boolean {
+  return (
+    a.id === b.id &&
+    a.title === b.title &&
+    a.dirty === b.dirty &&
+    a.pinned === b.pinned &&
+    a.preview === b.preview &&
+    a.kind === b.kind &&
+    a.connectionId === b.connectionId &&
+    a.status === b.status &&
+    a.objectType === b.objectType &&
+    a.resourceName === b.resourceName
+  );
+}
+
+function tabBarListEqual(a: TabBarInfo[], b: TabBarInfo[]): boolean {
+  if (a.length !== b.length) return false;
+  return a.every((t, i) => tabBarInfoEqual(t, b[i]));
+}
+
+function TabKindIcon({ tab }: { tab: TabBarInfo }) {
   if (tab.kind === "query") {
     return <DatabaseIcon className="h-3.5 w-3.5 shrink-0 text-[var(--text-secondary)]" />;
   }
   if (tab.kind === "schema-workspace") {
     return <Layers className="h-3.5 w-3.5 shrink-0 text-primary" />;
   }
-  if (tab.data.objectType === "view") {
+  if (tab.objectType === "view") {
     return <TableIcon className="h-3.5 w-3.5 shrink-0 text-[var(--text-secondary)] opacity-70" />;
   }
   return <TableIcon className="h-3.5 w-3.5 shrink-0 text-[var(--text-secondary)]" />;
@@ -59,7 +122,7 @@ function TabItem({
   dragListeners,
   dragAttributes,
 }: {
-  tab: WorkspaceTab;
+  tab: TabBarInfo;
   isActive: boolean;
   onActivate: () => void;
   onClose: (id: string, opts?: { skipDirtyCheck?: boolean }) => void;
@@ -118,9 +181,9 @@ function TabItem({
       {/* Active indicator — top 2px line */}
       {isActive && <span className="absolute inset-x-0 top-0 h-[2px] bg-primary" />}
       {/* Kind icon / running spinner / error dot */}
-      {tab.kind === "query" && tab.data.status === "running" ? (
+      {tab.kind === "query" && tab.status === "running" ? (
         <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-primary" />
-      ) : tab.kind === "query" && tab.data.status === "error" ? (
+      ) : tab.kind === "query" && tab.status === "error" ? (
         <span className="h-2 w-2 shrink-0 rounded-full bg-[var(--state-danger)]" />
       ) : (
         <TabKindIcon tab={tab} />
@@ -163,7 +226,10 @@ function TabItem({
 
 export function WorkspaceTabBar() {
   const { t } = useTranslation();
-  const tabs = useWorkspaceStore((s) => s.tabs);
+  const tabs = useWorkspaceStore(
+    (s) => s.tabs.map(projectTabForBar),
+    tabBarListEqual,
+  );
   const activeTabId = useWorkspaceStore((s) => s.activeTabId);
   const activateTab = useWorkspaceStore((s) => s.activateTab);
   const reorderTabs = useWorkspaceStore((s) => s.reorderTabs);
@@ -176,7 +242,7 @@ export function WorkspaceTabBar() {
   useTabKeyboard();
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
-  const [draggingTab, setDraggingTab] = useState<WorkspaceTab | null>(null);
+  const [draggingTab, setDraggingTab] = useState<TabBarInfo | null>(null);
 
   const pinnedTabs = tabs.filter((t) => t.pinned);
   const unpinnedTabs = tabs.filter((t) => !t.pinned);
@@ -286,7 +352,7 @@ export function WorkspaceTabBar() {
         <DragOverlay>
           {draggingTab ? (
             <div className="flex items-center gap-1.5 border border-[var(--border-default)] bg-[var(--surface-editor)] px-3 py-2 text-[13px] shadow-lg opacity-90">
-              {draggingTab.kind === "query" && draggingTab.data.status === "running" ? (
+              {draggingTab.kind === "query" && draggingTab.status === "running" ? (
                 <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-primary" />
               ) : (
                 <TabKindIcon tab={draggingTab} />

@@ -4,6 +4,7 @@ import { ThemeProvider } from "./app/providers/theme-provider";
 import { QueryProvider } from "./app/providers/query-provider";
 import { SnackbarProvider } from "./app/providers/snackbar.provider";
 import { ModalProvider } from "./app/providers/modal.provider";
+import { ConfirmDialogProvider } from "./app/providers/confirm-dialog.provider";
 import { TooltipProvider } from "./components/ui/tooltip";
 import { registerAllCommands } from "./commons/commands/register-commands";
 
@@ -24,7 +25,9 @@ function App() {
         <QueryProvider>
           <SnackbarProvider>
             <ModalProvider>
-              <RouterProvider router={router} />
+              <ConfirmDialogProvider>
+                <RouterProvider router={router} />
+              </ConfirmDialogProvider>
             </ModalProvider>
           </SnackbarProvider>
         </QueryProvider>

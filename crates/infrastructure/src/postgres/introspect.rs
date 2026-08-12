@@ -4,48 +4,39 @@ use sqlx::Row as _;
 use std::collections::HashSet;
 
 pub async fn run_introspection(pool: &sqlx::PgPool) -> Result<IntrospectResult, DbError> {
-    // 1. Schemas
-    let schemas = introspect_schemas(pool).await?;
+    // Run independent introspection queries in parallel
+    let (schemas, tables, raw_cols, primary_keys, indexes, foreign_keys, views, triggers, functions) = tokio::join!(
+        introspect_schemas(pool),
+        introspect_tables(pool),
+        introspect_columns_raw(pool),
+        introspect_primary_keys(pool),
+        introspect_indexes(pool),
+        introspect_foreign_keys(pool),
+        introspect_views(pool),
+        introspect_triggers(pool),
+        introspect_functions(pool),
+    );
 
-    // 2. Tables (with row counts from pg_class)
-    let tables = introspect_tables(pool).await?;
+    let schemas = schemas?;
+    let tables = tables?;
+    let raw_cols = raw_cols?;
+    let primary_keys = primary_keys?;
+    let indexes = indexes?;
+    let foreign_keys = foreign_keys?;
+    let views = views?;
+    let triggers = triggers?;
+    let functions = functions?;
 
-    // 3. Columns — fetched raw below with table info for PK marking
+    // Build PK column set from already-fetched primary_keys (no extra query)
+    let pk_column_set: HashSet<(String, String, String)> = primary_keys
+        .iter()
+        .flat_map(|pk| {
+            pk.columns
+                .iter()
+                .map(move |col| (pk.schema.clone(), pk.table_name.clone(), col.clone()))
+        })
+        .collect();
 
-    // 4. Primary keys
-    let primary_keys = introspect_primary_keys(pool).await?;
-
-    // Mark columns that are part of a primary key
-    let pk_column_set: HashSet<(String, String, String)> = {
-        let mut set = HashSet::new();
-        // We need table info per PK — re-query to associate columns with tables
-        let rows = sqlx::query(
-            r#"
-            SELECT tc.table_schema, tc.table_name, kcu.column_name
-            FROM information_schema.table_constraints tc
-            JOIN information_schema.key_column_usage kcu
-                ON tc.constraint_name = kcu.constraint_name
-                AND tc.table_schema = kcu.table_schema
-            WHERE tc.constraint_type = 'PRIMARY KEY'
-              AND tc.table_schema NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
-            "#,
-        )
-        .fetch_all(pool)
-        .await
-        .map_err(crate::error::from_sqlx)?;
-
-        for row in rows {
-            let schema: String = row.get("table_schema");
-            let table: String = row.get("table_name");
-            let column: String = row.get("column_name");
-            set.insert((schema, table, column));
-        }
-        set
-    };
-
-    // We need table_schema/table_name on columns to match against pk_set,
-    // so re-fetch with that info and build the final Column vec.
-    let raw_cols = introspect_columns_raw(pool).await?;
     let columns = raw_cols
         .into_iter()
         .map(|(schema, table, name, data_type, nullable, default)| {
@@ -61,21 +52,6 @@ pub async fn run_introspection(pool: &sqlx::PgPool) -> Result<IntrospectResult, 
             }
         })
         .collect();
-
-    // 5. Indexes
-    let indexes = introspect_indexes(pool).await?;
-
-    // 6. Foreign keys
-    let foreign_keys = introspect_foreign_keys(pool).await?;
-
-    // 7. Views
-    let views = introspect_views(pool).await?;
-
-    // 8. Triggers
-    let triggers = introspect_triggers(pool).await?;
-
-    // 9. Functions
-    let functions = introspect_functions(pool).await?;
 
     Ok(IntrospectResult {
         schemas,

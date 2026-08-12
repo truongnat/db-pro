@@ -9,9 +9,14 @@ import { formatShortcut } from "@/commons/utils/platform";
 export function CommandPalette() {
   const { t } = useTranslation();
   const isOpen = useCommandStore((s) => s.isOpen);
-  const commands = useCommandStore((s) => s.getAvailableCommands());
+  const allCommands = useCommandStore((s) => s.commands);
   const close = useCommandStore((s) => s.close);
   const execute = useCommandStore((s) => s.executeCommand);
+
+  const commands = useMemo(
+    () => allCommands.filter((c) => !c.when || c.when()),
+    [allCommands],
+  );
 
   const grouped = useMemo(() => {
     const map = new Map<string, typeof commands>();

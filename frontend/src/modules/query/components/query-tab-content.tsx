@@ -9,6 +9,7 @@ import { useActionConfirmationStore } from "@/commons/stores/action-confirmation
 import { useSchemaCatalogStore } from "../stores/schema-catalog.store";
 import { Button } from "@/components/ui/button";
 import { useSnackbar } from "@/app/providers/snackbar.provider";
+import { useConfirmDialog } from "@/app/providers/confirm-dialog.provider";
 import { ExportDialog } from "@/modules/export/components/export-dialog";
 
 import { ExplainPlanView } from "./explain-plan";
@@ -43,6 +44,7 @@ interface QueryTabContentProps {
 export function QueryTabContent({ tabId }: QueryTabContentProps) {
   const { t } = useTranslation();
   const snackbar = useSnackbar();
+  const { confirm } = useConfirmDialog();
 
   const tab = useWorkspaceStore((s) => {
     const found = s.tabs.find((t) => t.id === tabId);
@@ -151,14 +153,18 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
   const tabDirty = tab?.dirty ?? false;
 
   const handleSelectHistoryEntry = useCallback(
-    (entrySql: string) => {
+    async (entrySql: string) => {
       if (tabDirty && sql.trim() && sql !== entrySql) {
-        if (!window.confirm(t("query.dirtyReplaceConfirm"))) return;
+        const ok = await confirm({
+          title: t("query.dirtyReplaceConfirm"),
+          message: t("query.dirtyReplaceConfirm"),
+        });
+        if (!ok) return;
       }
       setTabSql(tabId, entrySql);
       setTabActivePanel(tabId, "results");
     },
-    [tabId, tabDirty, sql, t],
+    [tabId, tabDirty, sql, t, confirm],
   );
 
   const handleFileImport = useCallback(
@@ -166,11 +172,15 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
       const file = e.target.files?.[0];
       if (!file) return;
       const reader = new FileReader();
-      reader.onload = (ev) => {
+      reader.onload = async (ev) => {
         const text = ev.target?.result;
         if (typeof text === "string") {
           if (tabDirty && sql.trim()) {
-            if (!window.confirm(t("query.dirtyReplaceConfirm"))) return;
+            const ok = await confirm({
+              title: t("query.dirtyReplaceConfirm"),
+              message: t("query.dirtyReplaceConfirm"),
+            });
+            if (!ok) return;
           }
           setTabSql(tabId, text);
         }
@@ -178,7 +188,7 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
       reader.readAsText(file);
       e.target.value = "";
     },
-    [tabId, tabDirty, sql, t],
+    [tabId, tabDirty, sql, t, confirm],
   );
 
   useEffect(() => {

@@ -12,12 +12,12 @@ export function StatusBar() {
   const connections = useConnectionList();
   const explorerConnectionId = useConnectionStore((s) => s.explorerConnectionId);
   const statuses = useConnectionModuleStore((s) => s.statuses);
-  const activeTab = useWorkspaceStore((s) => {
+  const activeConnectionId = useWorkspaceStore((s) => {
     if (!s.activeTabId) return null;
-    return s.tabs.find((t) => t.id === s.activeTabId) ?? null;
+    return s.tabs.find((t) => t.id === s.activeTabId)?.connectionId ?? null;
   });
 
-  const workspaceConnectionId = activeTab?.connectionId ?? explorerConnectionId;
+  const workspaceConnectionId = activeConnectionId ?? explorerConnectionId;
   const activeConnection = connections.data?.find((c) => c.id === workspaceConnectionId) ?? null;
   const introspect = useIntrospect(workspaceConnectionId);
 

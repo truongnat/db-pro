@@ -1,15 +1,13 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
-import type { WorkspaceTab } from "@/commons/types/workspace.types";
-
-interface SortableTabProps {
-  tab: WorkspaceTab;
+interface SortableTabProps<T extends { id: string }> {
+  tab: T;
   isActive: boolean;
   onActivate: () => void;
   onClose: (id: string, opts?: { skipDirtyCheck?: boolean }) => void;
   children: (props: {
-    tab: WorkspaceTab;
+    tab: T;
     isActive: boolean;
     onActivate: () => void;
     onClose: (id: string, opts?: { skipDirtyCheck?: boolean }) => void;
@@ -19,7 +17,13 @@ interface SortableTabProps {
   }) => React.ReactNode;
 }
 
-export function SortableTab({ tab, isActive, onActivate, onClose, children }: SortableTabProps) {
+export function SortableTab<T extends { id: string }>({
+  tab,
+  isActive,
+  onActivate,
+  onClose,
+  children,
+}: SortableTabProps<T>) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: tab.id,
   });

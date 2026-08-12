@@ -10,37 +10,30 @@ fn escape_identifier(name: &str) -> String {
 }
 
 pub fn run_introspection(conn: &rusqlite::Connection) -> Result<IntrospectResult, DbError> {
-    let tables = introspect_tables(conn)?;
-    let columns = introspect_columns(conn)?;
-    let indexes = introspect_indexes(conn)?;
-    let foreign_keys = introspect_foreign_keys(conn)?;
+    let table_names = fetch_table_names(conn)?;
+    let tables = introspect_tables(conn, &table_names)?;
+    let columns = introspect_columns(conn, &table_names)?;
+    let indexes = introspect_indexes(conn, &table_names)?;
+    let foreign_keys = introspect_foreign_keys(conn, &table_names)?;
     let views = introspect_views(conn)?;
     let triggers = introspect_triggers(conn)?;
 
-    let mut primary_keys = Vec::new();
-    for t in &tables {
-        // PRAGMA does not support ? parameters for table names;
-        // use safe identifier escaping instead.
-        let safe_name = escape_identifier(&t.name);
-        let mut stmt = conn
-            .prepare(&format!(
-                "SELECT name FROM pragma_table_info({safe_name}) WHERE pk > 0 ORDER BY pk"
-            ))
-            .map_err(crate::error::from_rusqlite)?;
-        let pk_cols: Vec<String> = stmt
-            .query_map([], |row| row.get(0))
-            .map_err(crate::error::from_rusqlite)?
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(crate::error::from_rusqlite)?;
-        if !pk_cols.is_empty() {
-            primary_keys.push(PrimaryKey {
-                constraint_name: format!("{}_pk", t.name),
-                columns: pk_cols,
-                table_name: t.name.clone(),
-                schema: "main".into(),
-            });
+    // Derive primary keys from already-fetched columns (no extra PRAGMA calls)
+    let mut pk_map: std::collections::HashMap<String, Vec<String>> = std::collections::HashMap::new();
+    for col in &columns {
+        if col.is_primary_key {
+            pk_map.entry(col.table_name.clone()).or_default().push(col.name.clone());
         }
     }
+    let primary_keys = pk_map
+        .into_iter()
+        .map(|(table_name, columns)| PrimaryKey {
+            constraint_name: format!("{table_name}_pk"),
+            columns,
+            table_name,
+            schema: "main".into(),
+        })
+        .collect();
 
     let schemas = vec![Schema { name: "main".into() }];
 
@@ -57,37 +50,32 @@ pub fn run_introspection(conn: &rusqlite::Connection) -> Result<IntrospectResult
     })
 }
 
-fn introspect_tables(conn: &rusqlite::Connection) -> Result<Vec<Table>, DbError> {
+fn fetch_table_names(conn: &rusqlite::Connection) -> Result<Vec<String>, DbError> {
     let mut stmt = conn
         .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name")
         .map_err(crate::error::from_rusqlite)?;
-    let tables = stmt
-        .query_map([], |row| {
-            let name: String = row.get(0)?;
-            Ok(Table {
-                name,
-                schema: "main".into(),
-                row_count: None,
-            })
-        })
-        .map_err(crate::error::from_rusqlite)?
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(crate::error::from_rusqlite)?;
-    Ok(tables)
-}
-
-fn introspect_columns(conn: &rusqlite::Connection) -> Result<Vec<Column>, DbError> {
-    let mut table_stmt = conn
-        .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'")
-        .map_err(crate::error::from_rusqlite)?;
-    let table_names: Vec<String> = table_stmt
+    let names: Vec<String> = stmt
         .query_map([], |row| row.get(0))
         .map_err(crate::error::from_rusqlite)?
         .collect::<Result<Vec<_>, _>>()
         .map_err(crate::error::from_rusqlite)?;
+    Ok(names)
+}
 
+fn introspect_tables(_conn: &rusqlite::Connection, table_names: &[String]) -> Result<Vec<Table>, DbError> {
+    Ok(table_names
+        .iter()
+        .map(|name| Table {
+            name: name.clone(),
+            schema: "main".into(),
+            row_count: None,
+        })
+        .collect())
+}
+
+fn introspect_columns(conn: &rusqlite::Connection, table_names: &[String]) -> Result<Vec<Column>, DbError> {
     let mut columns = Vec::new();
-    for table_name in &table_names {
+    for table_name in table_names {
         // PRAGMA does not support ? parameters for table names;
         // use safe identifier escaping instead.
         let safe_name = escape_identifier(table_name);
@@ -119,18 +107,9 @@ fn introspect_columns(conn: &rusqlite::Connection) -> Result<Vec<Column>, DbErro
     Ok(columns)
 }
 
-fn introspect_indexes(conn: &rusqlite::Connection) -> Result<Vec<Index>, DbError> {
-    let mut table_stmt = conn
-        .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'")
-        .map_err(crate::error::from_rusqlite)?;
-    let table_names: Vec<String> = table_stmt
-        .query_map([], |row| row.get(0))
-        .map_err(crate::error::from_rusqlite)?
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(crate::error::from_rusqlite)?;
-
+fn introspect_indexes(conn: &rusqlite::Connection, table_names: &[String]) -> Result<Vec<Index>, DbError> {
     let mut indexes = Vec::new();
-    for table_name in &table_names {
+    for table_name in table_names {
         // PRAGMA does not support ? parameters for table names;
         // use safe identifier escaping instead.
         let safe_name = escape_identifier(table_name);
@@ -171,18 +150,9 @@ fn introspect_indexes(conn: &rusqlite::Connection) -> Result<Vec<Index>, DbError
     Ok(indexes)
 }
 
-fn introspect_foreign_keys(conn: &rusqlite::Connection) -> Result<Vec<ForeignKey>, DbError> {
-    let mut table_stmt = conn
-        .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'")
-        .map_err(crate::error::from_rusqlite)?;
-    let table_names: Vec<String> = table_stmt
-        .query_map([], |row| row.get(0))
-        .map_err(crate::error::from_rusqlite)?
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(crate::error::from_rusqlite)?;
-
+fn introspect_foreign_keys(conn: &rusqlite::Connection, table_names: &[String]) -> Result<Vec<ForeignKey>, DbError> {
     let mut foreign_keys = Vec::new();
-    for table_name in &table_names {
+    for table_name in table_names {
         // PRAGMA does not support ? parameters for table names;
         // use safe identifier escaping instead.
         let safe_name = escape_identifier(table_name);

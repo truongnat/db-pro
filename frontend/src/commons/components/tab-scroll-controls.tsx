@@ -64,7 +64,16 @@ export function TabScrollRight({
 
 export function TabOverflowMenu({ isOverflowing }: Pick<TabScrollControlsProps, "isOverflowing">) {
   const [open, setOpen] = useState(false);
-  const tabs = useWorkspaceStore((s) => s.tabs);
+  const tabs = useWorkspaceStore((s) =>
+    s.tabs.map((t) => ({
+      id: t.id,
+      kind: t.kind,
+      dirty: t.dirty,
+      pinned: t.pinned,
+      preview: t.preview,
+      title: t.title,
+    })),
+  );
   const activeTabId = useWorkspaceStore((s) => s.activeTabId);
   const activateTab = useWorkspaceStore((s) => s.activateTab);
 
