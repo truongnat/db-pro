@@ -1,3 +1,4 @@
+import { computeApproximateLayoutFromInput } from "./approximate-layout";
 import {
   computeLayoutPositions,
   type LayoutInput,
@@ -17,7 +18,14 @@ export interface LayoutRunResult {
   layoutMs: number;
 }
 
+/**
+ * What a runner actually computes — lets callers distinguish "real dagre in a
+ * worker" from "degraded" results without re-deriving the graph size (P1-3).
+ */
+export type LayoutRunnerKind = "worker" | "dagre-sync" | "approximate";
+
 export interface LayoutRunner {
+  kind: LayoutRunnerKind;
   run(request: LayoutRunRequest): Promise<LayoutRunResult>;
   dispose(): void;
 }
@@ -29,7 +37,11 @@ export interface LayoutRunner {
  */
 export function createWorkerLayoutRunner(): LayoutRunner {
   if (typeof Worker === "undefined") {
-    return createFallbackLayoutRunner();
+    // P1-3 — NEVER silently fall back to synchronous dagre here: a large graph
+    // would then run dagre on the main thread (8 s @500 / 122 s @1000 per
+    // P1.8) while the size gate in use-worker-layout.ts is bypassed. Throw so
+    // resolveLayoutRunner routes to the size-gated getFallbackRunner.
+    throw new Error("Worker is unavailable in this environment");
   }
 
   const worker = new Worker(new URL("../er-layout.worker.ts", import.meta.url), {
@@ -55,6 +67,7 @@ export function createWorkerLayoutRunner(): LayoutRunner {
   };
 
   return {
+    kind: "worker",
     run(request) {
       return new Promise((resolve, reject) => {
         pending.set(request.requestId, { resolve, reject });
@@ -69,14 +82,45 @@ export function createWorkerLayoutRunner(): LayoutRunner {
 
 /**
  * Synchronous dagre fallback for environments without Workers (jsdom tests,
- * unusual webviews). Blocks the main thread — acceptable only as a safety net;
- * production Tauri webviews all support module workers.
+ * unusual webviews). Blocks the main thread — acceptable only as a safety net
+ * and ONLY for small graphs (P1-3): production Tauri webviews all support
+ * module workers, and large graphs must never run synchronous dagre.
  */
 export function createFallbackLayoutRunner(): LayoutRunner {
   return {
+    kind: "dagre-sync",
     run(request) {
       const t0 = performance.now();
       const positions = computeLayoutPositions(request.input, request.options);
+      const out: Record<string, LayoutPosition> = {};
+      positions.forEach((pos, id) => {
+        out[id] = pos;
+      });
+      return Promise.resolve({
+        requestId: request.requestId,
+        positions: out,
+        layoutMs: performance.now() - t0,
+      });
+    },
+    dispose() {
+      /* no-op */
+    },
+  };
+}
+
+/**
+ * P1-3 — approximate fallback for LARGE graphs when the worker is unavailable.
+ * Never runs dagre on the main thread for big graphs (8 s @500 / 122 s @1000
+ * per P1.8): returns a deterministic degree-ordered circle in O(N log N)
+ * instead. The host shows a degraded-layout notice and can still retry the
+ * worker on the next run (F-MR-2 non-sticky semantics).
+ */
+export function createApproximateLayoutRunner(): LayoutRunner {
+  return {
+    kind: "approximate",
+    run(request) {
+      const t0 = performance.now();
+      const positions = computeApproximateLayoutFromInput(request.input);
       const out: Record<string, LayoutPosition> = {};
       positions.forEach((pos, id) => {
         out[id] = pos;

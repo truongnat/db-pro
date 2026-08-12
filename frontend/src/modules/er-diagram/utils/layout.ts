@@ -9,6 +9,12 @@ export interface LayoutOptions {
   direction?: "LR" | "TB";
   nodeSep?: number;
   rankSep?: number;
+  /**
+   * P1-2 — renderer layout profile id (`layout-profile.ts`). Part of the cache
+   * hash so the same graph laid out for the canvas overview (compact) and for
+   * React Flow (column-aware) never share positions.
+   */
+  profile?: string;
 }
 
 /** Minimal plain-node input that can cross the worker boundary. */

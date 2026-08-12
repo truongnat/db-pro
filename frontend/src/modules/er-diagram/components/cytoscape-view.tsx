@@ -1,19 +1,31 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { Search, Maximize2, Table2 } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { useResolvedTheme } from "@/commons/stores/theme.store";
 import { NeighborhoodExplorer, type NeighborhoodExplorerProps } from "./neighborhood-explorer";
 import { CytoscapeErRenderer } from "../renderer/cytoscape-renderer";
-import type { ErGraphModel, ErPosition, ErViewport, TableId } from "../renderer/types";
-import type { LayoutStatus } from "../hooks/use-worker-layout";
+import type {
+  ErGraphModel,
+  ErPosition,
+  ErThemeTokens,
+  ErViewport,
+  TableId,
+} from "../renderer/types";
+import { computeApproximateOverviewLayout } from "../utils/approximate-layout";
 
 export interface CytoscapeErViewProps {
   model: ErGraphModel;
-  /** Atomic position set from the shared layout engine (null while computing). */
+  /**
+   * Atomic position set from the shared layout engine (null while the worker
+   * computes). P1-1: when null, the view paints an approximate layout
+   * immediately and upgrades via `updatePositions` once dagre commits.
+   */
   positions: Map<TableId, ErPosition> | null;
-  layoutStatus: LayoutStatus;
+  /** P1-3 — true when positions came from the approximate fallback (worker unavailable). */
+  degraded: boolean;
   onViewportChange: (viewport: ErViewport) => void;
   onNodeClick: (nodeId: TableId) => void;
   explorer: NeighborhoodExplorerProps;
@@ -22,17 +34,44 @@ export interface CytoscapeErViewProps {
 }
 
 /**
+ * P2-1 — resolve canonical design tokens into concrete colors for the canvas.
+ * Canvas paints don't resolve CSS `var()`; `data-theme` on <html> selects the
+ * active theme (light/dark), so reading computed style gives the right values.
+ */
+function resolveThemeTokens(): ErThemeTokens {
+  const s = typeof document !== "undefined" ? getComputedStyle(document.documentElement) : null;
+  const get = (name: string, fallback: string) => {
+    const v = s?.getPropertyValue(name).trim();
+    return v || fallback;
+  };
+  return {
+    nodeBg: get("--surface-panel", "#1e293b"),
+    nodeBorder: get("--border-default", "#475569"),
+    nodeLabel: get("--text-primary", "#cbd5e1"),
+    selectedNodeBorder: get("--accent", "#7dd3fc"),
+    selectedNodeBg: get("--surface-active", "#1e3a5f"),
+    neighborNodeBorder: get("--accent-hover", "#38bdf8"),
+    edgeColor: get("--border-subtle", "#334155"),
+    edgeArrowColor: get("--border-default", "#475569"),
+    neighborEdgeColor: get("--border-strong", "#475569"),
+  };
+}
+
+/**
  * P1.9 — large-schema overview renderer (canvas).
  *
  * The full graph is drawn as canvas primitives by `CytoscapeErRenderer`
  * (≈ dozens of DOM elements regardless of graph size). Layout positions come
- * from the same P1.7 worker pipeline the React Flow path uses. Only mounted
- * when `isLargeSchema && showAll` — the explicit "All N tables" overview.
+ * from the same P1.7 worker pipeline the React Flow path uses. P1-1: the
+ * overview mounts as soon as the view exists — with a fast approximate layout
+ * when dagre is still computing — and upgrades in place when the worker
+ * commits. P2-1: colors follow the active theme (resolved tokens), and swap
+ * at runtime on theme change without destroying the graph.
  */
 export function CytoscapeErView({
   model,
   positions,
-  layoutStatus,
+  degraded,
   onViewportChange,
   onNodeClick,
   explorer,
@@ -42,6 +81,11 @@ export function CytoscapeErView({
   const containerRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<CytoscapeErRenderer | null>(null);
   const selectedRef = useRef<TableId | null>(null);
+  const theme = useResolvedTheme();
+
+  // P1-1 — deterministic approximate positions so the canvas paints in the
+  // first frame, even while dagre computes for 8–122 s on a cold open.
+  const approximatePositions = useMemo(() => computeApproximateOverviewLayout(model), [model]);
 
   // Latest callbacks via refs so the renderer is created exactly once per view
   // lifecycle — a changing callback identity must never re-init the canvas
@@ -56,6 +100,7 @@ export function CytoscapeErView({
     if (!containerRef.current) return;
     const renderer = new CytoscapeErRenderer({
       container: containerRef.current,
+      theme: resolveThemeTokens(),
       onNodeClick: (nodeId) => {
         selectedRef.current = nodeId;
         // Keep the canvas neighborhood highlight in sync on every tap, not
@@ -72,17 +117,43 @@ export function CytoscapeErView({
     };
   }, []);
 
-  // Mount (or re-mount) the graph only when the layout engine committed a
-  // stable position set — never partial positions.
+  // P2-1 — re-resolve tokens on every theme change and swap them in place.
+  useEffect(() => {
+    rendererRef.current?.updateTheme(resolveThemeTokens());
+  }, [theme]);
+
+  // P1-1 — mount as soon as any positions are available (approximate or dagre),
+  // then upgrade in place when the real layout commits. Never an empty canvas:
+  // cold opens paint the approximate circle immediately.
+  const mountedRef = useRef<{ model: ErGraphModel; positions: Map<TableId, ErPosition> } | null>(
+    null,
+  );
   useEffect(() => {
     const renderer = rendererRef.current;
     if (!renderer) return;
-    if (layoutStatus !== "ready" || !positions) return;
-    renderer.mount(model, positions);
-    if (selectedRef.current) {
-      renderer.updateSelection({ nodeIds: [selectedRef.current] });
+
+    const prev = mountedRef.current;
+    if (prev === null || prev.model !== model) {
+      // First mount or a new graph — mount with whatever positions exist
+      // (approximate while dagre computes, committed dagre on cache hits).
+      renderer.mount(model, positions ?? approximatePositions);
+      mountedRef.current = { model, positions: positions ?? approximatePositions };
+      if (selectedRef.current) {
+        renderer.updateSelection({ nodeIds: [selectedRef.current] });
+      }
+      return;
     }
-  }, [model, positions, layoutStatus]);
+
+    // Already mounted on this model: upgrade to the committed dagre layout
+    // without re-mounting (no viewport reset, no element churn).
+    if (positions && positions !== prev.positions) {
+      renderer.updatePositions(positions);
+      mountedRef.current = { model, positions };
+      if (selectedRef.current) {
+        renderer.updateSelection({ nodeIds: [selectedRef.current] });
+      }
+    }
+  }, [model, positions, approximatePositions]);
 
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
@@ -117,6 +188,11 @@ export function CytoscapeErView({
         <div className="pointer-events-auto">
           <NeighborhoodExplorer {...explorer} />
         </div>
+        {degraded && (
+          <div className="pointer-events-auto rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-[11px] text-amber-600">
+            Approximate layout — layout worker unavailable
+          </div>
+        )}
       </div>
     </div>
   );

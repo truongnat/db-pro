@@ -21,7 +21,9 @@ export function computeLayoutHash(input: LayoutInput, options: LayoutOptions): s
   const parts: string[] = [];
   for (const n of nodes) parts.push(n.id + ":" + n.height + ":" + (n.width ?? 0));
   for (const e of edges) parts.push(e.source + ">" + e.target);
-  const opts = `dir=${options.direction ?? "LR"};ns=${options.nodeSep ?? 60};rs=${options.rankSep ?? 100}`;
+  // P1-2: the profile id is part of the key, so overview (compact) and React
+  // Flow (column-aware) layouts for the same graph never share cache entries.
+  const opts = `profile=${options.profile ?? "react-flow"};dir=${options.direction ?? "LR"};ns=${options.nodeSep ?? 60};rs=${options.rankSep ?? 100}`;
 
   return fnv1aHex(opts + "|" + parts.join(","));
 }

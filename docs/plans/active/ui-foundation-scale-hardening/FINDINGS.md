@@ -120,6 +120,40 @@ Scope: every list view that iterates schema metadata (schema explorer, data grid
 - **F-MR-4:** the token migration did not mechanically verify string/comment drift (the perl rename + `check-token-drift` guard cover CSS / `var()` usage, and the 96/96 visual regression covers resolved values) — stray token names inside comments are harmless; optionally scan comments in the guard later. **RESOLVED (2026-08-12):** `check-token-drift.mjs` check 6 — every `--<token>` mention anywhere in src / public / index.html (comments, strings, className arbitrary values) must be defined in globals.css (Radix `--radix-*`, Tailwind spacing and a jsdom CLI flag are allow-listed). The scan immediately caught 2 real leftovers the migration missed: `--text-primary-primary` (rename artifact in `er-perf-hud.tsx`, undefined token → browser fallback) and a vestigial `--app-editor-bg,var(--surface-editor)` fallback chain in `query-editor.tsx` — both fixed to `var(--text-primary)` / `var(--surface-editor)`. Verified: injecting a stale token name into a comment fails the guard.
 - **Fixed during review:** `tablesInSchema` was unmemoized in `er-diagram.tsx` (recreated every render, defeating `schemaStats` O(F+C) and `suggestedPoints` O(T log T) memoization) — wrapped in `useMemo([data.tables, schema])`.
 
+## PR#12 external review round (2026-08-12) — 3 P1 + 2 P2, all RESOLVED
+
+External review of the merged branch (PR #12 at `db781ef`) verified every finding against the real code. All closed with shipped code + runtime evidence (VERIFICATION.md "P1 review fixes").
+
+### F-R1: Cold first-open waited on dagre (P1, RESOLVED)
+
+**Evidence:** `cytoscape-view.tsx` mounted only when `layoutStatus === "ready"`, and the canvas had no fallback before dagre finished (8,110 ms @500 / 122,084 ms @1000 cold worker layout). The old acceptance line "Open workspace → UI usable < 1s" measured shell interactivity only — the *diagram* itself stayed blank for seconds/minutes.
+
+**Resolution:** fast **approximate layout** (`utils/approximate-layout.ts`, degree-ordered placement, O(T+E), ~1 ms @1000) paints immediately; when dagre finishes in the worker the renderer upgrades positions in place via the new `ErRenderer.updatePositions` (no re-mount). View mounts on first positions (approx or dagre), not on `layoutStatus === "ready"`. Budget split into **TTI shell < 1s** + **TTD (time-to-diagram) < 2s @500 / 3–5s @1000**; CDP evidence: **230 ms @500 / 354 ms @1000**. Dagre upgrade is now an enhancement, not a prerequisite.
+
+### F-R2: Layout geometry used the wrong renderer profile (P1, RESOLVED)
+
+**Evidence:** the layout input passed ReactFlow card geometry (220 × 32+cols·20+8) while `CytoscapeErRenderer` paints 160 × 28. Dagre (and the schemaHash cache) computed against geometry the canvas never uses → stretched overview, long edges, zoomed-out fit.
+
+**Resolution:** `utils/layout-profile.ts` — `OVERVIEW_PROFILE` (160×28, no column rows) vs `REACT_FLOW_PROFILE` (220×dynamic) with shared `LAYOUT_PROFILE_*` constants; overview layout input is built from the graph model, detail from column-aware data; `computeLayoutHash` now includes the profile (separate cache namespaces). Covered by `layout-profile.test.ts`.
+
+### F-R3: Worker failure could push 122 s dagre back onto the main thread (P1, RESOLVED)
+
+**Evidence:** `useWorkerLayout`'s catch path called `getFallbackRunner()` → `createFallbackLayoutRunner()` → synchronous `computeLayoutPositions` — an 8 s / 122 s main-thread freeze if the worker ever failed to load. Code review found two additional gaps in the first fix attempt: (1) `createWorkerLayoutRunner` silently returned the sync dagre fallback when `Worker` was undefined — a large graph could run dagre on the main thread with the size gate completely bypassed; (2) the worker-**creation**-failure path committed with `degraded: false` — the approximate positions were written to the schemaHash cache (poisoning repeat opens) and no degraded notice was shown.
+
+**Resolution (three-layer hard gate):** (1) `createWorkerLayoutRunner` **throws** when `Worker` is unavailable, routing through `resolveLayoutRunner` to the size-gated fallback; (2) every runner is **kind-tagged** (`worker` / `dagre-sync` / `approximate`) and the degraded flag is derived from the runner that actually produced the result — creation-failure and runtime-failure paths alike; (3) node count > `SYNC_DAGRE_MAX_NODES` (large graphs) is hard-forbidden from the sync dagre fallback — a failed worker selects `createApproximateLayoutRunner` (main-thread-safe, ~1 ms) and surfaces a `degraded` flag to the view; the approximate result is **not** written to the schemaHash cache (a degraded layout must never poison repeat opens). Small graphs keep the sync dagre fallback (fast and safe there). Covered by `use-worker-layout.test.ts` (kind tags, throw-without-Worker, size gate, determinism).
+
+### F-R4: Canvas colors hardcoded for the dark theme (P2, RESOLVED)
+
+**Evidence:** `cytoscape-renderer.ts` hardcoded `#1e293b` / `#7dd3fc` / … — broke the light theme and the token contract (F1).
+
+**Resolution:** `ErThemeTokens` + `ErRenderer.updateTheme()`; the renderer resolves tokens from canonical CSS custom properties via `getComputedStyle` (`--surface-panel`, `--border-default`, `--text-primary`, `--accent`, …) with fallbacks; `cytoscape-view.tsx` resolves at mount and re-applies on theme-store change — switching themes does not destroy the graph. Verified in `cytoscape-renderer.test.ts` + the CDP harness (`updateTheme` swaps colors, graph stays alive).
+
+### F-R5: No runtime test on the real cytoscape path (P2, RESOLVED)
+
+**Evidence:** `CytoscapeErRenderer` had no automated coverage (jsdom lacks a canvas 2D context), and the P1.9 harness was served through vite-dev then removed.
+
+**Resolution:** (a) `__tests__/cytoscape-renderer.test.ts` — real renderer + real cytoscape in headless mode (no canvas needed): mount, positions, theme, selection, updatePositions; (b) `bench/er-renderer-runtime.html` + `bench/build-er-renderer-runtime.mjs` — esbuild bundle of the **real app renderer + approximate layout** (cytoscape included) run in real Chrome via the CDP runner: 6/6 checks PASS at 500 and 1000 tables, 0 console errors, TTD 230/354 ms. Screenshots `bench/er-runtime-{500,1000}.png`.
+
 ## F7: Large-schema ER rendering architecture does not scale (P1)
 
 **Evidence:** At 500 tables the diagram feeds ~500 `TableNode` components (up to 7,500 column rows) into React reconciliation simultaneously. The current LOD tiers (P3.5) switch content inside one component via conditional rendering — the render tree is a single path, not a per-LOD component switch — and React Flow's `onlyRenderVisibleElements` is not enabled, so off-viewport nodes still mount. Every edge keeps labels, markers, and smoothstep paths at every zoom. Dagre layout runs on the main thread with no cache.

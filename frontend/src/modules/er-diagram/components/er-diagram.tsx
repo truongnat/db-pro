@@ -41,6 +41,11 @@ import {
   type LayoutInput,
   type LayoutPosition,
 } from "../utils/layout";
+import {
+  buildLayoutInputFromModel,
+  OVERVIEW_LAYOUT_PROFILE,
+  REACT_FLOW_LAYOUT_PROFILE,
+} from "../utils/layout-profile";
 import { groupForeignKeys } from "../utils/edge-builder";
 import {
   buildAdjacencyMap,
@@ -281,12 +286,22 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
 
   // P1.7 — layout off the main thread.
   //
-  // Build a plain (worker-serializable) layout input from the RF nodes, run
-  // dagre in the Worker (cache-first by content hash), and commit positions
-  // atomically when the result lands. The UI stays interactive meanwhile and
-  // shows an "Arranging N tables…" overlay (locked: no fake progressive
-  // layout — positions only appear once stable).
-  const layoutInput = useMemo<LayoutInput | null>(() => {
+  // Build a plain (worker-serializable) layout input, run dagre in the Worker
+  // (cache-first by content hash), and commit positions atomically when the
+  // result lands. The UI stays interactive meanwhile and shows an "Arranging
+  // N tables…" overlay (locked: no fake progressive layout — positions only
+  // appear once stable).
+  //
+  // P1-2 — the input geometry follows the RENDERER, not a single hardcoded
+  // card size. The canvas overview lays out compact 160×28 nodes (its actual
+  // paint geometry); React Flow lays out column-aware cards. The profile id
+  // participates in the layout hash, so the two never share cached positions.
+  const overviewLayoutInput = useMemo<LayoutInput | null>(() => {
+    if (graphModel.tables.length === 0) return null;
+    return buildLayoutInputFromModel(graphModel, OVERVIEW_LAYOUT_PROFILE);
+  }, [graphModel]);
+
+  const rfLayoutInput = useMemo<LayoutInput | null>(() => {
     if (initialNodes.length === 0) return null;
     return {
       nodes: initialNodes.map((n) => {
@@ -301,9 +316,18 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
     };
   }, [initialNodes, initialEdges]);
 
+  const layoutInput = useCytoscapeForOverview ? overviewLayoutInput : rfLayoutInput;
+
   // Stable identity — `useWorkerLayout` re-runs layout only when the hash
-  // (content + options) changes, not on every render.
-  const layoutOptions = useMemo(() => ({ direction: layoutDirection }), [layoutDirection]);
+  // (content + options) changes, not on every render. The profile id keeps
+  // overview (compact) and React Flow (column-aware) caches separate.
+  const layoutOptions = useMemo(
+    () => ({
+      direction: layoutDirection,
+      profile: useCytoscapeForOverview ? OVERVIEW_LAYOUT_PROFILE.id : REACT_FLOW_LAYOUT_PROFILE.id,
+    }),
+    [layoutDirection, useCytoscapeForOverview],
+  );
 
   const layout = useWorkerLayout(layoutInput, layoutOptions);
 
@@ -677,7 +701,7 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
           <CytoscapeErView
             model={graphModel}
             positions={layout.status === "ready" ? layout.positions : null}
-            layoutStatus={layout.status}
+            degraded={layout.degraded}
             onViewportChange={onCytoscapeViewportChange}
             onNodeClick={onCytoscapeNodeClick}
             explorer={{

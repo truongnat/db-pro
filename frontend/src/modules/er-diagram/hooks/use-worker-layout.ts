@@ -3,6 +3,7 @@ import type { LayoutInput, LayoutOptions, LayoutPosition } from "../utils/layout
 import { computeLayoutHash } from "../utils/layout-hash";
 import { LayoutCache } from "../utils/layout-cache";
 import {
+  createApproximateLayoutRunner,
   createFallbackLayoutRunner,
   createWorkerLayoutRunner,
   type LayoutRunner,
@@ -15,12 +16,26 @@ export interface WorkerLayoutState {
   status: LayoutStatus;
   /** null while computing; the full, stable position set once ready. */
   positions: Map<string, LayoutPosition> | null;
-  /** dagre duration in ms (worker, fallback, or cache). */
+  /** layout duration in ms (worker, fallback, approximate, or cache). */
   layoutMs: number | null;
   nodeCount: number;
   fromCache: boolean;
+  /**
+   * P1-3 — true when positions came from the approximate runner (worker
+   * unavailable on a large graph). Hosts show a degraded-layout notice; the
+   * worker is retried on the next run (F-MR-2 non-sticky semantics).
+   */
+  degraded: boolean;
   error: string | null;
 }
+
+/**
+ * P1-3 — graphs above this node count NEVER run synchronous dagre on the main
+ * thread. P1.8 measured dagre at 151 ms @100 but 8,110 ms @500; 250 is a
+ * conservative bound that keeps the sync fallback a sub-second safety net
+ * while guaranteeing large graphs stay off the main thread.
+ */
+export const SYNC_FALLBACK_MAX_NODES = 250;
 
 const IDLE_STATE: WorkerLayoutState = {
   status: "idle",
@@ -28,6 +43,7 @@ const IDLE_STATE: WorkerLayoutState = {
   layoutMs: null,
   nodeCount: 0,
   fromCache: false,
+  degraded: false,
   error: null,
 };
 
@@ -57,17 +73,27 @@ export function resolveLayoutRunner(
   }
 }
 
-function getRunner(): LayoutRunner {
-  const selection = resolveLayoutRunner(
-    runnerSingleton,
-    createWorkerLayoutRunner,
-    getFallbackRunner,
+function getRunner(nodeCount: number): { runner: LayoutRunner; degraded: boolean } {
+  const selection = resolveLayoutRunner(runnerSingleton, createWorkerLayoutRunner, () =>
+    getFallbackRunner(nodeCount),
   );
   if (selection.sticky) runnerSingleton = selection.runner;
-  return selection.runner;
+  // P1-3 — worker creation can fail synchronously (no Worker global, module
+  // workers unsupported, …). When it does, the size-gated fallback runs:
+  // approximate for large graphs (degraded), sync dagre for small. The degraded
+  // flag must reflect the runner that actually produced the result — a large
+  // graph must never be marked healthy (approximate positions would then be
+  // written to the schemaHash cache and shown without the degraded notice).
+  return { runner: selection.runner, degraded: selection.runner.kind === "approximate" };
 }
 
-function getFallbackRunner(): LayoutRunner {
+/**
+ * P1-3 — the fallback depends on graph size: small graphs may use synchronous
+ * dagre (sub-second); large graphs get the approximate runner instead and
+ * never block the main thread.
+ */
+function getFallbackRunner(nodeCount: number): LayoutRunner {
+  if (nodeCount > SYNC_FALLBACK_MAX_NODES) return createApproximateLayoutRunner();
   if (!fallbackSingleton) fallbackSingleton = createFallbackLayoutRunner();
   return fallbackSingleton;
 }
@@ -125,6 +151,7 @@ export function useWorkerLayout(
         layoutMs: cached.layoutMs,
         nodeCount: nodeIds.length,
         fromCache: true,
+        degraded: false,
         error: null,
       });
       return;
@@ -135,6 +162,7 @@ export function useWorkerLayout(
       ...prev,
       status: "computing",
       fromCache: false,
+      degraded: false,
       error: null,
       nodeCount: nodeIds.length,
     }));
@@ -142,15 +170,19 @@ export function useWorkerLayout(
     let cancelled = false;
 
     // A result is cached regardless of staleness (it is valid for its hash);
-    // the UI state only updates for the current request.
-    const commit = (result: LayoutRunResult) => {
-      layoutCache.set({
-        hash,
-        positions: result.positions,
-        layoutMs: result.layoutMs,
-        nodeIds,
-        createdAt: Date.now(),
-      });
+    // the UI state only updates for the current request. Degraded (approximate)
+    // results are NOT cached — they are not dagre output for this hash, and
+    // caching them would poison the layout cache for the next (healthy) run.
+    const commit = (result: LayoutRunResult, degraded: boolean) => {
+      if (!degraded) {
+        layoutCache.set({
+          hash,
+          positions: result.positions,
+          layoutMs: result.layoutMs,
+          nodeIds,
+          createdAt: Date.now(),
+        });
+      }
       if (cancelled || result.requestId !== requestSeq) return;
       setState({
         status: "ready",
@@ -158,25 +190,31 @@ export function useWorkerLayout(
         layoutMs: result.layoutMs,
         nodeCount: nodeIds.length,
         fromCache: false,
+        degraded,
         error: null,
       });
     };
 
-    getRunner()
+    const { runner, degraded: creationDegraded } = getRunner(nodeIds.length);
+    runner
       .run({ requestId, input, options })
-      .then(commit)
+      .then((result) => commit(result, creationDegraded))
       .catch((_err: unknown) => {
         if (cancelled || requestId !== requestSeq) return;
         // Worker runtime failure (module-worker unsupported in an old webview,
-        // dagre crash, …) → one synchronous fallback attempt, then error.
-        getFallbackRunner()
+        // dagre crash, …) → one fallback attempt, then error. P1-3: for large
+        // graphs the fallback is the approximate runner (no main-thread dagre),
+        // flagged degraded — never cached.
+        const fallback = getFallbackRunner(nodeIds.length);
+        fallback
           .run({ requestId, input, options })
-          .then(commit)
+          .then((result) => commit(result, fallback.kind === "approximate"))
           .catch((fallbackErr: unknown) => {
             if (cancelled || requestId !== requestSeq) return;
             setState((prev) => ({
               ...prev,
               status: "error",
+              degraded: false,
               error: String((fallbackErr as Error)?.message ?? fallbackErr),
             }));
           });

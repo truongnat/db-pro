@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>ER Runtime — real CytoscapeErRenderer</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: #0f172a; color: #e2e8f0;
+    font: 13px/1.4 ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif; }
+  #app { position: fixed; inset: 0; display: flex; flex-direction: column; }
+  #hud { display: flex; align-items: center; gap: 14px; padding: 8px 14px;
+    background: #111c2e; border-bottom: 1px solid #1e293b; font-size: 12px;
+    color: #94a3b8; flex: 0 0 auto; }
+  #hud b { color: #e2e8f0; font-weight: 600; }
+  #hud .tag { background: #1e293b; border: 1px solid #334155; border-radius: 6px;
+    padding: 2px 8px; color: #7dd3fc; }
+  #cy { flex: 1 1 auto; min-height: 0; }
+  #results { position: absolute; right: 14px; bottom: 14px; z-index: 10;
+    width: 380px; max-height: 60%; overflow: auto; background: rgba(15,23,42,0.92);
+    border: 1px solid #334155; border-radius: 10px; padding: 12px; font-size: 12px;
+    box-shadow: 0 12px 32px rgba(0,0,0,0.5); }
+  #results h3 { font-size: 12px; color: #7dd3fc; margin-bottom: 8px; font-weight: 600; }
+  #results table { width: 100%; border-collapse: collapse; }
+  #results td { padding: 3px 6px; border-bottom: 1px solid #1e293b; }
+  #results td:first-child { color: #94a3b8; }
+  #results td:last-child { text-align: right; font-variant-numeric: tabular-nums; color: #e2e8f0; }
+  #phase { color: #fbbf24; font-weight: 600; }
+  .pass { color: #4ade80 !important; font-weight: 600; }
+  .fail { color: #f87171 !important; font-weight: 600; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="hud">
+    <span class="tag">Runtime · real CytoscapeErRenderer</span>
+    <span class="tag scale-badge"></span>
+    <span><b id="statTables"></b> tables</span>
+    <span><b id="statRels"></b> relations</span>
+    <span id="phase">idle</span>
+  </div>
+  <div id="cy"></div>
+  <div id="results"></div>
+</div>
+
+<script src="fixture-gen.js"></script>
+<!-- Built from the real app source by build-er-renderer-runtime.mjs (esbuild) -->
+<script src="er-renderer-runtime.bundle.js"></script>
+<script>
+  // Scale via query param: er-renderer-runtime.html?n=100 | 500 | 1000 (default 500)
+  window.__FIXTURE_N = new URLSearchParams(location.search).get("n") || "500";
+  if (!(window.__FIXTURE_N in generateERFixture.presets)) window.__FIXTURE_N = "500";
+  document.querySelectorAll(".scale-badge").forEach((el) => { el.textContent = window.__FIXTURE_N + " tables"; });
+</script>
+<script>
+(function () {
+  "use strict";
+  const F = generateERFixture(generateERFixture.presets[window.__FIXTURE_N]);
+  document.getElementById("statTables").textContent = F.stats.tables;
+  document.getElementById("statRels").textContent = F.stats.relations;
+
+  const phaseEl = document.getElementById("phase");
+  const setPhase = (p) => { phaseEl.textContent = p; };
+
+  // ---- build an ErGraphModel from the fixture (renderer-agnostic shape) ----
+  const adjacency = new Map();
+  for (const r of F.relations) {
+    let from = adjacency.get(r.source) || new Set();
+    from.add(r.target);
+    adjacency.set(r.source, from);
+    let to = adjacency.get(r.target) || new Set();
+    to.add(r.source);
+    adjacency.set(r.target, to);
+  }
+  const model = {
+    tables: F.tables.map((t) => ({
+      id: t.id, label: t.name, schema: "public",
+      columnCount: F.stats.columns / F.stats.tables, fkCount: (adjacency.get(t.id) || new Set()).size,
+    })),
+    relations: F.relations.map((r) => ({ id: r.id, source: r.source, target: r.target, name: r.name })),
+    adjacency,
+    stats: F.stats,
+  };
+
+  const results = { harness: "er-renderer-runtime", fixture: F.stats, checks: {}, metrics: {} };
+  const container = document.getElementById("cy");
+
+  // Theme resolution must come from canonical CSS tokens via computed style —
+  // the same path the app's cytoscape-view.tsx uses (P2-1). We set them on
+  // :root for the harness so the renderer can resolve them.
+  const rootStyle = document.documentElement.style;
+  rootStyle.setProperty("--surface-panel", "#0e131b");
+  rootStyle.setProperty("--border-default", "rgba(148,163,184,0.14)");
+  rootStyle.setProperty("--text-primary", "#e6edf7");
+  rootStyle.setProperty("--accent", "#5b7cff");
+  rootStyle.setProperty("--surface-active", "rgba(148,163,184,0.1)");
+  rootStyle.setProperty("--accent-hover", "#6d8aff");
+  rootStyle.setProperty("--border-subtle", "rgba(148,163,184,0.08)");
+  rootStyle.setProperty("--border-strong", "rgba(148,163,184,0.22)");
+
+  function resolveTokens() {
+    const s = getComputedStyle(document.documentElement);
+    const get = (n, fb) => s.getPropertyValue(n).trim() || fb;
+    return {
+      nodeBg: get("--surface-panel", "#1e293b"),
+      nodeBorder: get("--border-default", "#475569"),
+      nodeLabel: get("--text-primary", "#cbd5e1"),
+      selectedNodeBorder: get("--accent", "#7dd3fc"),
+      selectedNodeBg: get("--surface-active", "#1e3a5f"),
+      neighborNodeBorder: get("--accent-hover", "#38bdf8"),
+      edgeColor: get("--border-subtle", "#334155"),
+      edgeArrowColor: get("--border-default", "#475569"),
+      neighborEdgeColor: get("--border-strong", "#475569"),
+    };
+  }
+
+  // Exposed by the bundle (ErRuntime global).
+  const { CytoscapeErRenderer, computeApproximateOverviewLayout } = window.ErRuntime;
+
+  async function run() {
+    // ---- P1-1: time-to-diagram — approximate layout paint, no dagre wait ----
+    setPhase("approximate layout…");
+    const tApprox = performance.now();
+    const approx = computeApproximateOverviewLayout(model);
+    results.metrics.approximateLayoutMs = Math.round(performance.now() - tApprox);
+
+    const tMount = performance.now();
+    const renderer = new CytoscapeErRenderer({ container, theme: resolveTokens() });
+    renderer.mount(model, approx);
+    results.metrics.timeToDiagramMs = Math.round(performance.now() - tMount) + results.metrics.approximateLayoutMs;
+    results.metrics.domCount = document.querySelectorAll("*").length;
+    results.metrics.canvasCount = document.querySelectorAll("canvas").length;
+
+    // ---- structural checks ----
+    const cy = renderer.getCy();
+    results.checks.nodeCount = cy.nodes().length === F.stats.tables;
+    results.checks.edgeCount = cy.edges().length === F.stats.relations;
+    results.metrics.renderedNodes = cy.nodes().length;
+    results.metrics.renderedEdges = cy.edges().length;
+
+    // ---- P1-1: async upgrade via updatePositions (no re-mount) ----
+    setPhase("async position upgrade…");
+    const upgrade = new Map(approx);
+    let k = 0;
+    for (const [id] of approx) { upgrade.set(id, { x: k++ * 8, y: (k % 7) * 12 }); }
+    renderer.updatePositions(upgrade);
+    const firstNode = cy.nodes()[0];
+    results.checks.upgradeMovedNode = firstNode.position().x !== approx.get(firstNode.id()).x;
+
+    // ---- P2-1: theme swap keeps the graph alive ----
+    renderer.updateTheme({ nodeBg: "#112233", nodeLabel: "#ddeeff", edgeColor: "#aabbcc" });
+    const theme = renderer.getTheme();
+    results.checks.themeApplied = theme.nodeBg === "#112233" && theme.nodeLabel === "#ddeeff";
+    // Real paint evidence: the computed node style must reflect the new token
+    // (not just getTheme() storage) — proves cy.style().fromJson().update()
+    // actually repainted with the swapped colors.
+    const paintedBg = cy.getElementById(model.tables[0].id).style("background-color");
+    // cytoscape normalizes hex → rgb() in computed style (#112233 → rgb(17,34,51)).
+    results.checks.themeRepainted =
+      paintedBg !== undefined && paintedBg !== null && paintedBg.toLowerCase() === "rgb(17,34,51)";
+    results.checks.graphAfterTheme = cy.nodes().length === F.stats.tables;
+
+    // ---- selection ----
+    renderer.updateSelection({ nodeIds: [model.tables[0].id] });
+    results.checks.selectionWorks = cy.getElementById(model.tables[0].id).hasClass("selected");
+
+    setPhase("done");
+    renderResults();
+    window.__bench = results;
+    document.title = "BENCH_READY " + results.metrics.timeToDiagramMs;
+  }
+
+  function renderResults() {
+    const m = results.metrics, c = results.checks;
+    const rows = [
+      ["Time to diagram (approx + mount)", m.timeToDiagramMs + " ms", m.timeToDiagramMs < 1000],
+      ["Approximate layout compute", m.approximateLayoutMs + " ms", m.approximateLayoutMs < 100],
+      ["Rendered nodes / edges", m.renderedNodes + " / " + m.renderedEdges, c.nodeCount && c.edgeCount],
+      ["DOM elements", m.domCount, m.domCount < 200],
+      ["Canvas elements", m.canvasCount, m.canvasCount >= 1],
+      ["updatePositions moves node (P1-1)", c.upgradeMovedNode ? "PASS" : "FAIL", c.upgradeMovedNode],
+      [
+        "updateTheme repaints computed style + graph alive (P2-1)",
+        c.themeApplied && c.themeRepainted && c.graphAfterTheme ? "PASS" : "FAIL",
+        c.themeApplied && c.themeRepainted && c.graphAfterTheme,
+      ],
+      ["Selection highlight", c.selectionWorks ? "PASS" : "FAIL", c.selectionWorks],
+    ];
+    const el = document.getElementById("results");
+    el.innerHTML =
+      "<h3>Runtime verification — real renderer, real browser</h3><table>" +
+      rows.map(([k, v, ok]) => "<tr><td>" + k + "</td><td class=\"" + (ok ? "pass" : "fail") + "\">" + v + "</td></tr>").join("") +
+      "</table>";
+  }
+
+  requestAnimationFrame(() => requestAnimationFrame(run));
+})();
+</script>
+</body>
+</html>

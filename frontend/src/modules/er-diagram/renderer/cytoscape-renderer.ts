@@ -1,17 +1,53 @@
 import cytoscape, { type Core, type ElementDefinition } from "cytoscape";
+import { OVERVIEW_NODE_HEIGHT, OVERVIEW_NODE_WIDTH } from "../utils/overview-geometry";
 import type {
   ErGraphModel,
   ErPosition,
   ErRenderer,
   ErRendererCallbacks,
   ErSelection,
+  ErThemeTokens,
   ErViewport,
   TableId,
 } from "./types";
 
 export interface CytoscapeErRendererOptions extends ErRendererCallbacks {
   container: HTMLElement;
+  /**
+   * P2-1 — resolved theme colors (light or dark). If omitted, the dark
+   * defaults are used (standalone harness / tests). The host should resolve
+   * canonical CSS tokens via getComputedStyle and pass concrete values.
+   */
+  theme?: Partial<ErThemeTokens>;
+  /**
+   * Headless mode (P2-2 runtime tests in jsdom, which has no canvas): run
+   * cytoscape without a container/renderer. Positions, classes, theme storage
+   * and bounding boxes all work; painting does not (nothing to paint).
+   */
+  headless?: boolean;
 }
+
+/**
+ * Overview node paint geometry — imported from the layout profile (P1-2): the
+ * renderer and the layout engine share one source of truth, so the P1-2
+ * failure class (renderer paints 160×28 while dagre lays out 220×640) cannot
+ * silently recur.
+ */
+const NODE_WIDTH = OVERVIEW_NODE_WIDTH;
+const NODE_HEIGHT = OVERVIEW_NODE_HEIGHT;
+
+/** Dark-theme defaults — used when no `theme` is supplied (harness/tests). */
+const DARK_THEME: ErThemeTokens = {
+  nodeBg: "#1e293b",
+  nodeBorder: "#475569",
+  nodeLabel: "#cbd5e1",
+  selectedNodeBorder: "#7dd3fc",
+  selectedNodeBg: "#1e3a5f",
+  neighborNodeBorder: "#38bdf8",
+  edgeColor: "#334155",
+  edgeArrowColor: "#475569",
+  neighborEdgeColor: "#475569",
+};
 
 /**
  * Canvas ERD renderer (P1.9) for large-schema overview/exploration.
@@ -21,13 +57,18 @@ export interface CytoscapeErRendererOptions extends ErRendererCallbacks {
  * - Layout is NOT computed here: positions come from the shared layout engine
  *   (dagre in the P1.7 Worker), so renderer and layout stay decoupled.
  * - `updateSelection` highlights the selected node + its 1-hop neighborhood.
+ * - P1-1: `updatePositions` applies a new full position set in place (async
+ *   layout upgrade — the overview paints an approximate layout immediately and
+ *   swaps in dagre positions when the worker finishes).
+ * - P2-1: colors come from `ErThemeTokens` (resolved canonical CSS tokens),
+ *   `updateTheme` swaps them at runtime without destroying the graph.
  *
- * Colors are hardcoded for the dark theme (canvas paints don't resolve CSS
- * vars). Relative imports only — this file can be bundled standalone (the
- * benchmark harness imports it directly).
+ * Relative imports only — this file can be bundled standalone (the benchmark
+ * harness imports it directly).
  */
 export class CytoscapeErRenderer implements ErRenderer {
   private cy: Core;
+  private theme: ErThemeTokens;
   private onNodeClick?: (nodeId: TableId) => void;
   private onViewportChange?: (viewport: ErViewport) => void;
   private viewportRaf: number | null = null;
@@ -35,69 +76,15 @@ export class CytoscapeErRenderer implements ErRenderer {
   constructor(options: CytoscapeErRendererOptions) {
     this.onNodeClick = options.onNodeClick;
     this.onViewportChange = options.onViewportChange;
+    this.theme = { ...DARK_THEME, ...options.theme };
 
     this.cy = cytoscape({
-      container: options.container,
+      ...(options.headless ? {} : { container: options.container }),
+      headless: options.headless ?? false,
       minZoom: 0.02,
       maxZoom: 4,
       wheelSensitivity: 0.3,
-      style: [
-        {
-          selector: "node",
-          style: {
-            "background-color": "#1e293b",
-            "border-color": "#475569",
-            "border-width": "1px",
-            "border-opacity": 0.9,
-            width: 160,
-            height: 28,
-            shape: "rectangle",
-            label: "data(label)",
-            "font-size": "9px",
-            "font-family": "ui-sans-serif, system-ui, sans-serif",
-            color: "#cbd5e1",
-            "text-valign": "center",
-            "text-halign": "center",
-            "text-wrap": "ellipsis",
-            "text-max-width": "150px",
-            "overlay-opacity": 0,
-          },
-        },
-        {
-          selector: "node.selected",
-          style: {
-            "border-color": "#7dd3fc",
-            "border-width": "2px",
-            "background-color": "#1e3a5f",
-          },
-        },
-        {
-          selector: "node.neighbor",
-          style: {
-            "border-color": "#38bdf8",
-            "border-opacity": 0.8,
-          },
-        },
-        {
-          selector: "edge",
-          style: {
-            "curve-style": "bezier",
-            width: "1px",
-            "line-color": "#334155",
-            "target-arrow-color": "#475569",
-            "target-arrow-shape": "triangle",
-            "arrow-scale": 0.5,
-            "overlay-opacity": 0,
-          },
-        },
-        {
-          selector: "edge.neighbor",
-          style: {
-            "line-color": "#475569",
-            width: "1.5px",
-          },
-        },
-      ],
+      style: this.buildStylesheet(),
     });
 
     this.cy.on("tap", "node", (event) => {
@@ -112,6 +99,67 @@ export class CytoscapeErRenderer implements ErRenderer {
         this.onViewportChange?.(this.readViewport());
       });
     });
+  }
+
+  private buildStylesheet(): { selector: string; style: Record<string, string | number> }[] {
+    const t = this.theme;
+    return [
+      {
+        selector: "node",
+        style: {
+          "background-color": t.nodeBg,
+          "border-color": t.nodeBorder,
+          "border-width": "1px",
+          "border-opacity": 0.9,
+          width: NODE_WIDTH,
+          height: NODE_HEIGHT,
+          shape: "rectangle",
+          label: "data(label)",
+          "font-size": "9px",
+          "font-family": "ui-sans-serif, system-ui, sans-serif",
+          color: t.nodeLabel,
+          "text-valign": "center",
+          "text-halign": "center",
+          "text-wrap": "ellipsis",
+          "text-max-width": "150px",
+          "overlay-opacity": 0,
+        },
+      },
+      {
+        selector: "node.selected",
+        style: {
+          "border-color": t.selectedNodeBorder,
+          "border-width": "2px",
+          "background-color": t.selectedNodeBg,
+        },
+      },
+      {
+        selector: "node.neighbor",
+        style: {
+          "border-color": t.neighborNodeBorder,
+          "border-opacity": 0.8,
+        },
+      },
+      {
+        selector: "edge",
+        style: {
+          "curve-style": "bezier",
+          width: "1px",
+          "line-color": t.edgeColor,
+          "target-arrow-color": t.edgeArrowColor,
+          "target-arrow-shape": "triangle",
+          "arrow-scale": 0.5,
+          "overlay-opacity": 0,
+        },
+      },
+      {
+        selector: "edge.neighbor",
+        style: {
+          "line-color": t.neighborEdgeColor,
+          width: "1.5px",
+        },
+      },
+    ];
   }
 
   mount(model: ErGraphModel, positions: Map<TableId, ErPosition>): void {
@@ -136,6 +184,24 @@ export class CytoscapeErRenderer implements ErRenderer {
     this.onViewportChange?.(this.readViewport());
   }
 
+  /**
+   * P1-1 — swap in a new full position set without re-mounting (async layout
+   * upgrade). Only nodes that already exist are moved; the graph structure is
+   * untouched, then we re-fit so the new layout fills the view.
+   */
+  updatePositions(positions: Map<TableId, ErPosition>): void {
+    // Batch: a per-node `position()` loop at 1000 tables would trigger one
+    // layout/render pass per mutation; cy.batch() coalesces them into one.
+    this.cy.batch(() => {
+      for (const [id, pos] of positions) {
+        const node = this.cy.getElementById(id);
+        if (node.nonempty()) node.position({ x: pos.x, y: pos.y });
+      }
+    });
+    this.cy.fit(undefined, 40);
+    this.onViewportChange?.(this.readViewport());
+  }
+
   updateViewport(viewport: ErViewport): void {
     this.cy.pan({ x: viewport.x, y: viewport.y });
     this.cy.zoom(viewport.zoom);
@@ -150,6 +216,25 @@ export class CytoscapeErRenderer implements ErRenderer {
       const neighborhood = node.closedNeighborhood();
       if (neighborhood.length) neighborhood.addClass("neighbor");
     }
+  }
+
+  /** P2-1 — swap theme colors at runtime without destroying the graph. */
+  updateTheme(tokens: ErThemeTokens): void {
+    this.theme = { ...DARK_THEME, ...tokens };
+    // In headless mode (unit tests) `cy.style()` is unavailable — the graph is
+    // not painted, so there is nothing to re-style; the theme is still stored
+    // for `getTheme()` and the next non-headless instance.
+    const style = this.cy.style();
+    if (style && typeof style.fromJson === "function") {
+      // @types/cytoscape models the runtime stylesheet shape as `css`, but the
+      // runtime consumes `style` — the local shape above is the real contract.
+      style.fromJson(this.buildStylesheet() as never).update();
+    }
+  }
+
+  /** Current resolved theme — used by tests/instrumentation. */
+  getTheme(): ErThemeTokens {
+    return { ...this.theme };
   }
 
   focusNode(nodeId: TableId): void {
@@ -189,5 +274,10 @@ export class CytoscapeErRenderer implements ErRenderer {
       width: container?.clientWidth ?? 0,
       height: container?.clientHeight ?? 0,
     };
+  }
+
+  /** Underlying cytoscape core — used by tests to assert graph state. */
+  getCy(): Core {
+    return this.cy;
   }
 }

@@ -66,6 +66,16 @@
 - [x] **6.10** P1.9 Canvas decision — hybrid LANDED: `ErRenderer` abstraction (renderer/types.ts) + `er-graph-model` (pure domain) + `CytoscapeErRenderer` (canvas, selection→neighborhood highlight) mounted for large-schema "All N tables" overview; React Flow keeps ≤threshold + neighborhood/landing modes. Benchmark-verified against the real app source (see VERIFICATION.md): 18 DOM elements + ~60 fps overview pan at 500 AND 1,000 tables (vs React Flow 6,143/11,817 DOM and 34/18.6 fps)
 - [x] **6.11** Complexity score replaces hardcoded thresholds — `computeSchemaComplexity` (tables + relations×0.7 + columns×0.08) + `classifySchemaComplexity` (S/M/L/XL) in er-graph-model.ts; `LARGE_SCHEMA_THRESHOLD=200` removed from er-diagram.tsx, `isLargeSchema = tier ∈ {L, XL}` derived from `graphModel.stats`. Boundaries tuned from P1.8 evidence: A100(310.4)→M, A500(1,802.5)→L, A1000(3,765.2)→XL. 6 unit tests (formula, fixture scores, boundaries, lean-medium stays M).
 
+## PR#12 review round (P1-1 … P2-2, 2026-08-12)
+
+- [x] **R-1 (P1)** Overview paints without waiting for dagre — fast approximate layout (`utils/approximate-layout.ts`, O(T+E), ~1ms @1000) + `ErRenderer.updatePositions` async upgrade (no re-mount); view mounts on first positions, not `layoutStatus === "ready"`. TTD runtime evidence: **230ms @500 / 354ms @1000** (CDP, real renderer)
+- [x] **R-2 (P1)** Renderer-specific layout geometry — `utils/layout-profile.ts` (`OVERVIEW_PROFILE` 160×28 vs `REACT_FLOW_PROFILE` 220×dynamic); overview layout input from the graph model; `computeLayoutHash` includes the profile (separate cache namespaces)
+- [x] **R-3 (P1)** Large graphs never sync-dagre on the main thread — `createWorkerLayoutRunner` throws without a Worker global; runners kind-tagged (`worker`/`dagre-sync`/`approximate`) so the degraded flag follows the actual runner (creation- AND runtime-failure paths); node count > `SYNC_DAGRE_MAX_NODES` → `createApproximateLayoutRunner` + `degraded` flag; approximate result skipped from the schemaHash cache (cannot poison repeat opens); small graphs keep the sync fallback
+- [x] **R-4 (P2)** Canvas colors resolve from canonical CSS tokens — `ErThemeTokens` + `ErRenderer.updateTheme()` (getComputedStyle at mount + on theme-store change; no graph destroy); computed-style repaint asserted in the CDP harness (hex → `rgb()` normalization); `updatePositions` batched via `cy.batch`
+- [x] **R-5 (P2)** Real-renderer runtime test — `__tests__/cytoscape-renderer.test.ts` (headless cytoscape) + `bench/er-renderer-runtime.html` CDP harness (esbuild bundle of the real renderer): 7/7 checks PASS @500/1000 (incl. theme repaint), 0 console errors
+- [x] **R-6** Docs updated — TTI/TTD split, geometry contract (shared dependency-free `overview-geometry.ts`), fallback policy, theme evidence (FINDINGS F-R1..5, VERIFICATION "P1 review fixes")
+- [x] **R-7** Gates closed — **1,445 FE tests** (124 files), tsc 0, lint/prettier/check:tokens clean, build OK
+
 ## Gates
 
 - [x] All Phase 1 items complete before merging — P1.1–P1.9 + code-split + 6.11 all `[x]` above; pre-merge review found 0 P0 / 0 P1
