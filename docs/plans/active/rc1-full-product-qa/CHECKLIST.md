@@ -14,38 +14,38 @@ Baseline audited: `6e0a04ad675eaa85cae08bbe1a066270596a18db`
 ## Gate 1 — QA-W1 Precision & mutation identity
 
 ### QA-P1-01 BIGINT/i64 precision
-- [ ] Define lossless IPC contract for i64/BIGINT
-- [ ] Remove frontend `int64: number` unsafe representation
-- [ ] Ensure QueryParam mutation path accepts exact 64-bit values
-- [ ] Verify Data Grid PK identity uses exact values
-- [ ] Verify sort/copy/export do not round
-- [ ] Add PostgreSQL INT8 exact round-trip tests
-- [ ] Add SQLite >2^53 exact round-trip tests
-- [ ] Test `i64::MAX` / `i64::MIN`
+- [x] Define lossless IPC contract for i64/BIGINT
+- [x] Remove frontend `int64: number` unsafe representation
+- [x] Ensure QueryParam mutation path accepts exact 64-bit values
+- [x] Verify Data Grid PK identity uses exact values
+- [x] Verify sort/copy/export do not round
+- [x] Add PostgreSQL INT8 exact round-trip tests
+- [x] Add SQLite >2^53 exact round-trip tests
+- [x] Test `i64::MAX` / `i64::MIN`
 
 ### QA-P1-02 Preview/staged cross-resource contamination
-- [ ] Preview with staged changes cannot be silently replaced
-- [ ] First staged edit promotes preview or marks it protected
-- [ ] Preview replacement clears all tab-scoped state when safe
-- [ ] Quick Open preview navigation obeys same rule
-- [ ] Test A staged → B preview cannot apply A mutation to B
+- [x] Preview with staged changes cannot be silently replaced
+- [x] First staged edit promotes preview or marks it protected
+- [x] Preview replacement clears all tab-scoped state when safe
+- [x] Quick Open preview navigation obeys same rule
+- [x] Test A staged → B preview cannot apply A mutation to B
 
 ### QA-P1-03 Dirty/close lifecycle
-- [ ] Define shared `hasUnsavedWork(tabId)`
-- [ ] Staged edits participate in dirty/close guard
-- [ ] Close one tab prompts when staged work exists
-- [ ] Close Others/Right/All include staged work
-- [ ] Preview replacement includes staged work guard
-- [ ] Reassign connection includes staged work guard
-- [ ] Closing/discarding garbage-collects staged changes
-- [ ] Restart preserves pending state only when intentional and visible
+- [x] Define shared `hasUnsavedWork(tabId)`
+- [x] Staged edits participate in dirty/close guard
+- [x] Close one tab prompts when staged work exists
+- [x] Close Others/Right/All include staged work
+- [x] Preview replacement includes staged work guard
+- [x] Reassign connection includes staged work guard
+- [x] Closing/discarding garbage-collects staged changes
+- [x] Restart preserves pending state only when intentional and visible
 
 ### QA-P1-04 SQLite metadata
-- [ ] Table Data uses introspected SQLite column metadata
-- [ ] INTEGER/BLOB/text metadata represented correctly enough for edit policy
-- [ ] Unknown/dynamic SQLite values have safe fallback
-- [ ] Editing unsupported/ambiguous types is disabled with reason
-- [ ] SQLite typed-edit regression tests
+- [x] Table Data uses introspected SQLite column metadata
+- [x] INTEGER/BLOB/text metadata represented correctly enough for edit policy
+- [x] Unknown/dynamic SQLite values have safe fallback
+- [x] Editing unsupported/ambiguous types is disabled with reason
+- [x] SQLite typed-edit regression tests
 
 ## Gate 2 — QA-W2 Connection correctness
 

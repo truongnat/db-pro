@@ -9,7 +9,7 @@ Severity follows `REVIEW.md`. `SOURCE_CONFIRMED` means the problematic state tra
 | Severity | Count | Release meaning |
 |---|---:|---|
 | P0 | 0 | none found in this static pass |
-| P1 | 14 | block `v0.1.0` until fixed/disproved |
+| P1 | 10 | 4 fixed in W1 (QA-P1-01..04); 10 remain for W2+ |
 | P2 | 25 | fix before release where cheap; otherwise explicit defer |
 
 ---
@@ -18,7 +18,7 @@ Severity follows `REVIEW.md`. `SOURCE_CONFIRMED` means the problematic state tra
 
 ## QA-P1-01 — Lossy BIGINT/i64 representation can corrupt row identity
 
-**Status:** SOURCE_CONFIRMED  
+**Status:** FIXED (W1 — string_i64 serde on CellValue, QueryParam, and CellValueDto; frontend consumes string values)  
 **Area:** Rust ↔ Tauri IPC ↔ frontend data model / Data Grid  
 **Files:**
 - `crates/core/src/domain/query.rs`
@@ -47,7 +47,7 @@ Severity follows `REVIEW.md`. `SOURCE_CONFIRMED` means the problematic state tra
 
 ## QA-P1-02 — Preview tab replacement can carry staged mutations to another table
 
-**Status:** SOURCE_CONFIRMED  
+**Status:** FIXED (W1 — preview with staged changes is promoted; clean preview replaced with grid state reset)  
 **Area:** Workspace preview / staged Data Grid changes  
 **Files:**
 - `frontend/src/commons/hooks/use-sidebar-tab-ops.ts`
@@ -76,7 +76,7 @@ Severity follows `REVIEW.md`. `SOURCE_CONFIRMED` means the problematic state tra
 
 ## QA-P1-03 — Staged Data Grid edits bypass tab dirty/close protection
 
-**Status:** SOURCE_CONFIRMED  
+**Status:** FIXED (W1 — unified staged-aware close guard across requestCloseTab, Action Platform, and Command Palette)  
 **Area:** Data Grid / tab lifecycle  
 **Files:**
 - `frontend/src/modules/data-grid/state/staged-changes.store.ts`
@@ -97,7 +97,7 @@ Severity follows `REVIEW.md`. `SOURCE_CONFIRMED` means the problematic state tra
 
 ## QA-P1-04 — SQLite query/grid metadata reports every result column as TEXT
 
-**Status:** SOURCE_CONFIRMED  
+**Status:** FIXED (W1 — column_decltype feature enabled; extract_columns reads declared types; SqliteActor::handle_execute wired to runtime path)  
 **Area:** SQLite provider / type-aware Data Grid  
 **Files:**
 - `crates/infrastructure/src/sqlite/query_mapper.rs`

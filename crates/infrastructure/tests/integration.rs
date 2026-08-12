@@ -203,6 +203,25 @@ async fn query_documents_with_blob() {
     assert_eq!(result.row_count, 3);
 }
 
+#[tokio::test]
+async fn query_columns_reflect_declared_types() {
+    let (connector, handle) = setup_fixture().await;
+    let result = connector
+        .query(
+            &handle,
+            "SELECT c.id, c.name, c.description, p.price FROM categories c JOIN products p ON p.category_id = c.id LIMIT 1",
+            &[],
+        )
+        .await
+        .unwrap();
+
+    let col_types: Vec<&str> = result.columns.iter().map(|c| c.data_type.as_str()).collect();
+    assert_eq!(col_types[0], "INTEGER", "categories.id should be INTEGER");
+    assert_eq!(col_types[1], "TEXT", "categories.name should be TEXT");
+    assert_eq!(col_types[2], "TEXT", "categories.description should be TEXT");
+    assert_eq!(col_types[3], "REAL", "products.price should be REAL");
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // Metadata / Introspection tests
 // ═══════════════════════════════════════════════════════════════════════════

@@ -3,7 +3,7 @@
 ```text
 Wave: W1 — BIGINT precision, preview staged leak, close guard bypass, SQLite metadata
 Branch: fix/rc1-p1-precision-staged-state
-Head SHA: b724c8c
+Implementation SHA: b724c8c (PR HEAD: 7483cfd)
 Confirmed findings (original):
   - QA-P1-01: BIGINT/i64 precision loss across Rust→Tauri→JS IPC — CONFIRMED, FIXED
   - QA-P1-02: Preview tab replacement carries staged mutations to another table — CONFIRMED, FIXED
