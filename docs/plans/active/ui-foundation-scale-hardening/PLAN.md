@@ -212,3 +212,135 @@ Phase 5: Audit + budgets (P3.7, P3.8)
 - Token migration (P3.1) touches 90+ files — must be done incrementally with visual verification at each step
 - LOD zoom tiers need tuning — initial thresholds are hypotheses, must be validated with real schemas
 - Neighborhood mode is new UX — needs user validation before committing to the interaction model
+
+---
+
+# P1 — Large-Schema ER Rendering Architecture (locked)
+
+## Goal
+
+Make the ER diagram scale past 500 tables. P3.3–P3.8 (pre-index, layout dedup, CSS-tier LOD, neighborhood mode) fixed the O(T×C) algorithm path but **not** the render path: 500 detailed table cards + thousands of edges still enter React reconciliation and frame-drop during pan/zoom.
+
+## Locked architecture (decision, not proposal)
+
+```text
+                      ER DIAGRAM CORE
+┌───────────────────────────────────────────────────┐
+│ ErGraphModel                                      │
+│   tables / relations / adjacency index            │
+│   degree / centrality metadata / schema statistics│
+└───────────────────────┬───────────────────────────┘
+                        │
+                        ▼
+┌───────────────────────────────────────────────────┐
+│ Layout Engine                                     │
+│   Web Worker · Dagre / future ELK adapter         │
+│   layout cache · schemaHash → positions           │
+└───────────────────────┬───────────────────────────┘
+                        │
+                        ▼
+┌───────────────────────────────────────────────────┐
+│ Spatial Index                                     │
+│   node bounding boxes · viewport intersection     │
+│   visible node IDs · visible edge IDs             │
+└───────────────────────┬───────────────────────────┘
+                        │
+                        ▼
+┌───────────────────────────────────────────────────┐
+│ Viewport Engine                                   │
+│   pan / zoom · LOD resolver · neighborhood        │
+│   selected / hovered · search focus               │
+└───────────────┬──────────────────┬────────────────┘
+                │                  │
+                ▼                  ▼
+      ReactFlow Renderer      Future Canvas
+        small/medium           very large
+```
+
+Renderer abstraction from day one — domain/application layers never know which renderer is mounted:
+
+```ts
+interface ErRenderer {
+  mount(model: ErRenderModel): void;
+  updateViewport(viewport: ErViewport): void;
+  updateSelection(selection: ErSelection): void;
+  focusNode(nodeId: TableId): void;
+  dispose(): void;
+}
+// ReactFlowErRenderer · CanvasErRenderer (decided by P1.9 benchmark)
+```
+
+### Hard rules (locked)
+
+1. **`onlyRenderVisibleElements` is a mitigation, not the answer.** End state is spatial-query → ~20–40 viewport nodes → LOD → render. Never feed all 500 nodes into React and hope React Flow saves us.
+2. **LOD changes the render tree, not just CSS.** `switch (lod) { dot → compact → summary → detail }` returning distinct components (`ErDotNode` / `ErCompactNode` / `ErSummaryNode` / `ErDetailedNode`). CSS `hidden` that keeps DOM alive is forbidden.
+3. **Edges have LOD too.** zoom < 0.25: no FK labels, no markers, straight/simple lines, aggregate relations (e.g. `Customer ─31─ Order`); 0.25–0.6: simple relation edges; > 0.6: normal FK edges; selected neighborhood: full relation detail.
+4. **Dagre runs fully in a Worker, atomically committed.** No fake progressive layout — no streaming un-stable chunk positions to the UI. UI may be progressive (shell → search usable → "Arranging 512 tables…" → commit once), but positions never appear until stable.
+5. **Thresholds are complexity scores, not hardcoded counts.** `complexity = tableCount + relationCount * 0.7 + totalColumnCount * 0.08`; classify S (<100) / M (100–300) / L (300–700) / XL (>700). Real thresholds tuned from runtime benchmarks.
+6. **Full schema is not the default experience for large schemas.** Default: search-first exploration — `[1 hop] [2 hops] [Domain] [All 512 tables]` — database exploration, not diagram viewer.
+
+## Acceptance criteria (P1)
+
+**Finding:** `P1 — Large-schema ER rendering architecture does not scale`.
+
+QA fixtures:
+
+| Fixture | Tables | Relations | Columns |
+|---|---|---|---|
+| A | 100 | ~150 | ~1,200 |
+| B | 500 | ~900 | ~7,500 |
+| C | 1,000 | ~2,000 | ~15,000 |
+
+Metrics (recorded per fixture):
+
+```text
+Open diagram
+├─ time to interactive shell
+├─ layout worker duration
+├─ max main-thread long task
+└─ initial detailed DOM count
+
+Interaction
+├─ pan frame time
+├─ zoom frame time
+├─ search latency
+└─ selection latency
+
+Renderer
+├─ graph node count
+├─ viewport node count
+├─ rendered node count
+├─ detailed node count
+└─ rendered edge count
+```
+
+Invariants (must hold, never: `graphTables = renderedTables = detailedTables`):
+
+```text
+graphTables = 512
+viewportTables ≈ 26
+renderedTables ≈ 26 + overscan
+detailedTables <= visibleNearZoom + selected
+```
+
+## Implementation order (locked)
+
+```text
+P1.1  Runtime instrumentation                    ← this session
+P1.2  onlyRenderVisibleElements + MiniMap policy ← this session
+P1.3  true LOD components (render-tree switch)
+P1.4  edge LOD
+P1.5  viewport / spatial-index layer
+P1.6  default neighborhood exploration UX
+P1.7  move layout to Worker + cache
+P1.8  benchmark 100 / 500 / 1000 tables
+P1.9  decide whether Canvas renderer is necessary
+```
+
+No Canvas/WebGL rewrite until P1.1–P1.7 are implemented and benchmarked. If React Flow + real viewport culling + true LOD passes the budget at 500/1000 tables, `CanvasErRenderer` stays a future option.
+
+## Non-goals (locked)
+
+- Rewriting the renderer before P1.8 benchmarks exist
+- Fake progressive layout (streaming unstable positions)
+- CSS-only LOD that keeps hidden DOM alive

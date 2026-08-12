@@ -26,6 +26,7 @@ Pre-release hardening program. Blocks v0.1.
 | P3.6 ER Diagram Large Schema Mode | REVIEW | Neighborhood BFS for 200+ tables; search-first default |
 | P3.7 Performance Budgets | REVIEW | Fixtures at 20/100/500/1000; automated regression test |
 | P3.8 Data Grid / Metadata List Audit | REVIEW | Explorer O(S×T) fixed; data grid/connection list clean |
+| **P1 Large-Schema ER Architecture** | **IMPLEMENTING** | locked architecture (graph model → layout worker → spatial index → viewport engine → renderer); P1.1 instrumentation + P1.2 culling done on `feature/er-large-schema-scaling` |
 
 ## Rules
 

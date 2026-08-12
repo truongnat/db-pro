@@ -42,6 +42,7 @@ export const TableNode = memo(function TableNode({ data, selected }: NodeProps) 
 
   return (
     <div
+      data-tier={tier}
       className={cn(
         "min-w-[180px] max-w-[260px] overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-sm transition-shadow",
         selected ? "border-primary ring-1 ring-primary/30" : "border-[var(--app-border)]",

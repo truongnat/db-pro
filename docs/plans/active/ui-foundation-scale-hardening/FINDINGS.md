@@ -84,3 +84,17 @@ Clicking an edge should only change edge styles, not recompute the positions of 
 ## Audit findings
 
 _To be populated during Phase 5 audit._
+
+## F7: Large-schema ER rendering architecture does not scale (P1)
+
+**Evidence:** At 500 tables the diagram feeds ~500 `TableNode` components (up to 7,500 column rows) into React reconciliation simultaneously. The current LOD tiers (P3.5) switch content inside one component via conditional rendering — the render tree is a single path, not a per-LOD component switch — and React Flow's `onlyRenderVisibleElements` is not enabled, so off-viewport nodes still mount. Every edge keeps labels, markers, and smoothstep paths at every zoom. Dagre layout runs on the main thread with no cache.
+
+**Failure scenario:** Open a 500-table schema → initial layout freeze on main thread (~50–200ms+ uncached), then frame drops during pan/zoom because thousands of DOM elements and SVG paths re-render.
+
+**Severity:** P1 — release prerequisite; the product is a database IDE that must handle production schemas.
+
+**Decision (locked 2026-08-12):** layered architecture `ErGraphModel → Layout Engine (Worker + cache) → Spatial Index → Viewport Engine → ReactFlowErRenderer / future CanvasErRenderer` behind an `ErRenderer` interface. `onlyRenderVisibleElements` is a P1 mitigation only, not the end state. True LOD = render-tree switch (ErDot/ErCompact/ErSummary/ErDetailed), edges get their own LOD tiers, layout moves to a Worker with atomic commit (no streamed unstable positions), thresholds become a complexity score, and full-schema is not the default UX for large graphs. Implementation order P1.1→P1.9; Canvas rewrite only after P1.8 benchmarks prove React Flow misses budget.
+
+**Scope:** smallest coherent fix — this session delivers P1.1 (runtime instrumentation) + P1.2 (`onlyRenderVisibleElements` + MiniMap policy). Remaining P1.3–P1.9 tracked in CHECKLIST Phase 6.
+
+**Provider impact:** frontend-only; PostgreSQL/SQLite introspection unchanged.

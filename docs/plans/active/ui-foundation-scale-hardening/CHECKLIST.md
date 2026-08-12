@@ -52,9 +52,24 @@
 - [x] **5.6** Define performance budgets in VERIFICATION.md
 - [x] **5.7** Add at least one automated performance regression test
 
+## Phase 6: Large-Schema Rendering Architecture (P1)
+
+- [x] **6.1** P1.1 Runtime instrumentation — ErPerfMonitor (long tasks, frame sampler, DOM counts, measure marks) + dev HUD overlay
+- [x] **6.2** P1.2 Enable `onlyRenderVisibleElements` on `<ReactFlow>`
+- [x] **6.3** P1.2 MiniMap policy — disabled for large schemas; per-fixture documentation
+- [ ] **6.4** P1.3 True LOD components — `ErDotNode` / `ErCompactNode` / `ErSummaryNode` / `ErDetailedNode` switch, no CSS-hidden DOM
+- [ ] **6.5** P1.4 Edge LOD — zoom tiers: no labels/markers + aggregate relations < 0.25, simple edges 0.25–0.6, full FK edges > 0.6, full detail on selected neighborhood
+- [ ] **6.6** P1.5 Viewport / spatial-index layer — bounding boxes, viewport intersection, visible node/edge IDs
+- [ ] **6.7** P1.6 Default neighborhood exploration UX — `[1 hop] [2 hops] [Domain] [All]` exploration
+- [ ] **6.8** P1.7 Layout in Web Worker + `schemaHash → positions` cache, atomic commit
+- [ ] **6.9** P1.8 Benchmark fixtures A/B/C (100/500/1000) against locked metrics + invariants
+- [ ] **6.10** P1.9 Canvas decision — evidence-driven, only if React Flow misses budget
+- [ ] **6.11** Complexity score replaces hardcoded thresholds (`tableCount + relationCount*0.7 + totalColumnCount*0.08`)
+
 ## Gates
 
 - [ ] All Phase 1 items complete before merging
 - [ ] Phase 2 complete before adding new shadcn components
 - [ ] Phase 3+4 complete before v0.1 release
 - [ ] P0 = 0, P1 = 0 across all phases
+- [ ] P1 invariants hold per fixture (`graphTables ≠ renderedTables ≠ detailedTables`)

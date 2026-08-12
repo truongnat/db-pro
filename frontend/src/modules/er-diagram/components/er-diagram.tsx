@@ -33,9 +33,11 @@ import {
 } from "lucide-react";
 
 import { TableNode, type TableNodeData } from "./table-node";
+import { ErPerfHud } from "./er-perf-hud";
 import { layoutGraph } from "../utils/layout";
 import { groupForeignKeys } from "../utils/edge-builder";
 import { buildAdjacencyMap, getNeighborhood } from "../utils/neighborhood";
+import { ErPerfMonitor } from "../utils/instrumentation";
 
 import type { IntrospectResult, SchemaColumnDto } from "@/modules/schema/types/schema.types";
 
@@ -68,6 +70,28 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
   const { t } = useTranslation();
   const reactFlowRef = useRef<HTMLDivElement>(null);
 
+  // P1.1 runtime instrumentation — dev-only, enabled via localStorage `er-perf-hud=1`.
+  const perfEnabled =
+    typeof localStorage !== "undefined" && localStorage.getItem("er-perf-hud") === "1";
+  const perfMonitorRef = useRef<ErPerfMonitor | null>(null);
+  if (!perfMonitorRef.current) {
+    perfMonitorRef.current = new ErPerfMonitor(() => reactFlowRef.current);
+  }
+  // Viewport lives in a ref (not state) — onViewportChange fires every pan/zoom
+  // frame, and a setState per frame would defeat the purpose of this perf work.
+  // The HUD refreshes on its own 500ms tick and reads the ref.
+  const viewportRef = useRef<Viewport | null>(null);
+  // Captured at first render so time-to-interactive is measured from mount,
+  // not from a fixed setTimeout.
+  const renderStartRef = useRef(performance.now());
+
+  // Start the long-task observer and record mount time (dev-only).
+  useEffect(() => {
+    if (!perfEnabled) return;
+    perfMonitorRef.current?.start();
+    return () => perfMonitorRef.current?.stop();
+  }, [perfEnabled]);
+
   const [compact, setCompact] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [layoutDirection, setLayoutDirection] = useState<"LR" | "TB">("LR");
@@ -75,6 +99,7 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
   const [currentTier, setCurrentTier] = useState<ZoomTier>(2);
 
   const onViewportChange = useCallback((viewport: Viewport) => {
+    viewportRef.current = viewport;
     setCurrentTier((prev) => {
       const next = zoomTier(viewport.zoom);
       return next === prev ? prev : next;
@@ -215,13 +240,15 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
 
   // Apply layout, respecting manual positions for dragged nodes
   const laidOutNodes = useMemo(() => {
+    const layoutStart = performance.now();
     const autoLaid = layoutGraph(initialNodes, initialEdges, { direction: layoutDirection });
+    if (perfEnabled) perfMonitorRef.current?.recordLayout(performance.now() - layoutStart);
     return autoLaid.map((node) => {
       const manual = manualPositions.get(node.id);
       if (manual) return { ...node, position: manual };
       return node;
     });
-  }, [initialNodes, initialEdges, layoutDirection, manualPositions]);
+  }, [initialNodes, initialEdges, layoutDirection, manualPositions, perfEnabled]);
 
   // Inject current zoom tier into node data — only recomputes when tier changes
   const tieredNodes = useMemo(() => {
@@ -292,10 +319,26 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
   }, [searchQuery, tieredNodes, setNodes, isLargeSchema]);
 
   // Fit view on first render
-  const onInit = useCallback((instance: { fitView: (opts?: Record<string, unknown>) => void }) => {
-    // Small delay to ensure nodes are rendered
-    setTimeout(() => instance.fitView({ padding: 0.2 }), 100);
-  }, []);
+  const onInit = useCallback(
+    (instance: { fitView: (opts?: Record<string, unknown>) => void }) => {
+      // Small delay to ensure nodes are rendered
+      setTimeout(() => instance.fitView({ padding: 0.2 }), 100);
+      // React Flow is mounted and interactive → that is the "interactive shell".
+      if (perfEnabled) {
+        perfMonitorRef.current?.recordInit(performance.now() - renderStartRef.current);
+      }
+    },
+    [perfEnabled],
+  );
+
+  // Sample rAF frame times during pan/zoom gestures.
+  const onMoveStart = useCallback(() => {
+    if (perfEnabled) perfMonitorRef.current?.beginFrameSampling();
+  }, [perfEnabled]);
+
+  const onMoveEnd = useCallback(() => {
+    if (perfEnabled) perfMonitorRef.current?.endFrameSampling();
+  }, [perfEnabled]);
 
   // Click node → open table tab
   const onNodeClick = useCallback(
@@ -406,6 +449,8 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onViewportChange={onViewportChange}
+        onMoveStart={onMoveStart}
+        onMoveEnd={onMoveEnd}
         onInit={onInit}
         onNodeClick={onNodeClick}
         onEdgeClick={onEdgeClick}
@@ -414,6 +459,7 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
         nodeTypes={nodeTypes}
         fitView
         fitViewOptions={{ padding: 0.2 }}
+        onlyRenderVisibleElements
         minZoom={0.1}
         maxZoom={2}
         proOptions={{ hideAttribution: true }}
@@ -429,6 +475,14 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
           color="var(--app-border-subtle)"
         />
         <Controls showInteractive={false} />
+        {perfEnabled && perfMonitorRef.current && (
+          <ErPerfHud
+            monitor={perfMonitorRef.current}
+            nodes={nodes}
+            edgeCount={edges.length}
+            viewportRef={viewportRef}
+          />
+        )}
         {showMiniMap && (
           <MiniMap
             nodeColor={(n) => {

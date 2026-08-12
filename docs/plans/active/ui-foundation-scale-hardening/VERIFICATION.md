@@ -57,6 +57,41 @@ test/fixtures/schemas/
 
 Each fixture contains a valid `IntrospectResult` with realistic column/FK/PK distributions.
 
+## P1 — Large-schema rendering metrics (locked)
+
+QA fixtures (generated, not introspected):
+
+| Fixture | Tables | Relations | Columns |
+|---|---|---|---|
+| A | 100 | ~150 | ~1,200 |
+| B | 500 | ~900 | ~7,500 |
+| C | 1,000 | ~2,000 | ~15,000 |
+
+Recorded per fixture via the P1.1 HUD (`er-perf-hud=1` in localStorage):
+
+| Metric | Source |
+|---|---|
+| Time to interactive shell | `er:init:start` → `er:init:end` measure |
+| Layout duration | `er:layout:start` → `er:layout:end` measure (main thread until P1.7) |
+| Max main-thread long task | `PerformanceObserver('longtask')` |
+| Initial detailed DOM count | `[data-tier="2"]` node count |
+| Pan / zoom frame time | rAF frame sampler over pan/zoom gesture |
+| Search / selection latency | gesture marks |
+| Graph / viewport / rendered / detailed node count, rendered edge count | HUD snapshot |
+
+Invariants (must hold; never `graphTables = renderedTables = detailedTables`):
+
+```text
+graphTables = 512
+viewportTables ≈ 26
+renderedTables ≈ 26 + overscan
+detailedTables <= visibleNearZoom + selected
+```
+
+Known interaction (P1.2, documented): with `onlyRenderVisibleElements` enabled, off-viewport nodes are never measured, so `<MiniMap>` (kept for schemas ≤ 200 tables) may render hidden nodes at near-zero size. Acceptable for small schemas; revisit if MiniMap stays for medium schemas in P1.3+.
+
+P1.1 HUD is enabled via `localStorage.setItem("er-perf-hud", "1")` before opening the ER diagram. It is dev-only and never shipped in the default UI.
+
 ## Runtime evidence log
 
 | Date | Phase | Evidence | Result |
