@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ReactFlow,
   Background,
@@ -26,7 +26,6 @@ import { Search, Maximize2, LayoutGrid, Columns2, Table2, RotateCcw, Loader2 } f
 import { ErTableNode, type TableNodeData } from "./lod/er-table-node";
 import { ErPerfHud } from "./er-perf-hud";
 import { NeighborhoodExplorer } from "./neighborhood-explorer";
-import { CytoscapeErView } from "./cytoscape-view";
 import { buildErGraphModel } from "../renderer/er-graph-model";
 import type { ErGraphModel, ErViewport } from "../renderer/types";
 import { useWorkerLayout } from "../hooks/use-worker-layout";
@@ -61,6 +60,13 @@ interface ErDiagramProps {
 }
 
 const nodeTypes = { table: ErTableNode };
+
+// Code-split the canvas overview: cytoscape (~450 kB min) only downloads when
+// the user explicitly opens a large schema's "All N tables" overview — the
+// initial bundle and the React Flow path stay lean.
+const CytoscapeErView = lazy(() =>
+  import("./cytoscape-view").then((m) => ({ default: m.CytoscapeErView })),
+);
 
 /** Build a storage key for persisting node positions per connection + schema. */
 function positionStorageKey(connectionId: string, schemaName: string) {
@@ -696,28 +702,37 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
   return (
     <div className="flex min-h-0 flex-1 flex-col" ref={reactFlowRef}>
       {useCytoscapeForOverview ? (
-        <CytoscapeErView
-          model={graphModel}
-          positions={layout.status === "ready" ? layout.positions : null}
-          layoutStatus={layout.status}
-          onViewportChange={onCytoscapeViewportChange}
-          onNodeClick={onCytoscapeNodeClick}
-          explorer={{
-            totalTables: tablesInSchema.length,
-            relationCount: schemaStats.relations,
-            columnCount: schemaStats.columns,
-            suggestedPoints,
-            seedLabel: null,
-            hops: neighborhoodHops,
-            showAll: true,
-            onSelectPoint: handleSelectPoint,
-            onSelectHops: handleSelectHops,
-            onShowAll: handleShowAll,
-            onReset: handleResetExploration,
-          }}
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-        />
+        <Suspense
+          fallback={
+            <div className="flex min-h-0 flex-1 items-center justify-center gap-2 text-[12px] text-[var(--app-text-muted)]">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              Loading overview…
+            </div>
+          }
+        >
+          <CytoscapeErView
+            model={graphModel}
+            positions={layout.status === "ready" ? layout.positions : null}
+            layoutStatus={layout.status}
+            onViewportChange={onCytoscapeViewportChange}
+            onNodeClick={onCytoscapeNodeClick}
+            explorer={{
+              totalTables: tablesInSchema.length,
+              relationCount: schemaStats.relations,
+              columnCount: schemaStats.columns,
+              suggestedPoints,
+              seedLabel: null,
+              hops: neighborhoodHops,
+              showAll: true,
+              onSelectPoint: handleSelectPoint,
+              onSelectHops: handleSelectHops,
+              onShowAll: handleShowAll,
+              onReset: handleResetExploration,
+            }}
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+          />
+        </Suspense>
       ) : (
         <ReactFlow
           nodes={nodes}

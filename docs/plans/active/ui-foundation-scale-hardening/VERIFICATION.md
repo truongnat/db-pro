@@ -159,7 +159,7 @@ Layout durations shown by the harness (dagre run synchronously for measurement) 
 
 Conclusion: the hybrid selection (React Flow ≤ threshold + neighborhood; Cytoscape overview for the explicit "All N tables" of large schemas) is validated end-to-end. React Flow keeps its interaction richness where the node count is small; the canvas renderer carries the full-graph overview at ~60 fps with 18 DOM elements regardless of size.
 
-Screenshot: `bench/hybrid-cytoscape-500.png`. Bundle note: cytoscape adds ~450 kB min (~180 kB gzip) to the main chunk; a dynamic-import code split of the renderer is a follow-up.
+Screenshot: `bench/hybrid-cytoscape-500.png`. Bundle: the overview renderer is code-split behind `React.lazy` (er-diagram.tsx) — cytoscape (~450 kB min) ships in a separate `cytoscape-view-*.js` chunk loaded only when "All N tables" opens; the initial main bundle is 1,935 → 1,483 kB (−452 kB).
 
 ### P1.7 implementation notes
 
