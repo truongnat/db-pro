@@ -39,6 +39,7 @@ import { groupForeignKeys } from "../utils/edge-builder";
 import { buildAdjacencyMap, getNeighborhood } from "../utils/neighborhood";
 import { ErPerfMonitor } from "../utils/instrumentation";
 import { resolveLod, type LodLevel } from "../utils/lod";
+import { aggregateRelations, resolveEdgeLod, type EdgeLodLevel } from "../utils/edge-lod";
 
 import type { IntrospectResult, SchemaColumnDto } from "@/modules/schema/types/schema.types";
 
@@ -89,6 +90,7 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
   const [layoutDirection, setLayoutDirection] = useState<"LR" | "TB">("LR");
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
   const [currentLod, setCurrentLod] = useState<LodLevel>("detail");
+  const [currentEdgeLod, setCurrentEdgeLod] = useState<EdgeLodLevel>("full");
 
   // Mirror `compact` into a ref so onViewportChange can read it without
   // re-creating the callback on every toggle.
@@ -99,6 +101,10 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
     viewportRef.current = viewport;
     setCurrentLod((prev) => {
       const next = resolveLod(viewport.zoom, compactRef.current);
+      return next === prev ? prev : next;
+    });
+    setCurrentEdgeLod((prev) => {
+      const next = resolveEdgeLod(viewport.zoom);
       return next === prev ? prev : next;
     });
   }, []);
@@ -372,10 +378,21 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
     [connectionId],
   );
 
-  // Click edge → highlight it
-  const onEdgeClick = useCallback((_: React.MouseEvent, edge: Edge) => {
-    setSelectedEdgeId((prev) => (prev === edge.id ? null : edge.id));
-  }, []);
+  // Click edge → highlight it (only meaningful at full edge LOD, where edge
+  // ids are stable; aggregated/simple edges are transient render artifacts).
+  const onEdgeClick = useCallback(
+    (_: React.MouseEvent, edge: Edge) => {
+      if (currentEdgeLod !== "full") return;
+      setSelectedEdgeId((prev) => (prev === edge.id ? null : edge.id));
+    },
+    [currentEdgeLod],
+  );
+
+  // Clear edge selection when leaving full edge LOD — aggregated edge ids are
+  // synthetic and must not leak into the highlight effect over initialEdges.
+  useEffect(() => {
+    if (currentEdgeLod !== "full") setSelectedEdgeId(null);
+  }, [currentEdgeLod]);
 
   // Click background → clear edge selection
   const onPaneClick = useCallback(() => {
@@ -434,24 +451,58 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
     rfNode?.dispatchEvent(new KeyboardEvent("keydown", { key: "1" }));
   }, []);
 
-  // Edge LOD (node-side part of P1.3): at non-detail levels, edges drop their
-  // per-column handle ids so they anchor to the generic source/target handles
-  // rendered by the LOD leaf components (React Flow drops edges whose handle
-  // ids are missing; with undefined handle ids it falls back to `handles[0]`
-  // of each type — which relies on the generic handles being the ONLY handles
-  // on non-detail nodes). Labels stay for summary, drop for dot/compact.
-  // Full edge simplification (markers, aggregation) is P1.4.
+  // Edge LOD (P1.4) + node-LOD handle interplay (P1.3).
+  //
+  // Per-column handle ids only exist on detail nodes. React Flow drops edges
+  // whose handle ids are missing (error 008), so whenever nodes are below
+  // detail we strip handle ids and let edges anchor to the generic
+  // source/target handles rendered by the non-detail LOD leaves (`handles[0]`
+  // fallback — valid only because generic handles are the only handles there).
+  //
+  // Edge bands (locked): aggregate < 0.25 (merged relations, straight, no
+  // markers/labels except count) · simple 0.25–0.6 (straight, no markers) ·
+  // full > 0.6 (normal FK edges).
   const displayEdges = useMemo(() => {
-    if (currentLod === "detail") return edges;
-    const hideLabels = currentLod === "dot" || currentLod === "compact";
-    return edges.map((e) => ({
-      ...e,
-      sourceHandle: undefined,
-      targetHandle: undefined,
-      label: hideLabels ? undefined : e.label,
-      style: { ...e.style, strokeWidth: 1 },
-    }));
-  }, [edges, currentLod]);
+    const stripHandleIds = currentLod !== "detail";
+    const stripHandles = (e: Edge) =>
+      stripHandleIds ? { ...e, sourceHandle: undefined, targetHandle: undefined } : e;
+    if (currentEdgeLod === "aggregate") {
+      // Node LOD never reaches detail below zoom 0.7, so stripHandleIds is
+      // always true here; stripHandles is applied for consistency anyway.
+      return aggregateRelations(edges).map((rel) =>
+        stripHandles({
+          id: `fk:agg:${rel.source}:${rel.target}`,
+          source: rel.source,
+          target: rel.target,
+          type: "straight",
+          animated: false,
+          label: rel.count > 1 ? String(rel.count) : undefined,
+          labelStyle: { fontSize: 9, opacity: 0.6 },
+          markerEnd: undefined,
+          style: { strokeWidth: 1 },
+        }),
+      );
+    }
+
+    if (currentEdgeLod === "simple") {
+      return edges.map((e) =>
+        stripHandles({
+          ...e,
+          type: "straight",
+          label: undefined,
+          markerEnd: undefined,
+          style: { ...e.style, strokeWidth: 1 },
+        }),
+      );
+    }
+
+    // Full edge LOD: keep markers/labels/paths. Still strip handle ids while
+    // nodes are below detail (0.6–0.7 band) so edges stay anchored.
+    if (stripHandleIds) {
+      return edges.map((e) => stripHandles({ ...e, style: { ...e.style, strokeWidth: 1 } }));
+    }
+    return edges;
+  }, [edges, currentLod, currentEdgeLod]);
 
   const showMiniMap = initialNodes.length <= 200;
 

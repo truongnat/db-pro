@@ -41,6 +41,7 @@ export function ErPerfHud({ monitor, nodes, edgeCount, viewportRef }: ErPerfHudP
   const frameStats = monitor.getFrameStats();
   const renderedNodes = monitor.countRenderedNodes();
   const detailedNodes = monitor.countDetailedNodes();
+  const renderedEdges = monitor.countRenderedEdges();
 
   const row = (label: string, value: string) => (
     <div className="flex items-center justify-between gap-3">
@@ -68,7 +69,8 @@ export function ErPerfHud({ monitor, nodes, edgeCount, viewportRef }: ErPerfHudP
         {row("viewport tables", String(viewportCount))}
         {row("rendered tables", String(renderedNodes))}
         {row("detailed tables", String(detailedNodes))}
-        {row("edges", String(edgeCount))}
+        {row("graph edges", String(edgeCount))}
+        {row("rendered edges", String(renderedEdges))}
       </div>
     </Panel>
   );

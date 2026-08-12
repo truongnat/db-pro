@@ -201,4 +201,9 @@ export class ErPerfMonitor {
   countDetailedNodes(): number {
     return this.container()?.querySelectorAll('[data-tier="3"]').length ?? 0;
   }
+
+  /** Mounted `.react-flow__edge` elements (after edge LOD aggregation). */
+  countRenderedEdges(): number {
+    return this.container()?.querySelectorAll(".react-flow__edge").length ?? 0;
+  }
 }
