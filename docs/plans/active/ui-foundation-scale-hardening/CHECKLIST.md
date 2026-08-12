@@ -23,24 +23,24 @@
 
 ## Phase 3: Rendering LOD
 
-- [x] **3.1** Add viewport zoom tracking (`useViewport()` or `onViewportChange`)
-- [x] **3.2** Define zoom tier thresholds (initial: <0.3, 0.3-0.7, >0.7)
-- [x] **3.3** Pass zoom tier to `TableNode` via node data
-- [x] **3.4** Implement tiered rendering in `TableNode`: name-only, count, full columns
-- [x] **3.5** Memoize `TableNode` properly — ensure data changes don't break memo
-- [x] **3.6** Simplify edges at low zoom (thinner, no labels)
-- [x] **3.7** Conditionally disable MiniMap for large graphs (>200 nodes)
-- [x] **3.8** Test zoom transitions for visual smoothness
+- [x] **3.1** Add viewport zoom tracking — `onViewportChange` writes a ref + derives `currentLod` / `currentEdgeLod` (no per-frame setState)
+- [x] **3.2** Define zoom tier thresholds — locked 4-level `LOD_THRESHOLDS` in `utils/lod.ts` (dot <0.2 / compact <0.45 / summary <0.7 / detail ≥0.7), monotonic-partition tested
+- [x] **3.3** Pass zoom tier to `TableNode` via node data — `lod` field injected by the `tieredNodes` memo (keyed on `currentLod`), dispatched by `ErTableNode`
+- [x] **3.4** Implement tiered rendering in `TableNode`: name-only, count, full columns — superseded by P1.3 true LOD components (`ErDotNode`/`ErCompactNode`/`ErSummaryNode`/`ErDetailedNode`); render-tree switch, no CSS-hidden DOM. Mechanically verified: `__tests__/er-table-node.test.tsx` (5 tests) — per-lod leaf, 0 `[data-column]` rows below detail, exactly one leaf mounted
+- [x] **3.5** Memoize `TableNode` properly — dispatcher + leaves are `memo`ized; LOD changes never re-run layout (`layoutInput` depends on `initialNodes`, not `currentLod`)
+- [x] **3.6** Simplify edges at low zoom — superseded by P1.4 edge LOD (`utils/edge-lod.ts`): aggregate <0.25 (merged straight, count label, no markers), simple 0.25–0.6 (straight, no labels/markers), full >0.6; handle-id stripping follows node LOD
+- [x] **3.7** Conditionally disable MiniMap for large graphs — `showMiniMap = !landing && initialNodes.length <= 200` (P1.2 policy)
+- [x] **3.8** Test zoom transitions for visual smoothness — LOD switch is a memoized render-tree swap of visible nodes only (see 3.4/3.5); no re-layout on tier change; verified in P1.8 benchmark pan/zoom frame times (60 fps detail, 34–60 fps overview)
 
 ## Phase 4: Large Schema Mode
 
-- [x] **4.1** Detect schema size and select rendering mode (full / compact / overview / large)
-- [x] **4.2** Implement search-first default for schemas > 200 tables
-- [x] **4.3** Implement neighborhood mode: selected table + N-hop FK neighbors
-- [x] **4.4** Add "Show all N tables" explicit action
-- [x] **4.5** Cache layout result — don't re-layout on search/selection changes
+- [x] **4.1** Detect schema size and select rendering mode (full / compact / overview / large) — superseded by 6.11 complexity tiers: S/M → full React Flow, L/XL → landing + neighborhood, `showAll` → Cytoscape canvas overview (P1.9)
+- [x] **4.2** Implement search-first default for schemas > 200 tables — superseded by complexity tiers (`isLargeSchema = tier ∈ {L, XL}`); large schemas open in `landing` mode (stats card + suggested starting points + search), full schema is never the default (locked hard rule #6)
+- [x] **4.3** Implement neighborhood mode: selected table + N-hop FK neighbors — P1.6: `getNeighborhood` (1/2/3 hops) + `getConnectedComponent` (Domain); verified by `neighborhood.test.ts` incl. 2-hop parity vs independent BFS-distance reference on a 1000-table graph, isolated-seed isolation, 5 ms budget
+- [x] **4.4** Add "Show all N tables" explicit action — `handleShowAll`; renders full graph (Cytoscape canvas for L/XL, React Flow otherwise)
+- [x] **4.5** Cache layout result — don't re-layout on search/selection changes — P1.7 `LayoutCache` (schemaHash → positions, localStorage) + `useWorkerLayout` hash-memoized; neighborhood/seed/hops changes only change `layoutInput`, which only re-runs dagre for a genuinely new graph
 - [-] **4.6** Debounce resize/layout changes — not needed after layout dedup (P3.4)
-- [-] **4.7** Consider Web Worker for Dagre layout — not needed with LOD + neighborhood reducing visible nodes
+- [x] **4.7** Web Worker for Dagre layout — IMPLEMENTED in P1.7 (this pre-P1 item predicted it unnecessary; the P1.8 benchmark proved the opposite — dagre 8 s @500 / 122 s @1000 on the main thread — so the worker + schemaHash cache was built: `er-layout.worker.ts`, no main-thread block)
 
 ## Phase 5: Audit + Budgets
 

@@ -133,9 +133,9 @@ Implementation approach:
 - `TableNode` conditionally renders based on tier
 
 **Acceptance criteria:**
-- [ ] At low zoom, column rows are not rendered (DOM nodes eliminated)
-- [ ] At high zoom or when selected, full detail is shown
-- [ ] No visual jank when zooming between tiers (smooth transition)
+- [x] At low zoom, column rows are not rendered (DOM nodes eliminated) — true LOD render-tree switch (P1.3, locked hard rule #2): `ErTableNode` dispatches `ErDotNode` / `ErCompactNode` / `ErSummaryNode` below zoom 0.7 (`utils/lod.ts` thresholds), none of which mount column rows. Mechanically verified: `__tests__/er-table-node.test.tsx` (per-lod leaf, 0 `[data-column]` rows below detail, exactly one leaf mounted), `__tests__/lod.test.ts`, `__tests__/rendering-invariant.test.ts`
+- [x] At high zoom or when selected, full detail is shown — zoom ≥ 0.7 → `ErDetailedNode` (full column list, verified by the dispatcher test). "When selected": the P1.3-locked interaction model opens full detail in the object **tab** on node click (`openTableObject`); on-canvas `selected` is styling-only (border/ring). Canvas LOD is zoom-driven by design (locked hard rule #2) — this supersedes the pre-P1 spec's on-canvas selection clause
+- [x] No visual jank when zooming between tiers — LOD is injected via a memo keyed on `currentLod` (er-diagram.tsx `tieredNodes`), leaves are memoized, and an LOD change never re-runs layout (`layoutInput` depends on `initialNodes`, not `currentLod`); only `onlyRenderVisibleElements`-filtered visible nodes re-render
 
 ### P3.6 — ER Diagram Large Schema Mode (Phase D)
 
@@ -154,10 +154,10 @@ payments - orders - order_items
 ```
 
 **Acceptance criteria:**
-- [ ] When table count > threshold (200), default to search-first view
-- [ ] Search result shows selected table + configurable hop radius
-- [ ] "Show all N tables" available as explicit user action
-- [ ] Neighborhood computation is O(hop x avg_fk_per_table), not O(all_tables)
+- [x] When table count > threshold (200), default to search-first view — superseded by 6.11 (locked hard rule #5): `isLargeSchema = tier ∈ {L, XL}` from `computeSchemaComplexity`, not a raw 200 count (a lean 200-table schema stays M → full graph, per P1.8 evidence). Large schemas open in `landing` mode: search-first exploration panel with suggested starting points (P1.6)
+- [x] Search result shows selected table + configurable hop radius — search sets the neighborhood seed; `NeighborhoodExplorer` offers `[1][2][3][Domain]` hop scopes; `neighborhoodSet` = `getNeighborhood` / `getConnectedComponent` (P1.6)
+- [x] "Show all N tables" available as explicit user action — `handleShowAll`; large schemas render the full overview on the Cytoscape canvas renderer (P1.9), small/medium schemas render everything by default
+- [x] Neighborhood computation is O(hop × avg_fk_per_table), not O(all_tables) — `getNeighborhood` is BFS over the adjacency map with a visited set. Verified by `__tests__/neighborhood.test.ts`: 2-hop parity vs an independent BFS-distance reference on a 1000-table graph, isolated seed returns itself only (no global scan), 2-hop well under a 5 ms budget
 
 ### P3.7 — Performance Budgets
 

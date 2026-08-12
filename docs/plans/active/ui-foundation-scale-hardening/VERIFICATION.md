@@ -196,6 +196,29 @@ The old `layoutGraph()` ran in both a `useMemo` and a `useEffect` (two dagre exe
 
 Gates: typecheck 0 · lint/prettier clean · `check:tokens` clean · **1,412 FE tests pass** (+6) · build OK.
 
+## P3.5 / P3.6 — Rendering LOD + Large Schema Mode (audit)
+
+Audit verdict: **both items are genuinely implemented** (not just ticked) — by the P1 series, which superseded the pre-P1 approaches. This session added the missing mechanical verification.
+
+### P3.5 — Rendering LOD
+
+| Criterion | Code | Proof |
+|---|---|---|
+| Low zoom → column rows not rendered | `ErTableNode` dispatches `ErDotNode`/`ErCompactNode`/`ErSummaryNode` below zoom 0.7 (`utils/lod.ts`); none mount column rows | **`__tests__/er-table-node.test.tsx`** (new, 5 tests): renders the dispatcher under `ReactFlowProvider` for each lod — 0 `[data-column]` rows below detail, exactly one `[data-tier]` leaf mounted at a time (true render-tree switch, hard rule #2). Plus `lod.test.ts` + `rendering-invariant.test.ts` |
+| High zoom (or selected) → full detail | zoom ≥ 0.7 → `ErDetailedNode` (full column list). On-canvas `selected` is styling-only; node click opens the full detail in the object **tab** (P1.3-locked interaction model) | dispatcher test asserts tier 3 renders every `[data-column]` row |
+| No jank between tiers | LOD injected by a `currentLod`-keyed memo; leaves memoized; LOD change never re-runs layout | code inspection + P1.8 pan/zoom frame times |
+
+### P3.6 — Large Schema Mode
+
+| Criterion | Code | Proof |
+|---|---|---|
+| Large schema defaults to search-first | `isLargeSchema = tier ∈ {L, XL}` (6.11 complexity score — supersedes the literal 200 count) → `landing` mode with search + suggested starting points (P1.6) | `schema-complexity.test.ts` + code inspection |
+| Search → seed + hop radius | `NeighborhoodExplorer` `[1][2][3][Domain]` scopes; `getNeighborhood` / `getConnectedComponent` | `neighborhood.test.ts` |
+| "Show all N tables" | `handleShowAll` → full graph (Cytoscape canvas for L/XL, P1.9) | code inspection + P1.9 benchmark |
+| Neighborhood O(hops × degree) | BFS over adjacency with visited set | **`neighborhood.test.ts`** (new, +3): 2-hop parity vs an independent BFS-distance reference on a 1000-table graph; isolated seed in a 500-table schema returns itself only (no global scan); 2-hop on 1000 tables under 5 ms |
+
+Gates: typecheck 0 · lint/prettier clean · `check:tokens` clean · **1,421 FE tests pass** (+9) · build OK.
+
 ## Runtime evidence log
 
 | Date | Phase | Evidence | Result |
@@ -206,6 +229,7 @@ Gates: typecheck 0 · lint/prettier clean · `check:tokens` clean · **1,412 FE 
 | 2026-08-12 | 6.11-review | Merge-gate invariant mechanically verified: `__tests__/rendering-invariant.test.ts` asserts `graphTables ≠ renderedTables ≠ detailedTables` on the A500 fixture (500 tables, 25×20 grid) via the app's `SpatialIndex` (culling) + `resolveLod` (overview zoom → non-detail). Also documented: at zoom ≥ 0.7 all visible nodes are detailed by design — the strict `≠` is an overview-scale property. Full P1-series pre-merge review: 0 P0 / 0 P1 (see review summary in commit); P2s resolved: dev harness removed from `public/` (was shipping in `dist/`), gates closed. |
 | 2026-08-12 | P3.1 | Design Token Contract (F1): canonical vocabulary `--surface-*`/`--text-*`/`--border-*`/`--accent-*`/`--state-*`/`--elevation-*` replaces 21 `--app-*` color tokens across 96 files (604 occurrences → 0); shadcn compat layer is alias-only; `--app-*` reserved for layout metrics; guard `npm run check:tokens` upgraded (theme completeness + value snapshot + alias-only + component scan) and wired into CI + AGENTS.md. 1,406 FE tests pass, typecheck/lint/prettier clean, build OK | **No visual regression:** `bench/token-contract.html` — 96/96 resolved-value pairs identical (48 tokens × light/dark) between pre-migration and canonical CSS in headless Chrome; 0 console errors. shadcn `bg-accent` hover semantics preserved via `@theme inline` remap |
 | 2026-08-12 | P3.3/P3.4 | ER Algorithm Phase A (see section above): node building extracted to pure `renderer/er-node-builder.ts` (columns/PK/FK pre-index + `buildTableNodes`), `er-diagram.tsx` consumes it — 0 `.filter()` on full metadata arrays remain. Layout dedup confirmed: `useWorkerLayout` (P1.7) hash-memoized + cache-first, one dagre run per distinct graph; highlight is a `setEdges`-only effect; manual overrides preserved. 1,412 FE tests pass (+6), typecheck/lint/prettier/check:tokens clean, build OK | `er-node-builder.test.ts`: parity (pre-index ≡ naive per-table filter, 100 tables) + 500-table scale invariants (no dropped columns, all FK flags). `benchmark.test.ts` now benchmarks the real pipeline: 20/100/500/1000 tables under 5/20/50/100 ms avg budgets |
+| 2026-08-12 | P3.5/P3.6 | Audit (see section above): both items genuinely implemented by the P1 series (true LOD components P1.3, edge LOD P1.4, neighborhood UX P1.6, complexity-tier landing 6.11, Cytoscape overview P1.9). Closed the mechanical-verification gap with 9 new tests. 1,421 FE tests pass (+9), typecheck/lint/prettier/check:tokens clean, build OK | `er-table-node.test.tsx` (6): per-lod leaf render (0 `[data-column]` rows below detail, one leaf mounted, selection is styling-only). `neighborhood.test.ts` (+3): 2-hop parity vs independent BFS-distance reference on 1000 tables (ratio-bounded), isolated seed isolation in 500-table schema, 2-hop under 5 ms. Documented: on-canvas `selected` is styling-only — full detail opens in the object tab (P1.3 locked model); 6.11 complexity score supersedes the literal 200-table threshold; 4.7 (worker) was implemented in P1.7 despite the pre-P1 prediction |
 
 ### P1.9 renderer verification (real app code)
 
