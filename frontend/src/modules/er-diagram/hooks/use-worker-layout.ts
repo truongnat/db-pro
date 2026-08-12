@@ -36,15 +36,35 @@ const IDLE_STATE: WorkerLayoutState = {
 let runnerSingleton: LayoutRunner | null = null;
 let fallbackSingleton: LayoutRunner | null = null;
 
-function getRunner(): LayoutRunner {
-  if (!runnerSingleton) {
-    try {
-      runnerSingleton = createWorkerLayoutRunner();
-    } catch {
-      runnerSingleton = createFallbackLayoutRunner();
-    }
+/**
+ * Pick the layout runner, retrying worker creation on failure (F-MR-2).
+ *
+ * A synchronous worker-creation failure (module workers unsupported in an old
+ * webview, transient init error, …) must NOT permanently downgrade the session
+ * to the main-thread fallback. `sticky: false` tells the caller to use the
+ * fallback for this attempt only and retry the worker on the next run.
+ */
+export function resolveLayoutRunner(
+  current: LayoutRunner | null,
+  create: () => LayoutRunner,
+  fallback: () => LayoutRunner,
+): { runner: LayoutRunner; sticky: boolean } {
+  if (current) return { runner: current, sticky: true };
+  try {
+    return { runner: create(), sticky: true };
+  } catch {
+    return { runner: fallback(), sticky: false };
   }
-  return runnerSingleton;
+}
+
+function getRunner(): LayoutRunner {
+  const selection = resolveLayoutRunner(
+    runnerSingleton,
+    createWorkerLayoutRunner,
+    getFallbackRunner,
+  );
+  if (selection.sticky) runnerSingleton = selection.runner;
+  return selection.runner;
 }
 
 function getFallbackRunner(): LayoutRunner {

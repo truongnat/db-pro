@@ -9,6 +9,7 @@ import {
   type Node,
   type Edge,
   type Viewport,
+  type ReactFlowInstance,
   MarkerType,
   BackgroundVariant,
   Panel,
@@ -81,6 +82,10 @@ function positionStorageKey(connectionId: string, schemaName: string) {
 export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
   const { t } = useTranslation();
   const reactFlowRef = useRef<HTMLDivElement>(null);
+  // F-MR-1: the mounted React Flow instance (captured in onInit) — fit-view
+  // goes through `instance.fitView()` instead of the old synthetic `keydown
+  // "1"` dispatch, which depended on React Flow's default shortcut.
+  const rfInstanceRef = useRef<ReactFlowInstance | null>(null);
 
   // P1.1 runtime instrumentation — dev-only, enabled via localStorage `er-perf-hud=1`.
   const perfEnabled =
@@ -379,15 +384,16 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
   // Map identity, so it fires for both the worker path (computing → ready) and
   // the cache-hit path (idle → ready, which never passes through computing),
   // exactly once per distinct layout. Replaces the old fixed-80ms timer, which
-  // could fire before positions landed.
+  // could fire before positions landed. The short delay lets React Flow
+  // measure the freshly-mounted nodes before fitting (F-MR-1: uses the
+  // captured instance's fitView, not a synthetic keydown).
   const fittedPositionsRef = useRef<Map<string, LayoutPosition> | null>(null);
   useEffect(() => {
     if (layout.status !== "ready" || !layout.positions) return;
     if (fittedPositionsRef.current === layout.positions) return;
     fittedPositionsRef.current = layout.positions;
     const timer = setTimeout(() => {
-      const rfNode = reactFlowRef.current?.querySelector(".react-flow") as HTMLElement | null;
-      rfNode?.dispatchEvent(new KeyboardEvent("keydown", { key: "1" }));
+      rfInstanceRef.current?.fitView({ padding: 0.2 });
     }, 60);
     return () => clearTimeout(timer);
   }, [layout.status, layout.positions]);
@@ -410,9 +416,10 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
     );
   }, [searchQuery, tieredNodes, setNodes, isLargeSchema]);
 
-  // Fit view on first render
+  // Capture the mounted instance (F-MR-1) and fit view on first render.
   const onInit = useCallback(
-    (instance: { fitView: (opts?: Record<string, unknown>) => void }) => {
+    (instance: ReactFlowInstance) => {
+      rfInstanceRef.current = instance;
       // Small delay to ensure nodes are rendered
       setTimeout(() => instance.fitView({ padding: 0.2 }), 100);
       // React Flow is mounted and interactive → that is the "interactive shell".
@@ -547,8 +554,7 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
   }, [savePositions]);
 
   const handleFitView = useCallback(() => {
-    const rfNode = reactFlowRef.current?.querySelector(".react-flow") as HTMLElement | null;
-    rfNode?.dispatchEvent(new KeyboardEvent("keydown", { key: "1" }));
+    rfInstanceRef.current?.fitView({ padding: 0.2 });
   }, []);
 
   // P1.5 spatial index over the live React Flow node/edge state.
