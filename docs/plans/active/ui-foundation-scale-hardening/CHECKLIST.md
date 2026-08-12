@@ -68,8 +68,8 @@
 
 ## Gates
 
-- [ ] All Phase 1 items complete before merging
+- [x] All Phase 1 items complete before merging — P1.1–P1.9 + code-split + 6.11 all `[x]` above; pre-merge review found 0 P0 / 0 P1
 - [ ] Phase 2 complete before adding new shadcn components
 - [ ] Phase 3+4 complete before v0.1 release
-- [ ] P0 = 0, P1 = 0 across all phases
-- [ ] P1 invariants hold per fixture (`graphTables ≠ renderedTables ≠ detailedTables`)
+- [ ] P0 = 0, P1 = 0 across all phases — holds for the P1 series (review-verified); Phase 2–4 not yet audited
+- [x] P1 invariants hold per fixture (`graphTables ≠ renderedTables ≠ detailedTables`) — verified mechanically by `__tests__/rendering-invariant.test.ts` on the A500 fixture (SpatialIndex culling + resolveLod at overview zoom); strict `≠` is an overview-scale property (all visible nodes are detailed at zoom ≥ 0.7 by design)
