@@ -95,9 +95,9 @@ const columnsByTable = useMemo(() => {
 ```
 
 **Acceptance criteria:**
-- [ ] No `.filter()` on full `data.columns` / `data.primaryKeys` / `data.foreignKeys` inside per-table loops
-- [ ] Pre-indexed maps for columns, PKs, FKs by `schema.tableName`
-- [ ] Existing tests pass
+- [x] No `.filter()` on full `data.columns` / `data.primaryKeys` / `data.foreignKeys` inside per-table loops — 0 matches in `er-diagram.tsx`; per-table node building lives in the pure `renderer/er-node-builder.ts` (`buildTableNodes`), which only does O(1) map/set lookups
+- [x] Pre-indexed maps for columns, PKs, FKs by `schema.tableName` — `buildColumnsByTable` (schema.tableName → columns), `buildPrimaryKeysByTable` (schema.tableName → PK-name Set, composite PKs merged), `buildFkColumnSet` (schema.table:column FK-source flags); `er-diagram.tsx` keeps them memoized with stable identity
+- [x] Existing tests pass — 1,412 FE tests; mechanically verified by `__tests__/er-node-builder.test.ts` (index correctness, parity vs a naive per-table filter reference on 100 tables, 500-table scale: no dropped columns, all FK flags) and `__tests__/benchmark.test.ts`, which now benchmarks the REAL pipeline (20/100/500/1000 tables under 5–100 ms budgets)
 
 ### P3.4 — ER Diagram Duplicate Layout Elimination (Phase A)
 
@@ -110,9 +110,9 @@ This means Dagre runs twice for every dependency change.
 **Target:** Single layout computation. The `useEffect` should only handle edge highlighting (selectedEdgeId), not re-run layout.
 
 **Acceptance criteria:**
-- [ ] `layoutGraph()` called exactly once per layout-relevant change
-- [ ] Edge highlighting does not trigger re-layout
-- [ ] Manual position override logic preserved
+- [x] `layoutGraph()` called exactly once per layout-relevant change — the old dual `useMemo` + `useEffect` call is gone; P1.7 `useWorkerLayout` is hash-memoized (`computeLayoutHash`) + cache-first, so dagre runs once per distinct graph (stale results discarded via requestId + effect cleanup)
+- [x] Edge highlighting does not trigger re-layout — a dedicated effect calls `setEdges` only (no layout recompute); selection is cleared outside the full edge-LOD band
+- [x] Manual position override logic preserved — `laidOutNodes` applies `manualPositions` over worker positions; drag persists via `onNodeDragStop` + localStorage
 
 ### P3.5 — ER Diagram Rendering LOD (Phase B)
 

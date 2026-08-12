@@ -2,13 +2,13 @@
 
 ## Phase 1: Algorithm Fixes
 
-- [x] **1.1** Pre-index `data.columns` by `schema.tableName` in `er-diagram.tsx`
-- [x] **1.2** Pre-index `data.primaryKeys` by `schema.tableName`
-- [x] **1.3** Pre-index `data.foreignKeys` by `schema.tableName` (from/to)
-- [x] **1.4** Replace per-table `.filter()` calls with map lookups
-- [x] **1.5** Eliminate duplicate `layoutGraph()` call — remove from `useEffect`, keep only in `useMemo`
-- [x] **1.6** Separate edge highlighting logic from layout re-computation
-- [x] **1.7** Run existing ER diagram tests — all pass
+- [x] **1.1** Pre-index `data.columns` by `schema.tableName` — pure `buildColumnsByTable` in `renderer/er-node-builder.ts`, memoized in `er-diagram.tsx` (stable identity)
+- [x] **1.2** Pre-index `data.primaryKeys` by `schema.tableName` — `buildPrimaryKeysByTable` (Set per table; composite PK columns merged)
+- [x] **1.3** Pre-index `data.foreignKeys` — `buildFkColumnSet` (`schema.table:column` FK-source flags, O(1) `isForeignKey` lookups); edge grouping stays in pure `groupForeignKeys`
+- [x] **1.4** Replace per-table `.filter()` calls with map lookups — `buildTableNodes` is lookup-only; mechanically verified: `er-node-builder.test.ts` parity test (pre-indexed build ≡ naive per-table filter on 100 tables) + `benchmark.test.ts` now benchmarks the REAL pipeline (20/100/500/1000 tables under 5/20/50/100 ms budgets)
+- [x] **1.5** Eliminate duplicate `layoutGraph()` call — the dual `useMemo` + `useEffect` layout is replaced by P1.7 `useWorkerLayout` (hash-memoized `computeLayoutHash` + cache-first): one dagre run per distinct graph, stale results discarded
+- [x] **1.6** Separate edge highlighting logic from layout re-computation — dedicated effect calls `setEdges` only; edge selection cleared outside the full edge-LOD band
+- [x] **1.7** Run existing ER diagram tests — all pass: **1,412 FE tests** (new `er-node-builder.test.ts` +6)
 - [x] **1.8** Measure layout + build time before/after with 500-table fixture — DONE via P1.7/P1.8: sync dagre 8.1s main-thread block before → worker-side + cache after (HUD reads worker duration); full 100/500/1000 matrix in VERIFICATION.md (layout 0.15/8/122s pre-worker)
 
 ## Phase 2: Design Token Contract

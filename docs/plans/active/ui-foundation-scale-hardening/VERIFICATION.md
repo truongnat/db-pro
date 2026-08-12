@@ -171,6 +171,31 @@ Result: **all 96 resolved-value pairs identical** (shadcn aliases + canonical re
 - **Frame-sampling asymmetry**: Cytoscape `pan()` is synchronous, React `setViewport()` renders asynchronously (its commit may land one frame after the sample window) — React frame costs may be slightly under-reported. Overview pan degradation (60→34→18.6 fps) still captures it.
 - Software rendering only (headless). GPU-backed canvas painting would favor Cytoscape's repaint-heavy path on real hardware; DOM transform cost for React Flow is GPU-agnostic.
 
+## P3.3 / P3.4 — ER Algorithm Phase A (pre-index + layout dedup)
+
+Both items were already satisfied by the P1-series refactor; this session made them **mechanically verifiable** by extracting the node-building pipeline into a pure module the component actually runs.
+
+### P3.3 — pre-indexed metadata (was O(T × C))
+
+`renderer/er-node-builder.ts` (pure, no React):
+
+| Builder | Index | Lookup cost |
+|---|---|---|
+| `buildColumnsByTable` | `schema.tableName` → `SchemaColumnDto[]` | O(1) per table |
+| `buildPrimaryKeysByTable` | `schema.tableName` → `Set<string>` (composite PKs merged) | O(1) per column |
+| `buildFkColumnSet` | `schema.table:column` → FK-source flag | O(1) per column |
+| `buildTableNodes` | builds all nodes with the three indexes | no full-array scans |
+
+`er-diagram.tsx` consumes the builders (useMemos keep stable identity) — the old inline `data.columns.filter(...)` / `data.primaryKeys.filter(...)` / `data.foreignKeys.filter(...)` per-table loops are gone (0 matches in the file).
+
+**Automated proof:** `__tests__/er-node-builder.test.ts` — (1) index correctness incl. composite PK merge + FK flags; (2) **parity**: `buildTableNodes` output is deep-equal to a naive per-table `filter()` reference on a 100-table fixture (pre-indexing is behavior-preserving); (3) 500-table scale: all 500 nodes built, every fixture column appears exactly once, every FK source column flagged. `__tests__/benchmark.test.ts` now times the REAL pipeline — 20/100/500/1000 tables under 5/20/50/100 ms avg budgets.
+
+### P3.4 — duplicate layout elimination (was 2 dagre runs per change)
+
+The old `layoutGraph()` ran in both a `useMemo` and a `useEffect` (two dagre executions per dependency change). That path is gone: P1.7 `useWorkerLayout` is hash-memoized (`computeLayoutHash`) + cache-first → exactly one dagre run per distinct graph; edge highlighting lives in a `setEdges`-only effect (no re-layout); manual positions override worker output in `laidOutNodes` and persist via `onNodeDragStop`.
+
+Gates: typecheck 0 · lint/prettier clean · `check:tokens` clean · **1,412 FE tests pass** (+6) · build OK.
+
 ## Runtime evidence log
 
 | Date | Phase | Evidence | Result |
@@ -180,6 +205,7 @@ Result: **all 96 resolved-value pairs identical** (shadcn aliases + canonical re
 | 2026-08-12 | P1.9 | CytoscapeErRenderer benchmark against the REAL app source (vite-dev harness `bench-hybrid.html` served from `frontend/public/`, Chrome 150 headless, same protocol as P1.8; harness removed from `public/` after evidence collection to keep the production bundle clean — recoverable from git, standalone A/B harnesses remain in `bench/`) | see table below — 18 DOM elements + ~60 fps overview pan at 500 AND 1,000 tables |
 | 2026-08-12 | 6.11-review | Merge-gate invariant mechanically verified: `__tests__/rendering-invariant.test.ts` asserts `graphTables ≠ renderedTables ≠ detailedTables` on the A500 fixture (500 tables, 25×20 grid) via the app's `SpatialIndex` (culling) + `resolveLod` (overview zoom → non-detail). Also documented: at zoom ≥ 0.7 all visible nodes are detailed by design — the strict `≠` is an overview-scale property. Full P1-series pre-merge review: 0 P0 / 0 P1 (see review summary in commit); P2s resolved: dev harness removed from `public/` (was shipping in `dist/`), gates closed. |
 | 2026-08-12 | P3.1 | Design Token Contract (F1): canonical vocabulary `--surface-*`/`--text-*`/`--border-*`/`--accent-*`/`--state-*`/`--elevation-*` replaces 21 `--app-*` color tokens across 96 files (604 occurrences → 0); shadcn compat layer is alias-only; `--app-*` reserved for layout metrics; guard `npm run check:tokens` upgraded (theme completeness + value snapshot + alias-only + component scan) and wired into CI + AGENTS.md. 1,406 FE tests pass, typecheck/lint/prettier clean, build OK | **No visual regression:** `bench/token-contract.html` — 96/96 resolved-value pairs identical (48 tokens × light/dark) between pre-migration and canonical CSS in headless Chrome; 0 console errors. shadcn `bg-accent` hover semantics preserved via `@theme inline` remap |
+| 2026-08-12 | P3.3/P3.4 | ER Algorithm Phase A (see section above): node building extracted to pure `renderer/er-node-builder.ts` (columns/PK/FK pre-index + `buildTableNodes`), `er-diagram.tsx` consumes it — 0 `.filter()` on full metadata arrays remain. Layout dedup confirmed: `useWorkerLayout` (P1.7) hash-memoized + cache-first, one dagre run per distinct graph; highlight is a `setEdges`-only effect; manual overrides preserved. 1,412 FE tests pass (+6), typecheck/lint/prettier/check:tokens clean, build OK | `er-node-builder.test.ts`: parity (pre-index ≡ naive per-table filter, 100 tables) + 500-table scale invariants (no dropped columns, all FK flags). `benchmark.test.ts` now benchmarks the real pipeline: 20/100/500/1000 tables under 5/20/50/100 ms avg budgets |
 
 ### P1.9 renderer verification (real app code)
 

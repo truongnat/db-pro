@@ -53,7 +53,8 @@ import { resolveLod, type LodLevel } from "../utils/lod";
 import { aggregateRelations, resolveEdgeLod, type EdgeLodLevel } from "../utils/edge-lod";
 import { SpatialIndex } from "../utils/spatial-index";
 
-import type { IntrospectResult, SchemaColumnDto } from "@/modules/schema/types/schema.types";
+import type { IntrospectResult } from "@/modules/schema/types/schema.types";
+import { buildErNodeIndexes, buildTableNodes } from "../renderer/er-node-builder";
 
 const SUGGESTED_POINTS_COUNT = 5;
 
@@ -227,39 +228,11 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
     [connectionId, schema],
   );
 
-  // Pre-index metadata by schema.tableName — O(C + P + F) once, O(1) per table lookup
-  const columnsByTable = useMemo(() => {
-    const map = new Map<string, SchemaColumnDto[]>();
-    for (const col of data.columns) {
-      const key = `${col.schema}.${col.tableName}`;
-      const list = map.get(key);
-      if (list) list.push(col);
-      else map.set(key, [col]);
-    }
-    return map;
-  }, [data.columns]);
-
-  const primaryKeysByTable = useMemo(() => {
-    const map = new Map<string, Set<string>>();
-    for (const pk of data.primaryKeys) {
-      const key = `${pk.schema}.${pk.tableName}`;
-      const existing = map.get(key);
-      if (existing) {
-        for (const c of pk.columns) existing.add(c);
-      } else {
-        map.set(key, new Set(pk.columns));
-      }
-    }
-    return map;
-  }, [data.primaryKeys]);
-
-  const fkColumnSet = useMemo(() => {
-    const set = new Set<string>();
-    for (const fk of data.foreignKeys) {
-      set.add(`${fk.schema}.${fk.fromTable}:${fk.fromColumn}`);
-    }
-    return set;
-  }, [data.foreignKeys]);
+  // Pre-index metadata by schema.tableName — O(C + P + F) once, O(1) per table
+  // lookup (P3.3). Pure builders in renderer/er-node-builder.ts so the real
+  // component path is exercised by the unit/perf tests; memoized on `data`
+  // (an atomic introspection snapshot) for stable identity.
+  const nodeIndexes = useMemo(() => buildErNodeIndexes(data), [data]);
 
   // Build nodes and edges from introspection data using pre-indexed maps.
   // Landing mode renders an empty canvas (exploration panel only).
@@ -272,35 +245,9 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
           )
         : data.tables.filter((tbl) => tbl.schema === schema);
 
-    const nodes: Node[] = tables.map((table) => {
-      const tableKey = `${table.schema}.${table.name}`;
-      const cols = columnsByTable.get(tableKey);
-      const pkCols = primaryKeysByTable.get(tableKey);
-
-      const columnData = (cols ?? []).map((col) => ({
-        name: col.name,
-        dataType: col.dataType,
-        nullable: col.nullable,
-        isPrimaryKey: pkCols?.has(col.name) ?? false,
-        isForeignKey: fkColumnSet.has(`${tableKey}:${col.name}`),
-      }));
-
-      const nodeData: TableNodeData = {
-        label: table.name,
-        schema: table.schema,
-        columns: columnData,
-        compact,
-        // Initial value; the lod-injection memo below refines it per viewport.
-        lod: "detail",
-      };
-
-      return {
-        id: tableKey,
-        type: "table",
-        position: { x: 0, y: 0 },
-        data: nodeData,
-      };
-    });
+    // Pure pre-indexed build (P3.3) — O(1) map lookups, no per-table scans
+    // of data.columns / data.primaryKeys / data.foreignKeys.
+    const nodes: Node[] = buildTableNodes(tables, nodeIndexes, { compact });
 
     const visibleTableKeys = new Set(tables.map((t) => `${t.schema}.${t.name}`));
     const fkGroups = groupForeignKeys(data.foreignKeys, visibleTableKeys);
@@ -320,16 +267,7 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
     }));
 
     return { initialNodes: nodes, initialEdges: edges };
-  }, [
-    data,
-    compact,
-    schema,
-    columnsByTable,
-    primaryKeysByTable,
-    fkColumnSet,
-    neighborhoodSet,
-    landing,
-  ]);
+  }, [data, compact, schema, nodeIndexes, neighborhoodSet, landing]);
 
   // P1.7 — layout off the main thread.
   //
