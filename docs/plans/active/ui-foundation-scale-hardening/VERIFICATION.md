@@ -361,6 +361,36 @@ full canvas graph           matches ringed red +     rest fades to 0.1,
 
 **Runtime evidence (CDP harness `bench/er-renderer-runtime.html`, real renderer in Chrome):** 4 new checks PASS at 500 and 1000 tables — `focusFadesRest` (selected + highlighted + faded classes correct), `searchRings` + `searchClear` (ring replace + clear), `focusClear` (background-tap clears fade). 160/160 ER unit/integration tests green (`overview-search.test.ts` 10 + `cytoscape-renderer.test.ts` +4 incl. background-tap callback). Provider impact: none (frontend-only).
 
+### PR#12 re-review fixes (R-8/R-9 — click-vs-navigate integration, 2026-08-12)
+
+**The gap the renderer checks could not see:** the UX-pivot click-to-focus was wired as focus AND `openDbObject` in the same tap callback — a real click navigated away before the fade+highlight rendered. Renderer-API checks stayed green because they never drove the app wiring.
+
+**Fix (R-8):**
+- `cytoscape-renderer.ts` + `types.ts` — new `ErRendererCallbacks.onNodeDoubleClick` (renderer `dbltap`); single `tap` stays the focus signal.
+- `cytoscape-view.tsx` — tap → `setSeed` only; dbltap → `onOpenTable`; new focused-table side card (label · N columns · M FK) with an explicit **Open table** button; hint updated to "Click to focus · double-click or Open table to view".
+- `er-diagram.tsx` — overview prop renamed `onNodeClick` → `onOpenTable` (a single-click navigation path cannot silently reappear); React Flow (small/medium) keeps its established click-to-open.
+- **P2 (R-9):** background tap clears focus/fade only — search rings survive a non-empty query (search state ≠ selection state).
+
+**App-level tests (the reviewer's exact scenario, now mechanically covered):**
+
+```text
+open large ER (500-table fixture)
+→ click node (single tap)
+→ schema workspace remains active        (openDbObject NOT called)
+→ focused node highlighted + unrelated faded (updateSelection: nodeIds=[seed],
+                                            highlightNodeIds=[hop neighbors], fadeRest:true)
+→ double-click / Open table button
+→ openDbObject called with the correct db-object tab
+→ background tap
+→ focus cleared, search ring + query preserved
+```
+
+- `cytoscape-view.test.tsx` (6) — real view, mocked renderer: single tap issues the exact fade+highlight selection and never calls `onOpenTable`; dbltap + Open-table navigate; background tap keeps ring + query; re-tap after background still focuses.
+- `er-diagram-navigation.test.tsx` (2) — real ErDiagram + 500-table L-tier fixture, lazy overview harnessed: workspace stays active until the explicit action; `openDbObject` receives `{kind:"db-object", schema, objectName, objectType:"table"}`.
+- `cytoscape-renderer.test.ts` +1 — tap routes to `onNodeClick`, dbltap to `onNodeDoubleClick` (real headless renderer).
+
+**Runtime evidence (CDP harness, real renderer):** new check pair `singleTapFocus` + `doubleTapOpens` PASS at 500 & 1000 — **16/16 checks PASS, 0 console errors** (TTD 265 ms @500 / 1,170 ms @1000; progressive + theme checks unchanged). Full suite: **1,482 FE tests** (128 files) green.
+
 ### P1.7 implementation notes
 
 - **`utils/layout.ts`** — split into pure `computeLayoutPositions(LayoutInput, options)` (runs in the worker) + `layoutGraph` wrapper (sync fallback, still used by tests); shared geometry constants so main/worker cannot drift.

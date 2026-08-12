@@ -268,4 +268,33 @@ describe("CytoscapeErRenderer — real cytoscape (headless)", () => {
     expect(tapped).toBe(1);
     renderer.dispose();
   });
+
+  it("single tap routes to onNodeClick, double tap to onNodeDoubleClick (PR#12 P1)", () => {
+    let tapped: TableId | null = null;
+    let doubleTapped: TableId | null = null;
+    const renderer = new CytoscapeErRenderer({
+      container: null as unknown as HTMLElement,
+      headless: true,
+      onNodeClick: (id) => {
+        tapped = id;
+      },
+      onNodeDoubleClick: (id) => {
+        doubleTapped = id;
+      },
+    });
+    const model = buildModel(3);
+    renderer.mount(model, positionsOf("t0", "t1", "t2"));
+
+    const cy = renderer.getCy();
+    cy.getElementById("t1").emit("tap");
+    expect(tapped).toBe("t1");
+    expect(doubleTapped).toBeNull();
+
+    cy.getElementById("t2").emit("dbltap");
+    expect(doubleTapped).toBe("t2");
+    // A dbltap does not synthesize leading taps (only real user input does) —
+    // the single-tap callback must be untouched by the double-tap event.
+    expect(tapped).toBe("t1");
+    renderer.dispose();
+  });
 });

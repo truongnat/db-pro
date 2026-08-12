@@ -34,7 +34,12 @@ export interface CytoscapeErViewProps {
    */
   layoutReady: boolean;
   onViewportChange: (viewport: ErViewport) => void;
-  onNodeClick: (nodeId: TableId) => void;
+  /**
+   * Explicit "open table detail" action (PR#12 re-review P1). Fired ONLY on
+   * double-click or the focused-table "Open table" button — a single click
+   * focuses the neighborhood and must never navigate away from the overview.
+   */
+  onOpenTable: (nodeId: TableId) => void;
   explorer: OverviewExplorerProps;
   searchQuery: string;
   onSearchChange: (query: string) => void;
@@ -73,6 +78,8 @@ function resolveThemeTokens(): ErThemeTokens {
  * worker pipeline (P1-1 approximate paint → Option C refine stages → dagre
  * final). Search FOCUSES (rings matches + centers the viewport, opass-style)
  * and a click FADES the rest while highlighting the hop-scoped neighborhood.
+ * Navigation is EXPLICIT only: double-click a node or use the side card's
+ * "Open table" action (PR#12 re-review P1 — a single click never navigates).
  * P2-1: colors follow the active theme and swap at runtime.
  */
 export function CytoscapeErView({
@@ -81,7 +88,7 @@ export function CytoscapeErView({
   degraded,
   layoutReady,
   onViewportChange,
-  onNodeClick,
+  onOpenTable,
   explorer,
   searchQuery,
   onSearchChange,
@@ -101,21 +108,23 @@ export function CytoscapeErView({
   // Latest callbacks via refs so the renderer is created exactly once per view
   // lifecycle — a changing callback identity must never re-init the canvas
   // (which would orphan the mount effect's renderer reference).
-  const onNodeClickRef = useRef(onNodeClick);
-  onNodeClickRef.current = onNodeClick;
+  const onOpenTableRef = useRef(onOpenTable);
+  onOpenTableRef.current = onOpenTable;
   const onViewportChangeRef = useRef(onViewportChange);
   onViewportChangeRef.current = onViewportChange;
 
-  // Tap a table → focus it: fade the rest + highlight its neighborhood.
+  // Tap a table → FOCUS it only: fade the rest + highlight its neighborhood.
+  // Navigation is deliberately NOT here (PR#12 re-review P1) — a single click
+  // must never unmount the overview before the focus renders.
   const onNodeTapRef = useRef<(nodeId: TableId) => void>(() => {});
   onNodeTapRef.current = (nodeId) => {
     setSeed(nodeId);
   };
-  // Tap empty canvas → back to the full graph (opass clears the ring too).
+  // Tap empty canvas → clear focus/fade only. Search rings are search STATE
+  // and survive while the query is non-empty (PR#12 re-review P2).
   const onBackgroundTapRef = useRef<() => void>(() => {});
   onBackgroundTapRef.current = () => {
     rendererRef.current?.clearSelection();
-    rendererRef.current?.clearSearchHighlight();
     setSeed(null);
   };
 
@@ -125,11 +134,9 @@ export function CytoscapeErView({
     const renderer = new CytoscapeErRenderer({
       container: containerRef.current,
       theme: resolveThemeTokens(),
-      onNodeClick: (nodeId) => {
-        onNodeTapRef.current(nodeId);
-        // Also navigate to the table's detail tab (app convention).
-        onNodeClickRef.current(nodeId);
-      },
+      // Single tap = focus. Double tap = the explicit open-table action.
+      onNodeClick: (nodeId) => onNodeTapRef.current(nodeId),
+      onNodeDoubleClick: (nodeId) => onOpenTableRef.current(nodeId),
       onBackgroundTap: () => onBackgroundTapRef.current(),
       onViewportChange: (viewport) => onViewportChangeRef.current(viewport),
     });
@@ -226,6 +233,13 @@ export function CytoscapeErView({
     setSeed(null);
   }, [searchQuery, model]);
 
+  // The focused table (search single-match or click) — drives the side
+  // inspector's explicit "Open table" action (PR#12 re-review P1).
+  const focusedTable = useMemo(
+    () => (seed ? (model.tables.find((t) => t.id === seed) ?? null) : null),
+    [seed, model],
+  );
+
   // Option C — surface a subtle "refining" hint while the worker posts
   // progressive stages (layout improving, dagre not committed yet).
   const refining = positions !== null && !layoutReady && !degraded;
@@ -273,6 +287,23 @@ export function CytoscapeErView({
         <div className="pointer-events-auto">
           <OverviewExplorer {...explorer} />
         </div>
+        {focusedTable && (
+          <div className="pointer-events-auto flex items-center gap-2 rounded-md border border-[var(--border-default)] bg-popover p-1.5 shadow-sm">
+            <span className="max-w-40 truncate text-[11px] font-medium">{focusedTable.label}</span>
+            <span className="text-[10px] text-[var(--text-secondary)]">
+              {focusedTable.columnCount} columns · {focusedTable.fkCount} FK
+            </span>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              className="h-6 px-2 text-[10px]"
+              onClick={() => onOpenTableRef.current(focusedTable.id)}
+            >
+              Open table
+            </Button>
+          </div>
+        )}
         {refining && (
           <div className="pointer-events-auto flex items-center gap-1.5 rounded-md border border-sky-500/40 bg-sky-500/10 px-2 py-1 text-[11px] text-sky-600">
             <Loader2 className="h-3 w-3 animate-spin" />
@@ -285,7 +316,7 @@ export function CytoscapeErView({
           </div>
         )}
         <div className="pointer-events-auto text-[10px] text-[var(--text-secondary)]">
-          Type to focus · click a table to highlight its relations
+          Click to focus · double-click or Open table to view
         </div>
       </div>
     </div>

@@ -71,12 +71,14 @@ export class CytoscapeErRenderer implements ErRenderer {
   private cy: Core;
   private theme: ErThemeTokens;
   private onNodeClick?: (nodeId: TableId) => void;
+  private onNodeDoubleClick?: (nodeId: TableId) => void;
   private onBackgroundTap?: () => void;
   private onViewportChange?: (viewport: ErViewport) => void;
   private viewportRaf: number | null = null;
 
   constructor(options: CytoscapeErRendererOptions) {
     this.onNodeClick = options.onNodeClick;
+    this.onNodeDoubleClick = options.onNodeDoubleClick;
     this.onBackgroundTap = options.onBackgroundTap;
     this.onViewportChange = options.onViewportChange;
     this.theme = { ...DARK_THEME, ...options.theme };
@@ -90,8 +92,16 @@ export class CytoscapeErRenderer implements ErRenderer {
       style: this.buildStylesheet(),
     });
 
+    // Single tap = focus (fade rest + highlight neighborhood); the host
+    // decides what focus means. Navigation is a separate, explicit action
+    // (double tap → onNodeDoubleClick) so a plain click on the ER overview
+    // never navigates away before the focus renders (PR#12 re-review P1).
     this.cy.on("tap", "node", (event) => {
       this.onNodeClick?.(event.target.id());
+    });
+
+    this.cy.on("dbltap", "node", (event) => {
+      this.onNodeDoubleClick?.(event.target.id());
     });
 
     // Empty-canvas tap → clear the focus fade (opass). `target === cy` is the

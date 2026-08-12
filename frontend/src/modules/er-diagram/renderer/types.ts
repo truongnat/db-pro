@@ -75,8 +75,24 @@ export interface ErSelection {
 
 /** Callbacks the host subscribes to; renderers fire them on user interaction. */
 export interface ErRendererCallbacks {
+  /**
+   * Single tap on a node — the host FOCUSES it (opass: fade the rest +
+   * highlight the neighborhood). MUST NOT navigate: navigation is an explicit
+   * action (double tap or an "Open table" control) so a click on the ER
+   * overview never leaves the diagram before the focus renders (PR#12
+   * re-review P1).
+   */
   onNodeClick?: (nodeId: TableId) => void;
-  /** Empty-canvas tap — clears focus/fade (opass behavior). */
+  /**
+   * Double tap on a node — the host's explicit "open table detail" action.
+   * Distinct from single-tap focus; only this callback may trigger navigation.
+   */
+  onNodeDoubleClick?: (nodeId: TableId) => void;
+  /**
+   * Empty-canvas tap — clears focus/fade only. Search rings are search STATE
+   * and must survive a background tap while the query is non-empty (PR#12
+   * re-review P2: search ≠ selection).
+   */
   onBackgroundTap?: () => void;
   onViewportChange?: (viewport: ErViewport) => void;
 }

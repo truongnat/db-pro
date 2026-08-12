@@ -199,3 +199,20 @@ First refined stage lands ~50–70 ms after paint; full refinement ~0.15–0.37 
 - **Invariant preserved:** the full graph is ALWAYS mounted; search/click only add classes + move the viewport. Renderer API stays backward-compatible (`updateSelection` without the new fields = legacy closedNeighborhood behavior).
 
 **Runtime evidence:** `overview-search.test.ts` (10) + `cytoscape-renderer.test.ts` (+4: fade/highlight, clearSelection vs rings, ring replace/clear, background tap) + CDP harness (+4 checks at 500 & 1000: focus fades rest, search rings + clear, focus clear). All 160 ER tests green.
+
+## F-UX-2: Single click on the overview navigated away before the focus rendered (P1, RESOLVED — PR#12 re-review)
+
+**Evidence:** The UX-pivot click-to-focus (F-UX-1) was wired as `setSeed(nodeId)` AND `openDbObject(nodeId)` in the same renderer tap callback. `openDbObject` flips `activeTabId` synchronously, unmounting the ER diagram before the seed effect's `updateSelection` (fade + highlight) could paint. The 14/14 CDP renderer checks stayed green because they drive the renderer API directly — they could not catch an app-level interaction regression. Reviewer's words: "click = highlight neighborhood trong khi app hiện: click = leave ER diagram".
+
+**Failure scenario:** Open a 500-table schema, click `orders` to explore its relations → the ER tab is replaced by the orders detail tab and the neighborhood highlight never appears. The flagship UX pivot was dead on arrival in the real app.
+
+**Severity:** P1 — contradicted the locked UX pivot; primary large-schema interaction broken.
+
+**Resolution (locked 2026-08-12, PR#12 re-review):**
+- **Single tap = focus ONLY.** Renderer `tap` → view `onNodeTapRef` → `setSeed` (fade + highlight). Navigation removed from the tap path entirely.
+- **Double tap = explicit open.** New `ErRendererCallbacks.onNodeDoubleClick` (renderer `dbltap` event) → view → `onOpenTable` prop → `openDbObject`. ErDiagram's overview prop is renamed `onNodeClick` → `onOpenTable` so a single-click navigation path cannot silently reappear.
+- **Side inspector with an explicit action.** When a table is focused, the overlay shows a compact card (label · N columns · M FK) with an **Open table** button — discoverable, mouse-driven open without double-click timing.
+- **P2 follow-on: background tap ≠ search clear.** `onBackgroundTap` now clears focus/fade ONLY; search rings (`searched`) are search state and survive while the query is non-empty. Escape / clearing the input clears both. (Reviewer's preferred contract: "search là search state; selection là selection state".)
+- **App-level tests added** (the gap the renderer checks could not see): `cytoscape-view.test.tsx` (real view, mocked renderer — single tap issues the exact fade+highlight `updateSelection` and never calls `onOpenTable`; double tap / Open-table button navigate; background tap keeps the ring + query; fresh tap after background still focuses) and `er-diagram-navigation.test.tsx` (real ErDiagram on a 500-table fixture, lazy overview mocked — workspace stays active until the explicit action, then `openDbObject` gets the correct db-object tab).
+
+**Runtime evidence:** `cytoscape-renderer.test.ts` +1 (tap vs dbltap routing on the real renderer), `cytoscape-view.test.tsx` (6), `er-diagram-navigation.test.tsx` (2); CDP harness +1 check pair at 500 & 1000 (`singleTapFocus` / `doubleTapOpens`). All 171 ER tests green.

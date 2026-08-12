@@ -236,6 +236,22 @@
     renderer.clearSelection();
     results.checks.focusClear = !cy.getElementById(model.tables[3].id).hasClass("faded");
 
+    // ---- PR#12 re-review P1: single tap → focus callback, double tap → open ----
+    // The app contract is tap=focus, dbltap=open. Prove the renderer routes
+    // them to distinct callbacks (the view then decides focus vs. navigate).
+    let tapped = null, doubleTapped = null;
+    const probe = new CytoscapeErRenderer({
+      headless: true,
+      onNodeClick: (id) => { tapped = id; },
+      onNodeDoubleClick: (id) => { doubleTapped = id; },
+    });
+    probe.mount(model, approx);
+    probe.getCy().getElementById(model.tables[0].id).emit("tap");
+    probe.getCy().getElementById(model.tables[0].id).emit("dbltap");
+    results.checks.singleTapFocus = tapped === model.tables[0].id;
+    results.checks.doubleTapOpens = doubleTapped === model.tables[0].id;
+    probe.dispose();
+
     setPhase("done");
     renderResults();
     window.__bench = results;
@@ -271,6 +287,11 @@
       ["Focus fades rest + rings neighbors (opass)", c.focusFadesRest ? "PASS" : "FAIL", c.focusFadesRest],
       ["Search rings matches + clear", c.searchRings && c.searchClear ? "PASS" : "FAIL", c.searchRings && c.searchClear],
       ["Focus clear (bg tap / empty search)", c.focusClear ? "PASS" : "FAIL", c.focusClear],
+      [
+        "Single tap routes to focus cb, double tap to open cb (PR#12 P1)",
+        c.singleTapFocus && c.doubleTapOpens ? "PASS" : "FAIL",
+        c.singleTapFocus && c.doubleTapOpens,
+      ],
     ];
     const el = document.getElementById("results");
     el.innerHTML =

@@ -420,7 +420,10 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
     if (perfEnabled) perfMonitorRef.current?.endFrameSampling();
   }, [perfEnabled]);
 
-  // Open the table's detail tab — shared by the React Flow and Cytoscape views.
+  // Open the table's detail tab — the EXPLICIT action on the overview
+  // (PR#12 re-review P1): double-click a node or the side inspector's "Open
+  // table" button. A single click focuses the neighborhood instead and must
+  // never navigate away from the diagram.
   const openTableObject = useCallback(
     (schemaName: string, tableName: string) => {
       useWorkspaceStore.getState().openDbObject({
@@ -444,7 +447,8 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
     [connectionId],
   );
 
-  // Click node → open table tab (React Flow view).
+  // Click node → open table tab (React Flow view — small/medium schemas keep
+  // the established click-to-open convention; no neighborhood focus UX here).
   const onNodeClick = useCallback(
     (_: React.MouseEvent, node: Node) => {
       const nodeData = node.data as TableNodeData;
@@ -453,7 +457,8 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
     [openTableObject],
   );
 
-  // Click node → open table tab (Cytoscape overview view).
+  // Explicit open-table action for the canvas overview: fed to the view's
+  // `onOpenTable`, fired on double-click / the side inspector button.
   const onCytoscapeNodeClick = useCallback(
     (nodeId: string) => {
       const table = graphModel.tables.find((t) => t.id === nodeId);
@@ -637,7 +642,7 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
             degraded={layout.degraded}
             layoutReady={layout.status === "ready"}
             onViewportChange={onCytoscapeViewportChange}
-            onNodeClick={onCytoscapeNodeClick}
+            onOpenTable={onCytoscapeNodeClick}
             explorer={{
               totalTables: tablesInSchema.length,
               relationCount: schemaStats.relations,
