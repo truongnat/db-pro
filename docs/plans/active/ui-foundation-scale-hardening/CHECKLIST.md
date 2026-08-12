@@ -62,8 +62,8 @@
 - [x] **6.6** P1.5 Viewport / spatial-index layer — `SpatialIndex` (uniform-grid hash over node bounding boxes) returns visible node + edge IDs; brute-force reference kept for tests; HUD queries via the index
 - [x] **6.7** P1.6 Default neighborhood exploration UX — landing mode (stats + suggested starting points by FK degree) + hop scope `[1][2][3][Domain]` + explicit `All N`; auto-fit on scope change
 - [ ] **6.8** P1.7 Layout in Web Worker + `schemaHash → positions` cache, atomic commit
-- [~] **6.9** P1.8 Benchmark A/B harness (500 tables) — DONE: Cytoscape 29 DOM / 2.5s layout vs React Flow 6,141 DOM / 10.7–17.3s layout block (see VERIFICATION.md); fixtures 100/1000 pending
-- [~] **6.10** P1.9 Canvas decision — evidence collected (DOM count + layout bottleneck confirmed); hybrid Cytoscape-canvas decision pending user confirmation
+- [x] **6.9** P1.8 Benchmark A/B harness — full matrix 100/500/1000 DONE (VERIFICATION.md): Cytoscape 31 DOM at all scales (layout 0.2/2/36 s) vs React Flow 1,143/6,143/11,817 DOM (layout 0.15/8/122 s); overview pan 60/34/18.6 fps (B) vs 48–60 (A); detail pan 60 fps both
+- [~] **6.10** P1.9 Canvas decision — evidence complete: ≤100 keep React Flow; ~500 viable with worker layout + neighborhood default; ~1000 full-graph React Flow not viable → hybrid Cytoscape overview + React detail supported; decision pending user confirmation
 - [ ] **6.11** Complexity score replaces hardcoded thresholds (`tableCount + relationCount*0.7 + totalColumnCount*0.08`)
 
 ## Gates

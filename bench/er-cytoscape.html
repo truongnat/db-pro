@@ -32,6 +32,7 @@
 <div id="app">
   <div id="hud">
     <span class="tag">Harness A · Cytoscape + fCoSE</span>
+    <span class="tag scale-badge"></span>
     <span><b id="statTables"></b> tables</span>
     <span><b id="statRels"></b> relations</span>
     <span><b id="statCols"></b> columns</span>
@@ -45,7 +46,14 @@
 <script src="vendor/layout-base.js"></script>
 <script src="vendor/cose-base.js"></script>
 <script src="vendor/cytoscape-fcose.js"></script>
-<script src="fixture-500.js"></script>
+<script src="fixture-gen.js"></script>
+<script>
+  // Scale via query param: er-cytoscape.html?n=100 | 500 | 1000 (default 500)
+  window.__FIXTURE_N = new URLSearchParams(location.search).get("n") || "500";
+  if (!(window.__FIXTURE_N in generateERFixture.presets)) window.__FIXTURE_N = "500";
+  window.ER_FIXTURE = generateERFixture(generateERFixture.presets[window.__FIXTURE_N]);
+  document.querySelectorAll(".scale-badge").forEach((el) => { el.textContent = window.__FIXTURE_N + " tables"; });
+</script>
 <script>
 (function () {
   "use strict";
