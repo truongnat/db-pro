@@ -26,7 +26,12 @@ import { Search, Maximize2, LayoutGrid, Columns2, Table2, RotateCcw, Loader2 } f
 import { ErTableNode, type TableNodeData } from "./lod/er-table-node";
 import { ErPerfHud } from "./er-perf-hud";
 import { NeighborhoodExplorer } from "./neighborhood-explorer";
-import { buildErGraphModel } from "../renderer/er-graph-model";
+import {
+  buildErGraphModel,
+  classifySchemaComplexity,
+  computeSchemaComplexity,
+  type SchemaComplexityTier,
+} from "../renderer/er-graph-model";
 import type { ErGraphModel, ErViewport } from "../renderer/types";
 import { useWorkerLayout } from "../hooks/use-worker-layout";
 import {
@@ -50,7 +55,6 @@ import { SpatialIndex } from "../utils/spatial-index";
 
 import type { IntrospectResult, SchemaColumnDto } from "@/modules/schema/types/schema.types";
 
-const LARGE_SCHEMA_THRESHOLD = 200;
 const SUGGESTED_POINTS_COUNT = 5;
 
 interface ErDiagramProps {
@@ -133,15 +137,26 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
 
   // Neighborhood mode for large schemas (P1.6 exploration UX)
   const tablesInSchema = data.tables.filter((t) => t.schema === schema);
-  const isLargeSchema = tablesInSchema.length > LARGE_SCHEMA_THRESHOLD;
+
+  // P1.9 — renderer-agnostic graph model, shared by the Cytoscape overview.
+  const graphModel = useMemo<ErGraphModel>(() => buildErGraphModel(data, schema), [data, schema]);
+
+  // 6.11 — thresholds are complexity scores, not hardcoded table counts (locked
+  // P1 hard rule #5): complexity = tables + relations*0.7 + columns*0.08. Tier
+  // boundaries tuned from the P1.8 benchmark — A100(310.4)→M (full React Flow
+  // graph at 60 fps, no exploration UX), A500(1,802.5)→L, A1000(3,765.2)→XL.
+  const schemaComplexity = useMemo(() => computeSchemaComplexity(graphModel.stats), [graphModel]);
+  const schemaTier = useMemo<SchemaComplexityTier>(
+    () => classifySchemaComplexity(schemaComplexity),
+    [schemaComplexity],
+  );
+  const isLargeSchema = schemaTier === "L" || schemaTier === "XL";
+
   const [neighborhoodSeed, setNeighborhoodSeed] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
   const [neighborhoodHops, setNeighborhoodHops] = useState<NeighborhoodScope>(2);
 
   const adjacencyMap = useMemo(() => buildAdjacencyMap(data.foreignKeys), [data.foreignKeys]);
-
-  // P1.9 — renderer-agnostic graph model, shared by the Cytoscape overview.
-  const graphModel = useMemo<ErGraphModel>(() => buildErGraphModel(data, schema), [data, schema]);
 
   // P1.9 — the explicit "All N tables" overview of a large schema renders on
   // the canvas renderer (CytoscapeErRenderer). Landing and neighborhood modes
