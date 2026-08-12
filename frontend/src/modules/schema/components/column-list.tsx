@@ -25,13 +25,13 @@ export function ColumnList({ columns, onEditColumn }: ColumnListProps) {
   const [copiedCol, setCopiedCol] = useState<string | null>(null);
 
   if (columns.length === 0) {
-    return <div className="p-4 text-sm text-[var(--app-text-muted)]">{t("schema.noColumns")}</div>;
+    return <div className="p-4 text-sm text-[var(--text-secondary)]">{t("schema.noColumns")}</div>;
   }
 
   const sorted = sortColumnsForDisplay(columns);
 
   const headerClass =
-    "px-3 py-2 font-medium text-[12.5px] text-[var(--app-text-muted)] border-b border-[var(--app-border-subtle)]";
+    "px-3 py-2 font-medium text-[12.5px] text-[var(--text-secondary)] border-b border-[var(--border-subtle)]";
 
   const handleCopyName = async (name: string) => {
     await navigator.clipboard.writeText(name).catch(() => {});
@@ -59,7 +59,10 @@ export function ColumnList({ columns, onEditColumn }: ColumnListProps) {
       </TableHeader>
       <TableBody>
         {sorted.map((col) => (
-          <TableRow key={col.name} className="group transition-colors hover:bg-[var(--app-hover)]">
+          <TableRow
+            key={col.name}
+            className="group transition-colors hover:bg-[var(--surface-hover)]"
+          >
             <TableCell className="px-3 py-1.5 font-mono text-[13px]">
               <div className="flex items-center gap-1.5">
                 <span className="select-text">{col.name}</span>
@@ -83,13 +86,13 @@ export function ColumnList({ columns, onEditColumn }: ColumnListProps) {
                 </Tooltip>
               </div>
             </TableCell>
-            <TableCell className="px-3 py-1.5 font-mono text-[11px] text-[var(--app-text-muted)] select-text">
+            <TableCell className="px-3 py-1.5 font-mono text-[11px] text-[var(--text-secondary)] select-text">
               {col.dataType}
             </TableCell>
-            <TableCell className="px-3 py-1.5 text-[12px] text-[var(--app-text-muted)]">
+            <TableCell className="px-3 py-1.5 text-[12px] text-[var(--text-secondary)]">
               {col.nullable ? "YES" : "NO"}
             </TableCell>
-            <TableCell className="px-3 py-1.5 font-mono text-[11px] text-[var(--app-text-muted)] select-text">
+            <TableCell className="px-3 py-1.5 font-mono text-[11px] text-[var(--text-secondary)] select-text">
               {col.defaultValue ?? "\u2014"}
             </TableCell>
             <TableCell className="px-3 py-1.5 text-center">

@@ -65,11 +65,11 @@ function DiffRow({ label, from, to }: { label: string; from: string; to: string 
   const changed = from !== to;
   return (
     <div className="flex items-baseline gap-2 text-xs">
-      <span className="w-16 shrink-0 text-[var(--app-text-muted)]">{label}</span>
+      <span className="w-16 shrink-0 text-[var(--text-secondary)]">{label}</span>
       <span className={`font-mono ${changed ? "line-through opacity-50" : ""}`}>{from || "—"}</span>
       {changed && (
         <>
-          <span className="text-[var(--app-text-muted)]">→</span>
+          <span className="text-[var(--text-secondary)]">→</span>
           <span className="font-mono font-medium">{to || "—"}</span>
         </>
       )}
@@ -183,7 +183,7 @@ export function ColumnEditDialog({
 
           <div className="flex flex-col gap-3">
             {/* Diff summary */}
-            <div className="rounded-md border border-[var(--app-border-subtle)] p-2.5">
+            <div className="rounded-md border border-[var(--border-subtle)] p-2.5">
               <DiffRow label="Name" from={column.name} to={newName} />
               <DiffRow label="Type" from={column.dataType} to={newDataType} />
               <DiffRow
@@ -199,7 +199,7 @@ export function ColumnEditDialog({
               <div>
                 <Label
                   htmlFor="col-edit-name"
-                  className="mb-0.5 block text-[11px] text-[var(--app-text-muted)]"
+                  className="mb-0.5 block text-[11px] text-[var(--text-secondary)]"
                 >
                   Column name
                 </Label>
@@ -219,7 +219,7 @@ export function ColumnEditDialog({
               <div>
                 <Label
                   htmlFor="col-edit-type"
-                  className="mb-0.5 block text-[11px] text-[var(--app-text-muted)]"
+                  className="mb-0.5 block text-[11px] text-[var(--text-secondary)]"
                 >
                   Data type
                 </Label>
@@ -247,7 +247,7 @@ export function ColumnEditDialog({
             <div>
               <Label
                 htmlFor="col-edit-default"
-                className="mb-0.5 block text-[11px] text-[var(--app-text-muted)]"
+                className="mb-0.5 block text-[11px] text-[var(--text-secondary)]"
               >
                 Default value
               </Label>
@@ -262,7 +262,7 @@ export function ColumnEditDialog({
 
             {/* SQL Preview + Risk */}
             {changed && classified.operations.length > 0 && (
-              <div className="rounded-md border border-[var(--app-border-subtle)] p-2.5">
+              <div className="rounded-md border border-[var(--border-subtle)] p-2.5">
                 <div className="mb-1.5 flex items-center justify-between">
                   <div className="flex items-center gap-1.5">
                     <RiskIcon className="h-3 w-3" />
@@ -270,13 +270,13 @@ export function ColumnEditDialog({
                       {classified.risk.label}
                     </Badge>
                   </div>
-                  <span className="text-[10px] text-[var(--app-text-muted)]">
+                  <span className="text-[10px] text-[var(--text-secondary)]">
                     {classified.operations.length} change
                     {classified.operations.length > 1 ? "s" : ""}
                   </span>
                 </div>
 
-                <ul className="mb-1.5 space-y-0.5 text-[11px] text-[var(--app-text-muted)]">
+                <ul className="mb-1.5 space-y-0.5 text-[11px] text-[var(--text-secondary)]">
                   {classified.operations.map((op, i) => (
                     <li key={i} className="flex items-start gap-1">
                       <span className="mt-px text-[8px]">•</span>

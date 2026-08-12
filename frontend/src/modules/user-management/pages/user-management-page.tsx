@@ -32,7 +32,7 @@ export function UserManagementPage() {
 
   if (!explorerConnectionId) {
     return (
-      <div className="flex h-full items-center justify-center text-[var(--app-text-muted)]">
+      <div className="flex h-full items-center justify-center text-[var(--text-secondary)]">
         {t("userManagement.connectFirst")}
       </div>
     );
@@ -42,7 +42,7 @@ export function UserManagementPage() {
 
   return (
     <div className="flex h-full gap-4">
-      <div className="flex w-64 shrink-0 flex-col gap-2 overflow-auto border-r border-[var(--app-border-subtle)] pr-4">
+      <div className="flex w-64 shrink-0 flex-col gap-2 overflow-auto border-r border-[var(--border-subtle)] pr-4">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold text-foreground">{t("userManagement.title")}</h2>
           <Button type="button" size="sm" onClick={() => setCreateOpen(true)}>
@@ -51,7 +51,7 @@ export function UserManagementPage() {
         </div>
 
         {isLoading ? (
-          <p className="text-xs text-[var(--app-text-muted)]">{t("common.loading")}</p>
+          <p className="text-xs text-[var(--text-secondary)]">{t("common.loading")}</p>
         ) : (
           <UserList
             users={users}
@@ -76,7 +76,7 @@ export function UserManagementPage() {
             onRevoke={(schema, table, privilege) => revoke.mutate({ schema, table, privilege })}
           />
         ) : (
-          <div className="flex h-full items-center justify-center text-[var(--app-text-muted)]">
+          <div className="flex h-full items-center justify-center text-[var(--text-secondary)]">
             {t("userManagement.selectRole")}
           </div>
         )}

@@ -10,13 +10,13 @@ export function Topbar() {
 
   return (
     <header
-      className="flex items-center border-b border-[var(--app-border-subtle)] bg-[var(--app-surface-2)] px-3"
+      className="flex items-center border-b border-[var(--border-subtle)] bg-[var(--surface-panel)] px-3"
       style={{ height: "var(--app-topbar-height)" }}
       role="banner"
     >
       {/* Left — Mac traffic lights spacer + branding */}
       <div className="flex items-center gap-2 pl-14">
-        <span className="text-[13px] font-semibold text-[var(--app-text-muted)]">DB Pro</span>
+        <span className="text-[13px] font-semibold text-[var(--text-secondary)]">DB Pro</span>
       </div>
 
       <div className="flex-1" />
@@ -27,13 +27,13 @@ export function Topbar() {
           <TooltipTrigger asChild>
             <button
               type="button"
-              className="flex h-7 items-center gap-1.5 rounded-md border border-[var(--app-border)] bg-muted/50 px-2.5 text-xs text-[var(--app-text-muted)] transition-colors hover:border-[var(--app-border-strong)] hover:text-foreground"
+              className="flex h-7 items-center gap-1.5 rounded-md border border-[var(--border-default)] bg-muted/50 px-2.5 text-xs text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:text-foreground"
               style={{ width: 200 }}
               onClick={() => useQuickOpenStore.getState().open()}
             >
               <Search className="h-3.5 w-3.5 shrink-0" />
               <span className="flex-1 text-left">{t("shell.topbar.search")}</span>
-              <kbd className="ml-1 rounded border border-[var(--app-border-strong)] bg-background px-1 py-px text-[11px] font-medium text-[var(--app-text-dim)]">
+              <kbd className="ml-1 rounded border border-[var(--border-strong)] bg-background px-1 py-px text-[11px] font-medium text-[var(--text-tertiary)]">
                 {isMac ? "⌘P" : "Ctrl+P"}
               </kbd>
             </button>

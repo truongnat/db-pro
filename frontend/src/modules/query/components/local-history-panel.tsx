@@ -46,7 +46,7 @@ export function LocalHistoryPanel({ onSelectEntry }: LocalHistoryPanelProps) {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center gap-2 border-b border-[var(--app-border-subtle)] px-3 py-2">
+      <div className="flex items-center gap-2 border-b border-[var(--border-subtle)] px-3 py-2">
         <Input
           className="flex-1"
           placeholder={t("query.searchHistory")}
@@ -56,7 +56,7 @@ export function LocalHistoryPanel({ onSelectEntry }: LocalHistoryPanelProps) {
         <Button
           type="button"
           variant="outline"
-          className="rounded-sm border px-2 py-1 text-xs text-[var(--app-text-muted)]"
+          className="rounded-sm border px-2 py-1 text-xs text-[var(--text-secondary)]"
           onClick={handleClear}
           disabled={entries.length === 0}
         >
@@ -67,13 +67,13 @@ export function LocalHistoryPanel({ onSelectEntry }: LocalHistoryPanelProps) {
       <div className="flex-1 overflow-auto">
         {filtered.length === 0 && (
           <div className="flex items-center justify-center py-8">
-            <p className="text-sm text-[var(--app-text-muted)]">{t("common.states.empty")}</p>
+            <p className="text-sm text-[var(--text-secondary)]">{t("common.states.empty")}</p>
           </div>
         )}
         {filtered.map((entry, idx) => (
           <div
             key={`${entry.timestamp}-${idx}`}
-            className="group flex cursor-pointer items-start gap-2 border-b border-[var(--app-border-subtle)] px-3 py-2 transition-colors hover:bg-background"
+            className="group flex cursor-pointer items-start gap-2 border-b border-[var(--border-subtle)] px-3 py-2 transition-colors hover:bg-background"
             onClick={() => onSelectEntry(entry.sql)}
           >
             <div className="min-w-0 flex-1">
@@ -83,7 +83,7 @@ export function LocalHistoryPanel({ onSelectEntry }: LocalHistoryPanelProps) {
               >
                 {entry.sql}
               </pre>
-              <span className="mt-0.5 text-xs text-[var(--app-text-muted)]">
+              <span className="mt-0.5 text-xs text-[var(--text-secondary)]">
                 {formatRelativeTime(new Date(entry.timestamp))}
               </span>
             </div>
@@ -91,7 +91,7 @@ export function LocalHistoryPanel({ onSelectEntry }: LocalHistoryPanelProps) {
               type="button"
               variant="ghost"
               size="sm"
-              className="shrink-0 rounded px-1 text-xs text-[var(--app-text-muted)] opacity-0 transition-opacity group-hover:opacity-100"
+              className="shrink-0 rounded px-1 text-xs text-[var(--text-secondary)] opacity-0 transition-opacity group-hover:opacity-100"
               onClick={(e) => {
                 e.stopPropagation();
                 handleRemove(idx);

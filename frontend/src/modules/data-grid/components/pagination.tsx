@@ -31,7 +31,7 @@ export function Pagination({
   const navButton = "h-auto px-1.5 py-0.5 text-xs hover:bg-background disabled:opacity-40";
 
   return (
-    <div className="flex items-center justify-between gap-3 border-t border-[var(--app-border-subtle)] bg-background px-3 py-1.5 text-xs text-[var(--app-text-muted)]">
+    <div className="flex items-center justify-between gap-3 border-t border-[var(--border-subtle)] bg-background px-3 py-1.5 text-xs text-[var(--text-secondary)]">
       <span>{t("dataGrid.rowsCount", { count: totalCount })}</span>
 
       <div className="flex items-center gap-3">

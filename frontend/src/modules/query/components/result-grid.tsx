@@ -43,13 +43,13 @@ export function ResultGrid({ columns, rows, sort, onSort, durationMs, rowCount }
         sorts={sorts}
         onSort={onSort}
         contentStyle={zoom !== 100 ? { zoom: zoom / 100 } : undefined}
-        emptyState={<p className="text-sm text-[var(--app-text-muted)]">{t("query.noResults")}</p>}
+        emptyState={<p className="text-sm text-[var(--text-secondary)]">{t("query.noResults")}</p>}
         renderHeaderExtra={(col) => (
           <Button
             type="button"
             variant="ghost"
             size="sm"
-            className="shrink-0 rounded px-1 text-[11px] text-[var(--app-text-muted)]"
+            className="shrink-0 rounded px-1 text-[11px] text-[var(--text-secondary)]"
             title={t("query.metadata.info")}
             onClick={(e) => {
               e.stopPropagation();

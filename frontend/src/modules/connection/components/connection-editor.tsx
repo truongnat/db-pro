@@ -210,7 +210,7 @@ export function ConnectionEditor({
           <div className="flex gap-2">
             <input
               type="text"
-              className="flex-1 rounded-md border border-[var(--app-border)] bg-background px-3 py-1.5 text-[13px] outline-none transition-colors focus:border-primary"
+              className="flex-1 rounded-md border border-[var(--border-default)] bg-background px-3 py-1.5 text-[13px] outline-none transition-colors focus:border-primary"
               value={formData.database}
               onChange={(e) => updateField("database", e.target.value)}
               required
@@ -274,7 +274,7 @@ export function ConnectionEditor({
           <FormCheckbox label="Use SSH Tunnel" checked={showSsh} onChange={setShowSsh} />
 
           {showSsh && (
-            <div className="flex flex-col gap-4 rounded-lg border border-[var(--app-border)] bg-muted p-4">
+            <div className="flex flex-col gap-4 rounded-lg border border-[var(--border-default)] bg-muted p-4">
               <div className="grid grid-cols-2 gap-4">
                 <FormInput
                   label="SSH Host"
@@ -356,7 +356,7 @@ export function ConnectionEditor({
       />
 
       {testResult && (
-        <div className="flex items-center gap-2 rounded-lg border border-[var(--app-border)] bg-muted px-4 py-3">
+        <div className="flex items-center gap-2 rounded-lg border border-[var(--border-default)] bg-muted px-4 py-3">
           <Badge variant={testResult === "success" ? "success" : "error"} dot>
             {testResult === "success" ? t("connection.testSuccess") : t("connection.testFailed")}
           </Badge>
@@ -371,7 +371,7 @@ export function ConnectionEditor({
         </div>
       )}
 
-      <div className="flex justify-end gap-2 border-t border-[var(--app-border-subtle)] pt-4">
+      <div className="flex justify-end gap-2 border-t border-[var(--border-subtle)] pt-4">
         <Button type="button" variant="outline" onClick={onCancel}>
           {t("common.actions.cancel")}
         </Button>

@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>ER Bench B — React Flow</title>
+<link rel="stylesheet" href="vendor/xyflow-base.css" />
+<link rel="stylesheet" href="vendor/xyflow-style.css" />
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: #0f172a; color: #e2e8f0;
+    font: 13px/1.4 ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif; }
+  #app { position: fixed; inset: 0; }
+  #hud { position: absolute; top: 0; left: 0; right: 0; z-index: 20;
+    display: flex; align-items: center; gap: 14px; padding: 8px 14px;
+    background: #111c2e; border-bottom: 1px solid #1e293b; font-size: 12px;
+    color: #94a3b8; pointer-events: none; }
+  #hud b { color: #e2e8f0; font-weight: 600; }
+  #hud .tag { background: #1e293b; border: 1px solid #334155; border-radius: 6px;
+    padding: 2px 8px; color: #fda4af; }
+  #results { position: absolute; right: 14px; bottom: 14px; z-index: 20;
+    width: 360px; max-height: 60%; overflow: auto; background: rgba(15,23,42,0.92);
+    border: 1px solid #334155; border-radius: 10px; padding: 12px; font-size: 12px;
+    box-shadow: 0 12px 32px rgba(0,0,0,0.5); }
+  #results h3 { font-size: 12px; color: #fda4af; margin-bottom: 8px; font-weight: 600; }
+  #results table { width: 100%; border-collapse: collapse; }
+  #results td { padding: 3px 6px; border-bottom: 1px solid #1e293b; }
+  #results td:first-child { color: #94a3b8; }
+  #results td:last-child { text-align: right; font-variant-numeric: tabular-nums; color: #e2e8f0; }
+  #phase { color: #fbbf24; font-weight: 600; }
+
+  /* ---- ER node (LOD: zoom < 0.5 → title only; >= 0.5 → columns) ---- */
+  .er-node { background: #1e293b; border: 1px solid #475569; border-radius: 6px;
+    color: #e2e8f0; font: 10px ui-sans-serif, system-ui; width: 170px; }
+  .er-node-title { padding: 5px 8px; font-weight: 600; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis; color: #cbd5e1; }
+  .er-node.detail .er-node-title { border-bottom: 1px solid #334155; }
+  .er-node-cols { max-height: 200px; overflow: hidden; }
+  .er-col { padding: 2px 8px; white-space: nowrap; overflow: hidden;
+    text-overflow: ellipsis; color: #94a3b8; border-bottom: 1px solid #1e293b; }
+  .er-handle { width: 6px; height: 6px; background: #64748b; border: none; }
+</style>
+</head>
+<body>
+<div id="hud">
+  <span class="tag">Harness B · React Flow v12</span>
+    <span class="tag scale-badge"></span>
+  <span><b id="statTables"></b> tables</span>
+  <span><b id="statRels"></b> relations</span>
+  <span><b id="statCols"></b> columns</span>
+  <span id="phase">idle</span>
+</div>
+<div id="app"></div>
+<div id="results"></div>
+
+<script src="vendor/react.production.min.js"></script>
+<script src="vendor/react-dom.production.min.js"></script>
+<script>
+  // React 18 has no jsx-runtime UMD build; polyfill the global the xyflow UMD
+  // expects (`e.jsxRuntime` = react/jsx-runtime) by mapping onto createElement.
+  window.jsxRuntime = {
+    Fragment: window.React.Fragment,
+    jsx: function (type, props, key) {
+      var p = Object.assign({}, props);
+      if (key != null) p.key = key;
+      return window.React.createElement(type, p);
+    },
+    jsxs: function (type, props, key) {
+      var p = Object.assign({}, props);
+      if (key != null) p.key = key;
+      return window.React.createElement(type, p);
+    },
+  };
+</script>
+<script src="vendor/xyflow-umd.js"></script>
+<script src="vendor/dagre.min.js"></script>
+<script src="fixture-gen.js"></script>
+<script>
+  // Scale via query param: er-reactflow.html?n=100 | 500 | 1000 (default 500)
+  window.__FIXTURE_N = new URLSearchParams(location.search).get("n") || "500";
+  if (!(window.__FIXTURE_N in generateERFixture.presets)) window.__FIXTURE_N = "500";
+  window.ER_FIXTURE = generateERFixture(generateERFixture.presets[window.__FIXTURE_N]);
+  document.querySelectorAll(".scale-badge").forEach((el) => { el.textContent = window.__FIXTURE_N + " tables"; });
+</script>
+<script>
+(function () {
+  "use strict";
+  const React = window.React;
+  const RF = window.ReactFlow;
+  const { ReactFlow, ReactFlowProvider, Handle, Position, Background,
+          useNodesState, useEdgesState, useReactFlow, useStore } = RF;
+
+  const F = window.ER_FIXTURE;
+  document.getElementById("statTables").textContent = F.stats.tables;
+  document.getElementById("statRels").textContent = F.stats.relations;
+  document.getElementById("statCols").textContent = F.stats.columns;
+  const phaseEl = document.getElementById("phase");
+  const setPhase = (p) => { phaseEl.textContent = p; };
+
+  // ---- long-task observer ----
+  const longTasks = [];
+  if (typeof PerformanceObserver !== "undefined") {
+    try {
+      new PerformanceObserver((list) => {
+        for (const e of list.getEntries()) longTasks.push({ start: Math.round(e.startTime), duration: Math.round(e.duration) });
+      }).observe({ entryTypes: ["longtask"] });
+    } catch (_) { /* noop */ }
+  }
+
+  const results = { harness: "react-flow-12", fixture: F.stats, metrics: {} };
+
+  // ---- dagre layout (same engine DB Pro uses) ----
+  setPhase("dagre layout…");
+  const tLayout = performance.now();
+  const g = new dagre.graphlib.Graph();
+  g.setGraph({ rankdir: "LR", nodesep: 26, ranksep: 80, marginx: 24, marginy: 24 });
+  g.setDefaultEdgeLabel(() => ({}));
+  for (const t of F.tables) g.setNode(t.id, { width: 170, height: 96 });
+  for (const r of F.relations) g.setEdge(r.source, r.target);
+  dagre.layout(g);
+  results.metrics.layoutMs = Math.round(performance.now() - tLayout);
+
+  const initialNodes = F.tables.map((t) => {
+    const p = g.node(t.id);
+    return {
+      id: t.id,
+      position: { x: p.x - 85, y: p.y - 48 },
+      data: { name: t.name, columns: t.columns },
+      type: "table",
+    };
+  });
+  const initialEdges = F.relations.map((r) => ({ id: r.id, source: r.source, target: r.target }));
+
+  // ---- LOD node component ----
+  function ErTableNode(props) {
+    const zoom = useStore((s) => s.transform[2]);
+    const detail = zoom >= 0.5;
+    const { name, columns } = props.data;
+    const children = [
+      React.createElement(Handle, { key: "h-target", type: "target", position: Position.Left, className: "er-handle" }),
+      React.createElement("div", { key: "title", className: "er-node-title" }, name),
+    ];
+    if (detail) {
+      children.push(
+        React.createElement("div", { key: "cols", className: "er-node-cols" },
+          columns.map((c) =>
+            React.createElement("div", { key: c.name, className: "er-col" }, c.name)))
+      );
+    }
+    children.push(
+      React.createElement(Handle, { key: "h-source", type: "source", position: Position.Right, className: "er-handle" })
+    );
+    return React.createElement("div", { className: "er-node" + (detail ? " detail" : "") }, children);
+  }
+  const nodeTypes = { table: ErTableNode };
+
+  // ---- app ----
+  function ErApp() {
+    const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
+    const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+    const rf = useReactFlow();
+
+    React.useEffect(() => {
+      let cancelled = false;
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+          if (cancelled) return;
+          window.__rfApi = rf;
+          rf.fitView({ padding: 0.06, duration: 0 });
+          setTimeout(() => { if (!cancelled) runBench(); }, 400);
+        })
+      );
+      return () => { cancelled = true; };
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    return React.createElement(
+      ReactFlow,
+      {
+        nodes, edges, onNodesChange, onEdgesChange,
+        nodeTypes,
+        onlyRenderVisibleElements: true,
+        minZoom: 0.02,
+        maxZoom: 3,
+        fitView: false,
+        proOptions: { hideAttribution: true },
+      },
+      React.createElement(Background, { gap: 26, color: "#1a2639" })
+    );
+  }
+
+  // ---- benchmark ----
+  const nextFrame = () => new Promise((r) => requestAnimationFrame(r));
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  async function measureFrames(frames, stepFn) {
+    const times = [];
+    const warm = 10;
+    for (let i = 0; i < frames + warm; i++) {
+      const t0 = performance.now();
+      stepFn(i);
+      await nextFrame();
+      if (i >= warm) times.push(performance.now() - t0);
+    }
+    times.sort((a, b) => a - b);
+    const sum = times.reduce((a, b) => a + b, 0);
+    const avg = sum / times.length;
+    return {
+      frames: times.length,
+      avgMs: +avg.toFixed(2),
+      p95Ms: +times[Math.floor(times.length * 0.95)].toFixed(2),
+      maxMs: +times[times.length - 1].toFixed(2),
+      fps: +(1000 / avg).toFixed(1),
+    };
+  }
+
+  async function runBench() {
+    const rf = window.__rfApi;
+    const domCount = () => document.querySelectorAll("*").length;
+
+    // ---- initial footprint (fit view: whole graph visible) ----
+    await nextFrame();
+    await sleep(120);
+    results.metrics.domCount = domCount();
+    results.metrics.renderedNodes = rf.getNodes().length;
+    results.metrics.renderedEdges = rf.getEdges().length;
+
+    // ---- pan FPS at overview zoom ----
+    setPhase("pan @ overview…");
+    const vp0 = rf.getViewport();
+    results.metrics.panOverview = await measureFrames(110, (i) => {
+      rf.setViewport({ x: vp0.x + Math.sin(i / 10) * 400, y: vp0.y + Math.cos(i / 7) * 300, zoom: vp0.zoom });
+    });
+    results.metrics.domCountAfterPan = domCount();
+
+    // ---- zoom to detail (1.0) ----
+    setPhase("zoom in…");
+    const cx = window.innerWidth / 2, cy = window.innerHeight / 2;
+    const vpA = rf.getViewport();
+    const targetZoom = 1.0;
+    const tZ = performance.now();
+    for (let i = 0; i <= 40; i++) {
+      const f = i / 40;
+      const z = vpA.zoom + (targetZoom - vpA.zoom) * f;
+      const x = cx - (cx - vpA.x) * (z / vpA.zoom);
+      const y = cy - (cy - vpA.y) * (z / vpA.zoom);
+      rf.setViewport({ x, y, zoom: z });
+      await nextFrame();
+    }
+    await sleep(350); // let detail LOD mount
+    await nextFrame();
+    results.metrics.zoomMs = Math.round(performance.now() - tZ);
+    results.metrics.domCountDetail = domCount();
+    results.metrics.visibleNodesDetail = document.querySelectorAll(".react-flow__node").length;
+    results.metrics.visibleEdgesDetail = document.querySelectorAll(".react-flow__edge").length;
+
+    // ---- pan FPS at detail zoom (culled: only visible nodes/edges) ----
+    setPhase("pan @ detail…");
+    const vp1 = rf.getViewport();
+    results.metrics.panDetail = await measureFrames(110, (i) => {
+      rf.setViewport({ x: vp1.x + Math.sin(i / 9) * 140, y: vp1.y + Math.cos(i / 6) * 110, zoom: vp1.zoom });
+    });
+
+    // ---- long tasks + memory ----
+    const total = longTasks.reduce((s, l) => s + l.duration, 0);
+    results.metrics.longTasks = {
+      count: longTasks.length,
+      totalMs: total,
+      maxMs: longTasks.length ? Math.max(...longTasks.map((l) => l.duration)) : 0,
+      layoutLongTaskMs: longTasks.filter((l) => l.start < results.metrics.layoutMs + 50).reduce((s, l) => s + l.duration, 0),
+    };
+    results.metrics.memoryUsedMB = performance.memory ? +(performance.memory.usedJSHeapSize / 1048576).toFixed(1) : null;
+
+    // Reset to overview so a screenshot shows the whole graph.
+    rf.fitView({ padding: 0.06, duration: 0 });
+    await sleep(200);
+    setPhase("done");
+    renderResults();
+    window.__bench = results;
+    document.title = "BENCH_READY " + results.metrics.layoutMs;
+  }
+
+  function renderResults() {
+    const m = results.metrics;
+    const rows = [
+      ["Layout time (dagre)", m.layoutMs + " ms"],
+      ["DOM elements (initial)", m.domCount.toLocaleString()],
+      ["Graph nodes / edges", m.renderedNodes + " / " + m.renderedEdges],
+      ["Pan FPS (overview)", m.panOverview.fps + " (p95 " + m.panOverview.p95Ms + " ms)"],
+      ["DOM after pan", m.domCountAfterPan.toLocaleString()],
+      ["Zoom to 1.0", m.zoomMs + " ms"],
+      ["DOM at detail zoom", m.domCountDetail.toLocaleString()],
+      ["Visible nodes/edges @1.0", m.visibleNodesDetail + " / " + m.visibleEdgesDetail],
+      ["Pan FPS (detail)", m.panDetail.fps + " (p95 " + m.panDetail.p95Ms + " ms)"],
+      ["Long tasks", m.longTasks.count + " · " + m.longTasks.totalMs + " ms total · max " + m.longTasks.maxMs + " ms"],
+      ["Heap used", m.memoryUsedMB === null ? "n/a" : m.memoryUsedMB + " MB"],
+    ];
+    const el = document.getElementById("results");
+    el.innerHTML =
+      "<h3>Benchmark B — React Flow v12</h3><table>" +
+      rows.map(([k, v]) => "<tr><td>" + k + "</td><td>" + v + "</td></tr>").join("") +
+      "</table>";
+  }
+
+  ReactDOM.createRoot(document.getElementById("app")).render(
+    React.createElement(ReactFlowProvider, null, React.createElement(ErApp, null))
+  );
+})();
+</script>
+</body>
+</html>

@@ -32,8 +32,8 @@ export function UserDetailPanel({ user, privileges, onGrant, onRevoke }: UserDet
           <span
             key={attr.label}
             className={cn(
-              "rounded-sm border border-[var(--app-border-subtle)] px-2 py-1 text-xs",
-              attr.value ? "bg-success text-success" : "bg-background text-[var(--app-text-muted)]",
+              "rounded-sm border border-[var(--border-subtle)] px-2 py-1 text-xs",
+              attr.value ? "bg-success text-success" : "bg-background text-[var(--text-secondary)]",
             )}
           >
             {attr.label}: {attr.value ? t("common.yes") : t("common.no")}

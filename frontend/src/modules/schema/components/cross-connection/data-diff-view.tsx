@@ -25,7 +25,7 @@ export function DataDiffView({ sourceId, targetId }: DataDiffViewProps) {
   if (!sourceId || !targetId) {
     return (
       <div className="flex items-center justify-center py-12">
-        <p className="text-[var(--app-text-muted)]">{t("schema.crossConn.selectTwo")}</p>
+        <p className="text-[var(--text-secondary)]">{t("schema.crossConn.selectTwo")}</p>
       </div>
     );
   }
@@ -37,13 +37,13 @@ export function DataDiffView({ sourceId, targetId }: DataDiffViewProps) {
           value={schema}
           onChange={(e) => setSchema(e.target.value)}
           placeholder={t("schema.crossConn.schemaName")}
-          className="rounded-sm border border-[var(--app-border)] px-3 py-2 text-sm text-foreground"
+          className="rounded-sm border border-[var(--border-default)] px-3 py-2 text-sm text-foreground"
         />
         <Input
           value={table}
           onChange={(e) => setTable(e.target.value)}
           placeholder={t("schema.crossConn.tableName")}
-          className="rounded-sm border border-[var(--app-border)] px-3 py-2 text-sm text-foreground"
+          className="rounded-sm border border-[var(--border-default)] px-3 py-2 text-sm text-foreground"
         />
         <Button
           type="button"
@@ -61,21 +61,21 @@ export function DataDiffView({ sourceId, targetId }: DataDiffViewProps) {
       )}
 
       {diff && (
-        <div className="rounded-sm border border-[var(--app-border-subtle)] p-4">
+        <div className="rounded-sm border border-[var(--border-subtle)] p-4">
           <h4 className="mb-3 text-sm font-medium text-foreground">
             {diff.schema}.{diff.table}
           </h4>
           <div className="grid grid-cols-3 gap-4 text-sm">
             <div>
-              <p className="text-[var(--app-text-muted)]">{t("schema.crossConn.sourceCount")}</p>
+              <p className="text-[var(--text-secondary)]">{t("schema.crossConn.sourceCount")}</p>
               <p className="text-lg font-medium text-foreground">{diff.sourceRowCount}</p>
             </div>
             <div>
-              <p className="text-[var(--app-text-muted)]">{t("schema.crossConn.targetCount")}</p>
+              <p className="text-[var(--text-secondary)]">{t("schema.crossConn.targetCount")}</p>
               <p className="text-lg font-medium text-foreground">{diff.targetRowCount}</p>
             </div>
             <div>
-              <p className="text-[var(--app-text-muted)]">{t("schema.crossConn.difference")}</p>
+              <p className="text-[var(--text-secondary)]">{t("schema.crossConn.difference")}</p>
               <p
                 className={`text-lg font-medium ${
                   diff.rowCountDiff === 0 ? "text-success" : "text-destructive"

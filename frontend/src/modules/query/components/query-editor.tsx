@@ -167,7 +167,7 @@ export function QueryEditor({
   );
 
   return (
-    <div className="h-full w-full bg-[var(--app-editor-bg,var(--app-surface-3))]">
+    <div className="h-full w-full bg-[var(--surface-editor)]">
       <Editor
         height="100%"
         language="sql"

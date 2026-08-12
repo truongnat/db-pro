@@ -14,7 +14,7 @@ interface IdeSectionTabsProps {
 
 export function IdeSectionTabs({ tabs, activeTab, onSelect, className }: IdeSectionTabsProps) {
   return (
-    <div className={cn("flex items-center border-b border-[var(--app-border-subtle)]", className)}>
+    <div className={cn("flex items-center border-b border-[var(--border-subtle)]", className)}>
       {tabs.map((tab) => (
         <button
           key={tab.id}
@@ -23,7 +23,7 @@ export function IdeSectionTabs({ tabs, activeTab, onSelect, className }: IdeSect
             "relative px-3 py-2 text-xs font-medium transition-colors",
             activeTab === tab.id
               ? "text-foreground"
-              : "text-[var(--app-text-muted)] hover:text-foreground",
+              : "text-[var(--text-secondary)] hover:text-foreground",
           )}
           onClick={() => onSelect(tab.id)}
         >

@@ -44,9 +44,9 @@ export function QueryStatusBar({
   // Running state
   if (status === "running") {
     return (
-      <div className="flex items-center gap-2 border-t border-[var(--app-border-subtle)] bg-muted/30 px-3 text-[11px]">
-        <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-[var(--app-primary)]" />
-        <span className="text-[var(--app-text-muted)]">
+      <div className="flex items-center gap-2 border-t border-[var(--border-subtle)] bg-muted/30 px-3 text-[11px]">
+        <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-[var(--accent)]" />
+        <span className="text-[var(--text-secondary)]">
           {t("query.statusRunning")} · {formatElapsed(elapsed)}
         </span>
         <div className="flex-1" />
@@ -67,13 +67,13 @@ export function QueryStatusBar({
   if (status === "success" && timing) {
     const isLarge = rowCount >= LARGE_RESULT_THRESHOLD;
     return (
-      <div className="flex items-center gap-2 border-t border-[var(--app-border-subtle)] bg-muted/30 px-3 text-[11px]">
+      <div className="flex items-center gap-2 border-t border-[var(--border-subtle)] bg-muted/30 px-3 text-[11px]">
         {isLarge && (
-          <span className="rounded bg-[var(--app-warning)]/15 px-1.5 py-0.5 text-[var(--app-warning)]">
+          <span className="rounded bg-[var(--state-warning)]/15 px-1.5 py-0.5 text-[var(--state-warning)]">
             {t("query.largeResultWarning")}
           </span>
         )}
-        <span className="text-[var(--app-text-muted)]">
+        <span className="text-[var(--text-secondary)]">
           {t("query.rowsAffected", { count: rowCount })} · {formatTiming(timing)}
         </span>
       </div>
@@ -83,7 +83,7 @@ export function QueryStatusBar({
   // Error state — show only while running or as a subtle indicator, not a standalone strip
   if (status === "error") {
     return (
-      <div className="flex items-center gap-2 border-t border-[var(--app-border-subtle)] bg-destructive/10 px-3 text-[11px]">
+      <div className="flex items-center gap-2 border-t border-[var(--border-subtle)] bg-destructive/10 px-3 text-[11px]">
         <span className="h-2 w-2 shrink-0 rounded-full bg-destructive" />
         <span className="text-destructive">{t("query.statusError")}</span>
       </div>
@@ -93,8 +93,8 @@ export function QueryStatusBar({
   // Cancelled state
   if (status === "cancelled") {
     return (
-      <div className="flex items-center gap-2 border-t border-[var(--app-border-subtle)] bg-muted/30 px-3 text-[11px]">
-        <span className="text-[var(--app-text-muted)]">{t("query.statusCancelled")}</span>
+      <div className="flex items-center gap-2 border-t border-[var(--border-subtle)] bg-muted/30 px-3 text-[11px]">
+        <span className="text-[var(--text-secondary)]">{t("query.statusCancelled")}</span>
       </div>
     );
   }

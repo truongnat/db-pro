@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ReactFlow,
   Background,
@@ -9,6 +9,7 @@ import {
   type Node,
   type Edge,
   type Viewport,
+  type ReactFlowInstance,
   MarkerType,
   BackgroundVariant,
   Panel,
@@ -21,26 +22,38 @@ import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useTranslation } from "@/commons/locales/useTranslation";
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
+import { Search, Maximize2, LayoutGrid, Columns2, Table2, RotateCcw, Loader2 } from "lucide-react";
+
+import { ErTableNode, type TableNodeData } from "./lod/er-table-node";
+import { ErPerfHud } from "./er-perf-hud";
 import {
-  Search,
-  Maximize2,
-  LayoutGrid,
-  Columns2,
-  Table2,
-  RotateCcw,
-  Eye,
-  Focus,
-} from "lucide-react";
-
-import { TableNode, type TableNodeData } from "./table-node";
-import { layoutGraph } from "../utils/layout";
+  buildErGraphModel,
+  classifySchemaComplexity,
+  computeSchemaComplexity,
+  type SchemaComplexityTier,
+} from "../renderer/er-graph-model";
+import type { ErGraphModel, ErViewport } from "../renderer/types";
+import { useWorkerLayout } from "../hooks/use-worker-layout";
+import {
+  layoutNodeHeight,
+  LAYOUT_NODE_WIDTH,
+  type LayoutInput,
+  type LayoutPosition,
+} from "../utils/layout";
+import {
+  buildLayoutInputFromModel,
+  OVERVIEW_LAYOUT_PROFILE,
+  REACT_FLOW_LAYOUT_PROFILE,
+} from "../utils/layout-profile";
 import { groupForeignKeys } from "../utils/edge-builder";
-import { buildAdjacencyMap, getNeighborhood } from "../utils/neighborhood";
+import type { NeighborhoodScope } from "../utils/neighborhood";
+import { ErPerfMonitor } from "../utils/instrumentation";
+import { resolveLod, type LodLevel } from "../utils/lod";
+import { aggregateRelations, resolveEdgeLod, type EdgeLodLevel } from "../utils/edge-lod";
+import { SpatialIndex } from "../utils/spatial-index";
 
-import type { IntrospectResult, SchemaColumnDto } from "@/modules/schema/types/schema.types";
-
-const LARGE_SCHEMA_THRESHOLD = 200;
-const NEIGHBORHOOD_HOPS = 2;
+import type { IntrospectResult } from "@/modules/schema/types/schema.types";
+import { buildErNodeIndexes, buildTableNodes } from "../renderer/er-node-builder";
 
 interface ErDiagramProps {
   connectionId: string;
@@ -48,16 +61,14 @@ interface ErDiagramProps {
   data: IntrospectResult;
 }
 
-const nodeTypes = { table: TableNode };
+const nodeTypes = { table: ErTableNode };
 
-type ZoomTier = 0 | 1 | 2;
-const TIER_THRESHOLDS: [number, number] = [0.3, 0.7];
-
-function zoomTier(zoom: number): ZoomTier {
-  if (zoom < TIER_THRESHOLDS[0]) return 0;
-  if (zoom < TIER_THRESHOLDS[1]) return 1;
-  return 2;
-}
+// Code-split the canvas overview: cytoscape (~450 kB min) only downloads when
+// the user explicitly opens a large schema's "All N tables" overview — the
+// initial bundle and the React Flow path stay lean.
+const CytoscapeErView = lazy(() =>
+  import("./cytoscape-view").then((m) => ({ default: m.CytoscapeErView })),
+);
 
 /** Build a storage key for persisting node positions per connection + schema. */
 function positionStorageKey(connectionId: string, schemaName: string) {
@@ -67,32 +78,111 @@ function positionStorageKey(connectionId: string, schemaName: string) {
 export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
   const { t } = useTranslation();
   const reactFlowRef = useRef<HTMLDivElement>(null);
+  // F-MR-1: the mounted React Flow instance (captured in onInit) — fit-view
+  // goes through `instance.fitView()` instead of the old synthetic `keydown
+  // "1"` dispatch, which depended on React Flow's default shortcut.
+  const rfInstanceRef = useRef<ReactFlowInstance | null>(null);
+
+  // P1.1 runtime instrumentation — dev-only, enabled via localStorage `er-perf-hud=1`.
+  const perfEnabled =
+    typeof localStorage !== "undefined" && localStorage.getItem("er-perf-hud") === "1";
+  const perfMonitorRef = useRef<ErPerfMonitor | null>(null);
+  if (!perfMonitorRef.current) {
+    perfMonitorRef.current = new ErPerfMonitor(() => reactFlowRef.current);
+  }
+  // Viewport lives in a ref (not state) — onViewportChange fires every pan/zoom
+  // frame, and a setState per frame would defeat the purpose of this perf work.
+  // The HUD refreshes on its own 500ms tick and reads the ref.
+  const viewportRef = useRef<Viewport | null>(null);
+  // Captured at first render so time-to-interactive is measured from mount,
+  // not from a fixed setTimeout.
+  const renderStartRef = useRef(performance.now());
+
+  // Start the long-task observer and record mount time (dev-only).
+  useEffect(() => {
+    if (!perfEnabled) return;
+    perfMonitorRef.current?.start();
+    return () => perfMonitorRef.current?.stop();
+  }, [perfEnabled]);
 
   const [compact, setCompact] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [layoutDirection, setLayoutDirection] = useState<"LR" | "TB">("LR");
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
-  const [currentTier, setCurrentTier] = useState<ZoomTier>(2);
+  const [currentLod, setCurrentLod] = useState<LodLevel>("detail");
+  const [currentEdgeLod, setCurrentEdgeLod] = useState<EdgeLodLevel>("full");
+
+  // Mirror `compact` into a ref so onViewportChange can read it without
+  // re-creating the callback on every toggle.
+  const compactRef = useRef(compact);
+  compactRef.current = compact;
 
   const onViewportChange = useCallback((viewport: Viewport) => {
-    setCurrentTier((prev) => {
-      const next = zoomTier(viewport.zoom);
+    viewportRef.current = viewport;
+    setCurrentLod((prev) => {
+      const next = resolveLod(viewport.zoom, compactRef.current);
+      return next === prev ? prev : next;
+    });
+    setCurrentEdgeLod((prev) => {
+      const next = resolveEdgeLod(viewport.zoom);
       return next === prev ? prev : next;
     });
   }, []);
 
-  // Neighborhood mode for large schemas
-  const tablesInSchema = data.tables.filter((t) => t.schema === schema);
-  const isLargeSchema = tablesInSchema.length > LARGE_SCHEMA_THRESHOLD;
-  const [neighborhoodSeed, setNeighborhoodSeed] = useState<string | null>(null);
-  const [showAll, setShowAll] = useState(false);
+  // Keep the compact toggle live even without a new viewport event.
+  useEffect(() => {
+    setCurrentLod((prev) => {
+      const next = resolveLod(viewportRef.current?.zoom ?? 1, compact);
+      return next === prev ? prev : next;
+    });
+  }, [compact]);
 
-  const adjacencyMap = useMemo(() => buildAdjacencyMap(data.foreignKeys), [data.foreignKeys]);
+  // Schema tables memoized on the atomic introspection snapshot so dependent
+  // memos (schemaStats) keep stable identities (pre-merge review P2 fix).
+  const tablesInSchema = useMemo(
+    () => data.tables.filter((t) => t.schema === schema),
+    [data.tables, schema],
+  );
 
-  const neighborhoodSet = useMemo(() => {
-    if (!isLargeSchema || showAll || !neighborhoodSeed) return null;
-    return getNeighborhood(adjacencyMap, neighborhoodSeed, NEIGHBORHOOD_HOPS);
-  }, [isLargeSchema, showAll, neighborhoodSeed, adjacencyMap]);
+  // P1.9 — renderer-agnostic graph model, shared by the Cytoscape overview.
+  const graphModel = useMemo<ErGraphModel>(() => buildErGraphModel(data, schema), [data, schema]);
+
+  // 6.11 — thresholds are complexity scores, not hardcoded table counts (locked
+  // P1 hard rule #5): complexity = tables + relations*0.7 + columns*0.08. Tier
+  // boundaries tuned from the P1.8 benchmark — A100(310.4)→M (full React Flow
+  // graph at 60 fps, no exploration UX), A500(1,802.5)→L, A1000(3,765.2)→XL.
+  const schemaComplexity = useMemo(() => computeSchemaComplexity(graphModel.stats), [graphModel]);
+  const schemaTier = useMemo<SchemaComplexityTier>(
+    () => classifySchemaComplexity(schemaComplexity),
+    [schemaComplexity],
+  );
+  const isLargeSchema = schemaTier === "L" || schemaTier === "XL";
+
+  // UX pivot (opass.html): the FULL graph is the default experience for large
+  // schemas — no landing screen, no neighborhood gate, no filter-first flow.
+  // The hop scope below only sizes the neighborhood ring that search/click
+  // focus draws on the always-visible canvas overview.
+  const [neighborhoodHops, setNeighborhoodHops] = useState<NeighborhoodScope>(2);
+
+  // P1.9 — every large schema renders on the canvas renderer
+  // (CytoscapeErRenderer); React Flow keeps small/medium schemas only.
+  const useCytoscapeForOverview = isLargeSchema;
+
+  // Schema statistics for the overview explorer.
+  const schemaStats = useMemo(() => {
+    const keys = new Set(tablesInSchema.map((t) => `${t.schema}.${t.name}`));
+    let relations = 0;
+    for (const fk of data.foreignKeys) {
+      if (keys.has(`${fk.schema}.${fk.fromTable}`) && keys.has(`${fk.toSchema}.${fk.toTable}`)) {
+        relations++;
+      }
+    }
+    let columns = 0;
+    for (const col of data.columns) {
+      if (keys.has(`${col.schema}.${col.tableName}`)) columns++;
+    }
+    return { relations, columns };
+  }, [data.foreignKeys, data.columns, tablesInSchema]);
 
   // Persisted manual positions: nodeId → { x, y }
   const [manualPositions, setManualPositions] = useState<Map<string, { x: number; y: number }>>(
@@ -122,76 +212,21 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
     [connectionId, schema],
   );
 
-  // Pre-index metadata by schema.tableName — O(C + P + F) once, O(1) per table lookup
-  const columnsByTable = useMemo(() => {
-    const map = new Map<string, SchemaColumnDto[]>();
-    for (const col of data.columns) {
-      const key = `${col.schema}.${col.tableName}`;
-      const list = map.get(key);
-      if (list) list.push(col);
-      else map.set(key, [col]);
-    }
-    return map;
-  }, [data.columns]);
+  // Pre-index metadata by schema.tableName — O(C + P + F) once, O(1) per table
+  // lookup (P3.3). Pure builders in renderer/er-node-builder.ts so the real
+  // component path is exercised by the unit/perf tests; memoized on `data`
+  // (an atomic introspection snapshot) for stable identity.
+  const nodeIndexes = useMemo(() => buildErNodeIndexes(data), [data]);
 
-  const primaryKeysByTable = useMemo(() => {
-    const map = new Map<string, Set<string>>();
-    for (const pk of data.primaryKeys) {
-      const key = `${pk.schema}.${pk.tableName}`;
-      const existing = map.get(key);
-      if (existing) {
-        for (const c of pk.columns) existing.add(c);
-      } else {
-        map.set(key, new Set(pk.columns));
-      }
-    }
-    return map;
-  }, [data.primaryKeys]);
-
-  const fkColumnSet = useMemo(() => {
-    const set = new Set<string>();
-    for (const fk of data.foreignKeys) {
-      set.add(`${fk.schema}.${fk.fromTable}:${fk.fromColumn}`);
-    }
-    return set;
-  }, [data.foreignKeys]);
-
-  // Build nodes and edges from introspection data using pre-indexed maps
+  // Build nodes and edges from introspection data using pre-indexed maps.
+  // React Flow renders the full schema for small/medium schemas; large
+  // schemas never reach this branch (canvas overview instead).
   const { initialNodes, initialEdges } = useMemo(() => {
-    const tables = neighborhoodSet
-      ? data.tables.filter(
-          (t) => t.schema === schema && neighborhoodSet.has(`${t.schema}.${t.name}`),
-        )
-      : data.tables.filter((tbl) => tbl.schema === schema);
+    const tables = data.tables.filter((tbl) => tbl.schema === schema);
 
-    const nodes: Node[] = tables.map((table) => {
-      const tableKey = `${table.schema}.${table.name}`;
-      const cols = columnsByTable.get(tableKey);
-      const pkCols = primaryKeysByTable.get(tableKey);
-
-      const columnData = (cols ?? []).map((col) => ({
-        name: col.name,
-        dataType: col.dataType,
-        nullable: col.nullable,
-        isPrimaryKey: pkCols?.has(col.name) ?? false,
-        isForeignKey: fkColumnSet.has(`${tableKey}:${col.name}`),
-      }));
-
-      const nodeData: TableNodeData = {
-        label: table.name,
-        schema: table.schema,
-        columns: columnData,
-        compact,
-        zoomTier: 2,
-      };
-
-      return {
-        id: tableKey,
-        type: "table",
-        position: { x: 0, y: 0 },
-        data: nodeData,
-      };
-    });
+    // Pure pre-indexed build (P3.3) — O(1) map lookups, no per-table scans
+    // of data.columns / data.primaryKeys / data.foreignKeys.
+    const nodes: Node[] = buildTableNodes(tables, nodeIndexes, { compact });
 
     const visibleTableKeys = new Set(tables.map((t) => `${t.schema}.${t.name}`));
     const fkGroups = groupForeignKeys(data.foreignKeys, visibleTableKeys);
@@ -211,26 +246,94 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
     }));
 
     return { initialNodes: nodes, initialEdges: edges };
-  }, [data, compact, schema, columnsByTable, primaryKeysByTable, fkColumnSet, neighborhoodSet]);
+  }, [data, compact, schema, nodeIndexes]);
 
-  // Apply layout, respecting manual positions for dragged nodes
+  // P1.7 — layout off the main thread.
+  //
+  // Build a plain (worker-serializable) layout input, run dagre in the Worker
+  // (cache-first by content hash), and commit positions atomically when the
+  // result lands. The UI stays interactive meanwhile and shows an "Arranging
+  // N tables…" overlay (locked: no UNSTABLE positions — every commit is a
+  // full, stable set; Option C adds complete force-refined stages, never
+  // partial streams).
+  //
+  // P1-2 — the input geometry follows the RENDERER, not a single hardcoded
+  // card size. The canvas overview lays out compact 160×28 nodes (its actual
+  // paint geometry); React Flow lays out column-aware cards. The profile id
+  // participates in the layout hash, so the two never share cached positions.
+  const overviewLayoutInput = useMemo<LayoutInput | null>(() => {
+    if (graphModel.tables.length === 0) return null;
+    return buildLayoutInputFromModel(graphModel, OVERVIEW_LAYOUT_PROFILE);
+  }, [graphModel]);
+
+  const rfLayoutInput = useMemo<LayoutInput | null>(() => {
+    if (initialNodes.length === 0) return null;
+    return {
+      nodes: initialNodes.map((n) => {
+        const d = n.data as TableNodeData;
+        return {
+          id: n.id,
+          height: layoutNodeHeight(d.columns?.length ?? 0, d.compact ?? false),
+          width: LAYOUT_NODE_WIDTH,
+        };
+      }),
+      edges: initialEdges.map((e) => ({ source: e.source, target: e.target })),
+    };
+  }, [initialNodes, initialEdges]);
+
+  const layoutInput = useCytoscapeForOverview ? overviewLayoutInput : rfLayoutInput;
+
+  // Stable identity — `useWorkerLayout` re-runs layout only when the hash
+  // (content + options) changes, not on every render. The profile id keeps
+  // overview (compact) and React Flow (column-aware) caches separate.
+  const layoutOptions = useMemo(
+    () => ({
+      direction: layoutDirection,
+      profile: useCytoscapeForOverview ? OVERVIEW_LAYOUT_PROFILE.id : REACT_FLOW_LAYOUT_PROFILE.id,
+    }),
+    [layoutDirection, useCytoscapeForOverview],
+  );
+
+  // Option C — the large-schema overview requests progressive force-refined
+  // stages: the canvas paints the approximate circle in <1 s, then the worker
+  // posts progressively better position sets (complete + stable, never cached)
+  // while dagre computes the final. React Flow paths stay on the single atomic
+  // commit (dagre is fast there — refinement would just add noise).
+  const layout = useWorkerLayout(layoutInput, layoutOptions, {
+    progressive: useCytoscapeForOverview,
+  });
+
+  // Record the layout duration for the P1.1 HUD (now the worker's dagre time;
+  // no main-thread block).
+  useEffect(() => {
+    if (perfEnabled && layout.layoutMs != null) {
+      perfMonitorRef.current?.recordLayout(layout.layoutMs);
+    }
+  }, [perfEnabled, layout.layoutMs]);
+
+  // Apply worker positions, respecting manual positions for dragged nodes.
+  // Atomic: the whole position Map lands in one commit.
   const laidOutNodes = useMemo(() => {
-    const autoLaid = layoutGraph(initialNodes, initialEdges, { direction: layoutDirection });
-    return autoLaid.map((node) => {
+    const positions = layout.positions;
+    if (!positions || positions.size === 0) return initialNodes;
+    return initialNodes.map((node) => {
       const manual = manualPositions.get(node.id);
       if (manual) return { ...node, position: manual };
+      const auto = positions.get(node.id);
+      if (auto) return { ...node, position: auto };
       return node;
     });
-  }, [initialNodes, initialEdges, layoutDirection, manualPositions]);
+  }, [initialNodes, layout.positions, manualPositions]);
 
-  // Inject current zoom tier into node data — only recomputes when tier changes
+  // Inject current LOD into node data — only recomputes when the level changes.
+  // The dispatcher (ErTableNode) switches render trees on `lod`.
   const tieredNodes = useMemo(() => {
     return laidOutNodes.map((node) => {
       const d = node.data as TableNodeData;
-      if (d.zoomTier === currentTier) return node;
-      return { ...node, data: { ...d, zoomTier: currentTier } };
+      if (d.lod === currentLod) return node;
+      return { ...node, data: { ...d, lod: currentLod } };
     });
-  }, [laidOutNodes, currentTier]);
+  }, [laidOutNodes, currentLod]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(laidOutNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
@@ -251,27 +354,30 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
         ...e,
         style:
           e.id === selectedEdgeId
-            ? { strokeWidth: 2.5, stroke: "var(--primary)" }
+            ? { strokeWidth: 2.5, stroke: "var(--accent)" }
             : { strokeWidth: 1, opacity: 0.3 },
         animated: e.id === selectedEdgeId,
       })),
     );
   }, [selectedEdgeId, initialEdges, setEdges]);
 
-  // In large schemas, search triggers neighborhood mode
+  // Fit view once a new position set commits (P1.7). Keyed on the position
+  // Map identity, so it fires for both the worker path (computing → ready) and
+  // the cache-hit path (idle → ready, which never passes through computing),
+  // exactly once per distinct layout. Replaces the old fixed-80ms timer, which
+  // could fire before positions landed. The short delay lets React Flow
+  // measure the freshly-mounted nodes before fitting (F-MR-1: uses the
+  // captured instance's fitView, not a synthetic keydown).
+  const fittedPositionsRef = useRef<Map<string, LayoutPosition> | null>(null);
   useEffect(() => {
-    if (!isLargeSchema) return;
-    if (!searchQuery.trim()) {
-      if (!showAll) setNeighborhoodSeed(null);
-      return;
-    }
-    const q = searchQuery.toLowerCase();
-    const match = tablesInSchema.find((t) => t.name.toLowerCase().includes(q));
-    if (match) {
-      setNeighborhoodSeed(`${match.schema}.${match.name}`);
-      setShowAll(false);
-    }
-  }, [searchQuery, isLargeSchema, tablesInSchema, showAll]);
+    if (layout.status !== "ready" || !layout.positions) return;
+    if (fittedPositionsRef.current === layout.positions) return;
+    fittedPositionsRef.current = layout.positions;
+    const timer = setTimeout(() => {
+      rfInstanceRef.current?.fitView({ padding: 0.2 });
+    }, 60);
+    return () => clearTimeout(timer);
+  }, [layout.status, layout.positions]);
 
   // Filter nodes by search (small schemas only — large schemas use neighborhood)
   useEffect(() => {
@@ -291,29 +397,48 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
     );
   }, [searchQuery, tieredNodes, setNodes, isLargeSchema]);
 
-  // Fit view on first render
-  const onInit = useCallback((instance: { fitView: (opts?: Record<string, unknown>) => void }) => {
-    // Small delay to ensure nodes are rendered
-    setTimeout(() => instance.fitView({ padding: 0.2 }), 100);
-  }, []);
+  // Capture the mounted instance (F-MR-1) and fit view on first render.
+  const onInit = useCallback(
+    (instance: ReactFlowInstance) => {
+      rfInstanceRef.current = instance;
+      // Small delay to ensure nodes are rendered
+      setTimeout(() => instance.fitView({ padding: 0.2 }), 100);
+      // React Flow is mounted and interactive → that is the "interactive shell".
+      if (perfEnabled) {
+        perfMonitorRef.current?.recordInit(performance.now() - renderStartRef.current);
+      }
+    },
+    [perfEnabled],
+  );
 
-  // Click node → open table tab
-  const onNodeClick = useCallback(
-    (_: React.MouseEvent, node: Node) => {
-      const nodeData = node.data as TableNodeData;
+  // Sample rAF frame times during pan/zoom gestures.
+  const onMoveStart = useCallback(() => {
+    if (perfEnabled) perfMonitorRef.current?.beginFrameSampling();
+  }, [perfEnabled]);
+
+  const onMoveEnd = useCallback(() => {
+    if (perfEnabled) perfMonitorRef.current?.endFrameSampling();
+  }, [perfEnabled]);
+
+  // Open the table's detail tab — the EXPLICIT action on the overview
+  // (PR#12 re-review P1): double-click a node or the side inspector's "Open
+  // table" button. A single click focuses the neighborhood instead and must
+  // never navigate away from the diagram.
+  const openTableObject = useCallback(
+    (schemaName: string, tableName: string) => {
       useWorkspaceStore.getState().openDbObject({
-        id: `dbobj:${nodeData.schema}.${nodeData.label}:${connectionId}`,
+        id: `dbobj:${schemaName}.${tableName}:${connectionId}`,
         kind: "db-object",
-        title: nodeData.label,
+        title: tableName,
         connectionId,
-        resourceKey: `dbobj:${nodeData.schema}.${nodeData.label}:${connectionId}`,
+        resourceKey: `dbobj:${schemaName}.${tableName}:${connectionId}`,
         dirty: false,
         pinned: false,
         preview: false,
         order: Date.now(),
         data: {
-          schema: nodeData.schema,
-          objectName: nodeData.label,
+          schema: schemaName,
+          objectName: tableName,
           objectType: "table",
           activeSection: "columns",
         },
@@ -322,10 +447,45 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
     [connectionId],
   );
 
-  // Click edge → highlight it
-  const onEdgeClick = useCallback((_: React.MouseEvent, edge: Edge) => {
-    setSelectedEdgeId((prev) => (prev === edge.id ? null : edge.id));
+  // Click node → open table tab (React Flow view — small/medium schemas keep
+  // the established click-to-open convention; no neighborhood focus UX here).
+  const onNodeClick = useCallback(
+    (_: React.MouseEvent, node: Node) => {
+      const nodeData = node.data as TableNodeData;
+      openTableObject(nodeData.schema, nodeData.label);
+    },
+    [openTableObject],
+  );
+
+  // Explicit open-table action for the canvas overview: fed to the view's
+  // `onOpenTable`, fired on double-click / the side inspector button.
+  const onCytoscapeNodeClick = useCallback(
+    (nodeId: string) => {
+      const table = graphModel.tables.find((t) => t.id === nodeId);
+      if (table) openTableObject(table.schema, table.label);
+    },
+    [graphModel, openTableObject],
+  );
+
+  const onCytoscapeViewportChange = useCallback((viewport: ErViewport) => {
+    viewportRef.current = { x: viewport.x, y: viewport.y, zoom: viewport.zoom };
   }, []);
+
+  // Click edge → highlight it (only meaningful at full edge LOD, where edge
+  // ids are stable; aggregated/simple edges are transient render artifacts).
+  const onEdgeClick = useCallback(
+    (_: React.MouseEvent, edge: Edge) => {
+      if (currentEdgeLod !== "full") return;
+      setSelectedEdgeId((prev) => (prev === edge.id ? null : edge.id));
+    },
+    [currentEdgeLod],
+  );
+
+  // Clear edge selection when leaving full edge LOD — aggregated edge ids are
+  // synthetic and must not leak into the highlight effect over initialEdges.
+  useEffect(() => {
+    if (currentEdgeLod !== "full") setSelectedEdgeId(null);
+  }, [currentEdgeLod]);
 
   // Click background → clear edge selection
   const onPaneClick = useCallback(() => {
@@ -380,173 +540,218 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
   }, [savePositions]);
 
   const handleFitView = useCallback(() => {
-    const rfNode = reactFlowRef.current?.querySelector(".react-flow") as HTMLElement | null;
-    rfNode?.dispatchEvent(new KeyboardEvent("keydown", { key: "1" }));
+    rfInstanceRef.current?.fitView({ padding: 0.2 });
   }, []);
 
-  // Simplify edges at low zoom tiers
+  // P1.5 spatial index over the live React Flow node/edge state.
+  //
+  // Rebuild-on-identity-change is deliberate: `nodes` is replaced by React
+  // Flow on measurement updates, drag frames, and LOD-threshold crossings, and
+  // rebuilding keeps the index faithful to measured sizes + drag positions.
+  // Each rebuild is O(N) with cheap map ops — do not memoize this into a stale
+  // snapshot. Viewport queries stay O(cells + overlaps). Consumed by the HUD;
+  // later by the Viewport Engine (P1.6) and a future Canvas renderer.
+  const spatialIndex = useMemo(() => {
+    const index = new SpatialIndex();
+    index.build(
+      nodes.map((n) => ({
+        id: n.id,
+        position: n.position,
+        measured: n.measured,
+      })),
+      edges.map((e) => ({ id: e.id, source: e.source, target: e.target })),
+    );
+    return index;
+  }, [nodes, edges]);
+
+  // Edge LOD (P1.4) + node-LOD handle interplay (P1.3).
+  //
+  // Per-column handle ids only exist on detail nodes. React Flow drops edges
+  // whose handle ids are missing (error 008), so whenever nodes are below
+  // detail we strip handle ids and let edges anchor to the generic
+  // source/target handles rendered by the non-detail LOD leaves (`handles[0]`
+  // fallback — valid only because generic handles are the only handles there).
+  //
+  // Edge bands (locked): aggregate < 0.25 (merged relations, straight, no
+  // markers/labels except count) · simple 0.25–0.6 (straight, no markers) ·
+  // full > 0.6 (normal FK edges).
   const displayEdges = useMemo(() => {
-    if (currentTier === 0) {
-      return edges.map((e) => ({
-        ...e,
-        label: undefined,
-        style: { ...e.style, strokeWidth: 1 },
-      }));
+    const stripHandleIds = currentLod !== "detail";
+    const stripHandles = (e: Edge) =>
+      stripHandleIds ? { ...e, sourceHandle: undefined, targetHandle: undefined } : e;
+    if (currentEdgeLod === "aggregate") {
+      // Node LOD never reaches detail below zoom 0.7, so stripHandleIds is
+      // always true here; stripHandles is applied for consistency anyway.
+      return aggregateRelations(edges).map((rel) =>
+        stripHandles({
+          id: `fk:agg:${rel.source}:${rel.target}`,
+          source: rel.source,
+          target: rel.target,
+          type: "straight",
+          animated: false,
+          label: rel.count > 1 ? String(rel.count) : undefined,
+          labelStyle: { fontSize: 9, opacity: 0.6 },
+          markerEnd: undefined,
+          style: { strokeWidth: 1 },
+        }),
+      );
+    }
+
+    if (currentEdgeLod === "simple") {
+      return edges.map((e) =>
+        stripHandles({
+          ...e,
+          type: "straight",
+          label: undefined,
+          markerEnd: undefined,
+          style: { ...e.style, strokeWidth: 1 },
+        }),
+      );
+    }
+
+    // Full edge LOD: keep markers/labels/paths. Still strip handle ids while
+    // nodes are below detail (0.6–0.7 band) so edges stay anchored.
+    if (stripHandleIds) {
+      return edges.map((e) => stripHandles({ ...e, style: { ...e.style, strokeWidth: 1 } }));
     }
     return edges;
-  }, [edges, currentTier]);
+  }, [edges, currentLod, currentEdgeLod]);
+
+  // Highlight hop radius for the canvas overview (opass-style neighborhood
+  // ring). The full graph stays visible; only the ring size changes.
+  const handleHighlightHops = useCallback((hops: NeighborhoodScope) => {
+    setNeighborhoodHops(hops);
+  }, []);
 
   const showMiniMap = initialNodes.length <= 200;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col" ref={reactFlowRef}>
-      <ReactFlow
-        nodes={nodes}
-        edges={displayEdges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onViewportChange={onViewportChange}
-        onInit={onInit}
-        onNodeClick={onNodeClick}
-        onEdgeClick={onEdgeClick}
-        onPaneClick={onPaneClick}
-        onNodeDragStop={onNodeDragStop}
-        nodeTypes={nodeTypes}
-        fitView
-        fitViewOptions={{ padding: 0.2 }}
-        minZoom={0.1}
-        maxZoom={2}
-        proOptions={{ hideAttribution: true }}
-        nodesDraggable
-        nodesConnectable={false}
-        deleteKeyCode={null}
-        className="bg-background"
-      >
-        <Background
-          variant={BackgroundVariant.Dots}
-          gap={20}
-          size={1}
-          color="var(--app-border-subtle)"
-        />
-        <Controls showInteractive={false} />
-        {showMiniMap && (
-          <MiniMap
-            nodeColor={(n) => {
-              const d = n.data as TableNodeData;
-              return d.columns?.some((c) => c.isForeignKey) ? "var(--info)" : "var(--primary)";
-            }}
-            maskColor="rgba(0,0,0,0.08)"
-            className="!bg-popover !border-[var(--app-border)]"
-          />
-        )}
-
-        {/* Top panel: search + controls */}
-        <Panel position="top-left" className="m-2">
-          <div className="flex items-center gap-2">
-            <div className="relative">
-              <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--app-text-muted)]" />
-              <Input
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={`${t("shell.sidebar.searchObjects")}...`}
-                className="h-7 w-48 rounded-md pl-7 text-[12px]"
-              />
+      {useCytoscapeForOverview ? (
+        <Suspense
+          fallback={
+            <div className="flex min-h-0 flex-1 items-center justify-center gap-2 text-[12px] text-[var(--text-secondary)]">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              Loading overview…
             </div>
-            <Badge variant="outline" className="h-7 text-[11px]">
-              <Table2 className="mr-1 h-3 w-3" />
-              {initialNodes.length}
-              {neighborhoodSet ? ` / ${tablesInSchema.length}` : ""} tables
-            </Badge>
-            {isLargeSchema && neighborhoodSet && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-7 text-[11px]"
-                    onClick={() => {
-                      setShowAll(true);
-                      setNeighborhoodSeed(null);
-                    }}
-                  >
-                    <Eye className="mr-1 h-3 w-3" />
-                    Show all {tablesInSchema.length}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Render all tables in schema</TooltipContent>
-              </Tooltip>
-            )}
-            {isLargeSchema && showAll && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-7 text-[11px]"
-                    onClick={() => {
-                      setShowAll(false);
-                      setNeighborhoodSeed(null);
-                      setSearchQuery("");
-                    }}
-                  >
-                    <Focus className="mr-1 h-3 w-3" />
-                    Neighborhood mode
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Search a table to focus its neighborhood</TooltipContent>
-              </Tooltip>
-            )}
-          </div>
-        </Panel>
+          }
+        >
+          <CytoscapeErView
+            model={graphModel}
+            positions={layout.positions}
+            degraded={layout.degraded}
+            layoutReady={layout.status === "ready"}
+            onViewportChange={onCytoscapeViewportChange}
+            onOpenTable={onCytoscapeNodeClick}
+            explorer={{
+              totalTables: tablesInSchema.length,
+              relationCount: schemaStats.relations,
+              columnCount: schemaStats.columns,
+              hops: neighborhoodHops,
+              onSelectHops: handleHighlightHops,
+            }}
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+          />
+        </Suspense>
+      ) : (
+        <ReactFlow
+          nodes={nodes}
+          edges={displayEdges}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          onViewportChange={onViewportChange}
+          onMoveStart={onMoveStart}
+          onMoveEnd={onMoveEnd}
+          onInit={onInit}
+          onNodeClick={onNodeClick}
+          onEdgeClick={onEdgeClick}
+          onPaneClick={onPaneClick}
+          onNodeDragStop={onNodeDragStop}
+          nodeTypes={nodeTypes}
+          fitView
+          fitViewOptions={{ padding: 0.2 }}
+          onlyRenderVisibleElements
+          minZoom={0.1}
+          maxZoom={2}
+          proOptions={{ hideAttribution: true }}
+          nodesDraggable
+          nodesConnectable={false}
+          deleteKeyCode={null}
+          className="bg-background"
+        >
+          <Background
+            variant={BackgroundVariant.Dots}
+            gap={20}
+            size={1}
+            color="var(--border-subtle)"
+          />
+          <Controls showInteractive={false} />
 
-        {/* Bottom-left: layout controls */}
-        <Panel position="bottom-left" className="m-2">
-          <div className="flex items-center gap-1">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-7 w-7 p-0"
-                  onClick={() => setLayoutDirection((d) => (d === "LR" ? "TB" : "LR"))}
-                >
-                  <LayoutGrid className="h-3.5 w-3.5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Toggle layout direction</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-7 w-7 p-0"
-                  onClick={() => setCompact((c) => !c)}
-                >
-                  <Columns2 className="h-3.5 w-3.5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>{compact ? "Show columns" : "Compact mode"}</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-7 w-7 p-0"
-                  onClick={handleFitView}
-                >
-                  <Maximize2 className="h-3.5 w-3.5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Fit view</TooltipContent>
-            </Tooltip>
-            {manualPositions.size > 0 && (
+          {/* P1.7 — layout is computing in the Worker; shell stays interactive. */}
+          {layout.status === "computing" && (
+            <Panel position="top-center" className="m-2">
+              <div className="flex items-center gap-2 rounded-md border bg-popover px-3 py-1.5 text-[12px] text-muted-foreground shadow-sm">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Arranging {layout.nodeCount} tables…
+              </div>
+            </Panel>
+          )}
+          {layout.status === "error" && (
+            <Panel position="top-center" className="m-2">
+              <div className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-1.5 text-[12px] text-destructive">
+                Layout failed: {layout.error}
+              </div>
+            </Panel>
+          )}
+
+          {perfEnabled && perfMonitorRef.current && (
+            <ErPerfHud
+              monitor={perfMonitorRef.current}
+              spatialIndex={spatialIndex}
+              edgeCount={edges.length}
+              viewportRef={viewportRef}
+            />
+          )}
+          {showMiniMap && (
+            <MiniMap
+              nodeColor={(n) => {
+                const d = n.data as TableNodeData;
+                return d.columns?.some((c) => c.isForeignKey)
+                  ? "var(--state-info)"
+                  : "var(--accent)";
+              }}
+              maskColor="rgba(0,0,0,0.08)"
+              className="!bg-popover !border-[var(--border-default)]"
+            />
+          )}
+
+          {/* Top-left panel: search + P1.6 neighborhood exploration */}
+          <Panel position="top-left" className="m-2">
+            <div className="flex flex-col items-start gap-2">
+              <div className="flex items-center gap-2">
+                <div className="relative">
+                  <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--text-secondary)]" />
+                  <Input
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder={`${t("shell.sidebar.searchObjects")}...`}
+                    className="h-7 w-48 rounded-md pl-7 text-[12px]"
+                  />
+                </div>
+                {!isLargeSchema && (
+                  <Badge variant="outline" className="h-7 text-[11px]">
+                    <Table2 className="mr-1 h-3 w-3" />
+                    {initialNodes.length} tables
+                  </Badge>
+                )}
+              </div>
+            </div>
+          </Panel>
+
+          {/* Bottom-left: layout controls */}
+          <Panel position="bottom-left" className="m-2">
+            <div className="flex items-center gap-1">
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -554,17 +759,61 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
                     variant="outline"
                     size="sm"
                     className="h-7 w-7 p-0"
-                    onClick={handleResetLayout}
+                    onClick={() => setLayoutDirection((d) => (d === "LR" ? "TB" : "LR"))}
                   >
-                    <RotateCcw className="h-3.5 w-3.5" />
+                    <LayoutGrid className="h-3.5 w-3.5" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>Reset layout</TooltipContent>
+                <TooltipContent>Toggle layout direction</TooltipContent>
               </Tooltip>
-            )}
-          </div>
-        </Panel>
-      </ReactFlow>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 w-7 p-0"
+                    onClick={() => setCompact((c) => !c)}
+                  >
+                    <Columns2 className="h-3.5 w-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>{compact ? "Show columns" : "Compact mode"}</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 w-7 p-0"
+                    onClick={handleFitView}
+                  >
+                    <Maximize2 className="h-3.5 w-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Fit view</TooltipContent>
+              </Tooltip>
+              {manualPositions.size > 0 && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 w-7 p-0"
+                      onClick={handleResetLayout}
+                    >
+                      <RotateCcw className="h-3.5 w-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Reset layout</TooltipContent>
+                </Tooltip>
+              )}
+            </div>
+          </Panel>
+        </ReactFlow>
+      )}
     </div>
   );
 }

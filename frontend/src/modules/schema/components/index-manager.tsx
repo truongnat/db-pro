@@ -77,7 +77,7 @@ export function IndexManager({ connectionId, schema, table, columns, indexes }: 
   }, [droppingIndex, schema, executeDdl]);
 
   const headerClass =
-    "px-3 py-2 font-medium text-[12.5px] text-[var(--app-text-muted)] border-b border-[var(--app-border-subtle)]";
+    "px-3 py-2 font-medium text-[12.5px] text-[var(--text-secondary)] border-b border-[var(--border-subtle)]";
 
   return (
     <>
@@ -99,7 +99,7 @@ export function IndexManager({ connectionId, schema, table, columns, indexes }: 
         </div>
 
         {indexes.length === 0 ? (
-          <div className="px-3 py-8 text-center text-xs italic text-[var(--app-text-muted)]">
+          <div className="px-3 py-8 text-center text-xs italic text-[var(--text-secondary)]">
             {t("schema.noIndexes")}
           </div>
         ) : (
@@ -120,7 +120,7 @@ export function IndexManager({ connectionId, schema, table, columns, indexes }: 
               {indexes.map((idx) => (
                 <TableRow
                   key={idx.name}
-                  className="group transition-colors hover:bg-[var(--app-hover)]"
+                  className="group transition-colors hover:bg-[var(--surface-hover)]"
                 >
                   <TableCell className="px-3 py-1.5 font-mono text-[13px]">
                     <div className="flex items-center gap-1.5">
@@ -145,7 +145,7 @@ export function IndexManager({ connectionId, schema, table, columns, indexes }: 
                       </Tooltip>
                     </div>
                   </TableCell>
-                  <TableCell className="px-3 py-1.5 font-mono text-[11px] text-[var(--app-text-muted)] select-text">
+                  <TableCell className="px-3 py-1.5 font-mono text-[11px] text-[var(--text-secondary)] select-text">
                     {idx.columns.join(", ")}
                   </TableCell>
                   <TableCell className="px-3 py-1.5 text-center">
@@ -292,7 +292,7 @@ function CreateIndexDialog({
 
         <div className="flex flex-col gap-4">
           <div>
-            <Label htmlFor="index-name" className="mb-1 block text-xs text-[var(--app-text-muted)]">
+            <Label htmlFor="index-name" className="mb-1 block text-xs text-[var(--text-secondary)]">
               {t("schema.ddlIndexName")}
             </Label>
             <Input
@@ -306,7 +306,7 @@ function CreateIndexDialog({
           </div>
 
           <div>
-            <Label className="mb-1.5 block text-xs text-[var(--app-text-muted)]">
+            <Label className="mb-1.5 block text-xs text-[var(--text-secondary)]">
               {t("schema.ddlIndexColumns")}
             </Label>
             <div className="flex flex-wrap gap-1.5">

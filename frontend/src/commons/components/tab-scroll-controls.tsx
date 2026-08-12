@@ -32,7 +32,7 @@ export function TabScrollLeft({
       type="button"
       variant="ghost"
       size="icon"
-      className="h-full shrink-0 rounded-none border-r border-[var(--app-border-subtle)] px-1"
+      className="h-full shrink-0 rounded-none border-r border-[var(--border-subtle)] px-1"
       onClick={onScrollLeft}
       aria-label="Scroll tabs left"
       title="Scroll left"
@@ -52,7 +52,7 @@ export function TabScrollRight({
       type="button"
       variant="ghost"
       size="icon"
-      className="h-full shrink-0 rounded-none border-l border-[var(--app-border-subtle)] px-1"
+      className="h-full shrink-0 rounded-none border-l border-[var(--border-subtle)] px-1"
       onClick={onScrollRight}
       aria-label="Scroll tabs right"
       title="Scroll right"
@@ -77,7 +77,7 @@ export function TabOverflowMenu({ isOverflowing }: Pick<TabScrollControlsProps, 
           type="button"
           variant="ghost"
           size="icon"
-          className="h-full shrink-0 rounded-none border-l border-[var(--app-border-subtle)] px-1"
+          className="h-full shrink-0 rounded-none border-l border-[var(--border-subtle)] px-1"
           aria-label="Show all tabs"
           title="Show all tabs"
         >
@@ -103,12 +103,12 @@ export function TabOverflowMenu({ isOverflowing }: Pick<TabScrollControlsProps, 
               {tab.kind === "schema-workspace" ? (
                 <Layers className="h-3.5 w-3.5 shrink-0 text-primary" />
               ) : tab.kind === "db-object" ? (
-                <TableIcon className="h-3.5 w-3.5 shrink-0 text-[var(--app-text-muted)]" />
+                <TableIcon className="h-3.5 w-3.5 shrink-0 text-[var(--text-secondary)]" />
               ) : (
-                <DatabaseIcon className="h-3.5 w-3.5 shrink-0 text-[var(--app-text-muted)]" />
+                <DatabaseIcon className="h-3.5 w-3.5 shrink-0 text-[var(--text-secondary)]" />
               )}
               {tab.dirty && <span className="h-2 w-2 shrink-0 rounded-full bg-primary" />}
-              {tab.pinned && <PinIcon className="h-3 w-3 shrink-0 text-[var(--app-text-muted)]" />}
+              {tab.pinned && <PinIcon className="h-3 w-3 shrink-0 text-[var(--text-secondary)]" />}
               <span className={cn("flex-1 truncate", tab.preview && "italic opacity-70")}>
                 {tab.title}
               </span>

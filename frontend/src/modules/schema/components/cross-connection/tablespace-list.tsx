@@ -21,7 +21,7 @@ export function TablespaceList({ connectionId }: TablespaceListProps) {
   if (!connectionId) {
     return (
       <div className="flex items-center justify-center py-12">
-        <p className="text-[var(--app-text-muted)]">{t("schema.connectFirst")}</p>
+        <p className="text-[var(--text-secondary)]">{t("schema.connectFirst")}</p>
       </div>
     );
   }
@@ -29,7 +29,7 @@ export function TablespaceList({ connectionId }: TablespaceListProps) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <p className="text-[var(--app-text-muted)]">{t("common.states.loading")}</p>
+        <p className="text-[var(--text-secondary)]">{t("common.states.loading")}</p>
       </div>
     );
   }
@@ -45,33 +45,33 @@ export function TablespaceList({ connectionId }: TablespaceListProps) {
   if (!tablespaces?.length) {
     return (
       <div className="flex items-center justify-center py-12">
-        <p className="text-[var(--app-text-muted)]">{t("schema.crossConn.noTablespaces")}</p>
+        <p className="text-[var(--text-secondary)]">{t("schema.crossConn.noTablespaces")}</p>
       </div>
     );
   }
 
   return (
-    <div className="overflow-hidden rounded-md border border-[var(--app-border)]">
+    <div className="overflow-hidden rounded-md border border-[var(--border-default)]">
       <Table className="w-full text-sm">
         <TableHeader>
           <TableRow className="bg-background">
-            <TableHead className="px-4 py-3 text-left font-medium text-[var(--app-text-muted)]">
+            <TableHead className="px-4 py-3 text-left font-medium text-[var(--text-secondary)]">
               {t("common.labels.name")}
             </TableHead>
-            <TableHead className="px-4 py-3 text-left font-medium text-[var(--app-text-muted)]">
+            <TableHead className="px-4 py-3 text-left font-medium text-[var(--text-secondary)]">
               {t("schema.crossConn.owner")}
             </TableHead>
-            <TableHead className="px-4 py-3 text-left font-medium text-[var(--app-text-muted)]">
+            <TableHead className="px-4 py-3 text-left font-medium text-[var(--text-secondary)]">
               {t("schema.crossConn.location")}
             </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {tablespaces.map((ts) => (
-            <TableRow key={ts.name} className="border-t border-[var(--app-border-subtle)]">
+            <TableRow key={ts.name} className="border-t border-[var(--border-subtle)]">
               <TableCell className="px-4 py-3 font-medium text-foreground">{ts.name}</TableCell>
-              <TableCell className="px-4 py-3 text-[var(--app-text-muted)]">{ts.owner}</TableCell>
-              <TableCell className="px-4 py-3 font-mono text-xs text-[var(--app-text-muted)]">
+              <TableCell className="px-4 py-3 text-[var(--text-secondary)]">{ts.owner}</TableCell>
+              <TableCell className="px-4 py-3 font-mono text-xs text-[var(--text-secondary)]">
                 {ts.location || "(default)"}
               </TableCell>
             </TableRow>

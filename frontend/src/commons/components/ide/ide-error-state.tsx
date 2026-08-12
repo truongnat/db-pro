@@ -24,7 +24,7 @@ export function IdeErrorState({
         <AlertTriangle className="h-5 w-5 text-destructive" />
       </div>
       <p className="mb-1 text-sm font-medium text-foreground">{title}</p>
-      <p className="mb-4 max-w-md text-center text-xs text-[var(--app-text-dim)]">{message}</p>
+      <p className="mb-4 max-w-md text-center text-xs text-[var(--text-tertiary)]">{message}</p>
       <div className="flex items-center gap-2">
         {onRetry && (
           <Button variant="outline" size="sm" onClick={onRetry}>

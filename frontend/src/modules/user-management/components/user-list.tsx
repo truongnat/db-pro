@@ -18,7 +18,7 @@ export function UserList({ users, selectedUser, onSelectUser, onDropRole }: User
 
   return (
     <div className="flex flex-col gap-1">
-      <h3 className="px-2 py-1 text-xs font-semibold uppercase tracking-wide text-[var(--app-text-muted)]">
+      <h3 className="px-2 py-1 text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
         {t("userManagement.roles")}
       </h3>
       {users.map((user) => (
@@ -32,7 +32,7 @@ export function UserList({ users, selectedUser, onSelectUser, onDropRole }: User
         >
           <div className="flex flex-col min-w-0">
             <span className="text-sm font-medium truncate text-foreground">{user.name}</span>
-            <span className="text-xs truncate text-[var(--app-text-muted)]">
+            <span className="text-xs truncate text-[var(--text-secondary)]">
               {user.isSuper
                 ? t("userManagement.superuser")
                 : user.canLogin

@@ -402,24 +402,24 @@ export function QuickOpen() {
     const iconCls = "h-4 w-4 shrink-0";
     switch (item.kind) {
       case "tab":
-        return <FileText className={`${iconCls} text-[var(--app-text-muted)]`} />;
+        return <FileText className={`${iconCls} text-[var(--text-secondary)]`} />;
       case "db-object":
         switch (item.objectType) {
           case "view":
             return <Columns3 className={`${iconCls} text-primary`} />;
           case "function":
-            return <FunctionSquare className={`${iconCls} text-[var(--app-text-muted)]`} />;
+            return <FunctionSquare className={`${iconCls} text-[var(--text-secondary)]`} />;
           case "sequence":
-            return <Hash className={`${iconCls} text-[var(--app-text-muted)]`} />;
+            return <Hash className={`${iconCls} text-[var(--text-secondary)]`} />;
           case "type":
-            return <Key className={`${iconCls} text-[var(--app-text-muted)]`} />;
+            return <Key className={`${iconCls} text-[var(--text-secondary)]`} />;
           default:
             return <Table2 className={`${iconCls} text-primary`} />;
         }
       case "schema":
         return <Folder className={`${iconCls} text-primary`} />;
       case "connection":
-        return <Database className={`${iconCls} text-[var(--app-text-muted)]`} />;
+        return <Database className={`${iconCls} text-[var(--text-secondary)]`} />;
     }
   };
 
@@ -449,7 +449,7 @@ export function QuickOpen() {
           value={selectedValue}
           onValueChange={setSelectedValue}
           onKeyDown={handleRemoveRecentByKey}
-          className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-[var(--app-text-muted)] [&_[cmdk-group]]:px-2 [&_[cmdk-group]]:py-1 [&_[cmdk-input-wrapper]]:px-3 [&_[cmdk-input-wrapper]]:py-2 [&_[cmdk-item]]:px-3 [&_[cmdk-item]]:py-2"
+          className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-[var(--text-secondary)] [&_[cmdk-group]]:px-2 [&_[cmdk-group]]:py-1 [&_[cmdk-input-wrapper]]:px-3 [&_[cmdk-input-wrapper]]:py-2 [&_[cmdk-item]]:px-3 [&_[cmdk-item]]:py-2"
           label="Quick open"
         >
           <Command.Input
@@ -460,12 +460,12 @@ export function QuickOpen() {
               setSelectedValue("");
               lastPreviewedRef.current = "";
             }}
-            className="flex h-10 w-full border-b border-[var(--app-border-subtle)] bg-transparent px-3 text-sm outline-none placeholder:text-[var(--app-text-dim)]"
+            className="flex h-10 w-full border-b border-[var(--border-subtle)] bg-transparent px-3 text-sm outline-none placeholder:text-[var(--text-tertiary)]"
             autoFocus
           />
           <Command.List className="max-h-[500px] overflow-y-auto overflow-x-hidden py-2">
             {showHint && (
-              <div className="px-3 pb-1.5 text-[11px] text-[var(--app-text-dim)]">
+              <div className="px-3 pb-1.5 text-[11px] text-[var(--text-tertiary)]">
                 {t("quickOpen.hints.prefix")}
               </div>
             )}
@@ -484,7 +484,7 @@ export function QuickOpen() {
               </div>
             )}
             {groups.length === 0 && (cleanQuery.trim() || prefix) && (
-              <Command.Empty className="px-3 py-6 text-center text-sm text-[var(--app-text-muted)]">
+              <Command.Empty className="px-3 py-6 text-center text-sm text-[var(--text-secondary)]">
                 {t("quickOpen.noResults")}
               </Command.Empty>
             )}
@@ -508,13 +508,13 @@ export function QuickOpen() {
                         <HighlightedText text={title} indices={ranked.titleMatchIndices} />
                       </span>
                       <span className="flex shrink-0 items-center gap-1">
-                        <span className="max-w-[220px] truncate text-[11px] text-[var(--app-text-muted)]">
+                        <span className="max-w-[220px] truncate text-[11px] text-[var(--text-secondary)]">
                           {meta}
                         </span>
                         {isRecent && (
                           <button
                             type="button"
-                            className="flex h-4 w-4 items-center justify-center rounded text-[var(--app-text-dim)] opacity-0 transition-opacity group-hover:opacity-100 data-[selected=true]:opacity-60 hover:text-foreground"
+                            className="flex h-4 w-4 items-center justify-center rounded text-[var(--text-tertiary)] opacity-0 transition-opacity group-hover:opacity-100 data-[selected=true]:opacity-60 hover:text-foreground"
                             aria-label={t("quickOpen.removeRecent")}
                             onClick={(e) => handleRemoveRecentClick(e, item.resourceKey)}
                           >

@@ -16,7 +16,7 @@ export function ResultTabs() {
   if (!multiResults || multiResults.length <= 1 || !activeTabId) return null;
 
   return (
-    <div className="flex gap-1 border-b border-[var(--app-border-subtle)] bg-background px-3 py-1">
+    <div className="flex gap-1 border-b border-[var(--border-subtle)] bg-background px-3 py-1">
       {multiResults.map((r, idx) => (
         <Button
           key={idx}
@@ -25,7 +25,7 @@ export function ResultTabs() {
           className={`rounded-t px-3 py-1 text-xs transition-colors ${
             idx === multiResultIndex
               ? "bg-background text-foreground"
-              : "text-[var(--app-text-muted)]"
+              : "text-[var(--text-secondary)]"
           } ${
             idx === multiResultIndex ? "border-b-2 border-primary" : "border-b-2 border-transparent"
           }`}

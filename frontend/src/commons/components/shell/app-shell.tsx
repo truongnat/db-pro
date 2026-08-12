@@ -110,7 +110,7 @@ export function AppShell() {
   return (
     <>
       <div
-        className="grid h-screen overflow-hidden bg-[var(--app-surface-0)]"
+        className="grid h-screen overflow-hidden bg-[var(--surface-app)]"
         style={{ gridTemplateColumns: "var(--app-activity-bar-width) 1fr" }}
       >
         <ActivityBar />
@@ -128,7 +128,7 @@ export function AppShell() {
             {/* Sidebar resize handle */}
             {!sidebarCollapsed && (
               <div
-                className="group relative z-10 w-[3px] shrink-0 cursor-col-resize bg-transparent transition-colors hover:bg-[var(--app-border-subtle)] active:bg-primary"
+                className="group relative z-10 w-[3px] shrink-0 cursor-col-resize bg-transparent transition-colors hover:bg-[var(--border-subtle)] active:bg-primary"
                 onMouseDown={handleSidebarResizeStart}
               >
                 <div className="absolute inset-y-0 -left-1 -right-1" />
@@ -136,7 +136,7 @@ export function AppShell() {
             )}
 
             {/* Main content */}
-            <main className="flex min-h-0 min-w-0 flex-col overflow-hidden bg-[var(--app-surface-3)]">
+            <main className="flex min-h-0 min-w-0 flex-col overflow-hidden bg-[var(--surface-editor)]">
               <div className="flex h-full flex-col">
                 {hasTabs && <WorkspaceTabBar />}
                 <WorkspaceContent />
@@ -146,7 +146,7 @@ export function AppShell() {
             {/* Agent resize handle */}
             {agentOpen && (
               <div
-                className="group relative z-10 w-[3px] shrink-0 cursor-col-resize bg-transparent transition-colors hover:bg-[var(--app-border-subtle)] active:bg-primary"
+                className="group relative z-10 w-[3px] shrink-0 cursor-col-resize bg-transparent transition-colors hover:bg-[var(--border-subtle)] active:bg-primary"
                 onMouseDown={handleAgentResizeStart}
               >
                 <div className="absolute inset-y-0 -left-1 -right-1" />

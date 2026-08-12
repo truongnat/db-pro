@@ -7,11 +7,11 @@ interface StatusDotProps {
 export function StatusDot({ status }: StatusDotProps) {
   const className =
     status === "connected"
-      ? "bg-[var(--app-success)]"
+      ? "bg-[var(--state-success)]"
       : status === "connecting"
-        ? "bg-[var(--app-warning)] animate-pulse"
+        ? "bg-[var(--state-warning)] animate-pulse"
         : status === "error"
-          ? "bg-[var(--app-danger)]"
-          : "bg-[var(--app-text-dim)]";
+          ? "bg-[var(--state-danger)]"
+          : "bg-[var(--text-tertiary)]";
   return <span className={cn("h-2 w-2 shrink-0 rounded-full", className)} />;
 }

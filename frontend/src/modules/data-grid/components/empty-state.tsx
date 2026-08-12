@@ -8,7 +8,7 @@ export function EmptyState({ message }: EmptyStateProps) {
   const { t } = useTranslation();
   return (
     <div className="flex h-full min-h-0 items-center justify-center py-12">
-      <p className="text-sm text-[var(--app-text-muted)]">{message ?? t("dataGrid.noData")}</p>
+      <p className="text-sm text-[var(--text-secondary)]">{message ?? t("dataGrid.noData")}</p>
     </div>
   );
 }

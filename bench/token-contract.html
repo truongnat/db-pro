@@ -1,0 +1,195 @@
+<!doctype html>
+<!--
+  bench/token-contract.html — design token contract regression harness (P3.1 / F1).
+
+  Compares the RESOLVED value of every design token between the pre-migration
+  globals.css ("token-old.css") and the canonical globals.css ("token-new.css")
+  in both light and dark themes. Custom properties keep var() chains unresolved,
+  so each token is measured through a probe element (background-color / color /
+  box-shadow) which forces full resolution.
+
+  Usage:
+    1. git show HEAD:frontend/src/styles/globals.css > bench/token-old.css
+       cp frontend/src/styles/globals.css bench/token-new.css
+    2. Serve this directory:  cd bench && python3 -m http.server 8099
+    3. node bench/run-bench.js http://127.0.0.1:8099/token-contract.html 60000
+    4. Delete the generated token-old.css / token-new.css afterwards
+       (regenerable from git; do not commit them).
+
+  window.__bench = { pairs, diffs, ok } — ok === true means zero value drift.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>TOKEN_CONTRACT_LOADING</title>
+    <style>
+      body {
+        font-family: ui-monospace, monospace;
+        margin: 16px;
+        background: #f8fafc;
+        color: #0f172a;
+      }
+      table {
+        border-collapse: collapse;
+      }
+      td,
+      th {
+        border: 1px solid #cbd5e1;
+        padding: 4px 8px;
+        font-size: 11px;
+        text-align: left;
+      }
+      .bad {
+        background: #fee2e2;
+      }
+    </style>
+  </head>
+  <body>
+    <h2>Design token contract — old vs new resolved-value comparison</h2>
+    <p id="phase">loading css…</p>
+    <table id="out"></table>
+    <script>
+      "use strict";
+
+      async function loadCss(url) {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(url + " -> " + res.status);
+        return res.text();
+      }
+
+      // Browsers skip unknown at-rules, so Tailwind's "@theme inline { ... }"
+      // block would be dropped. Tailwind v4 emits these vars on :root anyway,
+      // so unwrap the block into a :root rule for faithful measurement.
+      function normalizeThemeBlocks(css) {
+        return css.replace(/@theme(?: inline)?\s*\{([\s\S]*?)\n\}/g, ":root {$1\n}");
+      }
+
+      const PAIRS = [
+        // shadcn semantic aliases — same logical role before/after
+        { old: "--background", neu: "--background", prop: "backgroundColor" },
+        { old: "--foreground", neu: "--foreground", prop: "color" },
+        { old: "--card", neu: "--card", prop: "backgroundColor" },
+        { old: "--card-foreground", neu: "--card-foreground", prop: "color" },
+        { old: "--popover", neu: "--popover", prop: "backgroundColor" },
+        { old: "--popover-foreground", neu: "--popover-foreground", prop: "color" },
+        { old: "--primary", neu: "--primary", prop: "backgroundColor" },
+        { old: "--primary-foreground", neu: "--primary-foreground", prop: "color" },
+        { old: "--secondary", neu: "--secondary", prop: "backgroundColor" },
+        { old: "--secondary-foreground", neu: "--secondary-foreground", prop: "color" },
+        { old: "--muted", neu: "--muted", prop: "backgroundColor" },
+        { old: "--muted-foreground", neu: "--muted-foreground", prop: "color" },
+        { old: "--destructive", neu: "--destructive", prop: "backgroundColor" },
+        { old: "--success", neu: "--success", prop: "backgroundColor" },
+        { old: "--warning", neu: "--warning", prop: "backgroundColor" },
+        { old: "--info", neu: "--info", prop: "backgroundColor" },
+        { old: "--border", neu: "--border", prop: "backgroundColor" },
+        { old: "--input", neu: "--input", prop: "backgroundColor" },
+        { old: "--ring", neu: "--ring", prop: "backgroundColor" },
+        { old: "--overlay", neu: "--overlay", prop: "backgroundColor" },
+        { old: "--sidebar", neu: "--sidebar", prop: "backgroundColor" },
+        { old: "--sidebar-foreground", neu: "--sidebar-foreground", prop: "color" },
+        { old: "--sidebar-border", neu: "--sidebar-border", prop: "backgroundColor" },
+        { old: "--sidebar-accent", neu: "--sidebar-accent", prop: "backgroundColor" },
+        { old: "--sidebar-accent-foreground", neu: "--sidebar-accent-foreground", prop: "color" },
+        // hover-highlight role: shadcn --accent (old) -> @theme --color-accent (new)
+        { old: "--accent", neu: "--color-accent", prop: "backgroundColor" },
+        { old: "--accent-foreground", neu: "--color-accent-foreground", prop: "color" },
+        // canonical renames — value-preservation proof
+        { old: "--app-surface-0", neu: "--surface-app", prop: "backgroundColor" },
+        { old: "--app-surface-1", neu: "--surface-nav", prop: "backgroundColor" },
+        { old: "--app-surface-2", neu: "--surface-panel", prop: "backgroundColor" },
+        { old: "--app-surface-3", neu: "--surface-editor", prop: "backgroundColor" },
+        { old: "--app-surface-4", neu: "--surface-floating", prop: "backgroundColor" },
+        { old: "--app-hover", neu: "--surface-hover", prop: "backgroundColor" },
+        { old: "--app-active", neu: "--surface-active", prop: "backgroundColor" },
+        { old: "--app-text", neu: "--text-primary", prop: "color" },
+        { old: "--app-text-muted", neu: "--text-secondary", prop: "color" },
+        { old: "--app-text-dim", neu: "--text-tertiary", prop: "color" },
+        { old: "--app-border-subtle", neu: "--border-subtle", prop: "backgroundColor" },
+        { old: "--app-border", neu: "--border-default", prop: "backgroundColor" },
+        { old: "--app-border-strong", neu: "--border-strong", prop: "backgroundColor" },
+        { old: "--app-primary", neu: "--accent", prop: "backgroundColor" },
+        { old: "--app-primary-hover", neu: "--accent-hover", prop: "backgroundColor" },
+        { old: "--app-primary-soft", neu: "--accent-soft", prop: "backgroundColor" },
+        { old: "--app-success", neu: "--state-success", prop: "backgroundColor" },
+        { old: "--app-warning", neu: "--state-warning", prop: "backgroundColor" },
+        { old: "--app-danger", neu: "--state-danger", prop: "backgroundColor" },
+        { old: "--app-shadow-lg", neu: "--elevation-lg", prop: "boxShadow" },
+        { old: "--app-shadow-popover", neu: "--elevation-popover", prop: "boxShadow" },
+      ];
+
+      const probe = document.createElement("div");
+      probe.style.visibility = "hidden";
+      probe.style.position = "fixed";
+      document.body.appendChild(probe);
+
+      async function measure(cssText, dark, side) {
+        let styleEl = document.getElementById("tcss");
+        if (!styleEl) {
+          styleEl = document.createElement("style");
+          styleEl.id = "tcss";
+          document.head.appendChild(styleEl);
+        }
+        styleEl.textContent = cssText;
+        if (dark) {
+          document.documentElement.setAttribute("data-theme", "dark");
+        } else {
+          document.documentElement.removeAttribute("data-theme");
+        }
+        await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+        const out = {};
+        for (const p of PAIRS) {
+          const name = side === "old" ? p.old : p.neu;
+          probe.style[p.prop] = "var(" + name + ")";
+          out[name] = getComputedStyle(probe)[p.prop];
+          probe.style[p.prop] = "";
+        }
+        return out;
+      }
+
+      async function main() {
+        document.title = "TOKEN_CONTRACT_LOADING";
+        const [rawOld, rawNew] = await Promise.all([loadCss("token-old.css"), loadCss("token-new.css")]);
+        const oldCss = normalizeThemeBlocks(rawOld);
+        const newCss = normalizeThemeBlocks(rawNew);
+
+        const rows = [];
+        const diffs = [];
+        for (const theme of ["light", "dark"]) {
+          const dark = theme === "dark";
+          const oldVals = await measure(oldCss, dark, "old");
+          const newVals = await measure(newCss, dark, "new");
+          for (const p of PAIRS) {
+            const a = oldVals[p.old];
+            const b = newVals[p.neu];
+            const eq = a === b;
+            rows.push({ theme, pair: p.old + " -> " + p.neu, old: a, neu: b, eq });
+            if (!eq) diffs.push({ theme, pair: p.old + " -> " + p.neu, old: a, neu: b });
+          }
+        }
+
+        const tbody = document.getElementById("out");
+        for (const r of rows) {
+          const tr = document.createElement("tr");
+          tr.className = r.eq ? "" : "bad";
+          tr.innerHTML =
+            "<td>" + r.theme + "</td><td>" + r.pair + "</td><td>" + r.old + "</td><td>" + r.neu + "</td><td>" + (r.eq ? "&#10003;" : "&#10007;") + "</td>";
+          tbody.appendChild(tr);
+        }
+        document.getElementById("phase").textContent =
+          diffs.length === 0
+            ? "PASS — all " + rows.length + " resolved-value pairs identical (light + dark)"
+            : "FAIL — " + diffs.length + " differences found";
+        window.__bench = { pairs: rows.length, diffs, ok: diffs.length === 0 };
+        document.title = "BENCH_READY";
+        console.log("token contract: " + (diffs.length === 0 ? "PASS" : "FAIL") + " — " + rows.length + " pairs");
+      }
+
+      main().catch((e) => {
+        console.error(e);
+        window.__bench = { error: String(e && e.message ? e.message : e), ok: false };
+        document.title = "BENCH_READY";
+      });
+    </script>
+  </body>
+</html>

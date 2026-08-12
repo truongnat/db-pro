@@ -21,7 +21,7 @@ export function PartitionManager({ connectionId }: PartitionManagerProps) {
   if (!connectionId) {
     return (
       <div className="flex items-center justify-center py-12">
-        <p className="text-[var(--app-text-muted)]">{t("schema.connectFirst")}</p>
+        <p className="text-[var(--text-secondary)]">{t("schema.connectFirst")}</p>
       </div>
     );
   }
@@ -29,7 +29,7 @@ export function PartitionManager({ connectionId }: PartitionManagerProps) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <p className="text-[var(--app-text-muted)]">{t("common.states.loading")}</p>
+        <p className="text-[var(--text-secondary)]">{t("common.states.loading")}</p>
       </div>
     );
   }
@@ -45,7 +45,7 @@ export function PartitionManager({ connectionId }: PartitionManagerProps) {
   if (!partitions?.length) {
     return (
       <div className="flex items-center justify-center py-12">
-        <p className="text-[var(--app-text-muted)]">{t("schema.crossConn.noPartitions")}</p>
+        <p className="text-[var(--text-secondary)]">{t("schema.crossConn.noPartitions")}</p>
       </div>
     );
   }
@@ -55,13 +55,13 @@ export function PartitionManager({ connectionId }: PartitionManagerProps) {
       {partitions.map((p) => (
         <div
           key={`${p.schema}.${p.table}`}
-          className="rounded-sm border border-[var(--app-border)]"
+          className="rounded-sm border border-[var(--border-default)]"
         >
-          <div className="flex items-center gap-2 border-b border-[var(--app-border-subtle)] bg-background px-4 py-3">
+          <div className="flex items-center gap-2 border-b border-[var(--border-subtle)] bg-background px-4 py-3">
             <span className="font-medium text-foreground">
               {p.schema}.{p.table}
             </span>
-            <span className="rounded bg-background px-1.5 py-0.5 text-xs text-[var(--app-text-muted)]">
+            <span className="rounded bg-background px-1.5 py-0.5 text-xs text-[var(--text-secondary)]">
               {p.partitionStrategy}
             </span>
           </div>
@@ -69,19 +69,19 @@ export function PartitionManager({ connectionId }: PartitionManagerProps) {
             <Table className="w-full text-sm">
               <TableHeader>
                 <TableRow className="bg-background">
-                  <TableHead className="px-4 py-2 text-left font-medium text-[var(--app-text-muted)]">
+                  <TableHead className="px-4 py-2 text-left font-medium text-[var(--text-secondary)]">
                     {t("schema.crossConn.partitionName")}
                   </TableHead>
-                  <TableHead className="px-4 py-2 text-left font-medium text-[var(--app-text-muted)]">
+                  <TableHead className="px-4 py-2 text-left font-medium text-[var(--text-secondary)]">
                     {t("schema.crossConn.boundExpr")}
                   </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {p.partitions.map((child) => (
-                  <TableRow key={child.name} className="border-t border-[var(--app-border-subtle)]">
+                  <TableRow key={child.name} className="border-t border-[var(--border-subtle)]">
                     <TableCell className="px-4 py-2 text-foreground">{child.name}</TableCell>
-                    <TableCell className="px-4 py-2 font-mono text-xs text-[var(--app-text-muted)]">
+                    <TableCell className="px-4 py-2 font-mono text-xs text-[var(--text-secondary)]">
                       {child.boundExpr}
                     </TableCell>
                   </TableRow>

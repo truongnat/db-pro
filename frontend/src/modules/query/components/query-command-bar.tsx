@@ -93,12 +93,12 @@ export function QueryCommandBar({
   };
 
   return (
-    <div className="flex h-[38px] items-center gap-2 border-b border-[var(--app-border-subtle)] bg-[var(--app-surface-2)] px-3">
+    <div className="flex h-[38px] items-center gap-2 border-b border-[var(--border-subtle)] bg-[var(--surface-panel)] px-3">
       {/* Left — compact context breadcrumb */}
       <div className="flex items-center gap-1 text-[13px]">
-        <Database className="h-3.5 w-3.5 shrink-0 text-[var(--app-text-muted)]" aria-hidden />
+        <Database className="h-3.5 w-3.5 shrink-0 text-[var(--text-secondary)]" aria-hidden />
         <Select value={connectionId ?? ""} onValueChange={handleConnectionChange}>
-          <SelectTrigger className="h-6 w-auto max-w-[160px] rounded border-none bg-transparent px-1.5 py-0 text-[13px] font-medium shadow-none hover:bg-[var(--app-hover)]">
+          <SelectTrigger className="h-6 w-auto max-w-[160px] rounded border-none bg-transparent px-1.5 py-0 text-[13px] font-medium shadow-none hover:bg-[var(--surface-hover)]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -111,20 +111,20 @@ export function QueryCommandBar({
         </Select>
         {database && (
           <>
-            <span className="text-[var(--app-text-dim)]">/</span>
-            <span className="truncate text-[13px] text-[var(--app-text-muted)]">{database}</span>
+            <span className="text-[var(--text-tertiary)]">/</span>
+            <span className="truncate text-[13px] text-[var(--text-secondary)]">{database}</span>
           </>
         )}
         {schemas.length > 0 ? (
           <>
-            {database && <span className="text-[var(--app-text-dim)]">/</span>}
+            {database && <span className="text-[var(--text-tertiary)]">/</span>}
             <Select
               value={context.schema ?? DEFAULT_SCHEMA}
               onValueChange={(value) =>
                 setQueryTabSchema(tabId, value === DEFAULT_SCHEMA ? null : value)
               }
             >
-              <SelectTrigger className="h-6 w-auto max-w-[140px] rounded border-none bg-transparent px-1.5 py-0 text-[13px] text-[var(--app-text-muted)] shadow-none hover:bg-[var(--app-hover)]">
+              <SelectTrigger className="h-6 w-auto max-w-[140px] rounded border-none bg-transparent px-1.5 py-0 text-[13px] text-[var(--text-secondary)] shadow-none hover:bg-[var(--surface-hover)]">
                 <SelectValue placeholder={t("query.contextDefaultSchema")} />
               </SelectTrigger>
               <SelectContent>
@@ -139,8 +139,8 @@ export function QueryCommandBar({
           </>
         ) : context.schema ? (
           <>
-            <span className="text-[var(--app-text-dim)]">/</span>
-            <span className="truncate text-[13px] text-[var(--app-text-muted)]">
+            <span className="text-[var(--text-tertiary)]">/</span>
+            <span className="truncate text-[13px] text-[var(--text-secondary)]">
               {context.schema}
             </span>
           </>
@@ -179,14 +179,14 @@ export function QueryCommandBar({
               <DropdownMenuItem onClick={onExecuteCurrent} className="h-[32px]">
                 <Play className="mr-2 h-3.5 w-3.5" />
                 {t("query.runCurrent")}
-                <span className="ml-auto text-[11px] text-[var(--app-text-muted)]">
+                <span className="ml-auto text-[11px] text-[var(--text-secondary)]">
                   {formatShortcut({ primary: true, key: "Enter" })}
                 </span>
               </DropdownMenuItem>
               <DropdownMenuItem onClick={onExecuteAll} className="h-[32px]">
                 <Play className="mr-2 h-3.5 w-3.5" />
                 {t("query.runAll")}
-                <span className="ml-auto text-[11px] text-[var(--app-text-muted)]">
+                <span className="ml-auto text-[11px] text-[var(--text-secondary)]">
                   {formatShortcut({ primary: true, shiftKey: true, key: "Enter" })}
                 </span>
               </DropdownMenuItem>
@@ -210,7 +210,7 @@ export function QueryCommandBar({
         <Button
           type="button"
           variant="ghost"
-          className="h-[28px] gap-1 rounded-[5px] px-2 text-[13px] text-[var(--app-text-muted)]"
+          className="h-[28px] gap-1 rounded-[5px] px-2 text-[13px] text-[var(--text-secondary)]"
           onClick={onExplain}
           disabled={!hasConnection || !hasSql || isExplaining}
         >
@@ -222,7 +222,7 @@ export function QueryCommandBar({
         <Button
           type="button"
           variant="ghost"
-          className="h-[28px] gap-1 rounded-[5px] px-2 text-[13px] text-[var(--app-text-muted)]"
+          className="h-[28px] gap-1 rounded-[5px] px-2 text-[13px] text-[var(--text-secondary)]"
           onClick={onFormat}
           disabled={!hasSql}
         >
@@ -237,7 +237,7 @@ export function QueryCommandBar({
               type="button"
               variant="ghost"
               size="icon"
-              className="h-7 w-7 rounded-md text-[var(--app-text-muted)]"
+              className="h-7 w-7 rounded-md text-[var(--text-secondary)]"
             >
               <MoreHorizontal className="h-4 w-4" />
             </Button>

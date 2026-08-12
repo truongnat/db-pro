@@ -230,7 +230,7 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
   if (!tabConnectionId) {
     return (
       <div className="flex items-center justify-center py-12">
-        <p className="text-[13px] text-[var(--app-text-muted)]">{t("query.connectFirst")}</p>
+        <p className="text-[13px] text-[var(--text-secondary)]">{t("query.connectFirst")}</p>
       </div>
     );
   }
@@ -248,7 +248,7 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
       className={`relative h-full px-3.5 text-[13px] transition-colors ${
         panelTab === tab.id
           ? "font-medium text-foreground"
-          : "text-[var(--app-text-muted)] hover:text-foreground"
+          : "text-[var(--text-secondary)] hover:text-foreground"
       }`}
       onClick={() => setTabActivePanel(tabId, tab.id)}
     >
@@ -300,7 +300,7 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col">
-          <div className="flex h-[34px] items-center border-b border-[var(--app-border-subtle)] bg-[var(--app-surface-1)]">
+          <div className="flex h-[34px] items-center border-b border-[var(--border-subtle)] bg-[var(--surface-nav)]">
             {primaryTabs.map(renderTabButton)}
             <div className="flex-1" />
             <DropdownMenu>
@@ -310,7 +310,7 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
                   className={`flex h-full items-center gap-1 px-3 text-[13px] transition-colors ${
                     ["history", "local-history", "snippets"].includes(panelTab)
                       ? "font-medium text-foreground"
-                      : "text-[var(--app-text-muted)] hover:text-foreground"
+                      : "text-[var(--text-secondary)] hover:text-foreground"
                   }`}
                 >
                   {secondaryTabLabels[panelTab]?.label ?? "More"}
@@ -341,7 +341,7 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
                   </div>
                   <p className="text-[13px] font-medium text-foreground">{t("query.queryError")}</p>
                 </div>
-                <p className="mb-4 max-w-lg text-[13px] leading-relaxed text-[var(--app-text-muted)]">
+                <p className="mb-4 max-w-lg text-[13px] leading-relaxed text-[var(--text-secondary)]">
                   {error}
                 </p>
                 <div className="flex items-center gap-2">
@@ -375,11 +375,11 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
 
             {panelTab === "results" && !result && status !== "error" && (
               <div className="flex flex-col items-center justify-center py-12">
-                <div className="mb-3 grid h-9 w-9 place-items-center rounded-lg bg-[var(--app-surface-2)]">
-                  <Database className="h-4 w-4 text-[var(--app-text-muted)]" />
+                <div className="mb-3 grid h-9 w-9 place-items-center rounded-lg bg-[var(--surface-panel)]">
+                  <Database className="h-4 w-4 text-[var(--text-secondary)]" />
                 </div>
                 <p className="mb-1 text-[13px] font-medium text-foreground">No query results yet</p>
-                <p className="text-[12px] text-[var(--app-text-muted)]">
+                <p className="text-[12px] text-[var(--text-secondary)]">
                   Run the current statement to see results here.
                 </p>
               </div>
@@ -395,7 +395,7 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
                   </div>
                   <p className="text-[13px] font-medium text-foreground">Explain failed</p>
                 </div>
-                <p className="mb-4 max-w-lg text-[13px] leading-relaxed text-[var(--app-text-muted)]">
+                <p className="mb-4 max-w-lg text-[13px] leading-relaxed text-[var(--text-secondary)]">
                   {explainError}
                 </p>
                 <Button
@@ -412,13 +412,13 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
 
             {panelTab === "explain" && !explainPlan && !explainError && (
               <div className="flex flex-col items-center justify-center py-12">
-                <div className="mb-3 grid h-9 w-9 place-items-center rounded-lg bg-[var(--app-surface-2)]">
-                  <HelpCircle className="h-4 w-4 text-[var(--app-text-muted)]" />
+                <div className="mb-3 grid h-9 w-9 place-items-center rounded-lg bg-[var(--surface-panel)]">
+                  <HelpCircle className="h-4 w-4 text-[var(--text-secondary)]" />
                 </div>
                 <p className="mb-1 text-[13px] font-medium text-foreground">
                   No execution plan yet
                 </p>
-                <p className="mb-4 max-w-xs text-center text-[12px] leading-relaxed text-[var(--app-text-muted)]">
+                <p className="mb-4 max-w-xs text-center text-[12px] leading-relaxed text-[var(--text-secondary)]">
                   Run Explain to inspect how PostgreSQL plans the current statement.
                 </p>
                 <Button
@@ -439,10 +439,10 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
                 {status === "success" && timing ? (
                   <>
                     <div className="flex items-center gap-2 text-[13px] text-foreground">
-                      <span className="h-2 w-2 rounded-full bg-[var(--app-success)]" />
+                      <span className="h-2 w-2 rounded-full bg-[var(--state-success)]" />
                       Query completed
                     </div>
-                    <div className="flex flex-col gap-1 text-[12px] text-[var(--app-text-muted)]">
+                    <div className="flex flex-col gap-1 text-[12px] text-[var(--text-secondary)]">
                       <span>{t("query.rowsAffected", { count: result?.rowCount ?? 0 })}</span>
                       <span>{t("query.duration", { duration: timing.totalMs })}</span>
                       {timing.serverMs > 0 && <span>Server: {timing.serverMs}ms</span>}
@@ -454,12 +454,12 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
                     {error ?? t("query.statusError")}
                   </div>
                 ) : status === "cancelled" ? (
-                  <div className="flex items-center gap-2 text-[13px] text-[var(--app-text-muted)]">
-                    <span className="h-2 w-2 rounded-full bg-[var(--app-text-dim)]" />
+                  <div className="flex items-center gap-2 text-[13px] text-[var(--text-secondary)]">
+                    <span className="h-2 w-2 rounded-full bg-[var(--text-tertiary)]" />
                     Execution cancelled
                   </div>
                 ) : (
-                  <div className="text-[13px] text-[var(--app-text-muted)]">No messages yet.</div>
+                  <div className="text-[13px] text-[var(--text-secondary)]">No messages yet.</div>
                 )}
               </div>
             )}

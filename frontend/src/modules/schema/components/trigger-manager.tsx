@@ -68,12 +68,12 @@ export function TriggerManager({ connectionId, schema, table }: TriggerManagerPr
   return (
     <div className="flex flex-col gap-4 p-3">
       {/* Existing triggers list */}
-      <div className="rounded-sm border border-[var(--app-border-subtle)] p-3">
+      <div className="rounded-sm border border-[var(--border-subtle)] p-3">
         <h4 className="mb-2 text-xs font-semibold text-foreground">
           {t("schema.triggers")} ({tableTriggers.length})
         </h4>
         {tableTriggers.length === 0 ? (
-          <p className="text-xs text-[var(--app-text-muted)]">{t("schema.noTriggers")}</p>
+          <p className="text-xs text-[var(--text-secondary)]">{t("schema.noTriggers")}</p>
         ) : (
           <div className="space-y-1.5">
             {tableTriggers.map((tr) => (
@@ -96,14 +96,14 @@ export function TriggerManager({ connectionId, schema, table }: TriggerManagerPr
       </div>
 
       {/* CREATE / DROP form */}
-      <div className="rounded-sm border border-[var(--app-border-subtle)] p-3">
+      <div className="rounded-sm border border-[var(--border-subtle)] p-3">
         <h4 className="mb-2 text-xs font-semibold text-foreground">{t("schema.createTrigger")}</h4>
 
         <div className="space-y-2">
           <div>
             <Label
               htmlFor="trigger-name"
-              className="mb-1 block text-xs text-[var(--app-text-muted)]"
+              className="mb-1 block text-xs text-[var(--text-secondary)]"
             >
               {t("schema.triggerName")}
             </Label>
@@ -112,7 +112,7 @@ export function TriggerManager({ connectionId, schema, table }: TriggerManagerPr
               type="text"
               value={triggerName}
               onChange={(e) => setTriggerName(e.target.value)}
-              className="w-full rounded-sm border border-[var(--app-border)] bg-background px-2 py-1 text-xs text-foreground outline-none focus:border-primary"
+              className="w-full rounded-sm border border-[var(--border-default)] bg-background px-2 py-1 text-xs text-foreground outline-none focus:border-primary"
             />
           </div>
 
@@ -120,14 +120,14 @@ export function TriggerManager({ connectionId, schema, table }: TriggerManagerPr
             <div className="flex-1">
               <Label
                 htmlFor="trigger-timing"
-                className="mb-1 block text-xs text-[var(--app-text-muted)]"
+                className="mb-1 block text-xs text-[var(--text-secondary)]"
               >
                 {t("schema.triggerTiming")}
               </Label>
               <Select value={timing} onValueChange={setTiming}>
                 <SelectTrigger
                   id="trigger-timing"
-                  className="w-full rounded-sm border border-[var(--app-border)] bg-background px-2 py-1 text-xs text-foreground"
+                  className="w-full rounded-sm border border-[var(--border-default)] bg-background px-2 py-1 text-xs text-foreground"
                 >
                   <SelectValue />
                 </SelectTrigger>
@@ -141,14 +141,14 @@ export function TriggerManager({ connectionId, schema, table }: TriggerManagerPr
             <div className="flex-1">
               <Label
                 htmlFor="trigger-event"
-                className="mb-1 block text-xs text-[var(--app-text-muted)]"
+                className="mb-1 block text-xs text-[var(--text-secondary)]"
               >
                 {t("schema.triggerEvent")}
               </Label>
               <Select value={event} onValueChange={setEvent}>
                 <SelectTrigger
                   id="trigger-event"
-                  className="w-full rounded-sm border border-[var(--app-border)] bg-background px-2 py-1 text-xs text-foreground"
+                  className="w-full rounded-sm border border-[var(--border-default)] bg-background px-2 py-1 text-xs text-foreground"
                 >
                   <SelectValue />
                 </SelectTrigger>
@@ -165,7 +165,7 @@ export function TriggerManager({ connectionId, schema, table }: TriggerManagerPr
           <div>
             <Label
               htmlFor="trigger-body"
-              className="mb-1 block text-xs text-[var(--app-text-muted)]"
+              className="mb-1 block text-xs text-[var(--text-secondary)]"
             >
               {t("schema.triggerBody")}
             </Label>
@@ -174,7 +174,7 @@ export function TriggerManager({ connectionId, schema, table }: TriggerManagerPr
               value={body}
               onChange={(e) => setBody(e.target.value)}
               rows={5}
-              className="w-full resize-y rounded-sm border border-[var(--app-border)] bg-background px-2 py-1.5 font-mono text-xs text-foreground outline-none focus:border-primary"
+              className="w-full resize-y rounded-sm border border-[var(--border-default)] bg-background px-2 py-1.5 font-mono text-xs text-foreground outline-none focus:border-primary"
             />
           </div>
 
@@ -219,7 +219,7 @@ function TriggerRow({
 }) {
   const { t } = useTranslation();
   return (
-    <div className="flex items-center justify-between rounded-sm border border-[var(--app-border-subtle)] px-2.5 py-1.5">
+    <div className="flex items-center justify-between rounded-sm border border-[var(--border-subtle)] px-2.5 py-1.5">
       <div className="flex flex-col gap-0.5">
         <span className="text-xs font-medium text-foreground">{trigger.name}</span>
         <div className="flex gap-1.5">

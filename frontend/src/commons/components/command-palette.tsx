@@ -43,15 +43,15 @@ export function CommandPalette() {
     <Dialog open={isOpen} onOpenChange={(open) => !open && close()}>
       <DialogContent className="!top-[16vh] !w-[640px] !max-w-[640px] -translate-x-1/2 !-translate-y-0 overflow-hidden p-0 shadow-lg">
         <Command
-          className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-[var(--app-text-muted)] [&_[cmdk-group]]:px-2 [&_[cmdk-group]]:py-1 [&_[cmdk-input-wrapper]]:px-3 [&_[cmdk-input-wrapper]]:py-2 [&_[cmdk-item]]:px-3 [&_[cmdk-item]]:py-2.5"
+          className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-[var(--text-secondary)] [&_[cmdk-group]]:px-2 [&_[cmdk-group]]:py-1 [&_[cmdk-input-wrapper]]:px-3 [&_[cmdk-input-wrapper]]:py-2 [&_[cmdk-item]]:px-3 [&_[cmdk-item]]:py-2.5"
           label="Command palette"
         >
           <Command.Input
             placeholder={t("commandPalette.placeholder")}
-            className="flex h-11 w-full border-b border-[var(--app-border-subtle)] bg-transparent px-3 text-[13px] outline-none placeholder:text-[var(--app-text-dim)]"
+            className="flex h-11 w-full border-b border-[var(--border-subtle)] bg-transparent px-3 text-[13px] outline-none placeholder:text-[var(--text-tertiary)]"
           />
           <Command.List className="max-h-[520px] overflow-y-auto overflow-x-hidden py-2">
-            <Command.Empty className="px-3 py-6 text-center text-sm text-[var(--app-text-muted)]">
+            <Command.Empty className="px-3 py-6 text-center text-sm text-[var(--text-secondary)]">
               {t("commandPalette.noResults")}
             </Command.Empty>
             {grouped.map(([groupKey, cmds]) => (
@@ -69,7 +69,7 @@ export function CommandPalette() {
                     {cmd.icon && <cmd.icon className="h-4 w-4" />}
                     <span>{t(cmd.labelKey)}</span>
                     {cmd.keybinding && (
-                      <kbd className="ml-auto pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-[var(--app-border-strong)] bg-muted px-1.5 font-mono text-[11px] font-medium text-[var(--app-text-muted)]">
+                      <kbd className="ml-auto pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-[var(--border-strong)] bg-muted px-1.5 font-mono text-[11px] font-medium text-[var(--text-secondary)]">
                         {formatShortcut(cmd.keybinding)}
                       </kbd>
                     )}

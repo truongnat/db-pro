@@ -42,8 +42,12 @@
   --color-warning-foreground: var(--warning-foreground);
   --color-info: var(--info);
   --color-overlay: var(--overlay);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-accent: var(--accent);
+  /* shadcn's --accent role is a subtle hover-highlight surface, not the brand
+   * accent. The canonical brand family lives under --accent-* (see canonical
+   * layer); these two mappings keep shadcn `bg-accent` / `text-accent-foreground`
+   * utilities pointing at the hover surface tokens. */
+  --color-accent-foreground: var(--text-primary);
+  --color-accent: var(--surface-active);
   --color-muted-foreground: var(--muted-foreground);
   --color-muted: var(--muted);
   --color-secondary-foreground: var(--secondary-foreground);
@@ -75,50 +79,76 @@
   --ide-icon-lg: 18px;
 }
 
+/* ═══════════════════════════════════════════════════════════════════
+ * DESIGN TOKEN CONTRACT (canonical vocabulary)
+ *
+ * Layer order:  canonical semantic tokens  →  shadcn compatibility aliases
+ *
+ * Canonical color families (single source of truth — the ONLY place raw
+ * color values may be defined):
+ *   --surface-*   background layers (app frame → floating, hover/active)
+ *   --text-*      text hierarchy (primary / secondary / tertiary)
+ *   --border-*    border opacity layers (subtle / default / strong)
+ *   --accent-*    brand accent (accent, hover, soft tint, foreground)
+ *   --state-*     semantic states (success / warning / danger / info)
+ *   --elevation-* shadows (lg / popover)
+ *
+ * The --app-* prefix is RESERVED for layout metrics (widths/heights) only:
+ *   --app-activity-bar-width, --app-sidebar-*, --app-topbar-height,
+ *   --app-statusbar-height, --app-tab-height, --app-agent-panel-*
+ *
+ * Rules:
+ *   1. Color tokens never use the --app-* prefix.
+ *   2. The shadcn compatibility layer below must ONLY alias canonical tokens
+ *      (var(...) references); it may not define raw color values.
+ *   3. `npx shadcn add` must not modify this file's token layers. If the CLI
+ *      asks about existing tokens, keep our definitions. CI runs
+ *      `npm run check:tokens` to catch drift.
+ * ═══════════════════════════════════════════════════════════════════ */
+
 /* ── shadcn compatibility layer ─────────────────────────────────
- * These tokens alias the canonical --app-* tokens above.
+ * These tokens alias the canonical design tokens defined below.
  * shadcn components consume these names; the actual values come
- * from the app-level design tokens.  Do NOT define independent
- * color values here — map to --app-* instead.
+ * from the canonical layer. Do NOT define independent color
+ * values here — map to canonical tokens (--surface-*, --text-*, --border-*, --accent-*, --state-*).
+ * Allowed raw primitives: --radius, --chart-*, *-foreground, --overlay.
  * ──────────────────────────────────────────────────────────────── */
 
 :root {
   --radius: 0.375rem;
 
   /* Surfaces */
-  --background: var(--app-surface-3);
-  --foreground: var(--app-text);
-  --card: var(--app-surface-3);
-  --card-foreground: var(--app-text);
-  --popover: var(--app-surface-4);
-  --popover-foreground: var(--app-text);
+  --background: var(--surface-editor);
+  --foreground: var(--text-primary);
+  --card: var(--surface-editor);
+  --card-foreground: var(--text-primary);
+  --popover: var(--surface-floating);
+  --popover-foreground: var(--text-primary);
 
   /* Interactive */
-  --primary: var(--app-primary);
-  --primary-foreground: #ffffff;
-  --secondary: var(--app-hover);
-  --secondary-foreground: var(--app-text);
-  --muted: var(--app-hover);
-  --muted-foreground: var(--app-text-muted);
-  --accent: var(--app-active);
-  --accent-foreground: var(--app-text);
+  --primary: var(--accent);
+  --primary-foreground: var(--accent-foreground);
+  --secondary: var(--surface-hover);
+  --secondary-foreground: var(--text-primary);
+  --muted: var(--surface-hover);
+  --muted-foreground: var(--text-secondary);
 
   /* Semantic */
-  --destructive: var(--app-danger);
+  --destructive: var(--state-danger);
   --destructive-foreground: #ffffff;
-  --success: var(--app-success);
+  --success: var(--state-success);
   --success-foreground: #ffffff;
-  --warning: var(--app-warning);
+  --warning: var(--state-warning);
   --warning-foreground: #ffffff;
-  --info: #3b82f6;
+  --info: var(--state-info);
 
   /* Borders & focus */
-  --border: var(--app-border);
-  --input: var(--app-border);
-  --ring: var(--app-primary);
+  --border: var(--border-default);
+  --input: var(--border-default);
+  --ring: var(--accent);
   --overlay: oklch(0 0 0 / 50%);
 
-  /* Charts — no app-level equivalent, kept as primitives */
+  /* Charts — no canonical equivalent, kept as primitives */
   --chart-1: oklch(0.646 0.222 41);
   --chart-2: oklch(0.6 0.118 184);
   --chart-3: oklch(0.398 0.07 227);
@@ -126,48 +156,46 @@
   --chart-5: oklch(0.769 0.188 70);
 
   /* Sidebar */
-  --sidebar: var(--app-surface-2);
-  --sidebar-foreground: var(--app-text);
-  --sidebar-primary: var(--app-primary);
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: var(--app-hover);
-  --sidebar-accent-foreground: var(--app-text);
-  --sidebar-border: var(--app-border-subtle);
-  --sidebar-ring: var(--app-primary);
+  --sidebar: var(--surface-panel);
+  --sidebar-foreground: var(--text-primary);
+  --sidebar-primary: var(--accent);
+  --sidebar-primary-foreground: var(--accent-foreground);
+  --sidebar-accent: var(--surface-hover);
+  --sidebar-accent-foreground: var(--text-primary);
+  --sidebar-border: var(--border-subtle);
+  --sidebar-ring: var(--accent);
 }
 
 [data-theme="dark"] {
   /* Surfaces */
-  --background: var(--app-surface-3);
-  --foreground: var(--app-text);
-  --card: var(--app-surface-3);
-  --card-foreground: var(--app-text);
-  --popover: var(--app-surface-4);
-  --popover-foreground: var(--app-text);
+  --background: var(--surface-editor);
+  --foreground: var(--text-primary);
+  --card: var(--surface-editor);
+  --card-foreground: var(--text-primary);
+  --popover: var(--surface-floating);
+  --popover-foreground: var(--text-primary);
 
   /* Interactive */
-  --primary: var(--app-primary);
-  --primary-foreground: #ffffff;
-  --secondary: var(--app-hover);
-  --secondary-foreground: var(--app-text);
-  --muted: var(--app-hover);
-  --muted-foreground: var(--app-text-muted);
-  --accent: var(--app-active);
-  --accent-foreground: var(--app-text);
+  --primary: var(--accent);
+  --primary-foreground: var(--accent-foreground);
+  --secondary: var(--surface-hover);
+  --secondary-foreground: var(--text-primary);
+  --muted: var(--surface-hover);
+  --muted-foreground: var(--text-secondary);
 
   /* Semantic */
-  --destructive: var(--app-danger);
+  --destructive: var(--state-danger);
   --destructive-foreground: #ffffff;
-  --success: var(--app-success);
+  --success: var(--state-success);
   --success-foreground: #ffffff;
-  --warning: var(--app-warning);
+  --warning: var(--state-warning);
   --warning-foreground: #ffffff;
-  --info: var(--app-primary);
+  --info: var(--state-info);
 
   /* Borders & focus */
-  --border: var(--app-border);
-  --input: var(--app-border);
-  --ring: var(--app-primary);
+  --border: var(--border-default);
+  --input: var(--border-default);
+  --ring: var(--accent);
   --overlay: oklch(0 0 0 / 70%);
 
   /* Charts — primitives */
@@ -178,20 +206,23 @@
   --chart-5: #a78bfa;
 
   /* Sidebar */
-  --sidebar: var(--app-surface-2);
-  --sidebar-foreground: var(--app-text);
-  --sidebar-primary: var(--app-primary);
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: var(--app-hover);
-  --sidebar-accent-foreground: var(--app-text);
-  --sidebar-border: var(--app-border-subtle);
-  --sidebar-ring: var(--app-primary);
+  --sidebar: var(--surface-panel);
+  --sidebar-foreground: var(--text-primary);
+  --sidebar-primary: var(--accent);
+  --sidebar-primary-foreground: var(--accent-foreground);
+  --sidebar-accent: var(--surface-hover);
+  --sidebar-accent-foreground: var(--text-primary);
+  --sidebar-border: var(--border-subtle);
+  --sidebar-ring: var(--accent);
 }
 
-/* ── App-level design tokens ─────────────────────────────────── */
+/* ── Canonical design tokens ────────────────────────────────────
+ * Single source of truth for color values. Every token below is
+ * defined in BOTH :root (light) and [data-theme="dark"].
+ * ─────────────────────────────────────────────────────────────── */
 
 :root {
-  /* Layout dimensions */
+  /* Layout dimensions — the only allowed use of the --app-* prefix */
   --app-activity-bar-width: 46px;
   --app-sidebar-width: 288px;
   --app-sidebar-min-width: 250px;
@@ -204,40 +235,40 @@
   --app-agent-panel-min: 300px;
   --app-agent-panel-max: 520px;
 
-  /* Surface layers — LIGHT */
-  --app-surface-0: #f0f2f5; /* deepest background (app frame) */
-  --app-surface-1: #f5f7fa; /* navigation / activity bar */
-  --app-surface-2: #f8fafc; /* sidebar / panels */
-  --app-surface-3: #ffffff; /* editor surface (slightly elevated) */
-  --app-surface-4: #ffffff; /* elevated / popover / cards */
-
-  /* Hover / active — LIGHT */
-  --app-hover: #f1f5f9;
-  --app-active: #e2e8f0;
-
-  /* Border opacity layers — LIGHT */
-  --app-border-subtle: rgba(0, 0, 0, 0.06);
-  --app-border: rgba(0, 0, 0, 0.12);
-  --app-border-strong: rgba(0, 0, 0, 0.18);
+  /* Surfaces — LIGHT */
+  --surface-app: #f0f2f5; /* deepest background (app frame) */
+  --surface-nav: #f5f7fa; /* navigation / activity bar */
+  --surface-panel: #f8fafc; /* sidebar / panels */
+  --surface-editor: #ffffff; /* editor surface (slightly elevated) */
+  --surface-floating: #ffffff; /* elevated / popover / cards */
+  --surface-hover: #f1f5f9; /* hover background */
+  --surface-active: #e2e8f0; /* active / selected background */
 
   /* Text hierarchy — LIGHT */
-  --app-text: #0f172a;
-  --app-text-muted: #475569;
-  --app-text-dim: #94a3b8;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-tertiary: #94a3b8;
 
-  /* Shadows — LIGHT */
-  --app-shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.1);
-  --app-shadow-popover: 0 4px 24px rgba(0, 0, 0, 0.12);
+  /* Border opacity layers — LIGHT */
+  --border-subtle: rgba(0, 0, 0, 0.06);
+  --border-default: rgba(0, 0, 0, 0.12);
+  --border-strong: rgba(0, 0, 0, 0.18);
 
-  /* Primary accent */
-  --app-primary: #6366f1;
-  --app-primary-hover: #4f46e5;
-  --app-primary-soft: rgba(99, 102, 241, 0.1);
+  /* Accent (brand) — LIGHT */
+  --accent: #6366f1;
+  --accent-hover: #4f46e5;
+  --accent-soft: rgba(99, 102, 241, 0.1);
+  --accent-foreground: #ffffff;
 
-  /* Semantic */
-  --app-success: #059669;
-  --app-warning: #d97706;
-  --app-danger: #ef4444;
+  /* Semantic states — LIGHT */
+  --state-success: #059669;
+  --state-warning: #d97706;
+  --state-danger: #ef4444;
+  --state-info: #3b82f6;
+
+  /* Elevation (shadows) — LIGHT */
+  --elevation-lg: 0 8px 32px rgba(0, 0, 0, 0.1);
+  --elevation-popover: 0 4px 24px rgba(0, 0, 0, 0.12);
 
   /* Z-index layers */
   --z-base: 0;
@@ -267,40 +298,40 @@
 }
 
 [data-theme="dark"] {
-  /* Surface layers — DARK */
-  --app-surface-0: #090d14; /* deepest background (app frame) */
-  --app-surface-1: #0c121c; /* navigation / activity bar */
-  --app-surface-2: #0e131b; /* sidebar / panels */
-  --app-surface-3: #10151d; /* editor surface (slightly elevated) */
-  --app-surface-4: #151d2e; /* elevated / popover / cards */
-
-  /* Hover / active — DARK */
-  --app-hover: rgba(148, 163, 184, 0.06);
-  --app-active: rgba(148, 163, 184, 0.1);
-
-  /* Border opacity layers — DARK */
-  --app-border-subtle: rgba(148, 163, 184, 0.08);
-  --app-border: rgba(148, 163, 184, 0.14);
-  --app-border-strong: rgba(148, 163, 184, 0.22);
+  /* Surfaces — DARK */
+  --surface-app: #090d14; /* deepest background (app frame) */
+  --surface-nav: #0c121c; /* navigation / activity bar */
+  --surface-panel: #0e131b; /* sidebar / panels */
+  --surface-editor: #10151d; /* editor surface (slightly elevated) */
+  --surface-floating: #151d2e; /* elevated / popover / cards */
+  --surface-hover: rgba(148, 163, 184, 0.06); /* hover background */
+  --surface-active: rgba(148, 163, 184, 0.1); /* active / selected background */
 
   /* Text hierarchy — DARK */
-  --app-text: #e6edf7;
-  --app-text-muted: #93a4ba;
-  --app-text-dim: #66778f;
+  --text-primary: #e6edf7;
+  --text-secondary: #93a4ba;
+  --text-tertiary: #66778f;
 
-  /* Shadows — DARK */
-  --app-shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.55);
-  --app-shadow-popover: 0 4px 24px rgba(0, 0, 0, 0.5);
+  /* Border opacity layers — DARK */
+  --border-subtle: rgba(148, 163, 184, 0.08);
+  --border-default: rgba(148, 163, 184, 0.14);
+  --border-strong: rgba(148, 163, 184, 0.22);
 
-  /* Primary accent — DARK */
-  --app-primary: #5b7cff;
-  --app-primary-hover: #6d8aff;
-  --app-primary-soft: rgba(91, 124, 255, 0.14);
+  /* Accent (brand) — DARK */
+  --accent: #5b7cff;
+  --accent-hover: #6d8aff;
+  --accent-soft: rgba(91, 124, 255, 0.14);
+  --accent-foreground: #ffffff;
 
-  /* Semantic — DARK */
-  --app-success: #39d98a;
-  --app-warning: #f5b942;
-  --app-danger: #f05d6f;
+  /* Semantic states — DARK */
+  --state-success: #39d98a;
+  --state-warning: #f5b942;
+  --state-danger: #f05d6f;
+  --state-info: var(--accent);
+
+  /* Elevation (shadows) — DARK */
+  --elevation-lg: 0 8px 32px rgba(0, 0, 0, 0.55);
+  --elevation-popover: 0 4px 24px rgba(0, 0, 0, 0.5);
 }
 
 /* ── Base styles ─────────────────────────────────────────────── */

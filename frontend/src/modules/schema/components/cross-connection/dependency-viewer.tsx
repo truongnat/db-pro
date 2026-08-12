@@ -32,7 +32,7 @@ export function DependencyViewer({ connectionId }: DependencyViewerProps) {
   if (!connectionId) {
     return (
       <div className="flex items-center justify-center py-12">
-        <p className="text-[var(--app-text-muted)]">{t("schema.connectFirst")}</p>
+        <p className="text-[var(--text-secondary)]">{t("schema.connectFirst")}</p>
       </div>
     );
   }
@@ -44,13 +44,13 @@ export function DependencyViewer({ connectionId }: DependencyViewerProps) {
           value={schema}
           onChange={(e) => setSchema(e.target.value)}
           placeholder={t("schema.crossConn.schemaName")}
-          className="rounded-sm border border-[var(--app-border)] px-3 py-2 text-sm text-foreground"
+          className="rounded-sm border border-[var(--border-default)] px-3 py-2 text-sm text-foreground"
         />
         <Input
           value={objectName}
           onChange={(e) => setObjectName(e.target.value)}
           placeholder={t("schema.crossConn.objectName")}
-          className="rounded-sm border border-[var(--app-border)] px-3 py-2 text-sm text-foreground"
+          className="rounded-sm border border-[var(--border-default)] px-3 py-2 text-sm text-foreground"
         />
         <Button
           type="button"
@@ -68,33 +68,33 @@ export function DependencyViewer({ connectionId }: DependencyViewerProps) {
       )}
 
       {deps && deps.length === 0 && (
-        <p className="text-sm text-[var(--app-text-muted)]">{t("schema.crossConn.noDeps")}</p>
+        <p className="text-sm text-[var(--text-secondary)]">{t("schema.crossConn.noDeps")}</p>
       )}
 
       {deps && deps.length > 0 && (
-        <div className="rounded-sm border border-[var(--app-border)]">
+        <div className="rounded-sm border border-[var(--border-default)]">
           <Table className="w-full text-sm">
             <TableHeader>
               <TableRow className="bg-background">
-                <TableHead className="px-3 py-2 text-left font-medium text-[var(--app-text-muted)]">
+                <TableHead className="px-3 py-2 text-left font-medium text-[var(--text-secondary)]">
                   {t("schema.crossConn.object")}
                 </TableHead>
-                <TableHead className="px-3 py-2 text-left font-medium text-[var(--app-text-muted)]">
+                <TableHead className="px-3 py-2 text-left font-medium text-[var(--text-secondary)]">
                   {t("schema.crossConn.dependsOn")}
                 </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {deps.map((dep, i) => (
-                <TableRow key={i} className="border-t border-[var(--app-border-subtle)]">
+                <TableRow key={i} className="border-t border-[var(--border-subtle)]">
                   <TableCell className="px-3 py-2">
-                    <span className="rounded px-1.5 py-0.5 text-xs bg-background text-[var(--app-text-muted)]">
+                    <span className="rounded px-1.5 py-0.5 text-xs bg-background text-[var(--text-secondary)]">
                       {dep.objectType}
                     </span>
                     <span className="ml-2 text-foreground">{dep.objectName}</span>
                   </TableCell>
                   <TableCell className="px-3 py-2">
-                    <span className="rounded px-1.5 py-0.5 text-xs bg-background text-[var(--app-text-muted)]">
+                    <span className="rounded px-1.5 py-0.5 text-xs bg-background text-[var(--text-secondary)]">
                       {dep.dependsOnType}
                     </span>
                     <span className="ml-2 text-foreground">{dep.dependsOnName}</span>

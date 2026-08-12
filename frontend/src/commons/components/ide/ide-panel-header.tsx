@@ -20,7 +20,7 @@ export function IdePanelHeader({
   return (
     <div
       className={cn(
-        "flex shrink-0 items-center gap-2 border-b border-[var(--app-border-subtle)] px-3 py-2",
+        "flex shrink-0 items-center gap-2 border-b border-[var(--border-subtle)] px-3 py-2",
         className,
       )}
     >
@@ -28,7 +28,7 @@ export function IdePanelHeader({
       <div className="min-w-0 flex-1">
         <div className="truncate text-[13px] font-medium text-foreground">{title}</div>
         {subtitle && (
-          <div className="truncate text-[11px] text-[var(--app-text-dim)]">{subtitle}</div>
+          <div className="truncate text-[11px] text-[var(--text-tertiary)]">{subtitle}</div>
         )}
       </div>
       {actions && <div className="flex shrink-0 items-center gap-1">{actions}</div>}

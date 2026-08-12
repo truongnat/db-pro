@@ -70,7 +70,7 @@ export function GenerateCrud({ connectionId, schema, table, columns }: GenerateC
       </div>
 
       <pre
-        className="overflow-auto rounded-sm border border-[var(--app-border-subtle)] p-3 font-mono text-xs leading-relaxed text-foreground bg-muted"
+        className="overflow-auto rounded-sm border border-[var(--border-subtle)] p-3 font-mono text-xs leading-relaxed text-foreground bg-muted"
         style={{ maxHeight: "300px" }}
       >
         <code>{sql}</code>

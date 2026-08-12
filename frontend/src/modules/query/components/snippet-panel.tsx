@@ -39,7 +39,7 @@ export function SnippetPanel({ onInsertSnippet }: SnippetPanelProps) {
   return (
     <div className="flex h-full flex-col">
       {/* Search & add toolbar */}
-      <div className="flex items-center gap-1 border-b border-[var(--app-border-subtle)] p-2">
+      <div className="flex items-center gap-1 border-b border-[var(--border-subtle)] p-2">
         <Input
           className="flex-1 text-xs"
           placeholder={t("query.searchSnippets")}
@@ -59,7 +59,7 @@ export function SnippetPanel({ onInsertSnippet }: SnippetPanelProps) {
 
       {/* Add snippet form */}
       {showAddForm && (
-        <div className="space-y-2 border-b border-[var(--app-border-subtle)] p-2">
+        <div className="space-y-2 border-b border-[var(--border-subtle)] p-2">
           <div className="flex gap-2">
             <Input
               className="flex-1 text-xs"
@@ -75,7 +75,7 @@ export function SnippetPanel({ onInsertSnippet }: SnippetPanelProps) {
             />
           </div>
           <textarea
-            className="w-full rounded-sm border border-[var(--app-border-subtle)] bg-background p-2 font-mono text-xs text-foreground outline-none placeholder:text-[var(--app-text-dim)]"
+            className="w-full rounded-sm border border-[var(--border-subtle)] bg-background p-2 font-mono text-xs text-foreground outline-none placeholder:text-[var(--text-tertiary)]"
             rows={3}
             placeholder={"SELECT * FROM $cursor;"}
             value={newBody}
@@ -108,7 +108,7 @@ export function SnippetPanel({ onInsertSnippet }: SnippetPanelProps) {
       <div className="flex-1 overflow-auto">
         {results.length === 0 && (
           <div className="flex items-center justify-center py-8">
-            <p className="text-sm text-[var(--app-text-muted)]">{t("common.states.empty")}</p>
+            <p className="text-sm text-[var(--text-secondary)]">{t("common.states.empty")}</p>
           </div>
         )}
         {results.map((snippet) => (
@@ -139,7 +139,7 @@ function SnippetRow({
 
   return (
     <div
-      className="group flex cursor-pointer items-start gap-2 border-b border-[var(--app-border-subtle)] px-3 py-2 transition-colors hover:bg-background"
+      className="group flex cursor-pointer items-start gap-2 border-b border-[var(--border-subtle)] px-3 py-2 transition-colors hover:bg-background"
       onClick={onSelect}
     >
       <div className="min-w-0 flex-1">
@@ -155,7 +155,7 @@ function SnippetRow({
           )}
         </div>
         <pre
-          className="mt-1 overflow-hidden text-ellipsis whitespace-pre-wrap text-[11px] text-[var(--app-text-muted)]"
+          className="mt-1 overflow-hidden text-ellipsis whitespace-pre-wrap text-[11px] text-[var(--text-secondary)]"
           style={{ maxHeight: "2.5em" }}
         >
           {snippet.body}
@@ -166,7 +166,7 @@ function SnippetRow({
           type="button"
           variant="ghost"
           size="sm"
-          className="shrink-0 rounded px-1 text-xs text-[var(--app-text-muted)] opacity-0 transition-opacity group-hover:opacity-100"
+          className="shrink-0 rounded px-1 text-xs text-[var(--text-secondary)] opacity-0 transition-opacity group-hover:opacity-100"
           onClick={(e) => {
             e.stopPropagation();
             onDelete();

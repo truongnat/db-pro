@@ -19,7 +19,7 @@ interface ObjectSectionTabsProps {
 export function ObjectSectionTabs({ activeSection, onSelect }: ObjectSectionTabsProps) {
   const { t } = useTranslation();
   return (
-    <div className="flex h-[34px] items-center border-b border-[var(--app-border-subtle)] bg-[var(--app-surface-1)]">
+    <div className="flex h-[34px] items-center border-b border-[var(--border-subtle)] bg-[var(--surface-nav)]">
       <div className="flex flex-1 overflow-x-auto">
         {OBJECT_SECTIONS.map((section) => (
           <button
@@ -27,7 +27,7 @@ export function ObjectSectionTabs({ activeSection, onSelect }: ObjectSectionTabs
             type="button"
             className={cn(
               "relative h-full shrink-0 px-3 text-[13px] font-medium transition-colors hover:text-foreground",
-              activeSection === section.id ? "text-foreground" : "text-[var(--app-text-muted)]",
+              activeSection === section.id ? "text-foreground" : "text-[var(--text-secondary)]",
             )}
             onClick={() => onSelect(section.id)}
           >
