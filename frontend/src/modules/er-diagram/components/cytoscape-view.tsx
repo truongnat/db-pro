@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef } from "react";
-import { Search, Maximize2, Table2 } from "lucide-react";
+import { Search, Maximize2, Table2, Loader2 } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,12 @@ export interface CytoscapeErViewProps {
   positions: Map<TableId, ErPosition> | null;
   /** P1-3 — true when positions came from the approximate fallback (worker unavailable). */
   degraded: boolean;
+  /**
+   * Option C — true when `positions` is the final committed layout. While
+   * false (progressive refine stages), the view applies positions in place
+   * WITHOUT re-fitting, so the user's viewport is not yanked every few frames.
+   */
+  layoutReady: boolean;
   onViewportChange: (viewport: ErViewport) => void;
   onNodeClick: (nodeId: TableId) => void;
   explorer: NeighborhoodExplorerProps;
@@ -72,6 +78,7 @@ export function CytoscapeErView({
   model,
   positions,
   degraded,
+  layoutReady,
   onViewportChange,
   onNodeClick,
   explorer,
@@ -134,26 +141,37 @@ export function CytoscapeErView({
 
     const prev = mountedRef.current;
     if (prev === null || prev.model !== model) {
-      // First mount or a new graph — mount with whatever positions exist
-      // (approximate while dagre computes, committed dagre on cache hits).
-      renderer.mount(model, positions ?? approximatePositions);
-      mountedRef.current = { model, positions: positions ?? approximatePositions };
+      // Model switch: any `positions` prop still in flight belongs to the
+      // PREVIOUS graph (the hook preserves positions across a computing
+      // transition) — never mount a new graph at stale coordinates. Start from
+      // the model-derived approximate circle; committed dagre / progressive
+      // stages arrive via the upgrade path below.
+      const mountPositions =
+        prev !== null ? approximatePositions : (positions ?? approximatePositions);
+      renderer.mount(model, mountPositions);
+      mountedRef.current = { model, positions: mountPositions };
       if (selectedRef.current) {
         renderer.updateSelection({ nodeIds: [selectedRef.current] });
       }
       return;
     }
 
-    // Already mounted on this model: upgrade to the committed dagre layout
-    // without re-mounting (no viewport reset, no element churn).
+    // Already mounted on this model: upgrade to the new positions without
+    // re-mounting (no viewport reset, no element churn). Option C — progressive
+    // refine stages apply in place without re-fitting (the user may be panning);
+    // only the final committed layout re-fits.
     if (positions && positions !== prev.positions) {
-      renderer.updatePositions(positions);
+      renderer.updatePositions(positions, { fit: layoutReady });
       mountedRef.current = { model, positions };
       if (selectedRef.current) {
         renderer.updateSelection({ nodeIds: [selectedRef.current] });
       }
     }
-  }, [model, positions, approximatePositions]);
+  }, [model, positions, approximatePositions, layoutReady]);
+
+  // Option C — surface a subtle "refining" hint while the worker posts
+  // progressive stages (layout improving, dagre not committed yet).
+  const refining = positions !== null && !layoutReady && !degraded;
 
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
@@ -188,6 +206,12 @@ export function CytoscapeErView({
         <div className="pointer-events-auto">
           <NeighborhoodExplorer {...explorer} />
         </div>
+        {refining && (
+          <div className="pointer-events-auto flex items-center gap-1.5 rounded-md border border-sky-500/40 bg-sky-500/10 px-2 py-1 text-[11px] text-sky-600">
+            <Loader2 className="h-3 w-3 animate-spin" />
+            Refining layout…
+          </div>
+        )}
         {degraded && (
           <div className="pointer-events-auto rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-[11px] text-amber-600">
             Approximate layout — layout worker unavailable

@@ -187,9 +187,14 @@ export class CytoscapeErRenderer implements ErRenderer {
   /**
    * P1-1 — swap in a new full position set without re-mounting (async layout
    * upgrade). Only nodes that already exist are moved; the graph structure is
-   * untouched, then we re-fit so the new layout fills the view.
+   * untouched.
+   *
+   * Option C — `fit: false` for progressive refine stages: the user may be
+   * panning/zooming while the layout improves, and re-fitting on every stage
+   * would yank the viewport. Only the final commit (or an explicit call)
+   * re-fits.
    */
-  updatePositions(positions: Map<TableId, ErPosition>): void {
+  updatePositions(positions: Map<TableId, ErPosition>, options?: { fit?: boolean }): void {
     // Batch: a per-node `position()` loop at 1000 tables would trigger one
     // layout/render pass per mutation; cy.batch() coalesces them into one.
     this.cy.batch(() => {
@@ -198,7 +203,9 @@ export class CytoscapeErRenderer implements ErRenderer {
         if (node.nonempty()) node.position({ x: pos.x, y: pos.y });
       }
     });
-    this.cy.fit(undefined, 40);
+    if (options?.fit !== false) {
+      this.cy.fit(undefined, 40);
+    }
     this.onViewportChange?.(this.readViewport());
   }
 

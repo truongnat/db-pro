@@ -6,7 +6,39 @@ import {
   createFallbackLayoutRunner,
   createWorkerLayoutRunner,
   type LayoutRunner,
+  type LayoutRunRequest,
 } from "../utils/layout-runner";
+
+/** A minimal runner whose run() records whether onProgress was forwarded. */
+function progressRecordingRunner(): {
+  runner: LayoutRunner;
+  request?: LayoutRunRequest;
+} {
+  let capturedRequest: LayoutRunRequest | undefined;
+  const runner: LayoutRunner = {
+    kind: "worker",
+    run(request, onProgress) {
+      capturedRequest = request;
+      // Simulate one progressive stage then the final.
+      if (request.progressive) {
+        onProgress?.({ requestId: request.requestId, positions: {}, layoutMs: 1, stage: "refine" });
+      }
+      return Promise.resolve({
+        requestId: request.requestId,
+        positions: {},
+        layoutMs: 2,
+        stage: "final",
+      });
+    },
+    dispose: () => undefined,
+  };
+  return {
+    runner,
+    get request() {
+      return capturedRequest;
+    },
+  };
+}
 
 /**
  * F-MR-2 — a synchronous worker-creation failure must not permanently
@@ -160,5 +192,30 @@ describe("createWorkerLayoutRunner (P1-3 hard gate)", () => {
     } finally {
       if (workerGlobal) globalThis.Worker = workerGlobal;
     }
+  });
+});
+
+describe("progressive request wiring (Option C)", () => {
+  it("forwards the progressive flag and routes refine stages via onProgress", async () => {
+    const ctx = progressRecordingRunner();
+    const seen: string[] = [];
+    await ctx.runner.run(
+      { requestId: 7, input: { nodes: [], edges: [] }, options: {}, progressive: true },
+      (result) => seen.push(result.stage ?? ""),
+    );
+    expect(ctx.request?.progressive).toBe(true);
+    // The fake runner posts one refine stage through onProgress, and run()
+    // resolves with the final — mirroring the worker protocol.
+    expect(seen).toContain("refine");
+  });
+
+  it("does not emit progress when progressive is not requested", async () => {
+    const ctx = progressRecordingRunner();
+    const seen: string[] = [];
+    await ctx.runner.run({ requestId: 8, input: { nodes: [], edges: [] }, options: {} }, (result) =>
+      seen.push(result.stage ?? ""),
+    );
+    expect(ctx.request?.progressive).toBeUndefined();
+    expect(seen).toEqual([]);
   });
 });

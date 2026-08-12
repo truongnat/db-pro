@@ -154,6 +154,21 @@ External review of the merged branch (PR #12 at `db781ef`) verified every findin
 
 **Resolution:** (a) `__tests__/cytoscape-renderer.test.ts` — real renderer + real cytoscape in headless mode (no canvas needed): mount, positions, theme, selection, updatePositions; (b) `bench/er-renderer-runtime.html` + `bench/build-er-renderer-runtime.mjs` — esbuild bundle of the **real app renderer + approximate layout** (cytoscape included) run in real Chrome via the CDP runner: 6/6 checks PASS at 500 and 1000 tables, 0 console errors, TTD 230/354 ms. Screenshots `bench/er-runtime-{500,1000}.png`.
 
+## F-OC-1: Layout quality gap between first paint and dagre final (Option C, RESOLVED)
+
+**Evidence:** P1-1 delivered time-to-diagram <1 s (approximate circle) but the user then stared at that bare circle for the full dagre wait — **8,110 ms @500 / 122,084 ms @1000** (P1.8). The shell was interactive, but the *diagram quality* was flat for up to two minutes. The review's Option C target: paint <1 s, then **better layout asynchronously** — not one giant dagre jump.
+
+**Resolution:** `utils/force-refine.ts` — deterministic Fruchterman-Reingold refinement (uniform-grid repulsion, spring attraction, re-centering; O(N·density + E) per pass). The layout worker (`er-layout.worker.ts`) now posts a sequence of **complete, stable** position sets: circle → 30 FR passes (posting every 6) → dagre final. Every stage is a full atomic commit — the locked "no unstable positions" rule is preserved (never partial streams). `useWorkerLayout` gains `{ progressive }` (gated to the large-schema overview: `nodeCount ≥ PROGRESSIVE_MIN_NODES = 120`); progressive stages update `positions` + `refining: true` but are NEVER cached (they are not dagre output for the hash). The renderer's `updatePositions(positions, { fit })` applies refine stages WITHOUT re-fitting (no viewport yank while the user pans); only the final commits re-fit. View shows a subtle "Refining layout…" hint.
+
+**Runtime evidence (real renderer, real browser, CDP):**
+
+| Scale | First stage | 30 passes total | Mean edge before → after | Stages (monotonic) |
+|---|---|---|---|---|
+| 500 tables | ~50 ms | **153 ms** | 2145 → 524 (**−75%**) | 2145 → 1186 → 714 → 562 → 531 → 524 |
+| 1000 tables | **66 ms** | **321–366 ms** | 3132 → 926 (**−70%**) | 3132 → … → 926 |
+
+First refined stage lands ~50–70 ms after paint; full refinement ~0.15–0.37 s — while dagre still computes for 8–122 s. All 30 passes run in the layout WORKER (never on the UI thread), so even a loaded-machine run (1,165 ms total once) does not affect UX. Tests: `force-refine.test.ts` (10: completeness, determinism, edge-length improvement ≥25%, cluster separation, <1 s @1000, k invariants) + `use-worker-layout.test.ts` (+2: progressive flag forwarding + no-progress-when-off). Code review found + fixed a model-switch regression (the view could mount a new graph at the previous graph's in-flight positions — mounts now always start from the approximate circle on model change). Gates: **1,457 FE tests** (125 files), tsc 0, lint/prettier/check:tokens clean, build OK (worker chunk +2.2 kB).
+
 ## F7: Large-schema ER rendering architecture does not scale (P1)
 
 **Evidence:** At 500 tables the diagram feeds ~500 `TableNode` components (up to 7,500 column rows) into React reconciliation simultaneously. The current LOD tiers (P3.5) switch content inside one component via conditional rendering — the render tree is a single path, not a per-LOD component switch — and React Flow's `onlyRenderVisibleElements` is not enabled, so off-viewport nodes still mount. Every edge keeps labels, markers, and smoothstep paths at every zoom. Dagre layout runs on the main thread with no cache.

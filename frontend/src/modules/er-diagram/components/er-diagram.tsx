@@ -289,8 +289,9 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
   // Build a plain (worker-serializable) layout input, run dagre in the Worker
   // (cache-first by content hash), and commit positions atomically when the
   // result lands. The UI stays interactive meanwhile and shows an "Arranging
-  // N tables…" overlay (locked: no fake progressive layout — positions only
-  // appear once stable).
+  // N tables…" overlay (locked: no UNSTABLE positions — every commit is a
+  // full, stable set; Option C adds complete force-refined stages, never
+  // partial streams).
   //
   // P1-2 — the input geometry follows the RENDERER, not a single hardcoded
   // card size. The canvas overview lays out compact 160×28 nodes (its actual
@@ -329,7 +330,14 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
     [layoutDirection, useCytoscapeForOverview],
   );
 
-  const layout = useWorkerLayout(layoutInput, layoutOptions);
+  // Option C — the large-schema overview requests progressive force-refined
+  // stages: the canvas paints the approximate circle in <1 s, then the worker
+  // posts progressively better position sets (complete + stable, never cached)
+  // while dagre computes the final. React Flow paths stay on the single atomic
+  // commit (dagre is fast there — refinement would just add noise).
+  const layout = useWorkerLayout(layoutInput, layoutOptions, {
+    progressive: useCytoscapeForOverview,
+  });
 
   // Record the layout duration for the P1.1 HUD (now the worker's dagre time;
   // no main-thread block).
@@ -700,8 +708,9 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
         >
           <CytoscapeErView
             model={graphModel}
-            positions={layout.status === "ready" ? layout.positions : null}
+            positions={layout.positions}
             degraded={layout.degraded}
+            layoutReady={layout.status === "ready"}
             onViewportChange={onCytoscapeViewportChange}
             onNodeClick={onCytoscapeNodeClick}
             explorer={{

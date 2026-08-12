@@ -66,6 +66,17 @@
 - [x] **6.10** P1.9 Canvas decision — hybrid LANDED: `ErRenderer` abstraction (renderer/types.ts) + `er-graph-model` (pure domain) + `CytoscapeErRenderer` (canvas, selection→neighborhood highlight) mounted for large-schema "All N tables" overview; React Flow keeps ≤threshold + neighborhood/landing modes. Benchmark-verified against the real app source (see VERIFICATION.md): 18 DOM elements + ~60 fps overview pan at 500 AND 1,000 tables (vs React Flow 6,143/11,817 DOM and 34/18.6 fps)
 - [x] **6.11** Complexity score replaces hardcoded thresholds — `computeSchemaComplexity` (tables + relations×0.7 + columns×0.08) + `classifySchemaComplexity` (S/M/L/XL) in er-graph-model.ts; `LARGE_SCHEMA_THRESHOLD=200` removed from er-diagram.tsx, `isLargeSchema = tier ∈ {L, XL}` derived from `graphModel.stats`. Boundaries tuned from P1.8 evidence: A100(310.4)→M, A500(1,802.5)→L, A1000(3,765.2)→XL. 6 unit tests (formula, fixture scores, boundaries, lean-medium stays M).
 
+## Option C — progressive layout quality (2026-08-12)
+
+- [x] **OC-1** `utils/force-refine.ts` — deterministic Fruchterman-Reingold (uniform-grid repulsion, spring attraction, re-center); pure + worker-safe; `computeOptimalDistance` + `meanEdgeLength` quality metric
+- [x] **OC-2** Worker protocol — `er-layout.worker.ts` posts `stage: "refine"` sets (30 passes, every 6) then `stage: "final"` (dagre); every stage is a full stable set (no partial streams — the locked atomic-commit contract is preserved)
+- [x] **OC-3** Hook — `useWorkerLayout(input, options, { progressive })`; progressive stages update `positions` + `refining: true`, never cached, gated at `PROGRESSIVE_MIN_NODES = 120`; fallbacks ignore onProgress
+- [x] **OC-4** Renderer/view — `updatePositions(positions, { fit })`: refine stages apply without re-fit (no viewport yank while panning), final commits re-fit; "Refining layout…" hint; only the large-schema overview requests progressive
+- [x] **OC-5** Tests — `force-refine.test.ts` (10: determinism, completeness, ≥25% edge-length improvement, cluster separation, <1 s @1000) + `use-worker-layout.test.ts` (+2 progressive wiring)
+- [x] **OC-6** Runtime evidence — CDP harness (real renderer): 500 → first stage ~50 ms / 153 ms total, mean edge 2145→524 (−75%); 1000 → **first stage 66 ms** / 321–366 ms total, 3132→926 (−70%); monotonic stages
+- [x] **OC-7** Review fix — model-switch mounts always start from the approximate circle (never the previous graph's in-flight positions; RF direction-toggle behavior preserved)
+- [x] **OC-8** Gates — **1,457 FE tests** (125 files), tsc 0, lint/prettier/check:tokens clean, build OK (worker chunk +2.2 kB)
+
 ## PR#12 review round (P1-1 … P2-2, 2026-08-12)
 
 - [x] **R-1 (P1)** Overview paints without waiting for dagre — fast approximate layout (`utils/approximate-layout.ts`, O(T+E), ~1ms @1000) + `ErRenderer.updatePositions` async upgrade (no re-mount); view mounts on first positions, not `layoutStatus === "ready"`. TTD runtime evidence: **230ms @500 / 354ms @1000** (CDP, real renderer)

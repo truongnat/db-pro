@@ -31,7 +31,10 @@ async function main() {
   writeFileSync(
     tmpEntry,
     `export { CytoscapeErRenderer } from ${JSON.stringify(entry)};\n` +
-      `export { computeApproximateOverviewLayout } from ${JSON.stringify(approx)};\n`,
+      `export { computeApproximateOverviewLayout } from ${JSON.stringify(approx)};\n` +
+      `export { refinePositions, meanEdgeLength, computeOptimalDistance, PROGRESSIVE_MIN_NODES } from ${JSON.stringify(
+        join(root, "frontend/src/modules/er-diagram/utils/force-refine.ts"),
+      )};\n`,
   );
 
   await build({

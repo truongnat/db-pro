@@ -2,11 +2,13 @@ import { useEffect, useMemo, useState } from "react";
 import type { LayoutInput, LayoutOptions, LayoutPosition } from "../utils/layout";
 import { computeLayoutHash } from "../utils/layout-hash";
 import { LayoutCache } from "../utils/layout-cache";
+import { PROGRESSIVE_MIN_NODES } from "../utils/force-refine";
 import {
   createApproximateLayoutRunner,
   createFallbackLayoutRunner,
   createWorkerLayoutRunner,
   type LayoutRunner,
+  type LayoutRunRequest,
   type LayoutRunResult,
 } from "../utils/layout-runner";
 
@@ -27,6 +29,12 @@ export interface WorkerLayoutState {
    */
   degraded: boolean;
   error: string | null;
+  /**
+   * Option C — true while the worker is posting progressive force-refined
+   * stages (the layout is improving but dagre has not committed yet). Hosts
+   * may show a "refining…" hint and must NOT treat positions as final.
+   */
+  refining: boolean;
 }
 
 /**
@@ -44,6 +52,7 @@ const IDLE_STATE: WorkerLayoutState = {
   nodeCount: 0,
   fromCache: false,
   degraded: false,
+  refining: false,
   error: null,
 };
 
@@ -123,9 +132,19 @@ let requestSeq = 0;
  * - The commit is atomic by construction — a single `setState` with the full
  *   position Map; the component applies it in one pass.
  */
+export interface WorkerLayoutOptions {
+  /**
+   * Option C — request progressive force-refined stages before the final.
+   * Only meaningful for large-schema overviews (dagre is 8–122 s there); small
+   * graphs get dagre fast enough that refinement would just add noise.
+   */
+  progressive?: boolean;
+}
+
 export function useWorkerLayout(
   input: LayoutInput | null,
   options: LayoutOptions,
+  layoutOptions: WorkerLayoutOptions = {},
 ): WorkerLayoutState {
   const hash = useMemo(
     () => (input && input.nodes.length > 0 ? computeLayoutHash(input, options) : null),
@@ -152,6 +171,7 @@ export function useWorkerLayout(
         nodeCount: nodeIds.length,
         fromCache: true,
         degraded: false,
+        refining: false,
         error: null,
       });
       return;
@@ -163,6 +183,7 @@ export function useWorkerLayout(
       status: "computing",
       fromCache: false,
       degraded: false,
+      refining: false,
       error: null,
       nodeCount: nodeIds.length,
     }));
@@ -191,13 +212,34 @@ export function useWorkerLayout(
         nodeCount: nodeIds.length,
         fromCache: false,
         degraded,
+        refining: false,
         error: null,
       });
     };
 
+    // Option C — progressive stages: apply the improved positions in place
+    // (the view's updatePositions swaps them without re-mounting) but keep
+    // status "computing" until dagre commits. Never cached — stages are not
+    // dagre output for the hash.
+    const onProgress = (result: LayoutRunResult) => {
+      if (cancelled || result.requestId !== requestSeq) return;
+      setState((prev) => ({
+        ...prev,
+        positions: toPositionsMap(result.positions),
+        layoutMs: result.layoutMs,
+        refining: true,
+      }));
+    };
+
     const { runner, degraded: creationDegraded } = getRunner(nodeIds.length);
+    const request: LayoutRunRequest = {
+      requestId,
+      input,
+      options,
+      progressive: layoutOptions.progressive && nodeIds.length >= PROGRESSIVE_MIN_NODES,
+    };
     runner
-      .run({ requestId, input, options })
+      .run(request, onProgress)
       .then((result) => commit(result, creationDegraded))
       .catch((_err: unknown) => {
         if (cancelled || requestId !== requestSeq) return;
@@ -223,7 +265,7 @@ export function useWorkerLayout(
     return () => {
       cancelled = true;
     };
-  }, [hash, input, options]);
+  }, [hash, input, options, layoutOptions.progressive]);
 
   return state;
 }

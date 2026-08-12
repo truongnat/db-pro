@@ -115,7 +115,13 @@
   }
 
   // Exposed by the bundle (ErRuntime global).
-  const { CytoscapeErRenderer, computeApproximateOverviewLayout } = window.ErRuntime;
+  const {
+    CytoscapeErRenderer,
+    computeApproximateOverviewLayout,
+    refinePositions,
+    meanEdgeLength,
+    computeOptimalDistance,
+  } = window.ErRuntime;
 
   async function run() {
     // ---- P1-1: time-to-diagram — approximate layout paint, no dagre wait ----
@@ -138,12 +144,59 @@
     results.metrics.renderedNodes = cy.nodes().length;
     results.metrics.renderedEdges = cy.edges().length;
 
-    // ---- P1-1: async upgrade via updatePositions (no re-mount) ----
+    // ---- Option C: progressive force-directed refinement quality ----
+    // Replicates the worker's real loop (er-layout.worker.ts): circle → 30 FR
+    // passes posting every 6 → dagre final. Measures mean edge length at each
+    // stage to prove the layout gets progressively "better" while dagre computes.
+    setPhase("progressive refinement…");
+    const layoutInput = {
+      nodes: model.tables.map((t) => ({ id: t.id, width: 160, height: 28 })),
+      edges: model.relations.map((r) => ({ source: r.source, target: r.target })),
+    };
+    const kDist = computeOptimalDistance(layoutInput);
+    let refined = new Map(approx);
+    const edgeLenBefore = meanEdgeLength(layoutInput, refined);
+    const tRefine0 = performance.now();
+    let firstStageMs = 0;
+    const stageLengths = [edgeLenBefore];
+    let temperature = kDist;
+    for (let pass = 1; pass <= 30; pass++) {
+      refined = refinePositions(layoutInput, refined, {
+        iterations: 1,
+        k: kDist,
+        temperature,
+      });
+      temperature *= 0.92;
+      if (pass % 6 === 0) {
+        stageLengths.push(meanEdgeLength(layoutInput, refined));
+        if (firstStageMs === 0) firstStageMs = performance.now() - tRefine0;
+        // Apply each stage through the real renderer path (fit:false — no
+        // viewport yank on progressive stages).
+        renderer.updatePositions(refined, { fit: false });
+      }
+    }
+    results.metrics.refineTotalMs = Math.round(performance.now() - tRefine0);
+    results.metrics.firstStageMs = Math.round(firstStageMs);
+    results.metrics.meanEdgeBefore = Math.round(edgeLenBefore);
+    results.metrics.meanEdgeAfter = Math.round(stageLengths[stageLengths.length - 1]);
+    results.metrics.refineStages = stageLengths.map((l) => Math.round(l));
+    // Progressive quality: after 30 passes, connected tables must be pulled
+    // much closer than the circle (≥20% shorter mean edge). The meaningful
+    // speed promise is that the FIRST improved stage lands fast (the user sees
+    // the layout improving) — all 30 passes run in the layout WORKER, so their
+    // total wall-clock on a loaded machine does not affect the UI at all (and
+    // is still orders of magnitude under the 8 s / 122 s dagre wait it fills).
+    results.checks.progressiveImproves =
+      results.metrics.meanEdgeAfter < results.metrics.meanEdgeBefore * 0.8;
+    results.checks.progressiveFirstStageFast = results.metrics.firstStageMs < 1000;
+    results.checks.refineKeptNodes = refined.size === F.stats.tables;
+
+    // ---- P1-1: async upgrade via updatePositions (no re-mount, final fits) ----
     setPhase("async position upgrade…");
-    const upgrade = new Map(approx);
+    const upgrade = new Map(refined);
     let k = 0;
-    for (const [id] of approx) { upgrade.set(id, { x: k++ * 8, y: (k % 7) * 12 }); }
-    renderer.updatePositions(upgrade);
+    for (const [id] of refined) { upgrade.set(id, { x: k++ * 8, y: (k % 7) * 12 }); }
+    renderer.updatePositions(upgrade, { fit: true });
     const firstNode = cy.nodes()[0];
     results.checks.upgradeMovedNode = firstNode.position().x !== approx.get(firstNode.id()).x;
 
@@ -178,6 +231,17 @@
       ["Rendered nodes / edges", m.renderedNodes + " / " + m.renderedEdges, c.nodeCount && c.edgeCount],
       ["DOM elements", m.domCount, m.domCount < 200],
       ["Canvas elements", m.canvasCount, m.canvasCount >= 1],
+      [
+        "Progressive refine: mean edge " + m.meanEdgeBefore + "→" + m.meanEdgeAfter + " (Option C)",
+        c.progressiveImproves ? "PASS" : "FAIL",
+        c.progressiveImproves,
+      ],
+      [
+        "Progressive refine: first stage " + m.firstStageMs + " ms, 30 passes " + m.refineTotalMs + " ms (worker)",
+        c.progressiveFirstStageFast ? "PASS" : "FAIL",
+        c.progressiveFirstStageFast,
+      ],
+      ["Progressive refine keeps all nodes", c.refineKeptNodes ? "PASS" : "FAIL", c.refineKeptNodes],
       ["updatePositions moves node (P1-1)", c.upgradeMovedNode ? "PASS" : "FAIL", c.upgradeMovedNode],
       [
         "updateTheme repaints computed style + graph alive (P2-1)",

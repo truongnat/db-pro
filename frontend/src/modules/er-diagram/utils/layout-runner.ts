@@ -10,12 +10,16 @@ export interface LayoutRunRequest {
   requestId: number;
   input: LayoutInput;
   options: LayoutOptions;
+  /** Option C — the worker posts progressive force-refined stages before the final. */
+  progressive?: boolean;
 }
 
 export interface LayoutRunResult {
   requestId: number;
   positions: Record<string, LayoutPosition>;
   layoutMs: number;
+  /** "refine" = progressive intermediate stage (Option C); "final" = the real layout. */
+  stage?: "refine" | "final";
 }
 
 /**
@@ -26,7 +30,10 @@ export type LayoutRunnerKind = "worker" | "dagre-sync" | "approximate";
 
 export interface LayoutRunner {
   kind: LayoutRunnerKind;
-  run(request: LayoutRunRequest): Promise<LayoutRunResult>;
+  run(
+    request: LayoutRunRequest,
+    onProgress?: (result: LayoutRunResult) => void,
+  ): Promise<LayoutRunResult>;
   dispose(): void;
 }
 
@@ -49,13 +56,22 @@ export function createWorkerLayoutRunner(): LayoutRunner {
   });
   const pending = new Map<
     number,
-    { resolve: (result: LayoutRunResult) => void; reject: (error: Error) => void }
+    {
+      resolve: (result: LayoutRunResult) => void;
+      reject: (error: Error) => void;
+      onProgress?: (result: LayoutRunResult) => void;
+    }
   >();
 
   worker.onmessage = (event: MessageEvent<LayoutRunResult>) => {
     const msg = event.data;
     const entry = pending.get(msg.requestId);
     if (!entry) return; // stale response already discarded by caller
+    if (msg.stage === "refine") {
+      // Option C — progressive intermediate: forward without resolving.
+      entry.onProgress?.(msg);
+      return;
+    }
     pending.delete(msg.requestId);
     entry.resolve(msg);
   };
@@ -68,9 +84,9 @@ export function createWorkerLayoutRunner(): LayoutRunner {
 
   return {
     kind: "worker",
-    run(request) {
+    run(request, onProgress) {
       return new Promise((resolve, reject) => {
-        pending.set(request.requestId, { resolve, reject });
+        pending.set(request.requestId, { resolve, reject, onProgress });
         worker.postMessage(request);
       });
     },
