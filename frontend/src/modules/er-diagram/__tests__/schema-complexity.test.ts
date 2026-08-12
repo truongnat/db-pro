@@ -56,8 +56,8 @@ describe("classifySchemaComplexity (thresholds tuned from P1.8 evidence)", () =>
       ),
     ).toBe("M");
 
-    // A500 (1,802.5) → L: neighborhood-first landing; "All N tables" on canvas
-    // (React Flow full-graph overview drops to 34 fps).
+    // A500 (1,802.5) → L: full graph on canvas immediately (opass-style focus
+    // + highlight; React Flow full-graph overview drops to 34 fps).
     expect(
       classifySchemaComplexity(
         computeSchemaComplexity({ tables: 500, relations: 900, columns: 8406 }),

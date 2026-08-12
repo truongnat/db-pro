@@ -59,11 +59,25 @@ export interface ErViewport {
 export interface ErSelection {
   nodeIds: TableId[];
   edgeIds?: string[];
+  /**
+   * Full node set to mark as highlighted (neighbors). Computed by the host
+   * with the neighborhood utils (hop-scoped BFS), NOT re-derived from a
+   * hardcoded 1-hop inside the renderer. Omit to keep the legacy behavior
+   * (closedNeighborhood of each selected node).
+   */
+  highlightNodeIds?: TableId[];
+  /**
+   * opass-style focus: fade every non-selected, non-highlighted element to
+   * near-invisible so the neighborhood reads at a glance (large graphs).
+   */
+  fadeRest?: boolean;
 }
 
 /** Callbacks the host subscribes to; renderers fire them on user interaction. */
 export interface ErRendererCallbacks {
   onNodeClick?: (nodeId: TableId) => void;
+  /** Empty-canvas tap — clears focus/fade (opass behavior). */
+  onBackgroundTap?: () => void;
   onViewportChange?: (viewport: ErViewport) => void;
 }
 
@@ -84,6 +98,8 @@ export interface ErThemeTokens {
   edgeColor: string;
   edgeArrowColor: string;
   neighborEdgeColor: string;
+  /** Search-match marker border (opass-style red ring around matches). */
+  searchNodeBorder: string;
 }
 
 /**

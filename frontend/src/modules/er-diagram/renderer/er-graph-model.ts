@@ -100,7 +100,8 @@ export type SchemaComplexityTier = "S" | "M" | "L" | "XL";
  * renderers) against the locked fixture scores:
  *
  *   A100  = 310.4  → M  (React Flow full graph: 60 fps, 1,143 DOM — no UX)
- *   A500  = 1,802.5 → L (neighborhood-first landing; All-N on canvas)
+ *   A500  = 1,802.5 → L (full graph on canvas immediately — UX pivot: opass-style
+ *                       search focus + click neighborhood highlight)
  *   A1000 = 3,765.2 → XL (full-graph React Flow not viable: 122 s layout)
  *
  * The M/L boundary sits at 700 — headroom above A100 (310.4) so dense

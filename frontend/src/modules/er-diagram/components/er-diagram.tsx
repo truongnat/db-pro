@@ -26,7 +26,6 @@ import { Search, Maximize2, LayoutGrid, Columns2, Table2, RotateCcw, Loader2 } f
 
 import { ErTableNode, type TableNodeData } from "./lod/er-table-node";
 import { ErPerfHud } from "./er-perf-hud";
-import { NeighborhoodExplorer } from "./neighborhood-explorer";
 import {
   buildErGraphModel,
   classifySchemaComplexity,
@@ -47,13 +46,7 @@ import {
   REACT_FLOW_LAYOUT_PROFILE,
 } from "../utils/layout-profile";
 import { groupForeignKeys } from "../utils/edge-builder";
-import {
-  buildAdjacencyMap,
-  getConnectedComponent,
-  getNeighborhood,
-  suggestStartingPoints,
-  type NeighborhoodScope,
-} from "../utils/neighborhood";
+import type { NeighborhoodScope } from "../utils/neighborhood";
 import { ErPerfMonitor } from "../utils/instrumentation";
 import { resolveLod, type LodLevel } from "../utils/lod";
 import { aggregateRelations, resolveEdgeLod, type EdgeLodLevel } from "../utils/edge-lod";
@@ -61,8 +54,6 @@ import { SpatialIndex } from "../utils/spatial-index";
 
 import type { IntrospectResult } from "@/modules/schema/types/schema.types";
 import { buildErNodeIndexes, buildTableNodes } from "../renderer/er-node-builder";
-
-const SUGGESTED_POINTS_COUNT = 5;
 
 interface ErDiagramProps {
   connectionId: string;
@@ -146,9 +137,8 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
     });
   }, [compact]);
 
-  // Neighborhood mode for large schemas (P1.6 exploration UX). Memoized on
-  // the atomic introspection snapshot so dependent memos (schemaStats,
-  // suggestedPoints) keep their stable identities (pre-merge review P2 fix).
+  // Schema tables memoized on the atomic introspection snapshot so dependent
+  // memos (schemaStats) keep stable identities (pre-merge review P2 fix).
   const tablesInSchema = useMemo(
     () => data.tables.filter((t) => t.schema === schema),
     [data.tables, schema],
@@ -168,38 +158,17 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
   );
   const isLargeSchema = schemaTier === "L" || schemaTier === "XL";
 
-  const [neighborhoodSeed, setNeighborhoodSeed] = useState<string | null>(null);
-  const [showAll, setShowAll] = useState(false);
+  // UX pivot (opass.html): the FULL graph is the default experience for large
+  // schemas — no landing screen, no neighborhood gate, no filter-first flow.
+  // The hop scope below only sizes the neighborhood ring that search/click
+  // focus draws on the always-visible canvas overview.
   const [neighborhoodHops, setNeighborhoodHops] = useState<NeighborhoodScope>(2);
 
-  const adjacencyMap = useMemo(() => buildAdjacencyMap(data.foreignKeys), [data.foreignKeys]);
+  // P1.9 — every large schema renders on the canvas renderer
+  // (CytoscapeErRenderer); React Flow keeps small/medium schemas only.
+  const useCytoscapeForOverview = isLargeSchema;
 
-  // P1.9 — the explicit "All N tables" overview of a large schema renders on
-  // the canvas renderer (CytoscapeErRenderer). Landing and neighborhood modes
-  // keep React Flow (small node sets where its interaction richness wins).
-  const useCytoscapeForOverview = isLargeSchema && showAll;
-
-  // Landing = large schema, no seed yet, not showing everything: exploration
-  // mode, empty canvas (full schema is not the default experience).
-  const landing = isLargeSchema && !neighborhoodSeed && !showAll;
-
-  const neighborhoodSet = useMemo(() => {
-    if (!isLargeSchema || showAll || !neighborhoodSeed) return null;
-    if (neighborhoodHops === "domain") {
-      return getConnectedComponent(adjacencyMap, neighborhoodSeed);
-    }
-    return getNeighborhood(adjacencyMap, neighborhoodSeed, neighborhoodHops);
-  }, [isLargeSchema, showAll, neighborhoodSeed, neighborhoodHops, adjacencyMap]);
-
-  // Hub tables by FK degree — the "Suggested starting points" list.
-  const suggestedPoints = useMemo(() => {
-    if (!isLargeSchema) return [];
-    return suggestStartingPoints(adjacencyMap, tablesInSchema, SUGGESTED_POINTS_COUNT).map(
-      (key) => ({ key, label: key.slice(key.indexOf(".") + 1) }),
-    );
-  }, [isLargeSchema, adjacencyMap, tablesInSchema]);
-
-  // Schema statistics for the landing card.
+  // Schema statistics for the overview explorer.
   const schemaStats = useMemo(() => {
     const keys = new Set(tablesInSchema.map((t) => `${t.schema}.${t.name}`));
     let relations = 0;
@@ -250,15 +219,10 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
   const nodeIndexes = useMemo(() => buildErNodeIndexes(data), [data]);
 
   // Build nodes and edges from introspection data using pre-indexed maps.
-  // Landing mode renders an empty canvas (exploration panel only).
+  // React Flow renders the full schema for small/medium schemas; large
+  // schemas never reach this branch (canvas overview instead).
   const { initialNodes, initialEdges } = useMemo(() => {
-    const tables = landing
-      ? []
-      : neighborhoodSet
-        ? data.tables.filter(
-            (t) => t.schema === schema && neighborhoodSet.has(`${t.schema}.${t.name}`),
-          )
-        : data.tables.filter((tbl) => tbl.schema === schema);
+    const tables = data.tables.filter((tbl) => tbl.schema === schema);
 
     // Pure pre-indexed build (P3.3) — O(1) map lookups, no per-table scans
     // of data.columns / data.primaryKeys / data.foreignKeys.
@@ -282,7 +246,7 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
     }));
 
     return { initialNodes: nodes, initialEdges: edges };
-  }, [data, compact, schema, nodeIndexes, neighborhoodSet, landing]);
+  }, [data, compact, schema, nodeIndexes]);
 
   // P1.7 — layout off the main thread.
   //
@@ -396,21 +360,6 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
       })),
     );
   }, [selectedEdgeId, initialEdges, setEdges]);
-
-  // In large schemas, search triggers neighborhood mode
-  useEffect(() => {
-    if (!isLargeSchema) return;
-    if (!searchQuery.trim()) {
-      if (!showAll) setNeighborhoodSeed(null);
-      return;
-    }
-    const q = searchQuery.toLowerCase();
-    const match = tablesInSchema.find((t) => t.name.toLowerCase().includes(q));
-    if (match) {
-      setNeighborhoodSeed(`${match.schema}.${match.name}`);
-      setShowAll(false);
-    }
-  }, [searchQuery, isLargeSchema, tablesInSchema, showAll]);
 
   // Fit view once a new position set commits (P1.7). Keyed on the position
   // Map identity, so it fires for both the worker path (computing → ready) and
@@ -663,37 +612,13 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
     return edges;
   }, [edges, currentLod, currentEdgeLod]);
 
-  // Exploration handlers shared by both renderer views (P1.6 + P1.9).
-  const handleSelectPoint = useCallback((key: string) => {
-    // Do NOT clear searchQuery here: clearing it re-runs the search effect,
-    // which would null the seed we just set.
-    setNeighborhoodSeed(key);
-    setShowAll(false);
-  }, []);
-  const handleSelectHops = useCallback(
-    (hops: NeighborhoodScope) => {
-      // Landing: picking a hop scope auto-focuses the top hub.
-      if (landing && suggestedPoints[0]) setNeighborhoodSeed(suggestedPoints[0].key);
-      setNeighborhoodHops(hops);
-      setShowAll(false);
-    },
-    [landing, suggestedPoints],
-  );
-  const handleShowAll = useCallback(() => {
-    // Clear leftover search text so the search effect cannot match a stale
-    // term and flip showAll back off.
-    setSearchQuery("");
-    setShowAll(true);
-    setNeighborhoodSeed(null);
-  }, []);
-  const handleResetExploration = useCallback(() => {
-    setShowAll(false);
-    setNeighborhoodSeed(null);
-    setSearchQuery("");
-    setNeighborhoodHops(2);
+  // Highlight hop radius for the canvas overview (opass-style neighborhood
+  // ring). The full graph stays visible; only the ring size changes.
+  const handleHighlightHops = useCallback((hops: NeighborhoodScope) => {
+    setNeighborhoodHops(hops);
   }, []);
 
-  const showMiniMap = !landing && initialNodes.length <= 200;
+  const showMiniMap = initialNodes.length <= 200;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col" ref={reactFlowRef}>
@@ -717,14 +642,8 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
               totalTables: tablesInSchema.length,
               relationCount: schemaStats.relations,
               columnCount: schemaStats.columns,
-              suggestedPoints,
-              seedLabel: null,
               hops: neighborhoodHops,
-              showAll: true,
-              onSelectPoint: handleSelectPoint,
-              onSelectHops: handleSelectHops,
-              onShowAll: handleShowAll,
-              onReset: handleResetExploration,
+              onSelectHops: handleHighlightHops,
             }}
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
@@ -822,25 +741,6 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
                   </Badge>
                 )}
               </div>
-              {isLargeSchema && (
-                <NeighborhoodExplorer
-                  totalTables={tablesInSchema.length}
-                  relationCount={schemaStats.relations}
-                  columnCount={schemaStats.columns}
-                  suggestedPoints={suggestedPoints}
-                  seedLabel={
-                    neighborhoodSeed
-                      ? neighborhoodSeed.slice(neighborhoodSeed.indexOf(".") + 1)
-                      : null
-                  }
-                  hops={neighborhoodHops}
-                  showAll={showAll}
-                  onSelectPoint={handleSelectPoint}
-                  onSelectHops={handleSelectHops}
-                  onShowAll={handleShowAll}
-                  onReset={handleResetExploration}
-                />
-              )}
             </div>
           </Panel>
 

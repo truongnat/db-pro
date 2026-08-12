@@ -77,6 +77,14 @@
 - [x] **OC-7** Review fix — model-switch mounts always start from the approximate circle (never the previous graph's in-flight positions; RF direction-toggle behavior preserved)
 - [x] **OC-8** Gates — **1,457 FE tests** (125 files), tsc 0, lint/prettier/check:tokens clean, build OK (worker chunk +2.2 kB)
 
+## UX pivot — full graph default (opass.html reference, 2026-08-12)
+
+- [x] **UX-1** Large schemas open on the FULL canvas graph immediately — removed the landing/search-first flow: `useCytoscapeForOverview = isLargeSchema` (no `showAll` gate), no empty-canvas landing, no neighborhood React Flow mode, no suggested starting points, no "All N tables" escape hatch
+- [x] **UX-2** Search = focus + highlight (opass), never filter — `utils/overview-search.ts` (pure `findTableMatches` + `resolveHighlightSet`); `highlightSearch` rings matches (`searched` red border) + centers the viewport (400ms); a single match also focuses its neighborhood; empty query / Escape clears ring + fade
+- [x] **UX-3** Click a table → fade the rest (`faded` opacity 0.1) + highlight the hop-scoped neighborhood (`highlighted` ring/edges) — `ErSelection` gains `highlightNodeIds` (host-computed exact set) + `fadeRest`; background tap clears; renderer API stays backward-compatible
+- [x] **UX-4** Overview explorer slimmed — `neighborhood-explorer.tsx` → `overview-explorer.tsx` (schema stats + [1 hop][2 hops][3 hops][Domain] highlight radius only)
+- [x] **UX-5** Tests + runtime evidence — `overview-search.test.ts` (10), `cytoscape-renderer.test.ts` (+4: fade/highlight, clearSelection vs rings, ring replace/clear, background tap), CDP harness +4 checks @500/1000; **160 ER tests green**
+
 ## PR#12 review round (P1-1 … P2-2, 2026-08-12)
 
 - [x] **R-1 (P1)** Overview paints without waiting for dagre — fast approximate layout (`utils/approximate-layout.ts`, O(T+E), ~1ms @1000) + `ErRenderer.updatePositions` async upgrade (no re-mount); view mounts on first positions, not `layoutStatus === "ready"`. TTD runtime evidence: **230ms @500 / 354ms @1000** (CDP, real renderer)

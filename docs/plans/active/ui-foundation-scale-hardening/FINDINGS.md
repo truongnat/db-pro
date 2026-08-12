@@ -182,3 +182,20 @@ First refined stage lands ~50–70 ms after paint; full refinement ~0.15–0.37 
 **Scope:** smallest coherent fix — this session delivers P1.1 (runtime instrumentation) + P1.2 (`onlyRenderVisibleElements` + MiniMap policy). Remaining P1.3–P1.9 tracked in CHECKLIST Phase 6.
 
 **Provider impact:** frontend-only; PostgreSQL/SQLite introspection unchanged.
+
+## F-UX-1: Large-schema landing/search-first UX was backwards (P1, RESOLVED — UX pivot)
+
+**Evidence:** P1.6 shipped a "landing" UX for large schemas: empty canvas + suggested starting points + hop selector + explicit "All N tables" escape hatch; search switched the graph into a filtered neighborhood React Flow view. The user rejected this against the reference implementation (`opass.html`): "nó phải show hết ra chứ méo ai đi để filter như vậy". opass opens the FULL graph on the canvas immediately (fCoSE) and treats search as **focus**, not filter — type to ring + center on matches, click a table to fade the rest and highlight its neighborhood.
+
+**Failure scenario:** A developer opening a 500-table schema saw a stats card instead of the schema, had to discover a "Show all 500 tables" button, and search kicked them OUT of the overview into a filtered React Flow subgraph — exactly backwards from how ERD tools (opass, dbdiagram, DataGrip) behave.
+
+**Severity:** P1 — the primary large-schema flow was unusable-by-default.
+
+**Resolution (locked 2026-08-12, opass.html as reference):**
+- **Full graph is the default.** `useCytoscapeForOverview = isLargeSchema` (the `showAll` gate, `landing`, `neighborhoodSeed`, suggested points, and the neighborhood React Flow mode are deleted). Large schemas open on the canvas with every table visible — the P1.7/P1-1/Option C pipeline (approximate paint <1s → progressive refine → dagre final) is untouched.
+- **Search = focus + highlight.** `utils/overview-search.ts` (pure): `findTableMatches` (id/label, case-insensitive) + `resolveHighlightSet` (hop-scoped BFS over the model adjacency, `domain` = connected component). Renderer: `highlightSearch` rings matches (`searched` red border) + animates center/zoom (opass 400ms); a single match also focuses its neighborhood. Empty query / Escape clears.
+- **Click = fade + highlight.** `ErSelection` gains `highlightNodeIds` (exact host-computed set — no renderer-side re-derivation) + `fadeRest`; renderer fades everything outside the focus set (`faded` opacity 0.1) and highlights in-set edges. Background tap clears (opass `clearHighlight`).
+- **Hop radius control.** `overview-explorer.tsx` (replaces `neighborhood-explorer.tsx`): schema stats + [1 hop][2 hops][3 hops][Domain] highlight radius. No more "All N tables" toggle.
+- **Invariant preserved:** the full graph is ALWAYS mounted; search/click only add classes + move the viewport. Renderer API stays backward-compatible (`updateSelection` without the new fields = legacy closedNeighborhood behavior).
+
+**Runtime evidence:** `overview-search.test.ts` (10) + `cytoscape-renderer.test.ts` (+4: fade/highlight, clearSelection vs rings, ring replace/clear, background tap) + CDP harness (+4 checks at 500 & 1000: focus fades rest, search rings + clear, focus clear). All 160 ER tests green.

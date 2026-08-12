@@ -160,4 +160,112 @@ describe("CytoscapeErRenderer — real cytoscape (headless)", () => {
     expect(bb.x2).toBeGreaterThanOrEqual(200);
     renderer.dispose();
   });
+
+  it("updateSelection with highlightNodeIds + fadeRest fades the rest (opass focus)", () => {
+    const renderer = makeRenderer();
+    const model = buildModel(5); // chain t0-t1-t2-t3-t4
+    renderer.mount(model, positionsOf("t0", "t1", "t2", "t3", "t4"));
+
+    const cy = renderer.getCy();
+    // Focus t2, highlight neighbor t1, fade everything outside {t2, t1}.
+    renderer.updateSelection({
+      nodeIds: ["t2"],
+      highlightNodeIds: ["t1"],
+      fadeRest: true,
+    });
+
+    expect(cy.getElementById("t2").hasClass("selected")).toBe(true);
+    expect(cy.getElementById("t1").hasClass("highlighted")).toBe(true);
+    // t0, t3, t4 are outside the focus set → faded.
+    expect(cy.getElementById("t0").hasClass("faded")).toBe(true);
+    expect(cy.getElementById("t3").hasClass("faded")).toBe(true);
+    expect(cy.getElementById("t4").hasClass("faded")).toBe(true);
+    // Edges within the focus set are highlighted; edges touching it stay
+    // unfaded; edges between two faded nodes are faded.
+    expect(cy.getElementById("r1").hasClass("highlighted")).toBe(true); // t1-t2
+    expect(cy.getElementById("r0").hasClass("faded")).toBe(false); // t0-t1 touches t1
+    expect(cy.getElementById("r2").hasClass("faded")).toBe(false); // t2-t3 touches t2
+    expect(cy.getElementById("r3").hasClass("faded")).toBe(true); // t3-t4: both faded
+
+    // Re-select elsewhere clears the old highlight + fade.
+    renderer.updateSelection({ nodeIds: ["t0"], highlightNodeIds: ["t1"], fadeRest: true });
+    expect(cy.getElementById("t2").hasClass("selected")).toBe(false);
+    expect(cy.getElementById("t2").hasClass("faded")).toBe(true);
+    expect(cy.getElementById("t0").hasClass("faded")).toBe(false);
+    renderer.dispose();
+  });
+
+  it("fadeRest without highlightNodeIds keeps legacy neighbors unfaded (reviewer P2)", () => {
+    const renderer = makeRenderer();
+    const model = buildModel(4);
+    renderer.mount(model, positionsOf("t0", "t1", "t2", "t3"));
+
+    const cy = renderer.getCy();
+    // Legacy path (no highlightNodeIds) + fadeRest: the closedNeighborhood
+    // neighbors must be part of the keep set, never faded.
+    renderer.updateSelection({ nodeIds: ["t1"], fadeRest: true });
+    expect(cy.getElementById("t1").hasClass("neighbor")).toBe(true);
+    expect(cy.getElementById("t0").hasClass("faded")).toBe(false);
+    expect(cy.getElementById("t2").hasClass("faded")).toBe(false);
+    expect(cy.getElementById("t3").hasClass("faded")).toBe(true);
+    renderer.dispose();
+  });
+
+  it("clearSelection removes focus classes but not search rings", () => {
+    const renderer = makeRenderer();
+    const model = buildModel(4);
+    renderer.mount(model, positionsOf("t0", "t1", "t2", "t3"));
+
+    const cy = renderer.getCy();
+    renderer.updateSelection({ nodeIds: ["t1"], highlightNodeIds: ["t0", "t2"], fadeRest: true });
+    renderer.highlightSearch(["t3"]);
+    expect(cy.getElementById("t1").hasClass("selected")).toBe(true);
+    expect(cy.getElementById("t3").hasClass("searched")).toBe(true);
+
+    renderer.clearSelection();
+    expect(cy.getElementById("t1").hasClass("selected")).toBe(false);
+    expect(cy.getElementById("t0").hasClass("faded")).toBe(false);
+    expect(cy.getElementById("t1").hasClass("highlighted")).toBe(false);
+    // Search rings survive clearSelection (cleared by query change / Escape).
+    expect(cy.getElementById("t3").hasClass("searched")).toBe(true);
+    renderer.dispose();
+  });
+
+  it("highlightSearch rings matches and clearSearchHighlight removes the rings", () => {
+    const renderer = makeRenderer();
+    const model = buildModel(4);
+    renderer.mount(model, positionsOf("t0", "t1", "t2", "t3"));
+
+    const cy = renderer.getCy();
+    renderer.highlightSearch(["t1", "t3"]);
+    expect(cy.getElementById("t1").hasClass("searched")).toBe(true);
+    expect(cy.getElementById("t3").hasClass("searched")).toBe(true);
+    expect(cy.getElementById("t2").hasClass("searched")).toBe(false);
+
+    // Re-ringing replaces the previous set.
+    renderer.highlightSearch(["t0"]);
+    expect(cy.getElementById("t1").hasClass("searched")).toBe(false);
+    expect(cy.getElementById("t0").hasClass("searched")).toBe(true);
+
+    renderer.clearSearchHighlight();
+    expect(cy.getElementById("t0").hasClass("searched")).toBe(false);
+    renderer.dispose();
+  });
+
+  it("onBackgroundTap fires on an empty-canvas tap", () => {
+    let tapped = 0;
+    const renderer = new CytoscapeErRenderer({
+      container: null as unknown as HTMLElement,
+      headless: true,
+      onBackgroundTap: () => {
+        tapped++;
+      },
+    });
+    const model = buildModel(2);
+    renderer.mount(model, positionsOf("t0", "t1"));
+
+    renderer.getCy().emit("tap"); // target === cy → background
+    expect(tapped).toBe(1);
+    renderer.dispose();
+  });
 });

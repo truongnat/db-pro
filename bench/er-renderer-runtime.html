@@ -217,6 +217,25 @@
     renderer.updateSelection({ nodeIds: [model.tables[0].id] });
     results.checks.selectionWorks = cy.getElementById(model.tables[0].id).hasClass("selected");
 
+    // ---- opass-style focus & highlight (UX pivot) ----
+    renderer.updateSelection({
+      nodeIds: [model.tables[0].id],
+      highlightNodeIds: [model.tables[1].id, model.tables[2].id],
+      fadeRest: true,
+    });
+    results.checks.focusFadesRest =
+      cy.getElementById(model.tables[0].id).hasClass("selected") &&
+      cy.getElementById(model.tables[1].id).hasClass("highlighted") &&
+      cy.getElementById(model.tables[3].id).hasClass("faded");
+    renderer.highlightSearch([model.tables[0].id, model.tables[2].id]);
+    results.checks.searchRings =
+      cy.getElementById(model.tables[0].id).hasClass("searched") &&
+      cy.getElementById(model.tables[2].id).hasClass("searched");
+    renderer.clearSearchHighlight();
+    results.checks.searchClear = !cy.getElementById(model.tables[0].id).hasClass("searched");
+    renderer.clearSelection();
+    results.checks.focusClear = !cy.getElementById(model.tables[3].id).hasClass("faded");
+
     setPhase("done");
     renderResults();
     window.__bench = results;
@@ -249,6 +268,9 @@
         c.themeApplied && c.themeRepainted && c.graphAfterTheme,
       ],
       ["Selection highlight", c.selectionWorks ? "PASS" : "FAIL", c.selectionWorks],
+      ["Focus fades rest + rings neighbors (opass)", c.focusFadesRest ? "PASS" : "FAIL", c.focusFadesRest],
+      ["Search rings matches + clear", c.searchRings && c.searchClear ? "PASS" : "FAIL", c.searchRings && c.searchClear],
+      ["Focus clear (bg tap / empty search)", c.focusClear ? "PASS" : "FAIL", c.focusClear],
     ];
     const el = document.getElementById("results");
     el.innerHTML =

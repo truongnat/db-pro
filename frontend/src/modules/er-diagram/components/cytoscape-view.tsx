@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Search, Maximize2, Table2, Loader2 } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useResolvedTheme } from "@/commons/stores/theme.store";
-import { NeighborhoodExplorer, type NeighborhoodExplorerProps } from "./neighborhood-explorer";
+import { OverviewExplorer, type OverviewExplorerProps } from "./overview-explorer";
 import { CytoscapeErRenderer } from "../renderer/cytoscape-renderer";
 import type {
   ErGraphModel,
@@ -15,6 +15,7 @@ import type {
   TableId,
 } from "../renderer/types";
 import { computeApproximateOverviewLayout } from "../utils/approximate-layout";
+import { findTableMatches, resolveHighlightSet } from "../utils/overview-search";
 
 export interface CytoscapeErViewProps {
   model: ErGraphModel;
@@ -34,7 +35,7 @@ export interface CytoscapeErViewProps {
   layoutReady: boolean;
   onViewportChange: (viewport: ErViewport) => void;
   onNodeClick: (nodeId: TableId) => void;
-  explorer: NeighborhoodExplorerProps;
+  explorer: OverviewExplorerProps;
   searchQuery: string;
   onSearchChange: (query: string) => void;
 }
@@ -60,19 +61,19 @@ function resolveThemeTokens(): ErThemeTokens {
     edgeColor: get("--border-subtle", "#334155"),
     edgeArrowColor: get("--border-default", "#475569"),
     neighborEdgeColor: get("--border-strong", "#475569"),
+    searchNodeBorder: get("--state-danger", "#dc2626"),
   };
 }
 
 /**
  * P1.9 — large-schema overview renderer (canvas).
  *
- * The full graph is drawn as canvas primitives by `CytoscapeErRenderer`
- * (≈ dozens of DOM elements regardless of graph size). Layout positions come
- * from the same P1.7 worker pipeline the React Flow path uses. P1-1: the
- * overview mounts as soon as the view exists — with a fast approximate layout
- * when dagre is still computing — and upgrades in place when the worker
- * commits. P2-1: colors follow the active theme (resolved tokens), and swap
- * at runtime on theme change without destroying the graph.
+ * UX pivot (opass.html): the FULL graph is the default view — no landing, no
+ * neighborhood mode, no filter. Layout positions come from the same P1.7
+ * worker pipeline (P1-1 approximate paint → Option C refine stages → dagre
+ * final). Search FOCUSES (rings matches + centers the viewport, opass-style)
+ * and a click FADES the rest while highlighting the hop-scoped neighborhood.
+ * P2-1: colors follow the active theme and swap at runtime.
  */
 export function CytoscapeErView({
   model,
@@ -87,8 +88,11 @@ export function CytoscapeErView({
 }: CytoscapeErViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<CytoscapeErRenderer | null>(null);
-  const selectedRef = useRef<TableId | null>(null);
   const theme = useResolvedTheme();
+
+  // The focused table (search single-match or click). `null` = full graph,
+  // no fade. The seed effect applies the hop-scoped highlight + fade.
+  const [seed, setSeed] = useState<TableId | null>(null);
 
   // P1-1 — deterministic approximate positions so the canvas paints in the
   // first frame, even while dagre computes for 8–122 s on a cold open.
@@ -102,6 +106,19 @@ export function CytoscapeErView({
   const onViewportChangeRef = useRef(onViewportChange);
   onViewportChangeRef.current = onViewportChange;
 
+  // Tap a table → focus it: fade the rest + highlight its neighborhood.
+  const onNodeTapRef = useRef<(nodeId: TableId) => void>(() => {});
+  onNodeTapRef.current = (nodeId) => {
+    setSeed(nodeId);
+  };
+  // Tap empty canvas → back to the full graph (opass clears the ring too).
+  const onBackgroundTapRef = useRef<() => void>(() => {});
+  onBackgroundTapRef.current = () => {
+    rendererRef.current?.clearSelection();
+    rendererRef.current?.clearSearchHighlight();
+    setSeed(null);
+  };
+
   // Create/dispose the canvas renderer once per view lifecycle.
   useEffect(() => {
     if (!containerRef.current) return;
@@ -109,12 +126,11 @@ export function CytoscapeErView({
       container: containerRef.current,
       theme: resolveThemeTokens(),
       onNodeClick: (nodeId) => {
-        selectedRef.current = nodeId;
-        // Keep the canvas neighborhood highlight in sync on every tap, not
-        // just on the initial mount.
-        rendererRef.current?.updateSelection({ nodeIds: [nodeId] });
+        onNodeTapRef.current(nodeId);
+        // Also navigate to the table's detail tab (app convention).
         onNodeClickRef.current(nodeId);
       },
+      onBackgroundTap: () => onBackgroundTapRef.current(),
       onViewportChange: (viewport) => onViewportChangeRef.current(viewport),
     });
     rendererRef.current = renderer;
@@ -150,9 +166,6 @@ export function CytoscapeErView({
         prev !== null ? approximatePositions : (positions ?? approximatePositions);
       renderer.mount(model, mountPositions);
       mountedRef.current = { model, positions: mountPositions };
-      if (selectedRef.current) {
-        renderer.updateSelection({ nodeIds: [selectedRef.current] });
-      }
       return;
     }
 
@@ -163,21 +176,74 @@ export function CytoscapeErView({
     if (positions && positions !== prev.positions) {
       renderer.updatePositions(positions, { fit: layoutReady });
       mountedRef.current = { model, positions };
-      if (selectedRef.current) {
-        renderer.updateSelection({ nodeIds: [selectedRef.current] });
-      }
     }
   }, [model, positions, approximatePositions, layoutReady]);
+
+  // Seed → opass-style focus: fade everything outside the hop-scoped
+  // neighborhood of the focused table. `null` clears the fade.
+  useEffect(() => {
+    const renderer = rendererRef.current;
+    if (!renderer) return;
+    if (!seed || !model.tables.some((t) => t.id === seed)) {
+      // No seed, or the seed belongs to a previous model (schema switch) —
+      // never fade a graph over a phantom table.
+      renderer.clearSelection();
+      return;
+    }
+    const hl = resolveHighlightSet(model, seed, explorer.hops);
+    renderer.updateSelection({
+      nodeIds: [seed],
+      highlightNodeIds: [...hl].filter((id) => id !== seed),
+      fadeRest: true,
+    });
+  }, [seed, model, explorer.hops]);
+
+  // Search = focus + highlight (opass), never filter: matches get a red ring
+  // and the viewport centers on them; a single match also focuses its
+  // neighborhood. Empty query clears the ring and the fade.
+  useEffect(() => {
+    const renderer = rendererRef.current;
+    if (!renderer) return;
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) {
+      renderer.clearSearchHighlight();
+      setSeed(null);
+      return;
+    }
+    const matches = findTableMatches(model, q);
+    if (matches.length === 0) {
+      renderer.clearSearchHighlight();
+      setSeed(null);
+      return;
+    }
+    if (matches.length === 1) {
+      renderer.highlightSearch(matches, { focus: true });
+      setSeed(matches[0]);
+      return;
+    }
+    // Multiple matches: ring them all, drop any previous focus fade.
+    renderer.highlightSearch(matches, { focus: true });
+    setSeed(null);
+  }, [searchQuery, model]);
 
   // Option C — surface a subtle "refining" hint while the worker posts
   // progressive stages (layout improving, dagre not committed yet).
   const refining = positions !== null && !layoutReady && !degraded;
 
+  const handleSearchKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === "Escape") {
+        onSearchChange("");
+      }
+    },
+    [onSearchChange],
+  );
+
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
       <div ref={containerRef} className="min-h-0 flex-1" />
 
-      {/* Overlay: search + exploration controls (canvas renders beneath). */}
+      {/* Overlay: search + overview controls (canvas renders beneath). */}
       <div className="pointer-events-none absolute left-2 top-2 z-10 flex flex-col items-start gap-2">
         <div className="pointer-events-auto flex items-center gap-2">
           <div className="relative">
@@ -185,6 +251,7 @@ export function CytoscapeErView({
             <Input
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
+              onKeyDown={handleSearchKeyDown}
               placeholder="Search tables..."
               className="h-7 w-48 rounded-md pl-7 text-[12px]"
             />
@@ -204,7 +271,7 @@ export function CytoscapeErView({
           </Button>
         </div>
         <div className="pointer-events-auto">
-          <NeighborhoodExplorer {...explorer} />
+          <OverviewExplorer {...explorer} />
         </div>
         {refining && (
           <div className="pointer-events-auto flex items-center gap-1.5 rounded-md border border-sky-500/40 bg-sky-500/10 px-2 py-1 text-[11px] text-sky-600">
@@ -217,6 +284,9 @@ export function CytoscapeErView({
             Approximate layout — layout worker unavailable
           </div>
         )}
+        <div className="pointer-events-auto text-[10px] text-[var(--text-secondary)]">
+          Type to focus · click a table to highlight its relations
+        </div>
       </div>
     </div>
   );
