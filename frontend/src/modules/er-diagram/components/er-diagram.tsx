@@ -21,22 +21,20 @@ import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useTranslation } from "@/commons/locales/useTranslation";
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
-import {
-  Search,
-  Maximize2,
-  LayoutGrid,
-  Columns2,
-  Table2,
-  RotateCcw,
-  Eye,
-  Focus,
-} from "lucide-react";
+import { Search, Maximize2, LayoutGrid, Columns2, Table2, RotateCcw } from "lucide-react";
 
 import { ErTableNode, type TableNodeData } from "./lod/er-table-node";
 import { ErPerfHud } from "./er-perf-hud";
+import { NeighborhoodExplorer } from "./neighborhood-explorer";
 import { layoutGraph } from "../utils/layout";
 import { groupForeignKeys } from "../utils/edge-builder";
-import { buildAdjacencyMap, getNeighborhood } from "../utils/neighborhood";
+import {
+  buildAdjacencyMap,
+  getConnectedComponent,
+  getNeighborhood,
+  suggestStartingPoints,
+  type NeighborhoodScope,
+} from "../utils/neighborhood";
 import { ErPerfMonitor } from "../utils/instrumentation";
 import { resolveLod, type LodLevel } from "../utils/lod";
 import { aggregateRelations, resolveEdgeLod, type EdgeLodLevel } from "../utils/edge-lod";
@@ -45,7 +43,7 @@ import { SpatialIndex } from "../utils/spatial-index";
 import type { IntrospectResult, SchemaColumnDto } from "@/modules/schema/types/schema.types";
 
 const LARGE_SCHEMA_THRESHOLD = 200;
-const NEIGHBORHOOD_HOPS = 2;
+const SUGGESTED_POINTS_COUNT = 5;
 
 interface ErDiagramProps {
   connectionId: string;
@@ -118,18 +116,50 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
     });
   }, [compact]);
 
-  // Neighborhood mode for large schemas
+  // Neighborhood mode for large schemas (P1.6 exploration UX)
   const tablesInSchema = data.tables.filter((t) => t.schema === schema);
   const isLargeSchema = tablesInSchema.length > LARGE_SCHEMA_THRESHOLD;
   const [neighborhoodSeed, setNeighborhoodSeed] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
+  const [neighborhoodHops, setNeighborhoodHops] = useState<NeighborhoodScope>(2);
 
   const adjacencyMap = useMemo(() => buildAdjacencyMap(data.foreignKeys), [data.foreignKeys]);
 
+  // Landing = large schema, no seed yet, not showing everything: exploration
+  // mode, empty canvas (full schema is not the default experience).
+  const landing = isLargeSchema && !neighborhoodSeed && !showAll;
+
   const neighborhoodSet = useMemo(() => {
     if (!isLargeSchema || showAll || !neighborhoodSeed) return null;
-    return getNeighborhood(adjacencyMap, neighborhoodSeed, NEIGHBORHOOD_HOPS);
-  }, [isLargeSchema, showAll, neighborhoodSeed, adjacencyMap]);
+    if (neighborhoodHops === "domain") {
+      return getConnectedComponent(adjacencyMap, neighborhoodSeed);
+    }
+    return getNeighborhood(adjacencyMap, neighborhoodSeed, neighborhoodHops);
+  }, [isLargeSchema, showAll, neighborhoodSeed, neighborhoodHops, adjacencyMap]);
+
+  // Hub tables by FK degree — the "Suggested starting points" list.
+  const suggestedPoints = useMemo(() => {
+    if (!isLargeSchema) return [];
+    return suggestStartingPoints(adjacencyMap, tablesInSchema, SUGGESTED_POINTS_COUNT).map(
+      (key) => ({ key, label: key.slice(key.indexOf(".") + 1) }),
+    );
+  }, [isLargeSchema, adjacencyMap, tablesInSchema]);
+
+  // Schema statistics for the landing card.
+  const schemaStats = useMemo(() => {
+    const keys = new Set(tablesInSchema.map((t) => `${t.schema}.${t.name}`));
+    let relations = 0;
+    for (const fk of data.foreignKeys) {
+      if (keys.has(`${fk.schema}.${fk.fromTable}`) && keys.has(`${fk.toSchema}.${fk.toTable}`)) {
+        relations++;
+      }
+    }
+    let columns = 0;
+    for (const col of data.columns) {
+      if (keys.has(`${col.schema}.${col.tableName}`)) columns++;
+    }
+    return { relations, columns };
+  }, [data.foreignKeys, data.columns, tablesInSchema]);
 
   // Persisted manual positions: nodeId → { x, y }
   const [manualPositions, setManualPositions] = useState<Map<string, { x: number; y: number }>>(
@@ -193,13 +223,16 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
     return set;
   }, [data.foreignKeys]);
 
-  // Build nodes and edges from introspection data using pre-indexed maps
+  // Build nodes and edges from introspection data using pre-indexed maps.
+  // Landing mode renders an empty canvas (exploration panel only).
   const { initialNodes, initialEdges } = useMemo(() => {
-    const tables = neighborhoodSet
-      ? data.tables.filter(
-          (t) => t.schema === schema && neighborhoodSet.has(`${t.schema}.${t.name}`),
-        )
-      : data.tables.filter((tbl) => tbl.schema === schema);
+    const tables = landing
+      ? []
+      : neighborhoodSet
+        ? data.tables.filter(
+            (t) => t.schema === schema && neighborhoodSet.has(`${t.schema}.${t.name}`),
+          )
+        : data.tables.filter((tbl) => tbl.schema === schema);
 
     const nodes: Node[] = tables.map((table) => {
       const tableKey = `${table.schema}.${table.name}`;
@@ -249,7 +282,16 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
     }));
 
     return { initialNodes: nodes, initialEdges: edges };
-  }, [data, compact, schema, columnsByTable, primaryKeysByTable, fkColumnSet, neighborhoodSet]);
+  }, [
+    data,
+    compact,
+    schema,
+    columnsByTable,
+    primaryKeysByTable,
+    fkColumnSet,
+    neighborhoodSet,
+    landing,
+  ]);
 
   // Apply layout, respecting manual positions for dragged nodes
   const laidOutNodes = useMemo(() => {
@@ -313,6 +355,16 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
       setShowAll(false);
     }
   }, [searchQuery, isLargeSchema, tablesInSchema, showAll]);
+
+  // Fit the new neighborhood when the explore scope changes (P1.6).
+  useEffect(() => {
+    if (!isLargeSchema || landing) return;
+    const timer = setTimeout(() => {
+      const rfNode = reactFlowRef.current?.querySelector(".react-flow") as HTMLElement | null;
+      rfNode?.dispatchEvent(new KeyboardEvent("keydown", { key: "1" }));
+    }, 80);
+    return () => clearTimeout(timer);
+  }, [isLargeSchema, landing, neighborhoodSeed, neighborhoodHops, showAll]);
 
   // Filter nodes by search (small schemas only — large schemas use neighborhood)
   useEffect(() => {
@@ -526,7 +578,7 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
     return edges;
   }, [edges, currentLod, currentEdgeLod]);
 
-  const showMiniMap = initialNodes.length <= 200;
+  const showMiniMap = !landing && initialNodes.length <= 200;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col" ref={reactFlowRef}>
@@ -581,63 +633,65 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
           />
         )}
 
-        {/* Top panel: search + controls */}
+        {/* Top-left panel: search + P1.6 neighborhood exploration */}
         <Panel position="top-left" className="m-2">
-          <div className="flex items-center gap-2">
-            <div className="relative">
-              <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--app-text-muted)]" />
-              <Input
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={`${t("shell.sidebar.searchObjects")}...`}
-                className="h-7 w-48 rounded-md pl-7 text-[12px]"
-              />
+          <div className="flex flex-col items-start gap-2">
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--app-text-muted)]" />
+                <Input
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder={`${t("shell.sidebar.searchObjects")}...`}
+                  className="h-7 w-48 rounded-md pl-7 text-[12px]"
+                />
+              </div>
+              {!isLargeSchema && (
+                <Badge variant="outline" className="h-7 text-[11px]">
+                  <Table2 className="mr-1 h-3 w-3" />
+                  {initialNodes.length} tables
+                </Badge>
+              )}
             </div>
-            <Badge variant="outline" className="h-7 text-[11px]">
-              <Table2 className="mr-1 h-3 w-3" />
-              {initialNodes.length}
-              {neighborhoodSet ? ` / ${tablesInSchema.length}` : ""} tables
-            </Badge>
-            {isLargeSchema && neighborhoodSet && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-7 text-[11px]"
-                    onClick={() => {
-                      setShowAll(true);
-                      setNeighborhoodSeed(null);
-                    }}
-                  >
-                    <Eye className="mr-1 h-3 w-3" />
-                    Show all {tablesInSchema.length}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Render all tables in schema</TooltipContent>
-              </Tooltip>
-            )}
-            {isLargeSchema && showAll && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-7 text-[11px]"
-                    onClick={() => {
-                      setShowAll(false);
-                      setNeighborhoodSeed(null);
-                      setSearchQuery("");
-                    }}
-                  >
-                    <Focus className="mr-1 h-3 w-3" />
-                    Neighborhood mode
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Search a table to focus its neighborhood</TooltipContent>
-              </Tooltip>
+            {isLargeSchema && (
+              <NeighborhoodExplorer
+                totalTables={tablesInSchema.length}
+                relationCount={schemaStats.relations}
+                columnCount={schemaStats.columns}
+                suggestedPoints={suggestedPoints}
+                seedLabel={
+                  neighborhoodSeed
+                    ? neighborhoodSeed.slice(neighborhoodSeed.indexOf(".") + 1)
+                    : null
+                }
+                hops={neighborhoodHops}
+                showAll={showAll}
+                onSelectPoint={(key) => {
+                  // Do NOT clear searchQuery here: clearing it re-runs the
+                  // search effect, which would null the seed we just set.
+                  setNeighborhoodSeed(key);
+                  setShowAll(false);
+                }}
+                onSelectHops={(hops) => {
+                  // Landing: picking a hop scope auto-focuses the top hub.
+                  if (landing && suggestedPoints[0]) setNeighborhoodSeed(suggestedPoints[0].key);
+                  setNeighborhoodHops(hops);
+                  setShowAll(false);
+                }}
+                onShowAll={() => {
+                  // Clear leftover search text so the search effect cannot
+                  // match a stale term and flip showAll back off.
+                  setSearchQuery("");
+                  setShowAll(true);
+                  setNeighborhoodSeed(null);
+                }}
+                onReset={() => {
+                  setShowAll(false);
+                  setNeighborhoodSeed(null);
+                  setSearchQuery("");
+                  setNeighborhoodHops(2);
+                }}
+              />
             )}
           </div>
         </Panel>
