@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>ER Bench A — Cytoscape + fCoSE</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: #0f172a; color: #e2e8f0;
+    font: 13px/1.4 ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif; }
+  #app { position: fixed; inset: 0; display: flex; flex-direction: column; }
+  #hud { display: flex; align-items: center; gap: 14px; padding: 8px 14px;
+    background: #111c2e; border-bottom: 1px solid #1e293b; font-size: 12px;
+    color: #94a3b8; flex: 0 0 auto; }
+  #hud b { color: #e2e8f0; font-weight: 600; }
+  #hud .tag { background: #1e293b; border: 1px solid #334155; border-radius: 6px;
+    padding: 2px 8px; color: #7dd3fc; }
+  #cy { flex: 1 1 auto; min-height: 0; }
+  #results { position: absolute; right: 14px; bottom: 14px; z-index: 10;
+    width: 360px; max-height: 60%; overflow: auto; background: rgba(15,23,42,0.92);
+    border: 1px solid #334155; border-radius: 10px; padding: 12px; font-size: 12px;
+    box-shadow: 0 12px 32px rgba(0,0,0,0.5); }
+  #results h3 { font-size: 12px; color: #7dd3fc; margin-bottom: 8px; font-weight: 600; }
+  #results table { width: 100%; border-collapse: collapse; }
+  #results td { padding: 3px 6px; border-bottom: 1px solid #1e293b; }
+  #results td:first-child { color: #94a3b8; }
+  #results td:last-child { text-align: right; font-variant-numeric: tabular-nums; color: #e2e8f0; }
+  #phase { color: #fbbf24; font-weight: 600; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="hud">
+    <span class="tag">Harness A · Cytoscape + fCoSE</span>
+    <span><b id="statTables"></b> tables</span>
+    <span><b id="statRels"></b> relations</span>
+    <span><b id="statCols"></b> columns</span>
+    <span id="phase">idle</span>
+  </div>
+  <div id="cy"></div>
+  <div id="results"></div>
+</div>
+
+<script src="vendor/cytoscape.min.js"></script>
+<script src="vendor/layout-base.js"></script>
+<script src="vendor/cose-base.js"></script>
+<script src="vendor/cytoscape-fcose.js"></script>
+<script src="fixture-500.js"></script>
+<script>
+(function () {
+  "use strict";
+  const F = window.ER_FIXTURE;
+  document.getElementById("statTables").textContent = F.stats.tables;
+  document.getElementById("statRels").textContent = F.stats.relations;
+  document.getElementById("statCols").textContent = F.stats.columns;
+
+  const phaseEl = document.getElementById("phase");
+  const setPhase = (p) => { phaseEl.textContent = p; };
+
+  // ---- long-task observer (whole page: layout + interaction) ----
+  const longTasks = [];
+  if (typeof PerformanceObserver !== "undefined") {
+    try {
+      new PerformanceObserver((list) => {
+        for (const e of list.getEntries()) longTasks.push({ start: Math.round(e.startTime), duration: Math.round(e.duration) });
+      }).observe({ entryTypes: ["longtask"] });
+    } catch (_) { /* noop */ }
+  }
+
+  const nextFrame = () => new Promise((r) => requestAnimationFrame(r));
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  // ---- measure frame time over `frames` frames, each calling stepFn(i) ----
+  async function measureFrames(frames, stepFn) {
+    const times = [];
+    const warm = 10;
+    for (let i = 0; i < frames + warm; i++) {
+      const t0 = performance.now();
+      stepFn(i);
+      await nextFrame();
+      if (i >= warm) times.push(performance.now() - t0);
+    }
+    times.sort((a, b) => a - b);
+    const sum = times.reduce((a, b) => a + b, 0);
+    const avg = sum / times.length;
+    return {
+      frames: times.length,
+      avgMs: +avg.toFixed(2),
+      p95Ms: +times[Math.floor(times.length * 0.95)].toFixed(2),
+      maxMs: +times[times.length - 1].toFixed(2),
+      fps: +(1000 / avg).toFixed(1),
+    };
+  }
+
+  const results = { harness: "cytoscape-fcose", fixture: F.stats, metrics: {} };
+
+  async function run() {
+    // ---- build graph ----
+    const elements = [];
+    for (const t of F.tables) {
+      elements.push({ data: { id: t.id, name: t.name } });
+    }
+    for (const r of F.relations) {
+      elements.push({ data: { id: r.id, source: r.source, target: r.target } });
+    }
+
+    const cy = cytoscape({
+      container: document.getElementById("cy"),
+      elements,
+      style: [
+        {
+          selector: "node",
+          style: {
+            "background-color": "#1e293b",
+            "border-color": "#475569",
+            "border-width": 1,
+            "border-opacity": 0.9,
+            width: 150,
+            height: 26,
+            shape: "rectangle",
+            "label": "data(name)",
+            "font-size": 9,
+            "font-family": "ui-sans-serif, system-ui",
+            "color": "#cbd5e1",
+            "text-valign": "center",
+            "text-halign": "center",
+            "text-wrap": "ellipsis",
+            "text-max-width": 138,
+            "overlay-opacity": 0,
+          },
+        },
+        {
+          selector: "edge",
+          style: {
+            "curve-style": "bezier",
+            width: 1,
+            "line-color": "#334155",
+            "target-arrow-color": "#475569",
+            "target-arrow-shape": "triangle",
+            "arrow-scale": 0.5,
+            "overlay-opacity": 0,
+          },
+        },
+      ],
+      layout: { name: "preset" },
+      wheelSensitivity: 0.3,
+      minZoom: 0.02,
+      maxZoom: 4,
+      hideEdgesOnViewport: false,
+      textureOnViewport: false,
+      motionBlur: false,
+    });
+
+    // ---- layout (fCoSE) ----
+    setPhase("fcose layout…");
+    const tLayout = performance.now();
+    await cy.layout({
+      name: "fcose",
+      animate: false,
+      randomize: true,
+      quality: "default",
+      nodeRepulsion: 4500,
+      idealEdgeLength: 90,
+      gravity: 0.25,
+      numIter: 2000,
+      tile: true,
+    }).run();
+    results.metrics.layoutMs = Math.round(performance.now() - tLayout);
+    setPhase("fit…");
+    cy.fit(undefined, 40);
+    await sleep(120);
+    await nextFrame();
+
+    // ---- initial DOM footprint ----
+    results.metrics.domCount = document.querySelectorAll("*").length;
+    const canvases = document.querySelectorAll("canvas");
+    results.metrics.canvasCount = canvases.length;
+    results.metrics.canvasPixels = Array.from(canvases).reduce((s, c) => s + c.width * c.height, 0);
+    results.metrics.renderedNodes = cy.nodes().length;
+    results.metrics.renderedEdges = cy.edges().length;
+
+    // ---- pan FPS (overview) ----
+    setPhase("pan @ overview…");
+    const vp0 = { x: cy.pan().x, y: cy.pan().y, zoom: cy.zoom() };
+    results.metrics.panOverview = await measureFrames(110, (i) => {
+      cy.pan({ x: vp0.x + Math.sin(i / 10) * 400, y: vp0.y + Math.cos(i / 7) * 300 });
+    });
+    results.metrics.domCountAfterPan = document.querySelectorAll("*").length;
+
+    // ---- zoom to detail level ----
+    setPhase("zoom in…");
+    const cw = window.innerWidth / 2, ch = window.innerHeight / 2;
+    const newZoom = 1.0;
+    const tZ = performance.now();
+    for (let i = 0; i <= 40; i++) {
+      const f = i / 40;
+      const z = vp0.zoom + (newZoom - vp0.zoom) * f;
+      cy.zoom({ level: z, renderedPosition: { x: cw, y: ch } });
+      await nextFrame();
+    }
+    await sleep(200);
+    await nextFrame();
+    results.metrics.zoomMs = Math.round(performance.now() - tZ);
+    results.metrics.domCountDetail = document.querySelectorAll("*").length;
+
+    // ---- pan FPS at detail zoom (canvas: same cost) ----
+    setPhase("pan @ detail…");
+    const vp1 = { x: cy.pan().x, y: cy.pan().y, zoom: cy.zoom() };
+    results.metrics.panDetail = await measureFrames(110, (i) => {
+      cy.pan({ x: vp1.x + Math.sin(i / 9) * 140, y: vp1.y + Math.cos(i / 6) * 110 });
+    });
+
+    // ---- long tasks + memory ----
+    const total = longTasks.reduce((s, l) => s + l.duration, 0);
+    results.metrics.longTasks = {
+      count: longTasks.length,
+      totalMs: total,
+      maxMs: longTasks.length ? Math.max(...longTasks.map((l) => l.duration)) : 0,
+      layoutLongTaskMs: longTasks.filter((l) => l.start < results.metrics.layoutMs + 50).reduce((s, l) => s + l.duration, 0),
+    };
+    results.metrics.memoryUsedMB = performance.memory ? +(performance.memory.usedJSHeapSize / 1048576).toFixed(1) : null;
+
+    // Reset to overview so a screenshot shows the whole graph.
+    cy.fit(undefined, 40);
+    await sleep(150);
+    setPhase("done");
+    renderResults();
+    window.__bench = results;
+    document.title = "BENCH_READY " + results.metrics.layoutMs;
+  }
+
+  function renderResults() {
+    const m = results.metrics;
+    const rows = [
+      ["Layout time (fCoSE)", m.layoutMs + " ms"],
+      ["DOM elements (initial)", m.domCount.toLocaleString()],
+      ["Canvas elements", m.canvasCount + " (" + m.canvasPixels.toLocaleString() + " px)"],
+      ["Graph nodes / edges", m.renderedNodes + " / " + m.renderedEdges],
+      ["Pan FPS (overview)", m.panOverview.fps + " (p95 " + m.panOverview.p95Ms + " ms)"],
+      ["DOM after pan", m.domCountAfterPan.toLocaleString()],
+      ["Zoom to 1.0", m.zoomMs + " ms"],
+      ["DOM at detail zoom", m.domCountDetail.toLocaleString()],
+      ["Pan FPS (detail)", m.panDetail.fps + " (p95 " + m.panDetail.p95Ms + " ms)"],
+      ["Long tasks", m.longTasks.count + " · " + m.longTasks.totalMs + " ms total · max " + m.longTasks.maxMs + " ms"],
+      ["Heap used", m.memoryUsedMB === null ? "n/a" : m.memoryUsedMB + " MB"],
+    ];
+    const el = document.getElementById("results");
+    el.innerHTML =
+      "<h3>Benchmark A — Cytoscape + fCoSE</h3><table>" +
+      rows.map(([k, v]) => "<tr><td>" + k + "</td><td>" + v + "</td></tr>").join("") +
+      "</table>";
+  }
+
+  // cytoscape DOM must be sized first
+  requestAnimationFrame(() => requestAnimationFrame(run));
+})();
+</script>
+</body>
+</html>
