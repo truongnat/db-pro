@@ -32,12 +32,13 @@ import {
   Focus,
 } from "lucide-react";
 
-import { TableNode, type TableNodeData } from "./table-node";
+import { ErTableNode, type TableNodeData } from "./lod/er-table-node";
 import { ErPerfHud } from "./er-perf-hud";
 import { layoutGraph } from "../utils/layout";
 import { groupForeignKeys } from "../utils/edge-builder";
 import { buildAdjacencyMap, getNeighborhood } from "../utils/neighborhood";
 import { ErPerfMonitor } from "../utils/instrumentation";
+import { resolveLod, type LodLevel } from "../utils/lod";
 
 import type { IntrospectResult, SchemaColumnDto } from "@/modules/schema/types/schema.types";
 
@@ -50,16 +51,7 @@ interface ErDiagramProps {
   data: IntrospectResult;
 }
 
-const nodeTypes = { table: TableNode };
-
-type ZoomTier = 0 | 1 | 2;
-const TIER_THRESHOLDS: [number, number] = [0.3, 0.7];
-
-function zoomTier(zoom: number): ZoomTier {
-  if (zoom < TIER_THRESHOLDS[0]) return 0;
-  if (zoom < TIER_THRESHOLDS[1]) return 1;
-  return 2;
-}
+const nodeTypes = { table: ErTableNode };
 
 /** Build a storage key for persisting node positions per connection + schema. */
 function positionStorageKey(connectionId: string, schemaName: string) {
@@ -96,15 +88,28 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [layoutDirection, setLayoutDirection] = useState<"LR" | "TB">("LR");
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
-  const [currentTier, setCurrentTier] = useState<ZoomTier>(2);
+  const [currentLod, setCurrentLod] = useState<LodLevel>("detail");
+
+  // Mirror `compact` into a ref so onViewportChange can read it without
+  // re-creating the callback on every toggle.
+  const compactRef = useRef(compact);
+  compactRef.current = compact;
 
   const onViewportChange = useCallback((viewport: Viewport) => {
     viewportRef.current = viewport;
-    setCurrentTier((prev) => {
-      const next = zoomTier(viewport.zoom);
+    setCurrentLod((prev) => {
+      const next = resolveLod(viewport.zoom, compactRef.current);
       return next === prev ? prev : next;
     });
   }, []);
+
+  // Keep the compact toggle live even without a new viewport event.
+  useEffect(() => {
+    setCurrentLod((prev) => {
+      const next = resolveLod(viewportRef.current?.zoom ?? 1, compact);
+      return next === prev ? prev : next;
+    });
+  }, [compact]);
 
   // Neighborhood mode for large schemas
   const tablesInSchema = data.tables.filter((t) => t.schema === schema);
@@ -207,7 +212,8 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
         schema: table.schema,
         columns: columnData,
         compact,
-        zoomTier: 2,
+        // Initial value; the lod-injection memo below refines it per viewport.
+        lod: "detail",
       };
 
       return {
@@ -250,14 +256,15 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
     });
   }, [initialNodes, initialEdges, layoutDirection, manualPositions, perfEnabled]);
 
-  // Inject current zoom tier into node data — only recomputes when tier changes
+  // Inject current LOD into node data — only recomputes when the level changes.
+  // The dispatcher (ErTableNode) switches render trees on `lod`.
   const tieredNodes = useMemo(() => {
     return laidOutNodes.map((node) => {
       const d = node.data as TableNodeData;
-      if (d.zoomTier === currentTier) return node;
-      return { ...node, data: { ...d, zoomTier: currentTier } };
+      if (d.lod === currentLod) return node;
+      return { ...node, data: { ...d, lod: currentLod } };
     });
-  }, [laidOutNodes, currentTier]);
+  }, [laidOutNodes, currentLod]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(laidOutNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
@@ -427,17 +434,24 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
     rfNode?.dispatchEvent(new KeyboardEvent("keydown", { key: "1" }));
   }, []);
 
-  // Simplify edges at low zoom tiers
+  // Edge LOD (node-side part of P1.3): at non-detail levels, edges drop their
+  // per-column handle ids so they anchor to the generic source/target handles
+  // rendered by the LOD leaf components (React Flow drops edges whose handle
+  // ids are missing; with undefined handle ids it falls back to `handles[0]`
+  // of each type — which relies on the generic handles being the ONLY handles
+  // on non-detail nodes). Labels stay for summary, drop for dot/compact.
+  // Full edge simplification (markers, aggregation) is P1.4.
   const displayEdges = useMemo(() => {
-    if (currentTier === 0) {
-      return edges.map((e) => ({
-        ...e,
-        label: undefined,
-        style: { ...e.style, strokeWidth: 1 },
-      }));
-    }
-    return edges;
-  }, [edges, currentTier]);
+    if (currentLod === "detail") return edges;
+    const hideLabels = currentLod === "dot" || currentLod === "compact";
+    return edges.map((e) => ({
+      ...e,
+      sourceHandle: undefined,
+      targetHandle: undefined,
+      label: hideLabels ? undefined : e.label,
+      style: { ...e.style, strokeWidth: 1 },
+    }));
+  }, [edges, currentLod]);
 
   const showMiniMap = initialNodes.length <= 200;
 

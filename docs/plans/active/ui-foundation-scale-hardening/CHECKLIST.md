@@ -57,7 +57,7 @@
 - [x] **6.1** P1.1 Runtime instrumentation — ErPerfMonitor (long tasks, frame sampler, DOM counts, measure marks) + dev HUD overlay
 - [x] **6.2** P1.2 Enable `onlyRenderVisibleElements` on `<ReactFlow>`
 - [x] **6.3** P1.2 MiniMap policy — disabled for large schemas; per-fixture documentation
-- [ ] **6.4** P1.3 True LOD components — `ErDotNode` / `ErCompactNode` / `ErSummaryNode` / `ErDetailedNode` switch, no CSS-hidden DOM
+- [x] **6.4** P1.3 True LOD components — `ErDotNode` / `ErCompactNode` / `ErSummaryNode` / `ErDetailedNode` switch via `ErTableNode` dispatcher, no CSS-hidden DOM; non-detail nodes carry generic handles + edges drop handle ids (edge stays anchored)
 - [ ] **6.5** P1.4 Edge LOD — zoom tiers: no labels/markers + aggregate relations < 0.25, simple edges 0.25–0.6, full FK edges > 0.6, full detail on selected neighborhood
 - [ ] **6.6** P1.5 Viewport / spatial-index layer — bounding boxes, viewport intersection, visible node/edge IDs
 - [ ] **6.7** P1.6 Default neighborhood exploration UX — `[1 hop] [2 hops] [Domain] [All]` exploration

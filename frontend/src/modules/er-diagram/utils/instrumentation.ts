@@ -197,8 +197,8 @@ export class ErPerfMonitor {
     return this.container()?.querySelectorAll(".react-flow__node").length ?? 0;
   }
 
-  /** Nodes currently rendering at full detail (tier 2). */
+  /** Nodes currently rendering at full detail (LOD detail, data-tier=3). */
   countDetailedNodes(): number {
-    return this.container()?.querySelectorAll('[data-tier="2"]').length ?? 0;
+    return this.container()?.querySelectorAll('[data-tier="3"]').length ?? 0;
   }
 }
