@@ -184,9 +184,9 @@ payments - orders - order_items
 **Target:** Audit all list/grid components that iterate over schema metadata. Fix any that scan full arrays per-item.
 
 **Acceptance criteria:**
-- [ ] Audit completed and documented in FINDINGS.md
-- [ ] P0/P1 issues fixed
-- [ ] P2 issues tracked
+- [x] Audit completed and documented in FINDINGS.md — full pass (2026-08-12) over schema explorer, data grid / result grid, connection list, search view, saved-queries tree, column/index lists, quick-open index; results in the "Audit findings (P3.8)" section
+- [x] P0/P1 issues fixed — **none found**: explorer already groups via pre-indexed Maps, `UnifiedGrid` is row-virtualized (`useVirtualizer`), the catalog store pre-indexes `columnsByTable`; 0 same-line `.map()+filter/find/includes` O(N²) smells across `src/`
+- [x] P2 issues tracked — F-P3.8-1 (explorer re-resolved driver/dialect per table row — **FIXED**, hoisted per connection), F-P3.8-2 (cell-editor `columns.find` per edit-open — tracked, negligible)
 
 ## Execution order
 

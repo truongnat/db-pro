@@ -177,6 +177,11 @@ export function ExplorerView() {
         {connections.data?.map((conn) => {
           const status = statusOf(statuses, conn.id);
           const expanded = isConnExpanded(conn.id);
+          // P3.8 audit (F-P3.8-1): driver/dialect hoisted per connection — they
+          // were re-resolved per table row below (an O(tables × connections)
+          // scan of the connections array on every render of an open tree).
+          const connDriver = getDriverForConnection(conn.id);
+          const connDialect = getSqlDialect(connDriver);
           return (
             <div key={conn.id}>
               <ContextMenu>
@@ -339,10 +344,8 @@ export function ExplorerView() {
                                   >
                                     {tables.map((table) => {
                                       const qualifiedName = `${schema.name}.${table.name}`;
-                                      const driver = getDriverForConnection(conn.id);
-                                      const dialect = getSqlDialect(driver);
                                       const countSql = generateCountSQL(
-                                        dialect,
+                                        connDialect,
                                         schema.name,
                                         table.name,
                                       );
@@ -407,7 +410,7 @@ export function ExplorerView() {
                                                       conn.id,
                                                       schema.name,
                                                       table.name,
-                                                      dialect.generateSelect({
+                                                      connDialect.generateSelect({
                                                         schema: schema.name,
                                                         table: table.name,
                                                         limit: 100,
@@ -435,7 +438,7 @@ export function ExplorerView() {
                                                       conn.id,
                                                       schema.name,
                                                       table.name,
-                                                      `INSERT INTO ${dialect.qualify(schema.name, table.name)} ()\nVALUES ();`,
+                                                      `INSERT INTO ${connDialect.qualify(schema.name, table.name)} ()\nVALUES ();`,
                                                     )
                                                   }
                                                 >
@@ -447,7 +450,7 @@ export function ExplorerView() {
                                                       conn.id,
                                                       schema.name,
                                                       table.name,
-                                                      `UPDATE ${dialect.qualify(schema.name, table.name)}\nSET \nWHERE ;`,
+                                                      `UPDATE ${connDialect.qualify(schema.name, table.name)}\nSET \nWHERE ;`,
                                                     )
                                                   }
                                                 >
@@ -459,7 +462,7 @@ export function ExplorerView() {
                                                       conn.id,
                                                       schema.name,
                                                       table.name,
-                                                      `DELETE FROM ${dialect.qualify(schema.name, table.name)}\nWHERE ;`,
+                                                      `DELETE FROM ${connDialect.qualify(schema.name, table.name)}\nWHERE ;`,
                                                     )
                                                   }
                                                 >

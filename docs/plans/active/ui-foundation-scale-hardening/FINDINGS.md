@@ -83,9 +83,34 @@ Clicking an edge should only change edge styles, not recompute the positions of 
 
 **Severity:** P1 — every edge click triggers unnecessary Dagre computation.
 
-## Audit findings
+## Audit findings (P3.8 — Data Grid / Metadata List audit, 2026-08-12)
 
-_To be populated during Phase 5 audit._
+Scope: every list view that iterates schema metadata (schema explorer, data grid / result grid, connection list, search view, saved queries tree, column/index lists, quick-open index). Pattern hunted: the P3.3 smell — `.filter()` / `.find()` / `.includes()` over a full metadata array inside a per-item loop (O(N²)).
+
+**Verdict: no P0/P1 O(N²) patterns remain.** All P3.3-style scans were already gone:
+
+- **Schema explorer** (`explorer-view.tsx`) — tables/views grouped via `tablesBySchema` / `viewsBySchema` Maps built once (O(T + V)); no `data.columns.filter(...)` per table (the tree shows tables/views only).
+- **Data grid** (`unified-grid.tsx`) — row-virtualized (`useVirtualizer`); only visible rows render; per-row work is O(1) (`selection.has(rowIdx)`); column filters are O(C) once per render.
+- **Connection list** (`connection-list.tsx`) — single-pass `filter` + sort over connections (small N); tag filter is O(tags).
+- **Search view / saved-queries-tree / quick-open index** — O(T) filter per query change, memoized; quick-open pre-indexes `connNameMap`.
+- **Column / index lists** (`column-list.tsx`, `index-list.tsx`) — single object's arrays (O(C) per object).
+- **Schema catalog store** — `columnsByTable` pre-indexed (P3.3 pattern already applied on the query side).
+
+### F-P3.8-1: Explorer re-resolved driver/dialect per table row (P2, FIXED)
+
+**Evidence:** `explorer-view.tsx` `tables.map(...)` called `getDriverForConnection(conn.id)` — a `connections.find(...)` over the connections array — plus `getSqlDialect(driver)` and `generateCountSQL(...)` **per table row** on every render of an open tables group. With T=500 tables × N connections: 500 linear scans + 500 dialect/string constructions per render, none of which depend on the table (the count SQL string does; the driver/dialect do not).
+
+**Severity:** P2 — measurable but small (connections count is tiny); wasteful per-item work in the exact shape this audit targets.
+
+**Resolution (2026-08-12):** driver + dialect hoisted to once per connection row (`connDriver` / `connDialect`); per-table code keeps only `generateCountSQL` (table-dependent). Typecheck + 1,421 FE tests green.
+
+### F-P3.8-2: Cell-editor column lookup is a linear scan (P2, TRACKED)
+
+**Evidence:** `data-grid.tsx` `renderCellEditor` resolves the edited column's type via `columns.find((c) => c.name === colName)`. Runs once per editor open (not per cell render), so O(C) per edit — negligible today.
+
+**Severity:** P2 — polish. Fix if the grid ever renders many simultaneous editors (e.g., bulk edit UX): pre-index `ColumnMeta` by name once per render.
+
+**Tracked:** keep in the P2 backlog; not worth a code change now.
 
 ## F7: Large-schema ER rendering architecture does not scale (P1)
 
