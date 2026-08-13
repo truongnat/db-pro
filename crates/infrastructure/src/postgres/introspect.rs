@@ -262,24 +262,84 @@ async fn introspect_indexes(pool: &sqlx::PgPool) -> Result<Vec<Index>, DbError> 
 /// Also handles functional indexes with parenthesized expressions by tracking
 /// parenthesis depth.
 fn parse_index_columns(indexdef: &str) -> Vec<String> {
-    // Find the last '(' that starts the column list.
-    // The column list is the final parenthesized group in the indexdef.
-    let Some(open) = indexdef.rfind('(') else {
-        return Vec::new();
-    };
-    let Some(close) = indexdef.rfind(')') else {
-        return Vec::new();
-    };
-    if close <= open {
-        return Vec::new();
+    let bytes = indexdef.as_bytes();
+    let mut depth: i32 = 0;
+    let mut last_top_level_open = None;
+
+    for (i, &byte) in bytes.iter().enumerate() {
+        match byte {
+            b'(' => {
+                if depth == 0 {
+                    last_top_level_open = Some(i);
+                }
+                depth += 1;
+            }
+            b')' => {
+                depth = depth.saturating_sub(1);
+            }
+            _ => {}
+        }
     }
 
+    let Some(open) = last_top_level_open else {
+        return Vec::new();
+    };
+
+    let mut depth: i32 = 0;
+    let mut close = None;
+    for (i, &byte) in bytes.iter().enumerate().skip(open) {
+        match byte {
+            b'(' => depth += 1,
+            b')' => {
+                depth -= 1;
+                if depth == 0 {
+                    close = Some(i);
+                    break;
+                }
+            }
+            _ => {}
+        }
+    }
+
+    let Some(close) = close else {
+        return Vec::new();
+    };
+
     let col_str = &indexdef[open + 1..close];
-    col_str
-        .split(',')
-        .map(|s| s.trim().to_string())
-        .filter(|s| !s.is_empty())
-        .collect()
+
+    let mut columns = Vec::new();
+    let mut current = String::new();
+    let mut depth: i32 = 0;
+
+    for ch in col_str.chars() {
+        match ch {
+            '(' => {
+                depth += 1;
+                current.push(ch);
+            }
+            ')' => {
+                depth = depth.saturating_sub(1);
+                current.push(ch);
+            }
+            ',' if depth == 0 => {
+                let trimmed = current.trim().to_string();
+                if !trimmed.is_empty() {
+                    columns.push(trimmed);
+                }
+                current.clear();
+            }
+            _ => {
+                current.push(ch);
+            }
+        }
+    }
+
+    let trimmed = current.trim().to_string();
+    if !trimmed.is_empty() {
+        columns.push(trimmed);
+    }
+
+    columns
 }
 
 async fn introspect_foreign_keys(pool: &sqlx::PgPool) -> Result<Vec<ForeignKey>, DbError> {
@@ -446,4 +506,86 @@ async fn introspect_functions(pool: &sqlx::PgPool) -> Result<Vec<Function>, DbEr
             }
         })
         .collect())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_simple_columns() {
+        let indexdef = "CREATE INDEX idx ON tbl USING btree (col1, col2)";
+        let cols = parse_index_columns(indexdef);
+        assert_eq!(cols, vec!["col1", "col2"]);
+    }
+
+    #[test]
+    fn test_parse_single_column() {
+        let indexdef = "CREATE INDEX idx ON tbl USING hash (id)";
+        let cols = parse_index_columns(indexdef);
+        assert_eq!(cols, vec!["id"]);
+    }
+
+    #[test]
+    fn test_parse_functional_index() {
+        let indexdef = "CREATE INDEX idx ON tbl USING btree (lower(name))";
+        let cols = parse_index_columns(indexdef);
+        assert_eq!(cols, vec!["lower(name)"]);
+    }
+
+    #[test]
+    fn test_parse_nested_parentheses() {
+        let indexdef = "CREATE INDEX idx ON tbl USING btree (lower(name), (a + b))";
+        let cols = parse_index_columns(indexdef);
+        assert_eq!(cols, vec!["lower(name)", "(a + b)"]);
+    }
+
+    #[test]
+    fn test_parse_function_with_multiple_args() {
+        let indexdef = "CREATE INDEX idx ON tbl USING btree (coalesce(a, b), c)";
+        let cols = parse_index_columns(indexdef);
+        assert_eq!(cols, vec!["coalesce(a, b)", "c"]);
+    }
+
+    #[test]
+    fn test_parse_mixed_columns_and_functions() {
+        let indexdef = "CREATE INDEX idx ON tbl USING btree (col1, lower(col2), (a * b + c))";
+        let cols = parse_index_columns(indexdef);
+        assert_eq!(cols, vec!["col1", "lower(col2)", "(a * b + c)"]);
+    }
+
+    #[test]
+    fn test_parse_deeply_nested() {
+        let indexdef = "CREATE INDEX idx ON tbl USING btree (func1(func2(x, y), z))";
+        let cols = parse_index_columns(indexdef);
+        assert_eq!(cols, vec!["func1(func2(x, y), z)"]);
+    }
+
+    #[test]
+    fn test_parse_empty_parentheses() {
+        let indexdef = "CREATE INDEX idx ON tbl USING btree ()";
+        let cols = parse_index_columns(indexdef);
+        assert_eq!(cols, Vec::<String>::new());
+    }
+
+    #[test]
+    fn test_parse_no_parentheses() {
+        let indexdef = "CREATE INDEX idx ON tbl";
+        let cols = parse_index_columns(indexdef);
+        assert_eq!(cols, Vec::<String>::new());
+    }
+
+    #[test]
+    fn test_parse_whitespace_handling() {
+        let indexdef = "CREATE INDEX idx ON tbl USING btree (  col1  ,  col2  )";
+        let cols = parse_index_columns(indexdef);
+        assert_eq!(cols, vec!["col1", "col2"]);
+    }
+
+    #[test]
+    fn test_parse_expression_with_spaces() {
+        let indexdef = "CREATE INDEX idx ON tbl USING btree ((a + b) * c, lower(d))";
+        let cols = parse_index_columns(indexdef);
+        assert_eq!(cols, vec!["(a + b) * c", "lower(d)"]);
+    }
 }
