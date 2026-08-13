@@ -13,10 +13,7 @@ export function CommandPalette() {
   const close = useCommandStore((s) => s.close);
   const execute = useCommandStore((s) => s.executeCommand);
 
-  const commands = useMemo(
-    () => allCommands.filter((c) => !c.when || c.when()),
-    [allCommands],
-  );
+  const commands = useMemo(() => allCommands.filter((c) => !c.when || c.when()), [allCommands]);
 
   const grouped = useMemo(() => {
     const map = new Map<string, typeof commands>();
