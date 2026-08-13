@@ -1064,7 +1064,16 @@ mod tests {
 
     #[test]
     fn cell_value_dto_int64_boundary_values_serialize_as_strings() {
-        let cases: Vec<i64> = vec![0, 1, -1, i64::MAX, i64::MIN, (1i64 << 53) - 1, 1i64 << 53, (1i64 << 53) + 1];
+        let cases: Vec<i64> = vec![
+            0,
+            1,
+            -1,
+            i64::MAX,
+            i64::MIN,
+            (1i64 << 53) - 1,
+            1i64 << 53,
+            (1i64 << 53) + 1,
+        ];
 
         for &value in &cases {
             let dto = CellValueDto::Int64(value);
@@ -1076,7 +1085,16 @@ mod tests {
 
     #[test]
     fn cell_value_dto_int64_roundtrip_preserves_exact_value() {
-        let cases: Vec<i64> = vec![0, 1, -1, i64::MAX, i64::MIN, (1i64 << 53) - 1, 1i64 << 53, (1i64 << 53) + 1];
+        let cases: Vec<i64> = vec![
+            0,
+            1,
+            -1,
+            i64::MAX,
+            i64::MIN,
+            (1i64 << 53) - 1,
+            1i64 << 53,
+            (1i64 << 53) + 1,
+        ];
 
         for &value in &cases {
             let dto = CellValueDto::Int64(value);
