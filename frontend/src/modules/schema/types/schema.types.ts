@@ -36,9 +36,9 @@ export interface SchemaIndexDto {
 export interface SchemaForeignKeyDto {
   name: string;
   fromTable: string;
-  fromColumn: string;
+  fromColumns: string[];
   toTable: string;
-  toColumn: string;
+  toColumns: string[];
   schema: string;
   toSchema: string;
 }

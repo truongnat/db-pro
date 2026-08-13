@@ -108,9 +108,9 @@ const fks: SchemaForeignKeyDto[] = [
   {
     name: "users_org_id_fkey",
     fromTable: "users",
-    fromColumn: "org_id",
+    fromColumns: ["org_id"],
     toTable: "orgs",
-    toColumn: "id",
+    toColumns: ["id"],
     schema: "public",
     toSchema: "public",
   },
@@ -202,7 +202,7 @@ describe("buildTableNodes", () => {
       const fkCols = new Set(
         data.foreignKeys
           .filter((fk) => `${fk.schema}.${fk.fromTable}` === tableKey)
-          .map((fk) => fk.fromColumn),
+          .flatMap((fk) => fk.fromColumns),
       );
       return {
         id: tableKey,
@@ -247,8 +247,10 @@ describe("buildTableNodes", () => {
     for (const fk of data.foreignKeys) {
       const node = nodes.find((n) => n.id === `${fk.schema}.${fk.fromTable}`);
       expect(node, `node for ${fk.fromTable}`).toBeDefined();
-      const col = (node!.data as TableNodeData).columns.find((c) => c.name === fk.fromColumn);
-      expect(col?.isForeignKey).toBe(true);
+      for (const colName of fk.fromColumns) {
+        const col = (node!.data as TableNodeData).columns.find((c) => c.name === colName);
+        expect(col?.isForeignKey).toBe(true);
+      }
     }
   });
 });

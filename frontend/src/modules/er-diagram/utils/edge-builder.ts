@@ -10,11 +10,10 @@ export interface EdgeGroup {
 }
 
 /**
- * Group foreign-key entries by constraint identity.
+ * Group foreign keys by constraint identity.
  *
- * Composite FKs like `(tenant_id, parent_id) REFERENCES parent(tenant_id, id)`
- * produce multiple `ForeignKey` rows sharing the same constraint `name`.
- * This function merges them into one `EdgeGroup` per logical constraint.
+ * Backend now returns composite FKs as single objects with arrays of columns.
+ * This function creates EdgeGroups for UI consumption, filtering by visible tables.
  *
  * The grouping key is `${schema}.${fromTable}.${name}` to ensure uniqueness
  * even when constraint names collide across tables (common in SQLite).
@@ -26,7 +25,7 @@ export function groupForeignKeys(
   foreignKeys: IntrospectResult["foreignKeys"],
   visibleTables: Set<string>,
 ): EdgeGroup[] {
-  const groups = new Map<string, EdgeGroup>();
+  const groups: EdgeGroup[] = [];
 
   for (const fk of foreignKeys) {
     const fromKey = `${fk.schema}.${fk.fromTable}`;
@@ -36,13 +35,15 @@ export function groupForeignKeys(
     if (!visibleTables.has(toKey)) continue;
 
     const key = `${fk.schema}.${fk.fromTable}.${fk.name}`;
-    const existing = groups.get(key);
-    if (existing) {
-      existing.columns.push({ from: fk.fromColumn, to: fk.toColumn });
-    } else {
-      groups.set(key, { key, fk, columns: [{ from: fk.fromColumn, to: fk.toColumn }] });
-    }
+    
+    // Build column pairs from the arrays
+    const columns = fk.fromColumns.map((fromCol, i) => ({
+      from: fromCol,
+      to: fk.toColumns[i],
+    }));
+
+    groups.push({ key, fk, columns });
   }
 
-  return [...groups.values()];
+  return groups;
 }

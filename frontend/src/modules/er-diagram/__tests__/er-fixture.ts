@@ -138,9 +138,9 @@ export function generateErFixture(tableCount: number, seed = 42): IntrospectResu
       foreignKeys.push({
         name: fkName,
         fromTable: tableName,
-        fromColumn,
+        fromColumns: [fromColumn],
         toTable: targetTable.name,
-        toColumn: "id",
+        toColumns: ["id"],
         schema,
         toSchema: schema,
       });

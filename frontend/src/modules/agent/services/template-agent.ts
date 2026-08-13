@@ -55,7 +55,17 @@ function generateSelectWithJoin(
 
   let joinClause: string;
   if (fk) {
-    joinClause = `${fk.fromTable}.${fk.fromColumn} = ${fk.toTable}.${fk.toColumn}`;
+    // Build join condition from all column pairs
+    const isReversed = fk.fromTable === tableB;
+    const fromTable = isReversed ? fk.toTable : fk.fromTable;
+    const toTable = isReversed ? fk.fromTable : fk.toTable;
+    const fromCols = isReversed ? fk.toColumns : fk.fromColumns;
+    const toCols = isReversed ? fk.fromColumns : fk.toColumns;
+    
+    const conditions = fromCols.map((fromCol, i) => 
+      `${fromTable}.${fromCol} = ${toTable}.${toCols[i]}`
+    );
+    joinClause = conditions.join(" AND ");
   } else {
     joinClause = `${tableA}.id = ${tableB}.id`;
   }
@@ -173,7 +183,11 @@ function generateTableOverview(
   if (fks.length > 0) {
     content += "\nRelationships:\n";
     for (const fk of fks) {
-      content += `- ${fk.fromTable}.${fk.fromColumn} → ${fk.toTable}.${fk.toColumn}\n`;
+      // Show all column pairs for composite FKs
+      const colPairs = fk.fromColumns.map((fromCol, i) => 
+        `${fromCol} → ${fk.toColumns[i]}`
+      ).join(", ");
+      content += `- ${fk.fromTable}(${colPairs}) → ${fk.toTable}\n`;
     }
   }
 
@@ -224,10 +238,19 @@ function generateFkRelationships(
 
   let content = "Relationships:\n\n";
   for (const fk of fks) {
-    content += `- \`${fk.fromTable}.${fk.fromColumn}\` → \`${fk.toTable}.${fk.toColumn}\`\n`;
+    // Show all column pairs for composite FKs
+    const colPairs = fk.fromColumns.map((fromCol, i) => 
+      `\`${fk.fromTable}.${fromCol}\` → \`${fk.toTable}.${fk.toColumns[i]}\``
+    ).join(", ");
+    content += `- ${colPairs}\n`;
   }
 
-  const sql = `-- Foreign key joins\n${fks.map((fk) => `SELECT *\nFROM ${fk.fromTable}\nJOIN ${fk.toTable} ON ${fk.fromTable}.${fk.fromColumn} = ${fk.toTable}.${fk.toColumn}\nLIMIT 50;`).join("\n\n")}`;
+  const sql = `-- Foreign key joins\n${fks.map((fk) => {
+    const conditions = fk.fromColumns.map((fromCol, i) => 
+      `${fk.fromTable}.${fromCol} = ${fk.toTable}.${fk.toColumns[i]}`
+    ).join(" AND ");
+    return `SELECT *\nFROM ${fk.fromTable}\nJOIN ${fk.toTable} ON ${conditions}\nLIMIT 50;`;
+  }).join("\n\n")}`;
 
   return { content, sql };
 }
@@ -442,7 +465,12 @@ export async function generateLlmResponse(
     .join("\n");
 
   const fkSummary = ctx.foreignKeys
-    .map((f) => `${f.fromTable}.${f.fromColumn} -> ${f.toTable}.${f.toColumn}`)
+    .map((f) => {
+      const colPairs = f.fromColumns.map((fromCol, i) => 
+        `${fromCol}->${f.toColumns[i]}`
+      ).join(",");
+      return `${f.fromTable}(${colPairs}) -> ${f.toTable}`;
+    })
     .join("\n");
 
   const systemPrompt = `You are a SQL expert assistant for a database IDE. Generate SQL queries based on user requests.

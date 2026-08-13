@@ -20,9 +20,9 @@ export interface SchemaContext {
   >;
   foreignKeys: {
     fromTable: string;
-    fromColumn: string;
+    fromColumns: string[];
     toTable: string;
-    toColumn: string;
+    toColumns: string[];
     schema: string;
   }[];
   connectionName: string | null;

@@ -61,7 +61,9 @@ export function buildPrimaryKeysByTable(primaryKeys: PrimaryKeyDto[]): Map<strin
 export function buildFkColumnSet(foreignKeys: SchemaForeignKeyDto[]): Set<string> {
   const set = new Set<string>();
   for (const fk of foreignKeys) {
-    set.add(`${fk.schema}.${fk.fromTable}:${fk.fromColumn}`);
+    for (const col of fk.fromColumns) {
+      set.add(`${fk.schema}.${fk.fromTable}:${col}`);
+    }
   }
   return set;
 }

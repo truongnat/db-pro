@@ -32,9 +32,9 @@ function distancesFrom(
 const fk = (from: string, to: string, name = "fk") => ({
   name,
   fromTable: from,
-  fromColumn: "id",
+  fromColumns: ["id"],
   toTable: to,
-  toColumn: "id",
+  toColumns: ["id"],
   schema: "public",
   toSchema: "public",
 });

@@ -1,12 +1,12 @@
 import { describe, it, expect } from "vitest";
 import { groupForeignKeys } from "../utils/edge-builder";
 
-const fk = (overrides: Record<string, string> = {}) => ({
+const fk = (overrides: Record<string, unknown> = {}) => ({
   name: "fk_default",
   fromTable: "orders",
-  fromColumn: "user_id",
+  fromColumns: ["user_id"],
   toTable: "users",
-  toColumn: "id",
+  toColumns: ["id"],
   schema: "public",
   toSchema: "public",
   ...overrides,
@@ -15,13 +15,13 @@ const fk = (overrides: Record<string, string> = {}) => ({
 describe("groupForeignKeys", () => {
   it("returns one group per single-column FK", () => {
     const fks = [
-      fk({ name: "fk_orders_user", fromColumn: "user_id", toColumn: "id" }),
+      fk({ name: "fk_orders_user", fromColumns: ["user_id"], toColumns: ["id"] }),
       fk({
         name: "fk_orders_product",
         fromTable: "orders",
-        fromColumn: "product_id",
+        fromColumns: ["product_id"],
         toTable: "products",
-        toColumn: "id",
+        toColumns: ["id"],
       }),
     ];
     const visible = new Set(["public.orders", "public.users", "public.products"]);
@@ -32,22 +32,16 @@ describe("groupForeignKeys", () => {
     expect(groups[1].columns).toHaveLength(1);
   });
 
-  it("merges composite FK columns into a single group", () => {
+  it("handles composite FK with multiple columns", () => {
     // Composite FK: (tenant_id, parent_id) REFERENCES parent(tenant_id, id)
+    // Backend already groups this into a single FK row with arrays
     const fks = [
       fk({
         name: "fk_composite",
         fromTable: "child",
-        fromColumn: "tenant_id",
+        fromColumns: ["tenant_id", "parent_id"],
         toTable: "parent",
-        toColumn: "tenant_id",
-      }),
-      fk({
-        name: "fk_composite",
-        fromTable: "child",
-        fromColumn: "parent_id",
-        toTable: "parent",
-        toColumn: "id",
+        toColumns: ["tenant_id", "id"],
       }),
     ];
     const visible = new Set(["public.child", "public.parent"]);
@@ -62,8 +56,8 @@ describe("groupForeignKeys", () => {
 
   it("does not merge FKs with different constraint names", () => {
     const fks = [
-      fk({ name: "fk_a", fromColumn: "col_a", toColumn: "id" }),
-      fk({ name: "fk_b", fromColumn: "col_b", toColumn: "id" }),
+      fk({ name: "fk_a", fromColumns: ["col_a"], toColumns: ["id"] }),
+      fk({ name: "fk_b", fromColumns: ["col_b"], toColumns: ["id"] }),
     ];
     const visible = new Set(["public.orders", "public.users"]);
     const groups = groupForeignKeys(fks, visible);
@@ -88,9 +82,9 @@ describe("groupForeignKeys", () => {
       fk({
         name: "fk_parent",
         fromTable: "categories",
-        fromColumn: "parent_id",
+        fromColumns: ["parent_id"],
         toTable: "categories",
-        toColumn: "id",
+        toColumns: ["id"],
       }),
     ];
     const visible = new Set(["public.categories"]);
@@ -107,7 +101,7 @@ describe("groupForeignKeys", () => {
   });
 
   it("produces stable edge keys based on constraint name", () => {
-    const fks = [fk({ name: "orders_user_fkey", fromColumn: "user_id", toColumn: "id" })];
+    const fks = [fk({ name: "orders_user_fkey", fromColumns: ["user_id"], toColumns: ["id"] })];
     const visible = new Set(["public.orders", "public.users"]);
     const groups = groupForeignKeys(fks, visible);
 
@@ -120,16 +114,16 @@ describe("groupForeignKeys", () => {
       fk({
         name: "fk_same",
         fromTable: "orders",
-        fromColumn: "user_id",
+        fromColumns: ["user_id"],
         toTable: "users",
-        toColumn: "id",
+        toColumns: ["id"],
       }),
       fk({
         name: "fk_same",
         fromTable: "products",
-        fromColumn: "user_id",
+        fromColumns: ["user_id"],
         toTable: "users",
-        toColumn: "id",
+        toColumns: ["id"],
       }),
     ];
     const visible = new Set(["public.orders", "public.products", "public.users"]);

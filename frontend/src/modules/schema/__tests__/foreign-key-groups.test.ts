@@ -7,9 +7,9 @@ function fk(overrides: Partial<SchemaForeignKeyDto> = {}): SchemaForeignKeyDto {
   return {
     name: "child_parent_fkey",
     fromTable: "child",
-    fromColumn: "parent_id",
+    fromColumns: ["parent_id"],
     toTable: "parent",
-    toColumn: "id",
+    toColumns: ["id"],
     schema: "public",
     toSchema: "public",
     ...overrides,
@@ -17,10 +17,9 @@ function fk(overrides: Partial<SchemaForeignKeyDto> = {}): SchemaForeignKeyDto {
 }
 
 describe("groupForeignKeys", () => {
-  it("groups PostgreSQL-style composite FK rows into one ordered relation", () => {
+  it("passes through composite FK with multiple columns", () => {
     const result = groupForeignKeys([
-      fk({ fromColumn: "tenant_id", toColumn: "tenant_id" }),
-      fk({ fromColumn: "parent_id", toColumn: "id" }),
+      fk({ fromColumns: ["tenant_id", "parent_id"], toColumns: ["tenant_id", "id"] }),
     ]);
 
     expect(result).toHaveLength(1);
@@ -31,7 +30,7 @@ describe("groupForeignKeys", () => {
   it("does not merge constraints with different identities", () => {
     const result = groupForeignKeys([
       fk({ name: "child_parent_fkey" }),
-      fk({ name: "child_owner_fkey", fromColumn: "owner_id", toColumn: "id" }),
+      fk({ name: "child_owner_fkey", fromColumns: ["owner_id"], toColumns: ["id"] }),
     ]);
 
     expect(result).toHaveLength(2);
