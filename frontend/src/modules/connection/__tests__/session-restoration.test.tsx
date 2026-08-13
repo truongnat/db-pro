@@ -52,9 +52,7 @@ describe("QA-P1-09 session restoration", () => {
 
   it("restoreSession runs only once on first fetch", async () => {
     useConnectionStore.setState({ activeConnectionIds: ["conn-1"] });
-    listMock.mockResolvedValue([
-      { id: "conn-1", name: "Test", driver: "postgres" },
-    ]);
+    listMock.mockResolvedValue([{ id: "conn-1", name: "Test", driver: "postgres" }]);
 
     const { result } = renderHook(() => useConnectionList(), { wrapper });
 
@@ -71,9 +69,7 @@ describe("QA-P1-09 session restoration", () => {
 
   it("does not attempt reconnect for stale connection IDs", async () => {
     useConnectionStore.setState({ activeConnectionIds: ["stale-id"] });
-    listMock.mockResolvedValue([
-      { id: "conn-1", name: "Test", driver: "postgres" },
-    ]);
+    listMock.mockResolvedValue([{ id: "conn-1", name: "Test", driver: "postgres" }]);
 
     const { result } = renderHook(() => useConnectionList(), { wrapper });
 
@@ -90,9 +86,7 @@ describe("QA-P1-09 session restoration", () => {
       { id: "conn-1", name: "Test 1", driver: "postgres" },
       { id: "conn-2", name: "Test 2", driver: "postgres" },
     ]);
-    connectMock
-      .mockRejectedValueOnce(new Error("auth failed"))
-      .mockResolvedValueOnce(undefined);
+    connectMock.mockRejectedValueOnce(new Error("auth failed")).mockResolvedValueOnce(undefined);
 
     const { result } = renderHook(() => useConnectionList(), { wrapper });
 

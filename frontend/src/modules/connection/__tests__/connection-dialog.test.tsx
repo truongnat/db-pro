@@ -303,14 +303,10 @@ describe("ConnectionDialog", () => {
       const staleOnSuccess = createMutate.mock.calls[0][1].onSuccess;
 
       useRecentStore.getState().closeConnectionDialog();
-      await waitFor(() =>
-        expect(useRecentStore.getState().connectionDialogOpen).toBe(false),
-      );
+      await waitFor(() => expect(useRecentStore.getState().connectionDialogOpen).toBe(false));
 
       useRecentStore.getState().openConnectionDialog();
-      await waitFor(() =>
-        expect(useRecentStore.getState().connectionDialogOpen).toBe(true),
-      );
+      await waitFor(() => expect(useRecentStore.getState().connectionDialogOpen).toBe(true));
 
       staleOnSuccess(fakeConnection);
 
