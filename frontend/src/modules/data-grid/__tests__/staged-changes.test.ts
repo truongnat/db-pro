@@ -7,7 +7,7 @@ import type { CellValue } from "@/modules/query/types/query.types";
 /* ---- helpers ---- */
 
 const text = (v: string): CellValue => ({ type: "text", value: v });
-const int = (v: number): CellValue => ({ type: "int64", value: v });
+const int = (v: number): CellValue => ({ type: "int64", value: String(v) });
 
 const TAB = "tab-1";
 

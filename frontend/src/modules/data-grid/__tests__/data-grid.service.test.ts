@@ -22,7 +22,7 @@ describe("DataGridService", () => {
     await service.fetchRows("conn-1", {
       schema: "public",
       table: "users",
-      filters: [{ column: "id", op: "eq", value: { type: "int64", value: 1 } }],
+      filters: [{ column: "id", op: "eq", value: { type: "int64", value: "1" } }],
       sorts: [{ column: "name", direction: "asc" }],
       page: 2,
       pageSize: 25,
@@ -33,7 +33,7 @@ describe("DataGridService", () => {
       request: {
         schema: "public",
         table: "users",
-        filters: [{ column: "id", op: "eq", value: { type: "int64", value: 1 } }],
+        filters: [{ column: "id", op: "eq", value: { type: "int64", value: "1" } }],
         sorts: [{ column: "name", direction: "asc" }],
         page: 2,
         pageSize: 25,
@@ -71,7 +71,7 @@ describe("DataGridService", () => {
       columns: ["name"],
       values: [{ type: "text", value: "Bob" }],
       pkColumns: ["id"],
-      pkValues: [{ type: "int64", value: 1 }],
+      pkValues: [{ type: "int64", value: "1" }],
     });
 
     expect(mockInvoke).toHaveBeenCalledWith("update_table_row", {
@@ -82,7 +82,7 @@ describe("DataGridService", () => {
         columns: ["name"],
         values: [{ type: "text", value: "Bob" }],
         pkColumns: ["id"],
-        pkValues: [{ type: "int64", value: 1 }],
+        pkValues: [{ type: "int64", value: "1" }],
       },
     });
   });
@@ -95,11 +95,11 @@ describe("DataGridService", () => {
       table: "users",
       columns: ["id", "name"],
       values: [
-        { type: "int64", value: 1 },
+        { type: "int64", value: "1" },
         { type: "text", value: "Alice" },
       ],
       pkColumns: ["id"],
-      pkValues: [{ type: "int64", value: 1 }],
+      pkValues: [{ type: "int64", value: "1" }],
     });
 
     expect(mockInvoke).toHaveBeenCalledWith("delete_table_row", {
@@ -109,11 +109,11 @@ describe("DataGridService", () => {
         table: "users",
         columns: ["id", "name"],
         values: [
-          { type: "int64", value: 1 },
+          { type: "int64", value: "1" },
           { type: "text", value: "Alice" },
         ],
         pkColumns: ["id"],
-        pkValues: [{ type: "int64", value: 1 }],
+        pkValues: [{ type: "int64", value: "1" }],
       },
     });
   });

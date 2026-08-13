@@ -15,6 +15,7 @@ import type {
   WorkspaceTab,
 } from "@/commons/types/workspace.types";
 import { useTabGridStateStore } from "@/modules/data-grid/state/tab-grid-state.store";
+import { useStagedChangesStore } from "@/modules/data-grid/state/staged-changes.store";
 
 const MAX_RECENTLY_CLOSED = 20;
 
@@ -69,7 +70,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       activeTabId: null,
       recentlyClosed: [],
 
-      openTab: (tab) =>
+      openTab: (tab) => {
         set((state) => {
           const existing = state.tabs.find((t) => t.resourceKey === tab.resourceKey);
           if (existing) {
@@ -87,12 +88,23 @@ export const useWorkspaceStore = create<WorkspaceState>()(
               (t) => t.preview && t.kind === tab.kind && t.connectionId === tab.connectionId,
             );
             if (previewIdx !== -1) {
+              const existingPreview = state.tabs[previewIdx];
+              const hasStaged = useStagedChangesStore.getState().getCount(existingPreview.id) > 0;
+              if (hasStaged) {
+                const promoted = [...state.tabs];
+                promoted[previewIdx] = { ...existingPreview, preview: false };
+                return {
+                  tabs: [...promoted, tab],
+                  activeTabId: tab.id,
+                };
+              }
               const newTabs = [...state.tabs];
               newTabs[previewIdx] = {
                 ...tab,
                 id: newTabs[previewIdx].id,
                 order: newTabs[previewIdx].order,
               };
+              useTabGridStateStore.getState().resetTab(newTabs[previewIdx].id);
               return {
                 tabs: newTabs,
                 activeTabId: newTabs[previewIdx].id,
@@ -104,7 +116,8 @@ export const useWorkspaceStore = create<WorkspaceState>()(
             tabs: [...state.tabs, tab],
             activeTabId: tab.id,
           };
-        }),
+        });
+      },
 
       activateTab: (id) =>
         set((state) => {
@@ -313,7 +326,6 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         })),
 
       openDbObject: (tab) => {
-        let replacedPreviewId: string | null = null;
         set((state) => {
           const existing = state.tabs.find((t) => t.resourceKey === tab.resourceKey);
           if (existing && existing.kind === "db-object") {
@@ -331,10 +343,20 @@ export const useWorkspaceStore = create<WorkspaceState>()(
               (t) => t.preview && t.kind === "db-object" && t.connectionId === tab.connectionId,
             );
             if (previewIdx !== -1) {
+              const existingPreview = state.tabs[previewIdx];
+              const hasStaged = useStagedChangesStore.getState().getCount(existingPreview.id) > 0;
+              if (hasStaged) {
+                const promoted = [...state.tabs];
+                promoted[previewIdx] = { ...existingPreview, preview: false };
+                return {
+                  tabs: [...promoted, tab],
+                  activeTabId: tab.id,
+                };
+              }
               const reusedId = state.tabs[previewIdx].id;
               const newTabs = [...state.tabs];
               newTabs[previewIdx] = { ...tab, id: reusedId, order: newTabs[previewIdx].order };
-              replacedPreviewId = reusedId;
+              useTabGridStateStore.getState().resetTab(reusedId);
               return {
                 tabs: newTabs,
                 activeTabId: reusedId,
@@ -347,9 +369,6 @@ export const useWorkspaceStore = create<WorkspaceState>()(
             activeTabId: tab.id,
           };
         });
-        if (replacedPreviewId) {
-          useTabGridStateStore.getState().resetTab(replacedPreviewId);
-        }
       },
 
       reassignTabConnection: (id, newConnectionId) =>

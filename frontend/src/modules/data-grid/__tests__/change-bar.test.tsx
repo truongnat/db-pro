@@ -27,21 +27,21 @@ function makeEdit(id: string): StagedChange {
   return {
     id,
     kind: "cell-edit",
-    pkValues: [{ type: "int64", value: 1 }],
+    pkValues: [{ type: "int64", value: "1" }],
     changes: { name: { type: "text", value: "x" } },
     error: null,
   };
 }
 
 function makeDelete(id: string): StagedChange {
-  return { id, kind: "row-delete", pkValues: [{ type: "int64", value: 1 }], error: null };
+  return { id, kind: "row-delete", pkValues: [{ type: "int64", value: "1" }], error: null };
 }
 
 function makeFailedEdit(id: string): StagedChange {
   return {
     id,
     kind: "cell-edit",
-    pkValues: [{ type: "int64", value: 1 }],
+    pkValues: [{ type: "int64", value: "1" }],
     changes: { name: { type: "text", value: "x" } },
     error: "unique violation",
   };

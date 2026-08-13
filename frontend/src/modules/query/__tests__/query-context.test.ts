@@ -33,7 +33,7 @@ const CONNECTIONS = [
 
 const SAMPLE_RESULT: QueryResult = {
   columns: [{ name: "id", dataType: "int", nullable: false }],
-  rows: [[{ type: "int64", value: 1 }]],
+  rows: [[{ type: "int64", value: "1" }]],
   rowCount: 1,
   durationMs: 5,
 };

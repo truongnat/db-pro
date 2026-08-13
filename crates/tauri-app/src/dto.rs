@@ -10,6 +10,25 @@ use db_pro_core::domain::schema::{
 };
 use db_pro_core::domain::user::{DatabaseUser, Privilege};
 
+mod string_i64 {
+    use serde::{self, Deserialize, Deserializer, Serializer};
+
+    pub fn serialize<S>(value: &i64, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&value.to_string())
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<i64, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        s.parse::<i64>().map_err(serde::de::Error::custom)
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Error
 // ---------------------------------------------------------------------------
@@ -291,7 +310,7 @@ impl From<Row> for RowDto {
 pub enum CellValueDto {
     Null,
     Bool(bool),
-    Int64(i64),
+    Int64(#[serde(with = "string_i64")] i64),
     Float64(f64),
     Text(String),
     Bytes(Vec<u8>),
@@ -1032,5 +1051,66 @@ impl From<db_pro_core::domain::cross_connection::TablespaceInfo> for TablespaceI
             owner: t.owner,
             location: t.location,
         }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn cell_value_dto_int64_boundary_values_serialize_as_strings() {
+        let cases: Vec<i64> = vec![
+            0,
+            1,
+            -1,
+            i64::MAX,
+            i64::MIN,
+            (1i64 << 53) - 1,
+            1i64 << 53,
+            (1i64 << 53) + 1,
+        ];
+
+        for &value in &cases {
+            let dto = CellValueDto::Int64(value);
+            let json = serde_json::to_value(&dto).unwrap();
+            assert_eq!(json["type"], "int64");
+            assert_eq!(json["value"], serde_json::Value::String(value.to_string()));
+        }
+    }
+
+    #[test]
+    fn cell_value_dto_int64_roundtrip_preserves_exact_value() {
+        let cases: Vec<i64> = vec![
+            0,
+            1,
+            -1,
+            i64::MAX,
+            i64::MIN,
+            (1i64 << 53) - 1,
+            1i64 << 53,
+            (1i64 << 53) + 1,
+        ];
+
+        for &value in &cases {
+            let dto = CellValueDto::Int64(value);
+            let json = serde_json::to_string(&dto).unwrap();
+            let decoded: CellValueDto = serde_json::from_str(&json).unwrap();
+            match decoded {
+                CellValueDto::Int64(v) => assert_eq!(v, value, "roundtrip failed for {value}"),
+                other => panic!("expected Int64, got {other:?}"),
+            }
+        }
+    }
+
+    #[test]
+    fn cell_value_dto_int64_rejects_non_string_json() {
+        let json = r#"{"type":"int64","value":9007199254740993}"#;
+        let result = serde_json::from_str::<CellValueDto>(json);
+        assert!(result.is_err(), "should reject numeric JSON value for int64");
     }
 }

@@ -23,10 +23,26 @@ Pre-release hardening program. Blocks v0.1.
 | P3.3 ER Diagram Algorithm | REVIEW | Pre-indexed maps; benchmark 500t=16ms, 1000t=26ms |
 | P3.4 ER Diagram Duplicate Layout | REVIEW | Single layoutGraph() in useMemo; edge highlight separated |
 | P3.5 ER Diagram Rendering LOD | REVIEW | 3-tier zoom LOD; MiniMap disabled >200 nodes |
-| P3.6 ER Diagram Large Schema Mode | REVIEW | Neighborhood BFS for 200+ tables; search-first default |
+| P3.6 ER Diagram Large Schema Mode | REVIEW | Neighborhood BFS for 200+ tables; search-first default needs RC1 QA correction before release |
 | P3.7 Performance Budgets | REVIEW | Fixtures at 20/100/500/1000; automated regression test |
-| P3.8 Data Grid / Metadata List Audit | REVIEW | Explorer O(S×T) fixed; data grid/connection list clean |
+| P3.8 Data Grid / Metadata List Audit | REVIEW | Explorer O(S×T) fixed; deeper RC1 QA found additional state/performance issues |
 | **P1 Large-Schema ER Architecture** | **IMPLEMENTING** | locked architecture (graph model → layout worker → spatial index → viewport engine → renderer); P1.1 instrumentation + P1.2 culling done on `feature/er-large-schema-scaling` |
+
+## RC1 Full Product QA
+
+Audit baseline: `main@6e0a04ad675eaa85cae08bbe1a066270596a18db`  
+Audit branch: `qa/rc1-static-audit`
+
+| Program | State | P0 | P1 | P2 | Notes |
+|---|---|---:|---:|---:|---|
+| RC1 Full Product QA — Static Audit & Remediation | PLANNING | 0 | 14 | 25 | release-blocking findings recorded under `docs/plans/active/rc1-full-product-qa/`; fixes must use focused branches/PRs |
+
+Release rule for this QA program:
+
+- no `v0.1.0` tag while confirmed P1 findings remain open;
+- source evidence does not close provider/runtime checks;
+- BIGINT precision, staged mutation identity, connection lifecycle, orphan recovery, large-schema ER and provider type mapping are highest-priority P1 waves;
+- no new product/Agent/MCP feature work during RC remediation.
 
 ## Rules
 

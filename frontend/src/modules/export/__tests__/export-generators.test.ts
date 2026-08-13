@@ -10,13 +10,13 @@ const columns: ColumnMeta[] = [
 
 const rows: Row[] = [
   [
-    { type: "int64", value: 1 },
+    { type: "int64", value: "1" },
     { type: "text", value: "Alice" },
     { type: "bool", value: true },
   ],
-  [{ type: "int64", value: 2 }, { type: "null" }, { type: "bool", value: false }],
+  [{ type: "int64", value: "2" }, { type: "null" }, { type: "bool", value: false }],
   [
-    { type: "int64", value: 3 },
+    { type: "int64", value: "3" },
     { type: "text", value: "has,comma" },
     { type: "bool", value: true },
   ],
@@ -63,7 +63,7 @@ describe("generateJson", () => {
     const json = generateJson(columns, rows);
     const parsed = JSON.parse(json);
     expect(parsed).toHaveLength(3);
-    expect(parsed[0]).toEqual({ id: 1, name: "Alice", active: true });
+    expect(parsed[0]).toEqual({ id: "1", name: "Alice", active: true });
     expect(parsed[1].name).toBeNull();
   });
 
@@ -96,7 +96,7 @@ describe("generateSqlInserts", () => {
   it("escapes single quotes in text values", () => {
     const specialRows: Row[] = [
       [
-        { type: "int64", value: 1 },
+        { type: "int64", value: "1" },
         { type: "text", value: "O'Brien" },
         { type: "bool", value: true },
       ],
@@ -123,7 +123,7 @@ describe("generateSqlInserts", () => {
     ];
     const jsonRows: Row[] = [
       [
-        { type: "int64", value: 1 },
+        { type: "int64", value: "1" },
         { type: "json", value: { key: "it's", nested: [1, 2] } },
       ],
     ];
@@ -143,7 +143,7 @@ describe("generateSqlInserts", () => {
     ];
     const binRows: Row[] = [
       [
-        { type: "int64", value: 1 },
+        { type: "int64", value: "1" },
         { type: "bytes", value: "\x00\x01" },
       ],
     ];

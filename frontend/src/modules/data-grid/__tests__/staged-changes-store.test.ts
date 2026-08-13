@@ -6,7 +6,7 @@ function resetStore() {
   useStagedChangesStore.setState({ changes: {}, inFlightIds: new Set() });
 }
 
-const int = (v: number): CellValue => ({ type: "int64", value: v });
+const int = (v: number): CellValue => ({ type: "int64", value: String(v) });
 const text = (v: string): CellValue => ({ type: "text", value: v });
 
 /** Helper: stage a cell edit using the patch model. */

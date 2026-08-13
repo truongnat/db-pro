@@ -14,10 +14,10 @@ const MOCK_COLUMNS = [
 
 function makeRow(id: number) {
   return [
-    { type: "int64" as const, value: id },
+    { type: "int64" as const, value: String(id) },
     { type: "text" as const, value: `User ${id}` },
     { type: "text" as const, value: `user${id}@test.com` },
-    { type: "int64" as const, value: 20 + id },
+    { type: "int64" as const, value: String(20 + id) },
   ];
 }
 

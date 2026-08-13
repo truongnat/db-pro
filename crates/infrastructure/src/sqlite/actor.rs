@@ -2,10 +2,12 @@ use std::sync::mpsc;
 use std::time::Instant;
 
 use db_pro_core::domain::error::DbError;
-use db_pro_core::domain::query::{CellValue, ColumnMeta, QueryParam, QueryResult, Row};
+use db_pro_core::domain::query::{CellValue, QueryParam, QueryResult, Row};
 use db_pro_core::domain::schema::IntrospectResult;
 use tokio::sync::oneshot;
 use tracing;
+
+use super::query_mapper::extract_columns;
 
 // ---------------------------------------------------------------------------
 // Command enum – every variant carries a oneshot responder
@@ -250,18 +252,7 @@ impl SqliteActor {
 
         let mut stmt = self.conn.prepare(sql).map_err(crate::error::from_rusqlite)?;
 
-        let col_count = stmt.column_count();
-        let columns: Vec<ColumnMeta> = (0..col_count)
-            .map(|i| {
-                let name = stmt.column_name(i).unwrap_or("?").to_string();
-                let data_type = stmt.column_names().get(i).map(|_| "TEXT").unwrap_or("TEXT").to_string();
-                ColumnMeta {
-                    name,
-                    data_type,
-                    nullable: true,
-                }
-            })
-            .collect();
+        let columns = extract_columns(&stmt);
 
         let rusqlite_params = to_rusqlite_params(params);
         let param_refs: Vec<&dyn rusqlite::types::ToSql> = rusqlite_params.iter().map(|p| p.as_ref()).collect();

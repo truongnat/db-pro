@@ -80,13 +80,19 @@ export function RowEditDialog({ open, onOpenChange, columns, row, onSave }: RowE
 
       switch (cellType) {
         case "int64": {
-          const n = Number(field.value);
-          if (!Number.isInteger(n)) {
+          const trimmed = field.value.trim();
+          if (!/^-?\d+$/.test(trimmed)) {
             nextFields[col.name] = { ...field, error: "Invalid integer" };
             setFields(nextFields);
             return;
           }
-          changes[col.name] = { type: "int64", value: n };
+          const n = BigInt(trimmed);
+          if (n < -9223372036854775808n || n > 9223372036854775807n) {
+            nextFields[col.name] = { ...field, error: "Integer out of range" };
+            setFields(nextFields);
+            return;
+          }
+          changes[col.name] = { type: "int64", value: trimmed };
           break;
         }
         case "float64": {

@@ -38,14 +38,12 @@ pub fn map_row_to_cells(row: &rusqlite::Row) -> Result<Vec<CellValue>, DbError> 
 }
 
 pub fn extract_columns(stmt: &rusqlite::Statement) -> Vec<ColumnMeta> {
+    let columns = stmt.columns();
     (0..stmt.column_count())
-        .map(|i| {
-            let name = stmt.column_name(i).unwrap_or("?").to_string();
-            ColumnMeta {
-                name,
-                data_type: "TEXT".into(),
-                nullable: true,
-            }
+        .map(|i| ColumnMeta {
+            name: columns[i].name().to_string(),
+            data_type: columns[i].decl_type().unwrap_or("TEXT").to_string(),
+            nullable: true,
         })
         .collect()
 }

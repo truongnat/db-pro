@@ -65,7 +65,7 @@ describe("TabGridStateStore", () => {
       const { addDraftFilter, setState, applyFilters, getState } = useTabGridStateStore.getState();
       setState("tab-1", { page: 5 });
       addDraftFilter("tab-1", { column: "name", op: "like", value: { type: "text", value: "A" } });
-      addDraftFilter("tab-1", { column: "age", op: "gt", value: { type: "int64", value: 18 } });
+      addDraftFilter("tab-1", { column: "age", op: "gt", value: { type: "int64", value: "18" } });
       applyFilters("tab-1");
       const state = getState("tab-1");
       expect(state.filters).toHaveLength(2);

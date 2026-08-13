@@ -226,10 +226,7 @@ function TabItem({
 
 export function WorkspaceTabBar() {
   const { t } = useTranslation();
-  const tabs = useWorkspaceStore(
-    (s) => s.tabs.map(projectTabForBar),
-    tabBarListEqual,
-  );
+  const tabs = useWorkspaceStore((s) => s.tabs.map(projectTabForBar), tabBarListEqual);
   const activeTabId = useWorkspaceStore((s) => s.activeTabId);
   const activateTab = useWorkspaceStore((s) => s.activateTab);
   const reorderTabs = useWorkspaceStore((s) => s.reorderTabs);
