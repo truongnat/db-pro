@@ -56,7 +56,7 @@ describe("QA-P1-09 session restoration", () => {
       { id: "conn-1", name: "Test", driver: "postgres" },
     ]);
 
-    const { result, rerender } = renderHook(() => useConnectionList(), { wrapper });
+    const { result } = renderHook(() => useConnectionList(), { wrapper });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     await waitFor(() => expect(connectMock).toHaveBeenCalledTimes(1));
