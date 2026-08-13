@@ -291,13 +291,18 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
   // card size. The canvas overview lays out compact 160×28 nodes (its actual
   // paint geometry); React Flow lays out column-aware cards. The profile id
   // participates in the layout hash, so the two never share cached positions.
+  // Gate 4 Slice B: skip the layout input builder during search phase.
+  // buildLayoutInputFromModel iterates every table/relation — for a 1000-table
+  // schema that is non-trivial main-thread work on first paint. The search
+  // entry is metadata-only; no layout geometry is needed until the user
+  // explicitly selects a table.
   const overviewLayoutInput = useMemo<LayoutInput | null>(() => {
-    if (graphModel.tables.length === 0) return null;
+    if (isSearchPhase || graphModel.tables.length === 0) return null;
     return buildLayoutInputFromModel(graphModel, OVERVIEW_LAYOUT_PROFILE);
-  }, [graphModel]);
+  }, [graphModel, isSearchPhase]);
 
   const rfLayoutInput = useMemo<LayoutInput | null>(() => {
-    if (initialNodes.length === 0) return null;
+    if (isSearchPhase || initialNodes.length === 0) return null;
     return {
       nodes: initialNodes.map((n) => {
         const d = n.data as TableNodeData;
@@ -309,7 +314,7 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
       }),
       edges: initialEdges.map((e) => ({ source: e.source, target: e.target })),
     };
-  }, [initialNodes, initialEdges]);
+  }, [initialNodes, initialEdges, isSearchPhase]);
 
   // Gate 4 Slice B: search phase sends null layout input to the worker —
   // no layout request while the search entry is the only visible surface.

@@ -66,6 +66,26 @@ vi.mock("../components/cytoscape-view", () => ({
   },
 }));
 
+// Track buildLayoutInputFromModel calls — the builder must NOT run during
+// search phase. We wrap the real implementation with a call counter.
+const builderHarness = vi.hoisted(() => ({
+  callCount: 0,
+  reset() {
+    this.callCount = 0;
+  },
+}));
+
+vi.mock("../utils/layout-profile", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../utils/layout-profile")>();
+  return {
+    ...actual,
+    buildLayoutInputFromModel: (...args: unknown[]) => {
+      builderHarness.callCount++;
+      return (actual.buildLayoutInputFromModel as (...a: unknown[]) => unknown)(...args);
+    },
+  };
+});
+
 /* ── Helpers ─────────────────────────────────────────────────────────────── */
 
 /**
@@ -125,6 +145,7 @@ describe("Gate 4 Slice B — search-first entry UX", () => {
   beforeEach(() => {
     cytoscapeHarness.reset();
     layoutHarness.reset();
+    builderHarness.reset();
   });
 
   /* 1-3. Table count > 200 enters search-first regardless of tier */
@@ -369,5 +390,62 @@ describe("Gate 4 Slice B — search-first entry UX", () => {
 
     // After selection: phase → neighborhood, layout input is no longer null
     expect(layoutHarness.lastInput).not.toBeNull();
+  });
+
+  /* Builder-level gating — buildLayoutInputFromModel must not run during search */
+
+  it("layout builder is not called for 201-table schema during search", () => {
+    const data = generateErFixture(201, 42);
+    render(<ErDiagram connectionId="c" schema="public" data={data} />);
+
+    expect(builderHarness.callCount).toBe(0);
+  });
+
+  it("layout builder is not called for 500-table schema during search", () => {
+    const data = generateErFixture(500, 42);
+    render(<ErDiagram connectionId="c" schema="public" data={data} />);
+
+    expect(builderHarness.callCount).toBe(0);
+  });
+
+  it("layout builder is not called for 1000-table schema during search", () => {
+    const data = generateErFixture(1000, 42);
+    render(<ErDiagram connectionId="c" schema="public" data={data} />);
+
+    expect(builderHarness.callCount).toBe(0);
+  });
+
+  it("layout builder is not called during search typing", () => {
+    const data = generateErFixture(500, 42);
+    render(<ErDiagram connectionId="c" schema="public" data={data} />);
+
+    const searchInput = screen.getByTestId("er-search-input");
+    fireEvent.change(searchInput, { target: { value: "app" } });
+    fireEvent.change(searchInput, { target: { value: "billing" } });
+
+    expect(builderHarness.callCount).toBe(0);
+  });
+
+  it("layout builder runs after table selection", async () => {
+    const data = generateErFixture(500, 42);
+    render(
+      <TooltipProvider>
+        <ErDiagram connectionId="c" schema="public" data={data} />
+      </TooltipProvider>,
+    );
+
+    // During search: builder not called
+    expect(builderHarness.callCount).toBe(0);
+
+    // Select a table
+    const searchInput = screen.getByTestId("er-search-input");
+    fireEvent.change(searchInput, { target: { value: "app" } });
+    await waitFor(() => {
+      expect(screen.getAllByTestId("er-search-result").length).toBeGreaterThan(0);
+    });
+    fireEvent.click(screen.getAllByTestId("er-search-result")[0]);
+
+    // After selection: builder may now run (phase → neighborhood)
+    expect(builderHarness.callCount).toBeGreaterThan(0);
   });
 });
