@@ -1,6 +1,7 @@
 import { useTranslation } from "@/commons/locales/useTranslation";
 import { useConnectionValid } from "@/commons/hooks/use-connection-valid";
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
+import { requestCloseTab } from "@/commons/services/request-close-tab";
 import { useConnectionList } from "@/modules/connection/queries/connection.queries";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,7 +26,7 @@ function OrphanedTabView({ tabId, tabTitle }: { tabId: string; tabTitle: string 
   };
 
   const handleCloseTab = () => {
-    useWorkspaceStore.getState().closeTab(tabId);
+    requestCloseTab(tabId);
   };
 
   const availableConnections = connections.data ?? [];

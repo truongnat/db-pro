@@ -4,6 +4,7 @@ import { createQueryTab, createDbObjectTab } from "@/commons/factories/tab-facto
 import { useWorkspaceStore, reconcileWorkspaceTabs } from "@/commons/stores/workspace.store";
 import { useConnectionStore } from "@/commons/stores/connection.store";
 import { useTabGridStateStore } from "@/modules/data-grid/state/tab-grid-state.store";
+import { useStagedChangesStore } from "@/modules/data-grid/state/staged-changes.store";
 import type { Connection } from "@/modules/connection/types/connection.types";
 
 function resetStore() {
@@ -16,6 +17,7 @@ function resetStore() {
     connections: [],
   });
   useTabGridStateStore.setState({ states: {} });
+  useStagedChangesStore.getState().clearAll();
 }
 
 function mockConnection(id: string): Connection {
@@ -737,6 +739,42 @@ describe("WorkspaceStore", () => {
       const updated = useWorkspaceStore.getState().tabs.find((t) => t.id === tab.id)!;
       expect(updated.connectionId).toBe("conn-2");
       expect(updated.resourceKey).toBe("dbobj:public.users:conn-2");
+    });
+
+    it("clears staged changes on reassignment", () => {
+      const tab = createQueryTab("conn-1", { title: "Q1" });
+      useWorkspaceStore.getState().openTab(tab);
+
+      useStagedChangesStore.getState().stageCellEdit(tab.id, {
+        pkValues: [{ type: "text", value: "1" }],
+        changes: { name: { type: "text", value: "Bob" } },
+      });
+      expect(useStagedChangesStore.getState().getCount(tab.id)).toBe(1);
+
+      useWorkspaceStore.getState().reassignTabConnection(tab.id, "conn-2");
+
+      expect(useStagedChangesStore.getState().getCount(tab.id)).toBe(0);
+    });
+
+    it("marks tab dirty after reassignment to signal review needed", () => {
+      const tab = createQueryTab("conn-1", { title: "Q1" });
+      useWorkspaceStore.getState().openTab(tab);
+      expect(useWorkspaceStore.getState().tabs[0].dirty).toBeFalsy();
+
+      useWorkspaceStore.getState().reassignTabConnection(tab.id, "conn-2");
+
+      const updated = useWorkspaceStore.getState().tabs.find((t) => t.id === tab.id)!;
+      expect(updated.dirty).toBe(true);
+    });
+
+    it("marks db-object tab dirty after provider-crossing reassignment", () => {
+      const tab = createDbObjectTab("conn-1", "public", "users", "table");
+      useWorkspaceStore.getState().openTab(tab);
+
+      useWorkspaceStore.getState().reassignTabConnection(tab.id, "conn-2");
+
+      const updated = useWorkspaceStore.getState().tabs.find((t) => t.id === tab.id)!;
+      expect(updated.dirty).toBe(true);
     });
   });
 });

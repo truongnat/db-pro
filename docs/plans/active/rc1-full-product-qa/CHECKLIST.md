@@ -83,17 +83,17 @@ Baseline audited: `6e0a04ad675eaa85cae08bbe1a066270596a18db`
 ## Gate 3 — QA-W3 Workspace recovery
 
 ### QA-P1-10 orphan dirty close
-- [ ] Orphan Close uses shared close guard
-- [ ] Dirty SQL is never discarded without confirmation
-- [ ] Staged grid work is never discarded without confirmation
+- [x] Orphan Close uses shared close guard
+- [x] Dirty SQL is never discarded without confirmation
+- [x] Staged grid work is never discarded without confirmation
 
 ### QA-P1-11 orphan reassignment
-- [ ] Query reassignment still clears old execution/runtime context
-- [ ] DB Object reassignment validates target schema/object
-- [ ] Schema Workspace reassignment validates target schema
-- [ ] PostgreSQL → SQLite incompatible schema is not silently retained
-- [ ] Reassignment does not carry stale results/staged mutations
-- [ ] Add provider-crossing recovery tests
+- [x] Query reassignment still clears old execution/runtime context
+- [x] DB Object reassignment validates target schema/object
+- [x] Schema Workspace reassignment validates target schema
+- [x] PostgreSQL → SQLite incompatible schema is not silently retained
+- [x] Reassignment does not carry stale results/staged mutations
+- [x] Add provider-crossing recovery tests
 
 ## Gate 4 — QA-W4 ER large-schema
 

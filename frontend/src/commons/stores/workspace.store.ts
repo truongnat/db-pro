@@ -372,45 +372,53 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       },
 
       reassignTabConnection: (id, newConnectionId) =>
-        set((state) => ({
-          tabs: updateTabInList(state.tabs, id, (t) => {
-            if (t.kind === "schema-workspace") {
+        set((state) => {
+          // Clear staged changes — they reference the old connection's backend.
+          useStagedChangesStore.getState().clearTab(id);
+
+          return {
+            tabs: updateTabInList(state.tabs, id, (t) => {
+              if (t.kind === "schema-workspace") {
+                return {
+                  ...t,
+                  connectionId: newConnectionId,
+                  resourceKey: `schema-ws:${t.data.schema}:${newConnectionId}`,
+                  dirty: true,
+                };
+              }
+              if (t.kind === "db-object") {
+                return {
+                  ...t,
+                  connectionId: newConnectionId,
+                  resourceKey: `dbobj:${t.data.schema}.${t.data.objectName}:${newConnectionId}`,
+                  dirty: true,
+                };
+              }
+              // Query tab: reset context to new connection's default database
+              const connections = useConnectionStore.getState().connections;
+              const newConn = connections.find((c) => c.id === newConnectionId);
+              const defaultDb = newConn?.database ?? null;
               return {
                 ...t,
                 connectionId: newConnectionId,
-                resourceKey: `schema-ws:${t.data.schema}:${newConnectionId}`,
+                dirty: true,
+                data: {
+                  ...t.data,
+                  context: { database: defaultDb, schema: null },
+                  status: "idle" as const,
+                  error: null,
+                  result: null,
+                  explainPlan: null,
+                  multiResults: null,
+                  multiResultIndex: 0,
+                  activeExecutionId: null,
+                  executionStartedAt: null,
+                  timing: null,
+                },
               };
-            }
-            if (t.kind === "db-object") {
-              return {
-                ...t,
-                connectionId: newConnectionId,
-                resourceKey: `dbobj:${t.data.schema}.${t.data.objectName}:${newConnectionId}`,
-              };
-            }
-            // Query tab: reset context to new connection's default database
-            const connections = useConnectionStore.getState().connections;
-            const newConn = connections.find((c) => c.id === newConnectionId);
-            const defaultDb = newConn?.database ?? null;
-            return {
-              ...t,
-              connectionId: newConnectionId,
-              data: {
-                ...t.data,
-                context: { database: defaultDb, schema: null },
-                status: "idle" as const,
-                error: null,
-                result: null,
-                explainPlan: null,
-                multiResults: null,
-                multiResultIndex: 0,
-                activeExecutionId: null,
-                executionStartedAt: null,
-                timing: null,
-              },
-            };
-          }),
-        })),
+            }),
+          };
+        }),
 
       restoreState: (restored) => {
         set({
