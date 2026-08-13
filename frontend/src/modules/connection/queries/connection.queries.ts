@@ -20,13 +20,24 @@ function getConnectionService() {
 }
 
 const RECONNECT_CONCURRENCY = 3;
+let sessionRestored = false;
+
+// Test-only export to reset session restoration state between tests
+export function __resetSessionRestored() {
+  sessionRestored = false;
+}
 
 /**
  * Reconnect connections that were active in the previous session.
  * Only IDs that still exist in the saved connection list are attempted.
  * Failures are silent (no toast) — StatusDot in Explorer is sufficient.
+ * This function only executes once per app startup to prevent double-connection
+ * on subsequent query invalidations/refetches.
  */
 function restoreSession(connections: Connection[]) {
+  if (sessionRestored) return;
+  sessionRestored = true;
+
   const { activeConnectionIds } = useConnectionStore.getState();
   if (activeConnectionIds.length === 0) return;
 
@@ -89,7 +100,7 @@ export function useConnectionList() {
       useConnectionStore.getState().setConnections(connections);
       // Connections are now loaded — reconcile persisted workspace tabs.
       reconcileWorkspaceTabs();
-      // Restore previously active connections from the last session.
+      // Restore previously active connections from the last session (one-shot).
       restoreSession(connections);
       return connections;
     },

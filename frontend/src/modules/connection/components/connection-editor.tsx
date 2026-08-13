@@ -258,20 +258,29 @@ export function ConnectionEditor({
         </div>
       )}
 
-      {!isPostgres && (
-        <FormInput
-          label={t("common.labels.password")}
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required={!isEdit || driverChanged}
-          placeholder={driverChanged ? "" : isEdit ? "(unchanged)" : ""}
-        />
-      )}
-
       {isPostgres && (
         <div className="flex flex-col gap-3">
-          <FormCheckbox label="Use SSH Tunnel" checked={showSsh} onChange={setShowSsh} />
+          <FormCheckbox
+            label="Use SSH Tunnel"
+            checked={showSsh}
+            onChange={(checked) => {
+              setShowSsh(checked);
+              if (checked) {
+                setFormData((prev) => ({
+                  ...prev,
+                  sshTunnel: {
+                    host: "",
+                    port: 22,
+                    user: "",
+                    privateKeyPath: "",
+                    password: "",
+                  },
+                }));
+              } else {
+                setFormData((prev) => ({ ...prev, sshTunnel: undefined }));
+              }
+            }}
+          />
 
           {showSsh && (
             <div className="flex flex-col gap-4 rounded-lg border border-[var(--border-default)] bg-muted p-4">

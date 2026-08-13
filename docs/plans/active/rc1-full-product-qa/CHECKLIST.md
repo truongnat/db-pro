@@ -50,35 +50,35 @@ Baseline audited: `6e0a04ad675eaa85cae08bbe1a066270596a18db`
 ## Gate 2 — QA-W2 Connection correctness
 
 ### QA-P1-05 SQLite password
-- [ ] SQLite create does not require password
-- [ ] SQLite edit does not show meaningless password requirement
-- [ ] Test/Test+Save work with empty password
+- [x] SQLite create does not require password
+- [x] SQLite edit does not show meaningless password requirement
+- [x] Test/Test+Save work with empty password
 
 ### QA-P1-06 SSH disable
-- [ ] Uncheck Use SSH → model `sshTunnel = undefined`
-- [ ] Save persists disabled state
-- [ ] Re-open shows disabled state
+- [x] Uncheck Use SSH → model `sshTunnel = undefined`
+- [x] Save persists disabled state
+- [x] Re-open shows disabled state
 
 ### QA-P1-07 SSH default model
-- [ ] Enable SSH initializes complete default model
-- [ ] Port 22 exists in submitted state without touching field
-- [ ] Required Rust SSH fields are represented in TS state
-- [ ] Validation tests for host/port/user/key
+- [x] Enable SSH initializes complete default model
+- [x] Port 22 exists in submitted state without touching field
+- [x] Required Rust SSH fields are represented in TS state
+- [x] Validation tests for host/port/user/key
 
 ### QA-P1-08 stale connection-dialog async callback
-- [ ] Introduce per-open operation/session generation
-- [ ] Late callbacks from previous session are ignored
-- [ ] New Connection always begins with no persisted edit identity
-- [ ] Test close-before-create-resolves → reopen → must create, never update old record
+- [x] Introduce per-open operation/session generation
+- [x] Late callbacks from previous session are ignored
+- [x] New Connection always begins with no persisted edit identity
+- [x] Test close-before-create-resolves → reopen → must create, never update old record
 
 ### QA-P1-09 session restoration
-- [ ] Make connection-list fetch side-effect free
-- [ ] Move startup restore to explicit one-shot coordinator
-- [ ] Restore active IDs exactly once per app startup/session hydration
-- [ ] Normal invalidation/refetch does not reconnect
-- [ ] Connect success does not immediately double-connect
-- [ ] Failed reconnect does not block other reconnects
-- [ ] Lifecycle tests cover connect/disconnect/reconnect/refetch
+- [x] Make connection-list fetch side-effect free
+- [x] Move startup restore to explicit one-shot coordinator
+- [x] Restore active IDs exactly once per app startup/session hydration
+- [x] Normal invalidation/refetch does not reconnect
+- [x] Connect success does not immediately double-connect
+- [x] Failed reconnect does not block other reconnects
+- [x] Lifecycle tests cover connect/disconnect/reconnect/refetch
 
 ## Gate 3 — QA-W3 Workspace recovery
 

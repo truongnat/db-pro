@@ -32,15 +32,13 @@ export function ConnectionDialog() {
   const [connectError, setConnectError] = useState<string | null>(null);
   const [persistedConnectionId, setPersistedConnectionId] = useState<string | null>(null);
   const loadSeq = useRef(0);
+  const sessionGen = useRef(0);
 
   const createMutation = useCreateConnection();
   const updateMutation = useUpdateConnection();
   const testMutation = useTestConnection();
   const connectMutation = useConnect();
 
-  // Once a brand-new connection has been created, remember its id so a
-  // subsequent submit (e.g. retry after a connect failure) updates the
-  // same record instead of creating a duplicate.
   const effectiveConnectionId = editConnectionId ?? persistedConnectionId;
 
   const loadConnection = useCallback(async (id: string) => {
@@ -63,6 +61,7 @@ export function ConnectionDialog() {
 
   useEffect(() => {
     loadSeq.current++;
+    sessionGen.current++;
     setConnectError(null);
     if (!open) {
       setConnection(null);
@@ -78,7 +77,7 @@ export function ConnectionDialog() {
     loadConnection(editConnectionId);
   }, [open, editConnectionId, loadConnection]);
 
-  const persistAndConnect = (connectionId: string, intent: SaveIntent) => {
+  const persistAndConnect = (connectionId: string, intent: SaveIntent, gen: number) => {
     if (intent === "save") {
       closeConnectionDialog();
       return;
@@ -87,9 +86,11 @@ export function ConnectionDialog() {
     setConnectError(null);
     connectMutation.mutate(connectionId, {
       onSuccess: () => {
+        if (gen !== sessionGen.current) return;
         closeConnectionDialog();
       },
       onError: (err: unknown) => {
+        if (gen !== sessionGen.current) return;
         setConnectError(
           (err as { userMessage?: string }).userMessage ?? t("connection.connectFailed"),
         );
@@ -99,19 +100,23 @@ export function ConnectionDialog() {
 
   const handleSubmit = (data: ConnectionFormData, password: string, intent: SaveIntent) => {
     const config = { ...data, sshTunnel: data.sshTunnel };
+    const gen = sessionGen.current;
 
     if (effectiveConnectionId) {
       updateMutation.mutate(
         { id: effectiveConnectionId, config, password: password || undefined },
         {
           onSuccess: () => {
+            if (gen !== sessionGen.current) return;
             snackbar.success(t("connection.updateSuccess"));
-            persistAndConnect(effectiveConnectionId, intent);
+            persistAndConnect(effectiveConnectionId, intent, gen);
           },
-          onError: (err: unknown) =>
+          onError: (err: unknown) => {
+            if (gen !== sessionGen.current) return;
             snackbar.error(
               (err as { userMessage?: string }).userMessage ?? t("connection.updateFailed"),
-            ),
+            );
+          },
         },
       );
     } else {
@@ -119,20 +124,24 @@ export function ConnectionDialog() {
         { config, password },
         {
           onSuccess: (created) => {
+            if (gen !== sessionGen.current) return;
             setPersistedConnectionId(created.id);
             snackbar.success(t("connection.createSuccess"));
-            persistAndConnect(created.id, intent);
+            persistAndConnect(created.id, intent, gen);
           },
-          onError: (err: unknown) =>
+          onError: (err: unknown) => {
+            if (gen !== sessionGen.current) return;
             snackbar.error(
               (err as { userMessage?: string }).userMessage ?? t("connection.createFailed"),
-            ),
+            );
+          },
         },
       );
     }
   };
 
   const handleTest = (data: ConnectionFormData, password: string) => {
+    const gen = sessionGen.current;
     testMutation.mutate(
       {
         config: { ...data, sshTunnel: data.sshTunnel },
@@ -140,8 +149,14 @@ export function ConnectionDialog() {
         connectionId: effectiveConnectionId ?? undefined,
       },
       {
-        onSuccess: () => snackbar.success(t("connection.testSuccess")),
-        onError: () => snackbar.error(t("connection.testFailed")),
+        onSuccess: () => {
+          if (gen !== sessionGen.current) return;
+          snackbar.success(t("connection.testSuccess"));
+        },
+        onError: () => {
+          if (gen !== sessionGen.current) return;
+          snackbar.error(t("connection.testFailed"));
+        },
       },
     );
   };

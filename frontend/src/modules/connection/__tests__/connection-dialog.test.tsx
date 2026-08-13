@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { I18nextProvider, initReactI18next } from "react-i18next";
@@ -286,6 +286,42 @@ describe("ConnectionDialog", () => {
       createMutate.mock.calls[0][1].onSuccess(fakeConnection);
 
       expect(snackbarMock.success).toHaveBeenCalledWith("Connection created");
+    });
+  });
+
+  describe("QA-P1-08 stale callback guard", () => {
+    it("ignores late create onSuccess after close+reopen", async () => {
+      const { createMutate, connectMutate } = mockDefaultQueries();
+      const user = userEvent.setup();
+
+      useRecentStore.getState().openConnectionDialog();
+      renderDialog();
+
+      await user.click(await screen.findByText("Save & Connect"));
+      expect(createMutate).toHaveBeenCalledTimes(1);
+
+      const staleOnSuccess = createMutate.mock.calls[0][1].onSuccess;
+
+      useRecentStore.getState().closeConnectionDialog();
+      await waitFor(() =>
+        expect(useRecentStore.getState().connectionDialogOpen).toBe(false),
+      );
+
+      useRecentStore.getState().openConnectionDialog();
+      await waitFor(() =>
+        expect(useRecentStore.getState().connectionDialogOpen).toBe(true),
+      );
+
+      staleOnSuccess(fakeConnection);
+
+      expect(connectMutate).not.toHaveBeenCalled();
+    });
+
+    it("new connection always starts with no persisted edit identity", () => {
+      useRecentStore.getState().openConnectionDialog();
+      renderDialog();
+
+      expect(useRecentStore.getState().connectionDialogEditId).toBeNull();
     });
   });
 });
