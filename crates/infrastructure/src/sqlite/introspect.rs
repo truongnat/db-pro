@@ -159,30 +159,44 @@ fn introspect_foreign_keys(conn: &rusqlite::Connection, table_names: &[String]) 
         let mut stmt = conn
             .prepare(&format!("PRAGMA foreign_key_list({safe_name})"))
             .map_err(crate::error::from_rusqlite)?;
-        let fks: Vec<ForeignKey> = stmt
-            .query_map([], |row| {
-                // SQLite returns one row per column mapping. All rows sharing the
-                // same `id` belong to the same FK constraint; `seq` preserves
-                // composite-column order. Use `id` for a stable shared identity.
-                let id: i32 = row.get(0)?;
-                let _seq: i32 = row.get(1)?;
-                let to_table: String = row.get(2)?;
-                let from_column: String = row.get(3)?;
-                let to_column: String = row.get(4)?;
-                Ok(ForeignKey {
-                    name: format!("{table_name}_fk_{id}"),
-                    from_table: table_name.clone(),
-                    from_column,
-                    to_table,
-                    to_column,
-                    schema: "main".into(),
-                    to_schema: "main".into(),
-                })
-            })
-            .map_err(crate::error::from_rusqlite)?
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(crate::error::from_rusqlite)?;
-        foreign_keys.extend(fks);
+
+        // Group columns by FK id to support composite foreign keys
+        let mut map: std::collections::HashMap<i32, (String, Vec<String>, Vec<String>)> =
+            std::collections::HashMap::new();
+        let mut order: Vec<i32> = Vec::new();
+
+        stmt.query_map([], |row| {
+            let id: i32 = row.get(0)?;
+            let _seq: i32 = row.get(1)?;
+            let to_table: String = row.get(2)?;
+            let from_column: String = row.get(3)?;
+            let to_column: String = row.get(4)?;
+
+            if !map.contains_key(&id) {
+                order.push(id);
+                map.insert(id, (to_table, Vec::new(), Vec::new()));
+            }
+
+            let (to_table, from_cols, to_cols) = map.get_mut(&id).unwrap();
+            from_cols.push(from_column);
+            to_cols.push(to_column);
+
+            Ok(())
+        })
+        .map_err(crate::error::from_rusqlite)?;
+
+        for id in order {
+            let (to_table, from_columns, to_columns) = map.remove(&id).unwrap();
+            foreign_keys.push(ForeignKey {
+                name: format!("{table_name}_fk_{id}"),
+                from_table: table_name.clone(),
+                from_columns,
+                to_table,
+                to_columns,
+                schema: "main".into(),
+                to_schema: "main".into(),
+            });
+        }
     }
     Ok(foreign_keys)
 }

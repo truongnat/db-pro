@@ -44,9 +44,9 @@ pub struct Index {
 pub struct ForeignKey {
     pub name: String,
     pub from_table: String,
-    pub from_column: String,
+    pub from_columns: Vec<String>,
     pub to_table: String,
-    pub to_column: String,
+    pub to_columns: Vec<String>,
     pub schema: String,
     pub to_schema: String,
 }

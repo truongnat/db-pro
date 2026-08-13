@@ -238,27 +238,16 @@ struct ForeignKeyDdlGroup<'a> {
 }
 
 fn group_foreign_keys_for_ddl(foreign_keys: &[ForeignKey]) -> Vec<ForeignKeyDdlGroup<'_>> {
-    let mut groups: Vec<ForeignKeyDdlGroup<'_>> = Vec::new();
-
-    for fk in foreign_keys {
-        if let Some(group) = groups
-            .iter_mut()
-            .find(|group| group.name == fk.name && group.to_schema == fk.to_schema && group.to_table == fk.to_table)
-        {
-            group.from_columns.push(&fk.from_column);
-            group.to_columns.push(&fk.to_column);
-        } else {
-            groups.push(ForeignKeyDdlGroup {
-                name: &fk.name,
-                from_columns: vec![&fk.from_column],
-                to_table: &fk.to_table,
-                to_columns: vec![&fk.to_column],
-                to_schema: &fk.to_schema,
-            });
-        }
-    }
-
-    groups
+    foreign_keys
+        .iter()
+        .map(|fk| ForeignKeyDdlGroup {
+            name: &fk.name,
+            from_columns: fk.from_columns.iter().map(|s| s.as_str()).collect(),
+            to_table: &fk.to_table,
+            to_columns: fk.to_columns.iter().map(|s| s.as_str()).collect(),
+            to_schema: &fk.to_schema,
+        })
+        .collect()
 }
 
 fn build_create_table_ddl(info: &TableInfo) -> String {
@@ -653,9 +642,9 @@ mod tests {
             foreign_keys: vec![ForeignKey {
                 name: "fk_user".into(),
                 from_table: "orders".into(),
-                from_column: "user_id".into(),
+                from_columns: vec!["user_id".into()],
                 to_table: "users".into(),
-                to_column: "id".into(),
+                to_columns: vec!["id".into()],
                 schema: "public".into(),
                 to_schema: "public".into(),
             }],
@@ -757,26 +746,15 @@ mod tests {
             ],
             primary_key: None,
             indexes: vec![],
-            foreign_keys: vec![
-                ForeignKey {
-                    name: "fk_parent".into(),
-                    from_table: "child".into(),
-                    from_column: "tenant_id".into(),
-                    to_table: "parent".into(),
-                    to_column: "tenant_id".into(),
-                    schema: "public".into(),
-                    to_schema: "public".into(),
-                },
-                ForeignKey {
-                    name: "fk_parent".into(),
-                    from_table: "child".into(),
-                    from_column: "parent_id".into(),
-                    to_table: "parent".into(),
-                    to_column: "id".into(),
-                    schema: "public".into(),
-                    to_schema: "public".into(),
-                },
-            ],
+            foreign_keys: vec![ForeignKey {
+                name: "fk_parent".into(),
+                from_table: "child".into(),
+                from_columns: vec!["tenant_id".into(), "parent_id".into()],
+                to_table: "parent".into(),
+                to_columns: vec!["tenant_id".into(), "id".into()],
+                schema: "public".into(),
+                to_schema: "public".into(),
+            }],
         };
 
         let ddl = build_create_table_ddl(&info);

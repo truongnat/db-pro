@@ -469,9 +469,9 @@ impl From<Index> for SchemaIndexDto {
 pub struct SchemaForeignKeyDto {
     pub name: String,
     pub from_table: String,
-    pub from_column: String,
+    pub from_columns: Vec<String>,
     pub to_table: String,
-    pub to_column: String,
+    pub to_columns: Vec<String>,
     pub schema: String,
     pub to_schema: String,
 }
@@ -481,9 +481,9 @@ impl From<ForeignKey> for SchemaForeignKeyDto {
         Self {
             name: fk.name,
             from_table: fk.from_table,
-            from_column: fk.from_column,
+            from_columns: fk.from_columns,
             to_table: fk.to_table,
-            to_column: fk.to_column,
+            to_columns: fk.to_columns,
             schema: fk.schema,
             to_schema: fk.to_schema,
         }

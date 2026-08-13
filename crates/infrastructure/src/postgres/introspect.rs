@@ -147,10 +147,21 @@ type RawColumn = (String, String, String, String, bool, Option<String>);
 async fn introspect_columns_raw(pool: &sqlx::PgPool) -> Result<Vec<RawColumn>, DbError> {
     let rows = sqlx::query(
         r#"
-        SELECT table_schema, table_name, column_name, data_type, is_nullable, column_default
-        FROM information_schema.columns
-        WHERE table_schema NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
-        ORDER BY table_schema, table_name, ordinal_position
+        SELECT
+            n.nspname AS table_schema,
+            c.relname AS table_name,
+            a.attname AS column_name,
+            pg_catalog.format_type(a.atttypid, a.atttypmod) AS data_type,
+            NOT a.attnotnull AS is_nullable,
+            pg_get_expr(d.adbin, d.adrelid) AS column_default
+        FROM pg_attribute a
+        JOIN pg_class c ON a.attrelid = c.oid
+        JOIN pg_namespace n ON c.relnamespace = n.oid
+        LEFT JOIN pg_attrdef d ON a.attrelid = d.adrelid AND a.attnum = d.adnum
+        WHERE n.nspname NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
+          AND a.attnum > 0
+          AND NOT a.attisdropped
+        ORDER BY n.nspname, c.relname, a.attnum
         "#,
     )
     .fetch_all(pool)
@@ -164,8 +175,7 @@ async fn introspect_columns_raw(pool: &sqlx::PgPool) -> Result<Vec<RawColumn>, D
             let table_name: String = row.get("table_name");
             let column_name: String = row.get("column_name");
             let data_type: String = row.get("data_type");
-            let is_nullable_str: String = row.get("is_nullable");
-            let nullable = is_nullable_str == "YES";
+            let nullable: bool = row.get("is_nullable");
             let default: Option<String> = row.get("column_default");
             (table_schema, table_name, column_name, data_type, nullable, default)
         })
@@ -241,7 +251,7 @@ async fn introspect_indexes(pool: &sqlx::PgPool) -> Result<Vec<Index>, DbError> 
             let table: String = row.get("tablename");
             let name: String = row.get("indexname");
             let indexdef: String = row.get("indexdef");
-            let unique = indexdef.contains("UNIQUE");
+            let unique = indexdef.starts_with("CREATE UNIQUE INDEX");
 
             let columns = parse_index_columns(&indexdef);
 
@@ -374,22 +384,52 @@ async fn introspect_foreign_keys(pool: &sqlx::PgPool) -> Result<Vec<ForeignKey>,
     .await
     .map_err(crate::error::from_sqlx)?;
 
-    Ok(rows
+    // Group columns by constraint name to support composite foreign keys
+    let mut map: std::collections::HashMap<
+        (String, String, String, String, String),
+        (Vec<String>, Vec<String>),
+    > = std::collections::HashMap::new();
+    let mut order: Vec<(String, String, String, String, String)> = Vec::new();
+
+    for row in rows {
+        let name: String = row.get("constraint_name");
+        let from_table: String = row.get("from_table");
+        let from_column: String = row.get("from_column");
+        let to_table: String = row.get("to_table");
+        let to_column: String = row.get("to_column");
+        let schema: String = row.get("from_schema");
+        let to_schema: String = row.get("to_schema");
+
+        let key = (
+            name.clone(),
+            from_table.clone(),
+            to_table.clone(),
+            schema.clone(),
+            to_schema.clone(),
+        );
+
+        if !map.contains_key(&key) {
+            order.push(key.clone());
+            map.insert(key.clone(), (Vec::new(), Vec::new()));
+        }
+
+        let (from_cols, to_cols) = map.get_mut(&key).unwrap();
+        from_cols.push(from_column);
+        to_cols.push(to_column);
+    }
+
+    Ok(order
         .into_iter()
-        .map(|row| {
-            let name: String = row.get("constraint_name");
-            let from_table: String = row.get("from_table");
-            let from_column: String = row.get("from_column");
-            let to_table: String = row.get("to_table");
-            let to_column: String = row.get("to_column");
-            let schema: String = row.get("from_schema");
-            let to_schema: String = row.get("to_schema");
+        .map(|(name, from_table, to_table, schema, to_schema)| {
+            let (from_columns, to_columns) = map
+                .remove(&(name.clone(), from_table.clone(), to_table.clone(), schema.clone(), to_schema.clone()))
+                .unwrap_or_default();
             ForeignKey {
                 name,
                 from_table,
-                from_column,
+                from_columns,
                 to_table,
-                to_column,
+                to_columns,
                 schema,
                 to_schema,
             }
