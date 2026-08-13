@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import {
   ReactFlow,
   Background,
@@ -26,6 +26,12 @@ import { Search, Maximize2, LayoutGrid, Columns2, Table2, RotateCcw, Loader2 } f
 
 import { ErTableNode, type TableNodeData } from "./lod/er-table-node";
 import { ErPerfHud } from "./er-perf-hud";
+import { ErSearchEntry } from "./er-search-entry";
+import {
+  initialLargeSchemaState,
+  largeSchemaReducer,
+  shouldEnterLargeSchemaFlow,
+} from "../utils/large-schema";
 import {
   buildErGraphModel,
   classifySchemaComplexity,
@@ -157,6 +163,18 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
     [schemaComplexity],
   );
   const isLargeSchema = schemaTier === "L" || schemaTier === "XL";
+
+  // Gate 4 Slice B — search-first entry for large schemas.
+  // Entry predicate (locked): tableCount > 200 OR tier L/XL.
+  const useLargeSchemaFlow = shouldEnterLargeSchemaFlow(
+    tablesInSchema.length,
+    schemaTier,
+  );
+  const [largeSchemaState, dispatchLargeSchema] = useReducer(
+    largeSchemaReducer,
+    initialLargeSchemaState,
+  );
+  const isSearchPhase = useLargeSchemaFlow && largeSchemaState.phase === "search";
 
   // UX pivot (opass.html): the FULL graph is the default experience for large
   // schemas — no landing screen, no neighborhood gate, no filter-first flow.
@@ -623,11 +641,20 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
     setNeighborhoodHops(hops);
   }, []);
 
+  const handleSelectTable = useCallback(
+    (tableKey: string) => {
+      dispatchLargeSchema({ type: "SELECT_TABLE", tableKey });
+    },
+    [],
+  );
+
   const showMiniMap = initialNodes.length <= 200;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col" ref={reactFlowRef}>
-      {useCytoscapeForOverview ? (
+      {isSearchPhase ? (
+        <ErSearchEntry model={graphModel} onSelectTable={handleSelectTable} />
+      ) : useCytoscapeForOverview ? (
         <Suspense
           fallback={
             <div className="flex min-h-0 flex-1 items-center justify-center gap-2 text-[12px] text-[var(--text-secondary)]">

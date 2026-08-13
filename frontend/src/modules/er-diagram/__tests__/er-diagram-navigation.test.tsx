@@ -12,13 +12,18 @@ import { generateErFixture } from "./er-fixture";
  * callback ALSO navigated (openDbObject → activeTabId switch), so the ER
  * diagram unmounted before the opass focus (fade + highlight) could render.
  *
+ * Gate 4 Slice B update: large schemas now enter search-first mode. The test
+ * must select a table from the search entry before the Cytoscape overview
+ * mounts (phase transitions from "search" to "neighborhood").
+ *
  * This test renders the real `ErDiagram` on a large (L-tier) schema with the
  * lazy CytoscapeErView mocked as a harness that exposes its props, then proves
  * the full chain:
  *
  *   open large ER
- *   → click node (single tap)
- *   → schema workspace remains active   (openDbObject NOT called)
+ *   → search-first entry shown (no graph mounted)
+ *   → select a table
+ *   → Cytoscape overview mounts
  *   → explicit action (double-click / "Open table")
  *   → openDbObject IS called with the right db-object tab
  */
@@ -87,7 +92,23 @@ describe("ErDiagram — large overview click must not navigate (PR#12 re-review 
 
     render(<ErDiagram connectionId="conn-1" schema="public" data={data} />);
 
-    // The lazy overview mounts (Suspense resolves to the harness).
+    // Gate 4 Slice B: large schema enters search-first mode.
+    await waitFor(() =>
+      expect(screen.getByTestId("er-search-input")).toBeInTheDocument(),
+    );
+
+    // Select a table to transition to neighborhood phase → Cytoscape mounts.
+    const searchInput = screen.getByTestId("er-search-input");
+    fireEvent.change(searchInput, { target: { value: first.name } });
+
+    await waitFor(() => {
+      const results = screen.getAllByTestId("er-search-result");
+      expect(results.length).toBeGreaterThan(0);
+    });
+
+    fireEvent.click(screen.getAllByTestId("er-search-result")[0]);
+
+    // The lazy overview mounts after selection (phase → neighborhood).
     await waitFor(() => expect(screen.getByTestId("mock-overview")).toBeInTheDocument());
 
     // Wiring contract: ErDiagram feeds the view an EXPLICIT open action, not a
@@ -126,6 +147,18 @@ describe("ErDiagram — large overview click must not navigate (PR#12 re-review 
     const openSpy = vi.spyOn(useWorkspaceStore.getState(), "openDbObject");
 
     render(<ErDiagram connectionId="conn-1" schema="public" data={data} />);
+
+    // Gate 4 Slice B: select a table to pass through search-first gate.
+    await waitFor(() =>
+      expect(screen.getByTestId("er-search-input")).toBeInTheDocument(),
+    );
+    const searchInput = screen.getByTestId("er-search-input");
+    fireEvent.change(searchInput, { target: { value: "app" } });
+    await waitFor(() => {
+      expect(screen.getAllByTestId("er-search-result").length).toBeGreaterThan(0);
+    });
+    fireEvent.click(screen.getAllByTestId("er-search-result")[0]);
+
     await waitFor(() => expect(screen.getByTestId("mock-overview")).toBeInTheDocument());
 
     // The view received only the explicit action; there is no single-click
