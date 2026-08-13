@@ -146,6 +146,27 @@ cargo test --workspace
 
 Do not claim a command passed unless it was actually executed.
 
+## Performance audit
+
+Use the `perf-audit` skill when:
+- Working on performance-sensitive features (ER diagrams, query execution, large schemas, data grid)
+- Before publishing a PR that touches rendering, bundling, or backend hot paths
+- Investigating performance regressions or user-reported slowness
+- Adding new dependencies or large modules
+
+Quick check before PR:
+
+```bash
+bash ~/.qoder/skills/perf-audit/scripts/perf-scan.sh
+```
+
+Performance budgets are enforced in:
+- `frontend/src/commons/__tests__/performance-budgets.test.ts`
+- `crates/infrastructure/benches/sqlite_benchmarks.rs`
+- `docs/architecture/performance-baseline.md`
+
+Never claim performance improved without measurement evidence.
+
 ## PR workflow
 
 Publish a PR instead of pushing a non-trivial feature directly to main.

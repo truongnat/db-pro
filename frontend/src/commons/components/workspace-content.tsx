@@ -1,3 +1,5 @@
+import { lazy, Suspense } from "react";
+
 import { useTranslation } from "@/commons/locales/useTranslation";
 import { useConnectionValid } from "@/commons/hooks/use-connection-valid";
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
@@ -13,9 +15,30 @@ import {
 import { ChevronDown } from "lucide-react";
 
 import { WelcomeView } from "./welcome-view";
-import { QueryTabContent } from "@/modules/query/components/query-tab-content";
-import { DbObjectTabContent } from "@/modules/schema/components/db-object-tab-content";
-import { SchemaWorkspaceContent } from "@/modules/schema/components/schema-workspace-content";
+
+const QueryTabContent = lazy(() =>
+  import("@/modules/query/components/query-tab-content").then((m) => ({
+    default: m.QueryTabContent,
+  })),
+);
+const DbObjectTabContent = lazy(() =>
+  import("@/modules/schema/components/db-object-tab-content").then((m) => ({
+    default: m.DbObjectTabContent,
+  })),
+);
+const SchemaWorkspaceContent = lazy(() =>
+  import("@/modules/schema/components/schema-workspace-content").then((m) => ({
+    default: m.SchemaWorkspaceContent,
+  })),
+);
+
+function TabLoadingFallback() {
+  return (
+    <div className="flex h-full items-center justify-center">
+      <div className="text-sm text-[var(--text-secondary)]">Loading...</div>
+    </div>
+  );
+}
 
 function OrphanedTabView({ tabId, tabTitle }: { tabId: string; tabTitle: string }) {
   const { t } = useTranslation();
@@ -99,26 +122,34 @@ export function WorkspaceContent() {
 
   switch (activeTab.kind) {
     case "query":
-      return <QueryTabContent tabId={activeTab.id} />;
+      return (
+        <Suspense fallback={<TabLoadingFallback />}>
+          <QueryTabContent tabId={activeTab.id} />
+        </Suspense>
+      );
     case "db-object":
       return (
-        <DbObjectTabContent
-          key={activeTab.resourceKey}
-          tabId={activeTab.id}
-          connectionId={activeTab.connectionId}
-          schema={activeTab.data.schema}
-          objectName={activeTab.data.objectName}
-          objectType={activeTab.data.objectType}
-        />
+        <Suspense fallback={<TabLoadingFallback />}>
+          <DbObjectTabContent
+            key={activeTab.resourceKey}
+            tabId={activeTab.id}
+            connectionId={activeTab.connectionId}
+            schema={activeTab.data.schema}
+            objectName={activeTab.data.objectName}
+            objectType={activeTab.data.objectType}
+          />
+        </Suspense>
       );
     case "schema-workspace":
       return (
-        <SchemaWorkspaceContent
-          key={activeTab.resourceKey}
-          tabId={activeTab.id}
-          connectionId={activeTab.connectionId!}
-          schema={activeTab.data.schema}
-        />
+        <Suspense fallback={<TabLoadingFallback />}>
+          <SchemaWorkspaceContent
+            key={activeTab.resourceKey}
+            tabId={activeTab.id}
+            connectionId={activeTab.connectionId!}
+            schema={activeTab.data.schema}
+          />
+        </Suspense>
       );
     default:
       return <WelcomeView />;

@@ -34,6 +34,8 @@ export default defineConfig({
             "@tanstack/react-virtual",
           ],
           "vendor-ui": ["@dnd-kit/core", "@dnd-kit/sortable", "cmdk", "lucide-react"],
+          "vendor-editor": ["@monaco-editor/react"],
+          "vendor-graph": ["cytoscape", "dagre", "@xyflow/react"],
         },
       },
     },
