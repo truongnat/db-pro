@@ -5,13 +5,14 @@ use std::collections::HashSet;
 
 pub async fn run_introspection(pool: &sqlx::PgPool) -> Result<IntrospectResult, DbError> {
     // Run independent introspection queries in parallel
-    let (schemas, tables, raw_cols, primary_keys, indexes, foreign_keys, views, triggers, functions) = tokio::join!(
+    let (schemas, tables, raw_cols, primary_keys, indexes, foreign_keys, check_constraints, views, triggers, functions) = tokio::join!(
         introspect_schemas(pool),
         introspect_tables(pool),
         introspect_columns_raw(pool),
         introspect_primary_keys(pool),
         introspect_indexes(pool),
         introspect_foreign_keys(pool),
+        introspect_check_constraints(pool),
         introspect_views(pool),
         introspect_triggers(pool),
         introspect_functions(pool),
@@ -23,6 +24,7 @@ pub async fn run_introspection(pool: &sqlx::PgPool) -> Result<IntrospectResult, 
     let primary_keys = primary_keys?;
     let indexes = indexes?;
     let foreign_keys = foreign_keys?;
+    let check_constraints = check_constraints?;
     let views = views?;
     let triggers = triggers?;
     let functions = functions?;
@@ -60,6 +62,7 @@ pub async fn run_introspection(pool: &sqlx::PgPool) -> Result<IntrospectResult, 
         primary_keys,
         indexes,
         foreign_keys,
+        check_constraints,
         views,
         triggers,
         functions,
@@ -437,6 +440,43 @@ async fn introspect_foreign_keys(pool: &sqlx::PgPool) -> Result<Vec<ForeignKey>,
         .collect())
 }
 
+async fn introspect_check_constraints(pool: &sqlx::PgPool) -> Result<Vec<CheckConstraint>, DbError> {
+    let rows = sqlx::query(
+        r#"
+        SELECT
+            con.conname AS constraint_name,
+            nsp.nspname AS schema_name,
+            cls.relname AS table_name,
+            pg_get_constraintdef(con.oid) AS definition
+        FROM pg_constraint con
+        JOIN pg_namespace nsp ON nsp.oid = con.connamespace
+        JOIN pg_class cls ON cls.oid = con.conrelid
+        WHERE con.contype = 'c'
+          AND nsp.nspname NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
+        ORDER BY nsp.nspname, cls.relname, con.conname
+        "#,
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(crate::error::from_sqlx)?;
+
+    Ok(rows
+        .into_iter()
+        .map(|row| {
+            let name: String = row.get("constraint_name");
+            let schema: String = row.get("schema_name");
+            let table_name: String = row.get("table_name");
+            let definition: String = row.get("definition");
+            CheckConstraint {
+                name,
+                table_name,
+                schema,
+                definition,
+            }
+        })
+        .collect())
+}
+
 async fn introspect_views(pool: &sqlx::PgPool) -> Result<Vec<View>, DbError> {
     let rows = sqlx::query(
         r#"
@@ -627,5 +667,68 @@ mod tests {
         let indexdef = "CREATE INDEX idx ON tbl USING btree ((a + b) * c, lower(d))";
         let cols = parse_index_columns(indexdef);
         assert_eq!(cols, vec!["(a + b) * c", "lower(d)"]);
+    }
+
+    #[test]
+    fn test_composite_fk_grouping() {
+        // Simulate the grouping logic from introspect_foreign_keys
+        let mut map: std::collections::HashMap<
+            (String, String, String, String, String),
+            (Vec<String>, Vec<String>),
+        > = std::collections::HashMap::new();
+        let mut order: Vec<(String, String, String, String, String)> = Vec::new();
+
+        // Simulate rows for a composite FK with 2 columns
+        let rows = vec![
+            ("fk_composite".to_string(), "orders".to_string(), "customers".to_string(), "public".to_string(), "public".to_string(), "customer_id".to_string(), "id".to_string()),
+            ("fk_composite".to_string(), "orders".to_string(), "customers".to_string(), "public".to_string(), "public".to_string(), "tenant_id".to_string(), "tenant_id".to_string()),
+        ];
+
+        for (name, from_table, to_table, schema, to_schema, from_col, to_col) in rows {
+            let key = (name.clone(), from_table.clone(), to_table.clone(), schema.clone(), to_schema.clone());
+            if !map.contains_key(&key) {
+                order.push(key.clone());
+                map.insert(key.clone(), (Vec::new(), Vec::new()));
+            }
+            let (from_cols, to_cols) = map.get_mut(&key).unwrap();
+            from_cols.push(from_col);
+            to_cols.push(to_col);
+        }
+
+        assert_eq!(order.len(), 1);
+        let key = &order[0];
+        let (from_columns, to_columns) = map.get(key).unwrap();
+        assert_eq!(from_columns, &vec!["customer_id".to_string(), "tenant_id".to_string()]);
+        assert_eq!(to_columns, &vec!["id".to_string(), "tenant_id".to_string()]);
+    }
+
+    #[test]
+    fn test_multiple_separate_fks() {
+        let mut map: std::collections::HashMap<
+            (String, String, String, String, String),
+            (Vec<String>, Vec<String>),
+        > = std::collections::HashMap::new();
+        let mut order: Vec<(String, String, String, String, String)> = Vec::new();
+
+        // Simulate two separate FKs
+        let rows = vec![
+            ("fk_user".to_string(), "orders".to_string(), "users".to_string(), "public".to_string(), "public".to_string(), "user_id".to_string(), "id".to_string()),
+            ("fk_product".to_string(), "orders".to_string(), "products".to_string(), "public".to_string(), "public".to_string(), "product_id".to_string(), "id".to_string()),
+        ];
+
+        for (name, from_table, to_table, schema, to_schema, from_col, to_col) in rows {
+            let key = (name.clone(), from_table.clone(), to_table.clone(), schema.clone(), to_schema.clone());
+            if !map.contains_key(&key) {
+                order.push(key.clone());
+                map.insert(key.clone(), (Vec::new(), Vec::new()));
+            }
+            let (from_cols, to_cols) = map.get_mut(&key).unwrap();
+            from_cols.push(from_col);
+            to_cols.push(to_col);
+        }
+
+        assert_eq!(order.len(), 2);
+        assert_eq!(map.get(&order[0]).unwrap().0, vec!["user_id".to_string()]);
+        assert_eq!(map.get(&order[1]).unwrap().0, vec!["product_id".to_string()]);
     }
 }

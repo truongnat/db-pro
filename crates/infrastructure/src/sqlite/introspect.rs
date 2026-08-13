@@ -1,5 +1,6 @@
 use db_pro_core::domain::error::DbError;
 use db_pro_core::domain::schema::*;
+use rusqlite::OptionalExtension;
 
 /// Escape a SQLite identifier by doubling any embedded double-quote characters
 /// and wrapping in double quotes. This is safe for interpolation into PRAGMA
@@ -15,6 +16,7 @@ pub fn run_introspection(conn: &rusqlite::Connection) -> Result<IntrospectResult
     let columns = introspect_columns(conn, &table_names)?;
     let indexes = introspect_indexes(conn, &table_names)?;
     let foreign_keys = introspect_foreign_keys(conn, &table_names)?;
+    let check_constraints = introspect_check_constraints(conn, &table_names)?;
     let views = introspect_views(conn)?;
     let triggers = introspect_triggers(conn)?;
 
@@ -44,6 +46,7 @@ pub fn run_introspection(conn: &rusqlite::Connection) -> Result<IntrospectResult
         primary_keys,
         indexes,
         foreign_keys,
+        check_constraints,
         views,
         triggers,
         functions: Vec::new(),
@@ -199,6 +202,63 @@ fn introspect_foreign_keys(conn: &rusqlite::Connection, table_names: &[String]) 
         }
     }
     Ok(foreign_keys)
+}
+
+fn introspect_check_constraints(conn: &rusqlite::Connection, table_names: &[String]) -> Result<Vec<CheckConstraint>, DbError> {
+    let mut check_constraints = Vec::new();
+    
+    for table_name in table_names {
+        // Get the CREATE TABLE SQL from sqlite_master
+        let mut stmt = conn
+            .prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?1")
+            .map_err(crate::error::from_rusqlite)?;
+        
+        let create_sql: Option<String> = stmt
+            .query_row([table_name], |row| row.get(0))
+            .optional()
+            .map_err(crate::error::from_rusqlite)?;
+        
+        if let Some(sql) = create_sql {
+            // Parse CHECK constraints from the CREATE TABLE statement
+            // This is a simplified parser that looks for CHECK(...) patterns
+            let mut depth = 0;
+            let mut in_check = false;
+            let mut check_start = 0;
+            let mut constraint_idx = 0;
+            
+            for (i, ch) in sql.char_indices() {
+                match ch {
+                    '(' => {
+                        if !in_check && i >= 5 {
+                            let preceding = &sql[check_start..i].trim();
+                            if preceding.ends_with("CHECK") {
+                                in_check = true;
+                                check_start = i + 1;
+                            }
+                        }
+                        depth += 1;
+                    }
+                    ')' => {
+                        depth -= 1;
+                        if in_check && depth == 0 {
+                            let definition = sql[check_start..i].trim().to_string();
+                            check_constraints.push(CheckConstraint {
+                                name: format!("{table_name}_check_{constraint_idx}"),
+                                table_name: table_name.clone(),
+                                schema: "main".into(),
+                                definition,
+                            });
+                            constraint_idx += 1;
+                            in_check = false;
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+    
+    Ok(check_constraints)
 }
 
 fn introspect_views(conn: &rusqlite::Connection) -> Result<Vec<View>, DbError> {

@@ -80,6 +80,14 @@ pub struct Function {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CheckConstraint {
+    pub name: String,
+    pub table_name: String,
+    pub schema: String,
+    pub definition: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IntrospectResult {
     pub schemas: Vec<Schema>,
     pub tables: Vec<Table>,
@@ -87,6 +95,7 @@ pub struct IntrospectResult {
     pub primary_keys: Vec<PrimaryKey>,
     pub indexes: Vec<Index>,
     pub foreign_keys: Vec<ForeignKey>,
+    pub check_constraints: Vec<CheckConstraint>,
     pub views: Vec<View>,
     pub triggers: Vec<Trigger>,
     pub functions: Vec<Function>,
@@ -101,6 +110,7 @@ impl IntrospectResult {
             primary_keys: Vec::new(),
             indexes: Vec::new(),
             foreign_keys: Vec::new(),
+            check_constraints: Vec::new(),
             views: Vec::new(),
             triggers: Vec::new(),
             functions: Vec::new(),

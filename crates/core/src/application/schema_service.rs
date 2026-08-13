@@ -453,6 +453,7 @@ mod tests {
                 function_def: String::new(),
                 enabled: true,
             }],
+            check_constraints: vec![],
             functions: vec![],
         }
     }
