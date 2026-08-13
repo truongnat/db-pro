@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # perf-scan.sh — Full-stack performance audit for DB Pro
-# Usage: bash ~/.qoder/skills/perf-audit/scripts/perf-scan.sh [section]
+# Usage: bash .skills/perf-audit/scripts/perf-scan.sh [section]
 # Sections: frontend | er | rust | db | all (default: all)
 
 RED='\033[0;31m'
@@ -33,31 +33,59 @@ check() {
   esac
 }
 
+# Cross-platform file size getter
+get_file_size() {
+  local file="$1"
+  if [[ "$OSTYPE" == "darwin"* ]]; then
+    stat -f '%z' "$file" 2>/dev/null || echo 0
+  else
+    stat -c '%s' "$file" 2>/dev/null || echo 0
+  fi
+}
+
 # ─── Frontend Bundle Analysis ───────────────────────────────────────
 
 audit_frontend_bundle() {
   section "Frontend Bundle Analysis"
 
-  if [ ! -d "$PROJECT_ROOT/frontend/dist" ]; then
-    echo "  Building frontend..."
-    (cd "$PROJECT_ROOT/frontend" && npm run build --silent 2>/dev/null) || {
-      check "Build" "fail" "npm run build failed"
-      return
-    }
+  local assets_dir="$PROJECT_ROOT/frontend/dist/assets"
+  
+  # Force rebuild if dist doesn't exist or is older than 1 hour
+  local should_build=0
+  if [ ! -d "$assets_dir" ]; then
+    should_build=1
+  else
+    # Check if any JS file is older than 1 hour (3600 seconds)
+    local now=$(date +%s)
+    for f in "$assets_dir"/*.js; do
+      if [ -f "$f" ]; then
+        local mtime=$(stat -c %Y "$f" 2>/dev/null || stat -f %m "$f" 2>/dev/null || echo 0)
+        local age=$((now - mtime))
+        if [ "$age" -gt 3600 ]; then
+          should_build=1
+          break
+        fi
+      fi
+    done
   fi
 
-  local assets_dir="$PROJECT_ROOT/frontend/dist/assets"
+  if [ "$should_build" -eq 1 ]; then
+    echo "  Building frontend (dist stale or missing)..."
+    if ! (cd "$PROJECT_ROOT/frontend" && npm run build --silent 2>/dev/null); then
+      check "Build" "fail" "npm run build failed"
+      return
+    fi
+  fi
 
-  # Total JS size using stat
+  # Total JS size
   local total_bytes=0
   for f in "$assets_dir"/*.js; do
     if [ -f "$f" ]; then
-      local size
-      size=$(stat -c '%s' "$f" 2>/dev/null || echo 0)
+      local size=$(get_file_size "$f")
       total_bytes=$((total_bytes + size))
     fi
   done
-  local total_mb=$((total_bytes / 1024 / 1024))
+  local total_mb=$(awk "BEGIN {printf \"%.2f\", $total_bytes / 1024 / 1024}")
 
   if [ "$total_bytes" -lt 1500000 ]; then
     check "Total JS size" "pass" "${total_mb}MB (target < 1.5MB)"
@@ -67,13 +95,12 @@ audit_frontend_bundle() {
     check "Total JS size" "fail" "${total_mb}MB exceeds 2MB critical threshold"
   fi
 
-  # Largest chunk using stat
+  # Largest chunk
   local largest_bytes=0
   local largest_name=""
   for f in "$assets_dir"/*.js; do
     if [ -f "$f" ]; then
-      local size
-      size=$(stat -c '%s' "$f" 2>/dev/null || echo 0)
+      local size=$(get_file_size "$f")
       if [ "$size" -gt "$largest_bytes" ]; then
         largest_bytes=$size
         largest_name=$(basename "$f")
@@ -90,12 +117,11 @@ audit_frontend_bundle() {
     check "Largest chunk" "fail" "${largest_kb}KB (${largest_name}) exceeds 800KB"
   fi
 
-  # CSS size using stat
+  # CSS size
   local css_bytes=0
   for f in "$assets_dir"/*.css; do
     if [ -f "$f" ]; then
-      local size
-      size=$(stat -c '%s' "$f" 2>/dev/null || echo 0)
+      local size=$(get_file_size "$f")
       css_bytes=$((css_bytes + size))
     fi
   done
@@ -117,6 +143,14 @@ audit_frontend_bundle() {
     fi
   done
   check "JS chunk count" "pass" "${chunk_count} chunks"
+  
+  # Verify code-splitting: check that vendor-reactflow and vendor-cytoscape are separate
+  if ls "$assets_dir"/vendor-reactflow-*.js 1> /dev/null 2>&1 && \
+     ls "$assets_dir"/vendor-cytoscape-*.js 1> /dev/null 2>&1; then
+    check "ER code-splitting" "pass" "React Flow and Cytoscape in separate chunks"
+  else
+    check "ER code-splitting" "warn" "React Flow and Cytoscape may be bundled together"
+  fi
 }
 
 # ─── Frontend Performance Budgets ──────────────────────────────────
@@ -212,12 +246,14 @@ print_summary() {
 
   if [ "$FAIL" -gt 0 ]; then
     echo -e "  ${RED}${BOLD}Status: FAIL${NC} — ${FAIL} critical issue(s) found"
+    return 1
   elif [ "$WARN" -gt 0 ]; then
     echo -e "  ${YELLOW}${BOLD}Status: WARN${NC} — ${WARN} warning(s), review recommended"
+    return 0
   else
     echo -e "  ${GREEN}${BOLD}Status: PASS${NC} — All checks passed"
+    return 0
   fi
-  echo ""
 }
 
 # ─── Main ──────────────────────────────────────────────────────────
@@ -234,15 +270,22 @@ case "$SECTION" in
     audit_frontend_budgets
     ;;
   er)
+    section "ER Diagram Performance"
+    echo "  ER diagram performance requires runtime HUD inspection."
+    echo "  This script cannot measure ER performance statically."
     echo ""
-    echo "  ER diagram performance requires manual HUD inspection."
-    echo "  Open the app, run: localStorage.setItem('er-perf-hud', '1')"
-    echo "  Then load schemas of 200/500/1000 tables and record metrics."
+    echo "  Manual verification steps:"
+    echo "    1. Open the app and navigate to a schema with 200+ tables"
+    echo "    2. Open browser DevTools Console"
+    echo "    3. Run: localStorage.setItem('er-perf-hud', '1')"
+    echo "    4. Reload and observe the performance HUD"
     echo ""
     echo "  Reference targets:"
     echo "    200 tables: TTI < 2s, layout < 500ms, frame avg < 8ms"
     echo "    500 tables: TTI < 5s, layout < 1.5s, frame avg < 12ms"
     echo "   1000 tables: TTI < 10s, layout < 3s, frame avg < 16ms"
+    echo ""
+    check "ER performance" "warn" "Requires manual runtime verification"
     ;;
   rust)
     audit_rust_static
@@ -251,18 +294,28 @@ case "$SECTION" in
   db)
     section "Database Query Performance"
     echo "  Database query performance requires a live connection."
-    echo "  Use the /db-check skill or query editor to run:"
-    echo "    EXPLAIN ANALYZE SELECT * FROM your_table WHERE condition;"
+    echo "  This script cannot measure query performance statically."
     echo ""
-    echo "  Check for sequential scans on large tables (PostgreSQL):"
-    echo "    SELECT schemaname, relname, seq_scan, seq_tup_read"
-    echo "    FROM pg_stat_user_tables"
-    echo "    WHERE seq_scan > 100 ORDER BY seq_tup_read DESC;"
+    echo "  Manual verification steps:"
+    echo "    1. Connect to a PostgreSQL or SQLite database"
+    echo "    2. Use the query editor to run:"
+    echo "         EXPLAIN ANALYZE SELECT * FROM your_table WHERE condition;"
+    echo ""
+    echo "    3. Check for sequential scans on large tables (PostgreSQL):"
+    echo "         SELECT schemaname, relname, seq_scan, seq_tup_read"
+    echo "         FROM pg_stat_user_tables"
+    echo "         WHERE seq_scan > 100 ORDER BY seq_tup_read DESC;"
+    echo ""
+    check "DB performance" "warn" "Requires live database connection"
     ;;
   all)
     audit_frontend_bundle
     audit_frontend_budgets
     audit_rust_static
+    # Note: 'all' does not include rust benchmarks (too slow) or er/db (require runtime)
+    echo ""
+    echo "  Note: 'all' skips Rust benchmarks and ER/DB runtime checks."
+    echo "  Run with 'rust' for benchmarks, or verify ER/DB manually."
     ;;
   *)
     echo "Usage: $0 [frontend|er|rust|db|all]"
@@ -271,3 +324,4 @@ case "$SECTION" in
 esac
 
 print_summary
+exit $?
