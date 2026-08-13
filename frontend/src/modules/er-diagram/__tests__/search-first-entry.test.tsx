@@ -5,10 +5,7 @@ import { ErDiagram } from "../components/er-diagram";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { generateErFixture } from "./er-fixture";
 import { shouldEnterLargeSchemaFlow } from "../utils/large-schema";
-import {
-  classifySchemaComplexity,
-  computeSchemaComplexity,
-} from "../renderer/er-graph-model";
+import { classifySchemaComplexity, computeSchemaComplexity } from "../renderer/er-graph-model";
 import type {
   IntrospectResult,
   SchemaColumnDto,
@@ -19,17 +16,31 @@ import type {
 /* ── Mocks ───────────────────────────────────────────────────────────────── */
 
 // Layout is a worker pipeline; no real worker in jsdom.
+// Harness captures the input argument so tests can assert null during search.
+const layoutHarness = vi.hoisted(() => ({
+  lastInput: undefined as unknown,
+  callCount: 0,
+  reset() {
+    this.lastInput = undefined;
+    this.callCount = 0;
+  },
+}));
+
 vi.mock("../hooks/use-worker-layout", () => ({
-  useWorkerLayout: () => ({
-    status: "ready",
-    positions: new Map(),
-    layoutMs: 5,
-    nodeCount: 0,
-    fromCache: true,
-    degraded: false,
-    refining: false,
-    error: null,
-  }),
+  useWorkerLayout: (input: unknown) => {
+    layoutHarness.lastInput = input;
+    layoutHarness.callCount++;
+    return {
+      status: "ready",
+      positions: new Map(),
+      layoutMs: 5,
+      nodeCount: 0,
+      fromCache: true,
+      degraded: false,
+      refining: false,
+      error: null,
+    };
+  },
 }));
 
 vi.mock("@/commons/locales/useTranslation", () => ({
@@ -61,10 +72,7 @@ vi.mock("../components/cytoscape-view", () => ({
  * Build a dense IntrospectResult with controlled table/column/FK counts.
  * Each table gets `colsPerTable` columns and FKs chain table[i] → table[i-1].
  */
-function buildDenseFixture(
-  tableCount: number,
-  colsPerTable: number,
-): IntrospectResult {
+function buildDenseFixture(tableCount: number, colsPerTable: number): IntrospectResult {
   const tables: TableDto[] = [];
   const columns: SchemaColumnDto[] = [];
   const foreignKeys: SchemaForeignKeyDto[] = [];
@@ -116,6 +124,7 @@ function buildDenseFixture(
 describe("Gate 4 Slice B — search-first entry UX", () => {
   beforeEach(() => {
     cytoscapeHarness.reset();
+    layoutHarness.reset();
   });
 
   /* 1-3. Table count > 200 enters search-first regardless of tier */
@@ -186,9 +195,7 @@ describe("Gate 4 Slice B — search-first entry UX", () => {
 
   it("initial large-schema render has zero graph nodes (React Flow not mounted)", () => {
     const data = generateErFixture(300, 42);
-    const { container } = render(
-      <ErDiagram connectionId="c" schema="public" data={data} />,
-    );
+    const { container } = render(<ErDiagram connectionId="c" schema="public" data={data} />);
 
     // React Flow's viewport element should not be in the DOM
     expect(container.querySelector("[data-testid='mock-cytoscape']")).toBeNull();
@@ -201,13 +208,12 @@ describe("Gate 4 Slice B — search-first entry UX", () => {
   /* 7. Initial render passes null layout input / does not start layout */
 
   it("does not start worker layout before table selection", () => {
-    // The useWorkerLayout mock is called but with null input when search phase
-    // is active. We verify the search entry is shown (no graph → no layout).
     const data = generateErFixture(250, 42);
     render(<ErDiagram connectionId="c" schema="public" data={data} />);
 
-    // Search phase → no graph rendered → layout input would be null
+    // Search phase → layout input is explicitly null (not just "no renderer")
     expect(screen.getByTestId("er-search-input")).toBeInTheDocument();
+    expect(layoutHarness.lastInput).toBeNull();
     expect(cytoscapeHarness.mounted).toBe(false);
   });
 
@@ -302,5 +308,66 @@ describe("Gate 4 Slice B — search-first entry UX", () => {
     expect(screen.getByTestId("er-search-input")).toBeInTheDocument();
     // No results
     expect(screen.queryByTestId("er-search-result")).not.toBeInTheDocument();
+  });
+
+  /* Layout input gating — captures actual useWorkerLayout argument */
+
+  it("layout input is null for 201-table schema during search", () => {
+    const data = generateErFixture(201, 42);
+    render(<ErDiagram connectionId="c" schema="public" data={data} />);
+
+    expect(layoutHarness.lastInput).toBeNull();
+  });
+
+  it("layout input is null for 500-table schema during search", () => {
+    const data = generateErFixture(500, 42);
+    render(<ErDiagram connectionId="c" schema="public" data={data} />);
+
+    expect(layoutHarness.lastInput).toBeNull();
+  });
+
+  it("layout input is null for 1000-table schema during search", () => {
+    const data = generateErFixture(1000, 42);
+    render(<ErDiagram connectionId="c" schema="public" data={data} />);
+
+    expect(layoutHarness.lastInput).toBeNull();
+  });
+
+  it("layout input stays null after search typing", () => {
+    const data = generateErFixture(500, 42);
+    render(<ErDiagram connectionId="c" schema="public" data={data} />);
+
+    const searchInput = screen.getByTestId("er-search-input");
+    fireEvent.change(searchInput, { target: { value: "app" } });
+    fireEvent.change(searchInput, { target: { value: "billing" } });
+
+    // Typing filters metadata only — layout input remains null
+    expect(layoutHarness.lastInput).toBeNull();
+  });
+
+  it("layout input becomes non-null after table selection", async () => {
+    const data = generateErFixture(500, 42);
+    render(
+      <TooltipProvider>
+        <ErDiagram connectionId="c" schema="public" data={data} />
+      </TooltipProvider>,
+    );
+
+    // During search: null
+    expect(layoutHarness.lastInput).toBeNull();
+
+    // Select a table
+    const searchInput = screen.getByTestId("er-search-input");
+    fireEvent.change(searchInput, { target: { value: "app" } });
+
+    await waitFor(() => {
+      const results = screen.getAllByTestId("er-search-result");
+      expect(results.length).toBeGreaterThan(0);
+    });
+
+    fireEvent.click(screen.getAllByTestId("er-search-result")[0]);
+
+    // After selection: phase → neighborhood, layout input is no longer null
+    expect(layoutHarness.lastInput).not.toBeNull();
   });
 });

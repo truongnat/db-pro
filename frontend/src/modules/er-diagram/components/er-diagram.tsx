@@ -1,4 +1,13 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+} from "react";
 import {
   ReactFlow,
   Background,
@@ -166,10 +175,7 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
 
   // Gate 4 Slice B — search-first entry for large schemas.
   // Entry predicate (locked): tableCount > 200 OR tier L/XL.
-  const useLargeSchemaFlow = shouldEnterLargeSchemaFlow(
-    tablesInSchema.length,
-    schemaTier,
-  );
+  const useLargeSchemaFlow = shouldEnterLargeSchemaFlow(tablesInSchema.length, schemaTier);
   const [largeSchemaState, dispatchLargeSchema] = useReducer(
     largeSchemaReducer,
     initialLargeSchemaState,
@@ -239,7 +245,13 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
   // Build nodes and edges from introspection data using pre-indexed maps.
   // React Flow renders the full schema for small/medium schemas; large
   // schemas never reach this branch (canvas overview instead).
+  //
+  // Gate 4 Slice B: skip entirely during search phase — no graph nodes or
+  // edges are constructed before the user explicitly selects a table.
+  // This keeps the initial paint metadata-only (search input + table count).
   const { initialNodes, initialEdges } = useMemo(() => {
+    if (isSearchPhase) return { initialNodes: [] as Node[], initialEdges: [] as Edge[] };
+
     const tables = data.tables.filter((tbl) => tbl.schema === schema);
 
     // Pure pre-indexed build (P3.3) — O(1) map lookups, no per-table scans
@@ -264,7 +276,7 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
     }));
 
     return { initialNodes: nodes, initialEdges: edges };
-  }, [data, compact, schema, nodeIndexes]);
+  }, [data, compact, schema, nodeIndexes, isSearchPhase]);
 
   // P1.7 — layout off the main thread.
   //
@@ -299,7 +311,13 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
     };
   }, [initialNodes, initialEdges]);
 
-  const layoutInput = useCytoscapeForOverview ? overviewLayoutInput : rfLayoutInput;
+  // Gate 4 Slice B: search phase sends null layout input to the worker —
+  // no layout request while the search entry is the only visible surface.
+  const layoutInput = isSearchPhase
+    ? null
+    : useCytoscapeForOverview
+      ? overviewLayoutInput
+      : rfLayoutInput;
 
   // Stable identity — `useWorkerLayout` re-runs layout only when the hash
   // (content + options) changes, not on every render. The profile id keeps
@@ -641,12 +659,9 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
     setNeighborhoodHops(hops);
   }, []);
 
-  const handleSelectTable = useCallback(
-    (tableKey: string) => {
-      dispatchLargeSchema({ type: "SELECT_TABLE", tableKey });
-    },
-    [],
-  );
+  const handleSelectTable = useCallback((tableKey: string) => {
+    dispatchLargeSchema({ type: "SELECT_TABLE", tableKey });
+  }, []);
 
   const showMiniMap = initialNodes.length <= 200;
 

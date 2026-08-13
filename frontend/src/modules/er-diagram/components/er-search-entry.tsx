@@ -142,9 +142,7 @@ export function ErSearchEntry({ model, onSelectTable }: ErSearchEntryProps) {
                   role="option"
                   aria-selected={isHighlighted}
                   className={`cursor-pointer rounded px-2 py-1.5 text-sm ${
-                    isHighlighted
-                      ? "bg-accent text-accent-foreground"
-                      : "hover:bg-accent/50"
+                    isHighlighted ? "bg-accent text-accent-foreground" : "hover:bg-accent/50"
                   }`}
                   data-testid="er-search-result"
                   onClick={() => {
@@ -161,9 +159,7 @@ export function ErSearchEntry({ model, onSelectTable }: ErSearchEntryProps) {
                     </span>
                   )}
                   {!isShowingResults && (
-                    <span className="ml-2 text-xs text-[var(--text-secondary)]">
-                      suggested
-                    </span>
+                    <span className="ml-2 text-xs text-[var(--text-secondary)]">suggested</span>
                   )}
                 </li>
               );

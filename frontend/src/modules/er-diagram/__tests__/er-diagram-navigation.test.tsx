@@ -93,9 +93,7 @@ describe("ErDiagram — large overview click must not navigate (PR#12 re-review 
     render(<ErDiagram connectionId="conn-1" schema="public" data={data} />);
 
     // Gate 4 Slice B: large schema enters search-first mode.
-    await waitFor(() =>
-      expect(screen.getByTestId("er-search-input")).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByTestId("er-search-input")).toBeInTheDocument());
 
     // Select a table to transition to neighborhood phase → Cytoscape mounts.
     const searchInput = screen.getByTestId("er-search-input");
@@ -149,9 +147,7 @@ describe("ErDiagram — large overview click must not navigate (PR#12 re-review 
     render(<ErDiagram connectionId="conn-1" schema="public" data={data} />);
 
     // Gate 4 Slice B: select a table to pass through search-first gate.
-    await waitFor(() =>
-      expect(screen.getByTestId("er-search-input")).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByTestId("er-search-input")).toBeInTheDocument());
     const searchInput = screen.getByTestId("er-search-input");
     fireEvent.change(searchInput, { target: { value: "app" } });
     await waitFor(() => {
