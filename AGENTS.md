@@ -157,7 +157,7 @@ Use the `perf-audit` skill when:
 Quick check before PR:
 
 ```bash
-bash ~/.qoder/skills/perf-audit/scripts/perf-scan.sh
+bash .skills/perf-audit/scripts/perf-scan.sh
 ```
 
 Performance budgets are enforced in:
