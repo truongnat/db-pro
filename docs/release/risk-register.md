@@ -266,8 +266,8 @@ Decision/evidence: Pending — require PR, Rust checks, Frontend checks; no forc
 
 ```
 RISK R016
-Source issue: #129 (corrected finding)
-Discovered on SHA: ae2f738
+Source issue: #147 (corrected finding from #129 audit)
+Discovered on SHA: 2c30820
 Area: Query Execution
 Severity: P1
 Type: product-truth
@@ -275,7 +275,7 @@ Statement: Multi-statement execution in query editor is sequential stop-on-failu
 Evidence: query_service.rs execute_multi() splits and executes sequentially; no wrapping transaction
 Impact: Users may assume atomic behavior; earlier writes are committed even if later statements fail
 Disposition: FIX RC1
-Owner issue: #129
+Owner issue: #147
 Blocks: Query execution semantics documentation
 Decision/evidence: Product decision needed — accept current semantics (document clearly) or wrap in transaction
 ```
