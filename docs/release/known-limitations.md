@@ -237,9 +237,9 @@ Each entry includes:
 
 | Status | Count | IDs |
 |---|---|---|
-| Accepted v0.1 | 7 | LIM-002, LIM-003, LIM-005, LIM-006, LIM-007, LIM-013, LIM-014, LIM-015 |
+| Accepted v0.1 | 8 | LIM-002, LIM-003, LIM-005, LIM-006, LIM-007, LIM-013, LIM-014, LIM-015 |
 | Blocked decision | 4 | LIM-001, LIM-009, LIM-010, LIM-011 |
-| Deferred v0.2+ | 3 | LIM-004, LIM-005, LIM-008, LIM-012 |
+| Deferred v0.2+ | 3 | LIM-004, LIM-008, LIM-012 |
 | Fix before v0.1 | 0 | — |
 
 ## Rules

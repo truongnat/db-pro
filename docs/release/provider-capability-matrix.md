@@ -23,7 +23,7 @@
 | Test connection | SUPPORTED + QUALIFIED | SUPPORTED + QUALIFIED | `test_connection` in DbConnector trait |
 | Disconnect | SUPPORTED + QUALIFIED | SUPPORTED + QUALIFIED | |
 | Reconnect | SUPPORTED + NOT YET QUALIFIED | SUPPORTED + NOT YET QUALIFIED | Manual reconnection path exists |
-| Password storage | SUPPORTED + QUALIFIED | N/A | Keyring + encrypted fallback (SQLite has no auth) |
+| Password storage | SUPPORTED + NOT YET QUALIFIED | N/A | OS keyring (Keychain/Credential Manager/keyutils); encrypted fallback is dev-only (#142). SQLite has no auth |
 | TLS/SSL | SUPPORTED + NOT YET QUALIFIED | N/A | PG via `runtime-tokio-rustls`; SQLite is local file |
 | SSH tunnel | SUPPORTED + NOT YET QUALIFIED | NOT SUPPORTED | Shells out to `ssh` binary; not E2E qualified (#issue) |
 | File picker (SQLite) | N/A | SUPPORTED + NOT YET QUALIFIED | `tauri-plugin-dialog` `dialog:allow-open` |
@@ -86,7 +86,7 @@
 | PK update | SUPPORTED + QUALIFIED | SUPPORTED + QUALIFIED | |
 | PK delete | SUPPORTED + QUALIFIED | SUPPORTED + QUALIFIED | |
 | No-PK tables | READ-ONLY | READ-ONLY | Cannot update without PK |
-| Row insert | SUPPORTED + QUALIFIED | SUPPORTED + QUALIFIED | |
+| Row insert | SUPPORTED + NOT YET QUALIFIED | SUPPORTED + NOT YET QUALIFIED | Backend exists; UI incomplete for complex column types (#35 backlog v0.2) |
 | Transaction | SUPPORTED + QUALIFIED | SUPPORTED + QUALIFIED | |
 | RETURNING | SUPPORTED + QUALIFIED | PARTIAL | SQLite supports RETURNING since 3.35 |
 | Provider-aware editing | SUPPORTED + NOT YET QUALIFIED | SUPPORTED + NOT YET QUALIFIED | JSON/array editing differs |
@@ -108,9 +108,9 @@
 | Metadata introspection | SUPPORTED + QUALIFIED | SUPPORTED + QUALIFIED | Tables, columns, FKs |
 | Graph model build | SUPPORTED + QUALIFIED | SUPPORTED + QUALIFIED | `buildErGraphModel` |
 | Small/Medium (React Flow) | SUPPORTED + QUALIFIED | SUPPORTED + QUALIFIED | <200 tables, S/M tier |
-| Large (Cytoscape) | SUPPORTED + QUALIFIED | SUPPORTED + QUALIFIED | >200 tables or L/XL tier |
-| Search-first entry | SUPPORTED + QUALIFIED | SUPPORTED + QUALIFIED | Gate 4 Slice B |
-| Neighborhood BFS | SUPPORTED + QUALIFIED | SUPPORTED + QUALIFIED | Gate 4 Slice A |
+| Large (Cytoscape) | SUPPORTED + NOT YET QUALIFIED | SUPPORTED + NOT YET QUALIFIED | >200 tables or L/XL tier; #18 bounded rendering + #19 safe LOD not yet complete |
+| Search-first entry | SUPPORTED + NOT YET QUALIFIED | SUPPORTED + NOT YET QUALIFIED | Gate 4 Slice B; runtime qualification pending |
+| Neighborhood BFS | SUPPORTED + NOT YET QUALIFIED | SUPPORTED + NOT YET QUALIFIED | Gate 4 Slice A; #18 bounded neighborhood not yet complete |
 
 ## Other
 

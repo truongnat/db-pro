@@ -184,6 +184,22 @@ Blocks: Windows distribution claims
 Decision/evidence: Accept RC1; WebView2 is pre-installed on Win11 and recent Win10
 ```
 
+```
+RISK R011
+Source issue: #142
+Discovered on SHA: a2cf4a3
+Area: Security
+Severity: P1
+Type: correctness
+Statement: keyring v3 compiled without platform credential-store features; production bootstrap used encrypted-file fallback with key derived from non-secret service name
+Evidence: Cargo.toml `keyring = "3"` (no features); lib.rs `.with_fallback()` in production
+Impact: Secrets stored in mock in-memory store or weakly-encrypted file; credentials lost on restart
+Disposition: FIX RC1
+Owner issue: #142
+Blocks: Production credential storage, packaged app smoke
+Decision/evidence: Fix applied — enable apple-native/linux-native/windows-native features; remove .with_fallback() from production bootstrap
+```
+
 ## Decision records
 
 ```
@@ -254,7 +270,7 @@ This register closes when:
 | Severity | Open | Fix RC1 | Accept RC1 | Defer | Resolved |
 |---|---|---|---|---|---|
 | P0 | 0 | 0 | 0 | 0 | 0 |
-| P1 | 4 | 1 | 0 | 0 | 0 |
+| P1 | 4 | 2 | 0 | 0 | 0 |
 | P2 | 5 | 0 | 2 | 0 | 0 |
 
 **Blockers to public release:** R001 (name), R004 (license), R007 (Gate 4), R008 (Gate 5)
