@@ -197,7 +197,87 @@ Impact: Secrets stored in mock in-memory store or weakly-encrypted file; credent
 Disposition: FIX RC1
 Owner issue: #142
 Blocks: Production credential storage, packaged app smoke
-Decision/evidence: Fix applied — enable apple-native/linux-native/windows-native features; remove .with_fallback() from production bootstrap
+Decision/evidence: Fix in progress — enable apple-native/linux-native-sync-persistent/windows-native features; remove .with_fallback() from production; credential roundtrip test replaces weak Entry::new check. #142 reopened: exit evidence must demonstrate native backend on each platform, not just mock store
+```
+
+```
+RISK R012
+Source issue: #143 (escaped from #123)
+Discovered on SHA: a2cf4a3
+Area: Frontend
+Severity: P1
+Type: correctness
+Statement: No React error boundary — any render crash causes white screen of death
+Evidence: No ErrorBoundary component in frontend/src
+Impact: Unhandled render errors crash the entire app with no recovery path
+Disposition: FIX RC1
+Owner issue: #143
+Blocks: Packaged app reliability
+Decision/evidence: Pending implementation
+```
+
+```
+RISK R013
+Source issue: #144 (escaped from #125)
+Discovered on SHA: a2cf4a3
+Area: Security
+Severity: P1
+Type: correctness
+Statement: PostgreSQL remote connections are silently plaintext by default (SslMode::Disable)
+Evidence: domain/connection.rs SslMode default = Disable; no TLS enforcement for remote hosts
+Impact: Credentials and data sent in plaintext over network to remote PG servers
+Disposition: FIX RC1
+Owner issue: #144
+Blocks: Remote connection security claims
+Decision/evidence: Pending — require TLS for remote connections; localhost may remain plaintext
+```
+
+```
+RISK R014
+Source issue: #145 (escaped from #128)
+Discovered on SHA: a2cf4a3
+Area: Data Safety
+Severity: P1
+Type: correctness
+Statement: SQLite backup/restore uses tokio::fs::copy — not snapshot-safe for live/WAL databases
+Evidence: infrastructure/backup/sqlite_backup.rs is a file copy; no WAL checkpoint before copy
+Impact: Backup of live SQLite database may be inconsistent; restore may overwrite current data
+Disposition: FIX RC1
+Owner issue: #145
+Blocks: Backup feature claims
+Decision/evidence: Pending — need snapshot mechanism, WAL correctness, partial-failure safety
+```
+
+```
+RISK R015
+Source issue: #146 (escaped from #130)
+Discovered on SHA: a2cf4a3
+Area: Governance
+Severity: P1
+Type: governance
+Statement: main branch is completely unprotected — no PR requirement, no CI checks, no force-push prevention
+Evidence: GitHub API shows no branch protection rules or rulesets on main
+Impact: Anyone with push access can force-push, delete main, or merge without review
+Disposition: FIX RC1
+Owner issue: #146
+Blocks: Release integrity
+Decision/evidence: Pending — require PR, Rust checks, Frontend checks; no force push; no deletion
+```
+
+```
+RISK R016
+Source issue: #129 (corrected finding)
+Discovered on SHA: ae2f738
+Area: Query Execution
+Severity: P1
+Type: product-truth
+Statement: Multi-statement execution in query editor is sequential stop-on-failure with partial writes, NOT atomic
+Evidence: query_service.rs execute_multi() splits and executes sequentially; no wrapping transaction
+Impact: Users may assume atomic behavior; earlier writes are committed even if later statements fail
+Disposition: FIX RC1
+Owner issue: #129
+Blocks: Query execution semantics documentation
+Decision/evidence: Product decision needed — accept current semantics (document clearly) or wrap in transaction
 ```
 
 ## Decision records
@@ -270,7 +350,7 @@ This register closes when:
 | Severity | Open | Fix RC1 | Accept RC1 | Defer | Resolved |
 |---|---|---|---|---|---|
 | P0 | 0 | 0 | 0 | 0 | 0 |
-| P1 | 4 | 2 | 0 | 0 | 0 |
+| P1 | 6 | 4 | 0 | 0 | 0 |
 | P2 | 5 | 0 | 2 | 0 | 0 |
 
-**Blockers to public release:** R001 (name), R004 (license), R007 (Gate 4), R008 (Gate 5)
+**Blockers to public release:** R001 (name), R004 (license), R007 (Gate 4), R008 (Gate 5), R011 (keyring), R012 (error boundary), R013 (TLS default), R014 (SQLite backup), R015 (branch protection), R016 (multi-statement semantics)

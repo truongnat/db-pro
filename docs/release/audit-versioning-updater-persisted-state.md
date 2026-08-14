@@ -66,9 +66,9 @@
 | `useShellStore` | `shell-storage` (zustand persist) | localStorage | No — UI layout |
 | `useSettingsStore` | `settings-storage` (zustand persist) | localStorage | No — defaults fill missing |
 | `useCloseGuardStore` | In-memory only | No | N/A |
-| `useCrashRecoveryStore` | In-memory only | No | N/A |
+| `useCrashRecoveryStore` | `db-pro-crash-recovery` (zustand persist) | localStorage | No — bounded snapshots (max 50) |
 
-**Finding F5 [P2]**: Workspace migrations are well-implemented (v0→v1→v2→v3) with `onRehydrateStorage` hook. However, other persisted stores (theme, query-history, recent, command, shell, settings) have **no version field and no migration path**. If their schema changes in a future version, old data could cause deserialization errors.
+**Finding F5 [P2]**: Workspace migrations are well-implemented (v0→v1→v2→v3) with `onRehydrateStorage` hook. However, other persisted stores (theme, query-history, recent, command, shell, settings, crash-recovery) have **no version field and no migration path**. If their schema changes in a future version, old data could cause deserialization errors.
 
 **Recommendation**: ACCEPT RC1. The zustand persist middleware uses JSON.parse which is lenient — missing fields get defaults. But add version fields to stores before v0.2.
 

@@ -32,11 +32,11 @@
 
 | Capability | Source owner | Unit tests | Integration tests | CI job | Smoke row | Blocking issue | Coverage status | Gap |
 |---|---|---|---|---|---|---|---|---|
-| Explorer schemas/tables/views | `infrastructure/postgres/introspect.rs`, `sqlite/introspect.rs` | `postgres/introspect`, `sqlite/introspect` | `integration.rs`, `pg_integration.rs` | `Rust checks` | Smoke: 10 tables, 2 views (PG), 10 tables, 2 views (SQLite) | — | PROVEN | — |
-| Columns introspection | `introspect.rs` | — | `schema_columns_atomicity_regression.rs` | `Rust checks` | Smoke tables have various column types | — | PROVEN | — |
-| Indexes introspection | `introspect.rs` | — | `schema_indexes_runtime_verification.rs` | `Rust checks` | Smoke: 8 indexes (PG), 6 indexes (SQLite) | — | PROVEN | — |
-| Relations/FK introspection | `introspect.rs` | — | `schema_relations_runtime_verification.rs` | `Rust checks` | Smoke tables have FK chains | — | PROVEN | — |
-| Triggers introspection | `introspect.rs` | — | `schema_triggers_runtime_verification.rs` | `Rust checks` | Smoke: 1 trigger (PG), 1 trigger (SQLite) | — | PROVEN | — |
+| Explorer schemas/tables/views | `infrastructure/postgres/introspect.rs`, `sqlite/introspect.rs` | `postgres/introspect`, `sqlite/introspect` | `integration.rs`, `pg_integration.rs` | `Rust checks` | Smoke: 10 tables, 2 views (PG), 10 tables, 2 views (SQLite) | — | TESTED BUT NOT RELEASE-QUALIFIED | PG smoke not loaded into real PG; packaged-build verification pending |
+| Columns introspection | `introspect.rs` | — | `schema_columns_atomicity_regression.rs` | `Rust checks` | Smoke tables have various column types | — | TESTED BUT NOT RELEASE-QUALIFIED | PG smoke not loaded; packaged verification pending |
+| Indexes introspection | `introspect.rs` | — | `schema_indexes_runtime_verification.rs` | `Rust checks` | Smoke: 8 indexes (PG), 6 indexes (SQLite) | — | TESTED BUT NOT RELEASE-QUALIFIED | PG smoke not loaded; #133 large-ER fixture corrected but not PG-verified |
+| Relations/FK introspection | `introspect.rs` | — | `schema_relations_runtime_verification.rs` | `Rust checks` | Smoke tables have FK chains | — | TESTED BUT NOT RELEASE-QUALIFIED | PG smoke not loaded; #133 FK chain corrected but not PG-verified |
+| Triggers introspection | `introspect.rs` | — | `schema_triggers_runtime_verification.rs` | `Rust checks` | Smoke: 1 trigger (PG), 1 trigger (SQLite) | — | TESTED BUT NOT RELEASE-QUALIFIED | PG smoke not loaded |
 | DDL introspection (get_table_ddl) | `tauri-app/commands/` | — | `pg_integration.rs` | `Rust checks` | — | — | RUNTIME ONLY | No dedicated unit test |
 
 ### Query execution
@@ -45,7 +45,7 @@
 |---|---|---|---|---|---|---|---|---|
 | Current statement execution | `application/query_service.rs` | `query_service` tests | `integration.rs` | `Rust checks` | — | — | TESTED BUT NOT RELEASE-QUALIFIED | — |
 | Query selection (partial execute) | `application/query_service.rs` | `query_service` tests | — | `Rust checks` | — | — | PARTIAL | Selection extraction not integration-tested |
-| Run-all / multi-statement | `application/query_service.rs`, `execute_batch` | `safety.rs` (classifier) | `integration.rs` | `Rust checks` | — | #129 | TESTED BUT NOT RELEASE-QUALIFIED | — |
+| Run-all / multi-statement | `application/query_service.rs`, `execute_multi()` (sequential, NOT atomic) | `safety.rs` (classifier) | `integration.rs` | `Rust checks` | — | #129 | TESTED BUT NOT RELEASE-QUALIFIED | Partial-write semantics; see F4 correction |
 | Cancellation | `tauri-app/cancel.rs`, `domain/execution.rs` | `domain/execution` | — | `Rust checks` | — | — | PARTIAL | No integration test for cancel mid-query |
 | EXPLAIN | `application/query_service.rs` | `safety.rs` (EXPLAIN classify) | `pg_integration.rs` | `Rust checks` | — | — | TESTED BUT NOT RELEASE-QUALIFIED | SQLite EXPLAIN not tested |
 | Result metadata/value rendering | `domain/query.rs`, `frontend/modules/query/` | `domain/query` | — | `Frontend checks` | — | — | PARTIAL | Frontend rendering tests exist but not E2E |
@@ -108,7 +108,7 @@
 | Capability | Source owner | Unit tests | Integration tests | CI job | Smoke row | Blocking issue | Coverage status | Gap |
 |---|---|---|---|---|---|---|---|---|
 | Provider-value type matrix | `domain/capabilities.rs` | `capabilities` tests | — | `Rust checks` | — | — | TESTED BUT NOT RELEASE-QUALIFIED | — |
-| PG-specific capabilities | `postgres/connector.rs`, `introspect.rs` | — | `pg_integration.rs` | `Rust checks` | PG smoke fixture | — | PROVEN | — |
+| PG-specific capabilities | `postgres/connector.rs`, `introspect.rs` | — | `pg_integration.rs` | `Rust checks` | PG smoke fixture | — | TESTED BUT NOT RELEASE-QUALIFIED | PG smoke not loaded into real PG |
 | SQLite-specific capabilities | `sqlite/connector.rs`, `introspect.rs` | — | `integration.rs` | `Rust checks` | SQLite smoke fixture | — | PROVEN | — |
 
 ### Packaging / Distribution

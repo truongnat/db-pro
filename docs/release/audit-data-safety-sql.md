@@ -78,15 +78,30 @@ The safety policy can block destructive operations when `allow_destructive = fal
 
 **Recommendation**: ACCEPT RC1. Document that the query editor allows unrestricted SQL by design.
 
-### F4 — Multi-statement execution uses `execute_batch` (atomic) [P2]
+### F4 — Multi-statement execution is sequential stop-on-failure with possible partial writes [P1]
 
-**Location**: `db_connector.rs:26` — `execute_batch` trait method
+**Location**: `query_service.rs:105-180` — `execute_multi()` method
 
-The `execute_batch` method executes multiple statements atomically inside a single transaction. If any statement fails, all changes are rolled back. This is the correct behavior for safety.
+**CORRECTION (ae2f738)**: The original audit incorrectly stated that multi-statement execution uses `execute_batch` (atomic). This is **false**. The query editor path uses `QueryService::execute_multi()`, which:
 
-**Impact**: Positive — multi-statement writes are atomic by design.
+1. Calls `split_statements(sql)` to split the input into individual statements
+2. Executes each statement **sequentially** via `connector.query()` or `connector.execute()`
+3. On failure: returns earlier results + error index; later statements are **not executed**
+4. **No wrapping transaction** — each statement auto-commits independently
 
-**Recommendation**: No action needed.
+This means:
+```
+UPDATE A succeeds   ← already committed
+UPDATE B fails      ← execution stops
+─────────────────────
+result = partial success + error at index 1
+```
+
+**Evidence**: Test `execute_multi_partial_failure_preserves_earlier_results` confirms: "SELECT 1; UPDATE t SET x = 1; SELECT 2" → SELECT 1 result preserved, UPDATE fails at index 1, SELECT 2 never runs.
+
+**Impact**: Users see partial results after a multi-statement failure. Earlier writes are committed and not rolled back. The UI correctly reports `"Statement N failed. X of N statements completed."` but does not make the atomicity model explicit.
+
+**Recommendation**: The docs/tests/UI must state that query-editor multi execution is **sequential stop-on-failure with possible partial writes**. Product decision needed: accept current semantics (and document clearly) or wrap in a transaction for atomic behavior.
 
 ### F5 — Cancellation uses `QueryExecutionId` for identity [P2]
 
@@ -110,8 +125,8 @@ SQLite connections cannot cancel running queries. This is a known capability gap
 
 | Severity | Count | Findings |
 |---|---|---|
-| P1 | 0 | — |
-| P2 | 6 | F1-F6 (all ACCEPT RC1) |
+| P1 | 1 | F4 (multi-statement partial-write semantics) |
+| P2 | 5 | F1-F3, F5-F6 (all ACCEPT RC1) |
 | P3 | 0 | — |
 
-**Conclusion**: The safety classifier has 22 unit tests covering all statement types, policy validation, comment stripping, CTE mutation detection, and EXPLAIN ANALYZE. No P1 findings. All P2 items are accepted for RC1 with documentation.
+**Conclusion**: The safety classifier has 22 unit tests covering all statement types, policy validation, comment stripping, CTE mutation detection, and EXPLAIN ANALYZE. F4 was corrected from false claim of atomic `execute_batch` to actual sequential stop-on-failure semantics — this is a P1 product-truth issue requiring a decision on atomicity model.

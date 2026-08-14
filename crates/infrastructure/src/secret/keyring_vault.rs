@@ -226,30 +226,49 @@ impl KeyringVault {
 mod tests {
     use super::*;
 
-    /// Verify that the keyring crate has a real platform backend compiled in.
+    /// Verify that the keyring credential store is functional by performing a
+    /// full set → get → delete roundtrip.
     ///
-    /// Without a platform backend, `keyring::Entry::new` silently creates entries
-    /// backed by an in-memory mock store that provides no persistence or security.
-    /// This test ensures the workspace Cargo.toml enables at least one of:
-    /// `apple-native`, `linux-native`, `windows-native`.
+    /// `Entry::new()` alone does NOT prove a real backend is active — the mock
+    /// store also creates entries successfully. This test exercises the actual
+    /// credential operations that distinguish a real backend from the mock.
     ///
-    /// The test uses a platform-conditional check: on macOS the keyring should
-    /// use Keychain, on Linux kernel keyutils, on Windows Credential Manager.
-    /// If none of these are compiled in, the Entry creation returns a platform
-    /// failure error, which this test detects.
+    /// On macOS this hits Keychain, on Linux it hits libsecret/DBus (persistent),
+    /// on Windows it hits Credential Manager. In all cases the credential is
+    /// created and then immediately cleaned up.
     #[test]
-    fn keyring_has_platform_backend() {
-        // Attempt to create a keyring entry. If no platform backend is enabled,
-        // keyring v3 returns `PlatformFailure("no credential store available")`
-        // or similar. With a real backend, Entry::new succeeds (it doesn't
-        // actually access the credential store until get/set/delete).
-        let result = keyring::Entry::new("db-pro-test-probe", "probe-key");
+    fn keyring_credential_roundtrip() {
+        let service = "db-pro-test-roundtrip";
+        let key = "probe-key";
+        let value = "probe-value-42";
+
+        let entry = keyring::Entry::new(service, key)
+            .expect("Entry::new must succeed with any backend (including mock)");
+
+        // set_password — exercises the write path
+        entry
+            .set_password(value)
+            .expect("set_password must succeed");
+
+        // get_password — exercises the read path and verifies the value
+        let retrieved = entry
+            .get_password()
+            .expect("get_password must succeed after set_password");
+        assert_eq!(
+            retrieved, value,
+            "retrieved credential must match what was stored"
+        );
+
+        // delete_credential — clean up
+        entry
+            .delete_credential()
+            .expect("delete_credential must succeed");
+
+        // Verify deletion
+        let after_delete = entry.get_password();
         assert!(
-            result.is_ok(),
-            "keyring has no platform backend enabled — \
-             workspace Cargo.toml must set keyring features to \
-             [\"apple-native\", \"linux-native\", \"windows-native\"]. \
-             Error: {result:?}"
+            matches!(after_delete, Err(keyring::Error::NoEntry)),
+            "credential must be gone after delete_credential, got: {after_delete:?}"
         );
     }
 
