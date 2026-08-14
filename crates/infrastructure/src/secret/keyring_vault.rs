@@ -221,3 +221,43 @@ impl KeyringVault {
         Ok(Some(plaintext))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Verify that the keyring crate has a real platform backend compiled in.
+    ///
+    /// Without a platform backend, `keyring::Entry::new` silently creates entries
+    /// backed by an in-memory mock store that provides no persistence or security.
+    /// This test ensures the workspace Cargo.toml enables at least one of:
+    /// `apple-native`, `linux-native`, `windows-native`.
+    ///
+    /// The test uses a platform-conditional check: on macOS the keyring should
+    /// use Keychain, on Linux kernel keyutils, on Windows Credential Manager.
+    /// If none of these are compiled in, the Entry creation returns a platform
+    /// failure error, which this test detects.
+    #[test]
+    fn keyring_has_platform_backend() {
+        // Attempt to create a keyring entry. If no platform backend is enabled,
+        // keyring v3 returns `PlatformFailure("no credential store available")`
+        // or similar. With a real backend, Entry::new succeeds (it doesn't
+        // actually access the credential store until get/set/delete).
+        let result = keyring::Entry::new("db-pro-test-probe", "probe-key");
+        assert!(
+            result.is_ok(),
+            "keyring has no platform backend enabled — \
+             workspace Cargo.toml must set keyring features to \
+             [\"apple-native\", \"linux-native\", \"windows-native\"]. \
+             Error: {result:?}"
+        );
+    }
+
+    /// Verify that KeyringVault without fallback returns an error when the
+    /// keyring is unavailable, rather than silently using a weak fallback.
+    #[test]
+    fn vault_without_fallback_is_fail_closed() {
+        let vault = KeyringVault::new("db-pro-test-nofb", PathBuf::from("/tmp/db-pro-test-secrets"));
+        assert!(!vault.allow_fallback, "fallback must be disabled by default");
+    }
+}

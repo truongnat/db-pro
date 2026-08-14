@@ -47,7 +47,11 @@ pub fn run() {
                     .expect("failed to initialize meta store");
 
                 let secret_store = {
-                    let vault = KeyringVault::new("com.dbpro.app", secrets_dir).with_fallback();
+                    // Production: fail-closed when OS keyring is unavailable.
+                    // Do NOT call .with_fallback() — the encrypted-file fallback
+                    // derives its key from the service name (not a secret) and is
+                    // intended for development/CI only. See #142.
+                    let vault = KeyringVault::new("com.dbpro.app", secrets_dir);
                     Arc::new(vault)
                 };
 
