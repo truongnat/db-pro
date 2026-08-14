@@ -35,8 +35,8 @@ function generateSchema(tableCount) {
   lines.push(`-- Deterministic seed: ${tableCount} tables, linear FK chain + hub FKs.`);
   lines.push(`--`);
   lines.push(`-- Setup:    psql -U <user> -d <db> -f large_er_fixture.sql`);
-  lines.push(`-- Teardown: psql -U <user> -d <db> -c "DROP TABLE IF EXISTS smoke_large_t0000 CASCADE;"`);
-  lines.push(`-- Verified: ${tableCount} tables, ${Math.floor(tableCount / 10)} hub FKs, 5 views`);
+  lines.push(`-- Teardown: psql -U <user> -d <db> -f large_er_teardown.sql`);
+  lines.push(`-- Verified: ${tableCount} tables, ${tableCount - 1 + Math.floor(tableCount / 10)} FKs, 5 views`);
   lines.push("");
 
   // Tables
@@ -44,13 +44,13 @@ function generateSchema(tableCount) {
     const name = `smoke_large_t${padIndex(i)}`;
     lines.push(`CREATE TABLE ${name} (`);
     lines.push(`    id BIGSERIAL PRIMARY KEY,`);
+    if (i > 0) {
+      const prev = `smoke_large_t${padIndex(i - 1)}`;
+      lines.push(`    parent_id BIGINT NOT NULL REFERENCES ${prev}(id) ON DELETE CASCADE,`);
+    }
     lines.push(`    name TEXT NOT NULL DEFAULT 'row_${padIndex(i)}',`);
     lines.push(`    value NUMERIC(10,2) NOT NULL DEFAULT 0,`);
     lines.push(`    created_at TIMESTAMPTZ NOT NULL DEFAULT now()`);
-    if (i > 0) {
-      const prev = `smoke_large_t${padIndex(i - 1)}`;
-      lines.push(`        REFERENCES ${prev}(id) ON DELETE CASCADE`);
-    }
     lines.push(`);`);
     lines.push("");
   }
@@ -78,18 +78,33 @@ function generateSchema(tableCount) {
   }
   lines.push("");
 
-  // Seed: 1 row per table
+  // Seed: 1 row per table (parent_id must reference existing row)
   for (let i = 0; i < tableCount; i++) {
     const name = `smoke_large_t${padIndex(i)}`;
     const value = (i * 1.5).toFixed(2);
     if (i === 0) {
       lines.push(`INSERT INTO ${name} (name, value) VALUES ('seed_${padIndex(i)}', ${value});`);
     } else {
-      lines.push(`INSERT INTO ${name} (name, value) VALUES ('seed_${padIndex(i)}', ${value});`);
+      // Retrieve parent_id from the previous table's seed row (always id=1)
+      lines.push(`INSERT INTO ${name} (parent_id, name, value) VALUES (1, 'seed_${padIndex(i)}', ${value});`);
     }
   }
 
-  return lines.join("\n");
+  // Teardown script (reverse order to respect FK dependencies)
+  lines.push("");
+  lines.push("-- Teardown (append to separate file or run via psql -f)");
+  const teardownLines = [];
+  for (let i = tableCount - 1; i >= 0; i--) {
+    teardownLines.push(`DROP TABLE IF EXISTS smoke_large_t${padIndex(i)} CASCADE;`);
+  }
+  // Write teardown as a separate block at the end, commented as instructions
+  lines.push("-- To teardown, run the following in reverse table order:");
+  for (const tl of teardownLines.slice(0, 5)) {
+    lines.push(`--   ${tl}`);
+  }
+  lines.push(`--   ... (${tableCount - 5} more DROP TABLE statements)`);
+
+  return { sql: lines.join("\n"), teardown: teardownLines.join("\n") };
 }
 
 // CLI
@@ -107,12 +122,17 @@ for (let i = 0; i < args.length; i++) {
   }
 }
 
-const sql = generateSchema(tableCount);
+const result = generateSchema(tableCount);
 
 if (outputFile) {
   const fs = require("fs");
-  fs.writeFileSync(outputFile, sql + "\n", "utf-8");
+  const path = require("path");
+  fs.writeFileSync(outputFile, result.sql + "\n", "utf-8");
   console.error(`Generated ${tableCount}-table fixture → ${outputFile}`);
+  // Write teardown file alongside the fixture
+  const teardownPath = path.join(path.dirname(outputFile), "large_er_teardown.sql");
+  fs.writeFileSync(teardownPath, result.teardown + "\n", "utf-8");
+  console.error(`Generated teardown → ${teardownPath}`);
 } else {
-  process.stdout.write(sql + "\n");
+  process.stdout.write(result.sql + "\n");
 }
