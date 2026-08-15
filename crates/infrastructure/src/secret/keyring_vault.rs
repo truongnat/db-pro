@@ -241,12 +241,16 @@ mod tests {
 
     /// Handle a keyring backend error that *might* be a headless-CI skip.
     ///
-    /// - On macOS / Windows: always **panic** — the native store must work.
-    /// - On Linux: panic unless `DBPRO_ALLOW_HEADLESS_KEYRING_SKIP=1`.
-    fn handle_keyring_unavailable(variant: &str, msg: &str) {
+    /// Returns `true` when the caller should **skip** the test (Linux headless
+    /// with explicit env opt-in).  On all other platforms this function
+    /// **panics** (diverges), so the `true` branch is never reached there.
+    ///
+    /// - macOS / Windows: always **panic** — the native store must work.
+    /// - Linux: panic unless `DBPRO_ALLOW_HEADLESS_KEYRING_SKIP=1`.
+    fn handle_keyring_unavailable(variant: &str, msg: &str) -> bool {
         if should_skip_headless() {
             eprintln!("[skip] keyring {variant} on headless Linux (DBPRO_ALLOW_HEADLESS_KEYRING_SKIP=1): {msg}");
-            return;
+            return true;
         }
         let platform = if cfg!(target_os = "macos") {
             "macOS (Keychain)"
@@ -296,10 +300,14 @@ mod tests {
         match entry.set_password(value) {
             Ok(()) => {}
             Err(keyring::Error::PlatformFailure(msg)) => {
-                handle_keyring_unavailable("PlatformFailure", &msg.to_string());
+                if handle_keyring_unavailable("PlatformFailure", &msg.to_string()) {
+                    return;
+                }
             }
             Err(keyring::Error::NoStorageAccess(msg)) => {
-                handle_keyring_unavailable("NoStorageAccess", &msg.to_string());
+                if handle_keyring_unavailable("NoStorageAccess", &msg.to_string()) {
+                    return;
+                }
             }
             Err(e) => panic!("set_password failed with unexpected error: {e:?}"),
         }
