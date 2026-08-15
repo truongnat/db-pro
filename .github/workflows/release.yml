@@ -2,11 +2,6 @@ name: Release Build
 
 on:
   workflow_dispatch:
-    inputs:
-      tag:
-        description: "Release tag (e.g. v0.1.0)"
-        required: false
-        type: string
   push:
     tags:
       - "v*"
@@ -20,8 +15,32 @@ jobs:
   preflight:
     name: Pre-flight checks
     runs-on: ubuntu-latest
+    outputs:
+      candidate_sha: ${{ steps.provenance.outputs.candidate_sha }}
+      app_version: ${{ steps.provenance.outputs.app_version }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Resolve exact candidate provenance
+        id: provenance
+        shell: bash
+        run: |
+          actual_sha="$(git rev-parse HEAD)"
+          if [ "$actual_sha" != "$GITHUB_SHA" ]; then
+            echo "Checkout SHA $actual_sha does not match GitHub event SHA $GITHUB_SHA" >&2
+            exit 1
+          fi
+
+          app_version="$(python3 -c 'import json; print(json.load(open("crates/tauri-app/tauri.conf.json"))["version"])')"
+          echo "candidate_sha=$actual_sha" >> "$GITHUB_OUTPUT"
+          echo "app_version=$app_version" >> "$GITHUB_OUTPUT"
+
+          {
+            echo "### Release candidate provenance"
+            echo "- Version: \`$app_version\`"
+            echo "- Exact SHA: \`$actual_sha\`"
+            echo "- Event ref: \`$GITHUB_REF\`"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       # Node
       - uses: actions/setup-node@v4
@@ -47,6 +66,9 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
+
+      - name: Record Rust toolchain
+        run: rustc --version --verbose
 
       - name: Install Tauri system deps
         run: |
@@ -85,6 +107,18 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Verify build checkout provenance
+        shell: bash
+        env:
+          EXPECTED_CANDIDATE_SHA: ${{ needs.preflight.outputs.candidate_sha }}
+        run: |
+          actual_sha="$(git rev-parse HEAD)"
+          if [ "$actual_sha" != "$EXPECTED_CANDIDATE_SHA" ]; then
+            echo "Build checkout SHA $actual_sha does not match preflight candidate $EXPECTED_CANDIDATE_SHA" >&2
+            exit 1
+          fi
+          echo "Building exact candidate SHA: $actual_sha"
 
       # Node setup
       - uses: actions/setup-node@v4
@@ -136,7 +170,8 @@ jobs:
         if: matrix.platform == 'macOS'
         uses: actions/upload-artifact@v4
         with:
-          name: db-pro-macos
+          name: db-pro-macos-v${{ needs.preflight.outputs.app_version }}-${{ needs.preflight.outputs.candidate_sha }}
+          if-no-files-found: error
           path: |
             target/release/bundle/dmg/*.dmg
             target/release/bundle/macos/*.app
@@ -145,7 +180,8 @@ jobs:
         if: matrix.platform == 'Windows'
         uses: actions/upload-artifact@v4
         with:
-          name: db-pro-windows
+          name: db-pro-windows-v${{ needs.preflight.outputs.app_version }}-${{ needs.preflight.outputs.candidate_sha }}
+          if-no-files-found: error
           path: |
             target/release/bundle/msi/*.msi
             target/release/bundle/nsis/*.exe
@@ -154,7 +190,8 @@ jobs:
         if: matrix.platform == 'Linux'
         uses: actions/upload-artifact@v4
         with:
-          name: db-pro-linux
+          name: db-pro-linux-v${{ needs.preflight.outputs.app_version }}-${{ needs.preflight.outputs.candidate_sha }}
+          if-no-files-found: error
           path: |
             target/release/bundle/deb/*.deb
             target/release/bundle/rpm/*.rpm
