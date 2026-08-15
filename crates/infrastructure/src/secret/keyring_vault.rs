@@ -226,6 +226,41 @@ impl KeyringVault {
 mod tests {
     use super::*;
 
+    /// Returns `true` only when the test is running on Linux **and** the
+    /// explicit opt-in environment variable `DBPRO_ALLOW_HEADLESS_KEYRING_SKIP`
+    /// is set to `1`.
+    ///
+    /// This prevents silently passing keyring tests on a Linux desktop where
+    /// Secret Service is broken, while still allowing headless CI to skip.
+    fn should_skip_headless() -> bool {
+        cfg!(target_os = "linux")
+            && std::env::var("DBPRO_ALLOW_HEADLESS_KEYRING_SKIP")
+                .map(|v| v == "1")
+                .unwrap_or(false)
+    }
+
+    /// Handle a keyring backend error that *might* be a headless-CI skip.
+    ///
+    /// - On macOS / Windows: always **panic** — the native store must work.
+    /// - On Linux: panic unless `DBPRO_ALLOW_HEADLESS_KEYRING_SKIP=1`.
+    fn handle_keyring_unavailable(variant: &str, msg: &str) {
+        if should_skip_headless() {
+            eprintln!("[skip] keyring {variant} on headless Linux (DBPRO_ALLOW_HEADLESS_KEYRING_SKIP=1): {msg}");
+            return;
+        }
+        let platform = if cfg!(target_os = "macos") {
+            "macOS (Keychain)"
+        } else if cfg!(target_os = "windows") {
+            "Windows (Credential Manager)"
+        } else {
+            "this platform"
+        };
+        panic!(
+            "keyring {variant} on {platform}: {msg}\n\
+             On Linux CI set DBPRO_ALLOW_HEADLESS_KEYRING_SKIP=1 to allow skip."
+        );
+    }
+
     /// Smoke test for the keyring credential API.
     ///
     /// Performs a set → get → delete roundtrip to verify the keyring API is
@@ -233,12 +268,13 @@ mod tests {
     /// exercises the real native backend. On Linux with DBus/Secret Service
     /// available, this exercises the persistent libsecret backend.
     ///
-    /// **Limitations**:
-    /// - The keyring mock store also supports set/get/delete, so this test
-    ///   passing does NOT prove a native backend is active.
-    /// - On headless Linux CI (no DBus daemon), `sync-secret-service` may
-    ///   fail with `PlatformFailure`. The test treats this as an expected
-    ///   skip rather than a failure.
+    /// **Skip policy** (controlled by [`should_skip_headless`]):
+    /// - macOS / Windows: `PlatformFailure` and `NoStorageAccess` are **hard
+    ///   failures** — the native credential store must work.
+    /// - Linux: only skipped when the environment variable
+    ///   `DBPRO_ALLOW_HEADLESS_KEYRING_SKIP=1` is set.  A Linux desktop or
+    ///   package-qualification host with a broken Secret Service will **fail**,
+    ///   not silently skip.
     ///
     /// Full platform qualification requires running the packaged app on each
     /// OS and verifying credential persistence across restarts.
@@ -260,16 +296,10 @@ mod tests {
         match entry.set_password(value) {
             Ok(()) => {}
             Err(keyring::Error::PlatformFailure(msg)) => {
-                // Expected on headless Linux CI without DBus/Secret Service.
-                // Not a failure — just means the native backend is not available.
-                eprintln!(
-                    "keyring backend not available (expected on headless CI): {msg}"
-                );
-                return;
+                handle_keyring_unavailable("PlatformFailure", &msg.to_string());
             }
             Err(keyring::Error::NoStorageAccess(msg)) => {
-                eprintln!("keyring has no storage access: {msg}");
-                return;
+                handle_keyring_unavailable("NoStorageAccess", &msg.to_string());
             }
             Err(e) => panic!("set_password failed with unexpected error: {e:?}"),
         }
@@ -278,15 +308,10 @@ mod tests {
         let retrieved = entry
             .get_password()
             .expect("get_password must succeed after set_password");
-        assert_eq!(
-            retrieved, value,
-            "retrieved credential must match what was stored"
-        );
+        assert_eq!(retrieved, value, "retrieved credential must match what was stored");
 
         // Clean up.
-        entry
-            .delete_credential()
-            .expect("delete_credential must succeed");
+        entry.delete_credential().expect("delete_credential must succeed");
 
         // Verify deletion.
         let after_delete = entry.get_password();
