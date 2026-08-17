@@ -1,4 +1,4 @@
-import { Component, type ErrorInfo, type ReactNode } from "react";
+import { Component, type ReactNode } from "react";
 
 interface RootErrorBoundaryProps {
   children: ReactNode;
@@ -46,18 +46,14 @@ const BUTTON_STYLE = {
  * The fallback deliberately avoids the normal design system, application stores,
  * connection state, and error details so it remains available during broad
  * frontend failures without exposing sensitive payloads or clearing recovery data.
+ * Root-level error reporting is owned by SANITIZED_REACT_ROOT_OPTIONS so caught
+ * errors are reported exactly once.
  */
 export class RootErrorBoundary extends Component<RootErrorBoundaryProps, RootErrorBoundaryState> {
   state: RootErrorBoundaryState = { failed: false };
 
   static getDerivedStateFromError(): RootErrorBoundaryState {
     return { failed: true };
-  }
-
-  componentDidCatch(_error: unknown, _info: ErrorInfo): void {
-    // Never log the raw error here. Render errors can contain query text,
-    // connection strings, provider payloads, or other sensitive values.
-    console.error("Unhandled React error captured by the root error boundary");
   }
 
   private readonly reload = (): void => {
