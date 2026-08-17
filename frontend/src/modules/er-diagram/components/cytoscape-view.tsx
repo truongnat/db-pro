@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Search, Maximize2, Table2, Loader2 } from "lucide-react";
+import { Search, Maximize2, Table2, Loader2, ArrowLeft } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -43,6 +43,10 @@ export interface CytoscapeErViewProps {
   explorer: OverviewExplorerProps;
   searchQuery: string;
   onSearchChange: (query: string) => void;
+  /** #46 E3 — explicit Back navigation from overview to neighborhood. */
+  onBackToNeighborhood?: () => void;
+  /** #46 E3 — explicit Back navigation from overview to search. */
+  onBackToSearch?: () => void;
 }
 
 /**
@@ -92,6 +96,8 @@ export function CytoscapeErView({
   explorer,
   searchQuery,
   onSearchChange,
+  onBackToNeighborhood,
+  onBackToSearch,
 }: CytoscapeErViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<CytoscapeErRenderer | null>(null);
@@ -260,6 +266,32 @@ export function CytoscapeErView({
       {/* Overlay: search + overview controls (canvas renders beneath). */}
       <div className="pointer-events-none absolute left-2 top-2 z-10 flex flex-col items-start gap-2">
         <div className="pointer-events-auto flex items-center gap-2">
+          {onBackToNeighborhood && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 gap-1 px-2 text-[11px]"
+              data-testid="er-back-to-neighborhood"
+              onClick={onBackToNeighborhood}
+            >
+              <ArrowLeft className="h-3 w-3" />
+              Neighborhood
+            </Button>
+          )}
+          {onBackToSearch && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-7 gap-1 px-2 text-[11px] text-[var(--text-secondary)]"
+              data-testid="er-back-to-search"
+              onClick={onBackToSearch}
+            >
+              <ArrowLeft className="h-3 w-3" />
+              Search
+            </Button>
+          )}
           <div className="relative">
             <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--text-secondary)]" />
             <Input

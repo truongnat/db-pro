@@ -1,4 +1,14 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+} from "react";
 import {
   ReactFlow,
   Background,
@@ -26,6 +36,13 @@ import { Search, Maximize2, LayoutGrid, Columns2, Table2, RotateCcw, Loader2 } f
 
 import { ErTableNode, type TableNodeData } from "./lod/er-table-node";
 import { ErPerfHud } from "./er-perf-hud";
+import { ErSearchEntry } from "./er-search-entry";
+import {
+  initialLargeSchemaState,
+  largeSchemaReducer,
+  shouldEnterLargeSchemaFlow,
+  deriveNeighborhoodVisibleSet,
+} from "../utils/large-schema";
 import {
   buildErGraphModel,
   classifySchemaComplexity,
@@ -47,6 +64,7 @@ import {
 } from "../utils/layout-profile";
 import { groupForeignKeys } from "../utils/edge-builder";
 import type { NeighborhoodScope } from "../utils/neighborhood";
+import { resolveHopCount } from "../utils/neighborhood";
 import { ErPerfMonitor } from "../utils/instrumentation";
 import { resolveLod, type LodLevel } from "../utils/lod";
 import { aggregateRelations, resolveEdgeLod, type EdgeLodLevel } from "../utils/edge-lod";
@@ -73,6 +91,20 @@ const CytoscapeErView = lazy(() =>
 /** Build a storage key for persisting node positions per connection + schema. */
 function positionStorageKey(connectionId: string, schemaName: string) {
   return `er-diagram-positions:${connectionId}:${schemaName}`;
+}
+
+/** Load cached manual positions from localStorage for a given identity. */
+function loadPositions(
+  connectionId: string,
+  schema: string,
+): Map<string, { x: number; y: number }> {
+  try {
+    const raw = localStorage.getItem(positionStorageKey(connectionId, schema));
+    if (raw) return new Map(JSON.parse(raw));
+  } catch {
+    /* ignore */
+  }
+  return new Map();
 }
 
 export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
@@ -158,15 +190,145 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
   );
   const isLargeSchema = schemaTier === "L" || schemaTier === "XL";
 
+  // Gate 4 Slice B — search-first entry for large schemas.
+  // Entry predicate (locked): tableCount > 200 OR tier L/XL.
+  const useLargeSchemaFlow = shouldEnterLargeSchemaFlow(tablesInSchema.length, schemaTier);
+  const [largeSchemaState, dispatchLargeSchema] = useReducer(
+    largeSchemaReducer,
+    initialLargeSchemaState,
+  );
+
+  // Gate 4 C4 (#40) — render-phase identity gate.
+  // Detect connection/schema change BEFORE any derivation. When the identity
+  // has changed, all downstream computations (phase, seed, focus, neighborhood,
+  // layout input) use the initial state — never the stale state from the
+  // previous identity. The useLayoutEffect below then commits the real reset.
+  const prevConnectionRef = useRef(connectionId);
+  const prevSchemaRef = useRef(schema);
+  const identityChanged =
+    prevConnectionRef.current !== connectionId || prevSchemaRef.current !== schema;
+  const effectiveLargeSchemaState = identityChanged ? initialLargeSchemaState : largeSchemaState;
+
+  const isSearchPhase = useLargeSchemaFlow && effectiveLargeSchemaState.phase === "search";
+  const isNeighborhoodPhase =
+    useLargeSchemaFlow && effectiveLargeSchemaState.phase === "neighborhood";
+  // #45 E2 — explicit overview phase predicate.
+  // Replaces the old `isLargeSchema && !isNeighborhoodPhase` which was
+  // semantically too broad (true in search too, though masked by the
+  // search-first render branch). Only `overview` activates Cytoscape
+  // and the full-schema layout pipeline.
+  const isOverviewPhase = useLargeSchemaFlow && effectiveLargeSchemaState.phase === "overview";
+
+  const fittedPositionsRef = useRef<Map<string, LayoutPosition> | null>(null);
+
+  // Persisted manual positions: nodeId → { x, y }
+  const [manualPositions, setManualPositions] = useState<Map<string, { x: number; y: number }>>(
+    () => loadPositions(connectionId, schema),
+  );
+
+  // Gate 4 C4 (#40) — lifecycle/reset.
+  // The render-phase gate above (effectiveLargeSchemaState) ensures no stale
+  // state leaks into memos/layout during the first render of a new identity.
+  // This useLayoutEffect commits the real state reset before the browser paints.
+  const phase = effectiveLargeSchemaState.phase;
+  const prevPhaseRef = useRef(phase);
+
+  useLayoutEffect(() => {
+    if (identityChanged) {
+      // Commit refs to new identity.
+      prevConnectionRef.current = connectionId;
+      prevSchemaRef.current = schema;
+      prevPhaseRef.current = "search";
+
+      // Reset reducer state to search.
+      dispatchLargeSchema({ type: "BACK_TO_SEARCH" });
+      setSearchQuery("");
+      setSelectedEdgeId(null);
+      fittedPositionsRef.current = null;
+
+      // Load the NEW identity's cached positions (not empty Map).
+      setManualPositions(loadPositions(connectionId, schema));
+      return;
+    }
+
+    const phaseChanged = prevPhaseRef.current !== phase;
+    if (!phaseChanged) return;
+    prevPhaseRef.current = phase;
+    setSearchQuery("");
+    setSelectedEdgeId(null);
+    fittedPositionsRef.current = null;
+    if (phase === "neighborhood") {
+      // Gate 4 D1 (#41) — safe first-paint LOD. Neighborhood mounts ≤100
+      // nodes; starting at "detail" would mount full column lists before
+      // fitView zooms out. "compact" is the cheapest readable level; the
+      // viewport callback upgrades to the correct LOD after fitView.
+      setCurrentLod("compact");
+    }
+    if (phase === "search") {
+      setManualPositions(new Map());
+      try {
+        localStorage.setItem(positionStorageKey(connectionId, schema), "[]");
+      } catch {
+        /* ignore */
+      }
+    }
+  }, [phase, connectionId, schema, identityChanged]);
+
   // UX pivot (opass.html): the FULL graph is the default experience for large
   // schemas — no landing screen, no neighborhood gate, no filter-first flow.
   // The hop scope below only sizes the neighborhood ring that search/click
   // focus draws on the always-visible canvas overview.
-  const [neighborhoodHops, setNeighborhoodHops] = useState<NeighborhoodScope>(2);
+  // #46 E3 — neighborhood hops are fixed at 2 (not user-changeable).
+  // Overview has its own separate `overviewHighlightHops` state.
+  const neighborhoodHops: NeighborhoodScope = 2;
 
-  // P1.9 — every large schema renders on the canvas renderer
-  // (CytoscapeErRenderer); React Flow keeps small/medium schemas only.
-  const useCytoscapeForOverview = isLargeSchema;
+  // #46 E3 — separate hops state for overview highlight.
+  // Overview's explorer control (1 hop / 2 hops / 3 hops / Domain) changes
+  // ONLY the highlight ring on the canvas — it must NOT mutate the bounded
+  // neighborhood context that is restored on Back navigation.
+  const [overviewHighlightHops, setOverviewHighlightHops] = useState<NeighborhoodScope>(2);
+
+  // Gate 4 C2 (#38) — bounded neighborhood materialization.
+  // Derive the visible table set from #37's pure logic. Only tables in this
+  // set get React Flow nodes/edges. Edges with hidden endpoints are dropped
+  // by groupForeignKeys (both-endpoints check).
+  //
+  // `tableIds` preserves the deterministic ordering from #37 (canonical BFS
+  // order). `keySet` is for O(1) edge-endpoint lookups.
+  const neighborhoodVisible = useMemo<{ tableIds: string[]; keySet: Set<string> }>(() => {
+    if (!isNeighborhoodPhase) return { tableIds: [], keySet: new Set<string>() };
+    const knownTableKeys = new Set(tablesInSchema.map((t) => `${t.schema}.${t.name}`));
+    const hops = resolveHopCount(neighborhoodHops);
+    const result = deriveNeighborhoodVisibleSet(
+      effectiveLargeSchemaState,
+      graphModel.adjacency,
+      hops,
+      knownTableKeys,
+    );
+    return { tableIds: result.tableIds, keySet: new Set(result.tableIds) };
+  }, [
+    isNeighborhoodPhase,
+    effectiveLargeSchemaState,
+    graphModel.adjacency,
+    tablesInSchema,
+    neighborhoodHops,
+  ]);
+
+  // Gate 4 D2 (#42) — clear focus when the focused node leaves the visible set.
+  // This happens when the user changes hop radius or seed and the previously
+  // focused node is no longer in the bounded neighborhood.
+  const focusedNodeId = effectiveLargeSchemaState.focusedNodeId;
+  useEffect(() => {
+    if (focusedNodeId && !neighborhoodVisible.keySet.has(focusedNodeId)) {
+      dispatchLargeSchema({ type: "CLEAR_FOCUS" });
+    }
+  }, [focusedNodeId, neighborhoodVisible.keySet]);
+
+  // Gate 4 C3 (#39) + #45 E2 — the canvas renderer (Cytoscape) and the full
+  // overview layout pipeline are active ONLY in overview phase. Neighborhood
+  // renders the bounded ≤100 graph on React Flow with column-aware geometry;
+  // search renders the search entry. No other phase activates Cytoscape.
+  const activeCytoscape = isOverviewPhase;
 
   // Schema statistics for the overview explorer.
   const schemaStats = useMemo(() => {
@@ -183,19 +345,6 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
     }
     return { relations, columns };
   }, [data.foreignKeys, data.columns, tablesInSchema]);
-
-  // Persisted manual positions: nodeId → { x, y }
-  const [manualPositions, setManualPositions] = useState<Map<string, { x: number; y: number }>>(
-    () => {
-      try {
-        const raw = localStorage.getItem(positionStorageKey(connectionId, schema));
-        if (raw) return new Map(JSON.parse(raw));
-      } catch {
-        /* ignore */
-      }
-      return new Map();
-    },
-  );
 
   // Save positions to localStorage when they change
   const savePositions = useCallback(
@@ -221,14 +370,43 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
   // Build nodes and edges from introspection data using pre-indexed maps.
   // React Flow renders the full schema for small/medium schemas; large
   // schemas never reach this branch (canvas overview instead).
+  //
+  // Gate 4 Slice B + C2 (#38): skip entirely during search phase — no graph
+  // nodes or edges are constructed before the user explicitly selects a table.
+  // In neighborhood phase, only materialize nodes/edges for the bounded visible
+  // set from #37 (≤100 tables). Edges with hidden endpoints are dropped.
+  //
+  // Fail-safe: neighborhood with empty visible set → 0 nodes / 0 edges.
+  // Never falls back to the full schema.
+  //
+  // Deterministic order: nodes follow #37's canonical tableIds ordering,
+  // not data.tables arrival order.
   const { initialNodes, initialEdges } = useMemo(() => {
-    const tables = data.tables.filter((tbl) => tbl.schema === schema);
+    if (isSearchPhase) return { initialNodes: [] as Node[], initialEdges: [] as Edge[] };
+
+    const allTables = data.tables.filter((tbl) => tbl.schema === schema);
+
+    // #38 — in neighborhood phase, restrict to the bounded visible set.
+    // Preserve #37's deterministic ordering via index lookup.
+    // Empty visible set → 0 nodes (fail-safe, no fallback to allTables).
+    let tables: typeof allTables;
+    let visibleTableKeys: Set<string>;
+
+    if (isNeighborhoodPhase) {
+      const tableByKey = new Map(allTables.map((t) => [`${t.schema}.${t.name}`, t]));
+      tables = neighborhoodVisible.tableIds
+        .map((id) => tableByKey.get(id))
+        .filter((t): t is (typeof allTables)[number] => t !== undefined);
+      visibleTableKeys = neighborhoodVisible.keySet;
+    } else {
+      tables = allTables;
+      visibleTableKeys = new Set(tables.map((t) => `${t.schema}.${t.name}`));
+    }
 
     // Pure pre-indexed build (P3.3) — O(1) map lookups, no per-table scans
     // of data.columns / data.primaryKeys / data.foreignKeys.
     const nodes: Node[] = buildTableNodes(tables, nodeIndexes, { compact });
 
-    const visibleTableKeys = new Set(tables.map((t) => `${t.schema}.${t.name}`));
     const fkGroups = groupForeignKeys(data.foreignKeys, visibleTableKeys);
 
     const edges: Edge[] = fkGroups.map((group) => ({
@@ -246,7 +424,7 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
     }));
 
     return { initialNodes: nodes, initialEdges: edges };
-  }, [data, compact, schema, nodeIndexes]);
+  }, [data, compact, schema, nodeIndexes, isSearchPhase, isNeighborhoodPhase, neighborhoodVisible]);
 
   // P1.7 — layout off the main thread.
   //
@@ -261,13 +439,19 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
   // card size. The canvas overview lays out compact 160×28 nodes (its actual
   // paint geometry); React Flow lays out column-aware cards. The profile id
   // participates in the layout hash, so the two never share cached positions.
+  // Gate 4 Slice B: skip the layout input builder during search phase.
+  // Gate 4 C3 (#39): also skip during neighborhood — the bounded React Flow
+  // path uses rfLayoutInput, so building the full-model overview input would
+  // be wasted main-thread work for 500–1000-table schemas.
+  // buildLayoutInputFromModel iterates every table/relation — for a 1000-table
+  // schema that is non-trivial main-thread work on first paint.
   const overviewLayoutInput = useMemo<LayoutInput | null>(() => {
-    if (graphModel.tables.length === 0) return null;
+    if (isSearchPhase || !activeCytoscape || graphModel.tables.length === 0) return null;
     return buildLayoutInputFromModel(graphModel, OVERVIEW_LAYOUT_PROFILE);
-  }, [graphModel]);
+  }, [graphModel, isSearchPhase, activeCytoscape]);
 
   const rfLayoutInput = useMemo<LayoutInput | null>(() => {
-    if (initialNodes.length === 0) return null;
+    if (isSearchPhase || initialNodes.length === 0) return null;
     return {
       nodes: initialNodes.map((n) => {
         const d = n.data as TableNodeData;
@@ -279,29 +463,41 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
       }),
       edges: initialEdges.map((e) => ({ source: e.source, target: e.target })),
     };
-  }, [initialNodes, initialEdges]);
+  }, [initialNodes, initialEdges, isSearchPhase]);
 
-  const layoutInput = useCytoscapeForOverview ? overviewLayoutInput : rfLayoutInput;
-
-  // Stable identity — `useWorkerLayout` re-runs layout only when the hash
-  // (content + options) changes, not on every render. The profile id keeps
-  // overview (compact) and React Flow (column-aware) caches separate.
-  const layoutOptions = useMemo(
-    () => ({
-      direction: layoutDirection,
-      profile: useCytoscapeForOverview ? OVERVIEW_LAYOUT_PROFILE.id : REACT_FLOW_LAYOUT_PROFILE.id,
-    }),
-    [layoutDirection, useCytoscapeForOverview],
+  // #45 E2 / #46 E3 — layout input routing by phase:
+  //   search      → null (no layout)
+  //   neighborhood → rfLayoutInput (bounded ≤100 React Flow)
+  //   overview    → overviewLayoutInput (full-schema Cytoscape)
+  //
+  // #46 E3 stale-position fix: TWO separate hook instances. Each has its own
+  // internal state (positions, status). Overview positions can NEVER
+  // contaminate React Flow — even during the computing transition when
+  // Back is clicked and RF starts recomputing.
+  const rfLayoutOptions = useMemo(
+    () => ({ direction: layoutDirection, profile: REACT_FLOW_LAYOUT_PROFILE.id }),
+    [layoutDirection],
+  );
+  const overviewLayoutOptions = useMemo(
+    () => ({ direction: layoutDirection, profile: OVERVIEW_LAYOUT_PROFILE.id }),
+    [layoutDirection],
   );
 
-  // Option C — the large-schema overview requests progressive force-refined
-  // stages: the canvas paints the approximate circle in <1 s, then the worker
-  // posts progressively better position sets (complete + stable, never cached)
-  // while dagre computes the final. React Flow paths stay on the single atomic
-  // commit (dagre is fast there — refinement would just add noise).
-  const layout = useWorkerLayout(layoutInput, layoutOptions, {
-    progressive: useCytoscapeForOverview,
-  });
+  // React Flow neighborhood layout — active in neighborhood phase only.
+  // Passing `null` in search/overview prevents any layout computation.
+  const rfLayout = useWorkerLayout(isNeighborhoodPhase ? rfLayoutInput : null, rfLayoutOptions);
+
+  // Overview layout — active in overview phase only, with progressive refine.
+  // Passing `null` in search/neighborhood prevents any layout computation.
+  const overviewLayout = useWorkerLayout(
+    isOverviewPhase ? overviewLayoutInput : null,
+    overviewLayoutOptions,
+    { progressive: true },
+  );
+
+  // Select the active layout based on current phase.
+  // Each hook instance has isolated state — no cross-contamination possible.
+  const layout = isOverviewPhase ? overviewLayout : rfLayout;
 
   // Record the layout duration for the P1.1 HUD (now the worker's dagre time;
   // no main-thread block).
@@ -327,13 +523,17 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
 
   // Inject current LOD into node data — only recomputes when the level changes.
   // The dispatcher (ErTableNode) switches render trees on `lod`.
+  // Gate 4 D2 (#42): the focused node hydrates to "detail" regardless of zoom,
+  // so the seed/selected table always shows full column lists while neighbors
+  // stay at the global compact/summary tier.
   const tieredNodes = useMemo(() => {
     return laidOutNodes.map((node) => {
       const d = node.data as TableNodeData;
-      if (d.lod === currentLod) return node;
-      return { ...node, data: { ...d, lod: currentLod } };
+      const targetLod = focusedNodeId && node.id === focusedNodeId ? "detail" : currentLod;
+      if (d.lod === targetLod) return node;
+      return { ...node, data: { ...d, lod: targetLod } };
     });
-  }, [laidOutNodes, currentLod]);
+  }, [laidOutNodes, currentLod, focusedNodeId]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(laidOutNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
@@ -368,7 +568,6 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
   // could fire before positions landed. The short delay lets React Flow
   // measure the freshly-mounted nodes before fitting (F-MR-1: uses the
   // captured instance's fitView, not a synthetic keydown).
-  const fittedPositionsRef = useRef<Map<string, LayoutPosition> | null>(null);
   useEffect(() => {
     if (layout.status !== "ready" || !layout.positions) return;
     if (fittedPositionsRef.current === layout.positions) return;
@@ -447,14 +646,19 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
     [connectionId],
   );
 
-  // Click node → open table tab (React Flow view — small/medium schemas keep
-  // the established click-to-open convention; no neighborhood focus UX here).
+  // Click node behavior depends on the phase:
+  // - Neighborhood: single click focuses the node (hydrates to detail LOD).
+  // - Otherwise: click opens the table (legacy small/medium schema behavior).
   const onNodeClick = useCallback(
     (_: React.MouseEvent, node: Node) => {
       const nodeData = node.data as TableNodeData;
+      if (isNeighborhoodPhase) {
+        dispatchLargeSchema({ type: "FOCUS_NODE", nodeKey: node.id });
+        return;
+      }
       openTableObject(nodeData.schema, nodeData.label);
     },
-    [openTableObject],
+    [openTableObject, isNeighborhoodPhase],
   );
 
   // Explicit open-table action for the canvas overview: fed to the view's
@@ -487,10 +691,13 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
     if (currentEdgeLod !== "full") setSelectedEdgeId(null);
   }, [currentEdgeLod]);
 
-  // Click background → clear edge selection
+  // Click background → clear edge selection + clear focus (neighborhood)
   const onPaneClick = useCallback(() => {
     setSelectedEdgeId(null);
-  }, []);
+    if (isNeighborhoodPhase) {
+      dispatchLargeSchema({ type: "CLEAR_FOCUS" });
+    }
+  }, [isNeighborhoodPhase]);
 
   // Listen for column click events from TableNode → navigate to Columns section
   useEffect(() => {
@@ -541,6 +748,27 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
 
   const handleFitView = useCallback(() => {
     rfInstanceRef.current?.fitView({ padding: 0.2 });
+  }, []);
+
+  // #44 E1 — explicit neighborhood → overview transition.
+  // The ONLY path from bounded neighborhood to full overview is this action.
+  // No zoom/pan/search/layout completion may trigger the transition.
+  const handleShowAll = useCallback(() => {
+    dispatchLargeSchema({ type: "SHOW_ALL" });
+  }, []);
+
+  // #46 E3 — explicit back navigation from overview to neighborhood.
+  // Preserves seedTable (the reducer keeps it), clears focusedNodeId.
+  // The useLayoutEffect phase-transition handler clears fittedPositionsRef
+  // and resets LOD to "compact" — no stale overview state flows to React Flow.
+  const handleBackToNeighborhood = useCallback(() => {
+    dispatchLargeSchema({ type: "BACK_TO_NEIGHBORHOOD" });
+  }, []);
+
+  // #46 E3 — explicit back navigation from overview to search.
+  // Resets to initialLargeSchemaState: phase=search, seedTable=null, focusedNodeId=null.
+  const handleBackToSearch = useCallback(() => {
+    dispatchLargeSchema({ type: "BACK_TO_SEARCH" });
   }, []);
 
   // P1.5 spatial index over the live React Flow node/edge state.
@@ -618,16 +846,23 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
   }, [edges, currentLod, currentEdgeLod]);
 
   // Highlight hop radius for the canvas overview (opass-style neighborhood
-  // ring). The full graph stays visible; only the ring size changes.
+  // #46 E3 — overview highlight hops changes ONLY the canvas highlight ring.
+  // Must NOT mutate neighborhoodHops (which is preserved for Back navigation).
   const handleHighlightHops = useCallback((hops: NeighborhoodScope) => {
-    setNeighborhoodHops(hops);
+    setOverviewHighlightHops(hops);
+  }, []);
+
+  const handleSelectTable = useCallback((tableKey: string) => {
+    dispatchLargeSchema({ type: "SELECT_TABLE", tableKey });
   }, []);
 
   const showMiniMap = initialNodes.length <= 200;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col" ref={reactFlowRef}>
-      {useCytoscapeForOverview ? (
+      {isSearchPhase ? (
+        <ErSearchEntry model={graphModel} onSelectTable={handleSelectTable} />
+      ) : activeCytoscape ? (
         <Suspense
           fallback={
             <div className="flex min-h-0 flex-1 items-center justify-center gap-2 text-[12px] text-[var(--text-secondary)]">
@@ -647,11 +882,13 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
               totalTables: tablesInSchema.length,
               relationCount: schemaStats.relations,
               columnCount: schemaStats.columns,
-              hops: neighborhoodHops,
+              hops: overviewHighlightHops,
               onSelectHops: handleHighlightHops,
             }}
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
+            onBackToNeighborhood={handleBackToNeighborhood}
+            onBackToSearch={handleBackToSearch}
           />
         </Suspense>
       ) : (
@@ -748,6 +985,22 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
               </div>
             </div>
           </Panel>
+
+          {/* Top-right: #44 E1 — explicit Show All transition (neighborhood only) */}
+          {isNeighborhoodPhase && (
+            <Panel position="top-right" className="m-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                data-testid="er-show-all-tables"
+                aria-label={`Show all ${tablesInSchema.length} tables`}
+                onClick={handleShowAll}
+              >
+                Show all {tablesInSchema.length} tables
+              </Button>
+            </Panel>
+          )}
 
           {/* Bottom-left: layout controls */}
           <Panel position="bottom-left" className="m-2">

@@ -5,6 +5,16 @@ export type AdjacencyMap = Map<string, Set<string>>;
 /** Hop scopes offered by the exploration UI (P1.6). */
 export type NeighborhoodScope = 1 | 2 | 3 | "domain";
 
+/**
+ * Resolve a `NeighborhoodScope` to a numeric hop count.
+ *
+ * `"domain"` maps to `Number.MAX_SAFE_INTEGER` (full connected component).
+ */
+export function resolveHopCount(scope: NeighborhoodScope): number {
+  if (scope === "domain") return Number.MAX_SAFE_INTEGER;
+  return scope;
+}
+
 export function buildAdjacencyMap(foreignKeys: IntrospectResult["foreignKeys"]): AdjacencyMap {
   const adj: AdjacencyMap = new Map();
 
