@@ -72,6 +72,7 @@ export function ConnectionDialog() {
     if (!editConnectionId) {
       setConnection(null);
       setLoadState("ready");
+      setPersistedConnectionId(null);
       return;
     }
     loadConnection(editConnectionId);
