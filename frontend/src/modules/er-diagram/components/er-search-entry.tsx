@@ -77,8 +77,8 @@ export function ErSearchEntry({ model, onSelectTable }: ErSearchEntryProps) {
           break;
         case "Enter":
           e.preventDefault();
-          if (results.length > 0 && highlightedIndex < results.length) {
-            onSelectTable(results[highlightedIndex]);
+          if (items.length > 0 && highlightedIndex < items.length) {
+            onSelectTable(items[highlightedIndex]);
           }
           break;
         case "Escape":
@@ -145,11 +145,7 @@ export function ErSearchEntry({ model, onSelectTable }: ErSearchEntryProps) {
                     isHighlighted ? "bg-accent text-accent-foreground" : "hover:bg-accent/50"
                   }`}
                   data-testid="er-search-result"
-                  onClick={() => {
-                    if (isShowingResults) {
-                      onSelectTable(tableKey);
-                    }
-                  }}
+                  onClick={() => onSelectTable(tableKey)}
                   onMouseEnter={() => setHighlightedIndex(i)}
                 >
                   <span className="font-medium">{table?.label ?? tableKey}</span>
