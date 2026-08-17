@@ -355,7 +355,6 @@ fn parse_index_columns(indexdef: &str) -> Vec<String> {
     columns
 }
 
-#[allow(clippy::type_complexity)]
 async fn introspect_foreign_keys(pool: &sqlx::PgPool) -> Result<Vec<ForeignKey>, DbError> {
     let rows = sqlx::query(
         r#"
@@ -388,9 +387,11 @@ async fn introspect_foreign_keys(pool: &sqlx::PgPool) -> Result<Vec<ForeignKey>,
     .await
     .map_err(crate::error::from_sqlx)?;
 
+    type FkGroupKey = (String, String, String, String, String);
+    type FkCols = (Vec<String>, Vec<String>);
+
     // Group columns by constraint name to support composite foreign keys
-    let mut map: std::collections::HashMap<(String, String, String, String, String), (Vec<String>, Vec<String>)> =
-        std::collections::HashMap::new();
+    let mut map: std::collections::HashMap<FkGroupKey, FkCols> = std::collections::HashMap::new();
     let mut order: Vec<(String, String, String, String, String)> = Vec::new();
 
     for row in rows {
@@ -675,11 +676,12 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::type_complexity)]
     fn test_composite_fk_grouping() {
+        type FkGroupKey = (String, String, String, String, String);
+        type FkCols = (Vec<String>, Vec<String>);
+
         // Simulate the grouping logic from introspect_foreign_keys
-        let mut map: std::collections::HashMap<(String, String, String, String, String), (Vec<String>, Vec<String>)> =
-            std::collections::HashMap::new();
+        let mut map: std::collections::HashMap<FkGroupKey, FkCols> = std::collections::HashMap::new();
         let mut order: Vec<(String, String, String, String, String)> = Vec::new();
 
         // Simulate rows for a composite FK with 2 columns
@@ -729,10 +731,11 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::type_complexity)]
     fn test_multiple_separate_fks() {
-        let mut map: std::collections::HashMap<(String, String, String, String, String), (Vec<String>, Vec<String>)> =
-            std::collections::HashMap::new();
+        type FkGroupKey = (String, String, String, String, String);
+        type FkCols = (Vec<String>, Vec<String>);
+
+        let mut map: std::collections::HashMap<FkGroupKey, FkCols> = std::collections::HashMap::new();
         let mut order: Vec<(String, String, String, String, String)> = Vec::new();
 
         // Simulate two separate FKs

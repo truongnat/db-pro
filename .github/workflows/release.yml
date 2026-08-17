@@ -3,164 +3,27 @@ name: Release Build
 on:
   workflow_dispatch:
     inputs:
-      ref:
-        description: "Exact release source: tag, branch/ref, or commit SHA"
-        required: true
+      tag:
+        description: "Release tag (e.g. v0.1.0)"
+        required: false
         type: string
   push:
     tags:
       - "v*"
-
-permissions:
-  contents: read
 
 env:
   CARGO_TERM_COLOR: always
   APP_NAME: "DB Pro"
 
 jobs:
-  resolve:
-    name: Resolve release candidate
-    runs-on: ubuntu-latest
-    outputs:
-      candidate_sha: ${{ steps.identity.outputs.candidate_sha }}
-      short_sha: ${{ steps.identity.outputs.short_sha }}
-      app_version: ${{ steps.identity.outputs.app_version }}
-      source_ref: ${{ steps.identity.outputs.source_ref }}
-      source_kind: ${{ steps.identity.outputs.source_kind }}
-    steps:
-      - name: Checkout workflow source for ref resolution
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Resolve requested ref to exact commit
-        id: resolve
-        shell: bash
-        env:
-          MANUAL_REF: ${{ inputs.ref }}
-        run: |
-          set -euo pipefail
-
-          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
-            requested_ref="${MANUAL_REF}"
-            if [[ -z "${requested_ref}" ]]; then
-              echo "::error::workflow_dispatch requires an exact tag, branch/ref, or commit SHA"
-              exit 1
-            fi
-
-            source_kind="commit"
-            source_ref="${requested_ref}"
-
-            if [[ "${requested_ref}" == refs/tags/* ]]; then
-              source_kind="tag"
-              source_ref="${requested_ref}"
-              candidate_sha="$(git rev-parse --verify "${requested_ref}^{commit}")"
-            elif [[ "${requested_ref}" == refs/heads/* ]]; then
-              source_kind="branch"
-              source_ref="${requested_ref}"
-              remote_ref="refs/remotes/origin/${requested_ref#refs/heads/}"
-              candidate_sha="$(git rev-parse --verify "${remote_ref}^{commit}")"
-            elif git show-ref --verify --quiet "refs/tags/${requested_ref}"; then
-              if git show-ref --verify --quiet "refs/remotes/origin/${requested_ref}"; then
-                echo "::error::Ref '${requested_ref}' is ambiguous; use refs/tags/${requested_ref} or refs/heads/${requested_ref}"
-                exit 1
-              fi
-              source_kind="tag"
-              source_ref="refs/tags/${requested_ref}"
-              candidate_sha="$(git rev-parse --verify "refs/tags/${requested_ref}^{commit}")"
-            elif git show-ref --verify --quiet "refs/remotes/origin/${requested_ref}"; then
-              source_kind="branch"
-              source_ref="refs/heads/${requested_ref}"
-              candidate_sha="$(git rev-parse --verify "refs/remotes/origin/${requested_ref}^{commit}")"
-            else
-              candidate_sha="$(git rev-parse --verify "${requested_ref}^{commit}")"
-            fi
-          else
-            source_kind="tag"
-            source_ref="${GITHUB_REF}"
-            candidate_sha="$(git rev-parse --verify "${GITHUB_SHA}^{commit}")"
-          fi
-
-          if [[ ! "${candidate_sha}" =~ ^[0-9a-f]{40}$ ]]; then
-            echo "::error::Resolved candidate is not a 40-character commit SHA: ${candidate_sha}"
-            exit 1
-          fi
-
-          echo "candidate_sha=${candidate_sha}" >> "${GITHUB_OUTPUT}"
-          echo "source_ref=${source_ref}" >> "${GITHUB_OUTPUT}"
-          echo "source_kind=${source_kind}" >> "${GITHUB_OUTPUT}"
-          echo "Resolved ${source_ref} -> ${candidate_sha}"
-
-      - name: Checkout exact candidate SHA
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ steps.resolve.outputs.candidate_sha }}
-          fetch-depth: 0
-
-      - name: Record immutable release identity
-        id: identity
-        shell: bash
-        env:
-          EXPECTED_SHA: ${{ steps.resolve.outputs.candidate_sha }}
-          SOURCE_REF: ${{ steps.resolve.outputs.source_ref }}
-          SOURCE_KIND: ${{ steps.resolve.outputs.source_kind }}
-        run: |
-          set -euo pipefail
-
-          actual_sha="$(git rev-parse HEAD)"
-          if [[ "${actual_sha}" != "${EXPECTED_SHA}" ]]; then
-            echo "::error::Checkout SHA mismatch: expected ${EXPECTED_SHA}, got ${actual_sha}"
-            exit 1
-          fi
-
-          app_version="$(python3 -c 'import json; print(json.load(open("crates/tauri-app/tauri.conf.json"))["version"])')"
-          if [[ -z "${app_version}" ]]; then
-            echo "::error::Unable to resolve app version from crates/tauri-app/tauri.conf.json"
-            exit 1
-          fi
-
-          if [[ "${SOURCE_KIND}" == "tag" ]]; then
-            tag_name="${SOURCE_REF#refs/tags/}"
-            if [[ "${tag_name}" == v* && "${tag_name#v}" != "${app_version}" ]]; then
-              echo "::error::Release tag ${tag_name} does not match source app version ${app_version}"
-              exit 1
-            fi
-          fi
-
-          short_sha="${actual_sha:0:12}"
-          echo "candidate_sha=${actual_sha}" >> "${GITHUB_OUTPUT}"
-          echo "short_sha=${short_sha}" >> "${GITHUB_OUTPUT}"
-          echo "app_version=${app_version}" >> "${GITHUB_OUTPUT}"
-          echo "source_ref=${SOURCE_REF}" >> "${GITHUB_OUTPUT}"
-          echo "source_kind=${SOURCE_KIND}" >> "${GITHUB_OUTPUT}"
-
-          echo "Release candidate:"
-          echo "  source: ${SOURCE_REF}"
-          echo "  kind: ${SOURCE_KIND}"
-          echo "  version: ${app_version}"
-          echo "  sha: ${actual_sha}"
-
+  # ── Pre-flight checks ───────────────────────────────────────────────
   preflight:
     name: Pre-flight checks
-    needs: resolve
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout exact candidate SHA
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.resolve.outputs.candidate_sha }}
+      - uses: actions/checkout@v4
 
-      - name: Verify candidate SHA
-        shell: bash
-        env:
-          EXPECTED_SHA: ${{ needs.resolve.outputs.candidate_sha }}
-        run: |
-          set -euo pipefail
-          actual_sha="$(git rev-parse HEAD)"
-          test "${actual_sha}" = "${EXPECTED_SHA}"
-          echo "Preflight candidate SHA: ${actual_sha}"
-
+      # Node
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
@@ -180,6 +43,7 @@ jobs:
       - run: npm run build
         working-directory: frontend
 
+      # Rust
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
@@ -203,99 +67,34 @@ jobs:
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo test --workspace
 
-      - name: Write release provenance
-        shell: bash
-        env:
-          CANDIDATE_SHA: ${{ needs.resolve.outputs.candidate_sha }}
-          SHORT_SHA: ${{ needs.resolve.outputs.short_sha }}
-          APP_VERSION: ${{ needs.resolve.outputs.app_version }}
-          SOURCE_REF: ${{ needs.resolve.outputs.source_ref }}
-          SOURCE_KIND: ${{ needs.resolve.outputs.source_kind }}
-        run: |
-          set -euo pipefail
-          export RUSTC_VERSION="$(rustc --version)"
-          export NODE_VERSION="$(node --version)"
-          python3 - <<'PY'
-          import json
-          import os
-
-          provenance = {
-              "version": os.environ["APP_VERSION"],
-              "candidate_sha": os.environ["CANDIDATE_SHA"],
-              "short_sha": os.environ["SHORT_SHA"],
-              "source_ref": os.environ["SOURCE_REF"],
-              "source_kind": os.environ["SOURCE_KIND"],
-              "event": os.environ["GITHUB_EVENT_NAME"],
-              "rustc": os.environ["RUSTC_VERSION"],
-              "node": os.environ["NODE_VERSION"],
-          }
-          with open("release-provenance.json", "w", encoding="utf-8") as handle:
-              json.dump(provenance, handle, indent=2, sort_keys=True)
-              handle.write("\n")
-          PY
-          cat release-provenance.json
-
-      - name: Upload provenance
-        uses: actions/upload-artifact@v4
-        with:
-          name: db-pro-provenance-v${{ needs.resolve.outputs.app_version }}-${{ needs.resolve.outputs.short_sha }}
-          path: release-provenance.json
-          if-no-files-found: error
-
+  # ── Build matrix ────────────────────────────────────────────────────
   build:
     name: Build (${{ matrix.platform }})
-    needs:
-      - resolve
-      - preflight
+    needs: preflight
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
         include:
           - platform: macOS
-            artifact_suffix: macos
             runner: macos-latest
           - platform: Windows
-            artifact_suffix: windows
             runner: windows-latest
           - platform: Linux
-            artifact_suffix: linux
             runner: ubuntu-latest
 
     steps:
-      - name: Checkout exact candidate SHA
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.resolve.outputs.candidate_sha }}
+      - uses: actions/checkout@v4
 
-      - name: Verify and report candidate SHA
-        shell: bash
-        env:
-          EXPECTED_SHA: ${{ needs.resolve.outputs.candidate_sha }}
-          APP_VERSION: ${{ needs.resolve.outputs.app_version }}
-          SOURCE_REF: ${{ needs.resolve.outputs.source_ref }}
-        run: |
-          set -euo pipefail
-          actual_sha="$(git rev-parse HEAD)"
-          if [[ "${actual_sha}" != "${EXPECTED_SHA}" ]]; then
-            echo "::error::Build checkout SHA mismatch: expected ${EXPECTED_SHA}, got ${actual_sha}"
-            exit 1
-          fi
-          echo "Building DB Pro v${APP_VERSION}"
-          echo "Source ref: ${SOURCE_REF}"
-          echo "Candidate SHA: ${actual_sha}"
-
+      # Node setup
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
 
+      # Rust setup
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
-
-      - name: Report Rust toolchain
-        shell: bash
-        run: rustc --version --verbose
 
       - uses: actions/cache@v4
         with:
@@ -307,19 +106,23 @@ jobs:
             target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
+      # Linux system deps
       - name: Install Linux system deps
         if: matrix.platform == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev libfuse2
 
+      # Frontend deps
       - name: Install frontend deps
         run: npm ci
         working-directory: frontend
 
+      # Tauri CLI
       - name: Install Tauri CLI
         run: cargo install tauri-cli --version "2.11.4" --locked --force
 
+      # Build
       - name: Build Tauri app (Linux)
         if: matrix.platform == 'Linux'
         run: cargo tauri build --bundles deb,rpm
@@ -328,11 +131,12 @@ jobs:
         if: matrix.platform != 'Linux'
         run: cargo tauri build
 
+      # Upload artifacts
       - name: Upload artifacts (macOS)
         if: matrix.platform == 'macOS'
         uses: actions/upload-artifact@v4
         with:
-          name: db-pro-${{ matrix.artifact_suffix }}-v${{ needs.resolve.outputs.app_version }}-${{ needs.resolve.outputs.short_sha }}
+          name: db-pro-macos
           path: |
             target/release/bundle/dmg/*.dmg
             target/release/bundle/macos/*.app
@@ -341,7 +145,7 @@ jobs:
         if: matrix.platform == 'Windows'
         uses: actions/upload-artifact@v4
         with:
-          name: db-pro-${{ matrix.artifact_suffix }}-v${{ needs.resolve.outputs.app_version }}-${{ needs.resolve.outputs.short_sha }}
+          name: db-pro-windows
           path: |
             target/release/bundle/msi/*.msi
             target/release/bundle/nsis/*.exe
@@ -350,7 +154,7 @@ jobs:
         if: matrix.platform == 'Linux'
         uses: actions/upload-artifact@v4
         with:
-          name: db-pro-${{ matrix.artifact_suffix }}-v${{ needs.resolve.outputs.app_version }}-${{ needs.resolve.outputs.short_sha }}
+          name: db-pro-linux
           path: |
             target/release/bundle/deb/*.deb
             target/release/bundle/rpm/*.rpm

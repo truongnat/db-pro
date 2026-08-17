@@ -201,7 +201,7 @@ Severity follows `REVIEW.md`. `SOURCE_CONFIRMED` means the problematic state tra
 
 ## QA-P1-10 — Orphan dirty query Close bypasses the shared dirty guard
 
-**Status:** SOURCE_CONFIRMED  
+**Status:** FIXED (W3 — OrphanedTabView close handler delegates to requestCloseTab; close guard prompts on unsaved dirty/staged work)
 **Area:** Workspace recovery  
 **Files:**
 - `frontend/src/commons/components/workspace-content.tsx`
@@ -219,7 +219,7 @@ Severity follows `REVIEW.md`. `SOURCE_CONFIRMED` means the problematic state tra
 
 ## QA-P1-11 — Orphan connection reassignment keeps incompatible schema/object identity
 
-**Status:** SOURCE_CONFIRMED  
+**Status:** FIXED (W3 — reassignTabConnection normalizes schema and resourceKey according to target driver dialect; clears staged changes)
 **Area:** Workspace recovery / provider switching  
 **Files:**
 - `frontend/src/commons/components/workspace-content.tsx`

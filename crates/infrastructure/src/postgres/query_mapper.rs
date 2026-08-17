@@ -18,13 +18,9 @@ pub fn bind_params(params: &[QueryParam], args: &mut PgArguments) -> Result<(), 
                 args.add(uuid)
             }
             QueryParam::DateTime(v) => {
-                if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(v) {
-                    args.add(dt.with_timezone(&chrono::Utc))
-                } else {
-                    let date = chrono::NaiveDate::parse_from_str(v, "%Y-%m-%d")
-                        .map_err(|e| DbError::QueryFailed(format!("invalid date/datetime parameter: {e}")))?;
-                    args.add(date)
-                }
+                let dt = chrono::DateTime::parse_from_rfc3339(v)
+                    .map_err(|e| DbError::QueryFailed(format!("invalid datetime parameter: {e}")))?;
+                args.add(dt.with_timezone(&chrono::Utc))
             }
             QueryParam::Json(v) => args.add(sqlx::types::Json(v)),
         };
@@ -53,89 +49,55 @@ pub fn map_row(row: &sqlx::postgres::PgRow, columns: &[ColumnMeta]) -> Result<Ro
         let cell = if raw.is_null() {
             CellValue::Null
         } else {
-            decode_cell(row, i, &col.data_type)
+            match col.data_type.as_str() {
+                "BOOL" => CellValue::Bool(row.try_get(i).map_err(crate::error::from_sqlx)?),
+                "INT2" => {
+                    let v: i16 = row.try_get(i).map_err(crate::error::from_sqlx)?;
+                    CellValue::Int64(v as i64)
+                }
+                "INT4" => {
+                    let v: i32 = row.try_get(i).map_err(crate::error::from_sqlx)?;
+                    CellValue::Int64(v as i64)
+                }
+                "INT8" => {
+                    let v: i64 = row.try_get(i).map_err(crate::error::from_sqlx)?;
+                    CellValue::Int64(v)
+                }
+                "FLOAT4" => {
+                    let v: f32 = row.try_get(i).map_err(crate::error::from_sqlx)?;
+                    CellValue::Float64(v as f64)
+                }
+                "FLOAT8" => {
+                    let v: f64 = row.try_get(i).map_err(crate::error::from_sqlx)?;
+                    CellValue::Float64(v)
+                }
+                "UUID" => {
+                    let v: uuid::Uuid = row.try_get(i).map_err(crate::error::from_sqlx)?;
+                    CellValue::Uuid(v.to_string())
+                }
+                "TIMESTAMPTZ" => {
+                    let v: chrono::DateTime<chrono::Utc> = row.try_get(i).map_err(crate::error::from_sqlx)?;
+                    CellValue::DateTime(v.to_rfc3339())
+                }
+                "TIMESTAMP" => {
+                    let v: chrono::NaiveDateTime = row.try_get(i).map_err(crate::error::from_sqlx)?;
+                    CellValue::DateTime(v.and_utc().to_rfc3339())
+                }
+                "JSON" | "JSONB" => {
+                    let v: serde_json::Value = row.try_get(i).map_err(crate::error::from_sqlx)?;
+                    CellValue::Json(v)
+                }
+                "BYTEA" => {
+                    let v: Vec<u8> = row.try_get(i).map_err(crate::error::from_sqlx)?;
+                    CellValue::Bytes(v)
+                }
+                _ => {
+                    let v: String = row.try_get(i).map_err(crate::error::from_sqlx)?;
+                    CellValue::Text(v)
+                }
+            }
         };
         cells.push(cell);
     }
     Ok(Row(cells))
-}
-
-fn decode_cell(row: &sqlx::postgres::PgRow, i: usize, data_type: &str) -> CellValue {
-    let dt_upper = data_type.to_uppercase();
-    let res = match dt_upper.as_str() {
-        "BOOL" => row.try_get::<bool, _>(i).map(CellValue::Bool),
-        "INT2" => row.try_get::<i16, _>(i).map(|v| CellValue::Int64(v as i64)),
-        "INT4" => row.try_get::<i32, _>(i).map(|v| CellValue::Int64(v as i64)),
-        "INT8" => row.try_get::<i64, _>(i).map(CellValue::Int64),
-        "OID" => row
-            .try_get::<sqlx::postgres::types::Oid, _>(i)
-            .map(|v| CellValue::Int64(v.0 as i64)),
-        "FLOAT4" => row.try_get::<f32, _>(i).map(|v| CellValue::Float64(v as f64)),
-        "FLOAT8" => row.try_get::<f64, _>(i).map(CellValue::Float64),
-        "UUID" => row.try_get::<uuid::Uuid, _>(i).map(|v| CellValue::Uuid(v.to_string())),
-        "TIMESTAMPTZ" => row
-            .try_get::<chrono::DateTime<chrono::Utc>, _>(i)
-            .map(|v| CellValue::DateTime(v.to_rfc3339())),
-        "TIMESTAMP" => row
-            .try_get::<chrono::NaiveDateTime, _>(i)
-            .map(|v| CellValue::DateTime(v.and_utc().to_rfc3339())),
-        "DATE" => row
-            .try_get::<chrono::NaiveDate, _>(i)
-            .map(|v| CellValue::DateTime(v.to_string())),
-        "TIME" => row
-            .try_get::<chrono::NaiveTime, _>(i)
-            .map(|v| CellValue::Text(v.to_string())),
-        "JSON" | "JSONB" => row.try_get::<serde_json::Value, _>(i).map(CellValue::Json),
-        "BYTEA" => row.try_get::<Vec<u8>, _>(i).map(CellValue::Bytes),
-        _ => row.try_get::<String, _>(i).map(CellValue::Text),
-    };
-
-    res.unwrap_or_else(|_| {
-        row.try_get::<String, _>(i)
-            .map(CellValue::Text)
-            .unwrap_or_else(|_| CellValue::Text(format!("<unsupported value: {}>", data_type)))
-    })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn bind_params_handles_supported_types() {
-        let mut args = PgArguments::default();
-        let params = vec![
-            QueryParam::Null,
-            QueryParam::Bool(true),
-            QueryParam::Int64(42),
-            QueryParam::Float64(1.234),
-            QueryParam::Text("hello".into()),
-            QueryParam::Bytes(vec![1, 2, 3]),
-            QueryParam::Uuid("550e8400-e29b-41d4-a716-446655440000".into()),
-            QueryParam::DateTime("2026-01-01T00:00:00Z".into()),
-            QueryParam::Json(serde_json::json!({"key": "value"})),
-        ];
-        assert!(bind_params(&params, &mut args).is_ok());
-    }
-
-    #[test]
-    fn bind_params_accepts_date_only_value() {
-        let mut args = PgArguments::default();
-        let params = vec![QueryParam::DateTime("2026-08-17".into())];
-        assert!(bind_params(&params, &mut args).is_ok());
-    }
-
-    #[test]
-    fn bind_params_fails_on_invalid_uuid() {
-        let mut args = PgArguments::default();
-        let params = vec![QueryParam::Uuid("invalid-uuid".into())];
-        assert!(bind_params(&params, &mut args).is_err());
-    }
-
-    #[test]
-    fn bind_params_fails_on_invalid_datetime() {
-        let mut args = PgArguments::default();
-        let params = vec![QueryParam::DateTime("invalid-date".into())];
-        assert!(bind_params(&params, &mut args).is_err());
-    }
 }

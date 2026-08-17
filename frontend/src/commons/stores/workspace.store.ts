@@ -378,33 +378,18 @@ export const useWorkspaceStore = create<WorkspaceState>()(
 
           const connections = useConnectionStore.getState().connections;
           const newConn = connections.find((c) => c.id === newConnectionId);
-          const targetIsSqlite = newConn?.driver === "sqlite";
-          const titleExists = (title: string) =>
-            state.tabs.some((tab) => tab.id !== id && tab.title === title);
-          const dbObjectTitle = (objectName: string, schema: string): string => {
-            if (!titleExists(objectName)) return objectName;
-            const qualified = `${schema}.${objectName}`;
-            if (!titleExists(qualified)) return qualified;
-            const connectionName = newConn?.name ?? newConnectionId;
-            return `${connectionName} · ${qualified}`;
-          };
+          const isSqlite = newConn?.driver === "sqlite";
 
           return {
             tabs: updateTabInList(state.tabs, id, (t) => {
-              const sourceConn = connections.find((c) => c.id === t.connectionId);
-              const sourceIsSqlite = sourceConn?.driver === "sqlite";
-              const normalizeSchema = (schema: string | null | undefined): string => {
-                if (targetIsSqlite) return "main";
-                if (!schema) return "public";
-                if (sourceIsSqlite && schema === "main") return "public";
-                return schema;
-              };
-
               if (t.kind === "schema-workspace") {
-                const schema = normalizeSchema(t.data.schema);
+                const schema = isSqlite
+                  ? "main"
+                  : !t.data.schema || t.data.schema === "main"
+                    ? "public"
+                    : t.data.schema;
                 return {
                   ...t,
-                  title: `ER: ${schema}`,
                   connectionId: newConnectionId,
                   resourceKey: `schema-ws:${schema}:${newConnectionId}`,
                   dirty: true,
@@ -415,10 +400,13 @@ export const useWorkspaceStore = create<WorkspaceState>()(
                 };
               }
               if (t.kind === "db-object") {
-                const schema = normalizeSchema(t.data.schema);
+                const schema = isSqlite
+                  ? "main"
+                  : !t.data.schema || t.data.schema === "main"
+                    ? "public"
+                    : t.data.schema;
                 return {
                   ...t,
-                  title: dbObjectTitle(t.data.objectName, schema),
                   connectionId: newConnectionId,
                   resourceKey: `dbobj:${schema}.${t.data.objectName}:${newConnectionId}`,
                   dirty: true,
@@ -430,7 +418,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
               }
               // Query tab: reset context to new connection's default database and schema
               const defaultDb = newConn?.database ?? null;
-              const defaultSchema = targetIsSqlite ? "main" : "public";
+              const defaultSchema = isSqlite ? "main" : "public";
               return {
                 ...t,
                 connectionId: newConnectionId,
