@@ -21,9 +21,8 @@ pub fn bind_params(params: &[QueryParam], args: &mut PgArguments) -> Result<(), 
                 if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(v) {
                     args.add(dt.with_timezone(&chrono::Utc))
                 } else {
-                    let date = chrono::NaiveDate::parse_from_str(v, "%Y-%m-%d").map_err(|e| {
-                        DbError::QueryFailed(format!("invalid date/datetime parameter: {e}"))
-                    })?;
+                    let date = chrono::NaiveDate::parse_from_str(v, "%Y-%m-%d")
+                        .map_err(|e| DbError::QueryFailed(format!("invalid date/datetime parameter: {e}")))?;
                     args.add(date)
                 }
             }
@@ -74,9 +73,7 @@ fn decode_cell(row: &sqlx::postgres::PgRow, i: usize, data_type: &str) -> CellVa
             .or_else(|_| row.try_get::<i64, _>(i).map(CellValue::Int64)),
         "FLOAT4" => row.try_get::<f32, _>(i).map(|v| CellValue::Float64(v as f64)),
         "FLOAT8" => row.try_get::<f64, _>(i).map(CellValue::Float64),
-        "UUID" => row
-            .try_get::<uuid::Uuid, _>(i)
-            .map(|v| CellValue::Uuid(v.to_string())),
+        "UUID" => row.try_get::<uuid::Uuid, _>(i).map(|v| CellValue::Uuid(v.to_string())),
         "TIMESTAMPTZ" => row
             .try_get::<chrono::DateTime<chrono::Utc>, _>(i)
             .map(|v| CellValue::DateTime(v.to_rfc3339())),
@@ -89,9 +86,7 @@ fn decode_cell(row: &sqlx::postgres::PgRow, i: usize, data_type: &str) -> CellVa
         "TIME" => row
             .try_get::<chrono::NaiveTime, _>(i)
             .map(|v| CellValue::Text(v.to_string())),
-        "JSON" | "JSONB" => row
-            .try_get::<serde_json::Value, _>(i)
-            .map(CellValue::Json),
+        "JSON" | "JSONB" => row.try_get::<serde_json::Value, _>(i).map(CellValue::Json),
         "BYTEA" => row.try_get::<Vec<u8>, _>(i).map(CellValue::Bytes),
         _ => row.try_get::<String, _>(i).map(CellValue::Text),
     };
