@@ -72,6 +72,7 @@ fn decode_cell(row: &sqlx::postgres::PgRow, i: usize, data_type: &str) -> CellVa
             .map(|v| CellValue::Int64(v.0 as i64)),
         "FLOAT4" => row.try_get::<f32, _>(i).map(|v| CellValue::Float64(v as f64)),
         "FLOAT8" => row.try_get::<f64, _>(i).map(CellValue::Float64),
+        "NUMERIC" | "DECIMAL" | "MONEY" => row.try_get::<String, _>(i).map(CellValue::Text),
         "UUID" => row.try_get::<uuid::Uuid, _>(i).map(|v| CellValue::Uuid(v.to_string())),
         "TIMESTAMPTZ" => row
             .try_get::<chrono::DateTime<chrono::Utc>, _>(i)
@@ -85,9 +86,31 @@ fn decode_cell(row: &sqlx::postgres::PgRow, i: usize, data_type: &str) -> CellVa
         "TIME" => row
             .try_get::<chrono::NaiveTime, _>(i)
             .map(|v| CellValue::Text(v.to_string())),
+        "TIMETZ" | "INTERVAL" => row.try_get::<String, _>(i).map(CellValue::Text),
+        "INET" | "CIDR" | "MACADDR" | "MACADDR8" => row.try_get::<String, _>(i).map(CellValue::Text),
+        "BIT" | "VARBIT" => row.try_get::<String, _>(i).map(CellValue::Text),
+        "TSVECTOR" | "TSQUERY" => row.try_get::<String, _>(i).map(CellValue::Text),
         "JSON" | "JSONB" => row.try_get::<serde_json::Value, _>(i).map(CellValue::Json),
         "BYTEA" => row.try_get::<Vec<u8>, _>(i).map(CellValue::Bytes),
-        _ => row.try_get::<String, _>(i).map(CellValue::Text),
+        _ => {
+            if dt_upper.starts_with('_') || dt_upper.ends_with("[]") {
+                if let Ok(arr) = row.try_get::<Vec<String>, _>(i) {
+                    Ok(CellValue::Json(serde_json::json!(arr)))
+                } else if let Ok(arr) = row.try_get::<Vec<i64>, _>(i) {
+                    Ok(CellValue::Json(serde_json::json!(arr)))
+                } else if let Ok(arr) = row.try_get::<Vec<i32>, _>(i) {
+                    Ok(CellValue::Json(serde_json::json!(arr)))
+                } else if let Ok(arr) = row.try_get::<Vec<f64>, _>(i) {
+                    Ok(CellValue::Json(serde_json::json!(arr)))
+                } else if let Ok(arr) = row.try_get::<Vec<bool>, _>(i) {
+                    Ok(CellValue::Json(serde_json::json!(arr)))
+                } else {
+                    row.try_get::<String, _>(i).map(CellValue::Text)
+                }
+            } else {
+                row.try_get::<String, _>(i).map(CellValue::Text)
+            }
+        }
     };
 
     res.unwrap_or_else(|_| {
@@ -137,5 +160,18 @@ mod tests {
         let mut args = PgArguments::default();
         let params = vec![QueryParam::DateTime("invalid-date".into())];
         assert!(bind_params(&params, &mut args).is_err());
+    }
+
+    #[test]
+    fn columns_from_describe_maps_type_names() {
+        // Test ColumnMeta mapping
+        let meta = ColumnMeta {
+            name: "amount".into(),
+            data_type: "NUMERIC".into(),
+            nullable: true,
+        };
+        assert_eq!(meta.name, "amount");
+        assert_eq!(meta.data_type, "NUMERIC");
+        assert!(meta.nullable);
     }
 }
