@@ -135,6 +135,7 @@ fn cell_to_csv_string(cell: &CellValue) -> String {
         CellValue::Bool(b) => b.to_string(),
         CellValue::Int64(i) => i.to_string(),
         CellValue::Float64(f) => f.to_string(),
+        CellValue::Decimal(s) => s.clone(),
         CellValue::Text(s) => s.clone(),
         CellValue::Bytes(_) => "[binary]".into(),
         CellValue::Uuid(s) => s.clone(),
@@ -147,10 +148,11 @@ fn cell_to_json(cell: &CellValue) -> serde_json::Value {
     match cell {
         CellValue::Null => serde_json::Value::Null,
         CellValue::Bool(b) => serde_json::Value::Bool(*b),
-        CellValue::Int64(i) => serde_json::Value::Number((*i).into()),
+        CellValue::Int64(i) => serde_json::Value::String(i.to_string()),
         CellValue::Float64(f) => serde_json::Number::from_f64(*f)
             .map(serde_json::Value::Number)
             .unwrap_or(serde_json::Value::Null),
+        CellValue::Decimal(s) => serde_json::Value::String(s.clone()),
         CellValue::Text(s) => serde_json::Value::String(s.clone()),
         CellValue::Bytes(b) => serde_json::Value::String(format!("[{} bytes]", b.len())),
         CellValue::Uuid(s) => serde_json::Value::String(s.clone()),
@@ -172,14 +174,14 @@ fn write_excel_cell(
             .map(|_| ())
             .map_err(|e| DbError::Internal(format!("excel write failed: {e}"))),
         CellValue::Int64(i) => worksheet
-            .write_number(row, col, *i as f64)
+            .write_string(row, col, i.to_string())
             .map(|_| ())
             .map_err(|e| DbError::Internal(format!("excel write failed: {e}"))),
         CellValue::Float64(f) => worksheet
             .write_number(row, col, *f)
             .map(|_| ())
             .map_err(|e| DbError::Internal(format!("excel write failed: {e}"))),
-        CellValue::Text(s) | CellValue::Uuid(s) | CellValue::DateTime(s) => worksheet
+        CellValue::Decimal(s) | CellValue::Text(s) | CellValue::Uuid(s) | CellValue::DateTime(s) => worksheet
             .write_string(row, col, s)
             .map(|_| ())
             .map_err(|e| DbError::Internal(format!("excel write failed: {e}"))),
@@ -228,6 +230,20 @@ mod tests {
         ExportService::new(Box::new(connector), registry)
     }
 
+    #[test]
+    fn precision_sensitive_values_export_as_exact_strings() {
+        let big = CellValue::Int64(9_007_199_254_740_993);
+        let decimal = CellValue::Decimal("12345678901234567890.1234500".into());
+
+        assert_eq!(cell_to_csv_string(&big), "9007199254740993");
+        assert_eq!(cell_to_json(&big), serde_json::json!("9007199254740993"));
+        assert_eq!(cell_to_csv_string(&decimal), "12345678901234567890.1234500");
+        assert_eq!(
+            cell_to_json(&decimal),
+            serde_json::json!("12345678901234567890.1234500")
+        );
+    }
+
     #[tokio::test]
     async fn export_csv_basic() {
         let conn_id = ConnectionId::new();
@@ -262,7 +278,7 @@ mod tests {
 
         let parsed: Vec<serde_json::Value> = serde_json::from_slice(&result.content).unwrap();
         assert_eq!(parsed.len(), 2);
-        assert_eq!(parsed[0]["id"], 1);
+        assert_eq!(parsed[0]["id"], "1");
         assert_eq!(parsed[0]["name"], "Alice");
         assert_eq!(parsed[1]["name"], serde_json::Value::Null);
         assert_eq!(result.mime_type, "application/json");

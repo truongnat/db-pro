@@ -312,6 +312,7 @@ pub enum CellValueDto {
     Bool(bool),
     Int64(#[serde(with = "string_i64")] i64),
     Float64(f64),
+    Decimal(String),
     Text(String),
     Bytes(Vec<u8>),
     Uuid(String),
@@ -326,6 +327,7 @@ impl From<CellValue> for CellValueDto {
             CellValue::Bool(v) => Self::Bool(v),
             CellValue::Int64(v) => Self::Int64(v),
             CellValue::Float64(v) => Self::Float64(v),
+            CellValue::Decimal(v) => Self::Decimal(v),
             CellValue::Text(v) => Self::Text(v),
             CellValue::Bytes(v) => Self::Bytes(v),
             CellValue::Uuid(v) => Self::Uuid(v),
@@ -796,6 +798,7 @@ impl From<CellValueDto> for CellValue {
             CellValueDto::Bool(v) => CellValue::Bool(v),
             CellValueDto::Int64(v) => CellValue::Int64(v),
             CellValueDto::Float64(v) => CellValue::Float64(v),
+            CellValueDto::Decimal(v) => CellValue::Decimal(v),
             CellValueDto::Text(v) => CellValue::Text(v),
             CellValueDto::Bytes(v) => CellValue::Bytes(v),
             CellValueDto::Uuid(v) => CellValue::Uuid(v),
@@ -1112,5 +1115,17 @@ mod tests {
         let json = r#"{"type":"int64","value":9007199254740993}"#;
         let result = serde_json::from_str::<CellValueDto>(json);
         assert!(result.is_err(), "should reject numeric JSON value for int64");
+    }
+
+    #[test]
+    fn cell_value_dto_decimal_roundtrip_preserves_exact_text() {
+        let exact = "123456789012345678901234567890.1234500";
+        let dto = CellValueDto::Decimal(exact.into());
+        let json = serde_json::to_value(&dto).unwrap();
+        assert_eq!(json["type"], "decimal");
+        assert_eq!(json["value"], exact);
+
+        let decoded: CellValueDto = serde_json::from_value(json).unwrap();
+        assert!(matches!(decoded, CellValueDto::Decimal(value) if value == exact));
     }
 }

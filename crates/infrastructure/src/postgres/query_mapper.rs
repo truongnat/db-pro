@@ -10,6 +10,11 @@ pub fn bind_params(params: &[QueryParam], args: &mut PgArguments) -> Result<(), 
             QueryParam::Bool(v) => args.add(v),
             QueryParam::Int64(v) => args.add(v),
             QueryParam::Float64(v) => args.add(v),
+            QueryParam::Decimal(_) => {
+                return Err(DbError::Unsupported(
+                    "PostgreSQL decimal parameter binding is not enabled yet".into(),
+                ));
+            }
             QueryParam::Text(v) => args.add(v.as_str()),
             QueryParam::Bytes(v) => args.add(v.as_slice()),
             QueryParam::Uuid(v) => {
@@ -116,6 +121,13 @@ mod tests {
             QueryParam::Json(serde_json::json!({"key": "value"})),
         ];
         assert!(bind_params(&params, &mut args).is_ok());
+    }
+
+    #[test]
+    fn bind_params_rejects_decimal_until_provider_binding_is_defined() {
+        let mut args = PgArguments::default();
+        let params = vec![QueryParam::Decimal("1234567890.1234500".into())];
+        assert!(matches!(bind_params(&params, &mut args), Err(DbError::Unsupported(_))));
     }
 
     #[test]

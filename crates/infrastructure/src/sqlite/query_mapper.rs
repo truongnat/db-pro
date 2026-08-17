@@ -2,20 +2,23 @@ use db_pro_core::domain::error::DbError;
 use db_pro_core::domain::query::{CellValue, ColumnMeta, QueryParam};
 use rusqlite::types::{ToSql, ValueRef};
 
-pub fn to_rusqlite_params(params: &[QueryParam]) -> Vec<Box<dyn ToSql>> {
+pub fn to_rusqlite_params(params: &[QueryParam]) -> Result<Vec<Box<dyn ToSql>>, DbError> {
     params
         .iter()
-        .map(|p| -> Box<dyn ToSql> {
+        .map(|p| -> Result<Box<dyn ToSql>, DbError> {
             match p {
-                QueryParam::Null => Box::new(rusqlite::types::Null),
-                QueryParam::Bool(v) => Box::new(*v),
-                QueryParam::Int64(v) => Box::new(*v),
-                QueryParam::Float64(v) => Box::new(*v),
-                QueryParam::Text(v) => Box::new(v.clone()),
-                QueryParam::Bytes(v) => Box::new(v.clone()),
-                QueryParam::Uuid(v) => Box::new(v.clone()),
-                QueryParam::DateTime(v) => Box::new(v.clone()),
-                QueryParam::Json(v) => Box::new(v.to_string()),
+                QueryParam::Null => Ok(Box::new(rusqlite::types::Null)),
+                QueryParam::Bool(v) => Ok(Box::new(*v)),
+                QueryParam::Int64(v) => Ok(Box::new(*v)),
+                QueryParam::Float64(v) => Ok(Box::new(*v)),
+                QueryParam::Decimal(_) => Err(DbError::Unsupported(
+                    "SQLite decimal parameter binding is not enabled yet".into(),
+                )),
+                QueryParam::Text(v) => Ok(Box::new(v.clone())),
+                QueryParam::Bytes(v) => Ok(Box::new(v.clone())),
+                QueryParam::Uuid(v) => Ok(Box::new(v.clone())),
+                QueryParam::DateTime(v) => Ok(Box::new(v.clone())),
+                QueryParam::Json(v) => Ok(Box::new(v.to_string())),
             }
         })
         .collect()
@@ -46,4 +49,15 @@ pub fn extract_columns(stmt: &rusqlite::Statement) -> Vec<ColumnMeta> {
             nullable: true,
         })
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn decimal_parameter_is_rejected_before_sqlite_binding() {
+        let params = vec![QueryParam::Decimal("1234567890.1234500".into())];
+        assert!(matches!(to_rusqlite_params(&params), Err(DbError::Unsupported(_))));
+    }
 }
