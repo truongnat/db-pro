@@ -240,9 +240,7 @@ function generateFkRelationships(
   for (const fk of fks) {
     // Show all column pairs for composite FKs
     const colPairs = fk.fromColumns
-      .map(
-        (fromCol, i) => `\`${fk.fromTable}.${fromCol}\` → \`${fk.toTable}.${fk.toColumns[i]}\``,
-      )
+      .map((fromCol, i) => `\`${fk.fromTable}.${fromCol}\` → \`${fk.toTable}.${fk.toColumns[i]}\``)
       .join(", ");
     content += `- ${colPairs}\n`;
   }
@@ -250,9 +248,7 @@ function generateFkRelationships(
   const sql = `-- Foreign key joins\n${fks
     .map((fk) => {
       const conditions = fk.fromColumns
-        .map(
-          (fromCol, i) => `${fk.fromTable}.${fromCol} = ${fk.toTable}.${fk.toColumns[i]}`,
-        )
+        .map((fromCol, i) => `${fk.fromTable}.${fromCol} = ${fk.toTable}.${fk.toColumns[i]}`)
         .join(" AND ");
       return `SELECT *\nFROM ${fk.fromTable}\nJOIN ${fk.toTable} ON ${conditions}\nLIMIT 50;`;
     })
