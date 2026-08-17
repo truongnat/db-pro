@@ -355,6 +355,7 @@ fn parse_index_columns(indexdef: &str) -> Vec<String> {
     columns
 }
 
+#[allow(clippy::type_complexity)]
 async fn introspect_foreign_keys(pool: &sqlx::PgPool) -> Result<Vec<ForeignKey>, DbError> {
     let rows = sqlx::query(
         r#"
@@ -388,10 +389,8 @@ async fn introspect_foreign_keys(pool: &sqlx::PgPool) -> Result<Vec<ForeignKey>,
     .map_err(crate::error::from_sqlx)?;
 
     // Group columns by constraint name to support composite foreign keys
-    let mut map: std::collections::HashMap<
-        (String, String, String, String, String),
-        (Vec<String>, Vec<String>),
-    > = std::collections::HashMap::new();
+    let mut map: std::collections::HashMap<(String, String, String, String, String), (Vec<String>, Vec<String>)> =
+        std::collections::HashMap::new();
     let mut order: Vec<(String, String, String, String, String)> = Vec::new();
 
     for row in rows {
@@ -425,7 +424,13 @@ async fn introspect_foreign_keys(pool: &sqlx::PgPool) -> Result<Vec<ForeignKey>,
         .into_iter()
         .map(|(name, from_table, to_table, schema, to_schema)| {
             let (from_columns, to_columns) = map
-                .remove(&(name.clone(), from_table.clone(), to_table.clone(), schema.clone(), to_schema.clone()))
+                .remove(&(
+                    name.clone(),
+                    from_table.clone(),
+                    to_table.clone(),
+                    schema.clone(),
+                    to_schema.clone(),
+                ))
                 .unwrap_or_default();
             ForeignKey {
                 name,
@@ -670,22 +675,43 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::type_complexity)]
     fn test_composite_fk_grouping() {
         // Simulate the grouping logic from introspect_foreign_keys
-        let mut map: std::collections::HashMap<
-            (String, String, String, String, String),
-            (Vec<String>, Vec<String>),
-        > = std::collections::HashMap::new();
+        let mut map: std::collections::HashMap<(String, String, String, String, String), (Vec<String>, Vec<String>)> =
+            std::collections::HashMap::new();
         let mut order: Vec<(String, String, String, String, String)> = Vec::new();
 
         // Simulate rows for a composite FK with 2 columns
         let rows = vec![
-            ("fk_composite".to_string(), "orders".to_string(), "customers".to_string(), "public".to_string(), "public".to_string(), "customer_id".to_string(), "id".to_string()),
-            ("fk_composite".to_string(), "orders".to_string(), "customers".to_string(), "public".to_string(), "public".to_string(), "tenant_id".to_string(), "tenant_id".to_string()),
+            (
+                "fk_composite".to_string(),
+                "orders".to_string(),
+                "customers".to_string(),
+                "public".to_string(),
+                "public".to_string(),
+                "customer_id".to_string(),
+                "id".to_string(),
+            ),
+            (
+                "fk_composite".to_string(),
+                "orders".to_string(),
+                "customers".to_string(),
+                "public".to_string(),
+                "public".to_string(),
+                "tenant_id".to_string(),
+                "tenant_id".to_string(),
+            ),
         ];
 
         for (name, from_table, to_table, schema, to_schema, from_col, to_col) in rows {
-            let key = (name.clone(), from_table.clone(), to_table.clone(), schema.clone(), to_schema.clone());
+            let key = (
+                name.clone(),
+                from_table.clone(),
+                to_table.clone(),
+                schema.clone(),
+                to_schema.clone(),
+            );
             if !map.contains_key(&key) {
                 order.push(key.clone());
                 map.insert(key.clone(), (Vec::new(), Vec::new()));
@@ -703,21 +729,42 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::type_complexity)]
     fn test_multiple_separate_fks() {
-        let mut map: std::collections::HashMap<
-            (String, String, String, String, String),
-            (Vec<String>, Vec<String>),
-        > = std::collections::HashMap::new();
+        let mut map: std::collections::HashMap<(String, String, String, String, String), (Vec<String>, Vec<String>)> =
+            std::collections::HashMap::new();
         let mut order: Vec<(String, String, String, String, String)> = Vec::new();
 
         // Simulate two separate FKs
         let rows = vec![
-            ("fk_user".to_string(), "orders".to_string(), "users".to_string(), "public".to_string(), "public".to_string(), "user_id".to_string(), "id".to_string()),
-            ("fk_product".to_string(), "orders".to_string(), "products".to_string(), "public".to_string(), "public".to_string(), "product_id".to_string(), "id".to_string()),
+            (
+                "fk_user".to_string(),
+                "orders".to_string(),
+                "users".to_string(),
+                "public".to_string(),
+                "public".to_string(),
+                "user_id".to_string(),
+                "id".to_string(),
+            ),
+            (
+                "fk_product".to_string(),
+                "orders".to_string(),
+                "products".to_string(),
+                "public".to_string(),
+                "public".to_string(),
+                "product_id".to_string(),
+                "id".to_string(),
+            ),
         ];
 
         for (name, from_table, to_table, schema, to_schema, from_col, to_col) in rows {
-            let key = (name.clone(), from_table.clone(), to_table.clone(), schema.clone(), to_schema.clone());
+            let key = (
+                name.clone(),
+                from_table.clone(),
+                to_table.clone(),
+                schema.clone(),
+                to_schema.clone(),
+            );
             if !map.contains_key(&key) {
                 order.push(key.clone());
                 map.insert(key.clone(), (Vec::new(), Vec::new()));

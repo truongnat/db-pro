@@ -11,11 +11,11 @@ INSERT INTO categories (name, description) VALUES
 INSERT INTO products (id, name, sku, price, category_id, tags, metadata) VALUES
     ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'Laptop Pro', 'ELEC-001', 1299.99, 1,
      ARRAY['laptop', 'computer'], '{"brand": "TechCo", "weight_kg": 1.8}'),
-    ('b1ffcd00-ad1c-5fg9-cc7e-7cc0ce491b22', 'SQL Mastery', 'BOOK-001', 49.99, 2,
+    ('b1ffcd00-ad1c-4f99-cc7e-7cc0ce491b22', 'SQL Mastery', 'BOOK-001', 49.99, 2,
      ARRAY['database', 'programming'], '{"pages": 512, "format": "hardcover"}'),
-    ('c2ggde11-be2d-6gh0-dd8f-8dd1df502c33', 'Cotton T-Shirt', 'CLTH-001', 19.99, 3,
+    ('c2aade11-be2d-6ab0-dd8f-8dd1df502c33', 'Cotton T-Shirt', 'CLTH-001', 19.99, 3,
      ARRAY['cotton', 'casual'], '{"sizes": ["S", "M", "L", "XL"]}'),
-    ('d3hhef22-cf3e-7hi1-ee9g-9ee2eg613d44', 'Green Tea', 'FOOD-001', 12.50, 4,
+    ('d3aaef22-cf3e-7a11-ee9a-9ee2ea613d44', 'Green Tea', 'FOOD-001', 12.50, 4,
      ARRAY['tea', 'organic'], '{"origin": "Japan", "caffeine_mg": 30}');
 
 -- Unicode users
@@ -35,11 +35,11 @@ INSERT INTO orders (user_id, status, total, notes) VALUES
 -- Order items
 INSERT INTO order_items (order_id, product_id, quantity, unit_price) VALUES
     (1, 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 1, 1299.99),
-    (1, 'd3hhef22-cf3e-7hi1-ee9g-9ee2eg613d44', 1, 12.50),
-    (2, 'b1ffcd00-ad1c-5fg9-cc7e-7cc0ce491b22', 1, 49.99),
-    (3, 'c2ggde11-be2d-6gh0-dd8f-8dd1df502c33', 1, 19.99),
-    (3, 'd3hhef22-cf3e-7hi1-ee9g-9ee2eg613d44', 1, 12.50),
-    (4, 'd3hhef22-cf3e-7hi1-ee9g-9ee2eg613d44', 1, 12.50);
+    (1, 'd3aaef22-cf3e-7a11-ee9a-9ee2ea613d44', 1, 12.50),
+    (2, 'b1ffcd00-ad1c-4f99-cc7e-7cc0ce491b22', 1, 49.99),
+    (3, 'c2aade11-be2d-6ab0-dd8f-8dd1df502c33', 1, 19.99),
+    (3, 'd3aaef22-cf3e-7a11-ee9a-9ee2ea613d44', 1, 12.50),
+    (4, 'd3aaef22-cf3e-7a11-ee9a-9ee2ea613d44', 1, 12.50);
 
 -- Audit logs
 INSERT INTO audit_logs (event_type, payload) VALUES

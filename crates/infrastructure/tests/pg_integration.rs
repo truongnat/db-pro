@@ -181,10 +181,10 @@ async fn pg_introspect_foreign_keys() {
     assert!(oi_fks.len() >= 2, "order_items should have at least 2 FKs");
     assert!(oi_fks
         .iter()
-        .any(|fk| fk.from_column == "order_id" && fk.to_table == "orders"));
+        .any(|fk| fk.from_columns.contains(&"order_id".to_string()) && fk.to_table == "orders"));
     assert!(oi_fks
         .iter()
-        .any(|fk| fk.from_column == "product_id" && fk.to_table == "products"));
+        .any(|fk| fk.from_columns.contains(&"product_id".to_string()) && fk.to_table == "products"));
 
     connector.disconnect(&handle).await.unwrap();
 }
@@ -226,8 +226,8 @@ async fn pg_composite_fk_detail() {
         .iter()
         .find(|fk| fk.to_table == "orders")
         .expect("FK from order_items to orders should exist");
-    assert_eq!(fk_to_orders.from_column, "order_id");
-    assert_eq!(fk_to_orders.to_column, "id");
+    assert_eq!(fk_to_orders.from_columns, vec!["order_id"]);
+    assert_eq!(fk_to_orders.to_columns, vec!["id"]);
     assert_eq!(fk_to_orders.schema, "public");
     assert_eq!(fk_to_orders.to_schema, "public");
 
@@ -236,8 +236,8 @@ async fn pg_composite_fk_detail() {
         .iter()
         .find(|fk| fk.to_table == "products")
         .expect("FK from order_items to products should exist");
-    assert_eq!(fk_to_products.from_column, "product_id");
-    assert_eq!(fk_to_products.to_column, "id");
+    assert_eq!(fk_to_products.from_columns, vec!["product_id"]);
+    assert_eq!(fk_to_products.to_columns, vec!["id"]);
 
     // Verify composite PK is introspected correctly.
     let oi_pk = result
