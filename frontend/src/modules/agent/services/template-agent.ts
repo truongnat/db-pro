@@ -241,8 +241,7 @@ function generateFkRelationships(
     // Show all column pairs for composite FKs
     const colPairs = fk.fromColumns
       .map(
-        (fromCol, i) =>
-          `\`${fk.fromTable}.${fromCol}\` → \`${fk.toTable}.${fk.toColumns[i]}\``,
+        (fromCol, i) => `\`${fk.fromTable}.${fromCol}\` → \`${fk.toTable}.${fk.toColumns[i]}\``,
       )
       .join(", ");
     content += `- ${colPairs}\n`;
@@ -252,8 +251,7 @@ function generateFkRelationships(
     .map((fk) => {
       const conditions = fk.fromColumns
         .map(
-          (fromCol, i) =>
-            `${fk.fromTable}.${fromCol} = ${fk.toTable}.${fk.toColumns[i]}`,
+          (fromCol, i) => `${fk.fromTable}.${fromCol} = ${fk.toTable}.${fk.toColumns[i]}`,
         )
         .join(" AND ");
       return `SELECT *\nFROM ${fk.fromTable}\nJOIN ${fk.toTable} ON ${conditions}\nLIMIT 50;`;
@@ -474,9 +472,7 @@ export async function generateLlmResponse(
 
   const fkSummary = ctx.foreignKeys
     .map((f) => {
-      const colPairs = f.fromColumns
-        .map((fromCol, i) => `${fromCol}->${f.toColumns[i]}`)
-        .join(",");
+      const colPairs = f.fromColumns.map((fromCol, i) => `${fromCol}->${f.toColumns[i]}`).join(",");
       return `${f.fromTable}(${colPairs}) -> ${f.toTable}`;
     })
     .join("\n");
