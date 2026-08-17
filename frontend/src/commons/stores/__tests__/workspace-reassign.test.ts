@@ -47,6 +47,27 @@ describe("workspace connection reassignment", () => {
     expect(reassigned.resourceKey).toBe(`dbobj:main.users:${target.id}`);
   });
 
+  it("refreshes a db-object title when SQLite main becomes PostgreSQL public", () => {
+    const source = connection("sqlite-source", "sqlite");
+    const target = connection("pg-target", "postgres");
+    useConnectionStore.setState({ connections: [source, target] });
+
+    const occupied = createDbObjectTab(target.id, "public", "users", "table", "columns", false);
+    useWorkspaceStore.setState({ tabs: [occupied], activeTabId: occupied.id });
+    const tab = createDbObjectTab(source.id, "main", "users", "table", "columns", false);
+    expect(tab.title).toBe("main.users");
+    useWorkspaceStore.setState({ tabs: [occupied, tab], activeTabId: tab.id });
+
+    useWorkspaceStore.getState().reassignTabConnection(tab.id, target.id);
+
+    const reassigned = useWorkspaceStore.getState().tabs.find((candidate) => candidate.id === tab.id);
+    expect(reassigned?.kind).toBe("db-object");
+    if (!reassigned || reassigned.kind !== "db-object") return;
+    expect(reassigned.data.schema).toBe("public");
+    expect(reassigned.title).toBe("public.users");
+    expect(reassigned.resourceKey).toBe(`dbobj:public.users:${target.id}`);
+  });
+
   it("maps a known SQLite default schema to PostgreSQL public and updates ER identity", () => {
     const source = connection("sqlite-source", "sqlite");
     const target = connection("pg-target", "postgres");
