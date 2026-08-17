@@ -175,18 +175,25 @@ fn introspect_foreign_keys(conn: &rusqlite::Connection, table_names: &[String]) 
             let from_column: String = row.get(3)?;
             let to_column: String = row.get(4)?;
 
-            if !map.contains_key(&id) {
-                order.push(id);
-                map.insert(id, (to_table, Vec::new(), Vec::new()));
+            // contains_key + insert is intentional: we maintain a separate
+            // `order` vec for deterministic FK ordering, which the entry API
+            // cannot express in a single step.
+            #[allow(clippy::map_entry)]
+            {
+                if !map.contains_key(&id) {
+                    order.push(id);
+                    map.insert(id, (to_table, Vec::new(), Vec::new()));
+                }
             }
 
-            let (to_table, from_cols, to_cols) = map.get_mut(&id).unwrap();
+            let (_to_table, from_cols, to_cols) = map.get_mut(&id).unwrap();
             from_cols.push(from_column);
             to_cols.push(to_column);
 
             Ok(())
         })
-        .map_err(crate::error::from_rusqlite)?;
+        .map_err(crate::error::from_rusqlite)?
+        .for_each(|_| {});
 
         for id in order {
             let (to_table, from_columns, to_columns) = map.remove(&id).unwrap();
@@ -204,20 +211,23 @@ fn introspect_foreign_keys(conn: &rusqlite::Connection, table_names: &[String]) 
     Ok(foreign_keys)
 }
 
-fn introspect_check_constraints(conn: &rusqlite::Connection, table_names: &[String]) -> Result<Vec<CheckConstraint>, DbError> {
+fn introspect_check_constraints(
+    conn: &rusqlite::Connection,
+    table_names: &[String],
+) -> Result<Vec<CheckConstraint>, DbError> {
     let mut check_constraints = Vec::new();
-    
+
     for table_name in table_names {
         // Get the CREATE TABLE SQL from sqlite_master
         let mut stmt = conn
             .prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?1")
             .map_err(crate::error::from_rusqlite)?;
-        
+
         let create_sql: Option<String> = stmt
             .query_row([table_name], |row| row.get(0))
             .optional()
             .map_err(crate::error::from_rusqlite)?;
-        
+
         if let Some(sql) = create_sql {
             // Parse CHECK constraints from the CREATE TABLE statement
             // This is a simplified parser that looks for CHECK(...) patterns
@@ -225,7 +235,7 @@ fn introspect_check_constraints(conn: &rusqlite::Connection, table_names: &[Stri
             let mut in_check = false;
             let mut check_start = 0;
             let mut constraint_idx = 0;
-            
+
             for (i, ch) in sql.char_indices() {
                 match ch {
                     '(' => {
@@ -257,7 +267,7 @@ fn introspect_check_constraints(conn: &rusqlite::Connection, table_names: &[Stri
             }
         }
     }
-    
+
     Ok(check_constraints)
 }
 
