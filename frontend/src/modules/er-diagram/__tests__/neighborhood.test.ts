@@ -4,6 +4,7 @@ import {
   getConnectedComponent,
   getNeighborhood,
   suggestStartingPoints,
+  resolveHopCount,
 } from "../utils/neighborhood";
 import { generateErFixture } from "./er-fixture";
 
@@ -191,5 +192,19 @@ describe("suggestStartingPoints", () => {
 
   it("returns empty for an empty schema", () => {
     expect(suggestStartingPoints(buildAdjacencyMap([]), [], 5)).toEqual([]);
+  });
+});
+
+/* ── resolveHopCount ────────────────────────────────────────────────────────── */
+
+describe("resolveHopCount", () => {
+  it("returns numeric scopes unchanged", () => {
+    expect(resolveHopCount(1)).toBe(1);
+    expect(resolveHopCount(2)).toBe(2);
+    expect(resolveHopCount(3)).toBe(3);
+  });
+
+  it('maps "domain" to Number.MAX_SAFE_INTEGER (full component)', () => {
+    expect(resolveHopCount("domain")).toBe(Number.MAX_SAFE_INTEGER);
   });
 });

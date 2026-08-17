@@ -98,17 +98,31 @@ Baseline audited: `6e0a04ad675eaa85cae08bbe1a066270596a18db`
 ## Gate 4 — QA-W4 ER large-schema
 
 ### QA-P1-12 true search-first mode
-- [ ] >200 tables initially renders bounded node set / search prompt
-- [ ] Initial open does not Dagre-layout full schema
-- [ ] “Show all N” is explicit opt-in
-- [ ] Search result/seed produces bounded neighborhood
-- [ ] Test 500/1000 table initial node count invariant
+- [x] >200 tables initially renders bounded node set / search prompt
+- [x] Initial open does not Dagre-layout full schema
+- [x] “Show all N” is explicit opt-in
+- [x] Search result/seed produces bounded neighborhood
+- [x] Test 500/1000 table initial node count invariant
 
 ### QA-P1-13 safe first-paint LOD
-- [ ] Large schema initializes tier 0/1 before first commit
-- [ ] Full column rows never mount before viewport state is known
-- [ ] Selected/focused table can hydrate full detail
-- [ ] Benchmark includes rendering strategy, not only metadata indexing
+- [x] Large schema initializes tier 0/1 before first commit
+- [x] Full column rows never mount before viewport state is known
+- [x] Selected/focused table can hydrate full detail
+- [x] Benchmark includes rendering strategy, not only metadata indexing
+
+Gate 4 implementation proof: `d66fbbee3627aa15fd1e485d680a902ecdcfee95`, CI #410 / run `32020842567` — frontend typecheck, lint, Prettier, token contract, production build and full tests ✅; PostgreSQL fixtures plus Rust fmt, clippy, build and full tests ✅.
+
+Scale evidence:
+- 201 / 500 / 1000-table fixtures prove search mounts no renderer/layout, neighborhood stays deterministic and `<=100` nodes with safe compact first paint, and full overview activates only through explicit `Show all N`.
+- Dense-hub fixture (251 tables: 1 hub + 200 spokes + 50 fillers) proves hard cap=100, seed retention, `truncated=true`, endpoint-safe edges, and identical ordered output under reversed/shuffled table/FK input.
+- 500 / 1000-table strategy benchmark measures explicit selection → bounded traversal → compact neighborhood materialization, rather than only full-schema metadata indexing.
+- Lower-priority P2 found during final source audit: suggested starting points were visible but not selectable. Fixed with click/Enter regression coverage before this evidence was recorded.
+
+### QA-P1-12 status
+**PASS** — search-first, bounded-neighborhood, explicit-overview contract is source-reviewed and executable at scale.
+
+### QA-P1-13 status
+**PASS** — compact first commit, explicit focused detail hydration, viewport LOD behavior and bounded rendering-strategy benchmark are covered.
 
 ## Gate 5 — QA-W5 Provider type matrix
 
