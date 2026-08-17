@@ -379,6 +379,15 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           const connections = useConnectionStore.getState().connections;
           const newConn = connections.find((c) => c.id === newConnectionId);
           const targetIsSqlite = newConn?.driver === "sqlite";
+          const titleExists = (title: string) =>
+            state.tabs.some((tab) => tab.id !== id && tab.title === title);
+          const dbObjectTitle = (objectName: string, schema: string): string => {
+            if (!titleExists(objectName)) return objectName;
+            const qualified = `${schema}.${objectName}`;
+            if (!titleExists(qualified)) return qualified;
+            const connectionName = newConn?.name ?? newConnectionId;
+            return `${connectionName} · ${qualified}`;
+          };
 
           return {
             tabs: updateTabInList(state.tabs, id, (t) => {
@@ -409,6 +418,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
                 const schema = normalizeSchema(t.data.schema);
                 return {
                   ...t,
+                  title: dbObjectTitle(t.data.objectName, schema),
                   connectionId: newConnectionId,
                   resourceKey: `dbobj:${schema}.${t.data.objectName}:${newConnectionId}`,
                   dirty: true,
