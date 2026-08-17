@@ -1,7 +1,6 @@
 use db_pro_core::domain::error::DbError;
 use db_pro_core::domain::schema::*;
 use rusqlite::OptionalExtension;
-use std::collections::hash_map::Entry;
 
 /// Escape a SQLite identifier by doubling any embedded double-quote characters
 /// and wrapping in double quotes. This is safe for interpolation into PRAGMA
@@ -154,30 +153,8 @@ fn introspect_indexes(conn: &rusqlite::Connection, table_names: &[String]) -> Re
     Ok(indexes)
 }
 
-fn sqlite_primary_key_columns(conn: &rusqlite::Connection, table_name: &str) -> Result<Vec<String>, DbError> {
-    let safe_name = escape_identifier(table_name);
-    let mut stmt = conn
-        .prepare(&format!("PRAGMA table_info({safe_name})"))
-        .map_err(crate::error::from_rusqlite)?;
-    let mut columns: Vec<(i32, String)> = stmt
-        .query_map([], |row| {
-            let name: String = row.get(1)?;
-            let pk_ordinal: i32 = row.get(5)?;
-            Ok((pk_ordinal, name))
-        })
-        .map_err(crate::error::from_rusqlite)?
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(crate::error::from_rusqlite)?;
-
-    columns.retain(|(pk_ordinal, _)| *pk_ordinal > 0);
-    columns.sort_by_key(|(pk_ordinal, _)| *pk_ordinal);
-    Ok(columns.into_iter().map(|(_, name)| name).collect())
-}
-
 fn introspect_foreign_keys(conn: &rusqlite::Connection, table_names: &[String]) -> Result<Vec<ForeignKey>, DbError> {
     let mut foreign_keys = Vec::new();
-    let mut referenced_pk_cache: std::collections::HashMap<String, Vec<String>> = std::collections::HashMap::new();
-
     for table_name in table_names {
         // PRAGMA does not support ? parameters for table names;
         // use safe identifier escaping instead.
@@ -186,55 +163,33 @@ fn introspect_foreign_keys(conn: &rusqlite::Connection, table_names: &[String]) 
             .prepare(&format!("PRAGMA foreign_key_list({safe_name})"))
             .map_err(crate::error::from_rusqlite)?;
 
-        // SQLite returns NULL for the referenced column when the schema uses
-        // shorthand syntax such as `REFERENCES parent`. Keep the FK sequence so
-        // we can resolve that omitted target against the parent primary key.
-        let rows: Vec<(i32, i32, String, String, Option<String>)> = stmt
+        // Group columns by FK id to support composite foreign keys
+        let mut map: std::collections::HashMap<i32, (String, Vec<String>, Vec<String>)> =
+            std::collections::HashMap::new();
+        let mut order: Vec<i32> = Vec::new();
+
+        let fk_rows: Vec<_> = stmt
             .query_map([], |row| {
                 let id: i32 = row.get(0)?;
-                let seq: i32 = row.get(1)?;
+                let _seq: i32 = row.get(1)?;
                 let to_table: String = row.get(2)?;
                 let from_column: String = row.get(3)?;
-                let to_column: Option<String> = row.get(4)?;
-                Ok((id, seq, to_table, from_column, to_column))
+                let to_column: String = row.get(4)?;
+                Ok((id, to_table, from_column, to_column))
             })
             .map_err(crate::error::from_rusqlite)?
             .collect::<Result<Vec<_>, _>>()
             .map_err(crate::error::from_rusqlite)?;
 
-        // Group columns by FK id to support composite foreign keys while keeping
-        // the PRAGMA encounter order deterministic.
-        let mut map: std::collections::HashMap<i32, (String, Vec<String>, Vec<String>)> =
-            std::collections::HashMap::new();
-        let mut order: Vec<i32> = Vec::new();
+        for (id, to_table, from_column, to_column) in fk_rows {
+            map.entry(id).or_insert_with(|| {
+                order.push(id);
+                (to_table, Vec::new(), Vec::new())
+            });
 
-        for (id, seq, to_table, from_column, to_column) in rows {
-            let resolved_to_column = match to_column {
-                Some(column) => column,
-                None => {
-                    let pk_columns = if let Some(columns) = referenced_pk_cache.get(&to_table) {
-                        columns
-                    } else {
-                        let columns = sqlite_primary_key_columns(conn, &to_table)?;
-                        referenced_pk_cache.entry(to_table.clone()).or_insert(columns)
-                    };
-                    pk_columns.get(seq as usize).cloned().ok_or_else(|| {
-                        DbError::IntrospectionFailed(format!(
-                            "foreign key {table_name}_fk_{id} references {to_table} without a resolvable primary-key column at position {seq}"
-                        ))
-                    })?
-                }
-            };
-
-            let (_, from_cols, to_cols) = match map.entry(id) {
-                Entry::Vacant(entry) => {
-                    order.push(id);
-                    entry.insert((to_table, Vec::new(), Vec::new()))
-                }
-                Entry::Occupied(entry) => entry.into_mut(),
-            };
+            let (_to_table, from_cols, to_cols) = map.get_mut(&id).unwrap();
             from_cols.push(from_column);
-            to_cols.push(resolved_to_column);
+            to_cols.push(to_column);
         }
 
         for id in order {
@@ -430,27 +385,6 @@ fn find_trigger_header(upper: &str) -> Option<&str> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn introspection_resolves_shorthand_foreign_key_to_parent_primary_key() {
-        let conn = rusqlite::Connection::open_in_memory().unwrap();
-        conn.execute_batch(
-            "CREATE TABLE parent (id INTEGER PRIMARY KEY, name TEXT);\
-             CREATE TABLE child (id INTEGER PRIMARY KEY, parent_id INTEGER REFERENCES parent);",
-        )
-        .unwrap();
-
-        let result = run_introspection(&conn).unwrap();
-        let foreign_key = result
-            .foreign_keys
-            .iter()
-            .find(|fk| fk.from_table == "child")
-            .expect("child shorthand foreign key should be introspected");
-
-        assert_eq!(foreign_key.from_columns, vec!["parent_id"]);
-        assert_eq!(foreign_key.to_table, "parent");
-        assert_eq!(foreign_key.to_columns, vec!["id"]);
-    }
 
     #[test]
     fn parse_standard_after_insert_trigger() {

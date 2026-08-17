@@ -253,7 +253,7 @@ async fn introspect_indexes(pool: &sqlx::PgPool) -> Result<Vec<Index>, DbError> 
             let schema: String = row.get("schemaname");
             let table: String = row.get("tablename");
             let name: String = row.get("indexname");
-            let indexdef: String = row.get("indexdef");
+            let indexdef: String = row.try_get("indexdef").unwrap_or_default();
             let unique = indexdef.starts_with("CREATE UNIQUE INDEX");
 
             let columns = parse_index_columns(&indexdef);
@@ -355,7 +355,6 @@ fn parse_index_columns(indexdef: &str) -> Vec<String> {
     columns
 }
 
-#[allow(clippy::type_complexity)]
 async fn introspect_foreign_keys(pool: &sqlx::PgPool) -> Result<Vec<ForeignKey>, DbError> {
     let rows = sqlx::query(
         r#"
@@ -389,6 +388,7 @@ async fn introspect_foreign_keys(pool: &sqlx::PgPool) -> Result<Vec<ForeignKey>,
     .map_err(crate::error::from_sqlx)?;
 
     // Group columns by constraint name to support composite foreign keys
+    #[allow(clippy::type_complexity)]
     let mut map: std::collections::HashMap<(String, String, String, String, String), (Vec<String>, Vec<String>)> =
         std::collections::HashMap::new();
     let mut order: Vec<(String, String, String, String, String)> = Vec::new();

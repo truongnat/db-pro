@@ -181,10 +181,10 @@ async fn pg_introspect_foreign_keys() {
     assert!(oi_fks.len() >= 2, "order_items should have at least 2 FKs");
     assert!(oi_fks
         .iter()
-        .any(|fk| fk.from_columns.contains(&"order_id".to_string()) && fk.to_table == "orders"));
+        .any(|fk| fk.from_columns.iter().any(|c| c == "order_id") && fk.to_table == "orders"));
     assert!(oi_fks
         .iter()
-        .any(|fk| fk.from_columns.contains(&"product_id".to_string()) && fk.to_table == "products"));
+        .any(|fk| fk.from_columns.iter().any(|c| c == "product_id") && fk.to_table == "products"));
 
     connector.disconnect(&handle).await.unwrap();
 }

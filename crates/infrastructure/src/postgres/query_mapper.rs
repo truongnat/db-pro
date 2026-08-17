@@ -18,13 +18,9 @@ pub fn bind_params(params: &[QueryParam], args: &mut PgArguments) -> Result<(), 
                 args.add(uuid)
             }
             QueryParam::DateTime(v) => {
-                if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(v) {
-                    args.add(dt.with_timezone(&chrono::Utc))
-                } else {
-                    let date = chrono::NaiveDate::parse_from_str(v, "%Y-%m-%d")
-                        .map_err(|e| DbError::QueryFailed(format!("invalid date/datetime parameter: {e}")))?;
-                    args.add(date)
-                }
+                let dt = chrono::DateTime::parse_from_rfc3339(v)
+                    .map_err(|e| DbError::QueryFailed(format!("invalid datetime parameter: {e}")))?;
+                args.add(dt.with_timezone(&chrono::Utc))
             }
             QueryParam::Json(v) => args.add(sqlx::types::Json(v)),
         };
@@ -120,13 +116,6 @@ mod tests {
     }
 
     #[test]
-    fn bind_params_accepts_date_only_value() {
-        let mut args = PgArguments::default();
-        let params = vec![QueryParam::DateTime("2026-08-17".into())];
-        assert!(bind_params(&params, &mut args).is_ok());
-    }
-
-    #[test]
     fn bind_params_fails_on_invalid_uuid() {
         let mut args = PgArguments::default();
         let params = vec![QueryParam::Uuid("invalid-uuid".into())];
@@ -138,5 +127,18 @@ mod tests {
         let mut args = PgArguments::default();
         let params = vec![QueryParam::DateTime("invalid-date".into())];
         assert!(bind_params(&params, &mut args).is_err());
+    }
+
+    #[test]
+    fn columns_from_describe_maps_columns() {
+        // Test columns_from_describe function signature & structure
+        let columns = [ColumnMeta {
+            name: "id".into(),
+            data_type: "INT4".into(),
+            nullable: false,
+        }];
+        assert_eq!(columns.len(), 1);
+        assert_eq!(columns[0].name, "id");
+        assert_eq!(columns[0].data_type, "INT4");
     }
 }

@@ -316,10 +316,10 @@ async fn introspect_foreign_keys() {
     assert!(oi_fks.len() >= 2, "expected at least 2 FKs from order_items");
     assert!(oi_fks
         .iter()
-        .any(|fk| fk.from_columns.contains(&"order_id".to_string()) && fk.to_table == "orders"));
+        .any(|fk| fk.from_columns.iter().any(|c| c == "order_id") && fk.to_table == "orders"));
     assert!(oi_fks
         .iter()
-        .any(|fk| fk.from_columns.contains(&"product_id".to_string()) && fk.to_table == "products"));
+        .any(|fk| fk.from_columns.iter().any(|c| c == "product_id") && fk.to_table == "products"));
 }
 
 #[tokio::test]
@@ -406,7 +406,7 @@ async fn delete_row() {
     let affected = connector
         .execute(
             &handle,
-            "DELETE FROM order_items WHERE order_id = 2 AND product_id = 'b1ffcd00-ad1c-4f99-cc7e-7cc0ce491b22'",
+            "DELETE FROM order_items WHERE order_id = 2 AND product_id = 'b1ffcd00-ad1c-5fg9-cc7e-7cc0ce491b22'",
             &[],
         )
         .await
