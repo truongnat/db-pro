@@ -11,4 +11,5 @@ pub mod run_config;
 pub mod safety;
 pub mod schema;
 pub mod secret;
+pub mod temporal;
 pub mod user;
