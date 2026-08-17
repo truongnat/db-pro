@@ -60,7 +60,9 @@ describe("workspace connection reassignment", () => {
 
     useWorkspaceStore.getState().reassignTabConnection(tab.id, target.id);
 
-    const reassigned = useWorkspaceStore.getState().tabs.find((candidate) => candidate.id === tab.id);
+    const reassigned = useWorkspaceStore
+      .getState()
+      .tabs.find((candidate) => candidate.id === tab.id);
     expect(reassigned?.kind).toBe("db-object");
     if (!reassigned || reassigned.kind !== "db-object") return;
     expect(reassigned.data.schema).toBe("public");
