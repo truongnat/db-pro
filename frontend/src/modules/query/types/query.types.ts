@@ -3,6 +3,7 @@ export type CellValue =
   | { type: "bool"; value: boolean }
   | { type: "int64"; value: string }
   | { type: "float64"; value: number }
+  | { type: "decimal"; value: string }
   | { type: "text"; value: string }
   | { type: "bytes"; value: number[] }
   | { type: "uuid"; value: string }
@@ -84,6 +85,7 @@ export function renderCellValue(cell: CellValue): string {
       return JSON.stringify(cell.value, null, 2);
     case "int64":
     case "float64":
+    case "decimal":
     case "text":
     case "uuid":
     case "datetime":

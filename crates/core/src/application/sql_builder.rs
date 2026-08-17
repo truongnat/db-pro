@@ -288,6 +288,7 @@ fn cell_to_param(cell: &CellValue) -> QueryParam {
         CellValue::Bool(v) => QueryParam::Bool(*v),
         CellValue::Int64(v) => QueryParam::Int64(*v),
         CellValue::Float64(v) => QueryParam::Float64(*v),
+        CellValue::Decimal(v) => QueryParam::Decimal(v.clone()),
         CellValue::Text(v) => QueryParam::Text(v.clone()),
         CellValue::Bytes(v) => QueryParam::Bytes(v.clone()),
         CellValue::Uuid(v) => QueryParam::Uuid(v.clone()),

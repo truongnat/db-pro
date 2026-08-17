@@ -254,7 +254,7 @@ impl SqliteActor {
 
         let columns = extract_columns(&stmt);
 
-        let rusqlite_params = to_rusqlite_params(params);
+        let rusqlite_params = to_rusqlite_params(params)?;
         let param_refs: Vec<&dyn rusqlite::types::ToSql> = rusqlite_params.iter().map(|p| p.as_ref()).collect();
 
         let mut rows = Vec::new();
@@ -355,7 +355,7 @@ impl SqliteActor {
 
     fn handle_execute_statement_param(&self, sql: &str, params: &[QueryParam]) -> Result<usize, DbError> {
         let mut stmt = self.conn.prepare(sql).map_err(crate::error::from_rusqlite)?;
-        let rusqlite_params = to_rusqlite_params(params);
+        let rusqlite_params = to_rusqlite_params(params)?;
         let param_refs: Vec<&dyn rusqlite::types::ToSql> = rusqlite_params.iter().map(|p| p.as_ref()).collect();
         let affected = stmt
             .execute(param_refs.as_slice())
@@ -381,20 +381,23 @@ impl SqliteActor {
 
 /// Convert domain `QueryParam` values into boxed `ToSql` trait objects
 /// suitable for binding to a `rusqlite::Statement`.
-fn to_rusqlite_params(params: &[QueryParam]) -> Vec<Box<dyn rusqlite::types::ToSql>> {
+fn to_rusqlite_params(params: &[QueryParam]) -> Result<Vec<Box<dyn rusqlite::types::ToSql>>, DbError> {
     params
         .iter()
-        .map(|p| -> Box<dyn rusqlite::types::ToSql> {
+        .map(|p| -> Result<Box<dyn rusqlite::types::ToSql>, DbError> {
             match p {
-                QueryParam::Null => Box::new(rusqlite::types::Null),
-                QueryParam::Bool(v) => Box::new(*v),
-                QueryParam::Int64(v) => Box::new(*v),
-                QueryParam::Float64(v) => Box::new(*v),
-                QueryParam::Text(v) => Box::new(v.clone()),
-                QueryParam::Bytes(v) => Box::new(v.clone()),
-                QueryParam::Uuid(v) => Box::new(v.clone()),
-                QueryParam::DateTime(v) => Box::new(v.clone()),
-                QueryParam::Json(v) => Box::new(v.to_string()),
+                QueryParam::Null => Ok(Box::new(rusqlite::types::Null)),
+                QueryParam::Bool(v) => Ok(Box::new(*v)),
+                QueryParam::Int64(v) => Ok(Box::new(*v)),
+                QueryParam::Float64(v) => Ok(Box::new(*v)),
+                QueryParam::Decimal(_) => Err(DbError::Unsupported(
+                    "SQLite decimal parameter binding is not enabled yet".into(),
+                )),
+                QueryParam::Text(v) => Ok(Box::new(v.clone())),
+                QueryParam::Bytes(v) => Ok(Box::new(v.clone())),
+                QueryParam::Uuid(v) => Ok(Box::new(v.clone())),
+                QueryParam::DateTime(v) => Ok(Box::new(v.clone())),
+                QueryParam::Json(v) => Ok(Box::new(v.to_string())),
             }
         })
         .collect()

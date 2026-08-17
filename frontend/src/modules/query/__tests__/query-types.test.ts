@@ -23,6 +23,16 @@ describe("renderCellValue", () => {
     expect(renderCellValue({ type: "float64", value: 3.14 })).toBe("3.14");
   });
 
+  it("renders decimal without precision or scale normalization", () => {
+    const exact = "123456789012345678901234567890.1234500";
+    expect(renderCellValue({ type: "decimal", value: exact })).toBe(exact);
+  });
+
+  it("renders a tiny signed decimal without numeric coercion", () => {
+    const exact = "-0.0000000000000000000000001000";
+    expect(renderCellValue({ type: "decimal", value: exact })).toBe(exact);
+  });
+
   it("renders text", () => {
     expect(renderCellValue({ type: "text", value: "hello" })).toBe("hello");
   });

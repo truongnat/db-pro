@@ -30,6 +30,13 @@ pub enum QueryParam {
     Int64(#[serde(with = "string_i64")] i64),
     #[serde(rename = "float64")]
     Float64(f64),
+    /// Exact base-10 text for precision-sensitive NUMERIC/DECIMAL parameters.
+    ///
+    /// The representation is part of the IPC contract even while provider
+    /// binders keep decimal mutation disabled. This prevents SQL builders from
+    /// silently coercing decimal values to floating-point or generic text.
+    #[serde(rename = "decimal")]
+    Decimal(String),
     #[serde(rename = "text")]
     Text(String),
     #[serde(rename = "bytes")]
@@ -53,6 +60,12 @@ pub enum CellValue {
     Int64(#[serde(with = "string_i64")] i64),
     #[serde(rename = "float64")]
     Float64(f64),
+    /// Exact base-10 text for precision-sensitive NUMERIC/DECIMAL results.
+    ///
+    /// Preserving the string exactly keeps precision and scale intact across
+    /// Rust -> serde/Tauri -> JavaScript boundaries.
+    #[serde(rename = "decimal")]
+    Decimal(String),
     #[serde(rename = "text")]
     Text(String),
     #[serde(rename = "bytes")]
@@ -273,5 +286,29 @@ mod tests {
         let json = serde_json::to_string(&param).unwrap();
         let back: QueryParam = serde_json::from_str(&json).unwrap();
         assert!(matches!(back, QueryParam::Int64(x) if x == i64::MAX));
+    }
+
+    #[test]
+    fn decimal_cell_preserves_precision_and_scale_exactly() {
+        let exact = "123456789012345678901234567890.1234500";
+        let cell = CellValue::Decimal(exact.into());
+
+        let json = serde_json::to_string(&cell).unwrap();
+        assert_eq!(json, format!(r#"{{"type":"decimal","value":"{exact}"}}"#));
+
+        let back: CellValue = serde_json::from_str(&json).unwrap();
+        assert!(matches!(back, CellValue::Decimal(value) if value == exact));
+    }
+
+    #[test]
+    fn decimal_query_param_preserves_exact_text() {
+        let exact = "-0.0000000000000000000000001000";
+        let param = QueryParam::Decimal(exact.into());
+
+        let json = serde_json::to_string(&param).unwrap();
+        assert_eq!(json, format!(r#"{{"type":"decimal","value":"{exact}"}}"#));
+
+        let back: QueryParam = serde_json::from_str(&json).unwrap();
+        assert!(matches!(back, QueryParam::Decimal(value) if value == exact));
     }
 }
