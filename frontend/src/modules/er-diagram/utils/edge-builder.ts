@@ -35,7 +35,7 @@ export function groupForeignKeys(
     if (!visibleTables.has(toKey)) continue;
 
     const key = `${fk.schema}.${fk.fromTable}.${fk.name}`;
-    
+
     // Build column pairs from the arrays
     const columns = fk.fromColumns.map((fromCol, i) => ({
       from: fromCol,

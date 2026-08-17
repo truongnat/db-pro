@@ -3,6 +3,8 @@ import ReactDOM from "react-dom/client";
 import { invoke } from "@tauri-apps/api/core";
 import App from "./App";
 import { bootstrapServices } from "./app/app.module";
+import { RootErrorBoundary } from "./app/root-error-boundary";
+import { SANITIZED_REACT_ROOT_OPTIONS } from "./app/root-error-reporting";
 import "./styles/globals.css";
 import "@/commons/locales/i18n";
 import "@/commons/actions";
@@ -11,9 +13,11 @@ async function main() {
   try {
     await bootstrapServices();
 
-    ReactDOM.createRoot(document.getElementById("root")!).render(
+    ReactDOM.createRoot(document.getElementById("root")!, SANITIZED_REACT_ROOT_OPTIONS).render(
       <React.StrictMode>
-        <App />
+        <RootErrorBoundary>
+          <App />
+        </RootErrorBoundary>
       </React.StrictMode>,
     );
   } catch (error) {
