@@ -44,7 +44,7 @@ cargo test --workspace
 | QA-P1-11 | provider/resource reassignment tests | PG public.users → SQLite cannot silently retain invalid public.users context |
 | QA-P1-12 | 500/1000 fixture initial visible-node/layout count | office 500+ schema opens into bounded/search-first state |
 | QA-P1-13 | first-render node tier test | no full-column first-paint freeze on large schema |
-| QA-P1-14 | PostgreSQL provider type integration matrix | representative DB columns query/render without precision loss/crash |
+| QA-P1-14 | PostgreSQL provider type integration matrix | representative DB columns query/render without precision loss/crash (PASS - pg_type_matrix verified in pg_integration.rs) |
 
 ## Precision Test Fixtures
 

@@ -72,7 +72,12 @@ fn decode_cell(row: &sqlx::postgres::PgRow, i: usize, data_type: &str) -> CellVa
             .map(|v| CellValue::Int64(v.0 as i64)),
         "FLOAT4" => row.try_get::<f32, _>(i).map(|v| CellValue::Float64(v as f64)),
         "FLOAT8" => row.try_get::<f64, _>(i).map(CellValue::Float64),
-        "NUMERIC" | "DECIMAL" | "MONEY" => row.try_get::<String, _>(i).map(CellValue::Text),
+        "NUMERIC" | "DECIMAL" => row
+            .try_get::<sqlx::types::BigDecimal, _>(i)
+            .map(|v| CellValue::Text(v.to_string())),
+        "MONEY" => row
+            .try_get::<sqlx::postgres::types::PgMoney, _>(i)
+            .map(|v| CellValue::Text(format!("{:.2}", (v.0 as f64) / 100.0))),
         "UUID" => row.try_get::<uuid::Uuid, _>(i).map(|v| CellValue::Uuid(v.to_string())),
         "TIMESTAMPTZ" => row
             .try_get::<chrono::DateTime<chrono::Utc>, _>(i)
@@ -86,8 +91,19 @@ fn decode_cell(row: &sqlx::postgres::PgRow, i: usize, data_type: &str) -> CellVa
         "TIME" => row
             .try_get::<chrono::NaiveTime, _>(i)
             .map(|v| CellValue::Text(v.to_string())),
-        "TIMETZ" | "INTERVAL" => row.try_get::<String, _>(i).map(CellValue::Text),
-        "INET" | "CIDR" | "MACADDR" | "MACADDR8" => row.try_get::<String, _>(i).map(CellValue::Text),
+        "TIMETZ" => row
+            .try_get::<sqlx::postgres::types::PgTimeTz, _>(i)
+            .map(|v| CellValue::Text(format!("{}{}", v.time, v.offset))),
+        "INTERVAL" => row
+            .try_get::<sqlx::postgres::types::PgInterval, _>(i)
+            .map(|v| CellValue::Text(format!("{} months {} days {} usecs", v.months, v.days, v.microseconds))),
+        "INET" | "CIDR" => row
+            .try_get::<sqlx::types::ipnetwork::IpNetwork, _>(i)
+            .map(|v| CellValue::Text(v.to_string()))
+            .or_else(|_| {
+                row.try_get::<std::net::IpAddr, _>(i)
+                    .map(|v| CellValue::Text(v.to_string()))
+            }),
         "BIT" | "VARBIT" => row.try_get::<String, _>(i).map(CellValue::Text),
         "TSVECTOR" | "TSQUERY" => row.try_get::<String, _>(i).map(CellValue::Text),
         "JSON" | "JSONB" => row.try_get::<serde_json::Value, _>(i).map(CellValue::Json),
@@ -114,6 +130,11 @@ fn decode_cell(row: &sqlx::postgres::PgRow, i: usize, data_type: &str) -> CellVa
     };
 
     res.unwrap_or_else(|_| {
+        if let Ok(raw) = row.try_get_raw(i) {
+            if let Ok(s) = raw.as_str() {
+                return CellValue::Text(s.to_string());
+            }
+        }
         row.try_get::<String, _>(i)
             .map(CellValue::Text)
             .unwrap_or_else(|_| CellValue::Text(format!("<unsupported value: {}>", data_type)))

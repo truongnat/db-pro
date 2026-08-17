@@ -127,11 +127,11 @@ async fn pg_type_matrix() {
 
     let row = &result.rows[0];
     use db_pro_core::domain::query::CellValue;
-    assert!(matches!(&row.0[0], CellValue::Text(s) if s.contains("123.456789")));
-    assert!(matches!(&row.0[1], CellValue::Text(_)));
-    assert!(matches!(&row.0[2], CellValue::Text(s) if s == "192.168.1.1"));
+    assert!(matches!(&row.0[0], CellValue::Text(s) if s.contains("123.4567890123456789")));
+    assert!(matches!(&row.0[1], CellValue::Text(s) if s.contains("1234.56")));
+    assert!(matches!(&row.0[2], CellValue::Text(s) if s.contains("192.168.1.1")));
     assert!(matches!(&row.0[3], CellValue::Json(_)));
-    assert!(matches!(&row.0[4], CellValue::Text(_)));
+    assert!(matches!(&row.0[4], CellValue::Text(s) if s.contains("10:15:30")));
 
     connector.disconnect(&handle).await.unwrap();
 }
