@@ -176,8 +176,7 @@ fn sqlite_primary_key_columns(conn: &rusqlite::Connection, table_name: &str) -> 
 
 fn introspect_foreign_keys(conn: &rusqlite::Connection, table_names: &[String]) -> Result<Vec<ForeignKey>, DbError> {
     let mut foreign_keys = Vec::new();
-    let mut referenced_pk_cache: std::collections::HashMap<String, Vec<String>> =
-        std::collections::HashMap::new();
+    let mut referenced_pk_cache: std::collections::HashMap<String, Vec<String>> = std::collections::HashMap::new();
 
     for table_name in table_names {
         // PRAGMA does not support ? parameters for table names;
