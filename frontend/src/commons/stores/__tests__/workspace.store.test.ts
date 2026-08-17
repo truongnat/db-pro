@@ -722,7 +722,7 @@ describe("WorkspaceStore", () => {
       const updated = useWorkspaceStore.getState().tabs.find((t) => t.id === tab.id)!;
       expect(updated.connectionId).toBe("conn-2");
       expect(updated.data.context.database).toBe("newdb");
-      expect(updated.data.context.schema).toBeNull();
+      expect(updated.data.context.schema).toBe("public");
       expect(updated.data.status).toBe("idle");
       expect(updated.data.result).toBeNull();
       expect(updated.data.activeExecutionId).toBeNull();

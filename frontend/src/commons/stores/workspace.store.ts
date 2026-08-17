@@ -376,35 +376,58 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           // Clear staged changes — they reference the old connection's backend.
           useStagedChangesStore.getState().clearTab(id);
 
+          const connections = useConnectionStore.getState().connections;
+          const newConn = connections.find((c) => c.id === newConnectionId);
+          const targetIsSqlite = newConn?.driver === "sqlite";
+
           return {
             tabs: updateTabInList(state.tabs, id, (t) => {
+              const sourceConn = connections.find((c) => c.id === t.connectionId);
+              const sourceIsSqlite = sourceConn?.driver === "sqlite";
+              const normalizeSchema = (schema: string | null | undefined): string => {
+                if (targetIsSqlite) return "main";
+                if (!schema) return "public";
+                if (sourceIsSqlite && schema === "main") return "public";
+                return schema;
+              };
+
               if (t.kind === "schema-workspace") {
+                const schema = normalizeSchema(t.data.schema);
                 return {
                   ...t,
+                  title: `ER: ${schema}`,
                   connectionId: newConnectionId,
-                  resourceKey: `schema-ws:${t.data.schema}:${newConnectionId}`,
+                  resourceKey: `schema-ws:${schema}:${newConnectionId}`,
                   dirty: true,
+                  data: {
+                    ...t.data,
+                    schema,
+                  },
                 };
               }
               if (t.kind === "db-object") {
+                const schema = normalizeSchema(t.data.schema);
                 return {
                   ...t,
                   connectionId: newConnectionId,
-                  resourceKey: `dbobj:${t.data.schema}.${t.data.objectName}:${newConnectionId}`,
+                  resourceKey: `dbobj:${schema}.${t.data.objectName}:${newConnectionId}`,
                   dirty: true,
+                  data: {
+                    ...t.data,
+                    schema,
+                  },
                 };
               }
-              // Query tab: reset context to new connection's default database
-              const connections = useConnectionStore.getState().connections;
-              const newConn = connections.find((c) => c.id === newConnectionId);
+              // Query tab: reset context to new connection's default database and schema
               const defaultDb = newConn?.database ?? null;
+              const defaultSchema = targetIsSqlite ? "main" : "public";
               return {
                 ...t,
                 connectionId: newConnectionId,
                 dirty: true,
                 data: {
                   ...t.data,
-                  context: { database: defaultDb, schema: null },
+                  context: { database: defaultDb, schema: defaultSchema },
                   status: "idle" as const,
                   error: null,
                   result: null,
