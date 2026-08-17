@@ -271,7 +271,7 @@ Severity follows `REVIEW.md`. `SOURCE_CONFIRMED` means the problematic state tra
 
 ## QA-P1-14 — PostgreSQL row mapper lacks a lossless, explicit contract for common non-basic types
 
-**Status:** RUNTIME_CONFIRM but release-blocking until type matrix is proven  
+**Status:** IMPLEMENTING (Gate 5)
 **Area:** PostgreSQL result mapping / precision  
 **Files:**
 - `crates/infrastructure/src/postgres/query_mapper.rs`

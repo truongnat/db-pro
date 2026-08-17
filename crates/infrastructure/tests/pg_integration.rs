@@ -111,6 +111,33 @@ async fn pg_introspect_tables() {
 
 #[tokio::test]
 #[ignore]
+async fn pg_type_matrix() {
+    let (connector, handle) = setup().await;
+    let result = connector
+        .query(
+            &handle,
+            "SELECT 123.4567890123456789::numeric AS num, '1234.56'::money AS mon, '192.168.1.1'::inet AS ip, ARRAY[1, 2, 3] AS arr, '10:15:30+02'::timetz AS ttz",
+            &[],
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(result.row_count, 1);
+    assert_eq!(result.columns.len(), 5);
+
+    let row = &result.rows[0];
+    use db_pro_core::domain::query::CellValue;
+    assert!(matches!(&row.0[0], CellValue::Text(s) if s.contains("123.4567890123456789")));
+    assert!(matches!(&row.0[1], CellValue::Text(s) if s.contains("1234.56")));
+    assert!(matches!(&row.0[2], CellValue::Text(s) if s.contains("192.168.1.1")));
+    assert!(matches!(&row.0[3], CellValue::Json(_)));
+    assert!(matches!(&row.0[4], CellValue::Text(s) if s.contains("10:15:30")));
+
+    connector.disconnect(&handle).await.unwrap();
+}
+
+#[tokio::test]
+#[ignore]
 async fn pg_introspect_triggers() {
     let (connector, handle) = setup().await;
     let result = connector.introspect(&handle).await.unwrap();

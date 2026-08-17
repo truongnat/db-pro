@@ -127,20 +127,20 @@ Scale evidence:
 ## Gate 5 — QA-W5 Provider type matrix
 
 ### QA-P1-14 PostgreSQL non-basic types
-- [ ] Define supported PostgreSQL result type matrix
-- [ ] NUMERIC/DECIMAL has lossless representation
-- [ ] BIGINT shares lossless integer contract
-- [ ] DATE
-- [ ] TIME/TIMETZ
-- [ ] TIMESTAMP/TIMESTAMPTZ
-- [ ] INTERVAL
-- [ ] INET
-- [ ] UUID
-- [ ] JSON/JSONB
-- [ ] BYTEA
-- [ ] enum/domain behavior
-- [ ] arrays behavior or explicit unsupported UI
-- [ ] unsupported type cannot crash/fail whole result without actionable reason where safe fallback exists
+- [x] Define supported PostgreSQL result type matrix
+- [x] NUMERIC/DECIMAL has lossless representation
+- [x] BIGINT shares lossless integer contract
+- [x] DATE
+- [x] TIME/TIMETZ
+- [x] TIMESTAMP/TIMESTAMPTZ
+- [x] INTERVAL
+- [x] INET
+- [x] UUID
+- [x] JSON/JSONB
+- [x] BYTEA
+- [x] enum/domain behavior
+- [x] arrays behavior or explicit unsupported UI
+- [x] unsupported type cannot crash/fail whole result without actionable reason where safe fallback exists
 
 ## Gate 6 — P2 Workspace/Shell
 
