@@ -1,6 +1,7 @@
 use db_pro_core::domain::error::DbError;
 use db_pro_core::domain::schema::*;
 use rusqlite::OptionalExtension;
+use std::collections::hash_map::Entry;
 
 /// Escape a SQLite identifier by doubling any embedded double-quote characters
 /// and wrapping in double quotes. This is safe for interpolation into PRAGMA
@@ -163,37 +164,38 @@ fn introspect_foreign_keys(conn: &rusqlite::Connection, table_names: &[String]) 
             .prepare(&format!("PRAGMA foreign_key_list({safe_name})"))
             .map_err(crate::error::from_rusqlite)?;
 
-        // Group columns by FK id to support composite foreign keys
+        // Collect first so rusqlite row-conversion errors are propagated instead
+        // of being discarded while the lazy query_map iterator is consumed.
+        let rows: Vec<(i32, String, String, String)> = stmt
+            .query_map([], |row| {
+                let id: i32 = row.get(0)?;
+                let _seq: i32 = row.get(1)?;
+                let to_table: String = row.get(2)?;
+                let from_column: String = row.get(3)?;
+                let to_column: String = row.get(4)?;
+                Ok((id, to_table, from_column, to_column))
+            })
+            .map_err(crate::error::from_rusqlite)?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(crate::error::from_rusqlite)?;
+
+        // Group columns by FK id to support composite foreign keys while keeping
+        // the PRAGMA encounter order deterministic.
         let mut map: std::collections::HashMap<i32, (String, Vec<String>, Vec<String>)> =
             std::collections::HashMap::new();
         let mut order: Vec<i32> = Vec::new();
 
-        stmt.query_map([], |row| {
-            let id: i32 = row.get(0)?;
-            let _seq: i32 = row.get(1)?;
-            let to_table: String = row.get(2)?;
-            let from_column: String = row.get(3)?;
-            let to_column: String = row.get(4)?;
-
-            // contains_key + insert is intentional: we maintain a separate
-            // `order` vec for deterministic FK ordering, which the entry API
-            // cannot express in a single step.
-            #[allow(clippy::map_entry)]
-            {
-                if !map.contains_key(&id) {
+        for (id, to_table, from_column, to_column) in rows {
+            let (_, from_cols, to_cols) = match map.entry(id) {
+                Entry::Vacant(entry) => {
                     order.push(id);
-                    map.insert(id, (to_table, Vec::new(), Vec::new()));
+                    entry.insert((to_table, Vec::new(), Vec::new()))
                 }
-            }
-
-            let (_to_table, from_cols, to_cols) = map.get_mut(&id).unwrap();
+                Entry::Occupied(entry) => entry.into_mut(),
+            };
             from_cols.push(from_column);
             to_cols.push(to_column);
-
-            Ok(())
-        })
-        .map_err(crate::error::from_rusqlite)?
-        .for_each(|_| {});
+        }
 
         for id in order {
             let (to_table, from_columns, to_columns) = map.remove(&id).unwrap();
