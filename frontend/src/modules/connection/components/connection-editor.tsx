@@ -89,10 +89,35 @@ export function ConnectionEditor({
     setFormData((prev: ConnectionFormData) => ({ ...prev, [key]: value }));
   };
 
+  const sanitizeFormData = (data: ConnectionFormData): ConnectionFormData => {
+    if (data.driver !== "postgres" || !showSsh) {
+      return { ...data, sshTunnel: undefined };
+    }
+    return {
+      ...data,
+      sshTunnel: data.sshTunnel
+        ? {
+            host: data.sshTunnel.host ?? "",
+            port: data.sshTunnel.port ?? 22,
+            user: data.sshTunnel.user ?? "",
+            privateKeyPath: data.sshTunnel.privateKeyPath ?? "",
+            password: data.sshTunnel.password || undefined,
+          }
+        : undefined,
+    };
+  };
+
   const updateSshField = (key: string, value: string | number) => {
     setFormData((prev: ConnectionFormData) => ({
       ...prev,
-      sshTunnel: { ...prev.sshTunnel!, [key]: value },
+      sshTunnel: {
+        host: prev.sshTunnel?.host ?? "",
+        port: prev.sshTunnel?.port ?? 22,
+        user: prev.sshTunnel?.user ?? "",
+        privateKeyPath: prev.sshTunnel?.privateKeyPath ?? "",
+        password: prev.sshTunnel?.password ?? "",
+        [key]: value,
+      },
     }));
   };
 
@@ -100,7 +125,7 @@ export function ConnectionEditor({
     e.preventDefault();
     const submitter = (e.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null;
     const intent: SaveIntent = submitter?.name === "save-and-connect" ? "save-and-connect" : "save";
-    onSubmit(formData, password, intent);
+    onSubmit(sanitizeFormData(formData), password, intent);
   };
 
   const handleTest = () => {
@@ -111,15 +136,16 @@ export function ConnectionEditor({
     }
     // Block Test when driver changed but password not yet entered —
     // prevents backend from silently reusing the old driver's secret.
-    if (driverChanged && !password) {
+    if (isPostgres && driverChanged && !password) {
       return;
     }
-    onTest?.(formData, password);
+    onTest?.(sanitizeFormData(formData), password);
   };
 
   const handleDriverChange = (driver: DriverType) => {
+    const initialDriver = initialData?.driver ?? "postgres";
     if (driver !== formData.driver) {
-      setDriverChanged(true);
+      setDriverChanged(driver !== initialDriver);
       setPassword("");
     }
     setFormData((prev: ConnectionFormData) => ({
