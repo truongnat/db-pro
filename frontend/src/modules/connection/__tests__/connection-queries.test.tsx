@@ -3,15 +3,20 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 
-import { useConnect } from "../queries/connection.queries";
+import { useConnect, useToggleFavorite } from "../queries/connection.queries";
 import { useRecentStore } from "@/commons/stores/recent.store";
+import { useConnectionModuleStore } from "../state/connection.store";
 
 const connectMock = vi.fn();
+const getMock = vi.fn();
+const updateMock = vi.fn();
 
 vi.mock("@/app/app.module", () => ({
   container: {
     resolve: vi.fn(() => ({
       connect: connectMock,
+      get: getMock,
+      update: updateMock,
     })),
   },
 }));
@@ -76,5 +81,38 @@ describe("useConnect recent tracking", () => {
     await waitFor(() => expect(connectMock).toHaveBeenCalled());
 
     expect(useRecentStore.getState().recentConnections).toHaveLength(0);
+  });
+});
+
+describe("useToggleFavorite optimistic rollback", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useConnectionModuleStore.setState({ favorites: {} });
+  });
+
+  it("reverts optimistic favorite toggle when update fails", async () => {
+    getMock.mockResolvedValue({
+      id: "conn-1",
+      name: "Test DB",
+      driver: "postgres",
+      favorite: false,
+    });
+    updateMock.mockRejectedValue(new Error("Database write error"));
+
+    const { result } = renderHook(() => useToggleFavorite(), { wrapper });
+
+    // Initial state: not favorited
+    expect(useConnectionModuleStore.getState().favorites["conn-1"]).toBeFalsy();
+
+    // Trigger mutation
+    act(() => result.current.mutate({ id: "conn-1", favorite: true }));
+
+    // Optimistically favorited immediately
+    expect(useConnectionModuleStore.getState().favorites["conn-1"]).toBe(true);
+
+    // After failure, onError rolls back favorite state
+    await waitFor(() => {
+      expect(useConnectionModuleStore.getState().favorites["conn-1"]).toBe(false);
+    });
   });
 });
