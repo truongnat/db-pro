@@ -322,6 +322,7 @@
     "connectFirst": "Connect to a database to browse data",
     "noData": "No data",
     "readOnlyNoPk": "Read-only — editing requires a primary key",
+    "readOnlyConnection": "Read-only — connection is marked as read-only",
     "filter": "Value",
     "filterValue": "Value",
     "addFilter": "Add filter",

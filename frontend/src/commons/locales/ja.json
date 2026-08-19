@@ -298,6 +298,7 @@
     "connectFirst": "データを閲覧するにはデータベースに接続してください",
     "noData": "データがありません",
     "readOnlyNoPk": "読み取り専用 — 編集には主キーが必要です",
+    "readOnlyConnection": "読み取り専用 — 接続が読み取り専用に設定されています",
     "filter": "値",
     "filterValue": "値",
     "addFilter": "フィルタ追加",
