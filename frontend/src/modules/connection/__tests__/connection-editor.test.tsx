@@ -138,9 +138,25 @@ describe("ConnectionEditor", () => {
     expect(screen.getByText("Test successful")).toBeInTheDocument();
   });
 
-  it("shows test error result", () => {
-    renderEditor({ onTest: vi.fn(), testResult: "error" });
+  it("shows test error result and detail message", () => {
+    renderEditor({
+      onTest: vi.fn(),
+      testResult: "error",
+      testErrorDetail: "Connection refused on port 5432",
+    });
     expect(screen.getByText("Test failed")).toBeInTheDocument();
+    expect(screen.getByText("Connection refused on port 5432")).toBeInTheDocument();
+  });
+
+  it("calls onFormChange when user edits inputs after test", async () => {
+    const onFormChange = vi.fn();
+    const user = userEvent.setup();
+    renderEditor({ onTest: vi.fn(), testResult: "success", onFormChange });
+
+    const nameInput = screen.getByPlaceholderText("My Database");
+    await user.type(nameInput, "a");
+
+    expect(onFormChange).toHaveBeenCalled();
   });
 
   it("disables submit button when submitting", () => {

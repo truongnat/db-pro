@@ -52,6 +52,8 @@ interface ConnectionEditorProps {
   isTesting?: boolean;
   isConnecting?: boolean;
   testResult?: "success" | "error" | null;
+  testErrorDetail?: string | null;
+  onFormChange?: () => void;
   connectError?: string | null;
 }
 
@@ -68,6 +70,8 @@ export function ConnectionEditor({
   isTesting = false,
   isConnecting = false,
   testResult = null,
+  testErrorDetail = null,
+  onFormChange,
   connectError = null,
 }: ConnectionEditorProps) {
   const { t } = useTranslation();
@@ -86,6 +90,7 @@ export function ConnectionEditor({
     key: K,
     value: ConnectionFormData[K],
   ) => {
+    onFormChange?.();
     setFormData((prev: ConnectionFormData) => ({ ...prev, [key]: value }));
   };
 
@@ -108,6 +113,7 @@ export function ConnectionEditor({
   };
 
   const updateSshField = (key: string, value: string | number) => {
+    onFormChange?.();
     setFormData((prev: ConnectionFormData) => ({
       ...prev,
       sshTunnel: {
@@ -143,6 +149,7 @@ export function ConnectionEditor({
   };
 
   const handleDriverChange = (driver: DriverType) => {
+    onFormChange?.();
     const initialDriver = initialData?.driver ?? "postgres";
     if (driver !== formData.driver) {
       setDriverChanged(driver !== initialDriver);
@@ -277,7 +284,10 @@ export function ConnectionEditor({
             label={t("common.labels.password")}
             type="password"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(e) => {
+              onFormChange?.();
+              setPassword(e.target.value);
+            }}
             required={!isEdit || driverChanged}
             placeholder={driverChanged ? "" : isEdit ? "(unchanged)" : ""}
           />
@@ -391,10 +401,15 @@ export function ConnectionEditor({
       />
 
       {testResult && (
-        <div className="flex items-center gap-2 rounded-lg border border-[var(--border-default)] bg-muted px-4 py-3">
-          <Badge variant={testResult === "success" ? "success" : "error"} dot>
-            {testResult === "success" ? t("connection.testSuccess") : t("connection.testFailed")}
-          </Badge>
+        <div className="flex flex-col gap-1 rounded-lg border border-[var(--border-default)] bg-muted px-4 py-3">
+          <div className="flex items-center gap-2">
+            <Badge variant={testResult === "success" ? "success" : "error"} dot>
+              {testResult === "success" ? t("connection.testSuccess") : t("connection.testFailed")}
+            </Badge>
+          </div>
+          {testResult === "error" && testErrorDetail && (
+            <p className="pl-4 text-xs text-destructive">{testErrorDetail}</p>
+          )}
         </div>
       )}
 

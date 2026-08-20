@@ -249,6 +249,7 @@ export function DataToolbar({
                     <Checkbox
                       checked={!hiddenColumns.includes(c.name)}
                       onCheckedChange={() => onToggleHiddenColumn(c.name)}
+                      onClick={(e) => e.stopPropagation()}
                     />
                     <span className="truncate">{c.name}</span>
                   </div>
