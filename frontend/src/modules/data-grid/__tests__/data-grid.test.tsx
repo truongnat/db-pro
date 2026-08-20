@@ -41,6 +41,7 @@ vi.mock("@tanstack/react-virtual", () => ({
 }));
 
 import { DataGrid } from "../components/data-grid";
+import { DataToolbar } from "../components/data-toolbar";
 import type { ColumnMeta, Row } from "../types/data-grid.types";
 
 const columns: ColumnMeta[] = [
@@ -127,5 +128,53 @@ describe("DataGrid", () => {
   it("shows empty state when no columns", () => {
     renderGrid({ columns: [], rows: [] });
     expect(screen.getByText("No data")).toBeInTheDocument();
+  });
+});
+
+describe("DataToolbar QA-P2-07", () => {
+  it("calls onToggleHiddenColumn exactly once when clicking column checkbox directly", async () => {
+    const onToggleHiddenColumn = vi.fn();
+    const user = userEvent.setup();
+
+    render(
+      <I18nextProvider i18n={i18n}>
+        <TooltipProvider>
+          <DataToolbar
+            columns={columns}
+            rowCount={2}
+            filters={[]}
+            sorts={[]}
+            draftFilters={[]}
+            draftSorts={[]}
+            hiddenColumns={[]}
+            onAddDraftFilter={vi.fn()}
+            onRemoveDraftFilter={vi.fn()}
+            onApplyFilters={vi.fn()}
+            onClearFilters={vi.fn()}
+            onAddDraftSort={vi.fn()}
+            onRemoveDraftSort={vi.fn()}
+            onApplySorts={vi.fn()}
+            onClearSorts={vi.fn()}
+            onToggleHiddenColumn={onToggleHiddenColumn}
+            onShowAllColumns={vi.fn()}
+          />
+        </TooltipProvider>
+      </I18nextProvider>,
+    );
+
+    // Open Columns popover
+    const columnsBtn = screen.getByRole("button", { name: /Columns/i });
+    await user.click(columnsBtn);
+
+    // Find the checkboxes
+    const checkboxes = screen.getAllByRole("checkbox");
+    expect(checkboxes.length).toBeGreaterThan(0);
+
+    // Click directly on the first column checkbox
+    await user.click(checkboxes[0]);
+
+    // Check that onToggleHiddenColumn was called exactly ONCE (not twice)
+    expect(onToggleHiddenColumn).toHaveBeenCalledTimes(1);
+    expect(onToggleHiddenColumn).toHaveBeenCalledWith("id");
   });
 });

@@ -117,6 +117,7 @@ function mockDefaultQueries() {
   } as unknown as ReturnType<typeof queries.useUpdateConnection>);
   vi.mocked(queries.useTestConnection).mockReturnValue({
     mutate: testMutate,
+    reset: vi.fn(),
     isPending: false,
     isSuccess: false,
     isError: false,

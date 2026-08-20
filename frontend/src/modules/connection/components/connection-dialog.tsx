@@ -30,6 +30,7 @@ export function ConnectionDialog() {
   const [connection, setConnection] = useState<Connection | null>(null);
   const [loadState, setLoadState] = useState<LoadState>("idle");
   const [connectError, setConnectError] = useState<string | null>(null);
+  const [testErrorDetail, setTestErrorDetail] = useState<string | null>(null);
   const [persistedConnectionId, setPersistedConnectionId] = useState<string | null>(null);
   const loadSeq = useRef(0);
   const sessionGen = useRef(0);
@@ -63,6 +64,8 @@ export function ConnectionDialog() {
     loadSeq.current++;
     sessionGen.current++;
     setConnectError(null);
+    setTestErrorDetail(null);
+    testMutation.reset?.();
     if (!open) {
       setConnection(null);
       setLoadState("idle");
@@ -152,14 +155,24 @@ export function ConnectionDialog() {
       {
         onSuccess: () => {
           if (gen !== sessionGen.current) return;
+          setTestErrorDetail(null);
           snackbar.success(t("connection.testSuccess"));
         },
-        onError: () => {
+        onError: (err: unknown) => {
           if (gen !== sessionGen.current) return;
-          snackbar.error(t("connection.testFailed"));
+          const msg = (err as { userMessage?: string }).userMessage ?? t("connection.testFailed");
+          setTestErrorDetail(msg);
+          snackbar.error(msg);
         },
       },
     );
+  };
+
+  const handleFormChange = () => {
+    if (testMutation.isSuccess || testMutation.isError) {
+      testMutation.reset?.();
+      setTestErrorDetail(null);
+    }
   };
 
   const isSubmitting = createMutation.isPending || updateMutation.isPending;
@@ -235,6 +248,8 @@ export function ConnectionDialog() {
               testResult={
                 testMutation.isSuccess ? "success" : testMutation.isError ? "error" : null
               }
+              testErrorDetail={testErrorDetail}
+              onFormChange={handleFormChange}
               connectError={connectError}
             />
           )}
