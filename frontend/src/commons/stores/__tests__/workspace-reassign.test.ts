@@ -1,6 +1,12 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { createDbObjectTab, createSchemaWorkspaceTab } from "@/commons/factories/tab-factories";
+import {
+  createDbObjectTab,
+  createQueryTab,
+  createSchemaWorkspaceTab,
+} from "@/commons/factories/tab-factories";
+import { requestCloseTab } from "@/commons/services/request-close-tab";
+import { useCloseGuardStore } from "@/commons/stores/close-guard.store";
 import { useConnectionStore } from "@/commons/stores/connection.store";
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
 import type { Connection, DriverType } from "@/modules/connection/types/connection.types";
@@ -25,6 +31,7 @@ function resetStores() {
   useWorkspaceStore.setState({ tabs: [], activeTabId: null, recentlyClosed: [] });
   useConnectionStore.setState({ connections: [] });
   useStagedChangesStore.getState().clearAll();
+  useCloseGuardStore.setState({ open: false, tabIds: [] });
 }
 
 describe("workspace connection reassignment", () => {
@@ -104,5 +111,65 @@ describe("workspace connection reassignment", () => {
     expect(reassigned.data.schema).toBe("main");
     expect(reassigned.title).toBe("ER: main");
     expect(reassigned.resourceKey).toBe(`schema-ws:main:${target.id}`);
+  });
+
+  it("resets query tab context, clears staged changes, and preserves SQL on reassignment", () => {
+    const source = connection("pg-source", "postgres");
+    const target = connection("sqlite-target", "sqlite");
+    useConnectionStore.setState({ connections: [source, target] });
+
+    const tab = createQueryTab(source.id, { sql: "SELECT * FROM users;" });
+    useWorkspaceStore.setState({ tabs: [tab], activeTabId: tab.id });
+
+    // Stage changes on the tab before reassignment
+    useStagedChangesStore.getState().stageCellEdit(tab.id, {
+      pkValues: [{ type: "int64", value: "1" }],
+      changes: { name: { type: "string", value: "Bob" } },
+    });
+    expect(useStagedChangesStore.getState().getCount(tab.id)).toBe(1);
+
+    useWorkspaceStore.getState().reassignTabConnection(tab.id, target.id);
+
+    // Staged changes must be cleared on reassignment
+    expect(useStagedChangesStore.getState().getCount(tab.id)).toBe(0);
+
+    const reassigned = useWorkspaceStore.getState().tabs[0];
+    expect(reassigned.kind).toBe("query");
+    if (reassigned.kind !== "query") return;
+    expect(reassigned.connectionId).toBe(target.id);
+    expect(reassigned.data.sql).toBe("SELECT * FROM users;");
+    expect(reassigned.data.context.schema).toBe("main");
+    expect(reassigned.data.context.database).toBe("/tmp/db-pro-test.sqlite");
+  });
+
+  it("routes orphaned tab close through requestCloseTab and triggers close guard if tab is dirty", () => {
+    const tab = createQueryTab("missing-conn", { sql: "SELECT 1;" });
+    useWorkspaceStore.setState({ tabs: [tab], activeTabId: tab.id });
+    useWorkspaceStore.getState().setTabDirty(tab.id, true);
+
+    requestCloseTab(tab.id);
+
+    // Tab should NOT be closed immediately because it is dirty
+    expect(useWorkspaceStore.getState().tabs.length).toBe(1);
+    // Close guard dialog should open
+    expect(useCloseGuardStore.getState().open).toBe(true);
+    expect(useCloseGuardStore.getState().tabIds).toEqual([tab.id]);
+  });
+
+  it("routes orphaned tab close through requestCloseTab and triggers close guard if tab has staged changes", () => {
+    const tab = createQueryTab("missing-conn", { sql: "SELECT 1;" });
+    useWorkspaceStore.setState({ tabs: [tab], activeTabId: tab.id });
+
+    useStagedChangesStore.getState().stageCellEdit(tab.id, {
+      pkValues: [{ type: "int64", value: "1" }],
+      changes: { name: { type: "string", value: "Bob" } },
+    });
+
+    requestCloseTab(tab.id);
+
+    // Tab should NOT be closed immediately because it has staged changes
+    expect(useWorkspaceStore.getState().tabs.length).toBe(1);
+    expect(useCloseGuardStore.getState().open).toBe(true);
+    expect(useCloseGuardStore.getState().tabIds).toEqual([tab.id]);
   });
 });
