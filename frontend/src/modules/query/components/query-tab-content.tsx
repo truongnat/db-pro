@@ -298,6 +298,7 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
         isExplaining={isExplaining}
         hasConnection={!!tabConnectionId}
         hasSql={!!sql.trim()}
+        hasResults={!!result}
       />
 
       <ResizableDock>
