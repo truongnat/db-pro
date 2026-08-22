@@ -7,6 +7,20 @@ vi.mock("@/commons/locales/useTranslation", () => ({
 }));
 
 import { QueryToolbar } from "../components/query-toolbar";
+import { QueryCommandBar } from "../components/query-command-bar";
+
+vi.mock("@/modules/connection/queries/connection.queries", () => ({
+  useConnectionList: () => ({
+    data: [{ id: "conn-1", name: "Test DB", database: "testdb" }],
+  }),
+}));
+
+vi.mock("../stores/schema-catalog.store", () => ({
+  useSchemaCatalogStore: (selector: (state: unknown) => unknown) =>
+    selector({
+      catalogs: new Map(),
+    }),
+}));
 
 const defaultProps = {
   onExecuteCurrent: vi.fn(),
@@ -110,5 +124,48 @@ describe("QueryToolbar — Run split button", () => {
     const explainButtons = screen.getAllByRole("button");
     const explainButton = explainButtons.find((btn) => btn.textContent?.includes("query.explain"));
     expect(explainButton).toBeDefined();
+  });
+});
+
+describe("QueryCommandBar — Export enablement (QA-P2-22)", () => {
+  const commandBarProps = {
+    tabId: "tab-1",
+    connectionId: "conn-1",
+    context: { database: "testdb", schema: null },
+    onExecuteCurrent: vi.fn(),
+    onExecuteAll: vi.fn(),
+    onCancel: vi.fn(),
+    onExplain: vi.fn(),
+    onClear: vi.fn(),
+    onExport: vi.fn(),
+    onFormat: vi.fn(),
+    onExportSql: vi.fn(),
+    onImportSql: vi.fn(),
+    isExecuting: false,
+    isExplaining: false,
+    hasConnection: true,
+    hasSql: true,
+  };
+
+  it("disables Export Results when hasResults is false", async () => {
+    const user = userEvent.setup();
+    render(<QueryCommandBar {...commandBarProps} hasResults={false} />);
+
+    const moreButton = screen.getAllByRole("button").pop()!;
+    await user.click(moreButton);
+
+    const exportItem = await screen.findByText("query.exportResults");
+    expect(exportItem.closest("[data-disabled]")).not.toBeNull();
+  });
+
+  it("enables Export Results when hasResults is true, even if hasSql is false", async () => {
+    const user = userEvent.setup();
+    render(<QueryCommandBar {...commandBarProps} hasSql={false} hasResults={true} />);
+
+    const moreButton = screen.getAllByRole("button").pop()!;
+    await user.click(moreButton);
+
+    const exportItem = await screen.findByText("query.exportResults");
+    expect(exportItem.closest("[data-disabled]")).toBeNull();
   });
 });
