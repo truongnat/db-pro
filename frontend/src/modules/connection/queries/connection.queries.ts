@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { container } from "@/app/app.module";
@@ -34,7 +35,7 @@ export function __resetSessionRestored() {
  * This function only executes once per app startup to prevent double-connection
  * on subsequent query invalidations/refetches.
  */
-function restoreSession(connections: Connection[]) {
+export function restoreSession(connections: Connection[]) {
   if (sessionRestored) return;
   sessionRestored = true;
 
@@ -93,18 +94,24 @@ function restoreSession(connections: Connection[]) {
 }
 
 export function useConnectionList() {
-  return useQuery({
+  const query = useQuery({
     queryKey: QUERY_KEYS.connections,
     queryFn: async () => {
       const connections = (await getConnectionService().list()) as Connection[];
       useConnectionStore.getState().setConnections(connections);
       // Connections are now loaded — reconcile persisted workspace tabs.
       reconcileWorkspaceTabs();
-      // Restore previously active connections from the last session (one-shot).
-      restoreSession(connections);
       return connections;
     },
   });
+
+  useEffect(() => {
+    if (query.data) {
+      restoreSession(query.data);
+    }
+  }, [query.data]);
+
+  return query;
 }
 
 export function useCreateConnection() {
