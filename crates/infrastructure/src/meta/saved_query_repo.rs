@@ -60,6 +60,16 @@ impl SavedQueryRepository for SQLiteMetaStore {
         Ok(())
     }
 
+    async fn rename(&self, id: &uuid::Uuid, new_name: &str) -> Result<(), DbError> {
+        self.actor
+            .raw_query(
+                "UPDATE saved_queries SET name = ?1 WHERE id = ?2".into(),
+                vec![new_name.to_string(), id.to_string()],
+            )
+            .await?;
+        Ok(())
+    }
+
     async fn create_folder(&self, folder: &SavedQueryFolder) -> Result<(), DbError> {
         self.actor
             .raw_query(
@@ -106,5 +116,38 @@ impl SavedQueryRepository for SQLiteMetaStore {
             )
             .await?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use db_pro_core::domain::history::SavedQuery;
+
+    #[tokio::test]
+    async fn saved_query_rename_updates_name_and_preserves_identity() {
+        let store = SQLiteMetaStore::new(":memory:").await.unwrap();
+        let conn_id = ConnectionId::new();
+        let query_id = uuid::Uuid::new_v4();
+        let created_at = chrono::Utc::now();
+
+        let initial_query = SavedQuery {
+            id: query_id,
+            connection_id: conn_id,
+            name: "Original Name".to_string(),
+            sql: "SELECT 1".to_string(),
+            folder: None,
+            created_at,
+        };
+
+        store.save(&initial_query).await.unwrap();
+
+        store.rename(&query_id, "New Name").await.unwrap();
+
+        let queries = store.list(&conn_id).await.unwrap();
+        assert_eq!(queries.len(), 1);
+        assert_eq!(queries[0].id, query_id);
+        assert_eq!(queries[0].name, "New Name");
+        assert_eq!(queries[0].sql, "SELECT 1");
     }
 }

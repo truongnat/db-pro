@@ -277,33 +277,20 @@ export function useDeleteRunConfig() {
 }
 
 /**
- * Rename a saved query by deleting and re-saving with a new name.
- * Note: this changes the ID and created_at, which is acceptable for P11.
+ * Rename a saved query atomically without altering query identity or timestamp.
  */
 export function useRenameSavedQuery() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({
+    mutationFn: ({
       id,
-      connectionId,
+      connectionId: _connectionId,
       newName,
     }: {
       id: string;
       connectionId: string;
       newName: string;
-    }) => {
-      const queries =
-        (qc.getQueryData(QUERY_KEYS.saved(connectionId)) as SavedQuery[] | undefined) ?? [];
-      const existing = queries.find((q) => q.id === id);
-      if (!existing) throw new Error("Saved query not found");
-      await getQueryService().deleteSaved(id);
-      return getQueryService().save(
-        connectionId,
-        newName,
-        existing.sql,
-        existing.folder,
-      ) as Promise<SavedQuery>;
-    },
+    }) => getQueryService().renameSaved(id, newName),
     onSuccess: (_, variables) => {
       qc.invalidateQueries({ queryKey: QUERY_KEYS.saved(variables.connectionId) });
     },

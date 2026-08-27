@@ -62,6 +62,7 @@ vi.mock("@/app/app.module", () => ({
       deleteRunConfig: mockDeleteRunConfig,
       renameSavedQuery: mockRenameSavedQuery,
       duplicateSavedQuery: mockDuplicateSavedQuery,
+      renameSaved: mockRenameSavedQuery,
     })),
   },
 }));
@@ -107,6 +108,7 @@ import {
   useListSavedQueries,
   useListFolders,
   useListRunConfigs,
+  useRenameSavedQuery,
 } from "../queries/query.queries";
 
 function createWrapper() {
@@ -237,6 +239,29 @@ describe("query.queries", () => {
       });
 
       expect(mockListRunConfigs).toHaveBeenCalledWith("conn-1");
+    });
+  });
+
+  describe("useRenameSavedQuery", () => {
+    it("calls renameSaved directly and never calls deleteSavedQuery", async () => {
+      mockRenameSavedQuery.mockResolvedValue(undefined);
+
+      const { result } = renderHook(() => useRenameSavedQuery(), {
+        wrapper: createWrapper(),
+      });
+
+      result.current.mutate({
+        id: "sq-1",
+        connectionId: "conn-1",
+        newName: "New Query Name",
+      });
+
+      await waitFor(() => {
+        expect(result.current.isSuccess).toBe(true);
+      });
+
+      expect(mockRenameSavedQuery).toHaveBeenCalledWith("sq-1", "New Query Name");
+      expect(mockDeleteSavedQuery).not.toHaveBeenCalled();
     });
   });
 });
