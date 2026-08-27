@@ -25,6 +25,17 @@ describe("QueryService — comprehensive", () => {
     });
   });
 
+  describe("saved query operations", () => {
+    it("renameSaved calls rename_saved_query with id and newName", async () => {
+      mockInvoke.mockResolvedValueOnce(undefined);
+      await service.renameSaved("sq-1", "Renamed Query");
+      expect(mockInvoke).toHaveBeenCalledWith("rename_saved_query", {
+        id: "sq-1",
+        newName: "Renamed Query",
+      });
+    });
+  });
+
   describe("executeMulti", () => {
     it("calls execute_query_multi with connectionId and sql", async () => {
       const multiResult = {

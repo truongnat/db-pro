@@ -245,6 +245,10 @@ impl QueryService {
         self.saved_queries.delete(id).await
     }
 
+    pub async fn rename_saved_query(&self, id: &uuid::Uuid, new_name: &str) -> Result<(), DbError> {
+        self.saved_queries.rename(id, new_name).await
+    }
+
     pub async fn create_folder(&self, connection_id: &ConnectionId, name: &str) -> Result<SavedQueryFolder, DbError> {
         let folder = SavedQueryFolder {
             id: uuid::Uuid::new_v4(),
@@ -750,5 +754,27 @@ mod tests {
         assert!(msg.contains("permission denied"));
         assert_eq!(result.results.len(), 1);
         assert_eq!(result.results[0].row_count, 1);
+    }
+
+    #[tokio::test]
+    async fn rename_saved_query_delegates_to_repo() {
+        let query_id = uuid::Uuid::new_v4();
+        let mut mock_repo = MockSavedQueryRepository::new();
+        mock_repo
+            .expect_rename()
+            .withf(move |id, name| id == &query_id && name == "Renamed Query")
+            .returning(|_, _| Ok(()));
+
+        let svc = QueryService::new(
+            Box::new(MockDbConnector::new()),
+            Box::new(MockQueryHistoryRepository::new()),
+            Box::new(mock_repo),
+            Box::new(MockRunConfigRepository::new()),
+            Arc::new(ConnectionRegistry::new()),
+            Box::new(MockConnectionRepository::new()),
+        );
+
+        let result = svc.rename_saved_query(&query_id, "Renamed Query").await;
+        assert!(result.is_ok());
     }
 }
