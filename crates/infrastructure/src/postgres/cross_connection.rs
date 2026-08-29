@@ -145,11 +145,15 @@ pub async fn rename_schema_object(
     old_name: &str,
     new_name: &str,
 ) -> Result<(), DbError> {
-    let qualified_old = format!(
-        "\"{}\".\"{}\"",
-        schema.replace('"', "\"\""),
-        old_name.replace('"', "\"\"")
-    );
+    let qualified_old = if schema.is_empty() {
+        format!("\"{}\"", old_name.replace('"', "\"\""))
+    } else {
+        format!(
+            "\"{}\".\"{}\"",
+            schema.replace('"', "\"\""),
+            old_name.replace('"', "\"\"")
+        )
+    };
     let safe_new = format!("\"{}\"", new_name.replace('"', "\"\""));
 
     let sql = match object_type {
