@@ -19,17 +19,17 @@ impl SchemaService {
     }
 }
 
+fn qualify_key(schema: &str, name: &str) -> String {
+    if schema.is_empty() {
+        name.to_string()
+    } else {
+        format!("{schema}.{name}")
+    }
+}
+
 fn compare_introspect_results(source: &IntrospectResult, target: &IntrospectResult) -> SchemaDiff {
-    let source_tables: HashSet<String> = source
-        .tables
-        .iter()
-        .map(|t| format!("{}.{}", t.schema, t.name))
-        .collect();
-    let target_tables: HashSet<String> = target
-        .tables
-        .iter()
-        .map(|t| format!("{}.{}", t.schema, t.name))
-        .collect();
+    let source_tables: HashSet<String> = source.tables.iter().map(|t| qualify_key(&t.schema, &t.name)).collect();
+    let target_tables: HashSet<String> = target.tables.iter().map(|t| qualify_key(&t.schema, &t.name)).collect();
 
     let tables_only_in_source: Vec<String> = source_tables.difference(&target_tables).cloned().collect();
     let tables_only_in_target: Vec<String> = target_tables.difference(&source_tables).cloned().collect();
@@ -92,16 +92,8 @@ fn compare_introspect_results(source: &IntrospectResult, target: &IntrospectResu
         }
     }
 
-    let source_indexes: HashSet<String> = source
-        .indexes
-        .iter()
-        .map(|i| format!("{}.{}", i.schema, i.name))
-        .collect();
-    let target_indexes: HashSet<String> = target
-        .indexes
-        .iter()
-        .map(|i| format!("{}.{}", i.schema, i.name))
-        .collect();
+    let source_indexes: HashSet<String> = source.indexes.iter().map(|i| qualify_key(&i.schema, &i.name)).collect();
+    let target_indexes: HashSet<String> = target.indexes.iter().map(|i| qualify_key(&i.schema, &i.name)).collect();
 
     let indexes_only_in_source: Vec<String> = source_indexes.difference(&target_indexes).cloned().collect();
     let indexes_only_in_target: Vec<String> = target_indexes.difference(&source_indexes).cloned().collect();
@@ -118,6 +110,6 @@ fn compare_introspect_results(source: &IntrospectResult, target: &IntrospectResu
 fn split_qualified(qualified: &str) -> (&str, &str) {
     match qualified.split_once('.') {
         Some((schema, table)) => (schema, table),
-        None => ("public", qualified),
+        None => ("", qualified),
     }
 }
