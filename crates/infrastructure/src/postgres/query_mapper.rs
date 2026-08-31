@@ -1,6 +1,6 @@
 use db_pro_core::domain::error::DbError;
 use db_pro_core::domain::query::{CellValue, ColumnMeta, QueryParam, Row};
-use sqlx::postgres::PgArguments;
+use sqlx::postgres::{PgArguments, PgValueFormat};
 use sqlx::{Arguments, Column, Row as _, TypeInfo, ValueRef};
 
 pub fn bind_params(params: &[QueryParam], args: &mut PgArguments) -> Result<(), DbError> {
@@ -72,6 +72,13 @@ fn decode_cell(row: &sqlx::postgres::PgRow, i: usize, data_type: &str) -> CellVa
             .map(|v| CellValue::Int64(v.0 as i64)),
         "FLOAT4" => row.try_get::<f32, _>(i).map(|v| CellValue::Float64(v as f64)),
         "FLOAT8" => row.try_get::<f64, _>(i).map(CellValue::Float64),
+        "NUMERIC" | "DECIMAL" => row
+            .try_get::<f64, _>(i)
+            .map(CellValue::Float64)
+            .or_else(|_| row.try_get::<String, _>(i).map(CellValue::Text)),
+        "MONEY" => row
+            .try_get::<sqlx::postgres::types::PgMoney, _>(i)
+            .map(|v| CellValue::Text(format!("{:.2}", (v.0 as f64) / 100.0))),
         "UUID" => row.try_get::<uuid::Uuid, _>(i).map(|v| CellValue::Uuid(v.to_string())),
         "TIMESTAMPTZ" => row
             .try_get::<chrono::DateTime<chrono::Utc>, _>(i)
@@ -85,12 +92,46 @@ fn decode_cell(row: &sqlx::postgres::PgRow, i: usize, data_type: &str) -> CellVa
         "TIME" => row
             .try_get::<chrono::NaiveTime, _>(i)
             .map(|v| CellValue::Text(v.to_string())),
+        "TIMETZ" => row
+            .try_get::<sqlx::postgres::types::PgTimeTz, _>(i)
+            .map(|v| CellValue::Text(format!("{}{}", v.time, v.offset))),
+        "INTERVAL" => row
+            .try_get::<sqlx::postgres::types::PgInterval, _>(i)
+            .map(|v| CellValue::Text(format!("{} months {} days {} usecs", v.months, v.days, v.microseconds))),
+        "INET" | "CIDR" => row.try_get::<String, _>(i).map(CellValue::Text),
+        "BIT" | "VARBIT" => row.try_get::<String, _>(i).map(CellValue::Text),
+        "TSVECTOR" | "TSQUERY" => row.try_get::<String, _>(i).map(CellValue::Text),
         "JSON" | "JSONB" => row.try_get::<serde_json::Value, _>(i).map(CellValue::Json),
         "BYTEA" => row.try_get::<Vec<u8>, _>(i).map(CellValue::Bytes),
-        _ => row.try_get::<String, _>(i).map(CellValue::Text),
+        _ => {
+            if dt_upper.starts_with('_') || dt_upper.ends_with("[]") {
+                if let Ok(arr) = row.try_get::<Vec<Option<String>>, _>(i) {
+                    Ok(CellValue::Json(serde_json::json!(arr)))
+                } else if let Ok(arr) = row.try_get::<Vec<Option<i64>>, _>(i) {
+                    Ok(CellValue::Json(serde_json::json!(arr)))
+                } else if let Ok(arr) = row.try_get::<Vec<Option<i32>>, _>(i) {
+                    Ok(CellValue::Json(serde_json::json!(arr)))
+                } else if let Ok(arr) = row.try_get::<Vec<Option<f64>>, _>(i) {
+                    Ok(CellValue::Json(serde_json::json!(arr)))
+                } else if let Ok(arr) = row.try_get::<Vec<Option<bool>>, _>(i) {
+                    Ok(CellValue::Json(serde_json::json!(arr)))
+                } else {
+                    row.try_get::<String, _>(i).map(CellValue::Text)
+                }
+            } else {
+                row.try_get::<String, _>(i).map(CellValue::Text)
+            }
+        }
     };
 
     res.unwrap_or_else(|_| {
+        if let Ok(raw) = row.try_get_raw(i) {
+            if raw.format() == PgValueFormat::Text {
+                if let Ok(s) = raw.as_str() {
+                    return CellValue::Text(s.to_string());
+                }
+            }
+        }
         row.try_get::<String, _>(i)
             .map(CellValue::Text)
             .unwrap_or_else(|_| CellValue::Text(format!("<unsupported value: {}>", data_type)))
@@ -137,5 +178,35 @@ mod tests {
         let mut args = PgArguments::default();
         let params = vec![QueryParam::DateTime("invalid-date".into())];
         assert!(bind_params(&params, &mut args).is_err());
+    }
+
+    #[test]
+    fn bind_params_all_variants_succeed() {
+        let mut args = PgArguments::default();
+        let params = vec![
+            QueryParam::Null,
+            QueryParam::Bool(false),
+            QueryParam::Int64(9_007_199_254_740_993),
+            QueryParam::Float64(1.23456),
+            QueryParam::Text("pg_type_test".into()),
+            QueryParam::Bytes(vec![0xDE, 0xAD, 0xBE, 0xEF]),
+            QueryParam::Uuid("a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11".into()),
+            QueryParam::DateTime("2026-08-17T12:00:00Z".into()),
+            QueryParam::Json(serde_json::json!({"tags": ["a", "b"]})),
+        ];
+        assert!(bind_params(&params, &mut args).is_ok());
+    }
+
+    #[test]
+    fn query_param_array_serialization_integrity() {
+        let array_val = serde_json::json!(["public", "main", null]);
+        let param = QueryParam::Json(array_val.clone());
+        let json_str = serde_json::to_string(&param).unwrap();
+        let back: QueryParam = serde_json::from_str(&json_str).unwrap();
+        if let QueryParam::Json(val) = back {
+            assert_eq!(val, array_val);
+        } else {
+            panic!("Expected QueryParam::Json");
+        }
     }
 }
