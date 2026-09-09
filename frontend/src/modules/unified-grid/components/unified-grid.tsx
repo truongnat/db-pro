@@ -20,6 +20,8 @@ const DEFAULT_COL_WIDTH = 150;
 const MIN_COL_WIDTH = 60;
 const ROW_NUMBER_WIDTH = 40;
 const ROW_ACTION_WIDTH = 40;
+const CONTEXT_MENU_WIDTH = 220;
+const CONTEXT_MENU_HEIGHT = 180;
 
 /* ------------------------------------------------------------------ */
 /*  Props                                                              */
@@ -172,6 +174,11 @@ export function UnifiedGrid({
     [onSelectionChange],
   );
   const lastSelectedRow = useRef<number | null>(null);
+  const contextMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (contextMenu) contextMenuRef.current?.focus();
+  }, [contextMenu]);
 
   /* ---- clear selection when dataset changes (pagination/sort/filter/refresh) ---- */
   const prevRowsRef = useRef(rows);
@@ -293,7 +300,11 @@ export function UnifiedGrid({
   const handleColumnContextMenu = useCallback((e: React.MouseEvent, columnName: string) => {
     e.preventDefault();
     e.stopPropagation();
-    setContextMenu({ x: e.clientX, y: e.clientY, column: columnName });
+    setContextMenu({
+      x: Math.min(Math.max(4, e.clientX), window.innerWidth - CONTEXT_MENU_WIDTH - 4),
+      y: Math.min(Math.max(4, e.clientY), window.innerHeight - CONTEXT_MENU_HEIGHT - 4),
+      column: columnName,
+    });
   }, []);
 
   const handleCellContextMenu = useCallback(
@@ -301,8 +312,8 @@ export function UnifiedGrid({
       e.preventDefault();
       e.stopPropagation();
       setContextMenu({
-        x: e.clientX,
-        y: e.clientY,
+        x: Math.min(Math.max(4, e.clientX), window.innerWidth - CONTEXT_MENU_WIDTH - 4),
+        y: Math.min(Math.max(4, e.clientY), window.innerHeight - CONTEXT_MENU_HEIGHT - 4),
         column: columnName,
         cellRow: rowIdx,
         cellCol: colIdx,
@@ -363,9 +374,15 @@ export function UnifiedGrid({
       {/* Context menu (B1.2 — extended with copy items) */}
       {contextMenu && (
         <div
+          ref={contextMenuRef}
+          role="menu"
+          tabIndex={-1}
           className="fixed z-[var(--z-floating)] rounded-md border border-[var(--border-strong)] bg-popover py-1 shadow-lg"
           style={{ left: contextMenu.x, top: contextMenu.y }}
           onMouseLeave={() => setContextMenu(null)}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") setContextMenu(null);
+          }}
         >
           {/* Column actions */}
           {onToggleFreezeColumn && (

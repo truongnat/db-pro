@@ -40,7 +40,8 @@
 
 ### 7. Data grid editing — Dangerous affordances
 - Resolved (2026-09-09, QA-P2-08): read-only connections show a clear banner and prevent cell editing before staging, rather than failing only at Apply.
-- UX-P2: Columns picker double-toggle (QA-P2-07); custom context menu off-screen, no Escape/focus semantics (QA-P2-09); resize handles mouse-only, cleanup leaks (QA-P2-10/11).
+- Resolved (2026-09-09, QA-P2-07/09): column visibility now has one event owner, and the custom grid context menu clamps to the viewport, receives focus, and closes on Escape.
+- UX-P2 remains: resize handles mouse-only, cleanup leaks (QA-P2-10/11).
 - Plan: single-owner column toggle; Radix menu; keyboard resize + cleanup.
 
 ### 8. Schema inspector (columns/FK/indexes/triggers/DDL/CRUD) — Complete but intimidating
