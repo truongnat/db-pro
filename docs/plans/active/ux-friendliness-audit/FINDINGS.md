@@ -10,7 +10,8 @@
 ### 2. Connections — Least friendly, most fixes needed
 - Resolved (2026-09-09, QA-P1-05..08): SQLite no longer requires a password, SQLite strips stale SSH state, SSH defaults port 22 and preserves omitted passphrase as `undefined`, and connection-dialog callbacks are guarded by a per-open session generation.
 - Resolved (2026-09-09, QA-P2-23): connection deletion from both the row action and context menu uses the shared app `AlertDialog`, with localized confirm/cancel labels.
-- UX-P2: Test success goes stale after edits; failure hides backend detail; SQLite Browse has no error path; driverChanged is "ever changed"; duplicate omits credentials silently; favorite has no rollback (QA-P2-15–20).
+- UX-P2: Test success goes stale after edits; failure hides backend detail; SQLite Browse has no error path; driverChanged is "ever changed"; duplicate omits credentials silently (QA-P2-15–19).
+- Resolved (2026-09-09, QA-P2-20): favorite state rolls back when persistence fails.
 - Plan: explicit credential messaging, complete remaining test/browse/duplicate/favorite polish.
 
 ### 3. Explorer / sidebar search — Functional, not large-schema friendly
