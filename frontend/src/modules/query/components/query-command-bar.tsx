@@ -57,6 +57,8 @@ interface QueryCommandBarProps {
   isExplaining: boolean;
   hasConnection: boolean;
   hasSql: boolean;
+  /** True when a result set exists — Export Results depends on this, not SQL text. */
+  hasResults: boolean;
 }
 
 export function QueryCommandBar({
@@ -76,6 +78,7 @@ export function QueryCommandBar({
   isExplaining,
   hasConnection,
   hasSql,
+  hasResults,
 }: QueryCommandBarProps) {
   const { t } = useTranslation();
   const { data: connections } = useConnectionList();
@@ -255,7 +258,7 @@ export function QueryCommandBar({
               <Upload className="mr-2 h-3.5 w-3.5" />
               {t("query.importSql")}
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={onExport} disabled={!hasSql}>
+            <DropdownMenuItem onClick={onExport} disabled={!hasResults}>
               <Download className="mr-2 h-3.5 w-3.5" />
               {t("query.exportResults")}
             </DropdownMenuItem>

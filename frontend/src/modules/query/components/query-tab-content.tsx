@@ -63,6 +63,7 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
   const executionStartedAt = tabData?.executionStartedAt ?? null;
 
   const panelTab = tabData?.activePanel ?? "results";
+  const hasResults = (result?.columns?.length ?? 0) > 0;
   const [historySearch, setHistorySearch] = useState("");
   const [exportOpen, setExportOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -298,6 +299,7 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
         isExplaining={isExplaining}
         hasConnection={!!tabConnectionId}
         hasSql={!!sql.trim()}
+        hasResults={hasResults}
       />
 
       <ResizableDock>
