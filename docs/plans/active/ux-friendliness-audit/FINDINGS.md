@@ -1,4 +1,4 @@
-# UX Friendliness Audit — Findings (source evidence only)
+# UX Friendliness Audit — Findings (source and runtime evidence)
 
 ## Per-feature verdicts
 
@@ -62,8 +62,8 @@
 ### 10. Export/Import/Backup — Works, low feedback
 - Resolved (2026-09-09, partial): the mounted results export dialog now performs pre-flight validation for empty results, missing SQL table name, and missing Excel connection/query before download or backend mutation. Validation messages are localized and targeted coverage is present.
 - Resolved (2026-09-09, partial): the existing backup service is now mounted from the Explorer connection context menu. Native save/open pickers filter by provider/format; SQLite exposes file backup only, PostgreSQL exposes plain/custom formats, restore requires an impact warning, and operations report progress/success/failure through the shared snackbar.
-- UX-P2 remains: backend progress events and a reveal-location action are not exposed by the current Tauri command/API; import parse errors still need file/line context when an import UI is introduced.
-- Plan: keep the remaining provider-progress/reveal and import-context items explicitly pending until their backend/UI seams exist.
+- Resolved (2026-09-09): backup and restore now emit started/completed/failed backend progress events, and the completed operation keeps a native “Reveal location” action with platform-specific folder opening and missing-path feedback.
+- Import parse file/line context remains not applicable: the current product has no import UI or import command to attach that error contract to.
 
 ### 11. User management (PG-only) — Capability cliff
 - Resolved (2026-09-09): the Users sidebar gates by the selected connection driver and explains why SQLite has no role/privilege management surface instead of falling through to an empty/error state. PostgreSQL now lists roles, shows the selected role's table-privilege count, and requires an impact-summary AlertDialog before `DROP ROLE`.
