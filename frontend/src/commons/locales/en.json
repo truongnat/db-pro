@@ -95,6 +95,7 @@
     "test": "Test Connection",
     "testSuccess": "Connection test successful",
     "testFailed": "Connection test failed",
+    "browseFailed": "Could not open the file picker",
     "createSuccess": "Connection created",
     "createFailed": "Failed to create connection",
     "updateSuccess": "Connection updated",

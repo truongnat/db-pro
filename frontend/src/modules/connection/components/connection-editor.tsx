@@ -46,6 +46,7 @@ interface ConnectionEditorProps {
   isEdit?: boolean;
   onSubmit: (data: ConnectionFormData, password: string, intent: SaveIntent) => void;
   onTest?: (data: ConnectionFormData, password: string) => void;
+  onFormChange?: () => void;
   onTestSshTunnel?: (config: SshTunnelConfig) => void;
   onCancel: () => void;
   isSubmitting?: boolean;
@@ -62,7 +63,7 @@ export function ConnectionEditor({
   isEdit = false,
   onSubmit,
   onTest,
-  onTestSshTunnel,
+  onFormChange,
   onCancel,
   isSubmitting = false,
   isTesting = false,
@@ -79,13 +80,20 @@ export function ConnectionEditor({
   const [password, setPassword] = useState("");
   const [showSsh, setShowSsh] = useState(!!initialData?.sshTunnel);
   const [driverChanged, setDriverChanged] = useState(false);
+  const [browseError, setBrowseError] = useState<string | null>(null);
 
   const isPostgres = formData.driver === "postgres";
+
+  const notifyFormChange = () => {
+    setBrowseError(null);
+    onFormChange?.();
+  };
 
   const updateField = <K extends keyof ConnectionFormData>(
     key: K,
     value: ConnectionFormData[K],
   ) => {
+    notifyFormChange();
     setFormData((prev: ConnectionFormData) => ({ ...prev, [key]: value }));
   };
 
@@ -108,6 +116,7 @@ export function ConnectionEditor({
   };
 
   const updateSshField = (key: string, value: string | number) => {
+    notifyFormChange();
     setFormData((prev: ConnectionFormData) => ({
       ...prev,
       sshTunnel: {
@@ -144,6 +153,7 @@ export function ConnectionEditor({
 
   const handleDriverChange = (driver: DriverType) => {
     const initialDriver = initialData?.driver ?? "postgres";
+    notifyFormChange();
     if (driver !== formData.driver) {
       setDriverChanged(driver !== initialDriver);
       setPassword("");
@@ -247,21 +257,27 @@ export function ConnectionEditor({
               variant="outline"
               className="h-[34px] shrink-0 px-3 text-[13px]"
               onClick={async () => {
-                const selected = await open({
-                  filters: [
-                    { name: "SQLite", extensions: ["db", "sqlite", "sqlite3"] },
-                    { name: "All Files", extensions: ["*"] },
-                  ],
-                  defaultPath: formData.database || undefined,
-                });
-                if (selected) {
-                  updateField("database", selected);
+                try {
+                  const selected = await open({
+                    filters: [
+                      { name: "SQLite", extensions: ["db", "sqlite", "sqlite3"] },
+                      { name: "All Files", extensions: ["*"] },
+                    ],
+                    defaultPath: formData.database || undefined,
+                  });
+                  if (selected) {
+                    notifyFormChange();
+                    updateField("database", selected);
+                  }
+                } catch {
+                  setBrowseError(t("connection.browseFailed"));
                 }
               }}
             >
               Browse…
             </Button>
           </div>
+          {browseError && <p className="text-[12px] text-destructive">{browseError}</p>}
         </div>
       )}
 
@@ -277,7 +293,10 @@ export function ConnectionEditor({
             label={t("common.labels.password")}
             type="password"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(e) => {
+              notifyFormChange();
+              setPassword(e.target.value);
+            }}
             required={!isEdit || driverChanged}
             placeholder={driverChanged ? "" : isEdit ? "(unchanged)" : ""}
           />

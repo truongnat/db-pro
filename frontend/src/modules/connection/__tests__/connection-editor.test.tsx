@@ -4,7 +4,12 @@ import userEvent from "@testing-library/user-event";
 import { I18nextProvider, initReactI18next } from "react-i18next";
 import i18n from "i18next";
 
+import { open } from "@tauri-apps/plugin-dialog";
 import { ConnectionEditor } from "../components/connection-editor";
+
+vi.mock("@tauri-apps/plugin-dialog", () => ({
+  open: vi.fn(),
+}));
 
 i18n.use(initReactI18next).init({
   resources: {
@@ -27,6 +32,7 @@ i18n.use(initReactI18next).init({
           test: "Test Connection",
           testSuccess: "Test successful",
           testFailed: "Test failed",
+          browseFailed: "Could not open the file picker",
           filePath: "File Path",
         },
       },
@@ -180,5 +186,28 @@ describe("ConnectionEditor", () => {
     expect(screen.queryByText("Username")).not.toBeInTheDocument();
     expect(screen.queryByText("SSL Mode")).not.toBeInTheDocument();
     expect(screen.queryByText("Use SSH Tunnel")).not.toBeInTheDocument();
+  });
+
+  it("notifies onFormChange when a field is edited (stale test reset)", async () => {
+    const onFormChange = vi.fn();
+    const user = userEvent.setup();
+    renderEditor({ onFormChange });
+
+    const nameInput = screen.getByPlaceholderText("My Database");
+    await user.type(nameInput, "x");
+
+    expect(onFormChange).toHaveBeenCalled();
+  });
+
+  it("shows an error when the SQLite file picker fails", async () => {
+    vi.mocked(open).mockRejectedValueOnce(new Error("denied"));
+    const user = userEvent.setup();
+    renderEditor({ initialData: { driver: "sqlite" } });
+
+    await user.click(screen.getByText("Browse…"));
+
+    await waitFor(() => {
+      expect(screen.getByText("Could not open the file picker")).toBeInTheDocument();
+    });
   });
 });

@@ -71,6 +71,7 @@
     "test": "接続テスト",
     "testSuccess": "接続テスト成功",
     "testFailed": "接続テスト失敗",
+    "browseFailed": "ファイル選択を開けませんでした",
     "createSuccess": "接続を作成しました",
     "createFailed": "接続の作成に失敗しました",
     "updateSuccess": "接続を更新しました",
