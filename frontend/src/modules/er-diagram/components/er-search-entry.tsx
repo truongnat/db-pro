@@ -148,7 +148,9 @@ export function ErSearchEntry({ model, onSelectTable }: ErSearchEntryProps) {
                   onClick={() => onSelectTable(tableKey)}
                   onMouseEnter={() => setHighlightedIndex(i)}
                 >
-                  <span className="font-medium">{table?.label ?? tableKey}</span>
+                  <span className="font-medium">
+                    {table ? `${table.schema}.${table.label}` : tableKey}
+                  </span>
                   {table && (
                     <span className="ml-2 text-xs text-[var(--text-secondary)]">
                       {table.columnCount} cols · {table.fkCount} FK

@@ -962,6 +962,13 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
               className="!bg-popover !border-[var(--border-default)]"
             />
           )}
+          {!showMiniMap && (
+            <Panel position="bottom-right" className="m-2">
+              <div className="rounded-md border border-[var(--border-default)] bg-popover px-2 py-1 text-[10px] text-[var(--text-secondary)] shadow-sm">
+                {t("schemaWorkspace.miniMapHiddenLarge")}
+              </div>
+            </Panel>
+          )}
 
           {/* Top-left panel: search + P1.6 neighborhood exploration */}
           <Panel position="top-left" className="m-2">

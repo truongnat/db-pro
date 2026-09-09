@@ -667,6 +667,7 @@
     "actions": {
       "openDiagram": "ERダイアグラムを開く"
     },
+    "miniMapHiddenLarge": "大規模スキーマではミニマップを非表示にしています。概要コントロールを使用してください。",
     "overviewComingSoon": "スキーマ概要は近日公開予定です。"
   }
 }

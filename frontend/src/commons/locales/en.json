@@ -691,6 +691,7 @@
     "actions": {
       "openDiagram": "Open ER Diagram"
     },
+    "miniMapHiddenLarge": "Mini-map is hidden for large schemas; use the overview controls.",
     "overviewComingSoon": "Schema overview is coming soon."
   }
 }

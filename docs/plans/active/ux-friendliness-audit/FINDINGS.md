@@ -48,8 +48,9 @@
 
 ### 9. ER diagram — Impressive, unfriendly at scale
 - Resolved (2026-09-09, QA-P1-12/13; implementation in `59018df`): >200-table and L/XL schemas open in search-first mode with no renderer/layout; selecting a table materializes a bounded neighborhood and safe compact first paint; full overview requires explicit Show All.
-- UX-P2: search auto-picks first substring match (QA-P2-24); derived filter churn + synthetic Fit View keypress (QA-P2-25); MiniMap disabled >200 without explanation.
-- Plan: bounded initial state (empty/search prompt + explicit Show All), safe-tier first paint, disambiguated search list, real Fit API.
+- Resolved (2026-09-09, QA-P2-24/25): ER search renders schema-qualified candidates for disambiguation, Enter/click selects the highlighted candidate, and Fit calls the renderer API directly.
+- Resolved (2026-09-09): when the React Flow MiniMap is omitted, the canvas explains why and points to overview controls.
+- Plan: collect runtime evidence for large-schema search, fit, and navigation.
 
 ### 10. Export/Import/Backup — Works, low feedback
 - UX-P2: progress dialog exists but enablement/scope errors surface late; import parse errors need file/line context; backup/restore (pg_dump vs sqlite copy) needs provider-specific progress + "where did my file go" reveal action.
