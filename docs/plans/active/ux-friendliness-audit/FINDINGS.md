@@ -16,7 +16,8 @@
 ### 3. Explorer / sidebar search — Functional, not large-schema friendly
 - Resolved (2026-09-09, QA-P2-13): sidebar search builds a memoized table/view catalog, debounces input, virtualizes matching rows, and reports match counts.
 - Resolved (2026-09-09, QA-P2-14): expanded schema table/view groups render through a bounded virtualized child list while preserving row context menus.
-- Plan: auto-collapse unrelated groups and collect runtime evidence on very large schemas.
+- Resolved (2026-09-09): selecting a connection now collapses unrelated connection/schema groups while preserving the selected tree.
+- Plan: collect runtime evidence on very large schemas.
 
 ### 4. Workspace tabs — Powerful but unpredictable
 - Fixed in W1: preview-carries-staged-changes, staged bypasses close guard (QA-P1-02/03) — verify by runtime.

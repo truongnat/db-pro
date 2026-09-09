@@ -153,6 +153,7 @@ export function ExplorerView() {
     useSidebarTabOps();
   const expandedNodes = useExplorerStore((s) => s.expandedNodes);
   const toggleNode = useExplorerStore((s) => s.toggleNode);
+  const collapseOtherConnections = useExplorerStore((s) => s.collapseOtherConnections);
 
   const connections = useConnectionList();
   const statuses = useConnectionModuleStore((s) => s.statuses);
@@ -165,6 +166,7 @@ export function ExplorerView() {
   const queryClient = useQueryClient();
 
   const handleConnectionClick = (connId: string) => {
+    collapseOtherConnections(connId);
     const status = statusOf(statuses, connId);
 
     if (status === "disconnected" || status === "error") {
