@@ -117,6 +117,7 @@
     "unfavorite": "Remove from Favorites",
     "toggleFavorite": "Toggle favorite",
     "duplicate": "Duplicate",
+    "duplicateCredentialsNotice": "Connection duplicated. Credentials were not copied; edit it to add them.",
     "rename": "Rename",
     "readonly": "Read-only",
     "enableReadonly": "Enable Read-only",

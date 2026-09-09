@@ -3,6 +3,7 @@ import { useCallback, useMemo, useState } from "react";
 import { useConnectionStore } from "@/commons/stores/connection.store";
 import { useTranslation } from "@/commons/locales/useTranslation";
 import { useConfirmDialog } from "@/app/providers/confirm-dialog.provider";
+import { useSnackbar } from "@/app/providers/snackbar.provider";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -45,6 +46,7 @@ interface ConnectionListProps {
 export function ConnectionList({ onEdit, onBackup, onRestore }: ConnectionListProps) {
   const { t } = useTranslation();
   const { confirm } = useConfirmDialog();
+  const snackbar = useSnackbar();
   const { data: connections, isLoading, error } = useConnectionList();
   const connectMutation = useConnect();
   const disconnectMutation = useDisconnect();
@@ -336,7 +338,6 @@ export function ConnectionList({ onEdit, onBackup, onRestore }: ConnectionListPr
                 return (
                   <ContextMenu key={conn.id}>
                     <ContextMenuTrigger asChild>
-                      <>
                         <TableRow
                           className={cn(
                             "cursor-pointer transition-colors hover:bg-muted",
@@ -484,15 +485,14 @@ export function ConnectionList({ onEdit, onBackup, onRestore }: ConnectionListPr
                             </div>
                           </TableCell>
                         </TableRow>
-                        {connectionErrors[conn.id] && (
-                          <TableRow className="border-t border-[var(--border-subtle)] bg-destructive/5">
-                            <TableCell colSpan={6} className="px-4 py-2 text-xs text-destructive">
-                              {connectionErrors[conn.id]}
-                            </TableCell>
-                          </TableRow>
-                        )}
-                      </>
                     </ContextMenuTrigger>
+                    {connectionErrors[conn.id] && (
+                      <TableRow className="border-t border-[var(--border-subtle)] bg-destructive/5">
+                        <TableCell colSpan={6} className="px-4 py-2 text-xs text-destructive">
+                          {connectionErrors[conn.id]}
+                        </TableCell>
+                      </TableRow>
+                    )}
                     <ContextMenuContent>
                       <ContextMenuItem
                         onClick={() =>
@@ -504,7 +504,14 @@ export function ConnectionList({ onEdit, onBackup, onRestore }: ConnectionListPr
                       <ContextMenuItem onClick={() => handleStartRename(conn)}>
                         {t("connection.rename")}
                       </ContextMenuItem>
-                      <ContextMenuItem onClick={() => duplicateMutation.mutate(conn.id)}>
+                      <ContextMenuItem
+                        onClick={() =>
+                          duplicateMutation.mutate(conn.id, {
+                            onSuccess: () =>
+                              snackbar.info(t("connection.duplicateCredentialsNotice")),
+                          })
+                        }
+                      >
                         {t("connection.duplicate")}
                       </ContextMenuItem>
                       <ContextMenuItem

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { I18nextProvider, initReactI18next } from "react-i18next";
@@ -22,6 +22,12 @@ vi.mock("../queries/connection.queries", () => ({
 
 vi.mock("@/commons/stores/connection.store", () => ({
   useConnectionStore: vi.fn((selector) => selector({ explorerConnectionId: null })),
+}));
+
+const snackbar = { success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() };
+
+vi.mock("@/app/providers/snackbar.provider", () => ({
+  useSnackbar: () => snackbar,
 }));
 
 vi.mock("../state/connection.store", () => ({
@@ -77,6 +83,8 @@ i18n.use(initReactI18next).init({
           tags: "Tags",
           confirmDelete: "Delete?",
           toggleFavorite: "Toggle favorite",
+          duplicate: "Duplicate",
+          duplicateCredentialsNotice: "Credentials were not copied",
           readonly: "Read-only",
           sort: { name: "Name", driver: "Driver", group: "Group" },
         },
@@ -211,5 +219,28 @@ describe("ConnectionList", () => {
     renderWithProviders(<ConnectionList onEdit={onEdit} />);
     expect(screen.getByText("Error")).toBeInTheDocument();
     expect(screen.getByText("Server error")).toBeInTheDocument();
+  });
+
+  it("explains that duplicated credentials must be added manually", async () => {
+    const duplicate = vi.fn((_id: string, options?: { onSuccess?: () => void }) => {
+      options?.onSuccess?.();
+    });
+    vi.mocked(queries.useDuplicateConnection).mockReturnValue({
+      mutate: duplicate,
+      isPending: false,
+    } as ReturnType<typeof queries.useDuplicateConnection>);
+    vi.mocked(queries.useConnectionList).mockReturnValue({
+      data: mockConnections,
+      isLoading: false,
+      error: null,
+    } as ReturnType<typeof queries.useConnectionList>);
+
+    const user = userEvent.setup();
+    renderWithProviders(<ConnectionList onEdit={onEdit} />);
+    fireEvent.contextMenu(screen.getByText("Local PG"));
+    await user.click(screen.getByText("Duplicate"));
+
+    expect(duplicate).toHaveBeenCalledWith("1", expect.any(Object));
+    expect(snackbar.info).toHaveBeenCalledWith("Credentials were not copied");
   });
 });

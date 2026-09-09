@@ -93,6 +93,7 @@
     "unfavorite": "お気に入りから削除",
     "toggleFavorite": "お気に入り切り替え",
     "duplicate": "複製",
+    "duplicateCredentialsNotice": "接続を複製しました。認証情報はコピーされていません。編集して追加してください。",
     "rename": "名前を変更",
     "readonly": "読み取り専用",
     "enableReadonly": "読み取り専用を有効にする",
