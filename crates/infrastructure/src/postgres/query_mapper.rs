@@ -72,6 +72,9 @@ fn decode_cell(row: &sqlx::postgres::PgRow, i: usize, data_type: &str) -> CellVa
             .map(|v| CellValue::Int64(v.0 as i64)),
         "FLOAT4" => row.try_get::<f32, _>(i).map(|v| CellValue::Float64(v as f64)),
         "FLOAT8" => row.try_get::<f64, _>(i).map(CellValue::Float64),
+        "NUMERIC" | "DECIMAL" => row
+            .try_get::<sqlx::types::BigDecimal, _>(i)
+            .map(|v| CellValue::Text(v.normalized().to_string())),
         "UUID" => row.try_get::<uuid::Uuid, _>(i).map(|v| CellValue::Uuid(v.to_string())),
         "TIMESTAMPTZ" => row
             .try_get::<chrono::DateTime<chrono::Utc>, _>(i)
@@ -91,9 +94,12 @@ fn decode_cell(row: &sqlx::postgres::PgRow, i: usize, data_type: &str) -> CellVa
     };
 
     res.unwrap_or_else(|_| {
-        row.try_get::<String, _>(i)
-            .map(CellValue::Text)
-            .unwrap_or_else(|_| CellValue::Text(format!("<unsupported value: {}>", data_type)))
+        row.try_get_raw(i)
+            .ok()
+            .and_then(|raw| raw.as_bytes().ok())
+            .and_then(|bytes| std::str::from_utf8(bytes).ok())
+            .map(|value| CellValue::Text(value.to_owned()))
+            .unwrap_or_else(|| CellValue::Text(format!("<unsupported value: {data_type}>")))
     })
 }
 
