@@ -34,9 +34,9 @@
 - Plan: worker/off-main sort or explicit large-result notice + row cap messaging.
 
 ### 7. Data grid editing — Dangerous affordances
-- UX-P1: read-only connections still show editable affordances, fail only at Apply (`data-section.tsx`, QA-P2-08 → UX-P1: wasted work + surprise).
+- Resolved (2026-09-09, QA-P2-08): read-only connections show a clear banner and prevent cell editing before staging, rather than failing only at Apply.
 - UX-P2: Columns picker double-toggle (QA-P2-07); custom context menu off-screen, no Escape/focus semantics (QA-P2-09); resize handles mouse-only, cleanup leaks (QA-P2-10/11).
-- Plan: read-only banner + disabled cells upfront; single-owner toggle; Radix menu; keyboard resize + cleanup.
+- Plan: single-owner column toggle; Radix menu; keyboard resize + cleanup.
 
 ### 8. Schema inspector (columns/FK/indexes/triggers/DDL/CRUD) — Complete but intimidating
 - Good: per-object tabs + DDL viewer + capabilities gating.
