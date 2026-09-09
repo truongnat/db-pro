@@ -684,7 +684,15 @@
       "overview": "概要"
     },
     "actions": {
-      "openDiagram": "ERダイアグラムを開く"
+      "openDiagram": "ERダイアグラムを開く",
+      "showAllTables": "{{count}}件のテーブルをすべて表示"
+    },
+    "controls": {
+      "toggleLayout": "レイアウト方向を切り替え",
+      "showColumns": "カラムを表示",
+      "compactMode": "コンパクトモード",
+      "fitView": "全体を表示",
+      "resetLayout": "レイアウトをリセット"
     },
     "miniMapHiddenLarge": "大規模スキーマではミニマップを非表示にしています。概要コントロールを使用してください。",
     "overviewComingSoon": "スキーマ概要は近日公開予定です。"

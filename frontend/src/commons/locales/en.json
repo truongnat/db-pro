@@ -708,7 +708,15 @@
       "overview": "Overview"
     },
     "actions": {
-      "openDiagram": "Open ER Diagram"
+      "openDiagram": "Open ER Diagram",
+      "showAllTables": "Show all {{count}} tables"
+    },
+    "controls": {
+      "toggleLayout": "Toggle layout direction",
+      "showColumns": "Show columns",
+      "compactMode": "Compact mode",
+      "fitView": "Fit view",
+      "resetLayout": "Reset layout"
     },
     "miniMapHiddenLarge": "Mini-map is hidden for large schemas; use the overview controls.",
     "overviewComingSoon": "Schema overview is coming soon."

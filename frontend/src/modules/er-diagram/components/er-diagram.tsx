@@ -1001,10 +1001,12 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
                 variant="outline"
                 size="sm"
                 data-testid="er-show-all-tables"
-                aria-label={`Show all ${tablesInSchema.length} tables`}
+                aria-label={t("schemaWorkspace.actions.showAllTables", {
+                  count: tablesInSchema.length,
+                })}
                 onClick={handleShowAll}
               >
-                Show all {tablesInSchema.length} tables
+                {t("schemaWorkspace.actions.showAllTables", { count: tablesInSchema.length })}
               </Button>
             </Panel>
           )}
@@ -1024,7 +1026,7 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
                     <LayoutGrid className="h-3.5 w-3.5" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>Toggle layout direction</TooltipContent>
+                <TooltipContent>{t("schemaWorkspace.controls.toggleLayout")}</TooltipContent>
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -1038,7 +1040,11 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
                     <Columns2 className="h-3.5 w-3.5" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>{compact ? "Show columns" : "Compact mode"}</TooltipContent>
+                <TooltipContent>
+                  {compact
+                    ? t("schemaWorkspace.controls.showColumns")
+                    : t("schemaWorkspace.controls.compactMode")}
+                </TooltipContent>
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -1052,7 +1058,7 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
                     <Maximize2 className="h-3.5 w-3.5" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>Fit view</TooltipContent>
+                <TooltipContent>{t("schemaWorkspace.controls.fitView")}</TooltipContent>
               </Tooltip>
               {manualPositions.size > 0 && (
                 <Tooltip>
@@ -1067,7 +1073,7 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
                       <RotateCcw className="h-3.5 w-3.5" />
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent>Reset layout</TooltipContent>
+                  <TooltipContent>{t("schemaWorkspace.controls.resetLayout")}</TooltipContent>
                 </Tooltip>
               )}
             </div>
