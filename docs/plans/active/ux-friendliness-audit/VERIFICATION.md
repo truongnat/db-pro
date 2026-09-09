@@ -21,6 +21,7 @@
 - Wave C workspace evidence: `pnpm exec vitest run src/hooks/__tests__/use-tab-keyboard.test.ts` passes (1 test); keyboard/context relative order now matches the pinned-first tab-bar projection.
 - Wave C query connection evidence: `pnpm exec vitest run src/modules/query/__tests__/query-command-bar.test.tsx` passes (4 tests); known disconnected connections expose the localized reconnect action while missing configurations remain explicitly unavailable.
 - Wave A data-grid evidence: `pnpm exec vitest run src/modules/data-grid/__tests__/data-grid.test.tsx src/modules/data-grid/__tests__/change-bar.test.tsx src/modules/unified-grid/__tests__/unified-grid-copy.test.tsx` passes (3 files, 25 tests); column visibility uses one toggle path and grid context menus clamp/focus/close with Escape.
+- Wave A data-grid resize evidence: the same unified-grid test file includes keyboard separator coverage; Arrow-right changes the controlled width from 150 to 160 and the handle exposes min/current ARIA values.
 - Provider runtime: PENDING (PG and SQLite independently).
 - UI runtime: PENDING (packaged desktop smoke, keyboard-only, light/dark, 500-table ER).
 - No feature marked COMPLETED. Next: runtime walkthrough, then focused `fix/` branches per Wave A/B/C.

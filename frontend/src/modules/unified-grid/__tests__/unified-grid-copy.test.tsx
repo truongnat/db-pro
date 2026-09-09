@@ -119,6 +119,19 @@ describe("UnifiedGrid — copy keyboard scope", () => {
   });
 });
 
+describe("UnifiedGrid — resize keyboard scope", () => {
+  it("exposes keyboard-focusable column separators", () => {
+    const onColumnWidthsChange = vi.fn();
+    const { getAllByRole } = renderGrid({ onColumnWidthsChange });
+    const separator = getAllByRole("separator")[0];
+
+    expect(separator).toHaveAttribute("aria-valuemin", "60");
+    fireEvent.keyDown(separator, { key: "ArrowRight" });
+
+    expect(onColumnWidthsChange).toHaveBeenCalledWith({ id: 160 });
+  });
+});
+
 describe("UnifiedGrid — editor capability guard", () => {
   const bigintCols: ColumnMeta[] = [
     { name: "id", dataType: "BIGINT", nullable: false },

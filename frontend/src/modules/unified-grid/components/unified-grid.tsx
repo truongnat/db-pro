@@ -134,6 +134,11 @@ export function UnifiedGrid({
 
   /* ---- resize state (B1.1) ---- */
   const resizing = useRef<{ col: string; startX: number; startW: number } | null>(null);
+  const resizeCleanup = useRef<(() => void) | null>(null);
+
+  useEffect(() => {
+    return () => resizeCleanup.current?.();
+  }, []);
 
   const handleResizeStart = useCallback(
     (e: React.MouseEvent, colName: string) => {
@@ -150,15 +155,28 @@ export function UnifiedGrid({
       };
       const onUp = () => {
         resizing.current = null;
+        resizeCleanup.current = null;
         document.removeEventListener("mousemove", onMove);
         document.removeEventListener("mouseup", onUp);
         document.body.style.cursor = "";
         document.body.style.userSelect = "";
       };
+      resizeCleanup.current = onUp;
       document.body.style.cursor = "col-resize";
       document.body.style.userSelect = "none";
       document.addEventListener("mousemove", onMove);
       document.addEventListener("mouseup", onUp);
+    },
+    [widths, setWidths],
+  );
+
+  const handleResizeKeyDown = useCallback(
+    (e: React.KeyboardEvent, colName: string) => {
+      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+      e.preventDefault();
+      const currentW = widths[colName] ?? DEFAULT_COL_WIDTH;
+      const delta = e.key === "ArrowRight" ? 10 : -10;
+      setWidths({ ...widths, [colName]: Math.max(MIN_COL_WIDTH, currentW + delta) });
     },
     [widths, setWidths],
   );
@@ -504,6 +522,13 @@ export function UnifiedGrid({
                 <div
                   className="absolute right-0 top-0 h-full w-[3px] cursor-col-resize hover:bg-primary/40 active:bg-primary"
                   onMouseDown={(e) => handleResizeStart(e, col.name)}
+                  onKeyDown={(e) => handleResizeKeyDown(e, col.name)}
+                  role="separator"
+                  tabIndex={0}
+                  aria-label={`Resize ${col.name}`}
+                  aria-valuemin={MIN_COL_WIDTH}
+                  aria-valuenow={widths[col.name] ?? DEFAULT_COL_WIDTH}
+                  aria-orientation="vertical"
                 />
               </div>
             );
