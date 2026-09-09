@@ -31,8 +31,9 @@
 - Plan: picker shows reconnect affordance; finish result/status i18n.
 
 ### 6. Results grid — Readable, needs scale honesty
-- UX-P2: sorting is sync main-thread over full array (`query-tab-content.tsx`) (QA-P2-12); metadata popover good but SQLite TEXT-everywhere fix needs runtime proof (QA-P1-04/14).
-- Plan: worker/off-main sort or explicit large-result notice + row cap messaging.
+- Resolved (2026-09-09, QA-P2-12): sorted large result sets now show an explicit localized warning at the existing 10,000-row threshold; the existing status bar also surfaces large-result state.
+- UX-P2: metadata popover good but SQLite TEXT-everywhere fix needs runtime proof (QA-P1-04/14).
+- Plan: collect provider/runtime evidence for result metadata and row limits.
 
 ### 7. Data grid editing — Dangerous affordances
 - Resolved (2026-09-09, QA-P2-08): read-only connections show a clear banner and prevent cell editing before staging, rather than failing only at Apply.

@@ -191,6 +191,7 @@
     },
     "statusRunning": "実行中",
     "largeResultWarning": "大量の结果",
+    "largeSortWarning": "{{count}}行の並べ替えには時間がかかる場合があります。",
     "dirtyReplaceConfirm": "現在のクエリに未保存の変更があります。置き換えますか？"
   },
   "schema": {

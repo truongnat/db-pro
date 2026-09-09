@@ -215,6 +215,7 @@
     },
     "statusRunning": "Running",
     "largeResultWarning": "Large result set",
+    "largeSortWarning": "Sorting {{count}} rows may take a moment.",
     "dirtyReplaceConfirm": "Current query has unsaved changes. Replace?"
   },
   "schema": {
