@@ -45,7 +45,7 @@
 - Plan: risk → consequence + confirm dialog with impact summary; DDL preview always before execute.
 
 ### 9. ER diagram — Impressive, unfriendly at scale
-- UX-P1: >200-table "search-first" still builds full graph on open; first paint mounts full detail before LOD (QA-P1-12/13) — freeze risk.
+- Resolved (2026-09-09, QA-P1-12/13; implementation in `59018df`): >200-table and L/XL schemas open in search-first mode with no renderer/layout; selecting a table materializes a bounded neighborhood and safe compact first paint; full overview requires explicit Show All.
 - UX-P2: search auto-picks first substring match (QA-P2-24); derived filter churn + synthetic Fit View keypress (QA-P2-25); MiniMap disabled >200 without explanation.
 - Plan: bounded initial state (empty/search prompt + explicit Show All), safe-tier first paint, disambiguated search list, real Fit API.
 
