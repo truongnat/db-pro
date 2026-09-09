@@ -247,6 +247,7 @@
     "connectFirst": "Connect to a database to browse schemas",
     "ddl": "DDL",
     "copyDdl": "Copy DDL",
+    "copySql": "Copy SQL",
     "copied": "Copied!",
     "noDdl": "No DDL available",
     "noColumns": "No columns",

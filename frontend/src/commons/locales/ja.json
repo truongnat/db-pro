@@ -223,6 +223,7 @@
     "connectFirst": "スキーマを閲覧するにはデータベースに接続してください",
     "ddl": "DDL",
     "copyDdl": "DDLをコピー",
+    "copySql": "SQLをコピー",
     "copied": "コピーしました！",
     "noDdl": "DDLがありません",
     "noColumns": "カラムがありません",
