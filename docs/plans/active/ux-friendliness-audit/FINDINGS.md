@@ -8,12 +8,10 @@
 - UX-P2: no first-run empty state guiding "New connection → Explorer → Query".
 
 ### 2. Connections — Least friendly, most fixes needed
-- UX-P1: SQLite create requires password although backend ignores it (`connection-editor.tsx`, `sqlite/connector.rs`) — blocks primary flow (QA-P1-05).
-- UX-P1: SSH toggle doesn't clear model; visible port 22 may not be submitted (QA-P1-06/07) — visible ≠ saved.
-- UX-P1: late async create can poison next New Connection session (QA-P1-08).
+- Resolved (2026-09-09, QA-P1-05..08): SQLite no longer requires a password, SQLite strips stale SSH state, SSH defaults port 22 and preserves omitted passphrase as `undefined`, and connection-dialog callbacks are guarded by a per-open session generation.
 - Resolved (2026-09-09, QA-P2-23): connection deletion from both the row action and context menu uses the shared app `AlertDialog`, with localized confirm/cancel labels.
 - UX-P2: Test success goes stale after edits; failure hides backend detail; SQLite Browse has no error path; driverChanged is "ever changed"; duplicate omits credentials silently; favorite has no rollback (QA-P2-15–20).
-- Plan: unify form model = visible model, per-open session token, test-state invalidation, explicit credential messaging.
+- Plan: explicit credential messaging, complete remaining test/browse/duplicate/favorite polish.
 
 ### 3. Explorer / sidebar search — Functional, not large-schema friendly
 - UX-P2: search scans + renders all matches per keystroke, no debounce/virtual list (`search-view.tsx`); expanded schema mounts all rows (`explorer-view.tsx`) (QA-P2-13/14).
