@@ -59,7 +59,7 @@
 - Resolved (2026-09-09): packaged desktop smoke now renders the full application after the production Vite chunk-cycle fix (`f28f6dc`); release UI showed Explorer, workspace/table tabs, and table data.
 - Runtime evidence (2026-09-09): the schema row now exposes a direct `Open ER Diagram: <schema>` action; native Tauri opened `ER: public` and exposed the diagram/overview tabs, Fit View control, search entry, MiniMap, and the 10-table graph.
 - Resolved (2026-09-09): React Flow table nodes expose schema-qualified accessible names and a keyboard focus action; Enter/Space now follows the same neighborhood-focus or open-table path as pointer selection.
-- Plan: collect runtime evidence for table selection, bounded neighborhood, and Fit/Show All navigation.
+- Runtime evidence (2026-09-09): on a 510-table PostgreSQL fixture, activating the schema-qualified `public.orders` search result opened a bounded 3-table neighborhood. The native tree exposed and activated `Show all 510 tables`, which transitioned to the full overview; the neighborhood tree exposed and activated `Fit View`. The remaining runtime gap is keyboard-only input because the Wayland desktop provider cannot focus the Tauri window for key injection.
 
 ### 10. Export/Import/Backup — Works, low feedback
 - Resolved (2026-09-09, partial): the mounted results export dialog now performs pre-flight validation for empty results, missing SQL table name, and missing Excel connection/query before download or backend mutation. Validation messages are localized and targeted coverage is present.
