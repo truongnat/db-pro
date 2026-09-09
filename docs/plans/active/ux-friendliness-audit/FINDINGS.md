@@ -27,7 +27,8 @@
 ### 5. Query editor — Strong core, weak forgiveness
 - Good: Monaco + dialects + risk classifier + timer + zoom.
 - Resolved (2026-09-09, QA-P2-23): query history/import overwrite uses the shared app `AlertDialog` confirmation with localized action labels; no native `confirm()` remains in the query editor.
-- Resolved (2026-09-09, QA-P2-22): export is gated by result state rather than SQL text (`9dcb5b7`). Connection picker clarity and result/status i18n remain open.
+- Resolved (2026-09-09, QA-P2-22): export is gated by result state rather than SQL text (`9dcb5b7`). Query empty/error/success/cancelled/messages copy now uses localized `query.*` keys.
+- UX-P2 remains: connection picker clarity and runtime/provider evidence.
 - Plan: picker shows reconnect affordance; finish result/status i18n.
 
 ### 6. Results grid — Readable, needs scale honesty
@@ -70,7 +71,7 @@
 
 ### 13. Shell chrome / i18n / tokens — Inconsistent polish
 - Resolved (2026-09-09): topbar traffic-light spacing is macOS-only; sidebar and Agent resize handles expose keyboard arrows, separator semantics, focusability, and bounded ARIA values.
-- UX-P2: hardcoded English remains in several ER/query labels (QA-P2-06); token/runtime smoke is pending.
+- UX-P2: hardcoded English remains in several ER labels (QA-P2-06); token/runtime smoke is pending.
 - Plan: i18n sweep and light/dark token smoke.
 
 ## 2026 trend lens (applied in IMPROVEMENT_PLAN.md)
