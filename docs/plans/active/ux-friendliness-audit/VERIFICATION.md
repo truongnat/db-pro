@@ -12,6 +12,7 @@
 - Wave B result-sort evidence: `ResultGrid` displays a localized warning when sorting at least 10,000 returned rows; existing `QueryStatusBar` covers the large-result state. Targeted result-grid regression coverage added.
 - Wave B ER evidence: search candidates display `schema.table`, selection remains explicit via highlighted Enter/click, and Fit uses `rendererRef.current?.fit()`. React Flow shows a localized explanation when MiniMap is omitted for large graphs.
 - Wave C welcome evidence: `pnpm exec vitest run src/commons/components/__tests__/welcome-view.test.tsx` passes (7 tests), including first-run empty state and SQLite path-focused recent connection rendering.
+- Wave C shell source evidence: topbar padding is gated by `isMac`; both resize separators are keyboard-focusable with Arrow-key resizing and min/max/now ARIA values.
 - Provider runtime: PENDING (PG and SQLite independently).
 - UI runtime: PENDING (packaged desktop smoke, keyboard-only, light/dark, 500-table ER).
 - No feature marked COMPLETED. Next: runtime walkthrough, then focused `fix/` branches per Wave A/B/C.

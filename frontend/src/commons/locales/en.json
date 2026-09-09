@@ -535,7 +535,9 @@
     },
     "collapse": "Collapse sidebar",
     "expand": "Expand sidebar",
-    "agentToggle": "AI Assistant"
+    "agentToggle": "AI Assistant",
+    "resizeSidebar": "Resize sidebar",
+    "resizeAgent": "Resize Agent panel"
   },
   "agent": {
     "preview": "Preview",

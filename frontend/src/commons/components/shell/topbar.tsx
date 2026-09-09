@@ -14,8 +14,8 @@ export function Topbar() {
       style={{ height: "var(--app-topbar-height)" }}
       role="banner"
     >
-      {/* Left — Mac traffic lights spacer + branding */}
-      <div className="flex items-center gap-2 pl-14">
+      {/* Left — reserve space for native traffic lights only on macOS */}
+      <div className={`flex items-center gap-2 ${isMac ? "pl-14" : "pl-3"}`}>
         <span className="text-[13px] font-semibold text-[var(--text-secondary)]">DB Pro</span>
       </div>
 

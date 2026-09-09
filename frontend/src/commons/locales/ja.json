@@ -511,7 +511,9 @@
     },
     "collapse": "サイドバーを折りたたむ",
     "expand": "サイドバーを展開",
-    "agentToggle": "AIアシスタント"
+    "agentToggle": "AIアシスタント",
+    "resizeSidebar": "サイドバーのサイズを変更",
+    "resizeAgent": "Agentパネルのサイズを変更"
   },
   "agent": {
     "preview": "プレビュー",

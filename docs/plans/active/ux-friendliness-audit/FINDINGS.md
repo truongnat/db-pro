@@ -68,8 +68,9 @@
 **Resolution (2026-09-09, QA-P2-04):** Agent now shows a localized `Preview` badge; starter actions and the composer are disabled, with an explicit preview-only explanation. The existing platform-aware shortcut fix covers QA-P2-05. Full pnpm frontend gates pass; provider and packaged-desktop runtime verification remain pending.
 
 ### 13. Shell chrome / i18n / tokens — Inconsistent polish
-- UX-P2: macOS traffic-light inset on all OSes (`topbar.tsx`); hardcoded English breaks EN/JA contract (QA-P2-06); resize/dock a11y gaps.
-- Plan: platform-gated inset, i18n sweep, ARIA separators + focus-visible.
+- Resolved (2026-09-09): topbar traffic-light spacing is macOS-only; sidebar and Agent resize handles expose keyboard arrows, separator semantics, focusability, and bounded ARIA values.
+- UX-P2: hardcoded English remains in several ER/query labels (QA-P2-06); token/runtime smoke is pending.
+- Plan: i18n sweep and light/dark token smoke.
 
 ## 2026 trend lens (applied in IMPROVEMENT_PLAN.md)
 Copilot-not-autopilot · purposeful trust-building motion · raw schematic clarity (mono+grid) · user-controlled motion/a11y · fluid `clamp()` type · off-white comfort + adaptive dark · bento modular blocks · micro-interaction feedback · anti-liquid-glass legibility · dense dark-first dev-tool idiom. Detail per wave: `IMPROVEMENT_PLAN.md`.

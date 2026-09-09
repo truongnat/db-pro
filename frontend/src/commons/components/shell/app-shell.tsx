@@ -9,6 +9,7 @@ import { useQuickOpen } from "@/commons/hooks/use-quick-open";
 import { useShellStore } from "@/commons/stores/shell.store";
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
 import { useRegisterRuntimeCacheInvalidation } from "@/modules/query/queries/query.queries";
+import { useTranslation } from "@/commons/locales/useTranslation";
 import { ConnectionDialog } from "@/modules/connection/components/connection-dialog";
 import { ActionConfirmationHost } from "../action-confirmation-host";
 
@@ -19,6 +20,7 @@ import { StatusBar } from "./status-bar";
 import { Topbar } from "./topbar";
 
 export function AppShell() {
+  const { t } = useTranslation();
   const sidebarCollapsed = useShellStore((s) => s.sidebarCollapsed);
   const sidebarWidth = useShellStore((s) => s.sidebarWidth);
   const setSidebarWidth = useShellStore((s) => s.setSidebarWidth);
@@ -95,6 +97,24 @@ export function AppShell() {
     [agentWidth, setAgentWidth],
   );
 
+  const handleSidebarResizeKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+      e.preventDefault();
+      setSidebarWidth(sidebarWidth + (e.key === "ArrowRight" ? 16 : -16));
+    },
+    [sidebarWidth, setSidebarWidth],
+  );
+
+  const handleAgentResizeKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+      e.preventDefault();
+      setAgentWidth(agentWidth + (e.key === "ArrowLeft" ? 16 : -16));
+    },
+    [agentWidth, setAgentWidth],
+  );
+
   const effectiveSidebarWidth = sidebarCollapsed ? 0 : sidebarWidth;
 
   // Grid columns: sidebar [resize] main [resize] agent
@@ -130,6 +150,14 @@ export function AppShell() {
               <div
                 className="group relative z-10 w-[3px] shrink-0 cursor-col-resize bg-transparent transition-colors hover:bg-[var(--border-subtle)] active:bg-primary"
                 onMouseDown={handleSidebarResizeStart}
+                onKeyDown={handleSidebarResizeKeyDown}
+                role="separator"
+                tabIndex={0}
+                aria-orientation="vertical"
+                aria-label={t("shell.resizeSidebar")}
+                aria-valuemin={240}
+                aria-valuemax={420}
+                aria-valuenow={sidebarWidth}
               >
                 <div className="absolute inset-y-0 -left-1 -right-1" />
               </div>
@@ -148,6 +176,14 @@ export function AppShell() {
               <div
                 className="group relative z-10 w-[3px] shrink-0 cursor-col-resize bg-transparent transition-colors hover:bg-[var(--border-subtle)] active:bg-primary"
                 onMouseDown={handleAgentResizeStart}
+                onKeyDown={handleAgentResizeKeyDown}
+                role="separator"
+                tabIndex={0}
+                aria-orientation="vertical"
+                aria-label={t("shell.resizeAgent")}
+                aria-valuemin={300}
+                aria-valuemax={520}
+                aria-valuenow={agentWidth}
               >
                 <div className="absolute inset-y-0 -left-1 -right-1" />
               </div>
