@@ -260,6 +260,9 @@
     "ddlUnique": "Unique",
     "ddlPreview": "SQL Preview",
     "ddlExecute": "Execute DDL",
+    "ddlConfirmTitle": "Confirm schema change",
+    "ddlConfirmDescription": "This will apply {{operation}} to {{table}}. Review the SQL before continuing.",
+    "ddlConfirmAction": "Apply change",
     "ddlExecutedSuccessfully": "DDL executed successfully ({{affected}} rows affected)",
     "ddlRebuildWarning": "This change requires rebuilding the table. Data will be copied to a new table structure.",
     "ddlOp": {

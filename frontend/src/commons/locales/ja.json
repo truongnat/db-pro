@@ -236,6 +236,9 @@
     "ddlUnique": "ユニーク",
     "ddlPreview": "SQLプレビュー",
     "ddlExecute": "DDL実行",
+    "ddlConfirmTitle": "スキーマ変更の確認",
+    "ddlConfirmDescription": "{{table}} に {{operation}} を適用します。続行する前にSQLを確認してください。",
+    "ddlConfirmAction": "変更を適用",
     "ddlExecutedSuccessfully": "DDLが正常に実行されました（{{affected}}行に影響）",
     "ddlRebuildWarning": "この変更にはテーブルの再構築が必要です。データは新しいテーブル構造にコピーされます。",
     "ddlOp": {

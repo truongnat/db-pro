@@ -40,8 +40,9 @@
 
 ### 8. Schema inspector (columns/FK/indexes/triggers/DDL/CRUD) — Complete but intimidating
 - Good: per-object tabs + DDL viewer + capabilities gating.
-- UX-P2: risk language (`column-mutation-risk`) needs plain-language "what will happen + undo"; trigger enable/disable lacks runtime proof; CRUD generator output has no preview-before-apply story.
-- Plan: risk → consequence + confirm dialog with impact summary; DDL preview always before execute.
+- Resolved (2026-09-09): column mutations show operation/risk/warning/SQL before confirmation, and the DDL editor now requires a confirmation showing the operation, target, and SQL preview before every execution.
+- UX-P2: risk copy is still partly hardcoded in the column dialog; trigger enable/disable lacks runtime proof; CRUD generator output has no preview-before-apply story.
+- Plan: finish risk-copy i18n and runtime/provider evidence.
 
 ### 9. ER diagram — Impressive, unfriendly at scale
 - Resolved (2026-09-09, QA-P1-12/13; implementation in `59018df`): >200-table and L/XL schemas open in search-first mode with no renderer/layout; selecting a table materializes a bounded neighborhood and safe compact first paint; full overview requires explicit Show All.
