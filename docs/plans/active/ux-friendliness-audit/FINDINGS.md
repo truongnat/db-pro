@@ -24,8 +24,8 @@
 - Fixed in W1: preview-carries-staged-changes, staged bypasses close guard (QA-P1-02/03) — verify by runtime.
 - Resolved (2026-09-09, QA-P1-10/11): tab close commands/actions now share the guarded close service; orphan query reassignment resets connection context, while orphan DB-object/ER tabs close and select the target connection for a fresh resource pick.
 - Resolved (2026-09-09, QA-P2-01): keyboard navigation and context-menu relative ordering now use the same pinned-first order rendered by the tab bar.
-- UX-P2 remains: hardcoded Ctrl labels on macOS (QA-P2-02).
-- Plan: single ordered tab list, all closes via `requestCloseTab`, reassign forces resource re-pick.
+- Resolved (2026-09-09, QA-P2-02): shortcut labels use the platform-aware formatter; macOS shows symbols and other platforms show Ctrl text.
+- Plan: collect runtime evidence for preview/staged close and orphan recovery flows.
 
 ### 5. Query editor — Strong core, weak forgiveness
 - Good: Monaco + dialects + risk classifier + timer + zoom.
@@ -43,13 +43,13 @@
 - Resolved (2026-09-09, QA-P2-08): read-only connections show a clear banner and prevent cell editing before staging, rather than failing only at Apply.
 - Resolved (2026-09-09, QA-P2-07/09): column visibility now has one event owner, and the custom grid context menu clamps to the viewport, receives focus, and closes on Escape.
 - Resolved (2026-09-09, QA-P2-10/11): grid resize handles now expose separator semantics and Arrow-key resizing; unmount cleanup removes active document listeners and restores body styles.
-- Plan: single-owner column toggle; Radix menu; keyboard resize + cleanup — source and targeted coverage complete; runtime evidence remains pending.
+- Plan: collect runtime evidence for the source-complete column toggle, Radix menu, keyboard resize, and cleanup flow.
 
 ### 8. Schema inspector (columns/FK/indexes/triggers/DDL/CRUD) — Complete but intimidating
 - Good: per-object tabs + DDL viewer + capabilities gating.
 - Resolved (2026-09-09): column mutations show operation/risk/warning/SQL before confirmation, and the DDL editor now requires a confirmation showing the operation, target, and SQL preview before every execution.
 - Resolved (2026-09-09, QA-P2-06): ColumnEditDialog action/confirmation labels and classifier risk/warning copy now use localized EN/JA schema keys; mounted CRUD preview now labels its copy action as SQL. SQLite trigger lifecycle is covered by Rust runtime tests; live PostgreSQL trigger proof remains pending.
-- Plan: finish risk-copy i18n and runtime/provider evidence.
+- Plan: collect live PostgreSQL trigger and provider/runtime evidence.
 
 ### 9. ER diagram — Impressive, unfriendly at scale
 - Resolved (2026-09-09, QA-P1-12/13; implementation in `59018df`): >200-table and L/XL schemas open in search-first mode with no renderer/layout; selecting a table materializes a bounded neighborhood and safe compact first paint; full overview requires explicit Show All.
@@ -60,11 +60,11 @@
 ### 10. Export/Import/Backup — Works, low feedback
 - Resolved (2026-09-09, partial): the mounted results export dialog now performs pre-flight validation for empty results, missing SQL table name, and missing Excel connection/query before download or backend mutation. Validation messages are localized and targeted coverage is present.
 - UX-P2 remains: import parse errors need file/line context; backup/restore buttons are not currently mounted with a dialog, and still need provider-specific progress plus a reveal-location action.
-- Plan: pre-flight validation, per-file error list, reveal-in-folder.
+- Plan: mount the existing backup service with provider-specific progress/reveal behavior, and add file/line context when an import UI is introduced.
 
 ### 11. User management (PG-only) — Capability cliff
 - Resolved (2026-09-09): the Users sidebar gates by the selected connection driver and explains why SQLite has no role/privilege management surface instead of falling through to an empty/error state. PostgreSQL now lists roles, shows the selected role's table-privilege count, and requires an impact-summary AlertDialog before `DROP ROLE`.
-- Plan: gated empty state + confirm with affected objects — source and targeted UI coverage complete; provider/runtime verification remains pending.
+- Plan: collect PostgreSQL/SQLite provider and runtime evidence for the source-complete gated role flow.
 
 ### 12. Command palette / Quick Open / Agent — Discoverable vs misleading
 - Good: palette + quick open + ranking exist.
@@ -76,7 +76,7 @@
 ### 13. Shell chrome / i18n / tokens — Inconsistent polish
 - Resolved (2026-09-09): topbar traffic-light spacing is macOS-only; sidebar and Agent resize handles expose keyboard arrows, separator semantics, focusability, and bounded ARIA values.
 - Resolved (2026-09-09, QA-P2-06): ER overview controls, search, stats, candidate details, and the full-schema action now use localized `schemaWorkspace.*` labels; runtime/token smoke remains pending.
-- Plan: i18n sweep and light/dark token smoke.
+- Plan: collect light/dark token smoke and finish only remaining user-visible i18n gaps.
 
 ## 2026 trend lens (applied in IMPROVEMENT_PLAN.md)
 Copilot-not-autopilot · purposeful trust-building motion · raw schematic clarity (mono+grid) · user-controlled motion/a11y · fluid `clamp()` type · off-white comfort + adaptive dark · bento modular blocks · micro-interaction feedback · anti-liquid-glass legibility · dense dark-first dev-tool idiom. Detail per wave: `IMPROVEMENT_PLAN.md`.
