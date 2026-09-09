@@ -532,6 +532,10 @@
     "expand": "Expand sidebar",
     "agentToggle": "AI Assistant"
   },
+  "agent": {
+    "preview": "Preview",
+    "previewComposer": "Agent is preview-only in this release. Sending is disabled."
+  },
   "dbObject": {
     "sections": {
       "columns": "Columns",

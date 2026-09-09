@@ -62,6 +62,8 @@
 - UX-P1: Agent panel looks functional but is preview-only; header lacks Preview badge (QA-P2-04 → UX-P1: false affordance); `⌘↵` hint on Windows/Linux (QA-P2-05).
 - Plan: Preview badge + disabled-with-reason composer, platform shortcut labels.
 
+**Resolution (2026-09-09, QA-P2-04):** Agent now shows a localized `Preview` badge; starter actions and the composer are disabled, with an explicit preview-only explanation. The existing platform-aware shortcut fix covers QA-P2-05. Full pnpm frontend gates pass; provider and packaged-desktop runtime verification remain pending.
+
 ### 13. Shell chrome / i18n / tokens — Inconsistent polish
 - UX-P2: macOS traffic-light inset on all OSes (`topbar.tsx`); hardcoded English breaks EN/JA contract (QA-P2-06); resize/dock a11y gaps.
 - Plan: platform-gated inset, i18n sweep, ARIA separators + focus-visible.

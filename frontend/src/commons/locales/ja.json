@@ -508,6 +508,10 @@
     "expand": "サイドバーを展開",
     "agentToggle": "AIアシスタント"
   },
+  "agent": {
+    "preview": "プレビュー",
+    "previewComposer": "Agent はこのリリースではプレビュー版です。送信は無効です。"
+  },
   "dbObject": {
     "sections": {
       "columns": "カラム",

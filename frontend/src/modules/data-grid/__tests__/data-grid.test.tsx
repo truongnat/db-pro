@@ -125,9 +125,7 @@ describe("DataGrid", () => {
     const onEditCell = vi.fn();
     const user = userEvent.setup();
     renderGrid({ onEditCell, readOnly: true });
-    expect(
-      screen.getByText("Read-only connection — editing is disabled"),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Read-only connection — editing is disabled")).toBeInTheDocument();
     await user.dblClick(screen.getByText("Alice"));
     expect(onEditCell).not.toHaveBeenCalled();
   });

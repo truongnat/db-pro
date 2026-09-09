@@ -57,9 +57,7 @@ export function TabContextMenu({ tab, children, onClose, onCloseMany }: TabConte
         <ContextMenuItem onClick={() => onClose(tab.id)}>
           <XIcon className="size-3.5" />
           Close
-          <ContextMenuShortcut>
-            {formatShortcut({ primary: true, key: "W" })}
-          </ContextMenuShortcut>
+          <ContextMenuShortcut>{formatShortcut({ primary: true, key: "W" })}</ContextMenuShortcut>
         </ContextMenuItem>
         {otherIds.length > 0 && (
           <ContextMenuItem onClick={() => onCloseMany(otherIds)}>Close Others</ContextMenuItem>

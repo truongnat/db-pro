@@ -26,6 +26,7 @@ import { useConnectionList } from "@/modules/connection/queries/connection.queri
 import { useSchemaCatalogStore } from "@/modules/query/stores/schema-catalog.store";
 import { setTabSql } from "@/modules/query/controllers/query-workspace.controller";
 import { useAgentChatStore } from "@/modules/agent/stores/agent-chat.store";
+import { useTranslation } from "@/commons/locales/useTranslation";
 import {
   generateTemplateResponse,
   generateLlmResponse,
@@ -93,6 +94,7 @@ export function AgentPanel({ open, onClose, width, className }: AgentPanelProps)
   const [input, setInput] = useState("");
   const [showSettings, setShowSettings] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { t } = useTranslation();
 
   const { messages, config, isProcessing, addMessage, clearMessages, setProcessing, setConfig } =
     useAgentChatStore(
@@ -225,6 +227,9 @@ export function AgentPanel({ open, onClose, width, className }: AgentPanelProps)
         <div className="flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-primary" />
           <span className="text-[13px] font-semibold text-foreground">Agent</span>
+          <span className="rounded bg-[var(--state-warning)]/15 px-1.5 py-0.5 text-[10px] font-medium text-[var(--state-warning)]">
+            {t("agent.preview")}
+          </span>
           {!config.apiKey && (
             <span className="rounded bg-[var(--surface-hover)] px-1.5 py-0.5 text-[10px] text-[var(--text-tertiary)]">
               template
@@ -358,7 +363,8 @@ export function AgentPanel({ open, onClose, width, className }: AgentPanelProps)
                   <button
                     key={action.label}
                     type="button"
-                    className="flex h-[36px] w-full items-center gap-2.5 rounded-md border border-[var(--border-subtle)] px-3 text-[13px] text-[var(--text-secondary)] transition-colors hover:border-[var(--border-default)] hover:bg-[var(--surface-hover)] hover:text-foreground"
+                    disabled
+                    className="flex h-[36px] w-full cursor-not-allowed items-center gap-2.5 rounded-md border border-[var(--border-subtle)] px-3 text-[13px] text-[var(--text-tertiary)] opacity-60"
                     onClick={() => setInput(action.prompt)}
                   >
                     <Icon className="h-4 w-4 shrink-0 text-[var(--text-tertiary)]" />
@@ -392,6 +398,13 @@ export function AgentPanel({ open, onClose, width, className }: AgentPanelProps)
 
       {/* Composer */}
       <div className="shrink-0 border-t border-[var(--border-subtle)] px-3 py-2.5">
+        <p
+          id="agent-preview-composer"
+          className="mb-2 text-[11px] text-[var(--text-secondary)]"
+          role="status"
+        >
+          {t("agent.previewComposer")}
+        </p>
         <div className="flex items-center gap-2 rounded-lg border border-[var(--border-default)] bg-background px-3 py-2 transition-colors focus-within:border-primary/40 focus-within:ring-1 focus-within:ring-primary/20">
           <input
             type="text"
@@ -405,7 +418,8 @@ export function AgentPanel({ open, onClose, width, className }: AgentPanelProps)
                 void handleSend();
               }
             }}
-            disabled={isProcessing}
+            disabled
+            aria-describedby="agent-preview-composer"
           />
           <div className="flex items-center gap-1.5">
             <kbd className="text-[11px] text-[var(--text-tertiary)]">
@@ -419,7 +433,7 @@ export function AgentPanel({ open, onClose, width, className }: AgentPanelProps)
                   ? "text-primary hover:bg-primary/10"
                   : "text-[var(--text-tertiary)] opacity-50 cursor-not-allowed",
               )}
-              disabled={!input.trim() || isProcessing}
+              disabled
               onClick={() => void handleSend()}
               title="Send message"
             >

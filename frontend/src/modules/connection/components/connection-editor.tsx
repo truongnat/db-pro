@@ -64,6 +64,7 @@ export function ConnectionEditor({
   onSubmit,
   onTest,
   onFormChange,
+  onTestSshTunnel,
   onCancel,
   isSubmitting = false,
   isTesting = false,

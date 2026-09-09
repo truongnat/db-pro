@@ -1,7 +1,7 @@
 # UX Friendliness Audit — Verification
 
 - Source evidence: STATUS.md, FEATURE_LIFECYCLE.md, RC1 PLAN/FINDINGS/WAVE1_REPORT read; frontend `src/routes`, `commons/components/shell`, `modules/{connection,query,data-grid,schema,er-diagram,export,backup,user-management}` inventoried; `crates/tauri-app/src/lib.rs:157-213` command groups inventoried.
-- Automated: none executed in this planning step.
+- Automated: frontend dependency installation and all gates pass with pnpm: `pnpm install --frozen-lockfile`; `pnpm run typecheck`; `pnpm run lint` (0 errors, 3 pre-existing warnings); `pnpm run format:check`; `pnpm run check:tokens`; `pnpm run test` (143 files, 1710 tests); and `pnpm run build`. The frontend now uses `pnpm-lock.yaml`; the invalid/stale frontend npm lockfile and registry resolutions are no longer used. Build output retains existing Rollup chunk/circular-import warnings.
 - Provider runtime: PENDING (PG and SQLite independently).
 - UI runtime: PENDING (packaged desktop smoke, keyboard-only, light/dark, 500-table ER).
 - No feature marked COMPLETED. Next: runtime walkthrough, then focused `fix/` branches per Wave A/B/C.

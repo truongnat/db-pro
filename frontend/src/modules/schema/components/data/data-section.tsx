@@ -103,8 +103,7 @@ export function DataSection({
   const introspect = useIntrospect(connectionId);
 
   const isReadOnlyConnection =
-    useConnectionStore((s) => s.connections.find((c) => c.id === connectionId)?.readonly) ??
-    false;
+    useConnectionStore((s) => s.connections.find((c) => c.id === connectionId)?.readonly) ?? false;
 
   const pkColumns = useMemo(() => {
     if (!introspect.data) return [];
