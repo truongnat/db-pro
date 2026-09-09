@@ -281,6 +281,23 @@
     "ddlConfirmAction": "Apply change",
     "ddlExecutedSuccessfully": "DDL executed successfully ({{affected}} rows affected)",
     "ddlRebuildWarning": "This change requires rebuilding the table. Data will be copied to a new table structure.",
+    "risk": {
+      "level": {
+        "low": "Low Risk",
+        "medium": "Medium Risk",
+        "high": "High Risk",
+        "destructive": "Destructive"
+      },
+      "confirm": {
+        "medium": "This operation may lock the table briefly on large datasets.",
+        "high": "Changing the column type may rewrite the entire table. Existing values may not be castable and data could be lost.",
+        "destructive": "This operation is irreversible. Data in this column will be permanently lost."
+      },
+      "renameWarning": "Renaming column \"{{column}}\" may break views, functions, foreign keys, or application queries that reference it by name.",
+      "typeRewriteWarning": "Changing type from \"{{from}}\" to \"{{to}}\" may rewrite the table. Existing values may not be castable.",
+      "typeLockWarning": "Type change from \"{{from}}\" to \"{{to}}\" may lock the table briefly.",
+      "notNullWarning": "Setting NOT NULL on \"{{column}}\" will fail if any existing rows contain NULL values. Ensure data is validated first."
+    },
     "ddlOp": {
       "createTable": "Create Table",
       "addColumn": "Add Column",
