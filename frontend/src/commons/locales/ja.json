@@ -441,6 +441,8 @@
     "connectFirst": "ユーザー管理するにはデータベースに接続してください",
     "selectRole": "ロールを選択して詳細を表示",
     "confirmDrop": "ロール「{{name}}」を削除しますか？",
+    "confirmDropImpact": "「{{name}}」を削除すると、ロールと{{count}}件のテーブル権限が削除されます。この操作は元に戻せません。",
+    "privilegeCount": "テーブル権限 {{count}}件",
     "sidebarHint": "ユーザー管理するには接続を選択してください",
     "postgresOnly": "ユーザー管理はPostgreSQL専用です",
     "postgresOnlyReason": "SQLiteには管理対象となるデータベースロールやサーバーレベル権限がありません。"

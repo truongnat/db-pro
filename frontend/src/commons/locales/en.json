@@ -465,6 +465,8 @@
     "connectFirst": "Connect to a database to manage users",
     "selectRole": "Select a role to view details",
     "confirmDrop": "Are you sure you want to drop role \"{{name}}\"?",
+    "confirmDropImpact": "Dropping \"{{name}}\" will remove the role and its {{count}} table privilege(s). This cannot be undone.",
+    "privilegeCount": "{{count}} table privilege(s)",
     "sidebarHint": "Select a connection to manage users and roles",
     "postgresOnly": "User management is PostgreSQL-only",
     "postgresOnlyReason": "SQLite has no database roles or server-level privileges to manage."

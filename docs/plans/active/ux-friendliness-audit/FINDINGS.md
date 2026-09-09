@@ -57,9 +57,8 @@
 - Plan: pre-flight validation, per-file error list, reveal-in-folder.
 
 ### 11. User management (PG-only) — Capability cliff
-- Resolved (2026-09-09): the Users sidebar now gates by the selected connection driver and explains why SQLite has no role/privilege management surface instead of falling through to an empty/error state. Targeted coverage covers no selection, SQLite, and PostgreSQL.
-- UX-P2 remains: destructive role drop needs privilege-impact summary once the existing backend user-management operations are exposed in the sidebar UI.
-- Plan: gated empty state + confirm with affected objects.
+- Resolved (2026-09-09): the Users sidebar gates by the selected connection driver and explains why SQLite has no role/privilege management surface instead of falling through to an empty/error state. PostgreSQL now lists roles, shows the selected role's table-privilege count, and requires an impact-summary AlertDialog before `DROP ROLE`.
+- Plan: gated empty state + confirm with affected objects — source and targeted UI coverage complete; provider/runtime verification remains pending.
 
 ### 12. Command palette / Quick Open / Agent — Discoverable vs misleading
 - Good: palette + quick open + ranking exist.
