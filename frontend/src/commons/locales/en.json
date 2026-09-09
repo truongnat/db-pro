@@ -465,7 +465,9 @@
     "connectFirst": "Connect to a database to manage users",
     "selectRole": "Select a role to view details",
     "confirmDrop": "Are you sure you want to drop role \"{{name}}\"?",
-    "sidebarHint": "Select a connection to manage users and roles"
+    "sidebarHint": "Select a connection to manage users and roles",
+    "postgresOnly": "User management is PostgreSQL-only",
+    "postgresOnlyReason": "SQLite has no database roles or server-level privileges to manage."
   },
   "backup": {
     "title": "Backup Database",
