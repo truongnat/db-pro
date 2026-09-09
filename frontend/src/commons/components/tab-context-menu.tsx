@@ -9,6 +9,7 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
+import { formatShortcut } from "@/commons/utils/platform";
 
 interface TabContextMenuProps {
   tab: {
@@ -56,7 +57,9 @@ export function TabContextMenu({ tab, children, onClose, onCloseMany }: TabConte
         <ContextMenuItem onClick={() => onClose(tab.id)}>
           <XIcon className="size-3.5" />
           Close
-          <ContextMenuShortcut>Ctrl+W</ContextMenuShortcut>
+          <ContextMenuShortcut>
+            {formatShortcut({ primary: true, key: "W" })}
+          </ContextMenuShortcut>
         </ContextMenuItem>
         {otherIds.length > 0 && (
           <ContextMenuItem onClick={() => onCloseMany(otherIds)}>Close Others</ContextMenuItem>
@@ -87,7 +90,9 @@ export function TabContextMenu({ tab, children, onClose, onCloseMany }: TabConte
         <ContextMenuSeparator />
         <ContextMenuItem onClick={() => reopenLastClosed()} disabled={recentlyClosedCount === 0}>
           Reopen Closed Tab
-          <ContextMenuShortcut>Ctrl+Shift+T</ContextMenuShortcut>
+          <ContextMenuShortcut>
+            {formatShortcut({ primary: true, shiftKey: true, key: "T" })}
+          </ContextMenuShortcut>
         </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>
