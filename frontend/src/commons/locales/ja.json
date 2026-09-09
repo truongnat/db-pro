@@ -492,6 +492,7 @@
     "format": "形式",
     "formatPlain": "プレーンSQL",
     "formatCustom": "カスタム (pg_dump)",
+    "chooseFile": "ファイルを選択",
     "startBackup": "バックアップ開始",
     "startRestore": "復元開始",
     "backupInProgress": "バックアップ中...",

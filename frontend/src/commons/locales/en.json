@@ -516,6 +516,7 @@
     "format": "Format",
     "formatPlain": "Plain SQL",
     "formatCustom": "Custom (pg_dump)",
+    "chooseFile": "Choose file",
     "startBackup": "Start Backup",
     "startRestore": "Start Restore",
     "backupInProgress": "Backing up...",

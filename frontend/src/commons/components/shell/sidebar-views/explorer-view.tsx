@@ -3,16 +3,18 @@ import {
   ChevronRight,
   Columns3,
   Copy,
+  Download,
   Folder,
   FolderOpen,
   Plus,
   RefreshCw,
   Search,
   Table2,
+  Upload,
   Zap,
   ZapOff,
 } from "lucide-react";
-import { Children, useRef } from "react";
+import { Children, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 
 import { useTranslation } from "@/commons/locales/useTranslation";
@@ -48,6 +50,7 @@ import { createQueryTab } from "@/commons/factories/tab-factories";
 import { getSqlDialect } from "@/modules/query/sql/dialect";
 import { generateCountSQL } from "@/modules/query/sql/generators";
 import type { DriverType } from "@/modules/connection/types/connection.types";
+import { BackupDialog, type BackupDialogMode } from "@/modules/backup/components/backup-dialog";
 
 function statusOf(statuses: Record<string, string>, id: string) {
   return statuses[id] ?? "disconnected";
@@ -164,6 +167,11 @@ export function ExplorerView() {
   const disconnect = useDisconnect();
   const introspect = useIntrospect(explorerConnectionId);
   const queryClient = useQueryClient();
+  const [backupDialog, setBackupDialog] = useState<{
+    connectionId: string;
+    driver: DriverType;
+    mode: BackupDialogMode;
+  } | null>(null);
 
   const handleConnectionClick = (connId: string) => {
     collapseOtherConnections(connId);
@@ -278,6 +286,33 @@ export function ExplorerView() {
                   <ContextMenuItem onClick={() => copyToClipboard(conn.name)}>
                     <Copy className="mr-1.5 h-3 w-3" />
                     {t("shell.sidebar.copyConnectionName")}
+                  </ContextMenuItem>
+                  <ContextMenuSeparator />
+                  <ContextMenuItem
+                    disabled={status !== "connected"}
+                    onClick={() =>
+                      setBackupDialog({
+                        connectionId: conn.id,
+                        driver: conn.driver,
+                        mode: "backup",
+                      })
+                    }
+                  >
+                    <Download className="mr-1.5 h-3 w-3" />
+                    {t("backup.title")}
+                  </ContextMenuItem>
+                  <ContextMenuItem
+                    disabled={status !== "connected" || conn.readonly}
+                    onClick={() =>
+                      setBackupDialog({
+                        connectionId: conn.id,
+                        driver: conn.driver,
+                        mode: "restore",
+                      })
+                    }
+                  >
+                    <Upload className="mr-1.5 h-3 w-3" />
+                    {t("backup.restoreTitle")}
                   </ContextMenuItem>
                 </ContextMenuContent>
               </ContextMenu>
@@ -583,6 +618,15 @@ export function ExplorerView() {
           );
         })}
       </div>
+      {backupDialog && (
+        <BackupDialog
+          open
+          onOpenChange={(open) => !open && setBackupDialog(null)}
+          connectionId={backupDialog.connectionId}
+          driver={backupDialog.driver}
+          mode={backupDialog.mode}
+        />
+      )}
     </div>
   );
 }
