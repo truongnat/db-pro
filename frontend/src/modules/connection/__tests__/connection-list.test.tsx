@@ -7,6 +7,7 @@ import i18n from "i18next";
 
 import { ConnectionList } from "../components/connection-list";
 import * as queries from "../queries/connection.queries";
+import { ConfirmDialogProvider } from "@/app/providers/confirm-dialog.provider";
 
 vi.mock("../queries/connection.queries", () => ({
   useConnectionList: vi.fn(),
@@ -61,6 +62,8 @@ i18n.use(initReactI18next).init({
           labels: { name: "Name", host: "Host", database: "Database", driver: "Driver" },
           actions: {
             delete: "Delete",
+            confirm: "Confirm",
+            cancel: "Cancel",
             connect: "Connect",
             disconnect: "Disconnect",
             edit: "Edit",
@@ -94,7 +97,9 @@ function renderWithProviders(ui: React.ReactElement) {
   const qc = createQueryClient();
   return render(
     <I18nextProvider i18n={i18n}>
-      <QueryClientProvider client={qc}>{ui}</QueryClientProvider>
+      <QueryClientProvider client={qc}>
+        <ConfirmDialogProvider>{ui}</ConfirmDialogProvider>
+      </QueryClientProvider>
     </I18nextProvider>,
   );
 }
@@ -114,12 +119,18 @@ const mockConnections = [
   },
 ];
 
+const deleteConnection = vi.fn();
+
 describe("ConnectionList", () => {
   const onEdit = vi.fn();
 
   beforeEach(() => {
     vi.clearAllMocks();
     onEdit.mockReset();
+    vi.mocked(queries.useDeleteConnection).mockReturnValue({
+      mutate: deleteConnection,
+      isPending: false,
+    } as ReturnType<typeof queries.useDeleteConnection>);
   });
 
   it("shows loading state", () => {
@@ -169,6 +180,25 @@ describe("ConnectionList", () => {
 
     await user.click(screen.getByText("Local PG"));
     expect(onEdit).toHaveBeenCalledWith("1");
+  });
+
+  it("uses the app confirmation dialog before deleting", async () => {
+    vi.mocked(queries.useConnectionList).mockReturnValue({
+      data: mockConnections,
+      isLoading: false,
+      error: null,
+    } as ReturnType<typeof queries.useConnectionList>);
+
+    const user = userEvent.setup();
+    renderWithProviders(<ConnectionList onEdit={onEdit} />);
+
+    await user.click(screen.getByRole("button", { name: "Delete" }));
+    expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+    expect(screen.getByText("Delete?")).toBeInTheDocument();
+    expect(deleteConnection).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "Confirm" }));
+    expect(deleteConnection).toHaveBeenCalledWith("1");
   });
 
   it("shows error state", () => {

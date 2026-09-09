@@ -11,6 +11,7 @@
 - UX-P1: SQLite create requires password although backend ignores it (`connection-editor.tsx`, `sqlite/connector.rs`) — blocks primary flow (QA-P1-05).
 - UX-P1: SSH toggle doesn't clear model; visible port 22 may not be submitted (QA-P1-06/07) — visible ≠ saved.
 - UX-P1: late async create can poison next New Connection session (QA-P1-08).
+- Resolved (2026-09-09, QA-P2-23): connection deletion from both the row action and context menu uses the shared app `AlertDialog`, with localized confirm/cancel labels.
 - UX-P2: Test success goes stale after edits; failure hides backend detail; SQLite Browse has no error path; driverChanged is "ever changed"; duplicate omits credentials silently; favorite has no rollback (QA-P2-15–20).
 - Plan: unify form model = visible model, per-open session token, test-state invalidation, explicit credential messaging.
 
@@ -26,9 +27,9 @@
 
 ### 5. Query editor — Strong core, weak forgiveness
 - Good: Monaco + dialects + risk classifier + timer + zoom.
-- UX-P1: dirty history/import overwrite uses native `window.confirm` (`query-tab-content.tsx`) — inconsistent in Tauri (QA-P2-23, raised to UX-P1 for desktop).
-- UX-P2: export enabled by SQL text not result state (QA-P2-22); connection picker unclear when disconnected; result/status strings bypass i18n (QA-P2-06).
-- Plan: app AlertDialog guard, result-driven export, picker shows reconnect affordance.
+- Resolved (2026-09-09, QA-P2-23): query history/import overwrite uses the shared app `AlertDialog` confirmation with localized action labels; no native `confirm()` remains in the query editor.
+- Resolved (2026-09-09, QA-P2-22): export is gated by result state rather than SQL text (`9dcb5b7`). Connection picker clarity and result/status i18n remain open.
+- Plan: picker shows reconnect affordance; finish result/status i18n.
 
 ### 6. Results grid — Readable, needs scale honesty
 - UX-P2: sorting is sync main-thread over full array (`query-tab-content.tsx`) (QA-P2-12); metadata popover good but SQLite TEXT-everywhere fix needs runtime proof (QA-P1-04/14).
@@ -59,8 +60,8 @@
 
 ### 12. Command palette / Quick Open / Agent — Discoverable vs misleading
 - Good: palette + quick open + ranking exist.
-- UX-P1: Agent panel looks functional but is preview-only; header lacks Preview badge (QA-P2-04 → UX-P1: false affordance); `⌘↵` hint on Windows/Linux (QA-P2-05).
-- Plan: Preview badge + disabled-with-reason composer, platform shortcut labels.
+- Resolved (2026-09-09, QA-P2-04/05): Agent preview affordances and platform-aware shortcut labels are implemented; runtime verification remains pending.
+- Plan: keep runtime evidence for the preview-only flow.
 
 **Resolution (2026-09-09, QA-P2-04):** Agent now shows a localized `Preview` badge; starter actions and the composer are disabled, with an explicit preview-only explanation. The existing platform-aware shortcut fix covers QA-P2-05. Full pnpm frontend gates pass; provider and packaged-desktop runtime verification remain pending.
 

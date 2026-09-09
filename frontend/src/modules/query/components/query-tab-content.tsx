@@ -159,6 +159,8 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
         const ok = await confirm({
           title: t("query.dirtyReplaceConfirm"),
           message: t("query.dirtyReplaceConfirm"),
+          confirmLabel: t("common.actions.confirm"),
+          cancelLabel: t("common.actions.cancel"),
         });
         if (!ok) return;
       }
@@ -180,6 +182,8 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
             const ok = await confirm({
               title: t("query.dirtyReplaceConfirm"),
               message: t("query.dirtyReplaceConfirm"),
+              confirmLabel: t("common.actions.confirm"),
+              cancelLabel: t("common.actions.cancel"),
             });
             if (!ok) return;
           }

@@ -32,8 +32,8 @@ Blends with 2026 backbone: copilot manners, purposeful trust motion, schematic c
 ### A4 ER bounded open
 - >200 tables opens to search-prompt/empty state + explicit "Show all N"; first paint at safe LOD tier 0/1; full graph is opt-in.
 - Trend: raw schematic + purposeful motion (no surprise freeze).
-### A5 Agent preview honesty + Query confirm
-- Agent header gets Preview badge, composer disabled-with-reason; replace `window.confirm` with app AlertDialog; export enabled by result state.
+### A5 Agent preview honesty + confirmation consistency
+- Agent header gets Preview badge, composer disabled-with-reason; replace native `confirm()` calls with the shared app AlertDialog; export enabled by result state.
 - Trend: copilot manners (asks before acting), no false affordance.
 ### A6 Schema risk language
 - Mutation risk → plain consequence ("will rewrite table, undo = restore from…") + impact-summary confirm; DDL always preview-before-execute.

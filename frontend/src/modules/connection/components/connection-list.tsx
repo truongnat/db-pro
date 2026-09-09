@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from "react";
 
 import { useConnectionStore } from "@/commons/stores/connection.store";
 import { useTranslation } from "@/commons/locales/useTranslation";
+import { useConfirmDialog } from "@/app/providers/confirm-dialog.provider";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -43,6 +44,7 @@ interface ConnectionListProps {
 
 export function ConnectionList({ onEdit, onBackup, onRestore }: ConnectionListProps) {
   const { t } = useTranslation();
+  const { confirm } = useConfirmDialog();
   const { data: connections, isLoading, error } = useConnectionList();
   const connectMutation = useConnect();
   const disconnectMutation = useDisconnect();
@@ -67,6 +69,19 @@ export function ConnectionList({ onEdit, onBackup, onRestore }: ConnectionListPr
 
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
+
+  const handleDelete = useCallback(
+    async (id: string) => {
+      const confirmed = await confirm({
+        title: t("common.actions.delete"),
+        message: t("connection.confirmDelete"),
+        confirmLabel: t("common.actions.confirm"),
+        cancelLabel: t("common.actions.cancel"),
+      });
+      if (confirmed) deleteMutation.mutate(id);
+    },
+    [confirm, deleteMutation, t],
+  );
 
   const uniqueTags = useMemo(() => {
     if (!connections) return [];
@@ -462,11 +477,7 @@ export function ConnectionList({ onEdit, onBackup, onRestore }: ConnectionListPr
                                 variant="ghost"
                                 size="sm"
                                 className="h-auto px-2 py-1 text-xs text-destructive"
-                                onClick={() => {
-                                  if (confirm(t("connection.confirmDelete"))) {
-                                    deleteMutation.mutate(conn.id);
-                                  }
-                                }}
+                                onClick={() => void handleDelete(conn.id)}
                               >
                                 {t("common.actions.delete")}
                               </Button>
@@ -512,11 +523,7 @@ export function ConnectionList({ onEdit, onBackup, onRestore }: ConnectionListPr
                       <ContextMenuSeparator />
                       <ContextMenuItem
                         variant="destructive"
-                        onClick={() => {
-                          if (confirm(t("connection.confirmDelete"))) {
-                            deleteMutation.mutate(conn.id);
-                          }
-                        }}
+                        onClick={() => void handleDelete(conn.id)}
                       >
                         {t("common.actions.delete")}
                       </ContextMenuItem>
