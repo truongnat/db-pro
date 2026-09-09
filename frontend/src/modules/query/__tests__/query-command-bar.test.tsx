@@ -1,13 +1,24 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+
+const connectionHarness = vi.hoisted(() => ({
+  connections: [] as Array<{ id: string; name: string; database: string }>,
+  statuses: {} as Record<string, string>,
+}));
 
 vi.mock("@/commons/locales/useTranslation", () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }));
 
 vi.mock("@/modules/connection/queries/connection.queries", () => ({
-  useConnectionList: () => ({ data: [] }),
+  useConnectionList: () => ({ data: connectionHarness.connections }),
+  useConnect: () => ({ mutate: vi.fn(), isPending: false }),
+}));
+
+vi.mock("@/modules/connection/state/connection.store", () => ({
+  useConnectionModuleStore: (selector: (state: { statuses: Record<string, string> }) => unknown) =>
+    selector({ statuses: connectionHarness.statuses }),
 }));
 
 import { QueryCommandBar } from "../components/query-command-bar";
@@ -40,6 +51,11 @@ async function openMoreMenu() {
 }
 
 describe("QueryCommandBar — Export Results availability", () => {
+  beforeEach(() => {
+    connectionHarness.connections = [];
+    connectionHarness.statuses = {};
+  });
+
   it("disables Export Results when SQL exists but there are no results", async () => {
     render(<QueryCommandBar {...defaultProps} hasSql hasResults={false} />);
     await openMoreMenu();
@@ -59,5 +75,13 @@ describe("QueryCommandBar — Export Results availability", () => {
     await openMoreMenu();
     const item = await screen.findByText("query.exportSql");
     expect(item).not.toHaveAttribute("data-disabled");
+  });
+
+  it("shows reconnect for a known disconnected connection", () => {
+    connectionHarness.connections = [{ id: "conn-1", name: "Local", database: "app" }];
+    connectionHarness.statuses = { "conn-1": "disconnected" };
+    render(<QueryCommandBar {...defaultProps} connectionId="conn-1" hasConnection hasResults />);
+
+    expect(screen.getByRole("button", { name: "workspace.reconnect" })).toBeInTheDocument();
   });
 });

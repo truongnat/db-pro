@@ -29,8 +29,8 @@
 ### 5. Query editor — Strong core, weak forgiveness
 - Good: Monaco + dialects + risk classifier + timer + zoom.
 - Resolved (2026-09-09, QA-P2-23): query history/import overwrite uses the shared app `AlertDialog` confirmation with localized action labels; no native `confirm()` remains in the query editor.
-- Resolved (2026-09-09, QA-P2-22): export is gated by result state rather than SQL text (`9dcb5b7`). Query empty/error/success/cancelled/messages copy now uses localized `query.*` keys.
-- UX-P2 remains: connection picker clarity and runtime/provider evidence.
+- Resolved (2026-09-09, QA-P2-22): export is gated by result state rather than SQL text (`9dcb5b7`). Query empty/error/success/cancelled/messages copy now uses localized `query.*` keys, and a known disconnected query connection exposes a reconnect affordance.
+- UX-P2 remains: runtime/provider evidence.
 - Plan: picker shows reconnect affordance; finish result/status i18n.
 
 ### 6. Results grid — Readable, needs scale honesty

@@ -19,6 +19,7 @@
 - Wave C ER i18n evidence: `pnpm exec vitest run src/modules/er-diagram/__tests__/search-first-entry.test.tsx src/modules/er-diagram/__tests__/show-all-transition.test.tsx src/modules/er-diagram/__tests__/cytoscape-view.test.tsx` passes (3 files, 49 tests); overview controls and Show All labels resolve through EN/JA locale keys.
 - Wave B explorer evidence: `pnpm exec vitest run src/commons/stores/__tests__/explorer.store.test.ts src/commons/components/shell/sidebar-views/search-view.test.tsx` passes (2 files, 12 tests); switching connections filters stale expanded trees while preserving the selected connection/schema paths.
 - Wave C workspace evidence: `pnpm exec vitest run src/hooks/__tests__/use-tab-keyboard.test.ts` passes (1 test); keyboard/context relative order now matches the pinned-first tab-bar projection.
+- Wave C query connection evidence: `pnpm exec vitest run src/modules/query/__tests__/query-command-bar.test.tsx` passes (4 tests); known disconnected connections expose the localized reconnect action while missing configurations remain explicitly unavailable.
 - Provider runtime: PENDING (PG and SQLite independently).
 - UI runtime: PENDING (packaged desktop smoke, keyboard-only, light/dark, 500-table ER).
 - No feature marked COMPLETED. Next: runtime walkthrough, then focused `fix/` branches per Wave A/B/C.
