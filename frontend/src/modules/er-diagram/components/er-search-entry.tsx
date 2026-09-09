@@ -29,7 +29,7 @@ export function ErSearchEntry({ model, onSelectTable }: ErSearchEntryProps) {
   const [query, setQuery] = useState("");
   const [highlightedIndex, setHighlightedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
-  const listRef = useRef<HTMLUListElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
 
   // Deterministic filtered results — model order, case-insensitive match.
   const results = useMemo(() => {
@@ -128,10 +128,9 @@ export function ErSearchEntry({ model, onSelectTable }: ErSearchEntryProps) {
 
         {/* Results / suggestions list */}
         {displayItems.length > 0 && (
-          <ul
+          <div
             ref={listRef}
             className="flex max-h-64 flex-col gap-0.5 overflow-y-auto rounded-md border bg-popover p-1"
-            role="listbox"
             data-testid="er-search-results"
           >
             {displayItems.map((tableKey, i) => {
@@ -139,11 +138,11 @@ export function ErSearchEntry({ model, onSelectTable }: ErSearchEntryProps) {
               const isHighlighted = i === highlightedIndex;
 
               return (
-                <li
+                <button
+                  type="button"
                   key={tableKey}
-                  role="option"
-                  aria-selected={isHighlighted}
-                  className={`cursor-pointer rounded px-2 py-1.5 text-sm ${
+                  aria-current={isHighlighted ? "true" : undefined}
+                  className={`w-full cursor-pointer rounded px-2 py-1.5 text-left text-sm ${
                     isHighlighted ? "bg-accent text-accent-foreground" : "hover:bg-accent/50"
                   }`}
                   data-testid="er-search-result"
@@ -166,10 +165,10 @@ export function ErSearchEntry({ model, onSelectTable }: ErSearchEntryProps) {
                       {t("schemaWorkspace.suggested")}
                     </span>
                   )}
-                </li>
+                </button>
               );
             })}
-          </ul>
+          </div>
         )}
 
         {/* Empty state */}
