@@ -5,6 +5,7 @@ import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import path from "path";
 
 export default defineConfig({
+  base: process.env.TAURI_ENV_PLATFORM ? "./" : "/",
   plugins: [
     tanstackRouter({
       routesDirectory: "./src/routes",
