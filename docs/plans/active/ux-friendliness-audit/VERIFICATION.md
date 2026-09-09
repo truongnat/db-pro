@@ -11,6 +11,7 @@
 - Wave B explorer source evidence: `SearchView` now debounces catalog filtering, matches table/view names or schemas, renders only virtualized result rows, and displays a localized result count. `SchemaObjectGroup` now virtualizes expanded table/view children with bounded scroll height; auto-collapse and runtime evidence remain open.
 - Wave B result-sort evidence: `ResultGrid` displays a localized warning when sorting at least 10,000 returned rows; existing `QueryStatusBar` covers the large-result state. Targeted result-grid regression coverage added.
 - Wave B ER evidence: search candidates display `schema.table`, selection remains explicit via highlighted Enter/click, and Fit uses `rendererRef.current?.fit()`. React Flow shows a localized explanation when MiniMap is omitted for large graphs.
+- Wave C welcome evidence: `pnpm exec vitest run src/commons/components/__tests__/welcome-view.test.tsx` passes (7 tests), including first-run empty state and SQLite path-focused recent connection rendering.
 - Provider runtime: PENDING (PG and SQLite independently).
 - UI runtime: PENDING (packaged desktop smoke, keyboard-only, light/dark, 500-table ER).
 - No feature marked COMPLETED. Next: runtime walkthrough, then focused `fix/` branches per Wave A/B/C.

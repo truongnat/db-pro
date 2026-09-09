@@ -4,8 +4,8 @@
 
 ### 1. Welcome / onboarding — Friendly with gaps
 - Good: recent connections + shortcuts give fast resume (`commons/components/welcome-view.tsx`).
-- UX-P2: SQLite recent subtitle shows meaningless `host:port` (`:0 / <path>`) — file-focused label needed (RC1 QA-P2-21).
-- UX-P2: no first-run empty state guiding "New connection → Explorer → Query".
+- Resolved (2026-09-09, RC1 QA-P2-21): SQLite recent connections show the database path instead of a meaningless host/port pair.
+- Resolved (2026-09-09): empty first-run state explains that there are no connections and guides the user to create the first one.
 
 ### 2. Connections — Least friendly, most fixes needed
 - Resolved (2026-09-09, QA-P1-05..08): SQLite no longer requires a password, SQLite strips stale SSH state, SSH defaults port 22 and preserves omitted passphrase as `undefined`, and connection-dialog callbacks are guarded by a per-open session generation.
