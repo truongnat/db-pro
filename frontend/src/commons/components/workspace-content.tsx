@@ -2,6 +2,7 @@ import { lazy, Suspense } from "react";
 
 import { useTranslation } from "@/commons/locales/useTranslation";
 import { useConnectionValid } from "@/commons/hooks/use-connection-valid";
+import { useConnectionStore } from "@/commons/stores/connection.store";
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
 import { requestCloseTab } from "@/commons/services/request-close-tab";
 import { useConnectionList } from "@/modules/connection/queries/connection.queries";
@@ -32,6 +33,19 @@ const SchemaWorkspaceContent = lazy(() =>
   })),
 );
 
+export function reassignOrphanedTab(tabId: string, newConnectionId: string): void {
+  useConnectionStore.getState().setExplorerConnection(newConnectionId);
+  const tab = useWorkspaceStore.getState().tabs.find((candidate) => candidate.id === tabId);
+  if (tab?.kind === "query") {
+    useWorkspaceStore.getState().reassignTabConnection(tabId, newConnectionId);
+    return;
+  }
+
+  // A schema/object tab cannot prove that the same resource exists on the target.
+  // Close it and let the selected connection's explorer provide a fresh resource pick.
+  requestCloseTab(tabId);
+}
+
 function TabLoadingFallback() {
   return (
     <div className="flex h-full items-center justify-center">
@@ -45,7 +59,7 @@ function OrphanedTabView({ tabId, tabTitle }: { tabId: string; tabTitle: string 
   const connections = useConnectionList();
 
   const handleChangeConnection = (newConnId: string) => {
-    useWorkspaceStore.getState().reassignTabConnection(tabId, newConnId);
+    reassignOrphanedTab(tabId, newConnId);
   };
 
   const handleCloseTab = () => {

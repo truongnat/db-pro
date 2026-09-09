@@ -20,7 +20,7 @@
 
 ### 4. Workspace tabs — Powerful but unpredictable
 - Fixed in W1: preview-carries-staged-changes, staged bypasses close guard (QA-P1-02/03) — verify by runtime.
-- UX-P1 (open): orphan Close bypasses guard; orphan reassign keeps incompatible schema/object (QA-P1-10/11).
+- Resolved (2026-09-09, QA-P1-10/11): tab close commands/actions now share the guarded close service; orphan query reassignment resets connection context, while orphan DB-object/ER tabs close and select the target connection for a fresh resource pick.
 - UX-P2: pinned visual order ≠ store/keyboard order; hardcoded Ctrl labels on macOS (QA-P2-01/02).
 - Plan: single ordered tab list, all closes via `requestCloseTab`, reassign forces resource re-pick.
 
