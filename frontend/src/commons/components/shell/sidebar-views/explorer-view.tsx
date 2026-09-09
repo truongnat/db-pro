@@ -12,6 +12,8 @@ import {
   Zap,
   ZapOff,
 } from "lucide-react";
+import { Children, useRef } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 
 import { useTranslation } from "@/commons/locales/useTranslation";
 import { useConnectionStore } from "@/commons/stores/connection.store";
@@ -82,6 +84,33 @@ interface SchemaObjectGroupProps {
   children: React.ReactNode;
 }
 
+function VirtualizedChildren({ children }: { children: React.ReactNode }) {
+  const items = Children.toArray(children);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const virtualizer = useVirtualizer({
+    count: items.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => 26,
+    overscan: 8,
+  });
+
+  return (
+    <div ref={scrollRef} className="max-h-80 overflow-y-auto">
+      <div className="relative" style={{ height: virtualizer.getTotalSize() }}>
+        {virtualizer.getVirtualItems().map((item) => (
+          <div
+            key={item.key}
+            className="absolute left-0 w-full"
+            style={{ transform: `translateY(${item.start}px)` }}
+          >
+            {items[item.index]}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function SchemaObjectGroup({
   groupKey,
   label,
@@ -109,7 +138,11 @@ function SchemaObjectGroup({
         <span className="flex-1 truncate text-left">{label}</span>
         <span className="text-[11px] tabular-nums text-[var(--text-tertiary)]">{count}</span>
       </button>
-      {isOpen && <div className="ml-[10px] flex flex-col">{children}</div>}
+      {isOpen && (
+        <div className="ml-[10px] flex flex-col">
+          <VirtualizedChildren>{children}</VirtualizedChildren>
+        </div>
+      )}
     </div>
   );
 }
