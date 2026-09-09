@@ -180,7 +180,9 @@ export function WelcomeView() {
                           <ConnectionStatusBadge status={status} />
                         </div>
                         <p className="truncate text-xs text-[var(--text-secondary)]">
-                          {conn.host}:{conn.port} / {conn.database}
+                          {conn.driver === "sqlite"
+                            ? conn.database
+                            : `${conn.host}:${conn.port} / ${conn.database}`}
                         </p>
                       </div>
                     </button>
