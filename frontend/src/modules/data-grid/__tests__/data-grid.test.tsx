@@ -12,6 +12,8 @@ i18n.use(initReactI18next).init({
         dataGrid: {
           noData: "No data",
           confirmDelete: "Delete this row?",
+          readOnlyNoPk: "Read-only — editing requires a primary key",
+          readOnlyConnection: "Read-only connection — editing is disabled",
         },
         query: {
           rowsAffected: "{{count}} row affected",
@@ -115,6 +117,17 @@ describe("DataGrid", () => {
     const onEditCell = vi.fn();
     const user = userEvent.setup();
     renderGrid({ onEditCell, pkColumns: [] });
+    await user.dblClick(screen.getByText("Alice"));
+    expect(onEditCell).not.toHaveBeenCalled();
+  });
+
+  it("renders read-only for a read-only connection despite pkColumns", async () => {
+    const onEditCell = vi.fn();
+    const user = userEvent.setup();
+    renderGrid({ onEditCell, readOnly: true });
+    expect(
+      screen.getByText("Read-only connection — editing is disabled"),
+    ).toBeInTheDocument();
     await user.dblClick(screen.getByText("Alice"));
     expect(onEditCell).not.toHaveBeenCalled();
   });

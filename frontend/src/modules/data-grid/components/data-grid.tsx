@@ -21,6 +21,8 @@ interface DataGridProps {
   isDeleting: boolean;
   isLoading: boolean;
   pkColumns: string[];
+  /** True when the connection disallows writes — grid renders read-only upfront. */
+  readOnly?: boolean;
   frozenColumns?: string[];
   hiddenColumns?: string[];
   onToggleFreezeColumn?: (column: string) => void;
@@ -44,6 +46,7 @@ export function DataGrid({
   isDeleting,
   isLoading,
   pkColumns,
+  readOnly = false,
   frozenColumns,
   hiddenColumns,
   onToggleFreezeColumn,
@@ -54,14 +57,14 @@ export function DataGrid({
   onSelectionChange,
 }: DataGridProps) {
   const { t } = useTranslation();
-  const canEdit = pkColumns.length > 0;
+  const canEdit = pkColumns.length > 0 && !readOnly;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       {!canEdit && (
         <div className="flex items-center gap-1.5 border-b border-[var(--border-subtle)] bg-[var(--surface-panel)] px-3 py-1 text-[11px] text-[var(--text-secondary)]">
           <span className="text-[var(--state-warning)]">●</span>
-          {t("dataGrid.readOnlyNoPk")}
+          {readOnly ? t("dataGrid.readOnlyConnection") : t("dataGrid.readOnlyNoPk")}
         </div>
       )}
       <UnifiedGrid
