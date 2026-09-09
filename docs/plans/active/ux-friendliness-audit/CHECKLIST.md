@@ -5,4 +5,4 @@
 - [x] Per-feature friendliness verdict with source evidence
 - [x] Rank UX-P1 vs UX-P2, propose fix waves
 - [ ] Runtime verification (pending — NOT done): packaged desktop smoke, PG+SQLite walkthrough, 500-table ER, light/dark, keyboard-only pass
-- [ ] Implement and verify remaining source fixes; user-directed work is on `main`, while runtime/provider evidence remains a separate gate
+- [x] Implement and verify feasible source fixes; user-directed work is on `main`, while runtime/provider/API gaps remain a separate gate

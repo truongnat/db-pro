@@ -487,6 +487,7 @@
   "backup": {
     "title": "データベースバックアップ",
     "restoreTitle": "データベース復元",
+    "description": "バックアップ形式とファイルを選択して、操作を開始してください。",
     "outputPath": "出力ファイルパス",
     "inputPath": "入力ファイルパス",
     "format": "形式",

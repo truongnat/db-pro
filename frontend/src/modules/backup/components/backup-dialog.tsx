@@ -141,7 +141,7 @@ export function BackupDialog({
             <DialogTitle>
               {t(mode === "backup" ? "backup.title" : "backup.restoreTitle")}
             </DialogTitle>
-            <DialogDescription>{t("backup.connectFirst")}</DialogDescription>
+            <DialogDescription>{t("backup.description")}</DialogDescription>
           </DialogHeader>
 
           <div className="grid gap-3">

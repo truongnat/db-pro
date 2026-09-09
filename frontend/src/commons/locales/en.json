@@ -511,6 +511,7 @@
   "backup": {
     "title": "Backup Database",
     "restoreTitle": "Restore Database",
+    "description": "Choose a backup format and file, then start the operation.",
     "outputPath": "Output File Path",
     "inputPath": "Input File Path",
     "format": "Format",
