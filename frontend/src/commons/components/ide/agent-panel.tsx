@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { formatShortcut } from "@/commons/utils/platform";
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
 import { useConnectionList } from "@/modules/connection/queries/connection.queries";
 import { useSchemaCatalogStore } from "@/modules/query/stores/schema-catalog.store";
@@ -407,7 +408,9 @@ export function AgentPanel({ open, onClose, width, className }: AgentPanelProps)
             disabled={isProcessing}
           />
           <div className="flex items-center gap-1.5">
-            <kbd className="text-[11px] text-[var(--text-tertiary)]">⌘↵</kbd>
+            <kbd className="text-[11px] text-[var(--text-tertiary)]">
+              {formatShortcut({ primary: true, key: "Enter" })}
+            </kbd>
             <button
               type="button"
               className={cn(
