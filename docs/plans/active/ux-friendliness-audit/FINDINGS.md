@@ -57,6 +57,7 @@
 - Resolved (2026-09-09): when the React Flow MiniMap is omitted, the canvas explains why and points to overview controls.
 - Runtime evidence (2026-09-09): Tauri dev opened a PostgreSQL fixture with 500 temporary tables (510 tables in the ER model) directly into the search-first state; the accessibility tree exposed the search entry, table count, and schema-qualified suggestions without mounting the graph renderer. The theme control also cycled through Dark and System.
 - Resolved (2026-09-09): packaged desktop smoke now renders the full application after the production Vite chunk-cycle fix (`f28f6dc`); release UI showed Explorer, workspace/table tabs, and table data.
+- Runtime evidence (2026-09-09): the schema row now exposes a direct `Open ER Diagram: <schema>` action; native Tauri opened `ER: public` and exposed the diagram/overview tabs, Fit View control, search entry, MiniMap, and the 10-table graph.
 - Plan: collect runtime evidence for table selection, bounded neighborhood, and Fit/Show All navigation.
 
 ### 10. Export/Import/Backup — Works, low feedback
