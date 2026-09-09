@@ -33,10 +33,14 @@ export function TabContextMenu({ tab, children, onClose, onCloseMany }: TabConte
 
   const recentlyClosedCount = useWorkspaceStore((s) => s.recentlyClosed.length);
 
-  const tabEntries = tabOrderKey.split("|").map((entry) => {
+  const rawTabEntries = tabOrderKey.split("|").map((entry) => {
     const [id, pinned] = entry.split(":");
     return { id, pinned: pinned === "1" };
   });
+  const tabEntries = [
+    ...rawTabEntries.filter((tab) => tab.pinned),
+    ...rawTabEntries.filter((tab) => !tab.pinned),
+  ];
 
   const tabIdx = tabEntries.findIndex((t) => t.id === tab.id);
   const otherIds = tabEntries.filter((t) => t.id !== tab.id && !t.pinned).map((t) => t.id);

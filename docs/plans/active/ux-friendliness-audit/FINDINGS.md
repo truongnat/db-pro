@@ -22,7 +22,8 @@
 ### 4. Workspace tabs — Powerful but unpredictable
 - Fixed in W1: preview-carries-staged-changes, staged bypasses close guard (QA-P1-02/03) — verify by runtime.
 - Resolved (2026-09-09, QA-P1-10/11): tab close commands/actions now share the guarded close service; orphan query reassignment resets connection context, while orphan DB-object/ER tabs close and select the target connection for a fresh resource pick.
-- UX-P2: pinned visual order ≠ store/keyboard order; hardcoded Ctrl labels on macOS (QA-P2-01/02).
+- Resolved (2026-09-09, QA-P2-01): keyboard navigation and context-menu relative ordering now use the same pinned-first order rendered by the tab bar.
+- UX-P2 remains: hardcoded Ctrl labels on macOS (QA-P2-02).
 - Plan: single ordered tab list, all closes via `requestCloseTab`, reassign forces resource re-pick.
 
 ### 5. Query editor — Strong core, weak forgiveness
