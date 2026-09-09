@@ -175,7 +175,7 @@ export function ColumnEditDialog({
       >
         <DialogContent className="sm:max-w-md" onKeyDown={handleKeyDown}>
           <DialogHeader>
-            <DialogTitle className="text-sm">Edit Column</DialogTitle>
+            <DialogTitle className="text-sm">{t("schema.editColumn")}</DialogTitle>
             <DialogDescription className="font-mono text-xs">
               {schemaName}.{tableName}
             </DialogDescription>
@@ -322,8 +322,8 @@ export function ColumnEditDialog({
               {executeBatch.isPending
                 ? t("common.states.loading")
                 : classified.risk.requiresConfirmation
-                  ? "Review & Apply…"
-                  : "Apply"}
+                  ? t("schema.reviewApply")
+                  : t("schema.apply")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -339,7 +339,7 @@ export function ColumnEditDialog({
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2 text-sm">
               <AlertTriangle className="h-4 w-4 text-warning" />
-              Confirm Schema Change
+              {t("schema.confirmChange")}
             </AlertDialogTitle>
             <AlertDialogDescription>
               <span className="mb-2 block">
@@ -369,7 +369,9 @@ export function ColumnEditDialog({
             <AlertDialogCancel onClick={handleConfirmCancel}>
               {t("common.actions.cancel")}
             </AlertDialogCancel>
-            <AlertDialogAction onClick={executeStatements}>Apply Changes</AlertDialogAction>
+            <AlertDialogAction onClick={executeStatements}>
+              {t("schema.applyChanges")}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

@@ -48,7 +48,7 @@
 ### 8. Schema inspector (columns/FK/indexes/triggers/DDL/CRUD) — Complete but intimidating
 - Good: per-object tabs + DDL viewer + capabilities gating.
 - Resolved (2026-09-09): column mutations show operation/risk/warning/SQL before confirmation, and the DDL editor now requires a confirmation showing the operation, target, and SQL preview before every execution.
-- UX-P2: risk copy is still partly hardcoded in the column dialog; trigger enable/disable lacks runtime proof; CRUD generator output has no preview-before-apply story.
+- Resolved (2026-09-09, QA-P2-06 partial): ColumnEditDialog action and confirmation labels now use localized schema keys; classifier warning copy, trigger runtime proof, and CRUD preview remain open.
 - Plan: finish risk-copy i18n and runtime/provider evidence.
 
 ### 9. ER diagram — Impressive, unfriendly at scale

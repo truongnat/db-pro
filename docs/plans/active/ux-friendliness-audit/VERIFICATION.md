@@ -23,6 +23,7 @@
 - Wave A data-grid evidence: `pnpm exec vitest run src/modules/data-grid/__tests__/data-grid.test.tsx src/modules/data-grid/__tests__/change-bar.test.tsx src/modules/unified-grid/__tests__/unified-grid-copy.test.tsx` passes (3 files, 25 tests); column visibility uses one toggle path and grid context menus clamp/focus/close with Escape.
 - Wave A data-grid resize evidence: the same unified-grid test file includes keyboard separator coverage; Arrow-right changes the controlled width from 150 to 160 and the handle exposes min/current ARIA values.
 - Wave A connection evidence: `pnpm exec vitest run src/modules/connection/__tests__/connection-crud-queries.test.tsx` covers favorite rollback after persistence failure.
+- Wave A schema evidence: the ColumnEditDialog action/confirmation labels now resolve through EN/JA schema locale keys; targeted schema DDL/capability tests remain green from the prior A6 gate.
 - Provider runtime: PENDING (PG and SQLite independently).
 - UI runtime: PENDING (packaged desktop smoke, keyboard-only, light/dark, 500-table ER).
 - No feature marked COMPLETED. Next: runtime walkthrough, then focused `fix/` branches per Wave A/B/C.
