@@ -10,10 +10,9 @@
 ### 2. Connections — Least friendly, most fixes needed
 - Resolved (2026-09-09, QA-P1-05..08): SQLite no longer requires a password, SQLite strips stale SSH state, SSH defaults port 22 and preserves omitted passphrase as `undefined`, and connection-dialog callbacks are guarded by a per-open session generation.
 - Resolved (2026-09-09, QA-P2-23): connection deletion from both the row action and context menu uses the shared app `AlertDialog`, with localized confirm/cancel labels.
-- Resolved (2026-09-09, QA-P2-19): duplicate now explains that credentials are intentionally not copied and the connection-list context menu has a real table-row trigger instead of attaching Radix handlers to a fragment.
-- UX-P2: Test success goes stale after edits; failure hides backend detail; SQLite Browse has no error path; driverChanged is "ever changed" (QA-P2-15–18).
+- Resolved (2026-09-09, QA-P2-15..19): test results reset after edits, backend `userMessage` is surfaced, SQLite Browse reports picker failures, driver-change password requirements follow the current driver, and duplicate now explains that credentials are intentionally not copied. The connection-list context menu also has a real table-row trigger instead of attaching Radix handlers to a fragment.
 - Resolved (2026-09-09, QA-P2-20): favorite state rolls back when persistence fails.
-- Plan: explicit credential messaging, complete remaining test/browse/duplicate/favorite polish.
+- Plan: collect PostgreSQL/SQLite runtime evidence for the completed connection flow.
 
 ### 3. Explorer / sidebar search — Functional, not large-schema friendly
 - Resolved (2026-09-09, QA-P2-13): sidebar search builds a memoized table/view catalog, debounces input, virtualizes matching rows, and reports match counts.
