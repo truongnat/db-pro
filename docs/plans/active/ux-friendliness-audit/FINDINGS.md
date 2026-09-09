@@ -55,7 +55,8 @@
 - Resolved (2026-09-09, QA-P1-12/13; implementation in `59018df`): >200-table and L/XL schemas open in search-first mode with no renderer/layout; selecting a table materializes a bounded neighborhood and safe compact first paint; full overview requires explicit Show All.
 - Resolved (2026-09-09, QA-P2-24/25): ER search renders schema-qualified candidates for disambiguation, Enter/click selects the highlighted candidate, and Fit calls the renderer API directly.
 - Resolved (2026-09-09): when the React Flow MiniMap is omitted, the canvas explains why and points to overview controls.
-- Plan: collect runtime evidence for large-schema search, fit, and navigation.
+- Runtime evidence (2026-09-09): Tauri dev opened a PostgreSQL fixture with 500 temporary tables (510 tables in the ER model) directly into the search-first state; the accessibility tree exposed the search entry, table count, and schema-qualified suggestions without mounting the graph renderer. The theme control also cycled through Dark and System.
+- Plan: collect runtime evidence for table selection, bounded neighborhood, Fit/Show All navigation, packaged UI, and the remaining provider walkthroughs.
 
 ### 10. Export/Import/Backup — Works, low feedback
 - Resolved (2026-09-09, partial): the mounted results export dialog now performs pre-flight validation for empty results, missing SQL table name, and missing Excel connection/query before download or backend mutation. Validation messages are localized and targeted coverage is present.
