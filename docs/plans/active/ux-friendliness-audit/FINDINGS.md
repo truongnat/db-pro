@@ -12,7 +12,7 @@
 - Resolved (2026-09-09, QA-P2-23): connection deletion from both the row action and context menu uses the shared app `AlertDialog`, with localized confirm/cancel labels.
 - Resolved (2026-09-09, QA-P2-15..19): test results reset after edits, backend `userMessage` is surfaced, SQLite Browse reports picker failures, driver-change password requirements follow the current driver, and duplicate now explains that credentials are intentionally not copied. The connection-list context menu also has a real table-row trigger instead of attaching Radix handlers to a fragment.
 - Resolved (2026-09-09, QA-P2-20): favorite state rolls back when persistence fails.
-- Plan: collect PostgreSQL/SQLite runtime evidence for the completed connection flow.
+- Runtime evidence (2026-09-09): native Tauri walkthroughs completed for PostgreSQL (`UX Fixture` → `public` → `orders`) and SQLite (`A4 SQLite` → `main` → `typed_values`), including connection/introspection, table data, column metadata, and DDL views.
 
 ### 3. Explorer / sidebar search — Functional, not large-schema friendly
 - Resolved (2026-09-09, QA-P2-13): sidebar search builds a memoized table/view catalog, debounces input, virtualizes matching rows, and reports match counts.
@@ -36,8 +36,8 @@
 
 ### 6. Results grid — Readable, needs scale honesty
 - Resolved (2026-09-09, QA-P2-12): sorted large result sets now show an explicit localized warning at the existing 10,000-row threshold; the existing status bar also surfaces large-result state.
-- UX-P2: metadata popover good but SQLite TEXT-everywhere fix needs runtime proof (QA-P1-04/14).
-- Plan: collect provider/runtime evidence for result metadata and row limits.
+- Resolved (2026-09-09, QA-P1-04/14): native PG and SQLite result grids preserve provider metadata and typed values; PostgreSQL numeric/enum mapping was fixed in `5958698` and covered by ignored PG integration coverage.
+- Plan: retain provider/runtime evidence for future regression coverage.
 
 ### 7. Data grid editing — Dangerous affordances
 - Resolved (2026-09-09, QA-P2-08): read-only connections show a clear banner and prevent cell editing before staging, rather than failing only at Apply.
@@ -48,7 +48,7 @@
 ### 8. Schema inspector (columns/FK/indexes/triggers/DDL/CRUD) — Complete but intimidating
 - Good: per-object tabs + DDL viewer + capabilities gating.
 - Resolved (2026-09-09): column mutations show operation/risk/warning/SQL before confirmation, and the DDL editor now requires a confirmation showing the operation, target, and SQL preview before every execution.
-- Resolved (2026-09-09, QA-P2-06): ColumnEditDialog action/confirmation labels and classifier risk/warning copy now use localized EN/JA schema keys; mounted CRUD preview now labels its copy action as SQL. SQLite and PostgreSQL trigger lifecycle/introspection are covered by Rust runtime tests; packaged UI proof remains pending.
+- Resolved (2026-09-09, QA-P2-06): ColumnEditDialog action/confirmation labels and classifier risk/warning copy now use localized EN/JA schema keys; mounted CRUD preview now labels its copy action as SQL. SQLite and PostgreSQL trigger lifecycle/introspection are covered by Rust runtime tests; packaged UI proof is complete.
 - Plan: collect live PostgreSQL trigger and provider/runtime evidence.
 
 ### 9. ER diagram — Impressive, unfriendly at scale
@@ -57,7 +57,7 @@
 - Resolved (2026-09-09): when the React Flow MiniMap is omitted, the canvas explains why and points to overview controls.
 - Runtime evidence (2026-09-09): Tauri dev opened a PostgreSQL fixture with 500 temporary tables (510 tables in the ER model) directly into the search-first state; the accessibility tree exposed the search entry, table count, and schema-qualified suggestions without mounting the graph renderer. The theme control also cycled through Dark and System.
 - Resolved (2026-09-09): packaged desktop smoke now renders the full application after the production Vite chunk-cycle fix (`f28f6dc`); release UI showed Explorer, workspace/table tabs, and table data.
-- Plan: collect runtime evidence for table selection, bounded neighborhood, Fit/Show All navigation, and the remaining provider walkthroughs.
+- Plan: collect runtime evidence for table selection, bounded neighborhood, and Fit/Show All navigation.
 
 ### 10. Export/Import/Backup — Works, low feedback
 - Resolved (2026-09-09, partial): the mounted results export dialog now performs pre-flight validation for empty results, missing SQL table name, and missing Excel connection/query before download or backend mutation. Validation messages are localized and targeted coverage is present.
