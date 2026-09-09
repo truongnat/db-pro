@@ -28,16 +28,24 @@ export default defineConfig({
     emptyOutDir: true,
     rollupOptions: {
       output: {
-        manualChunks: {
-          "vendor-tanstack": [
-            "@tanstack/react-query",
-            "@tanstack/react-router",
-            "@tanstack/react-virtual",
-          ],
-          "vendor-ui": ["@dnd-kit/core", "@dnd-kit/sortable", "cmdk", "lucide-react"],
-          "vendor-editor": ["@monaco-editor/react"],
-          "vendor-reactflow": ["@xyflow/react"],
-          "vendor-cytoscape": ["cytoscape", "dagre"],
+        manualChunks(id) {
+          const module = id.split("node_modules/").pop() ?? "";
+          if (module.startsWith("react/") || module.startsWith("react-dom/")) {
+            return "vendor-react";
+          }
+          if (module.startsWith("@tanstack/react-")) return "vendor-tanstack";
+          if (
+            module.startsWith("@dnd-kit/") ||
+            module.startsWith("cmdk/") ||
+            module.startsWith("lucide-react/")
+          ) {
+            return "vendor-ui";
+          }
+          if (module.startsWith("@monaco-editor/")) return "vendor-editor";
+          if (module.startsWith("@xyflow/")) return "vendor-reactflow";
+          if (module.startsWith("cytoscape/") || module.startsWith("dagre/")) {
+            return "vendor-cytoscape";
+          }
         },
       },
     },
