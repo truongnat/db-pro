@@ -6,6 +6,7 @@ import {
   Download,
   Folder,
   FolderOpen,
+  Network,
   Plus,
   RefreshCw,
   Search,
@@ -365,40 +366,51 @@ export function ExplorerView() {
                         const Icon = schemaExpanded ? FolderOpen : Folder;
                         return (
                           <div key={schema.name}>
-                            <ContextMenu>
-                              <ContextMenuTrigger asChild>
-                                <button
-                                  type="button"
-                                  className="flex h-[28px] w-full cursor-pointer items-center gap-1.5 rounded-md border-l-2 border-l-transparent px-2 text-left text-[13px] font-medium text-foreground transition-colors hover:border-l-primary hover:bg-[var(--surface-hover)] active:bg-[var(--surface-active)]"
-                                  onClick={() => toggleNode(`schema:${conn.id}:${schema.name}`)}
-                                  aria-expanded={schemaExpanded}
-                                >
-                                  {schemaExpanded ? (
-                                    <ChevronDown className="h-3 w-3 shrink-0" />
-                                  ) : (
-                                    <ChevronRight className="h-3 w-3 shrink-0" />
-                                  )}
-                                  <Icon className="h-3.5 w-3.5 shrink-0 text-primary" />
-                                  <span className="flex-1 truncate">{schema.name}</span>
-                                  <span className="text-[11px] tabular-nums text-[var(--text-tertiary)]">
-                                    {tables.length + views.length}
-                                  </span>
-                                </button>
-                              </ContextMenuTrigger>
-                              <ContextMenuContent>
-                                <ContextMenuItem
-                                  onClick={() => openSchemaWorkspace(conn.id, schema.name)}
-                                >
-                                  {t("schemaWorkspace.actions.openDiagram")}
-                                </ContextMenuItem>
-                                <ContextMenuSeparator />
-                                <ContextMenuItem
-                                  onClick={() => navigator.clipboard.writeText(schema.name)}
-                                >
-                                  {t("shell.sidebar.copyName")}
-                                </ContextMenuItem>
-                              </ContextMenuContent>
-                            </ContextMenu>
+                            <div className="flex items-center gap-1">
+                              <ContextMenu>
+                                <ContextMenuTrigger asChild>
+                                  <button
+                                    type="button"
+                                    className="flex h-[28px] min-w-0 flex-1 cursor-pointer items-center gap-1.5 rounded-md border-l-2 border-l-transparent px-2 text-left text-[13px] font-medium text-foreground transition-colors hover:border-l-primary hover:bg-[var(--surface-hover)] active:bg-[var(--surface-active)]"
+                                    onClick={() => toggleNode(`schema:${conn.id}:${schema.name}`)}
+                                    aria-expanded={schemaExpanded}
+                                  >
+                                    {schemaExpanded ? (
+                                      <ChevronDown className="h-3 w-3 shrink-0" />
+                                    ) : (
+                                      <ChevronRight className="h-3 w-3 shrink-0" />
+                                    )}
+                                    <Icon className="h-3.5 w-3.5 shrink-0 text-primary" />
+                                    <span className="flex-1 truncate">{schema.name}</span>
+                                    <span className="text-[11px] tabular-nums text-[var(--text-tertiary)]">
+                                      {tables.length + views.length}
+                                    </span>
+                                  </button>
+                                </ContextMenuTrigger>
+                                <ContextMenuContent>
+                                  <ContextMenuItem
+                                    onClick={() => openSchemaWorkspace(conn.id, schema.name)}
+                                  >
+                                    {t("schemaWorkspace.actions.openDiagram")}
+                                  </ContextMenuItem>
+                                  <ContextMenuSeparator />
+                                  <ContextMenuItem
+                                    onClick={() => navigator.clipboard.writeText(schema.name)}
+                                  >
+                                    {t("shell.sidebar.copyName")}
+                                  </ContextMenuItem>
+                                </ContextMenuContent>
+                              </ContextMenu>
+                              <button
+                                type="button"
+                                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-foreground"
+                                aria-label={`${t("schemaWorkspace.actions.openDiagram")}: ${schema.name}`}
+                                title={t("schemaWorkspace.actions.openDiagram")}
+                                onClick={() => openSchemaWorkspace(conn.id, schema.name)}
+                              >
+                                <Network className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
                             {schemaExpanded && (
                               <div className="ml-[10px] flex flex-col gap-0.5">
                                 {tables.length > 0 && (
