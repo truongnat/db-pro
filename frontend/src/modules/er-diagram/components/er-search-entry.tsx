@@ -3,6 +3,7 @@ import { Search, Table2 } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { useTranslation } from "@/commons/locales/useTranslation";
 
 import type { ErGraphModel } from "../renderer/types";
 import { findTableMatches } from "../utils/overview-search";
@@ -24,6 +25,7 @@ interface ErSearchEntryProps {
  * construction, layout computation, or renderer mounting.
  */
 export function ErSearchEntry({ model, onSelectTable }: ErSearchEntryProps) {
+  const { t } = useTranslation();
   const [query, setQuery] = useState("");
   const [highlightedIndex, setHighlightedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -109,7 +111,7 @@ export function ErSearchEntry({ model, onSelectTable }: ErSearchEntryProps) {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Search tables..."
+            placeholder={t("schemaWorkspace.searchTables")}
             className="h-10 rounded-md pl-9 text-sm"
             data-testid="er-search-input"
           />
@@ -119,9 +121,9 @@ export function ErSearchEntry({ model, onSelectTable }: ErSearchEntryProps) {
         <div className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
           <Badge variant="outline" className="h-6 gap-1 text-[11px]">
             <Table2 className="h-3 w-3" />
-            {model.tables.length} tables
+            {t("schemaWorkspace.tableCount", { count: model.tables.length })}
           </Badge>
-          <span>{model.relations.length} relations</span>
+          <span>{t("schemaWorkspace.relationCount", { count: model.relations.length })}</span>
         </div>
 
         {/* Results / suggestions list */}
@@ -153,11 +155,16 @@ export function ErSearchEntry({ model, onSelectTable }: ErSearchEntryProps) {
                   </span>
                   {table && (
                     <span className="ml-2 text-xs text-[var(--text-secondary)]">
-                      {table.columnCount} cols · {table.fkCount} FK
+                      {t("schemaWorkspace.tableDetails", {
+                        columns: table.columnCount,
+                        foreignKeys: table.fkCount,
+                      })}
                     </span>
                   )}
                   {!isShowingResults && (
-                    <span className="ml-2 text-xs text-[var(--text-secondary)]">suggested</span>
+                    <span className="ml-2 text-xs text-[var(--text-secondary)]">
+                      {t("schemaWorkspace.suggested")}
+                    </span>
                   )}
                 </li>
               );
@@ -168,7 +175,7 @@ export function ErSearchEntry({ model, onSelectTable }: ErSearchEntryProps) {
         {/* Empty state */}
         {query.trim() && results.length === 0 && (
           <p className="text-center text-xs text-[var(--text-secondary)]">
-            No tables match "{query}"
+            {t("schemaWorkspace.noTablesMatch", { query })}
           </p>
         )}
       </div>

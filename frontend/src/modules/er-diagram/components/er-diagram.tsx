@@ -986,7 +986,7 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
                 {!isLargeSchema && (
                   <Badge variant="outline" className="h-7 text-[11px]">
                     <Table2 className="mr-1 h-3 w-3" />
-                    {initialNodes.length} tables
+                    {t("schemaWorkspace.tableCount", { count: initialNodes.length })}
                   </Badge>
                 )}
               </div>

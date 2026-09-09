@@ -723,6 +723,20 @@
       "fitView": "Fit view",
       "resetLayout": "Reset layout"
     },
+    "searchTables": "Search tables...",
+    "tableCount": "{{count}} tables",
+    "relationCount": "{{count}} relations",
+    "columnCount": "{{count}} columns",
+    "tableDetails": "{{columns}} cols · {{foreignKeys}} FK",
+    "suggested": "suggested",
+    "noTablesMatch": "No tables match \"{{query}}\"",
+    "highlight": "Highlight:",
+    "hops": {
+      "oneHop": "1 hop",
+      "twoHops": "2 hops",
+      "threeHops": "3 hops",
+      "domain": "Domain"
+    },
     "miniMapHiddenLarge": "Mini-map is hidden for large schemas; use the overview controls.",
     "overviewComingSoon": "Schema overview is coming soon."
   }

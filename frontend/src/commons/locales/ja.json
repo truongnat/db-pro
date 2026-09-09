@@ -699,6 +699,20 @@
       "fitView": "全体を表示",
       "resetLayout": "レイアウトをリセット"
     },
+    "searchTables": "テーブルを検索...",
+    "tableCount": "{{count}}件のテーブル",
+    "relationCount": "{{count}}件のリレーション",
+    "columnCount": "{{count}}列",
+    "tableDetails": "{{columns}}列 · FK {{foreignKeys}}件",
+    "suggested": "候補",
+    "noTablesMatch": "\"{{query}}\"に一致するテーブルはありません",
+    "highlight": "ハイライト:",
+    "hops": {
+      "oneHop": "1ホップ",
+      "twoHops": "2ホップ",
+      "threeHops": "3ホップ",
+      "domain": "ドメイン"
+    },
     "miniMapHiddenLarge": "大規模スキーマではミニマップを非表示にしています。概要コントロールを使用してください。",
     "overviewComingSoon": "スキーマ概要は近日公開予定です。"
   }

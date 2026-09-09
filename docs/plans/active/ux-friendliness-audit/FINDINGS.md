@@ -75,7 +75,7 @@
 
 ### 13. Shell chrome / i18n / tokens — Inconsistent polish
 - Resolved (2026-09-09): topbar traffic-light spacing is macOS-only; sidebar and Agent resize handles expose keyboard arrows, separator semantics, focusability, and bounded ARIA values.
-- Resolved (2026-09-09, QA-P2-06 partial): ER overview controls and the full-schema action now use localized `schemaWorkspace.*` labels; remaining search/stat copy and runtime/token smoke are pending.
+- Resolved (2026-09-09, QA-P2-06): ER overview controls, search, stats, candidate details, and the full-schema action now use localized `schemaWorkspace.*` labels; runtime/token smoke remains pending.
 - Plan: i18n sweep and light/dark token smoke.
 
 ## 2026 trend lens (applied in IMPROVEMENT_PLAN.md)
