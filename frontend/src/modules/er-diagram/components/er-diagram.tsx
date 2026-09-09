@@ -661,6 +661,23 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
     [openTableObject, isNeighborhoodPhase],
   );
 
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const nodeKey = (event as CustomEvent<{ nodeKey?: string }>).detail?.nodeKey;
+      const table = initialNodes.find((node) => node.id === nodeKey);
+      if (!table) return;
+      const nodeData = table.data as TableNodeData;
+      if (isNeighborhoodPhase) {
+        dispatchLargeSchema({ type: "FOCUS_NODE", nodeKey: table.id });
+      } else {
+        openTableObject(nodeData.schema, nodeData.label);
+      }
+    };
+
+    document.addEventListener("er-node-focus", handler);
+    return () => document.removeEventListener("er-node-focus", handler);
+  }, [dispatchLargeSchema, initialNodes, isNeighborhoodPhase, openTableObject]);
+
   // Explicit open-table action for the canvas overview: fed to the view's
   // `onOpenTable`, fired on double-click / the side inspector button.
   const onCytoscapeNodeClick = useCallback(
