@@ -14,8 +14,9 @@
 - Plan: explicit credential messaging, complete remaining test/browse/duplicate/favorite polish.
 
 ### 3. Explorer / sidebar search — Functional, not large-schema friendly
-- UX-P2: search scans + renders all matches per keystroke, no debounce/virtual list (`search-view.tsx`); expanded schema mounts all rows (`explorer-view.tsx`) (QA-P2-13/14).
-- Plan: debounced indexed search, virtualized list, auto-collapse + result counts.
+- Resolved (2026-09-09, QA-P2-13): sidebar search builds a memoized table/view catalog, debounces input, virtualizes matching rows, and reports match counts.
+- UX-P2: expanded schema still mounts all table/view rows (`explorer-view.tsx`) (QA-P2-14).
+- Plan: virtualize expanded schema groups and auto-collapse unrelated groups.
 
 ### 4. Workspace tabs — Powerful but unpredictable
 - Fixed in W1: preview-carries-staged-changes, staged bypasses close guard (QA-P1-02/03) — verify by runtime.

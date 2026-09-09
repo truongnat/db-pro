@@ -504,6 +504,7 @@
       "settings": "Settings",
       "help": "Help",
       "searchObjects": "Search objects...",
+      "searchResultCount": "{{count}} matching objects",
       "openData": "Open Data",
       "openStructure": "Open Structure",
       "open": "Open",
