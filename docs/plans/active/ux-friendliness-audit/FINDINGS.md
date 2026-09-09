@@ -53,7 +53,8 @@
 - Plan: collect runtime evidence for large-schema search, fit, and navigation.
 
 ### 10. Export/Import/Backup — Works, low feedback
-- UX-P2: progress dialog exists but enablement/scope errors surface late; import parse errors need file/line context; backup/restore (pg_dump vs sqlite copy) needs provider-specific progress + "where did my file go" reveal action.
+- Resolved (2026-09-09, partial): the mounted results export dialog now performs pre-flight validation for empty results, missing SQL table name, and missing Excel connection/query before download or backend mutation. Validation messages are localized and targeted coverage is present.
+- UX-P2 remains: import parse errors need file/line context; backup/restore buttons are not currently mounted with a dialog, and still need provider-specific progress plus a reveal-location action.
 - Plan: pre-flight validation, per-file error list, reveal-in-folder.
 
 ### 11. User management (PG-only) — Capability cliff

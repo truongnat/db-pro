@@ -30,6 +30,20 @@ import { ExportProgress } from "./export-progress";
 
 import { cn } from "@/lib/utils";
 
+export function getExportValidationError(input: {
+  format: ExportFormat;
+  rowCount: number;
+  connectionId: string | null;
+  sql: string;
+  tableName: string;
+}): string | null {
+  if (input.rowCount === 0) return "export.noRows";
+  if (input.format === "sql" && !input.tableName.trim()) return "export.tableNameRequired";
+  if (input.format === "excel" && !input.connectionId) return "export.connectionRequired";
+  if (input.format === "excel" && !input.sql.trim()) return "export.queryRequired";
+  return null;
+}
+
 interface ExportDialogProps {
   open: boolean;
   onClose: () => void;
@@ -79,15 +93,31 @@ export function ExportDialog({
 }: ExportDialogProps) {
   const { t } = useTranslation();
   const [opts, setOpts] = useState<ExportOptions>({ ...DEFAULT_EXPORT_OPTIONS });
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   const exportMutation = useExport(connectionId, "excel", sql);
   const hasSelected = (selectedRows?.length ?? 0) > 0;
 
-  const update = <K extends keyof ExportOptions>(key: K, value: ExportOptions[K]) =>
+  const update = <K extends keyof ExportOptions>(key: K, value: ExportOptions[K]) => {
+    setValidationError(null);
     setOpts((prev) => ({ ...prev, [key]: value }));
+  };
 
   const handleExport = () => {
     const dataRows = opts.scope === "selected" && hasSelected ? selectedRows! : rows;
+    const nextValidationError = getExportValidationError({
+      format: opts.format,
+      rowCount: dataRows.length,
+      connectionId,
+      sql,
+      tableName: opts.tableName,
+    });
+    if (nextValidationError) {
+      setValidationError(nextValidationError);
+      return;
+    }
+
+    setValidationError(null);
     const ts = timestamp();
 
     // Frontend-side generation for CSV, JSON, SQL
@@ -285,6 +315,11 @@ export function ExportDialog({
 
           {exportMutation.isError && (
             <p className="text-xs text-destructive">{t("export.failed")}</p>
+          )}
+          {validationError && (
+            <p role="alert" className="text-xs text-destructive">
+              {t(validationError)}
+            </p>
           )}
         </div>
 

@@ -14,6 +14,7 @@
 - Wave C welcome evidence: `pnpm exec vitest run src/commons/components/__tests__/welcome-view.test.tsx` passes (7 tests), including first-run empty state and SQLite path-focused recent connection rendering.
 - Wave C shell source evidence: topbar padding is gated by `isMac`; both resize separators are keyboard-focusable with Arrow-key resizing and min/max/now ARIA values.
 - Wave C user-management evidence: `pnpm exec vitest run src/commons/components/__tests__/users-view.test.tsx` passes (4 tests); the sidebar explains the PostgreSQL-only capability for SQLite and the PostgreSQL path lists roles and confirms `DROP ROLE` with its table-privilege count.
+- Wave C export evidence: `pnpm exec vitest run src/modules/export/__tests__/export-validation.test.ts src/modules/export/__tests__/export-generators.test.ts` passes (2 files, 18 tests); empty results, SQL table-name, and Excel connection/query pre-flight failures are localized and block execution.
 - Provider runtime: PENDING (PG and SQLite independently).
 - UI runtime: PENDING (packaged desktop smoke, keyboard-only, light/dark, 500-table ER).
 - No feature marked COMPLETED. Next: runtime walkthrough, then focused `fix/` branches per Wave A/B/C.
