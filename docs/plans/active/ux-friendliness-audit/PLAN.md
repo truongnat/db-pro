@@ -1,6 +1,6 @@
 # UX Friendliness Audit — Plan
 
-Lifecycle: `BACKLOG → PLANNING → IMPLEMENTING → REVIEW → RUNTIME_VERIFY → COMPLETED`. Current: `IMPLEMENTING`.
+Lifecycle: `BACKLOG → PLANNING → IMPLEMENTING → REVIEW → RUNTIME_VERIFY → COMPLETED`. Current: `RUNTIME_VERIFY`.
 Branch: `main` (user-directed override; repository default is feature branch + PR). Baseline: `main` + RC1 audit `qa/rc1-static-audit` (P1: 14, P2: 25).
 
 ## Goal
