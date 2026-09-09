@@ -203,6 +203,7 @@ pub fn run() {
             commands::revoke_privilege,
             commands::backup_database,
             commands::restore_database,
+            commands::reveal_backup_path,
             commands::diff_schemas,
             commands::diff_table_data,
             commands::get_object_dependencies,

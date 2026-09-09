@@ -501,6 +501,8 @@
     "restoreWarning": "警告: 復元すると既存のデータベースデータが上書きされます。",
     "backupSuccess": "バックアップ完了（{{size}}バイト）",
     "restoreSuccess": "復元が正常に完了しました",
+    "operationComplete": "操作が完了しました",
+    "revealLocation": "保存場所を表示",
     "connectFirst": "バックアップまたは復元するにはデータベースに接続してください"
   },
   "shell": {

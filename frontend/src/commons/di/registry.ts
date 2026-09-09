@@ -122,6 +122,7 @@ export interface IUserManagementService {
 export interface IBackupService {
   backup(options: unknown): Promise<unknown>;
   restore(options: unknown): Promise<void>;
+  revealPath(path: string): Promise<void>;
 }
 
 export interface ServiceRegistry {

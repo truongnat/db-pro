@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { listen } from "@tauri-apps/api/event";
 import { open, save } from "@tauri-apps/plugin-dialog";
 
 import { useTranslation } from "@/commons/locales/useTranslation";
@@ -32,8 +33,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-import { useBackupDatabase, useRestoreDatabase } from "../queries/backup.queries";
+import {
+  useBackupDatabase,
+  useRestoreDatabase,
+  useRevealBackupPath,
+} from "../queries/backup.queries";
 import type { BackupFormat } from "../types/backup.types";
+import type { BackupProgressEvent } from "../types/backup.types";
 import type { DriverType } from "@/modules/connection/types/connection.types";
 
 export type BackupDialogMode = "backup" | "restore";
@@ -71,16 +77,41 @@ export function BackupDialog({
   const snackbar = useSnackbar();
   const backupMutation = useBackupDatabase();
   const restoreMutation = useRestoreDatabase();
+  const revealMutation = useRevealBackupPath();
   const [format, setFormat] = useState<BackupFormat>("plain");
   const [path, setPath] = useState("");
   const [confirmRestore, setConfirmRestore] = useState(false);
+  const [completedPath, setCompletedPath] = useState<string | null>(null);
+  const [progressStatus, setProgressStatus] = useState<BackupProgressEvent["status"] | null>(null);
   const isPending = backupMutation.isPending || restoreMutation.isPending;
 
   useEffect(() => {
     if (driver === "sqlite") setFormat("plain");
     setPath("");
     setConfirmRestore(false);
+    setCompletedPath(null);
+    setProgressStatus(null);
   }, [driver, mode, isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    let disposed = false;
+    let unlisten: (() => void) | undefined;
+    void listen<BackupProgressEvent>("backup-progress", ({ payload }) => {
+      if (payload.operation === mode && payload.path === path) {
+        setProgressStatus(payload.status);
+      }
+    }).then((cleanup) => {
+      if (disposed) cleanup();
+      else unlisten = cleanup;
+    });
+
+    return () => {
+      disposed = true;
+      unlisten?.();
+    };
+  }, [isOpen, mode, path]);
 
   const choosePath = async () => {
     try {
@@ -112,7 +143,8 @@ export function BackupDialog({
         format,
       });
       snackbar.success(t("backup.backupSuccess", { size: result.sizeBytes.toLocaleString() }));
-      onOpenChange(false);
+      setCompletedPath(result.outputPath);
+      setProgressStatus("completed");
     } catch (error) {
       snackbar.error(getErrorMessage(error));
     }
@@ -127,7 +159,8 @@ export function BackupDialog({
         format,
       });
       snackbar.success(t("backup.restoreSuccess"));
-      onOpenChange(false);
+      setCompletedPath(path);
+      setProgressStatus("completed");
     } catch (error) {
       snackbar.error(getErrorMessage(error));
     }
@@ -175,10 +208,28 @@ export function BackupDialog({
                 </Button>
               </div>
             </div>
-            {isPending && (
+            {(isPending || progressStatus === "started") && (
               <p className="text-sm text-[var(--text-secondary)]">
                 {t(mode === "backup" ? "backup.backupInProgress" : "backup.restoreInProgress")}
               </p>
+            )}
+            {completedPath && (
+              <div className="flex items-center justify-between gap-2 rounded-md border p-2 text-sm">
+                <span>{t("backup.operationComplete")}</span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    revealMutation.mutate(completedPath, {
+                      onError: (error) => snackbar.error(getErrorMessage(error)),
+                    })
+                  }
+                  disabled={revealMutation.isPending}
+                >
+                  {t("backup.revealLocation")}
+                </Button>
+              </div>
             )}
           </div>
 

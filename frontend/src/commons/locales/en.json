@@ -525,6 +525,8 @@
     "restoreWarning": "Warning: Restore will overwrite the existing database data.",
     "backupSuccess": "Backup completed ({{size}} bytes)",
     "restoreSuccess": "Restore completed successfully",
+    "operationComplete": "Operation complete",
+    "revealLocation": "Reveal location",
     "connectFirst": "Connect to a database to backup or restore"
   },
   "shell": {

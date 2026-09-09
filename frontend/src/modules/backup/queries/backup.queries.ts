@@ -21,3 +21,9 @@ export function useRestoreDatabase() {
     mutationFn: (options: RestoreOptions) => getBackupService().restore(options),
   });
 }
+
+export function useRevealBackupPath() {
+  return useMutation({
+    mutationFn: (path: string) => getBackupService().revealPath(path),
+  });
+}

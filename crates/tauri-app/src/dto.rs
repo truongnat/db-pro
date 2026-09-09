@@ -885,6 +885,15 @@ pub struct BackupResultDto {
     pub size_bytes: u64,
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BackupProgressDto {
+    pub operation: String,
+    pub status: String,
+    pub path: String,
+    pub message: Option<String>,
+}
+
 impl From<db_pro_core::domain::backup::BackupResult> for BackupResultDto {
     fn from(r: db_pro_core::domain::backup::BackupResult) -> Self {
         Self {
