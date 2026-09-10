@@ -198,7 +198,11 @@ pub async fn delete_saved_query(service: State<'_, QueryService>, id: String) ->
 }
 
 #[tauri::command]
-pub async fn rename_saved_query(service: State<'_, QueryService>, id: String, name: String) -> Result<(), CommandError> {
+pub async fn rename_saved_query(
+    service: State<'_, QueryService>,
+    id: String,
+    name: String,
+) -> Result<(), CommandError> {
     let uuid = uuid::Uuid::parse_str(&id).map_err(|e| CommandError {
         error: "VALIDATION".into(),
         message: format!("invalid query id: {e}"),
