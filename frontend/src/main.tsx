@@ -11,6 +11,16 @@ import "@/commons/actions";
 
 async function main() {
   try {
+    // Dev-only: when the frontend is served by `vite dev` in a plain browser
+    // (no Tauri webview, therefore no IPC bridge) install the in-memory fixture
+    // backend so every screen is reviewable without the Rust core. The dynamic
+    // import lives inside `import.meta.env.DEV`, which Rollup folds to `false`
+    // in production builds and dead-code-eliminates along with the chunk.
+    if (import.meta.env.DEV) {
+      const { installBrowserBackend } = await import("./dev/browser-backend");
+      installBrowserBackend();
+    }
+
     await bootstrapServices();
 
     ReactDOM.createRoot(document.getElementById("root")!, SANITIZED_REACT_ROOT_OPTIONS).render(

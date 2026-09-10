@@ -1,8 +1,20 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import i18n from "i18next";
+import { initReactI18next } from "react-i18next";
 
 import { CytoscapeErView, type CytoscapeErViewProps } from "../components/cytoscape-view";
 import type { ErGraphModel, ErPosition, TableId } from "../renderer/types";
+
+// The search input placeholder is translated, so the view needs an i18n
+// instance with the real key resolved to its English value.
+i18n.use(initReactI18next).init({
+  resources: {
+    en: { translation: { schemaWorkspace: { searchTables: "Search tables..." } } },
+  },
+  lng: "en",
+  fallbackLng: "en",
+});
 
 /**
  * PR#12 re-review — app-level interaction test for the large-schema overview.

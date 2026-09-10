@@ -53,6 +53,24 @@ export function useIntrospect(connectionId: string | null) {
   });
 }
 
+/**
+ * Table count only.
+ *
+ * The status bar needs a single number; subscribing it to the whole
+ * IntrospectResult makes it re-render on every identity change of a large
+ * object graph. Same queryKey as `useIntrospect`, so the fetch is shared and
+ * `select` is applied per observer.
+ */
+export function useTableCount(connectionId: string | null) {
+  return useQuery({
+    queryKey: QUERY_KEYS.introspect(connectionId ?? ""),
+    queryFn: () => getSchemaService().introspect(connectionId!) as Promise<IntrospectResult>,
+    enabled: !!connectionId,
+    staleTime: 5 * 60 * 1000,
+    select: (data: IntrospectResult) => data.tables.length,
+  });
+}
+
 export function useTableInfo(
   connectionId: string | null,
   schema: string | null,

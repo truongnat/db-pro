@@ -42,26 +42,26 @@ export function OverviewExplorer({
   return (
     <div className="flex items-center gap-2 rounded-md border border-[var(--border-default)] bg-popover p-1.5 shadow-sm">
       <div className="flex items-center gap-1">
-        <Badge variant="outline" className="h-5 gap-1 px-1.5 text-[10px]">
+        <Badge variant="outline" className="h-5 gap-1 px-1.5 text-[11px]">
           <Table2 className="h-2.5 w-2.5" />
           <span aria-label={t("schemaWorkspace.tableCount", { count: totalTables })}>
             {totalTables}
           </span>
         </Badge>
-        <Badge variant="outline" className="h-5 gap-1 px-1.5 text-[10px]">
+        <Badge variant="outline" className="h-5 gap-1 px-1.5 text-[11px]">
           <Layers className="h-2.5 w-2.5" />
           <span aria-label={t("schemaWorkspace.relationCount", { count: relationCount })}>
             {relationCount}
           </span>
         </Badge>
-        <Badge variant="outline" className="h-5 gap-1 px-1.5 text-[10px]">
+        <Badge variant="outline" className="h-5 gap-1 px-1.5 text-[11px]">
           <Boxes className="h-2.5 w-2.5" />
           <span aria-label={t("schemaWorkspace.columnCount", { count: columnCount })}>
             {columnCount}
           </span>
         </Badge>
       </div>
-      <span className="px-0.5 text-[10px] font-medium text-[var(--text-secondary)]">
+      <span className="px-0.5 text-[11px] font-medium text-[var(--text-secondary)]">
         {t("schemaWorkspace.highlight")}
       </span>
       <div className="flex items-center gap-0.5">
@@ -71,7 +71,7 @@ export function OverviewExplorer({
             type="button"
             variant={hops === s.value ? "secondary" : "ghost"}
             size="sm"
-            className="h-6 px-1.5 text-[10px]"
+            className="h-6 px-1.5 text-[11px]"
             onClick={() => onSelectHops(s.value)}
           >
             {t(`schemaWorkspace.hops.${s.key}`)}

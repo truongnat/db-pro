@@ -58,8 +58,8 @@ export function ErPerfHud({ monitor, spatialIndex, edgeCount, viewportRef }: ErP
 
   return (
     <Panel position="top-right" className="m-2">
-      <div className="pointer-events-none w-56 select-none rounded-md border border-[var(--border-default)] bg-popover/95 p-2 font-mono text-[10px] leading-4 shadow-sm backdrop-blur">
-        <div className="mb-1 border-b border-[var(--border-default)] pb-1 font-sans text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+      <div className="pointer-events-none w-56 select-none rounded-md border border-[var(--border-default)] bg-popover/95 p-2 font-mono text-[11px] leading-4 shadow-sm backdrop-blur">
+        <div className="mb-1 border-b border-[var(--border-default)] pb-1 font-sans text-[11px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
           ER perf · P1.1
         </div>
         {row("init", initMs === null ? "—" : `${initMs.toFixed(1)}ms`)}

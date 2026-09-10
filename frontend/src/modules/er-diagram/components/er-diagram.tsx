@@ -981,7 +981,7 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
           )}
           {!showMiniMap && (
             <Panel position="bottom-right" className="m-2">
-              <div className="rounded-md border border-[var(--border-default)] bg-popover px-2 py-1 text-[10px] text-[var(--text-secondary)] shadow-sm">
+              <div className="rounded-md border border-[var(--border-default)] bg-popover px-2 py-1 text-[11px] text-[var(--text-secondary)] shadow-sm">
                 {t("schemaWorkspace.miniMapHiddenLarge")}
               </div>
             </Panel>

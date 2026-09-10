@@ -72,7 +72,7 @@ export function UsersView() {
               <span className="px-1 text-[11px] font-medium text-[var(--text-secondary)]">
                 {t("userManagement.roles")}
               </span>
-              <div className="flex max-h-56 flex-col gap-0.5 overflow-y-auto">
+              <div className="flex flex-col gap-0.5">
                 {users.data.map((user) => (
                   <div
                     key={user.name}
@@ -87,14 +87,14 @@ export function UsersView() {
                     >
                       {user.name}
                     </button>
-                    <span className="text-[10px] text-[var(--text-tertiary)]">
+                    <span className="text-[11px] text-[var(--text-tertiary)]">
                       {user.canLogin ? t("userManagement.login") : t("userManagement.noLogin")}
                     </span>
                     <Button
                       type="button"
                       variant="ghost"
                       size="sm"
-                      className="h-6 px-1.5 text-[10px] text-destructive hover:text-destructive"
+                      className="h-6 px-1.5 text-[11px] text-destructive hover:text-destructive"
                       onClick={() => setPendingDrop(user.name)}
                     >
                       {t("userManagement.dropRole")}

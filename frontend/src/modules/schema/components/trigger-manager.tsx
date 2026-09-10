@@ -223,14 +223,14 @@ function TriggerRow({
       <div className="flex flex-col gap-0.5">
         <span className="text-xs font-medium text-foreground">{trigger.name}</span>
         <div className="flex gap-1.5">
-          <Badge variant="secondary" className="text-[10px]">
+          <Badge variant="secondary" className="text-[11px]">
             {trigger.timing}
           </Badge>
-          <Badge variant="secondary" className="text-[10px]">
+          <Badge variant="secondary" className="text-[11px]">
             {trigger.event}
           </Badge>
           {!trigger.enabled && (
-            <Badge variant="destructive" className="text-[10px]">
+            <Badge variant="destructive" className="text-[11px]">
               DISABLED
             </Badge>
           )}
@@ -242,7 +242,7 @@ function TriggerRow({
             type="button"
             variant="ghost"
             size="sm"
-            className="h-6 text-[10px]"
+            className="h-6 text-[11px]"
             disabled={isPending}
             onClick={() => onToggle(!trigger.enabled)}
           >
@@ -253,7 +253,7 @@ function TriggerRow({
           type="button"
           variant="ghost"
           size="sm"
-          className="h-6 text-[10px]"
+          className="h-6 text-[11px]"
           disabled={isPending}
           onClick={onDrop}
         >

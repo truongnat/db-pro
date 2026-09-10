@@ -105,7 +105,9 @@ describe("ConnectionEditor", () => {
     await user.click((await screen.findAllByText("SQLite")).find((el) => el.tagName === "SPAN")!);
 
     await user.click(screen.getAllByRole("combobox")[0]);
-    await user.click((await screen.findAllByText("PostgreSQL")).find((el) => el.tagName === "SPAN")!);
+    await user.click(
+      (await screen.findAllByText("PostgreSQL")).find((el) => el.tagName === "SPAN")!,
+    );
 
     expect(screen.getByRole("combobox", { name: "SSL Mode" })).toHaveTextContent("Require");
   });
