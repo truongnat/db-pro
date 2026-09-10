@@ -38,6 +38,7 @@ describe("useConnect recent tracking", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     resetStore();
+    useConnectionModuleStore.getState().reset();
     connectMock.mockResolvedValue(undefined);
   });
 
@@ -81,6 +82,37 @@ describe("useConnect recent tracking", () => {
     await waitFor(() => expect(connectMock).toHaveBeenCalled());
 
     expect(useRecentStore.getState().recentConnections).toHaveLength(0);
+  });
+
+  it("clears a stale error after reconnect succeeds", async () => {
+    useConnectionModuleStore.setState({
+      statuses: { "conn-1": "error" },
+      connectionErrors: { "conn-1": "authentication failed" },
+    });
+    const { result } = renderHook(() => useConnect(), { wrapper });
+
+    act(() => result.current.mutate("conn-1"));
+
+    await waitFor(() => {
+      expect(useConnectionModuleStore.getState().statuses["conn-1"]).toBe("connected");
+    });
+    expect(useConnectionModuleStore.getState().connectionErrors).not.toHaveProperty("conn-1");
+  });
+
+  it("invalidates stale schema data after reconnect succeeds", async () => {
+    const queryClient = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
+    queryClient.setQueryData(["schema-introspect", "conn-1"], { tables: [] });
+    const testWrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+    const { result } = renderHook(() => useConnect(), { wrapper: testWrapper });
+
+    act(() => result.current.mutate("conn-1"));
+
+    await waitFor(() =>
+      expect(useConnectionModuleStore.getState().statuses["conn-1"]).toBe("connected"),
+    );
+    expect(queryClient.getQueryState(["schema-introspect", "conn-1"])?.isInvalidated).toBe(true);
   });
 });
 

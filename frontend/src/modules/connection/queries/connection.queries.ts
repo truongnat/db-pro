@@ -164,6 +164,7 @@ export function useTestConnection() {
 export function useConnect() {
   const qc = useQueryClient();
   const setStatus = useConnectionModuleStore((s) => s.setStatus);
+  const clearStatus = useConnectionModuleStore((s) => s.clearStatus);
   const setError = useConnectionModuleStore((s) => s.setError);
   const setExplorerConnection = useConnectionStore((s) => s.setExplorerConnection);
   const setActiveConnection = useConnectionStore((s) => s.setActiveConnection);
@@ -175,6 +176,7 @@ export function useConnect() {
       setStatus(id, "connecting");
     },
     onSuccess: (_, id) => {
+      clearStatus(id);
       setStatus(id, "connected");
       setExplorerConnection(id);
       setActiveConnection(id);
@@ -183,6 +185,8 @@ export function useConnect() {
       if (!expandedNodes.includes(`conn:${id}`)) {
         useExplorerStore.getState().expandNode(`conn:${id}`);
       }
+      useSchemaCatalogStore.getState().invalidateConnection(id);
+      qc.invalidateQueries({ queryKey: ["schema-introspect", id] });
       qc.invalidateQueries({ queryKey: QUERY_KEYS.connections });
     },
     onError: (err: unknown, id) => {

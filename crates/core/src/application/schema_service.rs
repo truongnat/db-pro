@@ -50,8 +50,23 @@ impl SchemaService {
         force_refresh: bool,
     ) -> Result<IntrospectResult, DbError> {
         if !force_refresh {
-            if let Some(cached) = self.cache.get(connection_id).await? {
-                return Ok(cached);
+            match self.cache.get(connection_id).await {
+                Ok(Some(cached)) => return Ok(cached),
+                Ok(None) => {}
+                Err(error) => {
+                    tracing::warn!(
+                        connection_id = %connection_id,
+                        error = %error,
+                        "discarding invalid introspection cache"
+                    );
+                    if let Err(invalidate_error) = self.cache.invalidate(connection_id).await {
+                        tracing::warn!(
+                            connection_id = %connection_id,
+                            error = %invalidate_error,
+                            "failed to discard invalid introspection cache"
+                        );
+                    }
+                }
             }
         }
 
@@ -493,6 +508,35 @@ mod tests {
         cache.expect_get().returning(|_| Ok(Some(test_introspect_result())));
 
         let connector = MockDbConnector::new();
+
+        let svc = SchemaService::new(
+            Box::new(connector),
+            Box::new(cache),
+            Arc::clone(&registry),
+            Box::new(mock_connections()),
+        );
+
+        let result = svc.introspect(&conn_id, false).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn introspect_invalid_cache_is_discarded_and_rebuilt() {
+        let conn_id = ConnectionId::new();
+        let registry = Arc::new(ConnectionRegistry::new());
+        registry.register(conn_id, ConnectionHandle(1));
+
+        let mut cache = MockIntrospectionCache::new();
+        cache
+            .expect_get()
+            .returning(|_| Err(DbError::Internal("invalid cached schema".into())));
+        cache.expect_invalidate().returning(|_| Ok(()));
+        cache.expect_save().returning(|_, _| Ok(()));
+
+        let mut connector = MockDbConnector::new();
+        connector
+            .expect_introspect()
+            .returning(|_| Ok(test_introspect_result()));
 
         let svc = SchemaService::new(
             Box::new(connector),

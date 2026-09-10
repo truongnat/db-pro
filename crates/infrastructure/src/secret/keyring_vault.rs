@@ -154,8 +154,10 @@ impl SecretStore for KeyringVault {
         match entry.get_password() {
             Ok(value) => return Ok(Some(value)),
             Err(keyring::Error::NoEntry) => {
-                // Not in keyring — try fallback if allowed.
-                self.require_fallback()?;
+                // A missing credential is normal for a new or passwordless connection.
+                if !self.allow_fallback {
+                    return Ok(None);
+                }
             }
             Err(e) if is_keyring_unavailable(&e) => {
                 tracing::warn!("OS keyring unavailable: {e}");
@@ -230,5 +232,17 @@ mod tests {
     fn new_vault_fails_closed_without_os_keyring() {
         let vault = KeyringVault::new("db-pro-test", PathBuf::from("/tmp/db-pro-test-secrets"));
         assert!(matches!(vault.require_fallback(), Err(DbError::EncryptionFailed(_))));
+    }
+
+    #[tokio::test]
+    async fn missing_os_keyring_secret_returns_none_without_fallback() {
+        let vault = KeyringVault::new("com.dbpro.app", PathBuf::from("/tmp/db-pro-diagnostic-secrets"));
+        let key = format!("diagnostic/missing/{}", std::process::id());
+
+        match vault.retrieve_secret(&key).await {
+            Ok(None) => {}
+            Ok(Some(_)) => panic!("diagnostic key unexpectedly exists"),
+            Err(error) => panic!("missing key lookup failed: {error}"),
+        }
     }
 }
