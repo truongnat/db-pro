@@ -214,7 +214,10 @@ function TabItem({
           unsaved pinned tab must not silently look clean. */}
       {tab.dirty ? (
         <span
-          className={cn("h-2 w-2 shrink-0 rounded-full bg-primary", !tab.pinned && "group-hover:hidden")}
+          className={cn(
+            "h-2 w-2 shrink-0 rounded-full bg-primary",
+            !tab.pinned && "group-hover:hidden",
+          )}
           aria-label={t("tabs.unsavedChanges")}
           data-testid="tab-dirty-indicator"
         />

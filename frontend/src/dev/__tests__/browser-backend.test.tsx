@@ -54,7 +54,9 @@ describe("fixture SQL engine", () => {
     expect(result.rows[0][4]).toEqual({ type: "bool", value: true });
     // Row 6 (Frank Miller) is the fixture row with a NULL bio.
     const all = runStatement("SELECT * FROM public.users");
-    const frank = all.rows.find((row) => (row[1] as { value: string }).value === "frank@example.com");
+    const frank = all.rows.find(
+      (row) => (row[1] as { value: string }).value === "frank@example.com",
+    );
     expect(frank?.[3]).toEqual({ type: "null" });
   });
 
@@ -129,9 +131,8 @@ describe("fixture introspection", () => {
 
 describe("command router (through the real apiInvoke path)", () => {
   it("lists fixture connections", async () => {
-    const connections = await apiInvoke<{ id: string; name: string; driver: string }[]>(
-      "list_connections",
-    );
+    const connections =
+      await apiInvoke<{ id: string; name: string; driver: string }[]>("list_connections");
     expect(connections.map((c) => c.name)).toContain("Acme Staging");
   });
 

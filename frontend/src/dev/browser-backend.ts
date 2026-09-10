@@ -19,7 +19,12 @@
 import { mockIPC } from "@tauri-apps/api/mocks";
 
 import type { CellValue } from "@/modules/query/types/query.types";
-import type { QueryHistoryEntry, RunConfig, SavedQuery, SavedQueryFolder } from "@/modules/query/types/query.types";
+import type {
+  QueryHistoryEntry,
+  RunConfig,
+  SavedQuery,
+  SavedQueryFolder,
+} from "@/modules/query/types/query.types";
 import type { Connection, ConnectionConfig } from "@/modules/connection/types/connection.types";
 import type {
   DataDiff,
@@ -58,7 +63,9 @@ import {
 
 const NOW = "2026-09-10T08:00:00Z";
 
-function makeConnection(partial: Partial<Connection> & Pick<Connection, "id" | "name">): Connection {
+function makeConnection(
+  partial: Partial<Connection> & Pick<Connection, "id" | "name">,
+): Connection {
   return {
     host: "localhost",
     port: 5432,
@@ -201,7 +208,13 @@ const HISTORY: QueryHistoryEntry[] = [
 const USERS: DatabaseUser[] = [
   { name: "postgres", isSuper: true, canCreateDb: true, canCreateRole: true, canLogin: true },
   { name: "acme_app", isSuper: false, canCreateDb: false, canCreateRole: false, canLogin: true },
-  { name: "acme_readonly", isSuper: false, canCreateDb: false, canCreateRole: false, canLogin: true },
+  {
+    name: "acme_readonly",
+    isSuper: false,
+    canCreateDb: false,
+    canCreateRole: false,
+    canLogin: true,
+  },
   { name: "analytics", isSuper: false, canCreateDb: true, canCreateRole: false, canLogin: true },
 ];
 
@@ -242,7 +255,11 @@ function sleep(ms: number): Promise<void> {
 
 function requireConnection(connectionId: string): void {
   if (!CONNECTIONS.some((c) => c.id === connectionId)) {
-    throw commandError("DB_CONNECTION_NOT_FOUND", `Unknown connection: ${connectionId}`, "error.notFound");
+    throw commandError(
+      "DB_CONNECTION_NOT_FOUND",
+      `Unknown connection: ${connectionId}`,
+      "error.notFound",
+    );
   }
   if (STATUSES.get(connectionId) !== "connected") {
     throw commandError(
@@ -328,7 +345,11 @@ function fetchTableRows(args: Args): FetchRowsResult {
   const paged = rows.slice(page * pageSize, page * pageSize + pageSize);
 
   return {
-    columns: table.columns.map((c) => ({ name: c.name, dataType: c.dataType, nullable: c.nullable })),
+    columns: table.columns.map((c) => ({
+      name: c.name,
+      dataType: c.dataType,
+      nullable: c.nullable,
+    })),
     rows: paged.map((raw) => toRow(table, raw)),
     totalCount,
     durationMs: 4,
@@ -410,7 +431,8 @@ async function handle(cmd: string, args: Args): Promise<unknown> {
       return CONNECTIONS.find((c) => c.id === str(args, "id")) ?? null;
     case "create_connection": {
       const config = args?.config as ConnectionConfig | undefined;
-      if (!config) throw commandError("VALIDATION_ERROR", "Missing connection config", "error.validation");
+      if (!config)
+        throw commandError("VALIDATION_ERROR", "Missing connection config", "error.validation");
       const connection = makeConnection({
         id: `conn-${Math.random().toString(36).slice(2, 8)}`,
         name: config.name,
@@ -462,7 +484,11 @@ async function handle(cmd: string, args: Args): Promise<unknown> {
       await sleep(350);
       const config = args?.config as ConnectionConfig | undefined;
       if (config?.username === "nobody") {
-        throw commandError("DB_AUTH_FAILED", 'password authentication failed for user "nobody"', "error.authFailed");
+        throw commandError(
+          "DB_AUTH_FAILED",
+          'password authentication failed for user "nobody"',
+          "error.authFailed",
+        );
       }
       return null;
     }
@@ -528,8 +554,18 @@ async function handle(cmd: string, args: Args): Promise<unknown> {
     }
     case "get_object_dependencies":
       return [
-        { objectType: "table", objectName: "orders", dependsOnType: "table", dependsOnName: "users" },
-        { objectType: "view", objectName: "product_catalog", dependsOnType: "table", dependsOnName: "products" },
+        {
+          objectType: "table",
+          objectName: "orders",
+          dependsOnType: "table",
+          dependsOnName: "users",
+        },
+        {
+          objectType: "view",
+          objectName: "product_catalog",
+          dependsOnType: "table",
+          dependsOnName: "products",
+        },
       ] satisfies ObjectDependency[];
     case "list_partitions":
       return [

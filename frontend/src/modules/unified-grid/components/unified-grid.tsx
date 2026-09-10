@@ -551,7 +551,7 @@ export function UnifiedGrid({
             variant="ghost"
             size="sm"
             className="block h-auto w-full px-3 py-1 text-left text-xs text-foreground hover:bg-[var(--surface-hover)] focus-visible:bg-[var(--surface-hover)]"
-              role="menuitem"
+            role="menuitem"
             onClick={() => {
               copyColumnName(contextMenu.column);
               setContextMenu(null);
@@ -568,7 +568,7 @@ export function UnifiedGrid({
                 variant="ghost"
                 size="sm"
                 className="block h-auto w-full px-3 py-1 text-left text-xs text-foreground hover:bg-[var(--surface-hover)] focus-visible:bg-[var(--surface-hover)]"
-              role="menuitem"
+                role="menuitem"
                 onClick={() => {
                   copyCellValue(contextMenu.cellRow!, contextMenu.column);
                   setContextMenu(null);
@@ -581,7 +581,7 @@ export function UnifiedGrid({
                 variant="ghost"
                 size="sm"
                 className="block h-auto w-full px-3 py-1 text-left text-xs text-foreground hover:bg-[var(--surface-hover)] focus-visible:bg-[var(--surface-hover)]"
-              role="menuitem"
+                role="menuitem"
                 onClick={() => {
                   copyRowValues(contextMenu.cellRow!);
                   setContextMenu(null);
@@ -649,9 +649,7 @@ export function UnifiedGrid({
                 }
                 onContextMenu={(e) => handleColumnContextMenu(e, col.name)}
                 role="columnheader"
-                aria-sort={
-                  sort ? (sort.direction === "asc" ? "ascending" : "descending") : "none"
-                }
+                aria-sort={sort ? (sort.direction === "asc" ? "ascending" : "descending") : "none"}
               >
                 <span
                   className="flex cursor-pointer select-none items-center gap-1 text-[12.5px] font-medium text-[var(--text-secondary)] transition-colors hover:text-foreground"
@@ -674,7 +672,10 @@ export function UnifiedGrid({
                       <ArrowDown className="h-3 w-3 shrink-0 text-primary" aria-hidden="true" />
                     )
                   ) : (
-                    <ArrowUpDown className="h-3 w-3 shrink-0 text-[var(--text-tertiary)] opacity-0 transition-opacity group-hover/header:opacity-60" aria-hidden="true" />
+                    <ArrowUpDown
+                      className="h-3 w-3 shrink-0 text-[var(--text-tertiary)] opacity-0 transition-opacity group-hover/header:opacity-60"
+                      aria-hidden="true"
+                    />
                   )}
                 </span>
                 <span className="truncate font-mono text-[11px] text-[var(--text-tertiary)]">

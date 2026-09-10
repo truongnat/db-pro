@@ -113,15 +113,15 @@ function VirtualizedChildren({ children }: { children: React.ReactNode }) {
   // Before the scroll parent is resolved, render a capped slice so a very large
   // schema can never produce a multi-thousand-node first paint.
   if (!scrollElement) {
-    return <div ref={containerRef} className="flex flex-col">{items.slice(0, 50)}</div>;
+    return (
+      <div ref={containerRef} className="flex flex-col">
+        {items.slice(0, 50)}
+      </div>
+    );
   }
 
   return (
-    <div
-      ref={containerRef}
-      className="relative"
-      style={{ height: virtualizer.getTotalSize() }}
-    >
+    <div ref={containerRef} className="relative" style={{ height: virtualizer.getTotalSize() }}>
       {virtualizer.getVirtualItems().map((item) => (
         <div
           key={item.key}

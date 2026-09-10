@@ -78,9 +78,10 @@ describe("sidebar search results do not create a nested scroll area", () => {
   it("SearchView renders no overflow-y-auto results box", async () => {
     // The sidebar is already the scroller; a second one inside it captures the
     // wheel and is the exact defect E1 in docs/ui-audit/runtime-ux-audit-v3.md.
-    const source = await import(
-      "@/commons/components/shell/sidebar-views/search-view.tsx?raw"
-    ).catch(() => null);
+    const source =
+      await import("@/commons/components/shell/sidebar-views/search-view.tsx?raw").catch(
+        () => null,
+      );
 
     if (!source) {
       // Fall back to reading the file so the assertion is not silently skipped.

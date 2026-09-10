@@ -140,18 +140,114 @@ export const MOCK_TABLES: MockTableDef[] = [
     name: "users",
     columns: USERS_COLUMNS,
     rows: [
-      [1, "alice@example.com", "Alice Johnson", "Software engineer", true, "2025-11-02 09:14:22+00", "2026-08-01 11:02:10+00"],
-      [2, "bob@example.com", "Bob Smith", "Product manager", true, "2025-11-03 08:00:00+00", "2026-07-19 14:31:45+00"],
-      [3, "carol@example.com", "Carol Williams", "Data analyst", true, "2025-11-05 12:45:09+00", "2026-06-30 09:12:00+00"],
-      [4, "dave@example.com", "Dave Brown", "Designer", false, "2025-11-08 16:20:31+00", "2026-05-11 18:44:02+00"],
-      [5, "eve@example.com", "Eve Davis", "DevOps engineer", true, "2025-11-11 07:55:18+00", "2026-08-09 06:03:55+00"],
-      [6, "frank@example.com", "Frank Miller", null, true, "2025-12-01 10:05:44+00", "2026-08-02 22:10:09+00"],
-      [7, "grace@example.com", "Grace Lee", "Support lead", true, "2025-12-14 13:30:00+00", "2026-07-25 08:45:12+00"],
-      [8, "heidi@example.com", "Heidi Nguyen", "Backend engineer", true, "2026-01-06 09:00:00+00", "2026-08-08 15:22:37+00"],
-      [9, "ivan@example.com", "Ivan Petrov", "QA engineer", false, "2026-01-19 11:11:11+00", "2026-04-02 10:00:00+00"],
-      [10, "judy@example.com", "Judy Alvarez", "Security analyst", true, "2026-02-02 08:30:00+00", "2026-08-10 07:15:48+00"],
-      [11, "karl@example.com", "Karl Weber", "Data engineer", true, "2026-02-21 14:02:33+00", "2026-08-05 19:41:20+00"],
-      [12, "lena@example.com", "Lena Fischer", "Technical writer", null, "2026-03-08 09:45:00+00", "2026-08-10 12:00:00+00"],
+      [
+        1,
+        "alice@example.com",
+        "Alice Johnson",
+        "Software engineer",
+        true,
+        "2025-11-02 09:14:22+00",
+        "2026-08-01 11:02:10+00",
+      ],
+      [
+        2,
+        "bob@example.com",
+        "Bob Smith",
+        "Product manager",
+        true,
+        "2025-11-03 08:00:00+00",
+        "2026-07-19 14:31:45+00",
+      ],
+      [
+        3,
+        "carol@example.com",
+        "Carol Williams",
+        "Data analyst",
+        true,
+        "2025-11-05 12:45:09+00",
+        "2026-06-30 09:12:00+00",
+      ],
+      [
+        4,
+        "dave@example.com",
+        "Dave Brown",
+        "Designer",
+        false,
+        "2025-11-08 16:20:31+00",
+        "2026-05-11 18:44:02+00",
+      ],
+      [
+        5,
+        "eve@example.com",
+        "Eve Davis",
+        "DevOps engineer",
+        true,
+        "2025-11-11 07:55:18+00",
+        "2026-08-09 06:03:55+00",
+      ],
+      [
+        6,
+        "frank@example.com",
+        "Frank Miller",
+        null,
+        true,
+        "2025-12-01 10:05:44+00",
+        "2026-08-02 22:10:09+00",
+      ],
+      [
+        7,
+        "grace@example.com",
+        "Grace Lee",
+        "Support lead",
+        true,
+        "2025-12-14 13:30:00+00",
+        "2026-07-25 08:45:12+00",
+      ],
+      [
+        8,
+        "heidi@example.com",
+        "Heidi Nguyen",
+        "Backend engineer",
+        true,
+        "2026-01-06 09:00:00+00",
+        "2026-08-08 15:22:37+00",
+      ],
+      [
+        9,
+        "ivan@example.com",
+        "Ivan Petrov",
+        "QA engineer",
+        false,
+        "2026-01-19 11:11:11+00",
+        "2026-04-02 10:00:00+00",
+      ],
+      [
+        10,
+        "judy@example.com",
+        "Judy Alvarez",
+        "Security analyst",
+        true,
+        "2026-02-02 08:30:00+00",
+        "2026-08-10 07:15:48+00",
+      ],
+      [
+        11,
+        "karl@example.com",
+        "Karl Weber",
+        "Data engineer",
+        true,
+        "2026-02-21 14:02:33+00",
+        "2026-08-05 19:41:20+00",
+      ],
+      [
+        12,
+        "lena@example.com",
+        "Lena Fischer",
+        "Technical writer",
+        null,
+        "2026-03-08 09:45:00+00",
+        "2026-08-10 12:00:00+00",
+      ],
     ],
   },
   {
@@ -173,11 +269,27 @@ export const MOCK_TABLES: MockTableDef[] = [
     name: "products",
     columns: PRODUCTS_COLUMNS,
     rows: [
-      [1, "MacBook Pro 14", "M4 Pro, 24 GB unified memory", 2499.0, 4, true, "2025-11-20 10:00:00+00"],
+      [
+        1,
+        "MacBook Pro 14",
+        "M4 Pro, 24 GB unified memory",
+        2499.0,
+        4,
+        true,
+        "2025-11-20 10:00:00+00",
+      ],
       [2, "ThinkPad X1 Carbon", "14 inch, 32 GB RAM", 1899.5, 4, true, "2025-11-21 10:00:00+00"],
       [3, "iPhone 17 Pro", "256 GB, titanium", 1199.0, 5, true, "2025-12-01 10:00:00+00"],
       [4, "Pixel 10", "128 GB, obsidian", 799.99, 5, false, "2025-12-02 10:00:00+00"],
-      [5, "The Pragmatic Programmer", "20th anniversary edition", 44.95, 7, true, "2026-01-04 10:00:00+00"],
+      [
+        5,
+        "The Pragmatic Programmer",
+        "20th anniversary edition",
+        44.95,
+        7,
+        true,
+        "2026-01-04 10:00:00+00",
+      ],
       [6, "Designing Data-Intensive Applications", null, 51.2, 7, true, "2026-01-05 10:00:00+00"],
       [7, "Dune", "Frank Herbert, hardcover", 28.0, 6, true, "2026-01-06 10:00:00+00"],
       [8, "Merino Wool Sweater", "Charcoal, size M", 129.0, 3, false, "2026-02-11 10:00:00+00"],
@@ -266,14 +378,59 @@ export const MOCK_TABLES: MockTableDef[] = [
     name: "audit_log",
     columns: AUDIT_LOG_COLUMNS,
     rows: [
-      [1, "product", 4, "update", { in_stock: true }, { in_stock: false }, 3, "2026-05-12 10:00:00+00"],
+      [
+        1,
+        "product",
+        4,
+        "update",
+        { in_stock: true },
+        { in_stock: false },
+        3,
+        "2026-05-12 10:00:00+00",
+      ],
       [2, "product", 8, "update", { price: 149 }, { price: 129 }, 3, "2026-06-01 12:00:00+00"],
-      [3, "order", 7, "update", { status: "processing" }, { status: "cancelled" }, 2, "2026-07-10 09:15:00+00"],
+      [
+        3,
+        "order",
+        7,
+        "update",
+        { status: "processing" },
+        { status: "cancelled" },
+        2,
+        "2026-07-10 09:15:00+00",
+      ],
       [4, "user", 12, "insert", null, { email: "lena@example.com" }, 1, "2026-03-08 09:45:00+00"],
       [5, "category", 7, "insert", null, { name: "Non-Fiction" }, 2, "2026-01-02 08:20:00+00"],
-      [6, "product", 10, "insert", null, { name: "USB-C Hub 8-in-1", price: 59 }, 8, "2026-03-03 10:00:00+00"],
-      [7, "user", 9, "update", { is_active: true }, { is_active: false }, 10, "2026-04-02 10:00:00+00"],
-      [8, "order", 12, "update", { status: "shipped" }, { status: "delivered" }, 5, "2026-08-10 12:00:00+00"],
+      [
+        6,
+        "product",
+        10,
+        "insert",
+        null,
+        { name: "USB-C Hub 8-in-1", price: 59 },
+        8,
+        "2026-03-03 10:00:00+00",
+      ],
+      [
+        7,
+        "user",
+        9,
+        "update",
+        { is_active: true },
+        { is_active: false },
+        10,
+        "2026-04-02 10:00:00+00",
+      ],
+      [
+        8,
+        "order",
+        12,
+        "update",
+        { status: "shipped" },
+        { status: "delivered" },
+        5,
+        "2026-08-10 12:00:00+00",
+      ],
     ],
   },
   {
@@ -323,7 +480,12 @@ const PRIMARY_KEYS: PrimaryKeyDto[] = [
   { constraintName: "categories_pkey", columns: ["id"], tableName: "categories", schema: "public" },
   { constraintName: "products_pkey", columns: ["id"], tableName: "products", schema: "public" },
   { constraintName: "orders_pkey", columns: ["id"], tableName: "orders", schema: "public" },
-  { constraintName: "order_items_pkey", columns: ["id"], tableName: "order_items", schema: "public" },
+  {
+    constraintName: "order_items_pkey",
+    columns: ["id"],
+    tableName: "order_items",
+    schema: "public",
+  },
   { constraintName: "tags_pkey", columns: ["id"], tableName: "tags", schema: "public" },
   {
     constraintName: "product_tags_pkey",
@@ -336,8 +498,20 @@ const PRIMARY_KEYS: PrimaryKeyDto[] = [
 
 const INDEXES: SchemaIndexDto[] = [
   { name: "users_pkey", columns: ["id"], unique: true, tableName: "users", schema: "public" },
-  { name: "users_email_key", columns: ["email"], unique: true, tableName: "users", schema: "public" },
-  { name: "idx_users_email", columns: ["email"], unique: false, tableName: "users", schema: "public" },
+  {
+    name: "users_email_key",
+    columns: ["email"],
+    unique: true,
+    tableName: "users",
+    schema: "public",
+  },
+  {
+    name: "idx_users_email",
+    columns: ["email"],
+    unique: false,
+    tableName: "users",
+    schema: "public",
+  },
   {
     name: "idx_users_is_active",
     columns: ["is_active"],
@@ -366,8 +540,20 @@ const INDEXES: SchemaIndexDto[] = [
     tableName: "products",
     schema: "public",
   },
-  { name: "idx_orders_user", columns: ["user_id"], unique: false, tableName: "orders", schema: "public" },
-  { name: "idx_orders_status", columns: ["status"], unique: false, tableName: "orders", schema: "public" },
+  {
+    name: "idx_orders_user",
+    columns: ["user_id"],
+    unique: false,
+    tableName: "orders",
+    schema: "public",
+  },
+  {
+    name: "idx_orders_status",
+    columns: ["status"],
+    unique: false,
+    tableName: "orders",
+    schema: "public",
+  },
   {
     name: "order_items_order_id_product_id_key",
     columns: ["order_id", "product_id"],
@@ -383,7 +569,13 @@ const INDEXES: SchemaIndexDto[] = [
     schema: "public",
   },
   { name: "tags_name_key", columns: ["name"], unique: true, tableName: "tags", schema: "public" },
-  { name: "product_tags_pkey", columns: ["product_id", "tag_id"], unique: true, tableName: "product_tags", schema: "public" },
+  {
+    name: "product_tags_pkey",
+    columns: ["product_id", "tag_id"],
+    unique: true,
+    tableName: "product_tags",
+    schema: "public",
+  },
   {
     name: "idx_audit_log_entity",
     columns: ["entity_type", "entity_id"],
@@ -765,7 +957,8 @@ function parsePredicate(expr: string, alias: string | null): Predicate | null {
   const upper = text.toUpperCase();
 
   const isNull = /\bIS\s+NULL$/i.exec(text);
-  if (isNull) return { column: stripAlias(text.slice(0, isNull.index).trim(), alias), op: "isNull" };
+  if (isNull)
+    return { column: stripAlias(text.slice(0, isNull.index).trim(), alias), op: "isNull" };
 
   const isNotNull = /\bIS\s+NOT\s+NULL$/i.exec(text);
   if (isNotNull) {
@@ -796,14 +989,25 @@ function parsePredicate(expr: string, alias: string | null): Predicate | null {
               : op === ">"
                 ? "gt"
                 : "eq";
-    return { column: stripAlias(binary[1].trim(), alias), op: mapped, value: literalToRaw(binary[3]) };
+    return {
+      column: stripAlias(binary[1].trim(), alias),
+      op: mapped,
+      value: literalToRaw(binary[3]),
+    };
   }
 
   const like = /^(.+?)\s+(NOT\s+)?LIKE\s+(.+)$/i.exec(text);
   if (like) {
     const raw = literalToRaw(like[3]);
-    const pattern = String(raw ?? "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/%/g, ".*").replace(/_/g, ".");
-    return { column: stripAlias(like[1].trim(), alias), op: "like", value: like[2] ? `!${pattern}` : pattern };
+    const pattern = String(raw ?? "")
+      .replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+      .replace(/%/g, ".*")
+      .replace(/_/g, ".");
+    return {
+      column: stripAlias(like[1].trim(), alias),
+      op: "like",
+      value: like[2] ? `!${pattern}` : pattern,
+    };
   }
 
   void upper;
@@ -819,7 +1023,11 @@ function stripAlias(column: string, alias: string | null): string {
 }
 
 function parseSelect(sql: string): ParsedSelect {
-  const text = sql.replace(/--.*$/gm, " ").replace(/\/\*[\s\S]*?\*\//g, " ").replace(/;+\s*$/, "").trim();
+  const text = sql
+    .replace(/--.*$/gm, " ")
+    .replace(/\/\*[\s\S]*?\*\//g, " ")
+    .replace(/;+\s*$/, "")
+    .trim();
 
   const selectMatch = /^SELECT\s+([\s\S]*?)\s+FROM\s+([\s\S]+)$/i.exec(text);
   if (!selectMatch) {
@@ -871,12 +1079,15 @@ function parseSelect(sql: string): ParsedSelect {
   const relation = fromParts[0] ?? "";
   const maybeAlias = fromParts[1];
   const aliasCandidate =
-    maybeAlias && !/^(INNER|LEFT|RIGHT|FULL|CROSS|JOIN|ON|WHERE|ORDER|LIMIT|GROUP)$/i.test(maybeAlias)
+    maybeAlias &&
+    !/^(INNER|LEFT|RIGHT|FULL|CROSS|JOIN|ON|WHERE|ORDER|LIMIT|GROUP)$/i.test(maybeAlias)
       ? maybeAlias.replace(/\bAS\b/i, "")
       : null;
   alias = aliasCandidate && aliasCandidate.toUpperCase() !== "AS" ? aliasCandidate : null;
 
-  const [schemaPart, namePart] = relation.includes(".") ? relation.split(".") : ["public", relation];
+  const [schemaPart, namePart] = relation.includes(".")
+    ? relation.split(".")
+    : ["public", relation];
   const table = findTable(schemaPart, namePart) ?? findTableByBareName(schemaPart);
   if (!table) {
     throw new MockSqlError(
@@ -960,10 +1171,7 @@ interface ParsedProjection {
   aggregates: (AggregateExpr | null)[];
 }
 
-function parseProjection(
-  projection: string[],
-  table: MockTableDef,
-): ParsedProjection | "star" {
+function parseProjection(projection: string[], table: MockTableDef): ParsedProjection | "star" {
   if (projection.length === 1 && projection[0].trim() === "*") return "star";
 
   const columns: MockColumnDef[] = [];
@@ -1001,7 +1209,12 @@ function parseProjection(
   return { columns, sources, aggregates };
 }
 
-function aggregateValue(fn: AggregateExpr["fn"], column: string, table: MockTableDef, rows: Raw[][]): Raw {
+function aggregateValue(
+  fn: AggregateExpr["fn"],
+  column: string,
+  table: MockTableDef,
+  rows: Raw[][],
+): Raw {
   if (fn === "count") {
     if (column === "*") return rows.length;
     const idx = columnIndexOf(table, column);
@@ -1012,7 +1225,8 @@ function aggregateValue(fn: AggregateExpr["fn"], column: string, table: MockTabl
   const values = rows.map((r) => Number(r[idx])).filter((n) => !Number.isNaN(n));
   if (values.length === 0) return null;
   if (fn === "sum") return Math.round(values.reduce((a, b) => a + b, 0) * 100) / 100;
-  if (fn === "avg") return Math.round((values.reduce((a, b) => a + b, 0) / values.length) * 100) / 100;
+  if (fn === "avg")
+    return Math.round((values.reduce((a, b) => a + b, 0) / values.length) * 100) / 100;
   if (fn === "min") return Math.min(...values);
   return Math.max(...values);
 }
@@ -1066,7 +1280,11 @@ export function runStatement(sql: string): QueryResult {
   } else {
     const { columns: projColumns, sources, aggregates } = projection;
     const hasAggregates = aggregates.some((a) => a !== null);
-    columns = projColumns.map((c) => ({ name: c.name, dataType: c.dataType, nullable: c.nullable }));
+    columns = projColumns.map((c) => ({
+      name: c.name,
+      dataType: c.dataType,
+      nullable: c.nullable,
+    }));
 
     if (hasAggregates) {
       const values: CellValue[] = projColumns.map((col, i) => {
@@ -1127,7 +1345,9 @@ function applyWrite(sql: string): number {
   }
 
   if (upper.startsWith("UPDATE")) {
-    const match = /^UPDATE\s+([a-z_0-9."]+)\s+SET\s+([\s\S]+?)(?:\s+WHERE\s+([\s\S]+))?$/i.exec(sql);
+    const match = /^UPDATE\s+([a-z_0-9."]+)\s+SET\s+([\s\S]+?)(?:\s+WHERE\s+([\s\S]+))?$/i.exec(
+      sql,
+    );
     if (!match) return 0;
     const table = findTableByBareName(match[1]);
     if (!table || table.isView) return 0;
