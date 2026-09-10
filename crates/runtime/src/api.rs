@@ -30,6 +30,14 @@ impl From<DbError> for DbErrorDto {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SavedQuerySummary {
+    pub id: String,
+    pub name: String,
+    pub sql: String,
+    pub folder: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ConnectionSummary {
     pub id: String,
     pub name: String,

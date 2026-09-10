@@ -1,5 +1,5 @@
 use crate::{
-    DbProTheme, TaskBridge, UiCommand, UiConnectionDraft, UiConnectionSummary, UiDriver, UiEvent, UiQueryResult, UiSslMode,
+    DbProTheme, TaskBridge, UiCommand, UiConnectionDraft, UiConnectionSummary, UiDriver, UiEvent, UiQueryResult, UiSavedQuerySummary, UiSslMode,
 };
 use eframe::egui::{self, Align, Color32, FontId, Layout, RichText, Sense, TextEdit, TextFormat, TopBottomPanel};
 use eframe::egui::text::LayoutJob;
@@ -59,6 +59,7 @@ pub struct DbProApp {
     selected_row: Option<usize>,
     copy_status: String,
     connections: Vec<UiConnectionSummary>,
+    saved_queries: Vec<UiSavedQuerySummary>,
     active_connection_id: Option<String>,
     connections_requested: bool,
     connection_dialog_open: bool,
@@ -140,6 +141,7 @@ impl Default for DbProApp {
             selected_row: None,
             copy_status: String::new(),
             connections: Vec::new(),
+            saved_queries: Vec::new(),
             active_connection_id: None,
             connections_requested: false,
             connection_dialog_open: false,
@@ -243,6 +245,13 @@ impl DbProApp {
                         self.active_connection_id = self.connections.first().map(|connection| connection.id.clone());
                     }
                     self.runtime_message = format!("Loaded {} connections", self.connections.len());
+                    if let Some(connection_id) = self.active_connection_id.clone() {
+                        let request_id = self.task_bridge.next_request_id();
+                        let _ = self.task_bridge.send(UiCommand::ListSavedQueries { request_id, connection_id });
+                    }
+                }
+                UiEvent::SavedQueriesLoaded { queries, .. } => {
+                    self.saved_queries = queries;
                 }
                 UiEvent::FilePicked { kind, path, .. } => {
                     if let Some(path) = path {
@@ -535,7 +544,21 @@ impl DbProApp {
         }
     }
 
-    fn draw_history(&self, ui: &mut egui::Ui) {
+    fn draw_history(&mut self, ui: &mut egui::Ui) {
+        ui.label(RichText::new("Saved queries").small().strong().color(self.theme.text_muted));
+        if self.saved_queries.is_empty() {
+            ui.label(RichText::new("No saved queries").small().color(self.theme.text_muted));
+        } else {
+            let saved = self.saved_queries.clone();
+            for query in saved {
+                if ui.selectable_label(false, &query.name).clicked() {
+                    self.query_text = query.sql;
+                    self.active_tab = WorkspaceTab::Query;
+                }
+            }
+        }
+        ui.separator();
+        ui.label(RichText::new("Local history").small().strong().color(self.theme.text_muted));
         if self.query_history.is_empty() {
             ui.label(RichText::new("No queries run yet").color(self.theme.text_muted));
             return;
@@ -743,6 +766,20 @@ impl DbProApp {
                 }
                 if ui.button("Format").clicked() {
                     self.query_text = Self::format_sql(&self.query_text);
+                }
+                if ui.button("Save").clicked() {
+                    if let Some(connection) = self.connections.first() {
+                        let request_id = self.task_bridge.next_request_id();
+                        let name = self.query_documents.get(self.active_query_document).map(|document| document.title.clone()).unwrap_or_else(|| "Saved query".to_owned());
+                        let _ = self.task_bridge.send(UiCommand::SaveQuery {
+                            request_id,
+                            connection_id: connection.id.clone(),
+                            name,
+                            sql: self.query_text.clone(),
+                            folder: None,
+                        });
+                        self.runtime_message = "Saving query…".to_owned();
+                    }
                 }
                 if ui.button("Run statement").clicked() {
                     let statement = self.query_text.split(';').next().unwrap_or_default().trim().to_owned();

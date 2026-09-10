@@ -4,7 +4,7 @@ use std::thread;
 use db_pro_runtime::{spawn_worker, DbProRuntime, RuntimeCommand, RuntimeEvent, RuntimeRequestId};
 use db_pro_ui::{
     DbProApp, TaskBridge, UiCell, UiColumn, UiCommand, UiConnectionDraft, UiConnectionSummary, UiDriver, UiSslMode,
-    UiEvent, UiQueryResult,
+    UiEvent, UiQueryResult, UiSavedQuerySummary,
 };
 use eframe::egui;
 use tokio::runtime::Builder;
@@ -140,6 +140,17 @@ fn draft_to_domain(draft: UiConnectionDraft) -> Option<(db_pro_core::domain::con
 fn translate_command(command: UiCommand) -> Option<RuntimeCommand> {
     match command {
         UiCommand::OpenQuery | UiCommand::PickSqliteFile { .. } | UiCommand::PickSshPrivateKey { .. } => None,
+        UiCommand::ListSavedQueries { request_id, connection_id } => Some(RuntimeCommand::ListSavedQueries {
+            request_id: RuntimeRequestId(request_id.0),
+            connection_id,
+        }),
+        UiCommand::SaveQuery { request_id, connection_id, name, sql, folder } => Some(RuntimeCommand::SaveQuery {
+            request_id: RuntimeRequestId(request_id.0),
+            connection_id,
+            name,
+            sql,
+            folder,
+        }),
         UiCommand::ListConnections { request_id } => Some(RuntimeCommand::ListConnections {
             request_id: RuntimeRequestId(request_id.0),
         }),
@@ -235,6 +246,15 @@ fn translate_event(event: RuntimeEvent) -> Option<UiEvent> {
                     readonly: connection.readonly,
                 })
                 .collect(),
+        }),
+        RuntimeEvent::SavedQueriesLoaded { request_id, queries } => Some(UiEvent::SavedQueriesLoaded {
+            request_id: db_pro_ui::RequestId(request_id.0),
+            queries: queries.into_iter().map(|query| UiSavedQuerySummary {
+                id: query.id,
+                name: query.name,
+                sql: query.sql,
+                folder: query.folder,
+            }).collect(),
         }),
         RuntimeEvent::OperationProgress { request_id, operation, status } => Some(UiEvent::OperationProgress {
             request_id: db_pro_ui::RequestId(request_id.0),

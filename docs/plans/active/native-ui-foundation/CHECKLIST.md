@@ -24,7 +24,8 @@
 - [x] Add local query history surface.
 - [x] Add persistent multi-query tabs and query document metadata.
 - [x] Add saved-query/folder operations to the shared QueryApi facade.
-- [ ] Add native saved-query folders UI and backend worker commands.
+- [x] Add native saved-query list/save UI and backend worker commands.
+- [ ] Add saved-query folder creation/rename/delete UI.
 - [x] Add column resize, sorting, filtering and visible-row virtualization.
 - [x] Add scoped cell/row selection and clipboard copy actions.
 - [x] Persist column widths in native eframe storage.

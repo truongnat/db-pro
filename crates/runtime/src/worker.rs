@@ -13,6 +13,17 @@ pub struct RuntimeRequestId(pub u64);
 #[derive(Debug)]
 pub enum RuntimeCommand {
     ListConnections { request_id: RuntimeRequestId },
+    ListSavedQueries {
+        request_id: RuntimeRequestId,
+        connection_id: String,
+    },
+    SaveQuery {
+        request_id: RuntimeRequestId,
+        connection_id: String,
+        name: String,
+        sql: String,
+        folder: Option<String>,
+    },
     CreateConnection {
         request_id: RuntimeRequestId,
         config: db_pro_core::domain::connection::ConnectionConfig,
@@ -59,6 +70,10 @@ pub enum RuntimeEvent {
     ConnectionsLoaded {
         request_id: RuntimeRequestId,
         connections: Vec<ConnectionSummary>,
+    },
+    SavedQueriesLoaded {
+        request_id: RuntimeRequestId,
+        queries: Vec<crate::SavedQuerySummary>,
     },
     OperationProgress {
         request_id: RuntimeRequestId,
@@ -114,6 +129,28 @@ pub fn spawn_worker(
                             request_id,
                             message: error.message,
                         },
+                    };
+                    let _ = event_tx.send(event).await;
+                }
+                RuntimeCommand::ListSavedQueries { request_id, connection_id } => {
+                    let event = match runtime.query_api().list_saved_queries(&connection_id).await {
+                        Ok(queries) => RuntimeEvent::SavedQueriesLoaded {
+                            request_id,
+                            queries: queries.into_iter().map(|query| crate::SavedQuerySummary {
+                                id: query.id.to_string(),
+                                name: query.name,
+                                sql: query.sql,
+                                folder: query.folder,
+                            }).collect(),
+                        },
+                        Err(error) => RuntimeEvent::Failed { request_id, message: error.message },
+                    };
+                    let _ = event_tx.send(event).await;
+                }
+                RuntimeCommand::SaveQuery { request_id, connection_id, name, sql, folder } => {
+                    let event = match runtime.query_api().save_query(&connection_id, &name, &sql, folder.as_deref()).await {
+                        Ok(_) => RuntimeEvent::OperationCompleted { request_id, operation: "query.saved" },
+                        Err(error) => RuntimeEvent::Failed { request_id, message: error.message },
                     };
                     let _ = event_tx.send(event).await;
                 }

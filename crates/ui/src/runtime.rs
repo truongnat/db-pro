@@ -59,6 +59,14 @@ impl Default for UiConnectionDraft {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UiSavedQuerySummary {
+    pub id: String,
+    pub name: String,
+    pub sql: String,
+    pub folder: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UiConnectionSummary {
     pub id: String,
     pub name: String,
@@ -74,6 +82,17 @@ pub struct UiConnectionSummary {
 pub enum UiCommand {
     OpenQuery,
     ListConnections { request_id: RequestId },
+    ListSavedQueries {
+        request_id: RequestId,
+        connection_id: String,
+    },
+    SaveQuery {
+        request_id: RequestId,
+        connection_id: String,
+        name: String,
+        sql: String,
+        folder: Option<String>,
+    },
     Connect {
         request_id: RequestId,
         connection_id: String,
@@ -135,6 +154,10 @@ pub enum UiEvent {
     ConnectionsLoaded {
         request_id: RequestId,
         connections: Vec<UiConnectionSummary>,
+    },
+    SavedQueriesLoaded {
+        request_id: RequestId,
+        queries: Vec<UiSavedQuerySummary>,
     },
     FilePicked {
         request_id: RequestId,
