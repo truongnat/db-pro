@@ -1,8 +1,10 @@
 use std::sync::Arc;
 
-use db_pro_core::application::{ConnectionService, ExportService, QueryService, SchemaService, TableDataService};
+use db_pro_core::application::{BackupService, ConnectionService, ExportService, QueryService, SchemaService, TableDataService, UserService};
+use db_pro_core::domain::backup::{BackupOptions, BackupResult, RestoreOptions};
 use db_pro_core::domain::connection::{ConnectionId, DriverType};
 use db_pro_core::domain::error::DbError;
+use db_pro_core::domain::user::{DatabaseUser, Privilege};
 use db_pro_core::domain::query::{CellValue, QueryParam, QueryResult};
 use db_pro_core::application::sql_builder::{SortClause, TableFilter};
 use db_pro_core::domain::schema::IntrospectResult;
@@ -224,4 +226,84 @@ fn parse_connection_id(value: &str) -> Result<db_pro_core::domain::connection::C
         message_id: "error.validation".to_owned(),
         retryable: false,
     })
+}
+
+#[derive(Clone)]
+pub struct BackupApi {
+    service: Arc<BackupService>,
+}
+
+impl BackupApi {
+    pub(crate) fn new(service: Arc<BackupService>) -> Self {
+        Self { service }
+    }
+
+    pub async fn backup(&self, options: &BackupOptions) -> Result<BackupResult, DbErrorDto> {
+        self.service.backup(options).await.map_err(Into::into)
+    }
+
+    pub async fn restore(&self, options: &RestoreOptions) -> Result<(), DbErrorDto> {
+        self.service.restore(options).await.map_err(Into::into)
+    }
+}
+
+#[derive(Clone)]
+pub struct UserApi {
+    service: Arc<UserService>,
+}
+
+impl UserApi {
+    pub(crate) fn new(service: Arc<UserService>) -> Self {
+        Self { service }
+    }
+
+    pub async fn list_users(&self, connection_id: &str) -> Result<Vec<DatabaseUser>, DbErrorDto> {
+        let connection_id = parse_connection_id(connection_id)?;
+        self.service.list_users(&connection_id).await.map_err(Into::into)
+    }
+
+    pub async fn create_role(&self, connection_id: &str, name: &str, login: bool) -> Result<(), DbErrorDto> {
+        let connection_id = parse_connection_id(connection_id)?;
+        self.service.create_role(&connection_id, name, login).await.map_err(Into::into)
+    }
+
+    pub async fn drop_role(&self, connection_id: &str, name: &str) -> Result<(), DbErrorDto> {
+        let connection_id = parse_connection_id(connection_id)?;
+        self.service.drop_role(&connection_id, name).await.map_err(Into::into)
+    }
+
+    pub async fn list_privileges(&self, connection_id: &str, role_name: &str) -> Result<Vec<Privilege>, DbErrorDto> {
+        let connection_id = parse_connection_id(connection_id)?;
+        self.service.list_privileges(&connection_id, role_name).await.map_err(Into::into)
+    }
+
+    pub async fn grant_privilege(
+        &self,
+        connection_id: &str,
+        role_name: &str,
+        schema: &str,
+        table: &str,
+        privilege: &str,
+    ) -> Result<(), DbErrorDto> {
+        let connection_id = parse_connection_id(connection_id)?;
+        self.service
+            .grant_privilege(&connection_id, role_name, schema, table, privilege)
+            .await
+            .map_err(Into::into)
+    }
+
+    pub async fn revoke_privilege(
+        &self,
+        connection_id: &str,
+        role_name: &str,
+        schema: &str,
+        table: &str,
+        privilege: &str,
+    ) -> Result<(), DbErrorDto> {
+        let connection_id = parse_connection_id(connection_id)?;
+        self.service
+            .revoke_privilege(&connection_id, role_name, schema, table, privilege)
+            .await
+            .map_err(Into::into)
+    }
 }

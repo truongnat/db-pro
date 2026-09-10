@@ -1,17 +1,21 @@
 mod api;
 mod worker;
 
-pub use api::{ConnectionApi, ConnectionSummary, DbErrorDto, ExportApi, QueryApi, SchemaApi, TableDataApi};
+pub use api::{BackupApi, ConnectionApi, ConnectionSummary, DbErrorDto, ExportApi, QueryApi, SchemaApi, TableDataApi, UserApi};
 pub use worker::{spawn_worker, RuntimeCommand, RuntimeEvent, RuntimeRequestId};
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use db_pro_core::application::{
-    ConnectionRegistry, ConnectionService, ExportService, QueryService, SchemaService, TableDataService,
+    BackupService, ConnectionRegistry, ConnectionService, ExportService, QueryService, SchemaService, TableDataService,
+    UserService,
 };
+use db_pro_infrastructure::backup::pg_dump::PgDumpEngine;
+use db_pro_infrastructure::backup::sqlite_backup::SqliteBackupEngine;
 use db_pro_infrastructure::connector::CompositeConnector;
 use db_pro_infrastructure::meta::store::SQLiteMetaStore;
+use db_pro_infrastructure::postgres::user_manager::PostgresUserManager;
 use db_pro_infrastructure::secret::keyring_vault::KeyringVault;
 use thiserror::Error;
 
@@ -27,6 +31,8 @@ pub struct DbProRuntime {
     schema: Arc<SchemaService>,
     table_data: Arc<TableDataService>,
     export: Arc<ExportService>,
+    backup: Arc<BackupService>,
+    users: Arc<UserService>,
 }
 
 #[derive(Debug, Error)]
@@ -84,6 +90,32 @@ impl DbProRuntime {
             Box::new(Arc::clone(&connector)),
             Arc::clone(&registry),
         ));
+        let backup = Arc::new(BackupService::new(
+            Box::new(meta_store.clone()),
+            Box::new(Arc::clone(&secret_store)),
+            Arc::clone(&registry),
+            Box::new(|host, port, database, username| {
+                Box::new(PgDumpEngine::new(db_config(
+                    db_pro_core::domain::connection::DriverType::Postgres,
+                    host,
+                    port,
+                    database,
+                    username,
+                )))
+            }),
+            Box::new(|database| Box::new(SqliteBackupEngine::new(db_config(
+                db_pro_core::domain::connection::DriverType::SQLite,
+                "",
+                0,
+                database,
+                "",
+            )))),
+        ));
+        let users = Arc::new(UserService::new(
+            Box::new(PostgresUserManager::new(connector.postgres_connector())),
+            Arc::clone(&registry),
+            Box::new(meta_store),
+        ));
 
         Ok(Arc::new(Self {
             data_dir,
@@ -92,6 +124,8 @@ impl DbProRuntime {
             schema,
             table_data,
             export,
+            backup,
+            users,
         }))
     }
 
@@ -137,5 +171,46 @@ impl DbProRuntime {
 
     pub fn export_api(&self) -> ExportApi {
         ExportApi::new(self.export())
+    }
+
+    pub fn backup(&self) -> Arc<BackupService> {
+        Arc::clone(&self.backup)
+    }
+
+    pub fn backup_api(&self) -> BackupApi {
+        BackupApi::new(self.backup())
+    }
+
+    pub fn users(&self) -> Arc<UserService> {
+        Arc::clone(&self.users)
+    }
+
+    pub fn user_api(&self) -> UserApi {
+        UserApi::new(self.users())
+    }
+}
+
+fn db_config(
+    driver: db_pro_core::domain::connection::DriverType,
+    host: &str,
+    port: u16,
+    database: &str,
+    username: &str,
+) -> db_pro_core::domain::connection::ConnectionConfig {
+    db_pro_core::domain::connection::ConnectionConfig {
+        name: String::new(),
+        host: host.to_owned(),
+        port,
+        database: database.to_owned(),
+        username: username.to_owned(),
+        driver,
+        ssl_mode: db_pro_core::domain::connection::SslMode::Disable,
+        ssh_tunnel: None,
+        query_timeout_ms: 30_000,
+        max_rows: 500,
+        color: None,
+        tags: Vec::new(),
+        group: None,
+        readonly: false,
     }
 }

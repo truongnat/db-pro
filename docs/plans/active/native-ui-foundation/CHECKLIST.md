@@ -22,5 +22,7 @@
 - [x] Wire connection/query worker paths to typed runtime facades.
 - [x] Add typed `TableDataApi` for fetch/update/delete operations.
 - [x] Add typed `ExportApi` for CSV/JSON/Excel operations.
-- [ ] Add backup/user-management facades and progress contracts.
+- [x] Add typed `BackupApi` for backup/restore operations.
+- [x] Add typed `UserApi` for users/roles/privileges operations.
+- [ ] Add backup/user progress contracts and cancellation.
 - [ ] Move all remaining Tauri command wiring to the shared runtime facade.
