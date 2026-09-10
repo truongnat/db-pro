@@ -47,7 +47,7 @@ pub fn run() {
                     .expect("failed to initialize meta store");
 
                 let secret_store = {
-                    let vault = KeyringVault::new("com.dbpro.app", secrets_dir).with_fallback();
+                    let vault = KeyringVault::new("com.dbpro.app", secrets_dir);
                     Arc::new(vault)
                 };
 
