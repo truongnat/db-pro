@@ -739,8 +739,9 @@
     "changeConnection": "接続を変更"
   },
   "welcome": {
+    "eyebrow": "データベースワークスペース",
     "title": "DB Pro",
-    "subtitle": "データベース管理をシンプルに",
+    "subtitle": "スキーマの探索、クエリの作成、データ管理を一つのワークスペースで。",
     "newConnection": "新規接続",
     "openCommandPalette": "コマンドパレット",
     "recentConnections": "最近の接続",
