@@ -1,5 +1,5 @@
 use crate::{
-    DbProTheme, TaskBridge, UiCommand, UiConnectionDraft, UiConnectionSummary, UiDriver, UiEvent, UiQueryResult, UiSavedQuerySummary, UiSchemaSummary, UiSslMode,
+    DbProTheme, TaskBridge, UiCommand, UiConnectionDraft, UiConnectionSummary, UiDriver, UiEvent, UiCell, UiQueryResult, UiSavedQuerySummary, UiSchemaSummary, UiSslMode,
 };
 use eframe::egui::{self, Align, Color32, FontId, Layout, RichText, Sense, TextEdit, TextFormat, TopBottomPanel};
 use eframe::egui::text::LayoutJob;
@@ -61,7 +61,10 @@ pub struct DbProApp {
     selected_cell: Option<(usize, usize)>,
     selected_row: Option<usize>,
     copy_status: String,
-    connections: Vec<UiConnectionSummary>,
+    export_open: bool,
+    export_format: String,
+    export_path: String,
+    connections: Vec<UiConnectionSummary>
     saved_queries: Vec<UiSavedQuerySummary>,
     schema: UiSchemaSummary,
     query_folder: String,
@@ -149,6 +152,9 @@ impl Default for DbProApp {
             selected_cell: None,
             selected_row: None,
             copy_status: String::new(),
+            export_open: false,
+            export_format: "CSV".to_owned(),
+            export_path: String::new(),
             connections: Vec::new(),
             saved_queries: Vec::new(),
             schema: UiSchemaSummary { tables: Vec::new(), columns: Vec::new() },
@@ -1065,7 +1071,20 @@ impl DbProApp {
                 .unwrap_or_else(|| "No result".to_owned());
             ui.label(RichText::new(row_label).small().color(self.theme.text_muted));
             ui.label(RichText::new(self.runtime_message.as_str()).small().color(self.theme.text_muted));
+            if result.is_some() && ui.button("Export").clicked() { self.export_open = true; }
         });
+        if self.export_open {
+            egui::Frame::default().fill(self.theme.surface_elevated).show(ui, |ui| {
+                ui.horizontal(|ui| {
+                    ui.label("Export results");
+                    ui.selectable_value(&mut self.export_format, "CSV".to_owned(), "CSV");
+                    ui.selectable_value(&mut self.export_format, "TSV".to_owned(), "TSV");
+                    ui.add(TextEdit::singleline(&mut self.export_path).hint_text("output path").desired_width(240.0));
+                    if ui.button("Export").clicked() { if let Some(result) = result.as_ref() { self.export_result(result); } }
+                    if ui.button("Cancel").clicked() { self.export_open = false; }
+                });
+            });
+        }
         ui.add_space(8.0);
         egui::Frame::default().fill(self.theme.surface_panel).show(ui, |ui| {
             if let Some(result) = result {
@@ -1076,6 +1095,23 @@ impl DbProApp {
                 });
             }
         });
+    }
+
+    fn export_result(&mut self, result: &UiQueryResult) {
+        let path = self.export_path.trim();
+        if path.is_empty() { self.runtime_message = "Choose an export path first".to_owned(); return; }
+        let delimiter = if self.export_format == "CSV" { "," } else { "\t" };
+        let mut output = result.columns.iter().map(|column| column.name.clone()).collect::<Vec<_>>().join(delimiter);
+        output.push('\n');
+        for row in &result.rows {
+            output.push_str(&row.iter().map(|cell| match cell { UiCell::Null => String::new(), UiCell::Boolean(v) => v.to_string(), UiCell::Number(v) | UiCell::Text(v) | UiCell::Json(v) | UiCell::Bytes(v) => v.clone() }).collect::<Vec<_>>().join(delimiter));
+            output.push('\n');
+        }
+        match std::fs::write(path, output) {
+            Ok(()) => self.runtime_message = format!("Exported {} rows to {path}", result.rows.len()),
+            Err(error) => self.runtime_message = format!("Export failed: {error}"),
+        }
+        self.export_open = false;
     }
 
     fn draw_result_grid(&mut self, ui: &mut egui::Ui, result: &UiQueryResult) {

@@ -50,3 +50,6 @@
 - [x] Add native file dialogs and destructive restore confirmation.
 - [x] Add typed connection CRUD/test commands to the shared runtime worker.
 - [ ] Move all remaining Tauri command wiring to the shared runtime facade.
+- [x] Add schema explorer table/column browsing.
+- [x] Add native export result overlay with CSV/TSV output.
+- [ ] Add typed table mutation commands and edit/delete confirmation UI.
