@@ -206,6 +206,14 @@ fn translate_command(command: UiCommand) -> Option<RuntimeCommand> {
             connection_id,
             sql,
         }),
+        UiCommand::Backup { request_id, connection_id, output_path, custom_format } => Some(RuntimeCommand::Backup {
+            request_id: RuntimeRequestId(request_id.0),
+            options: db_pro_core::domain::backup::BackupOptions { connection_id, output_path, format: if custom_format { db_pro_core::domain::backup::BackupFormat::Custom } else { db_pro_core::domain::backup::BackupFormat::Plain }, schemas: Vec::new(), tables: Vec::new() },
+        }),
+        UiCommand::Restore { request_id, connection_id, input_path, custom_format } => Some(RuntimeCommand::Restore {
+            request_id: RuntimeRequestId(request_id.0),
+            options: db_pro_core::domain::backup::RestoreOptions { connection_id, input_path, format: if custom_format { db_pro_core::domain::backup::BackupFormat::Custom } else { db_pro_core::domain::backup::BackupFormat::Plain } },
+        }),
         UiCommand::CancelQuery { request_id } => Some(RuntimeCommand::CancelQuery {
             request_id: RuntimeRequestId(request_id.0),
         }),

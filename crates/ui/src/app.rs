@@ -63,6 +63,8 @@ pub struct DbProApp {
     saved_queries: Vec<UiSavedQuerySummary>,
     schema: UiSchemaSummary,
     query_folder: String,
+    backup_output_path: String,
+    restore_input_path: String,
     active_connection_id: Option<String>,
     connections_requested: bool,
     connection_dialog_open: bool,
@@ -148,6 +150,8 @@ impl Default for DbProApp {
             saved_queries: Vec::new(),
             schema: UiSchemaSummary { tables: Vec::new(), columns: Vec::new() },
             query_folder: String::new(),
+            backup_output_path: String::new(),
+            restore_input_path: String::new(),
             active_connection_id: None,
             connections_requested: false,
             connection_dialog_open: false,
@@ -401,6 +405,22 @@ impl DbProApp {
                     ui.label(RichText::new("PRO").strong().color(self.theme.text_primary));
                     ui.separator();
                     ui.label(RichText::new("Workspace").color(self.theme.text_secondary));
+                    ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
+                        ui.add(TextEdit::singleline(&mut self.backup_output_path).hint_text("backup path").desired_width(150.0));
+                        if ui.small_button("Backup").clicked() {
+                            if let Some(connection) = self.connections.first() {
+                                let request_id = self.task_bridge.next_request_id();
+                                let _ = self.task_bridge.send(UiCommand::Backup { request_id, connection_id: connection.id.clone(), output_path: self.backup_output_path.clone(), custom_format: false });
+                            }
+                        }
+                        ui.add(TextEdit::singleline(&mut self.restore_input_path).hint_text("restore path").desired_width(150.0));
+                        if ui.small_button("Restore").clicked() {
+                            if let Some(connection) = self.connections.first() {
+                                let request_id = self.task_bridge.next_request_id();
+                                let _ = self.task_bridge.send(UiCommand::Restore { request_id, connection_id: connection.id.clone(), input_path: self.restore_input_path.clone(), custom_format: false });
+                            }
+                        }
+                    });
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                         if ui
                             .button(RichText::new("✦  Agent").color(self.theme.text_secondary))

@@ -136,6 +136,8 @@ pub enum UiCommand {
         connection_id: String,
         sql: String,
     },
+    Backup { request_id: RequestId, connection_id: String, output_path: String, custom_format: bool },
+    Restore { request_id: RequestId, connection_id: String, input_path: String, custom_format: bool },
     CancelQuery { request_id: RequestId },
 }
 
