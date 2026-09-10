@@ -134,27 +134,33 @@ fn translate_event(event: RuntimeEvent) -> Option<UiEvent> {
             request_id: db_pro_ui::RequestId(request_id.0),
             connection_id,
         }),
-        RuntimeEvent::QueryCompleted { request_id, result } => Some(UiEvent::QueryCompleted {
-            request_id: db_pro_ui::RequestId(request_id.0),
-            result: UiQueryResult {
-                columns: result
-                    .columns
-                    .into_iter()
-                    .map(|column| UiColumn {
-                        name: column.name,
-                        data_type: column.data_type,
-                        nullable: column.nullable,
-                    })
-                    .collect(),
-                rows: result
-                    .rows
-                    .into_iter()
-                    .map(|row| row.0.into_iter().map(map_cell).collect())
-                    .collect(),
-                row_count: result.row_count,
-                duration_ms: result.duration_ms,
-            },
-        }),
+        RuntimeEvent::QueryCompleted { request_id, result } => {
+            let row_count = result.row_count;
+            let duration_ms = result.duration_ms;
+            let columns = result
+                .columns
+                .into_iter()
+                .map(|column| UiColumn {
+                    name: column.name,
+                    data_type: column.data_type,
+                    nullable: column.nullable,
+                })
+                .collect();
+            let rows = result
+                .rows
+                .into_iter()
+                .map(|row| row.0.into_iter().map(map_cell).collect())
+                .collect();
+            Some(UiEvent::QueryCompleted {
+                request_id: db_pro_ui::RequestId(request_id.0),
+                result: UiQueryResult {
+                    columns,
+                    rows,
+                    row_count,
+                    duration_ms,
+                },
+            })
+        },
         RuntimeEvent::QueryCancelled { request_id } => Some(UiEvent::QueryCancelled {
             request_id: db_pro_ui::RequestId(request_id.0),
         }),

@@ -1,7 +1,7 @@
 use crate::{
     DbProTheme, TaskBridge, UiCommand, UiConnectionSummary, UiEvent, UiQueryResult,
 };
-use eframe::egui::{self, Align, Color32, Layout, RichText, TextEdit, TopBottomPanel};
+use eframe::egui::{self, Align, Color32, Layout, RichText, Sense, TextEdit, TopBottomPanel};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Activity {
@@ -33,6 +33,11 @@ pub struct DbProApp {
     next_query_request: Option<crate::RequestId>,
     runtime_message: String,
     query_result: Option<UiQueryResult>,
+    grid_filter: String,
+    grid_sort_column: Option<usize>,
+    grid_sort_desc: bool,
+    grid_page: usize,
+    grid_column_widths: Vec<f32>,
     connections: Vec<UiConnectionSummary>,
     active_connection_id: Option<String>,
     connections_requested: bool,
@@ -63,6 +68,11 @@ impl Default for DbProApp {
             next_query_request: None,
             runtime_message: "Ready".to_owned(),
             query_result: None,
+            grid_filter: String::new(),
+            grid_sort_column: None,
+            grid_sort_desc: false,
+            grid_page: 0,
+            grid_column_widths: Vec::new(),
             connections: Vec::new(),
             active_connection_id: None,
             connections_requested: false,
@@ -129,6 +139,9 @@ impl DbProApp {
                 UiEvent::QueryCompleted { request_id, result } => {
                     if self.next_query_request == Some(request_id) {
                         self.runtime_message = format!("Query completed · {} rows", result.row_count);
+                        self.grid_page = 0;
+                        self.grid_sort_column = None;
+                        self.grid_column_widths = vec![180.0; result.columns.len()];
                         self.query_result = Some(result);
                         self.next_query_request = None;
                     }
@@ -285,7 +298,7 @@ impl DbProApp {
     fn draw_explorer(&mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
             ui.label(RichText::new("⌄").color(self.theme.text_muted));
-            ui.label(RichText::new(&self.connection_name).strong());
+            ui.label(RichText::new(self.connection_name.as_str()).strong());
             ui.label(RichText::new("PG").small().color(self.theme.accent));
         });
         ui.add_space(8.0);
@@ -302,7 +315,7 @@ impl DbProApp {
                         self.theme.success
                     }));
                     if ui
-                        .selectable_label(is_active, RichText::new(&connection.name).strong())
+                        .selectable_label(is_active, RichText::new(connection.name.as_str()).strong())
                         .clicked()
                     {
                         self.active_connection_id = Some(connection.id.clone());
@@ -313,7 +326,7 @@ impl DbProApp {
                         });
                         self.runtime_message = format!("Connecting to {}…", connection.name);
                     }
-                    ui.label(RichText::new(&connection.driver).small().color(self.theme.accent));
+                    ui.label(RichText::new(connection.driver.as_str()).small().color(self.theme.accent));
                 });
             }
         }
@@ -390,7 +403,7 @@ impl DbProApp {
         ui.horizontal(|ui| {
             ui.label(RichText::new("Query").strong());
             ui.label(RichText::new("›  ").color(self.theme.text_muted));
-            ui.label(RichText::new(&self.connection_name).color(self.theme.accent));
+            ui.label(RichText::new(self.connection_name.as_str()).color(self.theme.accent));
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                 let running = self.next_query_request.is_some();
                 if ui.button(if running { "Stop  Esc" } else { "Run  ⌘↵" }).clicked() {
@@ -431,7 +444,7 @@ impl DbProApp {
                 .map(|value| format!("{} rows · {} ms", value.row_count, value.duration_ms))
                 .unwrap_or_else(|| "No result".to_owned());
             ui.label(RichText::new(row_label).small().color(self.theme.text_muted));
-            ui.label(RichText::new(&self.runtime_message).small().color(self.theme.text_muted));
+            ui.label(RichText::new(self.runtime_message.as_str()).small().color(self.theme.text_muted));
         });
         ui.add_space(8.0);
         egui::Frame::default().fill(self.theme.surface_panel).show(ui, |ui| {
@@ -445,40 +458,151 @@ impl DbProApp {
         });
     }
 
-    fn draw_result_grid(&self, ui: &mut egui::Ui, result: &UiQueryResult) {
+    fn draw_result_grid(&mut self, ui: &mut egui::Ui, result: &UiQueryResult) {
         if result.columns.is_empty() {
             ui.centered_and_justified(|ui| {
                 ui.label(RichText::new("Statement completed without rows").color(self.theme.text_muted));
             });
             return;
         }
-        egui::ScrollArea::both().max_height(320.0).show(ui, |ui| {
-            egui::Grid::new("query_result_grid")
-                .striped(true)
-                .spacing([18.0, 6.0])
-                .show(ui, |ui| {
-                    for column in &result.columns {
-                        ui.label(RichText::new(&column.name).strong());
-                    }
-                    ui.end_row();
-                    for row in result.rows.iter().take(500) {
-                        for cell in row {
-                            ui.label(Self::cell_label(cell));
-                        }
-                        ui.end_row();
-                    }
-                });
+
+        ui.horizontal(|ui| {
+            ui.label(RichText::new("Filter").small().color(self.theme.text_secondary));
+            let changed = ui
+                .add_sized([220.0, 24.0], egui::TextEdit::singleline(&mut self.grid_filter).hint_text("Search visible rows…"))
+                .changed();
+            if changed {
+                self.grid_page = 0;
+            }
+            if ui.small_button("Clear").clicked() {
+                self.grid_filter.clear();
+                self.grid_page = 0;
+            }
+            ui.label(RichText::new("Click a column to sort · drag the divider to resize").small().color(self.theme.text_muted));
         });
+        ui.add_space(6.0);
+
+        let indexes = self.filtered_sorted_indexes(result);
+        let page_size = 100usize;
+        let page_count = indexes.len().max(1).div_ceil(page_size);
+        self.grid_page = self.grid_page.min(page_count.saturating_sub(1));
+        let start = self.grid_page * page_size;
+        let end = (start + page_size).min(indexes.len());
+        let visible_indexes = &indexes[start..end];
+
+        ui.horizontal(|ui| {
+            ui.label(RichText::new(format!("{} matching rows", indexes.len())).small().color(self.theme.text_muted));
+            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                if ui.small_button("Next ›").clicked() && self.grid_page + 1 < page_count {
+                    self.grid_page += 1;
+                }
+                if ui.small_button("‹ Prev").clicked() {
+                    self.grid_page = self.grid_page.saturating_sub(1);
+                }
+                ui.label(RichText::new(format!("Page {} / {}", self.grid_page + 1, page_count)).small().color(self.theme.text_secondary));
+            });
+        });
+        ui.add_space(4.0);
+
+        let widths = self.column_widths(result.columns.len());
+        egui::ScrollArea::horizontal().show(ui, |ui| {
+            ui.set_min_width(widths.iter().sum());
+            self.draw_grid_header(ui, result, &widths);
+            egui::ScrollArea::vertical().max_height(250.0).show_rows(ui, 24.0, visible_indexes.len(), |ui, range| {
+                for position in range {
+                    let row_index = visible_indexes[position];
+                    let row = &result.rows[row_index];
+                    ui.horizontal(|ui| {
+                        for (column_index, cell) in row.0.iter().enumerate().take(result.columns.len()) {
+                            let width = widths.get(column_index).copied().unwrap_or(180.0);
+                            let fill = if position % 2 == 0 { self.theme.surface_panel } else { self.theme.surface_elevated };
+                            egui::Frame::default().fill(fill).show(ui, |ui| {
+                                ui.allocate_ui_with_layout(egui::vec2(width, 24.0), Layout::left_to_right(Align::Center), |ui| {
+                                    ui.add_space(8.0);
+                                    ui.label(Self::cell_label(cell));
+                                });
+                            });
+                        }
+                    });
+                }
+            });
+        });
+    }
+
+    fn column_widths(&mut self, count: usize) -> Vec<f32> {
+        if self.grid_column_widths.len() != count {
+            self.grid_column_widths = vec![180.0; count];
+        }
+        self.grid_column_widths.clone()
+    }
+
+    fn draw_grid_header(&mut self, ui: &mut egui::Ui, result: &UiQueryResult, widths: &[f32]) {
+        ui.horizontal(|ui| {
+            for (index, column) in result.columns.iter().enumerate() {
+                let width = widths.get(index).copied().unwrap_or(180.0);
+                let sort_marker = match self.grid_sort_column {
+                    Some(active) if active == index && self.grid_sort_desc => " ↓",
+                    Some(active) if active == index => " ↑",
+                    _ => "",
+                };
+                let response = ui.add_sized(
+                    [width - 4.0, 28.0],
+                    egui::Button::new(RichText::new(format!("{}{}", column.name, sort_marker)).strong())
+                        .fill(self.theme.surface_hover),
+                );
+                if response.clicked() {
+                    if self.grid_sort_column == Some(index) {
+                        self.grid_sort_desc = !self.grid_sort_desc;
+                    } else {
+                        self.grid_sort_column = Some(index);
+                        self.grid_sort_desc = false;
+                    }
+                    self.grid_page = 0;
+                }
+                let (_divider_rect, divider) = ui.allocate_exact_size(egui::vec2(8.0, 28.0), Sense::drag());
+                if divider.dragged() {
+                    self.grid_column_widths[index] = (width + divider.drag_delta().x).clamp(90.0, 520.0);
+                }
+            }
+        });
+    }
+
+    fn filtered_sorted_indexes(&self, result: &UiQueryResult) -> Vec<usize> {
+        let filter = self.grid_filter.to_lowercase();
+        let mut indexes: Vec<usize> = result
+            .rows
+            .iter()
+            .enumerate()
+            .filter(|(_, row)| filter.is_empty() || row.0.iter().any(|cell| Self::cell_text(cell).to_lowercase().contains(&filter)))
+            .map(|(index, _)| index)
+            .collect();
+        if let Some(column) = self.grid_sort_column {
+            indexes.sort_by(|left, right| {
+                let left_value = result.rows[*left].0.get(column).map(Self::cell_text).unwrap_or_default();
+                let right_value = result.rows[*right].0.get(column).map(Self::cell_text).unwrap_or_default();
+                let ordering = left_value.cmp(&right_value);
+                if self.grid_sort_desc { ordering.reverse() } else { ordering }
+            });
+        }
+        indexes
+    }
+
+    fn cell_text(cell: &crate::UiCell) -> String {
+        match cell {
+            crate::UiCell::Null => "NULL".to_owned(),
+            crate::UiCell::Boolean(value) => value.to_string(),
+            crate::UiCell::Number(value) | crate::UiCell::Text(value) | crate::UiCell::Json(value) | crate::UiCell::Bytes(value) => value.clone(),
+        }
     }
 
     fn cell_label(cell: &crate::UiCell) -> RichText {
         match cell {
             crate::UiCell::Null => RichText::new("NULL").italics(),
             crate::UiCell::Boolean(value) => RichText::new(value.to_string()),
-            crate::UiCell::Number(value) => RichText::new(value).monospace(),
-            crate::UiCell::Text(value) => RichText::new(value),
-            crate::UiCell::Json(value) => RichText::new(value).monospace(),
-            crate::UiCell::Bytes(value) => RichText::new(value).monospace(),
+            crate::UiCell::Number(value) => RichText::new(value.as_str()).monospace(),
+            crate::UiCell::Text(value) => RichText::new(value.as_str()),
+            crate::UiCell::Json(value) => RichText::new(value.as_str()).monospace(),
+            crate::UiCell::Bytes(value) => RichText::new(value.as_str()).monospace(),
         }
     }
     }
