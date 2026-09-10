@@ -16,6 +16,7 @@
 - `npm run build`: PASS
 
 ## Automated Tests Executed
-- Rust `query_service::tests::rename_saved_query_success`
+- Rust `query_service::tests::rename_saved_query_delegates_to_repo`
+- Rust `saved_query_repo::tests::saved_query_rename_rejects_missing_id`
 - Rust `saved_query_repo::tests`
 - Frontend `query-queries.test.tsx`
