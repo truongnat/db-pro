@@ -569,7 +569,13 @@ impl DbProApp {
             ui.label(RichText::new("No saved queries").small().color(self.theme.text_muted));
         } else {
             let saved = self.saved_queries.clone();
-            for query in saved {
+            let mut folders = Vec::new();
+            for query in &saved {
+                let folder = query.folder.clone().unwrap_or_else(|| "Unfiled".to_owned());
+                if !folders.contains(&folder) {
+                    folders.push(folder.clone());
+                    ui.label(RichText::new(format!("▾ {folder}")).strong().color(self.theme.text_secondary));
+                }
                 ui.horizontal(|ui| {
                     if ui.selectable_label(false, &query.name).clicked() {
                         self.query_text = query.sql.clone();
@@ -581,8 +587,20 @@ impl DbProApp {
                         let _ = self.task_bridge.send(UiCommand::RenameSavedQuery { request_id, id: query.id.clone(), name });
                     }
                     if ui.small_button("delete").clicked() {
+                        self.delete_confirmation_id = Some(query.id.clone());
+                    }
+                });
+            }
+            if let Some(id) = self.delete_confirmation_id.clone() {
+                ui.colored_label(self.theme.warning, "Delete this saved query?");
+                ui.horizontal(|ui| {
+                    if ui.button("Confirm delete").clicked() {
                         let request_id = self.task_bridge.next_request_id();
-                        let _ = self.task_bridge.send(UiCommand::DeleteSavedQuery { request_id, id: query.id.clone() });
+                        let _ = self.task_bridge.send(UiCommand::DeleteSavedQuery { request_id, id });
+                        self.delete_confirmation_id = None;
+                    }
+                    if ui.button("Cancel").clicked() {
+                        self.delete_confirmation_id = None;
                     }
                 });
             }
@@ -770,6 +788,16 @@ impl DbProApp {
         if sql.matches('(').count() != sql.matches(')').count() {
             self.diagnostics.push("Unbalanced parentheses".to_owned());
         }
+        let driver = self.connections.first().map(|connection| connection.driver.as_str()).unwrap_or("postgres");
+        if driver.eq_ignore_ascii_case("sqlite") && lower.contains(" ilike ") {
+            self.diagnostics.push("SQLite does not support ILIKE; use LIKE or lower()".to_owned());
+        }
+        if driver.eq_ignore_ascii_case("postgres") && lower.contains(" glob ") {
+            self.diagnostics.push("GLOB is SQLite-specific; use LIKE for PostgreSQL".to_owned());
+        }
+        if lower.starts_with("update") && !lower.contains(" where ") {
+            self.diagnostics.push("UPDATE without WHERE will affect every row".to_owned());
+        }
     }
 
     fn insert_snippet(&mut self, snippet: &str) {
@@ -895,7 +923,13 @@ impl DbProApp {
         if self.completion_open {
             egui::Frame::default().fill(self.theme.surface_elevated).show(ui, |ui| {
                 ui.label(RichText::new("SQL completion").strong());
+                let is_sqlite = self.connections.first().map(|connection| connection.driver.eq_ignore_ascii_case("sqlite")).unwrap_or(false);
                 let mut candidates = vec!["SELECT".to_owned(), "FROM".to_owned(), "WHERE".to_owned(), "JOIN".to_owned(), "GROUP BY".to_owned(), "ORDER BY".to_owned(), "LIMIT".to_owned(), "COUNT(*)".to_owned()];
+                if is_sqlite {
+                    candidates.extend(["GLOB", "strftime", "WITHOUT ROWID"].into_iter().map(str::to_owned));
+                } else {
+                    candidates.extend(["ILIKE", "RETURNING", "jsonb_build_object"].into_iter().map(str::to_owned));
+                }
                 candidates.extend(self.schema.tables.iter().cloned());
                 candidates.extend(self.schema.columns.iter().cloned());
                 for keyword in candidates.iter() {

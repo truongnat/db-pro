@@ -22,7 +22,8 @@
 - [x] Add keyword completion palette, snippets, diagnostics and hover hints.
 - [x] Add true cursor-selection execution.
 - [x] Load schema summaries and offer table/column completion candidates.
-- [ ] Add context-aware and dialect-aware completion/diagnostics.
+- [x] Add dialect-aware completion candidates and diagnostics.
+- [x] Add grouped saved-query folder presentation and delete confirmation.
 - [x] Add local query history surface.
 - [x] Add persistent multi-query tabs and query document metadata.
 - [x] Add saved-query/folder operations to the shared QueryApi facade.
