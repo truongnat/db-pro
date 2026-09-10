@@ -4,6 +4,8 @@ use crate::{
 use eframe::egui::{self, Align, Color32, FontId, Layout, RichText, Sense, TextEdit, TextFormat, TopBottomPanel};
 use eframe::egui::text::LayoutJob;
 use std::sync::Arc;
+use sqlparser::dialect::{GenericDialect, PostgreSqlDialect, SQLiteDialect};
+use sqlparser::parser::Parser;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 struct QueryDocument {
@@ -586,16 +588,23 @@ impl DbProApp {
             }
         }
         ui.add_space(12.0);
-        for (label, icon) in [("Schemas", "◫"), ("Tables", "▦"), ("Views", "◌"), ("Functions", "ƒ")]
-        {
-            ui.horizontal(|ui| {
-                ui.add_space(16.0);
-                ui.label(RichText::new("›").color(self.theme.text_muted));
-                ui.label(RichText::new(icon).color(self.theme.text_secondary));
-                ui.label(RichText::new(label).color(self.theme.text_secondary));
-            });
-            ui.add_space(5.0);
-        }
+        ui.collapsing("◫  Schemas", |ui| {
+            ui.label(RichText::new("public").small().color(self.theme.text_secondary));
+        });
+        let tables = self.schema.tables.clone();
+        ui.collapsing(format!("▦  Tables ({})", tables.len()), |ui| {
+            for table in tables.iter().take(100) {
+                if ui.selectable_label(false, format!("  {table}")).clicked() {
+                    self.query_text = format!("SELECT *\nFROM {table}\nLIMIT 100;");
+                    self.active_tab = WorkspaceTab::Query;
+                }
+            }
+        });
+        ui.collapsing(format!("◌  Columns ({})", self.schema.columns.len()), |ui| {
+            for column in self.schema.columns.iter().take(100) {
+                ui.label(RichText::new(format!("  {column}")).small().color(self.theme.text_muted));
+            }
+        });
         ui.add_space(16.0);
         if ui.button("＋  New connection").clicked() {
             self.editing_connection_id = None;
@@ -815,6 +824,16 @@ impl DbProApp {
 
     fn parse_sql_diagnostics(sql: &str, driver: &str) -> Vec<String> {
         let mut diagnostics = Vec::new();
+        let parse_result = if driver.eq_ignore_ascii_case("sqlite") {
+            Parser::parse_sql(&SQLiteDialect {}, sql)
+        } else if driver.eq_ignore_ascii_case("postgres") {
+            Parser::parse_sql(&PostgreSqlDialect {}, sql)
+        } else {
+            Parser::parse_sql(&GenericDialect {}, sql)
+        };
+        if let Err(error) = parse_result {
+            diagnostics.push(format!("SQL parser: {error}"));
+        }
         if sql.trim().is_empty() {
             diagnostics.push("Query is empty".to_owned());
             return diagnostics;
