@@ -133,11 +133,20 @@ function TreeNode({
 
   return (
     <div style={{ paddingLeft: depth * 16 }}>
-      <div
-        className={`cursor-pointer rounded-sm px-3 py-1.5 transition-colors ${
+      <button
+        type="button"
+        className={`w-full cursor-pointer rounded-sm px-3 py-1.5 text-left transition-colors ${
           isSelected ? "bg-primary/8" : "hover:bg-[var(--surface-hover)]"
         }`}
         onClick={() => onSelect(path, node)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onSelect(path, node);
+          }
+        }}
+        aria-selected={isSelected}
+        role="treeitem"
       >
         <div className="flex items-center gap-1.5">
           <span className="text-[13px] font-medium text-foreground">{nodeType}</span>
@@ -151,7 +160,7 @@ function TreeNode({
           {actualTime !== undefined && <span>Time {formatNumber(actualTime)}ms</span>}
           {actualRows !== undefined && <span>Actual {formatNumber(actualRows)}</span>}
         </div>
-      </div>
+      </button>
 
       {subplans.length > 0 && (
         <div className="mt-0.5">

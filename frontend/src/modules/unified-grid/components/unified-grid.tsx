@@ -220,7 +220,7 @@ export function UnifiedGrid({
   }, [rows, setSelection]);
 
   const handleRowNumberClick = useCallback(
-    (e: React.MouseEvent, rowIdx: number) => {
+    (e: React.MouseEvent | React.KeyboardEvent, rowIdx: number) => {
       e.stopPropagation();
       // Establish grid keyboard ownership so Cmd/Ctrl+C works after selection.
       // Skip if user is actively editing a cell (input inside grid container).
@@ -517,6 +517,15 @@ export function UnifiedGrid({
                 <span
                   className="flex cursor-pointer select-none items-center gap-1 text-[12.5px] font-medium text-[var(--text-secondary)] transition-colors hover:text-foreground"
                   onClick={() => onSort(col.name)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      onSort(col.name);
+                    }
+                  }}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`Sort by ${col.name}`}
                 >
                   <span className="truncate">{col.name}</span>
                   {sort && (
@@ -569,7 +578,8 @@ export function UnifiedGrid({
                 data-index={virtualRow.index}
               >
                 {/* Row number — clickable for selection (B1.3) */}
-                <div
+                <button
+                  type="button"
                   className={
                     "flex cursor-pointer select-none items-center px-2 text-[11px]" +
                     (isSelected
@@ -577,9 +587,17 @@ export function UnifiedGrid({
                       : " text-[var(--text-tertiary)]")
                   }
                   onClick={(e) => handleRowNumberClick(e, virtualRow.index)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      handleRowNumberClick(e, virtualRow.index);
+                    }
+                  }}
+                  aria-label={`Row ${virtualRow.index + 1}`}
+                  aria-selected={isSelected}
                 >
                   {virtualRow.index + 1}
-                </div>
+                </button>
 
                 {/* Cells */}
                 {orderedColumns.map((col) => {
@@ -645,6 +663,7 @@ export function UnifiedGrid({
                             size="sm"
                             className="h-6 w-6 p-0 text-[var(--text-secondary)] hover:bg-primary/10 hover:text-primary"
                             onClick={() => onEditRow(virtualRow.index)}
+                            aria-label="Edit row"
                           >
                             <Pencil className="h-3.5 w-3.5" />
                           </Button>
@@ -662,6 +681,7 @@ export function UnifiedGrid({
                             className="h-6 w-6 p-0 text-[var(--text-secondary)] hover:bg-destructive/10 hover:text-destructive"
                             disabled={isDeleting}
                             onClick={() => onDeleteRow(virtualRow.index)}
+                            aria-label="Delete row"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>

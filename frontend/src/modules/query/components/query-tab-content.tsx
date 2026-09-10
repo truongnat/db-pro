@@ -8,6 +8,7 @@ import { executeAction } from "@/commons/actions/bus";
 import { useActionConfirmationStore } from "@/commons/stores/action-confirmation.store";
 import { useSchemaCatalogStore } from "../stores/schema-catalog.store";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useSnackbar } from "@/app/providers/snackbar.provider";
 import { useConfirmDialog } from "@/app/providers/confirm-dialog.provider";
 import { ExportDialog } from "@/modules/export/components/export-dialog";
@@ -259,22 +260,6 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
     { id: "messages" as const, label: t("query.messages") },
   ];
 
-  const renderTabButton = (tab: { id: typeof panelTab; label: string }) => (
-    <button
-      key={tab.id}
-      type="button"
-      className={`relative h-full px-3.5 text-[13px] transition-colors ${
-        panelTab === tab.id
-          ? "font-medium text-foreground"
-          : "text-[var(--text-secondary)] hover:text-foreground"
-      }`}
-      onClick={() => setTabActivePanel(tabId, tab.id)}
-    >
-      {tab.label}
-      {panelTab === tab.id && <span className="absolute inset-x-3 bottom-0 h-[2px] bg-primary" />}
-    </button>
-  );
-
   const secondaryTabLabels: Record<
     string,
     { label: string; icon: React.ComponentType<{ className?: string }> }
@@ -319,37 +304,47 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col">
-          <div className="flex h-[34px] items-center border-b border-[var(--border-subtle)] bg-[var(--surface-nav)]">
-            {primaryTabs.map(renderTabButton)}
-            <div className="flex-1" />
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  className={`flex h-full items-center gap-1 px-3 text-[13px] transition-colors ${
-                    ["history", "local-history", "snippets"].includes(panelTab)
-                      ? "font-medium text-foreground"
-                      : "text-[var(--text-secondary)] hover:text-foreground"
-                  }`}
+          <Tabs value={panelTab} onValueChange={(v) => setTabActivePanel(tabId, v as typeof panelTab)}>
+            <TabsList variant="line" className="h-[34px] w-full justify-start rounded-none border-b border-[var(--border-subtle)] bg-[var(--surface-nav)] px-0">
+              {primaryTabs.map((tab) => (
+                <TabsTrigger
+                  key={tab.id}
+                  value={tab.id}
+                  className="h-full rounded-none px-3.5 text-[13px] font-medium"
                 >
-                  {secondaryTabLabels[panelTab]?.label ?? "More"}
-                  <ChevronDown className="h-3 w-3 opacity-60" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="min-w-[180px]">
-                {Object.entries(secondaryTabLabels).map(([id, { label, icon: Icon }]) => (
-                  <DropdownMenuItem
-                    key={id}
-                    className="h-[30px]"
-                    onClick={() => setTabActivePanel(tabId, id as typeof panelTab)}
+                  {tab.label}
+                </TabsTrigger>
+              ))}
+              <div className="flex-1" />
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className={`flex h-full items-center gap-1 px-3 text-[13px] transition-colors ${
+                      ["history", "local-history", "snippets"].includes(panelTab)
+                        ? "font-medium text-foreground"
+                        : "text-[var(--text-secondary)] hover:text-foreground"
+                    }`}
                   >
-                    <Icon className="mr-2 h-3.5 w-3.5" />
-                    {label}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+                    {secondaryTabLabels[panelTab]?.label ?? "More"}
+                    <ChevronDown className="h-3 w-3 opacity-60" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="min-w-[180px]">
+                  {Object.entries(secondaryTabLabels).map(([id, { label, icon: Icon }]) => (
+                    <DropdownMenuItem
+                      key={id}
+                      className="h-[30px]"
+                      onClick={() => setTabActivePanel(tabId, id as typeof panelTab)}
+                    >
+                      <Icon className="mr-2 h-3.5 w-3.5" />
+                      {label}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </TabsList>
+          </Tabs>
 
           <div className="min-h-0 flex-1">
             {status === "error" && error && panelTab === "results" && (

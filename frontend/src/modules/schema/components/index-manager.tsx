@@ -131,7 +131,7 @@ export function IndexManager({ connectionId, schema, table, columns, indexes }: 
                             type="button"
                             variant="ghost"
                             size="sm"
-                            className="h-5 w-5 shrink-0 p-0 opacity-0 transition-opacity group-hover:opacity-60 hover:!opacity-100 hover:bg-transparent"
+                            className="h-5 w-5 shrink-0 p-0 opacity-0 transition-opacity group-hover:opacity-60 group-focus-within:opacity-60 hover:!opacity-100 focus:!opacity-100 hover:bg-transparent"
                             onClick={() => handleCopyName(idx.name)}
                           >
                             {copiedIdx === idx.name ? (
@@ -160,7 +160,7 @@ export function IndexManager({ connectionId, schema, table, columns, indexes }: 
                               type="button"
                               variant="ghost"
                               size="sm"
-                              className="h-6 w-6 p-0 opacity-0 transition-opacity group-hover:opacity-60 hover:!opacity-100"
+                              className="h-6 w-6 p-0 opacity-0 transition-opacity group-hover:opacity-60 group-focus-within:opacity-60 hover:!opacity-100 focus:!opacity-100"
                             >
                               <MoreHorizontal className="h-3.5 w-3.5" />
                             </Button>

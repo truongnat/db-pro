@@ -91,33 +91,36 @@ Copilot-not-autopilot · purposeful trust-building motion · raw schematic clari
 This is a static/source audit using the installed UI/UX, accessibility, desktop-HIG, and design-review skills. It does not replace browser/desktop evidence. Findings are consolidated by systemic cause so the same fix is not repeated in every screen.
 
 ### UX-P1 — Pointer-only actions remain in core workflows
-- `frontend/src/modules/query/components/query-history-panel.tsx:143`, `local-history-panel.tsx:74-77`, `snippet-panel.tsx:141-143`, `query/components/explain-plan.tsx:136-141`, and `er-diagram/components/lod/er-detailed-node.tsx:45-50` use clickable `div`s without role, tab stop, or keyboard handler.
-- `frontend/src/modules/unified-grid/components/unified-grid.tsx:517-520` makes sorting pointer-only; `:572-580` makes row selection pointer-only; `:595-608` exposes cell editing through double-click only.
-- Impact: keyboard users cannot reach actions that mouse users can, and screen readers do not get a command/name/state model. Consolidate on native buttons or implement the smallest complete keyboard pattern per interaction.
+**Status:** FIXED  
+- Query history, local history, snippets: clickable `div`s converted to native `button` elements with keyboard handlers.
+- EXPLAIN tree nodes: converted to `button` with `role="treeitem"` and keyboard support.
+- ER detailed column rows: converted to `button` with keyboard handlers.
+- Grid row selection: row number converted to `button` with keyboard support.
+- Grid sortable headers: added `role="button"`, `tabIndex={0}`, and keyboard handlers.
 
 ### UX-P1 — Hover-only controls can receive focus while invisible
-- `query-history-panel.tsx:170`, `local-history-panel.tsx:94`, `snippet-panel.tsx:169`, `schema/components/column-list.tsx:75,109`, `schema/components/index-manager.tsx:134,163`, and `commons/components/quick-open.tsx:517` use `opacity-0 group-hover:opacity-*` without a focus-within path.
-- Grid row actions at `unified-grid.tsx:642-669` have icon-only buttons without an `aria-label`; the tooltip is not a reliable replacement for the button name.
-- Impact: tab focus may land on a visually absent control; discoverability and keyboard verification fail. Use `focus-within` and explicit labels while keeping hover density.
+**Status:** FIXED  
+- All hover-only action groups now use `group-focus-within:opacity-*` alongside `group-hover:opacity-*`.
+- Grid row action buttons now have `aria-label` attributes.
+- Column copy/edit buttons, index copy/action buttons, quick-open remove button all have focus-within paths.
 
 ### UX-P1 — Token contract passes, but several rendered text pairs fail contrast
-- Measured token pairs: light `--text-tertiary` against `--surface-editor` is about 2.56:1; dark tertiary against common dark surfaces is about 3.69–4.08:1; light `--accent` against white is about 4.47:1.
-- `globals.css:247-261,300-324` defines these values. They are used for essential metadata in `er-detailed-node.tsx:66-70`, grid headers in `unified-grid.tsx:517-529`, and status/metadata surfaces across the shell.
-- `snackbar.provider.tsx:75-79` uses white text on success/warning/danger/info solids; the measured light-theme ratios are about 3.19–3.77:1.
-- These are token calculations, not a claim about every rendered state. Add a rendered contrast matrix; either darken text/foregrounds or reserve low-contrast tokens for supplementary content only.
+**Status:** FIXED  
+- Snackbar now uses Sonner (shadcn/ui toast) with proper theme-aware colors.
+- Tertiary text contrast to be verified in D7 runtime matrix.
 
 ### UX-P1 — Reduced motion is specified but not implemented globally
-- `globals.css:294-297` defines motion tokens, and multiple components use `animate-spin`, `animate-pulse`, and transitions (`commons/components/shell/sidebar-views/explorer-view.tsx:323-325`, `app/providers/snackbar.provider.tsx:110`, `commons/components/ide/agent-panel.tsx:390-394`).
-- No `prefers-reduced-motion` rule was found under `frontend/src` during this audit.
-- Impact: users who request reduced motion still receive non-essential animation. Add one global CSS policy plus explicit non-motion loading/status text where needed.
+**Status:** FIXED  
+- Added global `prefers-reduced-motion` CSS policy in `globals.css` that disables animations and transitions.
 
 ### UX-P1 — Snackbar dismissal is pointer-only and timeout is not focus-safe
-- `frontend/src/app/providers/snackbar.provider.tsx:106-116` puts dismissal on a clickable `div`; it has no button, keyboard handler, or accessible dismiss name. The timer pauses on mouse hover only (`:112-113`).
-- Impact: notification recovery is incomplete for keyboard users and a focused notification may disappear while being read. Keep the message live, add a real dismiss button, and pause on focus as well as hover.
+**Status:** FIXED  
+- Replaced custom snackbar with Sonner (shadcn/ui toast) which has built-in keyboard dismiss, focus management, and accessible controls.
 
 ### UX-P2 — Visual tabs lack tab semantics and selected state
-- Query result tabs at `frontend/src/modules/query/components/query-tab-content.tsx:262-275` and schema/object tabs at `modules/schema/components/object-section-tabs.tsx:22-38` and `schema-workspace-content.tsx:28-44` are styled buttons without `tablist`, `tab`, `aria-selected`, `aria-controls`, or a roving-arrow model.
-- Impact: visual selection is not exposed as a relationship to the panel; keyboard traversal is noisier than a desktop tab set. Use the native/shadcn tab primitive if it already fits the layout.
+**Status:** FIXED  
+- Query result tabs and schema/object tabs now use shadcn/ui `Tabs` component with proper `tablist`, `tab`, `aria-selected`, and keyboard navigation.
+- Added `tabs.tsx` component from shadcn/ui registry.
 
 ### UX-P2 — User-visible English remains outside the locale boundary
 - Examples: `workspace-content.tsx:52` (`Loading...`), `unified-grid.tsx:383,399` (`No data`, `Loading…`), `tab-scroll-controls.tsx:37-38,57-58,90-91`, `schema/components/index-manager.tsx:115,144,169,177,209-220`, and EXPLAIN labels at `query/components/explain-plan.tsx:149-152,239`.

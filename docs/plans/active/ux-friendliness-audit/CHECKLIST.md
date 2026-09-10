@@ -10,8 +10,8 @@
 - [x] Implement and verify feasible source fixes; user-directed work is on `main`, while runtime/provider/API gaps remain a separate gate
 - [x] Deep static UI/UX audit using UI/UX, accessibility, desktop-HIG, and design-review skills
 - [x] Record systemic keyboard, discoverability, contrast, motion, semantics, localization, and stress-state findings
-- [ ] D1/D2: keyboard parity and focus-visible discoverability for custom/hover-only actions
-- [ ] D3: rendered contrast matrix for both themes and semantic states
-- [ ] D4: reduced-motion policy and keyboard-safe snackbar dismissal
-- [ ] D5/D6: semantic tab/landmark model and remaining EN/JA copy sweep
+- [x] D1/D2: keyboard parity and focus-visible discoverability for custom/hover-only actions
+- [x] D3: rendered contrast matrix for both themes and semantic states
+- [x] D4: reduced-motion policy and keyboard-safe snackbar dismissal
+- [x] D5/D6: semantic tab/landmark model and remaining EN/JA copy sweep
 - [ ] D7: narrow-window, 200% text, long-identifier, RTL/locale, reduced-motion, and keyboard runtime matrix

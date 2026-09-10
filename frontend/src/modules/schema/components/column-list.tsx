@@ -72,7 +72,7 @@ export function ColumnList({ columns, onEditColumn }: ColumnListProps) {
                       type="button"
                       variant="ghost"
                       size="sm"
-                      className="h-5 w-5 shrink-0 p-0 opacity-0 transition-opacity group-hover:opacity-60 hover:!opacity-100 hover:bg-transparent"
+                      className="h-5 w-5 shrink-0 p-0 opacity-0 transition-opacity group-hover:opacity-60 group-focus-within:opacity-60 hover:!opacity-100 focus:!opacity-100 hover:bg-transparent"
                       onClick={() => handleCopyName(col.name)}
                     >
                       {copiedCol === col.name ? (
@@ -106,7 +106,7 @@ export function ColumnList({ columns, onEditColumn }: ColumnListProps) {
                       type="button"
                       variant="ghost"
                       size="sm"
-                      className="h-6 w-6 p-0 opacity-0 transition-opacity group-hover:opacity-60 hover:!opacity-100"
+                      className="h-6 w-6 p-0 opacity-0 transition-opacity group-hover:opacity-60 group-focus-within:opacity-60 hover:!opacity-100 focus:!opacity-100"
                       onClick={() => onEditColumn(col)}
                     >
                       <Pencil className="h-3 w-3" />
