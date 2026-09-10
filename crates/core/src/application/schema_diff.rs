@@ -21,7 +21,8 @@ impl SchemaService {
 
 fn qualify_key(schema: &str, name: &str) -> String {
     if schema.is_empty() {
-        name.to_string()
+        // Keep the separator so split_qualified can round-trip dotted names.
+        format!(".{name}")
     } else {
         format!("{schema}.{name}")
     }
@@ -111,5 +112,45 @@ fn split_qualified(qualified: &str) -> (&str, &str) {
     match qualified.split_once('.') {
         Some((schema, table)) => (schema, table),
         None => ("", qualified),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::domain::schema::{Column, Table};
+
+    #[test]
+    fn empty_schema_dotted_table_name_round_trips() {
+        let qualified = qualify_key("", "my.table");
+        assert_eq!(split_qualified(&qualified), ("", "my.table"));
+    }
+
+    #[test]
+    fn empty_schema_dotted_table_is_compared_by_its_literal_name() {
+        let mut source = IntrospectResult::empty();
+        source.tables.push(Table {
+            name: "my.table".into(),
+            schema: "".into(),
+            row_count: None,
+        });
+        source.columns.push(Column {
+            name: "id".into(),
+            data_type: "INTEGER".into(),
+            nullable: false,
+            default: None,
+            is_primary_key: true,
+            table_name: "my.table".into(),
+            schema: "".into(),
+        });
+
+        let mut target = source.clone();
+        target.columns[0].data_type = "TEXT".into();
+
+        let diff = compare_introspect_results(&source, &target);
+        assert_eq!(diff.column_diffs.len(), 1);
+        assert_eq!(diff.column_diffs[0].schema, "");
+        assert_eq!(diff.column_diffs[0].table, "my.table");
+        assert_eq!(diff.column_diffs[0].type_mismatches[0].column, "id");
     }
 }
