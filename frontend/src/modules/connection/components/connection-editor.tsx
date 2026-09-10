@@ -29,7 +29,7 @@ const DEFAULT_FORM_DATA: ConnectionFormData = {
   database: "",
   username: "",
   driver: "postgres",
-  sslMode: "disable",
+  sslMode: "require",
   queryTimeoutMs: 30000,
   maxRows: 500,
 };
@@ -165,7 +165,7 @@ export function ConnectionEditor({
       port: driver === "postgres" ? 5432 : 0,
       username: driver === "postgres" ? "" : "",
       database: "",
-      sslMode: driver === "postgres" ? prev.sslMode : "disable",
+      sslMode: driver === "postgres" ? (formData.driver === "sqlite" ? "require" : prev.sslMode) : "disable",
       sshTunnel: undefined,
     }));
     if (driver === "sqlite") {
