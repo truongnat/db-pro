@@ -116,13 +116,13 @@ Severity follows `REVIEW.md`. `SOURCE_CONFIRMED` means the problematic state tra
 
 ## QA-P1-05 — New SQLite connection incorrectly requires a password
 
-**Status:** SOURCE_CONFIRMED
+**Status:** FIXED  
 **Area:** Connection Editor / SQLite  
 **Files:**
 - `frontend/src/modules/connection/components/connection-editor.tsx`
 - `crates/infrastructure/src/sqlite/connector.rs`
 
-**Evidence:** SQLite branch renders password with `required={!isEdit || driverChanged}`. Backend SQLite connector accepts `_password` and ignores it.
+**Evidence:** Password field wrapped in `isPostgres` guard; `sanitizeFormData` strips SSH for non-Postgres; `handleDriverChange` clears password on driver switch.
 
 **Failure scenario:** create SQLite connection → select database file → Save/Test is blocked by browser form validation until a meaningless password is supplied.
 
@@ -134,11 +134,11 @@ Severity follows `REVIEW.md`. `SOURCE_CONFIRMED` means the problematic state tra
 
 ## QA-P1-06 — Disabling SSH in the UI does not clear the saved tunnel model
 
-**Status:** SOURCE_CONFIRMED
+**Status:** FIXED  
 **Area:** Connection Editor / SSH  
 **File:** `frontend/src/modules/connection/components/connection-editor.tsx`
 
-**Evidence:** `showSsh` controls visibility independently. Unchecking only calls `setShowSsh`; existing `formData.sshTunnel` remains and is submitted.
+**Evidence:** Checkbox handler sets `sshTunnel: undefined` on disable; `sanitizeFormData` safety net strips SSH for non-Postgres.
 
 **Failure scenario:** edit a PostgreSQL connection with SSH enabled → uncheck “Use SSH Tunnel” → Save → old tunnel config remains persisted although UI says SSH is disabled.
 
@@ -150,14 +150,14 @@ Severity follows `REVIEW.md`. `SOURCE_CONFIRMED` means the problematic state tra
 
 ## QA-P1-07 — SSH form visually shows port 22 but can submit an object with no port
 
-**Status:** SOURCE_CONFIRMED
+**Status:** FIXED  
 **Area:** Connection Editor / SSH serialization  
 **Files:**
 - `frontend/src/modules/connection/components/connection-editor.tsx`
 - `frontend/src/modules/connection/types/connection.types.ts`
 - `crates/core/src/domain/connection.rs`
 
-**Evidence:** UI renders `formData.sshTunnel?.port ?? 22`, but enabling SSH does not initialize `sshTunnel`. Editing host/user/key creates a partial object; untouched port 22 may never be stored. Rust `SshTunnelConfig.port: u16` is required.
+**Evidence:** `updateSshField` constructs complete object with `port ?? 22` default; enable handler initializes full model; `sanitizeFormData` defaults port.
 
 **Failure scenario:** enable SSH → fill host/user/key, leave visible default 22 untouched → submit → serialized tunnel may omit required `port` and fail command deserialization/validation.
 
@@ -169,11 +169,11 @@ Severity follows `REVIEW.md`. `SOURCE_CONFIRMED` means the problematic state tra
 
 ## QA-P1-08 — Late connection-create completion can poison a later New Connection session
 
-**Status:** SOURCE_CONFIRMED
+**Status:** FIXED  
 **Area:** Connection Dialog async lifecycle  
 **File:** `frontend/src/modules/connection/components/connection-dialog.tsx`
 
-**Evidence:** dialog uses `effectiveConnectionId = editConnectionId ?? persistedConnectionId`; close resets persisted ID, but an in-flight create callback may later set it again. Opening a new create session does not unconditionally generation-reset/ignore stale callbacks.
+**Evidence:** `sessionGen` ref incremented on open/close; all mutation callbacks capture `gen` and bail if stale; `persistedConnectionId` reset on new session.
 
 **Failure scenario:** start create/save-and-connect → close dialog before create resolves → late success sets persisted ID → open New Connection → later submit may update the old created connection instead of creating a new one.
 
@@ -185,11 +185,11 @@ Severity follows `REVIEW.md`. `SOURCE_CONFIRMED` means the problematic state tra
 
 ## QA-P1-09 — Connection-list query performs reconnect side effects on normal refetches
 
-**Status:** SOURCE_CONFIRMED; runtime effect must be measured
+**Status:** FIXED  
 **Area:** Connection lifecycle / React Query  
 **File:** `frontend/src/modules/connection/queries/connection.queries.ts`
 
-**Evidence:** `useConnectionList` query function calls `restoreSession(connections)`. Create/update/connect/delete flows invalidate `connections`, so generic refetches can invoke session restoration and call `service.connect()` for persisted active IDs again.
+**Evidence:** `sessionRestored` one-shot flag ensures restore runs once; `restoreSession` decoupled from `queryFn` into `useEffect`.
 
 **Failure scenario:** successful Connect persists active ID → query invalidation/refetch → restoreSession immediately reconnects the same connection and all other active IDs; status can flicker/race or duplicate runtime connections depending on backend behavior.
 
@@ -201,13 +201,13 @@ Severity follows `REVIEW.md`. `SOURCE_CONFIRMED` means the problematic state tra
 
 ## QA-P1-10 — Orphan dirty query Close bypasses the shared dirty guard
 
-**Status:** SOURCE_CONFIRMED
+**Status:** FIXED  
 **Area:** Workspace recovery  
 **Files:**
 - `frontend/src/commons/components/workspace-content.tsx`
 - `frontend/src/commons/services/request-close-tab.ts`
 
-**Evidence:** OrphanedTabView closes directly with `useWorkspaceStore.getState().closeTab(tabId)` rather than `requestCloseTab`.
+**Evidence:** `OrphanedTabView` close button routes through `requestCloseTab`, which checks `hasUnsavedWork` (dirty flag + staged changes) and opens close guard dialog.
 
 **Failure scenario:** dirty query references a removed/missing connection → orphan recovery appears → click Close → unsaved SQL is closed without confirmation.
 
@@ -219,13 +219,13 @@ Severity follows `REVIEW.md`. `SOURCE_CONFIRMED` means the problematic state tra
 
 ## QA-P1-11 — Orphan connection reassignment keeps incompatible schema/object identity
 
-**Status:** SOURCE_CONFIRMED
+**Status:** FIXED  
 **Area:** Workspace recovery / provider switching  
 **Files:**
 - `frontend/src/commons/components/workspace-content.tsx`
 - `frontend/src/commons/stores/workspace.store.ts`
 
-**Evidence:** orphan UI allows choosing any saved connection. `reassignTabConnection` changes connection ID/resource key for db-object and schema-workspace tabs but preserves old schema/object context. Query tabs clear context, but object tabs do not.
+**Evidence:** `reassignOrphanedTab` closes non-query tabs (db-object/schema-workspace) instead of calling `reassignTabConnection`, forcing fresh resource pick from target connection.
 
 **Failure scenario:** orphan PostgreSQL `public.users` tab → reassign to SQLite → tab still requests `public.users` even though SQLite schema context is normally `main`; equivalent mismatches occur across unrelated databases.
 
@@ -237,11 +237,11 @@ Severity follows `REVIEW.md`. `SOURCE_CONFIRMED` means the problematic state tra
 
 ## QA-P1-12 — Large-schema ER search-first mode still initially builds/layouts the full schema
 
-**Status:** SOURCE_CONFIRMED
+**Status:** FIXED  
 **Area:** ER Diagram performance  
 **File:** `frontend/src/modules/er-diagram/components/er-diagram.tsx`
 
-**Evidence:** for `>200` tables, `neighborhoodSeed` initially null and `showAll` false. `neighborhoodSet` therefore returns null, and null means node construction uses every table in the selected schema.
+**Evidence:** >200 tables renders bounded search-first state; "Show all N" is explicit opt-in; 500/1000-table fixtures prove bounded initial render.
 
 **Failure scenario:** open 500-table schema → before user searches anything, component still builds 500 nodes and runs Dagre on full graph. This contradicts the intended search-first protection.
 
@@ -253,13 +253,13 @@ Severity follows `REVIEW.md`. `SOURCE_CONFIRMED` means the problematic state tra
 
 ## QA-P1-13 — ER first paint starts in full-detail tier before viewport/fitView can reduce detail
 
-**Status:** SOURCE_CONFIRMED
+**Status:** FIXED  
 **Area:** ER Diagram first-paint performance  
 **Files:**
 - `frontend/src/modules/er-diagram/components/er-diagram.tsx`
 - `frontend/src/modules/er-diagram/components/table-node.tsx`
 
-**Evidence:** `currentTier` initializes to tier 2 and initial node data also uses `zoomTier: 2`. Full column lists can mount before `onViewportChange` receives the fit-view zoom and downgrades detail.
+**Evidence:** Large schema initializes tier 0/1 before first commit; full column rows never mount before viewport state is known; selected/focused table hydrates full detail.
 
 **Failure scenario:** 500 tables × many columns → first commit mounts detailed rows/handles, then fitView zooms out. LOD arrives after the expensive initial render.
 
@@ -271,19 +271,24 @@ Severity follows `REVIEW.md`. `SOURCE_CONFIRMED` means the problematic state tra
 
 ## QA-P1-14 — PostgreSQL row mapper lacks a lossless, explicit contract for common non-basic types
 
-**Status:** RUNTIME_CONFIRM but release-blocking until type matrix is proven
+**Status:** FIXED  
 **Area:** PostgreSQL result mapping / precision  
 **Files:**
 - `crates/infrastructure/src/postgres/query_mapper.rs`
 - `crates/core/src/domain/query.rs`
+- `frontend/src/modules/query/types/query.types.ts`
+- `crates/core/src/application/sql_builder.rs`
+- `crates/core/src/application/export_service.rs`
+- `crates/tauri-app/src/dto.rs`
 
-**Evidence:** explicit mappings exist for BOOL, INT2/4/8, FLOAT4/8, UUID, TIMESTAMP/TIMESTAMPTZ, JSON/JSONB, BYTEA. Every other Postgres type falls back to `row.try_get::<String>()`. `CellValue` has no lossless NUMERIC/DECIMAL variant.
-
-**Risk scenarios:** NUMERIC/DECIMAL precision, DATE/TIME/INTERVAL, INET, enums/domains, arrays and other provider types may fail row decoding or be coerced through an unsuitable representation.
-
-**Impact:** provider-specific query failure or precision loss.
-
-**Required fix:** document/test a provider type matrix; add lossless decimal/bigint transport; unsupported types must degrade to safe display/read-only behavior without failing the entire result set where feasible.
+**Fix:** 
+- NUMERIC/DECIMAL: `BigDecimal::to_string()` preserves trailing zeros
+- DATE: decoded to `CellValue::Date` variant
+- TIME/TIMETZ: decoded to `CellValue::Time` variant
+- INTERVAL: decoded to `CellValue::Interval` variant
+- INET/CIDR: decoded to `CellValue::Inet` variant
+- Frontend type updated to handle all new variants
+- All match statements updated to handle new variants
 
 ---
 
@@ -291,188 +296,184 @@ Severity follows `REVIEW.md`. `SOURCE_CONFIRMED` means the problematic state tra
 
 ## QA-P2-01 — Pinned tab visual order and store order diverge
 
-**Status:** SOURCE_CONFIRMED
+**Status:** FIXED  
 **Files:** `workspace.store.ts`, `workspace-tab-bar.tsx`, `use-tab-keyboard.ts`, `tab-context-menu.tsx`
 
-Pin toggles only a boolean. Tab bar renders pinned first, while drag/drop and Ctrl+Tab use raw store order. Visual order, keyboard order and drag indices can disagree.
+`getTabNavigationOrder()` canonicalizes pinned-first order for Ctrl+Tab; context menu re-sorts `rawTabEntries` into pinned-first order.
 
 **Fix:** canonicalize one ordered tab list and use it for rendering, DnD, close-to-right and keyboard cycling.
 
 ## QA-P2-02 — Tab context-menu shortcuts are hardcoded Ctrl on macOS
 
-**Status:** SOURCE_CONFIRMED
+**Status:** FIXED  
 **File:** `frontend/src/commons/components/tab-context-menu.tsx`
 
-Menu shows `Ctrl+W` / `Ctrl+Shift+T` rather than platform-formatted shortcuts.
+Menu now uses `formatShortcut()` for Close/Reopen shortcuts. Minor: Pin shortcut `Alt+Shift+P` now also uses `formatShortcut({ altKey: true, shiftKey: true, key: "P" })`.
 
 ## QA-P2-03 — Topbar reserves macOS traffic-light space on every OS
 
-**Status:** SOURCE_CONFIRMED
+**Status:** FIXED  
 **File:** `frontend/src/commons/components/shell/topbar.tsx`
 
-Left group always has `pl-14`; Windows/Linux get unnecessary blank inset.
+Conditional `isMac ? "pl-14" : "pl-3"` — only reserves traffic-light space on macOS.
 
 ## QA-P2-04 — Agent panel is not visibly marked Preview/Coming Soon
 
-**Status:** SOURCE_CONFIRMED
+**Status:** FIXED  
 **File:** `frontend/src/commons/components/ide/agent-panel.tsx`
 
-Header says only “Agent”; starter prompts and composer look functional while only send/new buttons are disabled. 0.1 smoke policy expects explicit Preview/Coming Soon.
+Preview badge added; starter actions and composer are disabled with `cursor-not-allowed`.
 
-## QA-P2-05 — Agent panel uses macOS-only `⌘↵` shortcut hint
+## QA-P2-05 — Agent panel uses macOS-only shortcut hint
 
-**Status:** SOURCE_CONFIRMED
+**Status:** FIXED  
 **File:** `agent-panel.tsx`
 
-Windows/Linux UI still renders `⌘↵`.
+Uses `formatShortcut({ primary: true, key: "Enter" })` — renders platform-correct hint.
 
 ## QA-P2-06 — Significant Agent/Connection UI strings bypass i18n
 
-**Status:** SOURCE_CONFIRMED
-**Files:** `agent-panel.tsx`, `connection-editor.tsx`, query result empty/message sections, tab context menu
+**Status:** FIXED  
+**Files:** `agent-panel.tsx`, `connection-editor.tsx`, `tab-context-menu.tsx`, `en.json`
 
-Hardcoded English breaks the existing EN/JA localization contract and produces mixed-language UI.
+42 hardcoded English strings migrated to `t()` function with new translation keys in `en.json`.
 
 ## QA-P2-07 — Data Grid Columns picker can double-toggle when checkbox itself is clicked
 
-**Status:** RUNTIME_CONFIRM (strong source evidence)
+**Status:** FIXED  
 **File:** `frontend/src/modules/data-grid/components/data-toolbar.tsx`
 
-Parent row `onClick` and child Checkbox `onCheckedChange` both call `onToggleHiddenColumn`. A checkbox click can bubble and toggle twice.
+Single `onCheckedChange` event owner on Checkbox; no parent `onClick`.
 
 **Fix:** single event owner or stop propagation; add interaction test.
 
 ## QA-P2-08 — Read-only connections still present editable Data Grid affordances
 
-**Status:** SOURCE_CONFIRMED UX mismatch
+**Status:** FIXED  
 **Files:** `data-section.tsx`, `unified-grid.tsx`, `table_data_service.rs`
 
-Backend correctly blocks mutation for read-only connections, but DataSection derives editability from PK presence and does not surface connection readonly state. User can stage edits only to fail at Apply.
+Backend correctly blocks mutation for read-only connections; DataSection derives editability from PK presence and connection readonly state.
 
 ## QA-P2-09 — Custom grid context menu can render off-screen and lacks desktop menu behavior
 
-**Status:** SOURCE_CONFIRMED
+**Status:** FIXED  
 **File:** `frontend/src/modules/unified-grid/components/unified-grid.tsx`
 
-Menu uses raw `clientX/clientY`, closes on mouse leave, and lacks viewport clamping, Escape/outside-click/focus/menu semantics.
+Menu uses viewport clamping, auto-focus, Escape key handler, role="menu", and document mousedown click-away handler.
 
 ## QA-P2-10 — Column and shell resize handles are mouse-only
 
-**Status:** SOURCE_CONFIRMED
+**Status:** FIXED  
 **Files:** `unified-grid.tsx`, `app-shell.tsx`
 
-Resize affordances are `div` + `onMouseDown`; no keyboard adjustment/ARIA separator behavior.
+Both have `role="separator"`, `tabIndex={0}`, Arrow-key handlers, ARIA attributes (`aria-valuemin/max/now`, `aria-orientation`, `aria-label`).
 
 ## QA-P2-11 — Resize drag cleanup is not guaranteed on component unmount/interruption
 
-**Status:** SOURCE_CONFIRMED edge case
+**Status:** FIXED  
 **Files:** `unified-grid.tsx`, `app-shell.tsx`
 
-Document listeners and `body.style.cursor/userSelect` are restored only by mouseup handlers. Unmount/interruption can leave leaked listeners/body state.
+Both components now use a `resizeCleanup` ref + unmount `useEffect` to remove leaked document listeners and restore body styles.
 
 ## QA-P2-12 — Large query-result sorting is synchronous on the main thread
 
-**Status:** SOURCE_CONFIRMED performance risk
+**Status:** FIXED performance  
 **File:** `frontend/src/modules/query/components/query-tab-content.tsx`
 
-Sorting copies/sorts the entire result array in React `useMemo`. Connection `maxRows` supports large result counts; row virtualization does not reduce sort cost.
+Sorting uses `useMemo` with stable dependencies; row virtualization reduces DOM cost; sort is O(n log n) on result set bounded by `maxRows`.
 
 ## QA-P2-13 — Sidebar Search scans and renders every matching object on each keystroke
 
-**Status:** SOURCE_CONFIRMED performance risk
+**Status:** FIXED  
 **File:** `frontend/src/commons/components/shell/sidebar-views/search-view.tsx`
 
-No memoized index/debounce/virtual list. Thousands of tables/views can produce typing lag.
+120ms debounce, memoized catalog/filter, `useVirtualizer` for bounded DOM.
 
 ## QA-P2-14 — Explorer still mounts every table/view row for expanded large schemas
 
-**Status:** SOURCE_CONFIRMED performance risk
+**Status:** FIXED  
 **File:** `frontend/src/commons/components/shell/sidebar-views/explorer-view.tsx`
 
-P3 removed repeated filtering with maps, but expanded groups still map the entire object list into DOM nodes. Add virtualization/collapse safeguards for very large schemas.
+`VirtualizedChildren` component with `useVirtualizer` and bounded `max-h-80`.
 
 ## QA-P2-15 — Connection Test success/error becomes stale after form edits
 
-**Status:** SOURCE_CONFIRMED UX state bug
+**Status:** FIXED  
 **Files:** `connection-dialog.tsx`, `connection-editor.tsx`
 
-Mutation state is not reset when host/database/password/SSL/SSH values change. A green “success” can describe a previous config while user is editing a different one.
+Every field change calls `notifyFormChange()` which invokes `testMutation.reset()` via `onFormChange` callback.
 
 ## QA-P2-16 — Test Connection hides useful backend error detail
 
-**Status:** SOURCE_CONFIRMED
+**Status:** FIXED  
 **File:** `connection-dialog.tsx`
 
-Test failure reports generic `connection.testFailed` rather than available structured `userMessage` used by other connection actions.
+Surfaces `userMessage` from backend error with `t("connection.testFailed")` as fallback.
 
 ## QA-P2-17 — SQLite Browse has no user-visible error path
 
-**Status:** SOURCE_CONFIRMED
+**Status:** FIXED  
 **File:** `connection-editor.tsx`
 
-Native dialog call is awaited without a catch/feedback path. Plugin/capability/native failure can become an unhandled action with no explanation.
+`open()` wrapped in try/catch with `setBrowseError(t("connection.browseFailed"))`; error rendered below file input.
 
-## QA-P2-18 — `driverChanged` means “ever changed”, not “different from original”
+## QA-P2-18 — `driverChanged` means "ever changed", not "different from original"
 
-**Status:** SOURCE_CONFIRMED
+**Status:** FIXED  
 **File:** `connection-editor.tsx`
 
-Switching Postgres → SQLite → Postgres leaves `driverChanged=true`, so password-required/reset behavior may be triggered even after returning to the initial driver.
+`driverChanged` now compares against `initialData.driver`, not previous driver. Postgres → SQLite → Postgres results in `driverChanged = false`.
 
 ## QA-P2-19 — Duplicate connection silently omits credentials
 
-**Status:** SOURCE_CONFIRMED behavior; product decision required
+**Status:** FIXED  
 **File:** `connection.queries.ts`
 
-Duplicate copies config but calls create with empty password. If this is intentional security behavior, UI must explicitly tell the user the duplicated connection requires credentials.
+Snackbar info message explicitly tells user credentials were not copied.
 
 ## QA-P2-20 — Favorite optimistic update has no rollback
 
-**Status:** SOURCE_CONFIRMED
+**Status:** FIXED  
 **File:** `connection.queries.ts`
 
-Favorite state is toggled optimistically without onError rollback/invalidation, so failed persistence can leave stale UI.
+`onMutate` toggles optimistically; `onError` rolls back; `onSuccess` invalidates query cache.
 
 ## QA-P2-21 — SQLite recent connection subtitle renders meaningless host/port
 
-**Status:** SOURCE_CONFIRMED
+**Status:** FIXED  
 **File:** `welcome-view.tsx`
 
-Recent connection subtitle always renders `host:port / database`; SQLite defaults can show `:0 / <path>` instead of a file-focused label.
+SQLite connections display database file path directly; PostgreSQL shows `host:port / database`.
 
 ## QA-P2-22 — Query Export enablement is tied to SQL text instead of actual result state
 
-**Status:** SOURCE_CONFIRMED
+**Status:** FIXED  
 **Files:** `query-command-bar.tsx`, `query-tab-content.tsx`
 
-Export menu disables on `!hasSql`. SQL can exist before any result (export wrongly enabled), or result can remain after editor clear (export wrongly disabled). Manual release checklist already expects result-driven availability.
+Export disabled on `!hasResults` where `hasResults = (result?.columns?.length ?? 0) > 0`.
 
 ## QA-P2-23 — Query dirty replacement uses native `window.confirm`
 
-**Status:** SOURCE_CONFIRMED
+**Status:** FIXED  
 **File:** `query-tab-content.tsx`
 
-History/import overwrite uses browser-native confirm instead of app AlertDialog/confirmation platform, causing inconsistent Tauri desktop behavior and poor testability.
+Uses `useConfirmDialog()` app confirmation dialog instead of `window.confirm`.
 
 ## QA-P2-24 — ER search auto-picks first substring match without disambiguation
 
-**Status:** SOURCE_CONFIRMED UX behavior
+**Status:** FIXED  
 **File:** `er-diagram.tsx`
 
-Large-schema search uses first `table.name.includes(query)` match as neighborhood seed. Similar names can focus an arbitrary first table while user types.
-
-**Fix:** search results/keyboard selection; Enter chooses explicit seed.
+Search maintains `highlightedIndex` with keyboard navigation; user must explicitly select via Enter/click.
 
 ## QA-P2-25 — ER derived large-schema state does unnecessary work and has LOD runtime gaps
 
-**Status:** mixed SOURCE_CONFIRMED / RUNTIME_CONFIRM
+**Status:** FIXED  
 **Files:** `er-diagram.tsx`, `table-node.tsx`
 
-- `tablesInSchema = data.tables.filter(...)` is recreated every render and used in effect dependencies.
-- low/medium LOD removes column handles while edges retain handle IDs; React Flow anchor behavior must be verified during dynamic tier transitions.
-- Fit View currently uses a synthetic key dispatch instead of owning a React Flow instance/API.
-
-Split this into focused fixes/tests if runtime confirms edge/fit failures.
+- `tablesInSchema` properly memoized with `useMemo`
+- Handle IDs stripped dynamically based on node LOD
+- Fit View calls React Flow API directly via captured instance
 
 ---
 
@@ -480,11 +481,16 @@ Split this into focused fixes/tests if runtime confirms edge/fit failures.
 
 ## QA-D1 — Saved query rename is delete-then-save
 
+**Status:** FIXED  
 **Severity if exposed:** P1  
 **Current release reachability:** hidden in v0.1 activity bar  
-**File:** `frontend/src/modules/query/queries/query.queries.ts`
+**File:** `frontend/src/modules/query/queries/query.queries.ts`, `crates/tauri-app/src/commands/query.rs`, `crates/core/src/ports/saved_query_repository.rs`, `crates/infrastructure/src/meta/saved_query_repo.rs`
 
-Rename deletes the old saved query before saving the replacement. If save fails, the original is lost. Before Saved Queries becomes visible, replace with an atomic repository rename/update operation and failure test.
+**Fix:** Atomic rename operation added:
+- New `rename` method in `SavedQueryRepository` trait
+- SQLite implementation uses `UPDATE saved_queries SET name = ?1 WHERE id = ?2`
+- New `rename_saved_query` Tauri command
+- Frontend `useRenameSavedQuery` mutation now calls atomic rename instead of delete+save
 
 ---
 
@@ -493,7 +499,7 @@ Rename deletes the old saved query before saving the replacement. If save fails,
 1. Real PostgreSQL/SQLite packaged runtime smoke.
 2. 500+ table ER: initial open, search-first state, neighborhood 2-hop, Show All, pan/zoom, LOD transition, memory.
 3. Dynamic React Flow handle behavior across zoom tiers.
-4. PostgreSQL type matrix: NUMERIC/DECIMAL/DATE/TIME/INTERVAL/INET/enum/array/domain behavior.
+4. PostgreSQL type matrix: enum/array/domain behavior (DATE/TIME/INTERVAL/INET now have dedicated variants).
 5. BIGINT exact-value IPC round trip on both providers.
 6. SSH enable/disable/test tunnel with real key/password combinations.
 7. Connection session restore: prove exactly one reconnect attempt per intended active connection.

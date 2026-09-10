@@ -5,6 +5,7 @@ import { Trash2, Pencil } from "lucide-react";
 import { renderCellValue } from "@/modules/query/types/query.types";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useTranslation } from "@/commons/locales/useTranslation";
 import {
   normalizeColumnType,
   isCellTypeEditable,
@@ -20,6 +21,8 @@ const DEFAULT_COL_WIDTH = 150;
 const MIN_COL_WIDTH = 60;
 const ROW_NUMBER_WIDTH = 40;
 const ROW_ACTION_WIDTH = 40;
+const CONTEXT_MENU_WIDTH = 220;
+const CONTEXT_MENU_HEIGHT = 180;
 
 /* ------------------------------------------------------------------ */
 /*  Props                                                              */
@@ -107,6 +110,7 @@ export function UnifiedGrid({
   renderJsonCell,
   onKeyDown: externalKeyDown,
 }: UnifiedGridProps) {
+  const { t } = useTranslation();
   const parentRef = useRef<HTMLDivElement>(null);
   const gridContainerRef = useRef<HTMLDivElement>(null);
 
@@ -132,6 +136,11 @@ export function UnifiedGrid({
 
   /* ---- resize state (B1.1) ---- */
   const resizing = useRef<{ col: string; startX: number; startW: number } | null>(null);
+  const resizeCleanup = useRef<(() => void) | null>(null);
+
+  useEffect(() => {
+    return () => resizeCleanup.current?.();
+  }, []);
 
   const handleResizeStart = useCallback(
     (e: React.MouseEvent, colName: string) => {
@@ -148,15 +157,28 @@ export function UnifiedGrid({
       };
       const onUp = () => {
         resizing.current = null;
+        resizeCleanup.current = null;
         document.removeEventListener("mousemove", onMove);
         document.removeEventListener("mouseup", onUp);
         document.body.style.cursor = "";
         document.body.style.userSelect = "";
       };
+      resizeCleanup.current = onUp;
       document.body.style.cursor = "col-resize";
       document.body.style.userSelect = "none";
       document.addEventListener("mousemove", onMove);
       document.addEventListener("mouseup", onUp);
+    },
+    [widths, setWidths],
+  );
+
+  const handleResizeKeyDown = useCallback(
+    (e: React.KeyboardEvent, colName: string) => {
+      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+      e.preventDefault();
+      const currentW = widths[colName] ?? DEFAULT_COL_WIDTH;
+      const delta = e.key === "ArrowRight" ? 10 : -10;
+      setWidths({ ...widths, [colName]: Math.max(MIN_COL_WIDTH, currentW + delta) });
     },
     [widths, setWidths],
   );
@@ -172,6 +194,22 @@ export function UnifiedGrid({
     [onSelectionChange],
   );
   const lastSelectedRow = useRef<number | null>(null);
+  const contextMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (contextMenu) contextMenuRef.current?.focus();
+  }, [contextMenu]);
+
+  useEffect(() => {
+    if (!contextMenu) return;
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (contextMenuRef.current && !contextMenuRef.current.contains(e.target as Node)) {
+        setContextMenu(null);
+      }
+    };
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, [contextMenu]);
 
   /* ---- clear selection when dataset changes (pagination/sort/filter/refresh) ---- */
   const prevRowsRef = useRef(rows);
@@ -184,7 +222,7 @@ export function UnifiedGrid({
   }, [rows, setSelection]);
 
   const handleRowNumberClick = useCallback(
-    (e: React.MouseEvent, rowIdx: number) => {
+    (e: React.MouseEvent | React.KeyboardEvent, rowIdx: number) => {
       e.stopPropagation();
       // Establish grid keyboard ownership so Cmd/Ctrl+C works after selection.
       // Skip if user is actively editing a cell (input inside grid container).
@@ -293,7 +331,11 @@ export function UnifiedGrid({
   const handleColumnContextMenu = useCallback((e: React.MouseEvent, columnName: string) => {
     e.preventDefault();
     e.stopPropagation();
-    setContextMenu({ x: e.clientX, y: e.clientY, column: columnName });
+    setContextMenu({
+      x: Math.min(Math.max(4, e.clientX), window.innerWidth - CONTEXT_MENU_WIDTH - 4),
+      y: Math.min(Math.max(4, e.clientY), window.innerHeight - CONTEXT_MENU_HEIGHT - 4),
+      column: columnName,
+    });
   }, []);
 
   const handleCellContextMenu = useCallback(
@@ -301,8 +343,8 @@ export function UnifiedGrid({
       e.preventDefault();
       e.stopPropagation();
       setContextMenu({
-        x: e.clientX,
-        y: e.clientY,
+        x: Math.min(Math.max(4, e.clientX), window.innerWidth - CONTEXT_MENU_WIDTH - 4),
+        y: Math.min(Math.max(4, e.clientY), window.innerHeight - CONTEXT_MENU_HEIGHT - 4),
         column: columnName,
         cellRow: rowIdx,
         cellCol: colIdx,
@@ -340,7 +382,9 @@ export function UnifiedGrid({
   if (!columns.length) {
     return (
       <div className="flex h-full min-h-0 items-center justify-center">
-        {emptyState ?? <p className="text-sm text-[var(--text-secondary)]">No data</p>}
+        {emptyState ?? (
+          <p className="text-sm text-[var(--text-secondary)]">{t("dataGrid.noData")}</p>
+        )}
       </div>
     );
   }
@@ -356,16 +400,22 @@ export function UnifiedGrid({
       {/* Loading overlay */}
       {isLoading && (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60">
-          <span className="text-sm text-[var(--text-secondary)]">Loading…</span>
+          <span className="text-sm text-[var(--text-secondary)]">{t("common.states.loading")}</span>
         </div>
       )}
 
       {/* Context menu (B1.2 — extended with copy items) */}
       {contextMenu && (
         <div
+          ref={contextMenuRef}
+          role="menu"
+          tabIndex={-1}
           className="fixed z-[var(--z-floating)] rounded-md border border-[var(--border-strong)] bg-popover py-1 shadow-lg"
           style={{ left: contextMenu.x, top: contextMenu.y }}
           onMouseLeave={() => setContextMenu(null)}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") setContextMenu(null);
+          }}
         >
           {/* Column actions */}
           {onToggleFreezeColumn && (
@@ -379,8 +429,10 @@ export function UnifiedGrid({
                 setContextMenu(null);
               }}
             >
-              {frozenSet.has(contextMenu.column) ? "Restore order" : "Move to front"} "
-              {contextMenu.column}"
+              {frozenSet.has(contextMenu.column)
+                ? t("dataGrid.restoreOrder")
+                : t("dataGrid.moveToFront")}{" "}
+              "{contextMenu.column}"
             </Button>
           )}
           <Button
@@ -393,7 +445,7 @@ export function UnifiedGrid({
               setContextMenu(null);
             }}
           >
-            Copy column name
+            {t("dataGrid.copyColumnName")}
           </Button>
           {/* Cell / row copy (only when right-clicked on a cell) */}
           {contextMenu.cellRow != null && (
@@ -409,7 +461,7 @@ export function UnifiedGrid({
                   setContextMenu(null);
                 }}
               >
-                Copy cell value
+                {t("dataGrid.copyCellValue")}
               </Button>
               <Button
                 type="button"
@@ -421,7 +473,7 @@ export function UnifiedGrid({
                   setContextMenu(null);
                 }}
               >
-                Copy row
+                {t("dataGrid.copyRow")}
               </Button>
             </>
           )}
@@ -471,6 +523,15 @@ export function UnifiedGrid({
                 <span
                   className="flex cursor-pointer select-none items-center gap-1 text-[12.5px] font-medium text-[var(--text-secondary)] transition-colors hover:text-foreground"
                   onClick={() => onSort(col.name)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      onSort(col.name);
+                    }
+                  }}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={t("dataGrid.sortBy", { column: col.name })}
                 >
                   <span className="truncate">{col.name}</span>
                   {sort && (
@@ -487,6 +548,13 @@ export function UnifiedGrid({
                 <div
                   className="absolute right-0 top-0 h-full w-[3px] cursor-col-resize hover:bg-primary/40 active:bg-primary"
                   onMouseDown={(e) => handleResizeStart(e, col.name)}
+                  onKeyDown={(e) => handleResizeKeyDown(e, col.name)}
+                  role="separator"
+                  tabIndex={0}
+                  aria-label={`Resize ${col.name}`}
+                  aria-valuemin={MIN_COL_WIDTH}
+                  aria-valuenow={widths[col.name] ?? DEFAULT_COL_WIDTH}
+                  aria-orientation="vertical"
                 />
               </div>
             );
@@ -524,6 +592,14 @@ export function UnifiedGrid({
                       : " text-[var(--text-tertiary)]")
                   }
                   onClick={(e) => handleRowNumberClick(e, virtualRow.index)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      handleRowNumberClick(e, virtualRow.index);
+                    }
+                  }}
+                  aria-label={t("dataGrid.rowNumber", { row: virtualRow.index + 1 })}
+                  aria-selected={isSelected}
                 >
                   {virtualRow.index + 1}
                 </div>
@@ -550,6 +626,28 @@ export function UnifiedGrid({
                       style={isNull ? { fontStyle: "italic" } : undefined}
                       title={isJson ? undefined : display}
                       onDoubleClick={() => handleDoubleClick(virtualRow.index, colIdx)}
+                      onKeyDown={(e) => {
+                        if (e.key !== "Enter" && e.key !== "F2") return;
+                        e.preventDefault();
+                        handleDoubleClick(virtualRow.index, colIdx);
+                      }}
+                      tabIndex={
+                        canEditRows &&
+                        onEditCell &&
+                        isCellTypeEditable(normalizeColumnType(col.dataType))
+                          ? 0
+                          : undefined
+                      }
+                      aria-label={
+                        canEditRows &&
+                        onEditCell &&
+                        isCellTypeEditable(normalizeColumnType(col.dataType))
+                          ? t("dataGrid.editCell", {
+                              row: virtualRow.index + 1,
+                              column: col.name,
+                            })
+                          : undefined
+                      }
                       onContextMenu={(e) =>
                         handleCellContextMenu(e, col.name, virtualRow.index, colIdx)
                       }
@@ -592,11 +690,14 @@ export function UnifiedGrid({
                             size="sm"
                             className="h-6 w-6 p-0 text-[var(--text-secondary)] hover:bg-primary/10 hover:text-primary"
                             onClick={() => onEditRow(virtualRow.index)}
+                            aria-label={t("dataGrid.editRow", { row: virtualRow.index + 1 })}
                           >
                             <Pencil className="h-3.5 w-3.5" />
                           </Button>
                         </TooltipTrigger>
-                        <TooltipContent>Edit row</TooltipContent>
+                        <TooltipContent>
+                          {t("dataGrid.editRow", { row: virtualRow.index + 1 })}
+                        </TooltipContent>
                       </Tooltip>
                     )}
                     {onDeleteRow && (
@@ -609,11 +710,14 @@ export function UnifiedGrid({
                             className="h-6 w-6 p-0 text-[var(--text-secondary)] hover:bg-destructive/10 hover:text-destructive"
                             disabled={isDeleting}
                             onClick={() => onDeleteRow(virtualRow.index)}
+                            aria-label={t("dataGrid.deleteRow", { row: virtualRow.index + 1 })}
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>
                         </TooltipTrigger>
-                        <TooltipContent>Delete row</TooltipContent>
+                        <TooltipContent>
+                          {t("dataGrid.deleteRow", { row: virtualRow.index + 1 })}
+                        </TooltipContent>
                       </Tooltip>
                     )}
                   </div>

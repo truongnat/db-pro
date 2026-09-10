@@ -104,7 +104,7 @@ export function VisualFilterBuilder({
                     <Trash2 className="h-3 w-3" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>Remove filter</TooltipContent>
+                <TooltipContent>{t("dataGrid.removeFilter")}</TooltipContent>
               </Tooltip>
             </div>
           ))}

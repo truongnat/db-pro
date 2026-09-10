@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
+import { useConnectionModuleStore } from "../state/connection.store";
 
 import {
   useConnectionList,
@@ -171,6 +172,7 @@ describe("useRenameConnection", () => {
 describe("useToggleFavorite", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    useConnectionModuleStore.getState().reset();
   });
 
   it("updates connection with favorite flag", async () => {
@@ -185,6 +187,17 @@ describe("useToggleFavorite", () => {
       const updateConfig = mockUpdate.mock.calls[0][1];
       expect(updateConfig.favorite).toBe(true);
     });
+  });
+
+  it("rolls back the local favorite when persistence fails", async () => {
+    mockGet.mockResolvedValue(sampleConnection);
+    mockUpdate.mockRejectedValue(new Error("save failed"));
+
+    const { result } = renderHook(() => useToggleFavorite(), { wrapper });
+    act(() => result.current.mutate({ id: "conn-1", favorite: true }));
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(useConnectionModuleStore.getState().favorites["conn-1"]).toBe(false);
   });
 });
 

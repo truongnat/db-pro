@@ -72,6 +72,9 @@ fn decode_cell(row: &sqlx::postgres::PgRow, i: usize, data_type: &str) -> CellVa
             .map(|v| CellValue::Int64(v.0 as i64)),
         "FLOAT4" => row.try_get::<f32, _>(i).map(|v| CellValue::Float64(v as f64)),
         "FLOAT8" => row.try_get::<f64, _>(i).map(CellValue::Float64),
+        "NUMERIC" | "DECIMAL" => row
+            .try_get::<sqlx::types::BigDecimal, _>(i)
+            .map(|v| CellValue::Text(v.to_string())),
         "UUID" => row.try_get::<uuid::Uuid, _>(i).map(|v| CellValue::Uuid(v.to_string())),
         "TIMESTAMPTZ" => row
             .try_get::<chrono::DateTime<chrono::Utc>, _>(i)
@@ -81,26 +84,28 @@ fn decode_cell(row: &sqlx::postgres::PgRow, i: usize, data_type: &str) -> CellVa
             .map(|v| CellValue::DateTime(v.and_utc().to_rfc3339())),
         "DATE" => row
             .try_get::<chrono::NaiveDate, _>(i)
-            .map(|v| CellValue::DateTime(v.to_string())),
-        "TIME" => row
-            .try_get::<chrono::NaiveTime, _>(i)
-            .map(|v| CellValue::Text(v.to_string())),
+            .map(|v| CellValue::Date(v.to_string())),
+        "TIME" | "TIMETZ" => row
+            .try_get::<String, _>(i)
+            .map(CellValue::Time),
+        "INTERVAL" => row
+            .try_get::<String, _>(i)
+            .map(CellValue::Interval),
+        "INET" | "CIDR" => row
+            .try_get::<String, _>(i)
+            .map(CellValue::Inet),
         "JSON" | "JSONB" => row.try_get::<serde_json::Value, _>(i).map(CellValue::Json),
         "BYTEA" => row.try_get::<Vec<u8>, _>(i).map(CellValue::Bytes),
         _ => row.try_get::<String, _>(i).map(CellValue::Text),
     };
 
     res.unwrap_or_else(|_| {
-        if let Ok(raw) = row.try_get_raw(i) {
-            if raw.format() == sqlx::postgres::PgValueFormat::Text {
-                if let Ok(s) = raw.as_str() {
-                    return CellValue::Text(s.to_string());
-                }
-            }
-        }
-        row.try_get::<String, _>(i)
-            .map(CellValue::Text)
-            .unwrap_or_else(|_| CellValue::Text(format!("<unsupported value: {}>", data_type)))
+        row.try_get_raw(i)
+            .ok()
+            .and_then(|raw| raw.as_bytes().ok())
+            .and_then(|bytes| std::str::from_utf8(bytes).ok())
+            .map(|value| CellValue::Text(value.to_owned()))
+            .unwrap_or_else(|| CellValue::Text(format!("<unsupported value: {data_type}>")))
     })
 }
 
@@ -144,5 +149,35 @@ mod tests {
         let mut args = PgArguments::default();
         let params = vec![QueryParam::DateTime("invalid-date".into())];
         assert!(bind_params(&params, &mut args).is_err());
+    }
+
+    #[test]
+    fn numeric_to_string_preserves_trailing_zeros() {
+        let cases: Vec<(&str, &str)> = vec![
+            ("1.00", "1.00"),
+            ("1.50", "1.50"),
+            ("0.100", "0.100"),
+            ("123.456000", "123.456000"),
+            ("10", "10"),
+            ("0.001", "0.001"),
+        ];
+        for (input, expected) in cases {
+            let bd: sqlx::types::BigDecimal = input.parse().unwrap();
+            let result = bd.to_string();
+            assert_eq!(result, expected, "BigDecimal::to_string() for {input}");
+        }
+    }
+
+    #[test]
+    fn numeric_to_string_vs_normalized_differs() {
+        let bd: sqlx::types::BigDecimal = "1.500".parse().unwrap();
+        let plain = bd.to_string();
+        let norm = bd.normalized().to_string();
+        assert_eq!(plain, "1.500", "to_string() should preserve trailing zeros");
+        assert_eq!(norm, "1.5", "normalized() strips trailing zeros");
+        assert_ne!(
+            plain, norm,
+            "to_string and normalized must differ for NUMERIC with trailing zeros"
+        );
     }
 }
