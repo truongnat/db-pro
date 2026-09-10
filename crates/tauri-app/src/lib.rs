@@ -47,7 +47,7 @@ pub fn run() {
                     .expect("failed to initialize meta store");
 
                 let secret_store = {
-                    let vault = KeyringVault::new("com.dbpro.app", secrets_dir).with_fallback();
+                    let vault = KeyringVault::new("com.dbpro.app", secrets_dir);
                     Arc::new(vault)
                 };
 
@@ -96,6 +96,7 @@ pub fn run() {
                 let backup_service = BackupService::new(
                     Box::new(meta_store.clone()),
                     Box::new(Arc::clone(&secret_store)),
+                    Arc::clone(&registry),
                     Box::new(|host: &str, port: u16, database: &str, username: &str| {
                         let config = db_pro_core::domain::connection::ConnectionConfig {
                             name: String::new(),

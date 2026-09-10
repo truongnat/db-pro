@@ -221,3 +221,14 @@ impl KeyringVault {
         Ok(Some(plaintext))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn new_vault_fails_closed_without_os_keyring() {
+        let vault = KeyringVault::new("db-pro-test", PathBuf::from("/tmp/db-pro-test-secrets"));
+        assert!(matches!(vault.require_fallback(), Err(DbError::EncryptionFailed(_))));
+    }
+}

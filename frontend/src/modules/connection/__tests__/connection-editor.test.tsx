@@ -93,6 +93,21 @@ describe("ConnectionEditor", () => {
     const portInput = screen.getByDisplayValue("5432");
     expect(portInput).toBeInTheDocument();
     expect(screen.getByPlaceholderText("localhost")).toHaveValue("localhost");
+    expect(screen.getByRole("combobox", { name: "SSL Mode" })).toHaveTextContent("Require");
+  });
+
+  it("defaults SQLite to require when switching back to PostgreSQL", async () => {
+    const user = userEvent.setup();
+    renderEditor();
+
+    const driverTrigger = screen.getAllByRole("combobox")[0];
+    await user.click(driverTrigger);
+    await user.click((await screen.findAllByText("SQLite")).find((el) => el.tagName === "SPAN")!);
+
+    await user.click(screen.getAllByRole("combobox")[0]);
+    await user.click((await screen.findAllByText("PostgreSQL")).find((el) => el.tagName === "SPAN")!);
+
+    expect(screen.getByRole("combobox", { name: "SSL Mode" })).toHaveTextContent("Require");
   });
 
   it("renders with initial data for editing", () => {
@@ -167,8 +182,6 @@ describe("ConnectionEditor", () => {
     renderEditor({
       onTest: vi.fn(),
       testResult: "error",
-      // ConnectionEditor renders `connectError`; `testErrorDetail` is not a prop
-      // it accepts, so the assertion below could never match.
       connectError: "Connection refused on port 5432",
     });
     expect(screen.getByText("Test failed")).toBeInTheDocument();
