@@ -292,7 +292,8 @@ export function useRenameConnection() {
  */
 export function useToggleFavorite() {
   const qc = useQueryClient();
-  const toggleFavoriteLocal = useConnectionModuleStore((s) => s.toggleFavorite);
+  const setFavorite = useConnectionModuleStore((s) => s.setFavorite);
+  const setError = useConnectionModuleStore((s) => s.setError);
 
   return useMutation({
     mutationFn: async ({ id, favorite }: { id: string; favorite: boolean }) => {
@@ -318,11 +319,16 @@ export function useToggleFavorite() {
       };
       return service.update(id, config);
     },
-    onMutate: ({ id }) => {
-      toggleFavoriteLocal(id);
+    onMutate: ({ id, favorite }) => {
+      const previous = useConnectionModuleStore.getState().favorites[id];
+      setFavorite(id, favorite);
+      return { favorite, previous };
     },
-    onError: (_error, { id }) => {
-      toggleFavoriteLocal(id);
+    onError: (err: unknown, { id, favorite }, context) => {
+      const current = useConnectionModuleStore.getState().favorites[id];
+      if (current === favorite) setFavorite(id, context?.previous);
+      setError(id, (err as { userMessage?: string }).userMessage ?? "Failed to update connection");
+      qc.invalidateQueries({ queryKey: QUERY_KEYS.connections });
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: QUERY_KEYS.connections }),
   });
