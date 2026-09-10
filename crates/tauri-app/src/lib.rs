@@ -172,6 +172,7 @@ pub fn run() {
             commands::save_query,
             commands::list_saved_queries,
             commands::delete_saved_query,
+            commands::rename_saved_query,
             commands::create_folder,
             commands::list_folders,
             commands::delete_folder,

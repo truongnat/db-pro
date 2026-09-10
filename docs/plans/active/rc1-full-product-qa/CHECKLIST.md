@@ -127,14 +127,14 @@ Scale evidence:
 ## Gate 5 — QA-W5 Provider type matrix
 
 ### QA-P1-14 PostgreSQL non-basic types
-- [ ] Define supported PostgreSQL result type matrix
+- [x] Define supported PostgreSQL result type matrix
 - [x] NUMERIC/DECIMAL has lossless representation
 - [x] BIGINT shares lossless integer contract
-- [ ] DATE
-- [ ] TIME/TIMETZ
+- [x] DATE
+- [x] TIME/TIMETZ
 - [x] TIMESTAMP/TIMESTAMPTZ
-- [ ] INTERVAL
-- [ ] INET
+- [x] INTERVAL
+- [x] INET
 - [x] UUID
 - [x] JSON/JSONB
 - [x] BYTEA
@@ -183,7 +183,7 @@ Scale evidence:
 
 ## Gate 10 — Hidden/deferred surface
 
-- [ ] QA-D1 atomic saved-query rename before Saved Queries is exposed
+- [x] QA-D1 atomic saved-query rename before Saved Queries is exposed
 
 ## Gate 11 — Automated verification
 

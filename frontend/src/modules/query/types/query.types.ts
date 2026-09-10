@@ -7,6 +7,10 @@ export type CellValue =
   | { type: "bytes"; value: number[] }
   | { type: "uuid"; value: string }
   | { type: "datetime"; value: string }
+  | { type: "date"; value: string }
+  | { type: "time"; value: string }
+  | { type: "interval"; value: string }
+  | { type: "inet"; value: string }
   | { type: "json"; value: unknown };
 
 export interface ColumnMeta {
@@ -87,6 +91,10 @@ export function renderCellValue(cell: CellValue): string {
     case "text":
     case "uuid":
     case "datetime":
+    case "date":
+    case "time":
+    case "interval":
+    case "inet":
       return String(cell.value);
   }
 }

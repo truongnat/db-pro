@@ -48,6 +48,7 @@ export interface IQueryService {
   createFolder(connectionId: string, name: string): Promise<unknown>;
   listFolders(connectionId: string): Promise<unknown[]>;
   deleteFolder(id: string): Promise<void>;
+  renameSaved(id: string, name: string): Promise<void>;
   saveRunConfig(
     connectionId: string,
     name: string,

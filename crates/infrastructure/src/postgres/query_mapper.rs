@@ -84,10 +84,16 @@ fn decode_cell(row: &sqlx::postgres::PgRow, i: usize, data_type: &str) -> CellVa
             .map(|v| CellValue::DateTime(v.and_utc().to_rfc3339())),
         "DATE" => row
             .try_get::<chrono::NaiveDate, _>(i)
-            .map(|v| CellValue::DateTime(v.to_string())),
-        "TIME" => row
-            .try_get::<chrono::NaiveTime, _>(i)
-            .map(|v| CellValue::Text(v.to_string())),
+            .map(|v| CellValue::Date(v.to_string())),
+        "TIME" | "TIMETZ" => row
+            .try_get::<String, _>(i)
+            .map(CellValue::Time),
+        "INTERVAL" => row
+            .try_get::<String, _>(i)
+            .map(CellValue::Interval),
+        "INET" | "CIDR" => row
+            .try_get::<String, _>(i)
+            .map(CellValue::Inet),
         "JSON" | "JSONB" => row.try_get::<serde_json::Value, _>(i).map(CellValue::Json),
         "BYTEA" => row.try_get::<Vec<u8>, _>(i).map(CellValue::Bytes),
         _ => row.try_get::<String, _>(i).map(CellValue::Text),

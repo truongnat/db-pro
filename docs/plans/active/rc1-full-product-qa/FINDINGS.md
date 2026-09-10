@@ -271,19 +271,24 @@ Severity follows `REVIEW.md`. `SOURCE_CONFIRMED` means the problematic state tra
 
 ## QA-P1-14 — PostgreSQL row mapper lacks a lossless, explicit contract for common non-basic types
 
-**Status:** PARTIALLY FIXED — NUMERIC/DECIMAL now uses `BigDecimal::to_string()` preserving trailing zeros; TIMESTAMP/TIMESTAMPTZ, UUID, JSON/JSONB, BYTEA, and safe fallback were already handled. DATE, TIME, INTERVAL, INET, enum, and arrays remain Text fallback (P2 scope).  
+**Status:** FIXED  
 **Area:** PostgreSQL result mapping / precision  
 **Files:**
 - `crates/infrastructure/src/postgres/query_mapper.rs`
 - `crates/core/src/domain/query.rs`
+- `frontend/src/modules/query/types/query.types.ts`
+- `crates/core/src/application/sql_builder.rs`
+- `crates/core/src/application/export_service.rs`
+- `crates/tauri-app/src/dto.rs`
 
-**Evidence:** explicit mappings exist for BOOL, INT2/4/8, FLOAT4/8, UUID, TIMESTAMP/TIMESTAMPTZ, JSON/JSONB, BYTEA. Every other Postgres type falls back to `row.try_get::<String>()`. `CellValue` has no lossless NUMERIC/DECIMAL variant.
-
-**Risk scenarios:** NUMERIC/DECIMAL precision, DATE/TIME/INTERVAL, INET, enums/domains, arrays and other provider types may fail row decoding or be coerced through an unsuitable representation.
-
-**Impact:** provider-specific query failure or precision loss.
-
-**Required fix:** document/test a provider type matrix; add lossless decimal/bigint transport; unsupported types must degrade to safe display/read-only behavior without failing the entire result set where feasible.
+**Fix:** 
+- NUMERIC/DECIMAL: `BigDecimal::to_string()` preserves trailing zeros
+- DATE: decoded to `CellValue::Date` variant
+- TIME/TIMETZ: decoded to `CellValue::Time` variant
+- INTERVAL: decoded to `CellValue::Interval` variant
+- INET/CIDR: decoded to `CellValue::Inet` variant
+- Frontend type updated to handle all new variants
+- All match statements updated to handle new variants
 
 ---
 
@@ -476,11 +481,16 @@ Search maintains `highlightedIndex` with keyboard navigation; user must explicit
 
 ## QA-D1 — Saved query rename is delete-then-save
 
+**Status:** FIXED  
 **Severity if exposed:** P1  
 **Current release reachability:** hidden in v0.1 activity bar  
-**File:** `frontend/src/modules/query/queries/query.queries.ts`
+**File:** `frontend/src/modules/query/queries/query.queries.ts`, `crates/tauri-app/src/commands/query.rs`, `crates/core/src/ports/saved_query_repository.rs`, `crates/infrastructure/src/meta/saved_query_repo.rs`
 
-Rename deletes the old saved query before saving the replacement. If save fails, the original is lost. Before Saved Queries becomes visible, replace with an atomic repository rename/update operation and failure test.
+**Fix:** Atomic rename operation added:
+- New `rename` method in `SavedQueryRepository` trait
+- SQLite implementation uses `UPDATE saved_queries SET name = ?1 WHERE id = ?2`
+- New `rename_saved_query` Tauri command
+- Frontend `useRenameSavedQuery` mutation now calls atomic rename instead of delete+save
 
 ---
 
@@ -489,7 +499,7 @@ Rename deletes the old saved query before saving the replacement. If save fails,
 1. Real PostgreSQL/SQLite packaged runtime smoke.
 2. 500+ table ER: initial open, search-first state, neighborhood 2-hop, Show All, pan/zoom, LOD transition, memory.
 3. Dynamic React Flow handle behavior across zoom tiers.
-4. PostgreSQL type matrix: NUMERIC/DECIMAL/DATE/TIME/INTERVAL/INET/enum/array/domain behavior.
+4. PostgreSQL type matrix: enum/array/domain behavior (DATE/TIME/INTERVAL/INET now have dedicated variants).
 5. BIGINT exact-value IPC round trip on both providers.
 6. SSH enable/disable/test tunnel with real key/password combinations.
 7. Connection session restore: prove exactly one reconnect attempt per intended active connection.
