@@ -21,13 +21,13 @@ const actions = new Map<ActionId, ActionDefinition>();
  * });
  * ```
  *
- * Duplicate IDs overwrite with a console warning.
+ * Duplicate IDs are rejected because action IDs must be unique.
  */
 export function defineAction<TInput, TOutput>(
   definition: ActionDefinition<TInput, TOutput>,
 ): ActionDefinition<TInput, TOutput> {
   if (actions.has(definition.id)) {
-    console.warn(`[ActionRegistry] Overwriting action "${definition.id}"`);
+    throw new Error(`Action "${definition.id}" is already registered`);
   }
   actions.set(definition.id, definition as ActionDefinition);
   return definition;

@@ -48,6 +48,14 @@ beforeEach(() => {
 });
 
 describe("PATCH 6.1 — Action Platform regression tests", () => {
+  it("rejects duplicate action IDs", () => {
+    registerTestAction("test.duplicate");
+
+    expect(() => registerTestAction("test.duplicate")).toThrow(
+      'Action "test.duplicate" is already registered',
+    );
+  });
+
   // ── P1-1: Zod → JSON Schema ─────────────────────────────────
 
   describe("P1-1: Zod → JSON Schema conversion", () => {
