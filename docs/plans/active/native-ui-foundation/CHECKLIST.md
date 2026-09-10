@@ -26,7 +26,8 @@
 - [x] Add saved-query/folder operations to the shared QueryApi facade.
 - [x] Add native saved-query list/save UI and backend worker commands.
 - [x] Add saved-query folder creation UI and folder assignment when saving.
-- [ ] Add saved-query folder rename/delete UI.
+- [x] Add saved-query rename/delete and folder delete runtime commands/UI actions.
+- [ ] Add folder tree presentation and confirmation dialogs.
 - [x] Add column resize, sorting, filtering and visible-row virtualization.
 - [x] Add scoped cell/row selection and clipboard copy actions.
 - [x] Persist column widths in native eframe storage.

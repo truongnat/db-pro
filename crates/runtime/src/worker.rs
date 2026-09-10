@@ -29,6 +29,19 @@ pub enum RuntimeCommand {
         connection_id: String,
         name: String,
     },
+    RenameSavedQuery {
+        request_id: RuntimeRequestId,
+        id: String,
+        name: String,
+    },
+    DeleteSavedQuery {
+        request_id: RuntimeRequestId,
+        id: String,
+    },
+    DeleteQueryFolder {
+        request_id: RuntimeRequestId,
+        id: String,
+    },
     CreateConnection {
         request_id: RuntimeRequestId,
         config: db_pro_core::domain::connection::ConnectionConfig,
@@ -167,6 +180,36 @@ pub fn spawn_worker(
                     let event = match runtime.query_api().create_folder(&connection_id, &name).await {
                         Ok(_) => RuntimeEvent::OperationCompleted { request_id, operation: "query-folder.created" },
                         Err(error) => RuntimeEvent::Failed { request_id, message: error.message },
+                    };
+                    let _ = event_tx.send(event).await;
+                }
+                RuntimeCommand::RenameSavedQuery { request_id, id, name } => {
+                    let event = match uuid::Uuid::parse_str(&id) {
+                        Ok(id) => match runtime.query_api().rename_saved_query(&id, &name).await {
+                            Ok(()) => RuntimeEvent::OperationCompleted { request_id, operation: "query.renamed" },
+                            Err(error) => RuntimeEvent::Failed { request_id, message: error.message },
+                        },
+                        Err(error) => RuntimeEvent::Failed { request_id, message: error.to_string() },
+                    };
+                    let _ = event_tx.send(event).await;
+                }
+                RuntimeCommand::DeleteSavedQuery { request_id, id } => {
+                    let event = match uuid::Uuid::parse_str(&id) {
+                        Ok(id) => match runtime.query_api().delete_saved_query(&id).await {
+                            Ok(()) => RuntimeEvent::OperationCompleted { request_id, operation: "query.deleted" },
+                            Err(error) => RuntimeEvent::Failed { request_id, message: error.message },
+                        },
+                        Err(error) => RuntimeEvent::Failed { request_id, message: error.to_string() },
+                    };
+                    let _ = event_tx.send(event).await;
+                }
+                RuntimeCommand::DeleteQueryFolder { request_id, id } => {
+                    let event = match uuid::Uuid::parse_str(&id) {
+                        Ok(id) => match runtime.query_api().delete_folder(&id).await {
+                            Ok(()) => RuntimeEvent::OperationCompleted { request_id, operation: "query-folder.deleted" },
+                            Err(error) => RuntimeEvent::Failed { request_id, message: error.message },
+                        },
+                        Err(error) => RuntimeEvent::Failed { request_id, message: error.to_string() },
                     };
                     let _ = event_tx.send(event).await;
                 }

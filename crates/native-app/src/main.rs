@@ -152,10 +152,11 @@ fn translate_command(command: UiCommand) -> Option<RuntimeCommand> {
             folder,
         }),
         UiCommand::CreateQueryFolder { request_id, connection_id, name } => Some(RuntimeCommand::CreateQueryFolder {
-            request_id: RuntimeRequestId(request_id.0),
-            connection_id,
-            name,
+            request_id: RuntimeRequestId(request_id.0), connection_id, name,
         }),
+        UiCommand::RenameSavedQuery { request_id, id, name } => Some(RuntimeCommand::RenameSavedQuery { request_id: RuntimeRequestId(request_id.0), id, name }),
+        UiCommand::DeleteSavedQuery { request_id, id } => Some(RuntimeCommand::DeleteSavedQuery { request_id: RuntimeRequestId(request_id.0), id }),
+        UiCommand::DeleteQueryFolder { request_id, id } => Some(RuntimeCommand::DeleteQueryFolder { request_id: RuntimeRequestId(request_id.0), id }),
         UiCommand::ListConnections { request_id } => Some(RuntimeCommand::ListConnections {
             request_id: RuntimeRequestId(request_id.0),
         }),

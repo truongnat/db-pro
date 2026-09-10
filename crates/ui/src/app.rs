@@ -278,6 +278,12 @@ impl DbProApp {
                         self.connection_dialog_open = false;
                         self.editing_connection_id = None;
                     }
+                    if operation.starts_with("query") || operation.starts_with("query-folder") {
+                        if let Some(connection_id) = self.active_connection_id.clone() {
+                            let request_id = self.task_bridge.next_request_id();
+                            let _ = self.task_bridge.send(UiCommand::ListSavedQueries { request_id, connection_id });
+                        }
+                    }
                     if operation == "connection.deleted" {
                         self.active_connection_id = None;
                         self.connected = false;
@@ -553,10 +559,21 @@ impl DbProApp {
         } else {
             let saved = self.saved_queries.clone();
             for query in saved {
-                if ui.selectable_label(false, &query.name).clicked() {
-                    self.query_text = query.sql;
-                    self.active_tab = WorkspaceTab::Query;
-                }
+                ui.horizontal(|ui| {
+                    if ui.selectable_label(false, &query.name).clicked() {
+                        self.query_text = query.sql.clone();
+                        self.active_tab = WorkspaceTab::Query;
+                    }
+                    if ui.small_button("rename").clicked() {
+                        let request_id = self.task_bridge.next_request_id();
+                        let name = if self.query_folder.trim().is_empty() { format!("{} (renamed)", query.name) } else { self.query_folder.trim().to_owned() };
+                        let _ = self.task_bridge.send(UiCommand::RenameSavedQuery { request_id, id: query.id.clone(), name });
+                    }
+                    if ui.small_button("delete").clicked() {
+                        let request_id = self.task_bridge.next_request_id();
+                        let _ = self.task_bridge.send(UiCommand::DeleteSavedQuery { request_id, id: query.id.clone() });
+                    }
+                });
             }
         }
         ui.separator();
