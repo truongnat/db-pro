@@ -3,7 +3,7 @@ use std::thread;
 
 use db_pro_runtime::{spawn_worker, DbProRuntime, RuntimeCommand, RuntimeEvent, RuntimeRequestId};
 use db_pro_ui::{
-    DbProApp, TaskBridge, UiCell, UiColumn, UiCommand, UiConnectionDraft, UiConnectionSummary, UiDriver,
+    DbProApp, TaskBridge, UiCell, UiColumn, UiCommand, UiConnectionDraft, UiConnectionSummary, UiDriver, UiSslMode,
     UiEvent, UiQueryResult,
 };
 use eframe::egui;
@@ -73,6 +73,23 @@ fn draft_to_domain(draft: UiConnectionDraft) -> Option<(db_pro_core::domain::con
         UiDriver::Postgres => db_pro_core::domain::connection::DriverType::Postgres,
         UiDriver::Sqlite => db_pro_core::domain::connection::DriverType::SQLite,
     };
+    let ssl_mode = match draft.ssl_mode {
+        UiSslMode::Disable => db_pro_core::domain::connection::SslMode::Disable,
+        UiSslMode::Require => db_pro_core::domain::connection::SslMode::Require,
+        UiSslMode::VerifyCa => db_pro_core::domain::connection::SslMode::VerifyCa,
+        UiSslMode::VerifyFull => db_pro_core::domain::connection::SslMode::VerifyFull,
+    };
+    let ssh_tunnel = if draft.ssh_tunnel_enabled {
+        Some(db_pro_core::domain::connection::SshTunnelConfig {
+            host: draft.ssh_host.clone(),
+            port: draft.ssh_port.parse::<u16>().ok()?,
+            user: draft.ssh_user.clone(),
+            private_key_path: draft.ssh_private_key.clone(),
+            password: None,
+        })
+    } else {
+        None
+    };
     Some((
         db_pro_core::domain::connection::ConnectionConfig {
             name: draft.name,
@@ -81,8 +98,8 @@ fn draft_to_domain(draft: UiConnectionDraft) -> Option<(db_pro_core::domain::con
             database: draft.database,
             username: draft.username,
             driver,
-            ssl_mode: db_pro_core::domain::connection::SslMode::Disable,
-            ssh_tunnel: None,
+            ssl_mode,
+            ssh_tunnel,
             query_timeout_ms: 30_000,
             max_rows: 500,
             color: None,

@@ -1,5 +1,5 @@
 use crate::{
-    DbProTheme, TaskBridge, UiCommand, UiConnectionDraft, UiConnectionSummary, UiDriver, UiEvent, UiQueryResult,
+    DbProTheme, TaskBridge, UiCommand, UiConnectionDraft, UiConnectionSummary, UiDriver, UiEvent, UiQueryResult, UiSslMode,
 };
 use eframe::egui::{self, Align, Color32, Layout, RichText, Sense, TextEdit, TopBottomPanel};
 
@@ -719,7 +719,13 @@ impl DbProApp {
             username: connection.username.clone(),
             password: String::new(),
             driver: if connection.driver == "SQLite" { UiDriver::Sqlite } else { UiDriver::Postgres },
+            ssl_mode: UiSslMode::Disable,
             readonly: connection.readonly,
+            ssh_tunnel_enabled: false,
+            ssh_host: String::new(),
+            ssh_port: "22".to_owned(),
+            ssh_user: String::new(),
+            ssh_private_key: String::new(),
         };
         self.connection_error = "Enter the password again to save changes".to_owned();
         self.connection_dialog_open = true;
@@ -785,6 +791,25 @@ impl DbProApp {
                         ui.label("Password");
                         ui.add_sized([300.0, 24.0], egui::TextEdit::singleline(&mut self.connection_draft.password).password(true));
                     });
+                    ui.horizontal(|ui| {
+                        ui.label("SSL");
+                        for (mode, label) in [
+                            (UiSslMode::Disable, "Disable"),
+                            (UiSslMode::Require, "Require"),
+                            (UiSslMode::VerifyFull, "Verify full"),
+                        ] {
+                            ui.selectable_value(&mut self.connection_draft.ssl_mode, mode, label);
+                        }
+                    });
+                    egui::CollapsingHeader::new("SSH tunnel").show(ui, |ui| {
+                        ui.checkbox(&mut self.connection_draft.ssh_tunnel_enabled, "Use SSH tunnel");
+                        if self.connection_draft.ssh_tunnel_enabled {
+                            Self::form_row(ui, "SSH host", &mut self.connection_draft.ssh_host, "bastion.example.com");
+                            Self::form_row(ui, "SSH port", &mut self.connection_draft.ssh_port, "22");
+                            Self::form_row(ui, "SSH user", &mut self.connection_draft.ssh_user, "ubuntu");
+                            Self::form_row(ui, "Private key", &mut self.connection_draft.ssh_private_key, "/home/me/.ssh/id_ed25519");
+                        }
+                    });
                 } else {
                     Self::form_row(ui, "SQLite file", &mut self.connection_draft.database, "/path/to/db.sqlite");
                 }
@@ -826,6 +851,18 @@ impl DbProApp {
         }
         if self.connection_draft.driver == UiDriver::Postgres && self.connection_draft.port.parse::<u16>().is_err() {
             self.connection_error = "Port must be a number between 1 and 65535".to_owned();
+            return;
+        }
+        if self.connection_draft.ssh_tunnel_enabled
+            && (self.connection_draft.ssh_host.trim().is_empty()
+                || self.connection_draft.ssh_user.trim().is_empty()
+                || self.connection_draft.ssh_private_key.trim().is_empty())
+        {
+            self.connection_error = "SSH host, user and private key are required".to_owned();
+            return;
+        }
+        if self.connection_draft.ssh_tunnel_enabled && self.connection_draft.ssh_port.parse::<u16>().is_err() {
+            self.connection_error = "SSH port must be a number between 1 and 65535".to_owned();
             return;
         }
         let request_id = self.task_bridge.next_request_id();

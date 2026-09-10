@@ -11,6 +11,14 @@ pub enum UiDriver {
     Sqlite,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UiSslMode {
+    Disable,
+    Require,
+    VerifyCa,
+    VerifyFull,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UiConnectionDraft {
     pub name: String,
@@ -20,7 +28,13 @@ pub struct UiConnectionDraft {
     pub username: String,
     pub password: String,
     pub driver: UiDriver,
+    pub ssl_mode: UiSslMode,
     pub readonly: bool,
+    pub ssh_tunnel_enabled: bool,
+    pub ssh_host: String,
+    pub ssh_port: String,
+    pub ssh_user: String,
+    pub ssh_private_key: String,
 }
 
 impl Default for UiConnectionDraft {
@@ -33,7 +47,13 @@ impl Default for UiConnectionDraft {
             username: String::new(),
             password: String::new(),
             driver: UiDriver::Postgres,
+            ssl_mode: UiSslMode::Disable,
             readonly: false,
+            ssh_tunnel_enabled: false,
+            ssh_host: String::new(),
+            ssh_port: "22".to_owned(),
+            ssh_user: String::new(),
+            ssh_private_key: String::new(),
         }
     }
 }
