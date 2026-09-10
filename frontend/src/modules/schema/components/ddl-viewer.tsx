@@ -65,7 +65,7 @@ export function DdlViewer({ ddl, isLoading, error, onOpenInQuery }: DdlViewerPro
               {copied ? t("schema.copied") : t("schema.copyDdl")}
             </Button>
           </TooltipTrigger>
-          <TooltipContent>Copy DDL to clipboard</TooltipContent>
+          <TooltipContent>{t("schema.copyDdl")}</TooltipContent>
         </Tooltip>
         {onOpenInQuery && (
           <Tooltip>
@@ -81,7 +81,7 @@ export function DdlViewer({ ddl, isLoading, error, onOpenInQuery }: DdlViewerPro
                 {t("dbObject.contextHeader.openDdl")}
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Open DDL in query editor</TooltipContent>
+            <TooltipContent>{t("dbObject.contextHeader.openDdl")}</TooltipContent>
           </Tooltip>
         )}
       </div>

@@ -55,7 +55,8 @@ vi.mock("../hooks/use-worker-layout", () => ({
 
 vi.mock("@/commons/locales/useTranslation", () => ({
   useTranslation: () => ({
-    t: (k: string) => k,
+    t: (k: string, options?: { count?: number }) =>
+      k === "schemaWorkspace.actions.showAllTables" ? `Show all ${options?.count ?? 0} tables` : k,
     i18n: { language: "en" },
     currentLanguage: "en",
   }),

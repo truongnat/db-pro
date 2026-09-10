@@ -22,13 +22,6 @@ const DRIVER_OPTIONS = [
   { value: "sqlite", label: "SQLite" },
 ];
 
-const SSL_OPTIONS = [
-  { value: "disable", label: "Disable" },
-  { value: "require", label: "Require" },
-  { value: "verify-ca", label: "Verify CA" },
-  { value: "verify-full", label: "Verify Full" },
-];
-
 const DEFAULT_FORM_DATA: ConnectionFormData = {
   name: "",
   host: "localhost",
@@ -46,6 +39,7 @@ interface ConnectionEditorProps {
   isEdit?: boolean;
   onSubmit: (data: ConnectionFormData, password: string, intent: SaveIntent) => void;
   onTest?: (data: ConnectionFormData, password: string) => void;
+  onFormChange?: () => void;
   onTestSshTunnel?: (config: SshTunnelConfig) => void;
   onCancel: () => void;
   isSubmitting?: boolean;
@@ -62,6 +56,7 @@ export function ConnectionEditor({
   isEdit = false,
   onSubmit,
   onTest,
+  onFormChange,
   onTestSshTunnel,
   onCancel,
   isSubmitting = false,
@@ -71,6 +66,12 @@ export function ConnectionEditor({
   connectError = null,
 }: ConnectionEditorProps) {
   const { t } = useTranslation();
+  const SSL_OPTIONS = [
+    { value: "disable", label: t("connection.sslDisable") },
+    { value: "require", label: t("connection.sslRequire") },
+    { value: "verify-ca", label: t("connection.sslVerifyCa") },
+    { value: "verify-full", label: t("connection.sslVerifyFull") },
+  ];
   const [formData, setFormData] = useState<ConnectionFormData>({
     ...DEFAULT_FORM_DATA,
     ...initialData,
@@ -79,13 +80,20 @@ export function ConnectionEditor({
   const [password, setPassword] = useState("");
   const [showSsh, setShowSsh] = useState(!!initialData?.sshTunnel);
   const [driverChanged, setDriverChanged] = useState(false);
+  const [browseError, setBrowseError] = useState<string | null>(null);
 
   const isPostgres = formData.driver === "postgres";
+
+  const notifyFormChange = () => {
+    setBrowseError(null);
+    onFormChange?.();
+  };
 
   const updateField = <K extends keyof ConnectionFormData>(
     key: K,
     value: ConnectionFormData[K],
   ) => {
+    notifyFormChange();
     setFormData((prev: ConnectionFormData) => ({ ...prev, [key]: value }));
   };
 
@@ -108,6 +116,7 @@ export function ConnectionEditor({
   };
 
   const updateSshField = (key: string, value: string | number) => {
+    notifyFormChange();
     setFormData((prev: ConnectionFormData) => ({
       ...prev,
       sshTunnel: {
@@ -144,6 +153,7 @@ export function ConnectionEditor({
 
   const handleDriverChange = (driver: DriverType) => {
     const initialDriver = initialData?.driver ?? "postgres";
+    notifyFormChange();
     if (driver !== formData.driver) {
       setDriverChanged(driver !== initialDriver);
       setPassword("");
@@ -195,7 +205,7 @@ export function ConnectionEditor({
         />
         {isPostgres && (
           <FormSelect
-            label="SSL Mode"
+            label={t("connection.sslMode")}
             value={formData.sslMode}
             onChange={(val) => updateField("sslMode", val as SslMode)}
             options={SSL_OPTIONS}
@@ -247,21 +257,27 @@ export function ConnectionEditor({
               variant="outline"
               className="h-[34px] shrink-0 px-3 text-[13px]"
               onClick={async () => {
-                const selected = await open({
-                  filters: [
-                    { name: "SQLite", extensions: ["db", "sqlite", "sqlite3"] },
-                    { name: "All Files", extensions: ["*"] },
-                  ],
-                  defaultPath: formData.database || undefined,
-                });
-                if (selected) {
-                  updateField("database", selected);
+                try {
+                  const selected = await open({
+                    filters: [
+                      { name: "SQLite", extensions: ["db", "sqlite", "sqlite3"] },
+                      { name: t("connection.allFiles"), extensions: ["*"] },
+                    ],
+                    defaultPath: formData.database || undefined,
+                  });
+                  if (selected) {
+                    notifyFormChange();
+                    updateField("database", selected);
+                  }
+                } catch {
+                  setBrowseError(t("connection.browseFailed"));
                 }
               }}
             >
-              Browse…
+              {t("connection.browse")}
             </Button>
           </div>
+          {browseError && <p className="text-[12px] text-destructive">{browseError}</p>}
         </div>
       )}
 
@@ -277,9 +293,12 @@ export function ConnectionEditor({
             label={t("common.labels.password")}
             type="password"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(e) => {
+              notifyFormChange();
+              setPassword(e.target.value);
+            }}
             required={!isEdit || driverChanged}
-            placeholder={driverChanged ? "" : isEdit ? "(unchanged)" : ""}
+            placeholder={driverChanged ? "" : isEdit ? t("connection.passwordPlaceholder") : ""}
           />
         </div>
       )}
@@ -287,7 +306,7 @@ export function ConnectionEditor({
       {isPostgres && (
         <div className="flex flex-col gap-3">
           <FormCheckbox
-            label="Use SSH Tunnel"
+            label={t("connection.useSshTunnel")}
             checked={showSsh}
             onChange={(checked) => {
               setShowSsh(checked);
@@ -312,13 +331,13 @@ export function ConnectionEditor({
             <div className="flex flex-col gap-4 rounded-lg border border-[var(--border-default)] bg-muted p-4">
               <div className="grid grid-cols-2 gap-4">
                 <FormInput
-                  label="SSH Host"
+                  label={t("connection.sshHost")}
                   value={formData.sshTunnel?.host ?? ""}
                   onChange={(e) => updateSshField("host", e.target.value)}
                   required
                 />
                 <FormInput
-                  label="SSH Port"
+                  label={t("connection.sshPort")}
                   type="number"
                   value={formData.sshTunnel?.port ?? 22}
                   onChange={(e) => updateSshField("port", Number(e.target.value))}
@@ -327,24 +346,24 @@ export function ConnectionEditor({
                   max={65535}
                 />
                 <FormInput
-                  label="SSH User"
+                  label={t("connection.sshUser")}
                   value={formData.sshTunnel?.user ?? ""}
                   onChange={(e) => updateSshField("user", e.target.value)}
                   required
                 />
                 <FormInput
-                  label="Private Key Path"
+                  label={t("connection.privateKeyPath")}
                   value={formData.sshTunnel?.privateKeyPath ?? ""}
                   onChange={(e) => updateSshField("privateKeyPath", e.target.value)}
                   required
                   placeholder="~/.ssh/id_rsa"
                 />
                 <FormInput
-                  label="Key Passphrase"
+                  label={t("connection.keyPassphrase")}
                   type="password"
                   value={formData.sshTunnel?.password ?? ""}
                   onChange={(e) => updateSshField("password", e.target.value)}
-                  placeholder="(optional)"
+                  placeholder={t("connection.optional")}
                 />
               </div>
               <Button
@@ -358,7 +377,9 @@ export function ConnectionEditor({
                   }
                 }}
               >
-                {onTestSshTunnel ? "Test Tunnel" : "Test Tunnel (Coming soon)"}
+                {onTestSshTunnel
+                  ? t("connection.testTunnel")
+                  : t("connection.testTunnelComingSoon")}
               </Button>
             </div>
           )}
@@ -367,7 +388,7 @@ export function ConnectionEditor({
 
       <div className="grid grid-cols-2 gap-4">
         <FormInput
-          label="Query Timeout (ms)"
+          label={t("connection.queryTimeout")}
           type="number"
           value={formData.queryTimeoutMs}
           onChange={(e) => updateField("queryTimeoutMs", Number(e.target.value))}
@@ -375,7 +396,7 @@ export function ConnectionEditor({
           max={300000}
         />
         <FormInput
-          label="Max Rows"
+          label={t("connection.maxRows")}
           type="number"
           value={formData.maxRows}
           onChange={(e) => updateField("maxRows", Number(e.target.value))}

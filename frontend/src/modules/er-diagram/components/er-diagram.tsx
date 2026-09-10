@@ -661,6 +661,23 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
     [openTableObject, isNeighborhoodPhase],
   );
 
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const nodeKey = (event as CustomEvent<{ nodeKey?: string }>).detail?.nodeKey;
+      const table = initialNodes.find((node) => node.id === nodeKey);
+      if (!table) return;
+      const nodeData = table.data as TableNodeData;
+      if (isNeighborhoodPhase) {
+        dispatchLargeSchema({ type: "FOCUS_NODE", nodeKey: table.id });
+      } else {
+        openTableObject(nodeData.schema, nodeData.label);
+      }
+    };
+
+    document.addEventListener("er-node-focus", handler);
+    return () => document.removeEventListener("er-node-focus", handler);
+  }, [dispatchLargeSchema, initialNodes, isNeighborhoodPhase, openTableObject]);
+
   // Explicit open-table action for the canvas overview: fed to the view's
   // `onOpenTable`, fired on double-click / the side inspector button.
   const onCytoscapeNodeClick = useCallback(
@@ -867,7 +884,7 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
           fallback={
             <div className="flex min-h-0 flex-1 items-center justify-center gap-2 text-[12px] text-[var(--text-secondary)]">
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              Loading overview…
+              {t("schemaWorkspace.loadingOverview")}
             </div>
           }
         >
@@ -962,6 +979,13 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
               className="!bg-popover !border-[var(--border-default)]"
             />
           )}
+          {!showMiniMap && (
+            <Panel position="bottom-right" className="m-2">
+              <div className="rounded-md border border-[var(--border-default)] bg-popover px-2 py-1 text-[10px] text-[var(--text-secondary)] shadow-sm">
+                {t("schemaWorkspace.miniMapHiddenLarge")}
+              </div>
+            </Panel>
+          )}
 
           {/* Top-left panel: search + P1.6 neighborhood exploration */}
           <Panel position="top-left" className="m-2">
@@ -979,7 +1003,7 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
                 {!isLargeSchema && (
                   <Badge variant="outline" className="h-7 text-[11px]">
                     <Table2 className="mr-1 h-3 w-3" />
-                    {initialNodes.length} tables
+                    {t("schemaWorkspace.tableCount", { count: initialNodes.length })}
                   </Badge>
                 )}
               </div>
@@ -994,10 +1018,12 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
                 variant="outline"
                 size="sm"
                 data-testid="er-show-all-tables"
-                aria-label={`Show all ${tablesInSchema.length} tables`}
+                aria-label={t("schemaWorkspace.actions.showAllTables", {
+                  count: tablesInSchema.length,
+                })}
                 onClick={handleShowAll}
               >
-                Show all {tablesInSchema.length} tables
+                {t("schemaWorkspace.actions.showAllTables", { count: tablesInSchema.length })}
               </Button>
             </Panel>
           )}
@@ -1017,7 +1043,7 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
                     <LayoutGrid className="h-3.5 w-3.5" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>Toggle layout direction</TooltipContent>
+                <TooltipContent>{t("schemaWorkspace.controls.toggleLayout")}</TooltipContent>
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -1031,7 +1057,11 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
                     <Columns2 className="h-3.5 w-3.5" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>{compact ? "Show columns" : "Compact mode"}</TooltipContent>
+                <TooltipContent>
+                  {compact
+                    ? t("schemaWorkspace.controls.showColumns")
+                    : t("schemaWorkspace.controls.compactMode")}
+                </TooltipContent>
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -1045,7 +1075,7 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
                     <Maximize2 className="h-3.5 w-3.5" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>Fit view</TooltipContent>
+                <TooltipContent>{t("schemaWorkspace.controls.fitView")}</TooltipContent>
               </Tooltip>
               {manualPositions.size > 0 && (
                 <Tooltip>
@@ -1060,7 +1090,7 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
                       <RotateCcw className="h-3.5 w-3.5" />
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent>Reset layout</TooltipContent>
+                  <TooltipContent>{t("schemaWorkspace.controls.resetLayout")}</TooltipContent>
                 </Tooltip>
               )}
             </div>
