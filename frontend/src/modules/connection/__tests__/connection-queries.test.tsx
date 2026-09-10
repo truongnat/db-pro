@@ -112,7 +112,25 @@ describe("useToggleFavorite optimistic rollback", () => {
 
     // After failure, onError rolls back favorite state
     await waitFor(() => {
-      expect(useConnectionModuleStore.getState().favorites["conn-1"]).toBe(false);
+      expect(useConnectionModuleStore.getState().favorites).not.toHaveProperty("conn-1");
+    });
+  });
+
+  it("restores an absent local favorite without overriding server state", async () => {
+    getMock.mockResolvedValue({
+      id: "conn-1",
+      name: "Test DB",
+      driver: "postgres",
+      favorite: true,
+    });
+    updateMock.mockRejectedValue(new Error("Database write error"));
+
+    const { result } = renderHook(() => useToggleFavorite(), { wrapper });
+    act(() => result.current.mutate({ id: "conn-1", favorite: false }));
+
+    await waitFor(() => expect(updateMock).toHaveBeenCalled());
+    await waitFor(() => {
+      expect(useConnectionModuleStore.getState().favorites).not.toHaveProperty("conn-1");
     });
   });
 });
