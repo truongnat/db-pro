@@ -3,7 +3,10 @@ resolver = "2"
 members = [
     "crates/core",
     "crates/infrastructure",
+    "crates/runtime",
     "crates/tauri-app",
+    "crates/ui",
+    "crates/native-app",
 ]
 
 [workspace.package]

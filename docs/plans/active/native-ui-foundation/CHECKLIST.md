@@ -1,0 +1,56 @@
+# Checklist
+
+- [x] Add native UI and app crates to the Rust workspace.
+- [x] Add product-owned theme tokens and egui visuals.
+- [x] Add runnable shell with responsive side panels.
+- [x] Add keyboard shortcuts for quick query and sidebar toggle.
+- [x] Add visual placeholder states for explorer, history, settings and agent panel.
+- [x] Add typed `UiCommand`/`UiEvent` task bridge and request identity scaffold.
+- [x] Add frontend-independent `DbProRuntime` service graph for connection/query/schema.
+- [x] Connect `DbProRuntime` to a tokio native task worker with typed command/event translation.
+- [x] Load saved connection summaries into the native explorer.
+- [x] Add active connection selection and connect action.
+- [x] Add native connection create/test dialog and form validation.
+- [x] Add native connection edit flow and delete confirmation dialog.
+- [x] Add SSL mode and SSH tunnel fields with validation.
+- [x] Add native SQLite/private-key file picker integration.
+- [x] Render typed query result pages in the native result grid.
+- [x] Add Stop/Escape query cancellation dispatch and cancellation events.
+- [x] Add native SQL editor MVP shell with line numbers/search/zoom controls.
+- [x] Add lightweight SQL syntax highlighting for keywords, literals and comments.
+- [x] Add basic SQL formatting and current-statement execution.
+- [x] Add keyword completion palette, snippets, diagnostics and hover hints.
+- [x] Add true cursor-selection execution.
+- [x] Load schema summaries and offer table/column completion candidates.
+- [x] Add dialect-aware completion candidates and diagnostics.
+- [x] Add lightweight tokenizer/parser diagnostics for statement structure.
+- [x] Integrate full dialect grammar parser dependency.
+- [x] Add grouped saved-query folder presentation and delete confirmation.
+- [x] Add local query history surface.
+- [x] Add persistent multi-query tabs and query document metadata.
+- [x] Add saved-query/folder operations to the shared QueryApi facade.
+- [x] Add native saved-query list/save UI and backend worker commands.
+- [x] Add saved-query folder creation UI and folder assignment when saving.
+- [x] Add saved-query rename/delete and folder delete runtime commands/UI actions.
+- [ ] Add folder tree presentation and confirmation dialogs.
+- [x] Add column resize, sorting, filtering and visible-row virtualization.
+- [x] Add scoped cell/row selection and clipboard copy actions.
+- [x] Persist column widths in native eframe storage.
+- [x] Add pure tests for filtered index mapping, sorting and typed cell text.
+- [ ] Add benchmark coverage for million-row result metadata and scroll performance.
+- [ ] Run Rust fmt/check/test once the Rust toolchain is available in the environment.
+- [ ] Manually review screenshots at 1280×800, 1440×900 and 1920×1080.
+- [x] Wire connection/query worker paths to typed runtime facades.
+- [x] Add typed `TableDataApi` for fetch/update/delete operations.
+- [x] Add typed `ExportApi` for CSV/JSON/Excel operations.
+- [x] Add typed `BackupApi` for backup/restore operations.
+- [x] Add typed `UserApi` for users/roles/privileges operations.
+- [x] Add backup/restore progress contracts and cancellation events.
+- [x] Add native backup/restore controls with path fields and progress status.
+- [x] Add native file dialogs and destructive restore confirmation.
+- [x] Add typed connection CRUD/test commands to the shared runtime worker.
+- [ ] Move all remaining Tauri command wiring to the shared runtime facade.
+- [x] Add schema explorer table/column browsing.
+- [x] Add native export result overlay with CSV/TSV output.
+- [x] Add typed table mutation commands and edit/delete confirmation UI.
+- [x] Add folder identity loading and folder-level delete confirmation.

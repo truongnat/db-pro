@@ -1,0 +1,11 @@
+[package]
+name = "db-pro-runtime"
+version = "0.1.0"
+edition.workspace = true
+
+[dependencies]
+db-pro-core = { path = "../core" }
+db-pro-infrastructure = { path = "../infrastructure" }
+thiserror.workspace = true
+tokio.workspace = true
+tracing.workspace = true
