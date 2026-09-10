@@ -59,9 +59,9 @@ describe("QA-P1-09 session restoration", () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     await waitFor(() => expect(connectMock).toHaveBeenCalledTimes(1));
 
-    // Simulate query invalidation and refetch
-    result.current.refetch();
-    await waitFor(() => expect(result.current.isFetching).toBe(false));
+    // Simulate repeated query invalidation and refetch.
+    await result.current.refetch();
+    await result.current.refetch();
 
     // connect should still only have been called once
     expect(connectMock).toHaveBeenCalledTimes(1);
