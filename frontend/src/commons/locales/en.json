@@ -819,6 +819,7 @@
     "newConnection": "New Connection",
     "openCommandPalette": "Command Palette",
     "recentConnections": "Recent Connections",
+    "connections": "Your Connections",
     "noConnections": "No connections yet",
     "createFirstConnection": "Create your first connection to get started",
     "noRecentConnections": "No recent connections",
