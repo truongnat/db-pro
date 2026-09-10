@@ -20,4 +20,7 @@
 - [ ] Run Rust fmt/check/test once the Rust toolchain is available in the environment.
 - [ ] Manually review screenshots at 1280×800, 1440×900 and 1920×1080.
 - [x] Wire connection/query worker paths to typed runtime facades.
+- [x] Add typed `TableDataApi` for fetch/update/delete operations.
+- [x] Add typed `ExportApi` for CSV/JSON/Excel operations.
+- [ ] Add backup/user-management facades and progress contracts.
 - [ ] Move all remaining Tauri command wiring to the shared runtime facade.

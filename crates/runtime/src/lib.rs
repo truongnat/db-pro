@@ -1,13 +1,15 @@
 mod api;
 mod worker;
 
-pub use api::{ConnectionApi, ConnectionSummary, DbErrorDto, QueryApi, SchemaApi};
+pub use api::{ConnectionApi, ConnectionSummary, DbErrorDto, ExportApi, QueryApi, SchemaApi, TableDataApi};
 pub use worker::{spawn_worker, RuntimeCommand, RuntimeEvent, RuntimeRequestId};
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use db_pro_core::application::{ConnectionService, ConnectionRegistry, QueryService, SchemaService};
+use db_pro_core::application::{
+    ConnectionRegistry, ConnectionService, ExportService, QueryService, SchemaService, TableDataService,
+};
 use db_pro_infrastructure::connector::CompositeConnector;
 use db_pro_infrastructure::meta::store::SQLiteMetaStore;
 use db_pro_infrastructure::secret::keyring_vault::KeyringVault;
@@ -23,6 +25,8 @@ pub struct DbProRuntime {
     connections: Arc<ConnectionService>,
     queries: Arc<QueryService>,
     schema: Arc<SchemaService>,
+    table_data: Arc<TableDataService>,
+    export: Arc<ExportService>,
 }
 
 #[derive(Debug, Error)]
@@ -68,7 +72,17 @@ impl DbProRuntime {
             Box::new(Arc::clone(&connector)),
             Box::new(meta_store.clone()),
             Arc::clone(&registry),
-            Box::new(meta_store),
+            Box::new(meta_store.clone()),
+        ));
+
+        let table_data = Arc::new(TableDataService::new(
+            Box::new(Arc::clone(&connector)),
+            Arc::clone(&registry),
+            Box::new(meta_store.clone()),
+        ));
+        let export = Arc::new(ExportService::new(
+            Box::new(Arc::clone(&connector)),
+            Arc::clone(&registry),
         ));
 
         Ok(Arc::new(Self {
@@ -76,6 +90,8 @@ impl DbProRuntime {
             connections,
             queries,
             schema,
+            table_data,
+            export,
         }))
     }
 
@@ -105,5 +121,21 @@ impl DbProRuntime {
 
     pub fn schema_api(&self) -> SchemaApi {
         SchemaApi::new(self.schema())
+    }
+
+    pub fn table_data(&self) -> Arc<TableDataService> {
+        Arc::clone(&self.table_data)
+    }
+
+    pub fn table_data_api(&self) -> TableDataApi {
+        TableDataApi::new(self.table_data())
+    }
+
+    pub fn export(&self) -> Arc<ExportService> {
+        Arc::clone(&self.export)
+    }
+
+    pub fn export_api(&self) -> ExportApi {
+        ExportApi::new(self.export())
     }
 }
