@@ -36,24 +36,16 @@ impl DataDiffService {
         let source_dialect = self.connector.dialect(&source_handle)?;
         let target_dialect = self.connector.dialect(&target_handle)?;
 
-        let source_qualified = if schema.is_empty() {
+        let source_qualified = format!(
+            "{}.{}",
+            source_dialect.quote_identifier(schema),
             source_dialect.quote_identifier(table)
-        } else {
-            format!(
-                "{}.{}",
-                source_dialect.quote_identifier(schema),
-                source_dialect.quote_identifier(table)
-            )
-        };
-        let target_qualified = if schema.is_empty() {
+        );
+        let target_qualified = format!(
+            "{}.{}",
+            target_dialect.quote_identifier(schema),
             target_dialect.quote_identifier(table)
-        } else {
-            format!(
-                "{}.{}",
-                target_dialect.quote_identifier(schema),
-                target_dialect.quote_identifier(table)
-            )
-        };
+        );
 
         let source_sql = format!("SELECT COUNT(*) FROM {source_qualified}");
         let target_sql = format!("SELECT COUNT(*) FROM {target_qualified}");

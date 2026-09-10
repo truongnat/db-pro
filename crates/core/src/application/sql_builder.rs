@@ -50,18 +50,6 @@ impl<'a> PlaceholderWriter<'a> {
     }
 }
 
-pub fn qualify(dialect: &dyn SqlDialect, schema: &str, table: &str) -> String {
-    if schema.is_empty() {
-        dialect.quote_identifier(table)
-    } else {
-        format!(
-            "{}.{}",
-            dialect.quote_identifier(schema),
-            dialect.quote_identifier(table)
-        )
-    }
-}
-
 pub fn build_select(
     dialect: &dyn SqlDialect,
     schema: &str,
@@ -82,9 +70,14 @@ pub fn build_select(
     let offset_ph = pw.next();
 
     let pagination = dialect.pagination_clause(&limit_ph, &offset_ph);
-    let target = qualify(dialect, schema, table);
 
-    let sql = format!("SELECT * FROM {target}{}{}{pagination}", where_clause, order_clause,);
+    let sql = format!(
+        "SELECT * FROM {}.{}{}{}{pagination}",
+        dialect.quote_identifier(schema),
+        dialect.quote_identifier(table),
+        where_clause,
+        order_clause,
+    );
 
     let mut all_params = params;
     all_params.push(QueryParam::Int64(limit as i64));
@@ -100,9 +93,13 @@ pub fn build_count(
     filters: &[TableFilter],
 ) -> (String, Vec<QueryParam>) {
     let (where_clause, params) = build_where(dialect, filters);
-    let target = qualify(dialect, schema, table);
 
-    let sql = format!("SELECT COUNT(*) FROM {target}{}", where_clause,);
+    let sql = format!(
+        "SELECT COUNT(*) FROM {}.{}{}",
+        dialect.quote_identifier(schema),
+        dialect.quote_identifier(table),
+        where_clause,
+    );
 
     (sql, params)
 }
@@ -128,9 +125,14 @@ pub fn build_insert(
         .join(", ");
     let mut pw = PlaceholderWriter::new(dialect);
     let placeholders = values.iter().map(|_| pw.next()).collect::<Vec<_>>().join(", ");
-    let target = qualify(dialect, schema, table);
 
-    let sql = format!("INSERT INTO {target} ({}) VALUES ({})", cols, placeholders,);
+    let sql = format!(
+        "INSERT INTO {}.{} ({}) VALUES ({})",
+        dialect.quote_identifier(schema),
+        dialect.quote_identifier(table),
+        cols,
+        placeholders,
+    );
 
     let params = values.iter().map(cell_to_param).collect();
     Ok((sql, params))
@@ -169,10 +171,10 @@ pub fn build_update(
         .map(|c| format!("{} = {}", dialect.quote_identifier(c), pw.next()))
         .collect();
 
-    let target = qualify(dialect, schema, table);
-
     let sql = format!(
-        "UPDATE {target} SET {} WHERE {}",
+        "UPDATE {}.{} SET {} WHERE {}",
+        dialect.quote_identifier(schema),
+        dialect.quote_identifier(table),
         set_parts.join(", "),
         pk_where.join(" AND "),
     );
@@ -202,9 +204,12 @@ pub fn build_delete(
         .map(|c| format!("{} = {}", dialect.quote_identifier(c), pw.next()))
         .collect();
 
-    let target = qualify(dialect, schema, table);
-
-    let sql = format!("DELETE FROM {target} WHERE {}", pk_where.join(" AND "),);
+    let sql = format!(
+        "DELETE FROM {}.{} WHERE {}",
+        dialect.quote_identifier(schema),
+        dialect.quote_identifier(table),
+        pk_where.join(" AND "),
+    );
 
     let params = pk_values.iter().map(cell_to_param).collect();
     Ok((sql, params))
@@ -319,41 +324,6 @@ mod tests {
             let escaped = name.replace('"', "\"\"");
             format!("\"{escaped}\"")
         }
-    }
-
-    #[test]
-    fn empty_schema_omits_schema_prefix() {
-        let (select_sql, _) = build_select(&QuestionDialect, "", "users", &[], &[], 50, 0).unwrap();
-        assert_eq!(select_sql, r#"SELECT * FROM "users" LIMIT ? OFFSET ?"#);
-
-        let (count_sql, _) = build_count(&QuestionDialect, "", "users", &[]);
-        assert_eq!(count_sql, r#"SELECT COUNT(*) FROM "users""#);
-
-        let (insert_sql, _) = build_insert(
-            &QuestionDialect,
-            "",
-            "users",
-            &["name".into()],
-            &[CellValue::Text("alice".into())],
-        )
-        .unwrap();
-        assert_eq!(insert_sql, r#"INSERT INTO "users" ("name") VALUES (?)"#);
-
-        let (update_sql, _) = build_update(
-            &QuestionDialect,
-            "",
-            "users",
-            &["name".into()],
-            &[CellValue::Text("bob".into())],
-            &["id".into()],
-            &[CellValue::Int64(1)],
-        )
-        .unwrap();
-        assert_eq!(update_sql, r#"UPDATE "users" SET "name" = ? WHERE "id" = ?"#);
-
-        let (delete_sql, _) =
-            build_delete(&QuestionDialect, "", "users", &["id".into()], &[CellValue::Int64(1)]).unwrap();
-        assert_eq!(delete_sql, r#"DELETE FROM "users" WHERE "id" = ?"#);
     }
 
     #[test]

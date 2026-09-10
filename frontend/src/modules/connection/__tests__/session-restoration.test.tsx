@@ -59,11 +59,28 @@ describe("QA-P1-09 session restoration", () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     await waitFor(() => expect(connectMock).toHaveBeenCalledTimes(1));
 
-    // Simulate repeated query invalidation and refetch.
+    // Simulate query invalidation and refetch
+    result.current.refetch();
+    await waitFor(() => expect(result.current.isFetching).toBe(false));
+
+    // connect should still only have been called once
+    expect(connectMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("queryFn execution is side-effect free and does not invoke connect during refetches", async () => {
+    useConnectionStore.setState({ activeConnectionIds: ["conn-1"] });
+    listMock.mockResolvedValue([{ id: "conn-1", name: "Test", driver: "postgres" }]);
+
+    const { result } = renderHook(() => useConnectionList(), { wrapper });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    await waitFor(() => expect(connectMock).toHaveBeenCalledTimes(1));
+
+    // Trigger multiple refetches
     await result.current.refetch();
     await result.current.refetch();
 
-    // connect should still only have been called once
+    // connectMock must never be called additional times on refetch
     expect(connectMock).toHaveBeenCalledTimes(1);
   });
 

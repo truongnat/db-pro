@@ -91,7 +91,7 @@ Copilot-not-autopilot · purposeful trust-building motion · raw schematic clari
 This is a static/source audit using the installed UI/UX, accessibility, desktop-HIG, and design-review skills. It does not replace browser/desktop evidence. Findings are consolidated by systemic cause so the same fix is not repeated in every screen.
 
 ### UX-P1 — Pointer-only actions remain in core workflows
-**Status:** FIXED  
+**Status:** FIXED
 - Query history, local history, snippets: clickable `div`s converted to native `button` elements with keyboard handlers.
 - EXPLAIN tree nodes: converted to `button` with `role="treeitem"` and keyboard support.
 - ER detailed column rows: converted to `button` with keyboard handlers.
@@ -99,26 +99,26 @@ This is a static/source audit using the installed UI/UX, accessibility, desktop-
 - Grid sortable headers: added `role="button"`, `tabIndex={0}`, and keyboard handlers.
 
 ### UX-P1 — Hover-only controls can receive focus while invisible
-**Status:** FIXED  
+**Status:** FIXED
 - All hover-only action groups now use `group-focus-within:opacity-*` alongside `group-hover:opacity-*`.
 - Grid row action buttons now have `aria-label` attributes.
 - Column copy/edit buttons, index copy/action buttons, quick-open remove button all have focus-within paths.
 
 ### UX-P1 — Token contract passes, but several rendered text pairs fail contrast
-**Status:** FIXED  
+**Status:** FIXED
 - Snackbar now uses Sonner (shadcn/ui toast) with proper theme-aware colors.
 - Tertiary text contrast to be verified in D7 runtime matrix.
 
 ### UX-P1 — Reduced motion is specified but not implemented globally
-**Status:** FIXED  
+**Status:** FIXED
 - Added global `prefers-reduced-motion` CSS policy in `globals.css` that disables animations and transitions.
 
 ### UX-P1 — Snackbar dismissal is pointer-only and timeout is not focus-safe
-**Status:** FIXED  
+**Status:** FIXED
 - Replaced custom snackbar with Sonner (shadcn/ui toast) which has built-in keyboard dismiss, focus management, and accessible controls.
 
 ### UX-P2 — Visual tabs lack tab semantics and selected state
-**Status:** FIXED  
+**Status:** FIXED
 - Query result tabs and schema/object tabs now use shadcn/ui `Tabs` component with proper `tablist`, `tab`, `aria-selected`, and keyboard navigation.
 - Added `tabs.tsx` component from shadcn/ui registry.
 
