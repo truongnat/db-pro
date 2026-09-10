@@ -131,8 +131,25 @@ describe("DataGrid", () => {
   });
 
   it("shows sort indicator", () => {
-    renderGrid({ sorts: [{ column: "name", direction: "desc" }] });
-    expect(screen.getByText("\u25BC")).toBeInTheDocument();
+    const { container } = renderGrid({ sorts: [{ column: "name", direction: "desc" }] });
+
+    // The direction is exposed to assistive tech via aria-sort, and rendered
+    // visually as a Lucide arrow (previously a bare "▼" text glyph).
+    const sortedHeader = container.querySelector('[aria-sort="descending"]');
+    expect(sortedHeader).not.toBeNull();
+    expect(sortedHeader?.textContent).toContain("name");
+    expect(container.querySelector(".lucide-arrow-down")).toBeInTheDocument();
+    expect(screen.queryByText("\u25BC")).not.toBeInTheDocument();
+  });
+
+  it("marks unsorted columns as aria-sort none and hints the affordance on hover", () => {
+    const { container } = renderGrid({ sorts: [] });
+    const unsortedHeader = container.querySelector('[aria-sort="none"]');
+    expect(unsortedHeader).not.toBeNull();
+    expect(container.querySelector(".lucide-arrow-up-down")).toBeInTheDocument();
+    // id / name / gutter / (no row actions here) → header cells are real
+    // columnheaders so screen readers can navigate the result set.
+    expect(screen.getAllByRole("columnheader").length).toBeGreaterThanOrEqual(2);
   });
 
   it("shows empty state when no columns", () => {

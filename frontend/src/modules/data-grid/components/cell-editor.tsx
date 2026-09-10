@@ -147,7 +147,7 @@ export function CellEditor({ value, onSave, onCancel, columnType }: CellEditorPr
         onBlur={commit}
       />
       {error && (
-        <span className="absolute -bottom-4 left-0 whitespace-nowrap rounded bg-destructive px-1.5 py-0.5 text-[10px] text-destructive-foreground">
+        <span className="absolute -bottom-4 left-0 whitespace-nowrap rounded bg-destructive px-1.5 py-0.5 text-[11px] text-destructive-foreground">
           {error}
         </span>
       )}

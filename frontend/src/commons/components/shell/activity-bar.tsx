@@ -81,7 +81,16 @@ export function ActivityBar() {
                     "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus-ring-color)]",
                     isActive ? "bg-primary/10 text-primary" : "text-[var(--text-secondary)]",
                   )}
-                  onClick={() => setSidebarView(item.viewId)}
+                  onClick={() => {
+                    // VS Code behaviour: re-clicking the active view hides the
+                    // sidebar; picking another view always reveals it.
+                    if (sidebarView === item.viewId) {
+                      toggleSidebar();
+                      return;
+                    }
+                    setSidebarView(item.viewId);
+                    if (sidebarCollapsed) toggleSidebar();
+                  }}
                   aria-label={label}
                   aria-current={isActive ? "page" : undefined}
                 >

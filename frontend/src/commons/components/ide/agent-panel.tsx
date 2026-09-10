@@ -227,11 +227,11 @@ export function AgentPanel({ open, onClose, width, className }: AgentPanelProps)
         <div className="flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-primary" />
           <span className="text-[13px] font-semibold text-foreground">{t("agent.header")}</span>
-          <span className="rounded bg-[var(--state-warning)]/15 px-1.5 py-0.5 text-[10px] font-medium text-[var(--state-warning)]">
+          <span className="rounded bg-[var(--state-warning)]/15 px-1.5 py-0.5 text-[11px] font-medium text-[var(--state-warning)]">
             {t("agent.preview")}
           </span>
           {!config.apiKey && (
-            <span className="rounded bg-[var(--surface-hover)] px-1.5 py-0.5 text-[10px] text-[var(--text-tertiary)]">
+            <span className="rounded bg-[var(--surface-hover)] px-1.5 py-0.5 text-[11px] text-[var(--text-tertiary)]">
               {t("agent.template")}
             </span>
           )}

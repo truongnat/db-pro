@@ -166,10 +166,10 @@ export function RowEditDialog({ open, onOpenChange, columns, row, onSave }: RowE
                   >
                     {col.name}
                   </label>
-                  <span className="text-[10px] text-[var(--text-tertiary)]">{col.dataType}</span>
+                  <span className="text-[11px] text-[var(--text-tertiary)]">{col.dataType}</span>
                   <div className="flex-1" />
                   {editable && col.nullable && (
-                    <label className="flex items-center gap-1 text-[10px] text-[var(--text-secondary)]">
+                    <label className="flex items-center gap-1 text-[11px] text-[var(--text-secondary)]">
                       <input
                         type="checkbox"
                         className="h-3 w-3 accent-primary"
@@ -212,7 +212,7 @@ export function RowEditDialog({ open, onOpenChange, columns, row, onSave }: RowE
                     placeholder={t("dataGrid.rowEdit.enterValue")}
                   />
                 )}
-                {field.error && <span className="text-[10px] text-destructive">{field.error}</span>}
+                {field.error && <span className="text-[11px] text-destructive">{field.error}</span>}
               </div>
             );
           })}

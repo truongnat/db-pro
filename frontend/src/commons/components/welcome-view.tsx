@@ -140,7 +140,7 @@ export function WelcomeView() {
             >
               <Command className="h-4 w-4" />
               {t("welcome.openCommandPalette")}
-              <kbd className="ml-1 rounded border border-[var(--border-default)] bg-[var(--surface-hover)] px-1.5 py-0.5 font-sans text-[10px] font-medium text-[var(--text-tertiary)]">
+              <kbd className="ml-1 rounded border border-[var(--border-default)] bg-[var(--surface-hover)] px-1.5 py-0.5 font-sans text-[11px] font-medium text-[var(--text-tertiary)]">
                 {isMac ? "⌘K" : "Ctrl K"}
               </kbd>
             </Button>

@@ -5,7 +5,7 @@ import { useConnectionStore } from "@/commons/stores/connection.store";
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
 import { useConnectionList } from "@/modules/connection/queries/connection.queries";
 import { useConnectionModuleStore } from "@/modules/connection/state/connection.store";
-import { useIntrospect } from "@/modules/schema/queries/schema.queries";
+import { useTableCount } from "@/modules/schema/queries/schema.queries";
 
 export function StatusBar() {
   const { t } = useTranslation();
@@ -19,10 +19,10 @@ export function StatusBar() {
 
   const workspaceConnectionId = activeConnectionId ?? explorerConnectionId;
   const activeConnection = connections.data?.find((c) => c.id === workspaceConnectionId) ?? null;
-  const introspect = useIntrospect(workspaceConnectionId);
+  const tableCountQuery = useTableCount(workspaceConnectionId);
 
   const status = workspaceConnectionId ? (statuses[workspaceConnectionId] ?? "disconnected") : null;
-  const tableCount = introspect.data?.tables.length ?? 0;
+  const tableCount = tableCountQuery.data ?? 0;
 
   const statusLabel =
     status === "connected"

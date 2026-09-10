@@ -110,8 +110,13 @@ describe("ResultGrid", () => {
   });
 
   it("shows sort indicator for sorted column", () => {
-    renderGrid({ sort: { column: "id", direction: "asc" } });
-    expect(screen.getByText("\u25B2")).toBeInTheDocument();
+    const { container } = renderGrid({ sort: { column: "id", direction: "asc" } });
+
+    // Direction is announced via aria-sort and drawn as a Lucide arrow;
+    // the old bare "\u25B2" text glyph is gone.
+    expect(container.querySelector('[aria-sort="ascending"]')).not.toBeNull();
+    expect(container.querySelector(".lucide-arrow-up")).toBeInTheDocument();
+    expect(screen.queryByText("\u25B2")).not.toBeInTheDocument();
   });
 
   it("warns before sorting a large result set", () => {
@@ -127,16 +132,17 @@ describe("ResultGrid", () => {
     expect(screen.getByText("100%")).toBeTruthy();
   });
 
-  it("renders info buttons for each column header", () => {
+  it("renders an accessible info button for every column header", () => {
     renderGrid();
-    const infoButtons = screen.getAllByText("i");
+    const infoButtons = screen.getAllByRole("button", { name: /^Column info:/ });
     expect(infoButtons.length).toBe(columns.length);
+    expect(infoButtons[0]).toHaveAccessibleName("Column info: id");
   });
 
   it("opens metadata popover when clicking info button", async () => {
     const user = userEvent.setup();
     renderGrid();
-    const infoButtons = screen.getAllByText("i");
+    const infoButtons = screen.getAllByRole("button", { name: /^Column info:/ });
     await user.click(infoButtons[0]);
     // The popover component may not render in test env, but the click handler fires
   });

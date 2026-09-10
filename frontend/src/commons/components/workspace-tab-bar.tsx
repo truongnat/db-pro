@@ -36,6 +36,7 @@ import { useOverflowDetection } from "@/hooks/use-overflow-detection";
 import { useTabCloseGuard } from "@/hooks/use-tab-close-guard";
 import { useTabKeyboard } from "@/hooks/use-tab-keyboard";
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
+import { useConnectionList } from "@/modules/connection/queries/connection.queries";
 import type { WorkspaceTab } from "@/commons/types/workspace.types";
 
 export interface TabBarInfo {
@@ -101,6 +102,23 @@ function tabBarListEqual(a: TabBarInfo[], b: TabBarInfo[]): boolean {
   return a.every((t, i) => tabBarInfoEqual(t, b[i]));
 }
 
+/**
+ * Hover text for a tab.
+ *
+ * The strip only has room for a truncated title, so the tooltip carries the
+ * context that actually identifies the tab: which connection it runs against
+ * and which schema.object it points at. Both were already projected into
+ * TabBarInfo and previously unused.
+ */
+function tabTooltip(tab: TabBarInfo, connectionName: string | null): string {
+  const lines = [tab.title];
+  const detail: string[] = [];
+  if (connectionName) detail.push(connectionName);
+  if (tab.resourceName && tab.resourceName !== tab.title) detail.push(tab.resourceName);
+  if (detail.length > 0) lines.push(detail.join(" · "));
+  return lines.join("\n");
+}
+
 function TabKindIcon({ tab }: { tab: TabBarInfo }) {
   if (tab.kind === "query") {
     return <DatabaseIcon className="h-3.5 w-3.5 shrink-0 text-[var(--text-secondary)]" />;
@@ -119,6 +137,7 @@ function TabItem({
   isActive,
   onActivate,
   onClose,
+  tooltip,
   dragListeners,
   dragAttributes,
 }: {
@@ -126,6 +145,7 @@ function TabItem({
   isActive: boolean;
   onActivate: () => void;
   onClose: (id: string, opts?: { skipDirtyCheck?: boolean }) => void;
+  tooltip?: string;
   dragListeners?: SyntheticListenerMap;
   dragAttributes?: DraggableAttributes;
 }) {
@@ -142,7 +162,7 @@ function TabItem({
           : "text-[var(--text-secondary)] hover:bg-[var(--surface-panel)] hover:text-foreground",
       )}
       onClick={onActivate}
-      title={tab.title}
+      title={tooltip ?? tab.title}
       onAuxClick={(e) => {
         if (e.button === 1) {
           e.preventDefault();
@@ -189,15 +209,20 @@ function TabItem({
       ) : (
         <TabKindIcon tab={tab} />
       )}
-      {/* Dirty dot — replaces close button when dirty and not hovered */}
-      {tab.dirty && !tab.pinned && (
+      {/* Dirty dot — replaces close button when dirty and not hovered.
+          Pinned tabs have no close button, so their dot never hides: an
+          unsaved pinned tab must not silently look clean. */}
+      {tab.dirty ? (
         <span
-          className="h-2 w-2 shrink-0 rounded-full bg-primary group-hover:hidden"
+          className={cn("h-2 w-2 shrink-0 rounded-full bg-primary", !tab.pinned && "group-hover:hidden")}
           aria-label={t("tabs.unsavedChanges")}
+          data-testid="tab-dirty-indicator"
         />
-      )}
-      {tab.pinned && !isActive && (
-        <PinIcon className="h-3 w-3 shrink-0 text-[var(--text-secondary)]" aria-hidden="true" />
+      ) : (
+        tab.pinned &&
+        !isActive && (
+          <PinIcon className="h-3 w-3 shrink-0 text-[var(--text-secondary)]" aria-hidden="true" />
+        )
       )}
       {!isPinnedInactive && (
         <span className={cn("flex-1 truncate text-[13px]", tab.preview && "italic opacity-70")}>
@@ -230,6 +255,12 @@ export function WorkspaceTabBar() {
   const activeTabId = useWorkspaceStore((s) => s.activeTabId);
   const activateTab = useWorkspaceStore((s) => s.activateTab);
   const reorderTabs = useWorkspaceStore((s) => s.reorderTabs);
+  const { data: connections } = useConnectionList();
+
+  const connectionName = useCallback(
+    (id: string | null) => connections?.find((c) => c.id === id)?.name ?? null,
+    [connections],
+  );
 
   const { containerRef, isOverflowing, canScrollLeft, canScrollRight, scrollLeft, scrollRight } =
     useOverflowDetection();
@@ -305,6 +336,7 @@ export function WorkspaceTabBar() {
                   isActive={tab.id === activeTabId}
                   onActivate={() => activateTab(tab.id)}
                   onClose={requestClose}
+                  tooltip={tabTooltip(tab, connectionName(tab.connectionId))}
                 />
               </TabContextMenu>
             ))}
@@ -332,6 +364,7 @@ export function WorkspaceTabBar() {
                         isActive={props.isActive}
                         onActivate={props.onActivate}
                         onClose={props.onClose}
+                        tooltip={tabTooltip(props.tab, connectionName(props.tab.connectionId))}
                         dragListeners={props.dragListeners}
                         dragAttributes={props.dragAttributes}
                       />

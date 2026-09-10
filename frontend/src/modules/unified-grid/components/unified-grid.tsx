@@ -1,6 +1,15 @@
 import { useRef, useCallback, useState, useEffect } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { Trash2, Pencil } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  Check,
+  Loader2,
+  Minus,
+  Pencil,
+  Trash2,
+} from "lucide-react";
 
 import { renderCellValue } from "@/modules/query/types/query.types";
 import { Button } from "@/components/ui/button";
@@ -23,6 +32,85 @@ const ROW_NUMBER_WIDTH = 40;
 const ROW_ACTION_WIDTH = 40;
 const CONTEXT_MENU_WIDTH = 220;
 const CONTEXT_MENU_HEIGHT = 180;
+const SKELETON_ROW_COUNT = 8;
+
+/* ------------------------------------------------------------------ */
+/*  Cell presentation                                                  */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Numeric cells are right-aligned with tabular figures so columns of values
+ * can be scanned vertically — the single biggest readability win in a data
+ * grid, and the behaviour every desktop DB client (DBeaver, DataGrip, pgAdmin)
+ * ships by default.
+ */
+function isNumericCell(cell: CellValue | undefined): boolean {
+  return cell?.type === "int64" || cell?.type === "float64";
+}
+
+function cellAlignmentClass(cell: CellValue | undefined): string {
+  return isNumericCell(cell) ? "justify-end tabular-nums" : "";
+}
+
+/**
+ * NULL / boolean sentinels are rendered as quiet, unmistakable markers rather
+ * than plain text, so an empty string can never be mistaken for SQL NULL.
+ */
+function CellValueView({ cell, display }: { cell: CellValue; display: string }) {
+  if (cell.type === "null") {
+    return (
+      <span
+        className="rounded-sm bg-[var(--surface-hover)] px-1 py-px text-[11px] italic text-[var(--text-tertiary)]"
+        data-cell-kind="null"
+      >
+        NULL
+      </span>
+    );
+  }
+
+  if (cell.type === "bool") {
+    return (
+      <span
+        className="inline-flex items-center gap-1"
+        data-cell-kind={cell.value ? "true" : "false"}
+      >
+        {cell.value ? (
+          <Check className="h-3 w-3 shrink-0 text-[var(--state-success)]" aria-hidden="true" />
+        ) : (
+          <Minus className="h-3 w-3 shrink-0 text-[var(--text-tertiary)]" aria-hidden="true" />
+        )}
+        <span className={cell.value ? "text-foreground" : "text-[var(--text-tertiary)]"}>
+          {display}
+        </span>
+      </span>
+    );
+  }
+
+  return <span className="truncate">{display}</span>;
+}
+
+/** Placeholder rows shown while a page/result set is still in flight. */
+function GridSkeleton({ columns }: { columns: number }) {
+  return (
+    <div className="flex flex-col" aria-hidden="true">
+      {Array.from({ length: SKELETON_ROW_COUNT }, (_, rowIndex) => (
+        <div
+          key={rowIndex}
+          className="flex items-center gap-3 border-b border-[var(--border-subtle)]/60 px-3"
+          style={{ height: "var(--grid-row-height)" }}
+        >
+          {Array.from({ length: Math.min(columns, 8) }, (_, colIndex) => (
+            <span
+              key={colIndex}
+              className="h-2.5 animate-pulse rounded-sm bg-[var(--surface-hover)]"
+              style={{ width: `${38 + ((rowIndex * 7 + colIndex * 13) % 45)}%` }}
+            />
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
 
 /* ------------------------------------------------------------------ */
 /*  Props                                                              */
@@ -265,6 +353,16 @@ export function UnifiedGrid({
   const normalCols = visibleColumns.filter((c) => !frozenSet.has(c.name));
   const orderedColumns = [...frozenCols, ...normalCols];
 
+  /* ---- sticky left offsets for pinned columns (gutter first) ---- */
+  const stickyOffsets = new Map<string, number>();
+  {
+    let runningLeft = ROW_NUMBER_WIDTH;
+    for (const col of frozenCols) {
+      stickyOffsets.set(col.name, runningLeft);
+      runningLeft += widths[col.name] ?? DEFAULT_COL_WIDTH;
+    }
+  }
+
   const hasRowActions = canEditRows && (onDeleteRow != null || onEditRow != null);
   const rowActionCount = (onDeleteRow ? 1 : 0) + (onEditRow ? 1 : 0);
   const rowActionsWidth = rowActionCount * ROW_ACTION_WIDTH;
@@ -396,11 +494,23 @@ export function UnifiedGrid({
       tabIndex={0}
       onKeyDown={handleGridKeyDown}
       className={`relative flex h-full flex-col${className ? ` ${className}` : ""}`}
+      role="grid"
+      aria-rowcount={rows.length}
+      aria-colcount={orderedColumns.length}
+      aria-busy={isLoading || undefined}
+      aria-label={t("dataGrid.gridAriaLabel")}
     >
-      {/* Loading overlay */}
+      {/* Loading overlay — skeleton rows plus a live-region label */}
       {isLoading && (
-        <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60">
-          <span className="text-sm text-[var(--text-secondary)]">{t("common.states.loading")}</span>
+        <div className="absolute inset-0 z-10 bg-background/70">
+          <GridSkeleton columns={orderedColumns.length} />
+          <div
+            role="status"
+            className="absolute inset-x-0 top-1/2 flex -translate-y-1/2 items-center justify-center gap-2 text-[12px] text-[var(--text-secondary)]"
+          >
+            <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" aria-hidden="true" />
+            {t("common.states.loading")}
+          </div>
         </div>
       )}
 
@@ -410,9 +520,9 @@ export function UnifiedGrid({
           ref={contextMenuRef}
           role="menu"
           tabIndex={-1}
+          aria-label={t("dataGrid.contextMenuLabel")}
           className="fixed z-[var(--z-floating)] rounded-md border border-[var(--border-strong)] bg-popover py-1 shadow-lg"
           style={{ left: contextMenu.x, top: contextMenu.y }}
-          onMouseLeave={() => setContextMenu(null)}
           onKeyDown={(e) => {
             if (e.key === "Escape") setContextMenu(null);
           }}
@@ -423,7 +533,8 @@ export function UnifiedGrid({
               type="button"
               variant="ghost"
               size="sm"
-              className="block h-auto w-full px-3 py-1 text-left text-xs text-foreground hover:bg-background"
+              className="block h-auto w-full px-3 py-1 text-left text-xs text-foreground hover:bg-[var(--surface-hover)] focus-visible:bg-[var(--surface-hover)]"
+              role="menuitem"
               onClick={() => {
                 onToggleFreezeColumn?.(contextMenu.column);
                 setContextMenu(null);
@@ -439,7 +550,8 @@ export function UnifiedGrid({
             type="button"
             variant="ghost"
             size="sm"
-            className="block h-auto w-full px-3 py-1 text-left text-xs text-foreground hover:bg-background"
+            className="block h-auto w-full px-3 py-1 text-left text-xs text-foreground hover:bg-[var(--surface-hover)] focus-visible:bg-[var(--surface-hover)]"
+              role="menuitem"
             onClick={() => {
               copyColumnName(contextMenu.column);
               setContextMenu(null);
@@ -455,7 +567,8 @@ export function UnifiedGrid({
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="block h-auto w-full px-3 py-1 text-left text-xs text-foreground hover:bg-background"
+                className="block h-auto w-full px-3 py-1 text-left text-xs text-foreground hover:bg-[var(--surface-hover)] focus-visible:bg-[var(--surface-hover)]"
+              role="menuitem"
                 onClick={() => {
                   copyCellValue(contextMenu.cellRow!, contextMenu.column);
                   setContextMenu(null);
@@ -467,7 +580,8 @@ export function UnifiedGrid({
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="block h-auto w-full px-3 py-1 text-left text-xs text-foreground hover:bg-background"
+                className="block h-auto w-full px-3 py-1 text-left text-xs text-foreground hover:bg-[var(--surface-hover)] focus-visible:bg-[var(--surface-hover)]"
+              role="menuitem"
                 onClick={() => {
                   copyRowValues(contextMenu.cellRow!);
                   setContextMenu(null);
@@ -490,12 +604,19 @@ export function UnifiedGrid({
         <div
           className="grid sticky top-0 z-[2] shrink-0 border-b border-[var(--border-default)] bg-muted text-[11px]"
           style={{ ...gridStyle, minHeight: "var(--grid-header-height)" }}
+          role="row"
         >
-          <div className="flex items-center px-2 py-2 text-[var(--text-tertiary)]">
+          <div
+            className="flex items-center border-r border-[var(--border-subtle)] bg-muted px-2 py-2 text-[var(--text-tertiary)]"
+            style={{ position: "sticky", left: 0, zIndex: 3 }}
+            role="columnheader"
+            aria-label={t("dataGrid.rowNumberColumn")}
+          >
             {onSelectionChange && (
               <input
                 type="checkbox"
                 className="h-3 w-3 cursor-pointer accent-primary"
+                aria-label={t("dataGrid.selectAllRows")}
                 checked={selection.size === rows.length && rows.length > 0}
                 ref={(el) => {
                   if (el) el.indeterminate = selection.size > 0 && selection.size < rows.length;
@@ -508,17 +629,29 @@ export function UnifiedGrid({
             )}
             {!onSelectionChange && "#"}
           </div>
-          {orderedColumns.map((col) => {
+          {orderedColumns.map((col, colIndex) => {
             const sort = sortMap.get(col.name);
             const isFrozen = frozenSet.has(col.name);
+            const frozenOffset = isFrozen ? stickyOffsets.get(col.name) : undefined;
+            const isLastFrozen = isFrozen && colIndex === frozenCols.length - 1;
             return (
               <div
                 key={col.name}
                 className={
-                  "relative flex flex-col gap-0.5 bg-muted px-3 py-1.5" +
-                  (isFrozen ? " font-semibold" : "")
+                  "group/header relative flex flex-col gap-0.5 bg-muted px-3 py-1.5" +
+                  (isFrozen ? " font-semibold" : "") +
+                  (isLastFrozen ? " border-r border-[var(--border-default)]" : "")
+                }
+                style={
+                  frozenOffset === undefined
+                    ? undefined
+                    : { position: "sticky", left: frozenOffset, zIndex: 3 }
                 }
                 onContextMenu={(e) => handleColumnContextMenu(e, col.name)}
+                role="columnheader"
+                aria-sort={
+                  sort ? (sort.direction === "asc" ? "ascending" : "descending") : "none"
+                }
               >
                 <span
                   className="flex cursor-pointer select-none items-center gap-1 text-[12.5px] font-medium text-[var(--text-secondary)] transition-colors hover:text-foreground"
@@ -534,24 +667,28 @@ export function UnifiedGrid({
                   aria-label={t("dataGrid.sortBy", { column: col.name })}
                 >
                   <span className="truncate">{col.name}</span>
-                  {sort && (
-                    <span className="text-[11px] text-[var(--text-tertiary)]">
-                      {sort.direction === "asc" ? "\u25B2" : "\u25BC"}
-                    </span>
+                  {sort ? (
+                    sort.direction === "asc" ? (
+                      <ArrowUp className="h-3 w-3 shrink-0 text-primary" aria-hidden="true" />
+                    ) : (
+                      <ArrowDown className="h-3 w-3 shrink-0 text-primary" aria-hidden="true" />
+                    )
+                  ) : (
+                    <ArrowUpDown className="h-3 w-3 shrink-0 text-[var(--text-tertiary)] opacity-0 transition-opacity group-hover/header:opacity-60" aria-hidden="true" />
                   )}
                 </span>
-                <span className="truncate text-[11px] text-[var(--text-tertiary)]">
+                <span className="truncate font-mono text-[11px] text-[var(--text-tertiary)]">
                   {col.dataType}
                 </span>
                 {renderHeaderExtra?.(col)}
                 {/* Resize handle (B1.1) */}
                 <div
-                  className="absolute right-0 top-0 h-full w-[3px] cursor-col-resize hover:bg-primary/40 active:bg-primary"
+                  className="absolute right-0 top-0 h-full w-[3px] cursor-col-resize hover:bg-primary/40 focus-visible:bg-primary active:bg-primary"
                   onMouseDown={(e) => handleResizeStart(e, col.name)}
                   onKeyDown={(e) => handleResizeKeyDown(e, col.name)}
                   role="separator"
                   tabIndex={0}
-                  aria-label={`Resize ${col.name}`}
+                  aria-label={t("dataGrid.resizeColumn", { column: col.name })}
                   aria-valuemin={MIN_COL_WIDTH}
                   aria-valuenow={widths[col.name] ?? DEFAULT_COL_WIDTH}
                   aria-orientation="vertical"
@@ -559,7 +696,7 @@ export function UnifiedGrid({
               </div>
             );
           })}
-          {hasRowActions && <div />}
+          {hasRowActions && <div role="columnheader" aria-label={t("dataGrid.rowActionsColumn")} />}
         </div>
 
         {/* Virtual rows */}
@@ -582,15 +719,19 @@ export function UnifiedGrid({
                 }
                 style={{ ...gridStyle, top: virtualRow.start, height: "var(--grid-row-height)" }}
                 data-index={virtualRow.index}
+                role="row"
+                aria-rowindex={virtualRow.index + 1}
+                aria-selected={isSelected}
               >
                 {/* Row number — clickable for selection (B1.3) */}
                 <div
                   className={
-                    "flex cursor-pointer select-none items-center px-2 text-[11px]" +
+                    "flex cursor-pointer select-none items-center border-r border-[var(--border-subtle)] px-2 text-[11px] tabular-nums" +
                     (isSelected
                       ? " bg-primary/20 font-medium text-primary"
-                      : " text-[var(--text-tertiary)]")
+                      : " bg-[var(--surface-editor)] text-[var(--text-tertiary)]")
                   }
+                  style={{ position: "sticky", left: 0, zIndex: 1 }}
                   onClick={(e) => handleRowNumberClick(e, virtualRow.index)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" || e.key === " ") {
@@ -598,14 +739,14 @@ export function UnifiedGrid({
                       handleRowNumberClick(e, virtualRow.index);
                     }
                   }}
+                  role="rowheader"
                   aria-label={t("dataGrid.rowNumber", { row: virtualRow.index + 1 })}
-                  aria-selected={isSelected}
                 >
                   {virtualRow.index + 1}
                 </div>
 
                 {/* Cells */}
-                {orderedColumns.map((col) => {
+                {orderedColumns.map((col, colIndex) => {
                   const colIdx = getColumnIndex(col);
                   const cell = row[colIdx];
                   const display = renderCellValue(cell);
@@ -614,16 +755,29 @@ export function UnifiedGrid({
                   const isEditing =
                     editingCell?.row === virtualRow.index && editingCell?.col === colIdx;
                   const isFrozen = frozenSet.has(col.name);
+                  const frozenOffset = isFrozen ? stickyOffsets.get(col.name) : undefined;
+                  const isLastFrozen = isFrozen && colIndex === frozenCols.length - 1;
 
                   return (
                     <div
                       key={col.name}
                       className={
-                        "relative flex items-center overflow-hidden px-3 text-ellipsis whitespace-nowrap" +
+                        "relative flex items-center overflow-hidden whitespace-nowrap px-3" +
                         (isNull ? " text-[var(--text-tertiary)]" : " text-foreground") +
-                        (isFrozen ? " bg-muted/20" : "")
+                        (isFrozen && !isSelected
+                          ? " bg-[var(--surface-editor)]"
+                          : isFrozen
+                            ? " bg-primary/15"
+                            : "") +
+                        (isLastFrozen ? " border-r border-[var(--border-default)]" : "") +
+                        cellAlignmentClass(cell)
                       }
-                      style={isNull ? { fontStyle: "italic" } : undefined}
+                      style={
+                        frozenOffset === undefined
+                          ? undefined
+                          : { position: "sticky", left: frozenOffset, zIndex: 1 }
+                      }
+                      role="gridcell"
                       title={isJson ? undefined : display}
                       onDoubleClick={() => handleDoubleClick(virtualRow.index, colIdx)}
                       onKeyDown={(e) => {
@@ -672,7 +826,7 @@ export function UnifiedGrid({
                           <JsonPreview value={cell.value} />
                         )
                       ) : (
-                        display
+                        <CellValueView cell={cell} display={display} />
                       )}
                     </div>
                   );
@@ -680,7 +834,7 @@ export function UnifiedGrid({
 
                 {/* Row actions */}
                 {hasRowActions && (
-                  <div className="flex items-center justify-center gap-0.5 px-1">
+                  <div className="flex items-center justify-center gap-0.5 px-1" role="gridcell">
                     {onEditRow && (
                       <Tooltip>
                         <TooltipTrigger asChild>

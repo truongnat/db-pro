@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useResolvedTheme } from "@/commons/stores/theme.store";
+import { useTranslation } from "@/commons/locales/useTranslation";
 import { OverviewExplorer, type OverviewExplorerProps } from "./overview-explorer";
 import { CytoscapeErRenderer } from "../renderer/cytoscape-renderer";
 import type {
@@ -99,6 +100,7 @@ export function CytoscapeErView({
   onBackToNeighborhood,
   onBackToSearch,
 }: CytoscapeErViewProps) {
+  const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<CytoscapeErRenderer | null>(null);
   const theme = useResolvedTheme();
@@ -298,7 +300,7 @@ export function CytoscapeErView({
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
               onKeyDown={handleSearchKeyDown}
-              placeholder="Search tables..."
+              placeholder={t("schemaWorkspace.searchTables")}
               className="h-7 w-48 rounded-md pl-7 text-[12px]"
             />
           </div>
@@ -322,14 +324,14 @@ export function CytoscapeErView({
         {focusedTable && (
           <div className="pointer-events-auto flex items-center gap-2 rounded-md border border-[var(--border-default)] bg-popover p-1.5 shadow-sm">
             <span className="max-w-40 truncate text-[11px] font-medium">{focusedTable.label}</span>
-            <span className="text-[10px] text-[var(--text-secondary)]">
+            <span className="text-[11px] text-[var(--text-secondary)]">
               {focusedTable.columnCount} columns · {focusedTable.fkCount} FK
             </span>
             <Button
               type="button"
               variant="secondary"
               size="sm"
-              className="h-6 px-2 text-[10px]"
+              className="h-6 px-2 text-[11px]"
               onClick={() => onOpenTableRef.current(focusedTable.id)}
             >
               Open table
@@ -347,7 +349,7 @@ export function CytoscapeErView({
             Approximate layout — layout worker unavailable
           </div>
         )}
-        <div className="pointer-events-auto text-[10px] text-[var(--text-secondary)]">
+        <div className="pointer-events-auto text-[11px] text-[var(--text-secondary)]">
           Click to focus · double-click or Open table to view
         </div>
       </div>

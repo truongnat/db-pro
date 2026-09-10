@@ -25,6 +25,7 @@ import { useQuickOpenStore } from "@/commons/stores/quick-open.store";
 import { useRecentStore } from "@/commons/stores/recent.store";
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
 import { useSidebarTabOps } from "@/commons/hooks/use-sidebar-tab-ops";
+import { useScrollParent } from "@/hooks/use-scroll-parent";
 import { StatusDot } from "@/commons/components/shell/status-dot";
 import {
   ContextMenu,
@@ -88,29 +89,48 @@ interface SchemaObjectGroupProps {
   children: React.ReactNode;
 }
 
+/**
+ * Windowed children for a tree group.
+ *
+ * The window attaches to the sidebar's own scroller rather than creating a
+ * nested one: a scroll area inside a scroll area is the single worst tree UX
+ * in a file/database explorer, because the wheel gets captured by whichever
+ * box happens to be under the cursor.
+ */
 function VirtualizedChildren({ children }: { children: React.ReactNode }) {
   const items = Children.toArray(children);
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const { scrollElement, scrollMargin } = useScrollParent(containerRef);
+
   const virtualizer = useVirtualizer({
     count: items.length,
-    getScrollElement: () => scrollRef.current,
+    getScrollElement: () => scrollElement,
     estimateSize: () => 26,
     overscan: 8,
+    scrollMargin,
   });
 
+  // Before the scroll parent is resolved, render a capped slice so a very large
+  // schema can never produce a multi-thousand-node first paint.
+  if (!scrollElement) {
+    return <div ref={containerRef} className="flex flex-col">{items.slice(0, 50)}</div>;
+  }
+
   return (
-    <div ref={scrollRef} className="max-h-80 overflow-y-auto">
-      <div className="relative" style={{ height: virtualizer.getTotalSize() }}>
-        {virtualizer.getVirtualItems().map((item) => (
-          <div
-            key={item.key}
-            className="absolute left-0 w-full"
-            style={{ transform: `translateY(${item.start}px)` }}
-          >
-            {items[item.index]}
-          </div>
-        ))}
-      </div>
+    <div
+      ref={containerRef}
+      className="relative"
+      style={{ height: virtualizer.getTotalSize() }}
+    >
+      {virtualizer.getVirtualItems().map((item) => (
+        <div
+          key={item.key}
+          className="absolute left-0 w-full"
+          style={{ transform: `translateY(${item.start - scrollMargin}px)` }}
+        >
+          {items[item.index]}
+        </div>
+      ))}
     </div>
   );
 }
@@ -143,7 +163,7 @@ function SchemaObjectGroup({
         <span className="text-[11px] tabular-nums text-[var(--text-tertiary)]">{count}</span>
       </button>
       {isOpen && (
-        <div className="ml-[10px] flex flex-col">
+        <div className="ml-[10px] flex flex-col border-l border-[var(--border-subtle)] pl-1">
           <VirtualizedChildren>{children}</VirtualizedChildren>
         </div>
       )}
@@ -412,7 +432,7 @@ export function ExplorerView() {
                               </button>
                             </div>
                             {schemaExpanded && (
-                              <div className="ml-[10px] flex flex-col gap-0.5">
+                              <div className="ml-[10px] flex flex-col gap-0.5 border-l border-[var(--border-subtle)] pl-1">
                                 {tables.length > 0 && (
                                   <SchemaObjectGroup
                                     groupKey={`schema:${conn.id}:${schema.name}:tables`}
@@ -457,6 +477,11 @@ export function ExplorerView() {
                                             >
                                               <Table2 className="h-3.5 w-3.5 shrink-0 text-[var(--text-secondary)]" />
                                               <span className="flex-1 truncate">{table.name}</span>
+                                              {table.rowCount != null && (
+                                                <span className="shrink-0 text-[11px] tabular-nums text-[var(--text-tertiary)]">
+                                                  {table.rowCount}
+                                                </span>
+                                              )}
                                             </button>
                                           </ContextMenuTrigger>
                                           <ContextMenuContent>

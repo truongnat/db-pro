@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { Info } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "@/commons/locales/useTranslation";
@@ -60,14 +61,15 @@ export function ResultGrid({ columns, rows, sort, onSort, durationMs, rowCount }
             type="button"
             variant="ghost"
             size="sm"
-            className="shrink-0 rounded px-1 text-[11px] text-[var(--text-secondary)]"
+            className="shrink-0 rounded p-0 text-[var(--text-tertiary)] opacity-0 transition-opacity hover:text-primary focus-visible:opacity-100 group-hover/header:opacity-100"
             title={t("query.metadata.info")}
+            aria-label={`${t("query.metadata.info")}: ${col.name}`}
             onClick={(e) => {
               e.stopPropagation();
               setMetadataColumn({ column: col, el: e.currentTarget });
             }}
           >
-            i
+            <Info className="h-3 w-3" aria-hidden="true" />
           </Button>
         )}
         footer={

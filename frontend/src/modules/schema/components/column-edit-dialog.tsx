@@ -236,7 +236,7 @@ export function ColumnEditDialog({
                   placeholder={column.name}
                 />
                 {nameHasSpace && (
-                  <p className="mt-0.5 text-[10px] text-warning">
+                  <p className="mt-0.5 text-[11px] text-warning">
                     Contains spaces — will require quoting in SQL.
                   </p>
                 )}
@@ -295,7 +295,7 @@ export function ColumnEditDialog({
                       {t(`schema.risk.level.${classified.risk.level}`)}
                     </Badge>
                   </div>
-                  <span className="text-[10px] text-[var(--text-secondary)]">
+                  <span className="text-[11px] text-[var(--text-secondary)]">
                     {classified.operations.length} change
                     {classified.operations.length > 1 ? "s" : ""}
                   </span>
@@ -310,14 +310,14 @@ export function ColumnEditDialog({
                   ))}
                 </ul>
 
-                <pre className="overflow-x-auto rounded bg-muted p-1.5 font-mono text-[10px] leading-relaxed text-foreground">
+                <pre className="overflow-x-auto rounded bg-muted p-1.5 font-mono text-[11px] leading-relaxed text-foreground">
                   {classified.sql.join("\n")}
                 </pre>
 
                 {classified.warnings.length > 0 && (
                   <div className="mt-1.5 space-y-0.5">
                     {classified.warnings.map((w, i) => (
-                      <div key={i} className="flex items-start gap-1 text-[10px] text-warning">
+                      <div key={i} className="flex items-start gap-1 text-[11px] text-warning">
                         <AlertTriangle className="mt-px h-2.5 w-2.5 shrink-0" />
                         <span>{localizeWarning(w)}</span>
                       </div>
