@@ -10,7 +10,9 @@
 - [x] Connect `DbProRuntime` to a tokio native task worker with typed command/event translation.
 - [x] Load saved connection summaries into the native explorer.
 - [x] Add active connection selection and connect action.
-- [ ] Render typed query result pages in the native result grid.
+- [x] Render typed query result pages in the native result grid.
+- [x] Add Stop/Escape query cancellation dispatch and cancellation events.
+- [ ] Add column resize, sorting, filtering and virtualization.
 - [ ] Run Rust fmt/check/test once the Rust toolchain is available in the environment.
 - [ ] Manually review screenshots at 1280×800, 1440×900 and 1920×1080.
 - [ ] Wire the shell to the extracted backend facade.

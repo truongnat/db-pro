@@ -1,4 +1,6 @@
-use crate::{DbProTheme, TaskBridge, UiCommand, UiConnectionSummary, UiEvent};
+use crate::{
+    DbProTheme, TaskBridge, UiCommand, UiConnectionSummary, UiEvent, UiQueryResult,
+};
 use eframe::egui::{self, Align, Color32, Layout, RichText, TextEdit, TopBottomPanel};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -30,6 +32,7 @@ pub struct DbProApp {
     task_bridge: TaskBridge,
     next_query_request: Option<crate::RequestId>,
     runtime_message: String,
+    query_result: Option<UiQueryResult>,
     connections: Vec<UiConnectionSummary>,
     active_connection_id: Option<String>,
     connections_requested: bool,
@@ -59,6 +62,7 @@ impl Default for DbProApp {
             task_bridge: TaskBridge::default(),
             next_query_request: None,
             runtime_message: "Ready".to_owned(),
+            query_result: None,
             connections: Vec::new(),
             active_connection_id: None,
             connections_requested: false,
@@ -122,9 +126,16 @@ impl DbProApp {
                     self.next_query_request = Some(request_id);
                     self.runtime_message = format!("Query queued · request {}", request_id.0);
                 }
-                UiEvent::QueryCompleted { request_id, row_count } => {
+                UiEvent::QueryCompleted { request_id, result } => {
                     if self.next_query_request == Some(request_id) {
-                        self.runtime_message = format!("Query completed · {row_count} rows");
+                        self.runtime_message = format!("Query completed · {} rows", result.row_count);
+                        self.query_result = Some(result);
+                        self.next_query_request = None;
+                    }
+                }
+                UiEvent::QueryCancelled { request_id } => {
+                    if self.next_query_request == Some(request_id) {
+                        self.runtime_message = "Query cancelled".to_owned();
                         self.next_query_request = None;
                     }
                 }
@@ -146,8 +157,17 @@ impl DbProApp {
             self.sidebar_open = !self.sidebar_open;
         }
         if ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
-            self.agent_open = false;
+            if let Some(request_id) = self.next_query_request {
+                self.cancel_query(request_id);
+            } else {
+                self.agent_open = false;
+            }
         }
+    }
+
+    fn cancel_query(&mut self, request_id: crate::RequestId) {
+        let _ = self.task_bridge.send(UiCommand::CancelQuery { request_id });
+        self.runtime_message = "Cancelling query…".to_owned();
     }
 
     fn draw_topbar(&mut self, ctx: &egui::Context) {
@@ -372,8 +392,11 @@ impl DbProApp {
             ui.label(RichText::new("›  ").color(self.theme.text_muted));
             ui.label(RichText::new(&self.connection_name).color(self.theme.accent));
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                if ui.button("Run  ⌘↵").clicked() {
-                    if let Some(connection) = self.connections.first() {
+                let running = self.next_query_request.is_some();
+                if ui.button(if running { "Stop  Esc" } else { "Run  ⌘↵" }).clicked() {
+                    if let Some(request_id) = self.next_query_request {
+                        self.cancel_query(request_id);
+                    } else if let Some(connection) = self.connections.first() {
                         let request_id = self.task_bridge.next_request_id();
                         self.next_query_request = Some(request_id);
                         self.runtime_message = "Sending query to runtime…".to_owned();
@@ -400,17 +423,64 @@ impl DbProApp {
             );
         });
         ui.add_space(12.0);
+        let result = self.query_result.clone();
         ui.horizontal(|ui| {
             ui.label(RichText::new("Results").strong());
-            ui.label(RichText::new("0 rows").small().color(self.theme.text_muted));
+            let row_label = result
+                .as_ref()
+                .map(|value| format!("{} rows · {} ms", value.row_count, value.duration_ms))
+                .unwrap_or_else(|| "No result".to_owned());
+            ui.label(RichText::new(row_label).small().color(self.theme.text_muted));
             ui.label(RichText::new(&self.runtime_message).small().color(self.theme.text_muted));
         });
         ui.add_space(8.0);
         egui::Frame::default().fill(self.theme.surface_panel).show(ui, |ui| {
-            ui.centered_and_justified(|ui| {
-                ui.label(RichText::new("Run a query to see results").color(self.theme.text_muted));
-            });
+            if let Some(result) = result {
+                self.draw_result_grid(ui, &result);
+            } else {
+                ui.centered_and_justified(|ui| {
+                    ui.label(RichText::new("Run a query to see results").color(self.theme.text_muted));
+                });
+            }
         });
+    }
+
+    fn draw_result_grid(&self, ui: &mut egui::Ui, result: &UiQueryResult) {
+        if result.columns.is_empty() {
+            ui.centered_and_justified(|ui| {
+                ui.label(RichText::new("Statement completed without rows").color(self.theme.text_muted));
+            });
+            return;
+        }
+        egui::ScrollArea::both().max_height(320.0).show(ui, |ui| {
+            egui::Grid::new("query_result_grid")
+                .striped(true)
+                .spacing([18.0, 6.0])
+                .show(ui, |ui| {
+                    for column in &result.columns {
+                        ui.label(RichText::new(&column.name).strong());
+                    }
+                    ui.end_row();
+                    for row in result.rows.iter().take(500) {
+                        for cell in row {
+                            ui.label(Self::cell_label(cell));
+                        }
+                        ui.end_row();
+                    }
+                });
+        });
+    }
+
+    fn cell_label(cell: &crate::UiCell) -> RichText {
+        match cell {
+            crate::UiCell::Null => RichText::new("NULL").italics(),
+            crate::UiCell::Boolean(value) => RichText::new(value.to_string()),
+            crate::UiCell::Number(value) => RichText::new(value).monospace(),
+            crate::UiCell::Text(value) => RichText::new(value),
+            crate::UiCell::Json(value) => RichText::new(value).monospace(),
+            crate::UiCell::Bytes(value) => RichText::new(value).monospace(),
+        }
+    }
     }
 
     fn draw_agent_panel(&mut self, ctx: &egui::Context) {

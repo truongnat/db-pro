@@ -3,5 +3,7 @@ mod runtime;
 mod theme;
 
 pub use app::DbProApp;
-pub use runtime::{RequestId, TaskBridge, UiCommand, UiConnectionSummary, UiEvent};
+pub use runtime::{
+    RequestId, TaskBridge, UiCell, UiColumn, UiCommand, UiConnectionSummary, UiEvent, UiQueryResult,
+};
 pub use theme::DbProTheme;

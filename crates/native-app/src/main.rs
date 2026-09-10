@@ -2,7 +2,9 @@ use std::error::Error;
 use std::thread;
 
 use db_pro_runtime::{spawn_worker, DbProRuntime, RuntimeCommand, RuntimeEvent, RuntimeRequestId};
-use db_pro_ui::{DbProApp, TaskBridge, UiCommand, UiConnectionSummary, UiEvent};
+use db_pro_ui::{
+    DbProApp, TaskBridge, UiCell, UiColumn, UiCommand, UiConnectionSummary, UiEvent, UiQueryResult,
+};
 use eframe::egui;
 use tokio::runtime::Builder;
 
@@ -87,6 +89,30 @@ fn translate_command(command: UiCommand) -> Option<RuntimeCommand> {
     }
 }
 
+fn map_cell(cell: db_pro_core::domain::query::CellValue) -> UiCell {
+    use db_pro_core::domain::query::CellValue;
+
+    match cell {
+        CellValue::Null => UiCell::Null,
+        CellValue::Bool(value) => UiCell::Boolean(value),
+        CellValue::Int64(value) => UiCell::Number(value.to_string()),
+        CellValue::Float64(value) => UiCell::Number(value.to_string()),
+        CellValue::Text(value)
+        | CellValue::Uuid(value)
+        | CellValue::DateTime(value)
+        | CellValue::Date(value)
+        | CellValue::Time(value)
+        | CellValue::Interval(value)
+        | CellValue::Inet(value) => UiCell::Text(value),
+        CellValue::Bytes(value) => UiCell::Bytes(format!("\\x{}", hex_encode(&value))),
+        CellValue::Json(value) => UiCell::Json(value.to_string()),
+    }
+}
+
+fn hex_encode(bytes: &[u8]) -> String {
+    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+}
+
 fn translate_event(event: RuntimeEvent) -> Option<UiEvent> {
     match event {
         RuntimeEvent::ConnectionsLoaded { request_id, connections } => Some(UiEvent::ConnectionsLoaded {
@@ -110,11 +136,27 @@ fn translate_event(event: RuntimeEvent) -> Option<UiEvent> {
         }),
         RuntimeEvent::QueryCompleted { request_id, result } => Some(UiEvent::QueryCompleted {
             request_id: db_pro_ui::RequestId(request_id.0),
-            row_count: result.row_count,
+            result: UiQueryResult {
+                columns: result
+                    .columns
+                    .into_iter()
+                    .map(|column| UiColumn {
+                        name: column.name,
+                        data_type: column.data_type,
+                        nullable: column.nullable,
+                    })
+                    .collect(),
+                rows: result
+                    .rows
+                    .into_iter()
+                    .map(|row| row.0.into_iter().map(map_cell).collect())
+                    .collect(),
+                row_count: result.row_count,
+                duration_ms: result.duration_ms,
+            },
         }),
-        RuntimeEvent::QueryCancelled { request_id } => Some(UiEvent::QueryFailed {
+        RuntimeEvent::QueryCancelled { request_id } => Some(UiEvent::QueryCancelled {
             request_id: db_pro_ui::RequestId(request_id.0),
-            message: "Query cancelled".to_owned(),
         }),
         RuntimeEvent::Failed { request_id, message } => Some(UiEvent::QueryFailed {
             request_id: db_pro_ui::RequestId(request_id.0),
