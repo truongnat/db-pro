@@ -56,7 +56,12 @@ fn main() -> Result<(), Box<dyn Error>> {
     eframe::run_native(
         "DB Pro",
         options,
-        Box::new(|_creation_context| Ok(Box::new(DbProApp::with_task_bridge(bridge)))),
+        Box::new(|creation_context| {
+            Ok(Box::new(DbProApp::with_task_bridge_and_storage(
+                bridge,
+                creation_context.storage,
+            )))
+        }),
     )?;
     Ok(())
 }

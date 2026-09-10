@@ -14,7 +14,7 @@
 - [x] Add Stop/Escape query cancellation dispatch and cancellation events.
 - [x] Add column resize, sorting, filtering and visible-row virtualization.
 - [x] Add scoped cell/row selection and clipboard copy actions.
-- [ ] Persist column widths in workspace settings.
+- [x] Persist column widths in native eframe storage.
 - [ ] Add benchmark coverage for million-row result metadata and scroll performance.
 - [ ] Run Rust fmt/check/test once the Rust toolchain is available in the environment.
 - [ ] Manually review screenshots at 1280×800, 1440×900 and 1920×1080.

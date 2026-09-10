@@ -48,10 +48,28 @@ pub struct DbProApp {
 
 impl DbProApp {
     pub fn with_task_bridge(task_bridge: TaskBridge) -> Self {
-        Self {
+        Self::with_task_bridge_and_storage(task_bridge, None)
+    }
+
+    pub fn with_task_bridge_and_storage(
+        task_bridge: TaskBridge,
+        storage: Option<&dyn eframe::Storage>,
+    ) -> Self {
+        let mut app = Self {
             task_bridge,
             ..Self::default()
+        };
+        if let Some(storage) = storage {
+            if let Some(widths) = storage.get_string("dbpro.native.grid-widths") {
+                if let Ok(widths) = serde_json::from_str::<Vec<f32>>(&widths) {
+                    app.grid_column_widths = widths
+                        .into_iter()
+                        .map(|width| width.clamp(90.0, 520.0))
+                        .collect();
+                }
+            }
         }
+        app
     }
 }
 
@@ -87,6 +105,12 @@ impl Default for DbProApp {
 }
 
 impl eframe::App for DbProApp {
+    fn save(&mut self, storage: &mut dyn eframe::Storage) {
+        if let Ok(widths) = serde_json::to_string(&self.grid_column_widths) {
+            storage.set_string("dbpro.native.grid-widths", widths);
+        }
+    }
+
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.request_connections_once();
         self.apply_runtime_events();
