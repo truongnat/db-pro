@@ -197,29 +197,7 @@ async fn pg_query_categories() {
         .query(&handle, "SELECT * FROM categories ORDER BY id", &[])
         .await
         .unwrap();
-
     assert_eq!(result.row_count, 4);
-
-    connector.disconnect(&handle).await.unwrap();
-}
-
-#[tokio::test]
-#[ignore]
-async fn pg_query_preserves_numeric_and_enum_values() {
-    use db_pro_core::domain::query::CellValue;
-
-    let (connector, handle) = setup().await;
-    let result = connector
-        .query(
-            &handle,
-            "SELECT 12345678901234567890.12345::numeric AS amount, 'shipped'::order_status AS status",
-            &[],
-        )
-        .await
-        .unwrap();
-
-    assert!(matches!(&result.rows[0].0[0], CellValue::Text(value) if value == "12345678901234567890.12345"));
-    assert!(matches!(&result.rows[0].0[1], CellValue::Text(value) if value == "shipped"));
 
     connector.disconnect(&handle).await.unwrap();
 }

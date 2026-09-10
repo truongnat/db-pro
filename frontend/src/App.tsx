@@ -6,7 +6,6 @@ import { SnackbarProvider } from "./app/providers/snackbar.provider";
 import { ModalProvider } from "./app/providers/modal.provider";
 import { ConfirmDialogProvider } from "./app/providers/confirm-dialog.provider";
 import { TooltipProvider } from "./components/ui/tooltip";
-import { Toaster } from "./components/ui/sonner";
 import { registerAllCommands } from "./commons/commands/register-commands";
 
 export const router = createRouter({ routeTree });
@@ -28,7 +27,6 @@ function App() {
             <ModalProvider>
               <ConfirmDialogProvider>
                 <RouterProvider router={router} />
-                <Toaster />
               </ConfirmDialogProvider>
             </ModalProvider>
           </SnackbarProvider>

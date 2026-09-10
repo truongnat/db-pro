@@ -13,7 +13,6 @@ i18n.use(initReactI18next).init({
           rowsAffected: "{{count}} row affected",
           rowsAffected_other: "{{count}} rows affected",
           duration: "{{duration}}ms",
-          largeSortWarning: "Sorting {{count}} rows may take a moment.",
           metadata: { info: "Column info" },
         },
       },
@@ -112,14 +111,6 @@ describe("ResultGrid", () => {
   it("shows sort indicator for sorted column", () => {
     renderGrid({ sort: { column: "id", direction: "asc" } });
     expect(screen.getByText("\u25B2")).toBeInTheDocument();
-  });
-
-  it("warns before sorting a large result set", () => {
-    renderGrid({
-      rows: Array.from({ length: 10_000 }, () => rows[0]),
-      sort: { column: "id", direction: "asc" },
-    });
-    expect(screen.getByRole("status")).toHaveTextContent("Sorting 10000 rows may take a moment.");
   });
 
   it("renders zoom controls in footer", () => {

@@ -127,7 +127,7 @@ See:
 
 - Rust toolchain from `rust-toolchain.toml`
 - Node.js 22+
-- pnpm 10.20.0+
+- npm 10+
 - Tauri system prerequisites for the host OS
 
 ### Setup
@@ -137,8 +137,8 @@ git clone https://github.com/truongnat/db-pro.git
 cd db-pro
 
 cd frontend
-pnpm install --frozen-lockfile
-pnpm run dev
+npm ci
+npm run dev
 ```
 
 In another terminal:
@@ -151,12 +151,12 @@ cargo tauri dev
 
 ```bash
 cd frontend
-pnpm install --frozen-lockfile
-pnpm run typecheck
-pnpm run lint
-pnpm run format:check
-pnpm run test
-pnpm run build
+npm ci
+npm run typecheck
+npm run lint
+npm run format:check
+npm run test
+npm run build
 ```
 
 ### Rust quality gates

@@ -78,19 +78,6 @@ describe("BackupService", () => {
     });
   });
 
-  describe("revealPath", () => {
-    it("calls the native reveal command", async () => {
-      mockApiInvoke.mockResolvedValueOnce(undefined);
-
-      const svc = new BackupService();
-      await svc.revealPath("/tmp/backup.sql");
-
-      expect(mockApiInvoke).toHaveBeenCalledWith("reveal_backup_path", {
-        path: "/tmp/backup.sql",
-      });
-    });
-  });
-
   describe("createBackupService", () => {
     it("returns a BackupService instance", () => {
       const svc = createBackupService();

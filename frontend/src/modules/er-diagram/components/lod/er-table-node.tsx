@@ -19,43 +19,17 @@ import type { TableNodeData } from "./types";
  */
 export const ErTableNode = memo(function ErTableNode(props: NodeProps) {
   const lod = (props.data as TableNodeData | undefined)?.lod ?? "detail";
-  const data = props.data as TableNodeData | undefined;
-  const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
-    if (event.key !== "Enter" && event.key !== " ") return;
-    event.preventDefault();
-    document.dispatchEvent(
-      new CustomEvent("er-node-focus", {
-        detail: { nodeKey: props.id },
-      }),
-    );
-  };
 
-  if (!data) return null;
-
-  const node = (() => {
-    switch (lod) {
-      case "dot":
-        return <ErDotNode {...props} />;
-      case "compact":
-        return <ErCompactNode {...props} />;
-      case "summary":
-        return <ErSummaryNode {...props} />;
-      case "detail":
-        return <ErDetailedNode {...props} />;
-    }
-  })();
-
-  return (
-    <div
-      role="button"
-      tabIndex={0}
-      aria-label={`${data.schema}.${data.label}`}
-      className="contents"
-      onKeyDown={handleKeyDown}
-    >
-      {node}
-    </div>
-  );
+  switch (lod) {
+    case "dot":
+      return <ErDotNode {...props} />;
+    case "compact":
+      return <ErCompactNode {...props} />;
+    case "summary":
+      return <ErSummaryNode {...props} />;
+    case "detail":
+      return <ErDetailedNode {...props} />;
+  }
 });
 
 export type { TableNodeData } from "./types";

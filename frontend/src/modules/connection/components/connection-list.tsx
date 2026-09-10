@@ -2,8 +2,6 @@ import { useCallback, useMemo, useState } from "react";
 
 import { useConnectionStore } from "@/commons/stores/connection.store";
 import { useTranslation } from "@/commons/locales/useTranslation";
-import { useConfirmDialog } from "@/app/providers/confirm-dialog.provider";
-import { useSnackbar } from "@/app/providers/snackbar.provider";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -45,8 +43,6 @@ interface ConnectionListProps {
 
 export function ConnectionList({ onEdit, onBackup, onRestore }: ConnectionListProps) {
   const { t } = useTranslation();
-  const { confirm } = useConfirmDialog();
-  const snackbar = useSnackbar();
   const { data: connections, isLoading, error } = useConnectionList();
   const connectMutation = useConnect();
   const disconnectMutation = useDisconnect();
@@ -71,19 +67,6 @@ export function ConnectionList({ onEdit, onBackup, onRestore }: ConnectionListPr
 
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
-
-  const handleDelete = useCallback(
-    async (id: string) => {
-      const confirmed = await confirm({
-        title: t("common.actions.delete"),
-        message: t("connection.confirmDelete"),
-        confirmLabel: t("common.actions.confirm"),
-        cancelLabel: t("common.actions.cancel"),
-      });
-      if (confirmed) deleteMutation.mutate(id);
-    },
-    [confirm, deleteMutation, t],
-  );
 
   const uniqueTags = useMemo(() => {
     if (!connections) return [];
@@ -211,7 +194,7 @@ export function ConnectionList({ onEdit, onBackup, onRestore }: ConnectionListPr
             className={cn(
               "h-auto rounded-full px-2 py-0.5 text-xs",
               sortField === field
-                ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                ? "bg-primary text-white hover:bg-primary/90"
                 : "bg-background text-[var(--text-secondary)] hover:bg-muted",
             )}
             onClick={() => handleSortToggle(field)}
@@ -244,7 +227,7 @@ export function ConnectionList({ onEdit, onBackup, onRestore }: ConnectionListPr
                 className={cn(
                   "h-auto rounded-full px-2 py-0.5 text-xs",
                   filterGroup === group
-                    ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                    ? "bg-primary text-white hover:bg-primary/90"
                     : "bg-background text-[var(--text-secondary)] hover:bg-muted",
                 )}
                 onClick={() => setFilterGroup(filterGroup === group ? null : group)}
@@ -278,7 +261,7 @@ export function ConnectionList({ onEdit, onBackup, onRestore }: ConnectionListPr
                 className={cn(
                   "h-auto rounded-full border px-2 py-0.5 text-xs",
                   filterTag === tag
-                    ? "border-primary bg-primary text-primary-foreground hover:bg-primary/90"
+                    ? "border-primary bg-primary text-white hover:bg-primary/90"
                     : "border-[var(--border-subtle)] bg-transparent text-[var(--text-secondary)]",
                 )}
                 onClick={() => setFilterTag(filterTag === tag ? null : tag)}
@@ -338,161 +321,167 @@ export function ConnectionList({ onEdit, onBackup, onRestore }: ConnectionListPr
                 return (
                   <ContextMenu key={conn.id}>
                     <ContextMenuTrigger asChild>
-                      <TableRow
-                        className={cn(
-                          "cursor-pointer transition-colors hover:bg-muted",
-                          explorerConnectionId === conn.id && "bg-muted",
-                        )}
-                        onClick={() => renamingId !== conn.id && onEdit(conn.id)}
-                      >
-                        <TableCell className="px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            <button
-                              type="button"
-                              className={cn(
-                                "shrink-0 text-sm transition-colors",
-                                isFav
-                                  ? "text-warning"
-                                  : "text-[var(--text-tertiary)] hover:text-warning",
-                              )}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                toggleFavoriteMutation.mutate({
-                                  id: conn.id,
-                                  favorite: !isFav,
-                                });
-                              }}
-                              aria-label={t("connection.toggleFavorite")}
-                            >
-                              {isFav ? "★" : "☆"}
-                            </button>
-                            {conn.color && (
-                              <span
-                                className="inline-block h-3 w-3 shrink-0 rounded-full"
-                                style={{ backgroundColor: conn.color }}
-                              />
-                            )}
-                            {renamingId === conn.id ? (
-                              <input
-                                className="h-6 w-full min-w-0 rounded border border-[var(--border-default)] bg-background px-1 text-sm text-foreground outline-none focus:border-primary"
-                                value={renameValue}
-                                onChange={(e) => setRenameValue(e.target.value)}
-                                onBlur={() => handleCommitRename(conn.id)}
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter") handleCommitRename(conn.id);
-                                  if (e.key === "Escape") setRenamingId(null);
+                      <>
+                        <TableRow
+                          className={cn(
+                            "cursor-pointer transition-colors hover:bg-muted",
+                            explorerConnectionId === conn.id && "bg-muted",
+                          )}
+                          onClick={() => renamingId !== conn.id && onEdit(conn.id)}
+                        >
+                          <TableCell className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                className={cn(
+                                  "shrink-0 text-sm transition-colors",
+                                  isFav
+                                    ? "text-warning"
+                                    : "text-[var(--text-tertiary)] hover:text-warning",
+                                )}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleFavoriteMutation.mutate({
+                                    id: conn.id,
+                                    favorite: !isFav,
+                                  });
                                 }}
-                                onClick={(e) => e.stopPropagation()}
-                                autoFocus
-                              />
-                            ) : (
-                              <span className="font-medium text-foreground">{conn.name}</span>
-                            )}
-                            {conn.readonly && (
-                              <Badge variant="outline" className="text-[11px]">
-                                {t("connection.readonly")}
-                              </Badge>
-                            )}
-                            {(conn.tags ?? []).map((tag) => (
-                              <Badge key={tag} variant="outline" className="text-[11px]">
-                                {tag}
-                              </Badge>
-                            ))}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-[var(--text-secondary)]">
-                          {conn.driver === "sqlite" ? conn.database : `${conn.host}:${conn.port}`}
-                        </TableCell>
-                        <TableCell className="text-[var(--text-secondary)]">
-                          {conn.driver === "sqlite" ? "\u2014" : conn.database}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline">{conn.driver}</Badge>
-                        </TableCell>
-                        <TableCell>
-                          <ConnectionStatusBadge status={status} />
-                        </TableCell>
-                        <TableCell className="px-4 py-3 text-right">
-                          <div
-                            className="flex justify-end gap-1"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            {status === "connected" ? (
-                              <>
+                                aria-label={t("connection.toggleFavorite")}
+                              >
+                                {isFav ? "★" : "☆"}
+                              </button>
+                              {conn.color && (
+                                <span
+                                  className="inline-block h-3 w-3 shrink-0 rounded-full"
+                                  style={{ backgroundColor: conn.color }}
+                                />
+                              )}
+                              {renamingId === conn.id ? (
+                                <input
+                                  className="h-6 w-full min-w-0 rounded border border-[var(--border-default)] bg-background px-1 text-sm text-foreground outline-none focus:border-primary"
+                                  value={renameValue}
+                                  onChange={(e) => setRenameValue(e.target.value)}
+                                  onBlur={() => handleCommitRename(conn.id)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") handleCommitRename(conn.id);
+                                    if (e.key === "Escape") setRenamingId(null);
+                                  }}
+                                  onClick={(e) => e.stopPropagation()}
+                                  autoFocus
+                                />
+                              ) : (
+                                <span className="font-medium text-foreground">{conn.name}</span>
+                              )}
+                              {conn.readonly && (
+                                <Badge variant="outline" className="text-[11px]">
+                                  {t("connection.readonly")}
+                                </Badge>
+                              )}
+                              {(conn.tags ?? []).map((tag) => (
+                                <Badge key={tag} variant="outline" className="text-[11px]">
+                                  {tag}
+                                </Badge>
+                              ))}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-[var(--text-secondary)]">
+                            {conn.driver === "sqlite" ? conn.database : `${conn.host}:${conn.port}`}
+                          </TableCell>
+                          <TableCell className="text-[var(--text-secondary)]">
+                            {conn.driver === "sqlite" ? "\u2014" : conn.database}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline">{conn.driver}</Badge>
+                          </TableCell>
+                          <TableCell>
+                            <ConnectionStatusBadge status={status} />
+                          </TableCell>
+                          <TableCell className="px-4 py-3 text-right">
+                            <div
+                              className="flex justify-end gap-1"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {status === "connected" ? (
+                                <>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-auto px-2 py-1 text-xs text-destructive"
+                                    onClick={() => disconnectMutation.mutate(conn.id)}
+                                    disabled={disconnectMutation.isPending}
+                                  >
+                                    {t("common.actions.disconnect")}
+                                  </Button>
+                                  {onBackup && (
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-auto px-2 py-1 text-xs text-primary"
+                                      onClick={() => onBackup(conn.id)}
+                                    >
+                                      {t("backup.title")}
+                                    </Button>
+                                  )}
+                                  {onRestore && (
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-auto px-2 py-1 text-xs text-[var(--text-secondary)]"
+                                      onClick={() => onRestore(conn.id)}
+                                    >
+                                      {t("backup.restoreTitle")}
+                                    </Button>
+                                  )}
+                                </>
+                              ) : (
                                 <Button
                                   type="button"
                                   variant="ghost"
                                   size="sm"
-                                  className="h-auto px-2 py-1 text-xs text-destructive"
-                                  onClick={() => disconnectMutation.mutate(conn.id)}
-                                  disabled={disconnectMutation.isPending}
+                                  className="h-auto px-2 py-1 text-xs text-primary"
+                                  onClick={() => connectMutation.mutate(conn.id)}
+                                  disabled={status === "connecting" || status === "reconnecting"}
                                 >
-                                  {t("common.actions.disconnect")}
+                                  {t("common.actions.connect")}
                                 </Button>
-                                {onBackup && (
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-auto px-2 py-1 text-xs text-primary"
-                                    onClick={() => onBackup(conn.id)}
-                                  >
-                                    {t("backup.title")}
-                                  </Button>
-                                )}
-                                {onRestore && (
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-auto px-2 py-1 text-xs text-[var(--text-secondary)]"
-                                    onClick={() => onRestore(conn.id)}
-                                  >
-                                    {t("backup.restoreTitle")}
-                                  </Button>
-                                )}
-                              </>
-                            ) : (
+                              )}
                               <Button
                                 type="button"
                                 variant="ghost"
                                 size="sm"
-                                className="h-auto px-2 py-1 text-xs text-primary"
-                                onClick={() => connectMutation.mutate(conn.id)}
-                                disabled={status === "connecting" || status === "reconnecting"}
+                                className="h-auto px-2 py-1 text-xs text-[var(--text-secondary)]"
+                                onClick={() => onEdit(conn.id)}
                               >
-                                {t("common.actions.connect")}
+                                {t("connection.edit")}
                               </Button>
-                            )}
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="h-auto px-2 py-1 text-xs text-[var(--text-secondary)]"
-                              onClick={() => onEdit(conn.id)}
-                            >
-                              {t("connection.edit")}
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="h-auto px-2 py-1 text-xs text-destructive"
-                              onClick={() => void handleDelete(conn.id)}
-                            >
-                              {t("common.actions.delete")}
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-auto px-2 py-1 text-xs text-destructive"
+                                onClick={() => {
+                                  if (confirm(t("connection.confirmDelete"))) {
+                                    deleteMutation.mutate(conn.id);
+                                  }
+                                }}
+                              >
+                                {t("common.actions.delete")}
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                        {connectionErrors[conn.id] && (
+                          <TableRow className="border-t border-[var(--border-subtle)] bg-destructive/5">
+                            <TableCell colSpan={6} className="px-4 py-2 text-xs text-destructive">
+                              {connectionErrors[conn.id]}
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </>
                     </ContextMenuTrigger>
-                    {connectionErrors[conn.id] && (
-                      <TableRow className="border-t border-[var(--border-subtle)] bg-destructive/5">
-                        <TableCell colSpan={6} className="px-4 py-2 text-xs text-destructive">
-                          {connectionErrors[conn.id]}
-                        </TableCell>
-                      </TableRow>
-                    )}
                     <ContextMenuContent>
                       <ContextMenuItem
                         onClick={() =>
@@ -504,14 +493,7 @@ export function ConnectionList({ onEdit, onBackup, onRestore }: ConnectionListPr
                       <ContextMenuItem onClick={() => handleStartRename(conn)}>
                         {t("connection.rename")}
                       </ContextMenuItem>
-                      <ContextMenuItem
-                        onClick={() =>
-                          duplicateMutation.mutate(conn.id, {
-                            onSuccess: () =>
-                              snackbar.info(t("connection.duplicateCredentialsNotice")),
-                          })
-                        }
-                      >
+                      <ContextMenuItem onClick={() => duplicateMutation.mutate(conn.id)}>
                         {t("connection.duplicate")}
                       </ContextMenuItem>
                       <ContextMenuItem
@@ -530,7 +512,11 @@ export function ConnectionList({ onEdit, onBackup, onRestore }: ConnectionListPr
                       <ContextMenuSeparator />
                       <ContextMenuItem
                         variant="destructive"
-                        onClick={() => void handleDelete(conn.id)}
+                        onClick={() => {
+                          if (confirm(t("connection.confirmDelete"))) {
+                            deleteMutation.mutate(conn.id);
+                          }
+                        }}
                       >
                         {t("common.actions.delete")}
                       </ContextMenuItem>

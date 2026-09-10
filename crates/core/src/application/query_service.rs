@@ -245,10 +245,6 @@ impl QueryService {
         self.saved_queries.delete(id).await
     }
 
-    pub async fn rename_saved_query(&self, id: &uuid::Uuid, name: &str) -> Result<(), DbError> {
-        self.saved_queries.rename(id, name).await
-    }
-
     pub async fn create_folder(&self, connection_id: &ConnectionId, name: &str) -> Result<SavedQueryFolder, DbError> {
         let folder = SavedQueryFolder {
             id: uuid::Uuid::new_v4(),

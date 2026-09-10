@@ -18,12 +18,3 @@ export interface BackupResult {
   outputPath: string;
   sizeBytes: number;
 }
-
-export interface BackupProgressEvent {
-  operation: BackupDialogOperation;
-  status: "started" | "completed" | "failed";
-  path: string;
-  message?: string;
-}
-
-export type BackupDialogOperation = "backup" | "restore";

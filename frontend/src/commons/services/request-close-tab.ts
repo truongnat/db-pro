@@ -21,21 +21,3 @@ export function requestCloseTab(id: string, opts?: { skipDirtyCheck?: boolean })
 
   useCloseGuardStore.getState().openDialog([id], 1);
 }
-
-export function requestCloseTabs(ids: string[]): void {
-  const { tabs } = useWorkspaceStore.getState();
-  const dirtyIds = ids.filter((id) => {
-    const tab = tabs.find((t) => t.id === id);
-    return tab ? hasUnsavedWork(id) : false;
-  });
-
-  if (dirtyIds.length === 0) {
-    for (const id of ids) {
-      useStagedChangesStore.getState().clearTab(id);
-    }
-    useWorkspaceStore.getState().closeTabs(ids);
-    return;
-  }
-
-  useCloseGuardStore.getState().openDialog(ids, dirtyIds.length);
-}

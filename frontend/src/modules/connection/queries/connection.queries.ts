@@ -314,9 +314,6 @@ export function useToggleFavorite() {
     onMutate: ({ id }) => {
       toggleFavoriteLocal(id);
     },
-    onError: (_error, { id }) => {
-      toggleFavoriteLocal(id);
-    },
     onSuccess: () => qc.invalidateQueries({ queryKey: QUERY_KEYS.connections }),
   });
 }

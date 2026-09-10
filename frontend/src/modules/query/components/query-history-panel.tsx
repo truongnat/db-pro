@@ -140,18 +140,14 @@ function HistoryEntryRow({
         >
           {fav ? "★" : "☆"}
         </button>
-        <button
-          type="button"
-          className="min-w-0 flex-1 cursor-pointer text-left"
-          onClick={onSelect}
-        >
+        <div className="min-w-0 flex-1 cursor-pointer" onClick={onSelect}>
           <div
             className={`truncate font-mono text-sm ${isError ? "text-destructive" : "text-foreground"}`}
             title={entry.sql}
           >
             {entry.sql}
           </div>
-        </button>
+        </div>
       </div>
 
       {/* Meta row */}
@@ -170,8 +166,8 @@ function HistoryEntryRow({
         )}
       </div>
 
-      {/* Action buttons (visible on hover/focus) */}
-      <div className="ml-6 mt-1 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+      {/* Action buttons (visible on hover) */}
+      <div className="ml-6 mt-1 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
         <Button
           type="button"
           variant="ghost"

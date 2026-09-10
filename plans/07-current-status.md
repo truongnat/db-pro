@@ -128,18 +128,19 @@ All 11 waves of the P2 Hardening Program are complete. See `docs/quality/p2-hard
 
 ### P1-1 — Exact-SHA automated verification is incomplete
 
-The known `tab-factories` test failure has been fixed in `120b250`. Frontend dependencies now use pnpm with a committed `frontend/pnpm-lock.yaml`; the frontend gates pass locally on the current SHA. Final Rust gates still need an exact-SHA rerun.
+The known `tab-factories` test failure has been fixed in `120b250`, and `typecheck`, `lint`, and `format:check` were reported green after `912588f`. However, the full Vitest suite and production frontend build have not been executed successfully at this exact release-train SHA. Final Rust gates also need an exact-SHA rerun.
 
 **Exit:** run and record exact results with 0 failures:
 
 ```bash
 cd frontend
-pnpm install --frozen-lockfile
-pnpm run typecheck
-pnpm run lint
-pnpm run format:check
-pnpm run test
-pnpm run build
+rm -rf node_modules
+npm ci
+npm run typecheck
+npm run lint
+npm run format:check
+npm run test
+npm run build
 
 cd ..
 cargo fmt --all --check

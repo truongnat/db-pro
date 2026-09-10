@@ -2,12 +2,13 @@ import { useThemeStore } from "@/commons/stores/theme.store";
 import type { AnyRouter } from "@tanstack/react-router";
 
 import { dispatchQueryAction } from "@/commons/commands/query-dispatch";
+import { useCloseGuardStore } from "@/commons/stores/close-guard.store";
 import { useConnectionStore } from "@/commons/stores/connection.store";
 import { useCommandStore } from "@/commons/stores/command.store";
 import { useQueryHistoryStore } from "@/commons/stores/query-history.store";
 import { useShellStore } from "@/commons/stores/shell.store";
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
-import { requestCloseTabs } from "@/commons/services/request-close-tab";
+import { useStagedChangesStore } from "@/modules/data-grid/state/staged-changes.store";
 import {
   createQueryTabFromExplorerContext,
   getActiveQueryTab,
@@ -31,6 +32,23 @@ export function registerAllCommands(_router: AnyRouter): void {
     const tab = getActiveQueryTab();
     return !!tab && tab.data.result !== null;
   };
+
+  function requestCloseMany(ids: string[]) {
+    const { tabs } = useWorkspaceStore.getState();
+    const stagedStore = useStagedChangesStore.getState();
+    const unsavedIds = ids.filter((id) => {
+      const tab = tabs.find((t) => t.id === id);
+      if (!tab) return false;
+      if (tab.dirty) return true;
+      return stagedStore.getCount(id) > 0;
+    });
+    if (unsavedIds.length === 0) {
+      for (const id of ids) stagedStore.clearTab(id);
+      useWorkspaceStore.getState().closeTabs(ids);
+    } else {
+      useCloseGuardStore.getState().openDialog(ids, unsavedIds.length);
+    }
+  }
 
   /**
    * Helper: create a Command from an Action, optionally adding a keybinding.
@@ -119,7 +137,7 @@ export function registerAllCommands(_router: AnyRouter): void {
         if (!activeTabId) return;
         const evictionIds = tabs.filter((t) => t.id !== activeTabId && !t.pinned).map((t) => t.id);
         if (evictionIds.length === 0) return;
-        requestCloseTabs(evictionIds);
+        requestCloseMany(evictionIds);
       },
     },
     {
@@ -138,7 +156,7 @@ export function registerAllCommands(_router: AnyRouter): void {
         const idx = tabs.findIndex((t) => t.id === activeTabId);
         const evictionIds = tabs.filter((t, i) => i > idx && !t.pinned).map((t) => t.id);
         if (evictionIds.length === 0) return;
-        requestCloseTabs(evictionIds);
+        requestCloseMany(evictionIds);
       },
     },
 

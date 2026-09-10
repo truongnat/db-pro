@@ -51,22 +51,18 @@ const LIGHT = {
   "surface-active": "#e2e8f0",
   "text-primary": "#0f172a",
   "text-secondary": "#475569",
-  "text-tertiary": "#5f6f82",
+  "text-tertiary": "#94a3b8",
   "border-subtle": "rgba(0, 0, 0, 0.06)",
   "border-default": "rgba(0, 0, 0, 0.12)",
   "border-strong": "rgba(0, 0, 0, 0.18)",
-  accent: "#4f46e5",
+  accent: "#6366f1",
   "accent-hover": "#4f46e5",
   "accent-soft": "rgba(99, 102, 241, 0.1)",
   "accent-foreground": "#ffffff",
   "state-success": "#059669",
-  "state-success-foreground": "#0f172a",
   "state-warning": "#d97706",
-  "state-warning-foreground": "#0f172a",
   "state-danger": "#ef4444",
-  "state-danger-foreground": "#0f172a",
   "state-info": "#3b82f6",
-  "state-info-foreground": "#0f172a",
   "elevation-lg": "0 8px 32px rgba(0, 0, 0, 0.1)",
   "elevation-popover": "0 4px 24px rgba(0, 0, 0, 0.12)",
 };
@@ -81,7 +77,7 @@ const DARK = {
   "surface-active": "rgba(148, 163, 184, 0.1)",
   "text-primary": "#e6edf7",
   "text-secondary": "#93a4ba",
-  "text-tertiary": "#8292a8",
+  "text-tertiary": "#66778f",
   "border-subtle": "rgba(148, 163, 184, 0.08)",
   "border-default": "rgba(148, 163, 184, 0.14)",
   "border-strong": "rgba(148, 163, 184, 0.22)",
@@ -90,13 +86,9 @@ const DARK = {
   "accent-soft": "rgba(91, 124, 255, 0.14)",
   "accent-foreground": "#ffffff",
   "state-success": "#39d98a",
-  "state-success-foreground": "#0f172a",
   "state-warning": "#f5b942",
-  "state-warning-foreground": "#0f172a",
   "state-danger": "#f05d6f",
-  "state-danger-foreground": "#0f172a",
   "state-info": "var(--accent)",
-  "state-info-foreground": "#0f172a",
   "elevation-lg": "0 8px 32px rgba(0, 0, 0, 0.55)",
   "elevation-popover": "0 4px 24px rgba(0, 0, 0, 0.5)",
 };
@@ -338,15 +330,7 @@ for (const m of css.matchAll(definedTokenRe)) {
 // Tailwind v4 arbitrary properties + its spacing() function are component-local;
 // a Node/jsdom CLI flag mentioned in a test-setup comment).
 const IGNORED_TOKEN_PREFIXES = ["--radix-"];
-const IGNORED_TOKEN_EXACT = new Set([
-  "--spacing",
-  "--card-spacing",
-  "--localstorage-file",
-  "--normal-bg",
-  "--normal-text",
-  "--normal-border",
-  "--border-radius",
-]);
+const IGNORED_TOKEN_EXACT = new Set(["--spacing", "--card-spacing", "--localstorage-file"]);
 
 const mentionRe = /--[a-zA-Z][a-zA-Z0-9-]*/g;
 for (const file of targets) {

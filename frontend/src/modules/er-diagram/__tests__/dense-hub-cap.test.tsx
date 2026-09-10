@@ -317,11 +317,11 @@ async function enterNeighborhoodViaSearch(container: HTMLElement) {
   await waitFor(() => {
     expect(screen.getAllByTestId("er-search-result").length).toBeGreaterThan(0);
   });
-  // Find the schema-qualified result whose label is exactly "hub" (not "hub_spoke_XXX").
-  // textContent includes metadata, so compare the first token before the metadata.
+  // Find the result whose label is exactly "hub" (not "hub_spoke_XXX").
+  // textContent includes metadata ("hub 10 cols · 0 FK"), so match by startsWith + no underscore.
   const results = screen.getAllByTestId("er-search-result");
   const hubResult = results.find(
-    (el) => el.textContent?.includes(".hub") && !el.textContent?.includes("hub_spoke_"),
+    (el) => el.textContent?.startsWith("hub") && !el.textContent?.includes("_"),
   );
   expect(hubResult, "hub table must appear in search results").toBeDefined();
   fireEvent.click(hubResult!);
