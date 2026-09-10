@@ -250,13 +250,17 @@ fn group_foreign_keys_for_ddl(foreign_keys: &[ForeignKey]) -> Vec<ForeignKeyDdlG
         .collect()
 }
 
+fn qualify_name(schema: &str, name: &str) -> String {
+    if schema.is_empty() {
+        quote_identifier(name)
+    } else {
+        format!("{}.{}", quote_identifier(schema), quote_identifier(name))
+    }
+}
+
 fn build_create_table_ddl(info: &TableInfo) -> String {
     let mut ddl = String::new();
-    let qualified = format!(
-        "{}.{}",
-        quote_identifier(&info.table.schema),
-        quote_identifier(&info.table.name)
-    );
+    let qualified = qualify_name(&info.table.schema, &info.table.name);
 
     ddl.push_str(&format!("CREATE TABLE {qualified} (\n"));
 
@@ -302,7 +306,7 @@ fn build_create_table_ddl(info: &TableInfo) -> String {
     }
 
     for fk in group_foreign_keys_for_ddl(&info.foreign_keys) {
-        let to_qualified = format!("{}.{}", quote_identifier(fk.to_schema), quote_identifier(fk.to_table));
+        let to_qualified = qualify_name(fk.to_schema, fk.to_table);
         let from_columns = fk
             .from_columns
             .iter()
@@ -332,11 +336,7 @@ fn format_trigger_ddl(trigger: &Trigger) -> String {
     if trigger.definition.to_ascii_uppercase().starts_with("CREATE TRIGGER") {
         format!("{};\n", trigger.definition)
     } else {
-        let qualified = format!(
-            "{}.{}",
-            quote_identifier(&trigger.schema),
-            quote_identifier(&trigger.table_name)
-        );
+        let qualified = qualify_name(&trigger.schema, &trigger.table_name);
         let trigger_stmt = format!(
             "CREATE TRIGGER {}\n  {} {} ON {}\n  {};\n",
             quote_identifier(&trigger.name),
@@ -619,6 +619,54 @@ mod tests {
         assert!(ddl.contains("CREATE TRIGGER"));
         assert!(ddl.contains("audit_insert"));
         assert!(ddl.contains("AFTER INSERT"));
+    }
+
+    #[test]
+    fn empty_schema_ddl_generation_omits_prefix() {
+        let info = TableInfo {
+            table: Table {
+                name: "users".into(),
+                schema: "".into(),
+                row_count: None,
+            },
+            columns: vec![Column {
+                name: "id".into(),
+                data_type: "INTEGER".into(),
+                nullable: false,
+                default: None,
+                is_primary_key: true,
+                table_name: "users".into(),
+                schema: "".into(),
+            }],
+            primary_key: None,
+            indexes: vec![],
+            foreign_keys: vec![ForeignKey {
+                name: "fk_parent".into(),
+                from_table: "users".into(),
+                from_columns: vec!["parent_id".into()],
+                to_table: "parents".into(),
+                to_columns: vec!["id".into()],
+                schema: "".into(),
+                to_schema: "".into(),
+            }],
+        };
+
+        let ddl = build_create_table_ddl(&info);
+        assert!(ddl.contains("CREATE TABLE \"users\""));
+        assert!(ddl.contains("REFERENCES \"parents\""));
+
+        let trigger = Trigger {
+            name: "tr_test".into(),
+            table_name: "users".into(),
+            schema: "".into(),
+            timing: "AFTER".into(),
+            event: "INSERT".into(),
+            definition: "EXECUTE FUNCTION test()".into(),
+            function_def: String::new(),
+            enabled: true,
+        };
+        let trigger_ddl = format_trigger_ddl(&trigger);
+        assert!(trigger_ddl.contains("AFTER INSERT ON \"users\""));
     }
 
     #[test]
