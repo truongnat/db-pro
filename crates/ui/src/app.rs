@@ -1,5 +1,5 @@
-use crate::DbProTheme;
-use eframe::egui::{self, Align, Color32, Layout, RichText, Sense, TextEdit, TopBottomPanel};
+use crate::{DbProTheme, TaskBridge, UiCommand, UiEvent};
+use eframe::egui::{self, Align, Color32, Layout, RichText, TextEdit, TopBottomPanel};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Activity {
@@ -27,6 +27,9 @@ pub struct DbProApp {
     connection_name: String,
     connected: bool,
     agent_input: String,
+    task_bridge: TaskBridge,
+    next_query_request: Option<crate::RequestId>,
+    runtime_message: String,
 }
 
 impl Default for DbProApp {
@@ -41,12 +44,16 @@ impl Default for DbProApp {
             connection_name: "Local PostgreSQL".to_owned(),
             connected: false,
             agent_input: String::new(),
+            task_bridge: TaskBridge::default(),
+            next_query_request: None,
+            runtime_message: "Ready".to_owned(),
         }
     }
 }
 
 impl eframe::App for DbProApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        self.apply_runtime_events();
         self.theme.apply(ctx);
         self.handle_shortcuts(ctx);
         self.draw_topbar(ctx);
@@ -70,6 +77,30 @@ impl eframe::App for DbProApp {
 }
 
 impl DbProApp {
+    fn apply_runtime_events(&mut self) {
+        let events: Vec<UiEvent> = self.task_bridge.drain_events().collect();
+        for event in events {
+            match event {
+                UiEvent::QueryQueued { request_id } => {
+                    self.next_query_request = Some(request_id);
+                    self.runtime_message = format!("Query queued · request {}", request_id.0);
+                }
+                UiEvent::QueryCompleted { request_id, row_count } => {
+                    if self.next_query_request == Some(request_id) {
+                        self.runtime_message = format!("Query completed · {row_count} rows");
+                        self.next_query_request = None;
+                    }
+                }
+                UiEvent::QueryFailed { request_id, message } => {
+                    if self.next_query_request == Some(request_id) {
+                        self.runtime_message = format!("Query failed · {message}");
+                        self.next_query_request = None;
+                    }
+                }
+            }
+        }
+    }
+
     fn handle_shortcuts(&mut self, ctx: &egui::Context) {
         if ctx.input(|i| i.key_pressed(egui::Key::P) && i.modifiers.command) {
             self.active_tab = WorkspaceTab::Query;
@@ -276,6 +307,13 @@ impl DbProApp {
             ui.label(RichText::new(&self.connection_name).color(self.theme.accent));
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                 if ui.button("Run  ⌘↵").clicked() {
+                    let request_id = self.task_bridge.next_request_id();
+                    self.next_query_request = Some(request_id);
+                    self.runtime_message = "Sending query to runtime…".to_owned();
+                    let _ = self.task_bridge.send(UiCommand::RunQuery {
+                        request_id,
+                        sql: self.query_text.clone(),
+                    });
                     self.connected = true;
                 }
                 ui.button("Format");
@@ -295,6 +333,7 @@ impl DbProApp {
         ui.horizontal(|ui| {
             ui.label(RichText::new("Results").strong());
             ui.label(RichText::new("0 rows").small().color(self.theme.text_muted));
+            ui.label(RichText::new(&self.runtime_message).small().color(self.theme.text_muted));
         });
         ui.add_space(8.0);
         egui::Frame::default().fill(self.theme.surface_panel).show(ui, |ui| {

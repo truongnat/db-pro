@@ -5,6 +5,7 @@
 - [x] Add runnable shell with responsive side panels.
 - [x] Add keyboard shortcuts for quick query and sidebar toggle.
 - [x] Add visual placeholder states for explorer, history, settings and agent panel.
+- [x] Add typed `UiCommand`/`UiEvent` task bridge and request identity scaffold.
 - [ ] Run Rust fmt/check/test once the Rust toolchain is available in the environment.
 - [ ] Manually review screenshots at 1280×800, 1440×900 and 1920×1080.
 - [ ] Wire the shell to the extracted backend facade.
