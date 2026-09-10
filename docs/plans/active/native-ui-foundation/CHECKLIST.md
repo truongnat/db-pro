@@ -19,4 +19,5 @@
 - [ ] Add benchmark coverage for million-row result metadata and scroll performance.
 - [ ] Run Rust fmt/check/test once the Rust toolchain is available in the environment.
 - [ ] Manually review screenshots at 1280×800, 1440×900 and 1920×1080.
-- [ ] Wire the shell to the extracted backend facade.
+- [x] Wire connection/query worker paths to typed runtime facades.
+- [ ] Move all remaining Tauri command wiring to the shared runtime facade.

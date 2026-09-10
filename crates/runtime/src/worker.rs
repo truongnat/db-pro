@@ -1,22 +1,13 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-use db_pro_core::domain::connection::{ConnectionId, DriverType};
 use db_pro_core::domain::query::QueryResult;
 use tokio::sync::{mpsc, oneshot};
 
-use crate::DbProRuntime;
+use crate::{ConnectionSummary, DbProRuntime};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct RuntimeRequestId(pub u64);
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ConnectionSummary {
-    pub id: String,
-    pub name: String,
-    pub driver: String,
-    pub readonly: bool,
-}
 
 #[derive(Debug)]
 pub enum RuntimeCommand {
@@ -73,26 +64,11 @@ pub fn spawn_worker(
         while let Some(command) = command_rx.recv().await {
             match command {
                 RuntimeCommand::ListConnections { request_id } => {
-                    let result = runtime.connections().list().await;
-                    let event = match result {
-                        Ok(connections) => RuntimeEvent::ConnectionsLoaded {
-                            request_id,
-                            connections: connections
-                                .into_iter()
-                                .map(|connection| ConnectionSummary {
-                                    id: connection.id.to_string(),
-                                    name: connection.config.name,
-                                    driver: match connection.config.driver {
-                                        DriverType::Postgres => "PostgreSQL".to_owned(),
-                                        DriverType::SQLite => "SQLite".to_owned(),
-                                    },
-                                    readonly: connection.config.readonly,
-                                })
-                                .collect(),
-                        },
+                    let event = match runtime.connection_api().list().await {
+                        Ok(connections) => RuntimeEvent::ConnectionsLoaded { request_id, connections },
                         Err(error) => RuntimeEvent::Failed {
                             request_id,
-                            message: error.to_string(),
+                            message: error.message,
                         },
                     };
                     let _ = event_tx.send(event).await;
@@ -101,20 +77,14 @@ pub fn spawn_worker(
                     request_id,
                     connection_id,
                 } => {
-                    let event = match ConnectionId::parse(&connection_id) {
-                        Ok(id) => match runtime.connections().connect(&id).await {
-                            Ok(_) => RuntimeEvent::Connected {
-                                request_id,
-                                connection_id,
-                            },
-                            Err(error) => RuntimeEvent::Failed {
-                                request_id,
-                                message: error.to_string(),
-                            },
+                    let event = match runtime.connection_api().connect(&connection_id).await {
+                        Ok(()) => RuntimeEvent::Connected {
+                            request_id,
+                            connection_id,
                         },
                         Err(error) => RuntimeEvent::Failed {
                             request_id,
-                            message: format!("invalid connection id: {error}"),
+                            message: error.message,
                         },
                     };
                     let _ = event_tx.send(event).await;
@@ -124,36 +94,30 @@ pub fn spawn_worker(
                     connection_id,
                     sql,
                 } => {
-                    let Some(connection_id) = ConnectionId::parse(&connection_id).ok() else {
-                        let _ = event_tx
-                            .send(RuntimeEvent::Failed {
-                                request_id,
-                                message: "invalid connection id".to_owned(),
-                            })
-                            .await;
-                        continue;
-                    };
                     let (cancel_tx, cancel_rx) = oneshot::channel();
                     cancellations
                         .lock()
                         .unwrap_or_else(|poisoned| poisoned.into_inner())
                         .insert(request_id, cancel_tx);
-                    let queries = runtime.queries();
+                    let query_api = runtime.query_api();
                     let event_tx = event_tx.clone();
                     let cancellations = Arc::clone(&cancellations);
                     tokio::spawn(async move {
                         let result = tokio::select! {
-                            result = queries.execute(&connection_id, &sql, &[], None, None) => result,
-                            _ = cancel_rx => Err(db_pro_core::domain::error::DbError::QueryCancelled),
+                            result = query_api.execute(&connection_id, &sql) => result,
+                            _ = cancel_rx => Err(crate::DbErrorDto {
+                                code: "QUERY_CANCELLED".to_owned(),
+                                message: "Query cancelled".to_owned(),
+                                message_id: "error.query.cancelled".to_owned(),
+                                retryable: false,
+                            }),
                         };
                         let event = match result {
                             Ok(result) => RuntimeEvent::QueryCompleted { request_id, result },
-                            Err(error) if matches!(error, db_pro_core::domain::error::DbError::QueryCancelled) => {
-                                RuntimeEvent::QueryCancelled { request_id }
-                            }
+                            Err(error) if error.code == "QUERY_CANCELLED" => RuntimeEvent::QueryCancelled { request_id },
                             Err(error) => RuntimeEvent::Failed {
                                 request_id,
-                                message: error.to_string(),
+                                message: error.message,
                             },
                         };
                         cancellations

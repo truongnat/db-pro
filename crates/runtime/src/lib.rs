@@ -1,6 +1,8 @@
+mod api;
 mod worker;
 
-pub use worker::{spawn_worker, ConnectionSummary, RuntimeCommand, RuntimeEvent, RuntimeRequestId};
+pub use api::{ConnectionApi, ConnectionSummary, DbErrorDto, QueryApi, SchemaApi};
+pub use worker::{spawn_worker, RuntimeCommand, RuntimeEvent, RuntimeRequestId};
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -85,11 +87,23 @@ impl DbProRuntime {
         Arc::clone(&self.connections)
     }
 
+    pub fn connection_api(&self) -> ConnectionApi {
+        ConnectionApi::new(self.connections())
+    }
+
     pub fn queries(&self) -> Arc<QueryService> {
         Arc::clone(&self.queries)
     }
 
+    pub fn query_api(&self) -> QueryApi {
+        QueryApi::new(self.queries())
+    }
+
     pub fn schema(&self) -> Arc<SchemaService> {
         Arc::clone(&self.schema)
+    }
+
+    pub fn schema_api(&self) -> SchemaApi {
+        SchemaApi::new(self.schema())
     }
 }
