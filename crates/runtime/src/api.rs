@@ -32,6 +32,10 @@ impl From<DbError> for DbErrorDto {
 pub struct ConnectionSummary {
     pub id: String,
     pub name: String,
+    pub host: String,
+    pub port: u16,
+    pub database: String,
+    pub username: String,
     pub driver: String,
     pub readonly: bool,
 }
@@ -248,6 +252,10 @@ fn summary_from_connection(connection: db_pro_core::domain::connection::Connecti
     ConnectionSummary {
         id: connection.id.to_string(),
         name: connection.config.name,
+        host: connection.config.host,
+        port: connection.config.port,
+        database: connection.config.database,
+        username: connection.config.username,
         driver: match connection.config.driver {
             DriverType::Postgres => "PostgreSQL".to_owned(),
             DriverType::SQLite => "SQLite".to_owned(),

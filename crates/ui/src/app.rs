@@ -45,8 +45,10 @@ pub struct DbProApp {
     active_connection_id: Option<String>,
     connections_requested: bool,
     connection_dialog_open: bool,
+    editing_connection_id: Option<String>,
     connection_draft: UiConnectionDraft,
     connection_error: String,
+    delete_confirmation_id: Option<String>,
 }
 
 impl DbProApp {
@@ -104,8 +106,10 @@ impl Default for DbProApp {
             active_connection_id: None,
             connections_requested: false,
             connection_dialog_open: false,
+            editing_connection_id: None,
             connection_draft: UiConnectionDraft::default(),
             connection_error: String::new(),
+            delete_confirmation_id: None,
         }
     }
 }
@@ -142,6 +146,9 @@ impl eframe::App for DbProApp {
         if self.connection_dialog_open {
             self.draw_connection_dialog(ctx);
         }
+        if self.delete_confirmation_id.is_some() {
+            self.draw_delete_confirmation(ctx);
+        }
     }
 }
 
@@ -169,8 +176,13 @@ impl DbProApp {
                 UiEvent::OperationCompleted { operation, .. } => {
                     self.runtime_message = operation.clone();
                     self.connections_requested = false;
-                    if operation == "connection.created" {
+                    if operation == "connection.created" || operation == "connection.updated" {
                         self.connection_dialog_open = false;
+                        self.editing_connection_id = None;
+                    }
+                    if operation == "connection.deleted" {
+                        self.active_connection_id = None;
+                        self.connected = false;
                     }
                 }
                 UiEvent::Connected { connection_id, .. } => {
@@ -375,13 +387,11 @@ impl DbProApp {
                         self.runtime_message = format!("Connecting to {}…", connection.name);
                     }
                     ui.label(RichText::new(connection.driver.as_str()).small().color(self.theme.accent));
+                    if is_active && ui.small_button("Edit").clicked() {
+                        self.open_edit_connection(&connection);
+                    }
                     if is_active && ui.small_button("×").on_hover_text("Delete connection").clicked() {
-                        let request_id = self.task_bridge.next_request_id();
-                        let _ = self.task_bridge.send(UiCommand::DeleteConnection {
-                            request_id,
-                            connection_id: connection.id.clone(),
-                        });
-                        self.runtime_message = format!("Deleting {}…", connection.name);
+                        self.delete_confirmation_id = Some(connection.id.clone());
                     }
                 });
             }
@@ -399,6 +409,7 @@ impl DbProApp {
         }
         ui.add_space(16.0);
         if ui.button("＋  New connection").clicked() {
+            self.editing_connection_id = None;
             self.connection_draft = UiConnectionDraft::default();
             self.connection_error.clear();
             self.connection_dialog_open = true;
@@ -698,15 +709,65 @@ impl DbProApp {
         }
     }
 
+    fn open_edit_connection(&mut self, connection: &UiConnectionSummary) {
+        self.editing_connection_id = Some(connection.id.clone());
+        self.connection_draft = UiConnectionDraft {
+            name: connection.name.clone(),
+            host: connection.host.clone(),
+            port: connection.port.to_string(),
+            database: connection.database.clone(),
+            username: connection.username.clone(),
+            password: String::new(),
+            driver: if connection.driver == "SQLite" { UiDriver::Sqlite } else { UiDriver::Postgres },
+            readonly: connection.readonly,
+        };
+        self.connection_error = "Enter the password again to save changes".to_owned();
+        self.connection_dialog_open = true;
+    }
+
+    fn draw_delete_confirmation(&mut self, ctx: &egui::Context) {
+        let Some(connection_id) = self.delete_confirmation_id.clone() else { return };
+        let name = self
+            .connections
+            .iter()
+            .find(|connection| connection.id == connection_id)
+            .map(|connection| connection.name.clone())
+            .unwrap_or_else(|| "this connection".to_owned());
+        egui::Window::new("Delete connection")
+            .collapsible(false)
+            .resizable(false)
+            .default_width(360.0)
+            .show(ctx, |ui| {
+                ui.label(format!("Delete {name} and its saved credentials?"));
+                ui.add_space(10.0);
+                ui.colored_label(self.theme.warning, "This action cannot be undone.");
+                ui.horizontal(|ui| {
+                    if ui.button("Delete").clicked() {
+                        let request_id = self.task_bridge.next_request_id();
+                        let _ = self.task_bridge.send(UiCommand::DeleteConnection {
+                            request_id,
+                            connection_id: connection_id.clone(),
+                        });
+                        self.runtime_message = format!("Deleting {name}…");
+                        self.delete_confirmation_id = None;
+                    }
+                    if ui.button("Cancel").clicked() {
+                        self.delete_confirmation_id = None;
+                    }
+                });
+            });
+    }
+
     fn draw_connection_dialog(&mut self, ctx: &egui::Context) {
         let mut open = self.connection_dialog_open;
-        egui::Window::new("New connection")
+        let title = if self.editing_connection_id.is_some() { "Edit connection" } else { "New connection" };
+        egui::Window::new(title)
             .open(&mut open)
             .collapsible(false)
             .resizable(false)
             .default_width(460.0)
             .show(ctx, |ui| {
-                ui.label(RichText::new("Create a safe database connection").color(self.theme.text_secondary));
+                ui.label(RichText::new(if self.editing_connection_id.is_some() { "Update a safe database connection" } else { "Create a safe database connection" }).color(self.theme.text_secondary));
                 ui.add_space(10.0);
                 ui.horizontal(|ui| {
                     ui.label("Driver");
@@ -759,7 +820,7 @@ impl DbProApp {
             self.connection_error = "Name and database are required".to_owned();
             return;
         }
-        if self.connection_draft.driver == UiDriver::Postgres && self.connection_draft.password.is_empty() {
+        if save && self.connection_draft.driver == UiDriver::Postgres && self.connection_draft.password.is_empty() {
             self.connection_error = "Password is required for PostgreSQL".to_owned();
             return;
         }
@@ -770,7 +831,15 @@ impl DbProApp {
         let request_id = self.task_bridge.next_request_id();
         let draft = self.connection_draft.clone();
         let command = if save {
-            UiCommand::CreateConnection { request_id, draft }
+            if let Some(connection_id) = self.editing_connection_id.clone() {
+                UiCommand::UpdateConnection {
+                    request_id,
+                    connection_id,
+                    draft,
+                }
+            } else {
+                UiCommand::CreateConnection { request_id, draft }
+            }
         } else {
             UiCommand::TestConnection { request_id, draft }
         };

@@ -42,6 +42,10 @@ impl Default for UiConnectionDraft {
 pub struct UiConnectionSummary {
     pub id: String,
     pub name: String,
+    pub host: String,
+    pub port: u16,
+    pub database: String,
+    pub username: String,
     pub driver: String,
     pub readonly: bool,
 }
@@ -56,6 +60,11 @@ pub enum UiCommand {
     },
     CreateConnection {
         request_id: RequestId,
+        draft: UiConnectionDraft,
+    },
+    UpdateConnection {
+        request_id: RequestId,
+        connection_id: String,
         draft: UiConnectionDraft,
     },
     TestConnection {

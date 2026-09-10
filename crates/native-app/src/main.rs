@@ -108,6 +108,15 @@ fn translate_command(command: UiCommand) -> Option<RuntimeCommand> {
                 password,
             })
         }
+        UiCommand::UpdateConnection { request_id, connection_id, draft } => {
+            let (config, password) = draft_to_domain(draft)?;
+            Some(RuntimeCommand::UpdateConnection {
+                request_id: RuntimeRequestId(request_id.0),
+                connection_id,
+                config,
+                password: Some(password),
+            })
+        }
         UiCommand::TestConnection { request_id, draft } => {
             let (config, password) = draft_to_domain(draft)?;
             Some(RuntimeCommand::TestConnection {
@@ -175,6 +184,10 @@ fn translate_event(event: RuntimeEvent) -> Option<UiEvent> {
                 .map(|connection| UiConnectionSummary {
                     id: connection.id,
                     name: connection.name,
+                    host: connection.host,
+                    port: connection.port,
+                    database: connection.database,
+                    username: connection.username,
                     driver: connection.driver,
                     readonly: connection.readonly,
                 })
