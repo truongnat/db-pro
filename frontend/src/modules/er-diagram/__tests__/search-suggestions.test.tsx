@@ -40,20 +40,4 @@ describe("ErSearchEntry suggested starting points", () => {
 
     expect(onSelectTable).toHaveBeenCalledWith("public.hub");
   });
-
-  it("shows schema-qualified candidates for duplicate table names", () => {
-    const duplicateModel = {
-      ...model,
-      tables: [
-        ...model.tables,
-        { id: "sales.orders", label: "orders", schema: "sales", columnCount: 3, fkCount: 0 },
-      ],
-    };
-    render(<ErSearchEntry model={duplicateModel} onSelectTable={vi.fn()} />);
-
-    fireEvent.change(screen.getByTestId("er-search-input"), { target: { value: "orders" } });
-
-    expect(screen.getByText("public.orders")).toBeInTheDocument();
-    expect(screen.getByText("sales.orders")).toBeInTheDocument();
-  });
 });

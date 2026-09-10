@@ -2,7 +2,6 @@ import { Boxes, Layers, Table2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { useTranslation } from "@/commons/locales/useTranslation";
 
 import type { NeighborhoodScope } from "../utils/neighborhood";
 
@@ -15,11 +14,11 @@ export interface OverviewExplorerProps {
   onSelectHops: (hops: NeighborhoodScope) => void;
 }
 
-const HOP_SCOPES: { value: NeighborhoodScope; key: string }[] = [
-  { value: 1, key: "oneHop" },
-  { value: 2, key: "twoHops" },
-  { value: 3, key: "threeHops" },
-  { value: "domain", key: "domain" },
+const HOP_SCOPES: { value: NeighborhoodScope; label: string }[] = [
+  { value: 1, label: "1 hop" },
+  { value: 2, label: "2 hops" },
+  { value: 3, label: "3 hops" },
+  { value: "domain", label: "Domain" },
 ];
 
 /**
@@ -38,31 +37,24 @@ export function OverviewExplorer({
   hops,
   onSelectHops,
 }: OverviewExplorerProps) {
-  const { t } = useTranslation();
   return (
     <div className="flex items-center gap-2 rounded-md border border-[var(--border-default)] bg-popover p-1.5 shadow-sm">
       <div className="flex items-center gap-1">
         <Badge variant="outline" className="h-5 gap-1 px-1.5 text-[10px]">
           <Table2 className="h-2.5 w-2.5" />
-          <span aria-label={t("schemaWorkspace.tableCount", { count: totalTables })}>
-            {totalTables}
-          </span>
+          {totalTables}
         </Badge>
         <Badge variant="outline" className="h-5 gap-1 px-1.5 text-[10px]">
           <Layers className="h-2.5 w-2.5" />
-          <span aria-label={t("schemaWorkspace.relationCount", { count: relationCount })}>
-            {relationCount}
-          </span>
+          {relationCount}
         </Badge>
         <Badge variant="outline" className="h-5 gap-1 px-1.5 text-[10px]">
           <Boxes className="h-2.5 w-2.5" />
-          <span aria-label={t("schemaWorkspace.columnCount", { count: columnCount })}>
-            {columnCount}
-          </span>
+          {columnCount}
         </Badge>
       </div>
       <span className="px-0.5 text-[10px] font-medium text-[var(--text-secondary)]">
-        {t("schemaWorkspace.highlight")}
+        Highlight:
       </span>
       <div className="flex items-center gap-0.5">
         {HOP_SCOPES.map((s) => (
@@ -74,7 +66,7 @@ export function OverviewExplorer({
             className="h-6 px-1.5 text-[10px]"
             onClick={() => onSelectHops(s.value)}
           >
-            {t(`schemaWorkspace.hops.${s.key}`)}
+            {s.label}
           </Button>
         ))}
       </div>

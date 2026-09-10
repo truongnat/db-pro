@@ -287,10 +287,6 @@ fn cell_to_param(cell: &CellValue) -> QueryParam {
         CellValue::Bytes(v) => QueryParam::Bytes(v.clone()),
         CellValue::Uuid(v) => QueryParam::Uuid(v.clone()),
         CellValue::DateTime(v) => QueryParam::DateTime(v.clone()),
-        CellValue::Date(v) => QueryParam::Text(v.clone()),
-        CellValue::Time(v) => QueryParam::Text(v.clone()),
-        CellValue::Interval(v) => QueryParam::Text(v.clone()),
-        CellValue::Inet(v) => QueryParam::Text(v.clone()),
         CellValue::Json(v) => QueryParam::Json(v.clone()),
     }
 }

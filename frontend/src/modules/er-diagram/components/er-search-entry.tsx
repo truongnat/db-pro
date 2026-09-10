@@ -3,7 +3,6 @@ import { Search, Table2 } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { useTranslation } from "@/commons/locales/useTranslation";
 
 import type { ErGraphModel } from "../renderer/types";
 import { findTableMatches } from "../utils/overview-search";
@@ -25,11 +24,10 @@ interface ErSearchEntryProps {
  * construction, layout computation, or renderer mounting.
  */
 export function ErSearchEntry({ model, onSelectTable }: ErSearchEntryProps) {
-  const { t } = useTranslation();
   const [query, setQuery] = useState("");
   const [highlightedIndex, setHighlightedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
-  const listRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLUListElement>(null);
 
   // Deterministic filtered results — model order, case-insensitive match.
   const results = useMemo(() => {
@@ -111,7 +109,7 @@ export function ErSearchEntry({ model, onSelectTable }: ErSearchEntryProps) {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={t("schemaWorkspace.searchTables")}
+            placeholder="Search tables..."
             className="h-10 rounded-md pl-9 text-sm"
             data-testid="er-search-input"
           />
@@ -121,16 +119,17 @@ export function ErSearchEntry({ model, onSelectTable }: ErSearchEntryProps) {
         <div className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
           <Badge variant="outline" className="h-6 gap-1 text-[11px]">
             <Table2 className="h-3 w-3" />
-            {t("schemaWorkspace.tableCount", { count: model.tables.length })}
+            {model.tables.length} tables
           </Badge>
-          <span>{t("schemaWorkspace.relationCount", { count: model.relations.length })}</span>
+          <span>{model.relations.length} relations</span>
         </div>
 
         {/* Results / suggestions list */}
         {displayItems.length > 0 && (
-          <div
+          <ul
             ref={listRef}
             className="flex max-h-64 flex-col gap-0.5 overflow-y-auto rounded-md border bg-popover p-1"
+            role="listbox"
             data-testid="er-search-results"
           >
             {displayItems.map((tableKey, i) => {
@@ -138,43 +137,36 @@ export function ErSearchEntry({ model, onSelectTable }: ErSearchEntryProps) {
               const isHighlighted = i === highlightedIndex;
 
               return (
-                <button
-                  type="button"
+                <li
                   key={tableKey}
-                  aria-current={isHighlighted ? "true" : undefined}
-                  className={`w-full cursor-pointer rounded px-2 py-1.5 text-left text-sm ${
+                  role="option"
+                  aria-selected={isHighlighted}
+                  className={`cursor-pointer rounded px-2 py-1.5 text-sm ${
                     isHighlighted ? "bg-accent text-accent-foreground" : "hover:bg-accent/50"
                   }`}
                   data-testid="er-search-result"
                   onClick={() => onSelectTable(tableKey)}
                   onMouseEnter={() => setHighlightedIndex(i)}
                 >
-                  <span className="font-medium">
-                    {table ? `${table.schema}.${table.label}` : tableKey}
-                  </span>
+                  <span className="font-medium">{table?.label ?? tableKey}</span>
                   {table && (
                     <span className="ml-2 text-xs text-[var(--text-secondary)]">
-                      {t("schemaWorkspace.tableDetails", {
-                        columns: table.columnCount,
-                        foreignKeys: table.fkCount,
-                      })}
+                      {table.columnCount} cols · {table.fkCount} FK
                     </span>
                   )}
                   {!isShowingResults && (
-                    <span className="ml-2 text-xs text-[var(--text-secondary)]">
-                      {t("schemaWorkspace.suggested")}
-                    </span>
+                    <span className="ml-2 text-xs text-[var(--text-secondary)]">suggested</span>
                   )}
-                </button>
+                </li>
               );
             })}
-          </div>
+          </ul>
         )}
 
         {/* Empty state */}
         {query.trim() && results.length === 0 && (
           <p className="text-center text-xs text-[var(--text-secondary)]">
-            {t("schemaWorkspace.noTablesMatch", { query })}
+            No tables match "{query}"
           </p>
         )}
       </div>

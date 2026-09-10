@@ -104,10 +104,6 @@ export class QueryService {
     return apiInvoke<void>("delete_folder", { id });
   }
 
-  async renameSaved(id: string, name: string): Promise<void> {
-    return apiInvoke<void>("rename_saved_query", { id, name });
-  }
-
   async saveRunConfig(
     connectionId: string,
     name: string,

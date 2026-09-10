@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { reassignOrphanedTab } from "@/commons/components/workspace-content";
 import { createDbObjectTab, createSchemaWorkspaceTab } from "@/commons/factories/tab-factories";
 import { useConnectionStore } from "@/commons/stores/connection.store";
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
@@ -24,7 +23,7 @@ function connection(id: string, driver: DriverType): Connection {
 
 function resetStores() {
   useWorkspaceStore.setState({ tabs: [], activeTabId: null, recentlyClosed: [] });
-  useConnectionStore.setState({ connections: [], explorerConnectionId: null });
+  useConnectionStore.setState({ connections: [] });
   useStagedChangesStore.getState().clearAll();
 }
 
@@ -105,19 +104,5 @@ describe("workspace connection reassignment", () => {
     expect(reassigned.data.schema).toBe("main");
     expect(reassigned.title).toBe("ER: main");
     expect(reassigned.resourceKey).toBe(`schema-ws:main:${target.id}`);
-  });
-
-  it("closes an orphaned object tab and selects the target for a fresh resource pick", () => {
-    const target = connection("pg-target", "postgres");
-    useConnectionStore.setState({ connections: [target] });
-
-    const tab = createDbObjectTab("missing-source", "public", "users", "table", "columns", false);
-    useWorkspaceStore.setState({ tabs: [tab], activeTabId: tab.id });
-
-    reassignOrphanedTab(tab.id, target.id);
-
-    expect(useConnectionStore.getState().explorerConnectionId).toBe(target.id);
-    expect(useWorkspaceStore.getState().tabs).toHaveLength(0);
-    expect(useWorkspaceStore.getState().recentlyClosed[0]?.id).toBe(tab.id);
   });
 });

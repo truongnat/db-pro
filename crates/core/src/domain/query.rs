@@ -61,14 +61,6 @@ pub enum CellValue {
     Uuid(String),
     #[serde(rename = "datetime")]
     DateTime(String),
-    #[serde(rename = "date")]
-    Date(String),
-    #[serde(rename = "time")]
-    Time(String),
-    #[serde(rename = "interval")]
-    Interval(String),
-    #[serde(rename = "inet")]
-    Inet(String),
     #[serde(rename = "json")]
     Json(serde_json::Value),
 }

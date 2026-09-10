@@ -8,7 +8,6 @@ import { executeAction } from "@/commons/actions/bus";
 import { useActionConfirmationStore } from "@/commons/stores/action-confirmation.store";
 import { useSchemaCatalogStore } from "../stores/schema-catalog.store";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useSnackbar } from "@/app/providers/snackbar.provider";
 import { useConfirmDialog } from "@/app/providers/confirm-dialog.provider";
 import { ExportDialog } from "@/modules/export/components/export-dialog";
@@ -64,7 +63,6 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
   const executionStartedAt = tabData?.executionStartedAt ?? null;
 
   const panelTab = tabData?.activePanel ?? "results";
-  const hasResults = (result?.columns?.length ?? 0) > 0;
   const [historySearch, setHistorySearch] = useState("");
   const [exportOpen, setExportOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -160,8 +158,6 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
         const ok = await confirm({
           title: t("query.dirtyReplaceConfirm"),
           message: t("query.dirtyReplaceConfirm"),
-          confirmLabel: t("common.actions.confirm"),
-          cancelLabel: t("common.actions.cancel"),
         });
         if (!ok) return;
       }
@@ -183,8 +179,6 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
             const ok = await confirm({
               title: t("query.dirtyReplaceConfirm"),
               message: t("query.dirtyReplaceConfirm"),
-              confirmLabel: t("common.actions.confirm"),
-              cancelLabel: t("common.actions.cancel"),
             });
             if (!ok) return;
           }
@@ -260,6 +254,22 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
     { id: "messages" as const, label: t("query.messages") },
   ];
 
+  const renderTabButton = (tab: { id: typeof panelTab; label: string }) => (
+    <button
+      key={tab.id}
+      type="button"
+      className={`relative h-full px-3.5 text-[13px] transition-colors ${
+        panelTab === tab.id
+          ? "font-medium text-foreground"
+          : "text-[var(--text-secondary)] hover:text-foreground"
+      }`}
+      onClick={() => setTabActivePanel(tabId, tab.id)}
+    >
+      {tab.label}
+      {panelTab === tab.id && <span className="absolute inset-x-3 bottom-0 h-[2px] bg-primary" />}
+    </button>
+  );
+
   const secondaryTabLabels: Record<
     string,
     { label: string; icon: React.ComponentType<{ className?: string }> }
@@ -288,7 +298,6 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
         isExplaining={isExplaining}
         hasConnection={!!tabConnectionId}
         hasSql={!!sql.trim()}
-        hasResults={hasResults}
       />
 
       <ResizableDock>
@@ -304,64 +313,39 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col">
-          <Tabs
-            value={panelTab}
-            onValueChange={(v) => setTabActivePanel(tabId, v as typeof panelTab)}
-          >
-            <TabsList
-              variant="line"
-              className="h-[34px] w-full justify-start overflow-x-auto rounded-none border-b border-[var(--border-subtle)] bg-[var(--surface-nav)] px-0"
-            >
-              {primaryTabs.map((tab) => (
-                <TabsTrigger
-                  key={tab.id}
-                  value={tab.id}
-                  aria-controls={`query-panel-${tabId}`}
-                  className="h-full rounded-none px-3.5 text-[13px] font-medium"
+          <div className="flex h-[34px] items-center border-b border-[var(--border-subtle)] bg-[var(--surface-nav)]">
+            {primaryTabs.map(renderTabButton)}
+            <div className="flex-1" />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className={`flex h-full items-center gap-1 px-3 text-[13px] transition-colors ${
+                    ["history", "local-history", "snippets"].includes(panelTab)
+                      ? "font-medium text-foreground"
+                      : "text-[var(--text-secondary)] hover:text-foreground"
+                  }`}
                 >
-                  {tab.label}
-                </TabsTrigger>
-              ))}
-              <div className="flex-1" />
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    type="button"
-                    aria-controls={`query-panel-${tabId}`}
-                    aria-label={t("tabs.more")}
-                    className={`flex h-full items-center gap-1 px-3 text-[13px] transition-colors ${
-                      ["history", "local-history", "snippets"].includes(panelTab)
-                        ? "font-medium text-foreground"
-                        : "text-[var(--text-secondary)] hover:text-foreground"
-                    }`}
+                  {secondaryTabLabels[panelTab]?.label ?? "More"}
+                  <ChevronDown className="h-3 w-3 opacity-60" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="min-w-[180px]">
+                {Object.entries(secondaryTabLabels).map(([id, { label, icon: Icon }]) => (
+                  <DropdownMenuItem
+                    key={id}
+                    className="h-[30px]"
+                    onClick={() => setTabActivePanel(tabId, id as typeof panelTab)}
                   >
-                    {secondaryTabLabels[panelTab]?.label ?? t("tabs.more")}
-                    <ChevronDown className="h-3 w-3 opacity-60" />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="min-w-[180px]">
-                  {Object.entries(secondaryTabLabels).map(([id, { label, icon: Icon }]) => (
-                    <DropdownMenuItem
-                      key={id}
-                      className="h-[30px]"
-                      onClick={() => setTabActivePanel(tabId, id as typeof panelTab)}
-                    >
-                      <Icon className="mr-2 h-3.5 w-3.5" />
-                      {label}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </TabsList>
-          </Tabs>
+                    <Icon className="mr-2 h-3.5 w-3.5" />
+                    {label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
 
-          <div
-            id={`query-panel-${tabId}`}
-            role="tabpanel"
-            tabIndex={0}
-            aria-label={secondaryTabLabels[panelTab]?.label ?? t("tabs.more")}
-            className="min-h-0 flex-1 outline-none"
-          >
+          <div className="min-h-0 flex-1">
             {status === "error" && error && panelTab === "results" && (
               <div className="flex flex-col items-start justify-center px-6 py-6">
                 <div className="mb-2 flex items-center gap-2">
@@ -407,11 +391,9 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
                 <div className="mb-3 grid h-9 w-9 place-items-center rounded-lg bg-[var(--surface-panel)]">
                   <Database className="h-4 w-4 text-[var(--text-secondary)]" />
                 </div>
-                <p className="mb-1 text-[13px] font-medium text-foreground">
-                  {t("query.noQueryResults")}
-                </p>
+                <p className="mb-1 text-[13px] font-medium text-foreground">No query results yet</p>
                 <p className="text-[12px] text-[var(--text-secondary)]">
-                  {t("query.runStatementHint")}
+                  Run the current statement to see results here.
                 </p>
               </div>
             )}
@@ -424,9 +406,7 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
                   <div className="grid h-7 w-7 place-items-center rounded-md bg-destructive/15">
                     <span className="text-[13px] font-bold text-destructive">!</span>
                   </div>
-                  <p className="text-[13px] font-medium text-foreground">
-                    {t("query.explainFailed")}
-                  </p>
+                  <p className="text-[13px] font-medium text-foreground">Explain failed</p>
                 </div>
                 <p className="mb-4 max-w-lg text-[13px] leading-relaxed text-[var(--text-secondary)]">
                   {explainError}
@@ -449,10 +429,10 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
                   <HelpCircle className="h-4 w-4 text-[var(--text-secondary)]" />
                 </div>
                 <p className="mb-1 text-[13px] font-medium text-foreground">
-                  {t("query.noExecutionPlan")}
+                  No execution plan yet
                 </p>
                 <p className="mb-4 max-w-xs text-center text-[12px] leading-relaxed text-[var(--text-secondary)]">
-                  {t("query.explainPlanHint")}
+                  Run Explain to inspect how PostgreSQL plans the current statement.
                 </p>
                 <Button
                   variant="outline"
@@ -473,12 +453,12 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
                   <>
                     <div className="flex items-center gap-2 text-[13px] text-foreground">
                       <span className="h-2 w-2 rounded-full bg-[var(--state-success)]" />
-                      {t("query.completed")}
+                      Query completed
                     </div>
                     <div className="flex flex-col gap-1 text-[12px] text-[var(--text-secondary)]">
                       <span>{t("query.rowsAffected", { count: result?.rowCount ?? 0 })}</span>
                       <span>{t("query.duration", { duration: timing.totalMs })}</span>
-                      {timing.serverMs > 0 && t("query.serverTime", { duration: timing.serverMs })}
+                      {timing.serverMs > 0 && <span>Server: {timing.serverMs}ms</span>}
                     </div>
                   </>
                 ) : status === "error" ? (
@@ -489,12 +469,10 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
                 ) : status === "cancelled" ? (
                   <div className="flex items-center gap-2 text-[13px] text-[var(--text-secondary)]">
                     <span className="h-2 w-2 rounded-full bg-[var(--text-tertiary)]" />
-                    {t("query.executionCancelled")}
+                    Execution cancelled
                   </div>
                 ) : (
-                  <div className="text-[13px] text-[var(--text-secondary)]">
-                    {t("query.noMessages")}
-                  </div>
+                  <div className="text-[13px] text-[var(--text-secondary)]">No messages yet.</div>
                 )}
               </div>
             )}

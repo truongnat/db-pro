@@ -127,76 +127,76 @@ Scale evidence:
 ## Gate 5 — QA-W5 Provider type matrix
 
 ### QA-P1-14 PostgreSQL non-basic types
-- [x] Define supported PostgreSQL result type matrix
-- [x] NUMERIC/DECIMAL has lossless representation
-- [x] BIGINT shares lossless integer contract
-- [x] DATE
-- [x] TIME/TIMETZ
-- [x] TIMESTAMP/TIMESTAMPTZ
-- [x] INTERVAL
-- [x] INET
-- [x] UUID
-- [x] JSON/JSONB
-- [x] BYTEA
+- [ ] Define supported PostgreSQL result type matrix
+- [ ] NUMERIC/DECIMAL has lossless representation
+- [ ] BIGINT shares lossless integer contract
+- [ ] DATE
+- [ ] TIME/TIMETZ
+- [ ] TIMESTAMP/TIMESTAMPTZ
+- [ ] INTERVAL
+- [ ] INET
+- [ ] UUID
+- [ ] JSON/JSONB
+- [ ] BYTEA
 - [ ] enum/domain behavior
 - [ ] arrays behavior or explicit unsupported UI
-- [x] unsupported type cannot crash/fail whole result without actionable reason where safe fallback exists
+- [ ] unsupported type cannot crash/fail whole result without actionable reason where safe fallback exists
 
 ## Gate 6 — P2 Workspace/Shell
 
-- [x] QA-P2-01 canonical pinned tab ordering
-- [x] QA-P2-02 platform shortcut labels in tab context menu
-- [x] QA-P2-03 conditional macOS traffic-light inset
-- [x] QA-P2-04 visible Agent Preview/Coming Soon state
-- [x] QA-P2-05 platform-correct Agent shortcut hint
-- [x] QA-P2-06 migrate product-visible hardcoded English to i18n
+- [ ] QA-P2-01 canonical pinned tab ordering
+- [ ] QA-P2-02 platform shortcut labels in tab context menu
+- [ ] QA-P2-03 conditional macOS traffic-light inset
+- [ ] QA-P2-04 visible Agent Preview/Coming Soon state
+- [ ] QA-P2-05 platform-correct Agent shortcut hint
+- [ ] QA-P2-06 migrate product-visible hardcoded English to i18n
 
 ## Gate 7 — P2 Data Grid
 
-- [x] QA-P2-07 Columns checkbox toggles once per click
-- [x] QA-P2-08 readonly connection disables edit/delete affordances early
-- [x] QA-P2-09 context menu viewport clamp + Escape + outside click + focus semantics
-- [x] QA-P2-10 keyboard-accessible resize
-- [x] QA-P2-11 resize cleanup on unmount/interruption
-- [x] QA-P2-12 large result sort budget / threshold strategy
-- [x] QA-P2-13 SearchView debounce/index/virtualization where needed
-- [x] QA-P2-14 Explorer large schema virtualization/capped rendering
+- [ ] QA-P2-07 Columns checkbox toggles once per click
+- [ ] QA-P2-08 readonly connection disables edit/delete affordances early
+- [ ] QA-P2-09 context menu viewport clamp + Escape + outside click + focus semantics
+- [ ] QA-P2-10 keyboard-accessible resize
+- [ ] QA-P2-11 resize cleanup on unmount/interruption
+- [ ] QA-P2-12 large result sort budget / threshold strategy
+- [ ] QA-P2-13 SearchView debounce/index/virtualization where needed
+- [ ] QA-P2-14 Explorer large schema virtualization/capped rendering
 
 ## Gate 8 — P2 Connections
 
-- [x] QA-P2-15 Test Connection result resets after config edit
-- [x] QA-P2-16 preserve backend test error detail
-- [x] QA-P2-17 SQLite Browse failure feedback
-- [x] QA-P2-18 driverChanged reflects current vs initial driver
-- [x] QA-P2-19 duplicate credential semantics explicit
-- [x] QA-P2-20 favorite optimistic rollback
-- [x] QA-P2-21 SQLite welcome/recent display uses file-oriented metadata
+- [ ] QA-P2-15 Test Connection result resets after config edit
+- [ ] QA-P2-16 preserve backend test error detail
+- [ ] QA-P2-17 SQLite Browse failure feedback
+- [ ] QA-P2-18 driverChanged reflects current vs initial driver
+- [ ] QA-P2-19 duplicate credential semantics explicit
+- [ ] QA-P2-20 favorite optimistic rollback
+- [ ] QA-P2-21 SQLite welcome/recent display uses file-oriented metadata
 
 ## Gate 9 — P2 Query/ER
 
-- [x] QA-P2-22 Export enabled only when exportable result exists
-- [x] QA-P2-23 replace `window.confirm` with app confirmation component
-- [x] QA-P2-24 ER search disambiguation/explicit selection
-- [x] QA-P2-25 memoize ER derived schema table list
-- [x] QA-P2-25 verify dynamic LOD edge handles
-- [x] QA-P2-25 replace synthetic Fit View key with React Flow API
+- [ ] QA-P2-22 Export enabled only when exportable result exists
+- [ ] QA-P2-23 replace `window.confirm` with app confirmation component
+- [ ] QA-P2-24 ER search disambiguation/explicit selection
+- [ ] QA-P2-25 memoize ER derived schema table list
+- [ ] QA-P2-25 verify dynamic LOD edge handles
+- [ ] QA-P2-25 replace synthetic Fit View key with React Flow API
 
 ## Gate 10 — Hidden/deferred surface
 
-- [x] QA-D1 atomic saved-query rename before Saved Queries is exposed
+- [ ] QA-D1 atomic saved-query rename before Saved Queries is exposed
 
 ## Gate 11 — Automated verification
 
-- [x] Frontend typecheck
-- [x] Frontend lint
-- [x] Frontend format check
-- [x] Token drift check
+- [ ] Frontend typecheck
+- [ ] Frontend lint
+- [ ] Frontend format check
+- [ ] Token drift check
 - [ ] Frontend full tests
-- [x] Frontend build
-- [x] Rust fmt
-- [x] Rust check
-- [x] Rust clippy `-D warnings`
-- [x] Rust full tests
+- [ ] Frontend build
+- [ ] Rust fmt
+- [ ] Rust check
+- [ ] Rust clippy `-D warnings`
+- [ ] Rust full tests
 - [ ] PostgreSQL integration suite
 - [ ] SQLite integration suite
 - [ ] Kilo review P0=0/P1=0

@@ -72,9 +72,8 @@ export function ColumnList({ columns, onEditColumn }: ColumnListProps) {
                       type="button"
                       variant="ghost"
                       size="sm"
-                      className="h-5 w-5 shrink-0 p-0 opacity-0 transition-opacity group-hover:opacity-60 group-focus-within:opacity-60 hover:!opacity-100 focus:!opacity-100 hover:bg-transparent"
+                      className="h-5 w-5 shrink-0 p-0 opacity-0 transition-opacity group-hover:opacity-60 hover:!opacity-100 hover:bg-transparent"
                       onClick={() => handleCopyName(col.name)}
-                      aria-label={t("dataGrid.copyColumnName")}
                     >
                       {copiedCol === col.name ? (
                         <Check className="h-3 w-3 text-emerald-500" />
@@ -83,7 +82,7 @@ export function ColumnList({ columns, onEditColumn }: ColumnListProps) {
                       )}
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent>{t("dataGrid.copyColumnName")}</TooltipContent>
+                  <TooltipContent>Copy column name</TooltipContent>
                 </Tooltip>
               </div>
             </TableCell>
@@ -107,14 +106,13 @@ export function ColumnList({ columns, onEditColumn }: ColumnListProps) {
                       type="button"
                       variant="ghost"
                       size="sm"
-                      className="h-6 w-6 p-0 opacity-0 transition-opacity group-hover:opacity-60 group-focus-within:opacity-60 hover:!opacity-100 focus:!opacity-100"
+                      className="h-6 w-6 p-0 opacity-0 transition-opacity group-hover:opacity-60 hover:!opacity-100"
                       onClick={() => onEditColumn(col)}
-                      aria-label={t("schema.editColumn")}
                     >
                       <Pencil className="h-3 w-3" />
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent>{t("schema.editColumn")}</TooltipContent>
+                  <TooltipContent>Edit column</TooltipContent>
                 </Tooltip>
               </TableCell>
             )}

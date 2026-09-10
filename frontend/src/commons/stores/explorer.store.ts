@@ -6,7 +6,6 @@ interface ExplorerState {
   filter: string;
   toggleNode: (path: string) => void;
   expandNode: (path: string) => void;
-  collapseOtherConnections: (connectionId: string) => void;
   setFilter: (filter: string) => void;
   collapseAll: () => void;
 }
@@ -32,13 +31,6 @@ export const useExplorerStore = create<ExplorerState>()(
           if (state.expandedNodes.includes(path)) return state;
           return { expandedNodes: [...state.expandedNodes, path] };
         }),
-
-      collapseOtherConnections: (connectionId) =>
-        set((state) => ({
-          expandedNodes: state.expandedNodes.filter(
-            (path) => path === `conn:${connectionId}` || path.startsWith(`schema:${connectionId}:`),
-          ),
-        })),
 
       setFilter: (filter) => set({ filter }),
       collapseAll: () => set({ expandedNodes: [] }),

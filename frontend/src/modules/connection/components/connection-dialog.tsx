@@ -154,11 +154,9 @@ export function ConnectionDialog() {
           if (gen !== sessionGen.current) return;
           snackbar.success(t("connection.testSuccess"));
         },
-        onError: (err: unknown) => {
+        onError: () => {
           if (gen !== sessionGen.current) return;
-          snackbar.error(
-            (err as { userMessage?: string }).userMessage ?? t("connection.testFailed"),
-          );
+          snackbar.error(t("connection.testFailed"));
         },
       },
     );
@@ -230,7 +228,6 @@ export function ConnectionDialog() {
               }
               onSubmit={handleSubmit}
               onTest={handleTest}
-              onFormChange={() => testMutation.reset()}
               onCancel={closeConnectionDialog}
               isSubmitting={isSubmitting || isConnecting}
               isTesting={testMutation.isPending}

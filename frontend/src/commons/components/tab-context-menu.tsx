@@ -9,8 +9,6 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
-import { formatShortcut } from "@/commons/utils/platform";
-import { useTranslation } from "@/commons/locales/useTranslation";
 
 interface TabContextMenuProps {
   tab: {
@@ -26,7 +24,6 @@ interface TabContextMenuProps {
 }
 
 export function TabContextMenu({ tab, children, onClose, onCloseMany }: TabContextMenuProps) {
-  const { t } = useTranslation();
   const tabOrderKey = useWorkspaceStore((s) =>
     s.tabs.map((t) => `${t.id}:${Number(t.pinned)}`).join("|"),
   );
@@ -35,14 +32,10 @@ export function TabContextMenu({ tab, children, onClose, onCloseMany }: TabConte
 
   const recentlyClosedCount = useWorkspaceStore((s) => s.recentlyClosed.length);
 
-  const rawTabEntries = tabOrderKey.split("|").map((entry) => {
+  const tabEntries = tabOrderKey.split("|").map((entry) => {
     const [id, pinned] = entry.split(":");
     return { id, pinned: pinned === "1" };
   });
-  const tabEntries = [
-    ...rawTabEntries.filter((tab) => tab.pinned),
-    ...rawTabEntries.filter((tab) => !tab.pinned),
-  ];
 
   const tabIdx = tabEntries.findIndex((t) => t.id === tab.id);
   const otherIds = tabEntries.filter((t) => t.id !== tab.id && !t.pinned).map((t) => t.id);
@@ -62,49 +55,39 @@ export function TabContextMenu({ tab, children, onClose, onCloseMany }: TabConte
       <ContextMenuContent>
         <ContextMenuItem onClick={() => onClose(tab.id)}>
           <XIcon className="size-3.5" />
-          {t("tabs.contextMenu.close")}
-          <ContextMenuShortcut>{formatShortcut({ primary: true, key: "W" })}</ContextMenuShortcut>
+          Close
+          <ContextMenuShortcut>Ctrl+W</ContextMenuShortcut>
         </ContextMenuItem>
         {otherIds.length > 0 && (
-          <ContextMenuItem onClick={() => onCloseMany(otherIds)}>
-            {t("tabs.contextMenu.closeOthers")}
-          </ContextMenuItem>
+          <ContextMenuItem onClick={() => onCloseMany(otherIds)}>Close Others</ContextMenuItem>
         )}
         {rightIds.length > 0 && (
-          <ContextMenuItem onClick={() => onCloseMany(rightIds)}>
-            {t("tabs.contextMenu.closeToRight")}
-          </ContextMenuItem>
+          <ContextMenuItem onClick={() => onCloseMany(rightIds)}>Close to Right</ContextMenuItem>
         )}
         {allUnpinnedIds.length > 1 && (
-          <ContextMenuItem onClick={() => onCloseMany(allUnpinnedIds)}>
-            {t("tabs.contextMenu.closeAll")}
-          </ContextMenuItem>
+          <ContextMenuItem onClick={() => onCloseMany(allUnpinnedIds)}>Close All</ContextMenuItem>
         )}
         <ContextMenuSeparator />
         <ContextMenuItem onClick={() => toggleTabPinned(tab.id)}>
           <PinIcon className="size-3.5" />
-          {tab.pinned ? t("tabs.contextMenu.unpin") : t("tabs.contextMenu.pin")}
-          <ContextMenuShortcut>
-            {formatShortcut({ altKey: true, shiftKey: true, key: "P" })}
-          </ContextMenuShortcut>
+          {tab.pinned ? "Unpin" : "Pin"}
+          <ContextMenuShortcut>Alt+Shift+P</ContextMenuShortcut>
         </ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem onClick={() => copyToClipboard(tab.title)}>
           <CopyIcon className="size-3.5" />
-          {t("tabs.contextMenu.copyTitle")}
+          Copy Tab Title
         </ContextMenuItem>
         {tab.kind === "db-object" && (
           <ContextMenuItem onClick={() => copyToClipboard(tab.resourceName)}>
             <CopyIcon className="size-3.5" />
-            {t("tabs.contextMenu.copyResource")}
+            Copy Resource Name
           </ContextMenuItem>
         )}
         <ContextMenuSeparator />
         <ContextMenuItem onClick={() => reopenLastClosed()} disabled={recentlyClosedCount === 0}>
-          {t("tabs.contextMenu.reopenClosed")}
-          <ContextMenuShortcut>
-            {formatShortcut({ primary: true, shiftKey: true, key: "T" })}
-          </ContextMenuShortcut>
+          Reopen Closed Tab
+          <ContextMenuShortcut>Ctrl+Shift+T</ContextMenuShortcut>
         </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>

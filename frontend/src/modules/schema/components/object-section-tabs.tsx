@@ -1,5 +1,5 @@
 import { useTranslation } from "@/commons/locales/useTranslation";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
 import type { DbObjectSection } from "@/commons/types/workspace.types";
 
 export const OBJECT_SECTIONS: { id: DbObjectSection; labelKey: string }[] = [
@@ -19,21 +19,25 @@ interface ObjectSectionTabsProps {
 export function ObjectSectionTabs({ activeSection, onSelect }: ObjectSectionTabsProps) {
   const { t } = useTranslation();
   return (
-    <Tabs value={activeSection} onValueChange={(v) => onSelect(v as DbObjectSection)}>
-      <TabsList
-        variant="line"
-        className="h-[34px] w-full justify-start rounded-none border-b border-[var(--border-subtle)] bg-[var(--surface-nav)] px-0"
-      >
+    <div className="flex h-[34px] items-center border-b border-[var(--border-subtle)] bg-[var(--surface-nav)]">
+      <div className="flex flex-1 overflow-x-auto">
         {OBJECT_SECTIONS.map((section) => (
-          <TabsTrigger
+          <button
             key={section.id}
-            value={section.id}
-            className="h-full rounded-none px-3 text-[13px] font-medium"
+            type="button"
+            className={cn(
+              "relative h-full shrink-0 px-3 text-[13px] font-medium transition-colors hover:text-foreground",
+              activeSection === section.id ? "text-foreground" : "text-[var(--text-secondary)]",
+            )}
+            onClick={() => onSelect(section.id)}
           >
             {t(section.labelKey)}
-          </TabsTrigger>
+            {activeSection === section.id && (
+              <span className="absolute inset-x-3 bottom-0 h-[2px] bg-primary" />
+            )}
+          </button>
         ))}
-      </TabsList>
-    </Tabs>
+      </div>
+    </div>
   );
 }

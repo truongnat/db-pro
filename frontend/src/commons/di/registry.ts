@@ -48,7 +48,6 @@ export interface IQueryService {
   createFolder(connectionId: string, name: string): Promise<unknown>;
   listFolders(connectionId: string): Promise<unknown[]>;
   deleteFolder(id: string): Promise<void>;
-  renameSaved(id: string, name: string): Promise<void>;
   saveRunConfig(
     connectionId: string,
     name: string,
@@ -123,7 +122,6 @@ export interface IUserManagementService {
 export interface IBackupService {
   backup(options: unknown): Promise<unknown>;
   restore(options: unknown): Promise<void>;
-  revealPath(path: string): Promise<void>;
 }
 
 export interface ServiceRegistry {

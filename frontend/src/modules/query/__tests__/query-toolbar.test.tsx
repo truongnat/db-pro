@@ -3,9 +3,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 vi.mock("@/commons/locales/useTranslation", () => ({
-  useTranslation: () => ({
-    t: (key: string) => (key === "query.runOptions" ? "Run options" : key),
-  }),
+  useTranslation: () => ({ t: (key: string) => key }),
 }));
 
 import { QueryToolbar } from "../components/query-toolbar";

@@ -1,11 +1,9 @@
 import { Button } from "@/components/ui/button";
-import { useTranslation } from "@/commons/locales/useTranslation";
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
 import type { QueryTabData } from "@/commons/types/workspace.types";
 import { setTabMultiResultIndex, setTabResult } from "../controllers/query-workspace.controller";
 
 export function ResultTabs() {
-  const { t } = useTranslation();
   const activeTabId = useWorkspaceStore((s) => s.activeTabId);
   const tabData = useWorkspaceStore((s) => {
     const tab = s.tabs.find((t) => t.id === s.activeTabId);
@@ -36,7 +34,7 @@ export function ResultTabs() {
             setTabResult(activeTabId, multiResults[idx]);
           }}
         >
-          {t("query.resultTab", { index: idx + 1, count: r.rowCount })}
+          Result {idx + 1} ({r.rowCount} rows)
         </Button>
       ))}
     </div>

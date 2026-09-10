@@ -75,7 +75,7 @@ export function QueryToolbar({
               variant="default"
               size="icon"
               className="h-auto w-[28px] rounded-l-none px-0 py-1.5"
-              aria-label={t("query.runOptions")}
+              aria-label="Run options"
               disabled={!hasConnection || !hasSql || isExecuting}
             >
               <ChevronDown className="h-3 w-3" />
