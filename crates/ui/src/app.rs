@@ -173,6 +173,16 @@ impl DbProApp {
                     }
                     self.runtime_message = format!("Loaded {} connections", self.connections.len());
                 }
+                UiEvent::FilePicked { kind, path, .. } => {
+                    if let Some(path) = path {
+                        if kind == "sqlite" {
+                            self.connection_draft.database = path;
+                        } else if kind == "ssh-key" {
+                            self.connection_draft.ssh_private_key = path;
+                        }
+                        self.connection_error.clear();
+                    }
+                }
                 UiEvent::OperationCompleted { operation, .. } => {
                     self.runtime_message = operation.clone();
                     self.connections_requested = false;
@@ -807,11 +817,23 @@ impl DbProApp {
                             Self::form_row(ui, "SSH host", &mut self.connection_draft.ssh_host, "bastion.example.com");
                             Self::form_row(ui, "SSH port", &mut self.connection_draft.ssh_port, "22");
                             Self::form_row(ui, "SSH user", &mut self.connection_draft.ssh_user, "ubuntu");
-                            Self::form_row(ui, "Private key", &mut self.connection_draft.ssh_private_key, "/home/me/.ssh/id_ed25519");
+                            ui.horizontal(|ui| {
+                                Self::form_row(ui, "Private key", &mut self.connection_draft.ssh_private_key, "/home/me/.ssh/id_ed25519");
+                                if ui.small_button("Browse…").clicked() {
+                                    let request_id = self.task_bridge.next_request_id();
+                                    let _ = self.task_bridge.send(UiCommand::PickSshPrivateKey { request_id });
+                                }
+                            });
                         }
                     });
                 } else {
-                    Self::form_row(ui, "SQLite file", &mut self.connection_draft.database, "/path/to/db.sqlite");
+                    ui.horizontal(|ui| {
+                        Self::form_row(ui, "SQLite file", &mut self.connection_draft.database, "/path/to/db.sqlite");
+                        if ui.small_button("Browse…").clicked() {
+                            let request_id = self.task_bridge.next_request_id();
+                            let _ = self.task_bridge.send(UiCommand::PickSqliteFile { request_id });
+                        }
+                    });
                 }
                 ui.checkbox(&mut self.connection_draft.readonly, "Read-only connection");
                 if !self.connection_error.is_empty() {

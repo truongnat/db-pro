@@ -91,6 +91,8 @@ pub enum UiCommand {
         request_id: RequestId,
         draft: UiConnectionDraft,
     },
+    PickSqliteFile { request_id: RequestId },
+    PickSshPrivateKey { request_id: RequestId },
     DeleteConnection {
         request_id: RequestId,
         connection_id: String,
@@ -133,6 +135,11 @@ pub enum UiEvent {
     ConnectionsLoaded {
         request_id: RequestId,
         connections: Vec<UiConnectionSummary>,
+    },
+    FilePicked {
+        request_id: RequestId,
+        kind: String,
+        path: Option<String>,
     },
     OperationCompleted {
         request_id: RequestId,

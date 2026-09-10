@@ -13,7 +13,7 @@
 - [x] Add native connection create/test dialog and form validation.
 - [x] Add native connection edit flow and delete confirmation dialog.
 - [x] Add SSL mode and SSH tunnel fields with validation.
-- [ ] Add native SQLite/private-key file picker integration.
+- [x] Add native SQLite/private-key file picker integration.
 - [x] Render typed query result pages in the native result grid.
 - [x] Add Stop/Escape query cancellation dispatch and cancellation events.
 - [x] Add column resize, sorting, filtering and visible-row virtualization.

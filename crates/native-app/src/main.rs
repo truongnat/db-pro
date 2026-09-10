@@ -23,14 +23,40 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let command_runtime_tx = runtime_tx.clone();
     let command_handle = tokio_runtime.handle().clone();
+    let picker_event_tx = event_tx.clone();
     thread::spawn(move || {
         while let Ok(command) = command_rx.recv() {
-            let Some(command) = translate_command(command) else {
-                continue;
-            };
+            match command {
+                UiCommand::PickSqliteFile { request_id } => {
+                    let path = rfd::FileDialog::new()
+                        .add_filter("SQLite database", &["db", "sqlite", "sqlite3"])
+                        .pick_file()
+                        .map(|path| path.to_string_lossy().into_owned());
+                    let _ = picker_event_tx.send(UiEvent::FilePicked {
+                        request_id,
+                        kind: "sqlite".to_owned(),
+                        path,
+                    });
+                    continue;
+                }
+                UiCommand::PickSshPrivateKey { request_id } => {
+                    let path = rfd::FileDialog::new().pick_file().map(|path| path.to_string_lossy().into_owned());
+                    let _ = picker_event_tx.send(UiEvent::FilePicked {
+                        request_id,
+                        kind: "ssh-key".to_owned(),
+                        path,
+                    });
+                    continue;
+                }
+                command => {
+                    let Some(command) = translate_command(command) else {
+                        continue;
+                    };
             let send_result = command_handle.block_on(command_runtime_tx.send(command));
             if send_result.is_err() {
                 break;
+            }
+                }
             }
         }
     });
@@ -113,7 +139,7 @@ fn draft_to_domain(draft: UiConnectionDraft) -> Option<(db_pro_core::domain::con
 
 fn translate_command(command: UiCommand) -> Option<RuntimeCommand> {
     match command {
-        UiCommand::OpenQuery => None,
+        UiCommand::OpenQuery | UiCommand::PickSqliteFile { .. } | UiCommand::PickSshPrivateKey { .. } => None,
         UiCommand::ListConnections { request_id } => Some(RuntimeCommand::ListConnections {
             request_id: RuntimeRequestId(request_id.0),
         }),
