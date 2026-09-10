@@ -25,4 +25,4 @@ Create the first runnable egui/eframe native base without changing the existing 
 
 ## Next slice
 
-Extract shared backend facade and replace the mock connection/query actions with typed task-bridge commands.
+Connect `DbProRuntime` to the native task bridge and replace the mock connection/query actions with real typed commands. Tauri command adapters still use the existing wiring during this transition; they will be switched to the shared runtime after all service types are covered.
