@@ -226,13 +226,13 @@ export function AgentPanel({ open, onClose, width, className }: AgentPanelProps)
       <div className="flex h-[38px] shrink-0 items-center justify-between border-b border-[var(--border-subtle)] px-3">
         <div className="flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-primary" />
-          <span className="text-[13px] font-semibold text-foreground">Agent</span>
+          <span className="text-[13px] font-semibold text-foreground">{t("agent.header")}</span>
           <span className="rounded bg-[var(--state-warning)]/15 px-1.5 py-0.5 text-[10px] font-medium text-[var(--state-warning)]">
             {t("agent.preview")}
           </span>
           {!config.apiKey && (
             <span className="rounded bg-[var(--surface-hover)] px-1.5 py-0.5 text-[10px] text-[var(--text-tertiary)]">
-              template
+              {t("agent.template")}
             </span>
           )}
         </div>
@@ -242,7 +242,7 @@ export function AgentPanel({ open, onClose, width, className }: AgentPanelProps)
               type="button"
               className="flex h-7 w-7 items-center justify-center rounded text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-hover)] hover:text-foreground"
               onClick={clearMessages}
-              title="Clear conversation"
+              title={t("agent.clearConversation")}
             >
               <Trash2 className="h-3.5 w-3.5" />
             </button>
@@ -254,7 +254,7 @@ export function AgentPanel({ open, onClose, width, className }: AgentPanelProps)
               showSettings ? "text-primary" : "text-[var(--text-secondary)]",
             )}
             onClick={() => setShowSettings(!showSettings)}
-            title="Agent settings"
+            title={t("agent.settings")}
           >
             <Settings className="h-3.5 w-3.5" />
           </button>
@@ -262,7 +262,7 @@ export function AgentPanel({ open, onClose, width, className }: AgentPanelProps)
             type="button"
             className="flex h-7 w-7 items-center justify-center rounded text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-hover)] hover:text-foreground"
             onClick={onClose}
-            title="Close Panel"
+            title={t("agent.closePanel")}
           >
             <X className="h-3.5 w-3.5" />
           </button>
@@ -275,7 +275,7 @@ export function AgentPanel({ open, onClose, width, className }: AgentPanelProps)
           <div className="flex flex-col gap-2">
             <label className="flex flex-col gap-1">
               <span className="text-[11px] font-medium text-[var(--text-secondary)]">
-                API Endpoint
+                {t("agent.apiEndpoint")}
               </span>
               <input
                 type="text"
@@ -286,7 +286,9 @@ export function AgentPanel({ open, onClose, width, className }: AgentPanelProps)
               />
             </label>
             <label className="flex flex-col gap-1">
-              <span className="text-[11px] font-medium text-[var(--text-secondary)]">API Key</span>
+              <span className="text-[11px] font-medium text-[var(--text-secondary)]">
+                {t("agent.apiKey")}
+              </span>
               <input
                 type="password"
                 value={config.apiKey}
@@ -296,7 +298,9 @@ export function AgentPanel({ open, onClose, width, className }: AgentPanelProps)
               />
             </label>
             <label className="flex flex-col gap-1">
-              <span className="text-[11px] font-medium text-[var(--text-secondary)]">Model</span>
+              <span className="text-[11px] font-medium text-[var(--text-secondary)]">
+                {t("agent.model")}
+              </span>
               <input
                 type="text"
                 value={config.model}
@@ -305,9 +309,7 @@ export function AgentPanel({ open, onClose, width, className }: AgentPanelProps)
                 className="rounded-md border border-[var(--border-default)] bg-background px-2 py-1 text-[12px] text-foreground placeholder:text-[var(--text-tertiary)] focus:outline-none focus:border-primary/40"
               />
             </label>
-            <p className="text-[11px] text-[var(--text-tertiary)]">
-              Leave API key empty to use template-based SQL generation.
-            </p>
+            <p className="text-[11px] text-[var(--text-tertiary)]">{t("agent.apiKeyHelp")}</p>
           </div>
         </div>
       )}
@@ -330,10 +332,10 @@ export function AgentPanel({ open, onClose, width, className }: AgentPanelProps)
               </div>
               <div>
                 <p className="text-[13px] font-semibold leading-tight text-foreground">
-                  How can I help with this database?
+                  {t("agent.welcomeHeading")}
                 </p>
                 <p className="text-[12px] text-[var(--text-secondary)]">
-                  Ask about schemas, queries, optimization
+                  {t("agent.welcomeSubtext")}
                 </p>
               </div>
             </div>
@@ -342,18 +344,18 @@ export function AgentPanel({ open, onClose, width, className }: AgentPanelProps)
             <div className="flex w-full flex-col gap-1">
               {[
                 {
-                  label: "Explain this table",
+                  label: t("agent.suggestExplain"),
                   icon: Table2,
                   prompt: "Explain the current table structure",
                 },
-                { label: "Write a SELECT query", icon: Code2, prompt: "SELECT * FROM " },
+                { label: t("agent.suggestSelect"), icon: Code2, prompt: "SELECT * FROM " },
                 {
-                  label: "Find relations",
+                  label: t("agent.suggestRelations"),
                   icon: Network,
                   prompt: "Show foreign key relationships",
                 },
                 {
-                  label: "Optimize current query",
+                  label: t("agent.suggestOptimize"),
                   icon: Sparkles,
                   prompt: "How can I optimize queries on this schema?",
                 },
@@ -388,7 +390,7 @@ export function AgentPanel({ open, onClose, width, className }: AgentPanelProps)
             {isProcessing && (
               <div className="flex items-center gap-2 px-2 py-1.5 text-[12px] text-[var(--text-secondary)]">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                Thinking...
+                {t("agent.thinking")}
               </div>
             )}
             <div ref={messagesEndRef} />
@@ -410,7 +412,7 @@ export function AgentPanel({ open, onClose, width, className }: AgentPanelProps)
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask about this database..."
+            placeholder={t("agent.inputPlaceholder")}
             className="flex-1 bg-transparent text-[13px] text-foreground placeholder:text-[var(--text-tertiary)] focus:outline-none"
             onKeyDown={(e) => {
               if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && input.trim()) {
@@ -435,7 +437,7 @@ export function AgentPanel({ open, onClose, width, className }: AgentPanelProps)
               )}
               disabled
               onClick={() => void handleSend()}
-              title="Send message"
+              title={t("agent.sendMessage")}
             >
               <Send className="h-3 w-3" />
             </button>
@@ -501,6 +503,7 @@ function MessageBubble({
   onInsertSql: (sql: string) => void;
   hasQueryTab: boolean;
 }) {
+  const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
   const isUser = message.role === "user";
 
@@ -538,7 +541,7 @@ function MessageBubble({
                 onClick={() => onInsertSql(message.sql!)}
               >
                 <Code2 className="h-3 w-3" />
-                Insert into editor
+                {t("agent.insertIntoEditor")}
               </button>
             )}
             <button
@@ -547,7 +550,7 @@ function MessageBubble({
               onClick={handleCopy}
             >
               {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-              {copied ? "Copied" : "Copy"}
+              {copied ? t("agent.copied") : t("agent.copy")}
             </button>
           </div>
         </div>

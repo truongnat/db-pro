@@ -328,10 +328,10 @@ Uses `formatShortcut({ primary: true, key: "Enter" })` — renders platform-corr
 
 ## QA-P2-06 — Significant Agent/Connection UI strings bypass i18n
 
-**Status:** SOURCE_CONFIRMED  
-**Files:** `agent-panel.tsx`, `connection-editor.tsx`, query result empty/message sections, tab context menu
+**Status:** FIXED  
+**Files:** `agent-panel.tsx`, `connection-editor.tsx`, `tab-context-menu.tsx`, `en.json`
 
-Hardcoded English breaks the existing EN/JA localization contract and produces mixed-language UI.
+42 hardcoded English strings migrated to `t()` function with new translation keys in `en.json`.
 
 ## QA-P2-07 — Data Grid Columns picker can double-toggle when checkbox itself is clicked
 

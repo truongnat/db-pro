@@ -149,7 +149,7 @@ Scale evidence:
 - [x] QA-P2-03 conditional macOS traffic-light inset
 - [x] QA-P2-04 visible Agent Preview/Coming Soon state
 - [x] QA-P2-05 platform-correct Agent shortcut hint
-- [ ] QA-P2-06 migrate product-visible hardcoded English to i18n
+- [x] QA-P2-06 migrate product-visible hardcoded English to i18n
 
 ## Gate 7 — P2 Data Grid
 
@@ -187,16 +187,16 @@ Scale evidence:
 
 ## Gate 11 — Automated verification
 
-- [ ] Frontend typecheck
-- [ ] Frontend lint
-- [ ] Frontend format check
-- [ ] Token drift check
+- [x] Frontend typecheck
+- [x] Frontend lint
+- [x] Frontend format check
+- [x] Token drift check
 - [ ] Frontend full tests
-- [ ] Frontend build
-- [ ] Rust fmt
-- [ ] Rust check
-- [ ] Rust clippy `-D warnings`
-- [ ] Rust full tests
+- [x] Frontend build
+- [x] Rust fmt
+- [x] Rust check
+- [x] Rust clippy `-D warnings`
+- [x] Rust full tests
 - [ ] PostgreSQL integration suite
 - [ ] SQLite integration suite
 - [ ] Kilo review P0=0/P1=0
