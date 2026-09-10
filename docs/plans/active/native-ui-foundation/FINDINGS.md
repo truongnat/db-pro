@@ -6,5 +6,5 @@
 - `crates/runtime` now owns a Tauri/egui-independent service graph for connection, query and schema services. The existing Tauri bootstrap remains unchanged until all service types and command state adapters are migrated.
 - The native binary now boots the runtime, forwards typed UI commands through a tokio worker, loads persisted connection summaries into the explorer, and supports selecting/connecting a saved connection.
 - Query results now cross the runtime/UI boundary as typed columns and cells, with NULL/boolean/number/text/JSON/bytes rendering.
-- The native grid now supports filter, click-to-sort, column divider resize, 100-row pages and visible-row rendering through egui `show_rows`. A later pass should remove the page cap and benchmark very large result sets.
+- The native grid now supports filter, click-to-sort, column divider resize and visible-row virtualization through egui `show_rows` over the full filtered index set. A benchmark is still needed for very large result metadata and scroll performance.
 - `egui` 0.29 / `eframe` 0.29 were selected to stay compatible with the workspace's current Rust 1.77 policy; dependency compatibility must be confirmed by CI.

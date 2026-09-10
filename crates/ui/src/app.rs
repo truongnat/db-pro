@@ -36,8 +36,8 @@ pub struct DbProApp {
     grid_filter: String,
     grid_sort_column: Option<usize>,
     grid_sort_desc: bool,
-    grid_page: usize,
     grid_column_widths: Vec<f32>,
+    grid_resize_start: Option<(usize, f32)>,
     connections: Vec<UiConnectionSummary>,
     active_connection_id: Option<String>,
     connections_requested: bool,
@@ -71,8 +71,8 @@ impl Default for DbProApp {
             grid_filter: String::new(),
             grid_sort_column: None,
             grid_sort_desc: false,
-            grid_page: 0,
             grid_column_widths: Vec::new(),
+            grid_resize_start: None,
             connections: Vec::new(),
             active_connection_id: None,
             connections_requested: false,
@@ -139,7 +139,6 @@ impl DbProApp {
                 UiEvent::QueryCompleted { request_id, result } => {
                     if self.next_query_request == Some(request_id) {
                         self.runtime_message = format!("Query completed · {} rows", result.row_count);
-                        self.grid_page = 0;
                         self.grid_sort_column = None;
                         self.grid_column_widths = vec![180.0; result.columns.len()];
                         self.query_result = Some(result);
@@ -468,49 +467,28 @@ impl DbProApp {
 
         ui.horizontal(|ui| {
             ui.label(RichText::new("Filter").small().color(self.theme.text_secondary));
-            let changed = ui
-                .add_sized([220.0, 24.0], egui::TextEdit::singleline(&mut self.grid_filter).hint_text("Search visible rows…"))
-                .changed();
-            if changed {
-                self.grid_page = 0;
-            }
+            ui.add_sized(
+                [220.0, 24.0],
+                egui::TextEdit::singleline(&mut self.grid_filter).hint_text("Search visible rows…"),
+            );
             if ui.small_button("Clear").clicked() {
                 self.grid_filter.clear();
-                self.grid_page = 0;
             }
             ui.label(RichText::new("Click a column to sort · drag the divider to resize").small().color(self.theme.text_muted));
         });
         ui.add_space(6.0);
 
         let indexes = self.filtered_sorted_indexes(result);
-        let page_size = 100usize;
-        let page_count = indexes.len().max(1).div_ceil(page_size);
-        self.grid_page = self.grid_page.min(page_count.saturating_sub(1));
-        let start = self.grid_page * page_size;
-        let end = (start + page_size).min(indexes.len());
-        let visible_indexes = &indexes[start..end];
-
-        ui.horizontal(|ui| {
-            ui.label(RichText::new(format!("{} matching rows", indexes.len())).small().color(self.theme.text_muted));
-            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                if ui.small_button("Next ›").clicked() && self.grid_page + 1 < page_count {
-                    self.grid_page += 1;
-                }
-                if ui.small_button("‹ Prev").clicked() {
-                    self.grid_page = self.grid_page.saturating_sub(1);
-                }
-                ui.label(RichText::new(format!("Page {} / {}", self.grid_page + 1, page_count)).small().color(self.theme.text_secondary));
-            });
-        });
+        ui.label(RichText::new(format!("{} matching rows · virtualized", indexes.len())).small().color(self.theme.text_muted));
         ui.add_space(4.0);
 
         let widths = self.column_widths(result.columns.len());
         egui::ScrollArea::horizontal().show(ui, |ui| {
             ui.set_min_width(widths.iter().sum());
             self.draw_grid_header(ui, result, &widths);
-            egui::ScrollArea::vertical().max_height(250.0).show_rows(ui, 24.0, visible_indexes.len(), |ui, range| {
+            egui::ScrollArea::vertical().max_height(250.0).show_rows(ui, 24.0, indexes.len(), |ui, range| {
                 for position in range {
-                    let row_index = visible_indexes[position];
+                    let row_index = indexes[position];
                     let row = &result.rows[row_index];
                     ui.horizontal(|ui| {
                         for (column_index, cell) in row.0.iter().enumerate().take(result.columns.len()) {
@@ -557,11 +535,18 @@ impl DbProApp {
                         self.grid_sort_column = Some(index);
                         self.grid_sort_desc = false;
                     }
-                    self.grid_page = 0;
                 }
                 let (_divider_rect, divider) = ui.allocate_exact_size(egui::vec2(8.0, 28.0), Sense::drag());
+                if divider.drag_started() {
+                    self.grid_resize_start = Some((index, width));
+                }
                 if divider.dragged() {
-                    self.grid_column_widths[index] = (width + divider.drag_delta().x).clamp(90.0, 520.0);
+                    let start_width = self
+                        .grid_resize_start
+                        .filter(|(column, _)| *column == index)
+                        .map(|(_, start)| start)
+                        .unwrap_or(width);
+                    self.grid_column_widths[index] = (start_width + divider.drag_delta().x).clamp(90.0, 520.0);
                 }
             }
         });

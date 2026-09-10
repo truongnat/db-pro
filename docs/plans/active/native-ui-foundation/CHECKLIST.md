@@ -12,8 +12,8 @@
 - [x] Add active connection selection and connect action.
 - [x] Render typed query result pages in the native result grid.
 - [x] Add Stop/Escape query cancellation dispatch and cancellation events.
-- [x] Add column resize, sorting, filtering and paged visible-row rendering.
-- [ ] Replace paged rendering with egui row virtualization for very large results.
+- [x] Add column resize, sorting, filtering and visible-row virtualization.
+- [ ] Add benchmark coverage for million-row result metadata and scroll performance.
 - [ ] Run Rust fmt/check/test once the Rust toolchain is available in the environment.
 - [ ] Manually review screenshots at 1280×800, 1440×900 and 1920×1080.
 - [ ] Wire the shell to the extracted backend facade.
