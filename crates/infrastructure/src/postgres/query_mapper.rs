@@ -91,6 +91,13 @@ fn decode_cell(row: &sqlx::postgres::PgRow, i: usize, data_type: &str) -> CellVa
     };
 
     res.unwrap_or_else(|_| {
+        if let Ok(raw) = row.try_get_raw(i) {
+            if raw.format() == sqlx::postgres::PgValueFormat::Text {
+                if let Ok(s) = raw.as_str() {
+                    return CellValue::Text(s.to_string());
+                }
+            }
+        }
         row.try_get::<String, _>(i)
             .map(CellValue::Text)
             .unwrap_or_else(|_| CellValue::Text(format!("<unsupported value: {}>", data_type)))
