@@ -23,6 +23,8 @@
 - [x] Add true cursor-selection execution.
 - [x] Load schema summaries and offer table/column completion candidates.
 - [x] Add dialect-aware completion candidates and diagnostics.
+- [x] Add lightweight tokenizer/parser diagnostics for statement structure.
+- [ ] Integrate full dialect grammar parser dependency.
 - [x] Add grouped saved-query folder presentation and delete confirmation.
 - [x] Add local query history surface.
 - [x] Add persistent multi-query tabs and query document metadata.

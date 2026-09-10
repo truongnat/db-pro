@@ -771,33 +771,68 @@ impl DbProApp {
         formatted
     }
 
-    fn refresh_diagnostics(&mut self) {
-        self.diagnostics.clear();
-        let sql = self.query_text.trim();
-        if sql.is_empty() {
-            self.diagnostics.push("Query is empty".to_owned());
-            return;
+    fn parse_sql_diagnostics(sql: &str, driver: &str) -> Vec<String> {
+        let mut diagnostics = Vec::new();
+        if sql.trim().is_empty() {
+            diagnostics.push("Query is empty".to_owned());
+            return diagnostics;
         }
-        if sql.matches('\'').count() % 2 != 0 {
-            self.diagnostics.push("Unclosed string literal".to_owned());
+        let mut tokens = Vec::new();
+        let mut current = String::new();
+        let mut in_string = false;
+        let mut parentheses = 0i32;
+        for ch in sql.chars() {
+            if ch == '\'' {
+                in_string = !in_string;
+                current.push(ch);
+            } else if in_string {
+                current.push(ch);
+            } else if ch == '(' {
+                parentheses += 1;
+                tokens.push(current.to_lowercase());
+                current.clear();
+            } else if ch == ')' {
+                parentheses -= 1;
+                tokens.push(current.to_lowercase());
+                current.clear();
+                if parentheses < 0 {
+                    diagnostics.push("Unexpected closing parenthesis".to_owned());
+                    parentheses = 0;
+                }
+            } else if ch.is_whitespace() || ch == ';' || ch == ',' {
+                if !current.is_empty() {
+                    tokens.push(current.to_lowercase());
+                    current.clear();
+                }
+            } else {
+                current.push(ch);
+            }
+        }
+        if !current.is_empty() { tokens.push(current.to_lowercase()); }
+        if in_string { diagnostics.push("Unclosed string literal".to_owned()); }
+        if parentheses > 0 { diagnostics.push("Unclosed parenthesis".to_owned()); }
+        if tokens.first().map(String::as_str) == Some("select") && !tokens.iter().any(|token| token == "from") {
+            diagnostics.push("SELECT statement is missing FROM".to_owned());
+        }
+        if tokens.first().map(String::as_str) == Some("update") && !tokens.iter().any(|token| token == "where") {
+            diagnostics.push("UPDATE without WHERE will affect every row".to_owned());
         }
         let lower = sql.to_lowercase();
-        if lower.starts_with("select") && !lower.contains(" from ") {
-            self.diagnostics.push("SELECT statement is missing FROM".to_owned());
+        if driver.eq_ignore_ascii_case("sqlite") && tokens.iter().any(|token| token == "ilike") {
+            diagnostics.push("SQLite does not support ILIKE; use LIKE or lower()".to_owned());
         }
-        if sql.matches('(').count() != sql.matches(')').count() {
-            self.diagnostics.push("Unbalanced parentheses".to_owned());
+        if driver.eq_ignore_ascii_case("postgres") && tokens.iter().any(|token| token == "glob") {
+            diagnostics.push("GLOB is SQLite-specific; use LIKE for PostgreSQL".to_owned());
         }
+        if lower.contains("select * from") && lower.contains("select * from select") {
+            diagnostics.push("Subquery must be enclosed in parentheses".to_owned());
+        }
+        diagnostics
+    }
+
+    fn refresh_diagnostics(&mut self) {
         let driver = self.connections.first().map(|connection| connection.driver.as_str()).unwrap_or("postgres");
-        if driver.eq_ignore_ascii_case("sqlite") && lower.contains(" ilike ") {
-            self.diagnostics.push("SQLite does not support ILIKE; use LIKE or lower()".to_owned());
-        }
-        if driver.eq_ignore_ascii_case("postgres") && lower.contains(" glob ") {
-            self.diagnostics.push("GLOB is SQLite-specific; use LIKE for PostgreSQL".to_owned());
-        }
-        if lower.starts_with("update") && !lower.contains(" where ") {
-            self.diagnostics.push("UPDATE without WHERE will affect every row".to_owned());
-        }
+        self.diagnostics = Self::parse_sql_diagnostics(&self.query_text, driver);
     }
 
     fn insert_snippet(&mut self, snippet: &str) {
