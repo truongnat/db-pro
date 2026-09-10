@@ -18,7 +18,6 @@ interface ConnectionModuleState {
   setError: (id: string, error: string) => void;
   clearStatus: (id: string) => void;
   toggleFavorite: (id: string) => void;
-  setFavorite: (id: string, favorite: boolean | undefined) => void;
   setSortField: (field: ConnectionSortField) => void;
   setSortDirection: (dir: ConnectionSortDirection) => void;
   setFilterTag: (tag: string | null) => void;
@@ -63,14 +62,6 @@ export const useConnectionModuleStore = create<ConnectionModuleState>()((set) =>
     set((state) => ({
       favorites: { ...state.favorites, [id]: !state.favorites[id] },
     })),
-
-  setFavorite: (id, favorite) =>
-    set((state) => {
-      const favorites = { ...state.favorites };
-      if (favorite === undefined) delete favorites[id];
-      else favorites[id] = favorite;
-      return { favorites };
-    }),
 
   setSortField: (field) => set({ sortField: field }),
   setSortDirection: (dir) => set({ sortDirection: dir }),
