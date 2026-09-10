@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { I18nextProvider, initReactI18next } from "react-i18next";
@@ -7,6 +7,7 @@ import i18n from "i18next";
 
 import { ConnectionList } from "../components/connection-list";
 import * as queries from "../queries/connection.queries";
+import { ConfirmDialogProvider } from "@/app/providers/confirm-dialog.provider";
 
 vi.mock("../queries/connection.queries", () => ({
   useConnectionList: vi.fn(),
@@ -21,6 +22,12 @@ vi.mock("../queries/connection.queries", () => ({
 
 vi.mock("@/commons/stores/connection.store", () => ({
   useConnectionStore: vi.fn((selector) => selector({ explorerConnectionId: null })),
+}));
+
+const snackbar = { success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() };
+
+vi.mock("@/app/providers/snackbar.provider", () => ({
+  useSnackbar: () => snackbar,
 }));
 
 vi.mock("../state/connection.store", () => ({
@@ -61,6 +68,8 @@ i18n.use(initReactI18next).init({
           labels: { name: "Name", host: "Host", database: "Database", driver: "Driver" },
           actions: {
             delete: "Delete",
+            confirm: "Confirm",
+            cancel: "Cancel",
             connect: "Connect",
             disconnect: "Disconnect",
             edit: "Edit",
@@ -74,6 +83,8 @@ i18n.use(initReactI18next).init({
           tags: "Tags",
           confirmDelete: "Delete?",
           toggleFavorite: "Toggle favorite",
+          duplicate: "Duplicate",
+          duplicateCredentialsNotice: "Credentials were not copied",
           readonly: "Read-only",
           sort: { name: "Name", driver: "Driver", group: "Group" },
         },
@@ -94,7 +105,9 @@ function renderWithProviders(ui: React.ReactElement) {
   const qc = createQueryClient();
   return render(
     <I18nextProvider i18n={i18n}>
-      <QueryClientProvider client={qc}>{ui}</QueryClientProvider>
+      <QueryClientProvider client={qc}>
+        <ConfirmDialogProvider>{ui}</ConfirmDialogProvider>
+      </QueryClientProvider>
     </I18nextProvider>,
   );
 }
@@ -114,12 +127,18 @@ const mockConnections = [
   },
 ];
 
+const deleteConnection = vi.fn();
+
 describe("ConnectionList", () => {
   const onEdit = vi.fn();
 
   beforeEach(() => {
     vi.clearAllMocks();
     onEdit.mockReset();
+    vi.mocked(queries.useDeleteConnection).mockReturnValue({
+      mutate: deleteConnection,
+      isPending: false,
+    } as ReturnType<typeof queries.useDeleteConnection>);
   });
 
   it("shows loading state", () => {
@@ -171,6 +190,25 @@ describe("ConnectionList", () => {
     expect(onEdit).toHaveBeenCalledWith("1");
   });
 
+  it("uses the app confirmation dialog before deleting", async () => {
+    vi.mocked(queries.useConnectionList).mockReturnValue({
+      data: mockConnections,
+      isLoading: false,
+      error: null,
+    } as ReturnType<typeof queries.useConnectionList>);
+
+    const user = userEvent.setup();
+    renderWithProviders(<ConnectionList onEdit={onEdit} />);
+
+    await user.click(screen.getByRole("button", { name: "Delete" }));
+    expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+    expect(screen.getByText("Delete?")).toBeInTheDocument();
+    expect(deleteConnection).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "Confirm" }));
+    expect(deleteConnection).toHaveBeenCalledWith("1");
+  });
+
   it("shows error state", () => {
     vi.mocked(queries.useConnectionList).mockReturnValue({
       data: undefined,
@@ -181,5 +219,28 @@ describe("ConnectionList", () => {
     renderWithProviders(<ConnectionList onEdit={onEdit} />);
     expect(screen.getByText("Error")).toBeInTheDocument();
     expect(screen.getByText("Server error")).toBeInTheDocument();
+  });
+
+  it("explains that duplicated credentials must be added manually", async () => {
+    const duplicate = vi.fn((_id: string, options?: { onSuccess?: () => void }) => {
+      options?.onSuccess?.();
+    });
+    vi.mocked(queries.useDuplicateConnection).mockReturnValue({
+      mutate: duplicate,
+      isPending: false,
+    } as ReturnType<typeof queries.useDuplicateConnection>);
+    vi.mocked(queries.useConnectionList).mockReturnValue({
+      data: mockConnections,
+      isLoading: false,
+      error: null,
+    } as ReturnType<typeof queries.useConnectionList>);
+
+    const user = userEvent.setup();
+    renderWithProviders(<ConnectionList onEdit={onEdit} />);
+    fireEvent.contextMenu(screen.getByText("Local PG"));
+    await user.click(screen.getByText("Duplicate"));
+
+    expect(duplicate).toHaveBeenCalledWith("1", expect.any(Object));
+    expect(snackbar.info).toHaveBeenCalledWith("Credentials were not copied");
   });
 });

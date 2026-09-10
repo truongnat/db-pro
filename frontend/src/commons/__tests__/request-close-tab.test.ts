@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
 import { useCloseGuardStore } from "@/commons/stores/close-guard.store";
-import { requestCloseTab } from "../services/request-close-tab";
+import { useStagedChangesStore } from "@/modules/data-grid/state/staged-changes.store";
+import { requestCloseTab, requestCloseTabs } from "../services/request-close-tab";
 import type { WorkspaceTab } from "@/commons/types/workspace.types";
 
 function makeTab(overrides: Partial<WorkspaceTab> = {}): WorkspaceTab {
@@ -31,6 +32,7 @@ function makeTab(overrides: Partial<WorkspaceTab> = {}): WorkspaceTab {
 function resetStores() {
   useWorkspaceStore.setState({ tabs: [], activeTabId: null, recentlyClosed: [] });
   useCloseGuardStore.setState({ open: false, tabIds: [], dirtyCount: 0 });
+  useStagedChangesStore.setState({ changes: {} });
 }
 
 describe("requestCloseTab", () => {
@@ -44,6 +46,28 @@ describe("requestCloseTab", () => {
 
     requestCloseTab("tab-1");
     expect(useWorkspaceStore.getState().tabs).toHaveLength(0);
+  });
+
+  it("closes multiple clean tabs through the shared request path", () => {
+    useWorkspaceStore.getState().openTab(makeTab({ id: "tab-1", resourceKey: "query:1" }));
+    useWorkspaceStore.getState().openTab(makeTab({ id: "tab-2", resourceKey: "query:2" }));
+
+    requestCloseTabs(["tab-1", "tab-2"]);
+
+    expect(useWorkspaceStore.getState().tabs).toHaveLength(0);
+  });
+
+  it("opens one guard for a batch containing unsaved work", () => {
+    useWorkspaceStore.getState().openTab(makeTab({ id: "tab-1", resourceKey: "query:1" }));
+    useWorkspaceStore
+      .getState()
+      .openTab(makeTab({ id: "tab-2", resourceKey: "query:2", dirty: true }));
+
+    requestCloseTabs(["tab-1", "tab-2"]);
+
+    expect(useWorkspaceStore.getState().tabs).toHaveLength(2);
+    expect(useCloseGuardStore.getState().tabIds).toEqual(["tab-1", "tab-2"]);
+    expect(useCloseGuardStore.getState().dirtyCount).toBe(1);
   });
 
   it("does nothing for non-existent tab", () => {
@@ -71,5 +95,21 @@ describe("requestCloseTab", () => {
     expect(useWorkspaceStore.getState().tabs).toHaveLength(0);
     // Dialog should NOT be open
     expect(useCloseGuardStore.getState().open).toBe(false);
+  });
+
+  it("opens close guard dialog when tab has staged Data Grid changes", () => {
+    const tab = makeTab({ dirty: false });
+    useWorkspaceStore.getState().openTab(tab);
+
+    useStagedChangesStore.getState().stageCellEdit("tab-1", {
+      pkValues: [{ type: "int64", value: "1" }],
+      changes: { col1: { type: "text", value: "new" } },
+    });
+
+    requestCloseTab("tab-1");
+
+    expect(useWorkspaceStore.getState().tabs).toHaveLength(1);
+    expect(useCloseGuardStore.getState().open).toBe(true);
+    expect(useCloseGuardStore.getState().tabIds).toEqual(["tab-1"]);
   });
 });

@@ -7,6 +7,7 @@ import {
 } from "@/commons/factories/tab-factories";
 import { requestCloseTab } from "@/commons/services/request-close-tab";
 import { useCloseGuardStore } from "@/commons/stores/close-guard.store";
+import { reassignOrphanedTab } from "@/commons/components/workspace-content";
 import { useConnectionStore } from "@/commons/stores/connection.store";
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
 import type { Connection, DriverType } from "@/modules/connection/types/connection.types";
@@ -29,7 +30,7 @@ function connection(id: string, driver: DriverType): Connection {
 
 function resetStores() {
   useWorkspaceStore.setState({ tabs: [], activeTabId: null, recentlyClosed: [] });
-  useConnectionStore.setState({ connections: [] });
+  useConnectionStore.setState({ connections: [], explorerConnectionId: null });
   useStagedChangesStore.getState().clearAll();
   useCloseGuardStore.setState({ open: false, tabIds: [] });
 }
@@ -171,5 +172,19 @@ describe("workspace connection reassignment", () => {
     expect(useWorkspaceStore.getState().tabs.length).toBe(1);
     expect(useCloseGuardStore.getState().open).toBe(true);
     expect(useCloseGuardStore.getState().tabIds).toEqual([tab.id]);
+  });
+
+  it("closes an orphaned object tab and selects the target for a fresh resource pick", () => {
+    const target = connection("pg-target", "postgres");
+    useConnectionStore.setState({ connections: [target] });
+
+    const tab = createDbObjectTab("missing-source", "public", "users", "table", "columns", false);
+    useWorkspaceStore.setState({ tabs: [tab], activeTabId: tab.id });
+
+    reassignOrphanedTab(tab.id, target.id);
+
+    expect(useConnectionStore.getState().explorerConnectionId).toBe(target.id);
+    expect(useWorkspaceStore.getState().tabs).toHaveLength(0);
+    expect(useWorkspaceStore.getState().recentlyClosed[0]?.id).toBe(tab.id);
   });
 });

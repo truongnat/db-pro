@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useTranslation } from "@/commons/locales/useTranslation";
+import { useConnectionStore } from "@/commons/stores/connection.store";
 
 import { useIntrospect } from "@/modules/schema/queries/schema.queries";
 import {
@@ -101,6 +102,9 @@ export function DataSection({
 
   const introspect = useIntrospect(connectionId);
 
+  const isReadOnlyConnection =
+    useConnectionStore((s) => s.connections.find((c) => c.id === connectionId)?.readonly) ?? false;
+
   const pkColumns = useMemo(() => {
     if (!introspect.data) return [];
     return introspect.data.primaryKeys
@@ -147,7 +151,7 @@ export function DataSection({
   /* ---- staged cell edit (patch model — no immediate backend call) ---- */
 
   const handleCellSave = (rowIdx: number, colIdx: number, value: CellValue) => {
-    if (!pkColumns.length) return;
+    if (!pkColumns.length || isReadOnlyConnection) return;
     const colName = columns[colIdx].name;
     const row = rows[rowIdx];
     const pkValues = getPkValues(row);
@@ -166,7 +170,7 @@ export function DataSection({
   /* ---- staged row delete (no immediate backend call) ---- */
 
   const handleDeleteRow = (rowIdx: number) => {
-    if (!pkColumns.length) return;
+    if (!pkColumns.length || isReadOnlyConnection) return;
     const row = rows[rowIdx];
     const pkValues = getPkValues(row);
     useStagedChangesStore.getState().stageDeleteRow(tabId, pkValues);
@@ -338,7 +342,7 @@ export function DataSection({
 
   const handleBatchDelete = useCallback(
     (selected: Set<number>) => {
-      if (!pkColumns.length || selected.size === 0) return;
+      if (!pkColumns.length || isReadOnlyConnection || selected.size === 0) return;
       for (const rowIdx of selected) {
         const row = rows[rowIdx];
         if (row) {
@@ -348,21 +352,21 @@ export function DataSection({
       }
       setSelectedRows(new Set());
     },
-    [pkColumns, rows, getPkValues, tabId],
+    [pkColumns, rows, getPkValues, tabId, isReadOnlyConnection],
   );
 
   /* ---- row edit dialog save ---- */
 
   const handleRowSave = useCallback(
     (changes: Record<string, CellValue>) => {
-      if (editingRowIdx == null || !pkColumns.length) return;
+      if (editingRowIdx == null || !pkColumns.length || isReadOnlyConnection) return;
       const row = rows[editingRowIdx];
       if (!row) return;
       const pkValues = getPkValues(row);
       useStagedChangesStore.getState().stageCellEdit(tabId, { pkValues, changes });
       setEditingRowIdx(null);
     },
-    [editingRowIdx, pkColumns, rows, getPkValues, tabId],
+    [editingRowIdx, pkColumns, rows, getPkValues, tabId, isReadOnlyConnection],
   );
 
   const errorMessage = query.isError
@@ -429,7 +433,7 @@ export function DataSection({
             onDismiss={() => setTransactionResult(null)}
           />
           {applyError && (
-            <div className="mx-3 mt-2 rounded-sm bg-destructive px-3 py-1.5 text-xs text-white">
+            <div className="mx-3 mt-2 rounded-sm bg-destructive px-3 py-1.5 text-xs text-destructive-foreground">
               {applyError}
             </div>
           )}
@@ -446,6 +450,7 @@ export function DataSection({
             isDeleting={isApplying}
             isLoading={query.isFetching && !query.isPlaceholderData}
             pkColumns={pkColumns}
+            readOnly={isReadOnlyConnection}
             frozenColumns={frozenColumns}
             hiddenColumns={hiddenColumns}
             onToggleFreezeColumn={(c) => store.toggleFrozenColumn(tabId, c)}

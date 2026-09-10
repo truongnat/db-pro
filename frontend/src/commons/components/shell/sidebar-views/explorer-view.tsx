@@ -3,15 +3,20 @@ import {
   ChevronRight,
   Columns3,
   Copy,
+  Download,
   Folder,
   FolderOpen,
+  Network,
   Plus,
   RefreshCw,
   Search,
   Table2,
+  Upload,
   Zap,
   ZapOff,
 } from "lucide-react";
+import { Children, useRef, useState } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 
 import { useTranslation } from "@/commons/locales/useTranslation";
 import { useConnectionStore } from "@/commons/stores/connection.store";
@@ -46,6 +51,7 @@ import { createQueryTab } from "@/commons/factories/tab-factories";
 import { getSqlDialect } from "@/modules/query/sql/dialect";
 import { generateCountSQL } from "@/modules/query/sql/generators";
 import type { DriverType } from "@/modules/connection/types/connection.types";
+import { BackupDialog, type BackupDialogMode } from "@/modules/backup/components/backup-dialog";
 
 function statusOf(statuses: Record<string, string>, id: string) {
   return statuses[id] ?? "disconnected";
@@ -82,6 +88,33 @@ interface SchemaObjectGroupProps {
   children: React.ReactNode;
 }
 
+function VirtualizedChildren({ children }: { children: React.ReactNode }) {
+  const items = Children.toArray(children);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const virtualizer = useVirtualizer({
+    count: items.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => 26,
+    overscan: 8,
+  });
+
+  return (
+    <div ref={scrollRef} className="max-h-80 overflow-y-auto">
+      <div className="relative" style={{ height: virtualizer.getTotalSize() }}>
+        {virtualizer.getVirtualItems().map((item) => (
+          <div
+            key={item.key}
+            className="absolute left-0 w-full"
+            style={{ transform: `translateY(${item.start}px)` }}
+          >
+            {items[item.index]}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function SchemaObjectGroup({
   groupKey,
   label,
@@ -109,7 +142,11 @@ function SchemaObjectGroup({
         <span className="flex-1 truncate text-left">{label}</span>
         <span className="text-[11px] tabular-nums text-[var(--text-tertiary)]">{count}</span>
       </button>
-      {isOpen && <div className="ml-[10px] flex flex-col">{children}</div>}
+      {isOpen && (
+        <div className="ml-[10px] flex flex-col">
+          <VirtualizedChildren>{children}</VirtualizedChildren>
+        </div>
+      )}
     </div>
   );
 }
@@ -120,6 +157,7 @@ export function ExplorerView() {
     useSidebarTabOps();
   const expandedNodes = useExplorerStore((s) => s.expandedNodes);
   const toggleNode = useExplorerStore((s) => s.toggleNode);
+  const collapseOtherConnections = useExplorerStore((s) => s.collapseOtherConnections);
 
   const connections = useConnectionList();
   const statuses = useConnectionModuleStore((s) => s.statuses);
@@ -130,8 +168,14 @@ export function ExplorerView() {
   const disconnect = useDisconnect();
   const introspect = useIntrospect(explorerConnectionId);
   const queryClient = useQueryClient();
+  const [backupDialog, setBackupDialog] = useState<{
+    connectionId: string;
+    driver: DriverType;
+    mode: BackupDialogMode;
+  } | null>(null);
 
   const handleConnectionClick = (connId: string) => {
+    collapseOtherConnections(connId);
     const status = statusOf(statuses, connId);
 
     if (status === "disconnected" || status === "error") {
@@ -244,6 +288,33 @@ export function ExplorerView() {
                     <Copy className="mr-1.5 h-3 w-3" />
                     {t("shell.sidebar.copyConnectionName")}
                   </ContextMenuItem>
+                  <ContextMenuSeparator />
+                  <ContextMenuItem
+                    disabled={status !== "connected"}
+                    onClick={() =>
+                      setBackupDialog({
+                        connectionId: conn.id,
+                        driver: conn.driver,
+                        mode: "backup",
+                      })
+                    }
+                  >
+                    <Download className="mr-1.5 h-3 w-3" />
+                    {t("backup.title")}
+                  </ContextMenuItem>
+                  <ContextMenuItem
+                    disabled={status !== "connected" || conn.readonly}
+                    onClick={() =>
+                      setBackupDialog({
+                        connectionId: conn.id,
+                        driver: conn.driver,
+                        mode: "restore",
+                      })
+                    }
+                  >
+                    <Upload className="mr-1.5 h-3 w-3" />
+                    {t("backup.restoreTitle")}
+                  </ContextMenuItem>
                 </ContextMenuContent>
               </ContextMenu>
 
@@ -295,40 +366,51 @@ export function ExplorerView() {
                         const Icon = schemaExpanded ? FolderOpen : Folder;
                         return (
                           <div key={schema.name}>
-                            <ContextMenu>
-                              <ContextMenuTrigger asChild>
-                                <button
-                                  type="button"
-                                  className="flex h-[28px] w-full cursor-pointer items-center gap-1.5 rounded-md border-l-2 border-l-transparent px-2 text-left text-[13px] font-medium text-foreground transition-colors hover:border-l-primary hover:bg-[var(--surface-hover)] active:bg-[var(--surface-active)]"
-                                  onClick={() => toggleNode(`schema:${conn.id}:${schema.name}`)}
-                                  aria-expanded={schemaExpanded}
-                                >
-                                  {schemaExpanded ? (
-                                    <ChevronDown className="h-3 w-3 shrink-0" />
-                                  ) : (
-                                    <ChevronRight className="h-3 w-3 shrink-0" />
-                                  )}
-                                  <Icon className="h-3.5 w-3.5 shrink-0 text-primary" />
-                                  <span className="flex-1 truncate">{schema.name}</span>
-                                  <span className="text-[11px] tabular-nums text-[var(--text-tertiary)]">
-                                    {tables.length + views.length}
-                                  </span>
-                                </button>
-                              </ContextMenuTrigger>
-                              <ContextMenuContent>
-                                <ContextMenuItem
-                                  onClick={() => openSchemaWorkspace(conn.id, schema.name)}
-                                >
-                                  {t("schemaWorkspace.actions.openDiagram")}
-                                </ContextMenuItem>
-                                <ContextMenuSeparator />
-                                <ContextMenuItem
-                                  onClick={() => navigator.clipboard.writeText(schema.name)}
-                                >
-                                  {t("shell.sidebar.copyName")}
-                                </ContextMenuItem>
-                              </ContextMenuContent>
-                            </ContextMenu>
+                            <div className="flex items-center gap-1">
+                              <ContextMenu>
+                                <ContextMenuTrigger asChild>
+                                  <button
+                                    type="button"
+                                    className="flex h-[28px] min-w-0 flex-1 cursor-pointer items-center gap-1.5 rounded-md border-l-2 border-l-transparent px-2 text-left text-[13px] font-medium text-foreground transition-colors hover:border-l-primary hover:bg-[var(--surface-hover)] active:bg-[var(--surface-active)]"
+                                    onClick={() => toggleNode(`schema:${conn.id}:${schema.name}`)}
+                                    aria-expanded={schemaExpanded}
+                                  >
+                                    {schemaExpanded ? (
+                                      <ChevronDown className="h-3 w-3 shrink-0" />
+                                    ) : (
+                                      <ChevronRight className="h-3 w-3 shrink-0" />
+                                    )}
+                                    <Icon className="h-3.5 w-3.5 shrink-0 text-primary" />
+                                    <span className="flex-1 truncate">{schema.name}</span>
+                                    <span className="text-[11px] tabular-nums text-[var(--text-tertiary)]">
+                                      {tables.length + views.length}
+                                    </span>
+                                  </button>
+                                </ContextMenuTrigger>
+                                <ContextMenuContent>
+                                  <ContextMenuItem
+                                    onClick={() => openSchemaWorkspace(conn.id, schema.name)}
+                                  >
+                                    {t("schemaWorkspace.actions.openDiagram")}
+                                  </ContextMenuItem>
+                                  <ContextMenuSeparator />
+                                  <ContextMenuItem
+                                    onClick={() => navigator.clipboard.writeText(schema.name)}
+                                  >
+                                    {t("shell.sidebar.copyName")}
+                                  </ContextMenuItem>
+                                </ContextMenuContent>
+                              </ContextMenu>
+                              <button
+                                type="button"
+                                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-foreground"
+                                aria-label={`${t("schemaWorkspace.actions.openDiagram")}: ${schema.name}`}
+                                title={t("schemaWorkspace.actions.openDiagram")}
+                                onClick={() => openSchemaWorkspace(conn.id, schema.name)}
+                              >
+                                <Network className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
                             {schemaExpanded && (
                               <div className="ml-[10px] flex flex-col gap-0.5">
                                 {tables.length > 0 && (
@@ -548,6 +630,15 @@ export function ExplorerView() {
           );
         })}
       </div>
+      {backupDialog && (
+        <BackupDialog
+          open
+          onOpenChange={(open) => !open && setBackupDialog(null)}
+          connectionId={backupDialog.connectionId}
+          driver={backupDialog.driver}
+          mode={backupDialog.mode}
+        />
+      )}
     </div>
   );
 }

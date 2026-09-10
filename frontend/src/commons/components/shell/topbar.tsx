@@ -1,6 +1,7 @@
-import { Search } from "lucide-react";
+import { Command, Search } from "lucide-react";
 
 import { useTranslation } from "@/commons/locales/useTranslation";
+import { useCommandStore } from "@/commons/stores/command.store";
 import { useQuickOpenStore } from "@/commons/stores/quick-open.store";
 import { isMac } from "@/commons/utils/platform";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -14,8 +15,8 @@ export function Topbar() {
       style={{ height: "var(--app-topbar-height)" }}
       role="banner"
     >
-      {/* Left — Mac traffic lights spacer + branding */}
-      <div className="flex items-center gap-2 pl-14">
+      {/* Left — reserve space for native traffic lights only on macOS */}
+      <div className={`flex items-center gap-2 ${isMac ? "pl-14" : "pl-3"}`}>
         <span className="text-[13px] font-semibold text-[var(--text-secondary)]">DB Pro</span>
       </div>
 
@@ -27,8 +28,7 @@ export function Topbar() {
           <TooltipTrigger asChild>
             <button
               type="button"
-              className="flex h-7 items-center gap-1.5 rounded-md border border-[var(--border-default)] bg-muted/50 px-2.5 text-xs text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:text-foreground"
-              style={{ width: 200 }}
+              className="flex h-7 w-[clamp(150px,24vw,240px)] items-center gap-1.5 rounded-md border border-[var(--border-default)] bg-[var(--surface-editor)] px-2.5 text-xs text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:text-foreground"
               onClick={() => useQuickOpenStore.getState().open()}
             >
               <Search className="h-3.5 w-3.5 shrink-0" />
@@ -43,10 +43,21 @@ export function Topbar() {
           </TooltipContent>
         </Tooltip>
 
-        {/* Profile avatar */}
-        <div className="grid h-6 w-6 place-items-center rounded-full bg-primary/15 text-[11px] font-semibold text-primary">
-          T
-        </div>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              className="grid h-7 w-7 place-items-center rounded-md text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-hover)] hover:text-foreground"
+              onClick={() => useCommandStore.getState().open()}
+              aria-label={t("shell.topbar.commandMenu")}
+            >
+              <Command className="h-4 w-4" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" sideOffset={4}>
+            {t("shell.topbar.commandMenu")} · {isMac ? "⌘K" : "Ctrl+K"}
+          </TooltipContent>
+        </Tooltip>
       </div>
     </header>
   );
