@@ -197,7 +197,7 @@ describe("useToggleFavorite", () => {
     act(() => result.current.mutate({ id: "conn-1", favorite: true }));
 
     await waitFor(() => expect(result.current.isError).toBe(true));
-    expect(useConnectionModuleStore.getState().favorites).not.toHaveProperty("conn-1");
+    expect(useConnectionModuleStore.getState().favorites["conn-1"]).toBe(false);
   });
 });
 

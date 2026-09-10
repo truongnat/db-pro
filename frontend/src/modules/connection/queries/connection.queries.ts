@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { container } from "@/app/app.module";
@@ -35,7 +34,7 @@ export function __resetSessionRestored() {
  * This function only executes once per app startup to prevent double-connection
  * on subsequent query invalidations/refetches.
  */
-export function restoreSession(connections: Connection[]) {
+function restoreSession(connections: Connection[]) {
   if (sessionRestored) return;
   sessionRestored = true;
 
@@ -94,24 +93,18 @@ export function restoreSession(connections: Connection[]) {
 }
 
 export function useConnectionList() {
-  const query = useQuery({
+  return useQuery({
     queryKey: QUERY_KEYS.connections,
     queryFn: async () => {
       const connections = (await getConnectionService().list()) as Connection[];
+      useConnectionStore.getState().setConnections(connections);
+      // Connections are now loaded — reconcile persisted workspace tabs.
+      reconcileWorkspaceTabs();
+      // Restore previously active connections from the last session (one-shot).
+      restoreSession(connections);
       return connections;
     },
   });
-
-  useEffect(() => {
-    if (query.data) {
-      useConnectionStore.getState().setConnections(query.data);
-      // Connections are now loaded — reconcile persisted workspace tabs.
-      reconcileWorkspaceTabs();
-      restoreSession(query.data);
-    }
-  }, [query.data]);
-
-  return query;
 }
 
 export function useCreateConnection() {
@@ -292,8 +285,7 @@ export function useRenameConnection() {
  */
 export function useToggleFavorite() {
   const qc = useQueryClient();
-  const setFavorite = useConnectionModuleStore((s) => s.setFavorite);
-  const setError = useConnectionModuleStore((s) => s.setError);
+  const toggleFavoriteLocal = useConnectionModuleStore((s) => s.toggleFavorite);
 
   return useMutation({
     mutationFn: async ({ id, favorite }: { id: string; favorite: boolean }) => {
@@ -319,16 +311,11 @@ export function useToggleFavorite() {
       };
       return service.update(id, config);
     },
-    onMutate: ({ id, favorite }) => {
-      const previous = useConnectionModuleStore.getState().favorites[id];
-      setFavorite(id, favorite);
-      return { favorite, previous };
+    onMutate: ({ id }) => {
+      toggleFavoriteLocal(id);
     },
-    onError: (err: unknown, { id, favorite }, context) => {
-      const current = useConnectionModuleStore.getState().favorites[id];
-      if (current === favorite) setFavorite(id, context?.previous);
-      setError(id, (err as { userMessage?: string }).userMessage ?? "Failed to update connection");
-      qc.invalidateQueries({ queryKey: QUERY_KEYS.connections });
+    onError: (_err, { id }) => {
+      toggleFavoriteLocal(id);
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: QUERY_KEYS.connections }),
   });
