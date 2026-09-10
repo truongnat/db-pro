@@ -193,6 +193,7 @@ describe("DataToolbar QA-P2-07", () => {
     // Open Columns popover
     const columnsBtn = screen.getByRole("button", { name: /Columns/i });
     await user.click(columnsBtn);
+    expect(document.querySelector('[data-slot="scroll-area"]')).toHaveClass("overflow-hidden");
 
     // Find the checkboxes
     const checkboxes = screen.getAllByRole("checkbox");

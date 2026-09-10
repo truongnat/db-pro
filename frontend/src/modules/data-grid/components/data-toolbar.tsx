@@ -238,7 +238,7 @@ export function DataToolbar({
                 </Button>
               )}
             </div>
-            <ScrollArea className="max-h-64">
+            <ScrollArea className="max-h-64 overflow-hidden">
               <div className="flex flex-col gap-1">
                 {columns.map((c) => (
                   <label
