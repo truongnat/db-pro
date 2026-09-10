@@ -6,22 +6,47 @@ use std::sync::mpsc::{self, Receiver, Sender};
 pub struct RequestId(pub u64);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UiConnectionSummary {
+    pub id: String,
+    pub name: String,
+    pub driver: String,
+    pub readonly: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum UiCommand {
     OpenQuery,
-    RunQuery { request_id: RequestId, sql: String },
+    ListConnections { request_id: RequestId },
+    Connect {
+        request_id: RequestId,
+        connection_id: String,
+    },
+    RunQuery {
+        request_id: RequestId,
+        connection_id: String,
+        sql: String,
+    },
     CancelQuery { request_id: RequestId },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum UiEvent {
+    ConnectionsLoaded {
+        request_id: RequestId,
+        connections: Vec<UiConnectionSummary>,
+    },
+    Connected {
+        request_id: RequestId,
+        connection_id: String,
+    },
     QueryQueued { request_id: RequestId },
     QueryCompleted { request_id: RequestId, row_count: u64 },
     QueryFailed { request_id: RequestId, message: String },
 }
 
 /// Small typed boundary between the immediate-mode UI and asynchronous work.
-/// The receiver is drained by the UI thread once per frame; workers will be
-/// added when the backend facade is extracted from the Tauri adapter.
+/// The receiver is drained by the UI thread once per frame; the native binary
+/// adapts these standard channels to the tokio runtime worker.
 pub struct TaskBridge {
     command_tx: Sender<UiCommand>,
     event_rx: Receiver<UiEvent>,
@@ -30,17 +55,29 @@ pub struct TaskBridge {
 
 impl Default for TaskBridge {
     fn default() -> Self {
-        let (command_tx, _command_rx) = mpsc::channel();
-        let (_event_tx, event_rx) = mpsc::channel();
-        Self {
-            command_tx,
-            event_rx,
-            next_request_id: 1,
-        }
+        let (bridge, _command_rx, _event_tx) = Self::with_channels();
+        bridge
     }
 }
 
 impl TaskBridge {
+    /// Build the UI-side bridge and expose its endpoints to a runtime adapter.
+    /// The adapter is responsible for translating these messages to its async
+    /// channel implementation.
+    pub fn with_channels() -> (Self, Receiver<UiCommand>, Sender<UiEvent>) {
+        let (command_tx, command_rx) = mpsc::channel();
+        let (event_tx, event_rx) = mpsc::channel();
+        (
+            Self {
+                command_tx,
+                event_rx,
+                next_request_id: 1,
+            },
+            command_rx,
+            event_tx,
+        )
+    }
+
     pub fn new(command_tx: Sender<UiCommand>, event_rx: Receiver<UiEvent>) -> Self {
         Self {
             command_tx,

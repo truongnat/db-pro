@@ -1,4 +1,4 @@
-use crate::{DbProTheme, TaskBridge, UiCommand, UiEvent};
+use crate::{DbProTheme, TaskBridge, UiCommand, UiConnectionSummary, UiEvent};
 use eframe::egui::{self, Align, Color32, Layout, RichText, TextEdit, TopBottomPanel};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -15,8 +15,8 @@ enum WorkspaceTab {
 }
 
 /// First native vertical slice: visual shell, navigation, workspace tabs and
-/// a functional query surface. Backend commands are intentionally not wired
-/// yet; this keeps the base independently reviewable and runnable.
+/// a functional query surface. The task bridge is backend-agnostic so the
+/// same UI can run with the native runtime adapter or in an isolated preview.
 pub struct DbProApp {
     theme: DbProTheme,
     activity: Activity,
@@ -30,6 +30,18 @@ pub struct DbProApp {
     task_bridge: TaskBridge,
     next_query_request: Option<crate::RequestId>,
     runtime_message: String,
+    connections: Vec<UiConnectionSummary>,
+    active_connection_id: Option<String>,
+    connections_requested: bool,
+}
+
+impl DbProApp {
+    pub fn with_task_bridge(task_bridge: TaskBridge) -> Self {
+        Self {
+            task_bridge,
+            ..Self::default()
+        }
+    }
 }
 
 impl Default for DbProApp {
@@ -47,12 +59,16 @@ impl Default for DbProApp {
             task_bridge: TaskBridge::default(),
             next_query_request: None,
             runtime_message: "Ready".to_owned(),
+            connections: Vec::new(),
+            active_connection_id: None,
+            connections_requested: false,
         }
     }
 }
 
 impl eframe::App for DbProApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        self.request_connections_once();
         self.apply_runtime_events();
         self.theme.apply(ctx);
         self.handle_shortcuts(ctx);
@@ -77,10 +93,31 @@ impl eframe::App for DbProApp {
 }
 
 impl DbProApp {
+    fn request_connections_once(&mut self) {
+        if self.connections_requested {
+            return;
+        }
+        self.connections_requested = true;
+        let request_id = self.task_bridge.next_request_id();
+        let _ = self.task_bridge.send(UiCommand::ListConnections { request_id });
+    }
+
     fn apply_runtime_events(&mut self) {
         let events: Vec<UiEvent> = self.task_bridge.drain_events().collect();
         for event in events {
             match event {
+                UiEvent::ConnectionsLoaded { connections, .. } => {
+                    self.connections = connections;
+                    if self.active_connection_id.is_none() {
+                        self.active_connection_id = self.connections.first().map(|connection| connection.id.clone());
+                    }
+                    self.runtime_message = format!("Loaded {} connections", self.connections.len());
+                }
+                UiEvent::Connected { connection_id, .. } => {
+                    self.active_connection_id = Some(connection_id);
+                    self.connected = true;
+                    self.runtime_message = "Connection established".to_owned();
+                }
                 UiEvent::QueryQueued { request_id } => {
                     self.next_query_request = Some(request_id);
                     self.runtime_message = format!("Query queued · request {}", request_id.0);
@@ -232,6 +269,35 @@ impl DbProApp {
             ui.label(RichText::new("PG").small().color(self.theme.accent));
         });
         ui.add_space(8.0);
+        if self.connections.is_empty() {
+            ui.label(RichText::new("No saved connections").color(self.theme.text_muted));
+            ui.label(RichText::new("Create one from the next backend slice.").small().color(self.theme.text_muted));
+        } else {
+            for connection in self.connections.clone() {
+                let is_active = self.active_connection_id.as_deref() == Some(connection.id.as_str());
+                ui.horizontal(|ui| {
+                    ui.label(RichText::new(if is_active { "●" } else { "○" }).color(if connection.readonly {
+                        self.theme.warning
+                    } else {
+                        self.theme.success
+                    }));
+                    if ui
+                        .selectable_label(is_active, RichText::new(&connection.name).strong())
+                        .clicked()
+                    {
+                        self.active_connection_id = Some(connection.id.clone());
+                        let request_id = self.task_bridge.next_request_id();
+                        let _ = self.task_bridge.send(UiCommand::Connect {
+                            request_id,
+                            connection_id: connection.id.clone(),
+                        });
+                        self.runtime_message = format!("Connecting to {}…", connection.name);
+                    }
+                    ui.label(RichText::new(&connection.driver).small().color(self.theme.accent));
+                });
+            }
+        }
+        ui.add_space(12.0);
         for (label, icon) in [("Schemas", "◫"), ("Tables", "▦"), ("Views", "◌"), ("Functions", "ƒ")]
         {
             ui.horizontal(|ui| {
@@ -307,14 +373,18 @@ impl DbProApp {
             ui.label(RichText::new(&self.connection_name).color(self.theme.accent));
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                 if ui.button("Run  ⌘↵").clicked() {
-                    let request_id = self.task_bridge.next_request_id();
-                    self.next_query_request = Some(request_id);
-                    self.runtime_message = "Sending query to runtime…".to_owned();
-                    let _ = self.task_bridge.send(UiCommand::RunQuery {
-                        request_id,
-                        sql: self.query_text.clone(),
-                    });
-                    self.connected = true;
+                    if let Some(connection) = self.connections.first() {
+                        let request_id = self.task_bridge.next_request_id();
+                        self.next_query_request = Some(request_id);
+                        self.runtime_message = "Sending query to runtime…".to_owned();
+                        let _ = self.task_bridge.send(UiCommand::RunQuery {
+                            request_id,
+                            connection_id: connection.id.clone(),
+                            sql: self.query_text.clone(),
+                        });
+                    } else {
+                        self.runtime_message = "Create or select a connection first".to_owned();
+                    }
                 }
                 ui.button("Format");
             });

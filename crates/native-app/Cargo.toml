@@ -9,4 +9,6 @@ path = "src/main.rs"
 
 [dependencies]
 db-pro-ui = { path = "../ui" }
+db-pro-runtime = { path = "../runtime" }
 eframe = { version = "0.29", default-features = false, features = ["default_fonts", "glow", "wayland", "x11"] }
+tokio.workspace = true

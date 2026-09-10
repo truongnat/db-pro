@@ -8,10 +8,18 @@ Commands to run when the toolchain is available:
 
 ```bash
 cargo fmt --all -- --check
-cargo check -p db-pro-ui -p db-pro-native
-cargo test --workspace
+cargo check -p db-pro-runtime -p db-pro-ui -p db-pro-native
+cargo test -p db-pro-runtime -p db-pro-ui
 cargo clippy --workspace --all-targets -- -D warnings
 ```
+
+## Run native preview
+
+```bash
+DB_PRO_DATA_DIR=/tmp/db-pro-native-data cargo run -p db-pro-native
+```
+
+The app reads saved connections from the existing metadata schema. Select a connection in Explorer to connect, then open Query and run a statement. PostgreSQL/SQLite credentials remain in the configured keyring; no password is passed to the UI bridge.
 
 ## Manual
 

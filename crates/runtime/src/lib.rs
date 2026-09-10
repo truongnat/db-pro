@@ -1,3 +1,7 @@
+mod worker;
+
+pub use worker::{spawn_worker, ConnectionSummary, RuntimeCommand, RuntimeEvent, RuntimeRequestId};
+
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 

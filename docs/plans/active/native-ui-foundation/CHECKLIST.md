@@ -7,7 +7,10 @@
 - [x] Add visual placeholder states for explorer, history, settings and agent panel.
 - [x] Add typed `UiCommand`/`UiEvent` task bridge and request identity scaffold.
 - [x] Add frontend-independent `DbProRuntime` service graph for connection/query/schema.
-- [ ] Connect `DbProRuntime` to native task workers.
+- [x] Connect `DbProRuntime` to a tokio native task worker with typed command/event translation.
+- [x] Load saved connection summaries into the native explorer.
+- [x] Add active connection selection and connect action.
+- [ ] Render typed query result pages in the native result grid.
 - [ ] Run Rust fmt/check/test once the Rust toolchain is available in the environment.
 - [ ] Manually review screenshots at 1280×800, 1440×900 and 1920×1080.
 - [ ] Wire the shell to the extracted backend facade.
