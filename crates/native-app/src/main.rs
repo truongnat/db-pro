@@ -236,6 +236,16 @@ fn translate_event(event: RuntimeEvent) -> Option<UiEvent> {
                 })
                 .collect(),
         }),
+        RuntimeEvent::OperationProgress { request_id, operation, status } => Some(UiEvent::OperationProgress {
+            request_id: db_pro_ui::RequestId(request_id.0),
+            operation: operation.to_owned(),
+            status: status.to_owned(),
+        }),
+        RuntimeEvent::BackupCompleted { request_id, output_path, size_bytes } => Some(UiEvent::BackupCompleted {
+            request_id: db_pro_ui::RequestId(request_id.0),
+            output_path,
+            size_bytes,
+        }),
         RuntimeEvent::OperationCompleted { request_id, operation } => Some(UiEvent::OperationCompleted {
             request_id: db_pro_ui::RequestId(request_id.0),
             operation: operation.to_owned(),

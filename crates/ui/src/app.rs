@@ -183,6 +183,12 @@ impl DbProApp {
                         self.connection_error.clear();
                     }
                 }
+                UiEvent::OperationProgress { operation, status, .. } => {
+                    self.runtime_message = format!("{operation}: {status}");
+                }
+                UiEvent::BackupCompleted { output_path, size_bytes, .. } => {
+                    self.runtime_message = format!("Backup completed · {output_path} · {size_bytes} bytes");
+                }
                 UiEvent::OperationCompleted { operation, .. } => {
                     self.runtime_message = operation.clone();
                     self.connections_requested = false;

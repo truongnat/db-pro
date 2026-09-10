@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
+use db_pro_core::domain::backup::{BackupOptions, RestoreOptions};
 use db_pro_core::domain::query::QueryResult;
 use tokio::sync::{mpsc, oneshot};
 
@@ -41,7 +42,16 @@ pub enum RuntimeCommand {
         connection_id: String,
         sql: String,
     },
+    Backup {
+        request_id: RuntimeRequestId,
+        options: BackupOptions,
+    },
+    Restore {
+        request_id: RuntimeRequestId,
+        options: RestoreOptions,
+    },
     CancelQuery { request_id: RuntimeRequestId },
+    CancelOperation { request_id: RuntimeRequestId },
 }
 
 #[derive(Debug)]
@@ -49,6 +59,16 @@ pub enum RuntimeEvent {
     ConnectionsLoaded {
         request_id: RuntimeRequestId,
         connections: Vec<ConnectionSummary>,
+    },
+    OperationProgress {
+        request_id: RuntimeRequestId,
+        operation: &'static str,
+        status: &'static str,
+    },
+    BackupCompleted {
+        request_id: RuntimeRequestId,
+        output_path: String,
+        size_bytes: u64,
     },
     OperationCompleted {
         request_id: RuntimeRequestId,
@@ -188,7 +208,92 @@ pub fn spawn_worker(
                         let _ = event_tx.send(event).await;
                     });
                 }
-                RuntimeCommand::CancelQuery { request_id } => {
+                RuntimeCommand::Backup { request_id, options } => {
+                    let _ = event_tx
+                        .send(RuntimeEvent::OperationProgress {
+                            request_id,
+                            operation: "backup",
+                            status: "started",
+                        })
+                        .await;
+                    let (cancel_tx, cancel_rx) = oneshot::channel();
+                    cancellations
+                        .lock()
+                        .unwrap_or_else(|poisoned| poisoned.into_inner())
+                        .insert(request_id, cancel_tx);
+                    let backup_api = runtime.backup_api();
+                    let event_tx = event_tx.clone();
+                    let cancellations = Arc::clone(&cancellations);
+                    tokio::spawn(async move {
+                        let result = tokio::select! {
+                            result = backup_api.backup(&options) => Some(result),
+                            _ = cancel_rx => None,
+                        };
+                        cancellations
+                            .lock()
+                            .unwrap_or_else(|poisoned| poisoned.into_inner())
+                            .remove(&request_id);
+                        let status = match result {
+                            Some(Ok(result)) => {
+                                let _ = event_tx.send(RuntimeEvent::BackupCompleted {
+                                    request_id,
+                                    output_path: result.output_path,
+                                    size_bytes: result.size_bytes,
+                                }).await;
+                                "completed"
+                            }
+                            Some(Err(error)) => {
+                                let _ = event_tx.send(RuntimeEvent::Failed { request_id, message: error.message }).await;
+                                "failed"
+                            }
+                            None => "cancelled",
+                        };
+                        let _ = event_tx.send(RuntimeEvent::OperationProgress {
+                            request_id,
+                            operation: "backup",
+                            status,
+                        }).await;
+                    });
+                }
+                RuntimeCommand::Restore { request_id, options } => {
+                    let _ = event_tx.send(RuntimeEvent::OperationProgress {
+                        request_id,
+                        operation: "restore",
+                        status: "started",
+                    }).await;
+                    let (cancel_tx, cancel_rx) = oneshot::channel();
+                    cancellations
+                        .lock()
+                        .unwrap_or_else(|poisoned| poisoned.into_inner())
+                        .insert(request_id, cancel_tx);
+                    let backup_api = runtime.backup_api();
+                    let event_tx = event_tx.clone();
+                    let cancellations = Arc::clone(&cancellations);
+                    tokio::spawn(async move {
+                        let result = tokio::select! {
+                            result = backup_api.restore(&options) => Some(result),
+                            _ = cancel_rx => None,
+                        };
+                        cancellations
+                            .lock()
+                            .unwrap_or_else(|poisoned| poisoned.into_inner())
+                            .remove(&request_id);
+                        let status = match result {
+                            Some(Ok(())) => "completed",
+                            Some(Err(error)) => {
+                                let _ = event_tx.send(RuntimeEvent::Failed { request_id, message: error.message }).await;
+                                "failed"
+                            }
+                            None => "cancelled",
+                        };
+                        let _ = event_tx.send(RuntimeEvent::OperationProgress {
+                            request_id,
+                            operation: "restore",
+                            status,
+                        }).await;
+                    });
+                }
+                RuntimeCommand::CancelQuery { request_id } | RuntimeCommand::CancelOperation { request_id } => {
                     if let Some(sender) = cancellations
                         .lock()
                         .unwrap_or_else(|poisoned| poisoned.into_inner())

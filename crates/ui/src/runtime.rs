@@ -141,6 +141,16 @@ pub enum UiEvent {
         kind: String,
         path: Option<String>,
     },
+    OperationProgress {
+        request_id: RequestId,
+        operation: String,
+        status: String,
+    },
+    BackupCompleted {
+        request_id: RequestId,
+        output_path: String,
+        size_bytes: u64,
+    },
     OperationCompleted {
         request_id: RequestId,
         operation: String,
