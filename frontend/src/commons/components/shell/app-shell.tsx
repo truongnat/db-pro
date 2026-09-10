@@ -1,4 +1,4 @@
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, useEffect } from "react";
 
 import { CommandPalette } from "@/commons/components/command-palette";
 import { QuickOpen } from "@/commons/components/quick-open";
@@ -30,6 +30,11 @@ export function AppShell() {
   const setAgentWidth = useShellStore((s) => s.setAgentWidth);
   const hasTabs = useWorkspaceStore((s) => s.tabs.length > 0);
   const draggingRef = useRef(false);
+  const resizeCleanup = useRef<(() => void) | null>(null);
+
+  useEffect(() => {
+    return () => resizeCleanup.current?.();
+  }, []);
   useCommandPalette();
   useQuickOpen();
   // Register TanStack Query cache invalidation with the canonical runtime
@@ -58,8 +63,10 @@ export function AppShell() {
         document.body.style.userSelect = "";
         document.removeEventListener("mousemove", onMouseMove);
         document.removeEventListener("mouseup", onMouseUp);
+        resizeCleanup.current = null;
       };
 
+      resizeCleanup.current = onMouseUp;
       document.addEventListener("mousemove", onMouseMove);
       document.addEventListener("mouseup", onMouseUp);
     },
@@ -89,8 +96,10 @@ export function AppShell() {
         document.body.style.userSelect = "";
         document.removeEventListener("mousemove", onMouseMove);
         document.removeEventListener("mouseup", onMouseUp);
+        resizeCleanup.current = null;
       };
 
+      resizeCleanup.current = onMouseUp;
       document.addEventListener("mousemove", onMouseMove);
       document.addEventListener("mouseup", onMouseUp);
     },

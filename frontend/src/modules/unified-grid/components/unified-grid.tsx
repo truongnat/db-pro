@@ -198,6 +198,17 @@ export function UnifiedGrid({
     if (contextMenu) contextMenuRef.current?.focus();
   }, [contextMenu]);
 
+  useEffect(() => {
+    if (!contextMenu) return;
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (contextMenuRef.current && !contextMenuRef.current.contains(e.target as Node)) {
+        setContextMenu(null);
+      }
+    };
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, [contextMenu]);
+
   /* ---- clear selection when dataset changes (pagination/sort/filter/refresh) ---- */
   const prevRowsRef = useRef(rows);
   useEffect(() => {

@@ -76,7 +76,9 @@ export function TabContextMenu({ tab, children, onClose, onCloseMany }: TabConte
         <ContextMenuItem onClick={() => toggleTabPinned(tab.id)}>
           <PinIcon className="size-3.5" />
           {tab.pinned ? "Unpin" : "Pin"}
-          <ContextMenuShortcut>Alt+Shift+P</ContextMenuShortcut>
+          <ContextMenuShortcut>
+            {formatShortcut({ altKey: true, shiftKey: true, key: "P" })}
+          </ContextMenuShortcut>
         </ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem onClick={() => copyToClipboard(tab.title)}>

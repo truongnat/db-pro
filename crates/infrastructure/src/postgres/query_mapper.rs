@@ -74,7 +74,7 @@ fn decode_cell(row: &sqlx::postgres::PgRow, i: usize, data_type: &str) -> CellVa
         "FLOAT8" => row.try_get::<f64, _>(i).map(CellValue::Float64),
         "NUMERIC" | "DECIMAL" => row
             .try_get::<sqlx::types::BigDecimal, _>(i)
-            .map(|v| CellValue::Text(v.normalized().to_string())),
+            .map(|v| CellValue::Text(v.to_string())),
         "UUID" => row.try_get::<uuid::Uuid, _>(i).map(|v| CellValue::Uuid(v.to_string())),
         "TIMESTAMPTZ" => row
             .try_get::<chrono::DateTime<chrono::Utc>, _>(i)
@@ -143,5 +143,35 @@ mod tests {
         let mut args = PgArguments::default();
         let params = vec![QueryParam::DateTime("invalid-date".into())];
         assert!(bind_params(&params, &mut args).is_err());
+    }
+
+    #[test]
+    fn numeric_to_string_preserves_trailing_zeros() {
+        let cases: Vec<(&str, &str)> = vec![
+            ("1.00", "1.00"),
+            ("1.50", "1.50"),
+            ("0.100", "0.100"),
+            ("123.456000", "123.456000"),
+            ("10", "10"),
+            ("0.001", "0.001"),
+        ];
+        for (input, expected) in cases {
+            let bd: sqlx::types::BigDecimal = input.parse().unwrap();
+            let result = bd.to_string();
+            assert_eq!(result, expected, "BigDecimal::to_string() for {input}");
+        }
+    }
+
+    #[test]
+    fn numeric_to_string_vs_normalized_differs() {
+        let bd: sqlx::types::BigDecimal = "1.500".parse().unwrap();
+        let plain = bd.to_string();
+        let norm = bd.normalized().to_string();
+        assert_eq!(plain, "1.500", "to_string() should preserve trailing zeros");
+        assert_eq!(norm, "1.5", "normalized() strips trailing zeros");
+        assert_ne!(
+            plain, norm,
+            "to_string and normalized must differ for NUMERIC with trailing zeros"
+        );
     }
 }
