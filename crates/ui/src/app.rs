@@ -38,6 +38,9 @@ pub struct DbProApp {
     grid_sort_desc: bool,
     grid_column_widths: Vec<f32>,
     grid_resize_start: Option<(usize, f32)>,
+    selected_cell: Option<(usize, usize)>,
+    selected_row: Option<usize>,
+    copy_status: String,
     connections: Vec<UiConnectionSummary>,
     active_connection_id: Option<String>,
     connections_requested: bool,
@@ -73,6 +76,9 @@ impl Default for DbProApp {
             grid_sort_desc: false,
             grid_column_widths: Vec::new(),
             grid_resize_start: None,
+            selected_cell: None,
+            selected_row: None,
+            copy_status: String::new(),
             connections: Vec::new(),
             active_connection_id: None,
             connections_requested: false,
@@ -141,6 +147,9 @@ impl DbProApp {
                         self.runtime_message = format!("Query completed · {} rows", result.row_count);
                         self.grid_sort_column = None;
                         self.grid_column_widths = vec![180.0; result.columns.len()];
+                        self.selected_cell = None;
+                        self.selected_row = None;
+                        self.copy_status.clear();
                         self.query_result = Some(result);
                         self.next_query_request = None;
                     }
@@ -465,6 +474,9 @@ impl DbProApp {
             return;
         }
 
+        if ui.input(|input| input.key_pressed(egui::Key::C) && input.modifiers.command) {
+            self.copy_selected_cell(ui, result);
+        }
         ui.horizontal(|ui| {
             ui.label(RichText::new("Filter").small().color(self.theme.text_secondary));
             ui.add_sized(
@@ -474,7 +486,16 @@ impl DbProApp {
             if ui.small_button("Clear").clicked() {
                 self.grid_filter.clear();
             }
-            ui.label(RichText::new("Click a column to sort · drag the divider to resize").small().color(self.theme.text_muted));
+            if ui.small_button("Copy cell").clicked() {
+                self.copy_selected_cell(ui, result);
+            }
+            if ui.small_button("Copy row").clicked() {
+                self.copy_selected_row(ui, result);
+            }
+            if !self.copy_status.is_empty() {
+                ui.label(RichText::new(self.copy_status.as_str()).small().color(self.theme.success));
+            }
+            ui.label(RichText::new("Click a cell to select · drag the divider to resize").small().color(self.theme.text_muted));
         });
         ui.add_space(6.0);
 
@@ -497,7 +518,16 @@ impl DbProApp {
                             egui::Frame::default().fill(fill).show(ui, |ui| {
                                 ui.allocate_ui_with_layout(egui::vec2(width, 24.0), Layout::left_to_right(Align::Center), |ui| {
                                     ui.add_space(8.0);
-                                    ui.label(Self::cell_label(cell));
+                                    let selected = self.selected_cell == Some((row_index, column_index));
+                                    let response = ui.add_sized(
+                                        [width - 12.0, 22.0],
+                                        egui::SelectableLabel::new(selected, Self::cell_label(cell)),
+                                    );
+                                    if response.clicked() {
+                                        self.selected_cell = Some((row_index, column_index));
+                                        self.selected_row = Some(row_index);
+                                        self.copy_status.clear();
+                                    }
                                 });
                             });
                         }
@@ -505,6 +535,33 @@ impl DbProApp {
                 }
             });
         });
+    }
+
+    fn copy_selected_cell(&mut self, ui: &mut egui::Ui, result: &UiQueryResult) {
+        let Some((row_index, column_index)) = self.selected_cell else {
+            self.copy_status = "Select a cell first".to_owned();
+            return;
+        };
+        let Some(cell) = result.rows.get(row_index).and_then(|row| row.0.get(column_index)) else {
+            self.copy_status = "Selected cell is no longer available".to_owned();
+            return;
+        };
+        ui.output_mut(|output| output.copied_text = Self::cell_text(cell));
+        self.copy_status = "Cell copied".to_owned();
+    }
+
+    fn copy_selected_row(&mut self, ui: &mut egui::Ui, result: &UiQueryResult) {
+        let Some(row_index) = self.selected_row else {
+            self.copy_status = "Select a row first".to_owned();
+            return;
+        };
+        let Some(row) = result.rows.get(row_index) else {
+            self.copy_status = "Selected row is no longer available".to_owned();
+            return;
+        };
+        let row_text = row.0.iter().map(Self::cell_text).collect::<Vec<_>>().join("\t");
+        ui.output_mut(|output| output.copied_text = row_text);
+        self.copy_status = "Row copied".to_owned();
     }
 
     fn column_widths(&mut self, count: usize) -> Vec<f32> {
