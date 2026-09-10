@@ -165,7 +165,12 @@ export function ConnectionEditor({
       port: driver === "postgres" ? 5432 : 0,
       username: driver === "postgres" ? "" : "",
       database: "",
-      sslMode: driver === "postgres" ? (formData.driver === "sqlite" ? "require" : prev.sslMode) : "disable",
+      sslMode:
+        driver === "postgres"
+          ? formData.driver === "sqlite"
+            ? "require"
+            : prev.sslMode
+          : "disable",
       sshTunnel: undefined,
     }));
     if (driver === "sqlite") {
