@@ -64,6 +64,12 @@ pub struct DbProApp {
     export_open: bool,
     export_format: String,
     export_path: String,
+    mutation_table: String,
+    mutation_column: String,
+    mutation_value: String,
+    mutation_pk_column: String,
+    mutation_pk_value: String,
+    mutation_delete_confirmation: bool,
     connections: Vec<UiConnectionSummary>
     saved_queries: Vec<UiSavedQuerySummary>,
     schema: UiSchemaSummary,
@@ -155,6 +161,12 @@ impl Default for DbProApp {
             export_open: false,
             export_format: "CSV".to_owned(),
             export_path: String::new(),
+            mutation_table: String::new(),
+            mutation_column: String::new(),
+            mutation_value: String::new(),
+            mutation_pk_column: String::new(),
+            mutation_pk_value: String::new(),
+            mutation_delete_confirmation: false,
             connections: Vec::new(),
             saved_queries: Vec::new(),
             schema: UiSchemaSummary { tables: Vec::new(), columns: Vec::new() },
@@ -1085,6 +1097,32 @@ impl DbProApp {
                 });
             });
         }
+        ui.horizontal(|ui| {
+            ui.label(RichText::new("Row mutation").small().color(self.theme.text_muted));
+            ui.add(TextEdit::singleline(&mut self.mutation_table).hint_text("table").desired_width(90.0));
+            ui.add(TextEdit::singleline(&mut self.mutation_pk_column).hint_text("pk column").desired_width(90.0));
+            ui.add(TextEdit::singleline(&mut self.mutation_pk_value).hint_text("pk value").desired_width(90.0));
+            ui.add(TextEdit::singleline(&mut self.mutation_column).hint_text("column").desired_width(90.0));
+            ui.add(TextEdit::singleline(&mut self.mutation_value).hint_text("new value").desired_width(90.0));
+            if ui.small_button("Update").clicked() {
+                if let Some(connection) = self.connections.first() {
+                    let request_id = self.task_bridge.next_request_id();
+                    let _ = self.task_bridge.send(UiCommand::UpdateTableRow { request_id, connection_id: connection.id.clone(), table: self.mutation_table.clone(), column: self.mutation_column.clone(), value: self.mutation_value.clone(), pk_column: self.mutation_pk_column.clone(), pk_value: self.mutation_pk_value.clone() });
+                }
+            }
+            if ui.small_button("Delete").clicked() { self.mutation_delete_confirmation = true; }
+            if self.mutation_delete_confirmation {
+                ui.colored_label(self.theme.warning, "Confirm delete?");
+                if ui.small_button("Yes").clicked() {
+                    if let Some(connection) = self.connections.first() {
+                        let request_id = self.task_bridge.next_request_id();
+                        let _ = self.task_bridge.send(UiCommand::DeleteTableRow { request_id, connection_id: connection.id.clone(), table: self.mutation_table.clone(), pk_column: self.mutation_pk_column.clone(), pk_value: self.mutation_pk_value.clone() });
+                    }
+                    self.mutation_delete_confirmation = false;
+                }
+                if ui.small_button("No").clicked() { self.mutation_delete_confirmation = false; }
+            }
+        });
         ui.add_space(8.0);
         egui::Frame::default().fill(self.theme.surface_panel).show(ui, |ui| {
             if let Some(result) = result {

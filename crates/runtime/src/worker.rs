@@ -43,6 +43,8 @@ pub enum RuntimeCommand {
         request_id: RuntimeRequestId,
         id: String,
     },
+    UpdateTableRow { request_id: RuntimeRequestId, connection_id: String, schema: String, table: String, column: String, value: String, pk_column: String, pk_value: String },
+    DeleteTableRow { request_id: RuntimeRequestId, connection_id: String, schema: String, table: String, pk_column: String, pk_value: String },
     CreateConnection {
         request_id: RuntimeRequestId,
         config: db_pro_core::domain::connection::ConnectionConfig,
@@ -219,6 +221,20 @@ pub fn spawn_worker(
                             Err(error) => RuntimeEvent::Failed { request_id, message: error.message },
                         },
                         Err(error) => RuntimeEvent::Failed { request_id, message: error.to_string() },
+                    };
+                    let _ = event_tx.send(event).await;
+                }
+                RuntimeCommand::UpdateTableRow { request_id, connection_id, schema, table, column, value, pk_column, pk_value } => {
+                    let event = match runtime.table_data_api().update_text_row(&connection_id, &schema, &table, &column, &value, &pk_column, &pk_value).await {
+                        Ok(_) => RuntimeEvent::OperationCompleted { request_id, operation: "table-row.updated" },
+                        Err(error) => RuntimeEvent::Failed { request_id, message: error.message },
+                    };
+                    let _ = event_tx.send(event).await;
+                }
+                RuntimeCommand::DeleteTableRow { request_id, connection_id, schema, table, pk_column, pk_value } => {
+                    let event = match runtime.table_data_api().delete_text_row(&connection_id, &schema, &table, &pk_column, &pk_value).await {
+                        Ok(_) => RuntimeEvent::OperationCompleted { request_id, operation: "table-row.deleted" },
+                        Err(error) => RuntimeEvent::Failed { request_id, message: error.message },
                     };
                     let _ = event_tx.send(event).await;
                 }

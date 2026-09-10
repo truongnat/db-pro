@@ -255,6 +255,14 @@ impl TableDataApi {
             .map_err(Into::into)
     }
 
+    pub async fn update_text_row(&self, connection_id: &str, schema: &str, table: &str, column: &str, value: &str, pk_column: &str, pk_value: &str) -> Result<u64, DbErrorDto> {
+        self.update_row(connection_id, schema, table, &[column.to_owned()], &[CellValue::Text(value.to_owned())], &[pk_column.to_owned()], &[CellValue::Text(pk_value.to_owned())]).await
+    }
+
+    pub async fn delete_text_row(&self, connection_id: &str, schema: &str, table: &str, pk_column: &str, pk_value: &str) -> Result<u64, DbErrorDto> {
+        self.delete_row(connection_id, schema, table, &[pk_column.to_owned()], &[CellValue::Text(pk_value.to_owned())]).await
+    }
+
     pub async fn delete_row(
         &self,
         connection_id: &str,

@@ -108,6 +108,8 @@ pub enum UiCommand {
     RenameSavedQuery { request_id: RequestId, id: String, name: String },
     DeleteSavedQuery { request_id: RequestId, id: String },
     DeleteQueryFolder { request_id: RequestId, id: String },
+    UpdateTableRow { request_id: RequestId, connection_id: String, table: String, column: String, value: String, pk_column: String, pk_value: String },
+    DeleteTableRow { request_id: RequestId, connection_id: String, table: String, pk_column: String, pk_value: String },
     Connect {
         request_id: RequestId,
         connection_id: String,

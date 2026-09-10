@@ -167,6 +167,8 @@ fn translate_command(command: UiCommand) -> Option<RuntimeCommand> {
         UiCommand::RenameSavedQuery { request_id, id, name } => Some(RuntimeCommand::RenameSavedQuery { request_id: RuntimeRequestId(request_id.0), id, name }),
         UiCommand::DeleteSavedQuery { request_id, id } => Some(RuntimeCommand::DeleteSavedQuery { request_id: RuntimeRequestId(request_id.0), id }),
         UiCommand::DeleteQueryFolder { request_id, id } => Some(RuntimeCommand::DeleteQueryFolder { request_id: RuntimeRequestId(request_id.0), id }),
+        UiCommand::UpdateTableRow { request_id, connection_id, table, column, value, pk_column, pk_value } => Some(RuntimeCommand::UpdateTableRow { request_id: RuntimeRequestId(request_id.0), connection_id, schema: "public".to_owned(), table, column, value, pk_column, pk_value }),
+        UiCommand::DeleteTableRow { request_id, connection_id, table, pk_column, pk_value } => Some(RuntimeCommand::DeleteTableRow { request_id: RuntimeRequestId(request_id.0), connection_id, schema: "public".to_owned(), table, pk_column, pk_value }),
         UiCommand::IntrospectSchema { request_id, connection_id } => Some(RuntimeCommand::IntrospectSchema { request_id: RuntimeRequestId(request_id.0), connection_id }),
         UiCommand::ListConnections { request_id } => Some(RuntimeCommand::ListConnections {
             request_id: RuntimeRequestId(request_id.0),
