@@ -60,6 +60,7 @@ pub struct DbProApp {
     copy_status: String,
     connections: Vec<UiConnectionSummary>,
     saved_queries: Vec<UiSavedQuerySummary>,
+    query_folder: String,
     active_connection_id: Option<String>,
     connections_requested: bool,
     connection_dialog_open: bool,
@@ -142,6 +143,7 @@ impl Default for DbProApp {
             copy_status: String::new(),
             connections: Vec::new(),
             saved_queries: Vec::new(),
+            query_folder: String::new(),
             active_connection_id: None,
             connections_requested: false,
             connection_dialog_open: false,
@@ -767,6 +769,20 @@ impl DbProApp {
                 if ui.button("Format").clicked() {
                     self.query_text = Self::format_sql(&self.query_text);
                 }
+                ui.add(egui::TextEdit::singleline(&mut self.query_folder).hint_text("folder (optional)").desired_width(120.0));
+                if ui.button("New folder").clicked() {
+                    if let Some(connection) = self.connections.first() {
+                        if !self.query_folder.trim().is_empty() {
+                            let request_id = self.task_bridge.next_request_id();
+                            let _ = self.task_bridge.send(UiCommand::CreateQueryFolder {
+                                request_id,
+                                connection_id: connection.id.clone(),
+                                name: self.query_folder.trim().to_owned(),
+                            });
+                            self.runtime_message = "Creating query folder…".to_owned();
+                        }
+                    }
+                }
                 if ui.button("Save").clicked() {
                     if let Some(connection) = self.connections.first() {
                         let request_id = self.task_bridge.next_request_id();
@@ -776,7 +792,7 @@ impl DbProApp {
                             connection_id: connection.id.clone(),
                             name,
                             sql: self.query_text.clone(),
-                            folder: None,
+                            folder: (!self.query_folder.trim().is_empty()).then(|| self.query_folder.trim().to_owned()),
                         });
                         self.runtime_message = "Saving query…".to_owned();
                     }

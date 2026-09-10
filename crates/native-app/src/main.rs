@@ -151,6 +151,11 @@ fn translate_command(command: UiCommand) -> Option<RuntimeCommand> {
             sql,
             folder,
         }),
+        UiCommand::CreateQueryFolder { request_id, connection_id, name } => Some(RuntimeCommand::CreateQueryFolder {
+            request_id: RuntimeRequestId(request_id.0),
+            connection_id,
+            name,
+        }),
         UiCommand::ListConnections { request_id } => Some(RuntimeCommand::ListConnections {
             request_id: RuntimeRequestId(request_id.0),
         }),
@@ -255,6 +260,10 @@ fn translate_event(event: RuntimeEvent) -> Option<UiEvent> {
                 sql: query.sql,
                 folder: query.folder,
             }).collect(),
+        }),
+        RuntimeEvent::QueryFoldersLoaded { request_id, folders } => Some(UiEvent::QueryFoldersLoaded {
+            request_id: db_pro_ui::RequestId(request_id.0),
+            folders,
         }),
         RuntimeEvent::OperationProgress { request_id, operation, status } => Some(UiEvent::OperationProgress {
             request_id: db_pro_ui::RequestId(request_id.0),

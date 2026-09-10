@@ -93,6 +93,11 @@ pub enum UiCommand {
         sql: String,
         folder: Option<String>,
     },
+    CreateQueryFolder {
+        request_id: RequestId,
+        connection_id: String,
+        name: String,
+    },
     Connect {
         request_id: RequestId,
         connection_id: String,
@@ -158,6 +163,10 @@ pub enum UiEvent {
     SavedQueriesLoaded {
         request_id: RequestId,
         queries: Vec<UiSavedQuerySummary>,
+    },
+    QueryFoldersLoaded {
+        request_id: RequestId,
+        folders: Vec<String>,
     },
     FilePicked {
         request_id: RequestId,

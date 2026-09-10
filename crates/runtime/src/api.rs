@@ -169,6 +169,11 @@ impl QueryApi {
         let connection_id = parse_connection_id(connection_id)?;
         self.service.list_folders(&connection_id).await.map_err(Into::into)
     }
+
+    pub async fn create_folder(&self, connection_id: &str, name: &str) -> Result<SavedQueryFolder, DbErrorDto> {
+        let connection_id = parse_connection_id(connection_id)?;
+        self.service.create_folder(&connection_id, name).await.map_err(Into::into)
+    }
 }
 
 #[derive(Clone)]

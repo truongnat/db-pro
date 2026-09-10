@@ -24,6 +24,11 @@ pub enum RuntimeCommand {
         sql: String,
         folder: Option<String>,
     },
+    CreateQueryFolder {
+        request_id: RuntimeRequestId,
+        connection_id: String,
+        name: String,
+    },
     CreateConnection {
         request_id: RuntimeRequestId,
         config: db_pro_core::domain::connection::ConnectionConfig,
@@ -74,6 +79,10 @@ pub enum RuntimeEvent {
     SavedQueriesLoaded {
         request_id: RuntimeRequestId,
         queries: Vec<crate::SavedQuerySummary>,
+    },
+    QueryFoldersLoaded {
+        request_id: RuntimeRequestId,
+        folders: Vec<String>,
     },
     OperationProgress {
         request_id: RuntimeRequestId,
@@ -150,6 +159,13 @@ pub fn spawn_worker(
                 RuntimeCommand::SaveQuery { request_id, connection_id, name, sql, folder } => {
                     let event = match runtime.query_api().save_query(&connection_id, &name, &sql, folder.as_deref()).await {
                         Ok(_) => RuntimeEvent::OperationCompleted { request_id, operation: "query.saved" },
+                        Err(error) => RuntimeEvent::Failed { request_id, message: error.message },
+                    };
+                    let _ = event_tx.send(event).await;
+                }
+                RuntimeCommand::CreateQueryFolder { request_id, connection_id, name } => {
+                    let event = match runtime.query_api().create_folder(&connection_id, &name).await {
+                        Ok(_) => RuntimeEvent::OperationCompleted { request_id, operation: "query-folder.created" },
                         Err(error) => RuntimeEvent::Failed { request_id, message: error.message },
                     };
                     let _ = event_tx.send(event).await;
