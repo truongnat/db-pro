@@ -168,6 +168,25 @@ Performance budgets are enforced in:
 
 Never claim performance improved without measurement evidence.
 
+## Clean code
+
+Use the `clean-code` skill when:
+- Reviewing or self-reviewing a PR for readability / maintainability
+- Refactoring, renaming, or splitting large functions, components, or files
+- Adding a new module, service, provider adapter, or Tauri command
+- Fixing error handling (no swallowed errors, no `unwrap()` on data paths)
+
+Quick check before PR (only files changed vs `main`):
+
+```bash
+bash .skills/clean-code/scripts/clean-code-scan.sh --diff
+```
+
+Standards and Sai/Đúng examples live in `.skills/clean-code/references/` (naming, functions, comments,
+formatting, objects-and-data, error-handling, design-principles, code-health, review-checklist).
+
+Never claim code is cleaner without naming the smell that was removed.
+
 ## PR workflow
 
 Publish a PR instead of pushing a non-trivial feature directly to main.
