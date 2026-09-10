@@ -53,3 +53,4 @@
 - [x] Add schema explorer table/column browsing.
 - [x] Add native export result overlay with CSV/TSV output.
 - [x] Add typed table mutation commands and edit/delete confirmation UI.
+- [x] Add folder identity loading and folder-level delete confirmation.
