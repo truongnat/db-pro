@@ -13,6 +13,7 @@ pub struct RuntimeRequestId(pub u64);
 #[derive(Debug)]
 pub enum RuntimeCommand {
     ListConnections { request_id: RuntimeRequestId },
+    IntrospectSchema { request_id: RuntimeRequestId, connection_id: String },
     ListSavedQueries {
         request_id: RuntimeRequestId,
         connection_id: String,
@@ -89,6 +90,7 @@ pub enum RuntimeEvent {
         request_id: RuntimeRequestId,
         connections: Vec<ConnectionSummary>,
     },
+    SchemaLoaded { request_id: RuntimeRequestId, schema: crate::SchemaSummary },
     SavedQueriesLoaded {
         request_id: RuntimeRequestId,
         queries: Vec<crate::SavedQuerySummary>,
@@ -151,6 +153,13 @@ pub fn spawn_worker(
                             request_id,
                             message: error.message,
                         },
+                    };
+                    let _ = event_tx.send(event).await;
+                }
+                RuntimeCommand::IntrospectSchema { request_id, connection_id } => {
+                    let event = match runtime.schema_api().introspect_summary(&connection_id).await {
+                        Ok(schema) => RuntimeEvent::SchemaLoaded { request_id, schema },
+                        Err(error) => RuntimeEvent::Failed { request_id, message: error.message },
                     };
                     let _ = event_tx.send(event).await;
                 }

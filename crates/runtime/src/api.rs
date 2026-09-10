@@ -30,6 +30,12 @@ impl From<DbError> for DbErrorDto {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SchemaSummary {
+    pub tables: Vec<String>,
+    pub columns: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SavedQuerySummary {
     pub id: String,
     pub name: String,
@@ -184,6 +190,14 @@ pub struct SchemaApi {
 impl SchemaApi {
     pub(crate) fn new(service: Arc<SchemaService>) -> Self {
         Self { service }
+    }
+
+    pub async fn introspect_summary(&self, connection_id: &str) -> Result<SchemaSummary, DbErrorDto> {
+        let result = self.introspect(connection_id, false).await?;
+        Ok(SchemaSummary {
+            tables: result.tables.into_iter().map(|table| table.name).collect(),
+            columns: result.columns.into_iter().map(|column| column.name).collect(),
+        })
     }
 
     pub async fn introspect(&self, connection_id: &str, force_refresh: bool) -> Result<IntrospectResult, DbErrorDto> {

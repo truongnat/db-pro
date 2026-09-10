@@ -1,7 +1,7 @@
 mod api;
 mod worker;
 
-pub use api::{BackupApi, ConnectionApi, ConnectionSummary, DbErrorDto, ExportApi, QueryApi, SavedQuerySummary, SchemaApi, TableDataApi, UserApi};
+pub use api::{BackupApi, ConnectionApi, ConnectionSummary, DbErrorDto, ExportApi, QueryApi, SavedQuerySummary, SchemaApi, SchemaSummary, TableDataApi, UserApi};
 pub use worker::{spawn_worker, RuntimeCommand, RuntimeEvent, RuntimeRequestId};
 
 use std::path::{Path, PathBuf};

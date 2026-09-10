@@ -4,7 +4,7 @@ use std::thread;
 use db_pro_runtime::{spawn_worker, DbProRuntime, RuntimeCommand, RuntimeEvent, RuntimeRequestId};
 use db_pro_ui::{
     DbProApp, TaskBridge, UiCell, UiColumn, UiCommand, UiConnectionDraft, UiConnectionSummary, UiDriver, UiSslMode,
-    UiEvent, UiQueryResult, UiSavedQuerySummary,
+    UiEvent, UiQueryResult, UiSavedQuerySummary, UiSchemaSummary,
 };
 use eframe::egui;
 use tokio::runtime::Builder;
@@ -157,6 +157,7 @@ fn translate_command(command: UiCommand) -> Option<RuntimeCommand> {
         UiCommand::RenameSavedQuery { request_id, id, name } => Some(RuntimeCommand::RenameSavedQuery { request_id: RuntimeRequestId(request_id.0), id, name }),
         UiCommand::DeleteSavedQuery { request_id, id } => Some(RuntimeCommand::DeleteSavedQuery { request_id: RuntimeRequestId(request_id.0), id }),
         UiCommand::DeleteQueryFolder { request_id, id } => Some(RuntimeCommand::DeleteQueryFolder { request_id: RuntimeRequestId(request_id.0), id }),
+        UiCommand::IntrospectSchema { request_id, connection_id } => Some(RuntimeCommand::IntrospectSchema { request_id: RuntimeRequestId(request_id.0), connection_id }),
         UiCommand::ListConnections { request_id } => Some(RuntimeCommand::ListConnections {
             request_id: RuntimeRequestId(request_id.0),
         }),
@@ -252,6 +253,10 @@ fn translate_event(event: RuntimeEvent) -> Option<UiEvent> {
                     readonly: connection.readonly,
                 })
                 .collect(),
+        }),
+        RuntimeEvent::SchemaLoaded { request_id, schema } => Some(UiEvent::SchemaLoaded {
+            request_id: db_pro_ui::RequestId(request_id.0),
+            schema: UiSchemaSummary { tables: schema.tables, columns: schema.columns },
         }),
         RuntimeEvent::SavedQueriesLoaded { request_id, queries } => Some(UiEvent::SavedQueriesLoaded {
             request_id: db_pro_ui::RequestId(request_id.0),

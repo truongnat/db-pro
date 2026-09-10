@@ -1,5 +1,5 @@
 use crate::{
-    DbProTheme, TaskBridge, UiCommand, UiConnectionDraft, UiConnectionSummary, UiDriver, UiEvent, UiQueryResult, UiSavedQuerySummary, UiSslMode,
+    DbProTheme, TaskBridge, UiCommand, UiConnectionDraft, UiConnectionSummary, UiDriver, UiEvent, UiQueryResult, UiSavedQuerySummary, UiSchemaSummary, UiSslMode,
 };
 use eframe::egui::{self, Align, Color32, FontId, Layout, RichText, Sense, TextEdit, TextFormat, TopBottomPanel};
 use eframe::egui::text::LayoutJob;
@@ -60,6 +60,7 @@ pub struct DbProApp {
     copy_status: String,
     connections: Vec<UiConnectionSummary>,
     saved_queries: Vec<UiSavedQuerySummary>,
+    schema: UiSchemaSummary,
     query_folder: String,
     active_connection_id: Option<String>,
     connections_requested: bool,
@@ -143,6 +144,7 @@ impl Default for DbProApp {
             copy_status: String::new(),
             connections: Vec::new(),
             saved_queries: Vec::new(),
+            schema: UiSchemaSummary { tables: Vec::new(), columns: Vec::new() },
             query_folder: String::new(),
             active_connection_id: None,
             connections_requested: false,
@@ -249,11 +251,17 @@ impl DbProApp {
                     self.runtime_message = format!("Loaded {} connections", self.connections.len());
                     if let Some(connection_id) = self.active_connection_id.clone() {
                         let request_id = self.task_bridge.next_request_id();
-                        let _ = self.task_bridge.send(UiCommand::ListSavedQueries { request_id, connection_id });
+                        let _ = self.task_bridge.send(UiCommand::ListSavedQueries { request_id, connection_id: connection_id.clone() });
+                        let request_id = self.task_bridge.next_request_id();
+                        let _ = self.task_bridge.send(UiCommand::IntrospectSchema { request_id, connection_id });
                     }
                 }
                 UiEvent::SavedQueriesLoaded { queries, .. } => {
                     self.saved_queries = queries;
+                }
+                UiEvent::SchemaLoaded { schema, .. } => {
+                    self.schema = schema;
+                    self.runtime_message = format!("Schema loaded · {} tables · {} columns", self.schema.tables.len(), self.schema.columns.len());
                 }
                 UiEvent::FilePicked { kind, path, .. } => {
                     if let Some(path) = path {
@@ -871,7 +879,10 @@ impl DbProApp {
         if self.completion_open {
             egui::Frame::default().fill(self.theme.surface_elevated).show(ui, |ui| {
                 ui.label(RichText::new("SQL completion").strong());
-                for keyword in ["SELECT", "FROM", "WHERE", "JOIN", "GROUP BY", "ORDER BY", "LIMIT", "COUNT(*)"] {
+                let mut candidates = vec!["SELECT".to_owned(), "FROM".to_owned(), "WHERE".to_owned(), "JOIN".to_owned(), "GROUP BY".to_owned(), "ORDER BY".to_owned(), "LIMIT".to_owned(), "COUNT(*)".to_owned()];
+                candidates.extend(self.schema.tables.iter().cloned());
+                candidates.extend(self.schema.columns.iter().cloned());
+                for keyword in candidates.iter() {
                     if ui.selectable_label(false, keyword).on_hover_text("Insert SQL keyword or expression").clicked() {
                         self.query_text.push_str(keyword);
                         self.completion_open = false;

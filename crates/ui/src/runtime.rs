@@ -59,6 +59,12 @@ impl Default for UiConnectionDraft {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UiSchemaSummary {
+    pub tables: Vec<String>,
+    pub columns: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UiSavedQuerySummary {
     pub id: String,
     pub name: String,
@@ -82,6 +88,7 @@ pub struct UiConnectionSummary {
 pub enum UiCommand {
     OpenQuery,
     ListConnections { request_id: RequestId },
+    IntrospectSchema { request_id: RequestId, connection_id: String },
     ListSavedQueries {
         request_id: RequestId,
         connection_id: String,
@@ -167,6 +174,7 @@ pub enum UiEvent {
         request_id: RequestId,
         queries: Vec<UiSavedQuerySummary>,
     },
+    SchemaLoaded { request_id: RequestId, schema: UiSchemaSummary },
     QueryFoldersLoaded {
         request_id: RequestId,
         folders: Vec<String>,
