@@ -34,6 +34,7 @@ pub struct DbProApp {
     sidebar_open: bool,
     agent_open: bool,
     query_text: String,
+    selected_query: String,
     query_documents: Vec<QueryDocument>,
     active_query_document: usize,
     editor_search: String,
@@ -115,6 +116,7 @@ impl Default for DbProApp {
             sidebar_open: true,
             agent_open: false,
             query_text: "select\n  id, name, status\nfrom customers\nlimit 100;".to_owned(),
+            selected_query: String::new(),
             query_documents: vec![QueryDocument {
                 title: "Query 1".to_owned(),
                 content: "select\n  id, name, status\nfrom customers\nlimit 100;".to_owned(),
@@ -371,8 +373,9 @@ impl DbProApp {
             self.runtime_message = "Create or select a connection first".to_owned();
             return;
         };
-        if !self.query_history.iter().any(|query| query == &self.query_text) {
-            self.query_history.push(self.query_text.clone());
+        let sql = if self.selected_query.trim().is_empty() { self.query_text.clone() } else { self.selected_query.clone() };
+        if !self.query_history.iter().any(|query| query == &sql) {
+            self.query_history.push(sql.clone());
             if self.query_history.len() > 20 {
                 self.query_history.remove(0);
             }
@@ -383,7 +386,7 @@ impl DbProApp {
         let _ = self.task_bridge.send(UiCommand::RunQuery {
             request_id,
             connection_id: connection.id.clone(),
-            sql: self.query_text.clone(),
+            sql,
         });
     }
 
@@ -822,10 +825,14 @@ impl DbProApp {
                         self.runtime_message = "Saving query…".to_owned();
                     }
                 }
-                if ui.button("Run statement").clicked() {
-                    let statement = self.query_text.split(';').next().unwrap_or_default().trim().to_owned();
-                    if !statement.is_empty() {
-                        self.query_text = statement;
+                if ui.button(if self.selected_query.is_empty() { "Run statement" } else { "Run selection" }).clicked() {
+                    if self.selected_query.is_empty() {
+                        let statement = self.query_text.split(';').next().unwrap_or_default().trim().to_owned();
+                        if !statement.is_empty() {
+                            self.query_text = statement;
+                            self.dispatch_query();
+                        }
+                    } else {
                         self.dispatch_query();
                     }
                 }
@@ -866,14 +873,23 @@ impl DbProApp {
                     }
                 });
                 ui.separator();
-                ui.add_sized(
-                    [ui.available_width(), 220.0],
+                let editor_size = egui::vec2(ui.available_width(), 220.0);
+                let output = ui.allocate_ui(editor_size, |ui| {
                     TextEdit::multiline(&mut self.query_text)
                         .font(egui::TextStyle::Monospace)
                         .desired_rows(10)
                         .layouter(&mut |ui, text, wrap_width| Self::sql_layouter(ui, text, wrap_width))
-                        .lock_focus(true),
-                );
+                        .lock_focus(true)
+                        .show(ui)
+                });
+                if let Some(cursor_range) = output.inner.cursor_range {
+                    let range = cursor_range.as_sorted_char_range();
+                    if range.start < range.end && range.end <= self.query_text.len() {
+                        self.selected_query = self.query_text.chars().skip(range.start).take(range.end - range.start).collect();
+                    } else {
+                        self.selected_query.clear();
+                    }
+                }
             });
         });
         if self.completion_open {

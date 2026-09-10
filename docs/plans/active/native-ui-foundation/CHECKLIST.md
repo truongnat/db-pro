@@ -20,7 +20,7 @@
 - [x] Add lightweight SQL syntax highlighting for keywords, literals and comments.
 - [x] Add basic SQL formatting and current-statement execution.
 - [x] Add keyword completion palette, snippets, diagnostics and hover hints.
-- [ ] Add true cursor-selection execution.
+- [x] Add true cursor-selection execution.
 - [x] Load schema summaries and offer table/column completion candidates.
 - [ ] Add context-aware and dialect-aware completion/diagnostics.
 - [x] Add local query history surface.
