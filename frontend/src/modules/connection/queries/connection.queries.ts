@@ -323,6 +323,9 @@ export function useToggleFavorite() {
       setError(id, (err as { userMessage?: string }).userMessage ?? "Failed to update connection");
       qc.invalidateQueries({ queryKey: QUERY_KEYS.connections });
     },
+    onError: (_error, { id }) => {
+      toggleFavoriteLocal(id);
+    },
     onSuccess: () => qc.invalidateQueries({ queryKey: QUERY_KEYS.connections }),
   });
 }

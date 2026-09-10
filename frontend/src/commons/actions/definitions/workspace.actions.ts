@@ -1,8 +1,8 @@
 import { z } from "zod";
 
 import { defineAction } from "../registry";
+import { requestCloseTab } from "@/commons/services/request-close-tab";
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
-import { useCloseGuardStore } from "@/commons/stores/close-guard.store";
 import { useStagedChangesStore } from "@/modules/data-grid/state/staged-changes.store";
 import { setTabActivePanel } from "@/modules/query/controllers/query-workspace.controller";
 
@@ -76,8 +76,9 @@ export const closeTabAction = defineAction<{ tabId?: string }, { closedTabId: st
     const hasDirty = tab.dirty;
     const hasStaged = useStagedChangesStore.getState().getCount(tabId) > 0;
 
+    requestCloseTab(tabId);
+
     if (hasDirty || hasStaged) {
-      useCloseGuardStore.getState().openDialog([tabId], 1);
       return {
         status: "confirmation_required",
         confirmation: {
@@ -89,9 +90,6 @@ export const closeTabAction = defineAction<{ tabId?: string }, { closedTabId: st
         },
       };
     }
-
-    useStagedChangesStore.getState().clearTab(tabId);
-    useWorkspaceStore.getState().closeTab(tabId);
 
     return {
       status: "success",

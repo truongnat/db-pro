@@ -60,6 +60,16 @@ impl SavedQueryRepository for SQLiteMetaStore {
         Ok(())
     }
 
+    async fn rename(&self, id: &uuid::Uuid, name: &str) -> Result<(), DbError> {
+        self.actor
+            .raw_query(
+                "UPDATE saved_queries SET name = ?1 WHERE id = ?2".into(),
+                vec![name.to_string(), id.to_string()],
+            )
+            .await?;
+        Ok(())
+    }
+
     async fn create_folder(&self, folder: &SavedQueryFolder) -> Result<(), DbError> {
         self.actor
             .raw_query(
