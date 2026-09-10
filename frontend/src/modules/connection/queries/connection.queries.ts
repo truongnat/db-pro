@@ -98,15 +98,15 @@ export function useConnectionList() {
     queryKey: QUERY_KEYS.connections,
     queryFn: async () => {
       const connections = (await getConnectionService().list()) as Connection[];
+      useConnectionStore.getState().setConnections(connections);
+      // Connections are now loaded — reconcile persisted workspace tabs.
+      reconcileWorkspaceTabs();
       return connections;
     },
   });
 
   useEffect(() => {
     if (query.data) {
-      useConnectionStore.getState().setConnections(query.data);
-      // Connections are now loaded — reconcile persisted workspace tabs.
-      reconcileWorkspaceTabs();
       restoreSession(query.data);
     }
   }, [query.data]);
