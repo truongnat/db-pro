@@ -22,7 +22,8 @@
 - [x] Add keyword completion palette, snippets, diagnostics and hover hints.
 - [ ] Add true cursor-selection execution, schema-aware completion and dialect-aware diagnostics.
 - [x] Add local query history surface.
-- [ ] Add persistent multi-query tabs and saved query metadata.
+- [x] Add persistent multi-query tabs and query document metadata.
+- [ ] Add saved-query folders and backend persistence.
 - [x] Add column resize, sorting, filtering and visible-row virtualization.
 - [x] Add scoped cell/row selection and clipboard copy actions.
 - [x] Persist column widths in native eframe storage.

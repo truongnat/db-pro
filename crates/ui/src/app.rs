@@ -5,6 +5,12 @@ use eframe::egui::{self, Align, Color32, FontId, Layout, RichText, Sense, TextEd
 use eframe::egui::text::LayoutJob;
 use std::sync::Arc;
 
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+struct QueryDocument {
+    title: String,
+    content: String,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Activity {
     Explorer,
@@ -28,6 +34,8 @@ pub struct DbProApp {
     sidebar_open: bool,
     agent_open: bool,
     query_text: String,
+    query_documents: Vec<QueryDocument>,
+    active_query_document: usize,
     editor_search: String,
     editor_search_open: bool,
     editor_font_size: f32,
@@ -82,6 +90,14 @@ impl DbProApp {
                         .collect();
                 }
             }
+            if let Some(documents) = storage.get_string("dbpro.native.query-documents") {
+                if let Ok(documents) = serde_json::from_str::<Vec<QueryDocument>>(&documents) {
+                    if !documents.is_empty() {
+                        app.query_documents = documents;
+                        app.query_text = app.query_documents[0].content.clone();
+                    }
+                }
+            }
         }
         app
     }
@@ -96,6 +112,11 @@ impl Default for DbProApp {
             sidebar_open: true,
             agent_open: false,
             query_text: "select\n  id, name, status\nfrom customers\nlimit 100;".to_owned(),
+            query_documents: vec![QueryDocument {
+                title: "Query 1".to_owned(),
+                content: "select\n  id, name, status\nfrom customers\nlimit 100;".to_owned(),
+            }],
+            active_query_document: 0,
             editor_search: String::new(),
             editor_search_open: false,
             editor_font_size: 14.0,
@@ -135,6 +156,10 @@ impl eframe::App for DbProApp {
         if let Ok(widths) = serde_json::to_string(&self.grid_column_widths) {
             storage.set_string("dbpro.native.grid-widths", widths);
         }
+        self.persist_active_query_document();
+        if let Ok(documents) = serde_json::to_string(&self.query_documents) {
+            storage.set_string("dbpro.native.query-documents", documents);
+        }
     }
 
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
@@ -169,6 +194,36 @@ impl eframe::App for DbProApp {
 }
 
 impl DbProApp {
+    fn persist_active_query_document(&mut self) {
+        if let Some(document) = self.query_documents.get_mut(self.active_query_document) {
+            document.content = self.query_text.clone();
+        }
+    }
+
+    fn switch_query_document(&mut self, index: usize) {
+        if index >= self.query_documents.len() || index == self.active_query_document {
+            return;
+        }
+        self.persist_active_query_document();
+        self.active_query_document = index;
+        self.query_text = self.query_documents[index].content.clone();
+        self.query_result = None;
+        self.runtime_message = format!("Opened {}", self.query_documents[index].title);
+    }
+
+    fn new_query_document(&mut self) {
+        self.persist_active_query_document();
+        let index = self.query_documents.len() + 1;
+        self.query_documents.push(QueryDocument {
+            title: format!("Query {index}"),
+            content: String::new(),
+        });
+        self.active_query_document = self.query_documents.len() - 1;
+        self.query_text.clear();
+        self.query_result = None;
+        self.active_tab = WorkspaceTab::Query;
+    }
+
     fn request_connections_once(&mut self) {
         if self.connections_requested {
             return;
@@ -508,9 +563,21 @@ impl DbProApp {
             if welcome.clicked() {
                 self.active_tab = WorkspaceTab::Welcome;
             }
-            let query = ui.selectable_label(self.active_tab == WorkspaceTab::Query, "◉  Query  ×");
-            if query.clicked() {
-                self.active_tab = WorkspaceTab::Query;
+            let documents: Vec<(usize, String)> = self
+                .query_documents
+                .iter()
+                .enumerate()
+                .map(|(index, document)| (index, document.title.clone()))
+                .collect();
+            for (index, title) in documents {
+                let selected = self.active_tab == WorkspaceTab::Query && self.active_query_document == index;
+                if ui.selectable_label(selected, format!("◉  {title}  ×")).clicked() {
+                    self.switch_query_document(index);
+                    self.active_tab = WorkspaceTab::Query;
+                }
+            }
+            if ui.small_button("＋").on_hover_text("New query").clicked() {
+                self.new_query_document();
             }
         });
         ui.separator();
@@ -530,7 +597,7 @@ impl DbProApp {
             ui.label(RichText::new("Connect, explore, and query with confidence.").color(self.theme.text_secondary));
             ui.add_space(24.0);
             if ui.button(RichText::new("＋  New query").color(self.theme.text_primary)).clicked() {
-                self.active_tab = WorkspaceTab::Query;
+                self.new_query_document();
             }
             ui.add_space(10.0);
             ui.label(RichText::new("⌘ P to open anything  ·  ⌘ B to toggle explorer").small().color(self.theme.text_muted));
