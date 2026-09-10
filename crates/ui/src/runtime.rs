@@ -5,6 +5,39 @@ use std::sync::mpsc::{self, Receiver, Sender};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct RequestId(pub u64);
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UiDriver {
+    Postgres,
+    Sqlite,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UiConnectionDraft {
+    pub name: String,
+    pub host: String,
+    pub port: String,
+    pub database: String,
+    pub username: String,
+    pub password: String,
+    pub driver: UiDriver,
+    pub readonly: bool,
+}
+
+impl Default for UiConnectionDraft {
+    fn default() -> Self {
+        Self {
+            name: String::new(),
+            host: "localhost".to_owned(),
+            port: "5432".to_owned(),
+            database: String::new(),
+            username: String::new(),
+            password: String::new(),
+            driver: UiDriver::Postgres,
+            readonly: false,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UiConnectionSummary {
     pub id: String,
@@ -18,6 +51,18 @@ pub enum UiCommand {
     OpenQuery,
     ListConnections { request_id: RequestId },
     Connect {
+        request_id: RequestId,
+        connection_id: String,
+    },
+    CreateConnection {
+        request_id: RequestId,
+        draft: UiConnectionDraft,
+    },
+    TestConnection {
+        request_id: RequestId,
+        draft: UiConnectionDraft,
+    },
+    DeleteConnection {
         request_id: RequestId,
         connection_id: String,
     },

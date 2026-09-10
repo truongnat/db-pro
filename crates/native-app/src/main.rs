@@ -3,7 +3,8 @@ use std::thread;
 
 use db_pro_runtime::{spawn_worker, DbProRuntime, RuntimeCommand, RuntimeEvent, RuntimeRequestId};
 use db_pro_ui::{
-    DbProApp, TaskBridge, UiCell, UiColumn, UiCommand, UiConnectionSummary, UiEvent, UiQueryResult,
+    DbProApp, TaskBridge, UiCell, UiColumn, UiCommand, UiConnectionDraft, UiConnectionSummary, UiDriver,
+    UiEvent, UiQueryResult,
 };
 use eframe::egui;
 use tokio::runtime::Builder;
@@ -66,11 +67,58 @@ fn main() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+fn draft_to_domain(draft: UiConnectionDraft) -> Option<(db_pro_core::domain::connection::ConnectionConfig, String)> {
+    let port = draft.port.parse::<u16>().ok()?;
+    let driver = match draft.driver {
+        UiDriver::Postgres => db_pro_core::domain::connection::DriverType::Postgres,
+        UiDriver::Sqlite => db_pro_core::domain::connection::DriverType::SQLite,
+    };
+    Some((
+        db_pro_core::domain::connection::ConnectionConfig {
+            name: draft.name,
+            host: draft.host,
+            port,
+            database: draft.database,
+            username: draft.username,
+            driver,
+            ssl_mode: db_pro_core::domain::connection::SslMode::Disable,
+            ssh_tunnel: None,
+            query_timeout_ms: 30_000,
+            max_rows: 500,
+            color: None,
+            tags: Vec::new(),
+            group: None,
+            readonly: draft.readonly,
+        },
+        draft.password,
+    ))
+}
+
 fn translate_command(command: UiCommand) -> Option<RuntimeCommand> {
     match command {
         UiCommand::OpenQuery => None,
         UiCommand::ListConnections { request_id } => Some(RuntimeCommand::ListConnections {
             request_id: RuntimeRequestId(request_id.0),
+        }),
+        UiCommand::CreateConnection { request_id, draft } => {
+            let (config, password) = draft_to_domain(draft)?;
+            Some(RuntimeCommand::CreateConnection {
+                request_id: RuntimeRequestId(request_id.0),
+                config,
+                password,
+            })
+        }
+        UiCommand::TestConnection { request_id, draft } => {
+            let (config, password) = draft_to_domain(draft)?;
+            Some(RuntimeCommand::TestConnection {
+                request_id: RuntimeRequestId(request_id.0),
+                config,
+                password,
+            })
+        }
+        UiCommand::DeleteConnection { request_id, connection_id } => Some(RuntimeCommand::DeleteConnection {
+            request_id: RuntimeRequestId(request_id.0),
+            connection_id,
         }),
         UiCommand::Connect {
             request_id,

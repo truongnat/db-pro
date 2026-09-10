@@ -10,6 +10,8 @@
 - [x] Connect `DbProRuntime` to a tokio native task worker with typed command/event translation.
 - [x] Load saved connection summaries into the native explorer.
 - [x] Add active connection selection and connect action.
+- [x] Add native connection create/test dialog and form validation.
+- [ ] Add native connection edit flow and confirmation dialog.
 - [x] Render typed query result pages in the native result grid.
 - [x] Add Stop/Escape query cancellation dispatch and cancellation events.
 - [x] Add column resize, sorting, filtering and visible-row virtualization.

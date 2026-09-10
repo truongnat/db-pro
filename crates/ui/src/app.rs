@@ -1,5 +1,5 @@
 use crate::{
-    DbProTheme, TaskBridge, UiCommand, UiConnectionSummary, UiEvent, UiQueryResult,
+    DbProTheme, TaskBridge, UiCommand, UiConnectionDraft, UiConnectionSummary, UiDriver, UiEvent, UiQueryResult,
 };
 use eframe::egui::{self, Align, Color32, Layout, RichText, Sense, TextEdit, TopBottomPanel};
 
@@ -44,6 +44,9 @@ pub struct DbProApp {
     connections: Vec<UiConnectionSummary>,
     active_connection_id: Option<String>,
     connections_requested: bool,
+    connection_dialog_open: bool,
+    connection_draft: UiConnectionDraft,
+    connection_error: String,
 }
 
 impl DbProApp {
@@ -100,6 +103,9 @@ impl Default for DbProApp {
             connections: Vec::new(),
             active_connection_id: None,
             connections_requested: false,
+            connection_dialog_open: false,
+            connection_draft: UiConnectionDraft::default(),
+            connection_error: String::new(),
         }
     }
 }
@@ -133,6 +139,9 @@ impl eframe::App for DbProApp {
         if self.agent_open {
             self.draw_agent_panel(ctx);
         }
+        if self.connection_dialog_open {
+            self.draw_connection_dialog(ctx);
+        }
     }
 }
 
@@ -158,8 +167,11 @@ impl DbProApp {
                     self.runtime_message = format!("Loaded {} connections", self.connections.len());
                 }
                 UiEvent::OperationCompleted { operation, .. } => {
-                    self.runtime_message = operation;
+                    self.runtime_message = operation.clone();
                     self.connections_requested = false;
+                    if operation == "connection.created" {
+                        self.connection_dialog_open = false;
+                    }
                 }
                 UiEvent::Connected { connection_id, .. } => {
                     self.active_connection_id = Some(connection_id);
@@ -363,6 +375,14 @@ impl DbProApp {
                         self.runtime_message = format!("Connecting to {}…", connection.name);
                     }
                     ui.label(RichText::new(connection.driver.as_str()).small().color(self.theme.accent));
+                    if is_active && ui.small_button("×").on_hover_text("Delete connection").clicked() {
+                        let request_id = self.task_bridge.next_request_id();
+                        let _ = self.task_bridge.send(UiCommand::DeleteConnection {
+                            request_id,
+                            connection_id: connection.id.clone(),
+                        });
+                        self.runtime_message = format!("Deleting {}…", connection.name);
+                    }
                 });
             }
         }
@@ -379,7 +399,9 @@ impl DbProApp {
         }
         ui.add_space(16.0);
         if ui.button("＋  New connection").clicked() {
-            self.connected = !self.connected;
+            self.connection_draft = UiConnectionDraft::default();
+            self.connection_error.clear();
+            self.connection_dialog_open = true;
         }
     }
 
@@ -675,6 +697,86 @@ impl DbProApp {
             crate::UiCell::Bytes(value) => RichText::new(value.as_str()).monospace(),
         }
     }
+
+    fn draw_connection_dialog(&mut self, ctx: &egui::Context) {
+        let mut open = self.connection_dialog_open;
+        egui::Window::new("New connection")
+            .open(&mut open)
+            .collapsible(false)
+            .resizable(false)
+            .default_width(460.0)
+            .show(ctx, |ui| {
+                ui.label(RichText::new("Create a safe database connection").color(self.theme.text_secondary));
+                ui.add_space(10.0);
+                ui.horizontal(|ui| {
+                    ui.label("Driver");
+                    ui.selectable_value(&mut self.connection_draft.driver, UiDriver::Postgres, "PostgreSQL");
+                    ui.selectable_value(&mut self.connection_draft.driver, UiDriver::Sqlite, "SQLite");
+                });
+                ui.add_space(6.0);
+                Self::form_row(ui, "Name", &mut self.connection_draft.name, "Production DB");
+                if self.connection_draft.driver == UiDriver::Postgres {
+                    Self::form_row(ui, "Host", &mut self.connection_draft.host, "localhost");
+                    Self::form_row(ui, "Port", &mut self.connection_draft.port, "5432");
+                    Self::form_row(ui, "Database", &mut self.connection_draft.database, "app");
+                    Self::form_row(ui, "Username", &mut self.connection_draft.username, "postgres");
+                    ui.horizontal(|ui| {
+                        ui.label("Password");
+                        ui.add_sized([300.0, 24.0], egui::TextEdit::singleline(&mut self.connection_draft.password).password(true));
+                    });
+                } else {
+                    Self::form_row(ui, "SQLite file", &mut self.connection_draft.database, "/path/to/db.sqlite");
+                }
+                ui.checkbox(&mut self.connection_draft.readonly, "Read-only connection");
+                if !self.connection_error.is_empty() {
+                    ui.colored_label(self.theme.danger, self.connection_error.as_str());
+                }
+                ui.separator();
+                ui.horizontal(|ui| {
+                    if ui.button("Test connection").clicked() {
+                        self.dispatch_connection_command(false);
+                    }
+                    if ui.button(RichText::new("Save connection").color(self.theme.text_primary)).clicked() {
+                        self.dispatch_connection_command(true);
+                    }
+                    if ui.button("Cancel").clicked() {
+                        self.connection_dialog_open = false;
+                    }
+                });
+            });
+        self.connection_dialog_open = open && self.connection_dialog_open;
+    }
+
+    fn form_row(ui: &mut egui::Ui, label: &str, value: &mut String, hint: &str) {
+        ui.horizontal(|ui| {
+            ui.label(label);
+            ui.add_sized([300.0, 24.0], egui::TextEdit::singleline(value).hint_text(hint));
+        });
+    }
+
+    fn dispatch_connection_command(&mut self, save: bool) {
+        if self.connection_draft.name.trim().is_empty() || self.connection_draft.database.trim().is_empty() {
+            self.connection_error = "Name and database are required".to_owned();
+            return;
+        }
+        if self.connection_draft.driver == UiDriver::Postgres && self.connection_draft.password.is_empty() {
+            self.connection_error = "Password is required for PostgreSQL".to_owned();
+            return;
+        }
+        if self.connection_draft.driver == UiDriver::Postgres && self.connection_draft.port.parse::<u16>().is_err() {
+            self.connection_error = "Port must be a number between 1 and 65535".to_owned();
+            return;
+        }
+        let request_id = self.task_bridge.next_request_id();
+        let draft = self.connection_draft.clone();
+        let command = if save {
+            UiCommand::CreateConnection { request_id, draft }
+        } else {
+            UiCommand::TestConnection { request_id, draft }
+        };
+        let _ = self.task_bridge.send(command);
+        self.connection_error.clear();
+        self.runtime_message = if save { "Saving connection…" } else { "Testing connection…" }.to_owned();
     }
 
     fn draw_agent_panel(&mut self, ctx: &egui::Context) {
