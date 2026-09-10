@@ -127,6 +127,8 @@ pub enum UiCommand {
     },
     PickSqliteFile { request_id: RequestId },
     PickSshPrivateKey { request_id: RequestId },
+    PickBackupFile { request_id: RequestId },
+    PickRestoreFile { request_id: RequestId },
     DeleteConnection {
         request_id: RequestId,
         connection_id: String,

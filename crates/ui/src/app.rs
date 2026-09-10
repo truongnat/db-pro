@@ -65,6 +65,7 @@ pub struct DbProApp {
     query_folder: String,
     backup_output_path: String,
     restore_input_path: String,
+    restore_confirmation: bool,
     active_connection_id: Option<String>,
     connections_requested: bool,
     connection_dialog_open: bool,
@@ -152,6 +153,7 @@ impl Default for DbProApp {
             query_folder: String::new(),
             backup_output_path: String::new(),
             restore_input_path: String::new(),
+            restore_confirmation: false,
             active_connection_id: None,
             connections_requested: false,
             connection_dialog_open: false,
@@ -275,6 +277,10 @@ impl DbProApp {
                             self.connection_draft.database = path;
                         } else if kind == "ssh-key" {
                             self.connection_draft.ssh_private_key = path;
+                        } else if kind == "backup" {
+                            self.backup_output_path = path;
+                        } else if kind == "restore" {
+                            self.restore_input_path = path;
                         }
                         self.connection_error.clear();
                     }
@@ -406,6 +412,10 @@ impl DbProApp {
                     ui.separator();
                     ui.label(RichText::new("Workspace").color(self.theme.text_secondary));
                     ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
+                        if ui.small_button("Choose…").clicked() {
+                            let request_id = self.task_bridge.next_request_id();
+                            let _ = self.task_bridge.send(UiCommand::PickBackupFile { request_id });
+                        }
                         ui.add(TextEdit::singleline(&mut self.backup_output_path).hint_text("backup path").desired_width(150.0));
                         if ui.small_button("Backup").clicked() {
                             if let Some(connection) = self.connections.first() {
@@ -413,12 +423,24 @@ impl DbProApp {
                                 let _ = self.task_bridge.send(UiCommand::Backup { request_id, connection_id: connection.id.clone(), output_path: self.backup_output_path.clone(), custom_format: false });
                             }
                         }
+                        if ui.small_button("Choose…").clicked() {
+                            let request_id = self.task_bridge.next_request_id();
+                            let _ = self.task_bridge.send(UiCommand::PickRestoreFile { request_id });
+                        }
                         ui.add(TextEdit::singleline(&mut self.restore_input_path).hint_text("restore path").desired_width(150.0));
                         if ui.small_button("Restore").clicked() {
-                            if let Some(connection) = self.connections.first() {
-                                let request_id = self.task_bridge.next_request_id();
-                                let _ = self.task_bridge.send(UiCommand::Restore { request_id, connection_id: connection.id.clone(), input_path: self.restore_input_path.clone(), custom_format: false });
+                            self.restore_confirmation = true;
+                        }
+                        if self.restore_confirmation {
+                            ui.colored_label(self.theme.warning, "Overwrite database?");
+                            if ui.small_button("Confirm").clicked() {
+                                if let Some(connection) = self.connections.first() {
+                                    let request_id = self.task_bridge.next_request_id();
+                                    let _ = self.task_bridge.send(UiCommand::Restore { request_id, connection_id: connection.id.clone(), input_path: self.restore_input_path.clone(), custom_format: false });
+                                }
+                                self.restore_confirmation = false;
                             }
+                            if ui.small_button("Cancel").clicked() { self.restore_confirmation = false; }
                         }
                     });
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {

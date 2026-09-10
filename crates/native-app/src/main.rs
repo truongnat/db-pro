@@ -39,6 +39,16 @@ fn main() -> Result<(), Box<dyn Error>> {
                     });
                     continue;
                 }
+                UiCommand::PickBackupFile { request_id } => {
+                    let path = rfd::FileDialog::new().set_title("Choose backup output").save_file().map(|path| path.to_string_lossy().into_owned());
+                    let _ = picker_event_tx.send(UiEvent::FilePicked { request_id, kind: "backup".to_owned(), path });
+                    continue;
+                }
+                UiCommand::PickRestoreFile { request_id } => {
+                    let path = rfd::FileDialog::new().set_title("Choose backup to restore").pick_file().map(|path| path.to_string_lossy().into_owned());
+                    let _ = picker_event_tx.send(UiEvent::FilePicked { request_id, kind: "restore".to_owned(), path });
+                    continue;
+                }
                 UiCommand::PickSshPrivateKey { request_id } => {
                     let path = rfd::FileDialog::new().pick_file().map(|path| path.to_string_lossy().into_owned());
                     let _ = picker_event_tx.send(UiEvent::FilePicked {
@@ -139,7 +149,7 @@ fn draft_to_domain(draft: UiConnectionDraft) -> Option<(db_pro_core::domain::con
 
 fn translate_command(command: UiCommand) -> Option<RuntimeCommand> {
     match command {
-        UiCommand::OpenQuery | UiCommand::PickSqliteFile { .. } | UiCommand::PickSshPrivateKey { .. } => None,
+        UiCommand::OpenQuery | UiCommand::PickSqliteFile { .. } | UiCommand::PickSshPrivateKey { .. } | UiCommand::PickBackupFile { .. } | UiCommand::PickRestoreFile { .. } => None,
         UiCommand::ListSavedQueries { request_id, connection_id } => Some(RuntimeCommand::ListSavedQueries {
             request_id: RuntimeRequestId(request_id.0),
             connection_id,

@@ -47,6 +47,6 @@
 - [x] Add typed `UserApi` for users/roles/privileges operations.
 - [x] Add backup/restore progress contracts and cancellation events.
 - [x] Add native backup/restore controls with path fields and progress status.
-- [ ] Add native file dialogs and destructive restore confirmation.
+- [x] Add native file dialogs and destructive restore confirmation.
 - [x] Add typed connection CRUD/test commands to the shared runtime worker.
 - [ ] Move all remaining Tauri command wiring to the shared runtime facade.
