@@ -18,7 +18,11 @@
 - [x] Add Stop/Escape query cancellation dispatch and cancellation events.
 - [x] Add native SQL editor MVP shell with line numbers/search/zoom controls.
 - [x] Add lightweight SQL syntax highlighting for keywords, literals and comments.
-- [ ] Add selection-aware execution and formatting.
+- [x] Add basic SQL formatting and current-statement execution.
+- [x] Add keyword completion palette, snippets, diagnostics and hover hints.
+- [ ] Add true cursor-selection execution, schema-aware completion and dialect-aware diagnostics.
+- [x] Add local query history surface.
+- [ ] Add persistent multi-query tabs and saved query metadata.
 - [x] Add column resize, sorting, filtering and visible-row virtualization.
 - [x] Add scoped cell/row selection and clipboard copy actions.
 - [x] Persist column widths in native eframe storage.

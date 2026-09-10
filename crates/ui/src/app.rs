@@ -31,6 +31,10 @@ pub struct DbProApp {
     editor_search: String,
     editor_search_open: bool,
     editor_font_size: f32,
+    completion_open: bool,
+    snippets_open: bool,
+    diagnostics: Vec<String>,
+    query_history: Vec<String>,
     connection_name: String,
     connected: bool,
     agent_input: String,
@@ -95,6 +99,10 @@ impl Default for DbProApp {
             editor_search: String::new(),
             editor_search_open: false,
             editor_font_size: 14.0,
+            completion_open: false,
+            snippets_open: false,
+            diagnostics: Vec::new(),
+            query_history: Vec::new(),
             connection_name: "Local PostgreSQL".to_owned(),
             connected: false,
             agent_input: String::new(),
@@ -283,6 +291,12 @@ impl DbProApp {
             self.runtime_message = "Create or select a connection first".to_owned();
             return;
         };
+        if !self.query_history.iter().any(|query| query == &self.query_text) {
+            self.query_history.push(self.query_text.clone());
+            if self.query_history.len() > 20 {
+                self.query_history.remove(0);
+            }
+        }
         let request_id = self.task_bridge.next_request_id();
         self.next_query_request = Some(request_id);
         self.runtime_message = "Sending query to runtime…".to_owned();
@@ -467,10 +481,15 @@ impl DbProApp {
     }
 
     fn draw_history(&self, ui: &mut egui::Ui) {
-        for (title, meta) in [("select customers", "2 min ago"), ("show active users", "1 hour ago"), ("explain orders", "yesterday")] {
+        if self.query_history.is_empty() {
+            ui.label(RichText::new("No queries run yet").color(self.theme.text_muted));
+            return;
+        }
+        for query in self.query_history.iter().rev() {
+            let title = query.lines().next().unwrap_or("query");
             ui.vertical(|ui| {
                 ui.label(RichText::new(title).color(self.theme.text_secondary));
-                ui.label(RichText::new(meta).small().color(self.theme.text_muted));
+                ui.label(RichText::new("local history").small().color(self.theme.text_muted));
             });
             ui.add_space(12.0);
         }
@@ -600,7 +619,48 @@ impl DbProApp {
         ui.fonts(|fonts| fonts.layout_job(job))
     }
 
+    fn format_sql(sql: &str) -> String {
+        let keywords = ["select", "from", "where", "group by", "order by", "limit", "values", "set"];
+        let mut formatted = sql.trim().to_owned();
+        for keyword in keywords {
+            formatted = formatted.replace(keyword, &keyword.to_uppercase());
+        }
+        formatted = formatted.replace(" FROM ", "\nFROM ")
+            .replace(" WHERE ", "\nWHERE ")
+            .replace(" GROUP BY ", "\nGROUP BY ")
+            .replace(" ORDER BY ", "\nORDER BY ")
+            .replace(" LIMIT ", "\nLIMIT ");
+        formatted
+    }
+
+    fn refresh_diagnostics(&mut self) {
+        self.diagnostics.clear();
+        let sql = self.query_text.trim();
+        if sql.is_empty() {
+            self.diagnostics.push("Query is empty".to_owned());
+            return;
+        }
+        if sql.matches('\'').count() % 2 != 0 {
+            self.diagnostics.push("Unclosed string literal".to_owned());
+        }
+        let lower = sql.to_lowercase();
+        if lower.starts_with("select") && !lower.contains(" from ") {
+            self.diagnostics.push("SELECT statement is missing FROM".to_owned());
+        }
+        if sql.matches('(').count() != sql.matches(')').count() {
+            self.diagnostics.push("Unbalanced parentheses".to_owned());
+        }
+    }
+
+    fn insert_snippet(&mut self, snippet: &str) {
+        if !self.query_text.trim().is_empty() {
+            self.query_text.push_str("\n\n");
+        }
+        self.query_text.push_str(snippet);
+    }
+
     fn draw_query(&mut self, ui: &mut egui::Ui) {
+        self.refresh_diagnostics();
         ui.horizontal(|ui| {
             ui.label(RichText::new("Query").strong());
             ui.label(RichText::new("›  ").color(self.theme.text_muted));
@@ -614,7 +674,16 @@ impl DbProApp {
                         self.dispatch_query();
                     }
                 }
-                ui.button("Format");
+                if ui.button("Format").clicked() {
+                    self.query_text = Self::format_sql(&self.query_text);
+                }
+                if ui.button("Run statement").clicked() {
+                    let statement = self.query_text.split(';').next().unwrap_or_default().trim().to_owned();
+                    if !statement.is_empty() {
+                        self.query_text = statement;
+                        self.dispatch_query();
+                    }
+                }
             });
         });
         ui.add_space(8.0);
@@ -627,6 +696,12 @@ impl DbProApp {
             }
             if ui.small_button("A+").clicked() {
                 self.editor_font_size = (self.editor_font_size + 1.0).min(24.0);
+            }
+            if ui.small_button("Completion").clicked() {
+                self.completion_open = !self.completion_open;
+            }
+            if ui.small_button("Snippets").clicked() {
+                self.snippets_open = !self.snippets_open;
             }
             ui.label(RichText::new(format!("{} px", self.editor_font_size)).small().color(self.theme.text_muted));
             if self.editor_search_open {
@@ -656,6 +731,36 @@ impl DbProApp {
                 );
             });
         });
+        if self.completion_open {
+            egui::Frame::default().fill(self.theme.surface_elevated).show(ui, |ui| {
+                ui.label(RichText::new("SQL completion").strong());
+                for keyword in ["SELECT", "FROM", "WHERE", "JOIN", "GROUP BY", "ORDER BY", "LIMIT", "COUNT(*)"] {
+                    if ui.selectable_label(false, keyword).on_hover_text("Insert SQL keyword or expression").clicked() {
+                        self.query_text.push_str(keyword);
+                        self.completion_open = false;
+                    }
+                }
+            });
+        }
+        if self.snippets_open {
+            egui::Frame::default().fill(self.theme.surface_elevated).show(ui, |ui| {
+                ui.label(RichText::new("SQL snippets").strong());
+                if ui.button("SELECT table").clicked() {
+                    self.insert_snippet("SELECT *\nFROM table_name\nLIMIT 100;");
+                    self.snippets_open = false;
+                }
+                if ui.button("UPDATE by primary key").clicked() {
+                    self.insert_snippet("UPDATE table_name\nSET column_name = value\nWHERE id = 1;");
+                    self.snippets_open = false;
+                }
+            });
+        }
+        if !self.diagnostics.is_empty() {
+            ui.colored_label(self.theme.warning, format!("Diagnostics · {}", self.diagnostics.len()));
+            for diagnostic in &self.diagnostics {
+                ui.colored_label(self.theme.warning, format!("• {diagnostic}"));
+            }
+        }
         ui.add_space(12.0);
         let result = self.query_result.clone();
         ui.horizontal(|ui| {
