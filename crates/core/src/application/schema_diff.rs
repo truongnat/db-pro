@@ -19,17 +19,18 @@ impl SchemaService {
     }
 }
 
+fn qualify_key(schema: &str, name: &str) -> String {
+    if schema.is_empty() {
+        // Keep the separator so split_qualified can round-trip dotted names.
+        format!(".{name}")
+    } else {
+        format!("{schema}.{name}")
+    }
+}
+
 fn compare_introspect_results(source: &IntrospectResult, target: &IntrospectResult) -> SchemaDiff {
-    let source_tables: HashSet<String> = source
-        .tables
-        .iter()
-        .map(|t| format!("{}.{}", t.schema, t.name))
-        .collect();
-    let target_tables: HashSet<String> = target
-        .tables
-        .iter()
-        .map(|t| format!("{}.{}", t.schema, t.name))
-        .collect();
+    let source_tables: HashSet<String> = source.tables.iter().map(|t| qualify_key(&t.schema, &t.name)).collect();
+    let target_tables: HashSet<String> = target.tables.iter().map(|t| qualify_key(&t.schema, &t.name)).collect();
 
     let tables_only_in_source: Vec<String> = source_tables.difference(&target_tables).cloned().collect();
     let tables_only_in_target: Vec<String> = target_tables.difference(&source_tables).cloned().collect();
@@ -92,16 +93,8 @@ fn compare_introspect_results(source: &IntrospectResult, target: &IntrospectResu
         }
     }
 
-    let source_indexes: HashSet<String> = source
-        .indexes
-        .iter()
-        .map(|i| format!("{}.{}", i.schema, i.name))
-        .collect();
-    let target_indexes: HashSet<String> = target
-        .indexes
-        .iter()
-        .map(|i| format!("{}.{}", i.schema, i.name))
-        .collect();
+    let source_indexes: HashSet<String> = source.indexes.iter().map(|i| qualify_key(&i.schema, &i.name)).collect();
+    let target_indexes: HashSet<String> = target.indexes.iter().map(|i| qualify_key(&i.schema, &i.name)).collect();
 
     let indexes_only_in_source: Vec<String> = source_indexes.difference(&target_indexes).cloned().collect();
     let indexes_only_in_target: Vec<String> = target_indexes.difference(&source_indexes).cloned().collect();
@@ -118,6 +111,46 @@ fn compare_introspect_results(source: &IntrospectResult, target: &IntrospectResu
 fn split_qualified(qualified: &str) -> (&str, &str) {
     match qualified.split_once('.') {
         Some((schema, table)) => (schema, table),
-        None => ("public", qualified),
+        None => ("", qualified),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::domain::schema::{Column, Table};
+
+    #[test]
+    fn empty_schema_dotted_table_name_round_trips() {
+        let qualified = qualify_key("", "my.table");
+        assert_eq!(split_qualified(&qualified), ("", "my.table"));
+    }
+
+    #[test]
+    fn empty_schema_dotted_table_is_compared_by_its_literal_name() {
+        let mut source = IntrospectResult::empty();
+        source.tables.push(Table {
+            name: "my.table".into(),
+            schema: "".into(),
+            row_count: None,
+        });
+        source.columns.push(Column {
+            name: "id".into(),
+            data_type: "INTEGER".into(),
+            nullable: false,
+            default: None,
+            is_primary_key: true,
+            table_name: "my.table".into(),
+            schema: "".into(),
+        });
+
+        let mut target = source.clone();
+        target.columns[0].data_type = "TEXT".into();
+
+        let diff = compare_introspect_results(&source, &target);
+        assert_eq!(diff.column_diffs.len(), 1);
+        assert_eq!(diff.column_diffs[0].schema, "");
+        assert_eq!(diff.column_diffs[0].table, "my.table");
+        assert_eq!(diff.column_diffs[0].type_mismatches[0].column, "id");
     }
 }

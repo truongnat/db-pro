@@ -250,6 +250,7 @@ export function DataToolbar({
                       id={`column-visibility-${c.name}`}
                       checked={!hiddenColumns.includes(c.name)}
                       onCheckedChange={() => onToggleHiddenColumn(c.name)}
+                      onClick={(e) => e.stopPropagation()}
                     />
                     <span className="truncate">{c.name}</span>
                   </label>

@@ -2,6 +2,7 @@ use async_trait::async_trait;
 use db_pro_core::domain::connection::ConnectionId;
 use db_pro_core::domain::error::DbError;
 use db_pro_core::domain::history::{SavedQuery, SavedQueryFolder};
+use db_pro_core::domain::query::QueryParam;
 use db_pro_core::ports::SavedQueryRepository;
 
 use super::store::SQLiteMetaStore;
@@ -61,12 +62,16 @@ impl SavedQueryRepository for SQLiteMetaStore {
     }
 
     async fn rename(&self, id: &uuid::Uuid, name: &str) -> Result<(), DbError> {
-        self.actor
-            .raw_query(
+        let affected = self
+            .actor
+            .execute_param(
                 "UPDATE saved_queries SET name = ?1 WHERE id = ?2".into(),
-                vec![name.to_string(), id.to_string()],
+                vec![QueryParam::Text(name.to_string()), QueryParam::Uuid(id.to_string())],
             )
             .await?;
+        if affected == 0 {
+            return Err(DbError::NotFound(format!("saved query not found: {id}")));
+        }
         Ok(())
     }
 
@@ -116,5 +121,19 @@ impl SavedQueryRepository for SQLiteMetaStore {
             )
             .await?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn rename_rejects_missing_saved_query() {
+        let store = SQLiteMetaStore::new(":memory:").await.unwrap();
+
+        let error = store.rename(&uuid::Uuid::new_v4(), "New Name").await.unwrap_err();
+
+        assert!(matches!(error, DbError::NotFound(_)));
     }
 }
