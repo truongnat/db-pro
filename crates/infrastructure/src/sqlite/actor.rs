@@ -4,6 +4,7 @@ use std::time::Instant;
 use db_pro_core::domain::error::DbError;
 use db_pro_core::domain::query::{CellValue, QueryParam, QueryResult, Row};
 use db_pro_core::domain::schema::IntrospectResult;
+use db_pro_core::ports::{TransactionFailure, TransactionStatementResult};
 use tokio::sync::oneshot;
 use tracing;
 
@@ -44,6 +45,12 @@ pub enum SqliteCommand {
     ExecuteBatch {
         statements: Vec<String>,
         responder: oneshot::Sender<Result<u64, DbError>>,
+    },
+    ExecuteTransaction {
+        statements: Vec<String>,
+        read_statements: Vec<bool>,
+        max_rows: u64,
+        responder: oneshot::Sender<Result<Vec<TransactionStatementResult>, TransactionFailure>>,
     },
     Shutdown,
 }
@@ -172,6 +179,36 @@ impl SqliteHandle {
             .map_err(|e| DbError::Internal(format!("oneshot recv error: {e}")))?
     }
 
+    pub async fn execute_transaction(
+        &self,
+        statements: Vec<String>,
+        read_statements: Vec<bool>,
+        max_rows: u64,
+    ) -> Result<Vec<TransactionStatementResult>, TransactionFailure> {
+        let (tx, rx) = oneshot::channel();
+        let cmd = SqliteCommand::ExecuteTransaction {
+            statements,
+            read_statements,
+            max_rows,
+            responder: tx,
+        };
+        let sender = self.sender.clone();
+        tokio::task::spawn_blocking(move || {
+            let _ = sender.send(cmd);
+        })
+        .await
+        .map_err(|e| TransactionFailure {
+            statement_index: 0,
+            results: Vec::new(),
+            error: DbError::Internal(format!("spawn_blocking join error: {e}")),
+        })?;
+        rx.await.map_err(|e| TransactionFailure {
+            statement_index: 0,
+            results: Vec::new(),
+            error: DbError::Internal(format!("oneshot recv error: {e}")),
+        })?
+    }
+
     /// Tell the actor thread to shut down.
     pub async fn shutdown(&self) {
         let sender = self.sender.clone();
@@ -236,6 +273,14 @@ impl SqliteActor {
                 SqliteCommand::ExecuteBatch { statements, responder } => {
                     let _ = responder.send(self.handle_execute_batch(&statements));
                 }
+                SqliteCommand::ExecuteTransaction {
+                    statements,
+                    read_statements,
+                    max_rows,
+                    responder,
+                } => {
+                    let _ = responder.send(self.handle_execute_transaction(&statements, &read_statements, max_rows));
+                }
                 SqliteCommand::Shutdown => {
                     tracing::info!("sqlite actor received shutdown command");
                     break;
@@ -246,6 +291,67 @@ impl SqliteActor {
     }
 
     // -- handlers -----------------------------------------------------------
+
+    fn handle_execute_transaction(
+        &self,
+        statements: &[String],
+        read_statements: &[bool],
+        max_rows: u64,
+    ) -> Result<Vec<TransactionStatementResult>, TransactionFailure> {
+        if statements.len() != read_statements.len() {
+            return Err(TransactionFailure {
+                statement_index: 0,
+                results: Vec::new(),
+                error: DbError::Internal("transaction statement metadata length mismatch".into()),
+            });
+        }
+
+        let tx = self.conn.unchecked_transaction().map_err(|error| TransactionFailure {
+            statement_index: 0,
+            results: Vec::new(),
+            error: crate::error::from_rusqlite(error),
+        })?;
+        let mut results = Vec::with_capacity(statements.len());
+
+        for (index, (statement, is_read)) in statements.iter().zip(read_statements).enumerate() {
+            let started = Instant::now();
+            let result = if *is_read {
+                query_transaction(&tx, statement, max_rows, started)
+            } else {
+                tx.execute_batch(statement)
+                    .map(|_| TransactionStatementResult::Affected {
+                        row_count: tx.changes(),
+                        duration_ms: started.elapsed().as_millis() as u64,
+                    })
+                    .map_err(crate::error::from_rusqlite)
+            };
+
+            match result {
+                Ok(result) => results.push(result),
+                Err(error) => {
+                    let rollback_error = tx.rollback().err().map(crate::error::from_rusqlite);
+                    let error = match rollback_error {
+                        Some(rollback_error) => {
+                            DbError::Internal(format!("statement failed: {error}; rollback failed: {rollback_error}"))
+                        }
+                        None => error,
+                    };
+                    return Err(TransactionFailure {
+                        statement_index: index,
+                        results,
+                        error,
+                    });
+                }
+            }
+        }
+
+        tx.commit().map_err(|error| TransactionFailure {
+            statement_index: statements.len(),
+            results: Vec::new(),
+            error: crate::error::from_rusqlite(error),
+        })?;
+        Ok(results)
+    }
 
     fn handle_execute(&self, sql: &str, params: &[QueryParam], max_rows: u64) -> Result<QueryResult, DbError> {
         let start = Instant::now();
@@ -373,6 +479,31 @@ impl SqliteActor {
         tx.commit().map_err(crate::error::from_rusqlite)?;
         Ok(total)
     }
+}
+
+fn query_transaction(
+    tx: &rusqlite::Transaction<'_>,
+    sql: &str,
+    max_rows: u64,
+    started: Instant,
+) -> Result<TransactionStatementResult, DbError> {
+    let mut stmt = tx.prepare(sql).map_err(crate::error::from_rusqlite)?;
+    let columns = extract_columns(&stmt);
+    let mut rows = Vec::new();
+    let mut raw_rows = stmt.query([]).map_err(crate::error::from_rusqlite)?;
+    while (rows.len() as u64) < max_rows {
+        let row = match raw_rows.next().map_err(crate::error::from_rusqlite)? {
+            Some(row) => row,
+            None => break,
+        };
+        rows.push(Row(map_row_to_cells(row)?));
+    }
+    Ok(TransactionStatementResult::Query(QueryResult {
+        columns,
+        row_count: rows.len() as u64,
+        rows,
+        duration_ms: started.elapsed().as_millis() as u64,
+    }))
 }
 
 // ---------------------------------------------------------------------------

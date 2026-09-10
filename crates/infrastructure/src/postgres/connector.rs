@@ -3,7 +3,7 @@ use db_pro_core::domain::connection::{ConnectionConfig, ConnectionHandle};
 use db_pro_core::domain::error::DbError;
 use db_pro_core::domain::query::{QueryParam, QueryResult};
 use db_pro_core::domain::schema::IntrospectResult;
-use db_pro_core::ports::{DbConnector, SqlDialect};
+use db_pro_core::ports::{DbConnector, SqlDialect, TransactionFailure, TransactionStatementResult};
 use sqlx::{Executor as _, PgPool};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -190,6 +190,121 @@ impl DbConnector for PostgresConnector {
             .map_err(|_| DbError::QueryTimeout {
                 timeout_ms: timeout.as_millis() as u64,
             })?
+    }
+
+    async fn execute_transaction(
+        &self,
+        handle: &ConnectionHandle,
+        statements: &[String],
+        read_statements: &[bool],
+    ) -> Result<Vec<TransactionStatementResult>, TransactionFailure> {
+        if statements.len() != read_statements.len() {
+            return Err(TransactionFailure {
+                statement_index: 0,
+                results: Vec::new(),
+                error: DbError::Internal("transaction statement metadata length mismatch".into()),
+            });
+        }
+
+        let pools = self.pools.read().await;
+        let entry = pools.get(&handle.0).ok_or_else(|| TransactionFailure {
+            statement_index: 0,
+            results: Vec::new(),
+            error: DbError::ConnectionFailed("handle not found".into()),
+        })?;
+        let timeout = entry.query_timeout;
+        let max_rows = entry.max_rows;
+        let pool = entry.pool.clone();
+        drop(pools);
+
+        let future = async {
+            let mut tx = match pool.begin().await.map_err(crate::error::from_sqlx) {
+                Ok(tx) => tx,
+                Err(error) => {
+                    return Err(TransactionFailure {
+                        statement_index: 0,
+                        results: Vec::new(),
+                        error,
+                    });
+                }
+            };
+            let mut results = Vec::with_capacity(statements.len());
+
+            for (index, (statement, is_read)) in statements.iter().zip(read_statements).enumerate() {
+                let started = std::time::Instant::now();
+                let statement_result: Result<TransactionStatementResult, DbError> = async {
+                    if *is_read {
+                        let describe = tx.describe(statement).await.map_err(crate::error::from_sqlx)?;
+                        let columns = super::query_mapper::columns_from_describe(&describe);
+                        use futures_util::StreamExt;
+                        let mut stream = sqlx::query(statement).fetch(&mut *tx);
+                        let mut rows = Vec::new();
+                        while (rows.len() as u64) < max_rows {
+                            let row = match stream.next().await {
+                                Some(Ok(row)) => row,
+                                Some(Err(error)) => return Err(crate::error::from_sqlx(error)),
+                                None => break,
+                            };
+                            rows.push(super::query_mapper::map_row(&row, &columns)?);
+                        }
+                        Ok(TransactionStatementResult::Query(QueryResult {
+                            row_count: rows.len() as u64,
+                            columns,
+                            rows,
+                            duration_ms: started.elapsed().as_millis() as u64,
+                        }))
+                    } else {
+                        let affected = sqlx::query(statement)
+                            .execute(&mut *tx)
+                            .await
+                            .map_err(crate::error::from_sqlx)?
+                            .rows_affected();
+                        Ok(TransactionStatementResult::Affected {
+                            row_count: affected,
+                            duration_ms: started.elapsed().as_millis() as u64,
+                        })
+                    }
+                }
+                .await;
+                match statement_result {
+                    Ok(result) => results.push(result),
+                    Err(error) => {
+                        let error = match tx.rollback().await.map_err(crate::error::from_sqlx) {
+                            Ok(()) => error,
+                            Err(rollback_error) => DbError::Internal(format!(
+                                "statement failed: {error}; rollback failed: {rollback_error}"
+                            )),
+                        };
+                        return Err(TransactionFailure {
+                            statement_index: index,
+                            results,
+                            error,
+                        });
+                    }
+                }
+            }
+
+            if let Err(error) = tx.commit().await.map_err(crate::error::from_sqlx) {
+                return Err(TransactionFailure {
+                    statement_index: statements.len(),
+                    results,
+                    error,
+                });
+            }
+            Ok(results)
+        };
+
+        match tokio::time::timeout(timeout, future).await {
+            Ok(Ok(results)) => Ok(results),
+            Ok(Err(error)) => Err(error),
+            Err(_) => Err(TransactionFailure {
+                statement_index: 0,
+                results: Vec::new(),
+                error: DbError::QueryTimeout {
+                    timeout_ms: timeout.as_millis() as u64,
+                },
+            }),
+        }
     }
 
     async fn introspect(&self, handle: &ConnectionHandle) -> Result<IntrospectResult, DbError> {

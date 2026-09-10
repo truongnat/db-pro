@@ -8,6 +8,19 @@ use crate::domain::query::{QueryParam, QueryResult};
 use crate::domain::schema::IntrospectResult;
 use crate::ports::dialect::SqlDialect;
 
+#[derive(Debug)]
+pub enum TransactionStatementResult {
+    Query(QueryResult),
+    Affected { row_count: u64, duration_ms: u64 },
+}
+
+#[derive(Debug)]
+pub struct TransactionFailure {
+    pub statement_index: usize,
+    pub results: Vec<TransactionStatementResult>,
+    pub error: DbError,
+}
+
 #[cfg_attr(test, mockall::automock)]
 #[async_trait]
 pub trait DbConnector: Send + Sync {
@@ -24,6 +37,15 @@ pub trait DbConnector: Send + Sync {
     /// Execute multiple SQL statements atomically inside a single transaction.
     /// If any statement fails, all changes are rolled back.
     async fn execute_batch(&self, handle: &ConnectionHandle, statements: &[String]) -> Result<u64, DbError>;
+
+    /// Execute read and write statements on one transaction. Implementations
+    /// must roll back before returning `TransactionFailure`.
+    async fn execute_transaction(
+        &self,
+        handle: &ConnectionHandle,
+        statements: &[String],
+        read_statements: &[bool],
+    ) -> Result<Vec<TransactionStatementResult>, TransactionFailure>;
 
     async fn introspect(&self, handle: &ConnectionHandle) -> Result<IntrospectResult, DbError>;
 
@@ -56,6 +78,17 @@ impl<T: DbConnector + ?Sized> DbConnector for Arc<T> {
 
     async fn execute_batch(&self, handle: &ConnectionHandle, statements: &[String]) -> Result<u64, DbError> {
         self.as_ref().execute_batch(handle, statements).await
+    }
+
+    async fn execute_transaction(
+        &self,
+        handle: &ConnectionHandle,
+        statements: &[String],
+        read_statements: &[bool],
+    ) -> Result<Vec<TransactionStatementResult>, TransactionFailure> {
+        self.as_ref()
+            .execute_transaction(handle, statements, read_statements)
+            .await
     }
 
     async fn introspect(&self, handle: &ConnectionHandle) -> Result<IntrospectResult, DbError> {

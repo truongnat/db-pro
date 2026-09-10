@@ -8,6 +8,7 @@ use crate::domain::run_config::RunConfig;
 use crate::domain::safety::{validate_against_policy, ConnectionSafetyPolicy};
 use crate::ports::{
     ConnectionRepository, DbConnector, QueryHistoryRepository, RunConfigRepository, SavedQueryRepository,
+    TransactionStatementResult,
 };
 
 use super::registry::ConnectionRegistry;
@@ -17,7 +18,7 @@ pub struct MultiQueryResult {
     pub results: Vec<QueryResult>,
     pub total_duration_ms: u64,
     /// If a statement failed, this holds the 0-based index and error message.
-    /// Earlier results were committed; later statements were not executed.
+    /// Transactional multi-statement execution reports that all writes were rolled back.
     pub error: Option<(usize, String)>,
 }
 
@@ -125,56 +126,117 @@ impl QueryService {
         let start = std::time::Instant::now();
         let mut results = Vec::with_capacity(statements.len());
 
-        for (idx, stmt) in statements.iter().enumerate() {
-            let stmt_start = std::time::Instant::now();
+        let read_statements: Vec<bool> = statements
+            .iter()
+            .map(|statement| matches!(classify_statement(statement), StatementClass::Read))
+            .collect();
 
-            // Validate each statement against the safety policy before execution.
-            if let Err(msg) = validate_against_policy(stmt, &policy) {
-                return Ok(MultiQueryResult {
-                    results,
-                    total_duration_ms: start.elapsed().as_millis() as u64,
-                    error: Some((idx, msg)),
-                });
+        if statements.len() > 1 && read_statements.iter().any(|is_read| !is_read) {
+            for (idx, stmt) in statements.iter().enumerate() {
+                if let Err(msg) = validate_against_policy(stmt, &policy) {
+                    return Ok(MultiQueryResult {
+                        results: Vec::new(),
+                        total_duration_ms: start.elapsed().as_millis() as u64,
+                        error: Some((idx, msg)),
+                    });
+                }
             }
 
-            match classify_statement(stmt) {
-                StatementClass::Read => match self.connector.query(&handle, stmt, &[]).await {
-                    Ok(result) => {
-                        if let Err(e) = result.validate() {
+            match self
+                .connector
+                .execute_transaction(&handle, &statements, &read_statements)
+                .await
+            {
+                Ok(transaction_results) => {
+                    results = transaction_results
+                        .into_iter()
+                        .map(|result| match result {
+                            TransactionStatementResult::Query(query) => query,
+                            TransactionStatementResult::Affected { row_count, duration_ms } => QueryResult {
+                                columns: Vec::new(),
+                                rows: Vec::new(),
+                                row_count,
+                                duration_ms,
+                            },
+                        })
+                        .collect();
+                }
+                Err(failure) => {
+                    results = failure
+                        .results
+                        .into_iter()
+                        .map(|result| match result {
+                            TransactionStatementResult::Query(query) => query,
+                            TransactionStatementResult::Affected { row_count, duration_ms } => QueryResult {
+                                columns: Vec::new(),
+                                rows: Vec::new(),
+                                row_count,
+                                duration_ms,
+                            },
+                        })
+                        .collect();
+                    return Ok(MultiQueryResult {
+                        results,
+                        total_duration_ms: start.elapsed().as_millis() as u64,
+                        error: Some((
+                            failure.statement_index,
+                            format!("transaction rolled back: {}", failure.error),
+                        )),
+                    });
+                }
+            }
+        } else {
+            for (idx, stmt) in statements.iter().enumerate() {
+                let stmt_start = std::time::Instant::now();
+
+                // Validate each statement against the safety policy before execution.
+                if let Err(msg) = validate_against_policy(stmt, &policy) {
+                    return Ok(MultiQueryResult {
+                        results,
+                        total_duration_ms: start.elapsed().as_millis() as u64,
+                        error: Some((idx, msg)),
+                    });
+                }
+
+                match classify_statement(stmt) {
+                    StatementClass::Read => match self.connector.query(&handle, stmt, &[]).await {
+                        Ok(result) => {
+                            if let Err(e) = result.validate() {
+                                return Ok(MultiQueryResult {
+                                    results,
+                                    total_duration_ms: start.elapsed().as_millis() as u64,
+                                    error: Some((idx, e)),
+                                });
+                            }
+                            results.push(result);
+                        }
+                        Err(e) => {
                             return Ok(MultiQueryResult {
                                 results,
                                 total_duration_ms: start.elapsed().as_millis() as u64,
-                                error: Some((idx, e)),
+                                error: Some((idx, e.to_string())),
                             });
                         }
-                        results.push(result);
-                    }
-                    Err(e) => {
-                        return Ok(MultiQueryResult {
-                            results,
-                            total_duration_ms: start.elapsed().as_millis() as u64,
-                            error: Some((idx, e.to_string())),
-                        });
-                    }
-                },
-                StatementClass::Write => match self.connector.execute(&handle, stmt, &[]).await {
-                    Ok(affected) => {
-                        let elapsed = stmt_start.elapsed().as_millis() as u64;
-                        results.push(QueryResult {
-                            columns: Vec::new(),
-                            rows: Vec::new(),
-                            row_count: affected,
-                            duration_ms: elapsed,
-                        });
-                    }
-                    Err(e) => {
-                        return Ok(MultiQueryResult {
-                            results,
-                            total_duration_ms: start.elapsed().as_millis() as u64,
-                            error: Some((idx, e.to_string())),
-                        });
-                    }
-                },
+                    },
+                    StatementClass::Write => match self.connector.execute(&handle, stmt, &[]).await {
+                        Ok(affected) => {
+                            let elapsed = stmt_start.elapsed().as_millis() as u64;
+                            results.push(QueryResult {
+                                columns: Vec::new(),
+                                rows: Vec::new(),
+                                row_count: affected,
+                                duration_ms: elapsed,
+                            });
+                        }
+                        Err(e) => {
+                            return Ok(MultiQueryResult {
+                                results,
+                                total_duration_ms: start.elapsed().as_millis() as u64,
+                                error: Some((idx, e.to_string())),
+                            });
+                        }
+                    },
+                }
             }
         }
 
@@ -409,7 +471,7 @@ mod tests {
     use crate::domain::query::{CellValue, ColumnMeta, Row};
     use crate::ports::{
         MockConnectionRepository, MockDbConnector, MockQueryHistoryRepository, MockRunConfigRepository,
-        MockSavedQueryRepository,
+        MockSavedQueryRepository, TransactionFailure, TransactionStatementResult,
     };
 
     fn test_result() -> QueryResult {
@@ -657,13 +719,18 @@ mod tests {
 
         let mut connector = MockDbConnector::new();
         connector
-            .expect_query()
-            .withf(|_, sql, _| sql == "SELECT 1")
-            .returning(|_, _, _| Ok(test_result()));
-        connector
-            .expect_execute()
-            .withf(|_, sql, _| sql == "UPDATE t SET x = 1")
-            .returning(|_, _, _| Ok(3));
+            .expect_execute_transaction()
+            .returning(|_, statements, read_statements| {
+                assert_eq!(statements, &["SELECT 1", "UPDATE t SET x = 1"]);
+                assert_eq!(read_statements, &[true, false]);
+                Ok(vec![
+                    TransactionStatementResult::Query(test_result()),
+                    TransactionStatementResult::Affected {
+                        row_count: 3,
+                        duration_ms: 0,
+                    },
+                ])
+            });
 
         let mut history = MockQueryHistoryRepository::new();
         history.expect_save().returning(|_, _, _, _, _| Ok(()));
@@ -729,10 +796,13 @@ mod tests {
         registry.register(conn_id, ConnectionHandle(1));
 
         let mut connector = MockDbConnector::new();
-        connector.expect_query().returning(|_, _, _| Ok(test_result()));
-        connector
-            .expect_execute()
-            .returning(|_, _, _| Err(DbError::QueryFailed("permission denied".into())));
+        connector.expect_execute_transaction().returning(|_, _, _| {
+            Err(TransactionFailure {
+                statement_index: 1,
+                results: vec![TransactionStatementResult::Query(test_result())],
+                error: DbError::QueryFailed("permission denied".into()),
+            })
+        });
 
         let svc = QueryService::new(
             Box::new(connector),

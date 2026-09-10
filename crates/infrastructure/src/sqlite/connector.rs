@@ -3,7 +3,7 @@ use db_pro_core::domain::connection::{ConnectionConfig, ConnectionHandle};
 use db_pro_core::domain::error::DbError;
 use db_pro_core::domain::query::{QueryParam, QueryResult};
 use db_pro_core::domain::schema::IntrospectResult;
-use db_pro_core::ports::{DbConnector, SqlDialect};
+use db_pro_core::ports::{DbConnector, SqlDialect, TransactionFailure, TransactionStatementResult};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 use tokio::sync::RwLock;
@@ -109,6 +109,24 @@ impl DbConnector for SQLiteConnector {
             .get(&handle.0)
             .ok_or_else(|| DbError::ConnectionFailed("handle not found".into()))?;
         entry.handle.execute_batch(statements.to_vec()).await
+    }
+
+    async fn execute_transaction(
+        &self,
+        handle: &ConnectionHandle,
+        statements: &[String],
+        read_statements: &[bool],
+    ) -> Result<Vec<TransactionStatementResult>, TransactionFailure> {
+        let actors = self.actors.read().await;
+        let entry = actors.get(&handle.0).ok_or_else(|| TransactionFailure {
+            statement_index: 0,
+            results: Vec::new(),
+            error: DbError::ConnectionFailed("handle not found".into()),
+        })?;
+        entry
+            .handle
+            .execute_transaction(statements.to_vec(), read_statements.to_vec(), entry.max_rows)
+            .await
     }
 
     async fn introspect(&self, handle: &ConnectionHandle) -> Result<IntrospectResult, DbError> {

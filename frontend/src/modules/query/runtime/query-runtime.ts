@@ -241,7 +241,8 @@ export async function executeQuery(params: {
 /**
  * Execute multiple SQL statements with full lifecycle management.
  *
- * Handles partial failure: preserves successful results + reports error.
+ * Transactional multi-statement execution preserves readable results and reports
+ * the failed statement; write changes are rolled back on failure.
  *
  * IMPORTANT: database and schema come from the frozen snapshot.
  */
@@ -274,10 +275,11 @@ export async function executeQueryMulti(params: {
 
     const timing = computeTiming(tabId, data.totalDurationMs);
 
-    // Check for partial failure.
+    // Check for transaction failure.
     const hasPartialError = data.error !== null && data.error !== undefined;
 
-    // Always preserve successful results (even on partial failure).
+    // Preserve results produced before the failure for inspection. The backend
+    // includes the rollback outcome in the error message.
     setTabMultiResults(tabId, data.results);
     if (data.results.length > 0) {
       setTabResult(tabId, data.results[0]);
@@ -291,7 +293,7 @@ export async function executeQueryMulti(params: {
       const completedCount = data.results.length;
       const message =
         completedCount > 0
-          ? `${completedCount} result(s) completed · Statement ${stmtIdx + 1} failed: ${errorMsg}`
+          ? `${completedCount} result(s) available · Statement ${stmtIdx + 1} failed: ${errorMsg}`
           : `Statement ${stmtIdx + 1} failed: ${errorMsg}`;
       setTabStatus(tabId, "error");
       setTabError(tabId, message);

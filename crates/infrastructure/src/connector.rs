@@ -7,7 +7,7 @@ use db_pro_core::domain::connection::{ConnectionConfig, ConnectionHandle, Driver
 use db_pro_core::domain::error::DbError;
 use db_pro_core::domain::query::{QueryParam, QueryResult};
 use db_pro_core::domain::schema::IntrospectResult;
-use db_pro_core::ports::{DbConnector, SqlDialect};
+use db_pro_core::ports::{DbConnector, SqlDialect, TransactionFailure, TransactionStatementResult};
 
 use crate::postgres::connector::PostgresConnector;
 use crate::sqlite::connector::SQLiteConnector;
@@ -247,6 +247,35 @@ impl DbConnector for CompositeConnector {
         match driver {
             DriverType::Postgres => self.postgres.execute_batch(&inner, statements).await,
             DriverType::SQLite => self.sqlite.execute_batch(&inner, statements).await,
+        }
+    }
+
+    async fn execute_transaction(
+        &self,
+        handle: &ConnectionHandle,
+        statements: &[String],
+        read_statements: &[bool],
+    ) -> Result<Vec<TransactionStatementResult>, TransactionFailure> {
+        let inner = self.inner_handle(handle).map_err(|error| TransactionFailure {
+            statement_index: 0,
+            results: Vec::new(),
+            error,
+        })?;
+        match self.driver_of(handle).map_err(|error| TransactionFailure {
+            statement_index: 0,
+            results: Vec::new(),
+            error,
+        })? {
+            DriverType::Postgres => {
+                self.postgres
+                    .execute_transaction(&inner, statements, read_statements)
+                    .await
+            }
+            DriverType::SQLite => {
+                self.sqlite
+                    .execute_transaction(&inner, statements, read_statements)
+                    .await
+            }
         }
     }
 
