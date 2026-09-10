@@ -24,6 +24,10 @@ export class BackupService {
       },
     });
   }
+
+  async revealPath(path: string): Promise<void> {
+    return apiInvoke<void>("reveal_backup_path", { path });
+  }
 }
 
 export function createBackupService(): BackupService {

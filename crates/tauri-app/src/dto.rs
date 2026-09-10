@@ -316,6 +316,10 @@ pub enum CellValueDto {
     Bytes(Vec<u8>),
     Uuid(String),
     Datetime(String),
+    Date(String),
+    Time(String),
+    Interval(String),
+    Inet(String),
     Json(serde_json::Value),
 }
 
@@ -330,6 +334,10 @@ impl From<CellValue> for CellValueDto {
             CellValue::Bytes(v) => Self::Bytes(v),
             CellValue::Uuid(v) => Self::Uuid(v),
             CellValue::DateTime(v) => Self::Datetime(v),
+            CellValue::Date(v) => Self::Date(v),
+            CellValue::Time(v) => Self::Time(v),
+            CellValue::Interval(v) => Self::Interval(v),
+            CellValue::Inet(v) => Self::Inet(v),
             CellValue::Json(v) => Self::Json(v),
         }
     }
@@ -800,6 +808,10 @@ impl From<CellValueDto> for CellValue {
             CellValueDto::Bytes(v) => CellValue::Bytes(v),
             CellValueDto::Uuid(v) => CellValue::Uuid(v),
             CellValueDto::Datetime(v) => CellValue::DateTime(v),
+            CellValueDto::Date(v) => CellValue::Date(v),
+            CellValueDto::Time(v) => CellValue::Time(v),
+            CellValueDto::Interval(v) => CellValue::Interval(v),
+            CellValueDto::Inet(v) => CellValue::Inet(v),
             CellValueDto::Json(v) => CellValue::Json(v),
         }
     }
@@ -883,6 +895,15 @@ pub struct RestoreOptionsDto {
 pub struct BackupResultDto {
     pub output_path: String,
     pub size_bytes: u64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BackupProgressDto {
+    pub operation: String,
+    pub status: String,
+    pub path: String,
+    pub message: Option<String>,
 }
 
 impl From<db_pro_core::domain::backup::BackupResult> for BackupResultDto {

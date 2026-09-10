@@ -77,4 +77,24 @@ describe("ExplorerStore", () => {
       expect(useExplorerStore.getState().expandedNodes).toEqual([]);
     });
   });
+
+  describe("collapseOtherConnections", () => {
+    it("keeps the selected connection tree and collapses unrelated trees", () => {
+      useExplorerStore.setState({
+        expandedNodes: [
+          "conn:conn-1",
+          "schema:conn-1:public",
+          "conn:conn-2",
+          "schema:conn-2:public",
+        ],
+      });
+
+      useExplorerStore.getState().collapseOtherConnections("conn-2");
+
+      expect(useExplorerStore.getState().expandedNodes).toEqual([
+        "conn:conn-2",
+        "schema:conn-2:public",
+      ]);
+    });
+  });
 });
