@@ -115,6 +115,31 @@ export function ColumnEditDialog({
   );
   const changed = useMemo(() => hasChanges(draft), [draft]);
 
+  const localizeWarning = (warning: string) => {
+    const rename =
+      /^Renaming column "(.+)" may break views, functions, foreign keys, or application queries that reference it by name\.$/.exec(
+        warning,
+      );
+    if (rename) return t("schema.risk.renameWarning", { column: rename[1] });
+
+    const rewrite =
+      /^Changing type from "(.+)" to "(.+)" may rewrite the table\. Existing values may not be castable\.$/.exec(
+        warning,
+      );
+    if (rewrite) return t("schema.risk.typeRewriteWarning", { from: rewrite[1], to: rewrite[2] });
+
+    const lock = /^Type change from "(.+)" to "(.+)" may lock the table briefly\.$/.exec(warning);
+    if (lock) return t("schema.risk.typeLockWarning", { from: lock[1], to: lock[2] });
+
+    const notNull =
+      /^Setting NOT NULL on "(.+)" will fail if any existing rows contain NULL values\. Ensure data is validated first\.$/.exec(
+        warning,
+      );
+    if (notNull) return t("schema.risk.notNullWarning", { column: notNull[1] });
+
+    return warning;
+  };
+
   const nameHasSpace = newName.includes(" ") && newName !== column.name;
 
   const handleKeyDown = useCallback(
@@ -175,7 +200,7 @@ export function ColumnEditDialog({
       >
         <DialogContent className="sm:max-w-md" onKeyDown={handleKeyDown}>
           <DialogHeader>
-            <DialogTitle className="text-sm">Edit Column</DialogTitle>
+            <DialogTitle className="text-sm">{t("schema.editColumn")}</DialogTitle>
             <DialogDescription className="font-mono text-xs">
               {schemaName}.{tableName}
             </DialogDescription>
@@ -267,7 +292,7 @@ export function ColumnEditDialog({
                   <div className="flex items-center gap-1.5">
                     <RiskIcon className="h-3 w-3" />
                     <Badge variant={RISK_BADGE_VARIANT[classified.risk.level]} dot>
-                      {classified.risk.label}
+                      {t(`schema.risk.level.${classified.risk.level}`)}
                     </Badge>
                   </div>
                   <span className="text-[10px] text-[var(--text-secondary)]">
@@ -294,7 +319,7 @@ export function ColumnEditDialog({
                     {classified.warnings.map((w, i) => (
                       <div key={i} className="flex items-start gap-1 text-[10px] text-warning">
                         <AlertTriangle className="mt-px h-2.5 w-2.5 shrink-0" />
-                        <span>{w}</span>
+                        <span>{localizeWarning(w)}</span>
                       </div>
                     ))}
                   </div>
@@ -322,8 +347,8 @@ export function ColumnEditDialog({
               {executeBatch.isPending
                 ? t("common.states.loading")
                 : classified.risk.requiresConfirmation
-                  ? "Review & Apply…"
-                  : "Apply"}
+                  ? t("schema.reviewApply")
+                  : t("schema.apply")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -339,23 +364,25 @@ export function ColumnEditDialog({
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2 text-sm">
               <AlertTriangle className="h-4 w-4 text-warning" />
-              Confirm Schema Change
+              {t("schema.confirmChange")}
             </AlertDialogTitle>
             <AlertDialogDescription>
               <span className="mb-2 block">
                 <Badge variant={RISK_BADGE_VARIANT[classified.risk.level]} dot>
-                  {classified.risk.label}
+                  {t(`schema.risk.level.${classified.risk.level}`)}
                 </Badge>
               </span>
               {classified.risk.warning && (
-                <span className="mb-2 block text-xs">{classified.risk.warning}</span>
+                <span className="mb-2 block text-xs">
+                  {t(`schema.risk.confirm.${classified.risk.level}`)}
+                </span>
               )}
               {classified.warnings.length > 0 && (
                 <ul className="mt-2 space-y-1">
                   {classified.warnings.map((w, i) => (
                     <li key={i} className="flex items-start gap-1.5 text-xs">
                       <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0 text-warning" />
-                      <span>{w}</span>
+                      <span>{localizeWarning(w)}</span>
                     </li>
                   ))}
                 </ul>
@@ -369,7 +396,9 @@ export function ColumnEditDialog({
             <AlertDialogCancel onClick={handleConfirmCancel}>
               {t("common.actions.cancel")}
             </AlertDialogCancel>
-            <AlertDialogAction onClick={executeStatements}>Apply Changes</AlertDialogAction>
+            <AlertDialogAction onClick={executeStatements}>
+              {t("schema.applyChanges")}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

@@ -56,9 +56,18 @@ function renderNode(lod: TableNodeData["lod"], selected = false) {
 describe("ErTableNode LOD dispatcher", () => {
   it("renders the dot leaf (tier 0) with no column rows", () => {
     const { container } = renderNode("dot");
+    expect(container.querySelector('[role="button"]')).toHaveAttribute(
+      "aria-label",
+      "public.orders",
+    );
     expect(container.querySelector('[data-tier="0"]')).toBeTruthy();
     expect(container.querySelector('[data-tier="3"]')).toBeNull();
     expect(container.querySelectorAll("[data-column]")).toHaveLength(0);
+  });
+
+  it("exposes table focus as a keyboard action", () => {
+    const { container } = renderNode("compact");
+    expect(container.querySelector('[role="button"]')).toHaveAttribute("tabindex", "0");
   });
 
   it("renders the compact leaf (tier 1) with no column rows", () => {

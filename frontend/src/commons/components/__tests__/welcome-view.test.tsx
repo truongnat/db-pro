@@ -64,8 +64,10 @@ i18n.use(initReactI18next).init({
           connectFailed: "Failed to connect",
         },
         welcome: {
+          eyebrow: "Database workspace",
           title: "DB Pro",
           subtitle: "Database Management Made Simple",
+          connections: "Your Connections",
           newConnection: "New Connection",
           openCommandPalette: "Command Palette",
           recentConnections: "Recent Connections",
@@ -183,40 +185,16 @@ describe("WelcomeView", () => {
     useRecentStore.setState({ recentConnections: [] });
   });
 
-  it("renders SQLite connection subtitle without host and port", () => {
-    const sqliteConnections = [
-      {
-        id: "conn-sqlite",
-        name: "Local SQLite",
-        host: "",
-        port: 0,
-        database: "/path/to/test.db",
-        username: "",
-        driver: "sqlite" as const,
-        sslMode: "disable" as const,
-        color: "#10b981",
-        createdAt: "2026-01-01T00:00:00Z",
-        updatedAt: "2026-01-01T00:00:00Z",
-      },
-    ];
-
+  it("keeps saved connections discoverable when there is no recent history", () => {
     vi.mocked(connectionQueries.useConnectionList).mockReturnValue({
-      data: sqliteConnections,
+      data: mockConnections,
       isLoading: false,
     } as ReturnType<typeof connectionQueries.useConnectionList>);
 
-    useRecentStore.setState({
-      recentConnections: [
-        { connectionId: "conn-sqlite", lastConnectedAt: "2026-01-01T00:00:00Z", connectCount: 1 },
-      ],
-    });
-
     renderWithProviders(<WelcomeView />);
-    expect(screen.getByText("Local SQLite")).toBeInTheDocument();
-    expect(screen.getByText("/path/to/test.db")).toBeInTheDocument();
-    expect(screen.queryByText(/:0/)).not.toBeInTheDocument();
 
-    useRecentStore.setState({ recentConnections: [] });
+    expect(screen.getByText("Local PG")).toBeInTheDocument();
+    expect(screen.getByText("localhost:5432 / mydb")).toBeInTheDocument();
   });
 
   it("clicking New Connection opens the connection dialog", async () => {
