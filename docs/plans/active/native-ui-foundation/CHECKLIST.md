@@ -16,6 +16,8 @@
 - [x] Add native SQLite/private-key file picker integration.
 - [x] Render typed query result pages in the native result grid.
 - [x] Add Stop/Escape query cancellation dispatch and cancellation events.
+- [x] Add native SQL editor MVP shell with line numbers/search/zoom controls.
+- [ ] Add SQL syntax highlighting, selection-aware execution and formatting.
 - [x] Add column resize, sorting, filtering and visible-row virtualization.
 - [x] Add scoped cell/row selection and clipboard copy actions.
 - [x] Persist column widths in native eframe storage.

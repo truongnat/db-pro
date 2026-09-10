@@ -26,6 +26,9 @@ pub struct DbProApp {
     sidebar_open: bool,
     agent_open: bool,
     query_text: String,
+    editor_search: String,
+    editor_search_open: bool,
+    editor_font_size: f32,
     connection_name: String,
     connected: bool,
     agent_input: String,
@@ -87,6 +90,9 @@ impl Default for DbProApp {
             sidebar_open: true,
             agent_open: false,
             query_text: "select\n  id, name, status\nfrom customers\nlimit 100;".to_owned(),
+            editor_search: String::new(),
+            editor_search_open: false,
+            editor_font_size: 14.0,
             connection_name: "Local PostgreSQL".to_owned(),
             connected: false,
             agent_input: String::new(),
@@ -245,9 +251,17 @@ impl DbProApp {
         if ctx.input(|i| i.key_pressed(egui::Key::B) && i.modifiers.command) {
             self.sidebar_open = !self.sidebar_open;
         }
+        if ctx.input(|i| i.key_pressed(egui::Key::F) && i.modifiers.command) {
+            self.editor_search_open = true;
+        }
+        if ctx.input(|i| i.key_pressed(egui::Key::F5) || (i.key_pressed(egui::Key::Enter) && i.modifiers.command)) {
+            self.dispatch_query();
+        }
         if ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
             if let Some(request_id) = self.next_query_request {
                 self.cancel_query(request_id);
+            } else if self.editor_search_open {
+                self.editor_search_open = false;
             } else {
                 self.agent_open = false;
             }
@@ -257,6 +271,24 @@ impl DbProApp {
     fn cancel_query(&mut self, request_id: crate::RequestId) {
         let _ = self.task_bridge.send(UiCommand::CancelQuery { request_id });
         self.runtime_message = "Cancelling query…".to_owned();
+    }
+
+    fn dispatch_query(&mut self) {
+        if self.next_query_request.is_some() {
+            return;
+        }
+        let Some(connection) = self.connections.first() else {
+            self.runtime_message = "Create or select a connection first".to_owned();
+            return;
+        };
+        let request_id = self.task_bridge.next_request_id();
+        self.next_query_request = Some(request_id);
+        self.runtime_message = "Sending query to runtime…".to_owned();
+        let _ = self.task_bridge.send(UiCommand::RunQuery {
+            request_id,
+            connection_id: connection.id.clone(),
+            sql: self.query_text.clone(),
+        });
     }
 
     fn draw_topbar(&mut self, ctx: &egui::Context) {
@@ -494,31 +526,50 @@ impl DbProApp {
                 if ui.button(if running { "Stop  Esc" } else { "Run  ⌘↵" }).clicked() {
                     if let Some(request_id) = self.next_query_request {
                         self.cancel_query(request_id);
-                    } else if let Some(connection) = self.connections.first() {
-                        let request_id = self.task_bridge.next_request_id();
-                        self.next_query_request = Some(request_id);
-                        self.runtime_message = "Sending query to runtime…".to_owned();
-                        let _ = self.task_bridge.send(UiCommand::RunQuery {
-                            request_id,
-                            connection_id: connection.id.clone(),
-                            sql: self.query_text.clone(),
-                        });
                     } else {
-                        self.runtime_message = "Create or select a connection first".to_owned();
+                        self.dispatch_query();
                     }
                 }
                 ui.button("Format");
             });
         });
-        ui.add_space(10.0);
+        ui.add_space(8.0);
+        ui.horizontal(|ui| {
+            if ui.small_button("⌕ Search").clicked() {
+                self.editor_search_open = !self.editor_search_open;
+            }
+            if ui.small_button("A−").clicked() {
+                self.editor_font_size = (self.editor_font_size - 1.0).max(10.0);
+            }
+            if ui.small_button("A+").clicked() {
+                self.editor_font_size = (self.editor_font_size + 1.0).min(24.0);
+            }
+            ui.label(RichText::new(format!("{} px", self.editor_font_size)).small().color(self.theme.text_muted));
+            if self.editor_search_open {
+                ui.add_sized([220.0, 24.0], TextEdit::singleline(&mut self.editor_search).hint_text("Find in SQL…"));
+                if !self.editor_search.is_empty() {
+                    let matches = self.query_text.matches(&self.editor_search).count();
+                    ui.label(RichText::new(format!("{matches} matches")).small().color(self.theme.text_muted));
+                }
+            }
+        });
         egui::Frame::default().fill(self.theme.surface_panel).show(ui, |ui| {
-            ui.add_sized(
-                [ui.available_width(), 180.0],
-                TextEdit::multiline(&mut self.query_text)
-                    .font(egui::TextStyle::Monospace)
-                    .desired_rows(8)
-                    .lock_focus(true),
-            );
+            ui.horizontal_top(|ui| {
+                let line_count = self.query_text.lines().count().max(1);
+                ui.vertical(|ui| {
+                    for line in 1..=line_count {
+                        ui.label(RichText::new(format!("{line:>3}")).monospace().color(self.theme.text_muted));
+                    }
+                });
+                ui.separator();
+                ui.add_sized(
+                    [ui.available_width(), 220.0],
+                    TextEdit::multiline(&mut self.query_text)
+                        .font(egui::TextStyle::Monospace)
+                        .desired_rows(10)
+                        .lock_focus(true),
+                );
+            });
         });
         ui.add_space(12.0);
         let result = self.query_result.clone();
