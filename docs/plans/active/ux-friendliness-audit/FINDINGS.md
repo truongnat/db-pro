@@ -86,7 +86,67 @@
 ## 2026 trend lens (applied in IMPROVEMENT_PLAN.md)
 Copilot-not-autopilot · purposeful trust-building motion · raw schematic clarity (mono+grid) · user-controlled motion/a11y · fluid `clamp()` type · off-white comfort + adaptive dark · bento modular blocks · micro-interaction feedback · anti-liquid-glass legibility · dense dark-first dev-tool idiom. Detail per wave: `IMPROVEMENT_PLAN.md`.
 
+## 2026-09-10 deep UI/UX audit — remaining findings
+
+This is a static/source audit using the installed UI/UX, accessibility, desktop-HIG, and design-review skills. It does not replace browser/desktop evidence. Findings are consolidated by systemic cause so the same fix is not repeated in every screen.
+
+### UX-P1 — Pointer-only actions remain in core workflows
+- `frontend/src/modules/query/components/query-history-panel.tsx:143`, `local-history-panel.tsx:74-77`, `snippet-panel.tsx:141-143`, `query/components/explain-plan.tsx:136-141`, and `er-diagram/components/lod/er-detailed-node.tsx:45-50` use clickable `div`s without role, tab stop, or keyboard handler.
+- `frontend/src/modules/unified-grid/components/unified-grid.tsx:517-520` makes sorting pointer-only; `:572-580` makes row selection pointer-only; `:595-608` exposes cell editing through double-click only.
+- Impact: keyboard users cannot reach actions that mouse users can, and screen readers do not get a command/name/state model. Consolidate on native buttons or implement the smallest complete keyboard pattern per interaction.
+
+### UX-P1 — Hover-only controls can receive focus while invisible
+- `query-history-panel.tsx:170`, `local-history-panel.tsx:94`, `snippet-panel.tsx:169`, `schema/components/column-list.tsx:75,109`, `schema/components/index-manager.tsx:134,163`, and `commons/components/quick-open.tsx:517` use `opacity-0 group-hover:opacity-*` without a focus-within path.
+- Grid row actions at `unified-grid.tsx:642-669` have icon-only buttons without an `aria-label`; the tooltip is not a reliable replacement for the button name.
+- Impact: tab focus may land on a visually absent control; discoverability and keyboard verification fail. Use `focus-within` and explicit labels while keeping hover density.
+
+### UX-P1 — Token contract passes, but several rendered text pairs fail contrast
+- Measured token pairs: light `--text-tertiary` against `--surface-editor` is about 2.56:1; dark tertiary against common dark surfaces is about 3.69–4.08:1; light `--accent` against white is about 4.47:1.
+- `globals.css:247-261,300-324` defines these values. They are used for essential metadata in `er-detailed-node.tsx:66-70`, grid headers in `unified-grid.tsx:517-529`, and status/metadata surfaces across the shell.
+- `snackbar.provider.tsx:75-79` uses white text on success/warning/danger/info solids; the measured light-theme ratios are about 3.19–3.77:1.
+- These are token calculations, not a claim about every rendered state. Add a rendered contrast matrix; either darken text/foregrounds or reserve low-contrast tokens for supplementary content only.
+
+### UX-P1 — Reduced motion is specified but not implemented globally
+- `globals.css:294-297` defines motion tokens, and multiple components use `animate-spin`, `animate-pulse`, and transitions (`commons/components/shell/sidebar-views/explorer-view.tsx:323-325`, `app/providers/snackbar.provider.tsx:110`, `commons/components/ide/agent-panel.tsx:390-394`).
+- No `prefers-reduced-motion` rule was found under `frontend/src` during this audit.
+- Impact: users who request reduced motion still receive non-essential animation. Add one global CSS policy plus explicit non-motion loading/status text where needed.
+
+### UX-P1 — Snackbar dismissal is pointer-only and timeout is not focus-safe
+- `frontend/src/app/providers/snackbar.provider.tsx:106-116` puts dismissal on a clickable `div`; it has no button, keyboard handler, or accessible dismiss name. The timer pauses on mouse hover only (`:112-113`).
+- Impact: notification recovery is incomplete for keyboard users and a focused notification may disappear while being read. Keep the message live, add a real dismiss button, and pause on focus as well as hover.
+
+### UX-P2 — Visual tabs lack tab semantics and selected state
+- Query result tabs at `frontend/src/modules/query/components/query-tab-content.tsx:262-275` and schema/object tabs at `modules/schema/components/object-section-tabs.tsx:22-38` and `schema-workspace-content.tsx:28-44` are styled buttons without `tablist`, `tab`, `aria-selected`, `aria-controls`, or a roving-arrow model.
+- Impact: visual selection is not exposed as a relationship to the panel; keyboard traversal is noisier than a desktop tab set. Use the native/shadcn tab primitive if it already fits the layout.
+
+### UX-P2 — User-visible English remains outside the locale boundary
+- Examples: `workspace-content.tsx:52` (`Loading...`), `unified-grid.tsx:383,399` (`No data`, `Loading…`), `tab-scroll-controls.tsx:37-38,57-58,90-91`, `schema/components/index-manager.tsx:115,144,169,177,209-220`, and EXPLAIN labels at `query/components/explain-plan.tsx:149-152,239`.
+- Technical SQL/provider values are excluded from this finding. The remaining UI copy should be keyed in both EN and JA, including tooltip and destructive-action text.
+
+### UX-P2 — Desktop stress states are not yet closed
+- Current source uses fixed shell dimensions (`globals.css:224-236`) and truncates dense values (`query/components/local-history-panel.tsx:80-85`, `snippet-panel.tsx:157-162`). The 510-table ER case is covered, but 320px-equivalent sizing, 200% text, long identifiers, RTL/locale expansion, reduced motion, and keyboard-only native input remain unverified.
+- Impact: desktop resize and text expansion can hide critical actions even though the normal-size source flow is correct. Add the D7 matrix before moving the plan out of `active/`.
+
+## Provisional design-review score (static, not runtime)
+
+- Visual hierarchy: 7/10 — calm tokenized shell and strong dense-tool structure.
+- Consistency: 6/10 — token vocabulary is clean, but tabs, hidden actions, and leftover copy use multiple patterns.
+- Accessibility: 4/10 — core resize/ER work improved, but custom pointer interactions, contrast gaps, and reduced-motion gap are systemic.
+- Usability: 6/10 — major destructive/scale flows are clearer; history and grid affordances still rely on hidden or pointer gestures.
+- Responsiveness: 5/10 — resizable desktop shell exists, but narrow/large-text/locale matrix is open.
+- Performance: 6/10 — ER splitting and budget tests pass, but current scan reports 2.30 MB JS, 112 KB CSS, and a 552 KB largest chunk.
+
+Weighted provisional score: **5.8/10**. This score must not be treated as a release gate until the D7 runtime matrix is captured.
+
+## Deep-audit priority order
+
+1. D1 + D2: keyboard parity and invisible hover actions.
+2. D3 + D4: rendered contrast and reduced-motion/notification behavior.
+3. D5 + D6: semantic tabs/landmarks and i18n closure.
+4. D7: stress/runtime matrix and final evidence refresh.
+
 ## Priority waves
 - Wave A (correctness-friendliness): connections form contract, data-grid read-only honesty, tab/orphan guards, ER bounded open, Agent preview badge, native-confirm removal.
 - Wave B (scale-friendliness): explorer/search virtualization, result sort budget, ER search disambiguation + Fit API.
 - Wave C (polish): i18n, shortcuts, inset, menus, resize a11y, welcome labels, export/backup feedback.
+- Wave D (deep audit): keyboard parity, focus-visible discoverability, rendered contrast, reduced motion, snackbar control, semantic tabs, i18n closure, and stress matrix.

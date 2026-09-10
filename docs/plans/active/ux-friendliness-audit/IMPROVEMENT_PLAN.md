@@ -1,6 +1,6 @@
 # UX Improvement Plan — ChatGPT App Style × 2026 Trends (detail)
 
-Branch: `feature/ux-friendliness-audit`. Companion: `FINDINGS.md` (evidence), `PLAN.md` (scope), `VERIFICATION.md`.
+Working tree: `main` (user-directed override of the repository branch rule). Companion: `FINDINGS.md` (evidence), `PLAN.md` (scope), `VERIFICATION.md`.
 RC1 freeze respected: no Agent/MCP/new-product work; Waves A–C are fix-shaped.
 Design north star: **ChatGPT app idiom** — calm, minimal, conversational — applied to a database IDE without losing dev-tool density.
 
@@ -47,8 +47,47 @@ Blends with 2026 backbone: copilot manners, purposeful trust motion, schematic c
 - Welcome becomes ChatGPT home: greeting + centered "Ask your database…" composer (routes to Query/Quick Open) + suggestion cards (New connection, Open recent, Run sample query) as quiet bordered cards, not bento rainbow; first-run guide inline; file-focused SQLite labels. platform shortcut labels + gated traffic-light inset; EN/JA i18n sweep; Radix menus (clamped, Esc/outside/focus); keyboard resize + listener cleanup; export/backup pre-flight + per-file errors + reveal-in-folder; PG-only users gated empty state + role-drop impact confirm; off-white/dark token smoke.
 - Trend: bento, adaptive modes, inclusive visuals, crafted-not-prompted copy.
 
+## Deep UI/UX audit — Wave D (new, evidence-backed)
+Wave D is the remaining systemic quality work found after the Wave A–C source fixes. It is deliberately narrower than a redesign: repair interaction parity and trust failures before adding visual features.
+
+### D1 Keyboard parity for custom interactions — UX-P1
+- Replace pointer-only `div`/`span` actions with native buttons where the action is a command; otherwise add the complete keyboard path and an accessible name/state.
+- In scope: query history/local history/snippets, EXPLAIN tree nodes, ER detailed column rows, grid sortable headers/row-number selection/cell editing, and snackbar dismissal.
+- Acceptance: every pointer action has a keyboard equivalent; focus is visible; Enter/Space behavior is tested; no action depends on double-click or hover alone.
+
+### D2 Hidden actions must remain discoverable — UX-P1
+- Change hover-only action groups to reveal on `:focus-within` as well, and give icon-only controls an `aria-label`; preserve compact density.
+- In scope: history actions, local-history/snippet delete, schema column/index copy/edit/actions, Quick Open recent removal, grid row actions, and tab close.
+- Acceptance: tabbing never moves focus onto an invisible control; actions are reachable and understandable without a pointer.
+
+### D3 Rendered contrast contract — UX-P1
+- Add a small automated contrast matrix for light/dark rendered foreground/background pairs and manually verify alpha-composited states in the browser.
+- Revisit tertiary text used for essential metadata, light-theme accent text, and white text on success/warning/danger/info solids. Keep tertiary for genuinely supplementary content or darken/replace the token.
+- Acceptance: normal text ≥4.5:1, large text ≥3:1, non-text controls/focus indicators ≥3:1; state meaning is not conveyed by color alone.
+
+### D4 Reduced motion and notification control — UX-P1
+- Add a global `prefers-reduced-motion` policy covering spinners, pulse/skeleton, panel transitions, and Radix transitions; retain a non-motion loading/status affordance.
+- Make snackbar dismissal a real keyboard-accessible button, pause timeout on hover and focus, and ensure errors remain recoverable long enough to read.
+- Acceptance: reduced-motion browser mode has no non-essential animation; notifications can be dismissed and understood with keyboard/screen reader.
+
+### D5 Semantic navigation model — UX-P2
+- Give query results and schema/object section navigation real `tablist`/`tab`/`tabpanel` relationships with selected state and stable controls; retain horizontal overflow behavior.
+- Audit landmarks and document language (`lang`) at runtime; add a skip-to-main path if the shell prevents direct keyboard entry to the main workspace.
+- Acceptance: screen-reader tree exposes one coherent main workspace, selected tab, panel relationship, and current language.
+
+### D6 Copy and localization closure — UX-P2
+- Move remaining user-visible English into EN/JA keys, prioritizing loading/empty/error/destructive actions and tooltip labels. Keep SQL/provider enum values as technical data, not UI copy.
+- Initial evidence: `Loading...`, `No data`, tab scroll labels, index actions/confirmation, grid row actions, EXPLAIN labels, and several tooltip strings.
+- Acceptance: an EN/JA sweep finds no user-facing fallback English outside an explicit technical-data allowlist.
+
+### D7 Stress matrix before closing RUNTIME_VERIFY — UX-P2
+- Verify 320px-equivalent narrow window, 200% text scaling, long identifiers, Light/Dark/System, reduced motion, keyboard-only navigation, and RTL/locale expansion where supported.
+- Re-run the 510-table ER case and capture browser accessibility/contrast evidence; keep PostgreSQL and SQLite provider checks independent.
+- Acceptance: no clipped critical control, focus loss, unreadable state, or accidental full-graph mount; record unavailable provider capabilities as explicit limitations.
+
 ## Token/perf guardrails
 - Keep `check:tokens` canonical (`--surface/text/border/accent/state-*`); shadcn aliases only; no new `--app-*` colors or raw semantic vars.
+- `check:tokens` is necessary but not sufficient: add the D3 rendered-contrast matrix and review alpha/foreground combinations.
 - Perf budgets enforced (`performance-budgets.test.ts`, sqlite benches, `perf-scan.sh`); LOD/minimap rules unchanged.
 - Sidebar follows ChatGPT rail: top "New query" + "New connection" actions, sectioned recents/favorites/search, calm hover, collapse-safe; Command palette + Quick Open share one `⌘K` calm input with grouped results.
 - Copy: hand-written, plain-language, no AI-slop adjectives.
