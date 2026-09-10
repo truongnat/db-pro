@@ -884,7 +884,7 @@ export function ErDiagram({ connectionId, schema, data }: ErDiagramProps) {
           fallback={
             <div className="flex min-h-0 flex-1 items-center justify-center gap-2 text-[12px] text-[var(--text-secondary)]">
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              Loading overview…
+              {t("schemaWorkspace.loadingOverview")}
             </div>
           }
         >

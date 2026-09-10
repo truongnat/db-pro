@@ -95,7 +95,7 @@ This is a static/source audit using the installed UI/UX, accessibility, desktop-
 - Query history, local history, snippets: clickable `div`s converted to native `button` elements with keyboard handlers.
 - EXPLAIN tree nodes: converted to `button` with `role="treeitem"` and keyboard support.
 - ER detailed column rows: converted to `button` with keyboard handlers.
-- Grid row selection: row number converted to `button` with keyboard support.
+- Grid row selection: row number is a keyboard-focusable `role="button"` control with Enter/Space support, preserving the grid's existing row-cell structure.
 - Grid sortable headers: added `role="button"`, `tabIndex={0}`, and keyboard handlers.
 
 ### UX-P1 — Hover-only controls can receive focus while invisible
@@ -123,8 +123,9 @@ This is a static/source audit using the installed UI/UX, accessibility, desktop-
 - Added `tabs.tsx` component from shadcn/ui registry.
 
 ### UX-P2 — User-visible English remains outside the locale boundary
-- Examples: `workspace-content.tsx:52` (`Loading...`), `unified-grid.tsx:383,399` (`No data`, `Loading…`), `tab-scroll-controls.tsx:37-38,57-58,90-91`, `schema/components/index-manager.tsx:115,144,169,177,209-220`, and EXPLAIN labels at `query/components/explain-plan.tsx:149-152,239`.
-- Technical SQL/provider values are excluded from this finding. The remaining UI copy should be keyed in both EN and JA, including tooltip and destructive-action text.
+**Status: FIXED**
+- Loading/empty states, tab controls, query result labels, EXPLAIN labels, grid/schema actions, tooltips, and destructive-action copy now resolve through EN/JA keys.
+- Technical SQL/provider values and test-only fixture strings remain intentionally outside the product locale boundary.
 
 ### UX-P2 — Desktop stress states are not yet closed
 - Current source uses fixed shell dimensions (`globals.css:224-236`) and truncates dense values (`query/components/local-history-panel.tsx:80-85`, `snippet-panel.tsx:157-162`). The 510-table ER case is covered, but 320px-equivalent sizing, 200% text, long identifiers, RTL/locale expansion, reduced motion, and keyboard-only native input remain unverified.

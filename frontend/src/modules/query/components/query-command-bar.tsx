@@ -194,7 +194,7 @@ export function QueryCommandBar({
                 variant="default"
                 size="icon"
                 className="h-[30px] w-[28px] rounded-l-none px-0"
-                aria-label="Run options"
+                aria-label={t("query.runOptions")}
                 disabled={!hasConnection || !hasSql || isExecuting}
               >
                 <ChevronDown className="h-3 w-3" />

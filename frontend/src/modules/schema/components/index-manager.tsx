@@ -112,7 +112,9 @@ export function IndexManager({ connectionId, schema, table, columns, indexes }: 
                 <TableHead className={cn(headerClass, "text-left")}>
                   {t("schema.ddlIndexColumns")}
                 </TableHead>
-                <TableHead className={cn(headerClass, "text-center")}>Unique</TableHead>
+                <TableHead className={cn(headerClass, "text-center")}>
+                  {t("schema.unique")}
+                </TableHead>
                 <TableHead className={cn(headerClass, "w-10")} />
               </TableRow>
             </TableHeader>
@@ -133,6 +135,7 @@ export function IndexManager({ connectionId, schema, table, columns, indexes }: 
                             size="sm"
                             className="h-5 w-5 shrink-0 p-0 opacity-0 transition-opacity group-hover:opacity-60 group-focus-within:opacity-60 hover:!opacity-100 focus:!opacity-100 hover:bg-transparent"
                             onClick={() => handleCopyName(idx.name)}
+                            aria-label={t("schema.copyIndexName")}
                           >
                             {copiedIdx === idx.name ? (
                               <Check className="h-3 w-3 text-emerald-500" />
@@ -141,7 +144,7 @@ export function IndexManager({ connectionId, schema, table, columns, indexes }: 
                             )}
                           </Button>
                         </TooltipTrigger>
-                        <TooltipContent>Copy index name</TooltipContent>
+                        <TooltipContent>{t("schema.copyIndexName")}</TooltipContent>
                       </Tooltip>
                     </div>
                   </TableCell>
@@ -161,12 +164,13 @@ export function IndexManager({ connectionId, schema, table, columns, indexes }: 
                               variant="ghost"
                               size="sm"
                               className="h-6 w-6 p-0 opacity-0 transition-opacity group-hover:opacity-60 group-focus-within:opacity-60 hover:!opacity-100 focus:!opacity-100"
+                              aria-label={t("schema.actionsLabel")}
                             >
                               <MoreHorizontal className="h-3.5 w-3.5" />
                             </Button>
                           </DropdownMenuTrigger>
                         </TooltipTrigger>
-                        <TooltipContent>Actions</TooltipContent>
+                        <TooltipContent>{t("schema.actionsLabel")}</TooltipContent>
                       </Tooltip>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem
@@ -174,7 +178,7 @@ export function IndexManager({ connectionId, schema, table, columns, indexes }: 
                           onClick={() => setDroppingIndex(idx.name)}
                         >
                           <Trash2 className="size-3.5" />
-                          Drop index
+                          {t("schema.dropIndex")}
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -206,17 +210,15 @@ export function IndexManager({ connectionId, schema, table, columns, indexes }: 
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Drop Index</AlertDialogTitle>
+            <AlertDialogTitle>{t("schema.dropIndexTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to drop index{" "}
-              <code className="rounded bg-muted px-1 font-mono">{droppingIndex}</code>? This action
-              cannot be undone.
+              {t("schema.dropIndexDescription", { index: droppingIndex })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>{t("common.actions.cancel")}</AlertDialogCancel>
             <AlertDialogAction onClick={handleConfirmDrop}>
-              {executeDdl.isPending ? t("common.states.loading") : "Drop Index"}
+              {executeDdl.isPending ? t("common.states.loading") : t("schema.dropIndexAction")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -345,7 +347,7 @@ function CreateIndexDialog({
 
           {executeDdl.isError && (
             <div className="rounded-sm bg-destructive/10 px-3 py-2 text-xs text-destructive">
-              {(executeDdl.error as Error)?.message ?? "Failed to create index"}
+              {(executeDdl.error as Error)?.message ?? t("schema.createIndexFailed")}
             </div>
           )}
         </div>

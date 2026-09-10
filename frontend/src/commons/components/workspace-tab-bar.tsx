@@ -129,6 +129,7 @@ function TabItem({
   dragListeners?: SyntheticListenerMap;
   dragAttributes?: DraggableAttributes;
 }) {
+  const { t } = useTranslation();
   const isPinnedInactive = tab.pinned && !isActive;
 
   return (
@@ -192,11 +193,11 @@ function TabItem({
       {tab.dirty && !tab.pinned && (
         <span
           className="h-2 w-2 shrink-0 rounded-full bg-primary group-hover:hidden"
-          aria-label="Unsaved changes"
+          aria-label={t("tabs.unsavedChanges")}
         />
       )}
       {tab.pinned && !isActive && (
-        <PinIcon className="h-3 w-3 shrink-0 text-[var(--text-secondary)]" aria-label="Pinned" />
+        <PinIcon className="h-3 w-3 shrink-0 text-[var(--text-secondary)]" aria-hidden="true" />
       )}
       {!isPinnedInactive && (
         <span className={cn("flex-1 truncate text-[13px]", tab.preview && "italic opacity-70")}>
@@ -208,14 +209,13 @@ function TabItem({
         <button
           type="button"
           className={cn(
-            "flex h-4 w-4 shrink-0 items-center justify-center rounded text-[var(--text-secondary)] transition-opacity hover:bg-[var(--surface-active)] hover:text-foreground",
-            tab.dirty ? "opacity-0 group-hover:opacity-100" : "opacity-0 group-hover:opacity-100",
+            "flex h-4 w-4 shrink-0 items-center justify-center rounded text-[var(--text-secondary)] opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 hover:bg-[var(--surface-active)] hover:text-foreground focus-visible:opacity-100",
           )}
           onClick={(e) => {
             e.stopPropagation();
             onClose(tab.id);
           }}
-          aria-label={`Close ${tab.title}`}
+          aria-label={t("tabs.closeTabLabel", { title: tab.title })}
         >
           <XIcon className="h-3 w-3" />
         </button>
@@ -290,7 +290,7 @@ export function WorkspaceTabBar() {
             ref={containerRef}
             className="flex min-w-0 flex-1 overflow-x-auto scrollbar-none"
             role="tablist"
-            aria-label="Workspace tabs"
+            aria-label={t("tabs.workspace")}
             aria-orientation="horizontal"
           >
             {pinnedTabs.map((tab) => (

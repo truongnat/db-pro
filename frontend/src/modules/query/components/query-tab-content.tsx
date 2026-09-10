@@ -304,12 +304,19 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col">
-          <Tabs value={panelTab} onValueChange={(v) => setTabActivePanel(tabId, v as typeof panelTab)}>
-            <TabsList variant="line" className="h-[34px] w-full justify-start rounded-none border-b border-[var(--border-subtle)] bg-[var(--surface-nav)] px-0">
+          <Tabs
+            value={panelTab}
+            onValueChange={(v) => setTabActivePanel(tabId, v as typeof panelTab)}
+          >
+            <TabsList
+              variant="line"
+              className="h-[34px] w-full justify-start overflow-x-auto rounded-none border-b border-[var(--border-subtle)] bg-[var(--surface-nav)] px-0"
+            >
               {primaryTabs.map((tab) => (
                 <TabsTrigger
                   key={tab.id}
                   value={tab.id}
+                  aria-controls={`query-panel-${tabId}`}
                   className="h-full rounded-none px-3.5 text-[13px] font-medium"
                 >
                   {tab.label}
@@ -320,13 +327,15 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
                 <DropdownMenuTrigger asChild>
                   <button
                     type="button"
+                    aria-controls={`query-panel-${tabId}`}
+                    aria-label={t("tabs.more")}
                     className={`flex h-full items-center gap-1 px-3 text-[13px] transition-colors ${
                       ["history", "local-history", "snippets"].includes(panelTab)
                         ? "font-medium text-foreground"
                         : "text-[var(--text-secondary)] hover:text-foreground"
                     }`}
                   >
-                    {secondaryTabLabels[panelTab]?.label ?? "More"}
+                    {secondaryTabLabels[panelTab]?.label ?? t("tabs.more")}
                     <ChevronDown className="h-3 w-3 opacity-60" />
                   </button>
                 </DropdownMenuTrigger>
@@ -346,7 +355,13 @@ export function QueryTabContent({ tabId }: QueryTabContentProps) {
             </TabsList>
           </Tabs>
 
-          <div className="min-h-0 flex-1">
+          <div
+            id={`query-panel-${tabId}`}
+            role="tabpanel"
+            tabIndex={0}
+            aria-label={secondaryTabLabels[panelTab]?.label ?? t("tabs.more")}
+            className="min-h-0 flex-1 outline-none"
+          >
             {status === "error" && error && panelTab === "results" && (
               <div className="flex flex-col items-start justify-center px-6 py-6">
                 <div className="mb-2 flex items-center gap-2">

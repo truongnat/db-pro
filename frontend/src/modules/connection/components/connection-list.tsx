@@ -211,7 +211,7 @@ export function ConnectionList({ onEdit, onBackup, onRestore }: ConnectionListPr
             className={cn(
               "h-auto rounded-full px-2 py-0.5 text-xs",
               sortField === field
-                ? "bg-primary text-white hover:bg-primary/90"
+                ? "bg-primary text-primary-foreground hover:bg-primary/90"
                 : "bg-background text-[var(--text-secondary)] hover:bg-muted",
             )}
             onClick={() => handleSortToggle(field)}
@@ -244,7 +244,7 @@ export function ConnectionList({ onEdit, onBackup, onRestore }: ConnectionListPr
                 className={cn(
                   "h-auto rounded-full px-2 py-0.5 text-xs",
                   filterGroup === group
-                    ? "bg-primary text-white hover:bg-primary/90"
+                    ? "bg-primary text-primary-foreground hover:bg-primary/90"
                     : "bg-background text-[var(--text-secondary)] hover:bg-muted",
                 )}
                 onClick={() => setFilterGroup(filterGroup === group ? null : group)}
@@ -278,7 +278,7 @@ export function ConnectionList({ onEdit, onBackup, onRestore }: ConnectionListPr
                 className={cn(
                   "h-auto rounded-full border px-2 py-0.5 text-xs",
                   filterTag === tag
-                    ? "border-primary bg-primary text-white hover:bg-primary/90"
+                    ? "border-primary bg-primary text-primary-foreground hover:bg-primary/90"
                     : "border-[var(--border-subtle)] bg-transparent text-[var(--text-secondary)]",
                 )}
                 onClick={() => setFilterTag(filterTag === tag ? null : tag)}

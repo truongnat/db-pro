@@ -144,7 +144,7 @@ export function DataToolbar({
                             <Trash2 className="h-3 w-3" />
                           </Button>
                         </TooltipTrigger>
-                        <TooltipContent>Remove sort</TooltipContent>
+                        <TooltipContent>{t("dataGrid.removeSort")}</TooltipContent>
                       </Tooltip>
                     </div>
                   ))}

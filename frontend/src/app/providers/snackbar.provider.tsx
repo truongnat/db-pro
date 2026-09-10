@@ -21,15 +21,11 @@ export function useSnackbar(): SnackbarContextValue {
 
 export function SnackbarProvider({ children }: { children: ReactNode }) {
   const contextValue: SnackbarContextValue = {
-    success: useCallback((message: string) => toast.success(message), []),
-    error: useCallback((message: string) => toast.error(message), []),
-    warning: useCallback((message: string) => toast.warning(message), []),
-    info: useCallback((message: string) => toast.info(message), []),
+    success: useCallback((message: string) => toast.success(message, { duration: 4000 }), []),
+    error: useCallback((message: string) => toast.error(message, { duration: Infinity }), []),
+    warning: useCallback((message: string) => toast.warning(message, { duration: 6000 }), []),
+    info: useCallback((message: string) => toast.info(message, { duration: 4000 }), []),
   };
 
-  return (
-    <SnackbarContext.Provider value={contextValue}>
-      {children}
-    </SnackbarContext.Provider>
-  );
+  return <SnackbarContext.Provider value={contextValue}>{children}</SnackbarContext.Provider>;
 }

@@ -5,6 +5,7 @@ import { Trash2, Pencil } from "lucide-react";
 import { renderCellValue } from "@/modules/query/types/query.types";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useTranslation } from "@/commons/locales/useTranslation";
 import {
   normalizeColumnType,
   isCellTypeEditable,
@@ -109,6 +110,7 @@ export function UnifiedGrid({
   renderJsonCell,
   onKeyDown: externalKeyDown,
 }: UnifiedGridProps) {
+  const { t } = useTranslation();
   const parentRef = useRef<HTMLDivElement>(null);
   const gridContainerRef = useRef<HTMLDivElement>(null);
 
@@ -380,7 +382,9 @@ export function UnifiedGrid({
   if (!columns.length) {
     return (
       <div className="flex h-full min-h-0 items-center justify-center">
-        {emptyState ?? <p className="text-sm text-[var(--text-secondary)]">No data</p>}
+        {emptyState ?? (
+          <p className="text-sm text-[var(--text-secondary)]">{t("dataGrid.noData")}</p>
+        )}
       </div>
     );
   }
@@ -396,7 +400,7 @@ export function UnifiedGrid({
       {/* Loading overlay */}
       {isLoading && (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60">
-          <span className="text-sm text-[var(--text-secondary)]">Loading…</span>
+          <span className="text-sm text-[var(--text-secondary)]">{t("common.states.loading")}</span>
         </div>
       )}
 
@@ -425,8 +429,10 @@ export function UnifiedGrid({
                 setContextMenu(null);
               }}
             >
-              {frozenSet.has(contextMenu.column) ? "Restore order" : "Move to front"} "
-              {contextMenu.column}"
+              {frozenSet.has(contextMenu.column)
+                ? t("dataGrid.restoreOrder")
+                : t("dataGrid.moveToFront")}{" "}
+              "{contextMenu.column}"
             </Button>
           )}
           <Button
@@ -439,7 +445,7 @@ export function UnifiedGrid({
               setContextMenu(null);
             }}
           >
-            Copy column name
+            {t("dataGrid.copyColumnName")}
           </Button>
           {/* Cell / row copy (only when right-clicked on a cell) */}
           {contextMenu.cellRow != null && (
@@ -455,7 +461,7 @@ export function UnifiedGrid({
                   setContextMenu(null);
                 }}
               >
-                Copy cell value
+                {t("dataGrid.copyCellValue")}
               </Button>
               <Button
                 type="button"
@@ -467,7 +473,7 @@ export function UnifiedGrid({
                   setContextMenu(null);
                 }}
               >
-                Copy row
+                {t("dataGrid.copyRow")}
               </Button>
             </>
           )}
@@ -525,7 +531,7 @@ export function UnifiedGrid({
                   }}
                   role="button"
                   tabIndex={0}
-                  aria-label={`Sort by ${col.name}`}
+                  aria-label={t("dataGrid.sortBy", { column: col.name })}
                 >
                   <span className="truncate">{col.name}</span>
                   {sort && (
@@ -578,8 +584,7 @@ export function UnifiedGrid({
                 data-index={virtualRow.index}
               >
                 {/* Row number — clickable for selection (B1.3) */}
-                <button
-                  type="button"
+                <div
                   className={
                     "flex cursor-pointer select-none items-center px-2 text-[11px]" +
                     (isSelected
@@ -593,11 +598,11 @@ export function UnifiedGrid({
                       handleRowNumberClick(e, virtualRow.index);
                     }
                   }}
-                  aria-label={`Row ${virtualRow.index + 1}`}
+                  aria-label={t("dataGrid.rowNumber", { row: virtualRow.index + 1 })}
                   aria-selected={isSelected}
                 >
                   {virtualRow.index + 1}
-                </button>
+                </div>
 
                 {/* Cells */}
                 {orderedColumns.map((col) => {
@@ -621,6 +626,28 @@ export function UnifiedGrid({
                       style={isNull ? { fontStyle: "italic" } : undefined}
                       title={isJson ? undefined : display}
                       onDoubleClick={() => handleDoubleClick(virtualRow.index, colIdx)}
+                      onKeyDown={(e) => {
+                        if (e.key !== "Enter" && e.key !== "F2") return;
+                        e.preventDefault();
+                        handleDoubleClick(virtualRow.index, colIdx);
+                      }}
+                      tabIndex={
+                        canEditRows &&
+                        onEditCell &&
+                        isCellTypeEditable(normalizeColumnType(col.dataType))
+                          ? 0
+                          : undefined
+                      }
+                      aria-label={
+                        canEditRows &&
+                        onEditCell &&
+                        isCellTypeEditable(normalizeColumnType(col.dataType))
+                          ? t("dataGrid.editCell", {
+                              row: virtualRow.index + 1,
+                              column: col.name,
+                            })
+                          : undefined
+                      }
                       onContextMenu={(e) =>
                         handleCellContextMenu(e, col.name, virtualRow.index, colIdx)
                       }
@@ -663,12 +690,14 @@ export function UnifiedGrid({
                             size="sm"
                             className="h-6 w-6 p-0 text-[var(--text-secondary)] hover:bg-primary/10 hover:text-primary"
                             onClick={() => onEditRow(virtualRow.index)}
-                            aria-label="Edit row"
+                            aria-label={t("dataGrid.editRow", { row: virtualRow.index + 1 })}
                           >
                             <Pencil className="h-3.5 w-3.5" />
                           </Button>
                         </TooltipTrigger>
-                        <TooltipContent>Edit row</TooltipContent>
+                        <TooltipContent>
+                          {t("dataGrid.editRow", { row: virtualRow.index + 1 })}
+                        </TooltipContent>
                       </Tooltip>
                     )}
                     {onDeleteRow && (
@@ -681,12 +710,14 @@ export function UnifiedGrid({
                             className="h-6 w-6 p-0 text-[var(--text-secondary)] hover:bg-destructive/10 hover:text-destructive"
                             disabled={isDeleting}
                             onClick={() => onDeleteRow(virtualRow.index)}
-                            aria-label="Delete row"
+                            aria-label={t("dataGrid.deleteRow", { row: virtualRow.index + 1 })}
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>
                         </TooltipTrigger>
-                        <TooltipContent>Delete row</TooltipContent>
+                        <TooltipContent>
+                          {t("dataGrid.deleteRow", { row: virtualRow.index + 1 })}
+                        </TooltipContent>
                       </Tooltip>
                     )}
                   </div>

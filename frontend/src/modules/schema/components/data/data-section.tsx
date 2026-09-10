@@ -433,7 +433,7 @@ export function DataSection({
             onDismiss={() => setTransactionResult(null)}
           />
           {applyError && (
-            <div className="mx-3 mt-2 rounded-sm bg-destructive px-3 py-1.5 text-xs text-white">
+            <div className="mx-3 mt-2 rounded-sm bg-destructive px-3 py-1.5 text-xs text-destructive-foreground">
               {applyError}
             </div>
           )}

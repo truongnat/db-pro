@@ -189,7 +189,7 @@ export function ExportDialog({
                   className={cn(
                     "flex-1",
                     opts.format === f.value
-                      ? "border-primary bg-primary text-white"
+                      ? "border-primary bg-primary text-primary-foreground"
                       : "border-[var(--border-subtle)] bg-transparent text-foreground",
                   )}
                   onClick={() => update("format", f.value)}

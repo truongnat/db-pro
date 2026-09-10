@@ -1,5 +1,7 @@
 import { useState } from "react";
 
+import { useTranslation } from "@/commons/locales/useTranslation";
+
 import type { ExplainPlan } from "../types/query.types";
 
 interface ExplainPlanViewProps {
@@ -79,6 +81,7 @@ function formatNumber(n: number | undefined): string {
 // ── Summary header ──
 
 function PlanSummary({ node }: { node: PlanNode }) {
+  const { t } = useTranslation();
   const cost = getCost(node);
   const startup = getStartupCost(node);
   const rows = getRows(node);
@@ -86,10 +89,10 @@ function PlanSummary({ node }: { node: PlanNode }) {
 
   return (
     <div className="mb-4 flex flex-wrap gap-x-6 gap-y-3 rounded-md bg-[var(--surface-panel)] px-4 py-3">
-      <SummaryItem label="Total Cost" value={formatNumber(cost)} />
-      <SummaryItem label="Startup Cost" value={formatNumber(startup)} />
-      <SummaryItem label="Est. Rows" value={formatNumber(rows)} />
-      <SummaryItem label="Width" value={formatNumber(width)} />
+      <SummaryItem label={t("query.planTotalCost")} value={formatNumber(cost)} />
+      <SummaryItem label={t("query.planStartupCost")} value={formatNumber(startup)} />
+      <SummaryItem label={t("query.planEstimatedRows")} value={formatNumber(rows)} />
+      <SummaryItem label={t("query.planWidth")} value={formatNumber(width)} />
     </div>
   );
 }
@@ -118,6 +121,7 @@ function TreeNode({
   selectedId: string | null;
   onSelect: (id: string, node: PlanNode) => void;
 }) {
+  const { t } = useTranslation();
   const nodeType = getNodeTypeName(node);
   const relation = getRelation(node);
   const index = getIndex(node);
@@ -146,6 +150,7 @@ function TreeNode({
           }
         }}
         aria-selected={isSelected}
+        aria-level={depth + 1}
         role="treeitem"
       >
         <div className="flex items-center gap-1.5">
@@ -155,10 +160,14 @@ function TreeNode({
           )}
         </div>
         <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-[var(--text-tertiary)]">
-          {cost !== undefined && <span>Cost {formatNumber(cost)}</span>}
-          {rows !== undefined && <span>Rows {formatNumber(rows)}</span>}
-          {actualTime !== undefined && <span>Time {formatNumber(actualTime)}ms</span>}
-          {actualRows !== undefined && <span>Actual {formatNumber(actualRows)}</span>}
+          {cost !== undefined && <span>{t("query.planCost", { value: formatNumber(cost) })}</span>}
+          {rows !== undefined && <span>{t("query.planRows", { value: formatNumber(rows) })}</span>}
+          {actualTime !== undefined && (
+            <span>{t("query.planTime", { value: formatNumber(actualTime) })}</span>
+          )}
+          {actualRows !== undefined && (
+            <span>{t("query.planActual", { value: formatNumber(actualRows) })}</span>
+          )}
         </div>
       </button>
 
@@ -182,6 +191,7 @@ function TreeNode({
 // ── Details panel ──
 
 function NodeDetails({ node }: { node: PlanNode }) {
+  const { t } = useTranslation();
   const nodeType = getNodeTypeName(node);
   const relation = getRelation(node);
 
@@ -204,7 +214,9 @@ function NodeDetails({ node }: { node: PlanNode }) {
       <div>
         <h3 className="text-[13px] font-medium text-foreground">{nodeType}</h3>
         {relation && (
-          <p className="text-[11px] text-[var(--text-secondary)]">Relation {relation}</p>
+          <p className="text-[11px] text-[var(--text-secondary)]">
+            {t("query.relation", { value: relation })}
+          </p>
         )}
       </div>
       <div className="flex flex-col">
@@ -245,7 +257,7 @@ function renderGenericNode(key: string, value: unknown, depth: number): React.Re
     return (
       <div key={key} style={{ paddingLeft: depth * 16 }} className="py-0.5 text-[12px]">
         <span className="text-[var(--text-secondary)]">{key}: </span>
-        <span className="italic text-[var(--text-secondary)]">null</span>
+        <span className="italic text-[var(--text-secondary)]">—</span>
       </div>
     );
   }
@@ -281,6 +293,7 @@ function renderGenericNode(key: string, value: unknown, depth: number): React.Re
 // ── Main view ──
 
 export function ExplainPlanView({ plan }: ExplainPlanViewProps) {
+  const { t } = useTranslation();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedNode, setSelectedNode] = useState<PlanNode | null>(null);
 
@@ -298,7 +311,9 @@ export function ExplainPlanView({ plan }: ExplainPlanViewProps) {
         <div className="flex min-w-0 flex-[3] flex-col overflow-auto">
           <div className="p-4">
             <PlanSummary node={rootNode} />
-            <TreeNode node={rootNode} path="0" selectedId={selectedId} onSelect={handleSelect} />
+            <div role="tree" aria-label={t("query.executionPlan")}>
+              <TreeNode node={rootNode} path="0" selectedId={selectedId} onSelect={handleSelect} />
+            </div>
           </div>
         </div>
 

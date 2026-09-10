@@ -20,7 +20,10 @@ export function ObjectSectionTabs({ activeSection, onSelect }: ObjectSectionTabs
   const { t } = useTranslation();
   return (
     <Tabs value={activeSection} onValueChange={(v) => onSelect(v as DbObjectSection)}>
-      <TabsList variant="line" className="h-[34px] w-full justify-start rounded-none border-b border-[var(--border-subtle)] bg-[var(--surface-nav)] px-0">
+      <TabsList
+        variant="line"
+        className="h-[34px] w-full justify-start rounded-none border-b border-[var(--border-subtle)] bg-[var(--surface-nav)] px-0"
+      >
         {OBJECT_SECTIONS.map((section) => (
           <TabsTrigger
             key={section.id}

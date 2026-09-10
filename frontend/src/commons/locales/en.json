@@ -62,7 +62,8 @@
       "actions": "Actions",
       "clear": "Clear All",
       "create": "Create",
-      "sort": "Sort"
+      "sort": "Sort",
+      "apply": "Apply"
     },
     "states": {
       "loading": "Loading...",
@@ -75,6 +76,9 @@
       "reconnecting": "Reconnecting...",
       "status": "Status"
     },
+    "confirmAction": "Confirm action",
+    "destructiveAction": "Destructive action",
+    "executeAnyway": "Execute anyway",
     "yes": "Yes",
     "no": "No",
     "loading": "Loading...",
@@ -189,6 +193,18 @@
     "queryError": "Couldn't execute query",
     "results": "Results",
     "messages": "Messages",
+    "runOptions": "Run options",
+    "resultTab": "Result {{index}} ({{count}} rows)",
+    "relation": "Relation {{value}}",
+    "executionPlan": "Execution plan",
+    "planTotalCost": "Total cost",
+    "planStartupCost": "Startup cost",
+    "planEstimatedRows": "Estimated rows",
+    "planWidth": "Width",
+    "planCost": "Cost {{value}}",
+    "planRows": "Rows {{value}}",
+    "planTime": "Time {{value}}ms",
+    "planActual": "Actual {{value}}",
     "searchHistory": "Search history...",
     "querySaved": "Query saved",
     "queryDeleted": "Query deleted",
@@ -281,6 +297,14 @@
     "indexName": "Name",
     "indexColumns": "Columns",
     "indexUnique": "Unique",
+    "unique": "Unique",
+    "copyIndexName": "Copy index name",
+    "actionsLabel": "Index actions",
+    "dropIndex": "Drop index",
+    "dropIndexTitle": "Drop index?",
+    "dropIndexDescription": "This will permanently remove index {{index}}.",
+    "dropIndexAction": "Drop index",
+    "createIndexFailed": "Unable to create index. Check the connection and try again.",
     "fkName": "Name",
     "fkFromColumn": "From Column",
     "fkToTable": "To Table",
@@ -392,6 +416,17 @@
     "sortAsc": "Ascending",
     "sortDesc": "Descending",
     "rowsCount": "{{count}} rows",
+    "rowNumber": "Select row {{row}}",
+    "sortBy": "Sort by {{column}}",
+    "editCell": "Edit row {{row}}, {{column}}",
+    "editRow": "Edit row {{row}}",
+    "deleteRow": "Delete row {{row}}",
+    "removeSort": "Remove sort",
+    "restoreOrder": "Restore order",
+    "moveToFront": "Move to front",
+    "copyColumnName": "Copy column name",
+    "copyCellValue": "Copy cell value",
+    "copyRow": "Copy row",
     "refresh": "Refresh",
     "showAllColumns": "Show all",
     "prevPage": "Previous page",
@@ -745,6 +780,13 @@
     "resizePanel": "Resize panel"
   },
   "tabs": {
+    "workspace": "Workspace tabs",
+    "scrollLeft": "Scroll tabs left",
+    "scrollRight": "Scroll tabs right",
+    "showAll": "Show all tabs",
+    "more": "More",
+    "unsavedChanges": "Unsaved changes",
+    "closeTabLabel": "Close {{title}}",
     "closeDialog": {
       "title": "Close tab?",
       "titleMultiple": "Close tabs?",
@@ -813,6 +855,7 @@
       "domain": "Domain"
     },
     "miniMapHiddenLarge": "Mini-map is hidden for large schemas; use the overview controls.",
-    "overviewComingSoon": "Schema overview is coming soon."
+    "overviewComingSoon": "Schema overview is coming soon.",
+    "loadingOverview": "Loading overview…"
   }
 }

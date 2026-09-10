@@ -138,12 +138,8 @@ function SnippetRow({
   const { t } = useTranslation();
 
   return (
-    <button
-      type="button"
-      className="group flex w-full cursor-pointer items-start gap-2 border-b border-[var(--border-subtle)] px-3 py-2 text-left transition-colors hover:bg-background"
-      onClick={onSelect}
-    >
-      <div className="min-w-0 flex-1">
+    <div className="group flex items-start gap-2 border-b border-[var(--border-subtle)] px-3 py-2 transition-colors hover:bg-background">
+      <button type="button" className="min-w-0 flex-1 text-left" onClick={onSelect}>
         <div className="flex items-center gap-2">
           <Badge variant="outline" className="shrink-0 px-1.5 py-0 font-mono text-[11px]">
             {snippet.trigger}
@@ -161,7 +157,7 @@ function SnippetRow({
         >
           {snippet.body}
         </pre>
-      </div>
+      </button>
       {!snippet.builtIn && (
         <Button
           type="button"
@@ -172,11 +168,12 @@ function SnippetRow({
             e.stopPropagation();
             onDelete();
           }}
+          aria-label={t("common.actions.delete")}
           title={t("common.actions.delete")}
         >
           ×
         </Button>
       )}
-    </button>
+    </div>
   );
 }

@@ -38,7 +38,8 @@
       "actions": "操作",
       "clear": "すべてクリア",
       "create": "作成",
-      "sort": "並び替え"
+      "sort": "並び替え",
+      "apply": "適用"
     },
     "states": {
       "loading": "読み込み中...",
@@ -51,6 +52,9 @@
       "reconnecting": "再接続中...",
       "status": "ステータス"
     },
+    "confirmAction": "操作を確認",
+    "destructiveAction": "破壊的な操作",
+    "executeAnyway": "このまま実行",
     "yes": "はい",
     "no": "いいえ",
     "loading": "読み込み中...",
@@ -145,6 +149,18 @@
     "queryError": "クエリを実行できませんでした",
     "results": "結果",
     "messages": "メッセージ",
+    "runOptions": "実行オプション",
+    "resultTab": "結果 {{index}}（{{count}}行）",
+    "relation": "リレーション {{value}}",
+    "executionPlan": "実行計画",
+    "planTotalCost": "合計コスト",
+    "planStartupCost": "開始コスト",
+    "planEstimatedRows": "推定行数",
+    "planWidth": "幅",
+    "planCost": "コスト {{value}}",
+    "planRows": "行数 {{value}}",
+    "planTime": "時間 {{value}}ms",
+    "planActual": "実績 {{value}}",
     "searchHistory": "履歴を検索...",
     "querySaved": "クエリを保存しました",
     "queryDeleted": "クエリを削除しました",
@@ -237,6 +253,14 @@
     "indexName": "名前",
     "indexColumns": "カラム",
     "indexUnique": "ユニーク",
+    "unique": "ユニーク",
+    "copyIndexName": "インデックス名をコピー",
+    "actionsLabel": "インデックス操作",
+    "dropIndex": "インデックスを削除",
+    "dropIndexTitle": "インデックスを削除しますか？",
+    "dropIndexDescription": "インデックス {{index}} を完全に削除します。",
+    "dropIndexAction": "インデックスを削除",
+    "createIndexFailed": "インデックスを作成できません。接続を確認して再試行してください。",
     "fkName": "名前",
     "fkFromColumn": "元カラム",
     "fkToTable": "参照先テーブル",
@@ -348,6 +372,18 @@
     "sortAsc": "昇順",
     "sortDesc": "降順",
     "rowsCount": "{{count}} 行",
+    "rowNumber": "{{row}}行目を選択",
+    "sortBy": "{{column}}で並び替え",
+    "editCell": "{{row}}行目の{{column}}を編集",
+    "editRow": "{{row}}行目を編集",
+    "deleteRow": "{{row}}行目を削除",
+    "removeSort": "並び替えを削除",
+    "removeFilter": "フィルタを削除",
+    "restoreOrder": "元の順序に戻す",
+    "moveToFront": "先頭に移動",
+    "copyColumnName": "カラム名をコピー",
+    "copyCellValue": "セルの値をコピー",
+    "copyRow": "行をコピー",
     "refresh": "更新",
     "showAllColumns": "すべて表示",
     "prevPage": "前のページ",
@@ -680,6 +716,13 @@
     "resizePanel": "パネルをリサイズ"
   },
   "tabs": {
+    "workspace": "ワークスペースのタブ",
+    "scrollLeft": "タブを左へ移動",
+    "scrollRight": "タブを右へ移動",
+    "showAll": "すべてのタブを表示",
+    "more": "その他",
+    "unsavedChanges": "未保存の変更",
+    "closeTabLabel": "{{title}}を閉じる",
     "closeDialog": {
       "title": "タブを閉じますか？",
       "titleMultiple": "タブを閉じますか？",
@@ -737,6 +780,7 @@
       "domain": "ドメイン"
     },
     "miniMapHiddenLarge": "大規模スキーマではミニマップを非表示にしています。概要コントロールを使用してください。",
-    "overviewComingSoon": "スキーマ概要は近日公開予定です。"
+    "overviewComingSoon": "スキーマ概要は近日公開予定です。",
+    "loadingOverview": "概要を読み込み中…"
   }
 }

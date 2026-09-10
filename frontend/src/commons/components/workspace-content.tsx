@@ -47,9 +47,10 @@ export function reassignOrphanedTab(tabId: string, newConnectionId: string): voi
 }
 
 function TabLoadingFallback() {
+  const { t } = useTranslation();
   return (
     <div className="flex h-full items-center justify-center">
-      <div className="text-sm text-[var(--text-secondary)]">Loading...</div>
+      <div className="text-sm text-[var(--text-secondary)]">{t("common.states.loading")}</div>
     </div>
   );
 }
