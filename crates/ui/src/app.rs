@@ -536,7 +536,7 @@ impl DbProApp {
                     let row_index = indexes[position];
                     let row = &result.rows[row_index];
                     ui.horizontal(|ui| {
-                        for (column_index, cell) in row.0.iter().enumerate().take(result.columns.len()) {
+                        for (column_index, cell) in row.iter().enumerate().take(result.columns.len()) {
                             let width = widths.get(column_index).copied().unwrap_or(180.0);
                             let fill = if position % 2 == 0 { self.theme.surface_panel } else { self.theme.surface_elevated };
                             egui::Frame::default().fill(fill).show(ui, |ui| {
@@ -566,7 +566,7 @@ impl DbProApp {
             self.copy_status = "Select a cell first".to_owned();
             return;
         };
-        let Some(cell) = result.rows.get(row_index).and_then(|row| row.0.get(column_index)) else {
+        let Some(cell) = result.rows.get(row_index).and_then(|row| row.get(column_index)) else {
             self.copy_status = "Selected cell is no longer available".to_owned();
             return;
         };
@@ -583,7 +583,7 @@ impl DbProApp {
             self.copy_status = "Selected row is no longer available".to_owned();
             return;
         };
-        let row_text = row.0.iter().map(Self::cell_text).collect::<Vec<_>>().join("\t");
+        let row_text = row.iter().map(Self::cell_text).collect::<Vec<_>>().join("\t");
         ui.output_mut(|output| output.copied_text = row_text);
         self.copy_status = "Row copied".to_owned();
     }
@@ -639,13 +639,13 @@ impl DbProApp {
             .rows
             .iter()
             .enumerate()
-            .filter(|(_, row)| filter.is_empty() || row.0.iter().any(|cell| Self::cell_text(cell).to_lowercase().contains(&filter)))
+            .filter(|(_, row)| filter.is_empty() || row.iter().any(|cell| Self::cell_text(cell).to_lowercase().contains(&filter)))
             .map(|(index, _)| index)
             .collect();
         if let Some(column) = self.grid_sort_column {
             indexes.sort_by(|left, right| {
-                let left_value = result.rows[*left].0.get(column).map(Self::cell_text).unwrap_or_default();
-                let right_value = result.rows[*right].0.get(column).map(Self::cell_text).unwrap_or_default();
+                let left_value = result.rows[*left].get(column).map(Self::cell_text).unwrap_or_default();
+                let right_value = result.rows[*right].get(column).map(Self::cell_text).unwrap_or_default();
                 let ordering = left_value.cmp(&right_value);
                 if self.grid_sort_desc { ordering.reverse() } else { ordering }
             });
@@ -698,5 +698,61 @@ impl DbProApp {
                     ui.add(TextEdit::singleline(&mut self.agent_input).hint_text("Ask the agent…"));
                 });
             });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn result() -> UiQueryResult {
+        UiQueryResult {
+            columns: vec![
+                crate::UiColumn {
+                    name: "id".to_owned(),
+                    data_type: "int".to_owned(),
+                    nullable: false,
+                },
+                crate::UiColumn {
+                    name: "name".to_owned(),
+                    data_type: "text".to_owned(),
+                    nullable: false,
+                },
+            ],
+            rows: vec![
+                vec![crate::UiCell::Number("2".to_owned()), crate::UiCell::Text("Beta".to_owned())],
+                vec![crate::UiCell::Number("1".to_owned()), crate::UiCell::Text("Alpha".to_owned())],
+                vec![crate::UiCell::Number("3".to_owned()), crate::UiCell::Text("Gamma".to_owned())],
+            ],
+            row_count: 3,
+            duration_ms: 2,
+        }
+    }
+
+    #[test]
+    fn filter_returns_original_row_indexes() {
+        let mut app = DbProApp::default();
+        app.grid_filter = "gamma".to_owned();
+        let value = result();
+        assert_eq!(app.filtered_sorted_indexes(&value), vec![2]);
+    }
+
+    #[test]
+    fn sort_is_stable_over_filtered_indexes() {
+        let mut app = DbProApp::default();
+        app.grid_sort_column = Some(0);
+        let value = result();
+        assert_eq!(app.filtered_sorted_indexes(&value), vec![1, 0, 2]);
+        app.grid_sort_desc = true;
+        assert_eq!(app.filtered_sorted_indexes(&value), vec![2, 0, 1]);
+    }
+
+    #[test]
+    fn cell_text_keeps_null_and_json_visible() {
+        assert_eq!(DbProApp::cell_text(&crate::UiCell::Null), "NULL");
+        assert_eq!(
+            DbProApp::cell_text(&crate::UiCell::Json("{\"ok\":true}".to_owned())),
+            "{\"ok\":true}"
+        );
     }
 }
