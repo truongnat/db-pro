@@ -5,6 +5,7 @@ use db_pro_core::domain::backup::{BackupOptions, BackupResult, RestoreOptions};
 use db_pro_core::domain::connection::{ConnectionId, DriverType};
 use db_pro_core::domain::error::DbError;
 use db_pro_core::domain::user::{DatabaseUser, Privilege};
+use db_pro_core::domain::history::{SavedQuery, SavedQueryFolder};
 use db_pro_core::domain::query::{CellValue, QueryParam, QueryResult};
 use db_pro_core::application::sql_builder::{SortClause, TableFilter};
 use db_pro_core::domain::schema::IntrospectResult;
@@ -138,6 +139,27 @@ impl QueryApi {
             .execute(&connection_id, sql, &[] as &[QueryParam], None, None)
             .await
             .map_err(Into::into)
+    }
+
+    pub async fn save_query(
+        &self,
+        connection_id: &str,
+        name: &str,
+        sql: &str,
+        folder: Option<&str>,
+    ) -> Result<SavedQuery, DbErrorDto> {
+        let connection_id = parse_connection_id(connection_id)?;
+        self.service.save_query(&connection_id, name, sql, folder).await.map_err(Into::into)
+    }
+
+    pub async fn list_saved_queries(&self, connection_id: &str) -> Result<Vec<SavedQuery>, DbErrorDto> {
+        let connection_id = parse_connection_id(connection_id)?;
+        self.service.list_saved_queries(&connection_id).await.map_err(Into::into)
+    }
+
+    pub async fn list_folders(&self, connection_id: &str) -> Result<Vec<SavedQueryFolder>, DbErrorDto> {
+        let connection_id = parse_connection_id(connection_id)?;
+        self.service.list_folders(&connection_id).await.map_err(Into::into)
     }
 }
 

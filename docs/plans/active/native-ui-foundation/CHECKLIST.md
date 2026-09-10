@@ -23,7 +23,8 @@
 - [ ] Add true cursor-selection execution, schema-aware completion and dialect-aware diagnostics.
 - [x] Add local query history surface.
 - [x] Add persistent multi-query tabs and query document metadata.
-- [ ] Add saved-query folders and backend persistence.
+- [x] Add saved-query/folder operations to the shared QueryApi facade.
+- [ ] Add native saved-query folders UI and backend worker commands.
 - [x] Add column resize, sorting, filtering and visible-row virtualization.
 - [x] Add scoped cell/row selection and clipboard copy actions.
 - [x] Persist column widths in native eframe storage.
