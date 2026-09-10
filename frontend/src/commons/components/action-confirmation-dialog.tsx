@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/alert-dialog";
 
 import type { ActionConfirmation } from "@/commons/actions/types";
+import { useTranslation } from "@/commons/locales/useTranslation";
 
 interface ActionConfirmationDialogProps {
   confirmation: ActionConfirmation;
@@ -31,6 +32,7 @@ export function ActionConfirmationDialog({
   onConfirm,
   onCancel,
 }: ActionConfirmationDialogProps) {
+  const { t } = useTranslation();
   const isDestructive = confirmation.risk === "destructive";
 
   return (
@@ -43,12 +45,12 @@ export function ActionConfirmationDialog({
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>
-            {isDestructive ? "Destructive action" : "Confirm action"}
+            {isDestructive ? t("common.destructiveAction") : t("common.confirmAction")}
           </AlertDialogTitle>
           <AlertDialogDescription>{confirmation.message}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel onClick={onCancel}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel onClick={onCancel}>{t("common.actions.cancel")}</AlertDialogCancel>
           <AlertDialogAction
             onClick={onConfirm}
             className={
@@ -57,7 +59,7 @@ export function ActionConfirmationDialog({
                 : undefined
             }
           >
-            {isDestructive ? "Execute anyway" : "Confirm"}
+            {isDestructive ? t("common.executeAnyway") : t("common.actions.confirm")}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

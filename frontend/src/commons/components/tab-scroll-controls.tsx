@@ -10,6 +10,7 @@ import {
 import { useState } from "react";
 
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
+import { useTranslation } from "@/commons/locales/useTranslation";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
@@ -26,6 +27,7 @@ export function TabScrollLeft({
   canScrollLeft,
   onScrollLeft,
 }: Pick<TabScrollControlsProps, "canScrollLeft" | "onScrollLeft">) {
+  const { t } = useTranslation();
   if (!canScrollLeft) return null;
   return (
     <Button
@@ -34,8 +36,8 @@ export function TabScrollLeft({
       size="icon"
       className="h-full shrink-0 rounded-none border-r border-[var(--border-subtle)] px-1"
       onClick={onScrollLeft}
-      aria-label="Scroll tabs left"
-      title="Scroll left"
+      aria-label={t("tabs.scrollLeft")}
+      title={t("tabs.scrollLeft")}
     >
       <ChevronLeftIcon className="size-3.5" />
     </Button>
@@ -46,6 +48,7 @@ export function TabScrollRight({
   canScrollRight,
   onScrollRight,
 }: Pick<TabScrollControlsProps, "canScrollRight" | "onScrollRight">) {
+  const { t } = useTranslation();
   if (!canScrollRight) return null;
   return (
     <Button
@@ -54,8 +57,8 @@ export function TabScrollRight({
       size="icon"
       className="h-full shrink-0 rounded-none border-l border-[var(--border-subtle)] px-1"
       onClick={onScrollRight}
-      aria-label="Scroll tabs right"
-      title="Scroll right"
+      aria-label={t("tabs.scrollRight")}
+      title={t("tabs.scrollRight")}
     >
       <ChevronRightIcon className="size-3.5" />
     </Button>
@@ -63,6 +66,7 @@ export function TabScrollRight({
 }
 
 export function TabOverflowMenu({ isOverflowing }: Pick<TabScrollControlsProps, "isOverflowing">) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const tabs = useWorkspaceStore((s) =>
     s.tabs.map((t) => ({
@@ -87,8 +91,8 @@ export function TabOverflowMenu({ isOverflowing }: Pick<TabScrollControlsProps, 
           variant="ghost"
           size="icon"
           className="h-full shrink-0 rounded-none border-l border-[var(--border-subtle)] px-1"
-          aria-label="Show all tabs"
-          title="Show all tabs"
+          aria-label={t("tabs.showAll")}
+          title={t("tabs.showAll")}
         >
           <ListIcon className="size-3.5" />
         </Button>

@@ -64,8 +64,10 @@ i18n.use(initReactI18next).init({
           connectFailed: "Failed to connect",
         },
         welcome: {
+          eyebrow: "Database workspace",
           title: "DB Pro",
           subtitle: "Database Management Made Simple",
+          connections: "Your Connections",
           newConnection: "New Connection",
           openCommandPalette: "Command Palette",
           recentConnections: "Recent Connections",
@@ -181,6 +183,18 @@ describe("WelcomeView", () => {
     expect(screen.getByText("localhost:5432 / mydb")).toBeInTheDocument();
 
     useRecentStore.setState({ recentConnections: [] });
+  });
+
+  it("keeps saved connections discoverable when there is no recent history", () => {
+    vi.mocked(connectionQueries.useConnectionList).mockReturnValue({
+      data: mockConnections,
+      isLoading: false,
+    } as ReturnType<typeof connectionQueries.useConnectionList>);
+
+    renderWithProviders(<WelcomeView />);
+
+    expect(screen.getByText("Local PG")).toBeInTheDocument();
+    expect(screen.getByText("localhost:5432 / mydb")).toBeInTheDocument();
   });
 
   it("clicking New Connection opens the connection dialog", async () => {

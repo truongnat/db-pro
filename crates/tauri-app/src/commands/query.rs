@@ -198,6 +198,19 @@ pub async fn delete_saved_query(service: State<'_, QueryService>, id: String) ->
 }
 
 #[tauri::command]
+pub async fn rename_saved_query(service: State<'_, QueryService>, id: String, name: String) -> Result<(), CommandError> {
+    let uuid = uuid::Uuid::parse_str(&id).map_err(|e| CommandError {
+        error: "VALIDATION".into(),
+        message: format!("invalid query id: {e}"),
+        message_id: "error.validation".into(),
+        details: None,
+        retryable: false,
+    })?;
+    service.rename_saved_query(&uuid, &name).await?;
+    Ok(())
+}
+
+#[tauri::command]
 pub async fn create_folder(
     service: State<'_, QueryService>,
     connection_id: String,

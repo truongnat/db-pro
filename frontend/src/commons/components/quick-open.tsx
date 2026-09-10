@@ -514,7 +514,7 @@ export function QuickOpen() {
                         {isRecent && (
                           <button
                             type="button"
-                            className="flex h-4 w-4 items-center justify-center rounded text-[var(--text-tertiary)] opacity-0 transition-opacity group-hover:opacity-100 data-[selected=true]:opacity-60 hover:text-foreground"
+                            className="flex h-4 w-4 items-center justify-center rounded text-[var(--text-tertiary)] opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 data-[selected=true]:opacity-60 hover:text-foreground"
                             aria-label={t("quickOpen.removeRecent")}
                             onClick={(e) => handleRemoveRecentClick(e, item.resourceKey)}
                           >

@@ -77,7 +77,7 @@ export function GenerateCrud({ connectionId, schema, table, columns }: GenerateC
       </pre>
 
       <Button type="button" variant="outline" size="sm" className="self-start" onClick={handleCopy}>
-        {copied ? t("schema.copied") : t("schema.copyDdl")}
+        {copied ? t("schema.copied") : t("schema.copySql")}
       </Button>
     </div>
   );
