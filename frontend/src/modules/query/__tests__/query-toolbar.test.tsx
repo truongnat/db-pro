@@ -15,6 +15,9 @@ vi.mock("@/modules/connection/queries/connection.queries", () => ({
   useConnectionList: () => ({
     data: [{ id: "conn-1", name: "Test DB", database: "testdb" }],
   }),
+  // query-command-bar.tsx also imports useConnect from this module; without a
+  // stub here vitest aborts with `No "useConnect" export is defined on the mock`.
+  useConnect: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 
 vi.mock("../stores/schema-catalog.store", () => ({

@@ -167,7 +167,9 @@ describe("ConnectionEditor", () => {
     renderEditor({
       onTest: vi.fn(),
       testResult: "error",
-      testErrorDetail: "Connection refused on port 5432",
+      // ConnectionEditor renders `connectError`; `testErrorDetail` is not a prop
+      // it accepts, so the assertion below could never match.
+      connectError: "Connection refused on port 5432",
     });
     expect(screen.getByText("Test failed")).toBeInTheDocument();
     expect(screen.getByText("Connection refused on port 5432")).toBeInTheDocument();
