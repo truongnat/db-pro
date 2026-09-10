@@ -38,7 +38,8 @@
       "actions": "操作",
       "clear": "すべてクリア",
       "create": "作成",
-      "sort": "並び替え"
+      "sort": "並び替え",
+      "apply": "適用"
     },
     "states": {
       "loading": "読み込み中...",
@@ -51,6 +52,9 @@
       "reconnecting": "再接続中...",
       "status": "ステータス"
     },
+    "confirmAction": "操作を確認",
+    "destructiveAction": "破壊的な操作",
+    "executeAnyway": "このまま実行",
     "yes": "はい",
     "no": "いいえ",
     "loading": "読み込み中...",
@@ -71,6 +75,7 @@
     "test": "接続テスト",
     "testSuccess": "接続テスト成功",
     "testFailed": "接続テスト失敗",
+    "browseFailed": "ファイル選択を開けませんでした",
     "createSuccess": "接続を作成しました",
     "createFailed": "接続の作成に失敗しました",
     "updateSuccess": "接続を更新しました",
@@ -92,6 +97,7 @@
     "unfavorite": "お気に入りから削除",
     "toggleFavorite": "お気に入り切り替え",
     "duplicate": "複製",
+    "duplicateCredentialsNotice": "接続を複製しました。認証情報はコピーされていません。編集して追加してください。",
     "rename": "名前を変更",
     "readonly": "読み取り専用",
     "enableReadonly": "読み取り専用を有効にする",
@@ -115,6 +121,15 @@
     "format": "SQLフォーマット",
     "history": "クエリ履歴",
     "noResults": "結果なし",
+    "noQueryResults": "クエリ結果がまだありません",
+    "runStatementHint": "現在のステートメントを実行すると、ここに結果が表示されます。",
+    "explainFailed": "Explainに失敗しました",
+    "noExecutionPlan": "実行計画がまだありません",
+    "explainPlanHint": "Explainを実行すると、PostgreSQLの実行計画を確認できます。",
+    "completed": "クエリが完了しました",
+    "serverTime": "サーバー: {{duration}}ms",
+    "executionCancelled": "実行をキャンセルしました",
+    "noMessages": "メッセージはありません。",
     "rowsAffected": "{{count}}行影響",
     "rowsAffected_other": "{{count}}行影響",
     "columnsCount": "{{count}}列",
@@ -134,6 +149,18 @@
     "queryError": "クエリを実行できませんでした",
     "results": "結果",
     "messages": "メッセージ",
+    "runOptions": "実行オプション",
+    "resultTab": "結果 {{index}}（{{count}}行）",
+    "relation": "リレーション {{value}}",
+    "executionPlan": "実行計画",
+    "planTotalCost": "合計コスト",
+    "planStartupCost": "開始コスト",
+    "planEstimatedRows": "推定行数",
+    "planWidth": "幅",
+    "planCost": "コスト {{value}}",
+    "planRows": "行数 {{value}}",
+    "planTime": "時間 {{value}}ms",
+    "planActual": "実績 {{value}}",
     "searchHistory": "履歴を検索...",
     "querySaved": "クエリを保存しました",
     "queryDeleted": "クエリを削除しました",
@@ -190,6 +217,7 @@
     },
     "statusRunning": "実行中",
     "largeResultWarning": "大量の结果",
+    "largeSortWarning": "{{count}}行の並べ替えには時間がかかる場合があります。",
     "dirtyReplaceConfirm": "現在のクエリに未保存の変更があります。置き換えますか？"
   },
   "schema": {
@@ -202,10 +230,16 @@
     "searchPlaceholder": "テーブルを検索...",
     "noSchemas": "このデータベースにスキーマが見つかりません",
     "noTablesMatch": "検索に一致するテーブルがありません",
+    "editColumn": "カラムを編集",
+    "reviewApply": "確認して適用…",
+    "apply": "適用",
+    "confirmChange": "スキーマ変更の確認",
+    "applyChanges": "変更を適用",
     "selectTable": "テーブルまたはビューを選択して詳細を表示",
     "connectFirst": "スキーマを閲覧するにはデータベースに接続してください",
     "ddl": "DDL",
     "copyDdl": "DDLをコピー",
+    "copySql": "SQLをコピー",
     "copied": "コピーしました！",
     "noDdl": "DDLがありません",
     "noColumns": "カラムがありません",
@@ -219,6 +253,14 @@
     "indexName": "名前",
     "indexColumns": "カラム",
     "indexUnique": "ユニーク",
+    "unique": "ユニーク",
+    "copyIndexName": "インデックス名をコピー",
+    "actionsLabel": "インデックス操作",
+    "dropIndex": "インデックスを削除",
+    "dropIndexTitle": "インデックスを削除しますか？",
+    "dropIndexDescription": "インデックス {{index}} を完全に削除します。",
+    "dropIndexAction": "インデックスを削除",
+    "createIndexFailed": "インデックスを作成できません。接続を確認して再試行してください。",
     "fkName": "名前",
     "fkFromColumn": "元カラム",
     "fkToTable": "参照先テーブル",
@@ -235,8 +277,28 @@
     "ddlUnique": "ユニーク",
     "ddlPreview": "SQLプレビュー",
     "ddlExecute": "DDL実行",
+    "ddlConfirmTitle": "スキーマ変更の確認",
+    "ddlConfirmDescription": "{{table}} に {{operation}} を適用します。続行する前にSQLを確認してください。",
+    "ddlConfirmAction": "変更を適用",
     "ddlExecutedSuccessfully": "DDLが正常に実行されました（{{affected}}行に影響）",
     "ddlRebuildWarning": "この変更にはテーブルの再構築が必要です。データは新しいテーブル構造にコピーされます。",
+    "risk": {
+      "level": {
+        "low": "低リスク",
+        "medium": "中リスク",
+        "high": "高リスク",
+        "destructive": "破壊的変更"
+      },
+      "confirm": {
+        "medium": "大規模なデータセットでは、この操作によりテーブルが短時間ロックされる場合があります。",
+        "high": "カラム型の変更によりテーブル全体が再構築される場合があります。既存値を変換できず、データが失われる可能性があります。",
+        "destructive": "この操作は元に戻せません。このカラムのデータは完全に失われます。"
+      },
+      "renameWarning": "カラム\"{{column}}\"の名前を変更すると、名前を参照するビュー、関数、外部キー、アプリケーションのクエリが壊れる可能性があります。",
+      "typeRewriteWarning": "型を\"{{from}}\"から\"{{to}}\"に変更すると、テーブルが再構築される場合があります。既存値を変換できない可能性があります。",
+      "typeLockWarning": "型を\"{{from}}\"から\"{{to}}\"に変更すると、テーブルが短時間ロックされる場合があります。",
+      "notNullWarning": "\"{{column}}\"をNOT NULLにすると、既存行にNULL値がある場合は失敗します。先にデータを検証してください。"
+    },
     "ddlOp": {
       "createTable": "テーブル作成",
       "addColumn": "カラム追加",
@@ -298,7 +360,7 @@
     "connectFirst": "データを閲覧するにはデータベースに接続してください",
     "noData": "データがありません",
     "readOnlyNoPk": "読み取り専用 — 編集には主キーが必要です",
-    "readOnlyConnection": "読み取り専用 — 接続が読み取り専用に設定されています",
+    "readOnlyConnection": "読み取り専用接続 — 編集は無効です",
     "filter": "値",
     "filterValue": "値",
     "addFilter": "フィルタ追加",
@@ -310,6 +372,18 @@
     "sortAsc": "昇順",
     "sortDesc": "降順",
     "rowsCount": "{{count}} 行",
+    "rowNumber": "{{row}}行目を選択",
+    "sortBy": "{{column}}で並び替え",
+    "editCell": "{{row}}行目の{{column}}を編集",
+    "editRow": "{{row}}行目を編集",
+    "deleteRow": "{{row}}行目を削除",
+    "removeSort": "並び替えを削除",
+    "removeFilter": "フィルタを削除",
+    "restoreOrder": "元の順序に戻す",
+    "moveToFront": "先頭に移動",
+    "copyColumnName": "カラム名をコピー",
+    "copyCellValue": "セルの値をコピー",
+    "copyRow": "行をコピー",
     "refresh": "更新",
     "showAllColumns": "すべて表示",
     "prevPage": "前のページ",
@@ -369,6 +443,10 @@
     "sql": "SQLでエクスポート",
     "success": "エクスポート完了",
     "failed": "エクスポート失敗",
+    "noRows": "エクスポートする結果行がありません。",
+    "connectionRequired": "Excelにエクスポートする前に、このクエリを再接続してください。",
+    "queryRequired": "Excelエクスポートにはクエリが必要です。",
+    "tableNameRequired": "SQL INSERTをエクスポートする前にテーブル名を入力してください。",
     "selectFormat": "形式を選択",
     "exporting": "エクスポート中",
     "scope": "範囲",
@@ -436,16 +514,22 @@
     "connectFirst": "ユーザー管理するにはデータベースに接続してください",
     "selectRole": "ロールを選択して詳細を表示",
     "confirmDrop": "ロール「{{name}}」を削除しますか？",
-    "sidebarHint": "ユーザー管理するには接続を選択してください"
+    "confirmDropImpact": "「{{name}}」を削除すると、ロールと{{count}}件のテーブル権限が削除されます。この操作は元に戻せません。",
+    "privilegeCount": "テーブル権限 {{count}}件",
+    "sidebarHint": "ユーザー管理するには接続を選択してください",
+    "postgresOnly": "ユーザー管理はPostgreSQL専用です",
+    "postgresOnlyReason": "SQLiteには管理対象となるデータベースロールやサーバーレベル権限がありません。"
   },
   "backup": {
     "title": "データベースバックアップ",
     "restoreTitle": "データベース復元",
+    "description": "バックアップ形式とファイルを選択して、操作を開始してください。",
     "outputPath": "出力ファイルパス",
     "inputPath": "入力ファイルパス",
     "format": "形式",
     "formatPlain": "プレーンSQL",
     "formatCustom": "カスタム (pg_dump)",
+    "chooseFile": "ファイルを選択",
     "startBackup": "バックアップ開始",
     "startRestore": "復元開始",
     "backupInProgress": "バックアップ中...",
@@ -453,6 +537,8 @@
     "restoreWarning": "警告: 復元すると既存のデータベースデータが上書きされます。",
     "backupSuccess": "バックアップ完了（{{size}}バイト）",
     "restoreSuccess": "復元が正常に完了しました",
+    "operationComplete": "操作が完了しました",
+    "revealLocation": "保存場所を表示",
     "connectFirst": "バックアップまたは復元するにはデータベースに接続してください"
   },
   "shell": {
@@ -476,6 +562,7 @@
       "settings": "設定",
       "help": "ヘルプ",
       "searchObjects": "オブジェクトを検索...",
+      "searchResultCount": "{{count}}件の一致するオブジェクト",
       "openData": "データを開く",
       "openStructure": "構造を開く",
       "open": "開く",
@@ -505,7 +592,13 @@
     },
     "collapse": "サイドバーを折りたたむ",
     "expand": "サイドバーを展開",
-    "agentToggle": "AIアシスタント"
+    "agentToggle": "AIアシスタント",
+    "resizeSidebar": "サイドバーのサイズを変更",
+    "resizeAgent": "Agentパネルのサイズを変更"
+  },
+  "agent": {
+    "preview": "プレビュー",
+    "previewComposer": "Agent はこのリリースではプレビュー版です。送信は無効です。"
   },
   "dbObject": {
     "sections": {
@@ -623,6 +716,13 @@
     "resizePanel": "パネルをリサイズ"
   },
   "tabs": {
+    "workspace": "ワークスペースのタブ",
+    "scrollLeft": "タブを左へ移動",
+    "scrollRight": "タブを右へ移動",
+    "showAll": "すべてのタブを表示",
+    "more": "その他",
+    "unsavedChanges": "未保存の変更",
+    "closeTabLabel": "{{title}}を閉じる",
     "closeDialog": {
       "title": "タブを閉じますか？",
       "titleMultiple": "タブを閉じますか？",
@@ -639,8 +739,9 @@
     "changeConnection": "接続を変更"
   },
   "welcome": {
+    "eyebrow": "データベースワークスペース",
     "title": "DB Pro",
-    "subtitle": "データベース管理をシンプルに",
+    "subtitle": "スキーマの探索、クエリの作成、データ管理を一つのワークスペースで。",
     "newConnection": "新規接続",
     "openCommandPalette": "コマンドパレット",
     "recentConnections": "最近の接続",
@@ -655,8 +756,32 @@
       "overview": "概要"
     },
     "actions": {
-      "openDiagram": "ERダイアグラムを開く"
+      "openDiagram": "ERダイアグラムを開く",
+      "showAllTables": "{{count}}件のテーブルをすべて表示"
     },
-    "overviewComingSoon": "スキーマ概要は近日公開予定です。"
+    "controls": {
+      "toggleLayout": "レイアウト方向を切り替え",
+      "showColumns": "カラムを表示",
+      "compactMode": "コンパクトモード",
+      "fitView": "全体を表示",
+      "resetLayout": "レイアウトをリセット"
+    },
+    "searchTables": "テーブルを検索...",
+    "tableCount": "{{count}}件のテーブル",
+    "relationCount": "{{count}}件のリレーション",
+    "columnCount": "{{count}}列",
+    "tableDetails": "{{columns}}列 · FK {{foreignKeys}}件",
+    "suggested": "候補",
+    "noTablesMatch": "\"{{query}}\"に一致するテーブルはありません",
+    "highlight": "ハイライト:",
+    "hops": {
+      "oneHop": "1ホップ",
+      "twoHops": "2ホップ",
+      "threeHops": "3ホップ",
+      "domain": "ドメイン"
+    },
+    "miniMapHiddenLarge": "大規模スキーマではミニマップを非表示にしています。概要コントロールを使用してください。",
+    "overviewComingSoon": "スキーマ概要は近日公開予定です。",
+    "loadingOverview": "概要を読み込み中…"
   }
 }

@@ -5,6 +5,7 @@ import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import path from "path";
 
 export default defineConfig({
+  base: process.env.TAURI_ENV_PLATFORM ? "./" : "/",
   plugins: [
     tanstackRouter({
       routesDirectory: "./src/routes",
@@ -19,24 +20,35 @@ export default defineConfig({
     },
   },
   server: {
+    host: "0.0.0.0",
     port: 5174,
     strictPort: true,
+    // Arena and similar remote dev environments proxy Vite through a generated host.
+    allowedHosts: true,
   },
   build: {
     outDir: "dist",
     emptyOutDir: true,
     rollupOptions: {
       output: {
-        manualChunks: {
-          "vendor-tanstack": [
-            "@tanstack/react-query",
-            "@tanstack/react-router",
-            "@tanstack/react-virtual",
-          ],
-          "vendor-ui": ["@dnd-kit/core", "@dnd-kit/sortable", "cmdk", "lucide-react"],
-          "vendor-editor": ["@monaco-editor/react"],
-          "vendor-reactflow": ["@xyflow/react"],
-          "vendor-cytoscape": ["cytoscape", "dagre"],
+        manualChunks(id) {
+          const module = id.split("node_modules/").pop() ?? "";
+          if (module.startsWith("react/") || module.startsWith("react-dom/")) {
+            return "vendor-react";
+          }
+          if (module.startsWith("@tanstack/react-")) return "vendor-tanstack";
+          if (
+            module.startsWith("@dnd-kit/") ||
+            module.startsWith("cmdk/") ||
+            module.startsWith("lucide-react/")
+          ) {
+            return "vendor-ui";
+          }
+          if (module.startsWith("@monaco-editor/")) return "vendor-editor";
+          if (module.startsWith("@xyflow/")) return "vendor-reactflow";
+          if (module.startsWith("cytoscape/") || module.startsWith("dagre/")) {
+            return "vendor-cytoscape";
+          }
         },
       },
     },

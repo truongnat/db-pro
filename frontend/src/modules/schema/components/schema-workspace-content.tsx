@@ -2,7 +2,7 @@ import { useWorkspaceStore } from "@/commons/stores/workspace.store";
 import { useTranslation } from "@/commons/locales/useTranslation";
 import { useIntrospect } from "@/modules/schema/queries/schema.queries";
 import { ErDiagram } from "@/modules/er-diagram/components/er-diagram";
-import { cn } from "@/lib/utils";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { SchemaWorkspaceSection } from "@/commons/types/workspace.types";
 
 const SCHEMA_SECTIONS: { id: SchemaWorkspaceSection; labelKey: string }[] = [
@@ -17,34 +17,33 @@ interface SchemaWorkspaceContentProps {
 }
 
 function SchemaSectionTabs({
+  tabId,
   activeSection,
   onSelect,
 }: {
+  tabId: string;
   activeSection: SchemaWorkspaceSection;
   onSelect: (section: SchemaWorkspaceSection) => void;
 }) {
   const { t } = useTranslation();
   return (
-    <div className="flex h-[34px] items-center border-b border-[var(--border-subtle)] bg-[var(--surface-nav)]">
-      <div className="flex flex-1 overflow-x-auto">
+    <Tabs value={activeSection} onValueChange={(v) => onSelect(v as SchemaWorkspaceSection)}>
+      <TabsList
+        variant="line"
+        className="h-[34px] w-full justify-start overflow-x-auto rounded-none border-b border-[var(--border-subtle)] bg-[var(--surface-nav)] px-0"
+      >
         {SCHEMA_SECTIONS.map((section) => (
-          <button
+          <TabsTrigger
             key={section.id}
-            type="button"
-            className={cn(
-              "relative h-full shrink-0 px-3 text-[13px] font-medium transition-colors hover:text-foreground",
-              activeSection === section.id ? "text-foreground" : "text-[var(--text-secondary)]",
-            )}
-            onClick={() => onSelect(section.id)}
+            value={section.id}
+            className="h-full shrink-0 flex-none rounded-none px-3 text-[13px] font-medium"
+            aria-controls={`schema-panel-${tabId}`}
           >
             {t(section.labelKey)}
-            {activeSection === section.id && (
-              <span className="absolute inset-x-3 bottom-0 h-[2px] bg-primary" />
-            )}
-          </button>
+          </TabsTrigger>
         ))}
-      </div>
-    </div>
+      </TabsList>
+    </Tabs>
   );
 }
 
@@ -65,10 +64,17 @@ export function SchemaWorkspaceContent({
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <SchemaSectionTabs
+        tabId={tabId}
         activeSection={activeSection}
         onSelect={(section) => setSection(tabId, section)}
       />
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div
+        id={`schema-panel-${tabId}`}
+        role="tabpanel"
+        tabIndex={0}
+        aria-label={t(`schemaWorkspace.sections.${activeSection}`)}
+        className="flex min-h-0 flex-1 flex-col overflow-hidden outline-none"
+      >
         {activeSection === "diagram" && (
           <>
             {introspect.isLoading && (

@@ -1,6 +1,16 @@
 import { useCallback, useMemo, useState } from "react";
 
 import { Alert } from "@/components/ui/alert";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -55,6 +65,7 @@ export function DdlEditor({ connectionId, schema, table }: DdlEditorProps) {
   const [unique, setUnique] = useState(false);
   const [triggerName, setTriggerName] = useState("");
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [showExecuteConfirm, setShowExecuteConfirm] = useState(false);
 
   const extra = useMemo(
     () => ({
@@ -102,8 +113,8 @@ export function DdlEditor({ connectionId, schema, table }: DdlEditorProps) {
     setSuccessMessage(null);
   }, []);
 
-  const handleExecute = useCallback(async () => {
-    if (!previewSql) return;
+  const executeDdlStatement = useCallback(async () => {
+    setShowExecuteConfirm(false);
     setSuccessMessage(null);
     try {
       const result = await executeDdl.mutateAsync(previewSql);
@@ -112,6 +123,10 @@ export function DdlEditor({ connectionId, schema, table }: DdlEditorProps) {
       // error handled by mutation
     }
   }, [previewSql, executeDdl, t]);
+
+  const handleExecute = useCallback(() => {
+    if (previewSql) setShowExecuteConfirm(true);
+  }, [previewSql]);
 
   const showColumnDefs = NEEDS_COLUMNS.includes(operation);
   const showColumnName = NEEDS_COLUMN_NAME.includes(operation);
@@ -305,6 +320,29 @@ export function DdlEditor({ connectionId, schema, table }: DdlEditorProps) {
 
         {successMessage && <span className="text-sm text-success">{successMessage}</span>}
       </div>
+
+      <AlertDialog open={showExecuteConfirm} onOpenChange={setShowExecuteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("schema.ddlConfirmTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("schema.ddlConfirmDescription", {
+                operation: t(`schema.ddlOp.${operation}`),
+                table: `${schema}.${table}`,
+              })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <pre className="max-h-56 overflow-auto rounded bg-muted p-2 font-mono text-xs leading-relaxed">
+            {previewSql}
+          </pre>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("common.actions.cancel")}</AlertDialogCancel>
+            <AlertDialogAction onClick={executeDdlStatement}>
+              {t("schema.ddlConfirmAction")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
