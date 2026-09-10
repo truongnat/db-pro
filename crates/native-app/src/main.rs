@@ -132,6 +132,10 @@ fn translate_event(event: RuntimeEvent) -> Option<UiEvent> {
                 })
                 .collect(),
         }),
+        RuntimeEvent::OperationCompleted { request_id, operation } => Some(UiEvent::OperationCompleted {
+            request_id: db_pro_ui::RequestId(request_id.0),
+            operation: operation.to_owned(),
+        }),
         RuntimeEvent::Connected {
             request_id,
             connection_id,

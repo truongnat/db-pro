@@ -157,6 +157,10 @@ impl DbProApp {
                     }
                     self.runtime_message = format!("Loaded {} connections", self.connections.len());
                 }
+                UiEvent::OperationCompleted { operation, .. } => {
+                    self.runtime_message = operation;
+                    self.connections_requested = false;
+                }
                 UiEvent::Connected { connection_id, .. } => {
                     self.active_connection_id = Some(connection_id);
                     self.connected = true;

@@ -60,6 +60,10 @@ pub enum UiEvent {
         request_id: RequestId,
         connections: Vec<UiConnectionSummary>,
     },
+    OperationCompleted {
+        request_id: RequestId,
+        operation: String,
+    },
     Connected {
         request_id: RequestId,
         connection_id: String,

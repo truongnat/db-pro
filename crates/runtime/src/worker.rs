@@ -12,6 +12,26 @@ pub struct RuntimeRequestId(pub u64);
 #[derive(Debug)]
 pub enum RuntimeCommand {
     ListConnections { request_id: RuntimeRequestId },
+    CreateConnection {
+        request_id: RuntimeRequestId,
+        config: db_pro_core::domain::connection::ConnectionConfig,
+        password: String,
+    },
+    UpdateConnection {
+        request_id: RuntimeRequestId,
+        connection_id: String,
+        config: db_pro_core::domain::connection::ConnectionConfig,
+        password: Option<String>,
+    },
+    DeleteConnection {
+        request_id: RuntimeRequestId,
+        connection_id: String,
+    },
+    TestConnection {
+        request_id: RuntimeRequestId,
+        config: db_pro_core::domain::connection::ConnectionConfig,
+        password: String,
+    },
     Connect {
         request_id: RuntimeRequestId,
         connection_id: String,
@@ -29,6 +49,10 @@ pub enum RuntimeEvent {
     ConnectionsLoaded {
         request_id: RuntimeRequestId,
         connections: Vec<ConnectionSummary>,
+    },
+    OperationCompleted {
+        request_id: RuntimeRequestId,
+        operation: &'static str,
     },
     Connected {
         request_id: RuntimeRequestId,
@@ -70,6 +94,43 @@ pub fn spawn_worker(
                             request_id,
                             message: error.message,
                         },
+                    };
+                    let _ = event_tx.send(event).await;
+                }
+                RuntimeCommand::CreateConnection {
+                    request_id,
+                    config,
+                    password,
+                } => {
+                    let event = match runtime.connection_api().create(config, &password).await {
+                        Ok(_) => RuntimeEvent::OperationCompleted { request_id, operation: "connection.created" },
+                        Err(error) => RuntimeEvent::Failed { request_id, message: error.message },
+                    };
+                    let _ = event_tx.send(event).await;
+                }
+                RuntimeCommand::UpdateConnection {
+                    request_id,
+                    connection_id,
+                    config,
+                    password,
+                } => {
+                    let event = match runtime.connection_api().update(&connection_id, config, password.as_deref()).await {
+                        Ok(()) => RuntimeEvent::OperationCompleted { request_id, operation: "connection.updated" },
+                        Err(error) => RuntimeEvent::Failed { request_id, message: error.message },
+                    };
+                    let _ = event_tx.send(event).await;
+                }
+                RuntimeCommand::DeleteConnection { request_id, connection_id } => {
+                    let event = match runtime.connection_api().delete(&connection_id).await {
+                        Ok(()) => RuntimeEvent::OperationCompleted { request_id, operation: "connection.deleted" },
+                        Err(error) => RuntimeEvent::Failed { request_id, message: error.message },
+                    };
+                    let _ = event_tx.send(event).await;
+                }
+                RuntimeCommand::TestConnection { request_id, config, password } => {
+                    let event = match runtime.connection_api().test(&config, &password).await {
+                        Ok(()) => RuntimeEvent::OperationCompleted { request_id, operation: "connection.tested" },
+                        Err(error) => RuntimeEvent::Failed { request_id, message: error.message },
                     };
                     let _ = event_tx.send(event).await;
                 }

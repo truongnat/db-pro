@@ -50,21 +50,46 @@ impl ConnectionApi {
         self.service
             .list()
             .await
-            .map(|connections| {
-                connections
-                    .into_iter()
-                    .map(|connection| ConnectionSummary {
-                        id: connection.id.to_string(),
-                        name: connection.config.name,
-                        driver: match connection.config.driver {
-                            DriverType::Postgres => "PostgreSQL".to_owned(),
-                            DriverType::SQLite => "SQLite".to_owned(),
-                        },
-                        readonly: connection.config.readonly,
-                    })
-                    .collect()
-            })
+            .map(|connections| connections.into_iter().map(summary_from_connection).collect())
             .map_err(Into::into)
+    }
+
+    pub async fn create(
+        &self,
+        config: db_pro_core::domain::connection::ConnectionConfig,
+        password: &str,
+    ) -> Result<ConnectionSummary, DbErrorDto> {
+        self.service
+            .create(config, password)
+            .await
+            .map(summary_from_connection)
+            .map_err(Into::into)
+    }
+
+    pub async fn update(
+        &self,
+        connection_id: &str,
+        config: db_pro_core::domain::connection::ConnectionConfig,
+        password: Option<&str>,
+    ) -> Result<(), DbErrorDto> {
+        let connection_id = parse_connection_id(connection_id)?;
+        self.service
+            .update(&connection_id, config, password)
+            .await
+            .map_err(Into::into)
+    }
+
+    pub async fn delete(&self, connection_id: &str) -> Result<(), DbErrorDto> {
+        let connection_id = parse_connection_id(connection_id)?;
+        self.service.delete(&connection_id).await.map_err(Into::into)
+    }
+
+    pub async fn test(
+        &self,
+        config: &db_pro_core::domain::connection::ConnectionConfig,
+        password: &str,
+    ) -> Result<(), DbErrorDto> {
+        self.service.test_connectivity(config, password).await.map_err(Into::into)
     }
 
     pub async fn connect(&self, connection_id: &str) -> Result<(), DbErrorDto> {
@@ -216,6 +241,18 @@ impl ExportApi {
     pub async fn excel(&self, connection_id: &str, sql: &str) -> Result<db_pro_core::application::ExportResult, DbErrorDto> {
         let connection_id = parse_connection_id(connection_id)?;
         self.service.export_excel(&connection_id, sql).await.map_err(Into::into)
+    }
+}
+
+fn summary_from_connection(connection: db_pro_core::domain::connection::Connection) -> ConnectionSummary {
+    ConnectionSummary {
+        id: connection.id.to_string(),
+        name: connection.config.name,
+        driver: match connection.config.driver {
+            DriverType::Postgres => "PostgreSQL".to_owned(),
+            DriverType::SQLite => "SQLite".to_owned(),
+        },
+        readonly: connection.config.readonly,
     }
 }
 

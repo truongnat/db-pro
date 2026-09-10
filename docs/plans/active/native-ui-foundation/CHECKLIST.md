@@ -25,4 +25,5 @@
 - [x] Add typed `BackupApi` for backup/restore operations.
 - [x] Add typed `UserApi` for users/roles/privileges operations.
 - [ ] Add backup/user progress contracts and cancellation.
+- [x] Add typed connection CRUD/test commands to the shared runtime worker.
 - [ ] Move all remaining Tauri command wiring to the shared runtime facade.
