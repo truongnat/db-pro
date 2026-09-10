@@ -2,12 +2,17 @@ import { useEffect } from "react";
 
 import { useWorkspaceStore } from "@/commons/stores/workspace.store";
 
+export function getTabNavigationOrder<T extends { pinned: boolean }>(tabs: T[]): T[] {
+  return [...tabs.filter((tab) => tab.pinned), ...tabs.filter((tab) => !tab.pinned)];
+}
+
 export function useTabKeyboard() {
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if (!e.ctrlKey && !e.metaKey) return;
 
-      const { tabs, activeTabId, activateTab } = useWorkspaceStore.getState();
+      const { tabs: rawTabs, activeTabId, activateTab } = useWorkspaceStore.getState();
+      const tabs = getTabNavigationOrder(rawTabs);
 
       if (tabs.length === 0) return;
 

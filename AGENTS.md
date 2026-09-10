@@ -125,12 +125,13 @@ Unsupported operations must be capability-gated with a clear reason instead of e
 
 ```bash
 cd frontend
-npm run typecheck
-npm run lint
-npm run format:check
-npm run check:tokens
-npm run test
-npm run build
+pnpm install --frozen-lockfile
+pnpm run typecheck
+pnpm run lint
+pnpm run format:check
+pnpm run check:tokens
+pnpm run test
+pnpm run build
 ```
 
 `check:tokens` enforces the design token contract (P3.1): canonical `--surface-*`/`--text-*`/`--border-*`/`--accent-*`/`--state-*` tokens are the single source of truth, the shadcn compatibility layer must only alias them, and components must not reintroduce `--app-*` color tokens or raw shadcn semantic vars. `npx shadcn add` must not modify the token layers in `src/styles/globals.css` — CI catches drift.

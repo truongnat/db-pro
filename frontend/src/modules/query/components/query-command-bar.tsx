@@ -30,7 +30,8 @@ import {
 import { useTranslation } from "@/commons/locales/useTranslation";
 import { formatShortcut } from "@/commons/utils/platform";
 import type { QueryContext } from "@/commons/types/workspace.types";
-import { useConnectionList } from "@/modules/connection/queries/connection.queries";
+import { useConnectionList, useConnect } from "@/modules/connection/queries/connection.queries";
+import { useConnectionModuleStore } from "@/modules/connection/state/connection.store";
 import { useSchemaCatalogStore } from "../stores/schema-catalog.store";
 
 import {
@@ -57,6 +58,8 @@ interface QueryCommandBarProps {
   isExplaining: boolean;
   hasConnection: boolean;
   hasSql: boolean;
+  /** True when a result set exists — Export Results depends on this, not SQL text. */
+  hasResults: boolean;
 }
 
 export function QueryCommandBar({
@@ -76,12 +79,17 @@ export function QueryCommandBar({
   isExplaining,
   hasConnection,
   hasSql,
+  hasResults,
 }: QueryCommandBarProps) {
   const { t } = useTranslation();
   const { data: connections } = useConnectionList();
+  const connect = useConnect();
+  const statuses = useConnectionModuleStore((s) => s.statuses);
   const catalogs = useSchemaCatalogStore((s) => s.catalogs);
 
   const connection = connections?.find((c) => c.id === connectionId);
+  const canReconnect =
+    !!connectionId && !!connection && ["disconnected", "error"].includes(statuses[connectionId]);
   const database = context.database ?? connection?.database ?? null;
   const schemas = catalogs.get(connectionId ?? "")?.schemas ?? [];
 
@@ -109,6 +117,23 @@ export function QueryCommandBar({
             ))}
           </SelectContent>
         </Select>
+        {canReconnect && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-6 px-1.5 text-[11px] text-primary"
+            onClick={() => connectionId && connect.mutate(connectionId)}
+            disabled={connect.isPending}
+          >
+            {t("workspace.reconnect")}
+          </Button>
+        )}
+        {connectionId && !connection && (
+          <span className="text-[11px] text-destructive">
+            {t("workspace.connectionUnavailable")}
+          </span>
+        )}
         {database && (
           <>
             <span className="text-[var(--text-tertiary)]">/</span>
@@ -169,7 +194,7 @@ export function QueryCommandBar({
                 variant="default"
                 size="icon"
                 className="h-[30px] w-[28px] rounded-l-none px-0"
-                aria-label="Run options"
+                aria-label={t("query.runOptions")}
                 disabled={!hasConnection || !hasSql || isExecuting}
               >
                 <ChevronDown className="h-3 w-3" />
@@ -255,7 +280,7 @@ export function QueryCommandBar({
               <Upload className="mr-2 h-3.5 w-3.5" />
               {t("query.importSql")}
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={onExport} disabled={!hasSql}>
+            <DropdownMenuItem onClick={onExport} disabled={!hasResults}>
               <Download className="mr-2 h-3.5 w-3.5" />
               {t("query.exportResults")}
             </DropdownMenuItem>

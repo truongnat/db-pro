@@ -42,9 +42,10 @@ export const ErDetailedNode = memo(function ErDetailedNode({ data, selected }: N
       {/* Full column list */}
       <div className="flex flex-col">
         {columns.map((col) => (
-          <div
+          <button
             key={col.name}
-            className="group flex cursor-pointer items-center gap-1 px-2 py-[3px] text-[11px] hover:bg-[var(--surface-hover)]"
+            type="button"
+            className="group flex w-full cursor-pointer items-center gap-1 px-2 py-[3px] text-left text-[11px] hover:bg-[var(--surface-hover)]"
             data-column={col.name}
             onClick={(e) => handleColumnClick(e, col.name)}
             title={`Open ${label}.${col.name} in Columns`}
@@ -74,7 +75,7 @@ export const ErDetailedNode = memo(function ErDetailedNode({ data, selected }: N
                 type="source"
                 position={Position.Right}
                 id={`pk:${col.name}`}
-                className="!h-1.5 !w-1.5 !border-0 !bg-primary/40 !opacity-0 group-hover:!opacity-100"
+                className="!h-1.5 !w-1.5 !border-0 !bg-primary/40 !opacity-0 group-hover:!opacity-100 group-focus-within:!opacity-100"
               />
             )}
 
@@ -83,10 +84,10 @@ export const ErDetailedNode = memo(function ErDetailedNode({ data, selected }: N
                 type="target"
                 position={Position.Left}
                 id={`fk:${col.name}`}
-                className="!h-1.5 !w-1.5 !border-0 !bg-info/40 !opacity-0 group-hover:!opacity-100"
+                className="!h-1.5 !w-1.5 !border-0 !bg-info/40 !opacity-0 group-hover:!opacity-100 group-focus-within:!opacity-100"
               />
             )}
-          </div>
+          </button>
         ))}
       </div>
     </div>
