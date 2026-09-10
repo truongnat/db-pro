@@ -1,7 +1,9 @@
 use crate::{
     DbProTheme, TaskBridge, UiCommand, UiConnectionDraft, UiConnectionSummary, UiDriver, UiEvent, UiQueryResult, UiSslMode,
 };
-use eframe::egui::{self, Align, Color32, Layout, RichText, Sense, TextEdit, TopBottomPanel};
+use eframe::egui::{self, Align, Color32, FontId, Layout, RichText, Sense, TextEdit, TextFormat, TopBottomPanel};
+use eframe::egui::text::LayoutJob;
+use std::sync::Arc;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Activity {
@@ -516,6 +518,88 @@ impl DbProApp {
         });
     }
 
+    fn sql_layouter(ui: &egui::Ui, text: &str, wrap_width: f32) -> Arc<egui::Galley> {
+        let keywords = [
+            "select", "from", "where", "and", "or", "join", "left", "right", "inner", "group", "by",
+            "order", "limit", "offset", "insert", "into", "values", "update", "set", "delete", "create",
+            "table", "alter", "drop", "as", "on", "is", "null", "not", "returning", "with", "explain",
+        ];
+        let mut job = LayoutJob::default();
+        job.wrap.max_width = wrap_width;
+        let mut current = String::new();
+        let mut in_string = false;
+        let mut in_comment = false;
+        let flush = |job: &mut LayoutJob, value: &mut String, color: Color32| {
+            if !value.is_empty() {
+                job.append(value, 0.0, TextFormat {
+                    font_id: FontId::monospace(14.0),
+                    color,
+                    ..Default::default()
+                });
+                value.clear();
+            }
+        };
+        let chars: Vec<char> = text.chars().collect();
+        let mut index = 0;
+        while index < chars.len() {
+            let ch = chars[index];
+            if !in_string && !in_comment && ch == '-' && chars.get(index + 1) == Some(&'-') {
+                flush(&mut job, &mut current, Color32::LIGHT_GRAY);
+                in_comment = true;
+                current.push(ch);
+            } else if in_comment {
+                current.push(ch);
+                if ch == '\n' {
+                    flush(&mut job, &mut current, Color32::from_rgb(105, 117, 134));
+                    in_comment = false;
+                }
+            } else if ch == '\'' {
+                current.push(ch);
+                if in_string {
+                    flush(&mut job, &mut current, Color32::from_rgb(231, 182, 90));
+                    in_string = false;
+                } else {
+                    flush(&mut job, &mut current, Color32::from_rgb(231, 182, 90));
+                    in_string = true;
+                }
+            } else if in_string {
+                current.push(ch);
+            } else if ch.is_alphanumeric() || ch == '_' {
+                current.push(ch);
+            } else {
+                let word = current.to_lowercase();
+                let color = if keywords.contains(&word.as_str()) {
+                    Color32::from_rgb(139, 140, 255)
+                } else if current.chars().all(|value| value.is_ascii_digit()) && !current.is_empty() {
+                    Color32::from_rgb(53, 196, 138)
+                } else {
+                    Color32::from_rgb(243, 245, 247)
+                };
+                flush(&mut job, &mut current, color);
+                job.append(&ch.to_string(), 0.0, TextFormat {
+                    font_id: FontId::monospace(14.0),
+                    color: Color32::from_rgb(243, 245, 247),
+                    ..Default::default()
+                });
+            }
+            index += 1;
+        }
+        if in_string {
+            flush(&mut job, &mut current, Color32::from_rgb(231, 182, 90));
+        } else if in_comment {
+            flush(&mut job, &mut current, Color32::from_rgb(105, 117, 134));
+        } else {
+            let word = current.to_lowercase();
+            let color = if keywords.contains(&word.as_str()) {
+                Color32::from_rgb(139, 140, 255)
+            } else {
+                Color32::from_rgb(243, 245, 247)
+            };
+            flush(&mut job, &mut current, color);
+        }
+        ui.fonts(|fonts| fonts.layout_job(job))
+    }
+
     fn draw_query(&mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
             ui.label(RichText::new("Query").strong());
@@ -567,6 +651,7 @@ impl DbProApp {
                     TextEdit::multiline(&mut self.query_text)
                         .font(egui::TextStyle::Monospace)
                         .desired_rows(10)
+                        .layouter(&mut |ui, text, wrap_width| Self::sql_layouter(ui, text, wrap_width))
                         .lock_focus(true),
                 );
             });
