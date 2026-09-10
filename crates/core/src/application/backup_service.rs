@@ -1,7 +1,9 @@
+use super::registry::ConnectionRegistry;
 use crate::domain::backup::{BackupOptions, BackupResult, RestoreOptions};
 use crate::domain::connection::ConnectionId;
 use crate::domain::error::DbError;
 use crate::ports::{BackupEngine, ConnectionRepository, SecretStore};
+use std::sync::Arc;
 
 type PgEngineFactory = Box<dyn Fn(&str, u16, &str, &str) -> Box<dyn BackupEngine> + Send + Sync>;
 type SqliteEngineFactory = Box<dyn Fn(&str) -> Box<dyn BackupEngine> + Send + Sync>;
@@ -9,6 +11,7 @@ type SqliteEngineFactory = Box<dyn Fn(&str) -> Box<dyn BackupEngine> + Send + Sy
 pub struct BackupService {
     connections: Box<dyn ConnectionRepository>,
     secrets: Box<dyn SecretStore>,
+    registry: Arc<ConnectionRegistry>,
     pg_engine_factory: PgEngineFactory,
     sqlite_engine_factory: SqliteEngineFactory,
 }
@@ -17,12 +20,14 @@ impl BackupService {
     pub fn new(
         connections: Box<dyn ConnectionRepository>,
         secrets: Box<dyn SecretStore>,
+        registry: Arc<ConnectionRegistry>,
         pg_engine_factory: PgEngineFactory,
         sqlite_engine_factory: SqliteEngineFactory,
     ) -> Self {
         Self {
             connections,
             secrets,
+            registry,
             pg_engine_factory,
             sqlite_engine_factory,
         }
@@ -74,6 +79,12 @@ impl BackupService {
         if config.readonly {
             return Err(DbError::QueryFailed(
                 "connection is read-only — restore operations are not allowed".into(),
+            ));
+        }
+
+        if config.driver == crate::domain::connection::DriverType::SQLite && self.registry.is_active(&conn_id) {
+            return Err(DbError::Validation(
+                "disconnect the SQLite connection before restoring its database".into(),
             ));
         }
 
