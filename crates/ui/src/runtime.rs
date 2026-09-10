@@ -65,6 +65,12 @@ pub struct UiSchemaSummary {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UiQueryFolderSummary {
+    pub id: String,
+    pub name: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UiSavedQuerySummary {
     pub id: String,
     pub name: String,
@@ -93,6 +99,7 @@ pub enum UiCommand {
         request_id: RequestId,
         connection_id: String,
     },
+    ListQueryFolders { request_id: RequestId, connection_id: String },
     SaveQuery {
         request_id: RequestId,
         connection_id: String,
@@ -181,10 +188,7 @@ pub enum UiEvent {
         queries: Vec<UiSavedQuerySummary>,
     },
     SchemaLoaded { request_id: RequestId, schema: UiSchemaSummary },
-    QueryFoldersLoaded {
-        request_id: RequestId,
-        folders: Vec<String>,
-    },
+    QueryFoldersLoaded { request_id: RequestId, folders: Vec<UiQueryFolderSummary> },
     FilePicked {
         request_id: RequestId,
         kind: String,

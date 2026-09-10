@@ -4,7 +4,7 @@ use std::thread;
 use db_pro_runtime::{spawn_worker, DbProRuntime, RuntimeCommand, RuntimeEvent, RuntimeRequestId};
 use db_pro_ui::{
     DbProApp, TaskBridge, UiCell, UiColumn, UiCommand, UiConnectionDraft, UiConnectionSummary, UiDriver, UiSslMode,
-    UiEvent, UiQueryResult, UiSavedQuerySummary, UiSchemaSummary,
+    UiEvent, UiQueryFolderSummary, UiQueryResult, UiSavedQuerySummary, UiSchemaSummary,
 };
 use eframe::egui;
 use tokio::runtime::Builder;
@@ -150,6 +150,7 @@ fn draft_to_domain(draft: UiConnectionDraft) -> Option<(db_pro_core::domain::con
 fn translate_command(command: UiCommand) -> Option<RuntimeCommand> {
     match command {
         UiCommand::OpenQuery | UiCommand::PickSqliteFile { .. } | UiCommand::PickSshPrivateKey { .. } | UiCommand::PickBackupFile { .. } | UiCommand::PickRestoreFile { .. } => None,
+        UiCommand::ListQueryFolders { request_id, connection_id } => Some(RuntimeCommand::ListQueryFolders { request_id: RuntimeRequestId(request_id.0), connection_id }),
         UiCommand::ListSavedQueries { request_id, connection_id } => Some(RuntimeCommand::ListSavedQueries {
             request_id: RuntimeRequestId(request_id.0),
             connection_id,
@@ -278,6 +279,7 @@ fn translate_event(event: RuntimeEvent) -> Option<UiEvent> {
             request_id: db_pro_ui::RequestId(request_id.0),
             schema: UiSchemaSummary { tables: schema.tables, columns: schema.columns },
         }),
+        RuntimeEvent::QueryFoldersLoaded { request_id, folders } => Some(UiEvent::QueryFoldersLoaded { request_id: db_pro_ui::RequestId(request_id.0), folders: folders.into_iter().map(|folder| UiQueryFolderSummary { id: folder.id, name: folder.name }).collect() }),
         RuntimeEvent::SavedQueriesLoaded { request_id, queries } => Some(UiEvent::SavedQueriesLoaded {
             request_id: db_pro_ui::RequestId(request_id.0),
             queries: queries.into_iter().map(|query| UiSavedQuerySummary {

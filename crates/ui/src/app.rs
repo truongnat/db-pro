@@ -1,5 +1,5 @@
 use crate::{
-    DbProTheme, TaskBridge, UiCommand, UiConnectionDraft, UiConnectionSummary, UiDriver, UiEvent, UiCell, UiQueryResult, UiSavedQuerySummary, UiSchemaSummary, UiSslMode,
+    DbProTheme, TaskBridge, UiCommand, UiConnectionDraft, UiConnectionSummary, UiDriver, UiEvent, UiCell, UiQueryFolderSummary, UiQueryResult, UiSavedQuerySummary, UiSchemaSummary, UiSslMode,
 };
 use eframe::egui::{self, Align, Color32, FontId, Layout, RichText, Sense, TextEdit, TextFormat, TopBottomPanel};
 use eframe::egui::text::LayoutJob;
@@ -72,6 +72,7 @@ pub struct DbProApp {
     mutation_delete_confirmation: bool,
     connections: Vec<UiConnectionSummary>
     saved_queries: Vec<UiSavedQuerySummary>,
+    query_folders: Vec<UiQueryFolderSummary>,
     schema: UiSchemaSummary,
     query_folder: String,
     backup_output_path: String,
@@ -84,6 +85,7 @@ pub struct DbProApp {
     connection_draft: UiConnectionDraft,
     connection_error: String,
     delete_confirmation_id: Option<String>,
+    folder_delete_confirmation: Option<String>,
 }
 
 impl DbProApp {
@@ -169,6 +171,7 @@ impl Default for DbProApp {
             mutation_delete_confirmation: false,
             connections: Vec::new(),
             saved_queries: Vec::new(),
+            query_folders: Vec::new(),
             schema: UiSchemaSummary { tables: Vec::new(), columns: Vec::new() },
             query_folder: String::new(),
             backup_output_path: String::new(),
@@ -181,6 +184,7 @@ impl Default for DbProApp {
             connection_draft: UiConnectionDraft::default(),
             connection_error: String::new(),
             delete_confirmation_id: None,
+            folder_delete_confirmation: None,
         }
     }
 }
@@ -281,11 +285,16 @@ impl DbProApp {
                         let request_id = self.task_bridge.next_request_id();
                         let _ = self.task_bridge.send(UiCommand::ListSavedQueries { request_id, connection_id: connection_id.clone() });
                         let request_id = self.task_bridge.next_request_id();
-                        let _ = self.task_bridge.send(UiCommand::IntrospectSchema { request_id, connection_id });
+                        let _ = self.task_bridge.send(UiCommand::IntrospectSchema { request_id, connection_id: connection_id.clone() });
+                        let request_id = self.task_bridge.next_request_id();
+                        let _ = self.task_bridge.send(UiCommand::ListQueryFolders { request_id, connection_id });
                     }
                 }
                 UiEvent::SavedQueriesLoaded { queries, .. } => {
                     self.saved_queries = queries;
+                }
+                UiEvent::QueryFoldersLoaded { folders, .. } => {
+                    self.query_folders = folders;
                 }
                 UiEvent::SchemaLoaded { schema, .. } => {
                     self.schema = schema;
@@ -643,7 +652,12 @@ impl DbProApp {
                 let folder = query.folder.clone().unwrap_or_else(|| "Unfiled".to_owned());
                 if !folders.contains(&folder) {
                     folders.push(folder.clone());
-                    ui.label(RichText::new(format!("▾ {folder}")).strong().color(self.theme.text_secondary));
+                    ui.horizontal(|ui| {
+                        ui.label(RichText::new(format!("▾ {folder}")).strong().color(self.theme.text_secondary));
+                        if let Some(summary) = self.query_folders.iter().find(|item| item.name == folder) {
+                            if ui.small_button("delete folder").clicked() { self.folder_delete_confirmation = Some(summary.id.clone()); }
+                        }
+                    });
                 }
                 ui.horizontal(|ui| {
                     if ui.selectable_label(false, &query.name).clicked() {
@@ -673,6 +687,17 @@ impl DbProApp {
                     }
                 });
             }
+        }
+        if let Some(id) = self.folder_delete_confirmation.clone() {
+            ui.colored_label(self.theme.warning, "Delete this folder and its saved-query links?");
+            ui.horizontal(|ui| {
+                if ui.button("Confirm folder delete").clicked() {
+                    let request_id = self.task_bridge.next_request_id();
+                    let _ = self.task_bridge.send(UiCommand::DeleteQueryFolder { request_id, id });
+                    self.folder_delete_confirmation = None;
+                }
+                if ui.button("Cancel").clicked() { self.folder_delete_confirmation = None; }
+            });
         }
         ui.separator();
         ui.label(RichText::new("Local history").small().strong().color(self.theme.text_muted));

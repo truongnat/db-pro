@@ -18,6 +18,7 @@ pub enum RuntimeCommand {
         request_id: RuntimeRequestId,
         connection_id: String,
     },
+    ListQueryFolders { request_id: RuntimeRequestId, connection_id: String },
     SaveQuery {
         request_id: RuntimeRequestId,
         connection_id: String,
@@ -97,10 +98,7 @@ pub enum RuntimeEvent {
         request_id: RuntimeRequestId,
         queries: Vec<crate::SavedQuerySummary>,
     },
-    QueryFoldersLoaded {
-        request_id: RuntimeRequestId,
-        folders: Vec<String>,
-    },
+    QueryFoldersLoaded { request_id: RuntimeRequestId, folders: Vec<crate::QueryFolderSummary> },
     OperationProgress {
         request_id: RuntimeRequestId,
         operation: &'static str,
@@ -161,6 +159,13 @@ pub fn spawn_worker(
                 RuntimeCommand::IntrospectSchema { request_id, connection_id } => {
                     let event = match runtime.schema_api().introspect_summary(&connection_id).await {
                         Ok(schema) => RuntimeEvent::SchemaLoaded { request_id, schema },
+                        Err(error) => RuntimeEvent::Failed { request_id, message: error.message },
+                    };
+                    let _ = event_tx.send(event).await;
+                }
+                RuntimeCommand::ListQueryFolders { request_id, connection_id } => {
+                    let event = match runtime.query_api().list_folders(&connection_id).await {
+                        Ok(folders) => RuntimeEvent::QueryFoldersLoaded { request_id, folders: folders.into_iter().map(|folder| crate::QueryFolderSummary { id: folder.id.to_string(), name: folder.name }).collect() },
                         Err(error) => RuntimeEvent::Failed { request_id, message: error.message },
                     };
                     let _ = event_tx.send(event).await;
