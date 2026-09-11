@@ -2,7 +2,7 @@ use crate::DbProTheme;
 use egui::{Align, Button, FontFamily, FontId, Frame, Margin, Response, RichText, Rounding, Stroke, TextEdit, Ui};
 use lucide_icons::Icon;
 
-pub struct ShadcnInput<'a> {
+pub struct Input<'a> {
     label: Option<&'a str>,
     value: &'a mut String,
     placeholder: &'a str,
@@ -15,7 +15,9 @@ pub struct ShadcnInput<'a> {
     theme: DbProTheme,
 }
 
-impl<'a> ShadcnInput<'a> {
+pub type ShadcnInput<'a> = Input<'a>;
+
+impl<'a> Input<'a> {
     pub fn new(value: &'a mut String, placeholder: &'a str, theme: DbProTheme) -> Self {
         Self {
             label: None,
@@ -157,7 +159,7 @@ impl<'a> ShadcnInput<'a> {
     }
 }
 
-pub struct ShadcnPasswordInput<'a> {
+pub struct PasswordInput<'a> {
     label: Option<&'a str>,
     value: &'a mut String,
     placeholder: &'a str,
@@ -166,7 +168,9 @@ pub struct ShadcnPasswordInput<'a> {
     theme: DbProTheme,
 }
 
-impl<'a> ShadcnPasswordInput<'a> {
+pub type ShadcnPasswordInput<'a> = PasswordInput<'a>;
+
+impl<'a> PasswordInput<'a> {
     pub fn new(value: &'a mut String, placeholder: &'a str, show_password: &'a mut bool, theme: DbProTheme) -> Self {
         Self {
             label: None,
@@ -255,7 +259,7 @@ impl<'a> ShadcnPasswordInput<'a> {
     }
 }
 
-pub struct ShadcnSearchInput<'a> {
+pub struct SearchInput<'a> {
     value: &'a mut String,
     placeholder: &'a str,
     shortcut: Option<&'a str>,
@@ -263,7 +267,9 @@ pub struct ShadcnSearchInput<'a> {
     theme: DbProTheme,
 }
 
-impl<'a> ShadcnSearchInput<'a> {
+pub type ShadcnSearchInput<'a> = SearchInput<'a>;
+
+impl<'a> SearchInput<'a> {
     pub fn new(value: &'a mut String, placeholder: &'a str, theme: DbProTheme) -> Self {
         Self {
             value,
@@ -352,7 +358,7 @@ impl<'a> ShadcnSearchInput<'a> {
     }
 }
 
-pub struct ShadcnTextarea<'a> {
+pub struct Textarea<'a> {
     label: Option<&'a str>,
     value: &'a mut String,
     placeholder: &'a str,
@@ -361,7 +367,9 @@ pub struct ShadcnTextarea<'a> {
     theme: DbProTheme,
 }
 
-impl<'a> ShadcnTextarea<'a> {
+pub type ShadcnTextarea<'a> = Textarea<'a>;
+
+impl<'a> Textarea<'a> {
     pub fn new(value: &'a mut String, placeholder: &'a str, theme: DbProTheme) -> Self {
         Self {
             label: None,

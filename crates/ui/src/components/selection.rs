@@ -2,7 +2,7 @@ use crate::DbProTheme;
 use egui::{Color32, FontFamily, FontId, Pos2, Rect, Response, RichText, Rounding, Sense, Stroke, Ui, Vec2};
 use lucide_icons::Icon;
 
-pub struct ShadcnCheckbox<'a> {
+pub struct Checkbox<'a> {
     checked: &'a mut bool,
     label: &'a str,
     description: Option<&'a str>,
@@ -10,7 +10,9 @@ pub struct ShadcnCheckbox<'a> {
     theme: DbProTheme,
 }
 
-impl<'a> ShadcnCheckbox<'a> {
+pub type ShadcnCheckbox<'a> = Checkbox<'a>;
+
+impl<'a> Checkbox<'a> {
     pub fn new(checked: &'a mut bool, label: &'a str, theme: DbProTheme) -> Self {
         Self {
             checked,
@@ -89,7 +91,7 @@ impl<'a> ShadcnCheckbox<'a> {
     }
 }
 
-pub struct ShadcnSwitch<'a> {
+pub struct Switch<'a> {
     on: &'a mut bool,
     label: Option<&'a str>,
     description: Option<&'a str>,
@@ -97,7 +99,9 @@ pub struct ShadcnSwitch<'a> {
     theme: DbProTheme,
 }
 
-impl<'a> ShadcnSwitch<'a> {
+pub type ShadcnSwitch<'a> = Switch<'a>;
+
+impl<'a> Switch<'a> {
     pub fn new(on: &'a mut bool, theme: DbProTheme) -> Self {
         Self {
             on,
@@ -177,7 +181,7 @@ impl<'a> ShadcnSwitch<'a> {
     }
 }
 
-pub struct ShadcnRadio<'a> {
+pub struct Radio<'a> {
     selected: bool,
     label: &'a str,
     description: Option<&'a str>,
@@ -185,7 +189,9 @@ pub struct ShadcnRadio<'a> {
     theme: DbProTheme,
 }
 
-impl<'a> ShadcnRadio<'a> {
+pub type ShadcnRadio<'a> = Radio<'a>;
+
+impl<'a> Radio<'a> {
     pub fn new(selected: bool, label: &'a str, theme: DbProTheme) -> Self {
         Self {
             selected,
@@ -246,7 +252,7 @@ impl<'a> ShadcnRadio<'a> {
     }
 }
 
-pub struct ShadcnSlider<'a> {
+pub struct Slider<'a> {
     value: &'a mut f32,
     range: std::ops::RangeInclusive<f32>,
     label: Option<&'a str>,
@@ -255,7 +261,9 @@ pub struct ShadcnSlider<'a> {
     theme: DbProTheme,
 }
 
-impl<'a> ShadcnSlider<'a> {
+pub type ShadcnSlider<'a> = Slider<'a>;
+
+impl<'a> Slider<'a> {
     pub fn new(value: &'a mut f32, range: std::ops::RangeInclusive<f32>, theme: DbProTheme) -> Self {
         Self {
             value,

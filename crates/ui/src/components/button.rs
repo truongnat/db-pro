@@ -1,7 +1,7 @@
 use crate::DbProTheme;
 use egui::{
     text::{LayoutJob, TextFormat},
-    Button, Color32, FontFamily, FontId, Response, Rounding, Stroke, Ui, Vec2,
+    Color32, FontFamily, FontId, Response, Rounding, Stroke, Ui, Vec2,
 };
 use lucide_icons::Icon;
 
@@ -24,7 +24,7 @@ pub enum ButtonSize {
     IconSm,
 }
 
-pub struct ShadcnButton {
+pub struct Button {
     pub(crate) label: Option<String>,
     pub(crate) icon: Option<Icon>,
     pub(crate) variant: ButtonVariant,
@@ -35,7 +35,9 @@ pub struct ShadcnButton {
     pub(crate) theme: DbProTheme,
 }
 
-impl ShadcnButton {
+pub type ShadcnButton = Button;
+
+impl Button {
     pub fn new(theme: DbProTheme) -> Self {
         Self {
             label: None,
@@ -159,7 +161,7 @@ impl ShadcnButton {
         }
 
         let rounding = Rounding::same(6.0);
-        let button = Button::new(job)
+        let button = egui::Button::new(job)
             .fill(fill_color)
             .stroke(border_stroke)
             .min_size(Vec2::new(width, min_height))

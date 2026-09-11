@@ -13,7 +13,7 @@ pub enum BadgeVariant {
     Info,
 }
 
-pub struct ShadcnBadge<'a> {
+pub struct Badge<'a> {
     pub(crate) text: &'a str,
     pub(crate) variant: BadgeVariant,
     pub(crate) dot: bool,
@@ -21,7 +21,9 @@ pub struct ShadcnBadge<'a> {
     pub(crate) theme: DbProTheme,
 }
 
-impl<'a> ShadcnBadge<'a> {
+pub type ShadcnBadge<'a> = Badge<'a>;
+
+impl<'a> Badge<'a> {
     pub fn new(text: &'a str, theme: DbProTheme) -> Self {
         Self {
             text,

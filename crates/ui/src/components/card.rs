@@ -2,11 +2,13 @@ use crate::DbProTheme;
 use egui::{FontFamily, FontId, Frame, Margin, RichText, Rounding, Stroke, Ui};
 use lucide_icons::Icon;
 
-pub struct ShadcnCard {
+pub struct Card {
     theme: DbProTheme,
 }
 
-impl ShadcnCard {
+pub type ShadcnCard = Card;
+
+impl Card {
     pub fn new(theme: DbProTheme) -> Self {
         Self { theme }
     }
@@ -73,7 +75,7 @@ impl<'a> MetricCard<'a> {
     }
 
     pub fn show(self, ui: &mut Ui) {
-        ShadcnCard::new(self.theme).show(ui, |ui| {
+        Card::new(self.theme).show(ui, |ui| {
             ui.horizontal(|ui| {
                 ui.label(
                     RichText::new(self.title)

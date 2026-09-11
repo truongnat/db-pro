@@ -47,7 +47,7 @@ pub struct ComponentGalleryState {
 impl Default for ComponentGalleryState {
     fn default() -> Self {
         Self {
-            category: GalleryCategory::All,
+            category: GalleryCategory::Tables,
             input_text: "postgres_prod_replica".to_owned(),
             input_error_text: "invalid_connection_string".to_owned(),
             search_text: "".to_owned(),
@@ -99,7 +99,7 @@ impl DbProApp {
                                     .strong()
                                     .color(theme.text_primary),
                             );
-                            ShadcnBadge::new("shadcn/ui inspired", theme)
+                            Badge::new("Design System", theme)
                                 .variant(BadgeVariant::Default)
                                 .dot(true)
                                 .show(ui);
@@ -116,7 +116,7 @@ impl DbProApp {
 
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         // Reset button
-                        if ShadcnButton::new(theme)
+                        if Button::new(theme)
                             .text("Reset Demo")
                             .variant(ButtonVariant::Outline)
                             .size(ButtonSize::Sm)
@@ -133,7 +133,7 @@ impl DbProApp {
                         let is_dark = self.dark_mode;
                         let theme_icon = if is_dark { Icon::Sun } else { Icon::Moon };
                         let theme_label = if is_dark { "Light Mode" } else { "Dark Mode" };
-                        if ShadcnButton::new(theme)
+                        if Button::new(theme)
                             .text(theme_label)
                             .variant(ButtonVariant::Secondary)
                             .size(ButtonSize::Sm)
@@ -248,7 +248,7 @@ impl DbProApp {
             "Displays a button or a component that looks like a button with various variants and sizes.",
         );
 
-        ShadcnCard::new(theme).show(ui, |ui| {
+        Card::new(theme).show(ui, |ui| {
             ui.label(
                 RichText::new("Variants")
                     .size(13.0)
@@ -257,33 +257,30 @@ impl DbProApp {
             );
             ui.add_space(8.0);
             ui.horizontal_wrapped(|ui| {
-                ShadcnButton::new(theme)
+                Button::new(theme)
                     .text("Primary (Default)")
                     .variant(ButtonVariant::Default)
                     .show(ui);
                 ui.add_space(6.0);
-                ShadcnButton::new(theme)
+                Button::new(theme)
                     .text("Secondary")
                     .variant(ButtonVariant::Secondary)
                     .show(ui);
                 ui.add_space(6.0);
-                ShadcnButton::new(theme)
+                Button::new(theme)
                     .text("Outline")
                     .variant(ButtonVariant::Outline)
                     .show(ui);
                 ui.add_space(6.0);
-                ShadcnButton::new(theme)
-                    .text("Ghost")
-                    .variant(ButtonVariant::Ghost)
-                    .show(ui);
+                Button::new(theme).text("Ghost").variant(ButtonVariant::Ghost).show(ui);
                 ui.add_space(6.0);
-                ShadcnButton::new(theme)
+                Button::new(theme)
                     .text("Destructive")
                     .variant(ButtonVariant::Destructive)
                     .icon(Icon::Trash2)
                     .show(ui);
                 ui.add_space(6.0);
-                ShadcnButton::new(theme)
+                Button::new(theme)
                     .text("Link Action")
                     .variant(ButtonVariant::Link)
                     .show(ui);
@@ -293,28 +290,22 @@ impl DbProApp {
             ui.label(RichText::new("Sizes").size(13.0).strong().color(theme.text_secondary));
             ui.add_space(8.0);
             ui.horizontal(|ui| {
-                ShadcnButton::new(theme)
-                    .text("Small (Sm)")
-                    .size(ButtonSize::Sm)
-                    .show(ui);
+                Button::new(theme).text("Small (Sm)").size(ButtonSize::Sm).show(ui);
                 ui.add_space(6.0);
-                ShadcnButton::new(theme)
+                Button::new(theme)
                     .text("Default (Md)")
                     .size(ButtonSize::Default)
                     .show(ui);
                 ui.add_space(6.0);
-                ShadcnButton::new(theme)
-                    .text("Large (Lg)")
-                    .size(ButtonSize::Lg)
-                    .show(ui);
+                Button::new(theme).text("Large (Lg)").size(ButtonSize::Lg).show(ui);
                 ui.add_space(10.0);
-                ShadcnButton::new(theme)
+                Button::new(theme)
                     .icon(Icon::Plus)
                     .size(ButtonSize::Icon)
                     .variant(ButtonVariant::Outline)
                     .show(ui);
                 ui.add_space(6.0);
-                ShadcnButton::new(theme)
+                Button::new(theme)
                     .icon(Icon::Copy)
                     .size(ButtonSize::IconSm)
                     .variant(ButtonVariant::Secondary)
@@ -331,7 +322,7 @@ impl DbProApp {
             ui.add_space(8.0);
             ui.horizontal(|ui| {
                 let loading = self.gallery_state.btn_loading;
-                if ShadcnButton::new(theme)
+                if Button::new(theme)
                     .text(if loading { "Please wait..." } else { "Click to Load" })
                     .icon(Icon::Play)
                     .loading(loading)
@@ -343,7 +334,7 @@ impl DbProApp {
 
                 if loading {
                     ui.add_space(8.0);
-                    if ShadcnButton::new(theme)
+                    if Button::new(theme)
                         .text("Stop")
                         .variant(ButtonVariant::Outline)
                         .size(ButtonSize::Sm)
@@ -355,7 +346,7 @@ impl DbProApp {
                 }
 
                 ui.add_space(12.0);
-                ShadcnButton::new(theme).text("Disabled Button").enabled(false).show(ui);
+                Button::new(theme).text("Disabled Button").enabled(false).show(ui);
             });
         });
     }
@@ -368,36 +359,34 @@ impl DbProApp {
             "Status indicators, categorization tags, and notification counters.",
         );
 
-        ShadcnCard::new(theme).show(ui, |ui| {
+        Card::new(theme).show(ui, |ui| {
             ui.horizontal_wrapped(|ui| {
-                ShadcnBadge::new("Default Accent", theme)
+                Badge::new("Default Accent", theme)
                     .variant(BadgeVariant::Default)
                     .show(ui);
                 ui.add_space(8.0);
-                ShadcnBadge::new("Secondary Pill", theme)
+                Badge::new("Secondary Pill", theme)
                     .variant(BadgeVariant::Secondary)
                     .show(ui);
                 ui.add_space(8.0);
-                ShadcnBadge::new("Outline Tag", theme)
-                    .variant(BadgeVariant::Outline)
-                    .show(ui);
+                Badge::new("Outline Tag", theme).variant(BadgeVariant::Outline).show(ui);
                 ui.add_space(8.0);
-                ShadcnBadge::new("Active Node", theme)
+                Badge::new("Active Node", theme)
                     .variant(BadgeVariant::Success)
                     .dot(true)
                     .show(ui);
                 ui.add_space(8.0);
-                ShadcnBadge::new("Warning Alert", theme)
+                Badge::new("Warning Alert", theme)
                     .variant(BadgeVariant::Warning)
                     .icon(Icon::AlertTriangle)
                     .show(ui);
                 ui.add_space(8.0);
-                ShadcnBadge::new("Connection Error", theme)
+                Badge::new("Connection Error", theme)
                     .variant(BadgeVariant::Destructive)
                     .dot(true)
                     .show(ui);
                 ui.add_space(8.0);
-                ShadcnBadge::new("PostgreSQL 16.2", theme)
+                Badge::new("PostgreSQL 16.2", theme)
                     .variant(BadgeVariant::Info)
                     .icon(Icon::Database)
                     .show(ui);
@@ -413,11 +402,11 @@ impl DbProApp {
             "Standard single-line text inputs, search fields, password toggles, and multiline textareas.",
         );
 
-        ShadcnCard::new(theme).show(ui, |ui| {
+        Card::new(theme).show(ui, |ui| {
             ui.columns(2, |columns| {
                 // Column 1
                 let ui = &mut columns[0];
-                ShadcnInput::new(
+                Input::new(
                     &mut self.gallery_state.input_text,
                     "Enter table or database name...",
                     theme,
@@ -430,7 +419,7 @@ impl DbProApp {
 
                 ui.add_space(14.0);
 
-                ShadcnSearchInput::new(
+                SearchInput::new(
                     &mut self.gallery_state.search_text,
                     "Search schemas, tables, indexes...",
                     theme,
@@ -440,7 +429,7 @@ impl DbProApp {
 
                 ui.add_space(14.0);
 
-                ShadcnPasswordInput::new(
+                PasswordInput::new(
                     &mut self.gallery_state.password_text,
                     "Enter database password...",
                     &mut self.gallery_state.show_password,
@@ -451,7 +440,7 @@ impl DbProApp {
 
                 // Column 2
                 let ui = &mut columns[1];
-                ShadcnInput::new(&mut self.gallery_state.input_error_text, "URI string...", theme)
+                Input::new(&mut self.gallery_state.input_error_text, "URI string...", theme)
                     .label("PostgreSQL Connection URI")
                     .error_text("Invalid port format: expected integer between 1 and 65535.")
                     .leading_icon(Icon::AlertCircle)
@@ -460,7 +449,7 @@ impl DbProApp {
 
                 ui.add_space(14.0);
 
-                ShadcnTextarea::new(&mut self.gallery_state.textarea_text, "Enter SQL query...", theme)
+                Textarea::new(&mut self.gallery_state.textarea_text, "Enter SQL query...", theme)
                     .label("Query Editor Scratchpad")
                     .min_rows(4)
                     .max_chars(500)
@@ -477,7 +466,7 @@ impl DbProApp {
             "Checkboxes, animated toggle switches, radio groups, dropdown selects, and sliders.",
         );
 
-        ShadcnCard::new(theme).show(ui, |ui| {
+        Card::new(theme).show(ui, |ui| {
             ui.columns(3, |columns| {
                 // Column 1: Checkboxes
                 let ui = &mut columns[0];
@@ -488,16 +477,16 @@ impl DbProApp {
                         .color(theme.text_secondary),
                 );
                 ui.add_space(8.0);
-                ShadcnCheckbox::new(&mut self.gallery_state.checkbox_1, "Auto-commit queries", theme)
+                Checkbox::new(&mut self.gallery_state.checkbox_1, "Auto-commit queries", theme)
                     .description("Execute each SQL statement immediately in its own transaction.")
                     .show(ui);
                 ui.add_space(8.0);
-                ShadcnCheckbox::new(&mut self.gallery_state.checkbox_2, "Format SQL on save", theme)
+                Checkbox::new(&mut self.gallery_state.checkbox_2, "Format SQL on save", theme)
                     .description("Automatically aligns keywords and clauses.")
                     .show(ui);
                 ui.add_space(8.0);
                 let mut disabled_check = true;
-                ShadcnCheckbox::new(&mut disabled_check, "Enforce SSL encryption", theme)
+                Checkbox::new(&mut disabled_check, "Enforce SSL encryption", theme)
                     .description("Required by your organization policy.")
                     .enabled(false)
                     .show(ui);
@@ -511,12 +500,12 @@ impl DbProApp {
                         .color(theme.text_secondary),
                 );
                 ui.add_space(8.0);
-                ShadcnSwitch::new(&mut self.gallery_state.switch_1, theme)
+                Switch::new(&mut self.gallery_state.switch_1, theme)
                     .label("Copilot Assistant")
                     .description("AI schema suggestions in real time.")
                     .show(ui);
                 ui.add_space(10.0);
-                ShadcnSwitch::new(&mut self.gallery_state.switch_2, theme)
+                Switch::new(&mut self.gallery_state.switch_2, theme)
                     .label("Query Execution Safety Guard")
                     .description("Confirm before destructive statements.")
                     .show(ui);
@@ -524,7 +513,7 @@ impl DbProApp {
                 ui.add_space(12.0);
                 for (idx, label) in ["Read Committed", "Repeatable Read", "Serializable"].iter().enumerate() {
                     let is_sel = idx == self.gallery_state.radio_selected;
-                    if ShadcnRadio::new(is_sel, label, theme).show(ui).clicked() {
+                    if Radio::new(is_sel, label, theme).show(ui).clicked() {
                         self.gallery_state.radio_selected = idx;
                     }
                     ui.add_space(4.0);
@@ -539,7 +528,7 @@ impl DbProApp {
                         .color(theme.text_secondary),
                 );
                 ui.add_space(8.0);
-                ShadcnSelect::new(
+                Select::new(
                     "gallery_db_select",
                     &mut self.gallery_state.select_idx,
                     &self.gallery_state.select_options,
@@ -549,7 +538,7 @@ impl DbProApp {
                 .show(ui);
 
                 ui.add_space(16.0);
-                ShadcnSlider::new(&mut self.gallery_state.slider_val, 10.0..=500.0, theme)
+                Slider::new(&mut self.gallery_state.slider_val, 10.0..=500.0, theme)
                     .label("Query Result Page Size (Rows)")
                     .show(ui);
             });
@@ -597,7 +586,7 @@ impl DbProApp {
 
         ui.columns(2, |columns| {
             let ui = &mut columns[0];
-            ShadcnAlert::new(
+            Alert::new(
                 "Connection Established",
                 "Successfully connected to PostgreSQL cluster xe_lac_hong_prod via localhost:5432.",
                 theme,
@@ -607,7 +596,7 @@ impl DbProApp {
 
             ui.add_space(10.0);
 
-            ShadcnAlert::new(
+            Alert::new(
                 "Uncommitted Transaction",
                 "You have active mutations in session 42. Closing this tab will trigger an automatic ROLLBACK.",
                 theme,
@@ -617,7 +606,7 @@ impl DbProApp {
             .show(ui);
 
             let ui = &mut columns[1];
-            ShadcnAlert::new(
+            Alert::new(
                 "Execution Interrupted",
                 "Query execution cancelled by user: statement timeout exceeded (30,000 ms).",
                 theme,
@@ -628,7 +617,7 @@ impl DbProApp {
 
             ui.add_space(10.0);
 
-            ShadcnAlert::new(
+            Alert::new(
                 "Database Migration Ready",
                 "Schema comparison generated 4 migration scripts. Review DDL impact before applying to production.",
                 theme,
@@ -646,7 +635,7 @@ impl DbProApp {
             "Progress bars, animated spinners, and keyboard shortcut badges.",
         );
 
-        ShadcnCard::new(theme).show(ui, |ui| {
+        Card::new(theme).show(ui, |ui| {
             ui.horizontal(|ui| {
                 ui.vertical(|ui| {
                     ui.label(
@@ -656,7 +645,7 @@ impl DbProApp {
                             .color(theme.text_secondary),
                     );
                     ui.add_space(6.0);
-                    ShadcnProgress::new(0.72, theme).height(8.0).show(ui);
+                    Progress::new(0.72, theme).height(8.0).show(ui);
                 });
 
                 ui.add_space(24.0);
@@ -670,7 +659,7 @@ impl DbProApp {
                     );
                     ui.add_space(6.0);
                     ui.horizontal(|ui| {
-                        ShadcnSpinner::new(theme).size(20.0).show(ui);
+                        Spinner::new(theme).size(20.0).show(ui);
                         ui.add_space(8.0);
                         ui.label(
                             RichText::new("Syncing schema metadata...")
@@ -708,7 +697,7 @@ impl DbProApp {
         let theme = self.theme;
         self.draw_section_heading(ui, "Navigation & Tabs", "Segmented controls and underline tabs.");
 
-        ShadcnCard::new(theme).show(ui, |ui| {
+        Card::new(theme).show(ui, |ui| {
             ui.label(
                 RichText::new("Segmented Pill Tabs")
                     .size(13.0)
@@ -823,7 +812,7 @@ impl DbProApp {
             let _ = ui.allocate_ui_with_layout(
                 egui::Vec2::new(260.0, 32.0),
                 egui::Layout::left_to_right(egui::Align::Center),
-                |ui| ShadcnSearchInput::new(&mut self.gallery_state.table_search, "Filter objects...", theme).show(ui),
+                |ui| SearchInput::new(&mut self.gallery_state.table_search, "Filter objects...", theme).show(ui),
             );
 
             let filter_query = self.gallery_state.table_search.trim().to_lowercase();
@@ -838,12 +827,10 @@ impl DbProApp {
 
             ui.add_space(8.0);
             let badge_text = format!("{matching_count} objects");
-            ShadcnBadge::new(&badge_text, theme)
-                .variant(BadgeVariant::Secondary)
-                .show(ui);
+            Badge::new(&badge_text, theme).variant(BadgeVariant::Secondary).show(ui);
 
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                if ShadcnButton::new(theme)
+                if Button::new(theme)
                     .text("Export CSV")
                     .variant(ButtonVariant::Outline)
                     .size(ButtonSize::Sm)
@@ -854,7 +841,7 @@ impl DbProApp {
                     // Noop demonstration
                 }
 
-                if ShadcnButton::new(theme)
+                if Button::new(theme)
                     .text("Refresh")
                     .variant(ButtonVariant::Ghost)
                     .size(ButtonSize::Sm)
@@ -902,21 +889,21 @@ impl DbProApp {
         }
 
         let columns = [
-            ShadcnTableColumn::new("Table Name").width(220.0).sortable(true),
-            ShadcnTableColumn::new("Type").width(120.0).sortable(true),
-            ShadcnTableColumn::new("Row Count")
+            TableColumn::new("Table Name").sortable(true),
+            TableColumn::new("Type").width(120.0).sortable(true),
+            TableColumn::new("Row Count")
                 .width(130.0)
                 .align(TableColumnAlign::Right)
                 .sortable(true),
-            ShadcnTableColumn::new("Size")
+            TableColumn::new("Size")
                 .width(110.0)
                 .align(TableColumnAlign::Right)
                 .sortable(true),
-            ShadcnTableColumn::new("Status")
+            TableColumn::new("Status")
                 .width(120.0)
                 .align(TableColumnAlign::Center)
                 .sortable(true),
-            ShadcnTableColumn::new("Actions").align(TableColumnAlign::Right),
+            TableColumn::new("Actions").width(100.0).align(TableColumnAlign::Right),
         ];
 
         let visible_count = row_indices.len();
@@ -932,7 +919,7 @@ impl DbProApp {
         let mut toggle_row_target = None;
         let mut toggle_sort_col = None;
 
-        ShadcnTable::new(&columns, theme)
+        Table::new(&columns, theme)
             .selectable(true, all_selected)
             .sort(sort_col, sort_desc)
             .row_height(38.0)
@@ -970,7 +957,7 @@ impl DbProApp {
                             });
                         }
                         1 => {
-                            ShadcnBadge::new(row.1, theme).variant(BadgeVariant::Outline).show(ui);
+                            Badge::new(row.1, theme).variant(BadgeVariant::Outline).show(ui);
                         }
                         2 => {
                             ui.label(RichText::new(row.2).monospace().size(12.0).color(theme.text_primary));
@@ -979,11 +966,11 @@ impl DbProApp {
                             ui.label(RichText::new(row.4).monospace().size(12.0).color(theme.text_secondary));
                         }
                         4 => {
-                            ShadcnBadge::new(row.7, theme).variant(row.6).dot(true).show(ui);
+                            Badge::new(row.7, theme).variant(row.6).dot(true).show(ui);
                         }
                         5 => {
                             ui.horizontal(|ui| {
-                                ShadcnButton::new(theme)
+                                Button::new(theme)
                                     .text("Inspect")
                                     .size(ButtonSize::Sm)
                                     .variant(ButtonVariant::Ghost)
@@ -1043,7 +1030,7 @@ impl DbProApp {
 
             if selected_count > 0 {
                 ui.add_space(4.0);
-                if ShadcnButton::new(theme)
+                if Button::new(theme)
                     .text("Clear selection")
                     .variant(ButtonVariant::Link)
                     .size(ButtonSize::Sm)
@@ -1055,7 +1042,7 @@ impl DbProApp {
             }
 
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                ShadcnButton::new(theme)
+                Button::new(theme)
                     .text("Next")
                     .variant(ButtonVariant::Outline)
                     .size(ButtonSize::Sm)
@@ -1064,7 +1051,7 @@ impl DbProApp {
                     .show(ui);
 
                 ui.add_space(4.0);
-                ShadcnButton::new(theme)
+                Button::new(theme)
                     .text("Previous")
                     .variant(ButtonVariant::Outline)
                     .size(ButtonSize::Sm)

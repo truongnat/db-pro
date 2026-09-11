@@ -1,13 +1,15 @@
 use crate::DbProTheme;
 use egui::{Color32, Frame, Margin, Pos2, Rect, RichText, Rounding, Stroke, Ui, Vec2};
 
-pub struct ShadcnProgress {
+pub struct Progress {
     pub(crate) fraction: f32, // 0.0 to 1.0
     pub(crate) height: f32,
     pub(crate) theme: DbProTheme,
 }
 
-impl ShadcnProgress {
+pub type ShadcnProgress = Progress;
+
+impl Progress {
     pub fn new(fraction: f32, theme: DbProTheme) -> Self {
         Self {
             fraction: fraction.clamp(0.0, 1.0),
@@ -39,13 +41,15 @@ impl ShadcnProgress {
     }
 }
 
-pub struct ShadcnSpinner {
+pub struct Spinner {
     size: f32,
     color: Option<Color32>,
     theme: DbProTheme,
 }
 
-impl ShadcnSpinner {
+pub type ShadcnSpinner = Spinner;
+
+impl Spinner {
     pub fn new(theme: DbProTheme) -> Self {
         Self {
             size: 18.0,

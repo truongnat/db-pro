@@ -11,7 +11,7 @@ pub enum AlertVariant {
     Destructive,
 }
 
-pub struct ShadcnAlert<'a> {
+pub struct Alert<'a> {
     pub(crate) title: &'a str,
     pub(crate) description: &'a str,
     pub(crate) variant: AlertVariant,
@@ -20,7 +20,9 @@ pub struct ShadcnAlert<'a> {
     pub(crate) theme: DbProTheme,
 }
 
-impl<'a> ShadcnAlert<'a> {
+pub type ShadcnAlert<'a> = Alert<'a>;
+
+impl<'a> Alert<'a> {
     pub fn new(title: &'a str, description: &'a str, theme: DbProTheme) -> Self {
         Self {
             title,

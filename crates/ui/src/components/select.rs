@@ -2,7 +2,7 @@ use crate::DbProTheme;
 use egui::{Button, FontFamily, FontId, Frame, Id, Margin, Response, RichText, Rounding, Stroke, Ui, Vec2};
 use lucide_icons::Icon;
 
-pub struct ShadcnSelect<'a> {
+pub struct Select<'a> {
     id_salt: &'a str,
     label: Option<&'a str>,
     selected: &'a mut usize,
@@ -11,7 +11,9 @@ pub struct ShadcnSelect<'a> {
     theme: DbProTheme,
 }
 
-impl<'a> ShadcnSelect<'a> {
+pub type ShadcnSelect<'a> = Select<'a>;
+
+impl<'a> Select<'a> {
     pub fn new(id_salt: &'a str, selected: &'a mut usize, options: &'a [String], theme: DbProTheme) -> Self {
         Self {
             id_salt,
