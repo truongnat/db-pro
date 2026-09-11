@@ -63,19 +63,20 @@ impl DataDiffService {
 
         let source_count = extract_count(&source_result)?;
         let target_count = extract_count(&target_result)?;
+        let row_count_diff = row_count_difference(source_count, target_count)?;
 
         Ok(DataDiff {
             schema: schema.to_string(),
             table: table.to_string(),
             source_row_count: source_count,
             target_row_count: target_count,
-            row_count_diff: source_count - target_count,
+            row_count_diff,
         })
     }
 }
 
 fn extract_count(result: &crate::domain::query::QueryResult) -> Result<i64, DbError> {
-    result
+    let count = result
         .rows
         .first()
         .and_then(|row| row.0.first())
@@ -83,5 +84,49 @@ fn extract_count(result: &crate::domain::query::QueryResult) -> Result<i64, DbEr
             crate::domain::query::CellValue::Int64(n) => Some(*n),
             _ => None,
         })
-        .ok_or_else(|| DbError::Internal("failed to extract row count".into()))
+        .ok_or_else(|| DbError::Internal("failed to extract row count".into()))?;
+
+    if count < 0 {
+        return Err(DbError::Internal("row count cannot be negative".into()));
+    }
+
+    Ok(count)
+}
+
+fn row_count_difference(source: i64, target: i64) -> Result<i64, DbError> {
+    source
+        .checked_sub(target)
+        .or_else(|| target.checked_sub(source).and_then(i64::checked_neg))
+        .ok_or_else(|| DbError::Internal("row count difference overflowed".into()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::domain::query::{CellValue, QueryResult, Row};
+
+    #[test]
+    fn extract_count_rejects_negative_provider_value() {
+        let result = QueryResult {
+            columns: vec![],
+            rows: vec![Row(vec![CellValue::Int64(-1)])],
+            row_count: 1,
+            duration_ms: 0,
+        };
+
+        assert!(matches!(
+            extract_count(&result),
+            Err(DbError::Internal(message)) if message.contains("negative")
+        ));
+    }
+
+    #[test]
+    fn row_count_difference_handles_both_directions() {
+        assert_eq!(row_count_difference(10, 3).unwrap(), 7);
+        assert_eq!(row_count_difference(3, 10).unwrap(), -7);
+        assert!(matches!(
+            row_count_difference(i64::MAX, i64::MIN),
+            Err(DbError::Internal(message)) if message.contains("overflowed")
+        ));
+    }
 }

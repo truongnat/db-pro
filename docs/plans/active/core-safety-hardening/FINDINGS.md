@@ -368,3 +368,17 @@ provider/count-query failure from the caller.
 
 Decision: parse the count through `u64::try_from` and return an explicit core
 error for missing, non-integer, or negative values.
+
+## P2 — Cross-connection data diff trusts invalid row counts
+
+`DataDiffService` extracted `COUNT(*)` as a signed `i64` without rejecting a
+negative provider value, then computed `source_count - target_count` directly.
+Real database counts are non-negative, but a malformed adapter result could
+produce an invalid diff or arithmetic overflow before the result reached the
+cross-connection API.
+
+Impact: comparison output can report impossible row counts or fail through an
+unchecked arithmetic panic in debug/test builds.
+
+Decision: reject negative counts at extraction and use checked arithmetic for
+the signed difference, preserving the existing domain/API type.

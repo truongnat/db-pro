@@ -79,6 +79,8 @@ without changing the native UI or adding product features.
 32. Table pagination converts a malformed or negative `COUNT(*)` result to `u64`
     with a silent `0` fallback, allowing invalid provider data to become a
     misleading pagination state or a huge wrapped row count.
+33. Cross-connection data diff accepts negative counts and computes the signed
+    difference without checked arithmetic.
 
 ## Acceptance criteria
 
@@ -129,5 +131,7 @@ without changing the native UI or adding product features.
   would overflow the workbook API types.
 - Table pagination rejects missing, non-integer, or negative count results with
   an explicit core error instead of silently defaulting or wrapping the value.
+- Cross-connection data diff rejects negative provider counts and computes the
+  signed row-count difference with overflow checks.
 - PostgreSQL and SQLite unit/integration coverage is updated independently where the
   behavior differs.
