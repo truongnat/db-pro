@@ -87,6 +87,8 @@ without changing the native UI or adding product features.
     although the SQLite provider has no database credential boundary.
 36. Core connection validation accepts SSH tunnel configuration for SQLite,
     although the provider cannot use SSH tunneling.
+37. User-management operations are exposed through `UserService` without
+    checking the provider capability, so SQLite can reach a PostgreSQL role API.
 
 ## Acceptance criteria
 
@@ -144,5 +146,7 @@ without changing the native UI or adding product features.
   database secret; PostgreSQL continues to require one, including on provider
   transitions.
 - SQLite rejects SSH tunnel configuration at the domain boundary.
+- User-management operations are capability-gated to PostgreSQL before invoking
+  the provider manager; unsupported SQLite operations return a clear core error.
 - PostgreSQL and SQLite unit/integration coverage is updated independently where the
   behavior differs.

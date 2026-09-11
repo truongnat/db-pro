@@ -1,8 +1,7 @@
 use std::sync::Arc;
 
-use crate::domain::connection::ConnectionId;
+use crate::domain::connection::{ConnectionConfig, ConnectionId, DriverType};
 use crate::domain::error::DbError;
-use crate::domain::safety::ConnectionSafetyPolicy;
 use crate::domain::user::{DatabaseUser, Privilege};
 use crate::ports::{ConnectionRepository, UserManager};
 
@@ -27,24 +26,11 @@ impl UserService {
         }
     }
 
-    /// Build the safety policy for a connection based on its persisted config.
-    async fn safety_policy_for(&self, connection_id: &ConnectionId) -> Result<ConnectionSafetyPolicy, DbError> {
-        let config = self
-            .connections
-            .get_config(connection_id)
-            .await?
-            .ok_or_else(|| DbError::ConnectionFailed(format!("connection {connection_id} not found")))?;
-        if config.readonly {
-            Ok(ConnectionSafetyPolicy::read_only())
-        } else {
-            Ok(ConnectionSafetyPolicy::full_access())
-        }
-    }
-
     /// Ensure the connection allows write operations.
     async fn ensure_writable(&self, connection_id: &ConnectionId) -> Result<(), DbError> {
-        let policy = self.safety_policy_for(connection_id).await?;
-        if policy.read_only {
+        let config = self.connection_config(connection_id).await?;
+        ensure_server_sessions_config(&config)?;
+        if config.readonly {
             return Err(DbError::QueryFailed(
                 "connection is read-only — user management operations are not allowed".into(),
             ));
@@ -52,7 +38,20 @@ impl UserService {
         Ok(())
     }
 
+    async fn ensure_server_sessions(&self, connection_id: &ConnectionId) -> Result<(), DbError> {
+        let config = self.connection_config(connection_id).await?;
+        ensure_server_sessions_config(&config)
+    }
+
+    async fn connection_config(&self, connection_id: &ConnectionId) -> Result<ConnectionConfig, DbError> {
+        self.connections
+            .get_config(connection_id)
+            .await?
+            .ok_or_else(|| DbError::ConnectionFailed(format!("connection {connection_id} not found")))
+    }
+
     pub async fn list_users(&self, connection_id: &ConnectionId) -> Result<Vec<DatabaseUser>, DbError> {
+        self.ensure_server_sessions(connection_id).await?;
         let handle = self
             .registry
             .get(connection_id)
@@ -83,6 +82,7 @@ impl UserService {
         connection_id: &ConnectionId,
         role_name: &str,
     ) -> Result<Vec<Privilege>, DbError> {
+        self.ensure_server_sessions(connection_id).await?;
         let handle = self
             .registry
             .get(connection_id)
@@ -124,5 +124,59 @@ impl UserService {
         self.manager
             .revoke_privilege(&handle, role_name, schema, table, privilege)
             .await
+    }
+}
+
+fn ensure_server_sessions_config(config: &ConnectionConfig) -> Result<(), DbError> {
+    if config.driver != DriverType::Postgres {
+        return Err(DbError::Unsupported(
+            "user management requires a PostgreSQL connection".into(),
+        ));
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::domain::connection::{ConnectionConfig, SslMode};
+    use crate::ports::{MockConnectionRepository, MockUserManager};
+
+    #[tokio::test]
+    async fn user_management_rejects_sqlite_before_provider_call() {
+        let config = ConnectionConfig {
+            name: "local-db".into(),
+            host: String::new(),
+            port: 0,
+            database: "/tmp/db-pro-test.sqlite".into(),
+            username: String::new(),
+            driver: DriverType::SQLite,
+            ssl_mode: SslMode::Disable,
+            ssh_tunnel: None,
+            query_timeout_ms: 30_000,
+            max_rows: 500,
+            color: None,
+            tags: vec![],
+            group: None,
+            readonly: false,
+        };
+        assert!(config.validate().is_ok());
+
+        let mut connections = MockConnectionRepository::new();
+        connections
+            .expect_get_config()
+            .returning(move |_| Ok(Some(config.clone())));
+
+        let service = UserService::new(
+            Box::new(MockUserManager::new()),
+            Arc::new(ConnectionRegistry::new()),
+            Box::new(connections),
+        );
+        let error = service
+            .list_users(&ConnectionId::new())
+            .await
+            .expect_err("SQLite must not enter PostgreSQL user-management provider");
+
+        assert!(matches!(error, DbError::Unsupported(message) if message.contains("PostgreSQL")));
     }
 }

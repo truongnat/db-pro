@@ -422,3 +422,18 @@ Impact: the connection configuration advertised a path that could not be used,
 and callers could mistakenly assume the local SQLite file was tunnel-protected.
 
 Decision: reject SSH tunnel configuration for SQLite at the core domain boundary.
+
+## P1 — User management is not capability-gated for SQLite
+
+`UserService` checked only the persisted readonly flag before forwarding role
+and privilege operations to `UserManager`. The capability model marks SQLite as
+having no server sessions, but the application boundary did not enforce that
+contract.
+
+Impact: a SQLite connection could enter a PostgreSQL-oriented role/session path,
+producing a misleading provider error or allowing future adapters to execute an
+operation the provider does not support.
+
+Decision: require PostgreSQL server-session capability before every user list,
+role, or privilege operation and return `DbError::Unsupported` before the
+provider manager is called.
