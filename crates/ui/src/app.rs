@@ -385,6 +385,10 @@ pub struct DbProApp {
 }
 
 impl eframe::App for DbProApp {
+    fn clear_color(&self, _visuals: &egui::Visuals) -> [f32; 4] {
+        self.theme.surface_app.to_normalized_gamma_f32()
+    }
+
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
         if let Ok(widths) = serde_json::to_string(&self.grid_column_widths) {
             storage.set_string("dbpro.native.grid-widths", widths);

@@ -11,6 +11,7 @@ impl DbProApp {
             .width_range(AGENT_MIN_WIDTH..=AGENT_MAX_WIDTH)
             .frame(sidebar_frame(self.theme))
             .show(ctx, |ui| {
+                ui.set_min_size(ui.available_size());
                 self.draw_agent_header(ui, ctx);
                 ui.add_space(6.0);
                 let context = self.agent_context();
