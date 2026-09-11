@@ -593,6 +593,26 @@ fn connected_event_starts_schema_and_metadata_loading() {
 }
 
 #[test]
+fn agent_provider_status_uses_runtime_provider_name() {
+    let (bridge, command_rx, event_tx) = TaskBridge::with_channels();
+    let mut app = DbProApp::with_task_bridge(bridge);
+    event_tx
+        .send(UiEvent::AgentProviderReady {
+            provider: "Groq".to_owned(),
+            detail: "Responses API · SQL drafts stay unexecuted".to_owned(),
+        })
+        .expect("provider status should be queued");
+
+    app.apply_runtime_events();
+    app.agent_input = "show the active schema".to_owned();
+    app.submit_agent_prompt();
+
+    assert_eq!(app.agent_provider_label, "Groq");
+    assert_eq!(app.runtime_message, "Sending request to Groq…");
+    assert!(matches!(command_rx.try_recv(), Ok(UiCommand::RunAgent { .. })));
+}
+
+#[test]
 fn command_palette_shortcut_is_available_from_the_native_shell() {
     let (bridge, _command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
