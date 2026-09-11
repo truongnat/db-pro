@@ -35,6 +35,7 @@
   SQLite capability-gate test; `cargo clippy -p db-pro-core --all-targets -- -D warnings` — PASS.
 - `cargo test -p db-pro-core application::schema_service::tests::get_table_ddl_sqlite_uses_inline_foreign_keys_and_unqualified_names -- --exact` — PASS: SQLite DDL reconstruction uses inline foreign keys and local object names.
 - `cargo test -p db-pro-core application::schema_service::tests --no-fail-fast` — PASS: 16 schema-service tests, including CHECK constraint reconstruction.
+- The same schema-service suite asserts schema-qualified PostgreSQL index names and local SQLite index names.
 - `cargo test -p db-pro-core execute_multi_routes_mutating_cte_through_transaction_while_preserving_rows` — PASS.
 - `cargo test -p db-pro-core execute_multi_routes_select_then_update` — PASS.
 - `cargo test -p db-pro-infrastructure backup::pg_dump::tests` — PASS: 2 tests,

@@ -93,6 +93,8 @@ without changing the native UI or adding product features.
     schema-qualified statements, so a SQLite table script cannot be executed.
 39. Table DDL reconstruction ignores introspected CHECK constraints, so a
     recreated table can lose data-validation invariants.
+40. Reconstructed PostgreSQL indexes omit the source schema from the index
+    name, so creation depends on the session `search_path`.
 
 ## Acceptance criteria
 
@@ -156,5 +158,7 @@ without changing the native UI or adding product features.
   qualification syntax while preserving the existing PostgreSQL form.
 - Table DDL reconstruction preserves introspected CHECK constraints for both
   PostgreSQL and SQLite.
+- PostgreSQL table DDL qualifies reconstructed index names with their source
+  schema; SQLite keeps local index names unqualified.
 - PostgreSQL and SQLite unit/integration coverage is updated independently where the
   behavior differs.

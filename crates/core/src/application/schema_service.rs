@@ -354,10 +354,10 @@ fn append_index_ddl(ddl: &mut String, info: &TableInfo, driver: DriverType) {
     let index_target = qualify_name_for_driver(driver, &info.table.schema, &info.table.name);
     for index in &info.indexes {
         let unique = if index.unique { "UNIQUE " } else { "" };
+        let index_name = qualify_name_for_driver(driver, &index.schema, &index.name);
         let cols = quote_columns(&index.columns.iter().map(String::as_str).collect::<Vec<_>>());
         ddl.push_str(&format!(
-            "CREATE {unique}INDEX {} ON {index_target} ({cols});\n",
-            quote_identifier(&index.name)
+            "CREATE {unique}INDEX {index_name} ON {index_target} ({cols});\n"
         ));
     }
 }
@@ -726,7 +726,7 @@ mod tests {
         assert!(ddl.contains("CREATE TABLE \"public\".\"users\""));
         assert!(ddl.contains("\"id\" INTEGER NOT NULL"));
         assert!(ddl.contains("PRIMARY KEY (\"id\")"));
-        assert!(ddl.contains("CREATE UNIQUE INDEX \"idx_email\""));
+        assert!(ddl.contains("CREATE UNIQUE INDEX \"public\".\"idx_email\" ON \"public\".\"users\""));
         assert!(ddl.contains("CREATE TRIGGER"));
         assert!(ddl.contains("audit_insert"));
         assert!(ddl.contains("AFTER INSERT"));

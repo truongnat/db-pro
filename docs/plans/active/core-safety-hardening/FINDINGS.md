@@ -463,3 +463,16 @@ original validation rules, allowing rows that the source database rejected.
 
 Decision: select constraints belonging to the requested table and emit them as
 named inline `CONSTRAINT ... CHECK ...` definitions in the reconstructed table.
+
+## P1 — Reconstructed PostgreSQL indexes depend on `search_path`
+
+The generated index statement qualified the table but left the index name
+unqualified. PostgreSQL therefore creates the index in the active session's
+schema/search path instead of necessarily preserving the source index schema.
+
+Impact: replaying DDL for a table in a non-default schema can create the index
+in the wrong namespace or fail on a name collision, leaving the reconstructed
+schema inconsistent.
+
+Decision: qualify PostgreSQL index names with the introspected index schema;
+SQLite continues to use local unqualified names required by its syntax.
