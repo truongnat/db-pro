@@ -6,7 +6,7 @@
 - `git diff --check` — PASS.
 - `cargo check --workspace` — PASS.
 - `cargo clippy --workspace --all-targets -- -D warnings` — PASS.
-- `cargo test -p db-pro-core -p db-pro-infrastructure` — PASS: 199 core unit
+- `cargo test -p db-pro-core -p db-pro-infrastructure` — PASS: 201 core unit
   tests, 44 infrastructure unit tests, 26 SQLite integration tests, 10 PostgreSQL
   integration tests ignored.
 - `cargo test -p db-pro-core backup_factory_receives_ssh_configuration` — PASS.
@@ -17,14 +17,19 @@
   covered in the implementation and remains live-provider pending.
 - `cargo test -p db-pro-infrastructure postgres::user_manager::tests` — PASS: 3
   identifier/privilege validation tests.
-- `cargo test -p db-pro-core application::connection_service::tests` — PASS: 21
-  connection lifecycle/update/delete/connectivity tests.
+- `cargo test -p db-pro-core application::connection_service::tests` — PASS: 22
+  connection lifecycle/update/delete/connectivity/duplicate-cleanup tests.
+- `cargo test -p db-pro-core domain::safety::tests` — PASS: 25 safety classifier
+  and policy tests.
 - External PostgreSQL command timeout regression — PASS on Unix via
   `external_command_timeout_returns_query_timeout`.
 - `cargo test --workspace` — PASS: all executed workspace tests passed; 10
   PostgreSQL integration tests remain ignored.
 - Targeted regression `sqlite_query_timeout_interrupts_vm_and_actor_recovers` — PASS.
 - `cargo build --release --locked -p db-pro-core -p db-pro-infrastructure` — PASS.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh --diff` — PASS: 9 pass,
+  7 heuristic warning groups, 0 blocking failures. Remaining warnings are existing
+  long modules, ignored SQLite actor send results, and unrelated native/UI helpers.
 - `cargo check --workspace` after SSH readiness changes — PASS.
 - Full current gate — PASS: `cargo fmt --all -- --check`, `cargo clippy --workspace
   --all-targets -- -D warnings`, `cargo test --workspace`, release build for

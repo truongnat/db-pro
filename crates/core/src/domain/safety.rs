@@ -117,9 +117,100 @@ fn classify_explain_safety(sql: &str) -> Option<StatementSafety> {
 
 /// Check whether a DELETE statement lacks a WHERE clause.
 fn is_delete_without_where(sql: &str) -> bool {
-    let upper = sql.to_ascii_uppercase();
-    // Simple heuristic: if "WHERE" doesn't appear after "DELETE"
-    !upper.contains("WHERE")
+    !contains_sql_keyword(sql, "WHERE")
+}
+
+/// Find a keyword while ignoring quoted strings, quoted identifiers, and SQL
+/// comments. This is intentionally not a full SQL parser; it prevents a
+/// keyword-like substring from changing the destructive-operation decision.
+fn contains_sql_keyword(sql: &str, expected: &str) -> bool {
+    let bytes = sql.as_bytes();
+    let mut index = 0;
+    while index < bytes.len() {
+        index = match bytes[index] {
+            b'\'' => skip_quoted(bytes, index, b'\''),
+            b'"' => skip_quoted(bytes, index, b'"'),
+            b'-' if bytes.get(index + 1) == Some(&b'-') => skip_line_comment(bytes, index),
+            b'/' if bytes.get(index + 1) == Some(&b'*') => skip_block_comment(bytes, index),
+            b'$' => skip_dollar_quote(bytes, index).unwrap_or(index + 1),
+            current if is_identifier_start(current) => {
+                let end = scan_identifier(bytes, index);
+                if bytes[index..end].eq_ignore_ascii_case(expected.as_bytes()) {
+                    return true;
+                }
+                end
+            }
+            _ => index + 1,
+        }
+    }
+
+    false
+}
+
+fn is_identifier_start(byte: u8) -> bool {
+    byte.is_ascii_alphabetic() || byte == b'_'
+}
+
+fn is_identifier_continue(byte: u8) -> bool {
+    byte.is_ascii_alphanumeric() || byte == b'_' || byte == b'$'
+}
+
+fn scan_identifier(bytes: &[u8], start: usize) -> usize {
+    let mut end = start + 1;
+    while end < bytes.len() && is_identifier_continue(bytes[end]) {
+        end += 1;
+    }
+    end
+}
+
+fn skip_quoted(bytes: &[u8], start: usize, quote: u8) -> usize {
+    let mut index = start + 1;
+    while index < bytes.len() {
+        if bytes[index] == quote {
+            if bytes.get(index + 1) == Some(&quote) {
+                index += 2;
+            } else {
+                return index + 1;
+            }
+        } else {
+            index += 1;
+        }
+    }
+    bytes.len()
+}
+
+fn skip_line_comment(bytes: &[u8], start: usize) -> usize {
+    bytes[start + 2..]
+        .iter()
+        .position(|byte| *byte == b'\n')
+        .map_or(bytes.len(), |offset| start + 2 + offset + 1)
+}
+
+fn skip_block_comment(bytes: &[u8], start: usize) -> usize {
+    bytes[start + 2..]
+        .windows(2)
+        .position(|window| window == b"*/")
+        .map_or(bytes.len(), |offset| start + 2 + offset + 2)
+}
+
+fn skip_dollar_quote(bytes: &[u8], start: usize) -> Option<usize> {
+    let delimiter_end = bytes[start + 1..]
+        .iter()
+        .position(|byte| *byte == b'$')
+        .map(|offset| start + 1 + offset)?;
+    let tag = &bytes[start + 1..delimiter_end];
+    if !tag.is_empty() && (!is_identifier_start(tag[0]) || !tag[1..].iter().all(|byte| is_identifier_continue(*byte))) {
+        return None;
+    }
+
+    let delimiter = &bytes[start..=delimiter_end];
+    let content_start = delimiter_end + 1;
+    bytes[content_start..]
+        .windows(delimiter.len())
+        .position(|window| window == delimiter)
+        .map_or(Some(bytes.len()), |offset| {
+            Some(content_start + offset + delimiter.len())
+        })
 }
 
 /// For WITH (CTE) statements, find the main keyword after the CTE definitions.
@@ -303,6 +394,22 @@ mod tests {
     fn classify_delete_without_where_is_destructive() {
         assert_eq!(
             classify_statement_safety("DELETE FROM t"),
+            Some(StatementSafety::Destructive)
+        );
+    }
+
+    #[test]
+    fn delete_identifier_containing_where_is_still_destructive() {
+        assert_eq!(
+            classify_statement_safety(r#"DELETE FROM \"somewhere\""#),
+            Some(StatementSafety::Destructive)
+        );
+        assert_eq!(
+            classify_statement_safety("DELETE FROM t -- WHERE id = 1"),
+            Some(StatementSafety::Destructive)
+        );
+        assert_eq!(
+            classify_statement_safety("DELETE FROM t RETURNING $tag$ WHERE $tag$"),
             Some(StatementSafety::Destructive)
         );
     }

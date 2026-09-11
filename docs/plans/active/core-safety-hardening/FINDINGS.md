@@ -169,3 +169,24 @@ produced invalid provider SQL or an opaque database error.
 
 Decision: validate both pagination values with a checked conversion and return a
 domain validation error before building SQL.
+
+## P1 — Destructive DELETE detection accepts keyword substrings
+
+`is_delete_without_where` used a raw `contains("WHERE")` check. A table named
+`somewhere`, a quoted identifier, or a comment containing `WHERE` could therefore
+make a DELETE without a predicate appear non-destructive and bypass a policy with
+`allow_destructive = false`.
+
+Decision: scan SQL tokens while ignoring quoted strings, quoted identifiers, and
+comments, then match `WHERE` as a complete keyword.
+
+## P1 — Duplicate connect cleanup can lose an opened handle
+
+`ConnectionService::connect` atomically kept the first registry handle, but when a
+second concurrent connect won a provider handle and its cleanup disconnect failed,
+the second handle was dropped without an owner. The active connection remained
+usable, while the duplicate provider resource could leak permanently.
+
+Decision: retain failed duplicate handles in a per-connection pending-cleanup queue
+and retry them during `disconnect`, including when the primary registry handle is
+already absent.

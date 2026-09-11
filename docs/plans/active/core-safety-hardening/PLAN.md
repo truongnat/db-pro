@@ -41,6 +41,15 @@ without changing the native UI or adding product features.
 12. Connection updates change runtime and secret state in a non-compensating order,
     which can lose an active session or leave a password/secret reference out of
     sync when persistence fails.
+13. PostgreSQL transaction timeout can return before SQLx has completed rollback.
+14. Connection deletion can remove the secret before repository deletion succeeds.
+15. Test Connection resolves the default secret key instead of a persisted custom
+    `secret_ref`.
+16. Pagination values can overflow when converted to provider integer parameters.
+17. Destructive DELETE detection treats `WHERE` inside identifiers/comments as a
+    real clause.
+18. Concurrent duplicate connects can lose the newly opened handle when its first
+    cleanup attempt fails.
 
 ## Acceptance criteria
 

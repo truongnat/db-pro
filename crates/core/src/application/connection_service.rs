@@ -1,4 +1,5 @@
-use std::sync::Arc;
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 
 use crate::domain::connection::{Connection, ConnectionConfig, ConnectionHandle, ConnectionId};
 use crate::domain::error::DbError;
@@ -11,6 +12,7 @@ pub struct ConnectionService {
     repo: Box<dyn ConnectionRepository>,
     secrets: Box<dyn SecretStore>,
     registry: Arc<ConnectionRegistry>,
+    pending_disconnects: Mutex<HashMap<ConnectionId, Vec<ConnectionHandle>>>,
 }
 
 impl ConnectionService {
@@ -25,6 +27,7 @@ impl ConnectionService {
             repo,
             secrets,
             registry,
+            pending_disconnects: Mutex::new(HashMap::new()),
         }
     }
 
@@ -138,7 +141,7 @@ impl ConnectionService {
     }
 
     pub async fn delete(&self, id: &ConnectionId) -> Result<(), DbError> {
-        if self.registry.is_active(id) {
+        if self.registry.is_active(id) || self.has_pending_disconnects(id).await {
             self.disconnect(id).await?;
         }
 
@@ -194,21 +197,69 @@ impl ConnectionService {
         match self.registry.register_or_get(*id, handle) {
             RegisterResult::Inserted => Ok(handle),
             RegisterResult::Existing(existing) => {
-                self.connector.disconnect(&handle).await?;
+                if let Err(error) = self.connector.disconnect(&handle).await {
+                    self.pending_disconnects
+                        .lock()
+                        .unwrap_or_else(|error| error.into_inner())
+                        .entry(*id)
+                        .or_default()
+                        .push(handle);
+                    return Err(error);
+                }
                 Ok(existing)
             }
         }
     }
 
     pub async fn disconnect(&self, id: &ConnectionId) -> Result<(), DbError> {
-        let handle = self
-            .registry
-            .get(id)
-            .ok_or_else(|| DbError::NotFound(format!("connection {id} is not active")))?;
+        let handle = self.registry.get(id);
+        let has_pending = self.has_pending_disconnects(id).await;
+        if handle.is_none() && !has_pending {
+            return Err(DbError::NotFound(format!("connection {id} is not active")));
+        }
 
-        self.connector.disconnect(&handle).await?;
-        self.registry.unregister(id);
-        Ok(())
+        if let Some(handle) = handle {
+            self.connector.disconnect(&handle).await?;
+            self.registry.unregister(id);
+        }
+
+        self.disconnect_pending_handles(id).await
+    }
+
+    async fn has_pending_disconnects(&self, id: &ConnectionId) -> bool {
+        self.pending_disconnects
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .contains_key(id)
+    }
+
+    async fn disconnect_pending_handles(&self, id: &ConnectionId) -> Result<(), DbError> {
+        let handles = self
+            .pending_disconnects
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .remove(id)
+            .unwrap_or_default();
+        let mut remaining = Vec::new();
+        let mut first_error = None;
+
+        for handle in handles {
+            if let Err(error) = self.connector.disconnect(&handle).await {
+                first_error.get_or_insert(error);
+                remaining.push(handle);
+            }
+        }
+
+        if !remaining.is_empty() {
+            self.pending_disconnects
+                .lock()
+                .unwrap_or_else(|error| error.into_inner())
+                .entry(*id)
+                .or_default()
+                .extend(remaining);
+        }
+
+        first_error.map_or(Ok(()), Err)
     }
 
     pub async fn test_connectivity(&self, config: &ConnectionConfig, password: &str) -> Result<(), DbError> {
@@ -398,6 +449,61 @@ mod tests {
         let result = svc.connect(&id).await;
         assert!(result.is_err());
         assert_eq!(registry.get(&id), Some(ConnectionHandle(99)));
+    }
+
+    #[tokio::test]
+    async fn duplicate_connect_cleanup_handle_can_be_retried() {
+        let id = ConnectionId::new();
+        let conn = Connection::new(test_config()).with_secret_ref("key".into());
+        let registry = Arc::new(ConnectionRegistry::new());
+
+        let mut repo = MockConnectionRepository::new();
+        repo.expect_get().returning(move |_| Ok(Some(conn.clone())));
+
+        let mut secrets = MockSecretStore::new();
+        secrets
+            .expect_retrieve_secret()
+            .returning(|_| Ok(Some("password".into())));
+
+        let reg_for_mock = Arc::clone(&registry);
+        let mut connector = MockDbConnector::new();
+        connector.expect_connect().returning(move |_, _| {
+            reg_for_mock.register(id, ConnectionHandle(99));
+            Ok(ConnectionHandle(2))
+        });
+        let disconnect_calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        connector.expect_disconnect().times(2).returning({
+            let disconnect_calls = Arc::clone(&disconnect_calls);
+            move |handle| match disconnect_calls.fetch_add(1, std::sync::atomic::Ordering::SeqCst) {
+                0 => {
+                    assert_eq!(*handle, ConnectionHandle(2));
+                    Err(DbError::Internal("temporary disconnect failure".into()))
+                }
+                1 => {
+                    assert_eq!(*handle, ConnectionHandle(2));
+                    Ok(())
+                }
+                _ => unreachable!("disconnect called more than expected"),
+            }
+        });
+
+        let svc = ConnectionService::new(
+            Box::new(connector),
+            Box::new(repo),
+            Box::new(secrets),
+            Arc::clone(&registry),
+        );
+
+        let error = svc
+            .connect(&id)
+            .await
+            .expect_err("duplicate cleanup should report failure");
+        assert!(matches!(error, DbError::Internal(message) if message == "temporary disconnect failure"));
+
+        // The active registry entry is intentionally absent in this isolated mock;
+        // disconnect still retries the orphaned duplicate handle.
+        registry.unregister(&id);
+        svc.disconnect(&id).await.expect("orphaned handle should be retried");
     }
 
     #[tokio::test]

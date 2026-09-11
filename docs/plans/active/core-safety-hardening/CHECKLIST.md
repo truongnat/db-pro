@@ -26,6 +26,10 @@
 - [x] Add custom-secret-reference connectivity regression coverage.
 - [x] Reject pagination values that overflow provider integer parameters.
 - [x] Add pagination overflow regression coverage.
+- [x] Match DELETE WHERE as a token outside literals, identifiers, and comments.
+- [x] Add destructive DELETE classifier regression coverage.
+- [x] Retain duplicate-connect handles when cleanup disconnect fails.
+- [x] Add duplicate-connect cleanup retry regression coverage.
 - [x] Run formatting, check, clippy, targeted tests, and workspace tests.
 - [x] Self-review changed files and confirm no UI/native files changed.
 - [ ] Record PostgreSQL live evidence as pending unless an actual provider is exercised.
