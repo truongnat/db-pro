@@ -626,120 +626,12 @@ impl DbProApp {
     }
 
     fn sql_layouter(ui: &egui::Ui, text: &str, wrap_width: f32, theme: DbProTheme) -> Arc<egui::Galley> {
-        let keywords = [
-            "select",
-            "from",
-            "where",
-            "and",
-            "or",
-            "join",
-            "left",
-            "right",
-            "inner",
-            "group",
-            "by",
-            "order",
-            "limit",
-            "offset",
-            "insert",
-            "into",
-            "values",
-            "update",
-            "set",
-            "delete",
-            "create",
-            "table",
-            "alter",
-            "drop",
-            "as",
-            "on",
-            "is",
-            "null",
-            "not",
-            "returning",
-            "with",
-            "explain",
-        ];
-        let mut job = LayoutJob::default();
-        job.wrap.max_width = wrap_width;
-        let mut current = String::new();
-        let mut in_string = false;
-        let mut in_comment = false;
-        let flush = |job: &mut LayoutJob, value: &mut String, color: Color32| {
-            if !value.is_empty() {
-                job.append(
-                    value,
-                    0.0,
-                    TextFormat {
-                        font_id: FontId::monospace(14.0),
-                        color,
-                        ..Default::default()
-                    },
-                );
-                value.clear();
-            }
-        };
         let chars: Vec<char> = text.chars().collect();
-        let mut index = 0;
-        while index < chars.len() {
-            let ch = chars[index];
-            if !in_string && !in_comment && ch == '-' && chars.get(index + 1) == Some(&'-') {
-                flush(&mut job, &mut current, theme.text_secondary);
-                in_comment = true;
-                current.push(ch);
-            } else if in_comment {
-                current.push(ch);
-                if ch == '\n' {
-                    flush(&mut job, &mut current, theme.code_comment);
-                    in_comment = false;
-                }
-            } else if ch == '\'' {
-                current.push(ch);
-                if in_string {
-                    flush(&mut job, &mut current, theme.code_string);
-                    in_string = false;
-                } else {
-                    flush(&mut job, &mut current, theme.code_string);
-                    in_string = true;
-                }
-            } else if in_string || ch.is_alphanumeric() || ch == '_' {
-                current.push(ch);
-            } else {
-                let word = current.to_lowercase();
-                let color = if keywords.contains(&word.as_str()) {
-                    theme.code_keyword
-                } else if current.chars().all(|value| value.is_ascii_digit()) && !current.is_empty() {
-                    theme.code_number
-                } else {
-                    theme.text_primary
-                };
-                flush(&mut job, &mut current, color);
-                job.append(
-                    &ch.to_string(),
-                    0.0,
-                    TextFormat {
-                        font_id: FontId::monospace(14.0),
-                        color: theme.text_primary,
-                        ..Default::default()
-                    },
-                );
-            }
-            index += 1;
+        let mut highlighter = SqlHighlighter::new(wrap_width, theme);
+        for (index, ch) in chars.iter().enumerate() {
+            highlighter.push(*ch, chars.get(index + 1).copied());
         }
-        if in_string {
-            flush(&mut job, &mut current, theme.code_string);
-        } else if in_comment {
-            flush(&mut job, &mut current, theme.code_comment);
-        } else {
-            let word = current.to_lowercase();
-            let color = if keywords.contains(&word.as_str()) {
-                theme.code_keyword
-            } else {
-                theme.text_primary
-            };
-            flush(&mut job, &mut current, color);
-        }
-        ui.fonts(|fonts| fonts.layout_job(job))
+        highlighter.finish(ui)
     }
 
     pub(crate) fn format_sql(sql: &str) -> String {
@@ -841,5 +733,140 @@ impl DbProApp {
             self.query_text.push_str("\n\n");
         }
         self.query_text.push_str(snippet);
+    }
+}
+
+/// Keywords highlighted in the SQL editor.
+const SQL_KEYWORDS: [&str; 32] = [
+    "select",
+    "from",
+    "where",
+    "and",
+    "or",
+    "join",
+    "left",
+    "right",
+    "inner",
+    "group",
+    "by",
+    "order",
+    "limit",
+    "offset",
+    "insert",
+    "into",
+    "values",
+    "update",
+    "set",
+    "delete",
+    "create",
+    "table",
+    "alter",
+    "drop",
+    "as",
+    "on",
+    "is",
+    "null",
+    "not",
+    "returning",
+    "with",
+    "explain",
+];
+
+/// Monospace text format used for every highlighted token.
+fn token_format(color: Color32) -> TextFormat {
+    TextFormat {
+        font_id: FontId::monospace(14.0),
+        color,
+        ..Default::default()
+    }
+}
+
+/// Incremental tokenizer that turns SQL text into a syntax-highlighted layout job.
+struct SqlHighlighter {
+    job: LayoutJob,
+    current: String,
+    in_string: bool,
+    in_comment: bool,
+    theme: DbProTheme,
+}
+
+impl SqlHighlighter {
+    fn new(wrap_width: f32, theme: DbProTheme) -> Self {
+        let mut job = LayoutJob::default();
+        job.wrap.max_width = wrap_width;
+        Self {
+            job,
+            current: String::new(),
+            in_string: false,
+            in_comment: false,
+            theme,
+        }
+    }
+
+    /// Appends the buffered token with `color`, then clears the buffer.
+    fn flush(&mut self, color: Color32) {
+        if self.current.is_empty() {
+            return;
+        }
+        self.job.append(&self.current, 0.0, token_format(color));
+        self.current.clear();
+    }
+
+    /// Keyword colour when the buffered word is a keyword, otherwise `fallback`.
+    fn keyword_color(&self, fallback: Color32) -> Color32 {
+        let word = self.current.to_lowercase();
+        if SQL_KEYWORDS.contains(&word.as_str()) {
+            self.theme.code_keyword
+        } else {
+            fallback
+        }
+    }
+
+    /// Colour for a completed bare word: number, keyword, or plain text.
+    fn word_color(&self) -> Color32 {
+        if !self.current.is_empty() && self.current.chars().all(|value| value.is_ascii_digit()) {
+            self.theme.code_number
+        } else {
+            self.keyword_color(self.theme.text_primary)
+        }
+    }
+
+    /// Consumes one input character, advancing the string / comment / word state.
+    fn push(&mut self, ch: char, next: Option<char>) {
+        if !self.in_string && !self.in_comment && ch == '-' && next == Some('-') {
+            self.flush(self.theme.text_secondary);
+            self.in_comment = true;
+            self.current.push(ch);
+        } else if self.in_comment {
+            self.current.push(ch);
+            if ch == '\n' {
+                self.flush(self.theme.code_comment);
+                self.in_comment = false;
+            }
+        } else if ch == '\'' {
+            self.current.push(ch);
+            self.flush(self.theme.code_string);
+            self.in_string = !self.in_string;
+        } else if self.in_string || ch.is_alphanumeric() || ch == '_' {
+            self.current.push(ch);
+        } else {
+            let color = self.word_color();
+            self.flush(color);
+            self.job
+                .append(&ch.to_string(), 0.0, token_format(self.theme.text_primary));
+        }
+    }
+
+    /// Flushes the trailing token and lays the job out.
+    fn finish(mut self, ui: &egui::Ui) -> Arc<egui::Galley> {
+        let color = if self.in_string {
+            self.theme.code_string
+        } else if self.in_comment {
+            self.theme.code_comment
+        } else {
+            self.keyword_color(self.theme.text_primary)
+        };
+        self.flush(color);
+        ui.fonts(|fonts| fonts.layout_job(self.job))
     }
 }
