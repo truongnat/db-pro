@@ -6,7 +6,7 @@
 - `git diff --check` — PASS.
 - `cargo check --workspace` — PASS.
 - `cargo clippy --workspace --all-targets -- -D warnings` — PASS.
-- `cargo test -p db-pro-core -p db-pro-infrastructure` — PASS: 202 core unit
+- `cargo test -p db-pro-core -p db-pro-infrastructure` — PASS: 203 core unit
   tests, 44 infrastructure unit tests, 27 SQLite integration tests, 10 PostgreSQL
   integration tests ignored.
 - `cargo test -p db-pro-core backup_factory_receives_ssh_configuration` — PASS.
@@ -23,9 +23,11 @@
   and policy tests.
 - `cargo test -p db-pro-core application::export_service::tests` — PASS: 6 export
   serialization, validation, and read-only policy tests.
+- `cargo test -p db-pro-core execute_multi_routes_mutating_cte_through_transaction_while_preserving_rows` — PASS.
+- `cargo test -p db-pro-core execute_multi_routes_select_then_update` — PASS.
 - External PostgreSQL command timeout regression — PASS on Unix via
   `external_command_timeout_returns_query_timeout`.
-- `cargo test --workspace` — PASS: 202 core unit, 44 infrastructure unit, 27
+- `cargo test --workspace` — PASS: 203 core unit, 44 infrastructure unit, 27
   SQLite integration, 10 PostgreSQL integration tests ignored, plus all runtime,
   native, UI, schema regression, and doc tests passed.
 - Targeted regression `sqlite_query_timeout_interrupts_vm_and_actor_recovers` — PASS.
@@ -39,6 +41,10 @@
 - Full current gate — PASS: `cargo fmt --all -- --check`, `cargo clippy --workspace
   --all-targets -- -D warnings`, `cargo test --workspace`, release build for
   `db-pro-core` and `db-pro-infrastructure`, and `git diff --check`.
+
+The multi-statement regression proves that a row-producing data-modifying CTE is
+sent through `execute_transaction` with query-result routing preserved. The live
+rollback effect remains provider evidence pending.
 
 Source-only security check:
 

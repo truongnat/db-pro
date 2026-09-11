@@ -52,6 +52,9 @@ without changing the native UI or adding product features.
     cleanup attempt fails.
 19. SQLite transaction timeout returns before the actor has completed rollback.
 20. Export queries bypass the persisted read-only safety policy.
+21. Multi-statement data-modifying CTEs and `EXPLAIN ANALYZE` can be routed outside
+    the atomic transaction path because result classification is reused as the
+    mutation detector.
 
 ## Acceptance criteria
 
@@ -74,5 +77,8 @@ without changing the native UI or adding product features.
   supported table-privilege vocabulary.
 - Connection updates persist configuration and secret changes with compensation;
   active sessions are disconnected only after persistence succeeds.
+- Multi-statement scripts containing any mutation, including row-producing
+  data-modifying CTEs and `EXPLAIN ANALYZE` mutations, use the atomic transaction
+  path while preserving query-result routing.
 - PostgreSQL and SQLite unit/integration coverage is updated independently where the
   behavior differs.

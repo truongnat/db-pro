@@ -5,7 +5,9 @@ use crate::domain::error::DbError;
 use crate::domain::history::{QueryHistory, SavedQuery, SavedQueryFolder};
 use crate::domain::query::{QueryParam, QueryResult};
 use crate::domain::run_config::RunConfig;
-use crate::domain::safety::{validate_against_policy, ConnectionSafetyPolicy};
+use crate::domain::safety::{
+    classify_statement_safety, validate_against_policy, ConnectionSafetyPolicy, StatementSafety,
+};
 use crate::ports::{
     ConnectionRepository, DbConnector, QueryHistoryRepository, RunConfigRepository, SavedQueryRepository,
     TransactionStatementResult,
@@ -126,12 +128,18 @@ impl QueryService {
         let start = std::time::Instant::now();
         let mut results = Vec::with_capacity(statements.len());
 
-        let read_statements: Vec<bool> = statements
+        // Keep query-result routing separate from transaction safety. A data-modifying
+        // CTE can still return rows, so it must be executed as a query while forcing
+        // the whole multi-statement script through the atomic transaction path.
+        let query_statements: Vec<bool> = statements
             .iter()
             .map(|statement| matches!(classify_statement(statement), StatementClass::Read))
             .collect();
+        let has_mutation = statements
+            .iter()
+            .any(|statement| !matches!(classify_statement_safety(statement), Some(StatementSafety::Read)));
 
-        if statements.len() > 1 && read_statements.iter().any(|is_read| !is_read) {
+        if statements.len() > 1 && has_mutation {
             for (idx, stmt) in statements.iter().enumerate() {
                 if let Err(msg) = validate_against_policy(stmt, &policy) {
                     return Ok(MultiQueryResult {
@@ -144,7 +152,7 @@ impl QueryService {
 
             match self
                 .connector
-                .execute_transaction(&handle, &statements, &read_statements)
+                .execute_transaction(&handle, &statements, &query_statements)
                 .await
             {
                 Ok(transaction_results) => {
@@ -809,6 +817,57 @@ mod tests {
         assert_eq!(result.results.len(), 2);
         assert_eq!(result.results[0].row_count, 1);
         assert_eq!(result.results[1].row_count, 3);
+    }
+
+    #[tokio::test]
+    async fn execute_multi_routes_mutating_cte_through_transaction_while_preserving_rows() {
+        let conn_id = ConnectionId::new();
+        let registry = Arc::new(ConnectionRegistry::new());
+        registry.register(conn_id, ConnectionHandle(1));
+
+        let mut connector = MockDbConnector::new();
+        connector
+            .expect_execute_transaction()
+            .returning(|_, statements, query_statements| {
+                assert_eq!(
+                    statements,
+                    &[
+                        "WITH deleted AS (DELETE FROM users WHERE id = 1 RETURNING *) SELECT * FROM deleted",
+                        "SELECT 1"
+                    ]
+                );
+                // The data-modifying CTE returns rows, but still makes the script transactional.
+                assert_eq!(query_statements, &[true, true]);
+                Ok(vec![
+                    TransactionStatementResult::Query(test_result()),
+                    TransactionStatementResult::Query(test_result()),
+                ])
+            });
+
+        let mut history = MockQueryHistoryRepository::new();
+        history.expect_save().returning(|_, _, _, _, _| Ok(()));
+
+        let svc = QueryService::new(
+            Box::new(connector),
+            Box::new(history),
+            Box::new(MockSavedQueryRepository::new()),
+            Box::new(MockRunConfigRepository::new()),
+            Arc::clone(&registry),
+            Box::new(mock_connections_full_access()),
+        );
+
+        let result = svc
+            .execute_multi(
+                &conn_id,
+                "WITH deleted AS (DELETE FROM users WHERE id = 1 RETURNING *) SELECT * FROM deleted; SELECT 1",
+                None,
+                None,
+            )
+            .await
+            .unwrap();
+
+        assert!(result.error.is_none());
+        assert_eq!(result.results.len(), 2);
     }
 
     #[tokio::test]

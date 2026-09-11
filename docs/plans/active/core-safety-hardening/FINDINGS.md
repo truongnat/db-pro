@@ -211,3 +211,17 @@ JSON, or Excel export.
 
 Decision: resolve the connection policy before export and validate the SQL through
 the same core safety classifier used by query and Explain paths.
+
+## P1 — Multi-statement mutation can bypass the transaction path
+
+`QueryService::execute_multi` used the result-routing classifier to decide whether
+the script contained a write. PostgreSQL data-modifying CTEs and `EXPLAIN ANALYZE`
+can return rows while also mutating data, so they were marked as read and a script
+such as `WITH deleted AS (...) SELECT ...; SELECT ...` ran statement-by-statement
+instead of through `DbConnector::execute_transaction`.
+
+Impact: a later statement failure could leave an earlier mutation committed, and
+the core atomic multi-statement contract was not upheld for these SQL forms.
+
+Decision: use the safety classifier for transaction selection while retaining the
+result-routing classifier only to preserve query rows from row-producing mutations.
