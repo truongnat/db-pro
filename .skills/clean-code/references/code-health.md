@@ -41,6 +41,43 @@ cần refactor → viết characterization test trước.
 | Speculative Generality | Inline Class; Remove Parameter; Collapse Hierarchy |
 | Dead code | Xoá (Git nhớ) |
 
+### Tách một hàm Rust > 100 dòng — quy trình an toàn
+
+`crates/ui` là boundary egui: hầu hết hàm dài là `draw_*` lồng nhiều closure. Kinh nghiệm từ đợt
+đóng gate FOLLOW-UP #3 (20 hàm > 100 dòng → 0, `explorer_view.rs` 1.471 → 582 dòng):
+
+1. **Đọc theo khối ≤ 150 dòng**, không đọc cả file — file lớn làm loãng ngữ cảnh và dễ sửa nhầm.
+2. **Viết khối thay thế ra `/tmp/*.rs`** rồi splice bằng Python có `assert` kiểm tra biên (dòng đầu
+   đúng chữ ký hàm, dòng cuối đúng `}`), thay từ **dưới lên trên** để số dòng phía trên không đổi.
+   Dùng `Edit` cho hàm 100+ dòng rất dễ lệch một ký tự rồi fail match.
+3. **Giữ nguyên hành vi tuyệt đối.** Ví dụ: `sql_layouter` tô màu số ở giữa chuỗi nhưng **không** tô
+   màu số ở cuối input — bản tách phải giữ đúng sự bất đối xứng đó, không "sửa luôn cho đẹp".
+4. **Vòng lặp kiểm chứng sau mỗi file**: `cargo fmt --all` → `cargo clippy -p <crate> --all-targets -- -D warnings`
+   → `cargo test -p <crate> --offline` → commit riêng cho từng file.
+5. **Gom tham số thành struct** khi clippy báo `too_many_arguments` hoặc scan báo > 3 tham số — repo
+   đã dùng `CategoryFolder`, `GridCell`, `GridRows`, `TableDataPaging`, `ClosableTab`.
+6. **Xoá trùng lặp thật, đừng chỉ di chuyển code.** Giá trị nằm ở chỗ 8 hint-row giống nhau → 1
+   `draw_hint_row`; 6 category folder → 1 `draw_category_folder`; 26 chỗ `let _ = task_bridge.send`
+   → 1 `DbProApp::dispatch_command` có doc-comment nêu lý do.
+
+Với `let _ = <fallible>`: đừng copy-paste cùng một comment 26 lần. Tạo **một** helper có doc-comment
+giải thích lý do, rồi thay mọi call-site bằng helper đó — scan vẫn xanh vì dòng `let _` duy nhất nằm
+ngay dưới comment lý do.
+
+### Heuristic của `clean-code-scan.sh` — điều cần biết
+
+- `--diff` mới biến ngưỡng kích thước thành `✗`; quét toàn repo chỉ báo `⚠` (đó là nợ hiện có).
+- Hàm khởi tạo chỉ liệt kê field trong struct literal (`Self { .. }`, không rẽ nhánh) được gắn
+  `[data-literal]` — cảnh báo, không chặn, vì Rust không cho lấy derived `Default` khi đã tự viết
+  `impl Default`.
+- `#[cfg(test)]` chỉ bật chế độ bỏ qua phần còn lại của file khi nó gắn vào một `mod`. (Trước đây
+  gắn vào `use` cũng bật, khiến `fn main` của `crates/native-app` bị che khỏi gate.)
+- `let _ = <fallible>` chỉ được coi là "có lý do" khi **dòng ngay trên** là comment `//` hoặc `///`.
+- Regex truyền cho `awk` phải đi qua `ENVIRON`, **không** dùng `awk -v`: `-v` xử lý escape sequence
+  nên `\(` biến thành dấu mở group và `pub(super) fn` không bao giờ khớp.
+- `MAX_SHOW=15` giới hạn số dòng ví dụ in ra; khi cần xem đủ danh sách, tạm tăng biến này trong một
+  bản copy (đừng sửa file trong repo chỉ để debug).
+
 ## 2. Dọn dẹp trước khi push
 
 ### Cấm trong production code
@@ -94,14 +131,11 @@ Thêm vào workflow khi team đồng thuận (không tự ý thêm trong PR feat
 - name: Clippy pedantic (warn only)
   run: cargo clippy --workspace --all-targets -- -W clippy::pedantic -W clippy::unwrap_used
   continue-on-error: true
-
-- name: Unused exports
-  run: cd frontend && npx knip --reporter compact
-  continue-on-error: true
 ```
 
 Tuỳ chọn nâng cao (ngoài phạm vi mặc định): SonarQube/SonarCloud cho cognitive complexity & duplication,
-`eslint-plugin-sonarjs`, `cargo-geiger` (unsafe), `cargo-machete` (unused deps).
+`cargo-geiger` (unsafe), `cargo-machete` (unused deps). Gate frontend (`knip`, eslint) đã bị gỡ cùng
+với frontend archive 2026-09-11.
 
 ## 5. Định nghĩa "Done" cho khía cạnh Clean Code
 
