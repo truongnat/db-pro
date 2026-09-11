@@ -1,5 +1,5 @@
 use crate::DbProTheme;
-use egui::{Color32, FontId, Pos2, Rect, Response, Rounding, Sense, Ui, Vec2};
+use egui::{Align2, Color32, FontFamily, FontId, Pos2, Rect, Response, Rounding, Sense, Ui, Vec2};
 use lucide_icons::Icon;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -21,12 +21,12 @@ impl TreeNodeKind {
             TreeNodeKind::Server => Icon::Server,
             TreeNodeKind::Database => Icon::Database,
             TreeNodeKind::Schema => Icon::Folder,
-            TreeNodeKind::Table => Icon::Table,
+            TreeNodeKind::Table => Icon::Table2,
             TreeNodeKind::View => Icon::Eye,
-            TreeNodeKind::Column => Icon::Columns,
+            TreeNodeKind::Column => Icon::Columns3,
             TreeNodeKind::PrimaryKey => Icon::Key,
             TreeNodeKind::ForeignKey => Icon::Link,
-            TreeNodeKind::Index => Icon::ListTree,
+            TreeNodeKind::Index => Icon::Zap,
         }
     }
 }
@@ -90,57 +90,67 @@ impl<'a> DatabaseTreeNode<'a> {
 
         let indent = self.depth as f32 * 14.0 + 8.0;
         let mut x = rect.left() + indent;
+        let center_y = rect.center().y;
 
-        // Chevron if expandable
-        let is_container = self.expanded.is_some();
+        // Chevron slot (14px)
+        let chevron_slot = 14.0;
         if let Some(ref exp) = self.expanded {
-            let chev_char = if **exp { "▾" } else { "▸" };
-            let chev_galley = ui.painter().layout_no_wrap(
-                chev_char.to_owned(),
-                FontId::proportional(11.0),
-                self.theme.text_secondary,
+            let chevron_icon = if **exp { Icon::ChevronDown } else { Icon::ChevronRight };
+            let chevron_color = if is_hovered || self.selected {
+                self.theme.text_secondary
+            } else {
+                self.theme.text_muted
+            };
+            ui.painter().text(
+                Pos2::new(x + 6.0, center_y),
+                Align2::CENTER_CENTER,
+                char::from(chevron_icon).to_string(),
+                FontId::new(10.5, FontFamily::Name("lucide".into())),
+                chevron_color,
             );
-            let chev_rect = Rect::from_min_size(Pos2::new(x, rect.center().y - 6.0), Vec2::new(12.0, 12.0));
-            ui.painter().galley(chev_rect.min, chev_galley, Color32::PLACEHOLDER);
-            x += 14.0;
+            x += chevron_slot;
         } else {
-            x += if is_container { 14.0 } else { 4.0 };
+            x += chevron_slot;
         }
 
-        // Icon
-        let icon_font = FontId::new(13.0, egui::FontFamily::Name("lucide".into()));
-        let icon_char = char::from(self.kind.icon()).to_string();
-        let icon_galley = ui.painter().layout_no_wrap(
-            icon_char,
-            icon_font,
-            if self.selected {
-                self.theme.accent
-            } else {
-                self.theme.text_secondary
-            },
+        // Node Icon (Lucide vector icon)
+        let icon_color = match self.kind {
+            TreeNodeKind::PrimaryKey => Color32::from_rgb(217, 119, 6),
+            TreeNodeKind::ForeignKey => Color32::from_rgb(37, 99, 235),
+            _ if self.selected => self.theme.accent,
+            _ => self.theme.text_secondary,
+        };
+        ui.painter().text(
+            Pos2::new(x + 7.0, center_y),
+            Align2::CENTER_CENTER,
+            char::from(self.kind.icon()).to_string(),
+            FontId::new(13.0, FontFamily::Name("lucide".into())),
+            icon_color,
         );
-        ui.painter()
-            .galley(Pos2::new(x, rect.center().y - 6.5), icon_galley, Color32::PLACEHOLDER);
-        x += 18.0;
+        x += 17.0;
 
         // Name
-        let name_font = FontId::proportional(12.5);
-        let name_galley = ui
-            .painter()
-            .layout_no_wrap(self.name.to_owned(), name_font, self.theme.text_primary);
-        ui.painter()
-            .galley(Pos2::new(x, rect.center().y - 6.5), name_galley, Color32::PLACEHOLDER);
+        let name_color = if self.selected {
+            self.theme.accent
+        } else {
+            self.theme.text_primary
+        };
+        ui.painter().text(
+            Pos2::new(x, center_y),
+            Align2::LEFT_CENTER,
+            self.name,
+            FontId::proportional(12.5),
+            name_color,
+        );
 
-        // Detail (e.g. data type or count)
+        // Detail (e.g. data type or count) on the right
         if let Some(detail_str) = self.detail {
-            let detail_font = FontId::monospace(11.0);
-            let detail_galley =
-                ui.painter()
-                    .layout_no_wrap(detail_str.to_owned(), detail_font, self.theme.text_tertiary);
-            ui.painter().galley(
-                Pos2::new(rect.right() - detail_galley.size().x - 10.0, rect.center().y - 6.0),
-                detail_galley,
-                Color32::PLACEHOLDER,
+            ui.painter().text(
+                Pos2::new(rect.right() - 10.0, center_y),
+                Align2::RIGHT_CENTER,
+                detail_str,
+                FontId::monospace(11.0),
+                self.theme.text_tertiary,
             );
         }
 
@@ -151,5 +161,43 @@ impl<'a> DatabaseTreeNode<'a> {
         }
 
         resp
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_tree_icons() {
+        let ctx = egui::Context::default();
+        DbProTheme::install_fonts(&ctx);
+
+        let _ = ctx.run(Default::default(), |ctx| {
+            let icon_font = FontId::new(13.0, egui::FontFamily::Name("lucide".into()));
+            for kind in [
+                TreeNodeKind::Server,
+                TreeNodeKind::Database,
+                TreeNodeKind::Schema,
+                TreeNodeKind::Table,
+                TreeNodeKind::View,
+                TreeNodeKind::Column,
+                TreeNodeKind::PrimaryKey,
+                TreeNodeKind::ForeignKey,
+                TreeNodeKind::Index,
+            ] {
+                let ch = char::from(kind.icon());
+                let galley = ctx.fonts(|f| f.layout_no_wrap(ch.to_string(), icon_font.clone(), Color32::WHITE));
+                assert!(!galley.rows.is_empty(), "Icon for {:?} failed to layout", kind);
+                assert!(galley.size().x > 0.0);
+            }
+
+            for chev in [Icon::ChevronDown, Icon::ChevronRight] {
+                let ch = char::from(chev);
+                let galley = ctx.fonts(|f| f.layout_no_wrap(ch.to_string(), icon_font.clone(), Color32::WHITE));
+                assert!(!galley.rows.is_empty(), "Chevron {:?} failed to layout", chev);
+                assert!(galley.size().x > 0.0);
+            }
+        });
     }
 }

@@ -45,6 +45,8 @@ pub struct ComponentGalleryState {
     pub table_sort_col: Option<usize>,
     pub table_sort_desc: bool,
     pub tree_server_expanded: bool,
+    pub tree_db_expanded: bool,
+    pub tree_schema_expanded: bool,
     pub tree_table_expanded: bool,
     pub tool_call_expanded: bool,
     pub approval_status: Option<String>,
@@ -81,6 +83,8 @@ impl Default for ComponentGalleryState {
             table_sort_col: Some(0),
             table_sort_desc: false,
             tree_server_expanded: true,
+            tree_db_expanded: true,
+            tree_schema_expanded: true,
             tree_table_expanded: true,
             tool_call_expanded: true,
             approval_status: None,
@@ -1160,40 +1164,46 @@ impl DbProApp {
                     if self.gallery_state.tree_server_expanded {
                         DatabaseTreeNode::new("production_db", TreeNodeKind::Database, 1, theme)
                             .detail("UTF-8")
+                            .expanded(&mut self.gallery_state.tree_db_expanded)
                             .show(ui);
 
-                        DatabaseTreeNode::new("public", TreeNodeKind::Schema, 2, theme)
-                            .detail("12 tables")
-                            .show(ui);
+                        if self.gallery_state.tree_db_expanded {
+                            DatabaseTreeNode::new("public", TreeNodeKind::Schema, 2, theme)
+                                .detail("12 tables")
+                                .expanded(&mut self.gallery_state.tree_schema_expanded)
+                                .show(ui);
 
-                        DatabaseTreeNode::new("users", TreeNodeKind::Table, 3, theme)
-                            .detail("1,842,109 rows")
-                            .selected(true)
-                            .expanded(&mut self.gallery_state.tree_table_expanded)
-                            .show(ui);
+                            if self.gallery_state.tree_schema_expanded {
+                                DatabaseTreeNode::new("users", TreeNodeKind::Table, 3, theme)
+                                    .detail("1,842,109 rows")
+                                    .selected(true)
+                                    .expanded(&mut self.gallery_state.tree_table_expanded)
+                                    .show(ui);
 
-                        if self.gallery_state.tree_table_expanded {
-                            DatabaseTreeNode::new("id", TreeNodeKind::PrimaryKey, 4, theme)
-                                .detail("bigint PK")
-                                .show(ui);
-                            DatabaseTreeNode::new("email", TreeNodeKind::Column, 4, theme)
-                                .detail("varchar(255)")
-                                .show(ui);
-                            DatabaseTreeNode::new("organization_id", TreeNodeKind::ForeignKey, 4, theme)
-                                .detail("bigint -> orgs.id")
-                                .show(ui);
-                            DatabaseTreeNode::new("idx_users_email", TreeNodeKind::Index, 4, theme)
-                                .detail("btree (email)")
-                                .show(ui);
+                                if self.gallery_state.tree_table_expanded {
+                                    DatabaseTreeNode::new("id", TreeNodeKind::PrimaryKey, 4, theme)
+                                        .detail("bigint PK")
+                                        .show(ui);
+                                    DatabaseTreeNode::new("email", TreeNodeKind::Column, 4, theme)
+                                        .detail("varchar(255)")
+                                        .show(ui);
+                                    DatabaseTreeNode::new("organization_id", TreeNodeKind::ForeignKey, 4, theme)
+                                        .detail("bigint -> orgs.id")
+                                        .show(ui);
+                                    DatabaseTreeNode::new("idx_users_email", TreeNodeKind::Index, 4, theme)
+                                        .detail("btree (email)")
+                                        .show(ui);
+                                }
+
+                                DatabaseTreeNode::new("orders", TreeNodeKind::Table, 3, theme)
+                                    .detail("4,291,012 rows")
+                                    .show(ui);
+
+                                DatabaseTreeNode::new("v_active_bookings", TreeNodeKind::View, 3, theme)
+                                    .detail("view")
+                                    .show(ui);
+                            }
                         }
-
-                        DatabaseTreeNode::new("orders", TreeNodeKind::Table, 3, theme)
-                            .detail("4,291,012 rows")
-                            .show(ui);
-
-                        DatabaseTreeNode::new("v_active_bookings", TreeNodeKind::View, 3, theme)
-                            .detail("view")
-                            .show(ui);
                     }
                 });
             });

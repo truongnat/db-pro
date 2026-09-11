@@ -1,5 +1,5 @@
 use crate::DbProTheme;
-use egui::{Color32, FontId, Pos2, Rect, Response, RichText, Rounding, Sense, Stroke, Ui, Vec2};
+use egui::{Align2, Color32, FontFamily, FontId, Pos2, Rect, Response, RichText, Rounding, Sense, Stroke, Ui, Vec2};
 use lucide_icons::Icon;
 
 // ── ContextChip & AgentContextBar ────────────────────────────────────────────
@@ -95,11 +95,14 @@ impl<'a> ContextChip<'a> {
 
         // Removable cross
         if self.removable {
-            let cross_pos = Pos2::new(rect.right() - 14.0, rect.center().y - 6.0);
-            let cross_galley =
-                ui.painter()
-                    .layout_no_wrap("×".to_owned(), FontId::proportional(12.0), self.theme.text_tertiary);
-            ui.painter().galley(cross_pos, cross_galley, Color32::PLACEHOLDER);
+            let cross_pos = Pos2::new(rect.right() - 11.0, rect.center().y);
+            ui.painter().text(
+                cross_pos,
+                Align2::CENTER_CENTER,
+                char::from(Icon::X).to_string(),
+                FontId::new(10.5, FontFamily::Name("lucide".into())),
+                self.theme.text_tertiary,
+            );
         }
 
         response
@@ -273,40 +276,34 @@ impl<'a> ToolCall<'a> {
                         .rect_filled(header_rect, Rounding::same(8.0), self.theme.surface_hover);
                 }
 
-                let chevron_str = if is_expanded { "▾" } else { "▸" };
-                let chev_galley = ui.painter().layout_no_wrap(
-                    chevron_str.to_owned(),
-                    FontId::proportional(12.0),
+                let chevron_icon = if is_expanded {
+                    Icon::ChevronDown
+                } else {
+                    Icon::ChevronRight
+                };
+                ui.painter().text(
+                    Pos2::new(header_rect.left() + 14.0, header_rect.center().y),
+                    Align2::CENTER_CENTER,
+                    char::from(chevron_icon).to_string(),
+                    FontId::new(10.5, FontFamily::Name("lucide".into())),
                     self.theme.text_secondary,
-                );
-                ui.painter().galley(
-                    Pos2::new(header_rect.left() + 10.0, header_rect.center().y - 6.0),
-                    chev_galley,
-                    Color32::PLACEHOLDER,
                 );
 
                 // Tool Icon & Name
-                let icon_font = FontId::new(13.0, egui::FontFamily::Name("lucide".into()));
-                let icon_galley = ui.painter().layout_no_wrap(
+                ui.painter().text(
+                    Pos2::new(header_rect.left() + 30.0, header_rect.center().y),
+                    Align2::CENTER_CENTER,
                     char::from(Icon::Terminal).to_string(),
-                    icon_font,
+                    FontId::new(13.0, FontFamily::Name("lucide".into())),
                     self.theme.text_secondary,
                 );
-                ui.painter().galley(
-                    Pos2::new(header_rect.left() + 24.0, header_rect.center().y - 6.0),
-                    icon_galley,
-                    Color32::PLACEHOLDER,
-                );
 
-                let name_galley = ui.painter().layout_no_wrap(
-                    self.tool_name.to_owned(),
+                ui.painter().text(
+                    Pos2::new(header_rect.left() + 44.0, header_rect.center().y),
+                    Align2::LEFT_CENTER,
+                    self.tool_name,
                     FontId::monospace(12.0),
                     self.theme.text_primary,
-                );
-                ui.painter().galley(
-                    Pos2::new(header_rect.left() + 42.0, header_rect.center().y - 6.0),
-                    name_galley,
-                    Color32::PLACEHOLDER,
                 );
 
                 // Duration & Status on right
