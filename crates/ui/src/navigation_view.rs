@@ -59,6 +59,12 @@ impl DbProApp {
                         {
                             self.set_agent_open(!self.agent_open, ctx);
                         }
+                        if compact_icon_button(ui, Icon::Palette, self.theme)
+                            .on_hover_text("Component Gallery (UI Design System)")
+                            .clicked()
+                        {
+                            self.active_tab = WorkspaceTab::ComponentGallery;
+                        }
                         if compact_icon_button(ui, Icon::Search, self.theme)
                             .on_hover_text(format!("Quick Open ({modifier}P)"))
                             .clicked()

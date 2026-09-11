@@ -164,6 +164,25 @@ impl DbProApp {
                                         self.request_close_workspace_tab(WorkspaceTab::Diagram);
                                     }
                                 }
+                                if self.active_tab == WorkspaceTab::ComponentGallery {
+                                    let gallery_tab = tab_frame(self.theme, true).show(ui, |ui| {
+                                        let mut close_clicked = false;
+                                        ui.horizontal(|ui| {
+                                            let _ = ui.selectable_label(
+                                                true,
+                                                icon_text(Icon::Palette, "Components", self.theme.text_primary),
+                                            );
+                                            close_clicked = compact_icon_button(ui, Icon::X, self.theme)
+                                                .on_hover_text("Close component gallery")
+                                                .clicked();
+                                        });
+                                        close_clicked
+                                    });
+                                    paint_tab_indicator(ui, gallery_tab.response.rect, self.theme);
+                                    if gallery_tab.inner {
+                                        self.request_close_workspace_tab(WorkspaceTab::ComponentGallery);
+                                    }
+                                }
                                 if compact_icon_button(ui, Icon::Plus, self.theme)
                                     .on_hover_text("New query")
                                     .clicked()
@@ -185,6 +204,7 @@ impl DbProApp {
             WorkspaceTab::Table => self.draw_table_workspace(ui),
             WorkspaceTab::SchemaObject => self.draw_schema_object_workspace(ui),
             WorkspaceTab::Diagram => self.draw_diagram(ui),
+            WorkspaceTab::ComponentGallery => self.draw_component_gallery(ui),
         }
     }
 }

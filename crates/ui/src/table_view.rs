@@ -83,6 +83,9 @@ impl DbProApp {
                     if compact_button_with_icon(ui, Icon::FilePlus2, "New query", self.theme).clicked() {
                         self.new_query_document();
                     }
+                    if compact_button_with_icon(ui, Icon::Palette, "Component Gallery", self.theme).clicked() {
+                        self.active_tab = WorkspaceTab::ComponentGallery;
+                    }
                     ui.label(
                         RichText::new("or use the activity rail to open Queries and History")
                             .small()

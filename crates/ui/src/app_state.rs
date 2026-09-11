@@ -90,7 +90,7 @@ impl Default for DbProApp {
             dark_mode: false,
             reduce_motion: false,
             activity: Activity::Explorer,
-            active_tab: WorkspaceTab::Welcome,
+            active_tab: WorkspaceTab::ComponentGallery,
             sidebar_open: true,
             sidebar_width: 260.0,
             agent_open: false,
@@ -219,6 +219,7 @@ impl Default for DbProApp {
             connections_pane_height: 160.0,
             schemas_pane_height: 90.0,
             initial_frames_count: 0,
+            gallery_state: ComponentGalleryState::default(),
         }
     }
 }

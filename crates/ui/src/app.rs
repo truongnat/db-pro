@@ -26,8 +26,12 @@ mod agent_state;
 mod agent_view;
 #[path = "app_state.rs"]
 mod app_state;
+#[path = "component_gallery_view.rs"]
+mod component_gallery_view;
 #[path = "connection_view.rs"]
 mod connection_view;
+
+pub use component_gallery_view::ComponentGalleryState;
 #[path = "diagram_view.rs"]
 mod diagram_view;
 #[path = "events.rs"]
@@ -95,6 +99,7 @@ pub(crate) enum PaletteAction {
     RunQuery,
     FormatSql,
     SwitchConnection(String),
+    ComponentGallery,
 }
 
 #[derive(Debug, Clone)]
@@ -197,6 +202,7 @@ enum WorkspaceTab {
     Table,
     SchemaObject,
     Diagram,
+    ComponentGallery,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -382,6 +388,7 @@ pub struct DbProApp {
     schemas_pane_height: f32,
     /// Counter for initial render frames to ensure window is maximized on startup.
     initial_frames_count: u8,
+    pub gallery_state: component_gallery_view::ComponentGalleryState,
 }
 
 impl eframe::App for DbProApp {
@@ -678,6 +685,7 @@ impl DbProApp {
                 self.diagram_pan = egui::Vec2::ZERO;
                 self.diagram_pan_origin = None;
             }
+            WorkspaceTab::ComponentGallery => {}
             WorkspaceTab::Welcome | WorkspaceTab::Query => return,
         }
         if self.active_tab == tab {

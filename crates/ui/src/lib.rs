@@ -1,6 +1,6 @@
 mod agent;
 mod app;
-mod components;
+pub mod components;
 mod result_grid;
 mod runtime;
 mod theme;
@@ -9,7 +9,7 @@ pub use agent::{
     respond as respond_to_agent, AgentContext, AgentMessage, AgentProvider, AgentProviderError, AgentProviderInfo,
     AgentProviderKind, AgentProviderState, AgentRole, OfflineAgentProvider,
 };
-pub use app::DbProApp;
+pub use app::{ComponentGalleryState, DbProApp};
 pub use components::{
     activity_bar_frame, agent_message_frame, badge, card_frame, compact_button, compact_button_enabled,
     compact_button_with_icon, compact_icon_button, compact_icon_button_enabled, danger_button, editor_frame,

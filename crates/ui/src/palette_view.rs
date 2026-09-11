@@ -118,6 +118,13 @@ impl DbProApp {
                     shortcut: None,
                     action: PaletteAction::ExportResults,
                 },
+                PaletteItem {
+                    icon: Icon::Palette,
+                    title: "Open Component Gallery".to_owned(),
+                    subtitle: "Preview shadcn-like common UI design system".to_owned(),
+                    shortcut: None,
+                    action: PaletteAction::ComponentGallery,
+                },
             ],
         };
         if mode == PaletteMode::QuickOpen {
@@ -237,6 +244,9 @@ impl DbProApp {
                     });
                     self.runtime_message = format!("Connecting to {}…", connection.name);
                 }
+            }
+            PaletteAction::ComponentGallery => {
+                self.active_tab = WorkspaceTab::ComponentGallery;
             }
         }
     }
