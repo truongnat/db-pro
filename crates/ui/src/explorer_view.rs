@@ -1,261 +1,474 @@
 use super::*;
 
-/// Minimum / maximum heights for the two resizable sub-panes.
-const CONN_PANE_MIN: f32 = 80.0;
-const CONN_PANE_MAX: f32 = 380.0;
-const SCHEMA_PANE_MIN: f32 = 60.0;
-const SCHEMA_PANE_MAX: f32 = 180.0;
-
 impl DbProApp {
-    /// Entry-point for the Explorer activity: three vertically-stacked panes.
+    /// Explorer sidebar: single scrollable flow.
+    /// Sections are hidden when they have no content.
     ///
     /// ```text
-    /// ┌─────────────────────────────┐
-    /// │ CONNECTIONS             [+] │  ← resizable (drag bottom border)
-    /// │ ● production-pg  PostgreSQL │
-    /// │ ○ localhost-dev  SQLite     │
-    /// ├─╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤  ← drag handle
-    /// │ SCHEMAS                     │  ← resizable
-    /// │ [public] analytics  logs    │
-    /// ├─╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤  ← drag handle
-    /// │ ▷ Filter tables…            │  ← fills rest
-    /// │  ⊞ users  ← selected       │
+    /// ┌──────────────────────────────┐
+    /// │ CONNECTIONS              [+] │  always visible
+    /// │ ● production-pg   PG        │
+    /// │ ○ localhost        SQLite    │
+    /// ├──────────────────────────────┤
+    /// │ SCHEMAS          (hidden when empty)
+    /// │ ▾ public  18    ▸ analytics │
+    /// ├──────────────────────────────┤
+    /// │ TABLES / OBJECTS (hidden when not connected)
+    /// │ [Filter tables…           ] │
+    /// │  ⊞ users   ← selected      │
     /// │  ⊞ orders                  │
-    /// │  ▷ VIEWS               (3) │
-    /// │  ▷ FUNCTIONS           (2) │
-    /// └─────────────────────────────┘
+    /// │  ▸ Views  (3)              │
+    /// │  ▸ Triggers (0)   dimmed   │
+    /// │ 4 of 127 tables            │
+    /// └──────────────────────────────┘
     /// ```
     pub(super) fn draw_explorer_sub_panes(&mut self, ui: &mut egui::Ui) {
-        let available = ui.available_height();
+        egui::ScrollArea::vertical()
+            .id_salt("explorer_scroll")
+            .show(ui, |ui| {
+                // ── CONNECTIONS ──────────────────────────────────────────
+                self.draw_section_connections(ui);
 
-        // ── CONNECTIONS pane ──────────────────────────────────────────────
-        let conn_height = self.connections_pane_height.clamp(
-            CONN_PANE_MIN,
-            (available - SCHEMA_PANE_MIN - 40.0).max(CONN_PANE_MIN),
-        );
-        egui::Frame {
-            inner_margin: egui::Margin::symmetric(0.0, 0.0),
-            ..Default::default()
-        }
-        .show(ui, |ui| {
-            ui.set_height(conn_height);
-            // Pane header
-            ui.horizontal(|ui| {
-                section_label(ui, "CONNECTIONS", self.theme);
-                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                    if compact_icon_button(ui, Icon::Plus, self.theme)
-                        .on_hover_text("New connection")
-                        .clicked()
-                    {
-                        self.open_new_connection();
-                    }
-                    let mut refresh_schema = false;
-                    compact_icon_button(ui, Icon::MoreHorizontal, self.theme)
-                        .on_hover_text("Explorer actions")
-                        .context_menu(|ui| {
-                            if ui.button("Refresh schema").clicked() {
-                                refresh_schema = true;
-                                ui.close_menu();
-                            }
-                        });
-                    if refresh_schema {
-                        if let Some(connection_id) = self.active_connection_id.clone() {
-                            self.request_schema_introspection(connection_id, true);
-                        }
-                    }
-                });
-            });
-            ui.add_space(4.0);
+                // ── SCHEMAS — only when connected and schemas exist ───────
+                if self.connected && !self.schema.schemas.is_empty() {
+                    self.draw_section_divider(ui);
+                    self.draw_section_schemas(ui);
+                }
 
-            egui::ScrollArea::vertical()
-                .id_salt("conn_pane_scroll")
-                .max_height(conn_height - 30.0)
-                .show(ui, |ui| {
-                    self.draw_connections_pane_content(ui);
-                });
-        });
-
-        // ── Drag-resize handle between CONNECTIONS and SCHEMAS ────────────
-        let delta_conn = self.draw_pane_separator(ui, "sep_conn_schema");
-        self.connections_pane_height =
-            (self.connections_pane_height + delta_conn).clamp(CONN_PANE_MIN, CONN_PANE_MAX);
-
-        // ── SCHEMAS pane ──────────────────────────────────────────────────
-        let remaining_after_conn = available - self.connections_pane_height - 8.0;
-        let schema_height = self.schemas_pane_height.clamp(
-            SCHEMA_PANE_MIN,
-            (remaining_after_conn - 60.0).max(SCHEMA_PANE_MIN),
-        );
-        egui::Frame {
-            inner_margin: egui::Margin::symmetric(0.0, 0.0),
-            ..Default::default()
-        }
-        .show(ui, |ui| {
-            ui.set_height(schema_height);
-            ui.horizontal(|ui| {
-                section_label(ui, "SCHEMAS", self.theme);
-                let schemas = self.schema.schemas.clone();
-                if !schemas.is_empty() {
-                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                        ui.label(
-                            RichText::new(format!(
-                                "{} schema{}",
-                                schemas.len(),
-                                if schemas.len() == 1 { "" } else { "s" }
-                            ))
-                            .small()
-                            .color(self.theme.text_muted),
-                        );
-                    });
+                // ── TABLES / OBJECTS — only when connected ────────────────
+                if self.connected {
+                    self.draw_section_divider(ui);
+                    self.draw_section_objects(ui);
                 }
             });
-            ui.add_space(4.0);
-            egui::ScrollArea::vertical()
-                .id_salt("schema_pane_scroll")
-                .max_height(schema_height - 30.0)
-                .show(ui, |ui| {
-                    self.draw_schemas_pane_content(ui);
-                });
-        });
+    }
 
-        // ── Drag-resize handle between SCHEMAS and OBJECTS ────────────────
-        let delta_schema = self.draw_pane_separator(ui, "sep_schema_objects");
-        self.schemas_pane_height =
-            (self.schemas_pane_height + delta_schema).clamp(SCHEMA_PANE_MIN, SCHEMA_PANE_MAX);
+    /// Thin 1px horizontal separator between sections.
+    fn draw_section_divider(&self, ui: &mut egui::Ui) {
+        ui.add_space(6.0);
+        let (rect, _) = ui.allocate_exact_size(
+            egui::vec2(ui.available_width(), 1.0),
+            egui::Sense::hover(),
+        );
+        ui.painter()
+            .hline(rect.x_range(), rect.top(), egui::Stroke::new(1.0, self.theme.border_subtle));
+        ui.add_space(6.0);
+    }
 
-        // ── OBJECTS pane (fills remaining) ────────────────────────────────
-        // Schema load feedback sits above the search bar.
-        self.draw_explorer_schema_feedback(ui);
-
+    /// CONNECTIONS section — always visible.
+    fn draw_section_connections(&mut self, ui: &mut egui::Ui) {
+        // Header
         ui.horizontal(|ui| {
-            section_label(ui, "TABLES / OBJECTS", self.theme);
-        });
-        ui.add_space(2.0);
-
-        // Search bar always visible at top of objects pane.
-        self.draw_explorer_search_bar(ui);
-
-        egui::ScrollArea::vertical()
-            .id_salt("objects_pane_scroll")
-            .show(ui, |ui| {
-                self.draw_explorer_tables(ui);
-                let schema_scope = self.active_schema().to_owned();
-                ui.indent(("schema-objects", schema_scope.as_str()), |ui| {
-                    self.draw_explorer_views(ui);
-                    self.draw_explorer_triggers(ui);
-                    self.draw_explorer_functions(ui);
-                });
-                self.draw_explorer_footer(ui);
+            section_label(ui, "CONNECTIONS", self.theme);
+            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                if compact_icon_button(ui, Icon::Plus, self.theme)
+                    .on_hover_text("New connection")
+                    .clicked()
+                {
+                    self.open_new_connection();
+                }
+                let mut refresh_schema = false;
+                compact_icon_button(ui, Icon::MoreHorizontal, self.theme)
+                    .on_hover_text("Explorer actions")
+                    .context_menu(|ui| {
+                        if ui.button("Refresh schema").clicked() {
+                            refresh_schema = true;
+                            ui.close_menu();
+                        }
+                    });
+                if refresh_schema {
+                    if let Some(connection_id) = self.active_connection_id.clone() {
+                        self.request_schema_introspection(connection_id, true);
+                    }
+                }
             });
-    }
+        });
+        ui.add_space(4.0);
 
-    /// Render a thin draggable separator bar and return the vertical drag delta.
-    fn draw_pane_separator(&self, ui: &mut egui::Ui, id: &str) -> f32 {
-        let sep_height = 6.0;
-        let (rect, response) = ui.allocate_exact_size(
-            egui::vec2(ui.available_width(), sep_height),
-            egui::Sense::drag(),
-        );
-        let _ = id; // id used implicitly by egui for interaction tracking via rect id
-        // Draw a subtle divider line in the centre of the drag zone.
-        ui.painter().hline(
-            rect.x_range(),
-            rect.center().y,
-            egui::Stroke::new(1.0, self.theme.border_subtle),
-        );
-        if response.hovered() || response.dragged() {
-            ui.ctx().set_cursor_icon(egui::CursorIcon::ResizeVertical);
-        }
-        // Show a visual highlight while dragging.
-        if response.dragged() {
-            ui.painter().hline(
-                rect.x_range(),
-                rect.center().y,
-                egui::Stroke::new(2.0, self.theme.accent),
-            );
-        }
-        response.drag_delta().y
-    }
-
-    /// Content of the CONNECTIONS sub-pane (connection list + connect logic).
-    fn draw_connections_pane_content(&mut self, ui: &mut egui::Ui) {
-        self.draw_explorer_connections(ui);
-    }
-
-    /// Content of the SCHEMAS sub-pane (schema pills).
-    fn draw_schemas_pane_content(&mut self, ui: &mut egui::Ui) {
-        let schemas = self.schema.schemas.clone();
-        if schemas.is_empty() {
-            if self.connected {
+        if self.connections.is_empty() {
+            // Empty state
+            ui.add_space(12.0);
+            ui.vertical_centered(|ui| {
+                ui.label(icon_text(Icon::Database, "", self.theme.accent));
+                ui.add_space(6.0);
+                ui.label(RichText::new("No connections").strong().color(self.theme.text_primary));
+                ui.add_space(2.0);
                 ui.label(
-                    RichText::new("Schema metadata unavailable")
+                    RichText::new("Add your first database connection.")
                         .small()
                         .color(self.theme.text_muted),
                 );
-            } else {
-                ui.label(
-                    RichText::new("Connect to a database to see its schemas.")
-                        .small()
-                        .color(self.theme.text_muted),
-                );
-            }
+                ui.add_space(10.0);
+                if compact_button_with_icon(ui, Icon::Plus, "New connection", self.theme).clicked() {
+                    self.open_new_connection();
+                }
+            });
+            ui.add_space(12.0);
             return;
         }
 
-        // Active database label
-        let database_name = self
-            .active_connection()
-            .map(|c| c.database.clone())
-            .filter(|d| !d.is_empty())
-            .unwrap_or_else(|| "active database".to_owned());
-        ui.label(icon_text(Icon::Database, &database_name, self.theme.text_secondary));
+        // Connection list
+        self.draw_explorer_connections(ui);
+    }
+
+    /// SCHEMAS section — shown only when connected and schemas exist.
+    fn draw_section_schemas(&mut self, ui: &mut egui::Ui) {
+        let schemas = self.schema.schemas.clone();
+
+        // Header
+        ui.horizontal(|ui| {
+            section_label(ui, "SCHEMAS", self.theme);
+            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                ui.label(
+                    RichText::new(format!(
+                        "{} schema{}",
+                        schemas.len(),
+                        if schemas.len() == 1 { "" } else { "s" }
+                    ))
+                    .small()
+                    .color(self.theme.text_muted),
+                );
+            });
+        });
         ui.add_space(4.0);
 
-        // Schema pills — horizontal wrap
-        ui.horizontal_wrapped(|ui| {
-            for schema in &schemas {
-                let selected = self.active_schema() == schema;
-                let fill = if selected {
+        // Schema rows as sidebar items (DBeaver tree style)
+        for schema in &schemas {
+            let selected = self.active_schema() == schema;
+            let table_count = self
+                .schema
+                .table_details
+                .iter()
+                .filter(|t| t.schema == schema.as_str())
+                .count();
+            let count_label = if table_count > 0 {
+                format!("  {table_count}")
+            } else {
+                String::new()
+            };
+            let chevron = if selected { Icon::ChevronDown } else { Icon::ChevronRight };
+            let width = ui.available_width();
+            let response = ui.add(
+                egui::Button::new({
+                    let mut job = egui::text::LayoutJob::default();
+                    // chevron
+                    job.append(
+                        &char::from(chevron).to_string(),
+                        0.0,
+                        egui::text::TextFormat {
+                            font_id: egui::FontId::new(
+                                11.0,
+                                egui::FontFamily::Name("lucide".into()),
+                            ),
+                            color: self.theme.text_muted,
+                            ..Default::default()
+                        },
+                    );
+                    // folder icon
+                    job.append(
+                        &format!("  {}", char::from(Icon::Folder)),
+                        0.0,
+                        egui::text::TextFormat {
+                            font_id: egui::FontId::new(
+                                13.0,
+                                egui::FontFamily::Name("lucide".into()),
+                            ),
+                            color: if selected { self.theme.accent } else { self.theme.text_muted },
+                            ..Default::default()
+                        },
+                    );
+                    // schema name
+                    job.append(
+                        &format!("  {schema}"),
+                        0.0,
+                        egui::text::TextFormat {
+                            font_id: egui::FontId::proportional(12.5),
+                            color: if selected {
+                                self.theme.text_primary
+                            } else {
+                                self.theme.text_secondary
+                            },
+                            ..Default::default()
+                        },
+                    );
+                    // count
+                    if !count_label.is_empty() {
+                        job.append(
+                            &count_label,
+                            0.0,
+                            egui::text::TextFormat {
+                                font_id: egui::FontId::proportional(11.0),
+                                color: self.theme.text_muted,
+                                ..Default::default()
+                            },
+                        );
+                    }
+                    job
+                })
+                .min_size(egui::vec2(width, 26.0))
+                .rounding(egui::Rounding::same(5.0))
+                .fill(if selected {
                     self.theme.accent_soft
                 } else {
-                    self.theme.surface_hover
-                };
-                let text_color = if selected {
-                    self.theme.accent
-                } else {
-                    self.theme.text_secondary
-                };
-                let clicked = egui::Frame {
-                    fill,
-                    inner_margin: egui::Margin::symmetric(8.0, 3.0),
-                    rounding: egui::Rounding::same(12.0),
-                    stroke: if selected {
-                        egui::Stroke::new(1.0, self.theme.accent.linear_multiply(0.5))
-                    } else {
-                        egui::Stroke::NONE
-                    },
-                    ..Default::default()
-                }
-                .show(ui, |ui| {
-                    ui.label(RichText::new(schema).size(11.5).color(text_color));
+                    egui::Color32::TRANSPARENT
                 })
-                .response
-                .interact(egui::Sense::click())
-                .clicked();
+                .stroke(egui::Stroke::NONE),
+            );
+            if response.clicked() && !selected {
+                self.selected_schema = Some(schema.clone());
+                self.selected_table = None;
+                self.selected_schema_object = None;
+                self.table_info = None;
+                self.table_ddl = None;
+                self.table_data_result = None;
+                self.staged_changes.clear();
+                self.active_tab = WorkspaceTab::Welcome;
+            }
+        }
+    }
 
-                if clicked && !selected {
-                    self.selected_schema = Some(schema.clone());
-                    self.selected_table = None;
-                    self.selected_schema_object = None;
-                    self.table_info = None;
-                    self.table_ddl = None;
-                    self.table_data_result = None;
-                    self.staged_changes.clear();
-                    self.active_tab = WorkspaceTab::Welcome;
+    /// TABLES / OBJECTS section — shown only when connected.
+    fn draw_section_objects(&mut self, ui: &mut egui::Ui) {
+        // Schema load feedback (error / spinner)
+        self.draw_explorer_schema_feedback(ui);
+
+        // Header
+        ui.horizontal(|ui| {
+            section_label(ui, "TABLES / OBJECTS", self.theme);
+            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                if compact_icon_button(ui, Icon::Search, self.theme)
+                    .on_hover_text("Focus search")
+                    .clicked()
+                {
+                    self.explorer_search.clear(); // focus on next frame via TextEdit
+                }
+            });
+        });
+        ui.add_space(4.0);
+
+        // Filter input
+        self.draw_explorer_search_bar(ui);
+
+        // Table list
+        self.draw_explorer_tables(ui);
+
+        // Schema objects (views, triggers, functions) — dimmed collapsing rows
+        let schema_scope = self.active_schema().to_owned();
+        self.draw_section_schema_objects(ui, &schema_scope);
+
+        // Footer
+        self.draw_explorer_footer(ui);
+    }
+
+    /// Views / Triggers / Functions as collapsing rows with count badges.
+    /// Rows with count = 0 are visually dimmed but still shown.
+    fn draw_section_schema_objects(&mut self, ui: &mut egui::Ui, schema_name: &str) {
+        let schema_name = schema_name.to_owned();
+        let views: Vec<_> = if self.schema.schemas.is_empty() {
+            self.schema.views.clone()
+        } else {
+            self.schema.views.iter().filter(|v| v.schema == schema_name).cloned().collect()
+        };
+        let triggers: Vec<_> = if self.schema.schemas.is_empty() {
+            self.schema.triggers.clone()
+        } else {
+            self.schema
+                .triggers
+                .iter()
+                .filter(|t| t.schema == schema_name)
+                .cloned()
+                .collect()
+        };
+        let supports_functions = self
+            .active_capabilities()
+            .is_some_and(|c| c.schema.functions);
+        let functions: Vec<_> = if self.schema.schemas.is_empty() {
+            self.schema.functions.clone()
+        } else {
+            self.schema
+                .functions
+                .iter()
+                .filter(|f| f.schema == schema_name)
+                .cloned()
+                .collect()
+        };
+
+        ui.add_space(4.0);
+        ui.add(egui::Separator::default().horizontal().shrink(0.0));
+        ui.add_space(4.0);
+
+        // Views row
+        self.draw_object_group_row(ui, Icon::Eye, "Views", views.len(), |ui, this| {
+            for view in &views {
+                let is_selected = matches!(
+                    this.selected_schema_object.as_ref(),
+                    Some(SchemaObjectSelection::View(s)) if s == &view.name
+                );
+                let resp = sidebar_item(ui, Icon::Eye, &view.name, is_selected, this.theme);
+                let mut open_query = false;
+                resp.context_menu(|ui| {
+                    if ui.button("Open in Query").clicked() {
+                        open_query = true;
+                        ui.close_menu();
+                    }
+                });
+                if resp.clicked() {
+                    this.selected_schema_object =
+                        Some(SchemaObjectSelection::View(view.name.clone()));
+                    this.schema_object_view = SchemaObjectView::Definition;
+                    this.selected_table = None;
+                    this.table_info = None;
+                    this.table_ddl = None;
+                    this.table_info_error = None;
+                    this.table_ddl_error = None;
+                    this.ddl_execute_confirmation = false;
+                    this.ddl_execution_request = None;
+                    this.table_data_result = None;
+                    this.table_data_total_rows = None;
+                    this.table_data_request = None;
+                    this.table_view = TableView::Ddl;
+                    this.active_tab = WorkspaceTab::SchemaObject;
+                    this.runtime_message = format!("Opened view {}.{}", view.schema, view.name);
+                }
+                if open_query {
+                    this.query_text = format!("SELECT *\nFROM {}\nLIMIT 100;", view.name);
+                    this.active_tab = WorkspaceTab::Query;
                 }
             }
         });
+
+        // Triggers row
+        self.draw_object_group_row(ui, Icon::Zap, "Triggers", triggers.len(), |ui, this| {
+            for trigger in &triggers {
+                let is_selected = matches!(
+                    this.selected_schema_object.as_ref(),
+                    Some(SchemaObjectSelection::Trigger(s)) if s == &trigger.name
+                );
+                let label = format!("{} · {}", trigger.name, trigger.event);
+                if sidebar_item(ui, Icon::Zap, &label, is_selected, this.theme).clicked() {
+                    this.selected_schema_object =
+                        Some(SchemaObjectSelection::Trigger(trigger.name.clone()));
+                    this.schema_object_view = SchemaObjectView::Definition;
+                    this.selected_table = None;
+                    this.table_info = None;
+                    this.table_ddl = None;
+                    this.table_info_error = None;
+                    this.table_ddl_error = None;
+                    this.ddl_execute_confirmation = false;
+                    this.ddl_execution_request = None;
+                    this.table_data_result = None;
+                    this.table_data_total_rows = None;
+                    this.table_data_request = None;
+                    this.table_view = TableView::Ddl;
+                    this.active_tab = WorkspaceTab::SchemaObject;
+                    this.runtime_message = format!("Opened trigger {}", trigger.name);
+                }
+            }
+        });
+
+        // Functions row — only if provider supports them
+        if supports_functions {
+            self.draw_object_group_row(
+                ui,
+                Icon::Code2,
+                "Functions",
+                functions.len(),
+                |ui, this| {
+                    for function in &functions {
+                        let is_selected = matches!(
+                            this.selected_schema_object.as_ref(),
+                            Some(SchemaObjectSelection::Function(s)) if s == &function.name
+                        );
+                        let icon = if function.routine_type.eq_ignore_ascii_case("procedure") {
+                            Icon::GitBranch
+                        } else {
+                            Icon::Code2
+                        };
+                        let label = format!("{} · {}", function.name, function.routine_type);
+                        let fn_resp = sidebar_item(ui, icon, &label, is_selected, this.theme);
+                        let mut open_query = false;
+                        fn_resp.context_menu(|ui| {
+                            if ui.button("Open call in Query").clicked() {
+                                open_query = true;
+                                ui.close_menu();
+                            }
+                        });
+                        if fn_resp.clicked() {
+                            this.selected_schema_object =
+                                Some(SchemaObjectSelection::Function(function.name.clone()));
+                            this.schema_object_view = SchemaObjectView::Definition;
+                            this.selected_table = None;
+                            this.table_info = None;
+                            this.table_ddl = None;
+                            this.table_info_error = None;
+                            this.table_ddl_error = None;
+                            this.table_data_result = None;
+                            this.table_data_total_rows = None;
+                            this.table_data_request = None;
+                            this.table_view = TableView::Ddl;
+                            this.active_tab = WorkspaceTab::SchemaObject;
+                            this.runtime_message =
+                                format!("Opened function {}.{}", function.schema, function.name);
+                        }
+                        if open_query {
+                            this.query_text =
+                                format!("SELECT *\nFROM {}.{}();", function.schema, function.name);
+                            this.active_tab = WorkspaceTab::Query;
+                        }
+                    }
+                },
+            );
+        }
     }
+
+    /// A collapsing header row for a schema object group (Views / Triggers / Functions).
+    /// When `count == 0` the row is visually dimmed but still shown.
+    fn draw_object_group_row(
+        &mut self,
+        ui: &mut egui::Ui,
+        icon: Icon,
+        label: &str,
+        count: usize,
+        body: impl FnOnce(&mut egui::Ui, &mut Self),
+    ) {
+        let dimmed = count == 0;
+        let text_color = if dimmed { self.theme.text_muted } else { self.theme.text_secondary };
+        let id = ui.make_persistent_id(("obj-group", label));
+        egui::collapsing_header::CollapsingState::load_with_default_open(ui.ctx(), id, false)
+            .show_header(ui, |ui| {
+                ui.horizontal(|ui| {
+                    ui.label(icon_text(icon, label, text_color));
+                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                        badge(
+                            ui,
+                            &count.to_string(),
+                            if dimmed {
+                                self.theme.surface_elevated
+                            } else {
+                                self.theme.surface_active
+                            },
+                            if dimmed {
+                                self.theme.text_muted
+                            } else {
+                                self.theme.text_secondary
+                            },
+                        );
+                    });
+                });
+            })
+            .body(|ui| {
+                if dimmed {
+                    ui.label(
+                        RichText::new(format!("No {}", label.to_lowercase()))
+                            .small()
+                            .color(self.theme.text_muted),
+                    );
+                } else {
+                    body(ui, self);
+                }
+            });
+    }
+
 
 
     fn draw_explorer_connections(&mut self, ui: &mut egui::Ui) {
@@ -621,186 +834,6 @@ impl DbProApp {
                         .small()
                         .color(self.theme.text_muted),
                     );
-                }
-            },
-        );
-    }
-    fn draw_explorer_views(&mut self, ui: &mut egui::Ui) {
-        let schema_name = self.active_schema().to_owned();
-        let views: Vec<_> = if self.schema.schemas.is_empty() {
-            self.schema.views.clone()
-        } else {
-            self.schema
-                .views
-                .iter()
-                .filter(|view| view.schema == schema_name)
-                .cloned()
-                .collect()
-        };
-        ui.collapsing(
-            icon_text(Icon::Eye, &format!("Views ({})", views.len()), self.theme.text_primary),
-            |ui| {
-                if views.is_empty() {
-                    ui.label(RichText::new("No views").small().color(self.theme.text_muted));
-                }
-                for view in views.iter().take(100) {
-                    let is_selected = matches!(
-                        self.selected_schema_object.as_ref(),
-                        Some(SchemaObjectSelection::View(selected)) if selected == &view.name
-                    );
-                    let view_response = sidebar_item(ui, Icon::Eye, &view.name, is_selected, self.theme);
-                    let mut open_query = false;
-                    view_response.context_menu(|ui| {
-                        if ui.button("Open in Query").clicked() {
-                            open_query = true;
-                            ui.close_menu();
-                        }
-                    });
-                    if view_response.clicked() {
-                        self.selected_schema_object = Some(SchemaObjectSelection::View(view.name.clone()));
-                        self.schema_object_view = SchemaObjectView::Definition;
-                        self.selected_table = None;
-                        self.table_info = None;
-                        self.table_ddl = None;
-                        self.table_info_error = None;
-                        self.table_ddl_error = None;
-                        self.ddl_execute_confirmation = false;
-                        self.ddl_execution_request = None;
-                        self.table_data_result = None;
-                        self.table_data_total_rows = None;
-                        self.table_data_request = None;
-                        self.table_view = TableView::Ddl;
-                        self.active_tab = WorkspaceTab::SchemaObject;
-                        self.runtime_message = format!("Opened view {}.{}", view.schema, view.name);
-                    }
-                    if open_query {
-                        self.query_text = format!("SELECT *\nFROM {}\nLIMIT 100;", view.name);
-                        self.active_tab = WorkspaceTab::Query;
-                    }
-                }
-            },
-        );
-    }
-    fn draw_explorer_triggers(&mut self, ui: &mut egui::Ui) {
-        let schema_name = self.active_schema().to_owned();
-        let triggers: Vec<_> = if self.schema.schemas.is_empty() {
-            self.schema.triggers.clone()
-        } else {
-            self.schema
-                .triggers
-                .iter()
-                .filter(|trigger| trigger.schema == schema_name)
-                .cloned()
-                .collect()
-        };
-        ui.collapsing(
-            icon_text(
-                Icon::Zap,
-                &format!("Triggers ({})", triggers.len()),
-                self.theme.text_primary,
-            ),
-            |ui| {
-                if triggers.is_empty() {
-                    ui.label(RichText::new("No triggers").small().color(self.theme.text_muted));
-                }
-                for trigger in triggers.iter().take(100) {
-                    let is_selected = matches!(
-                        self.selected_schema_object.as_ref(),
-                        Some(SchemaObjectSelection::Trigger(selected)) if selected == &trigger.name
-                    );
-                    let label = format!("{} · {}", trigger.name, trigger.event);
-                    if sidebar_item(ui, Icon::Zap, &label, is_selected, self.theme).clicked() {
-                        self.selected_schema_object = Some(SchemaObjectSelection::Trigger(trigger.name.clone()));
-                        self.schema_object_view = SchemaObjectView::Definition;
-                        self.selected_table = None;
-                        self.table_info = None;
-                        self.table_ddl = None;
-                        self.table_info_error = None;
-                        self.table_ddl_error = None;
-                        self.ddl_execute_confirmation = false;
-                        self.ddl_execution_request = None;
-                        self.table_data_result = None;
-                        self.table_data_total_rows = None;
-                        self.table_data_request = None;
-                        self.table_view = TableView::Ddl;
-                        self.active_tab = WorkspaceTab::SchemaObject;
-                        self.runtime_message = format!("Opened trigger {}", trigger.name);
-                    }
-                }
-            },
-        );
-    }
-    fn draw_explorer_functions(&mut self, ui: &mut egui::Ui) {
-        let supports_functions = self
-            .active_capabilities()
-            .is_some_and(|capabilities| capabilities.schema.functions);
-        let schema_name = self.active_schema().to_owned();
-        let functions: Vec<_> = if self.schema.schemas.is_empty() {
-            self.schema.functions.clone()
-        } else {
-            self.schema
-                .functions
-                .iter()
-                .filter(|function| function.schema == schema_name)
-                .cloned()
-                .collect()
-        };
-        ui.collapsing(
-            icon_text(
-                Icon::Code2,
-                &format!("Functions / Procedures ({})", functions.len()),
-                self.theme.text_primary,
-            ),
-            |ui| {
-                if !supports_functions {
-                    ui.label(
-                        RichText::new(format!("{} does not expose routines", self.active_driver()))
-                            .small()
-                            .color(self.theme.text_muted),
-                    );
-                    return;
-                }
-                if functions.is_empty() {
-                    ui.label(RichText::new("No functions").small().color(self.theme.text_muted));
-                }
-                for function in functions.iter().take(100) {
-                    let is_selected = matches!(
-                        self.selected_schema_object.as_ref(),
-                        Some(SchemaObjectSelection::Function(selected)) if selected == &function.name
-                    );
-                    let label = format!("{} · {}", function.name, function.routine_type);
-                    let icon = if function.routine_type.eq_ignore_ascii_case("procedure") {
-                        Icon::GitBranch
-                    } else {
-                        Icon::Code2
-                    };
-                    let function_response = sidebar_item(ui, icon, &label, is_selected, self.theme);
-                    let mut open_query = false;
-                    function_response.context_menu(|ui| {
-                        if ui.button("Open call in Query").clicked() {
-                            open_query = true;
-                            ui.close_menu();
-                        }
-                    });
-                    if function_response.clicked() {
-                        self.selected_schema_object = Some(SchemaObjectSelection::Function(function.name.clone()));
-                        self.schema_object_view = SchemaObjectView::Definition;
-                        self.selected_table = None;
-                        self.table_info = None;
-                        self.table_ddl = None;
-                        self.table_info_error = None;
-                        self.table_ddl_error = None;
-                        self.table_data_result = None;
-                        self.table_data_total_rows = None;
-                        self.table_data_request = None;
-                        self.table_view = TableView::Ddl;
-                        self.active_tab = WorkspaceTab::SchemaObject;
-                        self.runtime_message = format!("Opened function {}.{}", function.schema, function.name);
-                    }
-                    if open_query {
-                        self.query_text = format!("SELECT *\nFROM {}.{}();", function.schema, function.name);
-                        self.active_tab = WorkspaceTab::Query;
-                    }
                 }
             },
         );
