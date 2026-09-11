@@ -62,15 +62,7 @@ impl TableDataService {
         let count_result = self.connector.query(&handle, &count_sql, &count_params).await?;
         let data_result = self.connector.query(&handle, &select_sql, &select_params).await?;
 
-        let total_count = count_result
-            .rows
-            .first()
-            .and_then(|row| row.0.first())
-            .and_then(|cell| match cell {
-                CellValue::Int64(n) => Some(*n as u64),
-                _ => None,
-            })
-            .unwrap_or(0);
+        let total_count = parse_total_count(&count_result)?;
 
         let duration_ms = data_result.duration_ms;
         Ok((
@@ -179,6 +171,21 @@ impl TableDataService {
     }
 }
 
+fn parse_total_count(result: &QueryResult) -> Result<u64, DbError> {
+    let cell = result
+        .rows
+        .first()
+        .and_then(|row| row.0.first())
+        .ok_or_else(|| DbError::Internal("count query returned no value".into()))?;
+
+    match cell {
+        CellValue::Int64(value) => {
+            u64::try_from(*value).map_err(|_| DbError::Internal("count query returned a negative value".into()))
+        }
+        _ => Err(DbError::Internal("count query returned a non-integer value".into())),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -226,6 +233,41 @@ mod tests {
             }))
         });
         repo
+    }
+
+    #[test]
+    fn parse_total_count_rejects_negative_values() {
+        let result = QueryResult {
+            columns: vec![],
+            rows: vec![Row(vec![CellValue::Int64(-1)])],
+            row_count: 1,
+            duration_ms: 0,
+        };
+
+        assert!(matches!(
+            parse_total_count(&result),
+            Err(DbError::Internal(message)) if message.contains("negative")
+        ));
+    }
+
+    #[test]
+    fn parse_total_count_rejects_missing_or_wrong_type() {
+        let empty = QueryResult::empty();
+        assert!(matches!(
+            parse_total_count(&empty),
+            Err(DbError::Internal(message)) if message.contains("no value")
+        ));
+
+        let wrong_type = QueryResult {
+            columns: vec![],
+            rows: vec![Row(vec![CellValue::Text("42".into())])],
+            row_count: 1,
+            duration_ms: 0,
+        };
+        assert!(matches!(
+            parse_total_count(&wrong_type),
+            Err(DbError::Internal(message)) if message.contains("non-integer")
+        ));
     }
 
     #[tokio::test]

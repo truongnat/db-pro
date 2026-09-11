@@ -76,6 +76,9 @@ without changing the native UI or adding product features.
     connection-id keyed introspection cache intact.
 31. Excel export converts every `i64` to `f64` and uses unchecked row/column
     index casts, which can corrupt large BIGINT values or wrap oversized results.
+32. Table pagination converts a malformed or negative `COUNT(*)` result to `u64`
+    with a silent `0` fallback, allowing invalid provider data to become a
+    misleading pagination state or a huge wrapped row count.
 
 ## Acceptance criteria
 
@@ -124,5 +127,7 @@ without changing the native UI or adding product features.
 - Excel export preserves exact `i64` values by writing values outside the exact
   IEEE-754 integer range as text and rejects row/column index conversions that
   would overflow the workbook API types.
+- Table pagination rejects missing, non-integer, or negative count results with
+  an explicit core error instead of silently defaulting or wrapping the value.
 - PostgreSQL and SQLite unit/integration coverage is updated independently where the
   behavior differs.

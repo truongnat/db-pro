@@ -355,3 +355,16 @@ coordinates before the spreadsheet writer sees them.
 Decision: keep integers as numeric Excel cells within the exact `f64` integer
 range and write larger values as text, preserving their decimal representation;
 use checked coordinate conversions and return a validation error on overflow.
+
+## P2 — Table pagination silently wraps invalid count results
+
+`TableDataService::fetch_rows` accepted only an `Int64` count, but used `as u64`
+and then defaulted every missing, null, or wrong-typed result to `0`. A negative
+or malformed provider response could therefore become either a huge page count
+or a misleading empty result without an error.
+
+Impact: pagination metadata can drive incorrect page navigation and hide a
+provider/count-query failure from the caller.
+
+Decision: parse the count through `u64::try_from` and return an explicit core
+error for missing, non-integer, or negative values.
