@@ -95,6 +95,8 @@ without changing the native UI or adding product features.
     recreated table can lose data-validation invariants.
 40. Reconstructed PostgreSQL indexes omit the source schema from the index
     name, so creation depends on the session `search_path`.
+41. Connection test paths bypass `ConnectionConfig::validate`, allowing invalid
+    provider-specific drafts to reach a connector.
 
 ## Acceptance criteria
 
@@ -160,5 +162,7 @@ without changing the native UI or adding product features.
   PostgreSQL and SQLite.
 - PostgreSQL table DDL qualifies reconstructed index names with their source
   schema; SQLite keeps local index names unqualified.
+- Create, update, and both connection-test paths share the same connection
+  configuration validation boundary.
 - PostgreSQL and SQLite unit/integration coverage is updated independently where the
   behavior differs.

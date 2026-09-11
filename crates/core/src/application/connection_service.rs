@@ -61,14 +61,7 @@ impl ConnectionService {
     }
 
     pub async fn create(&self, config: ConnectionConfig, password: &str) -> Result<Connection, DbError> {
-        if let Err(errors) = config.validate() {
-            let msg = errors
-                .iter()
-                .map(|e| format!("{}: {}", e.field, e.message))
-                .collect::<Vec<_>>()
-                .join("; ");
-            return Err(DbError::Validation(msg));
-        }
+        validate_config(&config)?;
 
         if Self::requires_database_secret(&config) && password.is_empty() {
             return Err(DbError::AuthFailed(
@@ -134,14 +127,7 @@ impl ConnectionService {
         config: ConnectionConfig,
         password: Option<&str>,
     ) -> Result<(), DbError> {
-        if let Err(errors) = config.validate() {
-            let msg = errors
-                .iter()
-                .map(|e| format!("{}: {}", e.field, e.message))
-                .collect::<Vec<_>>()
-                .join("; ");
-            return Err(DbError::Validation(msg));
-        }
+        validate_config(&config)?;
 
         let mut connection = self
             .repo
@@ -431,6 +417,7 @@ impl ConnectionService {
     }
 
     pub async fn test_connectivity(&self, config: &ConnectionConfig, password: &str) -> Result<(), DbError> {
+        validate_config(config)?;
         self.connector.test_connection(config, password).await
     }
 
@@ -441,6 +428,7 @@ impl ConnectionService {
         password: &str,
     ) -> Result<(), DbError> {
         let mut config = config.clone();
+        validate_config(&config)?;
         self.hydrate_ssh_password(id, &mut config).await?;
         let resolved = if !Self::requires_database_secret(&config) {
             String::new()
@@ -460,6 +448,17 @@ impl ConnectionService {
         };
         self.connector.test_connection(&config, &resolved).await
     }
+}
+
+fn validate_config(config: &ConnectionConfig) -> Result<(), DbError> {
+    config.validate().map_err(|errors| {
+        let message = errors
+            .iter()
+            .map(|error| format!("{}: {}", error.field, error.message))
+            .collect::<Vec<_>>()
+            .join("; ");
+        DbError::Validation(message)
+    })
 }
 
 #[cfg(test)]
@@ -554,6 +553,29 @@ mod tests {
         );
         let result = svc.create(config, "pass").await;
         assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn connectivity_tests_reject_invalid_provider_config_before_connector_call() {
+        let mut config = sqlite_config();
+        config.ssh_tunnel = Some(ssh_tunnel());
+        let svc = build_service(
+            MockDbConnector::new(),
+            MockConnectionRepository::new(),
+            MockSecretStore::new(),
+        );
+
+        let error = svc
+            .test_connectivity(&config, "")
+            .await
+            .expect_err("invalid SQLite SSH configuration must be rejected before testing");
+        assert!(matches!(error, DbError::Validation(message) if message.contains("SSH tunnels")));
+
+        let error = svc
+            .test_connectivity_with_secret(&ConnectionId::new(), &config, "")
+            .await
+            .expect_err("secret-backed connectivity must share the same validation boundary");
+        assert!(matches!(error, DbError::Validation(message) if message.contains("SSH tunnels")));
     }
 
     #[tokio::test]

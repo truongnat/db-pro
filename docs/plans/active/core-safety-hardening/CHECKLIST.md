@@ -73,6 +73,8 @@
 - [x] Add regression coverage for CHECK constraint reconstruction.
 - [x] Preserve the PostgreSQL schema when reconstructing index names.
 - [x] Add PostgreSQL and SQLite index-qualification regression assertions.
+- [x] Apply connection configuration validation to both test-connectivity paths.
+- [x] Add regression coverage for invalid provider-specific test drafts.
 - [x] Run formatting, check, clippy, targeted tests, and workspace tests.
 - [x] Self-review changed files and confirm no UI/native files changed.
 - [x] Record PostgreSQL live fixture evidence; SSH-tunnel and native UI runtime evidence remain explicitly pending.

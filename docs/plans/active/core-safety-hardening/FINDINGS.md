@@ -476,3 +476,17 @@ schema inconsistent.
 
 Decision: qualify PostgreSQL index names with the introspected index schema;
 SQLite continues to use local unqualified names required by its syntax.
+
+## P1 — Connection test paths bypass provider validation
+
+`ConnectionService::create` and `update` validate `ConnectionConfig`, but
+`test_connectivity` and `test_connectivity_with_secret` forwarded drafts
+directly to the connector. This allowed a SQLite draft with an SSH tunnel to be
+silently handled by a provider that cannot support SSH tunneling.
+
+Impact: the UI could report a successful test for a configuration that cannot
+be saved or connected using the same semantics, hiding a provider mismatch at
+the connection boundary.
+
+Decision: centralize configuration validation and require it in create, update,
+and both test-connectivity paths before any secret hydration or connector call.
