@@ -10,9 +10,9 @@
 
 - Shared native presentation now uses a dark-first token hierarchy, quiet surfaces, borderless tabs, compact activity rail, context-driven Explorer actions, and a focused empty workspace. Theme storage uses `dark-first-v3`, migrating stale pre-redesign light-mode state to the dark default once while preserving later user choices.
 - `agent.rs` responder branches and ER diagram canvas/node selection are split into focused helpers; behavior-preserving UI tests remain green.
-- Current native code sizes after the split: `app.rs` 753 lines, `agent_view.rs` 296, `diagram_view.rs` 539, `query_view.rs` 676, `navigation_view.rs` 682, `app_state.rs` 206.
-- Verification: workspace check/clippy, native build, UI 49/49 tests and `git diff --check` pass. Clean-code heuristic retains one constructor warning for `app_state::default`; no behavior-neutral abstraction was added solely to satisfy the heuristic.
-- Runtime visual acceptance is not claimed in this environment: direct X11 launch fails with `XOpenDisplayFailed`; no Orca/computer-use path was used.
+- Current native code sizes after the split: `app.rs` 753 lines, `agent_view.rs` 303, `diagram_view.rs` 567, `query_view.rs` 681, `navigation_view.rs` 686, `app_state.rs` 209.
+- Verification: workspace check/clippy, native build, UI 52/52 tests and `git diff --check` pass. Clean-code heuristic retains one constructor warning for `app_state::default`; no behavior-neutral abstraction was added solely to satisfy the heuristic.
+- Runtime note: the current native binary is running through X11 at 1280×800; full keyboard-only outcome remains pending. No Orca/computer-use path was used.
 
 - (Historical snapshot) `crates/ui/src/app.rs` đã tách phần khởi tạo/persistence state sang `app_state.rs`; composition root khi đó giảm từ **845 xuống 677 dòng**.
 - `crates/infrastructure/src/postgres/introspect.rs` đã bỏ `get_mut(...).unwrap()` ở luồng gom composite foreign key, dùng `HashMap::entry(...).or_insert_with(...)`.
@@ -127,7 +127,7 @@ Dự án áp dụng mô hình **Hexagonal Architecture (Ports & Adapters)** chu�
   - `db-pro-infrastructure`: **37/37 unit tests passed** + **25 SQLite integration tests passed** + **10/10 PostgreSQL fixture tests passed** trong container tạm.
   - `db-pro-runtime`: **4/4 tests passed**.
   - `db-pro-tauri-lib`: **21/21 tests passed** (Execution lifecycle, Cancellation, Int64 boundary DTOs).
-  - `db-pro-ui`: **36/36 tests passed** (State management, Query dispatch, Schema refresh, Theme, Table filters/sorts).
+  - `db-pro-ui`: **52/52 tests passed** (State management, Query dispatch, Schema refresh, Theme, Table filters/sorts, Agent provider routing).
   - **Clippy check:** `0 errors, 0 warnings` trên toàn bộ `--all-targets`.
 
 ---
