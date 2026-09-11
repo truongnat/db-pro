@@ -190,6 +190,36 @@ Commit tương ứng trên `truongnat/main`: `75fb8f2` (query actions menu) · `
 
 > **Lưu ý về bằng chứng runtime:** toàn bộ refactor này là **thay đổi cấu trúc thuần** (không đổi hành vi) và chỉ được xác nhận bằng `fmt` / `clippy -D warnings` / 348 test. Bằng chứng UI runtime (ảnh chụp nhiều độ phân giải, phiên PostgreSQL + SQLite sống) **vẫn còn thiếu**, nên trạng thái `COMPLETED` theo `docs/plans/FEATURE_LIFECYCLE.md` vẫn chưa đạt.
 
+## 🔁 FOLLOW-UP #4 — 2026-09-12 · Tách tiếp 3 hàm chặn ẩn (full-repo)
+
+**Bối cảnh.** Khi dọn nợ clean-code, quét toàn bộ repo (không `--diff`) phát hiện **3 hàm > 100 dòng** nằm trong `crates/ui` nhưng **không nằm trong scope diff** của 45 commit gần nhất, nên cổng `--diff` chưa từng cảnh báo — chúng là nợ chặn cấp thật:
+
+- `crates/ui/src/palette_view.rs:4 fn palette_items` — **145 dòng** `[FAIL]`
+- `crates/ui/src/palette_view.rs:244 fn draw_palette` — **138 dòng** `[FAIL]`
+- `crates/ui/src/schema_object_view.rs:4 fn draw_schema_object_workspace` — **118 dòng** `[FAIL]`
+
+(Cổng `--diff` chỉ chặn nợ mới trong PR; nợ cũ full-repo chỉ ở mức cảnh báo, nên 3 hàm này nằm ngoài tầm quét cho đến khi file của chúng bị sửa.)
+
+### Cách xử lý
+
+| Nhóm | Kết quả |
+| :--- | :--- |
+| `palette_view.rs` | `palette_items` (145) → orchestrator + `quick_open_items` / `command_items` / `schema_table_items` / `connection_items`; `draw_palette` (138) → orchestrator + `draw_palette_scrim` / `_header` / `_search_input` / `_navigation` / `_items_list` / `_footer`; 3 nhánh phức tạp nhất của `execute_palette_action` tách thành `refresh_schema_palette` / `open_table_from_palette` / `export_results_from_palette` / `switch_connection_from_palette`. Giữ nguyên `return` thoát sớm khi Escape (vẫn nằm trong closure của `Window`). |
+| `schema_object_view.rs` | `draw_schema_object_workspace` (118) → `resolve_schema_object` (trả về struct `SchemaObjectDetails` thay vì tuple 7 phần tử, đồng thời gỡ lint `clippy::type_complexity`) + `draw_schema_object_breadcrumb` + `draw_schema_object_view_tabs`. |
+
+### Cổng kiểm chứng
+
+| Gate | Kết quả |
+| :--- | :--- |
+| `cargo fmt --all` | ✅ sạch |
+| `cargo clippy -p db-pro-ui --all-targets -- -D warnings` | ✅ **0 error, 0 warning** |
+| `cargo test -p db-pro-ui --offline` | ✅ **64 passed / 0 failed** |
+| `clean-code-scan.sh --diff --with-linters` (toàn repo so với `origin/main`) | ✅ **14 pass / 4 warn / 0 fail** — **toàn bộ repo: 0 hàm > 100 dòng** |
+
+Commit trên `truongnat/main`: `43fd4ac` (palette_view) · `b4337c3` (schema_object_view). `main` đã FF tới `b4337c3` (cách `origin/main` 46 commit).
+
+> **Tiếp theo (chưa làm):** 4 file > 800 dòng (`table_editor_view.rs` 1.051, `query_view.rs` 872, `app.rs` 842, `components.rs` 805) và 2 file `.clone()` > 15 (`table_editor_view.rs` 27, `events.rs` 25) vẫn ở mức cảnh báo.
+
 ---
 
 ## 📊 TỔNG QUAN ĐÁNH GIÁ (EXECUTIVE SUMMARY)
