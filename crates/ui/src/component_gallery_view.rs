@@ -38,6 +38,10 @@ pub struct ComponentGalleryState {
     pub segmented_tab_idx: usize,
     pub underline_tab_idx: usize,
     pub btn_loading: bool,
+    pub table_search: String,
+    pub table_selected_rows: std::collections::HashSet<usize>,
+    pub table_sort_col: Option<usize>,
+    pub table_sort_desc: bool,
 }
 
 impl Default for ComponentGalleryState {
@@ -66,6 +70,10 @@ impl Default for ComponentGalleryState {
             segmented_tab_idx: 0,
             underline_tab_idx: 0,
             btn_loading: false,
+            table_search: String::new(),
+            table_selected_rows: [0, 2].into_iter().collect(),
+            table_sort_col: Some(0),
+            table_sort_desc: false,
         }
     }
 }
@@ -738,108 +746,335 @@ impl DbProApp {
         self.draw_section_heading(
             ui,
             "Data Display Table",
-            "Styled table with zebra striping, column alignment, and status badges.",
+            "Modern data table with sortable columns, row selection, live filtering, and pagination.",
         );
 
-        let columns = [
-            ShadcnTableColumn {
-                title: "TABLE NAME",
-                width: 180.0,
-            },
-            ShadcnTableColumn {
-                title: "TYPE",
-                width: 100.0,
-            },
-            ShadcnTableColumn {
-                title: "ROW COUNT",
-                width: 110.0,
-            },
-            ShadcnTableColumn {
-                title: "SIZE",
-                width: 90.0,
-            },
-            ShadcnTableColumn {
-                title: "STATUS",
-                width: 120.0,
-            },
-            ShadcnTableColumn {
-                title: "ACTION",
-                width: 110.0,
-            },
-        ];
-
-        let demo_rows = [
+        let all_rows = [
             (
                 "users",
                 "BASE TABLE",
                 "128,490",
+                128490,
                 "14.2 MB",
+                14.2,
                 BadgeVariant::Success,
                 "Active",
+                Icon::Table,
             ),
             (
                 "trips",
                 "BASE TABLE",
                 "1,842,109",
+                1842109,
                 "184.6 MB",
+                184.6,
                 BadgeVariant::Success,
                 "Active",
+                Icon::Table,
             ),
             (
                 "trip_legs",
                 "BASE TABLE",
                 "4,291,012",
+                4291012,
                 "412.0 MB",
+                412.0,
                 BadgeVariant::Success,
                 "Active",
+                Icon::Table,
             ),
             (
                 "vehicles",
                 "BASE TABLE",
                 "3,450",
+                3450,
                 "512 KB",
+                0.5,
                 BadgeVariant::Success,
                 "Active",
+                Icon::Table,
             ),
-            ("v_active_bookings", "VIEW", "—", "—", BadgeVariant::Info, "View"),
+            (
+                "v_active_bookings",
+                "VIEW",
+                "—",
+                0,
+                "—",
+                0.0,
+                BadgeVariant::Info,
+                "View",
+                Icon::Eye,
+            ),
             (
                 "audit_logs_archive",
                 "PARTITION",
                 "8,920,111",
+                8920111,
                 "980.2 MB",
+                980.2,
                 BadgeVariant::Secondary,
                 "Archived",
+                Icon::Archive,
             ),
         ];
 
-        ShadcnTable::new(&columns, theme).show(ui, demo_rows.len(), |ui, row_idx, col_idx| {
-            let row = &demo_rows[row_idx];
-            match col_idx {
-                0 => {
-                    ui.label(RichText::new(row.0).strong().size(12.5).color(theme.text_primary));
+        // ── 1. Table Toolbar ──────────────────────────────────────────
+        ui.horizontal(|ui| {
+            let _ = ui.allocate_ui_with_layout(
+                egui::Vec2::new(260.0, 32.0),
+                egui::Layout::left_to_right(egui::Align::Center),
+                |ui| ShadcnSearchInput::new(&mut self.gallery_state.table_search, "Filter objects...", theme).show(ui),
+            );
+
+            let filter_query = self.gallery_state.table_search.trim().to_lowercase();
+            let matching_count = all_rows
+                .iter()
+                .filter(|r| {
+                    filter_query.is_empty()
+                        || r.0.to_lowercase().contains(&filter_query)
+                        || r.1.to_lowercase().contains(&filter_query)
+                })
+                .count();
+
+            ui.add_space(8.0);
+            let badge_text = format!("{matching_count} objects");
+            ShadcnBadge::new(&badge_text, theme)
+                .variant(BadgeVariant::Secondary)
+                .show(ui);
+
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                if ShadcnButton::new(theme)
+                    .text("Export CSV")
+                    .variant(ButtonVariant::Outline)
+                    .size(ButtonSize::Sm)
+                    .icon(Icon::Download)
+                    .show(ui)
+                    .clicked()
+                {
+                    // Noop demonstration
                 }
-                1 => {
-                    ui.label(RichText::new(row.1).size(11.5).color(theme.text_muted));
+
+                if ShadcnButton::new(theme)
+                    .text("Refresh")
+                    .variant(ButtonVariant::Ghost)
+                    .size(ButtonSize::Sm)
+                    .icon(Icon::RotateCcw)
+                    .show(ui)
+                    .clicked()
+                {
+                    self.gallery_state.table_search.clear();
                 }
-                2 => {
-                    ui.label(RichText::new(row.2).monospace().size(12.0).color(theme.text_secondary));
+            });
+        });
+
+        ui.add_space(10.0);
+
+        // Filter and sort rows
+        let filter_query = self.gallery_state.table_search.trim().to_lowercase();
+        let mut row_indices: Vec<usize> = (0..all_rows.len())
+            .filter(|&idx| {
+                let r = &all_rows[idx];
+                filter_query.is_empty()
+                    || r.0.to_lowercase().contains(&filter_query)
+                    || r.1.to_lowercase().contains(&filter_query)
+            })
+            .collect();
+
+        if let Some(sort_col) = self.gallery_state.table_sort_col {
+            let desc = self.gallery_state.table_sort_desc;
+            row_indices.sort_by(|&a, &b| {
+                let ra = &all_rows[a];
+                let rb = &all_rows[b];
+                let ord = match sort_col {
+                    0 => ra.0.cmp(rb.0),
+                    1 => ra.1.cmp(rb.1),
+                    2 => ra.3.cmp(&rb.3),
+                    3 => ra.5.partial_cmp(&rb.5).unwrap_or(std::cmp::Ordering::Equal),
+                    4 => ra.7.cmp(rb.7),
+                    _ => std::cmp::Ordering::Equal,
+                };
+                if desc {
+                    ord.reverse()
+                } else {
+                    ord
                 }
-                3 => {
-                    ui.label(RichText::new(row.3).monospace().size(12.0).color(theme.text_secondary));
+            });
+        }
+
+        let columns = [
+            ShadcnTableColumn::new("Table Name").width(220.0).sortable(true),
+            ShadcnTableColumn::new("Type").width(120.0).sortable(true),
+            ShadcnTableColumn::new("Row Count")
+                .width(130.0)
+                .align(TableColumnAlign::Right)
+                .sortable(true),
+            ShadcnTableColumn::new("Size")
+                .width(110.0)
+                .align(TableColumnAlign::Right)
+                .sortable(true),
+            ShadcnTableColumn::new("Status")
+                .width(120.0)
+                .align(TableColumnAlign::Center)
+                .sortable(true),
+            ShadcnTableColumn::new("Actions").align(TableColumnAlign::Right),
+        ];
+
+        let visible_count = row_indices.len();
+        let all_selected = visible_count > 0
+            && row_indices
+                .iter()
+                .all(|idx| self.gallery_state.table_selected_rows.contains(idx));
+
+        let sort_col = self.gallery_state.table_sort_col;
+        let sort_desc = self.gallery_state.table_sort_desc;
+
+        let mut toggle_all_target = None;
+        let mut toggle_row_target = None;
+        let mut toggle_sort_col = None;
+
+        ShadcnTable::new(&columns, theme)
+            .selectable(true, all_selected)
+            .sort(sort_col, sort_desc)
+            .row_height(38.0)
+            .show(
+                ui,
+                visible_count,
+                |v_idx| {
+                    let real_idx = row_indices[v_idx];
+                    self.gallery_state.table_selected_rows.contains(&real_idx)
+                },
+                |new_all| {
+                    toggle_all_target = Some(new_all);
+                },
+                |v_idx| {
+                    let real_idx = row_indices[v_idx];
+                    toggle_row_target = Some(real_idx);
+                },
+                |clicked_col| {
+                    toggle_sort_col = Some(clicked_col);
+                },
+                |ui, v_idx, col_idx| {
+                    let real_idx = row_indices[v_idx];
+                    let row = &all_rows[real_idx];
+
+                    match col_idx {
+                        0 => {
+                            ui.horizontal(|ui| {
+                                ui.label(
+                                    RichText::new(char::from(row.8).to_string())
+                                        .font(egui::FontId::new(13.0, egui::FontFamily::Name("lucide".into())))
+                                        .color(theme.accent),
+                                );
+                                ui.add_space(6.0);
+                                ui.label(RichText::new(row.0).strong().size(12.5).color(theme.text_primary));
+                            });
+                        }
+                        1 => {
+                            ShadcnBadge::new(row.1, theme).variant(BadgeVariant::Outline).show(ui);
+                        }
+                        2 => {
+                            ui.label(RichText::new(row.2).monospace().size(12.0).color(theme.text_primary));
+                        }
+                        3 => {
+                            ui.label(RichText::new(row.4).monospace().size(12.0).color(theme.text_secondary));
+                        }
+                        4 => {
+                            ShadcnBadge::new(row.7, theme).variant(row.6).dot(true).show(ui);
+                        }
+                        5 => {
+                            ui.horizontal(|ui| {
+                                ShadcnButton::new(theme)
+                                    .text("Inspect")
+                                    .size(ButtonSize::Sm)
+                                    .variant(ButtonVariant::Ghost)
+                                    .icon(Icon::ExternalLink)
+                                    .show(ui);
+                            });
+                        }
+                        _ => {}
+                    }
+                },
+            );
+
+        // Apply state updates
+        if let Some(new_all) = toggle_all_target {
+            if new_all {
+                for &idx in &row_indices {
+                    self.gallery_state.table_selected_rows.insert(idx);
                 }
-                4 => {
-                    ShadcnBadge::new(row.5, theme).variant(row.4).dot(true).show(ui);
+            } else {
+                for &idx in &row_indices {
+                    self.gallery_state.table_selected_rows.remove(&idx);
                 }
-                5 => {
-                    ShadcnButton::new(theme)
-                        .text("Inspect")
-                        .size(ButtonSize::Sm)
-                        .variant(ButtonVariant::Ghost)
-                        .icon(Icon::ExternalLink)
-                        .show(ui);
-                }
-                _ => {}
             }
+        }
+
+        if let Some(target) = toggle_row_target {
+            if self.gallery_state.table_selected_rows.contains(&target) {
+                self.gallery_state.table_selected_rows.remove(&target);
+            } else {
+                self.gallery_state.table_selected_rows.insert(target);
+            }
+        }
+
+        if let Some(clicked_col) = toggle_sort_col {
+            if self.gallery_state.table_sort_col == Some(clicked_col) {
+                if !self.gallery_state.table_sort_desc {
+                    self.gallery_state.table_sort_desc = true;
+                } else {
+                    self.gallery_state.table_sort_col = None;
+                    self.gallery_state.table_sort_desc = false;
+                }
+            } else {
+                self.gallery_state.table_sort_col = Some(clicked_col);
+                self.gallery_state.table_sort_desc = false;
+            }
+        }
+
+        // ── 3. Table Pagination & Selection Footer ────────────────────
+        ui.add_space(8.0);
+        ui.horizontal(|ui| {
+            let selected_count = self.gallery_state.table_selected_rows.len();
+            ui.label(
+                RichText::new(format!("{selected_count} of {} row(s) selected", all_rows.len()))
+                    .size(12.0)
+                    .color(theme.text_secondary),
+            );
+
+            if selected_count > 0 {
+                ui.add_space(4.0);
+                if ShadcnButton::new(theme)
+                    .text("Clear selection")
+                    .variant(ButtonVariant::Link)
+                    .size(ButtonSize::Sm)
+                    .show(ui)
+                    .clicked()
+                {
+                    self.gallery_state.table_selected_rows.clear();
+                }
+            }
+
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                ShadcnButton::new(theme)
+                    .text("Next")
+                    .variant(ButtonVariant::Outline)
+                    .size(ButtonSize::Sm)
+                    .icon(Icon::ChevronRight)
+                    .enabled(false)
+                    .show(ui);
+
+                ui.add_space(4.0);
+                ShadcnButton::new(theme)
+                    .text("Previous")
+                    .variant(ButtonVariant::Outline)
+                    .size(ButtonSize::Sm)
+                    .icon(Icon::ChevronLeft)
+                    .enabled(false)
+                    .show(ui);
+
+                ui.add_space(8.0);
+                ui.label(RichText::new("Page 1 of 1").size(12.0).color(theme.text_muted));
+            });
         });
     }
 }

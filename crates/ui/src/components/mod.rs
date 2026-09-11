@@ -19,7 +19,7 @@ pub use input::{ShadcnInput, ShadcnPasswordInput, ShadcnSearchInput, ShadcnTexta
 pub use legacy::*;
 pub use select::ShadcnSelect;
 pub use selection::{ShadcnCheckbox, ShadcnRadio, ShadcnSlider, ShadcnSwitch};
-pub use table::{ShadcnTable, ShadcnTableColumn};
+pub use table::{ShadcnTable, ShadcnTableColumn, TableColumnAlign};
 pub use tabs::{SegmentedTabs, UnderlineTabs};
 
 #[cfg(test)]
