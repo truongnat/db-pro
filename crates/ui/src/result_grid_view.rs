@@ -1,5 +1,25 @@
 use super::*;
 
+/// Per-cell render context for the result grid.
+struct GridCell<'a> {
+    row_index: usize,
+    column_index: usize,
+    display_position: usize,
+    row_selected: bool,
+    row_dirty: bool,
+    editable: bool,
+    width: f32,
+    cell: &'a UiCell,
+}
+
+/// Context shared by every visible grid row.
+struct GridRows<'a> {
+    indexes: &'a [usize],
+    widths: &'a [f32],
+    editable: bool,
+    row_offset: u64,
+}
+
 impl DbProApp {
     pub(super) fn draw_result_grid(&mut self, ui: &mut egui::Ui, result: &UiQueryResult) {
         if result.columns.is_empty() {
@@ -21,6 +41,19 @@ impl DbProApp {
         let indexes =
             crate::filtered_sorted_indexes(result, &self.grid_filter, self.grid_sort_column, self.grid_sort_desc);
 
+        self.handle_grid_keyboard(ui, result, &indexes, editable);
+        self.draw_grid_toolbar(ui, result, editable, indexes.len());
+
+        let row_offset = if self.active_tab == WorkspaceTab::Table && self.table_view == TableView::Data {
+            self.table_data_offset
+        } else {
+            0
+        };
+        self.draw_grid_body(ui, result, &indexes, editable, row_offset);
+    }
+
+    /// Copy, paste-to-edit and arrow-key navigation for the result grid.
+    fn handle_grid_keyboard(&mut self, ui: &mut egui::Ui, result: &UiQueryResult, indexes: &[usize], editable: bool) {
         if ui.input(|input| input.key_pressed(egui::Key::C) && Self::primary_modifier_pressed(input)) {
             self.copy_selected_cell(ui, result);
         }
@@ -31,47 +64,60 @@ impl DbProApp {
             })
         });
         if editable {
-            if let (Some((row_index, column_index)), Some(text)) = (self.selected_cell, pasted) {
-                self.data_editing_cell = Some((row_index, column_index));
-                self.data_edit_value = text;
-                self.submit_data_cell_edit(result, row_index, column_index);
-            }
-            if self.data_editing_cell.is_none()
-                && self.selected_cell.is_some()
-                && ui.input(|input| input.key_pressed(egui::Key::Enter))
-            {
-                if let Some((row_index, column_index)) = self.selected_cell {
-                    if let Some(cell) = result.rows.get(row_index).and_then(|row| row.get(column_index)) {
-                        self.begin_data_cell_edit(row_index, column_index, cell);
-                    }
-                }
-            }
+            self.handle_grid_edit_input(ui, result, pasted);
         }
         if !ui.ctx().wants_keyboard_input() {
-            let navigation_key = ui.input(|input| {
-                [
-                    egui::Key::ArrowUp,
-                    egui::Key::ArrowDown,
-                    egui::Key::ArrowLeft,
-                    egui::Key::ArrowRight,
-                    egui::Key::Home,
-                    egui::Key::End,
-                ]
-                .into_iter()
-                .find(|key| input.key_pressed(*key))
-            });
-            if let Some(key) = navigation_key {
-                if let Some(selection) =
-                    crate::grid_keyboard_selection(self.selected_cell, &indexes, result.columns.len(), key)
-                {
-                    self.selected_cell = Some(selection);
-                    self.selected_row = Some(selection.0);
-                    self.data_editing_cell = None;
-                    self.data_edit_value.clear();
-                    self.copy_status.clear();
+            self.handle_grid_navigation(ui, indexes, result.columns.len());
+        }
+    }
+
+    /// Paste-into-cell and Enter-to-edit while the grid is editable.
+    fn handle_grid_edit_input(&mut self, ui: &mut egui::Ui, result: &UiQueryResult, pasted: Option<String>) {
+        if let (Some((row_index, column_index)), Some(text)) = (self.selected_cell, pasted) {
+            self.data_editing_cell = Some((row_index, column_index));
+            self.data_edit_value = text;
+            self.submit_data_cell_edit(result, row_index, column_index);
+        }
+        if self.data_editing_cell.is_none()
+            && self.selected_cell.is_some()
+            && ui.input(|input| input.key_pressed(egui::Key::Enter))
+        {
+            if let Some((row_index, column_index)) = self.selected_cell {
+                if let Some(cell) = result.rows.get(row_index).and_then(|row| row.get(column_index)) {
+                    self.begin_data_cell_edit(row_index, column_index, cell);
                 }
             }
         }
+    }
+
+    /// Arrow / Home / End navigation over the visible (filtered, sorted) indexes.
+    fn handle_grid_navigation(&mut self, ui: &mut egui::Ui, indexes: &[usize], column_count: usize) {
+        let navigation_key = ui.input(|input| {
+            [
+                egui::Key::ArrowUp,
+                egui::Key::ArrowDown,
+                egui::Key::ArrowLeft,
+                egui::Key::ArrowRight,
+                egui::Key::Home,
+                egui::Key::End,
+            ]
+            .into_iter()
+            .find(|key| input.key_pressed(*key))
+        });
+        let Some(key) = navigation_key else {
+            return;
+        };
+        if let Some(selection) = crate::grid_keyboard_selection(self.selected_cell, indexes, column_count, key) {
+            self.selected_cell = Some(selection);
+            self.selected_row = Some(selection.0);
+            self.data_editing_cell = None;
+            self.data_edit_value.clear();
+            self.copy_status.clear();
+        }
+    }
+
+    /// Filter box, copy buttons and the row-count hint above the grid.
+    fn draw_grid_toolbar(&mut self, ui: &mut egui::Ui, result: &UiQueryResult, editable: bool, matching_rows: usize) {
         ui.horizontal_wrapped(|ui| {
             ui.label(RichText::new("Filter").small().color(self.theme.text_secondary));
             input(ui, &mut self.grid_filter, "Search visible rows…", 240.0, self.theme);
@@ -102,22 +148,27 @@ impl DbProApp {
             );
         });
         ui.add_space(6.0);
-
         ui.label(
-            RichText::new(format!("{} matching rows", indexes.len()))
+            RichText::new(format!("{matching_rows} matching rows"))
                 .small()
                 .color(self.theme.text_muted),
         );
         ui.add_space(4.0);
+    }
+
+    /// Scrollable grid: the header row plus the visible slice of rows.
+    fn draw_grid_body(
+        &mut self,
+        ui: &mut egui::Ui,
+        result: &UiQueryResult,
+        indexes: &[usize],
+        editable: bool,
+        row_offset: u64,
+    ) {
         let grid_height = ui.available_height().clamp(220.0, 520.0);
         let grid_width = ui.available_width().max(0.0);
-
         let widths = self.column_widths(result.columns.len(), grid_width);
-        let row_offset = if self.active_tab == WorkspaceTab::Table && self.table_view == TableView::Data {
-            self.table_data_offset
-        } else {
-            0
-        };
+
         ui.allocate_ui_with_layout(
             egui::vec2(grid_width, grid_height),
             Layout::top_down(Align::Min),
@@ -127,115 +178,154 @@ impl DbProApp {
                         GRID_ROW_NUMBER_WIDTH + widths.iter().sum::<f32>() + 4.0 * result.columns.len() as f32;
                     ui.set_min_width(content_width);
                     self.draw_grid_header(ui, result, &widths);
+                    let rows = GridRows {
+                        indexes,
+                        widths: &widths,
+                        editable,
+                        row_offset,
+                    };
                     egui::ScrollArea::vertical()
                         .max_height((grid_height - 28.0).max(192.0))
                         .show_rows(ui, 24.0, indexes.len(), |ui, range| {
                             for position in range {
-                                let row_index = indexes[position];
-                                let row = &result.rows[row_index];
-                                let row_selected = self.selected_row == Some(row_index);
-                                let row_dirty = self.staged_row_deleted(row_index)
-                                    || (0..result.columns.len())
-                                        .any(|column_index| self.staged_cell_value(row_index, column_index).is_some());
-                                ui.horizontal(|ui| {
-                                    let row_number = crate::displayed_row_number(row_offset, row_index);
-                                    let row_response = ui.add_sized(
-                                        [GRID_ROW_NUMBER_WIDTH, 24.0],
-                                        egui::SelectableLabel::new(
-                                            row_selected,
-                                            RichText::new(row_number.to_string()).monospace().small().color(
-                                                if row_selected {
-                                                    self.theme.accent
-                                                } else {
-                                                    self.theme.text_muted
-                                                },
-                                            ),
-                                        ),
-                                    );
-                                    if row_response.clicked() {
-                                        self.commit_active_data_edit(result);
-                                        self.selected_cell = None;
-                                        self.selected_row = Some(row_index);
-                                        self.data_editing_cell = None;
-                                        self.data_edit_value.clear();
-                                        self.copy_status.clear();
-                                    }
-                                    for (column_index, cell) in row.iter().enumerate().take(result.columns.len()) {
-                                        let staged_cell = self.staged_cell_value(row_index, column_index);
-                                        let display_cell = staged_cell.as_ref().unwrap_or(cell);
-                                        let width = widths.get(column_index).copied().unwrap_or(180.0);
-                                        let cell_selected = self.selected_cell == Some((row_index, column_index));
-                                        let fill = if row_selected {
-                                            if cell_selected {
-                                                self.theme.accent.linear_multiply(0.30)
-                                            } else {
-                                                self.theme.surface_active
-                                            }
-                                        } else if row_dirty {
-                                            self.theme.warning.linear_multiply(0.10)
-                                        } else if position % 2 == 0 {
-                                            self.theme.surface_panel
-                                        } else {
-                                            self.theme.surface_elevated
-                                        };
-                                        egui::Frame::default().fill(fill).show(ui, |ui| {
-                                            ui.allocate_ui_with_layout(
-                                                egui::vec2(width, 24.0),
-                                                Layout::left_to_right(Align::Center),
-                                                |ui| {
-                                                    ui.add_space(8.0);
-                                                    let selected =
-                                                        cell_selected || (row_selected && self.selected_cell.is_none());
-                                                    let editing = editable
-                                                        && self.data_editing_cell == Some((row_index, column_index));
-                                                    if editing {
-                                                        let response = ui.add_sized(
-                                                            [width - 12.0, 22.0],
-                                                            TextEdit::singleline(&mut self.data_edit_value)
-                                                                .margin(egui::Margin::symmetric(6.0, 2.0))
-                                                                .text_color(self.theme.text_primary),
-                                                        );
-                                                        response.request_focus();
-                                                        let commit =
-                                                            ui.input(|input| input.key_pressed(egui::Key::Enter));
-                                                        if commit {
-                                                            self.submit_data_cell_edit(result, row_index, column_index);
-                                                        } else if ui.input(|input| input.key_pressed(egui::Key::Escape))
-                                                        {
-                                                            self.data_editing_cell = None;
-                                                            self.data_edit_value.clear();
-                                                        }
-                                                    } else {
-                                                        let response = ui.add_sized(
-                                                            [width - 12.0, 22.0],
-                                                            egui::SelectableLabel::new(
-                                                                selected,
-                                                                Self::cell_label(display_cell),
-                                                            ),
-                                                        );
-                                                        if response.double_clicked() && editable {
-                                                            self.begin_data_cell_edit(
-                                                                row_index,
-                                                                column_index,
-                                                                display_cell,
-                                                            );
-                                                        } else if response.clicked() {
-                                                            self.commit_active_data_edit(result);
-                                                            self.selected_cell = Some((row_index, column_index));
-                                                            self.selected_row = Some(row_index);
-                                                            self.copy_status.clear();
-                                                        }
-                                                    }
-                                                },
-                                            );
-                                        });
-                                    }
-                                });
+                                self.draw_grid_row(ui, result, &rows, position);
                             }
                         });
                 });
             },
         );
+    }
+
+    /// One grid row: the row-number gutter plus every visible cell.
+    fn draw_grid_row(&mut self, ui: &mut egui::Ui, result: &UiQueryResult, rows: &GridRows<'_>, position: usize) {
+        let row_index = rows.indexes[position];
+        let row = &result.rows[row_index];
+        let row_selected = self.selected_row == Some(row_index);
+        let row_dirty = self.staged_row_deleted(row_index)
+            || (0..result.columns.len()).any(|column_index| self.staged_cell_value(row_index, column_index).is_some());
+
+        ui.horizontal(|ui| {
+            let row_number = crate::displayed_row_number(rows.row_offset, row_index);
+            let row_response = ui.add_sized(
+                [GRID_ROW_NUMBER_WIDTH, 24.0],
+                egui::SelectableLabel::new(
+                    row_selected,
+                    RichText::new(row_number.to_string())
+                        .monospace()
+                        .small()
+                        .color(if row_selected {
+                            self.theme.accent
+                        } else {
+                            self.theme.text_muted
+                        }),
+                ),
+            );
+            if row_response.clicked() {
+                self.commit_active_data_edit(result);
+                self.selected_cell = None;
+                self.selected_row = Some(row_index);
+                self.data_editing_cell = None;
+                self.data_edit_value.clear();
+                self.copy_status.clear();
+            }
+            for (column_index, cell) in row.iter().enumerate().take(result.columns.len()) {
+                let width = rows.widths.get(column_index).copied().unwrap_or(180.0);
+                self.draw_grid_cell(
+                    ui,
+                    result,
+                    GridCell {
+                        row_index,
+                        column_index,
+                        display_position: position,
+                        row_selected,
+                        row_dirty,
+                        editable: rows.editable,
+                        width,
+                        cell,
+                    },
+                );
+            }
+        });
+    }
+
+    /// One grid cell: zebra/selection fill, then either the editor or the label.
+    fn draw_grid_cell(&mut self, ui: &mut egui::Ui, result: &UiQueryResult, cell_ctx: GridCell<'_>) {
+        let GridCell {
+            row_index,
+            column_index,
+            display_position,
+            row_selected,
+            row_dirty,
+            editable,
+            width,
+            cell,
+        } = cell_ctx;
+
+        let staged_cell = self.staged_cell_value(row_index, column_index);
+        let display_cell = staged_cell.as_ref().unwrap_or(cell);
+        let cell_selected = self.selected_cell == Some((row_index, column_index));
+        let fill = if row_selected {
+            if cell_selected {
+                self.theme.accent.linear_multiply(0.30)
+            } else {
+                self.theme.surface_active
+            }
+        } else if row_dirty {
+            self.theme.warning.linear_multiply(0.10)
+        } else if display_position % 2 == 0 {
+            self.theme.surface_panel
+        } else {
+            self.theme.surface_elevated
+        };
+
+        egui::Frame::default().fill(fill).show(ui, |ui| {
+            ui.allocate_ui_with_layout(egui::vec2(width, 24.0), Layout::left_to_right(Align::Center), |ui| {
+                ui.add_space(8.0);
+                let selected = cell_selected || (row_selected && self.selected_cell.is_none());
+                let editing = editable && self.data_editing_cell == Some((row_index, column_index));
+                if editing {
+                    self.draw_grid_cell_editor(ui, result, row_index, column_index, width);
+                } else {
+                    let response = ui.add_sized(
+                        [width - 12.0, 22.0],
+                        egui::SelectableLabel::new(selected, Self::cell_label(display_cell)),
+                    );
+                    if response.double_clicked() && editable {
+                        self.begin_data_cell_edit(row_index, column_index, display_cell);
+                    } else if response.clicked() {
+                        self.commit_active_data_edit(result);
+                        self.selected_cell = Some((row_index, column_index));
+                        self.selected_row = Some(row_index);
+                        self.copy_status.clear();
+                    }
+                }
+            });
+        });
+    }
+
+    /// Inline text editor for the cell currently being edited.
+    fn draw_grid_cell_editor(
+        &mut self,
+        ui: &mut egui::Ui,
+        result: &UiQueryResult,
+        row_index: usize,
+        column_index: usize,
+        width: f32,
+    ) {
+        let response = ui.add_sized(
+            [width - 12.0, 22.0],
+            TextEdit::singleline(&mut self.data_edit_value)
+                .margin(egui::Margin::symmetric(6.0, 2.0))
+                .text_color(self.theme.text_primary),
+        );
+        response.request_focus();
+        let commit = ui.input(|input| input.key_pressed(egui::Key::Enter));
+        if commit {
+            self.submit_data_cell_edit(result, row_index, column_index);
+        } else if ui.input(|input| input.key_pressed(egui::Key::Escape)) {
+            self.data_editing_cell = None;
+            self.data_edit_value.clear();
+        }
     }
 
     fn commit_active_data_edit(&mut self, result: &UiQueryResult) {

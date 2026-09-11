@@ -1,235 +1,278 @@
 use super::*;
 
+/// Paging state for the table data editor toolbar.
+struct TableDataPaging {
+    page: u64,
+    total_pages: u64,
+    page_range: String,
+    has_next: bool,
+    has_previous: bool,
+}
+
 impl DbProApp {
     pub(crate) fn draw_table_data(&mut self, ui: &mut egui::Ui, table_name: &str) {
         let Some(result) = self.table_data_result.clone() else {
-            grid_frame(self.theme).show(ui, |ui| {
-                ui.vertical_centered(|ui| {
-                    ui.add_space(28.0);
-                    let failed = self.table_data_error.as_deref();
-                    ui.label(icon_text(
-                        if failed.is_some() {
-                            Icon::TriangleAlert
-                        } else {
-                            Icon::LoaderCircle
-                        },
-                        "",
-                        if failed.is_some() {
-                            self.theme.warning
-                        } else {
-                            self.theme.accent
-                        },
-                    ));
-                    ui.add_space(8.0);
-                    ui.label(
-                        RichText::new(if failed.is_some() {
-                            format!("Data for {table_name} could not be loaded")
-                        } else {
-                            format!("Loading data for {table_name}…")
-                        })
-                        .strong()
-                        .color(self.theme.text_primary),
-                    );
-                    if let Some(error) = failed {
-                        ui.label(RichText::new(error).small().color(self.theme.text_secondary));
-                        ui.add_space(12.0);
-                        if secondary_button_with_icon(ui, Icon::RotateCcw, "Retry", self.theme).clicked() {
-                            self.table_data_error = None;
-                            self.request_table_data();
-                        }
-                    } else {
-                        ui.label(
-                            RichText::new("Rows will appear here with the shared result-grid controls.")
-                                .small()
-                                .color(self.theme.text_secondary),
-                        );
-                    }
-                    ui.add_space(28.0);
-                });
-            });
+            self.draw_table_data_placeholder(ui, table_name);
             return;
         };
 
         let can_mutate = self.can_mutate_active_connection();
         let total_rows = self.table_data_total_rows.unwrap_or(result.row_count);
-        let page = self.table_data_offset / TABLE_PAGE_SIZE + 1;
-        let total_pages = total_rows.div_ceil(TABLE_PAGE_SIZE).max(1);
-        let page_range = if total_rows > 0 {
-            let start = self.table_data_offset + 1;
-            let end = (self.table_data_offset + result.row_count).min(total_rows);
-            format!("{start}–{end} of {total_rows}")
-        } else {
-            "0 rows".to_owned()
+        let paging = TableDataPaging {
+            page: self.table_data_offset / TABLE_PAGE_SIZE + 1,
+            total_pages: total_rows.div_ceil(TABLE_PAGE_SIZE).max(1),
+            page_range: if total_rows > 0 {
+                let start = self.table_data_offset + 1;
+                let end = (self.table_data_offset + result.row_count).min(total_rows);
+                format!("{start}–{end} of {total_rows}")
+            } else {
+                "0 rows".to_owned()
+            },
+            has_next: self.table_data_offset.saturating_add(TABLE_PAGE_SIZE) < total_rows,
+            has_previous: self.table_data_offset > 0,
         };
-        let has_next = self.table_data_offset.saturating_add(TABLE_PAGE_SIZE) < total_rows;
-        let has_previous = self.table_data_offset > 0;
+
+        self.draw_table_data_toolbar(ui, table_name, &result, can_mutate, &paging);
+        ui.add_space(8.0);
+
+        let column_names = result
+            .columns
+            .iter()
+            .map(|column| column.name.clone())
+            .collect::<Vec<_>>();
+        if !column_names.is_empty() {
+            self.draw_table_data_filter_bar(ui, table_name, &column_names);
+            ui.add_space(8.0);
+        }
+
+        let data_width = ui.max_rect().width();
+        grid_frame(self.theme).show(ui, |ui| {
+            ui.set_min_width((data_width - 24.0).max(0.0));
+            self.draw_result_grid(ui, &result);
+        });
+    }
+
+    /// Loading / failed placeholder shown while table data is not available.
+    fn draw_table_data_placeholder(&mut self, ui: &mut egui::Ui, table_name: &str) {
+        grid_frame(self.theme).show(ui, |ui| {
+            ui.vertical_centered(|ui| {
+                ui.add_space(28.0);
+                let failed = self.table_data_error.as_deref();
+                ui.label(icon_text(
+                    if failed.is_some() {
+                        Icon::TriangleAlert
+                    } else {
+                        Icon::LoaderCircle
+                    },
+                    "",
+                    if failed.is_some() {
+                        self.theme.warning
+                    } else {
+                        self.theme.accent
+                    },
+                ));
+                ui.add_space(8.0);
+                ui.label(
+                    RichText::new(if failed.is_some() {
+                        format!("Data for {table_name} could not be loaded")
+                    } else {
+                        format!("Loading data for {table_name}…")
+                    })
+                    .strong()
+                    .color(self.theme.text_primary),
+                );
+                if let Some(error) = failed {
+                    ui.label(RichText::new(error).small().color(self.theme.text_secondary));
+                    ui.add_space(12.0);
+                    if secondary_button_with_icon(ui, Icon::RotateCcw, "Retry", self.theme).clicked() {
+                        self.table_data_error = None;
+                        self.request_table_data();
+                    }
+                } else {
+                    ui.label(
+                        RichText::new("Rows will appear here with the shared result-grid controls.")
+                            .small()
+                            .color(self.theme.text_secondary),
+                    );
+                }
+                ui.add_space(28.0);
+            });
+        });
+    }
+
+    /// Data-editor header: title, refresh, mutation actions and the pager.
+    fn draw_table_data_toolbar(
+        &mut self,
+        ui: &mut egui::Ui,
+        table_name: &str,
+        result: &UiQueryResult,
+        can_mutate: bool,
+        paging: &TableDataPaging,
+    ) {
         toolbar_frame(self.theme).show(ui, |ui| {
             ui.horizontal_wrapped(|ui| {
                 ui.label(icon_text(Icon::Table2, "DATA EDITOR", self.theme.text_primary));
                 badge(ui, table_name, self.theme.accent_soft, self.theme.accent);
-                ui.label(RichText::new(page_range).small().color(self.theme.text_muted));
+                ui.label(
+                    RichText::new(paging.page_range.as_str())
+                        .small()
+                        .color(self.theme.text_muted),
+                );
                 ui.separator();
                 if compact_button_with_icon(ui, Icon::RotateCcw, "Refresh", self.theme)
                     .on_hover_text("Reload the current page")
                     .clicked()
                 {
                     if self.staged_changes.is_empty() {
-                        self.table_data_result = None;
-                        self.table_data_total_rows = None;
-                        self.table_data_error = None;
-                        self.selected_cell = None;
-                        self.selected_row = None;
-                        self.data_delete_confirmation = false;
+                        self.reset_table_data_page();
                         self.request_table_data();
                     } else {
                         self.runtime_message = "Apply or discard staged changes before refreshing".to_owned();
                     }
                 }
                 if can_mutate {
-                    if compact_button_with_icon(ui, Icon::Plus, "New row", self.theme).clicked() {
-                        self.open_insert_row();
-                    }
-                    if compact_button_with_icon(ui, Icon::Pencil, "Edit cell", self.theme).clicked() {
-                        if let Some((row_index, column_index)) = self.selected_cell {
-                            if let Some(cell) = result.rows.get(row_index).and_then(|row| row.get(column_index)) {
-                                self.begin_data_cell_edit(row_index, column_index, cell);
-                            }
-                        } else {
-                            self.runtime_message = "Select a cell before editing".to_owned();
-                        }
-                    }
-                    if compact_button_with_icon(ui, Icon::Trash2, "Delete row", self.theme).clicked() {
-                        self.request_delete_selected_data_row(&result);
-                    }
-                    if self.data_delete_confirmation {
-                        ui.colored_label(self.theme.warning, "Delete selected row?");
-                        if danger_button(ui, "Confirm", self.theme).clicked() {
-                            self.submit_delete_selected_data_row(&result);
-                        }
-                        if compact_button(ui, "Cancel", self.theme).clicked() {
-                            self.data_delete_confirmation = false;
-                        }
-                    }
-                    if !self.staged_changes.is_empty() {
-                        ui.separator();
-                        ui.label(
-                            RichText::new(format!("{} pending changes", self.staged_changes.len()))
-                                .small()
-                                .color(self.theme.warning),
-                        );
-                        if compact_button_with_icon(ui, Icon::Undo2, "Discard", self.theme).clicked() {
-                            self.discard_staged_changes();
-                        }
-                        if compact_button_with_icon(ui, Icon::Check, "Apply", self.theme).clicked() {
-                            self.apply_staged_changes();
-                        }
-                    }
+                    self.draw_table_data_mutation_actions(ui, result);
                 } else if self.connected {
                     ui.label(RichText::new("Read-only connection").small().color(self.theme.warning));
                 }
-                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                    if compact_icon_button_enabled(ui, Icon::ChevronRight, has_next, self.theme)
-                        .on_hover_text("Next page")
-                        .clicked()
-                        && self.staged_changes.is_empty()
-                    {
-                        self.table_data_result = None;
-                        self.table_data_error = None;
-                        self.selected_cell = None;
-                        self.selected_row = None;
-                        self.data_delete_confirmation = false;
-                        self.table_data_offset = self.table_data_offset.saturating_add(TABLE_PAGE_SIZE);
-                        self.request_table_data();
-                    }
-                    if compact_icon_button_enabled(ui, Icon::ChevronLeft, has_previous, self.theme)
-                        .on_hover_text("Previous page")
-                        .clicked()
-                        && self.staged_changes.is_empty()
-                    {
-                        self.table_data_result = None;
-                        self.table_data_error = None;
-                        self.selected_cell = None;
-                        self.selected_row = None;
-                        self.data_delete_confirmation = false;
-                        self.table_data_offset = self.table_data_offset.saturating_sub(TABLE_PAGE_SIZE);
-                        self.request_table_data();
-                    }
-                    ui.label(
-                        RichText::new(format!("Page {page} of {total_pages}"))
-                            .small()
-                            .color(self.theme.text_muted),
-                    );
-                });
+                self.draw_table_data_pager(ui, paging);
             });
         });
-        ui.add_space(8.0);
-        let column_names = result
-            .columns
-            .iter()
-            .map(|column| column.name.clone())
-            .collect::<Vec<_>>();
-        let requires_order = !self.active_driver().eq_ignore_ascii_case("sqlite");
-        if !column_names.is_empty() {
-            toolbar_frame(self.theme).show(ui, |ui| {
-                ui.horizontal_wrapped(|ui| {
-                    section_label(ui, "DATABASE FILTER", self.theme);
-                    ui.label(RichText::new("Column").small().color(self.theme.text_muted));
-                    egui::ComboBox::from_id_salt(("table-data-filter-column", table_name))
-                        .selected_text(if self.table_data_filter_column.is_empty() {
-                            "Column"
-                        } else {
-                            self.table_data_filter_column.as_str()
-                        })
-                        .width(110.0)
-                        .show_ui(ui, |ui| {
-                            for column in &column_names {
-                                ui.selectable_value(
-                                    &mut self.table_data_filter_column,
-                                    column.clone(),
-                                    column.as_str(),
-                                );
-                            }
-                        });
-                    input(ui, &mut self.table_data_filter_value, "contains…", 180.0, self.theme);
-                    if compact_button_with_icon(ui, Icon::Filter, "Apply", self.theme).clicked() {
-                        self.reload_table_data_from_start();
-                    }
-                    if compact_button_with_icon(ui, Icon::FilterX, "Clear", self.theme).clicked() {
-                        self.table_data_filter_value.clear();
-                        self.reload_table_data_from_start();
-                    }
-                    ui.separator();
-                    section_label(ui, "ORDER BY", self.theme);
-                    egui::ComboBox::from_id_salt(("table-data-sort-column", table_name))
-                        .selected_text(self.table_data_sort_column.as_deref().unwrap_or("None"))
-                        .width(110.0)
-                        .show_ui(ui, |ui| {
-                            if !requires_order {
-                                ui.selectable_value(&mut self.table_data_sort_column, None, "None");
-                            }
-                            for column in &column_names {
-                                ui.selectable_value(
-                                    &mut self.table_data_sort_column,
-                                    Some(column.clone()),
-                                    column.as_str(),
-                                );
-                            }
-                        });
-                    if self.table_data_sort_column.is_some() {
-                        let direction = if self.table_data_sort_desc { "DESC" } else { "ASC" };
-                        if compact_button_with_icon(ui, Icon::ArrowDownUp, direction, self.theme).clicked() {
-                            self.table_data_sort_desc = !self.table_data_sort_desc;
-                            self.reload_table_data_from_start();
-                        }
-                    }
-                });
-            });
-            ui.add_space(8.0);
+    }
+
+    /// New row / edit / delete controls, plus staged-change apply and discard.
+    fn draw_table_data_mutation_actions(&mut self, ui: &mut egui::Ui, result: &UiQueryResult) {
+        if compact_button_with_icon(ui, Icon::Plus, "New row", self.theme).clicked() {
+            self.open_insert_row();
         }
-        let data_width = ui.max_rect().width();
-        grid_frame(self.theme).show(ui, |ui| {
-            ui.set_min_width((data_width - 24.0).max(0.0));
-            self.draw_result_grid(ui, &result);
+        if compact_button_with_icon(ui, Icon::Pencil, "Edit cell", self.theme).clicked() {
+            if let Some((row_index, column_index)) = self.selected_cell {
+                if let Some(cell) = result.rows.get(row_index).and_then(|row| row.get(column_index)) {
+                    self.begin_data_cell_edit(row_index, column_index, cell);
+                }
+            } else {
+                self.runtime_message = "Select a cell before editing".to_owned();
+            }
+        }
+        if compact_button_with_icon(ui, Icon::Trash2, "Delete row", self.theme).clicked() {
+            self.request_delete_selected_data_row(result);
+        }
+        if self.data_delete_confirmation {
+            ui.colored_label(self.theme.warning, "Delete selected row?");
+            if danger_button(ui, "Confirm", self.theme).clicked() {
+                self.submit_delete_selected_data_row(result);
+            }
+            if compact_button(ui, "Cancel", self.theme).clicked() {
+                self.data_delete_confirmation = false;
+            }
+        }
+        if !self.staged_changes.is_empty() {
+            ui.separator();
+            ui.label(
+                RichText::new(format!("{} pending changes", self.staged_changes.len()))
+                    .small()
+                    .color(self.theme.warning),
+            );
+            if compact_button_with_icon(ui, Icon::Undo2, "Discard", self.theme).clicked() {
+                self.discard_staged_changes();
+            }
+            if compact_button_with_icon(ui, Icon::Check, "Apply", self.theme).clicked() {
+                self.apply_staged_changes();
+            }
+        }
+    }
+
+    /// Previous / next page controls and the page counter.
+    fn draw_table_data_pager(&mut self, ui: &mut egui::Ui, paging: &TableDataPaging) {
+        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+            if compact_icon_button_enabled(ui, Icon::ChevronRight, paging.has_next, self.theme)
+                .on_hover_text("Next page")
+                .clicked()
+                && self.staged_changes.is_empty()
+            {
+                self.reset_table_data_page();
+                self.table_data_offset = self.table_data_offset.saturating_add(TABLE_PAGE_SIZE);
+                self.request_table_data();
+            }
+            if compact_icon_button_enabled(ui, Icon::ChevronLeft, paging.has_previous, self.theme)
+                .on_hover_text("Previous page")
+                .clicked()
+                && self.staged_changes.is_empty()
+            {
+                self.reset_table_data_page();
+                self.table_data_offset = self.table_data_offset.saturating_sub(TABLE_PAGE_SIZE);
+                self.request_table_data();
+            }
+            ui.label(
+                RichText::new(format!("Page {} of {}", paging.page, paging.total_pages))
+                    .small()
+                    .color(self.theme.text_muted),
+            );
+        });
+    }
+
+    /// Clears the currently loaded page so the next request repopulates it.
+    fn reset_table_data_page(&mut self) {
+        self.table_data_result = None;
+        self.table_data_total_rows = None;
+        self.table_data_error = None;
+        self.selected_cell = None;
+        self.selected_row = None;
+        self.data_delete_confirmation = false;
+    }
+
+    /// Column filter and ORDER BY controls above the data grid.
+    fn draw_table_data_filter_bar(&mut self, ui: &mut egui::Ui, table_name: &str, column_names: &[String]) {
+        let requires_order = !self.active_driver().eq_ignore_ascii_case("sqlite");
+        toolbar_frame(self.theme).show(ui, |ui| {
+            ui.horizontal_wrapped(|ui| {
+                section_label(ui, "DATABASE FILTER", self.theme);
+                ui.label(RichText::new("Column").small().color(self.theme.text_muted));
+                egui::ComboBox::from_id_salt(("table-data-filter-column", table_name))
+                    .selected_text(if self.table_data_filter_column.is_empty() {
+                        "Column"
+                    } else {
+                        self.table_data_filter_column.as_str()
+                    })
+                    .width(110.0)
+                    .show_ui(ui, |ui| {
+                        for column in column_names {
+                            ui.selectable_value(&mut self.table_data_filter_column, column.clone(), column.as_str());
+                        }
+                    });
+                input(ui, &mut self.table_data_filter_value, "contains…", 180.0, self.theme);
+                if compact_button_with_icon(ui, Icon::Filter, "Apply", self.theme).clicked() {
+                    self.reload_table_data_from_start();
+                }
+                if compact_button_with_icon(ui, Icon::FilterX, "Clear", self.theme).clicked() {
+                    self.table_data_filter_value.clear();
+                    self.reload_table_data_from_start();
+                }
+                ui.separator();
+                section_label(ui, "ORDER BY", self.theme);
+                egui::ComboBox::from_id_salt(("table-data-sort-column", table_name))
+                    .selected_text(self.table_data_sort_column.as_deref().unwrap_or("None"))
+                    .width(110.0)
+                    .show_ui(ui, |ui| {
+                        if !requires_order {
+                            ui.selectable_value(&mut self.table_data_sort_column, None, "None");
+                        }
+                        for column in column_names {
+                            ui.selectable_value(
+                                &mut self.table_data_sort_column,
+                                Some(column.clone()),
+                                column.as_str(),
+                            );
+                        }
+                    });
+                if self.table_data_sort_column.is_some() {
+                    let direction = if self.table_data_sort_desc { "DESC" } else { "ASC" };
+                    if compact_button_with_icon(ui, Icon::ArrowDownUp, direction, self.theme).clicked() {
+                        self.table_data_sort_desc = !self.table_data_sort_desc;
+                        self.reload_table_data_from_start();
+                    }
+                }
+            });
         });
     }
 
@@ -474,43 +517,62 @@ impl DbProApp {
 
     pub(crate) fn draw_table_ddl(&mut self, ui: &mut egui::Ui, table_name: &str) {
         let Some(mut ddl) = self.table_ddl.clone() else {
-            grid_frame(self.theme).show(ui, |ui| {
-                ui.vertical_centered(|ui| {
-                    ui.add_space(28.0);
-                    let failed = self.table_ddl_error.as_deref();
-                    ui.label(icon_text(
-                        if failed.is_some() {
-                            Icon::TriangleAlert
-                        } else {
-                            Icon::Code2
-                        },
-                        "",
-                        if failed.is_some() {
-                            self.theme.warning
-                        } else {
-                            self.theme.accent
-                        },
-                    ));
-                    ui.add_space(8.0);
-                    ui.label(
-                        RichText::new(if failed.is_some() {
-                            format!("DDL for {table_name} could not be loaded")
-                        } else {
-                            format!("Loading DDL for {table_name}…")
-                        })
-                        .strong()
-                        .color(self.theme.text_primary),
-                    );
-                    if let Some(error) = failed {
-                        ui.label(RichText::new(error).small().color(self.theme.text_secondary));
-                    }
-                    ui.add_space(28.0);
-                });
-            });
+            self.draw_table_ddl_placeholder(ui, table_name);
             return;
         };
 
         let writable = self.can_mutate_active_connection();
+        let request_execution = self.draw_ddl_script_card(ui, writable, &mut ddl);
+
+        let impact = ddl_impact_summary(&ddl, table_name);
+        self.table_ddl = Some(ddl);
+        if request_execution {
+            self.ddl_execute_confirmation = true;
+        }
+        if self.ddl_execute_confirmation {
+            self.draw_ddl_confirmation_card(ui, &impact);
+        }
+    }
+
+    /// Loading / failed placeholder shown while the DDL is not available.
+    fn draw_table_ddl_placeholder(&mut self, ui: &mut egui::Ui, table_name: &str) {
+        grid_frame(self.theme).show(ui, |ui| {
+            ui.vertical_centered(|ui| {
+                ui.add_space(28.0);
+                let failed = self.table_ddl_error.as_deref();
+                ui.label(icon_text(
+                    if failed.is_some() {
+                        Icon::TriangleAlert
+                    } else {
+                        Icon::Code2
+                    },
+                    "",
+                    if failed.is_some() {
+                        self.theme.warning
+                    } else {
+                        self.theme.accent
+                    },
+                ));
+                ui.add_space(8.0);
+                ui.label(
+                    RichText::new(if failed.is_some() {
+                        format!("DDL for {table_name} could not be loaded")
+                    } else {
+                        format!("Loading DDL for {table_name}…")
+                    })
+                    .strong()
+                    .color(self.theme.text_primary),
+                );
+                if let Some(error) = failed {
+                    ui.label(RichText::new(error).small().color(self.theme.text_secondary));
+                }
+                ui.add_space(28.0);
+            });
+        });
+    }
+
+    /// Editable CREATE SCRIPT card. Returns true when "Apply DDL" was pressed.
+    fn draw_ddl_script_card(&mut self, ui: &mut egui::Ui, writable: bool, ddl: &mut String) -> bool {
         let mut request_execution = false;
         card_frame(self.theme).show(ui, |ui| {
             ui.horizontal_wrapped(|ui| {
@@ -542,7 +604,7 @@ impl DbProApp {
             }
             editor_frame(self.theme).show(ui, |ui| {
                 let response = ui.add(
-                    TextEdit::multiline(&mut ddl)
+                    TextEdit::multiline(&mut *ddl)
                         .font(FontId::monospace(13.0))
                         .desired_width(ui.available_width())
                         .desired_rows(18)
@@ -553,41 +615,39 @@ impl DbProApp {
                 }
             });
         });
-        let impact = ddl_impact_summary(&ddl, table_name);
-        self.table_ddl = Some(ddl);
-        if request_execution {
-            self.ddl_execute_confirmation = true;
-        }
-        if self.ddl_execute_confirmation {
-            let mut execute = false;
-            let mut cancel = false;
-            card_frame(self.theme).show(ui, |ui| {
-                ui.horizontal_wrapped(|ui| {
-                    ui.label(icon_text(
-                        Icon::TriangleAlert,
-                        "Review DDL before applying",
-                        self.theme.warning,
-                    ));
-                    ui.label(
-                        RichText::new("This changes the connected database and refreshes the Explorer.")
-                            .small()
-                            .color(self.theme.text_secondary),
-                    );
-                    ui.label(RichText::new(impact).small().color(self.theme.warning));
-                    if primary_button_with_icon(ui, Icon::Check, "Execute", self.theme).clicked() {
-                        execute = true;
-                    }
-                    if ghost_button(ui, "Cancel", self.theme).clicked() {
-                        cancel = true;
-                    }
-                });
+        request_execution
+    }
+
+    /// Confirmation gate shown before the DDL is executed against the database.
+    fn draw_ddl_confirmation_card(&mut self, ui: &mut egui::Ui, impact: &str) {
+        let mut execute = false;
+        let mut cancel = false;
+        card_frame(self.theme).show(ui, |ui| {
+            ui.horizontal_wrapped(|ui| {
+                ui.label(icon_text(
+                    Icon::TriangleAlert,
+                    "Review DDL before applying",
+                    self.theme.warning,
+                ));
+                ui.label(
+                    RichText::new("This changes the connected database and refreshes the Explorer.")
+                        .small()
+                        .color(self.theme.text_secondary),
+                );
+                ui.label(RichText::new(impact).small().color(self.theme.warning));
+                if primary_button_with_icon(ui, Icon::Check, "Execute", self.theme).clicked() {
+                    execute = true;
+                }
+                if ghost_button(ui, "Cancel", self.theme).clicked() {
+                    cancel = true;
+                }
             });
-            if execute {
-                self.submit_ddl();
-            }
-            if cancel {
-                self.ddl_execute_confirmation = false;
-            }
+        });
+        if execute {
+            self.submit_ddl();
+        }
+        if cancel {
+            self.ddl_execute_confirmation = false;
         }
     }
     pub(crate) fn request_table_info(&mut self) {
