@@ -82,7 +82,14 @@ See:
 - Agent-ready Action Platform architecture
 - Typed execution lifecycle, confirmation gates, cancellation identity, and audit hooks
 - Preview UI only in 0.1.0
+- Optional Codex Responses text provider via `OPENAI_API_KEY`; SQL remains a reviewable draft
 - MCP server is not shipped in 0.1.0
+
+To enable the optional native Codex provider, set `OPENAI_API_KEY` outside the
+repository before launching `db-pro-native`. `DB_PRO_CODEX_MODEL` and
+`DB_PRO_CODEX_ENDPOINT` are optional overrides; the default endpoint is the
+official HTTPS Responses API endpoint. Credentials are read once by the
+runtime worker and are not rendered in the UI or logs.
 
 ## Architecture
 
@@ -180,7 +187,7 @@ Configured release formats include macOS DMG/app bundle, Windows MSI/NSIS, and L
 
 - Complete row insertion workflow is not shipped.
 - Grid update/delete requires a primary key; no-PK tables are read-only.
-- Advanced schema mutation/DDL execution UI is deferred; inspection is available.
+- Advanced schema mutation/DDL execution is limited to a confirmation-gated single-statement editor in the native preview; richer migration workflows remain deferred.
 - Users/roles workbench is deferred.
 - Agent workspace is Preview only.
 - MCP server is not included.

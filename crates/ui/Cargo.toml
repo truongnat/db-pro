@@ -9,3 +9,12 @@ egui = "0.29"
 serde.workspace = true
 serde_json.workspace = true
 sqlparser = "0.52"
+lucide-icons.workspace = true
+bigdecimal.workspace = true
+
+[dev-dependencies]
+criterion.workspace = true
+
+[[bench]]
+name = "result_grid_benchmarks"
+harness = false

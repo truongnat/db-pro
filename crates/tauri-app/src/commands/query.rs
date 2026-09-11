@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use tauri::State;
 
 use crate::cancel::ExecutionRegistry;
@@ -11,7 +13,7 @@ use db_pro_core::domain::execution::{ExecutionStatus, QueryExecutionId};
 
 #[tauri::command]
 pub async fn execute_query(
-    service: State<'_, QueryService>,
+    service: State<'_, Arc<QueryService>>,
     exec_registry: State<'_, ExecutionRegistry>,
     connection_id: String,
     sql: String,
@@ -79,7 +81,7 @@ pub async fn cancel_query(
 
 #[tauri::command]
 pub async fn execute_query_multi(
-    service: State<'_, QueryService>,
+    service: State<'_, Arc<QueryService>>,
     exec_registry: State<'_, ExecutionRegistry>,
     connection_id: String,
     sql: String,
@@ -142,7 +144,7 @@ pub async fn execute_query_multi(
 
 #[tauri::command]
 pub async fn explain_query(
-    service: State<'_, QueryService>,
+    service: State<'_, Arc<QueryService>>,
     connection_id: String,
     sql: String,
 ) -> Result<serde_json::Value, CommandError> {
@@ -152,7 +154,7 @@ pub async fn explain_query(
 
 #[tauri::command]
 pub async fn get_query_history(
-    service: State<'_, QueryService>,
+    service: State<'_, Arc<QueryService>>,
     connection_id: String,
     limit: Option<u32>,
 ) -> Result<Vec<QueryHistoryDto>, CommandError> {
@@ -163,7 +165,7 @@ pub async fn get_query_history(
 
 #[tauri::command]
 pub async fn save_query(
-    service: State<'_, QueryService>,
+    service: State<'_, Arc<QueryService>>,
     connection_id: String,
     name: String,
     sql: String,
@@ -176,7 +178,7 @@ pub async fn save_query(
 
 #[tauri::command]
 pub async fn list_saved_queries(
-    service: State<'_, QueryService>,
+    service: State<'_, Arc<QueryService>>,
     connection_id: String,
 ) -> Result<Vec<SavedQueryDto>, CommandError> {
     let conn_id = parse_connection_id(&connection_id)?;
@@ -185,7 +187,7 @@ pub async fn list_saved_queries(
 }
 
 #[tauri::command]
-pub async fn delete_saved_query(service: State<'_, QueryService>, id: String) -> Result<(), CommandError> {
+pub async fn delete_saved_query(service: State<'_, Arc<QueryService>>, id: String) -> Result<(), CommandError> {
     let uuid = uuid::Uuid::parse_str(&id).map_err(|e| CommandError {
         error: "VALIDATION".into(),
         message: format!("invalid query id: {e}"),
@@ -199,7 +201,7 @@ pub async fn delete_saved_query(service: State<'_, QueryService>, id: String) ->
 
 #[tauri::command]
 pub async fn rename_saved_query(
-    service: State<'_, QueryService>,
+    service: State<'_, Arc<QueryService>>,
     id: String,
     name: String,
 ) -> Result<(), CommandError> {
@@ -216,7 +218,7 @@ pub async fn rename_saved_query(
 
 #[tauri::command]
 pub async fn create_folder(
-    service: State<'_, QueryService>,
+    service: State<'_, Arc<QueryService>>,
     connection_id: String,
     name: String,
 ) -> Result<SavedQueryFolderDto, CommandError> {
@@ -227,7 +229,7 @@ pub async fn create_folder(
 
 #[tauri::command]
 pub async fn list_folders(
-    service: State<'_, QueryService>,
+    service: State<'_, Arc<QueryService>>,
     connection_id: String,
 ) -> Result<Vec<SavedQueryFolderDto>, CommandError> {
     let conn_id = parse_connection_id(&connection_id)?;
@@ -236,7 +238,7 @@ pub async fn list_folders(
 }
 
 #[tauri::command]
-pub async fn delete_folder(service: State<'_, QueryService>, id: String) -> Result<(), CommandError> {
+pub async fn delete_folder(service: State<'_, Arc<QueryService>>, id: String) -> Result<(), CommandError> {
     let uuid = uuid::Uuid::parse_str(&id).map_err(|e| CommandError {
         error: "VALIDATION".into(),
         message: format!("invalid folder id: {e}"),
@@ -250,7 +252,7 @@ pub async fn delete_folder(service: State<'_, QueryService>, id: String) -> Resu
 
 #[tauri::command]
 pub async fn save_run_config(
-    service: State<'_, QueryService>,
+    service: State<'_, Arc<QueryService>>,
     connection_id: String,
     name: String,
     sql: String,
@@ -266,7 +268,7 @@ pub async fn save_run_config(
 
 #[tauri::command]
 pub async fn list_run_configs(
-    service: State<'_, QueryService>,
+    service: State<'_, Arc<QueryService>>,
     connection_id: String,
 ) -> Result<Vec<RunConfigDto>, CommandError> {
     let conn_id = parse_connection_id(&connection_id)?;
@@ -275,7 +277,7 @@ pub async fn list_run_configs(
 }
 
 #[tauri::command]
-pub async fn delete_run_config(service: State<'_, QueryService>, id: String) -> Result<(), CommandError> {
+pub async fn delete_run_config(service: State<'_, Arc<QueryService>>, id: String) -> Result<(), CommandError> {
     let uuid = uuid::Uuid::parse_str(&id).map_err(|e| CommandError {
         error: "VALIDATION".into(),
         message: format!("invalid run config id: {e}"),

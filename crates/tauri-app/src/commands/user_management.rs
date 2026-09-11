@@ -1,4 +1,6 @@
 use serde::Deserialize;
+use std::sync::Arc;
+
 use tauri::State;
 
 use db_pro_core::application::UserService;
@@ -57,7 +59,7 @@ pub struct GrantRequest {
 #[tauri::command]
 pub async fn list_users(
     req: ConnectionIdRequest,
-    service: State<'_, UserService>,
+    service: State<'_, Arc<UserService>>,
 ) -> Result<Vec<DatabaseUserDto>, CommandError> {
     let conn_id = parse_connection_id(&req.connection_id)?;
     let users = service.list_users(&conn_id).await.map_err(CommandError::from)?;
@@ -65,7 +67,7 @@ pub async fn list_users(
 }
 
 #[tauri::command]
-pub async fn create_role(req: CreateRoleRequest, service: State<'_, UserService>) -> Result<(), CommandError> {
+pub async fn create_role(req: CreateRoleRequest, service: State<'_, Arc<UserService>>) -> Result<(), CommandError> {
     let conn_id = parse_connection_id(&req.connection_id)?;
     service
         .create_role(&conn_id, &req.name, req.login)
@@ -74,7 +76,7 @@ pub async fn create_role(req: CreateRoleRequest, service: State<'_, UserService>
 }
 
 #[tauri::command]
-pub async fn drop_role(req: DropRoleRequest, service: State<'_, UserService>) -> Result<(), CommandError> {
+pub async fn drop_role(req: DropRoleRequest, service: State<'_, Arc<UserService>>) -> Result<(), CommandError> {
     let conn_id = parse_connection_id(&req.connection_id)?;
     service.drop_role(&conn_id, &req.name).await.map_err(CommandError::from)
 }
@@ -82,7 +84,7 @@ pub async fn drop_role(req: DropRoleRequest, service: State<'_, UserService>) ->
 #[tauri::command]
 pub async fn list_privileges(
     req: RoleNameRequest,
-    service: State<'_, UserService>,
+    service: State<'_, Arc<UserService>>,
 ) -> Result<Vec<PrivilegeDto>, CommandError> {
     let conn_id = parse_connection_id(&req.connection_id)?;
     let privs = service
@@ -93,7 +95,7 @@ pub async fn list_privileges(
 }
 
 #[tauri::command]
-pub async fn grant_privilege(req: GrantRequest, service: State<'_, UserService>) -> Result<(), CommandError> {
+pub async fn grant_privilege(req: GrantRequest, service: State<'_, Arc<UserService>>) -> Result<(), CommandError> {
     let conn_id = parse_connection_id(&req.connection_id)?;
     service
         .grant_privilege(&conn_id, &req.role_name, &req.schema, &req.table, &req.privilege)
@@ -102,7 +104,7 @@ pub async fn grant_privilege(req: GrantRequest, service: State<'_, UserService>)
 }
 
 #[tauri::command]
-pub async fn revoke_privilege(req: GrantRequest, service: State<'_, UserService>) -> Result<(), CommandError> {
+pub async fn revoke_privilege(req: GrantRequest, service: State<'_, Arc<UserService>>) -> Result<(), CommandError> {
     let conn_id = parse_connection_id(&req.connection_id)?;
     service
         .revoke_privilege(&conn_id, &req.role_name, &req.schema, &req.table, &req.privilege)

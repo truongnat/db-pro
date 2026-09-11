@@ -75,8 +75,12 @@ pub struct Trigger {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Function {
     pub name: String,
+    #[serde(default)]
+    pub schema: String,
     pub routine_type: String,
     pub data_type: String,
+    #[serde(default)]
+    pub definition: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

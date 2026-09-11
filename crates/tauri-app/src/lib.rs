@@ -2,18 +2,7 @@ mod cancel;
 mod commands;
 mod dto;
 
-use std::sync::Arc;
-
-use db_pro_core::application::{
-    BackupService, ConnectionRegistry, ConnectionService, DataDiffService, ExportService, QueryService, SchemaService,
-    TableDataService, UserService,
-};
-use db_pro_infrastructure::backup::pg_dump::PgDumpEngine;
-use db_pro_infrastructure::backup::sqlite_backup::SqliteBackupEngine;
-use db_pro_infrastructure::connector::CompositeConnector;
-use db_pro_infrastructure::meta::store::SQLiteMetaStore;
-use db_pro_infrastructure::postgres::user_manager::PostgresUserManager;
-use db_pro_infrastructure::secret::keyring_vault::KeyringVault;
+use db_pro_runtime::DbProRuntime;
 use tauri::Manager;
 
 use crate::cancel::ExecutionRegistry;
@@ -36,121 +25,22 @@ pub fn run() {
 
             tauri::async_runtime::block_on(async move {
                 let data_dir = handle.path().app_data_dir().expect("failed to get app data dir");
-                std::fs::create_dir_all(&data_dir).expect("failed to create data dir");
-
-                let meta_path = data_dir.join("meta.db");
-                let secrets_dir = data_dir.join("secrets");
-                std::fs::create_dir_all(&secrets_dir).expect("failed to create secrets dir");
-
-                let meta_store = SQLiteMetaStore::new(&meta_path.to_string_lossy())
+                let runtime = DbProRuntime::new(&data_dir)
                     .await
-                    .expect("failed to initialize meta store");
+                    .expect("failed to initialize shared DB Pro runtime");
 
-                let secret_store = {
-                    let vault = KeyringVault::new("com.dbpro.app", secrets_dir);
-                    Arc::new(vault)
-                };
-
-                let registry = Arc::new(ConnectionRegistry::new());
-                let connector: Arc<CompositeConnector> = Arc::new(CompositeConnector::new());
-
-                let conn_service = ConnectionService::new(
-                    Box::new(Arc::clone(&connector)),
-                    Box::new(meta_store.clone()),
-                    Box::new(secret_store.clone()),
-                    Arc::clone(&registry),
-                );
-
-                let query_service = QueryService::new(
-                    Box::new(Arc::clone(&connector)),
-                    Box::new(meta_store.clone()),
-                    Box::new(meta_store.clone()),
-                    Box::new(meta_store.clone()),
-                    Arc::clone(&registry),
-                    Box::new(meta_store.clone()),
-                );
-
-                let schema_service = SchemaService::new(
-                    Box::new(Arc::clone(&connector)),
-                    Box::new(meta_store.clone()),
-                    Arc::clone(&registry),
-                    Box::new(meta_store.clone()),
-                );
-
-                let export_service = ExportService::new(Box::new(Arc::clone(&connector)), Arc::clone(&registry));
-
-                let table_data_service = TableDataService::new(
-                    Box::new(Arc::clone(&connector)),
-                    Arc::clone(&registry),
-                    Box::new(meta_store.clone()),
-                );
-
-                let pg_connector = connector.postgres_connector();
-                let user_manager = PostgresUserManager::new(pg_connector);
-                let user_service = UserService::new(
-                    Box::new(user_manager),
-                    Arc::clone(&registry),
-                    Box::new(meta_store.clone()),
-                );
-
-                let backup_service = BackupService::new(
-                    Box::new(meta_store.clone()),
-                    Box::new(Arc::clone(&secret_store)),
-                    Arc::clone(&registry),
-                    Box::new(|host: &str, port: u16, database: &str, username: &str| {
-                        let config = db_pro_core::domain::connection::ConnectionConfig {
-                            name: String::new(),
-                            host: host.to_string(),
-                            port,
-                            database: database.to_string(),
-                            username: username.to_string(),
-                            driver: db_pro_core::domain::connection::DriverType::Postgres,
-                            ssl_mode: db_pro_core::domain::connection::SslMode::Disable,
-                            ssh_tunnel: None,
-                            query_timeout_ms: 30_000,
-                            max_rows: 500,
-                            color: None,
-                            tags: vec![],
-                            group: None,
-                            readonly: false,
-                        };
-                        Box::new(PgDumpEngine::new(config)) as Box<dyn db_pro_core::ports::BackupEngine>
-                    }),
-                    Box::new(|database: &str| {
-                        let config = db_pro_core::domain::connection::ConnectionConfig {
-                            name: String::new(),
-                            host: String::new(),
-                            port: 0,
-                            database: database.to_string(),
-                            username: String::new(),
-                            driver: db_pro_core::domain::connection::DriverType::SQLite,
-                            ssl_mode: db_pro_core::domain::connection::SslMode::Disable,
-                            ssh_tunnel: None,
-                            query_timeout_ms: 30_000,
-                            max_rows: 500,
-                            color: None,
-                            tags: vec![],
-                            group: None,
-                            readonly: false,
-                        };
-                        Box::new(SqliteBackupEngine::new(config)) as Box<dyn db_pro_core::ports::BackupEngine>
-                    }),
-                );
-
-                let data_diff_service = DataDiffService::new(Box::new(Arc::clone(&connector)), Arc::clone(&registry));
-
-                handle.manage(conn_service);
-                handle.manage(query_service);
-                handle.manage(schema_service);
-                handle.manage(export_service);
-                handle.manage(table_data_service);
-                handle.manage(user_service);
-                handle.manage(backup_service);
-                handle.manage(data_diff_service);
+                handle.manage(runtime.connections());
+                handle.manage(runtime.queries());
+                handle.manage(runtime.schema());
+                handle.manage(runtime.export());
+                handle.manage(runtime.table_data());
+                handle.manage(runtime.users());
+                handle.manage(runtime.backup());
+                handle.manage(runtime.data_diff());
                 handle.manage(ExecutionRegistry::new());
-                handle.manage(Arc::clone(&connector) as Arc<CompositeConnector>);
-                handle.manage(Arc::clone(&registry) as Arc<ConnectionRegistry>);
-                handle.manage(meta_store);
+                handle.manage(runtime.connector());
+                handle.manage(runtime.registry());
+                handle.manage(runtime.meta_store());
             });
 
             Ok(())

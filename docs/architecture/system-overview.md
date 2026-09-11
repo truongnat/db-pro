@@ -4,14 +4,16 @@
 
 ## Architecture
 
-DB Pro is a Tauri desktop application with a Rust backend and React/TypeScript frontend.
+DB Pro is a Tauri desktop application with a Rust backend and React/TypeScript frontend,
+plus a native egui preview that now shares the same Rust runtime service graph.
 
 ```text
 ┌──────────────────────────────────────────────────────┐
 │  Frontend (React / TypeScript / TanStack Router)     │
 │  PATCH 1 owns all product UI surfaces                │
 ├──────────────────────────────────────────────────────┤
-│  Tauri Command Boundary (dto.rs → CommandError)      │
+│  Tauri Command / Native UI Boundary                  │
+│  (dto.rs → CommandError / typed task bridge)         │
 ├──────────────────────────────────────────────────────┤
 │  Application Layer (services)                        │
 │  QueryService, ConnectionService, SchemaService,     │
@@ -37,6 +39,8 @@ DB Pro is a Tauri desktop application with a Rust backend and React/TypeScript f
 | `db-pro-core` | `crates/core` | Domain types, application services, port traits |
 | `db-pro-infrastructure` | `crates/infrastructure` | PostgreSQL, SQLite, metadata store, secrets, SSH |
 | `db-pro-tauri` | `crates/tauri-app` | Tauri commands, DTOs, cancel/execution registry |
+| `db-pro-runtime` | `crates/runtime` | Shared service graph and async runtime worker for native/Tauri adapters |
+| `db-pro-ui` / `db-pro-native` | `crates/ui`, `crates/native-app` | Native egui shell and typed task-bridge adapter |
 
 ## Database Drivers
 
@@ -59,9 +63,9 @@ DB Pro is a Tauri desktop application with a Rust backend and React/TypeScript f
 ## Data Flow
 
 ```text
-Tauri command (dto.rs)
-  → parse input, validate
-  → call application service
+Tauri command or native task-bridge adapter
+  → parse/translate input, validate
+  → call the shared `DbProRuntime` service graph
     → get ConnectionHandle from registry
     → call port trait (DbConnector)
       → infrastructure implementation (postgres/sqlite)

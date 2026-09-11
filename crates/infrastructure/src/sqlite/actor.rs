@@ -292,6 +292,7 @@ impl SqliteActor {
 
     // -- handlers -----------------------------------------------------------
 
+    #[allow(clippy::result_large_err)]
     fn handle_execute_transaction(
         &self,
         statements: &[String],

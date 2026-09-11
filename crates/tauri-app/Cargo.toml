@@ -10,6 +10,7 @@ crate-type = ["lib", "cdylib", "staticlib"]
 [dependencies]
 db-pro-core = { path = "../core" }
 db-pro-infrastructure = { path = "../infrastructure" }
+db-pro-runtime = { path = "../runtime" }
 serde.workspace = true
 serde_json.workspace = true
 tokio.workspace = true

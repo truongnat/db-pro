@@ -1,5 +1,6 @@
 use std::path::Path;
 use std::process::Command;
+use std::sync::Arc;
 
 use tauri::{AppHandle, Emitter, State};
 
@@ -24,7 +25,7 @@ fn emit_progress(app: &AppHandle, operation: &str, status: &str, path: &str, mes
 pub async fn backup_database(
     req: BackupOptionsDto,
     app: AppHandle,
-    service: State<'_, BackupService>,
+    service: State<'_, Arc<BackupService>>,
 ) -> Result<BackupResultDto, CommandError> {
     emit_progress(&app, "backup", "started", &req.output_path, None);
     let options = BackupOptions {
@@ -60,7 +61,7 @@ pub async fn backup_database(
 pub async fn restore_database(
     req: RestoreOptionsDto,
     app: AppHandle,
-    service: State<'_, BackupService>,
+    service: State<'_, Arc<BackupService>>,
 ) -> Result<(), CommandError> {
     emit_progress(&app, "restore", "started", &req.input_path, None);
     let options = RestoreOptions {

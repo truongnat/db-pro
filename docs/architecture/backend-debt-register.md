@@ -75,9 +75,9 @@ Severity levels:
 
 - **Status**: ✅ **Fixed** (P2-08) — `ConnectionSafetyPolicy` in `domain/safety.rs`
 
-### P2-04: `IntrospectResult` drops triggers and functions in DTO
+### P2-04: `IntrospectResult` drops function signatures in DTO
 
-- **Status**: Open — deferred (frontend doesn't consume these yet)
+- **Status**: ✅ **Fixed in native path** — PostgreSQL functions/procedures now retain schema, routine type, return type and `pg_get_functiondef` output through the runtime/UI DTO; live PostgreSQL verification remains pending when the fixture is available.
 
 ### P2-05: `CellValue` and `QueryParam` are structurally identical
 

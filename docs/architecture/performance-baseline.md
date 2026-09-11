@@ -3,7 +3,7 @@
 **Status**: Implemented  
 **Date**: PATCH 2 P2-11  
 **Tool**: Criterion 0.5  
-**Run command**: `cargo bench --package db-pro-infrastructure`
+**Run command**: `cargo bench --package db-pro-infrastructure` (backend) and `cargo bench --package db-pro-ui --bench result_grid_benchmarks -- --quick` (native grid)
 
 ## Baseline Results (macOS, Apple Silicon, debug=off)
 
@@ -43,6 +43,19 @@
 - PostgreSQL driver benchmarks (requires running PostgreSQL instance).
 - Tauri serialization boundary (Rust → IPC → JS).
 - Network latency for remote connections.
+
+## Native Result Grid Baseline
+
+Measured on 2026-09-11 with the production row-index projection used by
+`db-pro-ui`:
+
+| Benchmark | Mean Time | Status |
+|-----------|-----------|--------|
+| 1,000,000-row projection without filter/sort | ~3.15 ms | ✅ PASS |
+| Materialize 100 visible rows at a mid-list scroll offset | ~38 ns | ✅ PASS |
+
+These measurements cover result metadata/index preparation and visible-window
+selection. They do not claim GPU paint or end-to-end desktop scroll latency.
 
 ## Notes
 

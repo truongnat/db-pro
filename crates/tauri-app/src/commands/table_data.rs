@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use tauri::State;
 
 use crate::dto::{CommandError, FetchRowsRequest, FetchRowsResultDto, MutateRowRequest, MutateRowResultDto};
@@ -6,7 +8,7 @@ use db_pro_core::domain::connection::ConnectionId;
 
 #[tauri::command]
 pub async fn fetch_table_rows(
-    service: State<'_, TableDataService>,
+    service: State<'_, Arc<TableDataService>>,
     connection_id: String,
     request: FetchRowsRequest,
 ) -> Result<FetchRowsResultDto, CommandError> {
@@ -41,7 +43,7 @@ pub async fn fetch_table_rows(
 
 #[tauri::command]
 pub async fn insert_table_row(
-    service: State<'_, TableDataService>,
+    service: State<'_, Arc<TableDataService>>,
     connection_id: String,
     request: MutateRowRequest,
 ) -> Result<MutateRowResultDto, CommandError> {
@@ -57,7 +59,7 @@ pub async fn insert_table_row(
 
 #[tauri::command]
 pub async fn update_table_row(
-    service: State<'_, TableDataService>,
+    service: State<'_, Arc<TableDataService>>,
     connection_id: String,
     request: MutateRowRequest,
 ) -> Result<MutateRowResultDto, CommandError> {
@@ -99,7 +101,7 @@ pub async fn update_table_row(
 
 #[tauri::command]
 pub async fn delete_table_row(
-    service: State<'_, TableDataService>,
+    service: State<'_, Arc<TableDataService>>,
     connection_id: String,
     request: MutateRowRequest,
 ) -> Result<MutateRowResultDto, CommandError> {

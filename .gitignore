@@ -29,6 +29,9 @@ bun.lock
 # Generated test fixtures (use scripts/generate-fixtures.mjs)
 frontend/test/fixtures/schemas/*.json
 
+# Local native runtime state
+/.db-pro-data/
+
 # Allow plan docs and agent instructions (overrides global gitignore)
 !docs/
 !docs/**

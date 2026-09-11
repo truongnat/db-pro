@@ -1,14 +1,16 @@
 use std::sync::Arc;
 
-use db_pro_core::application::{BackupService, ConnectionService, ExportService, QueryService, SchemaService, TableDataService, UserService};
+use db_pro_core::application::sql_builder::{SortClause, TableFilter};
+use db_pro_core::application::{
+    BackupService, ConnectionService, ExportService, QueryService, SchemaService, TableDataService, UserService,
+};
 use db_pro_core::domain::backup::{BackupOptions, BackupResult, RestoreOptions};
 use db_pro_core::domain::connection::{ConnectionId, DriverType};
 use db_pro_core::domain::error::DbError;
-use db_pro_core::domain::user::{DatabaseUser, Privilege};
 use db_pro_core::domain::history::{SavedQuery, SavedQueryFolder};
 use db_pro_core::domain::query::{CellValue, QueryParam, QueryResult};
-use db_pro_core::application::sql_builder::{SortClause, TableFilter};
 use db_pro_core::domain::schema::IntrospectResult;
+use db_pro_core::domain::user::{DatabaseUser, Privilege};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DbErrorDto {
@@ -33,6 +35,63 @@ impl From<DbError> for DbErrorDto {
 pub struct SchemaSummary {
     pub tables: Vec<String>,
     pub columns: Vec<String>,
+    pub table_details: Vec<TableSummary>,
+    pub views: Vec<ViewSummary>,
+    pub triggers: Vec<TriggerSummary>,
+    pub functions: Vec<FunctionSummary>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TableSummary {
+    pub schema: String,
+    pub name: String,
+    pub row_count: Option<u64>,
+    pub columns: Vec<ColumnSummary>,
+    pub foreign_keys: Vec<ForeignKeySummary>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ColumnSummary {
+    pub name: String,
+    pub data_type: String,
+    pub nullable: bool,
+    pub is_primary_key: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ForeignKeySummary {
+    pub name: String,
+    pub from_columns: Vec<String>,
+    pub to_schema: String,
+    pub to_table: String,
+    pub to_columns: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ViewSummary {
+    pub schema: String,
+    pub name: String,
+    pub definition: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TriggerSummary {
+    pub schema: String,
+    pub name: String,
+    pub table_name: String,
+    pub timing: String,
+    pub event: String,
+    pub definition: String,
+    pub enabled: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FunctionSummary {
+    pub schema: String,
+    pub name: String,
+    pub routine_type: String,
+    pub data_type: String,
+    pub definition: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -114,7 +173,10 @@ impl ConnectionApi {
         config: &db_pro_core::domain::connection::ConnectionConfig,
         password: &str,
     ) -> Result<(), DbErrorDto> {
-        self.service.test_connectivity(config, password).await.map_err(Into::into)
+        self.service
+            .test_connectivity(config, password)
+            .await
+            .map_err(Into::into)
     }
 
     pub async fn connect(&self, connection_id: &str) -> Result<(), DbErrorDto> {
@@ -124,7 +186,11 @@ impl ConnectionApi {
             message_id: "error.validation".to_owned(),
             retryable: false,
         })?;
-        self.service.connect(&connection_id).await.map(|_| ()).map_err(Into::into)
+        self.service
+            .connect(&connection_id)
+            .await
+            .map(|_| ())
+            .map_err(Into::into)
     }
 
     pub async fn disconnect(&self, connection_id: &str) -> Result<(), DbErrorDto> {
@@ -169,12 +235,18 @@ impl QueryApi {
         folder: Option<&str>,
     ) -> Result<SavedQuery, DbErrorDto> {
         let connection_id = parse_connection_id(connection_id)?;
-        self.service.save_query(&connection_id, name, sql, folder).await.map_err(Into::into)
+        self.service
+            .save_query(&connection_id, name, sql, folder)
+            .await
+            .map_err(Into::into)
     }
 
     pub async fn list_saved_queries(&self, connection_id: &str) -> Result<Vec<SavedQuery>, DbErrorDto> {
         let connection_id = parse_connection_id(connection_id)?;
-        self.service.list_saved_queries(&connection_id).await.map_err(Into::into)
+        self.service
+            .list_saved_queries(&connection_id)
+            .await
+            .map_err(Into::into)
     }
 
     pub async fn list_folders(&self, connection_id: &str) -> Result<Vec<SavedQueryFolder>, DbErrorDto> {
@@ -184,7 +256,22 @@ impl QueryApi {
 
     pub async fn create_folder(&self, connection_id: &str, name: &str) -> Result<SavedQueryFolder, DbErrorDto> {
         let connection_id = parse_connection_id(connection_id)?;
-        self.service.create_folder(&connection_id, name).await.map_err(Into::into)
+        self.service
+            .create_folder(&connection_id, name)
+            .await
+            .map_err(Into::into)
+    }
+
+    pub async fn rename_saved_query(&self, id: &uuid::Uuid, name: &str) -> Result<(), DbErrorDto> {
+        self.service.rename_saved_query(id, name).await.map_err(Into::into)
+    }
+
+    pub async fn delete_saved_query(&self, id: &uuid::Uuid) -> Result<(), DbErrorDto> {
+        self.service.delete_saved_query(id).await.map_err(Into::into)
+    }
+
+    pub async fn delete_folder(&self, id: &uuid::Uuid) -> Result<(), DbErrorDto> {
+        self.service.delete_folder(id).await.map_err(Into::into)
     }
 }
 
@@ -198,11 +285,81 @@ impl SchemaApi {
         Self { service }
     }
 
-    pub async fn introspect_summary(&self, connection_id: &str) -> Result<SchemaSummary, DbErrorDto> {
-        let result = self.introspect(connection_id, false).await?;
+    pub async fn introspect_summary(
+        &self,
+        connection_id: &str,
+        force_refresh: bool,
+    ) -> Result<SchemaSummary, DbErrorDto> {
+        let result = self.introspect(connection_id, force_refresh).await?;
+        let table_details = result
+            .tables
+            .iter()
+            .map(|table| TableSummary {
+                schema: table.schema.clone(),
+                name: table.name.clone(),
+                row_count: table.row_count,
+                columns: result
+                    .columns
+                    .iter()
+                    .filter(|column| column.schema == table.schema && column.table_name == table.name)
+                    .map(|column| ColumnSummary {
+                        name: column.name.clone(),
+                        data_type: column.data_type.clone(),
+                        nullable: column.nullable,
+                        is_primary_key: column.is_primary_key,
+                    })
+                    .collect(),
+                foreign_keys: result
+                    .foreign_keys
+                    .iter()
+                    .filter(|foreign_key| foreign_key.schema == table.schema && foreign_key.from_table == table.name)
+                    .map(|foreign_key| ForeignKeySummary {
+                        name: foreign_key.name.clone(),
+                        from_columns: foreign_key.from_columns.clone(),
+                        to_schema: foreign_key.to_schema.clone(),
+                        to_table: foreign_key.to_table.clone(),
+                        to_columns: foreign_key.to_columns.clone(),
+                    })
+                    .collect(),
+            })
+            .collect();
         Ok(SchemaSummary {
             tables: result.tables.into_iter().map(|table| table.name).collect(),
             columns: result.columns.into_iter().map(|column| column.name).collect(),
+            table_details,
+            views: result
+                .views
+                .into_iter()
+                .map(|view| ViewSummary {
+                    schema: view.schema,
+                    name: view.name,
+                    definition: view.definition,
+                })
+                .collect(),
+            triggers: result
+                .triggers
+                .into_iter()
+                .map(|trigger| TriggerSummary {
+                    schema: trigger.schema,
+                    name: trigger.name,
+                    table_name: trigger.table_name,
+                    timing: trigger.timing,
+                    event: trigger.event,
+                    definition: trigger.definition,
+                    enabled: trigger.enabled,
+                })
+                .collect(),
+            functions: result
+                .functions
+                .into_iter()
+                .map(|function| FunctionSummary {
+                    schema: function.schema,
+                    name: function.name,
+                    routine_type: function.routine_type,
+                    data_type: function.data_type,
+                    definition: function.definition,
+                })
+                .collect(),
         })
     }
 
@@ -213,7 +370,36 @@ impl SchemaApi {
             message_id: "error.validation".to_owned(),
             retryable: false,
         })?;
-        self.service.introspect(&connection_id, force_refresh).await.map_err(Into::into)
+        self.service
+            .introspect(&connection_id, force_refresh)
+            .await
+            .map_err(Into::into)
+    }
+
+    pub async fn table_info(
+        &self,
+        connection_id: &str,
+        schema: &str,
+        table: &str,
+    ) -> Result<db_pro_core::domain::schema::TableInfo, DbErrorDto> {
+        let connection_id = parse_connection_id(connection_id)?;
+        self.service
+            .get_table_info(&connection_id, schema, table)
+            .await
+            .map_err(Into::into)
+    }
+
+    pub async fn table_ddl(&self, connection_id: &str, schema: &str, table: &str) -> Result<String, DbErrorDto> {
+        let connection_id = parse_connection_id(connection_id)?;
+        self.service
+            .get_table_ddl(&connection_id, schema, table)
+            .await
+            .map_err(Into::into)
+    }
+
+    pub async fn execute_ddl(&self, connection_id: &str, sql: &str) -> Result<u64, DbErrorDto> {
+        let connection_id = parse_connection_id(connection_id)?;
+        self.service.execute_ddl(&connection_id, sql).await.map_err(Into::into)
     }
 }
 
@@ -227,6 +413,7 @@ impl TableDataApi {
         Self { service }
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub async fn fetch_rows(
         &self,
         connection_id: &str,
@@ -244,6 +431,22 @@ impl TableDataApi {
             .map_err(Into::into)
     }
 
+    pub async fn insert_row(
+        &self,
+        connection_id: &str,
+        schema: &str,
+        table: &str,
+        columns: &[String],
+        values: &[CellValue],
+    ) -> Result<u64, DbErrorDto> {
+        let connection_id = parse_connection_id(connection_id)?;
+        self.service
+            .insert_row(&connection_id, schema, table, columns, values)
+            .await
+            .map_err(Into::into)
+    }
+
+    #[allow(clippy::too_many_arguments)]
     pub async fn update_row(
         &self,
         connection_id: &str,
@@ -261,12 +464,45 @@ impl TableDataApi {
             .map_err(Into::into)
     }
 
-    pub async fn update_text_row(&self, connection_id: &str, schema: &str, table: &str, column: &str, value: &str, pk_column: &str, pk_value: &str) -> Result<u64, DbErrorDto> {
-        self.update_row(connection_id, schema, table, &[column.to_owned()], &[CellValue::Text(value.to_owned())], &[pk_column.to_owned()], &[CellValue::Text(pk_value.to_owned())]).await
+    #[allow(clippy::too_many_arguments)]
+    pub async fn update_text_row(
+        &self,
+        connection_id: &str,
+        schema: &str,
+        table: &str,
+        column: &str,
+        value: &str,
+        pk_column: &str,
+        pk_value: &str,
+    ) -> Result<u64, DbErrorDto> {
+        self.update_row(
+            connection_id,
+            schema,
+            table,
+            &[column.to_owned()],
+            &[CellValue::Text(value.to_owned())],
+            &[pk_column.to_owned()],
+            &[CellValue::Text(pk_value.to_owned())],
+        )
+        .await
     }
 
-    pub async fn delete_text_row(&self, connection_id: &str, schema: &str, table: &str, pk_column: &str, pk_value: &str) -> Result<u64, DbErrorDto> {
-        self.delete_row(connection_id, schema, table, &[pk_column.to_owned()], &[CellValue::Text(pk_value.to_owned())]).await
+    pub async fn delete_text_row(
+        &self,
+        connection_id: &str,
+        schema: &str,
+        table: &str,
+        pk_column: &str,
+        pk_value: &str,
+    ) -> Result<u64, DbErrorDto> {
+        self.delete_row(
+            connection_id,
+            schema,
+            table,
+            &[pk_column.to_owned()],
+            &[CellValue::Text(pk_value.to_owned())],
+        )
+        .await
     }
 
     pub async fn delete_row(
@@ -295,17 +531,29 @@ impl ExportApi {
         Self { service }
     }
 
-    pub async fn csv(&self, connection_id: &str, sql: &str) -> Result<db_pro_core::application::ExportResult, DbErrorDto> {
+    pub async fn csv(
+        &self,
+        connection_id: &str,
+        sql: &str,
+    ) -> Result<db_pro_core::application::ExportResult, DbErrorDto> {
         let connection_id = parse_connection_id(connection_id)?;
         self.service.export_csv(&connection_id, sql).await.map_err(Into::into)
     }
 
-    pub async fn json(&self, connection_id: &str, sql: &str) -> Result<db_pro_core::application::ExportResult, DbErrorDto> {
+    pub async fn json(
+        &self,
+        connection_id: &str,
+        sql: &str,
+    ) -> Result<db_pro_core::application::ExportResult, DbErrorDto> {
         let connection_id = parse_connection_id(connection_id)?;
         self.service.export_json(&connection_id, sql).await.map_err(Into::into)
     }
 
-    pub async fn excel(&self, connection_id: &str, sql: &str) -> Result<db_pro_core::application::ExportResult, DbErrorDto> {
+    pub async fn excel(
+        &self,
+        connection_id: &str,
+        sql: &str,
+    ) -> Result<db_pro_core::application::ExportResult, DbErrorDto> {
         let connection_id = parse_connection_id(connection_id)?;
         self.service.export_excel(&connection_id, sql).await.map_err(Into::into)
     }
@@ -372,7 +620,10 @@ impl UserApi {
 
     pub async fn create_role(&self, connection_id: &str, name: &str, login: bool) -> Result<(), DbErrorDto> {
         let connection_id = parse_connection_id(connection_id)?;
-        self.service.create_role(&connection_id, name, login).await.map_err(Into::into)
+        self.service
+            .create_role(&connection_id, name, login)
+            .await
+            .map_err(Into::into)
     }
 
     pub async fn drop_role(&self, connection_id: &str, name: &str) -> Result<(), DbErrorDto> {
@@ -382,7 +633,10 @@ impl UserApi {
 
     pub async fn list_privileges(&self, connection_id: &str, role_name: &str) -> Result<Vec<Privilege>, DbErrorDto> {
         let connection_id = parse_connection_id(connection_id)?;
-        self.service.list_privileges(&connection_id, role_name).await.map_err(Into::into)
+        self.service
+            .list_privileges(&connection_id, role_name)
+            .await
+            .map_err(Into::into)
     }
 
     pub async fn grant_privilege(

@@ -465,6 +465,7 @@ fn strip_leading_comments(sql: &str) -> &str {
 }
 
 #[cfg(test)]
+#[allow(clippy::result_large_err)]
 mod tests {
     use super::*;
     use crate::domain::connection::ConnectionHandle;

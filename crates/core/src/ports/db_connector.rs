@@ -22,6 +22,7 @@ pub struct TransactionFailure {
 }
 
 #[cfg_attr(test, mockall::automock)]
+#[allow(clippy::result_large_err)]
 #[async_trait]
 pub trait DbConnector: Send + Sync {
     async fn connect(&self, config: &ConnectionConfig, password: &str) -> Result<ConnectionHandle, DbError>;

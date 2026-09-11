@@ -569,9 +569,20 @@ async fn introspect_triggers(pool: &sqlx::PgPool) -> Result<Vec<Trigger>, DbErro
 async fn introspect_functions(pool: &sqlx::PgPool) -> Result<Vec<Function>, DbError> {
     let rows = sqlx::query(
         r#"
-        SELECT routine_name, routine_type, data_type
-        FROM information_schema.routines
-        WHERE routine_schema NOT IN ('pg_catalog', 'information_schema')
+        SELECT
+            n.nspname AS routine_schema,
+            p.proname AS routine_name,
+            CASE p.prokind
+                WHEN 'p' THEN 'PROCEDURE'
+                ELSE 'FUNCTION'
+            END AS routine_type,
+            pg_get_function_result(p.oid) AS data_type,
+            COALESCE(pg_get_functiondef(p.oid), '') AS definition
+        FROM pg_proc p
+        JOIN pg_namespace n ON n.oid = p.pronamespace
+        WHERE n.nspname NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
+          AND p.prokind IN ('f', 'p')
+        ORDER BY n.nspname, p.proname, pg_get_function_identity_arguments(p.oid)
         "#,
     )
     .fetch_all(pool)
@@ -581,13 +592,17 @@ async fn introspect_functions(pool: &sqlx::PgPool) -> Result<Vec<Function>, DbEr
     Ok(rows
         .into_iter()
         .map(|row| {
+            let schema: String = row.get("routine_schema");
             let name: String = row.get("routine_name");
             let routine_type: String = row.try_get("routine_type").unwrap_or_default();
             let data_type: String = row.try_get("data_type").unwrap_or_default();
+            let definition: String = row.try_get("definition").unwrap_or_default();
             Function {
                 name,
+                schema,
                 routine_type,
                 data_type,
+                definition,
             }
         })
         .collect())

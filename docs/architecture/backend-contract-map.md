@@ -4,6 +4,9 @@
 > Last updated: 2026-08-08
 
 This document maps every backend operation from Tauri command through application service to infrastructure implementation.
+The Tauri bootstrap and native egui worker now construct and consume the same
+`db-pro-runtime::DbProRuntime` service graph; the provider and safety mappings
+below therefore apply to both frontends.
 
 ## Layer Architecture
 

@@ -11,7 +11,7 @@ use crate::dto::{CommandError, DataDiffDto, ObjectDependencyDto, PartitionInfoDt
 
 #[tauri::command]
 pub async fn diff_schemas(
-    service: State<'_, SchemaService>,
+    service: State<'_, Arc<SchemaService>>,
     source_id: String,
     target_id: String,
 ) -> Result<SchemaDiffDto, CommandError> {
@@ -23,7 +23,7 @@ pub async fn diff_schemas(
 
 #[tauri::command]
 pub async fn diff_table_data(
-    service: State<'_, DataDiffService>,
+    service: State<'_, Arc<DataDiffService>>,
     source_id: String,
     target_id: String,
     schema: String,
@@ -81,7 +81,7 @@ pub async fn list_tablespaces(
 pub async fn rename_schema_object(
     connector: State<'_, Arc<CompositeConnector>>,
     registry: State<'_, Arc<ConnectionRegistry>>,
-    meta_store: State<'_, SQLiteMetaStore>,
+    meta_store: State<'_, Arc<SQLiteMetaStore>>,
     connection_id: String,
     object_type: String,
     schema: String,

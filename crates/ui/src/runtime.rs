@@ -62,6 +62,111 @@ impl Default for UiConnectionDraft {
 pub struct UiSchemaSummary {
     pub tables: Vec<String>,
     pub columns: Vec<String>,
+    pub table_details: Vec<UiTableSummary>,
+    pub views: Vec<UiViewSummary>,
+    pub triggers: Vec<UiTriggerSummary>,
+    pub functions: Vec<UiFunctionSummary>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UiTableSummary {
+    pub schema: String,
+    pub name: String,
+    pub row_count: Option<u64>,
+    pub columns: Vec<UiSchemaColumn>,
+    pub foreign_keys: Vec<UiSchemaForeignKey>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UiSchemaColumn {
+    pub name: String,
+    pub data_type: String,
+    pub nullable: bool,
+    pub is_primary_key: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UiSchemaForeignKey {
+    pub name: String,
+    pub from_columns: Vec<String>,
+    pub to_schema: String,
+    pub to_table: String,
+    pub to_columns: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UiViewSummary {
+    pub schema: String,
+    pub name: String,
+    pub definition: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UiTriggerSummary {
+    pub schema: String,
+    pub name: String,
+    pub table_name: String,
+    pub timing: String,
+    pub event: String,
+    pub definition: String,
+    pub enabled: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UiFunctionSummary {
+    pub schema: String,
+    pub name: String,
+    pub routine_type: String,
+    pub data_type: String,
+    pub definition: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UiTableInfo {
+    pub schema: String,
+    pub name: String,
+    pub row_count: Option<u64>,
+    pub columns: Vec<UiTableColumn>,
+    pub primary_key: Option<Vec<String>>,
+    pub indexes: Vec<UiTableIndex>,
+    pub foreign_keys: Vec<UiTableForeignKey>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UiTableDataFilter {
+    pub column: String,
+    pub value: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UiTableDataSort {
+    pub column: String,
+    pub descending: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UiTableColumn {
+    pub name: String,
+    pub data_type: String,
+    pub nullable: bool,
+    pub default: Option<String>,
+    pub is_primary_key: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UiTableIndex {
+    pub name: String,
+    pub columns: Vec<String>,
+    pub unique: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UiTableForeignKey {
+    pub name: String,
+    pub from_columns: Vec<String>,
+    pub to_schema: String,
+    pub to_table: String,
+    pub to_columns: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -93,13 +198,49 @@ pub struct UiConnectionSummary {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum UiCommand {
     OpenQuery,
-    ListConnections { request_id: RequestId },
-    IntrospectSchema { request_id: RequestId, connection_id: String },
+    ListConnections {
+        request_id: RequestId,
+    },
+    IntrospectSchema {
+        request_id: RequestId,
+        connection_id: String,
+        force_refresh: bool,
+    },
+    LoadTableInfo {
+        request_id: RequestId,
+        connection_id: String,
+        schema: String,
+        table: String,
+    },
+    LoadTableDdl {
+        request_id: RequestId,
+        connection_id: String,
+        schema: String,
+        table: String,
+    },
+    ExecuteDdl {
+        request_id: RequestId,
+        connection_id: String,
+        sql: String,
+    },
+    LoadTableData {
+        request_id: RequestId,
+        connection_id: String,
+        schema: String,
+        table: String,
+        limit: u64,
+        offset: u64,
+        filter: Option<UiTableDataFilter>,
+        sort: Option<UiTableDataSort>,
+    },
     ListSavedQueries {
         request_id: RequestId,
         connection_id: String,
     },
-    ListQueryFolders { request_id: RequestId, connection_id: String },
+    ListQueryFolders {
+        request_id: RequestId,
+        connection_id: String,
+    },
     SaveQuery {
         request_id: RequestId,
         connection_id: String,
@@ -112,11 +253,50 @@ pub enum UiCommand {
         connection_id: String,
         name: String,
     },
-    RenameSavedQuery { request_id: RequestId, id: String, name: String },
-    DeleteSavedQuery { request_id: RequestId, id: String },
-    DeleteQueryFolder { request_id: RequestId, id: String },
-    UpdateTableRow { request_id: RequestId, connection_id: String, table: String, column: String, value: String, pk_column: String, pk_value: String },
-    DeleteTableRow { request_id: RequestId, connection_id: String, table: String, pk_column: String, pk_value: String },
+    RenameSavedQuery {
+        request_id: RequestId,
+        id: String,
+        name: String,
+    },
+    DeleteSavedQuery {
+        request_id: RequestId,
+        id: String,
+    },
+    DeleteQueryFolder {
+        request_id: RequestId,
+        id: String,
+    },
+    UpdateTableRow {
+        request_id: RequestId,
+        connection_id: String,
+        schema: String,
+        table: String,
+        column: String,
+        value: UiCell,
+        pk_columns: Vec<String>,
+        pk_values: Vec<UiCell>,
+    },
+    DeleteTableRow {
+        request_id: RequestId,
+        connection_id: String,
+        schema: String,
+        table: String,
+        pk_columns: Vec<String>,
+        pk_values: Vec<UiCell>,
+    },
+    InsertTableRow {
+        request_id: RequestId,
+        connection_id: String,
+        schema: String,
+        table: String,
+        columns: Vec<String>,
+        values: Vec<UiCell>,
+    },
+    RunAgent {
+        request_id: RequestId,
+        prompt: String,
+        context: crate::AgentContext,
+    },
     Connect {
         request_id: RequestId,
         connection_id: String,
@@ -134,10 +314,18 @@ pub enum UiCommand {
         request_id: RequestId,
         draft: UiConnectionDraft,
     },
-    PickSqliteFile { request_id: RequestId },
-    PickSshPrivateKey { request_id: RequestId },
-    PickBackupFile { request_id: RequestId },
-    PickRestoreFile { request_id: RequestId },
+    PickSqliteFile {
+        request_id: RequestId,
+    },
+    PickSshPrivateKey {
+        request_id: RequestId,
+    },
+    PickBackupFile {
+        request_id: RequestId,
+    },
+    PickRestoreFile {
+        request_id: RequestId,
+    },
     DeleteConnection {
         request_id: RequestId,
         connection_id: String,
@@ -147,9 +335,21 @@ pub enum UiCommand {
         connection_id: String,
         sql: String,
     },
-    Backup { request_id: RequestId, connection_id: String, output_path: String, custom_format: bool },
-    Restore { request_id: RequestId, connection_id: String, input_path: String, custom_format: bool },
-    CancelQuery { request_id: RequestId },
+    Backup {
+        request_id: RequestId,
+        connection_id: String,
+        output_path: String,
+        custom_format: bool,
+    },
+    Restore {
+        request_id: RequestId,
+        connection_id: String,
+        input_path: String,
+        custom_format: bool,
+    },
+    CancelQuery {
+        request_id: RequestId,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -159,7 +359,7 @@ pub struct UiColumn {
     pub nullable: bool,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum UiCell {
     Null,
     Boolean(bool),
@@ -187,8 +387,31 @@ pub enum UiEvent {
         request_id: RequestId,
         queries: Vec<UiSavedQuerySummary>,
     },
-    SchemaLoaded { request_id: RequestId, schema: UiSchemaSummary },
-    QueryFoldersLoaded { request_id: RequestId, folders: Vec<UiQueryFolderSummary> },
+    SchemaLoaded {
+        request_id: RequestId,
+        schema: UiSchemaSummary,
+    },
+    TableInfoLoaded {
+        request_id: RequestId,
+        table_info: UiTableInfo,
+    },
+    TableDdlLoaded {
+        request_id: RequestId,
+        sql: String,
+    },
+    DdlCompleted {
+        request_id: RequestId,
+        affected_rows: u64,
+    },
+    TableDataLoaded {
+        request_id: RequestId,
+        result: UiQueryResult,
+        total_rows: u64,
+    },
+    QueryFoldersLoaded {
+        request_id: RequestId,
+        folders: Vec<UiQueryFolderSummary>,
+    },
     FilePicked {
         request_id: RequestId,
         kind: String,
@@ -212,13 +435,29 @@ pub enum UiEvent {
         request_id: RequestId,
         connection_id: String,
     },
-    QueryQueued { request_id: RequestId },
+    QueryQueued {
+        request_id: RequestId,
+    },
     QueryCompleted {
         request_id: RequestId,
         result: UiQueryResult,
     },
-    QueryCancelled { request_id: RequestId },
-    QueryFailed { request_id: RequestId, message: String },
+    QueryCancelled {
+        request_id: RequestId,
+    },
+    AgentCompleted {
+        request_id: RequestId,
+        provider: String,
+        message: crate::AgentMessage,
+    },
+    AgentFailed {
+        request_id: RequestId,
+        message: String,
+    },
+    QueryFailed {
+        request_id: RequestId,
+        message: String,
+    },
 }
 
 /// Small typed boundary between the immediate-mode UI and asynchronous work.
@@ -269,8 +508,8 @@ impl TaskBridge {
         id
     }
 
-    pub fn send(&self, command: UiCommand) -> Result<(), mpsc::SendError<UiCommand>> {
-        self.command_tx.send(command)
+    pub fn send(&self, command: UiCommand) -> Result<(), Box<mpsc::SendError<UiCommand>>> {
+        self.command_tx.send(command).map_err(Box::new)
     }
 
     pub fn drain_events(&self) -> impl Iterator<Item = UiEvent> + '_ {

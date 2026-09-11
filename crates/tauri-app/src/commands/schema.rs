@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use tauri::State;
 
 use crate::dto::{CommandError, DdlResultDto, IntrospectResultDto, TableInfoDto};
@@ -6,7 +8,7 @@ use db_pro_core::domain::connection::ConnectionId;
 
 #[tauri::command]
 pub async fn introspect(
-    service: State<'_, SchemaService>,
+    service: State<'_, Arc<SchemaService>>,
     connection_id: String,
     force_refresh: Option<bool>,
 ) -> Result<IntrospectResultDto, CommandError> {
@@ -17,7 +19,7 @@ pub async fn introspect(
 
 #[tauri::command]
 pub async fn get_table_info(
-    service: State<'_, SchemaService>,
+    service: State<'_, Arc<SchemaService>>,
     connection_id: String,
     schema: String,
     table: String,
@@ -29,7 +31,7 @@ pub async fn get_table_info(
 
 #[tauri::command]
 pub async fn get_table_ddl(
-    service: State<'_, SchemaService>,
+    service: State<'_, Arc<SchemaService>>,
     connection_id: String,
     schema: String,
     table: String,
@@ -40,7 +42,7 @@ pub async fn get_table_ddl(
 
 #[tauri::command]
 pub async fn execute_ddl(
-    service: State<'_, SchemaService>,
+    service: State<'_, Arc<SchemaService>>,
     connection_id: String,
     sql: String,
 ) -> Result<DdlResultDto, CommandError> {
@@ -53,7 +55,7 @@ pub async fn execute_ddl(
 
 #[tauri::command]
 pub async fn execute_ddl_batch(
-    service: State<'_, SchemaService>,
+    service: State<'_, Arc<SchemaService>>,
     connection_id: String,
     statements: Vec<String>,
 ) -> Result<DdlResultDto, CommandError> {
@@ -66,7 +68,7 @@ pub async fn execute_ddl_batch(
 
 #[tauri::command]
 pub async fn create_index(
-    service: State<'_, SchemaService>,
+    service: State<'_, Arc<SchemaService>>,
     connection_id: String,
     sql: String,
 ) -> Result<DdlResultDto, CommandError> {
@@ -79,7 +81,7 @@ pub async fn create_index(
 
 #[tauri::command]
 pub async fn drop_index(
-    service: State<'_, SchemaService>,
+    service: State<'_, Arc<SchemaService>>,
     connection_id: String,
     sql: String,
 ) -> Result<DdlResultDto, CommandError> {
@@ -92,7 +94,7 @@ pub async fn drop_index(
 
 #[tauri::command]
 pub async fn create_trigger(
-    service: State<'_, SchemaService>,
+    service: State<'_, Arc<SchemaService>>,
     connection_id: String,
     sql: String,
 ) -> Result<DdlResultDto, CommandError> {
@@ -105,7 +107,7 @@ pub async fn create_trigger(
 
 #[tauri::command]
 pub async fn drop_trigger(
-    service: State<'_, SchemaService>,
+    service: State<'_, Arc<SchemaService>>,
     connection_id: String,
     sql: String,
 ) -> Result<DdlResultDto, CommandError> {
@@ -117,7 +119,10 @@ pub async fn drop_trigger(
 }
 
 #[tauri::command]
-pub async fn invalidate_cache(service: State<'_, SchemaService>, connection_id: String) -> Result<(), CommandError> {
+pub async fn invalidate_cache(
+    service: State<'_, Arc<SchemaService>>,
+    connection_id: String,
+) -> Result<(), CommandError> {
     let conn_id = parse_connection_id(&connection_id)?;
     service.invalidate_cache(&conn_id).await?;
     Ok(())

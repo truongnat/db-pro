@@ -1,15 +1,21 @@
+pub mod agent;
 mod api;
 mod worker;
 
-pub use api::{BackupApi, ConnectionApi, ConnectionSummary, DbErrorDto, ExportApi, QueryApi, SavedQuerySummary, QueryFolderSummary, SchemaApi, SchemaSummary, TableDataApi, UserApi};
+pub use agent::{AgentContext, AgentDraft, CodexProvider, CodexProviderError};
+pub use api::{
+    BackupApi, ColumnSummary, ConnectionApi, ConnectionSummary, DbErrorDto, ExportApi, ForeignKeySummary,
+    FunctionSummary, QueryApi, QueryFolderSummary, SavedQuerySummary, SchemaApi, SchemaSummary, TableDataApi,
+    TableSummary, TriggerSummary, UserApi, ViewSummary,
+};
 pub use worker::{spawn_worker, RuntimeCommand, RuntimeEvent, RuntimeRequestId};
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use db_pro_core::application::{
-    BackupService, ConnectionRegistry, ConnectionService, ExportService, QueryService, SchemaService, TableDataService,
-    UserService,
+    BackupService, ConnectionRegistry, ConnectionService, DataDiffService, ExportService, QueryService, SchemaService,
+    TableDataService, UserService,
 };
 use db_pro_infrastructure::backup::pg_dump::PgDumpEngine;
 use db_pro_infrastructure::backup::sqlite_backup::SqliteBackupEngine;
@@ -33,6 +39,10 @@ pub struct DbProRuntime {
     export: Arc<ExportService>,
     backup: Arc<BackupService>,
     users: Arc<UserService>,
+    data_diff: Arc<DataDiffService>,
+    connector: Arc<CompositeConnector>,
+    registry: Arc<ConnectionRegistry>,
+    meta_store: SQLiteMetaStore,
 }
 
 #[derive(Debug, Error)]
@@ -103,18 +113,24 @@ impl DbProRuntime {
                     username,
                 )))
             }),
-            Box::new(|database| Box::new(SqliteBackupEngine::new(db_config(
-                db_pro_core::domain::connection::DriverType::SQLite,
-                "",
-                0,
-                database,
-                "",
-            )))),
+            Box::new(|database| {
+                Box::new(SqliteBackupEngine::new(db_config(
+                    db_pro_core::domain::connection::DriverType::SQLite,
+                    "",
+                    0,
+                    database,
+                    "",
+                )))
+            }),
         ));
         let users = Arc::new(UserService::new(
             Box::new(PostgresUserManager::new(connector.postgres_connector())),
             Arc::clone(&registry),
-            Box::new(meta_store),
+            Box::new(meta_store.clone()),
+        ));
+        let data_diff = Arc::new(DataDiffService::new(
+            Box::new(Arc::clone(&connector)),
+            Arc::clone(&registry),
         ));
 
         Ok(Arc::new(Self {
@@ -126,6 +142,10 @@ impl DbProRuntime {
             export,
             backup,
             users,
+            data_diff,
+            connector,
+            registry,
+            meta_store,
         }))
     }
 
@@ -187,6 +207,22 @@ impl DbProRuntime {
 
     pub fn user_api(&self) -> UserApi {
         UserApi::new(self.users())
+    }
+
+    pub fn data_diff(&self) -> Arc<DataDiffService> {
+        Arc::clone(&self.data_diff)
+    }
+
+    pub fn connector(&self) -> Arc<CompositeConnector> {
+        Arc::clone(&self.connector)
+    }
+
+    pub fn registry(&self) -> Arc<ConnectionRegistry> {
+        Arc::clone(&self.registry)
+    }
+
+    pub fn meta_store(&self) -> Arc<SQLiteMetaStore> {
+        Arc::new(self.meta_store.clone())
     }
 }
 

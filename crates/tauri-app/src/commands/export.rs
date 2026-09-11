@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use tauri::State;
 
 use crate::dto::{CommandError, ExportResultDto};
@@ -5,7 +7,7 @@ use db_pro_core::application::ExportService;
 
 #[tauri::command]
 pub async fn export_csv(
-    service: State<'_, ExportService>,
+    service: State<'_, Arc<ExportService>>,
     connection_id: String,
     sql: String,
 ) -> Result<ExportResultDto, CommandError> {
@@ -16,7 +18,7 @@ pub async fn export_csv(
 
 #[tauri::command]
 pub async fn export_json(
-    service: State<'_, ExportService>,
+    service: State<'_, Arc<ExportService>>,
     connection_id: String,
     sql: String,
 ) -> Result<ExportResultDto, CommandError> {
@@ -27,7 +29,7 @@ pub async fn export_json(
 
 #[tauri::command]
 pub async fn export_excel(
-    service: State<'_, ExportService>,
+    service: State<'_, Arc<ExportService>>,
     connection_id: String,
     sql: String,
 ) -> Result<ExportResultDto, CommandError> {
