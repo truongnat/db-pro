@@ -83,6 +83,10 @@ without changing the native UI or adding product features.
     difference without checked arithmetic.
 34. Schema diff collects set differences directly from `HashSet`, making the
     order of tables, columns, and indexes unstable across runs.
+35. Connection lifecycle always requires a database secret, even for SQLite,
+    although the SQLite provider has no database credential boundary.
+36. Core connection validation accepts SSH tunnel configuration for SQLite,
+    although the provider cannot use SSH tunneling.
 
 ## Acceptance criteria
 
@@ -136,5 +140,9 @@ without changing the native UI or adding product features.
 - Cross-connection data diff rejects negative provider counts and computes the
   signed row-count difference with overflow checks.
 - Schema diff returns tables, columns, and indexes in deterministic sorted order.
+- SQLite connection create/connect/test flows do not require or persist a
+  database secret; PostgreSQL continues to require one, including on provider
+  transitions.
+- SQLite rejects SSH tunnel configuration at the domain boundary.
 - PostgreSQL and SQLite unit/integration coverage is updated independently where the
   behavior differs.

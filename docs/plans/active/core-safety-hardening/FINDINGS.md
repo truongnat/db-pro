@@ -395,3 +395,30 @@ flicker, creating noisy reviews and making real changes harder to identify.
 
 Decision: use `BTreeSet` for set-based comparison so all emitted names and the
 common-table traversal are deterministically sorted.
+
+## P1 — SQLite connection lifecycle incorrectly requires a database secret
+
+`ConnectionService::create`, `connect`, and `test_connectivity_with_secret`
+treated every driver like PostgreSQL. A SQLite database file does not use a
+database password, but the lifecycle still wrote/read `secret_ref` and failed
+when the OS keyring was unavailable.
+
+Impact: a valid local SQLite connection could not be created or opened in a
+keyring-unavailable environment, and provider state contained an unnecessary
+credential dependency.
+
+Decision: require database secrets only for PostgreSQL, keep SQLite records free
+of database `secret_ref`, remove the old secret when changing PostgreSQL to
+SQLite, and require a new password when changing SQLite to PostgreSQL.
+
+## P2 — SQLite accepts unusable SSH tunnel configuration
+
+`ConnectionConfig::validate` validated SSH fields for SQLite even though the
+SQLite provider has no remote endpoint or SSH tunnel implementation. Such a
+record could be persisted with credentials that the provider would silently
+ignore.
+
+Impact: the connection configuration advertised a path that could not be used,
+and callers could mistakenly assume the local SQLite file was tunnel-protected.
+
+Decision: reject SSH tunnel configuration for SQLite at the core domain boundary.

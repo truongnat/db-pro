@@ -61,6 +61,10 @@
 - [x] Add data-diff count/overflow regression coverage.
 - [x] Make schema diff set-based output deterministic.
 - [x] Add schema diff ordering regression coverage.
+- [x] Make database-secret requirements provider-specific in connection lifecycle.
+- [x] Add SQLite/PostgreSQL secret-transition regression coverage.
+- [x] Reject SSH tunnel configuration for SQLite.
+- [x] Add provider capability validation regression coverage.
 - [x] Run formatting, check, clippy, targeted tests, and workspace tests.
 - [x] Self-review changed files and confirm no UI/native files changed.
 - [x] Record PostgreSQL live fixture evidence; SSH-tunnel and native UI runtime evidence remain explicitly pending.

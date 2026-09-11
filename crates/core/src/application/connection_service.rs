@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-use crate::domain::connection::{Connection, ConnectionConfig, ConnectionHandle, ConnectionId};
+use crate::domain::connection::{Connection, ConnectionConfig, ConnectionHandle, ConnectionId, DriverType};
 use crate::domain::error::DbError;
 use crate::ports::{ConnectionRepository, DbConnector, IntrospectionCache, SecretStore};
 
@@ -46,6 +46,10 @@ impl ConnectionService {
         format!("connection/{}/ssh_password", id)
     }
 
+    fn requires_database_secret(config: &ConnectionConfig) -> bool {
+        matches!(config.driver, DriverType::Postgres)
+    }
+
     async fn hydrate_ssh_password(&self, id: &ConnectionId, config: &mut ConnectionConfig) -> Result<(), DbError> {
         let Some(ssh_tunnel) = config.ssh_tunnel.as_mut() else {
             return Ok(());
@@ -66,14 +70,25 @@ impl ConnectionService {
             return Err(DbError::Validation(msg));
         }
 
+        if Self::requires_database_secret(&config) && password.is_empty() {
+            return Err(DbError::AuthFailed(
+                "database password is required for PostgreSQL".into(),
+            ));
+        }
+
         let ssh_password = config
             .ssh_tunnel
             .as_ref()
             .and_then(|ssh_tunnel| ssh_tunnel.password.clone());
         let mut connection = Connection::new(config);
         let key = Self::secret_key(&connection.id);
-        self.secrets.store_secret(&key, password).await?;
-        connection = connection.with_secret_ref(key.clone());
+        let database_secret_stored = if Self::requires_database_secret(&connection.config) {
+            self.secrets.store_secret(&key, password).await?;
+            connection = connection.with_secret_ref(key.clone());
+            true
+        } else {
+            false
+        };
 
         let ssh_key = Self::ssh_secret_key(&connection.id);
         if let Some(ssh_password) = ssh_password.as_deref() {
@@ -89,8 +104,10 @@ impl ConnectionService {
         }
 
         if let Err(e) = self.repo.save(&connection).await {
-            if let Err(cleanup_err) = self.secrets.delete_secret(&key).await {
-                tracing::error!("failed to clean up orphan secret after repo save failure: {cleanup_err}");
+            if database_secret_stored {
+                if let Err(cleanup_err) = self.secrets.delete_secret(&key).await {
+                    tracing::error!("failed to clean up orphan secret after repo save failure: {cleanup_err}");
+                }
             }
             if ssh_password.is_some() {
                 if let Err(cleanup_err) = self.secrets.delete_secret(&ssh_key).await {
@@ -132,6 +149,13 @@ impl ConnectionService {
             .await?
             .ok_or_else(|| DbError::NotFound(format!("connection {id}")))?;
         let previous = connection.clone();
+        let previous_requires_secret = Self::requires_database_secret(&previous.config);
+        let new_requires_secret = Self::requires_database_secret(&config);
+        if new_requires_secret && !previous_requires_secret && password.is_none() && previous.secret_ref.is_none() {
+            return Err(DbError::AuthFailed(
+                "database password is required when switching to PostgreSQL".into(),
+            ));
+        }
 
         let previous_ssh_password = previous
             .config
@@ -157,19 +181,32 @@ impl ConnectionService {
         connection.config = config;
         connection.updated_at = chrono::Utc::now();
 
-        let key = connection.secret_ref.clone().unwrap_or_else(|| Self::secret_key(id));
-        let old_password = if password.is_some() {
+        let key = previous.secret_ref.clone().unwrap_or_else(|| Self::secret_key(id));
+        let remove_database_secret =
+            !new_requires_secret && (previous_requires_secret || previous.secret_ref.is_some());
+        let database_secret_changed = (new_requires_secret && password.is_some()) || remove_database_secret;
+        let old_password = if database_secret_changed {
             self.secrets.retrieve_secret(&key).await?
         } else {
             None
         };
 
-        if let Some(pw) = password {
-            if let Err(error) = self.secrets.store_secret(&key, pw).await {
-                self.restore_secret(&key, old_password.as_deref()).await;
-                return Err(error);
+        if new_requires_secret {
+            if let Some(pw) = password {
+                if let Err(error) = self.secrets.store_secret(&key, pw).await {
+                    self.restore_secret(&key, old_password.as_deref()).await;
+                    return Err(error);
+                }
+                connection.secret_ref = Some(key.clone());
             }
-            connection.secret_ref = Some(key.clone());
+        } else {
+            connection.secret_ref = None;
+            if remove_database_secret {
+                if let Err(error) = self.secrets.delete_secret(&key).await {
+                    self.restore_secret(&key, old_password.as_deref()).await;
+                    return Err(error);
+                }
+            }
         }
 
         let ssh_mutation = if let Some(ssh_password) = new_ssh_password.as_deref() {
@@ -185,7 +222,7 @@ impl ConnectionService {
             Ok(())
         };
         if let Err(error) = ssh_mutation {
-            if password.is_some() {
+            if database_secret_changed {
                 self.restore_secret(&key, old_password.as_deref()).await;
             }
             if ssh_secret_changed {
@@ -198,7 +235,7 @@ impl ConnectionService {
         }
 
         if let Err(e) = self.repo.save(&connection).await {
-            if password.is_some() {
+            if database_secret_changed {
                 self.restore_secret(&key, old_password.as_deref()).await;
             }
             if ssh_secret_changed {
@@ -212,7 +249,7 @@ impl ConnectionService {
                 if let Err(rollback_error) = self.repo.save(&previous).await {
                     tracing::error!("failed to restore previous connection after disconnect failure: {rollback_error}");
                 }
-                if password.is_some() {
+                if database_secret_changed {
                     self.restore_secret(&key, old_password.as_deref()).await;
                 }
                 if ssh_secret_changed {
@@ -307,16 +344,19 @@ impl ConnectionService {
             .await?
             .ok_or_else(|| DbError::NotFound(format!("connection {id}")))?;
 
-        let secret_key = connection
-            .secret_ref
-            .as_deref()
-            .ok_or_else(|| DbError::AuthFailed("no secret_ref on connection".into()))?;
+        let password = if Self::requires_database_secret(&connection.config) {
+            let secret_key = connection
+                .secret_ref
+                .as_deref()
+                .ok_or_else(|| DbError::AuthFailed("no secret_ref on connection".into()))?;
 
-        let password = self
-            .secrets
-            .retrieve_secret(secret_key)
-            .await?
-            .ok_or_else(|| DbError::AuthFailed("password not found in secret store".into()))?;
+            self.secrets
+                .retrieve_secret(secret_key)
+                .await?
+                .ok_or_else(|| DbError::AuthFailed("password not found in secret store".into()))?
+        } else {
+            String::new()
+        };
 
         let mut config = connection.config.clone();
         self.hydrate_ssh_password(id, &mut config).await?;
@@ -402,7 +442,9 @@ impl ConnectionService {
     ) -> Result<(), DbError> {
         let mut config = config.clone();
         self.hydrate_ssh_password(id, &mut config).await?;
-        let resolved = if password.is_empty() {
+        let resolved = if !Self::requires_database_secret(&config) {
+            String::new()
+        } else if password.is_empty() {
             let secret_key = self
                 .repo
                 .get(id)
@@ -445,6 +487,13 @@ mod tests {
         }
     }
 
+    fn sqlite_config() -> ConnectionConfig {
+        let mut config = test_config();
+        config.driver = DriverType::SQLite;
+        config.database = "/tmp/db-pro-test.sqlite".into();
+        config
+    }
+
     fn ssh_tunnel() -> crate::domain::connection::SshTunnelConfig {
         crate::domain::connection::SshTunnelConfig {
             host: "bastion.example".into(),
@@ -470,6 +519,12 @@ mod tests {
 
     #[path = "connection_service_security_tests.rs"]
     mod security_tests;
+
+    #[path = "connection_service_provider_tests.rs"]
+    mod provider_tests;
+
+    #[path = "connection_service_lifecycle_tests.rs"]
+    mod lifecycle_tests;
 
     #[tokio::test]
     async fn create_valid_connection() {
@@ -499,16 +554,6 @@ mod tests {
         );
         let result = svc.create(config, "pass").await;
         assert!(result.is_err());
-    }
-
-    #[tokio::test]
-    async fn list_connections() {
-        let mut repo = MockConnectionRepository::new();
-        repo.expect_list().returning(|| Ok(vec![]));
-
-        let svc = build_service(MockDbConnector::new(), repo, MockSecretStore::new());
-        let result = svc.list().await;
-        assert!(result.is_ok());
     }
 
     #[tokio::test]
@@ -691,73 +736,6 @@ mod tests {
         let svc = build_service(MockDbConnector::new(), repo, MockSecretStore::new());
         let result = svc.connect(&ConnectionId::new()).await;
         assert!(result.is_err());
-    }
-
-    #[tokio::test]
-    async fn disconnect_success() {
-        let id = ConnectionId::new();
-        let registry = Arc::new(ConnectionRegistry::new());
-        registry.register(id, ConnectionHandle(1));
-
-        let mut connector = MockDbConnector::new();
-        connector.expect_disconnect().returning(|_| Ok(()));
-
-        let svc = ConnectionService::new(
-            Box::new(connector),
-            Box::new(MockConnectionRepository::new()),
-            Box::new(MockSecretStore::new()),
-            Arc::clone(&registry),
-        );
-
-        svc.disconnect(&id).await.unwrap();
-        assert!(!registry.is_active(&id));
-    }
-
-    #[tokio::test]
-    async fn disconnect_failure_keeps_handle_for_retry() {
-        let id = ConnectionId::new();
-        let registry = Arc::new(ConnectionRegistry::new());
-        registry.register(id, ConnectionHandle(1));
-
-        let mut connector = MockDbConnector::new();
-        connector
-            .expect_disconnect()
-            .returning(|_| Err(DbError::ConnectionLost("close failed".into())));
-
-        let svc = ConnectionService::new(
-            Box::new(connector),
-            Box::new(MockConnectionRepository::new()),
-            Box::new(MockSecretStore::new()),
-            Arc::clone(&registry),
-        );
-
-        let error = svc
-            .disconnect(&id)
-            .await
-            .expect_err("connector failure must be returned");
-        assert!(matches!(error, DbError::ConnectionLost(_)));
-        assert_eq!(registry.get(&id), Some(ConnectionHandle(1)));
-    }
-
-    #[tokio::test]
-    async fn disconnect_not_active() {
-        let svc = build_service(
-            MockDbConnector::new(),
-            MockConnectionRepository::new(),
-            MockSecretStore::new(),
-        );
-        let result = svc.disconnect(&ConnectionId::new()).await;
-        assert!(result.is_err());
-    }
-
-    #[tokio::test]
-    async fn test_connectivity_success() {
-        let mut connector = MockDbConnector::new();
-        connector.expect_test_connection().returning(|_, _| Ok(()));
-
-        let svc = build_service(connector, MockConnectionRepository::new(), MockSecretStore::new());
-        let result = svc.test_connectivity(&test_config(), "pass").await;
-        assert!(result.is_ok());
     }
 
     #[tokio::test]

@@ -155,6 +155,13 @@ impl ConnectionConfig {
             DriverType::SQLite => {}
         }
 
+        if self.driver == DriverType::SQLite && self.ssh_tunnel.is_some() {
+            errors.push(ValidationError {
+                field: "ssh_tunnel".into(),
+                message: "SSH tunnels are supported only for PostgreSQL".into(),
+            });
+        }
+
         if self.database.trim().is_empty() {
             errors.push(ValidationError {
                 field: "database".into(),
@@ -344,6 +351,37 @@ mod tests {
             group: None,
             readonly: false,
         };
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn sqlite_rejects_ssh_tunnel_configuration() {
+        let mut config = ConnectionConfig {
+            name: "local-db".into(),
+            host: "".into(),
+            port: 0,
+            database: "/tmp/test.db".into(),
+            username: "".into(),
+            driver: DriverType::SQLite,
+            ssl_mode: SslMode::Disable,
+            ssh_tunnel: Some(SshTunnelConfig {
+                host: "bastion.example".into(),
+                port: 22,
+                user: "deploy".into(),
+                private_key_path: "/tmp/key".into(),
+                password: None,
+            }),
+            query_timeout_ms: 30_000,
+            max_rows: 500,
+            color: None,
+            tags: vec![],
+            group: None,
+            readonly: false,
+        };
+
+        let errors = config.validate().unwrap_err();
+        assert!(errors.iter().any(|error| error.field == "ssh_tunnel"));
+        config.ssh_tunnel = None;
         assert!(config.validate().is_ok());
     }
 
