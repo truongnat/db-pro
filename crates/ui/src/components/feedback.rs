@@ -77,19 +77,23 @@ impl Spinner {
         let radius = (self.size - 3.0) * 0.5;
         let color = self.color.unwrap_or(self.theme.accent);
 
-        // Draw spinning arc segments
-        let n_points = 24;
-        let angle_start = (time * 8.0) as f32;
-        let sweep = std::f32::consts::PI * 1.5;
+        // Draw subtle track circle
+        ui.painter()
+            .circle_stroke(center, radius, Stroke::new(2.0, self.theme.border_subtle));
 
+        // Draw rotating arc
+        let angle_start = (time * 7.0) as f32;
+        let sweep = std::f32::consts::PI * 1.3;
+        let n_points = 24;
+        let mut arc_points = Vec::with_capacity(n_points);
         for i in 0..n_points {
             let t = i as f32 / (n_points - 1) as f32;
             let a = angle_start + t * sweep;
-            let p = Pos2::new(center.x + a.cos() * radius, center.y + a.sin() * radius);
-            let alpha = (t * 255.0) as u8;
-            let dot_color = Color32::from_rgba_unmultiplied(color.r(), color.g(), color.b(), alpha);
-            ui.painter().circle_filled(p, 1.2, dot_color);
+            arc_points.push(Pos2::new(center.x + a.cos() * radius, center.y + a.sin() * radius));
         }
+
+        ui.painter()
+            .add(egui::epaint::PathShape::line(arc_points, Stroke::new(2.0, color)));
     }
 }
 

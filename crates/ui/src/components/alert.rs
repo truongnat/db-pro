@@ -1,5 +1,5 @@
 use crate::DbProTheme;
-use egui::{Button, FontFamily, FontId, Frame, Margin, Response, RichText, Rounding, Stroke, Ui};
+use egui::{Button, FontFamily, FontId, Frame, Margin, Response, RichText, Rounding, Stroke, Ui, Vec2};
 use lucide_icons::Icon;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -100,22 +100,36 @@ impl<'a> Alert<'a> {
                         .font(FontId::new(16.0, FontFamily::Name("lucide".into())))
                         .color(icon_color),
                 );
-                ui.add_space(8.0);
+                let text_avail = if self.dismissable {
+                    (ui.available_width() - 28.0).max(100.0)
+                } else {
+                    ui.available_width()
+                };
 
-                ui.vertical(|ui| {
-                    ui.label(
-                        RichText::new(self.title)
-                            .size(13.5)
-                            .strong()
-                            .color(self.theme.text_primary),
-                    );
-                    ui.add_space(2.0);
-                    ui.label(
-                        RichText::new(self.description)
-                            .size(12.0)
-                            .color(self.theme.text_secondary),
-                    );
-                });
+                ui.allocate_ui_with_layout(
+                    Vec2::new(text_avail, 0.0),
+                    egui::Layout::top_down(egui::Align::LEFT),
+                    |ui| {
+                        ui.add(
+                            egui::Label::new(
+                                RichText::new(self.title)
+                                    .size(13.5)
+                                    .strong()
+                                    .color(self.theme.text_primary),
+                            )
+                            .wrap(),
+                        );
+                        ui.add_space(2.0);
+                        ui.add(
+                            egui::Label::new(
+                                RichText::new(self.description)
+                                    .size(12.0)
+                                    .color(self.theme.text_secondary),
+                            )
+                            .wrap(),
+                        );
+                    },
+                );
 
                 if self.dismissable {
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {

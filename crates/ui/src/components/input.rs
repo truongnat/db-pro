@@ -84,66 +84,94 @@ impl<'a> Input<'a> {
 
             let has_error = self.error_text.is_some();
             let border_stroke = if has_error {
-                Stroke::new(1.0, self.theme.danger)
+                Stroke::new(1.5, self.theme.danger)
             } else {
                 Stroke::new(1.0, self.theme.border_default)
             };
 
+            let fill = if self.enabled {
+                self.theme.surface_editor
+            } else {
+                self.theme.surface_panel
+            };
+
             let frame = Frame {
-                fill: self.theme.surface_editor,
+                fill,
                 stroke: border_stroke,
                 inner_margin: Margin::symmetric(8.0, 4.0),
                 rounding: Rounding::same(6.0),
                 ..Default::default()
             };
 
-            let response = frame
-                .show(ui, |ui| {
-                    ui.set_min_width(width.max(100.0) - 16.0);
-                    ui.horizontal(|ui| {
-                        if let Some(icon) = self.leading_icon {
-                            ui.label(
-                                RichText::new(char::from(icon).to_string())
-                                    .font(FontId::new(14.0, FontFamily::Name("lucide".into())))
-                                    .color(self.theme.text_muted),
-                            );
-                            ui.add_space(4.0);
-                        }
-
-                        let has_text = !self.value.is_empty();
-                        let extra_width = if self.clearable && has_text { 24.0 } else { 0.0 };
-                        let edit_response = ui.add_enabled(
-                            self.enabled,
-                            TextEdit::singleline(self.value)
-                                .hint_text(RichText::new(self.placeholder).color(self.theme.text_muted))
-                                .desired_width(ui.available_width() - extra_width)
-                                .margin(Margin::ZERO)
-                                .frame(false)
-                                .text_color(self.theme.text_primary),
+            let frame_output = frame.show(ui, |ui| {
+                ui.set_min_width(width.max(100.0) - 16.0);
+                ui.horizontal(|ui| {
+                    if let Some(icon) = self.leading_icon {
+                        ui.label(
+                            RichText::new(char::from(icon).to_string())
+                                .font(FontId::new(14.0, FontFamily::Name("lucide".into())))
+                                .color(if self.enabled {
+                                    self.theme.text_muted
+                                } else {
+                                    self.theme.border_subtle
+                                }),
                         );
+                        ui.add_space(4.0);
+                    }
 
-                        if self.clearable
-                            && has_text
-                            && ui
-                                .add(
-                                    Button::new(
-                                        RichText::new(char::from(Icon::X).to_string())
-                                            .font(FontId::new(12.0, FontFamily::Name("lucide".into())))
-                                            .color(self.theme.text_muted),
-                                    )
-                                    .frame(false),
+                    let has_text = !self.value.is_empty();
+                    let extra_width = if self.clearable && has_text { 24.0 } else { 0.0 };
+                    let edit_response = ui.add_enabled(
+                        self.enabled,
+                        TextEdit::singleline(self.value)
+                            .hint_text(RichText::new(self.placeholder).color(self.theme.text_muted))
+                            .desired_width(ui.available_width() - extra_width)
+                            .margin(Margin::ZERO)
+                            .frame(false)
+                            .text_color(if self.enabled {
+                                self.theme.text_primary
+                            } else {
+                                self.theme.text_muted
+                            }),
+                    );
+
+                    if self.clearable
+                        && has_text
+                        && self.enabled
+                        && ui
+                            .add(
+                                Button::new(
+                                    RichText::new(char::from(Icon::X).to_string())
+                                        .font(FontId::new(12.0, FontFamily::Name("lucide".into())))
+                                        .color(self.theme.text_muted),
                                 )
-                                .on_hover_text("Clear")
-                                .clicked()
-                        {
-                            self.value.clear();
-                        }
+                                .frame(false),
+                            )
+                            .on_hover_text("Clear")
+                            .clicked()
+                    {
+                        self.value.clear();
+                    }
 
-                        edit_response
-                    })
-                    .inner
+                    edit_response
                 })
-                .inner;
+                .inner
+            });
+
+            let edit_response = frame_output.inner;
+            let frame_rect = frame_output.response.rect;
+
+            // Accessibility Focus Ring and Hover border
+            if edit_response.has_focus() && !has_error {
+                ui.painter()
+                    .rect_stroke(frame_rect, Rounding::same(6.0), Stroke::new(1.5, self.theme.accent));
+            } else if frame_output.response.hovered() && self.enabled && !has_error {
+                ui.painter().rect_stroke(
+                    frame_rect,
+                    Rounding::same(6.0),
+                    Stroke::new(1.0, self.theme.border_strong),
+                );
+            }
 
             if let Some(err) = self.error_text {
                 ui.add_space(2.0);
@@ -153,7 +181,7 @@ impl<'a> Input<'a> {
                 ui.label(RichText::new(helper).size(11.0).color(self.theme.text_muted));
             }
 
-            response
+            edit_response
         })
         .inner
     }
@@ -206,7 +234,7 @@ impl<'a> PasswordInput<'a> {
                 ui.add_space(3.0);
             }
 
-            Frame {
+            let frame_output = Frame {
                 fill: self.theme.surface_editor,
                 stroke: Stroke::new(1.0, self.theme.border_default),
                 inner_margin: Margin::symmetric(8.0, 4.0),
@@ -252,8 +280,23 @@ impl<'a> PasswordInput<'a> {
                     edit_response
                 })
                 .inner
-            })
-            .inner
+            });
+
+            let edit_response = frame_output.inner;
+            let frame_rect = frame_output.response.rect;
+
+            if edit_response.has_focus() {
+                ui.painter()
+                    .rect_stroke(frame_rect, Rounding::same(6.0), Stroke::new(1.5, self.theme.accent));
+            } else if frame_output.response.hovered() {
+                ui.painter().rect_stroke(
+                    frame_rect,
+                    Rounding::same(6.0),
+                    Stroke::new(1.0, self.theme.border_strong),
+                );
+            }
+
+            edit_response
         })
         .inner
     }
@@ -293,7 +336,7 @@ impl<'a> SearchInput<'a> {
     pub fn show(self, ui: &mut Ui) -> Response {
         let width = self.width.unwrap_or_else(|| ui.available_width());
 
-        Frame {
+        let frame_output = Frame {
             fill: self.theme.surface_editor,
             stroke: Stroke::new(1.0, self.theme.border_default),
             inner_margin: Margin::symmetric(8.0, 5.0),
@@ -321,6 +364,10 @@ impl<'a> SearchInput<'a> {
                         .frame(false)
                         .text_color(self.theme.text_primary),
                 );
+
+                if edit.has_focus() && ui.input(|i| i.key_pressed(egui::Key::Escape)) {
+                    self.value.clear();
+                }
 
                 if !self.value.is_empty()
                     && ui
@@ -353,8 +400,23 @@ impl<'a> SearchInput<'a> {
                 edit
             })
             .inner
-        })
-        .inner
+        });
+
+        let edit_response = frame_output.inner;
+        let frame_rect = frame_output.response.rect;
+
+        if edit_response.has_focus() {
+            ui.painter()
+                .rect_stroke(frame_rect, Rounding::same(6.0), Stroke::new(1.5, self.theme.accent));
+        } else if frame_output.response.hovered() {
+            ui.painter().rect_stroke(
+                frame_rect,
+                Rounding::same(6.0),
+                Stroke::new(1.0, self.theme.border_strong),
+            );
+        }
+
+        edit_response
     }
 }
 
@@ -419,7 +481,7 @@ impl<'a> Textarea<'a> {
                 ui.add_space(3.0);
             }
 
-            Frame {
+            let frame_output = Frame {
                 fill: self.theme.surface_editor,
                 stroke: Stroke::new(1.0, self.theme.border_default),
                 inner_margin: Margin::symmetric(8.0, 6.0),
@@ -436,8 +498,23 @@ impl<'a> Textarea<'a> {
                         .margin(Margin::ZERO)
                         .text_color(self.theme.text_primary),
                 )
-            })
-            .inner
+            });
+
+            let edit_response = frame_output.inner;
+            let frame_rect = frame_output.response.rect;
+
+            if edit_response.has_focus() {
+                ui.painter()
+                    .rect_stroke(frame_rect, Rounding::same(6.0), Stroke::new(1.5, self.theme.accent));
+            } else if frame_output.response.hovered() {
+                ui.painter().rect_stroke(
+                    frame_rect,
+                    Rounding::same(6.0),
+                    Stroke::new(1.0, self.theme.border_strong),
+                );
+            }
+
+            edit_response
         })
         .inner
     }

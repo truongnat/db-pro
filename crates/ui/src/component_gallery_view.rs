@@ -47,7 +47,7 @@ pub struct ComponentGalleryState {
 impl Default for ComponentGalleryState {
     fn default() -> Self {
         Self {
-            category: GalleryCategory::Tables,
+            category: GalleryCategory::All,
             input_text: "postgres_prod_replica".to_owned(),
             input_error_text: "invalid_connection_string".to_owned(),
             search_text: "".to_owned(),

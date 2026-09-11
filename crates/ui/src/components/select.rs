@@ -1,5 +1,5 @@
 use crate::DbProTheme;
-use egui::{Button, FontFamily, FontId, Frame, Id, Margin, Response, RichText, Rounding, Stroke, Ui, Vec2};
+use egui::{FontFamily, FontId, Frame, Id, Margin, Pos2, Response, RichText, Rounding, Stroke, Ui, Vec2};
 use lucide_icons::Icon;
 
 pub struct Select<'a> {
@@ -87,11 +87,34 @@ impl<'a> Select<'a> {
                 ui.memory_mut(|mem| mem.toggle_popup(popup_id));
             }
 
+            // Keyboard navigation on trigger button
+            if response.has_focus() {
+                ui.painter()
+                    .rect_stroke(response.rect, Rounding::same(6.0), Stroke::new(1.5, self.theme.accent));
+                if ui.input(|i| i.key_pressed(egui::Key::Space) || i.key_pressed(egui::Key::Enter)) {
+                    ui.memory_mut(|mem| mem.toggle_popup(popup_id));
+                }
+            }
+
             if ui.memory(|mem| mem.is_popup_open(popup_id)) {
                 let parent_rect = response.rect;
                 let menu_pos = parent_rect.left_bottom() + egui::vec2(0.0, 4.0);
 
-                egui::Area::new(popup_id)
+                // Keyboard cycling when popup is open
+                if ui.input(|i| i.key_pressed(egui::Key::Escape)) {
+                    ui.memory_mut(|mem| mem.close_popup());
+                }
+                if ui.input(|i| i.key_pressed(egui::Key::ArrowDown)) && *self.selected + 1 < self.options.len() {
+                    *self.selected += 1;
+                }
+                if ui.input(|i| i.key_pressed(egui::Key::ArrowUp)) && *self.selected > 0 {
+                    *self.selected -= 1;
+                }
+                if ui.input(|i| i.key_pressed(egui::Key::Enter)) {
+                    ui.memory_mut(|mem| mem.close_popup());
+                }
+
+                let area_resp = egui::Area::new(popup_id)
                     .fixed_pos(menu_pos)
                     .order(egui::Order::Foreground)
                     .show(ui.ctx(), |ui| {
@@ -112,32 +135,59 @@ impl<'a> Select<'a> {
                             ui.set_min_width(parent_rect.width() - 8.0);
                             for (idx, opt) in self.options.iter().enumerate() {
                                 let is_selected = idx == *self.selected;
-                                let btn = Button::new(RichText::new(opt).size(12.5).color(if is_selected {
+                                let item_w = ui.available_width();
+                                let (item_rect, item_resp) =
+                                    ui.allocate_exact_size(Vec2::new(item_w, 28.0), egui::Sense::click());
+
+                                let bg = if is_selected {
+                                    self.theme.accent_soft
+                                } else if item_resp.hovered() {
+                                    self.theme.surface_hover
+                                } else {
+                                    egui::Color32::TRANSPARENT
+                                };
+                                ui.painter().rect_filled(item_rect, Rounding::same(4.0), bg);
+
+                                let text_color = if is_selected {
                                     self.theme.accent
                                 } else {
                                     self.theme.text_primary
-                                }))
-                                .fill(if is_selected {
-                                    self.theme.accent_soft
-                                } else {
-                                    egui::Color32::TRANSPARENT
-                                })
-                                .stroke(Stroke::NONE)
-                                .min_size(Vec2::new(ui.available_width(), 26.0))
-                                .rounding(Rounding::same(4.0));
+                                };
+                                let text_pos = Pos2::new(item_rect.left() + 8.0, item_rect.center().y - 6.0);
+                                ui.painter().text(
+                                    text_pos,
+                                    egui::Align2::LEFT_TOP,
+                                    opt,
+                                    FontId::proportional(12.5),
+                                    text_color,
+                                );
 
-                                let item_resp = ui.add(btn);
+                                if is_selected {
+                                    let check_pos = Pos2::new(item_rect.right() - 8.0, item_rect.center().y);
+                                    ui.painter().text(
+                                        check_pos,
+                                        egui::Align2::RIGHT_CENTER,
+                                        char::from(Icon::Check).to_string(),
+                                        FontId::new(12.0, FontFamily::Name("lucide".into())),
+                                        self.theme.accent,
+                                    );
+                                }
+
                                 if item_resp.clicked() {
                                     *self.selected = idx;
                                     ui.memory_mut(|mem| mem.close_popup());
                                 }
                             }
-                        });
+                        })
                     });
 
-                // Click outside to close
-                if ui.input(|i| i.pointer.any_click()) && !response.clicked() {
-                    ui.memory_mut(|mem| mem.close_popup());
+                // Safe click outside to close
+                if ui.input(|i| i.pointer.any_click()) {
+                    if let Some(pos) = ui.input(|i| i.pointer.interact_pos()) {
+                        if !parent_rect.contains(pos) && !area_resp.response.rect.contains(pos) {
+                            ui.memory_mut(|mem| mem.close_popup());
+                        }
+                    }
                 }
             }
 

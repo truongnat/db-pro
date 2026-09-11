@@ -76,4 +76,44 @@ mod tests {
         let p2 = Progress::new(-0.2, theme);
         assert_eq!(p2.fraction, 0.0);
     }
+
+    #[test]
+    fn test_table_column_builder() {
+        let col = TableColumn::new("Status")
+            .width(120.0)
+            .align(TableColumnAlign::Center)
+            .sortable(true);
+
+        assert_eq!(col.title, "Status");
+        assert_eq!(col.width, Some(120.0));
+        assert_eq!(col.align, TableColumnAlign::Center);
+        assert!(col.sortable);
+    }
+
+    #[test]
+    fn test_checkbox_builder() {
+        let theme = DbProTheme::light();
+        let mut checked = false;
+        let cb = Checkbox::new(&mut checked, "Enable SSL", theme)
+            .description("Requires valid server certificate")
+            .enabled(false);
+
+        assert_eq!(cb.label, "Enable SSL");
+        assert_eq!(cb.description, Some("Requires valid server certificate"));
+        assert!(!cb.enabled);
+    }
+
+    #[test]
+    fn test_slider_builder() {
+        let theme = DbProTheme::light();
+        let mut val = 50.0;
+        let slider = Slider::new(&mut val, 0.0..=100.0, theme)
+            .label("Volume")
+            .show_value(true)
+            .width(200.0);
+
+        assert_eq!(slider.label, Some("Volume"));
+        assert!(slider.show_value);
+        assert_eq!(slider.width, Some(200.0));
+    }
 }

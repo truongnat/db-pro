@@ -322,13 +322,20 @@ impl<'a> Table<'a> {
             let body_start_y = header_divider_y + 1.0;
 
             if row_count == 0 {
-                let empty_rect = Rect::from_min_size(Pos2::new(table_min.x, body_start_y), Vec2::new(table_w, 80.0));
+                let empty_rect = Rect::from_min_size(Pos2::new(table_min.x, body_start_y), Vec2::new(table_w, 90.0));
                 ui.allocate_new_ui(egui::UiBuilder::new().max_rect(empty_rect), |ui| {
-                    ui.with_layout(Layout::centered_and_justified(egui::Direction::TopDown), |ui| {
+                    ui.with_layout(Layout::top_down(Align::Center), |ui| {
+                        ui.add_space(20.0);
+                        ui.label(
+                            RichText::new(char::from(Icon::Inbox).to_string())
+                                .font(egui::FontId::new(20.0, egui::FontFamily::Name("lucide".into())))
+                                .color(self.theme.text_muted),
+                        );
+                        ui.add_space(4.0);
                         ui.label(
                             RichText::new("No matching rows found.")
                                 .size(13.0)
-                                .color(self.theme.text_muted),
+                                .color(self.theme.text_secondary),
                         );
                     });
                 });
@@ -337,6 +344,12 @@ impl<'a> Table<'a> {
                     let row_y = body_start_y + (row_idx as f32 * self.row_height);
                     let row_rect =
                         Rect::from_min_size(Pos2::new(table_min.x, row_y), Vec2::new(table_w, self.row_height));
+
+                    // Viewport culling (virtualization): skip offscreen rows to maintain 60/120 FPS at scale
+                    if !ui.is_rect_visible(row_rect) {
+                        continue;
+                    }
+
                     let is_selected = is_row_selected(row_idx);
                     let row_resp = ui.interact(row_rect, ui.id().with(("row", row_idx)), egui::Sense::click());
 

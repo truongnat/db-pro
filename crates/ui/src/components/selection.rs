@@ -3,11 +3,11 @@ use egui::{Color32, FontFamily, FontId, Pos2, Rect, Response, RichText, Rounding
 use lucide_icons::Icon;
 
 pub struct Checkbox<'a> {
-    checked: &'a mut bool,
-    label: &'a str,
-    description: Option<&'a str>,
-    enabled: bool,
-    theme: DbProTheme,
+    pub(crate) checked: &'a mut bool,
+    pub(crate) label: &'a str,
+    pub(crate) description: Option<&'a str>,
+    pub(crate) enabled: bool,
+    pub(crate) theme: DbProTheme,
 }
 
 pub type ShadcnCheckbox<'a> = Checkbox<'a>;
@@ -35,59 +35,91 @@ impl<'a> Checkbox<'a> {
 
     pub fn show(self, ui: &mut Ui) -> Response {
         let size = 16.0;
-        let (rect, mut response) = ui.allocate_exact_size(Vec2::new(size, size), Sense::click());
+        let spacing = 8.0;
 
-        if self.enabled && response.clicked() {
-            *self.checked = !*self.checked;
-            response.mark_changed();
-        }
+        ui.horizontal(|ui| {
+            let desc_extra = if self.description.is_some() { 16.0 } else { 0.0 };
+            let total_height = 20.0 + desc_extra;
 
-        let rounding = Rounding::same(4.0);
-
-        if *self.checked {
-            ui.painter().rect_filled(rect, rounding, self.theme.accent);
-            let check_icon = char::from(Icon::Check).to_string();
-            ui.painter().text(
-                rect.center(),
-                egui::Align2::CENTER_CENTER,
-                check_icon,
-                FontId::new(11.0, FontFamily::Name("lucide".into())),
-                self.theme.accent_foreground,
+            let text_font = FontId::proportional(13.0);
+            let text_galley = ui.painter().layout_no_wrap(
+                self.label.to_owned(),
+                text_font,
+                if self.enabled {
+                    self.theme.text_primary
+                } else {
+                    self.theme.text_muted
+                },
             );
-        } else {
-            let fill = if response.hovered() && self.enabled {
-                self.theme.surface_hover
-            } else {
-                self.theme.surface_editor
-            };
-            let stroke = if response.hovered() && self.enabled {
-                Stroke::new(1.0, self.theme.border_strong)
-            } else {
-                Stroke::new(1.0, self.theme.border_default)
-            };
-            ui.painter().rect_filled(rect, rounding, fill);
-            ui.painter().rect_stroke(rect, rounding, stroke);
-        }
+            let row_width = (size + spacing + text_galley.size().x).max(size + spacing + 60.0);
 
-        ui.add_space(8.0);
-        ui.vertical(|ui| {
-            let text_color = if self.enabled {
-                self.theme.text_primary
-            } else {
-                self.theme.text_muted
-            };
-            let label_resp = ui.label(RichText::new(self.label).size(13.0).color(text_color));
-            if self.enabled && label_resp.clicked() {
-                *self.checked = !*self.checked;
-                response.mark_changed();
+            let (rect, mut response) = ui.allocate_exact_size(Vec2::new(row_width, total_height), Sense::click());
+
+            if self.enabled {
+                let space_pressed = response.has_focus() && ui.input(|i| i.key_pressed(egui::Key::Space));
+                if response.clicked() || space_pressed {
+                    *self.checked = !*self.checked;
+                    response.mark_changed();
+                }
             }
+
+            let box_y = if self.description.is_some() {
+                rect.top() + 2.0
+            } else {
+                rect.center().y - (size * 0.5)
+            };
+            let box_rect = Rect::from_min_size(Pos2::new(rect.left(), box_y), Vec2::splat(size));
+            let rounding = Rounding::same(4.0);
+
+            if *self.checked {
+                ui.painter().rect_filled(box_rect, rounding, self.theme.accent);
+                let check_icon = char::from(Icon::Check).to_string();
+                ui.painter().text(
+                    box_rect.center(),
+                    egui::Align2::CENTER_CENTER,
+                    check_icon,
+                    FontId::new(11.0, FontFamily::Name("lucide".into())),
+                    self.theme.accent_foreground,
+                );
+            } else {
+                let fill = if response.hovered() && self.enabled {
+                    self.theme.surface_hover
+                } else {
+                    self.theme.surface_editor
+                };
+                let stroke = if response.hovered() && self.enabled {
+                    Stroke::new(1.0, self.theme.border_strong)
+                } else {
+                    Stroke::new(1.0, self.theme.border_default)
+                };
+                ui.painter().rect_filled(box_rect, rounding, fill);
+                ui.painter().rect_stroke(box_rect, rounding, stroke);
+            }
+
+            // Focus ring
+            if response.has_focus() {
+                ui.painter().rect_stroke(
+                    box_rect.expand(2.0),
+                    Rounding::same(6.0),
+                    Stroke::new(2.0, self.theme.accent),
+                );
+            }
+
+            // Text and description
+            let text_pos = Pos2::new(rect.left() + size + spacing, box_y - 1.0);
+            ui.painter().galley(text_pos, text_galley, Color32::PLACEHOLDER);
 
             if let Some(desc) = self.description {
-                ui.label(RichText::new(desc).size(11.5).color(self.theme.text_muted));
+                let desc_galley =
+                    ui.painter()
+                        .layout_no_wrap(desc.to_owned(), FontId::proportional(11.5), self.theme.text_muted);
+                let desc_pos = Pos2::new(rect.left() + size + spacing, text_pos.y + 16.0);
+                ui.painter().galley(desc_pos, desc_galley, Color32::PLACEHOLDER);
             }
-        });
 
-        response
+            response
+        })
+        .inner
     }
 }
 
@@ -128,56 +160,98 @@ impl<'a> Switch<'a> {
     }
 
     pub fn show(self, ui: &mut Ui) -> Response {
-        let width = 36.0;
-        let height = 20.0;
-        let (rect, mut response) = ui.allocate_exact_size(Vec2::new(width, height), Sense::click());
+        let width: f32 = 36.0;
+        let height: f32 = 20.0;
+        let spacing: f32 = 8.0;
 
-        if self.enabled && response.clicked() {
-            *self.on = !*self.on;
-            response.mark_changed();
-        }
+        ui.horizontal(|ui| {
+            let desc_extra = if self.description.is_some() { 16.0 } else { 0.0 };
+            let total_height = height.max(20.0 + desc_extra);
 
-        let rounding = Rounding::same(height * 0.5);
-        let bg_color = if *self.on {
-            self.theme.accent
-        } else {
-            self.theme.border_default
-        };
+            let label_width = if let Some(lbl) = self.label {
+                let text_font = FontId::proportional(13.0);
+                ui.painter()
+                    .layout_no_wrap(lbl.to_owned(), text_font, self.theme.text_primary)
+                    .size()
+                    .x
+            } else {
+                0.0
+            };
+            let row_width = (width + spacing + label_width).max(width);
 
-        ui.painter().rect_filled(rect, rounding, bg_color);
+            let (row_rect, mut response) = ui.allocate_exact_size(Vec2::new(row_width, total_height), Sense::click());
 
-        // Knob
-        let knob_radius = (height - 4.0) * 0.5;
-        let knob_x = if *self.on {
-            rect.right() - 2.0 - knob_radius
-        } else {
-            rect.left() + 2.0 + knob_radius
-        };
-        let knob_center = Pos2::new(knob_x, rect.center().y);
-        ui.painter().circle_filled(knob_center, knob_radius, Color32::WHITE);
-
-        if self.label.is_some() || self.description.is_some() {
-            ui.add_space(8.0);
-            ui.vertical(|ui| {
-                if let Some(label) = self.label {
-                    let text_color = if self.enabled {
-                        self.theme.text_primary
-                    } else {
-                        self.theme.text_muted
-                    };
-                    let label_resp = ui.label(RichText::new(label).size(13.0).strong().color(text_color));
-                    if self.enabled && label_resp.clicked() {
-                        *self.on = !*self.on;
-                        response.mark_changed();
-                    }
+            if self.enabled {
+                let space_pressed = response.has_focus() && ui.input(|i| i.key_pressed(egui::Key::Space));
+                if response.clicked() || space_pressed {
+                    *self.on = !*self.on;
+                    response.mark_changed();
                 }
+            }
+
+            let switch_y = if self.description.is_some() {
+                row_rect.top() + 1.0
+            } else {
+                row_rect.center().y - (height * 0.5)
+            };
+            let switch_rect = Rect::from_min_size(Pos2::new(row_rect.left(), switch_y), Vec2::new(width, height));
+            let rounding = Rounding::same(height * 0.5);
+
+            // Animated smooth transition for knob position
+            let anim_t = ui.ctx().animate_bool(response.id.with("switch_glide"), *self.on);
+
+            let bg_color = if *self.on {
+                self.theme.accent
+            } else if response.hovered() && self.enabled {
+                self.theme.border_strong
+            } else {
+                self.theme.border_default
+            };
+
+            ui.painter().rect_filled(switch_rect, rounding, bg_color);
+
+            // Focus ring
+            if response.has_focus() {
+                ui.painter().rect_stroke(
+                    switch_rect.expand(2.0),
+                    Rounding::same(height * 0.5 + 2.0),
+                    Stroke::new(2.0, self.theme.accent),
+                );
+            }
+
+            // Smooth animated knob
+            let knob_radius = (height - 4.0) * 0.5;
+            let knob_x_left = switch_rect.left() + 2.0 + knob_radius;
+            let knob_x_right = switch_rect.right() - 2.0 - knob_radius;
+            let knob_x = egui::lerp(knob_x_left..=knob_x_right, anim_t);
+            let knob_center = Pos2::new(knob_x, switch_rect.center().y);
+            ui.painter().circle_filled(knob_center, knob_radius, Color32::WHITE);
+
+            // Text and description
+            if let Some(lbl) = self.label {
+                let text_color = if self.enabled {
+                    self.theme.text_primary
+                } else {
+                    self.theme.text_muted
+                };
+                let text_pos = Pos2::new(row_rect.left() + width + spacing, switch_y);
+                let galley = ui
+                    .painter()
+                    .layout_no_wrap(lbl.to_owned(), FontId::proportional(13.0), text_color);
+                ui.painter().galley(text_pos, galley, Color32::PLACEHOLDER);
+
                 if let Some(desc) = self.description {
-                    ui.label(RichText::new(desc).size(11.5).color(self.theme.text_muted));
+                    let desc_galley =
+                        ui.painter()
+                            .layout_no_wrap(desc.to_owned(), FontId::proportional(11.5), self.theme.text_muted);
+                    let desc_pos = Pos2::new(row_rect.left() + width + spacing, text_pos.y + 16.0);
+                    ui.painter().galley(desc_pos, desc_galley, Color32::PLACEHOLDER);
                 }
-            });
-        }
+            }
 
-        response
+            response
+        })
+        .inner
     }
 }
 
@@ -214,51 +288,90 @@ impl<'a> Radio<'a> {
 
     pub fn show(self, ui: &mut Ui) -> Response {
         let size = 16.0;
-        let (rect, response) = ui.allocate_exact_size(Vec2::new(size, size), Sense::click());
+        let spacing = 8.0;
 
-        let center = rect.center();
-        let radius = size * 0.5;
+        ui.horizontal(|ui| {
+            let desc_extra = if self.description.is_some() { 16.0 } else { 0.0 };
+            let total_height = 20.0 + desc_extra;
 
-        if self.selected {
-            ui.painter()
-                .circle_stroke(center, radius, Stroke::new(1.5, self.theme.accent));
-            ui.painter().circle_filled(center, radius - 4.0, self.theme.accent);
-        } else {
-            let stroke_color = if response.hovered() && self.enabled {
-                self.theme.border_strong
-            } else {
-                self.theme.border_default
-            };
-            ui.painter()
-                .circle_stroke(center, radius, Stroke::new(1.0, stroke_color));
-            ui.painter()
-                .circle_filled(center, radius - 1.0, self.theme.surface_editor);
-        }
+            let text_font = FontId::proportional(13.0);
+            let text_galley = ui.painter().layout_no_wrap(
+                self.label.to_owned(),
+                text_font,
+                if self.enabled {
+                    self.theme.text_primary
+                } else {
+                    self.theme.text_muted
+                },
+            );
+            let row_width = (size + spacing + text_galley.size().x).max(size + spacing + 60.0);
 
-        ui.add_space(8.0);
-        ui.vertical(|ui| {
-            let text_color = if self.enabled {
-                self.theme.text_primary
-            } else {
-                self.theme.text_muted
-            };
-            ui.label(RichText::new(self.label).size(13.0).color(text_color));
-            if let Some(desc) = self.description {
-                ui.label(RichText::new(desc).size(11.5).color(self.theme.text_muted));
+            let (rect, mut response) = ui.allocate_exact_size(Vec2::new(row_width, total_height), Sense::click());
+
+            if self.enabled {
+                let space_pressed = response.has_focus()
+                    && (ui.input(|i| i.key_pressed(egui::Key::Space)) || ui.input(|i| i.key_pressed(egui::Key::Enter)));
+                if space_pressed {
+                    response.mark_changed();
+                }
             }
-        });
 
-        response
+            let center_y = if self.description.is_some() {
+                rect.top() + (size * 0.5) + 2.0
+            } else {
+                rect.center().y
+            };
+            let circle_center = Pos2::new(rect.left() + (size * 0.5), center_y);
+            let radius = size * 0.5;
+
+            if self.selected {
+                ui.painter()
+                    .circle_stroke(circle_center, radius, Stroke::new(1.5, self.theme.accent));
+                ui.painter()
+                    .circle_filled(circle_center, radius - 4.0, self.theme.accent);
+            } else {
+                let stroke_color = if response.hovered() && self.enabled {
+                    self.theme.border_strong
+                } else {
+                    self.theme.border_default
+                };
+                ui.painter()
+                    .circle_stroke(circle_center, radius, Stroke::new(1.0, stroke_color));
+                ui.painter()
+                    .circle_filled(circle_center, radius - 1.0, self.theme.surface_editor);
+            }
+
+            // Focus ring
+            if response.has_focus() {
+                ui.painter()
+                    .circle_stroke(circle_center, radius + 2.0, Stroke::new(2.0, self.theme.accent));
+            }
+
+            // Text and description
+            let text_pos = Pos2::new(rect.left() + size + spacing, center_y - (size * 0.5) - 1.0);
+            ui.painter().galley(text_pos, text_galley, Color32::PLACEHOLDER);
+
+            if let Some(desc) = self.description {
+                let desc_galley =
+                    ui.painter()
+                        .layout_no_wrap(desc.to_owned(), FontId::proportional(11.5), self.theme.text_muted);
+                let desc_pos = Pos2::new(rect.left() + size + spacing, text_pos.y + 16.0);
+                ui.painter().galley(desc_pos, desc_galley, Color32::PLACEHOLDER);
+            }
+
+            response
+        })
+        .inner
     }
 }
 
 pub struct Slider<'a> {
-    value: &'a mut f32,
-    range: std::ops::RangeInclusive<f32>,
-    label: Option<&'a str>,
-    show_value: bool,
-    width: Option<f32>,
-    theme: DbProTheme,
+    pub(crate) value: &'a mut f32,
+    pub(crate) range: std::ops::RangeInclusive<f32>,
+    pub(crate) label: Option<&'a str>,
+    pub(crate) show_value: bool,
+    pub(crate) width: Option<f32>,
+    pub(crate) theme: DbProTheme,
 }
 
 pub type ShadcnSlider<'a> = Slider<'a>;
@@ -314,16 +427,30 @@ impl<'a> Slider<'a> {
             }
 
             let height = 20.0;
-            let (rect, response) = ui.allocate_exact_size(Vec2::new(width, height), Sense::click_and_drag());
+            let (rect, mut response) = ui.allocate_exact_size(Vec2::new(width, height), Sense::click_and_drag());
 
             let min = *self.range.start();
             let max = *self.range.end();
             let range_span = (max - min).max(0.001);
 
+            // Keyboard navigation (ArrowLeft / ArrowRight)
+            if response.has_focus() {
+                let step = range_span * 0.02;
+                if ui.input(|i| i.key_pressed(egui::Key::ArrowLeft)) {
+                    *self.value = (*self.value - step).clamp(min, max);
+                    response.mark_changed();
+                }
+                if ui.input(|i| i.key_pressed(egui::Key::ArrowRight)) {
+                    *self.value = (*self.value + step).clamp(min, max);
+                    response.mark_changed();
+                }
+            }
+
             if response.dragged() || response.clicked() {
                 if let Some(mouse_pos) = response.interact_pointer_pos() {
                     let normalized = ((mouse_pos.x - rect.left()) / rect.width()).clamp(0.0, 1.0);
                     *self.value = min + normalized * range_span;
+                    response.mark_changed();
                 }
             }
 
@@ -356,6 +483,12 @@ impl<'a> Slider<'a> {
             ui.painter().circle_filled(thumb_center, 7.0, thumb_color);
             ui.painter()
                 .circle_stroke(thumb_center, 7.0, Stroke::new(1.5, self.theme.accent));
+
+            // Focus ring around thumb
+            if response.has_focus() {
+                ui.painter()
+                    .circle_stroke(thumb_center, 9.5, Stroke::new(2.0, self.theme.accent));
+            }
 
             response
         })

@@ -117,21 +117,18 @@ impl Button {
         let mut job = LayoutJob::default();
 
         if self.loading {
-            let time = ui.input(|i| i.time);
             ui.ctx().request_repaint();
-            let spinner_chars = ['◐', '◓', '◑', '◒'];
-            let idx = ((time * 6.0) as usize) % spinner_chars.len();
             job.append(
-                &spinner_chars[idx].to_string(),
+                &char::from(Icon::LoaderCircle).to_string(),
                 0.0,
                 TextFormat {
-                    font_id: FontId::proportional(font_size),
+                    font_id: FontId::new(icon_size, FontFamily::Name("lucide".into())),
                     color: text_color,
                     ..Default::default()
                 },
             );
             if self.label.is_some() {
-                job.append(" ", 0.0, TextFormat::default());
+                job.append("  ", 0.0, TextFormat::default());
             }
         } else if let Some(icon) = self.icon {
             job.append(
@@ -170,10 +167,28 @@ impl Button {
         let enabled = self.enabled && !self.loading;
         let response = ui.add_enabled(enabled, button);
 
-        // Hover feedback for Outline and Ghost variants
-        if self.variant == ButtonVariant::Outline && response.hovered() && enabled {
-            ui.painter()
-                .rect_filled(response.rect, rounding, self.theme.surface_hover.linear_multiply(0.6));
+        // Crisp hover border for Ghost and Outline
+        if enabled && response.hovered() {
+            match self.variant {
+                ButtonVariant::Outline => {
+                    ui.painter()
+                        .rect_stroke(response.rect, rounding, Stroke::new(1.0, self.theme.border_strong));
+                }
+                ButtonVariant::Ghost => {
+                    ui.painter()
+                        .rect_stroke(response.rect, rounding, Stroke::new(1.0, self.theme.border_subtle));
+                }
+                _ => {}
+            }
+        }
+
+        // Accessibility Focus Ring
+        if response.has_focus() {
+            ui.painter().rect_stroke(
+                response.rect.expand(2.0),
+                Rounding::same(8.0),
+                Stroke::new(2.0, self.theme.accent),
+            );
         }
 
         response
