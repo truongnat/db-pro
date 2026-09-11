@@ -411,6 +411,20 @@ impl eframe::App for DbProApp {
     }
 
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        // Map Ctrl to Command in input events so Ctrl+A/C/V/X/Z work seamlessly on macOS
+        ctx.input_mut(|i| {
+            if i.modifiers.ctrl {
+                i.modifiers.command = true;
+            }
+            for event in &mut i.events {
+                if let egui::Event::Key { modifiers, .. } = event {
+                    if modifiers.ctrl {
+                        modifiers.command = true;
+                    }
+                }
+            }
+        });
+
         if self.initial_frames_count < 3 {
             self.initial_frames_count += 1;
             ctx.send_viewport_cmd(egui::ViewportCommand::Maximized(true));
