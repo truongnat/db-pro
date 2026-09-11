@@ -26,8 +26,8 @@ mode. This is an acceptance rule for every remaining wave, not a suggestion to r
 code.
 
 - use one native token layer for surfaces, borders, text hierarchy, accent and semantic states;
-- keep the Codex hierarchy: quiet near-flat surfaces, hairline separators, restrained lavender
-  selection/accent, compact rounded controls and generous whitespace;
+- keep the Codex hierarchy: quiet near-flat surfaces, hairline separators, neutral active rows,
+  blue interaction accent, compact rounded controls and generous whitespace;
 - use the existing Lucide icon font consistently, with monochrome icons at the same visual weight
   as Codex navigation/actions; do not introduce mixed icon families or emoji substitutes;
 - verify hover, active, focus, disabled, selected and destructive states in both light and dark
@@ -98,7 +98,7 @@ code.
   closing and reopening the ER workspace;
 - preserve the existing render limit, table matching and provider-neutral diagram behavior.
 
-### Wave 9 — staged grid interaction correctness (current change)
+### Wave 9 — staged grid interaction correctness (completed)
 
 - commit an active Data Editor cell when Enter is pressed;
 - commit the active cell before row/cell selection changes so the editor and selection cannot drift;
@@ -107,7 +107,7 @@ code.
 - keep the fix inside the native shared result-grid state path without changing database mutation
   or transaction semantics.
 
-### Wave 10 — Codex visual parity (next)
+### Wave 10 — Codex visual parity (current change)
 
 - audit every native screen and shared component against the Codex light/dark reference;
 - calibrate the native theme tokens, icon sizes/weights, typography, spacing, radii and interaction
@@ -202,3 +202,13 @@ code.
   copy their original result payload.
 - Rust fmt/check/clippy/tests pass, the native binary is rebuilt, and a fresh SQLite runtime check
   confirms Enter, selection transition and clipboard behavior.
+
+## Acceptance for Wave 10
+
+- Native `DbProTheme` uses the Codex light/dark neutral surface, text, border, semantic and blue
+  accent tokens, with no purple-only active-state dependency.
+- Shared native components use the Codex-aligned control heights, typography scale and rounded
+  interaction surfaces without introducing a second icon family.
+- Fresh native screenshots confirm the calibrated shell and Data Editor in both light and dark mode.
+- Rust fmt/check/clippy/tests pass and the native binary is rebuilt; remaining workspace/provider
+  review stays explicitly open until every native surface has been traversed.

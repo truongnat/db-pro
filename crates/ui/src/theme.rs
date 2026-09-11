@@ -42,64 +42,64 @@ impl DbProTheme {
     pub fn light() -> Self {
         Self {
             dark_mode: false,
-            surface_app: Color32::from_rgb(247, 248, 250),
+            surface_app: Color32::from_rgb(249, 249, 249),
             surface_panel: Color32::from_rgb(255, 255, 255),
-            surface_elevated: Color32::from_rgb(255, 255, 255),
+            surface_elevated: Color32::from_rgb(250, 250, 250),
             surface_floating: Color32::from_rgb(255, 255, 255),
-            surface_editor: Color32::from_rgb(252, 252, 253),
-            surface_hover: Color32::from_rgb(245, 246, 249),
-            surface_active: Color32::from_rgb(239, 237, 255),
-            border_subtle: Color32::from_rgb(235, 237, 241),
-            border_default: Color32::from_rgb(221, 224, 231),
-            border_strong: Color32::from_rgb(195, 199, 209),
-            text_primary: Color32::from_rgb(31, 35, 40),
-            text_secondary: Color32::from_rgb(88, 96, 105),
-            text_muted: Color32::from_rgb(128, 137, 148),
+            surface_editor: Color32::from_rgb(247, 247, 247),
+            surface_hover: Color32::from_rgb(242, 242, 242),
+            surface_active: Color32::from_rgb(242, 242, 242),
+            border_subtle: Color32::from_rgb(242, 242, 242),
+            border_default: Color32::from_rgb(235, 235, 235),
+            border_strong: Color32::from_rgb(225, 225, 225),
+            text_primary: Color32::from_rgb(26, 28, 31),
+            text_secondary: Color32::from_rgb(93, 93, 93),
+            text_muted: Color32::from_rgb(143, 143, 143),
             text_inverse: Color32::from_rgb(255, 255, 255),
-            accent: Color32::from_rgb(109, 94, 245),
-            accent_hover: Color32::from_rgb(91, 75, 232),
-            accent_soft: Color32::from_rgb(240, 238, 255),
+            accent: Color32::from_rgb(2, 133, 255),
+            accent_hover: Color32::from_rgb(1, 105, 204),
+            accent_soft: Color32::from_rgb(229, 243, 255),
             accent_foreground: Color32::from_rgb(255, 255, 255),
-            success: Color32::from_rgb(25, 135, 84),
-            warning: Color32::from_rgb(154, 103, 0),
-            danger: Color32::from_rgb(197, 57, 82),
-            info: Color32::from_rgb(58, 105, 199),
-            code_keyword: Color32::from_rgb(91, 75, 232),
-            code_string: Color32::from_rgb(154, 103, 0),
-            code_number: Color32::from_rgb(25, 135, 84),
-            code_comment: Color32::from_rgb(128, 137, 148),
+            success: Color32::from_rgb(0, 162, 64),
+            warning: Color32::from_rgb(226, 85, 7),
+            danger: Color32::from_rgb(224, 46, 42),
+            info: Color32::from_rgb(51, 156, 255),
+            code_keyword: Color32::from_rgb(213, 53, 56),
+            code_string: Color32::from_rgb(0, 136, 9),
+            code_number: Color32::from_rgb(0, 113, 234),
+            code_comment: Color32::from_rgb(102, 102, 102),
         }
     }
 
     pub fn dark() -> Self {
         Self {
             dark_mode: true,
-            surface_app: Color32::from_rgb(11, 13, 17),
-            surface_panel: Color32::from_rgb(16, 19, 25),
-            surface_elevated: Color32::from_rgb(22, 26, 34),
-            surface_floating: Color32::from_rgb(27, 32, 42),
-            surface_editor: Color32::from_rgb(13, 16, 21),
-            surface_hover: Color32::from_rgb(30, 36, 46),
-            surface_active: Color32::from_rgb(40, 31, 66),
-            border_subtle: Color32::from_rgb(29, 34, 43),
-            border_default: Color32::from_rgb(46, 53, 65),
-            border_strong: Color32::from_rgb(70, 79, 95),
-            text_primary: Color32::from_rgb(241, 243, 247),
-            text_secondary: Color32::from_rgb(174, 181, 194),
-            text_muted: Color32::from_rgb(111, 121, 138),
-            text_inverse: Color32::from_rgb(11, 13, 17),
-            accent: Color32::from_rgb(178, 157, 255),
-            accent_hover: Color32::from_rgb(202, 187, 255),
-            accent_soft: Color32::from_rgb(40, 31, 66),
-            accent_foreground: Color32::from_rgb(19, 15, 32),
-            success: Color32::from_rgb(92, 207, 150),
-            warning: Color32::from_rgb(242, 190, 91),
-            danger: Color32::from_rgb(242, 122, 145),
-            info: Color32::from_rgb(128, 170, 255),
-            code_keyword: Color32::from_rgb(201, 185, 255),
-            code_string: Color32::from_rgb(242, 190, 91),
-            code_number: Color32::from_rgb(107, 220, 164),
-            code_comment: Color32::from_rgb(122, 131, 147),
+            surface_app: Color32::from_rgb(24, 24, 24),
+            surface_panel: Color32::from_rgb(33, 33, 33),
+            surface_elevated: Color32::from_rgb(40, 40, 40),
+            surface_floating: Color32::from_rgb(48, 48, 48),
+            surface_editor: Color32::from_rgb(33, 33, 33),
+            surface_hover: Color32::from_rgb(48, 48, 48),
+            surface_active: Color32::from_rgb(57, 57, 57),
+            border_subtle: Color32::from_rgb(43, 43, 43),
+            border_default: Color32::from_rgb(52, 52, 52),
+            border_strong: Color32::from_rgb(65, 65, 65),
+            text_primary: Color32::from_rgb(223, 223, 223),
+            text_secondary: Color32::from_rgb(179, 179, 179),
+            text_muted: Color32::from_rgb(153, 153, 153),
+            text_inverse: Color32::from_rgb(13, 13, 13),
+            accent: Color32::from_rgb(51, 156, 255),
+            accent_hover: Color32::from_rgb(102, 181, 255),
+            accent_soft: Color32::from_rgb(0, 40, 77),
+            accent_foreground: Color32::from_rgb(13, 13, 13),
+            success: Color32::from_rgb(64, 201, 119),
+            warning: Color32::from_rgb(255, 133, 73),
+            danger: Color32::from_rgb(255, 103, 100),
+            info: Color32::from_rgb(51, 156, 255),
+            code_keyword: Color32::from_rgb(246, 117, 118),
+            code_string: Color32::from_rgb(133, 223, 123),
+            code_number: Color32::from_rgb(109, 203, 244),
+            code_comment: Color32::from_rgb(153, 153, 153),
         }
     }
 
@@ -133,7 +133,9 @@ impl DbProTheme {
         visuals.hyperlink_color = self.accent;
         visuals.warn_fg_color = self.warning;
         visuals.error_fg_color = self.danger;
-        visuals.selection.bg_fill = self.accent.linear_multiply(0.16);
+        // Selected rows/tabs in Codex stay neutral; blue is reserved for the
+        // interaction accent and the active indicator rather than large fills.
+        visuals.selection.bg_fill = self.surface_active;
         visuals.selection.stroke = Stroke::new(1.0, self.accent);
         visuals.window_rounding = Rounding::same(7.0);
         visuals.window_shadow = Shadow {
@@ -164,8 +166,8 @@ impl DbProTheme {
         visuals.widgets.hovered.bg_stroke = Stroke::new(1.0, self.border_strong);
         visuals.widgets.hovered.fg_stroke = Stroke::new(1.0, self.text_primary);
         visuals.widgets.hovered.rounding = Rounding::same(4.0);
-        visuals.widgets.active.bg_fill = self.accent;
-        visuals.widgets.active.weak_bg_fill = self.accent;
+        visuals.widgets.active.bg_fill = self.surface_active;
+        visuals.widgets.active.weak_bg_fill = self.surface_active;
         visuals.widgets.active.bg_stroke = Stroke::new(1.0, self.accent_hover);
         // egui uses the active foreground for `RichText::strong()` too; keep
         // headings readable and let accent buttons opt into their own color.
@@ -180,15 +182,15 @@ impl DbProTheme {
         ctx.set_visuals(visuals);
 
         let mut style = (*ctx.style()).clone();
-        style.spacing.item_spacing = egui::vec2(7.0, 4.0);
-        style.spacing.button_padding = egui::vec2(8.0, 4.0);
+        style.spacing.item_spacing = egui::vec2(8.0, 4.0);
+        style.spacing.button_padding = egui::vec2(10.0, 4.0);
         style.spacing.interact_size = egui::vec2(24.0, 24.0);
         style.spacing.window_margin = Margin::same(12.0);
         style.spacing.menu_margin = Margin::same(5.0);
         style.spacing.indent = 13.0;
         style.text_styles.insert(TextStyle::Body, FontId::proportional(13.0));
-        style.text_styles.insert(TextStyle::Button, FontId::proportional(12.0));
-        style.text_styles.insert(TextStyle::Small, FontId::proportional(10.5));
+        style.text_styles.insert(TextStyle::Button, FontId::proportional(13.0));
+        style.text_styles.insert(TextStyle::Small, FontId::proportional(11.0));
         style.text_styles.insert(TextStyle::Monospace, FontId::monospace(13.0));
         ctx.set_style(style);
     }
@@ -207,5 +209,25 @@ mod tests {
         assert!(dark.dark_mode);
         assert_ne!(light.surface_app, dark.surface_app);
         assert_ne!(light.text_primary, dark.text_primary);
+    }
+
+    #[test]
+    fn light_tokens_follow_codex_neutral_surface_contract() {
+        let theme = DbProTheme::light();
+
+        assert_eq!(theme.surface_app, egui::Color32::from_rgb(249, 249, 249));
+        assert_eq!(theme.surface_panel, egui::Color32::WHITE);
+        assert_eq!(theme.surface_active, egui::Color32::from_rgb(242, 242, 242));
+        assert_eq!(theme.accent, egui::Color32::from_rgb(2, 133, 255));
+    }
+
+    #[test]
+    fn dark_tokens_follow_codex_neutral_surface_contract() {
+        let theme = DbProTheme::dark();
+
+        assert_eq!(theme.surface_app, egui::Color32::from_rgb(24, 24, 24));
+        assert_eq!(theme.surface_panel, egui::Color32::from_rgb(33, 33, 33));
+        assert_eq!(theme.surface_active, egui::Color32::from_rgb(57, 57, 57));
+        assert_eq!(theme.accent, egui::Color32::from_rgb(51, 156, 255));
     }
 }

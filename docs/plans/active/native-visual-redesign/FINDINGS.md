@@ -165,13 +165,33 @@ on the raw result payload.
 - Selecting the staged row 1 value and pressing `Copy cell` produced the clipboard payload
   `Alice Updated` via `pbpaste`.
 
-## Codex visual parity requirement
+## Wave 10 visual audit
 
-The installed Codex desktop app is now the visual reference for all remaining native work. The
-current native surface is structurally close in its dark token direction, but parity is not yet
-proven: the native screenshot still has denser database-IDE chrome and stronger grid emphasis than
-the Codex reference, and a native light-mode comparison has not been captured. Wave 10 remains
-open for colors, icon weight, spacing, typography, radii and interaction states in both modes.
+The installed Codex desktop app is the visual reference for all remaining native work. Its local
+bundle defines the calibrated palette used in this wave: light main/sidebar surfaces `#ffffff` and
+`#f9f9f9`, dark main/sidebar surfaces `#181818` and `#212121`, primary text `#1a1c1f`/`#dfdfdf`,
+blue interaction accent `#0285ff`/`#339cff`, and neutral active/hover surfaces. The native shared
+theme now uses these values and maps the Codex light/dark editor colors for SQL tokens.
+
+The full requirement is not closed yet: every native workspace still needs a light/dark traversal,
+and any database-IDE-specific density or grid treatment must be documented as an intentional
+deviation before the baseline visual P1 can close.
+
+## Wave 10 runtime evidence
+
+- Dark native shell after the token/component rebuild: `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/b98d3253-74ab-4828-9d07-402f09baaa64-screenshot.png`.
+- Dark native Data Editor over the real `AuditSQLite` fixture, including the shared grid and
+  active Data tab: `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/ba0878ec-c0cf-448f-85b9-dd4b6551952b-screenshot.png`.
+- Light native Data Editor over the real `AuditSQLite` fixture, including the shared grid and
+  active Data tab: `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/26a5b6fc-111e-4153-abfd-481cbfe4b4f2-screenshot.png`.
+- Light Settings/Appearance surface confirms the Light control and shared component treatment:
+  `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/679b00a3-1603-449f-8c48-209f065fa8be-screenshot.png`.
+- The post-calibration restart after the final sidebar-radius/selection pass captured the full-window
+  dark Welcome shell at `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/e9828e88-d95d-406c-97bd-e2a2cdb89749-screenshot.png`.
+- The same rebuilt binary in Light mode captured the flat Welcome and Settings surfaces at
+  `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/3f323363-de84-4199-a969-b90e8ce1fb73-screenshot.png`.
+- The Welcome canvas is intentionally flat like Codex; the ER Diagram canvas keeps its own
+  database-IDE grid as an intentional workspace affordance.
 
 ## Wave 3 runtime evidence
 

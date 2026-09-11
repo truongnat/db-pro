@@ -2,10 +2,11 @@
 
 ## Current state
 
-Wave 1–9 implementation and runtime screenshot passes are complete on `feature/native-visual-redesign`.
-No overall feature completion claim has been made: independent review and any provider/runtime
-regression follow-up remain open. The baseline screenshot and source evidence are recorded in
-`FINDINGS.md`.
+Wave 1–10 implemented slices and runtime screenshot passes are recorded on
+`feature/native-visual-redesign`; Wave 10 currently covers the calibrated shell and Data Editor
+surfaces in both appearance modes. No overall feature completion claim has been made: all native
+workspace traversal, independent review and any provider/runtime regression follow-up remain open.
+The baseline screenshot and source evidence are recorded in `FINDINGS.md`.
 
 ## Commands
 
@@ -181,3 +182,24 @@ Wave 9 changes are restricted to native Data Editor interaction and clipboard pr
 database mutation, transaction, provider capability or task-bridge behavior was changed. The
 Codex light/dark visual-parity audit is the next open wave; PostgreSQL runtime evidence and
 independent review also remain pending.
+
+## Wave 10 evidence
+
+| Check | Result | Evidence |
+|---|---|---|
+| Codex-aligned dark native shell and Data Editor | PASS | Fresh rebuilt native screenshots `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/b98d3253-74ab-4828-9d07-402f09baaa64-screenshot.png` and `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/ba0878ec-c0cf-448f-85b9-dd4b6551952b-screenshot.png` show neutral `#181818/#212121`-direction surfaces, blue interaction accent and rounded shared controls |
+| Codex-aligned light native Data Editor | PASS | Fresh rebuilt native screenshot `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/26a5b6fc-111e-4153-abfd-481cbfe4b4f2-screenshot.png` shows white main surface, `#f9f9f9`-direction explorer, blue accent and neutral grid states |
+| Flat Codex-aligned Welcome shell after final selection/radius pass | PASS | Fresh rebuilt native screenshot `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/e9828e88-d95d-406c-97bd-e2a2cdb89749-screenshot.png` shows the dark neutral shell, neutral selected tab treatment and blue indicator/action accents |
+| Flat Codex-aligned Welcome shell in Light mode | PASS | Fresh rebuilt native screenshot `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/3f323363-de84-4199-a969-b90e8ce1fb73-screenshot.png` shows the light neutral shell, flat canvas and blue action accent |
+| Codex token regression tests | PASS | `light_tokens_follow_codex_neutral_surface_contract` and `dark_tokens_follow_codex_neutral_surface_contract` |
+| `cargo fmt --all -- --check` | PASS | 2026-09-11, after Wave 10 token/component edits |
+| `cargo check --workspace --offline` | PASS | 2026-09-11, after Wave 10 token/component edits |
+| `cargo clippy --workspace --offline --all-targets -- -D warnings` | PASS | 2026-09-11, after Wave 10 token/component edits |
+| `cargo test --workspace --offline` | PASS | 2026-09-11; 186 core, 39 infrastructure, 25 SQLite integration, 64 UI, 21 Tauri, 4 runtime, 1 native; 10 PostgreSQL live tests ignored without fixture env |
+| `cargo build --locked -p db-pro-native --offline` | PASS | 2026-09-11, rebuilt native binary before light/dark runtime verification |
+| `bash .skills/clean-code/scripts/clean-code-scan.sh --diff` | PASS | 2026-09-11; 33 checks passed, 0 warnings/fails; existing macOS xargs compatibility warnings emitted |
+
+Wave 10 is a native theme/component calibration only. It does not change database commands,
+providers, transactions or task-bridge behavior. The plan remains `IMPLEMENTING` until all native
+workspaces have light/dark runtime traversal, intentional deviations are recorded, PostgreSQL
+runtime evidence is refreshed where applicable and independent review is complete.

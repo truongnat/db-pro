@@ -4,25 +4,6 @@ impl DbProApp {
     pub(super) fn draw_welcome(&mut self, ui: &mut egui::Ui) {
         let modifier = Self::primary_modifier_label();
         let mut open_query = false;
-        let canvas_rect = ui.max_rect();
-        let grid_color = self.theme.border_subtle.linear_multiply(0.55);
-        let grid_step = 32.0;
-        let mut x = canvas_rect.left() - canvas_rect.left() % grid_step;
-        while x <= canvas_rect.right() {
-            ui.painter().line_segment(
-                [egui::pos2(x, canvas_rect.top()), egui::pos2(x, canvas_rect.bottom())],
-                egui::Stroke::new(1.0, grid_color),
-            );
-            x += grid_step;
-        }
-        let mut y = canvas_rect.top() - canvas_rect.top() % grid_step;
-        while y <= canvas_rect.bottom() {
-            ui.painter().line_segment(
-                [egui::pos2(canvas_rect.left(), y), egui::pos2(canvas_rect.right(), y)],
-                egui::Stroke::new(1.0, grid_color),
-            );
-            y += grid_step;
-        }
 
         let available_width = ui.available_width();
         let content_width = available_width.min(720.0);

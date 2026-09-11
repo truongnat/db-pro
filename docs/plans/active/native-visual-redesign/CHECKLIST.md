@@ -95,7 +95,7 @@
 
 ## Wave 10 — Codex visual parity
 
-- [ ] Audit native light and dark screenshots against the installed Codex desktop reference.
-- [ ] Centralize and calibrate native colors, icons, typography, spacing, radii and interaction states.
+- [x] Record the installed Codex desktop light/dark token reference from the local app bundle.
+- [x] Calibrate the shared native theme colors, icons, typography, spacing, radii and interaction states.
 - [ ] Verify every native workspace surface in both appearance modes.
 - [ ] Record intentional database-IDE deviations and close the visual P1 baseline finding.
