@@ -218,6 +218,12 @@ be run for parity comparison. It is not built by CI and is not shipped. See
 - SSH tunnel plumbing is not yet end-to-end qualified across all target platforms.
 - Release artifacts are unsigned unless signing/notarization is added before distribution.
 - Only PostgreSQL and SQLite are supported.
+- A development default connection is seeded on launch (`"Xe Lạc Hồng (PostgreSQL)"`,
+  `localhost:5432/fullstack_starter`, `postgres`/`postgres`), and the New connection dialog
+  opens pre-filled with those values. This is a developer convenience carried over from
+  `feature/sidebar-dbeaver-codex-layout`, not a product default — see
+  `crates/ui/src/runtime.rs` (`impl Default for UiConnectionDraft`) and
+  `crates/native-app/src/main.rs`.
 - Project license is not yet defined.
 
 ## Release readiness

@@ -4,6 +4,18 @@
 
 ### Changed
 
+- **Native UI: visual redesign and DBeaver/Codex sidebar consolidated into main (2026-09-11).**
+  - Native visual redesign (waves 1–14): Codex-aligned theme tokens, full-window data surfaces,
+    context-aware status bar, live query cursor status, keyboard grid focus, ER search recovery,
+    staged-grid interaction correctness, composed empty states, compact query overflow actions.
+  - Explorer sidebar rebuilt as a unified DBeaver/Codex hierarchical navigator with a filter bar,
+    views/functions/triggers folders and a Codex-style tree row.
+  - Light theme is now the default (`THEME_STORAGE_VERSION = "light-first-v1"`); window opens
+    maximized.
+  - New shared components (spinner, progress bar, skeleton, switch, segmented control, kbd chip,
+    tag chip, status dot, toast) added to `crates/ui` and exported from `lib.rs`.
+  - Development default: a "Xe Lạc Hồng (PostgreSQL)" connection is seeded on launch and
+    pre-fills the New connection dialog. Developer convenience, not a product default.
 - **UI: React frontend archived; native UI is the development direction (2026-09-11).**
   - `frontend/` moved to `_archive/frontend/`; it is reference material only and is no longer built, tested, or packaged.
   - `bench/` (React Flow / Cytoscape ER-renderer harnesses with vendored React) moved to `_archive/bench/` for the same reason.
