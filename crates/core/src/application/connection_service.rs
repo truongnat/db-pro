@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 
 use crate::domain::connection::{Connection, ConnectionConfig, ConnectionHandle, ConnectionId};
 use crate::domain::error::DbError;
-use crate::ports::{ConnectionRepository, DbConnector, SecretStore};
+use crate::ports::{ConnectionRepository, DbConnector, IntrospectionCache, SecretStore};
 
 use super::registry::{ConnectionRegistry, RegisterResult};
 
@@ -12,6 +12,7 @@ pub struct ConnectionService {
     repo: Box<dyn ConnectionRepository>,
     secrets: Box<dyn SecretStore>,
     registry: Arc<ConnectionRegistry>,
+    introspection_cache: Option<Box<dyn IntrospectionCache>>,
     pending_disconnects: Mutex<HashMap<ConnectionId, Vec<ConnectionHandle>>>,
 }
 
@@ -27,8 +28,14 @@ impl ConnectionService {
             repo,
             secrets,
             registry,
+            introspection_cache: None,
             pending_disconnects: Mutex::new(HashMap::new()),
         }
+    }
+
+    pub fn with_introspection_cache(mut self, cache: Box<dyn IntrospectionCache>) -> Self {
+        self.introspection_cache = Some(cache);
+        self
     }
 
     fn secret_key(id: &ConnectionId) -> String {
@@ -215,6 +222,8 @@ impl ConnectionService {
             }
         }
 
+        self.invalidate_introspection_cache(id).await;
+
         Ok(())
     }
 
@@ -225,6 +234,14 @@ impl ConnectionService {
         };
         if let Err(error) = result {
             tracing::error!("failed to restore connection secret after update failure: {error}");
+        }
+    }
+
+    async fn invalidate_introspection_cache(&self, id: &ConnectionId) {
+        if let Some(cache) = self.introspection_cache.as_ref() {
+            if let Err(error) = cache.invalidate(id).await {
+                tracing::warn!(connection_id = %id, %error, "failed to invalidate introspection cache");
+            }
         }
     }
 
@@ -273,6 +290,8 @@ impl ConnectionService {
             }
             return Err(error);
         }
+
+        self.invalidate_introspection_cache(id).await;
 
         Ok(())
     }
@@ -405,7 +424,7 @@ impl ConnectionService {
 mod tests {
     use super::*;
     use crate::domain::connection::{ConnectionConfig, DriverType, SslMode};
-    use crate::ports::{MockConnectionRepository, MockDbConnector, MockSecretStore};
+    use crate::ports::{MockConnectionRepository, MockDbConnector, MockIntrospectionCache, MockSecretStore};
 
     fn test_config() -> ConnectionConfig {
         ConnectionConfig {
@@ -449,6 +468,9 @@ mod tests {
         )
     }
 
+    #[path = "connection_service_security_tests.rs"]
+    mod security_tests;
+
     #[tokio::test]
     async fn create_valid_connection() {
         let config = test_config();
@@ -463,55 +485,6 @@ mod tests {
         assert!(result.is_ok());
         let conn = result.unwrap();
         assert!(conn.secret_ref.is_some());
-    }
-
-    #[tokio::test]
-    async fn create_stores_ssh_password_separately_and_sanitizes_metadata() {
-        let mut config = test_config();
-        config.ssh_tunnel = Some(crate::domain::connection::SshTunnelConfig {
-            password: Some("ssh-secret".into()),
-            ..ssh_tunnel()
-        });
-        let saved = Arc::new(std::sync::Mutex::new(None));
-        let mut repo = MockConnectionRepository::new();
-        repo.expect_save().returning({
-            let saved = Arc::clone(&saved);
-            move |connection| {
-                *saved.lock().expect("saved connection lock") = Some(connection.clone());
-                Ok(())
-            }
-        });
-
-        let mut secrets = MockSecretStore::new();
-        secrets.expect_store_secret().times(2).returning(|key, value| {
-            if key.ends_with("/password") {
-                assert_eq!(value, "pass");
-            } else {
-                assert!(key.ends_with("/ssh_password"));
-                assert_eq!(value, "ssh-secret");
-            }
-            Ok(())
-        });
-
-        let svc = build_service(MockDbConnector::new(), repo, secrets);
-        let connection = svc.create(config, "pass").await.expect("create should succeed");
-        assert_eq!(
-            connection
-                .config
-                .ssh_tunnel
-                .as_ref()
-                .and_then(|ssh| ssh.password.as_deref()),
-            None
-        );
-        assert_eq!(
-            saved
-                .lock()
-                .expect("saved connection lock")
-                .as_ref()
-                .and_then(|connection| connection.config.ssh_tunnel.as_ref())
-                .and_then(|ssh| ssh.password.as_deref()),
-            None
-        );
     }
 
     #[tokio::test]
@@ -983,6 +956,27 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn delete_invalidates_schema_cache_after_removing_connection() {
+        let id = ConnectionId::new();
+        let connection = Connection::new(test_config());
+        let mut repo = MockConnectionRepository::new();
+        repo.expect_get().returning(move |_| Ok(Some(connection.clone())));
+        repo.expect_delete().returning(|_| Ok(()));
+
+        let mut cache = MockIntrospectionCache::new();
+        cache
+            .expect_invalidate()
+            .withf(move |received| received == &id)
+            .returning(|_| Ok(()));
+
+        let svc = build_service(MockDbConnector::new(), repo, MockSecretStore::new())
+            .with_introspection_cache(Box::new(cache));
+        svc.delete(&id)
+            .await
+            .expect("connection deletion should invalidate stale schema");
+    }
+
+    #[tokio::test]
     async fn create_cleans_up_secret_on_repo_failure() {
         let config = test_config();
 
@@ -1042,53 +1036,26 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn update_stores_new_ssh_password_and_sanitizes_metadata() {
+    async fn update_invalidates_schema_cache_after_persisting_new_connection_config() {
         let id = ConnectionId::new();
         let previous = Connection::new(test_config());
-        let saved = Arc::new(std::sync::Mutex::new(None));
         let mut repo = MockConnectionRepository::new();
         repo.expect_get().returning(move |_| Ok(Some(previous.clone())));
-        repo.expect_save().returning({
-            let saved = Arc::clone(&saved);
-            move |connection| {
-                *saved.lock().expect("saved connection lock") = Some(connection.clone());
-                Ok(())
-            }
-        });
+        repo.expect_save().returning(|_| Ok(()));
 
+        let mut cache = MockIntrospectionCache::new();
+        cache
+            .expect_invalidate()
+            .withf(move |received| received == &id)
+            .returning(|_| Ok(()));
+
+        let svc = build_service(MockDbConnector::new(), repo, MockSecretStore::new())
+            .with_introspection_cache(Box::new(cache));
         let mut config = test_config();
-        config.ssh_tunnel = Some(crate::domain::connection::SshTunnelConfig {
-            password: Some("new-ssh-password".into()),
-            ..ssh_tunnel()
-        });
-        let mut secrets = MockSecretStore::new();
-        secrets.expect_retrieve_secret().returning(|key| {
-            assert!(key.ends_with("/password"));
-            Ok(None)
-        });
-        secrets.expect_store_secret().times(2).returning(|key, value| {
-            if key.ends_with("/password") {
-                assert_eq!(value, "new-db-password");
-            } else {
-                assert!(key.ends_with("/ssh_password"));
-                assert_eq!(value, "new-ssh-password");
-            }
-            Ok(())
-        });
-
-        let svc = build_service(MockDbConnector::new(), repo, secrets);
-        svc.update(&id, config, Some("new-db-password"))
+        config.database = "new-database".into();
+        svc.update(&id, config, None)
             .await
-            .expect("update should succeed");
-        assert_eq!(
-            saved
-                .lock()
-                .expect("saved connection lock")
-                .as_ref()
-                .and_then(|connection| connection.config.ssh_tunnel.as_ref())
-                .and_then(|ssh| ssh.password.as_deref()),
-            None
-        );
+            .expect("connection update should invalidate stale schema");
     }
 
     #[tokio::test]

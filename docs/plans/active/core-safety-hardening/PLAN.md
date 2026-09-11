@@ -72,6 +72,8 @@ without changing the native UI or adding product features.
     ordinary debug/serialization paths.
 29. SQLite backup and restore ask the `SecretStore` for a database password even
     though the SQLite backup engine does not consume one.
+30. Connection updates can change the target database while leaving the
+    connection-id keyed introspection cache intact.
 
 ## Acceptance criteria
 
@@ -115,5 +117,7 @@ without changing the native UI or adding product features.
   state.
 - SQLite backup and restore do not depend on database credential availability;
   PostgreSQL continues to require its resolved secret.
+- Successful connection updates and deletes invalidate their connection-scoped
+  introspection cache; cache cleanup failure is non-fatal and observable.
 - PostgreSQL and SQLite unit/integration coverage is updated independently where the
   behavior differs.

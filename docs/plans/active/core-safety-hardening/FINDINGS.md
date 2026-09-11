@@ -328,3 +328,14 @@ though the database file itself was accessible.
 
 Decision: return an empty credential for SQLite backup/restore and keep secret
 resolution mandatory only for PostgreSQL.
+
+## P1 — Connection updates can serve stale introspection metadata
+
+`SchemaService` caches `IntrospectResult` by `ConnectionId`. `ConnectionService`
+can update the host, database, or other connection target without touching that
+cache. A later non-forced introspection can therefore return tables and columns
+from the previous target, even though the active connection now points elsewhere.
+
+Decision: invalidate the connection-scoped introspection cache after a successful
+connection update or delete, with cache failure logged as non-fatal because the
+next introspection can rebuild the cache.

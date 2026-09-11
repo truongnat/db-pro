@@ -68,12 +68,15 @@ impl DbProRuntime {
         let connector = Arc::new(CompositeConnector::new());
         let registry = Arc::new(ConnectionRegistry::new());
 
-        let connections = Arc::new(ConnectionService::new(
-            Box::new(Arc::clone(&connector)),
-            Box::new(meta_store.clone()),
-            Box::new(Arc::clone(&secret_store)),
-            Arc::clone(&registry),
-        ));
+        let connections = Arc::new(
+            ConnectionService::new(
+                Box::new(Arc::clone(&connector)),
+                Box::new(meta_store.clone()),
+                Box::new(Arc::clone(&secret_store)),
+                Arc::clone(&registry),
+            )
+            .with_introspection_cache(Box::new(meta_store.clone())),
+        );
 
         let queries = Arc::new(QueryService::new(
             Box::new(Arc::clone(&connector)),

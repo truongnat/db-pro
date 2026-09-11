@@ -14,8 +14,8 @@
   covered by the live fixture below.
 - `cargo test -p db-pro-infrastructure postgres::user_manager::tests` — PASS: 3
   identifier/privilege validation tests.
-- `cargo test -p db-pro-core application::connection_service::tests` — PASS: 27
-  connection lifecycle/update/delete/connectivity/duplicate-cleanup tests.
+- `cargo test -p db-pro-core application::connection_service::tests` — PASS: 29
+  connection lifecycle/update/delete/connectivity/duplicate-cleanup/cache-invalidation tests.
 - `cargo test -p db-pro-core domain::safety::tests` — PASS: 25 safety classifier
   and policy tests.
 - `cargo test -p db-pro-core application::export_service::tests` — PASS: 6 export
@@ -32,14 +32,14 @@
   including SQLite backup/restore without a database secret.
 - `cargo test -p db-pro-infrastructure ssh::tunnel::tests -- --nocapture` — PASS: 2
   command-construction tests for key and password authentication modes.
-- `cargo test -p db-pro-core --no-fail-fast` — PASS: 216 core unit tests,
+- `cargo test -p db-pro-core --no-fail-fast` — PASS: 218 core unit tests,
   including SSH metadata redaction and connection lifecycle hydration coverage.
 - `cargo test -p db-pro-core application::sql_policy::tests` — PASS: 9 lexical
   boundary and statement-splitting tests.
 - `DATABASE_URL=postgres://dbpro:dbpro_test@127.0.0.1:15434/dbpro_fixture cargo test -p db-pro-infrastructure --test pg_integration --offline -- --ignored` — PASS: 14/14 against an isolated temporary `postgres:18.2` fixture; the container was removed after the run.
 - External PostgreSQL command timeout regression — PASS on Unix via
   `external_command_timeout_returns_query_timeout`.
-- `cargo test --workspace` — PASS: 216 core unit, 28 SQLite integration, 48
+- `cargo test --workspace` — PASS: 218 core unit, 28 SQLite integration, 48
   infrastructure unit, 14 PostgreSQL integration tests ignored, plus all runtime,
   native, UI, schema regression, and doc tests passed.
 - Targeted regression `sqlite_query_timeout_interrupts_vm_and_actor_recovers` — PASS.
