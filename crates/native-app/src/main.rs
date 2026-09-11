@@ -36,6 +36,33 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let (runtime_tx, mut runtime_rx) = tokio_runtime.block_on(async {
         let runtime = DbProRuntime::new(data_dir).await?;
+
+        let existing = runtime.connections().list().await.unwrap_or_default();
+        if !existing
+            .iter()
+            .any(|c| c.config.database == "fullstack_starter" && c.config.port == 5432)
+        {
+            let config = db_pro_core::domain::connection::ConnectionConfig {
+                name: "Xe Lạc Hồng (PostgreSQL)".to_owned(),
+                host: "localhost".to_owned(),
+                port: 5432,
+                database: "fullstack_starter".to_owned(),
+                username: "postgres".to_owned(),
+                driver: db_pro_core::domain::connection::DriverType::Postgres,
+                ssl_mode: db_pro_core::domain::connection::SslMode::Disable,
+                ssh_tunnel: None,
+                query_timeout_ms: 30_000,
+                max_rows: 500,
+                color: Some("#6366f1".to_owned()),
+                tags: vec!["docker".to_owned(), "xe-lac-hong".to_owned()],
+                group: None,
+                readonly: false,
+            };
+            if let Err(err) = runtime.connections().create(config, "postgres").await {
+                tracing::warn!("failed to seed default Xe Lạc Hồng connection: {err}");
+            }
+        }
+
         Ok::<_, Box<dyn Error>>(spawn_worker(runtime, 64))
     })?;
 
@@ -119,9 +146,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_title("DB Pro")
-            .with_inner_size([1280.0, 800.0])
-            .with_min_inner_size([1024.0, 640.0])
-            .with_maximized(true),
+            .with_maximized(true)
+            .with_min_inner_size([1024.0, 640.0]),
         ..Default::default()
     };
 
@@ -129,11 +155,11 @@ fn main() -> Result<(), Box<dyn Error>> {
         "DB Pro",
         options,
         Box::new(|creation_context| {
-            DbProTheme::install_fonts(&creation_context.egui_ctx);
             // Re-apply the product default after eframe restores its persisted window frame.
             creation_context
                 .egui_ctx
                 .send_viewport_cmd(egui::ViewportCommand::Maximized(true));
+            DbProTheme::install_fonts(&creation_context.egui_ctx);
             Ok(Box::new(DbProApp::with_task_bridge_and_storage(
                 bridge,
                 creation_context.storage,

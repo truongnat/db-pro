@@ -439,25 +439,17 @@ pub fn spinner(ui: &mut Ui, color: Color32, reduce_motion: bool, theme: DbProThe
     }
 
     // Track ring (subtle).
-    ui.painter().circle_stroke(
-        center,
-        radius,
-        Stroke::new(stroke_width, theme.border_default),
-    );
+    ui.painter()
+        .circle_stroke(center, radius, Stroke::new(stroke_width, theme.border_default));
     // Foreground arc.
-    ui.painter().circle_stroke(
-        center,
-        radius,
-        Stroke::new(stroke_width, color),
-    );
+    ui.painter()
+        .circle_stroke(center, radius, Stroke::new(stroke_width, color));
     // Mask out the trailing portion of the foreground arc by overlaying a
     // background-colored chord. This is the "rotating arc" effect.
     let trailing_angle = std::f32::consts::TAU * (1.0 - rotation * 0.75);
     let mask = center + egui::vec2(radius * trailing_angle.cos(), radius * trailing_angle.sin());
-    ui.painter().line_segment(
-        [center, mask],
-        Stroke::new(stroke_width + 0.4, theme.surface_panel),
-    );
+    ui.painter()
+        .line_segment([center, mask], Stroke::new(stroke_width + 0.4, theme.surface_panel));
     response
 }
 
@@ -479,18 +471,17 @@ pub fn progress_bar(ui: &mut Ui, progress: f32, theme: DbProTheme) -> egui::Resp
         let top_color = theme.accent_hover;
         let bottom_color = theme.accent;
         ui.painter().rect_filled(fill_rect, rounding, bottom_color);
-        if let Some(clipped) = fill_rect.intersect(rect) {
-            ui.painter().rect_filled(
-                egui::Rect::from_min_size(clipped.min, egui::vec2(clipped.width(), clipped.height() * 0.5)),
-                Rounding {
-                    nw: rounding.nw,
-                    ne: rounding.ne,
-                    sw: 0.0,
-                    se: 0.0,
-                },
-                top_color.linear_multiply(0.65),
-            );
-        }
+        let clipped = fill_rect.intersect(rect);
+        ui.painter().rect_filled(
+            egui::Rect::from_min_size(clipped.min, egui::vec2(clipped.width(), clipped.height() * 0.5)),
+            Rounding {
+                nw: rounding.nw,
+                ne: rounding.ne,
+                sw: 0.0,
+                se: 0.0,
+            },
+            top_color.linear_multiply(0.65),
+        );
     }
     response
 }
@@ -514,14 +505,11 @@ pub fn skeleton(ui: &mut Ui, width: f32, height: f32, reduce_motion: bool, theme
         let band_width = rect.width() * 0.35;
         let band_start = rect.left() + offset;
         let band_end = band_start + band_width;
-        let band = egui::Rect::from_x_y_ranges(band_start..band_end, rect.y_range());
+        let band = egui::Rect::from_x_y_ranges(egui::Rangef::new(band_start, band_end), rect.y_range());
         let visible = band.intersect(rect);
         if visible.width() > 0.0 {
-            ui.painter().rect_filled(
-                visible,
-                rounding,
-                theme.surface_active.linear_multiply(0.6),
-            );
+            ui.painter()
+                .rect_filled(visible, rounding, theme.surface_active.linear_multiply(0.6));
         }
         ui.ctx().request_repaint();
     }
@@ -535,15 +523,13 @@ pub fn skeleton(ui: &mut Ui, width: f32, height: f32, reduce_motion: bool, theme
 /// and on when `reduce_motion=false`.
 pub fn switch(ui: &mut Ui, value: &mut bool, label: &str, reduce_motion: bool, theme: DbProTheme) -> egui::Response {
     let track_width = 28.0;
-    let track_height = 16.0;
+    let track_height: f32 = 16.0;
     let thumb_size = 12.0;
     let spacing = 8.0;
 
-    let label_galley = ui.painter().layout_no_wrap(
-        label.to_owned(),
-        egui::FontId::proportional(13.0),
-        theme.text_primary,
-    );
+    let label_galley =
+        ui.painter()
+            .layout_no_wrap(label.to_owned(), egui::FontId::proportional(13.0), theme.text_primary);
     let total_width = track_width + spacing + label_galley.size().x;
     let (rect, response) = ui.allocate_exact_size(
         egui::vec2(total_width, track_height.max(label_galley.size().y)),
@@ -555,28 +541,35 @@ pub fn switch(ui: &mut Ui, value: &mut bool, label: &str, reduce_motion: bool, t
     let animated = if reduce_motion {
         target
     } else {
-        ui.ctx().animate_bool_with_time(egui::Id::new("dbpro.switch"), *value, 0.18)
+        ui.ctx()
+            .animate_bool_with_time(egui::Id::new("dbpro.switch"), *value, 0.18)
     };
 
     let track_color = if *value { theme.accent } else { theme.surface_active };
     let track_stroke = Stroke::new(1.0, if *value { theme.accent } else { theme.border_default });
-    ui.painter().rect_filled(track_rect, Rounding::same(track_height / 2.0), track_color);
-    ui.painter().rect_stroke(
-        track_rect,
-        Rounding::same(track_height / 2.0),
-        track_stroke,
-    );
+    ui.painter()
+        .rect_filled(track_rect, Rounding::same(track_height / 2.0), track_color);
+    ui.painter()
+        .rect_stroke(track_rect, Rounding::same(track_height / 2.0), track_stroke);
 
     let thumb_left = track_rect.left() + 2.0 + animated * (track_width - thumb_size - 4.0);
     let thumb_rect = egui::Rect::from_min_size(
         egui::pos2(thumb_left, track_rect.center().y - thumb_size / 2.0),
         egui::vec2(thumb_size, thumb_size),
     );
-    let thumb_color = if *value { theme.text_inverse } else { theme.text_secondary };
-    ui.painter().circle_filled(thumb_rect.center(), thumb_size / 2.0, thumb_color);
+    let thumb_color = if *value {
+        theme.text_inverse
+    } else {
+        theme.text_secondary
+    };
+    ui.painter()
+        .circle_filled(thumb_rect.center(), thumb_size / 2.0, thumb_color);
 
     // Label
-    let label_pos = egui::pos2(track_rect.right() + spacing, rect.center().y - label_galley.size().y / 2.0);
+    let label_pos = egui::pos2(
+        track_rect.right() + spacing,
+        rect.center().y - label_galley.size().y / 2.0,
+    );
     ui.painter().galley(label_pos, label_galley, theme.text_primary);
 
     if response.clicked() {
@@ -598,13 +591,14 @@ pub fn segmented_control(
     theme: DbProTheme,
 ) -> Option<usize> {
     let height = 26.0;
-    let segment_padding = egui::vec2(12.0, 4.0);
     let total_width = ui.available_width().max(120.0);
     let segment_width = total_width / options.len() as f32;
 
     let (bar_rect, _) = ui.allocate_exact_size(egui::vec2(total_width, height), egui::Sense::hover());
-    ui.painter().rect_filled(bar_rect, Rounding::same(7.0), theme.surface_panel);
-    ui.painter().rect_stroke(bar_rect, Rounding::same(7.0), Stroke::new(1.0, theme.border_subtle));
+    ui.painter()
+        .rect_filled(bar_rect, Rounding::same(7.0), theme.surface_panel);
+    ui.painter()
+        .rect_stroke(bar_rect, Rounding::same(7.0), Stroke::new(1.0, theme.border_subtle));
 
     let mut clicked = None;
     for (index, option) in options.iter().enumerate() {
@@ -619,17 +613,23 @@ pub fn segmented_control(
             // the selection changes — keep the same easing whether or not
             // reduce_motion is set.
             let _ = reduce_motion;
-            ui.painter().rect_filled(inner, Rounding::same(5.0), theme.surface_active);
-            ui.painter().rect_stroke(inner, Rounding::same(5.0), Stroke::new(1.0, theme.border_default));
+            ui.painter()
+                .rect_filled(inner, Rounding::same(5.0), theme.surface_active);
+            ui.painter()
+                .rect_stroke(inner, Rounding::same(5.0), Stroke::new(1.0, theme.border_default));
         }
-        let text_color = if is_selected { theme.text_primary } else { theme.text_secondary };
+        let text_color = if is_selected {
+            theme.text_primary
+        } else {
+            theme.text_secondary
+        };
         let galley = ui
             .painter()
             .layout_no_wrap((*option).to_owned(), egui::FontId::proportional(12.0), text_color);
         let text_pos = segment_rect.center() - galley.size() * 0.5;
         ui.painter().galley(text_pos, galley, text_color);
 
-        let segment_response = ui.allocate_exact_size(segment_rect.size(), egui::Sense::click());
+        let (_, segment_response) = ui.allocate_exact_size(segment_rect.size(), egui::Sense::click());
         if segment_response.clicked() && !is_selected {
             clicked = Some(index);
         }
@@ -642,17 +642,17 @@ pub fn segmented_control(
 /// Rounded monospace pill that displays a single keyboard key or a combined
 /// shortcut (e.g. `"⌘ K"`).
 pub fn kbd_chip(ui: &mut Ui, label: &str, theme: DbProTheme) -> egui::Response {
-    let galley = ui.painter().layout_no_wrap(
-        label.to_owned(),
-        egui::FontId::monospace(11.0),
-        theme.text_secondary,
-    );
+    let galley = ui
+        .painter()
+        .layout_no_wrap(label.to_owned(), egui::FontId::monospace(11.0), theme.text_secondary);
     let size = galley.size() + egui::vec2(8.0, 3.0);
     let (rect, response) = ui.allocate_exact_size(size, egui::Sense::hover());
     let rounding = Rounding::same(4.0);
     ui.painter().rect_filled(rect, rounding, theme.surface_elevated);
-    ui.painter().rect_stroke(rect, rounding, Stroke::new(1.0, theme.border_default));
-    ui.painter().galley(rect.min + egui::vec2(4.0, 1.5), galley, theme.text_secondary);
+    ui.painter()
+        .rect_stroke(rect, rounding, Stroke::new(1.0, theme.border_default));
+    ui.painter()
+        .galley(rect.min + egui::vec2(4.0, 1.5), galley, theme.text_secondary);
     response
 }
 
@@ -667,24 +667,32 @@ pub fn tag_chip(ui: &mut Ui, label: &str, removable: bool, theme: DbProTheme) ->
     let close_size = if removable { 16.0 } else { 0.0 };
     let padding = egui::vec2(8.0, 3.0);
     let gap = if removable { 4.0 } else { 0.0 };
-    let size = egui::vec2(galley.size().x + padding.x * 2.0 + close_size + gap, galley.size().y + padding.y * 2.0);
+    let size = egui::vec2(
+        galley.size().x + padding.x * 2.0 + close_size + gap,
+        galley.size().y + padding.y * 2.0,
+    );
     let (rect, _) = ui.allocate_exact_size(size, egui::Sense::hover());
     let rounding = Rounding::same(11.0);
     ui.painter().rect_filled(rect, rounding, theme.surface_elevated);
-    ui.painter().rect_stroke(rect, rounding, Stroke::new(1.0, theme.border_subtle));
+    ui.painter()
+        .rect_stroke(rect, rounding, Stroke::new(1.0, theme.border_subtle));
     let text_pos = egui::pos2(rect.left() + padding.x, rect.center().y - galley.size().y / 2.0);
     ui.painter().galley(text_pos, galley, theme.text_secondary);
 
     let mut closed = false;
     if removable {
         let close_rect = egui::Rect::from_min_size(
-            egui::pos2(rect.right() - padding.x - close_size, rect.center().y - close_size / 2.0),
+            egui::pos2(
+                rect.right() - padding.x - close_size,
+                rect.center().y - close_size / 2.0,
+            ),
             egui::vec2(close_size, close_size),
         );
-        let close_response = ui.allocate_exact_size(close_rect.size(), egui::Sense::click());
+        let (_, close_response) = ui.allocate_exact_size(close_rect.size(), egui::Sense::click());
         let hover = close_response.hovered();
         if hover {
-            ui.painter().circle_filled(close_rect.center(), close_size / 2.0, theme.surface_active);
+            ui.painter()
+                .circle_filled(close_rect.center(), close_size / 2.0, theme.surface_active);
         }
         ui.painter().text(
             close_rect.center(),
@@ -704,7 +712,13 @@ pub fn tag_chip(ui: &mut Ui, label: &str, removable: bool, theme: DbProTheme) ->
 
 /// Small status dot with an optional pulsing outer ring. Used for connection
 /// health, agent provider readiness, etc.
-pub fn status_dot(ui: &mut Ui, color: Color32, pulsing: bool, reduce_motion: bool, theme: DbProTheme) -> egui::Response {
+pub fn status_dot(
+    ui: &mut Ui,
+    color: Color32,
+    pulsing: bool,
+    reduce_motion: bool,
+    theme: DbProTheme,
+) -> egui::Response {
     let _ = theme;
     let size = 12.0;
     let (rect, response) = ui.allocate_exact_size(egui::vec2(size, size), egui::Sense::hover());
@@ -749,7 +763,8 @@ pub fn toast(ui: &mut Ui, level: UiLevel, message: &str, theme: DbProTheme) -> e
 
     let rounding = Rounding::same(8.0);
     ui.painter().rect_filled(rect, rounding, theme.surface_floating);
-    ui.painter().rect_stroke(rect, rounding, Stroke::new(1.0, theme.border_subtle));
+    ui.painter()
+        .rect_stroke(rect, rounding, Stroke::new(1.0, theme.border_subtle));
     // Subtle elevation shadow.
     ui.painter().rect_filled(
         rect.translate(egui::vec2(0.0, 2.0)),

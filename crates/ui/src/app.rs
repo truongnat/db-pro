@@ -5,8 +5,9 @@ use crate::{
     panel_frame, password_input, primary_button, primary_button_with_icon, secondary_button_with_icon, section_label,
     sidebar_frame, sidebar_item, tab_frame, toolbar_frame, AgentContext, AgentMessage, AgentProvider, AgentRole,
     DbProTheme, OfflineAgentProvider, TaskBridge, UiCell, UiCommand, UiConnectionDraft, UiConnectionSummary, UiDriver,
-    UiEvent, UiQueryFolderSummary, UiQueryResult, UiSavedQuerySummary, UiSchemaForeignKey, UiSchemaSummary, UiSslMode,
-    UiTableDataFilter, UiTableDataSort, UiTableInfo, UiTableSummary,
+    UiEvent, UiFunctionSummary, UiQueryFolderSummary, UiQueryResult, UiSavedQuerySummary, UiSchemaForeignKey,
+    UiSchemaSummary, UiSslMode, UiTableDataFilter, UiTableDataSort, UiTableInfo, UiTableSummary, UiTriggerSummary,
+    UiViewSummary,
 };
 use bigdecimal::BigDecimal;
 use db_pro_core::domain::capabilities::DatabaseCapabilities;
@@ -379,6 +380,12 @@ pub struct DbProApp {
     connection_test_draft: Option<UiConnectionDraft>,
     delete_confirmation_id: Option<String>,
     folder_delete_confirmation: Option<String>,
+    /// Persisted height of the Connections sub-pane inside the Explorer sidebar.
+    connections_pane_height: f32,
+    /// Persisted height of the Schemas sub-pane inside the Explorer sidebar.
+    schemas_pane_height: f32,
+    /// Counter for initial render frames to ensure window is maximized on startup.
+    initial_frames_count: u8,
 }
 
 impl eframe::App for DbProApp {
@@ -394,16 +401,39 @@ impl eframe::App for DbProApp {
         if let Ok(documents) = serde_json::to_string(&self.query_documents) {
             storage.set_string("dbpro.native.query-documents", documents);
         }
-        storage.set_string("dbpro.native.theme-version", "native-redesign-v4".to_owned());
+        storage.set_string("dbpro.native.theme-version", "light-first-v1".to_owned());
         storage.set_string("dbpro.native.dark-mode", self.dark_mode.to_string());
         storage.set_string("dbpro.native.reduce-motion", self.reduce_motion.to_string());
         storage.set_string("dbpro.native.sidebar-width", self.sidebar_width.to_string());
         storage.set_string("dbpro.native.agent-width", self.agent_width.to_string());
         storage.set_string("dbpro.native.output-open", self.bottom_panel_open.to_string());
         storage.set_string("dbpro.native.output-height", self.bottom_panel_height.to_string());
+        storage.set_string(
+            "dbpro.native.connections-pane-height",
+            self.connections_pane_height.to_string(),
+        );
+        storage.set_string("dbpro.native.schemas-pane-height", self.schemas_pane_height.to_string());
     }
 
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        // Map Ctrl to Command in input events so Ctrl+A/C/V/X/Z work seamlessly on macOS
+        ctx.input_mut(|i| {
+            if i.modifiers.ctrl {
+                i.modifiers.command = true;
+            }
+            for event in &mut i.events {
+                if let egui::Event::Key { modifiers, .. } = event {
+                    if modifiers.ctrl {
+                        modifiers.command = true;
+                    }
+                }
+            }
+        });
+
+        if self.initial_frames_count < 3 {
+            self.initial_frames_count += 1;
+            ctx.send_viewport_cmd(egui::ViewportCommand::Maximized(true));
+        }
         self.request_connections_once();
         self.apply_runtime_events();
         if self.runtime_work_pending() {

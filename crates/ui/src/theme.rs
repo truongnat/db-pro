@@ -34,7 +34,7 @@ pub struct DbProTheme {
 
 impl Default for DbProTheme {
     fn default() -> Self {
-        Self::dark()
+        Self::light()
     }
 }
 
@@ -114,6 +114,33 @@ impl DbProTheme {
             .entry(egui::FontFamily::Name("lucide".into()))
             .or_default()
             .insert(0, "lucide".to_owned());
+
+        let system_font_paths = [
+            "/System/Library/Fonts/Supplemental/Arial.ttf",
+            "/Library/Fonts/Arial.ttf",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+            "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+            "C:\\Windows\\Fonts\\arial.ttf",
+        ];
+        for path in system_font_paths {
+            if let Ok(bytes) = std::fs::read(path) {
+                fonts
+                    .font_data
+                    .insert("system_font".to_owned(), egui::FontData::from_owned(bytes));
+                fonts
+                    .families
+                    .entry(egui::FontFamily::Proportional)
+                    .or_default()
+                    .insert(0, "system_font".to_owned());
+                fonts
+                    .families
+                    .entry(egui::FontFamily::Monospace)
+                    .or_default()
+                    .push("system_font".to_owned());
+                break;
+            }
+        }
+
         ctx.set_fonts(fonts);
     }
 

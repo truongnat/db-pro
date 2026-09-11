@@ -1,6 +1,6 @@
 use super::*;
 
-const THEME_STORAGE_VERSION: &str = "native-redesign-v4";
+const THEME_STORAGE_VERSION: &str = "light-first-v1";
 
 impl DbProApp {
     pub fn with_task_bridge(task_bridge: TaskBridge) -> Self {
@@ -18,9 +18,9 @@ impl DbProApp {
                     storage
                         .get_string("dbpro.native.dark-mode")
                         .map(|value| value == "true")
-                        .unwrap_or(true)
+                        .unwrap_or(false)
                 } else {
-                    true
+                    false
                 };
             app.reduce_motion = storage
                 .get_string("dbpro.native.reduce-motion")
@@ -45,6 +45,18 @@ impl DbProApp {
                 .and_then(|value| value.parse::<f32>().ok())
             {
                 app.bottom_panel_height = height.clamp(OUTPUT_MIN_HEIGHT, OUTPUT_MAX_HEIGHT);
+            }
+            if let Some(height) = storage
+                .get_string("dbpro.native.connections-pane-height")
+                .and_then(|value| value.parse::<f32>().ok())
+            {
+                app.connections_pane_height = height.clamp(80.0, 400.0);
+            }
+            if let Some(height) = storage
+                .get_string("dbpro.native.schemas-pane-height")
+                .and_then(|value| value.parse::<f32>().ok())
+            {
+                app.schemas_pane_height = height.clamp(60.0, 200.0);
             }
             app.theme = if app.dark_mode {
                 DbProTheme::dark()
@@ -78,7 +90,7 @@ impl Default for DbProApp {
         let offline_info = offline_provider.info();
         Self {
             theme: DbProTheme::default(),
-            dark_mode: true,
+            dark_mode: false,
             reduce_motion: false,
             activity: Activity::Explorer,
             active_tab: WorkspaceTab::Welcome,
@@ -210,6 +222,9 @@ impl Default for DbProApp {
             connection_test_draft: None,
             delete_confirmation_id: None,
             folder_delete_confirmation: None,
+            connections_pane_height: 160.0,
+            schemas_pane_height: 90.0,
+            initial_frames_count: 0,
         }
     }
 }
@@ -237,19 +252,19 @@ mod tests {
     }
 
     #[test]
-    fn stale_theme_storage_resets_to_dark_first_default() {
+    fn stale_theme_storage_resets_to_light_first_default() {
         let mut storage = MemoryStorage::default();
         storage
             .values
             .insert("dbpro.native.theme-version".to_owned(), "dark-first-v3".to_owned());
         storage
             .values
-            .insert("dbpro.native.dark-mode".to_owned(), "false".to_owned());
+            .insert("dbpro.native.dark-mode".to_owned(), "true".to_owned());
 
         let app = DbProApp::with_task_bridge_and_storage(TaskBridge::default(), Some(&storage));
 
-        assert!(app.dark_mode);
-        assert!(app.theme.dark_mode);
+        assert!(!app.dark_mode);
+        assert!(!app.theme.dark_mode);
     }
 
     #[test]
