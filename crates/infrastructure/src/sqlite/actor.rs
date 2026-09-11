@@ -179,6 +179,7 @@ impl SqliteHandle {
             .map_err(|e| DbError::Internal(format!("oneshot recv error: {e}")))?
     }
 
+    #[allow(clippy::result_large_err)]
     pub async fn execute_transaction(
         &self,
         statements: Vec<String>,
