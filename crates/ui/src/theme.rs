@@ -191,14 +191,12 @@ impl DbProTheme {
         visuals.widgets.hovered.bg_fill = self.surface_hover;
         visuals.widgets.hovered.weak_bg_fill = self.surface_hover;
         visuals.widgets.hovered.bg_stroke = Stroke::new(1.0, self.border_strong);
-        visuals.widgets.hovered.fg_stroke = Stroke::new(1.0, self.text_primary);
+        visuals.widgets.hovered.fg_stroke = Stroke::new(1.0, self.accent);
         visuals.widgets.hovered.rounding = Rounding::same(4.0);
         visuals.widgets.active.bg_fill = self.surface_active;
         visuals.widgets.active.weak_bg_fill = self.surface_active;
         visuals.widgets.active.bg_stroke = Stroke::new(1.0, self.accent_hover);
-        // egui uses the active foreground for `RichText::strong()` too; keep
-        // headings readable and let accent buttons opt into their own color.
-        visuals.widgets.active.fg_stroke = Stroke::new(1.0, self.text_primary);
+        visuals.widgets.active.fg_stroke = Stroke::new(1.0, self.accent);
         visuals.widgets.active.rounding = Rounding::same(4.0);
         visuals.widgets.open.bg_fill = self.surface_hover;
         visuals.widgets.open.weak_bg_fill = self.surface_hover;

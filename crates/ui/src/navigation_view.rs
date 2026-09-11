@@ -19,6 +19,7 @@ impl DbProApp {
                 ..Default::default()
             })
             .show(ctx, |ui| {
+                ui.set_min_size(ui.available_size());
                 ui.horizontal_centered(|ui| {
                     ui.label(icon_text(Icon::Database, "", self.theme.accent));
                     ui.label(
@@ -75,6 +76,7 @@ impl DbProApp {
                 ..Default::default()
             })
             .show(ctx, |ui| {
+                ui.set_min_size(ui.available_size());
                 ui.horizontal_centered(|ui| {
                     ui.add_space(6.0);
                     ui.label(icon_text(icon, "", color));
@@ -150,6 +152,7 @@ impl DbProApp {
             .height_range(OUTPUT_MIN_HEIGHT..=OUTPUT_MAX_HEIGHT)
             .frame(panel_frame(self.theme))
             .show(ctx, |ui| {
+                ui.set_min_size(ui.available_size());
                 ui.horizontal(|ui| {
                     section_label(ui, "OUTPUT", self.theme);
                     for (tab, label) in [
@@ -232,6 +235,7 @@ impl DbProApp {
             .exact_width(46.0)
             .frame(activity_bar_frame(self.theme))
             .show(ctx, |ui| {
+                ui.set_min_size(ui.available_size());
                 ui.vertical_centered(|ui| {
                     ui.add_space(8.0);
                     for (activity, icon, hint) in [
@@ -283,6 +287,7 @@ impl DbProApp {
             .width_range(232.0..=SIDEBAR_MAX_WIDTH)
             .frame(sidebar_frame(self.theme))
             .show(ctx, |ui| {
+                ui.set_min_size(ui.available_size());
                 // ── Sidebar header ──────────────────────────────────────────
                 ui.add_space(8.0);
                 ui.horizontal(|ui| {
