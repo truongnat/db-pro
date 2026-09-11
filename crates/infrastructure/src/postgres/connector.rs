@@ -6,7 +6,9 @@ use db_pro_core::domain::schema::IntrospectResult;
 use db_pro_core::ports::{DbConnector, SqlDialect, TransactionFailure, TransactionStatementResult};
 use sqlx::{Executor as _, PgPool};
 use std::collections::HashMap;
+use std::future::Future;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::Duration;
 use tokio::sync::RwLock;
 
 struct PostgresDialect;
@@ -31,6 +33,17 @@ pub struct PostgresConnector {
     next_id: AtomicU64,
 }
 
+pub(crate) async fn with_query_timeout<T, F>(timeout: Duration, future: F) -> Result<T, DbError>
+where
+    F: Future<Output = Result<T, DbError>>,
+{
+    tokio::time::timeout(timeout, future)
+        .await
+        .map_err(|_| DbError::QueryTimeout {
+            timeout_ms: timeout.as_millis() as u64,
+        })?
+}
+
 impl Default for PostgresConnector {
     fn default() -> Self {
         Self::new()
@@ -49,13 +62,25 @@ impl PostgresConnector {
         let pools = self.pools.read().await;
         pools.get(&handle.0).map(|entry| entry.pool.clone())
     }
+
+    pub async fn query_timeout(&self, handle: &ConnectionHandle) -> Result<Duration, DbError> {
+        let pools = self.pools.read().await;
+        pools
+            .get(&handle.0)
+            .map(|entry| entry.query_timeout)
+            .ok_or_else(|| DbError::ConnectionFailed("no pool for handle".into()))
+    }
 }
 
 #[async_trait]
 impl DbConnector for PostgresConnector {
     async fn connect(&self, config: &ConnectionConfig, password: &str) -> Result<ConnectionHandle, DbError> {
         let options = super::connection_string::build_options(config, password)?;
-        let pool = PgPool::connect_with(options).await.map_err(crate::error::from_sqlx)?;
+        let timeout = Duration::from_millis(config.query_timeout_ms);
+        let pool = with_query_timeout(timeout, async {
+            PgPool::connect_with(options).await.map_err(crate::error::from_sqlx)
+        })
+        .await?;
 
         let id = self.next_id.fetch_add(1, Ordering::SeqCst);
         let entry = PoolEntry {
@@ -77,13 +102,21 @@ impl DbConnector for PostgresConnector {
 
     async fn test_connection(&self, config: &ConnectionConfig, password: &str) -> Result<(), DbError> {
         let options = super::connection_string::build_options(config, password)?;
-        let pool = PgPool::connect_with(options).await.map_err(crate::error::from_sqlx)?;
-        sqlx::query("SELECT 1")
-            .execute(&pool)
-            .await
-            .map_err(crate::error::from_sqlx)?;
+        let timeout = Duration::from_millis(config.query_timeout_ms);
+        let pool = with_query_timeout(timeout, async {
+            PgPool::connect_with(options).await.map_err(crate::error::from_sqlx)
+        })
+        .await?;
+        let result = with_query_timeout(timeout, async {
+            sqlx::query("SELECT 1")
+                .execute(&pool)
+                .await
+                .map_err(crate::error::from_sqlx)
+                .map(|_| ())
+        })
+        .await;
         pool.close().await;
-        Ok(())
+        result
     }
 
     async fn query(&self, handle: &ConnectionHandle, sql: &str, params: &[QueryParam]) -> Result<QueryResult, DbError> {
@@ -125,11 +158,7 @@ impl DbConnector for PostgresConnector {
             })
         };
 
-        tokio::time::timeout(timeout, future)
-            .await
-            .map_err(|_| DbError::QueryTimeout {
-                timeout_ms: timeout.as_millis() as u64,
-            })?
+        with_query_timeout(timeout, future).await
     }
 
     async fn execute(&self, handle: &ConnectionHandle, sql: &str, params: &[QueryParam]) -> Result<u64, DbError> {
@@ -153,11 +182,7 @@ impl DbConnector for PostgresConnector {
             Ok(result.rows_affected())
         };
 
-        tokio::time::timeout(timeout, future)
-            .await
-            .map_err(|_| DbError::QueryTimeout {
-                timeout_ms: timeout.as_millis() as u64,
-            })?
+        with_query_timeout(timeout, future).await
     }
 
     async fn execute_batch(&self, handle: &ConnectionHandle, statements: &[String]) -> Result<u64, DbError> {
@@ -185,11 +210,7 @@ impl DbConnector for PostgresConnector {
             Ok(total_affected)
         };
 
-        tokio::time::timeout(timeout, future)
-            .await
-            .map_err(|_| DbError::QueryTimeout {
-                timeout_ms: timeout.as_millis() as u64,
-            })?
+        with_query_timeout(timeout, future).await
     }
 
     async fn execute_transaction(
@@ -312,10 +333,11 @@ impl DbConnector for PostgresConnector {
         let entry = pools
             .get(&handle.0)
             .ok_or_else(|| DbError::ConnectionFailed("handle not found".into()))?;
+        let timeout = entry.query_timeout;
         let pool = entry.pool.clone();
         drop(pools);
 
-        super::introspect::run_introspection(&pool).await
+        with_query_timeout(timeout, super::introspect::run_introspection(&pool)).await
     }
 
     async fn explain(&self, handle: &ConnectionHandle, sql: &str) -> Result<serde_json::Value, DbError> {
@@ -323,6 +345,7 @@ impl DbConnector for PostgresConnector {
         let entry = pools
             .get(&handle.0)
             .ok_or_else(|| DbError::ConnectionFailed("handle not found".into()))?;
+        let timeout = entry.query_timeout;
         let pool = entry.pool.clone();
         drop(pools);
 
@@ -331,11 +354,14 @@ impl DbConnector for PostgresConnector {
         }
 
         let explain_sql = format!("EXPLAIN (FORMAT JSON) {sql}");
-        let row: (serde_json::Value,) = sqlx::query_as(&explain_sql)
-            .fetch_one(&pool)
-            .await
-            .map_err(crate::error::from_sqlx)?;
-        Ok(row.0)
+        with_query_timeout(timeout, async {
+            let row: (serde_json::Value,) = sqlx::query_as(&explain_sql)
+                .fetch_one(&pool)
+                .await
+                .map_err(crate::error::from_sqlx)?;
+            Ok(row.0)
+        })
+        .await
     }
 
     fn dialect(&self, _handle: &ConnectionHandle) -> Result<Box<dyn SqlDialect>, DbError> {
@@ -354,7 +380,12 @@ impl PostgresConnector {
             .get_pool(handle)
             .await
             .ok_or_else(|| DbError::ConnectionFailed("no pool for handle".into()))?;
-        super::cross_connection::get_object_dependencies(&pool, schema, object_name).await
+        let timeout = self.query_timeout(handle).await?;
+        with_query_timeout(
+            timeout,
+            super::cross_connection::get_object_dependencies(&pool, schema, object_name),
+        )
+        .await
     }
 
     pub async fn list_partitions(
@@ -365,7 +396,8 @@ impl PostgresConnector {
             .get_pool(handle)
             .await
             .ok_or_else(|| DbError::ConnectionFailed("no pool for handle".into()))?;
-        super::cross_connection::list_partitions(&pool).await
+        let timeout = self.query_timeout(handle).await?;
+        with_query_timeout(timeout, super::cross_connection::list_partitions(&pool)).await
     }
 
     pub async fn list_tablespaces(
@@ -376,7 +408,8 @@ impl PostgresConnector {
             .get_pool(handle)
             .await
             .ok_or_else(|| DbError::ConnectionFailed("no pool for handle".into()))?;
-        super::cross_connection::list_tablespaces(&pool).await
+        let timeout = self.query_timeout(handle).await?;
+        with_query_timeout(timeout, super::cross_connection::list_tablespaces(&pool)).await
     }
 
     pub async fn rename_schema_object(
@@ -391,14 +424,21 @@ impl PostgresConnector {
             .get_pool(handle)
             .await
             .ok_or_else(|| DbError::ConnectionFailed("no pool for handle".into()))?;
-        super::cross_connection::rename_schema_object(&pool, object_type, schema, old_name, new_name).await
+        let timeout = self.query_timeout(handle).await?;
+        with_query_timeout(
+            timeout,
+            super::cross_connection::rename_schema_object(&pool, object_type, schema, old_name, new_name),
+        )
+        .await
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::PostgresDialect;
+    use super::{with_query_timeout, PostgresDialect};
     use db_pro_core::application::sql_builder::{build_select, SortClause, SortDir};
+    use db_pro_core::domain::error::DbError;
+    use std::time::Duration;
 
     #[test]
     fn table_pagination_uses_postgres_placeholders() {
@@ -421,5 +461,17 @@ mod tests {
             r#"SELECT * FROM "public"."customers" ORDER BY "id" ASC LIMIT $1 OFFSET $2"#
         );
         assert_eq!(params.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn postgres_operation_timeout_returns_query_timeout() {
+        let error = with_query_timeout(Duration::from_millis(1), async {
+            tokio::time::sleep(Duration::from_millis(25)).await;
+            Ok::<_, DbError>(())
+        })
+        .await
+        .expect_err("operation should exceed its configured deadline");
+
+        assert!(matches!(error, DbError::QueryTimeout { timeout_ms: 1 }));
     }
 }

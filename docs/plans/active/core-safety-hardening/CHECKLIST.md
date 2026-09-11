@@ -11,6 +11,11 @@
 - [x] Add timeout coverage for external PostgreSQL backup commands.
 - [x] Preserve connection handles when disconnect fails.
 - [x] Reuse SSH-routed effective configuration for connection testing.
+- [x] Apply PostgreSQL operation timeout to connect, Test Connection, introspection,
+  and Explain.
+- [x] Add PostgreSQL timeout-wrapper regression coverage.
+- [x] Quote PostgreSQL user-management identifiers and allowlist privilege syntax.
+- [x] Add user-management SQL input validation regression coverage.
 - [x] Run formatting, check, clippy, targeted tests, and workspace tests.
 - [x] Self-review changed files and confirm no UI/native files changed.
 - [ ] Record PostgreSQL live evidence as pending unless an actual provider is exercised.

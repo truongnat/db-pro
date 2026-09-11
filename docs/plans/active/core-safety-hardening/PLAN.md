@@ -34,6 +34,10 @@ without changing the native UI or adding product features.
    successfully released the resource.
 9. Connection testing bypasses SSH even though actual connection establishment
    uses the tunnel.
+10. PostgreSQL applies the configured operation timeout to query/mutation paths but
+    leaves connect, Test Connection, introspection, and Explain unbounded.
+11. PostgreSQL user-management interpolates untrusted identifiers and privilege
+    text into role/permission statements.
 
 ## Acceptance criteria
 
@@ -50,5 +54,9 @@ without changing the native UI or adding product features.
 - PostgreSQL backup/restore commands stop at the connection timeout.
 - Failed disconnect preserves the active handle so cleanup can be retried.
 - Connection testing uses the same effective SSH-routed configuration as connect.
+- PostgreSQL connect, Test Connection, introspection, and Explain honor the
+  configured operation timeout.
+- PostgreSQL role and privilege mutations quote identifiers and accept only the
+  supported table-privilege vocabulary.
 - PostgreSQL and SQLite unit/integration coverage is updated independently where the
   behavior differs.

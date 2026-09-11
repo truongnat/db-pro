@@ -94,3 +94,24 @@ provider connector.
 
 Decision: derive one effective configuration for both connect and test, keeping the
 tunnel alive until the test finishes.
+
+## P1 — PostgreSQL operation timeout coverage is incomplete
+
+The PostgreSQL connector applied `query_timeout_ms` to query, execute, batch, and
+transaction operations, but `connect`, Test Connection, introspection, and Explain
+awaited SQLx futures without a deadline. A blocked database or expensive Explain
+could therefore outlive the configured runtime boundary.
+
+Decision: use one timeout wrapper for all PostgreSQL operations that return a core
+`DbError`, including pool establishment and the provider metadata/Explain paths.
+
+## P1 — PostgreSQL user-management SQL accepts unsafe interpolated input
+
+Role, schema, and table values were inserted into quoted SQL without escaping
+embedded double quotes. The privilege value was inserted as raw SQL syntax. A
+crafted request could break out of an identifier or inject additional privilege
+clauses/statements.
+
+Decision: quote every identifier at the infrastructure boundary and allow only the
+supported PostgreSQL table privileges (ALL, SELECT, INSERT, UPDATE, DELETE,
+TRUNCATE, REFERENCES, and TRIGGER).
