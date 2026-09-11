@@ -260,7 +260,7 @@ impl DbProApp {
                 ui.painter().vline(
                     divider_rect.center().x,
                     divider_rect.y_range(),
-                    egui::Stroke::new(1.0, self.theme.border_subtle),
+                    egui::Stroke::new(1.0_f32, self.theme.border_subtle),
                 );
                 if divider.drag_started() {
                     self.grid_resize_start = Some((index, width));

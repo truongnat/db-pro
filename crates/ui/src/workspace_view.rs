@@ -195,6 +195,6 @@ fn paint_tab_indicator(ui: &egui::Ui, rect: egui::Rect, theme: DbProTheme) {
             egui::pos2(rect.left() + 6.0, rect.bottom() - 1.0),
             egui::pos2(rect.right() - 6.0, rect.bottom() - 1.0),
         ],
-        egui::Stroke::new(1.5, theme.accent),
+        egui::Stroke::new(1.5_f32, theme.accent),
     );
 }

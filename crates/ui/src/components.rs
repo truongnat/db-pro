@@ -194,7 +194,7 @@ pub fn primary_button(ui: &mut Ui, label: impl Into<RichText>, theme: DbProTheme
     ui.add(
         Button::new(label.into().color(theme.accent_foreground).strong())
             .fill(theme.accent)
-            .stroke(Stroke::new(1.0, theme.accent))
+            .stroke(Stroke::new(1.0_f32, theme.accent))
             .min_size(egui::vec2(0.0, 28.0))
             .rounding(Rounding::same(4.0)),
     )
@@ -204,7 +204,7 @@ pub fn primary_button_with_icon(ui: &mut Ui, icon: Icon, label: &str, theme: DbP
     ui.add(
         Button::new(icon_layout(icon, label, theme.accent_foreground))
             .fill(theme.accent)
-            .stroke(Stroke::new(1.0, theme.accent))
+            .stroke(Stroke::new(1.0_f32, theme.accent))
             .min_size(egui::vec2(0.0, 28.0))
             .rounding(Rounding::same(4.0)),
     )
@@ -280,7 +280,7 @@ pub fn danger_button(ui: &mut Ui, label: impl Into<RichText>, theme: DbProTheme)
     ui.add(
         Button::new(label.into().color(theme.text_inverse).strong())
             .fill(theme.danger)
-            .stroke(Stroke::new(1.0, theme.danger))
+            .stroke(Stroke::new(1.0_f32, theme.danger))
             .min_size(egui::vec2(0.0, 30.0))
             .rounding(Rounding::same(6.0)),
     )
