@@ -318,3 +318,13 @@ Decision: keep legacy metadata readable but make the password write-only for
 serialization, redact it from `Debug`, store it under the connection's
 `SecretStore` SSH key, hydrate it only for connect/test/backup/restore, and
 compensate secret changes on lifecycle failures.
+
+## P2 — SQLite backup depends on an irrelevant database secret
+
+`BackupService::password_for` retrieved a database password for both providers,
+although `SqliteBackupEngine` ignores the password entirely. When the OS keyring
+was unavailable, a SQLite backup could fail before the engine was invoked even
+though the database file itself was accessible.
+
+Decision: return an empty credential for SQLite backup/restore and keep secret
+resolution mandatory only for PostgreSQL.

@@ -51,6 +51,7 @@
 - [x] Keep SSH tunnel passwords out of metadata and debug output.
 - [x] Store, hydrate, delete, and compensate SSH secrets across connection lifecycle operations.
 - [x] Hydrate SSH credentials for PostgreSQL backup and restore.
+- [x] Do not require an unused database secret for SQLite backup and restore.
 - [x] Run formatting, check, clippy, targeted tests, and workspace tests.
 - [x] Self-review changed files and confirm no UI/native files changed.
 - [x] Record PostgreSQL live fixture evidence; SSH-tunnel and native UI runtime evidence remain explicitly pending.

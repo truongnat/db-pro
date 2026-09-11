@@ -70,6 +70,8 @@ without changing the native UI or adding product features.
 28. `SshTunnelConfig.password` is part of the serialized connection metadata,
     allowing SSH credentials to be persisted in `meta.db` and exposed through
     ordinary debug/serialization paths.
+29. SQLite backup and restore ask the `SecretStore` for a database password even
+    though the SQLite backup engine does not consume one.
 
 ## Acceptance criteria
 
@@ -111,5 +113,7 @@ without changing the native UI or adding product features.
   from metadata and debug output, and hydrated only for provider/backup calls;
   create/update/delete lifecycle failures restore both database and SSH secret
   state.
+- SQLite backup and restore do not depend on database credential availability;
+  PostgreSQL continues to require its resolved secret.
 - PostgreSQL and SQLite unit/integration coverage is updated independently where the
   behavior differs.

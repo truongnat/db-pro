@@ -104,18 +104,19 @@ impl BackupService {
     }
 
     async fn password_for(&self, connection: &Connection, operation: &str) -> Result<String, DbError> {
+        if connection.config.driver == DriverType::SQLite {
+            return Ok(String::new());
+        }
+
         let secret_key = connection
             .secret_ref
             .clone()
             .unwrap_or_else(|| format!("connection/{}/password", connection.id));
-        match connection.config.driver {
-            DriverType::Postgres => self.secrets.retrieve_secret(&secret_key).await?.ok_or_else(|| {
-                DbError::Validation(format!(
-                    "password not found — connect and save credentials before {operation}"
-                ))
-            }),
-            DriverType::SQLite => Ok(self.secrets.retrieve_secret(&secret_key).await?.unwrap_or_default()),
-        }
+        self.secrets.retrieve_secret(&secret_key).await?.ok_or_else(|| {
+            DbError::Validation(format!(
+                "password not found — connect and save credentials before {operation}"
+            ))
+        })
     }
 }
 
@@ -156,6 +157,25 @@ mod tests {
         let mut config = postgres_config_with_ssh();
         config.ssh_tunnel = None;
         config
+    }
+
+    fn sqlite_config() -> ConnectionConfig {
+        ConnectionConfig {
+            name: "sqlite backup".into(),
+            host: String::new(),
+            port: 0,
+            database: "/tmp/test.db".into(),
+            username: String::new(),
+            driver: DriverType::SQLite,
+            ssl_mode: SslMode::Disable,
+            ssh_tunnel: None,
+            query_timeout_ms: 30_000,
+            max_rows: 500,
+            color: None,
+            tags: vec![],
+            group: None,
+            readonly: false,
+        }
     }
 
     #[tokio::test]
@@ -306,5 +326,86 @@ mod tests {
             })
             .await
             .expect("restore should use the persisted custom secret");
+    }
+
+    #[tokio::test]
+    async fn sqlite_backup_does_not_require_a_database_secret() {
+        let connection_id = ConnectionId::new();
+        let connection = Connection::new(sqlite_config());
+        let mut connections = MockConnectionRepository::new();
+        connections
+            .expect_get()
+            .returning(move |_| Ok(Some(connection.clone())));
+
+        let pg_factory =
+            Box::new(|_: &ConnectionConfig| -> Box<dyn BackupEngine> { Box::new(MockBackupEngine::new()) });
+        let sqlite_factory = Box::new(|_: &str| {
+            let mut engine = MockBackupEngine::new();
+            engine
+                .expect_backup()
+                .withf(|_, password| password.is_empty())
+                .returning(|_, _| {
+                    Ok(BackupResult {
+                        output_path: "/tmp/sqlite-backup.db".into(),
+                        size_bytes: 1,
+                    })
+                });
+            Box::new(engine) as Box<dyn BackupEngine>
+        });
+        let service = BackupService::new(
+            Box::new(connections),
+            Box::new(MockSecretStore::new()),
+            Arc::new(ConnectionRegistry::new()),
+            pg_factory,
+            sqlite_factory,
+        );
+
+        service
+            .backup(&BackupOptions {
+                connection_id: connection_id.to_string(),
+                output_path: "/tmp/sqlite-backup.db".into(),
+                format: BackupFormat::Custom,
+                schemas: vec![],
+                tables: vec![],
+            })
+            .await
+            .expect("SQLite backup should not require a database secret");
+    }
+
+    #[tokio::test]
+    async fn sqlite_restore_does_not_require_a_database_secret() {
+        let connection_id = ConnectionId::new();
+        let connection = Connection::new(sqlite_config());
+        let mut connections = MockConnectionRepository::new();
+        connections
+            .expect_get()
+            .returning(move |_| Ok(Some(connection.clone())));
+
+        let pg_factory =
+            Box::new(|_: &ConnectionConfig| -> Box<dyn BackupEngine> { Box::new(MockBackupEngine::new()) });
+        let sqlite_factory = Box::new(|_: &str| {
+            let mut engine = MockBackupEngine::new();
+            engine
+                .expect_restore()
+                .withf(|_, password| password.is_empty())
+                .returning(|_, _| Ok(()));
+            Box::new(engine) as Box<dyn BackupEngine>
+        });
+        let service = BackupService::new(
+            Box::new(connections),
+            Box::new(MockSecretStore::new()),
+            Arc::new(ConnectionRegistry::new()),
+            pg_factory,
+            sqlite_factory,
+        );
+
+        service
+            .restore(&RestoreOptions {
+                connection_id: connection_id.to_string(),
+                input_path: "/tmp/sqlite-backup.db".into(),
+                format: BackupFormat::Custom,
+            })
+            .await
+            .expect("SQLite restore should not require a database secret");
     }
 }
