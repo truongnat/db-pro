@@ -134,7 +134,7 @@ impl DbProTheme {
         visuals.warn_fg_color = self.warning;
         visuals.error_fg_color = self.danger;
         visuals.selection.bg_fill = self.accent.linear_multiply(0.16);
-        visuals.selection.stroke = Stroke::new(1.0, self.accent);
+        visuals.selection.stroke = Stroke::new(1.0_f32, self.accent);
         visuals.window_rounding = Rounding::same(9.0);
         visuals.window_shadow = Shadow {
             offset: egui::vec2(0.0, 8.0),
@@ -150,33 +150,33 @@ impl DbProTheme {
         visuals.collapsing_header_frame = false;
         visuals.striped = true;
         visuals.widgets.noninteractive.bg_fill = self.surface_panel;
-        visuals.widgets.noninteractive.bg_stroke = Stroke::new(1.0, self.border_subtle);
-        visuals.widgets.noninteractive.fg_stroke = Stroke::new(1.0, self.text_secondary);
+        visuals.widgets.noninteractive.bg_stroke = Stroke::new(1.0_f32, self.border_subtle);
+        visuals.widgets.noninteractive.fg_stroke = Stroke::new(1.0_f32, self.text_secondary);
         visuals.widgets.noninteractive.rounding = Rounding::same(4.0);
         visuals.widgets.inactive.bg_fill = self.surface_panel;
         visuals.widgets.inactive.weak_bg_fill = self.surface_panel;
         // Resting inputs stay quiet; hover/focus still provide the interaction boundary.
         visuals.widgets.inactive.bg_stroke = Stroke::NONE;
-        visuals.widgets.inactive.fg_stroke = Stroke::new(1.0, self.text_secondary);
+        visuals.widgets.inactive.fg_stroke = Stroke::new(1.0_f32, self.text_secondary);
         visuals.widgets.inactive.rounding = Rounding::same(4.0);
         visuals.widgets.hovered.bg_fill = self.surface_hover;
         visuals.widgets.hovered.weak_bg_fill = self.surface_hover;
-        visuals.widgets.hovered.bg_stroke = Stroke::new(1.0, self.border_strong);
-        visuals.widgets.hovered.fg_stroke = Stroke::new(1.0, self.text_primary);
+        visuals.widgets.hovered.bg_stroke = Stroke::new(1.0_f32, self.border_strong);
+        visuals.widgets.hovered.fg_stroke = Stroke::new(1.0_f32, self.text_primary);
         visuals.widgets.hovered.rounding = Rounding::same(4.0);
         visuals.widgets.active.bg_fill = self.accent;
         visuals.widgets.active.weak_bg_fill = self.accent;
-        visuals.widgets.active.bg_stroke = Stroke::new(1.0, self.accent_hover);
+        visuals.widgets.active.bg_stroke = Stroke::new(1.0_f32, self.accent_hover);
         // egui uses the active foreground for `RichText::strong()` too; keep
         // headings readable and let accent buttons opt into their own color.
-        visuals.widgets.active.fg_stroke = Stroke::new(1.0, self.text_primary);
+        visuals.widgets.active.fg_stroke = Stroke::new(1.0_f32, self.text_primary);
         visuals.widgets.active.rounding = Rounding::same(4.0);
         visuals.widgets.open.bg_fill = self.surface_hover;
         visuals.widgets.open.weak_bg_fill = self.surface_hover;
-        visuals.widgets.open.bg_stroke = Stroke::new(1.0, self.border_strong);
-        visuals.widgets.open.fg_stroke = Stroke::new(1.0, self.text_primary);
+        visuals.widgets.open.bg_stroke = Stroke::new(1.0_f32, self.border_strong);
+        visuals.widgets.open.fg_stroke = Stroke::new(1.0_f32, self.text_primary);
         visuals.widgets.open.rounding = Rounding::same(4.0);
-        visuals.window_stroke = Stroke::new(1.0, self.border_subtle);
+        visuals.window_stroke = Stroke::new(1.0_f32, self.border_subtle);
         ctx.set_visuals(visuals);
 
         let mut style = (*ctx.style()).clone();

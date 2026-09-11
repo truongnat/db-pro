@@ -304,7 +304,7 @@ fn paint_diagram_grid(painter: &egui::Painter, rect: egui::Rect, zoom: f32, them
     while grid_x <= rect.right() {
         painter.line_segment(
             [egui::pos2(grid_x, rect.top()), egui::pos2(grid_x, rect.bottom())],
-            egui::Stroke::new(1.0, grid_color),
+            egui::Stroke::new(1.0_f32, grid_color),
         );
         grid_x += grid_step.max(8.0);
     }
@@ -312,7 +312,7 @@ fn paint_diagram_grid(painter: &egui::Painter, rect: egui::Rect, zoom: f32, them
     while grid_y <= rect.bottom() {
         painter.line_segment(
             [egui::pos2(rect.left(), grid_y), egui::pos2(rect.right(), grid_y)],
-            egui::Stroke::new(1.0, grid_color),
+            egui::Stroke::new(1.0_f32, grid_color),
         );
         grid_y += grid_step.max(8.0);
     }
@@ -392,7 +392,7 @@ fn paint_diagram_edge(
     let bend_x = (from.x + to.x) / 2.0;
     let bend_a = egui::pos2(bend_x, from.y);
     let bend_b = egui::pos2(bend_x, to.y);
-    let stroke = egui::Stroke::new(1.2, theme.accent);
+    let stroke = egui::Stroke::new(1.2_f32, theme.accent);
     painter.line_segment([from, bend_a], stroke);
     painter.line_segment([bend_a, bend_b], stroke);
     painter.line_segment([bend_b, to], stroke);
@@ -430,7 +430,7 @@ fn draw_diagram_zoom_controls(
             fill: theme.surface_floating,
             inner_margin: egui::Margin::symmetric(5.0, 4.0),
             rounding: egui::Rounding::same(6.0),
-            stroke: egui::Stroke::new(1.0, theme.border_subtle),
+            stroke: egui::Stroke::new(1.0_f32, theme.border_subtle),
             ..Default::default()
         }
         .show(ui, |ui| {
@@ -474,7 +474,7 @@ fn paint_er_node_header(painter: &egui::Painter, node: &ErNode, selected: bool, 
     painter.rect_stroke(
         node.rect,
         egui::Rounding::same(8.0),
-        egui::Stroke::new(1.0, if selected { theme.accent } else { theme.border_default }),
+        egui::Stroke::new(1.0_f32, if selected { theme.accent } else { theme.border_default }),
     );
     let header_rect = egui::Rect::from_min_max(
         node.rect.min,
