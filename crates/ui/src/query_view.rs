@@ -3,6 +3,33 @@ use super::*;
 impl DbProApp {
     pub(super) fn draw_query(&mut self, ui: &mut egui::Ui) {
         self.refresh_diagnostics();
+        let more_anchor = self.draw_query_header(ui);
+        if self.query_tools_open {
+            if let Some(anchor) = more_anchor {
+                self.draw_query_actions_menu(ui.ctx(), anchor);
+            }
+        }
+        if self.editor_search_open {
+            self.draw_editor_search_bar(ui);
+        }
+        self.draw_query_editor(ui);
+        if self.completion_open {
+            self.draw_sql_completion(ui);
+        }
+        if self.snippets_open {
+            self.draw_sql_snippets(ui);
+        }
+        self.draw_diagnostics(ui);
+        self.draw_output_tabs(ui);
+
+        let result = self.query_result.clone();
+        ui.add_space(8.0);
+        self.draw_output_pane(ui, result.as_ref());
+    }
+
+    /// Query title, connection breadcrumb, run/stop and the overflow button.
+    /// Returns the overflow button rect so the actions menu can anchor to it.
+    fn draw_query_header(&mut self, ui: &mut egui::Ui) -> Option<egui::Rect> {
         let modifier = Self::primary_modifier_label();
         let mut more_anchor = None;
         let query_title = self
@@ -41,84 +68,94 @@ impl DbProApp {
                 more_anchor = Some(more_response.rect);
             });
         });
-        if self.query_tools_open {
-            if let Some(anchor) = more_anchor {
-                self.draw_query_actions_menu(ui.ctx(), anchor);
+        more_anchor
+    }
+
+    /// "Find in SQL" bar, shown while the editor search is open.
+    fn draw_editor_search_bar(&mut self, ui: &mut egui::Ui) {
+        ui.add_space(8.0);
+        ui.horizontal(|ui| {
+            input(ui, &mut self.editor_search, "Find in SQL…", 240.0, self.theme);
+            if !self.editor_search.is_empty() {
+                let matches = self.query_text.matches(&self.editor_search).count();
+                ui.label(
+                    RichText::new(format!("{matches} matches"))
+                        .small()
+                        .color(self.theme.text_muted),
+                );
             }
-        }
-        if self.editor_search_open {
-            ui.add_space(8.0);
-            ui.horizontal(|ui| {
-                input(ui, &mut self.editor_search, "Find in SQL…", 240.0, self.theme);
-                if !self.editor_search.is_empty() {
-                    let matches = self.query_text.matches(&self.editor_search).count();
-                    ui.label(
-                        RichText::new(format!("{matches} matches"))
-                            .small()
-                            .color(self.theme.text_muted),
-                    );
-                }
-            });
-        }
-        self.draw_query_editor(ui);
-        if self.completion_open {
-            card_frame(self.theme).show(ui, |ui| {
-                ui.label(RichText::new("SQL completion").strong());
-                let is_sqlite = self.active_driver().eq_ignore_ascii_case("sqlite");
-                let mut candidates = vec![
-                    "SELECT".to_owned(),
-                    "FROM".to_owned(),
-                    "WHERE".to_owned(),
-                    "JOIN".to_owned(),
-                    "GROUP BY".to_owned(),
-                    "ORDER BY".to_owned(),
-                    "LIMIT".to_owned(),
-                    "COUNT(*)".to_owned(),
-                ];
-                if is_sqlite {
-                    candidates.extend(["GLOB", "strftime", "WITHOUT ROWID"].into_iter().map(str::to_owned));
-                } else {
-                    candidates.extend(
-                        ["ILIKE", "RETURNING", "jsonb_build_object"]
-                            .into_iter()
-                            .map(str::to_owned),
-                    );
-                }
-                candidates.extend(self.active_schema_table_names());
-                candidates.extend(self.active_schema_column_names());
-                candidates.extend(self.schema.views.iter().map(|view| view.name.clone()));
-                candidates.extend(self.schema.functions.iter().map(|function| function.name.clone()));
-                for keyword in candidates.iter() {
-                    if ui
-                        .selectable_label(false, keyword)
-                        .on_hover_text("Insert SQL keyword or expression")
-                        .clicked()
-                    {
-                        self.query_text.push_str(keyword);
-                        self.completion_open = false;
-                    }
-                }
-            });
-        }
-        if self.snippets_open {
-            card_frame(self.theme).show(ui, |ui| {
-                ui.label(RichText::new("SQL snippets").strong());
-                if compact_button(ui, "SELECT table", self.theme).clicked() {
-                    self.insert_snippet("SELECT *\nFROM table_name\nLIMIT 100;");
-                    self.snippets_open = false;
-                }
-                if compact_button(ui, "UPDATE by primary key", self.theme).clicked() {
-                    self.insert_snippet("UPDATE table_name\nSET column_name = value\nWHERE id = 1;");
-                    self.snippets_open = false;
-                }
-            });
-        }
-        if !self.diagnostics.is_empty() {
-            ui.colored_label(self.theme.warning, format!("Diagnostics · {}", self.diagnostics.len()));
-            for diagnostic in &self.diagnostics {
-                ui.colored_label(self.theme.warning, format!("• {diagnostic}"));
+        });
+    }
+
+    /// Keyword / table / column completion list.
+    fn draw_sql_completion(&mut self, ui: &mut egui::Ui) {
+        card_frame(self.theme).show(ui, |ui| {
+            ui.label(RichText::new("SQL completion").strong());
+            let is_sqlite = self.active_driver().eq_ignore_ascii_case("sqlite");
+            let mut candidates = vec![
+                "SELECT".to_owned(),
+                "FROM".to_owned(),
+                "WHERE".to_owned(),
+                "JOIN".to_owned(),
+                "GROUP BY".to_owned(),
+                "ORDER BY".to_owned(),
+                "LIMIT".to_owned(),
+                "COUNT(*)".to_owned(),
+            ];
+            if is_sqlite {
+                candidates.extend(["GLOB", "strftime", "WITHOUT ROWID"].into_iter().map(str::to_owned));
+            } else {
+                candidates.extend(
+                    ["ILIKE", "RETURNING", "jsonb_build_object"]
+                        .into_iter()
+                        .map(str::to_owned),
+                );
             }
+            candidates.extend(self.active_schema_table_names());
+            candidates.extend(self.active_schema_column_names());
+            candidates.extend(self.schema.views.iter().map(|view| view.name.clone()));
+            candidates.extend(self.schema.functions.iter().map(|function| function.name.clone()));
+            for keyword in candidates.iter() {
+                if ui
+                    .selectable_label(false, keyword)
+                    .on_hover_text("Insert SQL keyword or expression")
+                    .clicked()
+                {
+                    self.query_text.push_str(keyword);
+                    self.completion_open = false;
+                }
+            }
+        });
+    }
+
+    /// Quick SQL snippet inserters.
+    fn draw_sql_snippets(&mut self, ui: &mut egui::Ui) {
+        card_frame(self.theme).show(ui, |ui| {
+            ui.label(RichText::new("SQL snippets").strong());
+            if compact_button(ui, "SELECT table", self.theme).clicked() {
+                self.insert_snippet("SELECT *\nFROM table_name\nLIMIT 100;");
+                self.snippets_open = false;
+            }
+            if compact_button(ui, "UPDATE by primary key", self.theme).clicked() {
+                self.insert_snippet("UPDATE table_name\nSET column_name = value\nWHERE id = 1;");
+                self.snippets_open = false;
+            }
+        });
+    }
+
+    /// Parser diagnostics for the current SQL, when any.
+    fn draw_diagnostics(&mut self, ui: &mut egui::Ui) {
+        if self.diagnostics.is_empty() {
+            return;
         }
+        ui.colored_label(self.theme.warning, format!("Diagnostics · {}", self.diagnostics.len()));
+        for diagnostic in &self.diagnostics {
+            ui.colored_label(self.theme.warning, format!("• {diagnostic}"));
+        }
+    }
+
+    /// Output tab strip (Results / Messages / Explain / History).
+    fn draw_output_tabs(&mut self, ui: &mut egui::Ui) {
         ui.add_space(12.0);
         ui.horizontal(|ui| {
             for (tab, label) in [
@@ -145,104 +182,118 @@ impl DbProApp {
             }
         });
         ui.add_space(6.0);
-        let result = self.query_result.clone();
-        ui.add_space(8.0);
+    }
+
+    /// Body of the selected output tab.
+    fn draw_output_pane(&mut self, ui: &mut egui::Ui, result: Option<&UiQueryResult>) {
         match self.output_tab {
-            OutputTab::Results => {
-                let results_width = ui.max_rect().width();
-                grid_frame(self.theme).show(ui, |ui| {
-                    ui.set_min_width((results_width - 24.0).max(0.0));
-                    ui.horizontal(|ui| {
-                        if let Some(value) = result.as_ref() {
-                            ui.label(
-                                RichText::new(format!("{} rows · {} ms", value.row_count, value.duration_ms))
-                                    .small()
-                                    .color(self.theme.text_muted),
-                            );
-                            if compact_button(ui, "Export", self.theme).clicked() {
-                                self.export_open = true;
-                            }
-                        }
-                    });
-                    if let Some(result) = result.as_ref() {
-                        self.draw_result_grid(ui, result);
-                    } else {
-                        ui.centered_and_justified(|ui| {
-                            empty_state(
-                                ui,
-                                Icon::Table2,
-                                "No results yet",
-                                "Run a query to populate this result grid.",
-                                self.theme,
-                            );
-                        });
-                    }
-                });
-                self.draw_export_dialog(ui, result.as_ref());
-            }
-            OutputTab::Messages => {
-                let output_width = ui.available_width();
-                card_frame(self.theme).show(ui, |ui| {
-                    ui.set_min_width((output_width - 24.0).max(0.0));
-                    if self.query_messages.is_empty() {
-                        empty_state(
-                            ui,
-                            Icon::MessageSquareText,
-                            "No messages yet",
-                            "Query notices and execution details will appear here.",
-                            self.theme,
-                        );
-                    } else {
-                        for message in self.query_messages.iter().rev().take(20) {
-                            ui.label(RichText::new(message).small().color(self.theme.text_secondary));
-                        }
-                    }
-                });
-            }
-            OutputTab::Explain => {
-                let output_width = ui.available_width();
-                card_frame(self.theme).show(ui, |ui| {
-                    ui.set_min_width((output_width - 24.0).max(0.0));
-                    if let Some(plan) = self.explain_plan.as_deref() {
-                        egui::ScrollArea::vertical().max_height(300.0).show(ui, |ui| {
-                            ui.label(RichText::new(plan).monospace().color(self.theme.text_secondary));
-                        });
-                    } else {
-                        empty_state(
-                            ui,
-                            Icon::ChartNoAxesCombined,
-                            "No query plan yet",
-                            "Run Explain to inspect the query plan.",
-                            self.theme,
-                        );
-                    }
-                });
-            }
-            OutputTab::History => {
-                let output_width = ui.available_width();
-                card_frame(self.theme).show(ui, |ui| {
-                    ui.set_min_width((output_width - 24.0).max(0.0));
-                    if self.query_history.is_empty() {
-                        empty_state(
-                            ui,
-                            Icon::History,
-                            "No query history yet",
-                            "Executed queries will appear here.",
-                            self.theme,
-                        );
-                    } else {
-                        for query in self.query_history.iter().rev().take(20) {
-                            ui.label(
-                                RichText::new(query)
-                                    .monospace()
-                                    .small()
-                                    .color(self.theme.text_secondary),
-                            );
-                        }
-                    }
-                });
-            }
+            OutputTab::Results => self.draw_results_pane(ui, result),
+            OutputTab::Messages => self.draw_messages_pane(ui),
+            OutputTab::Explain => self.draw_explain_pane(ui),
+            OutputTab::History => self.draw_history_pane(ui),
         }
+    }
+
+    /// Results grid plus its row-count / export header.
+    fn draw_results_pane(&mut self, ui: &mut egui::Ui, result: Option<&UiQueryResult>) {
+        let results_width = ui.max_rect().width();
+        grid_frame(self.theme).show(ui, |ui| {
+            ui.set_min_width((results_width - 24.0).max(0.0));
+            ui.horizontal(|ui| {
+                if let Some(value) = result {
+                    ui.label(
+                        RichText::new(format!("{} rows · {} ms", value.row_count, value.duration_ms))
+                            .small()
+                            .color(self.theme.text_muted),
+                    );
+                    if compact_button(ui, "Export", self.theme).clicked() {
+                        self.export_open = true;
+                    }
+                }
+            });
+            if let Some(result) = result {
+                self.draw_result_grid(ui, result);
+            } else {
+                ui.centered_and_justified(|ui| {
+                    empty_state(
+                        ui,
+                        Icon::Table2,
+                        "No results yet",
+                        "Run a query to populate this result grid.",
+                        self.theme,
+                    );
+                });
+            }
+        });
+        self.draw_export_dialog(ui, result);
+    }
+
+    /// Query notice log.
+    fn draw_messages_pane(&mut self, ui: &mut egui::Ui) {
+        let output_width = ui.available_width();
+        card_frame(self.theme).show(ui, |ui| {
+            ui.set_min_width((output_width - 24.0).max(0.0));
+            if self.query_messages.is_empty() {
+                empty_state(
+                    ui,
+                    Icon::MessageSquareText,
+                    "No messages yet",
+                    "Query notices and execution details will appear here.",
+                    self.theme,
+                );
+            } else {
+                for message in self.query_messages.iter().rev().take(20) {
+                    ui.label(RichText::new(message).small().color(self.theme.text_secondary));
+                }
+            }
+        });
+    }
+
+    /// EXPLAIN output for the last explain request.
+    fn draw_explain_pane(&mut self, ui: &mut egui::Ui) {
+        let output_width = ui.available_width();
+        card_frame(self.theme).show(ui, |ui| {
+            ui.set_min_width((output_width - 24.0).max(0.0));
+            if let Some(plan) = self.explain_plan.as_deref() {
+                egui::ScrollArea::vertical().max_height(300.0).show(ui, |ui| {
+                    ui.label(RichText::new(plan).monospace().color(self.theme.text_secondary));
+                });
+            } else {
+                empty_state(
+                    ui,
+                    Icon::ChartNoAxesCombined,
+                    "No query plan yet",
+                    "Run Explain to inspect the query plan.",
+                    self.theme,
+                );
+            }
+        });
+    }
+
+    /// Recently executed queries.
+    fn draw_history_pane(&mut self, ui: &mut egui::Ui) {
+        let output_width = ui.available_width();
+        card_frame(self.theme).show(ui, |ui| {
+            ui.set_min_width((output_width - 24.0).max(0.0));
+            if self.query_history.is_empty() {
+                empty_state(
+                    ui,
+                    Icon::History,
+                    "No query history yet",
+                    "Executed queries will appear here.",
+                    self.theme,
+                );
+            } else {
+                for query in self.query_history.iter().rev().take(20) {
+                    ui.label(
+                        RichText::new(query)
+                            .monospace()
+                            .small()
+                            .color(self.theme.text_secondary),
+                    );
+                }
+            }
+        });
     }
 
     fn draw_query_actions_menu(&mut self, ctx: &egui::Context, anchor: egui::Rect) {
@@ -269,105 +320,11 @@ impl DbProApp {
                             .color(self.theme.text_muted),
                     );
                     ui.add_space(4.0);
-                    if menu_button_with_icon(
-                        ui,
-                        Icon::Play,
-                        if self.selected_query.is_empty() {
-                            "Run statement"
-                        } else {
-                            "Run selection"
-                        },
-                        self.theme,
-                    )
-                    .clicked()
-                    {
-                        if self.selected_query.is_empty() {
-                            let statement = self.query_text.split(';').next().unwrap_or_default().trim().to_owned();
-                            if !statement.is_empty() {
-                                self.query_text = statement;
-                                self.dispatch_query();
-                            }
-                        } else {
-                            self.dispatch_query();
-                        }
-                        close_menu = true;
-                    }
-                    if menu_button_with_icon(ui, Icon::WandSparkles, "Format SQL", self.theme).clicked() {
-                        self.query_text = Self::format_sql(&self.query_text);
-                        close_menu = true;
-                    }
-                    if menu_button_with_icon(ui, Icon::ChartNoAxesCombined, "Explain query", self.theme).clicked() {
-                        self.explain_query();
-                        close_menu = true;
-                    }
-                    if menu_button_with_icon(ui, Icon::Bot, "Ask Agent", self.theme).clicked() {
-                        self.open_agent_prompt(
-                            if self.selected_query.trim().is_empty() {
-                                "Explain the current SQL and suggest improvements"
-                            } else {
-                                "Explain the selected SQL and suggest improvements"
-                            },
-                            ctx,
-                        );
-                        close_menu = true;
-                    }
-                    if menu_button_with_icon(ui, Icon::Save, "Save query", self.theme).clicked() {
-                        if let Some(connection) = self.active_connection().cloned() {
-                            let request_id = self.task_bridge.next_request_id();
-                            let name = self
-                                .query_documents
-                                .get(self.active_query_document)
-                                .map(|document| document.title.clone())
-                                .unwrap_or_else(|| "Saved query".to_owned());
-                            let _ = self.task_bridge.send(UiCommand::SaveQuery {
-                                request_id,
-                                connection_id: connection.id.clone(),
-                                name,
-                                sql: self.query_text.clone(),
-                                folder: (!self.query_folder.trim().is_empty())
-                                    .then(|| self.query_folder.trim().to_owned()),
-                            });
-                            self.runtime_message = "Saving query…".to_owned();
-                        }
-                        close_menu = true;
-                    }
+                    close_menu |= self.draw_query_run_actions(ui, ctx);
                     ui.separator();
                     ui.label(RichText::new("Editor").small().strong().color(self.theme.text_muted));
                     ui.add_space(4.0);
-                    if menu_button_with_icon(ui, Icon::Search, "Find in SQL", self.theme).clicked() {
-                        self.editor_search_open = !self.editor_search_open;
-                        close_menu = true;
-                    }
-                    if menu_button_with_icon(ui, Icon::Minus, "Decrease font size", self.theme).clicked() {
-                        self.editor_font_size = (self.editor_font_size - 1.0).max(10.0);
-                    }
-                    if menu_button_with_icon(ui, Icon::Plus, "Increase font size", self.theme).clicked() {
-                        self.editor_font_size = (self.editor_font_size + 1.0).min(24.0);
-                    }
-                    if menu_button_with_icon(ui, Icon::List, "SQL completion", self.theme).clicked() {
-                        self.completion_open = !self.completion_open;
-                        close_menu = true;
-                    }
-                    if menu_button_with_icon(ui, Icon::FileCode2, "SQL snippets", self.theme).clicked() {
-                        self.snippets_open = !self.snippets_open;
-                        close_menu = true;
-                    }
-                    ui.horizontal(|ui| {
-                        input(ui, &mut self.query_folder, "folder (optional)", 150.0, self.theme);
-                        if compact_button(ui, "New folder", self.theme).clicked() {
-                            if let Some(connection) = self.active_connection().cloned() {
-                                if !self.query_folder.trim().is_empty() {
-                                    let request_id = self.task_bridge.next_request_id();
-                                    let _ = self.task_bridge.send(UiCommand::CreateQueryFolder {
-                                        request_id,
-                                        connection_id: connection.id.clone(),
-                                        name: self.query_folder.trim().to_owned(),
-                                    });
-                                    self.runtime_message = "Creating query folder…".to_owned();
-                                }
-                            }
-                        }
-                    });
+                    close_menu |= self.draw_query_editor_actions(ui);
                     ui.label(
                         RichText::new(format!("Editor font · {} px", self.editor_font_size))
                             .small()
@@ -385,6 +342,128 @@ impl DbProApp {
         if clicked_outside || close_menu {
             self.query_tools_open = false;
         }
+    }
+
+    /// Run / format / explain / agent / save entries.
+    /// Returns true when the menu should close.
+    fn draw_query_run_actions(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) -> bool {
+        let mut close_menu = false;
+        if menu_button_with_icon(
+            ui,
+            Icon::Play,
+            if self.selected_query.is_empty() {
+                "Run statement"
+            } else {
+                "Run selection"
+            },
+            self.theme,
+        )
+        .clicked()
+        {
+            if self.selected_query.is_empty() {
+                let statement = self.query_text.split(';').next().unwrap_or_default().trim().to_owned();
+                if !statement.is_empty() {
+                    self.query_text = statement;
+                    self.dispatch_query();
+                }
+            } else {
+                self.dispatch_query();
+            }
+            close_menu = true;
+        }
+        if menu_button_with_icon(ui, Icon::WandSparkles, "Format SQL", self.theme).clicked() {
+            self.query_text = Self::format_sql(&self.query_text);
+            close_menu = true;
+        }
+        if menu_button_with_icon(ui, Icon::ChartNoAxesCombined, "Explain query", self.theme).clicked() {
+            self.explain_query();
+            close_menu = true;
+        }
+        if menu_button_with_icon(ui, Icon::Bot, "Ask Agent", self.theme).clicked() {
+            self.open_agent_prompt(
+                if self.selected_query.trim().is_empty() {
+                    "Explain the current SQL and suggest improvements"
+                } else {
+                    "Explain the selected SQL and suggest improvements"
+                },
+                ctx,
+            );
+            close_menu = true;
+        }
+        if menu_button_with_icon(ui, Icon::Save, "Save query", self.theme).clicked() {
+            self.save_query_document();
+            close_menu = true;
+        }
+        close_menu
+    }
+
+    /// Persists the current editor contents as a named saved query.
+    fn save_query_document(&mut self) {
+        let Some(connection) = self.active_connection().cloned() else {
+            return;
+        };
+        let request_id = self.task_bridge.next_request_id();
+        let name = self
+            .query_documents
+            .get(self.active_query_document)
+            .map(|document| document.title.clone())
+            .unwrap_or_else(|| "Saved query".to_owned());
+        let _ = self.task_bridge.send(UiCommand::SaveQuery {
+            request_id,
+            connection_id: connection.id.clone(),
+            name,
+            sql: self.query_text.clone(),
+            folder: (!self.query_folder.trim().is_empty()).then(|| self.query_folder.trim().to_owned()),
+        });
+        self.runtime_message = "Saving query…".to_owned();
+    }
+
+    /// Editor entries: find, font size, completion, snippets and folder creation.
+    /// Returns true when the menu should close.
+    fn draw_query_editor_actions(&mut self, ui: &mut egui::Ui) -> bool {
+        let mut close_menu = false;
+        if menu_button_with_icon(ui, Icon::Search, "Find in SQL", self.theme).clicked() {
+            self.editor_search_open = !self.editor_search_open;
+            close_menu = true;
+        }
+        if menu_button_with_icon(ui, Icon::Minus, "Decrease font size", self.theme).clicked() {
+            self.editor_font_size = (self.editor_font_size - 1.0).max(10.0);
+        }
+        if menu_button_with_icon(ui, Icon::Plus, "Increase font size", self.theme).clicked() {
+            self.editor_font_size = (self.editor_font_size + 1.0).min(24.0);
+        }
+        if menu_button_with_icon(ui, Icon::List, "SQL completion", self.theme).clicked() {
+            self.completion_open = !self.completion_open;
+            close_menu = true;
+        }
+        if menu_button_with_icon(ui, Icon::FileCode2, "SQL snippets", self.theme).clicked() {
+            self.snippets_open = !self.snippets_open;
+            close_menu = true;
+        }
+        ui.horizontal(|ui| {
+            input(ui, &mut self.query_folder, "folder (optional)", 150.0, self.theme);
+            if compact_button(ui, "New folder", self.theme).clicked() {
+                self.create_query_folder();
+            }
+        });
+        close_menu
+    }
+
+    /// Creates a saved-query folder from the name typed in the actions menu.
+    fn create_query_folder(&mut self) {
+        let Some(connection) = self.active_connection().cloned() else {
+            return;
+        };
+        if self.query_folder.trim().is_empty() {
+            return;
+        }
+        let request_id = self.task_bridge.next_request_id();
+        let _ = self.task_bridge.send(UiCommand::CreateQueryFolder {
+            request_id,
+            connection_id: connection.id.clone(),
+            name: self.query_folder.trim().to_owned(),
+        });
+        self.runtime_message = "Creating query folder…".to_owned();
     }
 
     fn draw_query_editor(&mut self, ui: &mut egui::Ui) {
