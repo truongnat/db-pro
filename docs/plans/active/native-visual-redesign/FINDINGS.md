@@ -119,6 +119,21 @@ selected treatment, so the focused column was not visually identifiable. The sma
 pure navigation mapping over the existing filtered/sorted row indexes plus a separate active-cell
 accent, with text inputs left to their normal egui keyboard handling.
 
+### P2 — Large-schema “Show all” made ER search inert
+
+The large-schema ER view kept the search field visible after the user selected “Show all”, but the
+render path ignored the query while that mode was active. There was also no visible control to
+return to the bounded focused map, so the user had to close and reopen the ER workspace to recover
+search-first navigation. The smallest fix is to make a non-empty query leave explicit show-all mode
+and add a “Focus search” action; table matching, render limits and provider behavior remain unchanged.
+
+## Wave 8 runtime evidence
+
+- Large-schema SQLite fixture: `/tmp/db-pro-native-er-search-XXXXXX.sqlite`, 202 tables and one
+  relationship.
+- Show-all state: `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/4bf1bff5-1d5f-48a8-b321-9926f845212b-screenshot.png`.
+- Focused search after entering `order_items`: `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/f32295e6-4ce3-410c-a9e7-6848de3200e7-screenshot.png`.
+
 ## Wave 3 runtime evidence
 
 - Fresh maximized native launch and centered welcome: `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/2f485840-c8ff-4106-8731-45fe03ea1ad8-screenshot.png`.

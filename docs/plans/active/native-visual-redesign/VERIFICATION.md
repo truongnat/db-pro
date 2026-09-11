@@ -2,7 +2,7 @@
 
 ## Current state
 
-Wave 1–7 implementation and runtime screenshot passes are complete on `feature/native-visual-redesign`.
+Wave 1–8 implementation and runtime screenshot passes are complete on `feature/native-visual-redesign`.
 No overall feature completion claim has been made: independent review and any provider/runtime
 regression follow-up remain open. The baseline screenshot and source evidence are recorded in
 `FINDINGS.md`.
@@ -142,3 +142,22 @@ unchanged; PostgreSQL runtime evidence remains pending under the existing provid
 Wave 7 changes are presentation and selection-state only. Query execution, staged mutations,
 clipboard payloads, provider capabilities and database state remain unchanged; PostgreSQL runtime
 evidence remains pending under the existing provider matrix.
+
+## Wave 8 evidence
+
+| Check | Result | Evidence |
+|---|---|---|
+| Large-schema SQLite fixture | PASS | Temporary fixture `/tmp/db-pro-native-er-search-XXXXXX.sqlite`; 202 tables and 1 relationship loaded in the native Explorer |
+| Native ER “Show all” mode | PASS | Fresh maximized native screenshot `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/4bf1bff5-1d5f-48a8-b321-9926f845212b-screenshot.png`; toolbar shows `202 tables`, `All tables` and `Focus search` while the canvas renders the large schema |
+| Search exits explicit “Show all” | PASS | Fresh screenshot `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/f32295e6-4ce3-410c-a9e7-6848de3200e7-screenshot.png`; entering `order_items` leaves one focused table and restores `Show all 202 tables` |
+| Search/show-all transition regression | PASS | UI regression test `diagram_search_mode_can_leave_explicit_show_all` |
+| `cargo fmt --all -- --check` | PASS | 2026-09-11, after Wave 8 source edits |
+| `cargo check --workspace --offline` | PASS | 2026-09-11, after Wave 8 source edits |
+| `cargo clippy --workspace --offline --all-targets -- -D warnings` | PASS | 2026-09-11, after Wave 8 source edits |
+| `cargo test --workspace --offline` | PASS | 2026-09-11, after Wave 8 source edits; 186 core, 39 infrastructure, 25 SQLite integration, 61 UI, 21 Tauri, 4 runtime, 1 native; 10 PostgreSQL live tests ignored without fixture env |
+| `cargo build --locked -p db-pro-native --offline` | PASS | 2026-09-11, rebuilt native binary before the large-schema runtime flow |
+| `bash .skills/clean-code/scripts/clean-code-scan.sh --diff` | PASS | 2026-09-11, after Wave 8 source edits; 33 checks passed, 0 warnings/fails; existing macOS xargs compatibility warnings emitted |
+
+Wave 8 is presentation/state handling only. ER table matching and rendering use the existing
+provider-neutral introspection output; PostgreSQL runtime evidence remains pending under the
+existing provider matrix.

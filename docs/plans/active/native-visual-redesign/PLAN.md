@@ -68,11 +68,18 @@ behavior.
 - reset cursor metadata when switching, creating or closing query documents;
 - keep the existing status-bar context split and avoid changing query execution behavior.
 
-### Wave 7 — keyboard grid focus (current change)
+### Wave 7 — keyboard grid focus (completed in prior change)
 
 - move the selected result-grid cell with Arrow keys and jump within a row with Home/End;
 - preserve original result-row identity when filtering or sorting changes the visible projection;
 - distinguish the active cell from its selected row without changing copy, edit or mutation semantics.
+
+### Wave 8 — ER search mode recovery (current change)
+
+- leave explicit large-schema “Show all” mode when the user enters a non-empty search query;
+- expose a compact “Focus search” action so users can return to the bounded focused map without
+  closing and reopening the ER workspace;
+- preserve the existing render limit, table matching and provider-neutral diagram behavior.
 
 ### Follow-up waves
 
@@ -144,3 +151,11 @@ behavior.
 - Keyboard navigation does not steal input from the grid filter or active cell editor.
 - The active cell has a distinct visual treatment from the selected row.
 - Rust fmt/check/clippy/tests pass and a fresh native SQLite screenshot confirms non-default cell focus.
+
+## Acceptance for Wave 8
+
+- A large SQLite schema can enter “Show all” mode, then return to focused search by typing a query
+  or activating “Focus search”.
+- The focused result uses the existing table/column matching and render policy without changing
+  database commands or provider behavior.
+- Rust fmt/check/clippy/tests pass and a fresh native SQLite screenshot confirms the full flow.

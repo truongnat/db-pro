@@ -5,7 +5,7 @@ impl DbProApp {
         let all_table_count = self.schema.table_details.len();
         let large_schema = all_table_count > ER_LARGE_SCHEMA_THRESHOLD;
         let search_query = self.diagram_search.trim().to_ascii_lowercase();
-        let search_mode = large_schema && !self.diagram_show_all;
+        let search_mode = diagram_search_mode(large_schema, self.diagram_show_all);
         let render_limit = if large_schema && self.diagram_show_all {
             all_table_count
         } else {
@@ -15,7 +15,7 @@ impl DbProApp {
             diagram_candidates(&self.schema.table_details, &search_query, search_mode, render_limit);
         let visible_tables = tables.len().min(render_limit);
 
-        self.draw_diagram_toolbar(ui, large_schema, search_mode, all_table_count, &tables, render_limit);
+        self.draw_diagram_toolbar(ui, large_schema, all_table_count, &tables, render_limit);
         ui.add_space(10.0);
 
         if search_mode && search_query.is_empty() {
@@ -76,12 +76,23 @@ pub(super) fn diagram_candidates(
     (candidate_count, tables)
 }
 
+pub(super) fn diagram_search_mode(large_schema: bool, show_all: bool) -> bool {
+    large_schema && !show_all
+}
+
+pub(super) fn diagram_show_all_after_search_edit(show_all: bool, search_query: &str, changed: bool) -> bool {
+    if changed && !search_query.trim().is_empty() {
+        false
+    } else {
+        show_all
+    }
+}
+
 impl DbProApp {
     fn draw_diagram_toolbar(
         &mut self,
         ui: &mut egui::Ui,
         large_schema: bool,
-        search_mode: bool,
         all_table_count: usize,
         tables: &[UiTableSummary],
         render_limit: usize,
@@ -116,7 +127,11 @@ impl DbProApp {
             }
             if large_schema {
                 ui.separator();
-                input(ui, &mut self.diagram_search, "Find table or column…", 220.0, self.theme);
+                let search_changed =
+                    input(ui, &mut self.diagram_search, "Find table or column…", 220.0, self.theme).changed();
+                self.diagram_show_all =
+                    diagram_show_all_after_search_edit(self.diagram_show_all, &self.diagram_search, search_changed);
+                let search_mode = diagram_search_mode(large_schema, self.diagram_show_all);
                 if search_mode {
                     if secondary_button_with_icon(
                         ui,
@@ -130,6 +145,9 @@ impl DbProApp {
                     }
                 } else {
                     badge(ui, "All tables", self.theme.warning, self.theme.text_inverse);
+                    if compact_button_with_icon(ui, Icon::Search, "Focus search", self.theme).clicked() {
+                        self.diagram_show_all = false;
+                    }
                 }
             }
         });

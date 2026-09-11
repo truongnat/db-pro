@@ -74,3 +74,12 @@
 - [x] Add regression coverage for row identity and boundary navigation.
 - [x] Capture native SQLite runtime evidence for cross-row and cross-column movement.
 - [x] Re-run the full Rust quality gates and clean-code diff scan after Wave 7 edits.
+
+## Wave 8 — ER search mode recovery
+
+- [x] Prove the large-schema “Show all” state made the visible search field inert.
+- [x] Make non-empty search input return the ER diagram to focused mode.
+- [x] Add a compact “Focus search” action for explicit recovery from “Show all”.
+- [x] Add regression coverage for large-schema search/show-all state transitions.
+- [x] Capture native SQLite runtime evidence with a 202-table fixture and a focused search result.
+- [x] Re-run the full Rust quality gates and clean-code diff scan after Wave 8 edits.

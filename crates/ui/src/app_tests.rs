@@ -1,4 +1,6 @@
-use super::diagram_view::{diagram_candidates, diagram_canvas_size};
+use super::diagram_view::{
+    diagram_candidates, diagram_canvas_size, diagram_search_mode, diagram_show_all_after_search_edit,
+};
 use super::*;
 
 fn result() -> UiQueryResult {
@@ -557,6 +559,15 @@ fn diagram_candidates_bound_clones_until_show_all_is_explicit() {
     assert_eq!(candidate_count, 1);
     assert_eq!(search_results.len(), 1);
     assert_eq!(search_results[0].name, "table_7");
+}
+
+#[test]
+fn diagram_search_mode_can_leave_explicit_show_all() {
+    assert!(!diagram_search_mode(true, true));
+    assert!(diagram_search_mode(true, false));
+    assert!(!diagram_search_mode(false, false));
+    assert!(!diagram_show_all_after_search_edit(true, "orders", true));
+    assert!(diagram_show_all_after_search_edit(true, "  ", true));
 }
 
 #[test]
