@@ -30,6 +30,10 @@ without changing the native UI or adding product features.
 6. Row updates allow primary-key columns even though the staged mutation contract
    identifies the target using the original primary key.
 7. External PostgreSQL backup commands have no configured timeout.
+8. Connection disconnect removes the registry entry before the connector has
+   successfully released the resource.
+9. Connection testing bypasses SSH even though actual connection establishment
+   uses the tunnel.
 
 ## Acceptance criteria
 
@@ -44,5 +48,7 @@ without changing the native UI or adding product features.
   process exits before readiness.
 - Row mutation rejects primary-key edits until the identity contract supports them.
 - PostgreSQL backup/restore commands stop at the connection timeout.
+- Failed disconnect preserves the active handle so cleanup can be retried.
+- Connection testing uses the same effective SSH-routed configuration as connect.
 - PostgreSQL and SQLite unit/integration coverage is updated independently where the
   behavior differs.

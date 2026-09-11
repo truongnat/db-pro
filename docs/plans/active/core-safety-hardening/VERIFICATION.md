@@ -6,10 +6,11 @@
 - `git diff --check` — PASS.
 - `cargo check --workspace` — PASS.
 - `cargo clippy --workspace --all-targets -- -D warnings` — PASS.
-- `cargo test -p db-pro-core -p db-pro-infrastructure` — PASS: 191 core unit
+- `cargo test -p db-pro-core -p db-pro-infrastructure` — PASS: 192 core unit
   tests, 40 infrastructure unit tests, 26 SQLite integration tests, 10 PostgreSQL
   integration tests ignored.
 - `cargo test -p db-pro-core backup_factory_receives_ssh_configuration` — PASS.
+- `cargo test -p db-pro-core --lib application::connection_service::tests::disconnect_failure_keeps_handle_for_retry -- --exact` — PASS.
 - External PostgreSQL command timeout regression — PASS on Unix via
   `external_command_timeout_returns_query_timeout`.
 - `cargo test --workspace` — PASS: all executed workspace tests passed; 10
@@ -17,6 +18,9 @@
 - Targeted regression `sqlite_query_timeout_interrupts_vm_and_actor_recovers` — PASS.
 - `cargo build --release --locked -p db-pro-core -p db-pro-infrastructure` — PASS.
 - `cargo check --workspace` after SSH readiness changes — PASS.
+- Full current gate — PASS: `cargo fmt --all -- --check`, `cargo clippy --workspace
+  --all-targets -- -D warnings`, `cargo test --workspace`, release build for
+  `db-pro-core` and `db-pro-infrastructure`, and `git diff --check`.
 
 Source-only security check:
 
@@ -35,4 +39,5 @@ SSH and PostgreSQL command execution remains provider/runtime evidence pending.
 ## Scope check
 
 - UI/native files: source diff contains no files under `crates/ui` or `crates/native-app`.
-- Release build: pending; it is outside this core-only hardening slice.
+- Release build: PASS for `db-pro-core` and `db-pro-infrastructure`; the native
+  application release gate is outside this core-only hardening slice.

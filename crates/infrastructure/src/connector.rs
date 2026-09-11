@@ -99,6 +99,29 @@ impl CompositeConnector {
         };
         SshTunnel::test(&tunnel_config).await
     }
+
+    async fn effective_config(
+        &self,
+        config: &ConnectionConfig,
+    ) -> Result<(ConnectionConfig, Option<SshTunnelHandle>), DbError> {
+        let Some(ssh_config) = config.ssh_tunnel.as_ref() else {
+            return Ok((config.clone(), None));
+        };
+
+        let tunnel_config = SshTunnelConfig {
+            host: ssh_config.host.clone(),
+            port: ssh_config.port,
+            user: ssh_config.user.clone(),
+            private_key_path: ssh_config.private_key_path.clone(),
+            password: ssh_config.password.clone(),
+        };
+        let tunnel = SshTunnel::start(&tunnel_config, &config.host, config.port).await?;
+
+        let mut effective_config = config.clone();
+        effective_config.host = "127.0.0.1".to_owned();
+        effective_config.port = tunnel.local_port();
+        Ok((effective_config, Some(tunnel)))
+    }
 }
 
 impl Default for CompositeConnector {
@@ -110,57 +133,15 @@ impl Default for CompositeConnector {
 #[async_trait]
 impl DbConnector for CompositeConnector {
     async fn connect(&self, config: &ConnectionConfig, password: &str) -> Result<ConnectionHandle, DbError> {
-        let mut effective_config = config.clone();
+        let (effective_config, tunnel) = self.effective_config(config).await?;
 
-        if let Some(ref ssh_config) = config.ssh_tunnel {
-            let tunnel_config = SshTunnelConfig {
-                host: ssh_config.host.clone(),
-                port: ssh_config.port,
-                user: ssh_config.user.clone(),
-                private_key_path: ssh_config.private_key_path.clone(),
-                password: ssh_config.password.clone(),
-            };
-            let tunnel = SshTunnel::start(&tunnel_config, &config.host, config.port).await?;
-            let local_port = tunnel.local_port();
-
-            effective_config.host = "127.0.0.1".to_string();
-            effective_config.port = local_port;
-
-            let (driver, inner_handle) = match config.driver {
-                DriverType::Postgres => {
-                    let h = self.postgres.connect(&effective_config, password).await?;
-                    (DriverType::Postgres, h)
-                }
-                DriverType::SQLite => {
-                    let h = self.sqlite.connect(&effective_config, password).await?;
-                    (DriverType::SQLite, h)
-                }
-            };
-
-            let id = self.next_id.fetch_add(1, Ordering::Relaxed);
-            self.handle_driver
-                .write()
-                .unwrap_or_else(|e| e.into_inner())
-                .insert(id, driver);
-            self.inner_handles
-                .write()
-                .unwrap_or_else(|e| e.into_inner())
-                .insert(id, inner_handle);
-            self.active_tunnels
-                .write()
-                .unwrap_or_else(|e| e.into_inner())
-                .insert(id, tunnel);
-
-            return Ok(ConnectionHandle(id));
-        }
-
-        let (driver, inner_handle) = match config.driver {
+        let (driver, inner_handle) = match effective_config.driver {
             DriverType::Postgres => {
-                let h = self.postgres.connect(config, password).await?;
+                let h = self.postgres.connect(&effective_config, password).await?;
                 (DriverType::Postgres, h)
             }
             DriverType::SQLite => {
-                let h = self.sqlite.connect(config, password).await?;
+                let h = self.sqlite.connect(&effective_config, password).await?;
                 (DriverType::SQLite, h)
             }
         };
@@ -174,6 +155,12 @@ impl DbConnector for CompositeConnector {
             .write()
             .unwrap_or_else(|e| e.into_inner())
             .insert(id, inner_handle);
+        if let Some(tunnel) = tunnel {
+            self.active_tunnels
+                .write()
+                .unwrap_or_else(|e| e.into_inner())
+                .insert(id, tunnel);
+        }
 
         Ok(ConnectionHandle(id))
     }
@@ -217,9 +204,10 @@ impl DbConnector for CompositeConnector {
     }
 
     async fn test_connection(&self, config: &ConnectionConfig, password: &str) -> Result<(), DbError> {
-        match config.driver {
-            DriverType::Postgres => self.postgres.test_connection(config, password).await,
-            DriverType::SQLite => self.sqlite.test_connection(config, password).await,
+        let (effective_config, _tunnel) = self.effective_config(config).await?;
+        match effective_config.driver {
+            DriverType::Postgres => self.postgres.test_connection(&effective_config, password).await,
+            DriverType::SQLite => self.sqlite.test_connection(&effective_config, password).await,
         }
     }
 

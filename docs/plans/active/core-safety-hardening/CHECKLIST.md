@@ -9,6 +9,8 @@
 - [x] Make SSH tunnel startup wait for a listening local forward and report early exit.
 - [x] Reject primary-key updates at the core mutation boundary.
 - [x] Add timeout coverage for external PostgreSQL backup commands.
+- [x] Preserve connection handles when disconnect fails.
+- [x] Reuse SSH-routed effective configuration for connection testing.
 - [x] Run formatting, check, clippy, targeted tests, and workspace tests.
 - [x] Self-review changed files and confirm no UI/native files changed.
 - [ ] Record PostgreSQL live evidence as pending unless an actual provider is exercised.

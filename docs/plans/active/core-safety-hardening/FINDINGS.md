@@ -76,3 +76,21 @@ The PostgreSQL backup engine used `Command::output()` without a deadline. A stuc
 
 Decision: reuse the validated connection timeout and kill the child process when the
 deadline expires.
+
+## P1 — Failed disconnect loses cleanup handle
+
+`ConnectionService::disconnect` previously unregistered the connection before
+calling the connector. If the connector failed to close the pool/actor, the registry
+forgot the handle and subsequent cleanup or retry became impossible.
+
+Decision: call the connector first and unregister only after successful resource
+release; retain the registry entry on failure.
+
+## P1 — SSH connection test bypasses tunnel
+
+`CompositeConnector::connect` rewrites the database endpoint to the local forwarded
+port, but `test_connection` passed the original remote endpoint directly to the
+provider connector.
+
+Decision: derive one effective configuration for both connect and test, keeping the
+tunnel alive until the test finishes.

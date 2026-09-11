@@ -166,10 +166,12 @@ impl ConnectionService {
     pub async fn disconnect(&self, id: &ConnectionId) -> Result<(), DbError> {
         let handle = self
             .registry
-            .unregister(id)
+            .get(id)
             .ok_or_else(|| DbError::NotFound(format!("connection {id} is not active")))?;
 
-        self.connector.disconnect(&handle).await
+        self.connector.disconnect(&handle).await?;
+        self.registry.unregister(id);
+        Ok(())
     }
 
     pub async fn test_connectivity(&self, config: &ConnectionConfig, password: &str) -> Result<(), DbError> {
@@ -383,6 +385,32 @@ mod tests {
 
         svc.disconnect(&id).await.unwrap();
         assert!(!registry.is_active(&id));
+    }
+
+    #[tokio::test]
+    async fn disconnect_failure_keeps_handle_for_retry() {
+        let id = ConnectionId::new();
+        let registry = Arc::new(ConnectionRegistry::new());
+        registry.register(id, ConnectionHandle(1));
+
+        let mut connector = MockDbConnector::new();
+        connector
+            .expect_disconnect()
+            .returning(|_| Err(DbError::ConnectionLost("close failed".into())));
+
+        let svc = ConnectionService::new(
+            Box::new(connector),
+            Box::new(MockConnectionRepository::new()),
+            Box::new(MockSecretStore::new()),
+            Arc::clone(&registry),
+        );
+
+        let error = svc
+            .disconnect(&id)
+            .await
+            .expect_err("connector failure must be returned");
+        assert!(matches!(error, DbError::ConnectionLost(_)));
+        assert_eq!(registry.get(&id), Some(ConnectionHandle(1)));
     }
 
     #[tokio::test]
