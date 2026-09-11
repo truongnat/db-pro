@@ -59,6 +59,8 @@
 - [x] Add table-count parsing regression coverage.
 - [x] Validate cross-connection counts and compute row-count differences safely.
 - [x] Add data-diff count/overflow regression coverage.
+- [x] Make schema diff set-based output deterministic.
+- [x] Add schema diff ordering regression coverage.
 - [x] Run formatting, check, clippy, targeted tests, and workspace tests.
 - [x] Self-review changed files and confirm no UI/native files changed.
 - [x] Record PostgreSQL live fixture evidence; SSH-tunnel and native UI runtime evidence remain explicitly pending.

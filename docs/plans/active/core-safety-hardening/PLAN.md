@@ -81,6 +81,8 @@ without changing the native UI or adding product features.
     misleading pagination state or a huge wrapped row count.
 33. Cross-connection data diff accepts negative counts and computes the signed
     difference without checked arithmetic.
+34. Schema diff collects set differences directly from `HashSet`, making the
+    order of tables, columns, and indexes unstable across runs.
 
 ## Acceptance criteria
 
@@ -133,5 +135,6 @@ without changing the native UI or adding product features.
   an explicit core error instead of silently defaulting or wrapping the value.
 - Cross-connection data diff rejects negative provider counts and computes the
   signed row-count difference with overflow checks.
+- Schema diff returns tables, columns, and indexes in deterministic sorted order.
 - PostgreSQL and SQLite unit/integration coverage is updated independently where the
   behavior differs.

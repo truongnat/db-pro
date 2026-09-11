@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::BTreeSet;
 
 use crate::domain::connection::ConnectionId;
 use crate::domain::cross_connection::{ColumnTypeMismatch, SchemaDiff, TableColumnDiff};
@@ -29,8 +29,8 @@ fn qualify_key(schema: &str, name: &str) -> String {
 }
 
 fn compare_introspect_results(source: &IntrospectResult, target: &IntrospectResult) -> SchemaDiff {
-    let source_tables: HashSet<String> = source.tables.iter().map(|t| qualify_key(&t.schema, &t.name)).collect();
-    let target_tables: HashSet<String> = target.tables.iter().map(|t| qualify_key(&t.schema, &t.name)).collect();
+    let source_tables: BTreeSet<String> = source.tables.iter().map(|t| qualify_key(&t.schema, &t.name)).collect();
+    let target_tables: BTreeSet<String> = target.tables.iter().map(|t| qualify_key(&t.schema, &t.name)).collect();
 
     let tables_only_in_source: Vec<String> = source_tables.difference(&target_tables).cloned().collect();
     let tables_only_in_target: Vec<String> = target_tables.difference(&source_tables).cloned().collect();
@@ -41,13 +41,13 @@ fn compare_introspect_results(source: &IntrospectResult, target: &IntrospectResu
     for qualified in common_tables {
         let (schema, table) = split_qualified(qualified);
 
-        let source_cols: HashSet<String> = source
+        let source_cols: BTreeSet<String> = source
             .columns
             .iter()
             .filter(|c| c.schema == schema && c.table_name == table)
             .map(|c| c.name.clone())
             .collect();
-        let target_cols: HashSet<String> = target
+        let target_cols: BTreeSet<String> = target
             .columns
             .iter()
             .filter(|c| c.schema == schema && c.table_name == table)
@@ -93,8 +93,8 @@ fn compare_introspect_results(source: &IntrospectResult, target: &IntrospectResu
         }
     }
 
-    let source_indexes: HashSet<String> = source.indexes.iter().map(|i| qualify_key(&i.schema, &i.name)).collect();
-    let target_indexes: HashSet<String> = target.indexes.iter().map(|i| qualify_key(&i.schema, &i.name)).collect();
+    let source_indexes: BTreeSet<String> = source.indexes.iter().map(|i| qualify_key(&i.schema, &i.name)).collect();
+    let target_indexes: BTreeSet<String> = target.indexes.iter().map(|i| qualify_key(&i.schema, &i.name)).collect();
 
     let indexes_only_in_source: Vec<String> = source_indexes.difference(&target_indexes).cloned().collect();
     let indexes_only_in_target: Vec<String> = target_indexes.difference(&source_indexes).cloned().collect();
@@ -118,7 +118,7 @@ fn split_qualified(qualified: &str) -> (&str, &str) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::schema::{Column, Table};
+    use crate::domain::schema::{Column, Index, Table};
 
     #[test]
     fn empty_schema_dotted_table_name_round_trips() {
@@ -152,5 +152,53 @@ mod tests {
         assert_eq!(diff.column_diffs[0].schema, "");
         assert_eq!(diff.column_diffs[0].table, "my.table");
         assert_eq!(diff.column_diffs[0].type_mismatches[0].column, "id");
+    }
+
+    #[test]
+    fn schema_diff_orders_set_based_results_deterministically() {
+        let mut source = IntrospectResult::empty();
+        source.tables = vec![
+            Table {
+                name: "users".into(),
+                schema: "public".into(),
+                row_count: None,
+            },
+            Table {
+                name: "accounts".into(),
+                schema: "public".into(),
+                row_count: None,
+            },
+        ];
+        source.indexes = vec![
+            Index {
+                name: "users_z_idx".into(),
+                columns: vec![],
+                unique: false,
+                table_name: "users".into(),
+                schema: "public".into(),
+            },
+            Index {
+                name: "users_a_idx".into(),
+                columns: vec![],
+                unique: false,
+                table_name: "users".into(),
+                schema: "public".into(),
+            },
+        ];
+
+        let mut target = IntrospectResult::empty();
+        target.tables.push(Table {
+            name: "orders".into(),
+            schema: "public".into(),
+            row_count: None,
+        });
+
+        let diff = compare_introspect_results(&source, &target);
+        assert_eq!(diff.tables_only_in_source, vec!["public.accounts", "public.users"]);
+        assert_eq!(diff.tables_only_in_target, vec!["public.orders"]);
+        assert_eq!(
+            diff.indexes_only_in_source,
+            vec!["public.users_a_idx", "public.users_z_idx"]
+        );
     }
 }

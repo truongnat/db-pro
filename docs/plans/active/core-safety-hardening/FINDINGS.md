@@ -382,3 +382,16 @@ unchecked arithmetic panic in debug/test builds.
 
 Decision: reject negative counts at extraction and use checked arithmetic for
 the signed difference, preserving the existing domain/API type.
+
+## P2 — Schema diff output order is nondeterministic
+
+`SchemaDiff` built its missing/common table, column, and index collections from
+`HashSet` differences and intersections. Hash iteration order is not a stable
+output contract, so identical schemas could produce differently ordered diff
+payloads between process runs.
+
+Impact: the comparison report and any consumer that renders or snapshots it can
+flicker, creating noisy reviews and making real changes harder to identify.
+
+Decision: use `BTreeSet` for set-based comparison so all emitted names and the
+common-table traversal are deterministically sorted.
