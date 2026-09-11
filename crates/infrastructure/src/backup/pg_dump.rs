@@ -1,4 +1,5 @@
 use std::process::Stdio;
+use std::time::Duration;
 use tokio::process::Command;
 
 use db_pro_core::domain::backup::{BackupFormat, BackupOptions, BackupResult, RestoreOptions};
@@ -35,6 +36,18 @@ impl PgDumpEngine {
         effective_config.host = "127.0.0.1".to_owned();
         effective_config.port = tunnel.local_port();
         Ok((effective_config, Some(tunnel)))
+    }
+
+    async fn run_command(
+        command: &mut Command,
+        timeout_ms: u64,
+        operation: &str,
+    ) -> Result<std::process::Output, DbError> {
+        command.kill_on_drop(true);
+        tokio::time::timeout(Duration::from_millis(timeout_ms), command.output())
+            .await
+            .map_err(|_| DbError::QueryTimeout { timeout_ms })?
+            .map_err(|error| DbError::Internal(format!("failed to run {operation}: {error}")))
     }
 }
 
@@ -73,10 +86,7 @@ impl BackupEngine for PgDumpEngine {
 
         cmd.stdin(Stdio::null());
 
-        let output = cmd
-            .output()
-            .await
-            .map_err(|e| DbError::Internal(format!("failed to run pg_dump: {e}")))?;
+        let output = Self::run_command(&mut cmd, config.query_timeout_ms, "pg_dump").await?;
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
@@ -95,43 +105,30 @@ impl BackupEngine for PgDumpEngine {
 
     async fn restore(&self, options: &RestoreOptions, password: &str) -> Result<(), DbError> {
         let (config, _tunnel) = self.effective_config().await?;
-        let output = match options.format {
+        let mut cmd = match options.format {
             BackupFormat::Plain => {
-                Command::new("psql")
-                    .arg("-h")
-                    .arg(&config.host)
-                    .arg("-p")
-                    .arg(config.port.to_string())
-                    .arg("-U")
-                    .arg(&config.username)
-                    .arg("-d")
-                    .arg(&config.database)
-                    .arg("-f")
-                    .arg(&options.input_path)
-                    .env("PGPASSWORD", password)
-                    .stdin(Stdio::null())
-                    .output()
-                    .await
+                let mut command = Command::new("psql");
+                command.arg("-f").arg(&options.input_path);
+                command
             }
             BackupFormat::Custom => {
-                Command::new("pg_restore")
-                    .arg("-h")
-                    .arg(&config.host)
-                    .arg("-p")
-                    .arg(config.port.to_string())
-                    .arg("-U")
-                    .arg(&config.username)
-                    .arg("-d")
-                    .arg(&config.database)
-                    .arg(&options.input_path)
-                    .env("PGPASSWORD", password)
-                    .stdin(Stdio::null())
-                    .output()
-                    .await
+                let mut command = Command::new("pg_restore");
+                command.arg(&options.input_path);
+                command
             }
         };
+        cmd.arg("-h")
+            .arg(&config.host)
+            .arg("-p")
+            .arg(config.port.to_string())
+            .arg("-U")
+            .arg(&config.username)
+            .arg("-d")
+            .arg(&config.database)
+            .env("PGPASSWORD", password)
+            .stdin(Stdio::null());
 
-        let output = output.map_err(|e| DbError::Internal(format!("failed to run restore: {e}")))?;
+        let output = Self::run_command(&mut cmd, config.query_timeout_ms, "PostgreSQL restore").await?;
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
@@ -139,5 +136,22 @@ impl BackupEngine for PgDumpEngine {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn external_command_timeout_returns_query_timeout() {
+        let mut command = Command::new("sh");
+        command.args(["-c", "sleep 1"]);
+
+        let error = PgDumpEngine::run_command(&mut command, 50, "test command")
+            .await
+            .expect_err("a sleeping command must exceed the test timeout");
+
+        assert!(matches!(error, DbError::QueryTimeout { timeout_ms: 50 }));
     }
 }

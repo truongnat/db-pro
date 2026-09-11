@@ -120,6 +120,11 @@ impl TableDataService {
         if pk_columns.is_empty() || pk_columns.len() != pk_values.len() {
             return Err(DbError::Validation("update requires a primary key".into()));
         }
+        if columns.iter().any(|column| pk_columns.iter().any(|pk| pk == column)) {
+            return Err(DbError::Validation(
+                "updating primary-key columns is not supported by the row mutation contract".into(),
+            ));
+        }
         let policy = self.safety_policy_for(connection_id).await?;
         if policy.read_only {
             return Err(DbError::QueryFailed(
@@ -419,6 +424,26 @@ mod tests {
             )
             .await;
         assert!(matches!(result, Err(DbError::Validation(_))));
+    }
+
+    #[tokio::test]
+    async fn update_row_rejects_primary_key_column() {
+        let (conn_id, registry) = setup();
+        let connector = MockDbConnector::new();
+        let svc = TableDataService::new(Box::new(connector), registry, Box::new(mock_connections()));
+        let result = svc
+            .update_row(
+                &conn_id,
+                "public",
+                "users",
+                &["id".into()],
+                &[CellValue::Int64(2)],
+                &["id".into()],
+                &[CellValue::Int64(1)],
+            )
+            .await;
+
+        assert!(matches!(result, Err(DbError::Validation(message)) if message.contains("primary-key")));
     }
 
     #[tokio::test]

@@ -27,6 +27,9 @@ without changing the native UI or adding product features.
 4. SSH commands disable host-key verification.
 5. PostgreSQL backup/restore factories discard `ssh_tunnel`, so external backup
    commands bypass the connection's configured tunnel.
+6. Row updates allow primary-key columns even though the staged mutation contract
+   identifies the target using the original primary key.
+7. External PostgreSQL backup commands have no configured timeout.
 
 ## Acceptance criteria
 
@@ -39,5 +42,7 @@ without changing the native UI or adding product features.
   external commands through the configured SSH tunnel.
 - SSH tunnel startup confirms the local forward is listening and fails if the SSH
   process exits before readiness.
+- Row mutation rejects primary-key edits until the identity contract supports them.
+- PostgreSQL backup/restore commands stop at the connection timeout.
 - PostgreSQL and SQLite unit/integration coverage is updated independently where the
   behavior differs.

@@ -6,10 +6,12 @@
 - `git diff --check` — PASS.
 - `cargo check --workspace` — PASS.
 - `cargo clippy --workspace --all-targets -- -D warnings` — PASS.
-- `cargo test -p db-pro-core -p db-pro-infrastructure` — PASS: 190 core unit
-  tests, 39 infrastructure unit tests, 26 SQLite integration tests, 10 PostgreSQL
+- `cargo test -p db-pro-core -p db-pro-infrastructure` — PASS: 191 core unit
+  tests, 40 infrastructure unit tests, 26 SQLite integration tests, 10 PostgreSQL
   integration tests ignored.
 - `cargo test -p db-pro-core backup_factory_receives_ssh_configuration` — PASS.
+- External PostgreSQL command timeout regression — PASS on Unix via
+  `external_command_timeout_returns_query_timeout`.
 - `cargo test --workspace` — PASS: all executed workspace tests passed; 10
   PostgreSQL integration tests remain ignored.
 - Targeted regression `sqlite_query_timeout_interrupts_vm_and_actor_recovers` — PASS.

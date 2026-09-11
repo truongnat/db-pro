@@ -59,3 +59,20 @@ the local forward was listening, while an early SSH process failure was not surf
 
 Decision: require `ExitOnForwardFailure=yes`, poll the local forward with a bounded
 deadline, and surface early process exit as a connection error.
+
+## P1 — Primary-key edit conflicts with row identity contract
+
+`TableDataService::update_row` previously accepted a primary-key column in the
+updated column list. The caller identifies the row with the original primary key;
+when multiple staged edits are applied, a later edit can still target the old key.
+
+Decision: reject primary-key updates at the core boundary until an explicit identity
+rewrite/concurrency contract is implemented.
+
+## P2 — External backup command has no timeout
+
+The PostgreSQL backup engine used `Command::output()` without a deadline. A stuck
+`pg_dump`, `psql`, or `pg_restore` could keep a runtime operation pending forever.
+
+Decision: reuse the validated connection timeout and kill the child process when the
+deadline expires.
