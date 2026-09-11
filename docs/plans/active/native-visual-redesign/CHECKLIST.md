@@ -19,3 +19,12 @@
 - [ ] Existing PostgreSQL/SQLite runtime contracts remain unchanged
 - [ ] Runtime evidence is recorded in `VERIFICATION.md`
 - [ ] External review findings are resolved or explicitly deferred
+
+## Wave 2 — productive surface polish
+
+- [x] Keep the native window maximized by default with a safe inner-size fallback.
+- [x] Paint the ER empty state with the same grid language as the populated canvas.
+- [x] Wrap Agent context badges instead of clipping them in a horizontal strip.
+- [x] Center the Transfers and Monitor placeholder badge at its intrinsic width.
+- [x] Re-run Rust quality gates after Wave 2 edits.
+- [x] Re-capture native runtime evidence for ER, Agent, Transfers and Monitor.

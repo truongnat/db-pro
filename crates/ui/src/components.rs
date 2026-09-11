@@ -339,13 +339,11 @@ pub fn compact_icon_button_enabled(ui: &mut Ui, icon: Icon, enabled: bool, theme
 }
 
 pub fn badge(ui: &mut Ui, text: &str, fill: Color32, foreground: Color32) {
-    Frame {
-        fill,
-        inner_margin: Margin::symmetric(6.0, 2.0),
-        rounding: Rounding::same(4.0),
-        ..Default::default()
-    }
-    .show(ui, |ui| {
-        ui.label(RichText::new(text).size(10.0).strong().color(foreground));
-    });
+    let galley = ui
+        .painter()
+        .layout_no_wrap(text.to_owned(), egui::FontId::proportional(10.0), foreground);
+    let size = galley.size() + egui::vec2(12.0, 4.0);
+    let (rect, _) = ui.allocate_exact_size(size, egui::Sense::hover());
+    ui.painter().rect_filled(rect, Rounding::same(4.0), fill);
+    ui.painter().galley(rect.min + egui::vec2(6.0, 2.0), galley, foreground);
 }

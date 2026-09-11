@@ -35,3 +35,20 @@ regression follow-up remain open. The baseline screenshot and source evidence ar
 |---|---|---|---|
 | PostgreSQL | None; presentation-only shell | Existing native/runtime suites | Existing walkthrough remains valid; rerun if connection interaction changes |
 | SQLite | None; presentation-only shell | Existing native/runtime suites | Existing walkthrough remains valid; rerun if connection interaction changes |
+
+## Wave 2 evidence
+
+| Check | Result | Evidence |
+|---|---|---|
+| `cargo fmt --all -- --check` | PASS | 2026-09-11, after Wave 2 edits |
+| `cargo check --workspace --offline` | PASS | 2026-09-11 |
+| `cargo clippy --workspace --offline --all-targets -- -D warnings` | PASS | 2026-09-11 |
+| `cargo test --workspace --offline` | PASS | 2026-09-11; 186 core, 39 infrastructure, 25 SQLite integration, 54 UI, 21 Tauri, 4 runtime, 1 native; 10 PostgreSQL live tests ignored without fixture env |
+| `bash .skills/clean-code/scripts/clean-code-scan.sh --diff` | PASS | 2026-09-11; 33 checks passed, 0 warnings/fails; macOS xargs compatibility warnings are emitted by the existing script |
+| Native ER empty state | PASS | Orca capture `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/0c439307-0f22-4749-8151-e9d9ddade3c9-screenshot.png`; grid is visible behind the empty state |
+| Native Agent context | PASS | Orca capture `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/81be016b-5cb5-47f7-a543-b434bd652deb-screenshot.png`; Preview, provider, connection, driver, table count and schema badges remain legible |
+| Native Transfers placeholder | PASS | Orca capture `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/6a932db9-1e89-4a2e-b712-daeb8830603e-screenshot.png`; status badge stays compact |
+| Native Monitor placeholder | PASS | Orca capture `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/fbcd36fb-b737-46d9-8ce2-0c232d35bb36-screenshot.png`; status badge stays compact |
+
+The overall plan remains `IMPLEMENTING`: query/result grid polish, keyboard/DPI/clipboard/file-picker
+smoke coverage, provider runtime walkthroughs and independent review are still open.

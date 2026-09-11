@@ -150,6 +150,7 @@ impl DbProApp {
         }
         .show(ui, |ui| {
             ui.set_min_size(canvas_size);
+            paint_diagram_grid(ui.painter(), ui.max_rect(), 1.0, self.theme);
             ui.vertical_centered(|ui| {
                 let top_space = if no_matches { 56.0 } else { 40.0 };
                 ui.add_space(top_space);

@@ -29,11 +29,20 @@ behavior.
 - integrated tab strip with quiet inactive tabs and a restrained active indicator;
 - native empty/welcome composition that makes the workspace intentional without a database.
 
+### Wave 2 — productive surface polish (current change)
+
+- keep the native window maximized by default, with the existing inner-size fallback;
+- make the ER empty state read as the same canvas as a populated relationship map;
+- wrap Agent context badges so narrow panels do not clip the active database context;
+- keep Transfers and Monitor placeholders compact and intentional instead of rendering a full-width
+  unfinished-state stripe.
+
 ### Follow-up waves
 
 - query/editor toolbar reduction and editor-first layout;
 - data-grid/status-bar visual hierarchy;
-- ER canvas empty state and native graph controls;
+- query/result grid/status-bar polish;
+- ER canvas interaction controls;
 - native runtime screenshots at all required dimensions and keyboard/DPI/clipboard/file-picker
   smoke coverage.
 
@@ -55,3 +64,12 @@ behavior.
 - Rust fmt/check/clippy/tests pass for the changed workspace.
 - Runtime screenshots are captured at 1280×800 and 1440×900 before Wave 1 can leave
   `RUNTIME_VERIFY`.
+
+## Acceptance for Wave 2
+
+- The default native launch requests a maximized window and still has a usable 1280×800 inner-size
+  fallback when the host does not honor maximization.
+- Empty ER, Agent context, Transfers and Monitor surfaces remain legible at the current narrow
+  native panel width and at the captured wide viewport.
+- Rust fmt/check/clippy/tests pass for the changed workspace and fresh runtime screenshots confirm
+  the corrected surfaces.
