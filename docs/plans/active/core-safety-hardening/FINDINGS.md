@@ -290,3 +290,31 @@ restore failed authentication or used a stale credential.
 
 Decision: load the full connection record for backup and restore, resolve its
 persisted `secret_ref`, and retain the default key only as a legacy fallback.
+
+## P2 — SSH password authentication is ignored by Test SSH Tunnel
+
+`SshTunnel::start` invokes `sshpass -e ssh` when the tunnel password is present,
+but `SshTunnel::test` always invokes `ssh` directly and never supplies that
+password. The connectivity test therefore exercises a different authentication
+path from the real tunnel startup.
+
+Impact: valid password-authenticated tunnels can be reported as failed and the
+user cannot verify the same SSH configuration that connect/backup will use.
+
+Decision: share the authentication-mode selection with the test command and keep
+the password in `SSHPASS`, outside process arguments.
+
+## P1 — SSH tunnel passwords can be persisted in connection metadata
+
+`SshTunnelConfig.password` was embedded in `ConnectionConfig`, and the metadata
+repository serializes the complete `Connection` record to `meta.db`. A saved
+connection could therefore contain the SSH password in plaintext, while the
+derived `Debug` implementation could also expose it in diagnostics or logs.
+
+Impact: a local metadata copy, API serialization path, or debug log could
+disclose credentials used to reach the database network.
+
+Decision: keep legacy metadata readable but make the password write-only for
+serialization, redact it from `Debug`, store it under the connection's
+`SecretStore` SSH key, hydrate it only for connect/test/backup/restore, and
+compensate secret changes on lifecycle failures.

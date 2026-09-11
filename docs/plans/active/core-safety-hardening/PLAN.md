@@ -65,6 +65,11 @@ without changing the native UI or adding product features.
     rollback has completed, allowing the next operation to race cleanup.
 26. Backup and restore resolve only the default password key and discard a
     persisted custom `secret_ref`.
+27. SSH Test Tunnel ignores password authentication even though tunnel startup
+    supports it through `sshpass`.
+28. `SshTunnelConfig.password` is part of the serialized connection metadata,
+    allowing SSH credentials to be persisted in `meta.db` and exposed through
+    ordinary debug/serialization paths.
 
 ## Acceptance criteria
 
@@ -100,5 +105,11 @@ without changing the native UI or adding product features.
   for rollback completion after timeout interruption.
 - Backup and restore resolve the persisted connection secret reference, with a
   default-key fallback only for legacy records that have no reference.
+- Test SSH Tunnel uses the same key/password authentication mode as tunnel
+  startup without exposing the password in process arguments.
+- SSH tunnel passwords are stored separately through `SecretStore`, omitted
+  from metadata and debug output, and hydrated only for provider/backup calls;
+  create/update/delete lifecycle failures restore both database and SSH secret
+  state.
 - PostgreSQL and SQLite unit/integration coverage is updated independently where the
   behavior differs.

@@ -6,9 +6,6 @@
 - `git diff --check` — PASS.
 - `cargo check --workspace` — PASS.
 - `cargo clippy --workspace --all-targets -- -D warnings` — PASS.
-- `cargo test -p db-pro-core -p db-pro-infrastructure` — PASS: 208 core unit
-  tests, 46 infrastructure unit tests, 28 SQLite integration tests, 14 PostgreSQL
-  integration tests ignored.
 - `cargo test -p db-pro-core backup_factory_receives_ssh_configuration` — PASS.
 - `cargo test -p db-pro-core --lib application::connection_service::tests::disconnect_failure_keeps_handle_for_retry -- --exact` — PASS.
 - `cargo test -p db-pro-infrastructure postgres::connector::tests::postgres_operation_timeout_returns_query_timeout -- --exact` — PASS.
@@ -17,7 +14,7 @@
   covered by the live fixture below.
 - `cargo test -p db-pro-infrastructure postgres::user_manager::tests` — PASS: 3
   identifier/privilege validation tests.
-- `cargo test -p db-pro-core application::connection_service::tests` — PASS: 22
+- `cargo test -p db-pro-core application::connection_service::tests` — PASS: 27
   connection lifecycle/update/delete/connectivity/duplicate-cleanup tests.
 - `cargo test -p db-pro-core domain::safety::tests` — PASS: 25 safety classifier
   and policy tests.
@@ -31,12 +28,16 @@
   tests, including no-overwrite publish behavior.
 - `cargo test -p db-pro-core backup_uses_persisted_custom_secret_reference -- --nocapture` — PASS.
 - `cargo test -p db-pro-core restore_uses_persisted_custom_secret_reference -- --nocapture` — PASS.
+- `cargo test -p db-pro-infrastructure ssh::tunnel::tests -- --nocapture` — PASS: 2
+  command-construction tests for key and password authentication modes.
+- `cargo test -p db-pro-core --no-fail-fast` — PASS: 214 core unit tests,
+  including SSH metadata redaction and connection lifecycle hydration coverage.
 - `cargo test -p db-pro-core application::sql_policy::tests` — PASS: 9 lexical
   boundary and statement-splitting tests.
 - `DATABASE_URL=postgres://dbpro:dbpro_test@127.0.0.1:15434/dbpro_fixture cargo test -p db-pro-infrastructure --test pg_integration --offline -- --ignored` — PASS: 14/14 against an isolated temporary `postgres:18.2` fixture; the container was removed after the run.
 - External PostgreSQL command timeout regression — PASS on Unix via
   `external_command_timeout_returns_query_timeout`.
-- `cargo test --workspace` — PASS: 208 core unit, 28 SQLite integration, 46
+- `cargo test --workspace` — PASS: 214 core unit, 28 SQLite integration, 48
   infrastructure unit, 14 PostgreSQL integration tests ignored, plus all runtime,
   native, UI, schema regression, and doc tests passed.
 - Targeted regression `sqlite_query_timeout_interrupts_vm_and_actor_recovers` — PASS.

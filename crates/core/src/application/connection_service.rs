@@ -35,6 +35,20 @@ impl ConnectionService {
         format!("connection/{}/password", id)
     }
 
+    fn ssh_secret_key(id: &ConnectionId) -> String {
+        format!("connection/{}/ssh_password", id)
+    }
+
+    async fn hydrate_ssh_password(&self, id: &ConnectionId, config: &mut ConnectionConfig) -> Result<(), DbError> {
+        let Some(ssh_tunnel) = config.ssh_tunnel.as_mut() else {
+            return Ok(());
+        };
+        if ssh_tunnel.password.is_none() {
+            ssh_tunnel.password = self.secrets.retrieve_secret(&Self::ssh_secret_key(id)).await?;
+        }
+        Ok(())
+    }
+
     pub async fn create(&self, config: ConnectionConfig, password: &str) -> Result<Connection, DbError> {
         if let Err(errors) = config.validate() {
             let msg = errors
@@ -45,14 +59,36 @@ impl ConnectionService {
             return Err(DbError::Validation(msg));
         }
 
+        let ssh_password = config
+            .ssh_tunnel
+            .as_ref()
+            .and_then(|ssh_tunnel| ssh_tunnel.password.clone());
         let mut connection = Connection::new(config);
         let key = Self::secret_key(&connection.id);
         self.secrets.store_secret(&key, password).await?;
         connection = connection.with_secret_ref(key.clone());
 
+        let ssh_key = Self::ssh_secret_key(&connection.id);
+        if let Some(ssh_password) = ssh_password.as_deref() {
+            if let Err(error) = self.secrets.store_secret(&ssh_key, ssh_password).await {
+                if let Err(cleanup_error) = self.secrets.delete_secret(&key).await {
+                    tracing::error!("failed to clean up database secret after SSH secret failure: {cleanup_error}");
+                }
+                return Err(error);
+            }
+        }
+        if let Some(ssh_tunnel) = connection.config.ssh_tunnel.as_mut() {
+            ssh_tunnel.password = None;
+        }
+
         if let Err(e) = self.repo.save(&connection).await {
             if let Err(cleanup_err) = self.secrets.delete_secret(&key).await {
                 tracing::error!("failed to clean up orphan secret after repo save failure: {cleanup_err}");
+            }
+            if ssh_password.is_some() {
+                if let Err(cleanup_err) = self.secrets.delete_secret(&ssh_key).await {
+                    tracing::error!("failed to clean up orphan SSH secret after repo save failure: {cleanup_err}");
+                }
             }
             return Err(e);
         }
@@ -90,6 +126,27 @@ impl ConnectionService {
             .ok_or_else(|| DbError::NotFound(format!("connection {id}")))?;
         let previous = connection.clone();
 
+        let previous_ssh_password = previous
+            .config
+            .ssh_tunnel
+            .as_ref()
+            .and_then(|ssh_tunnel| ssh_tunnel.password.clone());
+        let new_ssh_password = config
+            .ssh_tunnel
+            .as_ref()
+            .and_then(|ssh_tunnel| ssh_tunnel.password.clone());
+        let previous_has_ssh = previous.config.ssh_tunnel.is_some();
+        let new_has_ssh = config.ssh_tunnel.is_some();
+        let migrate_legacy_ssh_password = new_has_ssh && new_ssh_password.is_none() && previous_ssh_password.is_some();
+        let ssh_secret_changed =
+            (!new_has_ssh && previous_has_ssh) || new_ssh_password.is_some() || migrate_legacy_ssh_password;
+        let ssh_key = Self::ssh_secret_key(id);
+        let previous_ssh_secret = if ssh_secret_changed && previous_has_ssh {
+            self.secrets.retrieve_secret(&ssh_key).await?
+        } else {
+            None
+        };
+
         connection.config = config;
         connection.updated_at = chrono::Utc::now();
 
@@ -108,9 +165,37 @@ impl ConnectionService {
             connection.secret_ref = Some(key.clone());
         }
 
+        let ssh_mutation = if let Some(ssh_password) = new_ssh_password.as_deref() {
+            self.secrets.store_secret(&ssh_key, ssh_password).await
+        } else if migrate_legacy_ssh_password {
+            match previous_ssh_password.as_deref() {
+                Some(ssh_password) => self.secrets.store_secret(&ssh_key, ssh_password).await,
+                None => Ok(()),
+            }
+        } else if !new_has_ssh && previous_has_ssh {
+            self.secrets.delete_secret(&ssh_key).await
+        } else {
+            Ok(())
+        };
+        if let Err(error) = ssh_mutation {
+            if password.is_some() {
+                self.restore_secret(&key, old_password.as_deref()).await;
+            }
+            if ssh_secret_changed {
+                self.restore_secret(&ssh_key, previous_ssh_secret.as_deref()).await;
+            }
+            return Err(error);
+        }
+        if let Some(ssh_tunnel) = connection.config.ssh_tunnel.as_mut() {
+            ssh_tunnel.password = None;
+        }
+
         if let Err(e) = self.repo.save(&connection).await {
             if password.is_some() {
                 self.restore_secret(&key, old_password.as_deref()).await;
+            }
+            if ssh_secret_changed {
+                self.restore_secret(&ssh_key, previous_ssh_secret.as_deref()).await;
             }
             return Err(e);
         }
@@ -122,6 +207,9 @@ impl ConnectionService {
                 }
                 if password.is_some() {
                     self.restore_secret(&key, old_password.as_deref()).await;
+                }
+                if ssh_secret_changed {
+                    self.restore_secret(&ssh_key, previous_ssh_secret.as_deref()).await;
                 }
                 return Err(error);
             }
@@ -155,13 +243,32 @@ impl ConnectionService {
         } else {
             None
         };
+        let ssh_secret = if connection.as_ref().is_some_and(|conn| conn.config.ssh_tunnel.is_some()) {
+            Some((
+                Self::ssh_secret_key(id),
+                self.secrets.retrieve_secret(&Self::ssh_secret_key(id)).await?,
+            ))
+        } else {
+            None
+        };
 
         if let Some((key, _)) = secret.as_ref() {
             self.secrets.delete_secret(key).await?;
         }
+        if let Some((key, _)) = ssh_secret.as_ref() {
+            if let Err(error) = self.secrets.delete_secret(key).await {
+                if let Some((db_key, previous_password)) = secret.as_ref() {
+                    self.restore_secret(db_key, previous_password.as_deref()).await;
+                }
+                return Err(error);
+            }
+        }
 
         if let Err(error) = self.repo.delete(id).await {
             if let Some((key, previous_password)) = secret {
+                self.restore_secret(&key, previous_password.as_deref()).await;
+            }
+            if let Some((key, previous_password)) = ssh_secret {
                 self.restore_secret(&key, previous_password.as_deref()).await;
             }
             return Err(error);
@@ -192,7 +299,9 @@ impl ConnectionService {
             .await?
             .ok_or_else(|| DbError::AuthFailed("password not found in secret store".into()))?;
 
-        let handle = self.connector.connect(&connection.config, &password).await?;
+        let mut config = connection.config.clone();
+        self.hydrate_ssh_password(id, &mut config).await?;
+        let handle = self.connector.connect(&config, &password).await?;
 
         match self.registry.register_or_get(*id, handle) {
             RegisterResult::Inserted => Ok(handle),
@@ -272,6 +381,8 @@ impl ConnectionService {
         config: &ConnectionConfig,
         password: &str,
     ) -> Result<(), DbError> {
+        let mut config = config.clone();
+        self.hydrate_ssh_password(id, &mut config).await?;
         let resolved = if password.is_empty() {
             let secret_key = self
                 .repo
@@ -286,7 +397,7 @@ impl ConnectionService {
         } else {
             password.to_string()
         };
-        self.connector.test_connection(config, &resolved).await
+        self.connector.test_connection(&config, &resolved).await
     }
 }
 
@@ -312,6 +423,16 @@ mod tests {
             tags: vec![],
             group: None,
             readonly: false,
+        }
+    }
+
+    fn ssh_tunnel() -> crate::domain::connection::SshTunnelConfig {
+        crate::domain::connection::SshTunnelConfig {
+            host: "bastion.example".into(),
+            port: 22,
+            user: "deploy".into(),
+            private_key_path: "/tmp/key".into(),
+            password: None,
         }
     }
 
@@ -342,6 +463,55 @@ mod tests {
         assert!(result.is_ok());
         let conn = result.unwrap();
         assert!(conn.secret_ref.is_some());
+    }
+
+    #[tokio::test]
+    async fn create_stores_ssh_password_separately_and_sanitizes_metadata() {
+        let mut config = test_config();
+        config.ssh_tunnel = Some(crate::domain::connection::SshTunnelConfig {
+            password: Some("ssh-secret".into()),
+            ..ssh_tunnel()
+        });
+        let saved = Arc::new(std::sync::Mutex::new(None));
+        let mut repo = MockConnectionRepository::new();
+        repo.expect_save().returning({
+            let saved = Arc::clone(&saved);
+            move |connection| {
+                *saved.lock().expect("saved connection lock") = Some(connection.clone());
+                Ok(())
+            }
+        });
+
+        let mut secrets = MockSecretStore::new();
+        secrets.expect_store_secret().times(2).returning(|key, value| {
+            if key.ends_with("/password") {
+                assert_eq!(value, "pass");
+            } else {
+                assert!(key.ends_with("/ssh_password"));
+                assert_eq!(value, "ssh-secret");
+            }
+            Ok(())
+        });
+
+        let svc = build_service(MockDbConnector::new(), repo, secrets);
+        let connection = svc.create(config, "pass").await.expect("create should succeed");
+        assert_eq!(
+            connection
+                .config
+                .ssh_tunnel
+                .as_ref()
+                .and_then(|ssh| ssh.password.as_deref()),
+            None
+        );
+        assert_eq!(
+            saved
+                .lock()
+                .expect("saved connection lock")
+                .as_ref()
+                .and_then(|connection| connection.config.ssh_tunnel.as_ref())
+                .and_then(|ssh| ssh.password.as_deref()),
+            None
+        );
     }
 
     #[tokio::test]
@@ -395,6 +565,40 @@ mod tests {
         let handle = svc.connect(&id).await.unwrap();
         assert_eq!(handle, ConnectionHandle(1));
         assert!(registry.is_active(&id));
+    }
+
+    #[tokio::test]
+    async fn connect_hydrates_ssh_password_from_secret_store() {
+        let id = ConnectionId::new();
+        let mut config = test_config();
+        config.ssh_tunnel = Some(ssh_tunnel());
+        let conn = Connection::new(config).with_secret_ref("db-key".into());
+
+        let mut repo = MockConnectionRepository::new();
+        repo.expect_get().returning(move |_| Ok(Some(conn.clone())));
+
+        let mut secrets = MockSecretStore::new();
+        secrets.expect_retrieve_secret().times(2).returning(|key| {
+            if key == "db-key" {
+                Ok(Some("db-password".into()))
+            } else {
+                assert!(key.ends_with("/ssh_password"));
+                Ok(Some("ssh-password".into()))
+            }
+        });
+
+        let mut connector = MockDbConnector::new();
+        connector.expect_connect().returning(|config, password| {
+            assert_eq!(password, "db-password");
+            assert_eq!(
+                config.ssh_tunnel.as_ref().and_then(|ssh| ssh.password.as_deref()),
+                Some("ssh-password")
+            );
+            Ok(ConnectionHandle(1))
+        });
+
+        let svc = build_service(connector, repo, secrets);
+        svc.connect(&id).await.expect("connect should hydrate SSH credentials");
     }
 
     #[tokio::test]
@@ -660,6 +864,34 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_connectivity_with_secret_hydrates_ssh_password() {
+        let id = ConnectionId::new();
+        let mut config = test_config();
+        config.ssh_tunnel = Some(ssh_tunnel());
+
+        let mut connector = MockDbConnector::new();
+        connector.expect_test_connection().returning(|config, password| {
+            assert_eq!(password, "typed-pass");
+            assert_eq!(
+                config.ssh_tunnel.as_ref().and_then(|ssh| ssh.password.as_deref()),
+                Some("ssh-password")
+            );
+            Ok(())
+        });
+
+        let mut secrets = MockSecretStore::new();
+        secrets.expect_retrieve_secret().returning(|key| {
+            assert!(key.ends_with("/ssh_password"));
+            Ok(Some("ssh-password".into()))
+        });
+
+        let svc = build_service(connector, MockConnectionRepository::new(), secrets);
+        svc.test_connectivity_with_secret(&id, &config, "typed-pass")
+            .await
+            .expect("test connectivity should hydrate SSH credentials");
+    }
+
+    #[tokio::test]
     async fn delete_active_disconnects_first() {
         let id = ConnectionId::new();
         let conn = Connection::new(test_config()).with_secret_ref("key".into());
@@ -719,6 +951,38 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn delete_removes_ssh_secret_with_connection() {
+        let id = ConnectionId::new();
+        let mut config = test_config();
+        config.ssh_tunnel = Some(ssh_tunnel());
+        let conn = Connection::new(config).with_secret_ref("db-key".into());
+
+        let mut repo = MockConnectionRepository::new();
+        repo.expect_get().returning({
+            let conn = conn.clone();
+            move |_| Ok(Some(conn.clone()))
+        });
+        repo.expect_delete().returning(|_| Ok(()));
+
+        let mut secrets = MockSecretStore::new();
+        secrets.expect_retrieve_secret().times(2).returning(|key| {
+            if key == "db-key" {
+                Ok(Some("db-password".into()))
+            } else {
+                assert!(key.ends_with("/ssh_password"));
+                Ok(Some("ssh-password".into()))
+            }
+        });
+        secrets.expect_delete_secret().times(2).returning(|key| {
+            assert!(key == "db-key" || key.ends_with("/ssh_password"));
+            Ok(())
+        });
+
+        let svc = build_service(MockDbConnector::new(), repo, secrets);
+        svc.delete(&id).await.expect("delete should remove both secrets");
+    }
+
+    #[tokio::test]
     async fn create_cleans_up_secret_on_repo_failure() {
         let config = test_config();
 
@@ -774,6 +1038,56 @@ mod tests {
         assert_eq!(
             saved.as_ref().and_then(|connection| connection.secret_ref.as_deref()),
             Some(key.as_str())
+        );
+    }
+
+    #[tokio::test]
+    async fn update_stores_new_ssh_password_and_sanitizes_metadata() {
+        let id = ConnectionId::new();
+        let previous = Connection::new(test_config());
+        let saved = Arc::new(std::sync::Mutex::new(None));
+        let mut repo = MockConnectionRepository::new();
+        repo.expect_get().returning(move |_| Ok(Some(previous.clone())));
+        repo.expect_save().returning({
+            let saved = Arc::clone(&saved);
+            move |connection| {
+                *saved.lock().expect("saved connection lock") = Some(connection.clone());
+                Ok(())
+            }
+        });
+
+        let mut config = test_config();
+        config.ssh_tunnel = Some(crate::domain::connection::SshTunnelConfig {
+            password: Some("new-ssh-password".into()),
+            ..ssh_tunnel()
+        });
+        let mut secrets = MockSecretStore::new();
+        secrets.expect_retrieve_secret().returning(|key| {
+            assert!(key.ends_with("/password"));
+            Ok(None)
+        });
+        secrets.expect_store_secret().times(2).returning(|key, value| {
+            if key.ends_with("/password") {
+                assert_eq!(value, "new-db-password");
+            } else {
+                assert!(key.ends_with("/ssh_password"));
+                assert_eq!(value, "new-ssh-password");
+            }
+            Ok(())
+        });
+
+        let svc = build_service(MockDbConnector::new(), repo, secrets);
+        svc.update(&id, config, Some("new-db-password"))
+            .await
+            .expect("update should succeed");
+        assert_eq!(
+            saved
+                .lock()
+                .expect("saved connection lock")
+                .as_ref()
+                .and_then(|connection| connection.config.ssh_tunnel.as_ref())
+                .and_then(|ssh| ssh.password.as_deref()),
+            None
         );
     }
 

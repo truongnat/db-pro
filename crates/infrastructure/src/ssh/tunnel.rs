@@ -102,22 +102,7 @@ impl SshTunnel {
     }
 
     pub async fn test(config: &SshTunnelConfig) -> Result<(), DbError> {
-        let ssh_target = format!("{}@{}", config.user, config.host);
-
-        let mut cmd = Command::new("ssh");
-        cmd.args([
-            "-o",
-            "ConnectTimeout=10",
-            "-o",
-            "BatchMode=yes",
-            "-i",
-            &config.private_key_path,
-            "-p",
-            &config.port.to_string(),
-            &ssh_target,
-            "echo",
-            "ok",
-        ]);
+        let mut cmd = Self::build_test_command(config);
 
         let output = cmd
             .output()
@@ -130,6 +115,31 @@ impl SshTunnel {
             let stderr = String::from_utf8_lossy(&output.stderr);
             Err(DbError::ConnectionFailed(format!("SSH tunnel test failed: {stderr}")))
         }
+    }
+
+    fn build_test_command(config: &SshTunnelConfig) -> Command {
+        let ssh_target = format!("{}@{}", config.user, config.host);
+        let mut cmd = if let Some(password) = config.password.as_deref() {
+            let mut command = Command::new("sshpass");
+            command.args(["-e", "ssh"]).env("SSHPASS", password);
+            command
+        } else {
+            Command::new("ssh")
+        };
+        cmd.args(["-o", "ConnectTimeout=10"]);
+        if config.password.is_none() {
+            cmd.args(["-o", "BatchMode=yes"]);
+        }
+        cmd.args([
+            "-i",
+            &config.private_key_path,
+            "-p",
+            &config.port.to_string(),
+            &ssh_target,
+            "echo",
+            "ok",
+        ]);
+        cmd
     }
 
     async fn wait_until_ready(local_port: u16, mut child: Child) -> Result<SshTunnelHandle, DbError> {
@@ -170,4 +180,47 @@ fn find_available_port() -> Result<u16, DbError> {
                 .map(|addr| addr.port())
                 .map_err(|e| DbError::ConnectionFailed(format!("failed to read local addr: {e}")))
         })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{SshTunnel, SshTunnelConfig};
+    use std::ffi::OsStr;
+
+    #[test]
+    fn password_ssh_test_uses_sshpass_and_keeps_password_out_of_arguments() {
+        let config = SshTunnelConfig {
+            host: "bastion.example".into(),
+            port: 22,
+            user: "deploy".into(),
+            private_key_path: "/tmp/key".into(),
+            password: Some("secret-value".into()),
+        };
+        let command = SshTunnel::build_test_command(&config);
+        let std_command = command.as_std();
+        assert_eq!(std_command.get_program(), OsStr::new("sshpass"));
+        let args: Vec<_> = std_command.get_args().collect();
+        assert_eq!(args.first(), Some(&OsStr::new("-e")));
+        assert_eq!(args.get(1), Some(&OsStr::new("ssh")));
+        assert!(!args.iter().any(|arg| *arg == OsStr::new("secret-value")));
+        assert!(!args.iter().any(|arg| *arg == OsStr::new("BatchMode=yes")));
+        assert!(std_command
+            .get_envs()
+            .any(|(key, value)| key == OsStr::new("SSHPASS") && value == Some(OsStr::new("secret-value"))));
+    }
+
+    #[test]
+    fn key_ssh_test_invokes_ssh_directly() {
+        let config = SshTunnelConfig {
+            host: "bastion.example".into(),
+            port: 22,
+            user: "deploy".into(),
+            private_key_path: "/tmp/key".into(),
+            password: None,
+        };
+        assert_eq!(
+            SshTunnel::build_test_command(&config).as_std().get_program(),
+            OsStr::new("ssh")
+        );
+    }
 }

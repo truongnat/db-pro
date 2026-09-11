@@ -38,7 +38,8 @@ impl BackupService {
             .map_err(|e| DbError::Validation(format!("invalid connection id: {e}")))?;
 
         let connection = self.load_connection(&conn_id).await?;
-        let config = connection.config.clone();
+        let mut config = connection.config.clone();
+        self.hydrate_ssh_password(&connection, &mut config).await?;
         let password = self.password_for(&connection, "backup").await?;
 
         let engine = match config.driver {
@@ -54,7 +55,7 @@ impl BackupService {
             .map_err(|e| DbError::Validation(format!("invalid connection id: {e}")))?;
 
         let connection = self.load_connection(&conn_id).await?;
-        let config = connection.config.clone();
+        let mut config = connection.config.clone();
 
         // Restore is a mutating operation — block on read-only connections.
         if config.readonly {
@@ -69,6 +70,7 @@ impl BackupService {
             ));
         }
 
+        self.hydrate_ssh_password(&connection, &mut config).await?;
         let password = self.password_for(&connection, "restore").await?;
 
         let engine = match config.driver {
@@ -84,6 +86,21 @@ impl BackupService {
             .get(conn_id)
             .await?
             .ok_or_else(|| DbError::NotFound(format!("connection {conn_id} not found")))
+    }
+
+    async fn hydrate_ssh_password(
+        &self,
+        connection: &Connection,
+        config: &mut ConnectionConfig,
+    ) -> Result<(), DbError> {
+        let Some(ssh_tunnel) = config.ssh_tunnel.as_mut() else {
+            return Ok(());
+        };
+        if ssh_tunnel.password.is_none() {
+            let key = format!("connection/{}/ssh_password", connection.id);
+            ssh_tunnel.password = self.secrets.retrieve_secret(&key).await?;
+        }
+        Ok(())
     }
 
     async fn password_for(&self, connection: &Connection, operation: &str) -> Result<String, DbError> {
@@ -135,6 +152,12 @@ mod tests {
         }
     }
 
+    fn postgres_config_without_ssh() -> ConnectionConfig {
+        let mut config = postgres_config_with_ssh();
+        config.ssh_tunnel = None;
+        config
+    }
+
     #[tokio::test]
     async fn backup_factory_receives_ssh_configuration() {
         let connection_id = ConnectionId::new();
@@ -146,14 +169,21 @@ mod tests {
             .returning(move |_| Ok(Some(connection.clone())));
 
         let mut secrets = MockSecretStore::new();
-        secrets
-            .expect_retrieve_secret()
-            .returning(|_| Ok(Some("password".into())));
+        secrets.expect_retrieve_secret().times(2).returning(|key| {
+            if key == "custom/key" {
+                Ok(Some("password".into()))
+            } else {
+                assert!(key.ends_with("/ssh_password"));
+                Ok(Some("ssh-password".into()))
+            }
+        });
 
         let saw_ssh_config = Arc::new(Mutex::new(false));
         let saw_ssh_config_for_factory = Arc::clone(&saw_ssh_config);
         let pg_factory = Box::new(move |config: &ConnectionConfig| {
-            *saw_ssh_config_for_factory.lock().expect("test mutex poisoned") = config.ssh_tunnel.is_some();
+            let ssh_tunnel = config.ssh_tunnel.as_ref().expect("SSH config should be present");
+            assert_eq!(ssh_tunnel.password.as_deref(), Some("ssh-password"));
+            *saw_ssh_config_for_factory.lock().expect("test mutex poisoned") = true;
             let mut engine = MockBackupEngine::new();
             engine.expect_backup().returning(|_, _| {
                 Ok(BackupResult {
@@ -190,7 +220,7 @@ mod tests {
     #[tokio::test]
     async fn backup_uses_persisted_custom_secret_reference() {
         let connection_id = ConnectionId::new();
-        let connection = Connection::new(postgres_config_with_ssh()).with_secret_ref("migrated/password".into());
+        let connection = Connection::new(postgres_config_without_ssh()).with_secret_ref("migrated/password".into());
         let mut connections = MockConnectionRepository::new();
         connections
             .expect_get()
@@ -239,7 +269,7 @@ mod tests {
     #[tokio::test]
     async fn restore_uses_persisted_custom_secret_reference() {
         let connection_id = ConnectionId::new();
-        let connection = Connection::new(postgres_config_with_ssh()).with_secret_ref("migrated/password".into());
+        let connection = Connection::new(postgres_config_without_ssh()).with_secret_ref("migrated/password".into());
         let mut connections = MockConnectionRepository::new();
         connections
             .expect_get()

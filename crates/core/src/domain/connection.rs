@@ -52,14 +52,28 @@ pub enum SslMode {
     VerifyFull,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct SshTunnelConfig {
     pub host: String,
     pub port: u16,
     pub user: String,
     pub private_key_path: String,
-    #[serde(default)]
+    /// SSH password is accepted for an in-memory connection draft only. It is
+    /// stored in the SecretStore by ConnectionService and never in metadata.
+    #[serde(skip_serializing, default)]
     pub password: Option<String>,
+}
+
+impl fmt::Debug for SshTunnelConfig {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("SshTunnelConfig")
+            .field("host", &self.host)
+            .field("port", &self.port)
+            .field("user", &self.user)
+            .field("private_key_path", &self.private_key_path)
+            .field("has_password", &self.password.is_some())
+            .finish()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -383,5 +397,29 @@ mod tests {
             .map(|e| e.field.as_str())
             .collect();
         assert_eq!(ssh_fields.len(), 4);
+    }
+
+    #[test]
+    fn ssh_password_is_not_serialized_or_debugged() {
+        let config = SshTunnelConfig {
+            host: "bastion.example".into(),
+            port: 22,
+            user: "deploy".into(),
+            private_key_path: "/tmp/key".into(),
+            password: Some("super-secret".into()),
+        };
+
+        let json = serde_json::to_string(&config).expect("SSH config should serialize");
+        let debug = format!("{config:?}");
+        assert!(!json.contains("super-secret"));
+        assert!(!json.contains("password"));
+        assert!(!debug.contains("super-secret"));
+        assert!(debug.contains("has_password"));
+
+        let decoded: SshTunnelConfig = serde_json::from_str(
+            r#"{"host":"bastion.example","port":22,"user":"deploy","private_key_path":"/tmp/key","password":"legacy"}"#,
+        )
+        .expect("legacy SSH metadata should remain readable");
+        assert_eq!(decoded.password.as_deref(), Some("legacy"));
     }
 }

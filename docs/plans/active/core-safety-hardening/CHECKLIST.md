@@ -46,6 +46,11 @@
 - [x] Add PostgreSQL live-fixture and SQLite batch timeout/rollback regression coverage.
 - [x] Resolve persisted custom secret references for backup and restore.
 - [x] Add backup and restore custom-secret regression coverage.
+- [x] Make Test SSH Tunnel honor password authentication like tunnel startup.
+- [x] Add SSH command-construction regression coverage without a live tunnel.
+- [x] Keep SSH tunnel passwords out of metadata and debug output.
+- [x] Store, hydrate, delete, and compensate SSH secrets across connection lifecycle operations.
+- [x] Hydrate SSH credentials for PostgreSQL backup and restore.
 - [x] Run formatting, check, clippy, targeted tests, and workspace tests.
 - [x] Self-review changed files and confirm no UI/native files changed.
 - [x] Record PostgreSQL live fixture evidence; SSH-tunnel and native UI runtime evidence remain explicitly pending.
