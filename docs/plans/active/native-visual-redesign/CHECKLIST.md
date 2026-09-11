@@ -99,3 +99,14 @@
 - [x] Calibrate the shared native theme colors, icons, typography, spacing, radii and interaction states.
 - [ ] Verify every native workspace surface in both appearance modes.
 - [ ] Record intentional database-IDE deviations and close the visual P1 baseline finding.
+
+## Wave 11 — metadata empty-state composition
+
+- [x] Prove empty metadata cards collapsed to content width in the native SQLite runtime.
+- [x] Add a shared Lucide/Codex empty-state component for metadata workspaces.
+- [x] Make metadata cards span the available native workspace width.
+- [x] Track explicit constraint presence independently from the empty-state condition.
+- [x] Preserve populated metadata rows and provider-neutral introspection behavior.
+- [x] Capture dark and light SQLite runtime evidence for the changed metadata surfaces.
+- [x] Re-run Rust gates, native build, clean-code diff scan and whitespace validation.
+- [ ] Traverse remaining native workspaces in both appearance modes and complete independent review.

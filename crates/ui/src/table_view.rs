@@ -182,7 +182,9 @@ impl DbProApp {
             ui.label(RichText::new("Table structure is still loading").color(self.theme.text_muted));
             return;
         };
+        let card_width = ui.available_width();
         card_frame(self.theme).show(ui, |ui| {
+            ui.set_min_width((card_width - 28.0).max(0.0));
             let (title, empty, icon) = match view {
                 TableView::Indexes => ("INDEXES", "No indexes", Icon::List),
                 TableView::Relations => ("FOREIGN KEYS", "No foreign keys", Icon::ArrowRightLeft),
@@ -203,7 +205,7 @@ impl DbProApp {
             match view {
                 TableView::Indexes => {
                     if info.indexes.is_empty() {
-                        ui.label(RichText::new(empty).color(self.theme.text_muted));
+                        empty_state(ui, icon, empty, "This table has no index metadata yet.", self.theme);
                     }
                     for index in &info.indexes {
                         ui.horizontal_wrapped(|ui| {
@@ -226,7 +228,13 @@ impl DbProApp {
                 }
                 TableView::Relations | TableView::Dependencies => {
                     if info.foreign_keys.is_empty() {
-                        ui.label(RichText::new(empty).color(self.theme.text_muted));
+                        empty_state(
+                            ui,
+                            icon,
+                            empty,
+                            "Relationships will appear here when they are defined.",
+                            self.theme,
+                        );
                     }
                     for relation in &info.foreign_keys {
                         ui.horizontal_wrapped(|ui| {
@@ -247,7 +255,9 @@ impl DbProApp {
                     }
                 }
                 TableView::Constraints => {
+                    let mut has_constraints = false;
                     if let Some(primary_key) = &info.primary_key {
+                        has_constraints = true;
                         ui.horizontal_wrapped(|ui| {
                             ui.label(icon_text(Icon::KeyRound, "", self.theme.warning));
                             ui.label(RichText::new("PRIMARY KEY").strong());
@@ -260,14 +270,21 @@ impl DbProApp {
                     }
                     for column in &info.columns {
                         if !column.nullable {
+                            has_constraints = true;
                             ui.horizontal_wrapped(|ui| {
                                 ui.label(icon_text(Icon::ShieldCheck, "", self.theme.success));
                                 ui.label(RichText::new(format!("NOT NULL · {}", column.name)));
                             });
                         }
                     }
-                    if info.primary_key.is_none() && info.columns.iter().all(|column| column.nullable) {
-                        ui.label(RichText::new(empty).color(self.theme.text_muted));
+                    if !has_constraints {
+                        empty_state(
+                            ui,
+                            icon,
+                            empty,
+                            "No primary-key or NOT NULL rules were found.",
+                            self.theme,
+                        );
                     }
                 }
                 _ => {}

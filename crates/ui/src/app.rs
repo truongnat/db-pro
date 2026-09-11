@@ -1,6 +1,6 @@
 use crate::{
     activity_bar_frame, agent_message_frame, badge, card_frame, compact_button, compact_button_with_icon,
-    compact_icon_button, compact_icon_button_enabled, danger_button, editor_frame, ghost_button,
+    compact_icon_button, compact_icon_button_enabled, danger_button, editor_frame, empty_state, ghost_button,
     ghost_button_with_icon, grid_frame, icon_button, icon_text, input, input_full_width, panel_frame, password_input,
     primary_button, primary_button_with_icon, secondary_button_with_icon, section_label, sidebar_frame, sidebar_item,
     tab_frame, toolbar_frame, AgentContext, AgentMessage, AgentProvider, AgentRole, DbProTheme, OfflineAgentProvider,

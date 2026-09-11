@@ -206,3 +206,24 @@ Wave 10 is a native theme/component calibration only. It does not change databas
 providers, transactions or task-bridge behavior. The plan remains `IMPLEMENTING` until all native
 workspaces have light/dark runtime traversal, intentional deviations are recorded, PostgreSQL
 runtime evidence is refreshed where applicable and independent review is complete.
+
+## Wave 11 evidence
+
+| Check | Result | Evidence |
+|---|---|---|
+| Metadata card width | PASS | Dark native Indexes screenshot `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/dc5b5da0-a94f-430e-bd93-a522f8e551f2-screenshot.png` shows the empty card spanning the available workspace instead of collapsing to its text width |
+| Shared metadata empty state | PASS | The same Indexes screenshot shows centered Lucide icon, title and description using the shared native component |
+| Populated constraints remain visible | PASS | Dark Constraints screenshot `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/9238363c-69c8-4523-85e7-32a7969541b0-screenshot.png` shows primary-key and `NOT NULL` metadata rather than the empty state |
+| Light-mode composition | PASS | Light Indexes screenshot `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/fe376acf-c3b4-400b-b3aa-bed364fff931-screenshot.png` shows the same full-width composition with Codex light surfaces and text tokens |
+| Provider/database scope | PASS | SQLite introspection fixture only supplies runtime evidence; no provider command, SQL, transaction or database mutation path changed |
+| `cargo fmt --all -- --check` | PASS | 2026-09-11, after Wave 11 source/docs edits |
+| `cargo check --workspace --offline` | PASS | 2026-09-11, after Wave 11 source/docs edits |
+| `cargo clippy --workspace --offline --all-targets -- -D warnings` | PASS | 2026-09-11, after Wave 11 source/docs edits |
+| `cargo test --workspace --offline` | PASS | 2026-09-11; 186 core, 39 infrastructure, 25 SQLite integration, 64 UI, 21 Tauri, 4 runtime, 1 native; 10 PostgreSQL live tests ignored without fixture env |
+| `cargo build --locked -p db-pro-native --offline` | PASS | 2026-09-11, rebuilt native binary before runtime verification |
+| `bash .skills/clean-code/scripts/clean-code-scan.sh --diff` | PASS | 2026-09-11; 33 checks passed, 0 warnings/fails; existing macOS xargs compatibility warnings emitted |
+| `git diff --check` | PASS | 2026-09-11; no whitespace errors |
+
+Wave 11 is a native presentation-only fix. The plan remains `IMPLEMENTING` because the exhaustive
+light/dark traversal, intentional database-IDE deviation review, PostgreSQL runtime evidence and
+independent review are still pending.

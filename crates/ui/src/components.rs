@@ -135,6 +135,25 @@ pub fn grid_frame(theme: DbProTheme) -> Frame {
     }
 }
 
+/// Quiet, centered empty content for workspace surfaces that have no objects yet.
+/// Keeping the icon/title/description stack here prevents metadata screens from
+/// falling back to a tiny, top-left label that reads like unfinished egui output.
+pub fn empty_state(ui: &mut Ui, icon: Icon, title: &str, description: &str, theme: DbProTheme) {
+    ui.vertical_centered(|ui| {
+        ui.add_space(8.0);
+        ui.label(
+            RichText::new(char::from(icon).to_string())
+                .font(FontId::new(18.0, FontFamily::Name("lucide".into())))
+                .color(theme.text_muted),
+        );
+        ui.label(RichText::new(title).strong().color(theme.text_secondary));
+        if !description.is_empty() {
+            ui.label(RichText::new(description).small().color(theme.text_muted));
+        }
+        ui.add_space(8.0);
+    });
+}
+
 /// The only shared single-line input primitive used by the native shell.
 /// Keeping its margin, height and text colors here prevents each screen from
 /// drifting into a different field style.

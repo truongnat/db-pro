@@ -212,3 +212,30 @@ deviation before the baseline visual P1 can close.
 - Data Editor after full-width grid sizing: `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/c3fb448e-d9a1-4f7f-b3ff-bd0dae3dd867-screenshot.png`.
 - Query Results after full-width grid sizing: `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/f2e70db6-7005-478d-a877-8213785ba81c-screenshot.png`.
 - Centered Insert row dialog over the real SQLite table: `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/bdb43a73-40fa-4d56-8c1c-e60ebc2ede5d-screenshot.png`.
+
+## Wave 11 audit finding
+
+### P2 — Empty metadata cards collapsed to content width
+
+Indexes, foreign keys/dependencies and empty constraints used a shared card frame without a minimum
+width. In the native runtime this left a small label-sized card in the top-left of the workspace,
+which read as unfinished output and did not match the full-surface Codex composition. The focused fix
+keeps the existing metadata rows, makes the card span the available width and adds a shared centered
+Lucide icon/title/description stack for genuinely empty metadata states. Constraint detection now
+tracks primary-key and `NOT NULL` rows explicitly so a table with metadata never shows the empty state.
+
+The change is native presentation only: introspection, provider routing, database commands and
+mutation behavior are unchanged.
+
+## Wave 11 runtime evidence
+
+- Rebuilt native binary: `target/debug/db-pro-native` after the metadata composition change.
+- SQLite fixture: `/tmp/db-pro-native-ui-empty-state.sqlite`, connection `AuditEmptyState`; it
+  contains populated table/relationship/trigger metadata alongside an empty-index surface.
+- Dark Indexes surface: `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/dc5b5da0-a94f-430e-bd93-a522f8e551f2-screenshot.png`.
+- Dark Constraints surface with populated primary-key/`NOT NULL` rows: `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/9238363c-69c8-4523-85e7-32a7969541b0-screenshot.png`.
+- Light Indexes surface: `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/fe376acf-c3b4-400b-b3aa-bed364fff931-screenshot.png`.
+
+These screenshots show the full-width rounded neutral surface, centered Lucide treatment and
+Codex-aligned light/dark tokens. The broader all-workspace light/dark traversal, provider review
+and independent review remain open under the plan.

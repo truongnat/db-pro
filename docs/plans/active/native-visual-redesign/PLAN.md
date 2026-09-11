@@ -107,13 +107,22 @@ code.
 - keep the fix inside the native shared result-grid state path without changing database mutation
   or transaction semantics.
 
-### Wave 10 — Codex visual parity (current change)
+### Wave 10 — Codex visual parity (completed in prior change)
 
 - audit every native screen and shared component against the Codex light/dark reference;
 - calibrate the native theme tokens, icon sizes/weights, typography, spacing, radii and interaction
   states as one coherent system;
 - capture equivalent native light and dark screenshots and record any intentional database-IDE
   deviations explicitly.
+
+### Wave 11 — metadata empty-state composition (current change)
+
+- keep metadata cards at the full available workspace width instead of collapsing to their text;
+- use one shared Lucide/Codex empty-state composition for empty indexes, foreign keys, dependencies
+  and constraints;
+- distinguish a genuinely empty constraint surface from a table that contains primary-key or
+  `NOT NULL` metadata, without changing introspection or provider behavior;
+- verify the composed states in both light and dark native runtime modes.
 
 ### Follow-up waves
 
@@ -212,3 +221,13 @@ code.
 - Fresh native screenshots confirm the calibrated shell and Data Editor in both light and dark mode.
 - Rust fmt/check/clippy/tests pass and the native binary is rebuilt; remaining workspace/provider
   review stays explicitly open until every native surface has been traversed.
+
+## Acceptance for Wave 11
+
+- Empty metadata surfaces span the available native workspace instead of rendering as a tiny
+  content-width card in the top-left corner.
+- Empty-state icon, title and description use the shared Lucide font, Codex-aligned theme tokens,
+  typography and spacing in both light and dark modes.
+- Populated indexes, relationships and constraints keep their existing metadata rows unchanged.
+- Rust fmt/check/clippy/tests, native build and clean-code diff scan pass; fresh SQLite runtime
+  screenshots cover the changed empty states in both appearance modes.
