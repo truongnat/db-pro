@@ -201,3 +201,13 @@ prove the required rollback contract.
 Decision: keep the oneshot receiver after interrupt and wait for the actor's explicit
 rollback result. Preserve a known committed result, map an interrupted statement to
 `QueryTimeout`, and retain an explicit rollback failure as an internal cleanup error.
+
+## P1 — Export queries bypass the read-only safety policy
+
+`ExportService` rejected multi-statements but sent the remaining SQL directly to
+`DbConnector::query` without loading the connection's persisted policy. A query such
+as `DELETE ... RETURNING` could therefore mutate a read-only connection through CSV,
+JSON, or Excel export.
+
+Decision: resolve the connection policy before export and validate the SQL through
+the same core safety classifier used by query and Explain paths.

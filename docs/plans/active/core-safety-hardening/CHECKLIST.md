@@ -32,6 +32,8 @@
 - [x] Add duplicate-connect cleanup retry regression coverage.
 - [x] Wait for SQLite transaction rollback after timeout interrupt.
 - [x] Add SQLite transaction timeout/rollback regression coverage.
+- [x] Enforce persisted safety policy before export queries.
+- [x] Add read-only mutating-export regression coverage.
 - [x] Run formatting, check, clippy, targeted tests, and workspace tests.
 - [x] Self-review changed files and confirm no UI/native files changed.
 - [ ] Record PostgreSQL live evidence as pending unless an actual provider is exercised.

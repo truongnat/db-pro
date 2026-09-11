@@ -99,6 +99,7 @@ impl DbProRuntime {
         let export = Arc::new(ExportService::new(
             Box::new(Arc::clone(&connector)),
             Arc::clone(&registry),
+            Box::new(meta_store.clone()),
         ));
         let backup = Arc::new(BackupService::new(
             Box::new(meta_store.clone()),

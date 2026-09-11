@@ -3,11 +3,13 @@ use std::sync::Arc;
 use crate::domain::connection::ConnectionId;
 use crate::domain::error::DbError;
 use crate::domain::query::{CellValue, QueryResult};
-use crate::ports::DbConnector;
+use crate::domain::safety::{validate_against_policy, ConnectionSafetyPolicy};
+use crate::ports::{ConnectionRepository, DbConnector};
 
 use super::registry::ConnectionRegistry;
 use super::sql_policy::reject_multi_statement;
 
+#[derive(Debug)]
 pub struct ExportResult {
     pub content: Vec<u8>,
     pub filename: String,
@@ -18,15 +20,36 @@ pub struct ExportResult {
 pub struct ExportService {
     connector: Box<dyn DbConnector>,
     registry: Arc<ConnectionRegistry>,
+    connections: Box<dyn ConnectionRepository>,
 }
 
 impl ExportService {
-    pub fn new(connector: Box<dyn DbConnector>, registry: Arc<ConnectionRegistry>) -> Self {
-        Self { connector, registry }
+    pub fn new(
+        connector: Box<dyn DbConnector>,
+        registry: Arc<ConnectionRegistry>,
+        connections: Box<dyn ConnectionRepository>,
+    ) -> Self {
+        Self {
+            connector,
+            registry,
+            connections,
+        }
     }
 
     async fn execute_for_export(&self, connection_id: &ConnectionId, sql: &str) -> Result<QueryResult, DbError> {
         reject_multi_statement(sql)?;
+
+        let config = self
+            .connections
+            .get_config(connection_id)
+            .await?
+            .ok_or_else(|| DbError::ConnectionFailed(format!("connection {connection_id} not found")))?;
+        let policy = if config.readonly {
+            ConnectionSafetyPolicy::read_only()
+        } else {
+            ConnectionSafetyPolicy::full_access()
+        };
+        validate_against_policy(sql, &policy).map_err(DbError::QueryFailed)?;
 
         let handle = self
             .registry
@@ -209,9 +232,9 @@ fn write_excel_cell(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::connection::ConnectionHandle;
+    use crate::domain::connection::{ConnectionConfig, ConnectionHandle, DriverType, SslMode};
     use crate::domain::query::{ColumnMeta, Row};
-    use crate::ports::MockDbConnector;
+    use crate::ports::{MockConnectionRepository, MockDbConnector};
 
     fn sample_result() -> QueryResult {
         QueryResult {
@@ -237,7 +260,26 @@ mod tests {
     }
 
     fn build_service(connector: MockDbConnector, registry: Arc<ConnectionRegistry>) -> ExportService {
-        ExportService::new(Box::new(connector), registry)
+        let mut connections = MockConnectionRepository::new();
+        connections.expect_get_config().returning(|_| {
+            Ok(Some(ConnectionConfig {
+                name: "test".into(),
+                host: "localhost".into(),
+                port: 5432,
+                database: "testdb".into(),
+                username: "user".into(),
+                driver: DriverType::Postgres,
+                ssl_mode: SslMode::Disable,
+                ssh_tunnel: None,
+                query_timeout_ms: 30_000,
+                max_rows: 500,
+                color: None,
+                tags: vec![],
+                group: None,
+                readonly: false,
+            }))
+        });
+        ExportService::new(Box::new(connector), registry, Box::new(connections))
     }
 
     #[tokio::test]
@@ -313,5 +355,39 @@ mod tests {
         let svc = build_service(MockDbConnector::new(), Arc::clone(&registry));
         let result = svc.export_csv(&conn_id, "SELECT 1; SELECT 2").await;
         assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn export_rejects_mutating_query_on_readonly_connection() {
+        let conn_id = ConnectionId::new();
+        let registry = Arc::new(ConnectionRegistry::new());
+        registry.register(conn_id, ConnectionHandle(1));
+
+        let mut connections = MockConnectionRepository::new();
+        connections.expect_get_config().returning(|_| {
+            Ok(Some(ConnectionConfig {
+                name: "readonly".into(),
+                host: "localhost".into(),
+                port: 5432,
+                database: "testdb".into(),
+                username: "user".into(),
+                driver: DriverType::Postgres,
+                ssl_mode: SslMode::Disable,
+                ssh_tunnel: None,
+                query_timeout_ms: 30_000,
+                max_rows: 500,
+                color: None,
+                tags: vec![],
+                group: None,
+                readonly: true,
+            }))
+        });
+
+        let svc = ExportService::new(Box::new(MockDbConnector::new()), registry, Box::new(connections));
+        let error = svc
+            .export_csv(&conn_id, "DELETE FROM users RETURNING id")
+            .await
+            .expect_err("readonly export must not execute a mutation");
+        assert!(matches!(error, DbError::QueryFailed(message) if message.contains("read-only")));
     }
 }
