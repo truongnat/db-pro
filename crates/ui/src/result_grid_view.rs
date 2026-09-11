@@ -348,10 +348,21 @@ impl DbProApp {
                     }
                 }
                 let (divider_rect, divider) = ui.allocate_exact_size(egui::vec2(4.0, 28.0), Sense::drag());
+                let divider_active = divider.hovered() || divider.dragged();
+                if divider_active {
+                    ui.ctx().set_cursor_icon(egui::CursorIcon::ResizeHorizontal);
+                }
                 ui.painter().vline(
                     divider_rect.center().x,
                     divider_rect.y_range(),
-                    egui::Stroke::new(1.0, self.theme.border_subtle),
+                    egui::Stroke::new(
+                        if divider_active { 2.0 } else { 1.0 },
+                        if divider_active {
+                            self.theme.accent
+                        } else {
+                            self.theme.border_subtle.linear_multiply(0.65)
+                        },
+                    ),
                 );
                 if divider.drag_started() {
                     self.grid_column_widths = widths.to_vec();
