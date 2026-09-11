@@ -1,5 +1,7 @@
 use super::*;
 
+const THEME_STORAGE_VERSION: &str = "dark-first-v3";
+
 impl DbProApp {
     pub fn with_task_bridge(task_bridge: TaskBridge) -> Self {
         Self::with_task_bridge_and_storage(task_bridge, None)
@@ -11,12 +13,39 @@ impl DbProApp {
             ..Self::default()
         };
         if let Some(storage) = storage {
-            app.dark_mode = storage
-                .get_string("dbpro.native.dark-mode")
-                .is_some_and(|value| value == "true");
+            app.dark_mode =
+                if storage.get_string("dbpro.native.theme-version").as_deref() == Some(THEME_STORAGE_VERSION) {
+                    storage
+                        .get_string("dbpro.native.dark-mode")
+                        .map(|value| value == "true")
+                        .unwrap_or(true)
+                } else {
+                    true
+                };
             app.reduce_motion = storage
                 .get_string("dbpro.native.reduce-motion")
                 .is_some_and(|value| value == "true");
+            if let Some(width) = storage
+                .get_string("dbpro.native.sidebar-width")
+                .and_then(|value| value.parse::<f32>().ok())
+            {
+                app.sidebar_width = width.clamp(SIDEBAR_MIN_WIDTH, SIDEBAR_MAX_WIDTH);
+            }
+            if let Some(width) = storage
+                .get_string("dbpro.native.agent-width")
+                .and_then(|value| value.parse::<f32>().ok())
+            {
+                app.agent_width = width.clamp(AGENT_MIN_WIDTH, AGENT_MAX_WIDTH);
+            }
+            app.bottom_panel_open = storage
+                .get_string("dbpro.native.output-open")
+                .is_some_and(|value| value == "true");
+            if let Some(height) = storage
+                .get_string("dbpro.native.output-height")
+                .and_then(|value| value.parse::<f32>().ok())
+            {
+                app.bottom_panel_height = height.clamp(OUTPUT_MIN_HEIGHT, OUTPUT_MAX_HEIGHT);
+            }
             app.theme = if app.dark_mode {
                 DbProTheme::dark()
             } else {
@@ -46,12 +75,16 @@ impl Default for DbProApp {
         let offline_info = offline_provider.info();
         Self {
             theme: DbProTheme::default(),
-            dark_mode: false,
+            dark_mode: true,
             reduce_motion: false,
             activity: Activity::Explorer,
             active_tab: WorkspaceTab::Welcome,
             sidebar_open: true,
+            sidebar_width: 260.0,
             agent_open: false,
+            agent_width: 360.0,
+            bottom_panel_open: false,
+            bottom_panel_height: 180.0,
             sidebar_open_before_agent: None,
             query_text: "select\n  id, name, status\nfrom customers\nlimit 100;".to_owned(),
             welcome_prompt: String::new(),
@@ -63,7 +96,9 @@ impl Default for DbProApp {
             active_query_document: 0,
             editor_search: String::new(),
             editor_search_open: false,
+            query_editor_focused: false,
             editor_font_size: 14.0,
+            query_tools_open: false,
             completion_open: false,
             snippets_open: false,
             diagnostics: Vec::new(),
@@ -86,6 +121,10 @@ impl Default for DbProApp {
             next_query_request: None,
             runtime_message: "Ready".to_owned(),
             query_result: None,
+            output_tab: OutputTab::Results,
+            query_messages: Vec::new(),
+            explain_plan: None,
+            explain_request: None,
             grid_filter: String::new(),
             grid_sort_column: None,
             grid_sort_desc: false,
@@ -103,16 +142,11 @@ impl Default for DbProApp {
             export_open: false,
             export_format: "CSV".to_owned(),
             export_path: String::new(),
-            mutation_table: String::new(),
-            mutation_column: String::new(),
-            mutation_value: String::new(),
-            mutation_pk_column: String::new(),
-            mutation_pk_value: String::new(),
-            mutation_delete_confirmation: false,
             connections: Vec::new(),
             saved_queries: Vec::new(),
             query_folders: Vec::new(),
             schema: UiSchemaSummary {
+                schemas: Vec::new(),
                 tables: Vec::new(),
                 columns: Vec::new(),
                 table_details: Vec::new(),
@@ -120,6 +154,7 @@ impl Default for DbProApp {
                 triggers: Vec::new(),
                 functions: Vec::new(),
             },
+            selected_schema: None,
             explorer_search: String::new(),
             schema_error: None,
             schema_request: None,
@@ -150,6 +185,8 @@ impl Default for DbProApp {
             table_ddl_request: None,
             table_data_request: None,
             table_mutation_request: None,
+            staged_changes: Vec::new(),
+            staged_apply_request: None,
             table_view: TableView::Structure,
             query_folder: String::new(),
             backup_output_path: String::new(),
@@ -158,6 +195,7 @@ impl Default for DbProApp {
             active_connection_id: None,
             pending_connection_request: None,
             connections_requested: false,
+            connections_request_pending: false,
             connection_dialog_open: false,
             editing_connection_id: None,
             connection_draft: UiConnectionDraft::default(),

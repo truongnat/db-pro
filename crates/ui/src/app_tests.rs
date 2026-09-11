@@ -1,3 +1,4 @@
+use super::diagram_view::diagram_candidates;
 use super::*;
 
 fn result() -> UiQueryResult {
@@ -166,6 +167,111 @@ fn insert_value_rejects_invalid_typed_input() {
 }
 
 #[test]
+fn table_edits_stage_until_explicit_apply() {
+    let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
+    let mut app = DbProApp::with_task_bridge(bridge);
+    app.connections = vec![UiConnectionSummary {
+        id: "conn-1".to_owned(),
+        name: "Local".to_owned(),
+        host: "localhost".to_owned(),
+        port: 5432,
+        database: "app".to_owned(),
+        username: "postgres".to_owned(),
+        driver: "PostgreSQL".to_owned(),
+        readonly: false,
+    }];
+    app.active_connection_id = Some("conn-1".to_owned());
+    app.connected = true;
+    app.selected_table = Some("customers".to_owned());
+    app.table_info = Some(UiTableInfo {
+        schema: "public".to_owned(),
+        name: "customers".to_owned(),
+        row_count: Some(1),
+        columns: vec![
+            crate::UiTableColumn {
+                name: "id".to_owned(),
+                data_type: "integer".to_owned(),
+                nullable: false,
+                default: None,
+                is_primary_key: true,
+            },
+            crate::UiTableColumn {
+                name: "name".to_owned(),
+                data_type: "text".to_owned(),
+                nullable: false,
+                default: None,
+                is_primary_key: false,
+            },
+        ],
+        primary_key: Some(vec!["id".to_owned()]),
+        indexes: Vec::new(),
+        foreign_keys: Vec::new(),
+    });
+    app.data_edit_value = "Updated".to_owned();
+    let value = UiQueryResult {
+        columns: vec![
+            crate::UiColumn {
+                name: "id".to_owned(),
+                data_type: "integer".to_owned(),
+                nullable: false,
+            },
+            crate::UiColumn {
+                name: "name".to_owned(),
+                data_type: "text".to_owned(),
+                nullable: false,
+            },
+        ],
+        rows: vec![vec![
+            UiCell::Number("1".to_owned()),
+            UiCell::Text("Original".to_owned()),
+        ]],
+        row_count: 1,
+        duration_ms: 1,
+    };
+
+    app.submit_data_cell_edit(&value, 0, 1);
+
+    assert_eq!(app.staged_changes.len(), 1);
+    assert!(command_rx.try_recv().is_err());
+    app.apply_staged_changes();
+    assert!(matches!(command_rx.try_recv(), Ok(UiCommand::UpdateTableRow { .. })));
+}
+
+#[test]
+fn explain_query_uses_selected_connection_and_switches_output() {
+    let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
+    let mut app = DbProApp::with_task_bridge(bridge);
+    app.connections = vec![UiConnectionSummary {
+        id: "conn-1".to_owned(),
+        name: "Local".to_owned(),
+        host: "localhost".to_owned(),
+        port: 5432,
+        database: "app".to_owned(),
+        username: "postgres".to_owned(),
+        driver: "PostgreSQL".to_owned(),
+        readonly: false,
+    }];
+    app.active_connection_id = Some("conn-1".to_owned());
+    app.connected = true;
+    app.query_text = "SELECT 1".to_owned();
+
+    app.explain_query();
+
+    let UiCommand::ExplainQuery {
+        request_id,
+        connection_id,
+        sql,
+    } = command_rx.try_recv().expect("explain command expected")
+    else {
+        panic!("expected ExplainQuery");
+    };
+    assert_eq!(connection_id, "conn-1");
+    assert_eq!(sql, "SELECT 1");
+    assert_eq!(app.explain_request, Some(request_id));
+    assert_eq!(app.output_tab, OutputTab::Explain);
+}
+
+#[test]
 fn closing_agent_restores_sidebar_state_after_narrow_window() {
     let mut app = DbProApp::default();
     let ctx = egui::Context::default();
@@ -219,6 +325,45 @@ fn selected_connection_is_not_shown_as_connected() {
 }
 
 #[test]
+fn provider_capabilities_gate_provider_specific_actions() {
+    let sqlite = UiConnectionSummary {
+        id: "sqlite".to_owned(),
+        name: "SQLite".to_owned(),
+        host: String::new(),
+        port: 0,
+        database: "app.db".to_owned(),
+        username: String::new(),
+        driver: "SQLite".to_owned(),
+        readonly: false,
+    };
+    let postgres = UiConnectionSummary {
+        driver: "PostgreSQL".to_owned(),
+        ..sqlite.clone()
+    };
+
+    let sqlite_app = DbProApp {
+        connections: vec![sqlite],
+        active_connection_id: Some("sqlite".to_owned()),
+        ..Default::default()
+    };
+    let postgres_app = DbProApp {
+        connections: vec![postgres],
+        active_connection_id: Some("sqlite".to_owned()),
+        ..Default::default()
+    };
+
+    let sqlite_capabilities = sqlite_app.active_capabilities().expect("SQLite capabilities");
+    assert!(!sqlite_capabilities.schema.functions);
+    assert!(!sqlite_capabilities.features.server_sessions);
+    assert!(sqlite_capabilities.features.backup);
+
+    let postgres_capabilities = postgres_app.active_capabilities().expect("PostgreSQL capabilities");
+    assert!(postgres_capabilities.schema.functions);
+    assert!(postgres_capabilities.query.explain);
+    assert!(postgres_capabilities.features.server_sessions);
+}
+
+#[test]
 fn closing_query_document_restores_the_next_valid_document() {
     let mut app = DbProApp::default();
     app.new_query_document();
@@ -246,6 +391,53 @@ fn quick_open_filters_workspaces_by_title_and_description() {
 }
 
 #[test]
+fn active_schema_prefers_user_selection_and_loaded_schema_metadata() {
+    let mut app = DbProApp::default();
+    app.schema.schemas = vec!["public".to_owned(), "tenant1".to_owned()];
+
+    assert_eq!(app.active_schema(), "public");
+    app.selected_schema = Some("tenant1".to_owned());
+    assert_eq!(app.active_schema(), "tenant1");
+}
+
+#[test]
+fn active_schema_columns_do_not_include_other_schemas() {
+    let mut app = DbProApp::default();
+    app.schema.schemas = vec!["public".to_owned(), "tenant1".to_owned()];
+    app.schema.columns = vec!["legacy_global_column".to_owned()];
+    app.schema.table_details = vec![
+        UiTableSummary {
+            schema: "public".to_owned(),
+            name: "customers".to_owned(),
+            row_count: None,
+            columns: vec![crate::UiSchemaColumn {
+                name: "customer_id".to_owned(),
+                data_type: "integer".to_owned(),
+                nullable: false,
+                is_primary_key: true,
+            }],
+            foreign_keys: Vec::new(),
+        },
+        UiTableSummary {
+            schema: "tenant1".to_owned(),
+            name: "orders".to_owned(),
+            row_count: None,
+            columns: vec![crate::UiSchemaColumn {
+                name: "order_id".to_owned(),
+                data_type: "integer".to_owned(),
+                nullable: false,
+                is_primary_key: true,
+            }],
+            foreign_keys: Vec::new(),
+        },
+    ];
+
+    assert_eq!(app.active_schema_column_names(), vec!["customer_id"]);
+    app.selected_schema = Some("tenant1".to_owned());
+    assert_eq!(app.active_schema_column_names(), vec!["order_id"]);
+}
+
+#[test]
 fn diagram_search_matches_schema_table_and_column_names() {
     let table = UiTableSummary {
         schema: "tenant1".to_owned(),
@@ -264,6 +456,28 @@ fn diagram_search_matches_schema_table_and_column_names() {
     assert!(matches_diagram_search(&table, "order"));
     assert!(matches_diagram_search(&table, "customer"));
     assert!(!matches_diagram_search(&table, "invoice"));
+}
+
+#[test]
+fn diagram_candidates_bound_clones_until_show_all_is_explicit() {
+    let tables: Vec<_> = (0..8)
+        .map(|index| UiTableSummary {
+            schema: "public".to_owned(),
+            name: format!("table_{index}"),
+            row_count: None,
+            columns: Vec::new(),
+            foreign_keys: Vec::new(),
+        })
+        .collect();
+
+    let (candidate_count, visible) = diagram_candidates(&tables, "", false, 5);
+    assert_eq!(candidate_count, 8);
+    assert_eq!(visible.len(), 6);
+
+    let (candidate_count, search_results) = diagram_candidates(&tables, "table_7", true, 5);
+    assert_eq!(candidate_count, 1);
+    assert_eq!(search_results.len(), 1);
+    assert_eq!(search_results[0].name, "table_7");
 }
 
 #[test]
@@ -335,6 +549,247 @@ fn command_palette_refresh_schema_bypasses_the_metadata_cache() {
 }
 
 #[test]
+fn loading_connections_does_not_introspect_before_connecting() {
+    let (bridge, command_rx, event_tx) = TaskBridge::with_channels();
+    let mut app = DbProApp::with_task_bridge(bridge);
+    event_tx
+        .send(UiEvent::ConnectionsLoaded {
+            request_id: crate::RequestId(1),
+            connections: vec![UiConnectionSummary {
+                id: "local".to_owned(),
+                name: "Local".to_owned(),
+                host: "127.0.0.1".to_owned(),
+                port: 5432,
+                database: "postgres".to_owned(),
+                username: "postgres".to_owned(),
+                driver: "PostgreSQL".to_owned(),
+                readonly: false,
+            }],
+        })
+        .expect("connections should be queued");
+
+    app.apply_runtime_events();
+
+    assert!(command_rx.try_recv().is_err());
+}
+
+#[test]
+fn connected_event_starts_schema_and_metadata_loading() {
+    let (bridge, command_rx, event_tx) = TaskBridge::with_channels();
+    let mut app = DbProApp::with_task_bridge(bridge);
+    app.pending_connection_request = Some(crate::RequestId(1));
+    event_tx
+        .send(UiEvent::Connected {
+            request_id: crate::RequestId(1),
+            connection_id: "local".to_owned(),
+        })
+        .expect("connected event should be queued");
+
+    app.apply_runtime_events();
+
+    assert!(matches!(command_rx.try_recv(), Ok(UiCommand::IntrospectSchema { .. })));
+    assert!(matches!(command_rx.try_recv(), Ok(UiCommand::ListSavedQueries { .. })));
+    assert!(matches!(command_rx.try_recv(), Ok(UiCommand::ListQueryFolders { .. })));
+}
+
+#[test]
+fn command_palette_shortcut_is_available_from_the_native_shell() {
+    let (bridge, _command_rx, _event_tx) = TaskBridge::with_channels();
+    let mut app = DbProApp::with_task_bridge(bridge);
+    let ctx = egui::Context::default();
+    ctx.begin_pass(egui::RawInput {
+        screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1024.0, 640.0))),
+        modifiers: egui::Modifiers {
+            ctrl: true,
+            ..Default::default()
+        },
+        events: vec![egui::Event::Key {
+            key: egui::Key::K,
+            physical_key: None,
+            pressed: true,
+            repeat: false,
+            modifiers: egui::Modifiers {
+                ctrl: true,
+                ..Default::default()
+            },
+        }],
+        ..Default::default()
+    });
+
+    app.handle_shortcuts(&ctx);
+
+    assert_eq!(app.palette_mode, Some(PaletteMode::QuickOpen));
+    let _ = ctx.end_pass();
+}
+
+#[test]
+fn command_palette_shortcut_accepts_mac_command_modifier() {
+    let (bridge, _command_rx, _event_tx) = TaskBridge::with_channels();
+    let mut app = DbProApp::with_task_bridge(bridge);
+    let ctx = egui::Context::default();
+    ctx.begin_pass(egui::RawInput {
+        screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1024.0, 640.0))),
+        modifiers: egui::Modifiers {
+            mac_cmd: true,
+            command: true,
+            ..Default::default()
+        },
+        events: vec![egui::Event::Key {
+            key: egui::Key::K,
+            physical_key: None,
+            pressed: true,
+            repeat: false,
+            modifiers: egui::Modifiers {
+                mac_cmd: true,
+                command: true,
+                ..Default::default()
+            },
+        }],
+        ..Default::default()
+    });
+
+    app.handle_shortcuts(&ctx);
+
+    assert_eq!(app.palette_mode, Some(PaletteMode::QuickOpen));
+    let _ = ctx.end_pass();
+}
+
+#[test]
+fn native_text_edit_maps_linux_ctrl_to_command_shortcuts() {
+    let ctx = egui::Context::default();
+    let id = egui::Id::new("native-text-edit-shortcuts");
+    let mut value = "select me".to_owned();
+    let screen_rect = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1024.0, 640.0));
+
+    ctx.begin_pass(egui::RawInput {
+        screen_rect: Some(screen_rect),
+        ..Default::default()
+    });
+    egui::CentralPanel::default().show(&ctx, |ui| {
+        ui.add(egui::TextEdit::singleline(&mut value).id(id)).request_focus();
+    });
+    let _ = ctx.end_pass();
+
+    let modifiers = egui::Modifiers {
+        ctrl: true,
+        command: true,
+        ..Default::default()
+    };
+    ctx.begin_pass(egui::RawInput {
+        screen_rect: Some(screen_rect),
+        modifiers,
+        events: vec![egui::Event::Key {
+            key: egui::Key::A,
+            physical_key: None,
+            pressed: true,
+            repeat: false,
+            modifiers,
+        }],
+        ..Default::default()
+    });
+    egui::CentralPanel::default().show(&ctx, |ui| {
+        ui.add(egui::TextEdit::singleline(&mut value).id(id));
+    });
+    let _ = ctx.end_pass();
+
+    ctx.begin_pass(egui::RawInput {
+        screen_rect: Some(screen_rect),
+        events: vec![egui::Event::Text("replaced".to_owned())],
+        ..Default::default()
+    });
+    egui::CentralPanel::default().show(&ctx, |ui| {
+        ui.add(egui::TextEdit::singleline(&mut value).id(id));
+    });
+    let _ = ctx.end_pass();
+
+    assert_eq!(value, "replaced");
+}
+
+#[test]
+fn global_panel_shortcuts_do_not_steal_text_input_combinations() {
+    let (bridge, _command_rx, _event_tx) = TaskBridge::with_channels();
+    let mut app = DbProApp::with_task_bridge(bridge);
+    let ctx = egui::Context::default();
+    let id = egui::Id::new("shortcut-routing-input");
+    let screen_rect = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1024.0, 640.0));
+    let mut value = String::new();
+
+    ctx.begin_pass(egui::RawInput {
+        screen_rect: Some(screen_rect),
+        ..Default::default()
+    });
+    egui::CentralPanel::default().show(&ctx, |ui| {
+        ui.add(egui::TextEdit::singleline(&mut value).id(id)).request_focus();
+    });
+    let _ = ctx.end_pass();
+
+    let modifiers = egui::Modifiers {
+        ctrl: true,
+        command: true,
+        ..Default::default()
+    };
+    ctx.begin_pass(egui::RawInput {
+        screen_rect: Some(screen_rect),
+        modifiers,
+        events: vec![egui::Event::Key {
+            key: egui::Key::B,
+            physical_key: None,
+            pressed: true,
+            repeat: false,
+            modifiers,
+        }],
+        ..Default::default()
+    });
+
+    app.handle_shortcuts(&ctx);
+
+    assert!(app.sidebar_open);
+    let _ = ctx.end_pass();
+}
+
+#[test]
+fn global_palette_shortcuts_do_not_steal_text_input_combinations() {
+    let (bridge, _command_rx, _event_tx) = TaskBridge::with_channels();
+    let mut app = DbProApp::with_task_bridge(bridge);
+    let ctx = egui::Context::default();
+    let id = egui::Id::new("palette-shortcut-input");
+    let screen_rect = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1024.0, 640.0));
+    let mut value = String::new();
+
+    ctx.begin_pass(egui::RawInput {
+        screen_rect: Some(screen_rect),
+        ..Default::default()
+    });
+    egui::CentralPanel::default().show(&ctx, |ui| {
+        ui.add(egui::TextEdit::singleline(&mut value).id(id)).request_focus();
+    });
+    let _ = ctx.end_pass();
+
+    let modifiers = egui::Modifiers {
+        ctrl: true,
+        command: true,
+        ..Default::default()
+    };
+    ctx.begin_pass(egui::RawInput {
+        screen_rect: Some(screen_rect),
+        modifiers,
+        events: vec![egui::Event::Key {
+            key: egui::Key::K,
+            physical_key: None,
+            pressed: true,
+            repeat: false,
+            modifiers,
+        }],
+        ..Default::default()
+    });
+
+    app.handle_shortcuts(&ctx);
+
+    assert_eq!(app.palette_mode, None);
+    let _ = ctx.end_pass();
+}
+
+#[test]
 fn failed_connection_request_clears_connecting_state_and_keeps_error() {
     let (bridge, _command_rx, event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
@@ -353,6 +808,32 @@ fn failed_connection_request_clears_connecting_state_and_keeps_error() {
     assert_eq!(app.pending_connection_request, None);
     assert_eq!(app.connection_error, "auth failed");
     assert_eq!(app.runtime_message, "Connection failed · auth failed");
+}
+
+#[test]
+fn connection_mutation_refreshes_the_explorer_without_waiting_for_another_frame() {
+    let (bridge, command_rx, event_tx) = TaskBridge::with_channels();
+    let mut app = DbProApp::with_task_bridge(bridge);
+    app.connections_requested = true;
+    app.pending_connection_request = Some(crate::RequestId(7));
+    event_tx
+        .send(UiEvent::OperationCompleted {
+            request_id: crate::RequestId(7),
+            operation: "connection.created".to_owned(),
+        })
+        .expect("connection mutation should be queued");
+
+    app.apply_runtime_events();
+
+    assert!(app.connections_requested);
+    assert!(matches!(command_rx.try_recv(), Ok(UiCommand::ListConnections { .. })));
+}
+
+#[test]
+fn sql_diagnostics_allow_expression_selects_without_from() {
+    let diagnostics = DbProApp::parse_sql_diagnostics("SELECT 1 AS ok;", "PostgreSQL");
+
+    assert!(diagnostics.is_empty());
 }
 
 #[test]
@@ -387,6 +868,7 @@ fn stale_schema_event_cannot_replace_the_selected_connection_schema() {
         .send(UiEvent::SchemaLoaded {
             request_id: crate::RequestId(1),
             schema: UiSchemaSummary {
+                schemas: Vec::new(),
                 tables: vec!["stale_table".to_owned()],
                 columns: Vec::new(),
                 table_details: Vec::new(),
@@ -451,6 +933,7 @@ fn schema_refresh_reloads_the_selected_table_after_summary_completion() {
         .send(UiEvent::SchemaLoaded {
             request_id: crate::RequestId(1),
             schema: UiSchemaSummary {
+                schemas: vec!["main".to_owned()],
                 tables: vec!["customers".to_owned()],
                 columns: vec!["id".to_owned()],
                 table_details: Vec::new(),
@@ -488,6 +971,7 @@ fn schema_refresh_returns_to_welcome_when_selected_table_disappears() {
         .send(UiEvent::SchemaLoaded {
             request_id: crate::RequestId(1),
             schema: UiSchemaSummary {
+                schemas: Vec::new(),
                 tables: vec!["remaining_table".to_owned()],
                 columns: Vec::new(),
                 table_details: Vec::new(),

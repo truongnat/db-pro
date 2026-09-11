@@ -30,6 +30,7 @@ Pre-release hardening program. Blocks v0.1.
 | **P1 Large-Schema ER Architecture** | **IMPLEMENTING** | locked architecture (graph model → layout worker → spatial index → viewport engine → renderer); P1.1 instrumentation + P1.2 culling done on `feature/er-large-schema-scaling` |
 
 | Native UI Foundation | COMPLETED | native egui workspace, shared runtime facades and Tauri command boundary implemented; SQLite UI runtime evidence and isolated PostgreSQL fixture coverage pass |
+| Native IDE Redesign | COMPLETED | goal-1.md P0–P7 source/runtime slice verified for PostgreSQL and SQLite; future provider surfaces remain explicitly out of scope |
 
 ## RC1 Full Product QA
 

@@ -21,6 +21,9 @@ pub(crate) use translate::draft_to_domain;
 use translate::{translate_command, translate_event};
 
 fn main() -> Result<(), Box<dyn Error>> {
+    let _ = tracing_subscriber::fmt()
+        .with_env_filter(std::env::var("RUST_LOG").unwrap_or_else(|_| "db_pro_runtime=info".to_owned()))
+        .try_init();
     let tokio_runtime = Builder::new_multi_thread().enable_all().build()?;
     let data_dir = std::env::var_os("DB_PRO_DATA_DIR")
         .map(std::path::PathBuf::from)

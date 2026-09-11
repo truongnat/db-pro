@@ -1375,6 +1375,7 @@ dependencies = [
  "rfd 0.15.4",
  "serde_json",
  "tokio",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -1418,6 +1419,7 @@ version = "0.1.0"
 dependencies = [
  "bigdecimal",
  "criterion",
+ "db-pro-core",
  "eframe",
  "egui",
  "lucide-icons",

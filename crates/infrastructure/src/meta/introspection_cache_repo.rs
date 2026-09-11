@@ -31,11 +31,18 @@ impl IntrospectionCache for SQLiteMetaStore {
             )
             .await?;
         match rows.first() {
-            Some(row) => {
-                let result: IntrospectResult = serde_json::from_str(&row[0])
-                    .map_err(|e| DbError::Internal(format!("deserialize introspection cache: {e}")))?;
-                Ok(Some(result))
-            }
+            Some(row) => match serde_json::from_str::<IntrospectResult>(&row[0]) {
+                Ok(result) => Ok(Some(result)),
+                Err(error) => {
+                    tracing::warn!(
+                        connection_id = %connection_id,
+                        error = %error,
+                        "discarding malformed introspection cache"
+                    );
+                    self.invalidate(connection_id).await?;
+                    Ok(None)
+                }
+            },
             None => Ok(None),
         }
     }
@@ -48,5 +55,40 @@ impl IntrospectionCache for SQLiteMetaStore {
             )
             .await?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use db_pro_core::ports::IntrospectionCache;
+
+    #[tokio::test]
+    async fn malformed_cache_is_discarded_and_reported_as_a_miss() {
+        let store = SQLiteMetaStore::new(":memory:").await.unwrap();
+        let connection_id = ConnectionId::new();
+        store
+            .actor
+            .raw_query(
+                "INSERT INTO introspection_cache (connection_id, data, updated_at) VALUES (?1, ?2, ?3)".into(),
+                vec![
+                    connection_id.to_string(),
+                    r#"{"foreign_keys":[{"name":"old"}]}"#.to_owned(),
+                    "now".to_owned(),
+                ],
+            )
+            .await
+            .unwrap();
+
+        assert!(store.get(&connection_id).await.unwrap().is_none());
+        assert!(store
+            .actor
+            .raw_query(
+                "SELECT data FROM introspection_cache WHERE connection_id = ?1".into(),
+                vec![connection_id.to_string()],
+            )
+            .await
+            .unwrap()
+            .is_empty());
     }
 }

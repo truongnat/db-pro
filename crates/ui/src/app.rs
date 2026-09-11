@@ -1,14 +1,16 @@
 use crate::{
-    activity_bar_frame, badge, card_frame, compact_button, compact_button_enabled, compact_button_with_icon,
+    activity_bar_frame, agent_message_frame, badge, card_frame, compact_button, compact_button_with_icon,
     compact_icon_button, compact_icon_button_enabled, danger_button, editor_frame, ghost_button,
-    ghost_button_with_icon, icon_button, icon_text, input, input_full_width, panel_frame, password_input,
+    ghost_button_with_icon, grid_frame, icon_button, icon_text, input, input_full_width, panel_frame, password_input,
     primary_button, primary_button_with_icon, secondary_button_with_icon, section_label, sidebar_frame, sidebar_item,
     tab_frame, toolbar_frame, AgentContext, AgentMessage, AgentProvider, AgentRole, DbProTheme, OfflineAgentProvider,
     TaskBridge, UiCell, UiCommand, UiConnectionDraft, UiConnectionSummary, UiDriver, UiEvent, UiQueryFolderSummary,
-    UiQueryResult, UiSavedQuerySummary, UiSchemaSummary, UiSslMode, UiTableDataFilter, UiTableDataSort, UiTableInfo,
-    UiTableSummary,
+    UiQueryResult, UiSavedQuerySummary, UiSchemaForeignKey, UiSchemaSummary, UiSslMode, UiTableDataFilter,
+    UiTableDataSort, UiTableInfo, UiTableSummary,
 };
 use bigdecimal::BigDecimal;
+use db_pro_core::domain::capabilities::DatabaseCapabilities;
+use db_pro_core::domain::connection::DriverType;
 use eframe::egui::text::LayoutJob;
 use eframe::egui::{self, Align, Color32, FontId, Layout, RichText, Sense, TextEdit, TextFormat, TopBottomPanel};
 use lucide_icons::Icon;
@@ -16,7 +18,10 @@ use sqlparser::dialect::{GenericDialect, PostgreSqlDialect, SQLiteDialect};
 use sqlparser::parser::Parser;
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::Duration;
 
+#[path = "agent_state.rs"]
+mod agent_state;
 #[path = "agent_view.rs"]
 mod agent_view;
 #[path = "app_state.rs"]
@@ -27,12 +32,16 @@ mod connection_view;
 mod diagram_view;
 #[path = "events.rs"]
 mod events;
+#[path = "explorer_view.rs"]
+mod explorer_view;
 #[path = "navigation_view.rs"]
 mod navigation_view;
 #[path = "palette_view.rs"]
 mod palette_view;
 #[path = "query_view.rs"]
 mod query_view;
+#[path = "result_grid_view.rs"]
+mod result_grid_view;
 #[path = "schema_object_view.rs"]
 mod schema_object_view;
 #[path = "table_editor_view.rs"]
@@ -54,7 +63,10 @@ struct QueryDocument {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Activity {
     Explorer,
+    Queries,
     History,
+    Transfers,
+    Monitor,
     Settings,
     Diagram,
 }
@@ -65,7 +77,7 @@ pub(crate) enum PaletteMode {
     Commands,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum PaletteAction {
     Welcome,
     Query,
@@ -77,6 +89,12 @@ pub(crate) enum PaletteAction {
     NewConnection,
     RefreshSchema,
     ToggleExplorer,
+    OpenTable(String),
+    ExplainQuery,
+    ExportResults,
+    RunQuery,
+    FormatSql,
+    SwitchConnection(String),
 }
 
 #[derive(Debug, Clone)]
@@ -89,6 +107,12 @@ pub(crate) struct PaletteItem {
 }
 
 const AGENT_SIDEBAR_COLLAPSE_WIDTH: f32 = 1180.0;
+const SIDEBAR_MIN_WIDTH: f32 = 220.0;
+const SIDEBAR_MAX_WIDTH: f32 = 380.0;
+const AGENT_MIN_WIDTH: f32 = 300.0;
+const AGENT_MAX_WIDTH: f32 = 480.0;
+const OUTPUT_MIN_HEIGHT: f32 = 120.0;
+const OUTPUT_MAX_HEIGHT: f32 = 420.0;
 const TABLE_PAGE_SIZE: u64 = 100;
 const GRID_ROW_NUMBER_WIDTH: f32 = 48.0;
 const ER_MAX_TABLES: usize = 5;
@@ -179,7 +203,41 @@ enum WorkspaceTab {
 enum TableView {
     Structure,
     Data,
+    Indexes,
+    Relations,
+    Constraints,
+    Dependencies,
     Ddl,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum OutputTab {
+    Results,
+    Messages,
+    Explain,
+    History,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+enum StagedChange {
+    Update {
+        row_index: usize,
+        column_index: usize,
+        column: String,
+        original: UiCell,
+        value: UiCell,
+        pk_columns: Vec<String>,
+        pk_values: Vec<UiCell>,
+    },
+    Delete {
+        row_index: usize,
+        pk_columns: Vec<String>,
+        pk_values: Vec<UiCell>,
+    },
+    Insert {
+        columns: Vec<String>,
+        values: Vec<UiCell>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -205,7 +263,11 @@ pub struct DbProApp {
     activity: Activity,
     active_tab: WorkspaceTab,
     sidebar_open: bool,
+    sidebar_width: f32,
     agent_open: bool,
+    agent_width: f32,
+    bottom_panel_open: bool,
+    bottom_panel_height: f32,
     sidebar_open_before_agent: Option<bool>,
     query_text: String,
     welcome_prompt: String,
@@ -214,7 +276,9 @@ pub struct DbProApp {
     active_query_document: usize,
     editor_search: String,
     editor_search_open: bool,
+    query_editor_focused: bool,
     editor_font_size: f32,
+    query_tools_open: bool,
     completion_open: bool,
     snippets_open: bool,
     diagnostics: Vec<String>,
@@ -237,6 +301,10 @@ pub struct DbProApp {
     next_query_request: Option<crate::RequestId>,
     runtime_message: String,
     query_result: Option<UiQueryResult>,
+    output_tab: OutputTab,
+    query_messages: Vec<String>,
+    explain_plan: Option<String>,
+    explain_request: Option<crate::RequestId>,
     grid_filter: String,
     grid_sort_column: Option<usize>,
     grid_sort_desc: bool,
@@ -254,16 +322,11 @@ pub struct DbProApp {
     export_open: bool,
     export_format: String,
     export_path: String,
-    mutation_table: String,
-    mutation_column: String,
-    mutation_value: String,
-    mutation_pk_column: String,
-    mutation_pk_value: String,
-    mutation_delete_confirmation: bool,
     connections: Vec<UiConnectionSummary>,
     saved_queries: Vec<UiSavedQuerySummary>,
     query_folders: Vec<UiQueryFolderSummary>,
     schema: UiSchemaSummary,
+    selected_schema: Option<String>,
     explorer_search: String,
     schema_error: Option<String>,
     schema_request: Option<crate::RequestId>,
@@ -294,6 +357,8 @@ pub struct DbProApp {
     table_ddl_request: Option<crate::RequestId>,
     table_data_request: Option<crate::RequestId>,
     table_mutation_request: Option<crate::RequestId>,
+    staged_changes: Vec<StagedChange>,
+    staged_apply_request: Option<crate::RequestId>,
     table_view: TableView,
     query_folder: String,
     backup_output_path: String,
@@ -302,6 +367,7 @@ pub struct DbProApp {
     active_connection_id: Option<String>,
     pending_connection_request: Option<crate::RequestId>,
     connections_requested: bool,
+    connections_request_pending: bool,
     connection_dialog_open: bool,
     editing_connection_id: Option<String>,
     connection_draft: UiConnectionDraft,
@@ -321,13 +387,21 @@ impl eframe::App for DbProApp {
         if let Ok(documents) = serde_json::to_string(&self.query_documents) {
             storage.set_string("dbpro.native.query-documents", documents);
         }
+        storage.set_string("dbpro.native.theme-version", "dark-first-v3".to_owned());
         storage.set_string("dbpro.native.dark-mode", self.dark_mode.to_string());
         storage.set_string("dbpro.native.reduce-motion", self.reduce_motion.to_string());
+        storage.set_string("dbpro.native.sidebar-width", self.sidebar_width.to_string());
+        storage.set_string("dbpro.native.agent-width", self.agent_width.to_string());
+        storage.set_string("dbpro.native.output-open", self.bottom_panel_open.to_string());
+        storage.set_string("dbpro.native.output-height", self.bottom_panel_height.to_string());
     }
 
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.request_connections_once();
         self.apply_runtime_events();
+        if self.runtime_work_pending() {
+            ctx.request_repaint_after(Duration::from_millis(50));
+        }
         self.theme = if self.dark_mode {
             DbProTheme::dark()
         } else {
@@ -336,6 +410,7 @@ impl eframe::App for DbProApp {
         self.theme.apply(ctx);
         self.handle_shortcuts(ctx);
         self.draw_topbar(ctx);
+        self.draw_output_panel(ctx);
         self.draw_statusbar(ctx);
         self.draw_activity_bar(ctx);
 
@@ -372,6 +447,10 @@ impl eframe::App for DbProApp {
 }
 
 impl DbProApp {
+    pub(super) fn primary_modifier_pressed(input: &egui::InputState) -> bool {
+        input.modifiers.command || input.modifiers.ctrl || input.modifiers.mac_cmd
+    }
+
     fn primary_modifier_label() -> &'static str {
         if cfg!(target_os = "macos") {
             "⌘"
@@ -398,12 +477,53 @@ impl DbProApp {
             .unwrap_or("PostgreSQL")
     }
 
-    fn active_schema(&self) -> &str {
-        if self.active_driver().eq_ignore_ascii_case("sqlite") {
-            "main"
+    pub(crate) fn active_capabilities(&self) -> Option<DatabaseCapabilities> {
+        let driver = self.active_connection()?.driver.as_str();
+        let driver = if driver.eq_ignore_ascii_case("sqlite") {
+            DriverType::SQLite
+        } else if driver.eq_ignore_ascii_case("postgresql") || driver.eq_ignore_ascii_case("postgres") {
+            DriverType::Postgres
         } else {
-            "public"
+            return None;
+        };
+        Some(DatabaseCapabilities::for_driver(driver))
+    }
+
+    fn active_schema(&self) -> &str {
+        self.selected_schema
+            .as_deref()
+            .or_else(|| self.schema.schemas.first().map(String::as_str))
+            .unwrap_or_else(|| {
+                if self.active_driver().eq_ignore_ascii_case("sqlite") {
+                    "main"
+                } else {
+                    "public"
+                }
+            })
+    }
+
+    fn active_schema_table_names(&self) -> Vec<String> {
+        if self.schema.schemas.is_empty() || self.schema.table_details.is_empty() {
+            return self.schema.tables.clone();
         }
+        self.schema
+            .table_details
+            .iter()
+            .filter(|table| table.schema == self.active_schema())
+            .map(|table| table.name.clone())
+            .collect()
+    }
+
+    fn active_schema_column_names(&self) -> Vec<String> {
+        if self.schema.schemas.is_empty() || self.schema.table_details.is_empty() {
+            return self.schema.columns.clone();
+        }
+        self.schema
+            .table_details
+            .iter()
+            .filter(|table| table.schema == self.active_schema())
+            .flat_map(|table| table.columns.iter().map(|column| column.name.clone()))
+            .collect()
     }
 
     fn has_runtime_error(&self) -> bool {
@@ -469,6 +589,8 @@ impl DbProApp {
         self.active_query_document = self.query_documents.len() - 1;
         self.query_text.clear();
         self.query_result = None;
+        self.activity = Activity::Queries;
+        self.sidebar_open = true;
         self.active_tab = WorkspaceTab::Query;
     }
 
@@ -503,6 +625,8 @@ impl DbProApp {
                 self.table_info_request = None;
                 self.table_ddl_request = None;
                 self.table_mutation_request = None;
+                self.staged_changes.clear();
+                self.staged_apply_request = None;
                 self.selected_cell = None;
                 self.selected_row = None;
                 self.data_editing_cell = None;
@@ -529,75 +653,6 @@ impl DbProApp {
         self.runtime_message = "Workspace closed".to_owned();
     }
 
-    fn agent_context(&self) -> AgentContext {
-        let connection_name = Some(self.active_connection_name().to_owned());
-        let driver = self.active_driver().to_owned();
-
-        AgentContext {
-            connection_name,
-            driver,
-            tables: self.schema.tables.clone(),
-            columns: self.schema.columns.clone(),
-        }
-    }
-
-    fn submit_agent_prompt(&mut self) {
-        let prompt = self.agent_input.trim().to_owned();
-        if prompt.is_empty() {
-            return;
-        }
-
-        self.agent_messages.push(AgentMessage {
-            role: AgentRole::User,
-            content: prompt.clone(),
-            sql: None,
-            requires_confirmation: false,
-        });
-        let context = self.agent_context();
-        let request_id = self.task_bridge.next_request_id();
-        self.agent_request = Some(request_id);
-        self.agent_pending_prompt = Some(prompt.clone());
-        self.agent_pending_context = Some(context.clone());
-        self.agent_input.clear();
-        self.runtime_message = "Sending request to Codex…".to_owned();
-        if self
-            .task_bridge
-            .send(UiCommand::RunAgent {
-                request_id,
-                prompt,
-                context,
-            })
-            .is_err()
-        {
-            self.agent_request = None;
-            self.runtime_message = "Agent runtime unavailable · using offline draft".to_owned();
-            self.fallback_agent_response(None);
-        }
-    }
-
-    fn fallback_agent_response(&mut self, reason: Option<&str>) {
-        let Some(prompt) = self.agent_pending_prompt.take() else {
-            return;
-        };
-        let context = self.agent_pending_context.take().unwrap_or_default();
-        let mut response = self
-            .agent_provider
-            .respond(&prompt, &context)
-            .unwrap_or_else(|error| AgentMessage {
-                role: AgentRole::Assistant,
-                content: format!("Agent provider unavailable: {error}"),
-                sql: None,
-                requires_confirmation: false,
-            });
-        if let Some(reason) = reason {
-            response.content = format!("{reason}\n\n{}", response.content);
-        }
-        let info = self.agent_provider.info();
-        self.agent_provider_label = info.label.to_owned();
-        self.agent_provider_detail = info.detail.to_owned();
-        self.agent_messages.push(response);
-    }
-
     fn open_palette(&mut self, mode: PaletteMode) {
         self.palette_mode = Some(mode);
         self.palette_query.clear();
@@ -615,7 +670,7 @@ impl DbProApp {
         self.connection_dialog_open = true;
     }
 
-    fn set_agent_open(&mut self, open: bool, ctx: &egui::Context) {
+    pub(crate) fn set_agent_open(&mut self, open: bool, ctx: &egui::Context) {
         if open == self.agent_open {
             return;
         }
@@ -628,6 +683,11 @@ impl DbProApp {
         } else if let Some(sidebar_open) = self.sidebar_open_before_agent.take() {
             self.sidebar_open = sidebar_open;
         }
+    }
+
+    pub(crate) fn open_agent_prompt(&mut self, prompt: impl Into<String>, ctx: &egui::Context) {
+        self.agent_input = prompt.into();
+        self.set_agent_open(true, ctx);
     }
 
     fn insert_agent_sql(&mut self, sql: &str) {
@@ -654,8 +714,24 @@ impl DbProApp {
             return;
         }
         self.connections_requested = true;
+        self.connections_request_pending = true;
         let request_id = self.task_bridge.next_request_id();
         let _ = self.task_bridge.send(UiCommand::ListConnections { request_id });
+    }
+
+    fn runtime_work_pending(&self) -> bool {
+        self.connections_request_pending
+            || self.pending_connection_request.is_some()
+            || self.schema_request.is_some()
+            || self.next_query_request.is_some()
+            || self.explain_request.is_some()
+            || self.agent_request.is_some()
+            || self.table_info_request.is_some()
+            || self.table_ddl_request.is_some()
+            || self.table_data_request.is_some()
+            || self.table_mutation_request.is_some()
+            || self.staged_apply_request.is_some()
+            || self.ddl_execution_request.is_some()
     }
 
     fn request_schema_introspection(&mut self, connection_id: String, force_refresh: bool) {

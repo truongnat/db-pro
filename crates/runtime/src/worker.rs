@@ -141,6 +141,11 @@ pub enum RuntimeCommand {
         connection_id: String,
         sql: String,
     },
+    ExplainQuery {
+        request_id: RuntimeRequestId,
+        connection_id: String,
+        sql: String,
+    },
     Backup {
         request_id: RuntimeRequestId,
         options: BackupOptions,
@@ -214,12 +219,21 @@ pub enum RuntimeEvent {
         request_id: RuntimeRequestId,
         result: QueryResult,
     },
+    ExplainCompleted {
+        request_id: RuntimeRequestId,
+        plan: String,
+    },
     QueryCancelled {
         request_id: RuntimeRequestId,
     },
     AgentCompleted {
         request_id: RuntimeRequestId,
+        provider: String,
         message: crate::AgentDraft,
+    },
+    AgentProviderReady {
+        provider: String,
+        detail: String,
     },
     AgentFailed {
         request_id: RuntimeRequestId,
@@ -246,6 +260,23 @@ pub fn spawn_worker(
     let codex_provider = CodexProvider::from_env();
 
     tokio::spawn(async move {
+        let (provider, detail) = codex_provider
+            .as_ref()
+            .map(|provider| {
+                (
+                    provider.provider_name().to_owned(),
+                    "Responses API · SQL drafts stay unexecuted".to_owned(),
+                )
+            })
+            .unwrap_or_else(|| {
+                (
+                    "Offline draft".to_owned(),
+                    "AI provider not configured · local drafts stay unexecuted".to_owned(),
+                )
+            });
+        let _ = event_tx
+            .send(RuntimeEvent::AgentProviderReady { provider, detail })
+            .await;
         while let Some(command) = command_rx.recv().await {
             match command {
                 RuntimeCommand::ListConnections { request_id } => {
@@ -266,12 +297,26 @@ pub fn spawn_worker(
                     connection_id,
                     force_refresh,
                 } => {
+                    tracing::info!(
+                        request_id = request_id.0,
+                        connection_id = %connection_id,
+                        force_refresh,
+                        "schema introspection started"
+                    );
                     let event = match runtime
                         .schema_api()
                         .introspect_summary(&connection_id, force_refresh)
                         .await
                     {
-                        Ok(schema) => RuntimeEvent::SchemaLoaded { request_id, schema },
+                        Ok(schema) => {
+                            tracing::info!(
+                                request_id = request_id.0,
+                                connection_id = %connection_id,
+                                tables = schema.tables.len(),
+                                "schema introspection completed"
+                            );
+                            RuntimeEvent::SchemaLoaded { request_id, schema }
+                        }
                         Err(error) => RuntimeEvent::Failed {
                             request_id,
                             message: error.message,
@@ -589,8 +634,9 @@ pub fn spawn_worker(
                         let _ = event_tx
                             .send(RuntimeEvent::AgentFailed {
                                 request_id,
-                                message: "Codex provider is not configured; set OPENAI_API_KEY to enable it."
-                                    .to_owned(),
+                                message:
+                                    "AI provider is not configured; set GROQ_API_KEY or OPENAI_API_KEY to enable it."
+                                        .to_owned(),
                             })
                             .await;
                         continue;
@@ -598,7 +644,11 @@ pub fn spawn_worker(
                     let event_tx = event_tx.clone();
                     tokio::spawn(async move {
                         let event = match provider.respond(&prompt, &context).await {
-                            Ok(message) => RuntimeEvent::AgentCompleted { request_id, message },
+                            Ok(message) => RuntimeEvent::AgentCompleted {
+                                request_id,
+                                provider: provider.provider_name().to_owned(),
+                                message,
+                            },
                             Err(error) => RuntimeEvent::AgentFailed {
                                 request_id,
                                 message: error.to_string(),
@@ -683,11 +733,23 @@ pub fn spawn_worker(
                     request_id,
                     connection_id,
                 } => {
+                    tracing::info!(
+                        request_id = request_id.0,
+                        connection_id = %connection_id,
+                        "connection started"
+                    );
                     let event = match runtime.connection_api().connect(&connection_id).await {
-                        Ok(()) => RuntimeEvent::Connected {
-                            request_id,
-                            connection_id,
-                        },
+                        Ok(()) => {
+                            tracing::info!(
+                                request_id = request_id.0,
+                                connection_id = %connection_id,
+                                "connection completed"
+                            );
+                            RuntimeEvent::Connected {
+                                request_id,
+                                connection_id,
+                            }
+                        }
                         Err(error) => RuntimeEvent::Failed {
                             request_id,
                             message: error.message,
@@ -732,6 +794,30 @@ pub fn spawn_worker(
                             .lock()
                             .unwrap_or_else(|poisoned| poisoned.into_inner())
                             .remove(&request_id);
+                        let _ = event_tx.send(event).await;
+                    });
+                }
+                RuntimeCommand::ExplainQuery {
+                    request_id,
+                    connection_id,
+                    sql,
+                } => {
+                    let query_api = runtime.query_api();
+                    let event_tx = event_tx.clone();
+                    tokio::spawn(async move {
+                        let event = match query_api.explain(&connection_id, &sql).await {
+                            Ok(plan) => match serde_json::to_string_pretty(&plan) {
+                                Ok(plan) => RuntimeEvent::ExplainCompleted { request_id, plan },
+                                Err(error) => RuntimeEvent::Failed {
+                                    request_id,
+                                    message: format!("failed to format query plan: {error}"),
+                                },
+                            },
+                            Err(error) => RuntimeEvent::Failed {
+                                request_id,
+                                message: error.message,
+                            },
+                        };
                         let _ = event_tx.send(event).await;
                     });
                 }

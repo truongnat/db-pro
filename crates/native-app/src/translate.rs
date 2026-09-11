@@ -80,6 +80,7 @@ pub(crate) fn translate_command(command: UiCommand) -> Option<RuntimeCommand> {
         | UiCommand::DeleteConnection { .. }
         | UiCommand::Connect { .. } => translate_connection_command(command),
         UiCommand::RunQuery { .. }
+        | UiCommand::ExplainQuery { .. }
         | UiCommand::Backup { .. }
         | UiCommand::Restore { .. }
         | UiCommand::CancelQuery { .. } => translate_execution_command(command),
@@ -235,6 +236,13 @@ fn translate_schema_command(command: UiCommand) -> Option<RuntimeCommand> {
                 driver: context.driver,
                 tables: context.tables,
                 columns: context.columns,
+                schema: context.schema,
+                selected_table: context.selected_table,
+                selected_columns: context.selected_columns,
+                current_sql: context.current_sql,
+                result_summary: context.result_summary,
+                explain_plan: context.explain_plan,
+                last_error: context.last_error,
             },
         }),
         UiCommand::IntrospectSchema {
@@ -350,6 +358,15 @@ fn translate_execution_command(command: UiCommand) -> Option<RuntimeCommand> {
             connection_id,
             sql,
         } => Some(RuntimeCommand::ExecuteQuery {
+            request_id: RuntimeRequestId(request_id.0),
+            connection_id,
+            sql,
+        }),
+        UiCommand::ExplainQuery {
+            request_id,
+            connection_id,
+            sql,
+        } => Some(RuntimeCommand::ExplainQuery {
             request_id: RuntimeRequestId(request_id.0),
             connection_id,
             sql,
@@ -529,87 +546,176 @@ pub(crate) fn translate_event(event: RuntimeEvent) -> Option<UiEvent> {
             connections,
         } => translate_connections_loaded(request_id, connections),
         RuntimeEvent::SchemaLoaded { request_id, schema } => translate_schema_loaded(request_id, schema),
-        RuntimeEvent::TableInfoLoaded { request_id, table_info } => Some(UiEvent::TableInfoLoaded {
-            request_id: db_pro_ui::RequestId(request_id.0),
-            table_info: map_table_info(table_info),
-        }),
-        RuntimeEvent::TableDdlLoaded { request_id, sql } => Some(UiEvent::TableDdlLoaded {
-            request_id: db_pro_ui::RequestId(request_id.0),
-            sql,
-        }),
+        RuntimeEvent::TableInfoLoaded { request_id, table_info } => translate_table_info_loaded(request_id, table_info),
+        RuntimeEvent::TableDdlLoaded { request_id, sql } => translate_table_ddl_loaded(request_id, sql),
         RuntimeEvent::DdlCompleted {
             request_id,
             affected_rows,
-        } => Some(UiEvent::DdlCompleted {
-            request_id: db_pro_ui::RequestId(request_id.0),
-            affected_rows,
-        }),
+        } => translate_ddl_completed(request_id, affected_rows),
         RuntimeEvent::QueryFoldersLoaded { request_id, folders } => translate_query_folders_loaded(request_id, folders),
         RuntimeEvent::SavedQueriesLoaded { request_id, queries } => translate_saved_queries_loaded(request_id, queries),
         RuntimeEvent::OperationProgress {
             request_id,
             operation,
             status,
-        } => Some(UiEvent::OperationProgress {
-            request_id: db_pro_ui::RequestId(request_id.0),
-            operation: operation.to_owned(),
-            status: status.to_owned(),
-        }),
+        } => translate_operation_progress(request_id, operation, status),
         RuntimeEvent::BackupCompleted {
             request_id,
             output_path,
             size_bytes,
-        } => Some(UiEvent::BackupCompleted {
-            request_id: db_pro_ui::RequestId(request_id.0),
-            output_path,
-            size_bytes,
-        }),
-        RuntimeEvent::OperationCompleted { request_id, operation } => Some(UiEvent::OperationCompleted {
-            request_id: db_pro_ui::RequestId(request_id.0),
-            operation: operation.to_owned(),
-        }),
+        } => translate_backup_completed(request_id, output_path, size_bytes),
+        RuntimeEvent::OperationCompleted { request_id, operation } => {
+            translate_operation_completed(request_id, operation)
+        }
         RuntimeEvent::Connected {
             request_id,
             connection_id,
-        } => Some(UiEvent::Connected {
-            request_id: db_pro_ui::RequestId(request_id.0),
-            connection_id,
-        }),
-        RuntimeEvent::QueryCompleted { request_id, result } => Some(UiEvent::QueryCompleted {
-            request_id: db_pro_ui::RequestId(request_id.0),
-            result: map_query_result(result),
-        }),
+        } => translate_connected(request_id, connection_id),
+        RuntimeEvent::QueryCompleted { request_id, result } => translate_query_completed(request_id, result),
+        RuntimeEvent::ExplainCompleted { request_id, plan } => translate_explain_completed(request_id, plan),
         RuntimeEvent::TableDataLoaded {
             request_id,
             result,
             total_rows,
-        } => Some(UiEvent::TableDataLoaded {
-            request_id: db_pro_ui::RequestId(request_id.0),
-            result: map_query_result(result),
-            total_rows,
-        }),
-        RuntimeEvent::QueryCancelled { request_id } => Some(UiEvent::QueryCancelled {
-            request_id: db_pro_ui::RequestId(request_id.0),
-        }),
-        RuntimeEvent::AgentCompleted { request_id, message } => Some(UiEvent::AgentCompleted {
-            request_id: db_pro_ui::RequestId(request_id.0),
-            provider: "Codex".to_owned(),
-            message: AgentMessage {
-                role: AgentRole::Assistant,
-                content: message.content,
-                sql: message.sql,
-                requires_confirmation: message.requires_confirmation,
-            },
-        }),
-        RuntimeEvent::AgentFailed { request_id, message } => Some(UiEvent::AgentFailed {
-            request_id: db_pro_ui::RequestId(request_id.0),
+        } => translate_table_data_loaded(request_id, result, total_rows),
+        RuntimeEvent::QueryCancelled { request_id } => translate_query_cancelled(request_id),
+        RuntimeEvent::AgentCompleted {
+            request_id,
+            provider,
             message,
-        }),
-        RuntimeEvent::Failed { request_id, message } => Some(UiEvent::QueryFailed {
-            request_id: db_pro_ui::RequestId(request_id.0),
-            message,
-        }),
+        } => translate_agent_completed(request_id, provider, message),
+        RuntimeEvent::AgentProviderReady { provider, detail } => Some(UiEvent::AgentProviderReady { provider, detail }),
+        RuntimeEvent::AgentFailed { request_id, message } => translate_agent_failed(request_id, message),
+        RuntimeEvent::Failed { request_id, message } => translate_failed(request_id, message),
     }
+}
+
+fn ui_request_id(request_id: RuntimeRequestId) -> db_pro_ui::RequestId {
+    db_pro_ui::RequestId(request_id.0)
+}
+
+fn translate_table_info_loaded(
+    request_id: RuntimeRequestId,
+    table_info: db_pro_core::domain::schema::TableInfo,
+) -> Option<UiEvent> {
+    Some(UiEvent::TableInfoLoaded {
+        request_id: ui_request_id(request_id),
+        table_info: map_table_info(table_info),
+    })
+}
+
+fn translate_table_ddl_loaded(request_id: RuntimeRequestId, sql: String) -> Option<UiEvent> {
+    Some(UiEvent::TableDdlLoaded {
+        request_id: ui_request_id(request_id),
+        sql,
+    })
+}
+
+fn translate_ddl_completed(request_id: RuntimeRequestId, affected_rows: u64) -> Option<UiEvent> {
+    Some(UiEvent::DdlCompleted {
+        request_id: ui_request_id(request_id),
+        affected_rows,
+    })
+}
+
+fn translate_operation_progress(
+    request_id: RuntimeRequestId,
+    operation: &'static str,
+    status: &'static str,
+) -> Option<UiEvent> {
+    Some(UiEvent::OperationProgress {
+        request_id: ui_request_id(request_id),
+        operation: operation.to_owned(),
+        status: status.to_owned(),
+    })
+}
+
+fn translate_backup_completed(request_id: RuntimeRequestId, output_path: String, size_bytes: u64) -> Option<UiEvent> {
+    Some(UiEvent::BackupCompleted {
+        request_id: ui_request_id(request_id),
+        output_path,
+        size_bytes,
+    })
+}
+
+fn translate_operation_completed(request_id: RuntimeRequestId, operation: &'static str) -> Option<UiEvent> {
+    Some(UiEvent::OperationCompleted {
+        request_id: ui_request_id(request_id),
+        operation: operation.to_owned(),
+    })
+}
+
+fn translate_connected(request_id: RuntimeRequestId, connection_id: String) -> Option<UiEvent> {
+    Some(UiEvent::Connected {
+        request_id: ui_request_id(request_id),
+        connection_id,
+    })
+}
+
+fn translate_query_completed(
+    request_id: RuntimeRequestId,
+    result: db_pro_core::domain::query::QueryResult,
+) -> Option<UiEvent> {
+    Some(UiEvent::QueryCompleted {
+        request_id: ui_request_id(request_id),
+        result: map_query_result(result),
+    })
+}
+
+fn translate_explain_completed(request_id: RuntimeRequestId, plan: String) -> Option<UiEvent> {
+    Some(UiEvent::ExplainCompleted {
+        request_id: ui_request_id(request_id),
+        plan,
+    })
+}
+
+fn translate_table_data_loaded(
+    request_id: RuntimeRequestId,
+    result: db_pro_core::domain::query::QueryResult,
+    total_rows: u64,
+) -> Option<UiEvent> {
+    Some(UiEvent::TableDataLoaded {
+        request_id: ui_request_id(request_id),
+        result: map_query_result(result),
+        total_rows,
+    })
+}
+
+fn translate_query_cancelled(request_id: RuntimeRequestId) -> Option<UiEvent> {
+    Some(UiEvent::QueryCancelled {
+        request_id: ui_request_id(request_id),
+    })
+}
+
+fn translate_agent_completed(
+    request_id: RuntimeRequestId,
+    provider: String,
+    message: db_pro_runtime::AgentDraft,
+) -> Option<UiEvent> {
+    Some(UiEvent::AgentCompleted {
+        request_id: ui_request_id(request_id),
+        provider,
+        message: AgentMessage {
+            role: AgentRole::Assistant,
+            content: message.content,
+            sql: message.sql,
+            requires_confirmation: message.requires_confirmation,
+        },
+    })
+}
+
+fn translate_agent_failed(request_id: RuntimeRequestId, message: String) -> Option<UiEvent> {
+    Some(UiEvent::AgentFailed {
+        request_id: ui_request_id(request_id),
+        message,
+    })
+}
+
+fn translate_failed(request_id: RuntimeRequestId, message: String) -> Option<UiEvent> {
+    Some(UiEvent::QueryFailed {
+        request_id: ui_request_id(request_id),
+        message,
+    })
 }
 
 fn translate_connections_loaded(
@@ -638,6 +744,7 @@ fn translate_schema_loaded(request_id: RuntimeRequestId, schema: db_pro_runtime:
     Some(UiEvent::SchemaLoaded {
         request_id: db_pro_ui::RequestId(request_id.0),
         schema: UiSchemaSummary {
+            schemas: schema.schemas,
             tables: schema.tables,
             columns: schema.columns,
             table_details: schema

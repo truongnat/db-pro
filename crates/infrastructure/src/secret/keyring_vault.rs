@@ -1,23 +1,25 @@
 use async_trait::async_trait;
 use db_pro_core::domain::error::DbError;
 use db_pro_core::ports::SecretStore;
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Mutex;
 
 use super::encryption;
 use super::fallback::{self, FallbackStore};
 
-/// A `SecretStore` backed by the OS keyring with an opt-in encrypted-file fallback.
+/// A `SecretStore` backed by the OS keyring with optional session/file fallbacks.
 ///
-/// The fallback is **disabled by default**. Call `with_fallback()` to enable it
-/// for development/CI environments. In production, if the OS keyring is
-/// unavailable, operations return an error instead of silently writing
-/// weakly-encrypted secrets to disk.
+/// The encrypted-file fallback is **disabled by default**. Call
+/// `with_session_fallback()` to keep secrets only for the current process, or
+/// `with_fallback()` for the opt-in development/CI file fallback.
 pub struct KeyringVault {
     service_name: String,
     fallback_dir: PathBuf,
     allow_fallback: bool,
     fallback_store: Mutex<Option<FallbackStore>>,
+    allow_session_fallback: bool,
+    session_secrets: Mutex<HashMap<String, String>>,
 }
 
 impl std::fmt::Debug for KeyringVault {
@@ -37,6 +39,8 @@ impl KeyringVault {
             fallback_dir,
             allow_fallback: false,
             fallback_store: Mutex::new(None),
+            allow_session_fallback: false,
+            session_secrets: Mutex::new(HashMap::new()),
         }
     }
 
@@ -46,6 +50,15 @@ impl KeyringVault {
     /// service name, which is not a secret.
     pub fn with_fallback(mut self) -> Self {
         self.allow_fallback = true;
+        self
+    }
+
+    /// Keep credentials in memory when the OS keyring is unavailable.
+    ///
+    /// This preserves the current-session workflow without writing secrets to
+    /// disk. The user must enter the password again after restarting the app.
+    pub fn with_session_fallback(mut self) -> Self {
+        self.allow_session_fallback = true;
         self
     }
 
@@ -66,12 +79,13 @@ impl KeyringVault {
     }
 
     fn require_fallback(&self) -> Result<(), DbError> {
-        if self.allow_fallback {
+        if self.allow_fallback || self.allow_session_fallback {
             Ok(())
         } else {
             Err(DbError::EncryptionFailed(
                 "OS keyring unavailable and fallback is disabled; \
-                 call KeyringVault::with_fallback() to enable for development"
+                 call KeyringVault::with_session_fallback() or \
+                 KeyringVault::with_fallback() to enable a fallback"
                     .into(),
             ))
         }
@@ -96,6 +110,50 @@ impl KeyringVault {
     fn keyring_entry(&self, key: &str) -> Result<keyring::Entry, keyring::Error> {
         keyring::Entry::new(&self.service_name, key)
     }
+
+    fn store_session_secret(&self, key: &str, value: &str) -> Result<(), DbError> {
+        let mut secrets = self
+            .session_secrets
+            .lock()
+            .map_err(|e| DbError::Internal(format!("session secret mutex poisoned: {e}")))?;
+        secrets.insert(key.to_owned(), value.to_owned());
+        Ok(())
+    }
+
+    fn retrieve_session_secret(&self, key: &str) -> Result<Option<String>, DbError> {
+        let secrets = self
+            .session_secrets
+            .lock()
+            .map_err(|e| DbError::Internal(format!("session secret mutex poisoned: {e}")))?;
+        Ok(secrets.get(key).cloned())
+    }
+
+    fn delete_session_secret(&self, key: &str) -> Result<(), DbError> {
+        let mut secrets = self
+            .session_secrets
+            .lock()
+            .map_err(|e| DbError::Internal(format!("session secret mutex poisoned: {e}")))?;
+        secrets.remove(key);
+        Ok(())
+    }
+
+    fn store_unavailable_secret(&self, key: &str, value: &str) -> Result<(), DbError> {
+        self.require_fallback()?;
+        if self.allow_fallback {
+            self.store_fallback(key, value)
+        } else {
+            self.store_session_secret(key, value)
+        }
+    }
+
+    fn retrieve_unavailable_secret(&self, key: &str) -> Result<Option<String>, DbError> {
+        self.require_fallback()?;
+        if self.allow_fallback {
+            self.retrieve_fallback(key)
+        } else {
+            self.retrieve_session_secret(key)
+        }
+    }
 }
 
 fn is_keyring_unavailable(err: &keyring::Error) -> bool {
@@ -112,8 +170,7 @@ impl SecretStore for KeyringVault {
             Ok(e) => e,
             Err(e) if is_keyring_unavailable(&e) => {
                 tracing::warn!("OS keyring unavailable: {e}");
-                self.require_fallback()?;
-                return self.store_fallback(key, value);
+                return self.store_unavailable_secret(key, value);
             }
             Err(e) => {
                 return Err(DbError::Internal(format!("keyring entry creation failed: {e}")));
@@ -131,8 +188,7 @@ impl SecretStore for KeyringVault {
             }
             Err(e) if is_keyring_unavailable(&e) => {
                 tracing::warn!("OS keyring unavailable: {e}");
-                self.require_fallback()?;
-                self.store_fallback(key, value)
+                self.store_unavailable_secret(key, value)
             }
             Err(e) => Err(DbError::Internal(format!("keyring set_password failed: {e}"))),
         }
@@ -143,8 +199,7 @@ impl SecretStore for KeyringVault {
             Ok(e) => e,
             Err(e) if is_keyring_unavailable(&e) => {
                 tracing::warn!("OS keyring unavailable: {e}");
-                self.require_fallback()?;
-                return self.retrieve_fallback(key);
+                return self.retrieve_unavailable_secret(key);
             }
             Err(e) => {
                 return Err(DbError::Internal(format!("keyring entry creation failed: {e}")));
@@ -155,21 +210,24 @@ impl SecretStore for KeyringVault {
             Ok(value) => return Ok(Some(value)),
             Err(keyring::Error::NoEntry) => {
                 // A missing credential is normal for a new or passwordless connection.
-                if !self.allow_fallback {
+                if !self.allow_fallback && !self.allow_session_fallback {
                     return Ok(None);
                 }
             }
             Err(e) if is_keyring_unavailable(&e) => {
                 tracing::warn!("OS keyring unavailable: {e}");
-                self.require_fallback()?;
-                return self.retrieve_fallback(key);
+                return self.retrieve_unavailable_secret(key);
             }
             Err(e) => {
                 return Err(DbError::Internal(format!("keyring get_password failed: {e}")));
             }
         }
 
-        self.retrieve_fallback(key)
+        if self.allow_fallback {
+            self.retrieve_fallback(key)
+        } else {
+            self.retrieve_session_secret(key)
+        }
     }
 
     async fn delete_secret(&self, key: &str) -> Result<(), DbError> {
@@ -191,6 +249,10 @@ impl SecretStore for KeyringVault {
             if let Ok(store) = self.get_or_init_fallback() {
                 store.delete(key)?;
             }
+        }
+
+        if self.allow_session_fallback {
+            self.delete_session_secret(key)?;
         }
 
         Ok(())
@@ -242,7 +304,30 @@ mod tests {
         match vault.retrieve_secret(&key).await {
             Ok(None) => {}
             Ok(Some(_)) => panic!("diagnostic key unexpectedly exists"),
+            Err(DbError::EncryptionFailed(message)) if message.contains("OS keyring unavailable") => {}
             Err(error) => panic!("missing key lookup failed: {error}"),
         }
+    }
+
+    #[tokio::test]
+    async fn session_fallback_round_trips_without_writing_a_file() {
+        let fallback_dir = std::env::temp_dir().join(format!("db-pro-session-{}", std::process::id()));
+        let vault = KeyringVault::new("db-pro-session-test", fallback_dir.clone()).with_session_fallback();
+        let key = format!("session/{}", std::process::id());
+
+        vault
+            .store_secret(&key, "<REDACTED>")
+            .await
+            .expect("session store should succeed");
+        assert_eq!(
+            vault
+                .retrieve_secret(&key)
+                .await
+                .expect("session read should succeed")
+                .as_deref(),
+            Some("<REDACTED>")
+        );
+        assert!(!fallback_dir.join("secrets.json").exists());
+        vault.delete_secret(&key).await.expect("session delete should succeed");
     }
 }

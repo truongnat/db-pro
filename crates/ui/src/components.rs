@@ -1,8 +1,7 @@
 use crate::DbProTheme;
 use egui::{
     text::{LayoutJob, TextFormat},
-    Align2, Button, Color32, FontFamily, FontId, Frame, Margin, Response, RichText, Rounding, Sense, Stroke, TextEdit,
-    Ui,
+    Align, Button, Color32, FontFamily, FontId, Frame, Margin, Response, RichText, Rounding, Stroke, TextEdit, Ui,
 };
 use lucide_icons::Icon;
 
@@ -38,18 +37,18 @@ pub fn icon_text(icon: Icon, label: &str, color: Color32) -> LayoutJob {
 pub fn panel_frame(theme: DbProTheme) -> Frame {
     Frame {
         fill: theme.surface_panel,
-        inner_margin: Margin::symmetric(12.0, 8.0),
-        stroke: Stroke::new(1.0, theme.border_subtle),
+        inner_margin: Margin::symmetric(10.0, 6.0),
+        stroke: Stroke::NONE,
         ..Default::default()
     }
 }
 
-/// Shared Codex-light shell frame for navigation surfaces.
+/// Shared shell frame for navigation surfaces.
 pub fn sidebar_frame(theme: DbProTheme) -> Frame {
     Frame {
         fill: theme.surface_panel,
-        inner_margin: Margin::symmetric(12.0, 8.0),
-        stroke: Stroke::new(1.0, theme.border_subtle),
+        inner_margin: Margin::symmetric(9.0, 6.0),
+        stroke: Stroke::NONE,
         ..Default::default()
     }
 }
@@ -57,8 +56,8 @@ pub fn sidebar_frame(theme: DbProTheme) -> Frame {
 pub fn activity_bar_frame(theme: DbProTheme) -> Frame {
     Frame {
         fill: theme.surface_panel,
-        inner_margin: Margin::symmetric(8.0, 10.0),
-        stroke: Stroke::new(1.0, theme.border_subtle),
+        inner_margin: Margin::symmetric(6.0, 8.0),
+        stroke: Stroke::NONE,
         ..Default::default()
     }
 }
@@ -66,9 +65,9 @@ pub fn activity_bar_frame(theme: DbProTheme) -> Frame {
 pub fn toolbar_frame(theme: DbProTheme) -> Frame {
     Frame {
         fill: theme.surface_panel,
-        inner_margin: Margin::symmetric(12.0, 6.0),
-        stroke: Stroke::new(1.0, theme.border_subtle),
-        rounding: Rounding::same(7.0),
+        inner_margin: Margin::symmetric(8.0, 4.0),
+        stroke: Stroke::NONE,
+        rounding: Rounding::ZERO,
         ..Default::default()
     }
 }
@@ -76,20 +75,13 @@ pub fn toolbar_frame(theme: DbProTheme) -> Frame {
 pub fn tab_frame(theme: DbProTheme, active: bool) -> Frame {
     Frame {
         fill: if active {
-            theme.surface_active
+            theme.surface_elevated
         } else {
             Color32::TRANSPARENT
         },
-        inner_margin: Margin::symmetric(10.0, 5.0),
-        rounding: Rounding::same(6.0),
-        stroke: Stroke::new(
-            1.0,
-            if active {
-                theme.accent_soft
-            } else {
-                Color32::TRANSPARENT
-            },
-        ),
+        inner_margin: Margin::symmetric(9.0, 4.0),
+        rounding: Rounding::ZERO,
+        stroke: Stroke::NONE,
         ..Default::default()
     }
 }
@@ -97,10 +89,28 @@ pub fn tab_frame(theme: DbProTheme, active: bool) -> Frame {
 pub fn card_frame(theme: DbProTheme) -> Frame {
     Frame {
         fill: theme.surface_elevated,
-        inner_margin: Margin::same(16.0),
+        inner_margin: Margin::same(12.0),
         outer_margin: Margin::ZERO,
-        rounding: Rounding::same(10.0),
-        stroke: Stroke::new(1.0, theme.border_default),
+        rounding: Rounding::same(8.0),
+        stroke: Stroke::NONE,
+        ..Default::default()
+    }
+}
+
+pub fn agent_message_frame(theme: DbProTheme, user_message: bool) -> Frame {
+    Frame {
+        fill: if user_message {
+            theme.surface_elevated
+        } else {
+            Color32::TRANSPARENT
+        },
+        inner_margin: Margin::symmetric(10.0, 8.0),
+        rounding: if user_message {
+            Rounding::same(8.0)
+        } else {
+            Rounding::ZERO
+        },
+        stroke: Stroke::NONE,
         ..Default::default()
     }
 }
@@ -108,9 +118,19 @@ pub fn card_frame(theme: DbProTheme) -> Frame {
 pub fn editor_frame(theme: DbProTheme) -> Frame {
     Frame {
         fill: theme.surface_editor,
-        inner_margin: Margin::same(12.0),
-        rounding: Rounding::same(8.0),
-        stroke: Stroke::new(1.0, theme.border_default),
+        inner_margin: Margin::same(10.0),
+        rounding: Rounding::same(6.0),
+        stroke: Stroke::NONE,
+        ..Default::default()
+    }
+}
+
+pub fn grid_frame(theme: DbProTheme) -> Frame {
+    Frame {
+        fill: theme.surface_editor,
+        inner_margin: Margin::same(10.0),
+        rounding: Rounding::same(6.0),
+        stroke: Stroke::NONE,
         ..Default::default()
     }
 }
@@ -123,7 +143,9 @@ pub fn input(ui: &mut Ui, value: &mut String, hint: &str, width: f32, theme: DbP
         TextEdit::singleline(value)
             .hint_text(RichText::new(hint).color(theme.text_muted))
             .desired_width(width)
+            .min_size(egui::vec2(width, 32.0))
             .margin(Margin::symmetric(8.0, 5.0))
+            .vertical_align(Align::Center)
             .text_color(theme.text_primary),
     )
 }
@@ -139,45 +161,33 @@ pub fn password_input(ui: &mut Ui, value: &mut String, hint: &str, width: f32, t
             .password(true)
             .hint_text(RichText::new(hint).color(theme.text_muted))
             .desired_width(width)
+            .min_size(egui::vec2(width, 32.0))
             .margin(Margin::symmetric(8.0, 5.0))
+            .vertical_align(Align::Center)
             .text_color(theme.text_primary),
     )
 }
 
 pub fn sidebar_item(ui: &mut Ui, icon: Icon, label: &str, active: bool, theme: DbProTheme) -> Response {
     let width = ui.available_width();
-    let (rect, response) = ui.allocate_exact_size(egui::vec2(width, 30.0), Sense::click());
-    let fill = if active {
-        theme.accent_soft
-    } else if response.hovered() {
-        theme.surface_hover
+    let text_color = if active {
+        theme.text_primary
     } else {
-        Color32::TRANSPARENT
+        theme.text_secondary
     };
-    ui.painter().rect_filled(rect, Rounding::same(6.0), fill);
-    ui.painter().text(
-        egui::pos2(rect.left() + 12.0, rect.center().y),
-        Align2::LEFT_CENTER,
-        char::from(icon).to_string(),
-        FontId::new(14.0, FontFamily::Name("lucide".into())),
-        if active { theme.accent } else { theme.text_secondary },
-    );
-    ui.painter().text(
-        egui::pos2(rect.left() + 34.0, rect.center().y),
-        Align2::LEFT_CENTER,
-        label,
-        FontId::proportional(13.0),
-        if active {
-            theme.text_primary
-        } else {
-            theme.text_secondary
-        },
-    );
-    response
+    let button = Button::new(icon_layout(icon, label, text_color))
+        .min_size(egui::vec2(width, 28.0))
+        .rounding(Rounding::same(4.0))
+        .stroke(Stroke::NONE);
+    if active {
+        ui.add(button.fill(theme.accent_soft))
+    } else {
+        ui.add(button)
+    }
 }
 
 pub fn section_label(ui: &mut Ui, text: impl Into<String>, theme: DbProTheme) -> Response {
-    ui.label(RichText::new(text.into()).size(11.0).strong().color(theme.text_muted))
+    ui.label(RichText::new(text.into()).size(10.0).strong().color(theme.text_muted))
 }
 
 pub fn primary_button(ui: &mut Ui, label: impl Into<RichText>, theme: DbProTheme) -> Response {
@@ -185,8 +195,8 @@ pub fn primary_button(ui: &mut Ui, label: impl Into<RichText>, theme: DbProTheme
         Button::new(label.into().color(theme.accent_foreground).strong())
             .fill(theme.accent)
             .stroke(Stroke::new(1.0, theme.accent))
-            .min_size(egui::vec2(0.0, 30.0))
-            .rounding(Rounding::same(6.0)),
+            .min_size(egui::vec2(0.0, 28.0))
+            .rounding(Rounding::same(4.0)),
     )
 }
 
@@ -195,44 +205,46 @@ pub fn primary_button_with_icon(ui: &mut Ui, icon: Icon, label: &str, theme: DbP
         Button::new(icon_layout(icon, label, theme.accent_foreground))
             .fill(theme.accent)
             .stroke(Stroke::new(1.0, theme.accent))
-            .min_size(egui::vec2(0.0, 30.0))
-            .rounding(Rounding::same(6.0)),
+            .min_size(egui::vec2(0.0, 28.0))
+            .rounding(Rounding::same(4.0)),
     )
 }
 
 pub fn secondary_button(ui: &mut Ui, label: impl Into<RichText>, theme: DbProTheme) -> Response {
     ui.add(
         Button::new(label.into().color(theme.text_primary))
-            .fill(theme.surface_panel)
-            .stroke(Stroke::new(1.0, theme.border_default))
-            .min_size(egui::vec2(0.0, 30.0))
-            .rounding(Rounding::same(6.0)),
+            .fill(theme.surface_hover)
+            .stroke(Stroke::NONE)
+            .min_size(egui::vec2(0.0, 28.0))
+            .rounding(Rounding::same(4.0)),
     )
 }
 
 pub fn secondary_button_with_icon(ui: &mut Ui, icon: Icon, label: &str, theme: DbProTheme) -> Response {
     ui.add(
         Button::new(icon_layout(icon, label, theme.text_primary))
-            .fill(theme.surface_panel)
-            .stroke(Stroke::new(1.0, theme.border_default))
-            .min_size(egui::vec2(0.0, 30.0))
-            .rounding(Rounding::same(6.0)),
+            .fill(theme.surface_hover)
+            .stroke(Stroke::NONE)
+            .min_size(egui::vec2(0.0, 28.0))
+            .rounding(Rounding::same(4.0)),
     )
 }
 
 pub fn ghost_button(ui: &mut Ui, label: impl Into<RichText>, theme: DbProTheme) -> Response {
     ui.add(
         Button::new(label.into().color(theme.text_secondary))
-            .min_size(egui::vec2(0.0, 30.0))
-            .rounding(Rounding::same(6.0)),
+            .min_size(egui::vec2(0.0, 26.0))
+            .rounding(Rounding::same(4.0))
+            .stroke(Stroke::NONE),
     )
 }
 
 pub fn ghost_button_with_icon(ui: &mut Ui, icon: Icon, label: &str, theme: DbProTheme) -> Response {
     ui.add(
         Button::new(icon_layout(icon, label, theme.text_secondary))
-            .min_size(egui::vec2(0.0, 30.0))
-            .rounding(Rounding::same(6.0)),
+            .min_size(egui::vec2(0.0, 26.0))
+            .rounding(Rounding::same(4.0))
+            .stroke(Stroke::NONE),
     )
 }
 
@@ -240,7 +252,8 @@ pub fn compact_button(ui: &mut Ui, label: impl Into<RichText>, theme: DbProTheme
     ui.add(
         Button::new(label.into().size(12.0).color(theme.text_secondary))
             .min_size(egui::vec2(0.0, 24.0))
-            .rounding(Rounding::same(5.0)),
+            .rounding(Rounding::same(5.0))
+            .stroke(Stroke::NONE),
     )
 }
 
@@ -249,7 +262,8 @@ pub fn compact_button_enabled(ui: &mut Ui, label: impl Into<RichText>, enabled: 
         enabled,
         Button::new(label.into().size(12.0).color(theme.text_secondary))
             .min_size(egui::vec2(0.0, 24.0))
-            .rounding(Rounding::same(5.0)),
+            .rounding(Rounding::same(5.0))
+            .stroke(Stroke::NONE),
     )
 }
 
@@ -257,7 +271,8 @@ pub fn compact_button_with_icon(ui: &mut Ui, icon: Icon, label: &str, theme: DbP
     ui.add(
         Button::new(icon_layout(icon, label, theme.text_secondary))
             .min_size(egui::vec2(0.0, 24.0))
-            .rounding(Rounding::same(5.0)),
+            .rounding(Rounding::same(5.0))
+            .stroke(Stroke::NONE),
     )
 }
 
@@ -272,23 +287,18 @@ pub fn danger_button(ui: &mut Ui, label: impl Into<RichText>, theme: DbProTheme)
 }
 
 pub fn icon_button(ui: &mut Ui, icon: Icon, active: bool, theme: DbProTheme) -> Response {
-    let (rect, response) = ui.allocate_exact_size(egui::vec2(34.0, 34.0), Sense::click());
-    let fill = if active {
-        theme.accent_soft
-    } else if response.hovered() {
-        theme.surface_hover
+    let text = RichText::new(char::from(icon).to_string())
+        .font(FontId::new(17.0, FontFamily::Name("lucide".into())))
+        .color(if active { theme.accent } else { theme.text_muted });
+    let button = Button::new(text)
+        .min_size(egui::vec2(32.0, 32.0))
+        .rounding(Rounding::same(5.0))
+        .stroke(Stroke::NONE);
+    if active {
+        ui.add(button.fill(theme.accent_soft))
     } else {
-        Color32::TRANSPARENT
-    };
-    ui.painter().rect_filled(rect, Rounding::same(7.0), fill);
-    ui.painter().text(
-        rect.center(),
-        Align2::CENTER_CENTER,
-        char::from(icon).to_string(),
-        FontId::new(17.0, FontFamily::Name("lucide".into())),
-        if active { theme.accent } else { theme.text_muted },
-    );
-    response
+        ui.add(button)
+    }
 }
 
 pub fn compact_icon_button(ui: &mut Ui, icon: Icon, theme: DbProTheme) -> Response {
@@ -299,7 +309,8 @@ pub fn compact_icon_button(ui: &mut Ui, icon: Icon, theme: DbProTheme) -> Respon
                 .font(FontId::new(14.0, FontFamily::Name("lucide".into())))
                 .color(theme.text_muted),
         )
-        .rounding(Rounding::same(5.0)),
+        .rounding(Rounding::same(5.0))
+        .stroke(Stroke::NONE),
     )
 }
 
@@ -312,7 +323,8 @@ pub fn compact_icon_button_enabled(ui: &mut Ui, icon: Icon, enabled: bool, theme
                 .color(theme.text_muted),
         )
         .min_size(egui::vec2(24.0, 24.0))
-        .rounding(Rounding::same(5.0)),
+        .rounding(Rounding::same(5.0))
+        .stroke(Stroke::NONE),
     )
 }
 

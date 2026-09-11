@@ -8,15 +8,24 @@ use thiserror::Error;
 
 const DEFAULT_ENDPOINT: &str = "https://api.openai.com/v1/responses";
 const DEFAULT_MODEL: &str = "gpt-5.6";
+const DEFAULT_GROQ_ENDPOINT: &str = "https://api.groq.com/openai/v1/responses";
+const DEFAULT_GROQ_MODEL: &str = "openai/gpt-oss-120b";
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(60);
 const CODEX_INSTRUCTIONS: &str = "You are the DB Pro database copilot. Use only the schema metadata provided in the user context. Explain your answer briefly. When proposing SQL, put each draft in one ```sql fenced block. Never claim that SQL was executed. Never perform or request a database mutation automatically; mutations must be clearly marked for human review. Prefer read-only SQL and include a bounded LIMIT when appropriate.";
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct AgentContext {
     pub connection_name: Option<String>,
     pub driver: String,
     pub tables: Vec<String>,
     pub columns: Vec<String>,
+    pub schema: Option<String>,
+    pub selected_table: Option<String>,
+    pub selected_columns: Vec<String>,
+    pub current_sql: String,
+    pub result_summary: Option<String>,
+    pub explain_plan: Option<String>,
+    pub last_error: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -44,6 +53,7 @@ pub struct CodexProvider {
     endpoint: String,
     model: String,
     api_key: String,
+    provider_name: String,
 }
 
 impl std::fmt::Debug for CodexProvider {
@@ -59,18 +69,35 @@ impl std::fmt::Debug for CodexProvider {
 
 impl CodexProvider {
     pub fn from_env() -> Option<Self> {
-        let api_key = std::env::var("OPENAI_API_KEY")
-            .ok()
-            .filter(|value| !value.trim().is_empty())?;
+        if let Some(api_key) = non_empty_env("GROQ_API_KEY") {
+            let endpoint = std::env::var("DB_PRO_GROQ_ENDPOINT")
+                .or_else(|_| std::env::var("DB_PRO_CODEX_ENDPOINT"))
+                .unwrap_or_else(|_| DEFAULT_GROQ_ENDPOINT.to_owned());
+            let model = std::env::var("DB_PRO_GROQ_MODEL")
+                .or_else(|_| std::env::var("DB_PRO_CODEX_MODEL"))
+                .unwrap_or_else(|_| DEFAULT_GROQ_MODEL.to_owned());
+            return Self::configured(api_key, endpoint, model, "Groq");
+        }
+
+        let api_key = non_empty_env("OPENAI_API_KEY")?;
         let endpoint = std::env::var("DB_PRO_CODEX_ENDPOINT").unwrap_or_else(|_| DEFAULT_ENDPOINT.to_owned());
         let model = std::env::var("DB_PRO_CODEX_MODEL").unwrap_or_else(|_| DEFAULT_MODEL.to_owned());
-        Self::new(api_key, endpoint, model).ok()
+        Self::configured(api_key, endpoint, model, "OpenAI")
     }
 
     pub fn new(
         api_key: impl Into<String>,
         endpoint: impl Into<String>,
         model: impl Into<String>,
+    ) -> Result<Self, CodexProviderError> {
+        Self::with_provider(api_key, endpoint, model, "Codex")
+    }
+
+    fn with_provider(
+        api_key: impl Into<String>,
+        endpoint: impl Into<String>,
+        model: impl Into<String>,
+        provider_name: impl Into<String>,
     ) -> Result<Self, CodexProviderError> {
         let endpoint = endpoint.into();
         if !endpoint.starts_with("https://") {
@@ -85,7 +112,22 @@ impl CodexProvider {
             endpoint,
             model: model.into(),
             api_key: api_key.into(),
+            provider_name: provider_name.into(),
         })
+    }
+
+    pub fn provider_name(&self) -> &str {
+        &self.provider_name
+    }
+
+    fn configured(api_key: String, endpoint: String, model: String, provider_name: &str) -> Option<Self> {
+        match Self::with_provider(api_key, endpoint, model, provider_name) {
+            Ok(provider) => Some(provider),
+            Err(error) => {
+                tracing::warn!(provider = provider_name, error = %error, "AI provider configuration rejected");
+                None
+            }
+        }
     }
 
     pub async fn respond(&self, prompt: &str, context: &AgentContext) -> Result<AgentDraft, CodexProviderError> {
@@ -122,6 +164,10 @@ impl CodexProvider {
     }
 }
 
+fn non_empty_env(name: &str) -> Option<String> {
+    std::env::var(name).ok().filter(|value| !value.trim().is_empty())
+}
+
 fn build_input(prompt: &str, context: &AgentContext) -> String {
     let connection = context.connection_name.as_deref().unwrap_or("active connection");
     let tables = if context.tables.is_empty() {
@@ -135,8 +181,23 @@ fn build_input(prompt: &str, context: &AgentContext) -> String {
         context.columns.iter().take(400).cloned().collect::<Vec<_>>().join(", ")
     };
     format!(
-        "Database context:\n- connection: {connection}\n- driver: {}\n- tables: {tables}\n- columns: {columns}\n\nUser request:\n{}",
+        "Database context:\n- connection: {connection}\n- driver: {}\n- schema: {}\n- selected table: {}\n- selected columns: {}\n- tables: {tables}\n- columns: {columns}\n- current SQL: {}\n- result summary: {}\n- explain plan: {}\n- last error: {}\n\nUser request:\n{}",
         context.driver,
+        context.schema.as_deref().unwrap_or("(default)"),
+        context.selected_table.as_deref().unwrap_or("(none)"),
+        if context.selected_columns.is_empty() {
+            "(none)".to_owned()
+        } else {
+            context.selected_columns.join(", ")
+        },
+        if context.current_sql.trim().is_empty() {
+            "(none)".to_owned()
+        } else {
+            context.current_sql.clone()
+        },
+        context.result_summary.as_deref().unwrap_or("(none)"),
+        context.explain_plan.as_deref().unwrap_or("(none)"),
+        context.last_error.as_deref().unwrap_or("(none)"),
         prompt.trim()
     )
 }
@@ -263,6 +324,7 @@ mod tests {
             driver: "SQLite".to_owned(),
             tables: vec!["customers".to_owned()],
             columns: vec!["id".to_owned(), "name".to_owned()],
+            ..Default::default()
         };
         let input = build_input("show customers", &context);
         assert!(input.contains("customers"));

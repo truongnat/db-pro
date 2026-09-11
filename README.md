@@ -82,13 +82,14 @@ See:
 - Agent-ready Action Platform architecture
 - Typed execution lifecycle, confirmation gates, cancellation identity, and audit hooks
 - Preview UI only in 0.1.0
-- Optional Codex Responses text provider via `OPENAI_API_KEY`; SQL remains a reviewable draft
+- Optional Responses text provider via `GROQ_API_KEY` or `OPENAI_API_KEY`; SQL remains a reviewable draft
 - MCP server is not shipped in 0.1.0
 
-To enable the optional native Codex provider, set `OPENAI_API_KEY` outside the
-repository before launching `db-pro-native`. `DB_PRO_CODEX_MODEL` and
-`DB_PRO_CODEX_ENDPOINT` are optional overrides; the default endpoint is the
-official HTTPS Responses API endpoint. Credentials are read once by the
+To enable the optional native AI provider, set `GROQ_API_KEY` or `OPENAI_API_KEY`
+outside the repository before launching `db-pro-native`. Groq defaults to
+`openai/gpt-oss-120b`; `DB_PRO_GROQ_MODEL`, `DB_PRO_GROQ_ENDPOINT`,
+`DB_PRO_CODEX_MODEL`, and `DB_PRO_CODEX_ENDPOINT` are optional overrides.
+Credentials are read once by the
 runtime worker and are not rendered in the UI or logs.
 
 ## Architecture

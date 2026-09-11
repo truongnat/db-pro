@@ -18,6 +18,13 @@ pub struct AgentContext {
     pub driver: String,
     pub tables: Vec<String>,
     pub columns: Vec<String>,
+    pub schema: Option<String>,
+    pub selected_table: Option<String>,
+    pub selected_columns: Vec<String>,
+    pub current_sql: String,
+    pub result_summary: Option<String>,
+    pub explain_plan: Option<String>,
+    pub last_error: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -102,109 +109,21 @@ pub fn respond(prompt: &str, context: &AgentContext) -> AgentMessage {
         .cloned()
         .collect::<Vec<_>>();
 
-    if contains_any(&lower, &["delete", "remove", "drop row"]) {
-        return mutation_draft(
-            table,
-            "DELETE FROM {table}\nWHERE id = ?;",
-            "I drafted a delete statement. Review the target and WHERE clause before running it.",
-        );
+    if let Some(message) = mutation_response(&lower, table.as_deref()) {
+        return message;
     }
-    if contains_any(&lower, &["update", "modify", "change", "edit", "set "]) {
-        return mutation_draft(
-            table,
-            "UPDATE {table}\nSET column_name = ?\nWHERE id = ?;",
-            "I drafted an update statement. Review the target, values, and WHERE clause before running it.",
-        );
+    if let Some(message) = explain_response(&lower, table.as_deref(), &context.driver) {
+        return message;
     }
-    if contains_any(&lower, &["insert", "add row", "create row"]) {
-        return mutation_draft(
-            table,
-            "INSERT INTO {table} (column_name)\nVALUES (?);",
-            "I drafted an insert statement. Review the target and values before running it.",
-        );
+    if let Some(message) = overview_response(&lower, context) {
+        return message;
     }
-
-    if contains_any(&lower, &["explain", "query plan", "optimize", "slow", "performance"]) {
-        let Some(table) = table else {
-            return assistant(
-                "Which table should I inspect? Mention its name so I can draft a query plan request.",
-                None,
-                false,
-            );
-        };
-        let sql = if context.driver.eq_ignore_ascii_case("sqlite") {
-            format!("EXPLAIN QUERY PLAN\nSELECT *\nFROM {table}\nLIMIT 100;")
-        } else {
-            format!("EXPLAIN\nSELECT *\nFROM {table}\nLIMIT 100;")
-        };
-        return assistant(
-            &format!("Here is a read-only query plan draft for `{table}`."),
-            Some(sql),
-            false,
-        );
+    if let Some(message) = relationship_response(&lower, &mentioned_tables) {
+        return message;
     }
-
-    if contains_any(
-        &lower,
-        &["overview", "schema", "structure", "tables", "columns", "describe"],
-    ) {
-        let table_list = context
-            .tables
-            .iter()
-            .take(20)
-            .map(|table| format!("- `{table}`"))
-            .collect::<Vec<_>>()
-            .join("\n");
-        let sql = if context.driver.eq_ignore_ascii_case("sqlite") {
-            "SELECT name\nFROM sqlite_master\nWHERE type = 'table'\nORDER BY name;".to_owned()
-        } else {
-            "SELECT table_name, column_name, data_type\nFROM information_schema.columns\nWHERE table_schema = 'public'\nORDER BY table_name, ordinal_position;".to_owned()
-        };
-        return assistant(
-            &format!(
-                "I found {} table(s) in {}.\n\n{}",
-                context.tables.len(),
-                connection_label(context),
-                table_list
-            ),
-            Some(sql),
-            false,
-        );
+    if let Some(message) = count_response(&lower, table.as_deref()) {
+        return message;
     }
-
-    if contains_any(&lower, &["join", "relate", "relationship", "foreign key"]) {
-        if mentioned_tables.len() < 2 {
-            return assistant(
-                "Mention two table names and I will draft a join. The current summary does not include foreign-key pairs, so review the ON clause.",
-                None,
-                false,
-            );
-        }
-        let left = &mentioned_tables[0];
-        let right = &mentioned_tables[1];
-        let sql = format!("SELECT *\nFROM {left}\nJOIN {right} ON {left}.id = {right}.id\nLIMIT 100;");
-        return assistant(
-            &format!("I drafted a join for `{left}` and `{right}`. The ON clause is a placeholder because foreign-key details are not in the summary context."),
-            Some(sql),
-            false,
-        );
-    }
-
-    if contains_any(&lower, &["count", "how many", "number of"]) {
-        let Some(table) = table else {
-            return assistant(
-                "Which table should I count? Mention its name in the request.",
-                None,
-                false,
-            );
-        };
-        return assistant(
-            &format!("Here is a count query for `{table}`."),
-            Some(format!("SELECT COUNT(*) AS row_count\nFROM {table};")),
-            false,
-        );
-    }
-
     if let Some(table) = table {
         return assistant(
             &format!("Here is a read-only query draft for `{table}`."),
@@ -229,7 +148,126 @@ pub fn respond(prompt: &str, context: &AgentContext) -> AgentMessage {
     )
 }
 
-fn mutation_draft(table: Option<String>, template: &str, content: &str) -> AgentMessage {
+fn mutation_response(prompt: &str, table: Option<&str>) -> Option<AgentMessage> {
+    if contains_any(prompt, &["delete", "remove", "drop row"]) {
+        return Some(mutation_draft(
+            table,
+            "DELETE FROM {table}\nWHERE id = ?;",
+            "I drafted a delete statement. Review the target and WHERE clause before running it.",
+        ));
+    }
+    if contains_any(prompt, &["update", "modify", "change", "edit", "set "]) {
+        return Some(mutation_draft(
+            table,
+            "UPDATE {table}\nSET column_name = ?\nWHERE id = ?;",
+            "I drafted an update statement. Review the target, values, and WHERE clause before running it.",
+        ));
+    }
+    if contains_any(prompt, &["insert", "add row", "create row"]) {
+        return Some(mutation_draft(
+            table,
+            "INSERT INTO {table} (column_name)\nVALUES (?);",
+            "I drafted an insert statement. Review the target and values before running it.",
+        ));
+    }
+    None
+}
+
+fn explain_response(prompt: &str, table: Option<&str>, driver: &str) -> Option<AgentMessage> {
+    if !contains_any(prompt, &["explain", "query plan", "optimize", "slow", "performance"]) {
+        return None;
+    }
+    let Some(table) = table else {
+        return Some(assistant(
+            "Which table should I inspect? Mention its name so I can draft a query plan request.",
+            None,
+            false,
+        ));
+    };
+    let sql = if driver.eq_ignore_ascii_case("sqlite") {
+        format!("EXPLAIN QUERY PLAN\nSELECT *\nFROM {table}\nLIMIT 100;")
+    } else {
+        format!("EXPLAIN\nSELECT *\nFROM {table}\nLIMIT 100;")
+    };
+    Some(assistant(
+        &format!("Here is a read-only query plan draft for `{table}`."),
+        Some(sql),
+        false,
+    ))
+}
+
+fn overview_response(prompt: &str, context: &AgentContext) -> Option<AgentMessage> {
+    if !contains_any(
+        prompt,
+        &["overview", "schema", "structure", "tables", "columns", "describe"],
+    ) {
+        return None;
+    }
+    let table_list = context
+        .tables
+        .iter()
+        .take(20)
+        .map(|table| format!("- `{table}`"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let sql = if context.driver.eq_ignore_ascii_case("sqlite") {
+        "SELECT name\nFROM sqlite_master\nWHERE type = 'table'\nORDER BY name;".to_owned()
+    } else {
+        "SELECT table_name, column_name, data_type\nFROM information_schema.columns\nWHERE table_schema = 'public'\nORDER BY table_name, ordinal_position;"
+            .to_owned()
+    };
+    Some(assistant(
+        &format!(
+            "I found {} table(s) in {}.\n\n{}",
+            context.tables.len(),
+            connection_label(context),
+            table_list
+        ),
+        Some(sql),
+        false,
+    ))
+}
+
+fn relationship_response(prompt: &str, mentioned_tables: &[String]) -> Option<AgentMessage> {
+    if !contains_any(prompt, &["join", "relate", "relationship", "foreign key"]) {
+        return None;
+    }
+    if mentioned_tables.len() < 2 {
+        return Some(assistant(
+            "Mention two table names and I will draft a join. The current summary does not include foreign-key pairs, so review the ON clause.",
+            None,
+            false,
+        ));
+    }
+    let left = &mentioned_tables[0];
+    let right = &mentioned_tables[1];
+    let sql = format!("SELECT *\nFROM {left}\nJOIN {right} ON {left}.id = {right}.id\nLIMIT 100;");
+    Some(assistant(
+        &format!("I drafted a join for `{left}` and `{right}`. The ON clause is a placeholder because foreign-key details are not in the summary context."),
+        Some(sql),
+        false,
+    ))
+}
+
+fn count_response(prompt: &str, table: Option<&str>) -> Option<AgentMessage> {
+    if !contains_any(prompt, &["count", "how many", "number of"]) {
+        return None;
+    }
+    let Some(table) = table else {
+        return Some(assistant(
+            "Which table should I count? Mention its name in the request.",
+            None,
+            false,
+        ));
+    };
+    Some(assistant(
+        &format!("Here is a count query for `{table}`."),
+        Some(format!("SELECT COUNT(*) AS row_count\nFROM {table};")),
+        false,
+    ))
+}
+
+fn mutation_draft(table: Option<&str>, template: &str, content: &str) -> AgentMessage {
     let Some(table) = table else {
         return assistant(
             "Which table should this change target? Mention its name first.",
@@ -237,7 +275,7 @@ fn mutation_draft(table: Option<String>, template: &str, content: &str) -> Agent
             false,
         );
     };
-    assistant(content, Some(template.replace("{table}", &table)), true)
+    assistant(content, Some(template.replace("{table}", table)), true)
 }
 
 fn assistant(content: &str, sql: Option<String>, requires_confirmation: bool) -> AgentMessage {
@@ -281,6 +319,7 @@ mod tests {
             driver: "Postgres".to_owned(),
             tables: vec!["customers".to_owned(), "orders".to_owned()],
             columns: vec!["id".to_owned(), "name".to_owned()],
+            ..Default::default()
         }
     }
 

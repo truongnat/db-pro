@@ -6,11 +6,19 @@
 
 ## 🔁 FOLLOW-UP 2026-09-11
 
-- `crates/ui/src/app.rs` đã tách phần khởi tạo/persistence state sang `app_state.rs`; file composition root giảm từ **845 xuống 677 dòng**.
+### Native UI redesign follow-up
+
+- Shared native presentation now uses a dark-first token hierarchy, quiet surfaces, borderless tabs, compact activity rail, context-driven Explorer actions, and a focused empty workspace. Theme storage uses `dark-first-v3`, migrating stale pre-redesign light-mode state to the dark default once while preserving later user choices.
+- `agent.rs` responder branches and ER diagram canvas/node selection are split into focused helpers; behavior-preserving UI tests remain green.
+- Current native code sizes after the split: `app.rs` 753 lines, `agent_view.rs` 296, `diagram_view.rs` 539, `query_view.rs` 676, `navigation_view.rs` 682, `app_state.rs` 206.
+- Verification: workspace check/clippy, native build, UI 49/49 tests and `git diff --check` pass. Clean-code heuristic retains one constructor warning for `app_state::default`; no behavior-neutral abstraction was added solely to satisfy the heuristic.
+- Runtime visual acceptance is not claimed in this environment: direct X11 launch fails with `XOpenDisplayFailed`; no Orca/computer-use path was used.
+
+- (Historical snapshot) `crates/ui/src/app.rs` đã tách phần khởi tạo/persistence state sang `app_state.rs`; composition root khi đó giảm từ **845 xuống 677 dòng**.
 - `crates/infrastructure/src/postgres/introspect.rs` đã bỏ `get_mut(...).unwrap()` ở luồng gom composite foreign key, dùng `HashMap::entry(...).or_insert_with(...)`.
 - `crates/native-app/src/translate.rs` đã tách event translation khỏi một hàm 193 dòng; mapping schema/connections/query folders/saved queries có helper riêng.
 - Tauri command boundary đã chuyển sang `DbProRuntime` và các facade typed (`ConnectionApi`, `QueryApi`, `SchemaApi`, `TableDataApi`, `ExportApi`, `BackupApi`, `UserApi`, `DataDiffApi`, `PostgresApi`); không còn `State<Arc<...Service>>` trong command modules.
-- Đã chạy: `cargo test -p db-pro-ui --offline` (**36 passed**), `cargo clippy -p db-pro-ui --offline --all-targets -- -D warnings` (**pass**), `cargo test -p db-pro-infrastructure --offline` (**37 unit + 25 SQLite/integration passed**), isolated PostgreSQL fixture (**10/10 passed**) và clippy infrastructure (**pass**).
+- (Historical snapshot) Đã chạy: `cargo test -p db-pro-ui --offline` (**36 passed**), `cargo clippy -p db-pro-ui --offline --all-targets -- -D warnings` (**pass**), `cargo test -p db-pro-infrastructure --offline` (**37 unit + 25 SQLite/integration passed**), isolated PostgreSQL fixture (**10/10 passed**) và clippy infrastructure (**pass**).
 - Workspace gate sau facade migration: `cargo fmt --all -- --check`, `cargo test --workspace --offline` và `cargo clippy --workspace --offline --all-targets -- -D warnings` đều PASS; native launch smoke sống 8 giây không output/crash.
 - Còn giữ các hàm render dài trong các view egui vì đây là các boundary UI; chỉ tách tiếp khi có thay đổi hành vi hoặc test chứng minh cần thiết.
 - Clean-code scan hiện không còn blocking translation-function finding; cảnh báo còn lại là các boundary render egui/Tauri bootstrap và heuristic `unwrap_or_default`, đã ghi rõ để không biến thành refactor không có hành vi.
@@ -83,18 +91,19 @@ Dự án áp dụng mô hình **Hexagonal Architecture (Ports & Adapters)** chu�
 - **Đánh giá:** 🟢 **Tốt (9.0/10)**
 - **Điểm sáng:**
   - Vừa qua file monolithic `crates/ui/src/app.rs` (~5,000 dòng) đã được bóc tách thành các view riêng biệt; sau follow-up, phần state khởi tạo nằm trong `app_state.rs` và composition root còn 677 dòng:
-    - `agent_view.rs` (222 dòng)
-    - `connection_view.rs` (305 dòng)
-    - `diagram_view.rs` (409 dòng)
-    - `events.rs` (435 dòng)
-    - `navigation_view.rs` (786 dòng)
-    - `palette_view.rs` (279 dòng)
-    - `query_view.rs` (836 dòng)
-    - `schema_object_view.rs` (140 dòng)
-    - `table_editor_view.rs` (831 dòng)
-    - `table_view.rs` (290 dòng)
-    - `workspace_view.rs` (137 dòng)
-    - Giúp file gốc `app.rs` chỉ còn 677 dòng, chủ yếu giữ state contract và điều phối frame/UI.
+  - `agent_view.rs` (296 dòng)
+  - `connection_view.rs` (332 dòng)
+  - `diagram_view.rs` (539 dòng)
+  - `events.rs` (478 dòng)
+  - `navigation_view.rs` (682 dòng)
+  - `palette_view.rs` (382 dòng)
+  - `query_view.rs` (676 dòng)
+  - `schema_object_view.rs` (140 dòng)
+  - `table_editor_view.rs` (990 dòng)
+  - `table_view.rs` (425 dòng)
+  - `workspace_view.rs` (200 dòng)
+  - `agent_state.rs`, `explorer_view.rs`, `result_grid_view.rs` tách riêng các boundary tương ứng.
+  - File gốc `app.rs` hiện 753 dòng, chủ yếu giữ state contract và điều phối frame/UI.
 
 - **Khuyến nghị tổ chức file (Rust Idiomatic Refactoring):**
   - Hiện tại `app.rs` đang dùng directive `#[path = "agent_view.rs"] mod agent_view;`.

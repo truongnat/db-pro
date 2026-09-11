@@ -3,7 +3,7 @@ use super::*;
 impl DbProApp {
     pub(crate) fn draw_table_data(&mut self, ui: &mut egui::Ui, table_name: &str) {
         let Some(result) = self.table_data_result.clone() else {
-            card_frame(self.theme).show(ui, |ui| {
+            grid_frame(self.theme).show(ui, |ui| {
                 ui.vertical_centered(|ui| {
                     ui.add_space(28.0);
                     let failed = self.table_data_error.as_deref();
@@ -73,13 +73,17 @@ impl DbProApp {
                     .on_hover_text("Reload the current page")
                     .clicked()
                 {
-                    self.table_data_result = None;
-                    self.table_data_total_rows = None;
-                    self.table_data_error = None;
-                    self.selected_cell = None;
-                    self.selected_row = None;
-                    self.data_delete_confirmation = false;
-                    self.request_table_data();
+                    if self.staged_changes.is_empty() {
+                        self.table_data_result = None;
+                        self.table_data_total_rows = None;
+                        self.table_data_error = None;
+                        self.selected_cell = None;
+                        self.selected_row = None;
+                        self.data_delete_confirmation = false;
+                        self.request_table_data();
+                    } else {
+                        self.runtime_message = "Apply or discard staged changes before refreshing".to_owned();
+                    }
                 }
                 if can_mutate {
                     if compact_button_with_icon(ui, Icon::Plus, "New row", self.theme).clicked() {
@@ -106,6 +110,20 @@ impl DbProApp {
                             self.data_delete_confirmation = false;
                         }
                     }
+                    if !self.staged_changes.is_empty() {
+                        ui.separator();
+                        ui.label(
+                            RichText::new(format!("{} pending changes", self.staged_changes.len()))
+                                .small()
+                                .color(self.theme.warning),
+                        );
+                        if compact_button_with_icon(ui, Icon::Undo2, "Discard", self.theme).clicked() {
+                            self.discard_staged_changes();
+                        }
+                        if compact_button_with_icon(ui, Icon::Check, "Apply", self.theme).clicked() {
+                            self.apply_staged_changes();
+                        }
+                    }
                 } else if self.connected {
                     ui.label(RichText::new("Read-only connection").small().color(self.theme.warning));
                 }
@@ -113,6 +131,7 @@ impl DbProApp {
                     if compact_icon_button_enabled(ui, Icon::ChevronRight, has_next, self.theme)
                         .on_hover_text("Next page")
                         .clicked()
+                        && self.staged_changes.is_empty()
                     {
                         self.table_data_result = None;
                         self.table_data_error = None;
@@ -125,6 +144,7 @@ impl DbProApp {
                     if compact_icon_button_enabled(ui, Icon::ChevronLeft, has_previous, self.theme)
                         .on_hover_text("Previous page")
                         .clicked()
+                        && self.staged_changes.is_empty()
                     {
                         self.table_data_result = None;
                         self.table_data_error = None;
@@ -207,7 +227,7 @@ impl DbProApp {
             ui.add_space(8.0);
         }
         let data_width = ui.max_rect().width();
-        panel_frame(self.theme).show(ui, |ui| {
+        grid_frame(self.theme).show(ui, |ui| {
             ui.set_min_width((data_width - 24.0).max(0.0));
             self.draw_result_grid(ui, &result);
         });
@@ -344,23 +364,10 @@ impl DbProApp {
             self.insert_row_error = "Enter at least one value; leave defaulted columns empty".to_owned();
             return;
         }
-        let Some(connection) = self.active_connection().cloned() else {
-            self.insert_row_error = "Connect to a database before inserting a row".to_owned();
-            return;
-        };
-        let request_id = self.task_bridge.next_request_id();
-        let _ = self.task_bridge.send(UiCommand::InsertTableRow {
-            request_id,
-            connection_id: connection.id,
-            schema: self.active_schema().to_owned(),
-            table,
-            columns,
-            values,
-        });
-        self.table_mutation_request = Some(request_id);
+        self.staged_changes.push(StagedChange::Insert { columns, values });
         self.insert_row_open = false;
         self.insert_row_error.clear();
-        self.runtime_message = "Inserting row…".to_owned();
+        self.runtime_message = format!("Row staged for {}", table);
     }
 
     pub(super) fn draw_insert_row_dialog(&mut self, ctx: &egui::Context) {
@@ -466,7 +473,7 @@ impl DbProApp {
 
     pub(crate) fn draw_table_ddl(&mut self, ui: &mut egui::Ui, table_name: &str) {
         let Some(mut ddl) = self.table_ddl.clone() else {
-            card_frame(self.theme).show(ui, |ui| {
+            grid_frame(self.theme).show(ui, |ui| {
                 ui.vertical_centered(|ui| {
                     ui.add_space(28.0);
                     let failed = self.table_ddl_error.as_deref();
@@ -633,6 +640,10 @@ impl DbProApp {
             self.runtime_message = "Connect with write access to edit rows".to_owned();
             return;
         }
+        if self.staged_row_deleted(row_index) {
+            self.runtime_message = "Discard the staged delete before editing this row".to_owned();
+            return;
+        }
         self.selected_cell = Some((row_index, column_index));
         self.selected_row = Some(row_index);
         self.data_editing_cell = Some((row_index, column_index));
@@ -646,10 +657,6 @@ impl DbProApp {
     pub(crate) fn submit_data_cell_edit(&mut self, result: &UiQueryResult, row_index: usize, column_index: usize) {
         let Some(info) = self.table_info.clone() else {
             self.runtime_message = "Table structure is still loading".to_owned();
-            return;
-        };
-        let Some(table) = self.selected_table.clone() else {
-            self.data_editing_cell = None;
             return;
         };
         let Some(column) = result.columns.get(column_index).map(|column| column.name.clone()) else {
@@ -677,24 +684,55 @@ impl DbProApp {
                 return;
             }
         };
-        let Some(connection) = self.active_connection().cloned() else {
+        let original = result
+            .rows
+            .get(row_index)
+            .and_then(|row| row.get(column_index))
+            .cloned()
+            .ok_or_else(|| "The selected cell is no longer available".to_owned());
+        let Ok(original) = original else {
             self.data_editing_cell = None;
+            self.runtime_message = "The selected cell is no longer available".to_owned();
             return;
         };
-        let request_id = self.task_bridge.next_request_id();
-        let _ = self.task_bridge.send(UiCommand::UpdateTableRow {
-            request_id,
-            connection_id: connection.id,
-            schema: self.active_schema().to_owned(),
-            table,
-            column,
-            value,
-            pk_columns,
-            pk_values,
-        });
-        self.table_mutation_request = Some(request_id);
+        if value == original {
+            self.staged_changes.retain(|change| {
+                !matches!(
+                    change,
+                    StagedChange::Update {
+                        row_index: existing_row,
+                        column_index: existing_column,
+                        ..
+                    } if *existing_row == row_index && *existing_column == column_index
+                )
+            });
+        } else if let Some(StagedChange::Update {
+            value: staged_value, ..
+        }) = self.staged_changes.iter_mut().find(|change| {
+            matches!(
+                change,
+                StagedChange::Update {
+                    row_index: existing_row,
+                    column_index: existing_column,
+                    ..
+                } if *existing_row == row_index && *existing_column == column_index
+            )
+        }) {
+            *staged_value = value.clone();
+        } else {
+            self.staged_changes.push(StagedChange::Update {
+                row_index,
+                column_index,
+                column,
+                original,
+                value,
+                pk_columns,
+                pk_values,
+            });
+        }
         self.data_editing_cell = None;
-        self.runtime_message = "Saving cell…".to_owned();
+        self.data_edit_value.clear();
+        self.runtime_message = format!("{} staged change(s)", self.staged_changes.len());
     }
 
     fn request_delete_selected_data_row(&mut self, result: &UiQueryResult) {
@@ -738,29 +776,146 @@ impl DbProApp {
                 return;
             }
         };
-        let Some(connection) = self.active_connection().cloned() else {
-            self.data_delete_confirmation = false;
-            self.runtime_message = "Connect to a database before deleting a row".to_owned();
-            return;
-        };
-        let Some(table) = self.selected_table.clone() else {
-            self.data_delete_confirmation = false;
-            return;
-        };
-        let request_id = self.task_bridge.next_request_id();
-        let _ = self.task_bridge.send(UiCommand::DeleteTableRow {
-            request_id,
-            connection_id: connection.id,
-            schema: self.active_schema().to_owned(),
-            table,
+        self.staged_changes.retain(|change| {
+            !matches!(
+                change,
+                StagedChange::Delete {
+                    row_index: existing_row,
+                    ..
+                } if *existing_row == row_index
+            )
+        });
+        self.staged_changes.push(StagedChange::Delete {
+            row_index,
             pk_columns,
             pk_values,
         });
-        self.table_mutation_request = Some(request_id);
         self.data_delete_confirmation = false;
-        self.selected_cell = None;
-        self.selected_row = None;
-        self.runtime_message = "Deleting row…".to_owned();
+        self.runtime_message = format!("{} staged change(s)", self.staged_changes.len());
+    }
+
+    pub(crate) fn staged_cell_value(&self, row_index: usize, column_index: usize) -> Option<UiCell> {
+        self.staged_changes.iter().rev().find_map(|change| match change {
+            StagedChange::Update {
+                row_index: changed_row,
+                column_index: changed_column,
+                value,
+                ..
+            } if *changed_row == row_index && *changed_column == column_index => Some(value.clone()),
+            _ => None,
+        })
+    }
+
+    pub(crate) fn staged_row_deleted(&self, row_index: usize) -> bool {
+        self.staged_changes.iter().any(
+            |change| matches!(change, StagedChange::Delete { row_index: changed_row, .. } if *changed_row == row_index),
+        )
+    }
+
+    pub(crate) fn discard_staged_changes(&mut self) {
+        if self.staged_apply_request.is_some() {
+            self.runtime_message = "Wait for the current database write before discarding".to_owned();
+            return;
+        }
+        self.staged_changes.clear();
+        self.data_editing_cell = None;
+        self.data_delete_confirmation = false;
+        self.data_edit_value.clear();
+        self.table_data_result = None;
+        self.table_data_error = None;
+        self.runtime_message = "Staged changes discarded".to_owned();
+        self.request_table_data();
+    }
+
+    pub(crate) fn apply_staged_changes(&mut self) {
+        if self.staged_apply_request.is_some() {
+            return;
+        }
+        if self.staged_changes.is_empty() {
+            return;
+        }
+        self.apply_next_staged_change();
+    }
+
+    fn apply_next_staged_change(&mut self) {
+        let Some(connection) = self.active_connection().cloned() else {
+            self.runtime_message = "Connect to a database before applying changes".to_owned();
+            return;
+        };
+        let Some(table) = self.selected_table.clone() else {
+            self.runtime_message = "Select a table before applying changes".to_owned();
+            return;
+        };
+        let Some(change) = self.staged_changes.first().cloned() else {
+            return;
+        };
+        let request_id = self.task_bridge.next_request_id();
+        let command = match change {
+            StagedChange::Update {
+                column,
+                value,
+                pk_columns,
+                pk_values,
+                ..
+            } => UiCommand::UpdateTableRow {
+                request_id,
+                connection_id: connection.id,
+                schema: self.active_schema().to_owned(),
+                table,
+                column,
+                value,
+                pk_columns,
+                pk_values,
+            },
+            StagedChange::Delete {
+                pk_columns, pk_values, ..
+            } => UiCommand::DeleteTableRow {
+                request_id,
+                connection_id: connection.id,
+                schema: self.active_schema().to_owned(),
+                table,
+                pk_columns,
+                pk_values,
+            },
+            StagedChange::Insert { columns, values } => UiCommand::InsertTableRow {
+                request_id,
+                connection_id: connection.id,
+                schema: self.active_schema().to_owned(),
+                table,
+                columns,
+                values,
+            },
+        };
+        if self.task_bridge.send(command).is_ok() {
+            self.table_mutation_request = Some(request_id);
+            self.staged_apply_request = Some(request_id);
+            self.runtime_message = format!("Applying staged change 1/{}…", self.staged_changes.len());
+        } else {
+            self.runtime_message = "Could not send staged change to runtime".to_owned();
+        }
+    }
+
+    pub(crate) fn staged_apply_completed(&mut self) {
+        self.staged_apply_request = None;
+        self.table_mutation_request = None;
+        if !self.staged_changes.is_empty() {
+            self.staged_changes.remove(0);
+        }
+        if self.staged_changes.is_empty() {
+            self.runtime_message = "All staged changes applied".to_owned();
+            self.table_data_result = None;
+            self.table_data_total_rows = None;
+            self.table_data_error = None;
+            self.request_table_data();
+        } else {
+            self.apply_next_staged_change();
+        }
+    }
+
+    pub(crate) fn staged_apply_failed(&mut self, message: &str) {
+        self.staged_apply_request = None;
+        self.table_mutation_request = None;
+        self.runtime_message = format!("Staged change failed · {message}");
     }
 
     pub(crate) fn request_table_ddl(&mut self) {
@@ -819,6 +974,10 @@ impl DbProApp {
     }
 
     pub(crate) fn reload_table_data_from_start(&mut self) {
+        if !self.staged_changes.is_empty() {
+            self.runtime_message = "Apply or discard staged changes before reloading".to_owned();
+            return;
+        }
         self.table_data_offset = 0;
         self.table_data_result = None;
         self.table_data_total_rows = None;

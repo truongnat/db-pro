@@ -4,6 +4,7 @@ version = "0.1.0"
 edition.workspace = true
 
 [dependencies]
+db-pro-core = { path = "../core" }
 eframe = { version = "0.29", default-features = false, features = ["default_fonts", "glow", "wayland", "x11"] }
 egui = "0.29"
 serde.workspace = true

@@ -58,8 +58,9 @@ impl Default for UiConnectionDraft {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct UiSchemaSummary {
+    pub schemas: Vec<String>,
     pub tables: Vec<String>,
     pub columns: Vec<String>,
     pub table_details: Vec<UiTableSummary>,
@@ -335,6 +336,11 @@ pub enum UiCommand {
         connection_id: String,
         sql: String,
     },
+    ExplainQuery {
+        request_id: RequestId,
+        connection_id: String,
+        sql: String,
+    },
     Backup {
         request_id: RequestId,
         connection_id: String,
@@ -442,6 +448,10 @@ pub enum UiEvent {
         request_id: RequestId,
         result: UiQueryResult,
     },
+    ExplainCompleted {
+        request_id: RequestId,
+        plan: String,
+    },
     QueryCancelled {
         request_id: RequestId,
     },
@@ -449,6 +459,10 @@ pub enum UiEvent {
         request_id: RequestId,
         provider: String,
         message: crate::AgentMessage,
+    },
+    AgentProviderReady {
+        provider: String,
+        detail: String,
     },
     AgentFailed {
         request_id: RequestId,

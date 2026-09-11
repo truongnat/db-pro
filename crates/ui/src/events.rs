@@ -6,24 +6,12 @@ impl DbProApp {
         for event in events {
             match event {
                 UiEvent::ConnectionsLoaded { connections, .. } => {
+                    self.connections_request_pending = false;
                     self.connections = connections;
                     if self.active_connection_id.is_none() {
                         self.active_connection_id = self.connections.first().map(|connection| connection.id.clone());
                     }
                     self.runtime_message = format!("Loaded {} connections", self.connections.len());
-                    if let Some(connection_id) = self.active_connection_id.clone() {
-                        let request_id = self.task_bridge.next_request_id();
-                        let _ = self.task_bridge.send(UiCommand::ListSavedQueries {
-                            request_id,
-                            connection_id: connection_id.clone(),
-                        });
-                        self.request_schema_introspection(connection_id.clone(), false);
-                        let request_id = self.task_bridge.next_request_id();
-                        let _ = self.task_bridge.send(UiCommand::ListQueryFolders {
-                            request_id,
-                            connection_id,
-                        });
-                    }
                 }
                 UiEvent::SavedQueriesLoaded { queries, .. } => {
                     self.saved_queries = queries;
@@ -43,6 +31,13 @@ impl DbProApp {
                     let refresh_selected_table = self.refresh_table_info_after_schema;
                     self.refresh_table_info_after_schema = false;
                     self.schema = schema;
+                    if self
+                        .selected_schema
+                        .as_ref()
+                        .is_none_or(|selected| !self.schema.schemas.iter().any(|schema| schema == selected))
+                    {
+                        self.selected_schema = self.schema.schemas.first().cloned();
+                    }
                     if self
                         .selected_table
                         .as_ref()
@@ -110,16 +105,21 @@ impl DbProApp {
                         self.agent_request = None;
                         self.agent_pending_prompt = None;
                         self.agent_pending_context = None;
+                        let provider_detail = format!("{provider} Responses API · SQL drafts stay unexecuted");
                         self.agent_provider_label = provider;
-                        self.agent_provider_detail = "OpenAI Responses API · SQL drafts stay unexecuted".to_owned();
+                        self.agent_provider_detail = provider_detail;
                         self.agent_messages.push(message);
-                        self.runtime_message = "Codex response received".to_owned();
+                        self.runtime_message = "Agent response received".to_owned();
                     }
+                }
+                UiEvent::AgentProviderReady { provider, detail } => {
+                    self.agent_provider_label = provider;
+                    self.agent_provider_detail = detail;
                 }
                 UiEvent::AgentFailed { request_id, message } => {
                     if self.agent_request == Some(request_id) {
                         self.agent_request = None;
-                        self.runtime_message = "Codex unavailable · switched to offline draft".to_owned();
+                        self.runtime_message = "Agent unavailable · switched to offline draft".to_owned();
                         self.fallback_agent_response(Some(&format!("Codex unavailable: {message}")));
                     }
                 }
@@ -230,9 +230,15 @@ impl DbProApp {
                         continue;
                     }
                     self.runtime_message = operation.clone();
-                    self.connections_requested = false;
                     if pending_connection_request {
                         self.pending_connection_request = None;
+                    }
+                    if matches!(
+                        operation.as_str(),
+                        "connection.created" | "connection.updated" | "connection.deleted"
+                    ) {
+                        self.connections_requested = false;
+                        self.request_connections_once();
                     }
                     if operation == "connection.tested" && pending_connection_request {
                         self.connection_error.clear();
@@ -248,7 +254,9 @@ impl DbProApp {
                         self.data_editing_cell = None;
                         self.data_edit_value.clear();
                         self.data_delete_confirmation = false;
-                        if self.table_mutation_request == Some(request_id) {
+                        if self.staged_apply_request == Some(request_id) {
+                            self.staged_apply_completed();
+                        } else if self.table_mutation_request == Some(request_id) {
                             self.table_mutation_request = None;
                             self.table_data_result = None;
                             self.table_data_total_rows = None;
@@ -292,7 +300,17 @@ impl DbProApp {
                     self.connected = true;
                     self.runtime_message = "Connection established".to_owned();
                     if let Some(connection_id) = self.active_connection_id.clone() {
-                        self.request_schema_introspection(connection_id, false);
+                        self.request_schema_introspection(connection_id.clone(), false);
+                        let request_id = self.task_bridge.next_request_id();
+                        let _ = self.task_bridge.send(UiCommand::ListSavedQueries {
+                            request_id,
+                            connection_id: connection_id.clone(),
+                        });
+                        let request_id = self.task_bridge.next_request_id();
+                        let _ = self.task_bridge.send(UiCommand::ListQueryFolders {
+                            request_id,
+                            connection_id,
+                        });
                     }
                 }
                 UiEvent::QueryQueued { request_id } => {
@@ -302,13 +320,24 @@ impl DbProApp {
                 UiEvent::QueryCompleted { request_id, result } => {
                     if self.next_query_request == Some(request_id) {
                         self.runtime_message = format!("Query completed · {} rows", result.row_count);
+                        self.query_messages.push(self.runtime_message.clone());
                         self.grid_sort_column = None;
                         self.grid_column_widths = vec![180.0; result.columns.len()];
                         self.selected_cell = None;
                         self.selected_row = None;
                         self.copy_status.clear();
                         self.query_result = Some(result);
+                        self.output_tab = OutputTab::Results;
                         self.next_query_request = None;
+                    }
+                }
+                UiEvent::ExplainCompleted { request_id, plan } => {
+                    if self.explain_request == Some(request_id) {
+                        self.explain_request = None;
+                        self.explain_plan = Some(plan);
+                        self.output_tab = OutputTab::Explain;
+                        self.runtime_message = "Query plan ready".to_owned();
+                        self.query_messages.push(self.runtime_message.clone());
                     }
                 }
                 UiEvent::QueryCancelled { request_id } => {
@@ -331,6 +360,8 @@ impl DbProApp {
                         self.schema_request = None;
                         self.schema_error = Some(message.clone());
                         self.runtime_message = format!("Schema introspection failed · {message}");
+                    } else if self.staged_apply_request == Some(request_id) {
+                        self.staged_apply_failed(&message);
                     } else if self.table_mutation_request == Some(request_id) {
                         self.table_mutation_request = None;
                         self.data_editing_cell = None;
@@ -356,7 +387,14 @@ impl DbProApp {
                         self.runtime_message = format!("DDL execution failed · {message}");
                     } else if self.next_query_request == Some(request_id) {
                         self.runtime_message = format!("Query failed · {message}");
+                        self.query_messages.push(self.runtime_message.clone());
                         self.next_query_request = None;
+                    } else if self.explain_request == Some(request_id) {
+                        self.explain_request = None;
+                        self.explain_plan = None;
+                        self.output_tab = OutputTab::Messages;
+                        self.runtime_message = format!("Explain failed · {message}");
+                        self.query_messages.push(self.runtime_message.clone());
                     } else {
                         self.runtime_message = format!("Operation failed · {message}");
                     }
@@ -369,22 +407,32 @@ impl DbProApp {
         if self.palette_mode.is_some() {
             return;
         }
-        if ctx.input(|i| i.key_pressed(egui::Key::P) && i.modifiers.command && i.modifiers.shift) {
+        let text_input_has_focus = ctx.wants_keyboard_input();
+        if !text_input_has_focus
+            && ctx.input(|i| i.key_pressed(egui::Key::P) && Self::primary_modifier_pressed(i) && i.modifiers.shift)
+        {
             self.open_palette(PaletteMode::Commands);
             return;
         }
-        if ctx.input(|i| i.key_pressed(egui::Key::P) && i.modifiers.command) {
+        if !text_input_has_focus
+            && (ctx.input(|i| i.key_pressed(egui::Key::K) && Self::primary_modifier_pressed(i))
+                || ctx.input(|i| i.key_pressed(egui::Key::P) && Self::primary_modifier_pressed(i)))
+        {
             self.open_palette(PaletteMode::QuickOpen);
             return;
         }
-        if ctx.input(|i| i.key_pressed(egui::Key::B) && i.modifiers.command) {
+        if !text_input_has_focus && ctx.input(|i| i.key_pressed(egui::Key::B) && Self::primary_modifier_pressed(i)) {
             self.sidebar_open = !self.sidebar_open;
         }
-        if ctx.input(|i| i.key_pressed(egui::Key::F) && i.modifiers.command) {
+        if !text_input_has_focus && ctx.input(|i| i.key_pressed(egui::Key::F) && Self::primary_modifier_pressed(i)) {
             self.editor_search_open = true;
         }
         if ctx.input(|i| {
-            i.key_pressed(egui::Key::F5) || (!self.agent_open && i.key_pressed(egui::Key::Enter) && i.modifiers.command)
+            i.key_pressed(egui::Key::F5)
+                || (self.query_editor_focused
+                    && !self.agent_open
+                    && i.key_pressed(egui::Key::Enter)
+                    && Self::primary_modifier_pressed(i))
         }) {
             self.dispatch_query();
         }

@@ -2,7 +2,7 @@ use super::*;
 
 impl DbProApp {
     fn palette_items(&self, mode: PaletteMode) -> Vec<PaletteItem> {
-        match mode {
+        let mut items = match mode {
             PaletteMode::QuickOpen => vec![
                 PaletteItem {
                     icon: Icon::House,
@@ -15,7 +15,7 @@ impl DbProApp {
                     icon: Icon::FileCode2,
                     title: "Query".to_owned(),
                     subtitle: "Open the SQL editor".to_owned(),
-                    shortcut: Some(format!("{}P", Self::primary_modifier_label())),
+                    shortcut: Some(format!("{}K", Self::primary_modifier_label())),
                     action: PaletteAction::Query,
                 },
                 PaletteItem {
@@ -56,6 +56,20 @@ impl DbProApp {
                     action: PaletteAction::NewQuery,
                 },
                 PaletteItem {
+                    icon: Icon::Play,
+                    title: "Run query".to_owned(),
+                    subtitle: "Execute the current SQL or selection".to_owned(),
+                    shortcut: Some(format!("{}↵", Self::primary_modifier_label())),
+                    action: PaletteAction::RunQuery,
+                },
+                PaletteItem {
+                    icon: Icon::WandSparkles,
+                    title: "Format SQL".to_owned(),
+                    subtitle: "Format the active SQL document".to_owned(),
+                    shortcut: None,
+                    action: PaletteAction::FormatSql,
+                },
+                PaletteItem {
                     icon: Icon::Database,
                     title: "New connection".to_owned(),
                     subtitle: "Add a PostgreSQL or SQLite connection".to_owned(),
@@ -90,8 +104,47 @@ impl DbProApp {
                     shortcut: None,
                     action: PaletteAction::Diagram,
                 },
+                PaletteItem {
+                    icon: Icon::ChartNoAxesCombined,
+                    title: "Explain query".to_owned(),
+                    subtitle: "Inspect a read-only query plan".to_owned(),
+                    shortcut: None,
+                    action: PaletteAction::ExplainQuery,
+                },
+                PaletteItem {
+                    icon: Icon::Download,
+                    title: "Export results".to_owned(),
+                    subtitle: "Open export options for the current result".to_owned(),
+                    shortcut: None,
+                    action: PaletteAction::ExportResults,
+                },
             ],
+        };
+        if mode == PaletteMode::QuickOpen {
+            items.extend(
+                self.active_schema_table_names()
+                    .iter()
+                    .take(EXPLORER_MAX_TABLES)
+                    .cloned()
+                    .map(|table| PaletteItem {
+                        icon: Icon::Table2,
+                        title: table.clone(),
+                        subtitle: format!("Open table in {}", self.active_schema()),
+                        shortcut: None,
+                        action: PaletteAction::OpenTable(table),
+                    }),
+            );
         }
+        if mode == PaletteMode::Commands {
+            items.extend(self.connections.iter().cloned().map(|connection| PaletteItem {
+                icon: Icon::Database,
+                title: format!("Switch to {}", connection.name),
+                subtitle: format!("{} · {}", connection.driver, connection.database),
+                shortcut: None,
+                action: PaletteAction::SwitchConnection(connection.id),
+            }));
+        }
+        items
     }
 
     pub(crate) fn filtered_palette_items(&self, mode: PaletteMode) -> Vec<PaletteItem> {
@@ -110,7 +163,11 @@ impl DbProApp {
         self.palette_mode = None;
         match action {
             PaletteAction::Welcome => self.active_tab = WorkspaceTab::Welcome,
-            PaletteAction::Query => self.active_tab = WorkspaceTab::Query,
+            PaletteAction::Query => {
+                self.activity = Activity::Queries;
+                self.sidebar_open = true;
+                self.active_tab = WorkspaceTab::Query;
+            }
             PaletteAction::History => {
                 self.activity = Activity::History;
                 self.sidebar_open = true;
@@ -138,6 +195,49 @@ impl DbProApp {
                 }
             }
             PaletteAction::ToggleExplorer => self.sidebar_open = !self.sidebar_open,
+            PaletteAction::OpenTable(table) => {
+                self.selected_table = Some(table.clone());
+                self.selected_schema_object = None;
+                self.table_view = TableView::Structure;
+                self.table_info = None;
+                self.table_ddl = None;
+                self.table_data_result = None;
+                self.request_table_info();
+                self.active_tab = WorkspaceTab::Table;
+                self.runtime_message = format!("Opening table {table}");
+            }
+            PaletteAction::ExplainQuery => self.explain_query(),
+            PaletteAction::ExportResults => {
+                if self.query_result.is_some() {
+                    self.output_tab = OutputTab::Results;
+                    self.export_open = true;
+                    self.active_tab = WorkspaceTab::Query;
+                } else {
+                    self.runtime_message = "Run a query before exporting results".to_owned();
+                }
+            }
+            PaletteAction::RunQuery => {
+                self.active_tab = WorkspaceTab::Query;
+                self.dispatch_query();
+            }
+            PaletteAction::FormatSql => {
+                self.active_tab = WorkspaceTab::Query;
+                self.query_text = Self::format_sql(&self.query_text);
+                self.runtime_message = "SQL formatted".to_owned();
+            }
+            PaletteAction::SwitchConnection(connection_id) => {
+                if let Some(connection) = self.connections.iter().find(|item| item.id == connection_id).cloned() {
+                    self.active_connection_id = Some(connection.id.clone());
+                    self.connected = false;
+                    let request_id = self.task_bridge.next_request_id();
+                    self.pending_connection_request = Some(request_id);
+                    let _ = self.task_bridge.send(UiCommand::Connect {
+                        request_id,
+                        connection_id: connection.id,
+                    });
+                    self.runtime_message = format!("Connecting to {}…", connection.name);
+                }
+            }
         }
     }
 
@@ -185,7 +285,10 @@ impl DbProApp {
                         self.theme.accent,
                     ));
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                        if compact_icon_button(ui, Icon::X, self.theme).clicked() {
+                        if compact_icon_button(ui, Icon::X, self.theme)
+                            .on_hover_text("Close palette")
+                            .clicked()
+                        {
                             self.palette_mode = None;
                         }
                     });
@@ -272,7 +375,7 @@ impl DbProApp {
             });
         if activate {
             if let Some(item) = items.get(self.palette_selected) {
-                self.execute_palette_action(item.action, ctx);
+                self.execute_palette_action(item.action.clone(), ctx);
             }
         }
     }

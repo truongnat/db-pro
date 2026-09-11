@@ -39,6 +39,7 @@ impl From<DbError> for DbErrorDto {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SchemaSummary {
+    pub schemas: Vec<String>,
     pub tables: Vec<String>,
     pub columns: Vec<String>,
     pub table_details: Vec<TableSummary>,
@@ -417,6 +418,7 @@ impl SchemaApi {
             })
             .collect();
         Ok(SchemaSummary {
+            schemas: result.schemas.into_iter().map(|schema| schema.name).collect(),
             tables: result.tables.into_iter().map(|table| table.name).collect(),
             columns: result.columns.into_iter().map(|column| column.name).collect(),
             table_details,

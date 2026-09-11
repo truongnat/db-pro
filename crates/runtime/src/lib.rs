@@ -64,7 +64,7 @@ impl DbProRuntime {
 
         let meta_path = data_dir.join("meta.db");
         let meta_store = SQLiteMetaStore::new(&meta_path.to_string_lossy()).await?;
-        let secret_store = Arc::new(KeyringVault::new("com.dbpro.app", secrets_dir));
+        let secret_store = Arc::new(KeyringVault::new("com.dbpro.app", secrets_dir).with_session_fallback());
         let connector = Arc::new(CompositeConnector::new());
         let registry = Arc::new(ConnectionRegistry::new());
 
