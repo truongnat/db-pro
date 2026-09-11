@@ -113,11 +113,82 @@ Chi tiết test: `db-pro-core` 186 · `db-pro-infrastructure` 72 · `db-pro-ui` 
 | 🔵 **Thấp** | `.clone()` cao ở `table_editor_view.rs` (27) | `crates/ui/src/table_editor_view.rs` | Kiểm tra borrow / `Arc` / `Cow` (`functions.md` §10) |
 | 🔵 **Thấp** | 7 hàm nợ cũ > 100 dòng | `events.rs`, `table_editor_view.rs`, `navigation_view.rs` | Không bắt buộc trong lần này — chỉ tách khi có thay đổi hành vi |
 
+> ✅ **Trạng thái:** toàn bộ hạng mục 🔴 Cao và 🟡 Trung bình ở bảng trên **đã xử lý xong** — xem **FOLLOW-UP #3** ở cuối tài liệu. Hai hạng mục 🔵 Thấp (`.clone()` cao, 7 hàm nợ cũ) cũng đã được tách; riêng `.clone()` còn ở mức cảnh báo.
+
 ### 🎯 Đánh giá sau merge
 
 Các tiêu chí 1–4 và 6 ở bảng Executive Summary **giữ nguyên**. Riêng **tiêu chí 5 (Độ phức tạp hàm & Code Smells)** nên hạ từ **8.5 → 7.5/10**: số hàm > 100 dòng tăng từ ~13 (đếm sai) lên **20**, trong đó **7 hàm mới** đến từ navigator DBeaver. Đây là nợ kỹ thuật **có chủ đích và khu trú** (một file, một tính năng), không phải suy giảm kiến trúc — các gate `fmt` / `clippy -D warnings` / test vẫn sạch tuyệt đối.
 
 > **Lưu ý về bằng chứng runtime:** chưa có ảnh chụp UI native ở các độ phân giải 1280×800 / 1440×900 / 1920×1080 và chưa chạy phiên PostgreSQL + SQLite sống. Vì vậy phần UI của lần merge này **chưa thể đánh dấu `COMPLETED`** theo `docs/plans/FEATURE_LIFECYCLE.md` (thiếu bằng chứng mức 4 — UI runtime).
+
+---
+
+## 🔁 FOLLOW-UP #3 — 2026-09-11 · Đóng toàn bộ gate chặn của FOLLOW-UP #2
+
+**Bối cảnh.** FOLLOW-UP #2 để lại **2 gate chặn** trong scope diff (20 hàm > 100 dòng, `explorer_view.rs` 1.471 dòng) và **32 chỗ** `let _ = <fallible>` không comment lý do. Phần này ghi lại kết quả sau khi xử lý hết.
+
+### 📊 Kết quả quét (clean-code scan)
+
+| Phạm vi | pass | warn | fail |
+| :--- | :---: | :---: | :---: |
+| **Diff** (`--diff --with-linters`) | **15** | 4 | **0** |
+
+So với FOLLOW-UP #2 (`14 / 3 / 2`): **2 gate chặn → 0**.
+
+| Hạng mục | Trước | Sau |
+| :--- | :--- | :--- |
+| `fn` > 100 dòng (**chặn**) | **20** | **0** |
+| File > 1.200 dòng (**chặn**) | **1** (`explorer_view.rs` 1.471) | **0** |
+| File production lớn nhất | 1.471 (`explorer_view.rs`) | 1.051 (`table_editor_view.rs`) |
+| `let _ = <fallible>` không comment | **32** | **0** |
+| `fn` > 50 dòng (cảnh báo) | 43 | 34 |
+| File > 800 dòng (cảnh báo) | 4 | 4 |
+| `.clone()` > 15 (cảnh báo) | 3 file | 2 file |
+
+### 🧩 Nội dung đã refactor
+
+| Nhóm | Kết quả |
+| :--- | :--- |
+| `explorer_view.rs` | 1.471 → **582** dòng; tách `explorer_tree.rs` (primitive nav-tree dùng chung), `explorer_details.rs` (table item + workspace reset), `explorer_folders.rs` (views / functions / triggers) |
+| `events.rs` | `apply_runtime_events` (match 401 dòng) → bảng dispatch + 18 handler `on_*`; các `continue` đổi thành `return` |
+| `result_grid_view.rs` | `draw_result_grid` → keyboard / edit-input / navigation / toolbar / body / row / cell / editor; thêm `GridCell`, `GridRows` |
+| `table_editor_view.rs` | `draw_table_data` và `draw_table_ddl` tách theo toolbar / mutation / pager / filter và placeholder / script-card / confirm-card; thêm `TableDataPaging` |
+| `table_view.rs` | `draw_welcome`, `draw_table_metadata_view`, `draw_table_structure` tách theo header / prompt / footer và summary / columns / relations |
+| `workspace_view.rs` | `draw_workspace_tabs` (176) → một renderer cho mỗi loại tab + `draw_closable_tab` dùng chung qua descriptor `ClosableTab` |
+| `navigation_view.rs` | `draw_history` (140) và `draw_settings` (109) tách theo saved-query / folder / entry và appearance / backup / restore |
+| `query_view.rs` | `draw_query_actions_menu` (141) và `sql_layouter` (116) → helper theo nhóm hành động và `SqlHighlighter` (tokenizer có trạng thái) |
+| `native-app/main.rs` | `main` (148) → `init_tracing`, `resolve_data_dir`, `seed_default_connection`, `spawn_event_pump`, `run_native_app` |
+| `let _ = <fallible>` | 26 chỗ `task_bridge.send` → một helper `DbProApp::dispatch_command` có doc-comment nêu lý do; 4 chỗ picker → một closure `send_picked`; 2 chỗ còn lại ghi chú tại chỗ |
+
+Refactor ưu tiên **xoá trùng lặp thật** thay vì chỉ di chuyển code: 8 hint-row gần giống nhau → `draw_hint_row`; 6 category folder → `draw_category_folder`; 3 bản reset trang table-data → `reset_table_data_page`; 2 nhánh `'` giống hệt trong highlighter → một toggle.
+
+### 🐞 Bug thứ ba của script scan (đã sửa)
+
+3. **`#[cfg(test)]` bật chế độ bỏ qua tới hết file** — script coi *mọi* `#[cfg(test)]` là mở đầu module test ở cuối file. Ở `crates/native-app/src/main.rs`, thuộc tính này gắn vào `pub(crate) use translate::draft_to_domain;`, nên **toàn bộ phần còn lại của file bị che** — kể cả `fn main` (148 dòng, một gate chặn thật). Sửa: chỉ vào chế độ bỏ qua khi `#[cfg(test)]` gắn vào một `mod`.
+
+Cả ba bug của script (2 bug ở FOLLOW-UP #2 + bug này) đều theo cùng một hướng: script **báo thiếu** chứ không báo thừa. Sau khi sửa, con số **20 hàm > 100 dòng** của FOLLOW-UP #2 được xác nhận là đúng, và `main` được đưa vào scope.
+
+### ✅ Cổng kiểm chứng (chạy lại sau khi refactor)
+
+| Gate | Kết quả |
+| :--- | :--- |
+| `cargo fmt --all` | ✅ sạch |
+| `cargo clippy --workspace --all-targets -- -D warnings` | ✅ **0 error, 0 warning** |
+| `cargo test --workspace --offline` | ✅ **348 passed / 0 failed / 10 ignored** |
+| `clean-code-scan.sh --diff --with-linters` | ✅ **0 fail** |
+
+10 test `ignored` vẫn là bộ **PostgreSQL fixture** cần DB sống — chưa chạy trong lần này.
+
+Commit tương ứng trên `truongnat/main`: `75fb8f2` (query actions menu) · `75fd41e` (table view) · `6bfecac` (workspace tabs) · `e24571b` (history + settings) · `44f7a6c` (SQL highlighter) · `e08b3be` (`dispatch_command`) · `53398f5` (`main` + fix scan), cùng 2 commit explorer/events/result-grid trước đó.
+
+### ⚠️ Cảnh báo còn lại (không chặn)
+
+1. **`fn` > 50 dòng: 34 hàm** — chủ yếu là boundary render egui và các hàm dựng `LayoutJob` / card. **Không hàm nào vượt 100 dòng.**
+2. **File > 800 dòng: 4 file** — `table_editor_view.rs` 1.051, `query_view.rs` 872, `app.rs` 842, `components.rs` 805. Đều dưới ngưỡng chặn 1.200; `query_view.rs` và `app.rs` tăng nhẹ vì chứa các helper vừa tách ra.
+3. **`.clone()` > 15: 2 file** — `table_editor_view.rs` (27), `events.rs` (25). Cần review borrow / `Arc` / `Cow`; chưa xác định được chỗ nào thực sự tốn kém.
+4. **`app_state.rs:91 default` (134 dòng)** — vẫn gắn `[data-literal]`: đây là struct literal khởi tạo field, không phải logic, và Rust không cho lấy derived `Default` khi đã tự viết `impl Default`.
+
+> **Lưu ý về bằng chứng runtime:** toàn bộ refactor này là **thay đổi cấu trúc thuần** (không đổi hành vi) và chỉ được xác nhận bằng `fmt` / `clippy -D warnings` / 348 test. Bằng chứng UI runtime (ảnh chụp nhiều độ phân giải, phiên PostgreSQL + SQLite sống) **vẫn còn thiếu**, nên trạng thái `COMPLETED` theo `docs/plans/FEATURE_LIFECYCLE.md` vẫn chưa đạt.
 
 ---
 
@@ -129,7 +200,7 @@ Các tiêu chí 1–4 và 6 ở bảng Executive Summary **giữ nguyên**. Riê
 | **2. Nguyên lý SOLID & Modularity** | **9.0/10** | 🟢 Tốt | SRP và DIP tuân thủ tốt; vừa refactor thành công module UI monolithic (`app.rs`). |
 | **3. Quy chuẩn đặt tên & Ngôn ngữ chung (Ubiquitous Language)** | **9.5/10** | 🟢 Xuất sắc | Tên struct, trait, enum mang tính biểu đạt cao theo thuật ngữ CSDL chuẩn. |
 | **4. Xử lý lỗi & Độ tin cậy (Error Handling)** | **9.0/10** | 🟢 Tốt | Có hệ thống `DbError` / `ErrorEnvelope` phân lớp, không leak raw driver error. Không có production `panic!`. |
-| **5. Độ phức tạp hàm & Code Smells** | **8.5/10** | 🟡 Khá | Còn một số hàm render UI dài (>100 dòng); đây là boundary egui và chưa có thay đổi hành vi buộc phải tách thêm. |
+| **5. Độ phức tạp hàm & Code Smells** | **9.0/10** | 🟢 Tốt | Sau FOLLOW-UP #3: **0 hàm > 100 dòng**, **0 file > 1.200 dòng**, **0 `let _ = <fallible>` không comment**. Còn 34 hàm > 50 dòng và 4 file > 800 dòng ở mức cảnh báo. |
 | **6. Chất lượng kiểm thử (Testing & Testability)** | **9.5/10** | 🟢 Xuất sắc | Workspace gates pass; 10/10 PostgreSQL fixture tests pass trong runtime container riêng; clippy pass không warning. |
 
 ---
