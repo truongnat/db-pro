@@ -1,7 +1,10 @@
+pub mod agent_primitives;
 pub mod alert;
 pub mod badge;
 pub mod button;
 pub mod card;
+pub mod code;
+pub mod diff;
 pub mod feedback;
 pub mod input;
 pub mod legacy;
@@ -9,11 +12,18 @@ pub mod select;
 pub mod selection;
 pub mod table;
 pub mod tabs;
+pub mod tree;
 
+pub use agent_primitives::{
+    ContextChip, ContextChipKind, ExecutionApproval, ExecutionApprovalAction, RiskLevel, StatusBadge,
+    StatusBadgeVariant, ToolCall, ToolCallStatus,
+};
 pub use alert::{Alert, AlertVariant, ShadcnAlert};
 pub use badge::{Badge, BadgeVariant, ShadcnBadge};
 pub use button::{Button, ButtonSize, ButtonVariant, ShadcnButton};
 pub use card::{card_header, Card, MetricCard, ShadcnCard};
+pub use code::{CodeBlock, InlineCode};
+pub use diff::{DiffLine, DiffLineType, DiffViewer};
 pub use feedback::{kbd_badge, separator_with_text, Progress, ShadcnProgress, ShadcnSpinner, Spinner};
 pub use input::{
     Input, PasswordInput, SearchInput, ShadcnInput, ShadcnPasswordInput, ShadcnSearchInput, ShadcnTextarea, Textarea,
@@ -23,6 +33,7 @@ pub use select::{Select, ShadcnSelect};
 pub use selection::{Checkbox, Radio, ShadcnCheckbox, ShadcnRadio, ShadcnSlider, ShadcnSwitch, Slider, Switch};
 pub use table::{ShadcnTable, ShadcnTableColumn, Table, TableColumn, TableColumnAlign};
 pub use tabs::{SegmentedTabs, UnderlineTabs};
+pub use tree::{DatabaseTreeNode, TreeNodeKind};
 
 #[cfg(test)]
 mod tests {
@@ -115,5 +126,39 @@ mod tests {
         assert_eq!(slider.label, Some("Volume"));
         assert!(slider.show_value);
         assert_eq!(slider.width, Some(200.0));
+    }
+
+    #[test]
+    fn test_diff_line_builders() {
+        let ctx = DiffLine::context(10, 10, "SELECT 1;");
+        assert_eq!(ctx.line_type, DiffLineType::Context);
+        assert_eq!(ctx.old_line_num, Some(10));
+        assert_eq!(ctx.new_line_num, Some(10));
+
+        let add = DiffLine::added(11, "+ ADDED COLUMN");
+        assert_eq!(add.line_type, DiffLineType::Added);
+        assert_eq!(add.old_line_num, None);
+        assert_eq!(add.new_line_num, Some(11));
+
+        let rem = DiffLine::removed(12, "- REMOVED COLUMN");
+        assert_eq!(rem.line_type, DiffLineType::Removed);
+        assert_eq!(rem.old_line_num, Some(12));
+        assert_eq!(rem.new_line_num, None);
+    }
+
+    #[test]
+    fn test_context_chip_kind_icons() {
+        assert_eq!(
+            ContextChipKind::Connection.icon().to_string(),
+            lucide_icons::Icon::Server.to_string()
+        );
+        assert_eq!(
+            ContextChipKind::Database.icon().to_string(),
+            lucide_icons::Icon::Database.to_string()
+        );
+        assert_eq!(
+            ContextChipKind::Table.icon().to_string(),
+            lucide_icons::Icon::Table.to_string()
+        );
     }
 }

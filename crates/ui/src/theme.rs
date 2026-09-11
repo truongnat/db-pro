@@ -11,11 +11,14 @@ pub struct DbProTheme {
     pub surface_editor: Color32,
     pub surface_hover: Color32,
     pub surface_active: Color32,
+    pub surface_2: Color32,
     pub border_subtle: Color32,
     pub border_default: Color32,
     pub border_strong: Color32,
     pub text_primary: Color32,
     pub text_secondary: Color32,
+    pub text_tertiary: Color32,
+    pub text_disabled: Color32,
     pub text_muted: Color32,
     pub text_inverse: Color32,
     pub accent: Color32,
@@ -42,64 +45,72 @@ impl DbProTheme {
     pub fn light() -> Self {
         Self {
             dark_mode: false,
-            surface_app: Color32::from_rgb(247, 248, 250),
-            surface_panel: Color32::from_rgb(255, 255, 255),
-            surface_elevated: Color32::from_rgb(255, 255, 255),
-            surface_floating: Color32::from_rgb(255, 255, 255),
-            surface_editor: Color32::from_rgb(252, 252, 253),
-            surface_hover: Color32::from_rgb(245, 246, 249),
-            surface_active: Color32::from_rgb(239, 237, 255),
-            border_subtle: Color32::from_rgb(235, 237, 241),
-            border_default: Color32::from_rgb(221, 224, 231),
-            border_strong: Color32::from_rgb(195, 199, 209),
-            text_primary: Color32::from_rgb(31, 35, 40),
-            text_secondary: Color32::from_rgb(88, 96, 105),
-            text_muted: Color32::from_rgb(128, 137, 148),
+            // Open-api-style.md Warm Minimalism Light Tokens:
+            surface_app: Color32::from_rgb(255, 255, 255), // --background: #ffffff
+            surface_panel: Color32::from_rgb(247, 247, 247), // --surface: #f7f7f7
+            surface_elevated: Color32::from_rgb(255, 255, 255), // card / white surface
+            surface_floating: Color32::from_rgb(255, 255, 255), // dialog / popover
+            surface_editor: Color32::from_rgb(250, 250, 250), // --background-subtle: #fafafa
+            surface_hover: Color32::from_rgb(238, 238, 238), // --surface-hover: #eeeeee
+            surface_active: Color32::from_rgb(232, 232, 232), // --surface-active: #e8e8e8
+            surface_2: Color32::from_rgb(243, 243, 243),   // --surface-2: #f3f3f3
+            border_subtle: Color32::from_rgb(238, 238, 238), // --border-subtle: #eeeeee
+            border_default: Color32::from_rgb(226, 226, 226), // --border-default: #e2e2e2
+            border_strong: Color32::from_rgb(210, 210, 210), // --border-strong: #d2d2d2
+            text_primary: Color32::from_rgb(13, 13, 13),   // --text-primary: #0d0d0d
+            text_secondary: Color32::from_rgb(95, 95, 95), // --text-secondary: #5f5f5f
+            text_tertiary: Color32::from_rgb(138, 138, 138), // --text-tertiary: #8a8a8a
+            text_disabled: Color32::from_rgb(179, 179, 179), // --text-disabled: #b3b3b3
+            text_muted: Color32::from_rgb(138, 138, 138),  // alias to tertiary
             text_inverse: Color32::from_rgb(255, 255, 255),
-            accent: Color32::from_rgb(109, 94, 245),
-            accent_hover: Color32::from_rgb(91, 75, 232),
-            accent_soft: Color32::from_rgb(240, 238, 255),
-            accent_foreground: Color32::from_rgb(255, 255, 255),
-            success: Color32::from_rgb(25, 135, 84),
-            warning: Color32::from_rgb(154, 103, 0),
-            danger: Color32::from_rgb(197, 57, 82),
-            info: Color32::from_rgb(58, 105, 199),
-            code_keyword: Color32::from_rgb(91, 75, 232),
-            code_string: Color32::from_rgb(154, 103, 0),
-            code_number: Color32::from_rgb(25, 135, 84),
-            code_comment: Color32::from_rgb(128, 137, 148),
+            accent: Color32::from_rgb(17, 17, 17), // --accent: #111111 (Editorial Black)
+            accent_hover: Color32::from_rgb(34, 34, 34),
+            accent_soft: Color32::from_rgb(243, 243, 243), // --surface-2
+            accent_foreground: Color32::from_rgb(255, 255, 255), // #ffffff
+            success: Color32::from_rgb(22, 163, 74),       // --success: #16a34a
+            warning: Color32::from_rgb(217, 119, 6),       // --warning: #d97706
+            danger: Color32::from_rgb(220, 38, 38),        // --danger: #dc2626
+            info: Color32::from_rgb(37, 99, 235),          // --info: #2563eb
+            code_keyword: Color32::from_rgb(17, 17, 17),
+            code_string: Color32::from_rgb(22, 163, 74),
+            code_number: Color32::from_rgb(217, 119, 6),
+            code_comment: Color32::from_rgb(138, 138, 138),
         }
     }
 
     pub fn dark() -> Self {
         Self {
             dark_mode: true,
-            surface_app: Color32::from_rgb(14, 16, 21),
-            surface_panel: Color32::from_rgb(19, 22, 29),
-            surface_elevated: Color32::from_rgb(25, 29, 38),
-            surface_floating: Color32::from_rgb(29, 34, 44),
-            surface_editor: Color32::from_rgb(16, 19, 25),
-            surface_hover: Color32::from_rgb(34, 40, 51),
-            surface_active: Color32::from_rgb(43, 36, 73),
-            border_subtle: Color32::from_rgb(35, 40, 50),
-            border_default: Color32::from_rgb(52, 58, 70),
-            border_strong: Color32::from_rgb(76, 84, 100),
-            text_primary: Color32::from_rgb(238, 240, 245),
-            text_secondary: Color32::from_rgb(178, 184, 196),
-            text_muted: Color32::from_rgb(117, 125, 141),
-            text_inverse: Color32::from_rgb(14, 16, 21),
-            accent: Color32::from_rgb(168, 148, 255),
-            accent_hover: Color32::from_rgb(193, 178, 255),
-            accent_soft: Color32::from_rgb(43, 36, 73),
-            accent_foreground: Color32::from_rgb(21, 17, 36),
-            success: Color32::from_rgb(92, 207, 150),
-            warning: Color32::from_rgb(242, 190, 91),
-            danger: Color32::from_rgb(242, 122, 145),
-            info: Color32::from_rgb(128, 170, 255),
-            code_keyword: Color32::from_rgb(194, 177, 255),
-            code_string: Color32::from_rgb(242, 190, 91),
-            code_number: Color32::from_rgb(107, 220, 164),
-            code_comment: Color32::from_rgb(122, 131, 147),
+            // Open-api-style.md Warm Minimalism Dark Tokens:
+            surface_app: Color32::from_rgb(33, 33, 33), // --background: #212121
+            surface_panel: Color32::from_rgb(42, 42, 42), // --surface: #2a2a2a
+            surface_elevated: Color32::from_rgb(48, 48, 48), // --surface-2: #303030
+            surface_floating: Color32::from_rgb(42, 42, 42), // dialog / popover
+            surface_editor: Color32::from_rgb(28, 28, 28), // --background-subtle: #1c1c1c
+            surface_hover: Color32::from_rgb(54, 54, 54), // --surface-hover: #363636
+            surface_active: Color32::from_rgb(61, 61, 61), // --surface-active: #3d3d3d
+            surface_2: Color32::from_rgb(48, 48, 48),   // --surface-2: #303030
+            border_subtle: Color32::from_rgb(50, 50, 50), // --border-subtle: #323232
+            border_default: Color32::from_rgb(65, 65, 65), // --border-default: #414141
+            border_strong: Color32::from_rgb(80, 80, 80), // --border-strong: #505050
+            text_primary: Color32::from_rgb(236, 236, 236), // --text-primary: #ececec
+            text_secondary: Color32::from_rgb(185, 185, 185), // --text-secondary: #b9b9b9
+            text_tertiary: Color32::from_rgb(141, 141, 141), // --text-tertiary: #8d8d8d
+            text_disabled: Color32::from_rgb(102, 102, 102), // --text-disabled: #666666
+            text_muted: Color32::from_rgb(141, 141, 141), // alias to tertiary
+            text_inverse: Color32::from_rgb(17, 17, 17),
+            accent: Color32::from_rgb(243, 243, 243), // --accent: #f3f3f3 (Editorial Light)
+            accent_hover: Color32::from_rgb(255, 255, 255),
+            accent_soft: Color32::from_rgb(48, 48, 48),       // --surface-2
+            accent_foreground: Color32::from_rgb(17, 17, 17), // #111111
+            success: Color32::from_rgb(34, 197, 94),          // --success: #22c55e
+            warning: Color32::from_rgb(245, 158, 11),         // --warning: #f59e0b
+            danger: Color32::from_rgb(239, 68, 68),           // --danger: #ef4444
+            info: Color32::from_rgb(59, 130, 246),            // --info: #3b82f6
+            code_keyword: Color32::from_rgb(243, 243, 243),
+            code_string: Color32::from_rgb(34, 197, 94),
+            code_number: Color32::from_rgb(245, 158, 11),
+            code_comment: Color32::from_rgb(141, 141, 141),
         }
     }
 

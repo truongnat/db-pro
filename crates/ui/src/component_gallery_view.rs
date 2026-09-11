@@ -16,6 +16,8 @@ pub enum GalleryCategory {
     Feedback,
     Navigation,
     Tables,
+    DevTools,
+    AgentUi,
 }
 
 #[derive(Debug, Clone)]
@@ -42,12 +44,16 @@ pub struct ComponentGalleryState {
     pub table_selected_rows: std::collections::HashSet<usize>,
     pub table_sort_col: Option<usize>,
     pub table_sort_desc: bool,
+    pub tree_server_expanded: bool,
+    pub tree_table_expanded: bool,
+    pub tool_call_expanded: bool,
+    pub approval_status: Option<String>,
 }
 
 impl Default for ComponentGalleryState {
     fn default() -> Self {
         Self {
-            category: GalleryCategory::Tables,
+            category: GalleryCategory::All,
             input_text: "postgres_prod_replica".to_owned(),
             input_error_text: "invalid_connection_string".to_owned(),
             search_text: "".to_owned(),
@@ -74,6 +80,10 @@ impl Default for ComponentGalleryState {
             table_selected_rows: [0, 2].into_iter().collect(),
             table_sort_col: Some(0),
             table_sort_desc: false,
+            tree_server_expanded: true,
+            tree_table_expanded: true,
+            tool_call_expanded: true,
+            approval_status: None,
         }
     }
 }
@@ -160,6 +170,8 @@ impl DbProApp {
                     (GalleryCategory::Feedback, "Feedback"),
                     (GalleryCategory::Navigation, "Navigation"),
                     (GalleryCategory::Tables, "Data Tables"),
+                    (GalleryCategory::DevTools, "Developer Tools"),
+                    (GalleryCategory::AgentUi, "AI Agent UI"),
                 ];
 
                 let mut current_cat_idx = categories
@@ -226,6 +238,18 @@ impl DbProApp {
                 // ── 9. DATA TABLES ──────────────────────────────────────────
                 if cat == GalleryCategory::All || cat == GalleryCategory::Tables {
                     self.draw_gallery_tables_section(ui);
+                    ui.add_space(24.0);
+                }
+
+                // ── 10. DEVELOPER TOOLS ─────────────────────────────────────
+                if cat == GalleryCategory::All || cat == GalleryCategory::DevTools {
+                    self.draw_gallery_devtools_section(ui);
+                    ui.add_space(24.0);
+                }
+
+                // ── 11. AI AGENT UI ─────────────────────────────────────────
+                if cat == GalleryCategory::All || cat == GalleryCategory::AgentUi {
+                    self.draw_gallery_agent_ui_section(ui);
                     ui.add_space(32.0);
                 }
             });
@@ -1064,6 +1088,268 @@ impl DbProApp {
 
                 ui.add_space(8.0);
                 ui.label(RichText::new("Page 1 of 1").size(12.0).color(theme.text_muted));
+            });
+        });
+    }
+
+    fn draw_gallery_devtools_section(&mut self, ui: &mut Ui) {
+        let theme = self.theme;
+        self.draw_section_heading(
+            ui,
+            "Developer Tools & Code Primitives",
+            "Specialized primitives for developer environments: InlineCode, CodeBlock with copy, DiffViewer, and Schema Tree.",
+        );
+
+        Card::new(theme).show(ui, |ui| {
+            // Row 1: InlineCode & CodeBlock
+            ui.label(RichText::new("Inline Code & CodeBlock").size(13.0).strong().color(theme.text_secondary));
+            ui.add_space(6.0);
+            ui.horizontal_wrapped(|ui| {
+                ui.label(RichText::new("Execute query with safe limit:").size(13.0).color(theme.text_primary));
+                InlineCode::new("SELECT * FROM users WHERE status = 'active' LIMIT 50;", theme).show(ui);
+                ui.label(RichText::new("or connect via").size(13.0).color(theme.text_primary));
+                InlineCode::new("postgresql://localhost:5432/main", theme).show(ui);
+            });
+
+            ui.add_space(14.0);
+
+            let sample_sql = "-- Optimize query: create composite index for fast join\nCREATE INDEX CONCURRENTLY idx_users_organization_created\nON users (organization_id, created_at DESC)\nWHERE deleted_at IS NULL;\n\nSELECT u.id, u.email, o.name AS organization\nFROM users u\nJOIN organizations o ON o.id = u.organization_id\nWHERE u.status = 'active'\nORDER BY u.created_at DESC\nLIMIT 25;";
+
+            CodeBlock::new(sample_sql, theme)
+                .language("sql")
+                .show_line_numbers(true)
+                .show(ui);
+
+            ui.add_space(20.0);
+
+            // Row 2: DiffViewer & Schema Tree
+            ui.columns(2, |cols| {
+                // Col 1: DiffViewer
+                let ui = &mut cols[0];
+                ui.label(RichText::new("Schema & SQL Diff Proposal").size(13.0).strong().color(theme.text_secondary));
+                ui.add_space(6.0);
+
+                let diff_lines = [
+                    DiffLine::context(10, 10, "-- Schema migration for public.users"),
+                    DiffLine::context(11, 11, "ALTER TABLE users ADD COLUMN is_verified BOOLEAN DEFAULT false;"),
+                    DiffLine::removed(12, "CREATE INDEX idx_users_temp ON users(email);"),
+                    DiffLine::added(12, "CREATE INDEX CONCURRENTLY idx_users_email_verified"),
+                    DiffLine::added(13, "ON users (email, is_verified) WHERE is_verified = true;"),
+                    DiffLine::context(13, 14, "COMMENT ON COLUMN users.is_verified IS 'Email verified status';"),
+                ];
+
+                DiffViewer::new("migration_0042_user_verification.sql", &diff_lines, theme).show(ui);
+
+                // Col 2: Schema Tree
+                let ui = &mut cols[1];
+                ui.label(RichText::new("Hierarchical Database Tree").size(13.0).strong().color(theme.text_secondary));
+                ui.add_space(6.0);
+
+                let tree_frame = egui::Frame::none()
+                    .fill(theme.surface_editor)
+                    .stroke(egui::Stroke::new(1.0, theme.border_default))
+                    .rounding(egui::Rounding::same(8.0))
+                    .inner_margin(egui::Margin::same(6.0));
+
+                tree_frame.show(ui, |ui| {
+                    DatabaseTreeNode::new("localhost:5432", TreeNodeKind::Server, 0, theme)
+                        .detail("PostgreSQL 16.2")
+                        .expanded(&mut self.gallery_state.tree_server_expanded)
+                        .show(ui);
+
+                    if self.gallery_state.tree_server_expanded {
+                        DatabaseTreeNode::new("production_db", TreeNodeKind::Database, 1, theme)
+                            .detail("UTF-8")
+                            .show(ui);
+
+                        DatabaseTreeNode::new("public", TreeNodeKind::Schema, 2, theme)
+                            .detail("12 tables")
+                            .show(ui);
+
+                        DatabaseTreeNode::new("users", TreeNodeKind::Table, 3, theme)
+                            .detail("1,842,109 rows")
+                            .selected(true)
+                            .expanded(&mut self.gallery_state.tree_table_expanded)
+                            .show(ui);
+
+                        if self.gallery_state.tree_table_expanded {
+                            DatabaseTreeNode::new("id", TreeNodeKind::PrimaryKey, 4, theme)
+                                .detail("bigint PK")
+                                .show(ui);
+                            DatabaseTreeNode::new("email", TreeNodeKind::Column, 4, theme)
+                                .detail("varchar(255)")
+                                .show(ui);
+                            DatabaseTreeNode::new("organization_id", TreeNodeKind::ForeignKey, 4, theme)
+                                .detail("bigint -> orgs.id")
+                                .show(ui);
+                            DatabaseTreeNode::new("idx_users_email", TreeNodeKind::Index, 4, theme)
+                                .detail("btree (email)")
+                                .show(ui);
+                        }
+
+                        DatabaseTreeNode::new("orders", TreeNodeKind::Table, 3, theme)
+                            .detail("4,291,012 rows")
+                            .show(ui);
+
+                        DatabaseTreeNode::new("v_active_bookings", TreeNodeKind::View, 3, theme)
+                            .detail("view")
+                            .show(ui);
+                    }
+                });
+            });
+        });
+    }
+
+    fn draw_gallery_agent_ui_section(&mut self, ui: &mut Ui) {
+        let theme = self.theme;
+        self.draw_section_heading(
+            ui,
+            "AI Agent Workspace & Execution Components",
+            "Context awareness, agent execution timeline, tool approvals, and safe execution boundaries.",
+        );
+
+        Card::new(theme).show(ui, |ui| {
+            // 1. Agent Context Bar
+            ui.label(
+                RichText::new("Agent Workspace Context Bar")
+                    .size(13.0)
+                    .strong()
+                    .color(theme.text_secondary),
+            );
+            ui.add_space(6.0);
+            ui.horizontal_wrapped(|ui| {
+                ui.label(
+                    RichText::new("Active Context:")
+                        .size(12.0)
+                        .strong()
+                        .color(theme.text_muted),
+                );
+                ui.add_space(4.0);
+                ContextChip::new(ContextChipKind::Connection, "Xe Lạc Hồng (PostgreSQL)", theme).show(ui);
+                ui.add_space(4.0);
+                ContextChip::new(ContextChipKind::Database, "production_db", theme).show(ui);
+                ui.add_space(4.0);
+                ContextChip::new(ContextChipKind::Table, "public.users", theme)
+                    .removable(true)
+                    .show(ui);
+                ui.add_space(4.0);
+                ContextChip::new(ContextChipKind::Editor, "query.sql:1-18", theme)
+                    .removable(true)
+                    .show(ui);
+                ui.add_space(4.0);
+                ContextChip::new(ContextChipKind::File, "schema.sql", theme)
+                    .removable(true)
+                    .show(ui);
+            });
+
+            ui.add_space(16.0);
+
+            // 2. Status Badges
+            ui.label(
+                RichText::new("Status Badges")
+                    .size(13.0)
+                    .strong()
+                    .color(theme.text_secondary),
+            );
+            ui.add_space(6.0);
+            ui.horizontal_wrapped(|ui| {
+                StatusBadge::new("Connected", StatusBadgeVariant::Active, theme).show(ui);
+                ui.add_space(6.0);
+                StatusBadge::new("Query Running...", StatusBadgeVariant::Running, theme).show(ui);
+                ui.add_space(6.0);
+                StatusBadge::new("Migration Passed", StatusBadgeVariant::Success, theme).show(ui);
+                ui.add_space(6.0);
+                StatusBadge::new("High Latency Warning", StatusBadgeVariant::Warning, theme).show(ui);
+                ui.add_space(6.0);
+                StatusBadge::new("Connection Dropped", StatusBadgeVariant::Destructive, theme).show(ui);
+                ui.add_space(6.0);
+                StatusBadge::new("Archived Partition", StatusBadgeVariant::Archived, theme).show(ui);
+                ui.add_space(6.0);
+                StatusBadge::new("Draft SQL", StatusBadgeVariant::Draft, theme).show(ui);
+            });
+
+            ui.add_space(20.0);
+
+            // 3. Tool Calls & Execution Approvals
+            ui.columns(2, |cols| {
+                // Col 1: ToolCall
+                let ui = &mut cols[0];
+                ui.label(
+                    RichText::new("Tool Call Execution Step")
+                        .size(13.0)
+                        .strong()
+                        .color(theme.text_secondary),
+                );
+                ui.add_space(6.0);
+
+                let mut tool_exp = self.gallery_state.tool_call_expanded;
+                ToolCall::new(
+                    "introspect_schema_indexes",
+                    ToolCallStatus::Success,
+                    "{\n  \"schema\": \"public\",\n  \"table\": \"users\",\n  \"include_stats\": true\n}",
+                    &mut tool_exp,
+                    theme,
+                )
+                .duration("42ms")
+                .output_preview(
+                    "{\n  \"indexes_found\": 3,\n  \"missing_foreign_keys\": 0,\n  \"estimated_scan_cost\": 14820.5\n}",
+                )
+                .show(ui);
+                self.gallery_state.tool_call_expanded = tool_exp;
+
+                ui.add_space(8.0);
+
+                let mut running_exp = false;
+                ToolCall::new(
+                    "analyze_query_bottlenecks",
+                    ToolCallStatus::Running,
+                    "{\n  \"query_hash\": \"0x9b4a18f\",\n  \"sample_rate\": 0.1\n}",
+                    &mut running_exp,
+                    theme,
+                )
+                .duration("120ms")
+                .show(ui);
+
+                // Col 2: Execution Approval
+                let ui = &mut cols[1];
+                ui.label(
+                    RichText::new("Dangerous / Mutating Action Approval")
+                        .size(13.0)
+                        .strong()
+                        .color(theme.text_secondary),
+                );
+                ui.add_space(6.0);
+
+                let action = ExecutionApproval::new(
+                    "Apply Database Migration: Add Concurrent Index",
+                    "public.users (1,842,109 rows affected) - zero lock impact",
+                    "CREATE INDEX CONCURRENTLY idx_users_email ON users(email);",
+                    RiskLevel::Medium,
+                    theme,
+                )
+                .show(ui);
+
+                match action {
+                    Some(ExecutionApprovalAction::Run) => {
+                        self.gallery_state.approval_status =
+                            Some("Migration executed successfully via background worker.".to_owned());
+                    }
+                    Some(ExecutionApprovalAction::Preview) => {
+                        self.gallery_state.approval_status =
+                            Some("Opening interactive SQL preview buffer...".to_owned());
+                    }
+                    Some(ExecutionApprovalAction::Cancel) => {
+                        self.gallery_state.approval_status = Some("Proposal rejected by user.".to_owned());
+                    }
+                    None => {}
+                }
+
+                if let Some(ref msg) = self.gallery_state.approval_status {
+                    ui.add_space(8.0);
+                    Alert::new("Execution Action Triggered", msg, theme)
+                        .variant(AlertVariant::Default)
+                        .show(ui);
+                }
             });
         });
     }
