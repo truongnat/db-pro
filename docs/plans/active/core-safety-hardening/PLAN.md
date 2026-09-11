@@ -74,6 +74,8 @@ without changing the native UI or adding product features.
     though the SQLite backup engine does not consume one.
 30. Connection updates can change the target database while leaving the
     connection-id keyed introspection cache intact.
+31. Excel export converts every `i64` to `f64` and uses unchecked row/column
+    index casts, which can corrupt large BIGINT values or wrap oversized results.
 
 ## Acceptance criteria
 
@@ -119,5 +121,8 @@ without changing the native UI or adding product features.
   PostgreSQL continues to require its resolved secret.
 - Successful connection updates and deletes invalidate their connection-scoped
   introspection cache; cache cleanup failure is non-fatal and observable.
+- Excel export preserves exact `i64` values by writing values outside the exact
+  IEEE-754 integer range as text and rejects row/column index conversions that
+  would overflow the workbook API types.
 - PostgreSQL and SQLite unit/integration coverage is updated independently where the
   behavior differs.

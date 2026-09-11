@@ -124,16 +124,16 @@ impl ExportService {
         let header_format = rust_xlsxwriter::Format::new().set_bold();
 
         for (col_idx, col) in result.columns.iter().enumerate() {
-            let col_idx = col_idx as u16;
+            let col_idx = excel_column_index(col_idx)?;
             worksheet
                 .write_string_with_format(0, col_idx, &col.name, &header_format)
                 .map_err(|e| DbError::Internal(format!("excel header write failed: {e}")))?;
         }
 
         for (row_idx, row) in result.rows.iter().enumerate() {
-            let row_idx = (row_idx + 1) as u32;
+            let row_idx = excel_row_index(row_idx)?;
             for (col_idx, cell) in row.0.iter().enumerate() {
-                let col_idx = col_idx as u16;
+                let col_idx = excel_column_index(col_idx)?;
                 write_excel_cell(worksheet, row_idx, col_idx, cell)?;
             }
         }
@@ -150,6 +150,23 @@ impl ExportService {
             row_count: result.row_count,
         })
     }
+}
+
+fn excel_column_index(index: usize) -> Result<u16, DbError> {
+    u16::try_from(index).map_err(|_| DbError::Validation("Excel export has too many columns".into()))
+}
+
+fn excel_row_index(index: usize) -> Result<u32, DbError> {
+    index
+        .checked_add(1)
+        .and_then(|index| u32::try_from(index).ok())
+        .ok_or_else(|| DbError::Validation("Excel export has too many rows".into()))
+}
+
+const MAX_EXACT_EXCEL_INTEGER: i64 = 1_i64 << 53;
+
+fn excel_integer_is_exact(value: i64) -> bool {
+    (-MAX_EXACT_EXCEL_INTEGER..=MAX_EXACT_EXCEL_INTEGER).contains(&value)
 }
 
 fn cell_to_csv_string(cell: &CellValue) -> String {
@@ -202,8 +219,12 @@ fn write_excel_cell(
             .write_boolean(row, col, *b)
             .map(|_| ())
             .map_err(|e| DbError::Internal(format!("excel write failed: {e}"))),
-        CellValue::Int64(i) => worksheet
+        CellValue::Int64(i) if excel_integer_is_exact(*i) => worksheet
             .write_number(row, col, *i as f64)
+            .map(|_| ())
+            .map_err(|e| DbError::Internal(format!("excel write failed: {e}"))),
+        CellValue::Int64(i) => worksheet
+            .write_string(row, col, i.to_string())
             .map(|_| ())
             .map_err(|e| DbError::Internal(format!("excel write failed: {e}"))),
         CellValue::Float64(f) => worksheet
@@ -257,6 +278,29 @@ mod tests {
             row_count: 2,
             duration_ms: 0,
         }
+    }
+
+    #[test]
+    fn excel_indexes_reject_provider_type_overflow() {
+        assert!(matches!(excel_column_index(u16::MAX as usize), Ok(u16::MAX)));
+        assert!(matches!(
+            excel_column_index(u16::MAX as usize + 1),
+            Err(DbError::Validation(message)) if message.contains("columns")
+        ));
+        assert!(matches!(excel_row_index(u32::MAX as usize - 1), Ok(u32::MAX)));
+        assert!(matches!(
+            excel_row_index(u32::MAX as usize),
+            Err(DbError::Validation(message)) if message.contains("rows")
+        ));
+    }
+
+    #[test]
+    fn excel_integer_precision_switches_to_text_outside_exact_f64_range() {
+        assert!(excel_integer_is_exact(MAX_EXACT_EXCEL_INTEGER));
+        assert!(excel_integer_is_exact(-MAX_EXACT_EXCEL_INTEGER));
+        assert!(!excel_integer_is_exact(MAX_EXACT_EXCEL_INTEGER + 1));
+        assert!(!excel_integer_is_exact(i64::MAX));
+        assert!(!excel_integer_is_exact(i64::MIN));
     }
 
     fn build_service(connector: MockDbConnector, registry: Arc<ConnectionRegistry>) -> ExportService {

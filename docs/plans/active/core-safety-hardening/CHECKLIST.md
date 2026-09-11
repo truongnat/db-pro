@@ -53,6 +53,8 @@
 - [x] Hydrate SSH credentials for PostgreSQL backup and restore.
 - [x] Do not require an unused database secret for SQLite backup and restore.
 - [x] Invalidate connection-scoped introspection cache after connection lifecycle changes.
+- [x] Preserve large BIGINT values and reject overflowing coordinates in Excel export.
+- [x] Add Excel precision and coordinate-overflow regression coverage.
 - [x] Run formatting, check, clippy, targeted tests, and workspace tests.
 - [x] Self-review changed files and confirm no UI/native files changed.
 - [x] Record PostgreSQL live fixture evidence; SSH-tunnel and native UI runtime evidence remain explicitly pending.

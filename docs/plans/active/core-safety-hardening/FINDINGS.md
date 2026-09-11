@@ -339,3 +339,19 @@ from the previous target, even though the active connection now points elsewhere
 Decision: invalidate the connection-scoped introspection cache after a successful
 connection update or delete, with cache failure logged as non-fatal because the
 next introspection can rebuild the cache.
+
+## P1 — Excel export can corrupt large BIGINT values
+
+`ExportService::export_excel` converted every `CellValue::Int64` to `f64` before
+writing the workbook. IEEE-754 doubles cannot represent every `i64` exactly above
+2^53, so a valid BIGINT such as `9007199254740993` could be exported as a
+different number. The same loop also used unchecked `usize` to `u16`/`u32`
+casts for worksheet coordinates.
+
+Impact: an export presented as a recovery/reporting artifact can silently change
+database values, and sufficiently wide or tall results can wrap their target
+coordinates before the spreadsheet writer sees them.
+
+Decision: keep integers as numeric Excel cells within the exact `f64` integer
+range and write larger values as text, preserving their decimal representation;
+use checked coordinate conversions and return a validation error on overflow.
