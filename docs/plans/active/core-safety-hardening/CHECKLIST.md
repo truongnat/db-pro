@@ -36,6 +36,8 @@
 - [x] Add read-only mutating-export regression coverage.
 - [x] Route mutating CTEs and `EXPLAIN ANALYZE` mutations through multi-statement transactions.
 - [x] Add row-producing mutating CTE transaction-routing regression coverage.
+- [x] Reserve PostgreSQL backup destinations without overwriting existing artifacts.
+- [x] Add PostgreSQL backup destination reservation regression coverage.
 - [x] Run formatting, check, clippy, targeted tests, and workspace tests.
 - [x] Self-review changed files and confirm no UI/native files changed.
 - [ ] Record PostgreSQL live evidence as pending unless an actual provider is exercised.

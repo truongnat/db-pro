@@ -55,6 +55,8 @@ without changing the native UI or adding product features.
 21. Multi-statement data-modifying CTEs and `EXPLAIN ANALYZE` can be routed outside
     the atomic transaction path because result classification is reused as the
     mutation detector.
+22. PostgreSQL backup passes its destination directly to `pg_dump -f`, allowing an
+    existing backup artifact to be overwritten.
 
 ## Acceptance criteria
 
@@ -80,5 +82,7 @@ without changing the native UI or adding product features.
 - Multi-statement scripts containing any mutation, including row-producing
   data-modifying CTEs and `EXPLAIN ANALYZE` mutations, use the atomic transaction
   path while preserving query-result routing.
+- PostgreSQL backup refuses an existing destination before starting external
+  processes and removes incomplete output after a failed command.
 - PostgreSQL and SQLite unit/integration coverage is updated independently where the
   behavior differs.

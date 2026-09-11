@@ -225,3 +225,15 @@ the core atomic multi-statement contract was not upheld for these SQL forms.
 
 Decision: use the safety classifier for transaction selection while retaining the
 result-routing classifier only to preserve query rows from row-producing mutations.
+
+## P1 — PostgreSQL backup can overwrite an existing artifact
+
+`PgDumpEngine` passed the requested destination directly to `pg_dump -f`. The
+command may truncate and replace an existing backup before the core receives a
+result, unlike the SQLite backup path which rejects an existing destination.
+
+Impact: a backup operation aimed at the wrong path can destroy the only known copy
+of an older recovery artifact.
+
+Decision: reserve the destination with atomic `create_new` before starting the SSH
+tunnel or `pg_dump`, and remove the reserved file when the command fails.

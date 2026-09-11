@@ -1,3 +1,4 @@
+use std::path::Path;
 use std::process::Stdio;
 use std::time::Duration;
 use tokio::process::Command;
@@ -49,58 +50,91 @@ impl PgDumpEngine {
             .map_err(|_| DbError::QueryTimeout { timeout_ms })?
             .map_err(|error| DbError::Internal(format!("failed to run {operation}: {error}")))
     }
+
+    async fn reserve_backup_output(path: &Path) -> Result<(), DbError> {
+        tokio::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(path)
+            .await
+            .map(|_| ())
+            .map_err(|error| {
+                if error.kind() == std::io::ErrorKind::AlreadyExists {
+                    DbError::Validation(format!("backup output already exists: {}", path.display()))
+                } else {
+                    DbError::Internal(format!("failed to reserve backup output {}: {error}", path.display()))
+                }
+            })
+    }
+
+    async fn remove_failed_output(path: &Path) {
+        if let Err(error) = tokio::fs::remove_file(path).await {
+            tracing::warn!(path = %path.display(), %error, "failed to remove incomplete PostgreSQL backup output");
+        }
+    }
 }
 
 #[async_trait::async_trait]
 impl BackupEngine for PgDumpEngine {
     async fn backup(&self, options: &BackupOptions, password: &str) -> Result<BackupResult, DbError> {
-        let (config, _tunnel) = self.effective_config().await?;
-        let mut cmd = Command::new("pg_dump");
-        cmd.arg("-h")
-            .arg(&config.host)
-            .arg("-p")
-            .arg(config.port.to_string())
-            .arg("-U")
-            .arg(&config.username)
-            .arg("-d")
-            .arg(&config.database)
-            .arg("-f")
-            .arg(&options.output_path)
-            .env("PGPASSWORD", password);
+        let output_path = Path::new(&options.output_path);
+        Self::reserve_backup_output(output_path).await?;
 
-        match options.format {
-            BackupFormat::Plain => {
-                cmd.arg("--format=plain");
+        let result = async {
+            let (config, _tunnel) = self.effective_config().await?;
+            let mut cmd = Command::new("pg_dump");
+            cmd.arg("-h")
+                .arg(&config.host)
+                .arg("-p")
+                .arg(config.port.to_string())
+                .arg("-U")
+                .arg(&config.username)
+                .arg("-d")
+                .arg(&config.database)
+                .arg("-f")
+                .arg(&options.output_path)
+                .env("PGPASSWORD", password);
+
+            match options.format {
+                BackupFormat::Plain => {
+                    cmd.arg("--format=plain");
+                }
+                BackupFormat::Custom => {
+                    cmd.arg("--format=custom");
+                }
             }
-            BackupFormat::Custom => {
-                cmd.arg("--format=custom");
+
+            for schema in &options.schemas {
+                cmd.arg("-n").arg(schema);
             }
+            for table in &options.tables {
+                cmd.arg("-t").arg(table);
+            }
+
+            cmd.stdin(Stdio::null());
+
+            let output = Self::run_command(&mut cmd, config.query_timeout_ms, "pg_dump").await?;
+
+            if !output.status.success() {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                return Err(DbError::Internal(format!("pg_dump failed: {stderr}")));
+            }
+
+            let metadata = tokio::fs::metadata(&options.output_path)
+                .await
+                .map_err(|e| DbError::Internal(format!("failed to read backup file: {e}")))?;
+
+            Ok(BackupResult {
+                output_path: options.output_path.clone(),
+                size_bytes: metadata.len(),
+            })
         }
+        .await;
 
-        for schema in &options.schemas {
-            cmd.arg("-n").arg(schema);
+        if result.is_err() {
+            Self::remove_failed_output(output_path).await;
         }
-        for table in &options.tables {
-            cmd.arg("-t").arg(table);
-        }
-
-        cmd.stdin(Stdio::null());
-
-        let output = Self::run_command(&mut cmd, config.query_timeout_ms, "pg_dump").await?;
-
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(DbError::Internal(format!("pg_dump failed: {stderr}")));
-        }
-
-        let metadata = tokio::fs::metadata(&options.output_path)
-            .await
-            .map_err(|e| DbError::Internal(format!("failed to read backup file: {e}")))?;
-
-        Ok(BackupResult {
-            output_path: options.output_path.clone(),
-            size_bytes: metadata.len(),
-        })
+        result
     }
 
     async fn restore(&self, options: &RestoreOptions, password: &str) -> Result<(), DbError> {
@@ -153,5 +187,20 @@ mod tests {
             .expect_err("a sleeping command must exceed the test timeout");
 
         assert!(matches!(error, DbError::QueryTimeout { timeout_ms: 50 }));
+    }
+
+    #[tokio::test]
+    async fn backup_output_reservation_rejects_existing_file() -> Result<(), Box<dyn std::error::Error>> {
+        let path = std::env::temp_dir().join(format!("db-pro-pg-backup-{}.dump", uuid::Uuid::new_v4()));
+        tokio::fs::write(&path, b"existing backup").await?;
+
+        let error = match PgDumpEngine::reserve_backup_output(&path).await {
+            Ok(()) => return Err("existing backup output was reserved".into()),
+            Err(error) => error,
+        };
+
+        assert!(matches!(error, DbError::Validation(message) if message.contains("already exists")));
+        tokio::fs::remove_file(path).await?;
+        Ok(())
     }
 }

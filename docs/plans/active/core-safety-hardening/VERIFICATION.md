@@ -7,7 +7,7 @@
 - `cargo check --workspace` — PASS.
 - `cargo clippy --workspace --all-targets -- -D warnings` — PASS.
 - `cargo test -p db-pro-core -p db-pro-infrastructure` — PASS: 203 core unit
-  tests, 44 infrastructure unit tests, 27 SQLite integration tests, 10 PostgreSQL
+  tests, 45 infrastructure unit tests, 27 SQLite integration tests, 10 PostgreSQL
   integration tests ignored.
 - `cargo test -p db-pro-core backup_factory_receives_ssh_configuration` — PASS.
 - `cargo test -p db-pro-core --lib application::connection_service::tests::disconnect_failure_keeps_handle_for_retry -- --exact` — PASS.
@@ -25,9 +25,11 @@
   serialization, validation, and read-only policy tests.
 - `cargo test -p db-pro-core execute_multi_routes_mutating_cte_through_transaction_while_preserving_rows` — PASS.
 - `cargo test -p db-pro-core execute_multi_routes_select_then_update` — PASS.
+- `cargo test -p db-pro-infrastructure backup::pg_dump::tests` — PASS: 2 tests,
+  including existing-destination rejection and external command timeout.
 - External PostgreSQL command timeout regression — PASS on Unix via
   `external_command_timeout_returns_query_timeout`.
-- `cargo test --workspace` — PASS: 203 core unit, 44 infrastructure unit, 27
+- `cargo test --workspace` — PASS: 203 core unit, 45 infrastructure unit, 27
   SQLite integration, 10 PostgreSQL integration tests ignored, plus all runtime,
   native, UI, schema regression, and doc tests passed.
 - Targeted regression `sqlite_query_timeout_interrupts_vm_and_actor_recovers` — PASS.
@@ -53,7 +55,8 @@ Source-only security check:
 The PostgreSQL backup test proves the core factory preserves `ssh_tunnel`; actual
 SSH and PostgreSQL command execution remains provider/runtime evidence pending. The
 PostgreSQL timeout wrapper is unit-tested; live timeout behavior still needs a real
-provider.
+provider. The backup destination test proves an existing PostgreSQL artifact is
+rejected before external command execution.
 
 ## Provider matrix
 
