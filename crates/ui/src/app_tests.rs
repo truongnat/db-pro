@@ -1,4 +1,6 @@
-use super::diagram_view::diagram_candidates;
+use super::diagram_view::{
+    diagram_candidates, diagram_canvas_size, diagram_search_mode, diagram_show_all_after_search_edit,
+};
 use super::*;
 
 fn result() -> UiQueryResult {
@@ -79,6 +81,78 @@ fn displayed_row_number_tracks_database_page_offset() {
     assert_eq!(crate::displayed_row_number(0, 0), 1);
     assert_eq!(crate::displayed_row_number(100, 0), 101);
     assert_eq!(crate::displayed_row_number(100, 49), 150);
+}
+
+#[test]
+fn grid_keyboard_navigation_preserves_filtered_row_identity() {
+    let visible_rows = vec![2, 0, 4];
+
+    assert_eq!(
+        crate::grid_keyboard_selection(Some((2, 1)), &visible_rows, 3, egui::Key::ArrowDown),
+        Some((0, 1))
+    );
+    assert_eq!(
+        crate::grid_keyboard_selection(Some((0, 1)), &visible_rows, 3, egui::Key::ArrowRight),
+        Some((0, 2))
+    );
+    assert_eq!(
+        crate::grid_keyboard_selection(Some((0, 2)), &visible_rows, 3, egui::Key::Home),
+        Some((0, 0))
+    );
+    assert_eq!(
+        crate::grid_keyboard_selection(Some((0, 0)), &visible_rows, 3, egui::Key::ArrowUp),
+        Some((2, 0))
+    );
+}
+
+#[test]
+fn grid_keyboard_navigation_starts_at_first_visible_cell() {
+    assert_eq!(
+        crate::grid_keyboard_selection(None, &[7, 9], 2, egui::Key::ArrowDown),
+        Some((7, 0))
+    );
+    assert_eq!(
+        crate::grid_keyboard_selection(Some((7, 0)), &[7, 9], 2, egui::Key::End),
+        Some((7, 1))
+    );
+}
+
+#[test]
+fn grid_columns_fill_the_viewport_until_manually_resized() {
+    let mut app = DbProApp::default();
+
+    let widths = app.column_widths(3, 1200.0);
+    assert!(widths.iter().all(|width| (*width - 380.0).abs() < 0.01));
+
+    app.grid_column_widths = vec![240.0, 320.0, 180.0];
+    app.grid_columns_user_resized = true;
+    assert_eq!(app.column_widths(3, 1200.0), vec![240.0, 320.0, 180.0]);
+}
+
+#[test]
+fn grid_copy_uses_staged_values_only_for_data_editor() {
+    let value = result();
+    let mut app = DbProApp {
+        active_tab: WorkspaceTab::Table,
+        table_view: TableView::Data,
+        staged_changes: vec![StagedChange::Update {
+            row_index: 0,
+            column_index: 1,
+            column: "name".to_owned(),
+            original: UiCell::Text("Beta".to_owned()),
+            value: UiCell::Text("Updated".to_owned()),
+            pk_columns: vec!["id".to_owned()],
+            pk_values: vec![UiCell::Number("2".to_owned())],
+        }],
+        ..Default::default()
+    };
+
+    assert_eq!(
+        app.copy_cell_value(&value, 0, 1),
+        Some(UiCell::Text("Updated".to_owned()))
+    );
+    app.active_tab = WorkspaceTab::Query;
+    assert_eq!(app.copy_cell_value(&value, 0, 1), Some(UiCell::Text("Beta".to_owned())));
 }
 
 #[test]
@@ -325,6 +399,39 @@ fn selected_connection_is_not_shown_as_connected() {
 }
 
 #[test]
+fn editor_status_is_scoped_to_the_query_workspace() {
+    let mut app = DbProApp {
+        active_tab: WorkspaceTab::Query,
+        ..Default::default()
+    };
+    assert!(app.shows_editor_status());
+    assert_eq!(app.statusbar_context_label(), "SQL Editor");
+
+    app.active_tab = WorkspaceTab::Table;
+    assert!(!app.shows_editor_status());
+    assert_eq!(app.statusbar_context_label(), "Table Structure");
+    app.table_view = TableView::Data;
+    assert_eq!(app.statusbar_context_label(), "Data Editor");
+    app.active_tab = WorkspaceTab::Diagram;
+    assert!(!app.shows_editor_status());
+    assert_eq!(app.statusbar_context_label(), "ER Diagram");
+}
+
+#[test]
+fn switching_query_documents_resets_editor_cursor_metadata() {
+    let mut app = DbProApp {
+        active_tab: WorkspaceTab::Query,
+        query_cursor_line: 8,
+        query_cursor_column: 13,
+        ..Default::default()
+    };
+    app.new_query_document();
+
+    assert_eq!(app.query_cursor_line, 1);
+    assert_eq!(app.query_cursor_column, 1);
+}
+
+#[test]
 fn provider_capabilities_gate_provider_specific_actions() {
     let sqlite = UiConnectionSummary {
         id: "sqlite".to_owned(),
@@ -478,6 +585,27 @@ fn diagram_candidates_bound_clones_until_show_all_is_explicit() {
     assert_eq!(candidate_count, 1);
     assert_eq!(search_results.len(), 1);
     assert_eq!(search_results[0].name, "table_7");
+}
+
+#[test]
+fn diagram_search_mode_can_leave_explicit_show_all() {
+    assert!(!diagram_search_mode(true, true));
+    assert!(diagram_search_mode(true, false));
+    assert!(!diagram_search_mode(false, false));
+    assert!(!diagram_show_all_after_search_edit(true, "orders", true));
+    assert!(diagram_show_all_after_search_edit(true, "  ", true));
+}
+
+#[test]
+fn diagram_canvas_fills_the_viewport_before_overflowing() {
+    assert_eq!(
+        diagram_canvas_size(egui::vec2(940.0, 360.0), egui::vec2(1800.0, 900.0)),
+        egui::vec2(1800.0, 900.0)
+    );
+    assert_eq!(
+        diagram_canvas_size(egui::vec2(2200.0, 1200.0), egui::vec2(1800.0, 900.0)),
+        egui::vec2(2200.0, 1200.0)
+    );
 }
 
 #[test]

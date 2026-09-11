@@ -37,8 +37,8 @@ pub fn icon_text(icon: Icon, label: &str, color: Color32) -> LayoutJob {
 pub fn panel_frame(theme: DbProTheme) -> Frame {
     Frame {
         fill: theme.surface_panel,
-        inner_margin: Margin::symmetric(10.0, 6.0),
-        stroke: Stroke::NONE,
+        inner_margin: Margin::symmetric(12.0, 7.0),
+        stroke: Stroke::new(1.0, theme.border_subtle),
         ..Default::default()
     }
 }
@@ -47,17 +47,17 @@ pub fn panel_frame(theme: DbProTheme) -> Frame {
 pub fn sidebar_frame(theme: DbProTheme) -> Frame {
     Frame {
         fill: theme.surface_panel,
-        inner_margin: Margin::symmetric(9.0, 6.0),
-        stroke: Stroke::NONE,
+        inner_margin: Margin::symmetric(10.0, 7.0),
+        stroke: Stroke::new(1.0, theme.border_subtle),
         ..Default::default()
     }
 }
 
 pub fn activity_bar_frame(theme: DbProTheme) -> Frame {
     Frame {
-        fill: theme.surface_panel,
-        inner_margin: Margin::symmetric(6.0, 8.0),
-        stroke: Stroke::NONE,
+        fill: theme.surface_app,
+        inner_margin: Margin::symmetric(5.0, 8.0),
+        stroke: Stroke::new(1.0, theme.border_subtle),
         ..Default::default()
     }
 }
@@ -65,8 +65,8 @@ pub fn activity_bar_frame(theme: DbProTheme) -> Frame {
 pub fn toolbar_frame(theme: DbProTheme) -> Frame {
     Frame {
         fill: theme.surface_panel,
-        inner_margin: Margin::symmetric(8.0, 4.0),
-        stroke: Stroke::NONE,
+        inner_margin: Margin::symmetric(10.0, 4.0),
+        stroke: Stroke::new(1.0, theme.border_subtle),
         rounding: Rounding::ZERO,
         ..Default::default()
     }
@@ -75,11 +75,11 @@ pub fn toolbar_frame(theme: DbProTheme) -> Frame {
 pub fn tab_frame(theme: DbProTheme, active: bool) -> Frame {
     Frame {
         fill: if active {
-            theme.surface_elevated
+            theme.surface_active
         } else {
             Color32::TRANSPARENT
         },
-        inner_margin: Margin::symmetric(9.0, 4.0),
+        inner_margin: Margin::symmetric(10.0, 3.0),
         rounding: Rounding::ZERO,
         stroke: Stroke::NONE,
         ..Default::default()
@@ -89,10 +89,10 @@ pub fn tab_frame(theme: DbProTheme, active: bool) -> Frame {
 pub fn card_frame(theme: DbProTheme) -> Frame {
     Frame {
         fill: theme.surface_elevated,
-        inner_margin: Margin::same(12.0),
+        inner_margin: Margin::same(14.0),
         outer_margin: Margin::ZERO,
         rounding: Rounding::same(8.0),
-        stroke: Stroke::NONE,
+        stroke: Stroke::new(1.0, theme.border_subtle),
         ..Default::default()
     }
 }
@@ -106,7 +106,7 @@ pub fn agent_message_frame(theme: DbProTheme, user_message: bool) -> Frame {
         },
         inner_margin: Margin::symmetric(10.0, 8.0),
         rounding: if user_message {
-            Rounding::same(8.0)
+            Rounding::same(10.0)
         } else {
             Rounding::ZERO
         },
@@ -119,7 +119,7 @@ pub fn editor_frame(theme: DbProTheme) -> Frame {
     Frame {
         fill: theme.surface_editor,
         inner_margin: Margin::same(10.0),
-        rounding: Rounding::same(6.0),
+        rounding: Rounding::same(8.0),
         stroke: Stroke::NONE,
         ..Default::default()
     }
@@ -129,10 +129,29 @@ pub fn grid_frame(theme: DbProTheme) -> Frame {
     Frame {
         fill: theme.surface_editor,
         inner_margin: Margin::same(10.0),
-        rounding: Rounding::same(6.0),
+        rounding: Rounding::same(8.0),
         stroke: Stroke::NONE,
         ..Default::default()
     }
+}
+
+/// Quiet, centered empty content for workspace surfaces that have no objects yet.
+/// Keeping the icon/title/description stack here prevents metadata screens from
+/// falling back to a tiny, top-left label that reads like unfinished egui output.
+pub fn empty_state(ui: &mut Ui, icon: Icon, title: &str, description: &str, theme: DbProTheme) {
+    ui.vertical_centered(|ui| {
+        ui.add_space(8.0);
+        ui.label(
+            RichText::new(char::from(icon).to_string())
+                .font(FontId::new(18.0, FontFamily::Name("lucide".into())))
+                .color(theme.text_muted),
+        );
+        ui.label(RichText::new(title).strong().color(theme.text_secondary));
+        if !description.is_empty() {
+            ui.label(RichText::new(description).small().color(theme.text_muted));
+        }
+        ui.add_space(8.0);
+    });
 }
 
 /// The only shared single-line input primitive used by the native shell.
@@ -176,14 +195,24 @@ pub fn sidebar_item(ui: &mut Ui, icon: Icon, label: &str, active: bool, theme: D
         theme.text_secondary
     };
     let button = Button::new(icon_layout(icon, label, text_color))
-        .min_size(egui::vec2(width, 28.0))
-        .rounding(Rounding::same(4.0))
+        .min_size(egui::vec2(width, 26.0))
+        .rounding(Rounding::same(7.0))
         .stroke(Stroke::NONE);
-    if active {
-        ui.add(button.fill(theme.accent_soft))
+    let response = if active {
+        ui.add(button.fill(theme.surface_active))
     } else {
         ui.add(button)
+    };
+    if active {
+        ui.painter().line_segment(
+            [
+                egui::pos2(response.rect.left() + 1.0, response.rect.top() + 4.0),
+                egui::pos2(response.rect.left() + 1.0, response.rect.bottom() - 4.0),
+            ],
+            Stroke::new(2.0, theme.accent),
+        );
     }
+    response
 }
 
 pub fn section_label(ui: &mut Ui, text: impl Into<String>, theme: DbProTheme) -> Response {
@@ -196,7 +225,7 @@ pub fn primary_button(ui: &mut Ui, label: impl Into<RichText>, theme: DbProTheme
             .fill(theme.accent)
             .stroke(Stroke::new(1.0, theme.accent))
             .min_size(egui::vec2(0.0, 28.0))
-            .rounding(Rounding::same(4.0)),
+            .rounding(Rounding::same(7.0)),
     )
 }
 
@@ -206,7 +235,7 @@ pub fn primary_button_with_icon(ui: &mut Ui, icon: Icon, label: &str, theme: DbP
             .fill(theme.accent)
             .stroke(Stroke::new(1.0, theme.accent))
             .min_size(egui::vec2(0.0, 28.0))
-            .rounding(Rounding::same(4.0)),
+            .rounding(Rounding::same(7.0)),
     )
 }
 
@@ -216,7 +245,7 @@ pub fn secondary_button(ui: &mut Ui, label: impl Into<RichText>, theme: DbProThe
             .fill(theme.surface_hover)
             .stroke(Stroke::NONE)
             .min_size(egui::vec2(0.0, 28.0))
-            .rounding(Rounding::same(4.0)),
+            .rounding(Rounding::same(7.0)),
     )
 }
 
@@ -226,7 +255,7 @@ pub fn secondary_button_with_icon(ui: &mut Ui, icon: Icon, label: &str, theme: D
             .fill(theme.surface_hover)
             .stroke(Stroke::NONE)
             .min_size(egui::vec2(0.0, 28.0))
-            .rounding(Rounding::same(4.0)),
+            .rounding(Rounding::same(7.0)),
     )
 }
 
@@ -248,11 +277,21 @@ pub fn ghost_button_with_icon(ui: &mut Ui, icon: Icon, label: &str, theme: DbPro
     )
 }
 
+/// Full-width action row for compact overflow menus.
+pub fn menu_button_with_icon(ui: &mut Ui, icon: Icon, label: &str, theme: DbProTheme) -> Response {
+    ui.add_sized(
+        [ui.available_width(), 28.0],
+        Button::new(icon_layout(icon, label, theme.text_primary))
+            .rounding(Rounding::same(6.0))
+            .stroke(Stroke::NONE),
+    )
+}
+
 pub fn compact_button(ui: &mut Ui, label: impl Into<RichText>, theme: DbProTheme) -> Response {
     ui.add(
         Button::new(label.into().size(12.0).color(theme.text_secondary))
             .min_size(egui::vec2(0.0, 24.0))
-            .rounding(Rounding::same(5.0))
+            .rounding(Rounding::same(7.0))
             .stroke(Stroke::NONE),
     )
 }
@@ -262,7 +301,7 @@ pub fn compact_button_enabled(ui: &mut Ui, label: impl Into<RichText>, enabled: 
         enabled,
         Button::new(label.into().size(12.0).color(theme.text_secondary))
             .min_size(egui::vec2(0.0, 24.0))
-            .rounding(Rounding::same(5.0))
+            .rounding(Rounding::same(7.0))
             .stroke(Stroke::NONE),
     )
 }
@@ -271,7 +310,7 @@ pub fn compact_button_with_icon(ui: &mut Ui, icon: Icon, label: &str, theme: DbP
     ui.add(
         Button::new(icon_layout(icon, label, theme.text_secondary))
             .min_size(egui::vec2(0.0, 24.0))
-            .rounding(Rounding::same(5.0))
+            .rounding(Rounding::same(7.0))
             .stroke(Stroke::NONE),
     )
 }
@@ -282,7 +321,7 @@ pub fn danger_button(ui: &mut Ui, label: impl Into<RichText>, theme: DbProTheme)
             .fill(theme.danger)
             .stroke(Stroke::new(1.0, theme.danger))
             .min_size(egui::vec2(0.0, 30.0))
-            .rounding(Rounding::same(6.0)),
+            .rounding(Rounding::same(8.0)),
     )
 }
 
@@ -291,11 +330,11 @@ pub fn icon_button(ui: &mut Ui, icon: Icon, active: bool, theme: DbProTheme) -> 
         .font(FontId::new(17.0, FontFamily::Name("lucide".into())))
         .color(if active { theme.accent } else { theme.text_muted });
     let button = Button::new(text)
-        .min_size(egui::vec2(32.0, 32.0))
-        .rounding(Rounding::same(5.0))
+        .min_size(egui::vec2(32.0, 30.0))
+        .rounding(Rounding::same(8.0))
         .stroke(Stroke::NONE);
     if active {
-        ui.add(button.fill(theme.accent_soft))
+        ui.add(button.fill(theme.surface_active))
     } else {
         ui.add(button)
     }
@@ -309,7 +348,7 @@ pub fn compact_icon_button(ui: &mut Ui, icon: Icon, theme: DbProTheme) -> Respon
                 .font(FontId::new(14.0, FontFamily::Name("lucide".into())))
                 .color(theme.text_muted),
         )
-        .rounding(Rounding::same(5.0))
+        .rounding(Rounding::same(7.0))
         .stroke(Stroke::NONE),
     )
 }
@@ -323,19 +362,17 @@ pub fn compact_icon_button_enabled(ui: &mut Ui, icon: Icon, enabled: bool, theme
                 .color(theme.text_muted),
         )
         .min_size(egui::vec2(24.0, 24.0))
-        .rounding(Rounding::same(5.0))
+        .rounding(Rounding::same(7.0))
         .stroke(Stroke::NONE),
     )
 }
 
 pub fn badge(ui: &mut Ui, text: &str, fill: Color32, foreground: Color32) {
-    Frame {
-        fill,
-        inner_margin: Margin::symmetric(6.0, 2.0),
-        rounding: Rounding::same(4.0),
-        ..Default::default()
-    }
-    .show(ui, |ui| {
-        ui.label(RichText::new(text).size(10.0).strong().color(foreground));
-    });
+    let galley = ui
+        .painter()
+        .layout_no_wrap(text.to_owned(), egui::FontId::proportional(10.0), foreground);
+    let size = galley.size() + egui::vec2(12.0, 4.0);
+    let (rect, _) = ui.allocate_exact_size(size, egui::Sense::hover());
+    ui.painter().rect_filled(rect, Rounding::same(7.0), fill);
+    ui.painter().galley(rect.min + egui::vec2(6.0, 2.0), galley, foreground);
 }

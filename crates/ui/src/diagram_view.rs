@@ -5,7 +5,7 @@ impl DbProApp {
         let all_table_count = self.schema.table_details.len();
         let large_schema = all_table_count > ER_LARGE_SCHEMA_THRESHOLD;
         let search_query = self.diagram_search.trim().to_ascii_lowercase();
-        let search_mode = large_schema && !self.diagram_show_all;
+        let search_mode = diagram_search_mode(large_schema, self.diagram_show_all);
         let render_limit = if large_schema && self.diagram_show_all {
             all_table_count
         } else {
@@ -15,7 +15,7 @@ impl DbProApp {
             diagram_candidates(&self.schema.table_details, &search_query, search_mode, render_limit);
         let visible_tables = tables.len().min(render_limit);
 
-        self.draw_diagram_toolbar(ui, large_schema, search_mode, all_table_count, &tables, render_limit);
+        self.draw_diagram_toolbar(ui, large_schema, all_table_count, &tables, render_limit);
         ui.add_space(10.0);
 
         if search_mode && search_query.is_empty() {
@@ -76,12 +76,23 @@ pub(super) fn diagram_candidates(
     (candidate_count, tables)
 }
 
+pub(super) fn diagram_search_mode(large_schema: bool, show_all: bool) -> bool {
+    large_schema && !show_all
+}
+
+pub(super) fn diagram_show_all_after_search_edit(show_all: bool, search_query: &str, changed: bool) -> bool {
+    if changed && !search_query.trim().is_empty() {
+        false
+    } else {
+        show_all
+    }
+}
+
 impl DbProApp {
     fn draw_diagram_toolbar(
         &mut self,
         ui: &mut egui::Ui,
         large_schema: bool,
-        search_mode: bool,
         all_table_count: usize,
         tables: &[UiTableSummary],
         render_limit: usize,
@@ -116,7 +127,11 @@ impl DbProApp {
             }
             if large_schema {
                 ui.separator();
-                input(ui, &mut self.diagram_search, "Find table or column…", 220.0, self.theme);
+                let search_changed =
+                    input(ui, &mut self.diagram_search, "Find table or column…", 220.0, self.theme).changed();
+                self.diagram_show_all =
+                    diagram_show_all_after_search_edit(self.diagram_show_all, &self.diagram_search, search_changed);
+                let search_mode = diagram_search_mode(large_schema, self.diagram_show_all);
                 if search_mode {
                     if secondary_button_with_icon(
                         ui,
@@ -130,6 +145,9 @@ impl DbProApp {
                     }
                 } else {
                     badge(ui, "All tables", self.theme.warning, self.theme.text_inverse);
+                    if compact_button_with_icon(ui, Icon::Search, "Focus search", self.theme).clicked() {
+                        self.diagram_show_all = false;
+                    }
                 }
             }
         });
@@ -150,6 +168,7 @@ impl DbProApp {
         }
         .show(ui, |ui| {
             ui.set_min_size(canvas_size);
+            paint_diagram_grid(ui.painter(), ui.max_rect(), 1.0, self.theme);
             ui.vertical_centered(|ui| {
                 let top_space = if no_matches { 56.0 } else { 40.0 };
                 ui.add_space(top_space);
@@ -205,6 +224,8 @@ impl DbProApp {
         let canvas_height =
             (ER_CANVAS_MARGIN * 2.0 + grid_rows as f32 * node_height + (grid_rows.saturating_sub(1)) as f32 * ER_GAP_Y)
                 * self.diagram_zoom;
+        let viewport_size = egui::vec2(ui.available_width(), ui.available_height());
+        let canvas_size = diagram_canvas_size(egui::vec2(canvas_width, canvas_height), viewport_size);
         let zoom = self.diagram_zoom;
         let pan = self.diagram_pan;
         let theme = self.theme;
@@ -216,10 +237,7 @@ impl DbProApp {
         }
         .show(ui, |ui| {
             egui::ScrollArea::both().auto_shrink([false, false]).show(ui, |ui| {
-                let (response, painter) = ui.allocate_painter(
-                    egui::vec2(canvas_width.max(640.0), canvas_height.max(360.0)),
-                    Sense::click_and_drag(),
-                );
+                let (response, painter) = ui.allocate_painter(canvas_size, Sense::click_and_drag());
                 paint_diagram_grid(&painter, response.rect, zoom, theme);
                 let nodes = diagram_nodes(
                     tables,
@@ -295,6 +313,13 @@ impl DbProApp {
         self.sidebar_open = true;
         self.active_tab = WorkspaceTab::Table;
     }
+}
+
+pub(super) fn diagram_canvas_size(content_size: egui::Vec2, viewport_size: egui::Vec2) -> egui::Vec2 {
+    egui::vec2(
+        content_size.x.max(viewport_size.x).max(640.0),
+        content_size.y.max(viewport_size.y).max(360.0),
+    )
 }
 
 fn paint_diagram_grid(painter: &egui::Painter, rect: egui::Rect, zoom: f32, theme: DbProTheme) {

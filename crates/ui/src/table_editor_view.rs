@@ -385,6 +385,7 @@ impl DbProApp {
             .open(&mut open)
             .collapsible(false)
             .resizable(false)
+            .anchor(egui::Align2::CENTER_CENTER, egui::Vec2::ZERO)
             .default_width(460.0)
             .show(ctx, |ui| {
                 ui.label(

@@ -439,6 +439,8 @@ impl DbProApp {
         if ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
             if let Some(request_id) = self.next_query_request {
                 self.cancel_query(request_id);
+            } else if self.query_tools_open {
+                self.query_tools_open = false;
             } else if self.editor_search_open {
                 self.editor_search_open = false;
             } else {

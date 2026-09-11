@@ -53,49 +53,44 @@ impl DbProApp {
 
     fn draw_agent_context(&self, ui: &mut egui::Ui, context: &AgentContext) {
         toolbar_frame(self.theme).show(ui, |ui| {
-            egui::ScrollArea::horizontal()
-                .id_salt("agent-context-badges")
-                .auto_shrink([false, true])
-                .show(ui, |ui| {
-                    ui.horizontal(|ui| {
-                        if self.agent_provider_label == "Offline draft" {
-                            badge(ui, "Preview", self.theme.surface_active, self.theme.text_secondary);
-                        }
-                        badge(
-                            ui,
-                            &self.agent_provider_label,
-                            self.theme.accent_soft,
-                            self.theme.accent,
-                        );
-                        badge(
-                            ui,
-                            context.connection_name.as_deref().unwrap_or("No connection"),
-                            self.theme.accent_soft,
-                            self.theme.accent,
-                        );
-                        badge(
-                            ui,
-                            &context.driver,
-                            self.theme.surface_active,
-                            self.theme.text_secondary,
-                        );
-                        badge(
-                            ui,
-                            &format!("{} tables", context.tables.len()),
-                            self.theme.surface_active,
-                            self.theme.text_secondary,
-                        );
-                        if let Some(schema) = context.schema.as_deref() {
-                            badge(ui, schema, self.theme.surface_active, self.theme.text_secondary);
-                        }
-                        if let Some(table) = context.selected_table.as_deref() {
-                            badge(ui, table, self.theme.accent_soft, self.theme.accent);
-                        }
-                        if context.explain_plan.is_some() {
-                            badge(ui, "EXPLAIN", self.theme.accent_soft, self.theme.accent);
-                        }
-                    });
-                });
+            ui.horizontal_wrapped(|ui| {
+                if self.agent_provider_label == "Offline draft" {
+                    badge(ui, "Preview", self.theme.surface_active, self.theme.text_secondary);
+                }
+                badge(
+                    ui,
+                    &self.agent_provider_label,
+                    self.theme.accent_soft,
+                    self.theme.accent,
+                );
+                badge(
+                    ui,
+                    context.connection_name.as_deref().unwrap_or("No connection"),
+                    self.theme.accent_soft,
+                    self.theme.accent,
+                );
+                badge(
+                    ui,
+                    &context.driver,
+                    self.theme.surface_active,
+                    self.theme.text_secondary,
+                );
+                badge(
+                    ui,
+                    &format!("{} tables", context.tables.len()),
+                    self.theme.surface_active,
+                    self.theme.text_secondary,
+                );
+                if let Some(schema) = context.schema.as_deref() {
+                    badge(ui, schema, self.theme.surface_active, self.theme.text_secondary);
+                }
+                if let Some(table) = context.selected_table.as_deref() {
+                    badge(ui, table, self.theme.accent_soft, self.theme.accent);
+                }
+                if context.explain_plan.is_some() {
+                    badge(ui, "EXPLAIN", self.theme.accent_soft, self.theme.accent);
+                }
+            });
             ui.label(
                 RichText::new(&self.agent_provider_detail)
                     .small()

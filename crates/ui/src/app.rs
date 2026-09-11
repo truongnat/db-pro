@@ -1,12 +1,12 @@
 use crate::{
     activity_bar_frame, agent_message_frame, badge, card_frame, compact_button, compact_button_with_icon,
-    compact_icon_button, compact_icon_button_enabled, danger_button, editor_frame, ghost_button,
-    ghost_button_with_icon, grid_frame, icon_button, icon_text, input, input_full_width, panel_frame, password_input,
-    primary_button, primary_button_with_icon, secondary_button_with_icon, section_label, sidebar_frame, sidebar_item,
-    tab_frame, toolbar_frame, AgentContext, AgentMessage, AgentProvider, AgentRole, DbProTheme, OfflineAgentProvider,
-    TaskBridge, UiCell, UiCommand, UiConnectionDraft, UiConnectionSummary, UiDriver, UiEvent, UiQueryFolderSummary,
-    UiQueryResult, UiSavedQuerySummary, UiSchemaForeignKey, UiSchemaSummary, UiSslMode, UiTableDataFilter,
-    UiTableDataSort, UiTableInfo, UiTableSummary,
+    compact_icon_button, compact_icon_button_enabled, danger_button, editor_frame, empty_state, ghost_button,
+    ghost_button_with_icon, grid_frame, icon_button, icon_text, input, input_full_width, menu_button_with_icon,
+    panel_frame, password_input, primary_button, primary_button_with_icon, secondary_button_with_icon, section_label,
+    sidebar_frame, sidebar_item, tab_frame, toolbar_frame, AgentContext, AgentMessage, AgentProvider, AgentRole,
+    DbProTheme, OfflineAgentProvider, TaskBridge, UiCell, UiCommand, UiConnectionDraft, UiConnectionSummary, UiDriver,
+    UiEvent, UiQueryFolderSummary, UiQueryResult, UiSavedQuerySummary, UiSchemaForeignKey, UiSchemaSummary, UiSslMode,
+    UiTableDataFilter, UiTableDataSort, UiTableInfo, UiTableSummary,
 };
 use bigdecimal::BigDecimal;
 use db_pro_core::domain::capabilities::DatabaseCapabilities;
@@ -277,6 +277,8 @@ pub struct DbProApp {
     editor_search: String,
     editor_search_open: bool,
     query_editor_focused: bool,
+    query_cursor_line: usize,
+    query_cursor_column: usize,
     editor_font_size: f32,
     query_tools_open: bool,
     completion_open: bool,
@@ -309,6 +311,7 @@ pub struct DbProApp {
     grid_sort_column: Option<usize>,
     grid_sort_desc: bool,
     grid_column_widths: Vec<f32>,
+    grid_columns_user_resized: bool,
     grid_resize_start: Option<(usize, f32)>,
     selected_cell: Option<(usize, usize)>,
     selected_row: Option<usize>,
@@ -383,11 +386,15 @@ impl eframe::App for DbProApp {
         if let Ok(widths) = serde_json::to_string(&self.grid_column_widths) {
             storage.set_string("dbpro.native.grid-widths", widths);
         }
+        storage.set_string(
+            "dbpro.native.grid-widths-customized",
+            self.grid_columns_user_resized.to_string(),
+        );
         self.persist_active_query_document();
         if let Ok(documents) = serde_json::to_string(&self.query_documents) {
             storage.set_string("dbpro.native.query-documents", documents);
         }
-        storage.set_string("dbpro.native.theme-version", "dark-first-v3".to_owned());
+        storage.set_string("dbpro.native.theme-version", "native-redesign-v4".to_owned());
         storage.set_string("dbpro.native.dark-mode", self.dark_mode.to_string());
         storage.set_string("dbpro.native.reduce-motion", self.reduce_motion.to_string());
         storage.set_string("dbpro.native.sidebar-width", self.sidebar_width.to_string());
@@ -410,6 +417,7 @@ impl eframe::App for DbProApp {
         self.theme.apply(ctx);
         self.handle_shortcuts(ctx);
         self.draw_topbar(ctx);
+        self.draw_workspace_tabs_panel(ctx);
         self.draw_output_panel(ctx);
         self.draw_statusbar(ctx);
         self.draw_activity_bar(ctx);
@@ -546,6 +554,28 @@ impl DbProApp {
         (Icon::Circle, self.theme.warning, "Not connected")
     }
 
+    pub(super) fn shows_editor_status(&self) -> bool {
+        self.active_tab == WorkspaceTab::Query
+    }
+
+    pub(super) fn statusbar_context_label(&self) -> &'static str {
+        match self.active_tab {
+            WorkspaceTab::Welcome => "Workspace",
+            WorkspaceTab::Query => "SQL Editor",
+            WorkspaceTab::Table => match self.table_view {
+                TableView::Structure => "Table Structure",
+                TableView::Data => "Data Editor",
+                TableView::Indexes => "Table Indexes",
+                TableView::Relations => "Table Relations",
+                TableView::Constraints => "Table Constraints",
+                TableView::Dependencies => "Table Dependencies",
+                TableView::Ddl => "Table DDL",
+            },
+            WorkspaceTab::SchemaObject => "Schema Object",
+            WorkspaceTab::Diagram => "ER Diagram",
+        }
+    }
+
     fn connection_indicator(&self, connection: &UiConnectionSummary) -> (Icon, Color32) {
         let is_active = self.active_connection_id.as_deref() == Some(connection.id.as_str());
         let is_connected = is_active && self.connected;
@@ -575,6 +605,7 @@ impl DbProApp {
         self.persist_active_query_document();
         self.active_query_document = index;
         self.query_text = self.query_documents[index].content.clone();
+        self.reset_query_cursor();
         self.query_result = None;
         self.runtime_message = format!("Opened {}", self.query_documents[index].title);
     }
@@ -588,6 +619,7 @@ impl DbProApp {
         });
         self.active_query_document = self.query_documents.len() - 1;
         self.query_text.clear();
+        self.reset_query_cursor();
         self.query_result = None;
         self.activity = Activity::Queries;
         self.sidebar_open = true;
@@ -607,8 +639,14 @@ impl DbProApp {
             self.active_query_document = self.active_query_document.min(self.query_documents.len() - 1);
         }
         self.query_text = self.query_documents[self.active_query_document].content.clone();
+        self.reset_query_cursor();
         self.query_result = None;
         self.runtime_message = format!("Closed {}", self.query_documents[self.active_query_document].title);
+    }
+
+    fn reset_query_cursor(&mut self) {
+        self.query_cursor_line = 1;
+        self.query_cursor_column = 1;
     }
 
     fn request_close_workspace_tab(&mut self, tab: WorkspaceTab) {

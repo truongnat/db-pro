@@ -4,93 +4,101 @@ impl DbProApp {
     pub(super) fn draw_welcome(&mut self, ui: &mut egui::Ui) {
         let modifier = Self::primary_modifier_label();
         let mut open_query = false;
-        ui.add_space(28.0);
-        ui.allocate_ui_with_layout(
-            egui::vec2(ui.available_width().min(760.0), ui.available_height()),
-            Layout::top_down(Align::Min),
-            |ui| {
-                ui.horizontal(|ui| {
-                    ui.label(icon_text(Icon::Sparkles, "WELCOME", self.theme.accent));
-                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                        ui.label(
-                            RichText::new(format!("{modifier}K command palette"))
-                                .small()
-                                .color(self.theme.text_muted),
-                        );
-                    });
-                });
-                ui.add_space(12.0);
-                ui.label(RichText::new("A focused workspace for your data").size(25.0).strong());
-                ui.add_space(6.0);
-                ui.label(
-                    RichText::new("Connect a database, open a query, and keep the useful context close.")
-                        .color(self.theme.text_secondary),
-                );
-                ui.add_space(22.0);
-                egui::Frame {
-                    fill: self.theme.surface_elevated,
-                    inner_margin: egui::Margin::same(18.0),
-                    rounding: egui::Rounding::same(9.0),
-                    stroke: egui::Stroke::NONE,
-                    ..Default::default()
-                }
-                .show(ui, |ui| {
+
+        let available_width = ui.available_width();
+        let content_width = available_width.min(720.0);
+        let content_height = ui.available_height();
+        ui.horizontal(|ui| {
+            ui.add_space(((available_width - content_width) / 2.0).max(0.0));
+            ui.allocate_ui_with_layout(
+                egui::vec2(content_width, content_height),
+                Layout::top_down(Align::Min),
+                |ui| {
+                    ui.add_space(30.0);
                     ui.horizontal(|ui| {
-                        egui::Frame {
-                            fill: self.theme.accent_soft,
-                            inner_margin: egui::Margin::same(10.0),
-                            rounding: egui::Rounding::same(8.0),
-                            stroke: egui::Stroke::NONE,
-                            ..Default::default()
-                        }
-                        .show(ui, |ui| ui.label(icon_text(Icon::Database, "", self.theme.accent)));
-                        ui.vertical(|ui| {
-                            ui.label(RichText::new("Start with a connection").strong());
+                        ui.label(icon_text(Icon::Sparkles, "WORKSPACE / HOME", self.theme.accent));
+                        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                             ui.label(
-                                RichText::new("Your schema and query tools will appear here.")
+                                RichText::new(format!("{modifier}K command palette"))
                                     .small()
                                     .color(self.theme.text_muted),
                             );
                         });
                     });
-                    ui.add_space(14.0);
-                    let prompt_response = input_full_width(
-                        ui,
-                        &mut self.welcome_prompt,
-                        "Paste SQL or describe what you want to inspect…",
-                        self.theme,
-                    );
-                    ui.add_space(10.0);
-                    ui.horizontal(|ui| {
-                        if primary_button_with_icon(ui, Icon::ArrowUp, "Open in Query", self.theme).clicked()
-                            || (prompt_response.has_focus() && ui.input(|input| input.key_pressed(egui::Key::Enter)))
-                        {
-                            open_query = true;
-                        }
-                        if secondary_button_with_icon(ui, Icon::Database, "New connection", self.theme).clicked() {
-                            self.open_new_connection();
-                        }
-                        if compact_icon_button(ui, Icon::Search, self.theme)
-                            .on_hover_text("Quick Open")
-                            .clicked()
-                        {
-                            self.open_palette(PaletteMode::QuickOpen);
-                        }
-                    });
-                });
-                ui.add_space(16.0);
-                ui.horizontal(|ui| {
-                    if compact_button_with_icon(ui, Icon::FilePlus2, "New query", self.theme).clicked() {
-                        self.new_query_document();
-                    }
+                    ui.add_space(12.0);
+                    ui.label(RichText::new("A focused workspace for your data").size(24.0).strong());
+                    ui.add_space(6.0);
                     ui.label(
-                        RichText::new("or use the activity rail to open Queries and History")
-                            .small()
-                            .color(self.theme.text_muted),
+                        RichText::new("Connect a database, open a query, and keep the useful context close.")
+                            .color(self.theme.text_secondary),
                     );
-                });
-            },
-        );
+                    ui.add_space(22.0);
+                    egui::Frame {
+                        fill: self.theme.surface_panel,
+                        inner_margin: egui::Margin::same(14.0),
+                        rounding: egui::Rounding::same(6.0),
+                        stroke: egui::Stroke::new(1.0, self.theme.border_default),
+                        ..Default::default()
+                    }
+                    .show(ui, |ui| {
+                        ui.horizontal(|ui| {
+                            egui::Frame {
+                                fill: self.theme.accent_soft,
+                                inner_margin: egui::Margin::same(8.0),
+                                rounding: egui::Rounding::same(6.0),
+                                stroke: egui::Stroke::NONE,
+                                ..Default::default()
+                            }
+                            .show(ui, |ui| ui.label(icon_text(Icon::Database, "", self.theme.accent)));
+                            ui.vertical(|ui| {
+                                ui.label(RichText::new("Start with a connection").strong());
+                                ui.label(
+                                    RichText::new("Your schema and query tools will appear here.")
+                                        .small()
+                                        .color(self.theme.text_muted),
+                                );
+                            });
+                        });
+                        ui.add_space(14.0);
+                        let prompt_response = input_full_width(
+                            ui,
+                            &mut self.welcome_prompt,
+                            "Paste SQL or describe what you want to inspect…",
+                            self.theme,
+                        );
+                        ui.add_space(10.0);
+                        ui.horizontal(|ui| {
+                            if primary_button_with_icon(ui, Icon::ArrowUp, "Open in Query", self.theme).clicked()
+                                || (prompt_response.has_focus()
+                                    && ui.input(|input| input.key_pressed(egui::Key::Enter)))
+                            {
+                                open_query = true;
+                            }
+                            if compact_button_with_icon(ui, Icon::Database, "New connection", self.theme).clicked() {
+                                self.open_new_connection();
+                            }
+                            if compact_icon_button(ui, Icon::Search, self.theme)
+                                .on_hover_text("Quick Open")
+                                .clicked()
+                            {
+                                self.open_palette(PaletteMode::QuickOpen);
+                            }
+                        });
+                    });
+                    ui.add_space(16.0);
+                    ui.horizontal(|ui| {
+                        if compact_button_with_icon(ui, Icon::FilePlus2, "New query", self.theme).clicked() {
+                            self.new_query_document();
+                        }
+                        ui.label(
+                            RichText::new("Use the activity rail for Queries, History, and Monitor")
+                                .small()
+                                .color(self.theme.text_muted),
+                        );
+                    });
+                },
+            );
+        });
         if open_query && !self.welcome_prompt.trim().is_empty() {
             self.query_text = self.welcome_prompt.trim().to_owned();
             self.active_tab = WorkspaceTab::Query;
@@ -174,7 +182,9 @@ impl DbProApp {
             ui.label(RichText::new("Table structure is still loading").color(self.theme.text_muted));
             return;
         };
+        let card_width = ui.available_width();
         card_frame(self.theme).show(ui, |ui| {
+            ui.set_min_width((card_width - 28.0).max(0.0));
             let (title, empty, icon) = match view {
                 TableView::Indexes => ("INDEXES", "No indexes", Icon::List),
                 TableView::Relations => ("FOREIGN KEYS", "No foreign keys", Icon::ArrowRightLeft),
@@ -195,7 +205,7 @@ impl DbProApp {
             match view {
                 TableView::Indexes => {
                     if info.indexes.is_empty() {
-                        ui.label(RichText::new(empty).color(self.theme.text_muted));
+                        empty_state(ui, icon, empty, "This table has no index metadata yet.", self.theme);
                     }
                     for index in &info.indexes {
                         ui.horizontal_wrapped(|ui| {
@@ -218,7 +228,13 @@ impl DbProApp {
                 }
                 TableView::Relations | TableView::Dependencies => {
                     if info.foreign_keys.is_empty() {
-                        ui.label(RichText::new(empty).color(self.theme.text_muted));
+                        empty_state(
+                            ui,
+                            icon,
+                            empty,
+                            "Relationships will appear here when they are defined.",
+                            self.theme,
+                        );
                     }
                     for relation in &info.foreign_keys {
                         ui.horizontal_wrapped(|ui| {
@@ -239,7 +255,9 @@ impl DbProApp {
                     }
                 }
                 TableView::Constraints => {
+                    let mut has_constraints = false;
                     if let Some(primary_key) = &info.primary_key {
+                        has_constraints = true;
                         ui.horizontal_wrapped(|ui| {
                             ui.label(icon_text(Icon::KeyRound, "", self.theme.warning));
                             ui.label(RichText::new("PRIMARY KEY").strong());
@@ -252,14 +270,21 @@ impl DbProApp {
                     }
                     for column in &info.columns {
                         if !column.nullable {
+                            has_constraints = true;
                             ui.horizontal_wrapped(|ui| {
                                 ui.label(icon_text(Icon::ShieldCheck, "", self.theme.success));
                                 ui.label(RichText::new(format!("NOT NULL · {}", column.name)));
                             });
                         }
                     }
-                    if info.primary_key.is_none() && info.columns.iter().all(|column| column.nullable) {
-                        ui.label(RichText::new(empty).color(self.theme.text_muted));
+                    if !has_constraints {
+                        empty_state(
+                            ui,
+                            icon,
+                            empty,
+                            "No primary-key or NOT NULL rules were found.",
+                            self.theme,
+                        );
                     }
                 }
                 _ => {}

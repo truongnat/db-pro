@@ -1,6 +1,6 @@
 use super::*;
 
-const THEME_STORAGE_VERSION: &str = "dark-first-v3";
+const THEME_STORAGE_VERSION: &str = "native-redesign-v4";
 
 impl DbProApp {
     pub fn with_task_bridge(task_bridge: TaskBridge) -> Self {
@@ -56,6 +56,9 @@ impl DbProApp {
                     app.grid_column_widths = widths.into_iter().map(|width| width.clamp(90.0, 520.0)).collect();
                 }
             }
+            app.grid_columns_user_resized = storage
+                .get_string("dbpro.native.grid-widths-customized")
+                .is_some_and(|value| value == "true");
             if let Some(documents) = storage.get_string("dbpro.native.query-documents") {
                 if let Ok(documents) = serde_json::from_str::<Vec<QueryDocument>>(&documents) {
                     if !documents.is_empty() {
@@ -97,6 +100,8 @@ impl Default for DbProApp {
             editor_search: String::new(),
             editor_search_open: false,
             query_editor_focused: false,
+            query_cursor_line: 1,
+            query_cursor_column: 1,
             editor_font_size: 14.0,
             query_tools_open: false,
             completion_open: false,
@@ -129,6 +134,7 @@ impl Default for DbProApp {
             grid_sort_column: None,
             grid_sort_desc: false,
             grid_column_widths: Vec::new(),
+            grid_columns_user_resized: false,
             grid_resize_start: None,
             selected_cell: None,
             selected_row: None,
@@ -205,5 +211,61 @@ impl Default for DbProApp {
             delete_confirmation_id: None,
             folder_delete_confirmation: None,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    #[derive(Default)]
+    struct MemoryStorage {
+        values: HashMap<String, String>,
+    }
+
+    impl eframe::Storage for MemoryStorage {
+        fn get_string(&self, key: &str) -> Option<String> {
+            self.values.get(key).cloned()
+        }
+
+        fn set_string(&mut self, key: &str, value: String) {
+            self.values.insert(key.to_owned(), value);
+        }
+
+        fn flush(&mut self) {}
+    }
+
+    #[test]
+    fn stale_theme_storage_resets_to_dark_first_default() {
+        let mut storage = MemoryStorage::default();
+        storage
+            .values
+            .insert("dbpro.native.theme-version".to_owned(), "dark-first-v3".to_owned());
+        storage
+            .values
+            .insert("dbpro.native.dark-mode".to_owned(), "false".to_owned());
+
+        let app = DbProApp::with_task_bridge_and_storage(TaskBridge::default(), Some(&storage));
+
+        assert!(app.dark_mode);
+        assert!(app.theme.dark_mode);
+    }
+
+    #[test]
+    fn current_theme_storage_restores_user_choice() {
+        let mut storage = MemoryStorage::default();
+        storage.values.insert(
+            "dbpro.native.theme-version".to_owned(),
+            THEME_STORAGE_VERSION.to_owned(),
+        );
+        storage
+            .values
+            .insert("dbpro.native.dark-mode".to_owned(), "false".to_owned());
+
+        let app = DbProApp::with_task_bridge_and_storage(TaskBridge::default(), Some(&storage));
+
+        assert!(!app.dark_mode);
+        assert!(!app.theme.dark_mode);
     }
 }

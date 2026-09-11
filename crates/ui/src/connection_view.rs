@@ -43,6 +43,7 @@ impl DbProApp {
         egui::Window::new("Delete connection")
             .collapsible(false)
             .resizable(false)
+            .anchor(egui::Align2::CENTER_CENTER, egui::Vec2::ZERO)
             .default_width(360.0)
             .show(ctx, |ui| {
                 ui.label(format!("Delete {name} and its saved credentials?"));
@@ -81,6 +82,7 @@ impl DbProApp {
             .open(&mut open)
             .collapsible(false)
             .resizable(false)
+            .anchor(egui::Align2::CENTER_CENTER, egui::Vec2::ZERO)
             .default_width(360.0)
             .show(ctx, |ui| {
                 ui.label(format!("Delete {folder_name} and its saved-query links?"));
@@ -117,6 +119,7 @@ impl DbProApp {
             .open(&mut open)
             .collapsible(false)
             .resizable(true)
+            .anchor(egui::Align2::CENTER_CENTER, egui::Vec2::ZERO)
             .default_width(520.0)
             .min_width(420.0)
             .max_width(640.0)

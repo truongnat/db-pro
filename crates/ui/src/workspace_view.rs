@@ -1,11 +1,23 @@
 use super::*;
 
 impl DbProApp {
+    pub(super) fn draw_workspace_tabs_panel(&mut self, ctx: &egui::Context) {
+        TopBottomPanel::top("workspace-tabs")
+            .exact_height(36.0)
+            .frame(egui::Frame {
+                fill: self.theme.surface_app,
+                inner_margin: egui::Margin::symmetric(10.0, 2.0),
+                stroke: egui::Stroke::new(1.0, self.theme.border_subtle),
+                ..Default::default()
+            })
+            .show(ctx, |ui| self.draw_workspace_tabs(ui));
+    }
+
     pub(super) fn draw_workspace_tabs(&mut self, ui: &mut egui::Ui) {
-        let tabs_width = (ui.available_width() - 128.0).max(160.0);
+        let tabs_width = ui.available_width().max(160.0);
         egui::Frame {
             fill: egui::Color32::TRANSPARENT,
-            inner_margin: egui::Margin::symmetric(8.0, 3.0),
+            inner_margin: egui::Margin::symmetric(2.0, 1.0),
             stroke: egui::Stroke::NONE,
             rounding: egui::Rounding::ZERO,
             ..Default::default()
@@ -20,6 +32,7 @@ impl DbProApp {
                         .auto_shrink([false, false])
                         .show(ui, |ui| {
                             ui.horizontal(|ui| {
+                                ui.add_space(2.0);
                                 let welcome =
                                     tab_frame(self.theme, self.active_tab == WorkspaceTab::Welcome).show(ui, |ui| {
                                         ui.selectable_label(
