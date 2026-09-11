@@ -15,87 +15,11 @@ impl DbProApp {
                 Layout::top_down(Align::Min),
                 |ui| {
                     ui.add_space(30.0);
-                    ui.horizontal(|ui| {
-                        ui.label(icon_text(Icon::Sparkles, "WORKSPACE / HOME", self.theme.accent));
-                        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                            ui.label(
-                                RichText::new(format!("{modifier}K command palette"))
-                                    .small()
-                                    .color(self.theme.text_muted),
-                            );
-                        });
-                    });
-                    ui.add_space(12.0);
-                    ui.label(RichText::new("A focused workspace for your data").size(24.0).strong());
-                    ui.add_space(6.0);
-                    ui.label(
-                        RichText::new("Connect a database, open a query, and keep the useful context close.")
-                            .color(self.theme.text_secondary),
-                    );
+                    self.draw_welcome_header(ui, modifier);
                     ui.add_space(22.0);
-                    egui::Frame {
-                        fill: self.theme.surface_panel,
-                        inner_margin: egui::Margin::same(14.0),
-                        rounding: egui::Rounding::same(6.0),
-                        stroke: egui::Stroke::new(1.0, self.theme.border_default),
-                        ..Default::default()
-                    }
-                    .show(ui, |ui| {
-                        ui.horizontal(|ui| {
-                            egui::Frame {
-                                fill: self.theme.accent_soft,
-                                inner_margin: egui::Margin::same(8.0),
-                                rounding: egui::Rounding::same(6.0),
-                                stroke: egui::Stroke::NONE,
-                                ..Default::default()
-                            }
-                            .show(ui, |ui| ui.label(icon_text(Icon::Database, "", self.theme.accent)));
-                            ui.vertical(|ui| {
-                                ui.label(RichText::new("Start with a connection").strong());
-                                ui.label(
-                                    RichText::new("Your schema and query tools will appear here.")
-                                        .small()
-                                        .color(self.theme.text_muted),
-                                );
-                            });
-                        });
-                        ui.add_space(14.0);
-                        let prompt_response = input_full_width(
-                            ui,
-                            &mut self.welcome_prompt,
-                            "Paste SQL or describe what you want to inspect…",
-                            self.theme,
-                        );
-                        ui.add_space(10.0);
-                        ui.horizontal(|ui| {
-                            if primary_button_with_icon(ui, Icon::ArrowUp, "Open in Query", self.theme).clicked()
-                                || (prompt_response.has_focus()
-                                    && ui.input(|input| input.key_pressed(egui::Key::Enter)))
-                            {
-                                open_query = true;
-                            }
-                            if compact_button_with_icon(ui, Icon::Database, "New connection", self.theme).clicked() {
-                                self.open_new_connection();
-                            }
-                            if compact_icon_button(ui, Icon::Search, self.theme)
-                                .on_hover_text("Quick Open")
-                                .clicked()
-                            {
-                                self.open_palette(PaletteMode::QuickOpen);
-                            }
-                        });
-                    });
+                    open_query = self.draw_welcome_prompt_card(ui);
                     ui.add_space(16.0);
-                    ui.horizontal(|ui| {
-                        if compact_button_with_icon(ui, Icon::FilePlus2, "New query", self.theme).clicked() {
-                            self.new_query_document();
-                        }
-                        ui.label(
-                            RichText::new("Use the activity rail for Queries, History, and Monitor")
-                                .small()
-                                .color(self.theme.text_muted),
-                        );
-                    });
+                    self.draw_welcome_footer(ui);
                 },
             );
         });
@@ -104,6 +28,98 @@ impl DbProApp {
             self.active_tab = WorkspaceTab::Query;
             self.runtime_message = "Opened prompt in Query".to_owned();
         }
+    }
+
+    /// Title block plus the command-palette hint pinned to the right edge.
+    fn draw_welcome_header(&self, ui: &mut egui::Ui, modifier: &str) {
+        ui.horizontal(|ui| {
+            ui.label(icon_text(Icon::Sparkles, "WORKSPACE / HOME", self.theme.accent));
+            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                ui.label(
+                    RichText::new(format!("{modifier}K command palette"))
+                        .small()
+                        .color(self.theme.text_muted),
+                );
+            });
+        });
+        ui.add_space(12.0);
+        ui.label(RichText::new("A focused workspace for your data").size(24.0).strong());
+        ui.add_space(6.0);
+        ui.label(
+            RichText::new("Connect a database, open a query, and keep the useful context close.")
+                .color(self.theme.text_secondary),
+        );
+    }
+
+    /// Prompt card. Returns true when the user asked to open the prompt in Query.
+    fn draw_welcome_prompt_card(&mut self, ui: &mut egui::Ui) -> bool {
+        let mut open_query = false;
+        egui::Frame {
+            fill: self.theme.surface_panel,
+            inner_margin: egui::Margin::same(14.0),
+            rounding: egui::Rounding::same(6.0),
+            stroke: egui::Stroke::new(1.0, self.theme.border_default),
+            ..Default::default()
+        }
+        .show(ui, |ui| {
+            ui.horizontal(|ui| {
+                egui::Frame {
+                    fill: self.theme.accent_soft,
+                    inner_margin: egui::Margin::same(8.0),
+                    rounding: egui::Rounding::same(6.0),
+                    stroke: egui::Stroke::NONE,
+                    ..Default::default()
+                }
+                .show(ui, |ui| ui.label(icon_text(Icon::Database, "", self.theme.accent)));
+                ui.vertical(|ui| {
+                    ui.label(RichText::new("Start with a connection").strong());
+                    ui.label(
+                        RichText::new("Your schema and query tools will appear here.")
+                            .small()
+                            .color(self.theme.text_muted),
+                    );
+                });
+            });
+            ui.add_space(14.0);
+            let prompt_response = input_full_width(
+                ui,
+                &mut self.welcome_prompt,
+                "Paste SQL or describe what you want to inspect…",
+                self.theme,
+            );
+            ui.add_space(10.0);
+            ui.horizontal(|ui| {
+                if primary_button_with_icon(ui, Icon::ArrowUp, "Open in Query", self.theme).clicked()
+                    || (prompt_response.has_focus() && ui.input(|input| input.key_pressed(egui::Key::Enter)))
+                {
+                    open_query = true;
+                }
+                if compact_button_with_icon(ui, Icon::Database, "New connection", self.theme).clicked() {
+                    self.open_new_connection();
+                }
+                if compact_icon_button(ui, Icon::Search, self.theme)
+                    .on_hover_text("Quick Open")
+                    .clicked()
+                {
+                    self.open_palette(PaletteMode::QuickOpen);
+                }
+            });
+        });
+        open_query
+    }
+
+    /// Secondary "New query" row shown under the prompt card.
+    fn draw_welcome_footer(&mut self, ui: &mut egui::Ui) {
+        ui.horizontal(|ui| {
+            if compact_button_with_icon(ui, Icon::FilePlus2, "New query", self.theme).clicked() {
+                self.new_query_document();
+            }
+            ui.label(
+                RichText::new("Use the activity rail for Queries, History, and Monitor")
+                    .small()
+                    .color(self.theme.text_muted),
+            );
+        });
     }
 
     pub(super) fn draw_table_workspace(&mut self, ui: &mut egui::Ui) {
@@ -182,156 +198,185 @@ impl DbProApp {
             ui.label(RichText::new("Table structure is still loading").color(self.theme.text_muted));
             return;
         };
+        let Some((title, empty, icon)) = Self::table_metadata_section(view) else {
+            return;
+        };
         let card_width = ui.available_width();
         card_frame(self.theme).show(ui, |ui| {
             ui.set_min_width((card_width - 28.0).max(0.0));
-            let (title, empty, icon) = match view {
-                TableView::Indexes => ("INDEXES", "No indexes", Icon::List),
-                TableView::Relations => ("FOREIGN KEYS", "No foreign keys", Icon::ArrowRightLeft),
-                TableView::Constraints => (
-                    "CONSTRAINTS",
-                    "No explicit constraints in the current metadata",
-                    Icon::ShieldCheck,
-                ),
-                TableView::Dependencies => (
-                    "DEPENDENCIES",
-                    "No dependency edges in the current metadata",
-                    Icon::GitBranch,
-                ),
-                _ => return,
-            };
             section_label(ui, title, self.theme);
             ui.add_space(8.0);
             match view {
-                TableView::Indexes => {
-                    if info.indexes.is_empty() {
-                        empty_state(ui, icon, empty, "This table has no index metadata yet.", self.theme);
-                    }
-                    for index in &info.indexes {
-                        ui.horizontal_wrapped(|ui| {
-                            ui.label(icon_text(
-                                if index.unique { Icon::BadgeCheck } else { icon },
-                                "",
-                                self.theme.accent,
-                            ));
-                            ui.label(RichText::new(&index.name).strong());
-                            ui.label(
-                                RichText::new(index.columns.join(", "))
-                                    .small()
-                                    .color(self.theme.text_secondary),
-                            );
-                            if index.unique {
-                                badge(ui, "UNIQUE", self.theme.accent_soft, self.theme.accent);
-                            }
-                        });
-                    }
-                }
+                TableView::Indexes => self.draw_index_metadata_list(ui, info, icon, empty),
                 TableView::Relations | TableView::Dependencies => {
-                    if info.foreign_keys.is_empty() {
-                        empty_state(
-                            ui,
-                            icon,
-                            empty,
-                            "Relationships will appear here when they are defined.",
-                            self.theme,
-                        );
-                    }
-                    for relation in &info.foreign_keys {
-                        ui.horizontal_wrapped(|ui| {
-                            ui.label(icon_text(icon, "", self.theme.accent));
-                            ui.label(RichText::new(&relation.name).strong());
-                            ui.label(
-                                RichText::new(format!(
-                                    "{} → {}.{} ({})",
-                                    relation.from_columns.join(", "),
-                                    relation.to_schema,
-                                    relation.to_table,
-                                    relation.to_columns.join(", "),
-                                ))
-                                .small()
-                                .color(self.theme.text_secondary),
-                            );
-                        });
-                    }
+                    self.draw_relation_metadata_list(ui, info, icon, empty)
                 }
-                TableView::Constraints => {
-                    let mut has_constraints = false;
-                    if let Some(primary_key) = &info.primary_key {
-                        has_constraints = true;
-                        ui.horizontal_wrapped(|ui| {
-                            ui.label(icon_text(Icon::KeyRound, "", self.theme.warning));
-                            ui.label(RichText::new("PRIMARY KEY").strong());
-                            ui.label(
-                                RichText::new(primary_key.join(", "))
-                                    .small()
-                                    .color(self.theme.text_secondary),
-                            );
-                        });
-                    }
-                    for column in &info.columns {
-                        if !column.nullable {
-                            has_constraints = true;
-                            ui.horizontal_wrapped(|ui| {
-                                ui.label(icon_text(Icon::ShieldCheck, "", self.theme.success));
-                                ui.label(RichText::new(format!("NOT NULL · {}", column.name)));
-                            });
-                        }
-                    }
-                    if !has_constraints {
-                        empty_state(
-                            ui,
-                            icon,
-                            empty,
-                            "No primary-key or NOT NULL rules were found.",
-                            self.theme,
-                        );
-                    }
-                }
+                TableView::Constraints => self.draw_constraint_metadata_list(ui, info, icon, empty),
                 _ => {}
             }
         });
     }
 
-    fn draw_table_structure(&self, ui: &mut egui::Ui) {
-        let Some(info) = self.table_info.clone() else {
-            grid_frame(self.theme).show(ui, |ui| {
-                ui.vertical_centered(|ui| {
-                    ui.add_space(28.0);
-                    let failed = self.table_info_error.as_deref();
-                    ui.label(icon_text(
-                        if failed.is_some() {
-                            Icon::TriangleAlert
-                        } else {
-                            Icon::LoaderCircle
-                        },
-                        "",
-                        if failed.is_some() {
-                            self.theme.warning
-                        } else {
-                            self.theme.accent
-                        },
-                    ));
-                    ui.add_space(8.0);
-                    ui.label(
-                        RichText::new(if failed.is_some() {
-                            "Table structure could not be loaded"
-                        } else {
-                            "Loading table structure…"
-                        })
-                        .strong()
-                        .color(self.theme.text_primary),
-                    );
-                    ui.label(
-                        RichText::new(failed.unwrap_or("Columns, keys and indexes will appear here."))
-                            .small()
-                            .color(self.theme.text_secondary),
-                    );
-                    ui.add_space(28.0);
-                });
+    /// Title, empty-state copy and icon for the read-only metadata tabs.
+    fn table_metadata_section(view: TableView) -> Option<(&'static str, &'static str, Icon)> {
+        match view {
+            TableView::Indexes => Some(("INDEXES", "No indexes", Icon::List)),
+            TableView::Relations => Some(("FOREIGN KEYS", "No foreign keys", Icon::ArrowRightLeft)),
+            TableView::Constraints => Some((
+                "CONSTRAINTS",
+                "No explicit constraints in the current metadata",
+                Icon::ShieldCheck,
+            )),
+            TableView::Dependencies => Some((
+                "DEPENDENCIES",
+                "No dependency edges in the current metadata",
+                Icon::GitBranch,
+            )),
+            _ => None,
+        }
+    }
+
+    fn draw_index_metadata_list(&self, ui: &mut egui::Ui, info: &UiTableInfo, icon: Icon, empty: &str) {
+        if info.indexes.is_empty() {
+            empty_state(ui, icon, empty, "This table has no index metadata yet.", self.theme);
+        }
+        for index in &info.indexes {
+            ui.horizontal_wrapped(|ui| {
+                ui.label(icon_text(
+                    if index.unique { Icon::BadgeCheck } else { icon },
+                    "",
+                    self.theme.accent,
+                ));
+                ui.label(RichText::new(&index.name).strong());
+                ui.label(
+                    RichText::new(index.columns.join(", "))
+                        .small()
+                        .color(self.theme.text_secondary),
+                );
+                if index.unique {
+                    badge(ui, "UNIQUE", self.theme.accent_soft, self.theme.accent);
+                }
             });
+        }
+    }
+
+    fn draw_relation_metadata_list(&self, ui: &mut egui::Ui, info: &UiTableInfo, icon: Icon, empty: &str) {
+        if info.foreign_keys.is_empty() {
+            empty_state(
+                ui,
+                icon,
+                empty,
+                "Relationships will appear here when they are defined.",
+                self.theme,
+            );
+        }
+        for relation in &info.foreign_keys {
+            ui.horizontal_wrapped(|ui| {
+                ui.label(icon_text(icon, "", self.theme.accent));
+                ui.label(RichText::new(&relation.name).strong());
+                ui.label(
+                    RichText::new(format!(
+                        "{} → {}.{} ({})",
+                        relation.from_columns.join(", "),
+                        relation.to_schema,
+                        relation.to_table,
+                        relation.to_columns.join(", "),
+                    ))
+                    .small()
+                    .color(self.theme.text_secondary),
+                );
+            });
+        }
+    }
+
+    fn draw_constraint_metadata_list(&self, ui: &mut egui::Ui, info: &UiTableInfo, icon: Icon, empty: &str) {
+        let mut has_constraints = false;
+        if let Some(primary_key) = &info.primary_key {
+            has_constraints = true;
+            ui.horizontal_wrapped(|ui| {
+                ui.label(icon_text(Icon::KeyRound, "", self.theme.warning));
+                ui.label(RichText::new("PRIMARY KEY").strong());
+                ui.label(
+                    RichText::new(primary_key.join(", "))
+                        .small()
+                        .color(self.theme.text_secondary),
+                );
+            });
+        }
+        for column in &info.columns {
+            if !column.nullable {
+                has_constraints = true;
+                ui.horizontal_wrapped(|ui| {
+                    ui.label(icon_text(Icon::ShieldCheck, "", self.theme.success));
+                    ui.label(RichText::new(format!("NOT NULL · {}", column.name)));
+                });
+            }
+        }
+        if !has_constraints {
+            empty_state(
+                ui,
+                icon,
+                empty,
+                "No primary-key or NOT NULL rules were found.",
+                self.theme,
+            );
+        }
+    }
+
+    fn draw_table_structure(&self, ui: &mut egui::Ui) {
+        let Some(info) = self.table_info.as_ref() else {
+            self.draw_table_structure_placeholder(ui);
             return;
         };
 
+        self.draw_table_structure_summary(ui, info);
+        ui.add_space(10.0);
+        self.draw_table_structure_columns(ui, info);
+        ui.add_space(10.0);
+        self.draw_table_structure_relations(ui, info);
+    }
+
+    /// Loading / failure placeholder shown while the column metadata is in flight.
+    fn draw_table_structure_placeholder(&self, ui: &mut egui::Ui) {
+        grid_frame(self.theme).show(ui, |ui| {
+            ui.vertical_centered(|ui| {
+                ui.add_space(28.0);
+                let failed = self.table_info_error.as_deref();
+                ui.label(icon_text(
+                    if failed.is_some() {
+                        Icon::TriangleAlert
+                    } else {
+                        Icon::LoaderCircle
+                    },
+                    "",
+                    if failed.is_some() {
+                        self.theme.warning
+                    } else {
+                        self.theme.accent
+                    },
+                ));
+                ui.add_space(8.0);
+                ui.label(
+                    RichText::new(if failed.is_some() {
+                        "Table structure could not be loaded"
+                    } else {
+                        "Loading table structure…"
+                    })
+                    .strong()
+                    .color(self.theme.text_primary),
+                );
+                ui.label(
+                    RichText::new(failed.unwrap_or("Columns, keys and indexes will appear here."))
+                        .small()
+                        .color(self.theme.text_secondary),
+                );
+                ui.add_space(28.0);
+            });
+        });
+    }
+
+    /// Count badges summarising the table above the column grid.
+    fn draw_table_structure_summary(&self, ui: &mut egui::Ui, info: &UiTableInfo) {
         toolbar_frame(self.theme).show(ui, |ui| {
             ui.horizontal_wrapped(|ui| {
                 badge(
@@ -362,8 +407,10 @@ impl DbProApp {
                 }
             });
         });
-        ui.add_space(10.0);
+    }
 
+    /// Column list grid for the Structure tab.
+    fn draw_table_structure_columns(&self, ui: &mut egui::Ui, info: &UiTableInfo) {
         card_frame(self.theme).show(ui, |ui| {
             ui.set_min_width(ui.available_width());
             section_label(ui, "COLUMNS", self.theme);
@@ -405,8 +452,10 @@ impl DbProApp {
                     });
             });
         });
-        ui.add_space(10.0);
+    }
 
+    /// Side-by-side index and foreign-key cards for the Structure tab.
+    fn draw_table_structure_relations(&self, ui: &mut egui::Ui, info: &UiTableInfo) {
         ui.columns(2, |columns| {
             card_frame(self.theme).show(&mut columns[0], |ui| {
                 section_label(ui, "INDEXES", self.theme);
