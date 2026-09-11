@@ -629,7 +629,13 @@ pub fn segmented_control(
         let text_pos = segment_rect.center() - galley.size() * 0.5;
         ui.painter().galley(text_pos, galley, text_color);
 
-        let (_, segment_response) = ui.allocate_exact_size(segment_rect.size(), egui::Sense::click());
+        // Hit-test the painted segment rect directly. Allocating here instead would
+        // test the layout cursor and also push every later widget down by `height`.
+        let segment_response = ui.interact(
+            segment_rect,
+            ui.id().with(("segmented_control", index)),
+            egui::Sense::click(),
+        );
         if segment_response.clicked() && !is_selected {
             clicked = Some(index);
         }
@@ -688,7 +694,13 @@ pub fn tag_chip(ui: &mut Ui, label: &str, removable: bool, theme: DbProTheme) ->
             ),
             egui::vec2(close_size, close_size),
         );
-        let (_, close_response) = ui.allocate_exact_size(close_rect.size(), egui::Sense::click());
+        // Hit-test the painted close affordance instead of allocating layout space
+        // for it (see `segmented_control`).
+        let close_response = ui.interact(
+            close_rect,
+            ui.id().with(("tag_chip_close", label)),
+            egui::Sense::click(),
+        );
         let hover = close_response.hovered();
         if hover {
             ui.painter()
