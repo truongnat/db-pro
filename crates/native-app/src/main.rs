@@ -38,7 +38,10 @@ fn main() -> Result<(), Box<dyn Error>> {
         let runtime = DbProRuntime::new(data_dir).await?;
 
         let existing = runtime.connections().list().await.unwrap_or_default();
-        if !existing.iter().any(|c| c.config.database == "fullstack_starter" && c.config.port == 5432) {
+        if !existing
+            .iter()
+            .any(|c| c.config.database == "fullstack_starter" && c.config.port == 5432)
+        {
             let config = db_pro_core::domain::connection::ConnectionConfig {
                 name: "Xe Lạc Hồng (PostgreSQL)".to_owned(),
                 host: "localhost".to_owned(),
@@ -152,7 +155,9 @@ fn main() -> Result<(), Box<dyn Error>> {
         "DB Pro",
         options,
         Box::new(|creation_context| {
-            creation_context.egui_ctx.send_viewport_cmd(egui::ViewportCommand::Maximized(true));
+            creation_context
+                .egui_ctx
+                .send_viewport_cmd(egui::ViewportCommand::Maximized(true));
             DbProTheme::install_fonts(&creation_context.egui_ctx);
             Ok(Box::new(DbProApp::with_task_bridge_and_storage(
                 bridge,

@@ -1,274 +1,396 @@
 use super::*;
 
 impl DbProApp {
-    /// Explorer sidebar: single scrollable flow.
-    /// Sections are hidden when they have no content.
+    /// Entry-point for Database Navigator in DBeaver style:
+    /// Unified hierarchical tree where connections are root nodes.
     ///
     /// ```text
-    /// ┌──────────────────────────────┐
-    /// │ CONNECTIONS              [+] │  always visible
-    /// │ ● production-pg   PG        │
-    /// │ ○ localhost        SQLite    │
-    /// ├──────────────────────────────┤
-    /// │ SCHEMAS          (hidden when empty)
-    /// │ ▾ public  18    ▸ analytics │
-    /// ├──────────────────────────────┤
-    /// │ TABLES / OBJECTS (hidden when not connected)
-    /// │ [Filter tables…           ] │
-    /// │  ⊞ users   ← selected      │
-    /// │  ⊞ orders                  │
-    /// │  ▸ Views  (3)              │
-    /// │  ▸ Triggers (0)   dimmed   │
-    /// │ 4 of 127 tables            │
-    /// └──────────────────────────────┘
+    /// [ 🔍 Filter objects...              ] [+] [🔄]
+    /// ▼ ● Xe Lạc Hồng (PostgreSQL)    [PG]
+    ///   ▼ 🗄️ fullstack_starter
+    ///     ▼ 📁 public                (68)
+    ///       ▼ 📁 Tables             (68)
+    ///         ▶ ⊞ users
+    ///         ▶ ⊞ vehicles
+    ///         ...
+    ///       ▶ 📁 Views               (0)
+    ///       ▶ 📁 Functions           (0)
+    ///       ▶ 📁 Triggers            (0)
+    ///     ▶ 📁 information_schema
+    ///     ▶ 📁 pg_catalog
+    /// ▶ ○ Local SQLite              [SQLITE]
     /// ```
     pub(super) fn draw_explorer_sub_panes(&mut self, ui: &mut egui::Ui) {
-        egui::ScrollArea::vertical()
-            .id_salt("explorer_scroll")
-            .show(ui, |ui| {
-                // ── CONNECTIONS ──────────────────────────────────────────
-                self.draw_section_connections(ui);
-
-                // ── SCHEMAS — only when connected and schemas exist ───────
-                if self.connected && !self.schema.schemas.is_empty() {
-                    self.draw_section_divider(ui);
-                    self.draw_section_schemas(ui);
-                }
-
-                // ── TABLES / OBJECTS — only when connected ────────────────
-                if self.connected {
-                    self.draw_section_divider(ui);
-                    self.draw_section_objects(ui);
-                }
-            });
-    }
-
-    /// Thin 1px horizontal separator between sections.
-    fn draw_section_divider(&self, ui: &mut egui::Ui) {
-        ui.add_space(6.0);
-        let (rect, _) = ui.allocate_exact_size(
-            egui::vec2(ui.available_width(), 1.0),
-            egui::Sense::hover(),
-        );
-        ui.painter()
-            .hline(rect.x_range(), rect.top(), egui::Stroke::new(1.0, self.theme.border_subtle));
-        ui.add_space(6.0);
-    }
-
-    /// CONNECTIONS section — always visible.
-    fn draw_section_connections(&mut self, ui: &mut egui::Ui) {
-        // Header
+        // ── Toolbar: Filter bar + Action buttons ────────────────────────
         ui.horizontal(|ui| {
-            section_label(ui, "CONNECTIONS", self.theme);
-            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                if compact_icon_button(ui, Icon::Plus, self.theme)
-                    .on_hover_text("New connection")
+            let clear_width = if self.explorer_search.is_empty() { 0.0 } else { 26.0 };
+            let search_width = (ui.available_width() - clear_width - 64.0).max(80.0);
+            input(
+                ui,
+                &mut self.explorer_search,
+                "Filter objects…",
+                search_width,
+                self.theme,
+            );
+            if !self.explorer_search.is_empty()
+                && compact_icon_button(ui, Icon::X, self.theme)
+                    .on_hover_text("Clear filter")
                     .clicked()
-                {
-                    self.open_new_connection();
-                }
-                let mut refresh_schema = false;
-                compact_icon_button(ui, Icon::MoreHorizontal, self.theme)
-                    .on_hover_text("Explorer actions")
-                    .context_menu(|ui| {
-                        if ui.button("Refresh schema").clicked() {
-                            refresh_schema = true;
-                            ui.close_menu();
-                        }
-                    });
-                if refresh_schema {
-                    if let Some(connection_id) = self.active_connection_id.clone() {
-                        self.request_schema_introspection(connection_id, true);
-                    }
+            {
+                self.explorer_search.clear();
+            }
+            if compact_icon_button(ui, Icon::Plus, self.theme)
+                .on_hover_text("New connection")
+                .clicked()
+            {
+                self.open_new_connection();
+            }
+            let mut refresh_schema = false;
+            let refresh_btn =
+                compact_icon_button(ui, Icon::RotateCcw, self.theme).on_hover_text("Refresh active schema");
+            refresh_btn.context_menu(|ui| {
+                if ui.button("Refresh Schema").clicked() {
+                    refresh_schema = true;
+                    ui.close_menu();
                 }
             });
+            if refresh_btn.clicked() || refresh_schema {
+                if let Some(connection_id) = self.active_connection_id.clone() {
+                    self.request_schema_introspection(connection_id, true);
+                }
+            }
         });
-        ui.add_space(4.0);
+        ui.add_space(6.0);
 
-        if self.connections.is_empty() {
-            // Empty state
-            ui.add_space(12.0);
-            ui.vertical_centered(|ui| {
-                ui.label(icon_text(Icon::Database, "", self.theme.accent));
-                ui.add_space(6.0);
-                ui.label(RichText::new("No connections").strong().color(self.theme.text_primary));
-                ui.add_space(2.0);
-                ui.label(
-                    RichText::new("Add your first database connection.")
-                        .small()
-                        .color(self.theme.text_muted),
-                );
-                ui.add_space(10.0);
-                if compact_button_with_icon(ui, Icon::Plus, "New connection", self.theme).clicked() {
-                    self.open_new_connection();
+        // ── Unified Database Navigator Tree ─────────────────────────────
+        egui::ScrollArea::vertical()
+            .id_salt("dbeaver_navigator_scroll")
+            .show(ui, |ui| {
+                if self.connections.is_empty() {
+                    self.draw_dbeaver_empty_state(ui);
+                } else {
+                    self.draw_dbeaver_connections_tree(ui);
                 }
             });
-            ui.add_space(12.0);
-            return;
-        }
-
-        // Connection list
-        self.draw_explorer_connections(ui);
     }
 
-    /// SCHEMAS section — shown only when connected and schemas exist.
-    fn draw_section_schemas(&mut self, ui: &mut egui::Ui) {
-        let schemas = self.schema.schemas.clone();
-
-        // Header
-        ui.horizontal(|ui| {
-            section_label(ui, "SCHEMAS", self.theme);
-            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                ui.label(
-                    RichText::new(format!(
-                        "{} schema{}",
-                        schemas.len(),
-                        if schemas.len() == 1 { "" } else { "s" }
-                    ))
+    /// Empty state shown when no connections exist yet.
+    fn draw_dbeaver_empty_state(&mut self, ui: &mut egui::Ui) {
+        ui.add_space(20.0);
+        ui.vertical_centered(|ui| {
+            ui.label(icon_text(Icon::Database, "", self.theme.accent));
+            ui.add_space(6.0);
+            ui.label(RichText::new("No connections").strong().color(self.theme.text_primary));
+            ui.add_space(2.0);
+            ui.label(
+                RichText::new("Create a database connection to begin.")
                     .small()
                     .color(self.theme.text_muted),
-                );
-            });
-        });
-        ui.add_space(4.0);
-
-        // Schema rows as sidebar items (DBeaver tree style)
-        for schema in &schemas {
-            let selected = self.active_schema() == schema;
-            let table_count = self
-                .schema
-                .table_details
-                .iter()
-                .filter(|t| t.schema == schema.as_str())
-                .count();
-            let count_label = if table_count > 0 {
-                format!("  {table_count}")
-            } else {
-                String::new()
-            };
-            let chevron = if selected { Icon::ChevronDown } else { Icon::ChevronRight };
-            let width = ui.available_width();
-            let response = ui.add(
-                egui::Button::new({
-                    let mut job = egui::text::LayoutJob::default();
-                    // chevron
-                    job.append(
-                        &char::from(chevron).to_string(),
-                        0.0,
-                        egui::text::TextFormat {
-                            font_id: egui::FontId::new(
-                                11.0,
-                                egui::FontFamily::Name("lucide".into()),
-                            ),
-                            color: self.theme.text_muted,
-                            ..Default::default()
-                        },
-                    );
-                    // folder icon
-                    job.append(
-                        &format!("  {}", char::from(Icon::Folder)),
-                        0.0,
-                        egui::text::TextFormat {
-                            font_id: egui::FontId::new(
-                                13.0,
-                                egui::FontFamily::Name("lucide".into()),
-                            ),
-                            color: if selected { self.theme.accent } else { self.theme.text_muted },
-                            ..Default::default()
-                        },
-                    );
-                    // schema name
-                    job.append(
-                        &format!("  {schema}"),
-                        0.0,
-                        egui::text::TextFormat {
-                            font_id: egui::FontId::proportional(12.5),
-                            color: if selected {
-                                self.theme.text_primary
-                            } else {
-                                self.theme.text_secondary
-                            },
-                            ..Default::default()
-                        },
-                    );
-                    // count
-                    if !count_label.is_empty() {
-                        job.append(
-                            &count_label,
-                            0.0,
-                            egui::text::TextFormat {
-                                font_id: egui::FontId::proportional(11.0),
-                                color: self.theme.text_muted,
-                                ..Default::default()
-                            },
-                        );
-                    }
-                    job
-                })
-                .min_size(egui::vec2(width, 26.0))
-                .rounding(egui::Rounding::same(5.0))
-                .fill(if selected {
-                    self.theme.accent_soft
-                } else {
-                    egui::Color32::TRANSPARENT
-                })
-                .stroke(egui::Stroke::NONE),
             );
-            if response.clicked() && !selected {
-                self.selected_schema = Some(schema.clone());
+            ui.add_space(12.0);
+            if compact_button_with_icon(ui, Icon::Plus, "New connection", self.theme).clicked() {
+                self.open_new_connection();
+            }
+        });
+    }
+
+    /// Renders the list of connections as expandable root nodes (DBeaver style).
+    fn draw_dbeaver_connections_tree(&mut self, ui: &mut egui::Ui) {
+        let connections = self.connections.clone();
+        for connection in connections {
+            let is_active = self.active_connection_id.as_deref() == Some(&connection.id);
+            let is_connected = self.connected && is_active;
+            let id = ui.make_persistent_id(("dbeaver_conn_node", &connection.id));
+
+            let mut connect_now = false;
+            let mut disconnect_now = false;
+            let mut refresh_now = false;
+            let mut edit_now = false;
+            let mut delete_now = false;
+
+            let collapsing =
+                egui::collapsing_header::CollapsingState::load_with_default_open(ui.ctx(), id, is_connected);
+
+            collapsing
+                .show_header(ui, |ui| {
+                    ui.horizontal(|ui| {
+                        // Connection status dot
+                        let dot_color = if is_connected {
+                            Color32::from_rgb(120, 216, 155) // vibrant green
+                        } else if self.pending_connection_request.is_some() && is_active {
+                            self.theme.accent
+                        } else {
+                            self.theme.text_muted
+                        };
+                        ui.label(RichText::new("●").size(9.0).color(dot_color));
+
+                        // Connection name
+                        let name_label = ui.add(
+                            egui::Label::new(RichText::new(&connection.name).size(12.5).strong().color(
+                                if is_connected {
+                                    self.theme.text_primary
+                                } else {
+                                    self.theme.text_secondary
+                                },
+                            ))
+                            .sense(egui::Sense::click()),
+                        );
+
+                        if name_label.clicked() && !is_connected {
+                            connect_now = true;
+                        }
+
+                        // Driver pill badge
+                        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                            let badge_text = if connection.driver.eq_ignore_ascii_case("postgresql") {
+                                "PG"
+                            } else {
+                                "SQLITE"
+                            };
+                            badge(
+                                ui,
+                                badge_text,
+                                if is_connected {
+                                    self.theme.accent_soft
+                                } else {
+                                    self.theme.surface_hover
+                                },
+                                if is_connected {
+                                    self.theme.accent
+                                } else {
+                                    self.theme.text_muted
+                                },
+                            );
+                        });
+
+                        name_label.context_menu(|ui| {
+                            if is_connected {
+                                if ui.button("Disconnect").clicked() {
+                                    disconnect_now = true;
+                                    ui.close_menu();
+                                }
+                                if ui.button("Refresh Schema").clicked() {
+                                    refresh_now = true;
+                                    ui.close_menu();
+                                }
+                            } else if ui.button("Connect").clicked() {
+                                connect_now = true;
+                                ui.close_menu();
+                            }
+                            if ui.button("Edit Connection").clicked() {
+                                edit_now = true;
+                                ui.close_menu();
+                            }
+                            if ui.button("Delete Connection").clicked() {
+                                delete_now = true;
+                                ui.close_menu();
+                            }
+                        });
+                    });
+                })
+                .body(|ui| {
+                    if is_connected {
+                        self.draw_dbeaver_connected_body(ui, &connection);
+                    } else {
+                        ui.horizontal(|ui| {
+                            ui.label(RichText::new("Disconnected.").small().color(self.theme.text_muted));
+                            if compact_button(ui, "Connect", self.theme).clicked() {
+                                connect_now = true;
+                            }
+                        });
+                    }
+                });
+
+            if connect_now {
+                self.connect_to_connection(&connection);
+            }
+            if disconnect_now {
+                self.connected = false;
+                self.schema = UiSchemaSummary::default();
                 self.selected_table = None;
                 self.selected_schema_object = None;
-                self.table_info = None;
-                self.table_ddl = None;
-                self.table_data_result = None;
-                self.staged_changes.clear();
-                self.active_tab = WorkspaceTab::Welcome;
+                self.runtime_message = format!("Disconnected from {}", connection.name);
             }
+            if refresh_now {
+                self.request_schema_introspection(connection.id.clone(), true);
+            }
+            if edit_now {
+                self.open_edit_connection(&connection);
+            }
+            if delete_now {
+                self.delete_confirmation_id = Some(connection.id.clone());
+            }
+            ui.add_space(2.0);
         }
     }
 
-    /// TABLES / OBJECTS section — shown only when connected.
-    fn draw_section_objects(&mut self, ui: &mut egui::Ui) {
-        // Schema load feedback (error / spinner)
+    /// Body rendered when a connection node is expanded.
+    fn draw_dbeaver_connected_body(&mut self, ui: &mut egui::Ui, connection: &UiConnectionSummary) {
+        // Schema feedback (progress / error)
         self.draw_explorer_schema_feedback(ui);
 
-        // Header
-        ui.horizontal(|ui| {
-            section_label(ui, "TABLES / OBJECTS", self.theme);
-            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                if compact_icon_button(ui, Icon::Search, self.theme)
-                    .on_hover_text("Focus search")
-                    .clicked()
-                {
-                    self.explorer_search.clear(); // focus on next frame via TextEdit
+        // 🗄️ Database node
+        let db_id = ui.make_persistent_id(("dbeaver_db_node", &connection.id, &connection.database));
+        let db_name = if connection.database.is_empty() {
+            "database".to_owned()
+        } else {
+            connection.database.clone()
+        };
+
+        egui::collapsing_header::CollapsingState::load_with_default_open(ui.ctx(), db_id, true)
+            .show_header(ui, |ui| {
+                ui.horizontal(|ui| {
+                    ui.label(icon_text(Icon::Database, &db_name, self.theme.accent));
+                });
+            })
+            .body(|ui| {
+                let schemas = self.schema.schemas.clone();
+                if schemas.is_empty() {
+                    // Flat tables/views (e.g. SQLite)
+                    self.draw_dbeaver_schema_objects(ui, "");
+                } else {
+                    // Nested Schemas (e.g. PostgreSQL: public, information_schema, etc.)
+                    for schema in &schemas {
+                        self.draw_dbeaver_schema_node(ui, &connection.id, schema);
+                    }
                 }
             });
-        });
-        ui.add_space(4.0);
-
-        // Filter input
-        self.draw_explorer_search_bar(ui);
-
-        // Table list
-        self.draw_explorer_tables(ui);
-
-        // Schema objects (views, triggers, functions) — dimmed collapsing rows
-        let schema_scope = self.active_schema().to_owned();
-        self.draw_section_schema_objects(ui, &schema_scope);
-
-        // Footer
-        self.draw_explorer_footer(ui);
     }
 
-    /// Views / Triggers / Functions as collapsing rows with count badges.
-    /// Rows with count = 0 are visually dimmed but still shown.
-    fn draw_section_schema_objects(&mut self, ui: &mut egui::Ui, schema_name: &str) {
-        let schema_name = schema_name.to_owned();
+    /// A schema folder node inside the Database node (e.g. `📁 public`).
+    fn draw_dbeaver_schema_node(&mut self, ui: &mut egui::Ui, connection_id: &str, schema: &str) {
+        let is_active_schema = self.active_schema() == schema;
+        let schema_id = ui.make_persistent_id(("dbeaver_schema_node", connection_id, schema));
+        let table_count = self.schema.table_details.iter().filter(|t| t.schema == schema).count();
+
+        let folder_icon = if is_active_schema {
+            Icon::FolderOpen
+        } else {
+            Icon::Folder
+        };
+        let folder_color = if is_active_schema {
+            self.theme.accent
+        } else {
+            self.theme.text_secondary
+        };
+
+        let mut activate_schema = false;
+
+        egui::collapsing_header::CollapsingState::load_with_default_open(ui.ctx(), schema_id, is_active_schema)
+            .show_header(ui, |ui| {
+                ui.horizontal(|ui| {
+                    let resp = ui.add(
+                        egui::Label::new(icon_text(folder_icon, schema, folder_color)).sense(egui::Sense::click()),
+                    );
+                    if resp.clicked() && !is_active_schema {
+                        activate_schema = true;
+                    }
+                    if table_count > 0 {
+                        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                            ui.label(
+                                RichText::new(table_count.to_string())
+                                    .small()
+                                    .color(self.theme.text_muted),
+                            );
+                        });
+                    }
+                });
+            })
+            .body(|ui| {
+                if is_active_schema {
+                    self.draw_dbeaver_schema_objects(ui, schema);
+                } else {
+                    ui.horizontal(|ui| {
+                        ui.label(RichText::new("Inactive schema.").small().color(self.theme.text_muted));
+                        if compact_button(ui, "Activate", self.theme).clicked() {
+                            activate_schema = true;
+                        }
+                    });
+                }
+            });
+
+        if activate_schema {
+            self.selected_schema = Some(schema.to_owned());
+            self.selected_table = None;
+            self.selected_schema_object = None;
+            self.table_info = None;
+            self.table_ddl = None;
+            self.table_data_result = None;
+            self.staged_changes.clear();
+            self.active_tab = WorkspaceTab::Welcome;
+        }
+    }
+
+    /// Renders the folders for a schema: Tables, Views, Functions, Triggers.
+    fn draw_dbeaver_schema_objects(&mut self, ui: &mut egui::Ui, schema: &str) {
+        let search_query = self.explorer_search.trim().to_ascii_lowercase();
+        let all_tables = self.active_schema_table_names();
+        let total_tables = all_tables.len();
+        let (matching_table_count, tables) = filtered_explorer_tables(&all_tables, &search_query);
+
+        // ── 📁 Tables folder (Expanded by default) ───────────────────────
+        let tables_folder_id = ui.make_persistent_id(("dbeaver_tbl_folder", schema));
+        let tables_label = if search_query.is_empty() {
+            format!("Tables ({total_tables})")
+        } else {
+            format!("Tables ({matching_table_count} / {total_tables})")
+        };
+
+        egui::collapsing_header::CollapsingState::load_with_default_open(ui.ctx(), tables_folder_id, true)
+            .show_header(ui, |ui| {
+                ui.horizontal(|ui| {
+                    ui.label(icon_text(Icon::Folder, &tables_label, self.theme.text_primary));
+                });
+            })
+            .body(|ui| {
+                if tables.is_empty() {
+                    ui.label(
+                        RichText::new(if total_tables == 0 {
+                            "No tables in schema"
+                        } else {
+                            "No matching tables"
+                        })
+                        .small()
+                        .color(self.theme.text_muted),
+                    );
+                } else {
+                    for table in &tables {
+                        self.draw_dbeaver_table_item(ui, table);
+                    }
+                }
+            });
+
+        // ── 📁 Views folder ──────────────────────────────────────────────
+        let schema_name = schema.to_owned();
         let views: Vec<_> = if self.schema.schemas.is_empty() {
             self.schema.views.clone()
         } else {
-            self.schema.views.iter().filter(|v| v.schema == schema_name).cloned().collect()
+            self.schema
+                .views
+                .iter()
+                .filter(|v| v.schema == schema_name)
+                .cloned()
+                .collect()
         };
+        self.draw_dbeaver_views_folder(ui, &views);
+
+        // ── 📁 Functions folder (PostgreSQL only) ────────────────────────
+        let supports_functions = self.active_capabilities().is_some_and(|c| c.schema.functions);
+        if supports_functions {
+            let functions: Vec<_> = if self.schema.schemas.is_empty() {
+                self.schema.functions.clone()
+            } else {
+                self.schema
+                    .functions
+                    .iter()
+                    .filter(|f| f.schema == schema_name)
+                    .cloned()
+                    .collect()
+            };
+            self.draw_dbeaver_functions_folder(ui, &functions);
+        }
+
+        // ── 📁 Triggers folder ───────────────────────────────────────────
         let triggers: Vec<_> = if self.schema.schemas.is_empty() {
             self.schema.triggers.clone()
         } else {
@@ -279,104 +401,240 @@ impl DbProApp {
                 .cloned()
                 .collect()
         };
-        let supports_functions = self
-            .active_capabilities()
-            .is_some_and(|c| c.schema.functions);
-        let functions: Vec<_> = if self.schema.schemas.is_empty() {
-            self.schema.functions.clone()
-        } else {
-            self.schema
-                .functions
-                .iter()
-                .filter(|f| f.schema == schema_name)
-                .cloned()
-                .collect()
-        };
+        self.draw_dbeaver_triggers_folder(ui, &triggers);
+    }
 
-        ui.add_space(4.0);
-        ui.add(egui::Separator::default().horizontal().shrink(0.0));
-        ui.add_space(4.0);
+    /// Renders an individual table item in the tree with selection and expandable details.
+    fn draw_dbeaver_table_item(&mut self, ui: &mut egui::Ui, table: &str) {
+        let is_selected = self.selected_table.as_deref() == Some(table);
+        let resp = sidebar_item(ui, Icon::Table2, table, is_selected, self.theme);
 
-        // Views row
-        self.draw_object_group_row(ui, Icon::Eye, "Views", views.len(), |ui, this| {
-            for view in &views {
-                let is_selected = matches!(
-                    this.selected_schema_object.as_ref(),
-                    Some(SchemaObjectSelection::View(s)) if s == &view.name
-                );
-                let resp = sidebar_item(ui, Icon::Eye, &view.name, is_selected, this.theme);
-                let mut open_query = false;
-                resp.context_menu(|ui| {
-                    if ui.button("Open in Query").clicked() {
-                        open_query = true;
-                        ui.close_menu();
-                    }
+        let mut open_query = false;
+        let mut ask_agent = false;
+        let mut refresh_schema = false;
+
+        resp.context_menu(|ui| {
+            if ui.button("Open in Query").clicked() {
+                open_query = true;
+                ui.close_menu();
+            }
+            if ui.button("Ask Agent about table").clicked() {
+                ask_agent = true;
+                ui.close_menu();
+            }
+            if ui.button("Refresh Schema").clicked() {
+                refresh_schema = true;
+                ui.close_menu();
+            }
+        });
+
+        if resp.clicked() || open_query || ask_agent {
+            self.selected_table = Some(table.to_owned());
+            self.selected_schema_object = None;
+            self.schema_object_view = SchemaObjectView::Definition;
+            self.table_info = None;
+            self.table_ddl = None;
+            self.table_info_error = None;
+            self.table_ddl_error = None;
+            self.ddl_execute_confirmation = false;
+            self.ddl_execution_request = None;
+            self.table_data_result = None;
+            self.table_data_total_rows = None;
+            self.table_data_offset = 0;
+            self.table_data_filter_column.clear();
+            self.table_data_filter_value.clear();
+            self.table_data_sort_column = None;
+            self.table_data_sort_desc = false;
+            self.table_data_error = None;
+            self.table_info_request = None;
+            self.table_ddl_request = None;
+            self.table_data_request = None;
+            self.table_view = TableView::Structure;
+            self.table_mutation_request = None;
+            self.staged_changes.clear();
+            self.staged_apply_request = None;
+            self.selected_cell = None;
+            self.selected_row = None;
+            self.data_editing_cell = None;
+            self.data_edit_value.clear();
+            self.data_delete_confirmation = false;
+            self.query_text = format!("SELECT *\nFROM {table}\nLIMIT 100;");
+            self.request_table_info();
+            self.active_tab = WorkspaceTab::Table;
+        }
+
+        if open_query {
+            self.query_text = format!("SELECT *\nFROM {table}\nLIMIT 100;");
+            self.active_tab = WorkspaceTab::Query;
+        }
+        if ask_agent {
+            self.open_agent_prompt(
+                format!("Explain the `{table}` table and suggest useful read-only queries"),
+                ui.ctx(),
+            );
+        }
+        if refresh_schema {
+            if let Some(connection_id) = self.active_connection_id.clone() {
+                self.request_schema_introspection(connection_id, true);
+            }
+        }
+
+        // If table is selected, show nested DBeaver metadata (Columns, Indexes, Foreign keys)
+        if is_selected {
+            if let Some(info) = self.table_info.clone() {
+                ui.indent(("table-tree-details", table), |ui| {
+                    // Columns folder
+                    let col_id = ui.make_persistent_id(("tbl_col_folder", table));
+                    egui::collapsing_header::CollapsingState::load_with_default_open(ui.ctx(), col_id, false)
+                        .show_header(ui, |ui| {
+                            ui.horizontal(|ui| {
+                                ui.label(icon_text(
+                                    Icon::Columns3,
+                                    &format!("Columns ({})", info.columns.len()),
+                                    self.theme.text_secondary,
+                                ));
+                            });
+                        })
+                        .body(|ui| {
+                            for column in &info.columns {
+                                ui.horizontal(|ui| {
+                                    ui.label(RichText::new(&column.name).small().color(self.theme.text_primary));
+                                    ui.label(RichText::new(&column.data_type).small().color(self.theme.text_muted));
+                                });
+                            }
+                        });
+
+                    // Foreign keys folder
+                    let fk_id = ui.make_persistent_id(("tbl_fk_folder", table));
+                    egui::collapsing_header::CollapsingState::load_with_default_open(ui.ctx(), fk_id, false)
+                        .show_header(ui, |ui| {
+                            ui.horizontal(|ui| {
+                                ui.label(icon_text(
+                                    Icon::ArrowRightLeft,
+                                    &format!("Foreign keys ({})", info.foreign_keys.len()),
+                                    self.theme.text_secondary,
+                                ));
+                            });
+                        })
+                        .body(|ui| {
+                            if info.foreign_keys.is_empty() {
+                                ui.label(RichText::new("No foreign keys").small().color(self.theme.text_muted));
+                            } else {
+                                for fk in &info.foreign_keys {
+                                    ui.label(RichText::new(&fk.name).small().color(self.theme.text_muted));
+                                }
+                            }
+                        });
+
+                    // Indexes folder
+                    let idx_id = ui.make_persistent_id(("tbl_idx_folder", table));
+                    egui::collapsing_header::CollapsingState::load_with_default_open(ui.ctx(), idx_id, false)
+                        .show_header(ui, |ui| {
+                            ui.horizontal(|ui| {
+                                ui.label(icon_text(
+                                    Icon::List,
+                                    &format!("Indexes ({})", info.indexes.len()),
+                                    self.theme.text_secondary,
+                                ));
+                            });
+                        })
+                        .body(|ui| {
+                            if info.indexes.is_empty() {
+                                ui.label(RichText::new("No indexes").small().color(self.theme.text_muted));
+                            } else {
+                                for idx in &info.indexes {
+                                    ui.label(RichText::new(&idx.name).small().color(self.theme.text_muted));
+                                }
+                            }
+                        });
                 });
-                if resp.clicked() {
-                    this.selected_schema_object =
-                        Some(SchemaObjectSelection::View(view.name.clone()));
-                    this.schema_object_view = SchemaObjectView::Definition;
-                    this.selected_table = None;
-                    this.table_info = None;
-                    this.table_ddl = None;
-                    this.table_info_error = None;
-                    this.table_ddl_error = None;
-                    this.ddl_execute_confirmation = false;
-                    this.ddl_execution_request = None;
-                    this.table_data_result = None;
-                    this.table_data_total_rows = None;
-                    this.table_data_request = None;
-                    this.table_view = TableView::Ddl;
-                    this.active_tab = WorkspaceTab::SchemaObject;
-                    this.runtime_message = format!("Opened view {}.{}", view.schema, view.name);
-                }
-                if open_query {
-                    this.query_text = format!("SELECT *\nFROM {}\nLIMIT 100;", view.name);
-                    this.active_tab = WorkspaceTab::Query;
-                }
             }
-        });
+        }
+    }
 
-        // Triggers row
-        self.draw_object_group_row(ui, Icon::Zap, "Triggers", triggers.len(), |ui, this| {
-            for trigger in &triggers {
-                let is_selected = matches!(
-                    this.selected_schema_object.as_ref(),
-                    Some(SchemaObjectSelection::Trigger(s)) if s == &trigger.name
-                );
-                let label = format!("{} · {}", trigger.name, trigger.event);
-                if sidebar_item(ui, Icon::Zap, &label, is_selected, this.theme).clicked() {
-                    this.selected_schema_object =
-                        Some(SchemaObjectSelection::Trigger(trigger.name.clone()));
-                    this.schema_object_view = SchemaObjectView::Definition;
-                    this.selected_table = None;
-                    this.table_info = None;
-                    this.table_ddl = None;
-                    this.table_info_error = None;
-                    this.table_ddl_error = None;
-                    this.ddl_execute_confirmation = false;
-                    this.ddl_execution_request = None;
-                    this.table_data_result = None;
-                    this.table_data_total_rows = None;
-                    this.table_data_request = None;
-                    this.table_view = TableView::Ddl;
-                    this.active_tab = WorkspaceTab::SchemaObject;
-                    this.runtime_message = format!("Opened trigger {}", trigger.name);
-                }
-            }
-        });
+    /// Views folder in DBeaver tree.
+    fn draw_dbeaver_views_folder(&mut self, ui: &mut egui::Ui, views: &[UiViewSummary]) {
+        let dimmed = views.is_empty();
+        let folder_id = ui.make_persistent_id("dbeaver_views_folder");
+        let label = format!("Views ({})", views.len());
 
-        // Functions row — only if provider supports them
-        if supports_functions {
-            self.draw_object_group_row(
-                ui,
-                Icon::Code2,
-                "Functions",
-                functions.len(),
-                |ui, this| {
-                    for function in &functions {
+        egui::collapsing_header::CollapsingState::load_with_default_open(ui.ctx(), folder_id, false)
+            .show_header(ui, |ui| {
+                ui.horizontal(|ui| {
+                    ui.label(icon_text(
+                        Icon::Folder,
+                        &label,
+                        if dimmed {
+                            self.theme.text_muted
+                        } else {
+                            self.theme.text_secondary
+                        },
+                    ));
+                });
+            })
+            .body(|ui| {
+                if dimmed {
+                    ui.label(RichText::new("No views").small().color(self.theme.text_muted));
+                } else {
+                    for view in views {
                         let is_selected = matches!(
-                            this.selected_schema_object.as_ref(),
+                            self.selected_schema_object.as_ref(),
+                            Some(SchemaObjectSelection::View(s)) if s == &view.name
+                        );
+                        let resp = sidebar_item(ui, Icon::Eye, &view.name, is_selected, self.theme);
+                        let mut open_query = false;
+                        resp.context_menu(|ui| {
+                            if ui.button("Open in Query").clicked() {
+                                open_query = true;
+                                ui.close_menu();
+                            }
+                        });
+                        if resp.clicked() {
+                            self.selected_schema_object = Some(SchemaObjectSelection::View(view.name.clone()));
+                            self.schema_object_view = SchemaObjectView::Definition;
+                            self.selected_table = None;
+                            self.table_info = None;
+                            self.table_ddl = None;
+                            self.table_view = TableView::Ddl;
+                            self.active_tab = WorkspaceTab::SchemaObject;
+                            self.runtime_message = format!("Opened view {}.{}", view.schema, view.name);
+                        }
+                        if open_query {
+                            self.query_text = format!("SELECT *\nFROM {}\nLIMIT 100;", view.name);
+                            self.active_tab = WorkspaceTab::Query;
+                        }
+                    }
+                }
+            });
+    }
+
+    /// Functions folder in DBeaver tree.
+    fn draw_dbeaver_functions_folder(&mut self, ui: &mut egui::Ui, functions: &[UiFunctionSummary]) {
+        let dimmed = functions.is_empty();
+        let folder_id = ui.make_persistent_id("dbeaver_functions_folder");
+        let label = format!("Functions ({})", functions.len());
+
+        egui::collapsing_header::CollapsingState::load_with_default_open(ui.ctx(), folder_id, false)
+            .show_header(ui, |ui| {
+                ui.horizontal(|ui| {
+                    ui.label(icon_text(
+                        Icon::Folder,
+                        &label,
+                        if dimmed {
+                            self.theme.text_muted
+                        } else {
+                            self.theme.text_secondary
+                        },
+                    ));
+                });
+            })
+            .body(|ui| {
+                if dimmed {
+                    ui.label(RichText::new("No functions").small().color(self.theme.text_muted));
+                } else {
+                    for function in functions {
+                        let is_selected = matches!(
+                            self.selected_schema_object.as_ref(),
                             Some(SchemaObjectSelection::Function(s)) if s == &function.name
                         );
                         let icon = if function.routine_type.eq_ignore_ascii_case("procedure") {
@@ -385,231 +643,79 @@ impl DbProApp {
                             Icon::Code2
                         };
                         let label = format!("{} · {}", function.name, function.routine_type);
-                        let fn_resp = sidebar_item(ui, icon, &label, is_selected, this.theme);
+                        let resp = sidebar_item(ui, icon, &label, is_selected, self.theme);
                         let mut open_query = false;
-                        fn_resp.context_menu(|ui| {
+                        resp.context_menu(|ui| {
                             if ui.button("Open call in Query").clicked() {
                                 open_query = true;
                                 ui.close_menu();
                             }
                         });
-                        if fn_resp.clicked() {
-                            this.selected_schema_object =
-                                Some(SchemaObjectSelection::Function(function.name.clone()));
-                            this.schema_object_view = SchemaObjectView::Definition;
-                            this.selected_table = None;
-                            this.table_info = None;
-                            this.table_ddl = None;
-                            this.table_info_error = None;
-                            this.table_ddl_error = None;
-                            this.table_data_result = None;
-                            this.table_data_total_rows = None;
-                            this.table_data_request = None;
-                            this.table_view = TableView::Ddl;
-                            this.active_tab = WorkspaceTab::SchemaObject;
-                            this.runtime_message =
-                                format!("Opened function {}.{}", function.schema, function.name);
+                        if resp.clicked() {
+                            self.selected_schema_object = Some(SchemaObjectSelection::Function(function.name.clone()));
+                            self.schema_object_view = SchemaObjectView::Definition;
+                            self.selected_table = None;
+                            self.table_info = None;
+                            self.table_ddl = None;
+                            self.table_view = TableView::Ddl;
+                            self.active_tab = WorkspaceTab::SchemaObject;
+                            self.runtime_message = format!("Opened function {}.{}", function.schema, function.name);
                         }
                         if open_query {
-                            this.query_text =
-                                format!("SELECT *\nFROM {}.{}();", function.schema, function.name);
-                            this.active_tab = WorkspaceTab::Query;
+                            self.query_text = format!("SELECT *\nFROM {}.{}();", function.schema, function.name);
+                            self.active_tab = WorkspaceTab::Query;
                         }
                     }
-                },
-            );
-        }
+                }
+            });
     }
 
-    /// A collapsing header row for a schema object group (Views / Triggers / Functions).
-    /// When `count == 0` the row is visually dimmed but still shown.
-    fn draw_object_group_row(
-        &mut self,
-        ui: &mut egui::Ui,
-        icon: Icon,
-        label: &str,
-        count: usize,
-        body: impl FnOnce(&mut egui::Ui, &mut Self),
-    ) {
-        let dimmed = count == 0;
-        let text_color = if dimmed { self.theme.text_muted } else { self.theme.text_secondary };
-        let id = ui.make_persistent_id(("obj-group", label));
-        egui::collapsing_header::CollapsingState::load_with_default_open(ui.ctx(), id, false)
+    /// Triggers folder in DBeaver tree.
+    fn draw_dbeaver_triggers_folder(&mut self, ui: &mut egui::Ui, triggers: &[UiTriggerSummary]) {
+        let dimmed = triggers.is_empty();
+        let folder_id = ui.make_persistent_id("dbeaver_triggers_folder");
+        let label = format!("Triggers ({})", triggers.len());
+
+        egui::collapsing_header::CollapsingState::load_with_default_open(ui.ctx(), folder_id, false)
             .show_header(ui, |ui| {
                 ui.horizontal(|ui| {
-                    ui.label(icon_text(icon, label, text_color));
-                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                        badge(
-                            ui,
-                            &count.to_string(),
-                            if dimmed {
-                                self.theme.surface_elevated
-                            } else {
-                                self.theme.surface_active
-                            },
-                            if dimmed {
-                                self.theme.text_muted
-                            } else {
-                                self.theme.text_secondary
-                            },
-                        );
-                    });
+                    ui.label(icon_text(
+                        Icon::Folder,
+                        &label,
+                        if dimmed {
+                            self.theme.text_muted
+                        } else {
+                            self.theme.text_secondary
+                        },
+                    ));
                 });
             })
             .body(|ui| {
                 if dimmed {
-                    ui.label(
-                        RichText::new(format!("No {}", label.to_lowercase()))
-                            .small()
-                            .color(self.theme.text_muted),
-                    );
+                    ui.label(RichText::new("No triggers").small().color(self.theme.text_muted));
                 } else {
-                    body(ui, self);
+                    for trigger in triggers {
+                        let is_selected = matches!(
+                            self.selected_schema_object.as_ref(),
+                            Some(SchemaObjectSelection::Trigger(s)) if s == &trigger.name
+                        );
+                        let label = format!("{} · {}", trigger.name, trigger.event);
+                        if sidebar_item(ui, Icon::Zap, &label, is_selected, self.theme).clicked() {
+                            self.selected_schema_object = Some(SchemaObjectSelection::Trigger(trigger.name.clone()));
+                            self.schema_object_view = SchemaObjectView::Definition;
+                            self.selected_table = None;
+                            self.table_info = None;
+                            self.table_ddl = None;
+                            self.table_view = TableView::Ddl;
+                            self.active_tab = WorkspaceTab::SchemaObject;
+                            self.runtime_message = format!("Opened trigger {}", trigger.name);
+                        }
+                    }
                 }
             });
     }
 
-
-
-    fn draw_explorer_connections(&mut self, ui: &mut egui::Ui) {
-        ui.horizontal(|ui| {
-            ui.label(icon_text(Icon::ChevronDown, "", self.theme.text_muted));
-            ui.label(
-                RichText::new("DATABASE")
-                    .size(11.0)
-                    .strong()
-                    .color(self.theme.text_muted),
-            );
-            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                if compact_icon_button(ui, Icon::Plus, self.theme)
-                    .on_hover_text("New connection")
-                    .clicked()
-                {
-                    self.open_new_connection();
-                }
-                let mut refresh_schema = false;
-                let more = compact_icon_button(ui, Icon::MoreHorizontal, self.theme).on_hover_text("Explorer actions");
-                more.context_menu(|ui| {
-                    if ui.button("Refresh schema").clicked() {
-                        refresh_schema = true;
-                        ui.close_menu();
-                    }
-                });
-                if refresh_schema {
-                    if let Some(connection_id) = self.active_connection_id.clone() {
-                        self.request_schema_introspection(connection_id, true);
-                    }
-                }
-            });
-        });
-        ui.add_space(8.0);
-        if self.connections.is_empty() {
-            ui.label(RichText::new("No saved connections").color(self.theme.text_muted));
-            ui.label(
-                RichText::new("Connect a database to load its schema here.")
-                    .small()
-                    .color(self.theme.text_muted),
-            );
-        } else {
-            for connection in self.connections.clone() {
-                let is_active = self.active_connection_id.as_deref() == Some(connection.id.as_str());
-                ui.horizontal(|ui| {
-                    let (connection_state_icon, connection_state_color) = self.connection_indicator(&connection);
-                    ui.label(icon_text(connection_state_icon, "", connection_state_color));
-                    let connection_button = ui.add(
-                        egui::Button::new(
-                            RichText::new(connection.name.as_str())
-                                .strong()
-                                .color(self.theme.text_primary),
-                        )
-                        .fill(if is_active {
-                            self.theme.accent_soft
-                        } else {
-                            Color32::TRANSPARENT
-                        })
-                        .stroke(egui::Stroke::NONE)
-                        .rounding(egui::Rounding::same(5.0)),
-                    );
-                    let mut connect_from_menu = false;
-                    let mut edit_from_menu = false;
-                    let mut delete_from_menu = false;
-                    let connection_clicked = connection_button.clicked();
-                    connection_button.context_menu(|ui| {
-                        if ui.button("Connect").clicked() {
-                            connect_from_menu = true;
-                            ui.close_menu();
-                        }
-                        if ui.button("Edit connection").clicked() {
-                            edit_from_menu = true;
-                            ui.close_menu();
-                        }
-                        if ui.button("Delete connection").clicked() {
-                            delete_from_menu = true;
-                            ui.close_menu();
-                        }
-                    });
-                    if connection_clicked || connect_from_menu {
-                        self.reset_agent_context();
-                        self.active_connection_id = Some(connection.id.clone());
-                        self.selected_schema = None;
-                        self.schema = UiSchemaSummary::default();
-                        self.selected_table = None;
-                        self.selected_schema_object = None;
-                        self.table_info = None;
-                        self.table_ddl = None;
-                        self.table_info_error = None;
-                        self.table_ddl_error = None;
-                        self.ddl_execute_confirmation = false;
-                        self.ddl_execution_request = None;
-                        self.table_data_result = None;
-                        self.table_data_total_rows = None;
-                        self.table_data_offset = 0;
-                        self.table_data_filter_column.clear();
-                        self.table_data_filter_value.clear();
-                        self.table_data_sort_column = None;
-                        self.table_data_sort_desc = false;
-                        self.table_data_error = None;
-                        self.table_info_request = None;
-                        self.table_ddl_request = None;
-                        self.table_data_request = None;
-                        self.table_mutation_request = None;
-                        self.staged_changes.clear();
-                        self.staged_apply_request = None;
-                        self.selected_cell = None;
-                        self.selected_row = None;
-                        self.data_editing_cell = None;
-                        self.data_edit_value.clear();
-                        self.data_delete_confirmation = false;
-                        self.table_view = TableView::Structure;
-                        self.explorer_search.clear();
-                        let request_id = self.task_bridge.next_request_id();
-                        self.connected = false;
-                        self.pending_connection_request = Some(request_id);
-                        self.schema_request = None;
-                        self.schema_error = None;
-                        let _ = self.task_bridge.send(UiCommand::Connect {
-                            request_id,
-                            connection_id: connection.id.clone(),
-                        });
-                        self.runtime_message = format!("Connecting to {}…", connection.name);
-                    }
-                    if edit_from_menu {
-                        self.open_edit_connection(&connection);
-                    }
-                    if delete_from_menu {
-                        self.delete_confirmation_id = Some(connection.id.clone());
-                    }
-                });
-                ui.add_space(1.0);
-                ui.label(
-                    RichText::new(format!("    {} · {}", connection.driver, connection.database))
-                        .size(11.0)
-                        .color(self.theme.text_muted),
-                );
-            }
-        }
-        ui.add_space(12.0);
-    }
+    /// Schema loading progress and error banner.
     fn draw_explorer_schema_feedback(&mut self, ui: &mut egui::Ui) {
         let schema_error = self.schema_error.clone();
         if let Some(error) = schema_error.as_deref() {
@@ -655,214 +761,50 @@ impl DbProApp {
         }
     }
 
-    /// Renders the search/filter bar for the table list.
-    /// Called explicitly by both the legacy flat path and the Objects sub-pane.
-    fn draw_explorer_search_bar(&mut self, ui: &mut egui::Ui) {
-        ui.horizontal(|ui| {
-            let clear_width = if self.explorer_search.is_empty() { 0.0 } else { 52.0 };
-            let search_width = (ui.available_width() - clear_width).max(120.0);
-            input(ui, &mut self.explorer_search, "Search tables…", search_width, self.theme);
-            if !self.explorer_search.is_empty() && compact_button(ui, "Clear", self.theme).clicked() {
-                self.explorer_search.clear();
-            }
+    /// Helper to initiate connection logic.
+    fn connect_to_connection(&mut self, connection: &UiConnectionSummary) {
+        self.reset_agent_context();
+        self.active_connection_id = Some(connection.id.clone());
+        self.selected_schema = None;
+        self.schema = UiSchemaSummary::default();
+        self.selected_table = None;
+        self.selected_schema_object = None;
+        self.table_info = None;
+        self.table_ddl = None;
+        self.table_info_error = None;
+        self.table_ddl_error = None;
+        self.ddl_execute_confirmation = false;
+        self.ddl_execution_request = None;
+        self.table_data_result = None;
+        self.table_data_total_rows = None;
+        self.table_data_offset = 0;
+        self.table_data_filter_column.clear();
+        self.table_data_filter_value.clear();
+        self.table_data_sort_column = None;
+        self.table_data_sort_desc = false;
+        self.table_data_error = None;
+        self.table_info_request = None;
+        self.table_ddl_request = None;
+        self.table_data_request = None;
+        self.table_mutation_request = None;
+        self.staged_changes.clear();
+        self.staged_apply_request = None;
+        self.selected_cell = None;
+        self.selected_row = None;
+        self.data_editing_cell = None;
+        self.data_edit_value.clear();
+        self.data_delete_confirmation = false;
+        self.table_view = TableView::Structure;
+        self.explorer_search.clear();
+        let request_id = self.task_bridge.next_request_id();
+        self.connected = false;
+        self.pending_connection_request = Some(request_id);
+        self.schema_request = None;
+        self.schema_error = None;
+        let _ = self.task_bridge.send(UiCommand::Connect {
+            request_id,
+            connection_id: connection.id.clone(),
         });
-        ui.add_space(8.0);
-    }
-
-    fn draw_explorer_tables(&mut self, ui: &mut egui::Ui) {
-        // NOTE: schema switcher is intentionally omitted here — it lives in the
-        // dedicated SCHEMAS sub-pane when called from draw_explorer_sub_panes.
-        // The legacy draw_explorer() path calls draw_explorer_schemas() itself.
-        self.draw_explorer_table_list(ui);
-    }
-
-    fn draw_explorer_table_list(&mut self, ui: &mut egui::Ui) {
-        let search_query = self.explorer_search.trim().to_ascii_lowercase();
-        let all_tables = self.active_schema_table_names();
-        let total_tables = all_tables.len();
-        let (matching_table_count, tables) = filtered_explorer_tables(&all_tables, &search_query);
-        ui.collapsing(
-            icon_text(
-                Icon::Table2,
-                &format!("Tables ({} / {})", matching_table_count, total_tables),
-                self.theme.text_primary,
-            ),
-            |ui| {
-                if tables.is_empty() {
-                    ui.label(
-                        RichText::new(if total_tables == 0 {
-                            "No tables found in the active schema."
-                        } else {
-                            "No tables match the current search."
-                        })
-                        .small()
-                        .color(self.theme.text_muted),
-                    );
-                }
-                for table in &tables {
-                    let is_selected = self.selected_table.as_deref() == Some(table.as_str());
-                    let table_response = sidebar_item(ui, Icon::Table2, table, is_selected, self.theme);
-                    let mut open_query = false;
-                    let mut ask_agent = false;
-                    let mut refresh_schema = false;
-                    table_response.context_menu(|ui| {
-                        if ui.button("Open in Query").clicked() {
-                            open_query = true;
-                            ui.close_menu();
-                        }
-                        if ui.button("Ask Agent about table").clicked() {
-                            ask_agent = true;
-                            ui.close_menu();
-                        }
-                        if ui.button("Refresh schema").clicked() {
-                            refresh_schema = true;
-                            ui.close_menu();
-                        }
-                    });
-                    if table_response.clicked() || open_query || ask_agent {
-                        self.selected_table = Some(table.clone());
-                        self.selected_schema_object = None;
-                        self.schema_object_view = SchemaObjectView::Definition;
-                        self.table_info = None;
-                        self.table_ddl = None;
-                        self.table_info_error = None;
-                        self.table_ddl_error = None;
-                        self.ddl_execute_confirmation = false;
-                        self.ddl_execution_request = None;
-                        self.table_data_result = None;
-                        self.table_data_total_rows = None;
-                        self.table_data_offset = 0;
-                        self.table_data_filter_column.clear();
-                        self.table_data_filter_value.clear();
-                        self.table_data_sort_column = None;
-                        self.table_data_sort_desc = false;
-                        self.table_data_error = None;
-                        self.table_info_request = None;
-                        self.table_ddl_request = None;
-                        self.table_data_request = None;
-                        self.table_view = TableView::Structure;
-                        self.table_mutation_request = None;
-                        self.staged_changes.clear();
-                        self.staged_apply_request = None;
-                        self.selected_cell = None;
-                        self.selected_row = None;
-                        self.data_editing_cell = None;
-                        self.data_edit_value.clear();
-                        self.data_delete_confirmation = false;
-                        self.query_text = format!("SELECT *\nFROM {table}\nLIMIT 100;");
-                        self.request_table_info();
-                        self.active_tab = WorkspaceTab::Table;
-                    }
-                    if open_query {
-                        self.query_text = format!("SELECT *\nFROM {table}\nLIMIT 100;");
-                        self.active_tab = WorkspaceTab::Query;
-                    }
-                    if ask_agent {
-                        self.open_agent_prompt(
-                            format!("Explain the `{table}` table and suggest useful read-only queries"),
-                            ui.ctx(),
-                        );
-                    }
-                    if refresh_schema {
-                        if let Some(connection_id) = self.active_connection_id.clone() {
-                            self.request_schema_introspection(connection_id, true);
-                        }
-                    }
-                    if is_selected {
-                        if let Some(info) = self.table_info.clone() {
-                            ui.indent(("table-sidebar-details", table.as_str()), |ui| {
-                                ui.collapsing(
-                                    icon_text(
-                                        Icon::Columns3,
-                                        &format!("Columns ({})", info.columns.len()),
-                                        self.theme.text_secondary,
-                                    ),
-                                    |ui| {
-                                        for column in &info.columns {
-                                            ui.label(
-                                                RichText::new(format!("{} · {}", column.name, column.data_type))
-                                                    .small()
-                                                    .color(self.theme.text_muted),
-                                            );
-                                        }
-                                    },
-                                );
-                                ui.collapsing(
-                                    icon_text(
-                                        Icon::List,
-                                        &format!("Indexes ({})", info.indexes.len()),
-                                        self.theme.text_secondary,
-                                    ),
-                                    |ui| {
-                                        if info.indexes.is_empty() {
-                                            ui.label(RichText::new("No indexes").small().color(self.theme.text_muted));
-                                        }
-                                        for index in &info.indexes {
-                                            ui.label(RichText::new(&index.name).small().color(self.theme.text_muted));
-                                        }
-                                    },
-                                );
-                                ui.collapsing(
-                                    icon_text(
-                                        Icon::ArrowRightLeft,
-                                        &format!("Foreign keys ({})", info.foreign_keys.len()),
-                                        self.theme.text_secondary,
-                                    ),
-                                    |ui| {
-                                        if info.foreign_keys.is_empty() {
-                                            ui.label(
-                                                RichText::new("No foreign keys").small().color(self.theme.text_muted),
-                                            );
-                                        }
-                                        for foreign_key in &info.foreign_keys {
-                                            ui.label(
-                                                RichText::new(&foreign_key.name).small().color(self.theme.text_muted),
-                                            );
-                                        }
-                                    },
-                                );
-                            });
-                        }
-                    }
-                }
-                if matching_table_count > tables.len() {
-                    ui.label(
-                        RichText::new(format!(
-                            "Showing first {} matches; refine the search to see more.",
-                            tables.len()
-                        ))
-                        .small()
-                        .color(self.theme.text_muted),
-                    );
-                }
-            },
-        );
-    }
-    fn draw_explorer_footer(&mut self, ui: &mut egui::Ui) {
-        if self.table_info.is_none() {
-            let columns = self.active_schema_column_names();
-            ui.collapsing(
-                icon_text(
-                    Icon::Columns3,
-                    &format!("Columns ({})", columns.len()),
-                    self.theme.text_primary,
-                ),
-                |ui| {
-                    for column in columns.iter().take(100) {
-                        ui.label(
-                            RichText::new(format!("  {column}"))
-                                .small()
-                                .color(self.theme.text_muted),
-                        );
-                    }
-                },
-            );
-        }
-        ui.add_space(8.0);
-        ui.label(
-            RichText::new("Right-click a connection for actions")
-                .small()
-                .color(self.theme.text_muted),
-        );
+        self.runtime_message = format!("Connecting to {}…", connection.name);
     }
 }

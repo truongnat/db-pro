@@ -124,10 +124,9 @@ impl DbProTheme {
         ];
         for path in system_font_paths {
             if let Ok(bytes) = std::fs::read(path) {
-                fonts.font_data.insert(
-                    "system_font".to_owned(),
-                    egui::FontData::from_owned(bytes),
-                );
+                fonts
+                    .font_data
+                    .insert("system_font".to_owned(), egui::FontData::from_owned(bytes));
                 fonts
                     .families
                     .entry(egui::FontFamily::Proportional)
