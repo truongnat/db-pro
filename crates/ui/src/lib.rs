@@ -14,7 +14,7 @@ pub use components::{
     activity_bar_frame, agent_message_frame, badge, card_frame, compact_button, compact_button_enabled,
     compact_button_with_icon, compact_icon_button, compact_icon_button_enabled, danger_button, editor_frame,
     empty_state, ghost_button, ghost_button_with_icon, grid_frame, icon_button, icon_text, input, input_full_width,
-    panel_frame, password_input, primary_button, primary_button_with_icon, secondary_button,
+    menu_button_with_icon, panel_frame, password_input, primary_button, primary_button_with_icon, secondary_button,
     secondary_button_with_icon, section_label, sidebar_frame, sidebar_item, tab_frame, toolbar_frame,
 };
 pub use result_grid::{cell_text, displayed_row_number, filtered_sorted_indexes, grid_keyboard_selection};

@@ -267,3 +267,24 @@ independent review are still pending.
 Wave 13 is a native presentation-only fix. The plan remains `IMPLEMENTING` because the exhaustive
 light/dark traversal, intentional database-IDE deviation review, PostgreSQL runtime evidence and
 independent review are still pending.
+
+## Wave 14 evidence
+
+| Check | Result | Evidence |
+|---|---|---|
+| Default Query layout | PASS | Dark native screenshot `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/ffedf639-c919-49ed-92f0-cf19f2289c02-screenshot.png` shows editor-first layout with only More and Run persistent |
+| Overflow composition | PASS | Dark native screenshot `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/27df025b-83a9-4e47-9b47-59f7e12c45e2-screenshot.png` shows one bounded anchored popover using Lucide menu rows |
+| Light-mode parity | PASS | Light native screenshot `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/1182dc07-0dc0-4821-8be7-f2eb1d50cd5f-screenshot.png` shows the same hierarchy and icon treatment over light tokens |
+| Overflow interaction | PASS | Native click on `Find in SQL` closed the popover and opened the search field; Escape dismissed the search/overflow overlay |
+| Behavior scope | PASS | Only native presentation, menu composition and Escape priority changed; query execution, provider routing, folder commands and editor data are unchanged |
+| `cargo fmt --all -- --check` | PASS | 2026-09-11, after Wave 14 source edits |
+| `cargo check --workspace --offline` | PASS | 2026-09-11, after Wave 14 source edits |
+| `cargo clippy --workspace --offline --all-targets -- -D warnings` | PASS | 2026-09-11, after Wave 14 source edits |
+| `cargo test --workspace --offline` | PASS | 2026-09-11; 186 core, 39 infrastructure, 25 SQLite integration, 64 UI, 21 Tauri, 4 runtime, 1 native; 10 PostgreSQL live tests ignored without fixture env |
+| `cargo build --locked -p db-pro-native --offline` | PASS | 2026-09-11, rebuilt native binary before runtime verification |
+| `bash .skills/clean-code/scripts/clean-code-scan.sh --diff` | PASS | 2026-09-11; 33 checks passed, 0 warnings/fails; existing macOS xargs compatibility warnings emitted |
+| `git diff --check` | PASS | 2026-09-11; no whitespace errors |
+
+Wave 14 is a native presentation-only fix. The plan remains `IMPLEMENTING` because the exhaustive
+light/dark traversal, intentional database-IDE deviation review, PostgreSQL runtime evidence and
+independent review are still pending.

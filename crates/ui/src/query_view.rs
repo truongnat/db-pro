@@ -4,6 +4,7 @@ impl DbProApp {
     pub(super) fn draw_query(&mut self, ui: &mut egui::Ui) {
         self.refresh_diagnostics();
         let modifier = Self::primary_modifier_label();
+        let mut more_anchor = None;
         let query_title = self
             .query_documents
             .get(self.active_query_document)
@@ -32,115 +33,22 @@ impl DbProApp {
                         self.dispatch_query();
                     }
                 }
-                if self.query_tools_open {
-                    if secondary_button_with_icon(ui, Icon::WandSparkles, "Format", self.theme).clicked() {
-                        self.query_text = Self::format_sql(&self.query_text);
-                    }
-                    if secondary_button_with_icon(ui, Icon::ChartNoAxesCombined, "Explain", self.theme)
-                        .on_hover_text("Run a read-only query plan")
-                        .clicked()
-                    {
-                        self.explain_query();
-                    }
-                    if secondary_button_with_icon(ui, Icon::Bot, "Ask Agent", self.theme).clicked() {
-                        self.open_agent_prompt(
-                            if self.selected_query.trim().is_empty() {
-                                "Explain the current SQL and suggest improvements"
-                            } else {
-                                "Explain the selected SQL and suggest improvements"
-                            },
-                            ui.ctx(),
-                        );
-                    }
-                    if secondary_button_with_icon(ui, Icon::Save, "Save", self.theme).clicked() {
-                        if let Some(connection) = self.active_connection().cloned() {
-                            let request_id = self.task_bridge.next_request_id();
-                            let name = self
-                                .query_documents
-                                .get(self.active_query_document)
-                                .map(|document| document.title.clone())
-                                .unwrap_or_else(|| "Saved query".to_owned());
-                            let _ = self.task_bridge.send(UiCommand::SaveQuery {
-                                request_id,
-                                connection_id: connection.id.clone(),
-                                name,
-                                sql: self.query_text.clone(),
-                                folder: (!self.query_folder.trim().is_empty())
-                                    .then(|| self.query_folder.trim().to_owned()),
-                            });
-                            self.runtime_message = "Saving query…".to_owned();
-                        }
-                    }
-                }
-                if compact_icon_button(ui, Icon::MoreHorizontal, self.theme)
-                    .on_hover_text("More query actions")
-                    .clicked()
-                {
+                let more_response =
+                    compact_icon_button(ui, Icon::MoreHorizontal, self.theme).on_hover_text("More query actions");
+                if more_response.clicked() {
                     self.query_tools_open = !self.query_tools_open;
                 }
-                if self.query_tools_open
-                    && ghost_button(
-                        ui,
-                        if self.selected_query.is_empty() {
-                            "Run statement"
-                        } else {
-                            "Run selection"
-                        },
-                        self.theme,
-                    )
-                    .clicked()
-                {
-                    if self.selected_query.is_empty() {
-                        let statement = self.query_text.split(';').next().unwrap_or_default().trim().to_owned();
-                        if !statement.is_empty() {
-                            self.query_text = statement;
-                            self.dispatch_query();
-                        }
-                    } else {
-                        self.dispatch_query();
-                    }
-                }
+                more_anchor = Some(more_response.rect);
             });
         });
-        ui.add_space(8.0);
-        ui.horizontal_wrapped(|ui| {
-            if self.query_tools_open {
-                if ghost_button_with_icon(ui, Icon::Search, "Search", self.theme).clicked() {
-                    self.editor_search_open = !self.editor_search_open;
-                }
-                if ghost_button(ui, "A−", self.theme).clicked() {
-                    self.editor_font_size = (self.editor_font_size - 1.0).max(10.0);
-                }
-                if ghost_button(ui, "A+", self.theme).clicked() {
-                    self.editor_font_size = (self.editor_font_size + 1.0).min(24.0);
-                }
-                if ghost_button(ui, "Completion", self.theme).clicked() {
-                    self.completion_open = !self.completion_open;
-                }
-                if ghost_button(ui, "Snippets", self.theme).clicked() {
-                    self.snippets_open = !self.snippets_open;
-                }
-                input(ui, &mut self.query_folder, "folder (optional)", 150.0, self.theme);
-                if ghost_button(ui, "New folder", self.theme).clicked() {
-                    if let Some(connection) = self.active_connection().cloned() {
-                        if !self.query_folder.trim().is_empty() {
-                            let request_id = self.task_bridge.next_request_id();
-                            let _ = self.task_bridge.send(UiCommand::CreateQueryFolder {
-                                request_id,
-                                connection_id: connection.id.clone(),
-                                name: self.query_folder.trim().to_owned(),
-                            });
-                            self.runtime_message = "Creating query folder…".to_owned();
-                        }
-                    }
-                }
-                ui.label(
-                    RichText::new(format!("{} px", self.editor_font_size))
-                        .small()
-                        .color(self.theme.text_muted),
-                );
+        if self.query_tools_open {
+            if let Some(anchor) = more_anchor {
+                self.draw_query_actions_menu(ui.ctx(), anchor);
             }
-            if self.editor_search_open {
+        }
+        if self.editor_search_open {
+            ui.add_space(8.0);
+            ui.horizontal(|ui| {
                 input(ui, &mut self.editor_search, "Find in SQL…", 240.0, self.theme);
                 if !self.editor_search.is_empty() {
                     let matches = self.query_text.matches(&self.editor_search).count();
@@ -150,8 +58,8 @@ impl DbProApp {
                             .color(self.theme.text_muted),
                     );
                 }
-            }
-        });
+            });
+        }
         self.draw_query_editor(ui);
         if self.completion_open {
             card_frame(self.theme).show(ui, |ui| {
@@ -334,6 +242,148 @@ impl DbProApp {
                     }
                 });
             }
+        }
+    }
+
+    fn draw_query_actions_menu(&mut self, ctx: &egui::Context, anchor: egui::Rect) {
+        let menu_width = 264.0;
+        let menu_position = egui::pos2((anchor.right() - menu_width).max(8.0), anchor.bottom() + 4.0);
+        let mut close_menu = false;
+        let menu = egui::Area::new(egui::Id::new("query_actions_menu"))
+            .order(egui::Order::Foreground)
+            .fixed_pos(menu_position)
+            .show(ctx, |ui| {
+                egui::Frame {
+                    fill: self.theme.surface_elevated,
+                    inner_margin: egui::Margin::same(8.0),
+                    rounding: egui::Rounding::same(8.0),
+                    stroke: egui::Stroke::new(1.0, self.theme.border_subtle),
+                    ..Default::default()
+                }
+                .show(ui, |ui| {
+                    ui.set_min_width(menu_width);
+                    ui.label(
+                        RichText::new("Query actions")
+                            .small()
+                            .strong()
+                            .color(self.theme.text_muted),
+                    );
+                    ui.add_space(4.0);
+                    if menu_button_with_icon(
+                        ui,
+                        Icon::Play,
+                        if self.selected_query.is_empty() {
+                            "Run statement"
+                        } else {
+                            "Run selection"
+                        },
+                        self.theme,
+                    )
+                    .clicked()
+                    {
+                        if self.selected_query.is_empty() {
+                            let statement = self.query_text.split(';').next().unwrap_or_default().trim().to_owned();
+                            if !statement.is_empty() {
+                                self.query_text = statement;
+                                self.dispatch_query();
+                            }
+                        } else {
+                            self.dispatch_query();
+                        }
+                        close_menu = true;
+                    }
+                    if menu_button_with_icon(ui, Icon::WandSparkles, "Format SQL", self.theme).clicked() {
+                        self.query_text = Self::format_sql(&self.query_text);
+                        close_menu = true;
+                    }
+                    if menu_button_with_icon(ui, Icon::ChartNoAxesCombined, "Explain query", self.theme).clicked() {
+                        self.explain_query();
+                        close_menu = true;
+                    }
+                    if menu_button_with_icon(ui, Icon::Bot, "Ask Agent", self.theme).clicked() {
+                        self.open_agent_prompt(
+                            if self.selected_query.trim().is_empty() {
+                                "Explain the current SQL and suggest improvements"
+                            } else {
+                                "Explain the selected SQL and suggest improvements"
+                            },
+                            ctx,
+                        );
+                        close_menu = true;
+                    }
+                    if menu_button_with_icon(ui, Icon::Save, "Save query", self.theme).clicked() {
+                        if let Some(connection) = self.active_connection().cloned() {
+                            let request_id = self.task_bridge.next_request_id();
+                            let name = self
+                                .query_documents
+                                .get(self.active_query_document)
+                                .map(|document| document.title.clone())
+                                .unwrap_or_else(|| "Saved query".to_owned());
+                            let _ = self.task_bridge.send(UiCommand::SaveQuery {
+                                request_id,
+                                connection_id: connection.id.clone(),
+                                name,
+                                sql: self.query_text.clone(),
+                                folder: (!self.query_folder.trim().is_empty())
+                                    .then(|| self.query_folder.trim().to_owned()),
+                            });
+                            self.runtime_message = "Saving query…".to_owned();
+                        }
+                        close_menu = true;
+                    }
+                    ui.separator();
+                    ui.label(RichText::new("Editor").small().strong().color(self.theme.text_muted));
+                    ui.add_space(4.0);
+                    if menu_button_with_icon(ui, Icon::Search, "Find in SQL", self.theme).clicked() {
+                        self.editor_search_open = !self.editor_search_open;
+                        close_menu = true;
+                    }
+                    if menu_button_with_icon(ui, Icon::Minus, "Decrease font size", self.theme).clicked() {
+                        self.editor_font_size = (self.editor_font_size - 1.0).max(10.0);
+                    }
+                    if menu_button_with_icon(ui, Icon::Plus, "Increase font size", self.theme).clicked() {
+                        self.editor_font_size = (self.editor_font_size + 1.0).min(24.0);
+                    }
+                    if menu_button_with_icon(ui, Icon::List, "SQL completion", self.theme).clicked() {
+                        self.completion_open = !self.completion_open;
+                        close_menu = true;
+                    }
+                    if menu_button_with_icon(ui, Icon::FileCode2, "SQL snippets", self.theme).clicked() {
+                        self.snippets_open = !self.snippets_open;
+                        close_menu = true;
+                    }
+                    ui.horizontal(|ui| {
+                        input(ui, &mut self.query_folder, "folder (optional)", 150.0, self.theme);
+                        if compact_button(ui, "New folder", self.theme).clicked() {
+                            if let Some(connection) = self.active_connection().cloned() {
+                                if !self.query_folder.trim().is_empty() {
+                                    let request_id = self.task_bridge.next_request_id();
+                                    let _ = self.task_bridge.send(UiCommand::CreateQueryFolder {
+                                        request_id,
+                                        connection_id: connection.id.clone(),
+                                        name: self.query_folder.trim().to_owned(),
+                                    });
+                                    self.runtime_message = "Creating query folder…".to_owned();
+                                }
+                            }
+                        }
+                    });
+                    ui.label(
+                        RichText::new(format!("Editor font · {} px", self.editor_font_size))
+                            .small()
+                            .color(self.theme.text_muted),
+                    );
+                });
+            });
+        let clicked_outside = ctx.input(|input| {
+            input.pointer.any_click()
+                && input
+                    .pointer
+                    .interact_pos()
+                    .is_some_and(|position| !menu.response.rect.contains(position) && !anchor.contains(position))
+        });
+        if clicked_outside || close_menu {
+            self.query_tools_open = false;
         }
     }
 

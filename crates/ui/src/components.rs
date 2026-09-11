@@ -277,6 +277,16 @@ pub fn ghost_button_with_icon(ui: &mut Ui, icon: Icon, label: &str, theme: DbPro
     )
 }
 
+/// Full-width action row for compact overflow menus.
+pub fn menu_button_with_icon(ui: &mut Ui, icon: Icon, label: &str, theme: DbProTheme) -> Response {
+    ui.add_sized(
+        [ui.available_width(), 28.0],
+        Button::new(icon_layout(icon, label, theme.text_primary))
+            .rounding(Rounding::same(6.0))
+            .stroke(Stroke::NONE),
+    )
+}
+
 pub fn compact_button(ui: &mut Ui, label: impl Into<RichText>, theme: DbProTheme) -> Response {
     ui.add(
         Button::new(label.into().size(12.0).color(theme.text_secondary))

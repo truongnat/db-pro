@@ -287,3 +287,26 @@ The execution payload, duration, export behavior and provider routing are unchan
 
 The remaining all-workspace light/dark traversal, provider review and independent review remain open
 under the plan.
+
+## Wave 14 audit finding
+
+### P2 — Query secondary controls competed with the editor
+
+Opening More expanded the Query header into a second toolbar row containing action labels, editor
+settings, folder creation and run-selection controls. This made the editor less immediate and did
+not match the Codex overflow pattern. The focused native-only fix keeps Run and More persistent,
+places the secondary controls in one bounded anchored popover, uses the shared menu-row primitive
+and replaces the raw `A−`/`A+` controls with Lucide icons. Escape now dismisses the popover before
+other Query overlays.
+
+No query command, provider route, folder payload or editor behavior changed.
+
+## Wave 14 runtime evidence
+
+- Dark Query closed state: `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/ffedf639-c919-49ed-92f0-cf19f2289c02-screenshot.png` shows the editor immediately below the compact context bar with only More and Run persistent.
+- Dark Query overflow: `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/27df025b-83a9-4e47-9b47-59f7e12c45e2-screenshot.png` shows one bounded popover with Lucide menu rows.
+- Light Query overflow: `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/1182dc07-0dc0-4821-8be7-f2eb1d50cd5f-screenshot.png` shows the same popover composition over Codex light surfaces.
+- Native interaction smoke: selecting `Find in SQL` closes the popover and opens the search field; Escape closes the active search/overflow overlay in the native window.
+
+The remaining all-workspace light/dark traversal, provider review and independent review remain open
+under the plan.

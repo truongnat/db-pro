@@ -130,3 +130,15 @@
 - [x] Capture isolated SQLite runtime evidence for a statement with no returned columns.
 - [x] Re-run Rust gates, native build, clean-code diff scan and whitespace validation.
 - [ ] Complete the remaining native all-surface traversal, provider matrix and independent review.
+
+## Wave 14 — Query overflow actions
+
+- [x] Prove the secondary Query controls rendered as a second toolbar row when More was open.
+- [x] Move secondary Query/editor actions into one anchored overflow popover.
+- [x] Replace raw `A−`/`A+` controls with shared Lucide menu rows.
+- [x] Keep Run as the only persistent Query action beside More.
+- [x] Add Escape dismissal for the overflow popover.
+- [x] Verify the overflow and Find-in-SQL interaction in the rebuilt native binary.
+- [x] Capture dark and light screenshots for closed and open Query states.
+- [x] Re-run Rust gates, native build, clean-code diff scan and whitespace validation.
+- [ ] Complete the remaining native all-surface traversal, provider matrix and independent review.

@@ -140,6 +140,17 @@ code.
 - preserve the existing execution result payload, timing, export behavior and provider routing;
 - verify a real isolated SQLite statement-complete flow in the native runtime.
 
+### Wave 14 — Query overflow actions (current change)
+
+- keep Run as the only persistent Query command-bar action;
+- move secondary query/editor controls into a Codex-style anchored overflow popover instead of a
+  second always-visible toolbar row;
+- use the shared native menu-row primitive and Lucide icons for action hierarchy and dark/light
+  parity;
+- preserve search, font-size, completion, snippets, save, folder, Explain and Agent behavior;
+- make Escape close the overflow popover before closing other Query overlays;
+- verify the default editor-first layout and overflow interaction in a real native runtime.
+
 ### Follow-up waves
 
 - query/editor toolbar reduction and editor-first layout;
@@ -265,3 +276,13 @@ code.
 - Existing result payload, duration, export and provider behavior remain unchanged.
 - Rust fmt/check/clippy/tests, native build and clean-code diff scan pass; a fresh isolated SQLite
   runtime screenshot confirms the statement-complete state.
+
+## Acceptance for Wave 14
+
+- The default Query workspace shows the editor immediately below the compact context bar, with Run
+  and More as the only persistent command actions.
+- More opens one anchored, bounded popover with full-width menu rows; no second toolbar row or raw
+  Unicode editor controls are rendered.
+- Existing Query action behavior remains intact, and Escape closes the overflow popover.
+- Rust fmt/check/clippy/tests, native build and clean-code diff scan pass; fresh dark and light
+  runtime screenshots cover the closed and open states.
