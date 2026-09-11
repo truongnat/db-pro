@@ -1,4 +1,5 @@
 use std::error::Error;
+use std::sync::mpsc::Sender;
 use std::thread;
 
 use db_pro_core::application::sql_builder::{FilterOp, SortClause, SortDir, TableFilter};
@@ -21,48 +22,14 @@ pub(crate) use translate::draft_to_domain;
 use translate::{translate_command, translate_event};
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let _ = tracing_subscriber::fmt()
-        .with_env_filter(std::env::var("RUST_LOG").unwrap_or_else(|_| "db_pro_runtime=info".to_owned()))
-        .try_init();
+    init_tracing();
     let tokio_runtime = Builder::new_multi_thread().enable_all().build()?;
-    let data_dir = std::env::var_os("DB_PRO_DATA_DIR")
-        .map(std::path::PathBuf::from)
-        .unwrap_or_else(|| {
-            std::env::current_dir()
-                .expect("current directory is available")
-                .join(".db-pro-data")
-        });
+    let data_dir = resolve_data_dir();
     let (bridge, command_rx, event_tx) = TaskBridge::with_channels();
 
-    let (runtime_tx, mut runtime_rx) = tokio_runtime.block_on(async {
+    let (runtime_tx, runtime_rx) = tokio_runtime.block_on(async {
         let runtime = DbProRuntime::new(data_dir).await?;
-
-        let existing = runtime.connections().list().await.unwrap_or_default();
-        if !existing
-            .iter()
-            .any(|c| c.config.database == "fullstack_starter" && c.config.port == 5432)
-        {
-            let config = db_pro_core::domain::connection::ConnectionConfig {
-                name: "Xe Lạc Hồng (PostgreSQL)".to_owned(),
-                host: "localhost".to_owned(),
-                port: 5432,
-                database: "fullstack_starter".to_owned(),
-                username: "postgres".to_owned(),
-                driver: db_pro_core::domain::connection::DriverType::Postgres,
-                ssl_mode: db_pro_core::domain::connection::SslMode::Disable,
-                ssh_tunnel: None,
-                query_timeout_ms: 30_000,
-                max_rows: 500,
-                color: Some("#6366f1".to_owned()),
-                tags: vec!["docker".to_owned(), "xe-lac-hong".to_owned()],
-                group: None,
-                readonly: false,
-            };
-            if let Err(err) = runtime.connections().create(config, "postgres").await {
-                tracing::warn!("failed to seed default Xe Lạc Hồng connection: {err}");
-            }
-        }
-
+        seed_default_connection(&runtime).await;
         Ok::<_, Box<dyn Error>>(spawn_worker(runtime, 64))
     })?;
 
@@ -70,6 +37,15 @@ fn main() -> Result<(), Box<dyn Error>> {
     let command_handle = tokio_runtime.handle().clone();
     let picker_event_tx = event_tx.clone();
     thread::spawn(move || {
+        let send_picked = |request_id, kind: &str, path: Option<String>| {
+            // Fire-and-forget: a picker result is only dropped once the UI has
+            // gone away, which means the whole app is shutting down.
+            let _ = picker_event_tx.send(UiEvent::FilePicked {
+                request_id,
+                kind: kind.to_owned(),
+                path,
+            });
+        };
         while let Ok(command) = command_rx.recv() {
             match command {
                 UiCommand::PickSqliteFile { request_id } => {
@@ -77,11 +53,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                         .add_filter("SQLite database", &["db", "sqlite", "sqlite3"])
                         .pick_file()
                         .map(|path| path.to_string_lossy().into_owned());
-                    let _ = picker_event_tx.send(UiEvent::FilePicked {
-                        request_id,
-                        kind: "sqlite".to_owned(),
-                        path,
-                    });
+                    send_picked(request_id, "sqlite", path);
                     continue;
                 }
                 UiCommand::PickBackupFile { request_id } => {
@@ -89,11 +61,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                         .set_title("Choose backup output")
                         .save_file()
                         .map(|path| path.to_string_lossy().into_owned());
-                    let _ = picker_event_tx.send(UiEvent::FilePicked {
-                        request_id,
-                        kind: "backup".to_owned(),
-                        path,
-                    });
+                    send_picked(request_id, "backup", path);
                     continue;
                 }
                 UiCommand::PickRestoreFile { request_id } => {
@@ -101,22 +69,14 @@ fn main() -> Result<(), Box<dyn Error>> {
                         .set_title("Choose backup to restore")
                         .pick_file()
                         .map(|path| path.to_string_lossy().into_owned());
-                    let _ = picker_event_tx.send(UiEvent::FilePicked {
-                        request_id,
-                        kind: "restore".to_owned(),
-                        path,
-                    });
+                    send_picked(request_id, "restore", path);
                     continue;
                 }
                 UiCommand::PickSshPrivateKey { request_id } => {
                     let path = rfd::FileDialog::new()
                         .pick_file()
                         .map(|path| path.to_string_lossy().into_owned());
-                    let _ = picker_event_tx.send(UiEvent::FilePicked {
-                        request_id,
-                        kind: "ssh-key".to_owned(),
-                        path,
-                    });
+                    send_picked(request_id, "ssh-key", path);
                     continue;
                 }
                 command => {
@@ -132,7 +92,65 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     });
 
-    let event_handle = tokio_runtime.handle().clone();
+    spawn_event_pump(runtime_rx, event_tx, tokio_runtime.handle().clone());
+
+    run_native_app(bridge)
+}
+
+fn init_tracing() {
+    // Best-effort: a global tracing subscriber may already be installed when
+    // the app is embedded in a host process, which is not a failure.
+    let _ = tracing_subscriber::fmt()
+        .with_env_filter(std::env::var("RUST_LOG").unwrap_or_else(|_| "db_pro_runtime=info".to_owned()))
+        .try_init();
+}
+
+fn resolve_data_dir() -> std::path::PathBuf {
+    std::env::var_os("DB_PRO_DATA_DIR")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|| {
+            std::env::current_dir()
+                .expect("current directory is available")
+                .join(".db-pro-data")
+        })
+}
+
+/// Seeds the demo PostgreSQL connection the first time the app runs.
+async fn seed_default_connection(runtime: &DbProRuntime) {
+    let existing = runtime.connections().list().await.unwrap_or_default();
+    if existing
+        .iter()
+        .any(|c| c.config.database == "fullstack_starter" && c.config.port == 5432)
+    {
+        return;
+    }
+    let config = db_pro_core::domain::connection::ConnectionConfig {
+        name: "Xe Lạc Hồng (PostgreSQL)".to_owned(),
+        host: "localhost".to_owned(),
+        port: 5432,
+        database: "fullstack_starter".to_owned(),
+        username: "postgres".to_owned(),
+        driver: db_pro_core::domain::connection::DriverType::Postgres,
+        ssl_mode: db_pro_core::domain::connection::SslMode::Disable,
+        ssh_tunnel: None,
+        query_timeout_ms: 30_000,
+        max_rows: 500,
+        color: Some("#6366f1".to_owned()),
+        tags: vec!["docker".to_owned(), "xe-lac-hong".to_owned()],
+        group: None,
+        readonly: false,
+    };
+    if let Err(err) = runtime.connections().create(config, "postgres").await {
+        tracing::warn!("failed to seed default Xe Lạc Hồng connection: {err}");
+    }
+}
+
+/// Forwards translated runtime events to the UI, stopping when the UI is gone.
+fn spawn_event_pump(
+    mut runtime_rx: tokio::sync::mpsc::Receiver<RuntimeEvent>,
+    event_tx: Sender<UiEvent>,
+    event_handle: tokio::runtime::Handle,
+) {
     event_handle.spawn(async move {
         while let Some(event) = runtime_rx.recv().await {
             if let Some(event) = translate_event(event) {
@@ -142,7 +160,9 @@ fn main() -> Result<(), Box<dyn Error>> {
             }
         }
     });
+}
 
+fn run_native_app(bridge: TaskBridge) -> Result<(), Box<dyn Error>> {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_title("DB Pro")

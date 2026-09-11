@@ -113,9 +113,20 @@ long_functions() { # $1 = files, $2 = regex mở đầu hàm
   # (đã bỏ sót 7 hàm dài > 100 dòng trong crates/ui).
   export START_RE="$start_re"
   echo "$files" | tr '\n' '\0' | xargs -0 awk -v warn="$FN_WARN_LINES" -v fail="$FN_FAIL_LINES" '
-    FNR == 1 { infn = 0; intest = 0 }
-    /^[[:space:]]*#\[cfg\(test\)\]/ { intest = 1 }
+    FNR == 1 { infn = 0; intest = 0; pending_cfg_test = 0 }
+    # `#[cfg(test)]` chỉ bật chế độ bỏ qua khi nó gắn vào một `mod` (module test ở cuối file).
+    # Trước đây mọi `#[cfg(test)]` đều bật bỏ qua tới hết file, nên một `#[cfg(test)]` trên
+    # `use` (như crates/native-app/src/main.rs) đã che toàn bộ phần còn lại, kể cả `fn main`.
+    /^[[:space:]]*#\[cfg\(test\)\]/ {
+      if ($0 ~ /mod[[:space:]]/) { intest = 1 } else { pending_cfg_test = 1 }
+      next
+    }
     intest { next }
+    pending_cfg_test {
+      if ($0 ~ /^[[:space:]]*#\[/) { next }
+      pending_cfg_test = 0
+      if ($0 ~ /^[[:space:]]*(pub[[:space:]]+)?mod[[:space:]]/) { intest = 1; next }
+    }
     {
       if (!infn && $0 ~ ENVIRON["START_RE"] && $0 ~ /\{[[:space:]]*$/) {
         infn = 1; depth = 0; startline = FNR; name = $0; body = ""; sig = $0
