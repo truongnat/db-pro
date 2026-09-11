@@ -25,6 +25,8 @@ without changing the native UI or adding product features.
    row identities.
 3. SQLite ignores the configured query timeout because its actor has no interrupt path.
 4. SSH commands disable host-key verification.
+5. PostgreSQL backup/restore factories discard `ssh_tunnel`, so external backup
+   commands bypass the connection's configured tunnel.
 
 ## Acceptance criteria
 
@@ -33,5 +35,9 @@ without changing the native UI or adding product features.
 - SQLite query execution interrupts the SQLite VM when the configured timeout expires.
 - SSH uses the OpenSSH default known-host verification behavior and never passes
   `StrictHostKeyChecking=no`.
+- PostgreSQL backup/restore receives the complete connection configuration and routes
+  external commands through the configured SSH tunnel.
+- SSH tunnel startup confirms the local forward is listening and fails if the SSH
+  process exits before readiness.
 - PostgreSQL and SQLite unit/integration coverage is updated independently where the
   behavior differs.

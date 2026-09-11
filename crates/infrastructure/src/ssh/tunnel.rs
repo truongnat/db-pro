@@ -1,7 +1,12 @@
 use std::net::TcpListener;
+use std::time::Duration;
 
 use db_pro_core::domain::error::DbError;
+use tokio::net::TcpStream;
 use tokio::process::{Child, Command};
+
+const TUNNEL_READY_TIMEOUT: Duration = Duration::from_secs(10);
+const TUNNEL_READY_RETRY: Duration = Duration::from_millis(50);
 
 #[derive(Debug, Clone)]
 pub struct SshTunnelConfig {
@@ -46,6 +51,8 @@ impl SshTunnel {
         cmd.args([
             "-N",
             "-o",
+            "ExitOnForwardFailure=yes",
+            "-o",
             "ServerAliveInterval=30",
             "-o",
             "ServerAliveCountMax=3",
@@ -65,6 +72,8 @@ impl SshTunnel {
             sshpass.arg("ssh").args([
                 "-N",
                 "-o",
+                "ExitOnForwardFailure=yes",
+                "-o",
                 "ServerAliveInterval=30",
                 "-o",
                 "ServerAliveCountMax=3",
@@ -81,7 +90,7 @@ impl SshTunnel {
                 .spawn()
                 .map_err(|e| DbError::ConnectionFailed(format!("failed to start sshpass: {e}")))?;
 
-            return Ok(SshTunnelHandle { local_port, child });
+            return Self::wait_until_ready(local_port, child).await;
         }
 
         let child = cmd
@@ -89,9 +98,7 @@ impl SshTunnel {
             .spawn()
             .map_err(|e| DbError::ConnectionFailed(format!("failed to start ssh: {e}")))?;
 
-        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
-
-        Ok(SshTunnelHandle { local_port, child })
+        Self::wait_until_ready(local_port, child).await
     }
 
     pub async fn test(config: &SshTunnelConfig) -> Result<(), DbError> {
@@ -122,6 +129,34 @@ impl SshTunnel {
         } else {
             let stderr = String::from_utf8_lossy(&output.stderr);
             Err(DbError::ConnectionFailed(format!("SSH tunnel test failed: {stderr}")))
+        }
+    }
+
+    async fn wait_until_ready(local_port: u16, mut child: Child) -> Result<SshTunnelHandle, DbError> {
+        let deadline = tokio::time::Instant::now() + TUNNEL_READY_TIMEOUT;
+
+        loop {
+            if let Some(status) = child
+                .try_wait()
+                .map_err(|error| DbError::ConnectionFailed(format!("failed to inspect SSH process: {error}")))?
+            {
+                return Err(DbError::ConnectionFailed(format!(
+                    "SSH tunnel exited before becoming ready with status {status}"
+                )));
+            }
+
+            if TcpStream::connect(("127.0.0.1", local_port)).await.is_ok() {
+                return Ok(SshTunnelHandle { local_port, child });
+            }
+
+            if tokio::time::Instant::now() >= deadline {
+                return Err(DbError::ConnectionTimeout(format!(
+                    "SSH tunnel did not open local port {local_port} within {}ms",
+                    TUNNEL_READY_TIMEOUT.as_millis()
+                )));
+            }
+
+            tokio::time::sleep(TUNNEL_READY_RETRY).await;
         }
     }
 }

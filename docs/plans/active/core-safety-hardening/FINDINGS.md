@@ -38,3 +38,24 @@ Both SSH command paths pass `StrictHostKeyChecking=no`.
 Impact: SSH tunnels are vulnerable to host impersonation.
 
 Decision: remove the bypass and let OpenSSH enforce its configured known-host policy.
+
+## P1 — PostgreSQL backup bypasses configured SSH tunnel
+
+`BackupService` previously built `PgDumpEngine` from only host, port, database and
+username. The persisted `ssh_tunnel` was therefore lost before `pg_dump`, `psql`, or
+`pg_restore` ran.
+
+Impact: a backup/restore requested for an SSH-routed connection could connect directly
+to the database host, fail unexpectedly, or violate the connection boundary.
+
+Decision: pass the complete `ConnectionConfig` into the engine and keep the tunnel
+handle alive for the duration of each external backup/restore command.
+
+## P2 — SSH tunnel readiness race
+
+Tunnel startup previously returned after a fixed sleep for key authentication and
+immediately for password authentication. Callers could start database work before
+the local forward was listening, while an early SSH process failure was not surfaced.
+
+Decision: require `ExitOnForwardFailure=yes`, poll the local forward with a bounded
+deadline, and surface early process exit as a connection error.

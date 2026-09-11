@@ -104,15 +104,7 @@ impl DbProRuntime {
             Box::new(meta_store.clone()),
             Box::new(Arc::clone(&secret_store)),
             Arc::clone(&registry),
-            Box::new(|host, port, database, username| {
-                Box::new(PgDumpEngine::new(db_config(
-                    db_pro_core::domain::connection::DriverType::Postgres,
-                    host,
-                    port,
-                    database,
-                    username,
-                )))
-            }),
+            Box::new(|config| Box::new(PgDumpEngine::new(config.clone()))),
             Box::new(|database| {
                 Box::new(SqliteBackupEngine::new(db_config(
                     db_pro_core::domain::connection::DriverType::SQLite,

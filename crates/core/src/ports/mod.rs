@@ -25,6 +25,8 @@ pub use user_manager::UserManager;
 pub use workspace_repository::WorkspaceRepository;
 
 #[cfg(test)]
+pub use backup_engine::MockBackupEngine;
+#[cfg(test)]
 pub use connection_repository::MockConnectionRepository;
 #[cfg(test)]
 pub use db_connector::MockDbConnector;

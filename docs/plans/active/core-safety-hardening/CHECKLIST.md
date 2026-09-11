@@ -5,6 +5,8 @@
 - [x] Add SQLite interrupt handle and timeout-aware query execution.
 - [x] Cover SQLite timeout and post-timeout actor recovery.
 - [x] Remove SSH host-key verification bypass from tunnel and test commands.
+- [x] Preserve SSH configuration through PostgreSQL backup/restore and route commands via the tunnel.
+- [x] Make SSH tunnel startup wait for a listening local forward and report early exit.
 - [x] Run formatting, check, clippy, targeted tests, and workspace tests.
+- [x] Self-review changed files and confirm no UI/native files changed.
 - [ ] Record PostgreSQL live evidence as pending unless an actual provider is exercised.
-- [ ] Self-review changed files and confirm no UI/native files changed.
