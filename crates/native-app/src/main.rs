@@ -120,7 +120,6 @@ fn main() -> Result<(), Box<dyn Error>> {
         viewport: egui::ViewportBuilder::default()
             .with_title("DB Pro")
             .with_maximized(true)
-            .with_inner_size([1280.0, 800.0])
             .with_min_inner_size([1024.0, 640.0]),
         ..Default::default()
     };
@@ -129,6 +128,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         "DB Pro",
         options,
         Box::new(|creation_context| {
+            creation_context.egui_ctx.send_viewport_cmd(egui::ViewportCommand::Maximized(true));
             DbProTheme::install_fonts(&creation_context.egui_ctx);
             Ok(Box::new(DbProApp::with_task_bridge_and_storage(
                 bridge,

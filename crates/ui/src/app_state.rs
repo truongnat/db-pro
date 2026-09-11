@@ -218,6 +218,7 @@ impl Default for DbProApp {
             folder_delete_confirmation: None,
             connections_pane_height: 160.0,
             schemas_pane_height: 90.0,
+            initial_frames_count: 0,
         }
     }
 }

@@ -380,6 +380,8 @@ pub struct DbProApp {
     connections_pane_height: f32,
     /// Persisted height of the Schemas sub-pane inside the Explorer sidebar.
     schemas_pane_height: f32,
+    /// Counter for initial render frames to ensure window is maximized on startup.
+    initial_frames_count: u8,
 }
 
 impl eframe::App for DbProApp {
@@ -409,6 +411,10 @@ impl eframe::App for DbProApp {
     }
 
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        if self.initial_frames_count < 3 {
+            self.initial_frames_count += 1;
+            ctx.send_viewport_cmd(egui::ViewportCommand::Maximized(true));
+        }
         self.request_connections_once();
         self.apply_runtime_events();
         if self.runtime_work_pending() {
