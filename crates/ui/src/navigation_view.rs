@@ -462,116 +462,7 @@ impl DbProApp {
                 .strong()
                 .color(self.theme.text_muted),
         );
-        if self.saved_queries.is_empty() {
-            card_frame(self.theme).show(ui, |ui| {
-                ui.vertical_centered(|ui| {
-                    ui.label(icon_text(Icon::Bookmark, "", self.theme.accent));
-                    ui.add_space(6.0);
-                    ui.label(RichText::new("No saved queries yet").strong());
-                    ui.label(
-                        RichText::new("Save a query to keep it close at hand.")
-                            .small()
-                            .color(self.theme.text_muted),
-                    );
-                    ui.add_space(8.0);
-                    if compact_button_with_icon(ui, Icon::Plus, "New query", self.theme).clicked() {
-                        self.new_query_document();
-                    }
-                });
-            });
-        } else {
-            let saved = self.saved_queries.clone();
-            let mut groups: Vec<(String, Vec<UiSavedQuerySummary>)> = Vec::new();
-            for query in saved {
-                let folder = query.folder.clone().unwrap_or_else(|| "Unfiled".to_owned());
-                if let Some((_, queries)) = groups.iter_mut().find(|(name, _)| name == &folder) {
-                    queries.push(query);
-                } else {
-                    groups.push((folder, vec![query]));
-                }
-            }
-
-            for (folder, queries) in groups {
-                let folder_id = self
-                    .query_folders
-                    .iter()
-                    .find(|item| item.name == folder)
-                    .map(|item| item.id.clone());
-                let mut delete_requested = false;
-                let header = egui::collapsing_header::CollapsingState::load_with_default_open(
-                    ui.ctx(),
-                    ui.make_persistent_id(("saved-query-folder", folder.as_str())),
-                    true,
-                )
-                .show_header(ui, |ui| {
-                    ui.label(icon_text(Icon::FolderOpen, &folder, self.theme.text_primary));
-                    ui.label(
-                        RichText::new(format!("{} queries", queries.len()))
-                            .small()
-                            .color(self.theme.text_muted),
-                    );
-                });
-                let (_, header_response, _) = header.body(|ui| {
-                    for query in queries {
-                        let query_response = sidebar_item(ui, Icon::FileCode2, &query.name, false, self.theme);
-                        let mut rename_requested = false;
-                        let mut delete_requested = false;
-                        query_response.context_menu(|ui| {
-                            if ui.button("Rename query").clicked() {
-                                rename_requested = true;
-                                ui.close_menu();
-                            }
-                            if ui.button("Delete query").clicked() {
-                                delete_requested = true;
-                                ui.close_menu();
-                            }
-                        });
-                        if query_response.clicked() {
-                            self.query_text = query.sql.clone();
-                            self.active_tab = WorkspaceTab::Query;
-                        }
-                        if rename_requested {
-                            let request_id = self.task_bridge.next_request_id();
-                            let name = if self.query_folder.trim().is_empty() {
-                                format!("{} (renamed)", query.name)
-                            } else {
-                                self.query_folder.trim().to_owned()
-                            };
-                            let _ = self.task_bridge.send(UiCommand::RenameSavedQuery {
-                                request_id,
-                                id: query.id.clone(),
-                                name,
-                            });
-                        }
-                        if delete_requested {
-                            self.delete_confirmation_id = Some(query.id.clone());
-                        }
-                    }
-                });
-                header_response.response.context_menu(|ui| {
-                    if folder_id.is_some() && ui.button("Delete folder").clicked() {
-                        delete_requested = true;
-                        ui.close_menu();
-                    }
-                });
-                if delete_requested {
-                    self.folder_delete_confirmation = folder_id;
-                }
-            }
-            if let Some(id) = self.delete_confirmation_id.clone() {
-                ui.colored_label(self.theme.warning, "Delete this saved query?");
-                ui.horizontal(|ui| {
-                    if compact_button(ui, "Confirm delete", self.theme).clicked() {
-                        let request_id = self.task_bridge.next_request_id();
-                        let _ = self.task_bridge.send(UiCommand::DeleteSavedQuery { request_id, id });
-                        self.delete_confirmation_id = None;
-                    }
-                    if compact_button(ui, "Cancel", self.theme).clicked() {
-                        self.delete_confirmation_id = None;
-                    }
-                });
-            }
-        }
+        self.draw_saved_queries_section(ui);
         ui.separator();
         ui.label(
             RichText::new("Local history")
@@ -579,6 +470,145 @@ impl DbProApp {
                 .strong()
                 .color(self.theme.text_muted),
         );
+        self.draw_local_history_section(ui);
+    }
+
+    /// Saved queries, grouped by folder, plus the pending-delete confirmation.
+    fn draw_saved_queries_section(&mut self, ui: &mut egui::Ui) {
+        if self.saved_queries.is_empty() {
+            self.draw_empty_saved_queries(ui);
+            return;
+        }
+        let saved = self.saved_queries.clone();
+        let mut groups: Vec<(String, Vec<UiSavedQuerySummary>)> = Vec::new();
+        for query in saved {
+            let folder = query.folder.clone().unwrap_or_else(|| "Unfiled".to_owned());
+            if let Some((_, queries)) = groups.iter_mut().find(|(name, _)| name == &folder) {
+                queries.push(query);
+            } else {
+                groups.push((folder, vec![query]));
+            }
+        }
+        for (folder, queries) in groups {
+            self.draw_saved_query_folder(ui, folder, queries);
+        }
+        self.draw_delete_saved_query_confirmation(ui);
+    }
+
+    fn draw_empty_saved_queries(&mut self, ui: &mut egui::Ui) {
+        card_frame(self.theme).show(ui, |ui| {
+            ui.vertical_centered(|ui| {
+                ui.label(icon_text(Icon::Bookmark, "", self.theme.accent));
+                ui.add_space(6.0);
+                ui.label(RichText::new("No saved queries yet").strong());
+                ui.label(
+                    RichText::new("Save a query to keep it close at hand.")
+                        .small()
+                        .color(self.theme.text_muted),
+                );
+                ui.add_space(8.0);
+                if compact_button_with_icon(ui, Icon::Plus, "New query", self.theme).clicked() {
+                    self.new_query_document();
+                }
+            });
+        });
+    }
+
+    /// One collapsible folder of saved queries, with a folder-level context menu.
+    fn draw_saved_query_folder(&mut self, ui: &mut egui::Ui, folder: String, queries: Vec<UiSavedQuerySummary>) {
+        let folder_id = self
+            .query_folders
+            .iter()
+            .find(|item| item.name == folder)
+            .map(|item| item.id.clone());
+        let mut delete_requested = false;
+        let header = egui::collapsing_header::CollapsingState::load_with_default_open(
+            ui.ctx(),
+            ui.make_persistent_id(("saved-query-folder", folder.as_str())),
+            true,
+        )
+        .show_header(ui, |ui| {
+            ui.label(icon_text(Icon::FolderOpen, &folder, self.theme.text_primary));
+            ui.label(
+                RichText::new(format!("{} queries", queries.len()))
+                    .small()
+                    .color(self.theme.text_muted),
+            );
+        });
+        let (_, header_response, _) = header.body(|ui| {
+            for query in queries {
+                self.draw_saved_query_entry(ui, &query);
+            }
+        });
+        header_response.response.context_menu(|ui| {
+            if folder_id.is_some() && ui.button("Delete folder").clicked() {
+                delete_requested = true;
+                ui.close_menu();
+            }
+        });
+        if delete_requested {
+            self.folder_delete_confirmation = folder_id;
+        }
+    }
+
+    fn draw_saved_query_entry(&mut self, ui: &mut egui::Ui, query: &UiSavedQuerySummary) {
+        let query_response = sidebar_item(ui, Icon::FileCode2, &query.name, false, self.theme);
+        let mut rename_requested = false;
+        let mut delete_requested = false;
+        query_response.context_menu(|ui| {
+            if ui.button("Rename query").clicked() {
+                rename_requested = true;
+                ui.close_menu();
+            }
+            if ui.button("Delete query").clicked() {
+                delete_requested = true;
+                ui.close_menu();
+            }
+        });
+        if query_response.clicked() {
+            self.query_text = query.sql.clone();
+            self.active_tab = WorkspaceTab::Query;
+        }
+        if rename_requested {
+            self.rename_saved_query(query);
+        }
+        if delete_requested {
+            self.delete_confirmation_id = Some(query.id.clone());
+        }
+    }
+
+    fn rename_saved_query(&mut self, query: &UiSavedQuerySummary) {
+        let request_id = self.task_bridge.next_request_id();
+        let name = if self.query_folder.trim().is_empty() {
+            format!("{} (renamed)", query.name)
+        } else {
+            self.query_folder.trim().to_owned()
+        };
+        let _ = self.task_bridge.send(UiCommand::RenameSavedQuery {
+            request_id,
+            id: query.id.clone(),
+            name,
+        });
+    }
+
+    fn draw_delete_saved_query_confirmation(&mut self, ui: &mut egui::Ui) {
+        let Some(id) = self.delete_confirmation_id.clone() else {
+            return;
+        };
+        ui.colored_label(self.theme.warning, "Delete this saved query?");
+        ui.horizontal(|ui| {
+            if compact_button(ui, "Confirm delete", self.theme).clicked() {
+                let request_id = self.task_bridge.next_request_id();
+                let _ = self.task_bridge.send(UiCommand::DeleteSavedQuery { request_id, id });
+                self.delete_confirmation_id = None;
+            }
+            if compact_button(ui, "Cancel", self.theme).clicked() {
+                self.delete_confirmation_id = None;
+            }
+        });
+    }
+
+    fn draw_local_history_section(&mut self, ui: &mut egui::Ui) {
         if self.query_history.is_empty() {
             ui.label(RichText::new("No queries run yet").color(self.theme.text_muted));
             return;
@@ -597,6 +627,26 @@ impl DbProApp {
     }
 
     fn draw_settings(&mut self, ui: &mut egui::Ui) {
+        self.draw_appearance_settings(ui);
+        ui.add_space(12.0);
+        card_frame(self.theme).show(ui, |ui| {
+            section_label(ui, "DATABASE FILES", self.theme);
+            if !self.supports_backup_restore() {
+                ui.label(
+                    RichText::new("Backup and restore are unavailable for the active provider")
+                        .small()
+                        .color(self.theme.text_muted),
+                );
+                return;
+            }
+            ui.add_space(10.0);
+            self.draw_backup_settings(ui);
+            ui.add_space(14.0);
+            self.draw_restore_settings(ui);
+        });
+    }
+
+    fn draw_appearance_settings(&mut self, ui: &mut egui::Ui) {
         card_frame(self.theme).show(ui, |ui| {
             section_label(ui, "APPEARANCE", self.theme);
             ui.add_space(10.0);
@@ -623,86 +673,80 @@ impl DbProApp {
                     .color(self.theme.text_muted),
             );
         });
-        ui.add_space(12.0);
-        card_frame(self.theme).show(ui, |ui| {
-            section_label(ui, "DATABASE FILES", self.theme);
-            let supports_backup = self
-                .active_capabilities()
-                .is_some_and(|capabilities| capabilities.features.backup);
-            if !supports_backup {
-                ui.label(
-                    RichText::new("Backup and restore are unavailable for the active provider")
-                        .small()
-                        .color(self.theme.text_muted),
-                );
-                return;
+    }
+
+    fn supports_backup_restore(&self) -> bool {
+        self.active_capabilities()
+            .is_some_and(|capabilities| capabilities.features.backup)
+    }
+
+    fn draw_backup_settings(&mut self, ui: &mut egui::Ui) {
+        ui.label(
+            RichText::new("Backup destination")
+                .small()
+                .color(self.theme.text_secondary),
+        );
+        input_full_width(
+            ui,
+            &mut self.backup_output_path,
+            "Choose a .sql backup path",
+            self.theme,
+        );
+        ui.horizontal_wrapped(|ui| {
+            if compact_button_with_icon(ui, Icon::FolderOpen, "Choose path", self.theme).clicked() {
+                let request_id = self.task_bridge.next_request_id();
+                let _ = self.task_bridge.send(UiCommand::PickBackupFile { request_id });
             }
-            ui.add_space(10.0);
-            ui.label(
-                RichText::new("Backup destination")
-                    .small()
-                    .color(self.theme.text_secondary),
-            );
-            input_full_width(
-                ui,
-                &mut self.backup_output_path,
-                "Choose a .sql backup path",
-                self.theme,
-            );
-            ui.horizontal_wrapped(|ui| {
-                if compact_button_with_icon(ui, Icon::FolderOpen, "Choose path", self.theme).clicked() {
+            if secondary_button_with_icon(ui, Icon::Archive, "Create backup", self.theme).clicked() {
+                if let Some(connection) = self.active_connection().cloned() {
                     let request_id = self.task_bridge.next_request_id();
-                    let _ = self.task_bridge.send(UiCommand::PickBackupFile { request_id });
+                    let _ = self.task_bridge.send(UiCommand::Backup {
+                        request_id,
+                        connection_id: connection.id,
+                        output_path: self.backup_output_path.clone(),
+                        custom_format: false,
+                    });
                 }
-                if secondary_button_with_icon(ui, Icon::Archive, "Create backup", self.theme).clicked() {
+            }
+        });
+    }
+
+    fn draw_restore_settings(&mut self, ui: &mut egui::Ui) {
+        ui.label(
+            RichText::new("Restore from backup")
+                .small()
+                .color(self.theme.text_secondary),
+        );
+        input_full_width(ui, &mut self.restore_input_path, "Choose a backup file", self.theme);
+        ui.horizontal_wrapped(|ui| {
+            if compact_button_with_icon(ui, Icon::FolderOpen, "Choose file", self.theme).clicked() {
+                let request_id = self.task_bridge.next_request_id();
+                let _ = self.task_bridge.send(UiCommand::PickRestoreFile { request_id });
+            }
+            if secondary_button_with_icon(ui, Icon::RotateCcw, "Restore database", self.theme).clicked() {
+                self.restore_confirmation = true;
+            }
+        });
+        if self.restore_confirmation {
+            ui.add_space(10.0);
+            ui.colored_label(self.theme.warning, "Overwrite the active database?");
+            ui.horizontal(|ui| {
+                if danger_button(ui, "Confirm restore", self.theme).clicked() {
                     if let Some(connection) = self.active_connection().cloned() {
                         let request_id = self.task_bridge.next_request_id();
-                        let _ = self.task_bridge.send(UiCommand::Backup {
+                        let _ = self.task_bridge.send(UiCommand::Restore {
                             request_id,
                             connection_id: connection.id,
-                            output_path: self.backup_output_path.clone(),
+                            input_path: self.restore_input_path.clone(),
                             custom_format: false,
                         });
                     }
+                    self.restore_confirmation = false;
+                }
+                if ghost_button_with_icon(ui, Icon::X, "Cancel", self.theme).clicked() {
+                    self.restore_confirmation = false;
                 }
             });
-            ui.add_space(14.0);
-            ui.label(
-                RichText::new("Restore from backup")
-                    .small()
-                    .color(self.theme.text_secondary),
-            );
-            input_full_width(ui, &mut self.restore_input_path, "Choose a backup file", self.theme);
-            ui.horizontal_wrapped(|ui| {
-                if compact_button_with_icon(ui, Icon::FolderOpen, "Choose file", self.theme).clicked() {
-                    let request_id = self.task_bridge.next_request_id();
-                    let _ = self.task_bridge.send(UiCommand::PickRestoreFile { request_id });
-                }
-                if secondary_button_with_icon(ui, Icon::RotateCcw, "Restore database", self.theme).clicked() {
-                    self.restore_confirmation = true;
-                }
-            });
-            if self.restore_confirmation {
-                ui.add_space(10.0);
-                ui.colored_label(self.theme.warning, "Overwrite the active database?");
-                ui.horizontal(|ui| {
-                    if danger_button(ui, "Confirm restore", self.theme).clicked() {
-                        if let Some(connection) = self.active_connection().cloned() {
-                            let request_id = self.task_bridge.next_request_id();
-                            let _ = self.task_bridge.send(UiCommand::Restore {
-                                request_id,
-                                connection_id: connection.id,
-                                input_path: self.restore_input_path.clone(),
-                                custom_format: false,
-                            });
-                        }
-                        self.restore_confirmation = false;
-                    }
-                    if ghost_button_with_icon(ui, Icon::X, "Cancel", self.theme).clicked() {
-                        self.restore_confirmation = false;
-                    }
-                });
-            }
-        });
+        }
     }
 }
