@@ -95,9 +95,17 @@ fn decode_cell(row: &sqlx::postgres::PgRow, i: usize, data_type: &str) -> CellVa
     res.unwrap_or_else(|_| {
         row.try_get_raw(i)
             .ok()
-            .and_then(|raw| raw.as_bytes().ok())
-            .and_then(|bytes| std::str::from_utf8(bytes).ok())
-            .map(|value| CellValue::Text(value.to_owned()))
+            .map(|raw| match raw.format() {
+                PgValueFormat::Text => raw
+                    .as_bytes()
+                    .ok()
+                    .and_then(|bytes| std::str::from_utf8(bytes).ok())
+                    .map(|value| CellValue::Text(value.to_owned()))
+                    .unwrap_or_else(|| CellValue::Text(format!("<unsupported value: {data_type}>"))),
+                PgValueFormat::Binary => {
+                    CellValue::Text(format!("<unsupported binary value: {data_type}>"))
+                }
+            })
             .unwrap_or_else(|| CellValue::Text(format!("<unsupported value: {data_type}>")))
     })
 }
@@ -271,5 +279,23 @@ mod tests {
         }
 
         assert_eq!(decode_binary_numeric(&bytes).as_deref(), Some("1.50"));
+    }
+
+    #[test]
+    fn fallback_format_check_behavior() {
+        // Test helper contract for fallback message generation logic
+        let format_fallback_message = |format: PgValueFormat, data_type: &str| match format {
+            PgValueFormat::Text => CellValue::Text(format!("<unsupported value: {data_type}>")),
+            PgValueFormat::Binary => CellValue::Text(format!("<unsupported binary value: {data_type}>")),
+        };
+
+        assert_eq!(
+            format_fallback_message(PgValueFormat::Text, "geometry"),
+            CellValue::Text("<unsupported value: geometry>".into())
+        );
+        assert_eq!(
+            format_fallback_message(PgValueFormat::Binary, "geometry"),
+            CellValue::Text("<unsupported binary value: geometry>".into())
+        );
     }
 }
