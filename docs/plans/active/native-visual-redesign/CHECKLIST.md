@@ -120,3 +120,13 @@
 - [x] Capture dark and light SQLite runtime evidence for query output empty states.
 - [x] Re-run Rust gates, native build, clean-code diff scan and whitespace validation.
 - [ ] Complete the remaining native all-surface traversal, provider matrix and independent review.
+
+## Wave 13 — statement-complete output state
+
+- [x] Prove the no-result-column query branch rendered a bare label.
+- [x] Render statement-complete output through the shared Lucide/Codex empty-state component.
+- [x] Remove the redundant pre-execution `No result` header.
+- [x] Preserve result payload, timing, export and provider behavior.
+- [x] Capture isolated SQLite runtime evidence for a statement with no returned columns.
+- [x] Re-run Rust gates, native build, clean-code diff scan and whitespace validation.
+- [ ] Complete the remaining native all-surface traversal, provider matrix and independent review.

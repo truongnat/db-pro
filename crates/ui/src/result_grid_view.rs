@@ -4,7 +4,13 @@ impl DbProApp {
     pub(super) fn draw_result_grid(&mut self, ui: &mut egui::Ui, result: &UiQueryResult) {
         if result.columns.is_empty() {
             ui.centered_and_justified(|ui| {
-                ui.label(RichText::new("Statement completed without rows").color(self.theme.text_muted));
+                empty_state(
+                    ui,
+                    Icon::CircleCheck,
+                    "Statement completed",
+                    "This statement did not return any rows to display.",
+                    self.theme,
+                );
             });
             return;
         }

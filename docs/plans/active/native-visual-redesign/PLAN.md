@@ -124,13 +124,21 @@ code.
   `NOT NULL` metadata, without changing introspection or provider behavior;
 - verify the composed states in both light and dark native runtime modes.
 
-### Wave 12 — query output empty-state composition (current change)
+### Wave 12 — query output empty-state composition (completed in prior change)
 
 - replace bare query output placeholders with the shared Lucide/Codex empty-state composition;
 - keep Results, Messages, Explain and History output surfaces full-width and visually consistent;
 - preserve the existing query editor, execution, explain and history behavior while changing only
   the empty presentation state;
 - verify the output states in both dark and light native runtime modes.
+
+### Wave 13 — statement-complete output state (current change)
+
+- use the shared Lucide/Codex empty-state composition when a statement completes without result
+  columns;
+- remove the redundant `No result` header from an otherwise empty Results surface;
+- preserve the existing execution result payload, timing, export behavior and provider routing;
+- verify a real isolated SQLite statement-complete flow in the native runtime.
 
 ### Follow-up waves
 
@@ -247,3 +255,13 @@ code.
 - Output cards span the available native workspace while populated query output remains unchanged.
 - Rust fmt/check/clippy/tests, native build and clean-code diff scan pass; fresh SQLite runtime
   screenshots cover query output empty states in both appearance modes.
+
+## Acceptance for Wave 13
+
+- A statement with no result columns reads as a completed state with a semantic icon and clear
+  explanation instead of a bare muted label.
+- A Results surface with no execution does not show a redundant `No result` header above the shared
+  empty state.
+- Existing result payload, duration, export and provider behavior remain unchanged.
+- Rust fmt/check/clippy/tests, native build and clean-code diff scan pass; a fresh isolated SQLite
+  runtime screenshot confirms the statement-complete state.

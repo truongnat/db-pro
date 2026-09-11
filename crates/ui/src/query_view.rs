@@ -245,13 +245,15 @@ impl DbProApp {
                 grid_frame(self.theme).show(ui, |ui| {
                     ui.set_min_width((results_width - 24.0).max(0.0));
                     ui.horizontal(|ui| {
-                        let row_label = result
-                            .as_ref()
-                            .map(|value| format!("{} rows · {} ms", value.row_count, value.duration_ms))
-                            .unwrap_or_else(|| "No result".to_owned());
-                        ui.label(RichText::new(row_label).small().color(self.theme.text_muted));
-                        if result.is_some() && compact_button(ui, "Export", self.theme).clicked() {
-                            self.export_open = true;
+                        if let Some(value) = result.as_ref() {
+                            ui.label(
+                                RichText::new(format!("{} rows · {} ms", value.row_count, value.duration_ms))
+                                    .small()
+                                    .color(self.theme.text_muted),
+                            );
+                            if compact_button(ui, "Export", self.theme).clicked() {
+                                self.export_open = true;
+                            }
                         }
                     });
                     if let Some(result) = result.as_ref() {

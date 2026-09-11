@@ -264,3 +264,26 @@ The query editor, execution, explain, history and populated result paths remain 
 
 The screenshots show the same shared composition over Codex-aligned dark and light surfaces. The
 broader all-workspace traversal, provider review and independent review remain open under the plan.
+
+## Wave 13 audit finding
+
+### P2 — Statement-complete results still used a bare label
+
+The shared result grid had a separate branch for a successful statement with no result columns.
+That branch rendered only `Statement completed without rows`, so it bypassed the empty-state
+composition used by the normal Results surface. The pre-execution Results header also showed
+`No result` above the empty state, duplicating the same information. The focused fix routes the
+no-column branch through the shared semantic empty state and only renders row timing/export controls
+when a result payload exists.
+
+The execution payload, duration, export behavior and provider routing are unchanged.
+
+## Wave 13 runtime evidence
+
+- Isolated SQLite statement-complete flow: `CREATE TEMP TABLE __dbpro_runtime_empty (id INTEGER);`
+  on the existing `/tmp/db-pro-native-ui-empty-state.sqlite` fixture; the temporary table does not
+  alter the persistent `main` schema.
+- Dark native screenshot `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/36c1d74d-844b-448f-98b9-57ad5f71198e-screenshot.png` shows `Statement completed` with the shared CircleCheck icon and explanatory copy, without the pre-execution `No result` header.
+
+The remaining all-workspace light/dark traversal, provider review and independent review remain open
+under the plan.

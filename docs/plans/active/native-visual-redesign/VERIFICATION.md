@@ -248,3 +248,22 @@ independent review are still pending.
 Wave 12 is a native presentation-only fix. The plan remains `IMPLEMENTING` because the exhaustive
 light/dark traversal, intentional database-IDE deviation review, PostgreSQL runtime evidence and
 independent review are still pending.
+
+## Wave 13 evidence
+
+| Check | Result | Evidence |
+|---|---|---|
+| Statement with no result columns | PASS | Isolated SQLite `CREATE TEMP TABLE __dbpro_runtime_empty (id INTEGER);` completed in the native Query workspace; screenshot `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/36c1d74d-844b-448f-98b9-57ad5f71198e-screenshot.png` shows the shared CircleCheck empty state |
+| Pre-execution Results header | PASS | Fresh native Results screenshot shows no redundant `No result` label before execution |
+| Query behavior scope | PASS | Only empty rendering and conditional result-summary controls changed; result payload, timing, export and provider routing are unchanged |
+| `cargo fmt --all -- --check` | PASS | 2026-09-11, after Wave 13 source edits |
+| `cargo check --workspace --offline` | PASS | 2026-09-11, after Wave 13 source edits |
+| `cargo clippy --workspace --offline --all-targets -- -D warnings` | PASS | 2026-09-11, after Wave 13 source edits |
+| `cargo test --workspace --offline` | PASS | 2026-09-11; 186 core, 39 infrastructure, 25 SQLite integration, 64 UI, 21 Tauri, 4 runtime, 1 native; 10 PostgreSQL live tests ignored without fixture env |
+| `cargo build --locked -p db-pro-native --offline` | PASS | 2026-09-11, rebuilt native binary before runtime verification |
+| `bash .skills/clean-code/scripts/clean-code-scan.sh --diff` | PASS | 2026-09-11; 33 checks passed, 0 warnings/fails; existing macOS xargs compatibility warnings emitted |
+| `git diff --check` | PASS | 2026-09-11; no whitespace errors |
+
+Wave 13 is a native presentation-only fix. The plan remains `IMPLEMENTING` because the exhaustive
+light/dark traversal, intentional database-IDE deviation review, PostgreSQL runtime evidence and
+independent review are still pending.
