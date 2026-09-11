@@ -211,7 +211,7 @@ impl SqliteHandle {
         max_rows: u64,
         timeout_ms: u64,
     ) -> Result<Vec<TransactionStatementResult>, TransactionFailure> {
-        let (tx, rx) = oneshot::channel();
+        let (tx, mut rx) = oneshot::channel();
         let cmd = SqliteCommand::ExecuteTransaction {
             statements,
             read_statements,
@@ -228,7 +228,7 @@ impl SqliteHandle {
             results: Vec::new(),
             error: DbError::Internal(format!("spawn_blocking join error: {e}")),
         })?;
-        match tokio::time::timeout(std::time::Duration::from_millis(timeout_ms), rx).await {
+        match tokio::time::timeout(std::time::Duration::from_millis(timeout_ms), &mut rx).await {
             Ok(Ok(result)) => result,
             Ok(Err(error)) => Err(TransactionFailure {
                 statement_index: 0,
@@ -237,11 +237,24 @@ impl SqliteHandle {
             }),
             Err(_) => {
                 self.interrupt_handle.interrupt();
-                Err(TransactionFailure {
-                    statement_index: 0,
-                    results: Vec::new(),
-                    error: DbError::QueryTimeout { timeout_ms },
-                })
+                // Keep the receiver alive and wait for the actor to finish its
+                // explicit rollback. Returning immediately would violate the
+                // DbConnector transaction contract and could race the next command.
+                match rx.await {
+                    Ok(Ok(results)) => Ok(results),
+                    Ok(Err(mut failure)) => {
+                        if !matches!(&failure.error, DbError::Internal(message) if message.contains("rollback failed"))
+                        {
+                            failure.error = DbError::QueryTimeout { timeout_ms };
+                        }
+                        Err(failure)
+                    }
+                    Err(error) => Err(TransactionFailure {
+                        statement_index: 0,
+                        results: Vec::new(),
+                        error: DbError::Internal(format!("oneshot recv error after interrupt: {error}")),
+                    }),
+                }
             }
         }
     }

@@ -7,7 +7,7 @@
 - `cargo check --workspace` — PASS.
 - `cargo clippy --workspace --all-targets -- -D warnings` — PASS.
 - `cargo test -p db-pro-core -p db-pro-infrastructure` — PASS: 201 core unit
-  tests, 44 infrastructure unit tests, 26 SQLite integration tests, 10 PostgreSQL
+  tests, 44 infrastructure unit tests, 27 SQLite integration tests, 10 PostgreSQL
   integration tests ignored.
 - `cargo test -p db-pro-core backup_factory_receives_ssh_configuration` — PASS.
 - `cargo test -p db-pro-core --lib application::connection_service::tests::disconnect_failure_keeps_handle_for_retry -- --exact` — PASS.
@@ -26,6 +26,8 @@
 - `cargo test --workspace` — PASS: all executed workspace tests passed; 10
   PostgreSQL integration tests remain ignored.
 - Targeted regression `sqlite_query_timeout_interrupts_vm_and_actor_recovers` — PASS.
+- Targeted regression `sqlite_transaction_timeout_waits_for_rollback_before_returning` — PASS
+  against the in-memory SQLite provider; the post-timeout count was zero.
 - `cargo build --release --locked -p db-pro-core -p db-pro-infrastructure` — PASS.
 - `bash .skills/clean-code/scripts/clean-code-scan.sh --diff` — PASS: 9 pass,
   7 heuristic warning groups, 0 blocking failures. Remaining warnings are existing
@@ -49,7 +51,7 @@ provider.
 | Provider | Automated | Live provider | Notes |
 |---|---|---|---|
 | PostgreSQL | Unit policy coverage PASS | Pending | Live Explain/mutation behavior still needs a real PostgreSQL provider |
-| SQLite | Integration timeout/recovery PASS | Pending | Native UI/provider runtime evidence still pending |
+| SQLite | Integration timeout/recovery PASS | PASS (in-memory provider) | Native UI runtime evidence is outside this core-only slice |
 
 ## Scope check
 

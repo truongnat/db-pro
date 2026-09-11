@@ -30,6 +30,8 @@
 - [x] Add destructive DELETE classifier regression coverage.
 - [x] Retain duplicate-connect handles when cleanup disconnect fails.
 - [x] Add duplicate-connect cleanup retry regression coverage.
+- [x] Wait for SQLite transaction rollback after timeout interrupt.
+- [x] Add SQLite transaction timeout/rollback regression coverage.
 - [x] Run formatting, check, clippy, targeted tests, and workspace tests.
 - [x] Self-review changed files and confirm no UI/native files changed.
 - [ ] Record PostgreSQL live evidence as pending unless an actual provider is exercised.

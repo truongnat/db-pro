@@ -190,3 +190,14 @@ usable, while the duplicate provider resource could leak permanently.
 Decision: retain failed duplicate handles in a per-connection pending-cleanup queue
 and retry them during `disconnect`, including when the primary registry handle is
 already absent.
+
+## P1 — SQLite transaction timeout can return before rollback
+
+`SqliteHandle::execute_transaction` interrupted the actor and immediately returned a
+synthetic timeout failure while the actor still owned the transaction. The next
+command could therefore race transaction cleanup, and the returned failure did not
+prove the required rollback contract.
+
+Decision: keep the oneshot receiver after interrupt and wait for the actor's explicit
+rollback result. Preserve a known committed result, map an interrupted statement to
+`QueryTimeout`, and retain an explicit rollback failure as an internal cleanup error.

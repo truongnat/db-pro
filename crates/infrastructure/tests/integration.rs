@@ -124,6 +124,57 @@ async fn sqlite_query_timeout_interrupts_vm_and_actor_recovers() {
     assert_eq!(recovery.row_count, 1);
 }
 
+#[tokio::test]
+async fn sqlite_transaction_timeout_waits_for_rollback_before_returning() {
+    let connector = SQLiteConnector::new();
+    let config = ConnectionConfig {
+        name: "transaction-timeout-test".into(),
+        host: String::new(),
+        port: 0,
+        database: ":memory:".into(),
+        username: String::new(),
+        driver: DriverType::SQLite,
+        ssl_mode: SslMode::Disable,
+        ssh_tunnel: None,
+        query_timeout_ms: 10,
+        max_rows: 100,
+        color: None,
+        tags: vec![],
+        group: None,
+        readonly: false,
+    };
+    let handle = connector.connect(&config, "").await.unwrap();
+    connector
+        .execute(&handle, "CREATE TABLE timeout_probe (id INTEGER)", &[])
+        .await
+        .unwrap();
+
+    let expensive_read = "WITH RECURSIVE numbers(value) AS (\
+        SELECT 1 UNION ALL SELECT value + 1 FROM numbers WHERE value < 100000\
+    ) SELECT count(*) FROM numbers first_numbers CROSS JOIN numbers second_numbers";
+    let failure = connector
+        .execute_transaction(
+            &handle,
+            &[
+                "INSERT INTO timeout_probe (id) VALUES (1)".into(),
+                expensive_read.into(),
+            ],
+            &[false, true],
+        )
+        .await
+        .expect_err("the transaction should exceed its configured deadline");
+    assert!(matches!(failure.error, DbError::QueryTimeout { timeout_ms: 10 }));
+
+    let count = connector
+        .query(&handle, "SELECT COUNT(*) FROM timeout_probe", &[])
+        .await
+        .unwrap();
+    assert!(matches!(
+        count.rows[0].0[0],
+        db_pro_core::domain::query::CellValue::Int64(0)
+    ));
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // Query tests
 // ═══════════════════════════════════════════════════════════════════════════

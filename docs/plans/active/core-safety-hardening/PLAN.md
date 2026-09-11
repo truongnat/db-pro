@@ -50,6 +50,7 @@ without changing the native UI or adding product features.
     real clause.
 18. Concurrent duplicate connects can lose the newly opened handle when its first
     cleanup attempt fails.
+19. SQLite transaction timeout returns before the actor has completed rollback.
 
 ## Acceptance criteria
 
