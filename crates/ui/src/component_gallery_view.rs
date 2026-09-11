@@ -47,7 +47,7 @@ pub struct ComponentGalleryState {
 impl Default for ComponentGalleryState {
     fn default() -> Self {
         Self {
-            category: GalleryCategory::All,
+            category: GalleryCategory::Tables,
             input_text: "postgres_prod_replica".to_owned(),
             input_error_text: "invalid_connection_string".to_owned(),
             search_text: "".to_owned(),
@@ -907,10 +907,12 @@ impl DbProApp {
         ];
 
         let visible_count = row_indices.len();
-        let all_selected = visible_count > 0
-            && row_indices
-                .iter()
-                .all(|idx| self.gallery_state.table_selected_rows.contains(idx));
+        let selected_count = row_indices
+            .iter()
+            .filter(|idx| self.gallery_state.table_selected_rows.contains(idx))
+            .count();
+        let all_selected = visible_count > 0 && selected_count == visible_count;
+        let is_indeterminate = selected_count > 0 && !all_selected;
 
         let sort_col = self.gallery_state.table_sort_col;
         let sort_desc = self.gallery_state.table_sort_desc;
@@ -921,6 +923,7 @@ impl DbProApp {
 
         Table::new(&columns, theme)
             .selectable(true, all_selected)
+            .indeterminate(is_indeterminate)
             .sort(sort_col, sort_desc)
             .row_height(38.0)
             .show(

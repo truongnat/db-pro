@@ -1,6 +1,5 @@
 use crate::DbProTheme;
-use egui::{Color32, FontFamily, FontId, Pos2, Rect, Response, RichText, Rounding, Sense, Stroke, Ui, Vec2};
-use lucide_icons::Icon;
+use egui::{Color32, FontId, Pos2, Rect, Response, RichText, Rounding, Sense, Stroke, Ui, Vec2};
 
 pub struct Checkbox<'a> {
     pub(crate) checked: &'a mut bool,
@@ -73,12 +72,9 @@ impl<'a> Checkbox<'a> {
 
             if *self.checked {
                 ui.painter().rect_filled(box_rect, rounding, self.theme.accent);
-                let check_icon = char::from(Icon::Check).to_string();
-                ui.painter().text(
+                crate::components::table::draw_crisp_checkmark(
+                    ui.painter(),
                     box_rect.center(),
-                    egui::Align2::CENTER_CENTER,
-                    check_icon,
-                    FontId::new(11.0, FontFamily::Name("lucide".into())),
                     self.theme.accent_foreground,
                 );
             } else {
@@ -115,6 +111,10 @@ impl<'a> Checkbox<'a> {
                         .layout_no_wrap(desc.to_owned(), FontId::proportional(11.5), self.theme.text_muted);
                 let desc_pos = Pos2::new(rect.left() + size + spacing, text_pos.y + 16.0);
                 ui.painter().galley(desc_pos, desc_galley, Color32::PLACEHOLDER);
+            }
+
+            if self.enabled {
+                response = response.on_hover_cursor(egui::CursorIcon::PointingHand);
             }
 
             response
@@ -249,6 +249,10 @@ impl<'a> Switch<'a> {
                 }
             }
 
+            if self.enabled {
+                response = response.on_hover_cursor(egui::CursorIcon::PointingHand);
+            }
+
             response
         })
         .inner
@@ -357,6 +361,10 @@ impl<'a> Radio<'a> {
                         .layout_no_wrap(desc.to_owned(), FontId::proportional(11.5), self.theme.text_muted);
                 let desc_pos = Pos2::new(rect.left() + size + spacing, text_pos.y + 16.0);
                 ui.painter().galley(desc_pos, desc_galley, Color32::PLACEHOLDER);
+            }
+
+            if self.enabled {
+                response = response.on_hover_cursor(egui::CursorIcon::PointingHand);
             }
 
             response

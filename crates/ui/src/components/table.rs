@@ -53,11 +53,25 @@ impl<'a> TableColumn<'a> {
 
 pub type ShadcnTableColumn<'a> = TableColumn<'a>;
 
+pub(crate) fn draw_crisp_checkmark(painter: &egui::Painter, center: Pos2, color: Color32) {
+    let p1 = Pos2::new(center.x - 3.8, center.y - 0.2);
+    let p2 = Pos2::new(center.x - 0.9, center.y + 2.8);
+    let p3 = Pos2::new(center.x + 3.8, center.y - 2.8);
+    painter.add(egui::epaint::PathShape::line(vec![p1, p2, p3], Stroke::new(1.8, color)));
+}
+
+pub(crate) fn draw_crisp_minus(painter: &egui::Painter, center: Pos2, color: Color32) {
+    let p1 = Pos2::new(center.x - 3.5, center.y);
+    let p2 = Pos2::new(center.x + 3.5, center.y);
+    painter.line_segment([p1, p2], Stroke::new(1.8, color));
+}
+
 pub struct Table<'a> {
     columns: &'a [TableColumn<'a>],
     theme: DbProTheme,
     selectable: bool,
     all_selected: bool,
+    indeterminate: bool,
     sort_column: Option<usize>,
     sort_desc: bool,
     row_height: f32,
@@ -71,6 +85,7 @@ impl<'a> Table<'a> {
             theme,
             selectable: false,
             all_selected: false,
+            indeterminate: false,
             sort_column: None,
             sort_desc: false,
             row_height: 38.0,
@@ -81,6 +96,11 @@ impl<'a> Table<'a> {
     pub fn selectable(mut self, selectable: bool, all_selected: bool) -> Self {
         self.selectable = selectable;
         self.all_selected = all_selected;
+        self
+    }
+
+    pub fn indeterminate(mut self, indeterminate: bool) -> Self {
+        self.indeterminate = indeterminate;
         self
     }
 
@@ -186,36 +206,48 @@ impl<'a> Table<'a> {
                     sw: 0.0,
                     se: 0.0,
                 },
-                self.theme.surface_hover.linear_multiply(0.6),
+                self.theme.surface_hover.linear_multiply(0.4),
             );
 
             // Select All Checkbox
             if self.selectable {
                 let cb_rect = Rect::from_min_size(table_min, Vec2::new(checkbox_w, header_h));
-                let resp = ui.interact(cb_rect, ui.id().with("select_all"), egui::Sense::click());
+                let resp = ui
+                    .interact(cb_rect, ui.id().with("select_all"), egui::Sense::click())
+                    .on_hover_cursor(egui::CursorIcon::PointingHand);
                 let center = cb_rect.center();
                 let box_rect = Rect::from_center_size(center, Vec2::splat(15.0));
 
                 if self.all_selected {
-                    ui.painter()
-                        .rect_filled(box_rect, Rounding::same(3.0), self.theme.accent);
-                    ui.painter().text(
-                        center,
-                        egui::Align2::CENTER_CENTER,
-                        "✓",
-                        egui::FontId::proportional(11.0),
-                        Color32::WHITE,
-                    );
+                    let fill = if resp.hovered() {
+                        self.theme.accent.linear_multiply(0.9)
+                    } else {
+                        self.theme.accent
+                    };
+                    ui.painter().rect_filled(box_rect, Rounding::same(3.5), fill);
+                    draw_crisp_checkmark(ui.painter(), center, Color32::WHITE);
+                } else if self.indeterminate {
+                    let fill = if resp.hovered() {
+                        self.theme.accent.linear_multiply(0.9)
+                    } else {
+                        self.theme.accent
+                    };
+                    ui.painter().rect_filled(box_rect, Rounding::same(3.5), fill);
+                    draw_crisp_minus(ui.painter(), center, Color32::WHITE);
                 } else {
                     let border_color = if resp.hovered() {
                         self.theme.accent
                     } else {
                         self.theme.border_default
                     };
+                    let fill = if resp.hovered() {
+                        self.theme.surface_hover
+                    } else {
+                        self.theme.surface_editor
+                    };
+                    ui.painter().rect_filled(box_rect, Rounding::same(3.5), fill);
                     ui.painter()
-                        .rect_stroke(box_rect, Rounding::same(3.0), Stroke::new(1.0, border_color));
-                    ui.painter()
-                        .rect_filled(box_rect.shrink(1.0), Rounding::same(2.0), self.theme.surface_editor);
+                        .rect_stroke(box_rect, Rounding::same(3.5), Stroke::new(1.2, border_color));
                 }
 
                 if resp.clicked() {
@@ -351,67 +383,75 @@ impl<'a> Table<'a> {
                     }
 
                     let is_selected = is_row_selected(row_idx);
-                    let row_resp = ui.interact(row_rect, ui.id().with(("row", row_idx)), egui::Sense::click());
+                    let row_resp = ui
+                        .interact(row_rect, ui.id().with(("row", row_idx)), egui::Sense::click())
+                        .on_hover_cursor(egui::CursorIcon::PointingHand);
 
-                    // Row background paint
-                    let bg_color = if is_selected {
-                        self.theme.accent_soft
-                    } else if row_idx % 2 == 1 {
-                        self.theme.surface_hover.linear_multiply(0.25)
+                    // Smooth animated hover & selection transitions (60/120 FPS glide)
+                    let hover_t = ui
+                        .ctx()
+                        .animate_bool(row_resp.id.with("row_hover"), row_resp.hovered() && !is_selected);
+                    let select_t = ui.ctx().animate_bool(row_resp.id.with("row_sel"), is_selected);
+
+                    // Row background paint: smoothly blend zebra, hover, and selection
+                    let zebra_bg = if row_idx % 2 == 1 {
+                        self.theme.surface_hover.linear_multiply(0.18)
                     } else {
                         Color32::TRANSPARENT
                     };
-
-                    if bg_color != Color32::TRANSPARENT {
-                        ui.painter().rect_filled(row_rect, Rounding::ZERO, bg_color);
+                    if zebra_bg != Color32::TRANSPARENT {
+                        ui.painter().rect_filled(row_rect, Rounding::ZERO, zebra_bg);
                     }
 
-                    // Hover state
-                    if row_resp.hovered() && !is_selected {
+                    if select_t > 0.001 {
                         ui.painter().rect_filled(
                             row_rect,
                             Rounding::ZERO,
-                            self.theme.surface_hover.linear_multiply(0.6),
+                            self.theme.accent_soft.linear_multiply(select_t),
                         );
-                    }
-
-                    // Active left indicator when selected
-                    if is_selected {
-                        let ind_rect = Rect::from_min_size(row_rect.min, Vec2::new(3.0, row_rect.height()));
+                        let ind_w = egui::lerp(0.0..=3.0, select_t);
+                        let ind_rect = Rect::from_min_size(row_rect.min, Vec2::new(ind_w, row_rect.height()));
                         ui.painter().rect_filled(ind_rect, Rounding::ZERO, self.theme.accent);
+                    } else if hover_t > 0.001 {
+                        ui.painter().rect_filled(
+                            row_rect,
+                            Rounding::ZERO,
+                            self.theme.surface_hover.linear_multiply(0.55 * hover_t),
+                        );
                     }
 
                     // Checkbox cell
                     if self.selectable {
                         let cb_rect =
                             Rect::from_min_size(Pos2::new(table_min.x, row_y), Vec2::new(checkbox_w, self.row_height));
-                        let cb_resp = ui.interact(cb_rect, ui.id().with(("row_cb", row_idx)), egui::Sense::click());
+                        let cb_resp = ui
+                            .interact(cb_rect, ui.id().with(("row_cb", row_idx)), egui::Sense::click())
+                            .on_hover_cursor(egui::CursorIcon::PointingHand);
                         let center = cb_rect.center();
                         let box_rect = Rect::from_center_size(center, Vec2::splat(15.0));
 
                         if is_selected {
-                            ui.painter()
-                                .rect_filled(box_rect, Rounding::same(3.0), self.theme.accent);
-                            ui.painter().text(
-                                center,
-                                egui::Align2::CENTER_CENTER,
-                                "✓",
-                                egui::FontId::proportional(11.0),
-                                Color32::WHITE,
-                            );
+                            let fill = if cb_resp.hovered() {
+                                self.theme.accent.linear_multiply(0.9)
+                            } else {
+                                self.theme.accent
+                            };
+                            ui.painter().rect_filled(box_rect, Rounding::same(3.5), fill);
+                            draw_crisp_checkmark(ui.painter(), center, Color32::WHITE);
                         } else {
                             let border_color = if cb_resp.hovered() {
                                 self.theme.accent
                             } else {
                                 self.theme.border_default
                             };
+                            let fill = if cb_resp.hovered() {
+                                self.theme.surface_hover
+                            } else {
+                                self.theme.surface_editor
+                            };
+                            ui.painter().rect_filled(box_rect, Rounding::same(3.5), fill);
                             ui.painter()
-                                .rect_stroke(box_rect, Rounding::same(3.0), Stroke::new(1.0, border_color));
-                            ui.painter().rect_filled(
-                                box_rect.shrink(1.0),
-                                Rounding::same(2.0),
-                                self.theme.surface_editor,
-                            );
+                                .rect_stroke(box_rect, Rounding::same(3.5), Stroke::new(1.2, border_color));
                         }
 
                         if cb_resp.clicked() {
