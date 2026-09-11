@@ -4,7 +4,7 @@ Canonical lifecycle: `BACKLOG → PLANNING → IMPLEMENTING → REVIEW → RUNTI
 
 | Feature | Branch | PR | State | Notes |
 |---|---|---|---|---|
-| Core Safety Hardening | feature/core-safety-hardening | — | IMPLEMENTING | Explain/mutation safety, SQLite and PostgreSQL operation deadlines, SSH host-key/tunnel safety, SSH-aware backup, and safe PostgreSQL user-management SQL; provider live evidence pending |
+| Core Safety Hardening | feature/core-safety-hardening | — | IMPLEMENTING | Explain/mutation safety, SQLite and PostgreSQL operation deadlines, SSH host-key/tunnel safety, SSH-aware backup, safe PostgreSQL user-management SQL, and compensating connection updates; provider live evidence pending |
 | S1 Columns | main | 741a18d | RUNTIME_VERIFY | implementation complete; PG introspection via CI; UI evidence pending |
 | S2 Indexes | main | aa77ece | RUNTIME_VERIFY | PR merged; PG introspection via CI; UI evidence pending |
 | S3 Relations | main | #7 (7facb95) | RUNTIME_VERIFY | merged; composite FK identity + DDL + UI grouping; CI integrated PASS; PG live + UI pending |

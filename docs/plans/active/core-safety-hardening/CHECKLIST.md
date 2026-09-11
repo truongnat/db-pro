@@ -16,6 +16,8 @@
 - [x] Add PostgreSQL timeout-wrapper regression coverage.
 - [x] Quote PostgreSQL user-management identifiers and allowlist privilege syntax.
 - [x] Add user-management SQL input validation regression coverage.
+- [x] Make connection update ordering and secret/config compensation explicit.
+- [x] Add connection update failure-path regression coverage.
 - [x] Run formatting, check, clippy, targeted tests, and workspace tests.
 - [x] Self-review changed files and confirm no UI/native files changed.
 - [ ] Record PostgreSQL live evidence as pending unless an actual provider is exercised.

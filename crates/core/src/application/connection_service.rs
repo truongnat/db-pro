@@ -85,15 +85,12 @@ impl ConnectionService {
             .get(id)
             .await?
             .ok_or_else(|| DbError::NotFound(format!("connection {id}")))?;
-
-        if self.registry.is_active(id) {
-            self.disconnect(id).await?;
-        }
+        let previous = connection.clone();
 
         connection.config = config;
         connection.updated_at = chrono::Utc::now();
 
-        let key = Self::secret_key(id);
+        let key = connection.secret_ref.clone().unwrap_or_else(|| Self::secret_key(id));
         let old_password = if password.is_some() {
             self.secrets.retrieve_secret(&key).await?
         } else {
@@ -101,19 +98,43 @@ impl ConnectionService {
         };
 
         if let Some(pw) = password {
-            self.secrets.store_secret(&key, pw).await?;
+            if let Err(error) = self.secrets.store_secret(&key, pw).await {
+                self.restore_secret(&key, old_password.as_deref()).await;
+                return Err(error);
+            }
+            connection.secret_ref = Some(key.clone());
         }
 
         if let Err(e) = self.repo.save(&connection).await {
-            if let Some(old_pw) = old_password {
-                if let Err(restore_err) = self.secrets.store_secret(&key, &old_pw).await {
-                    tracing::error!("failed to restore previous secret after repo save failure: {restore_err}");
-                }
+            if password.is_some() {
+                self.restore_secret(&key, old_password.as_deref()).await;
             }
             return Err(e);
         }
 
+        if self.registry.is_active(id) {
+            if let Err(error) = self.disconnect(id).await {
+                if let Err(rollback_error) = self.repo.save(&previous).await {
+                    tracing::error!("failed to restore previous connection after disconnect failure: {rollback_error}");
+                }
+                if password.is_some() {
+                    self.restore_secret(&key, old_password.as_deref()).await;
+                }
+                return Err(error);
+            }
+        }
+
         Ok(())
+    }
+
+    async fn restore_secret(&self, key: &str, previous_password: Option<&str>) {
+        let result = match previous_password {
+            Some(password) => self.secrets.store_secret(key, password).await,
+            None => self.secrets.delete_secret(key).await,
+        };
+        if let Err(error) = result {
+            tracing::error!("failed to restore connection secret after update failure: {error}");
+        }
     }
 
     pub async fn delete(&self, id: &ConnectionId) -> Result<(), DbError> {
@@ -528,5 +549,138 @@ mod tests {
         let svc = build_service(MockDbConnector::new(), repo, secrets);
         let result = svc.create(config, "pass").await;
         assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn update_password_assigns_secret_ref_for_legacy_connection() {
+        let id = ConnectionId::new();
+        let legacy_connection = Connection::new(test_config());
+        let saved = Arc::new(std::sync::Mutex::new(None));
+
+        let mut repo = MockConnectionRepository::new();
+        repo.expect_get()
+            .returning(move |_| Ok(Some(legacy_connection.clone())));
+        repo.expect_save().returning({
+            let saved = Arc::clone(&saved);
+            move |connection| {
+                *saved.lock().expect("saved connection lock") = Some(connection.clone());
+                Ok(())
+            }
+        });
+
+        let key = ConnectionService::secret_key(&id);
+        let mut secrets = MockSecretStore::new();
+        secrets.expect_retrieve_secret().returning({
+            let key = key.clone();
+            move |received| {
+                assert_eq!(received, &key);
+                Ok(None)
+            }
+        });
+        secrets.expect_store_secret().returning(move |received, value| {
+            assert_eq!(received, &ConnectionService::secret_key(&id));
+            assert_eq!(value, "new-password");
+            Ok(())
+        });
+
+        let svc = build_service(MockDbConnector::new(), repo, secrets);
+        svc.update(&id, test_config(), Some("new-password")).await.unwrap();
+
+        let saved = saved.lock().expect("saved connection lock");
+        assert_eq!(
+            saved.as_ref().and_then(|connection| connection.secret_ref.as_deref()),
+            Some(key.as_str())
+        );
+    }
+
+    #[tokio::test]
+    async fn update_repo_failure_restores_missing_secret() {
+        let id = ConnectionId::new();
+        let connection = Connection::new(test_config());
+
+        let mut repo = MockConnectionRepository::new();
+        repo.expect_get().returning(move |_| Ok(Some(connection.clone())));
+        repo.expect_save()
+            .returning(|_| Err(DbError::Internal("save failed".into())));
+
+        let mut secrets = MockSecretStore::new();
+        secrets.expect_retrieve_secret().returning(|_| Ok(None));
+        secrets.expect_store_secret().returning(|_, _| Ok(()));
+        secrets.expect_delete_secret().returning(move |key| {
+            assert_eq!(key, &ConnectionService::secret_key(&id));
+            Ok(())
+        });
+
+        let svc = build_service(MockDbConnector::new(), repo, secrets);
+        assert!(svc.update(&id, test_config(), Some("new-password")).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn update_repo_failure_keeps_active_connection() {
+        let id = ConnectionId::new();
+        let connection = Connection::new(test_config());
+        let registry = Arc::new(ConnectionRegistry::new());
+        registry.register(id, ConnectionHandle(1));
+
+        let mut repo = MockConnectionRepository::new();
+        repo.expect_get().returning(move |_| Ok(Some(connection.clone())));
+        repo.expect_save()
+            .returning(|_| Err(DbError::Internal("save failed".into())));
+
+        let svc = ConnectionService::new(
+            Box::new(MockDbConnector::new()),
+            Box::new(repo),
+            Box::new(MockSecretStore::new()),
+            Arc::clone(&registry),
+        );
+
+        assert!(svc.update(&id, test_config(), None).await.is_err());
+        assert_eq!(registry.get(&id), Some(ConnectionHandle(1)));
+    }
+
+    #[tokio::test]
+    async fn update_disconnect_failure_rolls_back_persisted_connection() {
+        let id = ConnectionId::new();
+        let connection = Connection::new(test_config());
+        let registry = Arc::new(ConnectionRegistry::new());
+        registry.register(id, ConnectionHandle(1));
+        let save_count = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+
+        let mut repo = MockConnectionRepository::new();
+        repo.expect_get().returning(move |_| Ok(Some(connection.clone())));
+        repo.expect_save().times(2).returning({
+            let save_count = Arc::clone(&save_count);
+            move |saved| {
+                let call = save_count.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                if call == 0 {
+                    assert_eq!(saved.config.name, "updated");
+                } else {
+                    assert_eq!(saved.config.name, "test");
+                }
+                Ok(())
+            }
+        });
+
+        let mut connector = MockDbConnector::new();
+        connector
+            .expect_disconnect()
+            .returning(|_| Err(DbError::ConnectionLost("close failed".into())));
+
+        let svc = ConnectionService::new(
+            Box::new(connector),
+            Box::new(repo),
+            Box::new(MockSecretStore::new()),
+            Arc::clone(&registry),
+        );
+
+        let mut updated_config = test_config();
+        updated_config.name = "updated".into();
+        let error = svc
+            .update(&id, updated_config, None)
+            .await
+            .expect_err("disconnect must fail");
+        assert!(matches!(error, DbError::ConnectionLost(_)));
+        assert_eq!(save_count.load(std::sync::atomic::Ordering::SeqCst), 2);
+        assert_eq!(registry.get(&id), Some(ConnectionHandle(1)));
     }
 }

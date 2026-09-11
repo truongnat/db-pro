@@ -38,6 +38,9 @@ without changing the native UI or adding product features.
     leaves connect, Test Connection, introspection, and Explain unbounded.
 11. PostgreSQL user-management interpolates untrusted identifiers and privilege
     text into role/permission statements.
+12. Connection updates change runtime and secret state in a non-compensating order,
+    which can lose an active session or leave a password/secret reference out of
+    sync when persistence fails.
 
 ## Acceptance criteria
 
@@ -58,5 +61,7 @@ without changing the native UI or adding product features.
   configured operation timeout.
 - PostgreSQL role and privilege mutations quote identifiers and accept only the
   supported table-privilege vocabulary.
+- Connection updates persist configuration and secret changes with compensation;
+  active sessions are disconnected only after persistence succeeds.
 - PostgreSQL and SQLite unit/integration coverage is updated independently where the
   behavior differs.

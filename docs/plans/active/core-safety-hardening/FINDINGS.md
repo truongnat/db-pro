@@ -115,3 +115,15 @@ clauses/statements.
 Decision: quote every identifier at the infrastructure boundary and allow only the
 supported PostgreSQL table privileges (ALL, SELECT, INSERT, UPDATE, DELETE,
 TRUNCATE, REFERENCES, and TRIGGER).
+
+## P1 — Connection update can leave runtime and secret state inconsistent
+
+ConnectionService::update disconnected an active connection before saving the new
+configuration. A repository failure therefore returned an error while losing the
+working session. Password updates also stored a new secret without assigning a
+missing legacy secret_ref, and a failed save only restored an existing password,
+not the previous absence of one.
+
+Decision: snapshot the previous connection, persist the secret/config first, attach
+the derived secret reference for legacy records, and compensate secret/config state
+when persistence or the post-persist disconnect fails.
