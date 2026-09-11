@@ -74,6 +74,9 @@ pub fn build_select(
     if dialect.pagination_requires_order_by() && sorts.is_empty() {
         return Err(DbError::Validation("pagination requires an ORDER BY clause".into()));
     }
+    let limit = i64::try_from(limit).map_err(|_| DbError::Validation("limit exceeds database integer range".into()))?;
+    let offset =
+        i64::try_from(offset).map_err(|_| DbError::Validation("offset exceeds database integer range".into()))?;
     let (where_clause, params) = build_where(dialect, filters);
     let order_clause = build_order(dialect, sorts);
     let mut pw = PlaceholderWriter::new(dialect);
@@ -87,8 +90,8 @@ pub fn build_select(
     let sql = format!("SELECT * FROM {target}{}{}{pagination}", where_clause, order_clause,);
 
     let mut all_params = params;
-    all_params.push(QueryParam::Int64(limit as i64));
-    all_params.push(QueryParam::Int64(offset as i64));
+    all_params.push(QueryParam::Int64(limit));
+    all_params.push(QueryParam::Int64(offset));
 
     Ok((sql, all_params))
 }
@@ -402,6 +405,15 @@ mod tests {
             r#"SELECT * FROM "public"."users" WHERE "email" IS NOT NULL LIMIT ? OFFSET ?"#
         );
         assert_eq!(params.len(), 2);
+    }
+
+    #[test]
+    fn select_rejects_pagination_values_outside_database_integer_range() {
+        let result = build_select(&QuestionDialect, "public", "users", &[], &[], u64::MAX, 0);
+        assert!(matches!(result, Err(DbError::Validation(message)) if message.contains("limit")));
+
+        let result = build_select(&QuestionDialect, "public", "users", &[], &[], 50, u64::MAX);
+        assert!(matches!(result, Err(DbError::Validation(message)) if message.contains("offset")));
     }
 
     #[test]

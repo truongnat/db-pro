@@ -142,13 +142,29 @@ impl ConnectionService {
             self.disconnect(id).await?;
         }
 
-        if let Some(conn) = self.repo.get(id).await? {
-            if let Some(ref key) = conn.secret_ref {
-                self.secrets.delete_secret(key).await?;
+        let connection = self.repo.get(id).await?;
+        let secret = if let Some(conn) = connection.as_ref() {
+            if let Some(key) = conn.secret_ref.as_deref() {
+                Some((key.to_owned(), self.secrets.retrieve_secret(key).await?))
+            } else {
+                None
             }
+        } else {
+            None
+        };
+
+        if let Some((key, _)) = secret.as_ref() {
+            self.secrets.delete_secret(key).await?;
         }
 
-        self.repo.delete(id).await
+        if let Err(error) = self.repo.delete(id).await {
+            if let Some((key, previous_password)) = secret {
+                self.restore_secret(&key, previous_password.as_deref()).await;
+            }
+            return Err(error);
+        }
+
+        Ok(())
     }
 
     pub async fn connect(&self, id: &ConnectionId) -> Result<ConnectionHandle, DbError> {
@@ -206,8 +222,14 @@ impl ConnectionService {
         password: &str,
     ) -> Result<(), DbError> {
         let resolved = if password.is_empty() {
+            let secret_key = self
+                .repo
+                .get(id)
+                .await?
+                .and_then(|connection| connection.secret_ref)
+                .unwrap_or_else(|| Self::secret_key(id));
             self.secrets
-                .retrieve_secret(&Self::secret_key(id))
+                .retrieve_secret(&secret_key)
                 .await?
                 .ok_or_else(|| DbError::AuthFailed("password not found in secret store".into()))?
         } else {
@@ -475,9 +497,38 @@ mod tests {
             }
         });
 
-        let svc = build_service(connector, MockConnectionRepository::new(), secrets);
+        let mut repo = MockConnectionRepository::new();
+        repo.expect_get().returning(|_| Ok(None));
+
+        let svc = build_service(connector, repo, secrets);
         let result = svc.test_connectivity_with_secret(&id, &test_config(), "").await;
         assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_connectivity_with_secret_uses_persisted_custom_secret_ref() {
+        let id = ConnectionId::new();
+        let conn = Connection::new(test_config()).with_secret_ref("custom/key".into());
+
+        let mut repo = MockConnectionRepository::new();
+        repo.expect_get().returning(move |_| Ok(Some(conn.clone())));
+
+        let mut connector = MockDbConnector::new();
+        connector.expect_test_connection().returning(|_, password| {
+            assert_eq!(password, "saved-pass");
+            Ok(())
+        });
+
+        let mut secrets = MockSecretStore::new();
+        secrets.expect_retrieve_secret().returning(|key| {
+            assert_eq!(key, "custom/key");
+            Ok(Some("saved-pass".into()))
+        });
+
+        let svc = build_service(connector, repo, secrets);
+        svc.test_connectivity_with_secret(&id, &test_config(), "")
+            .await
+            .expect("custom persisted secret should be used");
     }
 
     #[tokio::test]
@@ -521,6 +572,7 @@ mod tests {
         repo.expect_delete().returning(|_| Ok(()));
 
         let mut secrets = MockSecretStore::new();
+        secrets.expect_retrieve_secret().returning(|_| Ok(Some("pass".into())));
         secrets.expect_delete_secret().returning(|_| Ok(()));
 
         let svc = ConnectionService::new(
@@ -532,6 +584,32 @@ mod tests {
 
         svc.delete(&id).await.unwrap();
         assert!(!registry.is_active(&id));
+    }
+
+    #[tokio::test]
+    async fn delete_repo_failure_restores_secret() {
+        let id = ConnectionId::new();
+        let conn = Connection::new(test_config()).with_secret_ref("key".into());
+
+        let mut repo = MockConnectionRepository::new();
+        repo.expect_get().returning(move |_| Ok(Some(conn.clone())));
+        repo.expect_delete()
+            .returning(|_| Err(DbError::Internal("repo unavailable".into())));
+
+        let mut secrets = MockSecretStore::new();
+        secrets
+            .expect_retrieve_secret()
+            .returning(|_| Ok(Some("saved-pass".into())));
+        secrets.expect_delete_secret().returning(|_| Ok(()));
+        secrets.expect_store_secret().returning(|key, password| {
+            assert_eq!(key, "key");
+            assert_eq!(password, "saved-pass");
+            Ok(())
+        });
+
+        let svc = build_service(MockDbConnector::new(), repo, secrets);
+        let error = svc.delete(&id).await.expect_err("repo failure should propagate");
+        assert!(matches!(error, DbError::Internal(message) if message == "repo unavailable"));
     }
 
     #[tokio::test]

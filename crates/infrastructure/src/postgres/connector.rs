@@ -238,8 +238,9 @@ impl DbConnector for PostgresConnector {
         let pool = entry.pool.clone();
         drop(pools);
 
-        let future = async {
-            let mut tx = match pool.begin().await.map_err(crate::error::from_sqlx) {
+        let deadline = std::time::Instant::now() + timeout;
+        let mut tx =
+            match with_query_timeout(timeout, async { pool.begin().await.map_err(crate::error::from_sqlx) }).await {
                 Ok(tx) => tx,
                 Err(error) => {
                     return Err(TransactionFailure {
@@ -249,11 +250,30 @@ impl DbConnector for PostgresConnector {
                     });
                 }
             };
-            let mut results = Vec::with_capacity(statements.len());
+        let mut results = Vec::with_capacity(statements.len());
 
-            for (index, (statement, is_read)) in statements.iter().zip(read_statements).enumerate() {
-                let started = std::time::Instant::now();
-                let statement_result: Result<TransactionStatementResult, DbError> = async {
+        for (index, (statement, is_read)) in statements.iter().zip(read_statements).enumerate() {
+            let remaining = deadline.saturating_duration_since(std::time::Instant::now());
+            if remaining.is_zero() {
+                let error = DbError::QueryTimeout {
+                    timeout_ms: timeout.as_millis() as u64,
+                };
+                let error = match tx.rollback().await.map_err(crate::error::from_sqlx) {
+                    Ok(()) => error,
+                    Err(rollback_error) => DbError::Internal(format!(
+                        "transaction timed out: {error}; rollback failed: {rollback_error}"
+                    )),
+                };
+                return Err(TransactionFailure {
+                    statement_index: index,
+                    results,
+                    error,
+                });
+            }
+
+            let started = std::time::Instant::now();
+            let statement_result: Result<TransactionStatementResult, DbError> =
+                match tokio::time::timeout(remaining, async {
                     if *is_read {
                         let describe = tx.describe(statement).await.map_err(crate::error::from_sqlx)?;
                         let columns = super::query_mapper::columns_from_describe(&describe);
@@ -285,47 +305,42 @@ impl DbConnector for PostgresConnector {
                             duration_ms: started.elapsed().as_millis() as u64,
                         })
                     }
-                }
-                .await;
-                match statement_result {
-                    Ok(result) => results.push(result),
-                    Err(error) => {
-                        let error = match tx.rollback().await.map_err(crate::error::from_sqlx) {
-                            Ok(()) => error,
-                            Err(rollback_error) => DbError::Internal(format!(
-                                "statement failed: {error}; rollback failed: {rollback_error}"
-                            )),
-                        };
-                        return Err(TransactionFailure {
-                            statement_index: index,
-                            results,
-                            error,
-                        });
-                    }
+                })
+                .await
+                {
+                    Ok(result) => result,
+                    Err(_) => Err(DbError::QueryTimeout {
+                        timeout_ms: timeout.as_millis() as u64,
+                    }),
+                };
+            match statement_result {
+                Ok(result) => results.push(result),
+                Err(error) => {
+                    let error = match tx.rollback().await.map_err(crate::error::from_sqlx) {
+                        Ok(()) => error,
+                        Err(rollback_error) => {
+                            DbError::Internal(format!("statement failed: {error}; rollback failed: {rollback_error}"))
+                        }
+                    };
+                    return Err(TransactionFailure {
+                        statement_index: index,
+                        results,
+                        error,
+                    });
                 }
             }
-
-            if let Err(error) = tx.commit().await.map_err(crate::error::from_sqlx) {
-                return Err(TransactionFailure {
-                    statement_index: statements.len(),
-                    results,
-                    error,
-                });
-            }
-            Ok(results)
-        };
-
-        match tokio::time::timeout(timeout, future).await {
-            Ok(Ok(results)) => Ok(results),
-            Ok(Err(error)) => Err(error),
-            Err(_) => Err(TransactionFailure {
-                statement_index: 0,
-                results: Vec::new(),
-                error: DbError::QueryTimeout {
-                    timeout_ms: timeout.as_millis() as u64,
-                },
-            }),
         }
+
+        // Do not cancel COMMIT at the client deadline: cancellation would make the
+        // commit outcome unknown and could not safely be reported as a rollback.
+        if let Err(error) = tx.commit().await.map_err(crate::error::from_sqlx) {
+            return Err(TransactionFailure {
+                statement_index: statements.len(),
+                results,
+                error,
+            });
+        }
+        Ok(results)
     }
 
     async fn introspect(&self, handle: &ConnectionHandle) -> Result<IntrospectResult, DbError> {

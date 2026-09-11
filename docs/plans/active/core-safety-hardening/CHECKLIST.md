@@ -18,6 +18,14 @@
 - [x] Add user-management SQL input validation regression coverage.
 - [x] Make connection update ordering and secret/config compensation explicit.
 - [x] Add connection update failure-path regression coverage.
+- [x] Enforce PostgreSQL transaction timeout rollback before returning failure.
+- [x] Preserve PostgreSQL transaction failure index and prior results on timeout.
+- [x] Compensate connection secret cleanup when repository deletion fails.
+- [x] Add connection deletion failure-path regression coverage.
+- [x] Resolve persisted secret references during Test Connection.
+- [x] Add custom-secret-reference connectivity regression coverage.
+- [x] Reject pagination values that overflow provider integer parameters.
+- [x] Add pagination overflow regression coverage.
 - [x] Run formatting, check, clippy, targeted tests, and workspace tests.
 - [x] Self-review changed files and confirm no UI/native files changed.
 - [ ] Record PostgreSQL live evidence as pending unless an actual provider is exercised.

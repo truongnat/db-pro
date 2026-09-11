@@ -127,3 +127,45 @@ not the previous absence of one.
 Decision: snapshot the previous connection, persist the secret/config first, attach
 the derived secret reference for legacy records, and compensate secret/config state
 when persistence or the post-persist disconnect fails.
+
+## P1 — PostgreSQL transaction timeout can return before rollback
+
+`PostgresConnector::execute_transaction` previously wrapped the whole transaction
+future in `tokio::time::timeout`. When the deadline elapsed, dropping SQLx's
+`Transaction` only scheduled rollback from `Drop`; it did not await rollback before
+returning `TransactionFailure`, despite the `DbConnector` contract requiring that
+rollback be complete first. The timeout also discarded the statement index and any
+successful results collected before the timeout.
+
+Decision: enforce the transaction deadline per begin/statement operation, explicitly
+rollback on timeout, preserve the failing statement index and prior results, and do
+not client-cancel COMMIT because that would make the commit outcome ambiguous.
+
+## P1 — Connection deletion can lose a credential before repository deletion
+
+`ConnectionService::delete` deleted the secret first and only then deleted the
+connection record. If repository deletion failed, the record remained but its
+credential had already been removed, making the saved connection unrecoverable.
+
+Decision: read the existing secret before cleanup, delete the secret, and compensate
+by restoring it when repository deletion fails. Secret-store failure still stops the
+operation before the connection record is removed.
+
+## P1 — Test connectivity ignores a persisted custom secret reference
+
+`ConnectionService::connect` and update logic resolve `Connection.secret_ref`, but
+`test_connectivity_with_secret` always read `connection/{id}/password`. Connections
+using a migrated or custom secret key could therefore test with a missing or stale
+credential even though normal connect would use another secret.
+
+Decision: resolve the persisted connection's `secret_ref` for empty-password tests,
+falling back to the default key only for unsaved/legacy records without a reference.
+
+## P2 — Pagination values could overflow the database integer parameter
+
+`sql_builder::build_select` converted public `u64` limit/offset values to signed
+`i64` parameters with a lossy cast. A value above `i64::MAX` became negative and
+produced invalid provider SQL or an opaque database error.
+
+Decision: validate both pagination values with a checked conversion and return a
+domain validation error before building SQL.
