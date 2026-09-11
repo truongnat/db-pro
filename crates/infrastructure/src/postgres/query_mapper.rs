@@ -102,9 +102,7 @@ fn decode_cell(row: &sqlx::postgres::PgRow, i: usize, data_type: &str) -> CellVa
                     .and_then(|bytes| std::str::from_utf8(bytes).ok())
                     .map(|value| CellValue::Text(value.to_owned()))
                     .unwrap_or_else(|| CellValue::Text(format!("<unsupported value: {data_type}>"))),
-                PgValueFormat::Binary => {
-                    CellValue::Text(format!("<unsupported binary value: {data_type}>"))
-                }
+                PgValueFormat::Binary => CellValue::Text(format!("<unsupported binary value: {data_type}>")),
             })
             .unwrap_or_else(|| CellValue::Text(format!("<unsupported value: {data_type}>")))
     })
