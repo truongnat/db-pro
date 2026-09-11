@@ -40,12 +40,12 @@ pub struct UiConnectionDraft {
 impl Default for UiConnectionDraft {
     fn default() -> Self {
         Self {
-            name: String::new(),
+            name: "Xe Lạc Hồng (PostgreSQL)".to_owned(),
             host: "localhost".to_owned(),
             port: "5432".to_owned(),
-            database: String::new(),
-            username: String::new(),
-            password: String::new(),
+            database: "fullstack_starter".to_owned(),
+            username: "postgres".to_owned(),
+            password: "postgres".to_owned(),
             driver: UiDriver::Postgres,
             ssl_mode: UiSslMode::Disable,
             readonly: false,

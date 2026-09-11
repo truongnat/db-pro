@@ -36,6 +36,30 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let (runtime_tx, mut runtime_rx) = tokio_runtime.block_on(async {
         let runtime = DbProRuntime::new(data_dir).await?;
+
+        let existing = runtime.connections().list().await.unwrap_or_default();
+        if !existing.iter().any(|c| c.config.database == "fullstack_starter" && c.config.port == 5432) {
+            let config = db_pro_core::domain::connection::ConnectionConfig {
+                name: "Xe Lạc Hồng (PostgreSQL)".to_owned(),
+                host: "localhost".to_owned(),
+                port: 5432,
+                database: "fullstack_starter".to_owned(),
+                username: "postgres".to_owned(),
+                driver: db_pro_core::domain::connection::DriverType::Postgres,
+                ssl_mode: db_pro_core::domain::connection::SslMode::Disable,
+                ssh_tunnel: None,
+                query_timeout_ms: 30_000,
+                max_rows: 500,
+                color: Some("#6366f1".to_owned()),
+                tags: vec!["docker".to_owned(), "xe-lac-hong".to_owned()],
+                group: None,
+                readonly: false,
+            };
+            if let Err(err) = runtime.connections().create(config, "postgres").await {
+                tracing::warn!("failed to seed default Xe Lạc Hồng connection: {err}");
+            }
+        }
+
         Ok::<_, Box<dyn Error>>(spawn_worker(runtime, 64))
     })?;
 
