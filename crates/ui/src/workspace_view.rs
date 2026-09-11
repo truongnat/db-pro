@@ -179,6 +179,8 @@ impl DbProApp {
         let diagram_tab = tab_frame(self.theme, true).show(ui, |ui| {
             let mut close_clicked = false;
             ui.horizontal(|ui| {
+                // The ER diagram tab is always active while shown, so the label
+                // is decorative; only the close button below is interactive.
                 let _ = ui.selectable_label(
                     true,
                     icon_text(Icon::ArrowRightLeft, "ER diagram", self.theme.text_primary),

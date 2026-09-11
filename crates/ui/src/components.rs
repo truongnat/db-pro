@@ -724,14 +724,16 @@ pub fn tag_chip(ui: &mut Ui, label: &str, removable: bool, theme: DbProTheme) ->
 
 /// Small status dot with an optional pulsing outer ring. Used for connection
 /// health, agent provider readiness, etc.
+///
+/// The dot takes its colour from the caller-supplied `color`; `theme` is
+/// accepted for signature symmetry with the other status helpers.
 pub fn status_dot(
     ui: &mut Ui,
     color: Color32,
     pulsing: bool,
     reduce_motion: bool,
-    theme: DbProTheme,
+    _theme: DbProTheme,
 ) -> egui::Response {
-    let _ = theme;
     let size = 12.0;
     let (rect, response) = ui.allocate_exact_size(egui::vec2(size, size), egui::Sense::hover());
     let center = rect.center();

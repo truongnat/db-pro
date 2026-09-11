@@ -584,7 +584,7 @@ impl DbProApp {
         } else {
             self.query_folder.trim().to_owned()
         };
-        let _ = self.task_bridge.send(UiCommand::RenameSavedQuery {
+        self.dispatch_command(UiCommand::RenameSavedQuery {
             request_id,
             id: query.id.clone(),
             name,
@@ -599,7 +599,7 @@ impl DbProApp {
         ui.horizontal(|ui| {
             if compact_button(ui, "Confirm delete", self.theme).clicked() {
                 let request_id = self.task_bridge.next_request_id();
-                let _ = self.task_bridge.send(UiCommand::DeleteSavedQuery { request_id, id });
+                self.dispatch_command(UiCommand::DeleteSavedQuery { request_id, id });
                 self.delete_confirmation_id = None;
             }
             if compact_button(ui, "Cancel", self.theme).clicked() {
@@ -695,12 +695,12 @@ impl DbProApp {
         ui.horizontal_wrapped(|ui| {
             if compact_button_with_icon(ui, Icon::FolderOpen, "Choose path", self.theme).clicked() {
                 let request_id = self.task_bridge.next_request_id();
-                let _ = self.task_bridge.send(UiCommand::PickBackupFile { request_id });
+                self.dispatch_command(UiCommand::PickBackupFile { request_id });
             }
             if secondary_button_with_icon(ui, Icon::Archive, "Create backup", self.theme).clicked() {
                 if let Some(connection) = self.active_connection().cloned() {
                     let request_id = self.task_bridge.next_request_id();
-                    let _ = self.task_bridge.send(UiCommand::Backup {
+                    self.dispatch_command(UiCommand::Backup {
                         request_id,
                         connection_id: connection.id,
                         output_path: self.backup_output_path.clone(),
@@ -721,7 +721,7 @@ impl DbProApp {
         ui.horizontal_wrapped(|ui| {
             if compact_button_with_icon(ui, Icon::FolderOpen, "Choose file", self.theme).clicked() {
                 let request_id = self.task_bridge.next_request_id();
-                let _ = self.task_bridge.send(UiCommand::PickRestoreFile { request_id });
+                self.dispatch_command(UiCommand::PickRestoreFile { request_id });
             }
             if secondary_button_with_icon(ui, Icon::RotateCcw, "Restore database", self.theme).clicked() {
                 self.restore_confirmation = true;
@@ -734,7 +734,7 @@ impl DbProApp {
                 if danger_button(ui, "Confirm restore", self.theme).clicked() {
                     if let Some(connection) = self.active_connection().cloned() {
                         let request_id = self.task_bridge.next_request_id();
-                        let _ = self.task_bridge.send(UiCommand::Restore {
+                        self.dispatch_command(UiCommand::Restore {
                             request_id,
                             connection_id: connection.id,
                             input_path: self.restore_input_path.clone(),

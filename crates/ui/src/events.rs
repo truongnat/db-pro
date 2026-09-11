@@ -343,7 +343,7 @@ impl DbProApp {
     fn request_saved_queries_refresh(&mut self) {
         if let Some(connection_id) = self.active_connection_id.clone() {
             let request_id = self.task_bridge.next_request_id();
-            let _ = self.task_bridge.send(UiCommand::ListSavedQueries {
+            self.dispatch_command(UiCommand::ListSavedQueries {
                 request_id,
                 connection_id,
             });
@@ -365,12 +365,12 @@ impl DbProApp {
         if let Some(connection_id) = self.active_connection_id.clone() {
             self.request_schema_introspection(connection_id.clone(), false);
             let request_id = self.task_bridge.next_request_id();
-            let _ = self.task_bridge.send(UiCommand::ListSavedQueries {
+            self.dispatch_command(UiCommand::ListSavedQueries {
                 request_id,
                 connection_id: connection_id.clone(),
             });
             let request_id = self.task_bridge.next_request_id();
-            let _ = self.task_bridge.send(UiCommand::ListQueryFolders {
+            self.dispatch_command(UiCommand::ListQueryFolders {
                 request_id,
                 connection_id,
             });
@@ -511,7 +511,7 @@ impl DbProApp {
     }
 
     pub(super) fn cancel_query(&mut self, request_id: crate::RequestId) {
-        let _ = self.task_bridge.send(UiCommand::CancelQuery { request_id });
+        self.dispatch_command(UiCommand::CancelQuery { request_id });
         self.runtime_message = "Cancelling query…".to_owned();
     }
 
@@ -537,7 +537,7 @@ impl DbProApp {
         let request_id = self.task_bridge.next_request_id();
         self.next_query_request = Some(request_id);
         self.runtime_message = "Sending query to runtime…".to_owned();
-        let _ = self.task_bridge.send(UiCommand::RunQuery {
+        self.dispatch_command(UiCommand::RunQuery {
             request_id,
             connection_id,
             sql,

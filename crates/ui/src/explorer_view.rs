@@ -551,7 +551,7 @@ impl DbProApp {
         self.pending_connection_request = Some(request_id);
         self.schema_request = None;
         self.schema_error = None;
-        let _ = self.task_bridge.send(UiCommand::Connect {
+        self.dispatch_command(UiCommand::Connect {
             request_id,
             connection_id: connection.id.clone(),
         });

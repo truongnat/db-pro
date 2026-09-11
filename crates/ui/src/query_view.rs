@@ -408,7 +408,7 @@ impl DbProApp {
             .get(self.active_query_document)
             .map(|document| document.title.clone())
             .unwrap_or_else(|| "Saved query".to_owned());
-        let _ = self.task_bridge.send(UiCommand::SaveQuery {
+        self.dispatch_command(UiCommand::SaveQuery {
             request_id,
             connection_id: connection.id.clone(),
             name,
@@ -458,7 +458,7 @@ impl DbProApp {
             return;
         }
         let request_id = self.task_bridge.next_request_id();
-        let _ = self.task_bridge.send(UiCommand::CreateQueryFolder {
+        self.dispatch_command(UiCommand::CreateQueryFolder {
             request_id,
             connection_id: connection.id.clone(),
             name: self.query_folder.trim().to_owned(),

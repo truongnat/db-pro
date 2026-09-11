@@ -507,6 +507,17 @@ impl DbProApp {
         }
     }
 
+    /// Queues a command for the runtime worker, ignoring transport failures.
+    ///
+    /// The UI is fire-and-forget: a send only fails once the worker channel is
+    /// closed (shutdown), and a frame that already drew its widgets has nothing
+    /// actionable to do about it. Runtime-side problems are reported back
+    /// through `UiEvent`, not through this return value.
+    fn dispatch_command(&mut self, command: UiCommand) {
+        // Intentionally ignored — see the method contract above.
+        let _ = self.task_bridge.send(command);
+    }
+
     fn active_connection(&self) -> Option<&UiConnectionSummary> {
         self.connections
             .iter()
@@ -794,7 +805,7 @@ impl DbProApp {
         self.connections_requested = true;
         self.connections_request_pending = true;
         let request_id = self.task_bridge.next_request_id();
-        let _ = self.task_bridge.send(UiCommand::ListConnections { request_id });
+        self.dispatch_command(UiCommand::ListConnections { request_id });
     }
 
     fn runtime_work_pending(&self) -> bool {
@@ -814,7 +825,7 @@ impl DbProApp {
 
     fn request_schema_introspection(&mut self, connection_id: String, force_refresh: bool) {
         let request_id = self.task_bridge.next_request_id();
-        let _ = self.task_bridge.send(UiCommand::IntrospectSchema {
+        self.dispatch_command(UiCommand::IntrospectSchema {
             request_id,
             connection_id,
             force_refresh,

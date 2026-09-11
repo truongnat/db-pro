@@ -505,7 +505,7 @@ impl DbProApp {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
-        let _ = self.task_bridge.send(UiCommand::ExecuteDdl {
+        self.dispatch_command(UiCommand::ExecuteDdl {
             request_id,
             connection_id: connection.id,
             sql,
@@ -657,7 +657,7 @@ impl DbProApp {
         };
         let request_id = self.task_bridge.next_request_id();
         self.table_info_request = Some(request_id);
-        let _ = self.task_bridge.send(UiCommand::LoadTableInfo {
+        self.dispatch_command(UiCommand::LoadTableInfo {
             request_id,
             connection_id,
             schema: self.active_schema().to_owned(),
@@ -986,7 +986,7 @@ impl DbProApp {
         };
         let request_id = self.task_bridge.next_request_id();
         self.table_ddl_request = Some(request_id);
-        let _ = self.task_bridge.send(UiCommand::LoadTableDdl {
+        self.dispatch_command(UiCommand::LoadTableDdl {
             request_id,
             connection_id,
             schema: self.active_schema().to_owned(),
@@ -1021,7 +1021,7 @@ impl DbProApp {
             column,
             descending: self.table_data_sort_desc,
         });
-        let _ = self.task_bridge.send(UiCommand::LoadTableData {
+        self.dispatch_command(UiCommand::LoadTableData {
             request_id,
             connection_id,
             schema: self.active_schema().to_owned(),

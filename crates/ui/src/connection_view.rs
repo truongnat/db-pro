@@ -52,7 +52,7 @@ impl DbProApp {
                 ui.horizontal(|ui| {
                     if danger_button(ui, "Delete", self.theme).clicked() {
                         let request_id = self.task_bridge.next_request_id();
-                        let _ = self.task_bridge.send(UiCommand::DeleteConnection {
+                        self.dispatch_command(UiCommand::DeleteConnection {
                             request_id,
                             connection_id: connection_id.clone(),
                         });
@@ -91,7 +91,7 @@ impl DbProApp {
                 ui.horizontal(|ui| {
                     if danger_button(ui, "Delete folder", self.theme).clicked() {
                         let request_id = self.task_bridge.next_request_id();
-                        let _ = self.task_bridge.send(UiCommand::DeleteQueryFolder {
+                        self.dispatch_command(UiCommand::DeleteQueryFolder {
                             request_id,
                             id: folder_id.clone(),
                         });
@@ -214,7 +214,7 @@ impl DbProApp {
                     );
                     if compact_button(ui, "Browse…", self.theme).clicked() {
                         let request_id = self.task_bridge.next_request_id();
-                        let _ = self.task_bridge.send(UiCommand::PickSshPrivateKey { request_id });
+                        self.dispatch_command(UiCommand::PickSshPrivateKey { request_id });
                     }
                 });
             }
@@ -234,7 +234,7 @@ impl DbProApp {
             );
             if compact_button(ui, "Browse…", self.theme).clicked() {
                 let request_id = self.task_bridge.next_request_id();
-                let _ = self.task_bridge.send(UiCommand::PickSqliteFile { request_id });
+                self.dispatch_command(UiCommand::PickSqliteFile { request_id });
             }
         });
     }
@@ -316,7 +316,7 @@ impl DbProApp {
         } else {
             UiCommand::TestConnection { request_id, draft }
         };
-        let _ = self.task_bridge.send(command);
+        self.dispatch_command(command);
         self.pending_connection_request = Some(request_id);
         if save {
             self.connection_test_valid = false;
