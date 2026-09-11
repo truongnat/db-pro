@@ -742,76 +742,80 @@ fn translate_connections_loaded(
 
 fn translate_schema_loaded(request_id: RuntimeRequestId, schema: db_pro_runtime::SchemaSummary) -> Option<UiEvent> {
     Some(UiEvent::SchemaLoaded {
-        request_id: db_pro_ui::RequestId(request_id.0),
-        schema: UiSchemaSummary {
-            schemas: schema.schemas,
-            tables: schema.tables,
-            columns: schema.columns,
-            table_details: schema
-                .table_details
-                .into_iter()
-                .map(|table| UiTableSummary {
-                    schema: table.schema,
-                    name: table.name,
-                    row_count: table.row_count,
-                    columns: table
-                        .columns
-                        .into_iter()
-                        .map(|column| UiSchemaColumn {
-                            name: column.name,
-                            data_type: column.data_type,
-                            nullable: column.nullable,
-                            is_primary_key: column.is_primary_key,
-                        })
-                        .collect(),
-                    foreign_keys: table
-                        .foreign_keys
-                        .into_iter()
-                        .map(|foreign_key| UiSchemaForeignKey {
-                            name: foreign_key.name,
-                            from_columns: foreign_key.from_columns,
-                            to_schema: foreign_key.to_schema,
-                            to_table: foreign_key.to_table,
-                            to_columns: foreign_key.to_columns,
-                        })
-                        .collect(),
-                })
-                .collect(),
-            views: schema
-                .views
-                .into_iter()
-                .map(|view| UiViewSummary {
-                    schema: view.schema,
-                    name: view.name,
-                    definition: view.definition,
-                })
-                .collect(),
-            triggers: schema
-                .triggers
-                .into_iter()
-                .map(|trigger| UiTriggerSummary {
-                    schema: trigger.schema,
-                    name: trigger.name,
-                    table_name: trigger.table_name,
-                    timing: trigger.timing,
-                    event: trigger.event,
-                    definition: trigger.definition,
-                    enabled: trigger.enabled,
-                })
-                .collect(),
-            functions: schema
-                .functions
-                .into_iter()
-                .map(|function| UiFunctionSummary {
-                    schema: function.schema,
-                    name: function.name,
-                    routine_type: function.routine_type,
-                    data_type: function.data_type,
-                    definition: function.definition,
-                })
-                .collect(),
-        },
+        request_id: ui_request_id(request_id),
+        schema: map_schema_summary(schema),
     })
+}
+
+fn map_schema_summary(schema: db_pro_runtime::SchemaSummary) -> UiSchemaSummary {
+    UiSchemaSummary {
+        schemas: schema.schemas,
+        tables: schema.tables,
+        columns: schema.columns,
+        table_details: schema.table_details.into_iter().map(map_table_summary).collect(),
+        views: schema.views.into_iter().map(map_view_summary).collect(),
+        triggers: schema.triggers.into_iter().map(map_trigger_summary).collect(),
+        functions: schema.functions.into_iter().map(map_function_summary).collect(),
+    }
+}
+
+fn map_table_summary(table: db_pro_runtime::TableSummary) -> UiTableSummary {
+    UiTableSummary {
+        schema: table.schema,
+        name: table.name,
+        row_count: table.row_count,
+        columns: table.columns.into_iter().map(map_schema_column).collect(),
+        foreign_keys: table.foreign_keys.into_iter().map(map_foreign_key).collect(),
+    }
+}
+
+fn map_schema_column(column: db_pro_runtime::ColumnSummary) -> UiSchemaColumn {
+    UiSchemaColumn {
+        name: column.name,
+        data_type: column.data_type,
+        nullable: column.nullable,
+        is_primary_key: column.is_primary_key,
+    }
+}
+
+fn map_foreign_key(foreign_key: db_pro_runtime::ForeignKeySummary) -> UiSchemaForeignKey {
+    UiSchemaForeignKey {
+        name: foreign_key.name,
+        from_columns: foreign_key.from_columns,
+        to_schema: foreign_key.to_schema,
+        to_table: foreign_key.to_table,
+        to_columns: foreign_key.to_columns,
+    }
+}
+
+fn map_view_summary(view: db_pro_runtime::ViewSummary) -> UiViewSummary {
+    UiViewSummary {
+        schema: view.schema,
+        name: view.name,
+        definition: view.definition,
+    }
+}
+
+fn map_trigger_summary(trigger: db_pro_runtime::TriggerSummary) -> UiTriggerSummary {
+    UiTriggerSummary {
+        schema: trigger.schema,
+        name: trigger.name,
+        table_name: trigger.table_name,
+        timing: trigger.timing,
+        event: trigger.event,
+        definition: trigger.definition,
+        enabled: trigger.enabled,
+    }
+}
+
+fn map_function_summary(function: db_pro_runtime::FunctionSummary) -> UiFunctionSummary {
+    UiFunctionSummary {
+        schema: function.schema,
+        name: function.name,
+        routine_type: function.routine_type,
+        data_type: function.data_type,
+        definition: function.definition,
+    }
 }
 
 fn translate_query_folders_loaded(
