@@ -1,19 +1,262 @@
 use super::*;
 
+/// Minimum / maximum heights for the two resizable sub-panes.
+const CONN_PANE_MIN: f32 = 80.0;
+const CONN_PANE_MAX: f32 = 380.0;
+const SCHEMA_PANE_MIN: f32 = 60.0;
+const SCHEMA_PANE_MAX: f32 = 180.0;
+
 impl DbProApp {
-    pub(super) fn draw_explorer(&mut self, ui: &mut egui::Ui) {
-        self.draw_explorer_connections(ui);
-        self.draw_explorer_schema_feedback(ui);
-        self.draw_explorer_tables(ui);
-        let schema_scope = self.active_schema().to_owned();
-        ui.indent(("schema-objects", schema_scope.as_str()), |ui| {
-            ui.label(icon_text(Icon::Layers3, &schema_scope, self.theme.text_muted));
-            self.draw_explorer_views(ui);
-            self.draw_explorer_triggers(ui);
-            self.draw_explorer_functions(ui);
+    /// Entry-point for the Explorer activity: three vertically-stacked panes.
+    ///
+    /// ```text
+    /// ┌─────────────────────────────┐
+    /// │ CONNECTIONS             [+] │  ← resizable (drag bottom border)
+    /// │ ● production-pg  PostgreSQL │
+    /// │ ○ localhost-dev  SQLite     │
+    /// ├─╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤  ← drag handle
+    /// │ SCHEMAS                     │  ← resizable
+    /// │ [public] analytics  logs    │
+    /// ├─╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤  ← drag handle
+    /// │ ▷ Filter tables…            │  ← fills rest
+    /// │  ⊞ users  ← selected       │
+    /// │  ⊞ orders                  │
+    /// │  ▷ VIEWS               (3) │
+    /// │  ▷ FUNCTIONS           (2) │
+    /// └─────────────────────────────┘
+    /// ```
+    pub(super) fn draw_explorer_sub_panes(&mut self, ui: &mut egui::Ui) {
+        let available = ui.available_height();
+
+        // ── CONNECTIONS pane ──────────────────────────────────────────────
+        let conn_height = self.connections_pane_height.clamp(
+            CONN_PANE_MIN,
+            (available - SCHEMA_PANE_MIN - 40.0).max(CONN_PANE_MIN),
+        );
+        egui::Frame {
+            inner_margin: egui::Margin::symmetric(0.0, 0.0),
+            ..Default::default()
+        }
+        .show(ui, |ui| {
+            ui.set_height(conn_height);
+            // Pane header
+            ui.horizontal(|ui| {
+                section_label(ui, "CONNECTIONS", self.theme);
+                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                    if compact_icon_button(ui, Icon::Plus, self.theme)
+                        .on_hover_text("New connection")
+                        .clicked()
+                    {
+                        self.open_new_connection();
+                    }
+                    let mut refresh_schema = false;
+                    compact_icon_button(ui, Icon::MoreHorizontal, self.theme)
+                        .on_hover_text("Explorer actions")
+                        .context_menu(|ui| {
+                            if ui.button("Refresh schema").clicked() {
+                                refresh_schema = true;
+                                ui.close_menu();
+                            }
+                        });
+                    if refresh_schema {
+                        if let Some(connection_id) = self.active_connection_id.clone() {
+                            self.request_schema_introspection(connection_id, true);
+                        }
+                    }
+                });
+            });
+            ui.add_space(4.0);
+
+            egui::ScrollArea::vertical()
+                .id_salt("conn_pane_scroll")
+                .max_height(conn_height - 30.0)
+                .show(ui, |ui| {
+                    self.draw_connections_pane_content(ui);
+                });
         });
-        self.draw_explorer_footer(ui);
+
+        // ── Drag-resize handle between CONNECTIONS and SCHEMAS ────────────
+        let delta_conn = self.draw_pane_separator(ui, "sep_conn_schema");
+        self.connections_pane_height =
+            (self.connections_pane_height + delta_conn).clamp(CONN_PANE_MIN, CONN_PANE_MAX);
+
+        // ── SCHEMAS pane ──────────────────────────────────────────────────
+        let remaining_after_conn = available - self.connections_pane_height - 8.0;
+        let schema_height = self.schemas_pane_height.clamp(
+            SCHEMA_PANE_MIN,
+            (remaining_after_conn - 60.0).max(SCHEMA_PANE_MIN),
+        );
+        egui::Frame {
+            inner_margin: egui::Margin::symmetric(0.0, 0.0),
+            ..Default::default()
+        }
+        .show(ui, |ui| {
+            ui.set_height(schema_height);
+            ui.horizontal(|ui| {
+                section_label(ui, "SCHEMAS", self.theme);
+                let schemas = self.schema.schemas.clone();
+                if !schemas.is_empty() {
+                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                        ui.label(
+                            RichText::new(format!(
+                                "{} schema{}",
+                                schemas.len(),
+                                if schemas.len() == 1 { "" } else { "s" }
+                            ))
+                            .small()
+                            .color(self.theme.text_muted),
+                        );
+                    });
+                }
+            });
+            ui.add_space(4.0);
+            egui::ScrollArea::vertical()
+                .id_salt("schema_pane_scroll")
+                .max_height(schema_height - 30.0)
+                .show(ui, |ui| {
+                    self.draw_schemas_pane_content(ui);
+                });
+        });
+
+        // ── Drag-resize handle between SCHEMAS and OBJECTS ────────────────
+        let delta_schema = self.draw_pane_separator(ui, "sep_schema_objects");
+        self.schemas_pane_height =
+            (self.schemas_pane_height + delta_schema).clamp(SCHEMA_PANE_MIN, SCHEMA_PANE_MAX);
+
+        // ── OBJECTS pane (fills remaining) ────────────────────────────────
+        // Schema load feedback sits above the search bar.
+        self.draw_explorer_schema_feedback(ui);
+
+        ui.horizontal(|ui| {
+            section_label(ui, "TABLES / OBJECTS", self.theme);
+        });
+        ui.add_space(2.0);
+
+        // Search bar always visible at top of objects pane.
+        self.draw_explorer_search_bar(ui);
+
+        egui::ScrollArea::vertical()
+            .id_salt("objects_pane_scroll")
+            .show(ui, |ui| {
+                self.draw_explorer_tables(ui);
+                let schema_scope = self.active_schema().to_owned();
+                ui.indent(("schema-objects", schema_scope.as_str()), |ui| {
+                    self.draw_explorer_views(ui);
+                    self.draw_explorer_triggers(ui);
+                    self.draw_explorer_functions(ui);
+                });
+                self.draw_explorer_footer(ui);
+            });
     }
+
+    /// Render a thin draggable separator bar and return the vertical drag delta.
+    fn draw_pane_separator(&self, ui: &mut egui::Ui, id: &str) -> f32 {
+        let sep_height = 6.0;
+        let (rect, response) = ui.allocate_exact_size(
+            egui::vec2(ui.available_width(), sep_height),
+            egui::Sense::drag(),
+        );
+        let _ = id; // id used implicitly by egui for interaction tracking via rect id
+        // Draw a subtle divider line in the centre of the drag zone.
+        ui.painter().hline(
+            rect.x_range(),
+            rect.center().y,
+            egui::Stroke::new(1.0, self.theme.border_subtle),
+        );
+        if response.hovered() || response.dragged() {
+            ui.ctx().set_cursor_icon(egui::CursorIcon::ResizeVertical);
+        }
+        // Show a visual highlight while dragging.
+        if response.dragged() {
+            ui.painter().hline(
+                rect.x_range(),
+                rect.center().y,
+                egui::Stroke::new(2.0, self.theme.accent),
+            );
+        }
+        response.drag_delta().y
+    }
+
+    /// Content of the CONNECTIONS sub-pane (connection list + connect logic).
+    fn draw_connections_pane_content(&mut self, ui: &mut egui::Ui) {
+        self.draw_explorer_connections(ui);
+    }
+
+    /// Content of the SCHEMAS sub-pane (schema pills).
+    fn draw_schemas_pane_content(&mut self, ui: &mut egui::Ui) {
+        let schemas = self.schema.schemas.clone();
+        if schemas.is_empty() {
+            if self.connected {
+                ui.label(
+                    RichText::new("Schema metadata unavailable")
+                        .small()
+                        .color(self.theme.text_muted),
+                );
+            } else {
+                ui.label(
+                    RichText::new("Connect to a database to see its schemas.")
+                        .small()
+                        .color(self.theme.text_muted),
+                );
+            }
+            return;
+        }
+
+        // Active database label
+        let database_name = self
+            .active_connection()
+            .map(|c| c.database.clone())
+            .filter(|d| !d.is_empty())
+            .unwrap_or_else(|| "active database".to_owned());
+        ui.label(icon_text(Icon::Database, &database_name, self.theme.text_secondary));
+        ui.add_space(4.0);
+
+        // Schema pills — horizontal wrap
+        ui.horizontal_wrapped(|ui| {
+            for schema in &schemas {
+                let selected = self.active_schema() == schema;
+                let fill = if selected {
+                    self.theme.accent_soft
+                } else {
+                    self.theme.surface_hover
+                };
+                let text_color = if selected {
+                    self.theme.accent
+                } else {
+                    self.theme.text_secondary
+                };
+                let clicked = egui::Frame {
+                    fill,
+                    inner_margin: egui::Margin::symmetric(8.0, 3.0),
+                    rounding: egui::Rounding::same(12.0),
+                    stroke: if selected {
+                        egui::Stroke::new(1.0, self.theme.accent.linear_multiply(0.5))
+                    } else {
+                        egui::Stroke::NONE
+                    },
+                    ..Default::default()
+                }
+                .show(ui, |ui| {
+                    ui.label(RichText::new(schema).size(11.5).color(text_color));
+                })
+                .response
+                .interact(egui::Sense::click())
+                .clicked();
+
+                if clicked && !selected {
+                    self.selected_schema = Some(schema.clone());
+                    self.selected_table = None;
+                    self.selected_schema_object = None;
+                    self.table_info = None;
+                    self.table_ddl = None;
+                    self.table_data_result = None;
+                    self.staged_changes.clear();
+                    self.active_tab = WorkspaceTab::Welcome;
+                }
+            }
+        });
+    }
+
 
     fn draw_explorer_connections(&mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
@@ -197,71 +440,26 @@ impl DbProApp {
             });
             ui.add_space(8.0);
         }
+    }
+
+    /// Renders the search/filter bar for the table list.
+    /// Called explicitly by both the legacy flat path and the Objects sub-pane.
+    fn draw_explorer_search_bar(&mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
             let clear_width = if self.explorer_search.is_empty() { 0.0 } else { 52.0 };
             let search_width = (ui.available_width() - clear_width).max(120.0);
-            input(
-                ui,
-                &mut self.explorer_search,
-                "Search tables…",
-                search_width,
-                self.theme,
-            );
+            input(ui, &mut self.explorer_search, "Search tables…", search_width, self.theme);
             if !self.explorer_search.is_empty() && compact_button(ui, "Clear", self.theme).clicked() {
                 self.explorer_search.clear();
             }
         });
         ui.add_space(8.0);
     }
-    fn draw_explorer_schemas(&mut self, ui: &mut egui::Ui) {
-        let schemas = self.schema.schemas.clone();
-        let database_name = self
-            .active_connection()
-            .map(|connection| connection.database.clone())
-            .filter(|database| !database.is_empty())
-            .unwrap_or_else(|| "active database".to_owned());
-        ui.horizontal(|ui| {
-            ui.label(icon_text(Icon::Database, &database_name, self.theme.text_secondary));
-            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                ui.label(
-                    RichText::new(format!(
-                        "{} schema{}",
-                        schemas.len(),
-                        if schemas.len() == 1 { "" } else { "s" }
-                    ))
-                    .small()
-                    .color(self.theme.text_muted),
-                );
-            });
-        });
-        ui.add_space(3.0);
-        if schemas.is_empty() {
-            ui.indent("empty-schema", |ui| {
-                ui.label(
-                    RichText::new("Schema metadata unavailable")
-                        .small()
-                        .color(self.theme.text_muted),
-                );
-            });
-        } else {
-            for schema in &schemas {
-                let selected = self.active_schema() == schema;
-                if sidebar_item(ui, Icon::Layers3, schema, selected, self.theme).clicked() {
-                    self.selected_schema = Some(schema.clone());
-                    self.selected_table = None;
-                    self.selected_schema_object = None;
-                    self.table_info = None;
-                    self.table_ddl = None;
-                    self.table_data_result = None;
-                    self.staged_changes.clear();
-                    self.active_tab = WorkspaceTab::Welcome;
-                }
-            }
-        }
-    }
 
     fn draw_explorer_tables(&mut self, ui: &mut egui::Ui) {
-        self.draw_explorer_schemas(ui);
+        // NOTE: schema switcher is intentionally omitted here — it lives in the
+        // dedicated SCHEMAS sub-pane when called from draw_explorer_sub_panes.
+        // The legacy draw_explorer() path calls draw_explorer_schemas() itself.
         self.draw_explorer_table_list(ui);
     }
 

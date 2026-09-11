@@ -376,6 +376,10 @@ pub struct DbProApp {
     connection_test_draft: Option<UiConnectionDraft>,
     delete_confirmation_id: Option<String>,
     folder_delete_confirmation: Option<String>,
+    /// Persisted height of the Connections sub-pane inside the Explorer sidebar.
+    connections_pane_height: f32,
+    /// Persisted height of the Schemas sub-pane inside the Explorer sidebar.
+    schemas_pane_height: f32,
 }
 
 impl eframe::App for DbProApp {
@@ -394,6 +398,14 @@ impl eframe::App for DbProApp {
         storage.set_string("dbpro.native.agent-width", self.agent_width.to_string());
         storage.set_string("dbpro.native.output-open", self.bottom_panel_open.to_string());
         storage.set_string("dbpro.native.output-height", self.bottom_panel_height.to_string());
+        storage.set_string(
+            "dbpro.native.connections-pane-height",
+            self.connections_pane_height.to_string(),
+        );
+        storage.set_string(
+            "dbpro.native.schemas-pane-height",
+            self.schemas_pane_height.to_string(),
+        );
     }
 
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {

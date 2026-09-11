@@ -279,7 +279,8 @@ impl DbProApp {
             .width_range(SIDEBAR_MIN_WIDTH..=SIDEBAR_MAX_WIDTH)
             .frame(sidebar_frame(self.theme))
             .show(ctx, |ui| {
-                ui.add_space(12.0);
+                // ── Sidebar header ──────────────────────────────────────────
+                ui.add_space(8.0);
                 ui.horizontal(|ui| {
                     section_label(
                         ui,
@@ -303,26 +304,37 @@ impl DbProApp {
                         }
                     });
                 });
-                ui.add_space(12.0);
+                ui.add_space(4.0);
 
+                // ── Per-activity content ────────────────────────────────────
                 match self.activity {
-                    Activity::Explorer => self.draw_explorer(ui),
-                    Activity::Queries => self.draw_queries(ui),
-                    Activity::History => self.draw_history(ui),
-                    Activity::Transfers => self.draw_activity_placeholder(
-                        ui,
-                        "TRANSFERS",
-                        Icon::Upload,
-                        "Background transfer jobs will appear here when transfers are available.",
-                    ),
-                    Activity::Monitor => self.draw_activity_placeholder(
-                        ui,
-                        "MONITOR",
-                        Icon::Gauge,
-                        "Connection health and query activity will appear here when monitoring is available.",
-                    ),
-                    Activity::Settings => self.draw_settings(ui),
-                    Activity::Diagram => self.draw_diagram_sidebar(ui),
+                    Activity::Explorer => self.draw_explorer_sub_panes(ui),
+                    _ => {
+                        egui::ScrollArea::vertical()
+                            .id_salt("sidebar_scroll")
+                            .show(ui, |ui| {
+                                ui.add_space(8.0);
+                                match self.activity {
+                                    Activity::Queries => self.draw_queries(ui),
+                                    Activity::History => self.draw_history(ui),
+                                    Activity::Transfers => self.draw_activity_placeholder(
+                                        ui,
+                                        "TRANSFERS",
+                                        Icon::Upload,
+                                        "Background transfer jobs will appear here when transfers are available.",
+                                    ),
+                                    Activity::Monitor => self.draw_activity_placeholder(
+                                        ui,
+                                        "MONITOR",
+                                        Icon::Gauge,
+                                        "Connection health and query activity will appear here when monitoring is available.",
+                                    ),
+                                    Activity::Settings => self.draw_settings(ui),
+                                    Activity::Diagram => self.draw_diagram_sidebar(ui),
+                                    Activity::Explorer => unreachable!(),
+                                }
+                            });
+                    }
                 }
             });
         self.sidebar_width = response

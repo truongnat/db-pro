@@ -46,6 +46,18 @@ impl DbProApp {
             {
                 app.bottom_panel_height = height.clamp(OUTPUT_MIN_HEIGHT, OUTPUT_MAX_HEIGHT);
             }
+            if let Some(height) = storage
+                .get_string("dbpro.native.connections-pane-height")
+                .and_then(|value| value.parse::<f32>().ok())
+            {
+                app.connections_pane_height = height.clamp(80.0, 400.0);
+            }
+            if let Some(height) = storage
+                .get_string("dbpro.native.schemas-pane-height")
+                .and_then(|value| value.parse::<f32>().ok())
+            {
+                app.schemas_pane_height = height.clamp(60.0, 200.0);
+            }
             app.theme = if app.dark_mode {
                 DbProTheme::dark()
             } else {
@@ -204,6 +216,8 @@ impl Default for DbProApp {
             connection_test_draft: None,
             delete_confirmation_id: None,
             folder_delete_confirmation: None,
+            connections_pane_height: 160.0,
+            schemas_pane_height: 90.0,
         }
     }
 }
