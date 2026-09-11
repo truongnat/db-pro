@@ -119,6 +119,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_title("DB Pro")
+            .with_maximized(true)
             .with_inner_size([1280.0, 800.0])
             .with_min_inner_size([1024.0, 640.0]),
         ..Default::default()
