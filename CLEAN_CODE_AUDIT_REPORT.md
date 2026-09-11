@@ -26,6 +26,101 @@
 
 ---
 
+## 🔁 FOLLOW-UP #2 — 2026-09-11 · Quét lại trên trạng thái đã merge
+
+**Bối cảnh.** Toàn bộ 6 nhánh local (native redesign, sidebar DBeaver/codex, checkpoint WIP `3bd8eef`…) đã được merge trực tiếp vào `truongnat/main`; React frontend đã archive vào `_archive/frontend/`. Phần dưới là kết quả **quét thực tế trên cây đã merge**, thay thế các số liệu lấy từ nhánh redesign ở phần trên.
+
+**Mốc so sánh:** `origin/main` = `bd64ddf6` → `HEAD` = `c9a40a99`, **33 commit**, 580 file, **+6.589 / −1.795** dòng.
+Phân bố file thay đổi: `_archive/` 500 · `docs/` 33 · `crates/ui/` 19 · `.skills/` 7 · `plans/` 6 · `crates/native-app/` 2 · `crates/tauri-app/` 2 · `.github/` 2 · còn lại là file gốc.
+
+### ⚠️ Đính chính các số liệu đã lệch
+
+| Mục | Báo cáo cũ (nhánh redesign) | Thực tế sau merge |
+| :--- | :--- | :--- |
+| Theme mặc định | dark-first, storage `native-redesign-v4` | **light-first**, `THEME_STORAGE_VERSION = "light-first-v1"` (`app_state.rs`) |
+| `crates/ui/src/app.rs` | 753 dòng | **825 dòng** |
+| `crates/ui/src/query_view.rs` | 676 dòng | **766 dòng** |
+| `crates/ui/src/navigation_view.rs` | 682 dòng | **708 dòng** |
+| `crates/ui/src/components.rs` | không nêu | **803 dòng** (trước merge: 341) |
+| `crates/ui/src/explorer_view.rs` | "tách riêng boundary" | **1.471 dòng** (trước merge: 637) |
+| `db-pro-ui` tests | 52/52 | **64/64** |
+
+Lý do lệch: merge ưu tiên nhánh sidebar/DBeaver (light-first + navigator kiểu DBeaver), nên test `stale_theme_storage_resets_to_dark_first_default` đã được đổi thành `..._to_light_first_default`. Đây là **xung đột ngữ nghĩa** mà git không phát hiện được.
+
+### 📊 Kết quả quét (clean-code scan)
+
+| Phạm vi | pass | warn | fail |
+| :--- | :---: | :---: | :---: |
+| **Diff** (`origin/main...HEAD`, 19 file production) | **14** | 3 | **2** |
+| **Baseline** (toàn repo, 120 file production) | 11 | 8 | 0 |
+
+Hai gate chặn còn lại trong scope diff — **cả hai đều là gate kích thước**:
+
+1. **`fn` dài > 100 dòng: 20 hàm** (43 hàm vượt ngưỡng cảnh báo 50 dòng).
+2. **File dài: 1 file > 1.200 dòng** — `crates/ui/src/explorer_view.rs` (1.471 dòng). Cảnh báo thêm: `table_editor_view.rs` 991, `app.rs` 825, `components.rs` 803 (> 800).
+
+Cảnh báo (không chặn): `let _ = <fallible>` không comment lý do — **32 chỗ**; `> 15 .clone()` — `events.rs` (25), `explorer_view.rs` (18), `table_editor_view.rs` (27).
+
+### 🧭 Phân loại 20 hàm vượt ngưỡng chặn
+
+Đối chiếu với bản `origin/main` để tách "nợ cũ" khỏi "nợ do merge tạo ra":
+
+**NEW — 7 hàm, do merge đưa vào (100% dòng là mới):**
+
+| Hàm | Vị trí | Dòng |
+| :--- | :--- | ---: |
+| `draw_dbeaver_table_item` | `explorer_view.rs:720` | 324 |
+| `draw_codex_tree_row` | `explorer_view.rs:23` | 148 |
+| `draw_dbeaver_connections_tree` | `explorer_view.rs:304` | 145 |
+| `draw_dbeaver_schema_objects` | `explorer_view.rs:600` | 118 |
+| `draw_dbeaver_functions_folder` | `explorer_view.rs:1159` | 117 |
+| `draw_dbeaver_views_folder` | `explorer_view.rs:1046` | 111 |
+| `draw_query_actions_menu` | `query_view.rs:248` | 141 |
+
+**MODIFIED — 6 hàm có dòng bị sửa (hàm cũ, bị phình thêm):**
+`app_state.rs:88 default` (142, Δ7) · `query_view.rs:4 draw_query` (243, Δ57) · `result_grid_view.rs:4 draw_result_grid` (236, Δ152) · `table_view.rs:4 draw_welcome` (104, Δ84) · `table_view.rs:180 draw_table_metadata_view` (114, Δ21) · `workspace_view.rs:16 draw_workspace_tabs` (176, Δ3).
+
+**UNTOUCHED — 7 hàm, nợ cũ hoàn toàn (0 dòng bị sửa, chỉ nằm trong file có thay đổi):**
+`events.rs:4 apply_runtime_events` (401) · `table_editor_view.rs:4 draw_table_data` (231) · `table_editor_view.rs:475 draw_table_ddl` (118) · `table_view.rs:295 draw_table_structure` (163) · `navigation_view.rs:458 draw_history` (140) · `navigation_view.rs:599 draw_settings` (109) · `query_view.rs:549 sql_layouter` (116).
+
+➡️ **Kết luận:** 7 hàm là **nợ mới**, 6 hàm bị phình thêm, 7 hàm là **nợ cũ** chỉ bị "lộ ra" vì nằm cùng file. Nguồn nợ mới tập trung ở **một chỗ duy nhất**: navigator kiểu DBeaver trong `explorer_view.rs` (637 → 1.471 dòng).
+
+### 🐞 Hai bug của chính script scan (đã sửa)
+
+1. **`awk -v` xử lý escape sequence** → regex `pub(\([a-z]+\))?` bị biến thành `pub(([a-z]+))?`, nên mọi `pub(super) fn` / `pub(crate) fn` **không bao giờ khớp**. Script báo **13** hàm > 100 dòng trong khi thực tế là **20**. Sửa: truyền regex qua `ENVIRON["START_RE"]` thay vì `-v`.
+2. **`prod_only()` không loại file `_tests.rs`** → `crates/ui/src/app_tests.rs` (1.223 dòng, 50 `#[test]`) bị tính là *production*. Hệ quả: gate "file dài" báo FAIL oan, và phát sinh 26 `unwrap/expect` + 10 `let _ =` báo nhầm. Sửa: thêm `_tests?\.rs$|_bench\.rs$` vào mẫu loại trừ.
+
+Sau 2 fix: file production 20 → **19**; gate file dài 5/2 → **4/1**; tổng kết diff 13/4/2 → **14/3/2**.
+
+### ✅ Cổng kiểm chứng (đã chạy lại trên cây đã merge)
+
+| Gate | Kết quả |
+| :--- | :--- |
+| `cargo fmt --all -- --check` | ✅ sạch |
+| `cargo clippy --workspace --all-targets -- -D warnings` | ✅ **0 error, 0 warning** |
+| `cargo test --workspace --offline` | ✅ **348 passed / 0 failed / 10 ignored** |
+
+Chi tiết test: `db-pro-core` 186 · `db-pro-infrastructure` 72 · `db-pro-ui` **64** · `db-pro-tauri` 21 · `db-pro-runtime` 4 · `db-pro-native` 1. 10 test `ignored` là bộ **PostgreSQL fixture** cần DB sống — chưa chạy trong lần này.
+
+### 📋 Action items bổ sung
+
+| Mức độ | Hạng mục | Vị trí | Đề xuất |
+| :---: | :--- | :--- | :--- |
+| 🔴 **Cao (Must)** | `explorer_view.rs` 1.471 dòng — vượt ngưỡng chặn | `crates/ui/src/explorer_view.rs` | Tách navigator DBeaver thành `views/explorer/` (mỗi folder/schema/table một module) |
+| 🔴 **Cao (Must)** | 6 hàm `draw_dbeaver_*` > 100 dòng | `crates/ui/src/explorer_view.rs` | Trích `draw_dbeaver_table_item` (324 dòng) thành các helper theo hành vi |
+| 🟡 **Trung bình** | `components.rs` +462 dòng trong 1 lần merge | `crates/ui/src/components.rs` | Tách theo nhóm widget (`feedback/`, `controls/`, `data/`) |
+| 🟡 **Trung bình** | 32 `let _ = <fallible>` không comment | `native-app/main.rs`, `app.rs`, `connection_view.rs`, `events.rs` | Thêm comment lý do + `tracing::debug` (`error-handling.md` §3) |
+| 🔵 **Thấp** | `.clone()` cao ở `table_editor_view.rs` (27) | `crates/ui/src/table_editor_view.rs` | Kiểm tra borrow / `Arc` / `Cow` (`functions.md` §10) |
+| 🔵 **Thấp** | 7 hàm nợ cũ > 100 dòng | `events.rs`, `table_editor_view.rs`, `navigation_view.rs` | Không bắt buộc trong lần này — chỉ tách khi có thay đổi hành vi |
+
+### 🎯 Đánh giá sau merge
+
+Các tiêu chí 1–4 và 6 ở bảng Executive Summary **giữ nguyên**. Riêng **tiêu chí 5 (Độ phức tạp hàm & Code Smells)** nên hạ từ **8.5 → 7.5/10**: số hàm > 100 dòng tăng từ ~13 (đếm sai) lên **20**, trong đó **7 hàm mới** đến từ navigator DBeaver. Đây là nợ kỹ thuật **có chủ đích và khu trú** (một file, một tính năng), không phải suy giảm kiến trúc — các gate `fmt` / `clippy -D warnings` / test vẫn sạch tuyệt đối.
+
+> **Lưu ý về bằng chứng runtime:** chưa có ảnh chụp UI native ở các độ phân giải 1280×800 / 1440×900 / 1920×1080 và chưa chạy phiên PostgreSQL + SQLite sống. Vì vậy phần UI của lần merge này **chưa thể đánh dấu `COMPLETED`** theo `docs/plans/FEATURE_LIFECYCLE.md` (thiếu bằng chứng mức 4 — UI runtime).
+
+---
+
 ## 📊 TỔNG QUAN ĐÁNH GIÁ (EXECUTIVE SUMMARY)
 
 | Tiêu chí | Điểm đánh giá | Trạng thái | Nhận xét |

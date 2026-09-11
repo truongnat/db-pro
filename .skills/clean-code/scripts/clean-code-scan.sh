@@ -84,7 +84,11 @@ list_files() { # $1 = ts|rs
   esac
 }
 prod_only() { # loại file test
-  grep -vE '(__tests__/|\.test\.tsx?$|\.spec\.tsx?$|/tests?/|/benches/|/fixtures/|routeTree\.gen\.ts$|^frontend/src/dev/)'
+  # `_tests?\.rs$` / `_bench\.rs$`: Rust hay tách test ra file riêng cạnh source
+  # (vd crates/ui/src/app_tests.rs — 50 #[test], 1223 dòng). Trước đây chỉ loại
+  # thư mục /tests?/ nên file này bị tính là "production" và làm gate "file dài"
+  # báo FAIL oan. Không dùng `/tests?/` cho trường hợp này vì tên file là hậu tố.
+  grep -vE '(__tests__/|\.test\.tsx?$|\.spec\.tsx?$|/tests?/|/benches/|/fixtures/|routeTree\.gen\.ts$|^frontend/src/dev/|_tests?\.rs$|_bench\.rs$)'
 }
 
 TS_FILES="$(list_files ts)"
@@ -104,12 +108,16 @@ grep_in() { # $1 = danh sách file (newline), $2.. = grep args
 long_functions() { # $1 = files, $2 = regex mở đầu hàm
   local files="$1" start_re="$2"
   [ -z "$files" ] && return 0
-  echo "$files" | tr '\n' '\0' | xargs -0 awk -v start_re="$start_re" -v warn="$FN_WARN_LINES" -v fail="$FN_FAIL_LINES" '
+  # Regex truyền qua ENVIRON, KHÔNG dùng `awk -v`: `-v` xử lý escape sequence nên `\(`
+  # biến thành dấu mở group, làm mọi `pub(super) fn` / `pub(crate) fn` không bao giờ khớp
+  # (đã bỏ sót 7 hàm dài > 100 dòng trong crates/ui).
+  export START_RE="$start_re"
+  echo "$files" | tr '\n' '\0' | xargs -0 awk -v warn="$FN_WARN_LINES" -v fail="$FN_FAIL_LINES" '
     FNR == 1 { infn = 0; intest = 0 }
     /^[[:space:]]*#\[cfg\(test\)\]/ { intest = 1 }
     intest { next }
     {
-      if (!infn && $0 ~ start_re && $0 ~ /\{[[:space:]]*$/) {
+      if (!infn && $0 ~ ENVIRON["START_RE"] && $0 ~ /\{[[:space:]]*$/) {
         infn = 1; depth = 0; startline = FNR; name = $0
         sub(/^[[:space:]]+/, "", name); if (length(name) > 70) name = substr(name, 1, 70) "…"
       }
