@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::domain::connection::ConnectionId;
+use crate::domain::connection::{ConnectionConfig, ConnectionId, DriverType};
 use crate::domain::error::DbError;
 use crate::domain::safety::{validate_against_policy, ConnectionSafetyPolicy};
 use crate::domain::schema::{ForeignKey, IntrospectResult, TableInfo, Trigger};
@@ -32,16 +32,19 @@ impl SchemaService {
     }
 
     async fn safety_policy_for(&self, connection_id: &ConnectionId) -> Result<ConnectionSafetyPolicy, DbError> {
-        let config = self
-            .connections
-            .get_config(connection_id)
-            .await?
-            .ok_or_else(|| DbError::ConnectionFailed(format!("connection {connection_id} not found")))?;
+        let config = self.connection_config(connection_id).await?;
         if config.readonly {
             Ok(ConnectionSafetyPolicy::read_only())
         } else {
             Ok(ConnectionSafetyPolicy::full_access())
         }
+    }
+
+    async fn connection_config(&self, connection_id: &ConnectionId) -> Result<ConnectionConfig, DbError> {
+        self.connections
+            .get_config(connection_id)
+            .await?
+            .ok_or_else(|| DbError::ConnectionFailed(format!("connection {connection_id} not found")))
     }
 
     pub async fn introspect(
@@ -188,7 +191,8 @@ impl SchemaService {
             foreign_keys,
         };
 
-        let mut ddl = build_create_table_ddl(&info);
+        let driver = self.connection_config(connection_id).await?.driver;
+        let mut ddl = build_create_table_ddl(&info, driver);
         for trigger in &triggers {
             ddl.push_str(&format_trigger_ddl(trigger));
             ddl.push('\n');
@@ -273,75 +277,83 @@ fn qualify_name(schema: &str, name: &str) -> String {
     }
 }
 
-fn build_create_table_ddl(info: &TableInfo) -> String {
-    let mut ddl = String::new();
-    let qualified = qualify_name(&info.table.schema, &info.table.name);
+fn build_create_table_ddl(info: &TableInfo, driver: DriverType) -> String {
+    let qualified = qualify_name_for_driver(driver, &info.table.schema, &info.table.name);
+    let mut definitions = Vec::new();
 
-    ddl.push_str(&format!("CREATE TABLE {qualified} (\n"));
-
-    for (i, col) in info.columns.iter().enumerate() {
-        ddl.push_str(&format!("    {}", quote_identifier(&col.name)));
-        ddl.push_str(&format!(" {}", col.data_type));
+    for col in &info.columns {
+        let mut definition = format!("    {} {}", quote_identifier(&col.name), col.data_type);
         if !col.nullable {
-            ddl.push_str(" NOT NULL");
+            definition.push_str(" NOT NULL");
         }
         if let Some(ref default) = col.default {
-            ddl.push_str(&format!(" DEFAULT {default}"));
+            definition.push_str(&format!(" DEFAULT {default}"));
         }
-        if i < info.columns.len() - 1 || info.primary_key.is_some() {
-            ddl.push(',');
-        }
-        ddl.push('\n');
+        definitions.push(definition);
     }
 
     if let Some(ref pk) = info.primary_key {
-        let cols = pk
-            .columns
-            .iter()
-            .map(|c| quote_identifier(c))
-            .collect::<Vec<_>>()
-            .join(", ");
-        ddl.push_str(&format!("    PRIMARY KEY ({cols})\n"));
+        definitions.push(format!(
+            "    PRIMARY KEY ({})",
+            quote_columns(&pk.columns.iter().map(String::as_str).collect::<Vec<_>>())
+        ));
     }
 
-    ddl.push_str(");\n");
+    let foreign_keys = group_foreign_keys_for_ddl(&info.foreign_keys);
+    if driver == DriverType::SQLite {
+        for fk in &foreign_keys {
+            let to_qualified = qualify_name_for_driver(driver, fk.to_schema, fk.to_table);
+            let from_columns = quote_columns(&fk.from_columns);
+            let to_columns = quote_columns(&fk.to_columns);
+            definitions.push(format!(
+                "    CONSTRAINT {} FOREIGN KEY ({from_columns}) REFERENCES {to_qualified} ({to_columns})",
+                quote_identifier(fk.name),
+            ));
+        }
+    }
+
+    let mut ddl = format!("CREATE TABLE {qualified} (\n{}\n);\n", definitions.join(",\n"));
 
     for idx in &info.indexes {
         let unique = if idx.unique { "UNIQUE " } else { "" };
-        let cols = idx
-            .columns
-            .iter()
-            .map(|c| quote_identifier(c))
-            .collect::<Vec<_>>()
-            .join(", ");
+        let index_target = qualify_name_for_driver(driver, &info.table.schema, &info.table.name);
+        let cols = quote_columns(&idx.columns.iter().map(String::as_str).collect::<Vec<_>>());
         ddl.push_str(&format!(
-            "CREATE {unique}INDEX {} ON {qualified} ({cols});\n",
+            "CREATE {unique}INDEX {} ON {index_target} ({cols});\n",
             quote_identifier(&idx.name)
         ));
     }
 
-    for fk in group_foreign_keys_for_ddl(&info.foreign_keys) {
-        let to_qualified = qualify_name(fk.to_schema, fk.to_table);
-        let from_columns = fk
-            .from_columns
-            .iter()
-            .map(|column| quote_identifier(column))
-            .collect::<Vec<_>>()
-            .join(", ");
-        let to_columns = fk
-            .to_columns
-            .iter()
-            .map(|column| quote_identifier(column))
-            .collect::<Vec<_>>()
-            .join(", ");
+    if driver == DriverType::Postgres {
+        for fk in foreign_keys {
+            let to_qualified = qualify_name(fk.to_schema, fk.to_table);
+            let from_columns = quote_columns(&fk.from_columns);
+            let to_columns = quote_columns(&fk.to_columns);
 
-        ddl.push_str(&format!(
-            "ALTER TABLE {qualified} ADD CONSTRAINT {} FOREIGN KEY ({from_columns}) REFERENCES {to_qualified} ({to_columns});\n",
-            quote_identifier(fk.name),
-        ));
+            ddl.push_str(&format!(
+                "ALTER TABLE {qualified} ADD CONSTRAINT {} FOREIGN KEY ({from_columns}) REFERENCES {to_qualified} ({to_columns});\n",
+                quote_identifier(fk.name),
+            ));
+        }
     }
 
     ddl
+}
+
+fn qualify_name_for_driver(driver: DriverType, schema: &str, name: &str) -> String {
+    if driver == DriverType::SQLite {
+        quote_identifier(name)
+    } else {
+        qualify_name(schema, name)
+    }
+}
+
+fn quote_columns(columns: &[&str]) -> String {
+    columns
+        .iter()
+        .map(|column| quote_identifier(column))
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 fn format_trigger_ddl(trigger: &Trigger) -> String {
@@ -388,16 +400,16 @@ mod tests {
     use crate::ports::MockIntrospectionCache;
     use crate::ports::{MockConnectionRepository, MockDbConnector};
 
-    fn mock_connections() -> MockConnectionRepository {
+    fn connections_for(driver: DriverType) -> MockConnectionRepository {
         let mut repo = MockConnectionRepository::new();
-        repo.expect_get_config().returning(|_id| {
+        repo.expect_get_config().returning(move |_id| {
             Ok(Some(crate::domain::connection::ConnectionConfig {
                 name: "test".into(),
                 host: "localhost".into(),
                 port: 5432,
                 database: "testdb".into(),
                 username: "user".into(),
-                driver: crate::domain::connection::DriverType::Postgres,
+                driver,
                 ssl_mode: crate::domain::connection::SslMode::Disable,
                 ssh_tunnel: None,
                 query_timeout_ms: 30_000,
@@ -409,6 +421,14 @@ mod tests {
             }))
         });
         repo
+    }
+
+    fn mock_connections() -> MockConnectionRepository {
+        connections_for(DriverType::Postgres)
+    }
+
+    fn sqlite_connections() -> MockConnectionRepository {
+        connections_for(DriverType::SQLite)
     }
 
     fn test_introspect_result() -> IntrospectResult {
@@ -665,6 +685,49 @@ mod tests {
         assert!(ddl.contains("AFTER INSERT"));
     }
 
+    #[tokio::test]
+    async fn get_table_ddl_sqlite_uses_inline_foreign_keys_and_unqualified_names() {
+        let conn_id = ConnectionId::new();
+        let registry = Arc::new(ConnectionRegistry::new());
+        registry.register(conn_id, ConnectionHandle(1));
+
+        let mut introspection = test_introspect_result();
+        introspection.schemas = vec![Schema { name: "main".into() }];
+        introspection.tables[0].schema = "main".into();
+        for column in &mut introspection.columns {
+            column.schema = "main".into();
+        }
+        introspection.primary_keys[0].schema = "main".into();
+        introspection.indexes[0].schema = "main".into();
+        introspection.foreign_keys = vec![ForeignKey {
+            name: "users_fk_0".into(),
+            from_table: "users".into(),
+            from_columns: vec!["id".into()],
+            to_table: "parents".into(),
+            to_columns: vec!["id".into()],
+            schema: "main".into(),
+            to_schema: "main".into(),
+        }];
+
+        let mut cache = MockIntrospectionCache::new();
+        cache.expect_get().returning(move |_| Ok(Some(introspection.clone())));
+
+        let service = SchemaService::new(
+            Box::new(MockDbConnector::new()),
+            Box::new(cache),
+            Arc::clone(&registry),
+            Box::new(sqlite_connections()),
+        );
+
+        let ddl = service.get_table_ddl(&conn_id, "main", "users").await.unwrap();
+
+        assert!(ddl.contains("CREATE TABLE \"users\""));
+        assert!(ddl.contains("CONSTRAINT \"users_fk_0\" FOREIGN KEY (\"id\") REFERENCES \"parents\" (\"id\")"));
+        assert!(ddl.contains("CREATE UNIQUE INDEX \"idx_email\" ON \"users\""));
+        assert!(!ddl.contains("ADD CONSTRAINT"));
+        assert!(!ddl.contains("\"main\"."));
+    }
+
     #[test]
     fn empty_schema_ddl_generation_omits_prefix() {
         let info = TableInfo {
@@ -695,7 +758,7 @@ mod tests {
             }],
         };
 
-        let ddl = build_create_table_ddl(&info);
+        let ddl = build_create_table_ddl(&info, DriverType::Postgres);
         assert!(ddl.contains("CREATE TABLE \"users\""));
         assert!(ddl.contains("REFERENCES \"parents\""));
 
@@ -743,7 +806,7 @@ mod tests {
             }],
         };
 
-        let ddl = build_create_table_ddl(&info);
+        let ddl = build_create_table_ddl(&info, DriverType::Postgres);
         assert!(ddl.contains("FOREIGN KEY (\"user_id\") REFERENCES \"public\".\"users\" (\"id\")"));
     }
 
@@ -850,7 +913,7 @@ mod tests {
             }],
         };
 
-        let ddl = build_create_table_ddl(&info);
+        let ddl = build_create_table_ddl(&info, DriverType::Postgres);
         assert_eq!(ddl.matches("ADD CONSTRAINT \"fk_parent\"").count(), 1);
         assert!(ddl.contains(
             "FOREIGN KEY (\"tenant_id\", \"parent_id\") REFERENCES \"public\".\"parent\" (\"tenant_id\", \"id\")"

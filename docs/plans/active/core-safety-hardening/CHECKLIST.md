@@ -67,6 +67,8 @@
 - [x] Add provider capability validation regression coverage.
 - [x] Gate user-management operations to providers with server sessions.
 - [x] Add SQLite user-management capability regression coverage.
+- [x] Make reconstructed table DDL provider-aware for SQLite foreign keys and names.
+- [x] Add SQLite table-DDL regression coverage for inline foreign keys and indexes.
 - [x] Run formatting, check, clippy, targeted tests, and workspace tests.
 - [x] Self-review changed files and confirm no UI/native files changed.
 - [x] Record PostgreSQL live fixture evidence; SSH-tunnel and native UI runtime evidence remain explicitly pending.

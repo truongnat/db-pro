@@ -437,3 +437,18 @@ operation the provider does not support.
 Decision: require PostgreSQL server-session capability before every user list,
 role, or privilege operation and return `DbError::Unsupported` before the
 provider manager is called.
+
+## P1 — Reconstructed table DDL is not executable on SQLite
+
+`SchemaService::get_table_ddl` generated foreign keys as PostgreSQL-only
+`ALTER TABLE ... ADD CONSTRAINT` statements and qualified SQLite table/index
+names with `"main".`. SQLite requires foreign keys inside `CREATE TABLE` and
+does not accept those qualified forms in the generated index statement.
+
+Impact: applying or reusing the DDL shown for a SQLite table fails, so the
+schema reconstruction path cannot safely reproduce a table with relationships
+and indexes.
+
+Decision: make table DDL generation provider-aware. SQLite embeds named foreign
+keys in `CREATE TABLE` and uses unqualified local object names; PostgreSQL keeps
+the existing post-create constraint statements.
