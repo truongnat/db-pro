@@ -356,6 +356,20 @@ fn editor_status_is_scoped_to_the_query_workspace() {
 }
 
 #[test]
+fn switching_query_documents_resets_editor_cursor_metadata() {
+    let mut app = DbProApp {
+        active_tab: WorkspaceTab::Query,
+        query_cursor_line: 8,
+        query_cursor_column: 13,
+        ..Default::default()
+    };
+    app.new_query_document();
+
+    assert_eq!(app.query_cursor_line, 1);
+    assert_eq!(app.query_cursor_column, 1);
+}
+
+#[test]
 fn provider_capabilities_gate_provider_specific_actions() {
     let sqlite = UiConnectionSummary {
         id: "sqlite".to_owned(),

@@ -31,7 +31,7 @@ Pre-release hardening program. Blocks v0.1.
 
 | Native UI Foundation | COMPLETED | native egui workspace, shared runtime facades and Tauri command boundary implemented; SQLite UI runtime evidence and isolated PostgreSQL fixture coverage pass |
 | Native IDE Redesign | COMPLETED | goal-1.md P0–P7 source/runtime slice verified for PostgreSQL and SQLite; future provider surfaces remain explicitly out of scope |
-| Native Visual Redesign | IMPLEMENTING | goal-2.md Waves 1–5 native shell, full-window startup, shared data-grid, context-aware status and full ER canvas polish on `feature/native-visual-redesign`; runtime evidence recorded, follow-up interaction/provider review remains |
+| Native Visual Redesign | IMPLEMENTING | goal-2.md Waves 1–6 native shell, full-window startup, shared data-grid, context-aware status, full ER canvas and live cursor status polish on `feature/native-visual-redesign`; runtime evidence recorded, follow-up interaction/provider review remains |
 
 ## RC1 Full Product QA
 

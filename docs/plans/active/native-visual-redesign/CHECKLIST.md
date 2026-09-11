@@ -57,3 +57,11 @@
 - [x] Add a regression test for viewport fill and content overflow sizing.
 - [x] Capture fresh native runtime evidence for the full ER canvas.
 - [x] Re-run the full Rust quality gates and clean-code diff scan after Wave 5 edits.
+
+## Wave 6 — live query cursor status
+
+- [x] Read line and column from the active egui SQL cursor.
+- [x] Reset cursor metadata when query documents change.
+- [x] Add a regression test for cursor metadata reset.
+- [x] Capture native runtime evidence with a non-default cursor position.
+- [x] Re-run the full Rust quality gates and clean-code diff scan after Wave 6 edits.

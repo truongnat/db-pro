@@ -119,7 +119,14 @@ impl DbProApp {
                         }
                         if self.shows_editor_status() {
                             ui.label(RichText::new("UTF-8").small().color(self.theme.text_muted));
-                            ui.label(RichText::new("Ln 1, Col 1").small().color(self.theme.text_muted));
+                            ui.label(
+                                RichText::new(format!(
+                                    "Ln {}, Col {}",
+                                    self.query_cursor_line, self.query_cursor_column
+                                ))
+                                .small()
+                                .color(self.theme.text_muted),
+                            );
                         } else {
                             ui.label(
                                 RichText::new(self.statusbar_context_label())

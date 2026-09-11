@@ -104,6 +104,13 @@ small preview even though the native window was full-size. The smallest safe fix
 canvas to at least the current viewport while retaining the existing scroll overflow for larger
 schemas.
 
+### P2 — Query status bar used a hard-coded cursor position
+
+After the context split, the Query workspace still showed `Ln 1, Col 1` regardless of where the
+cursor was. This was directly observable in the native editor and made the status bar unreliable
+for keyboard-first work. The smallest fix is to read egui's primary paragraph/offset cursor and
+reset it when the active query document changes.
+
 ## Wave 3 runtime evidence
 
 - Fresh maximized native launch and centered welcome: `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/2f485840-c8ff-4106-8731-45fe03ea1ad8-screenshot.png`.

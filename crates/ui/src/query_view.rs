@@ -345,6 +345,9 @@ impl DbProApp {
                         });
                         self.query_editor_focused = output.inner.response.has_focus();
                         if let Some(cursor_range) = output.inner.cursor_range {
+                            let cursor = cursor_range.primary.pcursor;
+                            self.query_cursor_line = cursor.paragraph.saturating_add(1);
+                            self.query_cursor_column = cursor.offset.saturating_add(1);
                             let range = cursor_range.as_sorted_char_range();
                             if range.start < range.end && range.end <= self.query_text.len() {
                                 self.selected_query = self

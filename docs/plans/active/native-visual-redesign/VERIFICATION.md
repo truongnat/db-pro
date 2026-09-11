@@ -2,7 +2,7 @@
 
 ## Current state
 
-Wave 1–5 implementation and runtime screenshot passes are complete on `feature/native-visual-redesign`.
+Wave 1–6 implementation and runtime screenshot passes are complete on `feature/native-visual-redesign`.
 No overall feature completion claim has been made: independent review and any provider/runtime
 regression follow-up remain open. The baseline screenshot and source evidence are recorded in
 `FINDINGS.md`.
@@ -107,3 +107,19 @@ assumed for this status-bar check.
 
 Wave 5 is presentation-only. The canvas retains its existing scroll surface for content larger
 than the viewport, and no provider-specific behavior was changed or inferred from SQLite.
+
+## Wave 6 evidence
+
+| Check | Result | Evidence |
+|---|---|---|
+| Native query cursor position | PASS | Fresh full-window screenshot `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/1f164c92-ff22-4f95-bea9-6328ef41c21f-screenshot.png`; clicking the fourth SQL line reports `Ln 4, Col 11 · UTF-8` |
+| Query-document cursor reset | PASS | UI regression test `switching_query_documents_resets_editor_cursor_metadata` |
+| `cargo fmt --all -- --check` | PASS | Run after Wave 6 source edits on 2026-09-11 |
+| `cargo check --workspace --offline` | PASS | Run after Wave 6 source edits on 2026-09-11 |
+| `cargo clippy --workspace --offline --all-targets -- -D warnings` | PASS | Run after Wave 6 source edits on 2026-09-11 |
+| `cargo test --workspace --offline` | PASS | 2026-09-11; 186 core, 39 infrastructure, 25 SQLite integration, 58 UI, 21 Tauri, 4 runtime, 1 native; 10 PostgreSQL live tests ignored without fixture env |
+| `cargo build --locked -p db-pro-native --offline` | PASS | 2026-09-11, rebuilt native binary for cursor smoke |
+| `bash .skills/clean-code/scripts/clean-code-scan.sh --diff` | PASS | 2026-09-11; 33 checks passed, 0 warnings/fails; existing macOS xargs compatibility warnings emitted |
+
+Wave 6 is presentation-only. Query execution, provider capabilities and database state remain
+unchanged; PostgreSQL runtime evidence remains pending under the existing provider matrix.

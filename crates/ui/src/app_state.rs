@@ -100,6 +100,8 @@ impl Default for DbProApp {
             editor_search: String::new(),
             editor_search_open: false,
             query_editor_focused: false,
+            query_cursor_line: 1,
+            query_cursor_column: 1,
             editor_font_size: 14.0,
             query_tools_open: false,
             completion_open: false,

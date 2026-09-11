@@ -277,6 +277,8 @@ pub struct DbProApp {
     editor_search: String,
     editor_search_open: bool,
     query_editor_focused: bool,
+    query_cursor_line: usize,
+    query_cursor_column: usize,
     editor_font_size: f32,
     query_tools_open: bool,
     completion_open: bool,
@@ -603,6 +605,7 @@ impl DbProApp {
         self.persist_active_query_document();
         self.active_query_document = index;
         self.query_text = self.query_documents[index].content.clone();
+        self.reset_query_cursor();
         self.query_result = None;
         self.runtime_message = format!("Opened {}", self.query_documents[index].title);
     }
@@ -616,6 +619,7 @@ impl DbProApp {
         });
         self.active_query_document = self.query_documents.len() - 1;
         self.query_text.clear();
+        self.reset_query_cursor();
         self.query_result = None;
         self.activity = Activity::Queries;
         self.sidebar_open = true;
@@ -635,8 +639,14 @@ impl DbProApp {
             self.active_query_document = self.active_query_document.min(self.query_documents.len() - 1);
         }
         self.query_text = self.query_documents[self.active_query_document].content.clone();
+        self.reset_query_cursor();
         self.query_result = None;
         self.runtime_message = format!("Closed {}", self.query_documents[self.active_query_document].title);
+    }
+
+    fn reset_query_cursor(&mut self) {
+        self.query_cursor_line = 1;
+        self.query_cursor_column = 1;
     }
 
     fn request_close_workspace_tab(&mut self, tab: WorkspaceTab) {

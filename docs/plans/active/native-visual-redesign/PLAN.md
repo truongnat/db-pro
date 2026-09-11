@@ -56,11 +56,17 @@ behavior.
 - preserve connection, provider, duration and runtime-error status reporting without changing commands
   or provider behavior.
 
-### Wave 5 — full ER canvas (current change)
+### Wave 5 — full ER canvas (completed in prior change)
 
 - make the ER canvas and grid fill the visible native workspace before content overflow requires scrolling;
 - keep the existing pan, zoom, fit and node-opening interactions unchanged;
 - preserve the bounded render policy for large schemas and avoid introducing provider-specific behavior.
+
+### Wave 6 — live query cursor status (current change)
+
+- report the actual SQL editor line and column from egui cursor state;
+- reset cursor metadata when switching, creating or closing query documents;
+- keep the existing status-bar context split and avoid changing query execution behavior.
 
 ### Follow-up waves
 
@@ -119,3 +125,9 @@ behavior.
 - ER canvas grid fills the maximized workspace when the rendered schema fits inside the viewport.
 - Larger rendered content still overflows through the existing scroll surface.
 - Rust fmt/check/clippy/tests pass and a fresh native screenshot confirms the full canvas.
+
+## Acceptance for Wave 6
+
+- Query status bar reports the active cursor position instead of a hard-coded placeholder.
+- Switching query documents starts the status position at line 1, column 1 until the editor reports a new cursor.
+- Rust fmt/check/clippy/tests pass and a fresh native screenshot confirms a non-default cursor position.
