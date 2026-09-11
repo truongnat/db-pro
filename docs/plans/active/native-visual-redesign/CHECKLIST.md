@@ -83,3 +83,19 @@
 - [x] Add regression coverage for large-schema search/show-all state transitions.
 - [x] Capture native SQLite runtime evidence with a 202-table fixture and a focused search result.
 - [x] Re-run the full Rust quality gates and clean-code diff scan after Wave 8 edits.
+
+## Wave 9 — staged grid interaction correctness
+
+- [x] Prove Enter left the active Data Editor cell uncommitted and selection changes left a stale editor visible.
+- [x] Commit the active cell on Enter and before row/cell selection changes.
+- [x] Copy staged Data Editor values while preserving raw Query Results values.
+- [x] Add regression coverage for provider-neutral copy behavior.
+- [x] Capture native SQLite runtime evidence for Enter, selection transition and clipboard payload.
+- [x] Re-run the full Rust quality gates and clean-code diff scan after Wave 9 edits.
+
+## Wave 10 — Codex visual parity
+
+- [ ] Audit native light and dark screenshots against the installed Codex desktop reference.
+- [ ] Centralize and calibrate native colors, icons, typography, spacing, radii and interaction states.
+- [ ] Verify every native workspace surface in both appearance modes.
+- [ ] Record intentional database-IDE deviations and close the visual P1 baseline finding.

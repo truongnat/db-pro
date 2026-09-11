@@ -2,7 +2,7 @@
 
 ## Current state
 
-Wave 1–8 implementation and runtime screenshot passes are complete on `feature/native-visual-redesign`.
+Wave 1–9 implementation and runtime screenshot passes are complete on `feature/native-visual-redesign`.
 No overall feature completion claim has been made: independent review and any provider/runtime
 regression follow-up remain open. The baseline screenshot and source evidence are recorded in
 `FINDINGS.md`.
@@ -161,3 +161,23 @@ evidence remains pending under the existing provider matrix.
 Wave 8 is presentation/state handling only. ER table matching and rendering use the existing
 provider-neutral introspection output; PostgreSQL runtime evidence remains pending under the
 existing provider matrix.
+
+## Wave 9 evidence
+
+| Check | Result | Evidence |
+|---|---|---|
+| Enter commits an active Data Editor cell | PASS | Native SQLite screenshot `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/f1886941-6af1-4d6c-8dd3-b79e4e7e4b93-screenshot.png` shows `Alice Updated` without an active text editor and with `pending changes` |
+| Selection transition commits the prior editor | PASS | Native SQLite screenshot `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/586187f8-61be-44eb-9213-590b3ffa9fc6-screenshot.png` shows row 2 selected and no stale row 1 editor |
+| Data Editor clipboard payload | PASS | `Copy cell` followed by `pbpaste` returned `Alice Updated` for the staged value |
+| Query Results clipboard scope | PASS | UI regression test `grid_copy_uses_staged_values_only_for_data_editor` verifies Query workspace copies the original `Beta` value |
+| `cargo fmt --all -- --check` | PASS | 2026-09-11, after Wave 9 source edits |
+| `cargo check --workspace --offline` | PASS | 2026-09-11, after Wave 9 source edits |
+| `cargo clippy --workspace --offline --all-targets -- -D warnings` | PASS | 2026-09-11, after Wave 9 source edits |
+| `cargo test --workspace --offline` | PASS | 2026-09-11; expected 186 core, 39 infrastructure, 25 SQLite integration, 62 UI, 21 Tauri, 4 runtime, 1 native; 10 PostgreSQL live tests ignored without fixture env |
+| `cargo build --locked -p db-pro-native --offline` | PASS | 2026-09-11, rebuilt native binary before the Enter/selection runtime check |
+| `bash .skills/clean-code/scripts/clean-code-scan.sh --diff` | PASS | 2026-09-11, after Wave 9 source/docs edits; 33 checks passed, 0 warnings/fails; existing macOS xargs compatibility warnings emitted |
+
+Wave 9 changes are restricted to native Data Editor interaction and clipboard projection. No
+database mutation, transaction, provider capability or task-bridge behavior was changed. The
+Codex light/dark visual-parity audit is the next open wave; PostgreSQL runtime evidence and
+independent review also remain pending.

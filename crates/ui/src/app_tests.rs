@@ -130,6 +130,32 @@ fn grid_columns_fill_the_viewport_until_manually_resized() {
 }
 
 #[test]
+fn grid_copy_uses_staged_values_only_for_data_editor() {
+    let value = result();
+    let mut app = DbProApp {
+        active_tab: WorkspaceTab::Table,
+        table_view: TableView::Data,
+        staged_changes: vec![StagedChange::Update {
+            row_index: 0,
+            column_index: 1,
+            column: "name".to_owned(),
+            original: UiCell::Text("Beta".to_owned()),
+            value: UiCell::Text("Updated".to_owned()),
+            pk_columns: vec!["id".to_owned()],
+            pk_values: vec![UiCell::Number("2".to_owned())],
+        }],
+        ..Default::default()
+    };
+
+    assert_eq!(
+        app.copy_cell_value(&value, 0, 1),
+        Some(UiCell::Text("Updated".to_owned()))
+    );
+    app.active_tab = WorkspaceTab::Query;
+    assert_eq!(app.copy_cell_value(&value, 0, 1), Some(UiCell::Text("Beta".to_owned())));
+}
+
+#[test]
 fn composite_primary_key_identity_preserves_each_cell_type() {
     let result = UiQueryResult {
         columns: vec![

@@ -16,7 +16,24 @@ polish pass and requires an immediately visible structural redesign.
 Recompose the native egui presentation into a dark-first database workbench with a narrow
 activity rail, calm tree explorer, integrated IDE tab strip, compact workspace chrome, and
 stronger productive surfaces, while preserving the existing runtime/task-bridge/database
-behavior.
+behavior. The native visual contract follows the installed Codex desktop app as the reference
+for hierarchy, color, iconography, spacing, typography, states and both appearance modes.
+
+## Codex visual contract
+
+The native surface must be calibrated against the Codex desktop reference in both light and dark
+mode. This is an acceptance rule for every remaining wave, not a suggestion to reuse React/Tauri
+code.
+
+- use one native token layer for surfaces, borders, text hierarchy, accent and semantic states;
+- keep the Codex hierarchy: quiet near-flat surfaces, hairline separators, restrained lavender
+  selection/accent, compact rounded controls and generous whitespace;
+- use the existing Lucide icon font consistently, with monochrome icons at the same visual weight
+  as Codex navigation/actions; do not introduce mixed icon families or emoji substitutes;
+- verify hover, active, focus, disabled, selected and destructive states in both light and dark
+  mode before calling a surface visually complete;
+- keep typography, control height, spacing and corner radii centralized in native components so
+  screens cannot drift into bespoke styling.
 
 ## Scope
 
@@ -74,17 +91,34 @@ behavior.
 - preserve original result-row identity when filtering or sorting changes the visible projection;
 - distinguish the active cell from its selected row without changing copy, edit or mutation semantics.
 
-### Wave 8 — ER search mode recovery (current change)
+### Wave 8 — ER search mode recovery (completed in prior change)
 
 - leave explicit large-schema “Show all” mode when the user enters a non-empty search query;
 - expose a compact “Focus search” action so users can return to the bounded focused map without
   closing and reopening the ER workspace;
 - preserve the existing render limit, table matching and provider-neutral diagram behavior.
 
+### Wave 9 — staged grid interaction correctness (current change)
+
+- commit an active Data Editor cell when Enter is pressed;
+- commit the active cell before row/cell selection changes so the editor and selection cannot drift;
+- copy staged values in the Data Editor while preserving raw query-result values in the Query
+  workspace;
+- keep the fix inside the native shared result-grid state path without changing database mutation
+  or transaction semantics.
+
+### Wave 10 — Codex visual parity (next)
+
+- audit every native screen and shared component against the Codex light/dark reference;
+- calibrate the native theme tokens, icon sizes/weights, typography, spacing, radii and interaction
+  states as one coherent system;
+- capture equivalent native light and dark screenshots and record any intentional database-IDE
+  deviations explicitly.
+
 ### Follow-up waves
 
 - query/editor toolbar reduction and editor-first layout;
-- data-grid interaction polish, including keyboard, clipboard and resize smoke coverage;
+- data-grid interaction polish, including resize smoke coverage after Wave 9;
 - ER canvas interaction controls and large-schema runtime smoke coverage;
 - native runtime screenshots at all required dimensions and keyboard/DPI/clipboard/file-picker
   smoke coverage.
@@ -159,3 +193,12 @@ behavior.
 - The focused result uses the existing table/column matching and render policy without changing
   database commands or provider behavior.
 - Rust fmt/check/clippy/tests pass and a fresh native SQLite screenshot confirms the full flow.
+
+## Acceptance for Wave 9
+
+- Enter commits a Data Editor edit and the edited value remains visible as a staged change.
+- Moving to another row or cell commits the previous editor before changing selection.
+- Data Editor `Copy cell` and `Copy row` use the displayed staged values; Query Results continue to
+  copy their original result payload.
+- Rust fmt/check/clippy/tests pass, the native binary is rebuilt, and a fresh SQLite runtime check
+  confirms Enter, selection transition and clipboard behavior.

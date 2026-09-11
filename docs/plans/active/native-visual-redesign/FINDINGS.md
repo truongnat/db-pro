@@ -134,6 +134,45 @@ and add a “Focus search” action; table matching, render limits and provider 
 - Show-all state: `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/4bf1bff5-1d5f-48a8-b321-9926f845212b-screenshot.png`.
 - Focused search after entering `order_items`: `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/f32295e6-4ce3-410c-a9e7-6848de3200e7-screenshot.png`.
 
+## Wave 9 audit findings
+
+### P1 — Data Editor Enter did not commit the active cell
+
+The active Data Editor input used `lost_focus && Enter` as its commit condition. In the real
+native SQLite window, pressing Enter left the editor open and then clicking another cell changed
+selection while the old editor remained visible. This made the displayed edit and active selection
+disagree and could leave a user believing a change had been staged when it had not.
+
+The focused fix is to commit on the Enter key event and commit the existing editor before row or
+cell selection changes. Database mutation, transaction and provider paths remain unchanged.
+
+### P2 — Data Editor copy actions ignored staged values
+
+The grid rendered the staged value from its local change list, but `Copy cell` and `Copy row` read
+the original query-result payload. A user could therefore copy a value different from the one on
+screen. The fix resolves staged values only for the Data Editor and deliberately keeps Query Results
+on the raw result payload.
+
+## Wave 9 runtime evidence
+
+- Rebuilt native binary: `target/debug/db-pro-native` from the Wave 9 source.
+- SQLite fixture: `/tmp/db-pro-native-ui-audit-20260911.sqlite`, connection `AuditSQLite`, table
+  `customers`.
+- Pressing Enter after changing row 1 `name` to `Alice Updated` closes the editor while retaining
+  the visible staged value and `pending changes` state: `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/f1886941-6af1-4d6c-8dd3-b79e4e7e4b93-screenshot.png`.
+- Clicking row 2 then moves the active cell without reopening or leaving the row 1 editor behind:
+  `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/586187f8-61be-44eb-9213-590b3ffa9fc6-screenshot.png`.
+- Selecting the staged row 1 value and pressing `Copy cell` produced the clipboard payload
+  `Alice Updated` via `pbpaste`.
+
+## Codex visual parity requirement
+
+The installed Codex desktop app is now the visual reference for all remaining native work. The
+current native surface is structurally close in its dark token direction, but parity is not yet
+proven: the native screenshot still has denser database-IDE chrome and stronger grid emphasis than
+the Codex reference, and a native light-mode comparison has not been captured. Wave 10 remains
+open for colors, icon weight, spacing, typography, radii and interaction states in both modes.
+
 ## Wave 3 runtime evidence
 
 - Fresh maximized native launch and centered welcome: `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/2f485840-c8ff-4106-8731-45fe03ea1ad8-screenshot.png`.

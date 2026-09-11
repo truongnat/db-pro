@@ -147,6 +147,7 @@ impl DbProApp {
                                         ),
                                     );
                                     if row_response.clicked() {
+                                        self.commit_active_data_edit(result);
                                         self.selected_cell = None;
                                         self.selected_row = Some(row_index);
                                         self.data_editing_cell = None;
@@ -189,8 +190,8 @@ impl DbProApp {
                                                                 .text_color(self.theme.text_primary),
                                                         );
                                                         response.request_focus();
-                                                        let commit = response.lost_focus()
-                                                            && ui.input(|input| input.key_pressed(egui::Key::Enter));
+                                                        let commit =
+                                                            ui.input(|input| input.key_pressed(egui::Key::Enter));
                                                         if commit {
                                                             self.submit_data_cell_edit(result, row_index, column_index);
                                                         } else if ui.input(|input| input.key_pressed(egui::Key::Escape))
@@ -213,6 +214,7 @@ impl DbProApp {
                                                                 display_cell,
                                                             );
                                                         } else if response.clicked() {
+                                                            self.commit_active_data_edit(result);
                                                             self.selected_cell = Some((row_index, column_index));
                                                             self.selected_row = Some(row_index);
                                                             self.copy_status.clear();
@@ -230,16 +232,22 @@ impl DbProApp {
         );
     }
 
+    fn commit_active_data_edit(&mut self, result: &UiQueryResult) {
+        if let Some((row_index, column_index)) = self.data_editing_cell {
+            self.submit_data_cell_edit(result, row_index, column_index);
+        }
+    }
+
     fn copy_selected_cell(&mut self, ui: &mut egui::Ui, result: &UiQueryResult) {
         let Some((row_index, column_index)) = self.selected_cell else {
             self.copy_status = "Select a cell first".to_owned();
             return;
         };
-        let Some(cell) = result.rows.get(row_index).and_then(|row| row.get(column_index)) else {
+        let Some(cell) = self.copy_cell_value(result, row_index, column_index) else {
             self.copy_status = "Selected cell is no longer available".to_owned();
             return;
         };
-        ui.output_mut(|output| output.copied_text = crate::cell_text(cell));
+        ui.output_mut(|output| output.copied_text = crate::cell_text(&cell));
         self.copy_status = "Cell copied".to_owned();
     }
 
@@ -252,9 +260,36 @@ impl DbProApp {
             self.copy_status = "Selected row is no longer available".to_owned();
             return;
         };
-        let row_text = row.iter().map(crate::cell_text).collect::<Vec<_>>().join("\t");
+        let row_text = row
+            .iter()
+            .enumerate()
+            .map(|(column_index, cell)| {
+                let copied_cell = self
+                    .copy_cell_value(result, row_index, column_index)
+                    .unwrap_or_else(|| cell.clone());
+                crate::cell_text(&copied_cell)
+            })
+            .collect::<Vec<_>>()
+            .join("\t");
         ui.output_mut(|output| output.copied_text = row_text);
         self.copy_status = "Row copied".to_owned();
+    }
+
+    pub(crate) fn copy_cell_value(
+        &self,
+        result: &UiQueryResult,
+        row_index: usize,
+        column_index: usize,
+    ) -> Option<crate::UiCell> {
+        let cell = result.rows.get(row_index).and_then(|row| row.get(column_index))?;
+        if self.active_tab == WorkspaceTab::Table && self.table_view == TableView::Data {
+            Some(
+                self.staged_cell_value(row_index, column_index)
+                    .unwrap_or_else(|| cell.clone()),
+            )
+        } else {
+            Some(cell.clone())
+        }
     }
 
     pub(super) fn column_widths(&mut self, count: usize, available_width: f32) -> Vec<f32> {
