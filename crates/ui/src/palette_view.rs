@@ -42,7 +42,7 @@ impl DbProApp {
                 PaletteItem {
                     icon: Icon::Bot,
                     title: "Agent".to_owned(),
-                    subtitle: "Open the Codex database copilot".to_owned(),
+                    subtitle: "Open the database copilot".to_owned(),
                     shortcut: None,
                     action: PaletteAction::Agent,
                 },
@@ -93,7 +93,7 @@ impl DbProApp {
                 PaletteItem {
                     icon: Icon::Bot,
                     title: "Open Agent".to_owned(),
-                    subtitle: "Ask Codex about the active schema".to_owned(),
+                    subtitle: "Ask Agent about the active schema".to_owned(),
                     shortcut: None,
                     action: PaletteAction::Agent,
                 },

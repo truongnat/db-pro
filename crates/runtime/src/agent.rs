@@ -37,13 +37,13 @@ pub struct AgentDraft {
 
 #[derive(Debug, Error)]
 pub enum CodexProviderError {
-    #[error("Codex provider request failed: {0}")]
+    #[error("AI provider request failed: {0}")]
     Request(String),
-    #[error("Codex provider returned HTTP {status}: {body}")]
+    #[error("AI provider returned HTTP {status}: {body}")]
     Http { status: u16, body: String },
-    #[error("Codex provider response could not be decoded: {0}")]
+    #[error("AI provider response could not be decoded: {0}")]
     Decode(String),
-    #[error("Codex provider returned no text")]
+    #[error("AI provider returned no text")]
     EmptyResponse,
 }
 
@@ -101,7 +101,7 @@ impl CodexProvider {
     ) -> Result<Self, CodexProviderError> {
         let endpoint = endpoint.into();
         if !endpoint.starts_with("https://") {
-            return Err(CodexProviderError::Request("Codex endpoint must use HTTPS".to_owned()));
+            return Err(CodexProviderError::Request("AI endpoint must use HTTPS".to_owned()));
         }
         let client = Client::builder()
             .timeout(REQUEST_TIMEOUT)

@@ -120,7 +120,7 @@ impl DbProApp {
                     if self.agent_request == Some(request_id) {
                         self.agent_request = None;
                         self.runtime_message = "Agent unavailable · switched to offline draft".to_owned();
-                        self.fallback_agent_response(Some(&format!("Codex unavailable: {message}")));
+                        self.fallback_agent_response(Some(&format!("Agent unavailable: {message}")));
                     }
                 }
                 UiEvent::TableInfoLoaded { request_id, table_info } => {

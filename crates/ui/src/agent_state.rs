@@ -62,7 +62,7 @@ impl DbProApp {
         self.agent_pending_prompt = Some(prompt.clone());
         self.agent_pending_context = Some(context.clone());
         self.agent_input.clear();
-        self.runtime_message = "Sending request to Codex…".to_owned();
+        self.runtime_message = format!("Sending request to {}…", self.agent_provider_label);
         if self
             .task_bridge
             .send(UiCommand::RunAgent {
