@@ -53,5 +53,23 @@ regression follow-up remain open. The baseline screenshot and source evidence ar
 | Native Transfers placeholder | PASS | Orca capture `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/6a932db9-1e89-4a2e-b712-daeb8830603e-screenshot.png`; status badge stays compact |
 | Native Monitor placeholder | PASS | Orca capture `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/fbcd36fb-b737-46d9-8ce2-0c232d35bb36-screenshot.png`; status badge stays compact |
 
-The overall plan remains `IMPLEMENTING`: query/result grid polish, keyboard/DPI/clipboard/file-picker
-smoke coverage, provider runtime walkthroughs and independent review are still open.
+## Wave 3 evidence
+
+| Check | Result | Evidence |
+|---|---|---|
+| `cargo build --locked -p db-pro-native --offline` | PASS | 2026-09-11, rebuilt and relaunched native binary |
+| `cargo fmt --all -- --check` | PASS | 2026-09-11, final Wave 3 check |
+| `cargo check --workspace --offline` | PASS | 2026-09-11, final Wave 3 check |
+| `cargo clippy --workspace --offline --all-targets -- -D warnings` | PASS | 2026-09-11, final Wave 3 check |
+| `cargo test --workspace --offline` | PASS | 2026-09-11; 186 core, 39 infrastructure, 25 SQLite integration, 55 UI, 21 Tauri, 4 runtime, 1 native; 10 PostgreSQL live tests ignored without fixture env |
+| `bash .skills/clean-code/scripts/clean-code-scan.sh --diff` | PASS | 2026-09-11; 33 checks passed, 0 warnings/fails; existing macOS xargs compatibility warnings emitted |
+| SQLite connection test/save/connect | PASS | Real temporary SQLite fixture; Orca screenshot `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/17360595-801c-40cb-bd92-6f78a0d44c59-screenshot.png` shows connected status and loaded schema |
+| SQLite Data Editor | PASS | Three rows, five typed columns and null/JSON/decimal values visible in `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/c3fb448e-d9a1-4f7f-b3ff-bd0dae3dd867-screenshot.png` |
+| SQLite Query Results | PASS | Three rows rendered through the shared result grid in `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/f2e70db6-7005-478d-a877-8213785ba81c-screenshot.png` |
+| Centered native Insert row dialog | PASS | `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/bdb43a73-40fa-4d56-8c1c-e60ebc2ede5d-screenshot.png` |
+| Full-window default | PASS | Fresh native window reported `2473×1409` at `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/4ff65e9a-5dcb-4267-8790-68c1a695b33f-screenshot.png` |
+
+The provider matrix remains asymmetric by evidence: SQLite has the Wave 3 runtime walkthrough;
+PostgreSQL remains presentation-only for this wave because no live fixture was authorized/configured.
+The overall plan remains `IMPLEMENTING`: query/editor polish, keyboard/DPI/clipboard/file-picker
+smoke coverage, wider provider walkthroughs and independent review are still open.

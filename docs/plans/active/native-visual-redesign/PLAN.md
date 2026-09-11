@@ -29,7 +29,7 @@ behavior.
 - integrated tab strip with quiet inactive tabs and a restrained active indicator;
 - native empty/welcome composition that makes the workspace intentional without a database.
 
-### Wave 2 — productive surface polish (current change)
+### Wave 2 — productive surface polish (completed in prior change)
 
 - keep the native window maximized by default even after eframe restores an older frame, with the
   existing inner-size fallback;
@@ -38,11 +38,21 @@ behavior.
 - keep Transfers and Monitor placeholders compact and intentional instead of rendering a full-width
   unfinished-state stripe.
 
+### Wave 3 — full-window data surfaces (current change)
+
+- keep the default full-window launch while making shared Data Editor and Query Results grids use
+  the available viewport instead of collapsing to the content width;
+- auto-size untouched columns for the current viewport, preserve manual divider resizing, and keep
+  the horizontal-scroll fallback for narrow windows or wide result sets;
+- reserve a stable table viewport for sparse result sets and remove implementation-only grid wording
+  from the user-facing status copy;
+- center native connection/delete/insert dialogs and the welcome workspace content when egui restores
+  persisted positions or the app opens on a maximized monitor.
+
 ### Follow-up waves
 
 - query/editor toolbar reduction and editor-first layout;
-- data-grid/status-bar visual hierarchy;
-- query/result grid/status-bar polish;
+- data-grid/status-bar interaction polish, including keyboard, clipboard and resize smoke coverage;
 - ER canvas interaction controls;
 - native runtime screenshots at all required dimensions and keyboard/DPI/clipboard/file-picker
   smoke coverage.
@@ -74,3 +84,13 @@ behavior.
   native panel width and at the captured wide viewport.
 - Rust fmt/check/clippy/tests pass for the changed workspace and fresh runtime screenshots confirm
   the corrected surfaces.
+
+## Acceptance for Wave 3
+
+- Shared native result grids use the full available width at the default maximized viewport while
+  retaining explicit user resize behavior and a narrow-window overflow path.
+- Sparse SQLite table/query results retain a stable, legible grid viewport instead of collapsing to
+  a small content-height strip.
+- Native dialogs and the welcome content remain centered on a fresh maximized launch.
+- Rust fmt/check/clippy/tests pass and runtime evidence covers SQLite schema, Data Editor, Query
+  Results and the centered Insert row dialog.

@@ -73,118 +73,131 @@ impl DbProApp {
         let indexes =
             crate::filtered_sorted_indexes(result, &self.grid_filter, self.grid_sort_column, self.grid_sort_desc);
         ui.label(
-            RichText::new(format!("{} matching rows · virtualized", indexes.len()))
+            RichText::new(format!("{} matching rows", indexes.len()))
                 .small()
                 .color(self.theme.text_muted),
         );
         ui.add_space(4.0);
         let grid_height = ui.available_height().clamp(220.0, 520.0);
+        let grid_width = ui.available_width().max(0.0);
 
-        let widths = self.column_widths(result.columns.len());
+        let widths = self.column_widths(result.columns.len(), grid_width);
         let row_offset = if self.active_tab == WorkspaceTab::Table && self.table_view == TableView::Data {
             self.table_data_offset
         } else {
             0
         };
-        egui::ScrollArea::horizontal().show(ui, |ui| {
-            ui.set_min_width(GRID_ROW_NUMBER_WIDTH + widths.iter().sum::<f32>());
-            self.draw_grid_header(ui, result, &widths);
-            egui::ScrollArea::vertical()
-                .max_height(grid_height)
-                .show_rows(ui, 24.0, indexes.len(), |ui, range| {
-                    for position in range {
-                        let row_index = indexes[position];
-                        let row = &result.rows[row_index];
-                        let row_selected = self.selected_row == Some(row_index);
-                        let row_dirty = self.staged_row_deleted(row_index)
-                            || (0..result.columns.len())
-                                .any(|column_index| self.staged_cell_value(row_index, column_index).is_some());
-                        ui.horizontal(|ui| {
-                            let row_number = crate::displayed_row_number(row_offset, row_index);
-                            let row_response = ui.add_sized(
-                                [GRID_ROW_NUMBER_WIDTH, 24.0],
-                                egui::SelectableLabel::new(
-                                    row_selected,
-                                    RichText::new(row_number.to_string())
-                                        .monospace()
-                                        .small()
-                                        .color(if row_selected {
-                                            self.theme.accent
-                                        } else {
-                                            self.theme.text_muted
-                                        }),
-                                ),
-                            );
-                            if row_response.clicked() {
-                                self.selected_cell = None;
-                                self.selected_row = Some(row_index);
-                                self.data_editing_cell = None;
-                                self.data_edit_value.clear();
-                                self.copy_status.clear();
-                            }
-                            for (column_index, cell) in row.iter().enumerate().take(result.columns.len()) {
-                                let staged_cell = self.staged_cell_value(row_index, column_index);
-                                let display_cell = staged_cell.as_ref().unwrap_or(cell);
-                                let width = widths.get(column_index).copied().unwrap_or(180.0);
-                                let fill = if row_selected {
-                                    self.theme.surface_active
-                                } else if row_dirty {
-                                    self.theme.warning.linear_multiply(0.10)
-                                } else if position % 2 == 0 {
-                                    self.theme.surface_panel
-                                } else {
-                                    self.theme.surface_elevated
-                                };
-                                egui::Frame::default().fill(fill).show(ui, |ui| {
-                                    ui.allocate_ui_with_layout(
-                                        egui::vec2(width, 24.0),
-                                        Layout::left_to_right(Align::Center),
-                                        |ui| {
-                                            ui.add_space(8.0);
-                                            let selected =
-                                                row_selected || self.selected_cell == Some((row_index, column_index));
-                                            let editing =
-                                                editable && self.data_editing_cell == Some((row_index, column_index));
-                                            if editing {
-                                                let response = ui.add_sized(
-                                                    [width - 12.0, 22.0],
-                                                    TextEdit::singleline(&mut self.data_edit_value)
-                                                        .margin(egui::Margin::symmetric(6.0, 2.0))
-                                                        .text_color(self.theme.text_primary),
-                                                );
-                                                response.request_focus();
-                                                let commit = response.lost_focus()
-                                                    && ui.input(|input| input.key_pressed(egui::Key::Enter));
-                                                if commit {
-                                                    self.submit_data_cell_edit(result, row_index, column_index);
-                                                } else if ui.input(|input| input.key_pressed(egui::Key::Escape)) {
-                                                    self.data_editing_cell = None;
-                                                    self.data_edit_value.clear();
-                                                }
-                                            } else {
-                                                let response = ui.add_sized(
-                                                    [width - 12.0, 22.0],
-                                                    egui::SelectableLabel::new(
-                                                        selected,
-                                                        Self::cell_label(display_cell),
-                                                    ),
-                                                );
-                                                if response.double_clicked() && editable {
-                                                    self.begin_data_cell_edit(row_index, column_index, display_cell);
-                                                } else if response.clicked() {
-                                                    self.selected_cell = Some((row_index, column_index));
-                                                    self.selected_row = Some(row_index);
-                                                    self.copy_status.clear();
-                                                }
-                                            }
-                                        },
+        ui.allocate_ui_with_layout(
+            egui::vec2(grid_width, grid_height),
+            Layout::top_down(Align::Min),
+            |ui| {
+                egui::ScrollArea::horizontal().show(ui, |ui| {
+                    let content_width =
+                        GRID_ROW_NUMBER_WIDTH + widths.iter().sum::<f32>() + 4.0 * result.columns.len() as f32;
+                    ui.set_min_width(content_width);
+                    self.draw_grid_header(ui, result, &widths);
+                    egui::ScrollArea::vertical()
+                        .max_height((grid_height - 28.0).max(192.0))
+                        .show_rows(ui, 24.0, indexes.len(), |ui, range| {
+                            for position in range {
+                                let row_index = indexes[position];
+                                let row = &result.rows[row_index];
+                                let row_selected = self.selected_row == Some(row_index);
+                                let row_dirty = self.staged_row_deleted(row_index)
+                                    || (0..result.columns.len())
+                                        .any(|column_index| self.staged_cell_value(row_index, column_index).is_some());
+                                ui.horizontal(|ui| {
+                                    let row_number = crate::displayed_row_number(row_offset, row_index);
+                                    let row_response = ui.add_sized(
+                                        [GRID_ROW_NUMBER_WIDTH, 24.0],
+                                        egui::SelectableLabel::new(
+                                            row_selected,
+                                            RichText::new(row_number.to_string()).monospace().small().color(
+                                                if row_selected {
+                                                    self.theme.accent
+                                                } else {
+                                                    self.theme.text_muted
+                                                },
+                                            ),
+                                        ),
                                     );
+                                    if row_response.clicked() {
+                                        self.selected_cell = None;
+                                        self.selected_row = Some(row_index);
+                                        self.data_editing_cell = None;
+                                        self.data_edit_value.clear();
+                                        self.copy_status.clear();
+                                    }
+                                    for (column_index, cell) in row.iter().enumerate().take(result.columns.len()) {
+                                        let staged_cell = self.staged_cell_value(row_index, column_index);
+                                        let display_cell = staged_cell.as_ref().unwrap_or(cell);
+                                        let width = widths.get(column_index).copied().unwrap_or(180.0);
+                                        let fill = if row_selected {
+                                            self.theme.surface_active
+                                        } else if row_dirty {
+                                            self.theme.warning.linear_multiply(0.10)
+                                        } else if position % 2 == 0 {
+                                            self.theme.surface_panel
+                                        } else {
+                                            self.theme.surface_elevated
+                                        };
+                                        egui::Frame::default().fill(fill).show(ui, |ui| {
+                                            ui.allocate_ui_with_layout(
+                                                egui::vec2(width, 24.0),
+                                                Layout::left_to_right(Align::Center),
+                                                |ui| {
+                                                    ui.add_space(8.0);
+                                                    let selected = row_selected
+                                                        || self.selected_cell == Some((row_index, column_index));
+                                                    let editing = editable
+                                                        && self.data_editing_cell == Some((row_index, column_index));
+                                                    if editing {
+                                                        let response = ui.add_sized(
+                                                            [width - 12.0, 22.0],
+                                                            TextEdit::singleline(&mut self.data_edit_value)
+                                                                .margin(egui::Margin::symmetric(6.0, 2.0))
+                                                                .text_color(self.theme.text_primary),
+                                                        );
+                                                        response.request_focus();
+                                                        let commit = response.lost_focus()
+                                                            && ui.input(|input| input.key_pressed(egui::Key::Enter));
+                                                        if commit {
+                                                            self.submit_data_cell_edit(result, row_index, column_index);
+                                                        } else if ui.input(|input| input.key_pressed(egui::Key::Escape))
+                                                        {
+                                                            self.data_editing_cell = None;
+                                                            self.data_edit_value.clear();
+                                                        }
+                                                    } else {
+                                                        let response = ui.add_sized(
+                                                            [width - 12.0, 22.0],
+                                                            egui::SelectableLabel::new(
+                                                                selected,
+                                                                Self::cell_label(display_cell),
+                                                            ),
+                                                        );
+                                                        if response.double_clicked() && editable {
+                                                            self.begin_data_cell_edit(
+                                                                row_index,
+                                                                column_index,
+                                                                display_cell,
+                                                            );
+                                                        } else if response.clicked() {
+                                                            self.selected_cell = Some((row_index, column_index));
+                                                            self.selected_row = Some(row_index);
+                                                            self.copy_status.clear();
+                                                        }
+                                                    }
+                                                },
+                                            );
+                                        });
+                                    }
                                 });
                             }
                         });
-                    }
                 });
-        });
+            },
+        );
     }
 
     fn copy_selected_cell(&mut self, ui: &mut egui::Ui, result: &UiQueryResult) {
@@ -214,11 +227,18 @@ impl DbProApp {
         self.copy_status = "Row copied".to_owned();
     }
 
-    fn column_widths(&mut self, count: usize) -> Vec<f32> {
+    pub(super) fn column_widths(&mut self, count: usize, available_width: f32) -> Vec<f32> {
         if self.grid_column_widths.len() != count {
             self.grid_column_widths = vec![180.0; count];
+            self.grid_columns_user_resized = false;
         }
-        self.grid_column_widths.clone()
+        let mut widths = self.grid_column_widths.clone();
+        if count > 0 && !self.grid_columns_user_resized {
+            let usable_width = (available_width - GRID_ROW_NUMBER_WIDTH - 4.0 * count as f32).max(0.0);
+            let default_width = (usable_width / count as f32).clamp(180.0, 520.0);
+            widths.fill(default_width);
+        }
+        widths
     }
 
     fn draw_grid_header(&mut self, ui: &mut egui::Ui, result: &UiQueryResult, widths: &[f32]) {
@@ -263,6 +283,8 @@ impl DbProApp {
                     egui::Stroke::new(1.0, self.theme.border_subtle),
                 );
                 if divider.drag_started() {
+                    self.grid_column_widths = widths.to_vec();
+                    self.grid_columns_user_resized = true;
                     self.grid_resize_start = Some((index, width));
                 }
                 if divider.dragged() {

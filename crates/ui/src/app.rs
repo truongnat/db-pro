@@ -309,6 +309,7 @@ pub struct DbProApp {
     grid_sort_column: Option<usize>,
     grid_sort_desc: bool,
     grid_column_widths: Vec<f32>,
+    grid_columns_user_resized: bool,
     grid_resize_start: Option<(usize, f32)>,
     selected_cell: Option<(usize, usize)>,
     selected_row: Option<usize>,
@@ -383,6 +384,10 @@ impl eframe::App for DbProApp {
         if let Ok(widths) = serde_json::to_string(&self.grid_column_widths) {
             storage.set_string("dbpro.native.grid-widths", widths);
         }
+        storage.set_string(
+            "dbpro.native.grid-widths-customized",
+            self.grid_columns_user_resized.to_string(),
+        );
         self.persist_active_query_document();
         if let Ok(documents) = serde_json::to_string(&self.query_documents) {
             storage.set_string("dbpro.native.query-documents", documents);

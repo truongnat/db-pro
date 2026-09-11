@@ -82,6 +82,18 @@ fn displayed_row_number_tracks_database_page_offset() {
 }
 
 #[test]
+fn grid_columns_fill_the_viewport_until_manually_resized() {
+    let mut app = DbProApp::default();
+
+    let widths = app.column_widths(3, 1200.0);
+    assert!(widths.iter().all(|width| (*width - 380.0).abs() < 0.01));
+
+    app.grid_column_widths = vec![240.0, 320.0, 180.0];
+    app.grid_columns_user_resized = true;
+    assert_eq!(app.column_widths(3, 1200.0), vec![240.0, 320.0, 180.0]);
+}
+
+#[test]
 fn composite_primary_key_identity_preserves_each_cell_type() {
     let result = UiQueryResult {
         columns: vec![

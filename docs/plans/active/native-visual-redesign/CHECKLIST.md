@@ -29,3 +29,15 @@
 - [x] Center the Transfers and Monitor placeholder badge at its intrinsic width.
 - [x] Re-run Rust quality gates after Wave 2 edits.
 - [x] Re-capture native runtime evidence for ER, Agent, Transfers and Monitor.
+
+## Wave 3 — full-window data surfaces
+
+- [x] Center native connection, delete and Insert row dialogs against the maximized workspace.
+- [x] Center the welcome content using a width-aware horizontal layout.
+- [x] Make shared result-grid columns fill the available maximized viewport by default.
+- [x] Preserve manual column resizing and narrow-window horizontal overflow behavior.
+- [x] Reserve a stable grid viewport for sparse result sets.
+- [x] Remove implementation-only virtualization wording from the result-grid status copy.
+- [x] Verify the SQLite connection → schema → Data Editor → Query Results runtime path.
+- [x] Capture fresh full-window screenshots for the Wave 3 surfaces.
+- [x] Run the full Rust quality gates and clean-code diff scan after Wave 3 edits.

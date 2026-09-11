@@ -56,6 +56,9 @@ impl DbProApp {
                     app.grid_column_widths = widths.into_iter().map(|width| width.clamp(90.0, 520.0)).collect();
                 }
             }
+            app.grid_columns_user_resized = storage
+                .get_string("dbpro.native.grid-widths-customized")
+                .is_some_and(|value| value == "true");
             if let Some(documents) = storage.get_string("dbpro.native.query-documents") {
                 if let Ok(documents) = serde_json::from_str::<Vec<QueryDocument>>(&documents) {
                     if !documents.is_empty() {
@@ -129,6 +132,7 @@ impl Default for DbProApp {
             grid_sort_column: None,
             grid_sort_desc: false,
             grid_column_widths: Vec::new(),
+            grid_columns_user_resized: false,
             grid_resize_start: None,
             selected_cell: None,
             selected_row: None,
