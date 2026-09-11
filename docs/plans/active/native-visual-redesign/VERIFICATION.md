@@ -227,3 +227,24 @@ runtime evidence is refreshed where applicable and independent review is complet
 Wave 11 is a native presentation-only fix. The plan remains `IMPLEMENTING` because the exhaustive
 light/dark traversal, intentional database-IDE deviation review, PostgreSQL runtime evidence and
 independent review are still pending.
+
+## Wave 12 evidence
+
+| Check | Result | Evidence |
+|---|---|---|
+| Results empty state | PASS | Dark native Results screenshot `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/5f356a79-c102-4fc0-a5e2-db3f2f8dcdb2-screenshot.png` shows the shared Table2 icon, title and description inside the full-width result surface |
+| Messages empty state | PASS | Dark `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/c682d9f7-fff1-4292-9691-a40fe3efb132-screenshot.png` and light `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/0d6cfb87-3898-4cd1-a8fa-f1b261eda267-screenshot.png` show the same full-width Messages composition in both modes |
+| Explain and History empty states | PASS | Dark Explain `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/d9ca8f40-4ca6-4531-8b50-977dfb52b8fc-screenshot.png` and History `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/e4fd58d7-362b-4c68-9dbf-8d1d08b63b9e-screenshot.png` show semantic icons and explanatory copy |
+| Light-mode Results composition | PASS | Light native Results screenshot `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/81825589-8d70-40f4-b8c0-d669babe7052-screenshot.png` shows the same composition over Codex light surfaces |
+| Query behavior scope | PASS | The change is restricted to empty rendering and output-card sizing; query execution, explain, history and populated result paths are unchanged |
+| `cargo fmt --all -- --check` | PASS | 2026-09-11, after Wave 12 source edits |
+| `cargo check --workspace --offline` | PASS | 2026-09-11, after Wave 12 source edits |
+| `cargo clippy --workspace --offline --all-targets -- -D warnings` | PASS | 2026-09-11, after Wave 12 source edits |
+| `cargo test --workspace --offline` | PASS | 2026-09-11; 186 core, 39 infrastructure, 25 SQLite integration, 64 UI, 21 Tauri, 4 runtime, 1 native; 10 PostgreSQL live tests ignored without fixture env |
+| `cargo build --locked -p db-pro-native --offline` | PASS | 2026-09-11, rebuilt native binary before runtime verification |
+| `bash .skills/clean-code/scripts/clean-code-scan.sh --diff` | PASS | 2026-09-11; 33 checks passed, 0 warnings/fails; existing macOS xargs compatibility warnings emitted |
+| `git diff --check` | PASS | 2026-09-11; no whitespace errors |
+
+Wave 12 is a native presentation-only fix. The plan remains `IMPLEMENTING` because the exhaustive
+light/dark traversal, intentional database-IDE deviation review, PostgreSQL runtime evidence and
+independent review are still pending.

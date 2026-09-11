@@ -110,3 +110,13 @@
 - [x] Capture dark and light SQLite runtime evidence for the changed metadata surfaces.
 - [x] Re-run Rust gates, native build, clean-code diff scan and whitespace validation.
 - [ ] Traverse remaining native workspaces in both appearance modes and complete independent review.
+
+## Wave 12 — query output empty-state composition
+
+- [x] Prove bare query output placeholders inside large empty cards in the native runtime.
+- [x] Reuse the shared Lucide/Codex empty-state component for Results, Messages, Explain and History.
+- [x] Make Messages, Explain and History output cards span the available workspace width.
+- [x] Preserve query execution, explain, history and populated result behavior.
+- [x] Capture dark and light SQLite runtime evidence for query output empty states.
+- [x] Re-run Rust gates, native build, clean-code diff scan and whitespace validation.
+- [ ] Complete the remaining native all-surface traversal, provider matrix and independent review.

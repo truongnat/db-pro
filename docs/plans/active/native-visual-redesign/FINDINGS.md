@@ -239,3 +239,28 @@ mutation behavior are unchanged.
 These screenshots show the full-width rounded neutral surface, centered Lucide treatment and
 Codex-aligned light/dark tokens. The broader all-workspace light/dark traversal, provider review
 and independent review remain open under the plan.
+
+## Wave 12 audit finding
+
+### P2 — Query output placeholders were bare labels inside oversized cards
+
+The empty Results, Messages, Explain and History surfaces showed only a muted line of text. On the
+maximized native window this created large low-information panels that did not share the icon/title/
+description language already used by the Codex-aligned shell. Messages, Explain and History also
+allowed their cards to collapse to content width. The focused fix reuses the shared empty-state
+component, gives each output surface a semantic Lucide icon and explanatory copy, and makes the
+secondary output cards span the available workspace width.
+
+The query editor, execution, explain, history and populated result paths remain unchanged.
+
+## Wave 12 runtime evidence
+
+- Dark Results empty state: `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/5f356a79-c102-4fc0-a5e2-db3f2f8dcdb2-screenshot.png`.
+- Dark Messages empty state: `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/c682d9f7-fff1-4292-9691-a40fe3efb132-screenshot.png`.
+- Dark Explain empty state: `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/d9ca8f40-4ca6-4531-8b50-977dfb52b8fc-screenshot.png`.
+- Dark History empty state: `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/e4fd58d7-362b-4c68-9dbf-8d1d08b63b9e-screenshot.png`.
+- Light Results empty state: `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/81825589-8d70-40f4-b8c0-d669babe7052-screenshot.png`.
+- Light Messages empty state: `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/0d6cfb87-3898-4cd1-a8fa-f1b261eda267-screenshot.png`.
+
+The screenshots show the same shared composition over Codex-aligned dark and light surfaces. The
+broader all-workspace traversal, provider review and independent review remain open under the plan.

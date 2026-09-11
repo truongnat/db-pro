@@ -115,7 +115,7 @@ code.
 - capture equivalent native light and dark screenshots and record any intentional database-IDE
   deviations explicitly.
 
-### Wave 11 — metadata empty-state composition (current change)
+### Wave 11 — metadata empty-state composition (completed in prior change)
 
 - keep metadata cards at the full available workspace width instead of collapsing to their text;
 - use one shared Lucide/Codex empty-state composition for empty indexes, foreign keys, dependencies
@@ -123,6 +123,14 @@ code.
 - distinguish a genuinely empty constraint surface from a table that contains primary-key or
   `NOT NULL` metadata, without changing introspection or provider behavior;
 - verify the composed states in both light and dark native runtime modes.
+
+### Wave 12 — query output empty-state composition (current change)
+
+- replace bare query output placeholders with the shared Lucide/Codex empty-state composition;
+- keep Results, Messages, Explain and History output surfaces full-width and visually consistent;
+- preserve the existing query editor, execution, explain and history behavior while changing only
+  the empty presentation state;
+- verify the output states in both dark and light native runtime modes.
 
 ### Follow-up waves
 
@@ -231,3 +239,11 @@ code.
 - Populated indexes, relationships and constraints keep their existing metadata rows unchanged.
 - Rust fmt/check/clippy/tests, native build and clean-code diff scan pass; fresh SQLite runtime
   screenshots cover the changed empty states in both appearance modes.
+
+## Acceptance for Wave 12
+
+- Results, Messages, Explain and History no longer render a bare label inside a large empty card.
+- Each empty output state uses the shared Lucide icon, title, description and Codex-aligned tokens.
+- Output cards span the available native workspace while populated query output remains unchanged.
+- Rust fmt/check/clippy/tests, native build and clean-code diff scan pass; fresh SQLite runtime
+  screenshots cover query output empty states in both appearance modes.

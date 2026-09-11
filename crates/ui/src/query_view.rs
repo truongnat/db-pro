@@ -258,16 +258,30 @@ impl DbProApp {
                         self.draw_result_grid(ui, result);
                     } else {
                         ui.centered_and_justified(|ui| {
-                            ui.label(RichText::new("Run a query to see results").color(self.theme.text_muted));
+                            empty_state(
+                                ui,
+                                Icon::Table2,
+                                "No results yet",
+                                "Run a query to populate this result grid.",
+                                self.theme,
+                            );
                         });
                     }
                 });
                 self.draw_export_dialog(ui, result.as_ref());
             }
             OutputTab::Messages => {
+                let output_width = ui.available_width();
                 card_frame(self.theme).show(ui, |ui| {
+                    ui.set_min_width((output_width - 24.0).max(0.0));
                     if self.query_messages.is_empty() {
-                        ui.label(RichText::new("No messages yet").color(self.theme.text_muted));
+                        empty_state(
+                            ui,
+                            Icon::MessageSquareText,
+                            "No messages yet",
+                            "Query notices and execution details will appear here.",
+                            self.theme,
+                        );
                     } else {
                         for message in self.query_messages.iter().rev().take(20) {
                             ui.label(RichText::new(message).small().color(self.theme.text_secondary));
@@ -276,20 +290,36 @@ impl DbProApp {
                 });
             }
             OutputTab::Explain => {
+                let output_width = ui.available_width();
                 card_frame(self.theme).show(ui, |ui| {
+                    ui.set_min_width((output_width - 24.0).max(0.0));
                     if let Some(plan) = self.explain_plan.as_deref() {
                         egui::ScrollArea::vertical().max_height(300.0).show(ui, |ui| {
                             ui.label(RichText::new(plan).monospace().color(self.theme.text_secondary));
                         });
                     } else {
-                        ui.label(RichText::new("Run Explain to inspect the query plan").color(self.theme.text_muted));
+                        empty_state(
+                            ui,
+                            Icon::ChartNoAxesCombined,
+                            "No query plan yet",
+                            "Run Explain to inspect the query plan.",
+                            self.theme,
+                        );
                     }
                 });
             }
             OutputTab::History => {
+                let output_width = ui.available_width();
                 card_frame(self.theme).show(ui, |ui| {
+                    ui.set_min_width((output_width - 24.0).max(0.0));
                     if self.query_history.is_empty() {
-                        ui.label(RichText::new("No query history yet").color(self.theme.text_muted));
+                        empty_state(
+                            ui,
+                            Icon::History,
+                            "No query history yet",
+                            "Executed queries will appear here.",
+                            self.theme,
+                        );
                     } else {
                         for query in self.query_history.iter().rev().take(20) {
                             ui.label(
