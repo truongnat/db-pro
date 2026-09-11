@@ -1,6 +1,6 @@
 use super::registry::ConnectionRegistry;
 use crate::domain::backup::{BackupOptions, BackupResult, RestoreOptions};
-use crate::domain::connection::{ConnectionConfig, ConnectionId, DriverType};
+use crate::domain::connection::{Connection, ConnectionConfig, ConnectionId, DriverType};
 use crate::domain::error::DbError;
 use crate::ports::{BackupEngine, ConnectionRepository, SecretStore};
 use std::sync::Arc;
@@ -37,23 +37,9 @@ impl BackupService {
         let conn_id = ConnectionId::parse(&options.connection_id)
             .map_err(|e| DbError::Validation(format!("invalid connection id: {e}")))?;
 
-        let config = self
-            .connections
-            .get_config(&conn_id)
-            .await?
-            .ok_or_else(|| DbError::NotFound(format!("connection {conn_id} not found")))?;
-
-        let secret_key = format!("connection/{}/password", conn_id);
-        let password = match config.driver {
-            crate::domain::connection::DriverType::Postgres => {
-                self.secrets.retrieve_secret(&secret_key).await?.ok_or_else(|| {
-                    DbError::Validation("password not found — connect and save credentials before backup".into())
-                })?
-            }
-            crate::domain::connection::DriverType::SQLite => {
-                self.secrets.retrieve_secret(&secret_key).await?.unwrap_or_default()
-            }
-        };
+        let connection = self.load_connection(&conn_id).await?;
+        let config = connection.config.clone();
+        let password = self.password_for(&connection, "backup").await?;
 
         let engine = match config.driver {
             DriverType::Postgres => (self.pg_engine_factory)(&config),
@@ -67,11 +53,8 @@ impl BackupService {
         let conn_id = ConnectionId::parse(&options.connection_id)
             .map_err(|e| DbError::Validation(format!("invalid connection id: {e}")))?;
 
-        let config = self
-            .connections
-            .get_config(&conn_id)
-            .await?
-            .ok_or_else(|| DbError::NotFound(format!("connection {conn_id} not found")))?;
+        let connection = self.load_connection(&conn_id).await?;
+        let config = connection.config.clone();
 
         // Restore is a mutating operation — block on read-only connections.
         if config.readonly {
@@ -86,17 +69,7 @@ impl BackupService {
             ));
         }
 
-        let secret_key = format!("connection/{}/password", conn_id);
-        let password = match config.driver {
-            crate::domain::connection::DriverType::Postgres => {
-                self.secrets.retrieve_secret(&secret_key).await?.ok_or_else(|| {
-                    DbError::Validation("password not found — connect and save credentials before restore".into())
-                })?
-            }
-            crate::domain::connection::DriverType::SQLite => {
-                self.secrets.retrieve_secret(&secret_key).await?.unwrap_or_default()
-            }
-        };
+        let password = self.password_for(&connection, "restore").await?;
 
         let engine = match config.driver {
             DriverType::Postgres => (self.pg_engine_factory)(&config),
@@ -104,6 +77,28 @@ impl BackupService {
         };
 
         engine.restore(options, &password).await
+    }
+
+    async fn load_connection(&self, conn_id: &ConnectionId) -> Result<Connection, DbError> {
+        self.connections
+            .get(conn_id)
+            .await?
+            .ok_or_else(|| DbError::NotFound(format!("connection {conn_id} not found")))
+    }
+
+    async fn password_for(&self, connection: &Connection, operation: &str) -> Result<String, DbError> {
+        let secret_key = connection
+            .secret_ref
+            .clone()
+            .unwrap_or_else(|| format!("connection/{}/password", connection.id));
+        match connection.config.driver {
+            DriverType::Postgres => self.secrets.retrieve_secret(&secret_key).await?.ok_or_else(|| {
+                DbError::Validation(format!(
+                    "password not found — connect and save credentials before {operation}"
+                ))
+            }),
+            DriverType::SQLite => Ok(self.secrets.retrieve_secret(&secret_key).await?.unwrap_or_default()),
+        }
     }
 }
 
@@ -145,9 +140,10 @@ mod tests {
         let connection_id = ConnectionId::new();
         let mut connections = MockConnectionRepository::new();
         let config = postgres_config_with_ssh();
+        let connection = Connection::new(config.clone()).with_secret_ref("custom/key".into());
         connections
-            .expect_get_config()
-            .returning(move |_| Ok(Some(config.clone())));
+            .expect_get()
+            .returning(move |_| Ok(Some(connection.clone())));
 
         let mut secrets = MockSecretStore::new();
         secrets
@@ -189,5 +185,96 @@ mod tests {
 
         assert!(result.is_ok());
         assert!(*saw_ssh_config.lock().expect("test mutex poisoned"));
+    }
+
+    #[tokio::test]
+    async fn backup_uses_persisted_custom_secret_reference() {
+        let connection_id = ConnectionId::new();
+        let connection = Connection::new(postgres_config_with_ssh()).with_secret_ref("migrated/password".into());
+        let mut connections = MockConnectionRepository::new();
+        connections
+            .expect_get()
+            .returning(move |_| Ok(Some(connection.clone())));
+
+        let mut secrets = MockSecretStore::new();
+        secrets
+            .expect_retrieve_secret()
+            .withf(|key| key == "migrated/password")
+            .returning(|_| Ok(Some("custom".into())));
+
+        let pg_factory = Box::new(|_: &ConnectionConfig| {
+            let mut engine = MockBackupEngine::new();
+            engine
+                .expect_backup()
+                .withf(|_, password| password == "custom")
+                .returning(|_, _| {
+                    Ok(BackupResult {
+                        output_path: "/tmp/backup.dump".into(),
+                        size_bytes: 1,
+                    })
+                });
+            Box::new(engine) as Box<dyn BackupEngine>
+        });
+        let sqlite_factory = Box::new(|_: &str| -> Box<dyn BackupEngine> { Box::new(MockBackupEngine::new()) });
+        let service = BackupService::new(
+            Box::new(connections),
+            Box::new(secrets),
+            Arc::new(ConnectionRegistry::new()),
+            pg_factory,
+            sqlite_factory,
+        );
+
+        service
+            .backup(&BackupOptions {
+                connection_id: connection_id.to_string(),
+                output_path: "/tmp/backup.dump".into(),
+                format: BackupFormat::Custom,
+                schemas: vec![],
+                tables: vec![],
+            })
+            .await
+            .expect("backup should use the persisted custom secret");
+    }
+
+    #[tokio::test]
+    async fn restore_uses_persisted_custom_secret_reference() {
+        let connection_id = ConnectionId::new();
+        let connection = Connection::new(postgres_config_with_ssh()).with_secret_ref("migrated/password".into());
+        let mut connections = MockConnectionRepository::new();
+        connections
+            .expect_get()
+            .returning(move |_| Ok(Some(connection.clone())));
+
+        let mut secrets = MockSecretStore::new();
+        secrets
+            .expect_retrieve_secret()
+            .withf(|key| key == "migrated/password")
+            .returning(|_| Ok(Some("custom".into())));
+
+        let pg_factory = Box::new(|_: &ConnectionConfig| {
+            let mut engine = MockBackupEngine::new();
+            engine
+                .expect_restore()
+                .withf(|_, password| password == "custom")
+                .returning(|_, _| Ok(()));
+            Box::new(engine) as Box<dyn BackupEngine>
+        });
+        let sqlite_factory = Box::new(|_: &str| -> Box<dyn BackupEngine> { Box::new(MockBackupEngine::new()) });
+        let service = BackupService::new(
+            Box::new(connections),
+            Box::new(secrets),
+            Arc::new(ConnectionRegistry::new()),
+            pg_factory,
+            sqlite_factory,
+        );
+
+        service
+            .restore(&RestoreOptions {
+                connection_id: connection_id.to_string(),
+                input_path: "/tmp/backup.dump".into(),
+                format: BackupFormat::Custom,
+            })
+            .await
+            .expect("restore should use the persisted custom secret");
     }
 }

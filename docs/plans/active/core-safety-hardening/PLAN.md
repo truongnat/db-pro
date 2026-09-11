@@ -63,6 +63,8 @@ without changing the native UI or adding product features.
     mishandles comments, quoted identifiers, and PostgreSQL dollar-quoted bodies.
 25. Batch execution can report a timeout or statement failure before provider
     rollback has completed, allowing the next operation to race cleanup.
+26. Backup and restore resolve only the default password key and discard a
+    persisted custom `secret_ref`.
 
 ## Acceptance criteria
 
@@ -96,5 +98,7 @@ without changing the native UI or adding product features.
   semicolons inside comments, quoted identifiers, and dollar-quoted bodies.
 - PostgreSQL and SQLite batch execution explicitly rolls back on failure and waits
   for rollback completion after timeout interruption.
+- Backup and restore resolve the persisted connection secret reference, with a
+  default-key fallback only for legacy records that have no reference.
 - PostgreSQL and SQLite unit/integration coverage is updated independently where the
   behavior differs.

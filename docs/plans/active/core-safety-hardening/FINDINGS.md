@@ -277,3 +277,16 @@ Decision: apply the deadline per PostgreSQL batch operation, explicitly rollback
 on timeout/error/row-count overflow, and wait for SQLite's actor response after
 interrupting it. Preserve an unknown PostgreSQL commit outcome instead of
 client-cancelling `COMMIT`.
+
+## P1 — Backup and restore ignore a persisted custom secret reference
+
+`BackupService` loaded only `ConnectionConfig` and reconstructed the default
+`connection/{id}/password` key. The full `Connection` record stores
+`secret_ref`, which is used by normal connect and can point to a migrated or
+custom credential.
+
+Impact: a connection could connect successfully while PostgreSQL backup or
+restore failed authentication or used a stale credential.
+
+Decision: load the full connection record for backup and restore, resolve its
+persisted `secret_ref`, and retain the default key only as a legacy fallback.
