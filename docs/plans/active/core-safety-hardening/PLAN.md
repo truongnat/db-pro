@@ -15,7 +15,7 @@ without changing the native UI or adding product features.
 
 - No changes to `crates/ui`, `crates/native-app`, Tauri, Agent/MCP, or visual design.
 - No schema migration, import workflow, or new provider feature.
-- No claim of live PostgreSQL or native UI verification in this wave.
+- No claim of native UI runtime or live SSH-tunnel verification in this wave.
 
 ## Findings driving this wave
 
@@ -61,6 +61,8 @@ without changing the native UI or adding product features.
     replacement `rename()` at publish time, leaving a race window.
 24. SQL statement boundary handling only understands single-quoted strings and
     mishandles comments, quoted identifiers, and PostgreSQL dollar-quoted bodies.
+25. Batch execution can report a timeout or statement failure before provider
+    rollback has completed, allowing the next operation to race cleanup.
 
 ## Acceptance criteria
 
@@ -92,5 +94,7 @@ without changing the native UI or adding product features.
   destination that appears during snapshot creation.
 - Single- and multi-statement SQL validation uses one lexical splitter that preserves
   semicolons inside comments, quoted identifiers, and dollar-quoted bodies.
+- PostgreSQL and SQLite batch execution explicitly rolls back on failure and waits
+  for rollback completion after timeout interruption.
 - PostgreSQL and SQLite unit/integration coverage is updated independently where the
   behavior differs.

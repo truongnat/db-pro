@@ -261,3 +261,19 @@ transaction classification.
 Decision: use one byte-aware splitter that skips single/double quotes, nested block
 comments, line comments, and dollar-quoted bodies, and reuse it for single-statement
 validation.
+
+## P1 — Batch execution can return before rollback
+
+`PostgresConnector::execute_batch` previously wrapped the complete transaction in
+`tokio::time::timeout`. A timeout dropped the SQLx transaction without awaiting
+rollback, so the method could report failure while the connection resource was
+still cleaning up. SQLite had the same race in the opposite direction: its actor
+continued rolling back after the async caller had already returned a timeout.
+
+Impact: a following operation could race transaction cleanup, and the batch API
+did not prove its atomicity contract after a timeout or statement failure.
+
+Decision: apply the deadline per PostgreSQL batch operation, explicitly rollback
+on timeout/error/row-count overflow, and wait for SQLite's actor response after
+interrupting it. Preserve an unknown PostgreSQL commit outcome instead of
+client-cancelling `COMMIT`.

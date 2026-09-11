@@ -381,3 +381,166 @@ async fn pg_special_identifiers() {
 
     connector.disconnect(&handle).await.unwrap();
 }
+
+/// Core transaction contract: a failed statement must roll back an earlier
+/// mutation before the connector reports the failure.
+#[tokio::test]
+#[ignore]
+async fn pg_transaction_failure_rolls_back_prior_mutation() {
+    let (connector, handle) = setup().await;
+    let table = format!("core_tx_probe_{}", uuid::Uuid::new_v4().simple());
+    let create = format!("CREATE TABLE \"{table}\" (id INTEGER)");
+    let insert = format!("INSERT INTO \"{table}\" (id) VALUES (1)");
+    let statements = vec![create, insert, "SELECT * FROM missing_core_tx_table".into()];
+
+    let failure = connector
+        .execute_transaction(&handle, &statements, &[false, false, true])
+        .await
+        .expect_err("the missing table must fail the transaction");
+
+    assert_eq!(failure.statement_index, 2);
+    assert_eq!(failure.results.len(), 2);
+    assert!(failure.error.to_string().contains("missing_core_tx_table"));
+
+    let relation = format!("SELECT to_regclass('public.\"{table}\"')");
+    let relation_result = connector.query(&handle, &relation, &[]).await.unwrap();
+    assert!(matches!(
+        relation_result.rows[0].0[0],
+        db_pro_core::domain::query::CellValue::Null
+    ));
+    let recovery = connector.query(&handle, "SELECT 1", &[]).await.unwrap();
+    assert_eq!(recovery.row_count, 1);
+    connector
+        .execute(&handle, &format!("DROP TABLE IF EXISTS \"{table}\""), &[])
+        .await
+        .unwrap();
+    connector.disconnect(&handle).await.unwrap();
+}
+
+/// Core transaction contract: timeout after a mutation must roll back before
+/// the connector returns and leave the pool usable for a subsequent query.
+#[tokio::test]
+#[ignore]
+async fn pg_transaction_timeout_rolls_back_prior_mutation() {
+    let mut config = pg_config().expect("DATABASE_URL must be set for PG integration tests");
+    config.query_timeout_ms = 1_000;
+    let password = std::env::var("DATABASE_URL")
+        .ok()
+        .and_then(|url| {
+            url.strip_prefix("postgres://")
+                .and_then(|s| s.split_once('@').map(|(auth, _)| auth))
+                .and_then(|auth| auth.split_once(':').map(|(_, p)| p.to_string()))
+        })
+        .unwrap_or_default();
+
+    let connector = PostgresConnector::new();
+    let handle = connector.connect(&config, &password).await.expect("PG connect failed");
+    let table = format!("core_tx_timeout_probe_{}", uuid::Uuid::new_v4().simple());
+    let create = format!("CREATE TABLE \"{table}\" (id INTEGER)");
+    let insert = format!("INSERT INTO \"{table}\" (id) VALUES (1)");
+    let statements = vec![create, insert, "SELECT pg_sleep(2)".into()];
+
+    let failure = connector
+        .execute_transaction(&handle, &statements, &[false, false, true])
+        .await
+        .expect_err("the sleep must exceed the transaction deadline");
+
+    assert_eq!(failure.statement_index, 2);
+    assert!(matches!(
+        failure.error,
+        db_pro_core::domain::error::DbError::QueryTimeout { timeout_ms: 1_000 }
+    ));
+    assert_eq!(failure.results.len(), 2);
+
+    let relation = format!("SELECT to_regclass('public.\"{table}\"')");
+    let relation_result = connector.query(&handle, &relation, &[]).await.unwrap();
+    assert!(matches!(
+        relation_result.rows[0].0[0],
+        db_pro_core::domain::query::CellValue::Null
+    ));
+    let recovery = connector.query(&handle, "SELECT 1", &[]).await.unwrap();
+    assert_eq!(recovery.row_count, 1);
+    connector
+        .execute(&handle, &format!("DROP TABLE IF EXISTS \"{table}\""), &[])
+        .await
+        .unwrap();
+    connector.disconnect(&handle).await.unwrap();
+}
+
+/// Core batch contract: a failed statement must roll back mutations that ran
+/// earlier in the same batch.
+#[tokio::test]
+#[ignore]
+async fn pg_execute_batch_failure_rolls_back_prior_mutation() {
+    let (connector, handle) = setup().await;
+    let table = format!("core_batch_failure_probe_{}", uuid::Uuid::new_v4().simple());
+    let create = format!("CREATE TABLE \"{table}\" (id INTEGER)");
+    let insert = format!("INSERT INTO \"{table}\" (id) VALUES (1)");
+    let error = connector
+        .execute_batch(
+            &handle,
+            &[create, insert, "SELECT * FROM missing_core_batch_table".into()],
+        )
+        .await
+        .expect_err("the missing table must fail the batch");
+    assert!(error.to_string().contains("missing_core_batch_table"));
+
+    let relation = format!("SELECT to_regclass('public.\"{table}\"')");
+    let relation_result = connector.query(&handle, &relation, &[]).await.unwrap();
+    assert!(matches!(
+        relation_result.rows[0].0[0],
+        db_pro_core::domain::query::CellValue::Null
+    ));
+    let recovery = connector.query(&handle, "SELECT 1", &[]).await.unwrap();
+    assert_eq!(recovery.row_count, 1);
+    connector
+        .execute(&handle, &format!("DROP TABLE IF EXISTS \"{table}\""), &[])
+        .await
+        .unwrap();
+    connector.disconnect(&handle).await.unwrap();
+}
+
+/// Core batch contract: a timeout after a mutation must roll back before the
+/// connector reports the timeout and leave the pool usable.
+#[tokio::test]
+#[ignore]
+async fn pg_execute_batch_timeout_rolls_back_prior_mutation() {
+    let mut config = pg_config().expect("DATABASE_URL must be set for PG integration tests");
+    config.query_timeout_ms = 1_000;
+    let password = std::env::var("DATABASE_URL")
+        .ok()
+        .and_then(|url| {
+            url.strip_prefix("postgres://")
+                .and_then(|s| s.split_once('@').map(|(auth, _)| auth))
+                .and_then(|auth| auth.split_once(':').map(|(_, p)| p.to_string()))
+        })
+        .unwrap_or_default();
+
+    let connector = PostgresConnector::new();
+    let handle = connector.connect(&config, &password).await.expect("PG connect failed");
+    let table = format!("core_batch_timeout_probe_{}", uuid::Uuid::new_v4().simple());
+    let create = format!("CREATE TABLE \"{table}\" (id INTEGER)");
+    let insert = format!("INSERT INTO \"{table}\" (id) VALUES (1)");
+    let error = connector
+        .execute_batch(&handle, &[create, insert, "SELECT pg_sleep(2)".into()])
+        .await
+        .expect_err("the batch sleep must exceed its configured deadline");
+    assert!(matches!(
+        error,
+        db_pro_core::domain::error::DbError::QueryTimeout { timeout_ms: 1_000 }
+    ));
+
+    let relation = format!("SELECT to_regclass('public.\"{table}\"')");
+    let relation_result = connector.query(&handle, &relation, &[]).await.unwrap();
+    assert!(matches!(
+        relation_result.rows[0].0[0],
+        db_pro_core::domain::query::CellValue::Null
+    ));
+    let recovery = connector.query(&handle, "SELECT 1", &[]).await.unwrap();
+    assert_eq!(recovery.row_count, 1);
+    connector
+        .execute(&handle, &format!("DROP TABLE IF EXISTS \"{table}\""), &[])
+        .await
+        .unwrap();
+    connector.disconnect(&handle).await.unwrap();
+}

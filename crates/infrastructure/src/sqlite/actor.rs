@@ -190,7 +190,7 @@ impl SqliteHandle {
 
     /// Execute multiple statements atomically inside a transaction.
     pub async fn execute_batch(&self, statements: Vec<String>, timeout_ms: u64) -> Result<u64, DbError> {
-        let (tx, rx) = oneshot::channel();
+        let (tx, mut rx) = oneshot::channel();
         let cmd = SqliteCommand::ExecuteBatch {
             statements,
             responder: tx,
@@ -201,7 +201,29 @@ impl SqliteHandle {
         })
         .await
         .map_err(|e| DbError::Internal(format!("spawn_blocking join error: {e}")))?;
-        self.await_result(rx, timeout_ms).await
+        match tokio::time::timeout(std::time::Duration::from_millis(timeout_ms), &mut rx).await {
+            Ok(Ok(result)) => result,
+            Ok(Err(error)) => Err(DbError::Internal(format!("oneshot recv error: {error}"))),
+            Err(_) => {
+                self.interrupt_handle.interrupt();
+                // The actor owns the SQLite transaction. Keep the receiver alive
+                // until it has handled the interrupt and rolled back, otherwise a
+                // following command can race the still-open transaction.
+                match rx.await {
+                    Ok(Ok(result)) => Ok(result),
+                    Ok(Err(error)) => {
+                        if matches!(&error, DbError::Internal(message) if message.contains("rollback failed")) {
+                            Err(error)
+                        } else {
+                            Err(DbError::QueryTimeout { timeout_ms })
+                        }
+                    }
+                    Err(error) => Err(DbError::Internal(format!(
+                        "oneshot recv error after interrupt: {error}"
+                    ))),
+                }
+            }
+        }
     }
 
     pub async fn execute_transaction(
@@ -543,8 +565,28 @@ impl SqliteActor {
         let tx = self.conn.unchecked_transaction().map_err(crate::error::from_rusqlite)?;
         let mut total: u64 = 0;
         for stmt_sql in statements {
-            tx.execute_batch(stmt_sql).map_err(crate::error::from_rusqlite)?;
-            total += tx.changes();
+            if let Err(error) = tx.execute_batch(stmt_sql).map_err(crate::error::from_rusqlite) {
+                let rollback_error = tx.rollback().err().map(crate::error::from_rusqlite);
+                return match rollback_error {
+                    Some(rollback_error) => Err(DbError::Internal(format!(
+                        "batch statement failed: {error}; rollback failed: {rollback_error}"
+                    ))),
+                    None => Err(error),
+                };
+            }
+            total = match total.checked_add(tx.changes()) {
+                Some(total) => total,
+                None => {
+                    let error = DbError::Internal("batch affected-row count overflow".into());
+                    let rollback_error = tx.rollback().err().map(crate::error::from_rusqlite);
+                    return match rollback_error {
+                        Some(rollback_error) => {
+                            Err(DbError::Internal(format!("{error}; rollback failed: {rollback_error}")))
+                        }
+                        None => Err(error),
+                    };
+                }
+            };
         }
         tx.commit().map_err(crate::error::from_rusqlite)?;
         Ok(total)

@@ -42,6 +42,8 @@
 - [x] Add SQLite backup publish race regression coverage.
 - [x] Make SQL statement splitting aware of comments, quoted identifiers, and dollar quotes.
 - [x] Add PostgreSQL lexical-boundary regression coverage.
+- [x] Make PostgreSQL and SQLite batch execution await rollback after timeout or statement failure.
+- [x] Add PostgreSQL live-fixture and SQLite batch timeout/rollback regression coverage.
 - [x] Run formatting, check, clippy, targeted tests, and workspace tests.
 - [x] Self-review changed files and confirm no UI/native files changed.
-- [ ] Record PostgreSQL live evidence as pending unless an actual provider is exercised.
+- [x] Record PostgreSQL live fixture evidence; SSH-tunnel and native UI runtime evidence remain explicitly pending.

@@ -194,23 +194,67 @@ impl DbConnector for PostgresConnector {
         let pool = entry.pool.clone();
         drop(pools);
 
-        let future = async {
-            let mut tx = pool.begin().await.map_err(crate::error::from_sqlx)?;
-            let mut total_affected: u64 = 0;
+        let deadline = std::time::Instant::now() + timeout;
+        let mut tx = with_query_timeout(timeout, async { pool.begin().await.map_err(crate::error::from_sqlx) }).await?;
+        let mut total_affected: u64 = 0;
 
-            for stmt in statements {
-                let result = sqlx::query(stmt)
-                    .execute(&mut *tx)
-                    .await
-                    .map_err(crate::error::from_sqlx)?;
-                total_affected += result.rows_affected();
+        for statement in statements {
+            let remaining = deadline.saturating_duration_since(std::time::Instant::now());
+            if remaining.is_zero() {
+                let timeout_error = DbError::QueryTimeout {
+                    timeout_ms: timeout.as_millis() as u64,
+                };
+                return match tx.rollback().await.map_err(crate::error::from_sqlx) {
+                    Ok(()) => Err(timeout_error),
+                    Err(rollback_error) => Err(DbError::Internal(format!(
+                        "batch timed out: {timeout_error}; rollback failed: {rollback_error}"
+                    ))),
+                };
             }
 
-            tx.commit().await.map_err(crate::error::from_sqlx)?;
-            Ok(total_affected)
-        };
+            let result = match tokio::time::timeout(remaining, async {
+                sqlx::query(statement)
+                    .execute(&mut *tx)
+                    .await
+                    .map_err(crate::error::from_sqlx)
+            })
+            .await
+            {
+                Ok(result) => result,
+                Err(_) => Err(DbError::QueryTimeout {
+                    timeout_ms: timeout.as_millis() as u64,
+                }),
+            };
 
-        with_query_timeout(timeout, future).await
+            let affected = match result {
+                Ok(result) => result.rows_affected(),
+                Err(error) => {
+                    return match tx.rollback().await.map_err(crate::error::from_sqlx) {
+                        Ok(()) => Err(error),
+                        Err(rollback_error) => Err(DbError::Internal(format!(
+                            "batch statement failed: {error}; rollback failed: {rollback_error}"
+                        ))),
+                    };
+                }
+            };
+            total_affected = match total_affected.checked_add(affected) {
+                Some(total_affected) => total_affected,
+                None => {
+                    let error = DbError::Internal("batch affected-row count overflow".into());
+                    return match tx.rollback().await.map_err(crate::error::from_sqlx) {
+                        Ok(()) => Err(error),
+                        Err(rollback_error) => {
+                            Err(DbError::Internal(format!("{error}; rollback failed: {rollback_error}")))
+                        }
+                    };
+                }
+            };
+        }
+
+        // Do not cancel COMMIT at the client deadline: the commit outcome would be
+        // unknown and cannot safely be reported as a rollback.
+        tx.commit().await.map_err(crate::error::from_sqlx)?;
+        Ok(total_affected)
     }
 
     async fn execute_transaction(
