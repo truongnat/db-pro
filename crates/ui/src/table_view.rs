@@ -4,13 +4,35 @@ impl DbProApp {
     pub(super) fn draw_welcome(&mut self, ui: &mut egui::Ui) {
         let modifier = Self::primary_modifier_label();
         let mut open_query = false;
-        ui.add_space(28.0);
+        let canvas_rect = ui.max_rect();
+        let grid_color = self.theme.border_subtle.linear_multiply(0.55);
+        let grid_step = 32.0;
+        let mut x = canvas_rect.left() - canvas_rect.left() % grid_step;
+        while x <= canvas_rect.right() {
+            ui.painter().line_segment(
+                [egui::pos2(x, canvas_rect.top()), egui::pos2(x, canvas_rect.bottom())],
+                egui::Stroke::new(1.0, grid_color),
+            );
+            x += grid_step;
+        }
+        let mut y = canvas_rect.top() - canvas_rect.top() % grid_step;
+        while y <= canvas_rect.bottom() {
+            ui.painter().line_segment(
+                [egui::pos2(canvas_rect.left(), y), egui::pos2(canvas_rect.right(), y)],
+                egui::Stroke::new(1.0, grid_color),
+            );
+            y += grid_step;
+        }
+
+        let content_width = ui.available_width().min(720.0);
+        ui.add_space(((ui.available_width() - content_width) / 2.0).max(0.0));
         ui.allocate_ui_with_layout(
-            egui::vec2(ui.available_width().min(760.0), ui.available_height()),
+            egui::vec2(content_width, ui.available_height()),
             Layout::top_down(Align::Min),
             |ui| {
+                ui.add_space(30.0);
                 ui.horizontal(|ui| {
-                    ui.label(icon_text(Icon::Sparkles, "WELCOME", self.theme.accent));
+                    ui.label(icon_text(Icon::Sparkles, "WORKSPACE / HOME", self.theme.accent));
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                         ui.label(
                             RichText::new(format!("{modifier}K command palette"))
@@ -20,7 +42,7 @@ impl DbProApp {
                     });
                 });
                 ui.add_space(12.0);
-                ui.label(RichText::new("A focused workspace for your data").size(25.0).strong());
+                ui.label(RichText::new("A focused workspace for your data").size(24.0).strong());
                 ui.add_space(6.0);
                 ui.label(
                     RichText::new("Connect a database, open a query, and keep the useful context close.")
@@ -28,18 +50,18 @@ impl DbProApp {
                 );
                 ui.add_space(22.0);
                 egui::Frame {
-                    fill: self.theme.surface_elevated,
-                    inner_margin: egui::Margin::same(18.0),
-                    rounding: egui::Rounding::same(9.0),
-                    stroke: egui::Stroke::NONE,
+                    fill: self.theme.surface_panel,
+                    inner_margin: egui::Margin::same(14.0),
+                    rounding: egui::Rounding::same(6.0),
+                    stroke: egui::Stroke::new(1.0, self.theme.border_default),
                     ..Default::default()
                 }
                 .show(ui, |ui| {
                     ui.horizontal(|ui| {
                         egui::Frame {
                             fill: self.theme.accent_soft,
-                            inner_margin: egui::Margin::same(10.0),
-                            rounding: egui::Rounding::same(8.0),
+                            inner_margin: egui::Margin::same(8.0),
+                            rounding: egui::Rounding::same(6.0),
                             stroke: egui::Stroke::NONE,
                             ..Default::default()
                         }
@@ -67,7 +89,7 @@ impl DbProApp {
                         {
                             open_query = true;
                         }
-                        if secondary_button_with_icon(ui, Icon::Database, "New connection", self.theme).clicked() {
+                        if compact_button_with_icon(ui, Icon::Database, "New connection", self.theme).clicked() {
                             self.open_new_connection();
                         }
                         if compact_icon_button(ui, Icon::Search, self.theme)
@@ -84,7 +106,7 @@ impl DbProApp {
                         self.new_query_document();
                     }
                     ui.label(
-                        RichText::new("or use the activity rail to open Queries and History")
+                        RichText::new("Use the activity rail for Queries, History, and Monitor")
                             .small()
                             .color(self.theme.text_muted),
                     );

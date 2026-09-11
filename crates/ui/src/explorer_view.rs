@@ -17,14 +17,13 @@ impl DbProApp {
 
     fn draw_explorer_connections(&mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
-            ui.label(icon_text(Icon::ChevronDown, "", self.theme.text_muted));
-            ui.label(
-                RichText::new("DATABASE")
-                    .size(11.0)
-                    .strong()
-                    .color(self.theme.text_muted),
-            );
+            ui.label(icon_text(Icon::PlugZap, "Connections", self.theme.text_secondary));
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                ui.label(
+                    RichText::new(self.connections.len().to_string())
+                        .small()
+                        .color(self.theme.text_muted),
+                );
                 if compact_icon_button(ui, Icon::Plus, self.theme)
                     .on_hover_text("New connection")
                     .clicked()
@@ -46,9 +45,9 @@ impl DbProApp {
                 }
             });
         });
-        ui.add_space(8.0);
+        ui.add_space(5.0);
         if self.connections.is_empty() {
-            ui.label(RichText::new("No saved connections").color(self.theme.text_muted));
+            ui.label(RichText::new("No saved connections").color(self.theme.text_secondary));
             ui.label(
                 RichText::new("Connect a database to load its schema here.")
                     .small()
@@ -57,102 +56,97 @@ impl DbProApp {
         } else {
             for connection in self.connections.clone() {
                 let is_active = self.active_connection_id.as_deref() == Some(connection.id.as_str());
-                ui.horizontal(|ui| {
-                    let (connection_state_icon, connection_state_color) = self.connection_indicator(&connection);
-                    ui.label(icon_text(connection_state_icon, "", connection_state_color));
-                    let connection_button = ui.add(
-                        egui::Button::new(
-                            RichText::new(connection.name.as_str())
-                                .strong()
-                                .color(self.theme.text_primary),
-                        )
-                        .fill(if is_active {
-                            self.theme.accent_soft
-                        } else {
-                            Color32::TRANSPARENT
-                        })
-                        .stroke(egui::Stroke::NONE)
-                        .rounding(egui::Rounding::same(5.0)),
-                    );
-                    let mut connect_from_menu = false;
-                    let mut edit_from_menu = false;
-                    let mut delete_from_menu = false;
-                    let connection_clicked = connection_button.clicked();
-                    connection_button.context_menu(|ui| {
-                        if ui.button("Connect").clicked() {
-                            connect_from_menu = true;
-                            ui.close_menu();
-                        }
-                        if ui.button("Edit connection").clicked() {
-                            edit_from_menu = true;
-                            ui.close_menu();
-                        }
-                        if ui.button("Delete connection").clicked() {
-                            delete_from_menu = true;
-                            ui.close_menu();
-                        }
-                    });
-                    if connection_clicked || connect_from_menu {
-                        self.reset_agent_context();
-                        self.active_connection_id = Some(connection.id.clone());
-                        self.selected_schema = None;
-                        self.schema = UiSchemaSummary::default();
-                        self.selected_table = None;
-                        self.selected_schema_object = None;
-                        self.table_info = None;
-                        self.table_ddl = None;
-                        self.table_info_error = None;
-                        self.table_ddl_error = None;
-                        self.ddl_execute_confirmation = false;
-                        self.ddl_execution_request = None;
-                        self.table_data_result = None;
-                        self.table_data_total_rows = None;
-                        self.table_data_offset = 0;
-                        self.table_data_filter_column.clear();
-                        self.table_data_filter_value.clear();
-                        self.table_data_sort_column = None;
-                        self.table_data_sort_desc = false;
-                        self.table_data_error = None;
-                        self.table_info_request = None;
-                        self.table_ddl_request = None;
-                        self.table_data_request = None;
-                        self.table_mutation_request = None;
-                        self.staged_changes.clear();
-                        self.staged_apply_request = None;
-                        self.selected_cell = None;
-                        self.selected_row = None;
-                        self.data_editing_cell = None;
-                        self.data_edit_value.clear();
-                        self.data_delete_confirmation = false;
-                        self.table_view = TableView::Structure;
-                        self.explorer_search.clear();
-                        let request_id = self.task_bridge.next_request_id();
-                        self.connected = false;
-                        self.pending_connection_request = Some(request_id);
-                        self.schema_request = None;
-                        self.schema_error = None;
-                        let _ = self.task_bridge.send(UiCommand::Connect {
-                            request_id,
-                            connection_id: connection.id.clone(),
-                        });
-                        self.runtime_message = format!("Connecting to {}…", connection.name);
+                let (connection_state_icon, connection_state_color) = self.connection_indicator(&connection);
+                let connection_button =
+                    sidebar_item(ui, connection_state_icon, &connection.name, is_active, self.theme);
+                let mut connect_from_menu = false;
+                let mut edit_from_menu = false;
+                let mut delete_from_menu = false;
+                let connection_clicked = connection_button.clicked();
+                connection_button.context_menu(|ui| {
+                    if ui.button("Connect").clicked() {
+                        connect_from_menu = true;
+                        ui.close_menu();
                     }
-                    if edit_from_menu {
-                        self.open_edit_connection(&connection);
+                    if ui.button("Edit connection").clicked() {
+                        edit_from_menu = true;
+                        ui.close_menu();
                     }
-                    if delete_from_menu {
-                        self.delete_confirmation_id = Some(connection.id.clone());
+                    if ui.button("Delete connection").clicked() {
+                        delete_from_menu = true;
+                        ui.close_menu();
                     }
                 });
-                ui.add_space(1.0);
-                ui.label(
-                    RichText::new(format!("    {} · {}", connection.driver, connection.database))
-                        .size(11.0)
-                        .color(self.theme.text_muted),
-                );
+                if connection_clicked || connect_from_menu {
+                    self.reset_agent_context();
+                    self.active_connection_id = Some(connection.id.clone());
+                    self.selected_schema = None;
+                    self.schema = UiSchemaSummary::default();
+                    self.selected_table = None;
+                    self.selected_schema_object = None;
+                    self.table_info = None;
+                    self.table_ddl = None;
+                    self.table_info_error = None;
+                    self.table_ddl_error = None;
+                    self.ddl_execute_confirmation = false;
+                    self.ddl_execution_request = None;
+                    self.table_data_result = None;
+                    self.table_data_total_rows = None;
+                    self.table_data_offset = 0;
+                    self.table_data_filter_column.clear();
+                    self.table_data_filter_value.clear();
+                    self.table_data_sort_column = None;
+                    self.table_data_sort_desc = false;
+                    self.table_data_error = None;
+                    self.table_info_request = None;
+                    self.table_ddl_request = None;
+                    self.table_data_request = None;
+                    self.table_mutation_request = None;
+                    self.staged_changes.clear();
+                    self.staged_apply_request = None;
+                    self.selected_cell = None;
+                    self.selected_row = None;
+                    self.data_editing_cell = None;
+                    self.data_edit_value.clear();
+                    self.data_delete_confirmation = false;
+                    self.table_view = TableView::Structure;
+                    self.explorer_search.clear();
+                    let request_id = self.task_bridge.next_request_id();
+                    self.connected = false;
+                    self.pending_connection_request = Some(request_id);
+                    self.schema_request = None;
+                    self.schema_error = None;
+                    let _ = self.task_bridge.send(UiCommand::Connect {
+                        request_id,
+                        connection_id: connection.id.clone(),
+                    });
+                    self.runtime_message = format!("Connecting to {}…", connection.name);
+                }
+                if edit_from_menu {
+                    self.open_edit_connection(&connection);
+                }
+                if delete_from_menu {
+                    self.delete_confirmation_id = Some(connection.id.clone());
+                }
+                ui.indent(("connection-meta", connection.id.as_str()), |ui| {
+                    let database = if connection.database.is_empty() {
+                        "default database"
+                    } else {
+                        connection.database.as_str()
+                    };
+                    ui.label(
+                        RichText::new(format!("{} · {}", connection.driver, database))
+                            .small()
+                            .color(if is_active {
+                                connection_state_color
+                            } else {
+                                self.theme.text_muted
+                            }),
+                    );
+                });
             }
         }
-        ui.add_space(12.0);
+        ui.add_space(8.0);
     }
     fn draw_explorer_schema_feedback(&mut self, ui: &mut egui::Ui) {
         let schema_error = self.schema_error.clone();

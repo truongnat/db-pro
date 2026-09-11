@@ -37,8 +37,8 @@ pub fn icon_text(icon: Icon, label: &str, color: Color32) -> LayoutJob {
 pub fn panel_frame(theme: DbProTheme) -> Frame {
     Frame {
         fill: theme.surface_panel,
-        inner_margin: Margin::symmetric(10.0, 6.0),
-        stroke: Stroke::NONE,
+        inner_margin: Margin::symmetric(12.0, 7.0),
+        stroke: Stroke::new(1.0, theme.border_subtle),
         ..Default::default()
     }
 }
@@ -47,17 +47,17 @@ pub fn panel_frame(theme: DbProTheme) -> Frame {
 pub fn sidebar_frame(theme: DbProTheme) -> Frame {
     Frame {
         fill: theme.surface_panel,
-        inner_margin: Margin::symmetric(9.0, 6.0),
-        stroke: Stroke::NONE,
+        inner_margin: Margin::symmetric(10.0, 7.0),
+        stroke: Stroke::new(1.0, theme.border_subtle),
         ..Default::default()
     }
 }
 
 pub fn activity_bar_frame(theme: DbProTheme) -> Frame {
     Frame {
-        fill: theme.surface_panel,
-        inner_margin: Margin::symmetric(6.0, 8.0),
-        stroke: Stroke::NONE,
+        fill: theme.surface_app,
+        inner_margin: Margin::symmetric(5.0, 8.0),
+        stroke: Stroke::new(1.0, theme.border_subtle),
         ..Default::default()
     }
 }
@@ -65,8 +65,8 @@ pub fn activity_bar_frame(theme: DbProTheme) -> Frame {
 pub fn toolbar_frame(theme: DbProTheme) -> Frame {
     Frame {
         fill: theme.surface_panel,
-        inner_margin: Margin::symmetric(8.0, 4.0),
-        stroke: Stroke::NONE,
+        inner_margin: Margin::symmetric(10.0, 4.0),
+        stroke: Stroke::new(1.0, theme.border_subtle),
         rounding: Rounding::ZERO,
         ..Default::default()
     }
@@ -75,11 +75,11 @@ pub fn toolbar_frame(theme: DbProTheme) -> Frame {
 pub fn tab_frame(theme: DbProTheme, active: bool) -> Frame {
     Frame {
         fill: if active {
-            theme.surface_elevated
+            theme.surface_active
         } else {
             Color32::TRANSPARENT
         },
-        inner_margin: Margin::symmetric(9.0, 4.0),
+        inner_margin: Margin::symmetric(10.0, 3.0),
         rounding: Rounding::ZERO,
         stroke: Stroke::NONE,
         ..Default::default()
@@ -89,10 +89,10 @@ pub fn tab_frame(theme: DbProTheme, active: bool) -> Frame {
 pub fn card_frame(theme: DbProTheme) -> Frame {
     Frame {
         fill: theme.surface_elevated,
-        inner_margin: Margin::same(12.0),
+        inner_margin: Margin::same(14.0),
         outer_margin: Margin::ZERO,
-        rounding: Rounding::same(8.0),
-        stroke: Stroke::NONE,
+        rounding: Rounding::same(6.0),
+        stroke: Stroke::new(1.0, theme.border_subtle),
         ..Default::default()
     }
 }
@@ -176,14 +176,24 @@ pub fn sidebar_item(ui: &mut Ui, icon: Icon, label: &str, active: bool, theme: D
         theme.text_secondary
     };
     let button = Button::new(icon_layout(icon, label, text_color))
-        .min_size(egui::vec2(width, 28.0))
-        .rounding(Rounding::same(4.0))
+        .min_size(egui::vec2(width, 26.0))
+        .rounding(Rounding::same(3.0))
         .stroke(Stroke::NONE);
-    if active {
-        ui.add(button.fill(theme.accent_soft))
+    let response = if active {
+        ui.add(button.fill(theme.surface_active))
     } else {
         ui.add(button)
+    };
+    if active {
+        ui.painter().line_segment(
+            [
+                egui::pos2(response.rect.left() + 1.0, response.rect.top() + 4.0),
+                egui::pos2(response.rect.left() + 1.0, response.rect.bottom() - 4.0),
+            ],
+            Stroke::new(2.0, theme.accent),
+        );
     }
+    response
 }
 
 pub fn section_label(ui: &mut Ui, text: impl Into<String>, theme: DbProTheme) -> Response {
@@ -291,11 +301,11 @@ pub fn icon_button(ui: &mut Ui, icon: Icon, active: bool, theme: DbProTheme) -> 
         .font(FontId::new(17.0, FontFamily::Name("lucide".into())))
         .color(if active { theme.accent } else { theme.text_muted });
     let button = Button::new(text)
-        .min_size(egui::vec2(32.0, 32.0))
-        .rounding(Rounding::same(5.0))
+        .min_size(egui::vec2(32.0, 30.0))
+        .rounding(Rounding::same(6.0))
         .stroke(Stroke::NONE);
     if active {
-        ui.add(button.fill(theme.accent_soft))
+        ui.add(button.fill(theme.surface_active))
     } else {
         ui.add(button)
     }

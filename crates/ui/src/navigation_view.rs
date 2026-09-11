@@ -11,46 +11,34 @@ impl DbProApp {
             .unwrap_or((Icon::Circle, self.theme.warning));
         let modifier = Self::primary_modifier_label();
         TopBottomPanel::top("topbar")
-            .exact_height(42.0)
+            .exact_height(44.0)
             .frame(egui::Frame {
-                fill: self.theme.surface_app,
-                inner_margin: egui::Margin::symmetric(10.0, 4.0),
-                stroke: egui::Stroke::NONE,
+                fill: self.theme.surface_panel,
+                inner_margin: egui::Margin::symmetric(14.0, 4.0),
+                stroke: egui::Stroke::new(1.0, self.theme.border_subtle),
                 ..Default::default()
             })
             .show(ctx, |ui| {
                 ui.horizontal_centered(|ui| {
-                    egui::Frame {
-                        fill: self.theme.accent_soft,
-                        inner_margin: egui::Margin::symmetric(6.0, 3.0),
-                        rounding: egui::Rounding::same(5.0),
-                        stroke: egui::Stroke::NONE,
-                        ..Default::default()
-                    }
-                    .show(ui, |ui| {
-                        ui.label(icon_text(Icon::Database, "", self.theme.accent));
-                    });
-                    ui.add_space(6.0);
+                    ui.label(icon_text(Icon::Database, "", self.theme.accent));
                     ui.label(
                         RichText::new("DB PRO")
-                            .size(12.0)
+                            .size(11.0)
                             .strong()
                             .color(self.theme.text_primary),
                     );
-                    ui.add_space(10.0);
+                    ui.separator();
                     if has_connection {
                         ui.label(icon_text(connection_icon, "", connection_color));
-                        ui.label(RichText::new(connection_name).strong().color(self.theme.text_secondary));
-                        ui.label(RichText::new("/ ").small().color(self.theme.text_muted));
-                        ui.label(RichText::new(driver).size(11.0).color(self.theme.text_muted));
-                    } else {
+                        ui.label(RichText::new(connection_name).strong().color(self.theme.text_primary));
                         ui.label(
-                            RichText::new("No workspace connection")
-                                .size(11.0)
+                            RichText::new(format!("{} · {}", driver, self.active_schema()))
+                                .small()
                                 .color(self.theme.text_muted),
                         );
+                    } else {
+                        ui.label(RichText::new("No connection").size(11.0).color(self.theme.text_muted));
                     }
-                    self.draw_workspace_tabs(ui);
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                         if compact_icon_button(ui, Icon::Bot, self.theme)
                             .on_hover_text("Agent")
@@ -226,11 +214,11 @@ impl DbProApp {
     pub(super) fn draw_activity_bar(&mut self, ctx: &egui::Context) {
         egui::SidePanel::left("activity_bar")
             .resizable(false)
-            .exact_width(50.0)
+            .exact_width(46.0)
             .frame(activity_bar_frame(self.theme))
             .show(ctx, |ui| {
                 ui.vertical_centered(|ui| {
-                    ui.add_space(10.0);
+                    ui.add_space(8.0);
                     for (activity, icon, hint) in [
                         (Some(Activity::Explorer), Icon::Database, "Explorer"),
                         (Some(Activity::Queries), Icon::FileCode2, "Queries"),
@@ -261,7 +249,8 @@ impl DbProApp {
                         }
                         ui.add_space(4.0);
                     }
-                    ui.add_space((ui.available_height() - 42.0).max(0.0));
+                    ui.separator();
+                    ui.add_space((ui.available_height() - 52.0).max(0.0));
                     let settings = icon_button(ui, Icon::Settings2, self.activity == Activity::Settings, self.theme);
                     if settings.on_hover_text("Settings").clicked() {
                         self.activity = Activity::Settings;
@@ -275,16 +264,16 @@ impl DbProApp {
         let sidebar_width = self.sidebar_width;
         let response = egui::SidePanel::left("sidebar")
             .resizable(true)
-            .default_width(sidebar_width)
-            .width_range(SIDEBAR_MIN_WIDTH..=SIDEBAR_MAX_WIDTH)
+            .default_width(sidebar_width.max(248.0))
+            .width_range(232.0..=SIDEBAR_MAX_WIDTH)
             .frame(sidebar_frame(self.theme))
             .show(ctx, |ui| {
-                ui.add_space(12.0);
+                ui.add_space(5.0);
                 ui.horizontal(|ui| {
                     section_label(
                         ui,
                         match self.activity {
-                            Activity::Explorer => "EXPLORER",
+                            Activity::Explorer => "DATABASE",
                             Activity::Queries => "QUERIES",
                             Activity::History => "QUERY HISTORY",
                             Activity::Transfers => "TRANSFERS",
@@ -303,7 +292,8 @@ impl DbProApp {
                         }
                     });
                 });
-                ui.add_space(12.0);
+                ui.separator();
+                ui.add_space(7.0);
 
                 match self.activity {
                     Activity::Explorer => self.draw_explorer(ui),

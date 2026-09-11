@@ -1,6 +1,6 @@
 use super::*;
 
-const THEME_STORAGE_VERSION: &str = "dark-first-v3";
+const THEME_STORAGE_VERSION: &str = "native-redesign-v4";
 
 impl DbProApp {
     pub fn with_task_bridge(task_bridge: TaskBridge) -> Self {
@@ -205,5 +205,61 @@ impl Default for DbProApp {
             delete_confirmation_id: None,
             folder_delete_confirmation: None,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    #[derive(Default)]
+    struct MemoryStorage {
+        values: HashMap<String, String>,
+    }
+
+    impl eframe::Storage for MemoryStorage {
+        fn get_string(&self, key: &str) -> Option<String> {
+            self.values.get(key).cloned()
+        }
+
+        fn set_string(&mut self, key: &str, value: String) {
+            self.values.insert(key.to_owned(), value);
+        }
+
+        fn flush(&mut self) {}
+    }
+
+    #[test]
+    fn stale_theme_storage_resets_to_dark_first_default() {
+        let mut storage = MemoryStorage::default();
+        storage
+            .values
+            .insert("dbpro.native.theme-version".to_owned(), "dark-first-v3".to_owned());
+        storage
+            .values
+            .insert("dbpro.native.dark-mode".to_owned(), "false".to_owned());
+
+        let app = DbProApp::with_task_bridge_and_storage(TaskBridge::default(), Some(&storage));
+
+        assert!(app.dark_mode);
+        assert!(app.theme.dark_mode);
+    }
+
+    #[test]
+    fn current_theme_storage_restores_user_choice() {
+        let mut storage = MemoryStorage::default();
+        storage.values.insert(
+            "dbpro.native.theme-version".to_owned(),
+            THEME_STORAGE_VERSION.to_owned(),
+        );
+        storage
+            .values
+            .insert("dbpro.native.dark-mode".to_owned(), "false".to_owned());
+
+        let app = DbProApp::with_task_bridge_and_storage(TaskBridge::default(), Some(&storage));
+
+        assert!(!app.dark_mode);
+        assert!(!app.theme.dark_mode);
     }
 }

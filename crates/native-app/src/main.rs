@@ -120,7 +120,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         viewport: egui::ViewportBuilder::default()
             .with_title("DB Pro")
             .with_inner_size([1280.0, 800.0])
-            .with_min_inner_size([1024.0, 640.0]),
+            .with_min_inner_size([1024.0, 640.0])
+            .with_maximized(true),
         ..Default::default()
     };
 

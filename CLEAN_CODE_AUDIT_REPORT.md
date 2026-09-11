@@ -8,7 +8,7 @@
 
 ### Native UI redesign follow-up
 
-- Shared native presentation now uses a dark-first token hierarchy, quiet surfaces, borderless tabs, compact activity rail, context-driven Explorer actions, and a focused empty workspace. Theme storage uses `dark-first-v3`, migrating stale pre-redesign light-mode state to the dark default once while preserving later user choices.
+- Shared native presentation now uses a dark-first token hierarchy, quiet surfaces, borderless tabs, compact activity rail, context-driven Explorer actions, and a focused empty workspace. Theme storage uses `native-redesign-v4`, migrating stale pre-redesign light-mode state to the dark default once while preserving later user choices.
 - `agent.rs` responder branches and ER diagram canvas/node selection are split into focused helpers; behavior-preserving UI tests remain green.
 - Current native code sizes after the split: `app.rs` 753 lines, `agent_view.rs` 303, `diagram_view.rs` 567, `query_view.rs` 681, `navigation_view.rs` 686, `app_state.rs` 209.
 - Verification: workspace check/clippy, native build, UI 52/52 tests and `git diff --check` pass. Clean-code heuristic retains one constructor warning for `app_state::default`; no behavior-neutral abstraction was added solely to satisfy the heuristic.

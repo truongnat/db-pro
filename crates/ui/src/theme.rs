@@ -74,29 +74,29 @@ impl DbProTheme {
     pub fn dark() -> Self {
         Self {
             dark_mode: true,
-            surface_app: Color32::from_rgb(14, 16, 21),
-            surface_panel: Color32::from_rgb(19, 22, 29),
-            surface_elevated: Color32::from_rgb(25, 29, 38),
-            surface_floating: Color32::from_rgb(29, 34, 44),
-            surface_editor: Color32::from_rgb(16, 19, 25),
-            surface_hover: Color32::from_rgb(34, 40, 51),
-            surface_active: Color32::from_rgb(43, 36, 73),
-            border_subtle: Color32::from_rgb(35, 40, 50),
-            border_default: Color32::from_rgb(52, 58, 70),
-            border_strong: Color32::from_rgb(76, 84, 100),
-            text_primary: Color32::from_rgb(238, 240, 245),
-            text_secondary: Color32::from_rgb(178, 184, 196),
-            text_muted: Color32::from_rgb(117, 125, 141),
-            text_inverse: Color32::from_rgb(14, 16, 21),
-            accent: Color32::from_rgb(168, 148, 255),
-            accent_hover: Color32::from_rgb(193, 178, 255),
-            accent_soft: Color32::from_rgb(43, 36, 73),
-            accent_foreground: Color32::from_rgb(21, 17, 36),
+            surface_app: Color32::from_rgb(11, 13, 17),
+            surface_panel: Color32::from_rgb(16, 19, 25),
+            surface_elevated: Color32::from_rgb(22, 26, 34),
+            surface_floating: Color32::from_rgb(27, 32, 42),
+            surface_editor: Color32::from_rgb(13, 16, 21),
+            surface_hover: Color32::from_rgb(30, 36, 46),
+            surface_active: Color32::from_rgb(40, 31, 66),
+            border_subtle: Color32::from_rgb(29, 34, 43),
+            border_default: Color32::from_rgb(46, 53, 65),
+            border_strong: Color32::from_rgb(70, 79, 95),
+            text_primary: Color32::from_rgb(241, 243, 247),
+            text_secondary: Color32::from_rgb(174, 181, 194),
+            text_muted: Color32::from_rgb(111, 121, 138),
+            text_inverse: Color32::from_rgb(11, 13, 17),
+            accent: Color32::from_rgb(178, 157, 255),
+            accent_hover: Color32::from_rgb(202, 187, 255),
+            accent_soft: Color32::from_rgb(40, 31, 66),
+            accent_foreground: Color32::from_rgb(19, 15, 32),
             success: Color32::from_rgb(92, 207, 150),
             warning: Color32::from_rgb(242, 190, 91),
             danger: Color32::from_rgb(242, 122, 145),
             info: Color32::from_rgb(128, 170, 255),
-            code_keyword: Color32::from_rgb(194, 177, 255),
+            code_keyword: Color32::from_rgb(201, 185, 255),
             code_string: Color32::from_rgb(242, 190, 91),
             code_number: Color32::from_rgb(107, 220, 164),
             code_comment: Color32::from_rgb(122, 131, 147),
@@ -135,7 +135,7 @@ impl DbProTheme {
         visuals.error_fg_color = self.danger;
         visuals.selection.bg_fill = self.accent.linear_multiply(0.16);
         visuals.selection.stroke = Stroke::new(1.0, self.accent);
-        visuals.window_rounding = Rounding::same(9.0);
+        visuals.window_rounding = Rounding::same(7.0);
         visuals.window_shadow = Shadow {
             offset: egui::vec2(0.0, 8.0),
             blur: 24.0,
@@ -180,15 +180,15 @@ impl DbProTheme {
         ctx.set_visuals(visuals);
 
         let mut style = (*ctx.style()).clone();
-        style.spacing.item_spacing = egui::vec2(8.0, 5.0);
-        style.spacing.button_padding = egui::vec2(9.0, 5.0);
+        style.spacing.item_spacing = egui::vec2(7.0, 4.0);
+        style.spacing.button_padding = egui::vec2(8.0, 4.0);
         style.spacing.interact_size = egui::vec2(24.0, 24.0);
-        style.spacing.window_margin = Margin::same(14.0);
+        style.spacing.window_margin = Margin::same(12.0);
         style.spacing.menu_margin = Margin::same(5.0);
-        style.spacing.indent = 14.0;
+        style.spacing.indent = 13.0;
         style.text_styles.insert(TextStyle::Body, FontId::proportional(13.0));
-        style.text_styles.insert(TextStyle::Button, FontId::proportional(12.5));
-        style.text_styles.insert(TextStyle::Small, FontId::proportional(11.0));
+        style.text_styles.insert(TextStyle::Button, FontId::proportional(12.0));
+        style.text_styles.insert(TextStyle::Small, FontId::proportional(10.5));
         style.text_styles.insert(TextStyle::Monospace, FontId::monospace(13.0));
         ctx.set_style(style);
     }
