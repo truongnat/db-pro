@@ -192,6 +192,16 @@ deviation before the baseline visual P1 can close.
   `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/3f323363-de84-4199-a969-b90e8ce1fb73-screenshot.png`.
 - The Welcome canvas is intentionally flat like Codex; the ER Diagram canvas keeps its own
   database-IDE grid as an intentional workspace affordance.
+- The post-fix dark Monitor placeholder is captured at
+  `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/2ff42d1d-12f1-48c1-8532-fe53e98b1154-screenshot.png`:
+  icon, title, badge and description now form one compact vertical stack instead of the badge
+  expanding into the remaining sidebar height.
+- Light and dark Agent panels were traversed at
+  `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/5c93c894-7585-4f9d-ac8e-a4f524495b69-screenshot.png`
+  and `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/1d6c3719-bce3-417d-a2b3-bb5ea4fa00a1-screenshot.png`.
+- Light and dark command palettes were traversed at
+  `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/edd0c806-5d3a-4f40-a47b-1a07d36bda76-screenshot.png`
+  and `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/b39a68e5-7686-46fa-b3cc-5cd1965cac36-screenshot.png`.
 
 ## Wave 3 runtime evidence
 

@@ -344,9 +344,7 @@ impl DbProApp {
             ui.add_space(10.0);
             ui.label(RichText::new(title).strong().color(self.theme.text_primary));
             ui.add_space(6.0);
-            ui.horizontal_centered(|ui| {
-                badge(ui, "COMING SOON", self.theme.surface_active, self.theme.text_secondary);
-            });
+            badge(ui, "COMING SOON", self.theme.surface_active, self.theme.text_secondary);
             ui.add_space(8.0);
             ui.label(RichText::new(description).small().color(self.theme.text_muted));
         });
