@@ -82,6 +82,40 @@ fn displayed_row_number_tracks_database_page_offset() {
 }
 
 #[test]
+fn grid_keyboard_navigation_preserves_filtered_row_identity() {
+    let visible_rows = vec![2, 0, 4];
+
+    assert_eq!(
+        crate::grid_keyboard_selection(Some((2, 1)), &visible_rows, 3, egui::Key::ArrowDown),
+        Some((0, 1))
+    );
+    assert_eq!(
+        crate::grid_keyboard_selection(Some((0, 1)), &visible_rows, 3, egui::Key::ArrowRight),
+        Some((0, 2))
+    );
+    assert_eq!(
+        crate::grid_keyboard_selection(Some((0, 2)), &visible_rows, 3, egui::Key::Home),
+        Some((0, 0))
+    );
+    assert_eq!(
+        crate::grid_keyboard_selection(Some((0, 0)), &visible_rows, 3, egui::Key::ArrowUp),
+        Some((2, 0))
+    );
+}
+
+#[test]
+fn grid_keyboard_navigation_starts_at_first_visible_cell() {
+    assert_eq!(
+        crate::grid_keyboard_selection(None, &[7, 9], 2, egui::Key::ArrowDown),
+        Some((7, 0))
+    );
+    assert_eq!(
+        crate::grid_keyboard_selection(Some((7, 0)), &[7, 9], 2, egui::Key::End),
+        Some((7, 1))
+    );
+}
+
+#[test]
 fn grid_columns_fill_the_viewport_until_manually_resized() {
     let mut app = DbProApp::default();
 

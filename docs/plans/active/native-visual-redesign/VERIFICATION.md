@@ -2,7 +2,7 @@
 
 ## Current state
 
-Wave 1–6 implementation and runtime screenshot passes are complete on `feature/native-visual-redesign`.
+Wave 1–7 implementation and runtime screenshot passes are complete on `feature/native-visual-redesign`.
 No overall feature completion claim has been made: independent review and any provider/runtime
 regression follow-up remain open. The baseline screenshot and source evidence are recorded in
 `FINDINGS.md`.
@@ -123,3 +123,22 @@ than the viewport, and no provider-specific behavior was changed or inferred fro
 
 Wave 6 is presentation-only. Query execution, provider capabilities and database state remain
 unchanged; PostgreSQL runtime evidence remains pending under the existing provider matrix.
+
+## Wave 7 evidence
+
+| Check | Result | Evidence |
+|---|---|---|
+| Native grid keyboard focus | PASS | Fresh maximized native SQLite screenshot `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/9bf611e3-ce71-4bf5-b510-66fa0c46134f-screenshot.png`; selecting `name`, pressing Right then Down/End visibly moves the accent focus to `status`, then `profile` on row 2 |
+| Filtered/sorted row identity navigation | PASS | UI regression test `grid_keyboard_navigation_preserves_filtered_row_identity` |
+| Navigation boundaries and empty selection | PASS | UI regression test `grid_keyboard_navigation_starts_at_first_visible_cell` |
+| Active-cell visual distinction | PASS | Same native screenshot shows a single bright active cell over a quieter selected-row background |
+| `cargo fmt --all -- --check` | PASS | 2026-09-11, after Wave 7 source edits |
+| `cargo check --workspace --offline` | PASS | 2026-09-11, after Wave 7 source edits |
+| `cargo clippy --workspace --offline --all-targets -- -D warnings` | PASS | 2026-09-11, after Wave 7 source edits |
+| `cargo test --workspace --offline` | PASS | 2026-09-11; 186 core, 39 infrastructure, 25 SQLite integration, 60 UI, 21 Tauri, 4 runtime, 1 native; 10 PostgreSQL live tests ignored without fixture env |
+| `cargo build --locked -p db-pro-native --offline` | PASS | 2026-09-11, rebuilt native binary for keyboard-grid smoke |
+| `bash .skills/clean-code/scripts/clean-code-scan.sh --diff` | PASS | 2026-09-11; 33 checks passed, 0 warnings/fails; existing macOS xargs compatibility warnings emitted |
+
+Wave 7 changes are presentation and selection-state only. Query execution, staged mutations,
+clipboard payloads, provider capabilities and database state remain unchanged; PostgreSQL runtime
+evidence remains pending under the existing provider matrix.

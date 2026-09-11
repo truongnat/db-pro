@@ -65,3 +65,12 @@
 - [x] Add a regression test for cursor metadata reset.
 - [x] Capture native runtime evidence with a non-default cursor position.
 - [x] Re-run the full Rust quality gates and clean-code diff scan after Wave 6 edits.
+
+## Wave 7 — keyboard grid focus
+
+- [x] Add Arrow/Home/End navigation for the visible filtered/sorted row projection.
+- [x] Keep filter/editor text inputs isolated from grid navigation.
+- [x] Distinguish the active cell from the selected row in the grid treatment.
+- [x] Add regression coverage for row identity and boundary navigation.
+- [x] Capture native SQLite runtime evidence for cross-row and cross-column movement.
+- [x] Re-run the full Rust quality gates and clean-code diff scan after Wave 7 edits.

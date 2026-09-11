@@ -12,6 +12,8 @@ impl DbProApp {
         let editable = self.active_tab == WorkspaceTab::Table
             && self.table_view == TableView::Data
             && self.can_mutate_active_connection();
+        let indexes =
+            crate::filtered_sorted_indexes(result, &self.grid_filter, self.grid_sort_column, self.grid_sort_desc);
 
         if ui.input(|input| input.key_pressed(egui::Key::C) && Self::primary_modifier_pressed(input)) {
             self.copy_selected_cell(ui, result);
@@ -39,6 +41,31 @@ impl DbProApp {
                 }
             }
         }
+        if !ui.ctx().wants_keyboard_input() {
+            let navigation_key = ui.input(|input| {
+                [
+                    egui::Key::ArrowUp,
+                    egui::Key::ArrowDown,
+                    egui::Key::ArrowLeft,
+                    egui::Key::ArrowRight,
+                    egui::Key::Home,
+                    egui::Key::End,
+                ]
+                .into_iter()
+                .find(|key| input.key_pressed(*key))
+            });
+            if let Some(key) = navigation_key {
+                if let Some(selection) =
+                    crate::grid_keyboard_selection(self.selected_cell, &indexes, result.columns.len(), key)
+                {
+                    self.selected_cell = Some(selection);
+                    self.selected_row = Some(selection.0);
+                    self.data_editing_cell = None;
+                    self.data_edit_value.clear();
+                    self.copy_status.clear();
+                }
+            }
+        }
         ui.horizontal_wrapped(|ui| {
             ui.label(RichText::new("Filter").small().color(self.theme.text_secondary));
             input(ui, &mut self.grid_filter, "Search visible rows…", 240.0, self.theme);
@@ -60,9 +87,9 @@ impl DbProApp {
             }
             ui.label(
                 RichText::new(if editable {
-                    "Enter or double-click to edit · drag the divider to resize"
+                    "Arrows move · Enter or double-click to edit · drag divider to resize"
                 } else {
-                    "Click a cell to select · drag the divider to resize"
+                    "Click a cell or use arrows to select · drag divider to resize"
                 })
                 .small()
                 .color(self.theme.text_muted),
@@ -70,8 +97,6 @@ impl DbProApp {
         });
         ui.add_space(6.0);
 
-        let indexes =
-            crate::filtered_sorted_indexes(result, &self.grid_filter, self.grid_sort_column, self.grid_sort_desc);
         ui.label(
             RichText::new(format!("{} matching rows", indexes.len()))
                 .small()
@@ -132,8 +157,13 @@ impl DbProApp {
                                         let staged_cell = self.staged_cell_value(row_index, column_index);
                                         let display_cell = staged_cell.as_ref().unwrap_or(cell);
                                         let width = widths.get(column_index).copied().unwrap_or(180.0);
+                                        let cell_selected = self.selected_cell == Some((row_index, column_index));
                                         let fill = if row_selected {
-                                            self.theme.surface_active
+                                            if cell_selected {
+                                                self.theme.accent.linear_multiply(0.30)
+                                            } else {
+                                                self.theme.surface_active
+                                            }
                                         } else if row_dirty {
                                             self.theme.warning.linear_multiply(0.10)
                                         } else if position % 2 == 0 {
@@ -147,8 +177,8 @@ impl DbProApp {
                                                 Layout::left_to_right(Align::Center),
                                                 |ui| {
                                                     ui.add_space(8.0);
-                                                    let selected = row_selected
-                                                        || self.selected_cell == Some((row_index, column_index));
+                                                    let selected =
+                                                        cell_selected || (row_selected && self.selected_cell.is_none());
                                                     let editing = editable
                                                         && self.data_editing_cell == Some((row_index, column_index));
                                                     if editing {

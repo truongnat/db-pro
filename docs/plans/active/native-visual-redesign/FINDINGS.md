@@ -111,6 +111,14 @@ cursor was. This was directly observable in the native editor and made the statu
 for keyboard-first work. The smallest fix is to read egui's primary paragraph/offset cursor and
 reset it when the active query document changes.
 
+### P2 — Grid selection did not expose keyboard focus
+
+The shared result grid supported click selection and clipboard actions, but no Arrow/Home/End
+navigation. In addition, selecting a cell painted every cell in the row with the same strong
+selected treatment, so the focused column was not visually identifiable. The smallest fix is a
+pure navigation mapping over the existing filtered/sorted row indexes plus a separate active-cell
+accent, with text inputs left to their normal egui keyboard handling.
+
 ## Wave 3 runtime evidence
 
 - Fresh maximized native launch and centered welcome: `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/2f485840-c8ff-4106-8731-45fe03ea1ad8-screenshot.png`.

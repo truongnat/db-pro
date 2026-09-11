@@ -17,7 +17,7 @@ pub use components::{
     password_input, primary_button, primary_button_with_icon, secondary_button, secondary_button_with_icon,
     section_label, sidebar_frame, sidebar_item, tab_frame, toolbar_frame,
 };
-pub use result_grid::{cell_text, displayed_row_number, filtered_sorted_indexes};
+pub use result_grid::{cell_text, displayed_row_number, filtered_sorted_indexes, grid_keyboard_selection};
 pub use runtime::{
     RequestId, TaskBridge, UiCell, UiColumn, UiCommand, UiConnectionDraft, UiConnectionSummary, UiDriver, UiEvent,
     UiFunctionSummary, UiQueryFolderSummary, UiQueryResult, UiSavedQuerySummary, UiSchemaColumn, UiSchemaForeignKey,

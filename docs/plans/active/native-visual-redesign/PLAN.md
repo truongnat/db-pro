@@ -62,11 +62,17 @@ behavior.
 - keep the existing pan, zoom, fit and node-opening interactions unchanged;
 - preserve the bounded render policy for large schemas and avoid introducing provider-specific behavior.
 
-### Wave 6 — live query cursor status (current change)
+### Wave 6 — live query cursor status (completed in prior change)
 
 - report the actual SQL editor line and column from egui cursor state;
 - reset cursor metadata when switching, creating or closing query documents;
 - keep the existing status-bar context split and avoid changing query execution behavior.
+
+### Wave 7 — keyboard grid focus (current change)
+
+- move the selected result-grid cell with Arrow keys and jump within a row with Home/End;
+- preserve original result-row identity when filtering or sorting changes the visible projection;
+- distinguish the active cell from its selected row without changing copy, edit or mutation semantics.
 
 ### Follow-up waves
 
@@ -131,3 +137,10 @@ behavior.
 - Query status bar reports the active cursor position instead of a hard-coded placeholder.
 - Switching query documents starts the status position at line 1, column 1 until the editor reports a new cursor.
 - Rust fmt/check/clippy/tests pass and a fresh native screenshot confirms a non-default cursor position.
+
+## Acceptance for Wave 7
+
+- Arrow keys move the selected grid cell across visible rows and columns, while Home/End stay within the current row.
+- Keyboard navigation does not steal input from the grid filter or active cell editor.
+- The active cell has a distinct visual treatment from the selected row.
+- Rust fmt/check/clippy/tests pass and a fresh native SQLite screenshot confirms non-default cell focus.
