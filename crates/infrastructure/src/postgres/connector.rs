@@ -394,3 +394,32 @@ impl PostgresConnector {
         super::cross_connection::rename_schema_object(&pool, object_type, schema, old_name, new_name).await
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::PostgresDialect;
+    use db_pro_core::application::sql_builder::{build_select, SortClause, SortDir};
+
+    #[test]
+    fn table_pagination_uses_postgres_placeholders() {
+        let (sql, params) = build_select(
+            &PostgresDialect,
+            "public",
+            "customers",
+            &[],
+            &[SortClause {
+                column: "id".to_owned(),
+                direction: SortDir::Asc,
+            }],
+            100,
+            200,
+        )
+        .expect("PostgreSQL pagination should build");
+
+        assert_eq!(
+            sql,
+            r#"SELECT * FROM "public"."customers" ORDER BY "id" ASC LIMIT $1 OFFSET $2"#
+        );
+        assert_eq!(params.len(), 2);
+    }
+}

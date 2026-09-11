@@ -392,7 +392,11 @@ fn effective_keyword(sql: &str) -> Option<String> {
 
     // Check it's actually the keyword WITH (not WITHDRAWAL etc.)
     let after_with = &trimmed[4..];
-    if !after_with.is_empty() && after_with.chars().next().unwrap().is_alphanumeric() {
+    if after_with
+        .chars()
+        .next()
+        .is_some_and(|character| character.is_alphanumeric())
+    {
         return Some(first.to_string());
     }
 
@@ -465,6 +469,7 @@ fn strip_leading_comments(sql: &str) -> &str {
 }
 
 #[cfg(test)]
+// Result carries the domain error envelope by value; the larger error is intentional in tests.
 #[allow(clippy::result_large_err)]
 mod tests {
     use super::*;

@@ -1,79 +1,64 @@
-use std::sync::Arc;
-
 use tauri::State;
 
 use crate::dto::{CommandError, ConnectionConfigDto, ConnectionDto};
-use db_pro_core::application::ConnectionService;
-use db_pro_core::domain::connection::ConnectionId;
+use db_pro_runtime::DbProRuntime;
 
 #[tauri::command]
-pub async fn list_connections(service: State<'_, Arc<ConnectionService>>) -> Result<Vec<ConnectionDto>, CommandError> {
-    let connections = service.list().await?;
+pub async fn list_connections(
+    runtime: State<'_, std::sync::Arc<DbProRuntime>>,
+) -> Result<Vec<ConnectionDto>, CommandError> {
+    let connections = runtime.connection_api().list_details().await?;
     Ok(connections.into_iter().map(Into::into).collect())
 }
 
 #[tauri::command]
 pub async fn get_connection(
-    service: State<'_, Arc<ConnectionService>>,
+    runtime: State<'_, std::sync::Arc<DbProRuntime>>,
     id: String,
 ) -> Result<Option<ConnectionDto>, CommandError> {
-    let conn_id = ConnectionId::parse(&id).map_err(|e| CommandError {
-        error: "VALIDATION".into(),
-        message: format!("invalid connection id: {e}"),
-        message_id: "error.validation".into(),
-        details: None,
-        retryable: false,
-    })?;
-    let connection = service.get(&conn_id).await?;
+    let connection = runtime.connection_api().get(&id).await?;
     Ok(connection.map(Into::into))
 }
 
 #[tauri::command]
 pub async fn create_connection(
-    service: State<'_, Arc<ConnectionService>>,
+    runtime: State<'_, std::sync::Arc<DbProRuntime>>,
     config: ConnectionConfigDto,
     password: String,
 ) -> Result<ConnectionDto, CommandError> {
-    let domain_config = config.to_domain();
-    let connection = service.create(domain_config, &password).await?;
+    let connection = runtime
+        .connection_api()
+        .create_detail(config.to_domain(), &password)
+        .await?;
     Ok(connection.into())
 }
 
 #[tauri::command]
 pub async fn update_connection(
-    service: State<'_, Arc<ConnectionService>>,
+    runtime: State<'_, std::sync::Arc<DbProRuntime>>,
     id: String,
     config: ConnectionConfigDto,
     password: Option<String>,
 ) -> Result<(), CommandError> {
-    let conn_id = ConnectionId::parse(&id).map_err(|e| CommandError {
-        error: "VALIDATION".into(),
-        message: format!("invalid connection id: {e}"),
-        message_id: "error.validation".into(),
-        details: None,
-        retryable: false,
-    })?;
-    let domain_config = config.to_domain();
-    service.update(&conn_id, domain_config, password.as_deref()).await?;
+    runtime
+        .connection_api()
+        .update(&id, config.to_domain(), password.as_deref())
+        .await?;
     Ok(())
 }
 
 #[tauri::command]
-pub async fn delete_connection(service: State<'_, Arc<ConnectionService>>, id: String) -> Result<(), CommandError> {
-    let conn_id = ConnectionId::parse(&id).map_err(|e| CommandError {
-        error: "VALIDATION".into(),
-        message: format!("invalid connection id: {e}"),
-        message_id: "error.validation".into(),
-        details: None,
-        retryable: false,
-    })?;
-    service.delete(&conn_id).await?;
+pub async fn delete_connection(
+    runtime: State<'_, std::sync::Arc<DbProRuntime>>,
+    id: String,
+) -> Result<(), CommandError> {
+    runtime.connection_api().delete(&id).await?;
     Ok(())
 }
 
 #[tauri::command]
 pub async fn test_connection(
-    service: State<'_, Arc<ConnectionService>>,
+    runtime: State<'_, std::sync::Arc<DbProRuntime>>,
     config: ConnectionConfigDto,
     password: String,
     connection_id: Option<String>,
@@ -81,51 +66,31 @@ pub async fn test_connection(
     let domain_config = config.to_domain();
     match connection_id {
         Some(id) => {
-            let conn_id = ConnectionId::parse(&id).map_err(|e| CommandError {
-                error: "VALIDATION".into(),
-                message: format!("invalid connection id: {e}"),
-                message_id: "error.validation".into(),
-                details: None,
-                retryable: false,
-            })?;
-            service
-                .test_connectivity_with_secret(&conn_id, &domain_config, &password)
+            runtime
+                .connection_api()
+                .test_with_secret(&id, &domain_config, &password)
                 .await?;
         }
-        None => service.test_connectivity(&domain_config, &password).await?,
+        None => runtime.connection_api().test(&domain_config, &password).await?,
     }
     Ok(())
 }
 
 #[tauri::command]
-pub async fn connect(service: State<'_, Arc<ConnectionService>>, id: String) -> Result<(), CommandError> {
-    let conn_id = ConnectionId::parse(&id).map_err(|e| CommandError {
-        error: "VALIDATION".into(),
-        message: format!("invalid connection id: {e}"),
-        message_id: "error.validation".into(),
-        details: None,
-        retryable: false,
-    })?;
-    service.connect(&conn_id).await?;
+pub async fn connect(runtime: State<'_, std::sync::Arc<DbProRuntime>>, id: String) -> Result<(), CommandError> {
+    runtime.connection_api().connect(&id).await?;
     Ok(())
 }
 
 #[tauri::command]
-pub async fn disconnect(service: State<'_, Arc<ConnectionService>>, id: String) -> Result<(), CommandError> {
-    let conn_id = ConnectionId::parse(&id).map_err(|e| CommandError {
-        error: "VALIDATION".into(),
-        message: format!("invalid connection id: {e}"),
-        message_id: "error.validation".into(),
-        details: None,
-        retryable: false,
-    })?;
-    service.disconnect(&conn_id).await?;
+pub async fn disconnect(runtime: State<'_, std::sync::Arc<DbProRuntime>>, id: String) -> Result<(), CommandError> {
+    runtime.connection_api().disconnect(&id).await?;
     Ok(())
 }
 
 #[tauri::command]
 pub async fn test_ssh_tunnel(
-    connector: tauri::State<'_, Arc<db_pro_infrastructure::connector::CompositeConnector>>,
+    runtime: tauri::State<'_, std::sync::Arc<db_pro_runtime::DbProRuntime>>,
     config: crate::dto::SshTunnelConfigDto,
 ) -> Result<(), CommandError> {
     let domain_config = db_pro_core::domain::connection::SshTunnelConfig {
@@ -135,6 +100,6 @@ pub async fn test_ssh_tunnel(
         private_key_path: config.private_key_path,
         password: config.password,
     };
-    connector.test_ssh_tunnel(&domain_config).await?;
+    runtime.postgres_api().test_ssh_tunnel(&domain_config).await?;
     Ok(())
 }

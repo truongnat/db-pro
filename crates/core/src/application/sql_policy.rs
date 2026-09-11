@@ -26,7 +26,9 @@ pub fn split_statements(sql: &str) -> Vec<String> {
             current.push(ch);
             if ch == '\'' {
                 if chars.peek() == Some(&'\'') {
-                    current.push(chars.next().unwrap());
+                    if let Some(escaped_quote) = chars.next() {
+                        current.push(escaped_quote);
+                    }
                 } else {
                     in_quote = false;
                 }

@@ -101,12 +101,7 @@ pub fn card_frame(theme: DbProTheme) -> Frame {
         outer_margin: Margin::ZERO,
         rounding: Rounding::same(10.0),
         stroke: Stroke::new(1.0, theme.border_default),
-        shadow: egui::epaint::Shadow {
-            offset: egui::vec2(0.0, 2.0),
-            blur: 10.0,
-            spread: 0.0,
-            color: Color32::from_black_alpha(16),
-        },
+        ..Default::default()
     }
 }
 
@@ -243,6 +238,15 @@ pub fn ghost_button_with_icon(ui: &mut Ui, icon: Icon, label: &str, theme: DbPro
 
 pub fn compact_button(ui: &mut Ui, label: impl Into<RichText>, theme: DbProTheme) -> Response {
     ui.add(
+        Button::new(label.into().size(12.0).color(theme.text_secondary))
+            .min_size(egui::vec2(0.0, 24.0))
+            .rounding(Rounding::same(5.0)),
+    )
+}
+
+pub fn compact_button_enabled(ui: &mut Ui, label: impl Into<RichText>, enabled: bool, theme: DbProTheme) -> Response {
+    ui.add_enabled(
+        enabled,
         Button::new(label.into().size(12.0).color(theme.text_secondary))
             .min_size(egui::vec2(0.0, 24.0))
             .rounding(Rounding::same(5.0)),

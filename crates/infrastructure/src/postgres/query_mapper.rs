@@ -1,6 +1,7 @@
 use db_pro_core::domain::error::DbError;
 use db_pro_core::domain::query::{CellValue, ColumnMeta, QueryParam, Row};
 use sqlx::postgres::PgArguments;
+use sqlx::postgres::PgValueFormat;
 use sqlx::{Arguments, Column, Row as _, TypeInfo, ValueRef};
 
 pub fn bind_params(params: &[QueryParam], args: &mut PgArguments) -> Result<(), DbError> {
@@ -72,9 +73,7 @@ fn decode_cell(row: &sqlx::postgres::PgRow, i: usize, data_type: &str) -> CellVa
             .map(|v| CellValue::Int64(v.0 as i64)),
         "FLOAT4" => row.try_get::<f32, _>(i).map(|v| CellValue::Float64(v as f64)),
         "FLOAT8" => row.try_get::<f64, _>(i).map(CellValue::Float64),
-        "NUMERIC" | "DECIMAL" => row
-            .try_get::<sqlx::types::BigDecimal, _>(i)
-            .map(|v| CellValue::Text(v.to_string())),
+        "NUMERIC" | "DECIMAL" => Ok(decode_numeric(row, i)),
         "UUID" => row.try_get::<uuid::Uuid, _>(i).map(|v| CellValue::Uuid(v.to_string())),
         "TIMESTAMPTZ" => row
             .try_get::<chrono::DateTime<chrono::Utc>, _>(i)
@@ -101,6 +100,104 @@ fn decode_cell(row: &sqlx::postgres::PgRow, i: usize, data_type: &str) -> CellVa
             .map(|value| CellValue::Text(value.to_owned()))
             .unwrap_or_else(|| CellValue::Text(format!("<unsupported value: {data_type}>")))
     })
+}
+
+fn decode_numeric(row: &sqlx::postgres::PgRow, i: usize) -> CellValue {
+    let Some(raw) = row.try_get_raw(i).ok() else {
+        return CellValue::Text("<unsupported value: NUMERIC>".into());
+    };
+
+    let value = match raw.format() {
+        PgValueFormat::Text => raw.as_str().ok().map(str::to_owned),
+        PgValueFormat::Binary => raw.as_bytes().ok().and_then(decode_binary_numeric),
+    };
+
+    value
+        .map(CellValue::Text)
+        .unwrap_or_else(|| CellValue::Text("<unsupported value: NUMERIC>".into()))
+}
+
+fn decode_binary_numeric(bytes: &[u8]) -> Option<String> {
+    let mut offset = 0;
+    let digit_count = usize::from(read_u16(bytes, &mut offset)?);
+    let weight = i32::from(read_i16(bytes, &mut offset)?);
+    let sign = read_u16(bytes, &mut offset)?;
+    let scale = usize::try_from(read_i16(bytes, &mut offset)?).ok()?;
+    let expected_len = 8usize.checked_add(digit_count.checked_mul(2)?)?;
+    if bytes.len() != expected_len {
+        return None;
+    }
+    if sign == 0xC000 {
+        return Some("NaN".into());
+    }
+    let negative = match sign {
+        0x0000 => false,
+        0x4000 => true,
+        _ => return None,
+    };
+
+    let mut digits = String::new();
+    for _ in 0..digit_count {
+        let digit = read_u16(bytes, &mut offset)?;
+        if digit >= 10_000 {
+            return None;
+        }
+        use std::fmt::Write;
+        write!(&mut digits, "{digit:04}").ok()?;
+    }
+
+    let decimal_position = weight.checked_add(1)?.checked_mul(4)?;
+    let (mut integer, mut fraction) = if decimal_position <= 0 {
+        (
+            String::from("0"),
+            "0".repeat(usize::try_from(decimal_position.unsigned_abs()).ok()?) + &digits,
+        )
+    } else {
+        let position = usize::try_from(decimal_position).ok()?;
+        if position >= digits.len() {
+            (
+                format!("{digits}{}", "0".repeat(position - digits.len())),
+                String::new(),
+            )
+        } else {
+            (digits[..position].to_owned(), digits[position..].to_owned())
+        }
+    };
+
+    let trimmed_integer = integer.trim_start_matches('0');
+    integer = if trimmed_integer.is_empty() {
+        "0".into()
+    } else {
+        trimmed_integer.into()
+    };
+
+    if fraction.len() > scale && fraction[scale..].bytes().all(|byte| byte == b'0') {
+        fraction.truncate(scale);
+    } else if fraction.len() < scale {
+        fraction.push_str(&"0".repeat(scale - fraction.len()));
+    }
+
+    let mut result = String::with_capacity(integer.len() + fraction.len() + 2);
+    if negative {
+        result.push('-');
+    }
+    result.push_str(&integer);
+    if !fraction.is_empty() {
+        result.push('.');
+        result.push_str(&fraction);
+    }
+    Some(result)
+}
+
+fn read_u16(bytes: &[u8], offset: &mut usize) -> Option<u16> {
+    let end = offset.checked_add(2)?;
+    let value = u16::from_be_bytes(bytes.get(*offset..end)?.try_into().ok()?);
+    *offset = end;
+    Some(value)
+}
+
+fn read_i16(bytes: &[u8], offset: &mut usize) -> Option<i16> {
+    Some(i16::from_be_bytes(read_u16(bytes, offset)?.to_be_bytes()))
 }
 
 #[cfg(test)]
@@ -146,32 +243,33 @@ mod tests {
     }
 
     #[test]
-    fn numeric_to_string_preserves_trailing_zeros() {
-        let cases: Vec<(&str, &str)> = vec![
-            ("1.00", "1.00"),
-            ("1.50", "1.50"),
-            ("0.100", "0.100"),
-            ("123.456000", "123.456000"),
-            ("10", "10"),
-            ("0.001", "0.001"),
-        ];
-        for (input, expected) in cases {
-            let bd: sqlx::types::BigDecimal = input.parse().unwrap();
-            let result = bd.to_string();
-            assert_eq!(result, expected, "BigDecimal::to_string() for {input}");
+    fn binary_numeric_uses_postgres_display_scale() {
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(&7u16.to_be_bytes());
+        bytes.extend_from_slice(&4i16.to_be_bytes());
+        bytes.extend_from_slice(&0u16.to_be_bytes());
+        bytes.extend_from_slice(&5i16.to_be_bytes());
+        for digit in [1234u16, 5678, 9012, 3456, 7890, 1234, 5000] {
+            bytes.extend_from_slice(&digit.to_be_bytes());
         }
+
+        assert_eq!(
+            decode_binary_numeric(&bytes).as_deref(),
+            Some("12345678901234567890.12345")
+        );
     }
 
     #[test]
-    fn numeric_to_string_vs_normalized_differs() {
-        let bd: sqlx::types::BigDecimal = "1.500".parse().unwrap();
-        let plain = bd.to_string();
-        let norm = bd.normalized().to_string();
-        assert_eq!(plain, "1.500", "to_string() should preserve trailing zeros");
-        assert_eq!(norm, "1.5", "normalized() strips trailing zeros");
-        assert_ne!(
-            plain, norm,
-            "to_string and normalized must differ for NUMERIC with trailing zeros"
-        );
+    fn binary_numeric_preserves_declared_fractional_zeroes() {
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(&2u16.to_be_bytes());
+        bytes.extend_from_slice(&0i16.to_be_bytes());
+        bytes.extend_from_slice(&0u16.to_be_bytes());
+        bytes.extend_from_slice(&2i16.to_be_bytes());
+        for digit in [1u16, 5000] {
+            bytes.extend_from_slice(&digit.to_be_bytes());
+        }
+
+        assert_eq!(decode_binary_numeric(&bytes).as_deref(), Some("1.50"));
     }
 }

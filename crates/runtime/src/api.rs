@@ -2,15 +2,21 @@ use std::sync::Arc;
 
 use db_pro_core::application::sql_builder::{SortClause, TableFilter};
 use db_pro_core::application::{
-    BackupService, ConnectionService, ExportService, QueryService, SchemaService, TableDataService, UserService,
+    BackupService, ConnectionRegistry, ConnectionService, DataDiffService, ExportService, QueryService, SchemaService,
+    TableDataService, UserService,
 };
 use db_pro_core::domain::backup::{BackupOptions, BackupResult, RestoreOptions};
-use db_pro_core::domain::connection::{ConnectionId, DriverType};
+use db_pro_core::domain::connection::{Connection, ConnectionConfig, ConnectionId, DriverType};
+use db_pro_core::domain::cross_connection::{DataDiff, SchemaDiff};
 use db_pro_core::domain::error::DbError;
-use db_pro_core::domain::history::{SavedQuery, SavedQueryFolder};
+use db_pro_core::domain::history::{QueryHistory, SavedQuery, SavedQueryFolder};
 use db_pro_core::domain::query::{CellValue, QueryParam, QueryResult};
+use db_pro_core::domain::run_config::RunConfig;
 use db_pro_core::domain::schema::IntrospectResult;
 use db_pro_core::domain::user::{DatabaseUser, Privilege};
+use db_pro_core::ports::ConnectionRepository;
+use db_pro_infrastructure::connector::CompositeConnector;
+use db_pro_infrastructure::meta::store::SQLiteMetaStore;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DbErrorDto {
@@ -138,6 +144,15 @@ impl ConnectionApi {
             .map_err(Into::into)
     }
 
+    pub async fn list_details(&self) -> Result<Vec<Connection>, DbErrorDto> {
+        self.service.list().await.map_err(Into::into)
+    }
+
+    pub async fn get(&self, connection_id: &str) -> Result<Option<Connection>, DbErrorDto> {
+        let connection_id = parse_connection_id(connection_id)?;
+        self.service.get(&connection_id).await.map_err(Into::into)
+    }
+
     pub async fn create(
         &self,
         config: db_pro_core::domain::connection::ConnectionConfig,
@@ -148,6 +163,10 @@ impl ConnectionApi {
             .await
             .map(summary_from_connection)
             .map_err(Into::into)
+    }
+
+    pub async fn create_detail(&self, config: ConnectionConfig, password: &str) -> Result<Connection, DbErrorDto> {
+        self.service.create(config, password).await.map_err(Into::into)
     }
 
     pub async fn update(
@@ -175,6 +194,19 @@ impl ConnectionApi {
     ) -> Result<(), DbErrorDto> {
         self.service
             .test_connectivity(config, password)
+            .await
+            .map_err(Into::into)
+    }
+
+    pub async fn test_with_secret(
+        &self,
+        connection_id: &str,
+        config: &ConnectionConfig,
+        password: &str,
+    ) -> Result<(), DbErrorDto> {
+        let connection_id = parse_connection_id(connection_id)?;
+        self.service
+            .test_connectivity_with_secret(&connection_id, config, password)
             .await
             .map_err(Into::into)
     }
@@ -215,6 +247,16 @@ impl QueryApi {
     }
 
     pub async fn execute(&self, connection_id: &str, sql: &str) -> Result<QueryResult, DbErrorDto> {
+        self.execute_with_context(connection_id, sql, None, None).await
+    }
+
+    pub async fn execute_with_context(
+        &self,
+        connection_id: &str,
+        sql: &str,
+        database: Option<&str>,
+        schema: Option<&str>,
+    ) -> Result<QueryResult, DbErrorDto> {
         let connection_id = ConnectionId::parse(connection_id).map_err(|error| DbErrorDto {
             code: "VALIDATION_ERROR".to_owned(),
             message: format!("invalid connection id: {error}"),
@@ -222,7 +264,34 @@ impl QueryApi {
             retryable: false,
         })?;
         self.service
-            .execute(&connection_id, sql, &[] as &[QueryParam], None, None)
+            .execute(&connection_id, sql, &[] as &[QueryParam], database, schema)
+            .await
+            .map_err(Into::into)
+    }
+
+    pub async fn execute_multi(
+        &self,
+        connection_id: &str,
+        sql: &str,
+        database: Option<&str>,
+        schema: Option<&str>,
+    ) -> Result<db_pro_core::application::MultiQueryResult, DbErrorDto> {
+        let connection_id = parse_connection_id(connection_id)?;
+        self.service
+            .execute_multi(&connection_id, sql, database, schema)
+            .await
+            .map_err(Into::into)
+    }
+
+    pub async fn explain(&self, connection_id: &str, sql: &str) -> Result<serde_json::Value, DbErrorDto> {
+        let connection_id = parse_connection_id(connection_id)?;
+        self.service.explain(&connection_id, sql).await.map_err(Into::into)
+    }
+
+    pub async fn history(&self, connection_id: &str, limit: u32) -> Result<Vec<QueryHistory>, DbErrorDto> {
+        let connection_id = parse_connection_id(connection_id)?;
+        self.service
+            .get_history(&connection_id, limit)
             .await
             .map_err(Into::into)
     }
@@ -272,6 +341,30 @@ impl QueryApi {
 
     pub async fn delete_folder(&self, id: &uuid::Uuid) -> Result<(), DbErrorDto> {
         self.service.delete_folder(id).await.map_err(Into::into)
+    }
+
+    pub async fn save_run_config(
+        &self,
+        connection_id: &str,
+        name: &str,
+        sql: &str,
+        timeout_ms: u64,
+        max_rows: u64,
+    ) -> Result<RunConfig, DbErrorDto> {
+        let connection_id = parse_connection_id(connection_id)?;
+        self.service
+            .save_run_config(&connection_id, name, sql, timeout_ms, max_rows)
+            .await
+            .map_err(Into::into)
+    }
+
+    pub async fn list_run_configs(&self, connection_id: &str) -> Result<Vec<RunConfig>, DbErrorDto> {
+        let connection_id = parse_connection_id(connection_id)?;
+        self.service.list_run_configs(&connection_id).await.map_err(Into::into)
+    }
+
+    pub async fn delete_run_config(&self, id: &uuid::Uuid) -> Result<(), DbErrorDto> {
+        self.service.delete_run_config(id).await.map_err(Into::into)
     }
 }
 
@@ -376,6 +469,15 @@ impl SchemaApi {
             .map_err(Into::into)
     }
 
+    pub async fn diff_schemas(&self, source_id: &str, target_id: &str) -> Result<SchemaDiff, DbErrorDto> {
+        let source_id = parse_connection_id(source_id)?;
+        let target_id = parse_connection_id(target_id)?;
+        self.service
+            .diff_schemas(&source_id, &target_id)
+            .await
+            .map_err(Into::into)
+    }
+
     pub async fn table_info(
         &self,
         connection_id: &str,
@@ -400,6 +502,19 @@ impl SchemaApi {
     pub async fn execute_ddl(&self, connection_id: &str, sql: &str) -> Result<u64, DbErrorDto> {
         let connection_id = parse_connection_id(connection_id)?;
         self.service.execute_ddl(&connection_id, sql).await.map_err(Into::into)
+    }
+
+    pub async fn execute_ddl_batch(&self, connection_id: &str, statements: &[String]) -> Result<u64, DbErrorDto> {
+        let connection_id = parse_connection_id(connection_id)?;
+        self.service
+            .execute_ddl_batch(&connection_id, statements)
+            .await
+            .map_err(Into::into)
+    }
+
+    pub async fn invalidate_cache(&self, connection_id: &str) -> Result<(), DbErrorDto> {
+        let connection_id = parse_connection_id(connection_id)?;
+        self.service.invalidate_cache(&connection_id).await.map_err(Into::into)
     }
 }
 
@@ -666,6 +781,153 @@ impl UserApi {
         self.service
             .revoke_privilege(&connection_id, role_name, schema, table, privilege)
             .await
+            .map_err(Into::into)
+    }
+}
+
+#[derive(Clone)]
+pub struct DataDiffApi {
+    service: Arc<DataDiffService>,
+}
+
+impl DataDiffApi {
+    pub(crate) fn new(service: Arc<DataDiffService>) -> Self {
+        Self { service }
+    }
+
+    pub async fn diff_table_data(
+        &self,
+        source_id: &str,
+        target_id: &str,
+        schema: &str,
+        table: &str,
+    ) -> Result<DataDiff, DbErrorDto> {
+        let source_id = parse_connection_id(source_id)?;
+        let target_id = parse_connection_id(target_id)?;
+        self.service
+            .diff_table_data(&source_id, &target_id, schema, table)
+            .await
+            .map_err(Into::into)
+    }
+}
+
+#[derive(Clone)]
+pub struct PostgresApi {
+    connector: Arc<CompositeConnector>,
+    registry: Arc<ConnectionRegistry>,
+    meta_store: SQLiteMetaStore,
+}
+
+impl PostgresApi {
+    pub(crate) fn new(
+        connector: Arc<CompositeConnector>,
+        registry: Arc<ConnectionRegistry>,
+        meta_store: SQLiteMetaStore,
+    ) -> Self {
+        Self {
+            connector,
+            registry,
+            meta_store,
+        }
+    }
+
+    pub async fn test_ssh_tunnel(
+        &self,
+        config: &db_pro_core::domain::connection::SshTunnelConfig,
+    ) -> Result<(), DbErrorDto> {
+        self.connector.test_ssh_tunnel(config).await.map_err(Into::into)
+    }
+
+    pub async fn object_dependencies(
+        &self,
+        connection_id: &str,
+        schema: &str,
+        object_name: &str,
+    ) -> Result<Vec<db_pro_core::domain::cross_connection::ObjectDependency>, DbErrorDto> {
+        let handle = self.postgres_handle(connection_id)?;
+        self.connector
+            .postgres_connector()
+            .get_object_dependencies(&handle, schema, object_name)
+            .await
+            .map_err(Into::into)
+    }
+
+    pub async fn partitions(
+        &self,
+        connection_id: &str,
+    ) -> Result<Vec<db_pro_core::domain::cross_connection::PartitionInfo>, DbErrorDto> {
+        let handle = self.postgres_handle(connection_id)?;
+        self.connector
+            .postgres_connector()
+            .list_partitions(&handle)
+            .await
+            .map_err(Into::into)
+    }
+
+    pub async fn tablespaces(
+        &self,
+        connection_id: &str,
+    ) -> Result<Vec<db_pro_core::domain::cross_connection::TablespaceInfo>, DbErrorDto> {
+        let handle = self.postgres_handle(connection_id)?;
+        self.connector
+            .postgres_connector()
+            .list_tablespaces(&handle)
+            .await
+            .map_err(Into::into)
+    }
+
+    pub async fn rename_schema_object(
+        &self,
+        connection_id: &str,
+        object_type: &str,
+        schema: &str,
+        old_name: &str,
+        new_name: &str,
+    ) -> Result<(), DbErrorDto> {
+        let connection_id = parse_connection_id(connection_id)?;
+        if self
+            .meta_store
+            .get_config(&connection_id)
+            .await
+            .map_err(DbErrorDto::from)?
+            .is_some_and(|config| config.readonly)
+        {
+            return Err(DbErrorDto {
+                code: "SAFETY".to_owned(),
+                message: "connection is read-only — schema rename is not allowed".to_owned(),
+                message_id: "error.safety.readonly".to_owned(),
+                retryable: false,
+            });
+        }
+
+        let handle = self.postgres_handle_by_id(connection_id)?;
+        self.connector
+            .postgres_connector()
+            .rename_schema_object(&handle, object_type, schema, old_name, new_name)
+            .await
+            .map_err(Into::into)
+    }
+
+    fn postgres_handle(
+        &self,
+        connection_id: &str,
+    ) -> Result<db_pro_core::domain::connection::ConnectionHandle, DbErrorDto> {
+        let connection_id = parse_connection_id(connection_id)?;
+        self.postgres_handle_by_id(connection_id)
+    }
+
+    fn postgres_handle_by_id(
+        &self,
+        connection_id: ConnectionId,
+    ) -> Result<db_pro_core::domain::connection::ConnectionHandle, DbErrorDto> {
+        let composite_handle = self.registry.get(&connection_id).ok_or_else(|| DbErrorDto {
+            code: "NOT_CONNECTED".to_owned(),
+            message: "connection is not active".to_owned(),
+            message_id: "error.connection.failed".to_owned(),
+            retryable: false,
+        })?;
+        self.connector
+            .inner_postgres_handle(&composite_handle)
             .map_err(Into::into)
     }
 }

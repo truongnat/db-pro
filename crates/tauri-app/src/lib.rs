@@ -29,18 +29,8 @@ pub fn run() {
                     .await
                     .expect("failed to initialize shared DB Pro runtime");
 
-                handle.manage(runtime.connections());
-                handle.manage(runtime.queries());
-                handle.manage(runtime.schema());
-                handle.manage(runtime.export());
-                handle.manage(runtime.table_data());
-                handle.manage(runtime.users());
-                handle.manage(runtime.backup());
-                handle.manage(runtime.data_diff());
+                handle.manage(runtime.clone());
                 handle.manage(ExecutionRegistry::new());
-                handle.manage(runtime.connector());
-                handle.manage(runtime.registry());
-                handle.manage(runtime.meta_store());
             });
 
             Ok(())

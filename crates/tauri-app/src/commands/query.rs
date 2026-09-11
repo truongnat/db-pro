@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use tauri::State;
 
 use crate::cancel::ExecutionRegistry;
@@ -7,13 +5,13 @@ use crate::dto::{
     CommandError, MultiQueryResultDto, QueryHistoryDto, QueryResultDto, RunConfigDto, SavedQueryDto,
     SavedQueryFolderDto,
 };
-use db_pro_core::application::QueryService;
 use db_pro_core::domain::connection::ConnectionId;
 use db_pro_core::domain::execution::{ExecutionStatus, QueryExecutionId};
+use db_pro_runtime::DbProRuntime;
 
 #[tauri::command]
 pub async fn execute_query(
-    service: State<'_, Arc<QueryService>>,
+    runtime: State<'_, std::sync::Arc<DbProRuntime>>,
     exec_registry: State<'_, ExecutionRegistry>,
     connection_id: String,
     sql: String,
@@ -28,7 +26,8 @@ pub async fn execute_query(
     let cancel_rx = exec_registry.register_with_id(conn_id, exec_id.clone());
     exec_registry.start_execution(&exec_id);
 
-    let query_future = service.execute(&conn_id, &sql, &[], database.as_deref(), schema.as_deref());
+    let query_api = runtime.query_api();
+    let query_future = query_api.execute_with_context(&connection_id, &sql, database.as_deref(), schema.as_deref());
     tokio::pin!(query_future);
 
     let result = tokio::select! {
@@ -55,8 +54,8 @@ pub async fn execute_query(
         }
         Err(e) => {
             let status = match e {
-                db_pro_core::domain::error::DbError::QueryTimeout { .. } => ExecutionStatus::TimedOut,
-                db_pro_core::domain::error::DbError::QueryCancelled => ExecutionStatus::Cancelled,
+                error if error.code == "QUERY_TIMEOUT" => ExecutionStatus::TimedOut,
+                error if error.code == "QUERY_CANCELLED" => ExecutionStatus::Cancelled,
                 _ => ExecutionStatus::Error,
             };
             exec_registry.finish_execution(&exec_id, status, 0, 0, 0);
@@ -81,7 +80,7 @@ pub async fn cancel_query(
 
 #[tauri::command]
 pub async fn execute_query_multi(
-    service: State<'_, Arc<QueryService>>,
+    runtime: State<'_, std::sync::Arc<DbProRuntime>>,
     exec_registry: State<'_, ExecutionRegistry>,
     connection_id: String,
     sql: String,
@@ -96,7 +95,8 @@ pub async fn execute_query_multi(
     let cancel_rx = exec_registry.register_with_id(conn_id, exec_id.clone());
     exec_registry.start_execution(&exec_id);
 
-    let multi_future = service.execute_multi(&conn_id, &sql, database.as_deref(), schema.as_deref());
+    let query_api = runtime.query_api();
+    let multi_future = query_api.execute_multi(&connection_id, &sql, database.as_deref(), schema.as_deref());
     tokio::pin!(multi_future);
 
     let result = tokio::select! {
@@ -129,8 +129,8 @@ pub async fn execute_query_multi(
         }
         Err(e) => {
             let status = match e {
-                db_pro_core::domain::error::DbError::QueryTimeout { .. } => ExecutionStatus::TimedOut,
-                db_pro_core::domain::error::DbError::QueryCancelled => ExecutionStatus::Cancelled,
+                error if error.code == "QUERY_TIMEOUT" => ExecutionStatus::TimedOut,
+                error if error.code == "QUERY_CANCELLED" => ExecutionStatus::Cancelled,
                 _ => ExecutionStatus::Error,
             };
             exec_registry.finish_execution(&exec_id, status, 0, 0, 0);
@@ -144,50 +144,55 @@ pub async fn execute_query_multi(
 
 #[tauri::command]
 pub async fn explain_query(
-    service: State<'_, Arc<QueryService>>,
+    runtime: State<'_, std::sync::Arc<DbProRuntime>>,
     connection_id: String,
     sql: String,
 ) -> Result<serde_json::Value, CommandError> {
-    let conn_id = parse_connection_id(&connection_id)?;
-    Ok(service.explain(&conn_id, &sql).await?)
+    Ok(runtime.query_api().explain(&connection_id, &sql).await?)
 }
 
 #[tauri::command]
 pub async fn get_query_history(
-    service: State<'_, Arc<QueryService>>,
+    runtime: State<'_, std::sync::Arc<DbProRuntime>>,
     connection_id: String,
     limit: Option<u32>,
 ) -> Result<Vec<QueryHistoryDto>, CommandError> {
-    let conn_id = parse_connection_id(&connection_id)?;
-    let history = service.get_history(&conn_id, limit.unwrap_or(100)).await?;
+    let history = runtime
+        .query_api()
+        .history(&connection_id, limit.unwrap_or(100))
+        .await?;
     Ok(history.into_iter().map(Into::into).collect())
 }
 
 #[tauri::command]
 pub async fn save_query(
-    service: State<'_, Arc<QueryService>>,
+    runtime: State<'_, std::sync::Arc<DbProRuntime>>,
     connection_id: String,
     name: String,
     sql: String,
     folder: Option<String>,
 ) -> Result<SavedQueryDto, CommandError> {
-    let conn_id = parse_connection_id(&connection_id)?;
-    let saved = service.save_query(&conn_id, &name, &sql, folder.as_deref()).await?;
+    let saved = runtime
+        .query_api()
+        .save_query(&connection_id, &name, &sql, folder.as_deref())
+        .await?;
     Ok(saved.into())
 }
 
 #[tauri::command]
 pub async fn list_saved_queries(
-    service: State<'_, Arc<QueryService>>,
+    runtime: State<'_, std::sync::Arc<DbProRuntime>>,
     connection_id: String,
 ) -> Result<Vec<SavedQueryDto>, CommandError> {
-    let conn_id = parse_connection_id(&connection_id)?;
-    let queries = service.list_saved_queries(&conn_id).await?;
+    let queries = runtime.query_api().list_saved_queries(&connection_id).await?;
     Ok(queries.into_iter().map(Into::into).collect())
 }
 
 #[tauri::command]
-pub async fn delete_saved_query(service: State<'_, Arc<QueryService>>, id: String) -> Result<(), CommandError> {
+pub async fn delete_saved_query(
+    runtime: State<'_, std::sync::Arc<DbProRuntime>>,
+    id: String,
+) -> Result<(), CommandError> {
     let uuid = uuid::Uuid::parse_str(&id).map_err(|e| CommandError {
         error: "VALIDATION".into(),
         message: format!("invalid query id: {e}"),
@@ -195,13 +200,13 @@ pub async fn delete_saved_query(service: State<'_, Arc<QueryService>>, id: Strin
         details: None,
         retryable: false,
     })?;
-    service.delete_saved_query(&uuid).await?;
+    runtime.query_api().delete_saved_query(&uuid).await?;
     Ok(())
 }
 
 #[tauri::command]
 pub async fn rename_saved_query(
-    service: State<'_, Arc<QueryService>>,
+    runtime: State<'_, std::sync::Arc<DbProRuntime>>,
     id: String,
     name: String,
 ) -> Result<(), CommandError> {
@@ -212,33 +217,31 @@ pub async fn rename_saved_query(
         details: None,
         retryable: false,
     })?;
-    service.rename_saved_query(&uuid, &name).await?;
+    runtime.query_api().rename_saved_query(&uuid, &name).await?;
     Ok(())
 }
 
 #[tauri::command]
 pub async fn create_folder(
-    service: State<'_, Arc<QueryService>>,
+    runtime: State<'_, std::sync::Arc<DbProRuntime>>,
     connection_id: String,
     name: String,
 ) -> Result<SavedQueryFolderDto, CommandError> {
-    let conn_id = parse_connection_id(&connection_id)?;
-    let folder = service.create_folder(&conn_id, &name).await?;
+    let folder = runtime.query_api().create_folder(&connection_id, &name).await?;
     Ok(folder.into())
 }
 
 #[tauri::command]
 pub async fn list_folders(
-    service: State<'_, Arc<QueryService>>,
+    runtime: State<'_, std::sync::Arc<DbProRuntime>>,
     connection_id: String,
 ) -> Result<Vec<SavedQueryFolderDto>, CommandError> {
-    let conn_id = parse_connection_id(&connection_id)?;
-    let folders = service.list_folders(&conn_id).await?;
+    let folders = runtime.query_api().list_folders(&connection_id).await?;
     Ok(folders.into_iter().map(Into::into).collect())
 }
 
 #[tauri::command]
-pub async fn delete_folder(service: State<'_, Arc<QueryService>>, id: String) -> Result<(), CommandError> {
+pub async fn delete_folder(runtime: State<'_, std::sync::Arc<DbProRuntime>>, id: String) -> Result<(), CommandError> {
     let uuid = uuid::Uuid::parse_str(&id).map_err(|e| CommandError {
         error: "VALIDATION".into(),
         message: format!("invalid folder id: {e}"),
@@ -246,38 +249,40 @@ pub async fn delete_folder(service: State<'_, Arc<QueryService>>, id: String) ->
         details: None,
         retryable: false,
     })?;
-    service.delete_folder(&uuid).await?;
+    runtime.query_api().delete_folder(&uuid).await?;
     Ok(())
 }
 
 #[tauri::command]
 pub async fn save_run_config(
-    service: State<'_, Arc<QueryService>>,
+    runtime: State<'_, std::sync::Arc<DbProRuntime>>,
     connection_id: String,
     name: String,
     sql: String,
     timeout_ms: u64,
     max_rows: u64,
 ) -> Result<RunConfigDto, CommandError> {
-    let conn_id = parse_connection_id(&connection_id)?;
-    let config = service
-        .save_run_config(&conn_id, &name, &sql, timeout_ms, max_rows)
+    let config = runtime
+        .query_api()
+        .save_run_config(&connection_id, &name, &sql, timeout_ms, max_rows)
         .await?;
     Ok(config.into())
 }
 
 #[tauri::command]
 pub async fn list_run_configs(
-    service: State<'_, Arc<QueryService>>,
+    runtime: State<'_, std::sync::Arc<DbProRuntime>>,
     connection_id: String,
 ) -> Result<Vec<RunConfigDto>, CommandError> {
-    let conn_id = parse_connection_id(&connection_id)?;
-    let configs = service.list_run_configs(&conn_id).await?;
+    let configs = runtime.query_api().list_run_configs(&connection_id).await?;
     Ok(configs.into_iter().map(Into::into).collect())
 }
 
 #[tauri::command]
-pub async fn delete_run_config(service: State<'_, Arc<QueryService>>, id: String) -> Result<(), CommandError> {
+pub async fn delete_run_config(
+    runtime: State<'_, std::sync::Arc<DbProRuntime>>,
+    id: String,
+) -> Result<(), CommandError> {
     let uuid = uuid::Uuid::parse_str(&id).map_err(|e| CommandError {
         error: "VALIDATION".into(),
         message: format!("invalid run config id: {e}"),
@@ -285,7 +290,7 @@ pub async fn delete_run_config(service: State<'_, Arc<QueryService>>, id: String
         details: None,
         retryable: false,
     })?;
-    service.delete_run_config(&uuid).await?;
+    runtime.query_api().delete_run_config(&uuid).await?;
     Ok(())
 }
 

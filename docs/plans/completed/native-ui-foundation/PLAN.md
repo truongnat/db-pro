@@ -2,7 +2,7 @@
 
 ## Status
 
-`IMPLEMENTING`
+`COMPLETED`
 
 ## Goal
 
@@ -23,7 +23,6 @@ Create the first runnable egui/eframe native base and the first real database wo
 
 ## Out of scope
 
-- Full Tauri DTO facade migration.
 - Native SQL editor parity with Monaco.
 - Large-schema ER rendering and packaging.
 - MCP/tool execution, autonomous database mutations, and persistent API-key management UI.
@@ -31,4 +30,4 @@ Create the first runnable egui/eframe native base and the first real database wo
 
 ## Next slice
 
-Continue the native database workspace with provider-specific pagination tests and migration of Tauri command methods to the typed DTO facade adapters. Native Data editing now preserves composite primary-key identity and typed key values across the UI/runtime bridge, and NUMERIC/DECIMAL fields use exact precision-aware validation. The first ER canvas is intentionally bounded to five tables, eight columns and six relationships; large-schema layout, persistence and richer diagram interactions remain follow-up work. Views expose both their definition and bounded Data browsing, while PostgreSQL functions/procedures now have a definition workspace through the same schema-object path.
+The native database workspace and shared runtime boundary are implemented and verified. Native Data editing preserves composite primary-key identity and typed key values across the UI/runtime bridge, NUMERIC/DECIMAL fields use exact precision-aware validation, ER opens large schemas in a search-first bounded view, views expose definition and bounded Data browsing, and PostgreSQL functions/procedures have a definition workspace. Tauri commands consume `DbProRuntime` facades. Monaco parity, MCP/autonomous writes, large-schema packaging and deeper Tauri lifecycle work remain explicitly out of scope for this plan.

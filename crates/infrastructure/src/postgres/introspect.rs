@@ -410,12 +410,10 @@ async fn introspect_foreign_keys(pool: &sqlx::PgPool) -> Result<Vec<ForeignKey>,
             to_schema.clone(),
         );
 
-        if !map.contains_key(&key) {
+        let (from_cols, to_cols) = map.entry(key.clone()).or_insert_with(|| {
             order.push(key.clone());
-            map.insert(key.clone(), (Vec::new(), Vec::new()));
-        }
-
-        let (from_cols, to_cols) = map.get_mut(&key).unwrap();
+            (Vec::new(), Vec::new())
+        });
         from_cols.push(from_column);
         to_cols.push(to_column);
     }

@@ -1,5 +1,44 @@
 # Verification
 
+## Native UI module refactor — 2026-09-11
+
+- `cargo fmt --all -- --check` PASS.
+- `cargo test --workspace --offline` PASS: 305 tests passed; the 10 PostgreSQL fixture tests are intentionally ignored by the default workspace command and were run separately against an isolated fixture container.
+- `cargo clippy --workspace --offline --all-targets -- -D warnings` PASS.
+- `cargo build -p db-pro-native --offline` PASS.
+- Native launch smoke PASS: `target/debug/db-pro-native` remained alive for 8 seconds with no stdout/stderr or crash; the command was then stopped by the timeout.
+- Native UI ownership is split into bounded modules; `crates/ui/src/app.rs` is 677 lines and contains root state/update orchestration, while state initialization/persistence constructors live in `app_state.rs` and tests live in `app_tests.rs`.
+- Clean-code hardening: SQL `WITH`/quote scanners and SQLite foreign-key grouping no longer use panic-prone `unwrap()` paths; `cargo test -p db-pro-core --offline` (186 tests), `cargo test -p db-pro-infrastructure --offline` (37 unit + 25 SQLite integration tests) and targeted core/infrastructure clippy all PASS.
+- Explorer clean-code refactor: the 366-line `draw_explorer` render block is now a coordinator over connection, schema feedback, table, view, trigger, function and footer sections; UI behavior is unchanged and the 36-test UI suite plus UI clippy remain PASS. The diagram zoom label no longer uses a numeric cast, and the test-only large-error lint exception now records its reason.
+- Native composition-root refactor: `crates/native-app/src/main.rs` now contains startup, worker lifecycle and window setup (158 lines); command/event translation and DTO mapping live in `translate.rs`. `cargo test -p db-pro-native --offline` (1 test) and native clippy PASS.
+- Final follow-up: PostgreSQL NUMERIC wire-scale decoding and native event translation were covered by focused tests; workspace test/clippy/build gates remained PASS, and the native binary stayed alive for an 8-second launch smoke with no output or crash.
+
+## Tauri DTO facade migration — 2026-09-11
+
+- Tauri commands now receive one `State<Arc<DbProRuntime>>`; no command module imports or stores `ConnectionService`, `QueryService`, `SchemaService`, `TableDataService`, `ExportService`, `BackupService`, `UserService` or `DataDiffService` directly.
+- Runtime facades cover connection details/secret testing, query multi/explain/history/run-config operations, schema batch/cache operations, cross-connection diff, PostgreSQL-specific tunnel/catalog operations, table data, export, backup and user management.
+- `cargo check -p db-pro-runtime -p db-pro-tauri --offline` PASS.
+- `cargo test -p db-pro-runtime --offline` PASS (4 tests); `cargo test -p db-pro-tauri --offline` PASS (21 tests); `cargo clippy -p db-pro-runtime -p db-pro-tauri --offline --all-targets -- -D warnings` PASS.
+- Direct-service boundary audit: `rg 'State<.*Arc<.*Service>|use db_pro_core::application::.*Service' crates/tauri-app/src` returns no matches.
+- Local provider check: `127.0.0.1:15433` accepts `postgres/postgres` and exposes the BSN schemas (`master`, `tenant1`, `tenant2`, etc.); it was left read-only and untouched.
+- Isolated PostgreSQL fixture: a temporary `postgres:18` container on `127.0.0.1:15434` loaded `fixtures/postgres/001_schema.sql` and `002_seed.sql`; `DATABASE_URL=postgres://dbpro:dbpro_test@127.0.0.1:15434/dbpro_fixture cargo test -p db-pro-infrastructure --test pg_integration --offline -- --ignored` passed **10/10**. The temporary container was removed afterward.
+- Numeric mapper fix: SQLx's `BigDecimal` decode did not apply PostgreSQL wire `dscale`, producing `12345678901234567890.12345000`; the mapper now decodes PostgreSQL binary NUMERIC display scale directly and preserves exact text. Unit coverage and the live PostgreSQL numeric/enum test pass.
+
+## Native UX alignment follow-up — 2026-09-11
+
+- Native UI refactor gate: `crates/ui/src/app.rs` reduced to 677 lines of root state/update orchestration; initialization/persistence state lives in `app_state.rs`, and query, table editor, runtime events, palette, schema object and workspace rendering live in bounded modules. `cargo test -p db-pro-ui --offline` PASS (36 tests); `cargo clippy -p db-pro-ui --offline --all-targets -- -D warnings` PASS.
+- `cargo fmt --all -- --check` PASS.
+- `git diff --check` PASS.
+- `cargo test -p db-pro-ui --offline` PASS (36 tests, including light/dark token switching, workspace-tab close/orphan recovery, connection/schema stale-event, connection-draft invalidation, Explorer search, ER search and DDL impact coverage).
+- `cargo test -p db-pro-infrastructure --offline` PASS (37 unit/integration tests plus 25 SQLite integration tests; the 10 PostgreSQL fixture tests pass in the separate fixture run above).
+- `cargo clippy -p db-pro-infrastructure --offline --all-targets -- -D warnings` PASS.
+- `cargo test -p db-pro-native --offline` PASS (1 SQLite credential-boundary test).
+- `cargo clippy -p db-pro-ui -p db-pro-native --offline --all-targets -- -D warnings` PASS.
+- `cargo build -p db-pro-native --offline` PASS; the native binary stayed alive for an 8-second launch smoke with no stdout/stderr or crash.
+- `cargo test --workspace --offline` PASS; all default workspace tests passed, with PostgreSQL fixture coverage recorded separately above.
+- `cargo clippy --workspace --offline --all-targets -- -D warnings` PASS.
+- Clean-code diff scan: no frontend production findings and no blocking translation-function finding; remaining warnings are existing egui render boundaries/Tauri bootstrap and intentionally documented in `CLEAN_CODE_AUDIT_REPORT.md`.
+
 ## Automated
 
 Verified on 2026-09-11 from the current worktree:
@@ -52,7 +91,7 @@ Native Quick Open/Command Palette smoke                                    PASS 
 Native force-refresh schema smoke                                          PASS (external SQLite index drop remained stale in the open Structure view, Command Palette `Refresh schema` bypassed the cache and rendered `0 indexes`)
 Native Agent read-only execution smoke                                     PASS (connected SQLite fixture → Agent starter prompt → explicit `Run read-only` action → Query workspace returned one aggregate result row; no mutation was submitted)
 Native DDL editor/apply runtime smoke                                    PASS (connected SQLite fixture → editable single-statement DDL → explicit Apply/Execute confirmation → index appeared in refreshed Structure metadata → DROP cleanup restored 0 indexes)
-clean-code diff scan                                                      PASS (33 heuristic checks; macOS xargs compatibility warning emitted by the scanner, no reported smell failures)
+clean-code diff scan                                                      PARTIAL (domain split is complete; the heuristic still reports long render functions in several native modules and existing `let _ = send(...)`/test expect usage)
 perf-audit                                                           FAIL (10 frontend budget tests PASS; raw JS bundle 2.35 MB > 2 MB critical threshold; largest chunk 594 KB warning; CSS 122 KB warning; Rust check/clippy PASS)
 ```
 

@@ -1,11 +1,9 @@
 use std::path::Path;
 use std::process::Command;
-use std::sync::Arc;
-
 use tauri::{AppHandle, Emitter, State};
 
-use db_pro_core::application::BackupService;
 use db_pro_core::domain::backup::{BackupFormat, BackupOptions, RestoreOptions};
+use db_pro_runtime::DbProRuntime;
 
 use crate::dto::{BackupOptionsDto, BackupProgressDto, BackupResultDto, CommandError, RestoreOptionsDto};
 
@@ -25,7 +23,7 @@ fn emit_progress(app: &AppHandle, operation: &str, status: &str, path: &str, mes
 pub async fn backup_database(
     req: BackupOptionsDto,
     app: AppHandle,
-    service: State<'_, Arc<BackupService>>,
+    runtime: State<'_, std::sync::Arc<DbProRuntime>>,
 ) -> Result<BackupResultDto, CommandError> {
     emit_progress(&app, "backup", "started", &req.output_path, None);
     let options = BackupOptions {
@@ -38,7 +36,7 @@ pub async fn backup_database(
         schemas: req.schemas.unwrap_or_default(),
         tables: req.tables.unwrap_or_default(),
     };
-    match service.backup(&options).await {
+    match runtime.backup_api().backup(&options).await {
         Ok(result) => {
             emit_progress(&app, "backup", "completed", &options.output_path, None);
             Ok(result.into())
@@ -61,7 +59,7 @@ pub async fn backup_database(
 pub async fn restore_database(
     req: RestoreOptionsDto,
     app: AppHandle,
-    service: State<'_, Arc<BackupService>>,
+    runtime: State<'_, std::sync::Arc<DbProRuntime>>,
 ) -> Result<(), CommandError> {
     emit_progress(&app, "restore", "started", &req.input_path, None);
     let options = RestoreOptions {
@@ -72,7 +70,7 @@ pub async fn restore_database(
             crate::dto::BackupFormatDto::Custom => BackupFormat::Custom,
         },
     };
-    match service.restore(&options).await {
+    match runtime.backup_api().restore(&options).await {
         Ok(()) => {
             emit_progress(&app, "restore", "completed", &options.input_path, None);
             Ok(())

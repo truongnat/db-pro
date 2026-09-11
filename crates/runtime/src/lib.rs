@@ -4,9 +4,9 @@ mod worker;
 
 pub use agent::{AgentContext, AgentDraft, CodexProvider, CodexProviderError};
 pub use api::{
-    BackupApi, ColumnSummary, ConnectionApi, ConnectionSummary, DbErrorDto, ExportApi, ForeignKeySummary,
-    FunctionSummary, QueryApi, QueryFolderSummary, SavedQuerySummary, SchemaApi, SchemaSummary, TableDataApi,
-    TableSummary, TriggerSummary, UserApi, ViewSummary,
+    BackupApi, ColumnSummary, ConnectionApi, ConnectionSummary, DataDiffApi, DbErrorDto, ExportApi, ForeignKeySummary,
+    FunctionSummary, PostgresApi, QueryApi, QueryFolderSummary, SavedQuerySummary, SchemaApi, SchemaSummary,
+    TableDataApi, TableSummary, TriggerSummary, UserApi, ViewSummary,
 };
 pub use worker::{spawn_worker, RuntimeCommand, RuntimeEvent, RuntimeRequestId};
 
@@ -211,6 +211,14 @@ impl DbProRuntime {
 
     pub fn data_diff(&self) -> Arc<DataDiffService> {
         Arc::clone(&self.data_diff)
+    }
+
+    pub fn data_diff_api(&self) -> DataDiffApi {
+        DataDiffApi::new(self.data_diff())
+    }
+
+    pub fn postgres_api(&self) -> PostgresApi {
+        PostgresApi::new(self.connector(), self.registry(), self.meta_store.clone())
     }
 
     pub fn connector(&self) -> Arc<CompositeConnector> {

@@ -1,18 +1,14 @@
-use std::sync::Arc;
-
 use tauri::State;
 
 use crate::dto::{CommandError, FetchRowsRequest, FetchRowsResultDto, MutateRowRequest, MutateRowResultDto};
-use db_pro_core::application::TableDataService;
-use db_pro_core::domain::connection::ConnectionId;
+use db_pro_runtime::DbProRuntime;
 
 #[tauri::command]
 pub async fn fetch_table_rows(
-    service: State<'_, Arc<TableDataService>>,
+    runtime: State<'_, std::sync::Arc<DbProRuntime>>,
     connection_id: String,
     request: FetchRowsRequest,
 ) -> Result<FetchRowsResultDto, CommandError> {
-    let conn_id = parse_connection_id(&connection_id)?;
     let filters = request
         .filters
         .iter()
@@ -21,9 +17,10 @@ pub async fn fetch_table_rows(
     let sorts: Vec<_> = request.sorts.iter().map(|s| s.to_domain()).collect();
     let offset = request.page.saturating_sub(1) * request.page_size;
 
-    let (result, total_count) = service
+    let (result, total_count) = runtime
+        .table_data_api()
         .fetch_rows(
-            &conn_id,
+            &connection_id,
             &request.schema,
             &request.table,
             &filters,
@@ -43,14 +40,20 @@ pub async fn fetch_table_rows(
 
 #[tauri::command]
 pub async fn insert_table_row(
-    service: State<'_, Arc<TableDataService>>,
+    runtime: State<'_, std::sync::Arc<DbProRuntime>>,
     connection_id: String,
     request: MutateRowRequest,
 ) -> Result<MutateRowResultDto, CommandError> {
-    let conn_id = parse_connection_id(&connection_id)?;
     let values: Vec<_> = request.values.into_iter().map(Into::into).collect();
-    let affected = service
-        .insert_row(&conn_id, &request.schema, &request.table, &request.columns, &values)
+    let affected = runtime
+        .table_data_api()
+        .insert_row(
+            &connection_id,
+            &request.schema,
+            &request.table,
+            &request.columns,
+            &values,
+        )
         .await?;
     Ok(MutateRowResultDto {
         affected_rows: affected,
@@ -59,11 +62,10 @@ pub async fn insert_table_row(
 
 #[tauri::command]
 pub async fn update_table_row(
-    service: State<'_, Arc<TableDataService>>,
+    runtime: State<'_, std::sync::Arc<DbProRuntime>>,
     connection_id: String,
     request: MutateRowRequest,
 ) -> Result<MutateRowResultDto, CommandError> {
-    let conn_id = parse_connection_id(&connection_id)?;
     let values: Vec<_> = request.values.into_iter().map(Into::into).collect();
     let pk_columns = request.pk_columns.unwrap_or_default();
     let pk_values: Vec<_> = request
@@ -83,9 +85,10 @@ pub async fn update_table_row(
         });
     }
 
-    let affected = service
+    let affected = runtime
+        .table_data_api()
         .update_row(
-            &conn_id,
+            &connection_id,
             &request.schema,
             &request.table,
             &request.columns,
@@ -101,11 +104,10 @@ pub async fn update_table_row(
 
 #[tauri::command]
 pub async fn delete_table_row(
-    service: State<'_, Arc<TableDataService>>,
+    runtime: State<'_, std::sync::Arc<DbProRuntime>>,
     connection_id: String,
     request: MutateRowRequest,
 ) -> Result<MutateRowResultDto, CommandError> {
-    let conn_id = parse_connection_id(&connection_id)?;
     let pk_columns = request.pk_columns.unwrap_or_default();
     let pk_values: Vec<_> = request
         .pk_values
@@ -124,20 +126,11 @@ pub async fn delete_table_row(
         });
     }
 
-    let affected = service
-        .delete_row(&conn_id, &request.schema, &request.table, &pk_columns, &pk_values)
+    let affected = runtime
+        .table_data_api()
+        .delete_row(&connection_id, &request.schema, &request.table, &pk_columns, &pk_values)
         .await?;
     Ok(MutateRowResultDto {
         affected_rows: affected,
-    })
-}
-
-fn parse_connection_id(id: &str) -> Result<ConnectionId, CommandError> {
-    ConnectionId::parse(id).map_err(|e| CommandError {
-        error: "VALIDATION".into(),
-        message: format!("invalid connection id: {e}"),
-        message_id: "error.validation".into(),
-        details: None,
-        retryable: false,
     })
 }

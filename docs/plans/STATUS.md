@@ -29,6 +29,8 @@ Pre-release hardening program. Blocks v0.1.
 | P3.8 Data Grid / Metadata List Audit | REVIEW | Explorer O(S×T) fixed; deeper RC1 QA found additional state/performance issues |
 | **P1 Large-Schema ER Architecture** | **IMPLEMENTING** | locked architecture (graph model → layout worker → spatial index → viewport engine → renderer); P1.1 instrumentation + P1.2 culling done on `feature/er-large-schema-scaling` |
 
+| Native UI Foundation | COMPLETED | native egui workspace, shared runtime facades and Tauri command boundary implemented; SQLite UI runtime evidence and isolated PostgreSQL fixture coverage pass |
+
 ## RC1 Full Product QA
 
 Audit baseline: `main@6e0a04ad675eaa85cae08bbe1a066270596a18db`  

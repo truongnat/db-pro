@@ -1,53 +1,49 @@
-use std::sync::Arc;
-
 use tauri::State;
 
 use crate::dto::{CommandError, DdlResultDto, IntrospectResultDto, TableInfoDto};
-use db_pro_core::application::SchemaService;
-use db_pro_core::domain::connection::ConnectionId;
+use db_pro_runtime::DbProRuntime;
 
 #[tauri::command]
 pub async fn introspect(
-    service: State<'_, Arc<SchemaService>>,
+    runtime: State<'_, std::sync::Arc<DbProRuntime>>,
     connection_id: String,
     force_refresh: Option<bool>,
 ) -> Result<IntrospectResultDto, CommandError> {
-    let conn_id = parse_connection_id(&connection_id)?;
-    let result = service.introspect(&conn_id, force_refresh.unwrap_or(false)).await?;
+    let result = runtime
+        .schema_api()
+        .introspect(&connection_id, force_refresh.unwrap_or(false))
+        .await?;
     Ok(result.into())
 }
 
 #[tauri::command]
 pub async fn get_table_info(
-    service: State<'_, Arc<SchemaService>>,
+    runtime: State<'_, std::sync::Arc<DbProRuntime>>,
     connection_id: String,
     schema: String,
     table: String,
 ) -> Result<TableInfoDto, CommandError> {
-    let conn_id = parse_connection_id(&connection_id)?;
-    let info = service.get_table_info(&conn_id, &schema, &table).await?;
+    let info = runtime.schema_api().table_info(&connection_id, &schema, &table).await?;
     Ok(info.into())
 }
 
 #[tauri::command]
 pub async fn get_table_ddl(
-    service: State<'_, Arc<SchemaService>>,
+    runtime: State<'_, std::sync::Arc<DbProRuntime>>,
     connection_id: String,
     schema: String,
     table: String,
 ) -> Result<String, CommandError> {
-    let conn_id = parse_connection_id(&connection_id)?;
-    Ok(service.get_table_ddl(&conn_id, &schema, &table).await?)
+    Ok(runtime.schema_api().table_ddl(&connection_id, &schema, &table).await?)
 }
 
 #[tauri::command]
 pub async fn execute_ddl(
-    service: State<'_, Arc<SchemaService>>,
+    runtime: State<'_, std::sync::Arc<DbProRuntime>>,
     connection_id: String,
     sql: String,
 ) -> Result<DdlResultDto, CommandError> {
-    let conn_id = parse_connection_id(&connection_id)?;
-    let affected = service.execute_ddl(&conn_id, &sql).await?;
+    let affected = runtime.schema_api().execute_ddl(&connection_id, &sql).await?;
     Ok(DdlResultDto {
         affected_rows: affected,
     })
@@ -55,12 +51,14 @@ pub async fn execute_ddl(
 
 #[tauri::command]
 pub async fn execute_ddl_batch(
-    service: State<'_, Arc<SchemaService>>,
+    runtime: State<'_, std::sync::Arc<DbProRuntime>>,
     connection_id: String,
     statements: Vec<String>,
 ) -> Result<DdlResultDto, CommandError> {
-    let conn_id = parse_connection_id(&connection_id)?;
-    let affected = service.execute_ddl_batch(&conn_id, &statements).await?;
+    let affected = runtime
+        .schema_api()
+        .execute_ddl_batch(&connection_id, &statements)
+        .await?;
     Ok(DdlResultDto {
         affected_rows: affected,
     })
@@ -68,12 +66,11 @@ pub async fn execute_ddl_batch(
 
 #[tauri::command]
 pub async fn create_index(
-    service: State<'_, Arc<SchemaService>>,
+    runtime: State<'_, std::sync::Arc<DbProRuntime>>,
     connection_id: String,
     sql: String,
 ) -> Result<DdlResultDto, CommandError> {
-    let conn_id = parse_connection_id(&connection_id)?;
-    let affected = service.execute_ddl(&conn_id, &sql).await?;
+    let affected = runtime.schema_api().execute_ddl(&connection_id, &sql).await?;
     Ok(DdlResultDto {
         affected_rows: affected,
     })
@@ -81,12 +78,11 @@ pub async fn create_index(
 
 #[tauri::command]
 pub async fn drop_index(
-    service: State<'_, Arc<SchemaService>>,
+    runtime: State<'_, std::sync::Arc<DbProRuntime>>,
     connection_id: String,
     sql: String,
 ) -> Result<DdlResultDto, CommandError> {
-    let conn_id = parse_connection_id(&connection_id)?;
-    let affected = service.execute_ddl(&conn_id, &sql).await?;
+    let affected = runtime.schema_api().execute_ddl(&connection_id, &sql).await?;
     Ok(DdlResultDto {
         affected_rows: affected,
     })
@@ -94,12 +90,11 @@ pub async fn drop_index(
 
 #[tauri::command]
 pub async fn create_trigger(
-    service: State<'_, Arc<SchemaService>>,
+    runtime: State<'_, std::sync::Arc<DbProRuntime>>,
     connection_id: String,
     sql: String,
 ) -> Result<DdlResultDto, CommandError> {
-    let conn_id = parse_connection_id(&connection_id)?;
-    let affected = service.execute_ddl(&conn_id, &sql).await?;
+    let affected = runtime.schema_api().execute_ddl(&connection_id, &sql).await?;
     Ok(DdlResultDto {
         affected_rows: affected,
     })
@@ -107,12 +102,11 @@ pub async fn create_trigger(
 
 #[tauri::command]
 pub async fn drop_trigger(
-    service: State<'_, Arc<SchemaService>>,
+    runtime: State<'_, std::sync::Arc<DbProRuntime>>,
     connection_id: String,
     sql: String,
 ) -> Result<DdlResultDto, CommandError> {
-    let conn_id = parse_connection_id(&connection_id)?;
-    let affected = service.execute_ddl(&conn_id, &sql).await?;
+    let affected = runtime.schema_api().execute_ddl(&connection_id, &sql).await?;
     Ok(DdlResultDto {
         affected_rows: affected,
     })
@@ -120,20 +114,9 @@ pub async fn drop_trigger(
 
 #[tauri::command]
 pub async fn invalidate_cache(
-    service: State<'_, Arc<SchemaService>>,
+    runtime: State<'_, std::sync::Arc<DbProRuntime>>,
     connection_id: String,
 ) -> Result<(), CommandError> {
-    let conn_id = parse_connection_id(&connection_id)?;
-    service.invalidate_cache(&conn_id).await?;
+    runtime.schema_api().invalidate_cache(&connection_id).await?;
     Ok(())
-}
-
-fn parse_connection_id(id: &str) -> Result<ConnectionId, CommandError> {
-    ConnectionId::parse(id).map_err(|e| CommandError {
-        error: "VALIDATION".into(),
-        message: format!("invalid connection id: {e}"),
-        message_id: "error.validation".into(),
-        details: None,
-        retryable: false,
-    })
 }

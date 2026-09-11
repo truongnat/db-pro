@@ -75,6 +75,18 @@ impl From<DbError> for CommandError {
     }
 }
 
+impl From<db_pro_runtime::DbErrorDto> for CommandError {
+    fn from(error: db_pro_runtime::DbErrorDto) -> Self {
+        Self {
+            error: error.code,
+            message: error.message,
+            message_id: error.message_id,
+            details: None,
+            retryable: error.retryable,
+        }
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Connection DTOs
 // ---------------------------------------------------------------------------

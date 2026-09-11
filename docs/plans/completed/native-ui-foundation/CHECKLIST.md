@@ -2,19 +2,24 @@
 
 - [x] Add native UI and app crates to the Rust workspace.
 - [x] Add product-owned theme tokens and egui visuals.
+- [x] Add native light/dark theme switching with locally persisted preference.
+- [x] Add a persisted reduced-motion setting for native loading indicators.
 - [x] Add Lucide icon foundation with a bundled egui font and shared icon button primitives.
 - [x] Consolidate Codex-light sidebar, input, button, tab and card primitives and refactor shell controls onto them.
 - [x] Build light workspace layout with shared toolbar, tab, welcome-card and responsive wrapping primitives.
 - [x] Refine topbar hierarchy and move backup/restore actions into a dedicated Settings surface.
+- [x] Align native status, empty-state actions and shortcut labels with the UX friendliness audit.
 - [x] Add runnable shell with responsive side panels.
 - [x] Add keyboard shortcuts for quick query and sidebar toggle.
 - [x] Add visual placeholder states for explorer, history, settings and agent panel.
+- [x] Add a centered Welcome composer that opens prompts directly in the native Query workspace.
 - [x] Add typed `UiCommand`/`UiEvent` task bridge and request identity scaffold.
 - [x] Add frontend-independent `DbProRuntime` service graph for connection/query/schema.
 - [x] Connect `DbProRuntime` to a tokio native task worker with typed command/event translation.
 - [x] Load saved connection summaries into the native explorer.
 - [x] Add active connection selection and connect action.
 - [x] Add native connection create/test dialog and form validation.
+- [x] Keep connection test results tied to the current draft and surface picker cancellation.
 - [x] Add native connection edit flow and delete confirmation dialog.
 - [x] Add SSL mode and SSH tunnel fields with validation.
 - [x] Add native SQLite/private-key file picker integration.
@@ -35,6 +40,7 @@
 - [x] Add local query history surface.
 - [x] Add persistent multi-query tabs and query document metadata.
 - [x] Add query-tab close controls with active-document state restoration.
+- [x] Add unified close controls for native Table, schema-object and ER workspace tabs.
 - [x] Add saved-query/folder operations to the shared QueryApi facade.
 - [x] Add native saved-query list/save UI and backend worker commands.
 - [x] Add saved-query folder creation UI and folder assignment when saving.
@@ -58,14 +64,17 @@
 - [x] Add typed connection CRUD/test commands to the shared runtime worker.
 - [x] Add typed table structure and DDL commands to the shared runtime worker.
 - [x] Add native table workspace with Structure, Data and DDL tabs.
+- [x] Gate native result mutation actions by connection write capability with an inline reason.
 - [x] Add editable DDL preview with explicit confirmation and post-apply schema refresh.
+- [x] Add plain-language DDL impact text to the execution confirmation.
 - [x] Make Command Palette schema refresh bypass persisted metadata cache.
 - [x] Fetch table data through `TableDataApi` and reuse the shared result grid.
 - [x] Route table Data contains filters and `ORDER BY` controls through typed runtime commands.
 - [x] Match the DBeaver table Data editor mental model with row numbers, row selection, familiar actions and page controls.
 - [x] Share one `DbProRuntime` service graph with Tauri state adapters.
-- [ ] Move Tauri command methods from direct service calls to shared DTO facade adapters.
+- [x] Move Tauri command methods from direct service calls to shared DTO facade adapters.
 - [x] Add schema explorer table/column browsing.
+- [x] Add bounded Explorer table search with a visible match count.
 - [x] Show provider-specific schema names and selected-table metadata in the Explorer tree.
 - [x] Show introspected views and triggers as first-class Explorer groups.
 - [x] Open view and trigger definitions in a dedicated native schema-object workspace.
@@ -73,15 +82,18 @@
 - [x] Preserve PostgreSQL function/procedure schema, return type and definition through native DTOs.
 - [x] Show functions/procedures in the native Explorer and definition workspace.
 - [x] Add paged table data navigation backed by `limit`/`offset` runtime commands.
+- [x] Lock provider-specific pagination placeholders for PostgreSQL and SQLite.
 - [x] Add native export result overlay with CSV/TSV output.
 - [x] Add typed table mutation commands and edit/delete confirmation UI.
 - [x] Add folder identity loading and folder-level delete confirmation.
 - [x] Add native ER canvas with table columns, PK/FK markers and orthogonal foreign-key connectors.
+- [x] Add search-first ER opening for schemas over 200 tables with explicit full-map opt-in.
 - [x] Add safe inline cell editing for writable table Data views with Escape cancellation.
 - [x] Preserve composite primary-key row identity and typed key values across the native mutation bridge.
 - [x] Add metadata-driven New row dialog with typed NULL/bool/integer/float/JSON/text values.
 - [x] Validate NUMERIC/DECIMAL input with exact precision/scale rules without coercing through `f64`.
 - [x] Add an explicit Agent provider boundary with an offline preview provider and no execution handle.
+- [x] Mark the native Agent panel as Preview and keep generated writes visibly unexecuted.
 - [x] Add optional Codex Responses API requests through the async native/runtime worker path.
 - [x] Keep Codex credentials out of UI state/logging and require HTTPS for configured endpoints.
 - [x] Add Quick Open and Command Palette with keyboard navigation and workspace actions.

@@ -238,7 +238,11 @@ fn introspect_foreign_keys(conn: &rusqlite::Connection, table_names: &[String]) 
         }
 
         for id in order {
-            let (to_table, from_columns, to_columns) = map.remove(&id).unwrap();
+            let Some((to_table, from_columns, to_columns)) = map.remove(&id) else {
+                return Err(DbError::IntrospectionFailed(format!(
+                    "foreign-key grouping lost constraint {id} for table {table_name}"
+                )));
+            };
             foreign_keys.push(ForeignKey {
                 name: format!("{table_name}_fk_{id}"),
                 from_table: table_name.clone(),
