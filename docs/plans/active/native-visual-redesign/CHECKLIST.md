@@ -49,3 +49,11 @@
 - [x] Add a native regression test for the editor-status visibility invariant.
 - [x] Capture fresh native runtime evidence for the Data Editor status bar.
 - [x] Re-run the full Rust quality gates and clean-code diff scan after Wave 4 edits.
+
+## Wave 5 — full ER canvas
+
+- [x] Make the ER canvas fill the available native viewport before content overflow.
+- [x] Preserve scroll behavior for diagrams larger than the viewport.
+- [x] Add a regression test for viewport fill and content overflow sizing.
+- [x] Capture fresh native runtime evidence for the full ER canvas.
+- [x] Re-run the full Rust quality gates and clean-code diff scan after Wave 5 edits.

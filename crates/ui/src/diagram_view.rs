@@ -206,6 +206,8 @@ impl DbProApp {
         let canvas_height =
             (ER_CANVAS_MARGIN * 2.0 + grid_rows as f32 * node_height + (grid_rows.saturating_sub(1)) as f32 * ER_GAP_Y)
                 * self.diagram_zoom;
+        let viewport_size = egui::vec2(ui.available_width(), ui.available_height());
+        let canvas_size = diagram_canvas_size(egui::vec2(canvas_width, canvas_height), viewport_size);
         let zoom = self.diagram_zoom;
         let pan = self.diagram_pan;
         let theme = self.theme;
@@ -217,10 +219,7 @@ impl DbProApp {
         }
         .show(ui, |ui| {
             egui::ScrollArea::both().auto_shrink([false, false]).show(ui, |ui| {
-                let (response, painter) = ui.allocate_painter(
-                    egui::vec2(canvas_width.max(640.0), canvas_height.max(360.0)),
-                    Sense::click_and_drag(),
-                );
+                let (response, painter) = ui.allocate_painter(canvas_size, Sense::click_and_drag());
                 paint_diagram_grid(&painter, response.rect, zoom, theme);
                 let nodes = diagram_nodes(
                     tables,
@@ -296,6 +295,13 @@ impl DbProApp {
         self.sidebar_open = true;
         self.active_tab = WorkspaceTab::Table;
     }
+}
+
+pub(super) fn diagram_canvas_size(content_size: egui::Vec2, viewport_size: egui::Vec2) -> egui::Vec2 {
+    egui::vec2(
+        content_size.x.max(viewport_size.x).max(640.0),
+        content_size.y.max(viewport_size.y).max(360.0),
+    )
 }
 
 fn paint_diagram_grid(painter: &egui::Painter, rect: egui::Rect, zoom: f32, theme: DbProTheme) {

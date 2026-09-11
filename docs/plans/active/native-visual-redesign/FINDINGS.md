@@ -96,6 +96,14 @@ while the user was working with rows, which weakens context and makes the shell 
 The smallest safe fix is presentation-only: keep the editor metadata on Query and use a workspace
 context label everywhere else.
 
+### P2 — ER canvas did not fill the maximized workspace
+
+The populated SQLite relationship map rendered only its node-derived content rectangle, leaving most
+of the maximized central workspace as an unowned black area. This made the ER surface look like a
+small preview even though the native window was full-size. The smallest safe fix is to size the
+canvas to at least the current viewport while retaining the existing scroll overflow for larger
+schemas.
+
 ## Wave 3 runtime evidence
 
 - Fresh maximized native launch and centered welcome: `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/2f485840-c8ff-4106-8731-45fe03ea1ad8-screenshot.png`.

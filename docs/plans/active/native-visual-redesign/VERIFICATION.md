@@ -2,7 +2,7 @@
 
 ## Current state
 
-Wave 1–4 implementation and runtime screenshot passes are complete on `feature/native-visual-redesign`.
+Wave 1–5 implementation and runtime screenshot passes are complete on `feature/native-visual-redesign`.
 No overall feature completion claim has been made: independent review and any provider/runtime
 regression follow-up remain open. The baseline screenshot and source evidence are recorded in
 `FINDINGS.md`.
@@ -91,3 +91,19 @@ smoke coverage, wider provider walkthroughs and independent review are still ope
 Wave 4 is presentation-only and applies independently of the connected provider. PostgreSQL
 runtime remains pending for the existing provider matrix; no PostgreSQL fixture was changed or
 assumed for this status-bar check.
+
+## Wave 5 evidence
+
+| Check | Result | Evidence |
+|---|---|---|
+| Native ER canvas viewport fill | PASS | Fresh SQLite screenshot `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/a828ae55-27c1-48e0-b8f6-4915aad426db-screenshot.png`; relationship map grid fills the maximized central workspace at `2473×1409` |
+| Native ER node and relationship rendering | PASS | Same screenshot shows `main.customers`, `main.orders`, one `customer_id` relationship and zoom controls after the canvas sizing change |
+| `cargo fmt --all -- --check` | PASS | Run after Wave 5 source edits on 2026-09-11 |
+| `cargo check --workspace --offline` | PASS | Run after Wave 5 source edits on 2026-09-11 |
+| `cargo clippy --workspace --offline --all-targets -- -D warnings` | PASS | Run after Wave 5 source edits on 2026-09-11 |
+| `cargo test --workspace --offline` | PASS | 2026-09-11; 186 core, 39 infrastructure, 25 SQLite integration, 57 UI, 21 Tauri, 4 runtime, 1 native; 10 PostgreSQL live tests ignored without fixture env |
+| `cargo build --locked -p db-pro-native --offline` | PASS | 2026-09-11, rebuilt native binary for the fresh ER runtime check |
+| `bash .skills/clean-code/scripts/clean-code-scan.sh --diff` | PASS | 2026-09-11; 33 checks passed, 0 warnings/fails; existing macOS xargs compatibility warnings emitted |
+
+Wave 5 is presentation-only. The canvas retains its existing scroll surface for content larger
+than the viewport, and no provider-specific behavior was changed or inferred from SQLite.

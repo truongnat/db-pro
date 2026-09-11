@@ -49,18 +49,24 @@ behavior.
 - center native connection/delete/insert dialogs and the welcome workspace content when egui restores
   persisted positions or the app opens on a maximized monitor.
 
-### Wave 4 — context-aware status bar (current change)
+### Wave 4 — context-aware status bar (completed in prior change)
 
 - keep SQL editor metadata (`Ln`, `Col`, encoding) scoped to the Query workspace;
 - show a truthful workspace context for Data Editor, Schema Object, ER Diagram and Welcome surfaces;
 - preserve connection, provider, duration and runtime-error status reporting without changing commands
   or provider behavior.
 
+### Wave 5 — full ER canvas (current change)
+
+- make the ER canvas and grid fill the visible native workspace before content overflow requires scrolling;
+- keep the existing pan, zoom, fit and node-opening interactions unchanged;
+- preserve the bounded render policy for large schemas and avoid introducing provider-specific behavior.
+
 ### Follow-up waves
 
 - query/editor toolbar reduction and editor-first layout;
 - data-grid interaction polish, including keyboard, clipboard and resize smoke coverage;
-- ER canvas interaction controls;
+- ER canvas interaction controls and large-schema runtime smoke coverage;
 - native runtime screenshots at all required dimensions and keyboard/DPI/clipboard/file-picker
   smoke coverage.
 
@@ -107,3 +113,9 @@ behavior.
 - SQL editor-only status metadata is absent from non-query workspaces.
 - Data Editor, Schema Object, ER Diagram and Welcome surfaces expose a truthful native context label.
 - Rust fmt/check/clippy/tests pass and a fresh native screenshot confirms the Data Editor context.
+
+## Acceptance for Wave 5
+
+- ER canvas grid fills the maximized workspace when the rendered schema fits inside the viewport.
+- Larger rendered content still overflows through the existing scroll surface.
+- Rust fmt/check/clippy/tests pass and a fresh native screenshot confirms the full canvas.

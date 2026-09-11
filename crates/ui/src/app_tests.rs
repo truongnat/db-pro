@@ -1,4 +1,4 @@
-use super::diagram_view::diagram_candidates;
+use super::diagram_view::{diagram_candidates, diagram_canvas_size};
 use super::*;
 
 fn result() -> UiQueryResult {
@@ -509,6 +509,18 @@ fn diagram_candidates_bound_clones_until_show_all_is_explicit() {
     assert_eq!(candidate_count, 1);
     assert_eq!(search_results.len(), 1);
     assert_eq!(search_results[0].name, "table_7");
+}
+
+#[test]
+fn diagram_canvas_fills_the_viewport_before_overflowing() {
+    assert_eq!(
+        diagram_canvas_size(egui::vec2(940.0, 360.0), egui::vec2(1800.0, 900.0)),
+        egui::vec2(1800.0, 900.0)
+    );
+    assert_eq!(
+        diagram_canvas_size(egui::vec2(2200.0, 1200.0), egui::vec2(1800.0, 900.0)),
+        egui::vec2(2200.0, 1200.0)
+    );
 }
 
 #[test]
