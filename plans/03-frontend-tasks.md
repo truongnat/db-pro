@@ -1,5 +1,11 @@
 # DB Pro — Frontend (React/TypeScript) Tasks
 
+> **ARCHIVED (2026-09-11).** This plan describes the retired React/TypeScript/Vite
+> presentation layer. The frontend was moved to `_archive/frontend/` and the UI is now
+> native `eframe`/`egui` (`crates/ui` + `crates/native-app`). Keep this file as
+> implementation history only — do not execute or extend it. Current UI direction:
+> `docs/10-egui-native-migration-plan.md`.
+
 ---
 
 ## Phase 5: Frontend Scaffolding

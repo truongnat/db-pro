@@ -1,5 +1,10 @@
 # Text Selection Audit Matrix
 
+> **HISTORICAL (2026-09-11).** This audit was performed against the React/TypeScript
+> frontend, which was archived under `_archive/frontend/` when the UI moved to native
+> `eframe`/`egui`. Monaco/shadcn-specific findings below no longer apply; native text
+> selection behavior lives in `crates/ui`.
+
 **Date:** 2026-08-09  
 **Wave:** P2.1
 

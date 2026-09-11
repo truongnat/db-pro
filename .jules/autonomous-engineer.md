@@ -32,21 +32,16 @@ The product should feel like:
 
 Agent IDE × Database IDE
 
-It is NOT a web-admin application wrapped inside Tauri.
+It is NOT a web-admin application, and it no longer runs inside a Tauri WebView.
 
 Technology:
 
-Frontend:
-- React
-- TypeScript
-- Vite
-- Tauri 2
-- shadcn/ui
-- Radix
-- Tailwind
-- TanStack Query
-- Zustand
-- Monaco where appropriate
+UI (native — no WebView, no Node, no JS build):
+- Rust
+- eframe / egui 0.29
+- crates/ui (shell, views, AppState, reducer, DbProTheme)
+- crates/native-app (the shipped db-pro-native binary)
+- crates/runtime (service graph + worker/event bridge)
 
 Backend:
 - Rust
@@ -54,6 +49,11 @@ Backend:
 - clean architecture boundaries
 - PostgreSQL
 - SQLite
+
+Legacy — do NOT extend:
+- React / TypeScript / Vite / Tauri 2 / shadcn-ui / Radix / Tailwind / TanStack Query / Zustand / Monaco
+- The React frontend was archived under `_archive/frontend/` on 2026-09-11.
+- `crates/tauri-app` is a transitional host and is scheduled for removal at cutover.
 
 Core architectural principle:
 
@@ -187,7 +187,7 @@ PLAN.md must define:
 - invariants
 - scope
 - explicit out-of-scope
-- frontend ownership
+- UI ownership (native egui views in crates/ui)
 - backend ownership
 - PostgreSQL expectations
 - SQLite expectations
@@ -350,7 +350,7 @@ Known areas that must remain correct:
 - DDL reconstruction
 - target schema/table identity
 - UI relation grouping
-- React key uniqueness
+- stable node/edge identity in the native diagram view
 - target-table navigation
 - ER relationship compatibility
 - metadata refresh after relation changes
@@ -408,7 +408,7 @@ S1 Columns should prove:
 - tableInfo refresh
 - DDL refresh
 - dependency refresh
-- frontend schema catalog refresh
+- UI schema catalog refresh
 - PostgreSQL behavior
 - SQLite behavior
 - unsupported SQLite operations capability-gated
@@ -693,9 +693,8 @@ Avoid:
 - duplicated interaction models
 
 Prefer existing:
-- shadcn/ui
-- Radix
-- semantic design tokens
+- shared widgets in crates/ui/src/components.rs
+- DbProTheme semantic tokens
 - Lucide icons
 - shared workspace/action systems
 
@@ -718,23 +717,31 @@ For database mutations, UI success must correspond to actual backend success.
 Never optimistically represent a destructive mutation as successful before authoritative completion.
 
 ==================================================
-17. REACT / STATE RULES
+17. NATIVE UI / STATE RULES
 ==================================================
 
 Prefer domain-owned state.
 
+State is one-directional:
+
+UserIntent → UiCommand → service → UiEvent → reducer → repaint
+
 Avoid duplicating authoritative state across:
 
-React local state
-Zustand
-TanStack Query
+AppState sub-states
 workspace tab state
+query result state
+overlay/dialog state
 
-Use TanStack Query for server/database-derived state.
+Rules:
 
-Use Zustand for durable application/workspace interaction state where appropriate.
+- Only the reducer on the UI thread mutates display state; workers never do.
+- The UI thread must never block: all I/O runs as an async task off-thread.
+- Never stream unbounded row data into display state; use bounded, request-scoped batches.
+- A stale batch must not overwrite a newer result (request ID + generation checks).
+- Persisted state (tabs, panel widths, theme, editor preferences) must be versioned with a migration.
 
-After mutation, invalidate every affected query/state surface.
+After mutation, invalidate every affected derived surface.
 
 Do not blindly invalidate everything if scoped invalidation is practical.
 
@@ -759,7 +766,7 @@ domain
 → application
 → ports
 → infrastructure
-→ Tauri adapter
+→ runtime worker / UI task bridge
 
 Provider-specific behavior belongs primarily in:
 
@@ -768,9 +775,9 @@ connector
 capability
 infrastructure
 
-not scattered through React UI conditionals.
+not scattered through egui view conditionals.
 
-Tauri commands should stay thin.
+UI commands should stay thin.
 
 Do not bypass SchemaService safety policies from UI-level commands.
 

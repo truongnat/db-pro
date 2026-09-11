@@ -1,5 +1,10 @@
 # PostgreSQL vs SQLite v0.1 Capability Matrix
 
+> **Note (2026-09-11).** Provider capability semantics are UI-independent and remain valid.
+> The presentation layer changed: the React frontend was archived under `_archive/frontend/`
+> and the UI is now native `eframe`/`egui`. Capability gating must be enforced in the
+> backend/domain layer, never in the UI.
+
 > Source: `crates/core/src/domain/capabilities.rs` (canonical), infrastructure implementations.
 > Baseline SHA: `65bbca3`
 > Issue: #132

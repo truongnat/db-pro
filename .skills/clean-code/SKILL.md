@@ -1,13 +1,21 @@
 ---
 name: clean-code
-description: "Clean Code standards and review checklist for the DB Pro codebase (TypeScript + React 19 frontend, Rust backend). Use when the user asks to write clean code, review code quality, refactor, rename, split a large function/file, remove code smells, apply SOLID / DRY / KISS / YAGNI, fix error handling, clean up comments or logs, or run a code-health scan before a PR. Triggers on: /clean-code, clean code, code review, refactor, code smell, naming, SOLID, DRY, KISS, YAGNI, readability, maintainability, code health scan."
+description: "Clean Code standards and review checklist for the DB Pro codebase (native Rust UI in crates/ui + Rust backend). Use when the user asks to write clean code, review code quality, refactor, rename, split a large function/file, remove code smells, apply SOLID / DRY / KISS / YAGNI, fix error handling, clean up comments or logs, or run a code-health scan before a PR. Triggers on: /clean-code, clean code, code review, refactor, code smell, naming, SOLID, DRY, KISS, YAGNI, readability, maintainability, code health scan."
 ---
 
 # Clean Code
 
 Bộ tiêu chuẩn Clean Code từ cơ bản đến thực chiến, áp dụng cho toàn bộ mã nguồn DB Pro
-(`frontend/` — TypeScript/React, `crates/` — Rust). Mỗi mục bên dưới có một file tham chiếu
-chi tiết với ví dụ **Sai vs Đúng** trong `references/`.
+(`crates/` — Rust, bao gồm UI native `crates/ui` và binary `crates/native-app`).
+
+> **Cập nhật 2026-09-11 — hướng UI native.** UI của sản phẩm là native Rust
+> (`eframe`/`egui`). React/TypeScript/Vite frontend đã được archive vào
+> `_archive/frontend/`, không còn build/lint/test, và `crates/tauri-app` chỉ là host
+> transitional. Các ví dụ TypeScript/React/Tailwind/Monaco trong `references/` được giữ
+> lại như tài liệu lịch sử; quy tắc áp dụng hiện hành là phần Rust cùng các nguyên tắc
+> chung (đặt tên, hàm, comment, error handling, SOLID/DRY/KISS/YAGNI).
+
+Mỗi mục bên dưới có một file tham chiếu chi tiết với ví dụ **Sai vs Đúng** trong `references/`.
 
 ## Quick Start
 
@@ -95,8 +103,8 @@ Repo đã cố định formatter — **không tranh luận về style, chạy c�
 
 | Công cụ | Cấu hình | Giới hạn dòng |
 |---------|----------|---------------|
-| Prettier (`frontend/.prettierrc`) | `semi`, double quote, trailing comma `all` | 100 ký tự |
 | rustfmt (`.rustfmt.toml`) | edition 2021, 4 spaces | 120 ký tự |
+| ~~Prettier (`frontend/.prettierrc`)~~ | đã ngừng dùng — frontend archive 2026-09-11 | — |
 
 - **Mật độ dọc**: các hàm liên quan nằm gần nhau; hàm gọi ở trên hàm được gọi (đọc từ trên xuống như báo).
 - **Khoảng trắng dọc** tách các "đoạn ý" trong hàm; không có dòng trống vô nghĩa liên tiếp.
@@ -139,7 +147,7 @@ Repo đã cố định formatter — **không tranh luận về style, chạy c�
 
 - **Boy Scout Rule**: rời khỏi file sạch hơn lúc tới, nhưng refactor trong PR riêng nếu diff lớn.
 - **Red → Green → Refactor**: refactor ngay khi test xanh, không để "làm sau".
-- **Dọn dẹp trước khi push**: xóa `console.log`/`console.warn` debug, `dbg!`, `println!`, code comment-out, `eslint-disable` không lý do, `#[allow(...)]` không giải thích.
+- **Dọn dẹp trước khi push**: xóa `dbg!`, `println!`/`eprintln!` debug, code comment-out, `#[allow(...)]` không giải thích. (`console.log`/`eslint-disable` thuộc frontend đã archive — không còn áp dụng.)
 - **Tự động hoá**: quality gates trong `AGENTS.md` + `scripts/clean-code-scan.sh`; đề xuất CI gate trong `references/code-health.md`.
 - **Đo lường**: không tuyên bố "sạch hơn" nếu không chỉ ra được smell nào đã biến mất.
 

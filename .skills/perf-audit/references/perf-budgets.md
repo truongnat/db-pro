@@ -2,42 +2,45 @@
 
 Complete budget table with rationale and measurement methodology.
 
-## Frontend Budgets
+The UI is native `eframe`/`egui` (`crates/ui` + `crates/native-app`). There is no JS or CSS
+bundle to budget; the React frontend was archived under `_archive/frontend/` on 2026-09-11.
 
-### Bundle Size
+## Native UI Budgets
+
+### Binary Size
 
 | Category | Target | Critical | Measurement |
 |----------|--------|----------|-------------|
-| Total JS (gzipped) | < 500 KB | > 1 MB | `gzip -c dist/assets/*.js \| wc -c` |
-| Total JS (uncompressed) | < 1.5 MB | > 2 MB | `du -sb dist/assets/*.js` |
-| Largest single chunk | < 500 KB | > 800 KB | `ls -lS dist/assets/*.js \| head -1` |
-| CSS total | < 100 KB | > 200 KB | `du -sb dist/assets/*.css` |
-| Initial load (critical path) | < 300 KB | > 500 KB | Sum of chunks for first route |
+| `db-pro-native` (release) | < 50 MB | > 100 MB | `ls -l target/release/db-pro-native` |
+| Stripped distribution binary | < 30 MB | > 60 MB | `strip target/release/db-pro-native` then re-measure |
 
-### Runtime Performance
+### Runtime Performance (criterion: `crates/ui/benches/result_grid_benchmarks.rs`)
 
-| Operation | Target | Critical | Test file |
+| Operation | Target | Critical | Benchmark |
 |-----------|--------|----------|-----------|
-| Quick Open index (1k items) | < 50ms | > 100ms | `performance-budgets.test.ts` |
-| Quick Open rank (1k items) | < 50ms | > 100ms | `performance-budgets.test.ts` |
-| Statement split (100 stmts) | < 50ms | > 100ms | `performance-budgets.test.ts` |
-| CSV generate (10k rows) | < 200ms | > 500ms | `performance-budgets.test.ts` |
-| JSON generate (10k rows) | < 200ms | > 500ms | `performance-budgets.test.ts` |
-| SQL INSERT generate (1k rows) | < 200ms | > 500ms | `performance-budgets.test.ts` |
-| CSV parse (10k rows) | < 200ms | > 500ms | `performance-budgets.test.ts` |
-| Schema tree (500 tables) | < 150ms | > 300ms | `performance-budgets.test.ts` |
-| Workspace tab cycle (100) | < 100ms | > 200ms | `performance-budgets.test.ts` |
-| Grid state ops (100) | < 50ms | > 100ms | `performance-budgets.test.ts` |
+| Grid visible-range computation | < 1ms | > 5ms | `result_grid_benchmarks` |
+| Grid hit-testing | < 1ms | > 5ms | `result_grid_benchmarks` |
+| Cell codec round-trip | < 1ms | > 5ms | `result_grid_benchmarks` |
+| Quick Open index (1k items) | < 5ms | > 20ms | reducer bench |
+| Statement split (100 stmts) | < 5ms | > 20ms | reducer bench |
 
-### ER Diagram (P1 series)
+### Frame Time (manual, egui)
+
+| Surface | Target | Critical | Measurement |
+|---------|--------|----------|-------------|
+| Shell idle frame | < 8ms | > 16ms | `RUST_LOG=db_pro_ui=debug` frame log |
+| Grid scroll frame avg (100k rows) | < 8ms | > 16ms | frame log while scrolling |
+| Grid scroll frame p95 | < 16ms | > 33ms | frame log |
+| Cancellation ack → UI shows stopped | < 250ms | > 500ms | manual timing after Stop |
+
+### ER Diagram
 
 | Metric | 200 tables | 500 tables | 1000 tables | Measurement |
 |--------|------------|------------|-------------|-------------|
-| Time to interactive | < 2s | < 5s | < 10s | `er-perf-hud.tsx` init time |
-| Layout computation | < 500ms | < 1.5s | < 3s | `er-perf-hud.tsx` layout time |
-| Max long task | < 100ms | < 150ms | < 200ms | `er-perf-hud.tsx` long tasks |
-| Frame avg (pan/zoom) | < 8ms | < 12ms | < 16ms | `er-perf-hud.tsx` frame stats |
-| Frame p95 (pan/zoom) | < 16ms | < 24ms | < 33ms | `er-perf-hud.tsx` frame stats |
+| Time to interactive | < 2s | < 5s | < 10s | `db_pro_ui=debug` layout + first-frame log |
+| Layout computation | < 500ms | < 1.5s | < 3s | layout log |
+| Frame avg (pan/zoom) | < 8ms | < 12ms | < 16ms | frame log |
+| Frame p95 (pan/zoom) | < 16ms | < 24ms | < 33ms | frame log |
 
 ## Backend Budgets (Rust/Criterion)
 
@@ -64,17 +67,19 @@ Complete budget table with rationale and measurement methodology.
 
 ## Measurement Methodology
 
-### Frontend runtime
+### Native UI runtime
 
-- Use `performance.now()` for sub-millisecond precision
-- Run benchmarks 3x and take median
+- Use the `db_pro_ui` debug frame log; take the median of at least 3 runs
 - Test on mid-range hardware (4 cores, 8GB RAM)
-- Disable browser extensions during measurement
+- Close other CPU-intensive applications during measurement
+- Measure with realistic data: 100k rows in the grid, 200+ tables in the ER diagram
+- Remember egui is immediate-mode: a per-frame cost that looks small can still be a
+  correctness bug if it recomputes derived state instead of caching it in `AppState`
 
 ### Rust benchmarks
 
 - Use Criterion.rs with `--quick` for iteration, full run for baseline
-- Run on dedicated machine (no other CPU-intensive tasks)
+- Run on a dedicated machine (no other CPU-intensive tasks)
 - Warm up: 3 iterations, measure: 10 iterations minimum
 - Report mean time with 95% confidence interval
 
@@ -82,7 +87,7 @@ Complete budget table with rationale and measurement methodology.
 
 - Use `EXPLAIN ANALYZE` for actual execution time
 - Run 5x and take median (cold cache first, then warm cache)
-- Measure at application layer (includes network/IPC)
+- Measure at the application layer (includes the runtime task bridge)
 - Test with realistic data volumes (10k-100k rows)
 
 ## Severity Levels

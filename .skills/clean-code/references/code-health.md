@@ -69,23 +69,19 @@ Script này quét mọi mục trong bảng trên và in `✓ / ⚠ / ✗` kèm v
 
 Luôn chạy trước khi tuyên bố PR sẵn sàng. **Không claim đã chạy nếu chưa chạy.**
 
-```bash
-# Frontend
-cd frontend
-pnpm install --frozen-lockfile
-pnpm run typecheck
-pnpm run lint
-pnpm run format:check
-pnpm run check:tokens
-pnpm run test
-pnpm run build
+Từ 2026-09-11 UI là native Rust và frontend React đã được archive, nên không còn gate
+Node/pnpm. Gate hiện hành:
 
-# Rust
+```bash
 cargo fmt --all -- --check
 cargo check --workspace
-cargo clippy --workspace --all-targets
+cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
+cargo build --release --locked -p db-pro-native
 ```
+
+Gate frontend cũ (`pnpm install/typecheck/lint/format:check/check:tokens/test/build`) đã bị
+gỡ khỏi CI cùng với frontend archive.
 
 ## 4. Đề xuất CI gate bổ sung cho clean code
 

@@ -1,6 +1,14 @@
 # DB Pro — Architecture Decisions
 
-Status: ratified before implementation
+Status: ratified before implementation; decisions 1 and 7 superseded by the native UI cutover
+
+> **Amendment (2026-09-11) — native UI direction.** Decisions 1 and 7 below described the
+> React/Tauri-webview presentation layer. That layer was retired: the React frontend is
+> archived under `_archive/frontend/` and the UI is now native `eframe`/`egui`. Decision 1
+> is replaced by the native UI architecture in `docs/07-fe-architecture.md`; decision 7's
+> `Channel<T>` streaming is replaced by the typed `UiCommand`/`UiEvent` task bridge. All
+> other decisions (2–6, 8, 9) remain in force unchanged. `crates/tauri-app` is kept only as
+> a legacy transitional host and is scheduled for removal at cutover.
 
 This document closes the nine architecture decisions required before Phase 0 implementation. It supersedes ambiguous wording in the task plans and is the implementation source of truth.
 
@@ -8,30 +16,34 @@ This document closes the nine architecture decisions required before Phase 0 imp
 
 | # | Decision | Status |
 |---:|---|---|
-| 1 | Frontend UI uses source-owned shadcn/ui-style components, Radix primitives, Tailwind, and CSS variables; MUI is removed from the baseline | Ratified |
+| 1 | ~~Frontend UI uses source-owned shadcn/ui-style components, Radix primitives, Tailwind, and CSS variables; MUI is removed from the baseline~~ — **superseded**: the UI is native `eframe`/`egui` with `DbProTheme` tokens (`docs/07-fe-architecture.md`) | Superseded |
 | 2 | PostgreSQL uses `sqlx::PgPool` directly; no `tokio-postgres`, `bb8`, ORM, or second pool abstraction | Ratified |
 | 3 | Dynamic query parameters use a serializable `QueryParam` enum mapped by each adapter | Ratified |
 | 4 | SQLite uses a dedicated actor/worker owning its `rusqlite::Connection`; async callers communicate through commands | Ratified |
 | 5 | Multi-statement execution is disabled in MVP; later support requires parser-backed classification and explicit transaction mode | Ratified |
 | 6 | OS keyring is primary; encrypted fallback uses Argon2id + AES-256-GCM with versioned records and strict permissions | Ratified |
-| 7 | Tauri 2 `Channel<T>` is used for result streaming; events are reserved for lifecycle notifications | Ratified |
+| 7 | ~~Tauri 2 `Channel<T>` is used for result streaming; events are reserved for lifecycle notifications~~ — **superseded**: the typed `UiCommand`/`UiEvent` task bridge carries bounded, request-scoped batches | Superseded |
 | 8 | Query/result contract uses typed cells, bounded pages, request IDs, and stable error envelopes | Ratified |
 | 9 | The first implementation is a vertical slice with PostgreSQL read-only execution before SQLite, CRUD grid, exports, or SSH | Ratified |
 
-## 1. Frontend UI system
+## 1. UI system
 
-`docs/07-fe-architecture.md` is aligned with the following stack:
+**Superseded on 2026-09-11.** The React + TypeScript + Vite stack, shadcn/Radix
+components, Tailwind/CSS variables, Monaco, TanStack Query, and Zustand were retired with
+the archived frontend.
+
+The current UI system is native `eframe` + `egui`:
 
 ```text
-React + TypeScript + Vite
-shadcn/ui-style source-owned components
-Radix UI primitives
-Tailwind CSS + CSS variables
-Monaco Editor
-TanStack Query + Zustand
+eframe + egui 0.29
+DbProTheme semantic tokens → egui::Visuals
+shared widgets in crates/ui/src/components.rs
+lucide-icons
+native SQL editor + native virtualized grid
 ```
 
-shadcn is treated as a component source pattern, not as a locked visual theme. Components are copied into `src/ui`, then adapted to the DB Pro tokens, density, keyboard behavior, and dark-first visual language. Radix owns accessible behavior; DB Pro owns the appearance and composition.
+All UI code lives in `crates/ui` and is owned by the product. Widgets read semantic tokens
+from `DbProTheme` instead of hard-coding colors. See `docs/07-fe-architecture.md`.
 
 ## 2. PostgreSQL driver
 
@@ -103,20 +115,29 @@ The key is derived from a user-provided master password with Argon2id. The encry
 
 Every secret-bearing type implements redacted `Debug`; tracing filters remove passwords, tokens, private key contents, connection URLs, and bound values.
 
-## 7. Tauri 2 streaming contract
+## 7. Streaming contract
 
-Tauri `Channel<T>` is the streaming mechanism. A command receives a channel and sends bounded typed messages:
+**Superseded on 2026-09-11.** Tauri `Channel<T>` is legacy-only and is not part of the
+shipped runtime.
+
+Streaming now uses the typed `UiCommand` / `UiEvent` task bridge. The runtime worker
+replies with bounded, request-scoped messages:
 
 ```rust
-enum QueryStreamEvent {
-    Started { request_id: RequestId, columns: Vec<ColumnMeta> },
-    Batch { request_id: RequestId, sequence: u32, rows: Vec<Row> },
-    Completed { request_id: RequestId, row_count: u64, duration_ms: u64 },
+enum UiEvent {
+    Loading { request_id: RequestId, operation: Operation },
+    ConnectionsLoaded(Vec<ConnectionSummary>),
+    QueryBatch(QueryBatch),
+    QueryCompleted(QueryCompleted),
     Failed { request_id: RequestId, error: DbErrorDto },
+    Notification(Notification),
 }
 ```
 
-Each batch has a row and byte limit. The frontend can cancel using the request ID; cancellation is routed to the adapter. Standard Tauri events are reserved for low-volume lifecycle notifications such as connection status and schema invalidation, not row data. Tauri documents `Channel<T>` as the recommended streaming mechanism for data streams. [Official Tauri command and channel documentation](https://v2.tauri.app/develop/calling-rust/)
+Each batch carries a sequence number, a request ID, and row/byte limits, so a stale batch
+cannot overwrite a newer result. The UI can cancel by request ID and cancellation is routed
+to the adapter. Lifecycle notifications (connection status, schema invalidation) use the
+same bridge but are low-volume and never carry row data.
 
 ## 8. Query/result contract
 
@@ -134,11 +155,11 @@ The implementation order is fixed:
 
 ```text
 Scaffold → domain DTOs → PostgreSQL connect/test → one read-only query
-→ typed result mapping → React result table → integration test → CI gates
+→ typed result mapping → native result grid → integration test → CI gates
 ```
 
 SQLite actor, metadata store, query history, schema explorer, editable grid, export, SSH tunneling, and advanced administration follow only after this slice passes its integration and error-path tests.
 
 ## Consequence
 
-The existing task plans must not implement older wording such as raw `rusqlite::Connection` in shared state, semicolon splitting, `EXPLAIN ANALYZE` by default, `app.emit_all()` row streaming, MUI as the UI system, or a generic `Vec<String>` result contract.
+The existing task plans must not implement older wording such as raw `rusqlite::Connection` in shared state, semicolon splitting, `EXPLAIN ANALYZE` by default, `app.emit_all()` row streaming, MUI as the UI system, or a generic `Vec<String>` result contract. They must also not reintroduce a WebView/React UI layer, a Node build step, or an unbounded row stream into display state.

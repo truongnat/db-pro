@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **UI: React frontend archived; native UI is the development direction (2026-09-11).**
+  - `frontend/` moved to `_archive/frontend/`; it is reference material only and is no longer built, tested, or packaged.
+  - `bench/` (React Flow / Cytoscape ER-renderer harnesses with vendored React) moved to `_archive/bench/` for the same reason.
+  - `crates/ui` (egui), `crates/runtime`, and `crates/native-app` (`db-pro-native`) are the shipped UI stack.
+  - CI: the frontend job was removed; the Rust job installs native GL/X11/Wayland headers and builds `db-pro-native`.
+  - Release: the pipeline now builds `db-pro-native` for macOS/Windows/Linux instead of Tauri bundles; installer packaging and signing are not implemented yet.
+  - `crates/tauri-app` is retained as a legacy transitional host and is marked for removal at cutover.
+  - README, AGENTS.md, architecture docs, release docs, and plans were updated to describe native UI as the development direction.
+
 ### 0.1.0 Release Candidate
 
 DB Pro 0.1.0 is currently in release-candidate verification. The intended release scope is largely implemented, but final automated gates, cross-platform artifacts, and manual runtime smoke are still pending.
@@ -20,7 +31,7 @@ DB Pro 0.1.0 is currently in release-candidate verification. The intended releas
 - Data / Columns / Indexes / Relations / DDL inspection
 
 **Query workbench**
-- Monaco SQL editor
+- Native SQL editor
 - current-statement execution
 - selection execution
 - run-all / multi-statement execution
@@ -93,11 +104,11 @@ DB Pro 0.1.0 is currently in release-candidate verification. The intended releas
 
 ### Remaining release gates
 
-- current frontend test suite: must reach 0 failures
-- `npm run format:check`: must pass because release preflight enforces it
-- exact-SHA frontend + Rust verification
-- macOS / Windows / Linux Tauri release builds + artifacts
-- packaged/manual runtime smoke
+- exact-SHA Rust verification (`cargo fmt/check/clippy/test --workspace`)
+- `cargo build --release --locked -p db-pro-native`
+- macOS / Windows / Linux native release builds + retained artifacts
+- installer/packaging format decision for the native binary (DMG, MSI/NSIS, DEB/RPM/AppImage)
+- packaged/manual runtime smoke on the native app
 
 See `plans/07-current-status.md` and `docs/release/0.1.0-readiness.md` for current status.
 

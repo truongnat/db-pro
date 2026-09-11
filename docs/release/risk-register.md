@@ -5,6 +5,12 @@
 > Issue: #136
 > Parent Goal: #14
 
+> **Amendment (2026-09-11) — native UI direction.** The React/TypeScript frontend was
+> archived under `_archive/frontend/` and the UI is now native `eframe`/`egui`
+> (`crates/ui` + `crates/native-app`). Risks below that concern the WebView/frontend stack
+> should be re-scoped to the native UI; see `docs/10-egui-native-migration-plan.md` for the
+> current native risk table.
+
 ## Status
 
 In Progress — control register

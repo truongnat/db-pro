@@ -1,7 +1,14 @@
 # DB Pro — Plans Index
 
-**Status updated:** 2026-08-09  
+**Status updated:** 2026-08-09 (amended 2026-09-11)  
 **Current status authority:** [`07-current-status.md`](07-current-status.md)
+
+> **Amendment (2026-09-11) — native UI direction.** The React/TypeScript/Vite frontend was
+> archived under `_archive/frontend/` and the UI is now native `eframe`/`egui`
+> (`crates/ui` + `crates/native-app`). Any plan row below that refers to React, TS, Vite,
+> Monaco, TanStack, shadcn, or "FE" describes the retired presentation layer and is
+> **historical reference only**. Current UI work is tracked in
+> `docs/10-egui-native-migration-plan.md` and `docs/plans/STATUS.md`.
 
 ---
 
@@ -12,7 +19,7 @@
 | 00 | `00-index.md` | Index and phase overview | CURRENT |
 | 01 | `01-overview.md` | Master product/release plan | CURRENT |
 | 02 | `02-backend-tasks.md` | Detailed Rust backend task definitions | HISTORICAL / REFERENCE |
-| 03 | `03-frontend-tasks.md` | Detailed React/TS frontend task definitions | HISTORICAL / REFERENCE |
+| 03 | `03-frontend-tasks.md` | Detailed React/TS frontend task definitions (**archived UI**) | HISTORICAL / REFERENCE |
 | 04 | `04-testing-tasks.md` | Testing strategy/task definitions | HISTORICAL / REFERENCE |
 | 05 | `05-cicd-tasks.md` | CI/CD/build/release task definitions | HISTORICAL / REFERENCE |
 | 06 | `06-database-tasks.md` | Database/connector/meta-store task definitions | HISTORICAL / REFERENCE |
@@ -31,8 +38,8 @@
 | 2 | Infrastructure Adapters | DONE | PostgreSQL, SQLite, secrets, metadata implemented |
 | 3 | Application Services | DONE | Connection/query/schema/export/data services implemented |
 | 4 | Tauri Commands | DONE | Frontend/backend command boundary implemented |
-| 5 | FE Scaffolding | DONE | React/Vite/TanStack/shadcn shell implemented |
-| 6 | FE Core Utilities | DONE | DI, stores, errors, i18n, Action Platform foundation |
+| 5 | FE Scaffolding | HISTORICAL | React/Vite/TanStack/shadcn shell implemented — frontend archived 2026-09-11 |
+| 6 | FE Core Utilities | HISTORICAL | DI, stores, errors, i18n, Action Platform foundation — superseded by native UI |
 | 7 | Connection Module | DONE | 0.1.0 source scope implemented |
 | 8 | Query Module | DONE | 0.1.0 source scope implemented |
 | 9 | Schema Module | DONE | DB Object inspection/workbench implemented |
@@ -63,7 +70,7 @@
 | Area | Tasks |
 |---|---|
 | Backend (Rust) | B-001 to B-105 |
-| Frontend (React/TS) | F-001 to F-150 |
+| Frontend (React/TS, archived) | F-001 to F-150 |
 | Database Layer | D-001 to D-107 |
 | Testing | T-001 to T-078 |
 | CI/CD | C-001 to C-060 |

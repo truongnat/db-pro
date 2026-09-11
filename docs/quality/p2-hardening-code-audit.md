@@ -1,5 +1,10 @@
 # P2 Hardening — Code Quality & Modern API Audit
 
+> **HISTORICAL (2026-09-11).** This audit was performed against the React/TypeScript
+> frontend, which was archived under `_archive/frontend/` when the UI moved to native
+> `eframe`/`egui`. It is retained as a record; its file paths, tooling, and findings no
+> longer describe the current codebase.
+
 **Date:** 2026-08-09  
 **Scope:** Full frontend (React 19, TanStack Query 5, Zustand 4) + Rust backend review (read-only)
 

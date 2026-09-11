@@ -1,5 +1,11 @@
 # DB Pro — CI/CD & Infrastructure Tasks
 
+> **AMENDED (2026-09-11).** The frontend CI job (pnpm/Node) was removed and the release
+> pipeline now builds the native `db-pro-native` binary instead of Tauri bundles. Tasks
+> below that describe frontend CI steps, Tauri packaging, or a Node toolchain are
+> historical. See `.github/workflows/ci.yml`, `.github/workflows/release.yml`, and
+> `docs/10-egui-native-migration-plan.md`.
+
 ---
 
 ## 1. Repository Setup

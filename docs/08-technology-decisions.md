@@ -1,6 +1,14 @@
 # DB Client — Technology Decisions & Technical Strategy
 
-Status: ratified baseline; detailed architecture decisions are recorded in `docs/09-architecture-decisions.md`
+Status: ratified baseline, amended for the native UI cutover; detailed architecture decisions are recorded in `docs/09-architecture-decisions.md`
+
+> **Amendment (2026-09-11) — native UI direction.** The React/TypeScript/Vite presentation
+> layer and the Tauri WebView that hosted it were retired. The product UI is now native
+> `eframe`/`egui` (`crates/ui` + `crates/native-app`), and the React frontend is archived
+> under `_archive/frontend/`. Rows and comparisons below that describe the React stack are
+> kept as the historical record of that decision, but they no longer describe the current
+> or planned UI. The authoritative current direction is `docs/07-fe-architecture.md` and
+> `docs/10-egui-native-migration-plan.md`.
 
 This document records the technology choices and implementation constraints that must be agreed before production code is added. It is intentionally explicit: a task plan is not complete until its dependencies, runtime model, security policy, and test strategy are implementable.
 
@@ -20,15 +28,15 @@ SQLite, schema browsing, editable grids, exports, SSH tunneling, and advanced ad
 
 | Concern | Decision | Reason / constraint |
 |---|---|---|
-| Desktop shell | Tauri 2 | Small Linux footprint and native Rust integration |
+| Desktop shell | `eframe` + `egui` 0.29, native window | No WebView and no Node runtime; UI state lives in Rust |
 | Backend language | Rust stable, edition 2021 initially | Safety, predictable resource handling, strong database ecosystem |
-| Frontend | React + TypeScript + Vite | Component ecosystem and fast desktop development loop |
-| UI system | shadcn/ui + Radix UI + Tailwind CSS | Custom-first visual system, accessible primitives, and full control over desktop density |
-| SQL editor | Monaco Editor | Mature SQL editing, selection, keyboard shortcuts, future completion |
-| Client routing | TanStack Router | Typed route contracts and predictable module boundaries |
-| Server state | TanStack Query 5 | Request lifecycle, cache invalidation, mutation state |
-| Local UI state | Zustand with persist | Small state surface for settings and UI preferences |
-| Validation | Zod at the UI boundary; Rust validation in domain | User feedback plus backend safety; neither layer is trusted alone |
+| UI system | `DbProTheme` semantic tokens mapped to `egui::Visuals`, plus shared widgets in `crates/ui` | One source of truth for color, density, and focus behavior |
+| SQL editor | Native editor in `crates/ui` | Selection, undo/redo, and future completion stay in-process |
+| Client navigation | `WorkspaceTabKind` + command registry | A desktop app does not need URL routing |
+| Server state | Typed `UiCommand` / `UiEvent` task bridge + request registry | Explicit invalidation by event; no hidden query cache |
+| Local UI state | `AppState` sub-states with versioned persistence | Reducer-owned display state; workers never mutate it |
+| Validation | Rust validation in the domain, plus UI input validation | The domain is the only trust boundary |
+| Legacy desktop shell | Tauri 2 (`crates/tauri-app`) | Transitional host for the archived frontend; scheduled for removal |
 | PostgreSQL driver | `sqlx` with PostgreSQL + Tokio + rustls | One async driver and pool implementation; compile-time SQL is optional for dynamic SQL |
 | SQLite driver | `rusqlite` with bundled SQLite | Stable synchronous SQLite API and predictable deployment |
 | Async runtime | Tokio | Required by Tauri/Rust services and PostgreSQL I/O |
@@ -53,14 +61,15 @@ SQLite, schema browsing, editable grids, exports, SSH tunneling, and advanced ad
 The application has four boundaries:
 
 ```text
-React UI → Tauri commands/events → application services → ports → database adapters
+egui UI → UiCommand → runtime worker → application services → ports → database adapters
+                 ◀────────── UiEvent (bounded, request-scoped) ──────────
 ```
 
-- Domain types and ports must not depend on React, Tauri, `sqlx`, or `rusqlite`.
+- Domain types and ports must not depend on `egui`/`eframe`, Tauri, `sqlx`, or `rusqlite`.
 - Application services own use cases, validation orchestration, authorization-by-policy, and audit events.
 - PostgreSQL uses an async pool owned by the application state.
 - SQLite operations run through a dedicated worker/actor or blocking task boundary. A raw `rusqlite::Connection` must never be shared directly across async command handlers.
-- Active connections are identified by opaque `ConnectionId` values. Credentials are resolved only inside the backend and are never returned to the frontend after save.
+- Active connections are identified by opaque `ConnectionId` values. Credentials are resolved only inside the backend and are never returned to the UI after save.
 - Long-running queries return a job/request ID and emit typed progress/result events. Events are versioned and support cancellation.
 
 ## 5. Query safety policy
@@ -93,14 +102,14 @@ Transactions are backend-owned handles with explicit `begin`, `commit`, `rollbac
 - Passwords and private key material are stored through the OS keyring where available.
 - The fallback file is encrypted, versioned, permission-restricted, and opt-in; its key must not be stored beside the ciphertext.
 - Connection strings, passwords, bound values, private key paths when sensitive, and raw database errors are redacted from logs and audit records.
-- SSH private keys are referenced by path and never copied into frontend state.
-- Tauri capabilities are deny-by-default and limited to required windows, commands, dialogs, filesystem paths, and events.
+- SSH private keys are referenced by path and never copied into UI state.
+- The legacy Tauri host's capabilities are deny-by-default and limited to required windows, commands, dialogs, filesystem paths, and events. (Transitional only; not part of the shipped runtime.)
 - Export paths require user-selected filesystem permissions and never overwrite silently.
 - The application must show the target connection and operation class before destructive execution.
 
 ## 7. Data contracts
 
-The Tauri boundary uses versioned DTOs and one error envelope:
+The UI boundary uses versioned view models and one error envelope:
 
 ```json
 {
@@ -121,24 +130,23 @@ Every adapter must have both unit tests and real-database integration tests. Moc
 Required gates before M1/M2:
 
 - `cargo fmt --check`, Clippy with warnings treated as errors for project code.
-- TypeScript strict mode, ESLint, Prettier check, and typecheck.
-- Unit tests for domain validation, DTO mapping, error normalization, and stores.
+- Unit tests for domain validation, view-model mapping, error normalization, reducers, and grid/cell codecs.
 - PostgreSQL fixture tests for connectivity, parameter binding, timeouts, cancellation, transactions, and introspection.
 - SQLite fixture tests for file/in-memory modes, WAL, foreign keys, and metadata.
-- Playwright smoke flow for connection → query → result → error handling.
+- Native UI runtime smoke for connection → query → result → error handling, with screenshots at the gate sizes.
 - Dependency audit and secret scanning in CI.
 
 ## 9. Plan corrections completed
 
 The task files were updated to follow this baseline. The ratified implementation details are maintained in `docs/09-architecture-decisions.md`:
 
-1. UI tasks use source-owned shadcn/Radix/Tailwind components.
+1. UI tasks use native egui views and shared widgets in `crates/ui`.
 2. PostgreSQL uses `sqlx::PgPool` only.
 3. Parameters use the typed `QueryParam` model.
 4. SQLite uses a dedicated actor boundary.
 5. MVP rejects multi-statement execution.
 6. Secrets use OS keyring with Argon2id/AES-GCM fallback.
-7. Streaming uses Tauri 2 `Channel<T>`.
+7. Streaming uses a bounded, request-scoped typed `UiEvent` task-bridge channel. Tauri 2 `Channel<T>` is legacy-only and is not part of the shipped runtime.
 8. Results use typed cells, bounded pages, request IDs, and stable errors.
 9. The first delivery is a PostgreSQL read-only vertical slice.
 
@@ -152,12 +160,19 @@ This is the technology baseline for the planning phase. Any later change should 
 
 | Option | Strengths | Weaknesses | Verdict |
 |---|---|---|---|
-| Tauri 2 | Rust core, small footprint, explicit capabilities, native system WebView | Linux WebView differences, Rust/JS boundary, more responsibility for native integrations | **Selected** |
+| `eframe` + `egui` (native Rust) | Truly native window and event loop, no WebView, no Node, UI state in Rust, one language across the stack | Immediate-mode UI requires an explicit state model; fewer ready-made complex desktop widgets; native SQL editor and grid must be built | **Selected (current direction)** |
+| Tauri 2 | Rust core, small footprint, explicit capabilities, native system WebView | Linux WebView differences, Rust/JS boundary, more responsibility for native integrations | Selected initially; superseded — see the 2026-09-11 amendment and `docs/10-egui-native-migration-plan.md` |
 | Electron | Mature ecosystem, bundled Chromium, easiest web compatibility and debugging | Large memory/disk footprint, larger attack surface, Node main-process security burden | Good fallback if UI compatibility dominates |
-| Qt/QML | Mature native desktop widgets, strong desktop behavior, excellent long-lived tooling | Different UI stack, higher learning cost, weaker reuse of existing React/web skills | Strong native alternative, not the current product fit |
+| Qt/QML | Mature native desktop widgets, strong desktop behavior, excellent long-lived tooling | Different UI stack, higher learning cost, weaker reuse of existing Rust skills | Strong native alternative, not the current product fit |
 | Flutter | Consistent rendering and good cross-platform UI | Database desktop ecosystem and native integration require more custom work; less natural SQL-editor/web reuse | Viable for a new mobile-like product, not this client |
 
-Tauri is not automatically “more scalable” than Electron. At application scale, both can handle a large feature set. Tauri is the better fit because the core workload is native/database/security-heavy and the user wants a Rust desktop core. Electron is safer if the product becomes primarily a web application with extensive Chromium-only UI behavior.
+The original choice of Tauri 2 was a reasonable trade at the time: it kept a Rust
+desktop core while reusing a React UI. The native cutover changes the trade — the
+presentation layer is now the largest single source of complexity, and an immediate-mode
+Rust UI removes the WebView/Node runtime, the IPC boundary, and the dual-language state
+model entirely. The cost is that complex widgets (SQL editor, virtualized grid, ER
+diagram) must be built natively, which `docs/10-egui-native-migration-plan.md` treats as
+the primary risk.
 
 ### 11.2 Rust database access
 
@@ -181,40 +196,57 @@ The strongest alternative is not a different ORM; it is keeping `sqlx` for Postg
 
 The worker boundary is part of the choice. Choosing `rusqlite` without that boundary would be an architectural error.
 
-### 11.4 Frontend
+### 11.4 Frontend / presentation layer
 
 | Option | Strengths | Weaknesses | Verdict |
 |---|---|---|---|
-| React + TypeScript | Largest ecosystem, strong Monaco/grid/library support, team familiarity | More dependencies and conventions to govern | **Selected** |
-| Svelte | Smaller component surface and good runtime ergonomics | Smaller ecosystem for advanced database grids and desktop integrations | Attractive alternative for a smaller team |
-| SolidJS | Fine-grained reactivity and high runtime performance | Smaller ecosystem and hiring pool | Not enough advantage for this product |
-| Vue | Mature, productive, good ecosystem | No decisive advantage over existing React plan | Viable alternative, but migration cost is unnecessary |
+| Native `eframe` + `egui` | No WebView or Node runtime; single language; direct access to Rust state; smallest deployment surface | Complex widgets must be built; immediate mode requires an explicit state model | **Selected (current direction)** |
+| React + TypeScript | Largest ecosystem, strong Monaco/grid/library support | Requires a WebView host, a JS build toolchain, and a cross-language state bridge | Selected initially; superseded — frontend archived 2026-09-11 |
+| Svelte | Smaller component surface and good runtime ergonomics | Smaller ecosystem for advanced database grids and desktop integrations | Would still require a WebView host |
+| SolidJS | Fine-grained reactivity and high runtime performance | Smaller ecosystem and hiring pool | Would still require a WebView host |
+| Vue | Mature, productive, good ecosystem | No decisive advantage | Would still require a WebView host |
 
-For this product, grid/editor ecosystem and maintainability matter more than benchmark differences between React, Svelte, and Solid.
+The decisive factor changed once the product committed to a native window: every
+WebView-based option keeps a second runtime, a second state model, and an IPC boundary.
+`docs/10-egui-native-migration-plan.md` records the resulting component-level risks and
+mitigations.
 
 ### 11.5 UI system
 
 | Option | Strengths | Weaknesses | Verdict |
 |---|---|---|---|
-| shadcn/ui + Radix + Tailwind | Modern visual baseline, source-owned components, accessible primitives, maximum custom control | More implementation responsibility; must define and maintain design tokens | **Selected** |
-| MUI | Large component catalog, mature accessibility, fast CRUD/admin UI development | Material look can feel generic; styling/runtime layer adds constraints | Rejected as primary UI system; may be used only for isolated utilities if justified |
-| Ant Design | Very productive enterprise components and tables | Strong visual identity, heavier customization for an IDE-like product | Not selected |
+| `DbProTheme` tokens + shared egui widgets | One source of truth for color, density, focus, and states; no external styling runtime; fits an IDE-like surface | Widgets must be built and maintained in-repo | **Selected (current direction)** |
+| shadcn/ui + Radix + Tailwind | Modern visual baseline, source-owned components, accessible primitives | Requires a browser engine, a CSS pipeline, and a token-drift check | Selected initially; retired with the archived frontend |
+| egui default visuals | Zero design work | Reads as a generic tool/demo surface; fails the visual acceptance gate | Rejected |
+| MUI / Ant Design | Large component catalogs, fast CRUD/admin UI | Material/enterprise look is wrong for a database IDE; both require a browser engine | Not applicable to a native UI |
 
-The UI will use shadcn-style source-owned components rather than treating shadcn as a runtime dependency. Radix supplies behavior and accessibility; Tailwind and CSS variables define the product visual language.
+Semantic tokens live in `DbProTheme` (`crates/ui/src/theme.rs`) and are mapped to
+`egui::Visuals`. Widgets read tokens from the theme instead of hard-coding colors, and a
+token must not be duplicated across views.
 
 ### 11.6 State and data fetching
 
-TanStack Query remains the right choice for request state and cache invalidation. Zustand is acceptable for local UI preferences, but it must not become a second server-state cache. Alternatives such as Redux Toolkit are stronger for very large event-driven state graphs, while Jotai is lighter for atomized local state. Neither provides a compelling advantage for the planned modules.
+State is now owned entirely by Rust. `AppState` (`crates/ui/src/app_state.rs`) holds
+display state as sub-states, and all backend interaction flows through the typed
+`UiCommand` / `UiEvent` task bridge with a request registry for invalidation and
+cancellation. The earlier TanStack Query + Zustand split was retired with the frontend:
+with a single in-process runtime there is no serialization boundary, so a separate
+server-state cache is unnecessary. Workers never mutate display state directly — only the
+reducer on the UI thread applies events.
 
 ### 11.7 Final recommendation
 
-Keep the current baseline with these clarifications:
+Current baseline:
 
-1. Tauri 2 + React/TypeScript for the desktop shell and UI.
-2. shadcn/ui + Radix UI + Tailwind CSS as the custom visual foundation.
+1. `eframe` + `egui` native UI in `crates/ui` + `crates/native-app`; no WebView, no Node.
+2. `DbProTheme` semantic tokens as the single visual foundation.
 3. `sqlx` only for PostgreSQL in the first implementation.
 4. `rusqlite` behind a dedicated worker for SQLite and the metadata store.
 5. No ORM, no second pool library, and no premature support for additional databases.
 6. Re-evaluate `sqlx::sqlite` after the first integration tests if sharing one async abstraction materially reduces complexity.
 
-This gives the project the best balance of native performance, security control, SQL-client flexibility, and implementation speed. The main scalability risk is not the selected stack; it is uncontrolled feature scope and an unclear runtime/data contract.
+This gives the project native performance and security control while removing the
+WebView/Node runtime and the cross-language state boundary. The main scalability risk is
+not the selected stack; it is uncontrolled feature scope and an unclear runtime/data
+contract. The second risk is native widget parity for the SQL editor, virtualized grid,
+and ER diagram — tracked explicitly in `docs/10-egui-native-migration-plan.md`.

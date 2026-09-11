@@ -1,5 +1,9 @@
 # Runtime UX Audit v3 — Per-Surface Deep Pass
 
+> **Note (2026-09-11).** This audit predates the frontend archival. References to
+> `frontend/...` paths and shadcn components point at the now-archived React UI; the native
+> UI is `crates/ui`.
+
 **Date:** 2026-09-10
 **Branch:** `arena/01a08a04-db-pro`
 **Baseline commit:** `ce4f628`

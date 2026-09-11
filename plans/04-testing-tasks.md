@@ -1,5 +1,10 @@
 # DB Pro — Testing Tasks
 
+> **PARTIALLY ARCHIVED (2026-09-11).** Any test task below that targets the React/TypeScript
+> frontend (Vitest, Playwright, frontend typecheck/lint) was retired when the frontend was
+> archived under `_archive/frontend/`. Current gates are Rust-only: `cargo fmt/check/clippy/test`
+> plus native UI runtime smoke. See `docs/10-egui-native-migration-plan.md` and `AGENTS.md`.
+
 ---
 
 ## 1. Testing Strategy

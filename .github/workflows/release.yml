@@ -1,5 +1,13 @@
 name: Release Build
 
+# The shipped application is the native egui binary `db-pro-native`
+# (crates/native-app). The legacy React/Vite frontend and the Tauri bundler
+# path were removed when the frontend was archived — see _archive/README.md.
+#
+# NOTE: this workflow produces the platform binaries only. Installer/packaging
+# formats (DMG, MSI/NSIS, DEB/RPM/AppImage) and code signing are NOT yet
+# implemented for the native app; see docs/release/0.1.0-packaging.md.
+
 on:
   workflow_dispatch:
     inputs:
@@ -114,9 +122,9 @@ jobs:
             exit 1
           fi
 
-          app_version="$(python3 -c 'import json; print(json.load(open("crates/tauri-app/tauri.conf.json"))["version"])')"
+          app_version="$(python3 -c 'import re,pathlib; text=pathlib.Path("crates/native-app/Cargo.toml").read_text(); match=re.search(r"^version\s*=\s*\"([^\"]+)\"", text, re.M); print(match.group(1) if match else "")')"
           if [[ -z "${app_version}" ]]; then
-            echo "::error::Unable to resolve app version from crates/tauri-app/tauri.conf.json"
+            echo "::error::Unable to resolve app version from crates/native-app/Cargo.toml"
             exit 1
           fi
 
@@ -161,37 +169,16 @@ jobs:
           test "${actual_sha}" = "${EXPECTED_SHA}"
           echo "Preflight candidate SHA: ${actual_sha}"
 
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10.20.0
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: "pnpm"
-          cache-dependency-path: frontend/pnpm-lock.yaml
-
-      - run: pnpm install --frozen-lockfile
-        working-directory: frontend
-      - run: pnpm run typecheck
-        working-directory: frontend
-      - run: pnpm run lint
-        working-directory: frontend
-      - run: pnpm run format:check
-        working-directory: frontend
-      - run: pnpm run test
-        working-directory: frontend
-      - run: pnpm run build
-        working-directory: frontend
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libxkbcommon-dev libwayland-dev libx11-dev libgl1-mesa-dev \
+            libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev
 
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
-
-      - name: Install Tauri system deps
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev
 
       - uses: actions/cache@v4
         with:
@@ -218,7 +205,6 @@ jobs:
         run: |
           set -euo pipefail
           export RUSTC_VERSION="$(rustc --version)"
-          export NODE_VERSION="$(node --version)"
           python3 - <<'PY'
           import json
           import os
@@ -231,7 +217,7 @@ jobs:
               "source_kind": os.environ["SOURCE_KIND"],
               "event": os.environ["GITHUB_EVENT_NAME"],
               "rustc": os.environ["RUSTC_VERSION"],
-              "node": os.environ["NODE_VERSION"],
+              "binary": "db-pro-native",
           }
           with open("release-provenance.json", "w", encoding="utf-8") as handle:
               json.dump(provenance, handle, indent=2, sort_keys=True)
@@ -259,12 +245,15 @@ jobs:
           - platform: macOS
             artifact_suffix: macos
             runner: macos-latest
+            binary_path: target/release/db-pro-native
           - platform: Windows
             artifact_suffix: windows
             runner: windows-latest
+            binary_path: target/release/db-pro-native.exe
           - platform: Linux
             artifact_suffix: linux
             runner: ubuntu-latest
+            binary_path: target/release/db-pro-native
 
     steps:
       - name: Checkout exact candidate SHA
@@ -285,17 +274,9 @@ jobs:
             echo "::error::Build checkout SHA mismatch: expected ${EXPECTED_SHA}, got ${actual_sha}"
             exit 1
           fi
-          echo "Building DB Pro v${APP_VERSION}"
+          echo "Building DB Pro v${APP_VERSION} (db-pro-native)"
           echo "Source ref: ${SOURCE_REF}"
           echo "Candidate SHA: ${actual_sha}"
-
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10.20.0
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -319,46 +300,25 @@ jobs:
         if: matrix.platform == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev libfuse2
+          sudo apt-get install -y \
+            libxkbcommon-dev libwayland-dev libx11-dev libgl1-mesa-dev
 
-      - name: Install frontend deps
-        run: pnpm install --frozen-lockfile
-        working-directory: frontend
+      - name: Build native app
+        run: cargo build --release --locked -p db-pro-native
 
-      - name: Install Tauri CLI
-        run: cargo install tauri-cli --version "2.11.4" --locked --force
+      - name: Verify artifact exists
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f "${{ matrix.binary_path }}" || {
+            echo "::error::Expected binary not found at ${{ matrix.binary_path }}"
+            exit 1
+          }
+          ls -lh "${{ matrix.binary_path }}"
 
-      - name: Build Tauri app (Linux)
-        if: matrix.platform == 'Linux'
-        run: cargo tauri build --bundles deb,rpm
-
-      - name: Build Tauri app (macOS/Windows)
-        if: matrix.platform != 'Linux'
-        run: cargo tauri build
-
-      - name: Upload artifacts (macOS)
-        if: matrix.platform == 'macOS'
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: db-pro-${{ matrix.artifact_suffix }}-v${{ needs.resolve.outputs.app_version }}-${{ needs.resolve.outputs.short_sha }}
-          path: |
-            target/release/bundle/dmg/*.dmg
-            target/release/bundle/macos/*.app
-
-      - name: Upload artifacts (Windows)
-        if: matrix.platform == 'Windows'
-        uses: actions/upload-artifact@v4
-        with:
-          name: db-pro-${{ matrix.artifact_suffix }}-v${{ needs.resolve.outputs.app_version }}-${{ needs.resolve.outputs.short_sha }}
-          path: |
-            target/release/bundle/msi/*.msi
-            target/release/bundle/nsis/*.exe
-
-      - name: Upload artifacts (Linux)
-        if: matrix.platform == 'Linux'
-        uses: actions/upload-artifact@v4
-        with:
-          name: db-pro-${{ matrix.artifact_suffix }}-v${{ needs.resolve.outputs.app_version }}-${{ needs.resolve.outputs.short_sha }}
-          path: |
-            target/release/bundle/deb/*.deb
-            target/release/bundle/rpm/*.rpm
+          path: ${{ matrix.binary_path }}
+          if-no-files-found: error

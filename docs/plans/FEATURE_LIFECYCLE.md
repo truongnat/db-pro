@@ -2,6 +2,16 @@
 
 This file is the canonical lifecycle for every non-trivial feature, hardening wave, and runtime-verification task.
 
+> **Amendment — 2026-09-11 (native UI only).** DB Pro ships a single UI: the native
+> `egui`/`eframe` application in `crates/ui` + `crates/native-app`. The former React 19 /
+> Vite / Tauri-WebView frontend was archived to `_archive/frontend/` and is **not** part of
+> any active lifecycle. Any gate, evidence level, or checklist item below that refers to
+> "frontend", "UI runtime evidence", or `UI → command → ...` must be read against the
+> native UI task bridge (`UiCommand` / `UiEvent`), not a web layer. `crates/tauri-app` is
+> retained as a legacy host only and is not a supported runtime target. Historical feature
+> records under `docs/plans/active/**` and `docs/plans/completed/**` keep their original
+> wording as a record of what was true when they were written.
+
 ## State machine
 
 ```text
@@ -45,7 +55,7 @@ Do not mix evidence levels.
 1. **Source evidence** — code inspection proves an implementation path exists.
 2. **Automated evidence** — unit/integration/E2E command executed and result recorded.
 3. **Provider runtime evidence** — behavior observed against the actual PostgreSQL or SQLite provider.
-4. **UI runtime evidence** — user-facing lifecycle observed end-to-end.
+4. **UI runtime evidence** — user-facing lifecycle observed end-to-end in the native `egui` UI (not a web preview).
 
 Source evidence must never be written as runtime evidence.
 
@@ -79,7 +89,7 @@ A feature may be marked `COMPLETED` only when all applicable gates are true:
 - [ ] regression tests prove important invariants
 - [ ] PostgreSQL and SQLite are independently accounted for
 - [ ] unsupported provider operations are capability-gated
-- [ ] UI-facing database features verify `UI → command → backend → database → introspection → refreshed UI`
+- [ ] UI-facing database features verify `native UI (egui) → UiCommand → runtime worker → backend service → database → introspection → UiEvent → refreshed UI state`
 - [ ] VERIFICATION contains evidence, not phrases such as "works perfectly" or "fully verified" without proof
 - [ ] STATUS.md matches the plan folder and feature state
 

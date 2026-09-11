@@ -4,16 +4,22 @@
 
 ## Architecture
 
-DB Pro is a Tauri desktop application with a Rust backend and React/TypeScript frontend,
-plus a native egui preview that now shares the same Rust runtime service graph.
+DB Pro is a native desktop application built on a Rust workspace. The UI is native
+`eframe`/`egui` (`crates/ui` + `crates/native-app`) and talks to the shared
+`db-pro-runtime` service graph through a typed command/event task bridge.
+
+The earlier React/TypeScript frontend and the Tauri WebView that hosted it were retired:
+the frontend is archived under `_archive/frontend/`, its React-era ER benchmark harness
+under `_archive/bench/`, and `crates/tauri-app` remains only as a legacy transitional host.
+The native UI is the only UI under active development.
 
 ```text
 ┌──────────────────────────────────────────────────────┐
-│  Frontend (React / TypeScript / TanStack Router)     │
-│  PATCH 1 owns all product UI surfaces                │
+│  Native UI (egui / eframe, no WebView)               │
+│  crates/ui owns all product UI surfaces              │
 ├──────────────────────────────────────────────────────┤
-│  Tauri Command / Native UI Boundary                  │
-│  (dto.rs → CommandError / typed task bridge)         │
+│  UiCommand / UiEvent Task Bridge                     │
+│  (typed command → event, reducer-applied)            │
 ├──────────────────────────────────────────────────────┤
 │  Application Layer (services)                        │
 │  QueryService, ConnectionService, SchemaService,     │
@@ -38,9 +44,10 @@ plus a native egui preview that now shares the same Rust runtime service graph.
 |-------|------|----------------|
 | `db-pro-core` | `crates/core` | Domain types, application services, port traits |
 | `db-pro-infrastructure` | `crates/infrastructure` | PostgreSQL, SQLite, metadata store, secrets, SSH |
-| `db-pro-tauri` | `crates/tauri-app` | Tauri commands, DTOs, cancel/execution registry |
-| `db-pro-runtime` | `crates/runtime` | Shared service graph and async runtime worker for native/Tauri adapters |
-| `db-pro-ui` / `db-pro-native` | `crates/ui`, `crates/native-app` | Native egui shell and typed task-bridge adapter |
+| `db-pro-runtime` | `crates/runtime` | Shared service graph and async runtime worker |
+| `db-pro-ui` | `crates/ui` | Native egui shell, views, `AppState`, reducer, `DbProTheme` |
+| `db-pro-native` | `crates/native-app` | Shipped native binary and task-bridge adapter |
+| `db-pro-tauri` | `crates/tauri-app` | **Legacy** transitional Tauri host, not shipped; scheduled for removal at cutover |
 
 ## Database Drivers
 
@@ -63,15 +70,17 @@ plus a native egui preview that now shares the same Rust runtime service graph.
 ## Data Flow
 
 ```text
-Tauri command or native task-bridge adapter
-  → parse/translate input, validate
+egui view
+  → UiCommand sent over the task bridge (off the UI thread)
+  → runtime worker parses/translates input, validates
   → call the shared `DbProRuntime` service graph
     → get ConnectionHandle from registry
     → call port trait (DbConnector)
       → infrastructure implementation (postgres/sqlite)
     → map result to domain types
-  → map to DTO
-  → return to frontend
+  → map to UiEvent
+  → reducer applies the event to `AppState`
+  → UI repaints with refreshed state
 ```
 
 ## Error Flow
@@ -80,8 +89,8 @@ Tauri command or native task-bridge adapter
 sqlx/rusqlite error
   → infrastructure/error.rs (from_sqlx/from_rusqlite)
   → domain::DbError (typed taxonomy)
-  → dto::CommandError (transport: code, message_id, retryable)
-  → frontend (structured error, no raw SQL string parsing)
+  → UiEvent::Failed { request_id, error } (transport: code, message_id, retryable)
+  → reducer / UI surface (structured error, no raw SQL string parsing)
 ```
 
 ## Source Paths
@@ -90,5 +99,7 @@ sqlx/rusqlite error
 - Application: `crates/core/src/application/`
 - Ports: `crates/core/src/ports/`
 - Infrastructure: `crates/infrastructure/src/`
-- Tauri commands: `crates/tauri-app/src/commands/`
-- DTOs: `crates/tauri-app/src/dto.rs`
+- Runtime worker: `crates/runtime/src/`
+- Native UI: `crates/ui/src/`
+- Native binary entry: `crates/native-app/src/main.rs`
+- Legacy Tauri commands (transitional only): `crates/tauri-app/src/commands/`

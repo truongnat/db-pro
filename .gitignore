@@ -2,10 +2,11 @@
 /target/
 **/*.rs.bk
 
-# Node
-frontend/node_modules/
-frontend/dist/
-frontend/src/routeTree.gen.ts
+# Node — the legacy React/Vite frontend is archived under _archive/frontend/.
+# Only its generated/installed artifacts are ignored; the source stays tracked.
+_archive/frontend/dist/
+_archive/frontend/.tanstack/
+_archive/frontend/src/routeTree.gen.ts
 node_modules
 *.tsbuildinfo
 
@@ -26,8 +27,8 @@ coverage/
 .qoder/
 bun.lock
 
-# Generated test fixtures (use scripts/generate-fixtures.mjs)
-frontend/test/fixtures/schemas/*.json
+# Generated test fixtures (archived frontend; see _archive/frontend/scripts/generate-fixtures.mjs)
+_archive/frontend/test/fixtures/schemas/*.json
 
 # Local native runtime state
 /.db-pro-data/

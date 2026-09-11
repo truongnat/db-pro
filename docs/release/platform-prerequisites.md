@@ -1,5 +1,17 @@
 # Platform Native Prerequisites — v0.1
 
+> **Amendment (2026-09-11) — native UI direction.** The product no longer runs inside a
+> Tauri WebView and no longer requires Node.js or pnpm. The shipped binary is the native
+> `db-pro-native` (eframe/egui). This document was written against the Tauri host
+> (`crates/tauri-app`) and the archived React frontend, so its Tauri/WebView/Node
+> prerequisites are historical. The native requirements are:
+>
+> - macOS: Xcode command line tools
+> - Linux: `libxkbcommon-dev libwayland-dev libx11-dev libgl1-mesa-dev`
+> - Windows: MSVC build tools
+>
+> See `README.md` for the current development setup.
+
 > Source: `tauri.conf.json`, `Cargo.toml`, `capabilities/default.json`, infrastructure code.
 > Baseline SHA: `65bbca3`
 > Issue: #134

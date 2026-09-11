@@ -5,14 +5,25 @@
 DB Pro is a desktop Database IDE / Agent IDE.
 
 Tech:
-- Tauri 2
-- Rust workspace (core / infrastructure / tauri-app)
-- React 19
-- TypeScript
-- TanStack Query / Router / Virtual
-- shadcn/ui + Radix UI
-- Tailwind CSS
+- Rust workspace (core / infrastructure / runtime / ui / native-app)
+- Native desktop UI: `eframe` + `egui` (no WebView, no Node)
 - PostgreSQL + SQLite
+- Tauri 2 — transitional host only (`crates/tauri-app`), pending removal
+
+## UI direction
+
+The product UI is **native Rust (egui)** and is the only UI under active
+development:
+
+- `crates/ui` — shell, views, `AppState`, reducer, task bridge, `DbProTheme`
+- `crates/native-app` — the shipped `db-pro-native` binary
+- `crates/runtime` — bootstrap, services, worker/event bridge
+
+The React 19 / TypeScript / Vite / Tauri-webview frontend was **archived** on
+2026-09-11 under `_archive/frontend/`, together with the React-era ER renderer
+benchmark harness under `_archive/bench/`. They are reference material only: do not add
+features to them, do not build them in CI, and do not restore them as a fallback.
+See `_archive/README.md` and `docs/10-egui-native-migration-plan.md`.
 
 ## Canonical feature lifecycle
 
@@ -121,27 +132,32 @@ Never:
 All provider-specific behavior must respect explicit capabilities.
 Unsupported operations must be capability-gated with a clear reason instead of emitting unsupported SQL.
 
-## Frontend quality gates
+## Native UI quality gates
+
+There is no Node, pnpm, TypeScript, Tailwind, or web build in this repository
+anymore. The archived React frontend (`_archive/frontend/`) and the archived
+React-era benchmark harness (`_archive/bench/`) are not built, linted, or tested.
+UI work must additionally pass:
 
 ```bash
-cd frontend
-pnpm install --frozen-lockfile
-pnpm run typecheck
-pnpm run lint
-pnpm run format:check
-pnpm run check:tokens
-pnpm run test
-pnpm run build
+cargo build --release --locked -p db-pro-native
 ```
 
-`check:tokens` enforces the design token contract (P3.1): canonical `--surface-*`/`--text-*`/`--border-*`/`--accent-*`/`--state-*` tokens are the single source of truth, the shadcn compatibility layer must only alias them, and components must not reintroduce `--app-*` color tokens or raw shadcn semantic vars. `npx shadcn add` must not modify the token layers in `src/styles/globals.css` — CI catches drift.
+Design tokens are owned by `DbProTheme` in `crates/ui/src/theme.rs` and mapped to
+`egui::Visuals`. Widgets must read semantic tokens from the theme instead of
+hard-coding colors, and a token must not be duplicated across views.
+
+UI changes require runtime evidence (screenshot or short screen recording) of the
+affected surface at 1280×800, 1440×900 and 1920×1080, in normal plus
+loading/error/empty states. The visual acceptance gate is defined in
+`docs/10-egui-native-migration-plan.md`.
 
 ## Rust quality gates
 
 ```bash
 cargo fmt --all -- --check
 cargo check --workspace
-cargo clippy --workspace --all-targets
+cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
 ```
 
@@ -162,7 +178,7 @@ bash .skills/perf-audit/scripts/perf-scan.sh
 ```
 
 Performance budgets are enforced in:
-- `frontend/src/commons/__tests__/performance-budgets.test.ts`
+- `crates/ui/benches/result_grid_benchmarks.rs`
 - `crates/infrastructure/benches/sqlite_benchmarks.rs`
 - `docs/architecture/performance-baseline.md`
 
@@ -173,7 +189,7 @@ Never claim performance improved without measurement evidence.
 Use the `clean-code` skill when:
 - Reviewing or self-reviewing a PR for readability / maintainability
 - Refactoring, renaming, or splitting large functions, components, or files
-- Adding a new module, service, provider adapter, or Tauri command
+- Adding a new module, service, provider adapter, runtime command, or egui view
 - Fixing error handling (no swallowed errors, no `unwrap()` on data paths)
 
 Quick check before PR (only files changed vs `main`):
@@ -211,11 +227,13 @@ Source inspection alone is not runtime evidence.
 For database features verify when applicable:
 
 ```text
-UI
-→ command
-→ backend
+UI (egui)
+→ UiCommand
+→ runtime worker
+→ backend service
 → database
 → introspection
+→ UiEvent
 → refreshed UI state
 ```
 

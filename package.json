@@ -2,6 +2,7 @@
   "name": "db-pro",
   "private": true,
   "version": "0.1.0",
+  "description": "LEGACY Tauri host tooling only. The product UI is native Rust (crates/native-app + crates/ui) and is built with Cargo, not Node. The React frontend was archived under _archive/frontend/ — see _archive/README.md. This manifest exists solely so the transitional Tauri host in crates/tauri-app can still be bundled if it is ever restored.",
   "scripts": {
     "dev": "tauri dev",
     "build": "tauri build",
@@ -9,8 +10,5 @@
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.0.0"
-  },
-  "dependencies": {
-    "react-is": "^19.2.8"
   }
 }

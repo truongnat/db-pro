@@ -1,9 +1,17 @@
 # DB Pro — Current Project Status
 
-**Updated:** 2026-08-11  
+**Updated:** 2026-08-11 (amended 2026-09-11)  
 **Code baseline reviewed:** `a2ce14c`  
 **Release target:** `0.1.0` Release Candidate  
 **Status authority:** this file + `docs/release/0.1.0-readiness.md`
+
+> **Amendment (2026-09-11) — native UI direction.** The React/TypeScript/Vite frontend and
+> its Tauri WebView host were retired. The UI is now native `eframe`/`egui`
+> (`crates/ui` + `crates/native-app`), the frontend is archived under `_archive/frontend/`,
+> and CI/release no longer run any Node or pnpm step. Rows below that mention React,
+> TypeScript, Vite, Monaco, TanStack, shadcn, Radix, or frontend test counts describe the
+> **archived** presentation layer and are retained as history. Live UI status is in
+> `docs/plans/STATUS.md`.
 
 > `a2ce14c` fixes Rust 1.96.0 clippy `needless_borrow` lint (release preflight blocker). PR #9 (ER Diagram IA refactor) merged at preceding commit. Frontend: 106 files, 1324 tests. Exact-SHA automated verification complete. Cross-platform artifacts and manual smoke in progress.
 
@@ -18,7 +26,7 @@
 | SQLite | DONE source | Native Browse/plugin/capability wired; runtime smoke required |
 | Connection lifecycle | DONE source | CRUD/test/connect/disconnect/reconnect/startup reconnect |
 | Explorer / metadata | DONE source | schemas/tables/views, targeted refresh, Data-first navigation |
-| Query workbench | DONE source | Monaco, current/selection/all, cancel, explain, format, history |
+| Query workbench | DONE source | Native SQL editor; current/selection/all, cancel, explain, format, history |
 | Action Platform | DONE | canonical execution, confirmation, cancellation identity |
 | DB Object workbench | DONE source | Data, Columns, Indexes, Relations, Triggers, DDL inspection |
 | ER Diagram | DONE source | Schema-level workspace tab (PR #9); composite FK; position persistence |
@@ -30,7 +38,7 @@
 | Schema mutation / users/roles | PARTIAL | Column editing workbench shipped (P2.7); full schema mutation/users/roles post-0.1 |
 | Agent | PREVIEW | production Agent execution excluded |
 | MCP | DEFERRED | not shipped in 0.1.0 |
-| Frontend typecheck/lint/format | PASS | 0 typecheck errors; 1324/1324 frontend tests + 238 Rust unit tests pass; Vite build clean |
+| UI quality gates | NATIVE | React/TS typecheck/lint/format gates retired with the archived frontend; native UI now gated by `cargo fmt/check/clippy/test` + `cargo build --release -p db-pro-native` |
 | P2 Hardening Program | DONE | P2.0–P2.11 all complete; see docs/quality/p2-hardening-code-audit.md |
 | Packaging workflow | DONE definition | cross-platform build IN PROGRESS |
 | Release verification | IN PROGRESS | exact-SHA automated verification DONE; artifacts + manual smoke pending |
@@ -95,6 +103,9 @@ Implemented:
 - collision-title regression test setup corrected (`120b250`)
 - frontend Prettier normalization (`912588f`)
 
+> Frontend-specific items above (lockfile root dependencies, Prettier normalization,
+> frontend test setup) refer to the archived React frontend and no longer apply.
+
 No Wave C/MCP work should begin before release gates close.
 
 ---
@@ -114,13 +125,14 @@ All 11 waves of the P2 Hardening Program are complete. See `docs/quality/p2-hard
 | P2.6 | Edit modes + batch delete + transaction feedback | DONE |
 | P2.7 | Column/schema editing safety workbench | DONE |
 | P2.8 | Index/Relation/Trigger/DDL hardening | DONE |
-| P2.9 | ER Diagram (React Flow + dagre) | DONE |
+| P2.9 | ER Diagram (native painter; formerly React Flow + dagre) | DONE |
 | P2.10 | Code quality / modern API audit | DONE |
-| P2.11 | Full regression (1319 FE + 39 Rust tests, 0 TS errors, build clean) | DONE |
+| P2.11 | Full regression (39 Rust integration tests) | DONE |
 
-**Test counts:** 105 test files, 1319 frontend tests + 39 Rust integration tests (30 SQLite + 9 PG), all passing.  
-**TypeScript:** 0 errors.  
-**Vite build:** successful.
+**Test counts (at the time of the archived-frontend baseline):** 105 frontend test files,
+1319 frontend tests + 39 Rust integration tests (30 SQLite + 9 PG), all passing.
+Frontend test counts are historical — that suite was retired with the frontend on
+2026-09-11. Current gates are Rust-only.
 
 ---
 
@@ -128,33 +140,32 @@ All 11 waves of the P2 Hardening Program are complete. See `docs/quality/p2-hard
 
 ### P1-1 — Exact-SHA automated verification is incomplete
 
-The known `tab-factories` test failure has been fixed in `120b250`. Frontend dependencies now use pnpm with a committed `frontend/pnpm-lock.yaml`; the frontend gates pass locally on the current SHA. Final Rust gates still need an exact-SHA rerun.
+The known `tab-factories` test failure has been fixed in `120b250`. The former frontend
+gates (`frontend/pnpm-lock.yaml`, pnpm typecheck/lint/format/test/build) were retired when
+the React frontend was archived, so they no longer gate the release. Rust gates still need
+an exact-SHA rerun on the current HEAD.
 
 **Exit:** run and record exact results with 0 failures:
 
 ```bash
-cd frontend
-pnpm install --frozen-lockfile
-pnpm run typecheck
-pnpm run lint
-pnpm run format:check
-pnpm run test
-pnpm run build
-
-cd ..
 cargo fmt --all --check
 cargo check --workspace
 cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
+cargo build --release --locked -p db-pro-native
 ```
 
-Record exact Test Files / Tests / Passed / Failed. Do not carry forward old counts.
+Record exact test counts. Do not carry forward old counts.
 
 ### P1-2 — Cross-platform release artifacts not proven
 
-Workflow exists but no current release evidence proves macOS + Windows + Linux Tauri artifacts.
+The release workflow now builds the native `db-pro-native` binary on macOS, Windows, and
+Linux, but no current run proves the matrix is green. Installer/packaging formats
+(DMG, MSI/NSIS, DEB/RPM/AppImage) and code signing are not implemented yet for the native
+app.
 
-**Exit:** green release matrix and retained artifacts for all three platforms.
+**Exit:** green release matrix and retained `db-pro-native` artifacts for all three
+platforms, plus a documented packaging decision.
 
 ### P1-3 — Manual desktop runtime smoke pending
 
@@ -167,8 +178,8 @@ Verify startup/reconnect, PostgreSQL error paths, SQLite Browse, Explorer refres
 ## Closed Release Blockers
 
 - `tab-factories` known failure root cause: **FIXED** at `120b250`.
-- Frontend Prettier drift / `format:check`: **FIXED** at `912588f` (253 files normalized; local check reported PASS).
-- Darwin-only Rollup root dependency: **FIXED** by portable lockfile regeneration.
+- Frontend Prettier drift / `format:check`: **FIXED** at `912588f` (253 files normalized; local check reported PASS). *Historical — the frontend was archived on 2026-09-11.*
+- Darwin-only Rollup root dependency: **FIXED** by portable lockfile regeneration. *Historical — frontend archived.*
 
 ---
 
@@ -183,17 +194,17 @@ Verify startup/reconnect, PostgreSQL error paths, SQLite Browse, Explorer refres
 - Clipboard failure feedback can improve.
 - Historical coverage percentage targets need re-measurement.
 - Public project license is not defined.
-- Grid context menu uses custom `fixed div` rather than Radix ContextMenu (future improvement).
+- Grid context menu uses a custom fixed overlay rather than a shared menu widget (future improvement).
 - Query key stale time could be tuned for introspection data (low-risk).
 
 ---
 
 ## Final Release Sequence
 
-1. Run exact-SHA full automated verification (frontend + Rust) and record exact counts.
-2. Trigger the Tauri Release Build matrix.
+1. Run exact-SHA full Rust automated verification and record exact counts.
+2. Trigger the native Release Build matrix (`db-pro-native`).
 3. Retain/download macOS, Windows, and Linux artifacts.
-4. Install/run at least the host packaged artifact.
+4. Install/run at least the host artifact.
 5. Complete manual smoke + screenshots.
 6. Update verification/readiness to the final tag candidate SHA.
 7. Only then tag `v0.1.0`.

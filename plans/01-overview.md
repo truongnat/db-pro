@@ -1,14 +1,20 @@
 # DB Pro — Master Plan
 
-**Updated:** 2026-08-09  
+**Updated:** 2026-08-09 (amended 2026-09-11)  
 **Release target:** `0.1.0`  
 **Current status source:** [`07-current-status.md`](07-current-status.md)
+
+> **Amendment (2026-09-11) — native UI direction.** The React/TypeScript/Vite frontend was
+> archived under `_archive/frontend/`; the UI is now native `eframe`/`egui`
+> (`crates/ui` + `crates/native-app`). References below to React, TypeScript, Vite,
+> Monaco, TanStack, or shadcn describe the retired presentation layer. See
+> `docs/10-egui-native-migration-plan.md`.
 
 ---
 
 ## 1. Product Summary
 
-DB Pro is a Tauri 2 desktop Database IDE built with a Rust backend and React/TypeScript frontend. The `0.1.0` release scope targets PostgreSQL and SQLite on macOS, Windows, and Linux.
+DB Pro is a native desktop Database IDE built with Rust: a native `eframe`/`egui` UI on top of a shared Rust runtime, application, and infrastructure stack. The `0.1.0` release scope targets PostgreSQL and SQLite on macOS, Windows, and Linux.
 
 The product direction is **Database IDE + Agent-ready architecture**, not a web-admin UI. Human UI, keyboard shortcuts, Command Palette, future Agent and MCP integrations are designed to converge on the same Action Platform rather than duplicate business logic.
 

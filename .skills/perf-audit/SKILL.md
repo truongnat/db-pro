@@ -1,125 +1,114 @@
 ---
 name: perf-audit
-description: "Performance scanning and evaluation for Tauri + React + Rust applications. Use when the user asks to audit performance, check bundle size, profile rendering, run benchmarks, evaluate ER diagram performance, measure query latency, enforce performance budgets, or detect performance regressions. Triggers on: /perf-audit, performance audit, perf scan, bundle analysis, render profiling, benchmark run, performance budget check."
+description: "Performance scanning and evaluation for the native Rust + egui DB Pro application. Use when the user asks to audit performance, profile native UI rendering, run Criterion benchmarks, evaluate ER diagram performance, measure query latency, enforce performance budgets, or detect performance regressions. Triggers on: /perf-audit, performance audit, perf scan, render profiling, benchmark run, performance budget check."
 ---
 
 # Performance Audit
 
-Scan, measure, and evaluate performance across the full stack: frontend bundle, React rendering, ER diagram, Rust backend, and database queries.
+Scan, measure, and evaluate performance across the native stack: egui rendering, the
+virtualized grid, ER diagram painting, the Rust runtime, and database queries.
+
+There is **no JS bundle, no React, and no Node toolchain** in this repository. The React
+frontend was archived under `_archive/frontend/` on 2026-09-11 and is not a valid audit
+target.
 
 ## Quick Start
 
 Run the full audit script to collect all metrics at once:
 
 ```bash
-bash ~/.qoder/skills/perf-audit/scripts/perf-scan.sh
+bash .skills/perf-audit/scripts/perf-scan.sh
 ```
 
 Or run individual audits by category below.
 
-## 1. Frontend Bundle Analysis
+## 1. Native UI Binary
 
-### Bundle size check
-
-```bash
-cd frontend
-npm run build
-ls -lh dist/assets/*.js | sort -k5 -h
-```
-
-### Analyze with source-map-explorer (one-time install)
+### Build and size check
 
 ```bash
-npx source-map-explorer dist/assets/*.js --no-border-checks
+cargo build --release --locked -p db-pro-native
+ls -lh target/release/db-pro-native
 ```
 
 ### Budget targets
 
-| Chunk | Target | Action threshold |
-|-------|--------|------------------|
-| Total JS | < 1.5 MB | > 2 MB = P1 |
-| Single chunk | < 500 KB | > 800 KB = P1 |
-| vendor-tanstack | < 300 KB | > 400 KB = investigate |
-| vendor-ui | < 200 KB | > 300 KB = tree-shake audit |
+| Artifact | Target | Action threshold |
+|----------|--------|------------------|
+| `db-pro-native` binary | < 50 MB | > 100 MB = P1 |
+
+There is no bundle-size metric anymore. A binary-size regression usually means a new heavy
+dependency (image codecs, embedded fonts, crypto backends) — check `cargo tree -p db-pro-native`
+and `cargo bloat --release -p db-pro-native` before accepting it.
 
 ### What to check
 
-- Unused exports via `npx ts-prune` or `npx knip`
-- Dynamic imports for heavy modules (SQL parser, export generators)
-- Duplicate dependencies: `npm ls --all | sort | uniq -d`
+- New large dependencies in `crates/ui` / `crates/native-app` Cargo manifests
+- Duplicate or unused feature flags pulling extra crates
+- Debug symbols not stripped in release profile (only matters for distribution size)
 
-## 2. React Rendering Performance
+## 2. Native UI Rendering Performance
 
-### Run performance budget tests
+### Run the UI benchmarks
 
 ```bash
-cd frontend
-npm run test -- --run src/commons/__tests__/performance-budgets.test.ts
+cargo bench --package db-pro-ui
 ```
 
-### Budget targets (from performance-budgets.test.ts)
+### Budget targets (from `crates/ui/benches/result_grid_benchmarks.rs`)
 
-| Operation | Budget (ms) |
-|-----------|-------------|
-| Quick Open index (1000 items) | < 50 |
-| Quick Open rank (1000 items) | < 50 |
-| Statement split (100 statements) | < 50 |
-| CSV generate (10k rows) | < 200 |
-| JSON generate (10k rows) | < 200 |
-| SQL INSERT generate (1k rows) | < 200 |
-| CSV parse (10k rows) | < 200 |
-| Schema tree (500 tables) | < 150 |
-| Workspace tab cycle (100 tabs) | < 100 |
-| Grid state ops (100) | < 50 |
+| Operation | Budget |
+|-----------|--------|
+| Grid visible-range computation | < 1 ms |
+| Grid hit-testing | < 1 ms |
+| Cell formatting / codec round-trip | < 1 ms |
+| Quick Open index + rank | < 5 ms |
+| Statement split (100 statements) | < 5 ms |
 
-### React Profiler (manual)
+### Frame-time measurement (manual)
 
-1. Open DevTools > React DevTools > Profiler
-2. Enable "Record why each render occurred"
-3. Perform the action under test
-4. Look for:
-   - Renders > 16ms (missed frame budget)
-   - Unnecessary re-renders (no props/state change)
-   - Missing `memo`, `useMemo`, `useCallback` on hot paths
+egui is immediate-mode, so measure at the frame level rather than with a component profiler:
+
+1. Run with `RUST_LOG=db_pro_ui=debug cargo run -p db-pro-native`
+2. Watch the frame-time log for the surface under test
+3. Look for:
+   - Frame time > 16 ms on the shell or grid
+   - Work performed inside the `update()` closure that should be in the reducer
+   - Recomputing layout, formatting, or filtering every frame instead of on state change
+   - Allocating inside the paint loop (per-row `String`/`Vec` churn)
 
 ### Key patterns to verify
 
-- Virtual lists for > 100 items (TanStack Virtual)
-- `React.memo` on table/grid row components
-- No inline object/array literals in render props
-- Stable refs for callbacks passed to children
+- Virtualized painting over the visible range only — never iterate the full row set
+- Derived values cached in `AppState`, recomputed on `UiEvent` rather than per frame
+- No blocking I/O or `.await` on the UI thread
+- Bounded channels and request IDs so stale batches cannot repaint a newer tab
+- `ctx.request_repaint()` only while work is pending
 
 ## 3. ER Diagram Performance
 
-### Enable the perf HUD
+The ER diagram is a custom `egui::Painter` in `crates/ui/src/diagram_view.rs`.
 
-```javascript
-// In browser console:
-localStorage.setItem("er-perf-hud", "1");
-// Reload the page
-```
-
-### Acceptance metrics (P1 series)
+### Acceptance metrics
 
 | Metric | Target (200 tables) | Target (500 tables) | Target (1000 tables) |
 |--------|---------------------|---------------------|----------------------|
 | Time to interactive | < 2s | < 5s | < 10s |
 | Layout computation | < 500ms | < 1.5s | < 3s |
-| Max long task | < 100ms | < 150ms | < 200ms |
 | Pan/zoom frame avg | < 8ms | < 12ms | < 16ms |
 | Pan/zoom frame p95 | < 16ms | < 24ms | < 33ms |
 
 ### What to check
 
-- Spatial index: viewport query must be O(visible) not O(total)
-- LOD tiers: detail level drops at zoom < 0.5
+- Spatial index: viewport query must be O(visible), not O(total nodes)
+- LOD tiers: detail level drops at low zoom
 - Edge aggregation: parallel edges merge at low zoom
-- Worker offload: layout runs in Web Worker for > 100 tables
-- Canvas renderer: kicks in for > 200 tables instead of DOM nodes
+- Layout runs off the UI thread for > 100 tables
+- Neighborhood/search-first default for large schemas (> 200 tables)
 
 ### Regression detection
 
-Compare HUD metrics before/after a change. Any metric > 20% slower = investigate.
+Compare frame-time logs before/after a change. Any metric > 20% slower = investigate.
 
 ## 4. Rust Backend Benchmarks
 
@@ -151,7 +140,7 @@ cargo flamegraph --bench sqlite_benchmarks -- --bench
 - N+1 queries in introspection (should batch)
 - Unnecessary clones of large schema structs
 - `Vec` allocations in hot loops (pre-allocate with `with_capacity`)
-- Serde serialization overhead for IPC boundary
+- Unbounded growth of result batches crossing the task bridge
 
 ## 5. Database Query Performance
 
@@ -174,46 +163,42 @@ ORDER BY seq_tup_read DESC;
 EXPLAIN QUERY PLAN SELECT * FROM your_table WHERE condition;
 ```
 
-### Connection pool metrics
+### Runtime worker metrics
 
-Check Tauri backend logs for:
+Check `db-pro-runtime` logs for:
 - Connection acquire time > 50ms
 - Pool exhaustion warnings
-- Idle connection count
+- Cancellation acknowledgement latency
 
 ## 6. Performance Regression Workflow
 
 When investigating a reported regression:
 
-1. **Reproduce**: Confirm the regression with the perf HUD or benchmark
+1. **Reproduce**: Confirm the regression with the frame-time log or a Criterion benchmark
 2. **Isolate**: `git bisect` to find the introducing commit
-3. **Measure**: Run the specific benchmark/budget test before and after
+3. **Measure**: Run the specific benchmark before and after
 4. **Fix**: Address root cause, not symptoms
 5. **Verify**: Re-run the audit, confirm metrics are within budget
 6. **Document**: Update `references/perf-budgets.md` if budgets change
 
 ## 7. CI Performance Gates
 
-Recommended CI checks (add to workflow):
+Recommended CI checks:
 
 ```yaml
-- name: Performance budgets
-  run: cd frontend && npm run test -- --run performance-budgets
-
-- name: Bundle size check
-  run: |
-    cd frontend && npm run build
-    TOTAL=$(du -sb dist/assets/*.js | awk '{sum+=$1} END {print sum}')
-    if [ "$TOTAL" -gt 2000000 ]; then
-      echo "Bundle size ${TOTAL}B exceeds 2MB limit"
-      exit 1
-    fi
-
 - name: Rust benchmarks
   run: cargo bench --package db-pro-infrastructure -- --quick
+
+- name: Native UI benchmarks
+  run: cargo bench --package db-pro-ui -- --quick
+
+- name: Native binary build
+  run: cargo build --release --locked -p db-pro-native
 ```
+
+Never claim performance improved without measurement evidence.
 
 ## Resources
 
 - `references/perf-budgets.md` — Complete budget table with rationale
-- `scripts/perf-scan.sh` — Automated full-stack audit script
+- `scripts/perf-scan.sh` — Automated audit script (`native|er|rust|db|all`)

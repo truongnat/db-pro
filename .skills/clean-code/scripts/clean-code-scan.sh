@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# clean-code-scan.sh — Quét code smell phổ biến cho DB Pro (frontend TS/React + Rust)
+# clean-code-scan.sh — Quét code smell phổ biến cho DB Pro (Rust; frontend TS/React đã archive)
 # Usage: bash .skills/clean-code/scripts/clean-code-scan.sh [frontend|rust|all] [--with-linters] [--ci] [--diff]
-#   frontend | rust | all   : phạm vi (mặc định all)
-#   --with-linters          : chạy thêm eslint / prettier / cargo fmt / clippy
+#   frontend | rust | all   : phạm vi (mặc định all). `frontend` báo archived và bỏ qua.
+#   --with-linters          : chạy thêm cargo fmt / clippy (eslint/prettier/tsc đã gỡ)
 #   --ci                    : exit 1 nếu có ✗
 #   --diff                  : chỉ quét file thay đổi so với origin/main (hoặc main)
 #
@@ -95,7 +95,7 @@ RS_PROD="$(echo "$RS_FILES" | prod_only)"
 grep_in() { # $1 = danh sách file (newline), $2.. = grep args
   local files="$1"; shift
   [ -z "$files" ] && return 0
-  echo "$files" | xargs -d '\n' grep -nH "$@" 2>/dev/null
+  echo "$files" | tr '\n' '\0' | xargs -0 grep -nH "$@" 2>/dev/null
 }
 
 # ─── Helpers phân tích ─────────────────────────────────────────────
@@ -104,7 +104,7 @@ grep_in() { # $1 = danh sách file (newline), $2.. = grep args
 long_functions() { # $1 = files, $2 = regex mở đầu hàm
   local files="$1" start_re="$2"
   [ -z "$files" ] && return 0
-  echo "$files" | xargs -d '\n' awk -v start_re="$start_re" -v warn="$FN_WARN_LINES" -v fail="$FN_FAIL_LINES" '
+  echo "$files" | tr '\n' '\0' | xargs -0 awk -v start_re="$start_re" -v warn="$FN_WARN_LINES" -v fail="$FN_FAIL_LINES" '
     FNR == 1 { infn = 0; intest = 0 }
     /^[[:space:]]*#\[cfg\(test\)\]/ { intest = 1 }
     intest { next }
@@ -128,7 +128,7 @@ long_functions() { # $1 = files, $2 = regex mở đầu hàm
 file_sizes() { # $1 = files, $2 warn, $3 fail
   local files="$1" warn="$2" fail="$3"
   [ -z "$files" ] && return 0
-  echo "$files" | xargs -d '\n' wc -l 2>/dev/null | grep -v ' total$' | awk -v warn="$warn" -v fail="$fail" '
+  echo "$files" | tr '\n' '\0' | xargs -0 wc -l 2>/dev/null | grep -v ' total$' | awk -v warn="$warn" -v fail="$fail" '
     $1 > warn { printf "%s  (%d dòng)%s\n", $2, $1, ($1 > fail ? "  [FAIL]" : "") }' | sort -t'(' -k2 -rn
 }
 
@@ -160,8 +160,17 @@ report_size_list() { # phân biệt warn/fail theo tag [FAIL]; chỉ chặn (✗
   fi
 }
 
-# ─── FRONTEND ───────────────────────────────────────────────────────
+# ─── FRONTEND (archived) ────────────────────────────────────────────
 scan_frontend() {
+  section "Frontend — ARCHIVED (TypeScript / React)"
+  echo "  React/TypeScript frontend đã được archive vào _archive/frontend/ ngày 2026-09-11."
+  echo "  Không còn được build/lint/test. Bỏ qua scope frontend."
+  echo "  UI hiện tại là native Rust: crates/ui + crates/native-app."
+  echo ""
+  return 0
+}
+
+scan_frontend_legacy() {
   section "Frontend — Code Health (TypeScript / React)"
   local nfiles; nfiles="$(echo "$TS_PROD" | count_lines)"
   echo "  Quét $nfiles file production (bỏ qua test/fixtures/src/dev)"
@@ -174,13 +183,13 @@ scan_frontend() {
 
   # 7. Nuốt lỗi — catch trống hoàn toàn = ✗; catch chỉ có comment lý do = ⚠ (nên log thêm)
   report_list "catch {} trống hoàn toàn" \
-    "$(echo "$TS_PROD" | xargs -d '\n' grep -nHE 'catch\s*(\([^)]*\))?\s*\{\s*\}' 2>/dev/null; \
-       echo "$TS_PROD" | xargs -d '\n' awk '
+    "$(echo "$TS_PROD" | tr '\n' '\0' | xargs -0 grep -nHE 'catch\s*(\([^)]*\))?\s*\{\s*\}' 2>/dev/null; \
+       echo "$TS_PROD" | tr '\n' '\0' | xargs -0 awk '
          /catch[[:space:]]*(\([^)]*\))?[[:space:]]*\{[[:space:]]*$/ { start = FNR; line = $0; getline nxt
            if (nxt ~ /^[[:space:]]*\}/) printf "%s:%d: %s\n", FILENAME, start, line }' 2>/dev/null)" fail \
     "error-handling.md §3 — P1"
   report_list "catch chỉ có comment (bỏ qua có chủ ý)" \
-    "$(echo "$TS_PROD" | xargs -d '\n' awk '
+    "$(echo "$TS_PROD" | tr '\n' '\0' | xargs -0 awk '
          /catch[[:space:]]*(\([^)]*\))?[[:space:]]*\{[[:space:]]*$/ { start = FNR; line = $0; getline nxt
            if (nxt ~ /^[[:space:]]*\/\//) { getline nxt2; if (nxt2 ~ /^[[:space:]]*\}/) printf "%s:%d: %s\n", FILENAME, start, line } }' 2>/dev/null)" warn \
     "chấp nhận nếu lý do đúng; cân nhắc logger.debug (error-handling.md §3)"
@@ -259,7 +268,7 @@ scan_rust() {
   # Loại bỏ nội dung #[cfg(test)] khỏi kết quả unwrap bằng cách quét theo file & dòng trước mod tests
   rs_prod_nontest() { # in "file:line:text" cho các dòng trước `#[cfg(test)]` đầu tiên
     [ -z "$RS_PROD" ] && return 0
-    echo "$RS_PROD" | xargs -d '\n' awk '
+    echo "$RS_PROD" | tr '\n' '\0' | xargs -0 awk '
       FNR == 1 { intest = 0 }
       /^[[:space:]]*#\[cfg\(test\)\]/ { intest = 1 }
       !intest { printf "%s:%d:%s\n", FILENAME, FNR, $0 }'
@@ -278,7 +287,7 @@ scan_rust() {
 
   # 7. Nuốt lỗi
   report_list "let _ = <fallible> không comment lý do" \
-    "$(echo "$RS_PROD" | xargs -d '\n' awk '
+    "$(echo "$RS_PROD" | tr '\n' '\0' | xargs -0 awk '
       FNR == 1 { prev = "" }
       /^[[:space:]]*let _ = / && prev !~ /^[[:space:]]*\/\// { printf "%s:%d: %s\n", FILENAME, FNR, $0 }
       { prev = $0 }' 2>/dev/null)" warn \
@@ -296,14 +305,14 @@ scan_rust() {
 
   # 9. allow không lý do
   report_list "#[allow(...)] không có comment lý do ngay trên" \
-    "$(echo "$RS_PROD" | xargs -d '\n' awk '
+    "$(echo "$RS_PROD" | tr '\n' '\0' | xargs -0 awk '
       FNR == 1 { prev = "" }
       /^[[:space:]]*#!?\[allow\(/ && prev !~ /^[[:space:]]*\/\// { printf "%s:%d: %s\n", FILENAME, FNR, $0 }
       { prev = $0 }' 2>/dev/null)" warn
 
   # 6. unsafe không SAFETY
   report_list "unsafe không có // SAFETY:" \
-    "$(echo "$RS_PROD" | xargs -d '\n' awk '
+    "$(echo "$RS_PROD" | tr '\n' '\0' | xargs -0 awk '
       FNR == 1 { prev = "" }
       /\bunsafe[[:space:]]*\{/ && prev !~ /SAFETY:/ && $0 !~ /SAFETY:/ { printf "%s:%d: %s\n", FILENAME, FNR, $0 }
       { prev = $0 }' 2>/dev/null)" fail
@@ -349,12 +358,8 @@ scan_rust() {
 # ─── LINTERS ────────────────────────────────────────────────────────
 run_linters() {
   section "Linters / Formatters (từ AGENTS.md)"
-  if [ "$SCOPE" != "rust" ] && [ -d frontend/node_modules ]; then
-    (cd frontend && pnpm run -s lint >/tmp/cc-eslint.log 2>&1) && check "eslint" pass "sạch" || { check "eslint" fail "xem /tmp/cc-eslint.log"; tail -n 20 /tmp/cc-eslint.log | show; }
-    (cd frontend && pnpm run -s format:check >/tmp/cc-prettier.log 2>&1) && check "prettier" pass "sạch" || { check "prettier" fail "chạy pnpm run format"; tail -n 10 /tmp/cc-prettier.log | show; }
-    (cd frontend && pnpm run -s typecheck >/tmp/cc-tsc.log 2>&1) && check "tsc" pass "sạch" || { check "tsc" fail "xem /tmp/cc-tsc.log"; tail -n 20 /tmp/cc-tsc.log | show; }
-  elif [ "$SCOPE" != "rust" ]; then
-    check "frontend linters" warn "bỏ qua — frontend/node_modules chưa cài (pnpm install)"
+  if [ "$SCOPE" != "rust" ]; then
+    check "frontend linters" warn "bỏ qua — React frontend đã archive (_archive/frontend/)"
   fi
   if [ "$SCOPE" != "frontend" ] && command -v cargo >/dev/null 2>&1; then
     cargo fmt --all -- --check >/tmp/cc-fmt.log 2>&1 && check "cargo fmt" pass "sạch" || { check "cargo fmt" fail "chạy cargo fmt --all"; tail -n 10 /tmp/cc-fmt.log | show; }

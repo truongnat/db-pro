@@ -7,10 +7,10 @@ và tập trung vào phần formatter không làm được: **bố cục theo ý
 
 | Ngôn ngữ | Công cụ | Cấu hình | Lệnh kiểm tra |
 |----------|---------|----------|----------------|
-| TS/TSX/CSS/MD | Prettier | `frontend/.prettierrc`: `printWidth: 100`, `semi: true`, double quote, `trailingComma: all` | `cd frontend && pnpm run format:check` |
-| TS/TSX | ESLint | `frontend/eslint.config.js` (typescript-eslint recommended, `no-unused-vars` với `_` prefix) | `pnpm run lint` |
 | Rust | rustfmt | `.rustfmt.toml`: `max_width = 120`, `tab_spaces = 4`, edition 2021 | `cargo fmt --all -- --check` |
-| Rust | Clippy | mặc định workspace | `cargo clippy --workspace --all-targets` |
+| Rust | Clippy | mặc định workspace | `cargo clippy --workspace --all-targets -- -D warnings` |
+| ~~TS/TSX/CSS/MD~~ | ~~Prettier~~ | đã ngừng dùng — frontend archive 2026-09-11 | — |
+| ~~TS/TSX~~ | ~~ESLint~~ | đã ngừng dùng — frontend archive 2026-09-11 | — |
 
 **Không** commit thay đổi format hàng loạt lẫn với thay đổi logic — tách PR / commit riêng để diff review được.
 

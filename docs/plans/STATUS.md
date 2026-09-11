@@ -13,6 +13,11 @@ Canonical lifecycle: `BACKLOG → PLANNING → IMPLEMENTING → REVIEW → RUNTI
 | S7 Full Schema Regression | main | #9 (89f11a9) | RUNTIME_VERIFY | merged; regression matrix complete; 39 Rust + 1324 FE tests; CI integrated PASS |
 | IT0-101 BIGINT Precision & Staged State | main | #11 (e5c4c9b) | COMPLETED | merged; i64 lossless IPC contract, staged-changes close guard, preview promotion, SQLite metadata; 1483 FE + 20 Rust tests PASS |
 
+> **Note (2026-09-11):** rows below that reference frontend/FE test counts, shadcn design
+> tokens, React Flow, or `frontend/` paths describe work performed against the now-archived
+> React frontend. They are retained as history. The product UI is native `eframe`/`egui`
+> (`crates/ui` + `crates/native-app`); see `_archive/README.md`.
+
 ## P3 — UI Foundation & Scale Hardening
 
 Pre-release hardening program. Blocks v0.1.
@@ -31,6 +36,7 @@ Pre-release hardening program. Blocks v0.1.
 
 | Native UI Foundation | COMPLETED | native egui workspace, shared runtime facades and Tauri command boundary implemented; SQLite UI runtime evidence and isolated PostgreSQL fixture coverage pass |
 | Native IDE Redesign | COMPLETED | goal-1.md P0–P7 source/runtime slice verified for PostgreSQL and SQLite; future provider surfaces remain explicitly out of scope |
+| React Frontend Archival | COMPLETED | React/Vite/Tauri-webview frontend moved to `_archive/frontend/` on 2026-09-11, together with the React-era ER benchmark harness (`_archive/bench/`); CI, release pipeline, AGENTS.md and docs switched to native UI; `crates/tauri-app` kept as legacy transitional host and marked for removal at cutover |
 
 ## RC1 Full Product QA
 

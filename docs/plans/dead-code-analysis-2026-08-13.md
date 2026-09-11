@@ -1,5 +1,10 @@
 # Dead Code Analysis Report
 
+> **HISTORICAL (2026-09-11).** Produced with `knip`, a JavaScript/TypeScript dead-code tool,
+> against the React frontend. The frontend was archived under `_archive/frontend/` when the
+> UI moved to native `eframe`/`egui`, so this analysis has no current target. Rust dead-code
+> signal comes from `cargo clippy` warnings instead.
+
 **Date**: 2026-08-13  
 **Tool**: knip@6.27.0
 

@@ -1,5 +1,9 @@
 # Performance Optimization Report
 
+> **HISTORICAL (2026-09-11).** This report optimizes the React/Vite bundle and frontend
+> rendering, which were archived under `_archive/frontend/` when the UI moved to native
+> `eframe`/`egui`. The bundle-level findings (Vite chunks, shadcn, Monaco) no longer apply.
+
 **Date**: 2026-08-13  
 **Status**: ✅ Completed
 

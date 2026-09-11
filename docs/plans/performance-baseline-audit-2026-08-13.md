@@ -1,5 +1,11 @@
 # Performance Baseline Audit Report
 
+> **HISTORICAL (2026-09-11).** This baseline covers the React/TypeScript frontend, which was
+> archived under `_archive/frontend/` when the UI moved to native `eframe`/`egui`. Frontend
+> numbers below are not comparable to the native UI; current budgets live in
+> `crates/ui/benches/result_grid_benchmarks.rs`, `crates/infrastructure/benches/sqlite_benchmarks.rs`,
+> and `docs/architecture/performance-baseline.md`.
+
 **Date**: 2026-08-13  
 **Branch**: main  
 **Status**: Completed

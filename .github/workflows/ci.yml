@@ -36,10 +36,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Tauri dependencies
+      # egui/eframe (crates/ui, crates/native-app) needs the GL/X11/Wayland
+      # development headers. The WebKit/GTK headers are still required because
+      # the transitional Tauri host (crates/tauri-app) remains a workspace member.
+      # See _archive/README.md and docs/10-egui-native-migration-plan.md.
+      - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev
+          sudo apt-get install -y \
+            libxkbcommon-dev libwayland-dev libx11-dev libgl1-mesa-dev \
+            libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev
 
       - name: Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -59,7 +65,6 @@ jobs:
 
       - name: Load PostgreSQL fixtures
         run: |
-          sudo apt-get update
           sudo apt-get install -y postgresql-client
           PGPASSWORD=dbpro_test psql -v ON_ERROR_STOP=1 -h localhost -U dbpro -d dbpro_fixture -f fixtures/postgres/001_schema.sql
           PGPASSWORD=dbpro_test psql -v ON_ERROR_STOP=1 -h localhost -U dbpro -d dbpro_fixture -f fixtures/postgres/002_seed.sql
@@ -77,47 +82,9 @@ jobs:
       - name: cargo test
         run: cargo test --all -- --include-ignored
 
-  frontend:
-    name: Frontend checks
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+      - name: cargo build native app (release)
+        run: cargo build --release --locked -p db-pro-native
 
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10.20.0
-
-      - name: Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: "pnpm"
-          cache-dependency-path: frontend/pnpm-lock.yaml
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-        working-directory: frontend
-
-      - name: tsc --noEmit
-        run: pnpm run typecheck
-        working-directory: frontend
-
-      - name: eslint
-        run: pnpm run lint
-        working-directory: frontend
-
-      - name: prettier
-        run: pnpm run format:check
-        working-directory: frontend
-
-      - name: token contract
-        run: pnpm run check:tokens
-        working-directory: frontend
-
-      - name: build
-        run: pnpm run build
-        working-directory: frontend
-
-      - name: test
-        run: pnpm run test
-        working-directory: frontend
+  # The legacy React/Vite frontend job was removed when the frontend was archived.
+  # There is no Node/pnpm/TypeScript quality gate in this repository anymore.
+  # Historical gates are recorded in _archive/README.md.

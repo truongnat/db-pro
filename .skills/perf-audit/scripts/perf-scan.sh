@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 # perf-scan.sh — Full-stack performance audit for DB Pro
 # Usage: bash .skills/perf-audit/scripts/perf-scan.sh [section]
-# Sections: frontend | er | rust | db | all (default: all)
+# Sections: native | er | rust | db | all (default: all)
+#
+# The product UI is native eframe/egui (crates/ui + crates/native-app).
+# There is no JS bundle, no React, and no Node toolchain in this repository.
+# The React frontend is archived under _archive/frontend/.
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -43,136 +47,69 @@ get_file_size() {
   fi
 }
 
-# ─── Frontend Bundle Analysis ───────────────────────────────────────
+# ─── Native UI Binary ──────────────────────────────────────────────
 
-audit_frontend_bundle() {
-  section "Frontend Bundle Analysis"
+audit_native_binary() {
+  section "Native UI Binary"
 
-  local assets_dir="$PROJECT_ROOT/frontend/dist/assets"
-  
-  # Force rebuild if dist doesn't exist or is older than 1 hour
-  local should_build=0
-  if [ ! -d "$assets_dir" ]; then
-    should_build=1
-  else
-    # Check if any JS file is older than 1 hour (3600 seconds)
-    local now=$(date +%s)
-    for f in "$assets_dir"/*.js; do
-      if [ -f "$f" ]; then
-        local mtime=$(stat -c %Y "$f" 2>/dev/null || stat -f %m "$f" 2>/dev/null || echo 0)
-        local age=$((now - mtime))
-        if [ "$age" -gt 3600 ]; then
-          should_build=1
-          break
-        fi
-      fi
-    done
-  fi
-
-  if [ "$should_build" -eq 1 ]; then
-    echo "  Building frontend (dist stale or missing)..."
-    if ! (cd "$PROJECT_ROOT/frontend" && npm run build --silent 2>/dev/null); then
-      check "Build" "fail" "npm run build failed"
-      return
-    fi
-  fi
-
-  # Total JS size
-  local total_bytes=0
-  for f in "$assets_dir"/*.js; do
-    if [ -f "$f" ]; then
-      local size=$(get_file_size "$f")
-      total_bytes=$((total_bytes + size))
-    fi
-  done
-  local total_mb=$(awk "BEGIN {printf \"%.2f\", $total_bytes / 1024 / 1024}")
-
-  if [ "$total_bytes" -lt 1500000 ]; then
-    check "Total JS size" "pass" "${total_mb}MB (target < 1.5MB)"
-  elif [ "$total_bytes" -lt 2000000 ]; then
-    check "Total JS size" "warn" "${total_mb}MB (target < 1.5MB, critical < 2MB)"
-  else
-    check "Total JS size" "fail" "${total_mb}MB exceeds 2MB critical threshold"
-  fi
-
-  # Largest chunk
-  local largest_bytes=0
-  local largest_name=""
-  for f in "$assets_dir"/*.js; do
-    if [ -f "$f" ]; then
-      local size=$(get_file_size "$f")
-      if [ "$size" -gt "$largest_bytes" ]; then
-        largest_bytes=$size
-        largest_name=$(basename "$f")
-      fi
-    fi
-  done
-  local largest_kb=$((largest_bytes / 1024))
-
-  if [ "$largest_bytes" -lt 500000 ]; then
-    check "Largest chunk" "pass" "${largest_kb}KB (${largest_name})"
-  elif [ "$largest_bytes" -lt 800000 ]; then
-    check "Largest chunk" "warn" "${largest_kb}KB (${largest_name})"
-  else
-    check "Largest chunk" "fail" "${largest_kb}KB (${largest_name}) exceeds 800KB"
-  fi
-
-  # CSS size
-  local css_bytes=0
-  for f in "$assets_dir"/*.css; do
-    if [ -f "$f" ]; then
-      local size=$(get_file_size "$f")
-      css_bytes=$((css_bytes + size))
-    fi
-  done
-  local css_kb=$((css_bytes / 1024))
-
-  if [ "$css_bytes" -lt 100000 ]; then
-    check "Total CSS" "pass" "${css_kb}KB"
-  elif [ "$css_bytes" -lt 200000 ]; then
-    check "Total CSS" "warn" "${css_kb}KB (target < 100KB)"
-  else
-    check "Total CSS" "fail" "${css_kb}KB exceeds 200KB"
-  fi
-
-  # Chunk count
-  local chunk_count=0
-  for f in "$assets_dir"/*.js; do
-    if [ -f "$f" ]; then
-      chunk_count=$((chunk_count + 1))
-    fi
-  done
-  check "JS chunk count" "pass" "${chunk_count} chunks"
-  
-  # Verify code-splitting: check that vendor-reactflow and vendor-cytoscape are separate
-  if ls "$assets_dir"/vendor-reactflow-*.js 1> /dev/null 2>&1 && \
-     ls "$assets_dir"/vendor-cytoscape-*.js 1> /dev/null 2>&1; then
-    check "ER code-splitting" "pass" "React Flow and Cytoscape in separate chunks"
-  else
-    check "ER code-splitting" "warn" "React Flow and Cytoscape may be bundled together"
-  fi
-}
-
-# ─── Frontend Performance Budgets ──────────────────────────────────
-
-audit_frontend_budgets() {
-  section "Frontend Performance Budget Tests"
-
-  if [ ! -d "$PROJECT_ROOT/frontend/node_modules" ]; then
-    check "Dependencies" "fail" "Run npm install first"
+  if ! command -v cargo &>/dev/null; then
+    check "Cargo" "fail" "Rust toolchain not found"
     return
   fi
 
+  echo "  Building db-pro-native (release)..."
   local output
-  if output=$(cd "$PROJECT_ROOT/frontend" && npx vitest run src/commons/__tests__/performance-budgets.test.ts --reporter=verbose 2>&1); then
-    local test_count
-    test_count=$(echo "$output" | grep -c "✓\|PASS\|passed" || true)
-    check "Budget tests" "pass" "${test_count} tests passed"
+  if output=$(cd "$PROJECT_ROOT" && cargo build --release --locked -p db-pro-native 2>&1); then
+    check "cargo build -p db-pro-native" "pass" "release build succeeded"
   else
-    local fail_count
-    fail_count=$(echo "$output" | grep -c "✗\|FAIL\|failed" || true)
-    check "Budget tests" "fail" "${fail_count} tests failed"
-    echo "$output" | grep -E "✗|FAIL|AssertionError|expected|toBeLessThan" | head -10 | while read -r line; do
+    check "cargo build -p db-pro-native" "fail" "release build failed"
+    echo "$output" | tail -5 | while read -r line; do
+      echo "    $line"
+    done
+    return
+  fi
+
+  local bin="$PROJECT_ROOT/target/release/db-pro-native"
+  if [ ! -f "$bin" ]; then
+    check "Binary artifact" "fail" "target/release/db-pro-native not found"
+    return
+  fi
+
+  local bytes
+  bytes=$(get_file_size "$bin")
+  local mb
+  mb=$(awk "BEGIN {printf \"%.1f\", $bytes / 1024 / 1024}")
+
+  if [ "$bytes" -lt 52428800 ]; then
+    check "Binary size" "pass" "${mb}MB (target < 50MB)"
+  elif [ "$bytes" -lt 104857600 ]; then
+    check "Binary size" "warn" "${mb}MB (target < 50MB, critical < 100MB)"
+  else
+    check "Binary size" "fail" "${mb}MB exceeds 100MB critical threshold"
+  fi
+}
+
+# ─── Native UI Benchmarks ──────────────────────────────────────────
+
+audit_native_benches() {
+  section "Native UI Benchmarks (criterion)"
+
+  local bench_file="$PROJECT_ROOT/crates/ui/benches/result_grid_benchmarks.rs"
+  if [ ! -f "$bench_file" ]; then
+    check "UI benchmarks" "warn" "crates/ui/benches/result_grid_benchmarks.rs not found"
+    return
+  fi
+
+  echo "  Running criterion benchmarks for db-pro-ui (this may take a few minutes)..."
+  local output
+  if output=$(cd "$PROJECT_ROOT" && cargo bench --package db-pro-ui -- --quick 2>&1); then
+    check "UI benchmarks" "pass" "All benchmarks completed"
+    echo "$output" | grep -E "time:" | head -10 | while read -r line; do
+      echo "    $line"
+    done
+  else
+    check "UI benchmarks" "fail" "Benchmark execution failed"
+    echo "$output" | tail -5 | while read -r line; do
       echo "    $line"
     done
   fi
@@ -265,25 +202,24 @@ echo -e "${BOLD}║      DB Pro Performance Audit        ║${NC}"
 echo -e "${BOLD}╚══════════════════════════════════════╝${NC}"
 
 case "$SECTION" in
-  frontend)
-    audit_frontend_bundle
-    audit_frontend_budgets
+  native)
+    audit_native_binary
+    audit_native_benches
     ;;
   er)
     section "ER Diagram Performance"
-    echo "  ER diagram performance requires runtime HUD inspection."
-    echo "  This script cannot measure ER performance statically."
+    echo "  ER diagram performance requires runtime measurement of the native painter"
+    echo "  in crates/ui (diagram_view.rs); it cannot be measured statically."
     echo ""
     echo "  Manual verification steps:"
-    echo "    1. Open the app and navigate to a schema with 200+ tables"
-    echo "    2. Open browser DevTools Console"
-    echo "    3. Run: localStorage.setItem('er-perf-hud', '1')"
-    echo "    4. Reload and observe the performance HUD"
+    echo "    1. Run: RUST_LOG=db_pro_ui=debug cargo run -p db-pro-native"
+    echo "    2. Open a schema with 200+ tables and open the ER diagram tab"
+    echo "    3. Record layout time, pan/zoom frame time, and time-to-interactive"
     echo ""
     echo "  Reference targets:"
     echo "    200 tables: TTI < 2s, layout < 500ms, frame avg < 8ms"
     echo "    500 tables: TTI < 5s, layout < 1.5s, frame avg < 12ms"
-    echo "   1000 tables: TTI < 10s, layout < 3s, frame avg < 16ms"
+    echo "    1000 tables: TTI < 10s, layout < 3s, frame avg < 16ms"
     echo ""
     check "ER performance" "warn" "Requires manual runtime verification"
     ;;
@@ -297,7 +233,7 @@ case "$SECTION" in
     echo "  This script cannot measure query performance statically."
     echo ""
     echo "  Manual verification steps:"
-    echo "    1. Connect to a PostgreSQL or SQLite database"
+    echo "    1. Connect to a PostgreSQL or SQLite database in db-pro-native"
     echo "    2. Use the query editor to run:"
     echo "         EXPLAIN ANALYZE SELECT * FROM your_table WHERE condition;"
     echo ""
@@ -309,16 +245,15 @@ case "$SECTION" in
     check "DB performance" "warn" "Requires live database connection"
     ;;
   all)
-    audit_frontend_bundle
-    audit_frontend_budgets
+    audit_native_binary
     audit_rust_static
-    # Note: 'all' does not include rust benchmarks (too slow) or er/db (require runtime)
+    # Note: 'all' does not include benchmarks (too slow) or er/db (require runtime)
     echo ""
-    echo "  Note: 'all' skips Rust benchmarks and ER/DB runtime checks."
-    echo "  Run with 'rust' for benchmarks, or verify ER/DB manually."
+    echo "  Note: 'all' skips benchmarks and ER/DB runtime checks."
+    echo "  Run with 'native' or 'rust' for benchmarks, or verify ER/DB manually."
     ;;
   *)
-    echo "Usage: $0 [frontend|er|rust|db|all]"
+    echo "Usage: $0 [native|er|rust|db|all]"
     exit 1
     ;;
 esac

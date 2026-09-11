@@ -1,8 +1,16 @@
 # Kế hoạch migrate UI từ React sang egui native
 
-**Trạng thái:** Đề xuất để review trước khi bắt đầu implementation  
+**Trạng thái:** Đã chốt và đang thực thi — UI native là hướng phát triển chính thức; React frontend đã được archive  
 **Phạm vi:** DB Pro desktop UI  
 **Mục tiêu:** thay toàn bộ React/Vite/WebView UI bằng UI native Rust dùng `egui`/`eframe`, giữ nguyên domain, application services, database adapters và các hợp đồng dữ liệu hiện có.
+
+> **Cập nhật 2026-09-11 — bước archive đã thực thi.**
+>
+> - React/Vite frontend đã được chuyển vào `_archive/frontend/` (xem `_archive/README.md`). Không còn được build, test hay package.
+> - UI chính thức: `crates/ui` (`db-pro-ui`), `crates/runtime` (`db-pro-runtime`), `crates/native-app` (`db-pro-native`).
+> - CI và release pipeline đã bỏ toàn bộ bước Node/pnpm; release build `db-pro-native`.
+> - `crates/tauri-app` chỉ còn là host transitional, không ship, và sẽ bị xoá ở Phase 9.
+> - Các Phase 0–8 dưới đây được giữ nguyên làm lộ trình tham chiếu; phần nào đã xong thì coi như đã xong.
 
 ## 1. Tóm tắt quyết định
 
@@ -96,12 +104,12 @@ Mỗi milestone UI phải có screenshot review ở ba kích thước 1280×800,
 
 - `crates/core`: domain types, validation, application services, ports.
 - `crates/infrastructure`: PostgreSQL, SQLite, metadata store, keyring, SSH, backup.
-- `frontend/src/modules/*/services`, SQL classifier/generator, pure utilities và các business rule có thể viết lại thành Rust hoặc giữ tạm dưới dạng fixture/reference.
+- `frontend/src/modules/*/services`, SQL classifier/generator, pure utilities và các business rule có thể viết lại thành Rust hoặc giữ tạm dưới dạng fixture/reference (nay ở `_archive/frontend/`).
 - Các hợp đồng tính năng: connection lifecycle, query cancellation, typed cells, bounded result, schema introspection, editable rows, export, backup, audit/confirmation.
 
-### Những phần sẽ bị thay thế
+### Những phần đã bị thay thế (frontend đã archive)
 
-- `frontend/src/App.tsx`, TanStack Router, React providers và toàn bộ component tree.
+- `frontend/src/App.tsx`, TanStack Router, React providers và toàn bộ component tree — nay nằm ở `_archive/frontend/`.
 - shadcn/Radix/Tailwind/CSS tokens.
 - Zustand/TanStack Query bằng một Rust `AppState` và event reducer.
 - `@monaco-editor/react` bằng editor native (giai đoạn đầu có thể dùng editor đơn giản; không nên cố tái tạo toàn bộ Monaco ngay ngày đầu).
@@ -149,7 +157,7 @@ crates/ui/                   # egui widgets, screens, AppState, reducer
 crates/app/                  # bootstrap, runtime, task bridge, native window
 ```
 
-Tên crate có thể là `db-pro-ui` và `db-pro-app`; không cần đổi crate ngay trong spike. `crates/tauri-app` được giữ trong giai đoạn transitional để React và egui cùng dùng một backend, sau đó xoá khi cutover.
+Tên crate có thể là `db-pro-ui` và `db-pro-app`; không cần đổi crate ngay trong spike. `crates/tauri-app` được giữ trong giai đoạn transitional để đối chiếu parity với frontend đã archive, sau đó xoá khi cutover. Trên thực tế tên crate hiện tại là `db-pro-ui` (`crates/ui`) và `db-pro-native` (`crates/native-app`), với runtime dùng chung ở `db-pro-runtime` (`crates/runtime`).
 
 ### 4.2 Task bridge
 
@@ -351,10 +359,19 @@ Công việc:
 
 ### Phase 9 — Cutover, xoá React/Tauri (1 tuần)
 
-- Chạy parity suite song song trên React và egui cho đến khi đạt ngưỡng.
-- Đổi release binary sang native app.
-- Xoá `frontend/`, `tauri.conf.json` frontend build fields, Tauri plugins không còn dùng, command adapters cũ.
-- Cập nhật README, CI, packaging, release checklist, crash reporting/logging.
+**Đã làm (2026-09-11):**
+
+- React frontend chuyển vào `_archive/frontend/` thay vì xoá hẳn, để còn đối chiếu parity.
+- CI bỏ job frontend; release pipeline build `db-pro-native` thay vì Tauri bundler.
+- README, AGENTS.md, docs kiến trúc, release docs và `plans/` đã cập nhật sang hướng native.
+- `tauri.conf.json` trỏ về frontend đã archive và `crates/tauri-app` được đánh dấu legacy.
+
+**Còn lại:**
+
+- Chạy parity suite trên flow native cho đến khi đạt ngưỡng.
+- Xoá hẳn `crates/tauri-app`, Tauri plugins không còn dùng, và các command adapter cũ.
+- Xoá `_archive/frontend/` khi không còn cần đối chiếu parity.
+- Packaging/installer + signing cho native binary (DMG, MSI/NSIS, DEB/RPM/AppImage).
 - Kiểm tra clean checkout build được trên Linux/macOS/Windows.
 
 ## 6. Mapping state và component
@@ -462,7 +479,7 @@ Mỗi PR phải có: scope/known gaps, tests, screenshot hoặc video ngắn c�
 
 ## 12. Câu hỏi cần chốt trước Phase 1
 
-1. “Native” có nghĩa là **egui/eframe thuần, không WebView** không? Kế hoạch này giả định là có.
+1. **Đã chốt (2026-09-11):** “Native” nghĩa là **egui/eframe thuần, không WebView** và không Node runtime. React frontend đã được archive.
 2. SQL editor giai đoạn đầu chấp nhận thiếu completion/diagnostics so với Monaco không?
 3. ER diagram có bắt buộc trong native MVP hay được defer sau cutover?
 4. Có giữ Windows/macOS parity ngay từ đầu, hay Linux-first như baseline hiện tại?
