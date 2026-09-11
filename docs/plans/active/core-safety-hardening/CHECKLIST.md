@@ -40,6 +40,8 @@
 - [x] Add PostgreSQL backup destination reservation regression coverage.
 - [x] Publish SQLite backups without replacing a raced destination.
 - [x] Add SQLite backup publish race regression coverage.
+- [x] Make SQL statement splitting aware of comments, quoted identifiers, and dollar quotes.
+- [x] Add PostgreSQL lexical-boundary regression coverage.
 - [x] Run formatting, check, clippy, targeted tests, and workspace tests.
 - [x] Self-review changed files and confirm no UI/native files changed.
 - [ ] Record PostgreSQL live evidence as pending unless an actual provider is exercised.

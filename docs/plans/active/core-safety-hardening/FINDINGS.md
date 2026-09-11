@@ -249,3 +249,15 @@ artifact even though the initial preflight reported a free path.
 
 Decision: publish the temporary snapshot with an atomic no-overwrite hard-link and
 only remove the temporary name after the destination link succeeds.
+
+## P2 — SQL statement boundary handling misses PostgreSQL lexical forms
+
+`reject_multi_statement` and `split_statements` only protected single-quoted
+strings. Semicolons inside quoted identifiers, comments, or PostgreSQL dollar-quoted
+function/DO bodies were therefore treated as statement separators. This could reject
+valid single statements or split a function body into unrelated commands before
+transaction classification.
+
+Decision: use one byte-aware splitter that skips single/double quotes, nested block
+comments, line comments, and dollar-quoted bodies, and reuse it for single-statement
+validation.

@@ -59,6 +59,8 @@ without changing the native UI or adding product features.
     existing backup artifact to be overwritten.
 23. SQLite backup checks destination existence before snapshot creation but uses
     replacement `rename()` at publish time, leaving a race window.
+24. SQL statement boundary handling only understands single-quoted strings and
+    mishandles comments, quoted identifiers, and PostgreSQL dollar-quoted bodies.
 
 ## Acceptance criteria
 
@@ -88,5 +90,7 @@ without changing the native UI or adding product features.
   processes and removes incomplete output after a failed command.
 - SQLite backup publishes through an atomic no-overwrite operation and preserves a
   destination that appears during snapshot creation.
+- Single- and multi-statement SQL validation uses one lexical splitter that preserves
+  semicolons inside comments, quoted identifiers, and dollar-quoted bodies.
 - PostgreSQL and SQLite unit/integration coverage is updated independently where the
   behavior differs.
