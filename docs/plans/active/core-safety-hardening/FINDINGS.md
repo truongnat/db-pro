@@ -452,3 +452,14 @@ and indexes.
 Decision: make table DDL generation provider-aware. SQLite embeds named foreign
 keys in `CREATE TABLE` and uses unqualified local object names; PostgreSQL keeps
 the existing post-create constraint statements.
+
+## P1 — Reconstructed table DDL drops CHECK constraints
+
+Both providers populate `IntrospectResult::check_constraints`, but
+`SchemaService::get_table_ddl` did not select or emit those constraints.
+
+Impact: applying the generated table script could recreate a table without its
+original validation rules, allowing rows that the source database rejected.
+
+Decision: select constraints belonging to the requested table and emit them as
+named inline `CONSTRAINT ... CHECK ...` definitions in the reconstructed table.

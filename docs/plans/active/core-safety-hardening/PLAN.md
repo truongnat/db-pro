@@ -91,6 +91,8 @@ without changing the native UI or adding product features.
     checking the provider capability, so SQLite can reach a PostgreSQL role API.
 38. Table DDL reconstruction always emits PostgreSQL-style foreign-key and
     schema-qualified statements, so a SQLite table script cannot be executed.
+39. Table DDL reconstruction ignores introspected CHECK constraints, so a
+    recreated table can lose data-validation invariants.
 
 ## Acceptance criteria
 
@@ -152,5 +154,7 @@ without changing the native UI or adding product features.
   the provider manager; unsupported SQLite operations return a clear core error.
 - Table DDL reconstruction emits executable SQLite foreign-key and index/table
   qualification syntax while preserving the existing PostgreSQL form.
+- Table DDL reconstruction preserves introspected CHECK constraints for both
+  PostgreSQL and SQLite.
 - PostgreSQL and SQLite unit/integration coverage is updated independently where the
   behavior differs.

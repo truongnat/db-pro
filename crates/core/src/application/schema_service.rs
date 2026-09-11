@@ -3,7 +3,7 @@ use std::sync::Arc;
 use crate::domain::connection::{ConnectionConfig, ConnectionId, DriverType};
 use crate::domain::error::DbError;
 use crate::domain::safety::{validate_against_policy, ConnectionSafetyPolicy};
-use crate::domain::schema::{ForeignKey, IntrospectResult, TableInfo, Trigger};
+use crate::domain::schema::{CheckConstraint, ForeignKey, IntrospectResult, TableInfo, Trigger};
 use crate::ports::{ConnectionRepository, DbConnector, IntrospectionCache};
 
 use super::registry::ConnectionRegistry;
@@ -154,6 +154,13 @@ impl SchemaService {
             .ok_or_else(|| DbError::NotFound(format!("table or view {schema}.{table}")))?
             .clone();
 
+        let check_constraints: Vec<_> = introspect
+            .check_constraints
+            .iter()
+            .filter(|constraint| constraint.schema == schema && constraint.table_name == table)
+            .cloned()
+            .collect();
+
         let columns: Vec<_> = introspect
             .columns
             .into_iter()
@@ -192,7 +199,7 @@ impl SchemaService {
         };
 
         let driver = self.connection_config(connection_id).await?.driver;
-        let mut ddl = build_create_table_ddl(&info, driver);
+        let mut ddl = build_create_table_ddl(&info, driver, &check_constraints);
         for trigger in &triggers {
             ddl.push_str(&format_trigger_ddl(trigger));
             ddl.push('\n');
@@ -277,20 +284,27 @@ fn qualify_name(schema: &str, name: &str) -> String {
     }
 }
 
-fn build_create_table_ddl(info: &TableInfo, driver: DriverType) -> String {
+fn build_create_table_ddl(info: &TableInfo, driver: DriverType, check_constraints: &[CheckConstraint]) -> String {
     let qualified = qualify_name_for_driver(driver, &info.table.schema, &info.table.name);
-    let mut definitions = Vec::new();
+    let foreign_keys = group_foreign_keys_for_ddl(&info.foreign_keys);
+    let definitions = table_definitions(info, driver, check_constraints, &foreign_keys);
+    let mut ddl = format!("CREATE TABLE {qualified} (\n{}\n);\n", definitions.join(",\n"));
 
-    for col in &info.columns {
-        let mut definition = format!("    {} {}", quote_identifier(&col.name), col.data_type);
-        if !col.nullable {
-            definition.push_str(" NOT NULL");
-        }
-        if let Some(ref default) = col.default {
-            definition.push_str(&format!(" DEFAULT {default}"));
-        }
-        definitions.push(definition);
+    append_index_ddl(&mut ddl, info, driver);
+    if driver == DriverType::Postgres {
+        append_postgres_foreign_keys(&mut ddl, &qualified, &foreign_keys);
     }
+
+    ddl
+}
+
+fn table_definitions(
+    info: &TableInfo,
+    driver: DriverType,
+    check_constraints: &[CheckConstraint],
+    foreign_keys: &[ForeignKeyDdlGroup<'_>],
+) -> Vec<String> {
+    let mut definitions: Vec<_> = info.columns.iter().map(format_column_definition).collect();
 
     if let Some(ref pk) = info.primary_key {
         definitions.push(format!(
@@ -298,46 +312,66 @@ fn build_create_table_ddl(info: &TableInfo, driver: DriverType) -> String {
             quote_columns(&pk.columns.iter().map(String::as_str).collect::<Vec<_>>())
         ));
     }
+    definitions.extend(check_constraints.iter().map(format_check_constraint));
 
-    let foreign_keys = group_foreign_keys_for_ddl(&info.foreign_keys);
     if driver == DriverType::SQLite {
-        for fk in &foreign_keys {
-            let to_qualified = qualify_name_for_driver(driver, fk.to_schema, fk.to_table);
-            let from_columns = quote_columns(&fk.from_columns);
-            let to_columns = quote_columns(&fk.to_columns);
-            definitions.push(format!(
-                "    CONSTRAINT {} FOREIGN KEY ({from_columns}) REFERENCES {to_qualified} ({to_columns})",
-                quote_identifier(fk.name),
-            ));
-        }
+        definitions.extend(foreign_keys.iter().map(format_sqlite_foreign_key));
     }
 
-    let mut ddl = format!("CREATE TABLE {qualified} (\n{}\n);\n", definitions.join(",\n"));
+    definitions
+}
 
-    for idx in &info.indexes {
-        let unique = if idx.unique { "UNIQUE " } else { "" };
-        let index_target = qualify_name_for_driver(driver, &info.table.schema, &info.table.name);
-        let cols = quote_columns(&idx.columns.iter().map(String::as_str).collect::<Vec<_>>());
+fn format_column_definition(column: &crate::domain::schema::Column) -> String {
+    let mut definition = format!("    {} {}", quote_identifier(&column.name), column.data_type);
+    if !column.nullable {
+        definition.push_str(" NOT NULL");
+    }
+    if let Some(ref default) = column.default {
+        definition.push_str(&format!(" DEFAULT {default}"));
+    }
+    definition
+}
+
+fn format_check_constraint(constraint: &CheckConstraint) -> String {
+    format!(
+        "    CONSTRAINT {} {}",
+        quote_identifier(&constraint.name),
+        check_constraint_definition(constraint),
+    )
+}
+
+fn format_sqlite_foreign_key(foreign_key: &ForeignKeyDdlGroup<'_>) -> String {
+    let to_qualified = qualify_name_for_driver(DriverType::SQLite, foreign_key.to_schema, foreign_key.to_table);
+    let from_columns = quote_columns(&foreign_key.from_columns);
+    let to_columns = quote_columns(&foreign_key.to_columns);
+    format!(
+        "    CONSTRAINT {} FOREIGN KEY ({from_columns}) REFERENCES {to_qualified} ({to_columns})",
+        quote_identifier(foreign_key.name),
+    )
+}
+
+fn append_index_ddl(ddl: &mut String, info: &TableInfo, driver: DriverType) {
+    let index_target = qualify_name_for_driver(driver, &info.table.schema, &info.table.name);
+    for index in &info.indexes {
+        let unique = if index.unique { "UNIQUE " } else { "" };
+        let cols = quote_columns(&index.columns.iter().map(String::as_str).collect::<Vec<_>>());
         ddl.push_str(&format!(
             "CREATE {unique}INDEX {} ON {index_target} ({cols});\n",
-            quote_identifier(&idx.name)
+            quote_identifier(&index.name)
         ));
     }
+}
 
-    if driver == DriverType::Postgres {
-        for fk in foreign_keys {
-            let to_qualified = qualify_name(fk.to_schema, fk.to_table);
-            let from_columns = quote_columns(&fk.from_columns);
-            let to_columns = quote_columns(&fk.to_columns);
-
-            ddl.push_str(&format!(
-                "ALTER TABLE {qualified} ADD CONSTRAINT {} FOREIGN KEY ({from_columns}) REFERENCES {to_qualified} ({to_columns});\n",
-                quote_identifier(fk.name),
-            ));
-        }
+fn append_postgres_foreign_keys(ddl: &mut String, qualified_table: &str, foreign_keys: &[ForeignKeyDdlGroup<'_>]) {
+    for foreign_key in foreign_keys {
+        let to_qualified = qualify_name(foreign_key.to_schema, foreign_key.to_table);
+        let from_columns = quote_columns(&foreign_key.from_columns);
+        let to_columns = quote_columns(&foreign_key.to_columns);
+        ddl.push_str(&format!(
+            "ALTER TABLE {qualified_table} ADD CONSTRAINT {} FOREIGN KEY ({from_columns}) REFERENCES {to_qualified} ({to_columns});\n",
+            quote_identifier(foreign_key.name),
+        ));
     }
-
-    ddl
 }
 
 fn qualify_name_for_driver(driver: DriverType, schema: &str, name: &str) -> String {
@@ -354,6 +388,19 @@ fn quote_columns(columns: &[&str]) -> String {
         .map(|column| quote_identifier(column))
         .collect::<Vec<_>>()
         .join(", ")
+}
+
+fn check_constraint_definition(constraint: &CheckConstraint) -> String {
+    if constraint
+        .definition
+        .trim_start()
+        .to_ascii_uppercase()
+        .starts_with("CHECK")
+    {
+        constraint.definition.clone()
+    } else {
+        format!("CHECK ({})", constraint.definition)
+    }
 }
 
 fn format_trigger_ddl(trigger: &Trigger) -> String {
@@ -699,6 +746,12 @@ mod tests {
         }
         introspection.primary_keys[0].schema = "main".into();
         introspection.indexes[0].schema = "main".into();
+        introspection.check_constraints = vec![CheckConstraint {
+            name: "users_check_0".into(),
+            table_name: "users".into(),
+            schema: "main".into(),
+            definition: "id > 0".into(),
+        }];
         introspection.foreign_keys = vec![ForeignKey {
             name: "users_fk_0".into(),
             from_table: "users".into(),
@@ -723,6 +776,7 @@ mod tests {
 
         assert!(ddl.contains("CREATE TABLE \"users\""));
         assert!(ddl.contains("CONSTRAINT \"users_fk_0\" FOREIGN KEY (\"id\") REFERENCES \"parents\" (\"id\")"));
+        assert!(ddl.contains("CONSTRAINT \"users_check_0\" CHECK (id > 0)"));
         assert!(ddl.contains("CREATE UNIQUE INDEX \"idx_email\" ON \"users\""));
         assert!(!ddl.contains("ADD CONSTRAINT"));
         assert!(!ddl.contains("\"main\"."));
@@ -758,7 +812,7 @@ mod tests {
             }],
         };
 
-        let ddl = build_create_table_ddl(&info, DriverType::Postgres);
+        let ddl = build_create_table_ddl(&info, DriverType::Postgres, &[]);
         assert!(ddl.contains("CREATE TABLE \"users\""));
         assert!(ddl.contains("REFERENCES \"parents\""));
 
@@ -806,7 +860,7 @@ mod tests {
             }],
         };
 
-        let ddl = build_create_table_ddl(&info, DriverType::Postgres);
+        let ddl = build_create_table_ddl(&info, DriverType::Postgres, &[]);
         assert!(ddl.contains("FOREIGN KEY (\"user_id\") REFERENCES \"public\".\"users\" (\"id\")"));
     }
 
@@ -913,7 +967,7 @@ mod tests {
             }],
         };
 
-        let ddl = build_create_table_ddl(&info, DriverType::Postgres);
+        let ddl = build_create_table_ddl(&info, DriverType::Postgres, &[]);
         assert_eq!(ddl.matches("ADD CONSTRAINT \"fk_parent\"").count(), 1);
         assert!(ddl.contains(
             "FOREIGN KEY (\"tenant_id\", \"parent_id\") REFERENCES \"public\".\"parent\" (\"tenant_id\", \"id\")"

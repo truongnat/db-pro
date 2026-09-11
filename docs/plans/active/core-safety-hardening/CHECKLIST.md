@@ -69,6 +69,8 @@
 - [x] Add SQLite user-management capability regression coverage.
 - [x] Make reconstructed table DDL provider-aware for SQLite foreign keys and names.
 - [x] Add SQLite table-DDL regression coverage for inline foreign keys and indexes.
+- [x] Preserve introspected CHECK constraints in reconstructed table DDL.
+- [x] Add regression coverage for CHECK constraint reconstruction.
 - [x] Run formatting, check, clippy, targeted tests, and workspace tests.
 - [x] Self-review changed files and confirm no UI/native files changed.
 - [x] Record PostgreSQL live fixture evidence; SSH-tunnel and native UI runtime evidence remain explicitly pending.
