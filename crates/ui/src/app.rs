@@ -33,6 +33,12 @@ mod connection_view;
 mod diagram_view;
 #[path = "events.rs"]
 mod events;
+#[path = "explorer_details.rs"]
+mod explorer_details;
+#[path = "explorer_folders.rs"]
+mod explorer_folders;
+#[path = "explorer_tree.rs"]
+mod explorer_tree;
 #[path = "explorer_view.rs"]
 mod explorer_view;
 #[path = "navigation_view.rs"]

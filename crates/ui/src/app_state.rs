@@ -2,6 +2,9 @@ use super::*;
 
 const THEME_STORAGE_VERSION: &str = "light-first-v1";
 
+/// Query seeded into the editor and the first query tab at startup.
+const DEFAULT_QUERY: &str = "select\n  id, name, status\nfrom customers\nlimit 100;";
+
 impl DbProApp {
     pub fn with_task_bridge(task_bridge: TaskBridge) -> Self {
         Self::with_task_bridge_and_storage(task_bridge, None)
@@ -101,12 +104,12 @@ impl Default for DbProApp {
             bottom_panel_open: false,
             bottom_panel_height: 180.0,
             sidebar_open_before_agent: None,
-            query_text: "select\n  id, name, status\nfrom customers\nlimit 100;".to_owned(),
+            query_text: DEFAULT_QUERY.to_owned(),
             welcome_prompt: String::new(),
             selected_query: String::new(),
             query_documents: vec![QueryDocument {
                 title: "Query 1".to_owned(),
-                content: "select\n  id, name, status\nfrom customers\nlimit 100;".to_owned(),
+                content: DEFAULT_QUERY.to_owned(),
             }],
             active_query_document: 0,
             editor_search: String::new(),
@@ -163,15 +166,7 @@ impl Default for DbProApp {
             connections: Vec::new(),
             saved_queries: Vec::new(),
             query_folders: Vec::new(),
-            schema: UiSchemaSummary {
-                schemas: Vec::new(),
-                tables: Vec::new(),
-                columns: Vec::new(),
-                table_details: Vec::new(),
-                views: Vec::new(),
-                triggers: Vec::new(),
-                functions: Vec::new(),
-            },
+            schema: UiSchemaSummary::default(),
             selected_schema: None,
             explorer_search: String::new(),
             schema_error: None,

@@ -118,15 +118,30 @@ long_functions() { # $1 = files, $2 = regex mở đầu hàm
     intest { next }
     {
       if (!infn && $0 ~ ENVIRON["START_RE"] && $0 ~ /\{[[:space:]]*$/) {
-        infn = 1; depth = 0; startline = FNR; name = $0
+        infn = 1; depth = 0; startline = FNR; name = $0; body = ""; sig = $0
         sub(/^[[:space:]]+/, "", name); if (length(name) > 70) name = substr(name, 1, 70) "…"
       }
       if (infn) {
+        body = body " " $0
         n = gsub(/\{/, "{"); m = gsub(/\}/, "}")
         depth += n - m
         if (depth <= 0) {
           len = FNR - startline + 1
-          if (len > warn) printf "%s:%d  (%d dòng)%s  %s\n", FILENAME, startline, len, (len > fail ? "  [FAIL]" : ""), name
+          if (len > warn) {
+            # Hàm khởi tạo (Default::default / new / from_*) chỉ LIỆT KÊ field trong một
+            # struct literal — độ dài ở đây không phải tín hiệu phức tạp, và Rust không có
+            # cách nào để lấy derived Default khi đã tự viết impl Default (nên không thể
+            # tách literal ra thành nhiều hàm). Đánh dấu [data-literal] = cảnh báo, không chặn.
+            is_ctor = (sig ~ /fn[[:space:]]+(default|new|from_[a-z0-9_]*)[[:space:]]*\(/)
+            has_flow = (body ~ /(^|[^a-zA-Z_0-9])(if|for|while|loop|match)[[:space:](]/) || (body ~ /=>/)
+            is_literal = (body ~ /Self[[:space:]]*\{/)
+            tag = ""
+            if (len > fail) {
+              if (is_ctor && is_literal && !has_flow) tag = "  [data-literal]"
+              else tag = "  [FAIL]"
+            }
+            printf "%s:%d  (%d dòng)%s  %s\n", FILENAME, startline, len, tag, name
+          }
           infn = 0
         }
       }
