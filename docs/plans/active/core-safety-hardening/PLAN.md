@@ -57,6 +57,8 @@ without changing the native UI or adding product features.
     mutation detector.
 22. PostgreSQL backup passes its destination directly to `pg_dump -f`, allowing an
     existing backup artifact to be overwritten.
+23. SQLite backup checks destination existence before snapshot creation but uses
+    replacement `rename()` at publish time, leaving a race window.
 
 ## Acceptance criteria
 
@@ -84,5 +86,7 @@ without changing the native UI or adding product features.
   path while preserving query-result routing.
 - PostgreSQL backup refuses an existing destination before starting external
   processes and removes incomplete output after a failed command.
+- SQLite backup publishes through an atomic no-overwrite operation and preserves a
+  destination that appears during snapshot creation.
 - PostgreSQL and SQLite unit/integration coverage is updated independently where the
   behavior differs.

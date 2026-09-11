@@ -38,6 +38,8 @@
 - [x] Add row-producing mutating CTE transaction-routing regression coverage.
 - [x] Reserve PostgreSQL backup destinations without overwriting existing artifacts.
 - [x] Add PostgreSQL backup destination reservation regression coverage.
+- [x] Publish SQLite backups without replacing a raced destination.
+- [x] Add SQLite backup publish race regression coverage.
 - [x] Run formatting, check, clippy, targeted tests, and workspace tests.
 - [x] Self-review changed files and confirm no UI/native files changed.
 - [ ] Record PostgreSQL live evidence as pending unless an actual provider is exercised.

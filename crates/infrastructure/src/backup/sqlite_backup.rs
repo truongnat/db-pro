@@ -21,6 +21,28 @@ fn temporary_path(path: &Path) -> PathBuf {
     PathBuf::from(value)
 }
 
+async fn publish_backup_without_overwrite(source: &Path, destination: &Path) -> Result<(), DbError> {
+    tokio::fs::hard_link(source, destination).await.map_err(|error| {
+        if error.kind() == std::io::ErrorKind::AlreadyExists {
+            DbError::Validation(format!("backup output already exists: {}", destination.display()))
+        } else {
+            DbError::Internal(format!(
+                "failed to publish SQLite backup {}: {error}",
+                destination.display()
+            ))
+        }
+    })?;
+
+    if let Err(error) = tokio::fs::remove_file(source).await {
+        tracing::warn!(
+            path = %source.display(),
+            %error,
+            "failed to remove temporary SQLite backup after publishing"
+        );
+    }
+    Ok(())
+}
+
 fn validate_sqlite_file(path: &Path) -> Result<(), DbError> {
     let connection = rusqlite::Connection::open_with_flags(path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)
         .map_err(crate::error::from_rusqlite)?;
@@ -75,9 +97,9 @@ impl BackupEngine for SqliteBackupEngine {
             return Err(error);
         }
 
-        if let Err(error) = tokio::fs::rename(&temporary, dst).await {
+        if let Err(error) = publish_backup_without_overwrite(&temporary, dst).await {
             let _ = tokio::fs::remove_file(&temporary).await;
-            return Err(DbError::Internal(format!("failed to publish SQLite backup: {error}")));
+            return Err(error);
         }
 
         let metadata = tokio::fs::metadata(dst)
@@ -215,5 +237,26 @@ mod tests {
         assert!(source.exists());
 
         std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn backup_publish_does_not_overwrite_existing_destination() -> Result<(), Box<dyn std::error::Error>> {
+        let root = std::env::temp_dir().join(format!("db-pro-backup-race-{}", Uuid::new_v4()));
+        tokio::fs::create_dir_all(&root).await?;
+        let source = root.join("temporary.db");
+        let destination = root.join("backup.db");
+        tokio::fs::write(&source, b"new backup").await?;
+        tokio::fs::write(&destination, b"old backup").await?;
+
+        let error = match publish_backup_without_overwrite(&source, &destination).await {
+            Ok(()) => return Err("existing backup destination was overwritten".into()),
+            Err(error) => error,
+        };
+
+        assert!(matches!(error, DbError::Validation(message) if message.contains("already exists")));
+        assert_eq!(tokio::fs::read(&destination).await?, b"old backup");
+        assert_eq!(tokio::fs::read(&source).await?, b"new backup");
+        tokio::fs::remove_dir_all(root).await?;
+        Ok(())
     }
 }

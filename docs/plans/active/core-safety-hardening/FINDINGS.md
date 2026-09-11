@@ -237,3 +237,15 @@ of an older recovery artifact.
 
 Decision: reserve the destination with atomic `create_new` before starting the SSH
 tunnel or `pg_dump`, and remove the reserved file when the command fails.
+
+## P1 — SQLite backup publish can overwrite a raced destination
+
+`SqliteBackupEngine` checked `dst.exists()` before creating a temporary snapshot,
+but published the result with `rename()`. A destination created after that check
+could be replaced during publish.
+
+Impact: a concurrent backup or file operation could lose an existing recovery
+artifact even though the initial preflight reported a free path.
+
+Decision: publish the temporary snapshot with an atomic no-overwrite hard-link and
+only remove the temporary name after the destination link succeeds.

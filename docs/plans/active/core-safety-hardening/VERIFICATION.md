@@ -7,7 +7,7 @@
 - `cargo check --workspace` — PASS.
 - `cargo clippy --workspace --all-targets -- -D warnings` — PASS.
 - `cargo test -p db-pro-core -p db-pro-infrastructure` — PASS: 203 core unit
-  tests, 45 infrastructure unit tests, 27 SQLite integration tests, 10 PostgreSQL
+  tests, 46 infrastructure unit tests, 27 SQLite integration tests, 10 PostgreSQL
   integration tests ignored.
 - `cargo test -p db-pro-core backup_factory_receives_ssh_configuration` — PASS.
 - `cargo test -p db-pro-core --lib application::connection_service::tests::disconnect_failure_keeps_handle_for_retry -- --exact` — PASS.
@@ -27,9 +27,11 @@
 - `cargo test -p db-pro-core execute_multi_routes_select_then_update` — PASS.
 - `cargo test -p db-pro-infrastructure backup::pg_dump::tests` — PASS: 2 tests,
   including existing-destination rejection and external command timeout.
+- `cargo test -p db-pro-infrastructure backup::sqlite_backup::tests` — PASS: 2
+  tests, including no-overwrite publish behavior.
 - External PostgreSQL command timeout regression — PASS on Unix via
   `external_command_timeout_returns_query_timeout`.
-- `cargo test --workspace` — PASS: 203 core unit, 45 infrastructure unit, 27
+- `cargo test --workspace` — PASS: 203 core unit, 46 infrastructure unit, 27
   SQLite integration, 10 PostgreSQL integration tests ignored, plus all runtime,
   native, UI, schema regression, and doc tests passed.
 - Targeted regression `sqlite_query_timeout_interrupts_vm_and_actor_recovers` — PASS.
