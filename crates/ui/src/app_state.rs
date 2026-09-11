@@ -1,6 +1,6 @@
 use super::*;
 
-const THEME_STORAGE_VERSION: &str = "dark-first-v3";
+const THEME_STORAGE_VERSION: &str = "light-first-v1";
 
 impl DbProApp {
     pub fn with_task_bridge(task_bridge: TaskBridge) -> Self {
@@ -18,9 +18,9 @@ impl DbProApp {
                     storage
                         .get_string("dbpro.native.dark-mode")
                         .map(|value| value == "true")
-                        .unwrap_or(true)
+                        .unwrap_or(false)
                 } else {
-                    true
+                    false
                 };
             app.reduce_motion = storage
                 .get_string("dbpro.native.reduce-motion")
@@ -87,7 +87,7 @@ impl Default for DbProApp {
         let offline_info = offline_provider.info();
         Self {
             theme: DbProTheme::default(),
-            dark_mode: true,
+            dark_mode: false,
             reduce_motion: false,
             activity: Activity::Explorer,
             active_tab: WorkspaceTab::Welcome,

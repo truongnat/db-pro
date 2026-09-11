@@ -393,7 +393,7 @@ impl eframe::App for DbProApp {
         if let Ok(documents) = serde_json::to_string(&self.query_documents) {
             storage.set_string("dbpro.native.query-documents", documents);
         }
-        storage.set_string("dbpro.native.theme-version", "dark-first-v3".to_owned());
+        storage.set_string("dbpro.native.theme-version", "light-first-v1".to_owned());
         storage.set_string("dbpro.native.dark-mode", self.dark_mode.to_string());
         storage.set_string("dbpro.native.reduce-motion", self.reduce_motion.to_string());
         storage.set_string("dbpro.native.sidebar-width", self.sidebar_width.to_string());

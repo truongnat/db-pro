@@ -34,7 +34,7 @@ pub struct DbProTheme {
 
 impl Default for DbProTheme {
     fn default() -> Self {
-        Self::dark()
+        Self::light()
     }
 }
 
