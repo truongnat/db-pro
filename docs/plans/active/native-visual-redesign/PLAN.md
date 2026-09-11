@@ -31,7 +31,8 @@ behavior.
 
 ### Wave 2 — productive surface polish (current change)
 
-- keep the native window maximized by default, with the existing inner-size fallback;
+- keep the native window maximized by default even after eframe restores an older frame, with the
+  existing inner-size fallback;
 - make the ER empty state read as the same canvas as a populated relationship map;
 - wrap Agent context badges so narrow panels do not clip the active database context;
 - keep Transfers and Monitor placeholders compact and intentional instead of rendering a full-width
@@ -67,8 +68,8 @@ behavior.
 
 ## Acceptance for Wave 2
 
-- The default native launch requests a maximized window and still has a usable 1280×800 inner-size
-  fallback when the host does not honor maximization.
+- The default native launch requests and reapplies a maximized window after persisted eframe state,
+  while retaining a usable 1280×800 inner-size fallback when the host does not honor maximization.
 - Empty ER, Agent context, Transfers and Monitor surfaces remain legible at the current narrow
   native panel width and at the captured wide viewport.
 - Rust fmt/check/clippy/tests pass for the changed workspace and fresh runtime screenshots confirm

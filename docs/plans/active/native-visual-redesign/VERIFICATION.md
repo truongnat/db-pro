@@ -25,7 +25,10 @@ regression follow-up remain open. The baseline screenshot and source evidence ar
 - Settings → Dark and activity-rail → Explorer were exercised through the real macOS window;
   the resulting screenshots show the selected state, grid canvas and context-driven connection actions.
 - The native entrypoint now requests a maximized window by default with a 1280×800 inner-size
-  fallback for environments that do not honor the maximize request.
+  fallback for environments that do not honor the maximize request, and reapplies maximize after
+  eframe restores persisted window geometry.
+- Fresh launch after the reapply fix reported a full-monitor 2473×1409 window in the macOS harness;
+  Orca capture: `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/1e95a1ff-8f08-4952-8613-7ee3c17684ba-screenshot.png`.
 - Orca's macOS accessibility snapshot exposes only the native window controls for this egui
   surface, so widget-level verification is screenshot-based rather than accessibility-tree-based.
 

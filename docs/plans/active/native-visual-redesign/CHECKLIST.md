@@ -22,7 +22,8 @@
 
 ## Wave 2 — productive surface polish
 
-- [x] Keep the native window maximized by default with a safe inner-size fallback.
+- [x] Keep the native window maximized by default, including after persisted eframe frame restore,
+  with a safe inner-size fallback.
 - [x] Paint the ER empty state with the same grid language as the populated canvas.
 - [x] Wrap Agent context badges instead of clipping them in a horizontal strip.
 - [x] Center the Transfers and Monitor placeholder badge at its intrinsic width.

@@ -130,6 +130,10 @@ fn main() -> Result<(), Box<dyn Error>> {
         options,
         Box::new(|creation_context| {
             DbProTheme::install_fonts(&creation_context.egui_ctx);
+            // Re-apply the product default after eframe restores its persisted window frame.
+            creation_context
+                .egui_ctx
+                .send_viewport_cmd(egui::ViewportCommand::Maximized(true));
             Ok(Box::new(DbProApp::with_task_bridge_and_storage(
                 bridge,
                 creation_context.storage,

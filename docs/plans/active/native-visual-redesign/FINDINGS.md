@@ -40,6 +40,10 @@ database commands, DTOs and provider behavior remain out of scope.
 - Fresh launch after the native default-maximized change reported a top-aligned 1280×832
   window in the macOS harness, with the 1280×800 content viewport intact.
 
+The 1280×832 result was traced to eframe restoring its persisted non-maximized frame after the
+initial viewport request. The native entrypoint now sends `ViewportCommand::Maximized(true)` after
+that restore. A fresh launch of the rebuilt binary reported a full-monitor 2473×1409 window.
+
 ## Wave 2 audit findings
 
 ### P2 — ER empty canvas lost the graph-grid language
