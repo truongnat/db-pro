@@ -1,4 +1,4 @@
-use std::sync::mpsc;
+use std::sync::{mpsc, Arc};
 use std::time::Instant;
 
 use db_pro_core::domain::error::DbError;
@@ -62,11 +62,18 @@ pub enum SqliteCommand {
 #[derive(Clone)]
 pub struct SqliteHandle {
     sender: mpsc::Sender<SqliteCommand>,
+    interrupt_handle: Arc<rusqlite::InterruptHandle>,
 }
 
 impl SqliteHandle {
     /// Execute a parameterised query, returning a full `QueryResult`.
-    pub async fn execute(&self, sql: String, params: Vec<QueryParam>, max_rows: u64) -> Result<QueryResult, DbError> {
+    pub async fn execute(
+        &self,
+        sql: String,
+        params: Vec<QueryParam>,
+        max_rows: u64,
+        timeout_ms: u64,
+    ) -> Result<QueryResult, DbError> {
         let (tx, rx) = oneshot::channel();
         let cmd = SqliteCommand::Execute {
             sql,
@@ -80,12 +87,11 @@ impl SqliteHandle {
         })
         .await
         .map_err(|e| DbError::Internal(format!("spawn_blocking join error: {e}")))?;
-        rx.await
-            .map_err(|e| DbError::Internal(format!("oneshot recv error: {e}")))?
+        self.await_result(rx, timeout_ms).await
     }
 
     /// Run full schema introspection.
-    pub async fn introspect(&self) -> Result<IntrospectResult, DbError> {
+    pub async fn introspect(&self, timeout_ms: u64) -> Result<IntrospectResult, DbError> {
         let (tx, rx) = oneshot::channel();
         let cmd = SqliteCommand::Introspect { responder: tx };
         let sender = self.sender.clone();
@@ -94,12 +100,11 @@ impl SqliteHandle {
         })
         .await
         .map_err(|e| DbError::Internal(format!("spawn_blocking join error: {e}")))?;
-        rx.await
-            .map_err(|e| DbError::Internal(format!("oneshot recv error: {e}")))?
+        self.await_result(rx, timeout_ms).await
     }
 
     /// Return an `EXPLAIN QUERY PLAN` result as JSON.
-    pub async fn explain(&self, sql: String) -> Result<serde_json::Value, DbError> {
+    pub async fn explain(&self, sql: String, timeout_ms: u64) -> Result<serde_json::Value, DbError> {
         let (tx, rx) = oneshot::channel();
         let cmd = SqliteCommand::Explain { sql, responder: tx };
         let sender = self.sender.clone();
@@ -108,8 +113,7 @@ impl SqliteHandle {
         })
         .await
         .map_err(|e| DbError::Internal(format!("spawn_blocking join error: {e}")))?;
-        rx.await
-            .map_err(|e| DbError::Internal(format!("oneshot recv error: {e}")))?
+        self.await_result(rx, timeout_ms).await
     }
 
     /// Execute a raw SQL string with already-stringified params (for meta CRUD).
@@ -144,7 +148,7 @@ impl SqliteHandle {
             .map_err(|e| DbError::Internal(format!("oneshot recv error: {e}")))?
     }
 
-    /// Execute a parameterized statement and return rows affected.
+    /// Execute a parameterized metadata statement and return rows affected.
     pub async fn execute_param(&self, sql: String, params: Vec<QueryParam>) -> Result<usize, DbError> {
         let (tx, rx) = oneshot::channel();
         let cmd = SqliteCommand::ExecuteStatementParam {
@@ -162,8 +166,30 @@ impl SqliteHandle {
             .map_err(|e| DbError::Internal(format!("oneshot recv error: {e}")))?
     }
 
+    /// Execute a parameterized database statement with a bounded timeout.
+    pub async fn execute_param_with_timeout(
+        &self,
+        sql: String,
+        params: Vec<QueryParam>,
+        timeout_ms: u64,
+    ) -> Result<usize, DbError> {
+        let (tx, rx) = oneshot::channel();
+        let cmd = SqliteCommand::ExecuteStatementParam {
+            sql,
+            params,
+            responder: tx,
+        };
+        let sender = self.sender.clone();
+        tokio::task::spawn_blocking(move || {
+            let _ = sender.send(cmd);
+        })
+        .await
+        .map_err(|e| DbError::Internal(format!("spawn_blocking join error: {e}")))?;
+        self.await_result(rx, timeout_ms).await
+    }
+
     /// Execute multiple statements atomically inside a transaction.
-    pub async fn execute_batch(&self, statements: Vec<String>) -> Result<u64, DbError> {
+    pub async fn execute_batch(&self, statements: Vec<String>, timeout_ms: u64) -> Result<u64, DbError> {
         let (tx, rx) = oneshot::channel();
         let cmd = SqliteCommand::ExecuteBatch {
             statements,
@@ -175,8 +201,7 @@ impl SqliteHandle {
         })
         .await
         .map_err(|e| DbError::Internal(format!("spawn_blocking join error: {e}")))?;
-        rx.await
-            .map_err(|e| DbError::Internal(format!("oneshot recv error: {e}")))?
+        self.await_result(rx, timeout_ms).await
     }
 
     pub async fn execute_transaction(
@@ -184,6 +209,7 @@ impl SqliteHandle {
         statements: Vec<String>,
         read_statements: Vec<bool>,
         max_rows: u64,
+        timeout_ms: u64,
     ) -> Result<Vec<TransactionStatementResult>, TransactionFailure> {
         let (tx, rx) = oneshot::channel();
         let cmd = SqliteCommand::ExecuteTransaction {
@@ -202,11 +228,37 @@ impl SqliteHandle {
             results: Vec::new(),
             error: DbError::Internal(format!("spawn_blocking join error: {e}")),
         })?;
-        rx.await.map_err(|e| TransactionFailure {
-            statement_index: 0,
-            results: Vec::new(),
-            error: DbError::Internal(format!("oneshot recv error: {e}")),
-        })?
+        match tokio::time::timeout(std::time::Duration::from_millis(timeout_ms), rx).await {
+            Ok(Ok(result)) => result,
+            Ok(Err(error)) => Err(TransactionFailure {
+                statement_index: 0,
+                results: Vec::new(),
+                error: DbError::Internal(format!("oneshot recv error: {error}")),
+            }),
+            Err(_) => {
+                self.interrupt_handle.interrupt();
+                Err(TransactionFailure {
+                    statement_index: 0,
+                    results: Vec::new(),
+                    error: DbError::QueryTimeout { timeout_ms },
+                })
+            }
+        }
+    }
+
+    async fn await_result<T>(
+        &self,
+        receiver: oneshot::Receiver<Result<T, DbError>>,
+        timeout_ms: u64,
+    ) -> Result<T, DbError> {
+        match tokio::time::timeout(std::time::Duration::from_millis(timeout_ms), receiver).await {
+            Ok(Ok(result)) => result,
+            Ok(Err(error)) => Err(DbError::Internal(format!("oneshot recv error: {error}"))),
+            Err(_) => {
+                self.interrupt_handle.interrupt();
+                Err(DbError::QueryTimeout { timeout_ms })
+            }
+        }
     }
 
     /// Tell the actor thread to shut down.
@@ -232,6 +284,7 @@ impl SqliteActor {
     /// and return a clonable handle for sending commands.
     pub fn spawn(db_path: &str) -> Result<SqliteHandle, DbError> {
         let conn = rusqlite::Connection::open(db_path).map_err(crate::error::from_rusqlite)?;
+        let interrupt_handle = Arc::new(conn.get_interrupt_handle());
 
         let (sender, receiver) = mpsc::channel();
 
@@ -239,7 +292,10 @@ impl SqliteActor {
             Self { conn }.run(receiver);
         });
 
-        Ok(SqliteHandle { sender })
+        Ok(SqliteHandle {
+            sender,
+            interrupt_handle,
+        })
     }
 
     // -- main loop ----------------------------------------------------------

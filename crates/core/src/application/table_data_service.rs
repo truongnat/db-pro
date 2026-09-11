@@ -99,7 +99,11 @@ impl TableDataService {
         let handle = self.resolve_handle(connection_id)?;
         let dialect = self.connector.dialect(&handle)?;
         let (sql, params) = sql_builder::build_insert(dialect.as_ref(), schema, table, columns, values)?;
-        self.connector.execute(&handle, &sql, &params).await
+        let affected_rows = self.connector.execute(&handle, &sql, &params).await?;
+        if affected_rows == 0 {
+            return Err(DbError::NotFound(format!("row not found in {schema}.{table}")));
+        }
+        Ok(affected_rows)
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -126,7 +130,11 @@ impl TableDataService {
         let dialect = self.connector.dialect(&handle)?;
         let (sql, params) =
             sql_builder::build_update(dialect.as_ref(), schema, table, columns, values, pk_columns, pk_values)?;
-        self.connector.execute(&handle, &sql, &params).await
+        let affected_rows = self.connector.execute(&handle, &sql, &params).await?;
+        if affected_rows == 0 {
+            return Err(DbError::NotFound(format!("row not found in {schema}.{table}")));
+        }
+        Ok(affected_rows)
     }
 
     pub async fn delete_row(
@@ -149,7 +157,11 @@ impl TableDataService {
         let handle = self.resolve_handle(connection_id)?;
         let dialect = self.connector.dialect(&handle)?;
         let (sql, params) = sql_builder::build_delete(dialect.as_ref(), schema, table, pk_columns, pk_values)?;
-        self.connector.execute(&handle, &sql, &params).await
+        let affected_rows = self.connector.execute(&handle, &sql, &params).await?;
+        if affected_rows == 0 {
+            return Err(DbError::NotFound(format!("row not found in {schema}.{table}")));
+        }
+        Ok(affected_rows)
     }
 
     fn resolve_handle(
@@ -332,6 +344,52 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(affected, 1);
+    }
+
+    #[tokio::test]
+    async fn update_row_returns_not_found_when_no_row_is_affected() {
+        let (conn_id, registry) = setup();
+
+        let mut connector = MockDbConnector::new();
+        connector
+            .expect_dialect()
+            .returning(|_| Ok(Box::new(QuestionDialect) as Box<dyn SqlDialect>));
+        connector.expect_execute().returning(|_, _, _| Ok(0));
+
+        let svc = TableDataService::new(Box::new(connector), registry, Box::new(mock_connections()));
+        let error = svc
+            .update_row(
+                &conn_id,
+                "public",
+                "users",
+                &["name".into()],
+                &[CellValue::Text("bob".into())],
+                &["id".into()],
+                &[CellValue::Int64(999)],
+            )
+            .await
+            .expect_err("zero-row update must not be reported as success");
+
+        assert!(matches!(error, DbError::NotFound(_)));
+    }
+
+    #[tokio::test]
+    async fn delete_row_returns_not_found_when_no_row_is_affected() {
+        let (conn_id, registry) = setup();
+
+        let mut connector = MockDbConnector::new();
+        connector
+            .expect_dialect()
+            .returning(|_| Ok(Box::new(QuestionDialect) as Box<dyn SqlDialect>));
+        connector.expect_execute().returning(|_, _, _| Ok(0));
+
+        let svc = TableDataService::new(Box::new(connector), registry, Box::new(mock_connections()));
+        let error = svc
+            .delete_row(&conn_id, "public", "users", &["id".into()], &[CellValue::Int64(999)])
+            .await
+            .expect_err("zero-row delete must not be reported as success");
+
+        assert!(matches!(error, DbError::NotFound(_)));
     }
 
     #[tokio::test]

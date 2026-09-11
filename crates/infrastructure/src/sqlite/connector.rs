@@ -24,6 +24,7 @@ impl SqlDialect for SqliteDialect {
 pub struct ActorEntry {
     pub handle: SqliteHandle,
     pub max_rows: u64,
+    pub query_timeout_ms: u64,
 }
 
 pub struct SQLiteConnector {
@@ -59,6 +60,7 @@ impl DbConnector for SQLiteConnector {
         let entry = ActorEntry {
             handle,
             max_rows: config.max_rows,
+            query_timeout_ms: config.query_timeout_ms,
         };
         self.actors.write().await.insert(id, entry);
         Ok(ConnectionHandle::new(id))
@@ -79,7 +81,7 @@ impl DbConnector for SQLiteConnector {
             .ok_or_else(|| DbError::ConnectionFailed("handle not found".into()))?;
         entry
             .handle
-            .execute("SELECT 1".into(), vec![], entry.max_rows)
+            .execute("SELECT 1".into(), vec![], entry.max_rows, entry.query_timeout_ms)
             .await
             .map(|_| ())?;
         drop(actors);
@@ -91,7 +93,10 @@ impl DbConnector for SQLiteConnector {
         let entry = actors
             .get(&handle.0)
             .ok_or_else(|| DbError::ConnectionFailed("handle not found".into()))?;
-        entry.handle.execute(sql.into(), params.to_vec(), entry.max_rows).await
+        entry
+            .handle
+            .execute(sql.into(), params.to_vec(), entry.max_rows, entry.query_timeout_ms)
+            .await
     }
 
     async fn execute(&self, handle: &ConnectionHandle, sql: &str, params: &[QueryParam]) -> Result<u64, DbError> {
@@ -99,7 +104,10 @@ impl DbConnector for SQLiteConnector {
         let entry = actors
             .get(&handle.0)
             .ok_or_else(|| DbError::ConnectionFailed("handle not found".into()))?;
-        let affected = entry.handle.execute_param(sql.into(), params.to_vec()).await?;
+        let affected = entry
+            .handle
+            .execute_param_with_timeout(sql.into(), params.to_vec(), entry.query_timeout_ms)
+            .await?;
         Ok(affected as u64)
     }
 
@@ -108,7 +116,10 @@ impl DbConnector for SQLiteConnector {
         let entry = actors
             .get(&handle.0)
             .ok_or_else(|| DbError::ConnectionFailed("handle not found".into()))?;
-        entry.handle.execute_batch(statements.to_vec()).await
+        entry
+            .handle
+            .execute_batch(statements.to_vec(), entry.query_timeout_ms)
+            .await
     }
 
     async fn execute_transaction(
@@ -125,7 +136,12 @@ impl DbConnector for SQLiteConnector {
         })?;
         entry
             .handle
-            .execute_transaction(statements.to_vec(), read_statements.to_vec(), entry.max_rows)
+            .execute_transaction(
+                statements.to_vec(),
+                read_statements.to_vec(),
+                entry.max_rows,
+                entry.query_timeout_ms,
+            )
             .await
     }
 
@@ -134,7 +150,7 @@ impl DbConnector for SQLiteConnector {
         let entry = actors
             .get(&handle.0)
             .ok_or_else(|| DbError::ConnectionFailed("handle not found".into()))?;
-        entry.handle.introspect().await
+        entry.handle.introspect(entry.query_timeout_ms).await
     }
 
     async fn explain(&self, handle: &ConnectionHandle, sql: &str) -> Result<serde_json::Value, DbError> {
@@ -142,7 +158,7 @@ impl DbConnector for SQLiteConnector {
         let entry = actors
             .get(&handle.0)
             .ok_or_else(|| DbError::ConnectionFailed("handle not found".into()))?;
-        entry.handle.explain(sql.into()).await
+        entry.handle.explain(sql.into(), entry.query_timeout_ms).await
     }
 
     fn dialect(&self, _handle: &ConnectionHandle) -> Result<Box<dyn SqlDialect>, DbError> {

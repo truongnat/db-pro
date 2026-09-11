@@ -273,6 +273,9 @@ impl QueryService {
             .get(connection_id)
             .ok_or_else(|| DbError::ConnectionFailed(format!("connection {connection_id} is not active")))?;
 
+        let policy = self.safety_policy_for(connection_id).await?;
+        validate_against_policy(sql, &policy).map_err(DbError::QueryFailed)?;
+
         self.connector.explain(&handle, sql).await
     }
 
@@ -528,6 +531,29 @@ mod tests {
         repo
     }
 
+    fn mock_connections_read_only() -> MockConnectionRepository {
+        let mut repo = MockConnectionRepository::new();
+        repo.expect_get_config().returning(|_id| {
+            Ok(Some(crate::domain::connection::ConnectionConfig {
+                name: "readonly".into(),
+                host: "localhost".into(),
+                port: 5432,
+                database: "testdb".into(),
+                username: "user".into(),
+                driver: crate::domain::connection::DriverType::Postgres,
+                ssl_mode: crate::domain::connection::SslMode::Disable,
+                ssh_tunnel: None,
+                query_timeout_ms: 30_000,
+                max_rows: 500,
+                color: None,
+                tags: vec![],
+                group: None,
+                readonly: true,
+            }))
+        });
+        repo
+    }
+
     #[tokio::test]
     async fn execute_success() {
         let conn_id = ConnectionId::new();
@@ -559,6 +585,31 @@ mod tests {
         let svc = build_service(MockDbConnector::new(), Arc::new(ConnectionRegistry::new()));
         let result = svc.execute(&ConnectionId::new(), "SELECT 1", &[], None, None).await;
         assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn explain_rejects_mutating_explain_analyze_on_read_only_connection() {
+        let conn_id = ConnectionId::new();
+        let registry = Arc::new(ConnectionRegistry::new());
+        registry.register(conn_id, ConnectionHandle(1));
+
+        let mut connector = MockDbConnector::new();
+        connector.expect_explain().never();
+
+        let svc = QueryService::new(
+            Box::new(connector),
+            Box::new(MockQueryHistoryRepository::new()),
+            Box::new(MockSavedQueryRepository::new()),
+            Box::new(MockRunConfigRepository::new()),
+            registry,
+            Box::new(mock_connections_read_only()),
+        );
+
+        let error = svc
+            .explain(&conn_id, "EXPLAIN ANALYZE DELETE FROM users WHERE id = 1")
+            .await
+            .expect_err("mutating EXPLAIN ANALYZE must be rejected");
+        assert!(matches!(error, DbError::QueryFailed(message) if message.contains("read-only")));
     }
 
     #[tokio::test]

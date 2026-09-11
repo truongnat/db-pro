@@ -4,6 +4,7 @@ Canonical lifecycle: `BACKLOG → PLANNING → IMPLEMENTING → REVIEW → RUNTI
 
 | Feature | Branch | PR | State | Notes |
 |---|---|---|---|---|
+| Core Safety Hardening | feature/core-safety-hardening | — | IMPLEMENTING | Explain policy, zero-row mutation errors, SQLite interrupt timeout, and SSH host-key verification; provider live evidence pending |
 | S1 Columns | main | 741a18d | RUNTIME_VERIFY | implementation complete; PG introspection via CI; UI evidence pending |
 | S2 Indexes | main | aa77ece | RUNTIME_VERIFY | PR merged; PG introspection via CI; UI evidence pending |
 | S3 Relations | main | #7 (7facb95) | RUNTIME_VERIFY | merged; composite FK identity + DDL + UI grouping; CI integrated PASS; PG live + UI pending |

@@ -46,8 +46,6 @@ impl SshTunnel {
         cmd.args([
             "-N",
             "-o",
-            "StrictHostKeyChecking=no",
-            "-o",
             "ServerAliveInterval=30",
             "-o",
             "ServerAliveCountMax=3",
@@ -66,8 +64,6 @@ impl SshTunnel {
             sshpass.args(["-e"]);
             sshpass.arg("ssh").args([
                 "-N",
-                "-o",
-                "StrictHostKeyChecking=no",
                 "-o",
                 "ServerAliveInterval=30",
                 "-o",
@@ -103,8 +99,6 @@ impl SshTunnel {
 
         let mut cmd = Command::new("ssh");
         cmd.args([
-            "-o",
-            "StrictHostKeyChecking=no",
             "-o",
             "ConnectTimeout=10",
             "-o",

@@ -6,6 +6,7 @@
 //! Run with: `cargo test --package db-pro-infrastructure --test integration`
 
 use db_pro_core::domain::connection::{ConnectionConfig, DriverType, SslMode};
+use db_pro_core::domain::error::DbError;
 use db_pro_core::ports::DbConnector;
 use db_pro_infrastructure::sqlite::connector::SQLiteConnector;
 
@@ -87,6 +88,40 @@ async fn test_connection_succeeds() {
         readonly: false,
     };
     connector.test_connection(&config, "").await.unwrap();
+}
+
+#[tokio::test]
+async fn sqlite_query_timeout_interrupts_vm_and_actor_recovers() {
+    let connector = SQLiteConnector::new();
+    let config = ConnectionConfig {
+        name: "timeout-test".into(),
+        host: String::new(),
+        port: 0,
+        database: ":memory:".into(),
+        username: String::new(),
+        driver: DriverType::SQLite,
+        ssl_mode: SslMode::Disable,
+        ssh_tunnel: None,
+        query_timeout_ms: 1,
+        max_rows: 100,
+        color: None,
+        tags: vec![],
+        group: None,
+        readonly: false,
+    };
+    let handle = connector.connect(&config, "").await.unwrap();
+
+    let query = "WITH RECURSIVE numbers(value) AS (\
+        SELECT 1 UNION ALL SELECT value + 1 FROM numbers WHERE value < 100000\
+    ) SELECT count(*) FROM numbers first_numbers CROSS JOIN numbers second_numbers";
+    let error = connector
+        .query(&handle, query, &[])
+        .await
+        .expect_err("the deliberately expensive query should time out");
+    assert!(matches!(error, DbError::QueryTimeout { timeout_ms: 1 }));
+
+    let recovery = connector.query(&handle, "SELECT 1", &[]).await.unwrap();
+    assert_eq!(recovery.row_count, 1);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
