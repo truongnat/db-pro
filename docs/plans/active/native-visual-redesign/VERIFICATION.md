@@ -2,7 +2,7 @@
 
 ## Current state
 
-Wave 1 implementation and runtime screenshot pass are complete on `feature/native-visual-redesign`.
+Wave 1–4 implementation and runtime screenshot passes are complete on `feature/native-visual-redesign`.
 No overall feature completion claim has been made: independent review and any provider/runtime
 regression follow-up remain open. The baseline screenshot and source evidence are recorded in
 `FINDINGS.md`.
@@ -71,5 +71,23 @@ regression follow-up remain open. The baseline screenshot and source evidence ar
 
 The provider matrix remains asymmetric by evidence: SQLite has the Wave 3 runtime walkthrough;
 PostgreSQL remains presentation-only for this wave because no live fixture was authorized/configured.
-The overall plan remains `IMPLEMENTING`: query/editor polish, keyboard/DPI/clipboard/file-picker
+The overall plan remains `IMPLEMENTING`: query/editor toolbar polish, keyboard/DPI/clipboard/file-picker
 smoke coverage, wider provider walkthroughs and independent review are still open.
+
+## Wave 4 evidence
+
+| Check | Result | Evidence |
+|---|---|---|
+| `cargo fmt --all -- --check` | PASS | 2026-09-11, after Wave 4 edits |
+| `cargo check --workspace --offline` | PASS | 2026-09-11 |
+| `cargo clippy --workspace --offline --all-targets -- -D warnings` | PASS | 2026-09-11 |
+| `cargo test --workspace --offline` | PASS | 2026-09-11; 186 core, 39 infrastructure, 25 SQLite integration, 56 UI, 21 Tauri, 4 runtime, 1 native; 10 PostgreSQL live tests ignored without fixture env |
+| `cargo build --locked -p db-pro-native --offline` | PASS | 2026-09-11, rebuilt native binary for runtime verification |
+| `bash .skills/clean-code/scripts/clean-code-scan.sh --diff` | PASS | 2026-09-11; 33 checks passed, 0 warnings/fails; existing macOS xargs compatibility warnings emitted |
+| Native Welcome status context | PASS | Fresh full-window screenshot `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/ea9729df-8832-45f4-b8b5-d149cebd0d92-screenshot.png`; bottom-right shows `Workspace` |
+| Native Table Structure status context | PASS | Fresh full-window screenshot `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/d65f21eb-62c2-4859-84d5-4fbed683fad0-screenshot.png`; bottom-right shows `Table Structure` |
+| Native Data Editor status context | PASS | Fresh SQLite screenshot `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/2b40685c-dbc7-4c63-a3d0-e440e3402868-screenshot.png`; bottom-right shows `Data Editor` and no SQL line/encoding metadata |
+
+Wave 4 is presentation-only and applies independently of the connected provider. PostgreSQL
+runtime remains pending for the existing provider matrix; no PostgreSQL fixture was changed or
+assumed for this status-bar check.

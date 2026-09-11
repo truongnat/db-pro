@@ -337,6 +337,25 @@ fn selected_connection_is_not_shown_as_connected() {
 }
 
 #[test]
+fn editor_status_is_scoped_to_the_query_workspace() {
+    let mut app = DbProApp {
+        active_tab: WorkspaceTab::Query,
+        ..Default::default()
+    };
+    assert!(app.shows_editor_status());
+    assert_eq!(app.statusbar_context_label(), "SQL Editor");
+
+    app.active_tab = WorkspaceTab::Table;
+    assert!(!app.shows_editor_status());
+    assert_eq!(app.statusbar_context_label(), "Table Structure");
+    app.table_view = TableView::Data;
+    assert_eq!(app.statusbar_context_label(), "Data Editor");
+    app.active_tab = WorkspaceTab::Diagram;
+    assert!(!app.shows_editor_status());
+    assert_eq!(app.statusbar_context_label(), "ER Diagram");
+}
+
+#[test]
 fn provider_capabilities_gate_provider_specific_actions() {
     let sqlite = UiConnectionSummary {
         id: "sqlite".to_owned(),

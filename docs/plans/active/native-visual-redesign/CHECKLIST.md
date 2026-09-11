@@ -41,3 +41,11 @@
 - [x] Verify the SQLite connection → schema → Data Editor → Query Results runtime path.
 - [x] Capture fresh full-window screenshots for the Wave 3 surfaces.
 - [x] Run the full Rust quality gates and clean-code diff scan after Wave 3 edits.
+
+## Wave 4 — context-aware status bar
+
+- [x] Scope line/column and encoding metadata to the Query workspace.
+- [x] Show context labels for non-query workspaces instead of SQL editor metadata.
+- [x] Add a native regression test for the editor-status visibility invariant.
+- [x] Capture fresh native runtime evidence for the Data Editor status bar.
+- [x] Re-run the full Rust quality gates and clean-code diff scan after Wave 4 edits.

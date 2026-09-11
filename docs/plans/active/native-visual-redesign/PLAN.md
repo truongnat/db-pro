@@ -38,7 +38,7 @@ behavior.
 - keep Transfers and Monitor placeholders compact and intentional instead of rendering a full-width
   unfinished-state stripe.
 
-### Wave 3 — full-window data surfaces (current change)
+### Wave 3 — full-window data surfaces (completed in prior change)
 
 - keep the default full-window launch while making shared Data Editor and Query Results grids use
   the available viewport instead of collapsing to the content width;
@@ -49,10 +49,17 @@ behavior.
 - center native connection/delete/insert dialogs and the welcome workspace content when egui restores
   persisted positions or the app opens on a maximized monitor.
 
+### Wave 4 — context-aware status bar (current change)
+
+- keep SQL editor metadata (`Ln`, `Col`, encoding) scoped to the Query workspace;
+- show a truthful workspace context for Data Editor, Schema Object, ER Diagram and Welcome surfaces;
+- preserve connection, provider, duration and runtime-error status reporting without changing commands
+  or provider behavior.
+
 ### Follow-up waves
 
 - query/editor toolbar reduction and editor-first layout;
-- data-grid/status-bar interaction polish, including keyboard, clipboard and resize smoke coverage;
+- data-grid interaction polish, including keyboard, clipboard and resize smoke coverage;
 - ER canvas interaction controls;
 - native runtime screenshots at all required dimensions and keyboard/DPI/clipboard/file-picker
   smoke coverage.
@@ -94,3 +101,9 @@ behavior.
 - Native dialogs and the welcome content remain centered on a fresh maximized launch.
 - Rust fmt/check/clippy/tests pass and runtime evidence covers SQLite schema, Data Editor, Query
   Results and the centered Insert row dialog.
+
+## Acceptance for Wave 4
+
+- SQL editor-only status metadata is absent from non-query workspaces.
+- Data Editor, Schema Object, ER Diagram and Welcome surfaces expose a truthful native context label.
+- Rust fmt/check/clippy/tests pass and a fresh native screenshot confirms the Data Editor context.

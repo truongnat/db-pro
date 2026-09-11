@@ -88,6 +88,14 @@ visually empty and made the grid read like a debug preview. Untouched columns no
 available viewport, manual divider resizing is preserved, and the table area reserves a stable
 height for sparse result sets.
 
+### P2 — SQL editor status leaked into non-editor workspaces
+
+The native status bar always rendered `Ln 1, Col 1 · UTF-8`, including Data Editor, Schema Object,
+ER Diagram and Welcome. On a real SQLite Data Editor screenshot this presented stale editor metadata
+while the user was working with rows, which weakens context and makes the shell look unfinished.
+The smallest safe fix is presentation-only: keep the editor metadata on Query and use a workspace
+context label everywhere else.
+
 ## Wave 3 runtime evidence
 
 - Fresh maximized native launch and centered welcome: `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/2f485840-c8ff-4106-8731-45fe03ea1ad8-screenshot.png`.

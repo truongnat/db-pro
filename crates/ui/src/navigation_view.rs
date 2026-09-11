@@ -117,8 +117,16 @@ impl DbProApp {
                         {
                             self.bottom_panel_open = !self.bottom_panel_open;
                         }
-                        ui.label(RichText::new("UTF-8").small().color(self.theme.text_muted));
-                        ui.label(RichText::new("Ln 1, Col 1").small().color(self.theme.text_muted));
+                        if self.shows_editor_status() {
+                            ui.label(RichText::new("UTF-8").small().color(self.theme.text_muted));
+                            ui.label(RichText::new("Ln 1, Col 1").small().color(self.theme.text_muted));
+                        } else {
+                            ui.label(
+                                RichText::new(self.statusbar_context_label())
+                                    .small()
+                                    .color(self.theme.text_muted),
+                            );
+                        }
                     });
                 });
             });

@@ -552,6 +552,28 @@ impl DbProApp {
         (Icon::Circle, self.theme.warning, "Not connected")
     }
 
+    pub(super) fn shows_editor_status(&self) -> bool {
+        self.active_tab == WorkspaceTab::Query
+    }
+
+    pub(super) fn statusbar_context_label(&self) -> &'static str {
+        match self.active_tab {
+            WorkspaceTab::Welcome => "Workspace",
+            WorkspaceTab::Query => "SQL Editor",
+            WorkspaceTab::Table => match self.table_view {
+                TableView::Structure => "Table Structure",
+                TableView::Data => "Data Editor",
+                TableView::Indexes => "Table Indexes",
+                TableView::Relations => "Table Relations",
+                TableView::Constraints => "Table Constraints",
+                TableView::Dependencies => "Table Dependencies",
+                TableView::Ddl => "Table DDL",
+            },
+            WorkspaceTab::SchemaObject => "Schema Object",
+            WorkspaceTab::Diagram => "ER Diagram",
+        }
+    }
+
     fn connection_indicator(&self, connection: &UiConnectionSummary) -> (Icon, Color32) {
         let is_active = self.active_connection_id.as_deref() == Some(connection.id.as_str());
         let is_connected = is_active && self.connected;
