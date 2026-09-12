@@ -93,14 +93,14 @@ fn translate_query_command(command: UiCommand) -> Option<RuntimeCommand> {
             request_id,
             connection_id,
         } => Some(RuntimeCommand::ListQueryFolders {
-            request_id: RuntimeRequestId(request_id.0),
+            request_id: runtime_request_id(request_id),
             connection_id,
         }),
         UiCommand::ListSavedQueries {
             request_id,
             connection_id,
         } => Some(RuntimeCommand::ListSavedQueries {
-            request_id: RuntimeRequestId(request_id.0),
+            request_id: runtime_request_id(request_id),
             connection_id,
         }),
         UiCommand::SaveQuery {
@@ -110,7 +110,7 @@ fn translate_query_command(command: UiCommand) -> Option<RuntimeCommand> {
             sql,
             folder,
         } => Some(RuntimeCommand::SaveQuery {
-            request_id: RuntimeRequestId(request_id.0),
+            request_id: runtime_request_id(request_id),
             connection_id,
             name,
             sql,
@@ -121,21 +121,21 @@ fn translate_query_command(command: UiCommand) -> Option<RuntimeCommand> {
             connection_id,
             name,
         } => Some(RuntimeCommand::CreateQueryFolder {
-            request_id: RuntimeRequestId(request_id.0),
+            request_id: runtime_request_id(request_id),
             connection_id,
             name,
         }),
         UiCommand::RenameSavedQuery { request_id, id, name } => Some(RuntimeCommand::RenameSavedQuery {
-            request_id: RuntimeRequestId(request_id.0),
+            request_id: runtime_request_id(request_id),
             id,
             name,
         }),
         UiCommand::DeleteSavedQuery { request_id, id } => Some(RuntimeCommand::DeleteSavedQuery {
-            request_id: RuntimeRequestId(request_id.0),
+            request_id: runtime_request_id(request_id),
             id,
         }),
         UiCommand::DeleteQueryFolder { request_id, id } => Some(RuntimeCommand::DeleteQueryFolder {
-            request_id: RuntimeRequestId(request_id.0),
+            request_id: runtime_request_id(request_id),
             id,
         }),
         _ => None,
@@ -149,7 +149,7 @@ fn translate_table_command(command: UiCommand) -> Option<RuntimeCommand> {
             connection_id,
             sql,
         } => Some(RuntimeCommand::ExecuteDdl {
-            request_id: RuntimeRequestId(request_id.0),
+            request_id: runtime_request_id(request_id),
             connection_id,
             sql,
         }),
@@ -169,7 +169,7 @@ fn translate_table_command(command: UiCommand) -> Option<RuntimeCommand> {
                 .map(ui_cell_to_domain)
                 .collect::<Option<Vec<_>>>()?;
             Some(RuntimeCommand::UpdateTableRow {
-                request_id: RuntimeRequestId(request_id.0),
+                request_id: runtime_request_id(request_id),
                 connection_id,
                 schema,
                 table,
@@ -192,7 +192,7 @@ fn translate_table_command(command: UiCommand) -> Option<RuntimeCommand> {
                 .map(ui_cell_to_domain)
                 .collect::<Option<Vec<_>>>()?;
             Some(RuntimeCommand::DeleteTableRow {
-                request_id: RuntimeRequestId(request_id.0),
+                request_id: runtime_request_id(request_id),
                 connection_id,
                 schema,
                 table,
@@ -210,7 +210,7 @@ fn translate_table_command(command: UiCommand) -> Option<RuntimeCommand> {
         } => {
             let values = values.into_iter().map(ui_cell_to_domain).collect::<Option<Vec<_>>>()?;
             Some(RuntimeCommand::InsertTableRow {
-                request_id: RuntimeRequestId(request_id.0),
+                request_id: runtime_request_id(request_id),
                 connection_id,
                 schema,
                 table,
@@ -229,7 +229,7 @@ fn translate_schema_command(command: UiCommand) -> Option<RuntimeCommand> {
             prompt,
             context,
         } => Some(RuntimeCommand::RunAgent {
-            request_id: RuntimeRequestId(request_id.0),
+            request_id: runtime_request_id(request_id),
             prompt,
             context: db_pro_runtime::AgentContext {
                 connection_name: context.connection_name,
@@ -250,7 +250,7 @@ fn translate_schema_command(command: UiCommand) -> Option<RuntimeCommand> {
             connection_id,
             force_refresh,
         } => Some(RuntimeCommand::IntrospectSchema {
-            request_id: RuntimeRequestId(request_id.0),
+            request_id: runtime_request_id(request_id),
             connection_id,
             force_refresh,
         }),
@@ -260,7 +260,7 @@ fn translate_schema_command(command: UiCommand) -> Option<RuntimeCommand> {
             schema,
             table,
         } => Some(RuntimeCommand::LoadTableInfo {
-            request_id: RuntimeRequestId(request_id.0),
+            request_id: runtime_request_id(request_id),
             connection_id,
             schema,
             table,
@@ -271,7 +271,7 @@ fn translate_schema_command(command: UiCommand) -> Option<RuntimeCommand> {
             schema,
             table,
         } => Some(RuntimeCommand::LoadTableDdl {
-            request_id: RuntimeRequestId(request_id.0),
+            request_id: runtime_request_id(request_id),
             connection_id,
             schema,
             table,
@@ -286,7 +286,7 @@ fn translate_schema_command(command: UiCommand) -> Option<RuntimeCommand> {
             filter,
             sort,
         } => Some(RuntimeCommand::LoadTableData {
-            request_id: RuntimeRequestId(request_id.0),
+            request_id: runtime_request_id(request_id),
             connection_id,
             schema,
             table,
@@ -302,12 +302,12 @@ fn translate_schema_command(command: UiCommand) -> Option<RuntimeCommand> {
 fn translate_connection_command(command: UiCommand) -> Option<RuntimeCommand> {
     match command {
         UiCommand::ListConnections { request_id } => Some(RuntimeCommand::ListConnections {
-            request_id: RuntimeRequestId(request_id.0),
+            request_id: runtime_request_id(request_id),
         }),
         UiCommand::CreateConnection { request_id, draft } => {
             let (config, password) = draft_to_domain(draft)?;
             Some(RuntimeCommand::CreateConnection {
-                request_id: RuntimeRequestId(request_id.0),
+                request_id: runtime_request_id(request_id),
                 config,
                 password,
             })
@@ -319,7 +319,7 @@ fn translate_connection_command(command: UiCommand) -> Option<RuntimeCommand> {
         } => {
             let (config, password) = draft_to_domain(draft)?;
             Some(RuntimeCommand::UpdateConnection {
-                request_id: RuntimeRequestId(request_id.0),
+                request_id: runtime_request_id(request_id),
                 connection_id,
                 config,
                 password: Some(password),
@@ -328,7 +328,7 @@ fn translate_connection_command(command: UiCommand) -> Option<RuntimeCommand> {
         UiCommand::TestConnection { request_id, draft } => {
             let (config, password) = draft_to_domain(draft)?;
             Some(RuntimeCommand::TestConnection {
-                request_id: RuntimeRequestId(request_id.0),
+                request_id: runtime_request_id(request_id),
                 config,
                 password,
             })
@@ -337,14 +337,14 @@ fn translate_connection_command(command: UiCommand) -> Option<RuntimeCommand> {
             request_id,
             connection_id,
         } => Some(RuntimeCommand::DeleteConnection {
-            request_id: RuntimeRequestId(request_id.0),
+            request_id: runtime_request_id(request_id),
             connection_id,
         }),
         UiCommand::Connect {
             request_id,
             connection_id,
         } => Some(RuntimeCommand::Connect {
-            request_id: RuntimeRequestId(request_id.0),
+            request_id: runtime_request_id(request_id),
             connection_id,
         }),
         _ => None,
@@ -358,7 +358,7 @@ fn translate_execution_command(command: UiCommand) -> Option<RuntimeCommand> {
             connection_id,
             sql,
         } => Some(RuntimeCommand::ExecuteQuery {
-            request_id: RuntimeRequestId(request_id.0),
+            request_id: runtime_request_id(request_id),
             connection_id,
             sql,
         }),
@@ -367,7 +367,7 @@ fn translate_execution_command(command: UiCommand) -> Option<RuntimeCommand> {
             connection_id,
             sql,
         } => Some(RuntimeCommand::ExplainQuery {
-            request_id: RuntimeRequestId(request_id.0),
+            request_id: runtime_request_id(request_id),
             connection_id,
             sql,
         }),
@@ -377,7 +377,7 @@ fn translate_execution_command(command: UiCommand) -> Option<RuntimeCommand> {
             output_path,
             custom_format,
         } => Some(RuntimeCommand::Backup {
-            request_id: RuntimeRequestId(request_id.0),
+            request_id: runtime_request_id(request_id),
             options: db_pro_core::domain::backup::BackupOptions {
                 connection_id,
                 output_path,
@@ -396,7 +396,7 @@ fn translate_execution_command(command: UiCommand) -> Option<RuntimeCommand> {
             input_path,
             custom_format,
         } => Some(RuntimeCommand::Restore {
-            request_id: RuntimeRequestId(request_id.0),
+            request_id: runtime_request_id(request_id),
             options: db_pro_core::domain::backup::RestoreOptions {
                 connection_id,
                 input_path,
@@ -408,7 +408,7 @@ fn translate_execution_command(command: UiCommand) -> Option<RuntimeCommand> {
             },
         }),
         UiCommand::CancelQuery { request_id } => Some(RuntimeCommand::CancelQuery {
-            request_id: RuntimeRequestId(request_id.0),
+            request_id: runtime_request_id(request_id),
         }),
         _ => None,
     }
@@ -594,6 +594,10 @@ fn ui_request_id(request_id: RuntimeRequestId) -> db_pro_ui::RequestId {
     db_pro_ui::RequestId(request_id.0)
 }
 
+fn runtime_request_id(id: RequestId) -> RuntimeRequestId {
+    RuntimeRequestId(id.0)
+}
+
 fn translate_table_info_loaded(
     request_id: RuntimeRequestId,
     table_info: db_pro_core::domain::schema::TableInfo,
@@ -723,7 +727,7 @@ fn translate_connections_loaded(
     connections: Vec<db_pro_runtime::ConnectionSummary>,
 ) -> Option<UiEvent> {
     Some(UiEvent::ConnectionsLoaded {
-        request_id: db_pro_ui::RequestId(request_id.0),
+        request_id: ui_request_id(request_id),
         connections: connections
             .into_iter()
             .map(|connection| UiConnectionSummary {
@@ -823,7 +827,7 @@ fn translate_query_folders_loaded(
     folders: Vec<db_pro_runtime::QueryFolderSummary>,
 ) -> Option<UiEvent> {
     Some(UiEvent::QueryFoldersLoaded {
-        request_id: db_pro_ui::RequestId(request_id.0),
+        request_id: ui_request_id(request_id),
         folders: folders
             .into_iter()
             .map(|folder| UiQueryFolderSummary {
@@ -839,7 +843,7 @@ fn translate_saved_queries_loaded(
     queries: Vec<db_pro_runtime::SavedQuerySummary>,
 ) -> Option<UiEvent> {
     Some(UiEvent::SavedQueriesLoaded {
-        request_id: db_pro_ui::RequestId(request_id.0),
+        request_id: ui_request_id(request_id),
         queries: queries
             .into_iter()
             .map(|query| UiSavedQuerySummary {
