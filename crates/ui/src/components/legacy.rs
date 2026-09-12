@@ -48,7 +48,7 @@ pub fn sidebar_frame(theme: DbProTheme) -> Frame {
     Frame {
         fill: theme.surface_panel,
         inner_margin: Margin::symmetric(10.0, 7.0),
-        stroke: Stroke::new(1.0, theme.border_subtle),
+        stroke: Stroke::NONE,
         ..Default::default()
     }
 }

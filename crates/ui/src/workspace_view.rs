@@ -17,15 +17,15 @@ impl DbProApp {
     pub(super) fn draw_workspace_tabs(&mut self, ui: &mut egui::Ui) {
         let modifier = Self::primary_modifier_label();
 
-        egui::Frame {
+        let tab_bar_rect = egui::Frame {
             fill: self.theme.surface_panel,
             inner_margin: egui::Margin {
-                left: SPACE_SM,
-                right: SPACE_SM,
+                left: 4.0,
+                right: 4.0,
                 top: 4.0,
                 bottom: 0.0,
             },
-            stroke: egui::Stroke::new(STROKE_THIN, self.theme.border_subtle),
+            stroke: egui::Stroke::NONE,
             rounding: egui::Rounding::ZERO,
             ..Default::default()
         }

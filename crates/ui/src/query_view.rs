@@ -2,29 +2,34 @@ use super::*;
 
 impl DbProApp {
     pub(super) fn draw_query(&mut self, ui: &mut egui::Ui) {
-        self.refresh_diagnostics();
-        let more_anchor = self.draw_query_header(ui);
-        if self.query_tools_open {
-            if let Some(anchor) = more_anchor {
-                self.draw_query_actions_menu(ui.ctx(), anchor);
-            }
-        }
-        if self.editor_search_open {
-            self.draw_editor_search_bar(ui);
-        }
-        self.draw_query_editor(ui);
-        if self.completion_open {
-            self.draw_sql_completion(ui);
-        }
-        if self.snippets_open {
-            self.draw_sql_snippets(ui);
-        }
-        self.draw_diagnostics(ui);
-        self.draw_output_tabs(ui);
+        ui.add_space(SPACE_SM);
+        egui::Frame::none()
+            .inner_margin(egui::Margin::symmetric(SPACE_MD, 0.0))
+            .show(ui, |ui| {
+                self.refresh_diagnostics();
+                let more_anchor = self.draw_query_header(ui);
+                if self.query_tools_open {
+                    if let Some(anchor) = more_anchor {
+                        self.draw_query_actions_menu(ui.ctx(), anchor);
+                    }
+                }
+                if self.editor_search_open {
+                    self.draw_editor_search_bar(ui);
+                }
+                self.draw_query_editor(ui);
+                if self.completion_open {
+                    self.draw_sql_completion(ui);
+                }
+                if self.snippets_open {
+                    self.draw_sql_snippets(ui);
+                }
+                self.draw_diagnostics(ui);
+                self.draw_output_tabs(ui);
 
-        let result = self.query_result.clone();
-        ui.add_space(8.0);
-        self.draw_output_pane(ui, result.as_ref());
+                let result = self.query_result.clone();
+                ui.add_space(8.0);
+                self.draw_output_pane(ui, result.as_ref());
+            });
     }
 
     /// Query title, connection breadcrumb, run/stop and the overflow button.
