@@ -594,3 +594,20 @@ could target the wrong columns or fail to execute for valid special identifiers.
 Decision: find the index key list and its closing parenthesis while ignoring
 quoted identifiers and literals, then split only on commas outside quotes and
 nested expressions.
+
+## P1 — PostgreSQL introspection swallows metadata decode errors
+
+Several PostgreSQL metadata fields used `try_get(...).unwrap_or_default()` (or
+an equivalent fallback). A NULL value and a real decode/column error were both
+turned into an empty string, so the introspection result could contain an object
+with missing schema, timing, definition, or function metadata while reporting
+success. Live fixture verification also exposed that `pg_trigger.tgenabled` was
+returned as PostgreSQL `CHAR`, which the old fallback hid and the new fallible
+decode correctly surfaced.
+
+Impact: callers may cache or render corrupted schema metadata and later produce
+incorrect DDL without seeing the provider error that caused it.
+
+Decision: decode metadata through fallible helpers, use `Option<String>` only for
+columns that are intentionally nullable, cast the one-character trigger state
+to text at the SQL boundary, and propagate all other row errors as `DbError`.

@@ -114,6 +114,8 @@ without changing the native UI or adding product features.
     indexes, so reconstructed table DDL attempts to recreate a name SQLite owns.
 49. PostgreSQL index-column parsing splits quoted identifiers containing commas,
     producing incorrect metadata and invalid reconstructed index DDL.
+50. PostgreSQL introspection converts metadata decode errors into empty strings,
+    allowing corrupted rows to appear as valid schema metadata.
 
 ## Acceptance criteria
 
@@ -189,6 +191,8 @@ without changing the native UI or adding product features.
   SQLite-owned autoindex names; primary-key autoindexes are not emitted twice.
 - PostgreSQL index introspection parses quoted identifiers and nested expressions
   without treating their commas or parentheses as column-list boundaries.
+- PostgreSQL introspection preserves intentional NULL metadata defaults while
+  propagating row decode/column errors as core errors.
 - Create, update, and both connection-test paths share the same connection
   configuration validation boundary.
 - PostgreSQL and SQLite unit/integration coverage is updated independently where the

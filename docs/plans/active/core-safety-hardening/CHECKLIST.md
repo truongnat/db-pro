@@ -91,6 +91,8 @@
 - [x] Add SQLite introspection and DDL round-trip coverage for UNIQUE autoindexes.
 - [x] Make PostgreSQL index-column parsing quote-aware for special identifiers.
 - [x] Add regression coverage for quoted index identifiers containing commas and parentheses.
+- [x] Stop PostgreSQL metadata decode errors from becoming empty-string metadata.
+- [x] Preserve intentional nullable PostgreSQL metadata while propagating decode failures.
 - [x] Run formatting, check, clippy, targeted tests, and workspace tests.
 - [x] Self-review changed files and confirm no UI/native files changed.
 - [x] Record PostgreSQL live fixture evidence; SSH-tunnel and native UI runtime evidence remain explicitly pending.

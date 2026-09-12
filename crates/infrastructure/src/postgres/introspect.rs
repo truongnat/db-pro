@@ -1,5 +1,6 @@
 use db_pro_core::domain::error::DbError;
 use db_pro_core::domain::schema::*;
+use sqlx::postgres::PgRow;
 use sqlx::Row as _;
 use std::collections::HashSet;
 
@@ -537,6 +538,14 @@ async fn introspect_check_constraints(pool: &sqlx::PgPool) -> Result<Vec<CheckCo
         .collect())
 }
 
+fn required_string(row: &PgRow, column: &str) -> Result<String, DbError> {
+    row.try_get(column).map_err(crate::error::from_sqlx)
+}
+
+fn optional_string(row: &PgRow, column: &str) -> Result<Option<String>, DbError> {
+    row.try_get(column).map_err(crate::error::from_sqlx)
+}
+
 async fn introspect_views(pool: &sqlx::PgPool) -> Result<Vec<View>, DbError> {
     let rows = sqlx::query(
         r#"
@@ -549,21 +558,20 @@ async fn introspect_views(pool: &sqlx::PgPool) -> Result<Vec<View>, DbError> {
     .await
     .map_err(crate::error::from_sqlx)?;
 
-    Ok(rows
-        .into_iter()
-        .map(|row| {
-            let schema: String = row.get("table_schema");
-            let name: String = row.get("table_name");
+    rows.into_iter()
+        .map(|row| -> Result<View, DbError> {
+            let schema = required_string(&row, "table_schema")?;
+            let name = required_string(&row, "table_name")?;
             // view_definition can be NULL for some edge-case views
             // (e.g. information_schema views with insufficient privileges).
-            let definition: String = row.try_get("view_definition").unwrap_or_default();
-            View {
+            let definition = optional_string(&row, "view_definition")?.unwrap_or_default();
+            Ok(View {
                 name,
                 schema,
                 definition,
-            }
+            })
         })
-        .collect())
+        .collect()
 }
 
 async fn introspect_triggers(pool: &sqlx::PgPool) -> Result<Vec<Trigger>, DbError> {
@@ -576,7 +584,7 @@ async fn introspect_triggers(pool: &sqlx::PgPool) -> Result<Vec<Trigger>, DbErro
             t.action_timing,
             t.event_manipulation,
             t.action_statement,
-            COALESCE(pg_t.tgenabled, 'O') AS enabled_flag,
+            COALESCE(pg_t.tgenabled, 'O')::text AS enabled_flag,
             COALESCE(pg_get_functiondef(pg_proc.oid), '') AS function_def
         FROM information_schema.triggers t
         LEFT JOIN (
@@ -595,19 +603,18 @@ async fn introspect_triggers(pool: &sqlx::PgPool) -> Result<Vec<Trigger>, DbErro
     .await
     .map_err(crate::error::from_sqlx)?;
 
-    Ok(rows
-        .into_iter()
-        .map(|row| {
-            let name: String = row.get("trigger_name");
-            let table_name: String = row.try_get("event_object_table").unwrap_or_default();
-            let schema: String = row.try_get("event_object_schema").unwrap_or_default();
-            let timing: String = row.try_get("action_timing").unwrap_or_default();
-            let event: String = row.try_get("event_manipulation").unwrap_or_default();
-            let definition: String = row.try_get("action_statement").unwrap_or_default();
-            let enabled_flag: String = row.try_get("enabled_flag").unwrap_or_else(|_| "O".into());
+    rows.into_iter()
+        .map(|row| -> Result<Trigger, DbError> {
+            let name = required_string(&row, "trigger_name")?;
+            let table_name = optional_string(&row, "event_object_table")?.unwrap_or_default();
+            let schema = optional_string(&row, "event_object_schema")?.unwrap_or_default();
+            let timing = optional_string(&row, "action_timing")?.unwrap_or_default();
+            let event = optional_string(&row, "event_manipulation")?.unwrap_or_default();
+            let definition = optional_string(&row, "action_statement")?.unwrap_or_default();
+            let enabled_flag = optional_string(&row, "enabled_flag")?.unwrap_or_else(|| "O".into());
             let enabled = enabled_flag != "D";
-            let function_def: String = row.try_get("function_def").unwrap_or_default();
-            Trigger {
+            let function_def = optional_string(&row, "function_def")?.unwrap_or_default();
+            Ok(Trigger {
                 name,
                 table_name,
                 schema,
@@ -616,9 +623,9 @@ async fn introspect_triggers(pool: &sqlx::PgPool) -> Result<Vec<Trigger>, DbErro
                 definition,
                 function_def,
                 enabled,
-            }
+            })
         })
-        .collect())
+        .collect()
 }
 
 async fn introspect_functions(pool: &sqlx::PgPool) -> Result<Vec<Function>, DbError> {
@@ -644,23 +651,22 @@ async fn introspect_functions(pool: &sqlx::PgPool) -> Result<Vec<Function>, DbEr
     .await
     .map_err(crate::error::from_sqlx)?;
 
-    Ok(rows
-        .into_iter()
-        .map(|row| {
-            let schema: String = row.get("routine_schema");
-            let name: String = row.get("routine_name");
-            let routine_type: String = row.try_get("routine_type").unwrap_or_default();
-            let data_type: String = row.try_get("data_type").unwrap_or_default();
-            let definition: String = row.try_get("definition").unwrap_or_default();
-            Function {
+    rows.into_iter()
+        .map(|row| -> Result<Function, DbError> {
+            let schema = required_string(&row, "routine_schema")?;
+            let name = required_string(&row, "routine_name")?;
+            let routine_type = required_string(&row, "routine_type")?;
+            let data_type = optional_string(&row, "data_type")?.unwrap_or_default();
+            let definition = required_string(&row, "definition")?;
+            Ok(Function {
                 name,
                 schema,
                 routine_type,
                 data_type,
                 definition,
-            }
+            })
         })
-        .collect())
+        .collect()
 }
 
 #[cfg(test)]
