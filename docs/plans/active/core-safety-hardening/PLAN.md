@@ -132,6 +132,8 @@ without changing the native UI or adding product features.
     `false`, which can erase row identity information from the schema snapshot.
 57. Multi-statement routing treats DML with a top-level `RETURNING` clause as
     affected-row-only execution and drops the returned rows.
+58. Transactional multi-query execution returns provider `QueryResult` values
+    without applying the core row/column shape invariant.
 
 ## Acceptance criteria
 
@@ -228,6 +230,8 @@ without changing the native UI or adding product features.
 - DML statements with a top-level `RETURNING` clause use the query-result route
   in single and atomic multi-statement execution, while nested CTE `RETURNING`
   clauses do not falsely mark the outer mutation as row-producing.
+- Transactional query results pass the same `QueryResult::validate` boundary as
+  direct query results, including partial results attached to rollback errors.
 - Create, update, and both connection-test paths share the same connection
   configuration validation boundary.
 - PostgreSQL and SQLite unit/integration coverage is updated independently where the

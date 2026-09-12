@@ -702,3 +702,19 @@ keeping `RETURNING` inside a CTE body out of the outer statement's result-route
 decision. The mutation remains safety-classified as a write/destructive
 operation and still uses the transaction path when the script contains
 multiple statements.
+
+## P2 — Transaction query results bypass the core shape invariant
+
+`QueryService::execute` and the non-transaction branch of
+`execute_multi` validate every `QueryResult`, but the transaction branch
+converted `TransactionStatementResult::Query` values directly. A provider
+response with a different number of cells than its column metadata could
+therefore cross the core boundary without the invariant check.
+
+Impact: malformed provider data can reach result consumers and cause
+inconsistent rendering, serialization, or downstream row processing.
+
+Decision: validate transaction query results before returning them, for both
+successful transactions and the partial results attached to a rolled-back
+failure. A malformed result becomes an indexed multi-query error and is not
+returned as usable data.

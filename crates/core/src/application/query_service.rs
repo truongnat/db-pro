@@ -157,39 +157,40 @@ impl QueryService {
                 .await
             {
                 Ok(transaction_results) => {
-                    results = transaction_results
-                        .into_iter()
-                        .map(|result| match result {
-                            TransactionStatementResult::Query(query) => query,
-                            TransactionStatementResult::Affected { row_count, duration_ms } => QueryResult {
-                                columns: Vec::new(),
-                                rows: Vec::new(),
-                                row_count,
-                                duration_ms,
-                            },
-                        })
-                        .collect();
+                    for (idx, transaction_result) in transaction_results.into_iter().enumerate() {
+                        match transaction_result_to_query_result(transaction_result) {
+                            Ok(result) => results.push(result),
+                            Err(error) => {
+                                return Ok(MultiQueryResult {
+                                    results,
+                                    total_duration_ms: start.elapsed().as_millis() as u64,
+                                    error: Some((idx, error.to_string())),
+                                });
+                            }
+                        }
+                    }
                 }
                 Err(failure) => {
-                    results = failure
-                        .results
-                        .into_iter()
-                        .map(|result| match result {
-                            TransactionStatementResult::Query(query) => query,
-                            TransactionStatementResult::Affected { row_count, duration_ms } => QueryResult {
-                                columns: Vec::new(),
-                                rows: Vec::new(),
-                                row_count,
-                                duration_ms,
-                            },
-                        })
-                        .collect();
+                    let failure_statement_index = failure.statement_index;
+                    let failure_error = failure.error;
+                    for (idx, transaction_result) in failure.results.into_iter().enumerate() {
+                        match transaction_result_to_query_result(transaction_result) {
+                            Ok(result) => results.push(result),
+                            Err(error) => {
+                                return Ok(MultiQueryResult {
+                                    results,
+                                    total_duration_ms: start.elapsed().as_millis() as u64,
+                                    error: Some((idx, error.to_string())),
+                                });
+                            }
+                        }
+                    }
                     return Ok(MultiQueryResult {
                         results,
                         total_duration_ms: start.elapsed().as_millis() as u64,
                         error: Some((
-                            failure.statement_index,
-                            format!("transaction rolled back: {}", failure.error),
+                            failure_statement_index,
+                            format!("transaction rolled back: {failure_error}"),
                         )),
                     });
                 }
@@ -375,6 +376,20 @@ impl QueryService {
 enum StatementClass {
     Read,
     Write,
+}
+
+fn transaction_result_to_query_result(result: TransactionStatementResult) -> Result<QueryResult, DbError> {
+    let query_result = match result {
+        TransactionStatementResult::Query(query) => query,
+        TransactionStatementResult::Affected { row_count, duration_ms } => QueryResult {
+            columns: Vec::new(),
+            rows: Vec::new(),
+            row_count,
+            duration_ms,
+        },
+    };
+    query_result.validate().map_err(DbError::QueryFailed)?;
+    Ok(query_result)
 }
 
 fn classify_statement(sql: &str) -> StatementClass {
@@ -961,6 +976,48 @@ mod tests {
         assert_eq!(result.results.len(), 1);
         assert_eq!(result.results[0].row_count, 1);
         assert_eq!(result.results[0].columns[0].name, "id");
+    }
+
+    #[tokio::test]
+    async fn execute_multi_rejects_malformed_transaction_query_result() {
+        let conn_id = ConnectionId::new();
+        let registry = Arc::new(ConnectionRegistry::new());
+        registry.register(conn_id, ConnectionHandle(1));
+
+        let malformed = QueryResult {
+            columns: vec![ColumnMeta {
+                name: "id".into(),
+                data_type: "INT".into(),
+                nullable: false,
+            }],
+            rows: vec![Row(Vec::new())],
+            row_count: 1,
+            duration_ms: 0,
+        };
+
+        let mut connector = MockDbConnector::new();
+        connector
+            .expect_execute_transaction()
+            .returning(move |_, _, _| Ok(vec![TransactionStatementResult::Query(malformed.clone())]));
+
+        let svc = QueryService::new(
+            Box::new(connector),
+            Box::new(MockQueryHistoryRepository::new()),
+            Box::new(MockSavedQueryRepository::new()),
+            Box::new(MockRunConfigRepository::new()),
+            Arc::clone(&registry),
+            Box::new(mock_connections_full_access()),
+        );
+
+        let result = svc
+            .execute_multi(&conn_id, "SELECT 1; UPDATE t SET x = 1", None, None)
+            .await
+            .unwrap();
+
+        let (index, message) = result.error.expect("invalid transaction result must be rejected");
+        assert_eq!(index, 0);
+        assert!(message.contains("expected 1"));
+        assert!(result.results.is_empty());
     }
 
     #[tokio::test]
