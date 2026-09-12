@@ -23,6 +23,9 @@ pub enum SqliteCommand {
         max_rows: u64,
         responder: oneshot::Sender<Result<QueryResult, DbError>>,
     },
+    Interrupt {
+        responder: oneshot::Sender<Result<(), DbError>>,
+    },
     Introspect {
         responder: oneshot::Sender<Result<IntrospectResult, DbError>>,
     },
@@ -90,6 +93,29 @@ impl SqliteHandle {
         .await
         .map_err(|e| DbError::Internal(format!("spawn_blocking join error: {e}")))?;
         self.await_result(rx, timeout_ms).await
+    }
+
+    /// Interrupt the active SQLite VM and wait until the actor has processed
+    /// the interrupt command. The acknowledgement is the recovery boundary:
+    /// callers must not report cancellation before the actor is ready again.
+    pub async fn cancel(&self, timeout_ms: u64) -> Result<(), DbError> {
+        self.interrupt_handle.interrupt();
+        let (tx, rx) = oneshot::channel();
+        let cmd = SqliteCommand::Interrupt { responder: tx };
+        let sender = self.sender.clone();
+        tokio::task::spawn_blocking(move || {
+            let _ = sender.send(cmd);
+        })
+        .await
+        .map_err(|e| DbError::Internal(format!("spawn_blocking join error: {e}")))?;
+
+        match tokio::time::timeout(std::time::Duration::from_millis(timeout_ms), rx).await {
+            Ok(Ok(result)) => result,
+            Ok(Err(error)) => Err(DbError::Internal(format!("cancel acknowledgement failed: {error}"))),
+            Err(_) => Err(DbError::Internal(
+                "SQLite actor did not acknowledge query cancellation".into(),
+            )),
+        }
     }
 
     /// Run full schema introspection.
@@ -353,6 +379,9 @@ impl SqliteActor {
                     responder,
                 } => {
                     let _ = responder.send(self.handle_execute(&sql, &params, max_rows));
+                }
+                SqliteCommand::Interrupt { responder } => {
+                    let _ = responder.send(Ok(()));
                 }
                 SqliteCommand::Introspect { responder } => {
                     let _ = responder.send(self.handle_introspect());

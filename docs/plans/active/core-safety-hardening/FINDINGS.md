@@ -954,3 +954,20 @@ implementations, creating a drift risk between query and mutation paths.
 Decision: route the actor through the shared SQLite mapper and remove the
 duplicate helpers. Keep the provider behavior unchanged and retain the shared
 integration coverage.
+
+## P1 — Runtime query cancellation reports success without provider cancellation
+
+`DatabaseCapabilities` advertises query cancellation for PostgreSQL, but
+`DbConnector` has no cancellation operation. The runtime only drops the
+`QueryService::execute` future and emits `QueryCancelled`; PostgreSQL can keep
+the server-side query running and SQLite can keep its actor occupied after the
+caller has returned.
+
+Impact: the UI can believe a query was stopped while the database is still
+executing it, and a follow-up operation can contend with stale provider work.
+
+Decision: add an explicit cancellation port. SQLite interrupts the active VM
+and waits for the actor acknowledgement before the runtime emits
+`QueryCancelled`; PostgreSQL does not advertise cancellation until a
+provider-safe cancellation primitive is available, so the runtime must not
+silently claim success for it.

@@ -134,6 +134,15 @@
   dirty `crates/tauri-app/src/commands/query.rs` errors at lines 50 and 114
   (`DbErrorDto` passed to a helper requiring `&DbError`). This file is outside
   the core-only scope and was not modified.
+- Query cancellation contract — PASS: 270 core tests, 62 infrastructure unit
+  tests, 31 SQLite integration tests, and 4 runtime tests. The SQLite live
+  cancellation regression interrupts the VM and waits for actor recovery;
+  PostgreSQL returns explicit `Unsupported` and its capability is false until
+  a provider-safe cancellation primitive is implemented.
+- Scoped cancellation gates — PASS: `cargo check -p db-pro-core
+  -p db-pro-infrastructure -p db-pro-runtime`, clippy with `-D warnings`,
+  release build for the three scoped crates, scoped rustfmt check, and
+  `clean-code-scan.sh --diff` with 0 blocking failures.
 - `cargo check --workspace` after SSH readiness changes — PASS.
 - Core/infrastructure scoped gate — PASS: file-scoped rustfmt for the SQLite
   change,

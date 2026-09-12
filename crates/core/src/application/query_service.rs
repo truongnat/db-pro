@@ -107,6 +107,15 @@ impl QueryService {
         Ok(result)
     }
 
+    /// Cancel the query currently running on a connection.
+    pub async fn cancel(&self, connection_id: &ConnectionId) -> Result<(), DbError> {
+        let handle = self
+            .registry
+            .get(connection_id)
+            .ok_or_else(|| DbError::ConnectionFailed(format!("connection {connection_id} is not active")))?;
+        self.connector.cancel(&handle).await
+    }
+
     pub async fn execute_multi(
         &self,
         connection_id: &ConnectionId,
@@ -632,6 +641,24 @@ mod tests {
         let svc = build_service(MockDbConnector::new(), Arc::new(ConnectionRegistry::new()));
         let result = svc.execute(&ConnectionId::new(), "SELECT 1", &[], None, None).await;
         assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn cancel_forwards_to_the_active_connection() {
+        let conn_id = ConnectionId::new();
+        let registry = Arc::new(ConnectionRegistry::new());
+        registry.register(conn_id, ConnectionHandle(1));
+
+        let mut connector = MockDbConnector::new();
+        connector
+            .expect_cancel()
+            .withf(|handle| handle.0 == 1)
+            .returning(|_| Ok(()));
+
+        let svc = build_service(connector, registry);
+        svc.cancel(&conn_id)
+            .await
+            .expect("active query cancellation should be forwarded");
     }
 
     #[tokio::test]

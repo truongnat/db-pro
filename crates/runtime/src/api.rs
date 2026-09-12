@@ -251,6 +251,11 @@ impl QueryApi {
         self.execute_with_context(connection_id, sql, None, None).await
     }
 
+    pub async fn cancel(&self, connection_id: &str) -> Result<(), DbErrorDto> {
+        let connection_id = parse_connection_id(connection_id)?;
+        self.service.cancel(&connection_id).await.map_err(Into::into)
+    }
+
     pub async fn execute_with_context(
         &self,
         connection_id: &str,

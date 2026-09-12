@@ -157,6 +157,10 @@ without changing the native UI or adding product features.
     raw text or placeholder cells.
 69. Temporal and network cells are downgraded to `TEXT` parameters before
     PostgreSQL filter and mutation binding.
+70. Runtime query cancellation reports success without invoking a provider
+    cancellation primitive; PostgreSQL is advertised as cancellable while the
+    runtime only drops the awaiting future, and SQLite cancellation does not
+    wait for actor recovery.
 
 ## Acceptance criteria
 
@@ -277,6 +281,10 @@ without changing the native UI or adding product features.
   PostgreSQL binds `TIME`/`TIMETZ`, `INTERVAL`, and `INET`/`CIDR` natively;
   SQLite binds the same values as explicit text because it has no equivalent
   native storage type.
+- Query cancellation is an explicit provider contract: SQLite interrupts the
+  active VM and acknowledges actor recovery before reporting cancellation;
+  PostgreSQL does not advertise cancellation until a provider-safe primitive
+  exists.
 - Create, update, and both connection-test paths share the same connection
   configuration validation boundary.
 - PostgreSQL and SQLite unit/integration coverage is updated independently where the

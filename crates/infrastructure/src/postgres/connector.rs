@@ -188,6 +188,12 @@ impl DbConnector for PostgresConnector {
         with_query_timeout(timeout, future).await
     }
 
+    async fn cancel(&self, _handle: &ConnectionHandle) -> Result<(), DbError> {
+        Err(DbError::Unsupported(
+            "PostgreSQL query cancellation is not available for this connector".into(),
+        ))
+    }
+
     async fn execute_batch(&self, handle: &ConnectionHandle, statements: &[String]) -> Result<u64, DbError> {
         let pools = self.pools.read().await;
         let entry = pools
@@ -513,9 +519,11 @@ impl PostgresConnector {
 
 #[cfg(test)]
 mod tests {
-    use super::{with_query_timeout, PostgresDialect};
+    use super::{with_query_timeout, PostgresConnector, PostgresDialect};
     use db_pro_core::application::sql_builder::{build_select, SortClause, SortDir};
+    use db_pro_core::domain::connection::ConnectionHandle;
     use db_pro_core::domain::error::DbError;
+    use db_pro_core::ports::DbConnector;
     use std::time::Duration;
 
     #[test]
@@ -551,5 +559,16 @@ mod tests {
         .expect_err("operation should exceed its configured deadline");
 
         assert!(matches!(error, DbError::QueryTimeout { timeout_ms: 1 }));
+    }
+
+    #[tokio::test]
+    async fn postgres_cancel_is_explicitly_unsupported() {
+        let connector = PostgresConnector::new();
+        let error = connector
+            .cancel(&ConnectionHandle::new(1))
+            .await
+            .expect_err("PostgreSQL must not claim unsupported cancellation succeeded");
+
+        assert!(matches!(error, DbError::Unsupported(message) if message.contains("cancellation")));
     }
 }

@@ -54,6 +54,12 @@ pub trait DbConnector: Send + Sync {
 
     async fn execute(&self, handle: &ConnectionHandle, sql: &str, params: &[QueryParam]) -> Result<u64, DbError>;
 
+    /// Cancel the query currently executing for this connection.
+    ///
+    /// Providers that cannot safely identify and interrupt the active query
+    /// must return `DbError::Unsupported` instead of claiming cancellation.
+    async fn cancel(&self, handle: &ConnectionHandle) -> Result<(), DbError>;
+
     /// Execute multiple SQL statements atomically inside a single transaction.
     /// If any statement fails, all changes are rolled back.
     async fn execute_batch(&self, handle: &ConnectionHandle, statements: &[String]) -> Result<u64, DbError>;
@@ -95,6 +101,10 @@ impl<T: DbConnector + ?Sized> DbConnector for Arc<T> {
 
     async fn execute(&self, handle: &ConnectionHandle, sql: &str, params: &[QueryParam]) -> Result<u64, DbError> {
         self.as_ref().execute(handle, sql, params).await
+    }
+
+    async fn cancel(&self, handle: &ConnectionHandle) -> Result<(), DbError> {
+        self.as_ref().cancel(handle).await
     }
 
     async fn execute_batch(&self, handle: &ConnectionHandle, statements: &[String]) -> Result<u64, DbError> {

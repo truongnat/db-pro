@@ -114,6 +114,14 @@ impl DbConnector for SQLiteConnector {
         Ok(affected as u64)
     }
 
+    async fn cancel(&self, handle: &ConnectionHandle) -> Result<(), DbError> {
+        let actors = self.actors.read().await;
+        let entry = actors
+            .get(&handle.0)
+            .ok_or_else(|| DbError::ConnectionFailed("handle not found".into()))?;
+        entry.handle.cancel(entry.query_timeout_ms).await
+    }
+
     async fn execute_batch(&self, handle: &ConnectionHandle, statements: &[String]) -> Result<u64, DbError> {
         let actors = self.actors.read().await;
         let entry = actors

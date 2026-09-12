@@ -126,7 +126,10 @@ impl DatabaseCapabilities {
             query: QueryCapabilities {
                 multi_statement: true,
                 explain: true,
-                cancel: true,
+                // The connector does not yet expose PostgreSQL's wire-level
+                // cancellation primitive; do not advertise best-effort task
+                // cancellation as provider cancellation.
+                cancel: false,
                 parameters: true,
                 numbered_parameters: true,
                 positional_parameters: false,
@@ -236,7 +239,7 @@ mod tests {
         let caps = DatabaseCapabilities::postgres();
         assert!(caps.query.multi_statement);
         assert!(caps.query.explain);
-        assert!(caps.query.cancel);
+        assert!(!caps.query.cancel);
         assert!(caps.schema.schemas);
         assert!(caps.schema.transactional_ddl);
         assert!(caps.schema.functions);

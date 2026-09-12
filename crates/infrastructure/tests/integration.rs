@@ -10,6 +10,7 @@ use db_pro_core::domain::error::DbError;
 use db_pro_core::domain::query::{CellValue, QueryParam};
 use db_pro_core::ports::{DbConnector, TransactionFailureOutcome, TransactionFailurePhase};
 use db_pro_infrastructure::sqlite::connector::SQLiteConnector;
+use std::sync::Arc;
 
 /// Path to the SQLite fixture file, relative to workspace root.
 const FIXTURE_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/sqlite/fixture.sql");
@@ -143,6 +144,41 @@ async fn sqlite_query_timeout_interrupts_vm_and_actor_recovers() {
         .await
         .expect_err("the deliberately expensive query should time out");
     assert!(matches!(error, DbError::QueryTimeout { timeout_ms: 1 }));
+
+    let recovery = connector.query(&handle, "SELECT 1", &[]).await.unwrap();
+    assert_eq!(recovery.row_count, 1);
+}
+
+#[tokio::test]
+async fn sqlite_query_cancel_interrupts_vm_and_waits_for_actor_recovery() {
+    let connector = Arc::new(SQLiteConnector::new());
+    let config = ConnectionConfig {
+        name: "cancel-test".into(),
+        host: String::new(),
+        port: 0,
+        database: ":memory:".into(),
+        username: String::new(),
+        driver: DriverType::SQLite,
+        ssl_mode: SslMode::Disable,
+        ssh_tunnel: None,
+        query_timeout_ms: 30_000,
+        max_rows: 100,
+        color: None,
+        tags: vec![],
+        group: None,
+        readonly: false,
+    };
+    let handle = connector.connect(&config, "").await.unwrap();
+    let expensive_query = "WITH RECURSIVE numbers(value) AS (\
+        SELECT 1 UNION ALL SELECT value + 1 FROM numbers WHERE value < 100000\
+    ) SELECT count(*) FROM numbers first_numbers CROSS JOIN numbers second_numbers";
+
+    let query_connector = Arc::clone(&connector);
+    let query_task = tokio::spawn(async move { query_connector.query(&handle, expensive_query, &[]).await });
+    tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+
+    connector.cancel(&handle).await.unwrap();
+    assert!(query_task.await.unwrap().is_err(), "cancelled query must not succeed");
 
     let recovery = connector.query(&handle, "SELECT 1", &[]).await.unwrap();
     assert_eq!(recovery.row_count, 1);

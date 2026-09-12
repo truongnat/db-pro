@@ -6,7 +6,7 @@ use db_pro_core::domain::backup::{BackupOptions, RestoreOptions};
 use db_pro_core::domain::query::{CellValue, QueryResult};
 use tokio::sync::{mpsc, oneshot};
 
-use crate::{AgentContext, CodexProvider, ConnectionSummary, DbProRuntime};
+use crate::{AgentContext, CodexProvider, ConnectionSummary, DbProRuntime, QueryApi};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct RuntimeRequestId(pub u64);
@@ -247,6 +247,14 @@ pub enum RuntimeEvent {
 
 type CancelMap = Arc<Mutex<HashMap<RuntimeRequestId, oneshot::Sender<()>>>>;
 
+struct QueryCancellation {
+    sender: oneshot::Sender<()>,
+    query_api: QueryApi,
+    connection_id: String,
+}
+
+type QueryCancelMap = Arc<Mutex<HashMap<RuntimeRequestId, QueryCancellation>>>;
+
 /// Spawn the async worker that translates native UI commands into application
 /// service calls. The UI receives only typed events and never sees credentials
 /// or infrastructure handles.
@@ -257,6 +265,7 @@ pub fn spawn_worker(
     let (command_tx, mut command_rx) = mpsc::channel(capacity);
     let (event_tx, event_rx) = mpsc::channel(capacity);
     let cancellations: CancelMap = Arc::new(Mutex::new(HashMap::new()));
+    let query_cancellations: QueryCancelMap = Arc::new(Mutex::new(HashMap::new()));
     let codex_provider = CodexProvider::from_env();
 
     tokio::spawn(async move {
@@ -763,13 +772,20 @@ pub fn spawn_worker(
                     sql,
                 } => {
                     let (cancel_tx, cancel_rx) = oneshot::channel();
-                    cancellations
+                    let query_api = runtime.query_api();
+                    query_cancellations
                         .lock()
                         .unwrap_or_else(|poisoned| poisoned.into_inner())
-                        .insert(request_id, cancel_tx);
-                    let query_api = runtime.query_api();
+                        .insert(
+                            request_id,
+                            QueryCancellation {
+                                sender: cancel_tx,
+                                query_api: query_api.clone(),
+                                connection_id: connection_id.clone(),
+                            },
+                        );
                     let event_tx = event_tx.clone();
-                    let cancellations = Arc::clone(&cancellations);
+                    let query_cancellations = Arc::clone(&query_cancellations);
                     tokio::spawn(async move {
                         let result = tokio::select! {
                             result = query_api.execute(&connection_id, &sql) => result,
@@ -790,7 +806,7 @@ pub fn spawn_worker(
                                 message: error.message,
                             },
                         };
-                        cancellations
+                        query_cancellations
                             .lock()
                             .unwrap_or_else(|poisoned| poisoned.into_inner())
                             .remove(&request_id);
@@ -924,7 +940,31 @@ pub fn spawn_worker(
                             .await;
                     });
                 }
-                RuntimeCommand::CancelQuery { request_id } | RuntimeCommand::CancelOperation { request_id } => {
+                RuntimeCommand::CancelQuery { request_id } => {
+                    let query_cancellation = query_cancellations
+                        .lock()
+                        .unwrap_or_else(|poisoned| poisoned.into_inner())
+                        .remove(&request_id);
+                    if let Some(query_cancellation) = query_cancellation {
+                        match query_cancellation
+                            .query_api
+                            .cancel(&query_cancellation.connection_id)
+                            .await
+                        {
+                            Ok(()) => {
+                                let _ = query_cancellation.sender.send(());
+                            }
+                            Err(error) => {
+                                tracing::warn!(
+                                    request_id = request_id.0,
+                                    code = %error.code,
+                                    "query cancellation was not applied"
+                                );
+                            }
+                        }
+                    }
+                }
+                RuntimeCommand::CancelOperation { request_id } => {
                     if let Some(sender) = cancellations
                         .lock()
                         .unwrap_or_else(|poisoned| poisoned.into_inner())
