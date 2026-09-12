@@ -71,9 +71,11 @@
 - `DATABASE_URL=postgres://dbpro:dbpro_test@127.0.0.1:15434/dbpro_fixture cargo test -p db-pro-infrastructure --test pg_integration --offline -- --ignored` — PASS: 14/14 against an isolated temporary `postgres:18.2` fixture after fallible metadata decoding and the `enabled_flag` text cast; the container was removed after the run.
 - External PostgreSQL command timeout regression — PASS on Unix via
   `external_command_timeout_returns_query_timeout`.
-- `cargo test --workspace` — PASS: 246 core unit, 28 SQLite integration, 57
-  infrastructure unit, 14 PostgreSQL integration tests ignored, plus all runtime,
-  native, UI, schema regression, and doc tests passed.
+- `cargo test --workspace --no-fail-fast` — BLOCKED in the current shared
+  checkout before tests completed: unrelated uncommitted native-app changes fail
+  to compile at `crates/native-app/src/translate.rs:597` (`RequestId` not found).
+  Core-only tests and builds are recorded separately below; this is not claimed
+  as a core failure.
 - `cargo test -p db-pro-core application::schema_service::tests::get_table_ddl_sqlite_uses_inline_foreign_keys_and_unqualified_names -- --exact` — PASS: reconstructed SQLite DDL preserves UNIQUE constraints without replaying the internal autoindex name.
 - Targeted regression `sqlite_query_timeout_interrupts_vm_and_actor_recovers` — PASS.
 - Targeted regression `sqlite_transaction_timeout_waits_for_rollback_before_returning` — PASS
@@ -86,8 +88,11 @@
   test assertions, intentional cleanup sends, parser/module size, and unrelated
   native/UI helpers; none is a clippy or scanner blocker.
 - `cargo check --workspace` after SSH readiness changes — PASS.
-- Full current gate — PASS: `cargo fmt --all -- --check`, `cargo clippy --workspace
-  --all-targets -- -D warnings`, `cargo test --workspace`, release build for
+- Core/infrastructure scoped gate — PASS: `cargo fmt --all -- --check`,
+  `cargo clippy -p db-pro-core --all-targets -- -D warnings`,
+  `cargo clippy -p db-pro-infrastructure --all-targets -- -D warnings`,
+  `cargo test -p db-pro-core --lib` (246),
+  `cargo test -p db-pro-infrastructure --lib` (57), release build for
   `db-pro-core` and `db-pro-infrastructure`, and `git diff --check`.
 
 The multi-statement regression proves that a row-producing data-modifying CTE is
