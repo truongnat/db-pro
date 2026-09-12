@@ -718,3 +718,17 @@ Decision: validate transaction query results before returning them, for both
 successful transactions and the partial results attached to a rolled-back
 failure. A malformed result becomes an indexed multi-query error and is not
 returned as usable data.
+
+## P2 — SSH Test Tunnel has no process-level timeout
+
+`SshTunnel::test` set OpenSSH's `ConnectTimeout`, but awaited
+`ssh/sshpass.output()` without an application deadline. A connection can
+complete and still leave the remote command or process teardown waiting
+indefinitely, so the core request has no bounded completion path.
+
+Impact: Test SSH Tunnel can hang a runtime operation indefinitely and retain a
+child process after the network path stops responding.
+
+Decision: wrap the test command in a bounded timeout and enable
+`kill_on_drop`, returning a typed connection-timeout error when the deadline
+expires.

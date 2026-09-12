@@ -7,6 +7,7 @@ use tokio::process::{Child, Command};
 
 const TUNNEL_READY_TIMEOUT: Duration = Duration::from_secs(10);
 const TUNNEL_READY_RETRY: Duration = Duration::from_millis(50);
+const SSH_TEST_TIMEOUT: Duration = Duration::from_secs(10);
 
 #[derive(Debug, Clone)]
 pub struct SshTunnelConfig {
@@ -103,11 +104,7 @@ impl SshTunnel {
 
     pub async fn test(config: &SshTunnelConfig) -> Result<(), DbError> {
         let mut cmd = Self::build_test_command(config);
-
-        let output = cmd
-            .output()
-            .await
-            .map_err(|e| DbError::ConnectionFailed(format!("failed to run ssh: {e}")))?;
+        let output = Self::run_test_command(&mut cmd, SSH_TEST_TIMEOUT).await?;
 
         if output.status.success() {
             Ok(())
@@ -115,6 +112,16 @@ impl SshTunnel {
             let stderr = String::from_utf8_lossy(&output.stderr);
             Err(DbError::ConnectionFailed(format!("SSH tunnel test failed: {stderr}")))
         }
+    }
+
+    async fn run_test_command(command: &mut Command, timeout: Duration) -> Result<std::process::Output, DbError> {
+        command.kill_on_drop(true);
+        tokio::time::timeout(timeout, command.output())
+            .await
+            .map_err(|_| {
+                DbError::ConnectionTimeout(format!("SSH tunnel test timed out after {}ms", timeout.as_millis()))
+            })?
+            .map_err(|error| DbError::ConnectionFailed(format!("failed to run ssh: {error}")))
     }
 
     fn build_test_command(config: &SshTunnelConfig) -> Command {
@@ -186,6 +193,7 @@ fn find_available_port() -> Result<u16, DbError> {
 mod tests {
     use super::{SshTunnel, SshTunnelConfig};
     use std::ffi::OsStr;
+    use tokio::process::Command;
 
     #[test]
     fn password_ssh_test_uses_sshpass_and_keeps_password_out_of_arguments() {
@@ -221,6 +229,21 @@ mod tests {
         assert_eq!(
             SshTunnel::build_test_command(&config).as_std().get_program(),
             OsStr::new("ssh")
+        );
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn ssh_test_command_has_a_process_timeout() {
+        let mut command = Command::new("sh");
+        command.args(["-c", "sleep 1"]);
+
+        let error = SshTunnel::run_test_command(&mut command, std::time::Duration::from_millis(50))
+            .await
+            .expect_err("a sleeping SSH test command must exceed its deadline");
+
+        assert!(
+            matches!(error, db_pro_core::domain::error::DbError::ConnectionTimeout(message) if message.contains("50ms"))
         );
     }
 }

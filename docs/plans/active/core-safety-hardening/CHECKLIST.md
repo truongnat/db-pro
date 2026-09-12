@@ -110,6 +110,8 @@
 - [x] Add regression coverage for DML `RETURNING` routing and nested CTE boundaries.
 - [x] Validate transactional query result shapes before returning multi-query results.
 - [x] Add malformed transaction-result regression coverage.
+- [x] Bound SSH Test Tunnel process execution and kill timed-out children.
+- [x] Add SSH Test Tunnel timeout regression coverage.
 - [x] Run formatting, check, clippy, targeted tests, and workspace tests.
 - [x] Self-review changed files and confirm no UI/native files changed.
 - [x] Record PostgreSQL live fixture evidence; SSH-tunnel and native UI runtime evidence remain explicitly pending.

@@ -134,6 +134,8 @@ without changing the native UI or adding product features.
     affected-row-only execution and drops the returned rows.
 58. Transactional multi-query execution returns provider `QueryResult` values
     without applying the core row/column shape invariant.
+59. SSH Test Tunnel bounds only connection establishment and can await the
+    external process forever after connection setup.
 
 ## Acceptance criteria
 
@@ -232,6 +234,8 @@ without changing the native UI or adding product features.
   clauses do not falsely mark the outer mutation as row-producing.
 - Transactional query results pass the same `QueryResult::validate` boundary as
   direct query results, including partial results attached to rollback errors.
+- SSH Test Tunnel applies a process-level deadline and kills the child process
+  when the deadline expires.
 - Create, update, and both connection-test paths share the same connection
   configuration validation boundary.
 - PostgreSQL and SQLite unit/integration coverage is updated independently where the
