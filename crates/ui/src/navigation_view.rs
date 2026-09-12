@@ -21,6 +21,25 @@ impl DbProApp {
             .show(ctx, |ui| {
                 ui.set_min_size(ui.available_size());
                 ui.horizontal_centered(|ui| {
+                    // 0. Toggle Sidebar Button (Common Component)
+                    let toggle_tooltip = if self.sidebar_open {
+                        format!("Collapse Sidebar ({}B)", modifier)
+                    } else {
+                        format!("Expand Sidebar ({}B)", modifier)
+                    };
+                    let toggle_icon = if self.sidebar_open { Icon::PanelLeftClose } else { Icon::PanelLeft };
+                    if Button::new(self.theme)
+                        .icon(toggle_icon)
+                        .variant(ButtonVariant::Ghost)
+                        .size(ButtonSize::IconSm)
+                        .tooltip(toggle_tooltip)
+                        .show(ui)
+                        .clicked()
+                    {
+                        self.sidebar_open = !self.sidebar_open;
+                    }
+                    ui.add_space(SPACE_XXS);
+
                     // 1. DB Pro Brand Logo
                     egui::Frame {
                         fill: self.theme.accent_soft,
@@ -96,14 +115,22 @@ impl DbProApp {
 
                     // 3. Right actions + Center Search Box
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                        if compact_icon_button(ui, Icon::Command, self.theme)
-                            .on_hover_text(format!("Command Palette ({modifier}⇧P)"))
+                        if Button::new(self.theme)
+                            .icon(Icon::Command)
+                            .variant(ButtonVariant::Ghost)
+                            .size(ButtonSize::IconSm)
+                            .tooltip(format!("Command Palette ({modifier}⇧P)"))
+                            .show(ui)
                             .clicked()
                         {
                             self.open_palette(PaletteMode::Commands);
                         }
-                        if compact_icon_button(ui, Icon::Palette, self.theme)
-                            .on_hover_text("Component Gallery (UI Design System)")
+                        if Button::new(self.theme)
+                            .icon(Icon::Palette)
+                            .variant(ButtonVariant::Ghost)
+                            .size(ButtonSize::IconSm)
+                            .tooltip("Component Gallery (UI Design System)")
+                            .show(ui)
                             .clicked()
                         {
                             self.active_tab = WorkspaceTab::ComponentGallery;
@@ -113,8 +140,12 @@ impl DbProApp {
                         } else {
                             "Open Copilot Assistant (⌘I)"
                         };
-                        if compact_icon_button(ui, Icon::Bot, self.theme)
-                            .on_hover_text(agent_tooltip)
+                        if Button::new(self.theme)
+                            .icon(Icon::Bot)
+                            .variant(ButtonVariant::Ghost)
+                            .size(ButtonSize::IconSm)
+                            .tooltip(agent_tooltip)
+                            .show(ui)
                             .clicked()
                         {
                             self.set_agent_open(!self.agent_open, ctx);
@@ -125,14 +156,22 @@ impl DbProApp {
                         } else {
                             "Switch to Dark Theme"
                         };
-                        if compact_icon_button(ui, theme_icon, self.theme)
-                            .on_hover_text(theme_tooltip)
+                        if Button::new(self.theme)
+                            .icon(theme_icon)
+                            .variant(ButtonVariant::Ghost)
+                            .size(ButtonSize::IconSm)
+                            .tooltip(theme_tooltip)
+                            .show(ui)
                             .clicked()
                         {
                             self.dark_mode = !self.dark_mode;
                         }
-                        if compact_icon_button(ui, Icon::Plus, self.theme)
-                            .on_hover_text(format!("New Query Document ({modifier}N)"))
+                        if Button::new(self.theme)
+                            .icon(Icon::Plus)
+                            .variant(ButtonVariant::Ghost)
+                            .size(ButtonSize::IconSm)
+                            .tooltip(format!("New Query Document ({modifier}N)"))
+                            .show(ui)
                             .clicked()
                         {
                             self.new_query_document();
@@ -454,8 +493,12 @@ impl DbProApp {
                         self.theme,
                     );
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                        if compact_icon_button(ui, Icon::PanelLeftClose, self.theme)
-                            .on_hover_text(format!("Hide sidebar ({}B)", Self::primary_modifier_label()))
+                        if Button::new(self.theme)
+                            .icon(Icon::PanelLeftClose)
+                            .variant(ButtonVariant::Ghost)
+                            .size(ButtonSize::IconSm)
+                            .tooltip(format!("Hide Sidebar ({}B)", Self::primary_modifier_label()))
+                            .show(ui)
                             .clicked()
                         {
                             self.sidebar_open = false;
