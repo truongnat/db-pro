@@ -524,6 +524,7 @@ pub enum UiEvent {
     },
     TableChangesFailed {
         request_id: RequestId,
+        code: String,
         message: String,
         statement_index: usize,
         rolled_back: bool,

@@ -107,11 +107,13 @@ async fn sqlite_parameterized_table_mutations_roll_back_and_reject_zero_rows() {
                     sql: "UPDATE products SET name = ? WHERE id = ?".into(),
                     params: vec![QueryParam::Text("Changed".into()), QueryParam::Text(product_id.into())],
                     expect_affected_rows: true,
+                    max_affected_rows: Some(1),
                 },
                 ParameterizedTransactionStatement {
                     sql: "UPDATE products SET missing_column = ? WHERE id = ?".into(),
                     params: vec![QueryParam::Text("invalid".into()), QueryParam::Text(product_id.into())],
                     expect_affected_rows: true,
+                    max_affected_rows: Some(1),
                 },
             ],
         )
@@ -137,13 +139,31 @@ async fn sqlite_parameterized_table_mutations_roll_back_and_reject_zero_rows() {
                 sql: "UPDATE products SET name = ? WHERE id = ?".into(),
                 params: vec![QueryParam::Text("missing".into()), QueryParam::Text("not-a-row".into())],
                 expect_affected_rows: true,
+                max_affected_rows: Some(1),
             }],
         )
         .await
         .expect_err("an expected mutation affecting zero rows must fail");
     assert_eq!(zero_rows.phase, TransactionFailurePhase::Statement);
     assert_eq!(zero_rows.outcome, TransactionFailureOutcome::RolledBack);
-    assert!(matches!(zero_rows.error, DbError::NotFound(_)));
+    assert!(matches!(zero_rows.error, DbError::Conflict(message) if message.contains("affected no rows")));
+
+    let too_many_rows = connector
+        .execute_parameterized_transaction(
+            &handle,
+            &[ParameterizedTransactionStatement {
+                sql: "UPDATE products SET name = ?".into(),
+                params: vec![QueryParam::Text("unsafe broad update".into())],
+                expect_affected_rows: true,
+                max_affected_rows: Some(1),
+            }],
+        )
+        .await
+        .expect_err("a row-identity mutation affecting multiple rows must fail");
+    assert_eq!(too_many_rows.phase, TransactionFailurePhase::Statement);
+    assert_eq!(too_many_rows.statement_index, 0);
+    assert_eq!(too_many_rows.outcome, TransactionFailureOutcome::RolledBack);
+    assert!(matches!(too_many_rows.error, DbError::Internal(message) if message.contains("expected at most 1")));
 }
 
 #[tokio::test]

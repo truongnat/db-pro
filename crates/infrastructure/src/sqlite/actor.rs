@@ -515,10 +515,32 @@ impl SqliteActor {
                 }
             };
             if statement.expect_affected_rows && affected == 0 {
-                let error = DbError::NotFound("table mutation affected no rows".into());
+                let error = DbError::Conflict("table mutation affected no rows".into());
                 let (error, outcome) = match tx.rollback().err().map(crate::error::from_rusqlite) {
                     Some(rollback_error) => (
                         DbError::Internal(format!("mutation affected no rows; rollback failed: {rollback_error}")),
+                        TransactionFailureOutcome::Unknown,
+                    ),
+                    None => (error, TransactionFailureOutcome::RolledBack),
+                };
+                return Err(TransactionFailure {
+                    phase: TransactionFailurePhase::Statement,
+                    statement_index: index,
+                    outcome,
+                    results,
+                    error,
+                });
+            }
+            if statement.max_affected_rows.is_some_and(|maximum| affected > maximum) {
+                let error = DbError::Internal(format!(
+                    "table mutation affected {affected} rows; expected at most {}",
+                    statement.max_affected_rows.unwrap_or_default()
+                ));
+                let (error, outcome) = match tx.rollback().err().map(crate::error::from_rusqlite) {
+                    Some(rollback_error) => (
+                        DbError::Internal(format!(
+                            "mutation invariant failed: {error}; rollback failed: {rollback_error}"
+                        )),
                         TransactionFailureOutcome::Unknown,
                     ),
                     None => (error, TransactionFailureOutcome::RolledBack),

@@ -122,6 +122,9 @@ pub enum DbError {
     #[error("not found: {0}")]
     NotFound(String),
 
+    #[error("conflict: {0}")]
+    Conflict(String),
+
     // ── Validation ──────────────────────────────────────────────
     #[error("validation: {0}")]
     Validation(String),
@@ -164,6 +167,7 @@ impl DbError {
             Self::DataFailed(_) => "DATA_FAILED",
             Self::ConstraintViolation { .. } => "CONSTRAINT_VIOLATION",
             Self::NotFound(_) => "NOT_FOUND",
+            Self::Conflict(_) => "CONFLICT",
             Self::Validation(_) => "VALIDATION_ERROR",
             Self::ReadOnlyViolation(_) => "READ_ONLY_VIOLATION",
             Self::Io(_) => "IO_ERROR",
@@ -193,6 +197,7 @@ impl DbError {
             Self::DataFailed(_) => "error.data.failed",
             Self::ConstraintViolation { .. } => "error.data.constraint_violation",
             Self::NotFound(_) => "error.not_found",
+            Self::Conflict(_) => "error.data.conflict",
             Self::Validation(_) => "error.validation",
             Self::ReadOnlyViolation(_) => "error.safety.read_only",
             Self::Io(_) => "error.io",
@@ -233,7 +238,9 @@ impl DbError {
 
             Self::IntrospectionFailed(_) | Self::SchemaFailed(_) | Self::Unsupported(_) => ErrorCategory::Schema,
 
-            Self::DataFailed(_) | Self::ConstraintViolation { .. } | Self::NotFound(_) => ErrorCategory::Data,
+            Self::DataFailed(_) | Self::ConstraintViolation { .. } | Self::NotFound(_) | Self::Conflict(_) => {
+                ErrorCategory::Data
+            }
 
             Self::Validation(_) => ErrorCategory::Validation,
 
@@ -308,6 +315,7 @@ mod tests {
                 message: "test".into(),
             },
             DbError::NotFound("test".into()),
+            DbError::Conflict("test".into()),
             DbError::Validation("test".into()),
             DbError::ReadOnlyViolation("test".into()),
             DbError::Io("test".into()),

@@ -324,6 +324,22 @@ pub fn compact_button_with_icon(ui: &mut Ui, icon: Icon, label: &str, theme: DbP
     )
 }
 
+pub fn compact_button_with_icon_enabled(
+    ui: &mut Ui,
+    icon: Icon,
+    label: &str,
+    enabled: bool,
+    theme: DbProTheme,
+) -> Response {
+    ui.add_enabled(
+        enabled,
+        Button::new(icon_layout(icon, label, theme.text_secondary))
+            .min_size(egui::vec2(0.0, 24.0))
+            .rounding(Rounding::same(7.0))
+            .stroke(Stroke::NONE),
+    )
+}
+
 pub fn danger_button(ui: &mut Ui, label: impl Into<RichText>, theme: DbProTheme) -> Response {
     ui.add(
         Button::new(label.into().color(theme.text_inverse).strong())

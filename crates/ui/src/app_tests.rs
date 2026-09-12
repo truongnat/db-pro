@@ -318,6 +318,114 @@ fn table_edits_stage_until_explicit_apply() {
 }
 
 #[test]
+fn apply_is_blocked_while_a_validation_error_exists() {
+    let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
+    let mut app = DbProApp::with_task_bridge(bridge);
+    app.staged_changes.stage_update(StagedChange::Update {
+        row_index: 0,
+        column_index: 1,
+        column: "name".to_owned(),
+        data_type: "text".to_owned(),
+        original: UiCell::Text("Original".to_owned()),
+        value: UiCell::Text("Updated".to_owned()),
+        pk_columns: vec!["id".to_owned()],
+        pk_values: vec![UiCell::Number("1".to_owned())],
+    });
+    app.data_edit_error = Some("invalid value".to_owned());
+
+    app.apply_staged_changes();
+
+    assert!(command_rx.try_recv().is_err());
+    assert_eq!(app.runtime_message, "Fix the validation error before applying changes");
+    assert_eq!(app.staged_changes.counts().total(), 1);
+}
+
+#[test]
+fn editing_primary_key_stages_new_value_with_original_identity() {
+    let mut app = DbProApp {
+        connected: true,
+        connections: vec![UiConnectionSummary {
+            id: "conn-1".to_owned(),
+            name: "Local".to_owned(),
+            host: "localhost".to_owned(),
+            port: 5432,
+            database: "app".to_owned(),
+            username: "postgres".to_owned(),
+            driver: "PostgreSQL".to_owned(),
+            readonly: false,
+        }],
+        active_connection_id: Some("conn-1".to_owned()),
+        table_info: Some(UiTableInfo {
+            schema: "public".to_owned(),
+            name: "customers".to_owned(),
+            row_count: Some(1),
+            columns: vec![crate::UiTableColumn {
+                name: "id".to_owned(),
+                data_type: "integer".to_owned(),
+                nullable: false,
+                default: None,
+                is_primary_key: true,
+            }],
+            primary_key: Some(vec!["id".to_owned()]),
+            indexes: Vec::new(),
+            foreign_keys: Vec::new(),
+            check_constraints: Vec::new(),
+            dependencies: Vec::new(),
+        }),
+        data_edit_value: "2".to_owned(),
+        ..Default::default()
+    };
+    let result = UiQueryResult {
+        columns: vec![crate::UiColumn {
+            name: "id".to_owned(),
+            data_type: "integer".to_owned(),
+            nullable: false,
+        }],
+        rows: vec![vec![UiCell::Number("1".to_owned())]],
+        row_count: 1,
+        duration_ms: 0,
+    };
+    assert!(app.submit_data_cell_edit(&result, 0, 0));
+    let Some(StagedChange::Update { value, pk_values, .. }) = app.staged_changes.iter().next() else {
+        panic!("primary-key edit was not staged");
+    };
+    assert_eq!(value, &UiCell::Number("2".to_owned()));
+    assert_eq!(pk_values, &vec![UiCell::Number("1".to_owned())]);
+}
+
+#[test]
+fn no_primary_key_table_blocks_safe_row_mutations() {
+    let app = DbProApp {
+        connected: true,
+        active_connection_id: Some("conn-1".to_owned()),
+        connections: vec![UiConnectionSummary {
+            id: "conn-1".to_owned(),
+            name: "Local".to_owned(),
+            host: "localhost".to_owned(),
+            port: 5432,
+            database: "app".to_owned(),
+            username: "postgres".to_owned(),
+            driver: "PostgreSQL".to_owned(),
+            readonly: false,
+        }],
+        table_info: Some(UiTableInfo {
+            schema: "public".to_owned(),
+            name: "logs".to_owned(),
+            row_count: Some(1),
+            columns: Vec::new(),
+            primary_key: None,
+            indexes: Vec::new(),
+            foreign_keys: Vec::new(),
+            check_constraints: Vec::new(),
+            dependencies: Vec::new(),
+        }),
+        ..Default::default()
+    };
+
+    assert!(!app.can_edit_table_rows());
+}
+
+#[test]
 fn staged_apply_failure_maps_statement_to_mutation_and_keeps_changes() {
     let mut staged_changes = ChangeSet::new();
     staged_changes.stage_update(StagedChange::Update {
@@ -333,24 +441,34 @@ fn staged_apply_failure_maps_statement_to_mutation_and_keeps_changes() {
     let mut app = DbProApp {
         staged_apply_request: Some(crate::RequestId(7)),
         staged_apply_targets: vec![
-            MutationTarget::Delete { row_index: 0 },
+            MutationTarget::Delete {
+                row_index: 0,
+                pk_columns: vec!["id".to_owned()],
+                pk_values: vec![UiCell::Number("1".to_owned())],
+            },
             MutationTarget::Update {
                 row_index: 2,
                 columns: vec![1, 3],
+                pk_columns: vec!["id".to_owned()],
+                pk_values: vec![UiCell::Number("3".to_owned())],
             },
         ],
         staged_changes,
         ..Default::default()
     };
 
-    app.staged_apply_failed(1, "duplicate key value", true);
+    app.staged_apply_failed(1, "CONSTRAINT_VIOLATION", "duplicate key value", true);
 
     assert_eq!(app.staged_apply_request, None);
     assert_eq!(app.staged_changes.counts().updates, 1);
     assert_eq!(app.selected_cell, Some((2, 1)));
     assert!(matches!(
         app.table_mutation_error.as_ref().and_then(|failure| failure.target.as_ref()),
-        Some(MutationTarget::Update { row_index: 2, columns }) if columns == &vec![1, 3]
+        Some(MutationTarget::Update {
+            row_index: 2,
+            columns,
+            ..
+        }) if columns == &vec![1, 3]
     ));
     assert!(app
         .runtime_message

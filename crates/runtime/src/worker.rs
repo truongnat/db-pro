@@ -226,6 +226,7 @@ pub enum RuntimeEvent {
     },
     TableChangesFailed {
         request_id: RuntimeRequestId,
+        code: String,
         message: String,
         statement_index: usize,
         rolled_back: bool,
@@ -679,6 +680,7 @@ pub fn spawn_worker(
                         },
                         Err(failure) => RuntimeEvent::TableChangesFailed {
                             request_id,
+                            code: failure.error.code.clone(),
                             message: failure.error.message,
                             statement_index: failure.statement_index,
                             rolled_back: failure.rolled_back,

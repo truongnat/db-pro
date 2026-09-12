@@ -18,6 +18,7 @@ pub(super) enum StagedChange {
         pk_values: Vec<UiCell>,
     },
     Insert {
+        local_id: u64,
         columns: Vec<String>,
         values: Vec<UiCell>,
     },
@@ -25,8 +26,17 @@ pub(super) enum StagedChange {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) enum MutationTarget {
-    Update { row_index: usize, columns: Vec<usize> },
-    Delete { row_index: usize },
+    Update {
+        row_index: usize,
+        columns: Vec<usize>,
+        pk_columns: Vec<String>,
+        pk_values: Vec<UiCell>,
+    },
+    Delete {
+        row_index: usize,
+        pk_columns: Vec<String>,
+        pk_values: Vec<UiCell>,
+    },
     Insert,
 }
 
@@ -34,6 +44,7 @@ pub(super) enum MutationTarget {
 pub(super) struct MutationFailure {
     pub statement_index: usize,
     pub target: Option<MutationTarget>,
+    pub code: String,
     pub message: String,
     pub rolled_back: bool,
 }
@@ -69,10 +80,6 @@ impl ChangeSet {
         self.entries.clear();
     }
 
-    pub fn push(&mut self, change: StagedChange) {
-        self.entries.push(change);
-    }
-
     pub fn iter(&self) -> std::slice::Iter<'_, StagedChange> {
         self.entries.iter()
     }
@@ -80,10 +87,11 @@ impl ChangeSet {
     /// Keep one final value per edited cell and drop a no-op edit.
     pub fn stage_update(&mut self, change: StagedChange) {
         let StagedChange::Update {
-            row_index,
             column_index,
             value,
             original,
+            pk_columns,
+            pk_values,
             ..
         } = &change
         else {
@@ -93,13 +101,29 @@ impl ChangeSet {
 
         if value == original {
             self.entries.retain(|entry| {
-                !matches!(entry, StagedChange::Update { row_index: row, column_index: column, .. } if *row == *row_index && *column == *column_index)
+                !matches!(entry, StagedChange::Update {
+                    column_index: column,
+                    pk_columns: existing_columns,
+                    pk_values: existing_values,
+                    ..
+                } if *column == *column_index
+                    && existing_columns == pk_columns
+                    && existing_values == pk_values)
             });
             return;
         }
 
-        if let Some(StagedChange::Update { value: staged_value, .. }) = self.entries.iter_mut().find(|entry| {
-            matches!(entry, StagedChange::Update { row_index: row, column_index: column, .. } if *row == *row_index && *column == *column_index)
+        if let Some(StagedChange::Update {
+            value: staged_value, ..
+        }) = self.entries.iter_mut().find(|entry| {
+            matches!(entry, StagedChange::Update {
+                column_index: column,
+                pk_columns: existing_columns,
+                pk_values: existing_values,
+                ..
+            } if *column == *column_index
+                && existing_columns == pk_columns
+                && existing_values == pk_values)
         }) {
             *staged_value = value.clone();
         } else {
@@ -107,17 +131,57 @@ impl ChangeSet {
         }
     }
 
-    /// Deleting a server row supersedes all updates for that row.
+    /// Deleting a server row supersedes all updates for that stable PK identity.
     pub fn stage_delete(&mut self, change: StagedChange) {
-        let StagedChange::Delete { row_index, .. } = &change else {
+        let StagedChange::Delete {
+            pk_columns, pk_values, ..
+        } = &change
+        else {
             self.entries.push(change);
             return;
         };
         self.entries.retain(|entry| {
-            !matches!(entry, StagedChange::Update { row_index: row, .. } if row == row_index)
-                && !matches!(entry, StagedChange::Delete { row_index: row, .. } if row == row_index)
+            !matches!(entry, StagedChange::Update {
+                pk_columns: existing_columns,
+                pk_values: existing_values,
+                ..
+            } if existing_columns == pk_columns && existing_values == pk_values)
+                && !matches!(entry, StagedChange::Delete {
+                    pk_columns: existing_columns,
+                    pk_values: existing_values,
+                    ..
+                } if existing_columns == pk_columns && existing_values == pk_values)
         });
         self.entries.push(change);
+    }
+
+    pub fn stage_insert(&mut self, columns: Vec<String>, values: Vec<UiCell>) -> u64 {
+        let local_id = self
+            .entries
+            .iter()
+            .filter_map(|entry| match entry {
+                StagedChange::Insert { local_id, .. } => Some(*local_id),
+                _ => None,
+            })
+            .max()
+            .unwrap_or(0)
+            .saturating_add(1);
+        self.entries.push(StagedChange::Insert {
+            local_id,
+            columns,
+            values,
+        });
+        local_id
+    }
+
+    // Kept as a domain operation so a future local-row delete can cancel an
+    // insert without emitting SQL; the current insert dialog has no row target.
+    #[allow(dead_code)]
+    pub fn remove_insert(&mut self, local_id: u64) -> bool {
+        let before = self.entries.len();
+        self.entries
+            .retain(|entry| !matches!(entry, StagedChange::Insert { local_id: id, .. } if *id == local_id));
+        before != self.entries.len()
     }
 
     pub fn revert_cell(&mut self, row_index: usize, column_index: usize) -> bool {
@@ -139,12 +203,19 @@ impl ChangeSet {
 
     pub fn counts(&self) -> ChangeCounts {
         let mut counts = ChangeCounts::default();
-        let mut updated_rows = std::collections::BTreeSet::new();
+        let mut updated_rows = Vec::<(Vec<String>, Vec<UiCell>)>::new();
         for entry in &self.entries {
             match entry {
                 StagedChange::Insert { .. } => counts.inserts += 1,
-                StagedChange::Update { row_index, .. } => {
-                    updated_rows.insert(*row_index);
+                StagedChange::Update {
+                    pk_columns, pk_values, ..
+                } => {
+                    if !updated_rows
+                        .iter()
+                        .any(|(columns, values)| columns == pk_columns && values == pk_values)
+                    {
+                        updated_rows.push((pk_columns.clone(), pk_values.clone()));
+                    }
                 }
                 StagedChange::Delete { .. } => counts.deletes += 1,
             }
@@ -190,6 +261,25 @@ mod tests {
     }
 
     #[test]
+    fn updates_with_same_original_identity_merge_across_row_coordinates() {
+        let mut changes = ChangeSet::new();
+        changes.stage_update(update("one"));
+        changes.stage_update(StagedChange::Update {
+            row_index: 99,
+            column_index: 3,
+            column: "active".to_owned(),
+            data_type: "BOOLEAN".to_owned(),
+            original: UiCell::Boolean(false),
+            value: UiCell::Boolean(true),
+            pk_columns: vec!["id".to_owned()],
+            pk_values: vec![UiCell::Number("1".to_owned())],
+        });
+
+        assert_eq!(changes.counts().updates, 1);
+        assert_eq!(changes.iter().count(), 2);
+    }
+
+    #[test]
     fn reverting_cell_removes_the_staged_update() {
         let mut changes = ChangeSet::new();
         changes.stage_update(update("one"));
@@ -214,7 +304,7 @@ mod tests {
         });
 
         changes.stage_delete(StagedChange::Delete {
-            row_index: 1,
+            row_index: 42,
             pk_columns: vec!["id".to_owned()],
             pk_values: vec![UiCell::Number("1".to_owned())],
         });
@@ -222,6 +312,15 @@ mod tests {
         assert_eq!(changes.counts().updates, 0);
         assert_eq!(changes.counts().deletes, 1);
         assert!(matches!(changes.iter().next(), Some(StagedChange::Delete { .. })));
+    }
+
+    #[test]
+    fn insert_delete_removes_the_local_insert_before_apply() {
+        let mut changes = ChangeSet::new();
+        let local_id = changes.stage_insert(vec!["name".to_owned()], vec![UiCell::Text("draft".to_owned())]);
+
+        assert!(changes.remove_insert(local_id));
+        assert!(changes.is_empty());
     }
 
     #[test]

@@ -344,7 +344,9 @@ impl DbProApp {
             Some(MutationTarget::Update {
                 row_index: target_row, ..
             })
-            | Some(MutationTarget::Delete { row_index: target_row }) => *target_row == row_index,
+            | Some(MutationTarget::Delete {
+                row_index: target_row, ..
+            }) => *target_row == row_index,
             Some(MutationTarget::Insert) | None => false,
         }
     }
@@ -357,8 +359,11 @@ impl DbProApp {
             Some(MutationTarget::Update {
                 row_index: target_row,
                 columns,
+                ..
             }) => *target_row == row_index && columns.contains(&column_index),
-            Some(MutationTarget::Delete { row_index: target_row }) => *target_row == row_index,
+            Some(MutationTarget::Delete {
+                row_index: target_row, ..
+            }) => *target_row == row_index,
             Some(MutationTarget::Insert) | None => false,
         }
     }

@@ -19,6 +19,9 @@ pub struct ParameterizedTransactionStatement {
     pub sql: String,
     pub params: Vec<QueryParam>,
     pub expect_affected_rows: bool,
+    /// Optional upper bound used by row-identity mutations. Exceeding it is
+    /// an invariant violation and must roll the transaction back.
+    pub max_affected_rows: Option<u64>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

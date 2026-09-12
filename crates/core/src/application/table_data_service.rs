@@ -132,9 +132,9 @@ impl TableDataService {
         if pk_columns.is_empty() || pk_columns.len() != pk_values.len() {
             return Err(DbError::Validation("update requires a primary key".into()));
         }
-        if columns.iter().any(|column| pk_columns.iter().any(|pk| pk == column)) {
+        if columns.is_empty() || columns.len() != values.len() {
             return Err(DbError::Validation(
-                "updating primary-key columns is not supported by the row mutation contract".into(),
+                "update columns and values must have the same non-zero length".into(),
             ));
         }
         let policy = self.safety_policy_for(connection_id).await?;
@@ -148,10 +148,7 @@ impl TableDataService {
         let (sql, params) =
             sql_builder::build_update(dialect.as_ref(), schema, table, columns, values, pk_columns, pk_values)?;
         let affected_rows = self.connector.execute(&handle, &sql, &params).await?;
-        if affected_rows == 0 {
-            return Err(DbError::NotFound(format!("row not found in {schema}.{table}")));
-        }
-        Ok(affected_rows)
+        require_single_row_mutation(affected_rows, schema, table)
     }
 
     pub async fn delete_row(
@@ -175,10 +172,7 @@ impl TableDataService {
         let dialect = self.connector.dialect(&handle)?;
         let (sql, params) = sql_builder::build_delete(dialect.as_ref(), schema, table, pk_columns, pk_values)?;
         let affected_rows = self.connector.execute(&handle, &sql, &params).await?;
-        if affected_rows == 0 {
-            return Err(DbError::NotFound(format!("row not found in {schema}.{table}")));
-        }
-        Ok(affected_rows)
+        require_single_row_mutation(affected_rows, schema, table)
     }
 
     /// Apply a complete table-editor change set in one parameterized transaction.
@@ -262,6 +256,7 @@ impl TableDataService {
                     sql,
                     params,
                     expect_affected_rows: true,
+                    max_affected_rows: Some(1),
                 })
             })
             .collect::<Result<Vec<_>, DbError>>()
@@ -320,6 +315,18 @@ fn parse_total_count(result: &QueryResult) -> Result<u64, DbError> {
             u64::try_from(*value).map_err(|_| DbError::Internal("count query returned a negative value".into()))
         }
         _ => Err(DbError::Internal("count query returned a non-integer value".into())),
+    }
+}
+
+fn require_single_row_mutation(affected_rows: u64, schema: &str, table: &str) -> Result<u64, DbError> {
+    match affected_rows {
+        0 => Err(DbError::Conflict(format!(
+            "This row was changed or deleted by another transaction in {schema}.{table}"
+        ))),
+        1 => Ok(affected_rows),
+        count => Err(DbError::Internal(format!(
+            "table mutation affected {count} rows; expected exactly one (invariant violation)"
+        ))),
     }
 }
 
@@ -628,7 +635,7 @@ mod tests {
             .await
             .expect_err("zero-row update must not be reported as success");
 
-        assert!(matches!(error, DbError::NotFound(_)));
+        assert!(matches!(error, DbError::Conflict(message) if message.contains("changed or deleted")));
     }
 
     #[tokio::test]
@@ -647,7 +654,33 @@ mod tests {
             .await
             .expect_err("zero-row delete must not be reported as success");
 
-        assert!(matches!(error, DbError::NotFound(_)));
+        assert!(matches!(error, DbError::Conflict(message) if message.contains("changed or deleted")));
+    }
+
+    #[tokio::test]
+    async fn update_row_rejects_multiple_affected_rows_as_an_invariant_violation() {
+        let (conn_id, registry) = setup();
+        let mut connector = MockDbConnector::new();
+        connector
+            .expect_dialect()
+            .returning(|_| Ok(Box::new(QuestionDialect) as Box<dyn SqlDialect>));
+        connector.expect_execute().returning(|_, _, _| Ok(2));
+
+        let service = TableDataService::new(Box::new(connector), registry, Box::new(mock_connections()));
+        let error = service
+            .update_row(
+                &conn_id,
+                "public",
+                "users",
+                &["name".into()],
+                &[CellValue::Text("unsafe".into())],
+                &["id".into()],
+                &[CellValue::Int64(1)],
+            )
+            .await
+            .expect_err("a PK mutation must affect at most one row");
+
+        assert!(matches!(error, DbError::Internal(message) if message.contains("invariant violation")));
     }
 
     #[tokio::test]
@@ -776,9 +809,18 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn update_row_rejects_primary_key_column() {
+    async fn update_row_allows_primary_key_column_with_original_predicate() {
         let (conn_id, registry) = setup();
-        let connector = MockDbConnector::new();
+        let mut connector = MockDbConnector::new();
+        connector
+            .expect_dialect()
+            .returning(|_| Ok(Box::new(QuestionDialect) as Box<dyn SqlDialect>));
+        connector.expect_execute().returning(|_, sql, params| {
+            assert!(sql.contains("SET \"id\" = ?"));
+            assert!(sql.contains("WHERE \"id\" = ?"));
+            assert_eq!(params.len(), 2);
+            Ok(1)
+        });
         let svc = TableDataService::new(Box::new(connector), registry, Box::new(mock_connections()));
         let result = svc
             .update_row(
@@ -792,7 +834,7 @@ mod tests {
             )
             .await;
 
-        assert!(matches!(result, Err(DbError::Validation(message)) if message.contains("primary-key")));
+        assert_eq!(result.unwrap(), 1);
     }
 
     #[tokio::test]

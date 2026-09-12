@@ -58,10 +58,11 @@ impl DbProApp {
             UiEvent::OperationCompleted { request_id, operation } => self.on_operation_completed(request_id, operation),
             UiEvent::TableChangesFailed {
                 request_id,
+                code,
                 message,
                 statement_index,
                 rolled_back,
-            } => self.on_table_changes_failed(request_id, message, statement_index, rolled_back),
+            } => self.on_table_changes_failed(request_id, code, message, statement_index, rolled_back),
             UiEvent::Connected {
                 request_id,
                 connection_id,
@@ -481,7 +482,7 @@ impl DbProApp {
         } else if self.staged_apply_request == Some(request_id) {
             // Older runtimes can still report the generic failure event. Keep
             // the staged changes and surface it as an unmapped mutation.
-            self.staged_apply_failed(usize::MAX, &message, false);
+            self.staged_apply_failed(usize::MAX, "UNKNOWN", &message, false);
         } else if self.table_mutation_request == Some(request_id) {
             self.table_mutation_request = None;
             self.data_editing_cell = None;
@@ -530,12 +531,13 @@ impl DbProApp {
     fn on_table_changes_failed(
         &mut self,
         request_id: RequestId,
+        code: String,
         message: String,
         statement_index: usize,
         rolled_back: bool,
     ) {
         if self.staged_apply_request == Some(request_id) {
-            self.staged_apply_failed(statement_index, &message, rolled_back);
+            self.staged_apply_failed(statement_index, &code, &message, rolled_back);
         }
     }
 
