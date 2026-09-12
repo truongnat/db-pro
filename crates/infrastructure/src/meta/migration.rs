@@ -43,11 +43,13 @@ pub async fn current_version(handle: &SqliteHandle) -> Result<u32, DbError> {
         .raw_query("SELECT COALESCE(MAX(version), 0) FROM schema_version".into(), vec![])
         .await?;
 
-    let version = rows
+    let version_text = rows
         .first()
         .and_then(|row| row.first())
-        .and_then(|v| v.parse::<u32>().ok())
-        .unwrap_or(0);
+        .ok_or_else(|| DbError::Internal("schema_version query returned no version".into()))?;
+    let version = version_text
+        .parse::<u32>()
+        .map_err(|error| DbError::Internal(format!("invalid schema version {version_text:?}: {error}")))?;
 
     Ok(version)
 }
@@ -57,6 +59,11 @@ pub async fn current_version(handle: &SqliteHandle) -> Result<u32, DbError> {
 /// This is idempotent: already-applied versions are skipped.
 pub async fn migrate(handle: &SqliteHandle) -> Result<u32, DbError> {
     let current = current_version(handle).await?;
+    if current > LATEST_VERSION {
+        return Err(DbError::Internal(format!(
+            "database schema version {current} is newer than supported version {LATEST_VERSION}"
+        )));
+    }
 
     for migration in MIGRATIONS {
         if migration.version <= current {
@@ -252,5 +259,48 @@ mod tests {
             "query_history should have database column"
         );
         assert!(schema_sql.contains("schema"), "query_history should have schema column");
+    }
+
+    #[tokio::test]
+    async fn malformed_schema_version_fails_closed() {
+        use crate::sqlite::actor::SqliteActor;
+
+        let handle = SqliteActor::spawn(":memory:").unwrap();
+        handle
+            .execute_statement("CREATE TABLE schema_version (version TEXT, applied_at TEXT, description TEXT)".into())
+            .await
+            .unwrap();
+        handle
+            .execute_statement(
+                "INSERT INTO schema_version (version, applied_at, description) VALUES ('not-a-version', '', '')".into(),
+            )
+            .await
+            .unwrap();
+
+        let error = current_version(&handle).await.expect_err("malformed version must fail");
+        assert!(error.to_string().contains("invalid schema version"));
+    }
+
+    #[tokio::test]
+    async fn unsupported_future_schema_version_is_rejected() {
+        use crate::meta::schema::SCHEMA;
+        use crate::sqlite::actor::SqliteActor;
+
+        let handle = SqliteActor::spawn(":memory:").unwrap();
+        handle.execute_statement(SCHEMA.into()).await.unwrap();
+        handle
+            .execute_param(
+                "INSERT INTO schema_version (version, applied_at, description) VALUES (?1, ?2, ?3)".into(),
+                vec![
+                    QueryParam::Int64(i64::from(LATEST_VERSION) + 1),
+                    QueryParam::Text("2026-01-01T00:00:00Z".into()),
+                    QueryParam::Text("future".into()),
+                ],
+            )
+            .await
+            .unwrap();
+
+        let error = migrate(&handle).await.expect_err("future version must be rejected");
+        assert!(error.to_string().contains("newer than supported version"));
     }
 }

@@ -126,6 +126,8 @@ without changing the native UI or adding product features.
     destructive mutations that the client-side classifier cannot inspect.
 54. Query history converts malformed persisted `duration_ms` and `row_count`
     values to zero, masking metadata corruption as a valid history entry.
+55. Metadata migration treats malformed schema versions as version `0` and does
+    not reject a database schema newer than the binary supports.
 
 ## Acceptance criteria
 
@@ -213,6 +215,8 @@ without changing the native UI or adding product features.
   replacing it with zero.
 - A live isolated PostgreSQL fixture verifies backup and restore through the SSH
   tunnel, including restore into a fresh database and post-restore queryability.
+- Metadata migration fails closed on malformed, negative, or future schema
+  versions instead of silently applying an incompatible migration set.
 - Create, update, and both connection-test paths share the same connection
   configuration validation boundary.
 - PostgreSQL and SQLite unit/integration coverage is updated independently where the

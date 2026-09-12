@@ -663,3 +663,14 @@ corrupt metadata to the caller.
 
 Decision: parse both metrics as unsigned integers and return a named internal
 error when either value is invalid, including negative or fractional text.
+
+## P2 — Metadata migration masks invalid or future schema versions
+
+`current_version()` converted any parse failure to `0`, so a damaged
+`schema_version` row could make the application attempt migrations from the
+beginning. It also allowed a database with a version newer than the binary to
+continue startup without an explicit compatibility error.
+
+Decision: parse the persisted version as an unsigned integer, return an internal
+error for missing or malformed values, and reject versions above
+`LATEST_VERSION` before applying migrations.
