@@ -110,6 +110,10 @@
   8 heuristic warning groups, 0 blocking failures. Remaining warnings cover
   test assertions, intentional cleanup sends, parser/module size, and unrelated
   native/UI helpers; none is a clippy or scanner blocker.
+- Transaction commit-failure semantics — P1 pending: the connectors deliberately
+  do not cancel `COMMIT`, but the current core error contract still labels the
+  resulting failure as rolled back and uses `statement_index == statements.len()`.
+  Requires an explicit phase/outcome contract plus independent provider tests.
 - `cargo check --workspace` after SSH readiness changes — PASS.
 - Core/infrastructure scoped gate — PASS: file-scoped rustfmt for the SQLite
   change,

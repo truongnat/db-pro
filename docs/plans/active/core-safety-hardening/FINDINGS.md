@@ -845,3 +845,23 @@ timeout, and result reporting unreliable.
 
 Decision: make invalid finish statuses and success calls outside `Running`
 no-ops. Preserve the existing idempotent terminal behavior.
+
+## P1 — Transaction commit failures are reported as rolled back
+
+`QueryService` formats every `TransactionFailure` as `transaction rolled back`.
+The PostgreSQL and SQLite connectors explicitly preserve the commit outcome by
+not cancelling `COMMIT`, but return a `TransactionFailure` when `commit` itself
+fails. The failure currently has `statement_index == statements.len()` and no
+rollback confirmation, so the application can report a rollback that was never
+verified and point at a non-existent statement.
+
+Impact: after a commit transport or server error, the user can believe changes
+were rolled back while the final database state is unknown. The reported
+statement index is also not a valid failing statement index, which can mislead
+selection and diagnostics.
+
+Decision: extend the core transaction-failure contract with an explicit phase
+and rollback/outcome status. Preserve confirmed rollback for statement failures;
+represent commit failures as an unknown final outcome instead of claiming
+atomic rollback. Add independent PostgreSQL and SQLite coverage for commit
+failure reporting before marking this plan complete.
