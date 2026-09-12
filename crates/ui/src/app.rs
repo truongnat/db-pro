@@ -17,13 +17,21 @@ use db_pro_core::domain::connection::DriverType;
 use eframe::egui::text::LayoutJob;
 use eframe::egui::{self, Align, Color32, FontId, Layout, RichText, Sense, TextEdit, TextFormat, TopBottomPanel};
 use lucide_icons::Icon;
+use serde::{Deserialize, Serialize};
 use sqlparser::dialect::{GenericDialect, PostgreSqlDialect, SQLiteDialect};
 use sqlparser::parser::Parser;
 use std::collections::{BTreeSet, HashMap};
 use std::sync::Arc;
 use std::time::Duration;
 
-use change_set::{ChangeSet, MutationFailure, MutationTarget, StagedChange};
+use change_set::{ChangeSet, MutationFailure, MutationTarget, RowIdentity, StagedChange};
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+struct PersistedGridLayout {
+    widths: Vec<f32>,
+    order: Vec<usize>,
+    hidden_columns: Vec<usize>,
+}
 
 #[path = "agent_state.rs"]
 mod agent_state;
@@ -318,6 +326,8 @@ pub struct DbProApp {
     grid_sort_desc: bool,
     grid_column_widths: Vec<f32>,
     grid_column_order: Vec<usize>,
+    grid_hidden_columns: BTreeSet<usize>,
+    grid_layout_preferences: HashMap<String, PersistedGridLayout>,
     grid_columns_user_resized: bool,
     selected_cell: Option<(usize, usize)>,
     selected_row: Option<usize>,
@@ -367,8 +377,7 @@ pub struct DbProApp {
     table_data_filter_operator: UiTableFilterOperator,
     table_data_filter_value: String,
     table_data_filters: Vec<UiTableDataFilter>,
-    table_data_sort_column: Option<String>,
-    table_data_sort_desc: bool,
+    table_data_sorts: Vec<UiTableDataSort>,
     table_data_error: Option<String>,
     table_structure_search: String,
     table_metadata_search: String,
@@ -381,6 +390,7 @@ pub struct DbProApp {
     staged_changes: ChangeSet,
     staged_apply_request: Option<crate::RequestId>,
     staged_apply_targets: Vec<MutationTarget>,
+    table_mutation_retry_after_reload: bool,
     table_mutation_error: Option<MutationFailure>,
     table_view: TableView,
     query_folder: String,
@@ -418,6 +428,10 @@ impl eframe::App for DbProApp {
     }
 
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
+        self.persist_current_grid_layout();
+        if let Ok(layouts) = serde_json::to_string(&self.grid_layout_preferences) {
+            storage.set_string("dbpro.native.grid-layouts", layouts);
+        }
         if let Ok(widths) = serde_json::to_string(&self.grid_column_widths) {
             storage.set_string("dbpro.native.grid-widths", widths);
         }
@@ -517,6 +531,46 @@ impl eframe::App for DbProApp {
 }
 
 impl DbProApp {
+    fn grid_layout_scope(&self) -> Option<String> {
+        Some(format!(
+            "{}|{}|{}",
+            self.active_connection_id.as_deref()?,
+            self.active_schema(),
+            self.selected_table.as_deref()?
+        ))
+    }
+
+    fn persist_current_grid_layout(&mut self) {
+        let Some(scope) = self.grid_layout_scope() else {
+            return;
+        };
+        self.grid_layout_preferences.insert(
+            scope,
+            PersistedGridLayout {
+                widths: self.grid_column_widths.clone(),
+                order: self.grid_column_order.clone(),
+                hidden_columns: self.grid_hidden_columns.iter().copied().collect(),
+            },
+        );
+    }
+
+    pub(crate) fn restore_grid_layout_for_active_table(&mut self) {
+        let Some(scope) = self.grid_layout_scope() else {
+            return;
+        };
+        let Some(layout) = self.grid_layout_preferences.get(&scope).cloned() else {
+            self.grid_column_widths.clear();
+            self.grid_column_order.clear();
+            self.grid_hidden_columns.clear();
+            self.grid_columns_user_resized = false;
+            return;
+        };
+        self.grid_column_widths = layout.widths;
+        self.grid_column_order = layout.order;
+        self.grid_hidden_columns = layout.hidden_columns.into_iter().collect();
+        self.grid_columns_user_resized = !self.grid_column_widths.is_empty();
+    }
+
     pub(crate) fn show_toast_error(&mut self, message: impl Into<String>) {
         self.toasts
             .error(message, crate::components::overlay::ToastPosition::BottomRight);
@@ -867,6 +921,7 @@ impl DbProApp {
                 self.staged_changes.clear();
                 self.staged_apply_request = None;
                 self.staged_apply_targets.clear();
+                self.table_mutation_retry_after_reload = false;
                 self.table_mutation_error = None;
                 self.selected_cell = None;
                 self.selected_row = None;

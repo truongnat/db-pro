@@ -155,8 +155,7 @@ impl DbProApp {
         self.table_data_filter_operator = UiTableFilterOperator::default();
         self.table_data_filter_value.clear();
         self.table_data_filters.clear();
-        self.table_data_sort_column = None;
-        self.table_data_sort_desc = false;
+        self.table_data_sorts.clear();
         self.table_data_error = None;
         self.table_info_request = None;
         self.table_ddl_request = None;
@@ -227,12 +226,18 @@ impl DbProApp {
                 .map(|column| column.name.clone())
                 .unwrap_or_default();
         }
-        if self.table_data_sort_column.is_none() {
-            self.table_data_sort_column = table_info
+        if self.table_data_sorts.is_empty() {
+            if let Some(column) = table_info
                 .primary_key
                 .as_ref()
                 .and_then(|columns| columns.first().cloned())
-                .or_else(|| table_info.columns.first().map(|column| column.name.clone()));
+                .or_else(|| table_info.columns.first().map(|column| column.name.clone()))
+            {
+                self.table_data_sorts.push(UiTableDataSort {
+                    column,
+                    descending: false,
+                });
+            }
         }
         self.table_info = Some(table_info);
         self.table_info_error = None;
@@ -262,8 +267,13 @@ impl DbProApp {
                 .map(|column| column.name.clone())
                 .unwrap_or_default();
         }
-        if self.table_data_sort_column.is_none() {
-            self.table_data_sort_column = result.columns.first().map(|column| column.name.clone());
+        if self.table_data_sorts.is_empty() {
+            if let Some(column) = result.columns.first().map(|column| column.name.clone()) {
+                self.table_data_sorts.push(UiTableDataSort {
+                    column,
+                    descending: false,
+                });
+            }
         }
         self.table_data_result = Some(result);
         self.table_data_total_rows = Some(total_rows);
@@ -277,6 +287,10 @@ impl DbProApp {
         self.table_data_error = None;
         self.table_data_request = None;
         self.runtime_message = format!("Table data loaded · {total_rows} rows");
+        if self.table_mutation_retry_after_reload {
+            self.table_mutation_retry_after_reload = false;
+            self.apply_staged_changes();
+        }
     }
 
     /// A native file picker returned (or was cancelled).
@@ -502,6 +516,7 @@ impl DbProApp {
             self.runtime_message = format!("Table DDL failed · {message}");
         } else if self.table_data_request == Some(request_id) {
             self.table_data_request = None;
+            self.table_mutation_retry_after_reload = false;
             self.table_data_error = Some(message.clone());
             let formatted = format!("Table data failed · {message}");
             self.runtime_message = formatted.clone();

@@ -473,7 +473,9 @@ impl DbProApp {
             );
 
             if let Some(target) = switch_table {
+                self.persist_current_grid_layout();
                 self.selected_table = Some(target);
+                self.restore_grid_layout_for_active_table();
                 self.request_table_info();
                 self.request_table_data();
             }

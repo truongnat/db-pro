@@ -1,4 +1,5 @@
 use crate::{UiCell, UiQueryResult};
+use std::collections::HashMap;
 
 pub fn displayed_row_number(offset: u64, row_index: usize) -> u64 {
     offset.saturating_add(row_index as u64).saturating_add(1)
@@ -21,7 +22,12 @@ pub fn grid_keyboard_selection(
     let Some((selected_row, selected_column)) = selected else {
         return Some((visible_rows[0], 0));
     };
-    let row_position = visible_rows.iter().position(|row| *row == selected_row).unwrap_or(0);
+    let row_positions: HashMap<usize, usize> = visible_rows
+        .iter()
+        .enumerate()
+        .map(|(position, row)| (*row, position))
+        .collect();
+    let row_position = row_positions.get(&selected_row).copied().unwrap_or(0);
     let column = selected_column.min(column_count - 1);
 
     match key {

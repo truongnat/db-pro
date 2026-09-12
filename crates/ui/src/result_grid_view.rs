@@ -96,23 +96,85 @@ impl DbProApp {
         } {
             self.grid_column_order = (0..count).collect();
         }
-        self.grid_column_order.clone()
+        self.grid_column_order
+            .iter()
+            .copied()
+            .filter(|column| !self.grid_hidden_columns.contains(column))
+            .collect()
     }
 
     /// Reorder a column visually from one position to another.
     pub(crate) fn move_column(&mut self, from_visual_idx: usize, to_visual_idx: usize, count: usize) {
-        self.column_order(count);
-        if from_visual_idx < count && to_visual_idx < count && from_visual_idx != to_visual_idx {
-            let col = self.grid_column_order.remove(from_visual_idx);
-            self.grid_column_order.insert(to_visual_idx, col);
+        let visible_order = self.column_order(count);
+        if from_visual_idx < visible_order.len()
+            && to_visual_idx < visible_order.len()
+            && from_visual_idx != to_visual_idx
+        {
+            let from_column = visible_order[from_visual_idx];
+            let to_column = visible_order[to_visual_idx];
+            let from = self
+                .grid_column_order
+                .iter()
+                .position(|column| *column == from_column)
+                .unwrap_or(from_visual_idx);
+            let to = self
+                .grid_column_order
+                .iter()
+                .position(|column| *column == to_column)
+                .unwrap_or(to_visual_idx);
+            let column = self.grid_column_order.remove(from);
+            self.grid_column_order.insert(to, column);
         }
+    }
+
+    fn hide_column(&mut self, column_index: usize, visible_count: usize) {
+        if visible_count <= 1 {
+            return;
+        }
+        self.grid_hidden_columns.insert(column_index);
+    }
+
+    fn show_all_columns(&mut self) {
+        self.grid_hidden_columns.clear();
+    }
+
+    fn reset_grid_layout(&mut self, count: usize) {
+        self.grid_column_order = (0..count).collect();
+        self.grid_hidden_columns.clear();
+        self.grid_column_widths.clear();
+        self.grid_columns_user_resized = false;
+    }
+
+    fn auto_size_columns(&mut self, result: &UiQueryResult, indexes: &[usize]) {
+        self.grid_column_widths = result
+            .columns
+            .iter()
+            .enumerate()
+            .map(|(column_index, column)| {
+                let content_width = indexes
+                    .iter()
+                    .take(100)
+                    .filter_map(|row_index| result.rows.get(*row_index).and_then(|row| row.get(column_index)))
+                    .map(crate::cell_text)
+                    .map(|value| value.chars().count() as f32 * 7.0 + 24.0)
+                    .fold(column.name.chars().count() as f32 * 7.0 + 42.0, f32::max);
+                content_width.clamp(60.0, 520.0)
+            })
+            .collect();
+        self.grid_columns_user_resized = true;
     }
 
     fn set_table_or_grid_sort(&mut self, result: &UiQueryResult, column_index: usize, descending: Option<bool>) {
         if self.active_tab == WorkspaceTab::Table && self.table_view == TableView::Data {
-            self.table_data_sort_column =
-                descending.and_then(|_| result.columns.get(column_index).map(|c| c.name.clone()));
-            self.table_data_sort_desc = descending.unwrap_or(false);
+            self.table_data_sorts = descending
+                .and_then(|_| {
+                    result.columns.get(column_index).map(|column| UiTableDataSort {
+                        column: column.name.clone(),
+                        descending: descending.unwrap_or(false),
+                    })
+                })
+                .into_iter()
+                .collect();
             self.grid_sort_column = None;
             self.grid_sort_desc = false;
             self.reload_table_data_from_start();
@@ -120,6 +182,45 @@ impl DbProApp {
             self.grid_sort_column = descending.map(|_| column_index);
             self.grid_sort_desc = descending.unwrap_or(false);
         }
+    }
+
+    /// Cycle a table-data sort clause. Shift-click keeps other clauses and
+    /// makes the clicked column the next priority; plain click selects one
+    /// clause and cycles ASC -> DESC -> none.
+    fn cycle_table_data_sort(&mut self, result: &UiQueryResult, column_index: usize, additive: bool) {
+        let Some(column) = result.columns.get(column_index).map(|column| column.name.clone()) else {
+            return;
+        };
+        if additive {
+            if let Some(index) = self.table_data_sorts.iter().position(|sort| sort.column == column) {
+                if self.table_data_sorts[index].descending {
+                    self.table_data_sorts.remove(index);
+                } else {
+                    self.table_data_sorts[index].descending = true;
+                }
+            } else {
+                self.table_data_sorts.push(UiTableDataSort {
+                    column,
+                    descending: false,
+                });
+            }
+        } else if self.table_data_sorts.len() == 1
+            && self.table_data_sorts.first().map(|sort| sort.column.as_str()) == Some(column.as_str())
+        {
+            if self.table_data_sorts[0].descending {
+                self.table_data_sorts.clear();
+            } else {
+                self.table_data_sorts[0].descending = true;
+            }
+        } else {
+            self.table_data_sorts = vec![UiTableDataSort {
+                column,
+                descending: false,
+            }];
+        }
+        self.grid_sort_column = None;
+        self.grid_sort_desc = false;
+        self.reload_table_data_from_start();
     }
 
     /// Copy, paste-to-edit, staged-changes, and keyboard navigation for the result grid.
@@ -208,20 +309,27 @@ impl DbProApp {
         {
             if let Some((row_index, column_index)) = self.selected_cell {
                 if let Some(cell) = result.rows.get(row_index).and_then(|row| row.get(column_index)) {
-                    self.begin_data_cell_edit(row_index, column_index, cell);
+                    self.begin_data_cell_edit(result, row_index, column_index, cell);
                 }
             }
         }
     }
 
-    fn select_visible_row(&mut self, indexes: &[usize], position: usize, extend: bool, toggle: bool) {
+    fn select_visible_row(
+        &mut self,
+        indexes: &[usize],
+        row_positions: &HashMap<usize, usize>,
+        position: usize,
+        extend: bool,
+        toggle: bool,
+    ) {
         let Some(&row_index) = indexes.get(position) else {
             return;
         };
 
         if extend {
             let anchor = self.selection_anchor_row.or(self.selected_row).unwrap_or(row_index);
-            let anchor_position = indexes.iter().position(|&index| index == anchor).unwrap_or(position);
+            let anchor_position = row_positions.get(&anchor).copied().unwrap_or(position);
             let (start, end) = if anchor_position <= position {
                 (anchor_position, position)
             } else {
@@ -268,15 +376,21 @@ impl DbProApp {
         self.selection_anchor_cell = Some(selection);
     }
 
-    fn select_cell_range(&mut self, indexes: &[usize], focus: (usize, usize), extend: bool) {
+    fn select_cell_range(
+        &mut self,
+        indexes: &[usize],
+        row_positions: &HashMap<usize, usize>,
+        focus: (usize, usize),
+        extend: bool,
+    ) {
         if !extend {
             self.select_single_cell(focus);
             return;
         }
 
         let anchor = self.selection_anchor_cell.or(self.selected_cell).unwrap_or(focus);
-        let anchor_row = indexes.iter().position(|&row| row == anchor.0).unwrap_or(0);
-        let focus_row = indexes.iter().position(|&row| row == focus.0).unwrap_or(anchor_row);
+        let anchor_row = row_positions.get(&anchor.0).copied().unwrap_or(0);
+        let focus_row = row_positions.get(&focus.0).copied().unwrap_or(anchor_row);
         let (row_start, row_end) = if anchor_row <= focus_row {
             (anchor_row, focus_row)
         } else {
@@ -336,34 +450,34 @@ impl DbProApp {
         row_in_range && column_in_range
     }
 
-    fn mutation_error_for_row(&self, row_index: usize) -> bool {
+    fn mutation_error_for_row(&self, result: &UiQueryResult, row_index: usize) -> bool {
         let Some(failure) = self.table_mutation_error.as_ref() else {
             return false;
         };
+        let Some(identity) = self.row_identity_for_result(result, row_index) else {
+            return false;
+        };
         match failure.target.as_ref() {
-            Some(MutationTarget::Update {
-                row_index: target_row, ..
-            })
-            | Some(MutationTarget::Delete {
-                row_index: target_row, ..
-            }) => *target_row == row_index,
+            Some(MutationTarget::Update { identity: target, .. })
+            | Some(MutationTarget::Delete { identity: target, .. }) => target == &identity,
             Some(MutationTarget::Insert) | None => false,
         }
     }
 
-    fn mutation_error_for_cell(&self, row_index: usize, column_index: usize) -> bool {
+    fn mutation_error_for_cell(&self, result: &UiQueryResult, row_index: usize, column_index: usize) -> bool {
         let Some(failure) = self.table_mutation_error.as_ref() else {
+            return false;
+        };
+        let Some(identity) = self.row_identity_for_result(result, row_index) else {
             return false;
         };
         match failure.target.as_ref() {
             Some(MutationTarget::Update {
-                row_index: target_row,
+                identity: target,
                 columns,
                 ..
-            }) => *target_row == row_index && columns.contains(&column_index),
-            Some(MutationTarget::Delete {
-                row_index: target_row, ..
-            }) => *target_row == row_index,
+            }) => target == &identity && columns.contains(&column_index),
+            Some(MutationTarget::Delete { identity: target, .. }) => target == &identity,
             Some(MutationTarget::Insert) | None => false,
         }
     }
@@ -389,11 +503,12 @@ impl DbProApp {
                 if editable && self.data_editing_cell.is_some() && !self.commit_active_data_edit(result) {
                     return;
                 }
-                let visual_col = order.iter().position(|&c| c == curr_col).unwrap_or(0);
+                let selection_lookup = GridSelectionLookup::new(indexes, order);
+                let visual_col = selection_lookup.column_positions.get(&curr_col).copied().unwrap_or(0);
                 let next_cell = if is_shift_tab {
                     if visual_col > 0 {
                         Some((curr_row, order[visual_col - 1]))
-                    } else if let Some(pos) = indexes.iter().position(|&r| r == curr_row) {
+                    } else if let Some(pos) = selection_lookup.row_positions.get(&curr_row).copied() {
                         if pos > 0 {
                             Some((indexes[pos - 1], order[order.len() - 1]))
                         } else {
@@ -404,7 +519,7 @@ impl DbProApp {
                     }
                 } else if visual_col + 1 < order.len() {
                     Some((curr_row, order[visual_col + 1]))
-                } else if let Some(pos) = indexes.iter().position(|&r| r == curr_row) {
+                } else if let Some(pos) = selection_lookup.row_positions.get(&curr_row).copied() {
                     if pos + 1 < indexes.len() {
                         Some((indexes[pos + 1], order[0]))
                     } else {
@@ -414,7 +529,7 @@ impl DbProApp {
                     Some((curr_row, curr_col))
                 };
                 if let Some(selection) = next_cell {
-                    self.select_cell_range(indexes, selection, false);
+                    self.select_cell_range(indexes, &selection_lookup.row_positions, selection, false);
                     self.data_editing_cell = None;
                     self.data_edit_value.clear();
                     self.copy_status.clear();
@@ -440,8 +555,9 @@ impl DbProApp {
         };
 
         if let Some((curr_row, curr_col)) = self.selected_cell {
-            let row_pos = indexes.iter().position(|&r| r == curr_row).unwrap_or(0);
-            let visual_col = order.iter().position(|&c| c == curr_col).unwrap_or(0);
+            let selection_lookup = GridSelectionLookup::new(indexes, order);
+            let row_pos = selection_lookup.row_positions.get(&curr_row).copied().unwrap_or(0);
+            let visual_col = selection_lookup.column_positions.get(&curr_col).copied().unwrap_or(0);
 
             let next_selection = match key {
                 egui::Key::ArrowUp => {
@@ -472,7 +588,12 @@ impl DbProApp {
             };
 
             if let Some(selection) = next_selection {
-                self.select_cell_range(indexes, selection, ui.input(|input| input.modifiers.shift));
+                self.select_cell_range(
+                    indexes,
+                    &selection_lookup.row_positions,
+                    selection,
+                    ui.input(|input| input.modifiers.shift),
+                );
                 self.data_editing_cell = None;
                 self.data_edit_value.clear();
                 self.copy_status.clear();
@@ -609,9 +730,10 @@ impl DbProApp {
         let row_index = rows.indexes[position];
         let row = &result.rows[row_index];
         let row_selected = self.selected_rows.contains(&row_index);
-        let row_dirty = self.staged_row_deleted(row_index)
-            || (0..result.columns.len()).any(|column_index| self.staged_cell_value(row_index, column_index).is_some());
-        let row_mutation_error = self.mutation_error_for_row(row_index);
+        let row_dirty = self.staged_row_deleted(result, row_index)
+            || (0..result.columns.len())
+                .any(|column_index| self.staged_cell_value(result, row_index, column_index).is_some());
+        let row_mutation_error = self.mutation_error_for_row(result, row_index);
 
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing = Vec2::ZERO;
@@ -657,6 +779,7 @@ impl DbProApp {
                 let modifiers = ui.input(|input| input.modifiers);
                 self.select_visible_row(
                     rows.indexes,
+                    &rows.selection_lookup.row_positions,
                     position,
                     modifiers.shift,
                     modifiers.command || modifiers.ctrl,
@@ -682,7 +805,7 @@ impl DbProApp {
                         row_selected,
                         row_dirty,
                         row_mutation_error,
-                        cell_mutation_error: self.mutation_error_for_cell(row_index, column_index),
+                        cell_mutation_error: self.mutation_error_for_cell(result, row_index, column_index),
                         editable: rows.editable,
                         width,
                         cell,
@@ -709,16 +832,23 @@ impl DbProApp {
             cell,
         } = cell_ctx;
 
-        let staged_cell = self.staged_cell_value(row_index, column_index);
+        let staged_cell = self.staged_cell_value(result, row_index, column_index);
         let display_cell = staged_cell.as_ref().unwrap_or(cell);
         let cell_selected = self.is_cell_selected(selection_lookup, (row_index, column_index));
         let editing = editable && self.data_editing_cell == Some((row_index, column_index));
         let validation_error = editing && self.data_edit_error.is_some();
+        let conflict_error = (cell_mutation_error || row_mutation_error)
+            && self
+                .table_mutation_error
+                .as_ref()
+                .is_some_and(|failure| failure.code == "CONFLICT");
 
         let (cell_rect, cell_resp) = ui.allocate_exact_size(egui::vec2(width, 28.0), Sense::click());
 
-        let fill = if validation_error || cell_mutation_error {
+        let fill = if validation_error || (cell_mutation_error && !conflict_error) {
             self.theme.danger.linear_multiply(0.14)
+        } else if conflict_error {
+            self.theme.warning.linear_multiply(0.16)
         } else if row_mutation_error {
             self.theme.danger.linear_multiply(0.08)
         } else if row_selected {
@@ -766,7 +896,14 @@ impl DbProApp {
             ui.painter().rect_stroke(
                 cell_rect.shrink(1.0),
                 Rounding::ZERO,
-                Stroke::new(1.5, self.theme.danger),
+                Stroke::new(
+                    1.5,
+                    if conflict_error {
+                        self.theme.warning
+                    } else {
+                        self.theme.danger
+                    },
+                ),
             );
             if let Some(error) = self.table_mutation_error.as_ref() {
                 cell_resp.clone().on_hover_text(error.message.as_str());
@@ -969,22 +1106,23 @@ impl DbProApp {
                         set_null_req = true;
                         *close_menu = true;
                     }
-                    if self.staged_cell_value(row_index, column_index).is_some()
+                    if self.staged_cell_value(result, row_index, column_index).is_some()
                         && ctx_menu_item(ui, Some(Icon::Undo2), "Revert Cell", None, theme.text_primary, theme)
                             .clicked()
                     {
                         revert_cell_req = true;
                         *close_menu = true;
                     }
-                    let has_row_change = self.staged_row_deleted(row_index)
-                        || self.staged_changes.iter().any(
-                            |change| matches!(change, StagedChange::Update { row_index: row, .. } if *row == row_index),
-                        );
+                    let has_row_change = self
+                        .row_identity_for_result(result, row_index)
+                        .as_ref()
+                        .map(|identity| self.staged_changes.row_has_changes(identity))
+                        .unwrap_or(false);
                     if has_row_change
                         && ctx_menu_item(
                             ui,
                             Some(Icon::Undo2),
-                            if self.staged_row_deleted(row_index) {
+                            if self.staged_row_deleted(result, row_index) {
                                 "Undo Delete"
                             } else {
                                 "Revert Row"
@@ -1132,7 +1270,7 @@ impl DbProApp {
                 self.copy_row_as_csv(ui, result, row_index);
             }
             if edit_cell_req && editable {
-                self.begin_data_cell_edit(row_index, column_index, display_cell);
+                self.begin_data_cell_edit(result, row_index, column_index, display_cell);
             }
             if set_null_req && editable {
                 self.data_editing_cell = Some((row_index, column_index));
@@ -1141,10 +1279,10 @@ impl DbProApp {
                 self.submit_data_cell_edit(result, row_index, column_index);
             }
             if revert_cell_req && editable {
-                self.revert_staged_cell(row_index, column_index);
+                self.revert_staged_cell(result, row_index, column_index);
             }
             if revert_row_req && editable {
-                self.revert_staged_row(row_index);
+                self.revert_staged_row(result, row_index);
             }
             if duplicate_row_req && editable {
                 self.open_duplicate_row(result, row_index);
@@ -1185,13 +1323,18 @@ impl DbProApp {
                 if self.data_editing_cell.is_some() && !self.commit_active_data_edit(result) {
                     return;
                 }
-                self.begin_data_cell_edit(row_index, column_index, display_cell);
+                self.begin_data_cell_edit(result, row_index, column_index, display_cell);
             } else if cell_resp.clicked() && !is_ctx {
                 if self.data_editing_cell.is_some() && !self.commit_active_data_edit(result) {
                     return;
                 }
                 let modifiers = ui.input(|input| input.modifiers);
-                self.select_cell_range(visible_indexes, (row_index, column_index), modifiers.shift);
+                self.select_cell_range(
+                    visible_indexes,
+                    &selection_lookup.row_positions,
+                    (row_index, column_index),
+                    modifiers.shift,
+                );
                 self.copy_status.clear();
             }
         }
@@ -1206,13 +1349,27 @@ impl DbProApp {
         column_index: usize,
         cell_rect: Rect,
     ) {
+        let is_boolean = result
+            .columns
+            .get(column_index)
+            .is_some_and(|column| column.data_type.to_ascii_lowercase().contains("bool"));
         ui.allocate_new_ui(egui::UiBuilder::new().max_rect(cell_rect.shrink(1.0)), |ui| {
-            let response = ui.add_sized(
-                ui.available_size(),
-                TextEdit::singleline(&mut self.data_edit_value)
-                    .margin(egui::Margin::symmetric(6.0, 2.0))
-                    .text_color(self.theme.text_primary),
-            );
+            let response = if is_boolean {
+                let mut checked = self.data_edit_value.eq_ignore_ascii_case("true");
+                let response = ui.checkbox(&mut checked, "");
+                if response.changed() {
+                    self.data_edit_value = checked.to_string();
+                    self.data_edit_error = None;
+                }
+                response
+            } else {
+                ui.add_sized(
+                    ui.available_size(),
+                    TextEdit::singleline(&mut self.data_edit_value)
+                        .margin(egui::Margin::symmetric(6.0, 2.0))
+                        .text_color(self.theme.text_primary),
+                )
+            };
             response.request_focus();
             if response.changed() {
                 self.data_edit_error = None;
@@ -1552,7 +1709,7 @@ impl DbProApp {
         let cell = result.rows.get(row_index).and_then(|row| row.get(column_index))?;
         if self.active_tab == WorkspaceTab::Table && self.table_view == TableView::Data {
             Some(
-                self.staged_cell_value(row_index, column_index)
+                self.staged_cell_value(result, row_index, column_index)
                     .unwrap_or_else(|| cell.clone()),
             )
         } else {
@@ -1577,6 +1734,8 @@ impl DbProApp {
     fn draw_grid_header(&mut self, ui: &mut egui::Ui, result: &UiQueryResult, widths: &[f32], order: &[usize]) {
         let (mut move_left_req, mut move_right_req, mut reset_order_req, mut reset_widths_req) =
             (None, None, false, false);
+        let (mut hide_column_req, mut show_columns_req, mut reset_layout_req, mut auto_size_req) =
+            (None, false, false, false);
 
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing = Vec2::ZERO;
@@ -1659,19 +1818,28 @@ impl DbProApp {
                 );
 
                 // Column title + data type + sort icon
-                let table_sort_active = self.active_tab == WorkspaceTab::Table
-                    && self.table_view == TableView::Data
-                    && self.table_data_sort_column.as_deref() == Some(column.name.as_str());
+                let table_sort = (self.active_tab == WorkspaceTab::Table && self.table_view == TableView::Data)
+                    .then(|| self.table_data_sorts.iter().find(|sort| sort.column == column.name))
+                    .flatten();
+                let table_sort_priority = table_sort.and_then(|_| {
+                    self.table_data_sorts
+                        .iter()
+                        .position(|sort| sort.column == column.name)
+                        .map(|position| position + 1)
+                });
+                let table_sort_active = table_sort.is_some();
                 let sort_active = table_sort_active || self.grid_sort_column == Some(col_idx);
-                let sort_desc = if table_sort_active {
-                    self.table_data_sort_desc
+                let sort_desc = if let Some(sort) = table_sort {
+                    sort.descending
                 } else {
                     self.grid_sort_desc
                 };
-                let sort_marker = match (sort_active, sort_desc) {
-                    (true, true) => " ↓",
-                    (true, false) => " ↑",
-                    _ => "",
+                let sort_marker = if let Some(priority) = table_sort_priority {
+                    format!(" {}{}", if sort_desc { "↓" } else { "↑" }, priority)
+                } else if sort_active {
+                    format!(" {}", if sort_desc { "↓" } else { "↑" })
+                } else {
+                    String::new()
                 };
 
                 let header_text_rect = col_rect.shrink2(egui::vec2(8.0, 4.0));
@@ -1855,18 +2023,40 @@ impl DbProApp {
                         reset_widths_req = true;
                         *close_menu = true;
                     }
+                    if ctx_menu_item(ui, Some(Icon::EyeOff), "Hide Column", None, theme.text_secondary, theme).clicked()
+                    {
+                        hide_column_req = Some(col_idx);
+                        *close_menu = true;
+                    }
+                    if !self.grid_hidden_columns.is_empty()
+                        && ctx_menu_item(ui, Some(Icon::Eye), "Show Columns", None, theme.text_secondary, theme)
+                            .clicked()
+                    {
+                        show_columns_req = true;
+                        *close_menu = true;
+                    }
+                    if ctx_menu_item(
+                        ui,
+                        Some(Icon::RotateCcw),
+                        "Reset Layout",
+                        None,
+                        theme.text_secondary,
+                        theme,
+                    )
+                    .clicked()
+                    {
+                        reset_layout_req = true;
+                        *close_menu = true;
+                    }
+                    if ctx_menu_item(ui, Some(Icon::Ruler), "Auto Size", None, theme.text_secondary, theme).clicked() {
+                        auto_size_req = true;
+                        *close_menu = true;
+                    }
                 });
 
                 if col_resp.clicked() && !divider.dragged() {
                     if self.active_tab == WorkspaceTab::Table && self.table_view == TableView::Data {
-                        let next = if self.table_data_sort_column.as_deref() != Some(column.name.as_str()) {
-                            Some(false)
-                        } else if !self.table_data_sort_desc {
-                            Some(true)
-                        } else {
-                            None
-                        };
-                        self.set_table_or_grid_sort(result, col_idx, next);
+                        self.cycle_table_data_sort(result, col_idx, ui.input(|input| input.modifiers.shift));
                     } else if self.grid_sort_column == Some(col_idx) {
                         self.set_table_or_grid_sort(
                             result,
@@ -1900,10 +2090,24 @@ impl DbProApp {
             }
         }
         if reset_order_req {
-            self.grid_column_order = (0..order.len()).collect();
+            self.grid_column_order = (0..result.columns.len()).collect();
         }
         if reset_widths_req {
             self.grid_columns_user_resized = false;
+        }
+        if let Some(column_index) = hide_column_req {
+            self.hide_column(column_index, order.len());
+        }
+        if show_columns_req {
+            self.show_all_columns();
+        }
+        if reset_layout_req {
+            self.reset_grid_layout(result.columns.len());
+        }
+        if auto_size_req {
+            let indexes =
+                crate::filtered_sorted_indexes(result, &self.grid_filter, self.grid_sort_column, self.grid_sort_desc);
+            self.auto_size_columns(result, &indexes);
         }
     }
 
@@ -1926,8 +2130,10 @@ mod tests {
     #[test]
     fn row_range_selection_follows_filtered_sort_order() {
         let mut app = DbProApp::default();
-        app.select_visible_row(&[4, 1, 7, 2], 1, false, false);
-        app.select_visible_row(&[4, 1, 7, 2], 3, true, false);
+        let indexes = [4, 1, 7, 2];
+        let lookup = GridSelectionLookup::new(&indexes, &[]);
+        app.select_visible_row(&indexes, &lookup.row_positions, 1, false, false);
+        app.select_visible_row(&indexes, &lookup.row_positions, 3, true, false);
 
         assert_eq!(app.selected_rows.into_iter().collect::<Vec<_>>(), vec![1, 2, 7]);
         assert_eq!(app.selected_row, Some(2));
@@ -1937,8 +2143,10 @@ mod tests {
     #[test]
     fn toggling_last_row_keeps_a_non_empty_selection() {
         let mut app = DbProApp::default();
-        app.select_visible_row(&[3], 0, false, false);
-        app.select_visible_row(&[3], 0, false, true);
+        let indexes = [3];
+        let lookup = GridSelectionLookup::new(&indexes, &[]);
+        app.select_visible_row(&indexes, &lookup.row_positions, 0, false, false);
+        app.select_visible_row(&indexes, &lookup.row_positions, 0, false, true);
 
         assert_eq!(app.selected_rows.into_iter().collect::<Vec<_>>(), vec![3]);
         assert_eq!(app.selected_row, Some(3));
@@ -1952,7 +2160,7 @@ mod tests {
         let lookup = GridSelectionLookup::new(&indexes, &order);
 
         app.select_single_cell((1, 0));
-        app.select_cell_range(&indexes, (2, 1), true);
+        app.select_cell_range(&indexes, &lookup.row_positions, (2, 1), true);
 
         assert_eq!(app.selected_cell, Some((2, 1)));
         assert_eq!(app.selected_rows.iter().copied().collect::<Vec<_>>(), vec![1, 2, 7]);
@@ -1975,5 +2183,48 @@ mod tests {
         assert_eq!(app.selection_anchor_cell, Some((5, 1)));
         assert!([5, 2, 9].iter().all(|row| app.selected_rows.contains(row)));
         assert!(app.is_cell_selected(&lookup, (2, 0)));
+    }
+
+    #[test]
+    fn table_sort_cycles_and_shift_adds_prioritized_clauses() {
+        let mut app = DbProApp {
+            active_tab: WorkspaceTab::Table,
+            table_view: TableView::Data,
+            ..Default::default()
+        };
+        let result = UiQueryResult {
+            columns: vec![
+                crate::UiColumn {
+                    name: "tenant_id".to_owned(),
+                    data_type: "integer".to_owned(),
+                    nullable: false,
+                },
+                crate::UiColumn {
+                    name: "item_id".to_owned(),
+                    data_type: "integer".to_owned(),
+                    nullable: false,
+                },
+            ],
+            rows: Vec::new(),
+            row_count: 0,
+            duration_ms: 0,
+        };
+
+        app.cycle_table_data_sort(&result, 0, false);
+        assert_eq!(app.table_data_sorts[0].column, "tenant_id");
+        assert!(!app.table_data_sorts[0].descending);
+        app.cycle_table_data_sort(&result, 0, false);
+        assert!(app.table_data_sorts[0].descending);
+        app.cycle_table_data_sort(&result, 1, true);
+        assert_eq!(
+            app.table_data_sorts
+                .iter()
+                .map(|sort| sort.column.as_str())
+                .collect::<Vec<_>>(),
+            vec!["tenant_id", "item_id"]
+        );
+        app.cycle_table_data_sort(&result, 0, true);
+        assert_eq!(app.table_data_sorts.len(), 1);
+        assert_eq!(app.table_data_sorts[0].column, "item_id");
     }
 }

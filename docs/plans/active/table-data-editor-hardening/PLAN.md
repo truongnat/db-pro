@@ -3,10 +3,9 @@
 ## Objective
 
 Make staged table mutations safe under primary-key edits and concurrent row
-changes. The first implementation slice is limited to stable row identity,
-composed ChangeSet mutations, zero/multiple affected-row handling, and the
-native UI failure state. Filtering, sorting, layout persistence, and metadata
-expansion remain follow-up slices unless they are required by these invariants.
+changes, while keeping typed filtering/sorting and grid state independent from
+the renderer. The current implementation prioritizes row identity, ChangeSet
+correctness, conflict recovery, and render-coordinate performance.
 
 ## Scope
 
@@ -20,11 +19,16 @@ expansion remain follow-up slices unless they are required by these invariants.
 - Treat more than one affected row as an invariant violation.
 - Keep failure targeting and retry/reload/discard actions connected to the
   staged row.
+- Keep table sort clauses typed and ordered, including Shift+click multi-sort.
+- Persist grid width/order/hidden-column preferences per connection, schema,
+  and table.
+- Avoid linear coordinate lookup in visible-cell rendering.
 
 ## Out of scope for this slice
 
-- Full grid layout persistence and virtualization redesign.
-- New metadata fields not required for mutation identity.
+- Full metadata expansion for provider-specific indexes and foreign-key
+  actions (the existing structure surface remains unchanged in this slice).
+- Binary editing.
 - Binary editing.
 - Broad UI redesign or archived frontend changes.
 

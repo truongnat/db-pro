@@ -1,21 +1,25 @@
 use super::UiCell;
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct RowIdentity {
+    pub(crate) original_pk_columns: Vec<String>,
+    pub(crate) original_pk_values: Vec<UiCell>,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub(super) enum StagedChange {
     Update {
-        row_index: usize,
+        identity: RowIdentity,
+        current_row_index: Option<usize>,
         column_index: usize,
         column: String,
         data_type: String,
         original: UiCell,
         value: UiCell,
-        pk_columns: Vec<String>,
-        pk_values: Vec<UiCell>,
     },
     Delete {
-        row_index: usize,
-        pk_columns: Vec<String>,
-        pk_values: Vec<UiCell>,
+        identity: RowIdentity,
+        current_row_index: Option<usize>,
     },
     Insert {
         local_id: u64,
@@ -27,15 +31,13 @@ pub(super) enum StagedChange {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) enum MutationTarget {
     Update {
-        row_index: usize,
+        identity: RowIdentity,
+        current_row_index: Option<usize>,
         columns: Vec<usize>,
-        pk_columns: Vec<String>,
-        pk_values: Vec<UiCell>,
     },
     Delete {
-        row_index: usize,
-        pk_columns: Vec<String>,
-        pk_values: Vec<UiCell>,
+        identity: RowIdentity,
+        current_row_index: Option<usize>,
     },
     Insert,
 }
@@ -90,8 +92,8 @@ impl ChangeSet {
             column_index,
             value,
             original,
-            pk_columns,
-            pk_values,
+            identity,
+            current_row_index,
             ..
         } = &change
         else {
@@ -99,58 +101,62 @@ impl ChangeSet {
             return;
         };
 
-        if value == original {
-            self.entries.retain(|entry| {
-                !matches!(entry, StagedChange::Update {
-                    column_index: column,
-                    pk_columns: existing_columns,
-                    pk_values: existing_values,
-                    ..
-                } if *column == *column_index
-                    && existing_columns == pk_columns
-                    && existing_values == pk_values)
-            });
-            return;
-        }
-
-        if let Some(StagedChange::Update {
-            value: staged_value, ..
-        }) = self.entries.iter_mut().find(|entry| {
+        if let Some(existing) = self.entries.iter_mut().find(|entry| {
             matches!(entry, StagedChange::Update {
                 column_index: column,
-                pk_columns: existing_columns,
-                pk_values: existing_values,
+                identity: existing_identity,
                 ..
-            } if *column == *column_index
-                && existing_columns == pk_columns
-                && existing_values == pk_values)
+            } if *column == *column_index && existing_identity == identity)
         }) {
-            *staged_value = value.clone();
+            let existing_matches_original = match existing {
+                StagedChange::Update {
+                    original: existing_original,
+                    ..
+                } => value == existing_original,
+                _ => false,
+            };
+            if existing_matches_original {
+                self.entries.retain(|entry| {
+                    !matches!(entry, StagedChange::Update {
+                        column_index: column,
+                        identity: existing_identity,
+                        ..
+                    } if *column == *column_index && existing_identity == identity)
+                });
+                return;
+            }
+
+            if let StagedChange::Update {
+                value: staged_value,
+                current_row_index: staged_row_index,
+                ..
+            } = existing
+            {
+                *staged_value = value.clone();
+                *staged_row_index = *current_row_index;
+            }
         } else {
-            self.entries.push(change);
+            if value != original {
+                self.entries.push(change);
+            }
         }
     }
 
     /// Deleting a server row supersedes all updates for that stable PK identity.
     pub fn stage_delete(&mut self, change: StagedChange) {
-        let StagedChange::Delete {
-            pk_columns, pk_values, ..
-        } = &change
-        else {
+        let StagedChange::Delete { identity, .. } = &change else {
             self.entries.push(change);
             return;
         };
         self.entries.retain(|entry| {
             !matches!(entry, StagedChange::Update {
-                pk_columns: existing_columns,
-                pk_values: existing_values,
+                identity: existing_identity,
                 ..
-            } if existing_columns == pk_columns && existing_values == pk_values)
+            } if existing_identity == identity)
                 && !matches!(entry, StagedChange::Delete {
-                    pk_columns: existing_columns,
-                    pk_values: existing_values,
+                    identity: existing_identity,
                     ..
-                } if existing_columns == pk_columns && existing_values == pk_values)
+                } if existing_identity == identity)
         });
         self.entries.push(change);
     }
@@ -184,37 +190,68 @@ impl ChangeSet {
         before != self.entries.len()
     }
 
-    pub fn revert_cell(&mut self, row_index: usize, column_index: usize) -> bool {
+    pub fn revert_cell(&mut self, identity: &RowIdentity, column_index: usize) -> bool {
         let before = self.entries.len();
         self.entries.retain(|entry| {
-            !matches!(entry, StagedChange::Update { row_index: row, column_index: column, .. } if *row == row_index && *column == column_index)
+            !matches!(entry, StagedChange::Update {
+                identity: entry_identity,
+                column_index: column,
+                ..
+            } if entry_identity == identity && *column == column_index)
         });
         before != self.entries.len()
     }
 
-    pub fn revert_row(&mut self, row_index: usize) -> bool {
+    pub fn revert_row(&mut self, identity: &RowIdentity) -> bool {
         let before = self.entries.len();
         self.entries.retain(|entry| {
-            !matches!(entry, StagedChange::Update { row_index: row, .. } if *row == row_index)
-                && !matches!(entry, StagedChange::Delete { row_index: row, .. } if *row == row_index)
+            !matches!(entry, StagedChange::Update { identity: entry_identity, .. } if entry_identity == identity)
+                && !matches!(entry, StagedChange::Delete { identity: entry_identity, .. } if entry_identity == identity)
         });
         before != self.entries.len()
+    }
+
+    pub fn cell_value(&self, identity: &RowIdentity, column_index: usize) -> Option<UiCell> {
+        self.entries.iter().rev().find_map(|entry| match entry {
+            StagedChange::Update {
+                identity: entry_identity,
+                column_index: changed_column,
+                value,
+                ..
+            } if entry_identity == identity && *changed_column == column_index => Some(value.clone()),
+            _ => None,
+        })
+    }
+
+    pub fn row_deleted(&self, identity: &RowIdentity) -> bool {
+        self.entries.iter().any(|entry| {
+            matches!(entry, StagedChange::Delete { identity: entry_identity, .. } if entry_identity == identity)
+        })
+    }
+
+    pub fn row_has_changes(&self, identity: &RowIdentity) -> bool {
+        self.entries.iter().any(|entry| match entry {
+            StagedChange::Update {
+                identity: entry_identity,
+                ..
+            }
+            | StagedChange::Delete {
+                identity: entry_identity,
+                ..
+            } => entry_identity == identity,
+            StagedChange::Insert { .. } => false,
+        })
     }
 
     pub fn counts(&self) -> ChangeCounts {
         let mut counts = ChangeCounts::default();
-        let mut updated_rows = Vec::<(Vec<String>, Vec<UiCell>)>::new();
+        let mut updated_rows = Vec::<RowIdentity>::new();
         for entry in &self.entries {
             match entry {
                 StagedChange::Insert { .. } => counts.inserts += 1,
-                StagedChange::Update {
-                    pk_columns, pk_values, ..
-                } => {
-                    if !updated_rows
-                        .iter()
-                        .any(|(columns, values)| columns == pk_columns && values == pk_values)
-                    {
-                        updated_rows.push((pk_columns.clone(), pk_values.clone()));
+                StagedChange::Update { identity, .. } => {
+                    if !updated_rows.iter().any(|existing| existing == identity) {
+                        updated_rows.push(identity.clone());
                     }
                 }
                 StagedChange::Delete { .. } => counts.deletes += 1,
@@ -237,14 +274,16 @@ mod tests {
 
     fn update(value: &str) -> StagedChange {
         StagedChange::Update {
-            row_index: 1,
+            identity: RowIdentity {
+                original_pk_columns: vec!["id".to_owned()],
+                original_pk_values: vec![UiCell::Number("1".to_owned())],
+            },
+            current_row_index: Some(1),
             column_index: 2,
             column: "name".to_owned(),
             data_type: "TEXT".to_owned(),
             original: UiCell::Text("old".to_owned()),
             value: UiCell::Text(value.to_owned()),
-            pk_columns: vec!["id".to_owned()],
-            pk_values: vec![UiCell::Number("1".to_owned())],
         }
     }
 
@@ -265,14 +304,16 @@ mod tests {
         let mut changes = ChangeSet::new();
         changes.stage_update(update("one"));
         changes.stage_update(StagedChange::Update {
-            row_index: 99,
+            identity: RowIdentity {
+                original_pk_columns: vec!["id".to_owned()],
+                original_pk_values: vec![UiCell::Number("1".to_owned())],
+            },
+            current_row_index: Some(99),
             column_index: 3,
             column: "active".to_owned(),
             data_type: "BOOLEAN".to_owned(),
             original: UiCell::Boolean(false),
             value: UiCell::Boolean(true),
-            pk_columns: vec!["id".to_owned()],
-            pk_values: vec![UiCell::Number("1".to_owned())],
         });
 
         assert_eq!(changes.counts().updates, 1);
@@ -280,11 +321,70 @@ mod tests {
     }
 
     #[test]
+    fn composite_identity_keeps_rows_with_shared_pk_prefix_separate() {
+        let mut changes = ChangeSet::new();
+        let first = RowIdentity {
+            original_pk_columns: vec!["tenant_id".to_owned(), "item_id".to_owned()],
+            original_pk_values: vec![UiCell::Number("1".to_owned()), UiCell::Number("10".to_owned())],
+        };
+        let second = RowIdentity {
+            original_pk_columns: first.original_pk_columns.clone(),
+            original_pk_values: vec![UiCell::Number("1".to_owned()), UiCell::Number("11".to_owned())],
+        };
+        changes.stage_update(StagedChange::Update {
+            identity: first.clone(),
+            current_row_index: Some(4),
+            column_index: 2,
+            column: "name".to_owned(),
+            data_type: "text".to_owned(),
+            original: UiCell::Text("old-a".to_owned()),
+            value: UiCell::Text("new-a".to_owned()),
+        });
+        changes.stage_update(StagedChange::Update {
+            identity: second,
+            current_row_index: Some(1),
+            column_index: 2,
+            column: "name".to_owned(),
+            data_type: "text".to_owned(),
+            original: UiCell::Text("old-b".to_owned()),
+            value: UiCell::Text("new-b".to_owned()),
+        });
+
+        assert_eq!(changes.counts().updates, 2);
+        assert_eq!(changes.cell_value(&first, 2), Some(UiCell::Text("new-a".to_owned())));
+    }
+
+    #[test]
+    fn staged_value_follows_identity_when_visual_row_changes() {
+        let mut changes = ChangeSet::new();
+        let identity = RowIdentity {
+            original_pk_columns: vec!["id".to_owned()],
+            original_pk_values: vec![UiCell::Number("7".to_owned())],
+        };
+        changes.stage_update(StagedChange::Update {
+            identity: identity.clone(),
+            current_row_index: Some(9),
+            column_index: 1,
+            column: "name".to_owned(),
+            data_type: "text".to_owned(),
+            original: UiCell::Text("old".to_owned()),
+            value: UiCell::Text("new".to_owned()),
+        });
+
+        assert_eq!(changes.cell_value(&identity, 1), Some(UiCell::Text("new".to_owned())));
+        assert!(changes.row_has_changes(&identity));
+    }
+
+    #[test]
     fn reverting_cell_removes_the_staged_update() {
         let mut changes = ChangeSet::new();
         changes.stage_update(update("one"));
+        let identity = RowIdentity {
+            original_pk_columns: vec!["id".to_owned()],
+            original_pk_values: vec![UiCell::Number("1".to_owned())],
+        };
 
-        assert!(changes.revert_cell(1, 2));
+        assert!(changes.revert_cell(&identity, 2));
         assert!(changes.is_empty());
     }
 
@@ -293,20 +393,24 @@ mod tests {
         let mut changes = ChangeSet::new();
         changes.stage_update(update("one"));
         changes.stage_update(StagedChange::Update {
-            row_index: 1,
+            identity: RowIdentity {
+                original_pk_columns: vec!["id".to_owned()],
+                original_pk_values: vec![UiCell::Number("1".to_owned())],
+            },
+            current_row_index: Some(1),
             column_index: 3,
             column: "active".to_owned(),
             data_type: "BOOLEAN".to_owned(),
             original: UiCell::Boolean(false),
             value: UiCell::Boolean(true),
-            pk_columns: vec!["id".to_owned()],
-            pk_values: vec![UiCell::Number("1".to_owned())],
         });
 
         changes.stage_delete(StagedChange::Delete {
-            row_index: 42,
-            pk_columns: vec!["id".to_owned()],
-            pk_values: vec![UiCell::Number("1".to_owned())],
+            identity: RowIdentity {
+                original_pk_columns: vec!["id".to_owned()],
+                original_pk_values: vec![UiCell::Number("1".to_owned())],
+            },
+            current_row_index: Some(42),
         });
 
         assert_eq!(changes.counts().updates, 0);

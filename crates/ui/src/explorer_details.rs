@@ -322,10 +322,12 @@ impl DbProApp {
             self.runtime_message = "Apply or discard staged changes before opening another table".to_owned();
             return;
         }
+        self.persist_current_grid_layout();
         self.selected_table = Some(table.to_owned());
         self.selected_schema_object = None;
         self.schema_object_view = SchemaObjectView::Definition;
         self.reset_table_workspace_state();
+        self.restore_grid_layout_for_active_table();
         self.table_view = TableView::Data;
         let schema = self.active_schema();
         self.query_text = format!("SELECT *\nFROM {schema}.{table}\nLIMIT 100;");
@@ -350,8 +352,7 @@ impl DbProApp {
         self.table_data_filter_operator = UiTableFilterOperator::default();
         self.table_data_filter_value.clear();
         self.table_data_filters.clear();
-        self.table_data_sort_column = None;
-        self.table_data_sort_desc = false;
+        self.table_data_sorts.clear();
         self.table_data_error = None;
         self.table_info_request = None;
         self.table_ddl_request = None;
@@ -360,6 +361,7 @@ impl DbProApp {
         self.staged_changes.clear();
         self.staged_apply_request = None;
         self.staged_apply_targets.clear();
+        self.table_mutation_retry_after_reload = false;
         self.table_mutation_error = None;
         self.selected_cell = None;
         self.selected_row = None;

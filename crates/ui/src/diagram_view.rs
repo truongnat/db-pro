@@ -285,7 +285,9 @@ impl DbProApp {
             self.runtime_message = "Apply or discard staged changes before opening another table".to_owned();
             return;
         }
+        self.persist_current_grid_layout();
         self.selected_table = Some(table.to_owned());
+        self.restore_grid_layout_for_active_table();
         self.selected_schema_object = None;
         self.schema_object_view = SchemaObjectView::Definition;
         self.table_info = None;
@@ -301,8 +303,7 @@ impl DbProApp {
         self.table_data_filter_operator = UiTableFilterOperator::default();
         self.table_data_filter_value.clear();
         self.table_data_filters.clear();
-        self.table_data_sort_column = None;
-        self.table_data_sort_desc = false;
+        self.table_data_sorts.clear();
         self.table_data_error = None;
         self.table_info_request = None;
         self.table_ddl_request = None;

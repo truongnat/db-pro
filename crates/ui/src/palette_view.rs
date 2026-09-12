@@ -254,7 +254,9 @@ impl DbProApp {
             self.runtime_message = "Apply or discard staged changes before opening another table".to_owned();
             return;
         }
+        self.persist_current_grid_layout();
         self.selected_table = Some(table.clone());
+        self.restore_grid_layout_for_active_table();
         self.selected_schema_object = None;
         self.table_view = TableView::Structure;
         self.table_info = None;

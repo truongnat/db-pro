@@ -196,11 +196,16 @@ impl DbProApp {
                 }
 
                 if let Some(failure) = self.table_mutation_error.as_ref() {
+                    let is_conflict = failure.code == "CONFLICT";
                     ui.separator();
                     ui.label(
-                        RichText::new(failure.target.as_ref().map_or_else(
-                            || "Transaction failed".to_owned(),
-                            |_| format!("Mutation #{} failed", failure.statement_index.saturating_add(1)),
+                        RichText::new(format!(
+                            "{} · {}",
+                            failure.code,
+                            failure.target.as_ref().map_or_else(
+                                || "Transaction failed".to_owned(),
+                                |_| format!("Mutation #{} failed", failure.statement_index.saturating_add(1)),
+                            )
                         ))
                         .font(font_caption())
                         .color(self.theme.danger),
@@ -208,10 +213,10 @@ impl DbProApp {
                     .on_hover_text(failure.message.as_str());
                     if failure.target.is_some() {
                         if compact_button_with_icon(ui, Icon::RotateCcw, "Reload Row", self.theme)
-                            .on_hover_text("Discard the failed local mutation and reload the current page")
+                            .on_hover_text("Reload database values while keeping the local staged mutation")
                             .clicked()
                         {
-                            self.discard_failed_mutation(true);
+                            self.reload_failed_mutation();
                         }
                         if compact_button_with_icon(ui, Icon::Undo2, "Discard Local Change", self.theme)
                             .on_hover_text("Revert only the failed staged mutation")
@@ -219,11 +224,12 @@ impl DbProApp {
                         {
                             self.discard_failed_mutation(false);
                         }
-                        if compact_button_with_icon(ui, Icon::Check, "Keep Local", self.theme)
-                            .on_hover_text("Keep the staged values and clear this error")
-                            .clicked()
+                        if is_conflict
+                            && compact_button_with_icon(ui, Icon::RotateCcw, "Retry", self.theme)
+                                .on_hover_text("Reload the row, then retry the staged mutation")
+                                .clicked()
                         {
-                            self.table_mutation_error = None;
+                            self.retry_failed_mutation_after_reload();
                         }
                     }
                 }
@@ -452,9 +458,9 @@ impl DbProApp {
                     }
 
                     // Compact Sort Selector
-                    let sort_active = self.table_data_sort_column.is_some() || self.grid_sort_column.is_some();
-                    let sort_label = if let Some(ref col) = self.table_data_sort_column {
-                        format!("Sort: {col} {}", if self.table_data_sort_desc { "↓" } else { "↑" })
+                    let sort_active = !self.table_data_sorts.is_empty() || self.grid_sort_column.is_some();
+                    let sort_label = if let Some(sort) = self.table_data_sorts.first() {
+                        format!("Sort: {} {}", sort.column, if sort.descending { "↓" } else { "↑" })
                     } else if let Some(idx) = self.grid_sort_column {
                         if let Some(col) = column_names.get(idx) {
                             format!("Sort: {col} {}", if self.grid_sort_desc { "↓" } else { "↑" })
@@ -474,18 +480,23 @@ impl DbProApp {
                         .width(100.0)
                         .show_ui(ui, |ui| {
                             if ui.selectable_label(!sort_active, "Default (None)").clicked() {
-                                self.table_data_sort_column = None;
+                                self.table_data_sorts.clear();
                                 self.grid_sort_column = None;
                                 self.reload_table_data_from_start();
                             }
                             for col in &column_names {
-                                let is_sel = self.table_data_sort_column.as_deref() == Some(col.as_str());
+                                let is_sel = self.table_data_sorts.first().map(|sort| sort.column.as_str())
+                                    == Some(col.as_str());
                                 if ui.selectable_label(is_sel, col.as_str()).clicked() {
                                     if is_sel {
-                                        self.table_data_sort_desc = !self.table_data_sort_desc;
+                                        if let Some(sort) = self.table_data_sorts.first_mut() {
+                                            sort.descending = !sort.descending;
+                                        }
                                     } else {
-                                        self.table_data_sort_column = Some(col.clone());
-                                        self.table_data_sort_desc = false;
+                                        self.table_data_sorts = vec![UiTableDataSort {
+                                            column: col.clone(),
+                                            descending: false,
+                                        }];
                                     }
                                     self.reload_table_data_from_start();
                                 }
@@ -724,10 +735,19 @@ impl DbProApp {
             };
         }
         if normalized_type.contains("int") || normalized_type.contains("serial") {
-            return value
-                .parse::<i64>()
-                .map(|number| Some(UiCell::Number(number.to_string())))
-                .map_err(|_| format!("{value} is not a valid integer"));
+            let parsed = if normalized_type.contains("smallint") || normalized_type.contains("int2") {
+                value.parse::<i16>().map(|number| number.to_string())
+            } else if normalized_type == "int"
+                || normalized_type.contains("integer")
+                || normalized_type.contains("int4")
+            {
+                value.parse::<i32>().map(|number| number.to_string())
+            } else {
+                value.parse::<i64>().map(|number| number.to_string())
+            };
+            return parsed
+                .map(|number| Some(UiCell::Number(number)))
+                .map_err(|_| format!("{value} is outside the range of {data_type}"));
         }
         if normalized_type.contains("real") || normalized_type.contains("float") || normalized_type.contains("double") {
             return value
@@ -1367,7 +1387,7 @@ impl DbProApp {
         result: &UiQueryResult,
         info: &UiTableInfo,
         row_index: usize,
-    ) -> Result<(Vec<String>, Vec<UiCell>), String> {
+    ) -> Result<RowIdentity, String> {
         let Some(primary_key) = info.primary_key.as_ref() else {
             return Err("This table has no primary key for safe row editing".to_owned());
         };
@@ -1386,10 +1406,19 @@ impl DbProApp {
             }
             pk_values.push(pk_cell.clone());
         }
-        Ok((primary_key.clone(), pk_values))
+        Ok(RowIdentity {
+            original_pk_columns: primary_key.clone(),
+            original_pk_values: pk_values,
+        })
     }
 
-    pub(crate) fn begin_data_cell_edit(&mut self, row_index: usize, column_index: usize, cell: &UiCell) {
+    pub(crate) fn begin_data_cell_edit(
+        &mut self,
+        result: &UiQueryResult,
+        row_index: usize,
+        column_index: usize,
+        cell: &UiCell,
+    ) {
         if !self.can_edit_table_rows() {
             if self.can_mutate_active_connection() && !self.table_has_primary_key() {
                 self.runtime_message = "Table has no primary key; safe row editing is unavailable.".to_owned();
@@ -1402,8 +1431,16 @@ impl DbProApp {
             self.runtime_message = "Connect with write access to edit rows".to_owned();
             return;
         }
-        if self.staged_row_deleted(row_index) {
+        if self.staged_row_deleted(result, row_index) {
             self.runtime_message = "Discard the staged delete before editing this row".to_owned();
+            return;
+        }
+        if result
+            .columns
+            .get(column_index)
+            .is_some_and(|column| Self::is_binary_type(&column.data_type.to_ascii_lowercase()))
+        {
+            self.runtime_message = "Binary values are read-only until a binary editor is available".to_owned();
             return;
         }
         self.selected_cell = Some((row_index, column_index));
@@ -1460,7 +1497,7 @@ impl DbProApp {
             self.data_edit_error = Some(error);
             return false;
         }
-        let (pk_columns, pk_values) = match Self::row_identity(result, &info, row_index) {
+        let identity = match Self::row_identity(result, &info, row_index) {
             Ok(identity) => identity,
             Err(error) => {
                 self.runtime_message = error;
@@ -1481,14 +1518,13 @@ impl DbProApp {
             return false;
         };
         self.staged_changes.stage_update(StagedChange::Update {
-            row_index,
+            identity,
+            current_row_index: Some(row_index),
             column_index,
             column,
             data_type: column_info.data_type.clone(),
             original,
             value,
-            pk_columns,
-            pk_values,
         });
         self.table_mutation_error = None;
         self.staged_apply_targets.clear();
@@ -1537,10 +1573,10 @@ impl DbProApp {
         self.data_edit_error = None;
         self.data_delete_confirmation = false;
         for row_index in row_indexes {
-            if self.staged_row_deleted(row_index) {
+            if self.staged_row_deleted(result, row_index) {
                 continue;
             }
-            let (pk_columns, pk_values) = match Self::row_identity(result, &info, row_index) {
+            let identity = match Self::row_identity(result, &info, row_index) {
                 Ok(identity) => identity,
                 Err(error) => {
                     self.runtime_message = error;
@@ -1548,9 +1584,8 @@ impl DbProApp {
                 }
             };
             self.staged_changes.stage_delete(StagedChange::Delete {
-                row_index,
-                pk_columns,
-                pk_values,
+                identity,
+                current_row_index: Some(row_index),
             });
         }
         self.table_mutation_error = None;
@@ -1565,32 +1600,42 @@ impl DbProApp {
         );
     }
 
-    pub(crate) fn staged_cell_value(&self, row_index: usize, column_index: usize) -> Option<UiCell> {
-        self.staged_changes.iter().rev().find_map(|change| match change {
-            StagedChange::Update {
-                row_index: changed_row,
-                column_index: changed_column,
-                value,
-                ..
-            } if *changed_row == row_index && *changed_column == column_index => Some(value.clone()),
-            _ => None,
-        })
+    pub(crate) fn row_identity_for_result(&self, result: &UiQueryResult, row_index: usize) -> Option<RowIdentity> {
+        let info = self.table_info.as_ref()?;
+        Self::row_identity(result, info, row_index).ok()
     }
 
-    pub(crate) fn staged_row_deleted(&self, row_index: usize) -> bool {
-        self.staged_changes.iter().any(
-            |change| matches!(change, StagedChange::Delete { row_index: changed_row, .. } if *changed_row == row_index),
-        )
+    pub(crate) fn staged_cell_value(
+        &self,
+        result: &UiQueryResult,
+        row_index: usize,
+        column_index: usize,
+    ) -> Option<UiCell> {
+        let identity = self.row_identity_for_result(result, row_index)?;
+        self.staged_changes.cell_value(&identity, column_index)
     }
 
-    pub(crate) fn revert_staged_cell(&mut self, row_index: usize, column_index: usize) {
-        if self.staged_changes.revert_cell(row_index, column_index) {
+    pub(crate) fn staged_row_deleted(&self, result: &UiQueryResult, row_index: usize) -> bool {
+        let Some(identity) = self.row_identity_for_result(result, row_index) else {
+            return false;
+        };
+        self.staged_changes.row_deleted(&identity)
+    }
+
+    pub(crate) fn revert_staged_cell(&mut self, result: &UiQueryResult, row_index: usize, column_index: usize) {
+        let Some(identity) = self.row_identity_for_result(result, row_index) else {
+            return;
+        };
+        if self.staged_changes.revert_cell(&identity, column_index) {
             self.runtime_message = "Cell change reverted".to_owned();
         }
     }
 
-    pub(crate) fn revert_staged_row(&mut self, row_index: usize) {
-        if self.staged_changes.revert_row(row_index) {
+    pub(crate) fn revert_staged_row(&mut self, result: &UiQueryResult, row_index: usize) {
+        let Some(identity) = self.row_identity_for_result(result, row_index) else {
+            return;
+        };
+        if self.staged_changes.revert_row(&identity) {
             self.runtime_message = "Row changes reverted".to_owned();
         }
     }
@@ -1623,12 +1668,14 @@ impl DbProApp {
             return;
         };
         match target {
-            MutationTarget::Update { row_index, columns, .. } => {
+            MutationTarget::Update { identity, columns, .. } => {
                 for column_index in columns {
-                    self.revert_staged_cell(row_index, column_index);
+                    self.staged_changes.revert_cell(&identity, column_index);
                 }
             }
-            MutationTarget::Delete { row_index, .. } => self.revert_staged_row(row_index),
+            MutationTarget::Delete { identity, .. } => {
+                self.staged_changes.revert_row(&identity);
+            }
             MutationTarget::Insert => {}
         }
         self.table_mutation_error = None;
@@ -1638,6 +1685,19 @@ impl DbProApp {
             self.table_data_error = None;
             self.request_table_data();
         }
+    }
+
+    fn reload_failed_mutation(&mut self) {
+        self.table_mutation_error = None;
+        self.table_data_result = None;
+        self.table_data_total_rows = None;
+        self.table_data_error = None;
+        self.request_table_data();
+    }
+
+    fn retry_failed_mutation_after_reload(&mut self) {
+        self.table_mutation_retry_after_reload = true;
+        self.reload_failed_mutation();
     }
 
     fn draw_discard_changes_confirmation(&mut self, ui: &mut egui::Ui) {
@@ -1710,10 +1770,9 @@ impl DbProApp {
         let mut deletes = Vec::new();
         let mut inserts = Vec::new();
         let mut updates = Vec::<(
-            usize,
+            RowIdentity,
+            Option<usize>,
             Vec<String>,
-            Vec<String>,
-            Vec<UiCell>,
             Vec<String>,
             Vec<UiCell>,
             Vec<usize>,
@@ -1721,48 +1780,41 @@ impl DbProApp {
         for change in self.staged_changes.iter() {
             match change {
                 StagedChange::Update {
-                    row_index,
+                    identity,
+                    current_row_index,
                     column_index,
                     column,
                     data_type,
                     value,
-                    pk_columns,
-                    pk_values,
                     ..
                 } => {
-                    if let Some(entry) = updates
-                        .iter_mut()
-                        .find(|entry| entry.4 == *pk_columns && entry.5 == *pk_values)
-                    {
-                        entry.1.push(column.clone());
-                        entry.2.push(data_type.clone());
-                        entry.3.push(value.clone());
-                        entry.6.push(*column_index);
+                    if let Some(entry) = updates.iter_mut().find(|entry| entry.0 == *identity) {
+                        entry.2.push(column.clone());
+                        entry.3.push(data_type.clone());
+                        entry.4.push(value.clone());
+                        entry.5.push(*column_index);
                     } else {
                         updates.push((
-                            *row_index,
+                            identity.clone(),
+                            *current_row_index,
                             vec![column.clone()],
                             vec![data_type.clone()],
                             vec![value.clone()],
-                            pk_columns.clone(),
-                            pk_values.clone(),
                             vec![*column_index],
                         ));
                     }
                 }
                 StagedChange::Delete {
-                    row_index,
-                    pk_columns,
-                    pk_values,
+                    identity,
+                    current_row_index,
                 } => deletes.push((
                     UiTableMutation::Delete {
-                        pk_columns: pk_columns.clone(),
-                        pk_values: pk_values.clone(),
+                        pk_columns: identity.original_pk_columns.clone(),
+                        pk_values: identity.original_pk_values.clone(),
                     },
                     MutationTarget::Delete {
-                        row_index: *row_index,
-                        pk_columns: pk_columns.clone(),
-                        pk_values: pk_values.clone(),
+                        identity: identity.clone(),
+                        current_row_index: *current_row_index,
                     },
                 )),
                 StagedChange::Insert { columns, values, .. } => inserts.push((
@@ -1778,19 +1830,18 @@ impl DbProApp {
             changes.push(change);
             targets.push(target);
         }
-        for (row_index, columns, data_types, values, pk_columns, pk_values, column_indexes) in updates {
+        for (identity, current_row_index, columns, data_types, values, column_indexes) in updates {
             changes.push(UiTableMutation::Update {
                 columns,
                 data_types,
                 values,
-                pk_columns: pk_columns.clone(),
-                pk_values: pk_values.clone(),
+                pk_columns: identity.original_pk_columns.clone(),
+                pk_values: identity.original_pk_values.clone(),
             });
             targets.push(MutationTarget::Update {
-                row_index,
+                identity,
+                current_row_index,
                 columns: column_indexes,
-                pk_columns,
-                pk_values,
             });
         }
         for (change, target) in inserts {
@@ -1826,6 +1877,7 @@ impl DbProApp {
     pub(crate) fn staged_apply_completed(&mut self) {
         self.staged_apply_request = None;
         self.table_mutation_request = None;
+        self.table_mutation_retry_after_reload = false;
         self.staged_changes.clear();
         self.staged_apply_targets.clear();
         self.table_mutation_error = None;
@@ -1844,34 +1896,54 @@ impl DbProApp {
         let has_target = target.is_some();
         if let Some(target) = target.as_ref() {
             match target {
-                MutationTarget::Update { row_index, columns, .. } => {
-                    self.selected_row = Some(*row_index);
+                MutationTarget::Update {
+                    identity,
+                    current_row_index,
+                    columns,
+                } => {
+                    let row_index = self.current_row_index_for_identity(identity, *current_row_index);
+                    self.selected_row = row_index;
                     self.selected_rows.clear();
-                    self.selected_rows.insert(*row_index);
-                    if let Some(column_index) = columns.first().copied() {
-                        self.selected_cell = Some((*row_index, column_index));
-                        self.selection_anchor_cell = Some((*row_index, column_index));
+                    if let Some(row_index) = row_index {
+                        self.selected_rows.insert(row_index);
+                        if let Some(column_index) = columns.first().copied() {
+                            self.selected_cell = Some((row_index, column_index));
+                            self.selection_anchor_cell = Some((row_index, column_index));
+                        }
                     }
                 }
-                MutationTarget::Delete { row_index, .. } => {
-                    self.selected_row = Some(*row_index);
+                MutationTarget::Delete {
+                    identity,
+                    current_row_index,
+                } => {
+                    let row_index = self.current_row_index_for_identity(identity, *current_row_index);
+                    self.selected_row = row_index;
                     self.selected_rows.clear();
-                    self.selected_rows.insert(*row_index);
+                    if let Some(row_index) = row_index {
+                        self.selected_rows.insert(row_index);
+                    }
                     self.selected_cell = None;
                     self.selection_anchor_cell = None;
                 }
                 MutationTarget::Insert => {}
             }
         }
-        let display_message = if code == "CONFLICT" {
-            format!("This row was changed or deleted by another transaction. Database: {message}")
+        let normalized_code = match code {
+            "INTERNAL_ERROR" => "INTERNAL",
+            "CONSTRAINT_VIOLATION" => "CONSTRAINT_VIOLATION",
+            "VALIDATION_ERROR" => "VALIDATION_ERROR",
+            "CONFLICT" => "CONFLICT",
+            _ => "INTERNAL",
+        };
+        let display_message = if normalized_code == "CONFLICT" {
+            format!("This row changed or was deleted in the database. Database: {message}")
         } else {
             message.to_owned()
         };
         self.table_mutation_error = Some(MutationFailure {
             statement_index,
             target,
-            code: code.to_owned(),
+            code: normalized_code.to_owned(),
             message: display_message.clone(),
             rolled_back,
         });
@@ -1890,6 +1962,17 @@ impl DbProApp {
         };
         self.runtime_message = formatted.clone();
         self.show_toast_error(formatted);
+    }
+
+    fn current_row_index_for_identity(&self, identity: &RowIdentity, fallback: Option<usize>) -> Option<usize> {
+        self.table_data_result
+            .as_ref()
+            .and_then(|result| {
+                result.rows.iter().enumerate().find_map(|(row_index, _)| {
+                    (self.row_identity_for_result(result, row_index).as_ref() == Some(identity)).then_some(row_index)
+                })
+            })
+            .or(fallback)
     }
 
     pub(crate) fn request_table_ddl(&mut self) {
@@ -1924,15 +2007,7 @@ impl DbProApp {
         };
         let request_id = self.task_bridge.next_request_id();
         self.table_data_request = Some(request_id);
-        let sorts = self
-            .table_data_sort_column
-            .clone()
-            .map(|column| UiTableDataSort {
-                column,
-                descending: self.table_data_sort_desc,
-            })
-            .into_iter()
-            .collect();
+        let sorts = self.table_data_sorts.clone();
         self.dispatch_command(UiCommand::LoadTableData {
             request_id,
             connection_id,

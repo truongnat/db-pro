@@ -25,6 +25,21 @@
 
 ## Existing coverage
 
-The core focused suite currently passes 20 tests, including zero-row
-`update_row`/`delete_row` rejection and transaction failure metadata. UI tests
-cannot compile until the current dirty changes are completed.
+The core focused suite currently passes 21 tests, including zero-row
+`update_row`/`delete_row` rejection and transaction failure metadata. The UI
+suite now compiles and passes the identity, typed-input, sorting, and conflict
+recovery regressions listed in the plan.
+
+## Completion-slice review
+
+- Row identity is now a domain value owned by the ChangeSet; `current_row_index`
+  is optional targeting metadata for focus/render only.
+- The visible grid builds row/column coordinate maps once per visible layout;
+  no per-cell `.position()` lookup remains in the render/navigation path.
+- Conflict reload keeps staged mutations and Retry waits for the refreshed
+  result before applying again. Constraint failures retain the staged values.
+- Remaining P1: PostgreSQL and SQLite provider flows still need independent
+  runtime evidence with a live concurrent change.
+- Remaining P2: provider-specific structure metadata fields (index method,
+  INCLUDE/predicate/definition and full FK actions) are not expanded in this
+  slice; binary editing also remains intentionally unavailable.

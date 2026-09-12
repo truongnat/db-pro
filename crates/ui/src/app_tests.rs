@@ -37,6 +37,13 @@ fn result() -> UiQueryResult {
     }
 }
 
+fn primary_key_identity(value: &str) -> RowIdentity {
+    RowIdentity {
+        original_pk_columns: vec!["id".to_owned()],
+        original_pk_values: vec![UiCell::Number(value.to_owned())],
+    }
+}
+
 #[test]
 fn filter_returns_original_row_indexes() {
     let app = DbProApp {
@@ -136,15 +143,25 @@ fn grid_copy_uses_staged_values_only_for_data_editor() {
     let mut app = DbProApp {
         active_tab: WorkspaceTab::Table,
         table_view: TableView::Data,
+        table_info: Some(UiTableInfo {
+            schema: "public".to_owned(),
+            name: "customers".to_owned(),
+            row_count: Some(1),
+            columns: Vec::new(),
+            primary_key: Some(vec!["id".to_owned()]),
+            indexes: Vec::new(),
+            foreign_keys: Vec::new(),
+            check_constraints: Vec::new(),
+            dependencies: Vec::new(),
+        }),
         staged_changes: ChangeSet::from(vec![StagedChange::Update {
-            row_index: 0,
+            identity: primary_key_identity("2"),
+            current_row_index: Some(0),
             column_index: 1,
             column: "name".to_owned(),
             data_type: "TEXT".to_owned(),
             original: UiCell::Text("Beta".to_owned()),
             value: UiCell::Text("Updated".to_owned()),
-            pk_columns: vec!["id".to_owned()],
-            pk_values: vec![UiCell::Number("2".to_owned())],
         }]),
         ..Default::default()
     };
@@ -188,11 +205,11 @@ fn composite_primary_key_identity_preserves_each_cell_type() {
         dependencies: Vec::new(),
     };
 
-    let (columns, values) = DbProApp::row_identity(&result, &info, 0).expect("row identity expected");
+    let identity = DbProApp::row_identity(&result, &info, 0).expect("row identity expected");
 
-    assert_eq!(columns, vec!["tenant_id", "item_id"]);
+    assert_eq!(identity.original_pk_columns, vec!["tenant_id", "item_id"]);
     assert_eq!(
-        values,
+        identity.original_pk_values,
         vec![UiCell::Number("7".to_owned()), UiCell::Text("sku-42".to_owned())]
     );
 }
@@ -322,14 +339,13 @@ fn apply_is_blocked_while_a_validation_error_exists() {
     let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
     app.staged_changes.stage_update(StagedChange::Update {
-        row_index: 0,
+        identity: primary_key_identity("1"),
+        current_row_index: Some(0),
         column_index: 1,
         column: "name".to_owned(),
         data_type: "text".to_owned(),
         original: UiCell::Text("Original".to_owned()),
         value: UiCell::Text("Updated".to_owned()),
-        pk_columns: vec!["id".to_owned()],
-        pk_values: vec![UiCell::Number("1".to_owned())],
     });
     app.data_edit_error = Some("invalid value".to_owned());
 
@@ -386,11 +402,11 @@ fn editing_primary_key_stages_new_value_with_original_identity() {
         duration_ms: 0,
     };
     assert!(app.submit_data_cell_edit(&result, 0, 0));
-    let Some(StagedChange::Update { value, pk_values, .. }) = app.staged_changes.iter().next() else {
+    let Some(StagedChange::Update { value, identity, .. }) = app.staged_changes.iter().next() else {
         panic!("primary-key edit was not staged");
     };
     assert_eq!(value, &UiCell::Number("2".to_owned()));
-    assert_eq!(pk_values, &vec![UiCell::Number("1".to_owned())]);
+    assert_eq!(identity.original_pk_values, vec![UiCell::Number("1".to_owned())]);
 }
 
 #[test]
@@ -429,28 +445,25 @@ fn no_primary_key_table_blocks_safe_row_mutations() {
 fn staged_apply_failure_maps_statement_to_mutation_and_keeps_changes() {
     let mut staged_changes = ChangeSet::new();
     staged_changes.stage_update(StagedChange::Update {
-        row_index: 2,
+        identity: primary_key_identity("3"),
+        current_row_index: Some(2),
         column_index: 1,
         column: "name".to_owned(),
         data_type: "text".to_owned(),
         original: UiCell::Text("old".to_owned()),
         value: UiCell::Text("new".to_owned()),
-        pk_columns: vec!["id".to_owned()],
-        pk_values: vec![UiCell::Number("3".to_owned())],
     });
     let mut app = DbProApp {
         staged_apply_request: Some(crate::RequestId(7)),
         staged_apply_targets: vec![
             MutationTarget::Delete {
-                row_index: 0,
-                pk_columns: vec!["id".to_owned()],
-                pk_values: vec![UiCell::Number("1".to_owned())],
+                identity: primary_key_identity("1"),
+                current_row_index: Some(0),
             },
             MutationTarget::Update {
-                row_index: 2,
+                identity: primary_key_identity("3"),
+                current_row_index: Some(2),
                 columns: vec![1, 3],
-                pk_columns: vec!["id".to_owned()],
-                pk_values: vec![UiCell::Number("3".to_owned())],
             },
         ],
         staged_changes,
@@ -465,7 +478,7 @@ fn staged_apply_failure_maps_statement_to_mutation_and_keeps_changes() {
     assert!(matches!(
         app.table_mutation_error.as_ref().and_then(|failure| failure.target.as_ref()),
         Some(MutationTarget::Update {
-            row_index: 2,
+            current_row_index: Some(2),
             columns,
             ..
         }) if columns == &vec![1, 3]
@@ -473,6 +486,42 @@ fn staged_apply_failure_maps_statement_to_mutation_and_keeps_changes() {
     assert!(app
         .runtime_message
         .contains("Staged change #2 failed · transaction rolled back"));
+}
+
+#[test]
+fn conflict_failure_has_distinct_code_and_user_action_message() {
+    let mut app = DbProApp {
+        staged_apply_request: Some(crate::RequestId(8)),
+        staged_apply_targets: vec![MutationTarget::Update {
+            identity: primary_key_identity("3"),
+            current_row_index: Some(2),
+            columns: vec![1],
+        }],
+        ..Default::default()
+    };
+
+    app.staged_apply_failed(0, "CONFLICT", "row count was zero", true);
+
+    let failure = app.table_mutation_error.expect("conflict should be visible");
+    assert_eq!(failure.code, "CONFLICT");
+    assert!(failure
+        .message
+        .starts_with("This row changed or was deleted in the database."));
+}
+
+#[test]
+fn internal_error_code_is_normalized_for_mutation_state() {
+    let mut app = DbProApp {
+        staged_apply_request: Some(crate::RequestId(9)),
+        ..Default::default()
+    };
+
+    app.staged_apply_failed(usize::MAX, "INTERNAL_ERROR", "invariant violation", true);
+
+    assert_eq!(
+        app.table_mutation_error.expect("error should be visible").code,
+        "INTERNAL"
+    );
 }
 
 #[test]

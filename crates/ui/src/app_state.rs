@@ -71,6 +71,11 @@ impl DbProApp {
                     app.grid_column_widths = widths.into_iter().map(|width| width.clamp(90.0, 520.0)).collect();
                 }
             }
+            if let Some(layouts) = storage.get_string("dbpro.native.grid-layouts") {
+                if let Ok(layouts) = serde_json::from_str(&layouts) {
+                    app.grid_layout_preferences = layouts;
+                }
+            }
             app.grid_columns_user_resized = storage
                 .get_string("dbpro.native.grid-widths-customized")
                 .is_some_and(|value| value == "true");
@@ -155,6 +160,8 @@ impl Default for DbProApp {
             grid_sort_desc: false,
             grid_column_widths: Vec::new(),
             grid_column_order: Vec::new(),
+            grid_hidden_columns: std::collections::BTreeSet::new(),
+            grid_layout_preferences: std::collections::HashMap::new(),
             grid_columns_user_resized: false,
             selected_cell: None,
             selected_row: None,
@@ -204,8 +211,7 @@ impl Default for DbProApp {
             table_data_filter_operator: crate::UiTableFilterOperator::default(),
             table_data_filter_value: String::new(),
             table_data_filters: Vec::new(),
-            table_data_sort_column: None,
-            table_data_sort_desc: false,
+            table_data_sorts: Vec::new(),
             table_data_error: None,
             table_structure_search: String::new(),
             table_metadata_search: String::new(),
@@ -218,6 +224,7 @@ impl Default for DbProApp {
             staged_changes: ChangeSet::new(),
             staged_apply_request: None,
             staged_apply_targets: Vec::new(),
+            table_mutation_retry_after_reload: false,
             table_mutation_error: None,
             table_view: TableView::Structure,
             query_folder: String::new(),
