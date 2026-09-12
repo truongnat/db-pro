@@ -10,7 +10,9 @@
 //!
 //! Tests are marked `#[ignored]` so they only run when DATABASE_URL is set.
 
+use db_pro_core::application::sql_builder::{build_count, FilterOp, TableFilter};
 use db_pro_core::domain::connection::{ConnectionConfig, DriverType, SslMode};
+use db_pro_core::domain::query::CellValue;
 use db_pro_core::ports::{DbConnector, TransactionFailureOutcome, TransactionFailurePhase};
 use db_pro_infrastructure::postgres::connector::PostgresConnector;
 
@@ -206,8 +208,6 @@ async fn pg_query_categories() {
 #[tokio::test]
 #[ignore]
 async fn pg_query_preserves_numeric_and_enum_values() {
-    use db_pro_core::domain::query::CellValue;
-
     let (connector, handle) = setup().await;
     let result = connector
         .query(
@@ -221,6 +221,23 @@ async fn pg_query_preserves_numeric_and_enum_values() {
     assert!(matches!(&result.rows[0].0[0], CellValue::Text(value) if value == "12345678901234567890.12345"));
     assert!(matches!(&result.rows[0].0[1], CellValue::Text(value) if value == "shipped"));
 
+    connector.disconnect(&handle).await.unwrap();
+}
+
+#[tokio::test]
+#[ignore]
+async fn pg_date_cell_filter_binds_as_date() {
+    let (connector, handle) = setup().await;
+    let dialect = connector.dialect(&handle).unwrap();
+    let filter = TableFilter {
+        column: "hire_date".into(),
+        op: FilterOp::Eq,
+        value: CellValue::Date("2024-01-15".into()),
+    };
+    let (sql, params) = build_count(dialect.as_ref(), "public", "employees", &[filter]);
+
+    let result = connector.query(&handle, &sql, &params).await.unwrap();
+    assert!(matches!(result.rows[0].0[0], CellValue::Int64(count) if count > 0));
     connector.disconnect(&handle).await.unwrap();
 }
 

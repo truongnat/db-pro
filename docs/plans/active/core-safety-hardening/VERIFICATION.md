@@ -99,6 +99,7 @@
   boundary and statement-splitting tests.
 - `DATABASE_URL=postgres://dbpro:dbpro_test@127.0.0.1:15434/dbpro_fixture cargo test -p db-pro-infrastructure --test pg_integration --offline -- --ignored` — PASS: 14/14 against an isolated temporary `postgres:18.2` fixture after fallible metadata decoding and the `enabled_flag` text cast; the container was removed after the run.
 - The same full ignored PostgreSQL integration command — PASS: 15/15 against an isolated temporary `postgres:18.2` fixture, including commit-failure outcome reporting; the Docker container was removed after the run.
+- The same full ignored PostgreSQL integration command — PASS: 16/16 against an isolated temporary `postgres:18.2` fixture, including live DATE filter binding; the Docker container was removed after the run.
 - External PostgreSQL command timeout regression — PASS on Unix via
   `external_command_timeout_returns_query_timeout`.
 - `cargo test --workspace --no-fail-fast` — PASS: 246 core unit, 28 SQLite
@@ -151,7 +152,7 @@ artifact is rejected before external command execution.
 
 | Provider | Automated | Live provider | Notes |
 |---|---|---|---|
-| PostgreSQL | Unit policy/timeout coverage PASS | PASS (isolated `postgres:18.2`, 15/15) | Live introspection/query/transaction, commit outcome, batch rollback, and isolated SSH backup/tunnel pass; CI SSH workflow execution pending |
+| PostgreSQL | Unit policy/timeout coverage PASS | PASS (isolated `postgres:18.2`, 16/16) | Live introspection/query/DATE binding/transaction commit outcome, batch rollback, and isolated SSH backup/tunnel pass; CI SSH workflow execution pending |
 | SQLite | Integration timeout/recovery PASS | PASS (in-memory provider) | Native UI runtime evidence is outside this core-only slice |
 
 ## Scope check

@@ -134,6 +134,7 @@
 - [x] Add JSON non-finite-float regression coverage.
 - [x] Preserve typed date parameters for table filters and row mutations.
 - [x] Add SQL-builder regression coverage for date-cell binding.
+- [x] Verify typed DATE binding against a live PostgreSQL fixture.
 - [x] Reject empty insert/update column sets before SQL generation.
 - [x] Add empty row-mutation validation regression coverage.
 - [x] Run formatting, check, clippy, targeted tests, and workspace tests.
