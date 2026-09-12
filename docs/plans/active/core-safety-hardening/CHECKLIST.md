@@ -102,6 +102,7 @@
 - [x] Reject malformed query-history duration and row-count metadata.
 - [x] Add query-history metric parsing regression coverage.
 - [x] Add an ignored live PostgreSQL backup/restore verification test for the SSH tunnel.
+- [x] Provision the live SSH backup fixture in CI without disabling host-key verification.
 - [x] Reject malformed and unsupported-future metadata schema versions.
 - [x] Add migration regression coverage for invalid schema-version metadata.
 - [x] Run formatting, check, clippy, targeted tests, and workspace tests.

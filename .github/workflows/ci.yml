@@ -70,6 +70,47 @@ jobs:
           PGPASSWORD=dbpro_test psql -v ON_ERROR_STOP=1 -h localhost -U dbpro -d dbpro_fixture -f fixtures/postgres/002_seed.sql
           PGPASSWORD=dbpro_test psql -v ON_ERROR_STOP=1 -h localhost -U dbpro -d dbpro_fixture -f fixtures/postgres/003_verify.sql
 
+      - name: Configure live SSH backup fixture
+        run: |
+          ssh_dir="$RUNNER_TEMP/db-pro-ssh"
+          ssh_user="$(whoami)"
+          ssh_port="$(python3 -c 'import socket; s=socket.socket(); s.bind((\"127.0.0.1\", 0)); print(s.getsockname()[1]); s.close()')"
+          mkdir -p "$ssh_dir" "$HOME/.ssh"
+          chmod 700 "$HOME/.ssh"
+          ssh-keygen -q -t ed25519 -N '' -f "$ssh_dir/user_key"
+          ssh-keygen -q -t ed25519 -N '' -f "$ssh_dir/host_key"
+          cp "$ssh_dir/user_key.pub" "$ssh_dir/authorized_keys"
+          chmod 600 "$ssh_dir/user_key" "$ssh_dir/authorized_keys"
+          /usr/sbin/sshd -D -e -f /dev/null -p "$ssh_port" -h "$ssh_dir/host_key" \
+            -o "AuthorizedKeysFile=$ssh_dir/authorized_keys" \
+            -o StrictModes=no -o PasswordAuthentication=no \
+            -o KbdInteractiveAuthentication=no -o PubkeyAuthentication=yes \
+            -o UsePAM=no -o PermitRootLogin=no -o "AllowUsers=$ssh_user" \
+            -o "PidFile=$ssh_dir/sshd.pid" >"$ssh_dir/sshd.log" 2>&1 &
+          sshd_pid=$!
+          echo "DB_PRO_SSHD_PID=$sshd_pid" >> "$GITHUB_ENV"
+          for _ in $(seq 1 50); do
+            if nc -z 127.0.0.1 "$ssh_port" >/dev/null 2>&1; then break; fi
+            if ! kill -0 "$sshd_pid" 2>/dev/null; then
+              sed -n '1,120p' "$ssh_dir/sshd.log"
+              exit 1
+            fi
+            sleep 0.1
+          done
+          nc -z 127.0.0.1 "$ssh_port"
+          ssh-keyscan -p "$ssh_port" 127.0.0.1 >> "$HOME/.ssh/known_hosts" 2>/dev/null
+          {
+            echo "DB_PRO_SSH_HOST=127.0.0.1"
+            echo "DB_PRO_SSH_PORT=$ssh_port"
+            echo "DB_PRO_SSH_USER=$ssh_user"
+            echo "DB_PRO_SSH_KEY=$ssh_dir/user_key"
+            echo "DB_PRO_SSH_TARGET_HOST=127.0.0.1"
+            echo "DB_PRO_SSH_TARGET_PORT=5432"
+            echo "DB_PRO_SSH_DATABASE=dbpro_fixture"
+            echo "DB_PRO_SSH_USERNAME=dbpro"
+            echo "DB_PRO_SSH_PASSWORD=dbpro_test"
+          } >> "$GITHUB_ENV"
+
       - name: cargo fmt
         run: cargo fmt --all --check
 
@@ -81,6 +122,10 @@ jobs:
 
       - name: cargo test
         run: cargo test --all -- --include-ignored
+
+      - name: Stop live SSH backup fixture
+        if: always()
+        run: kill "${DB_PRO_SSHD_PID:-}" 2>/dev/null || true
 
       - name: cargo build native app (release)
         run: cargo build --release --locked -p db-pro-native

@@ -215,6 +215,8 @@ without changing the native UI or adding product features.
   replacing it with zero.
 - A live isolated PostgreSQL fixture verifies backup and restore through the SSH
   tunnel, including restore into a fresh database and post-restore queryability.
+- CI provisions an isolated SSHD/key/known-hosts fixture so the live backup
+  verification runs with the same host-key verification contract.
 - Metadata migration fails closed on malformed, negative, or future schema
   versions instead of silently applying an incompatible migration set.
 - Create, update, and both connection-test paths share the same connection
