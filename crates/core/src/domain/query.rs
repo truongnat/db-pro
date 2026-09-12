@@ -108,6 +108,13 @@ impl QueryResult {
                 return Err(format!("row {i} has {} cells but expected {col_count}", row.0.len()));
             }
         }
+        if !self.columns.is_empty() && self.row_count != self.rows.len() as u64 {
+            return Err(format!(
+                "row_count {} does not match {} returned rows",
+                self.row_count,
+                self.rows.len()
+            ));
+        }
         Ok(())
     }
 }
@@ -239,6 +246,34 @@ mod tests {
             duration_ms: 0,
         };
         assert!(result.validate().is_err());
+    }
+
+    #[test]
+    fn query_result_validate_row_count_mismatch() {
+        let result = QueryResult {
+            columns: vec![ColumnMeta {
+                name: "id".into(),
+                data_type: "int".into(),
+                nullable: false,
+            }],
+            rows: vec![Row(vec![CellValue::Int64(1)])],
+            row_count: 2,
+            duration_ms: 0,
+        };
+
+        assert!(matches!(result.validate(), Err(message) if message.contains("row_count")));
+    }
+
+    #[test]
+    fn query_result_validate_affected_rows_without_columns() {
+        let result = QueryResult {
+            columns: Vec::new(),
+            rows: Vec::new(),
+            row_count: 3,
+            duration_ms: 0,
+        };
+
+        assert!(result.validate().is_ok());
     }
 
     #[test]

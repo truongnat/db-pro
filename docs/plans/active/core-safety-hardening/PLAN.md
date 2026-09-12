@@ -145,6 +145,8 @@ without changing the native UI or adding product features.
     non-scalar result instead of requiring the `COUNT(*)` scalar contract.
 63. Connection-name validation measures UTF-8 bytes while reporting a
     character limit, rejecting valid non-ASCII names at the boundary.
+64. `QueryResult::validate` checks row cell shape but accepts a mismatched
+    `row_count`, allowing incorrect result metrics to cross core boundaries.
 
 ## Acceptance criteria
 
@@ -253,6 +255,8 @@ without changing the native UI or adding product features.
   count row from the provider.
 - Connection-name validation enforces its documented limit by Unicode character
   count rather than UTF-8 byte length.
+- `QueryResult::validate` rejects mismatched returned-row counts while retaining
+  the affected-row representation with no columns/rows.
 - Create, update, and both connection-test paths share the same connection
   configuration validation boundary.
 - PostgreSQL and SQLite unit/integration coverage is updated independently where the

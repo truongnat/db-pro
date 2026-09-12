@@ -789,3 +789,17 @@ public contract.
 
 Decision: count Unicode scalar values with `chars().count()` and cover the exact
 128/129-character boundary.
+
+## P2 — Query result validation accepts inconsistent row counts
+
+`QueryResult::validate` verified each row's cell count but did not compare
+`row_count` with the number of returned rows. A malformed provider result could
+therefore carry valid-looking cells and an incorrect count into history, export,
+pagination, or execution metrics.
+
+Impact: downstream consumers can report a count different from the actual
+returned payload.
+
+Decision: require matching counts whenever the result has columns, while
+preserving the existing affected-row representation (`columns == []`, `rows ==
+[]`, `row_count > 0`).

@@ -120,6 +120,8 @@
 - [x] Add non-scalar count regression coverage.
 - [x] Count connection-name limits by Unicode characters.
 - [x] Add Unicode connection-name boundary regression coverage.
+- [x] Validate `QueryResult.row_count` against returned rows.
+- [x] Preserve affected-row results without columns as a valid shape.
 - [x] Run formatting, check, clippy, targeted tests, and workspace tests.
 - [x] Self-review changed files and confirm no UI/native files changed.
 - [x] Record PostgreSQL and isolated SSH-tunnel fixture evidence; CI SSH execution and native UI runtime evidence remain pending.
