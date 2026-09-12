@@ -166,9 +166,24 @@ pub struct UiTableDependency {
     pub details: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub enum UiTableFilterOperator {
+    Equals,
+    NotEquals,
+    #[default]
+    Contains,
+    GreaterThan,
+    GreaterThanOrEqual,
+    LessThan,
+    LessThanOrEqual,
+    IsNull,
+    IsNotNull,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UiTableDataFilter {
     pub column: String,
+    pub operator: UiTableFilterOperator,
     pub value: String,
 }
 

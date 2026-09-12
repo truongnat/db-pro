@@ -8,7 +8,8 @@ use crate::{
     toolbar_frame, AgentContext, AgentMessage, AgentProvider, AgentRole, DbProTheme, OfflineAgentProvider, TaskBridge,
     UiCell, UiCommand, UiConnectionDraft, UiConnectionSummary, UiDriver, UiEvent, UiFunctionSummary,
     UiQueryFolderSummary, UiQueryResult, UiSavedQuerySummary, UiSchemaForeignKey, UiSchemaSummary, UiSslMode,
-    UiTableDataFilter, UiTableDataSort, UiTableInfo, UiTableSummary, UiTriggerSummary, UiViewSummary,
+    UiTableDataFilter, UiTableDataSort, UiTableFilterOperator, UiTableInfo, UiTableSummary, UiTriggerSummary,
+    UiViewSummary,
 };
 use bigdecimal::BigDecimal;
 use db_pro_core::domain::capabilities::DatabaseCapabilities;
@@ -18,7 +19,7 @@ use eframe::egui::{self, Align, Color32, FontId, Layout, RichText, Sense, TextEd
 use lucide_icons::Icon;
 use sqlparser::dialect::{GenericDialect, PostgreSqlDialect, SQLiteDialect};
 use sqlparser::parser::Parser;
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -338,6 +339,8 @@ pub struct DbProApp {
     grid_columns_user_resized: bool,
     selected_cell: Option<(usize, usize)>,
     selected_row: Option<usize>,
+    selected_rows: BTreeSet<usize>,
+    selection_anchor_row: Option<usize>,
     data_editing_cell: Option<(usize, usize)>,
     data_edit_value: String,
     data_delete_confirmation: bool,
@@ -376,6 +379,7 @@ pub struct DbProApp {
     table_data_offset: u64,
     table_data_limit: u64,
     table_data_filter_column: String,
+    table_data_filter_operator: UiTableFilterOperator,
     table_data_filter_value: String,
     table_data_sort_column: Option<String>,
     table_data_sort_desc: bool,
@@ -872,6 +876,8 @@ impl DbProApp {
                 self.staged_apply_request = None;
                 self.selected_cell = None;
                 self.selected_row = None;
+                self.selected_rows.clear();
+                self.selection_anchor_row = None;
                 self.data_editing_cell = None;
                 self.data_delete_confirmation = false;
             }

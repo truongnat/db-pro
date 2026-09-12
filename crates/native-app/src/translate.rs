@@ -418,10 +418,21 @@ fn translate_execution_command(command: UiCommand) -> Option<RuntimeCommand> {
 }
 
 fn map_table_data_filter(filter: UiTableDataFilter) -> TableFilter {
+    let (op, value) = match filter.operator {
+        UiTableFilterOperator::Equals => (FilterOp::Eq, CellValue::Text(filter.value)),
+        UiTableFilterOperator::NotEquals => (FilterOp::Neq, CellValue::Text(filter.value)),
+        UiTableFilterOperator::Contains => (FilterOp::Like, CellValue::Text(format!("%{}%", filter.value))),
+        UiTableFilterOperator::GreaterThan => (FilterOp::Gt, CellValue::Text(filter.value)),
+        UiTableFilterOperator::GreaterThanOrEqual => (FilterOp::Gte, CellValue::Text(filter.value)),
+        UiTableFilterOperator::LessThan => (FilterOp::Lt, CellValue::Text(filter.value)),
+        UiTableFilterOperator::LessThanOrEqual => (FilterOp::Lte, CellValue::Text(filter.value)),
+        UiTableFilterOperator::IsNull => (FilterOp::IsNull, CellValue::Null),
+        UiTableFilterOperator::IsNotNull => (FilterOp::IsNotNull, CellValue::Null),
+    };
     TableFilter {
         column: filter.column,
-        op: FilterOp::Like,
-        value: CellValue::Text(format!("%{}%", filter.value)),
+        op,
+        value,
     }
 }
 
@@ -953,5 +964,24 @@ mod tests {
             ui_cell_to_domain(UiCell::Text(uuid_str.clone())),
             Some(CellValue::Uuid(v)) if v == uuid_str
         ));
+    }
+
+    #[test]
+    fn table_filter_operator_maps_to_parameterized_sql_filter_kind() {
+        let filter = map_table_data_filter(UiTableDataFilter {
+            column: "amount".to_owned(),
+            operator: UiTableFilterOperator::GreaterThanOrEqual,
+            value: "100".to_owned(),
+        });
+        assert!(matches!(filter.op, FilterOp::Gte));
+        assert!(matches!(filter.value, CellValue::Text(value) if value == "100"));
+
+        let null_filter = map_table_data_filter(UiTableDataFilter {
+            column: "deleted_at".to_owned(),
+            operator: UiTableFilterOperator::IsNull,
+            value: String::new(),
+        });
+        assert!(matches!(null_filter.op, FilterOp::IsNull));
+        assert!(matches!(null_filter.value, CellValue::Null));
     }
 }

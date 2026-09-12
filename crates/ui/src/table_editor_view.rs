@@ -109,7 +109,7 @@ impl DbProApp {
                     .clicked()
                 {
                     if self.staged_changes.is_empty() {
-                        self.reset_table_data_page();
+                        self.request_table_data();
                     } else {
                         self.runtime_message = "Apply or discard staged changes before refreshing".to_owned();
                     }
@@ -153,6 +153,16 @@ impl DbProApp {
                             .font(font_caption())
                             .color(self.theme.warning),
                     );
+                }
+
+                if self.selected_rows.len() > 1 {
+                    crate::components::badge::Badge::new(
+                        &format!("{} rows selected", self.selected_rows.len()),
+                        self.theme,
+                    )
+                    .variant(crate::components::badge::BadgeVariant::Secondary)
+                    .compact(true)
+                    .show(ui);
                 }
 
                 if !column_names.is_empty() {
@@ -199,6 +209,7 @@ impl DbProApp {
                                         )
                                         .clicked()
                                     {
+                                        self.table_data_filter_operator = UiTableFilterOperator::default();
                                         self.grid_filter = self.table_data_filter_value.clone();
                                     }
                                     for col in &column_names {
@@ -212,10 +223,56 @@ impl DbProApp {
 
                             ui.add(egui::Separator::default().vertical());
 
+                            let operator_label = match self.table_data_filter_operator {
+                                UiTableFilterOperator::Equals => "equals",
+                                UiTableFilterOperator::NotEquals => "not equals",
+                                UiTableFilterOperator::Contains => "contains",
+                                UiTableFilterOperator::GreaterThan => ">",
+                                UiTableFilterOperator::GreaterThanOrEqual => ">=",
+                                UiTableFilterOperator::LessThan => "<",
+                                UiTableFilterOperator::LessThanOrEqual => "<=",
+                                UiTableFilterOperator::IsNull => "IS NULL",
+                                UiTableFilterOperator::IsNotNull => "IS NOT NULL",
+                            };
+                            let mut operator_changed = false;
+                            egui::ComboBox::from_id_salt(("table-unified-filter-op", table_name))
+                                .selected_text(
+                                    RichText::new(operator_label)
+                                        .size(12.0)
+                                        .color(self.theme.text_secondary),
+                                )
+                                .width(86.0)
+                                .show_ui(ui, |ui| {
+                                    for (operator, label) in [
+                                        (UiTableFilterOperator::Equals, "equals"),
+                                        (UiTableFilterOperator::NotEquals, "not equals"),
+                                        (UiTableFilterOperator::Contains, "contains"),
+                                        (UiTableFilterOperator::GreaterThan, ">"),
+                                        (UiTableFilterOperator::GreaterThanOrEqual, ">="),
+                                        (UiTableFilterOperator::LessThan, "<"),
+                                        (UiTableFilterOperator::LessThanOrEqual, "<="),
+                                        (UiTableFilterOperator::IsNull, "IS NULL"),
+                                        (UiTableFilterOperator::IsNotNull, "IS NOT NULL"),
+                                    ] {
+                                        if ui
+                                            .selectable_value(&mut self.table_data_filter_operator, operator, label)
+                                            .clicked()
+                                        {
+                                            operator_changed = true;
+                                        }
+                                    }
+                                });
+
                             // Search / Filter Input
                             let is_all_cols = self.table_data_filter_column.is_empty();
+                            let is_null_operator = matches!(
+                                self.table_data_filter_operator,
+                                UiTableFilterOperator::IsNull | UiTableFilterOperator::IsNotNull
+                            );
                             let placeholder = if is_all_cols {
                                 "Search rows instantly…"
+                            } else if is_null_operator {
+                                "No value required"
                             } else {
                                 "Filter value (Enter to query DB)…"
                             };
@@ -230,10 +287,16 @@ impl DbProApp {
                                 .hint_text(RichText::new(placeholder).size(12.0).color(self.theme.text_muted))
                                 .font(FontId::proportional(12.0))
                                 .frame(false)
+                                .interactive(is_all_cols || !is_null_operator)
                                 .desired_width(210.0);
 
                             let resp = ui.add(edit);
-                            if resp.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) && !is_all_cols {
+                            if (resp.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) || operator_changed)
+                                && !is_all_cols
+                            {
+                                if is_null_operator {
+                                    self.table_data_filter_value.clear();
+                                }
                                 self.reload_table_data_from_start();
                             }
 
@@ -257,6 +320,7 @@ impl DbProApp {
                                     self.grid_filter.clear();
                                 } else {
                                     self.table_data_filter_value.clear();
+                                    self.table_data_filter_operator = UiTableFilterOperator::default();
                                     self.reload_table_data_from_start();
                                 }
                             }
@@ -336,7 +400,7 @@ impl DbProApp {
                         .selected_text(RichText::new(&limit_label).size(11.0).color(self.theme.text_secondary))
                         .width(90.0)
                         .show_ui(ui, |ui| {
-                            for limit_opt in [50, 100, 200, 500, 1000] {
+                            for limit_opt in [50, 100, 500, 1000] {
                                 ui.selectable_value(
                                     &mut self.table_data_limit,
                                     limit_opt,
@@ -1093,6 +1157,9 @@ impl DbProApp {
         }
         self.selected_cell = Some((row_index, column_index));
         self.selected_row = Some(row_index);
+        self.selected_rows.clear();
+        self.selected_rows.insert(row_index);
+        self.selection_anchor_row = Some(row_index);
         self.data_editing_cell = Some((row_index, column_index));
         self.data_edit_value = match cell {
             UiCell::Null => String::new(),
@@ -1182,45 +1249,50 @@ impl DbProApp {
         self.runtime_message = format!("{} staged change(s)", self.staged_changes.len());
     }
 
-    pub(crate) fn request_delete_selected_data_row(&mut self, result: &UiQueryResult) {
+    pub(crate) fn request_delete_selected_data_rows(&mut self, result: &UiQueryResult) {
         if !self.can_mutate_active_connection() {
             self.runtime_message = "Connect with write access to delete rows".to_owned();
             return;
         }
-        let Some(row_index) = self.selected_row else {
+        let row_indexes: Vec<usize> = if self.selected_rows.is_empty() {
+            self.selected_row.into_iter().collect()
+        } else {
+            self.selected_rows.iter().copied().collect()
+        };
+        if row_indexes.is_empty() {
             self.runtime_message = "Select a row before deleting".to_owned();
             return;
-        };
+        }
         let Some(info) = self.table_info.clone() else {
             self.runtime_message = "Table structure is still loading".to_owned();
             return;
         };
-        let (pk_columns, pk_values) = match Self::row_identity(result, &info, row_index) {
-            Ok(identity) => identity,
-            Err(error) => {
-                self.runtime_message = error;
-                return;
-            }
-        };
         self.data_editing_cell = None;
         self.data_edit_value.clear();
         self.data_delete_confirmation = false;
-        self.staged_changes.retain(|change| {
-            !matches!(
-                change,
-                StagedChange::Delete {
-                    row_index: existing_row,
-                    ..
-                } if *existing_row == row_index
-            )
-        });
-        self.staged_changes.push(StagedChange::Delete {
-            row_index,
-            pk_columns,
-            pk_values,
-        });
+        for row_index in row_indexes {
+            if self.staged_row_deleted(row_index) {
+                continue;
+            }
+            let (pk_columns, pk_values) = match Self::row_identity(result, &info, row_index) {
+                Ok(identity) => identity,
+                Err(error) => {
+                    self.runtime_message = error;
+                    return;
+                }
+            };
+            self.staged_changes.push(StagedChange::Delete {
+                row_index,
+                pk_columns,
+                pk_values,
+            });
+        }
         self.runtime_message = format!(
-            "Row marked for deletion · {} staged change(s)",
+            "{} row(s) marked for deletion · {} staged change(s)",
+            self.staged_changes
+                .iter()
+                .filter(|change| matches!(change, StagedChange::Delete { .. }))
+                .count(),
             self.staged_changes.len()
         );
     }
@@ -1384,10 +1456,15 @@ impl DbProApp {
         };
         let request_id = self.task_bridge.next_request_id();
         self.table_data_request = Some(request_id);
-        let filter = (!self.table_data_filter_value.trim().is_empty()
-            && !self.table_data_filter_column.trim().is_empty())
+        let null_filter = matches!(
+            self.table_data_filter_operator,
+            UiTableFilterOperator::IsNull | UiTableFilterOperator::IsNotNull
+        );
+        let filter = (!self.table_data_filter_column.trim().is_empty()
+            && (null_filter || !self.table_data_filter_value.trim().is_empty()))
         .then(|| UiTableDataFilter {
             column: self.table_data_filter_column.clone(),
+            operator: self.table_data_filter_operator.clone(),
             value: self.table_data_filter_value.trim().to_owned(),
         });
         let sort = self.table_data_sort_column.clone().map(|column| UiTableDataSort {
@@ -1421,9 +1498,6 @@ impl DbProApp {
         self.table_data_result = None;
         self.table_data_total_rows = None;
         self.table_data_error = None;
-        self.grid_filter.clear();
-        self.grid_sort_column = None;
-        self.grid_sort_desc = false;
         self.request_table_data();
     }
 }

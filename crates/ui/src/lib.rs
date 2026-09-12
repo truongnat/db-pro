@@ -24,7 +24,7 @@ pub use runtime::{
     RequestId, TaskBridge, UiCell, UiCheckConstraint, UiColumn, UiCommand, UiConnectionDraft, UiConnectionSummary,
     UiDependencyDirection, UiDependencyKind, UiDriver, UiEvent, UiFunctionSummary, UiQueryFolderSummary, UiQueryResult,
     UiSavedQuerySummary, UiSchemaColumn, UiSchemaForeignKey, UiSchemaSummary, UiSslMode, UiTableColumn,
-    UiTableDataFilter, UiTableDataSort, UiTableDependency, UiTableForeignKey, UiTableIndex, UiTableInfo,
-    UiTableSummary, UiTriggerSummary, UiViewSummary,
+    UiTableDataFilter, UiTableDataSort, UiTableDependency, UiTableFilterOperator, UiTableForeignKey, UiTableIndex,
+    UiTableInfo, UiTableSummary, UiTriggerSummary, UiViewSummary,
 };
 pub use theme::DbProTheme;

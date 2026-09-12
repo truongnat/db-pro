@@ -145,6 +145,7 @@ impl DbProApp {
         self.table_data_total_rows = None;
         self.table_data_offset = 0;
         self.table_data_filter_column.clear();
+        self.table_data_filter_operator = UiTableFilterOperator::default();
         self.table_data_filter_value.clear();
         self.table_data_sort_column = None;
         self.table_data_sort_desc = false;
@@ -258,6 +259,12 @@ impl DbProApp {
         }
         self.table_data_result = Some(result);
         self.table_data_total_rows = Some(total_rows);
+        if self.staged_changes.is_empty() {
+            self.selected_cell = None;
+            self.selected_row = None;
+            self.selected_rows.clear();
+            self.selection_anchor_row = None;
+        }
         self.table_data_error = None;
         self.table_data_request = None;
         self.runtime_message = format!("Table data loaded · {total_rows} rows");
@@ -412,6 +419,8 @@ impl DbProApp {
             self.grid_column_widths = vec![180.0; result.columns.len()];
             self.selected_cell = None;
             self.selected_row = None;
+            self.selected_rows.clear();
+            self.selection_anchor_row = None;
             self.copy_status.clear();
             self.query_result = Some(result);
             self.output_tab = OutputTab::Results;
