@@ -151,6 +151,8 @@ without changing the native UI or adding product features.
     column names silently overwrites an earlier value.
 66. `QueryResult::validate` accepts non-empty rows without column metadata,
     allowing consumers such as JSON export to discard every cell.
+67. `QueryExecution` accepts invalid lifecycle transitions and can overwrite
+    terminal execution metrics through a late success callback.
 
 ## Acceptance criteria
 
@@ -265,6 +267,8 @@ without changing the native UI or adding product features.
   CSV and Excel continue to preserve positional duplicate columns.
 - `QueryResult::validate` rejects returned rows without columns while preserving
   affected-row results that contain neither columns nor returned rows.
+- `QueryExecution` ignores non-terminal finish statuses and late success calls
+  after leaving the `Running` state.
 - Create, update, and both connection-test paths share the same connection
   configuration validation boundary.
 - PostgreSQL and SQLite unit/integration coverage is updated independently where the

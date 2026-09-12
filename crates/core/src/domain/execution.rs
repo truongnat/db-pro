@@ -101,15 +101,11 @@ impl QueryExecution {
     }
 
     /// Transition to a terminal status. Returns `false` if already terminal
-    /// (idempotent — calling finish on a finished execution is a no-op).
+    /// or if `status` is not terminal (both are no-ops).
     pub fn finish(&mut self, status: ExecutionStatus) -> bool {
-        if self.status.is_terminal() {
+        if self.status.is_terminal() || !status.is_terminal() {
             return false;
         }
-        debug_assert!(
-            status.is_terminal(),
-            "finish() called with non-terminal status: {status}"
-        );
         self.status = status;
         self.finished_at = Some(chrono::Utc::now());
         true
@@ -117,6 +113,9 @@ impl QueryExecution {
 
     /// Mark as successful with result metrics.
     pub fn succeed(&mut self, rows_returned: u64, rows_affected: u64, statement_count: u32) {
+        if self.status != ExecutionStatus::Running {
+            return;
+        }
         self.rows_returned = rows_returned;
         self.rows_affected = rows_affected;
         self.statement_count = statement_count;
@@ -193,6 +192,33 @@ mod tests {
         // Second call returns false — already terminal.
         assert!(!exec.finish(ExecutionStatus::Error));
         assert_eq!(exec.status, ExecutionStatus::Success);
+    }
+
+    #[test]
+    fn finish_rejects_non_terminal_status() {
+        let mut exec = new_execution();
+        exec.start();
+
+        assert!(!exec.finish(ExecutionStatus::Created));
+        assert_eq!(exec.status, ExecutionStatus::Running);
+        assert!(exec.finished_at.is_none());
+    }
+
+    #[test]
+    fn succeed_requires_running_state() {
+        let mut created = new_execution();
+        created.succeed(42, 3, 1);
+        assert_eq!(created.status, ExecutionStatus::Created);
+        assert_eq!(created.rows_returned, 0);
+
+        let mut finished = new_execution();
+        finished.start();
+        assert!(finished.finish(ExecutionStatus::TimedOut));
+        finished.succeed(42, 3, 1);
+        assert_eq!(finished.status, ExecutionStatus::TimedOut);
+        assert_eq!(finished.rows_returned, 0);
+        assert_eq!(finished.rows_affected, 0);
+        assert_eq!(finished.statement_count, 0);
     }
 
     #[test]

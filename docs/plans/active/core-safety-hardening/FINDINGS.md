@@ -831,3 +831,17 @@ rejecting an invalid provider response.
 
 Decision: reject any result with returned rows but no columns. Preserve the
 valid affected-row representation with no columns and no returned rows.
+
+## P2 — Query execution lifecycle accepts invalid late transitions
+
+`QueryExecution::finish` relied on `debug_assert!` for a non-terminal target,
+so a release build could move an execution back to `Created` or `Running` and
+still stamp `finished_at`. `succeed` also wrote result metrics before calling
+the idempotent `finish`, allowing a late success callback after timeout/error to
+overwrite the terminal execution's metrics.
+
+Impact: execution status and metrics can disagree, making cancellation,
+timeout, and result reporting unreliable.
+
+Decision: make invalid finish statuses and success calls outside `Running`
+no-ops. Preserve the existing idempotent terminal behavior.

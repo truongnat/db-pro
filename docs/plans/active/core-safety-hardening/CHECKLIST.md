@@ -126,6 +126,8 @@
 - [x] Add JSON duplicate-column regression coverage.
 - [x] Reject returned rows without column metadata.
 - [x] Add query-result regression coverage for rows without columns.
+- [x] Enforce valid `QueryExecution` lifecycle transitions in release builds.
+- [x] Add late-success and non-terminal-finish regression coverage.
 - [x] Run formatting, check, clippy, targeted tests, and workspace tests.
 - [x] Self-review changed files and confirm no UI/native files changed.
 - [x] Record PostgreSQL and isolated SSH-tunnel fixture evidence; CI SSH execution and native UI runtime evidence remain pending.
