@@ -580,3 +580,17 @@ Decision: preserve the index origin in the core schema model, omit primary-key
 autoindexes because the table primary-key definition already recreates them,
 render UNIQUE-constraint indexes as inline `UNIQUE (...)` definitions, and emit
 `CREATE INDEX` only for user-created indexes.
+
+## P1 — PostgreSQL index introspection splits quoted index keys
+
+`parse_index_columns` used parenthesis depth and a raw comma split. PostgreSQL
+allows quoted table and column identifiers containing parentheses or commas, so
+valid definitions such as an index on `"a,b"` were returned as two malformed
+column names.
+
+Impact: schema metadata was incorrect and reconstructed PostgreSQL index DDL
+could target the wrong columns or fail to execute for valid special identifiers.
+
+Decision: find the index key list and its closing parenthesis while ignoring
+quoted identifiers and literals, then split only on commas outside quotes and
+nested expressions.

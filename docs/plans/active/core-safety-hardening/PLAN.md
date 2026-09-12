@@ -112,6 +112,8 @@ without changing the native UI or adding product features.
     quoted trigger or table names can corrupt the reported trigger metadata.
 48. SQLite introspection exposes internal UNIQUE autoindex names as ordinary
     indexes, so reconstructed table DDL attempts to recreate a name SQLite owns.
+49. PostgreSQL index-column parsing splits quoted identifiers containing commas,
+    producing incorrect metadata and invalid reconstructed index DDL.
 
 ## Acceptance criteria
 
@@ -185,6 +187,8 @@ without changing the native UI or adding product features.
   schema; SQLite keeps local index names unqualified.
 - SQLite table DDL preserves table-level UNIQUE constraints without recreating
   SQLite-owned autoindex names; primary-key autoindexes are not emitted twice.
+- PostgreSQL index introspection parses quoted identifiers and nested expressions
+  without treating their commas or parentheses as column-list boundaries.
 - Create, update, and both connection-test paths share the same connection
   configuration validation boundary.
 - PostgreSQL and SQLite unit/integration coverage is updated independently where the

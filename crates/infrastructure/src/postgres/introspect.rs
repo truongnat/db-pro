@@ -277,56 +277,112 @@ async fn introspect_indexes(pool: &sqlx::PgPool) -> Result<Vec<Index>, DbError> 
 /// parenthesis depth.
 fn parse_index_columns(indexdef: &str) -> Vec<String> {
     let bytes = indexdef.as_bytes();
-    let mut depth: i32 = 0;
-    let mut last_top_level_open = None;
-
-    for (i, &byte) in bytes.iter().enumerate() {
-        match byte {
-            b'(' => {
-                if depth == 0 {
-                    last_top_level_open = Some(i);
-                }
-                depth += 1;
-            }
-            b')' => {
-                depth = depth.saturating_sub(1);
-            }
-            _ => {}
-        }
-    }
-
-    let Some(open) = last_top_level_open else {
+    let Some(open) = find_unquoted_open_parenthesis(bytes) else {
         return Vec::new();
     };
 
-    let mut depth: i32 = 0;
-    let mut close = None;
-    for (i, &byte) in bytes.iter().enumerate().skip(open) {
-        match byte {
-            b'(' => depth += 1,
-            b')' => {
-                depth -= 1;
-                if depth == 0 {
-                    close = Some(i);
-                    break;
-                }
-            }
-            _ => {}
-        }
-    }
-
-    let Some(close) = close else {
+    let Some(close) = find_matching_parenthesis(bytes, open) else {
         return Vec::new();
     };
 
-    let col_str = &indexdef[open + 1..close];
+    split_index_columns(&indexdef[open + 1..close])
+}
 
+fn find_unquoted_open_parenthesis(bytes: &[u8]) -> Option<usize> {
+    let mut quote = None;
+    let mut index = 0;
+
+    while index < bytes.len() {
+        let byte = bytes[index];
+        if let Some(quote_byte) = quote {
+            if quote_byte == b'\'' && byte == b'\\' {
+                index = index.saturating_add(2);
+                continue;
+            }
+            if byte == quote_byte {
+                if bytes.get(index + 1) == Some(&quote_byte) {
+                    index = index.saturating_add(2);
+                    continue;
+                }
+                quote = None;
+            }
+        } else {
+            match byte {
+                b'\'' | b'"' => quote = Some(byte),
+                b'(' => return Some(index),
+                _ => {}
+            }
+        }
+        index += 1;
+    }
+
+    None
+}
+
+fn find_matching_parenthesis(bytes: &[u8], open: usize) -> Option<usize> {
+    let mut quote = None;
+    let mut depth = 0usize;
+    let mut index = open;
+
+    while index < bytes.len() {
+        let byte = bytes[index];
+        if let Some(quote_byte) = quote {
+            if quote_byte == b'\'' && byte == b'\\' {
+                index = index.saturating_add(2);
+                continue;
+            }
+            if byte == quote_byte {
+                if bytes.get(index + 1) == Some(&quote_byte) {
+                    index = index.saturating_add(2);
+                    continue;
+                }
+                quote = None;
+            }
+        } else {
+            match byte {
+                b'\'' | b'"' => quote = Some(byte),
+                b'(' => depth += 1,
+                b')' => {
+                    depth = depth.saturating_sub(1);
+                    if depth == 0 {
+                        return Some(index);
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        index += 1;
+    }
+
+    None
+}
+
+fn split_index_columns(col_str: &str) -> Vec<String> {
     let mut columns = Vec::new();
     let mut current = String::new();
-    let mut depth: i32 = 0;
+    let mut depth = 0i32;
+    let mut quote = None;
+    let mut escaped = false;
 
     for ch in col_str.chars() {
+        if let Some(quote_char) = quote {
+            current.push(ch);
+            if escaped {
+                escaped = false;
+            } else if quote_char == '\'' && ch == '\\' {
+                escaped = true;
+            } else if ch == quote_char {
+                quote = None;
+            }
+            continue;
+        }
+
         match ch {
+            '\'' | '"' => {
+                quote = Some(ch);
+                current.push(ch);
+            }
             '(' => {
                 depth += 1;
                 current.push(ch);
@@ -623,6 +679,13 @@ mod tests {
         let indexdef = "CREATE INDEX idx ON tbl USING hash (id)";
         let cols = parse_index_columns(indexdef);
         assert_eq!(cols, vec!["id"]);
+    }
+
+    #[test]
+    fn test_quoted_identifier_with_parenthesis_and_comma() {
+        let indexdef = "CREATE INDEX idx ON \"tbl(name)\" USING btree (\"a,b\", \"quoted\"\"name\")";
+        let cols = parse_index_columns(indexdef);
+        assert_eq!(cols, vec!["\"a,b\"", "\"quoted\"\"name\""]);
     }
 
     #[test]
