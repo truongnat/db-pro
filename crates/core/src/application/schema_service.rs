@@ -3,7 +3,7 @@ use std::sync::Arc;
 use crate::domain::connection::{ConnectionConfig, ConnectionId, DriverType};
 use crate::domain::error::DbError;
 use crate::domain::safety::{validate_against_policy, ConnectionSafetyPolicy};
-use crate::domain::schema::{CheckConstraint, ForeignKey, IntrospectResult, TableInfo, Trigger};
+use crate::domain::schema::{CheckConstraint, ForeignKey, IndexOrigin, IntrospectResult, TableInfo, Trigger};
 use crate::ports::{ConnectionRepository, DbConnector, IntrospectionCache};
 
 use super::registry::ConnectionRegistry;
@@ -316,6 +316,12 @@ fn table_definitions(
 
     if driver == DriverType::SQLite {
         definitions.extend(foreign_keys.iter().map(format_sqlite_foreign_key));
+        definitions.extend(
+            info.indexes
+                .iter()
+                .filter(|index| index.origin == IndexOrigin::UniqueConstraint)
+                .map(format_sqlite_unique_constraint),
+        );
     }
 
     definitions
@@ -350,9 +356,17 @@ fn format_sqlite_foreign_key(foreign_key: &ForeignKeyDdlGroup<'_>) -> String {
     )
 }
 
+fn format_sqlite_unique_constraint(index: &crate::domain::schema::Index) -> String {
+    let columns = quote_columns(&index.columns.iter().map(String::as_str).collect::<Vec<_>>());
+    format!("    UNIQUE ({columns})")
+}
+
 fn append_index_ddl(ddl: &mut String, info: &TableInfo, driver: DriverType) {
     let index_target = qualify_name_for_driver(driver, &info.table.schema, &info.table.name);
     for index in &info.indexes {
+        if driver == DriverType::SQLite && index.origin == IndexOrigin::UniqueConstraint {
+            continue;
+        }
         let unique = if index.unique { "UNIQUE " } else { "" };
         let index_name = qualify_name_for_driver(driver, &index.schema, &index.name);
         let cols = quote_columns(&index.columns.iter().map(String::as_str).collect::<Vec<_>>());
@@ -516,6 +530,7 @@ mod tests {
                 name: "idx_email".into(),
                 columns: vec!["email".into()],
                 unique: true,
+                origin: IndexOrigin::User,
                 table_name: "users".into(),
                 schema: "public".into(),
             }],
@@ -746,6 +761,14 @@ mod tests {
         }
         introspection.primary_keys[0].schema = "main".into();
         introspection.indexes[0].schema = "main".into();
+        introspection.indexes.push(Index {
+            name: "sqlite_autoindex_users_1".into(),
+            columns: vec!["email".into()],
+            unique: true,
+            origin: IndexOrigin::UniqueConstraint,
+            table_name: "users".into(),
+            schema: "main".into(),
+        });
         introspection.check_constraints = vec![CheckConstraint {
             name: "users_check_0".into(),
             table_name: "users".into(),
@@ -778,6 +801,8 @@ mod tests {
         assert!(ddl.contains("CONSTRAINT \"users_fk_0\" FOREIGN KEY (\"id\") REFERENCES \"parents\" (\"id\")"));
         assert!(ddl.contains("CONSTRAINT \"users_check_0\" CHECK (id > 0)"));
         assert!(ddl.contains("CREATE UNIQUE INDEX \"idx_email\" ON \"users\""));
+        assert!(ddl.contains("UNIQUE (\"email\")"));
+        assert!(!ddl.contains("sqlite_autoindex_users_1"));
         assert!(!ddl.contains("ADD CONSTRAINT"));
         assert!(!ddl.contains("\"main\"."));
     }

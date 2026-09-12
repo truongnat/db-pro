@@ -262,6 +262,7 @@ async fn introspect_indexes(pool: &sqlx::PgPool) -> Result<Vec<Index>, DbError> 
                 name,
                 columns,
                 unique,
+                origin: IndexOrigin::User,
                 table_name: table,
                 schema,
             }

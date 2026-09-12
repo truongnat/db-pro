@@ -110,6 +110,8 @@ without changing the native UI or adding product features.
     so multiple or nested CHECK expressions are merged into an invalid definition.
 47. SQLite trigger introspection searches timing/event keywords by substring, so
     quoted trigger or table names can corrupt the reported trigger metadata.
+48. SQLite introspection exposes internal UNIQUE autoindex names as ordinary
+    indexes, so reconstructed table DDL attempts to recreate a name SQLite owns.
 
 ## Acceptance criteria
 
@@ -181,6 +183,8 @@ without changing the native UI or adding product features.
   names, literals, comments, and the trigger body.
 - PostgreSQL table DDL qualifies reconstructed index names with their source
   schema; SQLite keeps local index names unqualified.
+- SQLite table DDL preserves table-level UNIQUE constraints without recreating
+  SQLite-owned autoindex names; primary-key autoindexes are not emitted twice.
 - Create, update, and both connection-test paths share the same connection
   configuration validation boundary.
 - PostgreSQL and SQLite unit/integration coverage is updated independently where the

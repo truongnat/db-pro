@@ -565,3 +565,18 @@ schema inspection and trigger presentation misleading for valid SQLite names.
 
 Decision: reuse the lexical keyword scanner for the header and ignore quoted
 identifiers, literals, comments, and the trigger body before matching clauses.
+
+## P1 — SQLite DDL reconstruction replays internal UNIQUE autoindexes
+
+SQLite reports table-level `UNIQUE` constraints through `PRAGMA index_list` as
+internal `sqlite_autoindex_*` indexes. Treating those rows as ordinary indexes
+made reconstructed DDL emit `CREATE UNIQUE INDEX` for a name owned by SQLite;
+the script then failed instead of reproducing the source constraint.
+
+Impact: copying or replaying a valid SQLite table definition could fail, or a
+filter-only fix could silently drop uniqueness from the reconstructed schema.
+
+Decision: preserve the index origin in the core schema model, omit primary-key
+autoindexes because the table primary-key definition already recreates them,
+render UNIQUE-constraint indexes as inline `UNIQUE (...)` definitions, and emit
+`CREATE INDEX` only for user-created indexes.

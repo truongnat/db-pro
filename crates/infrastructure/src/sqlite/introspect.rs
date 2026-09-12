@@ -120,17 +120,28 @@ fn introspect_indexes(conn: &rusqlite::Connection, table_names: &[String]) -> Re
         let mut stmt = conn
             .prepare(&format!("PRAGMA index_list({safe_name})"))
             .map_err(crate::error::from_rusqlite)?;
-        let index_list: Vec<(String, bool)> = stmt
+        let index_list: Vec<(String, bool, String)> = stmt
             .query_map([], |row| {
                 let name: String = row.get(1)?;
                 let unique: bool = row.get(2)?;
-                Ok((name, unique))
+                let origin: String = row.get(3)?;
+                Ok((name, unique, origin))
             })
             .map_err(crate::error::from_rusqlite)?
             .collect::<Result<Vec<_>, _>>()
             .map_err(crate::error::from_rusqlite)?;
 
-        for (index_name, unique) in index_list {
+        for (index_name, unique, origin) in index_list {
+            if origin == "pk" {
+                // The table PRIMARY KEY definition already reproduces this
+                // autoindex, and SQLite rejects recreating its internal name.
+                continue;
+            }
+            let origin = if origin == "u" {
+                IndexOrigin::UniqueConstraint
+            } else {
+                IndexOrigin::User
+            };
             // PRAGMA does not support ? parameters for index names;
             // use safe identifier escaping instead.
             let safe_idx = escape_identifier(&index_name);
@@ -146,6 +157,7 @@ fn introspect_indexes(conn: &rusqlite::Connection, table_names: &[String]) -> Re
                 name: index_name,
                 columns: cols,
                 unique,
+                origin,
                 table_name: table_name.clone(),
                 schema: "main".into(),
             });
@@ -572,6 +584,43 @@ mod tests {
             result.check_constraints[0].definition,
             "(balance >= 0) AND (balance <= 100)"
         );
+    }
+
+    #[test]
+    fn introspection_marks_unique_constraint_indexes_without_reusing_internal_names() {
+        let conn = rusqlite::Connection::open_in_memory().unwrap();
+        conn.execute_batch(
+            "CREATE TABLE users (id INTEGER PRIMARY KEY, email TEXT UNIQUE);\
+             CREATE INDEX idx_users_email ON users(email);",
+        )
+        .unwrap();
+
+        let result = run_introspection(&conn).unwrap();
+
+        assert!(result.indexes.iter().any(|index| index.name == "idx_users_email"));
+        let unique_constraint = result
+            .indexes
+            .iter()
+            .find(|index| index.name.starts_with("sqlite_autoindex_"))
+            .expect("SQLite should expose the unique constraint origin");
+        assert_eq!(unique_constraint.origin, IndexOrigin::UniqueConstraint);
+        assert!(unique_constraint.unique);
+        assert_eq!(unique_constraint.columns, vec!["email"]);
+    }
+
+    #[test]
+    fn introspection_omits_primary_key_autoindexes() {
+        let conn = rusqlite::Connection::open_in_memory().unwrap();
+        conn.execute_batch(
+            "CREATE TABLE composite_keys (left_id INTEGER, right_id INTEGER,\
+             PRIMARY KEY (left_id, right_id));",
+        )
+        .unwrap();
+
+        let result = run_introspection(&conn).unwrap();
+
+        assert!(result.indexes.is_empty());
+        assert_eq!(result.primary_keys[0].columns, vec!["left_id", "right_id"]);
     }
 
     #[test]

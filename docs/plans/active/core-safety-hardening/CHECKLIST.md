@@ -87,6 +87,8 @@
 - [x] Add SQLite CHECK introspection regression coverage for nesting, literals, and comments.
 - [x] Make SQLite trigger timing/event parsing keyword-aware.
 - [x] Add regression coverage for trigger names containing timing/event words.
+- [x] Preserve SQLite UNIQUE constraints without replaying internal autoindex names.
+- [x] Add SQLite introspection and DDL round-trip coverage for UNIQUE autoindexes.
 - [x] Run formatting, check, clippy, targeted tests, and workspace tests.
 - [x] Self-review changed files and confirm no UI/native files changed.
 - [x] Record PostgreSQL live fixture evidence; SSH-tunnel and native UI runtime evidence remain explicitly pending.

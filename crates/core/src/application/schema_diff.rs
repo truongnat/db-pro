@@ -118,7 +118,7 @@ fn split_qualified(qualified: &str) -> (&str, &str) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::schema::{Column, Index, Table};
+    use crate::domain::schema::{Column, Index, IndexOrigin, Table};
 
     #[test]
     fn empty_schema_dotted_table_name_round_trips() {
@@ -174,6 +174,7 @@ mod tests {
                 name: "users_z_idx".into(),
                 columns: vec![],
                 unique: false,
+                origin: IndexOrigin::User,
                 table_name: "users".into(),
                 schema: "public".into(),
             },
@@ -181,6 +182,7 @@ mod tests {
                 name: "users_a_idx".into(),
                 columns: vec![],
                 unique: false,
+                origin: IndexOrigin::User,
                 table_name: "users".into(),
                 schema: "public".into(),
             },
