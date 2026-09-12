@@ -133,7 +133,11 @@ impl DbProApp {
                 if can_mutate {
                     self.draw_table_data_mutation_actions(ui, result);
                 } else if self.connected {
-                    ui.label(RichText::new("Read-only connection").small().color(self.theme.warning));
+                    ui.label(
+                        RichText::new("Read-only connection")
+                            .font(font_caption())
+                            .color(self.theme.warning),
+                    );
                 }
                 self.draw_table_data_pager(ui, paging);
             });
@@ -620,34 +624,25 @@ impl DbProApp {
 
     /// Confirmation gate shown before the DDL is executed against the database.
     fn draw_ddl_confirmation_card(&mut self, ui: &mut egui::Ui, impact: &str) {
-        let mut execute = false;
-        let mut cancel = false;
-        card_frame(self.theme).show(ui, |ui| {
-            ui.horizontal_wrapped(|ui| {
-                ui.label(icon_text(
-                    Icon::TriangleAlert,
-                    "Review DDL before applying",
-                    self.theme.warning,
-                ));
-                ui.label(
-                    RichText::new("This changes the connected database and refreshes the Explorer.")
-                        .small()
-                        .color(self.theme.text_secondary),
-                );
-                ui.label(RichText::new(impact).small().color(self.theme.warning));
-                if primary_button_with_icon(ui, Icon::Check, "Execute", self.theme).clicked() {
-                    execute = true;
+        let Some(ddl) = self.table_ddl.as_deref() else {
+            return;
+        };
+        let risk = if impact.contains("destructive") || impact.contains("drop") {
+            RiskLevel::Destructive
+        } else {
+            RiskLevel::Medium
+        };
+        let approval = ExecutionApproval::new("Review DDL Migration", impact, ddl, risk, self.theme);
+        if let Some(action) = approval.show(ui) {
+            match action {
+                ExecutionApprovalAction::Run => {
+                    self.submit_ddl();
                 }
-                if ghost_button(ui, "Cancel", self.theme).clicked() {
-                    cancel = true;
+                ExecutionApprovalAction::Cancel => {
+                    self.ddl_execute_confirmation = false;
                 }
-            });
-        });
-        if execute {
-            self.submit_ddl();
-        }
-        if cancel {
-            self.ddl_execute_confirmation = false;
+                _ => {}
+            }
         }
     }
     pub(crate) fn request_table_info(&mut self) {

@@ -41,7 +41,7 @@ impl DbProApp {
                 }
             });
         });
-        ui.add_space(12.0);
+        ui.add_space(SPACE_MD);
         if is_view && self.schema_object_view == SchemaObjectView::Data {
             if self.table_data_result.is_none() && self.table_data_request.is_none() && self.table_data_error.is_none()
             {
@@ -154,17 +154,8 @@ impl DbProApp {
         card_frame(self.theme).show(ui, |ui| {
             ui.set_min_width(ui.available_width());
             section_label(ui, format!("{kind} DEFINITION"), self.theme);
-            ui.add_space(8.0);
-            editor_frame(self.theme).show(ui, |ui| {
-                let mut script = definition.to_owned();
-                ui.add(
-                    TextEdit::multiline(&mut script)
-                        .font(FontId::monospace(13.0))
-                        .desired_width(ui.available_width())
-                        .desired_rows(18)
-                        .interactive(false),
-                );
-            });
+            ui.add_space(SPACE_SM);
+            CodeBlock::new(definition, self.theme).language("sql").show(ui);
         });
     }
 }

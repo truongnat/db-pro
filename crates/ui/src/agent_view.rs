@@ -54,47 +54,41 @@ impl DbProApp {
 
     fn draw_agent_context(&self, ui: &mut egui::Ui, context: &AgentContext) {
         toolbar_frame(self.theme).show(ui, |ui| {
-            ui.horizontal_wrapped(|ui| {
-                if self.agent_provider_label == "Offline draft" {
-                    badge(ui, "Preview", self.theme.surface_active, self.theme.text_secondary);
-                }
-                badge(
-                    ui,
-                    &self.agent_provider_label,
-                    self.theme.accent_soft,
-                    self.theme.accent,
-                );
-                badge(
-                    ui,
-                    context.connection_name.as_deref().unwrap_or("No connection"),
-                    self.theme.accent_soft,
-                    self.theme.accent,
-                );
-                badge(
-                    ui,
-                    &context.driver,
-                    self.theme.surface_active,
-                    self.theme.text_secondary,
-                );
-                badge(
-                    ui,
-                    &format!("{} tables", context.tables.len()),
-                    self.theme.surface_active,
-                    self.theme.text_secondary,
-                );
-                if let Some(schema) = context.schema.as_deref() {
-                    badge(ui, schema, self.theme.surface_active, self.theme.text_secondary);
-                }
-                if let Some(table) = context.selected_table.as_deref() {
-                    badge(ui, table, self.theme.accent_soft, self.theme.accent);
-                }
-                if context.explain_plan.is_some() {
-                    badge(ui, "EXPLAIN", self.theme.accent_soft, self.theme.accent);
-                }
-            });
+            egui::ScrollArea::horizontal()
+                .id_salt("agent-context-chips")
+                .auto_shrink([false, true])
+                .show(ui, |ui| {
+                    ui.horizontal(|ui| {
+                        if self.agent_provider_label == "Offline draft" {
+                            badge(ui, "Preview", self.theme.surface_active, self.theme.text_secondary);
+                        }
+                        badge(
+                            ui,
+                            &self.agent_provider_label,
+                            self.theme.accent_soft,
+                            self.theme.accent,
+                        );
+                        ContextChip::new(
+                            ContextChipKind::Connection,
+                            context.connection_name.as_deref().unwrap_or("No connection"),
+                            self.theme,
+                        )
+                        .show(ui);
+                        ContextChip::new(ContextChipKind::Database, &context.driver, self.theme).show(ui);
+                        if let Some(schema) = context.schema.as_deref() {
+                            ContextChip::new(ContextChipKind::Schema, schema, self.theme).show(ui);
+                        }
+                        if let Some(table) = context.selected_table.as_deref() {
+                            ContextChip::new(ContextChipKind::Table, table, self.theme).show(ui);
+                        }
+                        if context.explain_plan.is_some() {
+                            ContextChip::new(ContextChipKind::Editor, "EXPLAIN PLAN", self.theme).show(ui);
+                        }
+                    });
+                });
             ui.label(
                 RichText::new(&self.agent_provider_detail)
-                    .small()
+                    .font(font_caption())
                     .color(self.theme.text_muted),
             );
         });
@@ -189,40 +183,42 @@ impl DbProApp {
                     }
                 }
                 if self.agent_request.is_some() {
-                    agent_message_frame(self.theme, false).show(ui, |ui| {
-                        ui.horizontal(|ui| {
-                            if self.reduce_motion {
-                                ui.label(icon_text(Icon::LoaderCircle, "", self.theme.accent));
-                            } else {
-                                ui.spinner();
-                            }
-                            ui.label(RichText::new("Thinking with Agent…").color(self.theme.text_secondary));
-                        });
-                    });
-                    ui.add_space(8.0);
+                    let mut expanded = true;
+                    AgentThinking::new("Analyzing schema and generating SQL draft…", &mut expanded, self.theme)
+                        .is_active(true)
+                        .show(ui);
+                    ui.add_space(SPACE_SM);
                 }
             });
-        ui.add_space(6.0);
+        ui.add_space(SPACE_XS);
         ui.separator();
-        ui.add_space(6.0);
+        ui.add_space(SPACE_XS);
         submit
     }
 
     fn draw_agent_response(&mut self, ui: &mut egui::Ui, message: AgentMessage, copy_sql: &mut Option<String>) {
         agent_message_frame(self.theme, false).show(ui, |ui| {
             ui.label(icon_text(Icon::Sparkles, "Agent", self.theme.accent));
-            ui.add_space(4.0);
+            ui.add_space(SPACE_XS);
             ui.label(RichText::new(message.content).color(self.theme.text_primary));
             if message.requires_confirmation {
-                ui.add_space(8.0);
-                ui.label(icon_text(
-                    Icon::TriangleAlert,
-                    "Review carefully before running",
-                    self.theme.warning,
-                ));
-            }
-            if let Some(sql) = message.sql {
-                ui.add_space(8.0);
+                ui.add_space(SPACE_SM);
+                let sql_preview = message.sql.as_deref().unwrap_or("Pending database mutation");
+                let approval = ExecutionApproval::new(
+                    "Mutation Review Required",
+                    "This query will modify data or schema. Review carefully before running.",
+                    sql_preview,
+                    RiskLevel::High,
+                    self.theme,
+                );
+                let action = approval.show(ui);
+                if let Some(ExecutionApprovalAction::Run) = action {
+                    if let Some(ref sql) = message.sql {
+                        self.insert_agent_sql(sql);
+                    }
+                }
+            } else if let Some(sql) = message.sql {
+                ui.add_space(SPACE_SM);
                 editor_frame(self.theme).show(ui, |ui| {
                     ui.horizontal(|ui| {
                         section_label(ui, "SQL draft", self.theme);
@@ -235,15 +231,14 @@ impl DbProApp {
                             }
                         });
                     });
-                    ui.add_space(4.0);
+                    ui.add_space(SPACE_XS);
                     ui.label(RichText::new(sql.as_str()).monospace().color(self.theme.code_keyword));
                 });
-                ui.add_space(6.0);
+                ui.add_space(SPACE_SM);
                 if secondary_button_with_icon(ui, Icon::ArrowUp, "Insert into Query", self.theme).clicked() {
                     self.insert_agent_sql(&sql);
                 }
-                if !message.requires_confirmation
-                    && self.connected
+                if self.connected
                     && self.active_connection_id.is_some()
                     && secondary_button_with_icon(ui, Icon::Play, "Run read-only", self.theme).clicked()
                 {
@@ -254,46 +249,18 @@ impl DbProApp {
     }
 
     fn draw_agent_composer(&mut self, ui: &mut egui::Ui, submit: &mut bool) {
-        toolbar_frame(self.theme).show(ui, |ui| {
-            ui.horizontal(|ui| {
-                let input_width = (ui.available_width() - 52.0).max(120.0);
-                let ready = self.agent_request.is_none();
-                let response = ui
-                    .add_enabled_ui(ready, |ui| {
-                        input(
-                            ui,
-                            &mut self.agent_input,
-                            if ready {
-                                "Ask about schema or draft SQL…"
-                            } else {
-                                "Waiting for Agent response…"
-                            },
-                            input_width,
-                            self.theme,
-                        )
-                    })
-                    .inner;
-                let send = compact_icon_button_enabled(ui, Icon::Send, ready, self.theme);
-                if send.clicked()
-                    || (ready
-                        && response.has_focus()
-                        && ui.input(|input| {
-                            input.key_pressed(egui::Key::Enter) && Self::primary_modifier_pressed(input)
-                        }))
-                {
-                    *submit = true;
-                }
-            });
-            let composer_hint = if self.agent_request.is_some() {
-                "Waiting for the current response"
-            } else {
-                "Cmd/Ctrl+Enter to send · writes stay unexecuted"
-            };
-            ui.label(
-                RichText::new(format!("{} · {composer_hint}", self.agent_provider_label))
-                    .small()
-                    .color(self.theme.text_muted),
-            );
-        });
+        let is_generating = self.agent_request.is_some();
+        let action = AgentComposer::new(
+            &mut self.agent_input,
+            &self.agent_provider_label,
+            AgentMode::Code,
+            self.theme,
+        )
+        .is_generating(is_generating)
+        .show(ui);
+
+        if let Some(AgentComposerAction::Submit) = action {
+            *submit = true;
+        }
     }
 }

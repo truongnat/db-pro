@@ -11,53 +11,186 @@ impl DbProApp {
             .unwrap_or((Icon::Circle, self.theme.warning));
         let modifier = Self::primary_modifier_label();
         TopBottomPanel::top("topbar")
-            .exact_height(44.0)
+            .exact_height(40.0)
             .frame(egui::Frame {
-                fill: self.theme.surface_panel,
-                inner_margin: egui::Margin::symmetric(14.0, 4.0),
-                stroke: egui::Stroke::new(1.0, self.theme.border_subtle),
+                fill: self.theme.surface_app,
+                inner_margin: egui::Margin::symmetric(SPACE_MD, 4.0),
+                stroke: egui::Stroke::new(STROKE_THIN, self.theme.border_subtle),
                 ..Default::default()
             })
             .show(ctx, |ui| {
                 ui.set_min_size(ui.available_size());
                 ui.horizontal_centered(|ui| {
-                    ui.label(icon_text(Icon::Database, "", self.theme.accent));
+                    // 1. DB Pro Brand Logo
+                    egui::Frame {
+                        fill: self.theme.accent_soft,
+                        inner_margin: egui::Margin::symmetric(SPACE_SM, SPACE_XXS),
+                        rounding: egui::Rounding::same(RADIUS_SM),
+                        stroke: egui::Stroke::NONE,
+                        ..Default::default()
+                    }
+                    .show(ui, |ui| {
+                        ui.label(icon_text(Icon::Database, "", self.theme.accent));
+                    });
+                    ui.add_space(SPACE_XS);
                     ui.label(
                         RichText::new("DB PRO")
-                            .size(11.0)
+                            .font(font_ui_label())
                             .strong()
                             .color(self.theme.text_primary),
                     );
-                    ui.separator();
+
+                    ui.add_space(SPACE_SM);
+                    ui.label(RichText::new("│").font(font_caption()).color(self.theme.border_subtle));
+                    ui.add_space(SPACE_SM);
+
+                    // 2. Active Connection Chip
                     if has_connection {
-                        ui.label(icon_text(connection_icon, "", connection_color));
-                        ui.label(RichText::new(connection_name).strong().color(self.theme.text_primary));
-                        ui.label(
-                            RichText::new(format!("{} · {}", driver, self.active_schema()))
-                                .small()
-                                .color(self.theme.text_muted),
-                        );
+                        let chip_resp = egui::Frame {
+                            fill: self.theme.surface_panel,
+                            inner_margin: egui::Margin::symmetric(SPACE_SM, 3.0),
+                            rounding: egui::Rounding::same(RADIUS_SM),
+                            stroke: egui::Stroke::new(1.0, self.theme.border_subtle),
+                            ..Default::default()
+                        }
+                        .show(ui, |ui| {
+                            ui.horizontal(|ui| {
+                                ui.label(icon_text(connection_icon, "", connection_color));
+                                ui.label(
+                                    RichText::new(&connection_name)
+                                        .font(font_caption())
+                                        .strong()
+                                        .color(self.theme.text_primary),
+                                );
+                                let driver_tag = if driver.to_ascii_lowercase().contains("sqlite") {
+                                    "SQLite"
+                                } else {
+                                    "PostgreSQL"
+                                };
+                                egui::Frame {
+                                    fill: self.theme.surface_elevated,
+                                    inner_margin: egui::Margin::symmetric(5.0, 1.0),
+                                    rounding: egui::Rounding::same(3.0),
+                                    stroke: egui::Stroke::new(1.0, self.theme.border_subtle),
+                                    ..Default::default()
+                                }
+                                .show(ui, |ui| {
+                                    ui.label(RichText::new(driver_tag).size(9.5).color(self.theme.text_secondary));
+                                });
+                            });
+                        });
+                        chip_resp.response.on_hover_text(format!(
+                            "Active Connection: {}\nDriver: {}\nStatus: Connected",
+                            connection_name, driver
+                        ));
                     } else {
-                        ui.label(RichText::new("No connection").size(11.0).color(self.theme.text_muted));
+                        ui.horizontal(|ui| {
+                            ui.label(icon_text(Icon::Circle, "", self.theme.text_muted));
+                            ui.label(
+                                RichText::new("No connection")
+                                    .font(font_caption())
+                                    .color(self.theme.text_muted),
+                            );
+                        });
                     }
+
+                    // 3. Right actions + Center Search Box
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                        if compact_icon_button(ui, Icon::Bot, self.theme)
-                            .on_hover_text("Agent")
-                            .clicked()
-                        {
-                            self.set_agent_open(!self.agent_open, ctx);
-                        }
-                        if compact_icon_button(ui, Icon::Search, self.theme)
-                            .on_hover_text(format!("Quick Open ({modifier}P)"))
-                            .clicked()
-                        {
-                            self.open_palette(PaletteMode::QuickOpen);
-                        }
                         if compact_icon_button(ui, Icon::Command, self.theme)
                             .on_hover_text(format!("Command Palette ({modifier}⇧P)"))
                             .clicked()
                         {
                             self.open_palette(PaletteMode::Commands);
+                        }
+                        if compact_icon_button(ui, Icon::Palette, self.theme)
+                            .on_hover_text("Component Gallery (UI Design System)")
+                            .clicked()
+                        {
+                            self.active_tab = WorkspaceTab::ComponentGallery;
+                        }
+                        let agent_tooltip = if self.agent_open {
+                            "Close Copilot Panel (⌘I)"
+                        } else {
+                            "Open Copilot Assistant (⌘I)"
+                        };
+                        if compact_icon_button(ui, Icon::Bot, self.theme)
+                            .on_hover_text(agent_tooltip)
+                            .clicked()
+                        {
+                            self.set_agent_open(!self.agent_open, ctx);
+                        }
+                        let theme_icon = if self.dark_mode { Icon::Sun } else { Icon::Moon };
+                        let theme_tooltip = if self.dark_mode {
+                            "Switch to Light Theme"
+                        } else {
+                            "Switch to Dark Theme"
+                        };
+                        if compact_icon_button(ui, theme_icon, self.theme)
+                            .on_hover_text(theme_tooltip)
+                            .clicked()
+                        {
+                            self.dark_mode = !self.dark_mode;
+                        }
+                        if compact_icon_button(ui, Icon::Plus, self.theme)
+                            .on_hover_text(format!("New Query Document ({modifier}N)"))
+                            .clicked()
+                        {
+                            self.new_query_document();
+                        }
+
+                        ui.add_space(SPACE_SM);
+
+                        // 4. Center Command Search Box
+                        let search_width = (ui.available_width() - 32.0).clamp(180.0, 360.0);
+                        let (rect, resp) = ui.allocate_exact_size(egui::vec2(search_width, 26.0), Sense::click());
+                        let hovered = resp.hovered();
+                        let bg = if hovered {
+                            self.theme.surface_hover
+                        } else {
+                            self.theme.surface_panel
+                        };
+                        let border = if hovered {
+                            self.theme.border_strong
+                        } else {
+                            self.theme.border_subtle
+                        };
+                        ui.painter().rect(
+                            rect,
+                            egui::Rounding::same(RADIUS_MD),
+                            bg,
+                            egui::Stroke::new(1.0, border),
+                        );
+
+                        let search_icon_pos = egui::pos2(rect.left() + 8.0, rect.center().y);
+                        ui.painter().text(
+                            search_icon_pos,
+                            egui::Align2::LEFT_CENTER,
+                            char::from(Icon::Search).to_string(),
+                            egui::FontId::new(12.0, egui::FontFamily::Name("lucide".into())),
+                            self.theme.text_muted,
+                        );
+
+                        let text_pos = egui::pos2(rect.left() + 26.0, rect.center().y);
+                        ui.painter().text(
+                            text_pos,
+                            egui::Align2::LEFT_CENTER,
+                            "Search commands, tables, schemas...",
+                            egui::FontId::proportional(11.5),
+                            self.theme.text_muted,
+                        );
+
+                        let kbd_pos = egui::pos2(rect.right() - 8.0, rect.center().y);
+                        let kbd_text = format!("{modifier}P");
+                        ui.painter().text(
+                            kbd_pos,
+                            egui::Align2::RIGHT_CENTER,
+                            &kbd_text,
+                            egui::FontId::monospace(10.0),
+                            self.theme.text_muted,
+                        );
+
+                        if resp.clicked() {
+                            self.open_palette(PaletteMode::QuickOpen);
                         }
                     });
                 });
@@ -68,36 +201,52 @@ impl DbProApp {
         let (icon, color, label) = self.statusbar_state();
         let show_runtime_message = self.has_runtime_error();
         TopBottomPanel::bottom("statusbar")
-            .exact_height(26.0)
+            .exact_height(28.0)
             .frame(egui::Frame {
-                fill: self.theme.surface_app,
-                inner_margin: egui::Margin::symmetric(10.0, 1.0),
-                stroke: egui::Stroke::NONE,
+                fill: self.theme.surface_panel,
+                inner_margin: egui::Margin::symmetric(SPACE_MD, SPACE_XXS),
+                stroke: egui::Stroke::new(STROKE_THIN, self.theme.border_subtle),
                 ..Default::default()
             })
             .show(ctx, |ui| {
                 ui.set_min_size(ui.available_size());
                 ui.horizontal_centered(|ui| {
-                    ui.add_space(6.0);
+                    ui.add_space(SPACE_SM);
                     ui.label(icon_text(icon, "", color));
-                    ui.label(RichText::new(label).small().color(self.theme.text_secondary));
+                    ui.label(
+                        RichText::new(label)
+                            .font(font_caption())
+                            .color(self.theme.text_secondary),
+                    );
                     ui.separator();
                     if self.connected {
                         ui.label(
                             RichText::new(self.active_connection_name())
-                                .small()
+                                .font(font_caption())
                                 .color(self.theme.text_secondary),
                         );
                     }
-                    ui.label(RichText::new(self.active_driver()).small().color(self.theme.text_muted));
+                    ui.label(
+                        RichText::new(self.active_driver())
+                            .font(font_caption())
+                            .color(self.theme.text_muted),
+                    );
                     if let Some(connection) = self.active_connection() {
-                        ui.label(RichText::new(&connection.database).small().color(self.theme.text_muted));
-                        ui.label(RichText::new(self.active_schema()).small().color(self.theme.text_muted));
+                        ui.label(
+                            RichText::new(&connection.database)
+                                .font(font_caption())
+                                .color(self.theme.text_muted),
+                        );
+                        ui.label(
+                            RichText::new(self.active_schema())
+                                .font(font_caption())
+                                .color(self.theme.text_muted),
+                        );
                     }
                     if let Some(result) = self.query_result.as_ref().or(self.table_data_result.as_ref()) {
                         ui.label(
                             RichText::new(format!("{} ms", result.duration_ms))
-                                .small()
+                                .font(font_mono_sm())
                                 .color(self.theme.text_muted),
                         );
                     }
@@ -107,7 +256,7 @@ impl DbProApp {
                             [260.0, 18.0],
                             egui::Label::new(
                                 RichText::new(self.runtime_message.as_str())
-                                    .small()
+                                    .font(font_caption())
                                     .color(self.theme.danger),
                             ),
                         );
@@ -120,19 +269,19 @@ impl DbProApp {
                             self.bottom_panel_open = !self.bottom_panel_open;
                         }
                         if self.shows_editor_status() {
-                            ui.label(RichText::new("UTF-8").small().color(self.theme.text_muted));
+                            ui.label(RichText::new("UTF-8").font(font_mono_sm()).color(self.theme.text_muted));
                             ui.label(
                                 RichText::new(format!(
                                     "Ln {}, Col {}",
                                     self.query_cursor_line, self.query_cursor_column
                                 ))
-                                .small()
+                                .font(font_mono_sm())
                                 .color(self.theme.text_muted),
                             );
                         } else {
                             ui.label(
                                 RichText::new(self.statusbar_context_label())
-                                    .small()
+                                    .font(font_caption())
                                     .color(self.theme.text_muted),
                             );
                         }
@@ -232,12 +381,12 @@ impl DbProApp {
     pub(super) fn draw_activity_bar(&mut self, ctx: &egui::Context) {
         egui::SidePanel::left("activity_bar")
             .resizable(false)
-            .exact_width(46.0)
+            .exact_width(48.0)
             .frame(activity_bar_frame(self.theme))
             .show(ctx, |ui| {
                 ui.set_min_size(ui.available_size());
                 ui.vertical_centered(|ui| {
-                    ui.add_space(8.0);
+                    ui.add_space(SPACE_SM);
                     for (activity, icon, hint) in [
                         (Some(Activity::Explorer), Icon::Database, "Explorer"),
                         (Some(Activity::Queries), Icon::FileCode2, "Queries"),
@@ -245,11 +394,11 @@ impl DbProApp {
                         (Some(Activity::Transfers), Icon::Upload, "Transfers"),
                         (Some(Activity::Monitor), Icon::Gauge, "Monitor"),
                         (Some(Activity::Diagram), Icon::ArrowRightLeft, "ER diagram"),
-                        (None, Icon::Bot, "Agent"),
+                        (None, Icon::Bot, "Agent (Copilot)"),
                     ] {
                         let active = activity.is_some_and(|value| self.activity == value)
                             || (hint == "Queries" && self.active_tab == WorkspaceTab::Query)
-                            || (hint == "Agent" && self.agent_open);
+                            || (hint == "Agent (Copilot)" && self.agent_open);
                         let response = icon_button(ui, icon, active, self.theme);
                         if response.on_hover_text(hint).clicked() {
                             match (activity, hint) {
@@ -262,19 +411,19 @@ impl DbProApp {
                                         self.active_tab = WorkspaceTab::Diagram;
                                     }
                                 }
-                                (None, "Agent") => self.set_agent_open(!self.agent_open, ctx),
+                                (None, "Agent (Copilot)") => self.set_agent_open(!self.agent_open, ctx),
                                 _ => {}
                             }
                         }
-                        ui.add_space(4.0);
+                        ui.add_space(SPACE_XS);
                     }
-                    ui.separator();
-                    ui.add_space((ui.available_height() - 52.0).max(0.0));
+                    ui.add_space((ui.available_height() - 44.0).max(0.0));
                     let settings = icon_button(ui, Icon::Settings2, self.activity == Activity::Settings, self.theme);
                     if settings.on_hover_text("Settings").clicked() {
                         self.activity = Activity::Settings;
                         self.sidebar_open = true;
                     }
+                    ui.add_space(SPACE_SM);
                 });
             });
     }

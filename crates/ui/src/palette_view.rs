@@ -1,4 +1,5 @@
 use super::*;
+use crate::components::{kbd_badge, Dialog};
 
 impl DbProApp {
     /// Build the full palette item list for the given mode, including the
@@ -136,6 +137,13 @@ impl DbProApp {
                 shortcut: None,
                 action: PaletteAction::ExportResults,
             },
+            PaletteItem {
+                icon: Icon::Palette,
+                title: "Open Component Gallery".to_owned(),
+                subtitle: "Preview DB Pro common UI design system".to_owned(),
+                shortcut: None,
+                action: PaletteAction::ComponentGallery,
+            },
         ]
     }
 
@@ -173,40 +181,43 @@ impl DbProApp {
         self.palette_items(mode)
             .into_iter()
             .filter(|item| {
-                query.is_empty()
-                    || item.title.to_lowercase().contains(&query)
-                    || item.subtitle.to_lowercase().contains(&query)
+                if query.is_empty() {
+                    true
+                } else {
+                    item.title.to_lowercase().contains(&query)
+                        || item.subtitle.to_lowercase().contains(&query)
+                }
             })
             .collect()
     }
 
-    pub(crate) fn execute_palette_action(&mut self, action: PaletteAction, ctx: &egui::Context) {
+    pub(crate) fn execute_palette_action(&mut self, action: PaletteAction, _ctx: &egui::Context) {
         self.palette_mode = None;
         match action {
             PaletteAction::Welcome => self.active_tab = WorkspaceTab::Welcome,
             PaletteAction::Query => {
-                self.activity = Activity::Queries;
-                self.sidebar_open = true;
                 self.active_tab = WorkspaceTab::Query;
             }
             PaletteAction::History => {
                 self.activity = Activity::History;
                 self.sidebar_open = true;
-                self.active_tab = WorkspaceTab::Welcome;
             }
+            PaletteAction::Diagram => self.active_tab = WorkspaceTab::Diagram,
             PaletteAction::Settings => {
                 self.activity = Activity::Settings;
                 self.sidebar_open = true;
-                self.active_tab = WorkspaceTab::Welcome;
             }
-            PaletteAction::Diagram => {
-                self.activity = Activity::Diagram;
-                self.sidebar_open = true;
-                self.active_tab = WorkspaceTab::Diagram;
+            PaletteAction::Agent => {
+                self.agent_open = true;
             }
-            PaletteAction::Agent => self.set_agent_open(true, ctx),
-            PaletteAction::NewQuery => self.new_query_document(),
-            PaletteAction::NewConnection => self.open_new_connection(),
+            PaletteAction::NewQuery => {
+                self.active_tab = WorkspaceTab::Query;
+                self.new_query_document();
+                self.runtime_message = "New query ready".to_owned();
+            }
+            PaletteAction::NewConnection => {
+                self.open_new_connection();
+            }
             PaletteAction::RefreshSchema => self.refresh_schema_palette(),
             PaletteAction::ToggleExplorer => self.sidebar_open = !self.sidebar_open,
             PaletteAction::OpenTable(table) => self.open_table_from_palette(table),
@@ -221,7 +232,12 @@ impl DbProApp {
                 self.query_text = Self::format_sql(&self.query_text);
                 self.runtime_message = "SQL formatted".to_owned();
             }
-            PaletteAction::SwitchConnection(connection_id) => self.switch_connection_from_palette(connection_id),
+            PaletteAction::SwitchConnection(connection_id) => {
+                self.switch_connection_from_palette(connection_id);
+            }
+            PaletteAction::ComponentGallery => {
+                self.active_tab = WorkspaceTab::ComponentGallery;
+            }
         }
     }
 
@@ -277,28 +293,154 @@ impl DbProApp {
         let items = self.filtered_palette_items(mode);
         self.clamp_palette_selection(&items);
         let mut activate = false;
-        self.draw_palette_scrim(ctx);
-        egui::Window::new("command_palette")
-            .title_bar(false)
-            .resizable(false)
-            .collapsible(false)
-            .default_width(560.0)
-            .anchor(egui::Align2::CENTER_TOP, egui::vec2(0.0, 72.0))
-            .frame(card_frame(self.theme))
+        let mut open = true;
+        let title = if mode == PaletteMode::QuickOpen {
+            "Quick Open"
+        } else {
+            "Command Palette"
+        };
+        let description = if mode == PaletteMode::QuickOpen {
+            "Switch workspaces, tabs, or open editors"
+        } else {
+            "Search commands, actions, and database tools"
+        };
+
+        egui::Area::new(egui::Id::new("palette_modal_area"))
+            .order(egui::Order::Foreground)
+            .fixed_pos(egui::Pos2::ZERO)
             .show(ctx, |ui| {
-                self.draw_palette_header(ui, mode);
-                ui.add_space(8.0);
-                self.draw_palette_search_input(ui);
-                if ctx.input(|input| input.key_pressed(egui::Key::Escape)) {
-                    self.palette_mode = None;
-                    return;
-                }
-                self.draw_palette_navigation(ctx, &items, &mut activate);
-                ui.add_space(6.0);
-                self.draw_palette_items_list(ui, &items, &mut activate);
-                ui.add_space(6.0);
-                self.draw_palette_footer(ui);
+                Dialog::new(&mut open, title, self.theme)
+                    .description(description)
+                    .width(580.0)
+                    .id_salt("palette_dialog")
+                    .show(ui, |ui| {
+                        let response = ui.add(
+                            TextEdit::singleline(&mut self.palette_query)
+                                .hint_text(RichText::new("Type a command or search…").color(self.theme.text_muted))
+                                .desired_width(ui.available_width())
+                                .margin(egui::Margin::symmetric(12.0, 8.0))
+                                .font(egui::FontId::proportional(13.5))
+                                .text_color(self.theme.text_primary),
+                        );
+                        if self.palette_focus_requested {
+                            response.request_focus();
+                            self.palette_focus_requested = false;
+                        }
+
+                        if ui.input(|input| input.key_pressed(egui::Key::ArrowDown)) && !items.is_empty() {
+                            self.palette_selected = (self.palette_selected + 1) % items.len();
+                        }
+                        if ui.input(|input| input.key_pressed(egui::Key::ArrowUp)) && !items.is_empty() {
+                            self.palette_selected = if self.palette_selected == 0 {
+                                items.len() - 1
+                            } else {
+                                self.palette_selected - 1
+                            };
+                        }
+                        if ui.input(|input| input.key_pressed(egui::Key::Enter)) && !items.is_empty() {
+                            activate = true;
+                        }
+
+                        ui.add_space(8.0);
+                        egui::ScrollArea::vertical().max_height(320.0).show(ui, |ui| {
+                            if items.is_empty() {
+                                ui.add_space(16.0);
+                                ui.vertical_centered(|ui| {
+                                    ui.label(RichText::new("No matching commands found").color(self.theme.text_muted));
+                                });
+                                ui.add_space(16.0);
+                            }
+                            for (index, item) in items.iter().enumerate() {
+                                let selected = index == self.palette_selected;
+                                let item_fill = if selected {
+                                    self.theme.surface_hover
+                                } else {
+                                    egui::Color32::TRANSPARENT
+                                };
+                                let (rect, item_resp) = ui
+                                    .allocate_exact_size(egui::vec2(ui.available_width(), 44.0), egui::Sense::click());
+                                if item_resp.hovered() {
+                                    self.palette_selected = index;
+                                }
+                                if item_resp.clicked() {
+                                    self.palette_selected = index;
+                                    activate = true;
+                                }
+
+                                if selected || item_resp.hovered() {
+                                    ui.painter().rect_filled(rect, egui::Rounding::same(6.0), item_fill);
+                                    if selected {
+                                        ui.painter().rect_stroke(
+                                            rect,
+                                            egui::Rounding::same(6.0),
+                                            egui::Stroke::new(1.0, self.theme.border_subtle),
+                                        );
+                                    }
+                                }
+
+                                // Icon
+                                let icon_char = char::from(item.icon).to_string();
+                                ui.painter().text(
+                                    egui::pos2(rect.left() + 12.0, rect.center().y),
+                                    egui::Align2::LEFT_CENTER,
+                                    icon_char,
+                                    egui::FontId::new(15.0, egui::FontFamily::Name("lucide".into())),
+                                    if selected {
+                                        self.theme.text_primary
+                                    } else {
+                                        self.theme.text_secondary
+                                    },
+                                );
+
+                                // Title and Subtitle
+                                let text_x = rect.left() + 38.0;
+                                ui.painter().text(
+                                    egui::pos2(text_x, rect.center().y - 8.0),
+                                    egui::Align2::LEFT_CENTER,
+                                    &item.title,
+                                    crate::DbProTheme::ui_medium_font(13.0),
+                                    self.theme.text_primary,
+                                );
+                                ui.painter().text(
+                                    egui::pos2(text_x, rect.center().y + 8.0),
+                                    egui::Align2::LEFT_CENTER,
+                                    &item.subtitle,
+                                    egui::FontId::proportional(11.5),
+                                    self.theme.text_muted,
+                                );
+
+                                if let Some(shortcut) = &item.shortcut {
+                                    ui.allocate_new_ui(
+                                        egui::UiBuilder::new().max_rect(egui::Rect::from_min_max(
+                                            egui::pos2(rect.right() - 80.0, rect.top()),
+                                            rect.right_bottom(),
+                                        )),
+                                        |ui| {
+                                            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                                                ui.add_space(8.0);
+                                                kbd_badge(ui, shortcut, self.theme);
+                                            });
+                                        },
+                                    );
+                                }
+                            }
+                        });
+
+                        ui.add_space(8.0);
+                        ui.horizontal(|ui| {
+                            ui.label(
+                                RichText::new("↑↓ Navigate · ↵ Select · Esc Close")
+                                    .size(11.0)
+                                    .color(self.theme.text_muted),
+                            );
+                        });
+                    });
             });
+
+        if !open {
+            self.palette_mode = None;
+        }
+
         if activate {
             if let Some(item) = items.get(self.palette_selected) {
                 self.execute_palette_action(item.action.clone(), ctx);
@@ -312,122 +454,5 @@ impl DbProApp {
         } else {
             self.palette_selected = self.palette_selected.min(items.len() - 1);
         }
-    }
-
-    fn draw_palette_scrim(&self, ctx: &egui::Context) {
-        egui::Area::new(egui::Id::new("palette_scrim"))
-            .order(egui::Order::Foreground)
-            .fixed_pos(ctx.screen_rect().min)
-            .show(ctx, |ui| {
-                ui.painter().rect_filled(
-                    egui::Rect::from_min_size(egui::Pos2::ZERO, ctx.screen_rect().size()),
-                    0.0,
-                    Color32::from_black_alpha(24),
-                );
-            });
-    }
-
-    fn draw_palette_header(&mut self, ui: &mut egui::Ui, mode: PaletteMode) {
-        ui.horizontal(|ui| {
-            ui.label(icon_text(
-                if mode == PaletteMode::QuickOpen {
-                    Icon::Search
-                } else {
-                    Icon::Command
-                },
-                if mode == PaletteMode::QuickOpen {
-                    "Quick Open"
-                } else {
-                    "Command Palette"
-                },
-                self.theme.accent,
-            ));
-            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                if compact_icon_button(ui, Icon::X, self.theme)
-                    .on_hover_text("Close palette")
-                    .clicked()
-                {
-                    self.palette_mode = None;
-                }
-            });
-        });
-    }
-
-    fn draw_palette_search_input(&mut self, ui: &mut egui::Ui) {
-        let response = ui.add(
-            TextEdit::singleline(&mut self.palette_query)
-                .hint_text(RichText::new("Search commands and workspaces…").color(self.theme.text_muted))
-                .desired_width(ui.available_width())
-                .margin(egui::Margin::symmetric(10.0, 7.0))
-                .text_color(self.theme.text_primary),
-        );
-        if self.palette_focus_requested {
-            response.request_focus();
-            self.palette_focus_requested = false;
-        }
-    }
-
-    fn draw_palette_navigation(&mut self, ctx: &egui::Context, items: &[PaletteItem], activate: &mut bool) {
-        if ctx.input(|input| input.key_pressed(egui::Key::ArrowDown)) && !items.is_empty() {
-            self.palette_selected = (self.palette_selected + 1) % items.len();
-        }
-        if ctx.input(|input| input.key_pressed(egui::Key::ArrowUp)) && !items.is_empty() {
-            self.palette_selected = if self.palette_selected == 0 {
-                items.len() - 1
-            } else {
-                self.palette_selected - 1
-            };
-        }
-        if ctx.input(|input| input.key_pressed(egui::Key::Enter)) && !items.is_empty() {
-            *activate = true;
-        }
-    }
-
-    fn draw_palette_items_list(&mut self, ui: &mut egui::Ui, items: &[PaletteItem], activate: &mut bool) {
-        egui::ScrollArea::vertical().max_height(320.0).show(ui, |ui| {
-            if items.is_empty() {
-                ui.label(RichText::new("No matching command").color(self.theme.text_muted));
-            }
-            for (index, item) in items.iter().enumerate() {
-                let selected = index == self.palette_selected;
-                let response = ui.allocate_ui_with_layout(
-                    egui::vec2(ui.available_width(), 42.0),
-                    Layout::left_to_right(Align::Center),
-                    |ui| {
-                        let frame = tab_frame(self.theme, selected);
-                        frame.show(ui, |ui| {
-                            ui.set_min_width(ui.available_width());
-                            ui.horizontal(|ui| {
-                                ui.label(icon_text(item.icon, "", self.theme.accent));
-                                ui.vertical(|ui| {
-                                    ui.label(RichText::new(&item.title).color(self.theme.text_primary));
-                                    ui.label(RichText::new(&item.subtitle).small().color(self.theme.text_muted));
-                                });
-                                if let Some(shortcut) = &item.shortcut {
-                                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                                        ui.label(RichText::new(shortcut.as_str()).small().color(self.theme.text_muted));
-                                    });
-                                }
-                            });
-                        });
-                    },
-                );
-                if response.response.hovered() {
-                    self.palette_selected = index;
-                }
-                if response.response.clicked() {
-                    self.palette_selected = index;
-                    *activate = true;
-                }
-            }
-        });
-    }
-
-    fn draw_palette_footer(&mut self, ui: &mut egui::Ui) {
-        ui.label(
-            RichText::new("↑↓ to navigate · Enter to open · Esc to close")
-                .small()
-                .color(self.theme.text_muted),
-        );
     }
 }
