@@ -89,8 +89,23 @@ impl<'a> Tooltip<'a> {
         }
         let tooltip_h = (galley.size().y + 12.0).max(24.0);
 
-        let motion_offset = (1.0 - progress) * 4.0;
-        let (raw_x, raw_y) = match self.position {
+        let motion_offset = (1.0 - progress) * 3.0;
+        let effective_position = match self.position {
+            TooltipPosition::Top if target_rect.top() - tooltip_h - 6.0 < screen.top() + 4.0 => {
+                TooltipPosition::Bottom
+            }
+            TooltipPosition::Bottom if target_rect.bottom() + tooltip_h + 6.0 > screen.bottom() - 4.0 => {
+                TooltipPosition::Top
+            }
+            TooltipPosition::Left if target_rect.left() - tooltip_w - 6.0 < screen.left() + 4.0 => {
+                TooltipPosition::Right
+            }
+            TooltipPosition::Right if target_rect.right() + tooltip_w + 6.0 > screen.right() - 4.0 => {
+                TooltipPosition::Left
+            }
+            other => other,
+        };
+        let (raw_x, raw_y) = match effective_position {
             TooltipPosition::Top => (
                 target_rect.center().x - tooltip_w * 0.5,
                 target_rect.top() - tooltip_h - 6.0 + motion_offset,
@@ -109,8 +124,8 @@ impl<'a> Tooltip<'a> {
             ),
         };
 
-        let x = raw_x.clamp(screen.left() + 8.0, screen.right() - tooltip_w - 8.0);
-        let y = raw_y.clamp(screen.top() + 8.0, screen.bottom() - tooltip_h - 8.0);
+        let x = raw_x.clamp(screen.left() + 4.0, (screen.right() - tooltip_w - 4.0).max(screen.left() + 4.0));
+        let y = raw_y.clamp(screen.top() + 4.0, (screen.bottom() - tooltip_h - 4.0).max(screen.top() + 4.0));
         let pos = Pos2::new(x, y);
 
         let theme = self.theme;

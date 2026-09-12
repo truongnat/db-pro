@@ -220,9 +220,6 @@ impl Button {
         let sense = if self.enabled { Sense::click() } else { Sense::hover() };
         let (rect, mut response) = ui.allocate_exact_size(Vec2::new(width, tokens.min_height), sense);
         response.widget_info(|| button_info(self.enabled, &name));
-        if self.label.is_none() {
-            response = response.on_hover_text(&name);
-        }
         if self.enabled {
             response = response.on_hover_cursor(egui::CursorIcon::PointingHand);
         }
