@@ -6,7 +6,8 @@ use crate::domain::history::{QueryHistory, SavedQuery, SavedQueryFolder};
 use crate::domain::query::{QueryParam, QueryResult};
 use crate::domain::run_config::RunConfig;
 use crate::domain::safety::{
-    classify_statement_safety, validate_against_policy, ConnectionSafetyPolicy, StatementSafety,
+    classify_statement_safety, has_top_level_sql_keyword, validate_against_policy, ConnectionSafetyPolicy,
+    StatementSafety,
 };
 use crate::ports::{
     ConnectionRepository, DbConnector, QueryHistoryRepository, RunConfigRepository, SavedQueryRepository,
@@ -380,8 +381,13 @@ fn classify_statement(sql: &str) -> StatementClass {
     let keyword = effective_keyword(sql);
     match keyword {
         Some(k) if is_read_keyword(&k) => StatementClass::Read,
+        Some(k) if is_row_producing_mutation(&k, sql) => StatementClass::Read,
         _ => StatementClass::Write,
     }
+}
+
+fn is_row_producing_mutation(keyword: &str, sql: &str) -> bool {
+    matches!(keyword, "INSERT" | "UPDATE" | "DELETE" | "MERGE") && has_top_level_sql_keyword(sql, "RETURNING")
 }
 
 fn is_read_keyword(word: &str) -> bool {
@@ -729,6 +735,23 @@ mod tests {
     }
 
     #[test]
+    fn classify_row_producing_mutations_as_reads_for_result_routing() {
+        for sql in [
+            "INSERT INTO t (name) VALUES ('one') RETURNING id",
+            "UPDATE t SET name = 'one' RETURNING id",
+            "DELETE FROM t WHERE id = 1 RETURNING id",
+        ] {
+            assert!(matches!(classify_statement(sql), StatementClass::Read), "{sql}");
+        }
+    }
+
+    #[test]
+    fn returning_inside_cte_does_not_make_outer_mutation_row_producing() {
+        let sql = "WITH deleted AS (DELETE FROM t WHERE id = 1 RETURNING id) UPDATE t SET archived = true";
+        assert!(matches!(classify_statement(sql), StatementClass::Write));
+    }
+
+    #[test]
     fn classify_with_select_is_read() {
         let sql = "WITH cte AS (SELECT id FROM t) SELECT * FROM cte";
         assert!(matches!(classify_statement(sql), StatementClass::Read));
@@ -903,6 +926,41 @@ mod tests {
         assert!(result.error.is_none());
         assert_eq!(result.results.len(), 1);
         assert_eq!(result.results[0].row_count, 5);
+    }
+
+    #[tokio::test]
+    async fn execute_multi_routes_update_returning_through_query() {
+        let conn_id = ConnectionId::new();
+        let registry = Arc::new(ConnectionRegistry::new());
+        registry.register(conn_id, ConnectionHandle(1));
+
+        let mut connector = MockDbConnector::new();
+        connector
+            .expect_query()
+            .withf(|_, sql, params| sql == "UPDATE t SET x = 1 RETURNING id" && params.is_empty())
+            .returning(|_, _, _| Ok(test_result()));
+
+        let mut history = MockQueryHistoryRepository::new();
+        history.expect_save().returning(|_, _, _, _, _| Ok(()));
+
+        let svc = QueryService::new(
+            Box::new(connector),
+            Box::new(history),
+            Box::new(MockSavedQueryRepository::new()),
+            Box::new(MockRunConfigRepository::new()),
+            Arc::clone(&registry),
+            Box::new(mock_connections_full_access()),
+        );
+
+        let result = svc
+            .execute_multi(&conn_id, "UPDATE t SET x = 1 RETURNING id", None, None)
+            .await
+            .unwrap();
+
+        assert!(result.error.is_none());
+        assert_eq!(result.results.len(), 1);
+        assert_eq!(result.results[0].row_count, 1);
+        assert_eq!(result.results[0].columns[0].name, "id");
     }
 
     #[tokio::test]

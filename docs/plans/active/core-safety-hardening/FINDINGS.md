@@ -684,3 +684,21 @@ lose its row identity contract.
 
 Decision: use the rusqlite row error path directly so malformed primary-key
 metadata aborts the introspection rather than returning an incomplete schema.
+
+## P1 — Multi-statement routing drops rows from DML `RETURNING`
+
+`QueryService::execute_multi` used the first keyword to decide whether each
+statement should go through `query` or `execute`. `INSERT`, `UPDATE`, and
+`DELETE` statements with a top-level `RETURNING` clause were therefore sent
+through the affected-row path, which discarded the returned rows. The same
+problem applied to a row-producing mutation inside an atomic multi-statement
+transaction.
+
+Impact: a successful mutation can appear to have no result set, making query
+output, history, and follow-up automation lose data that the database returned.
+
+Decision: classify top-level `RETURNING` mutations as query-routed while still
+keeping `RETURNING` inside a CTE body out of the outer statement's result-route
+decision. The mutation remains safety-classified as a write/destructive
+operation and still uses the transaction path when the script contains
+multiple statements.

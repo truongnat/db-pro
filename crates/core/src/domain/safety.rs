@@ -220,6 +220,19 @@ fn contains_sql_keyword(sql: &str, expected: &str) -> bool {
     false
 }
 
+pub(crate) fn has_top_level_sql_keyword(sql: &str, expected: &str) -> bool {
+    let mut depth = 0usize;
+    for token in tokenize_sql(sql) {
+        match token.kind {
+            SqlTokenKind::OpenParen => depth += 1,
+            SqlTokenKind::CloseParen => depth = depth.saturating_sub(1),
+            SqlTokenKind::Word if depth == 0 && token_is_word(sql, token, expected) => return true,
+            _ => {}
+        }
+    }
+    false
+}
+
 fn is_identifier_start(byte: u8) -> bool {
     byte.is_ascii_alphabetic() || byte == b'_'
 }

@@ -130,6 +130,8 @@ without changing the native UI or adding product features.
     not reject a database schema newer than the binary supports.
 56. SQLite column introspection converts a primary-key metadata decode error to
     `false`, which can erase row identity information from the schema snapshot.
+57. Multi-statement routing treats DML with a top-level `RETURNING` clause as
+    affected-row-only execution and drops the returned rows.
 
 ## Acceptance criteria
 
@@ -223,6 +225,9 @@ without changing the native UI or adding product features.
   versions instead of silently applying an incompatible migration set.
 - SQLite primary-key metadata decode errors propagate instead of silently
   converting a column to non-primary-key state.
+- DML statements with a top-level `RETURNING` clause use the query-result route
+  in single and atomic multi-statement execution, while nested CTE `RETURNING`
+  clauses do not falsely mark the outer mutation as row-producing.
 - Create, update, and both connection-test paths share the same connection
   configuration validation boundary.
 - PostgreSQL and SQLite unit/integration coverage is updated independently where the
