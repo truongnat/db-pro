@@ -129,6 +129,11 @@
   typed phase/outcome fields prevent false rollback claims, both providers
   preserve prior results, and deferred-constraint commit failures are covered
   against live fixtures. The separate CI SSH workflow execution remains pending.
+- Latest shared-checkout verification: `cargo check --workspace` reaches all
+  core/infrastructure/runtime/native crates but is blocked by the pre-existing
+  dirty `crates/tauri-app/src/commands/query.rs` errors at lines 50 and 114
+  (`DbErrorDto` passed to a helper requiring `&DbError`). This file is outside
+  the core-only scope and was not modified.
 - `cargo check --workspace` after SSH readiness changes — PASS.
 - Core/infrastructure scoped gate — PASS: file-scoped rustfmt for the SQLite
   change,
