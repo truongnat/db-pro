@@ -1,4 +1,5 @@
 use super::*;
+use egui::{vec2, Align2, Color32, FontFamily, FontId, Margin, Pos2, Rect, Rounding, Sense, Stroke};
 
 impl DbProApp {
     pub(super) fn draw_topbar(&mut self, ctx: &egui::Context) {
@@ -11,7 +12,7 @@ impl DbProApp {
             .unwrap_or((Icon::Circle, self.theme.warning));
         let modifier = Self::primary_modifier_label();
         TopBottomPanel::top("topbar")
-            .exact_height(40.0)
+            .exact_height(38.0)
             .frame(egui::Frame {
                 fill: self.theme.surface_app,
                 inner_margin: egui::Margin::symmetric(SPACE_MD, 4.0),
@@ -21,7 +22,7 @@ impl DbProApp {
             .show(ctx, |ui| {
                 ui.set_min_size(ui.available_size());
                 ui.horizontal_centered(|ui| {
-                    // 0. Toggle Sidebar Button (Common Component)
+                    // 0. Toggle Sidebar Button (Codex style)
                     let toggle_tooltip = if self.sidebar_open {
                         format!("Collapse Sidebar ({}B)", modifier)
                     } else {
@@ -38,77 +39,76 @@ impl DbProApp {
                     {
                         self.sidebar_open = !self.sidebar_open;
                     }
-                    ui.add_space(SPACE_XXS);
+                    ui.add_space(2.0);
 
-                    // 1. DB Pro Brand Logo
-                    egui::Frame {
-                        fill: self.theme.accent_soft,
-                        inner_margin: egui::Margin::symmetric(SPACE_SM, SPACE_XXS),
-                        rounding: egui::Rounding::same(RADIUS_SM),
-                        stroke: egui::Stroke::NONE,
-                        ..Default::default()
+                    // 1. History Navigation (Back / Forward)
+                    let can_go_back = self.active_query_document > 0;
+                    let can_go_forward = self.active_query_document + 1 < self.query_documents.len();
+                    if Button::new(self.theme)
+                        .icon(Icon::ArrowLeft)
+                        .variant(ButtonVariant::Ghost)
+                        .size(ButtonSize::IconSm)
+                        .enabled(can_go_back)
+                        .tooltip("Previous Document")
+                        .show(ui)
+                        .clicked()
+                    {
+                        if self.active_query_document > 0 {
+                            self.switch_query_document(self.active_query_document - 1);
+                        }
                     }
-                    .show(ui, |ui| {
-                        ui.label(icon_text(Icon::Database, "", self.theme.accent));
-                    });
-                    ui.add_space(SPACE_XS);
-                    ui.label(
-                        RichText::new("DB PRO")
-                            .font(font_ui_label())
-                            .strong()
-                            .color(self.theme.text_primary),
-                    );
+                    if Button::new(self.theme)
+                        .icon(Icon::ArrowRight)
+                        .variant(ButtonVariant::Ghost)
+                        .size(ButtonSize::IconSm)
+                        .enabled(can_go_forward)
+                        .tooltip("Next Document")
+                        .show(ui)
+                        .clicked()
+                    {
+                        if self.active_query_document + 1 < self.query_documents.len() {
+                            self.switch_query_document(self.active_query_document + 1);
+                        }
+                    }
 
                     ui.add_space(SPACE_SM);
                     ui.label(RichText::new("│").font(font_caption()).color(self.theme.border_subtle));
                     ui.add_space(SPACE_SM);
 
-                    // 2. Active Connection Chip
+                    // 2. Active Context Breadcrumb
                     if has_connection {
-                        let chip_resp = egui::Frame {
-                            fill: self.theme.surface_panel,
-                            inner_margin: egui::Margin::symmetric(SPACE_SM, 3.0),
-                            rounding: egui::Rounding::same(RADIUS_SM),
-                            stroke: egui::Stroke::new(1.0, self.theme.border_subtle),
-                            ..Default::default()
-                        }
-                        .show(ui, |ui| {
-                            ui.horizontal(|ui| {
-                                ui.label(icon_text(connection_icon, "", connection_color));
-                                ui.label(
-                                    RichText::new(&connection_name)
-                                        .font(font_caption())
-                                        .strong()
-                                        .color(self.theme.text_primary),
-                                );
-                                let driver_tag = if driver.to_ascii_lowercase().contains("sqlite") {
-                                    "SQLite"
-                                } else {
-                                    "PostgreSQL"
-                                };
-                                egui::Frame {
-                                    fill: self.theme.surface_elevated,
-                                    inner_margin: egui::Margin::symmetric(5.0, 1.0),
-                                    rounding: egui::Rounding::same(3.0),
-                                    stroke: egui::Stroke::new(1.0, self.theme.border_subtle),
-                                    ..Default::default()
-                                }
-                                .show(ui, |ui| {
-                                    ui.label(RichText::new(driver_tag).size(9.5).color(self.theme.text_secondary));
-                                });
+                        ui.horizontal(|ui| {
+                            ui.label(icon_text(connection_icon, "", connection_color));
+                            ui.label(
+                                RichText::new(&connection_name)
+                                    .font(font_caption())
+                                    .strong()
+                                    .color(self.theme.text_primary),
+                            );
+                            let driver_tag = if driver.to_ascii_lowercase().contains("sqlite") {
+                                "SQLite"
+                            } else {
+                                "PostgreSQL"
+                            };
+                            egui::Frame {
+                                fill: self.theme.surface_panel,
+                                inner_margin: egui::Margin::symmetric(5.0, 1.0),
+                                rounding: egui::Rounding::same(3.0),
+                                stroke: egui::Stroke::new(1.0, self.theme.border_subtle),
+                                ..Default::default()
+                            }
+                            .show(ui, |ui| {
+                                ui.label(RichText::new(driver_tag).size(9.5).color(self.theme.text_secondary));
                             });
                         });
-                        chip_resp.response.on_hover_text(format!(
-                            "Active Connection: {}\nDriver: {}\nStatus: Connected",
-                            connection_name, driver
-                        ));
                     } else {
                         ui.horizontal(|ui| {
-                            ui.label(icon_text(Icon::Circle, "", self.theme.text_muted));
+                            ui.label(icon_text(Icon::Database, "", self.theme.accent));
                             ui.label(
-                                RichText::new("No connection")
+                                RichText::new("DB PRO")
                                     .font(font_caption())
-                                    .color(self.theme.text_muted),
+                                    .strong()
+                                    .color(self.theme.text_primary),
                             );
                         });
                     }
@@ -165,16 +165,6 @@ impl DbProApp {
                             .clicked()
                         {
                             self.dark_mode = !self.dark_mode;
-                        }
-                        if Button::new(self.theme)
-                            .icon(Icon::Plus)
-                            .variant(ButtonVariant::Ghost)
-                            .size(ButtonSize::IconSm)
-                            .tooltip(format!("New Query Document ({modifier}N)"))
-                            .show(ui)
-                            .clicked()
-                        {
-                            self.new_query_document();
                         }
 
                         ui.add_space(SPACE_SM);
@@ -476,46 +466,142 @@ impl DbProApp {
             .frame(sidebar_frame(self.theme))
             .show(ctx, |ui| {
                 ui.set_min_size(ui.available_size());
-                // ── Sidebar header ──────────────────────────────────────────
+
+                // ── 1. Codex-style Header Row: Workspace Selector + Action Icons ──
                 ui.add_space(8.0);
                 ui.horizontal(|ui| {
-                    section_label(
-                        ui,
-                        match self.activity {
-                            Activity::Explorer => "DATABASE",
-                            Activity::Queries => "QUERIES",
-                            Activity::History => "QUERY HISTORY",
-                            Activity::Transfers => "TRANSFERS",
-                            Activity::Monitor => "MONITOR",
-                            Activity::Settings => "SETTINGS",
-                            Activity::Diagram => "ER DIAGRAM",
-                        },
-                        self.theme,
+                    let active_name = if self.active_connection_id.is_some() {
+                        self.active_connection_name()
+                    } else {
+                        "DB Pro"
+                    };
+
+                    // Workspace / Connection Dropdown Selector (e.g. "Codex ⌵")
+                    let selector_resp = egui::Frame {
+                        fill: Color32::TRANSPARENT,
+                        rounding: Rounding::same(6.0),
+                        inner_margin: Margin::symmetric(4.0, 3.0),
+                        ..Default::default()
+                    }
+                    .show(ui, |ui| {
+                        ui.horizontal(|ui| {
+                            ui.spacing_mut().item_spacing = vec2(4.0, 0.0);
+                            ui.label(
+                                RichText::new(active_name)
+                                    .font(FontId::proportional(13.5))
+                                    .strong()
+                                    .color(self.theme.text_primary),
+                            );
+                            ui.label(
+                                RichText::new(char::from(Icon::ChevronDown).to_string())
+                                    .font(FontId::new(11.0, FontFamily::Name("lucide".into())))
+                                    .color(self.theme.text_secondary),
+                            );
+                        });
+                    });
+                    let selector_interact = ui.interact(
+                        selector_resp.response.rect,
+                        ui.id().with("workspace_selector"),
+                        Sense::click(),
                     );
+                    if selector_interact.hovered() {
+                        ui.painter().rect_filled(
+                            selector_resp.response.rect,
+                            Rounding::same(6.0),
+                            self.theme.surface_hover,
+                        );
+                    }
+                    if selector_interact.clicked() {
+                        self.open_palette(PaletteMode::Commands);
+                    }
+                    selector_interact.on_hover_text("Switch connection / workspace");
+
+                    // Right header action buttons: Search & New Connection
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                         if Button::new(self.theme)
-                            .icon(Icon::PanelLeftClose)
+                            .icon(Icon::Plus)
                             .variant(ButtonVariant::Ghost)
                             .size(ButtonSize::IconSm)
-                            .tooltip(format!("Hide Sidebar ({}B)", Self::primary_modifier_label()))
+                            .tooltip("New Connection")
                             .show(ui)
                             .clicked()
                         {
-                            self.sidebar_open = false;
+                            self.open_new_connection();
+                        }
+                        if Button::new(self.theme)
+                            .icon(Icon::Search)
+                            .variant(ButtonVariant::Ghost)
+                            .size(ButtonSize::IconSm)
+                            .tooltip(format!("Search / Command Palette ({}⇧P)", Self::primary_modifier_label()))
+                            .show(ui)
+                            .clicked()
+                        {
+                            self.open_palette(PaletteMode::Commands);
                         }
                     });
                 });
-                ui.separator();
-                ui.add_space(7.0);
+                ui.add_space(4.0);
 
-                // ── Per-activity content ────────────────────────────────────
+                // ── 2. Codex-style Primary Action: "+ New query" Button ──────
+                let new_query_rect = ui.available_rect_before_wrap();
+                let new_query_h = 30.0;
+                let btn_rect = Rect::from_min_size(new_query_rect.min, vec2(ui.available_width(), new_query_h));
+                let new_query_resp = ui.allocate_rect(btn_rect, Sense::click());
+                let is_hovered = new_query_resp.hovered();
+                let bg_color = if is_hovered {
+                    self.theme.surface_hover
+                } else {
+                    self.theme.surface_panel
+                };
+                ui.painter().rect_filled(btn_rect, Rounding::same(6.0), bg_color);
+                ui.painter().rect_stroke(
+                    btn_rect,
+                    Rounding::same(6.0),
+                    Stroke::new(1.0, if is_hovered { self.theme.border_default } else { self.theme.border_subtle }),
+                );
+
+                // Paint Icon + Text + Shortcut inside New Query button
+                let left_center = Pos2::new(btn_rect.left() + 10.0, btn_rect.center().y);
+                ui.painter().text(
+                    left_center,
+                    Align2::LEFT_CENTER,
+                    char::from(Icon::SquarePen).to_string(),
+                    FontId::new(13.0, FontFamily::Name("lucide".into())),
+                    self.theme.text_primary,
+                );
+                ui.painter().text(
+                    Pos2::new(left_center.x + 18.0, left_center.y),
+                    Align2::LEFT_CENTER,
+                    "New query",
+                    FontId::proportional(12.5),
+                    self.theme.text_primary,
+                );
+                ui.painter().text(
+                    Pos2::new(btn_rect.right() - 10.0, left_center.y),
+                    Align2::RIGHT_CENTER,
+                    format!("{}N", Self::primary_modifier_label()),
+                    FontId::proportional(11.0),
+                    self.theme.text_muted,
+                );
+
+                if new_query_resp.clicked() {
+                    self.new_query_document();
+                    self.active_tab = WorkspaceTab::Query;
+                }
+                new_query_resp.on_hover_cursor(egui::CursorIcon::PointingHand);
+
+                ui.add_space(8.0);
+                ui.separator();
+                ui.add_space(4.0);
+
+                // ── 3. Per-activity content ────────────────────────────────────
                 match self.activity {
                     Activity::Explorer => self.draw_explorer_sub_panes(ui),
                     _ => {
                         egui::ScrollArea::vertical()
                             .id_salt("sidebar_scroll")
                             .show(ui, |ui| {
-                                ui.add_space(8.0);
+                                ui.add_space(4.0);
                                 match self.activity {
                                     Activity::Queries => self.draw_queries(ui),
                                     Activity::History => self.draw_history(ui),
