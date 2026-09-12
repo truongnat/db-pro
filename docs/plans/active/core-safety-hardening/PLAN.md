@@ -103,6 +103,9 @@ without changing the native UI or adding product features.
     misclassify a destructive delete when comments or literals contain it.
 44. Data-modifying CTE safety classification downgrades `DELETE` without a
     predicate to `Write`, bypassing policies that forbid destructive operations.
+45. Legacy PostgreSQL connections without `secret_ref` could pass Test Connection
+    through the default password key but fail normal connect and leave that
+    credential orphaned on delete.
 
 ## Acceptance criteria
 
@@ -138,6 +141,8 @@ without changing the native UI or adding product features.
   for rollback completion after timeout interruption.
 - Backup and restore resolve the persisted connection secret reference, with a
   default-key fallback only for legacy records that have no reference.
+- Connect, Test Connection, and delete use the same default password-key fallback
+  for legacy PostgreSQL records without `secret_ref`.
 - Test SSH Tunnel uses the same key/password authentication mode as tunnel
   startup without exposing the password in process arguments.
 - SSH tunnel passwords are stored separately through `SecretStore`, omitted

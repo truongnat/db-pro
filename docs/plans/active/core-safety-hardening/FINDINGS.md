@@ -522,3 +522,18 @@ DELETE without a predicate when it was wrapped in a CTE.
 
 Decision: retain the destructive classification of DELETE bodies inside CTEs
 while preserving row-producing CTE routing as a query result.
+
+## P1 — Legacy PostgreSQL secret fallback is inconsistent across lifecycle paths
+
+`test_connectivity_with_secret` already falls back to the default
+`connection/{id}/password` key when a legacy PostgreSQL record has no
+`secret_ref`, but `ConnectionService::connect` previously rejected the same
+record. `delete` also skipped secret cleanup when `secret_ref` was absent.
+
+Impact: a migrated connection could pass Test Connection but fail to open in
+the application, and deleting it could leave its default database credential
+orphaned in the secret store.
+
+Decision: use the persisted `secret_ref` when present and the default key for
+legacy PostgreSQL records across connect and delete, while retaining SQLite's
+no-database-secret behavior.
