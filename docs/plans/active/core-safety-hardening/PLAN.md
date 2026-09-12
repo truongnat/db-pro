@@ -143,6 +143,8 @@ without changing the native UI or adding product features.
     identifiers containing dots can be split incorrectly or collide.
 62. Pagination and data-diff count consumers accept the first cell of a
     non-scalar result instead of requiring the `COUNT(*)` scalar contract.
+63. Connection-name validation measures UTF-8 bytes while reporting a
+    character limit, rejecting valid non-ASCII names at the boundary.
 
 ## Acceptance criteria
 
@@ -249,6 +251,8 @@ without changing the native UI or adding product features.
   from dots inside either identifier.
 - Pagination and data-diff count consumers require exactly one validated scalar
   count row from the provider.
+- Connection-name validation enforces its documented limit by Unicode character
+  count rather than UTF-8 byte length.
 - Create, update, and both connection-test paths share the same connection
   configuration validation boundary.
 - PostgreSQL and SQLite unit/integration coverage is updated independently where the

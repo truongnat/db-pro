@@ -776,3 +776,16 @@ row count.
 
 Decision: require one column, one row, and `row_count == 1` before parsing the
 count value; reject all other shapes explicitly.
+
+## P2 — Connection-name limit counts bytes instead of characters
+
+`ConnectionConfig::validate` compared `String::len()` with a limit documented
+and reported as characters. UTF-8 names such as a 128-character Vietnamese or
+accented name therefore exceeded the byte count and were rejected despite
+being within the configured limit.
+
+Impact: valid non-ASCII connection names fail validation inconsistently with the
+public contract.
+
+Decision: count Unicode scalar values with `chars().count()` and cover the exact
+128/129-character boundary.

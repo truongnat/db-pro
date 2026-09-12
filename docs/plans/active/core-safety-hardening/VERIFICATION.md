@@ -40,6 +40,8 @@
 - `cargo test -p db-pro-core application::table_data_service::tests::parse_total_count_rejects_non_scalar_result -- --exact` — PASS: pagination rejects a non-scalar count payload.
 - `cargo test -p db-pro-core application::data_diff::tests::extract_count_rejects_non_scalar_provider_result -- --exact` — PASS: data-diff rejects a non-scalar count payload.
 - `cargo test -p db-pro-core --lib --no-fail-fast` — PASS: 255 core unit tests after scalar count validation.
+- `cargo test -p db-pro-core domain::connection::tests::validate_name_uses_character_count_for_unicode -- --exact` — PASS: Unicode connection-name 128/129-character boundary is enforced correctly.
+- `cargo test -p db-pro-core --lib --no-fail-fast` — PASS: 256 core unit tests after Unicode name-length validation.
 - `DB_PRO_SSH_*`-configured `cargo test -p db-pro-infrastructure --test ssh_backup_runtime_verification -- --ignored --nocapture` — PASS: 1 live isolated SSH backup/restore test; pg_dump, database creation, psql restore, and post-restore query all completed through the tunnel with host-key verification enabled.
 - CI configuration now provisions the SSHD/key/known-hosts fixture and exports the required `DB_PRO_SSH_*` variables before `cargo test --all -- --include-ignored`; live CI execution remains pending until that workflow run completes.
 - `cargo test -p db-pro-core application::export_service::tests` — PASS: 8 export

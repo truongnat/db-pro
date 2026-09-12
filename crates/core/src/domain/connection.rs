@@ -124,7 +124,7 @@ impl ConnectionConfig {
                 field: "name".into(),
                 message: "Connection name is required".into(),
             });
-        } else if self.name.len() > MAX_CONNECTION_NAME_LEN {
+        } else if self.name.chars().count() > MAX_CONNECTION_NAME_LEN {
             errors.push(ValidationError {
                 field: "name".into(),
                 message: format!("Connection name must be at most {MAX_CONNECTION_NAME_LEN} characters"),
@@ -416,6 +416,17 @@ mod tests {
         let errors = config.validate().unwrap_err();
         assert_eq!(errors.len(), 1);
         assert_eq!(errors[0].field, "name");
+    }
+
+    #[test]
+    fn validate_name_uses_character_count_for_unicode() {
+        let mut config = valid_config();
+        config.name = "é".repeat(MAX_CONNECTION_NAME_LEN);
+        assert!(config.validate().is_ok());
+
+        config.name.push('é');
+        let errors = config.validate().unwrap_err();
+        assert!(errors.iter().any(|error| error.field == "name"));
     }
 
     #[test]
