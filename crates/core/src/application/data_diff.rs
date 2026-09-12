@@ -78,10 +78,15 @@ impl DataDiffService {
 }
 
 fn extract_count(result: &crate::domain::query::QueryResult) -> Result<i64, DbError> {
-    let count = result
-        .rows
+    if result.columns.len() != 1 || result.rows.len() != 1 || result.row_count != 1 {
+        return Err(DbError::Internal(
+            "count query must return exactly one row and one column".into(),
+        ));
+    }
+
+    let count = result.rows[0]
+        .0
         .first()
-        .and_then(|row| row.0.first())
         .and_then(|cell| match cell {
             crate::domain::query::CellValue::Int64(n) => Some(*n),
             _ => None,
@@ -110,7 +115,11 @@ mod tests {
     #[test]
     fn extract_count_rejects_negative_provider_value() {
         let result = QueryResult {
-            columns: vec![],
+            columns: vec![crate::domain::query::ColumnMeta {
+                name: "count".into(),
+                data_type: "INT".into(),
+                nullable: false,
+            }],
             rows: vec![Row(vec![CellValue::Int64(-1)])],
             row_count: 1,
             duration_ms: 0,
@@ -119,6 +128,25 @@ mod tests {
         assert!(matches!(
             extract_count(&result),
             Err(DbError::Internal(message)) if message.contains("negative")
+        ));
+    }
+
+    #[test]
+    fn extract_count_rejects_non_scalar_provider_result() {
+        let result = QueryResult {
+            columns: vec![crate::domain::query::ColumnMeta {
+                name: "count".into(),
+                data_type: "INT".into(),
+                nullable: false,
+            }],
+            rows: vec![Row(vec![CellValue::Int64(1)]), Row(vec![CellValue::Int64(2)])],
+            row_count: 2,
+            duration_ms: 0,
+        };
+
+        assert!(matches!(
+            extract_count(&result),
+            Err(DbError::Internal(message)) if message.contains("exactly one row")
         ));
     }
 

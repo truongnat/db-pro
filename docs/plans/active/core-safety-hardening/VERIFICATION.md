@@ -37,6 +37,9 @@
 - `cargo clippy -p db-pro-core --all-targets -- -D warnings` — PASS.
 - `cargo test -p db-pro-core application::schema_diff::tests --no-fail-fast` — PASS: 4 schema-diff tests, including dotted schema/object identity collision coverage.
 - `cargo test -p db-pro-core --lib --no-fail-fast` — PASS: 253 core unit tests after structured schema-diff keys.
+- `cargo test -p db-pro-core application::table_data_service::tests::parse_total_count_rejects_non_scalar_result -- --exact` — PASS: pagination rejects a non-scalar count payload.
+- `cargo test -p db-pro-core application::data_diff::tests::extract_count_rejects_non_scalar_provider_result -- --exact` — PASS: data-diff rejects a non-scalar count payload.
+- `cargo test -p db-pro-core --lib --no-fail-fast` — PASS: 255 core unit tests after scalar count validation.
 - `cargo test -p db-pro-infrastructure --test ssh_backup_runtime_verification -- --ignored --nocapture` — PENDING: live isolated SSH server, pre-provisioned OpenSSH known-hosts entry, and PostgreSQL target required; the test exercises pg_dump, psql restore, and a post-restore query through the tunnel. It skips explicitly when `DB_PRO_SSH_*` is not configured, so the existing CI `--include-ignored` suite does not claim live SSH coverage. A local attempt reached the SSH process but was correctly rejected because the ephemeral host key was not trusted.
 - CI configuration now provisions the SSHD/key/known-hosts fixture and exports the required `DB_PRO_SSH_*` variables before `cargo test --all -- --include-ignored`; live CI execution remains pending until that workflow run completes.
 - `cargo test -p db-pro-core application::export_service::tests` — PASS: 8 export

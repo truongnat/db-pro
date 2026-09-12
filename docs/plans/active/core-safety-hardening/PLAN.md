@@ -140,6 +140,8 @@ without changing the native UI or adding product features.
     without applying the core row/column shape invariant.
 61. Schema diff encodes schema/object identity into a dotted string, so valid
     identifiers containing dots can be split incorrectly or collide.
+62. Pagination and data-diff count consumers accept the first cell of a
+    non-scalar result instead of requiring the `COUNT(*)` scalar contract.
 
 ## Acceptance criteria
 
@@ -244,6 +246,8 @@ without changing the native UI or adding product features.
   `QueryResult` payloads before consuming them.
 - Schema diff compares schema/object identity structurally, without collisions
   from dots inside either identifier.
+- Pagination and data-diff count consumers require exactly one validated scalar
+  count row from the provider.
 - Create, update, and both connection-test paths share the same connection
   configuration validation boundary.
 - PostgreSQL and SQLite unit/integration coverage is updated independently where the

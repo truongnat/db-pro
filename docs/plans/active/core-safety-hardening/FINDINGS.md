@@ -761,3 +761,17 @@ the wrong object.
 
 Decision: keep schema and object names as a typed tuple for comparison and only
 flatten them at the final display boundary.
+
+## P2 — Count consumers accept non-scalar provider results
+
+`TableDataService::parse_total_count` and `DataDiffService::extract_count`
+selected the first cell without checking that the provider returned the one-row,
+one-column scalar shape promised by `SELECT COUNT(*)`. Extra rows or columns
+could therefore be silently ignored and a wrong count could drive pagination or
+cross-connection comparison.
+
+Impact: malformed provider responses can produce an apparently valid but wrong
+row count.
+
+Decision: require one column, one row, and `row_count == 1` before parsing the
+count value; reject all other shapes explicitly.

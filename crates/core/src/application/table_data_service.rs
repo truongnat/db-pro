@@ -174,10 +174,15 @@ impl TableDataService {
 }
 
 fn parse_total_count(result: &QueryResult) -> Result<u64, DbError> {
-    let cell = result
-        .rows
+    if result.columns.len() != 1 || result.rows.len() != 1 || result.row_count != 1 {
+        return Err(DbError::Internal(
+            "count query must return exactly one row and one column".into(),
+        ));
+    }
+
+    let cell = result.rows[0]
+        .0
         .first()
-        .and_then(|row| row.0.first())
         .ok_or_else(|| DbError::Internal("count query returned no value".into()))?;
 
     match cell {
@@ -240,7 +245,11 @@ mod tests {
     #[test]
     fn parse_total_count_rejects_negative_values() {
         let result = QueryResult {
-            columns: vec![],
+            columns: vec![ColumnMeta {
+                name: "count".into(),
+                data_type: "INT".into(),
+                nullable: false,
+            }],
             rows: vec![Row(vec![CellValue::Int64(-1)])],
             row_count: 1,
             duration_ms: 0,
@@ -257,11 +266,15 @@ mod tests {
         let empty = QueryResult::empty();
         assert!(matches!(
             parse_total_count(&empty),
-            Err(DbError::Internal(message)) if message.contains("no value")
+            Err(DbError::Internal(message)) if message.contains("exactly one row")
         ));
 
         let wrong_type = QueryResult {
-            columns: vec![],
+            columns: vec![ColumnMeta {
+                name: "count".into(),
+                data_type: "TEXT".into(),
+                nullable: false,
+            }],
             rows: vec![Row(vec![CellValue::Text("42".into())])],
             row_count: 1,
             duration_ms: 0,
@@ -269,6 +282,25 @@ mod tests {
         assert!(matches!(
             parse_total_count(&wrong_type),
             Err(DbError::Internal(message)) if message.contains("non-integer")
+        ));
+    }
+
+    #[test]
+    fn parse_total_count_rejects_non_scalar_result() {
+        let result = QueryResult {
+            columns: vec![ColumnMeta {
+                name: "count".into(),
+                data_type: "INT".into(),
+                nullable: false,
+            }],
+            rows: vec![Row(vec![CellValue::Int64(42)]), Row(vec![CellValue::Int64(43)])],
+            row_count: 2,
+            duration_ms: 0,
+        };
+
+        assert!(matches!(
+            parse_total_count(&result),
+            Err(DbError::Internal(message)) if message.contains("exactly one row")
         ));
     }
 
