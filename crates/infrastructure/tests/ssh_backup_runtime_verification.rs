@@ -19,6 +19,22 @@ fn required_env(name: &str) -> String {
     std::env::var(name).unwrap_or_else(|_| panic!("{name} must be set for SSH backup verification"))
 }
 
+fn has_live_fixture_configuration() -> bool {
+    [
+        "DB_PRO_SSH_HOST",
+        "DB_PRO_SSH_PORT",
+        "DB_PRO_SSH_USER",
+        "DB_PRO_SSH_KEY",
+        "DB_PRO_SSH_TARGET_HOST",
+        "DB_PRO_SSH_TARGET_PORT",
+        "DB_PRO_SSH_DATABASE",
+        "DB_PRO_SSH_USERNAME",
+        "DB_PRO_SSH_PASSWORD",
+    ]
+    .into_iter()
+    .all(|name| std::env::var(name).is_ok_and(|value| !value.trim().is_empty()))
+}
+
 fn parse_port(name: &str) -> u16 {
     required_env(name)
         .parse()
@@ -63,6 +79,11 @@ async fn connect(config: &ConnectionConfig) -> (PostgresConnector, db_pro_core::
 #[tokio::test]
 #[ignore = "requires an isolated PostgreSQL target and a local SSH server"]
 async fn pg_backup_and_restore_work_through_live_ssh_tunnel() {
+    if !has_live_fixture_configuration() {
+        eprintln!("skipping live SSH backup verification: DB_PRO_SSH_* fixture is not configured");
+        return;
+    }
+
     let source_database = required_env("DB_PRO_SSH_DATABASE");
     let admin_config = connection_config("postgres".into());
     let restore_database = format!("dbpro_ssh_restore_{}", uuid::Uuid::new_v4().simple());
