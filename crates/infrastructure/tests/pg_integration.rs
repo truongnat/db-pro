@@ -241,6 +241,25 @@ async fn pg_date_cell_filter_binds_as_date() {
     connector.disconnect(&handle).await.unwrap();
 }
 
+#[tokio::test]
+#[ignore]
+async fn pg_query_decodes_native_temporal_and_network_values() {
+    let (connector, handle) = setup().await;
+    let result = connector
+        .query(
+            &handle,
+            "SELECT TIME '12:34:56.123456' AS time_value, INTERVAL '1 day 2 hours' AS interval_value, INET '192.0.2.1/24' AS inet_value",
+            &[],
+        )
+        .await
+        .unwrap();
+
+    assert!(matches!(&result.rows[0].0[0], CellValue::Time(value) if value == "12:34:56.123456"));
+    assert!(matches!(&result.rows[0].0[1], CellValue::Interval(value) if value.contains("1 day")));
+    assert!(matches!(&result.rows[0].0[2], CellValue::Inet(value) if value == "192.0.2.1/24"));
+    connector.disconnect(&handle).await.unwrap();
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // S7 — Gap-filling tests
 // ═══════════════════════════════════════════════════════════════════════════

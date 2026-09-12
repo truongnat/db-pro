@@ -909,3 +909,20 @@ API and must not be implied by an invalid statement.
 Decision: reject empty insert/update column sets at the core SQL-builder
 boundary. Add explicit validation regressions; a future `DEFAULT VALUES` flow
 would be a separate feature with its own provider matrix.
+
+## P1 — PostgreSQL known-type decode errors are silently coerced
+
+`postgres::query_mapper::decode_cell` previously used a fallback for every
+known type. Binary `TIME`, `INTERVAL`, and `INET` values could therefore be
+returned as raw text or an `<unsupported value: TYPE>` placeholder while the
+query still succeeded. A subsequent strict decode pass also showed that custom
+PostgreSQL enum values cannot be decoded by asking SQLx for `String` directly.
+
+Impact: query results can look valid while losing native type/value fidelity;
+downstream table editing and export consumers then operate on corrupted or
+misleading cells.
+
+Decision: decode PostgreSQL temporal and network values through their native
+SQLx/raw representations, preserve textual custom types such as enums, and
+propagate known-type decode errors instead of inventing placeholder values.
+Add live temporal/network and full PostgreSQL integration coverage.

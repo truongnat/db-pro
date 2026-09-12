@@ -1,3 +1,5 @@
+use std::net::{Ipv4Addr, Ipv6Addr};
+
 use db_pro_core::domain::error::DbError;
 use db_pro_core::domain::query::{CellValue, ColumnMeta, QueryParam, Row};
 use sqlx::postgres::PgArguments;
@@ -54,67 +56,196 @@ pub fn map_row(row: &sqlx::postgres::PgRow, columns: &[ColumnMeta]) -> Result<Ro
         let cell = if raw.is_null() {
             CellValue::Null
         } else {
-            decode_cell(row, i, &col.data_type)
+            decode_cell(row, i, &col.data_type)?
         };
         cells.push(cell);
     }
     Ok(Row(cells))
 }
 
-fn decode_cell(row: &sqlx::postgres::PgRow, i: usize, data_type: &str) -> CellValue {
+fn decode_cell(row: &sqlx::postgres::PgRow, i: usize, data_type: &str) -> Result<CellValue, DbError> {
     let dt_upper = data_type.to_uppercase();
-    let res = match dt_upper.as_str() {
-        "BOOL" => row.try_get::<bool, _>(i).map(CellValue::Bool),
-        "INT2" => row.try_get::<i16, _>(i).map(|v| CellValue::Int64(v as i64)),
-        "INT4" => row.try_get::<i32, _>(i).map(|v| CellValue::Int64(v as i64)),
-        "INT8" => row.try_get::<i64, _>(i).map(CellValue::Int64),
+    match dt_upper.as_str() {
+        "BOOL" => row
+            .try_get::<bool, _>(i)
+            .map(CellValue::Bool)
+            .map_err(crate::error::from_sqlx),
+        "INT2" => row
+            .try_get::<i16, _>(i)
+            .map(|v| CellValue::Int64(v as i64))
+            .map_err(crate::error::from_sqlx),
+        "INT4" => row
+            .try_get::<i32, _>(i)
+            .map(|v| CellValue::Int64(v as i64))
+            .map_err(crate::error::from_sqlx),
+        "INT8" => row
+            .try_get::<i64, _>(i)
+            .map(CellValue::Int64)
+            .map_err(crate::error::from_sqlx),
         "OID" => row
             .try_get::<sqlx::postgres::types::Oid, _>(i)
-            .map(|v| CellValue::Int64(v.0 as i64)),
-        "FLOAT4" => row.try_get::<f32, _>(i).map(|v| CellValue::Float64(v as f64)),
-        "FLOAT8" => row.try_get::<f64, _>(i).map(CellValue::Float64),
-        "NUMERIC" | "DECIMAL" => Ok(decode_numeric(row, i)),
-        "UUID" => row.try_get::<uuid::Uuid, _>(i).map(|v| CellValue::Uuid(v.to_string())),
+            .map(|v| CellValue::Int64(v.0 as i64))
+            .map_err(crate::error::from_sqlx),
+        "FLOAT4" => row
+            .try_get::<f32, _>(i)
+            .map(|v| CellValue::Float64(v as f64))
+            .map_err(crate::error::from_sqlx),
+        "FLOAT8" => row
+            .try_get::<f64, _>(i)
+            .map(CellValue::Float64)
+            .map_err(crate::error::from_sqlx),
+        "NUMERIC" | "DECIMAL" => decode_numeric(row, i),
+        "UUID" => row
+            .try_get::<uuid::Uuid, _>(i)
+            .map(|v| CellValue::Uuid(v.to_string()))
+            .map_err(crate::error::from_sqlx),
         "TIMESTAMPTZ" => row
             .try_get::<chrono::DateTime<chrono::Utc>, _>(i)
-            .map(|v| CellValue::DateTime(v.to_rfc3339())),
+            .map(|v| CellValue::DateTime(v.to_rfc3339()))
+            .map_err(crate::error::from_sqlx),
         "TIMESTAMP" => row
             .try_get::<chrono::NaiveDateTime, _>(i)
-            .map(|v| CellValue::DateTime(v.and_utc().to_rfc3339())),
+            .map(|v| CellValue::DateTime(v.and_utc().to_rfc3339()))
+            .map_err(crate::error::from_sqlx),
         "DATE" => row
             .try_get::<chrono::NaiveDate, _>(i)
-            .map(|v| CellValue::Date(v.to_string())),
-        "TIME" | "TIMETZ" => row.try_get::<String, _>(i).map(CellValue::Time),
-        "INTERVAL" => row.try_get::<String, _>(i).map(CellValue::Interval),
-        "INET" | "CIDR" => row.try_get::<String, _>(i).map(CellValue::Inet),
-        "JSON" | "JSONB" => row.try_get::<serde_json::Value, _>(i).map(CellValue::Json),
-        "BYTEA" => row.try_get::<Vec<u8>, _>(i).map(CellValue::Bytes),
-        _ => row.try_get::<String, _>(i).map(CellValue::Text),
-    };
-
-    res.unwrap_or_else(|_| {
-        row.try_get_raw(i)
-            .ok()
-            .and_then(|raw| raw.as_bytes().ok())
-            .and_then(|bytes| std::str::from_utf8(bytes).ok())
-            .map(|value| CellValue::Text(value.to_owned()))
-            .unwrap_or_else(|| CellValue::Text(format!("<unsupported value: {data_type}>")))
-    })
+            .map(|v| CellValue::Date(v.to_string()))
+            .map_err(crate::error::from_sqlx),
+        "TIME" => row
+            .try_get::<chrono::NaiveTime, _>(i)
+            .map(|v| CellValue::Time(v.to_string()))
+            .map_err(crate::error::from_sqlx),
+        "TIMETZ" => row
+            .try_get::<sqlx::postgres::types::PgTimeTz<chrono::NaiveTime, chrono::FixedOffset>, _>(i)
+            .map(|v| CellValue::Time(format_time_with_offset(v.time, v.offset)))
+            .map_err(crate::error::from_sqlx),
+        "INTERVAL" => row
+            .try_get::<sqlx::postgres::types::PgInterval, _>(i)
+            .map(|v| CellValue::Interval(format_interval(v)))
+            .map_err(crate::error::from_sqlx),
+        "INET" | "CIDR" => decode_inet(row, i),
+        "JSON" | "JSONB" => row
+            .try_get::<serde_json::Value, _>(i)
+            .map(CellValue::Json)
+            .map_err(crate::error::from_sqlx),
+        "BYTEA" => row
+            .try_get::<Vec<u8>, _>(i)
+            .map(CellValue::Bytes)
+            .map_err(crate::error::from_sqlx),
+        _ => decode_textual_value(row, i, data_type),
+    }
 }
 
-fn decode_numeric(row: &sqlx::postgres::PgRow, i: usize) -> CellValue {
-    let Some(raw) = row.try_get_raw(i).ok() else {
-        return CellValue::Text("<unsupported value: NUMERIC>".into());
-    };
+fn decode_textual_value(row: &sqlx::postgres::PgRow, i: usize, data_type: &str) -> Result<CellValue, DbError> {
+    let raw = row.try_get_raw(i).map_err(crate::error::from_sqlx)?;
+    let value = raw
+        .as_str()
+        .map(str::to_owned)
+        .map_err(|error| DbError::QueryFailed(format!("cannot decode PostgreSQL {data_type} as text: {error}")))?;
+    Ok(CellValue::Text(value))
+}
+
+fn decode_numeric(row: &sqlx::postgres::PgRow, i: usize) -> Result<CellValue, DbError> {
+    let raw = row.try_get_raw(i).map_err(crate::error::from_sqlx)?;
 
     let value = match raw.format() {
-        PgValueFormat::Text => raw.as_str().ok().map(str::to_owned),
-        PgValueFormat::Binary => raw.as_bytes().ok().and_then(decode_binary_numeric),
+        PgValueFormat::Text => raw
+            .as_str()
+            .map(str::to_owned)
+            .map_err(|error| DbError::QueryFailed(format!("invalid PostgreSQL NUMERIC text: {error}"))),
+        PgValueFormat::Binary => raw
+            .as_bytes()
+            .map_err(|error| DbError::QueryFailed(format!("invalid PostgreSQL NUMERIC binary value: {error}")))
+            .and_then(|bytes| {
+                decode_binary_numeric(bytes)
+                    .ok_or_else(|| DbError::QueryFailed("invalid PostgreSQL NUMERIC binary value".into()))
+            }),
     };
 
-    value
-        .map(CellValue::Text)
-        .unwrap_or_else(|| CellValue::Text("<unsupported value: NUMERIC>".into()))
+    value.map(CellValue::Text)
+}
+
+fn decode_inet(row: &sqlx::postgres::PgRow, i: usize) -> Result<CellValue, DbError> {
+    let raw = row.try_get_raw(i).map_err(crate::error::from_sqlx)?;
+    let value = match raw.format() {
+        PgValueFormat::Text => raw
+            .as_str()
+            .map(str::to_owned)
+            .map_err(|error| DbError::QueryFailed(format!("invalid PostgreSQL INET text: {error}"))),
+        PgValueFormat::Binary => raw
+            .as_bytes()
+            .map_err(|error| DbError::QueryFailed(format!("invalid PostgreSQL INET binary value: {error}")))
+            .and_then(decode_binary_inet),
+    }?;
+    Ok(CellValue::Inet(value))
+}
+
+fn decode_binary_inet(bytes: &[u8]) -> Result<String, DbError> {
+    if bytes.len() < 4 {
+        return Err(DbError::QueryFailed("invalid PostgreSQL INET binary value".into()));
+    }
+    let family = bytes[0];
+    let prefix = bytes[1];
+    let address_len = usize::from(bytes[3]);
+    let expected_len = 4usize
+        .checked_add(address_len)
+        .ok_or_else(|| DbError::QueryFailed("invalid PostgreSQL INET address length".into()))?;
+    if bytes.len() != expected_len {
+        return Err(DbError::QueryFailed("invalid PostgreSQL INET binary length".into()));
+    }
+    let address = &bytes[4..];
+    match (family, address_len) {
+        (2, 4) => Ok(format!(
+            "{}/{}",
+            Ipv4Addr::new(address[0], address[1], address[2], address[3]),
+            prefix
+        )),
+        (3, 16) => {
+            let octets: [u8; 16] = address
+                .try_into()
+                .map_err(|_| DbError::QueryFailed("invalid PostgreSQL INET IPv6 length".into()))?;
+            Ok(format!("{}/{}", Ipv6Addr::from(octets), prefix))
+        }
+        _ => Err(DbError::QueryFailed(
+            "unsupported PostgreSQL INET address family".into(),
+        )),
+    }
+}
+
+fn format_time_with_offset(time: chrono::NaiveTime, offset: chrono::FixedOffset) -> String {
+    let seconds = offset.local_minus_utc();
+    let sign = if seconds >= 0 { '+' } else { '-' };
+    let absolute = seconds.unsigned_abs();
+    format!("{time}{sign}{:02}:{:02}", absolute / 3_600, (absolute % 3_600) / 60)
+}
+
+fn format_interval(interval: sqlx::postgres::types::PgInterval) -> String {
+    let mut parts = Vec::new();
+    if interval.months != 0 {
+        parts.push(format!("{} mons", interval.months));
+    }
+    if interval.days != 0 {
+        parts.push(format!("{} days", interval.days));
+    }
+    if interval.microseconds != 0 {
+        let negative = interval.microseconds < 0;
+        let absolute = interval.microseconds.unsigned_abs();
+        let hours = absolute / 3_600_000_000;
+        let minutes = (absolute % 3_600_000_000) / 60_000_000;
+        let seconds = (absolute % 60_000_000) / 1_000_000;
+        let micros = absolute % 1_000_000;
+        let time = if micros == 0 {
+            format!("{hours:02}:{minutes:02}:{seconds:02}")
+        } else {
+            format!("{hours:02}:{minutes:02}:{seconds:02}.{micros:06}")
+        };
+        parts.push(if negative { format!("-{time}") } else { time });
+    }
+    if parts.is_empty() {
+        "00:00:00".into()
+    } else {
+        parts.join(" ")
+    }
 }
 
 fn decode_binary_numeric(bytes: &[u8]) -> Option<String> {

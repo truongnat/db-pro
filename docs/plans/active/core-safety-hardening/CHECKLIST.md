@@ -137,6 +137,10 @@
 - [x] Verify typed DATE binding against a live PostgreSQL fixture.
 - [x] Reject empty insert/update column sets before SQL generation.
 - [x] Add empty row-mutation validation regression coverage.
+- [x] Decode PostgreSQL TIME/TIMETZ/INTERVAL/INET/CIDR without placeholder fallback.
+- [x] Preserve textual custom PostgreSQL types such as enums.
+- [x] Propagate PostgreSQL known-type decode errors.
+- [x] Add live PostgreSQL temporal/network mapper coverage.
 - [x] Run formatting, check, clippy, targeted tests, and workspace tests.
 - [x] Self-review changed files and confirm no UI/native files changed.
 - [x] Record PostgreSQL and isolated SSH-tunnel fixture evidence; CI SSH execution and native UI runtime evidence remain pending.
