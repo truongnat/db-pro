@@ -149,6 +149,8 @@ without changing the native UI or adding product features.
     `row_count`, allowing incorrect result metrics to cross core boundaries.
 65. JSON export uses column names as object keys, so a result with duplicate
     column names silently overwrites an earlier value.
+66. `QueryResult::validate` accepts non-empty rows without column metadata,
+    allowing consumers such as JSON export to discard every cell.
 
 ## Acceptance criteria
 
@@ -261,6 +263,8 @@ without changing the native UI or adding product features.
   the affected-row representation with no columns/rows.
 - JSON export rejects duplicate column names instead of silently dropping values;
   CSV and Excel continue to preserve positional duplicate columns.
+- `QueryResult::validate` rejects returned rows without columns while preserving
+  affected-row results that contain neither columns nor returned rows.
 - Create, update, and both connection-test paths share the same connection
   configuration validation boundary.
 - PostgreSQL and SQLite unit/integration coverage is updated independently where the

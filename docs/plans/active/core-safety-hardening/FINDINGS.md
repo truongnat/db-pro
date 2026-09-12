@@ -817,3 +817,17 @@ columns.
 
 Decision: reject JSON export when column names are not unique and return an
 explicit validation error. Keep CSV and Excel positional output unchanged.
+
+## P1 — Query results can contain rows without column metadata
+
+`QueryResult::validate` checked each row against `columns.len()`, but treated
+an empty column list as a valid affected-row shape even when `rows` was
+non-empty. A malformed provider result with zero columns and one empty row
+therefore crossed the boundary; JSON export serialized it as `{}` and lost the
+row's payload.
+
+Impact: downstream consumers can silently discard returned data instead of
+rejecting an invalid provider response.
+
+Decision: reject any result with returned rows but no columns. Preserve the
+valid affected-row representation with no columns and no returned rows.

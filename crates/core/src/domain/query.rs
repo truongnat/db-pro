@@ -103,6 +103,9 @@ impl QueryResult {
 
     pub fn validate(&self) -> Result<(), String> {
         let col_count = self.columns.len();
+        if self.columns.is_empty() && !self.rows.is_empty() {
+            return Err("result has returned rows but no columns".into());
+        }
         for (i, row) in self.rows.iter().enumerate() {
             if row.0.len() != col_count {
                 return Err(format!("row {i} has {} cells but expected {col_count}", row.0.len()));
@@ -274,6 +277,18 @@ mod tests {
         };
 
         assert!(result.validate().is_ok());
+    }
+
+    #[test]
+    fn query_result_validate_rejects_rows_without_columns() {
+        let result = QueryResult {
+            columns: Vec::new(),
+            rows: vec![Row(Vec::new())],
+            row_count: 1,
+            duration_ms: 0,
+        };
+
+        assert!(matches!(result.validate(), Err(message) if message.contains("no columns")));
     }
 
     #[test]
