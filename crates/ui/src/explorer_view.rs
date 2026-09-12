@@ -162,22 +162,30 @@ impl DbProApp {
         for connection in connections {
             let is_active = self.active_connection_id.as_deref() == Some(&connection.id);
             let is_connected = self.connected && is_active;
-            let is_connecting = self.pending_connection_request.is_some() && is_active;
+            let is_connecting = self.pending_connection_request.is_some()
+                && (self.pending_connection_id.as_deref() == Some(&connection.id)
+                    || (self.pending_connection_id.is_none() && is_active));
+            let is_failed = self.failed_connection_ids.contains(&connection.id);
+            let err_msg = self.connection_errors.get(&connection.id).cloned();
             let id = ui.make_persistent_id(("codex_conn_node", &connection.id));
 
             let mut collapsing =
-                egui::collapsing_header::CollapsingState::load_with_default_open(ui.ctx(), id, is_connected);
+                egui::collapsing_header::CollapsingState::load_with_default_open(ui.ctx(), id, is_connected || is_failed);
             let is_open = collapsing.is_open();
 
             let status_dot = if is_connected {
                 Some(Color32::from_rgb(34, 197, 94)) // vibrant emerald green
             } else if is_connecting {
                 Some(self.theme.accent)
+            } else if is_failed {
+                Some(Color32::from_rgb(239, 68, 68)) // red error badge / dot
             } else {
                 Some(Color32::from_rgb(156, 163, 175)) // neutral slate gray
             };
 
-            let badge_text = if connection.driver.eq_ignore_ascii_case("postgresql") {
+            let badge_text = if is_failed {
+                "ERR"
+            } else if connection.driver.eq_ignore_ascii_case("postgresql") {
                 "PG"
             } else {
                 "SQLITE"
@@ -193,15 +201,17 @@ impl DbProApp {
                     icon: Icon::Database,
                     icon_color: if is_connected {
                         self.theme.accent
+                    } else if is_failed {
+                        self.theme.danger
                     } else {
                         self.theme.text_muted
                     },
                     label: &connection.name,
                     is_selected: is_active,
-                    is_dimmed: !is_connected,
+                    is_dimmed: !is_connected && !is_failed && !is_connecting,
                     status_dot,
                     badge_text: Some(badge_text),
-                    badge_accent: is_connected,
+                    badge_accent: is_connected || is_failed,
                     count_text: None,
                     detail_text: None,
                 },
@@ -226,6 +236,14 @@ impl DbProApp {
             if collapsing.is_open() {
                 if is_connected {
                     self.draw_dbeaver_connected_body(ui, &connection);
+                } else if is_failed {
+                    let err_str = err_msg.as_deref().unwrap_or("Connection failed");
+                    let hint = format!("Failed: {} — Click to retry", err_str);
+                    if draw_hint_row(ui, &self.theme, 1, Icon::AlertCircle, &hint).clicked() {
+                        actions.connect = true;
+                    }
+                } else if is_connecting {
+                    draw_hint_row(ui, &self.theme, 1, Icon::LoaderCircle, "Connecting…");
                 } else if draw_hint_row(ui, &self.theme, 1, Icon::Circle, "Disconnected — click to connect").clicked()
                 {
                     actions.connect = true;
@@ -537,9 +555,12 @@ impl DbProApp {
     }
 
     /// Helper to initiate connection logic.
-    fn connect_to_connection(&mut self, connection: &UiConnectionSummary) {
+    pub(crate) fn connect_to_connection(&mut self, connection: &UiConnectionSummary) {
         self.reset_agent_context();
         self.active_connection_id = Some(connection.id.clone());
+        self.pending_connection_id = Some(connection.id.clone());
+        self.connection_errors.remove(&connection.id);
+        self.failed_connection_ids.remove(&connection.id);
         self.selected_schema = None;
         self.schema = UiSchemaSummary::default();
         self.selected_table = None;

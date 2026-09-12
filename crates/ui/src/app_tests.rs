@@ -677,7 +677,7 @@ fn command_palette_refresh_schema_bypasses_the_metadata_cache() {
 }
 
 #[test]
-fn loading_connections_does_not_introspect_before_connecting() {
+fn loading_connections_automatically_connects_active_connection() {
     let (bridge, command_rx, event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
     event_tx
@@ -698,7 +698,51 @@ fn loading_connections_does_not_introspect_before_connecting() {
 
     app.apply_runtime_events();
 
+    assert!(matches!(
+        command_rx.try_recv(),
+        Ok(UiCommand::Connect {
+            connection_id,
+            ..
+        }) if connection_id == "local"
+    ));
     assert!(command_rx.try_recv().is_err());
+}
+
+#[test]
+fn failed_connection_shows_red_indicator_and_records_error() {
+    let (bridge, _command_rx, event_tx) = TaskBridge::with_channels();
+    let mut app = DbProApp::with_task_bridge(bridge);
+    app.connections = vec![UiConnectionSummary {
+        id: "conn-bad".to_owned(),
+        name: "Remote Bad".to_owned(),
+        host: "10.0.0.99".to_owned(),
+        port: 5432,
+        database: "mydb".to_owned(),
+        username: "postgres".to_owned(),
+        driver: "PostgreSQL".to_owned(),
+        readonly: false,
+    }];
+    app.active_connection_id = Some("conn-bad".to_owned());
+    app.pending_connection_id = Some("conn-bad".to_owned());
+    app.pending_connection_request = Some(crate::RequestId(99));
+
+    event_tx
+        .send(UiEvent::QueryFailed {
+            request_id: crate::RequestId(99),
+            message: "Connection refused (os error 61)".to_owned(),
+        })
+        .expect("query failed event should be queued");
+
+    app.apply_runtime_events();
+
+    assert!(app.failed_connection_ids.contains("conn-bad"));
+    assert_eq!(
+        app.connection_errors.get("conn-bad").map(|s| s.as_str()),
+        Some("Connection refused (os error 61)")
+    );
+    let (icon, color) = app.connection_indicator(&app.connections[0]);
+    assert_eq!(char::from(icon), char::from(Icon::AlertCircle));
+    assert_eq!(color, app.theme.danger);
 }
 
 #[test]

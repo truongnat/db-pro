@@ -382,7 +382,10 @@ pub struct DbProApp {
     restore_input_path: String,
     restore_confirmation: bool,
     active_connection_id: Option<String>,
+    pending_connection_id: Option<String>,
     pending_connection_request: Option<crate::RequestId>,
+    connection_errors: std::collections::HashMap<String, String>,
+    failed_connection_ids: std::collections::HashSet<String>,
     connections_requested: bool,
     connections_request_pending: bool,
     connection_dialog_open: bool,
@@ -639,11 +642,20 @@ impl DbProApp {
     fn connection_indicator(&self, connection: &UiConnectionSummary) -> (Icon, Color32) {
         let is_active = self.active_connection_id.as_deref() == Some(connection.id.as_str());
         let is_connected = is_active && self.connected;
-        let icon = if is_connected { Icon::CircleCheck } else { Icon::Circle };
+        let is_failed = self.failed_connection_ids.contains(&connection.id);
+        let icon = if is_connected {
+            Icon::CircleCheck
+        } else if is_failed {
+            Icon::AlertCircle
+        } else {
+            Icon::Circle
+        };
         let color = if is_connected && connection.readonly {
             self.theme.warning
         } else if is_connected {
             self.theme.success
+        } else if is_failed {
+            self.theme.danger
         } else if is_active {
             self.theme.accent
         } else {

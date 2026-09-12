@@ -66,12 +66,17 @@ impl DbProApp {
         }
     }
 
-    /// Connection list refreshed; auto-select the first one when nothing is active.
+    /// Connection list refreshed; auto-select and auto-connect the first one when nothing is active.
     fn on_connections_loaded(&mut self, connections: Vec<UiConnectionSummary>) {
         self.connections_request_pending = false;
         self.connections = connections;
         if self.active_connection_id.is_none() {
             self.active_connection_id = self.connections.first().map(|connection| connection.id.clone());
+        }
+        if !self.connected && self.pending_connection_request.is_none() {
+            if let Some(active) = self.active_connection().cloned() {
+                self.connect_to_connection(&active);
+            }
         }
         self.runtime_message = format!("Loaded {} connections", self.connections.len());
     }
@@ -359,8 +364,11 @@ impl DbProApp {
             return;
         }
         self.pending_connection_request = None;
-        self.active_connection_id = Some(connection_id);
+        self.pending_connection_id = None;
+        self.active_connection_id = Some(connection_id.clone());
         self.connected = true;
+        self.connection_errors.remove(&connection_id);
+        self.failed_connection_ids.remove(&connection_id);
         self.runtime_message = "Connection established".to_owned();
         if let Some(connection_id) = self.active_connection_id.clone() {
             self.request_schema_introspection(connection_id.clone(), false);
@@ -413,6 +421,11 @@ impl DbProApp {
     fn on_query_failed(&mut self, request_id: RequestId, message: String) {
         if self.pending_connection_request == Some(request_id) {
             self.pending_connection_request = None;
+            let conn_id = self.pending_connection_id.take().or_else(|| self.active_connection_id.clone());
+            if let Some(cid) = conn_id {
+                self.failed_connection_ids.insert(cid.clone());
+                self.connection_errors.insert(cid, message.clone());
+            }
             if !self.connection_dialog_open {
                 self.connected = false;
                 self.schema_request = None;
