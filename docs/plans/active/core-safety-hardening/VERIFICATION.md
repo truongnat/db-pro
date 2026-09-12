@@ -71,11 +71,11 @@
 - `DATABASE_URL=postgres://dbpro:dbpro_test@127.0.0.1:15434/dbpro_fixture cargo test -p db-pro-infrastructure --test pg_integration --offline -- --ignored` — PASS: 14/14 against an isolated temporary `postgres:18.2` fixture after fallible metadata decoding and the `enabled_flag` text cast; the container was removed after the run.
 - External PostgreSQL command timeout regression — PASS on Unix via
   `external_command_timeout_returns_query_timeout`.
-- `cargo test --workspace --no-fail-fast` — BLOCKED in the current shared
-  checkout before tests completed: unrelated uncommitted native-app changes fail
-  to compile at `crates/native-app/src/translate.rs:597` (`RequestId` not found).
-  Core-only tests and builds are recorded separately below; this is not claimed
-  as a core failure.
+- `cargo test --workspace --no-fail-fast` — PASS: 246 core unit, 28 SQLite
+  integration, 57 infrastructure unit, 14 PostgreSQL integration tests ignored,
+  plus runtime, native, UI, schema regression, and doc tests. The shared
+  checkout required external native commit `9e7be46` before this verification;
+  no native source was changed in the core hardening commits.
 - `cargo test -p db-pro-core application::schema_service::tests::get_table_ddl_sqlite_uses_inline_foreign_keys_and_unqualified_names -- --exact` — PASS: reconstructed SQLite DDL preserves UNIQUE constraints without replaying the internal autoindex name.
 - Targeted regression `sqlite_query_timeout_interrupts_vm_and_actor_recovers` — PASS.
 - Targeted regression `sqlite_transaction_timeout_waits_for_rollback_before_returning` — PASS
