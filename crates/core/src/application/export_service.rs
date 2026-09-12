@@ -102,11 +102,11 @@ impl ExportService {
             .map(|row| {
                 let mut map = serde_json::Map::new();
                 for (col, cell) in result.columns.iter().zip(row.0.iter()) {
-                    map.insert(col.name.clone(), cell_to_json(cell));
+                    map.insert(col.name.clone(), cell_to_json(cell)?);
                 }
-                map
+                Ok(map)
             })
-            .collect();
+            .collect::<Result<_, DbError>>()?;
 
         let content = serde_json::to_vec_pretty(&rows)
             .map_err(|e| DbError::Internal(format!("json serialization failed: {e}")))?;
@@ -204,23 +204,23 @@ fn cell_to_csv_string(cell: &CellValue) -> String {
     }
 }
 
-fn cell_to_json(cell: &CellValue) -> serde_json::Value {
+fn cell_to_json(cell: &CellValue) -> Result<serde_json::Value, DbError> {
     match cell {
-        CellValue::Null => serde_json::Value::Null,
-        CellValue::Bool(b) => serde_json::Value::Bool(*b),
-        CellValue::Int64(i) => serde_json::Value::Number((*i).into()),
+        CellValue::Null => Ok(serde_json::Value::Null),
+        CellValue::Bool(b) => Ok(serde_json::Value::Bool(*b)),
+        CellValue::Int64(i) => Ok(serde_json::Value::Number((*i).into())),
         CellValue::Float64(f) => serde_json::Number::from_f64(*f)
             .map(serde_json::Value::Number)
-            .unwrap_or(serde_json::Value::Null),
-        CellValue::Text(s) => serde_json::Value::String(s.clone()),
-        CellValue::Bytes(b) => serde_json::Value::String(format!("[{} bytes]", b.len())),
-        CellValue::Uuid(s) => serde_json::Value::String(s.clone()),
-        CellValue::DateTime(s) => serde_json::Value::String(s.clone()),
-        CellValue::Date(s) => serde_json::Value::String(s.clone()),
-        CellValue::Time(s) => serde_json::Value::String(s.clone()),
-        CellValue::Interval(s) => serde_json::Value::String(s.clone()),
-        CellValue::Inet(s) => serde_json::Value::String(s.clone()),
-        CellValue::Json(v) => v.clone(),
+            .ok_or_else(|| DbError::Validation("JSON export cannot represent a non-finite float".into())),
+        CellValue::Text(s) => Ok(serde_json::Value::String(s.clone())),
+        CellValue::Bytes(b) => Ok(serde_json::Value::String(format!("[{} bytes]", b.len()))),
+        CellValue::Uuid(s) => Ok(serde_json::Value::String(s.clone())),
+        CellValue::DateTime(s) => Ok(serde_json::Value::String(s.clone())),
+        CellValue::Date(s) => Ok(serde_json::Value::String(s.clone())),
+        CellValue::Time(s) => Ok(serde_json::Value::String(s.clone())),
+        CellValue::Interval(s) => Ok(serde_json::Value::String(s.clone())),
+        CellValue::Inet(s) => Ok(serde_json::Value::String(s.clone())),
+        CellValue::Json(v) => Ok(v.clone()),
     }
 }
 
@@ -418,6 +418,35 @@ mod tests {
 
         assert!(matches!(error, DbError::Validation(message)
             if message.contains("duplicate column") && message.contains("value")));
+    }
+
+    #[tokio::test]
+    async fn export_json_rejects_non_finite_float() {
+        let conn_id = ConnectionId::new();
+        let registry = Arc::new(ConnectionRegistry::new());
+        registry.register(conn_id, ConnectionHandle(1));
+
+        let non_finite = QueryResult {
+            columns: vec![ColumnMeta {
+                name: "value".into(),
+                data_type: "FLOAT8".into(),
+                nullable: false,
+            }],
+            rows: vec![Row(vec![CellValue::Float64(f64::NAN)])],
+            row_count: 1,
+            duration_ms: 0,
+        };
+        let mut connector = MockDbConnector::new();
+        connector
+            .expect_query()
+            .returning(move |_, _, _| Ok(non_finite.clone()));
+
+        let error = build_service(connector, registry)
+            .export_json(&conn_id, "SELECT 'NaN'::float8 AS value")
+            .await
+            .expect_err("JSON export must not silently turn NaN into null");
+
+        assert!(matches!(error, DbError::Validation(message) if message.contains("non-finite")));
     }
 
     #[tokio::test]

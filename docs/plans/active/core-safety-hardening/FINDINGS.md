@@ -865,3 +865,17 @@ and rollback/outcome status. Preserve confirmed rollback for statement failures;
 represent commit failures as an unknown final outcome instead of claiming
 atomic rollback. SQLite coverage is implemented; PostgreSQL live coverage is
 still required before marking this plan complete.
+
+## P1 — JSON export silently converts non-finite floats to null
+
+`ExportService::cell_to_json` previously used `Number::from_f64(...).unwrap_or
+(Null)`. PostgreSQL can return IEEE non-finite `FLOAT8` values such as `NaN`,
+which are not valid JSON numbers; the fallback therefore made a successful
+export silently lose the original value.
+
+Impact: exported JSON can contain a plausible `null` while the database value
+was non-null, causing data corruption in a supposedly lossless export path.
+
+Decision: reject non-finite floats with an explicit validation error. Keep the
+existing CSV/Excel behavior unchanged because their serialization contracts are
+separate and this fix is scoped to JSON's strict number model.
