@@ -401,10 +401,20 @@ fn decode_cell(row: &sqlx::postgres::PgRow, i: usize, data_type: &str) -> Result
 
 fn decode_textual_value(row: &sqlx::postgres::PgRow, i: usize, data_type: &str) -> Result<CellValue, DbError> {
     let raw = row.try_get_raw(i).map_err(crate::error::from_sqlx)?;
-    let value = raw
-        .as_str()
-        .map(str::to_owned)
-        .map_err(|error| DbError::QueryFailed(format!("cannot decode PostgreSQL {data_type} as text: {error}")))?;
+    let value = match raw.format() {
+        PgValueFormat::Text => raw
+            .as_str()
+            .map(str::to_owned)
+            .map_err(|error| DbError::QueryFailed(format!("cannot decode PostgreSQL {data_type} as text: {error}")))?,
+        PgValueFormat::Binary => {
+            let bytes = raw
+                .as_bytes()
+                .map_err(|error| DbError::QueryFailed(format!("cannot decode PostgreSQL {data_type} binary bytes: {error}")))?;
+            std::str::from_utf8(bytes)
+                .map(str::to_owned)
+                .map_err(|error| DbError::QueryFailed(format!("invalid UTF-8 in PostgreSQL {data_type} binary payload: {error}")))?
+        }
+    };
     Ok(CellValue::Text(value))
 }
 
@@ -697,5 +707,12 @@ mod tests {
         }
 
         assert_eq!(decode_binary_numeric(&bytes).as_deref(), Some("1.50"));
+    }
+
+    #[test]
+    fn binary_text_payload_decodes_as_utf8() {
+        let sample_bytes = "custom_enum_val".as_bytes();
+        let decoded = std::str::from_utf8(sample_bytes).unwrap();
+        assert_eq!(decoded, "custom_enum_val");
     }
 }
