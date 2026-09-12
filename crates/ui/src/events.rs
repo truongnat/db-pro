@@ -264,6 +264,7 @@ impl DbProApp {
             self.selected_row = None;
             self.selected_rows.clear();
             self.selection_anchor_row = None;
+            self.selection_anchor_cell = None;
         }
         self.table_data_error = None;
         self.table_data_request = None;
@@ -421,6 +422,7 @@ impl DbProApp {
             self.selected_row = None;
             self.selected_rows.clear();
             self.selection_anchor_row = None;
+            self.selection_anchor_cell = None;
             self.copy_status.clear();
             self.query_result = Some(result);
             self.output_tab = OutputTab::Results;

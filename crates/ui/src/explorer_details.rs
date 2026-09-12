@@ -358,6 +358,7 @@ impl DbProApp {
         self.selected_row = None;
         self.selected_rows.clear();
         self.selection_anchor_row = None;
+        self.selection_anchor_cell = None;
         self.data_editing_cell = None;
         self.data_edit_value.clear();
         self.data_delete_confirmation = false;

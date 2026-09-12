@@ -4,6 +4,7 @@ use egui::{Align2, Pos2, Rect, Rounding, Stroke, Vec2};
 /// Per-cell render context for the result grid.
 struct GridCell<'a> {
     visible_indexes: &'a [usize],
+    visible_order: &'a [usize],
     row_index: usize,
     column_index: usize,
     display_position: usize,
@@ -104,6 +105,23 @@ impl DbProApp {
         let modifier = Self::primary_modifier_pressed_ui(ui);
         let shift = ui.input(|i| i.modifiers.shift);
 
+        if !ui.ctx().wants_keyboard_input()
+            && ui.input(|input| input.key_pressed(egui::Key::A) && Self::primary_modifier_pressed(input))
+        {
+            self.select_all_visible_cells(indexes, order);
+            return;
+        }
+
+        if !ui.ctx().wants_keyboard_input() && ui.input(|input| input.key_pressed(egui::Key::Escape)) {
+            self.selected_cell = None;
+            self.selected_row = None;
+            self.selected_rows.clear();
+            self.selection_anchor_row = None;
+            self.selection_anchor_cell = None;
+            self.copy_status.clear();
+            return;
+        }
+
         if ui.input(|i| i.key_pressed(egui::Key::C)) && modifier && shift {
             self.copy_selected_rows(ui, result);
         } else if ui.input(|i| i.key_pressed(egui::Key::C)) && modifier {
@@ -201,6 +219,84 @@ impl DbProApp {
         self.selected_rows.insert(row_index);
         self.selected_row = Some(row_index);
         self.selection_anchor_row = Some(row_index);
+        self.selection_anchor_cell = None;
+    }
+
+    fn select_single_cell(&mut self, selection: (usize, usize)) {
+        self.selected_cell = Some(selection);
+        self.selected_rows.clear();
+        self.selected_rows.insert(selection.0);
+        self.selected_row = Some(selection.0);
+        self.selection_anchor_row = Some(selection.0);
+        self.selection_anchor_cell = Some(selection);
+    }
+
+    fn select_cell_range(&mut self, indexes: &[usize], focus: (usize, usize), extend: bool) {
+        if !extend {
+            self.select_single_cell(focus);
+            return;
+        }
+
+        let anchor = self.selection_anchor_cell.or(self.selected_cell).unwrap_or(focus);
+        let anchor_row = indexes.iter().position(|&row| row == anchor.0).unwrap_or(0);
+        let focus_row = indexes.iter().position(|&row| row == focus.0).unwrap_or(anchor_row);
+        let (row_start, row_end) = if anchor_row <= focus_row {
+            (anchor_row, focus_row)
+        } else {
+            (focus_row, anchor_row)
+        };
+        self.selected_rows.clear();
+        self.selected_rows.extend(indexes[row_start..=row_end].iter().copied());
+        self.selected_row = Some(focus.0);
+        self.selected_cell = Some(focus);
+        self.selection_anchor_row = Some(anchor.0);
+        self.selection_anchor_cell = Some(anchor);
+    }
+
+    fn select_all_visible_cells(&mut self, indexes: &[usize], order: &[usize]) {
+        let (Some(&first_row), Some(&last_row), Some(&first_column), Some(&last_column)) =
+            (indexes.first(), indexes.last(), order.first(), order.last())
+        else {
+            return;
+        };
+        self.selected_rows.clear();
+        self.selected_rows.extend(indexes.iter().copied());
+        self.selection_anchor_row = Some(first_row);
+        self.selection_anchor_cell = Some((first_row, first_column));
+        self.selected_row = Some(last_row);
+        self.selected_cell = Some((last_row, last_column));
+        self.copy_status.clear();
+    }
+
+    fn is_cell_selected(&self, indexes: &[usize], order: &[usize], selection: (usize, usize)) -> bool {
+        let Some(anchor) = self.selection_anchor_cell else {
+            return self.selected_cell == Some(selection);
+        };
+        let Some(focus) = self.selected_cell else {
+            return false;
+        };
+        let Some(anchor_row) = indexes.iter().position(|&row| row == anchor.0) else {
+            return self.selected_cell == Some(selection);
+        };
+        let Some(focus_row) = indexes.iter().position(|&row| row == focus.0) else {
+            return false;
+        };
+        let Some(selection_row) = indexes.iter().position(|&row| row == selection.0) else {
+            return false;
+        };
+        let Some(anchor_column) = order.iter().position(|&column| column == anchor.1) else {
+            return self.selected_cell == Some(selection);
+        };
+        let Some(focus_column) = order.iter().position(|&column| column == focus.1) else {
+            return false;
+        };
+        let Some(selection_column) = order.iter().position(|&column| column == selection.1) else {
+            return false;
+        };
+        let row_in_range = selection_row >= anchor_row.min(focus_row) && selection_row <= anchor_row.max(focus_row);
+        let column_in_range =
+            selection_column >= anchor_column.min(focus_column) && selection_column <= anchor_column.max(focus_column);
+        row_in_range && column_in_range
     }
 
     /// Arrow / Tab / Home / End navigation over the visible (filtered, sorted) indexes and column order.
@@ -249,14 +345,7 @@ impl DbProApp {
                     Some((curr_row, curr_col))
                 };
                 if let Some(selection) = next_cell {
-                    if ui.input(|input| input.modifiers.shift) {
-                        if let Some(position) = indexes.iter().position(|&row| row == selection.0) {
-                            self.select_visible_row(indexes, position, true, false);
-                        }
-                    } else {
-                        self.select_single_row(selection.0);
-                    }
-                    self.selected_cell = Some(selection);
+                    self.select_cell_range(indexes, selection, false);
                     self.data_editing_cell = None;
                     self.data_edit_value.clear();
                     self.copy_status.clear();
@@ -314,21 +403,13 @@ impl DbProApp {
             };
 
             if let Some(selection) = next_selection {
-                if ui.input(|input| input.modifiers.shift) {
-                    if let Some(position) = indexes.iter().position(|&row| row == selection.0) {
-                        self.select_visible_row(indexes, position, true, false);
-                    }
-                } else {
-                    self.select_single_row(selection.0);
-                }
-                self.selected_cell = Some(selection);
+                self.select_cell_range(indexes, selection, ui.input(|input| input.modifiers.shift));
                 self.data_editing_cell = None;
                 self.data_edit_value.clear();
                 self.copy_status.clear();
             }
         } else if let Some(&first_row) = indexes.first() {
-            self.selected_cell = Some((first_row, order[0]));
-            self.select_single_row(first_row);
+            self.select_single_cell((first_row, order[0]));
         }
     }
 
@@ -506,6 +587,7 @@ impl DbProApp {
                     modifiers.shift,
                     modifiers.command || modifiers.ctrl,
                 );
+                self.selection_anchor_cell = None;
                 self.data_editing_cell = None;
                 self.data_edit_value.clear();
                 self.copy_status.clear();
@@ -519,6 +601,7 @@ impl DbProApp {
                     result,
                     GridCell {
                         visible_indexes: rows.indexes,
+                        visible_order: rows.order,
                         row_index,
                         column_index,
                         display_position: position,
@@ -537,6 +620,7 @@ impl DbProApp {
     fn draw_grid_cell(&mut self, ui: &mut egui::Ui, result: &UiQueryResult, cell_ctx: GridCell<'_>) {
         let GridCell {
             visible_indexes,
+            visible_order,
             row_index,
             column_index,
             display_position,
@@ -549,7 +633,7 @@ impl DbProApp {
 
         let staged_cell = self.staged_cell_value(row_index, column_index);
         let display_cell = staged_cell.as_ref().unwrap_or(cell);
-        let cell_selected = self.selected_cell == Some((row_index, column_index));
+        let cell_selected = self.is_cell_selected(visible_indexes, visible_order, (row_index, column_index));
 
         let (cell_rect, cell_resp) = ui.allocate_exact_size(egui::vec2(width, 28.0), Sense::click());
 
@@ -638,6 +722,9 @@ impl DbProApp {
             let mut copy_cell_req = false;
             let mut copy_row_req = false;
             let mut copy_selected_rows_req = false;
+            let mut copy_selected_rows_headers_req = false;
+            let mut copy_selected_rows_json_req = false;
+            let mut copy_selected_rows_insert_req = false;
             let mut copy_json_req = false;
             let mut copy_csv_req = false;
             let mut edit_cell_req = false;
@@ -689,6 +776,45 @@ impl DbProApp {
                 .clicked()
                 {
                     copy_selected_rows_req = true;
+                    *close_menu = true;
+                }
+                if ctx_menu_item(
+                    ui,
+                    Some(Icon::Table2),
+                    "Copy Selected Rows with Headers",
+                    None,
+                    theme.text_primary,
+                    theme,
+                )
+                .clicked()
+                {
+                    copy_selected_rows_headers_req = true;
+                    *close_menu = true;
+                }
+                if ctx_menu_item(
+                    ui,
+                    Some(Icon::Braces),
+                    "Copy Selected Rows as JSON",
+                    None,
+                    theme.text_primary,
+                    theme,
+                )
+                .clicked()
+                {
+                    copy_selected_rows_json_req = true;
+                    *close_menu = true;
+                }
+                if ctx_menu_item(
+                    ui,
+                    Some(Icon::Code),
+                    "Copy Selected Rows as INSERT SQL",
+                    None,
+                    theme.text_primary,
+                    theme,
+                )
+                .clicked()
+                {
+                    copy_selected_rows_insert_req = true;
                     *close_menu = true;
                 }
                 if ctx_menu_item(
@@ -810,6 +936,7 @@ impl DbProApp {
 
             if is_ctx {
                 self.selected_cell = Some((row_index, column_index));
+                self.selection_anchor_cell = Some((row_index, column_index));
                 if !self.selected_rows.contains(&row_index) {
                     self.select_single_row(row_index);
                 } else {
@@ -830,6 +957,24 @@ impl DbProApp {
                     self.select_single_row(row_index);
                 }
                 self.copy_selected_rows(ui, result);
+            }
+            if copy_selected_rows_headers_req {
+                if !self.selected_rows.contains(&row_index) {
+                    self.select_single_row(row_index);
+                }
+                self.copy_selected_rows_with_headers(ui, result);
+            }
+            if copy_selected_rows_json_req {
+                if !self.selected_rows.contains(&row_index) {
+                    self.select_single_row(row_index);
+                }
+                self.copy_selected_rows_as_json(ui, result);
+            }
+            if copy_selected_rows_insert_req {
+                if !self.selected_rows.contains(&row_index) {
+                    self.select_single_row(row_index);
+                }
+                self.copy_selected_rows_as_insert(ui, result);
             }
             if copy_json_req {
                 self.selected_row = Some(row_index);
@@ -886,14 +1031,8 @@ impl DbProApp {
                 self.begin_data_cell_edit(row_index, column_index, display_cell);
             } else if cell_resp.clicked() && !is_ctx {
                 self.commit_active_data_edit(result);
-                self.selected_cell = Some((row_index, column_index));
                 let modifiers = ui.input(|input| input.modifiers);
-                self.select_visible_row(
-                    visible_indexes,
-                    display_position,
-                    modifiers.shift,
-                    modifiers.command || modifiers.ctrl,
-                );
+                self.select_cell_range(visible_indexes, (row_index, column_index), modifiers.shift);
                 self.copy_status.clear();
             }
         }
@@ -970,11 +1109,7 @@ impl DbProApp {
     }
 
     fn copy_selected_rows(&mut self, ui: &mut egui::Ui, result: &UiQueryResult) {
-        let row_indexes: Vec<usize> = if self.selected_rows.is_empty() {
-            self.selected_row.into_iter().collect()
-        } else {
-            self.selected_rows.iter().copied().collect()
-        };
+        let row_indexes = self.selected_row_indexes();
         if row_indexes.is_empty() {
             self.copy_status = "Select one or more rows first".to_owned();
             return;
@@ -997,6 +1132,109 @@ impl DbProApp {
             .collect::<Vec<_>>();
         ui.output_mut(|output| output.copied_text = rows.join("\n"));
         self.copy_status = format!("{} rows copied", rows.len());
+    }
+
+    fn selected_row_indexes(&self) -> Vec<usize> {
+        if self.selected_rows.is_empty() {
+            self.selected_row.into_iter().collect()
+        } else {
+            self.selected_rows.iter().copied().collect()
+        }
+    }
+
+    fn copy_selected_rows_with_headers(&mut self, ui: &mut egui::Ui, result: &UiQueryResult) {
+        let row_indexes = self.selected_row_indexes();
+        if row_indexes.is_empty() {
+            self.copy_status = "Select one or more rows first".to_owned();
+            return;
+        }
+        let header = result
+            .columns
+            .iter()
+            .map(|column| column.name.as_str())
+            .collect::<Vec<_>>()
+            .join("\t");
+        let rows = row_indexes
+            .iter()
+            .filter_map(|&row_index| result.rows.get(row_index).map(|row| (row_index, row)))
+            .map(|(row_index, row)| {
+                (0..result.columns.len())
+                    .map(|column_index| {
+                        self.copy_cell_value(result, row_index, column_index)
+                            .unwrap_or_else(|| row.get(column_index).cloned().unwrap_or(UiCell::Null))
+                    })
+                    .map(|cell| crate::cell_text(&cell))
+                    .collect::<Vec<_>>()
+                    .join("\t")
+            })
+            .collect::<Vec<_>>();
+        let mut lines = Vec::with_capacity(rows.len() + 1);
+        lines.push(header);
+        lines.extend(rows);
+        ui.output_mut(|output| output.copied_text = lines.join("\n"));
+        self.copy_status = format!("{} rows copied with headers", row_indexes.len());
+    }
+
+    fn copy_selected_rows_as_json(&mut self, ui: &mut egui::Ui, result: &UiQueryResult) {
+        let indexes = self.selected_row_indexes();
+        self.copy_all_as_json(ui, result, &indexes);
+    }
+
+    fn copy_selected_rows_as_insert(&mut self, ui: &mut egui::Ui, result: &UiQueryResult) {
+        let indexes = self.selected_row_indexes();
+        if indexes.is_empty() {
+            self.copy_status = "Select one or more rows first".to_owned();
+            return;
+        }
+        let table = self.selected_table.as_deref().unwrap_or("table_name");
+        let target = if self.active_tab == WorkspaceTab::Table && self.table_view == TableView::Data {
+            format!(
+                "{}.{}",
+                Self::quote_sql_identifier(self.active_schema()),
+                Self::quote_sql_identifier(table)
+            )
+        } else {
+            Self::quote_sql_identifier(table)
+        };
+        let columns = result
+            .columns
+            .iter()
+            .map(|column| Self::quote_sql_identifier(&column.name))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let statements = indexes
+            .iter()
+            .filter_map(|&row_index| result.rows.get(row_index).map(|row| (row_index, row)))
+            .map(|(row_index, row)| {
+                let values = (0..result.columns.len())
+                    .map(|column_index| {
+                        let cell = self
+                            .copy_cell_value(result, row_index, column_index)
+                            .unwrap_or_else(|| row.get(column_index).cloned().unwrap_or(UiCell::Null));
+                        Self::cell_sql_literal(&cell)
+                    })
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                format!("INSERT INTO {target} ({columns}) VALUES ({values});")
+            })
+            .collect::<Vec<_>>();
+        ui.output_mut(|output| output.copied_text = statements.join("\n"));
+        self.copy_status = format!("{} INSERT statements copied", statements.len());
+    }
+
+    fn quote_sql_identifier(identifier: &str) -> String {
+        format!("\"{}\"", identifier.replace('"', "\"\""))
+    }
+
+    fn cell_sql_literal(cell: &UiCell) -> String {
+        match cell {
+            UiCell::Null => "NULL".to_owned(),
+            UiCell::Boolean(value) => value.to_string().to_uppercase(),
+            UiCell::Number(value) if value.parse::<f64>().is_ok() => value.clone(),
+            UiCell::Json(value) => format!("'{}'", value.replace('\'', "''")),
+            UiCell::Bytes(value) => format!("'{}'", value.replace('\'', "''")),
+            UiCell::Number(value) | UiCell::Text(value) => format!("'{}'", value.replace('\'', "''")),
+        }
     }
 
     pub(crate) fn copy_row_as_json(&mut self, ui: &mut egui::Ui, result: &UiQueryResult, row_index: usize) {
@@ -1535,5 +1773,34 @@ mod tests {
 
         assert_eq!(app.selected_rows.into_iter().collect::<Vec<_>>(), vec![3]);
         assert_eq!(app.selected_row, Some(3));
+    }
+
+    #[test]
+    fn cell_range_selection_uses_visible_row_and_column_order() {
+        let mut app = DbProApp::default();
+        let indexes = [4, 1, 7, 2];
+        let order = [2, 0, 1];
+
+        app.select_single_cell((1, 0));
+        app.select_cell_range(&indexes, (2, 1), true);
+
+        assert_eq!(app.selected_cell, Some((2, 1)));
+        assert_eq!(app.selected_rows.iter().copied().collect::<Vec<_>>(), vec![1, 2, 7]);
+        assert!(app.is_cell_selected(&indexes, &order, (1, 0)));
+        assert!(app.is_cell_selected(&indexes, &order, (7, 0)));
+        assert!(app.is_cell_selected(&indexes, &order, (2, 1)));
+        assert!(!app.is_cell_selected(&indexes, &order, (1, 2)));
+        assert!(!app.is_cell_selected(&indexes, &order, (4, 0)));
+    }
+
+    #[test]
+    fn select_all_visible_cells_covers_current_grid() {
+        let mut app = DbProApp::default();
+        app.select_all_visible_cells(&[5, 2, 9], &[1, 0, 3]);
+
+        assert_eq!(app.selected_cell, Some((9, 3)));
+        assert_eq!(app.selection_anchor_cell, Some((5, 1)));
+        assert!([5, 2, 9].iter().all(|row| app.selected_rows.contains(row)));
+        assert!(app.is_cell_selected(&[5, 2, 9], &[1, 0, 3], (2, 0)));
     }
 }

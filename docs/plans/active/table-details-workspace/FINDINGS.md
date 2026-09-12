@@ -7,3 +7,5 @@
 - The native grid already virtualizes visible rows and stages typed cell updates, but its selection state was single-row only. A separate visible-row selection set and anchor is required so Shift range selection remains correct after filtering or sorting.
 - Table refresh previously reset the page and cleared local sort state. Refresh now reloads the current page/query state; filter and sort changes still intentionally return to the first page.
 - The runtime table mutation commands are still one-operation commands. Applying several staged changes sequentially cannot satisfy the transaction rollback contract; a parameterized transaction command is still required before marking Apply transactional.
+- Cell ranges now retain an anchor/focus pair in visible row and column order, so Shift+Arrow and Shift-click render a rectangle while row-gutter selection remains independent.
+- Copy actions use staged cell values and escape identifiers/literals in generated INSERT text. INSERT/UPDATE/DELETE transaction batching and temporary insert rows remain open P1 work.

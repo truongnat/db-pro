@@ -12,5 +12,6 @@
 ## Current Slice Evidence
 
 - Selection model tests cover filtered/sorted Shift range selection and non-empty Cmd/Ctrl toggle behavior.
+- Focused UI tests cover rectangular cell selection and selecting the complete current grid; the grid also has TSV-with-header, JSON, and INSERT SQL copy actions.
 - Native translation test covers comparison and `IS NULL` filter mapping.
 - A release binary smoke launch completed schema introspection against the configured local PostgreSQL connection. Interactive grid gestures were not collected because the native app was not accessible to the scripted click harness in this run.

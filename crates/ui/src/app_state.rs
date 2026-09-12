@@ -160,6 +160,7 @@ impl Default for DbProApp {
             selected_row: None,
             selected_rows: std::collections::BTreeSet::new(),
             selection_anchor_row: None,
+            selection_anchor_cell: None,
             data_editing_cell: None,
             data_edit_value: String::new(),
             data_delete_confirmation: false,

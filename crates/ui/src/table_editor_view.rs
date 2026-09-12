@@ -8,6 +8,7 @@ use lucide_icons::Icon;
 /// Paging state for the table data editor toolbar.
 struct TableDataPaging {
     page_range: String,
+    total_rows: u64,
     has_next: bool,
     has_previous: bool,
 }
@@ -29,6 +30,7 @@ impl DbProApp {
             } else {
                 "0 rows".to_owned()
             },
+            total_rows,
             has_next: self.table_data_offset.saturating_add(self.table_data_limit) < total_rows,
             has_previous: self.table_data_offset > 0,
         };
@@ -370,6 +372,17 @@ impl DbProApp {
                 }
 
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                    if paging.total_rows > 0
+                        && compact_button_with_icon(ui, Icon::ChevronsLeft, "First", self.theme)
+                            .on_hover_text("First page")
+                            .clicked()
+                        && self.table_data_offset > 0
+                        && self.staged_changes.is_empty()
+                    {
+                        self.table_data_offset = 0;
+                        self.request_table_data();
+                    }
+
                     if compact_icon_button_enabled(ui, Icon::ChevronRight, paging.has_next, self.theme)
                         .on_hover_text("Next page")
                         .clicked()
@@ -394,13 +407,25 @@ impl DbProApp {
                         self.request_table_data();
                     }
 
+                    if paging.total_rows > 0
+                        && compact_button_with_icon(ui, Icon::ChevronsRight, "Last", self.theme)
+                            .on_hover_text("Last page")
+                            .clicked()
+                        && paging.has_next
+                        && self.staged_changes.is_empty()
+                    {
+                        let last_page = paging.total_rows.saturating_sub(1) / self.table_data_limit;
+                        self.table_data_offset = last_page.saturating_mul(self.table_data_limit);
+                        self.request_table_data();
+                    }
+
                     let prev_limit = self.table_data_limit;
                     let limit_label = format!("{} / page", self.table_data_limit);
                     egui::ComboBox::from_id_salt(("table-data-limit-select", table_name))
                         .selected_text(RichText::new(&limit_label).size(11.0).color(self.theme.text_secondary))
                         .width(90.0)
                         .show_ui(ui, |ui| {
-                            for limit_opt in [50, 100, 500, 1000] {
+                            for limit_opt in [50, 100, 250, 500, 1000] {
                                 ui.selectable_value(
                                     &mut self.table_data_limit,
                                     limit_opt,
@@ -1160,6 +1185,7 @@ impl DbProApp {
         self.selected_rows.clear();
         self.selected_rows.insert(row_index);
         self.selection_anchor_row = Some(row_index);
+        self.selection_anchor_cell = Some((row_index, column_index));
         self.data_editing_cell = Some((row_index, column_index));
         self.data_edit_value = match cell {
             UiCell::Null => String::new(),
@@ -1274,6 +1300,12 @@ impl DbProApp {
             if self.staged_row_deleted(row_index) {
                 continue;
             }
+            // A delete supersedes every staged update for the same server row.
+            // Keeping those updates would produce a redundant mutation and can
+            // turn an otherwise valid delete into an affected-row failure.
+            self.staged_changes.retain(|change| {
+                !matches!(change, StagedChange::Update { row_index: changed_row, .. } if *changed_row == row_index)
+            });
             let (pk_columns, pk_values) = match Self::row_identity(result, &info, row_index) {
                 Ok(identity) => identity,
                 Err(error) => {

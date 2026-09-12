@@ -341,6 +341,7 @@ pub struct DbProApp {
     selected_row: Option<usize>,
     selected_rows: BTreeSet<usize>,
     selection_anchor_row: Option<usize>,
+    selection_anchor_cell: Option<(usize, usize)>,
     data_editing_cell: Option<(usize, usize)>,
     data_edit_value: String,
     data_delete_confirmation: bool,
@@ -878,6 +879,7 @@ impl DbProApp {
                 self.selected_row = None;
                 self.selected_rows.clear();
                 self.selection_anchor_row = None;
+                self.selection_anchor_cell = None;
                 self.data_editing_cell = None;
                 self.data_delete_confirmation = false;
             }
