@@ -99,6 +99,8 @@ without changing the native UI or adding product features.
     provider-specific drafts to reach a connector.
 42. EXPLAIN safety classification searches for `ANALYZE` by substring and can
     slice the original SQL with an invalid Unicode offset.
+43. CTE DELETE safety classification searches for `WHERE` by substring and can
+    misclassify a destructive delete when comments or literals contain it.
 
 ## Acceptance criteria
 

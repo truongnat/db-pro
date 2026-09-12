@@ -502,3 +502,13 @@ and panic inside the safety gate.
 Decision: parse `ANALYZE` as an option keyword in the original SQL, support
 PostgreSQL's parenthesized options and comments between keywords, and classify
 only the actual inner statement when execution is enabled.
+
+## P1 — CTE DELETE safety check uses substring matching
+
+The `WITH` classifier used `remaining.contains("WHERE")` for its outer
+`DELETE`. A comment or literal containing `WHERE` could make a DELETE without
+an actual predicate look non-destructive, bypassing a policy that allows
+writes but forbids destructive operations.
+
+Decision: reuse the token-aware DELETE predicate check used by ordinary
+statements, ignoring comments, quoted identifiers, and string literals.

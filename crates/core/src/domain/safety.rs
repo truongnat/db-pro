@@ -327,10 +327,10 @@ fn classify_cte_safety(sql: &str) -> Option<StatementSafety> {
                         "SELECT" | "SHOW" | "EXPLAIN" => Some(StatementSafety::Read),
                         "INSERT" | "UPDATE" => Some(StatementSafety::Write),
                         "DELETE" => {
-                            if remaining.to_ascii_uppercase().contains("WHERE") {
-                                Some(StatementSafety::Write)
-                            } else {
+                            if is_delete_without_where(&remaining) {
                                 Some(StatementSafety::Destructive)
+                            } else {
+                                Some(StatementSafety::Write)
                             }
                         }
                         _ => Some(StatementSafety::Write),
@@ -655,6 +655,18 @@ mod tests {
             classify_statement_safety(
                 "WITH deleted AS (DELETE FROM users WHERE id = 1 RETURNING *) SELECT * FROM deleted"
             ),
+            Some(StatementSafety::Write)
+        );
+    }
+
+    #[test]
+    fn cte_delete_requires_a_real_where_keyword() {
+        assert_eq!(
+            classify_statement_safety("WITH cte AS (SELECT 1) DELETE FROM users -- WHERE id = 1"),
+            Some(StatementSafety::Destructive)
+        );
+        assert_eq!(
+            classify_statement_safety("WITH cte AS (SELECT 1) DELETE FROM users WHERE id = 1"),
             Some(StatementSafety::Write)
         );
     }
