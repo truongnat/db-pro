@@ -124,6 +124,8 @@ without changing the native UI or adding product features.
 53. Opaque server-side execution statements (`DO`, `CALL`, and `EXECUTE`) fall
     through to generic `Write`, even though they can execute hidden or dynamic
     destructive mutations that the client-side classifier cannot inspect.
+54. Query history converts malformed persisted `duration_ms` and `row_count`
+    values to zero, masking metadata corruption as a valid history entry.
 
 ## Acceptance criteria
 
@@ -207,6 +209,8 @@ without changing the native UI or adding product features.
   merge actions remain ordinary writes.
 - Opaque server-side or dynamically prepared execution statements are classified
   as destructive unless their internals can be inspected safely by the core.
+- Query history rejects malformed persisted numeric metadata instead of silently
+  replacing it with zero.
 - Create, update, and both connection-test paths share the same connection
   configuration validation boundary.
 - PostgreSQL and SQLite unit/integration coverage is updated independently where the

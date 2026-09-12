@@ -21,6 +21,7 @@
 - `cargo test -p db-pro-core domain::safety::tests::cte_classifier_respects_lexical_boundaries_and_comment_separators -- --exact` — PASS: comment-separated CTE mutation is classified as destructive and rejected by the read-only policy.
 - `cargo test -p db-pro-core domain::safety::tests::classify_merge_delete_as_destructive_but_update_as_write -- --exact` — PASS: MERGE DELETE actions are destructive while update-only and quoted DELETE text remain writes.
 - `cargo test -p db-pro-core domain::safety::tests::classify_opaque_server_side_execution_as_destructive -- --exact` — PASS: DO, CALL, and EXECUTE cannot bypass a policy that forbids destructive operations.
+- `cargo test -p db-pro-infrastructure meta::query_history_repo::tests::query_history_metrics_reject_invalid_values -- --exact` — PASS: malformed persisted duration and row-count values return an explicit error.
 - `cargo test -p db-pro-core application::export_service::tests` — PASS: 8 export
   serialization, validation, read-only policy, integer precision, and coordinate
   overflow tests.
@@ -67,7 +68,7 @@
 - `DATABASE_URL=postgres://dbpro:dbpro_test@127.0.0.1:15434/dbpro_fixture cargo test -p db-pro-infrastructure --test pg_integration --offline -- --ignored` — PASS: 14/14 against an isolated temporary `postgres:18.2` fixture after fallible metadata decoding and the `enabled_flag` text cast; the container was removed after the run.
 - External PostgreSQL command timeout regression — PASS on Unix via
   `external_command_timeout_returns_query_timeout`.
-- `cargo test --workspace` — PASS: 246 core unit, 28 SQLite integration, 54
+- `cargo test --workspace` — PASS: 246 core unit, 28 SQLite integration, 55
   infrastructure unit, 14 PostgreSQL integration tests ignored, plus all runtime,
   native, UI, schema regression, and doc tests passed.
 - `cargo test -p db-pro-core application::schema_service::tests::get_table_ddl_sqlite_uses_inline_foreign_keys_and_unqualified_names -- --exact` — PASS: reconstructed SQLite DDL preserves UNIQUE constraints without replaying the internal autoindex name.

@@ -653,3 +653,13 @@ Decision: classify these opaque execution forms as `Destructive` conservatively.
 The core cannot prove their internals are non-destructive without provider-aware
 parsing and routine metadata, so restricted connections must require explicit
 destructive-operation permission.
+
+## P2 — Query history masks malformed numeric metadata
+
+The query-history repository parsed persisted `duration_ms` and `row_count`
+values with `unwrap_or(0)`. A damaged or manually edited `meta.db` row therefore
+looked like a valid zero-duration, zero-row query instead of surfacing the
+corrupt metadata to the caller.
+
+Decision: parse both metrics as unsigned integers and return a named internal
+error when either value is invalid, including negative or fractional text.

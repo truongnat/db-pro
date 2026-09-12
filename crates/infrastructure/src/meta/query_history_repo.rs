@@ -55,12 +55,31 @@ impl QueryHistoryRepository for SQLiteMetaStore {
                 executed_at: chrono::DateTime::parse_from_rfc3339(&row[3])
                     .map_err(|e| DbError::Internal(format!("invalid datetime: {e}")))?
                     .with_timezone(&chrono::Utc),
-                duration_ms: row[4].parse().unwrap_or(0),
-                row_count: row[5].parse().unwrap_or(0),
+                duration_ms: parse_metric(&row[4], "duration_ms")?,
+                row_count: parse_metric(&row[5], "row_count")?,
                 database: if row[6].is_empty() { None } else { Some(row[6].clone()) },
                 schema: if row[7].is_empty() { None } else { Some(row[7].clone()) },
             });
         }
         Ok(history)
+    }
+}
+
+fn parse_metric(value: &str, field: &str) -> Result<u64, DbError> {
+    value
+        .parse::<u64>()
+        .map_err(|error| DbError::Internal(format!("invalid query history {field}: {error}")))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_metric;
+
+    #[test]
+    fn query_history_metrics_reject_invalid_values() {
+        assert_eq!(parse_metric("42", "row_count").unwrap(), 42);
+        for value in ["", "-1", "1.5"] {
+            assert!(parse_metric(value, "row_count").is_err(), "value {value:?} should fail");
+        }
     }
 }
