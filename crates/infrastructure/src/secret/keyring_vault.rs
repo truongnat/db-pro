@@ -137,15 +137,6 @@ impl KeyringVault {
         Ok(())
     }
 
-    fn store_unavailable_secret(&self, key: &str, value: &str) -> Result<(), DbError> {
-        self.require_fallback()?;
-        if self.allow_fallback {
-            self.store_fallback(key, value)
-        } else {
-            self.store_session_secret(key, value)
-        }
-    }
-
     fn retrieve_unavailable_secret(&self, key: &str) -> Result<Option<String>, DbError> {
         self.require_fallback()?;
         if self.allow_fallback {
@@ -166,35 +157,34 @@ fn is_keyring_unavailable(err: &keyring::Error) -> bool {
 #[async_trait]
 impl SecretStore for KeyringVault {
     async fn store_secret(&self, key: &str, value: &str) -> Result<(), DbError> {
-        let entry = match self.keyring_entry(key) {
-            Ok(e) => e,
-            Err(e) if is_keyring_unavailable(&e) => {
-                tracing::warn!("OS keyring unavailable: {e}");
-                return self.store_unavailable_secret(key, value);
-            }
-            Err(e) => {
-                return Err(DbError::Internal(format!("keyring entry creation failed: {e}")));
-            }
-        };
-
-        match entry.set_password(value) {
-            Ok(()) => {
-                if self.allow_fallback {
-                    if let Err(e) = self.store_fallback(key, value) {
-                        tracing::warn!("fallback store failed after keyring success: {e}");
-                    }
-                }
-                Ok(())
-            }
-            Err(e) if is_keyring_unavailable(&e) => {
-                tracing::warn!("OS keyring unavailable: {e}");
-                self.store_unavailable_secret(key, value)
-            }
-            Err(e) => Err(DbError::Internal(format!("keyring set_password failed: {e}"))),
+        if self.allow_fallback {
+            self.store_fallback(key, value)?;
         }
+        if self.allow_session_fallback {
+            self.store_session_secret(key, value)?;
+        }
+
+        // Best-effort storage to OS keyring if available (without failing if keyring denied)
+        if let Ok(entry) = self.keyring_entry(key) {
+            let _ = entry.set_password(value);
+        }
+
+        Ok(())
     }
 
     async fn retrieve_secret(&self, key: &str) -> Result<Option<String>, DbError> {
+        // Check local encrypted vault first if enabled (avoids OS keychain prompt on every launch)
+        if self.allow_fallback {
+            if let Ok(Some(value)) = self.retrieve_fallback(key) {
+                return Ok(Some(value));
+            }
+        }
+        if self.allow_session_fallback {
+            if let Ok(Some(value)) = self.retrieve_session_secret(key) {
+                return Ok(Some(value));
+            }
+        }
+
         let entry = match self.keyring_entry(key) {
             Ok(e) => e,
             Err(e) if is_keyring_unavailable(&e) => {
@@ -207,52 +197,35 @@ impl SecretStore for KeyringVault {
         };
 
         match entry.get_password() {
-            Ok(value) => return Ok(Some(value)),
+            Ok(value) => Ok(Some(value)),
             Err(keyring::Error::NoEntry) => {
-                // A missing credential is normal for a new or passwordless connection.
                 if !self.allow_fallback && !self.allow_session_fallback {
-                    return Ok(None);
+                    Ok(None)
+                } else if self.allow_fallback {
+                    self.retrieve_fallback(key)
+                } else {
+                    self.retrieve_session_secret(key)
                 }
             }
             Err(e) if is_keyring_unavailable(&e) => {
                 tracing::warn!("OS keyring unavailable: {e}");
-                return self.retrieve_unavailable_secret(key);
+                self.retrieve_unavailable_secret(key)
             }
-            Err(e) => {
-                return Err(DbError::Internal(format!("keyring get_password failed: {e}")));
-            }
-        }
-
-        if self.allow_fallback {
-            self.retrieve_fallback(key)
-        } else {
-            self.retrieve_session_secret(key)
+            Err(e) => Err(DbError::Internal(format!("keyring get_password failed: {e}"))),
         }
     }
 
     async fn delete_secret(&self, key: &str) -> Result<(), DbError> {
-        match self.keyring_entry(key) {
-            Ok(entry) => {
-                if let Err(e) = entry.delete_credential() {
-                    if !matches!(e, keyring::Error::NoEntry) && !is_keyring_unavailable(&e) {
-                        return Err(DbError::Internal(format!("keyring delete_credential failed: {e}")));
-                    }
-                }
-            }
-            Err(e) if !is_keyring_unavailable(&e) => {
-                return Err(DbError::Internal(format!("keyring entry creation failed: {e}")));
-            }
-            Err(_) => {}
-        }
-
         if self.allow_fallback {
             if let Ok(store) = self.get_or_init_fallback() {
-                store.delete(key)?;
+                let _ = store.delete(key);
             }
         }
-
         if self.allow_session_fallback {
-            self.delete_session_secret(key)?;
+            let _ = self.delete_session_secret(key);
+        }
+        if let Ok(entry) = self.keyring_entry(key) {
+            let _ = entry.delete_credential();
         }
 
         Ok(())

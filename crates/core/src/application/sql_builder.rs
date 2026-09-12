@@ -258,7 +258,7 @@ fn build_where(dialect: &dyn SqlDialect, filters: &[TableFilter]) -> (String, Ve
                 params.push(cell_to_param(&f.value));
             }
             FilterOp::Like => {
-                conditions.push(format!("{col} LIKE {}", pw.next()));
+                conditions.push(format!("CAST({col} AS TEXT) LIKE {}", pw.next()));
                 params.push(cell_to_param(&f.value));
             }
         }
@@ -555,7 +555,7 @@ mod tests {
             value: CellValue::Text("%alice%".into()),
         }];
         let (sql, params) = build_select(&QuestionDialect, "public", "users", &filters, &[], 50, 0).unwrap();
-        assert!(sql.contains(r#""name" LIKE ?"#));
+        assert!(sql.contains(r#"CAST("name" AS TEXT) LIKE ?"#));
         assert_eq!(params.len(), 3);
     }
 

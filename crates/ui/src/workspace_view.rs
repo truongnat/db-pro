@@ -53,7 +53,7 @@ impl DbProApp {
                                     unsaved: false,
                                     show_close: false,
                                 },
-                                |ui| {
+                                |ui, close_menu| {
                                     ui.label(
                                         RichText::new("Welcome")
                                             .font(font_ui_label())
@@ -61,12 +61,18 @@ impl DbProApp {
                                             .color(self.theme.text_primary),
                                     );
                                     ui.separator();
-                                    if ui
-                                        .button(icon_text(Icon::Layers, "Close All Tabs", self.theme.text_primary))
-                                        .clicked()
+                                    if ctx_menu_item(
+                                        ui,
+                                        Some(Icon::Layers),
+                                        "Close All Tabs",
+                                        None,
+                                        self.theme.text_primary,
+                                        self.theme,
+                                    )
+                                    .clicked()
                                     {
                                         close_all_requested = true;
-                                        ui.close_menu();
+                                        *close_menu = true;
                                     }
                                 },
                             );
@@ -113,7 +119,7 @@ impl DbProApp {
                                         unsaved,
                                         show_close: can_close,
                                     },
-                                    |ui| {
+                                    |ui, close_menu| {
                                         ui.label(
                                             RichText::new(title)
                                                 .font(font_ui_label())
@@ -121,84 +127,112 @@ impl DbProApp {
                                                 .color(self.theme.text_primary),
                                         );
                                         ui.separator();
-                                        if ui
-                                            .button(icon_text(
-                                                Icon::X,
-                                                &format!("Close Tab ({modifier}W)"),
-                                                self.theme.text_primary,
-                                            ))
-                                            .clicked()
+                                        if ctx_menu_item(
+                                            ui,
+                                            Some(Icon::X),
+                                            &format!("Close Tab ({modifier}W)"),
+                                            None,
+                                            self.theme.text_primary,
+                                            self.theme,
+                                        )
+                                        .clicked()
                                         {
                                             close_query_idx = Some(idx);
-                                            ui.close_menu();
+                                            *close_menu = true;
                                         }
-                                        if ui
-                                            .button(icon_text(
-                                                Icon::Layers,
-                                                "Close Other Tabs",
-                                                self.theme.text_primary,
-                                            ))
-                                            .clicked()
+                                        if ctx_menu_item(
+                                            ui,
+                                            Some(Icon::Layers),
+                                            "Close Other Tabs",
+                                            None,
+                                            self.theme.text_primary,
+                                            self.theme,
+                                        )
+                                        .clicked()
                                         {
                                             close_others_idx = Some(idx);
-                                            ui.close_menu();
+                                            *close_menu = true;
                                         }
                                         if idx + 1 < self.query_documents.len()
-                                            && ui
-                                                .button(icon_text(
-                                                    Icon::ArrowRight,
-                                                    "Close Tabs to the Right",
-                                                    self.theme.text_primary,
-                                                ))
-                                                .clicked()
+                                            && ctx_menu_item(
+                                                ui,
+                                                Some(Icon::ArrowRight),
+                                                "Close Tabs to the Right",
+                                                None,
+                                                self.theme.text_primary,
+                                                self.theme,
+                                            )
+                                            .clicked()
                                         {
                                             close_right_idx = Some(idx);
-                                            ui.close_menu();
+                                            *close_menu = true;
                                         }
-                                        if ui
-                                            .button(icon_text(Icon::Layers, "Close All Tabs", self.theme.text_primary))
-                                            .clicked()
+                                        if ctx_menu_item(
+                                            ui,
+                                            Some(Icon::Layers),
+                                            "Close All Tabs",
+                                            None,
+                                            self.theme.text_primary,
+                                            self.theme,
+                                        )
+                                        .clicked()
                                         {
                                             close_all_requested = true;
-                                            ui.close_menu();
+                                            *close_menu = true;
                                         }
                                         ui.separator();
-                                        if ui
-                                            .button(icon_text(Icon::Copy, "Duplicate Tab", self.theme.text_primary))
-                                            .clicked()
+                                        if ctx_menu_item(
+                                            ui,
+                                            Some(Icon::Copy),
+                                            "Duplicate Tab",
+                                            None,
+                                            self.theme.text_primary,
+                                            self.theme,
+                                        )
+                                        .clicked()
                                         {
                                             duplicate_query_idx = Some(idx);
-                                            ui.close_menu();
+                                            *close_menu = true;
                                         }
-                                        if ui
-                                            .button(icon_text(
-                                                Icon::FileCode2,
-                                                "Copy SQL Content",
-                                                self.theme.text_primary,
-                                            ))
-                                            .clicked()
+                                        if ctx_menu_item(
+                                            ui,
+                                            Some(Icon::FileCode2),
+                                            "Copy SQL Content",
+                                            None,
+                                            self.theme.text_primary,
+                                            self.theme,
+                                        )
+                                        .clicked()
                                         {
                                             ui.output_mut(|o| o.copied_text = content.clone());
-                                            ui.close_menu();
+                                            *close_menu = true;
                                         }
-                                        if ui
-                                            .button(icon_text(Icon::FileText, "Copy Title", self.theme.text_primary))
-                                            .clicked()
+                                        if ctx_menu_item(
+                                            ui,
+                                            Some(Icon::FileText),
+                                            "Copy Title",
+                                            None,
+                                            self.theme.text_primary,
+                                            self.theme,
+                                        )
+                                        .clicked()
                                         {
                                             ui.output_mut(|o| o.copied_text = title.clone());
-                                            ui.close_menu();
+                                            *close_menu = true;
                                         }
                                         ui.separator();
-                                        if ui
-                                            .button(icon_text(
-                                                Icon::Play,
-                                                &format!("Run Query ({modifier}↵)"),
-                                                self.theme.accent,
-                                            ))
-                                            .clicked()
+                                        if ctx_menu_item(
+                                            ui,
+                                            Some(Icon::Play),
+                                            &format!("Run Query ({modifier}↵)"),
+                                            None,
+                                            self.theme.accent,
+                                            self.theme,
+                                        )
+                                        .clicked()
                                         {
                                             run_query_idx = Some(idx);
-                                            ui.close_menu();
+                                            *close_menu = true;
                                         }
                                     },
                                 );
@@ -251,7 +285,7 @@ impl DbProApp {
                                         unsaved,
                                         show_close: true,
                                     },
-                                    |ui| {
+                                    |ui, close_menu| {
                                         ui.label(
                                             RichText::new(&table_name)
                                                 .font(font_ui_label())
@@ -259,40 +293,60 @@ impl DbProApp {
                                                 .color(self.theme.text_primary),
                                         );
                                         ui.separator();
-                                        if ui
-                                            .button(icon_text(Icon::X, "Close Tab", self.theme.text_primary))
-                                            .clicked()
+                                        if ctx_menu_item(
+                                            ui,
+                                            Some(Icon::X),
+                                            "Close Tab",
+                                            None,
+                                            self.theme.text_primary,
+                                            self.theme,
+                                        )
+                                        .clicked()
                                         {
                                             close_table = true;
-                                            ui.close_menu();
+                                            *close_menu = true;
                                         }
                                         ui.separator();
-                                        if ui
-                                            .button(icon_text(Icon::RefreshCw, "Refresh Data", self.theme.text_primary))
-                                            .clicked()
+                                        if ctx_menu_item(
+                                            ui,
+                                            Some(Icon::RefreshCw),
+                                            "Refresh Data",
+                                            None,
+                                            self.theme.text_primary,
+                                            self.theme,
+                                        )
+                                        .clicked()
                                         {
                                             refresh_table = true;
-                                            ui.close_menu();
+                                            *close_menu = true;
                                         }
-                                        if ui
-                                            .button(icon_text(Icon::Copy, "Copy Table Name", self.theme.text_primary))
-                                            .clicked()
+                                        if ctx_menu_item(
+                                            ui,
+                                            Some(Icon::Copy),
+                                            "Copy Table Name",
+                                            None,
+                                            self.theme.text_primary,
+                                            self.theme,
+                                        )
+                                        .clicked()
                                         {
                                             ui.output_mut(|o| o.copied_text = table_name.clone());
-                                            ui.close_menu();
+                                            *close_menu = true;
                                         }
-                                        if ui
-                                            .button(icon_text(
-                                                Icon::FileCode2,
-                                                "Copy SELECT Query",
-                                                self.theme.text_primary,
-                                            ))
-                                            .clicked()
+                                        if ctx_menu_item(
+                                            ui,
+                                            Some(Icon::FileCode2),
+                                            "Copy SELECT Query",
+                                            None,
+                                            self.theme.text_primary,
+                                            self.theme,
+                                        )
+                                        .clicked()
                                         {
                                             ui.output_mut(|o| {
                                                 o.copied_text = format!("SELECT * FROM {table_name} LIMIT 100;")
                                             });
-                                            ui.close_menu();
+                                            *close_menu = true;
                                         }
                                     },
                                 );
@@ -326,7 +380,7 @@ impl DbProApp {
                                         unsaved: false,
                                         show_close: true,
                                     },
-                                    |ui| {
+                                    |ui, close_menu| {
                                         ui.label(
                                             RichText::new(&name)
                                                 .font(font_ui_label())
@@ -334,19 +388,31 @@ impl DbProApp {
                                                 .color(self.theme.text_primary),
                                         );
                                         ui.separator();
-                                        if ui
-                                            .button(icon_text(Icon::X, "Close Tab", self.theme.text_primary))
-                                            .clicked()
+                                        if ctx_menu_item(
+                                            ui,
+                                            Some(Icon::X),
+                                            "Close Tab",
+                                            None,
+                                            self.theme.text_primary,
+                                            self.theme,
+                                        )
+                                        .clicked()
                                         {
                                             close_obj = true;
-                                            ui.close_menu();
+                                            *close_menu = true;
                                         }
-                                        if ui
-                                            .button(icon_text(Icon::Copy, "Copy Name", self.theme.text_primary))
-                                            .clicked()
+                                        if ctx_menu_item(
+                                            ui,
+                                            Some(Icon::Copy),
+                                            "Copy Name",
+                                            None,
+                                            self.theme.text_primary,
+                                            self.theme,
+                                        )
+                                        .clicked()
                                         {
                                             ui.output_mut(|o| o.copied_text = name.clone());
-                                            ui.close_menu();
+                                            *close_menu = true;
                                         }
                                     },
                                 );
@@ -371,7 +437,7 @@ impl DbProApp {
                                         unsaved: false,
                                         show_close: true,
                                     },
-                                    |ui| {
+                                    |ui, close_menu| {
                                         ui.label(
                                             RichText::new("ER Diagram")
                                                 .font(font_ui_label())
@@ -379,12 +445,18 @@ impl DbProApp {
                                                 .color(self.theme.text_primary),
                                         );
                                         ui.separator();
-                                        if ui
-                                            .button(icon_text(Icon::X, "Close Tab", self.theme.text_primary))
-                                            .clicked()
+                                        if ctx_menu_item(
+                                            ui,
+                                            Some(Icon::X),
+                                            "Close Tab",
+                                            None,
+                                            self.theme.text_primary,
+                                            self.theme,
+                                        )
+                                        .clicked()
                                         {
                                             close_diagram = true;
-                                            ui.close_menu();
+                                            *close_menu = true;
                                         }
                                     },
                                 );
@@ -407,7 +479,7 @@ impl DbProApp {
                                         unsaved: false,
                                         show_close: true,
                                     },
-                                    |ui| {
+                                    |ui, close_menu| {
                                         ui.label(
                                             RichText::new("Components")
                                                 .font(font_ui_label())
@@ -415,12 +487,18 @@ impl DbProApp {
                                                 .color(self.theme.text_primary),
                                         );
                                         ui.separator();
-                                        if ui
-                                            .button(icon_text(Icon::X, "Close Tab", self.theme.text_primary))
-                                            .clicked()
+                                        if ctx_menu_item(
+                                            ui,
+                                            Some(Icon::X),
+                                            "Close Tab",
+                                            None,
+                                            self.theme.text_primary,
+                                            self.theme,
+                                        )
+                                        .clicked()
                                         {
                                             close_gallery = true;
-                                            ui.close_menu();
+                                            *close_menu = true;
                                         }
                                     },
                                 );
@@ -461,7 +539,7 @@ fn draw_workspace_tab_item(
     ui: &mut egui::Ui,
     theme: DbProTheme,
     item: WorkspaceTabItem<'_>,
-    context_menu: impl FnOnce(&mut egui::Ui),
+    context_menu: impl FnOnce(&mut egui::Ui, &mut bool),
 ) -> TabChromeAction {
     let font_id = if item.selected { font_ui_label() } else { font_body() };
     let text_color = if item.selected {
@@ -481,8 +559,10 @@ fn draw_workspace_tab_item(
     let resp = resp.on_hover_cursor(egui::CursorIcon::PointingHand);
     let hovered = resp.hovered();
 
-    // Context menu
-    resp.clone().context_menu(context_menu);
+    let context_clicked = is_context_menu_triggered(&resp, ui);
+
+    // Floating Context menu with Foreground Area z-index
+    context_action_menu(ui, &resp, theme, context_menu);
 
     // Tab Background & Borders
     let rounding = egui::Rounding {
@@ -565,7 +645,7 @@ fn draw_workspace_tab_item(
     let middle_clicked = resp.middle_clicked();
 
     TabChromeAction {
-        clicked: resp.clicked() && !close_clicked,
+        clicked: resp.clicked() && !close_clicked && !context_clicked,
         close_clicked: close_clicked || (middle_clicked && item.show_close),
     }
 }

@@ -23,10 +23,20 @@ pub fn bind_params(params: &[QueryParam], args: &mut PgArguments) -> Result<(), 
             QueryParam::DateTime(v) => {
                 if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(v) {
                     args.add(dt.with_timezone(&chrono::Utc))
-                } else {
-                    let date = chrono::NaiveDate::parse_from_str(v, "%Y-%m-%d")
-                        .map_err(|e| DbError::QueryFailed(format!("invalid date/datetime parameter: {e}")))?;
+                } else if let Ok(dt) = chrono::DateTime::parse_from_str(v, "%Y-%m-%d %H:%M:%S%z") {
+                    args.add(dt.with_timezone(&chrono::Utc))
+                } else if let Ok(ndt) = chrono::NaiveDateTime::parse_from_str(v, "%Y-%m-%d %H:%M:%S%.f") {
+                    args.add(ndt.and_utc())
+                } else if let Ok(ndt) = chrono::NaiveDateTime::parse_from_str(v, "%Y-%m-%d %H:%M:%S") {
+                    args.add(ndt.and_utc())
+                } else if let Ok(ndt) = chrono::NaiveDateTime::parse_from_str(v, "%Y-%m-%dT%H:%M:%S%.f") {
+                    args.add(ndt.and_utc())
+                } else if let Ok(ndt) = chrono::NaiveDateTime::parse_from_str(v, "%Y-%m-%dT%H:%M:%S") {
+                    args.add(ndt.and_utc())
+                } else if let Ok(date) = chrono::NaiveDate::parse_from_str(v, "%Y-%m-%d") {
                     args.add(date)
+                } else {
+                    return Err(DbError::QueryFailed(format!("invalid date/datetime parameter: {v}")));
                 }
             }
             QueryParam::Time(v) => match parse_time_parameter(v)? {

@@ -67,10 +67,22 @@ impl<'a> Dialog<'a> {
         let description = self.description;
         let open = self.open;
 
-        let origin = Pos2::new(
-            screen.center().x - width * 0.5,
-            (screen.center().y - 120.0).max(screen.top() + 40.0) + small_translate(progress, DIALOG_TRANSLATE_PX),
+        let prev_height = ui.ctx().data(|d| d.get_temp::<f32>(id.with("prev_height")));
+        let target_y = if let Some(h) = prev_height {
+            (screen.center().y - h * 0.5).clamp(
+                screen.top() + 24.0,
+                (screen.bottom() - h - 24.0).max(screen.top() + 24.0),
+            )
+        } else {
+            (screen.center().y - 240.0).max(screen.top() + 32.0)
+        };
+
+        let target_x = (screen.center().x - width * 0.5).clamp(
+            screen.left() + 16.0,
+            (screen.right() - width - 16.0).max(screen.left() + 16.0),
         );
+
+        let origin = Pos2::new(target_x, target_y + small_translate(progress, DIALOG_TRANSLATE_PX));
 
         let mut card_rect = None;
         Area::new(id.with("card"))
@@ -79,7 +91,10 @@ impl<'a> Dialog<'a> {
             .show(ui.ctx(), |ui| {
                 ui.set_width(width);
                 let res = paint_dialog_card(ui, open, title, description, width, theme, add_contents);
-                card_rect = Some(ui.min_rect());
+                let rect = ui.min_rect();
+                ui.ctx()
+                    .data_mut(|d| d.insert_temp(id.with("prev_height"), rect.height()));
+                card_rect = Some(rect);
                 inner = Some(res);
             });
 

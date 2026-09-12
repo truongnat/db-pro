@@ -1,9 +1,12 @@
 use super::*;
+use crate::components::alert::{Alert, AlertVariant};
+use crate::components::button::{Button, ButtonSize, ButtonVariant};
+use crate::components::dialog::Dialog;
+use egui::{FontFamily, FontId, Frame, Margin, Rounding, Stroke};
+use lucide_icons::Icon;
 
 /// Paging state for the table data editor toolbar.
 struct TableDataPaging {
-    page: u64,
-    total_pages: u64,
     page_range: String,
     has_next: bool,
     has_previous: bool,
@@ -19,8 +22,6 @@ impl DbProApp {
         let can_mutate = self.can_mutate_active_connection();
         let total_rows = self.table_data_total_rows.unwrap_or(result.row_count);
         let paging = TableDataPaging {
-            page: self.table_data_offset / TABLE_PAGE_SIZE + 1,
-            total_pages: total_rows.div_ceil(TABLE_PAGE_SIZE).max(1),
             page_range: if total_rows > 0 {
                 let start = self.table_data_offset + 1;
                 let end = (self.table_data_offset + result.row_count).min(total_rows);
@@ -32,18 +33,8 @@ impl DbProApp {
             has_previous: self.table_data_offset > 0,
         };
 
-        self.draw_table_data_toolbar(ui, table_name, &result, can_mutate, &paging);
-        ui.add_space(8.0);
-
-        let column_names = result
-            .columns
-            .iter()
-            .map(|column| column.name.clone())
-            .collect::<Vec<_>>();
-        if !column_names.is_empty() {
-            self.draw_table_data_filter_bar(ui, table_name, &column_names);
-            ui.add_space(8.0);
-        }
+        self.draw_table_data_unified_toolbar(ui, table_name, &result, can_mutate, &paging);
+        ui.add_space(4.0);
 
         let data_width = ui.max_rect().width();
         grid_frame(self.theme).show(ui, |ui| {
@@ -100,8 +91,8 @@ impl DbProApp {
         });
     }
 
-    /// Data-editor header: title, refresh, mutation actions and the pager.
-    fn draw_table_data_toolbar(
+    /// Unified DBeaver-style header bar: refresh, add row, staged changes, inline WHERE/filter input, ORDER BY, and pagination.
+    fn draw_table_data_unified_toolbar(
         &mut self,
         ui: &mut egui::Ui,
         table_name: &str,
@@ -109,173 +100,236 @@ impl DbProApp {
         can_mutate: bool,
         paging: &TableDataPaging,
     ) {
+        let column_names: Vec<String> = result.columns.iter().map(|c| c.name.clone()).collect();
+
         toolbar_frame(self.theme).show(ui, |ui| {
-            ui.horizontal_wrapped(|ui| {
-                ui.label(icon_text(Icon::Table2, "DATA EDITOR", self.theme.text_primary));
-                badge(ui, table_name, self.theme.accent_soft, self.theme.accent);
-                ui.label(
-                    RichText::new(paging.page_range.as_str())
-                        .small()
-                        .color(self.theme.text_muted),
-                );
-                ui.separator();
+            ui.horizontal(|ui| {
                 if compact_button_with_icon(ui, Icon::RotateCcw, "Refresh", self.theme)
-                    .on_hover_text("Reload the current page")
+                    .on_hover_text("Reload table data (F5)")
                     .clicked()
                 {
                     if self.staged_changes.is_empty() {
                         self.reset_table_data_page();
-                        self.request_table_data();
                     } else {
                         self.runtime_message = "Apply or discard staged changes before refreshing".to_owned();
                     }
                 }
+
                 if can_mutate {
-                    self.draw_table_data_mutation_actions(ui, result);
+                    ui.separator();
+                    if compact_button_with_icon(ui, Icon::Plus, "Add Row", self.theme)
+                        .on_hover_text("Insert new row")
+                        .clicked()
+                    {
+                        self.open_insert_row();
+                    }
+
+                    if !self.staged_changes.is_empty() {
+                        ui.separator();
+                        crate::components::badge::Badge::new(
+                            &format!("{} pending", self.staged_changes.len()),
+                            self.theme,
+                        )
+                        .variant(crate::components::badge::BadgeVariant::Warning)
+                        .compact(true)
+                        .show(ui);
+                        if compact_button_with_icon(ui, Icon::Check, "Apply", self.theme)
+                            .on_hover_text("Apply all staged changes (Cmd/Ctrl+S)")
+                            .clicked()
+                        {
+                            self.apply_staged_changes();
+                        }
+                        if compact_button_with_icon(ui, Icon::Undo2, "Discard", self.theme)
+                            .on_hover_text("Discard all staged changes (Cmd/Ctrl+Z)")
+                            .clicked()
+                        {
+                            self.discard_staged_changes();
+                        }
+                    }
                 } else if self.connected {
+                    ui.separator();
                     ui.label(
-                        RichText::new("Read-only connection")
+                        RichText::new("Read-only")
                             .font(font_caption())
                             .color(self.theme.warning),
                     );
                 }
-                self.draw_table_data_pager(ui, paging);
-            });
-        });
-    }
 
-    /// New row / edit / delete controls, plus staged-change apply and discard.
-    fn draw_table_data_mutation_actions(&mut self, ui: &mut egui::Ui, result: &UiQueryResult) {
-        if compact_button_with_icon(ui, Icon::Plus, "New row", self.theme).clicked() {
-            self.open_insert_row();
-        }
-        if compact_button_with_icon(ui, Icon::Pencil, "Edit cell", self.theme).clicked() {
-            if let Some((row_index, column_index)) = self.selected_cell {
-                if let Some(cell) = result.rows.get(row_index).and_then(|row| row.get(column_index)) {
-                    self.begin_data_cell_edit(row_index, column_index, cell);
-                }
-            } else {
-                self.runtime_message = "Select a cell before editing".to_owned();
-            }
-        }
-        if compact_button_with_icon(ui, Icon::Trash2, "Delete row", self.theme).clicked() {
-            self.request_delete_selected_data_row(result);
-        }
-        if self.data_delete_confirmation {
-            ui.colored_label(self.theme.warning, "Delete selected row?");
-            if danger_button(ui, "Confirm", self.theme).clicked() {
-                self.submit_delete_selected_data_row(result);
-            }
-            if compact_button(ui, "Cancel", self.theme).clicked() {
-                self.data_delete_confirmation = false;
-            }
-        }
-        if !self.staged_changes.is_empty() {
-            ui.separator();
-            ui.label(
-                RichText::new(format!("{} pending changes", self.staged_changes.len()))
-                    .small()
-                    .color(self.theme.warning),
-            );
-            if compact_button_with_icon(ui, Icon::Undo2, "Discard", self.theme).clicked() {
-                self.discard_staged_changes();
-            }
-            if compact_button_with_icon(ui, Icon::Check, "Apply", self.theme).clicked() {
-                self.apply_staged_changes();
-            }
-        }
-    }
+                if !column_names.is_empty() {
+                    ui.separator();
 
-    /// Previous / next page controls and the page counter.
-    fn draw_table_data_pager(&mut self, ui: &mut egui::Ui, paging: &TableDataPaging) {
-        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-            if compact_icon_button_enabled(ui, Icon::ChevronRight, paging.has_next, self.theme)
-                .on_hover_text("Next page")
-                .clicked()
-                && self.staged_changes.is_empty()
-            {
-                self.reset_table_data_page();
-                self.table_data_offset = self.table_data_offset.saturating_add(TABLE_PAGE_SIZE);
-                self.request_table_data();
-            }
-            if compact_icon_button_enabled(ui, Icon::ChevronLeft, paging.has_previous, self.theme)
-                .on_hover_text("Previous page")
-                .clicked()
-                && self.staged_changes.is_empty()
-            {
-                self.reset_table_data_page();
-                self.table_data_offset = self.table_data_offset.saturating_sub(TABLE_PAGE_SIZE);
-                self.request_table_data();
-            }
-            ui.label(
-                RichText::new(format!("Page {} of {}", paging.page, paging.total_pages))
-                    .small()
-                    .color(self.theme.text_muted),
-            );
-        });
-    }
-
-    /// Clears the currently loaded page so the next request repopulates it.
-    fn reset_table_data_page(&mut self) {
-        self.table_data_result = None;
-        self.table_data_total_rows = None;
-        self.table_data_error = None;
-        self.selected_cell = None;
-        self.selected_row = None;
-        self.data_delete_confirmation = false;
-    }
-
-    /// Column filter and ORDER BY controls above the data grid.
-    fn draw_table_data_filter_bar(&mut self, ui: &mut egui::Ui, table_name: &str, column_names: &[String]) {
-        let requires_order = !self.active_driver().eq_ignore_ascii_case("sqlite");
-        toolbar_frame(self.theme).show(ui, |ui| {
-            ui.horizontal_wrapped(|ui| {
-                section_label(ui, "DATABASE FILTER", self.theme);
-                ui.label(RichText::new("Column").small().color(self.theme.text_muted));
-                egui::ComboBox::from_id_salt(("table-data-filter-column", table_name))
-                    .selected_text(if self.table_data_filter_column.is_empty() {
-                        "Column"
-                    } else {
-                        self.table_data_filter_column.as_str()
-                    })
-                    .width(110.0)
-                    .show_ui(ui, |ui| {
-                        for column in column_names {
-                            ui.selectable_value(&mut self.table_data_filter_column, column.clone(), column.as_str());
-                        }
-                    });
-                input(ui, &mut self.table_data_filter_value, "contains…", 180.0, self.theme);
-                if compact_button_with_icon(ui, Icon::Filter, "Apply", self.theme).clicked() {
-                    self.reload_table_data_from_start();
-                }
-                if compact_button_with_icon(ui, Icon::FilterX, "Clear", self.theme).clicked() {
-                    self.table_data_filter_value.clear();
-                    self.reload_table_data_from_start();
-                }
-                ui.separator();
-                section_label(ui, "ORDER BY", self.theme);
-                egui::ComboBox::from_id_salt(("table-data-sort-column", table_name))
-                    .selected_text(self.table_data_sort_column.as_deref().unwrap_or("None"))
-                    .width(110.0)
-                    .show_ui(ui, |ui| {
-                        if !requires_order {
-                            ui.selectable_value(&mut self.table_data_sort_column, None, "None");
-                        }
-                        for column in column_names {
-                            ui.selectable_value(
-                                &mut self.table_data_sort_column,
-                                Some(column.clone()),
-                                column.as_str(),
-                            );
-                        }
-                    });
-                if self.table_data_sort_column.is_some() {
-                    let direction = if self.table_data_sort_desc { "DESC" } else { "ASC" };
-                    if compact_button_with_icon(ui, Icon::ArrowDownUp, direction, self.theme).clicked() {
-                        self.table_data_sort_desc = !self.table_data_sort_desc;
-                        self.reload_table_data_from_start();
+                    // Unified Search & Filter Bar
+                    Frame {
+                        fill: self.theme.surface_elevated,
+                        stroke: Stroke::new(1.0, self.theme.border_subtle),
+                        rounding: Rounding::same(6.0),
+                        inner_margin: Margin::symmetric(8.0, 3.0),
+                        ..Default::default()
                     }
+                    .show(ui, |ui| {
+                        ui.horizontal(|ui| {
+                            // Search icon
+                            ui.label(
+                                RichText::new(char::from(Icon::Search).to_string())
+                                    .font(FontId::new(12.0, FontFamily::Name("lucide".into())))
+                                    .color(self.theme.text_muted),
+                            );
+
+                            // Column Scope Dropdown
+                            let col_label = if self.table_data_filter_column.is_empty() {
+                                "All columns".to_owned()
+                            } else {
+                                self.table_data_filter_column.clone()
+                            };
+                            let col_color = if self.table_data_filter_column.is_empty() {
+                                self.theme.text_secondary
+                            } else {
+                                self.theme.accent
+                            };
+
+                            egui::ComboBox::from_id_salt(("table-unified-filter-col", table_name))
+                                .selected_text(RichText::new(col_label).size(12.0).color(col_color))
+                                .width(95.0)
+                                .show_ui(ui, |ui| {
+                                    if ui
+                                        .selectable_value(
+                                            &mut self.table_data_filter_column,
+                                            String::new(),
+                                            "All columns (Instant)",
+                                        )
+                                        .clicked()
+                                    {
+                                        self.grid_filter = self.table_data_filter_value.clone();
+                                    }
+                                    for col in &column_names {
+                                        ui.selectable_value(
+                                            &mut self.table_data_filter_column,
+                                            col.clone(),
+                                            col.as_str(),
+                                        );
+                                    }
+                                });
+
+                            ui.add(egui::Separator::default().vertical());
+
+                            // Search / Filter Input
+                            let is_all_cols = self.table_data_filter_column.is_empty();
+                            let placeholder = if is_all_cols {
+                                "Search rows instantly…"
+                            } else {
+                                "Filter value (Enter to query DB)…"
+                            };
+
+                            let edit_target = if is_all_cols {
+                                &mut self.grid_filter
+                            } else {
+                                &mut self.table_data_filter_value
+                            };
+
+                            let edit = egui::TextEdit::singleline(edit_target)
+                                .hint_text(RichText::new(placeholder).size(12.0).color(self.theme.text_muted))
+                                .font(FontId::proportional(12.0))
+                                .frame(false)
+                                .desired_width(210.0);
+
+                            let resp = ui.add(edit);
+                            if resp.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) && !is_all_cols {
+                                self.reload_table_data_from_start();
+                            }
+
+                            // Trailing clear button
+                            let has_text = if is_all_cols {
+                                !self.grid_filter.is_empty()
+                            } else {
+                                !self.table_data_filter_value.is_empty()
+                            };
+
+                            if has_text
+                                && Button::new(self.theme)
+                                    .icon(Icon::X)
+                                    .size(ButtonSize::IconSm)
+                                    .variant(ButtonVariant::Ghost)
+                                    .show(ui)
+                                    .on_hover_text("Clear filter")
+                                    .clicked()
+                            {
+                                if is_all_cols {
+                                    self.grid_filter.clear();
+                                } else {
+                                    self.table_data_filter_value.clear();
+                                    self.reload_table_data_from_start();
+                                }
+                            }
+                        });
+                    });
+
+                    // Compact Sort Selector
+                    let sort_active = self.table_data_sort_column.is_some() || self.grid_sort_column.is_some();
+                    let sort_label = if let Some(ref col) = self.table_data_sort_column {
+                        format!("Sort: {col} {}", if self.table_data_sort_desc { "↓" } else { "↑" })
+                    } else if let Some(idx) = self.grid_sort_column {
+                        if let Some(col) = column_names.get(idx) {
+                            format!("Sort: {col} {}", if self.grid_sort_desc { "↓" } else { "↑" })
+                        } else {
+                            "Sort".to_owned()
+                        }
+                    } else {
+                        "Sort".to_owned()
+                    };
+
+                    egui::ComboBox::from_id_salt(("table-unified-sort-col", table_name))
+                        .selected_text(RichText::new(&sort_label).size(11.5).color(if sort_active {
+                            self.theme.accent
+                        } else {
+                            self.theme.text_secondary
+                        }))
+                        .width(100.0)
+                        .show_ui(ui, |ui| {
+                            if ui.selectable_label(!sort_active, "Default (None)").clicked() {
+                                self.table_data_sort_column = None;
+                                self.grid_sort_column = None;
+                                self.reload_table_data_from_start();
+                            }
+                            for col in &column_names {
+                                let is_sel = self.table_data_sort_column.as_deref() == Some(col.as_str());
+                                if ui.selectable_label(is_sel, col.as_str()).clicked() {
+                                    if is_sel {
+                                        self.table_data_sort_desc = !self.table_data_sort_desc;
+                                    } else {
+                                        self.table_data_sort_column = Some(col.clone());
+                                        self.table_data_sort_desc = false;
+                                    }
+                                    self.reload_table_data_from_start();
+                                }
+                            }
+                        });
                 }
+
+                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                    if compact_icon_button_enabled(ui, Icon::ChevronRight, paging.has_next, self.theme)
+                        .on_hover_text("Next page")
+                        .clicked()
+                        && self.staged_changes.is_empty()
+                    {
+                        self.table_data_offset = self.table_data_offset.saturating_add(TABLE_PAGE_SIZE);
+                        self.request_table_data();
+                    }
+
+                    ui.label(
+                        RichText::new(&paging.page_range)
+                            .font(font_caption())
+                            .color(self.theme.text_secondary),
+                    );
+
+                    if compact_icon_button_enabled(ui, Icon::ChevronLeft, paging.has_previous, self.theme)
+                        .on_hover_text("Previous page")
+                        .clicked()
+                        && self.staged_changes.is_empty()
+                    {
+                        self.table_data_offset = self.table_data_offset.saturating_sub(TABLE_PAGE_SIZE);
+                        self.request_table_data();
+                    }
+                });
             });
         });
     }
@@ -294,6 +348,92 @@ impl DbProApp {
         self.insert_row_open = true;
     }
 
+    pub(crate) fn generate_sample_value(column_name: &str, data_type: &str) -> String {
+        let lower_type = data_type.to_ascii_lowercase();
+        let lower_name = column_name.to_ascii_lowercase();
+        let rand_num = (rand::random::<u32>() % 9000) + 1000;
+
+        if lower_type.contains("uuid") || lower_type.contains("guid") {
+            uuid::Uuid::new_v4().to_string()
+        } else if lower_type.contains("timestamptz")
+            || lower_type.contains("timestamp")
+            || lower_type.contains("datetime")
+        {
+            chrono::Utc::now().to_rfc3339()
+        } else if lower_type.contains("date") {
+            chrono::Utc::now().format("%Y-%m-%d").to_string()
+        } else if lower_type.contains("time") {
+            chrono::Utc::now().format("%H:%M:%S").to_string()
+        } else if lower_type.contains("bool") {
+            if rand::random::<bool>() {
+                "true".to_owned()
+            } else {
+                "false".to_owned()
+            }
+        } else if lower_type.contains("int")
+            || lower_type.contains("serial")
+            || lower_type.contains("bigint")
+            || lower_type.contains("smallint")
+        {
+            rand_num.to_string()
+        } else if lower_type.contains("float")
+            || lower_type.contains("double")
+            || lower_type.contains("real")
+            || lower_type.contains("numeric")
+            || lower_type.contains("decimal")
+        {
+            format!("{}.{:02}", rand_num / 10, rand_num % 100)
+        } else if lower_type.contains("json") {
+            r#"{"status": "active", "version": 1}"#.to_owned()
+        } else if lower_name.contains("email") || lower_name.contains("mail") {
+            format!("user_{rand_num}@example.com")
+        } else if lower_name.contains("username") || lower_name.contains("user_name") {
+            format!("user_{rand_num}")
+        } else if lower_name.contains("first_name") || lower_name.contains("firstname") {
+            "Alex".to_owned()
+        } else if lower_name.contains("last_name") || lower_name.contains("lastname") {
+            "Morgan".to_owned()
+        } else if lower_name.contains("full_name") || lower_name.contains("fullname") || lower_name == "name" {
+            format!("Alex Morgan {}", rand_num % 100)
+        } else if lower_name.contains("phone") || lower_name.contains("tel") || lower_name.contains("mobile") {
+            format!("+1-555-{:04}", rand_num)
+        } else if lower_name.contains("url") || lower_name.contains("website") || lower_name.contains("link") {
+            format!("https://example.com/items/{rand_num}")
+        } else if lower_name.contains("avatar")
+            || lower_name.contains("image")
+            || lower_name.contains("icon")
+            || lower_name.contains("photo")
+        {
+            format!("https://picsum.photos/seed/{rand_num}/200")
+        } else if lower_name.contains("slug") || lower_name.contains("code") {
+            format!("item-{rand_num}")
+        } else if lower_name.contains("title") || lower_name.contains("headline") || lower_name.contains("subject") {
+            format!("Sample Title {rand_num}")
+        } else if lower_name.contains("desc")
+            || lower_name.contains("content")
+            || lower_name.contains("note")
+            || lower_name.contains("bio")
+            || lower_name.contains("comment")
+            || lower_name.contains("body")
+        {
+            format!("Sample description for {column_name}")
+        } else if lower_name.contains("status") || lower_name.contains("state") {
+            "active".to_owned()
+        } else if lower_name.contains("role") {
+            "user".to_owned()
+        } else if lower_name.contains("address") || lower_name.contains("street") {
+            format!("{rand_num} Market Street")
+        } else if lower_name.contains("city") {
+            "San Francisco".to_owned()
+        } else if lower_name.contains("country") {
+            "US".to_owned()
+        } else if lower_name.contains("ip") {
+            format!("192.168.1.{}", rand_num % 254 + 1)
+        } else {
+            format!("{column_name}_{rand_num}")
+        }
+    }
+
     pub(crate) fn parse_insert_value(raw: &str, data_type: &str) -> Result<Option<UiCell>, String> {
         let value = raw.trim();
         if value.is_empty() {
@@ -303,6 +443,11 @@ impl DbProApp {
             return Ok(Some(UiCell::Null));
         }
         let normalized_type = data_type.to_ascii_lowercase();
+        if normalized_type.contains("uuid") || normalized_type.contains("guid") {
+            return uuid::Uuid::parse_str(value)
+                .map(|u| Some(UiCell::Text(u.to_string())))
+                .map_err(|_| format!("{value} is not a valid UUID"));
+        }
         if normalized_type.contains("bool") {
             return match value.to_ascii_lowercase().as_str() {
                 "true" | "1" | "yes" => Ok(Some(UiCell::Boolean(true))),
@@ -380,7 +525,7 @@ impl DbProApp {
                 return Err(format!("{value} exceeds NUMERIC precision {precision}"));
             }
         }
-        Ok(UiCell::Text(value.to_owned()))
+        Ok(UiCell::Number(value.to_owned()))
     }
 
     fn submit_insert_row(&mut self) {
@@ -428,57 +573,271 @@ impl DbProApp {
         let mut open = self.insert_row_open;
         let mut submit = false;
         let mut cancel = false;
-        egui::Window::new("Insert row")
-            .open(&mut open)
-            .collapsible(false)
-            .resizable(false)
-            .anchor(egui::Align2::CENTER_CENTER, egui::Vec2::ZERO)
-            .default_width(460.0)
+        let title = format!("Insert Row · {}", info.name);
+        let description = format!("Schema: {} · {} columns", info.schema, info.columns.len());
+
+        egui::Area::new(egui::Id::new("insert_row_modal_area"))
+            .order(egui::Order::Foreground)
+            .fixed_pos(egui::Pos2::ZERO)
             .show(ctx, |ui| {
-                ui.label(
-                    RichText::new(format!("Add a row to {}.{}", info.schema, info.name))
-                        .color(self.theme.text_secondary),
-                );
-                ui.label(
-                    RichText::new("Empty fields use the database default. Type NULL for a null value.")
-                        .small()
-                        .color(self.theme.text_muted),
-                );
-                ui.add_space(10.0);
-                for (index, column) in info.columns.iter().enumerate() {
-                    ui.horizontal(|ui| {
-                        ui.add_sized(
-                            [108.0, 24.0],
-                            egui::Label::new(
-                                RichText::new(format!("{} · {}", column.name, column.data_type))
-                                    .small()
-                                    .strong()
+                Dialog::new(&mut open, &title, self.theme)
+                    .description(&description)
+                    .width(620.0)
+                    .show(ui, |ui| {
+                        // Quick batch generation bar
+                        ui.horizontal(|ui| {
+                            ui.label(
+                                RichText::new("Fill values or generate sample mock data:")
+                                    .font(font_caption())
                                     .color(self.theme.text_secondary),
-                            ),
-                        );
-                        input(
-                            ui,
-                            &mut self.insert_row_values[index],
-                            &column.data_type,
-                            300.0,
-                            self.theme,
-                        );
+                            );
+
+                            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                                if Button::new(self.theme)
+                                    .icon(Icon::RotateCcw)
+                                    .text("Clear All")
+                                    .size(ButtonSize::Sm)
+                                    .variant(ButtonVariant::Ghost)
+                                    .show(ui)
+                                    .on_hover_text("Clear all field inputs")
+                                    .clicked()
+                                {
+                                    for val in &mut self.insert_row_values {
+                                        val.clear();
+                                    }
+                                }
+
+                                if Button::new(self.theme)
+                                    .icon(Icon::Sparkles)
+                                    .text("Fill Required")
+                                    .size(ButtonSize::Sm)
+                                    .variant(ButtonVariant::Secondary)
+                                    .show(ui)
+                                    .on_hover_text("Auto-generate sample values for empty required fields")
+                                    .clicked()
+                                {
+                                    for (index, column) in info.columns.iter().enumerate() {
+                                        if !column.nullable
+                                            && column.default.is_none()
+                                            && self.insert_row_values[index].trim().is_empty()
+                                        {
+                                            self.insert_row_values[index] =
+                                                Self::generate_sample_value(&column.name, &column.data_type);
+                                        }
+                                    }
+                                }
+
+                                if Button::new(self.theme)
+                                    .icon(Icon::Wand2)
+                                    .text("Generate All")
+                                    .size(ButtonSize::Sm)
+                                    .variant(ButtonVariant::Secondary)
+                                    .show(ui)
+                                    .on_hover_text("Auto-generate sample mock data for all empty fields")
+                                    .clicked()
+                                {
+                                    for (index, column) in info.columns.iter().enumerate() {
+                                        if self.insert_row_values[index].trim().is_empty() {
+                                            self.insert_row_values[index] =
+                                                Self::generate_sample_value(&column.name, &column.data_type);
+                                        }
+                                    }
+                                }
+                            });
+                        });
+
+                        ui.add_space(8.0);
+                        ui.separator();
+                        ui.add_space(8.0);
+
+                        // Columns list
+                        egui::ScrollArea::vertical()
+                            .max_height(380.0)
+                            .auto_shrink([false, false])
+                            .show(ui, |ui| {
+                                for (index, column) in info.columns.iter().enumerate() {
+                                    let is_fk = info
+                                        .foreign_keys
+                                        .iter()
+                                        .any(|fk| fk.from_columns.contains(&column.name));
+
+                                    Frame {
+                                        fill: self.theme.surface_panel,
+                                        stroke: Stroke::new(1.0, self.theme.border_subtle),
+                                        rounding: Rounding::same(8.0),
+                                        inner_margin: Margin::symmetric(12.0, 8.0),
+                                        ..Default::default()
+                                    }
+                                    .show(ui, |ui| {
+                                        ui.horizontal(|ui| {
+                                            if column.is_primary_key {
+                                                badge(ui, "PK", self.theme.accent_soft, self.theme.warning);
+                                            } else if is_fk {
+                                                badge(ui, "FK", self.theme.surface_active, self.theme.accent);
+                                            }
+                                            ui.label(
+                                                RichText::new(&column.name)
+                                                    .font(font_ui_label())
+                                                    .strong()
+                                                    .color(self.theme.text_primary),
+                                            );
+                                            ui.label(
+                                                RichText::new(&column.data_type)
+                                                    .monospace()
+                                                    .size(11.5)
+                                                    .color(self.theme.text_secondary),
+                                            );
+                                            if !column.nullable && column.default.is_none() {
+                                                ui.label(
+                                                    RichText::new("*required")
+                                                        .font(font_caption())
+                                                        .color(self.theme.danger),
+                                                );
+                                            } else if column.nullable {
+                                                ui.label(
+                                                    RichText::new("nullable")
+                                                        .font(font_caption())
+                                                        .color(self.theme.text_muted),
+                                                );
+                                            }
+                                            if let Some(ref def) = column.default {
+                                                ui.label(
+                                                    RichText::new(format!("default: {def}"))
+                                                        .font(font_caption())
+                                                        .color(self.theme.text_muted),
+                                                );
+                                            }
+
+                                            // Per-field actions
+                                            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                                                if !self.insert_row_values[index].is_empty() {
+                                                    let clear_btn = Button::new(self.theme)
+                                                        .icon(Icon::X)
+                                                        .size(ButtonSize::IconSm)
+                                                        .variant(ButtonVariant::Ghost)
+                                                        .show(ui);
+                                                    if clear_btn.on_hover_text("Clear this field").clicked() {
+                                                        self.insert_row_values[index].clear();
+                                                    }
+                                                }
+
+                                                if column.nullable && self.insert_row_values[index] != "NULL" {
+                                                    let null_btn = Button::new(self.theme)
+                                                        .text("NULL")
+                                                        .size(ButtonSize::Sm)
+                                                        .variant(ButtonVariant::Ghost)
+                                                        .show(ui);
+                                                    if null_btn.on_hover_text("Set value to literal NULL").clicked() {
+                                                        self.insert_row_values[index] = "NULL".to_owned();
+                                                    }
+                                                }
+
+                                                let lower_dt = column.data_type.to_ascii_lowercase();
+                                                let gen_text = if lower_dt.contains("uuid") {
+                                                    "UUID"
+                                                } else if lower_dt.contains("time") || lower_dt.contains("date") {
+                                                    "Now"
+                                                } else {
+                                                    "Gen"
+                                                };
+                                                let gen_btn = Button::new(self.theme)
+                                                    .icon(Icon::Wand2)
+                                                    .text(gen_text)
+                                                    .size(ButtonSize::Sm)
+                                                    .variant(ButtonVariant::Secondary)
+                                                    .show(ui);
+                                                let tooltip =
+                                                    format!("Generate sample {} for {}", column.data_type, column.name);
+                                                if gen_btn.on_hover_text(tooltip).clicked() {
+                                                    self.insert_row_values[index] =
+                                                        Self::generate_sample_value(&column.name, &column.data_type);
+                                                }
+                                            });
+                                        });
+
+                                        ui.add_space(4.0);
+
+                                        let is_null_val =
+                                            self.insert_row_values[index].trim().eq_ignore_ascii_case("null");
+                                        let placeholder = if column.default.is_some() {
+                                            "Leave empty for DEFAULT, or enter value / click Gen..."
+                                        } else if column.nullable {
+                                            "Enter value, click NULL, or click Gen..."
+                                        } else {
+                                            "Enter value or click Gen..."
+                                        };
+
+                                        let val_ref = &mut self.insert_row_values[index];
+                                        let edit = egui::TextEdit::singleline(val_ref)
+                                            .hint_text(
+                                                RichText::new(placeholder)
+                                                    .font(font_caption())
+                                                    .color(self.theme.text_muted),
+                                            )
+                                            .text_color(if is_null_val {
+                                                self.theme.warning
+                                            } else {
+                                                self.theme.text_primary
+                                            })
+                                            .font(font_ui_label())
+                                            .margin(Margin::symmetric(8.0, 6.0))
+                                            .desired_width(ui.available_width());
+
+                                        Frame {
+                                            fill: self.theme.surface_elevated,
+                                            stroke: Stroke::new(
+                                                1.0,
+                                                if is_null_val {
+                                                    self.theme.warning.linear_multiply(0.6)
+                                                } else {
+                                                    self.theme.border_subtle
+                                                },
+                                            ),
+                                            rounding: Rounding::same(6.0),
+                                            ..Default::default()
+                                        }
+                                        .show(ui, |ui| {
+                                            ui.add(edit);
+                                        });
+                                    });
+                                    ui.add_space(6.0);
+                                }
+                            });
+
+                        if !self.insert_row_error.is_empty() {
+                            ui.add_space(8.0);
+                            Alert::new("Cannot Stage Insert", &self.insert_row_error, self.theme)
+                                .variant(AlertVariant::Destructive)
+                                .icon(Icon::AlertCircle)
+                                .show(ui);
+                        }
+
+                        ui.add_space(12.0);
+                        ui.separator();
+                        ui.add_space(10.0);
+
+                        ui.horizontal(|ui| {
+                            if Button::new(self.theme)
+                                .icon(Icon::Plus)
+                                .text("Stage Insert")
+                                .show(ui)
+                                .clicked()
+                            {
+                                submit = true;
+                            }
+
+                            if Button::new(self.theme)
+                                .text("Cancel")
+                                .variant(ButtonVariant::Ghost)
+                                .show(ui)
+                                .clicked()
+                            {
+                                cancel = true;
+                            }
+                        });
                     });
-                }
-                if !self.insert_row_error.is_empty() {
-                    ui.add_space(6.0);
-                    ui.colored_label(self.theme.danger, self.insert_row_error.as_str());
-                }
-                ui.separator();
-                ui.horizontal(|ui| {
-                    if primary_button_with_icon(ui, Icon::Plus, "Insert row", self.theme).clicked() {
-                        submit = true;
-                    }
-                    if ghost_button(ui, "Cancel", self.theme).clicked() {
-                        cancel = true;
-                    }
-                });
             });
+
         if submit {
             self.submit_insert_row();
         }
@@ -791,7 +1150,7 @@ impl DbProApp {
         self.runtime_message = format!("{} staged change(s)", self.staged_changes.len());
     }
 
-    fn request_delete_selected_data_row(&mut self, result: &UiQueryResult) {
+    pub(crate) fn request_delete_selected_data_row(&mut self, result: &UiQueryResult) {
         if !self.can_mutate_active_connection() {
             self.runtime_message = "Connect with write access to delete rows".to_owned();
             return;
@@ -804,34 +1163,16 @@ impl DbProApp {
             self.runtime_message = "Table structure is still loading".to_owned();
             return;
         };
-        if let Err(error) = Self::row_identity(result, &info, row_index) {
-            self.runtime_message = error;
-            return;
-        }
-        self.data_delete_confirmation = true;
-        self.data_editing_cell = None;
-        self.data_edit_value.clear();
-    }
-
-    fn submit_delete_selected_data_row(&mut self, result: &UiQueryResult) {
-        let Some(row_index) = self.selected_row else {
-            self.data_delete_confirmation = false;
-            self.runtime_message = "Select a row before deleting".to_owned();
-            return;
-        };
-        let Some(info) = self.table_info.clone() else {
-            self.data_delete_confirmation = false;
-            self.runtime_message = "Table structure is still loading".to_owned();
-            return;
-        };
         let (pk_columns, pk_values) = match Self::row_identity(result, &info, row_index) {
             Ok(identity) => identity,
             Err(error) => {
-                self.data_delete_confirmation = false;
                 self.runtime_message = error;
                 return;
             }
         };
+        self.data_editing_cell = None;
+        self.data_edit_value.clear();
+        self.data_delete_confirmation = false;
         self.staged_changes.retain(|change| {
             !matches!(
                 change,
@@ -846,8 +1187,10 @@ impl DbProApp {
             pk_columns,
             pk_values,
         });
-        self.data_delete_confirmation = false;
-        self.runtime_message = format!("{} staged change(s)", self.staged_changes.len());
+        self.runtime_message = format!(
+            "Row marked for deletion · {} staged change(s)",
+            self.staged_changes.len()
+        );
     }
 
     pub(crate) fn staged_cell_value(&self, row_index: usize, column_index: usize) -> Option<UiCell> {
@@ -959,6 +1302,7 @@ impl DbProApp {
         }
         if self.staged_changes.is_empty() {
             self.runtime_message = "All staged changes applied".to_owned();
+            self.show_toast_success("All staged changes applied successfully");
             self.table_data_result = None;
             self.table_data_total_rows = None;
             self.table_data_error = None;
@@ -971,7 +1315,9 @@ impl DbProApp {
     pub(crate) fn staged_apply_failed(&mut self, message: &str) {
         self.staged_apply_request = None;
         self.table_mutation_request = None;
-        self.runtime_message = format!("Staged change failed · {message}");
+        let formatted = format!("Staged change failed · {message}");
+        self.runtime_message = formatted.clone();
+        self.show_toast_error(formatted);
     }
 
     pub(crate) fn request_table_ddl(&mut self) {
@@ -1029,6 +1375,11 @@ impl DbProApp {
         self.runtime_message = "Loading table data…".to_owned();
     }
 
+    pub(crate) fn reset_table_data_page(&mut self) {
+        self.table_data_offset = 0;
+        self.request_table_data();
+    }
+
     pub(crate) fn reload_table_data_from_start(&mut self) {
         if !self.staged_changes.is_empty() {
             self.runtime_message = "Apply or discard staged changes before reloading".to_owned();
@@ -1042,5 +1393,38 @@ impl DbProApp {
         self.grid_sort_column = None;
         self.grid_sort_desc = false;
         self.request_table_data();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_generate_sample_value_types() {
+        let uuid_val = DbProApp::generate_sample_value("id", "uuid");
+        assert!(uuid::Uuid::parse_str(&uuid_val).is_ok());
+
+        let time_val = DbProApp::generate_sample_value("created_at", "timestamptz");
+        assert!(chrono::DateTime::parse_from_rfc3339(&time_val).is_ok());
+
+        let date_val = DbProApp::generate_sample_value("birth_date", "date");
+        assert_eq!(date_val.len(), 10);
+
+        let email_val = DbProApp::generate_sample_value("user_email", "varchar");
+        assert!(email_val.contains('@'));
+
+        let bool_val = DbProApp::generate_sample_value("is_active", "boolean");
+        assert!(bool_val == "true" || bool_val == "false");
+    }
+
+    #[test]
+    fn test_parse_insert_value_uuid() {
+        let valid_uuid = "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11";
+        let parsed = DbProApp::parse_insert_value(valid_uuid, "uuid");
+        assert_eq!(parsed, Ok(Some(UiCell::Text(valid_uuid.to_owned()))));
+
+        let invalid_uuid = "not-a-uuid";
+        assert!(DbProApp::parse_insert_value(invalid_uuid, "uuid").is_err());
     }
 }

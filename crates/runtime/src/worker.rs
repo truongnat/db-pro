@@ -306,32 +306,32 @@ pub fn spawn_worker(
                     connection_id,
                     force_refresh,
                 } => {
-                    tracing::info!(
-                        request_id = request_id.0,
-                        connection_id = %connection_id,
-                        force_refresh,
-                        "schema introspection started"
-                    );
-                    let event = match runtime
-                        .schema_api()
-                        .introspect_summary(&connection_id, force_refresh)
-                        .await
-                    {
-                        Ok(schema) => {
-                            tracing::info!(
-                                request_id = request_id.0,
-                                connection_id = %connection_id,
-                                tables = schema.tables.len(),
-                                "schema introspection completed"
-                            );
-                            RuntimeEvent::SchemaLoaded { request_id, schema }
-                        }
-                        Err(error) => RuntimeEvent::Failed {
-                            request_id,
-                            message: error.message,
-                        },
-                    };
-                    let _ = event_tx.send(event).await;
+                    let schema_api = runtime.schema_api();
+                    let event_tx = event_tx.clone();
+                    tokio::spawn(async move {
+                        tracing::info!(
+                            request_id = request_id.0,
+                            connection_id = %connection_id,
+                            force_refresh,
+                            "schema introspection started"
+                        );
+                        let event = match schema_api.introspect_summary(&connection_id, force_refresh).await {
+                            Ok(schema) => {
+                                tracing::info!(
+                                    request_id = request_id.0,
+                                    connection_id = %connection_id,
+                                    tables = schema.tables.len(),
+                                    "schema introspection completed"
+                                );
+                                RuntimeEvent::SchemaLoaded { request_id, schema }
+                            }
+                            Err(error) => RuntimeEvent::Failed {
+                                request_id,
+                                message: error.message,
+                            },
+                        };
+                        let _ = event_tx.send(event).await;
+                    });
                 }
                 RuntimeCommand::LoadTableInfo {
                     request_id,
@@ -726,45 +726,68 @@ pub fn spawn_worker(
                     config,
                     password,
                 } => {
-                    let event = match runtime.connection_api().test(&config, &password).await {
-                        Ok(()) => RuntimeEvent::OperationCompleted {
-                            request_id,
-                            operation: "connection.tested",
-                        },
-                        Err(error) => RuntimeEvent::Failed {
-                            request_id,
-                            message: error.message,
-                        },
-                    };
-                    let _ = event_tx.send(event).await;
+                    let connection_api = runtime.connection_api();
+                    let event_tx = event_tx.clone();
+                    tokio::spawn(async move {
+                        let event = match connection_api.test(&config, &password).await {
+                            Ok(()) => RuntimeEvent::OperationCompleted {
+                                request_id,
+                                operation: "connection.tested",
+                            },
+                            Err(error) => {
+                                tracing::warn!(
+                                    request_id = request_id.0,
+                                    error = %error.message,
+                                    "test connection failed"
+                                );
+                                RuntimeEvent::Failed {
+                                    request_id,
+                                    message: error.message,
+                                }
+                            }
+                        };
+                        let _ = event_tx.send(event).await;
+                    });
                 }
                 RuntimeCommand::Connect {
                     request_id,
                     connection_id,
                 } => {
-                    tracing::info!(
-                        request_id = request_id.0,
-                        connection_id = %connection_id,
-                        "connection started"
-                    );
-                    let event = match runtime.connection_api().connect(&connection_id).await {
-                        Ok(()) => {
-                            tracing::info!(
-                                request_id = request_id.0,
-                                connection_id = %connection_id,
-                                "connection completed"
-                            );
-                            RuntimeEvent::Connected {
-                                request_id,
-                                connection_id,
+                    let connection_api = runtime.connection_api();
+                    let event_tx = event_tx.clone();
+                    tokio::spawn(async move {
+                        tracing::info!(
+                            request_id = request_id.0,
+                            connection_id = %connection_id,
+                            "connection started"
+                        );
+                        let event = match connection_api.connect(&connection_id).await {
+                            Ok(()) => {
+                                tracing::info!(
+                                    request_id = request_id.0,
+                                    connection_id = %connection_id,
+                                    "connection completed"
+                                );
+                                RuntimeEvent::Connected {
+                                    request_id,
+                                    connection_id,
+                                }
                             }
-                        }
-                        Err(error) => RuntimeEvent::Failed {
-                            request_id,
-                            message: error.message,
-                        },
-                    };
-                    let _ = event_tx.send(event).await;
+                            Err(error) => {
+                                tracing::warn!(
+                                    request_id = request_id.0,
+                                    connection_id = %connection_id,
+                                    error = %error.message,
+                                    "connection failed"
+                                );
+                                RuntimeEvent::Failed {
+                                    request_id,
+                                    message: error.message,
+                                }
+                            }
+                        };
+                        let _ = event_tx.send(event).await;
+                    });
                 }
                 RuntimeCommand::ExecuteQuery {
                     request_id,

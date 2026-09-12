@@ -2,7 +2,7 @@
 //! of the Codex / DBeaver navigator tree.
 
 use super::explorer_tree::{
-    column_icon_and_color, draw_category_folder, draw_codex_tree_row, CategoryFolder, CodexTreeRow,
+    column_icon_and_color, draw_category_folder, draw_codex_tree_row, shorten_data_type, CategoryFolder, CodexTreeRow,
 };
 use super::*;
 use egui::Color32;
@@ -11,27 +11,151 @@ use lucide_icons::Icon;
 /// Actions selectable from a table row's context menu.
 #[derive(Default)]
 struct TableRowActions {
+    open_data: bool,
+    open_structure: bool,
     open_query: bool,
+    gen_sql_insert: bool,
+    gen_sql_update: bool,
+    gen_sql_delete: bool,
+    open_ddl: bool,
+    copy_name: bool,
+    copy_qualified_name: bool,
     ask_agent: bool,
     refresh_schema: bool,
 }
 
 /// Collects the table row context-menu choices without touching `self`, so the
 /// caller keeps a single mutable borrow for applying them.
-fn table_row_context_menu(response: &egui::Response) -> TableRowActions {
+fn table_row_context_menu(ui: &mut egui::Ui, response: &egui::Response, theme: DbProTheme) -> TableRowActions {
     let mut actions = TableRowActions::default();
-    response.context_menu(|ui| {
-        if ui.button("Open in Query").clicked() {
+    context_action_menu(ui, response, theme, |ui, close_menu| {
+        if ctx_menu_item(ui, Some(Icon::Table2), "View Data", None, theme.text_primary, theme).clicked() {
+            actions.open_data = true;
+            *close_menu = true;
+        }
+        if ctx_menu_item(
+            ui,
+            Some(Icon::Columns3),
+            "View Structure",
+            None,
+            theme.text_primary,
+            theme,
+        )
+        .clicked()
+        {
+            actions.open_structure = true;
+            *close_menu = true;
+        }
+        ui.separator();
+        if ctx_menu_item(
+            ui,
+            Some(Icon::Play),
+            "Generate SQL: SELECT *",
+            None,
+            theme.text_primary,
+            theme,
+        )
+        .clicked()
+        {
             actions.open_query = true;
-            ui.close_menu();
+            *close_menu = true;
         }
-        if ui.button("Ask Agent about table").clicked() {
+        if ctx_menu_item(
+            ui,
+            Some(Icon::Plus),
+            "Generate SQL: INSERT",
+            None,
+            theme.text_primary,
+            theme,
+        )
+        .clicked()
+        {
+            actions.gen_sql_insert = true;
+            *close_menu = true;
+        }
+        if ctx_menu_item(
+            ui,
+            Some(Icon::Pencil),
+            "Generate SQL: UPDATE",
+            None,
+            theme.text_primary,
+            theme,
+        )
+        .clicked()
+        {
+            actions.gen_sql_update = true;
+            *close_menu = true;
+        }
+        if ctx_menu_item(
+            ui,
+            Some(Icon::Trash2),
+            "Generate SQL: DELETE",
+            None,
+            theme.danger,
+            theme,
+        )
+        .clicked()
+        {
+            actions.gen_sql_delete = true;
+            *close_menu = true;
+        }
+        if ctx_menu_item(
+            ui,
+            Some(Icon::Code2),
+            "View DDL / CREATE Script",
+            None,
+            theme.text_primary,
+            theme,
+        )
+        .clicked()
+        {
+            actions.open_ddl = true;
+            *close_menu = true;
+        }
+        ui.separator();
+        if ctx_menu_item(
+            ui,
+            Some(Icon::Copy),
+            "Copy Qualified Name",
+            None,
+            theme.text_primary,
+            theme,
+        )
+        .clicked()
+        {
+            actions.copy_qualified_name = true;
+            *close_menu = true;
+        }
+        if ctx_menu_item(ui, Some(Icon::Copy), "Copy Table Name", None, theme.text_primary, theme).clicked() {
+            actions.copy_name = true;
+            *close_menu = true;
+        }
+        if ctx_menu_item(
+            ui,
+            Some(Icon::Bot),
+            "Ask Agent about table",
+            None,
+            theme.text_primary,
+            theme,
+        )
+        .clicked()
+        {
             actions.ask_agent = true;
-            ui.close_menu();
+            *close_menu = true;
         }
-        if ui.button("Refresh Schema").clicked() {
+        ui.separator();
+        if ctx_menu_item(
+            ui,
+            Some(Icon::RotateCcw),
+            "Refresh Schema",
+            Some("F5"),
+            theme.text_primary,
+            theme,
+        )
+        .clicked()
+        {
             actions.refresh_schema = true;
-            ui.close_menu();
+            *close_menu = true;
         }
     });
     actions
@@ -72,22 +196,109 @@ impl DbProApp {
             },
         );
 
-        let actions = table_row_context_menu(&response);
+        let is_ctx = is_context_menu_triggered(&response, ui);
+        let actions = table_row_context_menu(ui, &response, self.theme);
 
         if chevron_clicked && has_details {
             collapsing.set_open(!is_open);
             collapsing.store(ui.ctx());
-        } else if response.clicked() || actions.open_query || actions.ask_agent {
+        } else if (response.clicked() && !is_ctx)
+            || actions.open_query
+            || actions.open_data
+            || actions.open_structure
+            || actions.open_ddl
+            || actions.gen_sql_insert
+            || actions.gen_sql_update
+            || actions.gen_sql_delete
+            || actions.ask_agent
+        {
             self.select_table(table);
         }
 
+        let schema = self.active_schema().to_owned();
+
+        if actions.open_data {
+            self.table_view = TableView::Data;
+            self.active_tab = WorkspaceTab::Table;
+        }
+        if actions.open_structure {
+            self.table_view = TableView::Structure;
+            self.active_tab = WorkspaceTab::Table;
+        }
+        if actions.open_ddl {
+            self.table_view = TableView::Ddl;
+            self.active_tab = WorkspaceTab::Table;
+        }
         if actions.open_query {
-            self.query_text = format!("SELECT *\nFROM {table}\nLIMIT 100;");
+            self.query_text = format!("SELECT *\nFROM {schema}.{table}\nLIMIT 100;");
             self.active_tab = WorkspaceTab::Query;
+        }
+        if actions.gen_sql_insert {
+            let cols = if let Some(info) = self.table_info.as_ref() {
+                info.columns
+                    .iter()
+                    .map(|c| c.name.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            } else {
+                "column1, column2".to_owned()
+            };
+            let vals = if let Some(info) = self.table_info.as_ref() {
+                info.columns.iter().map(|_| "DEFAULT").collect::<Vec<_>>().join(", ")
+            } else {
+                "'value1', 'value2'".to_owned()
+            };
+            self.query_text = format!("INSERT INTO {schema}.{table} ({cols})\nVALUES ({vals});");
+            self.active_tab = WorkspaceTab::Query;
+        }
+        if actions.gen_sql_update {
+            let set_clause = if let Some(info) = self.table_info.as_ref() {
+                info.columns
+                    .iter()
+                    .filter(|c| !c.is_primary_key)
+                    .map(|c| format!("    {} = DEFAULT", c.name))
+                    .collect::<Vec<_>>()
+                    .join(",\n")
+            } else {
+                "    column1 = 'value1'".to_owned()
+            };
+            let pk_clause = if let Some(pk_cols) = self.table_info.as_ref().and_then(|i| i.primary_key.as_ref()) {
+                pk_cols
+                    .iter()
+                    .map(|name| format!("{name} = 1"))
+                    .collect::<Vec<_>>()
+                    .join(" AND ")
+            } else {
+                "id = 1".to_owned()
+            };
+            self.query_text = format!("UPDATE {schema}.{table}\nSET\n{set_clause}\nWHERE {pk_clause};");
+            self.active_tab = WorkspaceTab::Query;
+        }
+        if actions.gen_sql_delete {
+            let pk_clause = if let Some(pk_cols) = self.table_info.as_ref().and_then(|i| i.primary_key.as_ref()) {
+                pk_cols
+                    .iter()
+                    .map(|name| format!("{name} = 1"))
+                    .collect::<Vec<_>>()
+                    .join(" AND ")
+            } else {
+                "id = 1".to_owned()
+            };
+            self.query_text = format!("DELETE FROM {schema}.{table}\nWHERE {pk_clause};");
+            self.active_tab = WorkspaceTab::Query;
+        }
+        if actions.copy_qualified_name {
+            let qname = format!("{schema}.{table}");
+            ui.output_mut(|o| o.copied_text = qname.clone());
+            self.runtime_message = format!("Copied `{qname}` to clipboard");
+        }
+        if actions.copy_name {
+            ui.output_mut(|o| o.copied_text = table.to_owned());
+            self.runtime_message = format!("Copied `{table}` to clipboard");
         }
         if actions.ask_agent {
             self.open_agent_prompt(
-                format!("Explain the `{table}` table and suggest useful read-only queries"),
+                format!("Explain the `{schema}.{table}` table structure and suggest useful queries"),
                 ui.ctx(),
             );
         }
@@ -106,13 +317,16 @@ impl DbProApp {
     }
 
     /// Selects a table and resets the table workspace to a clean slate.
-    fn select_table(&mut self, table: &str) {
+    pub(crate) fn select_table(&mut self, table: &str) {
         self.selected_table = Some(table.to_owned());
         self.selected_schema_object = None;
         self.schema_object_view = SchemaObjectView::Definition;
         self.reset_table_workspace_state();
-        self.query_text = format!("SELECT *\nFROM {table}\nLIMIT 100;");
+        self.table_view = TableView::Data;
+        let schema = self.active_schema();
+        self.query_text = format!("SELECT *\nFROM {schema}.{table}\nLIMIT 100;");
         self.request_table_info();
+        self.request_table_data();
         self.active_tab = WorkspaceTab::Table;
     }
 
@@ -144,7 +358,7 @@ impl DbProApp {
         self.data_editing_cell = None;
         self.data_edit_value.clear();
         self.data_delete_confirmation = false;
-        self.table_view = TableView::Structure;
+        self.table_view = TableView::Data;
     }
 
     /// Nested detail folders shown under a selected, expanded table.
@@ -178,6 +392,7 @@ impl DbProApp {
                         .any(|fk| fk.from_columns.contains(&column.name));
                     let (icon, icon_color) =
                         column_icon_and_color(&column.data_type, column.is_primary_key, is_fk, &theme);
+                    let short_type = shorten_data_type(&column.data_type);
                     draw_codex_tree_row(
                         ui,
                         &theme,
@@ -194,7 +409,7 @@ impl DbProApp {
                             badge_text: None,
                             badge_accent: false,
                             count_text: None,
-                            detail_text: Some(&column.data_type),
+                            detail_text: Some(&short_type),
                         },
                     );
                 }

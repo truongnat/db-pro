@@ -1510,6 +1510,7 @@ dependencies = [
 name = "db-pro-native"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "db-pro-core",
  "db-pro-runtime",
  "db-pro-ui",
@@ -1519,6 +1520,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
+ "uuid",
 ]
 
 [[package]]
@@ -1561,14 +1563,17 @@ name = "db-pro-ui"
 version = "0.1.0"
 dependencies = [
  "bigdecimal",
+ "chrono",
  "criterion",
  "db-pro-core",
  "eframe",
  "egui",
  "lucide-icons",
+ "rand 0.8.7",
  "serde",
  "serde_json",
  "sqlparser",
+ "uuid",
 ]
 
 [[package]]

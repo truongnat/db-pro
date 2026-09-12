@@ -52,8 +52,8 @@ pub use legacy::*;
 pub use logs::{LogEntry, LogLevel, LogViewer};
 pub use nav::{Breadcrumb, BreadcrumbItem, PageHeader, Pagination, SectionHeader};
 pub use overlay::{
-    DropdownItem, DropdownMenu, Popover, Toast, ToastItem, ToastManager, ToastPosition, ToastResponse, ToastVariant,
-    Tooltip, TooltipPosition,
+    context_action_menu, ctx_menu_item, is_context_menu_triggered, DropdownItem, DropdownMenu, Popover, Toast,
+    ToastItem, ToastManager, ToastPosition, ToastResponse, ToastVariant, Tooltip, TooltipPosition,
 };
 pub use select::{dropdown_should_open_above, Select};
 pub use selection::{Checkbox, Radio, Slider, Switch};

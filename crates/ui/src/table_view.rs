@@ -145,7 +145,6 @@ impl DbProApp {
             self.request_table_ddl();
         }
         if self.table_view == TableView::Data
-            && self.table_info.is_some()
             && self.table_data_result.is_none()
             && self.table_data_request.is_none()
             && self.table_data_error.is_none()
@@ -153,48 +152,126 @@ impl DbProApp {
             self.request_table_data();
         }
 
+        let schema = self.active_schema().to_owned();
+        let connection_name = self
+            .active_connection()
+            .map(|c| c.name.clone())
+            .unwrap_or_else(|| "Connected".to_owned());
+
+        // Top workspace header
+        toolbar_frame(self.theme).show(ui, |ui| {
+            ui.horizontal(|ui| {
+                // Breadcrumb
+                ui.label(
+                    RichText::new(char::from(Icon::Table2).to_string())
+                        .font(egui::FontId::new(14.0, egui::FontFamily::Name("lucide".into())))
+                        .color(self.theme.accent),
+                );
+                ui.label(
+                    RichText::new(connection_name)
+                        .font(font_caption())
+                        .color(self.theme.text_muted),
+                );
+                ui.label(RichText::new("›").font(font_caption()).color(self.theme.text_muted));
+                ui.label(
+                    RichText::new(&schema)
+                        .font(font_caption())
+                        .color(self.theme.text_secondary),
+                );
+                ui.label(RichText::new("›").font(font_caption()).color(self.theme.text_muted));
+                ui.label(
+                    RichText::new(&table_name)
+                        .font(font_subheading())
+                        .strong()
+                        .color(self.theme.text_primary),
+                );
+
+                if let Some(info) = self.table_info.as_ref() {
+                    if let Some(rows) = info.row_count {
+                        badge(
+                            ui,
+                            &format!("{rows} rows"),
+                            self.theme.surface_active,
+                            self.theme.text_secondary,
+                        );
+                    }
+                }
+
+                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                    if compact_button_with_icon(ui, Icon::Bot, "Ask Agent", self.theme)
+                        .on_hover_text("Open AI Assistant with table context")
+                        .clicked()
+                    {
+                        self.open_agent_prompt(
+                            format!("Explain the `{schema}.{table_name}` table and suggest queries"),
+                            ui.ctx(),
+                        );
+                    }
+                    if compact_button_with_icon(ui, Icon::FileCode2, "New Query", self.theme)
+                        .on_hover_text("Open SQL Editor for this table")
+                        .clicked()
+                    {
+                        self.query_text = format!("SELECT *\nFROM {schema}.{table_name}\nLIMIT 100;");
+                        self.active_tab = WorkspaceTab::Query;
+                    }
+                    if compact_button_with_icon(ui, Icon::RotateCcw, "Refresh", self.theme)
+                        .on_hover_text("Reload table metadata and rows")
+                        .clicked()
+                    {
+                        self.request_table_info();
+                        if self.table_view == TableView::Data {
+                            self.reset_table_data_page();
+                            self.request_table_data();
+                        } else if self.table_view == TableView::Ddl {
+                            self.table_ddl = None;
+                            self.request_table_ddl();
+                        }
+                    }
+                });
+            });
+        });
+
+        ui.add_space(6.0);
+
+        // Navigation tab bar
         toolbar_frame(self.theme).show(ui, |ui| {
             egui::ScrollArea::horizontal()
                 .id_salt("table-workspace-tabs")
                 .auto_shrink([false, true])
                 .show(ui, |ui| {
-                    ui.set_min_width((ui.available_width() - 24.0).max(0.0));
                     ui.horizontal(|ui| {
-                        ui.label(icon_text(Icon::Table2, "", self.theme.text_primary));
-                        ui.label(icon_text(Icon::ChevronRight, "", self.theme.text_muted));
-                        ui.label(
-                            RichText::new(format!("{}.{table_name}", self.active_schema()))
-                                .strong()
-                                .color(self.theme.accent),
-                        );
-                        ui.separator();
                         for (view, icon, label) in [
-                            (TableView::Structure, Icon::Columns3, "Structure"),
                             (TableView::Data, Icon::Table2, "Data"),
+                            (TableView::Structure, Icon::Columns3, "Structure"),
                             (TableView::Indexes, Icon::List, "Indexes"),
-                            (TableView::Relations, Icon::ArrowRightLeft, "FKs"),
-                            (TableView::Constraints, Icon::ShieldCheck, "Rules"),
-                            (TableView::Dependencies, Icon::GitBranch, "Deps"),
+                            (TableView::Relations, Icon::ArrowRightLeft, "Foreign Keys"),
+                            (TableView::Constraints, Icon::ShieldCheck, "Constraints"),
+                            (TableView::Dependencies, Icon::GitBranch, "Dependencies"),
                             (TableView::Ddl, Icon::Code2, "DDL"),
                         ] {
                             let selected = self.table_view == view;
                             let tab = tab_frame(self.theme, selected).show(ui, |ui| {
-                                ui.selectable_label(selected, icon_text(icon, label, self.theme.text_primary))
+                                ui.selectable_label(
+                                    selected,
+                                    icon_text(
+                                        icon,
+                                        label,
+                                        if selected {
+                                            self.theme.accent
+                                        } else {
+                                            self.theme.text_secondary
+                                        },
+                                    ),
+                                )
                             });
                             if tab.inner.clicked() {
                                 self.table_view = view;
                             }
                         }
-                        if compact_icon_button(ui, Icon::FileCode2, self.theme)
-                            .on_hover_text("Open in Query")
-                            .clicked()
-                        {
-                            self.active_tab = WorkspaceTab::Query;
-                        }
                     });
                 });
         });
-        ui.add_space(12.0);
+        ui.add_space(8.0);
 
         match self.table_view {
             TableView::Structure => self.draw_table_structure(ui),
@@ -253,25 +330,59 @@ impl DbProApp {
     fn draw_index_metadata_list(&self, ui: &mut egui::Ui, info: &UiTableInfo, icon: Icon, empty: &str) {
         if info.indexes.is_empty() {
             empty_state(ui, icon, empty, "This table has no index metadata yet.", self.theme);
+            return;
         }
-        for index in &info.indexes {
-            ui.horizontal_wrapped(|ui| {
-                ui.label(icon_text(
-                    if index.unique { Icon::BadgeCheck } else { icon },
-                    "",
-                    self.theme.accent,
-                ));
-                ui.label(RichText::new(&index.name).strong());
-                ui.label(
-                    RichText::new(index.columns.join(", "))
-                        .small()
-                        .color(self.theme.text_secondary),
-                );
-                if index.unique {
-                    badge(ui, "UNIQUE", self.theme.accent_soft, self.theme.accent);
-                }
-            });
-        }
+        let cols = [
+            crate::components::table::TableColumn::new("Index Name").width(240.0),
+            crate::components::table::TableColumn::new("Columns"),
+            crate::components::table::TableColumn::fixed("Type", 120.0),
+        ];
+        crate::components::table::Table::new(&cols, self.theme)
+            .row_height(34.0)
+            .show(
+                ui,
+                info.indexes.len(),
+                |_| false,
+                |_| {},
+                |_| {},
+                |_| {},
+                |ui, row_idx, col_idx| {
+                    let index = &info.indexes[row_idx];
+                    match col_idx {
+                        0 => {
+                            ui.horizontal(|ui| {
+                                ui.label(icon_text(
+                                    if index.unique { Icon::BadgeCheck } else { Icon::List },
+                                    "",
+                                    self.theme.accent,
+                                ));
+                                ui.label(RichText::new(&index.name).strong().color(self.theme.text_primary));
+                            });
+                        }
+                        1 => {
+                            ui.label(
+                                RichText::new(index.columns.join(", "))
+                                    .monospace()
+                                    .color(self.theme.text_secondary),
+                            );
+                        }
+                        2 => {
+                            if index.unique {
+                                crate::components::badge::Badge::new("UNIQUE", self.theme)
+                                    .variant(crate::components::badge::BadgeVariant::Default)
+                                    .compact(true)
+                                    .show(ui);
+                            } else {
+                                crate::components::badge::Badge::new("INDEX", self.theme)
+                                    .variant(crate::components::badge::BadgeVariant::Secondary)
+                                    .compact(true)
+                                    .show(ui);
+                            }
+                        }
+                        _ => {}
+                    }
+                },
+            );
     }
 
     fn draw_relation_metadata_list(&self, ui: &mut egui::Ui, info: &UiTableInfo, icon: Icon, empty: &str) {
@@ -283,50 +394,75 @@ impl DbProApp {
                 "Relationships will appear here when they are defined.",
                 self.theme,
             );
+            return;
         }
-        for relation in &info.foreign_keys {
-            ui.horizontal_wrapped(|ui| {
-                ui.label(icon_text(icon, "", self.theme.accent));
-                ui.label(RichText::new(&relation.name).strong());
-                ui.label(
-                    RichText::new(format!(
-                        "{} → {}.{} ({})",
-                        relation.from_columns.join(", "),
-                        relation.to_schema,
-                        relation.to_table,
-                        relation.to_columns.join(", "),
-                    ))
-                    .small()
-                    .color(self.theme.text_secondary),
-                );
-            });
-        }
+        let cols = [
+            crate::components::table::TableColumn::new("Constraint Name").width(220.0),
+            crate::components::table::TableColumn::new("From Columns").width(180.0),
+            crate::components::table::TableColumn::new("Target Table").width(200.0),
+            crate::components::table::TableColumn::new("Target Columns"),
+        ];
+        crate::components::table::Table::new(&cols, self.theme)
+            .row_height(34.0)
+            .show(
+                ui,
+                info.foreign_keys.len(),
+                |_| false,
+                |_| {},
+                |_| {},
+                |_| {},
+                |ui, row_idx, col_idx| {
+                    let relation = &info.foreign_keys[row_idx];
+                    match col_idx {
+                        0 => {
+                            ui.horizontal(|ui| {
+                                ui.label(icon_text(Icon::ArrowRightLeft, "", self.theme.accent));
+                                ui.label(RichText::new(&relation.name).strong().color(self.theme.text_primary));
+                            });
+                        }
+                        1 => {
+                            ui.label(
+                                RichText::new(relation.from_columns.join(", "))
+                                    .monospace()
+                                    .color(self.theme.text_secondary),
+                            );
+                        }
+                        2 => {
+                            ui.label(
+                                RichText::new(format!("{}.{}", relation.to_schema, relation.to_table))
+                                    .strong()
+                                    .color(self.theme.text_primary),
+                            );
+                        }
+                        3 => {
+                            ui.label(
+                                RichText::new(relation.to_columns.join(", "))
+                                    .monospace()
+                                    .color(self.theme.text_secondary),
+                            );
+                        }
+                        _ => {}
+                    }
+                },
+            );
     }
 
     fn draw_constraint_metadata_list(&self, ui: &mut egui::Ui, info: &UiTableInfo, icon: Icon, empty: &str) {
-        let mut has_constraints = false;
+        let mut rules: Vec<(&'static str, String, Icon, Color32)> = Vec::new();
         if let Some(primary_key) = &info.primary_key {
-            has_constraints = true;
-            ui.horizontal_wrapped(|ui| {
-                ui.label(icon_text(Icon::KeyRound, "", self.theme.warning));
-                ui.label(RichText::new("PRIMARY KEY").strong());
-                ui.label(
-                    RichText::new(primary_key.join(", "))
-                        .small()
-                        .color(self.theme.text_secondary),
-                );
-            });
+            rules.push((
+                "PRIMARY KEY",
+                primary_key.join(", "),
+                Icon::KeyRound,
+                self.theme.warning,
+            ));
         }
         for column in &info.columns {
             if !column.nullable {
-                has_constraints = true;
-                ui.horizontal_wrapped(|ui| {
-                    ui.label(icon_text(Icon::ShieldCheck, "", self.theme.success));
-                    ui.label(RichText::new(format!("NOT NULL · {}", column.name)));
-                });
+                rules.push(("NOT NULL", column.name.clone(), Icon::ShieldCheck, self.theme.success));
             }
         }
-        if !has_constraints {
+        if rules.is_empty() {
             empty_state(
                 ui,
                 icon,
@@ -334,20 +470,51 @@ impl DbProApp {
                 "No primary-key or NOT NULL rules were found.",
                 self.theme,
             );
+            return;
         }
+
+        let cols = [
+            crate::components::table::TableColumn::fixed("Constraint Type", 160.0),
+            crate::components::table::TableColumn::new("Target Columns / Expression"),
+        ];
+        crate::components::table::Table::new(&cols, self.theme)
+            .row_height(34.0)
+            .show(
+                ui,
+                rules.len(),
+                |_| false,
+                |_| {},
+                |_| {},
+                |_| {},
+                |ui, row_idx, col_idx| {
+                    let rule = &rules[row_idx];
+                    match col_idx {
+                        0 => {
+                            ui.horizontal(|ui| {
+                                ui.label(icon_text(rule.2, "", rule.3));
+                                ui.label(RichText::new(rule.0).strong().color(self.theme.text_primary));
+                            });
+                        }
+                        1 => {
+                            ui.label(RichText::new(&rule.1).monospace().color(self.theme.text_secondary));
+                        }
+                        _ => {}
+                    }
+                },
+            );
     }
 
-    fn draw_table_structure(&self, ui: &mut egui::Ui) {
-        let Some(info) = self.table_info.as_ref() else {
+    fn draw_table_structure(&mut self, ui: &mut egui::Ui) {
+        let Some(info) = self.table_info.clone() else {
             self.draw_table_structure_placeholder(ui);
             return;
         };
 
-        self.draw_table_structure_summary(ui, info);
-        ui.add_space(10.0);
-        self.draw_table_structure_columns(ui, info);
-        ui.add_space(10.0);
-        self.draw_table_structure_relations(ui, info);
+        self.draw_table_structure_summary(ui, &info);
+        ui.add_space(8.0);
+        self.draw_table_structure_columns(ui, &info);
+        ui.add_space(8.0);
+        self.draw_table_structure_relations(ui, &info);
     }
 
     /// Loading / failure placeholder shown while the column metadata is in flight.
@@ -389,151 +556,276 @@ impl DbProApp {
         });
     }
 
-    /// Count badges summarising the table above the column grid.
+    /// Count badges and metric chips summarising the table above the column grid.
     fn draw_table_structure_summary(&self, ui: &mut egui::Ui, info: &UiTableInfo) {
         toolbar_frame(self.theme).show(ui, |ui| {
             ui.horizontal_wrapped(|ui| {
-                badge(
-                    ui,
-                    &format!("{} columns", info.columns.len()),
-                    self.theme.accent_soft,
-                    self.theme.accent,
-                );
-                badge(
-                    ui,
-                    &format!("{} indexes", info.indexes.len()),
-                    self.theme.surface_active,
-                    self.theme.text_secondary,
-                );
-                badge(
-                    ui,
-                    &format!("{} foreign keys", info.foreign_keys.len()),
-                    self.theme.surface_active,
-                    self.theme.text_secondary,
-                );
+                section_label(ui, "METRICS", self.theme);
+                crate::components::badge::Badge::new(&format!("{} columns", info.columns.len()), self.theme)
+                    .variant(crate::components::badge::BadgeVariant::Default)
+                    .show(ui);
+                if let Some(pk) = &info.primary_key {
+                    crate::components::badge::Badge::new(&format!("PK: {}", pk.join(", ")), self.theme)
+                        .variant(crate::components::badge::BadgeVariant::Warning)
+                        .show(ui);
+                }
+                crate::components::badge::Badge::new(&format!("{} indexes", info.indexes.len()), self.theme)
+                    .variant(crate::components::badge::BadgeVariant::Secondary)
+                    .show(ui);
+                crate::components::badge::Badge::new(&format!("{} foreign keys", info.foreign_keys.len()), self.theme)
+                    .variant(crate::components::badge::BadgeVariant::Secondary)
+                    .show(ui);
                 if let Some(row_count) = info.row_count {
-                    badge(
-                        ui,
-                        &format!("{row_count} rows"),
-                        self.theme.surface_active,
-                        self.theme.text_secondary,
-                    );
+                    crate::components::badge::Badge::new(&format!("{row_count} rows"), self.theme)
+                        .variant(crate::components::badge::BadgeVariant::Secondary)
+                        .show(ui);
                 }
             });
         });
     }
 
-    /// Column list grid for the Structure tab.
-    fn draw_table_structure_columns(&self, ui: &mut egui::Ui, info: &UiTableInfo) {
+    /// Column list using the common Table component with search filter.
+    fn draw_table_structure_columns(&mut self, ui: &mut egui::Ui, info: &UiTableInfo) {
         card_frame(self.theme).show(ui, |ui| {
             ui.set_min_width(ui.available_width());
-            section_label(ui, "COLUMNS", self.theme);
-            ui.add_space(8.0);
-            egui::ScrollArea::vertical().max_height(300.0).show(ui, |ui| {
-                egui::Grid::new("table-structure-columns")
-                    .num_columns(5)
-                    .spacing([18.0, 8.0])
-                    .striped(true)
-                    .show(ui, |ui| {
-                        for header in ["Column", "Type", "Nullable", "Key", "Default"] {
-                            ui.label(RichText::new(header).small().strong().color(self.theme.text_secondary));
-                        }
-                        ui.end_row();
-                        for column in &info.columns {
-                            let (icon, color) = if column.is_primary_key {
-                                (Icon::Key, self.theme.warning)
-                            } else {
-                                (Icon::Columns3, self.theme.text_muted)
-                            };
-                            ui.horizontal(|ui| {
-                                ui.label(
-                                    RichText::new(char::from(icon).to_string())
-                                        .font(egui::FontId::new(12.0, egui::FontFamily::Name("lucide".into())))
-                                        .color(color),
-                                );
-                                ui.label(
-                                    RichText::new(&column.name)
-                                        .font(font_ui_label())
-                                        .color(self.theme.text_primary),
-                                );
-                            });
-                            ui.label(
-                                RichText::new(&column.data_type)
-                                    .monospace()
-                                    .color(self.theme.text_secondary),
-                            );
-                            ui.label(
-                                RichText::new(if column.nullable { "YES" } else { "NO" })
-                                    .font(font_caption())
-                                    .color(if column.nullable {
-                                        self.theme.text_muted
-                                    } else {
-                                        self.theme.text_secondary
-                                    }),
-                            );
-                            if column.is_primary_key {
-                                badge(ui, "PK", self.theme.accent_soft, self.theme.warning);
-                            } else {
-                                ui.label(RichText::new("—").font(font_caption()).color(self.theme.text_muted));
-                            }
-                            ui.label(
-                                RichText::new(column.default.as_deref().unwrap_or("—"))
-                                    .font(font_caption())
-                                    .color(self.theme.text_secondary),
-                            );
-                            ui.end_row();
-                        }
-                    });
+            ui.horizontal(|ui| {
+                section_label(ui, "COLUMNS", self.theme);
+                ui.add_space(8.0);
+                input(
+                    ui,
+                    &mut self.table_structure_search,
+                    "Filter columns…",
+                    220.0,
+                    self.theme,
+                );
+                if !self.table_structure_search.is_empty()
+                    && compact_icon_button(ui, Icon::X, self.theme)
+                        .on_hover_text("Clear filter")
+                        .clicked()
+                {
+                    self.table_structure_search.clear();
+                }
             });
+            ui.add_space(8.0);
+
+            let filter_lower = self.table_structure_search.trim().to_lowercase();
+            let matching_columns: Vec<_> = info
+                .columns
+                .iter()
+                .filter(|c| {
+                    if filter_lower.is_empty() {
+                        true
+                    } else {
+                        c.name.to_lowercase().contains(&filter_lower)
+                            || c.data_type.to_lowercase().contains(&filter_lower)
+                    }
+                })
+                .collect();
+
+            if matching_columns.is_empty() {
+                empty_state(
+                    ui,
+                    Icon::Columns3,
+                    "No columns match filter",
+                    "Try typing a different column name or type.",
+                    self.theme,
+                );
+            } else {
+                let columns = [
+                    crate::components::table::TableColumn::new("Column Name").width(220.0),
+                    crate::components::table::TableColumn::new("Data Type").width(180.0),
+                    crate::components::table::TableColumn::fixed("Nullable", 110.0),
+                    crate::components::table::TableColumn::fixed("Key", 90.0),
+                    crate::components::table::TableColumn::new("Default Expression"),
+                ];
+
+                crate::components::table::Table::new(&columns, self.theme)
+                    .row_height(36.0)
+                    .show(
+                        ui,
+                        matching_columns.len(),
+                        |_| false,
+                        |_| {},
+                        |_| {},
+                        |_| {},
+                        |ui, row_idx, col_idx| {
+                            let column = matching_columns[row_idx];
+                            let is_fk = info
+                                .foreign_keys
+                                .iter()
+                                .any(|fk| fk.from_columns.contains(&column.name));
+                            match col_idx {
+                                0 => {
+                                    let (icon, color) = if column.is_primary_key {
+                                        (Icon::Key, self.theme.warning)
+                                    } else if is_fk {
+                                        (Icon::ArrowRightLeft, self.theme.accent)
+                                    } else {
+                                        (Icon::Columns3, self.theme.text_muted)
+                                    };
+                                    ui.horizontal(|ui| {
+                                        ui.label(
+                                            RichText::new(char::from(icon).to_string())
+                                                .font(egui::FontId::new(12.0, egui::FontFamily::Name("lucide".into())))
+                                                .color(color),
+                                        );
+                                        ui.add_space(4.0);
+                                        ui.label(
+                                            RichText::new(&column.name)
+                                                .font(font_ui_label())
+                                                .strong()
+                                                .color(self.theme.text_primary),
+                                        );
+                                    });
+                                }
+                                1 => {
+                                    ui.label(
+                                        RichText::new(&column.data_type)
+                                            .monospace()
+                                            .color(self.theme.text_secondary),
+                                    );
+                                }
+                                2 => {
+                                    if column.nullable {
+                                        crate::components::badge::Badge::new("NULL", self.theme)
+                                            .variant(crate::components::badge::BadgeVariant::Secondary)
+                                            .compact(true)
+                                            .show(ui);
+                                    } else {
+                                        crate::components::badge::Badge::new("NOT NULL", self.theme)
+                                            .variant(crate::components::badge::BadgeVariant::Outline)
+                                            .compact(true)
+                                            .show(ui);
+                                    }
+                                }
+                                3 => {
+                                    if column.is_primary_key {
+                                        crate::components::badge::Badge::new("PK", self.theme)
+                                            .variant(crate::components::badge::BadgeVariant::Warning)
+                                            .compact(true)
+                                            .show(ui);
+                                    } else if is_fk {
+                                        crate::components::badge::Badge::new("FK", self.theme)
+                                            .variant(crate::components::badge::BadgeVariant::Default)
+                                            .compact(true)
+                                            .show(ui);
+                                    } else {
+                                        ui.label(RichText::new("—").font(font_caption()).color(self.theme.text_muted));
+                                    }
+                                }
+                                4 => {
+                                    ui.label(
+                                        RichText::new(column.default.as_deref().unwrap_or("—"))
+                                            .font(font_caption())
+                                            .color(self.theme.text_secondary),
+                                    );
+                                }
+                                _ => {}
+                            }
+                        },
+                    );
+            }
         });
     }
 
-    /// Side-by-side index and foreign-key cards for the Structure tab.
+    /// Side-by-side index and foreign-key cards using common Table components.
     fn draw_table_structure_relations(&self, ui: &mut egui::Ui, info: &UiTableInfo) {
         ui.columns(2, |columns| {
             card_frame(self.theme).show(&mut columns[0], |ui| {
                 section_label(ui, "INDEXES", self.theme);
                 ui.add_space(6.0);
                 if info.indexes.is_empty() {
-                    ui.label(RichText::new("No indexes").small().color(self.theme.text_muted));
-                }
-                for index in &info.indexes {
-                    ui.horizontal_wrapped(|ui| {
-                        ui.label(icon_text(
-                            if index.unique { Icon::BadgeCheck } else { Icon::List },
-                            "",
-                            self.theme.accent,
-                        ));
-                        ui.label(RichText::new(&index.name).color(self.theme.text_primary));
-                        ui.label(
-                            RichText::new(index.columns.join(", "))
-                                .small()
-                                .color(self.theme.text_secondary),
+                    ui.label(RichText::new("No indexes defined").small().color(self.theme.text_muted));
+                } else {
+                    let cols = [
+                        crate::components::table::TableColumn::new("Name").width(140.0),
+                        crate::components::table::TableColumn::new("Columns"),
+                    ];
+                    crate::components::table::Table::new(&cols, self.theme)
+                        .row_height(32.0)
+                        .show(
+                            ui,
+                            info.indexes.len(),
+                            |_| false,
+                            |_| {},
+                            |_| {},
+                            |_| {},
+                            |ui, row_idx, col_idx| {
+                                let index = &info.indexes[row_idx];
+                                match col_idx {
+                                    0 => {
+                                        ui.horizontal(|ui| {
+                                            ui.label(icon_text(
+                                                if index.unique { Icon::BadgeCheck } else { Icon::List },
+                                                "",
+                                                self.theme.accent,
+                                            ));
+                                            ui.label(
+                                                RichText::new(&index.name).strong().color(self.theme.text_primary),
+                                            );
+                                        });
+                                    }
+                                    1 => {
+                                        ui.label(
+                                            RichText::new(index.columns.join(", "))
+                                                .small()
+                                                .color(self.theme.text_secondary),
+                                        );
+                                    }
+                                    _ => {}
+                                }
+                            },
                         );
-                    });
                 }
             });
             card_frame(self.theme).show(&mut columns[1], |ui| {
                 section_label(ui, "FOREIGN KEYS", self.theme);
                 ui.add_space(6.0);
                 if info.foreign_keys.is_empty() {
-                    ui.label(RichText::new("No foreign keys").small().color(self.theme.text_muted));
-                }
-                for foreign_key in &info.foreign_keys {
-                    ui.horizontal_wrapped(|ui| {
-                        ui.label(icon_text(Icon::ArrowRightLeft, "", self.theme.accent));
-                        ui.label(RichText::new(&foreign_key.name).color(self.theme.text_primary));
-                        ui.label(
-                            RichText::new(format!(
-                                "{} → {}.{}",
-                                foreign_key.from_columns.join(", "),
-                                foreign_key.to_schema,
-                                foreign_key.to_table,
-                            ))
+                    ui.label(
+                        RichText::new("No foreign keys defined")
                             .small()
-                            .color(self.theme.text_secondary),
+                            .color(self.theme.text_muted),
+                    );
+                } else {
+                    let cols = [
+                        crate::components::table::TableColumn::new("Name").width(140.0),
+                        crate::components::table::TableColumn::new("Target"),
+                    ];
+                    crate::components::table::Table::new(&cols, self.theme)
+                        .row_height(32.0)
+                        .show(
+                            ui,
+                            info.foreign_keys.len(),
+                            |_| false,
+                            |_| {},
+                            |_| {},
+                            |_| {},
+                            |ui, row_idx, col_idx| {
+                                let fk = &info.foreign_keys[row_idx];
+                                match col_idx {
+                                    0 => {
+                                        ui.horizontal(|ui| {
+                                            ui.label(icon_text(Icon::ArrowRightLeft, "", self.theme.accent));
+                                            ui.label(RichText::new(&fk.name).strong().color(self.theme.text_primary));
+                                        });
+                                    }
+                                    1 => {
+                                        ui.label(
+                                            RichText::new(format!(
+                                                "{} → {}.{}",
+                                                fk.from_columns.join(", "),
+                                                fk.to_schema,
+                                                fk.to_table,
+                                            ))
+                                            .small()
+                                            .color(self.theme.text_secondary),
+                                        );
+                                    }
+                                    _ => {}
+                                }
+                            },
                         );
-                    });
                 }
             });
         });

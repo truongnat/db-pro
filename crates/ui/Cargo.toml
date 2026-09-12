@@ -12,6 +12,9 @@ serde_json.workspace = true
 sqlparser = "0.52"
 lucide-icons.workspace = true
 bigdecimal.workspace = true
+uuid.workspace = true
+chrono.workspace = true
+rand.workspace = true
 
 [dev-dependencies]
 criterion.workspace = true

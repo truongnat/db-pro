@@ -2,11 +2,11 @@ use crate::components::*;
 use crate::tokens::*;
 use crate::{
     activity_bar_frame, agent_message_frame, badge, card_frame, compact_button, compact_button_with_icon,
-    compact_icon_button, compact_icon_button_enabled, danger_button, editor_frame, empty_state, ghost_button,
-    ghost_button_with_icon, grid_frame, icon_button, icon_text, input, input_full_width, menu_button_with_icon,
-    panel_frame, primary_button_with_icon, secondary_button_with_icon, section_label, sidebar_frame, sidebar_item,
-    tab_frame, toolbar_frame, AgentContext, AgentMessage, AgentProvider, AgentRole, DbProTheme, OfflineAgentProvider,
-    TaskBridge, UiCell, UiCommand, UiConnectionDraft, UiConnectionSummary, UiDriver, UiEvent, UiFunctionSummary,
+    compact_icon_button, compact_icon_button_enabled, danger_button, editor_frame, empty_state, ghost_button_with_icon,
+    grid_frame, icon_button, icon_text, input, input_full_width, menu_button_with_icon, panel_frame,
+    primary_button_with_icon, secondary_button_with_icon, section_label, sidebar_frame, sidebar_item, tab_frame,
+    toolbar_frame, AgentContext, AgentMessage, AgentProvider, AgentRole, DbProTheme, OfflineAgentProvider, TaskBridge,
+    UiCell, UiCommand, UiConnectionDraft, UiConnectionSummary, UiDriver, UiEvent, UiFunctionSummary,
     UiQueryFolderSummary, UiQueryResult, UiSavedQuerySummary, UiSchemaForeignKey, UiSchemaSummary, UiSslMode,
     UiTableDataFilter, UiTableDataSort, UiTableInfo, UiTableSummary, UiTriggerSummary, UiViewSummary,
 };
@@ -316,6 +316,7 @@ pub struct DbProApp {
     task_bridge: TaskBridge,
     next_query_request: Option<crate::RequestId>,
     runtime_message: String,
+    toasts: crate::components::overlay::ToastManager,
     query_result: Option<UiQueryResult>,
     output_tab: OutputTab,
     query_messages: Vec<String>,
@@ -326,7 +327,6 @@ pub struct DbProApp {
     grid_sort_desc: bool,
     grid_column_widths: Vec<f32>,
     grid_columns_user_resized: bool,
-    grid_resize_start: Option<(usize, f32)>,
     selected_cell: Option<(usize, usize)>,
     selected_row: Option<usize>,
     data_editing_cell: Option<(usize, usize)>,
@@ -370,6 +370,7 @@ pub struct DbProApp {
     table_data_sort_column: Option<String>,
     table_data_sort_desc: bool,
     table_data_error: Option<String>,
+    table_structure_search: String,
     table_info_request: Option<crate::RequestId>,
     table_ddl_request: Option<crate::RequestId>,
     table_data_request: Option<crate::RequestId>,
@@ -502,10 +503,31 @@ impl eframe::App for DbProApp {
         if self.palette_mode.is_some() {
             self.draw_palette(ctx);
         }
+
+        self.toasts.render_ctx(ctx, self.theme);
+        if !self.toasts.is_empty() {
+            ctx.request_repaint_after(Duration::from_millis(50));
+        }
     }
 }
 
 impl DbProApp {
+    pub(crate) fn show_toast_error(&mut self, message: impl Into<String>) {
+        self.toasts
+            .error(message, crate::components::overlay::ToastPosition::BottomRight);
+    }
+
+    pub(crate) fn show_toast_success(&mut self, message: impl Into<String>) {
+        self.toasts
+            .success(message, crate::components::overlay::ToastPosition::BottomRight);
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn show_toast_info(&mut self, message: impl Into<String>) {
+        self.toasts
+            .info(message, crate::components::overlay::ToastPosition::BottomRight);
+    }
+
     pub(super) fn primary_modifier_pressed(input: &egui::InputState) -> bool {
         input.modifiers.command || input.modifiers.ctrl || input.modifiers.mac_cmd
     }

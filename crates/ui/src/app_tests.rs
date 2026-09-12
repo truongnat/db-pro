@@ -222,11 +222,11 @@ fn insert_value_respects_column_types() {
     );
     assert_eq!(
         DbProApp::parse_insert_value("12.50", "NUMERIC(10,2)").unwrap(),
-        Some(crate::UiCell::Text("12.50".to_owned()))
+        Some(crate::UiCell::Number("12.50".to_owned()))
     );
     assert_eq!(
         DbProApp::parse_insert_value("1.20e1", "DECIMAL(10,2)").unwrap(),
-        Some(crate::UiCell::Text("1.20e1".to_owned()))
+        Some(crate::UiCell::Number("1.20e1".to_owned()))
     );
 }
 

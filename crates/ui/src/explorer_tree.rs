@@ -12,13 +12,48 @@ use lucide_icons::Icon;
 /// Row height in pixels. Also the height of the chevron hit-box.
 const CODEX_ROW_HEIGHT: f32 = 26.0;
 /// Horizontal indent added per tree depth level.
-const CODEX_ROW_INDENT: f32 = 14.0;
+const CODEX_ROW_INDENT: f32 = 10.0;
 /// Width of the leading chevron slot.
 const CODEX_CHEVRON_SLOT: f32 = 14.0;
 /// Horizontal padding applied at both row edges.
-const CODEX_ROW_PADDING: f32 = 6.0;
+const CODEX_ROW_PADDING: f32 = 8.0;
 /// Gap inserted before each trailing item.
 const CODEX_TRAILING_GAP: f32 = 5.0;
+
+/// Shortens verbose database types into clean, compact identifiers (e.g. DBeaver style).
+pub(super) fn shorten_data_type(data_type: &str) -> String {
+    let lower = data_type.to_ascii_lowercase();
+    let trimmed = lower.trim();
+    if trimmed == "timestamp with time zone"
+        || (trimmed.starts_with("timestamp(") && trimmed.contains("with time zone"))
+    {
+        "timestamptz".to_string()
+    } else if trimmed == "timestamp without time zone"
+        || (trimmed.starts_with("timestamp(") && trimmed.contains("without time zone"))
+    {
+        "timestamp".to_string()
+    } else if trimmed == "time with time zone" {
+        "timetz".to_string()
+    } else if trimmed == "time without time zone" {
+        "time".to_string()
+    } else if trimmed.starts_with("character varying") {
+        trimmed.replace("character varying", "varchar")
+    } else if trimmed.starts_with("double precision") {
+        "float8".to_string()
+    } else if trimmed == "integer" {
+        "int4".to_string()
+    } else if trimmed == "bigint" {
+        "int8".to_string()
+    } else if trimmed == "smallint" {
+        "int2".to_string()
+    } else if trimmed == "boolean" {
+        "bool".to_string()
+    } else if data_type.len() > 14 {
+        format!("{}…", &data_type[..13])
+    } else {
+        data_type.to_string()
+    }
+}
 
 /// Properties for rendering an ultra-clean Codex-style tree row.
 pub(super) struct CodexTreeRow<'a> {
@@ -46,27 +81,30 @@ pub(super) fn draw_codex_tree_row(
     theme: &DbProTheme,
     row: CodexTreeRow<'_>,
 ) -> (egui::Response, bool) {
-    let (rect, response) = ui.allocate_exact_size(vec2(ui.available_width(), CODEX_ROW_HEIGHT), egui::Sense::click());
+    let width = ui.available_width();
+    let (rect, response) = ui.allocate_exact_size(vec2(width, CODEX_ROW_HEIGHT), egui::Sense::click());
     let is_hovered = response.hovered();
 
-    paint_row_background(ui.painter(), rect, theme, row.is_selected, is_hovered);
+    let painter = ui.painter().with_clip_rect(rect);
+
+    paint_row_background(&painter, rect, theme, row.is_selected, is_hovered);
 
     let center_y = rect.center().y;
     let mut curr_x = rect.min.x + CODEX_ROW_PADDING + (row.depth as f32) * CODEX_ROW_INDENT;
 
     // 1. Chevron slot
     let chevron_rect = Rect::from_min_size(pos2(curr_x, rect.min.y), vec2(CODEX_CHEVRON_SLOT, CODEX_ROW_HEIGHT));
-    paint_chevron_slot(ui.painter(), chevron_rect, theme, &row, is_hovered);
+    paint_chevron_slot(&painter, chevron_rect, theme, &row, is_hovered);
     curr_x += CODEX_CHEVRON_SLOT;
 
     // 2. Status dot (e.g. connection status)
     if let Some(dot_color) = row.status_dot {
-        ui.painter().circle_filled(pos2(curr_x + 3.0, center_y), 3.0, dot_color);
+        painter.circle_filled(pos2(curr_x + 3.0, center_y), 3.0, dot_color);
         curr_x += 10.0;
     }
 
     // 3. Node icon (Lucide vector icon)
-    ui.painter().text(
+    painter.text(
         pos2(curr_x + 7.0, center_y),
         Align2::CENTER_CENTER,
         char::from(row.icon).to_string(),
@@ -76,8 +114,8 @@ pub(super) fn draw_codex_tree_row(
     curr_x += 17.0;
 
     // 4. Trailing cluster, then the clipped label in whatever gap remains.
-    let right_x = paint_row_trailing_items(ui.painter(), rect, center_y, theme, &row);
-    paint_row_label(ui.painter(), rect, center_y, curr_x, right_x, theme, &row);
+    let right_x = paint_row_trailing_items(&painter, rect, center_y, theme, &row);
+    paint_row_label(&painter, rect, center_y, curr_x, right_x, theme, &row);
 
     let chevron_clicked = response.clicked()
         && ui
@@ -134,7 +172,7 @@ fn paint_chevron_slot(
     );
 }
 
-/// Paints badge, count and detail text from right to left.
+/// Paints badge and count text from right to left.
 /// Returns the left edge of the trailing cluster, used to clip the label.
 fn paint_row_trailing_items(
     painter: &egui::Painter,
@@ -160,18 +198,6 @@ fn paint_row_trailing_items(
             theme.text_muted,
         );
         right_x -= count_rect.width() + CODEX_TRAILING_GAP;
-    }
-
-    // Detail text (e.g. column data type: varchar, int8)
-    if let Some(detail) = row.detail_text {
-        let detail_rect = painter.text(
-            pos2(right_x, center_y),
-            Align2::RIGHT_CENTER,
-            detail,
-            FontId::monospace(10.5),
-            theme.text_muted,
-        );
-        right_x -= detail_rect.width() + CODEX_TRAILING_GAP;
     }
 
     right_x
@@ -206,7 +232,8 @@ fn paint_badge(
     badge_w + CODEX_TRAILING_GAP
 }
 
-/// Paints the row label, clipped so it can never overrun the trailing cluster.
+/// Paints the row label, followed by any inline detail text (e.g. data types),
+/// cleanly clipped so it can never overrun the trailing cluster.
 fn paint_row_label(
     painter: &egui::Painter,
     rect: Rect,
@@ -224,14 +251,28 @@ fn paint_row_label(
         theme.text_primary
     };
 
-    let clip_rect = Rect::from_min_max(pos2(curr_x, rect.min.y), pos2(right_x.max(curr_x + 10.0), rect.max.y));
-    painter.with_clip_rect(clip_rect).text(
-        pos2(curr_x, center_y),
-        Align2::LEFT_CENTER,
-        row.label,
-        FontId::proportional(12.5),
+    let clip_max_x = (right_x - 4.0).max(curr_x);
+    let clip_rect = Rect::from_min_max(pos2(curr_x, rect.min.y), pos2(clip_max_x, rect.max.y));
+    let label_galley = painter.layout_no_wrap(row.label.to_string(), FontId::proportional(12.5), label_color);
+    let label_w = label_galley.size().x;
+    painter.with_clip_rect(clip_rect).galley(
+        pos2(curr_x, center_y - label_galley.size().y * 0.5),
+        label_galley,
         label_color,
     );
+
+    // Detail text (e.g. data type: varchar, int4, timestamptz) painted inline right after label
+    if let Some(detail) = row.detail_text {
+        let detail_x = curr_x + label_w + 6.0;
+        if detail_x < clip_max_x {
+            let detail_galley = painter.layout_no_wrap(detail.to_string(), FontId::monospace(10.5), theme.text_muted);
+            painter.with_clip_rect(clip_rect).galley(
+                pos2(detail_x, center_y - detail_galley.size().y * 0.5),
+                detail_galley,
+                theme.text_muted,
+            );
+        }
+    }
 }
 
 /// A dimmed, non-interactive hint row such as "No views in schema" or
@@ -263,7 +304,7 @@ pub(super) fn draw_hint_row(
             detail_text: None,
         },
     );
-    response
+    response.on_hover_text(label)
 }
 
 /// Header description for a navigator category folder.

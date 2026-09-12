@@ -2,8 +2,8 @@ use crate::components::animation::{fade_alpha, overlay_t, small_translate};
 use crate::components::feedback::kbd_badge;
 use crate::DbProTheme;
 use egui::{
-    Align2, Area, FontFamily, FontId, Frame, Margin, Order, Pos2, Rect, Response, RichText, Rounding, Sense, Stroke,
-    Ui, Vec2,
+    Align2, Area, Color32, FontFamily, FontId, Frame, Margin, Order, Pos2, Rect, Response, RichText, Rounding, Sense,
+    Stroke, Ui, Vec2,
 };
 use lucide_icons::Icon;
 
@@ -91,9 +91,7 @@ impl<'a> Tooltip<'a> {
 
         let motion_offset = (1.0 - progress) * 3.0;
         let effective_position = match self.position {
-            TooltipPosition::Top if target_rect.top() - tooltip_h - 6.0 < screen.top() + 4.0 => {
-                TooltipPosition::Bottom
-            }
+            TooltipPosition::Top if target_rect.top() - tooltip_h - 6.0 < screen.top() + 4.0 => TooltipPosition::Bottom,
             TooltipPosition::Bottom if target_rect.bottom() + tooltip_h + 6.0 > screen.bottom() - 4.0 => {
                 TooltipPosition::Top
             }
@@ -124,8 +122,14 @@ impl<'a> Tooltip<'a> {
             ),
         };
 
-        let x = raw_x.clamp(screen.left() + 4.0, (screen.right() - tooltip_w - 4.0).max(screen.left() + 4.0));
-        let y = raw_y.clamp(screen.top() + 4.0, (screen.bottom() - tooltip_h - 4.0).max(screen.top() + 4.0));
+        let x = raw_x.clamp(
+            screen.left() + 4.0,
+            (screen.right() - tooltip_w - 4.0).max(screen.left() + 4.0),
+        );
+        let y = raw_y.clamp(
+            screen.top() + 4.0,
+            (screen.bottom() - tooltip_h - 4.0).max(screen.top() + 4.0),
+        );
         let pos = Pos2::new(x, y);
 
         let theme = self.theme;
@@ -672,9 +676,9 @@ impl ToastManager {
         self.toasts.len()
     }
 
-    /// Renders all stacked toasts grouped by their position, handling auto-dismiss and clicks.
-    pub fn render(&mut self, ui: &Ui, theme: DbProTheme) -> Vec<(u64, ToastResponse)> {
-        let dt = ui.input(|i| i.stable_dt).min(0.1);
+    /// Renders all stacked toasts grouped by their position using an egui Context.
+    pub fn render_ctx(&mut self, ctx: &egui::Context, theme: DbProTheme) -> Vec<(u64, ToastResponse)> {
+        let dt = ctx.input(|i| i.stable_dt).min(0.1);
         for item in &mut self.toasts {
             item.elapsed_secs += dt;
         }
@@ -685,7 +689,7 @@ impl ToastManager {
             return Vec::new();
         }
 
-        let screen = screen_rect(ui);
+        let screen = ctx.screen_rect();
         let mut results = Vec::new();
         let mut to_dismiss = Vec::new();
 
@@ -740,7 +744,7 @@ impl ToastManager {
                     .order(Order::Tooltip)
                     .fixed_pos(item_pos)
                     .pivot(pivot)
-                    .show(ui.ctx(), |ui| {
+                    .show(ctx, |ui| {
                         resp = toast_widget.show(ui);
                     });
 
@@ -759,6 +763,11 @@ impl ToastManager {
 
         results
     }
+
+    /// Renders all stacked toasts grouped by their position, handling auto-dismiss and clicks.
+    pub fn render(&mut self, ui: &Ui, theme: DbProTheme) -> Vec<(u64, ToastResponse)> {
+        self.render_ctx(ui.ctx(), theme)
+    }
 }
 
 pub(crate) fn screen_rect(ui: &Ui) -> Rect {
@@ -768,4 +777,153 @@ pub(crate) fn screen_rect(ui: &Ui) -> Rect {
     } else {
         ui.max_rect()
     }
+}
+
+/// Determines if a context-menu trigger occurred on the widget response.
+/// Robustly handles:
+/// - Secondary click (Right-click) with or without Ctrl/Cmd
+/// - macOS Ctrl+Click or Cmd+Click on primary button
+/// - Keyboard Shift+F10
+pub fn is_context_menu_triggered(response: &egui::Response, ui: &egui::Ui) -> bool {
+    let pointer_in_rect = ui
+        .input(|i| i.pointer.latest_pos().or_else(|| i.pointer.interact_pos()))
+        .is_some_and(|pos| response.rect.contains(pos));
+    let is_target = response.hovered() || pointer_in_rect;
+
+    if !is_target {
+        return false;
+    }
+
+    ui.input(|i| {
+        // 1. Right click (Secondary button) - with or without Ctrl/Cmd
+        let sec_click = i.pointer.button_clicked(egui::PointerButton::Secondary);
+        let sec_down = i.pointer.button_down(egui::PointerButton::Secondary);
+
+        // 2. Primary button (Left click) with Ctrl (macOS standard) or Cmd
+        let prim_click = i.pointer.button_clicked(egui::PointerButton::Primary);
+        let ctrl_click = prim_click && (i.modifiers.ctrl || i.modifiers.command || i.modifiers.mac_cmd);
+
+        // 3. Shift + F10
+        let key_menu = i.modifiers.shift && i.key_pressed(egui::Key::F10);
+
+        sec_click || (sec_down && prim_click) || ctrl_click || key_menu
+    })
+}
+
+/// Displays a floating context menu at the click position using Foreground Area,
+/// guaranteeing proper z-index and avoiding clipping in nested panels or scroll areas.
+pub fn context_action_menu(
+    ui: &mut egui::Ui,
+    response: &egui::Response,
+    theme: DbProTheme,
+    add_contents: impl FnOnce(&mut egui::Ui, &mut bool),
+) {
+    let popup_id = response.id.with("floating_ctx_menu");
+    let is_open_id = popup_id.with("is_open");
+    let pos_id = popup_id.with("pos");
+
+    let triggered = is_context_menu_triggered(response, ui);
+    if triggered {
+        let click_pos = ui
+            .input(|i| i.pointer.latest_pos().or_else(|| i.pointer.interact_pos()))
+            .unwrap_or_else(|| response.rect.left_bottom());
+        ui.ctx().data_mut(|d| {
+            d.insert_temp(is_open_id, true);
+            d.insert_temp(pos_id, click_pos);
+        });
+    }
+
+    let is_open = ui.ctx().data(|d| d.get_temp::<bool>(is_open_id)).unwrap_or(false);
+    if !is_open {
+        return;
+    }
+
+    let mut menu_pos = ui
+        .ctx()
+        .data(|d| d.get_temp::<Pos2>(pos_id))
+        .unwrap_or_else(|| response.rect.left_bottom());
+    let screen = screen_rect(ui);
+
+    // Keep menu inside screen boundaries
+    menu_pos.x = menu_pos
+        .x
+        .clamp(screen.left() + 4.0, (screen.right() - 230.0).max(screen.left() + 4.0));
+    menu_pos.y = menu_pos
+        .y
+        .clamp(screen.top() + 4.0, (screen.bottom() - 340.0).max(screen.top() + 4.0));
+
+    let mut close_menu = false;
+
+    let area_resp = Area::new(popup_id)
+        .order(Order::Foreground)
+        .fixed_pos(menu_pos)
+        .show(ui.ctx(), |ui| {
+            floating_surface(theme, 10.0, Margin::symmetric(4.0, 6.0)).show(ui, |ui| {
+                ui.set_min_width(210.0);
+                ui.vertical(|ui| {
+                    add_contents(ui, &mut close_menu);
+                });
+            });
+        });
+
+    if !triggered && ui.input(|i| i.pointer.any_click()) {
+        if let Some(click_pos) = ui.input(|i| i.pointer.interact_pos()) {
+            if !area_resp.response.rect.contains(click_pos) {
+                close_menu = true;
+            }
+        }
+    }
+
+    if ui.input(|i| i.key_pressed(egui::Key::Escape)) {
+        close_menu = true;
+    }
+
+    if close_menu {
+        ui.ctx().data_mut(|d| d.insert_temp(is_open_id, false));
+    }
+}
+
+/// Helper button for clean, pixel-perfect DBeaver / Codex style context menu rows with icons and shortcut badges.
+pub fn ctx_menu_item(
+    ui: &mut Ui,
+    icon: Option<Icon>,
+    label: &str,
+    shortcut: Option<&str>,
+    color: Color32,
+    theme: DbProTheme,
+) -> egui::Response {
+    let width = ui.available_width().max(200.0);
+    let (rect, response) = ui.allocate_exact_size(Vec2::new(width, 26.0), Sense::click());
+    let hovered = response.hovered();
+    if hovered {
+        ui.painter().rect_filled(rect, Rounding::same(6.0), theme.surface_hover);
+    }
+    let mut cursor = rect.left() + 8.0;
+    if let Some(ic) = icon {
+        ui.painter().text(
+            Pos2::new(cursor, rect.center().y),
+            Align2::LEFT_CENTER,
+            char::from(ic).to_string(),
+            FontId::new(12.5, FontFamily::Name("lucide".into())),
+            color,
+        );
+        cursor += 22.0;
+    }
+    ui.painter().text(
+        Pos2::new(cursor, rect.center().y),
+        Align2::LEFT_CENTER,
+        label,
+        FontId::proportional(12.5),
+        color,
+    );
+    if let Some(sc) = shortcut {
+        ui.painter().text(
+            Pos2::new(rect.right() - 8.0, rect.center().y),
+            Align2::RIGHT_CENTER,
+            sc,
+            FontId::monospace(10.0),
+            theme.text_muted,
+        );
+    }
+    response.on_hover_cursor(egui::CursorIcon::PointingHand)
 }

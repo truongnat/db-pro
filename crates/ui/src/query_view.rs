@@ -562,7 +562,79 @@ impl DbProApp {
                                 .lock_focus(true)
                                 .show(ui)
                         });
-                        self.query_editor_focused = output.inner.response.has_focus();
+                        let editor_response = output.inner.response;
+                        self.query_editor_focused = editor_response.has_focus();
+
+                        let mut run_req = false;
+                        let mut explain_req = false;
+                        let mut format_req = false;
+                        let mut clear_req = false;
+                        let modifier = Self::primary_modifier_label();
+                        let theme = self.theme;
+
+                        context_action_menu(ui, &editor_response, theme, |ui, close_menu| {
+                            let run_sc = format!("{modifier}↵");
+                            if ctx_menu_item(
+                                ui,
+                                Some(Icon::Play),
+                                "Run Query",
+                                Some(&run_sc),
+                                theme.text_primary,
+                                theme,
+                            )
+                            .clicked()
+                            {
+                                run_req = true;
+                                *close_menu = true;
+                            }
+                            if ctx_menu_item(
+                                ui,
+                                Some(Icon::ChartNoAxesCombined),
+                                "Explain Query",
+                                None,
+                                theme.text_primary,
+                                theme,
+                            )
+                            .clicked()
+                            {
+                                explain_req = true;
+                                *close_menu = true;
+                            }
+                            ui.separator();
+                            if ctx_menu_item(
+                                ui,
+                                Some(Icon::AlignLeft),
+                                "Format SQL",
+                                Some("⌥⇧F"),
+                                theme.text_primary,
+                                theme,
+                            )
+                            .clicked()
+                            {
+                                format_req = true;
+                                *close_menu = true;
+                            }
+                            if ctx_menu_item(ui, Some(Icon::Trash2), "Clear Editor", None, theme.danger, theme)
+                                .clicked()
+                            {
+                                clear_req = true;
+                                *close_menu = true;
+                            }
+                        });
+
+                        if run_req {
+                            self.dispatch_query();
+                        }
+                        if explain_req {
+                            self.explain_query();
+                        }
+                        if format_req {
+                            self.query_text = Self::format_sql(&self.query_text);
+                        }
+                        if clear_req {
+                            self.query_text.clear();
+                        }
+
                         if let Some(cursor_range) = output.inner.cursor_range {
                             let cursor = cursor_range.primary.pcursor;
                             self.query_cursor_line = cursor.paragraph.saturating_add(1);

@@ -318,11 +318,12 @@ fn translate_connection_command(command: UiCommand) -> Option<RuntimeCommand> {
             draft,
         } => {
             let (config, password) = draft_to_domain(draft)?;
+            let password_opt = if password.is_empty() { None } else { Some(password) };
             Some(RuntimeCommand::UpdateConnection {
                 request_id: runtime_request_id(request_id),
                 connection_id,
                 config,
-                password: Some(password),
+                password: password_opt,
             })
         }
         UiCommand::TestConnection { request_id, draft } => {
@@ -457,8 +458,29 @@ fn ui_cell_to_domain(cell: UiCell) -> Option<CellValue> {
             .parse::<i64>()
             .map(CellValue::Int64)
             .or_else(|_| value.parse::<f64>().map(CellValue::Float64))
-            .ok(),
-        UiCell::Text(value) => Some(CellValue::Text(value)),
+            .ok()
+            .or(Some(CellValue::Text(value))),
+        UiCell::Text(value) => {
+            if uuid::Uuid::parse_str(&value).is_ok() {
+                Some(CellValue::Uuid(value))
+            } else if chrono::DateTime::parse_from_rfc3339(&value).is_ok()
+                || chrono::DateTime::parse_from_str(&value, "%Y-%m-%d %H:%M:%S%z").is_ok()
+                || chrono::NaiveDateTime::parse_from_str(&value, "%Y-%m-%d %H:%M:%S%.f").is_ok()
+                || chrono::NaiveDateTime::parse_from_str(&value, "%Y-%m-%d %H:%M:%S").is_ok()
+                || chrono::NaiveDateTime::parse_from_str(&value, "%Y-%m-%dT%H:%M:%S%.f").is_ok()
+                || chrono::NaiveDateTime::parse_from_str(&value, "%Y-%m-%dT%H:%M:%S").is_ok()
+            {
+                Some(CellValue::DateTime(value))
+            } else if chrono::NaiveDate::parse_from_str(&value, "%Y-%m-%d").is_ok() {
+                Some(CellValue::Date(value))
+            } else if chrono::NaiveTime::parse_from_str(&value, "%H:%M:%S").is_ok()
+                || chrono::NaiveTime::parse_from_str(&value, "%H:%M:%S%.f").is_ok()
+            {
+                Some(CellValue::Time(value))
+            } else {
+                Some(CellValue::Text(value))
+            }
+        }
         UiCell::Json(value) => serde_json::from_str(&value).ok().map(CellValue::Json),
         UiCell::Bytes(value) => {
             let value = value.strip_prefix("\\x").unwrap_or(&value);
@@ -854,4 +876,42 @@ fn translate_saved_queries_loaded(
             })
             .collect(),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_ui_cell_to_domain_datetime_and_date() {
+        let rfc3339 = "2026-09-12T09:50:00Z".to_string();
+        assert!(matches!(
+            ui_cell_to_domain(UiCell::Text(rfc3339.clone())),
+            Some(CellValue::DateTime(v)) if v == rfc3339
+        ));
+
+        let standard_dt = "2026-09-12 16:50:00".to_string();
+        assert!(matches!(
+            ui_cell_to_domain(UiCell::Text(standard_dt.clone())),
+            Some(CellValue::DateTime(v)) if v == standard_dt
+        ));
+
+        let date_only = "2026-09-12".to_string();
+        assert!(matches!(
+            ui_cell_to_domain(UiCell::Text(date_only.clone())),
+            Some(CellValue::Date(v)) if v == date_only
+        ));
+
+        let time_only = "16:50:00".to_string();
+        assert!(matches!(
+            ui_cell_to_domain(UiCell::Text(time_only.clone())),
+            Some(CellValue::Time(v)) if v == time_only
+        ));
+
+        let uuid_str = "550e8400-e29b-41d4-a716-446655440000".to_string();
+        assert!(matches!(
+            ui_cell_to_domain(UiCell::Text(uuid_str.clone())),
+            Some(CellValue::Uuid(v)) if v == uuid_str
+        ));
+    }
 }

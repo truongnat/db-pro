@@ -421,7 +421,10 @@ impl DbProApp {
     fn on_query_failed(&mut self, request_id: RequestId, message: String) {
         if self.pending_connection_request == Some(request_id) {
             self.pending_connection_request = None;
-            let conn_id = self.pending_connection_id.take().or_else(|| self.active_connection_id.clone());
+            let conn_id = self
+                .pending_connection_id
+                .take()
+                .or_else(|| self.active_connection_id.clone());
             if let Some(cid) = conn_id {
                 self.failed_connection_ids.insert(cid.clone());
                 self.connection_errors.insert(cid, message.clone());
@@ -444,7 +447,9 @@ impl DbProApp {
             self.data_editing_cell = None;
             self.data_edit_value.clear();
             self.data_delete_confirmation = false;
-            self.runtime_message = format!("Row mutation failed · {message}");
+            let formatted = format!("Row mutation failed · {message}");
+            self.runtime_message = formatted.clone();
+            self.show_toast_error(formatted);
         } else if self.table_info_request == Some(request_id) {
             self.table_info_request = None;
             self.table_info_error = Some(message.clone());
@@ -456,12 +461,16 @@ impl DbProApp {
         } else if self.table_data_request == Some(request_id) {
             self.table_data_request = None;
             self.table_data_error = Some(message.clone());
-            self.runtime_message = format!("Table data failed · {message}");
+            let formatted = format!("Table data failed · {message}");
+            self.runtime_message = formatted.clone();
+            self.show_toast_error(formatted);
         } else if self.ddl_execution_request == Some(request_id) {
             self.ddl_execution_request = None;
             self.ddl_execute_confirmation = false;
             self.table_ddl_error = Some(message.clone());
-            self.runtime_message = format!("DDL execution failed · {message}");
+            let formatted = format!("DDL execution failed · {message}");
+            self.runtime_message = formatted.clone();
+            self.show_toast_error(formatted);
         } else if self.next_query_request == Some(request_id) {
             self.runtime_message = format!("Query failed · {message}");
             self.query_messages.push(self.runtime_message.clone());

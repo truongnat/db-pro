@@ -109,21 +109,50 @@ impl DbProApp {
             },
         );
 
+        let is_ctx = is_context_menu_triggered(&response, ui);
         let mut open_query = false;
-        response.context_menu(|ui| {
-            if ui.button("Open in Query").clicked() {
+        let mut copy_name = false;
+        let theme_copy = *theme;
+        context_action_menu(ui, &response, theme_copy, |ui, close_menu| {
+            if ctx_menu_item(
+                ui,
+                Some(Icon::Play),
+                "Select Top 100 (Query)",
+                None,
+                theme_copy.text_primary,
+                theme_copy,
+            )
+            .clicked()
+            {
                 open_query = true;
-                ui.close_menu();
+                *close_menu = true;
+            }
+            if ctx_menu_item(
+                ui,
+                Some(Icon::Copy),
+                "Copy View Name",
+                None,
+                theme_copy.text_primary,
+                theme_copy,
+            )
+            .clicked()
+            {
+                copy_name = true;
+                *close_menu = true;
             }
         });
 
-        if response.clicked() {
+        if response.clicked() && !is_ctx {
             self.open_schema_object(
                 SchemaObjectSelection::View(view.name.clone()),
                 &view.schema,
                 &view.name,
                 "view",
             );
+        }
+        if copy_name {
+            ui.output_mut(|o| o.copied_text = view.name.clone());
+            self.runtime_message = format!("Copied `{}` to clipboard", view.name);
         }
         if open_query {
             self.query_text = format!("SELECT *\nFROM {}\nLIMIT 100;", view.name);
@@ -168,21 +197,50 @@ impl DbProApp {
             },
         );
 
+        let is_ctx = is_context_menu_triggered(&response, ui);
         let mut open_query = false;
-        response.context_menu(|ui| {
-            if ui.button("Open call in Query").clicked() {
+        let mut copy_name = false;
+        let theme_copy = *theme;
+        context_action_menu(ui, &response, theme_copy, |ui, close_menu| {
+            if ctx_menu_item(
+                ui,
+                Some(Icon::Play),
+                "Open Call in Query",
+                None,
+                theme_copy.text_primary,
+                theme_copy,
+            )
+            .clicked()
+            {
                 open_query = true;
-                ui.close_menu();
+                *close_menu = true;
+            }
+            if ctx_menu_item(
+                ui,
+                Some(Icon::Copy),
+                "Copy Routine Name",
+                None,
+                theme_copy.text_primary,
+                theme_copy,
+            )
+            .clicked()
+            {
+                copy_name = true;
+                *close_menu = true;
             }
         });
 
-        if response.clicked() {
+        if response.clicked() && !is_ctx {
             self.open_schema_object(
                 SchemaObjectSelection::Function(function.name.clone()),
                 &function.schema,
                 &function.name,
                 "function",
             );
+        }
+        if copy_name {
+            ui.output_mut(|o| o.copied_text = function.name.clone());
+            self.runtime_message = format!("Copied `{}` to clipboard", function.name);
         }
         if open_query {
             self.query_text = format!("SELECT * FROM {}.{}();", function.schema, function.name);

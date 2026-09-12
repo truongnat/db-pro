@@ -28,7 +28,11 @@ impl DbProApp {
                     } else {
                         format!("Expand Sidebar ({}B)", modifier)
                     };
-                    let toggle_icon = if self.sidebar_open { Icon::PanelLeftClose } else { Icon::PanelLeft };
+                    let toggle_icon = if self.sidebar_open {
+                        Icon::PanelLeftClose
+                    } else {
+                        Icon::PanelLeft
+                    };
                     if Button::new(self.theme)
                         .icon(toggle_icon)
                         .variant(ButtonVariant::Ghost)
@@ -52,10 +56,9 @@ impl DbProApp {
                         .tooltip("Previous Document")
                         .show(ui)
                         .clicked()
+                        && self.active_query_document > 0
                     {
-                        if self.active_query_document > 0 {
-                            self.switch_query_document(self.active_query_document - 1);
-                        }
+                        self.switch_query_document(self.active_query_document - 1);
                     }
                     if Button::new(self.theme)
                         .icon(Icon::ArrowRight)
@@ -65,10 +68,9 @@ impl DbProApp {
                         .tooltip("Next Document")
                         .show(ui)
                         .clicked()
+                        && self.active_query_document + 1 < self.query_documents.len()
                     {
-                        if self.active_query_document + 1 < self.query_documents.len() {
-                            self.switch_query_document(self.active_query_document + 1);
-                        }
+                        self.switch_query_document(self.active_query_document + 1);
                     }
 
                     ui.add_space(SPACE_SM);
@@ -709,16 +711,29 @@ impl DbProApp {
                 document.title.clone()
             };
             let response = sidebar_item(ui, Icon::FileCode2, &title, selected, self.theme);
+            let is_ctx = is_context_menu_triggered(&response, ui);
             let mut close_requested = false;
-            response.context_menu(|ui| {
-                if self.query_documents.len() > 1 && ui.button("Close query").clicked() {
+            let mut duplicate_requested = false;
+            let theme = self.theme;
+            context_action_menu(ui, &response, theme, |ui, close_menu| {
+                if ctx_menu_item(ui, Some(Icon::Copy), "Duplicate query", None, theme.text_primary, theme).clicked() {
+                    duplicate_requested = true;
+                    *close_menu = true;
+                }
+                if self.query_documents.len() > 1
+                    && ctx_menu_item(ui, Some(Icon::Trash2), "Close query", None, theme.danger, theme).clicked()
+                {
                     close_requested = true;
-                    ui.close_menu();
+                    *close_menu = true;
                 }
             });
-            if response.clicked() {
+            if response.clicked() && !is_ctx {
                 self.switch_query_document(index);
                 self.active_tab = WorkspaceTab::Query;
+            }
+            if duplicate_requested {
+                self.new_query_document();
+                self.query_text = document.content.clone();
             }
             if close_requested {
                 self.close_query_document(index);
@@ -818,10 +833,13 @@ impl DbProApp {
                 self.draw_saved_query_entry(ui, &query);
             }
         });
-        header_response.response.context_menu(|ui| {
-            if folder_id.is_some() && ui.button("Delete folder").clicked() {
+        let theme = self.theme;
+        context_action_menu(ui, &header_response.response, theme, |ui, close_menu| {
+            if folder_id.is_some()
+                && ctx_menu_item(ui, Some(Icon::Trash2), "Delete folder", None, theme.danger, theme).clicked()
+            {
                 delete_requested = true;
-                ui.close_menu();
+                *close_menu = true;
             }
         });
         if delete_requested {
@@ -831,21 +849,36 @@ impl DbProApp {
 
     fn draw_saved_query_entry(&mut self, ui: &mut egui::Ui, query: &UiSavedQuerySummary) {
         let query_response = sidebar_item(ui, Icon::FileCode2, &query.name, false, self.theme);
+        let is_ctx = is_context_menu_triggered(&query_response, ui);
         let mut rename_requested = false;
         let mut delete_requested = false;
-        query_response.context_menu(|ui| {
-            if ui.button("Rename query").clicked() {
-                rename_requested = true;
-                ui.close_menu();
+        let mut copy_sql = false;
+        let theme = self.theme;
+        context_action_menu(ui, &query_response, theme, |ui, close_menu| {
+            if ctx_menu_item(ui, Some(Icon::Play), "Open in Editor", None, theme.text_primary, theme).clicked() {
+                *close_menu = true;
             }
-            if ui.button("Delete query").clicked() {
+            if ctx_menu_item(ui, Some(Icon::Copy), "Copy SQL", None, theme.text_primary, theme).clicked() {
+                copy_sql = true;
+                *close_menu = true;
+            }
+            ui.separator();
+            if ctx_menu_item(ui, Some(Icon::Pencil), "Rename query", None, theme.text_primary, theme).clicked() {
+                rename_requested = true;
+                *close_menu = true;
+            }
+            if ctx_menu_item(ui, Some(Icon::Trash2), "Delete query", None, theme.danger, theme).clicked() {
                 delete_requested = true;
-                ui.close_menu();
+                *close_menu = true;
             }
         });
-        if query_response.clicked() {
+        if query_response.clicked() && !is_ctx {
             self.query_text = query.sql.clone();
             self.active_tab = WorkspaceTab::Query;
+        }
+        if copy_sql {
+            ui.output_mut(|o| o.copied_text = query.sql.clone());
+            self.runtime_message = format!("Copied SQL for `{}`", query.name);
         }
         if rename_requested {
             self.rename_saved_query(query);

@@ -79,9 +79,13 @@ impl PostgresConnector {
 impl DbConnector for PostgresConnector {
     async fn connect(&self, config: &ConnectionConfig, password: &str) -> Result<ConnectionHandle, DbError> {
         let options = super::connection_string::build_options(config, password)?;
-        let timeout = Duration::from_millis(config.query_timeout_ms);
+        let timeout = Duration::from_millis(config.query_timeout_ms.clamp(1_000, 5_000));
         let pool = with_query_timeout(timeout, async {
-            PgPool::connect_with(options).await.map_err(crate::error::from_sqlx)
+            sqlx::postgres::PgPoolOptions::new()
+                .acquire_timeout(timeout)
+                .connect_with(options)
+                .await
+                .map_err(crate::error::from_sqlx)
         })
         .await?;
 
@@ -105,9 +109,13 @@ impl DbConnector for PostgresConnector {
 
     async fn test_connection(&self, config: &ConnectionConfig, password: &str) -> Result<(), DbError> {
         let options = super::connection_string::build_options(config, password)?;
-        let timeout = Duration::from_millis(config.query_timeout_ms);
+        let timeout = Duration::from_millis(config.query_timeout_ms.clamp(1_000, 5_000));
         let pool = with_query_timeout(timeout, async {
-            PgPool::connect_with(options).await.map_err(crate::error::from_sqlx)
+            sqlx::postgres::PgPoolOptions::new()
+                .acquire_timeout(timeout)
+                .connect_with(options)
+                .await
+                .map_err(crate::error::from_sqlx)
         })
         .await?;
         let result = with_query_timeout(timeout, async {

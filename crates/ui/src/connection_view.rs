@@ -13,7 +13,7 @@ struct DriverCardProps<'a> {
 }
 
 fn draw_driver_card(ui: &mut egui::Ui, props: DriverCardProps<'_>, theme: &DbProTheme) -> egui::Response {
-    let (rect, resp) = ui.allocate_exact_size(vec2(props.width, 54.0), egui::Sense::click());
+    let (rect, resp) = ui.allocate_exact_size(vec2(props.width, 48.0), egui::Sense::click());
     let is_hovered = resp.hovered() && !props.is_disabled;
     let painter = ui.painter();
 
@@ -39,7 +39,7 @@ fn draw_driver_card(ui: &mut egui::Ui, props: DriverCardProps<'_>, theme: &DbPro
 
     painter.rect(rect, Rounding::same(RADIUS_CARD), bg_fill, border_stroke);
 
-    // Left Icon (17px)
+    // Left Icon (16px)
     let icon_color = if props.is_selected {
         theme.accent
     } else if props.is_disabled {
@@ -48,15 +48,15 @@ fn draw_driver_card(ui: &mut egui::Ui, props: DriverCardProps<'_>, theme: &DbPro
         theme.text_secondary
     };
     painter.text(
-        pos2(rect.min.x + 12.0, rect.center().y),
+        pos2(rect.min.x + 10.0, rect.center().y),
         Align2::LEFT_CENTER,
         char::from(props.icon).to_string(),
-        FontId::new(17.0, FontFamily::Name("lucide".into())),
+        FontId::new(16.0, FontFamily::Name("lucide".into())),
         icon_color,
     );
 
     // Title and Subtitle
-    let text_x = rect.min.x + 36.0;
+    let text_x = rect.min.x + 34.0;
     let title_color = if props.is_selected {
         theme.text_primary
     } else if props.is_disabled {
@@ -65,7 +65,7 @@ fn draw_driver_card(ui: &mut egui::Ui, props: DriverCardProps<'_>, theme: &DbPro
         theme.text_secondary
     };
     painter.text(
-        pos2(text_x, rect.center().y - 7.0),
+        pos2(text_x, rect.center().y - 6.0),
         Align2::LEFT_CENTER,
         props.name,
         DbProTheme::ui_medium_font(12.0),
@@ -81,7 +81,7 @@ fn draw_driver_card(ui: &mut egui::Ui, props: DriverCardProps<'_>, theme: &DbPro
         pos2(text_x, rect.center().y + 8.0),
         Align2::LEFT_CENTER,
         props.subtitle,
-        FontId::proportional(10.0),
+        FontId::proportional(9.5),
         sub_color,
     );
 
@@ -152,7 +152,36 @@ impl DbProApp {
             ssh_user: String::new(),
             ssh_private_key: String::new(),
         };
-        self.connection_error = "Enter the password again to save changes".to_owned();
+        self.connection_error.clear();
+        self.connection_test_valid = false;
+        self.connection_test_draft = None;
+        self.connection_dialog_open = true;
+    }
+
+    pub(crate) fn open_duplicate_connection(&mut self, connection: &UiConnectionSummary) {
+        self.pending_connection_request = None;
+        self.editing_connection_id = None;
+        self.connection_draft = UiConnectionDraft {
+            name: format!("{} (Copy)", connection.name),
+            host: connection.host.clone(),
+            port: connection.port.to_string(),
+            database: connection.database.clone(),
+            username: connection.username.clone(),
+            password: String::new(),
+            driver: if connection.driver == "SQLite" {
+                UiDriver::Sqlite
+            } else {
+                UiDriver::Postgres
+            },
+            ssl_mode: UiSslMode::Disable,
+            readonly: connection.readonly,
+            ssh_tunnel_enabled: false,
+            ssh_host: String::new(),
+            ssh_port: "22".to_owned(),
+            ssh_user: String::new(),
+            ssh_private_key: String::new(),
+        };
+        self.connection_error.clear();
         self.connection_test_valid = false;
         self.connection_test_draft = None;
         self.connection_dialog_open = true;
@@ -263,12 +292,10 @@ impl DbProApp {
             .fixed_pos(egui::Pos2::ZERO)
             .show(ctx, |ui| {
                 Dialog::new(&mut open, title, self.theme)
-                    .width(780.0)
+                    .width(880.0)
                     .id_salt("connection_form_dialog")
                     .show(ui, |ui| {
-                        egui::ScrollArea::vertical().max_height(560.0).show(ui, |ui| {
-                            self.draw_connection_form(ui);
-                        });
+                        self.draw_connection_form(ui);
                     });
             });
         self.connection_dialog_open = open && self.connection_dialog_open;
@@ -285,14 +312,13 @@ impl DbProApp {
     fn draw_connection_form(&mut self, ui: &mut egui::Ui) {
         use crate::components::alert::{Alert, AlertVariant};
         use crate::components::button::{Button, ButtonVariant};
-        use crate::components::input::Input;
 
         ui.label(
             RichText::new("Choose your database engine and configure connection credentials.")
                 .font(font_caption())
                 .color(self.theme.text_secondary),
         );
-        ui.add_space(SPACE_MD);
+        ui.add_space(SPACE_SM);
 
         // ── 1. Database Engine Selection Cards (Grid: 4 cols x 2 rows) ─
         ui.horizontal(|ui| {
@@ -456,49 +482,23 @@ impl DbProApp {
             );
         });
 
-        ui.add_space(SPACE_LG);
-
-        // ── 2. General Parameters ──────────────────────────────────────
-        ui.label(
-            RichText::new("CONNECTION SETTINGS")
-                .font(DbProTheme::ui_medium_font(10.5))
-                .color(self.theme.text_muted),
-        );
-        ui.add_space(SPACE_XS);
-
-        Input::new(&mut self.connection_draft.name, "e.g. Main Production DB", self.theme)
-            .label("Connection Display Name")
-            .leading_icon(Icon::Tag)
-            .clearable(true)
-            .show(ui);
         ui.add_space(SPACE_MD);
 
-        // ── 3. Engine-specific Fields ─────────────────────────────────
+        // ── 2. Engine-specific Fields ─────────────────────────────────
         if self.connection_draft.driver == UiDriver::Postgres {
             self.draw_postgres_connection_fields(ui);
         } else {
             self.draw_sqlite_connection_fields(ui);
         }
 
-        // ── 4. Safety & Read-only Options ─────────────────────────────
-        ui.add_space(SPACE_SM);
-        ui.horizontal(|ui| {
-            ui.checkbox(&mut self.connection_draft.readonly, "Read-only connection");
-            ui.label(
-                RichText::new("(Disallows INSERT, UPDATE, DELETE, DDL mutations)")
-                    .font(font_caption())
-                    .color(self.theme.text_muted),
-            );
-        });
-
-        // ── 5. Feedback Alerts ─────────────────────────────────────────
+        // ── 3. Feedback Alerts ─────────────────────────────────────────
         if !self.connection_error.is_empty() {
-            ui.add_space(SPACE_SM);
+            ui.add_space(SPACE_XS);
             Alert::new("Configuration Error", &self.connection_error, self.theme)
                 .variant(AlertVariant::Destructive)
                 .show(ui);
         } else if self.connection_test_valid {
-            ui.add_space(SPACE_SM);
+            ui.add_space(SPACE_XS);
             Alert::new(
                 "Connection Verified",
                 "Database server is reachable and validated.",
@@ -508,10 +508,10 @@ impl DbProApp {
             .show(ui);
         }
 
-        // ── 6. Action Footer ──────────────────────────────────────────
-        ui.add_space(SPACE_MD);
-        ui.separator();
+        // ── 4. Action Footer ──────────────────────────────────────────
         ui.add_space(SPACE_SM);
+        ui.separator();
+        ui.add_space(SPACE_XS);
 
         ui.horizontal(|ui| {
             let is_testing = self.pending_connection_request.is_some();
@@ -559,11 +559,40 @@ impl DbProApp {
         use crate::components::input::{Input, PasswordInput};
         use crate::components::tabs::SegmentedTabs;
 
-        // Host & Port row
+        let avail = ui.available_width() - SPACE_SM;
+        let half_w = avail * 0.5;
+
+        // Row 1: Connection Display Name & Database Name
         ui.horizontal(|ui| {
-            let avail = ui.available_width() - SPACE_SM;
-            let host_w = avail * 0.72;
-            let port_w = avail * 0.28;
+            ui.vertical(|ui| {
+                ui.set_width(half_w);
+                Input::new(
+                    &mut self.connection_draft.name,
+                    "e.g. Production PostgreSQL",
+                    self.theme,
+                )
+                .label("Connection Display Name")
+                .leading_icon(Icon::Tag)
+                .clearable(true)
+                .show(ui);
+            });
+            ui.add_space(SPACE_SM);
+            ui.vertical(|ui| {
+                ui.set_width(half_w);
+                Input::new(&mut self.connection_draft.database, "postgres", self.theme)
+                    .label("Database Name")
+                    .leading_icon(Icon::Database)
+                    .clearable(true)
+                    .show(ui);
+            });
+        });
+        ui.add_space(SPACE_SM);
+
+        // Row 2: Host (48%), Port (18%), SSL Mode (34%)
+        ui.horizontal(|ui| {
+            let host_w = avail * 0.48;
+            let port_w = avail * 0.18;
+            let ssl_w = avail * 0.34;
 
             ui.vertical(|ui| {
                 ui.set_width(host_w);
@@ -580,86 +609,106 @@ impl DbProApp {
                     .leading_icon(Icon::Hash)
                     .show(ui);
             });
+            ui.add_space(SPACE_SM);
+            ui.vertical(|ui| {
+                ui.set_width(ssl_w);
+                ui.label(
+                    RichText::new("SSL Mode")
+                        .size(12.0)
+                        .strong()
+                        .color(self.theme.text_secondary),
+                );
+                ui.add_space(SPACE_XXS);
+                let mut ssl_idx = match self.connection_draft.ssl_mode {
+                    UiSslMode::Disable => 0,
+                    UiSslMode::Require => 1,
+                    UiSslMode::VerifyCa => 2,
+                    UiSslMode::VerifyFull => 3,
+                };
+                SegmentedTabs::new(
+                    &mut ssl_idx,
+                    &["Disable", "Require", "Verify CA", "Verify Full"],
+                    self.theme,
+                )
+                .show(ui);
+                self.connection_draft.ssl_mode = match ssl_idx {
+                    0 => UiSslMode::Disable,
+                    1 => UiSslMode::Require,
+                    2 => UiSslMode::VerifyCa,
+                    _ => UiSslMode::VerifyFull,
+                };
+            });
         });
         ui.add_space(SPACE_SM);
 
-        // Database & Username row
+        // Row 3: Username (50%), Password (50%)
         ui.horizontal(|ui| {
-            let col_w = (ui.available_width() - SPACE_SM) * 0.5;
-
             ui.vertical(|ui| {
-                ui.set_width(col_w);
-                Input::new(&mut self.connection_draft.database, "postgres", self.theme)
-                    .label("Database Name")
-                    .leading_icon(Icon::Database)
-                    .show(ui);
-            });
-            ui.add_space(SPACE_SM);
-            ui.vertical(|ui| {
-                ui.set_width(col_w);
+                ui.set_width(half_w);
                 Input::new(&mut self.connection_draft.username, "postgres", self.theme)
                     .label("Username")
                     .leading_icon(Icon::User)
                     .show(ui);
             });
+            ui.add_space(SPACE_SM);
+            ui.vertical(|ui| {
+                ui.set_width(half_w);
+                let pwd_placeholder = if self.editing_connection_id.is_some() {
+                    "•••••••• (Leave blank to keep saved password)"
+                } else {
+                    "Optional (Leave blank if no password)"
+                };
+                PasswordInput::new(
+                    &mut self.connection_draft.password,
+                    pwd_placeholder,
+                    &mut self.connection_show_password,
+                    self.theme,
+                )
+                .label("Password")
+                .show(ui);
+            });
+        });
+        ui.add_space(SPACE_XS);
+
+        // Row 4: Security hint & Read-only checkbox inline
+        ui.horizontal(|ui| {
+            ui.label(
+                RichText::new(char::from(Icon::ShieldCheck).to_string())
+                    .font(FontId::new(11.0, FontFamily::Name("lucide".into())))
+                    .color(self.theme.accent),
+            );
+            ui.label(
+                RichText::new("Credentials encrypted with AES-256-GCM in app vault.")
+                    .size(11.0)
+                    .color(self.theme.text_muted),
+            );
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                ui.label(
+                    RichText::new("(Disallows mutations & DDL)")
+                        .font(font_caption())
+                        .color(self.theme.text_muted),
+                );
+                ui.checkbox(&mut self.connection_draft.readonly, "Read-only mode");
+            });
         });
         ui.add_space(SPACE_SM);
 
-        // Password with reveal toggle
-        PasswordInput::new(
-            &mut self.connection_draft.password,
-            "Enter password",
-            &mut self.connection_show_password,
-            self.theme,
-        )
-        .label("Password")
-        .show(ui);
-        ui.add_space(SPACE_SM);
-
-        // SSL Mode Segmented Tabs
-        ui.label(
-            RichText::new("SSL Mode")
-                .size(12.0)
-                .strong()
-                .color(self.theme.text_secondary),
-        );
-        ui.add_space(SPACE_XXS);
-        let mut ssl_idx = match self.connection_draft.ssl_mode {
-            UiSslMode::Disable => 0,
-            UiSslMode::Require => 1,
-            UiSslMode::VerifyCa => 2,
-            UiSslMode::VerifyFull => 3,
-        };
-        SegmentedTabs::new(
-            &mut ssl_idx,
-            &["Disable", "Require", "Verify CA", "Verify Full"],
-            self.theme,
-        )
-        .show(ui);
-        self.connection_draft.ssl_mode = match ssl_idx {
-            0 => UiSslMode::Disable,
-            1 => UiSslMode::Require,
-            2 => UiSslMode::VerifyCa,
-            _ => UiSslMode::VerifyFull,
-        };
-        ui.add_space(SPACE_MD);
-
-        // SSH Bastion Tunnel Card
+        // Row 5: SSH Bastion Tunnel Card (Compact)
         egui::Frame {
             fill: self.theme.surface_panel,
             stroke: Stroke::new(1.0, self.theme.border_subtle),
             rounding: Rounding::same(RADIUS_CARD),
-            inner_margin: Margin::same(12.0),
+            inner_margin: Margin::symmetric(12.0, 8.0),
             ..Default::default()
         }
         .show(ui, |ui| {
             ui.horizontal(|ui| {
                 ui.label(
                     RichText::new(char::from(Icon::Shield).to_string())
-                        .font(FontId::new(14.0, FontFamily::Name("lucide".into())))
+                        .font(FontId::new(13.0, FontFamily::Name("lucide".into())))
                         .color(self.theme.accent),
                 );
-                ui.add_space(SPACE_XS);
+                ui.add_space(SPACE_XXS);
                 ui.checkbox(
                     &mut self.connection_draft.ssh_tunnel_enabled,
                     RichText::new("Connect via SSH Bastion Tunnel")
@@ -672,9 +721,14 @@ impl DbProApp {
                 ui.add_space(SPACE_SM);
 
                 ui.horizontal(|ui| {
-                    let avail = ui.available_width() - SPACE_SM;
+                    let total = ui.available_width() - 3.0 * SPACE_SM;
+                    let ssh_host_w = total * 0.38;
+                    let ssh_port_w = total * 0.14;
+                    let ssh_user_w = total * 0.20;
+                    let ssh_key_w = total * 0.28;
+
                     ui.vertical(|ui| {
-                        ui.set_width(avail * 0.72);
+                        ui.set_width(ssh_host_w);
                         Input::new(&mut self.connection_draft.ssh_host, "bastion.example.com", self.theme)
                             .label("SSH Host")
                             .leading_icon(Icon::Server)
@@ -682,42 +736,46 @@ impl DbProApp {
                     });
                     ui.add_space(SPACE_SM);
                     ui.vertical(|ui| {
-                        ui.set_width(avail * 0.28);
+                        ui.set_width(ssh_port_w);
                         Input::new(&mut self.connection_draft.ssh_port, "22", self.theme)
                             .label("SSH Port")
                             .leading_icon(Icon::Hash)
                             .show(ui);
                     });
-                });
-                ui.add_space(SPACE_SM);
-
-                Input::new(&mut self.connection_draft.ssh_user, "ubuntu", self.theme)
-                    .label("SSH User")
-                    .leading_icon(Icon::User)
-                    .show(ui);
-                ui.add_space(SPACE_SM);
-
-                ui.label(
-                    RichText::new("SSH Private Key")
-                        .size(12.0)
-                        .strong()
-                        .color(self.theme.text_secondary),
-                );
-                ui.add_space(SPACE_XXS);
-                ui.horizontal(|ui| {
-                    let btn_w = 96.0;
-                    let input_w = (ui.available_width() - btn_w - SPACE_SM).max(120.0);
+                    ui.add_space(SPACE_SM);
                     ui.vertical(|ui| {
-                        ui.set_width(input_w);
-                        Input::new(&mut self.connection_draft.ssh_private_key, "~/.ssh/id_rsa", self.theme)
-                            .leading_icon(Icon::Key)
+                        ui.set_width(ssh_user_w);
+                        Input::new(&mut self.connection_draft.ssh_user, "ubuntu", self.theme)
+                            .label("SSH User")
+                            .leading_icon(Icon::User)
                             .show(ui);
                     });
                     ui.add_space(SPACE_SM);
-                    if compact_button_with_icon(ui, Icon::FolderOpen, "Browse…", self.theme).clicked() {
-                        let request_id = self.task_bridge.next_request_id();
-                        self.dispatch_command(UiCommand::PickSshPrivateKey { request_id });
-                    }
+                    ui.vertical(|ui| {
+                        ui.set_width(ssh_key_w);
+                        ui.label(
+                            RichText::new("Private Key")
+                                .size(12.0)
+                                .strong()
+                                .color(self.theme.text_secondary),
+                        );
+                        ui.add_space(SPACE_XXS);
+                        ui.horizontal(|ui| {
+                            let browse_w = 72.0;
+                            let key_input_w = (ssh_key_w - browse_w - SPACE_XS).max(60.0);
+                            ui.vertical(|ui| {
+                                ui.set_width(key_input_w);
+                                Input::new(&mut self.connection_draft.ssh_private_key, "~/.ssh/id_rsa", self.theme)
+                                    .leading_icon(Icon::Key)
+                                    .show(ui);
+                            });
+                            ui.add_space(SPACE_XS);
+                            if compact_button_with_icon(ui, Icon::FolderOpen, "Browse", self.theme).clicked() {
+                                let request_id = self.task_bridge.next_request_id();
+                                self.dispatch_command(UiCommand::PickSshPrivateKey { request_id });
+                            }
+                        });
+                    });
                 });
             }
         });
@@ -726,37 +784,97 @@ impl DbProApp {
     fn draw_sqlite_connection_fields(&mut self, ui: &mut egui::Ui) {
         use crate::components::input::Input;
 
+        let avail = ui.available_width() - SPACE_SM;
+        let half_w = avail * 0.5;
+
+        // Row 1: Connection Display Name & Read-only mode
+        ui.horizontal(|ui| {
+            ui.vertical(|ui| {
+                ui.set_width(half_w);
+                Input::new(&mut self.connection_draft.name, "e.g. Local SQLite DB", self.theme)
+                    .label("Connection Display Name")
+                    .leading_icon(Icon::Tag)
+                    .clearable(true)
+                    .show(ui);
+            });
+            ui.add_space(SPACE_SM);
+            ui.vertical(|ui| {
+                ui.set_width(half_w);
+                ui.label(
+                    RichText::new("Safety Policy")
+                        .size(12.0)
+                        .strong()
+                        .color(self.theme.text_secondary),
+                );
+                ui.add_space(SPACE_XS);
+                ui.horizontal(|ui| {
+                    ui.checkbox(&mut self.connection_draft.readonly, "Read-only mode");
+                    ui.label(
+                        RichText::new("(Disallows INSERT, UPDATE, DELETE mutations)")
+                            .font(font_caption())
+                            .color(self.theme.text_muted),
+                    );
+                });
+            });
+        });
+        ui.add_space(SPACE_SM);
+
+        // Row 2: Database File path + Browse button
         ui.label(
-            RichText::new("SQLite Database File")
+            RichText::new("SQLite Database File Path")
                 .size(12.0)
                 .strong()
                 .color(self.theme.text_secondary),
         );
         ui.add_space(SPACE_XXS);
         ui.horizontal(|ui| {
-            let btn_w = 96.0;
+            let btn_w = 110.0;
             let input_w = (ui.available_width() - btn_w - SPACE_SM).max(120.0);
             ui.vertical(|ui| {
                 ui.set_width(input_w);
-                Input::new(&mut self.connection_draft.database, "/path/to/db.sqlite", self.theme)
+                Input::new(&mut self.connection_draft.database, "/path/to/database.db", self.theme)
                     .leading_icon(Icon::FolderArchive)
+                    .clearable(true)
                     .show(ui);
             });
             ui.add_space(SPACE_SM);
-            if compact_button_with_icon(ui, Icon::FolderOpen, "Browse…", self.theme).clicked() {
+            if compact_button_with_icon(ui, Icon::FolderOpen, "Browse File…", self.theme).clicked() {
                 let request_id = self.task_bridge.next_request_id();
                 self.dispatch_command(UiCommand::PickSqliteFile { request_id });
             }
+        });
+        ui.add_space(SPACE_SM);
+
+        // Row 3: Embedded SQLite Engine Info Card
+        egui::Frame {
+            fill: self.theme.surface_panel,
+            stroke: Stroke::new(1.0, self.theme.border_subtle),
+            rounding: Rounding::same(RADIUS_CARD),
+            inner_margin: Margin::same(10.0),
+            ..Default::default()
+        }
+        .show(ui, |ui| {
+            ui.horizontal(|ui| {
+                ui.label(
+                    RichText::new(char::from(Icon::Info).to_string())
+                        .font(FontId::new(13.0, FontFamily::Name("lucide".into())))
+                        .color(self.theme.accent),
+                );
+                ui.add_space(SPACE_XS);
+                ui.label(
+                    RichText::new(
+                        "SQLite is embedded in-process. Tables, indexes, triggers, and foreign keys are introspected automatically.",
+                    )
+                    .size(12.0)
+                    .color(self.theme.text_muted),
+                );
+            });
         });
     }
 
     pub(crate) fn dispatch_connection_command(&mut self, save: bool) {
         if self.connection_draft.name.trim().is_empty() || self.connection_draft.database.trim().is_empty() {
             self.connection_error = "Name and database are required".to_owned();
-            return;
-        }
-        if save && self.connection_draft.driver == UiDriver::Postgres && self.connection_draft.password.is_empty() {
-            self.connection_error = "Password is required for PostgreSQL".to_owned();
             return;
         }
         if self.connection_draft.driver == UiDriver::Postgres && self.connection_draft.port.parse::<u16>().is_err() {
