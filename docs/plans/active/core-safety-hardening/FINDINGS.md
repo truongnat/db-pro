@@ -863,8 +863,8 @@ selection and diagnostics.
 Decision: extend the core transaction-failure contract with an explicit phase
 and rollback/outcome status. Preserve confirmed rollback for statement failures;
 represent commit failures as an unknown final outcome instead of claiming
-atomic rollback. SQLite coverage is implemented; PostgreSQL live coverage is
-still required before marking this plan complete.
+atomic rollback. PostgreSQL and SQLite live coverage now pass; the remaining
+plan-level pending item is the separate CI SSH workflow execution.
 
 ## P1 — JSON export silently converts non-finite floats to null
 

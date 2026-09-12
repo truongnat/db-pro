@@ -129,7 +129,7 @@
 - [x] Enforce valid `QueryExecution` lifecycle transitions in release builds.
 - [x] Add late-success and non-terminal-finish regression coverage.
 - [x] Add explicit transaction failure phase and rollback/outcome status.
-- [ ] Complete PostgreSQL live commit-failure contract coverage; SQLite coverage is PASS.
+- [x] Complete PostgreSQL and SQLite live commit-failure contract coverage.
 - [x] Reject non-finite floats before JSON export.
 - [x] Add JSON non-finite-float regression coverage.
 - [x] Preserve typed date parameters for table filters and row mutations.

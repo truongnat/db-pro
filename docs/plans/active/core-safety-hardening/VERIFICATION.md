@@ -50,7 +50,7 @@
 - `cargo test -p db-pro-core application::sql_builder::tests::date_cell_uses_typed_date_parameter -- --exact` — PASS: `CellValue::Date` maps to the existing typed date-capable parameter path.
 - `cargo test -p db-pro-core application::sql_builder::tests::insert_rejects_empty_columns -- --exact` and `update_rejects_empty_columns` — PASS: empty mutation payloads fail at the core boundary instead of generating invalid SQL.
 - `cargo test -p db-pro-infrastructure --test integration --no-fail-fast` — PASS: 29 SQLite integration tests, including deferred-foreign-key commit failure (`Commit + Unknown`) and preserved partial results.
-- `cargo test -p db-pro-infrastructure --test pg_integration --no-run` — PASS: PostgreSQL commit-failure regression compiles; live execution is pending because the local Podman socket is unavailable.
+- `DATABASE_URL=postgres://dbpro:dbpro_test@127.0.0.1:15434/dbpro_fixture cargo test -p db-pro-infrastructure --test pg_integration pg_transaction_commit_failure_reports_unknown_outcome --offline -- --ignored --exact --nocapture` — PASS: deferred PostgreSQL foreign-key failure is reported as `Commit + Unknown` with partial results preserved.
 - `cargo test -p db-pro-core application::export_service::tests::export_json_rejects_duplicate_column_names -- --exact` — PASS: JSON export rejects duplicate object keys instead of silently dropping the earlier value.
 - `DB_PRO_SSH_*`-configured `cargo test -p db-pro-infrastructure --test ssh_backup_runtime_verification -- --ignored --nocapture` — PASS: 1 live isolated SSH backup/restore test; pg_dump, database creation, psql restore, and post-restore query all completed through the tunnel with host-key verification enabled.
 - CI configuration now provisions the SSHD/key/known-hosts fixture and exports the required `DB_PRO_SSH_*` variables before `cargo test --all -- --include-ignored`; live CI execution remains pending until that workflow run completes.
@@ -98,6 +98,7 @@
 - `cargo test -p db-pro-core application::sql_policy::tests` — PASS: 9 lexical
   boundary and statement-splitting tests.
 - `DATABASE_URL=postgres://dbpro:dbpro_test@127.0.0.1:15434/dbpro_fixture cargo test -p db-pro-infrastructure --test pg_integration --offline -- --ignored` — PASS: 14/14 against an isolated temporary `postgres:18.2` fixture after fallible metadata decoding and the `enabled_flag` text cast; the container was removed after the run.
+- The same full ignored PostgreSQL integration command — PASS: 15/15 against an isolated temporary `postgres:18.2` fixture, including commit-failure outcome reporting; the Docker container was removed after the run.
 - External PostgreSQL command timeout regression — PASS on Unix via
   `external_command_timeout_returns_query_timeout`.
 - `cargo test --workspace --no-fail-fast` — PASS: 246 core unit, 28 SQLite
@@ -116,11 +117,10 @@
   8 heuristic warning groups, 0 blocking failures. Remaining warnings cover
   test assertions, intentional cleanup sends, parser/module size, and unrelated
   native/UI helpers; none is a clippy or scanner blocker.
-- Transaction commit-failure semantics — IMPLEMENTED in core and SQLite: typed
-  phase/outcome fields prevent false rollback claims, and SQLite preserves prior
-  results on commit failure. PostgreSQL live execution remains pending because
-  the local Podman socket is unavailable; compile-only evidence is not treated
-  as runtime proof.
+- Transaction commit-failure semantics — PASS for core, SQLite, and PostgreSQL:
+  typed phase/outcome fields prevent false rollback claims, both providers
+  preserve prior results, and deferred-constraint commit failures are covered
+  against live fixtures. The separate CI SSH workflow execution remains pending.
 - `cargo check --workspace` after SSH readiness changes — PASS.
 - Core/infrastructure scoped gate — PASS: file-scoped rustfmt for the SQLite
   change,
@@ -151,7 +151,7 @@ artifact is rejected before external command execution.
 
 | Provider | Automated | Live provider | Notes |
 |---|---|---|---|
-| PostgreSQL | Unit policy/timeout coverage PASS | PASS (isolated `postgres:18.2`, 14/14) | Live introspection/query/transaction, batch rollback, and isolated SSH backup/tunnel pass; CI SSH workflow execution pending |
+| PostgreSQL | Unit policy/timeout coverage PASS | PASS (isolated `postgres:18.2`, 15/15) | Live introspection/query/transaction, commit outcome, batch rollback, and isolated SSH backup/tunnel pass; CI SSH workflow execution pending |
 | SQLite | Integration timeout/recovery PASS | PASS (in-memory provider) | Native UI runtime evidence is outside this core-only slice |
 
 ## Scope check
