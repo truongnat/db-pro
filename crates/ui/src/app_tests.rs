@@ -136,15 +136,16 @@ fn grid_copy_uses_staged_values_only_for_data_editor() {
     let mut app = DbProApp {
         active_tab: WorkspaceTab::Table,
         table_view: TableView::Data,
-        staged_changes: vec![StagedChange::Update {
+        staged_changes: ChangeSet::from(vec![StagedChange::Update {
             row_index: 0,
             column_index: 1,
             column: "name".to_owned(),
+            data_type: "TEXT".to_owned(),
             original: UiCell::Text("Beta".to_owned()),
             value: UiCell::Text("Updated".to_owned()),
             pk_columns: vec!["id".to_owned()],
             pk_values: vec![UiCell::Number("2".to_owned())],
-        }],
+        }]),
         ..Default::default()
     };
 
@@ -310,10 +311,10 @@ fn table_edits_stage_until_explicit_apply() {
 
     app.submit_data_cell_edit(&value, 0, 1);
 
-    assert_eq!(app.staged_changes.len(), 1);
+    assert_eq!(app.staged_changes.counts().total(), 1);
     assert!(command_rx.try_recv().is_err());
     app.apply_staged_changes();
-    assert!(matches!(command_rx.try_recv(), Ok(UiCommand::UpdateTableRow { .. })));
+    assert!(matches!(command_rx.try_recv(), Ok(UiCommand::ApplyTableChanges { changes, .. }) if changes.len() == 1));
 }
 
 #[test]

@@ -5,7 +5,8 @@ use db_pro_core::domain::error::DbError;
 use db_pro_core::domain::query::{QueryParam, QueryResult, Row};
 use db_pro_core::domain::schema::IntrospectResult;
 use db_pro_core::ports::{
-    TransactionFailure, TransactionFailureOutcome, TransactionFailurePhase, TransactionStatementResult,
+    ParameterizedTransactionStatement, TransactionFailure, TransactionFailureOutcome, TransactionFailurePhase,
+    TransactionStatementResult,
 };
 use tokio::sync::oneshot;
 use tracing;
@@ -55,6 +56,10 @@ pub enum SqliteCommand {
         statements: Vec<String>,
         read_statements: Vec<bool>,
         max_rows: u64,
+        responder: oneshot::Sender<Result<Vec<TransactionStatementResult>, TransactionFailure>>,
+    },
+    ExecuteParameterizedTransaction {
+        statements: Vec<ParameterizedTransactionStatement>,
         responder: oneshot::Sender<Result<Vec<TransactionStatementResult>, TransactionFailure>>,
     },
     Shutdown,
@@ -315,6 +320,53 @@ impl SqliteHandle {
         }
     }
 
+    pub async fn execute_parameterized_transaction(
+        &self,
+        statements: Vec<ParameterizedTransactionStatement>,
+        timeout_ms: u64,
+    ) -> Result<Vec<TransactionStatementResult>, TransactionFailure> {
+        let (tx, mut rx) = oneshot::channel();
+        let cmd = SqliteCommand::ExecuteParameterizedTransaction {
+            statements,
+            responder: tx,
+        };
+        let sender = self.sender.clone();
+        tokio::task::spawn_blocking(move || {
+            let _ = sender.send(cmd);
+        })
+        .await
+        .map_err(|error| TransactionFailure {
+            phase: TransactionFailurePhase::Validation,
+            statement_index: 0,
+            outcome: TransactionFailureOutcome::NotStarted,
+            results: Vec::new(),
+            error: DbError::Internal(format!("spawn_blocking join error: {error}")),
+        })?;
+        match tokio::time::timeout(std::time::Duration::from_millis(timeout_ms), &mut rx).await {
+            Ok(Ok(result)) => result,
+            Ok(Err(error)) => Err(TransactionFailure {
+                phase: TransactionFailurePhase::Validation,
+                statement_index: 0,
+                outcome: TransactionFailureOutcome::NotStarted,
+                results: Vec::new(),
+                error: DbError::Internal(format!("oneshot recv error: {error}")),
+            }),
+            Err(_) => {
+                self.interrupt_handle.interrupt();
+                match rx.await {
+                    Ok(result) => result,
+                    Err(error) => Err(TransactionFailure {
+                        phase: TransactionFailurePhase::Validation,
+                        statement_index: 0,
+                        outcome: TransactionFailureOutcome::Unknown,
+                        results: Vec::new(),
+                        error: DbError::Internal(format!("oneshot recv error after interrupt: {error}")),
+                    }),
+                }
+            }
+        }
+    }
+
     async fn await_result<T>(
         &self,
         receiver: oneshot::Receiver<Result<T, DbError>>,
@@ -409,6 +461,9 @@ impl SqliteActor {
                 } => {
                     let _ = responder.send(self.handle_execute_transaction(&statements, &read_statements, max_rows));
                 }
+                SqliteCommand::ExecuteParameterizedTransaction { statements, responder } => {
+                    let _ = responder.send(self.handle_execute_parameterized_transaction(&statements));
+                }
                 SqliteCommand::Shutdown => {
                     tracing::info!("sqlite actor received shutdown command");
                     break;
@@ -419,6 +474,79 @@ impl SqliteActor {
     }
 
     // -- handlers -----------------------------------------------------------
+
+    #[allow(clippy::result_large_err)]
+    fn handle_execute_parameterized_transaction(
+        &self,
+        statements: &[ParameterizedTransactionStatement],
+    ) -> Result<Vec<TransactionStatementResult>, TransactionFailure> {
+        let tx = self.conn.unchecked_transaction().map_err(|error| TransactionFailure {
+            phase: TransactionFailurePhase::Begin,
+            statement_index: 0,
+            outcome: TransactionFailureOutcome::NotStarted,
+            results: Vec::new(),
+            error: crate::error::from_rusqlite(error),
+        })?;
+        let mut results = Vec::with_capacity(statements.len());
+        for (index, statement) in statements.iter().enumerate() {
+            let params = to_rusqlite_params(&statement.params);
+            let refs: Vec<&dyn rusqlite::types::ToSql> = params.iter().map(|param| param.as_ref()).collect();
+            let result = tx
+                .execute(&statement.sql, refs.as_slice())
+                .map(|affected| (affected as u64, Instant::now()))
+                .map_err(crate::error::from_rusqlite);
+            let affected = match result {
+                Ok((affected, _)) => affected,
+                Err(error) => {
+                    let (error, outcome) = match tx.rollback().err().map(crate::error::from_rusqlite) {
+                        Some(rollback_error) => (
+                            DbError::Internal(format!("statement failed: {error}; rollback failed: {rollback_error}")),
+                            TransactionFailureOutcome::Unknown,
+                        ),
+                        None => (error, TransactionFailureOutcome::RolledBack),
+                    };
+                    return Err(TransactionFailure {
+                        phase: TransactionFailurePhase::Statement,
+                        statement_index: index,
+                        outcome,
+                        results,
+                        error,
+                    });
+                }
+            };
+            if statement.expect_affected_rows && affected == 0 {
+                let error = DbError::NotFound("table mutation affected no rows".into());
+                let (error, outcome) = match tx.rollback().err().map(crate::error::from_rusqlite) {
+                    Some(rollback_error) => (
+                        DbError::Internal(format!("mutation affected no rows; rollback failed: {rollback_error}")),
+                        TransactionFailureOutcome::Unknown,
+                    ),
+                    None => (error, TransactionFailureOutcome::RolledBack),
+                };
+                return Err(TransactionFailure {
+                    phase: TransactionFailurePhase::Statement,
+                    statement_index: index,
+                    outcome,
+                    results,
+                    error,
+                });
+            }
+            results.push(TransactionStatementResult::Affected {
+                row_count: affected,
+                duration_ms: 0,
+            });
+        }
+        if let Err(error) = tx.commit() {
+            return Err(TransactionFailure {
+                phase: TransactionFailurePhase::Commit,
+                statement_index: statements.len(),
+                outcome: TransactionFailureOutcome::Unknown,
+                results,
+                error: crate::error::from_rusqlite(error),
+            });
+        }
+        Ok(results)
+    }
 
     #[allow(clippy::result_large_err)]
     fn handle_execute_transaction(

@@ -4,8 +4,8 @@ use db_pro_core::domain::error::DbError;
 use db_pro_core::domain::query::{QueryParam, QueryResult};
 use db_pro_core::domain::schema::IntrospectResult;
 use db_pro_core::ports::{
-    DbConnector, SqlDialect, TransactionFailure, TransactionFailureOutcome, TransactionFailurePhase,
-    TransactionStatementResult,
+    DbConnector, ParameterizedTransactionStatement, SqlDialect, TransactionFailure, TransactionFailureOutcome,
+    TransactionFailurePhase, TransactionStatementResult,
 };
 use sqlx::{Executor as _, PgPool};
 use std::collections::HashMap;
@@ -408,6 +408,125 @@ impl DbConnector for PostgresConnector {
 
         // Do not cancel COMMIT at the client deadline: cancellation would make the
         // commit outcome unknown and could not safely be reported as a rollback.
+        if let Err(error) = tx.commit().await.map_err(crate::error::from_sqlx) {
+            return Err(TransactionFailure {
+                phase: TransactionFailurePhase::Commit,
+                statement_index: statements.len(),
+                outcome: TransactionFailureOutcome::Unknown,
+                results,
+                error,
+            });
+        }
+        Ok(results)
+    }
+
+    async fn execute_parameterized_transaction(
+        &self,
+        handle: &ConnectionHandle,
+        statements: &[ParameterizedTransactionStatement],
+    ) -> Result<Vec<TransactionStatementResult>, TransactionFailure> {
+        let pools = self.pools.read().await;
+        let entry = pools.get(&handle.0).ok_or_else(|| TransactionFailure {
+            phase: TransactionFailurePhase::Validation,
+            statement_index: 0,
+            outcome: TransactionFailureOutcome::NotStarted,
+            results: Vec::new(),
+            error: DbError::ConnectionFailed("handle not found".into()),
+        })?;
+        let timeout = entry.query_timeout;
+        let pool = entry.pool.clone();
+        drop(pools);
+
+        let deadline = std::time::Instant::now() + timeout;
+        let mut tx =
+            match with_query_timeout(timeout, async { pool.begin().await.map_err(crate::error::from_sqlx) }).await {
+                Ok(tx) => tx,
+                Err(error) => {
+                    return Err(TransactionFailure {
+                        phase: TransactionFailurePhase::Begin,
+                        statement_index: 0,
+                        outcome: TransactionFailureOutcome::NotStarted,
+                        results: Vec::new(),
+                        error,
+                    });
+                }
+            };
+        let mut results = Vec::with_capacity(statements.len());
+        for (index, statement) in statements.iter().enumerate() {
+            let remaining = deadline.saturating_duration_since(std::time::Instant::now());
+            let execution = tokio::time::timeout(remaining, async {
+                let mut args = sqlx::postgres::PgArguments::default();
+                super::query_mapper::bind_params(&statement.params, &mut args)?;
+                let affected = sqlx::query_with(&statement.sql, args)
+                    .execute(&mut *tx)
+                    .await
+                    .map_err(crate::error::from_sqlx)?
+                    .rows_affected();
+                Ok::<u64, DbError>(affected)
+            })
+            .await;
+            let affected = match execution {
+                Ok(Ok(affected)) => affected,
+                Ok(Err(error)) => {
+                    let (error, outcome) = match tx.rollback().await.map_err(crate::error::from_sqlx) {
+                        Ok(()) => (error, TransactionFailureOutcome::RolledBack),
+                        Err(rollback_error) => (
+                            DbError::Internal(format!("statement failed: {error}; rollback failed: {rollback_error}")),
+                            TransactionFailureOutcome::Unknown,
+                        ),
+                    };
+                    return Err(TransactionFailure {
+                        phase: TransactionFailurePhase::Statement,
+                        statement_index: index,
+                        outcome,
+                        results,
+                        error,
+                    });
+                }
+                Err(_) => {
+                    let error = DbError::QueryTimeout {
+                        timeout_ms: timeout.as_millis() as u64,
+                    };
+                    let (error, outcome) = match tx.rollback().await.map_err(crate::error::from_sqlx) {
+                        Ok(()) => (error, TransactionFailureOutcome::RolledBack),
+                        Err(rollback_error) => (
+                            DbError::Internal(format!(
+                                "transaction timed out: {error}; rollback failed: {rollback_error}"
+                            )),
+                            TransactionFailureOutcome::Unknown,
+                        ),
+                    };
+                    return Err(TransactionFailure {
+                        phase: TransactionFailurePhase::Statement,
+                        statement_index: index,
+                        outcome,
+                        results,
+                        error,
+                    });
+                }
+            };
+            if statement.expect_affected_rows && affected == 0 {
+                let error = DbError::NotFound("table mutation affected no rows".into());
+                let (error, outcome) = match tx.rollback().await.map_err(crate::error::from_sqlx) {
+                    Ok(()) => (error, TransactionFailureOutcome::RolledBack),
+                    Err(rollback_error) => (
+                        DbError::Internal(format!("mutation affected no rows; rollback failed: {rollback_error}")),
+                        TransactionFailureOutcome::Unknown,
+                    ),
+                };
+                return Err(TransactionFailure {
+                    phase: TransactionFailurePhase::Statement,
+                    statement_index: index,
+                    outcome,
+                    results,
+                    error,
+                });
+            }
+            results.push(TransactionStatementResult::Affected {
+                row_count: affected,
+                duration_ms: 0,
+            });
+        }
         if let Err(error) = tx.commit().await.map_err(crate::error::from_sqlx) {
             return Err(TransactionFailure {
                 phase: TransactionFailurePhase::Commit,

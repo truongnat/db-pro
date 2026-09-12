@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use db_pro_core::application::sql_builder::{SortClause, TableFilter};
+use db_pro_core::application::TableDataMutation;
 use db_pro_core::domain::backup::{BackupOptions, RestoreOptions};
 use db_pro_core::domain::query::{CellValue, QueryResult};
 use tokio::sync::{mpsc, oneshot};
@@ -45,8 +46,8 @@ pub enum RuntimeCommand {
         table: String,
         limit: u64,
         offset: u64,
-        filter: Option<TableFilter>,
-        sort: Option<SortClause>,
+        filters: Vec<TableFilter>,
+        sorts: Vec<SortClause>,
     },
     ListSavedQueries {
         request_id: RuntimeRequestId,
@@ -106,6 +107,13 @@ pub enum RuntimeCommand {
         table: String,
         columns: Vec<String>,
         values: Vec<CellValue>,
+    },
+    ApplyTableChanges {
+        request_id: RuntimeRequestId,
+        connection_id: String,
+        schema: String,
+        table: String,
+        changes: Vec<TableDataMutation>,
     },
     RunAgent {
         request_id: RuntimeRequestId,
@@ -402,11 +410,9 @@ pub fn spawn_worker(
                     table,
                     limit,
                     offset,
-                    filter,
-                    sort,
+                    filters,
+                    sorts,
                 } => {
-                    let filters = filter.into_iter().collect::<Vec<_>>();
-                    let sorts = sort.into_iter().collect::<Vec<_>>();
                     let event = match runtime
                         .table_data_api()
                         .fetch_rows(&connection_id, &schema, &table, &filters, &sorts, limit, offset)
@@ -641,6 +647,29 @@ pub fn spawn_worker(
                         Ok(_) => RuntimeEvent::OperationCompleted {
                             request_id,
                             operation: "table-row.inserted",
+                        },
+                        Err(error) => RuntimeEvent::Failed {
+                            request_id,
+                            message: error.message,
+                        },
+                    };
+                    let _ = event_tx.send(event).await;
+                }
+                RuntimeCommand::ApplyTableChanges {
+                    request_id,
+                    connection_id,
+                    schema,
+                    table,
+                    changes,
+                } => {
+                    let event = match runtime
+                        .table_data_api()
+                        .apply_mutations(&connection_id, &schema, &table, &changes)
+                        .await
+                    {
+                        Ok(_) => RuntimeEvent::OperationCompleted {
+                            request_id,
+                            operation: "table-changes.applied",
                         },
                         Err(error) => RuntimeEvent::Failed {
                             request_id,

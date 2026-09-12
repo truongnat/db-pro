@@ -147,6 +147,7 @@ impl DbProApp {
         self.table_data_filter_column.clear();
         self.table_data_filter_operator = UiTableFilterOperator::default();
         self.table_data_filter_value.clear();
+        self.table_data_filters.clear();
         self.table_data_sort_column = None;
         self.table_data_sort_desc = false;
         self.table_data_error = None;
@@ -336,7 +337,7 @@ impl DbProApp {
                 self.runtime_message = "Connection changed · test again before saving".to_owned();
             }
         }
-        if operation.starts_with("table-row.") {
+        if operation.starts_with("table-row.") || operation == "table-changes.applied" {
             self.on_table_row_operation_completed(request_id);
         }
         if operation == "connection.created" || operation == "connection.updated" {
@@ -356,6 +357,7 @@ impl DbProApp {
     fn on_table_row_operation_completed(&mut self, request_id: RequestId) {
         self.data_editing_cell = None;
         self.data_edit_value.clear();
+        self.data_edit_error = None;
         self.data_delete_confirmation = false;
         if self.staged_apply_request == Some(request_id) {
             self.staged_apply_completed();
@@ -476,6 +478,7 @@ impl DbProApp {
             self.table_mutation_request = None;
             self.data_editing_cell = None;
             self.data_edit_value.clear();
+            self.data_edit_error = None;
             self.data_delete_confirmation = false;
             let formatted = format!("Row mutation failed · {message}");
             self.runtime_message = formatted.clone();

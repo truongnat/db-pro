@@ -3,7 +3,7 @@ use std::sync::Arc;
 use db_pro_core::application::sql_builder::{SortClause, TableFilter};
 use db_pro_core::application::{
     BackupService, ConnectionRegistry, ConnectionService, DataDiffService, ExportService, QueryService, SchemaService,
-    TableDataService, UserService,
+    TableDataMutation, TableDataService, UserService,
 };
 use db_pro_core::domain::backup::{BackupOptions, BackupResult, RestoreOptions};
 use db_pro_core::domain::connection::{Connection, ConnectionConfig, ConnectionId, DriverType};
@@ -638,6 +638,20 @@ impl TableDataApi {
         let connection_id = parse_connection_id(connection_id)?;
         self.service
             .delete_row(&connection_id, schema, table, pk_columns, pk_values)
+            .await
+            .map_err(Into::into)
+    }
+
+    pub async fn apply_mutations(
+        &self,
+        connection_id: &str,
+        schema: &str,
+        table: &str,
+        mutations: &[TableDataMutation],
+    ) -> Result<u64, DbErrorDto> {
+        let connection_id = parse_connection_id(connection_id)?;
+        self.service
+            .apply_mutations(&connection_id, schema, table, mutations)
             .await
             .map_err(Into::into)
     }

@@ -19,5 +19,5 @@ pub use export_service::{ExportResult, ExportService};
 pub use query_service::{MultiQueryResult, QueryService};
 pub use registry::ConnectionRegistry;
 pub use schema_service::SchemaService;
-pub use table_data_service::TableDataService;
+pub use table_data_service::{TableDataMutation, TableDataService};
 pub use user_service::UserService;

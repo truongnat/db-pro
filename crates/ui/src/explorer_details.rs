@@ -318,6 +318,10 @@ impl DbProApp {
 
     /// Selects a table and resets the table workspace to a clean slate.
     pub(crate) fn select_table(&mut self, table: &str) {
+        if self.selected_table.as_deref() != Some(table) && !self.staged_changes.is_empty() {
+            self.runtime_message = "Apply or discard staged changes before opening another table".to_owned();
+            return;
+        }
         self.selected_table = Some(table.to_owned());
         self.selected_schema_object = None;
         self.schema_object_view = SchemaObjectView::Definition;
@@ -345,6 +349,7 @@ impl DbProApp {
         self.table_data_filter_column.clear();
         self.table_data_filter_operator = UiTableFilterOperator::default();
         self.table_data_filter_value.clear();
+        self.table_data_filters.clear();
         self.table_data_sort_column = None;
         self.table_data_sort_desc = false;
         self.table_data_error = None;
@@ -361,7 +366,9 @@ impl DbProApp {
         self.selection_anchor_cell = None;
         self.data_editing_cell = None;
         self.data_edit_value.clear();
+        self.data_edit_error = None;
         self.data_delete_confirmation = false;
+        self.discard_changes_confirmation = false;
         self.table_view = TableView::Data;
     }
 

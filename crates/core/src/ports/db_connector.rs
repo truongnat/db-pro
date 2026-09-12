@@ -14,6 +14,13 @@ pub enum TransactionStatementResult {
     Affected { row_count: u64, duration_ms: u64 },
 }
 
+#[derive(Debug, Clone)]
+pub struct ParameterizedTransactionStatement {
+    pub sql: String,
+    pub params: Vec<QueryParam>,
+    pub expect_affected_rows: bool,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TransactionFailurePhase {
     Validation,
@@ -74,6 +81,24 @@ pub trait DbConnector: Send + Sync {
         read_statements: &[bool],
     ) -> Result<Vec<TransactionStatementResult>, TransactionFailure>;
 
+    /// Execute parameterized write statements atomically. Implementations must
+    /// rollback when a statement fails or when an expected mutation affects no
+    /// rows, and must retain the statement index in the failure.
+    async fn execute_parameterized_transaction(
+        &self,
+        handle: &ConnectionHandle,
+        statements: &[ParameterizedTransactionStatement],
+    ) -> Result<Vec<TransactionStatementResult>, TransactionFailure> {
+        let _ = (handle, statements);
+        Err(TransactionFailure {
+            phase: TransactionFailurePhase::Validation,
+            statement_index: 0,
+            outcome: TransactionFailureOutcome::NotStarted,
+            results: Vec::new(),
+            error: DbError::Unsupported("parameterized transactions are not supported by this connector".into()),
+        })
+    }
+
     async fn introspect(&self, handle: &ConnectionHandle) -> Result<IntrospectResult, DbError>;
 
     async fn explain(&self, handle: &ConnectionHandle, sql: &str) -> Result<serde_json::Value, DbError>;
@@ -119,6 +144,16 @@ impl<T: DbConnector + ?Sized> DbConnector for Arc<T> {
     ) -> Result<Vec<TransactionStatementResult>, TransactionFailure> {
         self.as_ref()
             .execute_transaction(handle, statements, read_statements)
+            .await
+    }
+
+    async fn execute_parameterized_transaction(
+        &self,
+        handle: &ConnectionHandle,
+        statements: &[ParameterizedTransactionStatement],
+    ) -> Result<Vec<TransactionStatementResult>, TransactionFailure> {
+        self.as_ref()
+            .execute_parameterized_transaction(handle, statements)
             .await
     }
 

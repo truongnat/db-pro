@@ -13,6 +13,12 @@ pub fn bind_params(params: &[QueryParam], args: &mut PgArguments) -> Result<(), 
             QueryParam::Bool(v) => args.add(v),
             QueryParam::Int64(v) => args.add(v),
             QueryParam::Float64(v) => args.add(v),
+            QueryParam::Decimal(v) => {
+                let decimal = v
+                    .parse::<sqlx::types::BigDecimal>()
+                    .map_err(|error| DbError::QueryFailed(format!("invalid decimal parameter: {error}")))?;
+                args.add(decimal)
+            }
             QueryParam::Text(v) => args.add(v.as_str()),
             QueryParam::Bytes(v) => args.add(v.as_slice()),
             QueryParam::Uuid(v) => {
@@ -419,7 +425,7 @@ fn decode_numeric(row: &sqlx::postgres::PgRow, i: usize) -> Result<CellValue, Db
             }),
     };
 
-    value.map(CellValue::Text)
+    value.map(CellValue::Decimal)
 }
 
 fn decode_inet(row: &sqlx::postgres::PgRow, i: usize) -> Result<CellValue, DbError> {
@@ -600,6 +606,7 @@ mod tests {
             QueryParam::Bool(true),
             QueryParam::Int64(42),
             QueryParam::Float64(1.234),
+            QueryParam::Decimal("1234567890123456.1234".into()),
             QueryParam::Text("hello".into()),
             QueryParam::Bytes(vec![1, 2, 3]),
             QueryParam::Uuid("550e8400-e29b-41d4-a716-446655440000".into()),

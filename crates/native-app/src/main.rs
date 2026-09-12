@@ -10,8 +10,8 @@ use db_pro_ui::{
     UiCommand, UiConnectionDraft, UiConnectionSummary, UiDependencyDirection, UiDependencyKind, UiDriver, UiEvent,
     UiFunctionSummary, UiQueryFolderSummary, UiQueryResult, UiSavedQuerySummary, UiSchemaColumn, UiSchemaForeignKey,
     UiSchemaSummary, UiSslMode, UiTableColumn, UiTableDataFilter, UiTableDataSort, UiTableDependency,
-    UiTableFilterOperator, UiTableForeignKey, UiTableIndex, UiTableInfo, UiTableSummary, UiTriggerSummary,
-    UiViewSummary,
+    UiTableFilterOperator, UiTableForeignKey, UiTableIndex, UiTableInfo, UiTableMutation, UiTableSummary,
+    UiTriggerSummary, UiViewSummary,
 };
 use eframe::egui;
 use tokio::runtime::Builder;

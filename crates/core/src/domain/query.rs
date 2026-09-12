@@ -30,6 +30,8 @@ pub enum QueryParam {
     Int64(#[serde(with = "string_i64")] i64),
     #[serde(rename = "float64")]
     Float64(f64),
+    #[serde(rename = "decimal")]
+    Decimal(String),
     #[serde(rename = "text")]
     Text(String),
     #[serde(rename = "bytes")]
@@ -59,6 +61,8 @@ pub enum CellValue {
     Int64(#[serde(with = "string_i64")] i64),
     #[serde(rename = "float64")]
     Float64(f64),
+    #[serde(rename = "decimal")]
+    Decimal(String),
     #[serde(rename = "text")]
     Text(String),
     #[serde(rename = "bytes")]

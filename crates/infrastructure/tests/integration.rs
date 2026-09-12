@@ -8,7 +8,9 @@
 use db_pro_core::domain::connection::{ConnectionConfig, DriverType, SslMode};
 use db_pro_core::domain::error::DbError;
 use db_pro_core::domain::query::{CellValue, QueryParam};
-use db_pro_core::ports::{DbConnector, TransactionFailureOutcome, TransactionFailurePhase};
+use db_pro_core::ports::{
+    DbConnector, ParameterizedTransactionStatement, TransactionFailureOutcome, TransactionFailurePhase,
+};
 use db_pro_infrastructure::sqlite::connector::SQLiteConnector;
 use std::sync::Arc;
 
@@ -91,6 +93,57 @@ async fn sqlite_typed_temporal_and_network_parameters_remain_text() {
         CellValue::Text(value) if value == "text"
     )));
     connector.disconnect(&handle).await.unwrap();
+}
+
+#[tokio::test]
+async fn sqlite_parameterized_table_mutations_roll_back_and_reject_zero_rows() {
+    let (connector, handle) = setup_fixture().await;
+    let product_id = "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11";
+    let failure = connector
+        .execute_parameterized_transaction(
+            &handle,
+            &[
+                ParameterizedTransactionStatement {
+                    sql: "UPDATE products SET name = ? WHERE id = ?".into(),
+                    params: vec![QueryParam::Text("Changed".into()), QueryParam::Text(product_id.into())],
+                    expect_affected_rows: true,
+                },
+                ParameterizedTransactionStatement {
+                    sql: "UPDATE products SET missing_column = ? WHERE id = ?".into(),
+                    params: vec![QueryParam::Text("invalid".into()), QueryParam::Text(product_id.into())],
+                    expect_affected_rows: true,
+                },
+            ],
+        )
+        .await
+        .expect_err("a failed statement must roll back the previous update");
+    assert_eq!(failure.phase, TransactionFailurePhase::Statement);
+    assert_eq!(failure.outcome, TransactionFailureOutcome::RolledBack);
+
+    let restored = connector
+        .query(
+            &handle,
+            "SELECT name FROM products WHERE id = ?",
+            &[QueryParam::Text(product_id.into())],
+        )
+        .await
+        .unwrap();
+    assert!(matches!(&restored.rows[0].0[0], CellValue::Text(name) if name == "Laptop Pro"));
+
+    let zero_rows = connector
+        .execute_parameterized_transaction(
+            &handle,
+            &[ParameterizedTransactionStatement {
+                sql: "UPDATE products SET name = ? WHERE id = ?".into(),
+                params: vec![QueryParam::Text("missing".into()), QueryParam::Text("not-a-row".into())],
+                expect_affected_rows: true,
+            }],
+        )
+        .await
+        .expect_err("an expected mutation affecting zero rows must fail");
+    assert_eq!(zero_rows.phase, TransactionFailurePhase::Statement);
+    assert_eq!(zero_rows.outcome, TransactionFailureOutcome::RolledBack);
+    assert!(matches!(zero_rows.error, DbError::NotFound(_)));
 }
 
 #[tokio::test]

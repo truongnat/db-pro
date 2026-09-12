@@ -8,8 +8,8 @@ use crate::{
     toolbar_frame, AgentContext, AgentMessage, AgentProvider, AgentRole, DbProTheme, OfflineAgentProvider, TaskBridge,
     UiCell, UiCommand, UiConnectionDraft, UiConnectionSummary, UiDriver, UiEvent, UiFunctionSummary,
     UiQueryFolderSummary, UiQueryResult, UiSavedQuerySummary, UiSchemaForeignKey, UiSchemaSummary, UiSslMode,
-    UiTableDataFilter, UiTableDataSort, UiTableFilterOperator, UiTableInfo, UiTableSummary, UiTriggerSummary,
-    UiViewSummary,
+    UiTableDataFilter, UiTableDataSort, UiTableFilterOperator, UiTableInfo, UiTableMutation, UiTableSummary,
+    UiTriggerSummary, UiViewSummary,
 };
 use bigdecimal::BigDecimal;
 use db_pro_core::domain::capabilities::DatabaseCapabilities;
@@ -23,12 +23,16 @@ use std::collections::{BTreeSet, HashMap};
 use std::sync::Arc;
 use std::time::Duration;
 
+use change_set::{ChangeSet, StagedChange};
+
 #[path = "agent_state.rs"]
 mod agent_state;
 #[path = "agent_view.rs"]
 mod agent_view;
 #[path = "app_state.rs"]
 mod app_state;
+#[path = "change_set.rs"]
+mod change_set;
 #[path = "component_gallery_view.rs"]
 mod component_gallery_view;
 #[path = "connection_view.rs"]
@@ -237,28 +241,6 @@ enum OutputTab {
     History,
 }
 
-#[derive(Debug, Clone, PartialEq)]
-enum StagedChange {
-    Update {
-        row_index: usize,
-        column_index: usize,
-        column: String,
-        original: UiCell,
-        value: UiCell,
-        pk_columns: Vec<String>,
-        pk_values: Vec<UiCell>,
-    },
-    Delete {
-        row_index: usize,
-        pk_columns: Vec<String>,
-        pk_values: Vec<UiCell>,
-    },
-    Insert {
-        columns: Vec<String>,
-        values: Vec<UiCell>,
-    },
-}
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum SchemaObjectSelection {
     View(String),
@@ -344,7 +326,9 @@ pub struct DbProApp {
     selection_anchor_cell: Option<(usize, usize)>,
     data_editing_cell: Option<(usize, usize)>,
     data_edit_value: String,
+    data_edit_error: Option<String>,
     data_delete_confirmation: bool,
+    discard_changes_confirmation: bool,
     insert_row_open: bool,
     insert_row_values: Vec<String>,
     insert_row_error: String,
@@ -382,6 +366,7 @@ pub struct DbProApp {
     table_data_filter_column: String,
     table_data_filter_operator: UiTableFilterOperator,
     table_data_filter_value: String,
+    table_data_filters: Vec<UiTableDataFilter>,
     table_data_sort_column: Option<String>,
     table_data_sort_desc: bool,
     table_data_error: Option<String>,
@@ -393,7 +378,7 @@ pub struct DbProApp {
     table_ddl_request: Option<crate::RequestId>,
     table_data_request: Option<crate::RequestId>,
     table_mutation_request: Option<crate::RequestId>,
-    staged_changes: Vec<StagedChange>,
+    staged_changes: ChangeSet,
     staged_apply_request: Option<crate::RequestId>,
     table_view: TableView,
     query_folder: String,
@@ -862,6 +847,10 @@ impl DbProApp {
     pub(crate) fn request_close_workspace_tab(&mut self, tab: WorkspaceTab) {
         match tab {
             WorkspaceTab::Table => {
+                if !self.staged_changes.is_empty() {
+                    self.runtime_message = "Apply or discard staged changes before closing the table".to_owned();
+                    return;
+                }
                 self.selected_table = None;
                 self.table_info = None;
                 self.table_ddl = None;
@@ -881,7 +870,9 @@ impl DbProApp {
                 self.selection_anchor_row = None;
                 self.selection_anchor_cell = None;
                 self.data_editing_cell = None;
+                self.data_edit_error = None;
                 self.data_delete_confirmation = false;
+                self.discard_changes_confirmation = false;
             }
             WorkspaceTab::SchemaObject => {
                 self.selected_schema_object = None;

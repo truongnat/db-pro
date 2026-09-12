@@ -192,6 +192,7 @@ fn cell_to_csv_string(cell: &CellValue) -> String {
         CellValue::Bool(b) => b.to_string(),
         CellValue::Int64(i) => i.to_string(),
         CellValue::Float64(f) => f.to_string(),
+        CellValue::Decimal(s) => s.clone(),
         CellValue::Text(s) => s.clone(),
         CellValue::Bytes(_) => "[binary]".into(),
         CellValue::Uuid(s) => s.clone(),
@@ -212,6 +213,8 @@ fn cell_to_json(cell: &CellValue) -> Result<serde_json::Value, DbError> {
         CellValue::Float64(f) => serde_json::Number::from_f64(*f)
             .map(serde_json::Value::Number)
             .ok_or_else(|| DbError::Validation("JSON export cannot represent a non-finite float".into())),
+        // Keep decimal text exact instead of converting through f64.
+        CellValue::Decimal(s) => Ok(serde_json::Value::String(s.clone())),
         CellValue::Text(s) => Ok(serde_json::Value::String(s.clone())),
         CellValue::Bytes(b) => Ok(serde_json::Value::String(format!("[{} bytes]", b.len()))),
         CellValue::Uuid(s) => Ok(serde_json::Value::String(s.clone())),
@@ -246,6 +249,10 @@ fn write_excel_cell(
             .map_err(|e| DbError::Internal(format!("excel write failed: {e}"))),
         CellValue::Float64(f) => worksheet
             .write_number(row, col, *f)
+            .map(|_| ())
+            .map_err(|e| DbError::Internal(format!("excel write failed: {e}"))),
+        CellValue::Decimal(s) => worksheet
+            .write_string(row, col, s)
             .map(|_| ())
             .map_err(|e| DbError::Internal(format!("excel write failed: {e}"))),
         CellValue::Text(s) | CellValue::Uuid(s) | CellValue::DateTime(s) => worksheet

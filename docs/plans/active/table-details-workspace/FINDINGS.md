@@ -6,6 +6,7 @@
 - Generating SQL templates (SELECT, INSERT, UPDATE, DELETE) and quick query execution directly on a selected table provide immense productivity benefits matching DBeaver / DataGrip.
 - The native grid already virtualizes visible rows and stages typed cell updates, but its selection state was single-row only. A separate visible-row selection set and anchor is required so Shift range selection remains correct after filtering or sorting.
 - Table refresh previously reset the page and cleared local sort state. Refresh now reloads the current page/query state; filter and sort changes still intentionally return to the first page.
-- The runtime table mutation commands are still one-operation commands. Applying several staged changes sequentially cannot satisfy the transaction rollback contract; a parameterized transaction command is still required before marking Apply transactional.
+- Table mutations now use a parameterized transaction command shared by PostgreSQL and SQLite. Deletes, merged per-row updates, and inserts are ordered safely; failures retain the UI ChangeSet and surface the provider error. Live PostgreSQL execution remains pending.
 - Cell ranges now retain an anchor/focus pair in visible row and column order, so Shift+Arrow and Shift-click render a rectangle while row-gutter selection remains independent.
-- Copy actions use staged cell values and escape identifiers/literals in generated INSERT text. INSERT/UPDATE/DELETE transaction batching and temporary insert rows remain open P1 work.
+- Copy actions use staged cell values and escape identifiers/literals in generated INSERT text. Temporary inserted rows remain open P1 work; multi-column sorting and same-column multiple-filter clauses remain follow-up work.
+- Visible selection rendering no longer performs a linear row/column position search for every cell; a lookup map is built once per visible grid slice.

@@ -69,7 +69,8 @@ pub(crate) fn translate_command(command: UiCommand) -> Option<RuntimeCommand> {
         UiCommand::ExecuteDdl { .. }
         | UiCommand::UpdateTableRow { .. }
         | UiCommand::DeleteTableRow { .. }
-        | UiCommand::InsertTableRow { .. } => translate_table_command(command),
+        | UiCommand::InsertTableRow { .. }
+        | UiCommand::ApplyTableChanges { .. } => translate_table_command(command),
         UiCommand::RunAgent { .. }
         | UiCommand::IntrospectSchema { .. }
         | UiCommand::LoadTableInfo { .. }
@@ -161,11 +162,12 @@ fn translate_table_command(command: UiCommand) -> Option<RuntimeCommand> {
             schema,
             table,
             column,
+            data_type,
             value,
             pk_columns,
             pk_values,
         } => {
-            let value = ui_cell_to_domain(value)?;
+            let value = ui_cell_to_domain_typed(value, &data_type)?;
             let pk_values = pk_values
                 .into_iter()
                 .map(ui_cell_to_domain)
@@ -220,7 +222,65 @@ fn translate_table_command(command: UiCommand) -> Option<RuntimeCommand> {
                 values,
             })
         }
+        UiCommand::ApplyTableChanges {
+            request_id,
+            connection_id,
+            schema,
+            table,
+            changes,
+        } => Some(RuntimeCommand::ApplyTableChanges {
+            request_id: runtime_request_id(request_id),
+            connection_id,
+            schema,
+            table,
+            changes: changes
+                .into_iter()
+                .map(map_table_mutation)
+                .collect::<Option<Vec<_>>>()?,
+        }),
         _ => None,
+    }
+}
+
+fn map_table_mutation(mutation: UiTableMutation) -> Option<db_pro_core::application::TableDataMutation> {
+    match mutation {
+        UiTableMutation::Update {
+            columns,
+            data_types,
+            values,
+            pk_columns,
+            pk_values,
+        } => {
+            if columns.len() != data_types.len() || columns.len() != values.len() {
+                return None;
+            }
+            Some(db_pro_core::application::TableDataMutation::Update {
+                columns,
+                values: values
+                    .into_iter()
+                    .zip(data_types)
+                    .map(|(value, data_type)| ui_cell_to_domain_typed(value, &data_type))
+                    .collect::<Option<Vec<_>>>()?,
+                pk_columns,
+                pk_values: pk_values
+                    .into_iter()
+                    .map(ui_cell_to_domain)
+                    .collect::<Option<Vec<_>>>()?,
+            })
+        }
+        UiTableMutation::Delete { pk_columns, pk_values } => {
+            Some(db_pro_core::application::TableDataMutation::Delete {
+                pk_columns,
+                pk_values: pk_values
+                    .into_iter()
+                    .map(ui_cell_to_domain)
+                    .collect::<Option<Vec<_>>>()?,
+            })
+        }
+        UiTableMutation::Insert { columns, values } => Some(db_pro_core::application::TableDataMutation::Insert {
+            columns,
+            values: values.into_iter().map(ui_cell_to_domain).collect::<Option<Vec<_>>>()?,
+        }),
     }
 }
 
@@ -285,8 +345,8 @@ fn translate_schema_command(command: UiCommand) -> Option<RuntimeCommand> {
             table,
             limit,
             offset,
-            filter,
-            sort,
+            filters,
+            sorts,
         } => Some(RuntimeCommand::LoadTableData {
             request_id: runtime_request_id(request_id),
             connection_id,
@@ -294,8 +354,8 @@ fn translate_schema_command(command: UiCommand) -> Option<RuntimeCommand> {
             table,
             limit,
             offset,
-            filter: filter.map(map_table_data_filter),
-            sort: sort.map(map_table_data_sort),
+            filters: filters.into_iter().map(map_table_data_filter).collect(),
+            sorts: sorts.into_iter().map(map_table_data_sort).collect(),
         }),
         _ => None,
     }
@@ -418,14 +478,17 @@ fn translate_execution_command(command: UiCommand) -> Option<RuntimeCommand> {
 }
 
 fn map_table_data_filter(filter: UiTableDataFilter) -> TableFilter {
+    let value = parse_filter_value(&filter.data_type, &filter.value);
     let (op, value) = match filter.operator {
-        UiTableFilterOperator::Equals => (FilterOp::Eq, CellValue::Text(filter.value)),
-        UiTableFilterOperator::NotEquals => (FilterOp::Neq, CellValue::Text(filter.value)),
+        UiTableFilterOperator::Equals => (FilterOp::Eq, value),
+        UiTableFilterOperator::NotEquals => (FilterOp::Neq, value),
         UiTableFilterOperator::Contains => (FilterOp::Like, CellValue::Text(format!("%{}%", filter.value))),
-        UiTableFilterOperator::GreaterThan => (FilterOp::Gt, CellValue::Text(filter.value)),
-        UiTableFilterOperator::GreaterThanOrEqual => (FilterOp::Gte, CellValue::Text(filter.value)),
-        UiTableFilterOperator::LessThan => (FilterOp::Lt, CellValue::Text(filter.value)),
-        UiTableFilterOperator::LessThanOrEqual => (FilterOp::Lte, CellValue::Text(filter.value)),
+        UiTableFilterOperator::StartsWith => (FilterOp::Like, CellValue::Text(format!("{}%", filter.value))),
+        UiTableFilterOperator::EndsWith => (FilterOp::Like, CellValue::Text(format!("%{}", filter.value))),
+        UiTableFilterOperator::GreaterThan => (FilterOp::Gt, value),
+        UiTableFilterOperator::GreaterThanOrEqual => (FilterOp::Gte, value),
+        UiTableFilterOperator::LessThan => (FilterOp::Lt, value),
+        UiTableFilterOperator::LessThanOrEqual => (FilterOp::Lte, value),
         UiTableFilterOperator::IsNull => (FilterOp::IsNull, CellValue::Null),
         UiTableFilterOperator::IsNotNull => (FilterOp::IsNotNull, CellValue::Null),
     };
@@ -434,6 +497,55 @@ fn map_table_data_filter(filter: UiTableDataFilter) -> TableFilter {
         op,
         value,
     }
+}
+
+fn parse_filter_value(data_type: &str, value: &str) -> CellValue {
+    let normalized = data_type.to_ascii_lowercase();
+    if normalized.contains("bool") {
+        return value
+            .parse::<bool>()
+            .map(CellValue::Bool)
+            .unwrap_or_else(|_| CellValue::Text(value.to_owned()));
+    }
+    if normalized.contains("int") || normalized.contains("serial") {
+        return value
+            .parse::<i64>()
+            .map(CellValue::Int64)
+            .unwrap_or_else(|_| CellValue::Text(value.to_owned()));
+    }
+    if normalized.contains("real") || normalized.contains("float") || normalized.contains("double") {
+        return value
+            .parse::<f64>()
+            .map(CellValue::Float64)
+            .unwrap_or_else(|_| CellValue::Text(value.to_owned()));
+    }
+    if normalized == "numeric"
+        || normalized.starts_with("numeric(")
+        || normalized == "decimal"
+        || normalized.starts_with("decimal(")
+    {
+        return CellValue::Decimal(value.to_owned());
+    }
+    if normalized.contains("uuid") {
+        return uuid::Uuid::parse_str(value)
+            .map(|uuid| CellValue::Uuid(uuid.to_string()))
+            .unwrap_or_else(|_| CellValue::Text(value.to_owned()));
+    }
+    if normalized.contains("timestamptz") || normalized.contains("timestamp with time zone") {
+        return chrono::DateTime::parse_from_rfc3339(value)
+            .map(|_| CellValue::DateTime(value.to_owned()))
+            .unwrap_or_else(|_| CellValue::Text(value.to_owned()));
+    }
+    if normalized.contains("timestamp") {
+        return CellValue::DateTime(value.to_owned());
+    }
+    if normalized == "date" {
+        return CellValue::Date(value.to_owned());
+    }
+    if normalized.starts_with("time") {
+        return CellValue::Time(value.to_owned());
+    }
+    CellValue::Text(value.to_owned())
 }
 
 fn map_table_data_sort(sort: UiTableDataSort) -> SortClause {
@@ -451,6 +563,7 @@ fn map_cell(cell: db_pro_core::domain::query::CellValue) -> UiCell {
         CellValue::Bool(value) => UiCell::Boolean(value),
         CellValue::Int64(value) => UiCell::Number(value.to_string()),
         CellValue::Float64(value) => UiCell::Number(value.to_string()),
+        CellValue::Decimal(value) => UiCell::Number(value),
         CellValue::Text(value)
         | CellValue::Uuid(value)
         | CellValue::DateTime(value)
@@ -506,6 +619,42 @@ fn ui_cell_to_domain(cell: UiCell) -> Option<CellValue> {
                 .collect::<Option<Vec<_>>>()
                 .map(CellValue::Bytes)
         }
+    }
+}
+
+fn ui_cell_to_domain_typed(cell: UiCell, data_type: &str) -> Option<CellValue> {
+    let normalized = data_type.to_ascii_lowercase();
+    match cell {
+        UiCell::Null => Some(CellValue::Null),
+        UiCell::Number(value)
+            if normalized == "numeric"
+                || normalized.starts_with("numeric(")
+                || normalized == "decimal"
+                || normalized.starts_with("decimal(") =>
+        {
+            Some(CellValue::Decimal(value))
+        }
+        UiCell::Number(value)
+            if normalized.contains("real") || normalized.contains("float") || normalized.contains("double") =>
+        {
+            value.parse::<f64>().ok().map(CellValue::Float64)
+        }
+        UiCell::Number(value) => value.parse::<i64>().ok().map(CellValue::Int64),
+        UiCell::Boolean(value) => Some(CellValue::Bool(value)),
+        UiCell::Text(value) if normalized.contains("uuid") => uuid::Uuid::parse_str(&value)
+            .ok()
+            .map(|uuid| CellValue::Uuid(uuid.to_string())),
+        UiCell::Text(value)
+            if normalized.contains("timestamptz") || normalized.contains("timestamp with time zone") =>
+        {
+            chrono::DateTime::parse_from_rfc3339(&value)
+                .ok()
+                .map(|_| CellValue::DateTime(value))
+        }
+        UiCell::Text(value) if normalized.contains("timestamp") => Some(CellValue::DateTime(value)),
+        UiCell::Text(value) if normalized == "date" => Some(CellValue::Date(value)),
+        UiCell::Text(value) if normalized.starts_with("time") => Some(CellValue::Time(value)),
+        other => ui_cell_to_domain(other),
     }
 }
 
@@ -970,14 +1119,24 @@ mod tests {
     fn table_filter_operator_maps_to_parameterized_sql_filter_kind() {
         let filter = map_table_data_filter(UiTableDataFilter {
             column: "amount".to_owned(),
+            data_type: "BIGINT".to_owned(),
             operator: UiTableFilterOperator::GreaterThanOrEqual,
             value: "100".to_owned(),
         });
         assert!(matches!(filter.op, FilterOp::Gte));
-        assert!(matches!(filter.value, CellValue::Text(value) if value == "100"));
+        assert!(matches!(filter.value, CellValue::Int64(100)));
+
+        let decimal_filter = map_table_data_filter(UiTableDataFilter {
+            column: "price".to_owned(),
+            data_type: "NUMERIC(20,4)".to_owned(),
+            operator: UiTableFilterOperator::Equals,
+            value: "1234567890123456.1234".to_owned(),
+        });
+        assert!(matches!(decimal_filter.value, CellValue::Decimal(value) if value == "1234567890123456.1234"));
 
         let null_filter = map_table_data_filter(UiTableDataFilter {
             column: "deleted_at".to_owned(),
+            data_type: "TIMESTAMPTZ".to_owned(),
             operator: UiTableFilterOperator::IsNull,
             value: String::new(),
         });

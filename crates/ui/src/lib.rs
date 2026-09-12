@@ -25,6 +25,6 @@ pub use runtime::{
     UiDependencyDirection, UiDependencyKind, UiDriver, UiEvent, UiFunctionSummary, UiQueryFolderSummary, UiQueryResult,
     UiSavedQuerySummary, UiSchemaColumn, UiSchemaForeignKey, UiSchemaSummary, UiSslMode, UiTableColumn,
     UiTableDataFilter, UiTableDataSort, UiTableDependency, UiTableFilterOperator, UiTableForeignKey, UiTableIndex,
-    UiTableInfo, UiTableSummary, UiTriggerSummary, UiViewSummary,
+    UiTableInfo, UiTableMutation, UiTableSummary, UiTriggerSummary, UiViewSummary,
 };
 pub use theme::DbProTheme;

@@ -172,6 +172,8 @@ pub enum UiTableFilterOperator {
     NotEquals,
     #[default]
     Contains,
+    StartsWith,
+    EndsWith,
     GreaterThan,
     GreaterThanOrEqual,
     LessThan,
@@ -183,6 +185,7 @@ pub enum UiTableFilterOperator {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UiTableDataFilter {
     pub column: String,
+    pub data_type: String,
     pub operator: UiTableFilterOperator,
     pub value: String,
 }
@@ -191,6 +194,25 @@ pub struct UiTableDataFilter {
 pub struct UiTableDataSort {
     pub column: String,
     pub descending: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum UiTableMutation {
+    Update {
+        columns: Vec<String>,
+        data_types: Vec<String>,
+        values: Vec<UiCell>,
+        pk_columns: Vec<String>,
+        pk_values: Vec<UiCell>,
+    },
+    Delete {
+        pk_columns: Vec<String>,
+        pk_values: Vec<UiCell>,
+    },
+    Insert {
+        columns: Vec<String>,
+        values: Vec<UiCell>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -279,8 +301,15 @@ pub enum UiCommand {
         table: String,
         limit: u64,
         offset: u64,
-        filter: Option<UiTableDataFilter>,
-        sort: Option<UiTableDataSort>,
+        filters: Vec<UiTableDataFilter>,
+        sorts: Vec<UiTableDataSort>,
+    },
+    ApplyTableChanges {
+        request_id: RequestId,
+        connection_id: String,
+        schema: String,
+        table: String,
+        changes: Vec<UiTableMutation>,
     },
     ListSavedQueries {
         request_id: RequestId,
@@ -321,6 +350,7 @@ pub enum UiCommand {
         schema: String,
         table: String,
         column: String,
+        data_type: String,
         value: UiCell,
         pk_columns: Vec<String>,
         pk_values: Vec<UiCell>,

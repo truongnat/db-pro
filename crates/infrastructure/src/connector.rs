@@ -8,8 +8,8 @@ use db_pro_core::domain::error::DbError;
 use db_pro_core::domain::query::{QueryParam, QueryResult};
 use db_pro_core::domain::schema::IntrospectResult;
 use db_pro_core::ports::{
-    DbConnector, SqlDialect, TransactionFailure, TransactionFailureOutcome, TransactionFailurePhase,
-    TransactionStatementResult,
+    DbConnector, ParameterizedTransactionStatement, SqlDialect, TransactionFailure, TransactionFailureOutcome,
+    TransactionFailurePhase, TransactionStatementResult,
 };
 
 use crate::postgres::connector::PostgresConnector;
@@ -280,6 +280,34 @@ impl DbConnector for CompositeConnector {
                     .execute_transaction(&inner, statements, read_statements)
                     .await
             }
+        }
+    }
+
+    async fn execute_parameterized_transaction(
+        &self,
+        handle: &ConnectionHandle,
+        statements: &[ParameterizedTransactionStatement],
+    ) -> Result<Vec<TransactionStatementResult>, TransactionFailure> {
+        let inner = self.inner_handle(handle).map_err(|error| TransactionFailure {
+            phase: TransactionFailurePhase::Validation,
+            statement_index: 0,
+            outcome: TransactionFailureOutcome::NotStarted,
+            results: Vec::new(),
+            error,
+        })?;
+        match self.driver_of(handle).map_err(|error| TransactionFailure {
+            phase: TransactionFailurePhase::Validation,
+            statement_index: 0,
+            outcome: TransactionFailureOutcome::NotStarted,
+            results: Vec::new(),
+            error,
+        })? {
+            DriverType::Postgres => {
+                self.postgres
+                    .execute_parameterized_transaction(&inner, statements)
+                    .await
+            }
+            DriverType::SQLite => self.sqlite.execute_parameterized_transaction(&inner, statements).await,
         }
     }
 

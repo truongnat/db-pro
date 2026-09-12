@@ -1,10 +1,37 @@
 use super::*;
 use egui::{Align2, Pos2, Rect, Rounding, Stroke, Vec2};
+use std::collections::HashMap;
+
+/// Coordinate lookup for the current visible grid slice.
+///
+/// Selection is rendered once per visible cell, so resolving coordinates must
+/// not scan the filtered row list and reordered column list for every cell.
+struct GridSelectionLookup {
+    row_positions: HashMap<usize, usize>,
+    column_positions: HashMap<usize, usize>,
+}
+
+impl GridSelectionLookup {
+    fn new(indexes: &[usize], order: &[usize]) -> Self {
+        Self {
+            row_positions: indexes
+                .iter()
+                .enumerate()
+                .map(|(position, &row)| (row, position))
+                .collect(),
+            column_positions: order
+                .iter()
+                .enumerate()
+                .map(|(position, &column)| (column, position))
+                .collect(),
+        }
+    }
+}
 
 /// Per-cell render context for the result grid.
 struct GridCell<'a> {
     visible_indexes: &'a [usize],
-    visible_order: &'a [usize],
+    selection_lookup: &'a GridSelectionLookup,
     row_index: usize,
     column_index: usize,
     display_position: usize,
@@ -22,6 +49,7 @@ struct GridRows<'a> {
     order: &'a [usize],
     editable: bool,
     row_offset: u64,
+    selection_lookup: &'a GridSelectionLookup,
 }
 
 impl DbProApp {
@@ -132,7 +160,11 @@ impl DbProApp {
             self.apply_staged_changes();
         }
         if ui.input(|input| input.key_pressed(egui::Key::Z) && Self::primary_modifier_pressed(input)) {
-            self.discard_staged_changes();
+            if self.staged_changes.counts().total() > 1 {
+                self.discard_changes_confirmation = true;
+            } else {
+                self.discard_staged_changes();
+            }
         }
         if editable
             && self.data_editing_cell.is_none()
@@ -148,6 +180,10 @@ impl DbProApp {
         });
         if editable {
             self.handle_grid_edit_input(ui, result, pasted);
+        }
+        if self.data_editing_cell.is_some() && ui.input(|input| input.key_pressed(egui::Key::Tab)) {
+            self.handle_grid_navigation(ui, indexes, order, editable, result);
+            return;
         }
         if !ui.ctx().wants_keyboard_input() {
             self.handle_grid_navigation(ui, indexes, order, editable, result);
@@ -268,29 +304,29 @@ impl DbProApp {
         self.copy_status.clear();
     }
 
-    fn is_cell_selected(&self, indexes: &[usize], order: &[usize], selection: (usize, usize)) -> bool {
+    fn is_cell_selected(&self, lookup: &GridSelectionLookup, selection: (usize, usize)) -> bool {
         let Some(anchor) = self.selection_anchor_cell else {
             return self.selected_cell == Some(selection);
         };
         let Some(focus) = self.selected_cell else {
             return false;
         };
-        let Some(anchor_row) = indexes.iter().position(|&row| row == anchor.0) else {
+        let Some(&anchor_row) = lookup.row_positions.get(&anchor.0) else {
             return self.selected_cell == Some(selection);
         };
-        let Some(focus_row) = indexes.iter().position(|&row| row == focus.0) else {
+        let Some(&focus_row) = lookup.row_positions.get(&focus.0) else {
             return false;
         };
-        let Some(selection_row) = indexes.iter().position(|&row| row == selection.0) else {
+        let Some(&selection_row) = lookup.row_positions.get(&selection.0) else {
             return false;
         };
-        let Some(anchor_column) = order.iter().position(|&column| column == anchor.1) else {
+        let Some(&anchor_column) = lookup.column_positions.get(&anchor.1) else {
             return self.selected_cell == Some(selection);
         };
-        let Some(focus_column) = order.iter().position(|&column| column == focus.1) else {
+        let Some(&focus_column) = lookup.column_positions.get(&focus.1) else {
             return false;
         };
-        let Some(selection_column) = order.iter().position(|&column| column == selection.1) else {
+        let Some(&selection_column) = lookup.column_positions.get(&selection.1) else {
             return false;
         };
         let row_in_range = selection_row >= anchor_row.min(focus_row) && selection_row <= anchor_row.max(focus_row);
@@ -317,8 +353,8 @@ impl DbProApp {
 
         if is_tab {
             if let Some((curr_row, curr_col)) = self.selected_cell {
-                if editable && self.data_editing_cell.is_some() {
-                    self.commit_active_data_edit(result);
+                if editable && self.data_editing_cell.is_some() && !self.commit_active_data_edit(result) {
+                    return;
                 }
                 let visual_col = order.iter().position(|&c| c == curr_col).unwrap_or(0);
                 let next_cell = if is_shift_tab {
@@ -501,6 +537,7 @@ impl DbProApp {
         let grid_height = ui.available_height().max(180.0);
         let grid_width = ui.available_width().max(0.0);
         let widths = self.column_widths(result.columns.len(), grid_width);
+        let selection_lookup = GridSelectionLookup::new(indexes, order);
 
         ui.allocate_ui_with_layout(
             egui::vec2(grid_width, grid_height),
@@ -518,6 +555,7 @@ impl DbProApp {
                         order,
                         editable,
                         row_offset,
+                        selection_lookup: &selection_lookup,
                     };
                     let row_height = 28.0;
                     egui::ScrollArea::vertical()
@@ -578,7 +616,9 @@ impl DbProApp {
             );
 
             if gutter_resp.clicked() {
-                self.commit_active_data_edit(result);
+                if self.data_editing_cell.is_some() && !self.commit_active_data_edit(result) {
+                    return;
+                }
                 self.selected_cell = None;
                 let modifiers = ui.input(|input| input.modifiers);
                 self.select_visible_row(
@@ -601,7 +641,7 @@ impl DbProApp {
                     result,
                     GridCell {
                         visible_indexes: rows.indexes,
-                        visible_order: rows.order,
+                        selection_lookup: rows.selection_lookup,
                         row_index,
                         column_index,
                         display_position: position,
@@ -620,7 +660,7 @@ impl DbProApp {
     fn draw_grid_cell(&mut self, ui: &mut egui::Ui, result: &UiQueryResult, cell_ctx: GridCell<'_>) {
         let GridCell {
             visible_indexes,
-            visible_order,
+            selection_lookup,
             row_index,
             column_index,
             display_position,
@@ -633,11 +673,15 @@ impl DbProApp {
 
         let staged_cell = self.staged_cell_value(row_index, column_index);
         let display_cell = staged_cell.as_ref().unwrap_or(cell);
-        let cell_selected = self.is_cell_selected(visible_indexes, visible_order, (row_index, column_index));
+        let cell_selected = self.is_cell_selected(selection_lookup, (row_index, column_index));
+        let editing = editable && self.data_editing_cell == Some((row_index, column_index));
+        let validation_error = editing && self.data_edit_error.is_some();
 
         let (cell_rect, cell_resp) = ui.allocate_exact_size(egui::vec2(width, 28.0), Sense::click());
 
-        let fill = if row_selected {
+        let fill = if validation_error {
+            self.theme.danger.linear_multiply(0.14)
+        } else if row_selected {
             if cell_selected {
                 self.theme.accent.linear_multiply(0.20)
             } else {
@@ -668,8 +712,17 @@ impl DbProApp {
             ui.painter()
                 .rect_stroke(cell_rect, Rounding::ZERO, Stroke::new(1.5, self.theme.accent));
         }
+        if validation_error {
+            ui.painter().rect_stroke(
+                cell_rect.shrink(1.0),
+                Rounding::ZERO,
+                Stroke::new(1.5, self.theme.danger),
+            );
+            if let Some(error) = self.data_edit_error.as_deref() {
+                cell_resp.clone().on_hover_text(error);
+            }
+        }
 
-        let editing = editable && self.data_editing_cell == Some((row_index, column_index));
         if editing {
             self.draw_grid_cell_editor(ui, result, row_index, column_index, cell_rect);
         } else {
@@ -729,6 +782,8 @@ impl DbProApp {
             let mut copy_csv_req = false;
             let mut edit_cell_req = false;
             let mut set_null_req = false;
+            let mut revert_cell_req = false;
+            let mut revert_row_req = false;
             let mut duplicate_row_req = false;
             let mut delete_row_req = false;
             let mut filter_this_val_req = false;
@@ -864,6 +919,35 @@ impl DbProApp {
                         set_null_req = true;
                         *close_menu = true;
                     }
+                    if self.staged_cell_value(row_index, column_index).is_some()
+                        && ctx_menu_item(ui, Some(Icon::Undo2), "Revert Cell", None, theme.text_primary, theme)
+                            .clicked()
+                    {
+                        revert_cell_req = true;
+                        *close_menu = true;
+                    }
+                    let has_row_change = self.staged_row_deleted(row_index)
+                        || self.staged_changes.iter().any(
+                            |change| matches!(change, StagedChange::Update { row_index: row, .. } if *row == row_index),
+                        );
+                    if has_row_change
+                        && ctx_menu_item(
+                            ui,
+                            Some(Icon::Undo2),
+                            if self.staged_row_deleted(row_index) {
+                                "Undo Delete"
+                            } else {
+                                "Revert Row"
+                            },
+                            None,
+                            theme.text_primary,
+                            theme,
+                        )
+                        .clicked()
+                    {
+                        revert_row_req = true;
+                        *close_menu = true;
+                    }
                     if ctx_menu_item(
                         ui,
                         Some(Icon::CopyPlus),
@@ -934,19 +1018,32 @@ impl DbProApp {
                 }
             });
 
+            if is_ctx
+                && self
+                    .data_editing_cell
+                    .is_some_and(|editing_cell| editing_cell != (row_index, column_index))
+                && !self.commit_active_data_edit(result)
+            {
+                return;
+            }
+
             if is_ctx {
-                self.selected_cell = Some((row_index, column_index));
-                self.selection_anchor_cell = Some((row_index, column_index));
+                // Keep an existing rectangular selection when the context menu
+                // is opened inside it. Right-clicking outside the range starts
+                // a new selection at the clicked cell.
+                let is_inside_range = self.is_cell_selected(selection_lookup, (row_index, column_index));
+                if !is_inside_range {
+                    self.select_single_cell((row_index, column_index));
+                }
                 if !self.selected_rows.contains(&row_index) {
                     self.select_single_row(row_index);
-                } else {
+                } else if !is_inside_range {
                     self.selected_row = Some(row_index);
                     self.selection_anchor_row = Some(row_index);
                 }
             }
             if copy_cell_req {
-                self.selected_cell = Some((row_index, column_index));
-                self.copy_selected_cell(ui, result);
+                self.copy_cell_at(ui, result, row_index, column_index);
             }
             if copy_row_req {
                 self.select_single_row(row_index);
@@ -990,7 +1087,14 @@ impl DbProApp {
             if set_null_req && editable {
                 self.data_editing_cell = Some((row_index, column_index));
                 self.data_edit_value = "NULL".to_owned();
+                self.data_edit_error = None;
                 self.submit_data_cell_edit(result, row_index, column_index);
+            }
+            if revert_cell_req && editable {
+                self.revert_staged_cell(row_index, column_index);
+            }
+            if revert_row_req && editable {
+                self.revert_staged_row(row_index);
             }
             if duplicate_row_req && editable {
                 self.open_duplicate_row(result, row_index);
@@ -1015,7 +1119,7 @@ impl DbProApp {
                         self.table_data_filter_operator = UiTableFilterOperator::Equals;
                         self.table_data_filter_value = crate::cell_text(display_cell);
                     }
-                    self.reload_table_data_from_start();
+                    self.commit_table_filter_draft();
                 } else {
                     self.grid_filter = crate::cell_text(display_cell);
                 }
@@ -1028,9 +1132,14 @@ impl DbProApp {
             }
 
             if cell_resp.double_clicked() && editable {
+                if self.data_editing_cell.is_some() && !self.commit_active_data_edit(result) {
+                    return;
+                }
                 self.begin_data_cell_edit(row_index, column_index, display_cell);
             } else if cell_resp.clicked() && !is_ctx {
-                self.commit_active_data_edit(result);
+                if self.data_editing_cell.is_some() && !self.commit_active_data_edit(result) {
+                    return;
+                }
                 let modifiers = ui.input(|input| input.modifiers);
                 self.select_cell_range(visible_indexes, (row_index, column_index), modifiers.shift);
                 self.copy_status.clear();
@@ -1055,6 +1164,9 @@ impl DbProApp {
                     .text_color(self.theme.text_primary),
             );
             response.request_focus();
+            if response.changed() {
+                self.data_edit_error = None;
+            }
         });
         let commit = ui.input(|input| input.key_pressed(egui::Key::Enter));
         if commit {
@@ -1062,12 +1174,15 @@ impl DbProApp {
         } else if ui.input(|input| input.key_pressed(egui::Key::Escape)) {
             self.data_editing_cell = None;
             self.data_edit_value.clear();
+            self.data_edit_error = None;
         }
     }
 
-    fn commit_active_data_edit(&mut self, result: &UiQueryResult) {
+    fn commit_active_data_edit(&mut self, result: &UiQueryResult) -> bool {
         if let Some((row_index, column_index)) = self.data_editing_cell {
-            self.submit_data_cell_edit(result, row_index, column_index);
+            self.submit_data_cell_edit(result, row_index, column_index)
+        } else {
+            true
         }
     }
 
@@ -1076,6 +1191,10 @@ impl DbProApp {
             self.copy_status = "Select a cell first".to_owned();
             return;
         };
+        self.copy_cell_at(ui, result, row_index, column_index);
+    }
+
+    fn copy_cell_at(&mut self, ui: &mut egui::Ui, result: &UiQueryResult, row_index: usize, column_index: usize) {
         let Some(cell) = self.copy_cell_value(result, row_index, column_index) else {
             self.copy_status = "Selected cell is no longer available".to_owned();
             return;
@@ -1780,27 +1899,31 @@ mod tests {
         let mut app = DbProApp::default();
         let indexes = [4, 1, 7, 2];
         let order = [2, 0, 1];
+        let lookup = GridSelectionLookup::new(&indexes, &order);
 
         app.select_single_cell((1, 0));
         app.select_cell_range(&indexes, (2, 1), true);
 
         assert_eq!(app.selected_cell, Some((2, 1)));
         assert_eq!(app.selected_rows.iter().copied().collect::<Vec<_>>(), vec![1, 2, 7]);
-        assert!(app.is_cell_selected(&indexes, &order, (1, 0)));
-        assert!(app.is_cell_selected(&indexes, &order, (7, 0)));
-        assert!(app.is_cell_selected(&indexes, &order, (2, 1)));
-        assert!(!app.is_cell_selected(&indexes, &order, (1, 2)));
-        assert!(!app.is_cell_selected(&indexes, &order, (4, 0)));
+        assert!(app.is_cell_selected(&lookup, (1, 0)));
+        assert!(app.is_cell_selected(&lookup, (7, 0)));
+        assert!(app.is_cell_selected(&lookup, (2, 1)));
+        assert!(!app.is_cell_selected(&lookup, (1, 2)));
+        assert!(!app.is_cell_selected(&lookup, (4, 0)));
     }
 
     #[test]
     fn select_all_visible_cells_covers_current_grid() {
         let mut app = DbProApp::default();
-        app.select_all_visible_cells(&[5, 2, 9], &[1, 0, 3]);
+        let indexes = [5, 2, 9];
+        let order = [1, 0, 3];
+        let lookup = GridSelectionLookup::new(&indexes, &order);
+        app.select_all_visible_cells(&indexes, &order);
 
         assert_eq!(app.selected_cell, Some((9, 3)));
         assert_eq!(app.selection_anchor_cell, Some((5, 1)));
         assert!([5, 2, 9].iter().all(|row| app.selected_rows.contains(row)));
-        assert!(app.is_cell_selected(&[5, 2, 9], &[1, 0, 3], (2, 0)));
+        assert!(app.is_cell_selected(&lookup, (2, 0)));
     }
 }

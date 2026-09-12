@@ -11,6 +11,7 @@ pub fn to_rusqlite_params(params: &[QueryParam]) -> Vec<Box<dyn ToSql>> {
                 QueryParam::Bool(v) => Box::new(*v),
                 QueryParam::Int64(v) => Box::new(*v),
                 QueryParam::Float64(v) => Box::new(*v),
+                QueryParam::Decimal(v) => Box::new(v.clone()),
                 QueryParam::Text(v) => Box::new(v.clone()),
                 QueryParam::Bytes(v) => Box::new(v.clone()),
                 QueryParam::Uuid(v) => Box::new(v.clone()),
