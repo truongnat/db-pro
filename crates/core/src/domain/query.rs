@@ -38,6 +38,12 @@ pub enum QueryParam {
     Uuid(String),
     #[serde(rename = "datetime")]
     DateTime(String),
+    #[serde(rename = "time")]
+    Time(String),
+    #[serde(rename = "interval")]
+    Interval(String),
+    #[serde(rename = "inet")]
+    Inet(String),
     #[serde(rename = "json")]
     Json(serde_json::Value),
 }
@@ -331,5 +337,27 @@ mod tests {
         let json = serde_json::to_string(&param).unwrap();
         let back: QueryParam = serde_json::from_str(&json).unwrap();
         assert!(matches!(back, QueryParam::Int64(x) if x == i64::MAX));
+    }
+
+    #[test]
+    fn typed_query_params_round_trip_through_ipc_json() {
+        let params = vec![
+            QueryParam::Time("12:34:56.123456".into()),
+            QueryParam::Interval("1 days 02:00:00".into()),
+            QueryParam::Inet("192.0.2.1/24".into()),
+        ];
+        let json = serde_json::to_string(&params).unwrap();
+        let back: Vec<QueryParam> = serde_json::from_str(&json).unwrap();
+
+        assert!(matches!(
+            back.as_slice(),
+            [
+                QueryParam::Time(time),
+                QueryParam::Interval(interval),
+                QueryParam::Inet(address)
+            ] if time == "12:34:56.123456"
+                && interval == "1 days 02:00:00"
+                && address == "192.0.2.1/24"
+        ));
     }
 }

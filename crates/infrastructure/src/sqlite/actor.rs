@@ -655,6 +655,9 @@ fn to_rusqlite_params(params: &[QueryParam]) -> Vec<Box<dyn rusqlite::types::ToS
                 QueryParam::Bytes(v) => Box::new(v.clone()),
                 QueryParam::Uuid(v) => Box::new(v.clone()),
                 QueryParam::DateTime(v) => Box::new(v.clone()),
+                QueryParam::Time(v) => Box::new(v.clone()),
+                QueryParam::Interval(v) => Box::new(v.clone()),
+                QueryParam::Inet(v) => Box::new(v.clone()),
                 QueryParam::Json(v) => Box::new(v.to_string()),
             }
         })

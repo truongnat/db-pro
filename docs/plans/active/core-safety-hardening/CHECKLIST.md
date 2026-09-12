@@ -141,6 +141,10 @@
 - [x] Preserve textual custom PostgreSQL types such as enums.
 - [x] Propagate PostgreSQL known-type decode errors.
 - [x] Add live PostgreSQL temporal/network mapper coverage.
+- [x] Add typed QueryParam variants for time, interval, and network cells.
+- [x] Bind PostgreSQL temporal/network parameters natively with strict parsing.
+- [x] Preserve SQLite text binding for providers without native temporal/network types.
+- [x] Verify typed temporal/network parameter inference against live PostgreSQL.
 - [x] Run formatting, check, clippy, targeted tests, and workspace tests.
 - [x] Self-review changed files and confirm no UI/native files changed.
 - [x] Record PostgreSQL and isolated SSH-tunnel fixture evidence; CI SSH execution and native UI runtime evidence remain pending.

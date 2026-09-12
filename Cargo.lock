@@ -1351,6 +1351,7 @@ dependencies = [
  "criterion",
  "db-pro-core",
  "futures-util",
+ "ipnetwork",
  "keyring",
  "mockall",
  "rand 0.8.7",
@@ -3087,6 +3088,15 @@ name = "ipnet"
 version = "2.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6a756c3fac73139e83f14c2d742155dd2b78d3ee56597b419a0579b7bdd6dd78"
+
+[[package]]
+name = "ipnetwork"
+version = "0.20.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bf466541e9d546596ee94f9f69590f89473455f88372423e0008fc1a7daf100e"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "is-terminal"
@@ -5860,6 +5870,7 @@ dependencies = [
  "hashbrown 0.15.5",
  "hashlink 0.10.0",
  "indexmap 2.14.0",
+ "ipnetwork",
  "log",
  "memchr",
  "once_cell",
@@ -5983,6 +5994,7 @@ dependencies = [
  "hkdf",
  "hmac",
  "home",
+ "ipnetwork",
  "itoa",
  "log",
  "md-5",

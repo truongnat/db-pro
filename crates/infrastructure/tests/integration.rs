@@ -7,6 +7,7 @@
 
 use db_pro_core::domain::connection::{ConnectionConfig, DriverType, SslMode};
 use db_pro_core::domain::error::DbError;
+use db_pro_core::domain::query::{CellValue, QueryParam};
 use db_pro_core::ports::{DbConnector, TransactionFailureOutcome, TransactionFailurePhase};
 use db_pro_infrastructure::sqlite::connector::SQLiteConnector;
 
@@ -65,6 +66,29 @@ async fn connect_and_query() {
     assert_eq!(result.columns.len(), 1);
     assert_eq!(result.columns[0].name, "num");
     assert_eq!(result.rows.len(), 1);
+    connector.disconnect(&handle).await.unwrap();
+}
+
+#[tokio::test]
+async fn sqlite_typed_temporal_and_network_parameters_remain_text() {
+    let (connector, handle) = setup_fixture().await;
+    let result = connector
+        .query(
+            &handle,
+            "SELECT typeof(?) AS time_type, typeof(?) AS interval_type, typeof(?) AS inet_type",
+            &[
+                QueryParam::Time("12:34:56.123456".into()),
+                QueryParam::Interval("1 days 02:00:00".into()),
+                QueryParam::Inet("192.0.2.1/24".into()),
+            ],
+        )
+        .await
+        .unwrap();
+
+    assert!(result.rows[0].0.iter().all(|cell| matches!(
+        cell,
+        CellValue::Text(value) if value == "text"
+    )));
     connector.disconnect(&handle).await.unwrap();
 }
 

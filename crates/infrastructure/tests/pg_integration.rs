@@ -12,7 +12,7 @@
 
 use db_pro_core::application::sql_builder::{build_count, FilterOp, TableFilter};
 use db_pro_core::domain::connection::{ConnectionConfig, DriverType, SslMode};
-use db_pro_core::domain::query::CellValue;
+use db_pro_core::domain::query::{CellValue, QueryParam};
 use db_pro_core::ports::{DbConnector, TransactionFailureOutcome, TransactionFailurePhase};
 use db_pro_infrastructure::postgres::connector::PostgresConnector;
 
@@ -257,6 +257,32 @@ async fn pg_query_decodes_native_temporal_and_network_values() {
     assert!(matches!(&result.rows[0].0[0], CellValue::Time(value) if value == "12:34:56.123456"));
     assert!(matches!(&result.rows[0].0[1], CellValue::Interval(value) if value.contains("1 day")));
     assert!(matches!(&result.rows[0].0[2], CellValue::Inet(value) if value == "192.0.2.1/24"));
+    connector.disconnect(&handle).await.unwrap();
+}
+
+#[tokio::test]
+#[ignore]
+async fn pg_typed_temporal_and_network_parameters_bind_without_casts() {
+    let (connector, handle) = setup().await;
+    let result = connector
+        .query(
+            &handle,
+            "SELECT $1 = TIME '12:34:56.123456' AS time_matches, $2 = INTERVAL '1 day 2 hours' AS interval_matches, $3 = INET '192.0.2.1/24' AS inet_matches, $4 = TIMETZ '12:34:56.123456+02:00' AS timetz_matches, $5 = CIDR '192.0.2.0/24' AS cidr_matches",
+            &[
+                QueryParam::Time("12:34:56.123456".into()),
+                QueryParam::Interval("1 days 02:00:00".into()),
+                QueryParam::Inet("192.0.2.1/24".into()),
+                QueryParam::Time("12:34:56.123456+02:00".into()),
+                QueryParam::Inet("192.0.2.0/24".into()),
+            ],
+        )
+        .await
+        .unwrap();
+
+    assert!(result.rows[0]
+        .0
+        .iter()
+        .all(|cell| matches!(cell, CellValue::Bool(true))));
     connector.disconnect(&handle).await.unwrap();
 }
 

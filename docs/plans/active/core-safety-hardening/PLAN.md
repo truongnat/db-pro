@@ -153,6 +153,10 @@ without changing the native UI or adding product features.
     allowing consumers such as JSON export to discard every cell.
 67. `QueryExecution` accepts invalid lifecycle transitions and can overwrite
     terminal execution metrics through a late success callback.
+68. PostgreSQL query mapping can silently coerce failed native-value decodes to
+    raw text or placeholder cells.
+69. Temporal and network cells are downgraded to `TEXT` parameters before
+    PostgreSQL filter and mutation binding.
 
 ## Acceptance criteria
 
@@ -269,6 +273,10 @@ without changing the native UI or adding product features.
   affected-row results that contain neither columns nor returned rows.
 - `QueryExecution` ignores non-terminal finish statuses and late success calls
   after leaving the `Running` state.
+- `CellValue` temporal and network values preserve typed parameter semantics:
+  PostgreSQL binds `TIME`/`TIMETZ`, `INTERVAL`, and `INET`/`CIDR` natively;
+  SQLite binds the same values as explicit text because it has no equivalent
+  native storage type.
 - Create, update, and both connection-test paths share the same connection
   configuration validation boundary.
 - PostgreSQL and SQLite unit/integration coverage is updated independently where the

@@ -29,11 +29,258 @@ pub fn bind_params(params: &[QueryParam], args: &mut PgArguments) -> Result<(), 
                     args.add(date)
                 }
             }
+            QueryParam::Time(v) => match parse_time_parameter(v)? {
+                PostgresTimeParameter::Time(time) => args.add(time),
+                PostgresTimeParameter::TimeWithOffset(time) => args.add(time),
+            },
+            QueryParam::Interval(v) => args.add(parse_interval_parameter(v)?),
+            QueryParam::Inet(v) => {
+                let network = v
+                    .parse::<ipnetwork::IpNetwork>()
+                    .map_err(|error| DbError::QueryFailed(format!("invalid PostgreSQL INET parameter: {error}")))?;
+                args.add(network)
+            }
             QueryParam::Json(v) => args.add(sqlx::types::Json(v)),
         };
         result.map_err(|e| DbError::QueryFailed(format!("failed to bind parameter: {e}")))?;
     }
     Ok(())
+}
+
+enum PostgresTimeParameter {
+    Time(chrono::NaiveTime),
+    TimeWithOffset(sqlx::postgres::types::PgTimeTz<chrono::NaiveTime, chrono::FixedOffset>),
+}
+
+fn parse_time_parameter(value: &str) -> Result<PostgresTimeParameter, DbError> {
+    let time_with_offset = parse_time_with_offset_parameter(value);
+    if let Ok(time) = time_with_offset {
+        return Ok(PostgresTimeParameter::TimeWithOffset(time));
+    }
+
+    for format in ["%H:%M:%S%.f", "%H:%M"] {
+        if let Ok(time) = chrono::NaiveTime::parse_from_str(value, format) {
+            return Ok(PostgresTimeParameter::Time(time));
+        }
+    }
+
+    Err(DbError::QueryFailed(format!(
+        "invalid PostgreSQL TIME parameter: {value}"
+    )))
+}
+
+fn parse_time_with_offset_parameter(
+    value: &str,
+) -> Result<sqlx::postgres::types::PgTimeTz<chrono::NaiveTime, chrono::FixedOffset>, DbError> {
+    let mut value_with_date = String::with_capacity(value.len() + 11);
+    value_with_date.push_str("2001-07-08 ");
+    value_with_date.push_str(value);
+
+    for format in ["%Y-%m-%d %H:%M:%S%.f%#z", "%Y-%m-%d %H:%M:%S%#z", "%Y-%m-%d %H:%M%#z"] {
+        if let Ok(parsed) = chrono::DateTime::parse_from_str(&value_with_date, format) {
+            return Ok(sqlx::postgres::types::PgTimeTz {
+                time: parsed.time(),
+                offset: *parsed.offset(),
+            });
+        }
+    }
+
+    Err(DbError::QueryFailed(format!(
+        "invalid PostgreSQL TIMETZ parameter: {value}"
+    )))
+}
+
+fn parse_interval_parameter(value: &str) -> Result<sqlx::postgres::types::PgInterval, DbError> {
+    let tokens: Vec<&str> = value.split_whitespace().collect();
+    if tokens.is_empty() {
+        return Err(DbError::QueryFailed(
+            "invalid PostgreSQL INTERVAL parameter: empty value".into(),
+        ));
+    }
+
+    let mut interval = sqlx::postgres::types::PgInterval::default();
+    let mut token_index = 0;
+    while token_index < tokens.len() {
+        let token = tokens[token_index];
+        if token.contains(':') {
+            if token_index + 1 != tokens.len() {
+                return Err(DbError::QueryFailed(format!(
+                    "invalid PostgreSQL INTERVAL parameter: unexpected token after {token}"
+                )));
+            }
+            let component = parse_interval_time(token)?;
+            interval.microseconds = interval
+                .microseconds
+                .checked_add(component)
+                .ok_or_else(|| DbError::QueryFailed("PostgreSQL INTERVAL time value is out of range".into()))?;
+            token_index += 1;
+            continue;
+        }
+
+        let unit = tokens.get(token_index + 1).ok_or_else(|| {
+            DbError::QueryFailed(format!(
+                "invalid PostgreSQL INTERVAL parameter: missing unit after {token}"
+            ))
+        })?;
+        add_interval_component(&mut interval, token, unit)?;
+        token_index += 2;
+    }
+
+    Ok(interval)
+}
+
+fn add_interval_component(
+    interval: &mut sqlx::postgres::types::PgInterval,
+    magnitude: &str,
+    unit: &str,
+) -> Result<(), DbError> {
+    let normalized_unit = unit.to_ascii_lowercase();
+    let target = match normalized_unit.as_str() {
+        "year" | "years" => IntervalComponent::Months(12),
+        "mon" | "mons" | "month" | "months" => IntervalComponent::Months(1),
+        "week" | "weeks" => IntervalComponent::Days(7),
+        "day" | "days" => IntervalComponent::Days(1),
+        "hour" | "hours" => IntervalComponent::Microseconds(3_600_000_000),
+        "minute" | "minutes" => IntervalComponent::Microseconds(60_000_000),
+        "second" | "seconds" => IntervalComponent::Microseconds(1_000_000),
+        _ => {
+            return Err(DbError::QueryFailed(format!(
+                "invalid PostgreSQL INTERVAL unit: {unit}"
+            )))
+        }
+    };
+
+    match target {
+        IntervalComponent::Months(multiplier) => {
+            let component = parse_integer_component(magnitude, "months")?;
+            let months = component
+                .checked_mul(multiplier)
+                .ok_or_else(|| DbError::QueryFailed("PostgreSQL INTERVAL months value is out of range".into()))?;
+            interval.months = interval
+                .months
+                .checked_add(months)
+                .ok_or_else(|| DbError::QueryFailed("PostgreSQL INTERVAL months value is out of range".into()))?;
+        }
+        IntervalComponent::Days(multiplier) => {
+            let component = parse_integer_component(magnitude, "days")?;
+            let days = component
+                .checked_mul(multiplier)
+                .ok_or_else(|| DbError::QueryFailed("PostgreSQL INTERVAL days value is out of range".into()))?;
+            interval.days = interval
+                .days
+                .checked_add(days)
+                .ok_or_else(|| DbError::QueryFailed("PostgreSQL INTERVAL days value is out of range".into()))?;
+        }
+        IntervalComponent::Microseconds(multiplier) => {
+            let component = parse_scaled_component(magnitude, multiplier)?;
+            interval.microseconds = interval
+                .microseconds
+                .checked_add(component)
+                .ok_or_else(|| DbError::QueryFailed("PostgreSQL INTERVAL time value is out of range".into()))?;
+        }
+    }
+
+    Ok(())
+}
+
+enum IntervalComponent {
+    Months(i32),
+    Days(i32),
+    Microseconds(i64),
+}
+
+fn parse_integer_component(value: &str, component: &str) -> Result<i32, DbError> {
+    value.parse::<i32>().map_err(|error| {
+        DbError::QueryFailed(format!(
+            "invalid PostgreSQL INTERVAL {component} value {value}: {error}"
+        ))
+    })
+}
+
+fn parse_scaled_component(value: &str, multiplier: i64) -> Result<i64, DbError> {
+    let (sign, unsigned) = match value.as_bytes().first() {
+        Some(b'-') => (-1i64, &value[1..]),
+        Some(b'+') => (1i64, &value[1..]),
+        _ => (1i64, value),
+    };
+    let (integer, fraction) = unsigned.split_once('.').unwrap_or((unsigned, ""));
+    if fraction.len() > 6 || fraction.bytes().any(|byte| !byte.is_ascii_digit()) {
+        return Err(DbError::QueryFailed(format!(
+            "invalid PostgreSQL INTERVAL fractional value: {value}"
+        )));
+    }
+    let integer = if integer.is_empty() {
+        0
+    } else {
+        integer
+            .parse::<i64>()
+            .map_err(|error| DbError::QueryFailed(format!("invalid PostgreSQL INTERVAL value {value}: {error}")))?
+    };
+    let fraction_value = if fraction.is_empty() {
+        0
+    } else {
+        let fraction_length = u32::try_from(fraction.len())
+            .map_err(|_| DbError::QueryFailed("PostgreSQL INTERVAL fractional value is too long".into()))?;
+        let denominator = 10i64.pow(fraction_length);
+        if multiplier % denominator != 0 {
+            return Err(DbError::QueryFailed(
+                "PostgreSQL INTERVAL precision exceeds microseconds".into(),
+            ));
+        }
+        let numerator = fraction.parse::<i64>().map_err(|error| {
+            DbError::QueryFailed(format!("invalid PostgreSQL INTERVAL fractional value {value}: {error}"))
+        })?;
+        numerator
+            .checked_mul(multiplier / denominator)
+            .ok_or_else(|| DbError::QueryFailed("PostgreSQL INTERVAL value is out of range".into()))?
+    };
+    let scaled_integer = integer
+        .checked_mul(multiplier)
+        .ok_or_else(|| DbError::QueryFailed("PostgreSQL INTERVAL value is out of range".into()))?;
+    sign.checked_mul(
+        scaled_integer
+            .checked_add(fraction_value)
+            .ok_or_else(|| DbError::QueryFailed("PostgreSQL INTERVAL value is out of range".into()))?,
+    )
+    .ok_or_else(|| DbError::QueryFailed("PostgreSQL INTERVAL value is out of range".into()))
+}
+
+fn parse_interval_time(value: &str) -> Result<i64, DbError> {
+    let (sign, unsigned) = match value.as_bytes().first() {
+        Some(b'-') => (-1i64, &value[1..]),
+        Some(b'+') => (1i64, &value[1..]),
+        _ => (1i64, value),
+    };
+    let fields: Vec<&str> = unsigned.split(':').collect();
+    if fields.len() != 3 {
+        return Err(DbError::QueryFailed(format!(
+            "invalid PostgreSQL INTERVAL time value: {value}"
+        )));
+    }
+    let hours = fields[0]
+        .parse::<i64>()
+        .map_err(|error| DbError::QueryFailed(format!("invalid PostgreSQL INTERVAL hour value {value}: {error}")))?;
+    let minutes = fields[1]
+        .parse::<i64>()
+        .map_err(|error| DbError::QueryFailed(format!("invalid PostgreSQL INTERVAL minute value {value}: {error}")))?;
+    if !(0..60).contains(&minutes) {
+        return Err(DbError::QueryFailed(format!(
+            "invalid PostgreSQL INTERVAL minute value: {value}"
+        )));
+    }
+    let seconds = parse_scaled_component(fields[2], 1_000_000)?;
+    if !(0..60_000_000).contains(&seconds) {
+        return Err(DbError::QueryFailed(format!(
+            "invalid PostgreSQL INTERVAL second value: {value}"
+        )));
+    }
+    let total = hours
+        .checked_mul(3_600_000_000)
+        .and_then(|value| value.checked_add(minutes * 60_000_000))
+        .and_then(|value| value.checked_add(seconds))
+        .ok_or_else(|| DbError::QueryFailed("PostgreSQL INTERVAL time value is out of range".into()))?;
+    sign.checked_mul(total)
+        .ok_or_else(|| DbError::QueryFailed("PostgreSQL INTERVAL time value is out of range".into()))
 }
 
 pub fn columns_from_describe(describe: &sqlx::Describe<sqlx::Postgres>) -> Vec<ColumnMeta> {
@@ -347,6 +594,9 @@ mod tests {
             QueryParam::Bytes(vec![1, 2, 3]),
             QueryParam::Uuid("550e8400-e29b-41d4-a716-446655440000".into()),
             QueryParam::DateTime("2026-01-01T00:00:00Z".into()),
+            QueryParam::Time("12:34:56.123456".into()),
+            QueryParam::Interval("1 days 02:00:00".into()),
+            QueryParam::Inet("192.0.2.1/24".into()),
             QueryParam::Json(serde_json::json!({"key": "value"})),
         ];
         assert!(bind_params(&params, &mut args).is_ok());
@@ -371,6 +621,34 @@ mod tests {
         let mut args = PgArguments::default();
         let params = vec![QueryParam::DateTime("invalid-date".into())];
         assert!(bind_params(&params, &mut args).is_err());
+    }
+
+    #[test]
+    fn parses_local_time_and_time_with_offset() {
+        assert!(matches!(
+            parse_time_parameter("12:34:56.123456"),
+            Ok(PostgresTimeParameter::Time(time)) if time.to_string() == "12:34:56.123456"
+        ));
+        assert!(matches!(
+            parse_time_parameter("12:34:56.123456+02:00"),
+            Ok(PostgresTimeParameter::TimeWithOffset(time))
+                if time.time.to_string() == "12:34:56.123456"
+                    && time.offset.local_minus_utc() == 7_200
+        ));
+    }
+
+    #[test]
+    fn parses_interval_components_without_precision_loss() {
+        let interval = parse_interval_parameter("1 mon 2 days 03:04:05.123456").unwrap();
+        assert_eq!(interval.months, 1);
+        assert_eq!(interval.days, 2);
+        assert_eq!(interval.microseconds, 11_045_123_456);
+    }
+
+    #[test]
+    fn rejects_invalid_interval_values() {
+        assert!(parse_interval_parameter("1 day 60:00:00.1234567").is_err());
+        assert!(parse_interval_parameter("1 fortnights").is_err());
     }
 
     #[test]

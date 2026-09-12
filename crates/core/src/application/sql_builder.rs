@@ -299,9 +299,9 @@ fn cell_to_param(cell: &CellValue) -> QueryParam {
         // PostgreSQL binds date-only values as NaiveDate through DateTime;
         // sending a date as TEXT can fail DATE comparisons and mutations.
         CellValue::Date(v) => QueryParam::DateTime(v.clone()),
-        CellValue::Time(v) => QueryParam::Text(v.clone()),
-        CellValue::Interval(v) => QueryParam::Text(v.clone()),
-        CellValue::Inet(v) => QueryParam::Text(v.clone()),
+        CellValue::Time(v) => QueryParam::Time(v.clone()),
+        CellValue::Interval(v) => QueryParam::Interval(v.clone()),
+        CellValue::Inet(v) => QueryParam::Inet(v.clone()),
         CellValue::Json(v) => QueryParam::Json(v.clone()),
     }
 }
@@ -455,6 +455,40 @@ mod tests {
         let (_, params) = build_count(&DollarNDialect, "public", "employees", &[filter]);
 
         assert!(matches!(params.as_slice(), [QueryParam::DateTime(value)] if value == "2026-08-17"));
+    }
+
+    #[test]
+    fn temporal_and_network_cells_use_typed_parameters() {
+        let filters = vec![
+            TableFilter {
+                column: "start_time".into(),
+                op: FilterOp::Eq,
+                value: CellValue::Time("12:34:56.123456".into()),
+            },
+            TableFilter {
+                column: "duration".into(),
+                op: FilterOp::Eq,
+                value: CellValue::Interval("1 days 02:00:00".into()),
+            },
+            TableFilter {
+                column: "address".into(),
+                op: FilterOp::Eq,
+                value: CellValue::Inet("192.0.2.1/24".into()),
+            },
+        ];
+
+        let (_, params) = build_count(&DollarNDialect, "public", "events", &filters);
+
+        assert!(matches!(
+            params.as_slice(),
+            [
+                QueryParam::Time(time),
+                QueryParam::Interval(interval),
+                QueryParam::Inet(address)
+            ] if time == "12:34:56.123456"
+                && interval == "1 days 02:00:00"
+                && address == "192.0.2.1/24"
+        ));
     }
 
     #[test]

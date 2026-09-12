@@ -926,3 +926,20 @@ Decision: decode PostgreSQL temporal and network values through their native
 SQLx/raw representations, preserve textual custom types such as enums, and
 propagate known-type decode errors instead of inventing placeholder values.
 Add live temporal/network and full PostgreSQL integration coverage.
+
+## P1 — Temporal and network cells are downgraded to text parameters
+
+`sql_builder::cell_to_param` converted `CellValue::Time`, `Interval`, and
+`Inet` to `QueryParam::Text`. PostgreSQL therefore received a `TEXT` parameter
+for comparisons against native `TIME`, `INTERVAL`, or `INET`/`CIDR` columns;
+the provider cannot reliably resolve those operators without a caller-supplied
+cast, and row mutations used the same broken path.
+
+Impact: valid values read from PostgreSQL can fail when used in table filters or
+updates, while a text-backed SQLite path hides the provider-specific contract
+gap.
+
+Decision: add serialized `QueryParam::Time`, `Interval`, and `Inet` variants;
+bind them to native PostgreSQL types with strict parsing, and intentionally
+bind them as text for SQLite. Cover both providers and verify PostgreSQL
+placeholder type inference without explicit SQL casts.
