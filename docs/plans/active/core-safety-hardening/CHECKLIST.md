@@ -132,6 +132,8 @@
 - [ ] Complete PostgreSQL live commit-failure contract coverage; SQLite coverage is PASS.
 - [x] Reject non-finite floats before JSON export.
 - [x] Add JSON non-finite-float regression coverage.
+- [x] Preserve typed date parameters for table filters and row mutations.
+- [x] Add SQL-builder regression coverage for date-cell binding.
 - [x] Run formatting, check, clippy, targeted tests, and workspace tests.
 - [x] Self-review changed files and confirm no UI/native files changed.
 - [x] Record PostgreSQL and isolated SSH-tunnel fixture evidence; CI SSH execution and native UI runtime evidence remain pending.

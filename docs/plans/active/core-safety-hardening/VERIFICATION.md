@@ -47,6 +47,7 @@
 - `cargo test -p db-pro-core domain::execution::tests --no-fail-fast` — PASS: 13 execution lifecycle tests, including invalid non-terminal finishes and late success callbacks.
 - `cargo test -p db-pro-core application::query_service::tests::execute_multi_commit_failure_reports_unknown_outcome -- --exact` — PASS: core reports a commit failure as an unknown final outcome and preserves partial results.
 - `cargo test -p db-pro-core application::export_service::tests::export_json_rejects_non_finite_float -- --exact` — PASS: JSON export rejects `NaN` instead of silently serializing it as `null`.
+- `cargo test -p db-pro-core application::sql_builder::tests::date_cell_uses_typed_date_parameter -- --exact` — PASS: `CellValue::Date` maps to the existing typed date-capable parameter path.
 - `cargo test -p db-pro-infrastructure --test integration --no-fail-fast` — PASS: 29 SQLite integration tests, including deferred-foreign-key commit failure (`Commit + Unknown`) and preserved partial results.
 - `cargo test -p db-pro-infrastructure --test pg_integration --no-run` — PASS: PostgreSQL commit-failure regression compiles; live execution is pending because the local Podman socket is unavailable.
 - `cargo test -p db-pro-core application::export_service::tests::export_json_rejects_duplicate_column_names -- --exact` — PASS: JSON export rejects duplicate object keys instead of silently dropping the earlier value.

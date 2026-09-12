@@ -879,3 +879,19 @@ was non-null, causing data corruption in a supposedly lossless export path.
 Decision: reject non-finite floats with an explicit validation error. Keep the
 existing CSV/Excel behavior unchanged because their serialization contracts are
 separate and this fix is scoped to JSON's strict number model.
+
+## P1 — Date cells are downgraded to text query parameters
+
+`sql_builder::cell_to_param` converted `CellValue::Date` to
+`QueryParam::Text`. The PostgreSQL parameter binder already has a typed
+date-only path under `QueryParam::DateTime`, parsing `YYYY-MM-DD` as
+`NaiveDate`; the text mapping bypassed that path for table filters and row
+mutations on `DATE` columns.
+
+Impact: PostgreSQL DATE comparisons or mutations can fail with an operator/type
+error instead of executing the requested row operation. SQLite remains
+compatible because its date representation is text-backed.
+
+Decision: map date cells to the existing typed date-capable parameter variant
+and add a builder regression test. Runtime PostgreSQL execution remains covered
+by the provider integration gate when a fixture is available.

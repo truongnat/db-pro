@@ -290,7 +290,9 @@ fn cell_to_param(cell: &CellValue) -> QueryParam {
         CellValue::Bytes(v) => QueryParam::Bytes(v.clone()),
         CellValue::Uuid(v) => QueryParam::Uuid(v.clone()),
         CellValue::DateTime(v) => QueryParam::DateTime(v.clone()),
-        CellValue::Date(v) => QueryParam::Text(v.clone()),
+        // PostgreSQL binds date-only values as NaiveDate through DateTime;
+        // sending a date as TEXT can fail DATE comparisons and mutations.
+        CellValue::Date(v) => QueryParam::DateTime(v.clone()),
         CellValue::Time(v) => QueryParam::Text(v.clone()),
         CellValue::Interval(v) => QueryParam::Text(v.clone()),
         CellValue::Inet(v) => QueryParam::Text(v.clone()),
@@ -435,6 +437,18 @@ mod tests {
         let (sql, params) = build_insert(&QuestionDialect, "public", "users", &columns, &values).unwrap();
         assert_eq!(sql, r#"INSERT INTO "public"."users" ("name", "email") VALUES (?, ?)"#);
         assert_eq!(params.len(), 2);
+    }
+
+    #[test]
+    fn date_cell_uses_typed_date_parameter() {
+        let filter = TableFilter {
+            column: "hire_date".into(),
+            op: FilterOp::Eq,
+            value: CellValue::Date("2026-08-17".into()),
+        };
+        let (_, params) = build_count(&DollarNDialect, "public", "employees", &[filter]);
+
+        assert!(matches!(params.as_slice(), [QueryParam::DateTime(value)] if value == "2026-08-17"));
     }
 
     #[test]
