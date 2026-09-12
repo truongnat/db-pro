@@ -2,7 +2,10 @@
 
 ## Automated evidence
 
-- `cargo fmt --all -- --check` — PASS.
+- `cargo fmt --all -- --check` — PASS at the prior clean-worktree gate; the
+  current shared worktree has unrelated native-app formatting edits, so the
+  latest global formatter run is not claimable for this core-only wave.
+- `rustfmt --edition 2021 --check crates/infrastructure/src/sqlite/introspect.rs` — PASS for the SQLite core change. A later global formatter run is blocked by unrelated uncommitted native-app formatting changes; no native file is part of this core change.
 - `git diff --check` — PASS.
 - `cargo check --workspace` — PASS.
 - `cargo clippy --workspace --all-targets -- -D warnings` — PASS.
@@ -90,7 +93,8 @@
   test assertions, intentional cleanup sends, parser/module size, and unrelated
   native/UI helpers; none is a clippy or scanner blocker.
 - `cargo check --workspace` after SSH readiness changes — PASS.
-- Core/infrastructure scoped gate — PASS: `cargo fmt --all -- --check`,
+- Core/infrastructure scoped gate — PASS: file-scoped rustfmt for the SQLite
+  change,
   `cargo clippy -p db-pro-core --all-targets -- -D warnings`,
   `cargo clippy -p db-pro-infrastructure --all-targets -- -D warnings`,
   `cargo test -p db-pro-core --lib` (246),
