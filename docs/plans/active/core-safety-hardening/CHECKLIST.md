@@ -105,6 +105,7 @@
 - [x] Provision the live SSH backup fixture in CI without disabling host-key verification.
 - [x] Reject malformed and unsupported-future metadata schema versions.
 - [x] Add migration regression coverage for invalid schema-version metadata.
+- [x] Propagate SQLite primary-key metadata decode errors.
 - [x] Run formatting, check, clippy, targeted tests, and workspace tests.
 - [x] Self-review changed files and confirm no UI/native files changed.
 - [x] Record PostgreSQL live fixture evidence; SSH-tunnel and native UI runtime evidence remain explicitly pending.

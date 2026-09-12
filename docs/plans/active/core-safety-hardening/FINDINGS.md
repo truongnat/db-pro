@@ -674,3 +674,13 @@ continue startup without an explicit compatibility error.
 Decision: parse the persisted version as an unsigned integer, return an internal
 error for missing or malformed values, and reject versions above
 `LATEST_VERSION` before applying migrations.
+
+## P2 — SQLite primary-key metadata decode errors are swallowed
+
+SQLite column introspection used `unwrap_or(0)` when decoding the `pk` field from
+`PRAGMA table_info`. A provider metadata decode failure therefore changed a
+primary-key column into an ordinary column, which can later make table editing
+lose its row identity contract.
+
+Decision: use the rusqlite row error path directly so malformed primary-key
+metadata aborts the introspection rather than returning an incomplete schema.

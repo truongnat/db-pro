@@ -128,6 +128,8 @@ without changing the native UI or adding product features.
     values to zero, masking metadata corruption as a valid history entry.
 55. Metadata migration treats malformed schema versions as version `0` and does
     not reject a database schema newer than the binary supports.
+56. SQLite column introspection converts a primary-key metadata decode error to
+    `false`, which can erase row identity information from the schema snapshot.
 
 ## Acceptance criteria
 
@@ -219,6 +221,8 @@ without changing the native UI or adding product features.
   verification runs with the same host-key verification contract.
 - Metadata migration fails closed on malformed, negative, or future schema
   versions instead of silently applying an incompatible migration set.
+- SQLite primary-key metadata decode errors propagate instead of silently
+  converting a column to non-primary-key state.
 - Create, update, and both connection-test paths share the same connection
   configuration validation boundary.
 - PostgreSQL and SQLite unit/integration coverage is updated independently where the

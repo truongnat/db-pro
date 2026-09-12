@@ -92,7 +92,7 @@ fn introspect_columns(conn: &rusqlite::Connection, table_names: &[String]) -> Re
                 let data_type: String = row.get(2)?;
                 let notnull: bool = row.get(3)?;
                 let default: Option<String> = row.get(4)?;
-                let pk: bool = row.get::<_, i32>(5).unwrap_or(0) > 0;
+                let pk: bool = row.get::<_, i32>(5)? > 0;
                 Ok(Column {
                     name,
                     data_type,
