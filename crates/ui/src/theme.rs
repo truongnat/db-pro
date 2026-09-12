@@ -69,16 +69,16 @@ impl DbProTheme {
             text_disabled: Color32::from_rgb(179, 179, 179), // --text-disabled: #b3b3b3
             text_muted: Color32::from_rgb(138, 138, 138),  // alias to tertiary
             text_inverse: Color32::from_rgb(255, 255, 255),
-            accent: Color32::from_rgb(17, 17, 17), // --accent: #111111 (Editorial Black)
-            accent_hover: Color32::from_rgb(34, 34, 34),
-            accent_soft: Color32::from_rgb(243, 243, 243), // --surface-2
+            accent: Color32::from_rgb(2, 133, 255), // --accent: #0285ff (Modern Blue)
+            accent_hover: Color32::from_rgb(1, 105, 204),
+            accent_soft: Color32::from_rgb(238, 246, 255), // soft blue tint
             accent_foreground: Color32::from_rgb(255, 255, 255), // #ffffff
             success: Color32::from_rgb(22, 163, 74),       // --success: #16a34a
             warning: Color32::from_rgb(217, 119, 6),       // --warning: #d97706
             danger: Color32::from_rgb(220, 38, 38),        // --danger: #dc2626
             info: Color32::from_rgb(37, 99, 235),          // --info: #2563eb
             overlay: Color32::from_black_alpha(38),        // scrim ~0.15 so the dialog stays the brightest surface
-            code_keyword: Color32::from_rgb(17, 17, 17),
+            code_keyword: Color32::from_rgb(2, 133, 255),
             code_string: Color32::from_rgb(22, 163, 74),
             code_number: Color32::from_rgb(217, 119, 6),
             code_comment: Color32::from_rgb(138, 138, 138),
@@ -105,16 +105,16 @@ impl DbProTheme {
             text_disabled: Color32::from_rgb(102, 102, 102), // --text-disabled: #666666
             text_muted: Color32::from_rgb(141, 141, 141), // alias to tertiary
             text_inverse: Color32::from_rgb(17, 17, 17),
-            accent: Color32::from_rgb(243, 243, 243), // --accent: #f3f3f3 (Editorial Light)
-            accent_hover: Color32::from_rgb(255, 255, 255),
-            accent_soft: Color32::from_rgb(48, 48, 48),       // --surface-2
-            accent_foreground: Color32::from_rgb(17, 17, 17), // #111111
+            accent: Color32::from_rgb(51, 156, 255), // --accent: #339cff (Modern Blue)
+            accent_hover: Color32::from_rgb(102, 181, 255),
+            accent_soft: Color32::from_rgb(0, 40, 77),       // soft blue tint
+            accent_foreground: Color32::from_rgb(255, 255, 255), // #ffffff
             success: Color32::from_rgb(34, 197, 94),          // --success: #22c55e
             warning: Color32::from_rgb(245, 158, 11),         // --warning: #f59e0b
             danger: Color32::from_rgb(239, 68, 68),           // --danger: #ef4444
             info: Color32::from_rgb(59, 130, 246),            // --info: #3b82f6
             overlay: Color32::from_black_alpha(64),           // scrim ~0.25, card stays fully opaque on top
-            code_keyword: Color32::from_rgb(243, 243, 243),
+            code_keyword: Color32::from_rgb(102, 181, 255),
             code_string: Color32::from_rgb(34, 197, 94),
             code_number: Color32::from_rgb(245, 158, 11),
             code_comment: Color32::from_rgb(141, 141, 141),
@@ -334,7 +334,7 @@ mod tests {
         assert_eq!(theme.surface_app, egui::Color32::from_rgb(255, 255, 255));
         assert_eq!(theme.surface_panel, egui::Color32::from_rgb(247, 247, 247));
         assert_eq!(theme.surface_active, egui::Color32::from_rgb(232, 232, 232));
-        assert_eq!(theme.accent, egui::Color32::from_rgb(17, 17, 17));
+        assert_eq!(theme.accent, egui::Color32::from_rgb(2, 133, 255));
     }
 
     #[test]
@@ -344,7 +344,7 @@ mod tests {
         assert_eq!(theme.surface_app, egui::Color32::from_rgb(33, 33, 33));
         assert_eq!(theme.surface_panel, egui::Color32::from_rgb(42, 42, 42));
         assert_eq!(theme.surface_active, egui::Color32::from_rgb(61, 61, 61));
-        assert_eq!(theme.accent, egui::Color32::from_rgb(243, 243, 243));
+        assert_eq!(theme.accent, egui::Color32::from_rgb(51, 156, 255));
     }
 
     #[test]
