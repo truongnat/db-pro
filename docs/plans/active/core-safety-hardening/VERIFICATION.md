@@ -22,7 +22,7 @@
 - `cargo test -p db-pro-core domain::safety::tests::classify_merge_delete_as_destructive_but_update_as_write -- --exact` — PASS: MERGE DELETE actions are destructive while update-only and quoted DELETE text remain writes.
 - `cargo test -p db-pro-core domain::safety::tests::classify_opaque_server_side_execution_as_destructive -- --exact` — PASS: DO, CALL, and EXECUTE cannot bypass a policy that forbids destructive operations.
 - `cargo test -p db-pro-infrastructure meta::query_history_repo::tests::query_history_metrics_reject_invalid_values -- --exact` — PASS: malformed persisted duration and row-count values return an explicit error.
-- `cargo test -p db-pro-infrastructure --test ssh_backup_runtime_verification -- --ignored --nocapture` — PENDING: live isolated SSH server and PostgreSQL target required; the test exercises pg_dump, psql restore, and a post-restore query through the tunnel.
+- `cargo test -p db-pro-infrastructure --test ssh_backup_runtime_verification -- --ignored --nocapture` — PENDING: live isolated SSH server, pre-provisioned OpenSSH known-hosts entry, and PostgreSQL target required; the test exercises pg_dump, psql restore, and a post-restore query through the tunnel. A local attempt reached the SSH process but was correctly rejected because the ephemeral host key was not trusted.
 - `cargo test -p db-pro-core application::export_service::tests` — PASS: 8 export
   serialization, validation, read-only policy, integer precision, and coordinate
   overflow tests.

@@ -4,6 +4,9 @@
 //! `DB_PRO_SSH_HOST`, `DB_PRO_SSH_PORT`, `DB_PRO_SSH_USER`, `DB_PRO_SSH_KEY`,
 //! `DB_PRO_SSH_TARGET_HOST`, `DB_PRO_SSH_TARGET_PORT`, `DB_PRO_SSH_DATABASE`,
 //! `DB_PRO_SSH_USERNAME`, and `DB_PRO_SSH_PASSWORD`.
+//!
+//! The SSH host key must already be trusted by the OpenSSH known-hosts policy;
+//! this test deliberately does not disable verification or modify that policy.
 
 use db_pro_core::domain::backup::{BackupFormat, BackupOptions, RestoreOptions};
 use db_pro_core::domain::connection::{ConnectionConfig, DriverType, SshTunnelConfig, SslMode};
