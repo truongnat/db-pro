@@ -97,6 +97,8 @@ without changing the native UI or adding product features.
     name, so creation depends on the session `search_path`.
 41. Connection test paths bypass `ConnectionConfig::validate`, allowing invalid
     provider-specific drafts to reach a connector.
+42. EXPLAIN safety classification searches for `ANALYZE` by substring and can
+    slice the original SQL with an invalid Unicode offset.
 
 ## Acceptance criteria
 

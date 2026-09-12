@@ -96,23 +96,84 @@ pub fn classify_statement_safety(sql: &str) -> Option<StatementSafety> {
 /// For EXPLAIN statements: plain EXPLAIN is Read, but EXPLAIN ANALYZE actually
 /// executes the inner statement, so its safety depends on the inner statement.
 fn classify_explain_safety(sql: &str) -> Option<StatementSafety> {
-    let upper = sql.to_ascii_uppercase();
-    // Check for EXPLAIN ANALYZE — this actually executes the inner statement.
-    if upper.contains("ANALYZE") || upper.contains("ANALYSE") {
-        // Strip the EXPLAIN ANALYZE prefix and classify the inner statement.
-        let stripped = upper.strip_prefix("EXPLAIN").unwrap_or(&upper).trim_start();
-        let stripped = stripped
-            .strip_prefix("ANALYZE")
-            .or_else(|| stripped.strip_prefix("ANALYSE"))
-            .unwrap_or(stripped)
-            .trim_start();
-        // Re-classify the inner statement using the original-case SQL.
-        let inner_start = sql.len() - stripped.len();
-        let inner_sql = &sql[inner_start..];
-        classify_statement_safety(inner_sql)
-    } else {
-        Some(StatementSafety::Read)
+    let mut remainder = strip_leading_comments(consume_keyword(sql, "EXPLAIN")?.1).trim_start();
+
+    // PostgreSQL's parenthesized EXPLAIN options are metadata, not the query
+    // being explained. Only ANALYZE causes the inner statement to execute.
+    if remainder.starts_with('(') {
+        let end = matching_parenthesis_end(remainder)?;
+        let options = &remainder[1..end - 1];
+        if !contains_sql_keyword(options, "ANALYZE") && !contains_sql_keyword(options, "ANALYSE") {
+            return Some(StatementSafety::Read);
+        }
+        remainder = remainder[end..].trim_start();
+        return classify_statement_safety(remainder);
     }
+
+    // The legacy spelling is EXPLAIN [ANALYZE] [VERBOSE] statement. Match
+    // whole keywords in the original SQL so literals/identifiers cannot alter
+    // the decision and Unicode case conversion cannot invalidate byte offsets.
+    let Some((_, after_analyze)) =
+        consume_keyword(remainder, "ANALYZE").or_else(|| consume_keyword(remainder, "ANALYSE"))
+    else {
+        return Some(StatementSafety::Read);
+    };
+
+    let mut inner_sql = strip_leading_comments(after_analyze).trim_start();
+    if let Some((_, after_verbose)) = consume_keyword(inner_sql, "VERBOSE") {
+        inner_sql = strip_leading_comments(after_verbose).trim_start();
+    }
+
+    classify_statement_safety(inner_sql)
+}
+
+fn consume_keyword<'a>(sql: &'a str, expected: &str) -> Option<(&'a str, &'a str)> {
+    let value = strip_leading_comments(sql).trim_start();
+    let bytes = value.as_bytes();
+    let first = *bytes.first()?;
+    if !is_identifier_start(first) {
+        return None;
+    }
+
+    let mut end = 1;
+    while end < bytes.len() && is_identifier_continue(bytes[end]) {
+        end += 1;
+    }
+    let keyword = &value[..end];
+    if keyword.eq_ignore_ascii_case(expected) {
+        Some((keyword, &value[end..]))
+    } else {
+        None
+    }
+}
+
+fn matching_parenthesis_end(sql: &str) -> Option<usize> {
+    let bytes = sql.as_bytes();
+    let mut depth = 0;
+    let mut index = 0;
+    while index < bytes.len() {
+        index = match bytes[index] {
+            b'\'' => skip_quoted(bytes, index, b'\''),
+            b'"' => skip_quoted(bytes, index, b'"'),
+            b'-' if bytes.get(index + 1) == Some(&b'-') => skip_line_comment(bytes, index),
+            b'/' if bytes.get(index + 1) == Some(&b'*') => skip_block_comment(bytes, index),
+            b'$' => skip_dollar_quote(bytes, index).unwrap_or(index + 1),
+            b'(' => {
+                depth += 1;
+                index + 1
+            }
+            b')' => {
+                depth -= 1;
+                if depth == 0 {
+                    return Some(index + 1);
+                }
+                index + 1
+            }
+            _ => index + 1,
+        };
+    }
+
+    None
 }
 
 /// Check whether a DELETE statement lacks a WHERE clause.
@@ -521,6 +582,22 @@ mod tests {
     }
 
     #[test]
+    fn explain_analyze_substrings_in_query_do_not_change_plain_explain_safety() {
+        assert_eq!(
+            classify_statement_safety("EXPLAIN SELECT 'ANALYZE' AS analyze_column"),
+            Some(StatementSafety::Read)
+        );
+    }
+
+    #[test]
+    fn explain_analyze_allows_comments_between_keywords() {
+        assert_eq!(
+            classify_statement_safety("EXPLAIN /* options */ ANALYZE /* query */ DELETE FROM t WHERE id = 1"),
+            Some(StatementSafety::Write)
+        );
+    }
+
+    #[test]
     fn explain_analyze_select_is_read() {
         assert_eq!(
             classify_statement_safety("EXPLAIN ANALYZE SELECT * FROM t"),
@@ -542,6 +619,26 @@ mod tests {
         assert_eq!(
             classify_statement_safety("EXPLAIN ANALYZE INSERT INTO t VALUES (1)"),
             Some(StatementSafety::Write)
+        );
+    }
+
+    #[test]
+    fn explain_parenthesized_analyze_classifies_the_inner_statement() {
+        assert_eq!(
+            classify_statement_safety("EXPLAIN (ANALYZE true, FORMAT JSON) DELETE FROM t WHERE id = 1"),
+            Some(StatementSafety::Write)
+        );
+        assert_eq!(
+            classify_statement_safety("EXPLAIN (FORMAT JSON) DELETE FROM t"),
+            Some(StatementSafety::Read)
+        );
+    }
+
+    #[test]
+    fn explain_analyze_with_unicode_query_text_does_not_panic() {
+        assert_eq!(
+            classify_statement_safety("EXPLAIN ANALYZE SELECT 'straße'"),
+            Some(StatementSafety::Read)
         );
     }
 

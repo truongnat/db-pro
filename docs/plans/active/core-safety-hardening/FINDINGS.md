@@ -490,3 +490,15 @@ the connection boundary.
 
 Decision: centralize configuration validation and require it in create, update,
 and both test-connectivity paths before any secret hydration or connector call.
+
+## P1 — EXPLAIN safety classification uses substring matching
+
+`classify_explain_safety` previously searched the entire SQL string for
+`ANALYZE`. A plain `EXPLAIN` containing a literal or identifier with that text
+could therefore be treated as `EXPLAIN ANALYZE`; the uppercase-then-slice
+implementation could also calculate an invalid byte offset for Unicode text
+and panic inside the safety gate.
+
+Decision: parse `ANALYZE` as an option keyword in the original SQL, support
+PostgreSQL's parenthesized options and comments between keywords, and classify
+only the actual inner statement when execution is enabled.
