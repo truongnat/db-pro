@@ -10,8 +10,8 @@ use crate::domain::safety::{
     StatementSafety,
 };
 use crate::ports::{
-    ConnectionRepository, DbConnector, QueryHistoryRepository, RunConfigRepository, SavedQueryRepository,
-    TransactionFailureOutcome, TransactionFailurePhase, TransactionStatementResult,
+    ConnectionRepository, DbConnector, IntrospectionCache, QueryHistoryRepository, RunConfigRepository,
+    SavedQueryRepository, TransactionFailureOutcome, TransactionFailurePhase, TransactionStatementResult,
 };
 
 use super::registry::ConnectionRegistry;
@@ -33,6 +33,7 @@ pub struct QueryService {
     run_configs: Box<dyn RunConfigRepository>,
     registry: Arc<ConnectionRegistry>,
     connections: Box<dyn ConnectionRepository>,
+    introspection_cache: Option<Box<dyn IntrospectionCache>>,
 }
 
 impl QueryService {
@@ -51,6 +52,27 @@ impl QueryService {
             run_configs,
             registry,
             connections,
+            introspection_cache: None,
+        }
+    }
+
+    pub fn with_introspection_cache(mut self, cache: Box<dyn IntrospectionCache>) -> Self {
+        self.introspection_cache = Some(cache);
+        self
+    }
+
+    async fn invalidate_schema_cache(&self, connection_id: &ConnectionId) {
+        let Some(cache) = self.introspection_cache.as_ref() else {
+            return;
+        };
+        if let Err(error) = cache.invalidate(connection_id).await {
+            tracing::warn!("failed to invalidate schema cache after query DDL: {error}");
+        }
+    }
+
+    async fn invalidate_schema_cache_if_ddl(&self, connection_id: &ConnectionId, sql: &str) {
+        if matches!(classify_statement_safety(sql), Some(StatementSafety::Ddl)) {
+            self.invalidate_schema_cache(connection_id).await;
         }
     }
 
@@ -89,6 +111,7 @@ impl QueryService {
 
         let result = self.connector.query(&handle, sql, params).await?;
         result.validate().map_err(DbError::QueryFailed)?;
+        self.invalidate_schema_cache_if_ddl(connection_id, sql).await;
 
         if let Err(e) = self
             .history
@@ -149,6 +172,9 @@ impl QueryService {
         let has_mutation = statements
             .iter()
             .any(|statement| !matches!(classify_statement_safety(statement), Some(StatementSafety::Read)));
+        let has_schema_change = statements
+            .iter()
+            .any(|statement| matches!(classify_statement_safety(statement), Some(StatementSafety::Ddl)));
 
         if statements.len() > 1 && has_mutation {
             for (idx, stmt) in statements.iter().enumerate() {
@@ -167,6 +193,9 @@ impl QueryService {
                 .await
             {
                 Ok(transaction_results) => {
+                    if has_schema_change {
+                        self.invalidate_schema_cache(connection_id).await;
+                    }
                     for (idx, transaction_result) in transaction_results.into_iter().enumerate() {
                         match transaction_result_to_query_result(transaction_result) {
                             Ok(result) => results.push(result),
@@ -181,6 +210,10 @@ impl QueryService {
                     }
                 }
                 Err(failure) => {
+                    let unknown_commit = failure.outcome == TransactionFailureOutcome::Unknown;
+                    if has_schema_change && unknown_commit {
+                        self.invalidate_schema_cache(connection_id).await;
+                    }
                     let failure_phase = failure.phase;
                     let failure_outcome = failure.outcome;
                     let failure_statement_index = failure.statement_index;
@@ -260,6 +293,10 @@ impl QueryService {
                     },
                 }
             }
+        }
+
+        if statements.len() == 1 && has_schema_change {
+            self.invalidate_schema_cache(connection_id).await;
         }
 
         let total_duration_ms = start.elapsed().as_millis() as u64;
@@ -534,9 +571,9 @@ mod tests {
     use crate::domain::connection::ConnectionHandle;
     use crate::domain::query::{CellValue, ColumnMeta, Row};
     use crate::ports::{
-        MockConnectionRepository, MockDbConnector, MockQueryHistoryRepository, MockRunConfigRepository,
-        MockSavedQueryRepository, TransactionFailure, TransactionFailureOutcome, TransactionFailurePhase,
-        TransactionStatementResult,
+        MockConnectionRepository, MockDbConnector, MockIntrospectionCache, MockQueryHistoryRepository,
+        MockRunConfigRepository, MockSavedQueryRepository, TransactionFailure, TransactionFailureOutcome,
+        TransactionFailurePhase, TransactionStatementResult,
     };
 
     fn test_result() -> QueryResult {
@@ -659,6 +696,47 @@ mod tests {
         svc.cancel(&conn_id)
             .await
             .expect("active query cancellation should be forwarded");
+    }
+
+    #[tokio::test]
+    async fn execute_ddl_invalidates_schema_cache() {
+        let conn_id = ConnectionId::new();
+        let registry = Arc::new(ConnectionRegistry::new());
+        registry.register(conn_id, ConnectionHandle(1));
+
+        let mut connector = MockDbConnector::new();
+        connector.expect_query().returning(|_, _, _| {
+            Ok(QueryResult {
+                columns: Vec::new(),
+                rows: Vec::new(),
+                row_count: 0,
+                duration_ms: 0,
+            })
+        });
+
+        let mut history = MockQueryHistoryRepository::new();
+        history.expect_save().returning(|_, _, _, _, _| Ok(()));
+
+        let mut cache = MockIntrospectionCache::new();
+        cache
+            .expect_invalidate()
+            .withf(move |id| *id == conn_id)
+            .times(1)
+            .returning(|_| Ok(()));
+
+        let svc = QueryService::new(
+            Box::new(connector),
+            Box::new(history),
+            Box::new(MockSavedQueryRepository::new()),
+            Box::new(MockRunConfigRepository::new()),
+            registry,
+            Box::new(mock_connections_full_access()),
+        )
+        .with_introspection_cache(Box::new(cache));
+
+        svc.execute(&conn_id, "CREATE TABLE added (id INT)", &[], None, None)
+            .await
+            .expect("DDL query should succeed");
     }
 
     #[tokio::test]
@@ -1121,6 +1199,13 @@ mod tests {
             })
         });
 
+        let mut cache = MockIntrospectionCache::new();
+        cache
+            .expect_invalidate()
+            .withf(move |id| *id == conn_id)
+            .times(1)
+            .returning(|_| Ok(()));
+
         let svc = QueryService::new(
             Box::new(connector),
             Box::new(MockQueryHistoryRepository::new()),
@@ -1128,10 +1213,11 @@ mod tests {
             Box::new(MockRunConfigRepository::new()),
             Arc::clone(&registry),
             Box::new(mock_connections_full_access()),
-        );
+        )
+        .with_introspection_cache(Box::new(cache));
 
         let result = svc
-            .execute_multi(&conn_id, "SELECT 1; UPDATE t SET x = 1", None, None)
+            .execute_multi(&conn_id, "CREATE TABLE t (id INT); SELECT 1", None, None)
             .await
             .unwrap();
 

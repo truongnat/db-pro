@@ -151,6 +151,8 @@
 - [x] Make SQLite cancellation interrupt the VM and wait for actor recovery.
 - [x] Stop advertising PostgreSQL cancellation until a provider-safe primitive exists.
 - [x] Add core, PostgreSQL connector, and live SQLite cancellation contract coverage.
+- [x] Invalidate the shared introspection cache for QueryService DDL success and unknown commit outcomes.
+- [x] Add QueryService regression coverage for DDL cache invalidation.
 - [x] Run formatting, check, clippy, targeted tests, and workspace tests.
 - [x] Self-review changed files and confirm no UI/native files changed.
 - [x] Record PostgreSQL and isolated SSH-tunnel fixture evidence; CI SSH execution and native UI runtime evidence remain pending.

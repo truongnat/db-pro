@@ -971,3 +971,20 @@ and waits for the actor acknowledgement before the runtime emits
 `QueryCancelled`; PostgreSQL does not advertise cancellation until a
 provider-safe cancellation primitive is available, so the runtime must not
 silently claim success for it.
+
+## P1 — Query-editor DDL leaves the introspection cache stale
+
+`SchemaService::execute_ddl` invalidates the schema cache, but DDL submitted
+through `QueryService::execute` or `execute_multi` follows a separate path and
+never invalidates that cache. A successful `CREATE`, `ALTER`, or `DROP` can
+therefore be followed by a schema read that still returns the previous
+metadata snapshot.
+
+Impact: the explorer, table editor, or DDL follow-up can operate against stale
+schema state until an unrelated forced refresh occurs. A transaction whose
+commit outcome is unknown must also invalidate proactively because the DDL may
+have committed.
+
+Decision: inject the existing introspection-cache port into the runtime's
+QueryService, invalidate after successful DDL, and invalidate on unknown
+transaction outcomes while preserving the cache on confirmed rollback.

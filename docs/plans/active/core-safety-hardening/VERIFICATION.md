@@ -143,6 +143,11 @@
   -p db-pro-infrastructure -p db-pro-runtime`, clippy with `-D warnings`,
   release build for the three scoped crates, scoped rustfmt check, and
   `clean-code-scan.sh --diff` with 0 blocking failures.
+- QueryService DDL cache contract — PASS: targeted
+  `execute_ddl_invalidates_schema_cache` test verifies successful DDL
+  invalidates the shared cache; runtime wiring uses the same metadata cache as
+  SchemaService. Unknown transaction outcomes invalidate through the same
+  explicit cache boundary.
 - `cargo check --workspace` after SSH readiness changes — PASS.
 - Core/infrastructure scoped gate — PASS: file-scoped rustfmt for the SQLite
   change,

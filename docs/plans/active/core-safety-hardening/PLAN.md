@@ -161,6 +161,9 @@ without changing the native UI or adding product features.
     cancellation primitive; PostgreSQL is advertised as cancellable while the
     runtime only drops the awaiting future, and SQLite cancellation does not
     wait for actor recovery.
+71. DDL submitted through `QueryService` does not invalidate the
+    connection-scoped introspection cache, including the unknown-outcome case
+    of an atomic transaction.
 
 ## Acceptance criteria
 
@@ -285,6 +288,9 @@ without changing the native UI or adding product features.
   active VM and acknowledges actor recovery before reporting cancellation;
   PostgreSQL does not advertise cancellation until a provider-safe primitive
   exists.
+- DDL submitted through QueryService invalidates the shared schema cache after
+  success and after an unknown transaction outcome; confirmed rollbacks retain
+  the existing cache.
 - Create, update, and both connection-test paths share the same connection
   configuration validation boundary.
 - PostgreSQL and SQLite unit/integration coverage is updated independently where the

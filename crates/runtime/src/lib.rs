@@ -78,14 +78,17 @@ impl DbProRuntime {
             .with_introspection_cache(Box::new(meta_store.clone())),
         );
 
-        let queries = Arc::new(QueryService::new(
-            Box::new(Arc::clone(&connector)),
-            Box::new(meta_store.clone()),
-            Box::new(meta_store.clone()),
-            Box::new(meta_store.clone()),
-            Arc::clone(&registry),
-            Box::new(meta_store.clone()),
-        ));
+        let queries = Arc::new(
+            QueryService::new(
+                Box::new(Arc::clone(&connector)),
+                Box::new(meta_store.clone()),
+                Box::new(meta_store.clone()),
+                Box::new(meta_store.clone()),
+                Arc::clone(&registry),
+                Box::new(meta_store.clone()),
+            )
+            .with_introspection_cache(Box::new(meta_store.clone())),
+        );
 
         let schema = Arc::new(SchemaService::new(
             Box::new(Arc::clone(&connector)),
