@@ -40,7 +40,7 @@
 - `cargo test -p db-pro-core application::table_data_service::tests::parse_total_count_rejects_non_scalar_result -- --exact` — PASS: pagination rejects a non-scalar count payload.
 - `cargo test -p db-pro-core application::data_diff::tests::extract_count_rejects_non_scalar_provider_result -- --exact` — PASS: data-diff rejects a non-scalar count payload.
 - `cargo test -p db-pro-core --lib --no-fail-fast` — PASS: 255 core unit tests after scalar count validation.
-- `cargo test -p db-pro-infrastructure --test ssh_backup_runtime_verification -- --ignored --nocapture` — PENDING: live isolated SSH server, pre-provisioned OpenSSH known-hosts entry, and PostgreSQL target required; the test exercises pg_dump, psql restore, and a post-restore query through the tunnel. It skips explicitly when `DB_PRO_SSH_*` is not configured, so the existing CI `--include-ignored` suite does not claim live SSH coverage. A local attempt reached the SSH process but was correctly rejected because the ephemeral host key was not trusted.
+- `DB_PRO_SSH_*`-configured `cargo test -p db-pro-infrastructure --test ssh_backup_runtime_verification -- --ignored --nocapture` — PASS: 1 live isolated SSH backup/restore test; pg_dump, database creation, psql restore, and post-restore query all completed through the tunnel with host-key verification enabled.
 - CI configuration now provisions the SSHD/key/known-hosts fixture and exports the required `DB_PRO_SSH_*` variables before `cargo test --all -- --include-ignored`; live CI execution remains pending until that workflow run completes.
 - `cargo test -p db-pro-core application::export_service::tests` — PASS: 8 export
   serialization, validation, read-only policy, integer precision, and coordinate
@@ -134,7 +134,7 @@ artifact is rejected before external command execution.
 
 | Provider | Automated | Live provider | Notes |
 |---|---|---|---|
-| PostgreSQL | Unit policy/timeout coverage PASS | PASS (isolated `postgres:18.2`, 14/14) | Live introspection/query/transaction and batch rollback pass; SSH backup/tunnel execution pending |
+| PostgreSQL | Unit policy/timeout coverage PASS | PASS (isolated `postgres:18.2`, 14/14) | Live introspection/query/transaction, batch rollback, and isolated SSH backup/tunnel pass; CI SSH workflow execution pending |
 | SQLite | Integration timeout/recovery PASS | PASS (in-memory provider) | Native UI runtime evidence is outside this core-only slice |
 
 ## Scope check

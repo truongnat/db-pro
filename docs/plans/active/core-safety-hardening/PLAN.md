@@ -15,7 +15,8 @@ without changing the native UI or adding product features.
 
 - No changes to `crates/ui`, `crates/native-app`, Tauri, Agent/MCP, or visual design.
 - No schema migration, import workflow, or new provider feature.
-- No claim of native UI runtime or live SSH-tunnel verification in this wave.
+- No claim of native UI runtime verification in this core-only wave; SSH
+  verification is limited to the isolated fixture and CI evidence recorded below.
 
 ## Findings driving this wave
 
