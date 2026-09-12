@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::sync::Arc;
 
 use crate::domain::connection::ConnectionId;
@@ -93,6 +94,7 @@ impl ExportService {
 
     pub async fn export_json(&self, connection_id: &ConnectionId, sql: &str) -> Result<ExportResult, DbError> {
         let result = self.execute_for_export(connection_id, sql).await?;
+        validate_json_column_names(&result)?;
 
         let rows: Vec<serde_json::Map<String, serde_json::Value>> = result
             .rows
@@ -163,6 +165,19 @@ fn excel_row_index(index: usize) -> Result<u32, DbError> {
         .checked_add(1)
         .and_then(|index| u32::try_from(index).ok())
         .ok_or_else(|| DbError::Validation("Excel export has too many rows".into()))
+}
+
+fn validate_json_column_names(result: &QueryResult) -> Result<(), DbError> {
+    let mut names = HashSet::with_capacity(result.columns.len());
+    for column in &result.columns {
+        if !names.insert(column.name.as_str()) {
+            return Err(DbError::Validation(format!(
+                "JSON export requires unique column names; duplicate column: {}",
+                column.name
+            )));
+        }
+    }
+    Ok(())
 }
 
 const MAX_EXACT_EXCEL_INTEGER: i64 = 1_i64 << 53;
@@ -366,6 +381,43 @@ mod tests {
         assert_eq!(parsed[0]["name"], "Alice");
         assert_eq!(parsed[1]["name"], serde_json::Value::Null);
         assert_eq!(result.mime_type, "application/json");
+    }
+
+    #[tokio::test]
+    async fn export_json_rejects_duplicate_column_names() {
+        let conn_id = ConnectionId::new();
+        let registry = Arc::new(ConnectionRegistry::new());
+        registry.register(conn_id, ConnectionHandle(1));
+
+        let duplicate_columns = QueryResult {
+            columns: vec![
+                ColumnMeta {
+                    name: "value".into(),
+                    data_type: "INT".into(),
+                    nullable: false,
+                },
+                ColumnMeta {
+                    name: "value".into(),
+                    data_type: "INT".into(),
+                    nullable: false,
+                },
+            ],
+            rows: vec![Row(vec![CellValue::Int64(1), CellValue::Int64(2)])],
+            row_count: 1,
+            duration_ms: 0,
+        };
+        let mut connector = MockDbConnector::new();
+        connector
+            .expect_query()
+            .returning(move |_, _, _| Ok(duplicate_columns.clone()));
+
+        let error = build_service(connector, registry)
+            .export_json(&conn_id, "SELECT 1 AS value, 2 AS value")
+            .await
+            .expect_err("JSON export must not drop a duplicate column");
+
+        assert!(matches!(error, DbError::Validation(message)
+            if message.contains("duplicate column") && message.contains("value")));
     }
 
     #[tokio::test]

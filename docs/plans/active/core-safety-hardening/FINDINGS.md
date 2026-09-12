@@ -803,3 +803,17 @@ returned payload.
 Decision: require matching counts whenever the result has columns, while
 preserving the existing affected-row representation (`columns == []`, `rows ==
 []`, `row_count > 0`).
+
+## P1 — JSON export silently overwrites duplicate column names
+
+`ExportService::export_json` represents each row as a JSON object and inserts
+values by `ColumnMeta.name`. SQL results can legally contain duplicate output
+names, such as `SELECT 1 AS value, 2 AS value`; inserting both values into a
+map silently keeps only the last one.
+
+Impact: a successful JSON export can contain incomplete, corrupted row data
+without warning, while the positional CSV and Excel formats still retain both
+columns.
+
+Decision: reject JSON export when column names are not unique and return an
+explicit validation error. Keep CSV and Excel positional output unchanged.

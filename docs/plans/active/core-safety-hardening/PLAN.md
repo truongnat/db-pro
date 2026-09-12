@@ -147,6 +147,8 @@ without changing the native UI or adding product features.
     character limit, rejecting valid non-ASCII names at the boundary.
 64. `QueryResult::validate` checks row cell shape but accepts a mismatched
     `row_count`, allowing incorrect result metrics to cross core boundaries.
+65. JSON export uses column names as object keys, so a result with duplicate
+    column names silently overwrites an earlier value.
 
 ## Acceptance criteria
 
@@ -257,6 +259,8 @@ without changing the native UI or adding product features.
   count rather than UTF-8 byte length.
 - `QueryResult::validate` rejects mismatched returned-row counts while retaining
   the affected-row representation with no columns/rows.
+- JSON export rejects duplicate column names instead of silently dropping values;
+  CSV and Excel continue to preserve positional duplicate columns.
 - Create, update, and both connection-test paths share the same connection
   configuration validation boundary.
 - PostgreSQL and SQLite unit/integration coverage is updated independently where the
