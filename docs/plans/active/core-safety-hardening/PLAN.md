@@ -211,6 +211,8 @@ without changing the native UI or adding product features.
   as destructive unless their internals can be inspected safely by the core.
 - Query history rejects malformed persisted numeric metadata instead of silently
   replacing it with zero.
+- A live isolated PostgreSQL fixture verifies backup and restore through the SSH
+  tunnel, including restore into a fresh database and post-restore queryability.
 - Create, update, and both connection-test paths share the same connection
   configuration validation boundary.
 - PostgreSQL and SQLite unit/integration coverage is updated independently where the

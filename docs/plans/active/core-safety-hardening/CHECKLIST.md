@@ -101,6 +101,7 @@
 - [x] Add regression coverage preventing hidden server-side mutations from bypassing policy.
 - [x] Reject malformed query-history duration and row-count metadata.
 - [x] Add query-history metric parsing regression coverage.
+- [x] Add an ignored live PostgreSQL backup/restore verification test for the SSH tunnel.
 - [x] Run formatting, check, clippy, targeted tests, and workspace tests.
 - [x] Self-review changed files and confirm no UI/native files changed.
 - [x] Record PostgreSQL live fixture evidence; SSH-tunnel and native UI runtime evidence remain explicitly pending.

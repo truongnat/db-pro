@@ -33,6 +33,9 @@ _archive/frontend/test/fixtures/schemas/*.json
 # Local native runtime state
 /.db-pro-data/
 
+# WorkBuddy AI session memory and scripts
+.workbuddy-ai/
+
 # Allow plan docs and agent instructions (overrides global gitignore)
 !docs/
 !docs/**
