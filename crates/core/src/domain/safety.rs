@@ -360,18 +360,16 @@ fn classify_cte_safety(sql: &str) -> Option<StatementSafety> {
 fn cte_mutation_keyword(chars: &[char], index: usize) -> Option<&'static str> {
     let rest: String = chars[index..].iter().take(10).collect();
     let upper = rest.to_ascii_uppercase();
-    for keyword in ["INSERT", "UPDATE", "DELETE", "DROP", "TRUNCATE"] {
-        if upper.starts_with(keyword)
-            && rest.len() > keyword.len()
-            && rest
-                .as_bytes()
-                .get(keyword.len())
-                .is_some_and(|byte| byte.is_ascii_whitespace())
-        {
-            return Some(keyword);
-        }
-    }
-    None
+    ["INSERT", "UPDATE", "DELETE", "DROP", "TRUNCATE"]
+        .into_iter()
+        .find(|keyword| {
+            upper.starts_with(*keyword)
+                && rest.len() > keyword.len()
+                && rest
+                    .as_bytes()
+                    .get(keyword.len())
+                    .is_some_and(|byte| byte.is_ascii_whitespace())
+        })
 }
 
 fn combine_cte_safety(
