@@ -124,6 +124,9 @@ pub fn build_insert(
             values.len()
         )));
     }
+    if columns.is_empty() {
+        return Err(DbError::Validation("insert requires at least one column".into()));
+    }
     let cols = columns
         .iter()
         .map(|c| dialect.quote_identifier(c))
@@ -154,6 +157,9 @@ pub fn build_update(
             columns.len(),
             values.len()
         )));
+    }
+    if columns.is_empty() {
+        return Err(DbError::Validation("update requires at least one column".into()));
     }
     if pk_columns.is_empty() || pk_columns.len() != pk_values.len() {
         return Err(DbError::Validation(format!(
@@ -584,6 +590,12 @@ mod tests {
     }
 
     #[test]
+    fn insert_rejects_empty_columns() {
+        let result = build_insert(&QuestionDialect, "public", "users", &[], &[]);
+        assert!(matches!(result, Err(DbError::Validation(message)) if message.contains("at least one column")));
+    }
+
+    #[test]
     fn update_rejects_column_value_mismatch() {
         let columns = vec!["name".into(), "email".into()];
         let values = vec![CellValue::Text("bob".into())];
@@ -597,6 +609,20 @@ mod tests {
             &[CellValue::Int64(1)],
         );
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn update_rejects_empty_columns() {
+        let result = build_update(
+            &QuestionDialect,
+            "public",
+            "users",
+            &[],
+            &[],
+            &["id".into()],
+            &[CellValue::Int64(1)],
+        );
+        assert!(matches!(result, Err(DbError::Validation(message)) if message.contains("at least one column")));
     }
 
     #[test]

@@ -895,3 +895,17 @@ compatible because its date representation is text-backed.
 Decision: map date cells to the existing typed date-capable parameter variant
 and add a builder regression test. Runtime PostgreSQL execution remains covered
 by the provider integration gate when a fixture is available.
+
+## P2 — Empty row mutations generate invalid SQL
+
+`build_insert` and `build_update` accepted empty column/value lists because the
+lengths matched. They then generated `INSERT ... () VALUES ()` or `UPDATE ...
+SET  WHERE ...`, delegating a deterministic input error to the provider.
+
+Impact: malformed editor payloads produce opaque SQL errors instead of a clear
+core validation error; an all-default insert is not supported by this builder
+API and must not be implied by an invalid statement.
+
+Decision: reject empty insert/update column sets at the core SQL-builder
+boundary. Add explicit validation regressions; a future `DEFAULT VALUES` flow
+would be a separate feature with its own provider matrix.
