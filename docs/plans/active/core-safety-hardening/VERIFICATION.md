@@ -33,8 +33,8 @@
   tests, including legacy PostgreSQL default-secret fallback for connect and
   delete.
 - `cargo test -p db-pro-infrastructure sqlite::introspect::tests --no-fail-fast` — PASS:
-  8 SQLite introspection tests, including independent nested CHECK extraction
-  and ignoring CHECK text in literals/comments.
+  9 SQLite introspection tests, including independent nested CHECK extraction,
+  ignoring CHECK text in literals/comments, and trigger keyword boundaries.
 - `cargo test -p db-pro-core domain::connection::tests` — PASS: 13 connection
   validation and metadata-security tests, including SQLite SSH rejection.
 - `cargo test -p db-pro-core application::user_service::tests` — PASS: 1
@@ -61,7 +61,7 @@
 - `DATABASE_URL=postgres://dbpro:dbpro_test@127.0.0.1:15434/dbpro_fixture cargo test -p db-pro-infrastructure --test pg_integration --offline -- --ignored` — PASS: 14/14 against an isolated temporary `postgres:18.2` fixture; the container was removed after the run.
 - External PostgreSQL command timeout regression — PASS on Unix via
   `external_command_timeout_returns_query_timeout`.
-- `cargo test --workspace` — PASS: 243 core unit, 28 SQLite integration, 50
+- `cargo test --workspace` — PASS: 243 core unit, 28 SQLite integration, 51
   infrastructure unit, 14 PostgreSQL integration tests ignored, plus all runtime,
   native, UI, schema regression, and doc tests passed.
 - Targeted regression `sqlite_query_timeout_interrupts_vm_and_actor_recovers` — PASS.

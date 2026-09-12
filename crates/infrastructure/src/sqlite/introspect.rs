@@ -479,31 +479,27 @@ fn introspect_triggers(conn: &rusqlite::Connection) -> Result<Vec<Trigger>, DbEr
 /// because the trigger body may contain DML keywords that would produce
 /// false positives (e.g. an AFTER UPDATE trigger whose body does INSERT).
 ///
-/// The search skips past double-quoted identifiers that may contain the
-/// literal text "BEGIN" (e.g. a trigger named `"trg_BEGIN_audit"`).
+/// The search skips past SQL literals, quoted identifiers, and comments so
+/// keywords embedded in names or trigger bodies cannot affect the result.
 fn parse_sqlite_trigger_sql(sql: &str) -> (String, String) {
-    let upper = sql.to_uppercase();
+    let header_end = find_sql_keyword(sql, 0, "BEGIN").unwrap_or(sql.len());
+    let header = &sql[..header_end];
 
-    // Isolate the trigger header (everything before the standalone BEGIN keyword).
-    // We walk forward past any double-quoted identifiers to avoid matching "BEGIN"
-    // that appears inside quoted names like "trg_BEGIN_audit".
-    let header = find_trigger_header(&upper).unwrap_or(upper.as_str());
-
-    let timing = if header.contains("INSTEAD OF") {
+    let timing = if has_sql_keyword_sequence(header, "INSTEAD", "OF") {
         "INSTEAD OF"
-    } else if header.contains("BEFORE") {
+    } else if find_sql_keyword(header, 0, "BEFORE").is_some() {
         "BEFORE"
-    } else if header.contains("AFTER") {
+    } else if find_sql_keyword(header, 0, "AFTER").is_some() {
         "AFTER"
     } else {
         ""
     };
 
-    let event = if header.contains("INSERT") {
+    let event = if find_sql_keyword(header, 0, "INSERT").is_some() {
         "INSERT"
-    } else if header.contains("UPDATE") {
+    } else if find_sql_keyword(header, 0, "UPDATE").is_some() {
         "UPDATE"
-    } else if header.contains("DELETE") {
+    } else if find_sql_keyword(header, 0, "DELETE").is_some() {
         "DELETE"
     } else {
         ""
@@ -512,30 +508,11 @@ fn parse_sqlite_trigger_sql(sql: &str) -> (String, String) {
     (timing.to_string(), event.to_string())
 }
 
-/// Find the header portion of a CREATE TRIGGER statement by locating the
-/// standalone BEGIN keyword, skipping past double-quoted identifiers.
-fn find_trigger_header(upper: &str) -> Option<&str> {
-    let mut search_from = 0;
-    loop {
-        let rel_pos = upper[search_from..].find(" BEGIN")?;
-        let abs_pos = search_from + rel_pos;
-        // Check whether the character right after " BEGIN" is inside a
-        // double-quoted identifier that started before our match.
-        let after_begin = abs_pos + " BEGIN".len();
-        let preceding = &upper[..abs_pos];
-        let quote_count = preceding.chars().filter(|&c| c == '"').count();
-        if quote_count % 2 == 0 {
-            // All quotes are balanced — this BEGIN is a standalone keyword.
-            return Some(&upper[..abs_pos]);
-        }
-        // Odd quote count means we are inside a quoted identifier; skip past it.
-        if let Some(end_quote) = upper[after_begin..].find('"') {
-            search_from = after_begin + end_quote + 1;
-        } else {
-            // No closing quote found — fall back to this match.
-            return Some(&upper[..abs_pos]);
-        }
-    }
+fn has_sql_keyword_sequence(sql: &str, first: &str, second: &str) -> bool {
+    let Some(first_start) = find_sql_keyword(sql, 0, first) else {
+        return false;
+    };
+    find_sql_keyword(sql, first_start + first.len(), second).is_some()
 }
 
 #[cfg(test)]
@@ -637,5 +614,13 @@ mod tests {
         let (timing, event) = parse_sqlite_trigger_sql(sql);
         assert_eq!(timing, "AFTER");
         assert_eq!(event, "UPDATE");
+    }
+
+    #[test]
+    fn parse_trigger_ignores_timing_and_event_words_in_quoted_names() {
+        let sql = r#"CREATE TRIGGER "trg_BEFORE_INSERT" AFTER DELETE ON "table_AFTER_INSERT" BEGIN SELECT 1; END"#;
+        let (timing, event) = parse_sqlite_trigger_sql(sql);
+        assert_eq!(timing, "AFTER");
+        assert_eq!(event, "DELETE");
     }
 }

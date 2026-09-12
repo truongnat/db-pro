@@ -552,3 +552,16 @@ invariants when the DDL was reused.
 
 Decision: scan CHECK keywords outside strings, quoted identifiers, and comments,
 then match each expression's own parenthesis pair with nested-expression support.
+
+## P2 — SQLite trigger metadata uses substring matching
+
+`parse_sqlite_trigger_sql` searched the trigger header with `contains()` for
+`BEFORE`, `AFTER`, `INSERT`, `UPDATE`, and `DELETE`. A quoted trigger or table
+name containing one of those words could therefore override the actual timing
+or event clause.
+
+Impact: core introspection returned incorrect trigger metadata, which could make
+schema inspection and trigger presentation misleading for valid SQLite names.
+
+Decision: reuse the lexical keyword scanner for the header and ignore quoted
+identifiers, literals, comments, and the trigger body before matching clauses.

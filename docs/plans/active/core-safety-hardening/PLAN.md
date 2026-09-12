@@ -108,6 +108,8 @@ without changing the native UI or adding product features.
     credential orphaned on delete.
 46. SQLite CHECK introspection uses the outer `CREATE TABLE` parenthesis depth,
     so multiple or nested CHECK expressions are merged into an invalid definition.
+47. SQLite trigger introspection searches timing/event keywords by substring, so
+    quoted trigger or table names can corrupt the reported trigger metadata.
 
 ## Acceptance criteria
 
@@ -175,6 +177,8 @@ without changing the native UI or adding product features.
   PostgreSQL and SQLite.
 - SQLite introspection extracts each CHECK expression independently while
   ignoring nested parentheses, literals, and comments.
+- SQLite trigger introspection matches timing and event keywords outside quoted
+  names, literals, comments, and the trigger body.
 - PostgreSQL table DDL qualifies reconstructed index names with their source
   schema; SQLite keeps local index names unqualified.
 - Create, update, and both connection-test paths share the same connection
