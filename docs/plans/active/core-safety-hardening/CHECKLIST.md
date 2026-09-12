@@ -79,6 +79,8 @@
 - [x] Add regression coverage for EXPLAIN literals, parenthesized options, Unicode, and comments.
 - [x] Make CTE DELETE safety checks keyword-aware.
 - [x] Add regression coverage for CTE DELETE comments and real predicates.
+- [x] Preserve destructive classification for DELETE bodies inside CTEs.
+- [x] Add regression coverage for destructive CTE policy rejection.
 - [x] Run formatting, check, clippy, targeted tests, and workspace tests.
 - [x] Self-review changed files and confirm no UI/native files changed.
 - [x] Record PostgreSQL live fixture evidence; SSH-tunnel and native UI runtime evidence remain explicitly pending.

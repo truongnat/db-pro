@@ -512,3 +512,13 @@ writes but forbids destructive operations.
 
 Decision: reuse the token-aware DELETE predicate check used by ordinary
 statements, ignoring comments, quoted identifiers, and string literals.
+
+## P1 — Destructive DELETE inside a CTE is downgraded to Write
+
+`classify_cte_safety` treated every data-modifying CTE as `Write`, including
+`WITH deleted AS (DELETE FROM users RETURNING ...) SELECT ...`. A policy that
+allows writes but forbids destructive operations could therefore permit a
+DELETE without a predicate when it was wrapped in a CTE.
+
+Decision: retain the destructive classification of DELETE bodies inside CTEs
+while preserving row-producing CTE routing as a query result.

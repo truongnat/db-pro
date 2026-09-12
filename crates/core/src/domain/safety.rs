@@ -289,6 +289,8 @@ fn classify_cte_safety(sql: &str) -> Option<StatementSafety> {
     let mut depth: i32 = 0;
     let mut in_string = false;
     let mut cte_has_mutation = false;
+    let mut cte_delete_start: Option<usize> = None;
+    let mut cte_has_destructive_delete = false;
 
     while i < len {
         if in_string {
@@ -313,6 +315,10 @@ fn classify_cte_safety(sql: &str) -> Option<StatementSafety> {
             ')' => {
                 depth -= 1;
                 if depth == 0 {
+                    if let Some(delete_start) = cte_delete_start.take() {
+                        let delete_sql: String = chars[delete_start..i].iter().collect();
+                        cte_has_destructive_delete |= is_delete_without_where(&delete_sql);
+                    }
                     i += 1;
                     while i < len && chars[i].is_whitespace() {
                         i += 1;
@@ -322,46 +328,19 @@ fn classify_cte_safety(sql: &str) -> Option<StatementSafety> {
                         continue;
                     }
                     let remaining: String = chars[i..].iter().collect();
-                    let kw = remaining.split_whitespace().next()?.to_ascii_uppercase();
-                    let outer_safety = match kw.as_str() {
-                        "SELECT" | "SHOW" | "EXPLAIN" => Some(StatementSafety::Read),
-                        "INSERT" | "UPDATE" => Some(StatementSafety::Write),
-                        "DELETE" => {
-                            if is_delete_without_where(&remaining) {
-                                Some(StatementSafety::Destructive)
-                            } else {
-                                Some(StatementSafety::Write)
-                            }
-                        }
-                        _ => Some(StatementSafety::Write),
-                    };
+                    let outer_safety = classify_statement_safety(&remaining);
                     // If any CTE body contained a mutation, the whole statement is
                     // at least Write (even if the outer query is SELECT).
-                    if cte_has_mutation {
-                        return if outer_safety == Some(StatementSafety::Read) {
-                            Some(StatementSafety::Write)
-                        } else {
-                            outer_safety
-                        };
-                    }
-                    return outer_safety;
+                    return combine_cte_safety(outer_safety, cte_has_mutation, cte_has_destructive_delete);
                 }
             }
             _ => {
                 // Inside a CTE body (depth > 0): check for mutation keywords.
                 if depth > 0 {
-                    let rest: String = chars[i..].iter().take(10).collect();
-                    let rest_upper = rest.to_ascii_uppercase();
-                    if rest_upper.starts_with("INSERT")
-                        || rest_upper.starts_with("UPDATE")
-                        || rest_upper.starts_with("DELETE")
-                        || rest_upper.starts_with("DROP")
-                        || rest_upper.starts_with("TRUNCATE")
-                    {
-                        // Verify it's a whole keyword (followed by whitespace).
-                        let kw_len = rest_upper.split_whitespace().next().map(|s| s.len()).unwrap_or(0);
-                        if rest.len() > kw_len && rest.as_bytes().get(kw_len).is_some_and(|b| b.is_ascii_whitespace()) {
-                            cte_has_mutation = true;
+                    if let Some(keyword) = cte_mutation_keyword(&chars, i) {
+                        cte_has_mutation = true;
+                        if keyword == "DELETE" {
+                            cte_delete_start.get_or_insert(i);
                         }
                     }
                 }
@@ -371,10 +350,44 @@ fn classify_cte_safety(sql: &str) -> Option<StatementSafety> {
     }
 
     // Fallback: if CTE had mutation but we couldn't find outer keyword, treat as Write.
-    if cte_has_mutation {
+    combine_cte_safety(
+        Some(StatementSafety::Read),
+        cte_has_mutation,
+        cte_has_destructive_delete,
+    )
+}
+
+fn cte_mutation_keyword(chars: &[char], index: usize) -> Option<&'static str> {
+    let rest: String = chars[index..].iter().take(10).collect();
+    let upper = rest.to_ascii_uppercase();
+    for keyword in ["INSERT", "UPDATE", "DELETE", "DROP", "TRUNCATE"] {
+        if upper.starts_with(keyword)
+            && rest.len() > keyword.len()
+            && rest
+                .as_bytes()
+                .get(keyword.len())
+                .is_some_and(|byte| byte.is_ascii_whitespace())
+        {
+            return Some(keyword);
+        }
+    }
+    None
+}
+
+fn combine_cte_safety(
+    outer_safety: Option<StatementSafety>,
+    has_mutation: bool,
+    has_destructive_delete: bool,
+) -> Option<StatementSafety> {
+    if !has_mutation {
+        return outer_safety;
+    }
+    if has_destructive_delete || outer_safety == Some(StatementSafety::Destructive) {
+        Some(StatementSafety::Destructive)
+    } else if outer_safety == Some(StatementSafety::Read) {
         Some(StatementSafety::Write)
     } else {
-        Some(StatementSafety::Read)
+        outer_safety
     }
 }
 
@@ -657,6 +670,27 @@ mod tests {
             ),
             Some(StatementSafety::Write)
         );
+    }
+
+    #[test]
+    fn destructive_delete_inside_cte_remains_destructive() {
+        assert_eq!(
+            classify_statement_safety("WITH deleted AS (DELETE FROM users RETURNING *) SELECT * FROM deleted"),
+            Some(StatementSafety::Destructive)
+        );
+
+        let policy = ConnectionSafetyPolicy {
+            read_only: false,
+            allow_ddl: true,
+            allow_destructive: false,
+            max_rows: None,
+            query_timeout_ms: None,
+        };
+        assert!(validate_against_policy(
+            "WITH deleted AS (DELETE FROM users RETURNING *) SELECT * FROM deleted",
+            &policy
+        )
+        .is_err());
     }
 
     #[test]

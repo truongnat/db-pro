@@ -101,6 +101,8 @@ without changing the native UI or adding product features.
     slice the original SQL with an invalid Unicode offset.
 43. CTE DELETE safety classification searches for `WHERE` by substring and can
     misclassify a destructive delete when comments or literals contain it.
+44. Data-modifying CTE safety classification downgrades `DELETE` without a
+    predicate to `Write`, bypassing policies that forbid destructive operations.
 
 ## Acceptance criteria
 
