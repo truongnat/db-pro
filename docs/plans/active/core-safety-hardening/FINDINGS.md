@@ -966,11 +966,13 @@ caller has returned.
 Impact: the UI can believe a query was stopped while the database is still
 executing it, and a follow-up operation can contend with stale provider work.
 
-Decision: add an explicit cancellation port. SQLite interrupts the active VM
-and waits for the actor acknowledgement before the runtime emits
-`QueryCancelled`; PostgreSQL does not advertise cancellation until a
-provider-safe cancellation primitive is available, so the runtime must not
-silently claim success for it.
+Decision: add an explicit cancellation port. SQLite advertises cancellation,
+interrupts the active VM, and waits for the actor acknowledgement before the
+runtime emits `QueryCancelled`; PostgreSQL does not advertise cancellation
+until a provider-safe cancellation primitive is available, so the runtime
+must not silently claim success for it. If cancellation is requested for a
+provider that cannot apply it, the runtime emits a normal failure event so the
+caller does not remain stuck in a cancelling state.
 
 ## P1 — Query-editor DDL leaves the introspection cache stale
 

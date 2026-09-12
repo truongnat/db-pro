@@ -284,10 +284,10 @@ without changing the native UI or adding product features.
   PostgreSQL binds `TIME`/`TIMETZ`, `INTERVAL`, and `INET`/`CIDR` natively;
   SQLite binds the same values as explicit text because it has no equivalent
   native storage type.
-- Query cancellation is an explicit provider contract: SQLite interrupts the
-  active VM and acknowledges actor recovery before reporting cancellation;
-  PostgreSQL does not advertise cancellation until a provider-safe primitive
-  exists.
+- Query cancellation is an explicit provider contract: SQLite advertises
+  cancellation, interrupts the active VM, and acknowledges actor recovery
+  before reporting cancellation; PostgreSQL does not advertise cancellation
+  until a provider-safe primitive exists.
 - DDL submitted through QueryService invalidates the shared schema cache after
   success and after an unknown transaction outcome; confirmed rollbacks retain
   the existing cache.

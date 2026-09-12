@@ -182,7 +182,9 @@ impl DatabaseCapabilities {
             query: QueryCapabilities {
                 multi_statement: true,
                 explain: true,
-                cancel: false,
+                // SQLite cancellation interrupts the active VM and waits for
+                // the actor to acknowledge that it is ready for reuse.
+                cancel: true,
                 parameters: true,
                 numbered_parameters: false,
                 positional_parameters: true,
@@ -252,7 +254,7 @@ mod tests {
     #[test]
     fn sqlite_capabilities_have_expected_gaps() {
         let caps = DatabaseCapabilities::sqlite();
-        assert!(!caps.query.cancel);
+        assert!(caps.query.cancel);
         assert!(!caps.schema.schemas);
         assert!(!caps.schema.alter_column_type);
         assert!(!caps.schema.functions);

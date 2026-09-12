@@ -960,6 +960,12 @@ pub fn spawn_worker(
                                     code = %error.code,
                                     "query cancellation was not applied"
                                 );
+                                let _ = event_tx
+                                    .send(RuntimeEvent::Failed {
+                                        request_id,
+                                        message: format!("query cancellation failed: {}", error.message),
+                                    })
+                                    .await;
                             }
                         }
                     }

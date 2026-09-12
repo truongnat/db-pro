@@ -137,8 +137,10 @@
 - Query cancellation contract — PASS: 270 core tests, 62 infrastructure unit
   tests, 31 SQLite integration tests, and 4 runtime tests. The SQLite live
   cancellation regression interrupts the VM and waits for actor recovery;
+  SQLite's capability is true only for that provider-safe actor path;
   PostgreSQL returns explicit `Unsupported` and its capability is false until
-  a provider-safe cancellation primitive is implemented.
+  a provider-safe cancellation primitive is implemented. Runtime cancellation
+  failure emits `RuntimeEvent::Failed` instead of leaving a request pending.
 - Scoped cancellation gates — PASS: `cargo check -p db-pro-core
   -p db-pro-infrastructure -p db-pro-runtime`, clippy with `-D warnings`,
   release build for the three scoped crates, scoped rustfmt check, and

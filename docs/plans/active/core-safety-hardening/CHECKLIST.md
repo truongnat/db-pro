@@ -149,6 +149,7 @@
 - [x] Re-run SQLite unit and integration coverage after mapper deduplication.
 - [x] Add an explicit query-cancellation port instead of relying on dropped futures.
 - [x] Make SQLite cancellation interrupt the VM and wait for actor recovery.
+- [x] Advertise SQLite cancellation only after the provider-safe actor path exists.
 - [x] Stop advertising PostgreSQL cancellation until a provider-safe primitive exists.
 - [x] Add core, PostgreSQL connector, and live SQLite cancellation contract coverage.
 - [x] Invalidate the shared introspection cache for QueryService DDL success and unknown commit outcomes.
