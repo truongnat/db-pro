@@ -611,3 +611,18 @@ incorrect DDL without seeing the provider error that caused it.
 Decision: decode metadata through fallible helpers, use `Option<String>` only for
 columns that are intentionally nullable, cast the one-character trigger state
 to text at the SQL boundary, and propagate all other row errors as `DbError`.
+
+## P1 — CTE mutation detection misses comment-separated keywords
+
+The CTE safety classifier searched character slices and required whitespace
+after `INSERT`, `UPDATE`, or `DELETE`. PostgreSQL permits comments between
+tokens, so `DELETE/* comment */FROM ...` was not recognized as a data-modifying
+CTE; an outer `SELECT` could then be classified as read-only.
+
+Impact: a mutating CTE could bypass the read-only policy, and a destructive
+DELETE inside the CTE could bypass the destructive-operation policy.
+
+Decision: tokenize CTE structure while skipping comments, quoted identifiers,
+string literals, and dollar-quoted bodies; inspect mutation and predicate
+keywords at their actual parenthesis depth, with conservative destructive
+classification when the CTE structure cannot be parsed.

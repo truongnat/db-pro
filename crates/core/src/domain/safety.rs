@@ -227,7 +227,9 @@ fn scan_identifier(bytes: &[u8], start: usize) -> usize {
 fn skip_quoted(bytes: &[u8], start: usize, quote: u8) -> usize {
     let mut index = start + 1;
     while index < bytes.len() {
-        if bytes[index] == quote {
+        if quote == b'\'' && bytes[index] == b'\\' {
+            index = (index + 2).min(bytes.len());
+        } else if bytes[index] == quote {
             if bytes.get(index + 1) == Some(&quote) {
                 index += 2;
             } else {
@@ -248,13 +250,30 @@ fn skip_line_comment(bytes: &[u8], start: usize) -> usize {
 }
 
 fn skip_block_comment(bytes: &[u8], start: usize) -> usize {
-    bytes[start + 2..]
-        .windows(2)
-        .position(|window| window == b"*/")
-        .map_or(bytes.len(), |offset| start + 2 + offset + 2)
+    let mut depth = 1usize;
+    let mut index = start + 2;
+    while index + 1 < bytes.len() {
+        if &bytes[index..index + 2] == b"/*" {
+            depth += 1;
+            index += 2;
+        } else if &bytes[index..index + 2] == b"*/" {
+            depth -= 1;
+            index += 2;
+            if depth == 0 {
+                return index;
+            }
+        } else {
+            index += 1;
+        }
+    }
+    bytes.len()
 }
 
 fn skip_dollar_quote(bytes: &[u8], start: usize) -> Option<usize> {
+    if start > 0 && is_identifier_continue(bytes[start - 1]) {
+        return None;
+    }
+
     let delimiter_end = bytes[start + 1..]
         .iter()
         .position(|byte| *byte == b'$')
@@ -274,102 +293,210 @@ fn skip_dollar_quote(bytes: &[u8], start: usize) -> Option<usize> {
         })
 }
 
-/// For WITH (CTE) statements, find the main keyword after the CTE definitions.
-/// Also scans CTE bodies for data-modifying operations (INSERT/UPDATE/DELETE),
-/// because in PostgreSQL a data-modifying CTE executes its mutation as a side
-/// effect regardless of the outer query.
-fn classify_cte_safety(sql: &str) -> Option<StatementSafety> {
-    let _upper = sql.to_ascii_uppercase();
-    let trimmed = sql.trim();
-    let chars: Vec<char> = trimmed.chars().collect();
-    let len = chars.len();
+/// A significant SQL token used by the safety classifier. Quoted strings,
+/// quoted identifiers, comments, and dollar-quoted bodies are skipped before
+/// these tokens are emitted.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SqlTokenKind {
+    Word,
+    OpenParen,
+    CloseParen,
+    Comma,
+}
 
-    // Skip past "WITH"
-    let mut i = 4;
-    let mut depth: i32 = 0;
-    let mut in_string = false;
-    let mut cte_has_mutation = false;
-    let mut cte_delete_start: Option<usize> = None;
-    let mut cte_has_destructive_delete = false;
+#[derive(Debug, Clone, Copy)]
+struct SqlToken {
+    kind: SqlTokenKind,
+    start: usize,
+    end: usize,
+}
 
-    while i < len {
-        if in_string {
-            if chars[i] == '\'' {
-                if i + 1 < len && chars[i + 1] == '\'' {
-                    i += 1;
-                } else {
-                    in_string = false;
-                }
-            }
-            i += 1;
+fn tokenize_sql(sql: &str) -> Vec<SqlToken> {
+    let bytes = sql.as_bytes();
+    let mut tokens = Vec::new();
+    let mut index = 0;
+
+    while index < bytes.len() {
+        if let Some(end) = match bytes[index] {
+            b'\'' => Some(skip_quoted(bytes, index, b'\'')),
+            b'"' => Some(skip_quoted(bytes, index, b'"')),
+            b'-' if bytes.get(index + 1) == Some(&b'-') => Some(skip_line_comment(bytes, index)),
+            b'/' if bytes.get(index + 1) == Some(&b'*') => Some(skip_block_comment(bytes, index)),
+            b'$' => skip_dollar_quote(bytes, index),
+            _ => None,
+        } {
+            index = end;
             continue;
         }
 
-        match chars[i] {
-            '\'' => in_string = true,
-            '(' => {
-                depth += 1;
-                // Scan inside CTE body for mutation keywords.
-                // We check the content within each parenthesized CTE body.
+        let kind = match bytes[index] {
+            b'(' => Some(SqlTokenKind::OpenParen),
+            b')' => Some(SqlTokenKind::CloseParen),
+            b',' => Some(SqlTokenKind::Comma),
+            byte if is_identifier_start(byte) => {
+                let end = scan_identifier(bytes, index);
+                tokens.push(SqlToken {
+                    kind: SqlTokenKind::Word,
+                    start: index,
+                    end,
+                });
+                index = end;
+                continue;
             }
-            ')' => {
+            _ => None,
+        };
+
+        if let Some(kind) = kind {
+            tokens.push(SqlToken {
+                kind,
+                start: index,
+                end: index + 1,
+            });
+        }
+        index += 1;
+    }
+
+    tokens
+}
+
+fn token_is_word(sql: &str, token: SqlToken, expected: &str) -> bool {
+    token.kind == SqlTokenKind::Word && sql[token.start..token.end].eq_ignore_ascii_case(expected)
+}
+
+/// For WITH (CTE) statements, find the main keyword after the CTE definitions.
+/// Data-modifying CTE bodies execute as side effects even when the outer query
+/// returns rows, so their mutations must participate in safety classification.
+fn classify_cte_safety(sql: &str) -> Option<StatementSafety> {
+    let tokens = tokenize_sql(sql);
+    let with_index = tokens.iter().position(|token| token_is_word(sql, *token, "WITH"))?;
+    let mut cursor = with_index + 1;
+    if tokens
+        .get(cursor)
+        .is_some_and(|token| token_is_word(sql, *token, "RECURSIVE"))
+    {
+        cursor += 1;
+    }
+
+    let mut has_mutation = false;
+    let mut has_destructive_delete = false;
+    let outer_index = loop {
+        let as_index = find_cte_as_token(sql, &tokens, cursor)?;
+        let mut body_index = as_index + 1;
+        if tokens
+            .get(body_index)
+            .is_some_and(|token| token_is_word(sql, *token, "NOT"))
+            && tokens
+                .get(body_index + 1)
+                .is_some_and(|token| token_is_word(sql, *token, "MATERIALIZED"))
+        {
+            body_index += 2;
+        } else if tokens
+            .get(body_index)
+            .is_some_and(|token| token_is_word(sql, *token, "MATERIALIZED"))
+        {
+            body_index += 1;
+        }
+
+        if tokens.get(body_index).map(|token| token.kind) != Some(SqlTokenKind::OpenParen) {
+            return Some(StatementSafety::Destructive);
+        }
+        let close_index = matching_token_parenthesis(&tokens, body_index)?;
+        let (body_mutation, body_destructive_delete) = classify_cte_body(&tokens, body_index + 1, close_index, sql);
+        has_mutation |= body_mutation;
+        has_destructive_delete |= body_destructive_delete;
+
+        let next_index = close_index + 1;
+        if tokens.get(next_index).map(|token| token.kind) == Some(SqlTokenKind::Comma) {
+            cursor = next_index + 1;
+            continue;
+        }
+        break next_index;
+    };
+
+    let outer_safety = tokens
+        .get(outer_index)
+        .and_then(|token| classify_statement_safety(&sql[token.start..]));
+    combine_cte_safety(outer_safety, has_mutation, has_destructive_delete)
+}
+
+fn find_cte_as_token(sql: &str, tokens: &[SqlToken], start: usize) -> Option<usize> {
+    let mut depth = 0i32;
+    for (index, token) in tokens.iter().enumerate().skip(start) {
+        match token.kind {
+            SqlTokenKind::OpenParen => depth += 1,
+            SqlTokenKind::CloseParen => depth = depth.saturating_sub(1),
+            SqlTokenKind::Word if depth == 0 && token_is_word(sql, *token, "AS") => return Some(index),
+            _ => {}
+        }
+    }
+    None
+}
+
+fn matching_token_parenthesis(tokens: &[SqlToken], open_index: usize) -> Option<usize> {
+    let mut depth = 0i32;
+    for (index, token) in tokens.iter().enumerate().skip(open_index) {
+        match token.kind {
+            SqlTokenKind::OpenParen => depth += 1,
+            SqlTokenKind::CloseParen => {
                 depth -= 1;
                 if depth == 0 {
-                    if let Some(delete_start) = cte_delete_start.take() {
-                        let delete_sql: String = chars[delete_start..i].iter().collect();
-                        cte_has_destructive_delete |= is_delete_without_where(&delete_sql);
-                    }
-                    i += 1;
-                    while i < len && chars[i].is_whitespace() {
-                        i += 1;
-                    }
-                    if i < len && chars[i] == ',' {
-                        i += 1;
-                        continue;
-                    }
-                    let remaining: String = chars[i..].iter().collect();
-                    let outer_safety = classify_statement_safety(&remaining);
-                    // If any CTE body contained a mutation, the whole statement is
-                    // at least Write (even if the outer query is SELECT).
-                    return combine_cte_safety(outer_safety, cte_has_mutation, cte_has_destructive_delete);
+                    return Some(index);
                 }
             }
-            _ => {
-                // Inside a CTE body (depth > 0): check for mutation keywords.
-                if depth > 0 {
-                    if let Some(keyword) = cte_mutation_keyword(&chars, i) {
-                        cte_has_mutation = true;
-                        if keyword == "DELETE" {
-                            cte_delete_start.get_or_insert(i);
-                        }
-                    }
+            _ => {}
+        }
+    }
+    None
+}
+
+fn classify_cte_body(tokens: &[SqlToken], start: usize, end: usize, sql: &str) -> (bool, bool) {
+    let mut depth = 0i32;
+    let mut has_mutation = false;
+    let mut has_destructive_delete = false;
+
+    for index in start..end {
+        let token = tokens[index];
+        if token.kind == SqlTokenKind::Word {
+            if token_is_word(sql, token, "DROP") || token_is_word(sql, token, "TRUNCATE") {
+                has_mutation = true;
+                has_destructive_delete = true;
+            } else if token_is_word(sql, token, "INSERT") || token_is_word(sql, token, "UPDATE") {
+                has_mutation = true;
+            } else if token_is_word(sql, token, "DELETE") {
+                has_mutation = true;
+                if !delete_has_same_level_where(tokens, index, end, depth, sql) {
+                    has_destructive_delete = true;
                 }
             }
         }
-        i += 1;
+
+        match token.kind {
+            SqlTokenKind::OpenParen => depth += 1,
+            SqlTokenKind::CloseParen => depth = depth.saturating_sub(1),
+            _ => {}
+        }
     }
 
-    // Fallback: if CTE had mutation but we couldn't find outer keyword, treat as Write.
-    combine_cte_safety(
-        Some(StatementSafety::Read),
-        cte_has_mutation,
-        cte_has_destructive_delete,
-    )
+    (has_mutation, has_destructive_delete)
 }
 
-fn cte_mutation_keyword(chars: &[char], index: usize) -> Option<&'static str> {
-    let rest: String = chars[index..].iter().take(10).collect();
-    let upper = rest.to_ascii_uppercase();
-    ["INSERT", "UPDATE", "DELETE", "DROP", "TRUNCATE"]
-        .into_iter()
-        .find(|keyword| {
-            upper.starts_with(*keyword)
-                && rest.len() > keyword.len()
-                && rest
-                    .as_bytes()
-                    .get(keyword.len())
-                    .is_some_and(|byte| byte.is_ascii_whitespace())
-        })
+fn delete_has_same_level_where(
+    tokens: &[SqlToken],
+    delete_index: usize,
+    end: usize,
+    delete_depth: i32,
+    sql: &str,
+) -> bool {
+    let mut depth = delete_depth;
+    for token in tokens.iter().take(end).skip(delete_index + 1) {
+        match token.kind {
+            SqlTokenKind::OpenParen => depth += 1,
+            SqlTokenKind::CloseParen => depth = depth.saturating_sub(1),
+            SqlTokenKind::Word if depth == delete_depth && token_is_word(sql, *token, "WHERE") => return true,
+            _ => {}
+        }
+    }
+    false
 }
 
 fn combine_cte_safety(
@@ -668,6 +795,37 @@ mod tests {
             ),
             Some(StatementSafety::Write)
         );
+    }
+
+    #[test]
+    fn cte_classifier_respects_lexical_boundaries_and_comment_separators() {
+        assert_eq!(
+            classify_statement_safety(
+                "WITH deleted AS (DELETE/* comment */FROM users RETURNING *) SELECT * FROM deleted"
+            ),
+            Some(StatementSafety::Destructive)
+        );
+        assert_eq!(
+            classify_statement_safety(
+                "WITH cte (delete_col) AS (SELECT \"DELETE FROM users\", $$UPDATE users$$) SELECT * FROM cte"
+            ),
+            Some(StatementSafety::Read)
+        );
+        assert_eq!(
+            classify_statement_safety(r#"WITH cte AS (SELECT E'prefix\' DELETE FROM users') SELECT * FROM cte"#),
+            Some(StatementSafety::Read)
+        );
+        assert_eq!(
+            classify_statement_safety(
+                "WITH deleted AS (DELETE FROM users USING (SELECT id FROM audit WHERE id > 0) a RETURNING *) SELECT * FROM deleted"
+            ),
+            Some(StatementSafety::Destructive)
+        );
+        assert!(validate_against_policy(
+            "WITH deleted AS (DELETE/* comment */FROM users RETURNING *) SELECT * FROM deleted",
+            &ConnectionSafetyPolicy::read_only()
+        )
+        .is_err());
     }
 
     #[test]

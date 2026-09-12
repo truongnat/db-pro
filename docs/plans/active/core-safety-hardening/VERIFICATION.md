@@ -16,8 +16,9 @@
   identifier/privilege validation tests.
 - `cargo test -p db-pro-core application::connection_service::tests` — PASS: 29
   connection lifecycle/update/delete/connectivity/duplicate-cleanup/cache-invalidation tests.
-- `cargo test -p db-pro-core domain::safety::tests` — PASS: 25 safety classifier
-  and policy tests.
+- `cargo test -p db-pro-core domain::safety::tests` — PASS: 32 safety classifier
+  and policy tests, including comment-separated CTE mutations and quoted-token boundaries.
+- `cargo test -p db-pro-core domain::safety::tests::cte_classifier_respects_lexical_boundaries_and_comment_separators -- --exact` — PASS: comment-separated CTE mutation is classified as destructive and rejected by the read-only policy.
 - `cargo test -p db-pro-core application::export_service::tests` — PASS: 8 export
   serialization, validation, read-only policy, integer precision, and coordinate
   overflow tests.
@@ -57,14 +58,14 @@
   including SQLite backup/restore without a database secret.
 - `cargo test -p db-pro-infrastructure ssh::tunnel::tests -- --nocapture` — PASS: 2
   command-construction tests for key and password authentication modes.
-- `cargo test -p db-pro-core --no-fail-fast` — PASS: 243 core unit tests,
+- `cargo test -p db-pro-core --no-fail-fast` — PASS: 244 core unit tests,
   including SSH metadata redaction and connection lifecycle hydration coverage.
 - `cargo test -p db-pro-core application::sql_policy::tests` — PASS: 9 lexical
   boundary and statement-splitting tests.
 - `DATABASE_URL=postgres://dbpro:dbpro_test@127.0.0.1:15434/dbpro_fixture cargo test -p db-pro-infrastructure --test pg_integration --offline -- --ignored` — PASS: 14/14 against an isolated temporary `postgres:18.2` fixture after fallible metadata decoding and the `enabled_flag` text cast; the container was removed after the run.
 - External PostgreSQL command timeout regression — PASS on Unix via
   `external_command_timeout_returns_query_timeout`.
-- `cargo test --workspace` — PASS: 243 core unit, 28 SQLite integration, 54
+- `cargo test --workspace` — PASS: 244 core unit, 28 SQLite integration, 54
   infrastructure unit, 14 PostgreSQL integration tests ignored, plus all runtime,
   native, UI, schema regression, and doc tests passed.
 - `cargo test -p db-pro-core application::schema_service::tests::get_table_ddl_sqlite_uses_inline_foreign_keys_and_unqualified_names -- --exact` — PASS: reconstructed SQLite DDL preserves UNIQUE constraints without replaying the internal autoindex name.
@@ -75,8 +76,9 @@
   against the in-memory SQLite provider; the post-timeout count was zero and the actor recovered.
 - `cargo build --release --locked -p db-pro-core -p db-pro-infrastructure` — PASS.
 - `bash .skills/clean-code/scripts/clean-code-scan.sh --diff` — PASS: 8 pass,
-  8 heuristic warning groups, 0 blocking failures. Remaining warnings are existing
-  long modules, ignored SQLite actor send results, and unrelated native/UI helpers.
+  8 heuristic warning groups, 0 blocking failures. Remaining warnings cover
+  test assertions, intentional cleanup sends, parser/module size, and unrelated
+  native/UI helpers; none is a clippy or scanner blocker.
 - `cargo check --workspace` after SSH readiness changes — PASS.
 - Full current gate — PASS: `cargo fmt --all -- --check`, `cargo clippy --workspace
   --all-targets -- -D warnings`, `cargo test --workspace`, release build for

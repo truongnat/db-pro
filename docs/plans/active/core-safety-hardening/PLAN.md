@@ -116,6 +116,9 @@ without changing the native UI or adding product features.
     producing incorrect metadata and invalid reconstructed index DDL.
 50. PostgreSQL introspection converts metadata decode errors into empty strings,
     allowing corrupted rows to appear as valid schema metadata.
+51. CTE safety classification requires whitespace after mutation keywords and
+    scans only single-quoted strings, so comment-separated mutations can bypass
+    the read-only/destructive policy.
 
 ## Acceptance criteria
 
@@ -193,6 +196,8 @@ without changing the native UI or adding product features.
   without treating their commas or parentheses as column-list boundaries.
 - PostgreSQL introspection preserves intentional NULL metadata defaults while
   propagating row decode/column errors as core errors.
+- CTE safety classification ignores comments, quoted tokens, dollar-quoted
+  bodies, and nested parentheses while detecting data-modifying CTEs.
 - Create, update, and both connection-test paths share the same connection
   configuration validation boundary.
 - PostgreSQL and SQLite unit/integration coverage is updated independently where the

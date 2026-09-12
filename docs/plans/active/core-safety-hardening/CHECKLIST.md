@@ -93,6 +93,8 @@
 - [x] Add regression coverage for quoted index identifiers containing commas and parentheses.
 - [x] Stop PostgreSQL metadata decode errors from becoming empty-string metadata.
 - [x] Preserve intentional nullable PostgreSQL metadata while propagating decode failures.
+- [x] Make CTE mutation detection token-aware across comments, quotes, and nested bodies.
+- [x] Add read-only/destructive-policy regression coverage for comment-separated CTE mutations.
 - [x] Run formatting, check, clippy, targeted tests, and workspace tests.
 - [x] Self-review changed files and confirm no UI/native files changed.
 - [x] Record PostgreSQL live fixture evidence; SSH-tunnel and native UI runtime evidence remain explicitly pending.
