@@ -407,12 +407,14 @@ fn decode_textual_value(row: &sqlx::postgres::PgRow, i: usize, data_type: &str) 
             .map(str::to_owned)
             .map_err(|error| DbError::QueryFailed(format!("cannot decode PostgreSQL {data_type} as text: {error}")))?,
         PgValueFormat::Binary => {
-            let bytes = raw
-                .as_bytes()
-                .map_err(|error| DbError::QueryFailed(format!("cannot decode PostgreSQL {data_type} binary bytes: {error}")))?;
-            std::str::from_utf8(bytes)
-                .map(str::to_owned)
-                .map_err(|error| DbError::QueryFailed(format!("invalid UTF-8 in PostgreSQL {data_type} binary payload: {error}")))?
+            let bytes = raw.as_bytes().map_err(|error| {
+                DbError::QueryFailed(format!("cannot decode PostgreSQL {data_type} binary bytes: {error}"))
+            })?;
+            std::str::from_utf8(bytes).map(str::to_owned).map_err(|error| {
+                DbError::QueryFailed(format!(
+                    "invalid UTF-8 in PostgreSQL {data_type} binary payload: {error}"
+                ))
+            })?
         }
     };
     Ok(CellValue::Text(value))
