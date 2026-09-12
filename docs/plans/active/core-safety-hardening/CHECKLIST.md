@@ -83,6 +83,8 @@
 - [x] Add regression coverage for destructive CTE policy rejection.
 - [x] Align legacy PostgreSQL secret fallback across connect and delete.
 - [x] Add legacy default-secret connect/delete regression coverage.
+- [x] Parse SQLite CHECK constraints with independent lexical boundaries.
+- [x] Add SQLite CHECK introspection regression coverage for nesting, literals, and comments.
 - [x] Run formatting, check, clippy, targeted tests, and workspace tests.
 - [x] Self-review changed files and confirm no UI/native files changed.
 - [x] Record PostgreSQL live fixture evidence; SSH-tunnel and native UI runtime evidence remain explicitly pending.

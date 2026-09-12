@@ -275,46 +275,153 @@ fn introspect_check_constraints(
             .map_err(crate::error::from_rusqlite)?;
 
         if let Some(sql) = create_sql {
-            // Parse CHECK constraints from the CREATE TABLE statement
-            // This is a simplified parser that looks for CHECK(...) patterns
-            let mut depth = 0;
-            let mut in_check = false;
-            let mut check_start = 0;
-            let mut constraint_idx = 0;
-
-            for (i, ch) in sql.char_indices() {
-                match ch {
-                    '(' => {
-                        if !in_check && i >= 5 {
-                            let preceding = &sql[check_start..i].trim();
-                            if preceding.ends_with("CHECK") {
-                                in_check = true;
-                                check_start = i + 1;
-                            }
-                        }
-                        depth += 1;
-                    }
-                    ')' => {
-                        depth -= 1;
-                        if in_check && depth == 0 {
-                            let definition = sql[check_start..i].trim().to_string();
-                            check_constraints.push(CheckConstraint {
-                                name: format!("{table_name}_check_{constraint_idx}"),
-                                table_name: table_name.clone(),
-                                schema: "main".into(),
-                                definition,
-                            });
-                            constraint_idx += 1;
-                            in_check = false;
-                        }
-                    }
-                    _ => {}
-                }
+            for (constraint_idx, definition) in parse_check_constraint_definitions(&sql).into_iter().enumerate() {
+                check_constraints.push(CheckConstraint {
+                    name: format!("{table_name}_check_{constraint_idx}"),
+                    table_name: table_name.clone(),
+                    schema: "main".into(),
+                    definition,
+                });
             }
         }
     }
 
     Ok(check_constraints)
+}
+
+fn parse_check_constraint_definitions(sql: &str) -> Vec<String> {
+    let mut definitions = Vec::new();
+    let mut cursor = 0;
+
+    while let Some(check_start) = find_sql_keyword(sql, cursor, "CHECK") {
+        let after_keyword = check_start + "CHECK".len();
+        let open_paren = skip_sql_trivia(sql, after_keyword);
+        if sql.as_bytes().get(open_paren) != Some(&b'(') {
+            cursor = after_keyword;
+            continue;
+        }
+
+        let Some(close_paren) = matching_parenthesis(sql, open_paren) else {
+            break;
+        };
+        definitions.push(sql[open_paren + 1..close_paren].trim().to_owned());
+        cursor = close_paren + 1;
+    }
+
+    definitions
+}
+
+fn find_sql_keyword(sql: &str, from: usize, keyword: &str) -> Option<usize> {
+    let bytes = sql.as_bytes();
+    let mut cursor = from;
+
+    while cursor < bytes.len() {
+        match bytes[cursor] {
+            b'\'' | b'"' | b'`' | b'[' => cursor = skip_quoted(sql, cursor),
+            b'-' if bytes.get(cursor + 1) == Some(&b'-') => cursor = skip_line_comment(sql, cursor),
+            b'/' if bytes.get(cursor + 1) == Some(&b'*') => cursor = skip_block_comment(sql, cursor),
+            _ => {
+                let ends_at = cursor + keyword.len();
+                let Some(candidate) = sql.get(cursor..ends_at) else {
+                    cursor += sql[cursor..].chars().next().map_or(1, char::len_utf8);
+                    continue;
+                };
+                let before_is_boundary = sql[..cursor]
+                    .chars()
+                    .next_back()
+                    .is_none_or(|ch| !is_sql_identifier_char(ch));
+                let after_is_boundary = sql[ends_at..]
+                    .chars()
+                    .next()
+                    .is_none_or(|ch| !is_sql_identifier_char(ch));
+                if before_is_boundary && after_is_boundary && candidate.eq_ignore_ascii_case(keyword) {
+                    return Some(cursor);
+                }
+                cursor += sql[cursor..].chars().next().map_or(1, char::len_utf8);
+            }
+        }
+    }
+
+    None
+}
+
+fn matching_parenthesis(sql: &str, open_paren: usize) -> Option<usize> {
+    let bytes = sql.as_bytes();
+    let mut depth = 0_u32;
+    let mut cursor = open_paren;
+
+    while cursor < bytes.len() {
+        match bytes[cursor] {
+            b'\'' | b'"' | b'`' | b'[' => cursor = skip_quoted(sql, cursor),
+            b'-' if bytes.get(cursor + 1) == Some(&b'-') => cursor = skip_line_comment(sql, cursor),
+            b'/' if bytes.get(cursor + 1) == Some(&b'*') => cursor = skip_block_comment(sql, cursor),
+            b'(' => {
+                depth += 1;
+                cursor += 1;
+            }
+            b')' => {
+                depth = depth.checked_sub(1)?;
+                if depth == 0 {
+                    return Some(cursor);
+                }
+                cursor += 1;
+            }
+            _ => cursor += sql[cursor..].chars().next().map_or(1, char::len_utf8),
+        }
+    }
+
+    None
+}
+
+fn skip_sql_trivia(sql: &str, mut cursor: usize) -> usize {
+    let bytes = sql.as_bytes();
+    loop {
+        while bytes.get(cursor).is_some_and(u8::is_ascii_whitespace) {
+            cursor += 1;
+        }
+        if bytes.get(cursor) == Some(&b'-') && bytes.get(cursor + 1) == Some(&b'-') {
+            cursor = skip_line_comment(sql, cursor);
+        } else if bytes.get(cursor) == Some(&b'/') && bytes.get(cursor + 1) == Some(&b'*') {
+            cursor = skip_block_comment(sql, cursor);
+        } else {
+            return cursor;
+        }
+    }
+}
+
+fn skip_quoted(sql: &str, start: usize) -> usize {
+    let bytes = sql.as_bytes();
+    let opening = bytes[start];
+    let closing = if opening == b'[' { b']' } else { opening };
+    let mut cursor = start + 1;
+
+    while cursor < bytes.len() {
+        if bytes[cursor] == closing {
+            if bytes.get(cursor + 1) == Some(&closing) {
+                cursor += 2;
+            } else {
+                return cursor + 1;
+            }
+        } else {
+            cursor += sql[cursor..].chars().next().map_or(1, char::len_utf8);
+        }
+    }
+
+    bytes.len()
+}
+
+fn skip_line_comment(sql: &str, start: usize) -> usize {
+    sql[start..].find('\n').map_or(sql.len(), |offset| start + offset + 1)
+}
+
+fn skip_block_comment(sql: &str, start: usize) -> usize {
+    sql[start + 2..]
+        .find("*/")
+        .map_or(sql.len(), |offset| start + offset + 4)
+}
+
+fn is_sql_identifier_char(ch: char) -> bool {
+    ch == '_' || ch == '$' || ch.is_alphanumeric()
 }
 
 fn introspect_views(conn: &rusqlite::Connection) -> Result<Vec<View>, DbError> {
@@ -454,6 +561,40 @@ mod tests {
         assert_eq!(foreign_key.from_columns, vec!["parent_id"]);
         assert_eq!(foreign_key.to_table, "parent");
         assert_eq!(foreign_key.to_columns, vec!["id"]);
+    }
+
+    #[test]
+    fn introspection_extracts_each_nested_check_constraint() {
+        let conn = rusqlite::Connection::open_in_memory().unwrap();
+        conn.execute(
+            "CREATE TABLE accounts (id INTEGER, balance INTEGER CHECK (balance >= 0), name TEXT CHECK (length(name) > 0))",
+            [],
+        )
+        .unwrap();
+
+        let result = run_introspection(&conn).unwrap();
+
+        assert_eq!(result.check_constraints.len(), 2);
+        assert_eq!(result.check_constraints[0].definition, "balance >= 0");
+        assert_eq!(result.check_constraints[1].definition, "length(name) > 0");
+    }
+
+    #[test]
+    fn introspection_ignores_check_text_in_literals_and_comments() {
+        let conn = rusqlite::Connection::open_in_memory().unwrap();
+        conn.execute(
+            "CREATE TABLE accounts (description TEXT DEFAULT 'CHECK (ignored)', balance INTEGER CHECK /* keep */ ((balance >= 0) AND (balance <= 100)), note TEXT -- CHECK (ignored)\n)",
+            [],
+        )
+        .unwrap();
+
+        let result = run_introspection(&conn).unwrap();
+
+        assert_eq!(result.check_constraints.len(), 1);
+        assert_eq!(
+            result.check_constraints[0].definition,
+            "(balance >= 0) AND (balance <= 100)"
+        );
     }
 
     #[test]

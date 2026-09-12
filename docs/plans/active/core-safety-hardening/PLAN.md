@@ -106,6 +106,8 @@ without changing the native UI or adding product features.
 45. Legacy PostgreSQL connections without `secret_ref` could pass Test Connection
     through the default password key but fail normal connect and leave that
     credential orphaned on delete.
+46. SQLite CHECK introspection uses the outer `CREATE TABLE` parenthesis depth,
+    so multiple or nested CHECK expressions are merged into an invalid definition.
 
 ## Acceptance criteria
 
@@ -171,6 +173,8 @@ without changing the native UI or adding product features.
   qualification syntax while preserving the existing PostgreSQL form.
 - Table DDL reconstruction preserves introspected CHECK constraints for both
   PostgreSQL and SQLite.
+- SQLite introspection extracts each CHECK expression independently while
+  ignoring nested parentheses, literals, and comments.
 - PostgreSQL table DDL qualifies reconstructed index names with their source
   schema; SQLite keeps local index names unqualified.
 - Create, update, and both connection-test paths share the same connection

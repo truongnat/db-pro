@@ -537,3 +537,18 @@ orphaned in the secret store.
 Decision: use the persisted `secret_ref` when present and the default key for
 legacy PostgreSQL records across connect and delete, while retaining SQLite's
 no-database-secret behavior.
+
+## P1 — SQLite CHECK introspection merges independent constraints
+
+`sqlite::introspect::introspect_check_constraints` tracked the parenthesis depth
+of the entire `CREATE TABLE` statement and only closed a CHECK when that outer
+depth returned to zero. A table with multiple CHECK clauses, or a nested CHECK
+expression, therefore produced one merged definition instead of one definition
+per constraint.
+
+Impact: `SchemaService::get_table_ddl` could emit malformed or semantically
+incorrect reconstructed SQLite DDL, losing the source table's validation
+invariants when the DDL was reused.
+
+Decision: scan CHECK keywords outside strings, quoted identifiers, and comments,
+then match each expression's own parenthesis pair with nested-expression support.
