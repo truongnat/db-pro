@@ -89,6 +89,9 @@ pub fn classify_statement_safety(sql: &str) -> Option<StatementSafety> {
         "CREATE" | "ALTER" => Some(StatementSafety::Ddl),
         "DROP" => Some(StatementSafety::Destructive),
         "TRUNCATE" => Some(StatementSafety::Destructive),
+        // These statements can execute server-side or dynamically prepared
+        // mutations that the client-side classifier cannot inspect safely.
+        "DO" | "CALL" | "EXECUTE" => Some(StatementSafety::Destructive),
         "MERGE" => classify_merge_safety(trimmed),
         _ => Some(StatementSafety::Write),
     }
@@ -658,6 +661,28 @@ mod tests {
             ),
             Some(StatementSafety::Write)
         );
+    }
+
+    #[test]
+    fn classify_opaque_server_side_execution_as_destructive() {
+        for sql in [
+            "DO $body$ BEGIN DELETE FROM users; END $body$",
+            "CALL cleanup_expired_rows()",
+            "EXECUTE prepared_cleanup",
+        ] {
+            assert_eq!(classify_statement_safety(sql), Some(StatementSafety::Destructive));
+            assert!(validate_against_policy(
+                sql,
+                &ConnectionSafetyPolicy {
+                    read_only: false,
+                    allow_ddl: true,
+                    allow_destructive: false,
+                    max_rows: None,
+                    query_timeout_ms: None,
+                }
+            )
+            .is_err());
+        }
     }
 
     #[test]

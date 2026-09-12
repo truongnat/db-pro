@@ -121,6 +121,9 @@ without changing the native UI or adding product features.
     the read-only/destructive policy.
 52. PostgreSQL/SQL Server `MERGE` statements fall through to generic `Write`,
     so a `WHEN MATCHED THEN DELETE` action bypasses destructive-operation policy.
+53. Opaque server-side execution statements (`DO`, `CALL`, and `EXECUTE`) fall
+    through to generic `Write`, even though they can execute hidden or dynamic
+    destructive mutations that the client-side classifier cannot inspect.
 
 ## Acceptance criteria
 
@@ -202,6 +205,8 @@ without changing the native UI or adding product features.
   bodies, and nested parentheses while detecting data-modifying CTEs.
 - `MERGE` with a DELETE action is classified as destructive while non-delete
   merge actions remain ordinary writes.
+- Opaque server-side or dynamically prepared execution statements are classified
+  as destructive unless their internals can be inspected safely by the core.
 - Create, update, and both connection-test paths share the same connection
   configuration validation boundary.
 - PostgreSQL and SQLite unit/integration coverage is updated independently where the

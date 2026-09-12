@@ -640,3 +640,16 @@ operations could still execute a merge that deletes matched rows.
 Decision: classify `MERGE` as `Destructive` when a real DELETE keyword appears
 outside literals, identifiers, comments, and dollar-quoted bodies; retain
 `Write` for merge statements without a DELETE action.
+
+## P1 — Opaque server-side execution bypasses destructive policy
+
+`DO`, `CALL`, and top-level `EXECUTE` statements can run procedural or prepared
+server-side logic whose mutations are not visible to the client-side statement
+classifier. They previously fell through to generic `Write`, so a connection
+that allowed ordinary writes but prohibited destructive operations could still
+execute hidden `DELETE`, `TRUNCATE`, or dynamic DDL logic.
+
+Decision: classify these opaque execution forms as `Destructive` conservatively.
+The core cannot prove their internals are non-destructive without provider-aware
+parsing and routine metadata, so restricted connections must require explicit
+destructive-operation permission.

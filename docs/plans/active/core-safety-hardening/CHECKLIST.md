@@ -97,6 +97,8 @@
 - [x] Add read-only/destructive-policy regression coverage for comment-separated CTE mutations.
 - [x] Classify destructive `MERGE ... WHEN MATCHED THEN DELETE` actions explicitly.
 - [x] Add regression coverage for MERGE DELETE, UPDATE, and quoted DELETE text.
+- [x] Classify opaque `DO`, `CALL`, and `EXECUTE` statements as destructive.
+- [x] Add regression coverage preventing hidden server-side mutations from bypassing policy.
 - [x] Run formatting, check, clippy, targeted tests, and workspace tests.
 - [x] Self-review changed files and confirm no UI/native files changed.
 - [x] Record PostgreSQL live fixture evidence; SSH-tunnel and native UI runtime evidence remain explicitly pending.
