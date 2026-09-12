@@ -27,9 +27,35 @@ fn qualify_key(schema: &str, name: &str) -> QualifiedName {
 
 fn display_qualified_name((schema, name): &QualifiedName) -> String {
     if schema.is_empty() {
-        format!(".{name}")
+        if needs_qualified_name_quoting(name) {
+            format!(".{}", quote_qualified_name_part(name))
+        } else {
+            format!(".{name}")
+        }
+    } else if needs_qualified_name_quoting(schema) || needs_qualified_name_quoting(name) {
+        format!(
+            "{}.{}",
+            display_qualified_name_part(schema),
+            display_qualified_name_part(name)
+        )
     } else {
         format!("{schema}.{name}")
+    }
+}
+
+fn needs_qualified_name_quoting(name: &str) -> bool {
+    name.contains('.') || name.contains('"')
+}
+
+fn quote_qualified_name_part(name: &str) -> String {
+    format!("\"{}\"", name.replace('"', "\"\""))
+}
+
+fn display_qualified_name_part(name: &str) -> String {
+    if needs_qualified_name_quoting(name) {
+        quote_qualified_name_part(name)
+    } else {
+        name.to_owned()
     }
 }
 
@@ -138,7 +164,7 @@ mod tests {
     fn qualified_name_preserves_dotted_schema_and_table_names() {
         let qualified = qualify_key("tenant.prod", "orders.archive");
         assert_eq!(qualified, ("tenant.prod".into(), "orders.archive".into()));
-        assert_eq!(display_qualified_name(&qualified), "tenant.prod.orders.archive");
+        assert_eq!(display_qualified_name(&qualified), "\"tenant.prod\".\"orders.archive\"");
     }
 
     #[test]
@@ -186,8 +212,8 @@ mod tests {
         });
 
         let diff = compare_introspect_results(&source, &target);
-        assert_eq!(diff.tables_only_in_source, vec!["tenant.prod.orders"]);
-        assert_eq!(diff.tables_only_in_target, vec!["tenant.prod.orders"]);
+        assert_eq!(diff.tables_only_in_source, vec!["\"tenant.prod\".orders"]);
+        assert_eq!(diff.tables_only_in_target, vec!["tenant.\"prod.orders\""]);
     }
 
     #[test]

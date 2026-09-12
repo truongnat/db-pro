@@ -760,7 +760,8 @@ Impact: schema diff can omit real table changes or attach column/type changes to
 the wrong object.
 
 Decision: keep schema and object names as a typed tuple for comparison and only
-flatten them at the final display boundary.
+flatten them at the final display boundary, quoting dotted/quoted parts so the
+result remains distinguishable to callers.
 
 ## P2 — Count consumers accept non-scalar provider results
 

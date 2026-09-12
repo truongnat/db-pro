@@ -35,7 +35,7 @@
 - `cargo test -p db-pro-core application::table_data_service::tests::fetch_rows_rejects_malformed_data_result_shape -- --exact` — PASS: malformed paginated data result is rejected at the service boundary.
 - `cargo test -p db-pro-core --lib --no-fail-fast` — PASS: 252 core unit tests.
 - `cargo clippy -p db-pro-core --all-targets -- -D warnings` — PASS.
-- `cargo test -p db-pro-core application::schema_diff::tests --no-fail-fast` — PASS: 4 schema-diff tests, including dotted schema/object identity collision coverage.
+- `cargo test -p db-pro-core application::schema_diff::tests --no-fail-fast` — PASS: 4 schema-diff tests, including dotted schema/object identity collision and unambiguous display coverage.
 - `cargo test -p db-pro-core --lib --no-fail-fast` — PASS: 253 core unit tests after structured schema-diff keys.
 - `cargo test -p db-pro-core application::table_data_service::tests::parse_total_count_rejects_non_scalar_result -- --exact` — PASS: pagination rejects a non-scalar count payload.
 - `cargo test -p db-pro-core application::data_diff::tests::extract_count_rejects_non_scalar_provider_result -- --exact` — PASS: data-diff rejects a non-scalar count payload.
