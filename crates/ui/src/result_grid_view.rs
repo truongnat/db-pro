@@ -37,6 +37,8 @@ struct GridCell<'a> {
     display_position: usize,
     row_selected: bool,
     row_dirty: bool,
+    row_mutation_error: bool,
+    cell_mutation_error: bool,
     editable: bool,
     width: f32,
     cell: &'a UiCell,
@@ -68,9 +70,8 @@ impl DbProApp {
         }
 
         let order = self.column_order(result.columns.len());
-        let editable = self.active_tab == WorkspaceTab::Table
-            && self.table_view == TableView::Data
-            && self.can_mutate_active_connection();
+        let editable =
+            self.active_tab == WorkspaceTab::Table && self.table_view == TableView::Data && self.can_edit_table_rows();
         let indexes =
             crate::filtered_sorted_indexes(result, &self.grid_filter, self.grid_sort_column, self.grid_sort_desc);
 
@@ -335,6 +336,33 @@ impl DbProApp {
         row_in_range && column_in_range
     }
 
+    fn mutation_error_for_row(&self, row_index: usize) -> bool {
+        let Some(failure) = self.table_mutation_error.as_ref() else {
+            return false;
+        };
+        match failure.target.as_ref() {
+            Some(MutationTarget::Update {
+                row_index: target_row, ..
+            })
+            | Some(MutationTarget::Delete { row_index: target_row }) => *target_row == row_index,
+            Some(MutationTarget::Insert) | None => false,
+        }
+    }
+
+    fn mutation_error_for_cell(&self, row_index: usize, column_index: usize) -> bool {
+        let Some(failure) = self.table_mutation_error.as_ref() else {
+            return false;
+        };
+        match failure.target.as_ref() {
+            Some(MutationTarget::Update {
+                row_index: target_row,
+                columns,
+            }) => *target_row == row_index && columns.contains(&column_index),
+            Some(MutationTarget::Delete { row_index: target_row }) => *target_row == row_index,
+            Some(MutationTarget::Insert) | None => false,
+        }
+    }
+
     /// Arrow / Tab / Home / End navigation over the visible (filtered, sorted) indexes and column order.
     fn handle_grid_navigation(
         &mut self,
@@ -578,6 +606,7 @@ impl DbProApp {
         let row_selected = self.selected_rows.contains(&row_index);
         let row_dirty = self.staged_row_deleted(row_index)
             || (0..result.columns.len()).any(|column_index| self.staged_cell_value(row_index, column_index).is_some());
+        let row_mutation_error = self.mutation_error_for_row(row_index);
 
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing = Vec2::ZERO;
@@ -647,6 +676,8 @@ impl DbProApp {
                         display_position: position,
                         row_selected,
                         row_dirty,
+                        row_mutation_error,
+                        cell_mutation_error: self.mutation_error_for_cell(row_index, column_index),
                         editable: rows.editable,
                         width,
                         cell,
@@ -666,6 +697,8 @@ impl DbProApp {
             display_position,
             row_selected,
             row_dirty,
+            row_mutation_error,
+            cell_mutation_error,
             editable,
             width,
             cell,
@@ -679,8 +712,10 @@ impl DbProApp {
 
         let (cell_rect, cell_resp) = ui.allocate_exact_size(egui::vec2(width, 28.0), Sense::click());
 
-        let fill = if validation_error {
+        let fill = if validation_error || cell_mutation_error {
             self.theme.danger.linear_multiply(0.14)
+        } else if row_mutation_error {
+            self.theme.danger.linear_multiply(0.08)
         } else if row_selected {
             if cell_selected {
                 self.theme.accent.linear_multiply(0.20)
@@ -720,6 +755,16 @@ impl DbProApp {
             );
             if let Some(error) = self.data_edit_error.as_deref() {
                 cell_resp.clone().on_hover_text(error);
+            }
+        }
+        if cell_mutation_error || row_mutation_error {
+            ui.painter().rect_stroke(
+                cell_rect.shrink(1.0),
+                Rounding::ZERO,
+                Stroke::new(1.5, self.theme.danger),
+            );
+            if let Some(error) = self.table_mutation_error.as_ref() {
+                cell_resp.clone().on_hover_text(error.message.as_str());
             }
         }
 

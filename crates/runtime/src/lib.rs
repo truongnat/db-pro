@@ -6,7 +6,7 @@ pub use agent::{AgentContext, AgentDraft, CodexProvider, CodexProviderError};
 pub use api::{
     BackupApi, ColumnSummary, ConnectionApi, ConnectionSummary, DataDiffApi, DbErrorDto, ExportApi, ForeignKeySummary,
     FunctionSummary, PostgresApi, QueryApi, QueryFolderSummary, SavedQuerySummary, SchemaApi, SchemaSummary,
-    TableDataApi, TableSummary, TriggerSummary, UserApi, ViewSummary,
+    TableDataApi, TableMutationFailure, TableSummary, TriggerSummary, UserApi, ViewSummary,
 };
 pub use worker::{spawn_worker, RuntimeCommand, RuntimeEvent, RuntimeRequestId};
 

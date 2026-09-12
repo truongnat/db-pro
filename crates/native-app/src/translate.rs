@@ -780,6 +780,17 @@ pub(crate) fn translate_event(event: RuntimeEvent) -> Option<UiEvent> {
         RuntimeEvent::OperationCompleted { request_id, operation } => {
             translate_operation_completed(request_id, operation)
         }
+        RuntimeEvent::TableChangesFailed {
+            request_id,
+            message,
+            statement_index,
+            rolled_back,
+        } => Some(UiEvent::TableChangesFailed {
+            request_id: ui_request_id(request_id),
+            message,
+            statement_index,
+            rolled_back,
+        }),
         RuntimeEvent::Connected {
             request_id,
             connection_id,

@@ -318,6 +318,46 @@ fn table_edits_stage_until_explicit_apply() {
 }
 
 #[test]
+fn staged_apply_failure_maps_statement_to_mutation_and_keeps_changes() {
+    let mut staged_changes = ChangeSet::new();
+    staged_changes.stage_update(StagedChange::Update {
+        row_index: 2,
+        column_index: 1,
+        column: "name".to_owned(),
+        data_type: "text".to_owned(),
+        original: UiCell::Text("old".to_owned()),
+        value: UiCell::Text("new".to_owned()),
+        pk_columns: vec!["id".to_owned()],
+        pk_values: vec![UiCell::Number("3".to_owned())],
+    });
+    let mut app = DbProApp {
+        staged_apply_request: Some(crate::RequestId(7)),
+        staged_apply_targets: vec![
+            MutationTarget::Delete { row_index: 0 },
+            MutationTarget::Update {
+                row_index: 2,
+                columns: vec![1, 3],
+            },
+        ],
+        staged_changes,
+        ..Default::default()
+    };
+
+    app.staged_apply_failed(1, "duplicate key value", true);
+
+    assert_eq!(app.staged_apply_request, None);
+    assert_eq!(app.staged_changes.counts().updates, 1);
+    assert_eq!(app.selected_cell, Some((2, 1)));
+    assert!(matches!(
+        app.table_mutation_error.as_ref().and_then(|failure| failure.target.as_ref()),
+        Some(MutationTarget::Update { row_index: 2, columns }) if columns == &vec![1, 3]
+    ));
+    assert!(app
+        .runtime_message
+        .contains("Staged change #2 failed · transaction rolled back"));
+}
+
+#[test]
 fn explain_query_uses_selected_connection_and_switches_output() {
     let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);

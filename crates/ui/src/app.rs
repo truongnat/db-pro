@@ -23,7 +23,7 @@ use std::collections::{BTreeSet, HashMap};
 use std::sync::Arc;
 use std::time::Duration;
 
-use change_set::{ChangeSet, StagedChange};
+use change_set::{ChangeSet, MutationFailure, MutationTarget, StagedChange};
 
 #[path = "agent_state.rs"]
 mod agent_state;
@@ -380,6 +380,8 @@ pub struct DbProApp {
     table_mutation_request: Option<crate::RequestId>,
     staged_changes: ChangeSet,
     staged_apply_request: Option<crate::RequestId>,
+    staged_apply_targets: Vec<MutationTarget>,
+    table_mutation_error: Option<MutationFailure>,
     table_view: TableView,
     query_folder: String,
     backup_output_path: String,
@@ -864,6 +866,8 @@ impl DbProApp {
                 self.table_mutation_request = None;
                 self.staged_changes.clear();
                 self.staged_apply_request = None;
+                self.staged_apply_targets.clear();
+                self.table_mutation_error = None;
                 self.selected_cell = None;
                 self.selected_row = None;
                 self.selected_rows.clear();

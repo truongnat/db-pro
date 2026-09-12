@@ -608,6 +608,8 @@ impl DbProApp {
         self.table_ddl = None;
         self.table_data_result = None;
         self.staged_changes.clear();
+        self.staged_apply_targets.clear();
+        self.table_mutation_error = None;
         self.activate_welcome_tab();
     }
 

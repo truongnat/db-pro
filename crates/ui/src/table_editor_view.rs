@@ -15,7 +15,10 @@ struct TableDataPaging {
 
 impl DbProApp {
     pub(crate) fn draw_table_data(&mut self, ui: &mut egui::Ui, table_name: &str) {
-        let Some(result) = self.table_data_result.clone() else {
+        // Temporarily move the result out while rendering. The grid mutates
+        // selection/edit state, so borrowing it directly from `self` would
+        // conflict with those updates; moving avoids cloning every frame.
+        let Some(result) = self.table_data_result.take() else {
             self.draw_table_data_placeholder(ui, table_name);
             return;
         };
@@ -44,6 +47,9 @@ impl DbProApp {
             self.draw_result_grid(ui, &result);
         });
         self.draw_discard_changes_confirmation(ui);
+        if self.table_data_result.is_none() {
+            self.table_data_result = Some(result);
+        }
     }
 
     /// Loading / failed placeholder shown while table data is not available.
@@ -127,6 +133,17 @@ impl DbProApp {
                         self.open_insert_row();
                     }
 
+                    if !self.table_has_primary_key() {
+                        ui.label(
+                            RichText::new("No primary key · row editing/deleting disabled")
+                                .font(font_caption())
+                                .color(self.theme.warning),
+                        )
+                        .on_hover_text(
+                            "This table has no primary key. Inserts remain available, but updates and deletes are disabled for safety.",
+                        );
+                    }
+
                     if !self.staged_changes.is_empty() {
                         ui.separator();
                         let counts = self.staged_changes.counts();
@@ -163,10 +180,56 @@ impl DbProApp {
                 } else if self.connected {
                     ui.separator();
                     ui.label(
-                        RichText::new("Read-only")
+                        RichText::new(if self.table_has_primary_key() {
+                            "Read-only"
+                        } else {
+                            "No primary key · row editing disabled"
+                        })
                             .font(font_caption())
-                            .color(self.theme.warning),
+                            .color(if self.table_has_primary_key() {
+                                self.theme.warning
+                            } else {
+                                self.theme.danger
+                            }),
                     );
+                }
+
+                if let Some(failure) = self.table_mutation_error.as_ref() {
+                    ui.separator();
+                    ui.label(
+                        RichText::new(failure.target.as_ref().map_or_else(
+                            || "Transaction failed".to_owned(),
+                            |_| {
+                                format!(
+                                    "Mutation #{} failed",
+                                    failure.statement_index.saturating_add(1)
+                                )
+                            },
+                        ))
+                        .font(font_caption())
+                        .color(self.theme.danger),
+                    )
+                    .on_hover_text(failure.message.as_str());
+                    if failure.target.is_some() {
+                        if compact_button_with_icon(ui, Icon::RotateCcw, "Reload Row", self.theme)
+                            .on_hover_text("Discard the failed local mutation and reload the current page")
+                            .clicked()
+                        {
+                            self.discard_failed_mutation(true);
+                        }
+                        if compact_button_with_icon(ui, Icon::Undo2, "Discard Change", self.theme)
+                            .on_hover_text("Revert only the failed staged mutation")
+                            .clicked()
+                        {
+                            self.discard_failed_mutation(false);
+                        }
+                        if compact_button_with_icon(ui, Icon::Check, "Keep Local", self.theme)
+                            .on_hover_text("Keep the staged values and clear this error")
+                            .clicked()
+                        {
+                            self.table_mutation_error = None;
+                        }
+                    }
                 }
 
                 if self.selected_rows.len() > 1 {
@@ -1294,6 +1357,16 @@ impl DbProApp {
         self.connected && self.active_connection().is_some_and(|connection| !connection.readonly)
     }
 
+    pub(crate) fn table_has_primary_key(&self) -> bool {
+        self.table_info
+            .as_ref()
+            .is_some_and(|info| info.primary_key.as_ref().is_some_and(|columns| !columns.is_empty()))
+    }
+
+    pub(crate) fn can_edit_table_rows(&self) -> bool {
+        self.can_mutate_active_connection() && self.table_has_primary_key()
+    }
+
     pub(crate) fn row_identity(
         result: &UiQueryResult,
         info: &UiTableInfo,
@@ -1321,6 +1394,14 @@ impl DbProApp {
     }
 
     pub(crate) fn begin_data_cell_edit(&mut self, row_index: usize, column_index: usize, cell: &UiCell) {
+        if !self.can_edit_table_rows() {
+            if self.can_mutate_active_connection() && !self.table_has_primary_key() {
+                self.runtime_message = "This table has no primary key; editing is disabled for safety".to_owned();
+            } else {
+                self.runtime_message = "Connect with write access to edit rows".to_owned();
+            }
+            return;
+        }
         if !self.can_mutate_active_connection() {
             self.runtime_message = "Connect with write access to edit rows".to_owned();
             return;
@@ -1413,6 +1494,8 @@ impl DbProApp {
             pk_columns,
             pk_values,
         });
+        self.table_mutation_error = None;
+        self.staged_apply_targets.clear();
         self.data_editing_cell = None;
         self.data_edit_value.clear();
         self.data_edit_error = None;
@@ -1428,6 +1511,14 @@ impl DbProApp {
     }
 
     pub(crate) fn request_delete_selected_data_rows(&mut self, result: &UiQueryResult) {
+        if !self.can_edit_table_rows() {
+            if self.can_mutate_active_connection() && !self.table_has_primary_key() {
+                self.runtime_message = "This table has no primary key; deleting is disabled for safety".to_owned();
+            } else {
+                self.runtime_message = "Connect with write access to delete rows".to_owned();
+            }
+            return;
+        }
         if !self.can_mutate_active_connection() {
             self.runtime_message = "Connect with write access to delete rows".to_owned();
             return;
@@ -1466,6 +1557,8 @@ impl DbProApp {
                 pk_values,
             });
         }
+        self.table_mutation_error = None;
+        self.staged_apply_targets.clear();
         self.runtime_message = format!(
             "{} row(s) marked for deletion · {} staged change(s)",
             self.staged_changes
@@ -1512,6 +1605,8 @@ impl DbProApp {
             return;
         }
         self.staged_changes.clear();
+        self.staged_apply_targets.clear();
+        self.table_mutation_error = None;
         self.data_editing_cell = None;
         self.data_edit_error = None;
         self.data_delete_confirmation = false;
@@ -1521,6 +1616,32 @@ impl DbProApp {
         self.table_data_error = None;
         self.runtime_message = "Staged changes discarded".to_owned();
         self.request_table_data();
+    }
+
+    fn discard_failed_mutation(&mut self, reload: bool) {
+        let Some(target) = self
+            .table_mutation_error
+            .as_ref()
+            .and_then(|failure| failure.target.clone())
+        else {
+            return;
+        };
+        match target {
+            MutationTarget::Update { row_index, columns } => {
+                for column_index in columns {
+                    self.revert_staged_cell(row_index, column_index);
+                }
+            }
+            MutationTarget::Delete { row_index } => self.revert_staged_row(row_index),
+            MutationTarget::Insert => {}
+        }
+        self.table_mutation_error = None;
+        if reload {
+            self.table_data_result = None;
+            self.table_data_total_rows = None;
+            self.table_data_error = None;
+            self.request_table_data();
+        }
     }
 
     fn draw_discard_changes_confirmation(&mut self, ui: &mut egui::Ui) {
@@ -1585,14 +1706,25 @@ impl DbProApp {
             return;
         };
         let mut changes = Vec::new();
+        let mut targets = Vec::new();
+        let mut deletes = Vec::new();
+        let mut inserts = Vec::new();
         let mut updates = std::collections::BTreeMap::<
             usize,
-            (Vec<String>, Vec<String>, Vec<UiCell>, Vec<String>, Vec<UiCell>),
+            (
+                Vec<String>,
+                Vec<String>,
+                Vec<UiCell>,
+                Vec<String>,
+                Vec<UiCell>,
+                Vec<usize>,
+            ),
         >::new();
         for change in self.staged_changes.iter() {
             match change {
                 StagedChange::Update {
                     row_index,
+                    column_index,
                     column,
                     data_type,
                     value,
@@ -1607,35 +1739,55 @@ impl DbProApp {
                             Vec::new(),
                             pk_columns.clone(),
                             pk_values.clone(),
+                            Vec::new(),
                         )
                     });
                     entry.0.push(column.clone());
                     entry.1.push(data_type.clone());
                     entry.2.push(value.clone());
+                    entry.5.push(*column_index);
                 }
                 StagedChange::Delete {
-                    pk_columns, pk_values, ..
-                } => changes.push(UiTableMutation::Delete {
-                    pk_columns: pk_columns.clone(),
-                    pk_values: pk_values.clone(),
-                }),
-                StagedChange::Insert { columns, values } => changes.push(UiTableMutation::Insert {
-                    columns: columns.clone(),
-                    values: values.clone(),
-                }),
-            }
-        }
-        changes.extend(
-            updates.into_values().map(
-                |(columns, data_types, values, pk_columns, pk_values)| UiTableMutation::Update {
-                    columns,
-                    data_types,
-                    values,
+                    row_index,
                     pk_columns,
                     pk_values,
-                },
-            ),
-        );
+                } => deletes.push((
+                    UiTableMutation::Delete {
+                        pk_columns: pk_columns.clone(),
+                        pk_values: pk_values.clone(),
+                    },
+                    MutationTarget::Delete { row_index: *row_index },
+                )),
+                StagedChange::Insert { columns, values } => inserts.push((
+                    UiTableMutation::Insert {
+                        columns: columns.clone(),
+                        values: values.clone(),
+                    },
+                    MutationTarget::Insert,
+                )),
+            }
+        }
+        for (change, target) in deletes {
+            changes.push(change);
+            targets.push(target);
+        }
+        for (row_index, (columns, data_types, values, pk_columns, pk_values, column_indexes)) in updates {
+            changes.push(UiTableMutation::Update {
+                columns,
+                data_types,
+                values,
+                pk_columns,
+                pk_values,
+            });
+            targets.push(MutationTarget::Update {
+                row_index,
+                columns: column_indexes,
+            });
+        }
+        for (change, target) in inserts {
+            changes.push(change);
+            targets.push(target);
+        }
         let request_id = self.task_bridge.next_request_id();
         let command = UiCommand::ApplyTableChanges {
             request_id,
@@ -1647,6 +1799,8 @@ impl DbProApp {
         if self.task_bridge.send(command).is_ok() {
             self.staged_apply_request = Some(request_id);
             self.table_mutation_request = Some(request_id);
+            self.staged_apply_targets = targets;
+            self.table_mutation_error = None;
             let counts = self.staged_changes.counts();
             self.runtime_message = format!(
                 "Applying {} changes in one transaction (+{} ~{} -{})…",
@@ -1664,6 +1818,8 @@ impl DbProApp {
         self.staged_apply_request = None;
         self.table_mutation_request = None;
         self.staged_changes.clear();
+        self.staged_apply_targets.clear();
+        self.table_mutation_error = None;
         self.runtime_message = "All staged changes applied".to_owned();
         self.show_toast_success("All staged changes applied successfully");
         self.table_data_result = None;
@@ -1672,10 +1828,56 @@ impl DbProApp {
         self.request_table_data();
     }
 
-    pub(crate) fn staged_apply_failed(&mut self, message: &str) {
+    pub(crate) fn staged_apply_failed(&mut self, statement_index: usize, message: &str, rolled_back: bool) {
         self.staged_apply_request = None;
         self.table_mutation_request = None;
-        let formatted = format!("Staged change failed · {message}");
+        let target = self.staged_apply_targets.get(statement_index).cloned();
+        let has_target = target.is_some();
+        if let Some(target) = target.as_ref() {
+            match target {
+                MutationTarget::Update { row_index, columns } => {
+                    self.selected_row = Some(*row_index);
+                    self.selected_rows.clear();
+                    self.selected_rows.insert(*row_index);
+                    if let Some(column_index) = columns.first().copied() {
+                        self.selected_cell = Some((*row_index, column_index));
+                        self.selection_anchor_cell = Some((*row_index, column_index));
+                    }
+                }
+                MutationTarget::Delete { row_index } => {
+                    self.selected_row = Some(*row_index);
+                    self.selected_rows.clear();
+                    self.selected_rows.insert(*row_index);
+                    self.selected_cell = None;
+                    self.selection_anchor_cell = None;
+                }
+                MutationTarget::Insert => {}
+            }
+        }
+        let display_message = if message.contains("affected no rows") {
+            format!("Row was changed or deleted by another transaction. Database: {message}")
+        } else {
+            message.to_owned()
+        };
+        self.table_mutation_error = Some(MutationFailure {
+            statement_index,
+            target,
+            message: display_message.clone(),
+            rolled_back,
+        });
+        let outcome = if rolled_back {
+            "transaction rolled back"
+        } else {
+            "transaction outcome is unknown"
+        };
+        let formatted = if has_target {
+            format!(
+                "Staged change #{} failed · {outcome} · {display_message}",
+                statement_index.saturating_add(1)
+            )
+        } else {
+            format!("Staged changes failed · {outcome} · {display_message}")
+        };
         self.runtime_message = formatted.clone();
         self.show_toast_error(formatted);
     }

@@ -56,6 +56,12 @@ impl DbProApp {
                 affected_rows,
             } => self.on_ddl_completed(request_id, affected_rows),
             UiEvent::OperationCompleted { request_id, operation } => self.on_operation_completed(request_id, operation),
+            UiEvent::TableChangesFailed {
+                request_id,
+                message,
+                statement_index,
+                rolled_back,
+            } => self.on_table_changes_failed(request_id, message, statement_index, rolled_back),
             UiEvent::Connected {
                 request_id,
                 connection_id,
@@ -473,7 +479,9 @@ impl DbProApp {
             self.schema_error = Some(message.clone());
             self.runtime_message = format!("Schema introspection failed · {message}");
         } else if self.staged_apply_request == Some(request_id) {
-            self.staged_apply_failed(&message);
+            // Older runtimes can still report the generic failure event. Keep
+            // the staged changes and surface it as an unmapped mutation.
+            self.staged_apply_failed(usize::MAX, &message, false);
         } else if self.table_mutation_request == Some(request_id) {
             self.table_mutation_request = None;
             self.data_editing_cell = None;
@@ -516,6 +524,18 @@ impl DbProApp {
             self.query_messages.push(self.runtime_message.clone());
         } else {
             self.runtime_message = format!("Operation failed · {message}");
+        }
+    }
+
+    fn on_table_changes_failed(
+        &mut self,
+        request_id: RequestId,
+        message: String,
+        statement_index: usize,
+        rolled_back: bool,
+    ) {
+        if self.staged_apply_request == Some(request_id) {
+            self.staged_apply_failed(statement_index, &message, rolled_back);
         }
     }
 

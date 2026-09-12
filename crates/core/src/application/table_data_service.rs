@@ -191,17 +191,42 @@ impl TableDataService {
         table: &str,
         mutations: &[TableDataMutation],
     ) -> Result<u64, DbError> {
+        self.apply_mutations_detailed(connection_id, schema, table, mutations)
+            .await
+            .map_err(|failure| failure.error)
+    }
+
+    /// Apply mutations while preserving the provider failure metadata for UI
+    /// callers that need to identify the failed staged mutation.
+    pub async fn apply_mutations_detailed(
+        &self,
+        connection_id: &ConnectionId,
+        schema: &str,
+        table: &str,
+        mutations: &[TableDataMutation],
+    ) -> Result<u64, crate::ports::TransactionFailure> {
+        let statement_count = mutations.len();
+        let validation_failure = |error: DbError| crate::ports::TransactionFailure {
+            phase: crate::ports::TransactionFailurePhase::Validation,
+            statement_index: statement_count,
+            outcome: crate::ports::TransactionFailureOutcome::NotStarted,
+            results: Vec::new(),
+            error,
+        };
         if mutations.is_empty() {
             return Ok(0);
         }
-        let policy = self.safety_policy_for(connection_id).await?;
+        let policy = self
+            .safety_policy_for(connection_id)
+            .await
+            .map_err(validation_failure)?;
         if policy.read_only {
-            return Err(DbError::QueryFailed(
+            return Err(validation_failure(DbError::QueryFailed(
                 "connection is read-only; cannot apply table changes".into(),
-            ));
+            )));
         }
-        let handle = self.resolve_handle(connection_id)?;
-        let dialect = self.connector.dialect(&handle)?;
+        let handle = self.resolve_handle(connection_id).map_err(validation_failure)?;
+        let dialect = self.connector.dialect(&handle).map_err(validation_failure)?;
         let mut ordered = mutations.to_vec();
         ordered.sort_by_key(|mutation| match mutation {
             TableDataMutation::Delete { .. } => 0,
@@ -239,20 +264,33 @@ impl TableDataService {
                     expect_affected_rows: true,
                 })
             })
-            .collect::<Result<Vec<_>, DbError>>()?;
+            .collect::<Result<Vec<_>, DbError>>()
+            .map_err(validation_failure)?;
         let results = self
             .connector
             .execute_parameterized_transaction(&handle, &statements)
-            .await
-            .map_err(|failure| failure.error)?;
-        results.into_iter().try_fold(0_u64, |total, result| match result {
-            TransactionStatementResult::Affected { row_count, .. } => total
-                .checked_add(row_count)
-                .ok_or_else(|| DbError::Internal("affected row count overflow".into())),
-            TransactionStatementResult::Query(_) => Err(DbError::Internal(
-                "table mutation transaction returned a query result".into(),
-            )),
-        })
+            .await?;
+        let mut total = 0_u64;
+        for result in results {
+            match result {
+                TransactionStatementResult::Affected { row_count, .. } => {
+                    total = match total.checked_add(row_count) {
+                        Some(total) => total,
+                        None => {
+                            return Err(validation_failure(DbError::Internal(
+                                "affected row count overflow".into(),
+                            )))
+                        }
+                    };
+                }
+                TransactionStatementResult::Query(_) => {
+                    return Err(validation_failure(DbError::Internal(
+                        "table mutation transaction returned a query result".into(),
+                    )))
+                }
+            }
+        }
+        Ok(total)
     }
 
     fn resolve_handle(
@@ -691,8 +729,8 @@ mod tests {
         });
 
         let service = TableDataService::new(Box::new(connector), registry, Box::new(mock_connections()));
-        let error = service
-            .apply_mutations(
+        let failure = service
+            .apply_mutations_detailed(
                 &conn_id,
                 "public",
                 "users",
@@ -703,7 +741,9 @@ mod tests {
             )
             .await
             .expect_err("a rolled-back transaction must surface its database error");
-        assert!(matches!(error, DbError::QueryFailed(message) if message == "duplicate key value"));
+        assert_eq!(failure.statement_index, 1);
+        assert_eq!(failure.outcome, TransactionFailureOutcome::RolledBack);
+        assert!(matches!(failure.error, DbError::QueryFailed(message) if message == "duplicate key value"));
     }
 
     #[tokio::test]

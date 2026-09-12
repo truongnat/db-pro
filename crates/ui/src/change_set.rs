@@ -23,6 +23,21 @@ pub(super) enum StagedChange {
     },
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) enum MutationTarget {
+    Update { row_index: usize, columns: Vec<usize> },
+    Delete { row_index: usize },
+    Insert,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct MutationFailure {
+    pub statement_index: usize,
+    pub target: Option<MutationTarget>,
+    pub message: String,
+    pub rolled_back: bool,
+}
+
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub(super) struct ChangeCounts {
     pub inserts: usize,

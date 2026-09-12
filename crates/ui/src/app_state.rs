@@ -217,6 +217,8 @@ impl Default for DbProApp {
             table_mutation_request: None,
             staged_changes: ChangeSet::new(),
             staged_apply_request: None,
+            staged_apply_targets: Vec::new(),
+            table_mutation_error: None,
             table_view: TableView::Structure,
             query_folder: String::new(),
             backup_output_path: String::new(),

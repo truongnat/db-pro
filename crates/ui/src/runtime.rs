@@ -522,6 +522,12 @@ pub enum UiEvent {
         request_id: RequestId,
         operation: String,
     },
+    TableChangesFailed {
+        request_id: RequestId,
+        message: String,
+        statement_index: usize,
+        rolled_back: bool,
+    },
     Connected {
         request_id: RequestId,
         connection_id: String,

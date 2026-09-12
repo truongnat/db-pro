@@ -224,6 +224,12 @@ pub enum RuntimeEvent {
         request_id: RuntimeRequestId,
         operation: &'static str,
     },
+    TableChangesFailed {
+        request_id: RuntimeRequestId,
+        message: String,
+        statement_index: usize,
+        rolled_back: bool,
+    },
     Connected {
         request_id: RuntimeRequestId,
         connection_id: String,
@@ -664,16 +670,18 @@ pub fn spawn_worker(
                 } => {
                     let event = match runtime
                         .table_data_api()
-                        .apply_mutations(&connection_id, &schema, &table, &changes)
+                        .apply_mutations_detailed(&connection_id, &schema, &table, &changes)
                         .await
                     {
                         Ok(_) => RuntimeEvent::OperationCompleted {
                             request_id,
                             operation: "table-changes.applied",
                         },
-                        Err(error) => RuntimeEvent::Failed {
+                        Err(failure) => RuntimeEvent::TableChangesFailed {
                             request_id,
-                            message: error.message,
+                            message: failure.error.message,
+                            statement_index: failure.statement_index,
+                            rolled_back: failure.rolled_back,
                         },
                     };
                     let _ = event_tx.send(event).await;

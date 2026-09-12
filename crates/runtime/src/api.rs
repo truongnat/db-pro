@@ -26,6 +26,13 @@ pub struct DbErrorDto {
     pub retryable: bool,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TableMutationFailure {
+    pub error: DbErrorDto,
+    pub statement_index: usize,
+    pub rolled_back: bool,
+}
+
 impl From<DbError> for DbErrorDto {
     fn from(error: DbError) -> Self {
         Self {
@@ -654,6 +661,31 @@ impl TableDataApi {
             .apply_mutations(&connection_id, schema, table, mutations)
             .await
             .map_err(Into::into)
+    }
+
+    pub async fn apply_mutations_detailed(
+        &self,
+        connection_id: &str,
+        schema: &str,
+        table: &str,
+        mutations: &[TableDataMutation],
+    ) -> Result<u64, TableMutationFailure> {
+        let connection_id = parse_connection_id(connection_id).map_err(|error| TableMutationFailure {
+            error,
+            statement_index: usize::MAX,
+            rolled_back: false,
+        })?;
+        self.service
+            .apply_mutations_detailed(&connection_id, schema, table, mutations)
+            .await
+            .map_err(|failure| TableMutationFailure {
+                error: failure.error.into(),
+                statement_index: failure.statement_index,
+                rolled_back: matches!(
+                    failure.outcome,
+                    db_pro_core::ports::TransactionFailureOutcome::RolledBack
+                ),
+            })
     }
 }
 

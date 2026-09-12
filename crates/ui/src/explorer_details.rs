@@ -359,6 +359,8 @@ impl DbProApp {
         self.table_mutation_request = None;
         self.staged_changes.clear();
         self.staged_apply_request = None;
+        self.staged_apply_targets.clear();
+        self.table_mutation_error = None;
         self.selected_cell = None;
         self.selected_row = None;
         self.selected_rows.clear();
