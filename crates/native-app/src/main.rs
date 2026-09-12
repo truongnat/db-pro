@@ -6,11 +6,11 @@ use db_pro_core::application::sql_builder::{FilterOp, SortClause, SortDir, Table
 use db_pro_core::domain::query::CellValue;
 use db_pro_runtime::{spawn_worker, DbProRuntime, RuntimeCommand, RuntimeEvent, RuntimeRequestId};
 use db_pro_ui::{
-    AgentMessage, AgentRole, DbProApp, DbProTheme, RequestId, TaskBridge, UiCell, UiColumn, UiCommand,
-    UiConnectionDraft, UiConnectionSummary, UiDriver, UiEvent, UiFunctionSummary, UiQueryFolderSummary, UiQueryResult,
-    UiSavedQuerySummary, UiSchemaColumn, UiSchemaForeignKey, UiSchemaSummary, UiSslMode, UiTableColumn,
-    UiTableDataFilter, UiTableDataSort, UiTableForeignKey, UiTableIndex, UiTableInfo, UiTableSummary, UiTriggerSummary,
-    UiViewSummary,
+    AgentMessage, AgentRole, DbProApp, DbProTheme, RequestId, TaskBridge, UiCell, UiCheckConstraint, UiColumn,
+    UiCommand, UiConnectionDraft, UiConnectionSummary, UiDependencyDirection, UiDependencyKind, UiDriver, UiEvent,
+    UiFunctionSummary, UiQueryFolderSummary, UiQueryResult, UiSavedQuerySummary, UiSchemaColumn, UiSchemaForeignKey,
+    UiSchemaSummary, UiSslMode, UiTableColumn, UiTableDataFilter, UiTableDataSort, UiTableDependency,
+    UiTableForeignKey, UiTableIndex, UiTableInfo, UiTableSummary, UiTriggerSummary, UiViewSummary,
 };
 use eframe::egui;
 use tokio::runtime::Builder;
@@ -23,6 +23,9 @@ use translate::{translate_command, translate_event};
 
 fn main() -> Result<(), Box<dyn Error>> {
     init_tracing();
+    // Seed the Groq API key from the OS keyring into the env var so that
+    // CodexProvider::from_env() picks it up during worker initialisation.
+    seed_groq_api_key_from_keyring();
     let tokio_runtime = Builder::new_multi_thread().enable_all().build()?;
     let data_dir = resolve_data_dir();
     let (bridge, command_rx, event_tx) = TaskBridge::with_channels();
@@ -79,6 +82,19 @@ fn main() -> Result<(), Box<dyn Error>> {
                     send_picked(request_id, "ssh-key", path);
                     continue;
                 }
+                // Store the API key in the OS keyring then forward to runtime.
+                UiCommand::SaveAgentApiKey { request_id, api_key } => {
+                    persist_groq_api_key(&api_key);
+                    let rt_command = RuntimeCommand::ConfigureAgent {
+                        request_id: RuntimeRequestId(request_id.0),
+                        api_key,
+                    };
+                    let send_result = command_handle.block_on(command_runtime_tx.send(rt_command));
+                    if send_result.is_err() {
+                        break;
+                    }
+                    continue;
+                }
                 command => {
                     let Some(command) = translate_command(command) else {
                         continue;
@@ -113,6 +129,45 @@ fn resolve_data_dir() -> std::path::PathBuf {
                 .expect("current directory is available")
                 .join(".db-pro-data")
         })
+}
+
+/// Service name used for all DB Pro keyring entries.
+const KEYRING_SERVICE: &str = "com.dbpro.app";
+/// Keyring key under which the Groq API key is stored.
+const KEYRING_GROQ_KEY: &str = "agent/groq_api_key";
+
+/// Try to load the Groq API key from the OS keyring and, if found, inject it
+/// into the current process environment so `CodexProvider::from_env()` picks
+/// it up without any additional configuration.
+fn seed_groq_api_key_from_keyring() {
+    // Only inject if the caller didn't already set the env var.
+    if std::env::var("GROQ_API_KEY").is_ok() {
+        return;
+    }
+    let Ok(entry) = keyring::Entry::new(KEYRING_SERVICE, KEYRING_GROQ_KEY) else {
+        return;
+    };
+    if let Ok(key) = entry.get_password() {
+        if !key.trim().is_empty() {
+            // SAFETY: single-threaded at this point (tokio runtime not yet started).
+            std::env::set_var("GROQ_API_KEY", key.trim());
+            tracing::info!("Groq API key loaded from OS keyring");
+        }
+    }
+}
+
+/// Persist the Groq API key in the OS keyring.
+/// Best-effort: logs a warning on failure rather than crashing.
+fn persist_groq_api_key(api_key: &str) {
+    let Ok(entry) = keyring::Entry::new(KEYRING_SERVICE, KEYRING_GROQ_KEY) else {
+        tracing::warn!("failed to create keyring entry for Groq API key");
+        return;
+    };
+    if let Err(error) = entry.set_password(api_key.trim()) {
+        tracing::warn!(%error, "failed to persist Groq API key in OS keyring");
+    } else {
+        tracing::info!("Groq API key persisted in OS keyring");
+    }
 }
 
 /// Seeds the demo PostgreSQL connection the first time the app runs.

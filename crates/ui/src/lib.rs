@@ -21,9 +21,10 @@ pub use components::{
 };
 pub use result_grid::{cell_text, displayed_row_number, filtered_sorted_indexes, grid_keyboard_selection};
 pub use runtime::{
-    RequestId, TaskBridge, UiCell, UiColumn, UiCommand, UiConnectionDraft, UiConnectionSummary, UiDriver, UiEvent,
-    UiFunctionSummary, UiQueryFolderSummary, UiQueryResult, UiSavedQuerySummary, UiSchemaColumn, UiSchemaForeignKey,
-    UiSchemaSummary, UiSslMode, UiTableColumn, UiTableDataFilter, UiTableDataSort, UiTableForeignKey, UiTableIndex,
-    UiTableInfo, UiTableSummary, UiTriggerSummary, UiViewSummary,
+    RequestId, TaskBridge, UiCell, UiCheckConstraint, UiColumn, UiCommand, UiConnectionDraft, UiConnectionSummary,
+    UiDependencyDirection, UiDependencyKind, UiDriver, UiEvent, UiFunctionSummary, UiQueryFolderSummary, UiQueryResult,
+    UiSavedQuerySummary, UiSchemaColumn, UiSchemaForeignKey, UiSchemaSummary, UiSslMode, UiTableColumn,
+    UiTableDataFilter, UiTableDataSort, UiTableDependency, UiTableForeignKey, UiTableIndex, UiTableInfo,
+    UiTableSummary, UiTriggerSummary, UiViewSummary,
 };
 pub use theme::DbProTheme;

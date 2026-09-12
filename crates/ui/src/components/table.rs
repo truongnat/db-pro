@@ -306,6 +306,7 @@ impl<'a> Table<'a> {
                 };
 
                 ui.allocate_new_ui(egui::UiBuilder::new().max_rect(inner_rect), |ui| {
+                    ui.set_clip_rect(ui.clip_rect().intersect(inner_rect));
                     ui.with_layout(align_layout, |ui| {
                         // For right-aligned column headers, add sort icon first in right-to-left layout so it sits at far right
                         let show_sort = col.sortable && (is_sorted || resp.hovered());
@@ -477,6 +478,7 @@ impl<'a> Table<'a> {
                         };
 
                         ui.allocate_new_ui(egui::UiBuilder::new().max_rect(inner_rect), |ui| {
+                            ui.set_clip_rect(ui.clip_rect().intersect(inner_rect));
                             ui.with_layout(align_layout, |ui| {
                                 render_cell(ui, row_idx, col_idx);
                             });

@@ -28,6 +28,11 @@ impl DbProApp {
                 self.agent_provider_detail = detail;
             }
             UiEvent::AgentFailed { request_id, message } => self.on_agent_failed(request_id, message),
+            UiEvent::AgentConfigured {
+                request_id,
+                provider,
+                detail,
+            } => self.on_agent_configured(request_id, provider, detail),
             UiEvent::TableInfoLoaded { request_id, table_info } => self.on_table_info_loaded(request_id, table_info),
             UiEvent::TableDdlLoaded { request_id, sql } => self.on_table_ddl_loaded(request_id, sql),
             UiEvent::TableDataLoaded {
@@ -111,7 +116,7 @@ impl DbProApp {
         if !self.selected_schema_object_exists() {
             self.selected_schema_object = None;
             if self.active_tab == WorkspaceTab::SchemaObject {
-                self.active_tab = WorkspaceTab::Welcome;
+                self.activate_welcome_tab();
             }
         }
         self.runtime_message = format!(
@@ -148,7 +153,7 @@ impl DbProApp {
         self.table_ddl_request = None;
         self.table_data_request = None;
         if self.active_tab == WorkspaceTab::Table {
-            self.active_tab = WorkspaceTab::Welcome;
+            self.activate_welcome_tab();
         }
     }
 
@@ -185,6 +190,20 @@ impl DbProApp {
             self.runtime_message = "Agent unavailable · switched to offline draft".to_owned();
             self.fallback_agent_response(Some(&format!("Agent unavailable: {message}")));
         }
+    }
+
+    fn on_agent_configured(&mut self, request_id: RequestId, provider: String, detail: String) {
+        if self.agent_configure_request != Some(request_id) {
+            return;
+        }
+        self.agent_configure_request = None;
+        self.agent_provider_label = provider.clone();
+        self.agent_provider_detail = detail;
+        self.agent_settings_open = false;
+        self.agent_api_key_draft.clear();
+        let message = format!("{provider} API key saved · provider active");
+        self.runtime_message = message.clone();
+        self.show_toast_success(message);
     }
 
     /// Table structure arrived: seed filter/sort defaults on first load.

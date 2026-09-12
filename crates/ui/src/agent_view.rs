@@ -13,13 +13,17 @@ impl DbProApp {
             .show(ctx, |ui| {
                 ui.set_min_size(ui.available_size());
                 self.draw_agent_header(ui, ctx);
-                ui.add_space(6.0);
-                let context = self.agent_context();
-                self.draw_agent_context(ui, &context);
-                ui.add_space(8.0);
-                submit |= self.draw_agent_context_actions(ui, &context);
-                submit |= self.draw_agent_thread(ui, &mut copy_sql);
-                self.draw_agent_composer(ui, &mut submit);
+                if self.agent_settings_open {
+                    self.draw_agent_settings(ui);
+                } else {
+                    ui.add_space(6.0);
+                    let context = self.agent_context();
+                    self.draw_agent_context(ui, &context);
+                    ui.add_space(8.0);
+                    submit |= self.draw_agent_context_actions(ui, &context);
+                    submit |= self.draw_agent_thread(ui, &mut copy_sql);
+                    self.draw_agent_composer(ui, &mut submit);
+                }
             });
         self.agent_width = response.response.rect.width().clamp(AGENT_MIN_WIDTH, AGENT_MAX_WIDTH);
         if submit {
@@ -48,8 +52,107 @@ impl DbProApp {
                 {
                     self.set_agent_open(false, ctx);
                 }
+                let settings_btn =
+                    compact_icon_button(ui, Icon::Settings, self.theme).on_hover_text("Agent settings (API key)");
+                if settings_btn.clicked() {
+                    self.agent_settings_open = !self.agent_settings_open;
+                    if self.agent_settings_open {
+                        self.agent_api_key_draft.clear();
+                    }
+                }
             });
         });
+    }
+
+    fn draw_agent_settings(&mut self, ui: &mut egui::Ui) {
+        ui.add_space(8.0);
+        toolbar_frame(self.theme).show(ui, |ui| {
+            ui.horizontal(|ui| {
+                ui.label(icon_text(Icon::KeyRound, "API Key", self.theme.text_primary));
+                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                    if compact_icon_button(ui, Icon::X, self.theme)
+                        .on_hover_text("Cancel")
+                        .clicked()
+                    {
+                        self.agent_settings_open = false;
+                        self.agent_api_key_draft.clear();
+                    }
+                });
+            });
+            ui.add_space(4.0);
+            ui.label(
+                RichText::new("Enter a Groq or OpenAI API key to enable the AI provider.\nThe key is stored in the OS keychain and never written to disk in plain text.")
+                    .font(font_caption())
+                    .color(self.theme.text_secondary),
+            );
+            ui.add_space(8.0);
+            let current_label = if self.agent_provider_label == "Offline draft" {
+                "Not configured".to_owned()
+            } else {
+                format!("Active: {}", self.agent_provider_label)
+            };
+            ui.label(
+                RichText::new(current_label)
+                    .font(font_caption())
+                    .color(if self.agent_provider_label == "Offline draft" {
+                        self.theme.text_muted
+                    } else {
+                        self.theme.success
+                    }),
+            );
+            ui.add_space(6.0);
+        });
+        ui.add_space(6.0);
+
+        // API key input (password-style)
+        let response = ui.add(
+            TextEdit::singleline(&mut self.agent_api_key_draft)
+                .hint_text("gsk_… or sk-…")
+                .password(true)
+                .font(egui::FontSelection::Default)
+                .desired_width(f32::INFINITY),
+        );
+        // Allow Ctrl+Enter to save from the text field
+        let save_shortcut = response.has_focus()
+            && ui.input(|i| i.key_pressed(egui::Key::Enter) && DbProApp::primary_modifier_pressed(i));
+
+        ui.add_space(6.0);
+
+        ui.horizontal(|ui| {
+            let key_non_empty = !self.agent_api_key_draft.trim().is_empty();
+            let is_saving = self.agent_configure_request.is_some();
+            let save_btn = compact_button_with_icon(
+                ui,
+                if is_saving { Icon::Loader } else { Icon::Check },
+                if is_saving { "Saving…" } else { "Save key" },
+                self.theme,
+            );
+            let save_clicked = (save_btn.clicked() || save_shortcut) && key_non_empty && !is_saving;
+            if save_clicked {
+                let request_id = self.task_bridge.next_request_id();
+                self.agent_configure_request = Some(request_id);
+                let api_key = self.agent_api_key_draft.trim().to_owned();
+                let _ = self
+                    .task_bridge
+                    .send(UiCommand::SaveAgentApiKey { request_id, api_key });
+            }
+            if !key_non_empty {
+                ui.label(
+                    RichText::new("Paste an API key above")
+                        .font(font_caption())
+                        .color(self.theme.text_muted),
+                );
+            }
+        });
+
+        ui.add_space(8.0);
+        ui.separator();
+        ui.add_space(4.0);
+        ui.label(
+            RichText::new("Supported providers:\n• Groq  — gsk_… key, model openai/gpt-oss-120b\n• OpenAI — sk-… key, model gpt-5.6\n\nThe provider is detected automatically from the key prefix.")
+                .font(font_caption())
+                .color(self.theme.text_muted),
+        );
     }
 
     fn draw_agent_context(&self, ui: &mut egui::Ui, context: &AgentContext) {

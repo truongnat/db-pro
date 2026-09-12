@@ -29,7 +29,7 @@ impl DbProApp {
             } else {
                 "0 rows".to_owned()
             },
-            has_next: self.table_data_offset.saturating_add(TABLE_PAGE_SIZE) < total_rows,
+            has_next: self.table_data_offset.saturating_add(self.table_data_limit) < total_rows,
             has_previous: self.table_data_offset > 0,
         };
 
@@ -311,7 +311,7 @@ impl DbProApp {
                         .clicked()
                         && self.staged_changes.is_empty()
                     {
-                        self.table_data_offset = self.table_data_offset.saturating_add(TABLE_PAGE_SIZE);
+                        self.table_data_offset = self.table_data_offset.saturating_add(self.table_data_limit);
                         self.request_table_data();
                     }
 
@@ -326,12 +326,63 @@ impl DbProApp {
                         .clicked()
                         && self.staged_changes.is_empty()
                     {
-                        self.table_data_offset = self.table_data_offset.saturating_sub(TABLE_PAGE_SIZE);
+                        self.table_data_offset = self.table_data_offset.saturating_sub(self.table_data_limit);
                         self.request_table_data();
+                    }
+
+                    let prev_limit = self.table_data_limit;
+                    let limit_label = format!("{} / page", self.table_data_limit);
+                    egui::ComboBox::from_id_salt(("table-data-limit-select", table_name))
+                        .selected_text(RichText::new(&limit_label).size(11.0).color(self.theme.text_secondary))
+                        .width(90.0)
+                        .show_ui(ui, |ui| {
+                            for limit_opt in [50, 100, 200, 500, 1000] {
+                                ui.selectable_value(
+                                    &mut self.table_data_limit,
+                                    limit_opt,
+                                    format!("{limit_opt} / page"),
+                                );
+                            }
+                        });
+                    if self.table_data_limit != prev_limit {
+                        self.reset_table_data_page();
                     }
                 });
             });
         });
+    }
+
+    pub(crate) fn open_duplicate_row(&mut self, result: &UiQueryResult, row_index: usize) {
+        if !self.can_mutate_active_connection() {
+            self.runtime_message = "Connect with write access to insert rows".to_owned();
+            return;
+        }
+        let Some(info) = self.table_info.clone() else {
+            self.runtime_message = "Table structure is still loading".to_owned();
+            return;
+        };
+        let Some(row) = result.rows.get(row_index) else {
+            return;
+        };
+        self.insert_row_values = info
+            .columns
+            .iter()
+            .enumerate()
+            .map(|(i, col)| {
+                if col.is_primary_key {
+                    String::new()
+                } else if let Some(cell) = row.get(i) {
+                    match cell {
+                        UiCell::Null => String::new(),
+                        _ => crate::cell_text(cell),
+                    }
+                } else {
+                    String::new()
+                }
+            })
+            .collect();
+        self.insert_row_error.clear();
+        self.insert_row_open = true;
     }
 
     fn open_insert_row(&mut self) {
@@ -878,27 +929,8 @@ impl DbProApp {
         self.runtime_message = "Executing DDL…".to_owned();
     }
 
-    pub(crate) fn draw_table_ddl(&mut self, ui: &mut egui::Ui, table_name: &str) {
-        let Some(mut ddl) = self.table_ddl.clone() else {
-            self.draw_table_ddl_placeholder(ui, table_name);
-            return;
-        };
-
-        let writable = self.can_mutate_active_connection();
-        let request_execution = self.draw_ddl_script_card(ui, writable, &mut ddl);
-
-        let impact = ddl_impact_summary(&ddl, table_name);
-        self.table_ddl = Some(ddl);
-        if request_execution {
-            self.ddl_execute_confirmation = true;
-        }
-        if self.ddl_execute_confirmation {
-            self.draw_ddl_confirmation_card(ui, &impact);
-        }
-    }
-
     /// Loading / failed placeholder shown while the DDL is not available.
-    fn draw_table_ddl_placeholder(&mut self, ui: &mut egui::Ui, table_name: &str) {
+    pub(super) fn draw_table_ddl_placeholder(&mut self, ui: &mut egui::Ui, table_name: &str) {
         grid_frame(self.theme).show(ui, |ui| {
             ui.vertical_centered(|ui| {
                 ui.add_space(28.0);
@@ -935,7 +967,7 @@ impl DbProApp {
     }
 
     /// Editable CREATE SCRIPT card. Returns true when "Apply DDL" was pressed.
-    fn draw_ddl_script_card(&mut self, ui: &mut egui::Ui, writable: bool, ddl: &mut String) -> bool {
+    pub(super) fn draw_ddl_script_card(&mut self, ui: &mut egui::Ui, writable: bool, ddl: &mut String) -> bool {
         let mut request_execution = false;
         card_frame(self.theme).show(ui, |ui| {
             ui.horizontal_wrapped(|ui| {
@@ -982,7 +1014,7 @@ impl DbProApp {
     }
 
     /// Confirmation gate shown before the DDL is executed against the database.
-    fn draw_ddl_confirmation_card(&mut self, ui: &mut egui::Ui, impact: &str) {
+    pub(super) fn draw_ddl_confirmation_card(&mut self, ui: &mut egui::Ui, impact: &str) {
         let Some(ddl) = self.table_ddl.as_deref() else {
             return;
         };
@@ -1367,7 +1399,7 @@ impl DbProApp {
             connection_id,
             schema: self.active_schema().to_owned(),
             table,
-            limit: TABLE_PAGE_SIZE,
+            limit: self.table_data_limit,
             offset: self.table_data_offset,
             filter,
             sort,

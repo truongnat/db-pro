@@ -193,7 +193,7 @@ impl DbProApp {
     pub(crate) fn execute_palette_action(&mut self, action: PaletteAction, _ctx: &egui::Context) {
         self.palette_mode = None;
         match action {
-            PaletteAction::Welcome => self.active_tab = WorkspaceTab::Welcome,
+            PaletteAction::Welcome => self.activate_welcome_tab(),
             PaletteAction::Query => {
                 self.active_tab = WorkspaceTab::Query;
             }

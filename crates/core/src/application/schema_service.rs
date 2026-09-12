@@ -121,9 +121,126 @@ impl SchemaService {
 
         let foreign_keys: Vec<_> = introspect
             .foreign_keys
-            .into_iter()
+            .iter()
             .filter(|fk| fk.from_table == table && fk.schema == schema)
+            .cloned()
             .collect();
+        let check_constraints: Vec<_> = introspect
+            .check_constraints
+            .iter()
+            .filter(|c| c.schema == schema && c.table_name == table)
+            .cloned()
+            .collect();
+
+        let mut dependencies = Vec::new();
+
+        // 1. Outgoing Foreign Keys (This table depends on other tables)
+        for fk in &foreign_keys {
+            dependencies.push(crate::domain::schema::TableDependency {
+                name: fk.to_table.clone(),
+                schema: fk.to_schema.clone(),
+                kind: crate::domain::schema::DependencyKind::Table,
+                direction: crate::domain::schema::DependencyDirection::DependsOn,
+                details: format!(
+                    "Foreign key {} ({}) → {}.{}({})",
+                    fk.name,
+                    fk.from_columns.join(", "),
+                    fk.to_schema,
+                    fk.to_table,
+                    fk.to_columns.join(", ")
+                ),
+            });
+        }
+
+        // 2. Incoming Foreign Keys (Other tables depend on this table)
+        for fk in &introspect.foreign_keys {
+            if fk.to_schema == schema && fk.to_table == table && !(fk.schema == schema && fk.from_table == table) {
+                dependencies.push(crate::domain::schema::TableDependency {
+                    name: fk.from_table.clone(),
+                    schema: fk.schema.clone(),
+                    kind: crate::domain::schema::DependencyKind::Table,
+                    direction: crate::domain::schema::DependencyDirection::DependedBy,
+                    details: format!(
+                        "Referenced by foreign key {} ({}.{}) → ({})",
+                        fk.name,
+                        fk.schema,
+                        fk.from_table,
+                        fk.to_columns.join(", ")
+                    ),
+                });
+            }
+        }
+
+        // 3. Views referencing this table (Incoming dependency)
+        for view in &introspect.views {
+            let def_lower = view.definition.to_lowercase();
+            let table_lower = table.to_lowercase();
+            let qualified_lower = format!("{}.{}", schema.to_lowercase(), table_lower);
+            if def_lower.contains(&qualified_lower) || def_lower.contains(&table_lower) {
+                dependencies.push(crate::domain::schema::TableDependency {
+                    name: view.name.clone(),
+                    schema: view.schema.clone(),
+                    kind: crate::domain::schema::DependencyKind::View,
+                    direction: crate::domain::schema::DependencyDirection::DependedBy,
+                    details: format!(
+                        "View {}.{} references table in query definition",
+                        view.schema, view.name
+                    ),
+                });
+            }
+        }
+
+        // 4. Triggers on this table (Incoming dependency)
+        for trigger in &introspect.triggers {
+            if trigger.schema == schema && trigger.table_name == table {
+                dependencies.push(crate::domain::schema::TableDependency {
+                    name: trigger.name.clone(),
+                    schema: trigger.schema.clone(),
+                    kind: crate::domain::schema::DependencyKind::Trigger,
+                    direction: crate::domain::schema::DependencyDirection::DependedBy,
+                    details: format!(
+                        "Trigger {} ({} {}) attached to table",
+                        trigger.name, trigger.timing, trigger.event
+                    ),
+                });
+            }
+        }
+
+        // 5. Functions referencing this table (Incoming dependency)
+        for func in &introspect.functions {
+            let def_lower = func.definition.to_lowercase();
+            let table_lower = table.to_lowercase();
+            if !func.definition.is_empty()
+                && (def_lower.contains(&format!("{schema}.{table}").to_lowercase()) || def_lower.contains(&table_lower))
+            {
+                dependencies.push(crate::domain::schema::TableDependency {
+                    name: func.name.clone(),
+                    schema: func.schema.clone(),
+                    kind: crate::domain::schema::DependencyKind::Function,
+                    direction: crate::domain::schema::DependencyDirection::DependedBy,
+                    details: format!(
+                        "Routine {}.{} ({}) references this table",
+                        func.schema, func.name, func.routine_type
+                    ),
+                });
+            }
+        }
+
+        // 6. Sequences used by column defaults (Outgoing dependency)
+        for col in &columns {
+            if let Some(ref def) = col.default {
+                let def_lower = def.to_lowercase();
+                if def_lower.contains("nextval") || def_lower.contains("_seq") {
+                    dependencies.push(crate::domain::schema::TableDependency {
+                        name: col.name.clone(),
+                        schema: schema.to_owned(),
+                        kind: crate::domain::schema::DependencyKind::Sequence,
+                        direction: crate::domain::schema::DependencyDirection::DependsOn,
+                        details: format!("Column {} default sequence expression: {}", col.name, def),
+                    });
+                }
+            }
+        }
 
         Ok(TableInfo {
             table: tbl,
@@ -131,6 +248,8 @@ impl SchemaService {
             primary_key,
             indexes,
             foreign_keys,
+            check_constraints,
+            dependencies,
         })
     }
 
@@ -196,6 +315,8 @@ impl SchemaService {
             primary_key,
             indexes,
             foreign_keys,
+            check_constraints: check_constraints.clone(),
+            dependencies: Vec::new(),
         };
 
         let driver = self.connection_config(connection_id).await?.driver;
@@ -835,6 +956,8 @@ mod tests {
                 schema: "".into(),
                 to_schema: "".into(),
             }],
+            check_constraints: vec![],
+            dependencies: vec![],
         };
 
         let ddl = build_create_table_ddl(&info, DriverType::Postgres, &[]);
@@ -883,6 +1006,8 @@ mod tests {
                 schema: "public".into(),
                 to_schema: "public".into(),
             }],
+            check_constraints: vec![],
+            dependencies: vec![],
         };
 
         let ddl = build_create_table_ddl(&info, DriverType::Postgres, &[]);
@@ -990,6 +1115,8 @@ mod tests {
                 schema: "public".into(),
                 to_schema: "public".into(),
             }],
+            check_constraints: vec![],
+            dependencies: vec![],
         };
 
         let ddl = build_create_table_ddl(&info, DriverType::Postgres, &[]);

@@ -2,6 +2,7 @@ use super::diagram_view::{
     diagram_candidates, diagram_canvas_size, diagram_search_mode, diagram_show_all_after_search_edit,
 };
 use super::*;
+use crate::{UiCheckConstraint, UiDependencyDirection, UiDependencyKind, UiTableDependency};
 
 fn result() -> UiQueryResult {
     UiQueryResult {
@@ -182,6 +183,8 @@ fn composite_primary_key_identity_preserves_each_cell_type() {
         primary_key: Some(vec!["tenant_id".to_owned(), "item_id".to_owned()]),
         indexes: Vec::new(),
         foreign_keys: Vec::new(),
+        check_constraints: Vec::new(),
+        dependencies: Vec::new(),
     };
 
     let (columns, values) = DbProApp::row_identity(&result, &info, 0).expect("row identity expected");
@@ -280,6 +283,8 @@ fn table_edits_stage_until_explicit_apply() {
         primary_key: Some(vec!["id".to_owned()]),
         indexes: Vec::new(),
         foreign_keys: Vec::new(),
+        check_constraints: Vec::new(),
+        dependencies: Vec::new(),
     });
     app.data_edit_value = "Updated".to_owned();
     let value = UiQueryResult {
@@ -483,6 +488,34 @@ fn closing_query_document_restores_the_next_valid_document() {
     assert_eq!(app.active_query_document, 0);
     assert_eq!(app.query_text, "select 2");
     assert_eq!(app.runtime_message, "Closed Query 2");
+}
+
+#[test]
+fn closing_last_query_document_returns_to_welcome() {
+    let mut app = DbProApp {
+        active_tab: WorkspaceTab::Query,
+        ..Default::default()
+    };
+
+    app.close_query_document(0);
+
+    assert!(app.query_documents.is_empty());
+    assert_eq!(app.active_tab, WorkspaceTab::Welcome);
+    assert!(app.welcome_open);
+    assert!(app.query_text.is_empty());
+}
+
+#[test]
+fn closing_welcome_activates_the_existing_query_tab() {
+    let mut app = DbProApp {
+        active_tab: WorkspaceTab::Welcome,
+        ..Default::default()
+    };
+
+    app.close_welcome_tab();
+
+    assert!(!app.welcome_open);
+    assert_eq!(app.active_tab, WorkspaceTab::Query);
 }
 
 #[test]
@@ -1264,4 +1297,77 @@ fn ddl_apply_dispatch_requires_an_explicit_request_and_uses_active_connection() 
     assert_eq!(connection_id, "active");
     assert_eq!(sql, "CREATE TABLE \"public\".\"audit\" (id INTEGER)");
     assert!(app.ddl_execution_request.is_some());
+}
+
+#[test]
+fn test_column_order_and_move_column() {
+    let mut app = DbProApp::default();
+    let order = app.column_order(4);
+    assert_eq!(order, vec![0, 1, 2, 3]);
+
+    app.move_column(0, 2, 4);
+    assert_eq!(app.grid_column_order, vec![1, 2, 0, 3]);
+
+    app.move_column(3, 1, 4);
+    assert_eq!(app.grid_column_order, vec![1, 3, 2, 0]);
+
+    // Resets automatically on column count change
+    let new_order = app.column_order(2);
+    assert_eq!(new_order, vec![0, 1]);
+}
+
+#[test]
+fn test_format_cell_csv_and_cell_to_json() {
+    assert_eq!(DbProApp::format_cell_csv(&UiCell::Null), "");
+    assert_eq!(DbProApp::format_cell_csv(&UiCell::Boolean(true)), "true");
+    assert_eq!(DbProApp::format_cell_csv(&UiCell::Number("42.50".to_owned())), "42.50");
+    assert_eq!(
+        DbProApp::format_cell_csv(&UiCell::Text("Hello, \"World\"".to_owned())),
+        "\"Hello, \"\"World\"\"\""
+    );
+
+    assert_eq!(DbProApp::cell_to_json_value(&UiCell::Null), serde_json::Value::Null);
+    assert_eq!(
+        DbProApp::cell_to_json_value(&UiCell::Boolean(false)),
+        serde_json::Value::Bool(false)
+    );
+    assert_eq!(
+        DbProApp::cell_to_json_value(&UiCell::Number("100".to_owned())),
+        serde_json::json!(100)
+    );
+    assert_eq!(
+        DbProApp::cell_to_json_value(&UiCell::Text("admin".to_owned())),
+        serde_json::Value::String("admin".to_owned())
+    );
+}
+
+#[test]
+fn test_table_data_limit_and_paging_offset() {
+    let mut app = DbProApp::default();
+    assert_eq!(app.table_data_limit, 100);
+
+    app.table_data_limit = 50;
+    app.table_data_offset = 100;
+    app.reset_table_data_page();
+    assert_eq!(app.table_data_offset, 0);
+}
+
+#[test]
+fn test_table_metadata_dependency_and_constraint_models() {
+    let dep = UiTableDependency {
+        name: "orders_archive".to_owned(),
+        schema: "public".to_owned(),
+        kind: UiDependencyKind::Table,
+        direction: UiDependencyDirection::DependsOn,
+        details: "Foreign key reference".to_owned(),
+    };
+    assert_eq!(dep.kind, UiDependencyKind::Table);
+    assert_eq!(dep.direction, UiDependencyDirection::DependsOn);
+
+    let check = UiCheckConstraint {
+        name: "chk_positive_qty".to_owned(),
+        definition: "quantity > 0".to_owned(),
+    };
+    assert_eq!(check.name, "chk_positive_qty");
+    assert_eq!(check.definition, "quantity > 0");
 }

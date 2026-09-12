@@ -131,6 +131,39 @@ pub struct UiTableInfo {
     pub primary_key: Option<Vec<String>>,
     pub indexes: Vec<UiTableIndex>,
     pub foreign_keys: Vec<UiTableForeignKey>,
+    pub check_constraints: Vec<UiCheckConstraint>,
+    pub dependencies: Vec<UiTableDependency>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UiCheckConstraint {
+    pub name: String,
+    pub definition: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum UiDependencyDirection {
+    DependsOn,
+    DependedBy,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum UiDependencyKind {
+    Table,
+    View,
+    ForeignKey,
+    Trigger,
+    Function,
+    Sequence,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UiTableDependency {
+    pub name: String,
+    pub schema: String,
+    pub kind: UiDependencyKind,
+    pub direction: UiDependencyDirection,
+    pub details: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -356,6 +389,13 @@ pub enum UiCommand {
     CancelQuery {
         request_id: RequestId,
     },
+    /// Store a new AI provider API key and reconfigure the agent at runtime.
+    /// The native adapter is responsible for persisting the key securely
+    /// (OS keyring) before forwarding it to the worker.
+    SaveAgentApiKey {
+        request_id: RequestId,
+        api_key: String,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -467,6 +507,11 @@ pub enum UiEvent {
     AgentFailed {
         request_id: RequestId,
         message: String,
+    },
+    AgentConfigured {
+        request_id: RequestId,
+        provider: String,
+        detail: String,
     },
     QueryFailed {
         request_id: RequestId,

@@ -17,6 +17,7 @@ struct GridCell<'a> {
 struct GridRows<'a> {
     indexes: &'a [usize],
     widths: &'a [f32],
+    order: &'a [usize],
     editable: bool,
     row_offset: u64,
 }
@@ -36,28 +37,64 @@ impl DbProApp {
             return;
         }
 
+        let order = self.column_order(result.columns.len());
         let editable = self.active_tab == WorkspaceTab::Table
             && self.table_view == TableView::Data
             && self.can_mutate_active_connection();
         let indexes =
             crate::filtered_sorted_indexes(result, &self.grid_filter, self.grid_sort_column, self.grid_sort_desc);
 
-        self.handle_grid_keyboard(ui, result, &indexes, editable);
+        self.handle_grid_keyboard(ui, result, &indexes, &order, editable);
 
         let is_table_data = self.active_tab == WorkspaceTab::Table && self.table_view == TableView::Data;
         if !is_table_data {
-            self.draw_grid_toolbar(ui, result, editable, indexes.len());
+            self.draw_grid_toolbar(ui, result, editable, indexes.len(), &indexes);
         }
 
         let row_offset = if is_table_data { self.table_data_offset } else { 0 };
-        self.draw_grid_body(ui, result, &indexes, editable, row_offset);
+        self.draw_grid_body(ui, result, &indexes, &order, editable, row_offset);
+    }
+
+    /// Retrieve or initialize column visual ordering.
+    pub(crate) fn column_order(&mut self, count: usize) -> Vec<usize> {
+        if self.grid_column_order.len() != count || self.grid_column_order.iter().any(|&idx| idx >= count) || {
+            let mut sorted = self.grid_column_order.clone();
+            sorted.sort_unstable();
+            sorted.dedup();
+            sorted.len() != count
+        } {
+            self.grid_column_order = (0..count).collect();
+        }
+        self.grid_column_order.clone()
+    }
+
+    /// Reorder a column visually from one position to another.
+    pub(crate) fn move_column(&mut self, from_visual_idx: usize, to_visual_idx: usize, count: usize) {
+        let _ = self.column_order(count);
+        if from_visual_idx < count && to_visual_idx < count && from_visual_idx != to_visual_idx {
+            let col = self.grid_column_order.remove(from_visual_idx);
+            self.grid_column_order.insert(to_visual_idx, col);
+        }
     }
 
     /// Copy, paste-to-edit, staged-changes, and keyboard navigation for the result grid.
-    fn handle_grid_keyboard(&mut self, ui: &mut egui::Ui, result: &UiQueryResult, indexes: &[usize], editable: bool) {
-        if ui.input(|input| input.key_pressed(egui::Key::C) && Self::primary_modifier_pressed(input)) {
+    fn handle_grid_keyboard(
+        &mut self,
+        ui: &mut egui::Ui,
+        result: &UiQueryResult,
+        indexes: &[usize],
+        order: &[usize],
+        editable: bool,
+    ) {
+        let modifier = Self::primary_modifier_pressed_ui(ui);
+        let shift = ui.input(|i| i.modifiers.shift);
+
+        if ui.input(|i| i.key_pressed(egui::Key::C)) && modifier && shift {
+            self.copy_selected_row(ui, result);
+        } else if ui.input(|i| i.key_pressed(egui::Key::C)) && modifier {
             self.copy_selected_cell(ui, result);
         }
+
         if ui.input(|input| input.key_pressed(egui::Key::S) && Self::primary_modifier_pressed(input)) {
             self.apply_staged_changes();
         }
@@ -80,8 +117,12 @@ impl DbProApp {
             self.handle_grid_edit_input(ui, result, pasted);
         }
         if !ui.ctx().wants_keyboard_input() {
-            self.handle_grid_navigation(ui, indexes, result.columns.len(), editable, result);
+            self.handle_grid_navigation(ui, indexes, order, editable, result);
         }
+    }
+
+    fn primary_modifier_pressed_ui(ui: &egui::Ui) -> bool {
+        ui.input(Self::primary_modifier_pressed)
     }
 
     /// Paste-into-cell and Enter/F2-to-edit while the grid is editable.
@@ -103,40 +144,45 @@ impl DbProApp {
         }
     }
 
-    /// Arrow / Tab / Home / End navigation over the visible (filtered, sorted) indexes.
+    /// Arrow / Tab / Home / End navigation over the visible (filtered, sorted) indexes and column order.
     fn handle_grid_navigation(
         &mut self,
         ui: &mut egui::Ui,
         indexes: &[usize],
-        column_count: usize,
+        order: &[usize],
         editable: bool,
         result: &UiQueryResult,
     ) {
+        if order.is_empty() || indexes.is_empty() {
+            return;
+        }
+
         let is_tab = ui.input(|input| input.key_pressed(egui::Key::Tab));
         let is_shift_tab = is_tab && ui.input(|input| input.modifiers.shift);
 
-        if is_tab && column_count > 0 && !indexes.is_empty() {
+        if is_tab {
             if let Some((curr_row, curr_col)) = self.selected_cell {
                 if editable && self.data_editing_cell.is_some() {
                     self.commit_active_data_edit(result);
                 }
+                let visual_col = order.iter().position(|&c| c == curr_col).unwrap_or(0);
                 let next_cell = if is_shift_tab {
-                    if curr_col > 0 {
-                        Some((curr_row, curr_col - 1))
+                    if visual_col > 0 {
+                        Some((curr_row, order[visual_col - 1]))
                     } else if let Some(pos) = indexes.iter().position(|&r| r == curr_row) {
                         if pos > 0 {
-                            Some((indexes[pos - 1], column_count - 1))
+                            Some((indexes[pos - 1], order[order.len() - 1]))
                         } else {
                             Some((curr_row, curr_col))
                         }
                     } else {
                         Some((curr_row, curr_col))
                     }
-                } else if curr_col + 1 < column_count {
-                    Some((curr_row, curr_col + 1))
+                } else if visual_col + 1 < order.len() {
+                    Some((curr_row, order[visual_col + 1]))
                 } else if let Some(pos) = indexes.iter().position(|&r| r == curr_row) {
                     if pos + 1 < indexes.len() {
-                        Some((indexes[pos + 1], 0))
+                        Some((indexes[pos + 1], order[0]))
                     } else {
                         Some((curr_row, curr_col))
                     }
@@ -169,20 +215,64 @@ impl DbProApp {
         let Some(key) = navigation_key else {
             return;
         };
-        if let Some(selection) = crate::grid_keyboard_selection(self.selected_cell, indexes, column_count, key) {
-            self.selected_cell = Some(selection);
-            self.selected_row = Some(selection.0);
-            self.data_editing_cell = None;
-            self.data_edit_value.clear();
-            self.copy_status.clear();
+
+        if let Some((curr_row, curr_col)) = self.selected_cell {
+            let row_pos = indexes.iter().position(|&r| r == curr_row).unwrap_or(0);
+            let visual_col = order.iter().position(|&c| c == curr_col).unwrap_or(0);
+
+            let next_selection = match key {
+                egui::Key::ArrowUp => {
+                    let next_pos = row_pos.saturating_sub(1);
+                    Some((indexes[next_pos], curr_col))
+                }
+                egui::Key::ArrowDown => {
+                    let next_pos = (row_pos + 1).min(indexes.len() - 1);
+                    Some((indexes[next_pos], curr_col))
+                }
+                egui::Key::ArrowLeft => {
+                    if visual_col > 0 {
+                        Some((curr_row, order[visual_col - 1]))
+                    } else {
+                        Some((curr_row, curr_col))
+                    }
+                }
+                egui::Key::ArrowRight => {
+                    if visual_col + 1 < order.len() {
+                        Some((curr_row, order[visual_col + 1]))
+                    } else {
+                        Some((curr_row, curr_col))
+                    }
+                }
+                egui::Key::Home => Some((curr_row, order[0])),
+                egui::Key::End => Some((curr_row, order[order.len() - 1])),
+                _ => None,
+            };
+
+            if let Some(selection) = next_selection {
+                self.selected_cell = Some(selection);
+                self.selected_row = Some(selection.0);
+                self.data_editing_cell = None;
+                self.data_edit_value.clear();
+                self.copy_status.clear();
+            }
+        } else if let Some(&first_row) = indexes.first() {
+            self.selected_cell = Some((first_row, order[0]));
+            self.selected_row = Some(first_row);
         }
     }
 
     /// Filter box, copy buttons and the row-count hint above the grid.
-    fn draw_grid_toolbar(&mut self, ui: &mut egui::Ui, result: &UiQueryResult, editable: bool, matching_rows: usize) {
+    fn draw_grid_toolbar(
+        &mut self,
+        ui: &mut egui::Ui,
+        result: &UiQueryResult,
+        editable: bool,
+        matching_rows: usize,
+        indexes: &[usize],
+    ) {
         toolbar_frame(self.theme).show(ui, |ui| {
             ui.horizontal(|ui| {
-                input(ui, &mut self.grid_filter, "Filter visible rows…", 220.0, self.theme);
+                input(ui, &mut self.grid_filter, "Filter visible rows…", 200.0, self.theme);
                 if !self.grid_filter.is_empty()
                     && compact_icon_button(ui, Icon::X, self.theme)
                         .on_hover_text("Clear filter")
@@ -205,10 +295,22 @@ impl DbProApp {
                     self.copy_selected_cell(ui, result);
                 }
                 if compact_button_with_icon(ui, Icon::Table2, "Copy Row", self.theme)
-                    .on_hover_text("Copy entire selected row as tab-separated text")
+                    .on_hover_text("Copy entire selected row as tab-separated text (Cmd/Ctrl+Shift+C)")
                     .clicked()
                 {
                     self.copy_selected_row(ui, result);
+                }
+                if compact_button_with_icon(ui, Icon::FileSpreadsheet, "CSV", self.theme)
+                    .on_hover_text("Copy visible rows as CSV")
+                    .clicked()
+                {
+                    self.copy_all_as_csv(ui, result, indexes);
+                }
+                if compact_button_with_icon(ui, Icon::Braces, "JSON", self.theme)
+                    .on_hover_text("Copy visible rows as JSON array")
+                    .clicked()
+                {
+                    self.copy_all_as_json(ui, result, indexes);
                 }
 
                 if !self.copy_status.is_empty() {
@@ -221,9 +323,9 @@ impl DbProApp {
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                     ui.label(
                         RichText::new(if editable {
-                            "Double-click / Enter to edit · Drag divider to resize"
+                            "Double-click / Enter to edit · Right-click for actions · Drag divider to resize"
                         } else {
-                            "Click cell to select · Drag divider to resize"
+                            "Click cell to select · Right-click for actions · Drag divider to resize"
                         })
                         .font(font_caption())
                         .color(self.theme.text_muted),
@@ -240,6 +342,7 @@ impl DbProApp {
         ui: &mut egui::Ui,
         result: &UiQueryResult,
         indexes: &[usize],
+        order: &[usize],
         editable: bool,
         row_offset: u64,
     ) {
@@ -256,10 +359,11 @@ impl DbProApp {
                     ui.spacing_mut().item_spacing = Vec2::ZERO;
                     let content_width = GRID_ROW_NUMBER_WIDTH + widths.iter().sum::<f32>();
                     ui.set_min_width(content_width);
-                    self.draw_grid_header(ui, result, &widths);
+                    self.draw_grid_header(ui, result, &widths, order);
                     let rows = GridRows {
                         indexes,
                         widths: &widths,
+                        order,
                         editable,
                         row_offset,
                     };
@@ -330,7 +434,8 @@ impl DbProApp {
                 self.copy_status.clear();
             }
 
-            for (column_index, cell) in row.iter().enumerate().take(result.columns.len()) {
+            for &column_index in rows.order {
+                let cell = row.get(column_index).unwrap_or(&UiCell::Null);
                 let width = rows.widths.get(column_index).copied().unwrap_or(180.0);
                 self.draw_grid_cell(
                     ui,
@@ -406,13 +511,15 @@ impl DbProApp {
             self.draw_grid_cell_editor(ui, result, row_index, column_index, cell_rect);
         } else {
             let text_rect = cell_rect.shrink2(egui::vec2(8.0, 3.0));
+            let is_null = matches!(display_cell, crate::UiCell::Null);
             let text_val = Self::cell_label(display_cell);
             let font = match display_cell {
+                crate::UiCell::Null => FontId::proportional(11.5),
                 crate::UiCell::Number(_) | crate::UiCell::Json(_) | crate::UiCell::Bytes(_) => FontId::monospace(11.5),
                 _ => FontId::proportional(12.0),
             };
             let text_color = match display_cell {
-                crate::UiCell::Null => self.theme.text_muted.linear_multiply(0.7),
+                crate::UiCell::Null => self.theme.text_muted.linear_multiply(0.55),
                 crate::UiCell::Boolean(val) => {
                     if *val {
                         self.theme.success
@@ -426,20 +533,40 @@ impl DbProApp {
             };
 
             let painter = ui.painter().with_clip_rect(text_rect);
-            painter.text(
-                Pos2::new(text_rect.left(), text_rect.center().y),
-                Align2::LEFT_CENTER,
-                text_val,
-                font,
-                text_color,
-            );
+            if is_null {
+                // Subtle italic badge for NULL
+                let galley = painter.layout_no_wrap(
+                    "NULL".to_owned(),
+                    FontId::new(11.0, egui::FontFamily::Proportional),
+                    text_color,
+                );
+                painter.galley(
+                    Pos2::new(text_rect.left(), text_rect.center().y - galley.size().y * 0.5),
+                    galley,
+                    text_color,
+                );
+            } else {
+                painter.text(
+                    Pos2::new(text_rect.left(), text_rect.center().y),
+                    Align2::LEFT_CENTER,
+                    text_val,
+                    font,
+                    text_color,
+                );
+            }
 
             let is_ctx = is_context_menu_triggered(&cell_resp, ui);
             let mut copy_cell_req = false;
             let mut copy_row_req = false;
+            let mut copy_json_req = false;
+            let mut copy_csv_req = false;
             let mut edit_cell_req = false;
             let mut set_null_req = false;
+            let mut duplicate_row_req = false;
             let mut delete_row_req = false;
+            let mut filter_this_val_req = false;
+            let mut sort_asc_req = false;
+            let mut sort_desc_req = false;
             let theme = self.theme;
             let modifier = Self::primary_modifier_label();
 
@@ -461,7 +588,7 @@ impl DbProApp {
                 if ctx_menu_item(
                     ui,
                     Some(Icon::Table2),
-                    "Copy Row",
+                    "Copy Row (TSV)",
                     Some(&format!("{modifier}Shift+C")),
                     theme.text_primary,
                     theme,
@@ -471,6 +598,33 @@ impl DbProApp {
                     copy_row_req = true;
                     *close_menu = true;
                 }
+                if ctx_menu_item(
+                    ui,
+                    Some(Icon::Braces),
+                    "Copy Row as JSON",
+                    None,
+                    theme.text_primary,
+                    theme,
+                )
+                .clicked()
+                {
+                    copy_json_req = true;
+                    *close_menu = true;
+                }
+                if ctx_menu_item(
+                    ui,
+                    Some(Icon::FileSpreadsheet),
+                    "Copy Row as CSV",
+                    None,
+                    theme.text_primary,
+                    theme,
+                )
+                .clicked()
+                {
+                    copy_csv_req = true;
+                    *close_menu = true;
+                }
+
                 if editable {
                     ui.separator();
                     if ctx_menu_item(
@@ -486,11 +640,24 @@ impl DbProApp {
                         edit_cell_req = true;
                         *close_menu = true;
                     }
-                    if ctx_menu_item(ui, Some(Icon::Eraser), "Set to NULL", None, theme.danger, theme).clicked() {
+                    if ctx_menu_item(ui, Some(Icon::Eraser), "Set to NULL", None, theme.text_secondary, theme).clicked()
+                    {
                         set_null_req = true;
                         *close_menu = true;
                     }
-                    ui.separator();
+                    if ctx_menu_item(
+                        ui,
+                        Some(Icon::CopyPlus),
+                        "Duplicate Row",
+                        None,
+                        theme.text_primary,
+                        theme,
+                    )
+                    .clicked()
+                    {
+                        duplicate_row_req = true;
+                        *close_menu = true;
+                    }
                     if ctx_menu_item(
                         ui,
                         Some(Icon::Trash2),
@@ -504,6 +671,47 @@ impl DbProApp {
                         delete_row_req = true;
                         *close_menu = true;
                     }
+                }
+
+                ui.separator();
+                if ctx_menu_item(
+                    ui,
+                    Some(Icon::Filter),
+                    "Filter by this value",
+                    None,
+                    theme.text_primary,
+                    theme,
+                )
+                .clicked()
+                {
+                    filter_this_val_req = true;
+                    *close_menu = true;
+                }
+                if ctx_menu_item(
+                    ui,
+                    Some(Icon::ArrowUp),
+                    "Sort Ascending",
+                    None,
+                    theme.text_primary,
+                    theme,
+                )
+                .clicked()
+                {
+                    sort_asc_req = true;
+                    *close_menu = true;
+                }
+                if ctx_menu_item(
+                    ui,
+                    Some(Icon::ArrowDown),
+                    "Sort Descending",
+                    None,
+                    theme.text_primary,
+                    theme,
+                )
+                .clicked()
+                {
+                    sort_desc_req = true;
+                    *close_menu = true;
                 }
             });
 
@@ -519,6 +727,14 @@ impl DbProApp {
                 self.selected_row = Some(row_index);
                 self.copy_selected_row(ui, result);
             }
+            if copy_json_req {
+                self.selected_row = Some(row_index);
+                self.copy_row_as_json(ui, result, row_index);
+            }
+            if copy_csv_req {
+                self.selected_row = Some(row_index);
+                self.copy_row_as_csv(ui, result, row_index);
+            }
             if edit_cell_req && editable {
                 self.begin_data_cell_edit(row_index, column_index, display_cell);
             }
@@ -527,9 +743,27 @@ impl DbProApp {
                 self.data_edit_value = "NULL".to_owned();
                 self.submit_data_cell_edit(result, row_index, column_index);
             }
+            if duplicate_row_req && editable {
+                self.open_duplicate_row(result, row_index);
+            }
             if delete_row_req && editable {
                 self.selected_row = Some(row_index);
                 self.request_delete_selected_data_row(result);
+            }
+            if filter_this_val_req {
+                let filter_str = match display_cell {
+                    UiCell::Null => "NULL".to_owned(),
+                    _ => crate::cell_text(display_cell),
+                };
+                self.grid_filter = filter_str;
+            }
+            if sort_asc_req {
+                self.grid_sort_column = Some(column_index);
+                self.grid_sort_desc = false;
+            }
+            if sort_desc_req {
+                self.grid_sort_column = Some(column_index);
+                self.grid_sort_desc = true;
             }
 
             if cell_resp.double_clicked() && editable {
@@ -613,6 +847,143 @@ impl DbProApp {
         self.copy_status = "Row copied".to_owned();
     }
 
+    pub(crate) fn copy_row_as_json(&mut self, ui: &mut egui::Ui, result: &UiQueryResult, row_index: usize) {
+        let Some(row) = result.rows.get(row_index) else {
+            return;
+        };
+        let mut map = serde_json::Map::new();
+        for (col_idx, col) in result.columns.iter().enumerate() {
+            let cell = self
+                .copy_cell_value(result, row_index, col_idx)
+                .unwrap_or_else(|| row.get(col_idx).cloned().unwrap_or(UiCell::Null));
+            map.insert(col.name.clone(), Self::cell_to_json_value(&cell));
+        }
+        let json_text = serde_json::to_string_pretty(&serde_json::Value::Object(map)).unwrap_or_default();
+        ui.output_mut(|output| output.copied_text = json_text);
+        self.copy_status = "Row copied as JSON".to_owned();
+    }
+
+    pub(crate) fn copy_row_as_csv(&mut self, ui: &mut egui::Ui, result: &UiQueryResult, row_index: usize) {
+        let Some(row) = result.rows.get(row_index) else {
+            return;
+        };
+        let header = result
+            .columns
+            .iter()
+            .map(|c| {
+                if c.name.contains(',') || c.name.contains('"') {
+                    format!("\"{}\"", c.name.replace('"', "\"\""))
+                } else {
+                    c.name.clone()
+                }
+            })
+            .collect::<Vec<_>>()
+            .join(",");
+        let row_values = (0..result.columns.len())
+            .map(|col_idx| {
+                let cell = self
+                    .copy_cell_value(result, row_index, col_idx)
+                    .unwrap_or_else(|| row.get(col_idx).cloned().unwrap_or(UiCell::Null));
+                Self::format_cell_csv(&cell)
+            })
+            .collect::<Vec<_>>()
+            .join(",");
+        let csv_text = format!("{header}\n{row_values}");
+        ui.output_mut(|output| output.copied_text = csv_text);
+        self.copy_status = "Row copied as CSV".to_owned();
+    }
+
+    pub(crate) fn copy_all_as_csv(&mut self, ui: &mut egui::Ui, result: &UiQueryResult, indexes: &[usize]) {
+        let header = result
+            .columns
+            .iter()
+            .map(|c| {
+                if c.name.contains(',') || c.name.contains('"') {
+                    format!("\"{}\"", c.name.replace('"', "\"\""))
+                } else {
+                    c.name.clone()
+                }
+            })
+            .collect::<Vec<_>>()
+            .join(",");
+        let mut lines = vec![header];
+        for &row_index in indexes {
+            if let Some(row) = result.rows.get(row_index) {
+                let row_values = (0..result.columns.len())
+                    .map(|col_idx| {
+                        let cell = self
+                            .copy_cell_value(result, row_index, col_idx)
+                            .unwrap_or_else(|| row.get(col_idx).cloned().unwrap_or(UiCell::Null));
+                        Self::format_cell_csv(&cell)
+                    })
+                    .collect::<Vec<_>>()
+                    .join(",");
+                lines.push(row_values);
+            }
+        }
+        ui.output_mut(|output| output.copied_text = lines.join("\n"));
+        self.copy_status = format!("{} rows copied as CSV", indexes.len());
+    }
+
+    pub(crate) fn copy_all_as_json(&mut self, ui: &mut egui::Ui, result: &UiQueryResult, indexes: &[usize]) {
+        let mut rows_arr = Vec::new();
+        for &row_index in indexes {
+            if let Some(row) = result.rows.get(row_index) {
+                let mut map = serde_json::Map::new();
+                for (col_idx, col) in result.columns.iter().enumerate() {
+                    let cell = self
+                        .copy_cell_value(result, row_index, col_idx)
+                        .unwrap_or_else(|| row.get(col_idx).cloned().unwrap_or(UiCell::Null));
+                    map.insert(col.name.clone(), Self::cell_to_json_value(&cell));
+                }
+                rows_arr.push(serde_json::Value::Object(map));
+            }
+        }
+        let json_text = serde_json::to_string_pretty(&serde_json::Value::Array(rows_arr)).unwrap_or_default();
+        ui.output_mut(|output| output.copied_text = json_text);
+        self.copy_status = format!("{} rows copied as JSON", indexes.len());
+    }
+
+    pub(crate) fn format_cell_csv(cell: &crate::UiCell) -> String {
+        match cell {
+            crate::UiCell::Null => String::new(),
+            crate::UiCell::Boolean(b) => b.to_string(),
+            crate::UiCell::Number(n) => n.clone(),
+            crate::UiCell::Text(t) => {
+                if t.contains(',') || t.contains('"') || t.contains('\n') || t.contains('\r') {
+                    format!("\"{}\"", t.replace('"', "\"\""))
+                } else {
+                    t.clone()
+                }
+            }
+            crate::UiCell::Json(j) => {
+                format!("\"{}\"", j.replace('"', "\"\""))
+            }
+            crate::UiCell::Bytes(b) => b.clone(),
+        }
+    }
+
+    pub(crate) fn cell_to_json_value(cell: &crate::UiCell) -> serde_json::Value {
+        match cell {
+            crate::UiCell::Null => serde_json::Value::Null,
+            crate::UiCell::Boolean(b) => serde_json::Value::Bool(*b),
+            crate::UiCell::Number(n) => {
+                if let Ok(i) = n.parse::<i64>() {
+                    serde_json::Value::Number(i.into())
+                } else if let Ok(f) = n.parse::<f64>() {
+                    serde_json::Number::from_f64(f)
+                        .map(serde_json::Value::Number)
+                        .unwrap_or_else(|| serde_json::Value::String(n.clone()))
+                } else {
+                    serde_json::Value::String(n.clone())
+                }
+            }
+            crate::UiCell::Text(t) => serde_json::Value::String(t.clone()),
+            crate::UiCell::Json(j) => serde_json::from_str(j).unwrap_or_else(|_| serde_json::Value::String(j.clone())),
+            crate::UiCell::Bytes(b) => serde_json::Value::String(b.clone()),
+        }
+    }
+
     pub(crate) fn copy_cell_value(
         &self,
         result: &UiQueryResult,
@@ -644,7 +1015,10 @@ impl DbProApp {
         widths
     }
 
-    fn draw_grid_header(&mut self, ui: &mut egui::Ui, result: &UiQueryResult, widths: &[f32]) {
+    fn draw_grid_header(&mut self, ui: &mut egui::Ui, result: &UiQueryResult, widths: &[f32], order: &[usize]) {
+        let (mut move_left_req, mut move_right_req, mut reset_order_req, mut reset_widths_req) =
+            (None, None, false, false);
+
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing = Vec2::ZERO;
             let (gutter_rect, _) = ui.allocate_exact_size(egui::vec2(GRID_ROW_NUMBER_WIDTH, 34.0), Sense::hover());
@@ -668,16 +1042,30 @@ impl DbProApp {
                 self.theme.text_muted,
             );
 
-            for (index, column) in result.columns.iter().enumerate() {
-                let width = widths.get(index).copied().unwrap_or(180.0);
+            for (visual_idx, &col_idx) in order.iter().enumerate() {
+                let Some(column) = result.columns.get(col_idx) else {
+                    continue;
+                };
+                let width = widths.get(col_idx).copied().unwrap_or(180.0);
                 let (col_rect, col_resp) = ui.allocate_exact_size(egui::vec2(width, 34.0), Sense::click());
+
+                // Check PK / FK indicators
+                let is_pk = self
+                    .table_info
+                    .as_ref()
+                    .is_some_and(|info| info.columns.iter().any(|c| c.name == column.name && c.is_primary_key));
+                let is_fk = self.table_info.as_ref().is_some_and(|info| {
+                    info.foreign_keys
+                        .iter()
+                        .any(|fk| fk.from_columns.iter().any(|col| col == &column.name))
+                });
 
                 // Resize divider on the right edge (4px grab target)
                 let divider_rect = Rect::from_min_max(
                     Pos2::new(col_rect.right() - 3.0, col_rect.top()),
                     Pos2::new(col_rect.right() + 3.0, col_rect.bottom()),
                 );
-                let divider_id = ui.id().with(("grid_col_resize", index));
+                let divider_id = ui.id().with(("grid_col_resize", col_idx));
                 let divider = ui.interact(divider_rect, divider_id, Sense::drag());
                 let is_resizing = divider.hovered() || divider.dragged();
                 if is_resizing {
@@ -713,15 +1101,64 @@ impl DbProApp {
 
                 // Column title + data type + sort icon
                 let sort_marker = match self.grid_sort_column {
-                    Some(active) if active == index && self.grid_sort_desc => " ↓",
-                    Some(active) if active == index => " ↑",
+                    Some(active) if active == col_idx && self.grid_sort_desc => " ↓",
+                    Some(active) if active == col_idx => " ↑",
                     _ => "",
                 };
 
-                let header_text_rect = col_rect.shrink2(egui::vec2(10.0, 4.0));
+                let header_text_rect = col_rect.shrink2(egui::vec2(8.0, 4.0));
                 let painter = ui.painter().with_clip_rect(header_text_rect);
 
-                // Draw column name and data type
+                let mut text_x = header_text_rect.left();
+
+                // Draw PK / FK badges
+                if is_pk {
+                    let pk_galley = painter.layout_no_wrap(
+                        "PK".to_owned(),
+                        FontId::new(9.5, egui::FontFamily::Proportional),
+                        self.theme.warning,
+                    );
+                    let badge_rect = Rect::from_min_size(
+                        Pos2::new(text_x, header_text_rect.center().y - 7.0),
+                        Vec2::new(pk_galley.size().x + 6.0, 14.0),
+                    );
+                    painter.rect_filled(
+                        badge_rect,
+                        Rounding::same(3.0),
+                        self.theme.warning.linear_multiply(0.18),
+                    );
+                    painter.galley(
+                        Pos2::new(
+                            badge_rect.left() + 3.0,
+                            badge_rect.center().y - pk_galley.size().y * 0.5,
+                        ),
+                        pk_galley,
+                        self.theme.warning,
+                    );
+                    text_x += badge_rect.width() + 4.0;
+                } else if is_fk {
+                    let fk_galley = painter.layout_no_wrap(
+                        "FK".to_owned(),
+                        FontId::new(9.5, egui::FontFamily::Proportional),
+                        self.theme.accent,
+                    );
+                    let badge_rect = Rect::from_min_size(
+                        Pos2::new(text_x, header_text_rect.center().y - 7.0),
+                        Vec2::new(fk_galley.size().x + 6.0, 14.0),
+                    );
+                    painter.rect_filled(badge_rect, Rounding::same(3.0), self.theme.accent.linear_multiply(0.18));
+                    painter.galley(
+                        Pos2::new(
+                            badge_rect.left() + 3.0,
+                            badge_rect.center().y - fk_galley.size().y * 0.5,
+                        ),
+                        fk_galley,
+                        self.theme.accent,
+                    );
+                    text_x += badge_rect.width() + 4.0;
+                }
+
+                // Draw column name
                 let col_name_galley = painter.layout_no_wrap(
                     column.name.clone(),
                     DbProTheme::ui_medium_font(12.5),
@@ -729,19 +1166,17 @@ impl DbProApp {
                 );
                 let name_width = col_name_galley.size().x;
                 painter.galley(
-                    Pos2::new(
-                        header_text_rect.left(),
-                        header_text_rect.center().y - col_name_galley.size().y * 0.5,
-                    ),
+                    Pos2::new(text_x, header_text_rect.center().y - col_name_galley.size().y * 0.5),
                     col_name_galley,
                     self.theme.text_primary,
                 );
 
+                // Draw column type
                 let type_text = format!(" {}{}", column.data_type, sort_marker);
                 let type_galley = painter.layout_no_wrap(
                     type_text,
                     FontId::monospace(10.5),
-                    if self.grid_sort_column == Some(index) {
+                    if self.grid_sort_column == Some(col_idx) {
                         self.theme.accent
                     } else {
                         self.theme.text_muted
@@ -749,22 +1184,124 @@ impl DbProApp {
                 );
                 painter.galley(
                     Pos2::new(
-                        header_text_rect.left() + name_width + 4.0,
+                        text_x + name_width + 4.0,
                         header_text_rect.center().y - type_galley.size().y * 0.5,
                     ),
                     type_galley,
-                    if self.grid_sort_column == Some(index) {
+                    if self.grid_sort_column == Some(col_idx) {
                         self.theme.accent
                     } else {
                         self.theme.text_muted
                     },
                 );
 
+                // Header right-click context menu
+                let theme = self.theme;
+                let is_sorted = self.grid_sort_column == Some(col_idx);
+                context_action_menu(ui, &col_resp, theme, |ui, close_menu| {
+                    if ctx_menu_item(
+                        ui,
+                        Some(Icon::ArrowUp),
+                        "Sort Ascending (A → Z)",
+                        None,
+                        theme.text_primary,
+                        theme,
+                    )
+                    .clicked()
+                    {
+                        self.grid_sort_column = Some(col_idx);
+                        self.grid_sort_desc = false;
+                        *close_menu = true;
+                    }
+                    if ctx_menu_item(
+                        ui,
+                        Some(Icon::ArrowDown),
+                        "Sort Descending (Z → A)",
+                        None,
+                        theme.text_primary,
+                        theme,
+                    )
+                    .clicked()
+                    {
+                        self.grid_sort_column = Some(col_idx);
+                        self.grid_sort_desc = true;
+                        *close_menu = true;
+                    }
+                    if is_sorted
+                        && ctx_menu_item(ui, Some(Icon::X), "Clear Sort", None, theme.text_secondary, theme).clicked()
+                    {
+                        self.grid_sort_column = None;
+                        self.grid_sort_desc = false;
+                        *close_menu = true;
+                    }
+                    ui.separator();
+                    if visual_idx > 0
+                        && ctx_menu_item(
+                            ui,
+                            Some(Icon::ArrowLeft),
+                            "Move Column Left",
+                            None,
+                            theme.text_primary,
+                            theme,
+                        )
+                        .clicked()
+                    {
+                        move_left_req = Some(visual_idx);
+                        *close_menu = true;
+                    }
+                    if visual_idx + 1 < order.len()
+                        && ctx_menu_item(
+                            ui,
+                            Some(Icon::ArrowRight),
+                            "Move Column Right",
+                            None,
+                            theme.text_primary,
+                            theme,
+                        )
+                        .clicked()
+                    {
+                        move_right_req = Some(visual_idx);
+                        *close_menu = true;
+                    }
+                    ui.separator();
+                    if ctx_menu_item(
+                        ui,
+                        Some(Icon::RotateCcw),
+                        "Reset Column Order",
+                        None,
+                        theme.text_secondary,
+                        theme,
+                    )
+                    .clicked()
+                    {
+                        reset_order_req = true;
+                        *close_menu = true;
+                    }
+                    if ctx_menu_item(
+                        ui,
+                        Some(Icon::Maximize2),
+                        "Reset Column Widths",
+                        None,
+                        theme.text_secondary,
+                        theme,
+                    )
+                    .clicked()
+                    {
+                        reset_widths_req = true;
+                        *close_menu = true;
+                    }
+                });
+
                 if col_resp.clicked() && !divider.dragged() {
-                    if self.grid_sort_column == Some(index) {
-                        self.grid_sort_desc = !self.grid_sort_desc;
+                    if self.grid_sort_column == Some(col_idx) {
+                        if !self.grid_sort_desc {
+                            self.grid_sort_desc = true;
+                        } else {
+                            self.grid_sort_column = None;
+                            self.grid_sort_desc = false;
+                        }
                     } else {
-                        self.grid_sort_column = Some(index);
+                        self.grid_sort_column = Some(col_idx);
                         self.grid_sort_desc = false;
                     }
                 }
@@ -774,11 +1311,28 @@ impl DbProApp {
                     self.grid_columns_user_resized = true;
                 }
                 if divider.dragged() {
-                    self.grid_column_widths[index] =
-                        (self.grid_column_widths[index] + divider.drag_delta().x).clamp(60.0, 1000.0);
+                    self.grid_column_widths[col_idx] =
+                        (self.grid_column_widths[col_idx] + divider.drag_delta().x).clamp(60.0, 1000.0);
                 }
             }
         });
+
+        if let Some(idx) = move_left_req {
+            if idx > 0 {
+                self.move_column(idx, idx - 1, order.len());
+            }
+        }
+        if let Some(idx) = move_right_req {
+            if idx + 1 < order.len() {
+                self.move_column(idx, idx + 1, order.len());
+            }
+        }
+        if reset_order_req {
+            self.grid_column_order = (0..order.len()).collect();
+        }
+        if reset_widths_req {
+            self.grid_columns_user_resized = false;
+        }
     }
 
     fn cell_label(cell: &crate::UiCell) -> String {

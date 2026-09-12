@@ -135,6 +135,31 @@ impl IntrospectResult {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum DependencyDirection {
+    DependsOn,
+    DependedBy,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum DependencyKind {
+    Table,
+    View,
+    ForeignKey,
+    Trigger,
+    Function,
+    Sequence,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TableDependency {
+    pub name: String,
+    pub schema: String,
+    pub kind: DependencyKind,
+    pub direction: DependencyDirection,
+    pub details: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TableInfo {
     pub table: Table,
@@ -142,4 +167,8 @@ pub struct TableInfo {
     pub primary_key: Option<PrimaryKey>,
     pub indexes: Vec<Index>,
     pub foreign_keys: Vec<ForeignKey>,
+    #[serde(default)]
+    pub check_constraints: Vec<CheckConstraint>,
+    #[serde(default)]
+    pub dependencies: Vec<TableDependency>,
 }

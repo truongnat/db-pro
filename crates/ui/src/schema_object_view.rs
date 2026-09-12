@@ -13,7 +13,7 @@ struct SchemaObjectDetails {
 impl DbProApp {
     pub(super) fn draw_schema_object_workspace(&mut self, ui: &mut egui::Ui) {
         let Some(selection) = self.selected_schema_object.clone() else {
-            self.active_tab = WorkspaceTab::Welcome;
+            self.activate_welcome_tab();
             return;
         };
         let is_view = matches!(selection, SchemaObjectSelection::View(_));

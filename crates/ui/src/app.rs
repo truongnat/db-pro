@@ -56,8 +56,12 @@ mod query_view;
 mod result_grid_view;
 #[path = "schema_object_view.rs"]
 mod schema_object_view;
+#[path = "table_ddl_view.rs"]
+mod table_ddl_view;
 #[path = "table_editor_view.rs"]
 mod table_editor_view;
+#[path = "table_metadata_view.rs"]
+mod table_metadata_view;
 #[path = "table_view.rs"]
 mod table_view;
 #[cfg(test)]
@@ -275,6 +279,7 @@ pub struct DbProApp {
     dark_mode: bool,
     reduce_motion: bool,
     activity: Activity,
+    welcome_open: bool,
     active_tab: WorkspaceTab,
     sidebar_open: bool,
     sidebar_width: f32,
@@ -313,6 +318,9 @@ pub struct DbProApp {
     agent_provider_detail: String,
     agent_input: String,
     agent_messages: Vec<AgentMessage>,
+    agent_settings_open: bool,
+    agent_api_key_draft: String,
+    agent_configure_request: Option<crate::RequestId>,
     task_bridge: TaskBridge,
     next_query_request: Option<crate::RequestId>,
     runtime_message: String,
@@ -326,6 +334,7 @@ pub struct DbProApp {
     grid_sort_column: Option<usize>,
     grid_sort_desc: bool,
     grid_column_widths: Vec<f32>,
+    grid_column_order: Vec<usize>,
     grid_columns_user_resized: bool,
     selected_cell: Option<(usize, usize)>,
     selected_row: Option<usize>,
@@ -365,12 +374,16 @@ pub struct DbProApp {
     table_data_result: Option<UiQueryResult>,
     table_data_total_rows: Option<u64>,
     table_data_offset: u64,
+    table_data_limit: u64,
     table_data_filter_column: String,
     table_data_filter_value: String,
     table_data_sort_column: Option<String>,
     table_data_sort_desc: bool,
     table_data_error: Option<String>,
     table_structure_search: String,
+    table_metadata_search: String,
+    table_dependency_filter: String,
+    table_constraint_filter: String,
     table_info_request: Option<crate::RequestId>,
     table_ddl_request: Option<crate::RequestId>,
     table_data_request: Option<crate::RequestId>,
@@ -721,12 +734,26 @@ impl DbProApp {
     }
 
     pub(crate) fn close_query_document(&mut self, index: usize) {
-        if self.query_documents.len() <= 1 || index >= self.query_documents.len() {
+        if index >= self.query_documents.len() {
             return;
         }
 
         self.persist_active_query_document();
+        let closed_title = self.query_documents[index].title.clone();
         self.query_documents.remove(index);
+
+        if self.query_documents.is_empty() {
+            self.active_query_document = 0;
+            self.query_text.clear();
+            self.reset_query_cursor();
+            self.query_result = None;
+            if self.active_tab == WorkspaceTab::Query {
+                self.activate_fallback_workspace_tab();
+            }
+            self.runtime_message = format!("Closed {closed_title}");
+            return;
+        }
+
         if self.active_query_document > index {
             self.active_query_document -= 1;
         } else if self.active_query_document == index {
@@ -788,6 +815,7 @@ impl DbProApp {
 
     pub(crate) fn close_all_tabs(&mut self) {
         self.persist_active_query_document();
+        self.welcome_open = true;
         self.query_documents = vec![QueryDocument {
             title: "Query 1".to_string(),
             content: String::new(),
@@ -799,6 +827,31 @@ impl DbProApp {
         self.selected_schema_object = None;
         self.active_tab = WorkspaceTab::Welcome;
         self.runtime_message = "Closed all tabs".to_owned();
+    }
+
+    pub(crate) fn close_welcome_tab(&mut self) {
+        self.welcome_open = false;
+        if self.active_tab == WorkspaceTab::Welcome {
+            self.activate_fallback_workspace_tab();
+        }
+        self.runtime_message = "Closed Welcome".to_owned();
+    }
+
+    fn activate_welcome_tab(&mut self) {
+        self.welcome_open = true;
+        self.active_tab = WorkspaceTab::Welcome;
+    }
+
+    fn activate_fallback_workspace_tab(&mut self) {
+        if !self.query_documents.is_empty() {
+            self.active_tab = WorkspaceTab::Query;
+        } else if self.selected_table.is_some() {
+            self.active_tab = WorkspaceTab::Table;
+        } else if self.selected_schema_object.is_some() {
+            self.active_tab = WorkspaceTab::SchemaObject;
+        } else {
+            self.activate_welcome_tab();
+        }
     }
 
     pub(crate) fn request_close_workspace_tab(&mut self, tab: WorkspaceTab) {
@@ -839,7 +892,7 @@ impl DbProApp {
             WorkspaceTab::Welcome | WorkspaceTab::Query => return,
         }
         if self.active_tab == tab {
-            self.active_tab = WorkspaceTab::Welcome;
+            self.activate_welcome_tab();
         }
         self.runtime_message = "Workspace closed".to_owned();
     }

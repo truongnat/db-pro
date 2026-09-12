@@ -160,6 +160,11 @@ pub enum RuntimeCommand {
     CancelOperation {
         request_id: RuntimeRequestId,
     },
+    /// Replace the AI provider key at runtime without restarting the app.
+    ConfigureAgent {
+        request_id: RuntimeRequestId,
+        api_key: String,
+    },
 }
 
 #[derive(Debug)]
@@ -239,6 +244,11 @@ pub enum RuntimeEvent {
         request_id: RuntimeRequestId,
         message: String,
     },
+    AgentConfigured {
+        request_id: RuntimeRequestId,
+        provider: String,
+        detail: String,
+    },
     Failed {
         request_id: RuntimeRequestId,
         message: String,
@@ -266,23 +276,28 @@ pub fn spawn_worker(
     let (event_tx, event_rx) = mpsc::channel(capacity);
     let cancellations: CancelMap = Arc::new(Mutex::new(HashMap::new()));
     let query_cancellations: QueryCancelMap = Arc::new(Mutex::new(HashMap::new()));
-    let codex_provider = CodexProvider::from_env();
+    // Shared mutable cell: allows ConfigureAgent to hot-swap the provider key
+    // while the worker is running (no restart required).
+    let codex_provider: Arc<Mutex<Option<CodexProvider>>> = Arc::new(Mutex::new(CodexProvider::from_env()));
 
     tokio::spawn(async move {
-        let (provider, detail) = codex_provider
-            .as_ref()
-            .map(|provider| {
-                (
-                    provider.provider_name().to_owned(),
-                    "Responses API · SQL drafts stay unexecuted".to_owned(),
-                )
-            })
-            .unwrap_or_else(|| {
-                (
-                    "Offline draft".to_owned(),
-                    "AI provider not configured · local drafts stay unexecuted".to_owned(),
-                )
-            });
+        let (provider, detail) = {
+            let guard = codex_provider.lock().unwrap();
+            guard
+                .as_ref()
+                .map(|p| {
+                    (
+                        p.provider_name().to_owned(),
+                        "Responses API · SQL drafts stay unexecuted".to_owned(),
+                    )
+                })
+                .unwrap_or_else(|| {
+                    (
+                        "Offline draft".to_owned(),
+                        "AI provider not configured · local drafts stay unexecuted".to_owned(),
+                    )
+                })
+        };
         let _ = event_tx
             .send(RuntimeEvent::AgentProviderReady { provider, detail })
             .await;
@@ -639,12 +654,13 @@ pub fn spawn_worker(
                     prompt,
                     context,
                 } => {
-                    let Some(provider) = codex_provider.clone() else {
+                    let provider = codex_provider.lock().unwrap().clone();
+                    let Some(provider) = provider else {
                         let _ = event_tx
                             .send(RuntimeEvent::AgentFailed {
                                 request_id,
                                 message:
-                                    "AI provider is not configured; set GROQ_API_KEY or OPENAI_API_KEY to enable it."
+                                    "AI provider is not configured. Open Agent settings (⚙) and enter a Groq or OpenAI API key."
                                         .to_owned(),
                             })
                             .await;
@@ -1001,6 +1017,40 @@ pub fn spawn_worker(
                     {
                         let _ = sender.send(());
                     }
+                }
+                RuntimeCommand::ConfigureAgent { request_id, api_key } => {
+                    // Build the new provider (Groq if key looks like one, else OpenAI).
+                    let (endpoint, model, provider_name) = if api_key.trim_start().starts_with("gsk_") {
+                        (
+                            crate::agent::DEFAULT_GROQ_ENDPOINT,
+                            crate::agent::DEFAULT_GROQ_MODEL,
+                            "Groq",
+                        )
+                    } else {
+                        (crate::agent::DEFAULT_ENDPOINT, crate::agent::DEFAULT_MODEL, "OpenAI")
+                    };
+                    let event = match CodexProvider::with_provider_pub(
+                        api_key.trim().to_owned(),
+                        endpoint,
+                        model,
+                        provider_name,
+                    ) {
+                        Ok(new_provider) => {
+                            let detail = format!("{provider_name} Responses API · SQL drafts stay unexecuted");
+                            *codex_provider.lock().unwrap() = Some(new_provider);
+                            tracing::info!(provider = provider_name, "AI provider reconfigured");
+                            RuntimeEvent::AgentConfigured {
+                                request_id,
+                                provider: provider_name.to_owned(),
+                                detail,
+                            }
+                        }
+                        Err(error) => RuntimeEvent::Failed {
+                            request_id,
+                            message: format!("AI provider configuration rejected: {error}"),
+                        },
+                    };
+                    let _ = event_tx.send(event).await;
                 }
             }
         }

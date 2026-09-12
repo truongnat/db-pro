@@ -56,7 +56,9 @@ pub(crate) fn translate_command(command: UiCommand) -> Option<RuntimeCommand> {
         | UiCommand::PickSqliteFile { .. }
         | UiCommand::PickSshPrivateKey { .. }
         | UiCommand::PickBackupFile { .. }
-        | UiCommand::PickRestoreFile { .. } => None,
+        | UiCommand::PickRestoreFile { .. }
+        // Handled in the native command thread (keyring + ConfigureAgent):
+        | UiCommand::SaveAgentApiKey { .. } => None,
         UiCommand::ListQueryFolders { .. }
         | UiCommand::ListSavedQueries { .. }
         | UiCommand::SaveQuery { .. }
@@ -533,6 +535,35 @@ fn map_table_info(info: db_pro_core::domain::schema::TableInfo) -> UiTableInfo {
                 to_columns: foreign_key.to_columns,
             })
             .collect(),
+        check_constraints: info
+            .check_constraints
+            .into_iter()
+            .map(|c| UiCheckConstraint {
+                name: c.name,
+                definition: c.definition,
+            })
+            .collect(),
+        dependencies: info
+            .dependencies
+            .into_iter()
+            .map(|d| UiTableDependency {
+                name: d.name,
+                schema: d.schema,
+                kind: match d.kind {
+                    db_pro_core::domain::schema::DependencyKind::Table => UiDependencyKind::Table,
+                    db_pro_core::domain::schema::DependencyKind::View => UiDependencyKind::View,
+                    db_pro_core::domain::schema::DependencyKind::ForeignKey => UiDependencyKind::ForeignKey,
+                    db_pro_core::domain::schema::DependencyKind::Trigger => UiDependencyKind::Trigger,
+                    db_pro_core::domain::schema::DependencyKind::Function => UiDependencyKind::Function,
+                    db_pro_core::domain::schema::DependencyKind::Sequence => UiDependencyKind::Sequence,
+                },
+                direction: match d.direction {
+                    db_pro_core::domain::schema::DependencyDirection::DependsOn => UiDependencyDirection::DependsOn,
+                    db_pro_core::domain::schema::DependencyDirection::DependedBy => UiDependencyDirection::DependedBy,
+                },
+                details: d.details,
+            })
+            .collect(),
     }
 }
 
@@ -608,6 +639,15 @@ pub(crate) fn translate_event(event: RuntimeEvent) -> Option<UiEvent> {
         } => translate_agent_completed(request_id, provider, message),
         RuntimeEvent::AgentProviderReady { provider, detail } => Some(UiEvent::AgentProviderReady { provider, detail }),
         RuntimeEvent::AgentFailed { request_id, message } => translate_agent_failed(request_id, message),
+        RuntimeEvent::AgentConfigured {
+            request_id,
+            provider,
+            detail,
+        } => Some(UiEvent::AgentConfigured {
+            request_id: ui_request_id(request_id),
+            provider,
+            detail,
+        }),
         RuntimeEvent::Failed { request_id, message } => translate_failed(request_id, message),
     }
 }

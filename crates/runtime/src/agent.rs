@@ -6,10 +6,10 @@ use serde::Deserialize;
 use serde_json::json;
 use thiserror::Error;
 
-const DEFAULT_ENDPOINT: &str = "https://api.openai.com/v1/responses";
-const DEFAULT_MODEL: &str = "gpt-5.6";
-const DEFAULT_GROQ_ENDPOINT: &str = "https://api.groq.com/openai/v1/responses";
-const DEFAULT_GROQ_MODEL: &str = "openai/gpt-oss-120b";
+pub(crate) const DEFAULT_ENDPOINT: &str = "https://api.openai.com/v1/responses";
+pub(crate) const DEFAULT_MODEL: &str = "gpt-5.6";
+pub(crate) const DEFAULT_GROQ_ENDPOINT: &str = "https://api.groq.com/openai/v1/responses";
+pub(crate) const DEFAULT_GROQ_MODEL: &str = "openai/gpt-oss-120b";
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(60);
 const CODEX_INSTRUCTIONS: &str = "You are the DB Pro database copilot. Use only the schema metadata provided in the user context. Explain your answer briefly. When proposing SQL, put each draft in one ```sql fenced block. Never claim that SQL was executed. Never perform or request a database mutation automatically; mutations must be clearly marked for human review. Prefer read-only SQL and include a bounded LIMIT when appropriate.";
 
@@ -128,6 +128,16 @@ impl CodexProvider {
                 None
             }
         }
+    }
+
+    /// Public-to-crate constructor used by the `ConfigureAgent` worker command.
+    pub(crate) fn with_provider_pub(
+        api_key: impl Into<String>,
+        endpoint: impl Into<String>,
+        model: impl Into<String>,
+        provider_name: impl Into<String>,
+    ) -> Result<Self, CodexProviderError> {
+        Self::with_provider(api_key, endpoint, model, provider_name)
     }
 
     pub async fn respond(&self, prompt: &str, context: &AgentContext) -> Result<AgentDraft, CodexProviderError> {

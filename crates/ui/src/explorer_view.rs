@@ -608,7 +608,7 @@ impl DbProApp {
         self.table_ddl = None;
         self.table_data_result = None;
         self.staged_changes.clear();
-        self.active_tab = WorkspaceTab::Welcome;
+        self.activate_welcome_tab();
     }
 
     /// Renders the folders for a schema: Tables, Views, Functions, Triggers.

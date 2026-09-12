@@ -40,47 +40,66 @@ impl DbProApp {
                         ui.horizontal(|ui| {
                             ui.spacing_mut().item_spacing = egui::vec2(2.0, 0.0);
 
-                            // 1. Welcome Tab
-                            let welcome_selected = self.active_tab == WorkspaceTab::Welcome;
                             let mut close_all_requested = false;
-                            let welcome_action = draw_workspace_tab_item(
-                                ui,
-                                self.theme,
-                                WorkspaceTabItem {
-                                    selected: welcome_selected,
-                                    icon: Icon::House,
-                                    title: "Welcome",
-                                    unsaved: false,
-                                    show_close: false,
-                                },
-                                |ui, close_menu| {
-                                    ui.label(
-                                        RichText::new("Welcome")
-                                            .font(font_ui_label())
-                                            .strong()
-                                            .color(self.theme.text_primary),
-                                    );
-                                    ui.separator();
-                                    if ctx_menu_item(
-                                        ui,
-                                        Some(Icon::Layers),
-                                        "Close All Tabs",
-                                        None,
-                                        self.theme.text_primary,
-                                        self.theme,
-                                    )
-                                    .clicked()
-                                    {
-                                        close_all_requested = true;
-                                        *close_menu = true;
-                                    }
-                                },
-                            );
-                            if welcome_action.clicked {
-                                self.active_tab = WorkspaceTab::Welcome;
+                            let mut close_welcome_requested = false;
+
+                            // 1. Welcome Tab
+                            if self.welcome_open {
+                                let welcome_selected = self.active_tab == WorkspaceTab::Welcome;
+                                let welcome_action = draw_workspace_tab_item(
+                                    ui,
+                                    self.theme,
+                                    WorkspaceTabItem {
+                                        selected: welcome_selected,
+                                        icon: Icon::House,
+                                        title: "Welcome",
+                                        unsaved: false,
+                                        show_close: true,
+                                    },
+                                    |ui, close_menu| {
+                                        ui.label(
+                                            RichText::new("Welcome")
+                                                .font(font_ui_label())
+                                                .strong()
+                                                .color(self.theme.text_primary),
+                                        );
+                                        ui.separator();
+                                        if ctx_menu_item(
+                                            ui,
+                                            Some(Icon::X),
+                                            "Close Tab",
+                                            None,
+                                            self.theme.text_primary,
+                                            self.theme,
+                                        )
+                                        .clicked()
+                                        {
+                                            close_welcome_requested = true;
+                                            *close_menu = true;
+                                        }
+                                        if ctx_menu_item(
+                                            ui,
+                                            Some(Icon::Layers),
+                                            "Close All Tabs",
+                                            None,
+                                            self.theme.text_primary,
+                                            self.theme,
+                                        )
+                                        .clicked()
+                                        {
+                                            close_all_requested = true;
+                                            *close_menu = true;
+                                        }
+                                    },
+                                );
+                                if welcome_action.close_clicked {
+                                    close_welcome_requested = true;
+                                } else if welcome_action.clicked {
+                                    self.activate_welcome_tab();
+                                }
                             }
-                            if close_all_requested {
-                                self.close_all_tabs();
+                            if close_welcome_requested {
+                                self.close_welcome_tab();
                             }
 
                             // 2. Query Documents Tabs
@@ -102,7 +121,6 @@ impl DbProApp {
                                 let idx = *index;
                                 let selected =
                                     self.active_tab == WorkspaceTab::Query && self.active_query_document == idx;
-                                let can_close = self.query_documents.len() > 1;
                                 let unsaved = selected
                                     && self
                                         .query_documents
@@ -117,7 +135,7 @@ impl DbProApp {
                                         icon: Icon::FileCode2,
                                         title,
                                         unsaved,
-                                        show_close: can_close,
+                                        show_close: true,
                                     },
                                     |ui, close_menu| {
                                         ui.label(
@@ -609,7 +627,7 @@ fn draw_workspace_tab_item(
 
     // Close Button
     let mut close_clicked = false;
-    if item.show_close && (item.selected || hovered) {
+    if item.show_close {
         let close_rect =
             egui::Rect::from_center_size(egui::pos2(rect.right() - 12.0, rect.center().y), egui::vec2(16.0, 16.0));
         let close_id = resp.id.with("close_x");
