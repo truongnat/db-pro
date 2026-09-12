@@ -161,32 +161,80 @@ impl DbProApp {
 
     /// Output tab strip (Results / Messages / Explain / History).
     fn draw_output_tabs(&mut self, ui: &mut egui::Ui) {
-        ui.add_space(12.0);
+        ui.add_space(SPACE_MD);
         ui.horizontal(|ui| {
-            for (tab, label) in [
-                (OutputTab::Results, "Results"),
-                (OutputTab::Messages, "Messages"),
-                (OutputTab::Explain, "Explain"),
-                (OutputTab::History, "History"),
+            ui.spacing_mut().item_spacing = egui::vec2(4.0, 0.0);
+            for (tab, icon, label) in [
+                (OutputTab::Results, Icon::Table2, "Results"),
+                (OutputTab::Messages, Icon::MessageSquareText, "Messages"),
+                (OutputTab::Explain, Icon::ChartNoAxesCombined, "Explain"),
+                (OutputTab::History, Icon::History, "History"),
             ] {
                 let selected = self.output_tab == tab;
-                if tab_frame(self.theme, selected)
-                    .show(ui, |ui| ui.selectable_label(selected, label))
-                    .inner
-                    .clicked()
-                {
+                let bg_color = if selected {
+                    self.theme.surface_active
+                } else {
+                    egui::Color32::TRANSPARENT
+                };
+                let text_color = if selected {
+                    self.theme.text_primary
+                } else {
+                    self.theme.text_secondary
+                };
+                let icon_color = if selected {
+                    self.theme.accent
+                } else {
+                    self.theme.text_muted
+                };
+
+                let resp = egui::Frame::none()
+                    .fill(bg_color)
+                    .rounding(egui::Rounding::same(RADIUS_SM))
+                    .inner_margin(egui::Margin::symmetric(SPACE_SM, SPACE_XS))
+                    .show(ui, |ui| {
+                        ui.horizontal(|ui| {
+                            ui.label(
+                                RichText::new(char::from(icon).to_string())
+                                    .font(egui::FontId::new(12.0, egui::FontFamily::Name("lucide".into())))
+                                    .color(icon_color),
+                            );
+                            ui.add_space(2.0);
+                            ui.label(RichText::new(label).font(font_ui_label()).color(text_color));
+                            if tab == OutputTab::Results {
+                                if let Some(res) = &self.query_result {
+                                    badge(
+                                        ui,
+                                        &res.row_count.to_string(),
+                                        self.theme.accent_soft,
+                                        self.theme.accent,
+                                    );
+                                }
+                            } else if tab == OutputTab::Messages && !self.query_messages.is_empty() {
+                                badge(
+                                    ui,
+                                    &self.query_messages.len().to_string(),
+                                    self.theme.surface_hover,
+                                    self.theme.text_muted,
+                                );
+                            }
+                        });
+                    });
+
+                if resp.response.interact(egui::Sense::click()).clicked() {
                     self.output_tab = tab;
                 }
             }
             if let Some(request_id) = self.explain_request {
-                ui.label(
-                    RichText::new(format!("Explain request {}…", request_id.0))
-                        .small()
-                        .color(self.theme.text_muted),
-                );
+                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                    ui.label(
+                        RichText::new(format!("Explain request {}…", request_id.0))
+                            .font(font_caption())
+                            .color(self.theme.text_muted),
+                    );
+                });
             }
         });
-        ui.add_space(6.0);
+        ui.add_space(SPACE_XS);
     }
 
     /// Body of the selected output tab.

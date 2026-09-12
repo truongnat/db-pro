@@ -7,10 +7,10 @@ use db_pro_core::domain::query::CellValue;
 use db_pro_runtime::{spawn_worker, DbProRuntime, RuntimeCommand, RuntimeEvent, RuntimeRequestId};
 use db_pro_ui::{
     AgentMessage, AgentRole, DbProApp, DbProTheme, RequestId, TaskBridge, UiCell, UiColumn, UiCommand,
-    UiConnectionDraft, UiConnectionSummary, UiDriver, UiEvent, UiFunctionSummary, UiQueryFolderSummary,
-    UiQueryResult, UiSavedQuerySummary, UiSchemaColumn, UiSchemaForeignKey, UiSchemaSummary, UiSslMode,
-    UiTableColumn, UiTableDataFilter, UiTableDataSort, UiTableForeignKey, UiTableIndex, UiTableInfo,
-    UiTableSummary, UiTriggerSummary, UiViewSummary,
+    UiConnectionDraft, UiConnectionSummary, UiDriver, UiEvent, UiFunctionSummary, UiQueryFolderSummary, UiQueryResult,
+    UiSavedQuerySummary, UiSchemaColumn, UiSchemaForeignKey, UiSchemaSummary, UiSslMode, UiTableColumn,
+    UiTableDataFilter, UiTableDataSort, UiTableForeignKey, UiTableIndex, UiTableInfo, UiTableSummary, UiTriggerSummary,
+    UiViewSummary,
 };
 use eframe::egui;
 use tokio::runtime::Builder;

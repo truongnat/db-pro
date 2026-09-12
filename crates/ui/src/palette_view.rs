@@ -184,8 +184,7 @@ impl DbProApp {
                 if query.is_empty() {
                     true
                 } else {
-                    item.title.to_lowercase().contains(&query)
-                        || item.subtitle.to_lowercase().contains(&query)
+                    item.title.to_lowercase().contains(&query) || item.subtitle.to_lowercase().contains(&query)
                 }
             })
             .collect()

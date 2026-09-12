@@ -440,25 +440,45 @@ impl DbProApp {
                         }
                         ui.end_row();
                         for column in &info.columns {
-                            ui.label(RichText::new(&column.name).color(self.theme.text_primary));
+                            let (icon, color) = if column.is_primary_key {
+                                (Icon::Key, self.theme.warning)
+                            } else {
+                                (Icon::Columns3, self.theme.text_muted)
+                            };
+                            ui.horizontal(|ui| {
+                                ui.label(
+                                    RichText::new(char::from(icon).to_string())
+                                        .font(egui::FontId::new(12.0, egui::FontFamily::Name("lucide".into())))
+                                        .color(color),
+                                );
+                                ui.label(
+                                    RichText::new(&column.name)
+                                        .font(font_ui_label())
+                                        .color(self.theme.text_primary),
+                                );
+                            });
                             ui.label(
                                 RichText::new(&column.data_type)
                                     .monospace()
-                                    .color(self.theme.code_keyword),
-                            );
-                            ui.label(
-                                RichText::new(if column.nullable { "yes" } else { "no" })
-                                    .small()
                                     .color(self.theme.text_secondary),
                             );
+                            ui.label(
+                                RichText::new(if column.nullable { "YES" } else { "NO" })
+                                    .font(font_caption())
+                                    .color(if column.nullable {
+                                        self.theme.text_muted
+                                    } else {
+                                        self.theme.text_secondary
+                                    }),
+                            );
                             if column.is_primary_key {
-                                ui.label(icon_text(Icon::KeyRound, "PK", self.theme.warning));
+                                badge(ui, "PK", self.theme.accent_soft, self.theme.warning);
                             } else {
-                                ui.label(RichText::new("—").small().color(self.theme.text_muted));
+                                ui.label(RichText::new("—").font(font_caption()).color(self.theme.text_muted));
                             }
                             ui.label(
                                 RichText::new(column.default.as_deref().unwrap_or("—"))
-                                    .small()
+                                    .font(font_caption())
                                     .color(self.theme.text_secondary),
                             );
                             ui.end_row();
