@@ -2,7 +2,7 @@ use std::sync::{mpsc, Arc};
 use std::time::Instant;
 
 use db_pro_core::domain::error::DbError;
-use db_pro_core::domain::query::{CellValue, QueryParam, QueryResult, Row};
+use db_pro_core::domain::query::{QueryParam, QueryResult, Row};
 use db_pro_core::domain::schema::IntrospectResult;
 use db_pro_core::ports::{
     TransactionFailure, TransactionFailureOutcome, TransactionFailurePhase, TransactionStatementResult,
@@ -10,7 +10,7 @@ use db_pro_core::ports::{
 use tokio::sync::oneshot;
 use tracing;
 
-use super::query_mapper::extract_columns;
+use super::query_mapper::{extract_columns, map_row_to_cells, to_rusqlite_params};
 
 // ---------------------------------------------------------------------------
 // Command enum – every variant carries a oneshot responder
@@ -634,50 +634,4 @@ fn query_transaction(
         rows,
         duration_ms: started.elapsed().as_millis() as u64,
     }))
-}
-
-// ---------------------------------------------------------------------------
-// Inline helpers (will be replaced by query_mapper module once available)
-// ---------------------------------------------------------------------------
-
-/// Convert domain `QueryParam` values into boxed `ToSql` trait objects
-/// suitable for binding to a `rusqlite::Statement`.
-fn to_rusqlite_params(params: &[QueryParam]) -> Vec<Box<dyn rusqlite::types::ToSql>> {
-    params
-        .iter()
-        .map(|p| -> Box<dyn rusqlite::types::ToSql> {
-            match p {
-                QueryParam::Null => Box::new(rusqlite::types::Null),
-                QueryParam::Bool(v) => Box::new(*v),
-                QueryParam::Int64(v) => Box::new(*v),
-                QueryParam::Float64(v) => Box::new(*v),
-                QueryParam::Text(v) => Box::new(v.clone()),
-                QueryParam::Bytes(v) => Box::new(v.clone()),
-                QueryParam::Uuid(v) => Box::new(v.clone()),
-                QueryParam::DateTime(v) => Box::new(v.clone()),
-                QueryParam::Time(v) => Box::new(v.clone()),
-                QueryParam::Interval(v) => Box::new(v.clone()),
-                QueryParam::Inet(v) => Box::new(v.clone()),
-                QueryParam::Json(v) => Box::new(v.to_string()),
-            }
-        })
-        .collect()
-}
-
-/// Map a single `rusqlite::Row` to a `Vec<CellValue>` by iterating columns
-/// and inspecting the runtime type of each value.
-fn map_row_to_cells(row: &rusqlite::Row) -> Result<Vec<CellValue>, DbError> {
-    let mut cells = Vec::new();
-    for i in 0..row.as_ref().column_count() {
-        let value = row.get_ref(i).map_err(crate::error::from_rusqlite)?;
-        let cell = match value {
-            rusqlite::types::ValueRef::Null => CellValue::Null,
-            rusqlite::types::ValueRef::Integer(v) => CellValue::Int64(v),
-            rusqlite::types::ValueRef::Real(v) => CellValue::Float64(v),
-            rusqlite::types::ValueRef::Text(v) => CellValue::Text(String::from_utf8_lossy(v).to_string()),
-            rusqlite::types::ValueRef::Blob(v) => CellValue::Bytes(v.to_vec()),
-        };
-        cells.push(cell);
-    }
-    Ok(cells)
 }

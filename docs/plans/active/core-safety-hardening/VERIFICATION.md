@@ -52,6 +52,7 @@
 - `cargo test -p db-pro-infrastructure postgres::query_mapper::tests --no-fail-fast` — PASS: 9 PostgreSQL mapper/binder tests, including strict TIME/TIMETZ and INTERVAL parsing.
 - `cargo test -p db-pro-infrastructure --test integration sqlite_typed_temporal_and_network_parameters_remain_text --no-fail-fast` — PASS: SQLite receives the typed temporal/network values as text, matching its storage model.
 - The same full ignored PostgreSQL integration command — PASS: 18/18 against an isolated temporary `postgres:18.2` fixture, including native TIME/TIMETZ/INTERVAL/INET parameter binding without explicit casts; the Docker container was removed after the run.
+- After routing `SqliteActor` through the shared mapper, `cargo test -p db-pro-infrastructure --lib --no-fail-fast` — PASS: 61 tests, and `cargo test -p db-pro-infrastructure --test integration --no-fail-fast` — PASS: 30 tests.
 - `cargo test -p db-pro-core application::sql_builder::tests::insert_rejects_empty_columns -- --exact` and `update_rejects_empty_columns` — PASS: empty mutation payloads fail at the core boundary instead of generating invalid SQL.
 - `cargo test -p db-pro-infrastructure --test integration --no-fail-fast` — PASS: 29 SQLite integration tests, including deferred-foreign-key commit failure (`Commit + Unknown`) and preserved partial results.
 - `DATABASE_URL=postgres://dbpro:dbpro_test@127.0.0.1:15434/dbpro_fixture cargo test -p db-pro-infrastructure --test pg_integration pg_transaction_commit_failure_reports_unknown_outcome --offline -- --ignored --exact --nocapture` — PASS: deferred PostgreSQL foreign-key failure is reported as `Commit + Unknown` with partial results preserved.
@@ -159,7 +160,7 @@ artifact is rejected before external command execution.
 | Provider | Automated | Live provider | Notes |
 |---|---|---|---|
 | PostgreSQL | Unit policy/timeout coverage PASS | PASS (isolated `postgres:18.2`, 18/18) | Live introspection/query/temporal-network decoding and native parameter binding/DATE binding/transaction commit outcome, batch rollback, and isolated SSH backup/tunnel pass; CI SSH workflow execution pending |
-| SQLite | Integration timeout/recovery and typed text binding PASS | PASS (in-memory provider) | Native UI runtime evidence is outside this core-only slice |
+| SQLite | Integration timeout/recovery and typed text binding PASS | PASS (in-memory provider) | Shared actor/mapper path verified; native UI runtime evidence is outside this core-only slice |
 
 ## Scope check
 

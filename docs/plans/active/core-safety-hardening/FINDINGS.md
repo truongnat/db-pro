@@ -943,3 +943,14 @@ Decision: add serialized `QueryParam::Time`, `Interval`, and `Inet` variants;
 bind them to native PostgreSQL types with strict parsing, and intentionally
 bind them as text for SQLite. Cover both providers and verify PostgreSQL
 placeholder type inference without explicit SQL casts.
+
+## P2 — SQLite query paths duplicate provider mapping logic
+
+`sqlite::query_mapper` already owned parameter binding and row-to-cell mapping,
+but `SqliteActor` kept a second copy for normal and transactional execution.
+Every new `QueryParam` variant therefore required synchronized edits in two
+implementations, creating a drift risk between query and mutation paths.
+
+Decision: route the actor through the shared SQLite mapper and remove the
+duplicate helpers. Keep the provider behavior unchanged and retain the shared
+integration coverage.
