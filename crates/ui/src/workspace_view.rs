@@ -17,7 +17,7 @@ impl DbProApp {
     pub(super) fn draw_workspace_tabs(&mut self, ui: &mut egui::Ui) {
         let modifier = Self::primary_modifier_label();
 
-        let tab_bar_rect = egui::Frame {
+        egui::Frame {
             fill: self.theme.surface_panel,
             inner_margin: egui::Margin {
                 left: 4.0,
