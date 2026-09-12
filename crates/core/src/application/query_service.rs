@@ -11,7 +11,7 @@ use crate::domain::safety::{
 };
 use crate::ports::{
     ConnectionRepository, DbConnector, QueryHistoryRepository, RunConfigRepository, SavedQueryRepository,
-    TransactionStatementResult,
+    TransactionFailureOutcome, TransactionFailurePhase, TransactionStatementResult,
 };
 
 use super::registry::ConnectionRegistry;
@@ -20,8 +20,9 @@ use super::sql_policy::{reject_multi_statement, split_statements};
 pub struct MultiQueryResult {
     pub results: Vec<QueryResult>,
     pub total_duration_ms: u64,
-    /// If a statement failed, this holds the 0-based index and error message.
-    /// Transactional multi-statement execution reports that all writes were rolled back.
+    /// If execution failed, this holds the relevant index and error message.
+    /// The transaction-level sentinel is `statements.len()`; the message
+    /// distinguishes confirmed rollback from an unknown final outcome.
     pub error: Option<(usize, String)>,
 }
 
@@ -171,6 +172,8 @@ impl QueryService {
                     }
                 }
                 Err(failure) => {
+                    let failure_phase = failure.phase;
+                    let failure_outcome = failure.outcome;
                     let failure_statement_index = failure.statement_index;
                     let failure_error = failure.error;
                     for (idx, transaction_result) in failure.results.into_iter().enumerate() {
@@ -190,7 +193,7 @@ impl QueryService {
                         total_duration_ms: start.elapsed().as_millis() as u64,
                         error: Some((
                             failure_statement_index,
-                            format!("transaction rolled back: {failure_error}"),
+                            format_transaction_failure(failure_phase, failure_outcome, failure_error),
                         )),
                     });
                 }
@@ -373,6 +376,20 @@ impl QueryService {
     }
 }
 
+fn format_transaction_failure(
+    phase: TransactionFailurePhase,
+    outcome: TransactionFailureOutcome,
+    error: DbError,
+) -> String {
+    match (phase, outcome) {
+        (TransactionFailurePhase::Statement, TransactionFailureOutcome::RolledBack) => {
+            format!("transaction rolled back: {error}")
+        }
+        (_, TransactionFailureOutcome::NotStarted) => format!("transaction did not start: {error}"),
+        _ => format!("transaction failed; final outcome is unknown: {error}"),
+    }
+}
+
 enum StatementClass {
     Read,
     Write,
@@ -509,7 +526,8 @@ mod tests {
     use crate::domain::query::{CellValue, ColumnMeta, Row};
     use crate::ports::{
         MockConnectionRepository, MockDbConnector, MockQueryHistoryRepository, MockRunConfigRepository,
-        MockSavedQueryRepository, TransactionFailure, TransactionStatementResult,
+        MockSavedQueryRepository, TransactionFailure, TransactionFailureOutcome, TransactionFailurePhase,
+        TransactionStatementResult,
     };
 
     fn test_result() -> QueryResult {
@@ -1029,7 +1047,9 @@ mod tests {
         let mut connector = MockDbConnector::new();
         connector.expect_execute_transaction().returning(|_, _, _| {
             Err(TransactionFailure {
+                phase: TransactionFailurePhase::Statement,
                 statement_index: 1,
+                outcome: TransactionFailureOutcome::RolledBack,
                 results: vec![TransactionStatementResult::Query(test_result())],
                 error: DbError::QueryFailed("permission denied".into()),
             })
@@ -1055,5 +1075,43 @@ mod tests {
         assert!(msg.contains("permission denied"));
         assert_eq!(result.results.len(), 1);
         assert_eq!(result.results[0].row_count, 1);
+    }
+
+    #[tokio::test]
+    async fn execute_multi_commit_failure_reports_unknown_outcome() {
+        let conn_id = ConnectionId::new();
+        let registry = Arc::new(ConnectionRegistry::new());
+        registry.register(conn_id, ConnectionHandle(1));
+
+        let mut connector = MockDbConnector::new();
+        connector.expect_execute_transaction().returning(|_, _, _| {
+            Err(TransactionFailure {
+                phase: TransactionFailurePhase::Commit,
+                statement_index: 2,
+                outcome: TransactionFailureOutcome::Unknown,
+                results: vec![TransactionStatementResult::Query(test_result())],
+                error: DbError::QueryFailed("connection lost while committing".into()),
+            })
+        });
+
+        let svc = QueryService::new(
+            Box::new(connector),
+            Box::new(MockQueryHistoryRepository::new()),
+            Box::new(MockSavedQueryRepository::new()),
+            Box::new(MockRunConfigRepository::new()),
+            Arc::clone(&registry),
+            Box::new(mock_connections_full_access()),
+        );
+
+        let result = svc
+            .execute_multi(&conn_id, "SELECT 1; UPDATE t SET x = 1", None, None)
+            .await
+            .unwrap();
+
+        let (index, message) = result.error.expect("commit failure must be returned");
+        assert_eq!(index, 2);
+        assert!(message.contains("final outcome is unknown"));
+        assert!(!message.contains("rolled back"));
+        assert_eq!(result.results.len(), 1);
     }
 }

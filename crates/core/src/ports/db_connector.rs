@@ -14,9 +14,28 @@ pub enum TransactionStatementResult {
     Affected { row_count: u64, duration_ms: u64 },
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TransactionFailurePhase {
+    Validation,
+    Begin,
+    Statement,
+    Commit,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TransactionFailureOutcome {
+    NotStarted,
+    RolledBack,
+    Unknown,
+}
+
 #[derive(Debug)]
 pub struct TransactionFailure {
+    pub phase: TransactionFailurePhase,
+    /// The failed statement index for `Statement`; `statements.len()` is the
+    /// transaction-level sentinel for validation, begin, and commit failures.
     pub statement_index: usize,
+    pub outcome: TransactionFailureOutcome,
     pub results: Vec<TransactionStatementResult>,
     pub error: DbError,
 }
@@ -40,7 +59,8 @@ pub trait DbConnector: Send + Sync {
     async fn execute_batch(&self, handle: &ConnectionHandle, statements: &[String]) -> Result<u64, DbError>;
 
     /// Execute read and write statements on one transaction. Implementations
-    /// must roll back before returning `TransactionFailure`.
+    /// must report whether rollback was confirmed before returning
+    /// `TransactionFailure`. A commit failure has an unknown final outcome.
     async fn execute_transaction(
         &self,
         handle: &ConnectionHandle,

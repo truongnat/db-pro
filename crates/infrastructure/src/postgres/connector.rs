@@ -3,7 +3,10 @@ use db_pro_core::domain::connection::{ConnectionConfig, ConnectionHandle};
 use db_pro_core::domain::error::DbError;
 use db_pro_core::domain::query::{QueryParam, QueryResult};
 use db_pro_core::domain::schema::IntrospectResult;
-use db_pro_core::ports::{DbConnector, SqlDialect, TransactionFailure, TransactionStatementResult};
+use db_pro_core::ports::{
+    DbConnector, SqlDialect, TransactionFailure, TransactionFailureOutcome, TransactionFailurePhase,
+    TransactionStatementResult,
+};
 use sqlx::{Executor as _, PgPool};
 use std::collections::HashMap;
 use std::future::Future;
@@ -265,7 +268,9 @@ impl DbConnector for PostgresConnector {
     ) -> Result<Vec<TransactionStatementResult>, TransactionFailure> {
         if statements.len() != read_statements.len() {
             return Err(TransactionFailure {
+                phase: TransactionFailurePhase::Validation,
                 statement_index: 0,
+                outcome: TransactionFailureOutcome::NotStarted,
                 results: Vec::new(),
                 error: DbError::Internal("transaction statement metadata length mismatch".into()),
             });
@@ -273,7 +278,9 @@ impl DbConnector for PostgresConnector {
 
         let pools = self.pools.read().await;
         let entry = pools.get(&handle.0).ok_or_else(|| TransactionFailure {
+            phase: TransactionFailurePhase::Validation,
             statement_index: 0,
+            outcome: TransactionFailureOutcome::NotStarted,
             results: Vec::new(),
             error: DbError::ConnectionFailed("handle not found".into()),
         })?;
@@ -288,7 +295,9 @@ impl DbConnector for PostgresConnector {
                 Ok(tx) => tx,
                 Err(error) => {
                     return Err(TransactionFailure {
+                        phase: TransactionFailurePhase::Begin,
                         statement_index: 0,
+                        outcome: TransactionFailureOutcome::NotStarted,
                         results: Vec::new(),
                         error,
                     });
@@ -302,14 +311,19 @@ impl DbConnector for PostgresConnector {
                 let error = DbError::QueryTimeout {
                     timeout_ms: timeout.as_millis() as u64,
                 };
-                let error = match tx.rollback().await.map_err(crate::error::from_sqlx) {
-                    Ok(()) => error,
-                    Err(rollback_error) => DbError::Internal(format!(
-                        "transaction timed out: {error}; rollback failed: {rollback_error}"
-                    )),
+                let (error, outcome) = match tx.rollback().await.map_err(crate::error::from_sqlx) {
+                    Ok(()) => (error, TransactionFailureOutcome::RolledBack),
+                    Err(rollback_error) => (
+                        DbError::Internal(format!(
+                            "transaction timed out: {error}; rollback failed: {rollback_error}"
+                        )),
+                        TransactionFailureOutcome::Unknown,
+                    ),
                 };
                 return Err(TransactionFailure {
+                    phase: TransactionFailurePhase::Statement,
                     statement_index: index,
+                    outcome,
                     results,
                     error,
                 });
@@ -360,14 +374,17 @@ impl DbConnector for PostgresConnector {
             match statement_result {
                 Ok(result) => results.push(result),
                 Err(error) => {
-                    let error = match tx.rollback().await.map_err(crate::error::from_sqlx) {
-                        Ok(()) => error,
-                        Err(rollback_error) => {
-                            DbError::Internal(format!("statement failed: {error}; rollback failed: {rollback_error}"))
-                        }
+                    let (error, outcome) = match tx.rollback().await.map_err(crate::error::from_sqlx) {
+                        Ok(()) => (error, TransactionFailureOutcome::RolledBack),
+                        Err(rollback_error) => (
+                            DbError::Internal(format!("statement failed: {error}; rollback failed: {rollback_error}")),
+                            TransactionFailureOutcome::Unknown,
+                        ),
                     };
                     return Err(TransactionFailure {
+                        phase: TransactionFailurePhase::Statement,
                         statement_index: index,
+                        outcome,
                         results,
                         error,
                     });
@@ -379,7 +396,9 @@ impl DbConnector for PostgresConnector {
         // commit outcome unknown and could not safely be reported as a rollback.
         if let Err(error) = tx.commit().await.map_err(crate::error::from_sqlx) {
             return Err(TransactionFailure {
+                phase: TransactionFailurePhase::Commit,
                 statement_index: statements.len(),
+                outcome: TransactionFailureOutcome::Unknown,
                 results,
                 error,
             });

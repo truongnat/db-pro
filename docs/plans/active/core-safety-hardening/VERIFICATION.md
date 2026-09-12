@@ -45,6 +45,9 @@
 - `cargo test -p db-pro-core domain::query::tests --no-fail-fast` — PASS: 9 query-result contract tests, including row-count consistency, affected-row compatibility, and rejection of rows without columns.
 - `cargo test -p db-pro-core --lib --no-fail-fast` — PASS: 262 core unit tests after rows-without-columns and execution-lifecycle validation.
 - `cargo test -p db-pro-core domain::execution::tests --no-fail-fast` — PASS: 13 execution lifecycle tests, including invalid non-terminal finishes and late success callbacks.
+- `cargo test -p db-pro-core application::query_service::tests::execute_multi_commit_failure_reports_unknown_outcome -- --exact` — PASS: core reports a commit failure as an unknown final outcome and preserves partial results.
+- `cargo test -p db-pro-infrastructure --test integration --no-fail-fast` — PASS: 29 SQLite integration tests, including deferred-foreign-key commit failure (`Commit + Unknown`) and preserved partial results.
+- `cargo test -p db-pro-infrastructure --test pg_integration --no-run` — PASS: PostgreSQL commit-failure regression compiles; live execution is pending because the local Podman socket is unavailable.
 - `cargo test -p db-pro-core application::export_service::tests::export_json_rejects_duplicate_column_names -- --exact` — PASS: JSON export rejects duplicate object keys instead of silently dropping the earlier value.
 - `DB_PRO_SSH_*`-configured `cargo test -p db-pro-infrastructure --test ssh_backup_runtime_verification -- --ignored --nocapture` — PASS: 1 live isolated SSH backup/restore test; pg_dump, database creation, psql restore, and post-restore query all completed through the tunnel with host-key verification enabled.
 - CI configuration now provisions the SSHD/key/known-hosts fixture and exports the required `DB_PRO_SSH_*` variables before `cargo test --all -- --include-ignored`; live CI execution remains pending until that workflow run completes.
@@ -110,10 +113,11 @@
   8 heuristic warning groups, 0 blocking failures. Remaining warnings cover
   test assertions, intentional cleanup sends, parser/module size, and unrelated
   native/UI helpers; none is a clippy or scanner blocker.
-- Transaction commit-failure semantics — P1 pending: the connectors deliberately
-  do not cancel `COMMIT`, but the current core error contract still labels the
-  resulting failure as rolled back and uses `statement_index == statements.len()`.
-  Requires an explicit phase/outcome contract plus independent provider tests.
+- Transaction commit-failure semantics — IMPLEMENTED in core and SQLite: typed
+  phase/outcome fields prevent false rollback claims, and SQLite preserves prior
+  results on commit failure. PostgreSQL live execution remains pending because
+  the local Podman socket is unavailable; compile-only evidence is not treated
+  as runtime proof.
 - `cargo check --workspace` after SSH readiness changes — PASS.
 - Core/infrastructure scoped gate — PASS: file-scoped rustfmt for the SQLite
   change,

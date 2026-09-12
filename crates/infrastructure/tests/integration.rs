@@ -7,7 +7,7 @@
 
 use db_pro_core::domain::connection::{ConnectionConfig, DriverType, SslMode};
 use db_pro_core::domain::error::DbError;
-use db_pro_core::ports::DbConnector;
+use db_pro_core::ports::{DbConnector, TransactionFailureOutcome, TransactionFailurePhase};
 use db_pro_infrastructure::sqlite::connector::SQLiteConnector;
 
 /// Path to the SQLite fixture file, relative to workspace root.
@@ -163,6 +163,8 @@ async fn sqlite_transaction_timeout_waits_for_rollback_before_returning() {
         )
         .await
         .expect_err("the transaction should exceed its configured deadline");
+    assert_eq!(failure.phase, TransactionFailurePhase::Statement);
+    assert_eq!(failure.outcome, TransactionFailureOutcome::RolledBack);
     assert!(matches!(failure.error, DbError::QueryTimeout { timeout_ms: 10 }));
 
     let count = connector
@@ -173,6 +175,59 @@ async fn sqlite_transaction_timeout_waits_for_rollback_before_returning() {
         count.rows[0].0[0],
         db_pro_core::domain::query::CellValue::Int64(0)
     ));
+}
+
+#[tokio::test]
+async fn sqlite_transaction_commit_failure_reports_unknown_outcome() {
+    let connector = SQLiteConnector::new();
+    let config = ConnectionConfig {
+        name: "transaction-commit-failure-test".into(),
+        host: String::new(),
+        port: 0,
+        database: ":memory:".into(),
+        username: String::new(),
+        driver: DriverType::SQLite,
+        ssl_mode: SslMode::Disable,
+        ssh_tunnel: None,
+        query_timeout_ms: 30_000,
+        max_rows: 100,
+        color: None,
+        tags: vec![],
+        group: None,
+        readonly: false,
+    };
+    let handle = connector.connect(&config, "").await.unwrap();
+    connector
+        .execute(&handle, "PRAGMA foreign_keys = ON", &[])
+        .await
+        .unwrap();
+    connector
+        .execute(&handle, "CREATE TABLE parent (id INTEGER PRIMARY KEY)", &[])
+        .await
+        .unwrap();
+    connector
+        .execute(
+            &handle,
+            "CREATE TABLE child (parent_id INTEGER, FOREIGN KEY(parent_id) REFERENCES parent(id) DEFERRABLE INITIALLY DEFERRED)",
+            &[],
+        )
+        .await
+        .unwrap();
+
+    let failure = connector
+        .execute_transaction(
+            &handle,
+            &["INSERT INTO child (parent_id) VALUES (999)".into(), "SELECT 1".into()],
+            &[false, true],
+        )
+        .await
+        .expect_err("deferred foreign-key violation must fail at commit");
+
+    assert_eq!(failure.phase, TransactionFailurePhase::Commit);
+    assert_eq!(failure.outcome, TransactionFailureOutcome::Unknown);
+    assert_eq!(failure.statement_index, 2);
+    assert_eq!(failure.results.len(), 2);
+    connector.disconnect(&handle).await.unwrap();
 }
 
 #[tokio::test]

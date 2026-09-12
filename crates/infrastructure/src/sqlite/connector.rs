@@ -3,7 +3,10 @@ use db_pro_core::domain::connection::{ConnectionConfig, ConnectionHandle};
 use db_pro_core::domain::error::DbError;
 use db_pro_core::domain::query::{QueryParam, QueryResult};
 use db_pro_core::domain::schema::IntrospectResult;
-use db_pro_core::ports::{DbConnector, SqlDialect, TransactionFailure, TransactionStatementResult};
+use db_pro_core::ports::{
+    DbConnector, SqlDialect, TransactionFailure, TransactionFailureOutcome, TransactionFailurePhase,
+    TransactionStatementResult,
+};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 use tokio::sync::RwLock;
@@ -130,7 +133,9 @@ impl DbConnector for SQLiteConnector {
     ) -> Result<Vec<TransactionStatementResult>, TransactionFailure> {
         let actors = self.actors.read().await;
         let entry = actors.get(&handle.0).ok_or_else(|| TransactionFailure {
+            phase: TransactionFailurePhase::Validation,
             statement_index: 0,
+            outcome: TransactionFailureOutcome::NotStarted,
             results: Vec::new(),
             error: DbError::ConnectionFailed("handle not found".into()),
         })?;

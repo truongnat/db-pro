@@ -128,8 +128,8 @@
 - [x] Add query-result regression coverage for rows without columns.
 - [x] Enforce valid `QueryExecution` lifecycle transitions in release builds.
 - [x] Add late-success and non-terminal-finish regression coverage.
-- [ ] Add explicit transaction failure phase and rollback/outcome status.
-- [ ] Add PostgreSQL and SQLite commit-failure contract coverage.
+- [x] Add explicit transaction failure phase and rollback/outcome status.
+- [ ] Complete PostgreSQL live commit-failure contract coverage; SQLite coverage is PASS.
 - [x] Run formatting, check, clippy, targeted tests, and workspace tests.
 - [x] Self-review changed files and confirm no UI/native files changed.
 - [x] Record PostgreSQL and isolated SSH-tunnel fixture evidence; CI SSH execution and native UI runtime evidence remain pending.

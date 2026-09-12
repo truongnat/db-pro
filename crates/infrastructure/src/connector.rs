@@ -7,7 +7,10 @@ use db_pro_core::domain::connection::{ConnectionConfig, ConnectionHandle, Driver
 use db_pro_core::domain::error::DbError;
 use db_pro_core::domain::query::{QueryParam, QueryResult};
 use db_pro_core::domain::schema::IntrospectResult;
-use db_pro_core::ports::{DbConnector, SqlDialect, TransactionFailure, TransactionStatementResult};
+use db_pro_core::ports::{
+    DbConnector, SqlDialect, TransactionFailure, TransactionFailureOutcome, TransactionFailurePhase,
+    TransactionStatementResult,
+};
 
 use crate::postgres::connector::PostgresConnector;
 use crate::sqlite::connector::SQLiteConnector;
@@ -245,12 +248,16 @@ impl DbConnector for CompositeConnector {
         read_statements: &[bool],
     ) -> Result<Vec<TransactionStatementResult>, TransactionFailure> {
         let inner = self.inner_handle(handle).map_err(|error| TransactionFailure {
+            phase: TransactionFailurePhase::Validation,
             statement_index: 0,
+            outcome: TransactionFailureOutcome::NotStarted,
             results: Vec::new(),
             error,
         })?;
         match self.driver_of(handle).map_err(|error| TransactionFailure {
+            phase: TransactionFailurePhase::Validation,
             statement_index: 0,
+            outcome: TransactionFailureOutcome::NotStarted,
             results: Vec::new(),
             error,
         })? {

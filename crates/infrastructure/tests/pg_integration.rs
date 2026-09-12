@@ -11,7 +11,7 @@
 //! Tests are marked `#[ignored]` so they only run when DATABASE_URL is set.
 
 use db_pro_core::domain::connection::{ConnectionConfig, DriverType, SslMode};
-use db_pro_core::ports::DbConnector;
+use db_pro_core::ports::{DbConnector, TransactionFailureOutcome, TransactionFailurePhase};
 use db_pro_infrastructure::postgres::connector::PostgresConnector;
 
 /// Build a ConnectionConfig from the DATABASE_URL environment variable.
@@ -399,6 +399,8 @@ async fn pg_transaction_failure_rolls_back_prior_mutation() {
         .expect_err("the missing table must fail the transaction");
 
     assert_eq!(failure.statement_index, 2);
+    assert_eq!(failure.phase, TransactionFailurePhase::Statement);
+    assert_eq!(failure.outcome, TransactionFailureOutcome::RolledBack);
     assert_eq!(failure.results.len(), 2);
     assert!(failure.error.to_string().contains("missing_core_tx_table"));
 
@@ -446,6 +448,8 @@ async fn pg_transaction_timeout_rolls_back_prior_mutation() {
         .expect_err("the sleep must exceed the transaction deadline");
 
     assert_eq!(failure.statement_index, 2);
+    assert_eq!(failure.phase, TransactionFailurePhase::Statement);
+    assert_eq!(failure.outcome, TransactionFailureOutcome::RolledBack);
     assert!(matches!(
         failure.error,
         db_pro_core::domain::error::DbError::QueryTimeout { timeout_ms: 1_000 }
@@ -464,6 +468,63 @@ async fn pg_transaction_timeout_rolls_back_prior_mutation() {
         .execute(&handle, &format!("DROP TABLE IF EXISTS \"{table}\""), &[])
         .await
         .unwrap();
+    connector.disconnect(&handle).await.unwrap();
+}
+
+/// Core transaction contract: a deferred constraint failure at commit must be
+/// reported as an unknown outcome rather than a confirmed rollback.
+#[tokio::test]
+#[ignore]
+async fn pg_transaction_commit_failure_reports_unknown_outcome() {
+    let (connector, handle) = setup().await;
+    let suffix = uuid::Uuid::new_v4().simple().to_string();
+    let parent = format!("core_tx_commit_parent_{suffix}");
+    let child = format!("core_tx_commit_child_{suffix}");
+    connector
+        .execute(
+            &handle,
+            &format!("CREATE TABLE \"{parent}\" (id INTEGER PRIMARY KEY)"),
+            &[],
+        )
+        .await
+        .expect("parent table should be created");
+    connector
+        .execute(
+            &handle,
+            &format!(
+                "CREATE TABLE \"{child}\" (parent_id INTEGER REFERENCES \"{parent}\"(id) DEFERRABLE INITIALLY DEFERRED)"
+            ),
+            &[],
+        )
+        .await
+        .expect("child table should be created");
+
+    let failure = connector
+        .execute_transaction(
+            &handle,
+            &[
+                format!("INSERT INTO \"{child}\" (parent_id) VALUES (999)"),
+                "SELECT 1".into(),
+            ],
+            &[false, true],
+        )
+        .await
+        .expect_err("deferred foreign-key violation must fail at commit");
+
+    assert_eq!(failure.phase, TransactionFailurePhase::Commit);
+    assert_eq!(failure.outcome, TransactionFailureOutcome::Unknown);
+    assert_eq!(failure.statement_index, 2);
+    assert_eq!(failure.results.len(), 2);
+    assert!(failure.error.to_string().to_lowercase().contains("foreign key"));
+
+    connector
+        .execute(&handle, &format!("DROP TABLE IF EXISTS \"{child}\""), &[])
+        .await
+        .expect("child table cleanup should succeed");
+    connector
+        .execute(&handle, &format!("DROP TABLE IF EXISTS \"{parent}\""), &[])
+        .await
+        .expect("parent table cleanup should succeed");
     connector.disconnect(&handle).await.unwrap();
 }
 

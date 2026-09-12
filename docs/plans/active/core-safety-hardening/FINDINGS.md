@@ -863,5 +863,5 @@ selection and diagnostics.
 Decision: extend the core transaction-failure contract with an explicit phase
 and rollback/outcome status. Preserve confirmed rollback for statement failures;
 represent commit failures as an unknown final outcome instead of claiming
-atomic rollback. Add independent PostgreSQL and SQLite coverage for commit
-failure reporting before marking this plan complete.
+atomic rollback. SQLite coverage is implemented; PostgreSQL live coverage is
+still required before marking this plan complete.

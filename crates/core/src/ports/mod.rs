@@ -13,7 +13,9 @@ pub mod workspace_repository;
 
 pub use backup_engine::BackupEngine;
 pub use connection_repository::ConnectionRepository;
-pub use db_connector::{DbConnector, TransactionFailure, TransactionStatementResult};
+pub use db_connector::{
+    DbConnector, TransactionFailure, TransactionFailureOutcome, TransactionFailurePhase, TransactionStatementResult,
+};
 pub use dialect::SqlDialect;
 pub use introspection_cache::IntrospectionCache;
 pub use query_history_repository::QueryHistoryRepository;

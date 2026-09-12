@@ -4,7 +4,9 @@ use std::time::Instant;
 use db_pro_core::domain::error::DbError;
 use db_pro_core::domain::query::{CellValue, QueryParam, QueryResult, Row};
 use db_pro_core::domain::schema::IntrospectResult;
-use db_pro_core::ports::{TransactionFailure, TransactionStatementResult};
+use db_pro_core::ports::{
+    TransactionFailure, TransactionFailureOutcome, TransactionFailurePhase, TransactionStatementResult,
+};
 use tokio::sync::oneshot;
 use tracing;
 
@@ -246,14 +248,18 @@ impl SqliteHandle {
         })
         .await
         .map_err(|e| TransactionFailure {
+            phase: TransactionFailurePhase::Validation,
             statement_index: 0,
+            outcome: TransactionFailureOutcome::NotStarted,
             results: Vec::new(),
             error: DbError::Internal(format!("spawn_blocking join error: {e}")),
         })?;
         match tokio::time::timeout(std::time::Duration::from_millis(timeout_ms), &mut rx).await {
             Ok(Ok(result)) => result,
             Ok(Err(error)) => Err(TransactionFailure {
+                phase: TransactionFailurePhase::Validation,
                 statement_index: 0,
+                outcome: TransactionFailureOutcome::NotStarted,
                 results: Vec::new(),
                 error: DbError::Internal(format!("oneshot recv error: {error}")),
             }),
@@ -272,7 +278,9 @@ impl SqliteHandle {
                         Err(failure)
                     }
                     Err(error) => Err(TransactionFailure {
+                        phase: TransactionFailurePhase::Validation,
                         statement_index: 0,
+                        outcome: TransactionFailureOutcome::Unknown,
                         results: Vec::new(),
                         error: DbError::Internal(format!("oneshot recv error after interrupt: {error}")),
                     }),
@@ -392,14 +400,18 @@ impl SqliteActor {
     ) -> Result<Vec<TransactionStatementResult>, TransactionFailure> {
         if statements.len() != read_statements.len() {
             return Err(TransactionFailure {
+                phase: TransactionFailurePhase::Validation,
                 statement_index: 0,
+                outcome: TransactionFailureOutcome::NotStarted,
                 results: Vec::new(),
                 error: DbError::Internal("transaction statement metadata length mismatch".into()),
             });
         }
 
         let tx = self.conn.unchecked_transaction().map_err(|error| TransactionFailure {
+            phase: TransactionFailurePhase::Begin,
             statement_index: 0,
+            outcome: TransactionFailureOutcome::NotStarted,
             results: Vec::new(),
             error: crate::error::from_rusqlite(error),
         })?;
@@ -421,15 +433,17 @@ impl SqliteActor {
             match result {
                 Ok(result) => results.push(result),
                 Err(error) => {
-                    let rollback_error = tx.rollback().err().map(crate::error::from_rusqlite);
-                    let error = match rollback_error {
-                        Some(rollback_error) => {
-                            DbError::Internal(format!("statement failed: {error}; rollback failed: {rollback_error}"))
-                        }
-                        None => error,
+                    let (error, outcome) = match tx.rollback().err().map(crate::error::from_rusqlite) {
+                        Some(rollback_error) => (
+                            DbError::Internal(format!("statement failed: {error}; rollback failed: {rollback_error}")),
+                            TransactionFailureOutcome::Unknown,
+                        ),
+                        None => (error, TransactionFailureOutcome::RolledBack),
                     };
                     return Err(TransactionFailure {
+                        phase: TransactionFailurePhase::Statement,
                         statement_index: index,
+                        outcome,
                         results,
                         error,
                     });
@@ -437,11 +451,15 @@ impl SqliteActor {
             }
         }
 
-        tx.commit().map_err(|error| TransactionFailure {
-            statement_index: statements.len(),
-            results: Vec::new(),
-            error: crate::error::from_rusqlite(error),
-        })?;
+        if let Err(error) = tx.commit() {
+            return Err(TransactionFailure {
+                phase: TransactionFailurePhase::Commit,
+                statement_index: statements.len(),
+                outcome: TransactionFailureOutcome::Unknown,
+                results,
+                error: crate::error::from_rusqlite(error),
+            });
+        }
         Ok(results)
     }
 
