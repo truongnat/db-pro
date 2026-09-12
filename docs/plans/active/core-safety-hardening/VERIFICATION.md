@@ -31,6 +31,10 @@
 - `cargo test -p db-pro-core application::query_service::tests --no-fail-fast` — PASS: 25 query-service tests, including query routing for `INSERT/UPDATE/DELETE ... RETURNING` and nested CTE boundary handling.
 - `cargo test -p db-pro-core application::query_service::tests --no-fail-fast` — PASS after transaction-result validation: 26 query-service tests, including rejection of malformed transactional row/column shapes.
 - `cargo test -p db-pro-infrastructure ssh::tunnel::tests -- --nocapture` — PASS: 3 SSH command tests, including bounded process timeout and child cleanup behavior.
+- `cargo test -p db-pro-core application::export_service::tests::export_rejects_malformed_query_result_shape -- --exact` — PASS: malformed export result is rejected at the service boundary.
+- `cargo test -p db-pro-core application::table_data_service::tests::fetch_rows_rejects_malformed_data_result_shape -- --exact` — PASS: malformed paginated data result is rejected at the service boundary.
+- `cargo test -p db-pro-core --lib --no-fail-fast` — PASS: 252 core unit tests.
+- `cargo clippy -p db-pro-core --all-targets -- -D warnings` — PASS.
 - `cargo test -p db-pro-infrastructure --test ssh_backup_runtime_verification -- --ignored --nocapture` — PENDING: live isolated SSH server, pre-provisioned OpenSSH known-hosts entry, and PostgreSQL target required; the test exercises pg_dump, psql restore, and a post-restore query through the tunnel. It skips explicitly when `DB_PRO_SSH_*` is not configured, so the existing CI `--include-ignored` suite does not claim live SSH coverage. A local attempt reached the SSH process but was correctly rejected because the ephemeral host key was not trusted.
 - CI configuration now provisions the SSHD/key/known-hosts fixture and exports the required `DB_PRO_SSH_*` variables before `cargo test --all -- --include-ignored`; live CI execution remains pending until that workflow run completes.
 - `cargo test -p db-pro-core application::export_service::tests` — PASS: 8 export

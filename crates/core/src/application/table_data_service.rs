@@ -60,7 +60,9 @@ impl TableDataService {
         let (count_sql, count_params) = sql_builder::build_count(dialect.as_ref(), schema, table, filters);
 
         let count_result = self.connector.query(&handle, &count_sql, &count_params).await?;
+        count_result.validate().map_err(DbError::QueryFailed)?;
         let data_result = self.connector.query(&handle, &select_sql, &select_params).await?;
+        data_result.validate().map_err(DbError::QueryFailed)?;
 
         let total_count = parse_total_count(&count_result)?;
 
@@ -311,6 +313,48 @@ mod tests {
             .unwrap();
         assert_eq!(total, 42);
         assert_eq!(result.rows.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn fetch_rows_rejects_malformed_data_result_shape() {
+        let (conn_id, registry) = setup();
+        let mut connector = MockDbConnector::new();
+        connector
+            .expect_dialect()
+            .returning(|_| Ok(Box::new(QuestionDialect) as Box<dyn SqlDialect>));
+        connector.expect_query().times(2).returning(|_, sql, _| {
+            if sql.contains("COUNT(*)") {
+                Ok(QueryResult {
+                    columns: vec![ColumnMeta {
+                        name: "count".into(),
+                        data_type: "INT".into(),
+                        nullable: false,
+                    }],
+                    rows: vec![Row(vec![CellValue::Int64(1)])],
+                    row_count: 1,
+                    duration_ms: 0,
+                })
+            } else {
+                Ok(QueryResult {
+                    columns: vec![ColumnMeta {
+                        name: "id".into(),
+                        data_type: "INT".into(),
+                        nullable: false,
+                    }],
+                    rows: vec![Row(Vec::new())],
+                    row_count: 1,
+                    duration_ms: 0,
+                })
+            }
+        });
+
+        let service = TableDataService::new(Box::new(connector), registry, Box::new(mock_connections()));
+        let error = service
+            .fetch_rows(&conn_id, "public", "users", &[], &[], 50, 0)
+            .await
+            .expect_err("table data must reject an invalid provider result");
+
+        assert!(matches!(error, DbError::QueryFailed(message) if message.contains("expected 1")));
     }
 
     #[tokio::test]

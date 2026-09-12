@@ -61,6 +61,8 @@ impl DataDiffService {
         let source_result = self.connector.query(&source_handle, &source_sql, &[]).await?;
         let target_result = self.connector.query(&target_handle, &target_sql, &[]).await?;
 
+        source_result.validate().map_err(DbError::QueryFailed)?;
+        target_result.validate().map_err(DbError::QueryFailed)?;
         let source_count = extract_count(&source_result)?;
         let target_count = extract_count(&target_result)?;
         let row_count_diff = row_count_difference(source_count, target_count)?;

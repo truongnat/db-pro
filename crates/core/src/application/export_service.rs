@@ -56,7 +56,9 @@ impl ExportService {
             .get(connection_id)
             .ok_or_else(|| DbError::ConnectionFailed(format!("connection {connection_id} is not active")))?;
 
-        self.connector.query(&handle, sql, &[]).await
+        let result = self.connector.query(&handle, sql, &[]).await?;
+        result.validate().map_err(DbError::QueryFailed)?;
+        Ok(result)
     }
 
     pub async fn export_csv(&self, connection_id: &ConnectionId, sql: &str) -> Result<ExportResult, DbError> {
@@ -433,5 +435,32 @@ mod tests {
             .await
             .expect_err("readonly export must not execute a mutation");
         assert!(matches!(error, DbError::QueryFailed(message) if message.contains("read-only")));
+    }
+
+    #[tokio::test]
+    async fn export_rejects_malformed_query_result_shape() {
+        let conn_id = ConnectionId::new();
+        let registry = Arc::new(ConnectionRegistry::new());
+        registry.register(conn_id, ConnectionHandle(1));
+
+        let malformed = QueryResult {
+            columns: vec![ColumnMeta {
+                name: "id".into(),
+                data_type: "INT".into(),
+                nullable: false,
+            }],
+            rows: vec![Row(Vec::new())],
+            row_count: 1,
+            duration_ms: 0,
+        };
+        let mut connector = MockDbConnector::new();
+        connector.expect_query().returning(move |_, _, _| Ok(malformed.clone()));
+
+        let error = build_service(connector, registry)
+            .export_json(&conn_id, "SELECT id FROM users")
+            .await
+            .expect_err("export must reject an invalid provider result");
+
+        assert!(matches!(error, DbError::QueryFailed(message) if message.contains("expected 1")));
     }
 }

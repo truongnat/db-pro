@@ -136,6 +136,8 @@ without changing the native UI or adding product features.
     without applying the core row/column shape invariant.
 59. SSH Test Tunnel bounds only connection establishment and can await the
     external process forever after connection setup.
+60. Export, table-data, and data-diff services consume connector query results
+    without applying the core row/column shape invariant.
 
 ## Acceptance criteria
 
@@ -236,6 +238,8 @@ without changing the native UI or adding product features.
   direct query results, including partial results attached to rollback errors.
 - SSH Test Tunnel applies a process-level deadline and kills the child process
   when the deadline expires.
+- Export, table-data, and data-diff application services validate connector
+  `QueryResult` payloads before consuming them.
 - Create, update, and both connection-test paths share the same connection
   configuration validation boundary.
 - PostgreSQL and SQLite unit/integration coverage is updated independently where the

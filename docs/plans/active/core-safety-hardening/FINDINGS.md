@@ -732,3 +732,17 @@ child process after the network path stops responding.
 Decision: wrap the test command in a bounded timeout and enable
 `kill_on_drop`, returning a typed connection-timeout error when the deadline
 expires.
+
+## P2 — Core result consumers bypass `QueryResult` shape validation
+
+`QueryService` validates direct and transactional query results, but
+`ExportService`, `TableDataService`, and `DataDiffService` consumed connector
+results without calling the same row/column shape invariant. A malformed
+provider response could therefore be exported, used by the data grid, or
+interpreted as a count before the core rejected it.
+
+Impact: invalid result payloads can produce misleading artifacts or inconsistent
+downstream state instead of one explicit core error.
+
+Decision: validate every connector `QueryResult` at these application-service
+boundaries before export, pagination, or diff processing.
