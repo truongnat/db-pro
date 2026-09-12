@@ -1,3 +1,5 @@
+use crate::components::animation::{hover_t, lerp_color};
+use crate::components::interact::{checkbox_info, paint_focus_ring, radio_info};
 use crate::DbProTheme;
 use egui::{Color32, FontId, Pos2, Rect, Response, RichText, Rounding, Sense, Stroke, Ui, Vec2};
 
@@ -8,8 +10,6 @@ pub struct Checkbox<'a> {
     pub(crate) enabled: bool,
     pub(crate) theme: DbProTheme,
 }
-
-pub type ShadcnCheckbox<'a> = Checkbox<'a>;
 
 impl<'a> Checkbox<'a> {
     pub fn new(checked: &'a mut bool, label: &'a str, theme: DbProTheme) -> Self {
@@ -53,13 +53,11 @@ impl<'a> Checkbox<'a> {
             let row_width = (size + spacing + text_galley.size().x).max(size + spacing + 60.0);
 
             let (rect, mut response) = ui.allocate_exact_size(Vec2::new(row_width, total_height), Sense::click());
+            response.widget_info(|| checkbox_info(self.enabled, *self.checked, self.label));
 
-            if self.enabled {
-                let space_pressed = response.has_focus() && ui.input(|i| i.key_pressed(egui::Key::Space));
-                if response.clicked() || space_pressed {
-                    *self.checked = !*self.checked;
-                    response.mark_changed();
-                }
+            if self.enabled && response.clicked() {
+                *self.checked = !*self.checked;
+                response.mark_changed();
             }
 
             let box_y = if self.description.is_some() {
@@ -70,6 +68,11 @@ impl<'a> Checkbox<'a> {
             let box_rect = Rect::from_min_size(Pos2::new(rect.left(), box_y), Vec2::splat(size));
             let rounding = Rounding::same(4.0);
 
+            let hover = hover_t(
+                ui.ctx(),
+                response.id.with("hover"),
+                self.enabled && (response.hovered() || response.has_focus()),
+            );
             if *self.checked {
                 ui.painter().rect_filled(box_rect, rounding, self.theme.accent);
                 crate::components::table::draw_crisp_checkmark(
@@ -78,27 +81,17 @@ impl<'a> Checkbox<'a> {
                     self.theme.accent_foreground,
                 );
             } else {
-                let fill = if response.hovered() && self.enabled {
-                    self.theme.surface_hover
-                } else {
-                    self.theme.surface_editor
-                };
-                let stroke = if response.hovered() && self.enabled {
-                    Stroke::new(1.0, self.theme.border_strong)
-                } else {
-                    Stroke::new(1.0, self.theme.border_default)
-                };
+                let fill = lerp_color(self.theme.surface_editor, self.theme.surface_hover, hover);
+                let stroke = Stroke::new(
+                    1.0,
+                    lerp_color(self.theme.border_default, self.theme.border_strong, hover),
+                );
                 ui.painter().rect_filled(box_rect, rounding, fill);
                 ui.painter().rect_stroke(box_rect, rounding, stroke);
             }
 
-            // Focus ring
             if response.has_focus() {
-                ui.painter().rect_stroke(
-                    box_rect.expand(2.0),
-                    Rounding::same(6.0),
-                    Stroke::new(2.0, self.theme.accent),
-                );
+                paint_focus_ring(ui, box_rect, 4.0, self.theme);
             }
 
             // Text and description
@@ -130,8 +123,6 @@ pub struct Switch<'a> {
     enabled: bool,
     theme: DbProTheme,
 }
-
-pub type ShadcnSwitch<'a> = Switch<'a>;
 
 impl<'a> Switch<'a> {
     pub fn new(on: &'a mut bool, theme: DbProTheme) -> Self {
@@ -180,13 +171,11 @@ impl<'a> Switch<'a> {
             let row_width = (width + spacing + label_width).max(width);
 
             let (row_rect, mut response) = ui.allocate_exact_size(Vec2::new(row_width, total_height), Sense::click());
+            response.widget_info(|| checkbox_info(self.enabled, *self.on, self.label.unwrap_or("Switch")));
 
-            if self.enabled {
-                let space_pressed = response.has_focus() && ui.input(|i| i.key_pressed(egui::Key::Space));
-                if response.clicked() || space_pressed {
-                    *self.on = !*self.on;
-                    response.mark_changed();
-                }
+            if self.enabled && response.clicked() {
+                *self.on = !*self.on;
+                response.mark_changed();
             }
 
             let switch_y = if self.description.is_some() {
@@ -198,25 +187,20 @@ impl<'a> Switch<'a> {
             let rounding = Rounding::same(height * 0.5);
 
             // Animated smooth transition for knob position
-            let anim_t = ui.ctx().animate_bool(response.id.with("switch_glide"), *self.on);
+            let anim_t = crate::components::animation::hover_t(ui.ctx(), response.id.with("switch_glide"), *self.on);
 
-            let bg_color = if *self.on {
-                self.theme.accent
-            } else if response.hovered() && self.enabled {
-                self.theme.border_strong
-            } else {
-                self.theme.border_default
-            };
+            let hover = hover_t(
+                ui.ctx(),
+                response.id.with("hover"),
+                self.enabled && (response.hovered() || response.has_focus()),
+            );
+            let off_color = lerp_color(self.theme.border_default, self.theme.border_strong, hover);
+            let bg_color = if *self.on { self.theme.accent } else { off_color };
 
             ui.painter().rect_filled(switch_rect, rounding, bg_color);
 
-            // Focus ring
             if response.has_focus() {
-                ui.painter().rect_stroke(
-                    switch_rect.expand(2.0),
-                    Rounding::same(height * 0.5 + 2.0),
-                    Stroke::new(2.0, self.theme.accent),
-                );
+                paint_focus_ring(ui, switch_rect, height * 0.5, self.theme);
             }
 
             // Smooth animated knob
@@ -267,8 +251,6 @@ pub struct Radio<'a> {
     theme: DbProTheme,
 }
 
-pub type ShadcnRadio<'a> = Radio<'a>;
-
 impl<'a> Radio<'a> {
     pub fn new(selected: bool, label: &'a str, theme: DbProTheme) -> Self {
         Self {
@@ -311,14 +293,7 @@ impl<'a> Radio<'a> {
             let row_width = (size + spacing + text_galley.size().x).max(size + spacing + 60.0);
 
             let (rect, mut response) = ui.allocate_exact_size(Vec2::new(row_width, total_height), Sense::click());
-
-            if self.enabled {
-                let space_pressed = response.has_focus()
-                    && (ui.input(|i| i.key_pressed(egui::Key::Space)) || ui.input(|i| i.key_pressed(egui::Key::Enter)));
-                if space_pressed {
-                    response.mark_changed();
-                }
-            }
+            response.widget_info(|| radio_info(self.enabled, self.selected, self.label));
 
             let center_y = if self.description.is_some() {
                 rect.top() + (size * 0.5) + 2.0
@@ -328,24 +303,24 @@ impl<'a> Radio<'a> {
             let circle_center = Pos2::new(rect.left() + (size * 0.5), center_y);
             let radius = size * 0.5;
 
+            let hover = hover_t(
+                ui.ctx(),
+                response.id.with("hover"),
+                self.enabled && (response.hovered() || response.has_focus()),
+            );
             if self.selected {
                 ui.painter()
                     .circle_stroke(circle_center, radius, Stroke::new(1.5, self.theme.accent));
                 ui.painter()
                     .circle_filled(circle_center, radius - 4.0, self.theme.accent);
             } else {
-                let stroke_color = if response.hovered() && self.enabled {
-                    self.theme.border_strong
-                } else {
-                    self.theme.border_default
-                };
+                let stroke_color = lerp_color(self.theme.border_default, self.theme.border_strong, hover);
                 ui.painter()
                     .circle_stroke(circle_center, radius, Stroke::new(1.0, stroke_color));
                 ui.painter()
                     .circle_filled(circle_center, radius - 1.0, self.theme.surface_editor);
             }
 
-            // Focus ring
             if response.has_focus() {
                 ui.painter()
                     .circle_stroke(circle_center, radius + 2.0, Stroke::new(2.0, self.theme.accent));
@@ -381,8 +356,6 @@ pub struct Slider<'a> {
     pub(crate) width: Option<f32>,
     pub(crate) theme: DbProTheme,
 }
-
-pub type ShadcnSlider<'a> = Slider<'a>;
 
 impl<'a> Slider<'a> {
     pub fn new(value: &'a mut f32, range: std::ops::RangeInclusive<f32>, theme: DbProTheme) -> Self {

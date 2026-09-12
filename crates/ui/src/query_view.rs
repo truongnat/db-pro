@@ -10,11 +10,16 @@ impl DbProApp {
             .map(|document| document.title.clone())
             .unwrap_or_else(|| "Query".to_owned());
         ui.horizontal(|ui| {
-            ui.label(RichText::new(query_title).strong().color(self.theme.text_primary));
+            ui.label(
+                RichText::new(query_title)
+                    .font(font_subheading())
+                    .strong()
+                    .color(self.theme.text_primary),
+            );
             ui.label(icon_text(Icon::ChevronRight, "", self.theme.text_muted));
             ui.label(
                 RichText::new(format!("{} / {}", self.active_connection_name(), self.active_schema()))
-                    .small()
+                    .font(font_caption())
                     .color(self.theme.accent),
             );
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {

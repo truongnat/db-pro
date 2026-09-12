@@ -51,8 +51,6 @@ impl<'a> TableColumn<'a> {
     }
 }
 
-pub type ShadcnTableColumn<'a> = TableColumn<'a>;
-
 pub(crate) fn draw_crisp_checkmark(painter: &egui::Painter, center: Pos2, color: Color32) {
     let p1 = Pos2::new(center.x - 3.8, center.y - 0.2);
     let p2 = Pos2::new(center.x - 0.9, center.y + 2.8);
@@ -88,8 +86,8 @@ impl<'a> Table<'a> {
             indeterminate: false,
             sort_column: None,
             sort_desc: false,
-            row_height: 38.0,
-            show_vertical_grid: true,
+            row_height: 44.0,
+            show_vertical_grid: false,
         }
     }
 
@@ -310,7 +308,8 @@ impl<'a> Table<'a> {
                 ui.allocate_new_ui(egui::UiBuilder::new().max_rect(inner_rect), |ui| {
                     ui.with_layout(align_layout, |ui| {
                         // For right-aligned column headers, add sort icon first in right-to-left layout so it sits at far right
-                        if col.sortable && col.align == TableColumnAlign::Right {
+                        let show_sort = col.sortable && (is_sorted || resp.hovered());
+                        if show_sort && col.align == TableColumnAlign::Right {
                             ui.label(
                                 RichText::new(char::from(icon).to_string())
                                     .font(egui::FontId::new(10.0, egui::FontFamily::Name("lucide".into())))
@@ -320,13 +319,12 @@ impl<'a> Table<'a> {
                         }
 
                         ui.label(
-                            RichText::new(col.title.to_uppercase())
-                                .size(11.0)
-                                .strong()
+                            RichText::new(col.title)
+                                .font(crate::DbProTheme::ui_medium_font(13.0))
                                 .color(text_color),
                         );
 
-                        if col.sortable && col.align != TableColumnAlign::Right {
+                        if show_sort && col.align != TableColumnAlign::Right {
                             ui.add_space(4.0);
                             ui.label(
                                 RichText::new(char::from(icon).to_string())
@@ -387,36 +385,42 @@ impl<'a> Table<'a> {
                         .interact(row_rect, ui.id().with(("row", row_idx)), egui::Sense::click())
                         .on_hover_cursor(egui::CursorIcon::PointingHand);
 
-                    // Smooth animated hover & selection transitions (60/120 FPS glide)
-                    let hover_t = ui
-                        .ctx()
-                        .animate_bool(row_resp.id.with("row_hover"), row_resp.hovered() && !is_selected);
-                    let select_t = ui.ctx().animate_bool(row_resp.id.with("row_sel"), is_selected);
+                    let hover_t = crate::components::animation::hover_t(
+                        ui.ctx(),
+                        row_resp.id.with("row_hover"),
+                        row_resp.hovered() && !is_selected,
+                    );
+                    let select_t =
+                        crate::components::animation::hover_t(ui.ctx(), row_resp.id.with("row_sel"), is_selected);
 
-                    // Row background paint: smoothly blend zebra, hover, and selection
-                    let zebra_bg = if row_idx % 2 == 1 {
-                        self.theme.surface_hover.linear_multiply(0.18)
-                    } else {
-                        Color32::TRANSPARENT
-                    };
-                    if zebra_bg != Color32::TRANSPARENT {
-                        ui.painter().rect_filled(row_rect, Rounding::ZERO, zebra_bg);
+                    // Alternating row stripes (Ant Design style)
+                    if row_idx % 2 == 1 {
+                        ui.painter().rect_filled(
+                            row_rect,
+                            Rounding::ZERO,
+                            self.theme.surface_hover.linear_multiply(0.25),
+                        );
                     }
 
                     if select_t > 0.001 {
                         ui.painter().rect_filled(
                             row_rect,
                             Rounding::ZERO,
-                            self.theme.accent_soft.linear_multiply(select_t),
+                            crate::components::animation::lerp_color(
+                                Color32::TRANSPARENT,
+                                self.theme.accent_soft,
+                                select_t,
+                            ),
                         );
-                        let ind_w = egui::lerp(0.0..=3.0, select_t);
-                        let ind_rect = Rect::from_min_size(row_rect.min, Vec2::new(ind_w, row_rect.height()));
-                        ui.painter().rect_filled(ind_rect, Rounding::ZERO, self.theme.accent);
                     } else if hover_t > 0.001 {
                         ui.painter().rect_filled(
                             row_rect,
                             Rounding::ZERO,
-                            self.theme.surface_hover.linear_multiply(0.55 * hover_t),
+                            crate::components::animation::lerp_color(
+                                Color32::TRANSPARENT,
+                                self.theme.surface_hover,
+                                hover_t,
+                            ),
                         );
                     }
 
@@ -520,5 +524,3 @@ impl<'a> Table<'a> {
         });
     }
 }
-
-pub type ShadcnTable<'a> = Table<'a>;

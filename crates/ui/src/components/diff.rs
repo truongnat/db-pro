@@ -123,24 +123,8 @@ impl<'a> DiffViewer<'a> {
                     let (row_rect, _) = ui.allocate_exact_size(Vec2::new(ui.available_width(), 20.0), Sense::hover());
 
                     let (bg_color, prefix_char, text_color) = match line.line_type {
-                        DiffLineType::Added => (
-                            if self.theme.dark_mode {
-                                Color32::from_rgba_premultiplied(34, 197, 94, 25)
-                            } else {
-                                Color32::from_rgba_premultiplied(22, 163, 74, 20)
-                            },
-                            "+",
-                            self.theme.success,
-                        ),
-                        DiffLineType::Removed => (
-                            if self.theme.dark_mode {
-                                Color32::from_rgba_premultiplied(239, 68, 68, 25)
-                            } else {
-                                Color32::from_rgba_premultiplied(220, 38, 38, 20)
-                            },
-                            "-",
-                            self.theme.danger,
-                        ),
+                        DiffLineType::Added => (self.theme.success_soft(), "+", self.theme.success),
+                        DiffLineType::Removed => (self.theme.danger_soft(), "-", self.theme.danger),
                         DiffLineType::Context => (Color32::TRANSPARENT, " ", self.theme.text_secondary),
                     };
 

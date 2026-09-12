@@ -79,9 +79,18 @@ pub fn tab_frame(theme: DbProTheme, active: bool) -> Frame {
         } else {
             Color32::TRANSPARENT
         },
-        inner_margin: Margin::symmetric(9.0, 4.0),
-        rounding: Rounding::ZERO,
-        stroke: Stroke::NONE,
+        inner_margin: Margin::symmetric(10.0, 5.0),
+        rounding: Rounding {
+            nw: 6.0,
+            ne: 6.0,
+            sw: 0.0,
+            se: 0.0,
+        },
+        stroke: if active {
+            Stroke::new(1.0, theme.border_subtle)
+        } else {
+            Stroke::NONE
+        },
         ..Default::default()
     }
 }

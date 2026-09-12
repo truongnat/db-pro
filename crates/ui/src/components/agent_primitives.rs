@@ -135,42 +135,12 @@ impl<'a> StatusBadge<'a> {
 
     pub fn show(self, ui: &mut Ui) -> Response {
         let (dot_color, text_color, bg_color) = match self.variant {
-            StatusBadgeVariant::Active | StatusBadgeVariant::Success => (
-                self.theme.success,
-                self.theme.success,
-                if self.theme.dark_mode {
-                    Color32::from_rgba_premultiplied(34, 197, 94, 25)
-                } else {
-                    Color32::from_rgba_premultiplied(22, 163, 74, 18)
-                },
-            ),
-            StatusBadgeVariant::Running => (
-                self.theme.info,
-                self.theme.info,
-                if self.theme.dark_mode {
-                    Color32::from_rgba_premultiplied(59, 130, 246, 25)
-                } else {
-                    Color32::from_rgba_premultiplied(37, 99, 235, 18)
-                },
-            ),
-            StatusBadgeVariant::Warning => (
-                self.theme.warning,
-                self.theme.warning,
-                if self.theme.dark_mode {
-                    Color32::from_rgba_premultiplied(245, 158, 11, 25)
-                } else {
-                    Color32::from_rgba_premultiplied(217, 119, 6, 18)
-                },
-            ),
-            StatusBadgeVariant::Destructive => (
-                self.theme.danger,
-                self.theme.danger,
-                if self.theme.dark_mode {
-                    Color32::from_rgba_premultiplied(239, 68, 68, 25)
-                } else {
-                    Color32::from_rgba_premultiplied(220, 38, 38, 18)
-                },
-            ),
+            StatusBadgeVariant::Active | StatusBadgeVariant::Success => {
+                (self.theme.success, self.theme.success, self.theme.success_soft())
+            }
+            StatusBadgeVariant::Running => (self.theme.info, self.theme.info, self.theme.info_soft()),
+            StatusBadgeVariant::Warning => (self.theme.warning, self.theme.warning, self.theme.warning_soft()),
+            StatusBadgeVariant::Destructive => (self.theme.danger, self.theme.danger, self.theme.danger_soft()),
             StatusBadgeVariant::Archived | StatusBadgeVariant::Draft => (
                 self.theme.text_tertiary,
                 self.theme.text_secondary,
@@ -178,14 +148,14 @@ impl<'a> StatusBadge<'a> {
             ),
         };
 
-        let font_id = FontId::proportional(11.0);
+        let font_id = DbProTheme::ui_medium_font(12.0);
         let text_galley = ui.painter().layout_no_wrap(self.text.to_owned(), font_id, text_color);
-        let dot_w = 6.0;
-        let spacing = 5.0;
-        let pad_h = 7.0;
-        let pad_v = 3.0;
+        let dot_w = 5.0;
+        let spacing = 4.0;
+        let pad_h = 8.0;
+        let pad_v = 2.0;
         let total_w = pad_h * 2.0 + dot_w + spacing + text_galley.size().x;
-        let total_h = text_galley.size().y + pad_v * 2.0;
+        let total_h = (text_galley.size().y + pad_v * 2.0).max(20.0);
 
         let (rect, response) = ui.allocate_exact_size(Vec2::new(total_w, total_h), Sense::hover());
         ui.painter().rect_filled(rect, Rounding::same(total_h * 0.5), bg_color);
@@ -559,5 +529,348 @@ impl<'a> ExecutionApproval<'a> {
         });
 
         chosen_action
+    }
+}
+
+// ── AgentThinking Component ──────────────────────────────────────────────────
+
+pub struct AgentThinking<'a> {
+    thought: &'a str,
+    duration: Option<&'a str>,
+    step_count: Option<usize>,
+    is_active: bool,
+    expanded: &'a mut bool,
+    theme: DbProTheme,
+}
+
+impl<'a> AgentThinking<'a> {
+    pub fn new(thought: &'a str, expanded: &'a mut bool, theme: DbProTheme) -> Self {
+        Self {
+            thought,
+            duration: None,
+            step_count: None,
+            is_active: false,
+            expanded,
+            theme,
+        }
+    }
+
+    pub fn duration(mut self, duration: &'a str) -> Self {
+        self.duration = Some(duration);
+        self
+    }
+
+    pub fn step_count(mut self, count: usize) -> Self {
+        self.step_count = Some(count);
+        self
+    }
+
+    pub fn is_active(mut self, active: bool) -> Self {
+        self.is_active = active;
+        self
+    }
+
+    pub fn show(self, ui: &mut Ui) -> Response {
+        let is_expanded = *self.expanded;
+        let is_active = self.is_active;
+
+        let frame = egui::Frame::none()
+            .fill(self.theme.surface_panel)
+            .stroke(Stroke::new(1.0, self.theme.border_subtle))
+            .rounding(Rounding::same(8.0))
+            .inner_margin(egui::Margin::symmetric(10.0, 6.0));
+
+        let frame_resp = frame.show(ui, |ui| {
+            ui.set_width(ui.available_width());
+
+            // Header line
+            let (header_rect, header_resp) =
+                ui.allocate_exact_size(Vec2::new(ui.available_width(), 24.0), Sense::click());
+
+            if header_resp.hovered() {
+                ui.painter()
+                    .rect_filled(header_rect, Rounding::same(6.0), self.theme.surface_hover);
+            }
+
+            // Chevron
+            let chevron_icon = if is_expanded {
+                Icon::ChevronDown
+            } else {
+                Icon::ChevronRight
+            };
+            ui.painter().text(
+                Pos2::new(header_rect.left() + 8.0, header_rect.center().y),
+                Align2::CENTER_CENTER,
+                char::from(chevron_icon).to_string(),
+                FontId::new(10.0, FontFamily::Name("lucide".into())),
+                self.theme.text_secondary,
+            );
+
+            // Icon: Sparkles or Spinner
+            let icon_x = header_rect.left() + 22.0;
+            if is_active {
+                let time = ui.input(|i| i.time);
+                let spin_angle = (time * 6.0) as f32;
+                ui.ctx().request_repaint();
+                ui.painter().text(
+                    Pos2::new(icon_x, header_rect.center().y),
+                    Align2::CENTER_CENTER,
+                    char::from(Icon::LoaderCircle).to_string(),
+                    FontId::new(12.0, FontFamily::Name("lucide".into())),
+                    self.theme.accent,
+                );
+                let _ = spin_angle;
+            } else {
+                ui.painter().text(
+                    Pos2::new(icon_x, header_rect.center().y),
+                    Align2::CENTER_CENTER,
+                    char::from(Icon::Brain).to_string(),
+                    FontId::new(12.0, FontFamily::Name("lucide".into())),
+                    self.theme.text_secondary,
+                );
+            }
+
+            // Label
+            let title_text = if is_active {
+                "Thinking...".to_owned()
+            } else {
+                let mut s = "Thought".to_owned();
+                if let Some(dur) = self.duration {
+                    s.push_str(&format!(" for {}", dur));
+                }
+                if let Some(steps) = self.step_count {
+                    s.push_str(&format!(" ({} step{})", steps, if steps > 1 { "s" } else { "" }));
+                }
+                s
+            };
+
+            ui.painter().text(
+                Pos2::new(header_rect.left() + 36.0, header_rect.center().y),
+                Align2::LEFT_CENTER,
+                title_text,
+                FontId::proportional(11.5),
+                if is_active {
+                    self.theme.accent
+                } else {
+                    self.theme.text_secondary
+                },
+            );
+
+            if header_resp.clicked() {
+                *self.expanded = !*self.expanded;
+            }
+
+            // Expanded thought body
+            if is_expanded {
+                ui.add_space(4.0);
+                let body_frame = egui::Frame::none()
+                    .fill(self.theme.surface_editor)
+                    .stroke(Stroke::new(1.0, self.theme.border_subtle))
+                    .rounding(Rounding::same(6.0))
+                    .inner_margin(egui::Margin::same(8.0));
+
+                body_frame.show(ui, |ui| {
+                    ui.set_width(ui.available_width());
+                    ui.label(
+                        RichText::new(self.thought)
+                            .size(11.5)
+                            .monospace()
+                            .color(self.theme.text_secondary),
+                    );
+                });
+            }
+        });
+
+        frame_resp.response
+    }
+}
+
+// ── AgentPlan & Task Checklist ───────────────────────────────────────────────
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AgentTaskStatus {
+    Pending,
+    Running,
+    Completed,
+    Failed,
+    Skipped,
+}
+
+#[derive(Debug, Clone)]
+pub struct AgentTaskItem {
+    pub title: String,
+    pub status: AgentTaskStatus,
+    pub detail: Option<String>,
+}
+
+impl AgentTaskItem {
+    pub fn new(title: impl Into<String>, status: AgentTaskStatus) -> Self {
+        Self {
+            title: title.into(),
+            status,
+            detail: None,
+        }
+    }
+
+    pub fn with_detail(mut self, detail: impl Into<String>) -> Self {
+        self.detail = Some(detail.into());
+        self
+    }
+}
+
+pub struct AgentPlan<'a> {
+    title: &'a str,
+    tasks: &'a [AgentTaskItem],
+    theme: DbProTheme,
+}
+
+impl<'a> AgentPlan<'a> {
+    pub fn new(title: &'a str, tasks: &'a [AgentTaskItem], theme: DbProTheme) -> Self {
+        Self { title, tasks, theme }
+    }
+
+    pub fn show(self, ui: &mut Ui) -> Response {
+        let total = self.tasks.len();
+        let completed = self
+            .tasks
+            .iter()
+            .filter(|t| t.status == AgentTaskStatus::Completed)
+            .count();
+        let progress = if total > 0 {
+            completed as f32 / total as f32
+        } else {
+            0.0
+        };
+
+        let frame = egui::Frame::none()
+            .fill(self.theme.surface_panel)
+            .stroke(Stroke::new(1.0, self.theme.border_default))
+            .rounding(Rounding::same(8.0))
+            .inner_margin(egui::Margin::same(12.0));
+
+        let frame_resp = frame.show(ui, |ui| {
+            ui.set_width(ui.available_width());
+
+            // Header: Title & completion badge
+            ui.horizontal(|ui| {
+                ui.label(
+                    RichText::new(self.title)
+                        .size(13.0)
+                        .strong()
+                        .color(self.theme.text_primary),
+                );
+
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    ui.label(
+                        RichText::new(format!("{}/{} completed", completed, total))
+                            .size(11.5)
+                            .color(self.theme.text_secondary),
+                    );
+                });
+            });
+
+            ui.add_space(6.0);
+
+            // Progress bar
+            let (bar_rect, _) = ui.allocate_exact_size(Vec2::new(ui.available_width(), 4.0), Sense::hover());
+            ui.painter()
+                .rect_filled(bar_rect, Rounding::same(2.0), self.theme.surface_hover);
+            if progress > 0.0 {
+                let filled_rect =
+                    Rect::from_min_size(bar_rect.min, Vec2::new(bar_rect.width() * progress, bar_rect.height()));
+                ui.painter()
+                    .rect_filled(filled_rect, Rounding::same(2.0), self.theme.accent);
+            }
+
+            ui.add_space(10.0);
+
+            // Task items list
+            for (idx, task) in self.tasks.iter().enumerate() {
+                ui.horizontal(|ui| {
+                    let (icon, icon_color) = match task.status {
+                        AgentTaskStatus::Completed => (Icon::CheckCircle2, self.theme.success),
+                        AgentTaskStatus::Running => {
+                            ui.ctx().request_repaint();
+                            (Icon::LoaderCircle, self.theme.info)
+                        }
+                        AgentTaskStatus::Pending => (Icon::Circle, self.theme.text_tertiary),
+                        AgentTaskStatus::Failed => (Icon::AlertCircle, self.theme.danger),
+                        AgentTaskStatus::Skipped => (Icon::MinusCircle, self.theme.text_muted),
+                    };
+
+                    ui.label(
+                        RichText::new(char::from(icon).to_string())
+                            .font(FontId::new(13.0, FontFamily::Name("lucide".into())))
+                            .color(icon_color),
+                    );
+
+                    ui.add_space(2.0);
+
+                    let title_color = match task.status {
+                        AgentTaskStatus::Completed => self.theme.text_primary,
+                        AgentTaskStatus::Running => self.theme.text_primary,
+                        AgentTaskStatus::Pending => self.theme.text_secondary,
+                        AgentTaskStatus::Failed => self.theme.danger,
+                        AgentTaskStatus::Skipped => self.theme.text_disabled,
+                    };
+
+                    ui.label(
+                        RichText::new(format!("{}. {}", idx + 1, &task.title))
+                            .size(12.0)
+                            .color(title_color),
+                    );
+
+                    if let Some(ref detail) = task.detail {
+                        ui.label(
+                            RichText::new(format!("({})", detail))
+                                .size(11.0)
+                                .color(self.theme.text_tertiary),
+                        );
+                    }
+                });
+
+                if idx + 1 < self.tasks.len() {
+                    ui.add_space(6.0);
+                }
+            }
+        });
+
+        frame_resp.response
+    }
+}
+
+// ── AgentSqlAction Chips ─────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AgentSqlActionKind {
+    Explain,
+    Optimize,
+    FixError,
+    GenerateMigration,
+    DescribeSchema,
+    ConvertDialect,
+}
+
+impl AgentSqlActionKind {
+    pub fn label(&self) -> &'static str {
+        match self {
+            AgentSqlActionKind::Explain => "Explain Query",
+            AgentSqlActionKind::Optimize => "Optimize Query",
+            AgentSqlActionKind::FixError => "Fix Error",
+            AgentSqlActionKind::GenerateMigration => "Generate Migration",
+            AgentSqlActionKind::DescribeSchema => "Describe Schema",
+            AgentSqlActionKind::ConvertDialect => "Convert Dialect",
+        }
+    }
+
+    pub fn icon(&self) -> Icon {
+        match self {
+            AgentSqlActionKind::Explain => Icon::ChartNoAxesCombined,
+            AgentSqlActionKind::Optimize => Icon::Gauge,
+            AgentSqlActionKind::FixError => Icon::Wrench,
+            AgentSqlActionKind::GenerateMigration => Icon::GitFork,
+            AgentSqlActionKind::DescribeSchema => Icon::FileSpreadsheet,
+            AgentSqlActionKind::ConvertDialect => Icon::RefreshCw,
+        }
     }
 }

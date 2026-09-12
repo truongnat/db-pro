@@ -1,5 +1,9 @@
+use crate::components::animation::{hover_t, lerp_color};
+use crate::components::interact::{paint_focus_ring, text_input_info};
 use crate::DbProTheme;
-use egui::{Align, Button, FontFamily, FontId, Frame, Margin, Response, RichText, Rounding, Stroke, TextEdit, Ui};
+use egui::{
+    Align, Button, FontFamily, FontId, Frame, Id, Margin, Rect, Response, RichText, Rounding, Stroke, TextEdit, Ui,
+};
 use lucide_icons::Icon;
 
 pub struct Input<'a> {
@@ -14,8 +18,6 @@ pub struct Input<'a> {
     enabled: bool,
     theme: DbProTheme,
 }
-
-pub type ShadcnInput<'a> = Input<'a>;
 
 impl<'a> Input<'a> {
     pub fn new(value: &'a mut String, placeholder: &'a str, theme: DbProTheme) -> Self {
@@ -160,22 +162,30 @@ impl<'a> Input<'a> {
 
             let edit_response = frame_output.inner;
             let frame_rect = frame_output.response.rect;
+            let info_label = self.label.unwrap_or(self.placeholder);
+            edit_response.widget_info(|| text_input_info(self.enabled, info_label));
 
-            // Accessibility Focus Ring and Hover border
-            if edit_response.has_focus() && !has_error {
-                ui.painter()
-                    .rect_stroke(frame_rect, Rounding::same(6.0), Stroke::new(1.5, self.theme.accent));
-            } else if frame_output.response.hovered() && self.enabled && !has_error {
-                ui.painter().rect_stroke(
-                    frame_rect,
-                    Rounding::same(6.0),
-                    Stroke::new(1.0, self.theme.border_strong),
-                );
-            }
+            paint_field_chrome(
+                ui,
+                edit_response.id,
+                frame_rect,
+                edit_response.has_focus(),
+                frame_output.response.hovered() || edit_response.hovered(),
+                self.enabled && !has_error,
+                self.theme,
+            );
 
             if let Some(err) = self.error_text {
                 ui.add_space(2.0);
-                ui.label(RichText::new(err).size(11.0).color(self.theme.danger));
+                ui.horizontal(|ui| {
+                    ui.label(
+                        RichText::new(char::from(Icon::AlertCircle).to_string())
+                            .font(FontId::new(12.0, FontFamily::Name("lucide".into())))
+                            .color(self.theme.danger),
+                    );
+                    ui.add_space(2.0);
+                    ui.label(RichText::new(err).size(11.0).color(self.theme.danger));
+                });
             } else if let Some(helper) = self.helper_text {
                 ui.add_space(2.0);
                 ui.label(RichText::new(helper).size(11.0).color(self.theme.text_muted));
@@ -192,11 +202,12 @@ pub struct PasswordInput<'a> {
     value: &'a mut String,
     placeholder: &'a str,
     show_password: &'a mut bool,
+    helper_text: Option<&'a str>,
+    error_text: Option<&'a str>,
+    required: bool,
     width: Option<f32>,
     theme: DbProTheme,
 }
-
-pub type ShadcnPasswordInput<'a> = PasswordInput<'a>;
 
 impl<'a> PasswordInput<'a> {
     pub fn new(value: &'a mut String, placeholder: &'a str, show_password: &'a mut bool, theme: DbProTheme) -> Self {
@@ -205,6 +216,9 @@ impl<'a> PasswordInput<'a> {
             value,
             placeholder,
             show_password,
+            helper_text: None,
+            error_text: None,
+            required: false,
             width: None,
             theme,
         }
@@ -212,6 +226,21 @@ impl<'a> PasswordInput<'a> {
 
     pub fn label(mut self, label: &'a str) -> Self {
         self.label = Some(label);
+        self
+    }
+
+    pub fn helper_text(mut self, text: &'a str) -> Self {
+        self.helper_text = Some(text);
+        self
+    }
+
+    pub fn error_text(mut self, text: &'a str) -> Self {
+        self.error_text = Some(text);
+        self
+    }
+
+    pub fn required(mut self, required: bool) -> Self {
+        self.required = required;
         self
     }
 
@@ -225,18 +254,30 @@ impl<'a> PasswordInput<'a> {
 
         ui.vertical(|ui| {
             if let Some(label) = self.label {
-                ui.label(
-                    RichText::new(label)
-                        .size(12.0)
-                        .strong()
-                        .color(self.theme.text_secondary),
-                );
+                ui.horizontal(|ui| {
+                    ui.label(
+                        RichText::new(label)
+                            .size(12.0)
+                            .strong()
+                            .color(self.theme.text_secondary),
+                    );
+                    if self.required {
+                        ui.label(RichText::new("*").size(12.0).strong().color(self.theme.danger));
+                    }
+                });
                 ui.add_space(3.0);
             }
 
+            let has_error = self.error_text.is_some();
+            let border_stroke = if has_error {
+                Stroke::new(1.5, self.theme.danger)
+            } else {
+                Stroke::new(1.0, self.theme.border_default)
+            };
+
             let frame_output = Frame {
                 fill: self.theme.surface_editor,
-                stroke: Stroke::new(1.0, self.theme.border_default),
+                stroke: border_stroke,
                 inner_margin: Margin::symmetric(8.0, 4.0),
                 rounding: Rounding::same(6.0),
                 ..Default::default()
@@ -284,16 +325,32 @@ impl<'a> PasswordInput<'a> {
 
             let edit_response = frame_output.inner;
             let frame_rect = frame_output.response.rect;
+            edit_response.widget_info(|| text_input_info(true, self.label.unwrap_or("Password")));
 
-            if edit_response.has_focus() {
-                ui.painter()
-                    .rect_stroke(frame_rect, Rounding::same(6.0), Stroke::new(1.5, self.theme.accent));
-            } else if frame_output.response.hovered() {
-                ui.painter().rect_stroke(
-                    frame_rect,
-                    Rounding::same(6.0),
-                    Stroke::new(1.0, self.theme.border_strong),
-                );
+            paint_field_chrome(
+                ui,
+                edit_response.id,
+                frame_rect,
+                edit_response.has_focus(),
+                frame_output.response.hovered() || edit_response.hovered(),
+                !has_error,
+                self.theme,
+            );
+
+            if let Some(err) = self.error_text {
+                ui.add_space(2.0);
+                ui.horizontal(|ui| {
+                    ui.label(
+                        RichText::new(char::from(Icon::AlertCircle).to_string())
+                            .font(FontId::new(12.0, FontFamily::Name("lucide".into())))
+                            .color(self.theme.danger),
+                    );
+                    ui.add_space(2.0);
+                    ui.label(RichText::new(err).size(11.0).color(self.theme.danger));
+                });
+            } else if let Some(helper) = self.helper_text {
+                ui.add_space(2.0);
+                ui.label(RichText::new(helper).size(11.0).color(self.theme.text_muted));
             }
 
             edit_response
@@ -309,8 +366,6 @@ pub struct SearchInput<'a> {
     width: Option<f32>,
     theme: DbProTheme,
 }
-
-pub type ShadcnSearchInput<'a> = SearchInput<'a>;
 
 impl<'a> SearchInput<'a> {
     pub fn new(value: &'a mut String, placeholder: &'a str, theme: DbProTheme) -> Self {
@@ -405,16 +460,15 @@ impl<'a> SearchInput<'a> {
         let edit_response = frame_output.inner;
         let frame_rect = frame_output.response.rect;
 
-        if edit_response.has_focus() {
-            ui.painter()
-                .rect_stroke(frame_rect, Rounding::same(6.0), Stroke::new(1.5, self.theme.accent));
-        } else if frame_output.response.hovered() {
-            ui.painter().rect_stroke(
-                frame_rect,
-                Rounding::same(6.0),
-                Stroke::new(1.0, self.theme.border_strong),
-            );
-        }
+        paint_field_chrome(
+            ui,
+            edit_response.id,
+            frame_rect,
+            edit_response.has_focus(),
+            frame_output.response.hovered() || edit_response.hovered(),
+            true,
+            self.theme,
+        );
 
         edit_response
     }
@@ -428,8 +482,6 @@ pub struct Textarea<'a> {
     max_chars: Option<usize>,
     theme: DbProTheme,
 }
-
-pub type ShadcnTextarea<'a> = Textarea<'a>;
 
 impl<'a> Textarea<'a> {
     pub fn new(value: &'a mut String, placeholder: &'a str, theme: DbProTheme) -> Self {
@@ -503,19 +555,32 @@ impl<'a> Textarea<'a> {
             let edit_response = frame_output.inner;
             let frame_rect = frame_output.response.rect;
 
-            if edit_response.has_focus() {
-                ui.painter()
-                    .rect_stroke(frame_rect, Rounding::same(6.0), Stroke::new(1.5, self.theme.accent));
-            } else if frame_output.response.hovered() {
-                ui.painter().rect_stroke(
-                    frame_rect,
-                    Rounding::same(6.0),
-                    Stroke::new(1.0, self.theme.border_strong),
-                );
-            }
+            paint_field_chrome(
+                ui,
+                edit_response.id,
+                frame_rect,
+                edit_response.has_focus(),
+                frame_output.response.hovered() || edit_response.hovered(),
+                true,
+                self.theme,
+            );
 
             edit_response
         })
         .inner
     }
+}
+
+fn paint_field_chrome(ui: &Ui, id: Id, rect: Rect, focused: bool, hovered: bool, enabled: bool, theme: DbProTheme) {
+    if focused {
+        paint_focus_ring(ui, rect, 6.0, theme);
+        return;
+    }
+    if !enabled {
+        return;
+    }
+    let hover = hover_t(ui.ctx(), id.with("input_hover"), hovered);
+    let border = lerp_color(theme.border_default, theme.border_strong, hover);
+    ui.painter()
+        .rect_stroke(rect, Rounding::same(6.0), Stroke::new(1.0, border));
 }

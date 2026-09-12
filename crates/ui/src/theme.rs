@@ -1,4 +1,9 @@
-use egui::{Color32, FontId, Margin, Rounding, Shadow, Stroke, TextStyle, Visuals};
+use egui::{Color32, FontFamily, FontId, Margin, Rounding, Shadow, Stroke, TextStyle, Visuals};
+
+const INTER_REGULAR: &[u8] = include_bytes!("../assets/fonts/Inter-Regular.ttf");
+const INTER_REGULAR_EXT: &[u8] = include_bytes!("../assets/fonts/Inter-Regular-ext.ttf");
+const INTER_MEDIUM: &[u8] = include_bytes!("../assets/fonts/Inter-Medium.ttf");
+const INTER_MEDIUM_EXT: &[u8] = include_bytes!("../assets/fonts/Inter-Medium-ext.ttf");
 
 /// Product-owned visual tokens for the native shell.
 #[derive(Debug, Clone, Copy)]
@@ -29,6 +34,7 @@ pub struct DbProTheme {
     pub warning: Color32,
     pub danger: Color32,
     pub info: Color32,
+    pub overlay: Color32,
     pub code_keyword: Color32,
     pub code_string: Color32,
     pub code_number: Color32,
@@ -71,6 +77,7 @@ impl DbProTheme {
             warning: Color32::from_rgb(217, 119, 6),       // --warning: #d97706
             danger: Color32::from_rgb(220, 38, 38),        // --danger: #dc2626
             info: Color32::from_rgb(37, 99, 235),          // --info: #2563eb
+            overlay: Color32::from_black_alpha(38),        // scrim ~0.15 so the dialog stays the brightest surface
             code_keyword: Color32::from_rgb(17, 17, 17),
             code_string: Color32::from_rgb(22, 163, 74),
             code_number: Color32::from_rgb(217, 119, 6),
@@ -107,11 +114,52 @@ impl DbProTheme {
             warning: Color32::from_rgb(245, 158, 11),         // --warning: #f59e0b
             danger: Color32::from_rgb(239, 68, 68),           // --danger: #ef4444
             info: Color32::from_rgb(59, 130, 246),            // --info: #3b82f6
+            overlay: Color32::from_black_alpha(64),           // scrim ~0.25, card stays fully opaque on top
             code_keyword: Color32::from_rgb(243, 243, 243),
             code_string: Color32::from_rgb(34, 197, 94),
             code_number: Color32::from_rgb(245, 158, 11),
             code_comment: Color32::from_rgb(141, 141, 141),
         }
+    }
+
+    /// Subtle tinted fill for badges, diff rows, and status cards (~10-12% opacity).
+    pub fn soft_tint(self, color: Color32) -> Color32 {
+        if self.dark_mode {
+            Color32::from_rgba_premultiplied(
+                (color.r() as f32 * 0.12) as u8,
+                (color.g() as f32 * 0.12) as u8,
+                (color.b() as f32 * 0.12) as u8,
+                25,
+            )
+        } else {
+            Color32::from_rgba_premultiplied(
+                (color.r() as f32 * 0.08) as u8,
+                (color.g() as f32 * 0.08) as u8,
+                (color.b() as f32 * 0.08) as u8,
+                18,
+            )
+        }
+    }
+
+    pub fn success_soft(self) -> Color32 {
+        self.soft_tint(self.success)
+    }
+
+    pub fn warning_soft(self) -> Color32 {
+        self.soft_tint(self.warning)
+    }
+
+    pub fn danger_soft(self) -> Color32 {
+        self.soft_tint(self.danger)
+    }
+
+    pub fn info_soft(self) -> Color32 {
+        self.soft_tint(self.info)
+    }
+
+    /// UI labels, badges, and controls — Inter Medium (500), matching OpenAI Sans Medium.
+    pub fn ui_medium_font(size: f32) -> FontId {
+        FontId::new(size, FontFamily::Name("ui_medium".into()))
     }
 
     pub fn install_fonts(ctx: &egui::Context) {
@@ -122,32 +170,57 @@ impl DbProTheme {
         );
         fonts
             .families
-            .entry(egui::FontFamily::Name("lucide".into()))
+            .entry(FontFamily::Name("lucide".into()))
             .or_default()
             .insert(0, "lucide".to_owned());
 
+        fonts
+            .font_data
+            .insert("inter".to_owned(), egui::FontData::from_static(INTER_REGULAR));
+        fonts
+            .font_data
+            .insert("inter_ext".to_owned(), egui::FontData::from_static(INTER_REGULAR_EXT));
+        fonts
+            .font_data
+            .insert("inter_medium".to_owned(), egui::FontData::from_static(INTER_MEDIUM));
+        fonts.font_data.insert(
+            "inter_medium_ext".to_owned(),
+            egui::FontData::from_static(INTER_MEDIUM_EXT),
+        );
+
+        let proportional = fonts.families.entry(FontFamily::Proportional).or_default();
+        proportional.insert(0, "inter_ext".to_owned());
+        proportional.insert(0, "inter".to_owned());
+
+        let medium = fonts.families.entry(FontFamily::Name("ui_medium".into())).or_default();
+        medium.insert(0, "inter_medium_ext".to_owned());
+        medium.insert(0, "inter_medium".to_owned());
+
         let system_font_paths = [
-            "/System/Library/Fonts/Supplemental/Arial.ttf",
-            "/Library/Fonts/Arial.ttf",
+            "/System/Library/Fonts/SFNS.ttf",
+            "/System/Library/Fonts/SFCompact.ttf",
+            "C:\\Windows\\Fonts\\segoeui.ttf",
             "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
             "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+            "/System/Library/Fonts/Supplemental/Arial.ttf",
+            "/Library/Fonts/Arial.ttf",
             "C:\\Windows\\Fonts\\arial.ttf",
         ];
         for path in system_font_paths {
             if let Ok(bytes) = std::fs::read(path) {
                 fonts
                     .font_data
-                    .insert("system_font".to_owned(), egui::FontData::from_owned(bytes));
+                    .insert("system_ui".to_owned(), egui::FontData::from_owned(bytes));
                 fonts
                     .families
-                    .entry(egui::FontFamily::Proportional)
+                    .entry(FontFamily::Proportional)
                     .or_default()
-                    .insert(0, "system_font".to_owned());
+                    .push("system_ui".to_owned());
                 fonts
                     .families
-                    .entry(egui::FontFamily::Monospace)
+                    .entry(FontFamily::Name("ui_medium".into()))
                     .or_default()
-                    .push("system_font".to_owned());
+                    .push("system_ui".to_owned());
                 break;
             }
         }
@@ -228,6 +301,15 @@ impl DbProTheme {
         style.text_styles.insert(TextStyle::Monospace, FontId::monospace(13.0));
         ctx.set_style(style);
     }
+
+    pub fn floating_shadow(self) -> Shadow {
+        Shadow {
+            offset: egui::vec2(0.0, 8.0),
+            blur: 24.0,
+            spread: 0.0,
+            color: Color32::from_black_alpha(if self.dark_mode { 40 } else { 20 }),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -243,5 +325,22 @@ mod tests {
         assert!(dark.dark_mode);
         assert_ne!(light.surface_app, dark.surface_app);
         assert_ne!(light.text_primary, dark.text_primary);
+    }
+
+    #[test]
+    fn install_fonts_registers_inter_medium_for_ui_labels() {
+        let ctx = egui::Context::default();
+        super::DbProTheme::install_fonts(&ctx);
+        let _ = ctx.run(Default::default(), |ctx| {
+            egui::CentralPanel::default().show(ctx, |ui| {
+                let galley = ui.painter().layout_no_wrap(
+                    "GPT-4o".to_owned(),
+                    super::DbProTheme::ui_medium_font(12.0),
+                    egui::Color32::WHITE,
+                );
+                assert!(galley.size().x > 8.0);
+                assert!(galley.size().y > 8.0);
+            });
+        });
     }
 }

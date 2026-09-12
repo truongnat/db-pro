@@ -1,10 +1,12 @@
+use crate::components::*;
+use crate::tokens::*;
 use crate::{
     activity_bar_frame, agent_message_frame, badge, card_frame, compact_button, compact_button_with_icon,
     compact_icon_button, compact_icon_button_enabled, danger_button, editor_frame, ghost_button,
-    ghost_button_with_icon, grid_frame, icon_button, icon_text, input, input_full_width, panel_frame, password_input,
-    primary_button, primary_button_with_icon, secondary_button_with_icon, section_label, sidebar_frame, sidebar_item,
-    tab_frame, toolbar_frame, AgentContext, AgentMessage, AgentProvider, AgentRole, DbProTheme, OfflineAgentProvider,
-    TaskBridge, UiCell, UiCommand, UiConnectionDraft, UiConnectionSummary, UiDriver, UiEvent, UiFunctionSummary,
+    ghost_button_with_icon, grid_frame, icon_button, icon_text, input, input_full_width, panel_frame,
+    primary_button_with_icon, secondary_button_with_icon, section_label, sidebar_frame, sidebar_item, tab_frame,
+    toolbar_frame, AgentContext, AgentMessage, AgentProvider, AgentRole, DbProTheme, OfflineAgentProvider, TaskBridge,
+    UiCell, UiCommand, UiConnectionDraft, UiConnectionSummary, UiDriver, UiEvent, UiFunctionSummary,
     UiQueryFolderSummary, UiQueryResult, UiSavedQuerySummary, UiSchemaForeignKey, UiSchemaSummary, UiSslMode,
     UiTableDataFilter, UiTableDataSort, UiTableInfo, UiTableSummary, UiTriggerSummary, UiViewSummary,
 };
@@ -196,7 +198,7 @@ fn filtered_explorer_tables(tables: &[String], query: &str) -> (usize, Vec<Strin
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum WorkspaceTab {
+pub(crate) enum WorkspaceTab {
     Welcome,
     Query,
     Table,
@@ -377,6 +379,7 @@ pub struct DbProApp {
     connection_dialog_open: bool,
     editing_connection_id: Option<String>,
     connection_draft: UiConnectionDraft,
+    connection_show_password: bool,
     connection_error: String,
     connection_test_valid: bool,
     connection_test_draft: Option<UiConnectionDraft>,
@@ -608,7 +611,7 @@ impl DbProApp {
         }
     }
 
-    fn switch_query_document(&mut self, index: usize) {
+    pub(crate) fn switch_query_document(&mut self, index: usize) {
         if index >= self.query_documents.len() || index == self.active_query_document {
             return;
         }
@@ -619,7 +622,7 @@ impl DbProApp {
         self.runtime_message = format!("Opened {}", self.query_documents[index].title);
     }
 
-    fn new_query_document(&mut self) {
+    pub(crate) fn new_query_document(&mut self) {
         self.persist_active_query_document();
         let index = self.query_documents.len() + 1;
         self.query_documents.push(QueryDocument {
@@ -634,7 +637,7 @@ impl DbProApp {
         self.active_tab = WorkspaceTab::Query;
     }
 
-    fn close_query_document(&mut self, index: usize) {
+    pub(crate) fn close_query_document(&mut self, index: usize) {
         if self.query_documents.len() <= 1 || index >= self.query_documents.len() {
             return;
         }
@@ -651,7 +654,65 @@ impl DbProApp {
         self.runtime_message = format!("Closed {}", self.query_documents[self.active_query_document].title);
     }
 
-    fn request_close_workspace_tab(&mut self, tab: WorkspaceTab) {
+    pub(crate) fn duplicate_query_document(&mut self, index: usize) {
+        if index >= self.query_documents.len() {
+            return;
+        }
+        self.persist_active_query_document();
+        let src = &self.query_documents[index];
+        let title = format!("{} (Copy)", src.title);
+        let content = src.content.clone();
+        self.query_documents.push(QueryDocument { title, content });
+        self.active_query_document = self.query_documents.len() - 1;
+        self.query_text = self.query_documents[self.active_query_document].content.clone();
+        self.query_result = None;
+        self.active_tab = WorkspaceTab::Query;
+        self.runtime_message = format!("Duplicated {}", self.query_documents[index].title);
+    }
+
+    pub(crate) fn close_other_query_documents(&mut self, keep_index: usize) {
+        if keep_index >= self.query_documents.len() {
+            return;
+        }
+        self.persist_active_query_document();
+        let kept = self.query_documents[keep_index].clone();
+        self.query_documents = vec![kept];
+        self.active_query_document = 0;
+        self.query_text = self.query_documents[0].content.clone();
+        self.query_result = None;
+        self.runtime_message = "Closed other queries".to_owned();
+    }
+
+    pub(crate) fn close_query_documents_to_right(&mut self, index: usize) {
+        if index >= self.query_documents.len() {
+            return;
+        }
+        self.persist_active_query_document();
+        self.query_documents.truncate(index + 1);
+        if self.active_query_document > index {
+            self.active_query_document = index;
+            self.query_text = self.query_documents[index].content.clone();
+            self.query_result = None;
+        }
+        self.runtime_message = "Closed queries to the right".to_owned();
+    }
+
+    pub(crate) fn close_all_tabs(&mut self) {
+        self.persist_active_query_document();
+        self.query_documents = vec![QueryDocument {
+            title: "Query 1".to_string(),
+            content: String::new(),
+        }];
+        self.active_query_document = 0;
+        self.query_text.clear();
+        self.query_result = None;
+        self.selected_table = None;
+        self.selected_schema_object = None;
+        self.active_tab = WorkspaceTab::Welcome;
+        self.runtime_message = "Closed all tabs".to_owned();
+    }
+
+    pub(crate) fn request_close_workspace_tab(&mut self, tab: WorkspaceTab) {
         match tab {
             WorkspaceTab::Table => {
                 self.selected_table = None;

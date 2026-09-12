@@ -4,7 +4,7 @@ impl DbProApp {
     pub(super) fn draw_welcome(&mut self, ui: &mut egui::Ui) {
         let modifier = Self::primary_modifier_label();
         let mut open_query = false;
-        ui.add_space(28.0);
+        ui.add_space(SPACE_2XL);
         ui.allocate_ui_with_layout(
             egui::vec2(ui.available_width().min(760.0), ui.available_height()),
             Layout::top_down(Align::Min),
@@ -14,53 +14,64 @@ impl DbProApp {
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                         ui.label(
                             RichText::new(format!("{modifier}K command palette"))
-                                .small()
+                                .font(font_caption())
                                 .color(self.theme.text_muted),
                         );
                     });
                 });
-                ui.add_space(12.0);
-                ui.label(RichText::new("A focused workspace for your data").size(25.0).strong());
-                ui.add_space(6.0);
+                ui.add_space(SPACE_MD);
+                ui.label(
+                    RichText::new("A focused workspace for your data")
+                        .font(font_page_title())
+                        .strong()
+                        .color(self.theme.text_primary),
+                );
+                ui.add_space(SPACE_XS);
                 ui.label(
                     RichText::new("Connect a database, open a query, and keep the useful context close.")
+                        .font(font_body())
                         .color(self.theme.text_secondary),
                 );
-                ui.add_space(22.0);
+                ui.add_space(SPACE_XL);
                 egui::Frame {
                     fill: self.theme.surface_elevated,
-                    inner_margin: egui::Margin::same(18.0),
-                    rounding: egui::Rounding::same(9.0),
-                    stroke: egui::Stroke::NONE,
+                    inner_margin: egui::Margin::same(CARD_INNER_PAD),
+                    rounding: egui::Rounding::same(RADIUS_CARD),
+                    stroke: egui::Stroke::new(STROKE_THIN, self.theme.border_subtle),
                     ..Default::default()
                 }
                 .show(ui, |ui| {
                     ui.horizontal(|ui| {
                         egui::Frame {
                             fill: self.theme.accent_soft,
-                            inner_margin: egui::Margin::same(10.0),
-                            rounding: egui::Rounding::same(8.0),
+                            inner_margin: egui::Margin::same(SPACE_SM),
+                            rounding: egui::Rounding::same(RADIUS_MD),
                             stroke: egui::Stroke::NONE,
                             ..Default::default()
                         }
                         .show(ui, |ui| ui.label(icon_text(Icon::Database, "", self.theme.accent)));
                         ui.vertical(|ui| {
-                            ui.label(RichText::new("Start with a connection").strong());
+                            ui.label(
+                                RichText::new("Start with a connection")
+                                    .font(font_subheading())
+                                    .strong()
+                                    .color(self.theme.text_primary),
+                            );
                             ui.label(
                                 RichText::new("Your schema and query tools will appear here.")
-                                    .small()
+                                    .font(font_caption())
                                     .color(self.theme.text_muted),
                             );
                         });
                     });
-                    ui.add_space(14.0);
+                    ui.add_space(SPACE_MD);
                     let prompt_response = input_full_width(
                         ui,
                         &mut self.welcome_prompt,
                         "Paste SQL or describe what you want to inspect…",
                         self.theme,
                     );
-                    ui.add_space(10.0);
+                    ui.add_space(SPACE_SM);
                     ui.horizontal(|ui| {
                         if primary_button_with_icon(ui, Icon::ArrowUp, "Open in Query", self.theme).clicked()
                             || (prompt_response.has_focus() && ui.input(|input| input.key_pressed(egui::Key::Enter)))
@@ -78,7 +89,7 @@ impl DbProApp {
                         }
                     });
                 });
-                ui.add_space(16.0);
+                ui.add_space(SPACE_LG);
                 ui.horizontal(|ui| {
                     if compact_button_with_icon(ui, Icon::FilePlus2, "New query", self.theme).clicked() {
                         self.new_query_document();
@@ -88,7 +99,7 @@ impl DbProApp {
                     }
                     ui.label(
                         RichText::new("or use the activity rail to open Queries and History")
-                            .small()
+                            .font(font_caption())
                             .color(self.theme.text_muted),
                     );
                 });

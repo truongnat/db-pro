@@ -48,23 +48,38 @@ fn draw_codex_tree_row(ui: &mut egui::Ui, theme: &DbProTheme, row: CodexTreeRow<
     let chevron_rect = Rect::from_min_size(pos2(curr_x, rect.min.y), vec2(14.0, row_height));
     let mut chevron_clicked = false;
     if row.is_expandable {
-        let chevron_icon = if row.is_expanded {
-            Icon::ChevronDown
-        } else {
-            Icon::ChevronRight
-        };
-        let chevron_color = if is_hovered {
+        let expand_t = ui.ctx().animate_bool_with_time(
+            response.id.with("chev_anim"),
+            row.is_expanded,
+            crate::components::animation::OVERLAY_DURATION_SECS,
+        );
+        let chevron_color = if is_hovered || row.is_selected {
             theme.text_secondary
         } else {
             theme.text_muted
         };
-        painter.text(
-            chevron_rect.center(),
-            Align2::CENTER_CENTER,
-            char::from(chevron_icon).to_string(),
-            FontId::new(10.5, FontFamily::Name("lucide".into())),
-            chevron_color,
-        );
+        if expand_t < 0.99 {
+            let alpha = ((1.0 - expand_t) * 255.0) as u8;
+            let c = Color32::from_rgba_unmultiplied(chevron_color.r(), chevron_color.g(), chevron_color.b(), alpha);
+            painter.text(
+                chevron_rect.center(),
+                Align2::CENTER_CENTER,
+                char::from(Icon::ChevronRight).to_string(),
+                FontId::new(10.5, FontFamily::Name("lucide".into())),
+                c,
+            );
+        }
+        if expand_t > 0.01 {
+            let alpha = (expand_t * 255.0) as u8;
+            let c = Color32::from_rgba_unmultiplied(chevron_color.r(), chevron_color.g(), chevron_color.b(), alpha);
+            painter.text(
+                chevron_rect.center(),
+                Align2::CENTER_CENTER,
+                char::from(Icon::ChevronDown).to_string(),
+                FontId::new(10.5, FontFamily::Name("lucide".into())),
+                c,
+            );
+        }
     }
     curr_x += 14.0;
 
@@ -172,9 +187,9 @@ fn draw_codex_tree_row(ui: &mut egui::Ui, theme: &DbProTheme, row: CodexTreeRow<
 /// Determines the best semantic Lucide icon and color for a column.
 fn column_icon_and_color(data_type: &str, is_pk: bool, is_fk: bool, theme: &DbProTheme) -> (Icon, Color32) {
     if is_pk {
-        (Icon::Key, Color32::from_rgb(217, 119, 6)) // amber
+        (Icon::Key, theme.warning)
     } else if is_fk {
-        (Icon::Link, Color32::from_rgb(37, 99, 235)) // blue
+        (Icon::Link, theme.info)
     } else {
         let dt = data_type.to_ascii_lowercase();
         if dt.contains("int")
@@ -320,11 +335,11 @@ impl DbProApp {
             let is_open = collapsing.is_open();
 
             let status_dot = if is_connected {
-                Some(Color32::from_rgb(34, 197, 94)) // vibrant emerald green
+                Some(self.theme.success)
             } else if is_connecting {
                 Some(self.theme.accent)
             } else {
-                Some(Color32::from_rgb(156, 163, 175)) // neutral slate gray
+                Some(self.theme.text_tertiary)
             };
 
             let badge_text = if connection.driver.eq_ignore_ascii_case("postgresql") {
@@ -521,7 +536,7 @@ impl DbProApp {
                 is_expanded: is_open,
                 icon: if is_open { Icon::FolderOpen } else { Icon::Folder },
                 icon_color: if is_active_schema {
-                    Color32::from_rgb(217, 119, 6) // warm amber
+                    self.theme.warning
                 } else {
                     self.theme.text_secondary
                 },
@@ -623,7 +638,7 @@ impl DbProApp {
                 is_expandable: true,
                 is_expanded: is_open,
                 icon: Icon::Table2,
-                icon_color: Color32::from_rgb(37, 99, 235), // slate blue
+                icon_color: self.theme.info,
                 label: "Tables",
                 is_selected: false,
                 is_dimmed: total_tables == 0,
@@ -948,7 +963,7 @@ impl DbProApp {
                                     is_expandable: false,
                                     is_expanded: false,
                                     icon: Icon::Link,
-                                    icon_color: Color32::from_rgb(37, 99, 235),
+                                    icon_color: self.theme.info,
                                     label: &fk.name,
                                     is_selected: false,
                                     is_dimmed: false,
@@ -1059,7 +1074,7 @@ impl DbProApp {
                 is_expandable: true,
                 is_expanded: is_open,
                 icon: Icon::Eye,
-                icon_color: Color32::from_rgb(5, 150, 105), // emerald green
+                icon_color: self.theme.success,
                 label: "Views",
                 is_selected: false,
                 is_dimmed: dimmed,
@@ -1115,7 +1130,7 @@ impl DbProApp {
                             icon_color: if is_selected {
                                 self.theme.accent
                             } else {
-                                Color32::from_rgb(5, 150, 105)
+                                self.theme.success
                             },
                             label: &view.name,
                             is_selected,
@@ -1172,7 +1187,7 @@ impl DbProApp {
                 is_expandable: true,
                 is_expanded: is_open,
                 icon: Icon::Code2,
-                icon_color: Color32::from_rgb(124, 58, 237), // purple
+                icon_color: self.theme.accent,
                 label: "Functions",
                 is_selected: false,
                 is_dimmed: dimmed,
@@ -1231,11 +1246,7 @@ impl DbProApp {
                             is_expandable: false,
                             is_expanded: false,
                             icon,
-                            icon_color: if is_selected {
-                                self.theme.accent
-                            } else {
-                                Color32::from_rgb(124, 58, 237)
-                            },
+                            icon_color: self.theme.accent,
                             label: &label,
                             is_selected,
                             is_dimmed: false,
@@ -1291,7 +1302,7 @@ impl DbProApp {
                 is_expandable: true,
                 is_expanded: is_open,
                 icon: Icon::Zap,
-                icon_color: Color32::from_rgb(234, 88, 12), // amber-orange
+                icon_color: self.theme.warning,
                 label: "Triggers",
                 is_selected: false,
                 is_dimmed: dimmed,
@@ -1348,7 +1359,7 @@ impl DbProApp {
                             icon_color: if is_selected {
                                 self.theme.accent
                             } else {
-                                Color32::from_rgb(234, 88, 12)
+                                self.theme.warning
                             },
                             label: &label,
                             is_selected,

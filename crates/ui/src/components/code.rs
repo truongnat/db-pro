@@ -1,5 +1,6 @@
 use crate::DbProTheme;
-use egui::{Color32, FontId, Pos2, Rect, Response, Rounding, Sense, Stroke, Ui, Vec2};
+use egui::{Align2, Color32, FontFamily, FontId, Pos2, Rect, Response, Rounding, Sense, Stroke, Ui, Vec2};
+use lucide_icons::Icon;
 
 /// Clean inline monospace code snippet.
 pub struct InlineCode<'a> {
@@ -112,7 +113,8 @@ impl<'a> CodeBlock<'a> {
                 );
 
                 // Copy button on top right
-                let copy_label = if is_recently_copied { "✓ Copied" } else { "Copy" };
+                let copy_icon = if is_recently_copied { Icon::Check } else { Icon::Copy };
+                let copy_label = if is_recently_copied { "Copied" } else { "Copy" };
                 let copy_color = if is_recently_copied {
                     self.theme.success
                 } else {
@@ -120,24 +122,33 @@ impl<'a> CodeBlock<'a> {
                 };
 
                 let copy_btn_rect = Rect::from_min_size(
-                    Pos2::new(header_rect.right() - 72.0, header_rect.center().y - 11.0),
-                    Vec2::new(60.0, 22.0),
+                    Pos2::new(header_rect.right() - 80.0, header_rect.center().y - 11.0),
+                    Vec2::new(68.0, 22.0),
                 );
                 let copy_resp = ui.interact(copy_btn_rect, block_id.with("copy_btn"), Sense::click());
                 if copy_resp.hovered() {
                     ui.painter()
                         .rect_filled(copy_btn_rect, Rounding::same(4.0), self.theme.surface_hover);
                 }
-                let copy_galley =
-                    ui.painter()
-                        .layout_no_wrap(copy_label.to_owned(), FontId::proportional(11.5), copy_color);
-                ui.painter().galley(
-                    Pos2::new(
-                        copy_btn_rect.center().x - copy_galley.size().x * 0.5,
-                        copy_btn_rect.center().y - copy_galley.size().y * 0.5,
-                    ),
-                    copy_galley,
-                    Color32::PLACEHOLDER,
+
+                // Icon
+                let icon_x = copy_btn_rect.left() + 8.0;
+                ui.painter().text(
+                    Pos2::new(icon_x, copy_btn_rect.center().y),
+                    Align2::LEFT_CENTER,
+                    char::from(copy_icon).to_string(),
+                    FontId::new(11.0, FontFamily::Name("lucide".into())),
+                    copy_color,
+                );
+
+                // Label
+                let label_x = icon_x + 16.0;
+                ui.painter().text(
+                    Pos2::new(label_x, copy_btn_rect.center().y),
+                    Align2::LEFT_CENTER,
+                    copy_label,
+                    FontId::proportional(11.5),
+                    copy_color,
                 );
 
                 if copy_resp.clicked() {

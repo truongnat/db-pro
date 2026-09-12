@@ -1,19 +1,32 @@
+use crate::components::animation;
 use crate::DbProTheme;
 use egui::{Color32, Frame, Margin, Pos2, Rect, RichText, Rounding, Stroke, Ui, Vec2};
 
 pub struct Progress {
     pub(crate) fraction: f32, // 0.0 to 1.0
     pub(crate) height: f32,
+    pub(crate) animated: bool,
+    pub(crate) indeterminate: bool,
     pub(crate) theme: DbProTheme,
 }
-
-pub type ShadcnProgress = Progress;
 
 impl Progress {
     pub fn new(fraction: f32, theme: DbProTheme) -> Self {
         Self {
             fraction: fraction.clamp(0.0, 1.0),
             height: 6.0,
+            animated: true,
+            indeterminate: false,
+            theme,
+        }
+    }
+
+    pub fn indeterminate(theme: DbProTheme) -> Self {
+        Self {
+            fraction: 0.0,
+            height: 6.0,
+            animated: true,
+            indeterminate: true,
             theme,
         }
     }
@@ -23,21 +36,52 @@ impl Progress {
         self
     }
 
-    pub fn show(self, ui: &mut Ui) {
-        let width = ui.available_width();
-        let (rect, _) = ui.allocate_exact_size(Vec2::new(width, self.height), egui::Sense::hover());
+    pub fn animated(mut self, animated: bool) -> Self {
+        self.animated = animated;
+        self
+    }
 
+    pub fn is_indeterminate(mut self, indet: bool) -> Self {
+        self.indeterminate = indet;
+        self
+    }
+
+    /// Paints the bar and returns the fill fraction actually drawn (`0.0` when indeterminate).
+    pub fn show(self, ui: &mut Ui) -> f32 {
+        let width = ui.available_width();
+        let (rect, response) = ui.allocate_exact_size(Vec2::new(width, self.height), egui::Sense::hover());
         let rounding = Rounding::same(self.height * 0.5);
 
-        // Track
         ui.painter().rect_filled(rect, rounding, self.theme.surface_hover);
 
-        // Progress fill
-        if self.fraction > 0.0 {
-            let fill_width = rect.width() * self.fraction;
+        if self.indeterminate {
+            let (tail, head) = animation::indeterminate_beam(ui);
+            let x_start = rect.left() + rect.width() * tail;
+            let x_end = rect.left() + rect.width() * head;
+            let beam_w = (x_end - x_start).max(12.0);
+            let beam_rect = Rect::from_min_size(Pos2::new(x_start, rect.top()), Vec2::new(beam_w, self.height));
+            ui.painter().rect_filled(beam_rect, rounding, self.theme.accent);
+            return 0.0;
+        }
+
+        let target_fraction = self.fraction;
+        let display_fraction = if self.animated {
+            ui.ctx().animate_value_with_time(
+                response.id.with("progress_fraction_smooth"),
+                target_fraction,
+                animation::PROGRESS_LERP_SECS,
+            )
+        } else {
+            target_fraction
+        };
+
+        if display_fraction > 0.001 {
+            let fill_width = (rect.width() * display_fraction).min(rect.width());
             let fill_rect = Rect::from_min_size(rect.left_top(), Vec2::new(fill_width, self.height));
             ui.painter().rect_filled(fill_rect, rounding, self.theme.accent);
         }
+
+        display_fraction
     }
 }
 
@@ -46,8 +90,6 @@ pub struct Spinner {
     color: Option<Color32>,
     theme: DbProTheme,
 }
-
-pub type ShadcnSpinner = Spinner;
 
 impl Spinner {
     pub fn new(theme: DbProTheme) -> Self {
@@ -70,38 +112,27 @@ impl Spinner {
 
     pub fn show(self, ui: &mut Ui) {
         let (rect, _) = ui.allocate_exact_size(Vec2::splat(self.size), egui::Sense::hover());
-        ui.ctx().request_repaint();
-
-        let time = ui.input(|i| i.time);
         let center = rect.center();
         let radius = (self.size - 3.0) * 0.5;
         let color = self.color.unwrap_or(self.theme.accent);
 
-        // Draw subtle track circle
-        ui.painter()
-            .circle_stroke(center, radius, Stroke::new(2.0, self.theme.border_subtle));
-
-        // Draw rotating arc
-        let angle_start = (time * 7.0) as f32;
-        let sweep = std::f32::consts::PI * 1.3;
-        let n_points = 24;
-        let mut arc_points = Vec::with_capacity(n_points);
-        for i in 0..n_points {
-            let t = i as f32 / (n_points - 1) as f32;
-            let a = angle_start + t * sweep;
-            arc_points.push(Pos2::new(center.x + a.cos() * radius, center.y + a.sin() * radius));
-        }
-
-        ui.painter()
-            .add(egui::epaint::PathShape::line(arc_points, Stroke::new(2.0, color)));
+        animation::paint_spinner(
+            ui.painter(),
+            center,
+            radius,
+            2.0,
+            color,
+            self.theme.border_subtle,
+            animation::spinner_angle(ui),
+        );
     }
 }
 
 pub fn kbd_badge(ui: &mut Ui, shortcut: &str, theme: DbProTheme) {
     Frame {
-        fill: theme.surface_panel,
+        fill: theme.surface_elevated,
         stroke: Stroke::new(1.0, theme.border_default),
-        inner_margin: Margin::symmetric(5.0, 2.0),
+        inner_margin: Margin::symmetric(6.0, 2.5),
         rounding: Rounding::same(4.0),
         shadow: egui::epaint::Shadow {
             offset: egui::vec2(0.0, 1.0),
@@ -114,10 +145,21 @@ pub fn kbd_badge(ui: &mut Ui, shortcut: &str, theme: DbProTheme) {
     .show(ui, |ui| {
         ui.label(
             RichText::new(shortcut)
-                .size(11.0)
-                .monospace()
-                .color(theme.text_secondary),
+                .font(crate::DbProTheme::ui_medium_font(11.0))
+                .color(theme.text_primary),
         );
+    });
+}
+
+pub fn kbd_combo(ui: &mut Ui, keys: &[&str], theme: DbProTheme) {
+    ui.horizontal(|ui| {
+        ui.spacing_mut().item_spacing = Vec2::new(3.0, 0.0);
+        for (i, key) in keys.iter().enumerate() {
+            if i > 0 {
+                ui.label(RichText::new("+").size(10.0).color(theme.text_muted));
+            }
+            kbd_badge(ui, key, theme);
+        }
     });
 }
 

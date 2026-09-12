@@ -112,20 +112,21 @@ impl DbProApp {
                     }
                     if !self.staged_changes.is_empty() {
                         ui.separator();
-                        ui.label(
-                            RichText::new(format!("{} pending changes", self.staged_changes.len()))
-                                .small()
-                                .color(self.theme.warning),
-                        );
-                        if compact_button_with_icon(ui, Icon::Undo2, "Discard", self.theme).clicked() {
-                            self.discard_staged_changes();
-                        }
-                        if compact_button_with_icon(ui, Icon::Check, "Apply", self.theme).clicked() {
-                            self.apply_staged_changes();
+                        let tx_bar = TransactionBar::new(true, self.staged_changes.len(), self.theme);
+                        if let Some(action) = tx_bar.show(ui) {
+                            match action {
+                                TransactionAction::Rollback => self.discard_staged_changes(),
+                                TransactionAction::Commit => self.apply_staged_changes(),
+                                _ => {}
+                            }
                         }
                     }
                 } else if self.connected {
-                    ui.label(RichText::new("Read-only connection").small().color(self.theme.warning));
+                    ui.label(
+                        RichText::new("Read-only connection")
+                            .font(font_caption())
+                            .color(self.theme.warning),
+                    );
                 }
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                     if compact_icon_button_enabled(ui, Icon::ChevronRight, has_next, self.theme)
@@ -553,39 +554,27 @@ impl DbProApp {
             });
         });
         let impact = ddl_impact_summary(&ddl, table_name);
-        self.table_ddl = Some(ddl);
+        self.table_ddl = Some(ddl.clone());
         if request_execution {
             self.ddl_execute_confirmation = true;
         }
         if self.ddl_execute_confirmation {
-            let mut execute = false;
-            let mut cancel = false;
-            card_frame(self.theme).show(ui, |ui| {
-                ui.horizontal_wrapped(|ui| {
-                    ui.label(icon_text(
-                        Icon::TriangleAlert,
-                        "Review DDL before applying",
-                        self.theme.warning,
-                    ));
-                    ui.label(
-                        RichText::new("This changes the connected database and refreshes the Explorer.")
-                            .small()
-                            .color(self.theme.text_secondary),
-                    );
-                    ui.label(RichText::new(impact).small().color(self.theme.warning));
-                    if primary_button_with_icon(ui, Icon::Check, "Execute", self.theme).clicked() {
-                        execute = true;
+            let risk = if impact.contains("destructive") || impact.contains("drop") {
+                RiskLevel::Destructive
+            } else {
+                RiskLevel::Medium
+            };
+            let approval = ExecutionApproval::new("Review DDL Migration", &impact, &ddl, risk, self.theme);
+            if let Some(action) = approval.show(ui) {
+                match action {
+                    ExecutionApprovalAction::Run => {
+                        self.submit_ddl();
                     }
-                    if ghost_button(ui, "Cancel", self.theme).clicked() {
-                        cancel = true;
+                    ExecutionApprovalAction::Cancel => {
+                        self.ddl_execute_confirmation = false;
                     }
-                });
-            });
-            if execute {
-                self.submit_ddl();
-            }
-            if cancel {
-                self.ddl_execute_confirmation = false;
+                    _ => {}
+                }
             }
         }
     }

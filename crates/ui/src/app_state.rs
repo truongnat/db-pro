@@ -211,6 +211,7 @@ impl Default for DbProApp {
             connection_dialog_open: false,
             editing_connection_id: None,
             connection_draft: UiConnectionDraft::default(),
+            connection_show_password: false,
             connection_error: String::new(),
             connection_test_valid: false,
             connection_test_draft: None,

@@ -1,5 +1,6 @@
+use crate::components::button::{Button, ButtonSize, ButtonVariant};
 use crate::DbProTheme;
-use egui::{Button, FontFamily, FontId, Frame, Margin, Response, RichText, Rounding, Stroke, Ui, Vec2};
+use egui::{FontFamily, FontId, Frame, Margin, Response, RichText, Rounding, Stroke, Ui, Vec2};
 use lucide_icons::Icon;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -19,8 +20,6 @@ pub struct Alert<'a> {
     pub(crate) dismissable: bool,
     pub(crate) theme: DbProTheme,
 }
-
-pub type ShadcnAlert<'a> = Alert<'a>;
 
 impl<'a> Alert<'a> {
     pub fn new(title: &'a str, description: &'a str, theme: DbProTheme) -> Self {
@@ -58,26 +57,26 @@ impl<'a> Alert<'a> {
                 Icon::Terminal,
             ),
             AlertVariant::Info => (
-                self.theme.info.linear_multiply(0.08),
-                self.theme.info.linear_multiply(0.3),
+                self.theme.info.linear_multiply(0.12),
+                self.theme.info.linear_multiply(0.40),
                 self.theme.info,
                 Icon::Info,
             ),
             AlertVariant::Success => (
-                self.theme.success.linear_multiply(0.08),
-                self.theme.success.linear_multiply(0.3),
+                self.theme.success.linear_multiply(0.12),
+                self.theme.success.linear_multiply(0.40),
                 self.theme.success,
                 Icon::CheckCircle2,
             ),
             AlertVariant::Warning => (
-                self.theme.warning.linear_multiply(0.08),
-                self.theme.warning.linear_multiply(0.3),
+                self.theme.warning.linear_multiply(0.12),
+                self.theme.warning.linear_multiply(0.40),
                 self.theme.warning,
                 Icon::AlertTriangle,
             ),
             AlertVariant::Destructive => (
-                self.theme.danger.linear_multiply(0.08),
-                self.theme.danger.linear_multiply(0.3),
+                self.theme.danger.linear_multiply(0.12),
+                self.theme.danger.linear_multiply(0.40),
                 self.theme.danger,
                 Icon::AlertCircle,
             ),
@@ -89,7 +88,7 @@ impl<'a> Alert<'a> {
         Frame {
             fill,
             stroke: Stroke::new(1.0, border_color),
-            inner_margin: Margin::same(12.0),
+            inner_margin: Margin::symmetric(14.0, 12.0),
             rounding: Rounding::same(8.0),
             ..Default::default()
         }
@@ -97,11 +96,12 @@ impl<'a> Alert<'a> {
             ui.horizontal_top(|ui| {
                 ui.label(
                     RichText::new(char::from(icon).to_string())
-                        .font(FontId::new(16.0, FontFamily::Name("lucide".into())))
+                        .font(FontId::new(15.0, FontFamily::Name("lucide".into())))
                         .color(icon_color),
                 );
+                ui.add_space(8.0);
                 let text_avail = if self.dismissable {
-                    (ui.available_width() - 28.0).max(100.0)
+                    (ui.available_width() - 36.0).max(120.0)
                 } else {
                     ui.available_width()
                 };
@@ -113,17 +113,16 @@ impl<'a> Alert<'a> {
                         ui.add(
                             egui::Label::new(
                                 RichText::new(self.title)
-                                    .size(13.5)
-                                    .strong()
+                                    .font(DbProTheme::ui_medium_font(13.0))
                                     .color(self.theme.text_primary),
                             )
                             .wrap(),
                         );
-                        ui.add_space(2.0);
+                        ui.add_space(3.0);
                         ui.add(
                             egui::Label::new(
                                 RichText::new(self.description)
-                                    .size(12.0)
+                                    .size(12.5)
                                     .color(self.theme.text_secondary),
                             )
                             .wrap(),
@@ -133,14 +132,12 @@ impl<'a> Alert<'a> {
 
                 if self.dismissable {
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
-                        let resp = ui.add(
-                            Button::new(
-                                RichText::new(char::from(Icon::X).to_string())
-                                    .font(FontId::new(13.0, FontFamily::Name("lucide".into())))
-                                    .color(self.theme.text_muted),
-                            )
-                            .frame(false),
-                        );
+                        let resp = Button::new(self.theme)
+                            .icon(Icon::X)
+                            .size(ButtonSize::Icon)
+                            .variant(ButtonVariant::Secondary)
+                            .access_label("Dismiss")
+                            .show(ui);
                         dismiss_response = Some(resp);
                     });
                 }

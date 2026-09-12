@@ -6,8 +6,6 @@ pub struct Card {
     theme: DbProTheme,
 }
 
-pub type ShadcnCard = Card;
-
 impl Card {
     pub fn new(theme: DbProTheme) -> Self {
         Self { theme }
@@ -76,46 +74,57 @@ impl<'a> MetricCard<'a> {
 
     pub fn show(self, ui: &mut Ui) {
         Card::new(self.theme).show(ui, |ui| {
+            ui.set_min_height(96.0);
             ui.horizontal(|ui| {
                 ui.label(
                     RichText::new(self.title)
-                        .size(12.5)
-                        .strong()
-                        .color(self.theme.text_muted),
+                        .font(crate::DbProTheme::ui_medium_font(12.5))
+                        .color(self.theme.text_tertiary),
                 );
                 if let Some(icon) = self.icon {
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        ui.label(
-                            RichText::new(char::from(icon).to_string())
-                                .font(FontId::new(14.0, FontFamily::Name("lucide".into())))
-                                .color(self.theme.text_muted),
+                        let (rect, _) = ui.allocate_exact_size(egui::vec2(28.0, 28.0), egui::Sense::hover());
+                        ui.painter()
+                            .rect_filled(rect, Rounding::same(8.0), self.theme.surface_2);
+                        ui.painter().text(
+                            rect.center(),
+                            egui::Align2::CENTER_CENTER,
+                            char::from(icon).to_string(),
+                            FontId::new(14.0, FontFamily::Name("lucide".into())),
+                            self.theme.text_secondary,
                         );
                     });
                 }
             });
 
-            ui.add_space(8.0);
+            ui.add_space(12.0);
             ui.label(
                 RichText::new(self.value)
-                    .size(22.0)
-                    .strong()
+                    .font(crate::DbProTheme::ui_medium_font(24.0))
                     .color(self.theme.text_primary),
             );
 
             if let Some((change_text, is_positive)) = self.change {
-                ui.add_space(4.0);
+                ui.add_space(8.0);
                 let color = if is_positive {
                     self.theme.success
                 } else {
                     self.theme.danger
                 };
-                let arrow = if is_positive { "↑" } else { "↓" };
-                ui.label(
-                    RichText::new(format!("{arrow} {change_text}"))
-                        .size(11.5)
-                        .strong()
-                        .color(color),
-                );
+                let icon = if is_positive {
+                    Icon::TrendingUp
+                } else {
+                    Icon::TrendingDown
+                };
+                ui.horizontal(|ui| {
+                    ui.spacing_mut().item_spacing.x = 0.0;
+                    ui.label(
+                        RichText::new(char::from(icon).to_string())
+                            .font(FontId::new(14.0, FontFamily::Name("lucide".into())))
+                            .color(color),
+                    );
+                    ui.label(RichText::new(format!(" {}", change_text)).size(12.0).color(color));
+                });
             }
         });
     }
