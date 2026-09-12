@@ -89,7 +89,16 @@ pub fn classify_statement_safety(sql: &str) -> Option<StatementSafety> {
         "CREATE" | "ALTER" => Some(StatementSafety::Ddl),
         "DROP" => Some(StatementSafety::Destructive),
         "TRUNCATE" => Some(StatementSafety::Destructive),
+        "MERGE" => classify_merge_safety(trimmed),
         _ => Some(StatementSafety::Write),
+    }
+}
+
+fn classify_merge_safety(sql: &str) -> Option<StatementSafety> {
+    if contains_sql_keyword(sql, "DELETE") {
+        Some(StatementSafety::Destructive)
+    } else {
+        Some(StatementSafety::Write)
     }
 }
 
@@ -626,6 +635,28 @@ mod tests {
         assert_eq!(
             classify_statement_safety("TRUNCATE TABLE t"),
             Some(StatementSafety::Destructive)
+        );
+    }
+
+    #[test]
+    fn classify_merge_delete_as_destructive_but_update_as_write() {
+        assert_eq!(
+            classify_statement_safety(
+                "MERGE INTO target USING source ON target.id = source.id WHEN MATCHED THEN DELETE"
+            ),
+            Some(StatementSafety::Destructive)
+        );
+        assert_eq!(
+            classify_statement_safety(
+                "MERGE INTO target USING source ON target.id = source.id WHEN MATCHED THEN UPDATE SET value = source.value"
+            ),
+            Some(StatementSafety::Write)
+        );
+        assert_eq!(
+            classify_statement_safety(
+                "MERGE INTO target USING (SELECT 'DELETE' AS action) source ON target.id = 1 WHEN MATCHED THEN UPDATE SET value = 1"
+            ),
+            Some(StatementSafety::Write)
         );
     }
 

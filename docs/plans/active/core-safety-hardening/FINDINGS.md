@@ -626,3 +626,17 @@ Decision: tokenize CTE structure while skipping comments, quoted identifiers,
 string literals, and dollar-quoted bodies; inspect mutation and predicate
 keywords at their actual parenthesis depth, with conservative destructive
 classification when the CTE structure cannot be parsed.
+
+## P1 — MERGE DELETE actions bypass destructive policy
+
+The safety classifier had no explicit `MERGE` branch, so every merge fell
+through to generic `Write`. PostgreSQL and SQL Server permit a `WHEN MATCHED
+THEN DELETE` action inside a merge, which is destructive even when the outer
+statement does not contain a standalone DELETE command.
+
+Impact: a connection configured to allow writes but forbid destructive
+operations could still execute a merge that deletes matched rows.
+
+Decision: classify `MERGE` as `Destructive` when a real DELETE keyword appears
+outside literals, identifiers, comments, and dollar-quoted bodies; retain
+`Write` for merge statements without a DELETE action.

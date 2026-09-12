@@ -119,6 +119,8 @@ without changing the native UI or adding product features.
 51. CTE safety classification requires whitespace after mutation keywords and
     scans only single-quoted strings, so comment-separated mutations can bypass
     the read-only/destructive policy.
+52. PostgreSQL/SQL Server `MERGE` statements fall through to generic `Write`,
+    so a `WHEN MATCHED THEN DELETE` action bypasses destructive-operation policy.
 
 ## Acceptance criteria
 
@@ -198,6 +200,8 @@ without changing the native UI or adding product features.
   propagating row decode/column errors as core errors.
 - CTE safety classification ignores comments, quoted tokens, dollar-quoted
   bodies, and nested parentheses while detecting data-modifying CTEs.
+- `MERGE` with a DELETE action is classified as destructive while non-delete
+  merge actions remain ordinary writes.
 - Create, update, and both connection-test paths share the same connection
   configuration validation boundary.
 - PostgreSQL and SQLite unit/integration coverage is updated independently where the
