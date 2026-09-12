@@ -114,6 +114,8 @@
 - [x] Add SSH Test Tunnel timeout regression coverage.
 - [x] Validate connector result shapes in export, table-data, and data-diff services.
 - [x] Add malformed result regression coverage for core consumers.
+- [x] Preserve schema/object identity structurally in schema diff.
+- [x] Add dotted-identifier collision regression coverage.
 - [x] Run formatting, check, clippy, targeted tests, and workspace tests.
 - [x] Self-review changed files and confirm no UI/native files changed.
 - [x] Record PostgreSQL live fixture evidence; SSH-tunnel and native UI runtime evidence remain explicitly pending.

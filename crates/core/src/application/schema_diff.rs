@@ -19,9 +19,14 @@ impl SchemaService {
     }
 }
 
-fn qualify_key(schema: &str, name: &str) -> String {
+type QualifiedName = (String, String);
+
+fn qualify_key(schema: &str, name: &str) -> QualifiedName {
+    (schema.to_owned(), name.to_owned())
+}
+
+fn display_qualified_name((schema, name): &QualifiedName) -> String {
     if schema.is_empty() {
-        // Keep the separator so split_qualified can round-trip dotted names.
         format!(".{name}")
     } else {
         format!("{schema}.{name}")
@@ -29,17 +34,25 @@ fn qualify_key(schema: &str, name: &str) -> String {
 }
 
 fn compare_introspect_results(source: &IntrospectResult, target: &IntrospectResult) -> SchemaDiff {
-    let source_tables: BTreeSet<String> = source.tables.iter().map(|t| qualify_key(&t.schema, &t.name)).collect();
-    let target_tables: BTreeSet<String> = target.tables.iter().map(|t| qualify_key(&t.schema, &t.name)).collect();
+    let source_tables: BTreeSet<QualifiedName> =
+        source.tables.iter().map(|t| qualify_key(&t.schema, &t.name)).collect();
+    let target_tables: BTreeSet<QualifiedName> =
+        target.tables.iter().map(|t| qualify_key(&t.schema, &t.name)).collect();
 
-    let tables_only_in_source: Vec<String> = source_tables.difference(&target_tables).cloned().collect();
-    let tables_only_in_target: Vec<String> = target_tables.difference(&source_tables).cloned().collect();
+    let tables_only_in_source: Vec<String> = source_tables
+        .difference(&target_tables)
+        .map(display_qualified_name)
+        .collect();
+    let tables_only_in_target: Vec<String> = target_tables
+        .difference(&source_tables)
+        .map(display_qualified_name)
+        .collect();
 
-    let common_tables: Vec<&String> = source_tables.intersection(&target_tables).collect();
+    let common_tables: Vec<&QualifiedName> = source_tables.intersection(&target_tables).collect();
 
     let mut column_diffs = Vec::new();
     for qualified in common_tables {
-        let (schema, table) = split_qualified(qualified);
+        let (schema, table) = (qualified.0.as_str(), qualified.1.as_str());
 
         let source_cols: BTreeSet<String> = source
             .columns
@@ -93,11 +106,19 @@ fn compare_introspect_results(source: &IntrospectResult, target: &IntrospectResu
         }
     }
 
-    let source_indexes: BTreeSet<String> = source.indexes.iter().map(|i| qualify_key(&i.schema, &i.name)).collect();
-    let target_indexes: BTreeSet<String> = target.indexes.iter().map(|i| qualify_key(&i.schema, &i.name)).collect();
+    let source_indexes: BTreeSet<QualifiedName> =
+        source.indexes.iter().map(|i| qualify_key(&i.schema, &i.name)).collect();
+    let target_indexes: BTreeSet<QualifiedName> =
+        target.indexes.iter().map(|i| qualify_key(&i.schema, &i.name)).collect();
 
-    let indexes_only_in_source: Vec<String> = source_indexes.difference(&target_indexes).cloned().collect();
-    let indexes_only_in_target: Vec<String> = target_indexes.difference(&source_indexes).cloned().collect();
+    let indexes_only_in_source: Vec<String> = source_indexes
+        .difference(&target_indexes)
+        .map(display_qualified_name)
+        .collect();
+    let indexes_only_in_target: Vec<String> = target_indexes
+        .difference(&source_indexes)
+        .map(display_qualified_name)
+        .collect();
 
     SchemaDiff {
         tables_only_in_source,
@@ -108,22 +129,16 @@ fn compare_introspect_results(source: &IntrospectResult, target: &IntrospectResu
     }
 }
 
-fn split_qualified(qualified: &str) -> (&str, &str) {
-    match qualified.split_once('.') {
-        Some((schema, table)) => (schema, table),
-        None => ("", qualified),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::domain::schema::{Column, Index, IndexOrigin, Table};
 
     #[test]
-    fn empty_schema_dotted_table_name_round_trips() {
-        let qualified = qualify_key("", "my.table");
-        assert_eq!(split_qualified(&qualified), ("", "my.table"));
+    fn qualified_name_preserves_dotted_schema_and_table_names() {
+        let qualified = qualify_key("tenant.prod", "orders.archive");
+        assert_eq!(qualified, ("tenant.prod".into(), "orders.archive".into()));
+        assert_eq!(display_qualified_name(&qualified), "tenant.prod.orders.archive");
     }
 
     #[test]
@@ -152,6 +167,27 @@ mod tests {
         assert_eq!(diff.column_diffs[0].schema, "");
         assert_eq!(diff.column_diffs[0].table, "my.table");
         assert_eq!(diff.column_diffs[0].type_mismatches[0].column, "id");
+    }
+
+    #[test]
+    fn dotted_schema_names_do_not_collide_with_dotted_table_names() {
+        let mut source = IntrospectResult::empty();
+        source.tables.push(Table {
+            name: "orders".into(),
+            schema: "tenant.prod".into(),
+            row_count: None,
+        });
+
+        let mut target = IntrospectResult::empty();
+        target.tables.push(Table {
+            name: "prod.orders".into(),
+            schema: "tenant".into(),
+            row_count: None,
+        });
+
+        let diff = compare_introspect_results(&source, &target);
+        assert_eq!(diff.tables_only_in_source, vec!["tenant.prod.orders"]);
+        assert_eq!(diff.tables_only_in_target, vec!["tenant.prod.orders"]);
     }
 
     #[test]

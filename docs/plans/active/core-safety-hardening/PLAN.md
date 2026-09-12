@@ -138,6 +138,8 @@ without changing the native UI or adding product features.
     external process forever after connection setup.
 60. Export, table-data, and data-diff services consume connector query results
     without applying the core row/column shape invariant.
+61. Schema diff encodes schema/object identity into a dotted string, so valid
+    identifiers containing dots can be split incorrectly or collide.
 
 ## Acceptance criteria
 
@@ -240,6 +242,8 @@ without changing the native UI or adding product features.
   when the deadline expires.
 - Export, table-data, and data-diff application services validate connector
   `QueryResult` payloads before consuming them.
+- Schema diff compares schema/object identity structurally, without collisions
+  from dots inside either identifier.
 - Create, update, and both connection-test paths share the same connection
   configuration validation boundary.
 - PostgreSQL and SQLite unit/integration coverage is updated independently where the

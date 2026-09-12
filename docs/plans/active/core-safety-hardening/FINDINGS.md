@@ -746,3 +746,18 @@ downstream state instead of one explicit core error.
 
 Decision: validate every connector `QueryResult` at these application-service
 boundaries before export, pagination, or diff processing.
+
+## P2 — Schema diff flattens dotted identifiers into ambiguous keys
+
+`SchemaDiff` built internal set keys by concatenating `schema` and object name
+with a dot, then recovered the pair with `split_once('.')`. PostgreSQL and
+SQLite both permit quoted identifiers containing dots, so a schema named
+`tenant.prod` with table `orders` collides with schema `tenant` and table
+`prod.orders`; a dotted schema can also be split into the wrong pair for
+column comparison.
+
+Impact: schema diff can omit real table changes or attach column/type changes to
+the wrong object.
+
+Decision: keep schema and object names as a typed tuple for comparison and only
+flatten them at the final display boundary.
