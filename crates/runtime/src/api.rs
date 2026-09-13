@@ -24,6 +24,7 @@ pub struct DbErrorDto {
     pub message: String,
     pub message_id: String,
     pub retryable: bool,
+    pub position: Option<usize>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -40,6 +41,7 @@ impl From<DbError> for DbErrorDto {
             message: error.to_string(),
             message_id: error.message_id().to_owned(),
             retryable: error.retryable(),
+            position: error.position(),
         }
     }
 }
@@ -225,6 +227,7 @@ impl ConnectionApi {
             message: format!("invalid connection id: {error}"),
             message_id: "error.validation".to_owned(),
             retryable: false,
+            position: None,
         })?;
         self.service
             .connect(&connection_id)
@@ -239,6 +242,7 @@ impl ConnectionApi {
             message: format!("invalid connection id: {error}"),
             message_id: "error.validation".to_owned(),
             retryable: false,
+            position: None,
         })?;
         self.service.disconnect(&connection_id).await.map_err(Into::into)
     }
@@ -275,6 +279,7 @@ impl QueryApi {
             message: format!("invalid connection id: {error}"),
             message_id: "error.validation".to_owned(),
             retryable: false,
+            position: None,
         })?;
         self.service
             .execute(&connection_id, sql, &[] as &[QueryParam], database, schema)
@@ -476,6 +481,7 @@ impl SchemaApi {
             message: format!("invalid connection id: {error}"),
             message_id: "error.validation".to_owned(),
             retryable: false,
+            position: None,
         })?;
         self.service
             .introspect(&connection_id, force_refresh)
@@ -749,6 +755,7 @@ fn parse_connection_id(value: &str) -> Result<db_pro_core::domain::connection::C
         message: format!("invalid connection id: {error}"),
         message_id: "error.validation".to_owned(),
         retryable: false,
+        position: None,
     })
 }
 
@@ -950,6 +957,7 @@ impl PostgresApi {
                 message: "connection is read-only — schema rename is not allowed".to_owned(),
                 message_id: "error.safety.readonly".to_owned(),
                 retryable: false,
+                position: None,
             });
         }
 
@@ -978,6 +986,7 @@ impl PostgresApi {
             message: "connection is not active".to_owned(),
             message_id: "error.connection.failed".to_owned(),
             retryable: false,
+            position: None,
         })?;
         self.connector
             .inner_postgres_handle(&composite_handle)

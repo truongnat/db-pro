@@ -13,6 +13,7 @@ pub struct Diagnostic {
     pub severity: DiagnosticSeverity,
     pub message: String,
     pub source: DiagnosticSource,
+    pub code: Option<String>,
 }
 
 impl Diagnostic {
@@ -22,6 +23,7 @@ impl Diagnostic {
             severity: DiagnosticSeverity::Error,
             message: message.into(),
             source: DiagnosticSource::Parser,
+            code: None,
         }
     }
 
@@ -31,6 +33,7 @@ impl Diagnostic {
             severity: DiagnosticSeverity::Warning,
             message: message.into(),
             source: DiagnosticSource::Parser,
+            code: None,
         }
     }
 
@@ -40,6 +43,7 @@ impl Diagnostic {
             severity: DiagnosticSeverity::Warning,
             message: message.into(),
             source: DiagnosticSource::Delimiter,
+            code: None,
         }
     }
 
@@ -49,6 +53,17 @@ impl Diagnostic {
             severity: DiagnosticSeverity::Error,
             message: message.into(),
             source: DiagnosticSource::Database,
+            code: None,
+        }
+    }
+
+    pub fn database_with_code(range: (usize, usize), message: impl Into<String>, code: impl Into<String>) -> Self {
+        Self {
+            range,
+            severity: DiagnosticSeverity::Error,
+            message: message.into(),
+            source: DiagnosticSource::Database,
+            code: Some(code.into()),
         }
     }
 }

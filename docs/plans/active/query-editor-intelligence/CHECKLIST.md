@@ -24,6 +24,9 @@
 - [x] Deduplicate structured diagnostics with matching overlapping ranges.
 - [x] Preserve database diagnostic source/range separately from parser diagnostics.
 - [x] Map PostgreSQL character positions to UTF-8-safe document byte ranges.
+- [x] Carry structured PostgreSQL error positions through infrastructure, runtime, and UI without parsing message text.
+- [x] Cover selection-relative, current-statement, whole-range, UTF-8, and out-of-range diagnostic mapping.
+- [x] Clear execution diagnostics when a query is cancelled.
 - [x] Retain per-document executing/last-executed ranges and clear stale execution diagnostics on edit.
 - [x] Use dialect-aware aggregate registries for PostgreSQL and SQLite GROUP BY completion.
 - [x] Keep Query Workspace output tabs isolated per document.

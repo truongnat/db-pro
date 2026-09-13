@@ -73,7 +73,13 @@ impl DbProApp {
             UiEvent::QueryCompleted { request_id, result } => self.on_query_completed(request_id, result),
             UiEvent::ExplainCompleted { request_id, plan } => self.on_explain_completed(request_id, plan),
             UiEvent::QueryCancelled { request_id } => self.on_query_cancelled(request_id),
-            UiEvent::QueryFailed { request_id, message } => self.on_query_failed(request_id, message),
+            UiEvent::QueryFailed { request_id, message } => self.on_query_failed(request_id, message, None, None),
+            UiEvent::QueryFailedDetailed {
+                request_id,
+                code,
+                message,
+                position,
+            } => self.on_query_failed(request_id, message, position, Some(code)),
             UiEvent::SqlPredictionReady {
                 request_id,
                 document_id,
@@ -589,6 +595,7 @@ impl DbProApp {
                 doc.executing_range = None;
                 doc.executing_sql = None;
                 doc.executing_version = None;
+                doc.execution_diagnostic = None;
                 doc.query_messages.push("Query cancelled".to_owned());
             }
         }
@@ -668,7 +675,13 @@ impl DbProApp {
     }
 
     /// Routes a failure to whichever request slot is waiting on it.
-    fn on_query_failed(&mut self, request_id: RequestId, message: String) {
+    fn on_query_failed(
+        &mut self,
+        request_id: RequestId,
+        message: String,
+        position: Option<usize>,
+        code: Option<String>,
+    ) {
         if self.pending_connection_request == Some(request_id) {
             self.pending_connection_request = None;
             let conn_id = self
@@ -742,8 +755,15 @@ impl DbProApp {
                     doc.execution_state = QueryExecutionState::Failed;
                     doc.execution_diagnostic = if execution_version == Some(doc.buffer.version()) {
                         execution_sql.as_deref().and_then(|sql| {
-                            execution_range
-                                .and_then(|range| super::query_view::database_error_diagnostic(&message, sql, range))
+                            execution_range.and_then(|range| {
+                                super::query_view::database_error_diagnostic(
+                                    &message,
+                                    sql,
+                                    range,
+                                    position,
+                                    code.as_deref(),
+                                )
+                            })
                         })
                     } else {
                         None

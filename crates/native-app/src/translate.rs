@@ -852,6 +852,12 @@ pub(crate) fn translate_event(event: RuntimeEvent) -> Option<UiEvent> {
             total_rows,
         } => translate_table_data_loaded(request_id, result, total_rows),
         RuntimeEvent::QueryCancelled { request_id } => translate_query_cancelled(request_id),
+        RuntimeEvent::QueryFailedDetailed { request_id, error } => Some(UiEvent::QueryFailedDetailed {
+            request_id: ui_request_id(request_id),
+            code: error.code,
+            message: error.message,
+            position: error.position,
+        }),
         RuntimeEvent::AgentCompleted {
             request_id,
             provider,

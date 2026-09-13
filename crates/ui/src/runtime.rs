@@ -595,6 +595,12 @@ pub enum UiEvent {
         request_id: RequestId,
         message: String,
     },
+    QueryFailedDetailed {
+        request_id: RequestId,
+        code: String,
+        message: String,
+        position: Option<usize>,
+    },
     SqlPredictionReady {
         request_id: RequestId,
         document_id: String,

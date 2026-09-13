@@ -71,3 +71,33 @@ fn prediction_event_keeps_document_routing_metadata() {
         _ => panic!("unexpected UI event"),
     }
 }
+
+#[test]
+fn structured_query_failure_event_keeps_database_position_and_code() {
+    let event = RuntimeEvent::QueryFailedDetailed {
+        request_id: RuntimeRequestId(11),
+        error: db_pro_runtime::DbErrorDto {
+            code: "QUERY_SYNTAX_ERROR".to_owned(),
+            message: "syntax error".to_owned(),
+            message_id: "error.query.syntax".to_owned(),
+            retryable: false,
+            position: Some(17),
+        },
+    };
+    let translated = translate_event(event).expect("query failure must reach UI");
+
+    match translated {
+        UiEvent::QueryFailedDetailed {
+            request_id,
+            code,
+            message,
+            position,
+        } => {
+            assert_eq!(request_id, RequestId(11));
+            assert_eq!(code, "QUERY_SYNTAX_ERROR");
+            assert_eq!(message, "syntax error");
+            assert_eq!(position, Some(17));
+        }
+        _ => panic!("unexpected UI event"),
+    }
+}

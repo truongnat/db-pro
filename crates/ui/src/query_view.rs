@@ -1341,7 +1341,9 @@ fn deduplicate_diagnostics(diagnostics: Vec<Diagnostic>) -> Vec<Diagnostic> {
     let mut unique = Vec::with_capacity(diagnostics.len());
     for diagnostic in diagnostics {
         let duplicate = unique.iter().any(|existing: &Diagnostic| {
-            existing.message == diagnostic.message && ranges_overlap(existing.range, diagnostic.range)
+            existing.source == diagnostic.source
+                && existing.message == diagnostic.message
+                && ranges_overlap(existing.range, diagnostic.range)
         });
         if !duplicate {
             unique.push(diagnostic);
@@ -1354,34 +1356,32 @@ pub(crate) fn database_error_diagnostic(
     message: &str,
     executed_sql: &str,
     executed_range: (usize, usize),
+    position: Option<usize>,
+    code: Option<&str>,
 ) -> Option<Diagnostic> {
     if executed_sql.is_empty() || executed_range.0 >= executed_range.1 {
         return None;
     }
-    let start = extract_postgres_position(message)
+    let (start, end) = position
+        .filter(|position| *position > 0)
         .map(|position| char_position_to_byte_offset(executed_sql, position))
-        .unwrap_or(0);
-    let end = executed_sql[start..]
-        .chars()
-        .next()
-        .map_or(executed_sql.len(), |character| start + character.len_utf8());
-    let document_start = executed_range.0 + start.min(executed_range.1 - executed_range.0);
-    let document_end = (executed_range.0 + end).min(executed_range.1);
-    Some(Diagnostic::database(
-        (document_start, document_end.max(document_start + 1)),
-        message,
-    ))
-}
-
-fn extract_postgres_position(message: &str) -> Option<usize> {
-    let lower = message.to_ascii_lowercase();
-    let marker = "at character ";
-    let start = lower.find(marker)? + marker.len();
-    let digits = lower[start..]
-        .chars()
-        .take_while(|character| character.is_ascii_digit())
-        .collect::<String>();
-    (!digits.is_empty()).then(|| digits.parse().ok()).flatten()
+        .filter(|start| *start < executed_sql.len())
+        .and_then(|start| {
+            executed_sql[start..]
+                .chars()
+                .next()
+                .map(|character| (start, start + character.len_utf8()))
+        })
+        .unwrap_or((0, executed_sql.len()));
+    let local_limit = executed_range.1 - executed_range.0;
+    let document_start = executed_range.0 + start.min(local_limit);
+    let document_end = (executed_range.0 + end)
+        .min(executed_range.1)
+        .max((document_start + 1).min(executed_range.1));
+    Some(match code {
+        Some(code) => Diagnostic::database_with_code((document_start, document_end), message, code),
+        None => Diagnostic::database((document_start, document_end), message),
+    })
 }
 
 fn char_position_to_byte_offset(sql: &str, position: usize) -> usize {

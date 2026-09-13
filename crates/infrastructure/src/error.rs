@@ -5,7 +5,7 @@ pub fn from_sqlx(err: sqlx::Error) -> DbError {
         sqlx::Error::PoolTimedOut => DbError::ConnectionTimeout("connection pool timed out".into()),
         sqlx::Error::PoolClosed => DbError::ConnectionFailed("connection pool is closed".into()),
         sqlx::Error::Database(ref db_err) => {
-            let message = database_message(db_err.as_ref());
+            let (message, position) = database_message(db_err.as_ref());
             if let Some(code) = db_err.code() {
                 let code_str = code.as_ref();
                 // Authentication errors (SQLSTATE 28xxx)
@@ -22,7 +22,7 @@ pub fn from_sqlx(err: sqlx::Error) -> DbError {
                     if code_str == "42501" {
                         return DbError::PermissionDenied(message);
                     }
-                    return DbError::QuerySyntax(message);
+                    return query_syntax_error(message, position);
                 }
                 // Constraint violations (SQLSTATE 23xxx)
                 if let Some(ct) = constraint_type_from_sqlstate(code_str) {
@@ -39,7 +39,7 @@ pub fn from_sqlx(err: sqlx::Error) -> DbError {
                     return DbError::DatabaseNotFound(db_err.message().into());
                 }
             }
-            DbError::QueryFailed(message)
+            query_failed_error(message, position)
         }
         sqlx::Error::Io(e) => DbError::Io(e.to_string()),
         sqlx::Error::RowNotFound => DbError::NotFound("row not found".into()),
@@ -47,19 +47,30 @@ pub fn from_sqlx(err: sqlx::Error) -> DbError {
     }
 }
 
-fn database_message(error: &dyn sqlx::error::DatabaseError) -> String {
+fn database_message(error: &dyn sqlx::error::DatabaseError) -> (String, Option<usize>) {
     let message = error.message();
-    let Some(position) = error
+    let position = error
         .as_error()
         .downcast_ref::<sqlx::postgres::PgDatabaseError>()
         .and_then(|error| match error.position() {
             Some(sqlx::postgres::PgErrorPosition::Original(position)) => Some(position),
             Some(sqlx::postgres::PgErrorPosition::Internal { .. }) | None => None,
-        })
-    else {
-        return message.to_owned();
-    };
-    format!("{message} (at character {position})")
+        });
+    (message.to_owned(), position)
+}
+
+fn query_syntax_error(message: String, position: Option<usize>) -> DbError {
+    match position {
+        Some(position) => DbError::QuerySyntaxAt { message, position },
+        None => DbError::QuerySyntax(message),
+    }
+}
+
+fn query_failed_error(message: String, position: Option<usize>) -> DbError {
+    match position {
+        Some(position) => DbError::QueryFailedAt { message, position },
+        None => DbError::QueryFailed(message),
+    }
 }
 
 fn constraint_type_from_sqlstate(code: &str) -> Option<ConstraintType> {

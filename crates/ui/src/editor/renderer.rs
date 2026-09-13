@@ -717,6 +717,9 @@ impl<'a> SqlEditor<'a> {
                                     _ => "Info",
                                 };
                                 ui.colored_label(diag_color, badge);
+                                if let Some(code) = &diag.code {
+                                    ui.monospace(code);
+                                }
                                 ui.label(&diag.message);
                             });
                         });

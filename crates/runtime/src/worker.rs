@@ -259,6 +259,10 @@ pub enum RuntimeEvent {
     QueryCancelled {
         request_id: RuntimeRequestId,
     },
+    QueryFailedDetailed {
+        request_id: RuntimeRequestId,
+        error: crate::DbErrorDto,
+    },
     AgentCompleted {
         request_id: RuntimeRequestId,
         provider: String,
@@ -1001,6 +1005,7 @@ pub fn spawn_worker(
                                 message: "Query cancelled".to_owned(),
                                 message_id: "error.query.cancelled".to_owned(),
                                 retryable: false,
+                                position: None,
                             }),
                         };
                         let event = match result {
@@ -1008,10 +1013,7 @@ pub fn spawn_worker(
                             Err(error) if error.code == "QUERY_CANCELLED" => {
                                 RuntimeEvent::QueryCancelled { request_id }
                             }
-                            Err(error) => RuntimeEvent::Failed {
-                                request_id,
-                                message: error.message,
-                            },
+                            Err(error) => RuntimeEvent::QueryFailedDetailed { request_id, error },
                         };
                         query_cancellations
                             .lock()

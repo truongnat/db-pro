@@ -30,8 +30,9 @@ Source evidence recorded on 2026-09-13:
 - Diagnostic sources are now typed as Parser, Delimiter, or Database. Query documents retain the
   executing SQL/range/version and last executed range; database failures attach a separate
   database diagnostic without allowing the next parser refresh to erase it. PostgreSQL driver
-  positions are preserved as an `at character N` marker and mapped from one-based character
-  positions to UTF-8-safe editor byte ranges; failures without a position use the statement range.
+  positions travel as structured metadata through infrastructure, runtime, and native UI event
+  translation, then map from one-based character positions to UTF-8-safe editor byte ranges;
+  failures without a position use the statement range.
 - GROUP BY aggregate detection is dialect-aware: PostgreSQL includes ARRAY_AGG, STRING_AGG,
   BOOL_AND, BOOL_OR, JSON_AGG, JSONB_AGG, and EVERY; SQLite includes GROUP_CONCAT and TOTAL.
 
@@ -39,7 +40,7 @@ Source evidence is not runtime evidence.
 
 Automated evidence recorded on 2026-09-13:
 
-- `cargo test --workspace` — PASS, including 219 UI tests and the workspace crate suites.
+- `cargo test --workspace` — PASS, including 224 UI tests and the workspace crate suites.
 - `cargo fmt --all -- --check` — PASS.
 - `cargo check --workspace` — PASS.
 - `cargo clippy --workspace --all-targets -- -D warnings` — PASS.
@@ -52,7 +53,8 @@ bounded before/after/CTE context, short-lived document-local cache, code-fence/e
 normalization, prefix/suffix overlap removal, and non-empty replacement ranges for manual token
 replacement. The native runtime worker logs provider latency using request/document metadata only.
 
-- Focused tests cover translator routing, stale document version rejection, debounce/deduplication,
+- Focused tests cover translator routing, structured database failure position/code propagation,
+  stale document version rejection, debounce/deduplication,
   current-statement context, UTF-8 overlap, atomic replacement acceptance, cooldown handling,
   completion context, FK JOIN suggestions, INSERT/ORDER/GROUP completion ranking, conservative
   SQL formatting, bracket matching/diagnostics (including mixed mismatches and auto-pair deletion),

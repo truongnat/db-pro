@@ -84,6 +84,9 @@ pub enum DbError {
     #[error("query syntax error: {0}")]
     QuerySyntax(String),
 
+    #[error("query syntax error: {message}")]
+    QuerySyntaxAt { message: String, position: usize },
+
     #[error("permission denied: {0}")]
     PermissionDenied(String),
 
@@ -95,6 +98,9 @@ pub enum DbError {
 
     #[error("query failed: {0}")]
     QueryFailed(String),
+
+    #[error("query failed: {message}")]
+    QueryFailedAt { message: String, position: usize },
 
     // ── Schema / Introspection ──────────────────────────────────
     #[error("introspection failed: {0}")]
@@ -156,11 +162,11 @@ impl DbError {
             Self::ConnectionTimeout(_) => "DB_CONNECTION_TIMEOUT",
             Self::DatabaseNotFound(_) => "DB_DATABASE_NOT_FOUND",
             Self::SslError(_) => "DB_SSL_ERROR",
-            Self::QuerySyntax(_) => "QUERY_SYNTAX_ERROR",
+            Self::QuerySyntax(_) | Self::QuerySyntaxAt { .. } => "QUERY_SYNTAX_ERROR",
             Self::PermissionDenied(_) => "QUERY_PERMISSION_DENIED",
             Self::QueryTimeout { .. } => "QUERY_TIMEOUT",
             Self::QueryCancelled => "QUERY_CANCELLED",
-            Self::QueryFailed(_) => "QUERY_FAILED",
+            Self::QueryFailed(_) | Self::QueryFailedAt { .. } => "QUERY_FAILED",
             Self::IntrospectionFailed(_) => "INTROSPECTION_FAILED",
             Self::SchemaFailed(_) => "SCHEMA_FAILED",
             Self::Unsupported(_) => "OPERATION_UNSUPPORTED",
@@ -186,11 +192,11 @@ impl DbError {
             Self::ConnectionTimeout(_) => "error.db.connection_timeout",
             Self::DatabaseNotFound(_) => "error.db.database_not_found",
             Self::SslError(_) => "error.db.ssl_error",
-            Self::QuerySyntax(_) => "error.query.syntax",
+            Self::QuerySyntax(_) | Self::QuerySyntaxAt { .. } => "error.query.syntax",
             Self::PermissionDenied(_) => "error.query.permission",
             Self::QueryTimeout { .. } => "error.query.timeout",
             Self::QueryCancelled => "error.query.cancelled",
-            Self::QueryFailed(_) => "error.query.failed",
+            Self::QueryFailed(_) | Self::QueryFailedAt { .. } => "error.query.failed",
             Self::IntrospectionFailed(_) => "error.introspection.failed",
             Self::SchemaFailed(_) => "error.schema.failed",
             Self::Unsupported(_) => "error.operation.unsupported",
@@ -231,10 +237,12 @@ impl DbError {
             | Self::SslError(_) => ErrorCategory::Connection,
 
             Self::QuerySyntax(_)
+            | Self::QuerySyntaxAt { .. }
             | Self::PermissionDenied(_)
             | Self::QueryTimeout { .. }
             | Self::QueryCancelled
-            | Self::QueryFailed(_) => ErrorCategory::Query,
+            | Self::QueryFailed(_)
+            | Self::QueryFailedAt { .. } => ErrorCategory::Query,
 
             Self::IntrospectionFailed(_) | Self::SchemaFailed(_) | Self::Unsupported(_) => ErrorCategory::Schema,
 
@@ -247,6 +255,13 @@ impl DbError {
             Self::ReadOnlyViolation(_) => ErrorCategory::Safety,
 
             Self::Io(_) | Self::EncryptionFailed(_) | Self::Internal(_) => ErrorCategory::Internal,
+        }
+    }
+
+    pub fn position(&self) -> Option<usize> {
+        match self {
+            Self::QuerySyntaxAt { position, .. } | Self::QueryFailedAt { position, .. } => Some(*position),
+            _ => None,
         }
     }
 }

@@ -1313,12 +1313,49 @@ fn sql_diagnostics_report_mixed_delimiter_mismatch() {
 #[test]
 fn database_error_position_maps_postgres_character_to_utf8_editor_offset() {
     let sql = "SELECT café FROM users";
-    let diagnostic =
-        super::query_view::database_error_diagnostic("syntax error (at character 11)", sql, (4, 4 + sql.len()))
-            .expect("database diagnostic should have a range");
+    let diagnostic = super::query_view::database_error_diagnostic(
+        "syntax error",
+        sql,
+        (4, 4 + sql.len()),
+        Some(11),
+        Some("QUERY_SYNTAX_ERROR"),
+    )
+    .expect("database diagnostic should have a range");
 
     assert_eq!(diagnostic.source, crate::editor::DiagnosticSource::Database);
+    assert_eq!(diagnostic.code.as_deref(), Some("QUERY_SYNTAX_ERROR"));
     assert_eq!(diagnostic.range, (14, 16));
+}
+
+#[test]
+fn database_error_position_maps_selection_relative_to_document_offset() {
+    let prefix = "-- before\n";
+    let sql = "SELECT café FROM users";
+    let selection_range = (prefix.len(), prefix.len() + sql.len());
+    let diagnostic = super::query_view::database_error_diagnostic("syntax error", sql, selection_range, Some(11), None)
+        .expect("database diagnostic should have a range");
+
+    assert_eq!(diagnostic.range, (prefix.len() + 10, prefix.len() + 12));
+}
+
+#[test]
+fn database_error_position_outside_executed_sql_falls_back_to_statement_range() {
+    let sql = "SELECT café";
+    let range = (3, 3 + sql.len());
+    let diagnostic = super::query_view::database_error_diagnostic("syntax error", sql, range, Some(0), None)
+        .expect("database diagnostic should have a range");
+
+    assert_eq!(diagnostic.range, range);
+}
+
+#[test]
+fn database_error_without_position_uses_the_executed_statement_range() {
+    let sql = "SELECT 1";
+    let range = (8, 8 + sql.len());
+    let diagnostic = super::query_view::database_error_diagnostic("database error", sql, range, None, None)
+        .expect("database diagnostic should have a range");
+
+    assert_eq!(diagnostic.range, range);
 }
 
 #[test]
@@ -1335,9 +1372,11 @@ fn query_failure_attaches_database_diagnostic_to_the_originating_document() {
     app.query_document_requests.insert(request_id, "query-1".to_owned());
 
     event_tx
-        .send(UiEvent::QueryFailed {
+        .send(UiEvent::QueryFailedDetailed {
             request_id,
-            message: "syntax error (at character 8)".to_owned(),
+            code: "QUERY_SYNTAX_ERROR".to_owned(),
+            message: "syntax error".to_owned(),
+            position: Some(8),
         })
         .expect("query failure should be queued");
     app.apply_runtime_events();
