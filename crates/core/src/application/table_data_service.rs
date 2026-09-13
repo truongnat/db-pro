@@ -213,6 +213,7 @@ impl TableDataService {
 
     /// Apply mutations while preserving the provider failure metadata for UI
     /// callers that need to identify the failed staged mutation.
+    #[allow(clippy::result_large_err)]
     pub async fn apply_mutations_detailed(
         &self,
         connection_id: &ConnectionId,
