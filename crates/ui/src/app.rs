@@ -1010,8 +1010,8 @@ impl DbProApp {
     }
 
     pub(crate) fn new_query_document(&mut self) {
-        let index = self.query_documents.len() + 1;
-        let mut doc = QueryDocument::new(format!("query-{index}"), format!("Query {index}"), String::new());
+        let (document_id, index) = self.next_query_document_identity();
+        let mut doc = QueryDocument::new(document_id, format!("Query {index}"), String::new());
         doc.connection_id = self.active_connection_id.clone();
         doc.schema = Some(self.active_schema().to_owned());
         self.query_documents.push(doc);
@@ -1023,12 +1023,8 @@ impl DbProApp {
     }
 
     pub(crate) fn open_history_entry(&mut self, entry: &UiQueryHistoryEntry, run: bool) {
-        let document_number = self.query_documents.len() + 1;
-        let mut document = QueryDocument::new(
-            format!("query-{document_number}"),
-            format!("History {document_number}"),
-            entry.sql.clone(),
-        );
+        let (document_id, document_number) = self.next_query_document_identity();
+        let mut document = QueryDocument::new(document_id, format!("History {document_number}"), entry.sql.clone());
         document.connection_id = entry.connection_id.clone();
         document.schema = entry.schema.clone();
         self.query_documents.push(document);
@@ -1079,6 +1075,17 @@ impl DbProApp {
         self.runtime_message = format!("Closed {}", self.query_documents[self.active_query_document].title);
     }
 
+    fn next_query_document_identity(&self) -> (String, usize) {
+        let mut number = self.query_documents.len().saturating_add(1);
+        loop {
+            let id = format!("query-{number}");
+            if !self.query_documents.iter().any(|document| document.id == id) {
+                return (id, number);
+            }
+            number = number.saturating_add(1);
+        }
+    }
+
     pub(crate) fn request_close_query_document(&mut self, index: usize) {
         if self.query_documents.get(index).is_some_and(QueryDocument::is_dirty) {
             self.pending_dirty_close = Some(index);
@@ -1099,8 +1106,8 @@ impl DbProApp {
         let src = &self.query_documents[index];
         let title = format!("{} (Copy)", src.title);
         let content = src.text().to_owned();
-        let doc_count = self.query_documents.len() + 1;
-        let mut new_doc = QueryDocument::new(format!("query-{doc_count}"), title, content);
+        let (document_id, _) = self.next_query_document_identity();
+        let mut new_doc = QueryDocument::new(document_id, title, content);
         new_doc.connection_id = src.connection_id.clone().or_else(|| self.active_connection_id.clone());
         new_doc.schema = src.schema.clone().or_else(|| Some(self.active_schema().to_owned()));
         self.query_documents.push(new_doc);

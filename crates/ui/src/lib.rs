@@ -27,10 +27,10 @@ pub use result_grid::{
 };
 pub use runtime::{
     RequestId, TaskBridge, UiCell, UiCheckConstraint, UiColumn, UiCommand, UiConnectionDraft, UiConnectionSummary,
-    UiDependencyDirection, UiDependencyKind, UiDriver, UiEvent, UiFunctionSummary, UiQueryExecutionOutput,
-    UiQueryFolderSummary, UiQueryHistoryEntry, UiQueryHistoryStatus, UiQueryResult, UiSavedQuerySummary,
-    UiSchemaColumn, UiSchemaForeignKey, UiSchemaSummary, UiSslMode, UiStatementOutput, UiTableColumn,
-    UiTableDataFilter, UiTableDataSort, UiTableDependency, UiTableFilterOperator, UiTableForeignKey, UiTableIndex,
-    UiTableInfo, UiTableMutation, UiTableSummary, UiTriggerSummary, UiViewSummary,
+    UiDependencyDirection, UiDependencyKind, UiDriver, UiEvent, UiFunctionSummary, UiQueryError,
+    UiQueryExecutionOutput, UiQueryFolderSummary, UiQueryHistoryEntry, UiQueryHistoryStatus, UiQueryResult,
+    UiSavedQuerySummary, UiSchemaColumn, UiSchemaForeignKey, UiSchemaSummary, UiSslMode, UiStatementOutput,
+    UiTableColumn, UiTableDataFilter, UiTableDataSort, UiTableDependency, UiTableFilterOperator, UiTableForeignKey,
+    UiTableIndex, UiTableInfo, UiTableMutation, UiTableSummary, UiTriggerSummary, UiViewSummary,
 };
 pub use theme::DbProTheme;

@@ -36,7 +36,12 @@
 - [x] Route Save through saved-query identity for update-in-place semantics.
 - [x] Persist query drafts and terminal query history locally with a bounded retention policy.
 - [x] Add a compatibility-preserving multi-statement execution adapter and per-document result tabs.
+- [x] Carry explicit result-set/command kinds through the multi-query core adapter.
+- [x] Carry structured multi-query errors with code, position, detail, and hint fields.
+- [x] Route a failed multi-query statement to its document database diagnostic range.
 - [x] Add Save As naming and deferred close confirmation for a dirty query tab.
+- [x] Record query-history start time at dispatch, separate from monotonic duration timing.
+- [x] Allocate collision-safe query document IDs across restored drafts, duplicates, and history tabs.
 - [x] Run formatter, workspace checks, clippy, tests, native release build, and performance scan.
 - [ ] Verify a live provider request and stale/cancel behavior with native UI interaction.
 - [ ] Record native UI evidence at the required viewport/state matrix.

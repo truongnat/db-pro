@@ -135,6 +135,9 @@ pub struct QueryDocument {
     pub last_executed_range: Option<(usize, usize)>,
     pub execution_diagnostic: Option<Diagnostic>,
     pub execution_started_at: Option<Instant>,
+    /// Wall-clock start time for local query history. Kept separate from the
+    /// monotonic timer used for duration measurement and is never persisted.
+    pub execution_started_wall_time: Option<String>,
 }
 
 impl QueryDocument {
@@ -195,6 +198,7 @@ impl QueryDocument {
             last_executed_range: None,
             execution_diagnostic: None,
             execution_started_at: None,
+            execution_started_wall_time: None,
         }
     }
 
@@ -329,6 +333,18 @@ impl QueryDocument {
         self.prediction_scheduled_at = None;
         self.prediction_context_fingerprint = None;
         self.prediction_request_started_at = None;
+    }
+
+    pub fn take_execution_timing(&mut self, fallback_duration_ms: u64) -> (String, u64) {
+        let started_at = self.execution_started_at.take();
+        let started_at_wall_time = self
+            .execution_started_wall_time
+            .take()
+            .unwrap_or_else(|| chrono::Utc::now().to_rfc3339());
+        let duration_ms = started_at.map_or(fallback_duration_ms, |started_at| {
+            started_at.elapsed().as_millis() as u64
+        });
+        (started_at_wall_time, duration_ms)
     }
 }
 

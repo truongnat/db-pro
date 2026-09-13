@@ -1010,17 +1010,34 @@ fn translate_query_completed(
 }
 
 fn map_multi_query_output(output: db_pro_core::application::MultiQueryResult) -> UiQueryExecutionOutput {
-    let mut statements = output
-        .results
+    let db_pro_core::application::MultiQueryResult {
+        results,
+        result_kinds,
+        total_duration_ms,
+        error,
+    } = output;
+    let mut statements = results
         .into_iter()
         .enumerate()
         .map(|(statement_index, result)| {
-            let affected_rows = result.columns.is_empty().then_some(result.row_count);
+            let kind = result_kinds.get(statement_index).copied().unwrap_or({
+                // Compatibility for callers that construct the pre-kind
+                // shape directly. Runtime-produced results always carry
+                // the explicit core metadata.
+                if result.columns.is_empty() {
+                    db_pro_core::application::StatementResultKind::Command
+                } else {
+                    db_pro_core::application::StatementResultKind::ResultSet
+                }
+            });
+            let affected_rows =
+                matches!(kind, db_pro_core::application::StatementResultKind::Command).then_some(result.row_count);
             let message = affected_rows.map(|rows| format!("{rows} rows affected"));
             let duration_ms = result.duration_ms;
             UiStatementOutput {
                 statement_index,
-                result_set: (!result.columns.is_empty()).then(|| map_query_result(result)),
+                result_set: matches!(kind, db_pro_core::application::StatementResultKind::ResultSet)
+                    .then(|| map_query_result(result)),
                 affected_rows,
                 duration_ms,
                 message,
@@ -1028,20 +1045,26 @@ fn map_multi_query_output(output: db_pro_core::application::MultiQueryResult) ->
             }
         })
         .collect::<Vec<_>>();
-    if let Some((statement_index, error)) = output.error {
+    if let Some((statement_index, error)) = error {
         statements.push(UiStatementOutput {
             statement_index,
             result_set: None,
             affected_rows: None,
             duration_ms: 0,
             message: None,
-            error: Some(error),
+            error: Some(UiQueryError {
+                code: error.code,
+                message: error.message,
+                position: error.position,
+                detail: error.detail,
+                hint: error.hint,
+            }),
         });
         statements.sort_by_key(|statement| statement.statement_index);
     }
     UiQueryExecutionOutput {
         statements,
-        total_duration_ms: output.total_duration_ms,
+        total_duration_ms,
     }
 }
 

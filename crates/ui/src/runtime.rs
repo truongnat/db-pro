@@ -501,6 +501,15 @@ pub struct UiQueryResult {
     pub duration_ms: u64,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UiQueryError {
+    pub code: String,
+    pub message: String,
+    pub position: Option<usize>,
+    pub detail: Option<String>,
+    pub hint: Option<String>,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct UiStatementOutput {
     pub statement_index: usize,
@@ -508,7 +517,7 @@ pub struct UiStatementOutput {
     pub affected_rows: Option<u64>,
     pub duration_ms: u64,
     pub message: Option<String>,
-    pub error: Option<String>,
+    pub error: Option<UiQueryError>,
 }
 
 #[derive(Debug, Clone, PartialEq)]

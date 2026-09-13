@@ -17,14 +17,57 @@ use crate::ports::{
 use super::registry::ConnectionRegistry;
 use super::sql_policy::{reject_multi_statement, split_statements};
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StatementResultKind {
+    ResultSet,
+    Command,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MultiQueryError {
+    pub code: String,
+    pub message: String,
+    pub position: Option<usize>,
+    pub detail: Option<String>,
+    pub hint: Option<String>,
+}
+
+impl MultiQueryError {
+    fn message(message: impl Into<String>) -> Self {
+        Self {
+            code: "QUERY_FAILED".to_owned(),
+            message: message.into(),
+            position: None,
+            detail: None,
+            hint: None,
+        }
+    }
+}
+
+impl From<DbError> for MultiQueryError {
+    fn from(error: DbError) -> Self {
+        Self {
+            code: error.code().to_owned(),
+            message: error.to_string(),
+            position: error.position(),
+            detail: None,
+            hint: None,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct MultiQueryResult {
     pub results: Vec<QueryResult>,
+    /// Explicitly identifies each result in `results`. A command can have no
+    /// columns, but result shape must not be inferred from that representation
+    /// detail by downstream adapters.
+    pub result_kinds: Vec<StatementResultKind>,
     pub total_duration_ms: u64,
-    /// If execution failed, this holds the relevant index and error message.
+    /// If execution failed, this holds the relevant index and structured error.
     /// The transaction-level sentinel is `statements.len()`; the message
     /// distinguishes confirmed rollback from an unknown final outcome.
-    pub error: Option<(usize, String)>,
+    pub error: Option<(usize, MultiQueryError)>,
 }
 
 pub struct QueryService {
@@ -162,6 +205,7 @@ impl QueryService {
 
         let start = std::time::Instant::now();
         let mut results = Vec::with_capacity(statements.len());
+        let mut result_kinds = Vec::with_capacity(statements.len());
 
         // Keep query-result routing separate from transaction safety. A data-modifying
         // CTE can still return rows, so it must be executed as a query while forcing
@@ -182,8 +226,9 @@ impl QueryService {
                 if let Err(msg) = validate_against_policy(stmt, &policy) {
                     return Ok(MultiQueryResult {
                         results: Vec::new(),
+                        result_kinds: Vec::new(),
                         total_duration_ms: start.elapsed().as_millis() as u64,
-                        error: Some((idx, msg)),
+                        error: Some((idx, MultiQueryError::message(msg))),
                     });
                 }
             }
@@ -199,12 +244,16 @@ impl QueryService {
                     }
                     for (idx, transaction_result) in transaction_results.into_iter().enumerate() {
                         match transaction_result_to_query_result(transaction_result) {
-                            Ok(result) => results.push(result),
+                            Ok((kind, result)) => {
+                                results.push(result);
+                                result_kinds.push(kind);
+                            }
                             Err(error) => {
                                 return Ok(MultiQueryResult {
                                     results,
+                                    result_kinds,
                                     total_duration_ms: start.elapsed().as_millis() as u64,
-                                    error: Some((idx, error.to_string())),
+                                    error: Some((idx, MultiQueryError::from(error))),
                                 });
                             }
                         }
@@ -221,22 +270,30 @@ impl QueryService {
                     let failure_error = failure.error;
                     for (idx, transaction_result) in failure.results.into_iter().enumerate() {
                         match transaction_result_to_query_result(transaction_result) {
-                            Ok(result) => results.push(result),
+                            Ok((kind, result)) => {
+                                results.push(result);
+                                result_kinds.push(kind);
+                            }
                             Err(error) => {
                                 return Ok(MultiQueryResult {
                                     results,
+                                    result_kinds,
                                     total_duration_ms: start.elapsed().as_millis() as u64,
-                                    error: Some((idx, error.to_string())),
+                                    error: Some((idx, MultiQueryError::from(error))),
                                 });
                             }
                         }
                     }
                     return Ok(MultiQueryResult {
                         results,
+                        result_kinds,
                         total_duration_ms: start.elapsed().as_millis() as u64,
                         error: Some((
                             failure_statement_index,
-                            format_transaction_failure(failure_phase, failure_outcome, failure_error),
+                            MultiQueryError {
+                                message: format_transaction_failure(failure_phase, failure_outcome, &failure_error),
+                                ..MultiQueryError::from(failure_error)
+                            },
                         )),
                     });
                 }
@@ -249,8 +306,9 @@ impl QueryService {
                 if let Err(msg) = validate_against_policy(stmt, &policy) {
                     return Ok(MultiQueryResult {
                         results,
+                        result_kinds,
                         total_duration_ms: start.elapsed().as_millis() as u64,
-                        error: Some((idx, msg)),
+                        error: Some((idx, MultiQueryError::message(msg))),
                     });
                 }
 
@@ -260,17 +318,20 @@ impl QueryService {
                             if let Err(e) = result.validate() {
                                 return Ok(MultiQueryResult {
                                     results,
+                                    result_kinds,
                                     total_duration_ms: start.elapsed().as_millis() as u64,
-                                    error: Some((idx, e)),
+                                    error: Some((idx, MultiQueryError::message(e))),
                                 });
                             }
                             results.push(result);
+                            result_kinds.push(StatementResultKind::ResultSet);
                         }
                         Err(e) => {
                             return Ok(MultiQueryResult {
                                 results,
+                                result_kinds,
                                 total_duration_ms: start.elapsed().as_millis() as u64,
-                                error: Some((idx, e.to_string())),
+                                error: Some((idx, MultiQueryError::from(e))),
                             });
                         }
                     },
@@ -283,12 +344,14 @@ impl QueryService {
                                 row_count: affected,
                                 duration_ms: elapsed,
                             });
+                            result_kinds.push(StatementResultKind::Command);
                         }
                         Err(e) => {
                             return Ok(MultiQueryResult {
                                 results,
+                                result_kinds,
                                 total_duration_ms: start.elapsed().as_millis() as u64,
-                                error: Some((idx, e.to_string())),
+                                error: Some((idx, MultiQueryError::from(e))),
                             });
                         }
                     },
@@ -320,6 +383,7 @@ impl QueryService {
 
         Ok(MultiQueryResult {
             results,
+            result_kinds,
             total_duration_ms,
             error: None,
         })
@@ -449,7 +513,7 @@ impl QueryService {
 fn format_transaction_failure(
     phase: TransactionFailurePhase,
     outcome: TransactionFailureOutcome,
-    error: DbError,
+    error: &DbError,
 ) -> String {
     match (phase, outcome) {
         (TransactionFailurePhase::Statement, TransactionFailureOutcome::RolledBack) => {
@@ -465,18 +529,23 @@ enum StatementClass {
     Write,
 }
 
-fn transaction_result_to_query_result(result: TransactionStatementResult) -> Result<QueryResult, DbError> {
-    let query_result = match result {
-        TransactionStatementResult::Query(query) => query,
-        TransactionStatementResult::Affected { row_count, duration_ms } => QueryResult {
-            columns: Vec::new(),
-            rows: Vec::new(),
-            row_count,
-            duration_ms,
-        },
+fn transaction_result_to_query_result(
+    result: TransactionStatementResult,
+) -> Result<(StatementResultKind, QueryResult), DbError> {
+    let (kind, query_result) = match result {
+        TransactionStatementResult::Query(query) => (StatementResultKind::ResultSet, query),
+        TransactionStatementResult::Affected { row_count, duration_ms } => (
+            StatementResultKind::Command,
+            QueryResult {
+                columns: Vec::new(),
+                rows: Vec::new(),
+                row_count,
+                duration_ms,
+            },
+        ),
     };
     query_result.validate().map_err(DbError::QueryFailed)?;
-    Ok(query_result)
+    Ok((kind, query_result))
 }
 
 fn classify_statement(sql: &str) -> StatementClass {
@@ -1000,6 +1069,10 @@ mod tests {
             .unwrap();
         assert!(result.error.is_none());
         assert_eq!(result.results.len(), 2);
+        assert_eq!(
+            result.result_kinds,
+            vec![StatementResultKind::ResultSet, StatementResultKind::Command]
+        );
         assert_eq!(result.results[0].row_count, 1);
         assert_eq!(result.results[1].row_count, 3);
     }
@@ -1163,7 +1236,7 @@ mod tests {
 
         let (index, message) = result.error.expect("invalid transaction result must be rejected");
         assert_eq!(index, 0);
-        assert!(message.contains("expected 1"));
+        assert!(message.message.contains("expected 1"));
         assert!(result.results.is_empty());
     }
 
@@ -1180,7 +1253,10 @@ mod tests {
                 statement_index: 1,
                 outcome: TransactionFailureOutcome::RolledBack,
                 results: vec![TransactionStatementResult::Query(test_result())],
-                error: DbError::QueryFailed("permission denied".into()),
+                error: DbError::QueryFailedAt {
+                    message: "permission denied".into(),
+                    position: 8,
+                },
             })
         });
 
@@ -1201,7 +1277,9 @@ mod tests {
         assert!(result.error.is_some());
         let (idx, msg) = result.error.unwrap();
         assert_eq!(idx, 1);
-        assert!(msg.contains("permission denied"));
+        assert!(msg.message.contains("permission denied"));
+        assert_eq!(msg.code, "QUERY_FAILED");
+        assert_eq!(msg.position, Some(8));
         assert_eq!(result.results.len(), 1);
         assert_eq!(result.results[0].row_count, 1);
     }
@@ -1247,8 +1325,8 @@ mod tests {
 
         let (index, message) = result.error.expect("commit failure must be returned");
         assert_eq!(index, 2);
-        assert!(message.contains("final outcome is unknown"));
-        assert!(!message.contains("rolled back"));
+        assert!(message.message.contains("final outcome is unknown"));
+        assert!(!message.message.contains("rolled back"));
         assert_eq!(result.results.len(), 1);
     }
 }

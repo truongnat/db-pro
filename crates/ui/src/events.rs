@@ -5,6 +5,7 @@ struct QueryHistoryRecord {
     sql: String,
     connection_id: Option<String>,
     schema: Option<String>,
+    started_at: String,
     status: UiQueryHistoryStatus,
     duration_ms: u64,
     row_count: Option<u64>,
@@ -553,14 +554,12 @@ impl DbProApp {
         let mut history = None;
         if let Some(doc_id) = &target_doc_id {
             if let Some(doc) = self.query_documents.iter_mut().find(|d| &d.id == doc_id) {
-                let duration_ms = doc
-                    .execution_started_at
-                    .take()
-                    .map_or(result.duration_ms, |started_at| started_at.elapsed().as_millis() as u64);
+                let (started_at, duration_ms) = doc.take_execution_timing(result.duration_ms);
                 history = Some((
                     doc.executing_sql.clone().unwrap_or_else(|| doc.text().to_owned()),
                     doc.connection_id.clone(),
                     doc.schema.clone(),
+                    started_at,
                     duration_ms,
                 ));
                 doc.query_result = Some(result.clone());
@@ -586,11 +585,12 @@ impl DbProApp {
                     .push(format!("Query completed · {} rows", result.row_count));
             }
         }
-        if let Some((sql, connection_id, schema, duration_ms)) = history {
+        if let Some((sql, connection_id, schema, started_at, duration_ms)) = history {
             self.record_query_history(QueryHistoryRecord {
                 sql,
                 connection_id,
                 schema,
+                started_at,
                 status: UiQueryHistoryStatus::Success,
                 duration_ms,
                 row_count: Some(result.row_count),
@@ -627,16 +627,12 @@ impl DbProApp {
         };
         let mut history = None;
         if let Some(doc) = self.query_documents.iter_mut().find(|doc| doc.id == doc_id) {
-            let duration_ms = doc
-                .execution_started_at
-                .take()
-                .map_or(output.total_duration_ms, |started_at| {
-                    started_at.elapsed().as_millis() as u64
-                });
+            let (started_at, duration_ms) = doc.take_execution_timing(output.total_duration_ms);
             history = Some((
                 doc.executing_sql.clone().unwrap_or_else(|| doc.text().to_owned()),
                 doc.connection_id.clone(),
                 doc.schema.clone(),
+                started_at,
                 duration_ms,
             ));
             doc.query_results = output
@@ -652,26 +648,51 @@ impl DbProApp {
             } else {
                 QueryExecutionState::Idle
             };
+            let execution_range = doc.executing_range;
+            let execution_sql = doc.executing_sql.clone();
+            let execution_version = doc.executing_version;
             doc.executing_range = None;
             doc.executing_sql = None;
             doc.executing_version = None;
-            doc.execution_diagnostic = None;
+            doc.execution_diagnostic = output.statements.iter().find_map(|statement| {
+                let error = statement.error.as_ref()?;
+                if execution_version != Some(doc.buffer.version()) {
+                    return None;
+                }
+                let fallback_range = execution_range.unwrap_or((0, doc.buffer.len_bytes()));
+                let (statement_sql, statement_range) =
+                    doc.analysis.statements.get(statement.statement_index).map_or_else(
+                        || (execution_sql.as_deref().unwrap_or_default(), fallback_range),
+                        |parsed| (parsed.text.as_str(), parsed.range),
+                    );
+                super::query_view::database_error_diagnostic(
+                    &error.message,
+                    statement_sql,
+                    statement_range,
+                    error.position,
+                    Some(error.code.as_str()),
+                )
+            });
             for statement in &output.statements {
                 if let Some(message) = &statement.message {
                     doc.query_messages.push(message.clone());
                 }
                 if let Some(error) = &statement.error {
-                    doc.query_messages
-                        .push(format!("Statement {} failed · {error}", statement.statement_index + 1));
+                    doc.query_messages.push(format!(
+                        "Statement {} failed · {}",
+                        statement.statement_index + 1,
+                        error.message
+                    ));
                 }
             }
         }
-        if let Some((sql, connection_id, schema, duration_ms)) = history {
+        if let Some((sql, connection_id, schema, started_at, duration_ms)) = history {
             let failed = output.statements.iter().any(|statement| statement.error.is_some());
             self.record_query_history(QueryHistoryRecord {
                 sql,
                 connection_id,
                 schema,
+                started_at,
                 status: if failed {
                     UiQueryHistoryStatus::Failed
                 } else {
@@ -693,7 +714,10 @@ impl DbProApp {
                         .sum(),
                 ),
                 error_code: None,
-                error_summary: output.statements.iter().find_map(|statement| statement.error.clone()),
+                error_summary: output
+                    .statements
+                    .iter()
+                    .find_map(|statement| statement.error.as_ref().map(|error| error.message.clone())),
             });
         }
         let is_active_doc = self
@@ -749,7 +773,7 @@ impl DbProApp {
             sql: record.sql,
             connection_id: record.connection_id,
             schema: record.schema,
-            started_at: chrono::Utc::now().to_rfc3339(),
+            started_at: record.started_at,
             duration_ms: record.duration_ms,
             status: record.status,
             row_count: record.row_count,
@@ -787,13 +811,13 @@ impl DbProApp {
         let mut history = None;
         if let Some(doc_id) = &target_doc_id {
             if let Some(doc) = self.query_documents.iter_mut().find(|d| &d.id == doc_id) {
+                let (started_at, duration_ms) = doc.take_execution_timing(0);
                 history = Some((
                     doc.executing_sql.clone().unwrap_or_else(|| doc.text().to_owned()),
                     doc.connection_id.clone(),
                     doc.schema.clone(),
-                    doc.execution_started_at
-                        .take()
-                        .map_or(0, |started_at| started_at.elapsed().as_millis() as u64),
+                    started_at,
+                    duration_ms,
                 ));
                 doc.execution_state = QueryExecutionState::Idle;
                 doc.executing_range = None;
@@ -803,11 +827,12 @@ impl DbProApp {
                 doc.query_messages.push("Query cancelled".to_owned());
             }
         }
-        if let Some((sql, connection_id, schema, duration_ms)) = history {
+        if let Some((sql, connection_id, schema, started_at, duration_ms)) = history {
             self.record_query_history(QueryHistoryRecord {
                 sql,
                 connection_id,
                 schema,
+                started_at,
                 status: UiQueryHistoryStatus::Cancelled,
                 duration_ms,
                 row_count: None,
@@ -979,14 +1004,12 @@ impl DbProApp {
                     let execution_range = doc.executing_range.take();
                     let execution_sql = doc.executing_sql.take();
                     let execution_version = doc.executing_version.take();
-                    let duration_ms = doc
-                        .execution_started_at
-                        .take()
-                        .map_or(0, |started_at| started_at.elapsed().as_millis() as u64);
+                    let (started_at, duration_ms) = doc.take_execution_timing(0);
                     history = Some((
                         execution_sql.clone().unwrap_or_else(|| doc.text().to_owned()),
                         doc.connection_id.clone(),
                         doc.schema.clone(),
+                        started_at,
                         duration_ms,
                     ));
                     doc.execution_state = QueryExecutionState::Failed;
@@ -1008,11 +1031,12 @@ impl DbProApp {
                     doc.query_messages.push(format!("Query failed · {message}"));
                 }
             }
-            if let Some((sql, connection_id, schema, duration_ms)) = history {
+            if let Some((sql, connection_id, schema, started_at, duration_ms)) = history {
                 self.record_query_history(QueryHistoryRecord {
                     sql,
                     connection_id,
                     schema,
+                    started_at,
                     status: UiQueryHistoryStatus::Failed,
                     duration_ms,
                     row_count: None,
@@ -1162,6 +1186,7 @@ impl DbProApp {
         if let Some(doc) = self.query_documents.get_mut(self.active_query_document) {
             doc.execution_state = QueryExecutionState::Running(request_id);
             doc.execution_started_at = Some(Instant::now());
+            doc.execution_started_wall_time = Some(chrono::Utc::now().to_rfc3339());
             doc.executing_range = Some(execution_range);
             doc.executing_sql = Some(sql.clone());
             doc.executing_version = Some(doc.buffer.version());
@@ -1217,6 +1242,7 @@ impl DbProApp {
         if let Some(doc) = self.query_documents.get_mut(self.active_query_document) {
             doc.execution_state = QueryExecutionState::Running(request_id);
             doc.execution_started_at = Some(Instant::now());
+            doc.execution_started_wall_time = Some(chrono::Utc::now().to_rfc3339());
             doc.executing_range = Some(execution_range);
             doc.executing_sql = Some(sql.clone());
             doc.executing_version = Some(doc.buffer.version());

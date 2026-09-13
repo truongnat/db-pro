@@ -16,7 +16,7 @@ pub use backup_service::BackupService;
 pub use connection_service::ConnectionService;
 pub use data_diff::DataDiffService;
 pub use export_service::{ExportResult, ExportService};
-pub use query_service::{MultiQueryResult, QueryService};
+pub use query_service::{MultiQueryError, MultiQueryResult, QueryService, StatementResultKind};
 pub use registry::ConnectionRegistry;
 pub use schema_service::SchemaService;
 pub use table_data_service::{TableDataMutation, TableDataService};

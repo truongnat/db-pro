@@ -669,6 +669,18 @@ fn switching_query_documents_resets_editor_cursor_metadata() {
 }
 
 #[test]
+fn new_query_identity_skips_restored_document_ids() {
+    let mut app = DbProApp::default();
+    app.query_documents
+        .push(QueryDocument::new("query-2", "Restored query", "SELECT restored;"));
+
+    app.new_query_document();
+
+    assert_eq!(app.query_documents.last().map(|doc| doc.id.as_str()), Some("query-3"));
+    assert_eq!(app.query_documents.iter().filter(|doc| doc.id == "query-3").count(), 1);
+}
+
+#[test]
 fn provider_capabilities_gate_provider_specific_actions() {
     let sqlite = UiConnectionSummary {
         id: "sqlite".to_owned(),
@@ -2119,6 +2131,88 @@ fn multi_result_completion_keeps_statement_order_and_active_tab_state() {
         app.query_documents[0].query_results[1].rows[0][0],
         UiCell::Number("2".to_owned())
     );
+}
+
+#[test]
+fn query_history_uses_execution_start_time() {
+    let (bridge, _command_rx, event_tx) = TaskBridge::with_channels();
+    let mut app = DbProApp::with_task_bridge(bridge);
+    let request_id = crate::RequestId(304);
+    app.query_documents[0].execution_state = QueryExecutionState::Running(request_id);
+    app.query_documents[0].execution_started_at = Some(std::time::Instant::now());
+    app.query_documents[0].execution_started_wall_time = Some("2026-09-13T01:02:03Z".to_owned());
+    app.query_documents[0].executing_sql = Some("SELECT 1".to_owned());
+    app.query_document_requests.insert(request_id, "query-1".to_owned());
+
+    event_tx
+        .send(UiEvent::QueryCompleted {
+            request_id,
+            result: result(),
+        })
+        .unwrap();
+    app.apply_runtime_events();
+
+    assert_eq!(app.query_history_entries.len(), 1);
+    assert_eq!(app.query_history_entries[0].started_at, "2026-09-13T01:02:03Z");
+}
+
+#[test]
+fn multi_result_failure_attaches_database_diagnostic_to_failed_statement() {
+    let (bridge, _command_rx, event_tx) = TaskBridge::with_channels();
+    let mut app = DbProApp::with_task_bridge(bridge);
+    let document = &mut app.query_documents[0];
+    document.set_text("SELECT 1;\nSELECT bad;");
+    let request_id = crate::RequestId(305);
+    let document_id = document.id.clone();
+    let version = document.buffer.version();
+    let end = document.buffer.len_bytes();
+    document.execution_state = QueryExecutionState::Running(request_id);
+    document.execution_started_at = Some(std::time::Instant::now());
+    document.executing_range = Some((0, end));
+    document.executing_sql = Some(document.text().to_owned());
+    document.executing_version = Some(version);
+    app.query_document_requests.insert(request_id, document_id);
+
+    event_tx
+        .send(UiEvent::QueryMultiCompleted {
+            request_id,
+            output: crate::UiQueryExecutionOutput {
+                statements: vec![
+                    crate::UiStatementOutput {
+                        statement_index: 0,
+                        result_set: Some(result()),
+                        affected_rows: None,
+                        duration_ms: 1,
+                        message: None,
+                        error: None,
+                    },
+                    crate::UiStatementOutput {
+                        statement_index: 1,
+                        result_set: None,
+                        affected_rows: None,
+                        duration_ms: 0,
+                        message: None,
+                        error: Some(crate::UiQueryError {
+                            code: "QUERY_FAILED".to_owned(),
+                            message: "column \"bad\" does not exist".to_owned(),
+                            position: None,
+                            detail: None,
+                            hint: None,
+                        }),
+                    },
+                ],
+                total_duration_ms: 2,
+            },
+        })
+        .unwrap();
+    app.apply_runtime_events();
+
+    let diagnostic = app.query_documents[0]
+        .execution_diagnostic
+        .as_ref()
+        .expect("failed statement should have a database diagnostic");
+    assert_eq!(diagnostic.source, crate::editor::DiagnosticSource::Database);
+    assert_eq!(diagnostic.range, app.query_documents[0].analysis.statements[1].range);
 }
 
 #[test]

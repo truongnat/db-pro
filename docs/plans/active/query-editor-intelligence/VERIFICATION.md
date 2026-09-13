@@ -45,12 +45,23 @@ Source evidence recorded on 2026-09-13:
   backend history repository.
 - Full-script execution has a native/runtime adapter around `MultiQueryResult`; ordered statement
   outputs separate result sets from DML messages and are stored per QueryDocument with Result tabs.
+- Multi-query output now carries explicit `StatementResultKind` metadata instead of requiring the
+  native adapter to infer commands from an empty column list. The compatibility DTO still exposes
+  the legacy result shape to the transitional Tauri boundary.
+- Multi-query failures now carry structured code/message/position/detail/hint fields. Native/UI
+  translation preserves the available fields, and a failed statement without a provider position
+  falls back to that statement's parsed document range.
+- Query history captures the wall-clock execution start at dispatch while duration continues to use
+  a monotonic timer. New query/history/duplicate documents skip IDs already occupied by restored
+  drafts, so draft restoration cannot cause document routing collisions.
 
 Source evidence is not runtime evidence.
 
 Automated evidence recorded on 2026-09-13:
 
-- `cargo test --workspace` — PASS, including 226 UI tests and the workspace crate suites.
+- `cargo test --workspace` — PASS: 276 core, 62 infrastructure, 231 UI, 9 native, 7 runtime,
+  21 Tauri library tests, plus workspace integration suites (18 PostgreSQL tests ignored because
+  the isolated PostgreSQL fixture is not enabled).
 - `cargo fmt --all -- --check` — PASS.
 - `cargo check --workspace` — PASS.
 - `cargo clippy --workspace --all-targets -- -D warnings` — PASS.
@@ -58,11 +69,13 @@ Automated evidence recorded on 2026-09-13:
 - `bash .skills/perf-audit/scripts/perf-scan.sh` — PASS; native binary 21.5 MB, no warnings.
 - `git diff --check` — PASS.
 
-Lifecycle tests added in this change cover undo-to-saved-snapshot cleanliness, multi-result
-statement order, per-document active result selection, saved-query success/failure baselines,
-and deferred dirty-close state. Native translator tests cover saved-query identity and the
-multi-query command route. The final focused run passed 228 UI tests and 8 native tests. The
-release build and performance audit were rerun after the lifecycle changes.
+Lifecycle hardening tests cover explicit multi-result kind routing, structured multi-result
+position propagation, failed-statement diagnostic attachment, execution-start history timestamps,
+collision-safe restored document IDs, undo-to-saved-snapshot cleanliness, multi-result statement
+order, per-document active result selection, saved-query success/failure baselines, and deferred
+dirty-close state. Native translator tests cover explicit command/result-set routing, saved-query
+identity, and the multi-query command route. The release build and performance audit were rerun
+after these changes.
 
 Prediction quality coverage now includes deterministic fingerprints with sorted alias maps,
 bounded before/after/CTE context, short-lived document-local cache, code-fence/explanation

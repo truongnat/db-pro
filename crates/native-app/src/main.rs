@@ -8,7 +8,7 @@ use db_pro_runtime::{spawn_worker, DbProRuntime, RuntimeCommand, RuntimeEvent, R
 use db_pro_ui::{
     AgentMessage, AgentRole, DbProApp, DbProTheme, RequestId, TaskBridge, UiCell, UiCheckConstraint, UiColumn,
     UiCommand, UiConnectionDraft, UiConnectionSummary, UiDependencyDirection, UiDependencyKind, UiDriver, UiEvent,
-    UiFunctionSummary, UiQueryExecutionOutput, UiQueryFolderSummary, UiQueryResult, UiSavedQuerySummary,
+    UiFunctionSummary, UiQueryError, UiQueryExecutionOutput, UiQueryFolderSummary, UiQueryResult, UiSavedQuerySummary,
     UiSchemaColumn, UiSchemaForeignKey, UiSchemaSummary, UiSslMode, UiStatementOutput, UiTableColumn,
     UiTableDataFilter, UiTableDataSort, UiTableDependency, UiTableFilterOperator, UiTableForeignKey, UiTableIndex,
     UiTableInfo, UiTableMutation, UiTableSummary, UiTriggerSummary, UiViewSummary,

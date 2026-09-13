@@ -142,3 +142,47 @@ fn multi_query_command_routes_to_runtime() {
         }
     ));
 }
+
+#[test]
+fn multi_query_translation_uses_explicit_statement_result_kind() {
+    let event = RuntimeEvent::QueryMultiCompleted {
+        request_id: RuntimeRequestId(14),
+        output: db_pro_core::application::MultiQueryResult {
+            results: vec![
+                db_pro_core::domain::query::QueryResult {
+                    columns: Vec::new(),
+                    rows: Vec::new(),
+                    row_count: 3,
+                    duration_ms: 1,
+                },
+                db_pro_core::domain::query::QueryResult {
+                    columns: vec![db_pro_core::domain::query::ColumnMeta {
+                        name: "value".to_owned(),
+                        data_type: "integer".to_owned(),
+                        nullable: false,
+                    }],
+                    rows: Vec::new(),
+                    row_count: 0,
+                    duration_ms: 1,
+                },
+            ],
+            result_kinds: vec![
+                db_pro_core::application::StatementResultKind::Command,
+                db_pro_core::application::StatementResultKind::ResultSet,
+            ],
+            total_duration_ms: 2,
+            error: None,
+        },
+    };
+
+    let translated = translate_event(event).expect("multi-query event must reach UI");
+    match translated {
+        UiEvent::QueryMultiCompleted { output, .. } => {
+            assert_eq!(output.statements[0].affected_rows, Some(3));
+            assert!(output.statements[0].result_set.is_none());
+            assert!(output.statements[1].affected_rows.is_none());
+            assert!(output.statements[1].result_set.is_some());
+        }
+        _ => panic!("unexpected UI event"),
+    }
+}

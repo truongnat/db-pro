@@ -285,7 +285,7 @@ impl From<db_pro_core::application::MultiQueryResult> for MultiQueryResultDto {
         Self {
             results: r.results.into_iter().map(Into::into).collect(),
             total_duration_ms: r.total_duration_ms,
-            error: r.error,
+            error: r.error.map(|(statement_index, error)| (statement_index, error.message)),
         }
     }
 }
