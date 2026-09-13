@@ -9,6 +9,7 @@ use lucide_icons::Icon;
 struct TableDataPaging {
     page_range: String,
     total_rows: u64,
+    total_known: bool,
     has_next: bool,
     has_previous: bool,
 }
@@ -24,17 +25,27 @@ impl DbProApp {
         };
 
         let can_mutate = self.can_mutate_active_connection();
+        let total_known = self.table_data_total_rows.is_some();
         let total_rows = self.table_data_total_rows.unwrap_or(result.row_count);
         let paging = TableDataPaging {
-            page_range: if total_rows > 0 {
+            page_range: if total_known && total_rows > 0 {
                 let start = self.table_data_offset + 1;
                 let end = (self.table_data_offset + result.row_count).min(total_rows);
-                format!("{start}–{end} of {total_rows}")
+                format!("Rows {start}–{end} of {total_rows}")
+            } else if result.row_count > 0 {
+                let start = self.table_data_offset + 1;
+                let end = self.table_data_offset + result.row_count;
+                format!("Rows {start}–{end}")
             } else {
                 "0 rows".to_owned()
             },
             total_rows,
-            has_next: self.table_data_offset.saturating_add(self.table_data_limit) < total_rows,
+            total_known,
+            has_next: if total_known {
+                self.table_data_offset.saturating_add(self.table_data_limit) < total_rows
+            } else {
+                result.row_count >= self.table_data_limit
+            },
             has_previous: self.table_data_offset > 0,
         };
 
@@ -47,6 +58,7 @@ impl DbProApp {
             self.draw_result_grid(ui, &result);
         });
         self.draw_discard_changes_confirmation(ui);
+        self.draw_pending_changes_dialog(ui);
         if self.table_data_result.is_none() {
             self.table_data_result = Some(result);
         }
@@ -147,19 +159,19 @@ impl DbProApp {
                     if !self.staged_changes.is_empty() {
                         ui.separator();
                         let counts = self.staged_changes.counts();
-                        crate::components::badge::Badge::new(
-                            &format!(
+                        if ui
+                            .small_button(format!(
                                 "{} pending · +{} ~{} -{}",
                                 counts.total(),
                                 counts.inserts,
                                 counts.updates,
                                 counts.deletes
-                            ),
-                            self.theme,
-                        )
-                        .variant(crate::components::badge::BadgeVariant::Warning)
-                        .compact(true)
-                        .show(ui);
+                            ))
+                            .on_hover_text("Open pending changes")
+                            .clicked()
+                        {
+                            self.pending_changes_open = true;
+                        }
                         let apply_enabled = self.staged_apply_request.is_none() && self.data_edit_error.is_none();
                         if compact_button_with_icon_enabled(ui, Icon::Check, "Apply", apply_enabled, self.theme)
                             .on_hover_text("Apply all staged changes (Cmd/Ctrl+S)")
@@ -302,6 +314,33 @@ impl DbProApp {
 
                             ui.add(egui::Separator::default().vertical());
 
+                            let filter_data_type = self
+                                .table_info
+                                .as_ref()
+                                .and_then(|info| {
+                                    info.columns
+                                        .iter()
+                                        .find(|column| column.name == self.table_data_filter_column)
+                                })
+                                .map(|column| column.data_type.clone())
+                                .or_else(|| {
+                                    result
+                                        .columns
+                                        .iter()
+                                        .find(|column| column.name == self.table_data_filter_column)
+                                        .map(|column| column.data_type.clone())
+                                })
+                                .unwrap_or_else(|| "text".to_owned());
+                            let filter_operator_options = Self::filter_operator_options(&filter_data_type);
+                            if !filter_operator_options
+                                .iter()
+                                .any(|(operator, _)| operator == &self.table_data_filter_operator)
+                            {
+                                self.table_data_filter_operator = filter_operator_options
+                                    .first()
+                                    .map(|(operator, _)| operator.clone())
+                                    .unwrap_or_default();
+                            }
                             let operator_label = match self.table_data_filter_operator {
                                 UiTableFilterOperator::Equals => "equals",
                                 UiTableFilterOperator::NotEquals => "not equals",
@@ -324,21 +363,13 @@ impl DbProApp {
                                 )
                                 .width(86.0)
                                 .show_ui(ui, |ui| {
-                                    for (operator, label) in [
-                                        (UiTableFilterOperator::Equals, "equals"),
-                                        (UiTableFilterOperator::NotEquals, "not equals"),
-                                        (UiTableFilterOperator::Contains, "contains"),
-                                        (UiTableFilterOperator::StartsWith, "starts with"),
-                                        (UiTableFilterOperator::EndsWith, "ends with"),
-                                        (UiTableFilterOperator::GreaterThan, ">"),
-                                        (UiTableFilterOperator::GreaterThanOrEqual, ">="),
-                                        (UiTableFilterOperator::LessThan, "<"),
-                                        (UiTableFilterOperator::LessThanOrEqual, "<="),
-                                        (UiTableFilterOperator::IsNull, "IS NULL"),
-                                        (UiTableFilterOperator::IsNotNull, "IS NOT NULL"),
-                                    ] {
+                                    for (operator, label) in &filter_operator_options {
                                         if ui
-                                            .selectable_value(&mut self.table_data_filter_operator, operator, label)
+                                            .selectable_value(
+                                                &mut self.table_data_filter_operator,
+                                                operator.clone(),
+                                                *label,
+                                            )
                                             .clicked()
                                         {
                                             operator_changed = true;
@@ -415,6 +446,7 @@ impl DbProApp {
 
                     if !self.table_data_filters.is_empty() {
                         let mut remove_filter = None;
+                        let mut edit_filter = None;
                         ui.horizontal_wrapped(|ui| {
                             ui.label(RichText::new("Filters:").small().color(self.theme.text_muted));
                             for (index, filter) in self.table_data_filters.iter().enumerate() {
@@ -437,10 +469,13 @@ impl DbProApp {
                                     format!(" {}", filter.value)
                                 };
                                 if ui
-                                    .small_button(format!("{} {}{}  ×", filter.column, operator, value))
-                                    .on_hover_text("Remove filter")
+                                    .small_button(format!("{} {}{}", filter.column, operator, value))
+                                    .on_hover_text("Edit filter")
                                     .clicked()
                                 {
+                                    edit_filter = Some(index);
+                                }
+                                if ui.small_button("×").on_hover_text("Remove filter").clicked() {
                                     remove_filter = Some(index);
                                 }
                             }
@@ -448,6 +483,14 @@ impl DbProApp {
                                 remove_filter = Some(usize::MAX);
                             }
                         });
+                        if let Some(index) = edit_filter {
+                            if let Some(filter) = self.table_data_filters.get(index).cloned() {
+                                self.table_data_filter_column = filter.column;
+                                self.table_data_filter_operator = filter.operator;
+                                self.table_data_filter_value = filter.value;
+                                self.table_data_filter_editing = Some(index);
+                            }
+                        }
                         if let Some(index) = remove_filter {
                             if index == usize::MAX {
                                 self.clear_table_filters();
@@ -459,8 +502,21 @@ impl DbProApp {
 
                     // Compact Sort Selector
                     let sort_active = !self.table_data_sorts.is_empty() || self.grid_sort_column.is_some();
-                    let sort_label = if let Some(sort) = self.table_data_sorts.first() {
-                        format!("Sort: {} {}", sort.column, if sort.descending { "↓" } else { "↑" })
+                    let sort_label = if !self.table_data_sorts.is_empty() {
+                        let clauses = self
+                            .table_data_sorts
+                            .iter()
+                            .enumerate()
+                            .map(|(priority, sort)| {
+                                format!(
+                                    "{} {}{}",
+                                    sort.column,
+                                    if sort.descending { "↓" } else { "↑" },
+                                    priority + 1
+                                )
+                            })
+                            .collect::<Vec<_>>();
+                        format!("Sort: {}", clauses.join(", "))
                     } else if let Some(idx) = self.grid_sort_column {
                         if let Some(col) = column_names.get(idx) {
                             format!("Sort: {col} {}", if self.grid_sort_desc { "↓" } else { "↑" })
@@ -480,15 +536,23 @@ impl DbProApp {
                         .width(100.0)
                         .show_ui(ui, |ui| {
                             if ui.selectable_label(!sort_active, "Default (None)").clicked() {
-                                self.table_data_sorts.clear();
-                                self.grid_sort_column = None;
-                                self.reload_table_data_from_start();
+                                if self.staged_changes.is_empty() {
+                                    self.table_data_sorts.clear();
+                                    self.grid_sort_column = None;
+                                    self.reload_table_data_from_start();
+                                } else {
+                                    self.runtime_message =
+                                        "Apply or discard staged changes before changing sort".to_owned();
+                                }
                             }
                             for col in &column_names {
                                 let is_sel = self.table_data_sorts.first().map(|sort| sort.column.as_str())
                                     == Some(col.as_str());
                                 if ui.selectable_label(is_sel, col.as_str()).clicked() {
-                                    if is_sel {
+                                    if !self.staged_changes.is_empty() {
+                                        self.runtime_message =
+                                            "Apply or discard staged changes before changing sort".to_owned();
+                                    } else if is_sel {
                                         if let Some(sort) = self.table_data_sorts.first_mut() {
                                             sort.descending = !sort.descending;
                                         }
@@ -505,7 +569,8 @@ impl DbProApp {
                 }
 
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                    if paging.total_rows > 0
+                    if paging.total_known
+                        && paging.total_rows > 0
                         && compact_button_with_icon(ui, Icon::ChevronsLeft, "First", self.theme)
                             .on_hover_text("First page")
                             .clicked()
@@ -540,7 +605,8 @@ impl DbProApp {
                         self.request_table_data();
                     }
 
-                    if paging.total_rows > 0
+                    if paging.total_known
+                        && paging.total_rows > 0
                         && compact_button_with_icon(ui, Icon::ChevronsRight, "Last", self.theme)
                             .on_hover_text("Last page")
                             .clicked()
@@ -1449,7 +1515,20 @@ impl DbProApp {
         self.selected_rows.insert(row_index);
         self.selection_anchor_row = Some(row_index);
         self.selection_anchor_cell = Some((row_index, column_index));
+        if let Some(identity) = self.row_identity_for_result(result, row_index) {
+            self.clear_mutation_error_for_identity(&identity, Some(column_index));
+        }
         self.data_editing_cell = Some((row_index, column_index));
+        self.expanded_data_editor = result
+            .columns
+            .get(column_index)
+            .is_some_and(|column| {
+                let data_type = column.data_type.to_ascii_lowercase();
+                data_type.contains("json")
+                    || matches!(cell, UiCell::Json(_))
+                    || matches!(cell, UiCell::Text(value) if value.chars().count() > 120)
+            })
+            .then_some((row_index, column_index));
         self.data_edit_error = None;
         self.data_edit_value = match cell {
             UiCell::Null => "NULL".to_owned(),
@@ -1529,6 +1608,7 @@ impl DbProApp {
         self.table_mutation_error = None;
         self.staged_apply_targets.clear();
         self.data_editing_cell = None;
+        self.expanded_data_editor = None;
         self.data_edit_value.clear();
         self.data_edit_error = None;
         let counts = self.staged_changes.counts();
@@ -1569,6 +1649,7 @@ impl DbProApp {
             return;
         };
         self.data_editing_cell = None;
+        self.expanded_data_editor = None;
         self.data_edit_value.clear();
         self.data_edit_error = None;
         self.data_delete_confirmation = false;
@@ -1627,6 +1708,7 @@ impl DbProApp {
             return;
         };
         if self.staged_changes.revert_cell(&identity, column_index) {
+            self.clear_mutation_error_for_identity(&identity, Some(column_index));
             self.runtime_message = "Cell change reverted".to_owned();
         }
     }
@@ -1636,7 +1718,31 @@ impl DbProApp {
             return;
         };
         if self.staged_changes.revert_row(&identity) {
+            self.clear_mutation_error_for_identity(&identity, None);
             self.runtime_message = "Row changes reverted".to_owned();
+        }
+    }
+
+    fn clear_mutation_error_for_identity(&mut self, identity: &RowIdentity, column_index: Option<usize>) {
+        let clear =
+            self.table_mutation_error
+                .as_ref()
+                .is_some_and(|failure| match (failure.target.as_ref(), column_index) {
+                    (
+                        Some(MutationTarget::Update {
+                            identity: target,
+                            columns,
+                            ..
+                        }),
+                        Some(column),
+                    ) => target == identity && columns.contains(&column),
+                    (Some(MutationTarget::Update { identity: target, .. }), None)
+                    | (Some(MutationTarget::Delete { identity: target, .. }), None) => target == identity,
+                    (Some(MutationTarget::Delete { identity: target, .. }), Some(_)) => target == identity,
+                    _ => false,
+                });
+        if clear {
+            self.table_mutation_error = None;
         }
     }
 
@@ -1649,9 +1755,11 @@ impl DbProApp {
         self.staged_apply_targets.clear();
         self.table_mutation_error = None;
         self.data_editing_cell = None;
+        self.expanded_data_editor = None;
         self.data_edit_error = None;
         self.data_delete_confirmation = false;
         self.discard_changes_confirmation = false;
+        self.pending_changes_open = false;
         self.data_edit_value.clear();
         self.table_data_result = None;
         self.table_data_error = None;
@@ -1688,6 +1796,14 @@ impl DbProApp {
     }
 
     fn reload_failed_mutation(&mut self) {
+        let target = self
+            .table_mutation_error
+            .as_ref()
+            .and_then(|failure| failure.target.clone());
+        if let Some(MutationTarget::Update { identity, .. } | MutationTarget::Delete { identity, .. }) = target {
+            self.request_table_row_reload(identity);
+            return;
+        }
         self.table_mutation_error = None;
         self.table_data_result = None;
         self.table_data_total_rows = None;
@@ -1698,6 +1814,50 @@ impl DbProApp {
     fn retry_failed_mutation_after_reload(&mut self) {
         self.table_mutation_retry_after_reload = true;
         self.reload_failed_mutation();
+    }
+
+    fn request_table_row_reload(&mut self, identity: RowIdentity) {
+        let (Some(connection_id), Some(table)) = (self.active_connection_id.clone(), self.selected_table.clone())
+        else {
+            self.runtime_message = "Connect to a database before reloading the row".to_owned();
+            return;
+        };
+        let Some(info) = self.table_info.as_ref() else {
+            self.runtime_message = "Table structure is still loading".to_owned();
+            return;
+        };
+        let mut filters = Vec::with_capacity(identity.original_pk_columns.len());
+        for (column, value) in identity.original_pk_columns.iter().zip(&identity.original_pk_values) {
+            let Some(data_type) = info
+                .columns
+                .iter()
+                .find(|candidate| candidate.name == *column)
+                .map(|candidate| candidate.data_type.clone())
+            else {
+                self.runtime_message = format!("Primary-key metadata is missing for {column}");
+                return;
+            };
+            filters.push(UiTableDataFilter {
+                column: column.clone(),
+                data_type,
+                operator: UiTableFilterOperator::Equals,
+                value: crate::cell_text(value),
+            });
+        }
+        let request_id = self.task_bridge.next_request_id();
+        self.table_row_reload_request = Some(request_id);
+        self.table_row_reload_identity = Some(identity);
+        self.dispatch_command(UiCommand::LoadTableData {
+            request_id,
+            connection_id,
+            schema: self.active_schema().to_owned(),
+            table,
+            limit: 1,
+            offset: 0,
+            filters,
+            sorts: Vec::new(),
+        });
+        self.runtime_message = "Reloading row from database…".to_owned();
     }
 
     fn draw_discard_changes_confirmation(&mut self, ui: &mut egui::Ui) {
@@ -1743,6 +1903,94 @@ impl DbProApp {
             self.discard_staged_changes();
         } else if cancel || !open {
             self.discard_changes_confirmation = false;
+        }
+    }
+
+    fn draw_pending_changes_dialog(&mut self, ui: &mut egui::Ui) {
+        if !self.pending_changes_open {
+            return;
+        }
+        let entries: Vec<StagedChange> = self.staged_changes.iter().cloned().collect();
+        let mut open = true;
+        let mut revert_entry = None;
+        egui::Window::new("Pending changes")
+            .open(&mut open)
+            .resizable(true)
+            .default_width(620.0)
+            .show(ui.ctx(), |ui| {
+                ui.label(
+                    RichText::new("Review staged changes before Apply")
+                        .small()
+                        .color(self.theme.text_muted),
+                );
+                ui.separator();
+                egui::ScrollArea::vertical().max_height(360.0).show(ui, |ui| {
+                    for (index, entry) in entries.iter().enumerate() {
+                        ui.horizontal_wrapped(|ui| {
+                            let description = match entry {
+                                StagedChange::Update {
+                                    identity,
+                                    column,
+                                    original,
+                                    value,
+                                    ..
+                                } => format!(
+                                    "Update [{}] · {column}: {} → {}",
+                                    identity
+                                        .original_pk_values
+                                        .iter()
+                                        .map(crate::cell_text)
+                                        .collect::<Vec<_>>()
+                                        .join(", "),
+                                    crate::cell_text(original),
+                                    crate::cell_text(value)
+                                ),
+                                StagedChange::Delete { identity, .. } => format!(
+                                    "Delete [{}]",
+                                    identity
+                                        .original_pk_values
+                                        .iter()
+                                        .map(crate::cell_text)
+                                        .collect::<Vec<_>>()
+                                        .join(", ")
+                                ),
+                                StagedChange::Insert { columns, .. } => {
+                                    format!("Insert ({})", columns.join(", "))
+                                }
+                            };
+                            ui.label(description);
+                            let action = match entry {
+                                StagedChange::Delete { .. } => "Undo delete",
+                                StagedChange::Insert { .. } => "Remove insert",
+                                StagedChange::Update { .. } => "Revert cell",
+                            };
+                            if ui.small_button(action).clicked() {
+                                revert_entry = Some(index);
+                            }
+                        });
+                    }
+                });
+            });
+        if let Some(index) = revert_entry {
+            if let Some(entry) = entries.get(index) {
+                match entry {
+                    StagedChange::Update {
+                        identity, column_index, ..
+                    } => {
+                        self.staged_changes.revert_cell(identity, *column_index);
+                    }
+                    StagedChange::Delete { identity, .. } => {
+                        self.staged_changes.revert_row(identity);
+                    }
+                    StagedChange::Insert { local_id, .. } => {
+                        self.staged_changes.remove_insert(*local_id);
+                    }
+                }
+                self.table_mutation_error = None;
+            }
+        }
+        if !open {
+            self.pending_changes_open = false;
         }
     }
 
@@ -2034,16 +2282,23 @@ impl DbProApp {
             self.table_data_filter_operator,
             UiTableFilterOperator::IsNull | UiTableFilterOperator::IsNotNull
         );
-        if !is_null_operator && self.table_data_filter_value.is_empty() {
-            self.runtime_message = "Enter a filter value first".to_owned();
-            return;
-        }
         let data_type = self
             .table_info
             .as_ref()
             .and_then(|info| info.columns.iter().find(|item| item.name == column))
             .map(|item| item.data_type.clone())
             .unwrap_or_else(|| "text".to_owned());
+        if !Self::filter_operator_supported(&data_type, &self.table_data_filter_operator) {
+            self.runtime_message = format!("That filter operator is not supported for {data_type}");
+            return;
+        }
+        if !is_null_operator
+            && self.table_data_filter_value.is_empty()
+            && !Self::is_text_type(&data_type.to_ascii_lowercase())
+        {
+            self.runtime_message = "Enter a filter value first".to_owned();
+            return;
+        }
         if !is_null_operator {
             if let Err(error) = Self::parse_update_value(&self.table_data_filter_value, &data_type) {
                 self.runtime_message = format!("Invalid filter for {column}: {error}");
@@ -2060,12 +2315,12 @@ impl DbProApp {
                 self.table_data_filter_value.clone()
             },
         };
-        if let Some(existing) = self
-            .table_data_filters
-            .iter_mut()
-            .find(|item| item.column == filter.column)
-        {
-            *existing = filter;
+        if let Some(index) = self.table_data_filter_editing.take() {
+            if let Some(existing) = self.table_data_filters.get_mut(index) {
+                *existing = filter;
+            } else {
+                self.table_data_filters.push(filter);
+            }
         } else {
             self.table_data_filters.push(filter);
         }
@@ -2080,6 +2335,11 @@ impl DbProApp {
         }
         if index < self.table_data_filters.len() {
             self.table_data_filters.remove(index);
+            self.table_data_filter_editing = match self.table_data_filter_editing {
+                Some(editing) if editing == index => None,
+                Some(editing) if editing > index => Some(editing - 1),
+                other => other,
+            };
             self.table_data_offset = 0;
             self.request_table_data();
         }
@@ -2091,6 +2351,7 @@ impl DbProApp {
             return;
         }
         self.table_data_filters.clear();
+        self.table_data_filter_editing = None;
         self.table_data_offset = 0;
         self.request_table_data();
     }
@@ -2098,6 +2359,56 @@ impl DbProApp {
     pub(crate) fn reset_table_data_page(&mut self) {
         self.table_data_offset = 0;
         self.request_table_data();
+    }
+
+    fn filter_operator_supported(data_type: &str, operator: &UiTableFilterOperator) -> bool {
+        Self::filter_operator_options(data_type)
+            .iter()
+            .any(|(candidate, _)| candidate == operator)
+    }
+
+    fn filter_operator_options(data_type: &str) -> Vec<(UiTableFilterOperator, &'static str)> {
+        let normalized = data_type.to_ascii_lowercase();
+        let mut operators = if Self::is_text_type(&normalized) {
+            vec![
+                (UiTableFilterOperator::Equals, "equals"),
+                (UiTableFilterOperator::NotEquals, "not equals"),
+                (UiTableFilterOperator::Contains, "contains"),
+                (UiTableFilterOperator::StartsWith, "starts with"),
+                (UiTableFilterOperator::EndsWith, "ends with"),
+            ]
+        } else if normalized.contains("bool") {
+            vec![
+                (UiTableFilterOperator::Equals, "equals"),
+                (UiTableFilterOperator::NotEquals, "not equals"),
+            ]
+        } else if normalized.contains("int")
+            || normalized.contains("serial")
+            || normalized.contains("real")
+            || normalized.contains("float")
+            || normalized.contains("double")
+            || Self::is_decimal_type(&normalized)
+            || normalized == "date"
+            || normalized.starts_with("time")
+            || normalized.contains("timestamp")
+        {
+            vec![
+                (UiTableFilterOperator::Equals, "equals"),
+                (UiTableFilterOperator::NotEquals, "not equals"),
+                (UiTableFilterOperator::GreaterThan, ">"),
+                (UiTableFilterOperator::GreaterThanOrEqual, ">="),
+                (UiTableFilterOperator::LessThan, "<"),
+                (UiTableFilterOperator::LessThanOrEqual, "<="),
+            ]
+        } else {
+            vec![
+                (UiTableFilterOperator::Equals, "equals"),
+                (UiTableFilterOperator::NotEquals, "not equals"),
+            ]
+        };
+        operators.push((UiTableFilterOperator::IsNull, "IS NULL"));
+        operators.push((UiTableFilterOperator::IsNotNull, "IS NOT NULL"));
+        operators
     }
 
     pub(crate) fn reload_table_data_from_start(&mut self) {
@@ -2168,5 +2479,67 @@ mod tests {
         assert!(DbProApp::parse_update_value("{\"ok\":true}", "jsonb").is_ok());
         assert!(DbProApp::parse_update_value("not-json", "jsonb").is_err());
         assert!(DbProApp::parse_update_value("deadbeef", "bytea").is_err());
+    }
+
+    #[test]
+    fn filter_operators_follow_column_type_and_keep_null_operators_universally() {
+        assert!(DbProApp::filter_operator_supported(
+            "numeric(20,4)",
+            &UiTableFilterOperator::GreaterThan
+        ));
+        assert!(!DbProApp::filter_operator_supported(
+            "numeric(20,4)",
+            &UiTableFilterOperator::Contains
+        ));
+        assert!(DbProApp::filter_operator_supported(
+            "uuid",
+            &UiTableFilterOperator::Equals
+        ));
+        assert!(!DbProApp::filter_operator_supported(
+            "uuid",
+            &UiTableFilterOperator::StartsWith
+        ));
+        assert!(DbProApp::filter_operator_supported(
+            "boolean",
+            &UiTableFilterOperator::IsNotNull
+        ));
+    }
+
+    #[test]
+    fn filter_draft_supports_multiple_and_editable_same_column_filters() {
+        let mut app = DbProApp {
+            table_info: Some(UiTableInfo {
+                schema: "public".to_owned(),
+                name: "orders".to_owned(),
+                row_count: None,
+                columns: vec![crate::UiTableColumn {
+                    name: "amount".to_owned(),
+                    data_type: "numeric(12,2)".to_owned(),
+                    nullable: false,
+                    default: None,
+                    is_primary_key: false,
+                }],
+                primary_key: None,
+                indexes: Vec::new(),
+                foreign_keys: Vec::new(),
+                check_constraints: Vec::new(),
+                dependencies: Vec::new(),
+            }),
+            table_data_filter_column: "amount".to_owned(),
+            table_data_filter_operator: UiTableFilterOperator::GreaterThan,
+            table_data_filter_value: "10.00".to_owned(),
+            ..Default::default()
+        };
+        app.commit_table_filter_draft();
+        app.table_data_filter_operator = UiTableFilterOperator::LessThan;
+        app.table_data_filter_value = "20.00".to_owned();
+        app.commit_table_filter_draft();
+
+        assert_eq!(app.table_data_filters.len(), 2);
+        app.table_data_filter_editing = Some(0);
+        app.table_data_filter_value = "11.00".to_owned();
+        app.commit_table_filter_draft();
+        assert_eq!(app.table_data_filters[0].value, "11.00");
+        assert_eq!(app.table_data_filters.len(), 2);
     }
 }

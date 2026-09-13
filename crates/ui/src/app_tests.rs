@@ -1519,9 +1519,9 @@ fn test_column_order_and_move_column() {
     app.move_column(3, 1, 4);
     assert_eq!(app.grid_column_order, vec![1, 3, 2, 0]);
 
-    // Resets automatically on column count change
+    // Invalid persisted indexes are removed while valid order is preserved.
     let new_order = app.column_order(2);
-    assert_eq!(new_order, vec![0, 1]);
+    assert_eq!(new_order, vec![1, 0]);
 }
 
 #[test]

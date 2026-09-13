@@ -257,6 +257,10 @@ impl DbProApp {
 
     /// Table data arrived: seed filter/sort defaults on first load.
     fn on_table_data_loaded(&mut self, request_id: RequestId, result: UiQueryResult, total_rows: u64) {
+        if self.table_row_reload_request == Some(request_id) {
+            self.on_table_row_reloaded(result);
+            return;
+        }
         if self.table_data_request != Some(request_id) {
             return;
         }
@@ -291,6 +295,58 @@ impl DbProApp {
             self.table_mutation_retry_after_reload = false;
             self.apply_staged_changes();
         }
+    }
+
+    fn on_table_row_reloaded(&mut self, result: UiQueryResult) {
+        self.table_row_reload_request = None;
+        let Some(identity) = self.table_row_reload_identity.take() else {
+            return;
+        };
+        let Some(server_row) = result.rows.into_iter().next() else {
+            self.runtime_message = "Row was deleted".to_owned();
+            if self.table_mutation_retry_after_reload {
+                self.table_mutation_retry_after_reload = false;
+            }
+            return;
+        };
+
+        if let Some(table_result) = self.table_data_result.as_mut() {
+            if let Some(row_index) = table_result.rows.iter().position(|row| {
+                let candidate = UiQueryResult {
+                    columns: table_result.columns.clone(),
+                    rows: vec![row.clone()],
+                    row_count: 1,
+                    duration_ms: 0,
+                };
+                Self::row_identity_for_result_static(&candidate, &identity)
+            }) {
+                table_result.rows[row_index] = server_row;
+            }
+        }
+        self.table_data_error = None;
+        self.runtime_message = "Row reloaded from database".to_owned();
+        if self.table_mutation_retry_after_reload {
+            self.table_mutation_retry_after_reload = false;
+            self.apply_staged_changes();
+        }
+    }
+
+    fn row_identity_for_result_static(result: &UiQueryResult, identity: &RowIdentity) -> bool {
+        let Some(row) = result.rows.first() else {
+            return false;
+        };
+        identity
+            .original_pk_columns
+            .iter()
+            .zip(&identity.original_pk_values)
+            .all(|(column, value)| {
+                result
+                    .columns
+                    .iter()
+                    .position(|candidate| candidate.name == *column)
+                    .and_then(|index| row.get(index))
+                    .is_some_and(|candidate| candidate == value)
+            })
     }
 
     /// A native file picker returned (or was cancelled).
@@ -514,6 +570,11 @@ impl DbProApp {
             self.table_ddl_request = None;
             self.table_ddl_error = Some(message.clone());
             self.runtime_message = format!("Table DDL failed · {message}");
+        } else if self.table_row_reload_request == Some(request_id) {
+            self.table_row_reload_request = None;
+            self.table_row_reload_identity = None;
+            self.table_mutation_retry_after_reload = false;
+            self.runtime_message = format!("Could not reload row: {message}");
         } else if self.table_data_request == Some(request_id) {
             self.table_data_request = None;
             self.table_mutation_retry_after_reload = false;
@@ -634,5 +695,94 @@ impl DbProApp {
             connection_id,
             sql,
         });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{UiColumn, UiTableColumn};
+
+    fn row_result(name: &str) -> UiQueryResult {
+        UiQueryResult {
+            columns: vec![
+                UiColumn {
+                    name: "id".to_owned(),
+                    data_type: "integer".to_owned(),
+                    nullable: false,
+                },
+                UiColumn {
+                    name: "name".to_owned(),
+                    data_type: "text".to_owned(),
+                    nullable: false,
+                },
+            ],
+            rows: vec![vec![UiCell::Number("7".to_owned()), UiCell::Text(name.to_owned())]],
+            row_count: 1,
+            duration_ms: 0,
+        }
+    }
+
+    fn row_reload_app() -> DbProApp {
+        DbProApp {
+            table_info: Some(UiTableInfo {
+                schema: "public".to_owned(),
+                name: "customers".to_owned(),
+                row_count: Some(1),
+                columns: vec![
+                    UiTableColumn {
+                        name: "id".to_owned(),
+                        data_type: "integer".to_owned(),
+                        nullable: false,
+                        default: None,
+                        is_primary_key: true,
+                    },
+                    UiTableColumn {
+                        name: "name".to_owned(),
+                        data_type: "text".to_owned(),
+                        nullable: false,
+                        default: None,
+                        is_primary_key: false,
+                    },
+                ],
+                primary_key: Some(vec!["id".to_owned()]),
+                indexes: Vec::new(),
+                foreign_keys: Vec::new(),
+                check_constraints: Vec::new(),
+                dependencies: Vec::new(),
+            }),
+            table_data_result: Some(row_result("local server value")),
+            table_row_reload_request: Some(RequestId(9)),
+            table_row_reload_identity: Some(RowIdentity {
+                original_pk_columns: vec!["id".to_owned()],
+                original_pk_values: vec![UiCell::Number("7".to_owned())],
+            }),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn row_reload_merges_server_values_by_original_identity() {
+        let mut app = row_reload_app();
+        app.on_table_data_loaded(RequestId(9), row_result("fresh server value"), 1);
+
+        let result = app.table_data_result.expect("table result should remain visible");
+        assert_eq!(result.rows[0][1], UiCell::Text("fresh server value".to_owned()));
+        assert!(app.table_row_reload_request.is_none());
+    }
+
+    #[test]
+    fn row_reload_reports_deleted_row_without_dropping_local_result() {
+        let mut app = row_reload_app();
+        let empty = UiQueryResult {
+            columns: row_result("unused").columns,
+            rows: Vec::new(),
+            row_count: 0,
+            duration_ms: 0,
+        };
+        app.on_table_data_loaded(RequestId(9), empty, 0);
+
+        assert_eq!(app.runtime_message, "Row was deleted");
+        assert!(app.table_data_result.is_some());
     }
 }

@@ -88,13 +88,26 @@ impl DbProApp {
 
     /// Retrieve or initialize column visual ordering.
     pub(crate) fn column_order(&mut self, count: usize) -> Vec<usize> {
-        if self.grid_column_order.len() != count || self.grid_column_order.iter().any(|&idx| idx >= count) || {
-            let mut sorted = self.grid_column_order.clone();
-            sorted.sort_unstable();
-            sorted.dedup();
-            sorted.len() != count
-        } {
-            self.grid_column_order = (0..count).collect();
+        self.grid_hidden_columns.retain(|&column| column < count);
+        let mut normalized_order = Vec::with_capacity(count);
+        for column in self.grid_column_order.iter().copied() {
+            if column < count && !normalized_order.contains(&column) {
+                normalized_order.push(column);
+            }
+        }
+        for column in 0..count {
+            if !normalized_order.contains(&column) {
+                normalized_order.push(column);
+            }
+        }
+        if normalized_order != self.grid_column_order {
+            self.grid_column_order = normalized_order;
+        }
+        if !self.grid_column_widths.is_empty() {
+            self.grid_column_widths.resize(count, 180.0);
+            self.grid_column_widths
+                .iter_mut()
+                .for_each(|width| *width = width.clamp(60.0, 1000.0));
         }
         self.grid_column_order
             .iter()
@@ -145,27 +158,31 @@ impl DbProApp {
         self.grid_columns_user_resized = false;
     }
 
-    fn auto_size_columns(&mut self, result: &UiQueryResult, indexes: &[usize]) {
-        self.grid_column_widths = result
-            .columns
+    fn auto_size_column(&mut self, result: &UiQueryResult, indexes: &[usize], column_index: usize) {
+        if column_index >= result.columns.len() {
+            return;
+        }
+        if self.grid_column_widths.len() < result.columns.len() {
+            self.grid_column_widths.resize(result.columns.len(), 180.0);
+        }
+        let column = &result.columns[column_index];
+        let content_width = indexes
             .iter()
-            .enumerate()
-            .map(|(column_index, column)| {
-                let content_width = indexes
-                    .iter()
-                    .take(100)
-                    .filter_map(|row_index| result.rows.get(*row_index).and_then(|row| row.get(column_index)))
-                    .map(crate::cell_text)
-                    .map(|value| value.chars().count() as f32 * 7.0 + 24.0)
-                    .fold(column.name.chars().count() as f32 * 7.0 + 42.0, f32::max);
-                content_width.clamp(60.0, 520.0)
-            })
-            .collect();
+            .take(100)
+            .filter_map(|row_index| result.rows.get(*row_index).and_then(|row| row.get(column_index)))
+            .map(crate::cell_text)
+            .map(|value| value.chars().count() as f32 * 7.0 + 24.0)
+            .fold(column.name.chars().count() as f32 * 7.0 + 42.0, f32::max);
+        self.grid_column_widths[column_index] = content_width.clamp(60.0, 520.0);
         self.grid_columns_user_resized = true;
     }
 
     fn set_table_or_grid_sort(&mut self, result: &UiQueryResult, column_index: usize, descending: Option<bool>) {
         if self.active_tab == WorkspaceTab::Table && self.table_view == TableView::Data {
+            if !self.staged_changes.is_empty() {
+                self.runtime_message = "Apply or discard staged changes before changing sort".to_owned();
+                return;
+            }
             self.table_data_sorts = descending
                 .and_then(|_| {
                     result.columns.get(column_index).map(|column| UiTableDataSort {
@@ -188,6 +205,10 @@ impl DbProApp {
     /// makes the clicked column the next priority; plain click selects one
     /// clause and cycles ASC -> DESC -> none.
     fn cycle_table_data_sort(&mut self, result: &UiQueryResult, column_index: usize, additive: bool) {
+        if !self.staged_changes.is_empty() {
+            self.runtime_message = "Apply or discard staged changes before changing sort".to_owned();
+            return;
+        }
         let Some(column) = result.columns.get(column_index).map(|column| column.name.clone()) else {
             return;
         };
@@ -957,6 +978,10 @@ impl DbProApp {
                     text_color,
                 );
             }
+            let raw_value = crate::cell_text(display_cell);
+            if raw_value.chars().count() > 40 {
+                cell_resp.clone().on_hover_text(raw_value);
+            }
 
             let is_ctx = is_context_menu_triggered(&cell_resp, ui);
             let mut copy_cell_req = false;
@@ -1353,33 +1378,82 @@ impl DbProApp {
             .columns
             .get(column_index)
             .is_some_and(|column| column.data_type.to_ascii_lowercase().contains("bool"));
-        ui.allocate_new_ui(egui::UiBuilder::new().max_rect(cell_rect.shrink(1.0)), |ui| {
-            let response = if is_boolean {
-                let mut checked = self.data_edit_value.eq_ignore_ascii_case("true");
-                let response = ui.checkbox(&mut checked, "");
+        let is_expanded = self.expanded_data_editor == Some((row_index, column_index));
+        if !is_expanded {
+            ui.allocate_new_ui(egui::UiBuilder::new().max_rect(cell_rect.shrink(1.0)), |ui| {
+                let response = if is_boolean {
+                    let mut checked = self.data_edit_value.eq_ignore_ascii_case("true");
+                    let response = ui.checkbox(&mut checked, "");
+                    if response.changed() {
+                        self.data_edit_value = checked.to_string();
+                        self.data_edit_error = None;
+                    }
+                    response
+                } else {
+                    ui.add_sized(
+                        ui.available_size(),
+                        TextEdit::singleline(&mut self.data_edit_value)
+                            .margin(egui::Margin::symmetric(6.0, 2.0))
+                            .text_color(self.theme.text_primary),
+                    )
+                };
+                response.request_focus();
                 if response.changed() {
-                    self.data_edit_value = checked.to_string();
                     self.data_edit_error = None;
                 }
-                response
-            } else {
-                ui.add_sized(
-                    ui.available_size(),
-                    TextEdit::singleline(&mut self.data_edit_value)
-                        .margin(egui::Margin::symmetric(6.0, 2.0))
-                        .text_color(self.theme.text_primary),
-                )
-            };
-            response.request_focus();
-            if response.changed() {
+            });
+            let commit = ui.input(|input| input.key_pressed(egui::Key::Enter));
+            if commit {
+                self.submit_data_cell_edit(result, row_index, column_index);
+            } else if ui.input(|input| input.key_pressed(egui::Key::Escape)) {
+                self.data_editing_cell = None;
+                self.expanded_data_editor = None;
+                self.data_edit_value.clear();
                 self.data_edit_error = None;
             }
-        });
-        let commit = ui.input(|input| input.key_pressed(egui::Key::Enter));
+            return;
+        }
+
+        let ctx = ui.ctx().clone();
+        let mut open = true;
+        let mut commit = false;
+        let mut cancel = false;
+        egui::Window::new("Expanded cell editor")
+            .id(egui::Id::new(("expanded-table-cell-editor", row_index, column_index)))
+            .open(&mut open)
+            .resizable(true)
+            .default_width(520.0)
+            .show(&ctx, |ui| {
+                ui.label(
+                    RichText::new("Edit value · Enter applies, Escape cancels")
+                        .small()
+                        .color(self.theme.text_muted),
+                );
+                let response = ui.add(
+                    TextEdit::multiline(&mut self.data_edit_value)
+                        .desired_width(ui.available_width())
+                        .desired_rows(14),
+                );
+                if response.changed() {
+                    self.data_edit_error = None;
+                }
+                if let Some(error) = self.data_edit_error.as_deref() {
+                    ui.label(RichText::new(error).small().color(self.theme.danger));
+                }
+                ui.horizontal(|ui| {
+                    if ui.button("Apply").clicked() {
+                        commit = true;
+                    }
+                    if ui.button("Cancel").clicked() {
+                        cancel = true;
+                    }
+                });
+            });
         if commit {
             self.submit_data_cell_edit(result, row_index, column_index);
-        } else if ui.input(|input| input.key_pressed(egui::Key::Escape)) {
+        } else if cancel || !open || ctx.input(|input| input.key_pressed(egui::Key::Escape)) {
             self.data_editing_cell = None;
+            self.expanded_data_editor = None;
             self.data_edit_value.clear();
             self.data_edit_error = None;
         }
@@ -1735,7 +1809,8 @@ impl DbProApp {
         let (mut move_left_req, mut move_right_req, mut reset_order_req, mut reset_widths_req) =
             (None, None, false, false);
         let (mut hide_column_req, mut show_columns_req, mut reset_layout_req, mut auto_size_req) =
-            (None, false, false, false);
+            (None, false, false, None);
+        let mut add_filter_req = None;
 
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing = Vec2::ZERO;
@@ -1967,6 +2042,14 @@ impl DbProApp {
                         self.set_table_or_grid_sort(result, col_idx, None);
                         *close_menu = true;
                     }
+                    if self.active_tab == WorkspaceTab::Table
+                        && self.table_view == TableView::Data
+                        && ctx_menu_item(ui, Some(Icon::Filter), "Add Filter", None, theme.text_primary, theme)
+                            .clicked()
+                    {
+                        add_filter_req = Some(col_idx);
+                        *close_menu = true;
+                    }
                     ui.separator();
                     if visual_idx > 0
                         && ctx_menu_item(
@@ -2049,7 +2132,7 @@ impl DbProApp {
                         *close_menu = true;
                     }
                     if ctx_menu_item(ui, Some(Icon::Ruler), "Auto Size", None, theme.text_secondary, theme).clicked() {
-                        auto_size_req = true;
+                        auto_size_req = Some(col_idx);
                         *close_menu = true;
                     }
                 });
@@ -2076,6 +2159,9 @@ impl DbProApp {
                     self.grid_column_widths[col_idx] =
                         (self.grid_column_widths[col_idx] + divider.drag_delta().x).clamp(60.0, 1000.0);
                 }
+                if divider.double_clicked() {
+                    auto_size_req = Some(col_idx);
+                }
             }
         });
 
@@ -2098,16 +2184,25 @@ impl DbProApp {
         if let Some(column_index) = hide_column_req {
             self.hide_column(column_index, order.len());
         }
+        if let Some(column_index) = add_filter_req {
+            if let Some(column) = result.columns.get(column_index) {
+                self.table_data_filter_column = column.name.clone();
+                self.table_data_filter_operator = UiTableFilterOperator::Equals;
+                self.table_data_filter_value.clear();
+                self.table_data_filter_editing = None;
+                self.runtime_message = format!("Filter draft ready for {}", column.name);
+            }
+        }
         if show_columns_req {
             self.show_all_columns();
         }
         if reset_layout_req {
             self.reset_grid_layout(result.columns.len());
         }
-        if auto_size_req {
+        if let Some(column_index) = auto_size_req {
             let indexes =
                 crate::filtered_sorted_indexes(result, &self.grid_filter, self.grid_sort_column, self.grid_sort_desc);
-            self.auto_size_columns(result, &indexes);
+            self.auto_size_column(result, &indexes, column_index);
         }
     }
 
@@ -2117,7 +2212,10 @@ impl DbProApp {
             crate::UiCell::Boolean(value) => value.to_string(),
             crate::UiCell::Number(value) => value.clone(),
             crate::UiCell::Text(value) => value.clone(),
-            crate::UiCell::Json(value) => value.clone(),
+            crate::UiCell::Json(value) => serde_json::from_str::<serde_json::Value>(value)
+                .ok()
+                .and_then(|json| serde_json::to_string_pretty(&json).ok())
+                .unwrap_or_else(|| value.clone()),
             crate::UiCell::Bytes(value) => value.clone(),
         }
     }
@@ -2226,5 +2324,48 @@ mod tests {
         app.cycle_table_data_sort(&result, 0, true);
         assert_eq!(app.table_data_sorts.len(), 1);
         assert_eq!(app.table_data_sorts[0].column, "item_id");
+    }
+
+    #[test]
+    fn persisted_layout_is_normalized_when_schema_changes() {
+        let mut app = DbProApp {
+            grid_column_order: vec![4, 1, 1, 99],
+            grid_hidden_columns: [4, 88].into_iter().collect(),
+            grid_column_widths: vec![40.0, 120.0, 2000.0, 240.0],
+            ..Default::default()
+        };
+
+        assert_eq!(app.column_order(3), vec![1, 0, 2]);
+        assert!(app.grid_hidden_columns.is_empty());
+        assert_eq!(app.grid_column_widths, vec![60.0, 120.0, 1000.0]);
+    }
+
+    #[test]
+    fn sorting_is_blocked_while_staged_changes_are_present() {
+        let mut app = DbProApp {
+            active_tab: WorkspaceTab::Table,
+            table_view: TableView::Data,
+            staged_changes: ChangeSet::from(vec![StagedChange::Insert {
+                local_id: 1,
+                columns: vec!["name".to_owned()],
+                values: vec![UiCell::Text("draft".to_owned())],
+            }]),
+            ..Default::default()
+        };
+        let result = UiQueryResult {
+            columns: vec![crate::UiColumn {
+                name: "name".to_owned(),
+                data_type: "text".to_owned(),
+                nullable: true,
+            }],
+            rows: Vec::new(),
+            row_count: 0,
+            duration_ms: 0,
+        };
+
+        app.cycle_table_data_sort(&result, 0, false);
+
+        assert!(app.table_data_sorts.is_empty());
+        assert!(app.runtime_message.contains("staged changes"));
     }
 }

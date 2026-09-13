@@ -13,7 +13,7 @@
   ChangeSet composition, conflicts, and invariant violations: PASS.
 - `cargo check --workspace`: PASS.
 - `cargo clippy --workspace --all-targets -- -D warnings`: PASS.
-- `cargo test --workspace`: PASS, including core 274 tests, UI 127 tests, and
+- `cargo test --workspace`: PASS, including core 274 tests, UI 138 tests, and
   infrastructure integration 32 tests; 18 PostgreSQL tests ignored because no
   live PG fixture was configured.
 - `cargo build --release --locked -p db-pro-native`: PASS.
@@ -24,6 +24,26 @@
   the audit's non-`-D warnings` clippy invocation; the required strict clippy
   gate is recorded separately below.
 - `cargo test -p db-pro-core table_data_service --lib`: 21 passed.
+- Continuation UI regression suite: `cargo test -p db-pro-ui`: 138 passed.
+- `cargo fmt --all -- --check`: PASS.
+- `cargo check --workspace`: PASS.
+- `cargo clippy --workspace --all-targets -- -D warnings`: PASS.
+- `cargo test --workspace`: PASS; all workspace suites passed, with 18
+  PostgreSQL fixture tests ignored because no live fixture was configured.
+- `cargo build --release --locked -p db-pro-native`: PASS.
+- `bash .skills/perf-audit/scripts/perf-scan.sh`: PASS; release binary 21.0MB,
+  workspace check/clippy passed, zero audit warnings.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh --diff`: completed with
+  existing large-grid-file heuristic findings; no unwrap/println/swallowed
+  Result findings in changed production paths.
+- Continuation source evidence: typed operator gating, multiple editable filter
+  chips, unknown-total Next behavior, pending-change review, expanded
+  JSON/long-text editor, header Add Filter, separator auto-size, and persisted
+  layout normalization are implemented and covered by focused tests where
+  applicable.
+- Conflict reload source evidence: Reload Row dispatches one-row equality
+  filters from the original RowIdentity; returned values merge only into the
+  matching visible row, while staged values and conflict state remain intact.
 - SQLite mutation integration test: PASS.
 - Live SQLite integration mutation test:
   `cargo test -p db-pro-infrastructure --test integration
@@ -38,6 +58,10 @@
   with the configured PostgreSQL connection and completed schema introspection
   for 68 tables. The desktop accessibility snapshot timed out, so no new
   screenshot or live cell-edit pass is claimed for this continuation.
+- Runtime continuation: the `db-pro-native` window was present at 1838×1049,
+  but `orca computer get-app-state --restore-window` and its no-screenshot
+  variant both timed out; no UI screenshot or interaction is claimed from this
+  run.
 - PostgreSQL runtime mutation flow with a concurrent delete/update.
 - SQLite runtime mutation flow with a concurrent delete/update.
 - Native UI screenshots or recording at 1280x800, 1440x900, and 1920x1080

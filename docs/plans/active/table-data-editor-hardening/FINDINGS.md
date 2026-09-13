@@ -40,6 +40,11 @@ recovery regressions listed in the plan.
   result before applying again. Constraint failures retain the staged values.
 - Remaining P1: PostgreSQL and SQLite provider flows still need independent
   runtime evidence with a live concurrent change.
+- Remaining P2: Reload Row fetches the original PK predicate and merges a
+  returned row into the current result when visible; a deliberate Keep Local /
+  Use Server Values choice is still not exposed because staged values remain
+  the safe default.
 - Remaining P2: provider-specific structure metadata fields (index method,
   INCLUDE/predicate/definition and full FK actions) are not expanded in this
-  slice; binary editing also remains intentionally unavailable.
+  slice; binary editing, count caching, and state extraction from DbProApp also
+  remain pending.

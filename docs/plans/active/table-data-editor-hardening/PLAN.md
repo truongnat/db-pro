@@ -22,14 +22,17 @@ correctness, conflict recovery, and render-coordinate performance.
 - Keep table sort clauses typed and ordered, including Shift+click multi-sort.
 - Persist grid width/order/hidden-column preferences per connection, schema,
   and table.
+- Validate typed table filters before dispatching a query; support multiple AND
+  predicates, editable filter chips, pagination reset, and server-side sorts.
+- Provide compact staged-change review, cell diff/revert actions, expanded
+  JSON/long-text editing, NULL/binary-safe rendering, and pagination controls.
 - Avoid linear coordinate lookup in visible-cell rendering.
 
 ## Out of scope for this slice
 
+- Binary editing.
 - Full metadata expansion for provider-specific indexes and foreign-key
   actions (the existing structure surface remains unchanged in this slice).
-- Binary editing.
-- Binary editing.
 - Broad UI redesign or archived frontend changes.
 
 ## Provider matrix
