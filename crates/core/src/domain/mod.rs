@@ -1,3 +1,5 @@
+pub mod agent;
+pub mod agent_context;
 pub mod backup;
 pub mod capabilities;
 pub mod connection;
