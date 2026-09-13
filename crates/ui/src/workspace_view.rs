@@ -107,7 +107,7 @@ impl DbProApp {
                                 .query_documents
                                 .iter()
                                 .enumerate()
-                                .map(|(index, doc)| (index, doc.title.clone(), doc.content.clone()))
+                                .map(|(index, doc)| (index, doc.title.clone(), doc.content().to_owned()))
                                 .collect();
 
                             let mut switch_query_idx = None;
@@ -125,7 +125,7 @@ impl DbProApp {
                                     && self
                                         .query_documents
                                         .get(idx)
-                                        .is_some_and(|doc| doc.content != self.query_text);
+                                        .is_some_and(|doc| doc.content() != self.query_text);
 
                                 let action = draw_workspace_tab_item(
                                     ui,
@@ -235,7 +235,7 @@ impl DbProApp {
                                         )
                                         .clicked()
                                         {
-                                            ui.output_mut(|o| o.copied_text = title.clone());
+                                            ui.output_mut(|o| o.copied_text = title.to_string());
                                             *close_menu = true;
                                         }
                                         ui.separator();

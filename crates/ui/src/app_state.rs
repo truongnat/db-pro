@@ -83,7 +83,7 @@ impl DbProApp {
                 if let Ok(documents) = serde_json::from_str::<Vec<QueryDocument>>(&documents) {
                     if !documents.is_empty() {
                         app.query_documents = documents;
-                        app.query_text = app.query_documents[0].content.clone();
+                        app.query_text = app.query_documents[0].content().to_owned();
                     }
                 }
             }
@@ -113,10 +113,7 @@ impl Default for DbProApp {
             query_text: DEFAULT_QUERY.to_owned(),
             welcome_prompt: String::new(),
             selected_query: String::new(),
-            query_documents: vec![QueryDocument {
-                title: "Query 1".to_owned(),
-                content: DEFAULT_QUERY.to_owned(),
-            }],
+            query_documents: vec![QueryDocument::new("query-1", "Query 1", DEFAULT_QUERY)],
             active_query_document: 0,
             editor_search: String::new(),
             editor_search_open: false,

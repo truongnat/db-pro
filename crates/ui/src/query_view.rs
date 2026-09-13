@@ -1,4 +1,6 @@
 use super::*;
+use crate::editor::{CompletionItemKind, CompletionTriggerKind, SqlDialect, SqlEditor};
+use crate::query::{CompletionContext, SchemaCompletionProvider};
 
 impl DbProApp {
     pub(super) fn draw_query(&mut self, ui: &mut egui::Ui) {
@@ -17,6 +19,7 @@ impl DbProApp {
                     self.draw_editor_search_bar(ui);
                 }
                 self.draw_query_editor(ui);
+                self.draw_floating_completion_popup(ui.ctx());
                 if self.completion_open {
                     self.draw_sql_completion(ui);
                 }
@@ -534,130 +537,259 @@ impl DbProApp {
         } else {
             ui.available_height().clamp(320.0, 480.0)
         };
-        ui.allocate_ui_with_layout(
-            egui::vec2(editor_width, editor_height),
-            Layout::top_down(Align::Min),
-            |ui| {
-                editor_frame(self.theme).show(ui, |ui| {
-                    ui.set_min_width((editor_width - 24.0).max(0.0));
-                    ui.horizontal_top(|ui| {
-                        let line_count = self.query_text.lines().count().max(1);
-                        ui.vertical(|ui| {
-                            for line in 1..=line_count {
-                                ui.label(
-                                    RichText::new(format!("{line:>3}"))
-                                        .monospace()
-                                        .color(self.theme.text_muted),
-                                );
-                            }
-                        });
-                        ui.separator();
-                        let editor_text_width = (editor_width - 72.0).max(280.0);
-                        let editor_size = egui::vec2(editor_text_width, (editor_height - 40.0).max(260.0));
-                        let theme = self.theme;
-                        let output = ui.allocate_ui(editor_size, |ui| {
-                            TextEdit::multiline(&mut self.query_text)
-                                .font(FontId::monospace(self.editor_font_size))
-                                .desired_width(f32::INFINITY)
-                                .min_size(editor_size)
-                                .desired_rows(14)
-                                .layouter(&mut |ui, text, wrap_width| Self::sql_layouter(ui, text, wrap_width, theme))
-                                .lock_focus(true)
-                                .show(ui)
-                        });
-                        let editor_response = output.inner.response;
-                        self.query_editor_focused = editor_response.has_focus();
 
-                        let mut run_req = false;
-                        let mut explain_req = false;
-                        let mut format_req = false;
-                        let mut clear_req = false;
-                        let modifier = Self::primary_modifier_label();
-                        let theme = self.theme;
+        if self.active_query_document >= self.query_documents.len() {
+            return;
+        }
 
-                        context_action_menu(ui, &editor_response, theme, |ui, close_menu| {
-                            let run_sc = format!("{modifier}↵");
-                            if ctx_menu_item(
-                                ui,
-                                Some(Icon::Play),
-                                "Run Query",
-                                Some(&run_sc),
-                                theme.text_primary,
-                                theme,
-                            )
-                            .clicked()
-                            {
-                                run_req = true;
-                                *close_menu = true;
-                            }
-                            if ctx_menu_item(
-                                ui,
-                                Some(Icon::ChartNoAxesCombined),
-                                "Explain Query",
-                                None,
-                                theme.text_primary,
-                                theme,
-                            )
-                            .clicked()
-                            {
-                                explain_req = true;
-                                *close_menu = true;
-                            }
-                            ui.separator();
-                            if ctx_menu_item(
-                                ui,
-                                Some(Icon::AlignLeft),
-                                "Format SQL",
-                                Some("⌥⇧F"),
-                                theme.text_primary,
-                                theme,
-                            )
-                            .clicked()
-                            {
-                                format_req = true;
-                                *close_menu = true;
-                            }
-                            if ctx_menu_item(ui, Some(Icon::Trash2), "Clear Editor", None, theme.danger, theme)
-                                .clicked()
-                            {
-                                clear_req = true;
-                                *close_menu = true;
-                            }
-                        });
+        let is_sqlite = self.active_driver().eq_ignore_ascii_case("sqlite");
+        let dialect = if is_sqlite {
+            SqlDialect::SQLite
+        } else {
+            SqlDialect::Postgres
+        };
+        let active_schema = self.active_schema().to_owned();
 
-                        if run_req {
-                            self.dispatch_query();
-                        }
-                        if explain_req {
-                            self.explain_query();
-                        }
-                        if format_req {
-                            self.query_text = Self::format_sql(&self.query_text);
-                        }
-                        if clear_req {
-                            self.query_text.clear();
-                        }
+        let theme = self.theme;
+        let font_size = self.editor_font_size;
+        let mut dispatch_req = false;
+        let mut trigger_completion = false;
+        let mut completion_pos = egui::Pos2::ZERO;
 
-                        if let Some(cursor_range) = output.inner.cursor_range {
-                            let cursor = cursor_range.primary.pcursor;
-                            self.query_cursor_line = cursor.paragraph.saturating_add(1);
-                            self.query_cursor_column = cursor.offset.saturating_add(1);
-                            let range = cursor_range.as_sorted_char_range();
-                            if range.start < range.end && range.end <= self.query_text.len() {
-                                self.selected_query = self
-                                    .query_text
-                                    .chars()
-                                    .skip(range.start)
-                                    .take(range.end - range.start)
-                                    .collect();
+        let available_size = egui::vec2((editor_width - 24.0).max(280.0), (editor_height - 20.0).max(240.0));
+
+        let doc_index = self.active_query_document;
+        let doc = &mut self.query_documents[doc_index];
+
+        let mut editor = SqlEditor::new(
+            &mut doc.buffer,
+            &mut doc.cursor,
+            &mut doc.selection,
+            dialect,
+            &theme,
+            &doc.diagnostics,
+            doc.prediction.as_ref(),
+            "active_sql_editor",
+        );
+        editor.font_size = font_size;
+
+        let response = editor.show(ui, available_size);
+
+        self.query_editor_focused = response.focused;
+        self.query_cursor_line = doc.cursor.line + 1;
+        self.query_cursor_column = doc.cursor.col + 1;
+
+        if response.changed {
+            self.query_text = doc.text().to_owned();
+            doc.reanalyze(dialect);
+            doc.dirty = true;
+            if !doc.selection.is_empty() {
+                let (start, end) = doc.selection.normalized();
+                self.selected_query = doc.buffer.slice(start, end).to_owned();
+            } else {
+                self.selected_query.clear();
+            }
+        }
+
+        if response.wants_execute_statement || response.wants_execute_all {
+            dispatch_req = true;
+        }
+
+        if response.wants_completion {
+            trigger_completion = true;
+            completion_pos = response.cursor_screen_pos;
+        }
+
+        if trigger_completion {
+            let (before_cursor, after_cursor) = doc.buffer.split_at(doc.cursor.offset);
+            let ctx = CompletionContext {
+                text_before_cursor: before_cursor,
+                text_after_cursor: after_cursor,
+                cursor_offset: doc.cursor.offset,
+                active_schema: &active_schema,
+                schema_summary: &self.schema,
+                is_sqlite,
+            };
+            let (prefix, items) = SchemaCompletionProvider::provide(&ctx);
+            if !items.is_empty() {
+                doc.completion.open(
+                    doc.cursor.offset,
+                    completion_pos,
+                    prefix,
+                    items,
+                    CompletionTriggerKind::Automatic,
+                );
+            }
+        }
+
+        if dispatch_req {
+            self.dispatch_query();
+        }
+    }
+
+    fn draw_floating_completion_popup(&mut self, ctx: &egui::Context) {
+        let is_sqlite = self.active_driver().eq_ignore_ascii_case("sqlite");
+        let dialect = if is_sqlite {
+            SqlDialect::SQLite
+        } else {
+            SqlDialect::Postgres
+        };
+        let theme = self.theme;
+
+        let Some(doc) = self.query_documents.get_mut(self.active_query_document) else {
+            return;
+        };
+
+        if !doc.completion.is_open || doc.completion.items.is_empty() {
+            return;
+        }
+
+        let mut apply_item = None;
+        let mut close_popup = false;
+
+        ctx.input(|i| {
+            for event in &i.events {
+                if let egui::Event::Key { key, pressed: true, .. } = event {
+                    match key {
+                        egui::Key::ArrowUp => {
+                            doc.completion.select_prev();
+                        }
+                        egui::Key::ArrowDown => {
+                            doc.completion.select_next();
+                        }
+                        egui::Key::Enter | egui::Key::Tab => {
+                            if let Some(item) = doc.completion.current_item() {
+                                apply_item = Some(item.clone());
+                            }
+                        }
+                        egui::Key::Escape => {
+                            close_popup = true;
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        });
+
+        if let Some(item) = apply_item {
+            let (start, end) = item.replacement_range;
+            doc.buffer.replace(start, end, &item.insert_text);
+            let new_offset = start + item.insert_text.len();
+            doc.cursor.set_offset(&doc.buffer, new_offset);
+            doc.selection.collapse_to_active();
+            doc.reanalyze(dialect);
+            self.query_text = doc.text().to_owned();
+            doc.completion.close();
+            return;
+        }
+
+        if close_popup {
+            doc.completion.close();
+            return;
+        }
+
+        let popup_pos = doc.completion.popup_position;
+
+        let mut clicked_item = None;
+
+        let area_resp = egui::Area::new(egui::Id::new("floating_completion_popup"))
+            .order(egui::Order::Foreground)
+            .fixed_pos(popup_pos)
+            .show(ctx, |ui| {
+                egui::Frame {
+                    fill: theme.surface_floating,
+                    rounding: egui::Rounding::same(6.0),
+                    stroke: egui::Stroke::new(1.0, theme.border_default),
+                    shadow: theme.floating_shadow(),
+                    inner_margin: egui::Margin::same(6.0),
+                    ..Default::default()
+                }
+                .show(ui, |ui| {
+                    ui.set_max_width(340.0);
+                    ui.set_max_height(220.0);
+
+                    egui::ScrollArea::vertical().max_height(200.0).show(ui, |ui| {
+                        let items = doc.completion.items.clone();
+                        let sel_idx = doc.completion.selected_index;
+
+                        for (idx, item) in items.iter().enumerate() {
+                            let is_selected = idx == sel_idx;
+                            let bg = if is_selected {
+                                theme.surface_active
                             } else {
-                                self.selected_query.clear();
+                                egui::Color32::TRANSPARENT
+                            };
+
+                            let item_frame = egui::Frame::none()
+                                .fill(bg)
+                                .rounding(egui::Rounding::same(4.0))
+                                .inner_margin(egui::Margin::symmetric(6.0, 3.0))
+                                .show(ui, |ui| {
+                                    ui.horizontal(|ui| {
+                                        let (badge_text, badge_color) = match item.kind {
+                                            CompletionItemKind::Keyword => ("KEY", theme.code_keyword),
+                                            CompletionItemKind::Table => ("TBL", theme.accent),
+                                            CompletionItemKind::View => ("VIEW", theme.info),
+                                            CompletionItemKind::Column => ("COL", theme.code_variable),
+                                            CompletionItemKind::Function => ("FN", theme.code_function),
+                                            CompletionItemKind::Schema => ("SCH", theme.warning),
+                                            CompletionItemKind::Snippet => ("SNP", theme.success),
+                                        };
+
+                                        ui.label(
+                                            RichText::new(badge_text)
+                                                .font(FontId::monospace(9.5))
+                                                .color(badge_color),
+                                        );
+                                        ui.add_space(4.0);
+
+                                        ui.label(
+                                            RichText::new(&item.label)
+                                                .font(FontId::monospace(12.5))
+                                                .strong()
+                                                .color(theme.text_primary),
+                                        );
+
+                                        if let Some(detail) = &item.detail {
+                                            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                                                ui.label(
+                                                    RichText::new(detail).font(font_caption()).color(theme.text_muted),
+                                                );
+                                            });
+                                        }
+                                    });
+                                });
+
+                            if item_frame.response.interact(egui::Sense::click()).clicked() {
+                                clicked_item = Some(item.clone());
                             }
                         }
                     });
                 });
-            },
-        );
+            });
+
+        if let Some(item) = clicked_item {
+            let (start, end) = item.replacement_range;
+            doc.buffer.replace(start, end, &item.insert_text);
+            let new_offset = start + item.insert_text.len();
+            doc.cursor.set_offset(&doc.buffer, new_offset);
+            doc.selection.collapse_to_active();
+            doc.reanalyze(dialect);
+            self.query_text = doc.text().to_owned();
+            doc.completion.close();
+            return;
+        }
+
+        // Close on click outside
+        let clicked_outside = ctx.input(|i| {
+            i.pointer.any_click()
+                && i.pointer
+                    .interact_pos()
+                    .is_some_and(|pos| !area_resp.response.rect.contains(pos))
+        });
+        if clicked_outside {
+            doc.completion.close();
+        }
     }
 
     fn draw_export_dialog(&mut self, ui: &mut egui::Ui, result: Option<&UiQueryResult>) {
@@ -756,15 +888,6 @@ impl DbProApp {
             Err(error) => self.runtime_message = format!("Export failed: {error}"),
         }
         self.export_open = false;
-    }
-
-    fn sql_layouter(ui: &egui::Ui, text: &str, wrap_width: f32, theme: DbProTheme) -> Arc<egui::Galley> {
-        let chars: Vec<char> = text.chars().collect();
-        let mut highlighter = SqlHighlighter::new(wrap_width, theme);
-        for (index, ch) in chars.iter().enumerate() {
-            highlighter.push(*ch, chars.get(index + 1).copied());
-        }
-        highlighter.finish(ui)
     }
 
     pub(crate) fn format_sql(sql: &str) -> String {
@@ -866,140 +989,5 @@ impl DbProApp {
             self.query_text.push_str("\n\n");
         }
         self.query_text.push_str(snippet);
-    }
-}
-
-/// Keywords highlighted in the SQL editor.
-const SQL_KEYWORDS: [&str; 32] = [
-    "select",
-    "from",
-    "where",
-    "and",
-    "or",
-    "join",
-    "left",
-    "right",
-    "inner",
-    "group",
-    "by",
-    "order",
-    "limit",
-    "offset",
-    "insert",
-    "into",
-    "values",
-    "update",
-    "set",
-    "delete",
-    "create",
-    "table",
-    "alter",
-    "drop",
-    "as",
-    "on",
-    "is",
-    "null",
-    "not",
-    "returning",
-    "with",
-    "explain",
-];
-
-/// Monospace text format used for every highlighted token.
-fn token_format(color: Color32) -> TextFormat {
-    TextFormat {
-        font_id: FontId::monospace(14.0),
-        color,
-        ..Default::default()
-    }
-}
-
-/// Incremental tokenizer that turns SQL text into a syntax-highlighted layout job.
-struct SqlHighlighter {
-    job: LayoutJob,
-    current: String,
-    in_string: bool,
-    in_comment: bool,
-    theme: DbProTheme,
-}
-
-impl SqlHighlighter {
-    fn new(wrap_width: f32, theme: DbProTheme) -> Self {
-        let mut job = LayoutJob::default();
-        job.wrap.max_width = wrap_width;
-        Self {
-            job,
-            current: String::new(),
-            in_string: false,
-            in_comment: false,
-            theme,
-        }
-    }
-
-    /// Appends the buffered token with `color`, then clears the buffer.
-    fn flush(&mut self, color: Color32) {
-        if self.current.is_empty() {
-            return;
-        }
-        self.job.append(&self.current, 0.0, token_format(color));
-        self.current.clear();
-    }
-
-    /// Keyword colour when the buffered word is a keyword, otherwise `fallback`.
-    fn keyword_color(&self, fallback: Color32) -> Color32 {
-        let word = self.current.to_lowercase();
-        if SQL_KEYWORDS.contains(&word.as_str()) {
-            self.theme.code_keyword
-        } else {
-            fallback
-        }
-    }
-
-    /// Colour for a completed bare word: number, keyword, or plain text.
-    fn word_color(&self) -> Color32 {
-        if !self.current.is_empty() && self.current.chars().all(|value| value.is_ascii_digit()) {
-            self.theme.code_number
-        } else {
-            self.keyword_color(self.theme.text_primary)
-        }
-    }
-
-    /// Consumes one input character, advancing the string / comment / word state.
-    fn push(&mut self, ch: char, next: Option<char>) {
-        if !self.in_string && !self.in_comment && ch == '-' && next == Some('-') {
-            self.flush(self.theme.text_secondary);
-            self.in_comment = true;
-            self.current.push(ch);
-        } else if self.in_comment {
-            self.current.push(ch);
-            if ch == '\n' {
-                self.flush(self.theme.code_comment);
-                self.in_comment = false;
-            }
-        } else if ch == '\'' {
-            self.current.push(ch);
-            self.flush(self.theme.code_string);
-            self.in_string = !self.in_string;
-        } else if self.in_string || ch.is_alphanumeric() || ch == '_' {
-            self.current.push(ch);
-        } else {
-            let color = self.word_color();
-            self.flush(color);
-            self.job
-                .append(&ch.to_string(), 0.0, token_format(self.theme.text_primary));
-        }
-    }
-
-    /// Flushes the trailing token and lays the job out.
-    fn finish(mut self, ui: &egui::Ui) -> Arc<egui::Galley> {
-        let color = if self.in_string {
-            self.theme.code_string
-        } else if self.in_comment {
-            self.theme.code_comment
-        } else {
-            self.keyword_color(self.theme.text_primary)
-        };
-        self.flush(color);
-        ui.fonts(|fonts| fonts.layout_job(self.job))
     }
 }

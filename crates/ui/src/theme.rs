@@ -39,6 +39,11 @@ pub struct DbProTheme {
     pub code_string: Color32,
     pub code_number: Color32,
     pub code_comment: Color32,
+    pub code_type: Color32,
+    pub code_function: Color32,
+    pub code_operator: Color32,
+    pub code_punctuation: Color32,
+    pub code_variable: Color32,
 }
 
 impl Default for DbProTheme {
@@ -82,6 +87,11 @@ impl DbProTheme {
             code_string: Color32::from_rgb(22, 163, 74),
             code_number: Color32::from_rgb(217, 119, 6),
             code_comment: Color32::from_rgb(138, 138, 138),
+            code_type: Color32::from_rgb(147, 51, 234),
+            code_function: Color32::from_rgb(13, 148, 136),
+            code_operator: Color32::from_rgb(220, 38, 38),
+            code_punctuation: Color32::from_rgb(95, 95, 95),
+            code_variable: Color32::from_rgb(13, 13, 13),
         }
     }
     pub fn dark() -> Self {
@@ -118,6 +128,11 @@ impl DbProTheme {
             code_string: Color32::from_rgb(34, 197, 94),
             code_number: Color32::from_rgb(245, 158, 11),
             code_comment: Color32::from_rgb(141, 141, 141),
+            code_type: Color32::from_rgb(192, 132, 252),
+            code_function: Color32::from_rgb(45, 212, 191),
+            code_operator: Color32::from_rgb(248, 113, 113),
+            code_punctuation: Color32::from_rgb(185, 185, 185),
+            code_variable: Color32::from_rgb(236, 236, 236),
         }
     }
     /// Subtle tinted fill for badges, diff rows, and status cards (~10-12% opacity).

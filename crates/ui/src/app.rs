@@ -14,14 +14,12 @@ use crate::{
 use bigdecimal::BigDecimal;
 use db_pro_core::domain::capabilities::DatabaseCapabilities;
 use db_pro_core::domain::connection::DriverType;
-use eframe::egui::text::LayoutJob;
-use eframe::egui::{self, Align, Color32, FontId, Layout, RichText, Sense, TextEdit, TextFormat, TopBottomPanel};
+use eframe::egui::{self, Align, Color32, FontId, Layout, RichText, Sense, TextEdit, TopBottomPanel};
 use lucide_icons::Icon;
 use serde::{Deserialize, Serialize};
 use sqlparser::dialect::{GenericDialect, PostgreSqlDialect, SQLiteDialect};
 use sqlparser::parser::Parser;
 use std::collections::{BTreeSet, HashMap};
-use std::sync::Arc;
 use std::time::Duration;
 
 use change_set::{ChangeSet, MutationFailure, MutationTarget, RowIdentity, StagedChange};
@@ -106,11 +104,7 @@ mod tests;
 #[path = "workspace_view.rs"]
 mod workspace_view;
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-struct QueryDocument {
-    title: String,
-    content: String,
-}
+pub use crate::query::QueryDocument;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Activity {
@@ -807,7 +801,7 @@ impl DbProApp {
 
     fn persist_active_query_document(&mut self) {
         if let Some(document) = self.query_documents.get_mut(self.active_query_document) {
-            document.content = self.query_text.clone();
+            document.set_text(self.query_text.clone());
         }
     }
 
@@ -817,7 +811,7 @@ impl DbProApp {
         }
         self.persist_active_query_document();
         self.active_query_document = index;
-        self.query_text = self.query_documents[index].content.clone();
+        self.query_text = self.query_documents[index].text().to_owned();
         self.reset_query_cursor();
         self.query_result = None;
         self.runtime_message = format!("Opened {}", self.query_documents[index].title);
@@ -826,10 +820,11 @@ impl DbProApp {
     pub(crate) fn new_query_document(&mut self) {
         self.persist_active_query_document();
         let index = self.query_documents.len() + 1;
-        self.query_documents.push(QueryDocument {
-            title: format!("Query {index}"),
-            content: String::new(),
-        });
+        self.query_documents.push(QueryDocument::new(
+            format!("query-{index}"),
+            format!("Query {index}"),
+            String::new(),
+        ));
         self.active_query_document = self.query_documents.len() - 1;
         self.query_text.clear();
         self.reset_query_cursor();
@@ -865,7 +860,7 @@ impl DbProApp {
         } else if self.active_query_document == index {
             self.active_query_document = self.active_query_document.min(self.query_documents.len() - 1);
         }
-        self.query_text = self.query_documents[self.active_query_document].content.clone();
+        self.query_text = self.query_documents[self.active_query_document].text().to_owned();
         self.reset_query_cursor();
         self.query_result = None;
         self.runtime_message = format!("Closed {}", self.query_documents[self.active_query_document].title);
@@ -883,10 +878,12 @@ impl DbProApp {
         self.persist_active_query_document();
         let src = &self.query_documents[index];
         let title = format!("{} (Copy)", src.title);
-        let content = src.content.clone();
-        self.query_documents.push(QueryDocument { title, content });
+        let content = src.text().to_owned();
+        let doc_count = self.query_documents.len() + 1;
+        self.query_documents
+            .push(QueryDocument::new(format!("query-{doc_count}"), title, content));
         self.active_query_document = self.query_documents.len() - 1;
-        self.query_text = self.query_documents[self.active_query_document].content.clone();
+        self.query_text = self.query_documents[self.active_query_document].text().to_owned();
         self.query_result = None;
         self.active_tab = WorkspaceTab::Query;
         self.runtime_message = format!("Duplicated {}", self.query_documents[index].title);
@@ -900,7 +897,7 @@ impl DbProApp {
         let kept = self.query_documents[keep_index].clone();
         self.query_documents = vec![kept];
         self.active_query_document = 0;
-        self.query_text = self.query_documents[0].content.clone();
+        self.query_text = self.query_documents[0].text().to_owned();
         self.query_result = None;
         self.runtime_message = "Closed other queries".to_owned();
     }
@@ -913,7 +910,7 @@ impl DbProApp {
         self.query_documents.truncate(index + 1);
         if self.active_query_document > index {
             self.active_query_document = index;
-            self.query_text = self.query_documents[index].content.clone();
+            self.query_text = self.query_documents[index].text().to_owned();
             self.query_result = None;
         }
         self.runtime_message = "Closed queries to the right".to_owned();
@@ -922,10 +919,7 @@ impl DbProApp {
     pub(crate) fn close_all_tabs(&mut self) {
         self.persist_active_query_document();
         self.welcome_open = true;
-        self.query_documents = vec![QueryDocument {
-            title: "Query 1".to_string(),
-            content: String::new(),
-        }];
+        self.query_documents = vec![QueryDocument::new("query-1", "Query 1", String::new())];
         self.active_query_document = 0;
         self.query_text.clear();
         self.query_result = None;
