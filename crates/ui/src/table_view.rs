@@ -275,12 +275,54 @@ impl DbProApp {
 
         match self.table_view {
             TableView::Data => self.draw_table_data(ui, &table_name),
-            TableView::Structure => self.draw_table_structure_view(ui),
-            TableView::Indexes => self.draw_table_indexes_view(ui),
-            TableView::Relations => self.draw_table_relations_view(ui),
-            TableView::Constraints => self.draw_table_constraints_view(ui),
-            TableView::Dependencies => self.draw_table_dependencies_view(ui),
-            TableView::Ddl => self.draw_table_ddl_view(ui, &table_name),
+            TableView::Structure => {
+                egui::ScrollArea::vertical()
+                    .id_salt("table-structure-scroll")
+                    .auto_shrink([false, false])
+                    .show(ui, |ui| {
+                        self.draw_table_structure_view(ui);
+                    });
+            }
+            TableView::Indexes => {
+                egui::ScrollArea::vertical()
+                    .id_salt("table-indexes-scroll")
+                    .auto_shrink([false, false])
+                    .show(ui, |ui| {
+                        self.draw_table_indexes_view(ui);
+                    });
+            }
+            TableView::Relations => {
+                egui::ScrollArea::vertical()
+                    .id_salt("table-relations-scroll")
+                    .auto_shrink([false, false])
+                    .show(ui, |ui| {
+                        self.draw_table_relations_view(ui);
+                    });
+            }
+            TableView::Constraints => {
+                egui::ScrollArea::vertical()
+                    .id_salt("table-constraints-scroll")
+                    .auto_shrink([false, false])
+                    .show(ui, |ui| {
+                        self.draw_table_constraints_view(ui);
+                    });
+            }
+            TableView::Dependencies => {
+                egui::ScrollArea::vertical()
+                    .id_salt("table-dependencies-scroll")
+                    .auto_shrink([false, false])
+                    .show(ui, |ui| {
+                        self.draw_table_dependencies_view(ui);
+                    });
+            }
+            TableView::Ddl => {
+                egui::ScrollArea::vertical()
+                    .id_salt("table-ddl-scroll")
+                    .auto_shrink([false, false])
+                    .show(ui, |ui| {
+                        self.draw_table_ddl_view(ui, &table_name);
+                    });
+            }
         }
     }
 

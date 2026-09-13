@@ -6,7 +6,7 @@ impl DbProApp {
         let large_schema = all_table_count > ER_LARGE_SCHEMA_THRESHOLD;
         let search_query = self.diagram_search.trim().to_ascii_lowercase();
         let search_mode = diagram_search_mode(large_schema, self.diagram_show_all);
-        let render_limit = if large_schema && self.diagram_show_all {
+        let render_limit = if !large_schema || self.diagram_show_all {
             all_table_count
         } else {
             ER_MAX_TABLES
@@ -389,18 +389,13 @@ fn paint_diagram_edges(painter: &egui::Painter, nodes: &[ErNode], zoom: f32, the
         .enumerate()
         .map(|(index, node)| ((node.table.schema.as_str(), node.table.name.as_str()), index))
         .collect::<HashMap<_, _>>();
-    let mut drawn_edges = 0;
     for source_node in nodes {
         for foreign_key in &source_node.table.foreign_keys {
-            if drawn_edges >= ER_MAX_EDGES {
-                return;
-            }
             let Some(target_index) = node_lookup.get(&(foreign_key.to_schema.as_str(), foreign_key.to_table.as_str()))
             else {
                 continue;
             };
             paint_diagram_edge(painter, source_node, &nodes[*target_index], foreign_key, zoom, theme);
-            drawn_edges += 1;
         }
     }
 }

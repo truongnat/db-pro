@@ -1582,3 +1582,112 @@ fn test_table_metadata_dependency_and_constraint_models() {
     assert_eq!(check.name, "chk_positive_qty");
     assert_eq!(check.definition, "quantity > 0");
 }
+
+#[test]
+fn test_compare_ui_cells_typed_sorting() {
+    use std::cmp::Ordering;
+
+    // Number comparisons (exact numeric, not string alphabetical)
+    let n2 = UiCell::Number("2".to_owned());
+    let n10 = UiCell::Number("10".to_owned());
+    let n3 = UiCell::Number("3".to_owned());
+    assert_eq!(crate::compare_ui_cells(Some(&n2), Some(&n10)), Ordering::Less);
+    assert_eq!(crate::compare_ui_cells(Some(&n10), Some(&n3)), Ordering::Greater);
+    assert_eq!(crate::compare_ui_cells(Some(&n2), Some(&n3)), Ordering::Less);
+
+    // Negative and decimal numbers
+    let neg = UiCell::Number("-5.5".to_owned());
+    let pos = UiCell::Number("1.2".to_owned());
+    assert_eq!(crate::compare_ui_cells(Some(&neg), Some(&pos)), Ordering::Less);
+
+    // Booleans: false < true
+    let b_false = UiCell::Boolean(false);
+    let b_true = UiCell::Boolean(true);
+    assert_eq!(crate::compare_ui_cells(Some(&b_false), Some(&b_true)), Ordering::Less);
+
+    // Nulls placed last
+    assert_eq!(
+        crate::compare_ui_cells(Some(&UiCell::Null), Some(&n2)),
+        Ordering::Greater
+    );
+    assert_eq!(crate::compare_ui_cells(Some(&n2), Some(&UiCell::Null)), Ordering::Less);
+    assert_eq!(
+        crate::compare_ui_cells(Some(&UiCell::Null), Some(&UiCell::Null)),
+        Ordering::Equal
+    );
+    assert_eq!(crate::compare_ui_cells(None, Some(&n2)), Ordering::Greater);
+
+    // Date / timestamp strings compared chronologically
+    let d1 = UiCell::Text("2026-01-15T09:00:00Z".to_owned());
+    let d2 = UiCell::Text("2026-03-01T10:00:00Z".to_owned());
+    assert_eq!(crate::compare_ui_cells(Some(&d1), Some(&d2)), Ordering::Less);
+}
+
+#[test]
+fn test_open_table_blocked_with_unapplied_staged_changes() {
+    let mut app = DbProApp {
+        selected_table: Some("users".to_owned()),
+        ..Default::default()
+    };
+    app.staged_changes.ensure_target("users");
+    app.staged_changes.stage_update(StagedChange::Update {
+        identity: primary_key_identity("1"),
+        current_row_index: Some(0),
+        column_index: 0,
+        column: "name".to_owned(),
+        data_type: "text".to_owned(),
+        original: UiCell::Text("Alice".to_owned()),
+        value: UiCell::Text("Alicia".to_owned()),
+    });
+
+    // Opening another table should be blocked to prevent mutation retargeting
+    app.open_table("orders".to_owned());
+    assert_eq!(app.selected_table, Some("users".to_owned()));
+    assert!(app.runtime_message.contains("Apply or discard staged changes"));
+
+    // Discarding changes allows opening a new table
+    app.discard_staged_changes();
+    app.open_table("orders".to_owned());
+    assert_eq!(app.selected_table, Some("orders".to_owned()));
+}
+
+#[test]
+fn test_query_cancellation_capability_gate() {
+    let postgres_conn = UiConnectionSummary {
+        id: "pg".to_owned(),
+        name: "PostgreSQL".to_owned(),
+        host: "localhost".to_owned(),
+        port: 5432,
+        database: "app".to_owned(),
+        username: "postgres".to_owned(),
+        driver: "PostgreSQL".to_owned(),
+        readonly: false,
+    };
+    let sqlite_conn = UiConnectionSummary {
+        id: "sqlite".to_owned(),
+        name: "SQLite".to_owned(),
+        host: String::new(),
+        port: 0,
+        database: "app.db".to_owned(),
+        username: String::new(),
+        driver: "SQLite".to_owned(),
+        readonly: false,
+    };
+
+    let mut app = DbProApp {
+        connections: vec![postgres_conn, sqlite_conn],
+        active_connection_id: Some("pg".to_owned()),
+        connected: true,
+        next_query_request: Some(crate::RequestId(42)),
+        ..Default::default()
+    };
+
+    // PostgreSQL does not support query cancellation in capabilities
+    let caps = app.active_capabilities().expect("PG capabilities");
+    assert!(!caps.query.cancel);
+
+    // Switching to SQLite enables query cancellation
+    app.active_connection_id = Some("sqlite".to_owned());
+    let caps_sqlite = app.active_capabilities().expect("SQLite capabilities");
+    assert!(caps_sqlite.query.cancel);
+}

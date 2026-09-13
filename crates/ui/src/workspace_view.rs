@@ -630,9 +630,8 @@ fn draw_workspace_tab_item(
     if item.show_close {
         let close_rect =
             egui::Rect::from_center_size(egui::pos2(rect.right() - 12.0, rect.center().y), egui::vec2(16.0, 16.0));
-        let close_id = resp.id.with("close_x");
-        let close_resp = ui.interact(close_rect, close_id, egui::Sense::click());
-        let close_hovered = close_resp.hovered();
+        let pointer_pos = ui.input(|i| i.pointer.hover_pos().or(i.pointer.interact_pos()));
+        let close_hovered = pointer_pos.is_some_and(|p| close_rect.contains(p));
 
         if close_hovered {
             ui.painter()
@@ -655,7 +654,7 @@ fn draw_workspace_tab_item(
             close_color,
         );
 
-        if close_resp.clicked() {
+        if resp.clicked() && close_hovered {
             close_clicked = true;
         }
     }

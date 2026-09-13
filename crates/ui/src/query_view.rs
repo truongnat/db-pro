@@ -57,15 +57,26 @@ impl DbProApp {
             );
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                 let running = self.next_query_request.is_some();
+                let cancel_supported = self.active_capabilities().is_some_and(|c| c.query.cancel);
                 let run_button = if running {
-                    secondary_button_with_icon(ui, Icon::Square, "Stop", self.theme).on_hover_text("Stop query (Esc)")
+                    if cancel_supported {
+                        secondary_button_with_icon(ui, Icon::Square, "Stop", self.theme)
+                            .on_hover_text("Stop query (Esc)")
+                    } else {
+                        secondary_button_with_icon(ui, Icon::Loader, "Running…", self.theme)
+                            .on_hover_text("Query running (cancellation is unsupported by this provider)")
+                    }
                 } else {
                     primary_button_with_icon(ui, Icon::Play, "Run", self.theme)
                         .on_hover_text(format!("Run query ({modifier}↵)"))
                 };
                 if run_button.clicked() {
                     if let Some(request_id) = self.next_query_request {
-                        self.cancel_query(request_id);
+                        if cancel_supported {
+                            self.cancel_query(request_id);
+                        } else {
+                            self.runtime_message = "Query cancellation is not supported for this provider".to_owned();
+                        }
                     } else {
                         self.dispatch_query();
                     }
@@ -410,7 +421,7 @@ impl DbProApp {
             ui,
             Icon::Play,
             if self.selected_query.is_empty() {
-                "Run statement"
+                "Run query"
             } else {
                 "Run selection"
             },
@@ -418,15 +429,7 @@ impl DbProApp {
         )
         .clicked()
         {
-            if self.selected_query.is_empty() {
-                let statement = self.query_text.split(';').next().unwrap_or_default().trim().to_owned();
-                if !statement.is_empty() {
-                    self.query_text = statement;
-                    self.dispatch_query();
-                }
-            } else {
-                self.dispatch_query();
-            }
+            self.dispatch_query();
             close_menu = true;
         }
         if menu_button_with_icon(ui, Icon::WandSparkles, "Format SQL", self.theme).clicked() {

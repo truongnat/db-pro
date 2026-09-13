@@ -66,6 +66,7 @@ impl ChangeCounts {
 
 #[derive(Debug, Clone, Default, PartialEq)]
 pub(super) struct ChangeSet {
+    target_table: Option<String>,
     entries: Vec<StagedChange>,
 }
 
@@ -78,7 +79,28 @@ impl ChangeSet {
         self.entries.is_empty()
     }
 
+    pub fn target_table(&self) -> Option<&str> {
+        self.target_table.as_deref()
+    }
+
+    #[allow(dead_code)]
+    pub fn set_target_table(&mut self, table: Option<String>) {
+        self.target_table = table;
+    }
+
+    pub fn ensure_target(&mut self, table: &str) -> bool {
+        if let Some(ref current) = self.target_table {
+            if current != table {
+                return false;
+            }
+        } else {
+            self.target_table = Some(table.to_owned());
+        }
+        true
+    }
+
     pub fn clear(&mut self) {
+        self.target_table = None;
         self.entries.clear();
     }
 
@@ -264,7 +286,10 @@ impl ChangeSet {
 
 impl From<Vec<StagedChange>> for ChangeSet {
     fn from(entries: Vec<StagedChange>) -> Self {
-        Self { entries }
+        Self {
+            target_table: None,
+            entries,
+        }
     }
 }
 

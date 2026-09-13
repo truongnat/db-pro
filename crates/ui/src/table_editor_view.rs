@@ -990,6 +990,7 @@ impl DbProApp {
             self.insert_row_error = "Enter at least one value; leave defaulted columns empty".to_owned();
             return;
         }
+        self.staged_changes.ensure_target(&table);
         self.staged_changes.stage_insert(columns, values);
         self.insert_row_open = false;
         self.insert_row_error.clear();
@@ -1640,6 +1641,9 @@ impl DbProApp {
             self.data_edit_error = Some(self.runtime_message.clone());
             return false;
         };
+        if let Some(table) = self.selected_table.as_deref() {
+            self.staged_changes.ensure_target(table);
+        }
         self.staged_changes.stage_update(StagedChange::Update {
             identity,
             current_row_index: Some(row_index),
@@ -1653,11 +1657,10 @@ impl DbProApp {
         self.staged_apply_targets.clear();
         self.data_editing_cell = None;
         self.expanded_data_editor = None;
-        self.data_edit_value.clear();
         self.data_edit_error = None;
         let counts = self.staged_changes.counts();
         self.runtime_message = format!(
-            "{} staged change(s): +{} ~{} -{}",
+            "Staged edit · {} pending (+{} ~{} -{})",
             counts.total(),
             counts.inserts,
             counts.updates,
@@ -1692,6 +1695,9 @@ impl DbProApp {
             self.runtime_message = "Table structure is still loading".to_owned();
             return;
         };
+        if let Some(table) = self.selected_table.as_deref() {
+            self.staged_changes.ensure_target(table);
+        }
         self.data_editing_cell = None;
         self.expanded_data_editor = None;
         self.data_edit_value.clear();
@@ -2110,6 +2116,12 @@ impl DbProApp {
             self.runtime_message = "Select a table before applying changes".to_owned();
             return;
         };
+        if let Some(target) = self.staged_changes.target_table() {
+            if target != table {
+                self.runtime_message = format!("Staged changes belong to table `{target}`, not `{table}`");
+                return;
+            }
+        }
         let retry_target = self.table_mutation_retry_target.take();
         let mut changes = Vec::new();
         let mut targets = Vec::new();

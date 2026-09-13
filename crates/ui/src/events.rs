@@ -662,7 +662,11 @@ impl DbProApp {
         }
         if ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
             if let Some(request_id) = self.next_query_request {
-                self.cancel_query(request_id);
+                if self.active_capabilities().is_some_and(|c| c.query.cancel) {
+                    self.cancel_query(request_id);
+                } else {
+                    self.runtime_message = "Query cancellation is not supported for this provider".to_owned();
+                }
             } else if self.query_tools_open {
                 self.query_tools_open = false;
             } else if self.editor_search_open {

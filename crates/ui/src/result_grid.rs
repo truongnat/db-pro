@@ -47,6 +47,49 @@ pub fn grid_keyboard_selection(
     }
 }
 
+use bigdecimal::BigDecimal;
+use std::cmp::Ordering;
+
+/// Compare two cells using database-appropriate typed semantics.
+/// NULL values are placed at the end when sorting ascending.
+pub fn compare_ui_cells(left: Option<&UiCell>, right: Option<&UiCell>) -> Ordering {
+    match (left, right) {
+        (None | Some(UiCell::Null), None | Some(UiCell::Null)) => Ordering::Equal,
+        (None | Some(UiCell::Null), Some(_)) => Ordering::Greater,
+        (Some(_), None | Some(UiCell::Null)) => Ordering::Less,
+        (Some(UiCell::Boolean(l)), Some(UiCell::Boolean(r))) => l.cmp(r),
+        (Some(UiCell::Number(l)), Some(UiCell::Number(r))) => {
+            if let (Ok(l_dec), Ok(r_dec)) = (l.parse::<BigDecimal>(), r.parse::<BigDecimal>()) {
+                l_dec.cmp(&r_dec)
+            } else {
+                l.cmp(r)
+            }
+        }
+        (Some(UiCell::Text(l)), Some(UiCell::Text(r))) => {
+            // Attempt temporal parse if both look like ISO timestamps / dates
+            if let (Ok(l_dt), Ok(r_dt)) = (
+                chrono::DateTime::parse_from_rfc3339(l),
+                chrono::DateTime::parse_from_rfc3339(r),
+            ) {
+                l_dt.cmp(&r_dt)
+            } else if let (Ok(l_dt), Ok(r_dt)) = (
+                chrono::NaiveDateTime::parse_from_str(l, "%Y-%m-%d %H:%M:%S"),
+                chrono::NaiveDateTime::parse_from_str(r, "%Y-%m-%d %H:%M:%S"),
+            ) {
+                l_dt.cmp(&r_dt)
+            } else if let (Ok(l_d), Ok(r_d)) = (
+                chrono::NaiveDate::parse_from_str(l, "%Y-%m-%d"),
+                chrono::NaiveDate::parse_from_str(r, "%Y-%m-%d"),
+            ) {
+                l_d.cmp(&r_d)
+            } else {
+                l.cmp(r)
+            }
+        }
+        (Some(l), Some(r)) => cell_text(l).cmp(&cell_text(r)),
+    }
+}
+
 /// Build the stable row-index projection consumed by the virtualized result grid.
 ///
 /// The result payload stays immutable; filtering and sorting only rearrange
@@ -68,9 +111,9 @@ pub fn filtered_sorted_indexes(
 
     if let Some(column) = sort_column {
         indexes.sort_by(|left, right| {
-            let left_value = result.rows[*left].get(column).map(cell_text).unwrap_or_default();
-            let right_value = result.rows[*right].get(column).map(cell_text).unwrap_or_default();
-            let ordering = left_value.cmp(&right_value);
+            let left_cell = result.rows[*left].get(column);
+            let right_cell = result.rows[*right].get(column);
+            let ordering = compare_ui_cells(left_cell, right_cell);
             if sort_desc {
                 ordering.reverse()
             } else {

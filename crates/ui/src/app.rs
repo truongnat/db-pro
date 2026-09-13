@@ -1007,6 +1007,23 @@ impl DbProApp {
         self.runtime_message = "Workspace closed".to_owned();
     }
 
+    pub(crate) fn open_table(&mut self, table: String) {
+        if self.selected_table.as_deref() == Some(&table) {
+            self.active_tab = WorkspaceTab::Table;
+            return;
+        }
+        if !self.staged_changes.is_empty() {
+            self.runtime_message = "Apply or discard staged changes before opening another table".to_owned();
+            return;
+        }
+        self.persist_current_grid_layout();
+        self.selected_table = Some(table);
+        self.restore_grid_layout_for_active_table();
+        self.request_table_info();
+        self.request_table_data();
+        self.active_tab = WorkspaceTab::Table;
+    }
+
     fn open_palette(&mut self, mode: PaletteMode) {
         self.palette_mode = Some(mode);
         self.palette_query.clear();

@@ -172,6 +172,7 @@ impl<'a> Table<'a> {
             col_x_offsets.push(current_offset);
             current_offset += w;
         }
+        let total_cols_w = checkbox_w + current_offset;
 
         let header_h = 36.0;
         let total_rows_h = if row_count == 0 {
@@ -191,7 +192,7 @@ impl<'a> Table<'a> {
         }
         .show(ui, |ui| {
             let table_min = ui.cursor().min;
-            let table_w = ui.available_width();
+            let table_w = ui.available_width().max(total_cols_w);
             let col_start_x = table_min.x + checkbox_w;
 
             // ── 1. Header Background ──────────────────────────────────
