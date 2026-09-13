@@ -6,12 +6,19 @@ use super::agent::{
     AgentObjectRef, MAX_AGENT_CELL_CHARS, MAX_AGENT_COLUMNS_PER_TABLE, MAX_AGENT_CONTEXT_CHARS, MAX_AGENT_RELATIONS,
     MAX_AGENT_RESULT_COLUMNS, MAX_AGENT_SAMPLE_ROWS, MAX_AGENT_TABLES,
 };
+use super::query::QueryResult;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AgentColumnContext {
     pub name: String,
     pub data_type: String,
     pub nullable: bool,
+    pub ordinal: usize,
+    pub default: Option<String>,
+    pub is_primary_key: bool,
+    pub is_unique: bool,
+    pub is_identity: bool,
+    pub is_generated: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -45,6 +52,28 @@ pub struct AgentResultSummary {
 }
 
 impl AgentResultSummary {
+    pub fn from_query_result(result: &QueryResult) -> Self {
+        Self::from_query_result_with_limit(result, MAX_AGENT_SAMPLE_ROWS)
+    }
+
+    pub fn from_query_result_with_limit(result: &QueryResult, max_rows: usize) -> Self {
+        let columns = result
+            .columns
+            .iter()
+            .map(|column| AgentResultColumn {
+                name: column.name.clone(),
+                data_type: Some(column.data_type.clone()),
+            })
+            .collect();
+        let sample_rows = result
+            .rows
+            .iter()
+            .take(max_rows.min(MAX_AGENT_SAMPLE_ROWS))
+            .map(|row| row.0.iter().map(cell_preview).collect())
+            .collect();
+        Self::bounded(columns, sample_rows, Some(result.row_count), None)
+    }
+
     pub fn bounded(
         columns: Vec<AgentResultColumn>,
         sample_rows: Vec<Vec<String>>,
@@ -87,6 +116,7 @@ pub struct AgentContext {
     pub connection_id: Option<String>,
     pub schema: Option<String>,
     pub current_sql: String,
+    pub user_request: String,
     pub selected_range: Option<(usize, usize)>,
     pub referenced_tables: Vec<AgentTableContext>,
     pub foreign_keys: Vec<AgentForeignKeyContext>,
@@ -185,6 +215,7 @@ impl AgentContextBuilder {
             connection_id: request.connection_id.map(str::to_owned),
             schema: request.schema.map(str::to_owned),
             current_sql: request.current_sql.to_owned(),
+            user_request: request.user_request.to_owned(),
             selected_range: request.selected_range,
             referenced_tables: selected,
             foreign_keys: relations,
@@ -241,6 +272,25 @@ fn truncate_chars(value: &str, max_chars: usize) -> String {
     value.chars().take(max_chars).collect()
 }
 
+fn cell_preview(cell: &super::query::CellValue) -> String {
+    match cell {
+        super::query::CellValue::Null => "<NULL>".to_owned(),
+        super::query::CellValue::Bool(value) => value.to_string(),
+        super::query::CellValue::Int64(value) => value.to_string(),
+        super::query::CellValue::Float64(value) => value.to_string(),
+        super::query::CellValue::Decimal(value)
+        | super::query::CellValue::Text(value)
+        | super::query::CellValue::Uuid(value)
+        | super::query::CellValue::DateTime(value)
+        | super::query::CellValue::Date(value)
+        | super::query::CellValue::Time(value)
+        | super::query::CellValue::Interval(value)
+        | super::query::CellValue::Inet(value) => truncate_chars(value, MAX_AGENT_CELL_CHARS),
+        super::query::CellValue::Bytes(value) => format!("<binary: {} bytes>", value.len()),
+        super::query::CellValue::Json(value) => truncate_chars(&value.to_string(), MAX_AGENT_CELL_CHARS),
+    }
+}
+
 fn trim_context(context: &mut AgentContext, max_chars: usize) {
     while serde_json::to_string(context).is_ok_and(|json| json.chars().count() > max_chars) {
         if context.result_summary.is_some() {
@@ -250,10 +300,21 @@ fn trim_context(context: &mut AgentContext, max_chars: usize) {
         } else if !context.foreign_keys.is_empty() {
             context.foreign_keys.pop();
         } else if !context.referenced_tables.is_empty() {
-            context.referenced_tables.pop();
+            if let Some(table) = context.referenced_tables.last_mut() {
+                if table.columns.len() > 1 {
+                    table.columns.pop();
+                } else {
+                    context.referenced_tables.pop();
+                }
+            }
         } else {
-            context.current_sql = truncate_chars(&context.current_sql, max_chars / 2);
-            break;
+            if context.current_sql.chars().count() > max_chars / 2 {
+                context.current_sql = truncate_chars(&context.current_sql, max_chars / 2);
+            } else if context.user_request.chars().count() > max_chars / 4 {
+                context.user_request = truncate_chars(&context.user_request, max_chars / 4);
+            } else {
+                break;
+            }
         }
     }
 }
@@ -311,6 +372,12 @@ mod tests {
                     name: format!("column_{index}"),
                     data_type: "text".to_owned(),
                     nullable: true,
+                    ordinal: index,
+                    default: None,
+                    is_primary_key: false,
+                    is_unique: false,
+                    is_identity: false,
+                    is_generated: false,
                 })
                 .collect(),
         }

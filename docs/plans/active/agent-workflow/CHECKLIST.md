@@ -12,9 +12,9 @@
 
 ## Runtime/UI follow-up
 
-- [ ] Route typed agent actions through the runtime worker.
+- [x] Route typed agent tool requests through the runtime worker.
 - [ ] Tie session state to QueryDocument and document version.
 - [ ] Add tool activity and patch preview to the existing compact panel.
-- [ ] Add controlled read-only execution and explicit mutation confirmation.
+- [x] Add executor-side read-only/mutation confirmation enforcement.
 - [ ] Verify PostgreSQL and SQLite runtime paths independently.
 - [ ] Run native UI and live provider verification.

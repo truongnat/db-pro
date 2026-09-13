@@ -73,6 +73,7 @@ pub(crate) fn translate_command(command: UiCommand) -> Option<RuntimeCommand> {
         | UiCommand::InsertTableRow { .. }
         | UiCommand::ApplyTableChanges { .. } => translate_table_command(command),
         UiCommand::RunAgent { .. }
+        | UiCommand::ExecuteAgentTool { .. }
         | UiCommand::IntrospectSchema { .. }
         | UiCommand::LoadTableInfo { .. }
         | UiCommand::LoadTableDdl { .. }
@@ -312,6 +313,15 @@ fn translate_schema_command(command: UiCommand) -> Option<RuntimeCommand> {
                 explain_plan: context.explain_plan,
                 last_error: context.last_error,
             },
+        }),
+        UiCommand::ExecuteAgentTool {
+            request_id,
+            request,
+            context,
+        } => Some(RuntimeCommand::ExecuteAgentTool {
+            request_id: runtime_request_id(request_id),
+            request,
+            context,
         }),
         UiCommand::IntrospectSchema {
             request_id,
@@ -890,6 +900,32 @@ pub(crate) fn translate_event(event: RuntimeEvent) -> Option<UiEvent> {
         } => translate_agent_completed(request_id, provider, message),
         RuntimeEvent::AgentProviderReady { provider, detail } => Some(UiEvent::AgentProviderReady { provider, detail }),
         RuntimeEvent::AgentFailed { request_id, message } => translate_agent_failed(request_id, message),
+        RuntimeEvent::AgentToolCompleted {
+            request_id,
+            session_id,
+            run_id,
+            document_id,
+            result,
+        } => Some(UiEvent::AgentToolCompleted {
+            request_id: ui_request_id(request_id),
+            session_id,
+            run_id,
+            document_id,
+            result,
+        }),
+        RuntimeEvent::AgentToolFailed {
+            request_id,
+            session_id,
+            run_id,
+            document_id,
+            error,
+        } => Some(UiEvent::AgentToolFailed {
+            request_id: ui_request_id(request_id),
+            session_id,
+            run_id,
+            document_id,
+            error,
+        }),
         RuntimeEvent::AgentConfigured {
             request_id,
             provider,

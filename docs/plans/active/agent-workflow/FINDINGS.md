@@ -22,6 +22,8 @@ confirmation-gated rather than silently treated as read-only.
 ## P2 — Provider tool-call seam is still pending
 
 The current provider contract returns a draft, not a typed tool call or stream.
-This slice therefore stops at a tested domain workflow state machine. Runtime
-tool execution is deliberately not represented by a dead command variant until
-the provider response adapter and service executor are implemented together.
+The runtime now exposes a typed `ExecuteAgentTool` command/event pair and an
+`AgentToolExecutor` that calls the existing schema/query services. The current
+provider still returns a draft rather than typed tool calls, so provider-driven
+multi-step continuation and compact-panel state remain the next orchestration
+slice; the executor is intentionally usable independently of that provider.

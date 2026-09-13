@@ -41,6 +41,7 @@ impl DbProApp {
                 self.agent_provider_detail = detail;
             }
             UiEvent::AgentFailed { request_id, message } => self.on_agent_failed(request_id, message),
+            UiEvent::AgentToolCompleted { .. } | UiEvent::AgentToolFailed { .. } => {}
             UiEvent::AgentConfigured {
                 request_id,
                 provider,

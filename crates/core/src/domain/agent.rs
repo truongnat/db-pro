@@ -85,7 +85,17 @@ pub struct AgentRun {
     pub document_version: u64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AgentDocumentSnapshot {
+    pub document_id: String,
+    pub document_version: u64,
+    pub sql: String,
+    pub cursor_offset: usize,
+    pub selection: Option<(usize, usize)>,
+    pub current_statement: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AgentSession {
     pub id: AgentSessionId,
     pub document_id: String,
@@ -218,6 +228,7 @@ pub enum AgentTool {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AgentToolRequest {
     pub session_id: AgentSessionId,
+    pub run_id: AgentRunId,
     pub document_id: String,
     pub document_version: u64,
     pub tool: AgentTool,
@@ -227,20 +238,36 @@ pub struct AgentToolRequest {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AgentToolInput {
     None,
-    Schema { schema: Option<String> },
-    Table { table: AgentObjectRef },
-    Patch { patch: AgentSqlPatch },
-    Query { sql: String },
-    ResultSample { max_rows: usize },
+    Schema {
+        schema: Option<String>,
+    },
+    Table {
+        table: AgentObjectRef,
+    },
+    Patch {
+        patch: AgentSqlPatch,
+    },
+    Query {
+        sql: String,
+    },
+    ResultSample {
+        max_rows: usize,
+        statement_index: Option<usize>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AgentToolOutput {
     Schema {
         tables: Vec<AgentObjectRef>,
+        views: Vec<AgentObjectRef>,
     },
     Table {
         table: super::agent_context::AgentTableContext,
+        primary_key: Vec<String>,
+        unique_columns: Vec<String>,
+        indexes: Vec<String>,
+        foreign_keys: Vec<super::agent_context::AgentForeignKeyContext>,
     },
     Columns {
         table: AgentObjectRef,
@@ -253,7 +280,9 @@ pub enum AgentToolOutput {
         document_id: String,
         document_version: u64,
         sql: String,
+        cursor_offset: usize,
         selection: Option<(usize, usize)>,
+        current_statement: Option<String>,
     },
     PatchPreview {
         patch: AgentSqlPatch,
@@ -261,6 +290,8 @@ pub enum AgentToolOutput {
         proposed: String,
     },
     QueryResult {
+        statement_index: Option<usize>,
+        result_count: usize,
         summary: super::agent_context::AgentResultSummary,
     },
     Explain {

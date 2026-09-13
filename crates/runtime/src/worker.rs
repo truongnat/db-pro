@@ -8,7 +8,8 @@ use db_pro_core::domain::query::{CellValue, QueryResult};
 use tokio::sync::{mpsc, oneshot};
 
 use crate::{
-    AgentContext, CodexProvider, CodexProviderError, ConnectionSummary, DbProRuntime, QueryApi, SqlPredictionContext,
+    AgentContext, AgentToolExecutor, CodexProvider, CodexProviderError, ConnectionSummary, DbProRuntime, QueryApi,
+    SqlPredictionContext,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -122,6 +123,11 @@ pub enum RuntimeCommand {
         request_id: RuntimeRequestId,
         prompt: String,
         context: AgentContext,
+    },
+    ExecuteAgentTool {
+        request_id: RuntimeRequestId,
+        request: db_pro_core::domain::agent::AgentToolRequest,
+        context: db_pro_core::domain::agent_workflow::AgentExecutionContext,
     },
     CreateConnection {
         request_id: RuntimeRequestId,
@@ -289,6 +295,20 @@ pub enum RuntimeEvent {
     AgentFailed {
         request_id: RuntimeRequestId,
         message: String,
+    },
+    AgentToolCompleted {
+        request_id: RuntimeRequestId,
+        session_id: db_pro_core::domain::agent::AgentSessionId,
+        run_id: db_pro_core::domain::agent::AgentRunId,
+        document_id: String,
+        result: db_pro_core::domain::agent::AgentToolResult,
+    },
+    AgentToolFailed {
+        request_id: RuntimeRequestId,
+        session_id: db_pro_core::domain::agent::AgentSessionId,
+        run_id: db_pro_core::domain::agent::AgentRunId,
+        document_id: String,
+        error: db_pro_core::domain::agent_workflow::AgentToolError,
     },
     AgentConfigured {
         request_id: RuntimeRequestId,
@@ -783,6 +803,36 @@ pub fn spawn_worker(
                             Err(error) => RuntimeEvent::AgentFailed {
                                 request_id,
                                 message: error.to_string(),
+                            },
+                        };
+                        let _ = event_tx.send(event).await;
+                    });
+                }
+                RuntimeCommand::ExecuteAgentTool {
+                    request_id,
+                    request,
+                    context,
+                } => {
+                    let session_id = request.session_id;
+                    let run_id = request.run_id;
+                    let document_id = request.document_id.clone();
+                    let executor = AgentToolExecutor::new(Arc::clone(&runtime));
+                    let event_tx = event_tx.clone();
+                    tokio::spawn(async move {
+                        let event = match executor.execute(&request, &context).await {
+                            Ok(result) => RuntimeEvent::AgentToolCompleted {
+                                request_id,
+                                session_id,
+                                run_id,
+                                document_id,
+                                result,
+                            },
+                            Err(error) => RuntimeEvent::AgentToolFailed {
+                                request_id,
+                                session_id,
+                                run_id,
+                                document_id,
+                                error,
                             },
                         };
                         let _ = event_tx.send(event).await;

@@ -6,6 +6,32 @@ use super::agent::{
     AgentSessionError, AgentSessionId, AgentSessionState, AgentSqlSafety, AgentTool, AgentToolInput, AgentToolOutput,
     AgentToolRequest,
 };
+use super::agent_context::AgentResultSummary;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AgentExecutionContext {
+    pub session: AgentSession,
+    pub document: Option<super::agent::AgentDocumentSnapshot>,
+    pub latest_result: Option<AgentResultSummary>,
+    pub result_count: usize,
+    pub mode: AgentMode,
+    pub allow_read_only_auto_run: bool,
+    pub confirmed: bool,
+}
+
+impl AgentExecutionContext {
+    pub fn new(session: AgentSession, document: super::agent::AgentDocumentSnapshot, mode: AgentMode) -> Self {
+        Self {
+            session,
+            document: Some(document),
+            latest_result: None,
+            result_count: 0,
+            mode,
+            allow_read_only_auto_run: false,
+            confirmed: false,
+        }
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PendingAgentConfirmation {
@@ -15,9 +41,19 @@ pub struct PendingAgentConfirmation {
     pub document_version: u64,
     pub tool: AgentTool,
     pub sql: Option<String>,
-    pub safety: AgentSqlSafety,
+    pub safety: Option<AgentSqlSafety>,
+    pub kind: AgentConfirmationKind,
     pub reason: String,
     request: AgentToolRequest,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum AgentConfirmationKind {
+    ApplyPatch,
+    RunReadOnly,
+    RunMutation,
+    RunDestructive,
+    RunUnknown,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -60,8 +96,18 @@ pub enum AgentToolError {
     ConnectionUnavailable,
     #[error("schema object was not found: {name}")]
     SchemaObjectNotFound { name: String },
+    #[error("agent query result is not available")]
+    ResultUnavailable,
+    #[error("agent action requires confirmation: {kind:?}")]
+    ConfirmationRequired { kind: AgentConfirmationKind },
     #[error("agent query failed: {code}: {message}")]
-    QueryFailed { code: String, message: String },
+    QueryFailed {
+        code: String,
+        message: String,
+        position: Option<usize>,
+        detail: Option<String>,
+        hint: Option<String>,
+    },
     #[error("agent run was cancelled")]
     Cancelled,
     #[error("agent SQL patch is stale or invalid: {0}")]
@@ -131,11 +177,9 @@ impl AgentWorkflow {
             );
         }
 
-        if request.tool == AgentTool::RunQuery {
+        if matches!(request.tool, AgentTool::RunQuery | AgentTool::ExplainQuery) {
             let AgentToolInput::Query { sql } = &request.input else {
-                return Err(AgentToolError::InvalidInput {
-                    tool: AgentTool::RunQuery,
-                });
+                return Err(AgentToolError::InvalidInput { tool: request.tool });
             };
             let safety = AgentSqlSafety::classify(sql);
             let decision = execution_decision(self.mode, safety, self.allow_read_only_auto_run);
@@ -148,7 +192,7 @@ impl AgentWorkflow {
                     mode: self.mode,
                 });
             }
-            return self.require_confirmation(request, safety, confirmation_reason(safety));
+            return self.require_confirmation(request, safety);
         }
 
         Ok(AgentToolDisposition::Execute(request))
@@ -167,13 +211,10 @@ impl AgentWorkflow {
             return Err(AgentToolError::RunMismatch);
         }
         if pending.document_version != current_document_version {
+            let expected_version = pending.document_version;
             self.pending_confirmation = Some(pending);
             return Err(AgentToolError::StaleDocument {
-                expected: self
-                    .session
-                    .active_run
-                    .as_ref()
-                    .map_or(current_document_version, |run| run.document_version),
+                expected: expected_version,
                 actual: current_document_version,
             });
         }
@@ -215,6 +256,9 @@ impl AgentWorkflow {
         let Some(run) = self.session.active_run.as_ref() else {
             return Err(AgentToolError::RunNotActive);
         };
+        if request.run_id != run.id {
+            return Err(AgentToolError::RunMismatch);
+        }
         if request.document_version != run.document_version {
             return Err(AgentToolError::StaleDocument {
                 expected: run.document_version,
@@ -245,9 +289,10 @@ impl AgentWorkflow {
         };
         let confirmation = self.pending_confirmation_for(
             request,
-            Some(AgentSqlSafety::Mutating),
+            None,
+            AgentConfirmationKind::ApplyPatch,
             "Review and apply this SQL patch.",
-        );
+        )?;
         self.session.state = AgentSessionState::AwaitingConfirmation;
         self.pending_confirmation = Some(confirmation.clone());
         Ok(AgentToolDisposition::PatchPreview { preview, confirmation })
@@ -257,9 +302,13 @@ impl AgentWorkflow {
         &mut self,
         request: AgentToolRequest,
         safety: AgentSqlSafety,
-        reason: &str,
     ) -> Result<AgentToolDisposition, AgentToolError> {
-        let confirmation = self.pending_confirmation_for(request, Some(safety), reason);
+        let confirmation = self.pending_confirmation_for(
+            request,
+            Some(safety),
+            confirmation_kind(safety),
+            confirmation_reason(safety),
+        )?;
         self.session.state = AgentSessionState::AwaitingConfirmation;
         self.pending_confirmation = Some(confirmation.clone());
         Ok(AgentToolDisposition::ConfirmationRequired(confirmation))
@@ -269,25 +318,29 @@ impl AgentWorkflow {
         &self,
         request: AgentToolRequest,
         safety: Option<AgentSqlSafety>,
+        kind: AgentConfirmationKind,
         reason: &str,
-    ) -> PendingAgentConfirmation {
-        let run_id = self.session.active_run.as_ref().map(|run| run.id).unwrap_or_default();
+    ) -> Result<PendingAgentConfirmation, AgentToolError> {
+        let Some(run) = self.session.active_run.as_ref() else {
+            return Err(AgentToolError::RunNotActive);
+        };
         let sql = match &request.input {
             AgentToolInput::Query { sql } => Some(sql.clone()),
             AgentToolInput::Patch { patch } => Some(patch.replacement.clone()),
             _ => None,
         };
-        PendingAgentConfirmation {
-            run_id,
+        Ok(PendingAgentConfirmation {
+            run_id: run.id,
             session_id: self.session.id,
             document_id: request.document_id.clone(),
             document_version: request.document_version,
             tool: request.tool,
             sql,
-            safety: safety.unwrap_or(AgentSqlSafety::ReadOnly),
+            safety,
+            kind,
             reason: reason.to_owned(),
             request,
-        }
+        })
     }
 
     fn finish(&mut self, run_id: AgentRunId, state: AgentSessionState) -> Result<(), AgentToolError> {
@@ -326,12 +379,10 @@ fn validate_tool_input(request: &AgentToolRequest) -> Result<(), AgentToolError>
         (AgentTool::InspectSchema, AgentToolInput::None | AgentToolInput::Schema { .. }) => true,
         (AgentTool::InspectTable | AgentTool::InspectColumns, AgentToolInput::Table { .. }) => true,
         (AgentTool::InspectForeignKeys, AgentToolInput::None | AgentToolInput::Table { .. }) => true,
-        (
-            AgentTool::GetCurrentQuery | AgentTool::InspectQueryResult | AgentTool::ExplainQuery,
-            AgentToolInput::None,
-        ) => true,
+        (AgentTool::GetCurrentQuery | AgentTool::InspectQueryResult, AgentToolInput::None) => true,
+        (AgentTool::InspectQueryResult, AgentToolInput::ResultSample { max_rows, .. }) => *max_rows > 0,
         (AgentTool::PatchQuery, AgentToolInput::Patch { .. }) => true,
-        (AgentTool::RunQuery, AgentToolInput::Query { sql }) => !sql.trim().is_empty(),
+        (AgentTool::RunQuery | AgentTool::ExplainQuery, AgentToolInput::Query { sql }) => !sql.trim().is_empty(),
         _ => false,
     };
     if valid {
@@ -347,6 +398,15 @@ fn confirmation_reason(safety: AgentSqlSafety) -> &'static str {
         AgentSqlSafety::Mutating => "This query changes database data or schema.",
         AgentSqlSafety::Destructive => "This query may irreversibly change or remove database data.",
         AgentSqlSafety::Unknown => "The query safety could not be determined.",
+    }
+}
+
+fn confirmation_kind(safety: AgentSqlSafety) -> AgentConfirmationKind {
+    match safety {
+        AgentSqlSafety::ReadOnly => AgentConfirmationKind::RunReadOnly,
+        AgentSqlSafety::Mutating => AgentConfirmationKind::RunMutation,
+        AgentSqlSafety::Destructive => AgentConfirmationKind::RunDestructive,
+        AgentSqlSafety::Unknown => AgentConfirmationKind::RunUnknown,
     }
 }
 
@@ -373,6 +433,7 @@ mod tests {
     fn request(workflow: &AgentWorkflow, tool: AgentTool, input: AgentToolInput) -> AgentToolRequest {
         AgentToolRequest {
             session_id: workflow.session().id,
+            run_id: workflow.session().active_run.as_ref().expect("active run").id,
             document_id: "doc-a".to_owned(),
             document_version: workflow
                 .session()
@@ -407,6 +468,25 @@ mod tests {
     }
 
     #[test]
+    fn tool_request_after_run_finishes_does_not_create_a_fake_run_id() {
+        let mut workflow = workflow(AgentMode::Ask, false);
+        let run_id = workflow.start_run(4).expect("run starts");
+        workflow.complete(run_id).expect("run completes");
+        let request = AgentToolRequest {
+            session_id: workflow.session().id,
+            run_id,
+            document_id: "doc-a".to_owned(),
+            document_version: 4,
+            tool: AgentTool::GetCurrentQuery,
+            input: AgentToolInput::None,
+        };
+        assert_eq!(
+            workflow.request_tool(request, 4, None),
+            Err(AgentToolError::RunNotActive)
+        );
+    }
+
+    #[test]
     fn stale_tool_request_is_rejected() {
         let mut workflow = workflow(AgentMode::Agent, true);
         workflow.start_run(8).expect("run starts");
@@ -435,7 +515,11 @@ mod tests {
                 Some("select 1"),
             )
             .expect("patch preview");
-        assert!(matches!(disposition, AgentToolDisposition::PatchPreview { .. }));
+        assert!(matches!(
+            &disposition,
+            AgentToolDisposition::PatchPreview { confirmation, .. }
+                if confirmation.kind == AgentConfirmationKind::ApplyPatch && confirmation.safety.is_none()
+        ));
         assert_eq!(workflow.session().state, AgentSessionState::AwaitingConfirmation);
         assert!(matches!(
             workflow.confirm(run_id, 3),

@@ -393,6 +393,11 @@ pub enum UiCommand {
         prompt: String,
         context: crate::AgentContext,
     },
+    ExecuteAgentTool {
+        request_id: RequestId,
+        request: db_pro_core::domain::agent::AgentToolRequest,
+        context: db_pro_core::domain::agent_workflow::AgentExecutionContext,
+    },
     Connect {
         request_id: RequestId,
         connection_id: String,
@@ -647,6 +652,20 @@ pub enum UiEvent {
     AgentFailed {
         request_id: RequestId,
         message: String,
+    },
+    AgentToolCompleted {
+        request_id: RequestId,
+        session_id: db_pro_core::domain::agent::AgentSessionId,
+        run_id: db_pro_core::domain::agent::AgentRunId,
+        document_id: String,
+        result: db_pro_core::domain::agent::AgentToolResult,
+    },
+    AgentToolFailed {
+        request_id: RequestId,
+        session_id: db_pro_core::domain::agent::AgentSessionId,
+        run_id: db_pro_core::domain::agent::AgentRunId,
+        document_id: String,
+        error: db_pro_core::domain::agent_workflow::AgentToolError,
     },
     AgentConfigured {
         request_id: RequestId,
