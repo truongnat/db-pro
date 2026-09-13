@@ -42,6 +42,7 @@ pub struct CteDefinition {
     pub name: String,
     pub target_table: Option<String>,
     pub explicit_columns: Vec<String>,
+    pub inferred_columns: Vec<String>,
 }
 
 pub struct SchemaCompletionProvider;
@@ -74,7 +75,9 @@ impl SchemaCompletionProvider {
 
         let ctes = extract_cte_definitions(&full_doc);
         let aliases = extract_table_aliases(&full_doc);
+        let subquery_aliases = extract_subquery_aliases(&full_doc);
         let clause = detect_clause_context(before_prefix);
+        let mutation_target = extract_mutation_target(&full_doc);
 
         let mut items = Vec::new();
 
@@ -194,6 +197,21 @@ impl SchemaCompletionProvider {
                         }
                     }
                 }
+                for col in &cte.inferred_columns {
+                    if col.to_lowercase().contains(&prefix_lower)
+                        && !items.iter().any(|item| item.label.eq_ignore_ascii_case(col))
+                    {
+                        items.push(CompletionItem {
+                            label: col.clone(),
+                            insert_text: col.clone(),
+                            kind: CompletionItemKind::Column,
+                            detail: Some(format!("Column · CTE {}", cte.name)),
+                            documentation: Some("Inferred from the CTE SELECT list".to_owned()),
+                            replacement_range,
+                            sort_score: 940,
+                        });
+                    }
+                }
                 // If CTE targets an underlying table, suggest table columns
                 if let Some(target) = &cte.target_table {
                     for table in &ctx.schema_summary.table_details {
@@ -221,6 +239,26 @@ impl SchemaCompletionProvider {
                                 }
                             }
                         }
+                    }
+                }
+                if !items.is_empty() {
+                    rank_items(&mut items, &prefix_lower);
+                    return (prefix.to_owned(), items);
+                }
+            }
+
+            if let Some(columns) = subquery_aliases.get(&qual_lower) {
+                for column in columns {
+                    if column.to_lowercase().contains(&prefix_lower) {
+                        items.push(CompletionItem {
+                            label: column.clone(),
+                            insert_text: column.clone(),
+                            kind: CompletionItemKind::Column,
+                            detail: Some(format!("Column · subquery {qualifier}")),
+                            documentation: Some("Inferred from the subquery SELECT list".to_owned()),
+                            replacement_range,
+                            sort_score: 940,
+                        });
                     }
                 }
                 if !items.is_empty() {
@@ -348,7 +386,13 @@ impl SchemaCompletionProvider {
         // 2. SELECT / WHERE / GROUP BY / ORDER BY / HAVING / RETURNING clauses:
         // Prioritize columns from referenced tables/aliases and detect ambiguous columns
         let mut referenced_table_names = Vec::new();
-        for t in aliases.values() {
+        if let Some(target) = mutation_target {
+            referenced_table_names.push(target);
+        }
+        let mut alias_tables: Vec<String> = aliases.values().cloned().collect();
+        alias_tables.sort_unstable();
+        alias_tables.dedup();
+        for t in &alias_tables {
             if !referenced_table_names.contains(t) {
                 referenced_table_names.push(t.clone());
             }
@@ -433,7 +477,7 @@ impl SchemaCompletionProvider {
 
         // Suggest CTE columns if any defined
         for cte in ctes.values() {
-            for col in &cte.explicit_columns {
+            for col in cte.explicit_columns.iter().chain(cte.inferred_columns.iter()) {
                 if col.to_lowercase().contains(&prefix_lower) {
                     items.push(CompletionItem {
                         label: format!("{}.{col}", cte.name),
@@ -783,73 +827,120 @@ fn extract_qualifier(text: &str) -> Option<&str> {
 
 pub fn extract_cte_definitions(text: &str) -> HashMap<String, CteDefinition> {
     let mut ctes = HashMap::new();
-    let words: Vec<&str> = text.split_whitespace().collect();
+    let normalized = text.replace('(', " ( ").replace(')', " ) ").replace(',', " , ");
+    let words: Vec<&str> = normalized.split_whitespace().collect();
     let mut i = 0;
     while i < words.len() {
-        if words[i].eq_ignore_ascii_case("WITH") && i + 2 < words.len() {
-            let mut k = i + 1;
-            while k + 1 < words.len() {
-                let header = words[k];
-                // Check if CTE header has (col1, col2)
-                let (cte_name, explicit_cols) = if let Some(open_paren) = header.find('(') {
-                    let name = &header[..open_paren];
-                    let cols_part = &header[open_paren + 1..].trim_end_matches(')');
-                    let cols: Vec<String> = cols_part
-                        .split(',')
-                        .map(|s| s.trim().to_owned())
-                        .filter(|s| !s.is_empty())
-                        .collect();
-                    (name, cols)
-                } else {
-                    let name = header.trim_matches(|c| c == '"' || c == '`' || c == ',' || c == ';');
-                    (name, Vec::new())
-                };
-
-                if k + 1 < words.len() && words[k + 1].eq_ignore_ascii_case("AS") {
-                    let mut j = k + 2;
-                    let mut inner_table = None;
-                    while j < words.len() && j < k + 25 {
-                        if words[j].eq_ignore_ascii_case("FROM") && j + 1 < words.len() {
-                            let t = words[j + 1].trim_matches(|c| {
-                                c == '"'
-                                    || c == '`'
-                                    || c == '['
-                                    || c == ']'
-                                    || c == '('
-                                    || c == ')'
-                                    || c == ';'
-                                    || c == ','
-                            });
-                            if !t.is_empty() && !t.starts_with('(') {
-                                inner_table = Some(t);
-                                break;
-                            }
-                        }
-                        j += 1;
-                    }
-                    let target_table = inner_table.map(|t| {
-                        if let Some(dot_pos) = t.rfind('.') {
-                            t[dot_pos + 1..].to_owned()
-                        } else {
-                            t.to_owned()
-                        }
-                    });
-
-                    ctes.insert(
-                        cte_name.to_lowercase(),
-                        CteDefinition {
-                            name: cte_name.to_owned(),
-                            target_table,
-                            explicit_columns: explicit_cols,
-                        },
-                    );
-                }
-                k += 1;
-            }
+        if !words[i].eq_ignore_ascii_case("WITH") {
+            i += 1;
+            continue;
         }
-        i += 1;
+        let mut cursor = i + 1;
+        if words
+            .get(cursor)
+            .is_some_and(|word| word.eq_ignore_ascii_case("RECURSIVE"))
+        {
+            cursor += 1;
+        }
+        while let Some(raw_name) = words.get(cursor) {
+            let name = clean_cte_token(raw_name);
+            if name.is_empty() {
+                break;
+            }
+            cursor += 1;
+            let mut explicit_columns = Vec::new();
+            if words.get(cursor) == Some(&"(") {
+                cursor += 1;
+                while let Some(word) = words.get(cursor) {
+                    cursor += 1;
+                    if *word == ")" {
+                        break;
+                    }
+                    if *word != "," {
+                        explicit_columns.push(clean_cte_token(word));
+                    }
+                }
+            }
+            if words.get(cursor).is_none_or(|word| !word.eq_ignore_ascii_case("AS")) {
+                break;
+            }
+            cursor += 1;
+            if words.get(cursor) != Some(&"(") {
+                break;
+            }
+            cursor += 1;
+            let body_start = cursor;
+            let mut depth = 1usize;
+            while let Some(word) = words.get(cursor) {
+                if *word == "(" {
+                    depth += 1;
+                } else if *word == ")" {
+                    depth = depth.saturating_sub(1);
+                    if depth == 0 {
+                        break;
+                    }
+                }
+                cursor += 1;
+            }
+            let body = &words[body_start..cursor.min(words.len())];
+            let target_table = find_cte_source_table(body);
+            let inferred_columns = infer_cte_columns(body);
+            ctes.insert(
+                name.to_lowercase(),
+                CteDefinition {
+                    name,
+                    target_table,
+                    explicit_columns,
+                    inferred_columns,
+                },
+            );
+            if words.get(cursor) == Some(&")") {
+                cursor += 1;
+            }
+            if words.get(cursor) != Some(&",") {
+                break;
+            }
+            cursor += 1;
+        }
+        i = cursor;
     }
     ctes
+}
+
+fn clean_cte_token(token: &str) -> String {
+    token
+        .trim_matches(|character| matches!(character, '"' | '`' | '[' | ']' | ';'))
+        .to_owned()
+}
+
+fn find_cte_source_table(body: &[&str]) -> Option<String> {
+    body.windows(2)
+        .find(|window| window[0].eq_ignore_ascii_case("FROM") && window[1] != "(")
+        .map(|window| clean_cte_token(window[1]))
+        .filter(|table| !table.is_empty())
+        .map(|table| table.rsplit('.').next().unwrap_or(&table).to_owned())
+}
+
+fn infer_cte_columns(body: &[&str]) -> Vec<String> {
+    let Some(select_index) = body.iter().position(|word| word.eq_ignore_ascii_case("SELECT")) else {
+        return Vec::new();
+    };
+    let Some(from_index) = body[select_index + 1..]
+        .iter()
+        .position(|word| word.eq_ignore_ascii_case("FROM"))
+        .map(|index| select_index + 1 + index)
+    else {
+        return Vec::new();
+    };
+    body[select_index + 1..from_index]
+        .iter()
+        .filter(|word| **word != "," && **word != "*")
+        .filter_map(|word| {
+            let cleaned = clean_cte_token(word);
+            let column = cleaned.rsplit('.').next().unwrap_or(&cleaned);
+            (!column.is_empty() && !column.eq_ignore_ascii_case("AS")).then(|| column.to_owned())
+        })
+        .collect()
 }
 
 pub fn extract_table_aliases(text: &str) -> HashMap<String, String> {
@@ -918,6 +1009,64 @@ fn is_valid_alias_token(token: &str) -> bool {
         "HAVING", "LIMIT", "OFFSET", "UNION", "SET", "VALUES", "SELECT", "FROM", "AND", "OR", "USING", "AS",
     ];
     !NON_ALIAS_KEYWORDS.iter().any(|kw| kw.eq_ignore_ascii_case(token))
+}
+
+fn extract_mutation_target(text: &str) -> Option<String> {
+    let words: Vec<&str> = text.split_whitespace().collect();
+    for (index, word) in words.iter().enumerate() {
+        let is_target_keyword = word.eq_ignore_ascii_case("UPDATE") || word.eq_ignore_ascii_case("INTO");
+        if is_target_keyword {
+            let target = words
+                .get(index + 1)?
+                .trim_matches(|character| matches!(character, '"' | '`' | '[' | ']' | '(' | ')' | ',' | ';'));
+            if !target.is_empty() && !target.eq_ignore_ascii_case("SELECT") {
+                return Some(target.rsplit('.').next().unwrap_or(target).to_lowercase());
+            }
+        }
+    }
+    None
+}
+
+fn extract_subquery_aliases(text: &str) -> HashMap<String, Vec<String>> {
+    let normalized = text.replace('(', " ( ").replace(')', " ) ").replace(',', " , ");
+    let words: Vec<&str> = normalized.split_whitespace().collect();
+    let mut aliases = HashMap::new();
+    for index in 0..words.len().saturating_sub(1) {
+        if !matches!(words[index].to_ascii_uppercase().as_str(), "FROM" | "JOIN") || words.get(index + 1) != Some(&"(")
+        {
+            continue;
+        }
+        let body_start = index + 2;
+        let mut cursor = body_start;
+        let mut depth = 1usize;
+        while let Some(word) = words.get(cursor) {
+            if *word == "(" {
+                depth += 1;
+            } else if *word == ")" {
+                depth = depth.saturating_sub(1);
+                if depth == 0 {
+                    break;
+                }
+            }
+            cursor += 1;
+        }
+        let Some(alias_token) = words.get(cursor + 1) else {
+            continue;
+        };
+        let alias = if alias_token.eq_ignore_ascii_case("AS") {
+            words.get(cursor + 2).copied().unwrap_or_default()
+        } else {
+            alias_token
+        };
+        let alias = clean_cte_token(alias);
+        if !alias.is_empty() && is_valid_alias_token(&alias) {
+            let columns = infer_cte_columns(&words[body_start..cursor.min(words.len())]);
+            if !columns.is_empty() {
+                aliases.insert(alias.to_lowercase(), columns);
+            }
+        }
+    }
+    aliases
 }
 
 #[cfg(test)]
@@ -1064,6 +1213,86 @@ mod tests {
         assert_eq!(items[0].label, "orders");
         assert_eq!(items[0].kind, CompletionItemKind::Table);
         assert_eq!(items[0].replacement_range, (21, 24));
+    }
+
+    #[test]
+    fn explicit_cte_columns_are_parsed_across_whitespace() {
+        let ctes = extract_cte_definitions(
+            "WITH visible (id, display_name) AS (SELECT id, name FROM users) SELECT * FROM visible",
+        );
+        let cte = ctes.get("visible").expect("CTE should be indexed");
+        assert_eq!(cte.explicit_columns, ["id", "display_name"]);
+        assert_eq!(cte.target_table.as_deref(), Some("users"));
+    }
+
+    #[test]
+    fn simple_cte_select_list_is_available_for_qualified_completion() {
+        let summary = UiSchemaSummary::default();
+        let sql = "WITH x AS (SELECT id, email FROM users) SELECT x.";
+        let ctx = CompletionContext {
+            text_before_cursor: sql,
+            text_after_cursor: "",
+            cursor_offset: sql.len(),
+            active_schema: "public",
+            schema_summary: &summary,
+            cached_tokens: None,
+            is_sqlite: false,
+            is_manual_trigger: true,
+        };
+        let (_, items) = SchemaCompletionProvider::provide(&ctx);
+        let labels: Vec<_> = items.iter().map(|item| item.label.as_str()).collect();
+        assert!(labels.contains(&"id"));
+        assert!(labels.contains(&"email"));
+    }
+
+    #[test]
+    fn update_set_completion_prioritizes_update_target_columns() {
+        let summary = UiSchemaSummary {
+            table_details: vec![UiTableSummary {
+                schema: "public".to_owned(),
+                name: "users".to_owned(),
+                row_count: None,
+                columns: vec![UiSchemaColumn {
+                    name: "email".to_owned(),
+                    data_type: "text".to_owned(),
+                    nullable: true,
+                    is_primary_key: false,
+                }],
+                foreign_keys: vec![],
+            }],
+            ..Default::default()
+        };
+        let sql = "UPDATE users SET em";
+        let ctx = CompletionContext {
+            text_before_cursor: sql,
+            text_after_cursor: "",
+            cursor_offset: sql.len(),
+            active_schema: "public",
+            schema_summary: &summary,
+            cached_tokens: None,
+            is_sqlite: false,
+            is_manual_trigger: true,
+        };
+        let (_, items) = SchemaCompletionProvider::provide(&ctx);
+        assert_eq!(items.first().map(|item| item.label.as_str()), Some("email"));
+    }
+
+    #[test]
+    fn subquery_alias_exposes_simple_select_columns() {
+        let summary = UiSchemaSummary::default();
+        let sql = "SELECT u.em";
+        let ctx = CompletionContext {
+            text_before_cursor: sql,
+            text_after_cursor: " FROM (SELECT id, email FROM users) u WHERE ",
+            cursor_offset: 11,
+            active_schema: "public",
+            schema_summary: &summary,
+            cached_tokens: None,
+            is_sqlite: false,
+            is_manual_trigger: true,
+        };
+        let (_, items) = SchemaCompletionProvider::provide(&ctx);
+        assert_eq!(items.first().map(|item| item.label.as_str()), Some("email"));
     }
 
     #[test]

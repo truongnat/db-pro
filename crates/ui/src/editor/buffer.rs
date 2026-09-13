@@ -192,6 +192,10 @@ impl TextBuffer {
         self.content.len()
     }
 
+    pub fn is_char_boundary(&self, offset: usize) -> bool {
+        self.content.is_char_boundary(offset)
+    }
+
     pub fn len_chars(&self) -> usize {
         self.content.chars().count()
     }
@@ -632,6 +636,15 @@ mod tests {
         let redo_res = buf.redo();
         assert_eq!(redo_res, Some((19, 19)));
         assert_eq!(buf.text(), "SELECT 1;\nSELECT 2;");
+    }
+
+    #[test]
+    fn replacement_is_one_undo_step_and_restores_original_text() {
+        let mut buf = TextBuffer::from_string("SELECT cust");
+        buf.replace(7, 11, "customer");
+        assert_eq!(buf.text(), "SELECT customer");
+        assert_eq!(buf.undo(), Some((11, 7)));
+        assert_eq!(buf.text(), "SELECT cust");
     }
 
     #[test]

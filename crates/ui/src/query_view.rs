@@ -305,7 +305,7 @@ impl DbProApp {
                 (OutputTab::Explain, Icon::ChartNoAxesCombined, "Explain"),
                 (OutputTab::History, Icon::History, "History"),
             ] {
-                let selected = self.output_tab == tab;
+                let selected = self.active_query_output_tab() == tab;
                 let bg_color = if selected {
                     self.theme.surface_active
                 } else {
@@ -356,7 +356,7 @@ impl DbProApp {
                     });
 
                 if resp.response.interact(egui::Sense::click()).clicked() {
-                    self.output_tab = tab;
+                    self.set_active_query_output_tab(tab);
                 }
             }
             if let Some(request_id) = self.active_explain_request() {
@@ -374,7 +374,7 @@ impl DbProApp {
 
     /// Body of the selected output tab.
     fn draw_output_pane(&mut self, ui: &mut egui::Ui, result: Option<&UiQueryResult>) {
-        match self.output_tab {
+        match self.active_query_output_tab() {
             OutputTab::Results => self.draw_results_pane(ui, result),
             OutputTab::Messages => self.draw_messages_pane(ui),
             OutputTab::Explain => self.draw_explain_pane(ui),
@@ -818,9 +818,13 @@ impl DbProApp {
                     doc.prediction = Some(cached);
                 }
             }
-            if doc.prediction.is_none() {
+            if doc.prediction.is_none() && !manual && doc.should_dedupe_prediction(fingerprint, Instant::now()) {
+                doc.prediction_requests_deduped = doc.prediction_requests_deduped.saturating_add(1);
+            } else if doc.prediction.is_none() {
                 let req_id = self.task_bridge.next_request_id();
                 doc.prediction_context_fingerprint = Some(fingerprint);
+                doc.prediction_last_request_fingerprint = Some(fingerprint);
+                doc.prediction_last_request_at = Some(Instant::now());
                 doc.pending_prediction_request = Some(req_id);
                 doc.prediction_request_started_at = Some(Instant::now());
                 doc.prediction_requests_sent = doc.prediction_requests_sent.saturating_add(1);
@@ -1132,7 +1136,7 @@ impl DbProApp {
                 doc.explain_request = Some(request_id);
                 doc.explain_plan = None;
             }
-            self.output_tab = OutputTab::Explain;
+            self.set_active_query_output_tab(OutputTab::Explain);
             self.runtime_message = "Explaining query…".to_owned();
         }
     }

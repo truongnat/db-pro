@@ -562,6 +562,27 @@ fn explain_query_uses_selected_connection_and_switches_output() {
 }
 
 #[test]
+fn query_output_tab_is_scoped_to_each_document() {
+    let mut app = DbProApp::default();
+    app.query_documents
+        .push(QueryDocument::new("query-2", "Query 2", "SELECT 2"));
+
+    app.set_active_query_output_tab(OutputTab::Explain);
+    app.switch_query_document(1);
+    assert_eq!(app.active_query_output_tab(), OutputTab::Results);
+
+    app.set_active_query_output_tab(OutputTab::History);
+    app.switch_query_document(0);
+    assert_eq!(app.active_query_output_tab(), OutputTab::Explain);
+
+    app.set_query_output_tab("query-2", OutputTab::Messages);
+    app.switch_query_document(1);
+    assert_eq!(app.active_query_output_tab(), OutputTab::Messages);
+    app.switch_query_document(0);
+    assert_eq!(app.active_query_output_tab(), OutputTab::Explain);
+}
+
+#[test]
 fn closing_agent_restores_sidebar_state_after_narrow_window() {
     let mut app = DbProApp::default();
     let ctx = egui::Context::default();
@@ -1684,7 +1705,6 @@ fn test_query_cancellation_capability_gate() {
         connections: vec![postgres_conn, sqlite_conn],
         active_connection_id: Some("pg".to_owned()),
         connected: true,
-        next_query_request: Some(crate::RequestId(42)),
         ..Default::default()
     };
 

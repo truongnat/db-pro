@@ -106,13 +106,17 @@ pub struct QueryDocument {
     pub prediction_reveal: bool,
     pub prediction_scheduled_at: Option<Instant>,
     pub prediction_context_fingerprint: Option<u64>,
+    pub prediction_last_request_fingerprint: Option<u64>,
+    pub prediction_last_request_at: Option<Instant>,
     pub prediction_cache: Option<CachedPrediction>,
     pub prediction_request_started_at: Option<Instant>,
     pub prediction_requests_sent: u64,
+    pub prediction_requests_deduped: u64,
     pub prediction_requests_cancelled: u64,
     pub prediction_stale_responses_dropped: u64,
     pub prediction_accepted: u64,
     pub prediction_partially_accepted: u64,
+    pub prediction_rejected: u64,
     pub prediction_last_latency_ms: Option<u64>,
     pub prediction_last_debounce_ms: Option<u64>,
     pub cached_tokens: CachedSqlTokens,
@@ -151,13 +155,17 @@ impl QueryDocument {
             prediction_reveal: false,
             prediction_scheduled_at: None,
             prediction_context_fingerprint: None,
+            prediction_last_request_fingerprint: None,
+            prediction_last_request_at: None,
             prediction_cache: None,
             prediction_request_started_at: None,
             prediction_requests_sent: 0,
+            prediction_requests_deduped: 0,
             prediction_requests_cancelled: 0,
             prediction_stale_responses_dropped: 0,
             prediction_accepted: 0,
             prediction_partially_accepted: 0,
+            prediction_rejected: 0,
             prediction_last_latency_ms: None,
             prediction_last_debounce_ms: None,
             cached_tokens: CachedSqlTokens::new(),
@@ -259,6 +267,24 @@ impl QueryDocument {
             expires_at: now + SQL_PREDICTION_CACHE_TTL,
             prediction,
         });
+    }
+
+    pub fn should_dedupe_prediction(&mut self, fingerprint: u64, now: Instant) -> bool {
+        let Some(last_fingerprint) = self.prediction_last_request_fingerprint else {
+            return false;
+        };
+        let Some(last_request_at) = self.prediction_last_request_at else {
+            return false;
+        };
+        let elapsed = now.saturating_duration_since(last_request_at);
+        if last_fingerprint == fingerprint && elapsed < SQL_PREDICTION_CACHE_TTL {
+            return true;
+        }
+        if elapsed >= SQL_PREDICTION_CACHE_TTL {
+            self.prediction_last_request_fingerprint = None;
+            self.prediction_last_request_at = None;
+        }
+        false
     }
 
     pub fn invalidate_prediction(&mut self) {
@@ -441,5 +467,15 @@ mod tests {
         doc.schedule_prediction_with_mode(now, true);
         assert!(doc.prediction_is_due(now));
         assert!(doc.take_prediction_manual());
+    }
+
+    #[test]
+    fn prediction_request_is_deduped_within_cache_window() {
+        let mut doc = QueryDocument::new("doc-1", "Doc 1", "SELECT ");
+        let now = Instant::now();
+        doc.prediction_last_request_fingerprint = Some(7);
+        doc.prediction_last_request_at = Some(now);
+        assert!(doc.should_dedupe_prediction(7, now));
+        assert!(!doc.should_dedupe_prediction(8, now));
     }
 }

@@ -11,6 +11,9 @@ Make query execution, explain, schema completion, and AI SQL prediction determin
 - Route prediction through the native translator and async runtime worker.
 - Cancel superseded prediction requests and debounce typing-triggered requests.
 - Keep execution and explain results associated with the originating document.
+- Keep Query Workspace output selection associated with the originating document.
+- Bound and normalize prediction output before rendering or accepting it.
+- Improve local schema completion for mutation targets, CTEs, and subquery aliases.
 - Preserve the existing native Query Workspace UI and completion behavior while adding focused tests.
 
 ## Non-goals

@@ -7,7 +7,9 @@ use db_pro_core::domain::backup::{BackupOptions, RestoreOptions};
 use db_pro_core::domain::query::{CellValue, QueryResult};
 use tokio::sync::{mpsc, oneshot};
 
-use crate::{AgentContext, CodexProvider, ConnectionSummary, DbProRuntime, QueryApi, SqlPredictionContext};
+use crate::{
+    AgentContext, CodexProvider, CodexProviderError, ConnectionSummary, DbProRuntime, QueryApi, SqlPredictionContext,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct RuntimeRequestId(pub u64);
@@ -308,6 +310,7 @@ struct QueryCancellation {
 type QueryCancelMap = Arc<Mutex<HashMap<RuntimeRequestId, QueryCancellation>>>;
 
 type PredictionCancelMap = Arc<Mutex<HashMap<RuntimeRequestId, oneshot::Sender<()>>>>;
+type PredictionCooldown = Arc<Mutex<Option<std::time::Instant>>>;
 
 /// Spawn the async worker that translates native UI commands into application
 /// service calls. The UI receives only typed events and never sees credentials
@@ -321,6 +324,7 @@ pub fn spawn_worker(
     let cancellations: CancelMap = Arc::new(Mutex::new(HashMap::new()));
     let query_cancellations: QueryCancelMap = Arc::new(Mutex::new(HashMap::new()));
     let prediction_cancellations: PredictionCancelMap = Arc::new(Mutex::new(HashMap::new()));
+    let prediction_cooldown: PredictionCooldown = Arc::new(Mutex::new(None));
     // Shared mutable cell: allows ConfigureAgent to hot-swap the provider key
     // while the worker is running (no restart required).
     let codex_provider: Arc<Mutex<Option<CodexProvider>>> = Arc::new(Mutex::new(CodexProvider::from_env()));
@@ -762,6 +766,19 @@ pub fn spawn_worker(
                     replacement_range,
                     context,
                 } => {
+                    if prediction_is_in_cooldown(&prediction_cooldown) {
+                        let _ = event_tx
+                            .send(RuntimeEvent::SqlPredictionFailed {
+                                request_id,
+                                document_id,
+                                document_version,
+                                anchor,
+                                replacement_range,
+                                message: "AI prediction temporarily unavailable; retry shortly".to_owned(),
+                            })
+                            .await;
+                        continue;
+                    }
                     let provider = codex_provider
                         .lock()
                         .unwrap_or_else(|poisoned| poisoned.into_inner())
@@ -786,6 +803,7 @@ pub fn spawn_worker(
                         .insert(request_id, cancel_tx);
                     let event_tx = event_tx.clone();
                     let cancellation_map = Arc::clone(&prediction_cancellations);
+                    let prediction_cooldown = Arc::clone(&prediction_cooldown);
                     tokio::spawn(async move {
                         let provider_started_at = std::time::Instant::now();
                         tokio::select! {
@@ -798,6 +816,7 @@ pub fn spawn_worker(
                                     provider_latency_ms,
                                     "SQL prediction provider completed"
                                 );
+                                let backoff = prediction.as_ref().err().and_then(prediction_backoff);
                                 let event = match prediction {
                                     Ok(prediction) => RuntimeEvent::SqlPredictionReady {
                                         request_id,
@@ -816,6 +835,12 @@ pub fn spawn_worker(
                                         message: error.to_string(),
                                     },
                                 };
+                                if let Some(duration) = backoff {
+                                    *prediction_cooldown
+                                        .lock()
+                                        .unwrap_or_else(|poisoned| poisoned.into_inner()) =
+                                        Some(std::time::Instant::now() + duration);
+                                }
                                 let _ = event_tx.send(event).await;
                             }
                         }
@@ -1210,4 +1235,49 @@ pub fn spawn_worker(
     });
 
     (command_tx, event_rx)
+}
+
+fn prediction_is_in_cooldown(cooldown: &PredictionCooldown) -> bool {
+    let mut guard = cooldown.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    match *guard {
+        Some(until) if until > std::time::Instant::now() => true,
+        Some(_) => {
+            *guard = None;
+            false
+        }
+        None => false,
+    }
+}
+
+fn prediction_backoff(error: &CodexProviderError) -> Option<std::time::Duration> {
+    match error {
+        CodexProviderError::Http { status: 429, .. } => Some(std::time::Duration::from_secs(2)),
+        CodexProviderError::Http { status, .. } if *status >= 500 => Some(std::time::Duration::from_secs(1)),
+        CodexProviderError::Request(_) => Some(std::time::Duration::from_secs(1)),
+        _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn prediction_backoff_is_bounded_and_only_for_transient_provider_errors() {
+        assert_eq!(
+            prediction_backoff(&CodexProviderError::Http {
+                status: 429,
+                body: String::new(),
+            }),
+            Some(std::time::Duration::from_secs(2))
+        );
+        assert_eq!(
+            prediction_backoff(&CodexProviderError::Http {
+                status: 503,
+                body: String::new(),
+            }),
+            Some(std::time::Duration::from_secs(1))
+        );
+        assert_eq!(prediction_backoff(&CodexProviderError::EmptyResponse), None);
+    }
 }

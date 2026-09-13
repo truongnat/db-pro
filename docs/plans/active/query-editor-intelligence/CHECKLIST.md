@@ -9,6 +9,12 @@
 - [x] Carry replacement ranges through UI → native → runtime → UI.
 - [x] Record local debounce/total latency metrics and provider latency in debug logs.
 - [x] Make stale response rejection explicit and tested.
+- [x] Make overlap normalization and partial acceptance UTF-8 boundary safe.
+- [x] Reject empty/prose/oversized prediction output before it reaches the editor.
+- [x] Add request deduplication, short-lived prediction cache, and provider cooldown.
+- [x] Improve completion context for UPDATE targets, explicit/simple CTEs, and subquery aliases.
+- [x] Keep Query Workspace output tabs isolated per document.
+- [x] Remove the remaining global query execution request slot from the UI routing path.
 - [x] Verify per-document execution/explain routing.
 - [x] Run formatter, workspace checks, clippy, tests, native release build, and performance scan.
 - [ ] Verify a live provider request and stale/cancel behavior with native UI interaction.

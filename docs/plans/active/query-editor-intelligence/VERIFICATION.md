@@ -1,35 +1,36 @@
 # Verification
 
-Initial source evidence recorded on 2026-09-13:
+Source evidence recorded on 2026-09-13:
 
-- HEAD: `4d4e328 feat(ui): eliminate global query_text, add CTE and multi-segment schema completion, and implement prediction provider architecture`.
-- Working tree already contained Query Editor changes in UI files; they remain in scope.
+- Baseline: `1d3a278 feat(query): harden SQL prediction quality and UX`.
 - Native translator now routes `RequestSqlPrediction` and `CancelSqlPrediction` to the runtime worker.
-- Query execution, explain state, and prediction request state are stored on `QueryDocument`; the
-  remaining global query request slot is legacy compatibility state rather than prediction ownership.
+- Query execution, explain state, prediction request state, and Query Workspace output selection are
+  stored per `QueryDocument`; the global query request slot was removed from UI routing.
+- Prediction overlap and partial acceptance only operate at UTF-8 character boundaries. Manual
+  prediction can replace the current partial token atomically and undo restores the original text.
+- Completion now covers explicit/simple CTE output columns, UPDATE target columns, and simple
+  subquery aliases with deterministic context ordering.
 
 Source evidence is not runtime evidence.
 
 Automated evidence recorded on 2026-09-13:
 
-- `cargo test -p db-pro-ui && cargo test -p db-pro-runtime && cargo test -p db-pro-native` — PASS
-  after the prediction quality changes: 193 UI, 6 runtime, and 5 native tests.
-- `cargo fmt --all && cargo build --release --locked -p db-pro-native` — PASS.
+- `cargo test --workspace` — PASS, including 203 UI tests and the workspace crate suites.
+- `cargo fmt --all -- --check` — PASS.
+- `cargo check --workspace` — PASS.
+- `cargo clippy --workspace --all-targets -- -D warnings` — PASS.
+- `cargo build --release --locked -p db-pro-native` — PASS.
+- `bash .skills/perf-audit/scripts/perf-scan.sh` — PASS; native binary 21.5 MB, no warnings.
+- `git diff --check` — PASS.
 
 Prediction quality coverage now includes deterministic fingerprints with sorted alias maps,
 bounded before/after/CTE context, short-lived document-local cache, code-fence/explanation
 normalization, prefix/suffix overlap removal, and non-empty replacement ranges for manual token
 replacement. The native runtime worker logs provider latency using request/document metadata only.
 
-- `cargo fmt --all -- --check` — PASS.
-- `cargo check --workspace` — PASS.
-- `cargo clippy --workspace --all-targets -- -D warnings` — PASS.
-- `cargo test --workspace --quiet` — PASS: 276 core, 62 infrastructure, 32 integration, 188 UI,
-  5 native; 18 PostgreSQL live tests ignored because the fixture is unavailable.
-- `cargo build --release --locked -p db-pro-native` — PASS.
-- `bash .skills/perf-audit/scripts/perf-scan.sh` — PASS; native binary 21.4 MB, no warnings.
-- Focused tests cover translator routing, stale document version rejection, debounce state,
-  current-statement context, partial replacement acceptance, and concurrent per-document query state.
+- Focused tests cover translator routing, stale document version rejection, debounce/deduplication,
+  current-statement context, UTF-8 overlap, atomic replacement acceptance, cooldown handling,
+  completion context, and concurrent per-document query/output state.
 
 Runtime evidence collected in this turn:
 

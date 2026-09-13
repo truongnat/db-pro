@@ -26,6 +26,7 @@ pub const MAX_REFERENCED_TABLES: usize = 10;
 pub const MAX_COLUMNS_PER_TABLE: usize = 30;
 pub const MAX_FK_NEIGHBORS: usize = 15;
 pub const MAX_CTES: usize = 20;
+pub const MAX_PREDICTION_CHARS: usize = 4000;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AiSqlContext {
@@ -79,10 +80,33 @@ pub fn normalize_prediction_overlap(before: &str, after: &str, prediction: &str)
 }
 
 fn longest_suffix_prefix_overlap(left: &str, right: &str) -> Option<usize> {
-    let max_len = left.len().min(right.len());
-    (1..=max_len)
-        .rev()
-        .find(|len| left.as_bytes()[left.len() - len..] == right.as_bytes()[..*len])
+    for (start, _) in left.char_indices().rev() {
+        let overlap_len = left.len() - start;
+        if overlap_len == 0 || overlap_len > right.len() || !right.is_char_boundary(overlap_len) {
+            continue;
+        }
+        let overlap = &left[start..];
+        if overlap.trim().is_empty() {
+            continue;
+        }
+        if overlap == &right[..overlap_len] {
+            return Some(overlap_len);
+        }
+    }
+    None
+}
+
+pub fn is_prediction_acceptable(prediction: &str) -> bool {
+    let trimmed = prediction.trim();
+    if trimmed.is_empty() || prediction.chars().count() > MAX_PREDICTION_CHARS {
+        return false;
+    }
+    let first_line = trimmed.lines().next().unwrap_or_default().to_ascii_lowercase();
+    !first_line.starts_with("here is")
+        && !first_line.starts_with("here's")
+        && !first_line.starts_with("suggestion:")
+        && !first_line.starts_with("answer:")
+        && !trimmed.contains("```")
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -131,23 +155,18 @@ impl EditPrediction {
     }
 
     pub fn accept_next_word(&self) -> &str {
-        if let Some(pos) = self
-            .text
-            .find(|c: char| c.is_whitespace() || c == '(' || c == ',' || c == ';')
-        {
-            let next_pos = if pos == 0 {
-                // Skip leading punctuation/whitespace if needed
-                self.text[1..]
-                    .find(|c: char| c.is_whitespace() || c == '(' || c == ',' || c == ';')
-                    .map(|p| p + 1)
-                    .unwrap_or(self.text.len())
-            } else {
-                pos
-            };
-            &self.text[..next_pos]
-        } else {
-            &self.text
+        let mut saw_word = false;
+        for (offset, character) in self.text.char_indices() {
+            let is_separator = character.is_whitespace() || matches!(character, '(' | ',' | ';');
+            if !saw_word {
+                if !is_separator {
+                    saw_word = true;
+                }
+            } else if is_separator {
+                return &self.text[..offset];
+            }
         }
+        &self.text
     }
 
     pub fn accept_next_line(&self) -> &str {
@@ -333,5 +352,29 @@ mod tests {
             ""
         );
         assert_eq!(normalize_prediction_overlap("SELECT ", "", "users"), "users");
+    }
+
+    #[test]
+    fn overlap_is_utf8_safe_and_does_not_remove_whitespace_only_overlap() {
+        assert_eq!(
+            normalize_prediction_overlap("SELECT \"tên\" FROM khách_hàng", "", "khách_hàng WHERE"),
+            " WHERE"
+        );
+        assert_eq!(normalize_prediction_overlap("SELECT ", "", " "), " ");
+        assert_eq!(normalize_prediction_overlap("SELECT ", "", " WHERE"), " WHERE");
+    }
+
+    #[test]
+    fn partial_accept_handles_unicode_leading_whitespace() {
+        let prediction = EditPrediction::new(0, "\u{00a0}tên FROM users", None);
+        assert_eq!(prediction.accept_next_word(), "\u{00a0}tên");
+    }
+
+    #[test]
+    fn prediction_guard_rejects_empty_prose_and_unbounded_output() {
+        assert!(!is_prediction_acceptable(""));
+        assert!(!is_prediction_acceptable("Here is a suggestion"));
+        assert!(!is_prediction_acceptable(&"x".repeat(MAX_PREDICTION_CHARS + 1)));
+        assert!(is_prediction_acceptable("\n  WHERE active = true"));
     }
 }

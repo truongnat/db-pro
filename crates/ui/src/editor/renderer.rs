@@ -644,10 +644,45 @@ impl<'a> SqlEditor<'a> {
         if !self.completion_open && self.prediction_visible {
             if let Some(pred) = self.prediction {
                 if !pred.is_empty() && pred.anchor == self.cursor.offset {
+                    let replacement_start = pred.replacement_range.0;
+                    let replacement_end = pred.replacement_range.1;
+                    let has_replacement = replacement_start < replacement_end
+                        && replacement_end <= self.buffer.len_bytes()
+                        && self.buffer.is_char_boundary(replacement_start)
+                        && self.buffer.is_char_boundary(replacement_end);
+                    let ghost_origin = if has_replacement {
+                        self.offset_to_screen_pos(
+                            self.buffer,
+                            replacement_start,
+                            rect.min,
+                            gutter_w,
+                            line_height,
+                            char_width,
+                        )
+                    } else {
+                        cursor_screen
+                    };
+                    if has_replacement {
+                        for replacement_rect in self.range_to_screen_rects(
+                            self.buffer,
+                            replacement_start,
+                            replacement_end,
+                            rect.min,
+                            gutter_w,
+                            line_height,
+                            char_width,
+                        ) {
+                            ui.painter().rect_stroke(
+                                replacement_rect,
+                                Rounding::same(2.0),
+                                Stroke::new(1.0, self.theme.accent.linear_multiply(0.35)),
+                            );
+                        }
+                    }
                     let lines: Vec<&str> = pred.text.split('\n').collect();
                     for (idx, line_str) in lines.iter().enumerate() {
                         let ghost_x = if idx == 0 {
-                            cursor_screen.x
+                            ghost_origin.x
                         } else {
                             rect.min.x + gutter_w + PADDING_LEFT
                         };

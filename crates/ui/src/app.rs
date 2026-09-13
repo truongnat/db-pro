@@ -260,7 +260,7 @@ enum TableView {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum OutputTab {
+pub(crate) enum OutputTab {
     Results,
     Messages,
     Explain,
@@ -331,11 +331,11 @@ pub struct DbProApp {
     agent_api_key_draft: String,
     agent_configure_request: Option<crate::RequestId>,
     task_bridge: TaskBridge,
-    next_query_request: Option<crate::RequestId>,
     pub(crate) query_document_requests: HashMap<crate::RequestId, String>,
     runtime_message: String,
     toasts: crate::components::overlay::ToastManager,
     output_tab: OutputTab,
+    query_output_tabs: HashMap<String, OutputTab>,
     grid_filter: String,
     grid_sort_column: Option<usize>,
     grid_sort_desc: bool,
@@ -837,6 +837,35 @@ impl DbProApp {
             .and_then(|d| d.explain_request)
     }
 
+    pub(crate) fn active_query_output_tab(&self) -> OutputTab {
+        self.query_documents
+            .get(self.active_query_document)
+            .and_then(|doc| self.query_output_tabs.get(&doc.id).copied())
+            .unwrap_or(OutputTab::Results)
+    }
+
+    pub(crate) fn set_active_query_output_tab(&mut self, tab: OutputTab) {
+        self.output_tab = tab;
+        if let Some(doc_id) = self
+            .query_documents
+            .get(self.active_query_document)
+            .map(|doc| doc.id.clone())
+        {
+            self.query_output_tabs.insert(doc_id, tab);
+        }
+    }
+
+    pub(crate) fn set_query_output_tab(&mut self, document_id: &str, tab: OutputTab) {
+        self.query_output_tabs.insert(document_id.to_owned(), tab);
+        if self
+            .query_documents
+            .get(self.active_query_document)
+            .is_some_and(|doc| doc.id == document_id)
+        {
+            self.output_tab = tab;
+        }
+    }
+
     pub(crate) fn active_query_running_request(&self) -> Option<crate::RequestId> {
         self.query_documents
             .get(self.active_query_document)
@@ -970,8 +999,10 @@ impl DbProApp {
         }
 
         self.cancel_prediction_for_document(index);
+        let closed_id = self.query_documents[index].id.clone();
         let closed_title = self.query_documents[index].title.clone();
         self.query_documents.remove(index);
+        self.query_output_tabs.remove(&closed_id);
 
         if self.query_documents.is_empty() {
             self.active_query_document = 0;
@@ -1258,7 +1289,6 @@ impl DbProApp {
         self.connections_request_pending
             || self.pending_connection_request.is_some()
             || self.schema_request.is_some()
-            || self.next_query_request.is_some()
             || self
                 .query_documents
                 .iter()

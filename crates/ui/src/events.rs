@@ -68,9 +68,6 @@ impl DbProApp {
                 connection_id,
             } => self.on_connected(request_id, connection_id),
             UiEvent::QueryQueued { request_id } => {
-                if self.query_document_requests.contains_key(&request_id) {
-                    self.next_query_request = Some(request_id);
-                }
                 self.runtime_message = format!("Query queued · request {}", request_id.0);
             }
             UiEvent::QueryCompleted { request_id, result } => self.on_query_completed(request_id, result),
@@ -546,7 +543,7 @@ impl DbProApp {
             .get(self.active_query_document)
             .is_some_and(|d| target_doc_id.as_ref() == Some(&d.id));
 
-        if self.next_query_request == Some(request_id) || is_active_doc {
+        if is_active_doc {
             self.runtime_message = format!("Query completed · {} rows", result.row_count);
             self.grid_sort_column = None;
             self.grid_column_widths = vec![180.0; result.columns.len()];
@@ -556,22 +553,25 @@ impl DbProApp {
             self.selection_anchor_row = None;
             self.selection_anchor_cell = None;
             self.copy_status.clear();
-            self.output_tab = OutputTab::Results;
-            if self.next_query_request == Some(request_id) {
-                self.next_query_request = None;
+            if let Some(doc_id) = target_doc_id.as_deref() {
+                self.set_query_output_tab(doc_id, OutputTab::Results);
             }
         }
     }
 
     fn on_explain_completed(&mut self, request_id: RequestId, plan: String) {
-        if let Some(doc) = self
+        let Some(doc_index) = self
             .query_documents
-            .iter_mut()
-            .find(|d| d.explain_request == Some(request_id))
-        {
+            .iter()
+            .position(|doc| doc.explain_request == Some(request_id))
+        else {
+            return;
+        };
+        let doc_id = self.query_documents[doc_index].id.clone();
+        self.set_query_output_tab(&doc_id, OutputTab::Explain);
+        if let Some(doc) = self.query_documents.get_mut(doc_index) {
             doc.explain_request = None;
             doc.explain_plan = Some(plan);
-            self.output_tab = OutputTab::Explain;
             self.runtime_message = "Query plan ready".to_owned();
             doc.query_messages.push(self.runtime_message.clone());
         }
@@ -585,9 +585,12 @@ impl DbProApp {
                 doc.query_messages.push("Query cancelled".to_owned());
             }
         }
-        if self.next_query_request == Some(request_id) {
+        if target_doc_id.as_ref().is_some_and(|doc_id| {
+            self.query_documents
+                .get(self.active_query_document)
+                .is_some_and(|doc| &doc.id == doc_id)
+        }) {
             self.runtime_message = "Query cancelled".to_owned();
-            self.next_query_request = None;
         }
     }
 
@@ -617,7 +620,7 @@ impl DbProApp {
         } else {
             prediction_text
         };
-        if !prediction_text.is_empty() {
+        if crate::editor::prediction::is_prediction_acceptable(&prediction_text) {
             doc.prediction = Some(crate::editor::prediction::EditPrediction::with_range_and_version(
                 anchor,
                 replacement_range,
@@ -630,6 +633,8 @@ impl DbProApp {
                     doc.cache_prediction(fingerprint, prediction, std::time::Instant::now());
                 }
             }
+        } else {
+            doc.prediction_rejected = doc.prediction_rejected.saturating_add(1);
         }
         if let Some(started_at) = doc.prediction_request_started_at.take() {
             doc.prediction_last_latency_ms = Some(started_at.elapsed().as_millis() as u64);
@@ -720,8 +725,7 @@ impl DbProApp {
             let formatted = format!("DDL execution failed · {message}");
             self.runtime_message = formatted.clone();
             self.show_toast_error(formatted);
-        } else if self.next_query_request == Some(request_id) || self.query_document_requests.contains_key(&request_id)
-        {
+        } else if self.query_document_requests.contains_key(&request_id) {
             let target_doc_id = self.query_document_requests.remove(&request_id);
             if let Some(doc_id) = &target_doc_id {
                 if let Some(doc) = self.query_documents.iter_mut().find(|d| &d.id == doc_id) {
@@ -734,22 +738,23 @@ impl DbProApp {
                 .get(self.active_query_document)
                 .is_some_and(|d| target_doc_id.as_ref() == Some(&d.id));
 
-            if self.next_query_request == Some(request_id) || is_active_doc {
+            if is_active_doc {
                 self.runtime_message = format!("Query failed · {message}");
-                if self.next_query_request == Some(request_id) {
-                    self.next_query_request = None;
-                }
             }
-        } else if let Some(doc) = self
+        } else if let Some(doc_index) = self
             .query_documents
-            .iter_mut()
-            .find(|d| d.explain_request == Some(request_id))
+            .iter()
+            .position(|doc| doc.explain_request == Some(request_id))
         {
-            doc.explain_request = None;
-            doc.explain_plan = None;
-            self.output_tab = OutputTab::Messages;
-            self.runtime_message = format!("Explain failed · {message}");
-            doc.query_messages.push(self.runtime_message.clone());
+            let doc_id = self.query_documents[doc_index].id.clone();
+            self.set_query_output_tab(&doc_id, OutputTab::Messages);
+            let message = format!("Explain failed · {message}");
+            self.runtime_message = message;
+            if let Some(doc) = self.query_documents.get_mut(doc_index) {
+                doc.explain_request = None;
+                doc.explain_plan = None;
+                doc.query_messages.push(self.runtime_message.clone());
+            }
         } else {
             self.runtime_message = format!("Operation failed · {message}");
         }
@@ -858,7 +863,6 @@ impl DbProApp {
             }
         }
         let request_id = self.task_bridge.next_request_id();
-        self.next_query_request = Some(request_id);
         if let Some(doc) = self.query_documents.get_mut(self.active_query_document) {
             doc.execution_state = QueryExecutionState::Running(request_id);
             self.query_document_requests.insert(request_id, doc.id.clone());
@@ -899,7 +903,6 @@ impl DbProApp {
             }
         }
         let request_id = self.task_bridge.next_request_id();
-        self.next_query_request = Some(request_id);
         if let Some(doc) = self.query_documents.get_mut(self.active_query_document) {
             doc.execution_state = QueryExecutionState::Running(request_id);
             self.query_document_requests.insert(request_id, doc.id.clone());
