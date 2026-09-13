@@ -5,7 +5,7 @@ use crate::editor::diagnostics::Diagnostic;
 use crate::editor::document::SqlDocumentAnalysis;
 use crate::editor::prediction::EditPrediction;
 use crate::editor::selection::SelectionRange;
-use crate::editor::syntax::SqlDialect;
+use crate::editor::syntax::{CachedSqlTokens, SqlDialect};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -37,6 +37,7 @@ pub struct QueryDocument {
     pub diagnostics: Vec<Diagnostic>,
     pub completion: CompletionState,
     pub prediction: Option<EditPrediction>,
+    pub cached_tokens: CachedSqlTokens,
 }
 
 impl QueryDocument {
@@ -60,6 +61,7 @@ impl QueryDocument {
             diagnostics: Vec::new(),
             completion: CompletionState::new(),
             prediction: None,
+            cached_tokens: CachedSqlTokens::new(),
         }
     }
 

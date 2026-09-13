@@ -29,12 +29,7 @@ impl EditPrediction {
             .text
             .find(|c: char| c.is_whitespace() || c == '(' || c == ',' || c == ';')
         {
-            let next_pos = if pos == 0 {
-                // Return at least the punctuation/space
-                1
-            } else {
-                pos
-            };
+            let next_pos = if pos == 0 { 1 } else { pos };
             &self.text[..next_pos]
         } else {
             &self.text
@@ -47,5 +42,49 @@ impl EditPrediction {
         } else {
             &self.text
         }
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct PredictionState {
+    pub active_prediction: Option<EditPrediction>,
+    pub pending_request: Option<RequestId>,
+    pub enabled: bool,
+}
+
+impl PredictionState {
+    pub fn new() -> Self {
+        Self {
+            active_prediction: None,
+            pending_request: None,
+            enabled: true,
+        }
+    }
+
+    pub fn set_prediction(&mut self, prediction: EditPrediction) {
+        self.active_prediction = Some(prediction);
+    }
+
+    pub fn clear(&mut self) {
+        self.active_prediction = None;
+        self.pending_request = None;
+    }
+}
+
+pub trait AiEditPredictionProvider {
+    fn request_prediction(&mut self, buffer_text: &str, cursor_offset: usize, dialect_name: &str) -> Option<RequestId>;
+    fn cancel_pending(&mut self);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_edit_prediction_accept_helpers() {
+        let pred = EditPrediction::new(10, "WHERE id = 100\nLIMIT 10;", None);
+        assert_eq!(pred.accept_full(), "WHERE id = 100\nLIMIT 10;");
+        assert_eq!(pred.accept_word(), "WHERE");
+        assert_eq!(pred.accept_line(), "WHERE id = 100\n");
     }
 }

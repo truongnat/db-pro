@@ -1,8 +1,10 @@
+use super::buffer::TextBuffer;
 use crate::DbProTheme;
 use egui::Color32;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum SqlDialect {
+    #[default]
     Postgres,
     SQLite,
     Generic,
@@ -27,6 +29,39 @@ pub enum SyntaxTokenKind {
 pub struct SyntaxToken {
     pub range: (usize, usize),
     pub kind: SyntaxTokenKind,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct CachedSqlTokens {
+    tokens: Vec<SyntaxToken>,
+    version: u64,
+    dialect: SqlDialect,
+    initialized: bool,
+}
+
+impl CachedSqlTokens {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn get_or_recompute(&mut self, buffer: &TextBuffer, dialect: SqlDialect) -> &[SyntaxToken] {
+        if !self.initialized || self.version != buffer.version() || self.dialect != dialect {
+            let highlighter = SqlHighlighter::new(dialect);
+            self.tokens = highlighter.tokenize(buffer.text());
+            self.version = buffer.version();
+            self.dialect = dialect;
+            self.initialized = true;
+        }
+        &self.tokens
+    }
+
+    pub fn tokens(&self) -> &[SyntaxToken] {
+        &self.tokens
+    }
+
+    pub fn invalidate(&mut self) {
+        self.initialized = false;
+    }
 }
 
 const SQL_KEYWORDS: &[&str] = &[
@@ -453,5 +488,28 @@ impl SqlHighlighter {
             SyntaxTokenKind::Punctuation => theme.code_punctuation,
             SyntaxTokenKind::Whitespace => theme.text_primary,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_cached_tokens_invalidation() {
+        let mut buf = TextBuffer::from_string("SELECT 1;");
+        let mut cache = CachedSqlTokens::new();
+
+        let tokens1 = cache.get_or_recompute(&buf, SqlDialect::Postgres);
+        assert_eq!(tokens1.len(), 4); // SELECT, ' ', 1, ';'
+
+        // Unmodified buffer returns cached tokens
+        let len_cached = cache.tokens().len();
+        assert_eq!(len_cached, 4);
+
+        // Edit buffer
+        buf.insert(9, " SELECT 2;");
+        let tokens2 = cache.get_or_recompute(&buf, SqlDialect::Postgres);
+        assert_eq!(tokens2.len(), 9);
     }
 }

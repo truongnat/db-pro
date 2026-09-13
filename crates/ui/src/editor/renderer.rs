@@ -4,17 +4,17 @@ use super::decorations::DiagnosticSeverity;
 use super::diagnostics::Diagnostic;
 use super::prediction::EditPrediction;
 use super::selection::SelectionRange;
-use super::syntax::{SqlDialect, SqlHighlighter};
+use super::syntax::{CachedSqlTokens, SqlDialect, SqlHighlighter};
 use crate::DbProTheme;
 use egui::{
     text::{LayoutJob, TextFormat},
     Event, FontId, Key, Pos2, Rect, Rounding, Sense, Stroke, Ui, Vec2,
 };
 
-const GUTTER_WIDTH: f32 = 46.0;
 const LINE_HEIGHT: f32 = 22.0;
 const FONT_SIZE: f32 = 13.5;
 const PADDING_LEFT: f32 = 10.0;
+const PADDING_TOP: f32 = 6.0;
 
 #[derive(Debug, Clone, Default)]
 pub struct SqlEditorResponse {
@@ -35,6 +35,8 @@ pub struct SqlEditor<'a> {
     pub theme: &'a DbProTheme,
     pub diagnostics: &'a [Diagnostic],
     pub prediction: Option<&'a EditPrediction>,
+    pub cached_tokens: Option<&'a mut CachedSqlTokens>,
+    pub search_query: &'a str,
     pub font_size: f32,
     pub id_salt: &'a str,
 }
@@ -59,9 +61,27 @@ impl<'a> SqlEditor<'a> {
             theme,
             diagnostics,
             prediction,
+            cached_tokens: None,
+            search_query: "",
             font_size: FONT_SIZE,
             id_salt,
         }
+    }
+
+    pub fn with_cached_tokens(mut self, cached_tokens: &'a mut CachedSqlTokens) -> Self {
+        self.cached_tokens = Some(cached_tokens);
+        self
+    }
+
+    pub fn with_search_query(mut self, search_query: &'a str) -> Self {
+        self.search_query = search_query;
+        self
+    }
+
+    pub fn gutter_width(&self) -> f32 {
+        let lines = self.buffer.line_count().max(1);
+        let digits = lines.to_string().len().max(2);
+        (digits as f32) * (self.font_size * 0.55) + 24.0
     }
 
     pub fn show(mut self, ui: &mut Ui, available_size: Vec2) -> SqlEditorResponse {
@@ -79,7 +99,7 @@ impl<'a> SqlEditor<'a> {
         let char_width = self.font_size * 0.60;
         let line_height = LINE_HEIGHT;
         let line_count = self.buffer.line_count();
-        let total_content_height = (line_count as f32) * line_height + 40.0;
+        let gutter_w = self.gutter_width();
 
         // Background
         ui.painter()
@@ -98,7 +118,7 @@ impl<'a> SqlEditor<'a> {
         );
 
         // Gutter background
-        let gutter_rect = Rect::from_min_size(rect.min, Vec2::new(GUTTER_WIDTH, rect.height()));
+        let gutter_rect = Rect::from_min_size(rect.min, Vec2::new(gutter_w, rect.height()));
         ui.painter().rect_filled(
             gutter_rect,
             Rounding::ZERO,
@@ -150,7 +170,7 @@ impl<'a> SqlEditor<'a> {
                                     self.delete_selection();
                                     response.changed = true;
                                 } else if self.cursor.offset > 0 {
-                                    let prev_off = self.cursor.offset - 1;
+                                    let prev_off = self.buffer.prev_char_boundary(self.cursor.offset);
                                     self.buffer.delete(prev_off, self.cursor.offset);
                                     self.cursor.set_offset(self.buffer, prev_off);
                                     self.selection.collapse_to_active();
@@ -162,19 +182,34 @@ impl<'a> SqlEditor<'a> {
                                     self.delete_selection();
                                     response.changed = true;
                                 } else if self.cursor.offset < self.buffer.len_bytes() {
-                                    let next_off = self.cursor.offset + 1;
+                                    let next_off = self.buffer.next_char_boundary(self.cursor.offset);
                                     self.buffer.delete(self.cursor.offset, next_off);
                                     self.selection.collapse_to_active();
                                     response.changed = true;
                                 }
                             }
                             Key::Tab => {
-                                if shift {
-                                    // Unindent
-                                    self.unindent();
+                                // Accept AI prediction on Tab if prediction is active
+                                if let Some(pred) = self.prediction {
+                                    if !pred.is_empty() && pred.anchor == self.cursor.offset && !shift {
+                                        let text_to_insert = pred.accept_full().to_owned();
+                                        self.insert_text(&text_to_insert);
+                                        response.changed = true;
+                                        continue;
+                                    }
+                                }
+
+                                if !self.selection.is_empty() {
+                                    if shift {
+                                        self.unindent_selection();
+                                    } else {
+                                        self.indent_selection();
+                                    }
+                                    response.changed = true;
+                                } else if shift {
+                                    self.unindent_line();
                                     response.changed = true;
                                 } else {
-                                    // Indent
                                     self.insert_text("  ");
                                     response.changed = true;
                                 }
@@ -220,11 +255,11 @@ impl<'a> SqlEditor<'a> {
                                 self.update_selection(shift);
                             }
                             Key::PageUp => {
-                                self.cursor.move_up(self.buffer);
+                                self.cursor.move_page_up(self.buffer, 15);
                                 self.update_selection(shift);
                             }
                             Key::PageDown => {
-                                self.cursor.move_down(self.buffer);
+                                self.cursor.move_page_down(self.buffer, 15);
                                 self.update_selection(shift);
                             }
                             Key::A if is_cmd => {
@@ -233,17 +268,15 @@ impl<'a> SqlEditor<'a> {
                             }
                             Key::Z if is_cmd => {
                                 if shift {
-                                    if let Some(offset) = self.buffer.redo() {
-                                        self.cursor.set_offset(self.buffer, offset);
-                                        self.selection.collapse_to_active();
+                                    if let Some((cur, anchor)) = self.buffer.redo() {
+                                        self.cursor.set_offset(self.buffer, cur);
+                                        *self.selection = SelectionRange::new(anchor, cur);
                                         response.changed = true;
                                     }
-                                } else {
-                                    if let Some(offset) = self.buffer.undo() {
-                                        self.cursor.set_offset(self.buffer, offset);
-                                        self.selection.collapse_to_active();
-                                        response.changed = true;
-                                    }
+                                } else if let Some((cur, anchor)) = self.buffer.undo() {
+                                    self.cursor.set_offset(self.buffer, cur);
+                                    *self.selection = SelectionRange::new(anchor, cur);
+                                    response.changed = true;
                                 }
                             }
                             Key::Space if event_mods.ctrl => {
@@ -283,31 +316,83 @@ impl<'a> SqlEditor<'a> {
             }
         }
 
-        // Mouse click positioning
-        if resp.clicked() {
+        // Mouse click & drag positioning
+        if resp.double_clicked() {
             if let Some(mouse_pos) = resp.interact_pointer_pos() {
-                let rel_x = mouse_pos.x - (rect.min.x + GUTTER_WIDTH + PADDING_LEFT);
-                let rel_y = mouse_pos.y - (rect.min.y + 6.0);
-                let target_line =
-                    ((rel_y / line_height).floor() as usize).min(self.buffer.line_count().saturating_sub(1));
-                let target_col = (rel_x / char_width).round().max(0.0) as usize;
-                let offset = self.buffer.line_col_to_offset(target_line, target_col);
+                let offset = self.screen_pos_to_offset(mouse_pos, rect.min, gutter_w, line_height, char_width);
+                self.selection.select_word_at(self.buffer, offset);
+                self.cursor.set_offset(self.buffer, self.selection.active);
+            }
+        } else if resp.triple_clicked() {
+            if let Some(mouse_pos) = resp.interact_pointer_pos() {
+                let rel_y = mouse_pos.y - (rect.min.y + PADDING_TOP);
+                let target_line = ((rel_y / line_height).floor() as usize).min(line_count.saturating_sub(1));
+                self.selection.select_line_at(self.buffer, target_line);
+                self.cursor.set_offset(self.buffer, self.selection.active);
+            }
+        } else if resp.drag_started() {
+            if let Some(mouse_pos) = resp.interact_pointer_pos() {
+                let offset = self.screen_pos_to_offset(mouse_pos, rect.min, gutter_w, line_height, char_width);
+                self.cursor.set_offset(self.buffer, offset);
+                *self.selection = SelectionRange::point(offset);
+            }
+        } else if resp.dragged() {
+            if let Some(mouse_pos) = resp.interact_pointer_pos() {
+                let offset = self.screen_pos_to_offset(mouse_pos, rect.min, gutter_w, line_height, char_width);
+                self.cursor.set_offset(self.buffer, offset);
+                self.selection.grow_to(offset);
+            }
+        } else if resp.clicked() {
+            if let Some(mouse_pos) = resp.interact_pointer_pos() {
+                let offset = self.screen_pos_to_offset(mouse_pos, rect.min, gutter_w, line_height, char_width);
                 self.cursor.set_offset(self.buffer, offset);
                 self.selection.collapse_to_active();
             }
         }
 
         // Current Line Highlight
-        let current_line_top = rect.min.y + 6.0 + (self.cursor.line as f32) * line_height;
+        let current_line_top = rect.min.y + PADDING_TOP + (self.cursor.line as f32) * line_height;
         let current_line_rect = Rect::from_min_size(
-            Pos2::new(rect.min.x + GUTTER_WIDTH, current_line_top),
-            Vec2::new(rect.width() - GUTTER_WIDTH, line_height),
+            Pos2::new(rect.min.x + gutter_w, current_line_top),
+            Vec2::new((rect.width() - gutter_w).max(0.0), line_height),
         );
         ui.painter().rect_filled(
             current_line_rect,
             Rounding::ZERO,
-            self.theme.surface_hover.linear_multiply(0.4),
+            self.theme.surface_hover.linear_multiply(0.35),
         );
+
+        // Search Matches Highlights
+        if !self.search_query.trim().is_empty() {
+            let query = self.search_query.to_lowercase();
+            let text_lower = self.buffer.text().to_lowercase();
+            for (match_start, _) in text_lower.match_indices(&query) {
+                let match_end = match_start + query.len();
+                let (start_line, start_col) = self.buffer.offset_to_line_col(match_start);
+                let (end_line, end_col) = self.buffer.offset_to_line_col(match_end);
+                for l_idx in start_line..=end_line {
+                    let line_y = rect.min.y + PADDING_TOP + (l_idx as f32) * line_height;
+                    let c_start = if l_idx == start_line { start_col } else { 0 };
+                    let c_end = if l_idx == end_line {
+                        end_col
+                    } else {
+                        self.buffer.line_at(l_idx).unwrap_or("").chars().count()
+                    };
+                    let search_rect = Rect::from_min_size(
+                        Pos2::new(
+                            rect.min.x + gutter_w + PADDING_LEFT + (c_start as f32) * char_width,
+                            line_y,
+                        ),
+                        Vec2::new(((c_end.saturating_sub(c_start)) as f32) * char_width, line_height),
+                    );
+                    ui.painter().rect_filled(
+                        search_rect,
+                        Rounding::same(2.0),
+                        self.theme.warning.linear_multiply(0.3),
+                    );
+                }
+            }
+        }
 
         // Selection Highlight
         if !self.selection.is_empty() {
@@ -316,7 +401,7 @@ impl<'a> SqlEditor<'a> {
             let (end_line, end_col) = self.buffer.offset_to_line_col(sel_end);
 
             for line_idx in start_line..=end_line {
-                let line_y = rect.min.y + 6.0 + (line_idx as f32) * line_height;
+                let line_y = rect.min.y + PADDING_TOP + (line_idx as f32) * line_height;
                 let line_len_chars = self.buffer.line_at(line_idx).unwrap_or("").chars().count();
                 let col_start = if line_idx == start_line { start_col } else { 0 };
                 let col_end = if line_idx == end_line {
@@ -326,7 +411,7 @@ impl<'a> SqlEditor<'a> {
                 };
                 let sel_rect = Rect::from_min_size(
                     Pos2::new(
-                        rect.min.x + GUTTER_WIDTH + PADDING_LEFT + (col_start as f32) * char_width,
+                        rect.min.x + gutter_w + PADDING_LEFT + (col_start as f32) * char_width,
                         line_y,
                     ),
                     Vec2::new(((col_end.saturating_sub(col_start)) as f32) * char_width, line_height),
@@ -338,17 +423,21 @@ impl<'a> SqlEditor<'a> {
 
         // Syntax Highlighting Tokens
         let highlighter = SqlHighlighter::new(self.dialect);
-        let tokens = highlighter.tokenize(self.buffer.text());
+        let tokens = if let Some(cache) = self.cached_tokens.as_mut() {
+            cache.get_or_recompute(self.buffer, self.dialect).to_vec()
+        } else {
+            highlighter.tokenize(self.buffer.text())
+        };
 
         // Render Text Lines
-        for line_idx in 0..self.buffer.line_count() {
-            let line_y = rect.min.y + 6.0 + (line_idx as f32) * line_height;
+        for line_idx in 0..line_count {
+            let line_y = rect.min.y + PADDING_TOP + (line_idx as f32) * line_height;
 
             // Gutter Line Number
-            let line_num_str = format!("{:>3}", line_idx + 1);
+            let line_num_str = format!("{}", line_idx + 1);
             let is_curr = line_idx == self.cursor.line;
             ui.painter().text(
-                Pos2::new(rect.min.x + GUTTER_WIDTH - 8.0, line_y + line_height * 0.5),
+                Pos2::new(rect.min.x + gutter_w - 8.0, line_y + line_height * 0.5),
                 egui::Align2::RIGHT_CENTER,
                 line_num_str,
                 FontId::monospace(11.5),
@@ -388,7 +477,7 @@ impl<'a> SqlEditor<'a> {
                 }
                 let galley = ui.painter().layout_job(job);
                 ui.painter().galley(
-                    Pos2::new(rect.min.x + GUTTER_WIDTH + PADDING_LEFT, line_y),
+                    Pos2::new(rect.min.x + gutter_w + PADDING_LEFT, line_y),
                     galley,
                     self.theme.text_primary,
                 );
@@ -405,15 +494,15 @@ impl<'a> SqlEditor<'a> {
                 DiagnosticSeverity::Information | DiagnosticSeverity::Hint => self.theme.accent,
             };
             for line_idx in start_line..=end_line {
-                let line_y = rect.min.y + 6.0 + (line_idx as f32) * line_height + line_height - 2.0;
+                let line_y = rect.min.y + PADDING_TOP + (line_idx as f32) * line_height + line_height - 2.0;
                 let col_start = if line_idx == start_line { start_col } else { 0 };
                 let col_end = if line_idx == end_line {
                     end_col.max(col_start + 1)
                 } else {
                     col_start + 4
                 };
-                let x1 = rect.min.x + GUTTER_WIDTH + PADDING_LEFT + (col_start as f32) * char_width;
-                let x2 = rect.min.x + GUTTER_WIDTH + PADDING_LEFT + (col_end as f32) * char_width;
+                let x1 = rect.min.x + gutter_w + PADDING_LEFT + (col_start as f32) * char_width;
+                let x2 = rect.min.x + gutter_w + PADDING_LEFT + (col_end as f32) * char_width;
                 ui.painter().line_segment(
                     [Pos2::new(x1, line_y), Pos2::new(x2, line_y)],
                     Stroke::new(1.5, diag_color),
@@ -422,8 +511,8 @@ impl<'a> SqlEditor<'a> {
         }
 
         // Cursor Position calculation
-        let cursor_x = rect.min.x + GUTTER_WIDTH + PADDING_LEFT + (self.cursor.col as f32) * char_width;
-        let cursor_y = rect.min.y + 6.0 + (self.cursor.line as f32) * line_height;
+        let cursor_x = rect.min.x + gutter_w + PADDING_LEFT + (self.cursor.col as f32) * char_width;
+        let cursor_y = rect.min.y + PADDING_TOP + (self.cursor.line as f32) * line_height;
         response.cursor_screen_pos = Pos2::new(cursor_x, cursor_y + line_height);
 
         // Inline AI Prediction Ghost Text
@@ -448,8 +537,36 @@ impl<'a> SqlEditor<'a> {
                 .rect_filled(cursor_rect, Rounding::same(1.0), self.theme.accent);
         }
 
-        let _ = total_content_height;
         response
+    }
+
+    pub fn offset_to_screen_pos(
+        &self,
+        offset: usize,
+        origin: Pos2,
+        gutter_w: f32,
+        line_height: f32,
+        char_width: f32,
+    ) -> Pos2 {
+        let (line, col) = self.buffer.offset_to_line_col(offset);
+        let x = origin.x + gutter_w + PADDING_LEFT + (col as f32) * char_width;
+        let y = origin.y + PADDING_TOP + (line as f32) * line_height;
+        Pos2::new(x, y)
+    }
+
+    pub fn screen_pos_to_offset(
+        &self,
+        pos: Pos2,
+        origin: Pos2,
+        gutter_w: f32,
+        line_height: f32,
+        char_width: f32,
+    ) -> usize {
+        let rel_x = pos.x - (origin.x + gutter_w + PADDING_LEFT);
+        let rel_y = pos.y - (origin.y + PADDING_TOP);
+        let target_line = ((rel_y / line_height).floor() as usize).min(self.buffer.line_count().saturating_sub(1));
+        let target_col = (rel_x / char_width).round().max(0.0) as usize;
+        self.buffer.line_col_to_offset(target_line, target_col)
     }
 
     fn insert_text(&mut self, text: &str) {
@@ -478,7 +595,52 @@ impl<'a> SqlEditor<'a> {
         }
     }
 
-    fn unindent(&mut self) {
+    fn indent_selection(&mut self) {
+        let (start, end) = self.selection.normalized();
+        let (start_line, _) = self.buffer.offset_to_line_col(start);
+        let (end_line, end_col) = self.buffer.offset_to_line_col(end);
+        let actual_end_line = if end_col == 0 && end_line > start_line {
+            end_line - 1
+        } else {
+            end_line
+        };
+
+        for l_idx in (start_line..=actual_end_line).rev() {
+            let l_start = self.buffer.line_start_offset(l_idx);
+            self.buffer.insert(l_start, "  ");
+        }
+        let total_added = (actual_end_line - start_line + 1) * 2;
+        *self.selection = SelectionRange::new(start + 2, end + total_added);
+        self.cursor.set_offset(self.buffer, self.selection.active);
+    }
+
+    fn unindent_selection(&mut self) {
+        let (start, end) = self.selection.normalized();
+        let (start_line, _) = self.buffer.offset_to_line_col(start);
+        let (end_line, end_col) = self.buffer.offset_to_line_col(end);
+        let actual_end_line = if end_col == 0 && end_line > start_line {
+            end_line - 1
+        } else {
+            end_line
+        };
+
+        let mut total_removed = 0;
+        for l_idx in (start_line..=actual_end_line).rev() {
+            let l_text = self.buffer.line_at(l_idx).unwrap_or("");
+            let l_start = self.buffer.line_start_offset(l_idx);
+            if l_text.starts_with("  ") {
+                self.buffer.delete(l_start, l_start + 2);
+                total_removed += 2;
+            } else if l_text.starts_with(' ') || l_text.starts_with('\t') {
+                self.buffer.delete(l_start, l_start + 1);
+                total_removed += 1;
+            }
+        }
+        *self.selection = SelectionRange::new(start.saturating_sub(2), end.saturating_sub(total_removed));
+        self.cursor.set_offset(self.buffer, self.selection.active);
+    }
+
+    fn unindent_line(&mut self) {
         let line_text = self.buffer.line_at(self.cursor.line).unwrap_or("");
         let line_start = self.buffer.line_start_offset(self.cursor.line);
         if line_text.starts_with("  ") {

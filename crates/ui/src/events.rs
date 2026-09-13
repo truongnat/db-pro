@@ -690,11 +690,22 @@ impl DbProApp {
             self.runtime_message = "Create or select a connection first".to_owned();
             return;
         };
-        let sql = if self.selected_query.trim().is_empty() {
-            self.query_text.clone()
-        } else {
+        let sql = if !self.selected_query.trim().is_empty() {
             self.selected_query.clone()
+        } else if let Some(doc) = self.query_documents.get(self.active_query_document) {
+            let (stmt_sql, _) = doc.resolve_executable_sql();
+            if !stmt_sql.is_empty() {
+                stmt_sql
+            } else {
+                self.query_text.clone()
+            }
+        } else {
+            self.query_text.clone()
         };
+        if sql.trim().is_empty() {
+            self.runtime_message = "Query is empty".to_owned();
+            return;
+        }
         if !self.query_history.iter().any(|query| query == &sql) {
             self.query_history.push(sql.clone());
             if self.query_history.len() > 20 {
@@ -704,6 +715,39 @@ impl DbProApp {
         let request_id = self.task_bridge.next_request_id();
         self.next_query_request = Some(request_id);
         self.runtime_message = "Sending query to runtime…".to_owned();
+        self.dispatch_command(UiCommand::RunQuery {
+            request_id,
+            connection_id,
+            sql,
+        });
+    }
+
+    pub(super) fn dispatch_query_all(&mut self) {
+        if self.next_query_request.is_some() {
+            return;
+        }
+        let Some(connection_id) = self.active_connection().map(|connection| connection.id.clone()) else {
+            self.runtime_message = "Create or select a connection first".to_owned();
+            return;
+        };
+        let sql = if let Some(doc) = self.query_documents.get(self.active_query_document) {
+            doc.text().trim().to_owned()
+        } else {
+            self.query_text.trim().to_owned()
+        };
+        if sql.is_empty() {
+            self.runtime_message = "Query is empty".to_owned();
+            return;
+        }
+        if !self.query_history.iter().any(|query| query == &sql) {
+            self.query_history.push(sql.clone());
+            if self.query_history.len() > 20 {
+                self.query_history.remove(0);
+            }
+        }
+        let request_id = self.task_bridge.next_request_id();
+        self.next_query_request = Some(request_id);
+        self.runtime_message = "Sending full script to runtime…".to_owned();
         self.dispatch_command(UiCommand::RunQuery {
             request_id,
             connection_id,

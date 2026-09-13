@@ -9,13 +9,13 @@ pub mod renderer;
 pub mod selection;
 pub mod syntax;
 
-pub use buffer::{TextBuffer, UndoAction, UndoStack};
+pub use buffer::{EditorSnapshot, TextBuffer, UndoAction, UndoStack, UndoStep};
 pub use completion::{CompletionItem, CompletionItemKind, CompletionState, CompletionTriggerKind};
 pub use cursor::CursorPosition;
 pub use decorations::{DecorationKind, DiagnosticSeverity, EditorDecoration};
 pub use diagnostics::Diagnostic;
 pub use document::{SqlDocumentAnalysis, SqlStatement};
-pub use prediction::EditPrediction;
+pub use prediction::{AiEditPredictionProvider, EditPrediction, PredictionState};
 pub use renderer::{SqlEditor, SqlEditorResponse};
 pub use selection::SelectionRange;
-pub use syntax::{SqlDialect, SqlHighlighter, SyntaxToken, SyntaxTokenKind};
+pub use syntax::{CachedSqlTokens, SqlDialect, SqlHighlighter, SyntaxToken, SyntaxTokenKind};

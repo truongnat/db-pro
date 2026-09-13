@@ -552,7 +552,8 @@ impl DbProApp {
 
         let theme = self.theme;
         let font_size = self.editor_font_size;
-        let mut dispatch_req = false;
+        let mut dispatch_statement = false;
+        let mut dispatch_all = false;
         let mut trigger_completion = false;
         let mut completion_pos = egui::Pos2::ZERO;
 
@@ -561,6 +562,7 @@ impl DbProApp {
         let doc_index = self.active_query_document;
         let doc = &mut self.query_documents[doc_index];
 
+        let search_query = self.editor_search.clone();
         let mut editor = SqlEditor::new(
             &mut doc.buffer,
             &mut doc.cursor,
@@ -570,7 +572,9 @@ impl DbProApp {
             &doc.diagnostics,
             doc.prediction.as_ref(),
             "active_sql_editor",
-        );
+        )
+        .with_cached_tokens(&mut doc.cached_tokens)
+        .with_search_query(&search_query);
         editor.font_size = font_size;
 
         let response = editor.show(ui, available_size);
@@ -591,8 +595,10 @@ impl DbProApp {
             }
         }
 
-        if response.wants_execute_statement || response.wants_execute_all {
-            dispatch_req = true;
+        if response.wants_execute_statement {
+            dispatch_statement = true;
+        } else if response.wants_execute_all {
+            dispatch_all = true;
         }
 
         if response.wants_completion {
@@ -622,8 +628,10 @@ impl DbProApp {
             }
         }
 
-        if dispatch_req {
+        if dispatch_statement {
             self.dispatch_query();
+        } else if dispatch_all {
+            self.dispatch_query_all();
         }
     }
 

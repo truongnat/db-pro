@@ -801,7 +801,9 @@ impl DbProApp {
 
     fn persist_active_query_document(&mut self) {
         if let Some(document) = self.query_documents.get_mut(self.active_query_document) {
-            document.set_text(self.query_text.clone());
+            if document.text() != self.query_text {
+                document.set_text(self.query_text.clone());
+            }
         }
     }
 
@@ -811,8 +813,16 @@ impl DbProApp {
         }
         self.persist_active_query_document();
         self.active_query_document = index;
-        self.query_text = self.query_documents[index].text().to_owned();
-        self.reset_query_cursor();
+        let doc = &self.query_documents[index];
+        self.query_text = doc.text().to_owned();
+        self.query_cursor_line = doc.cursor.line + 1;
+        self.query_cursor_column = doc.cursor.col + 1;
+        if !doc.selection.is_empty() {
+            let (start, end) = doc.selection.normalized();
+            self.selected_query = doc.buffer.slice(start, end).to_owned();
+        } else {
+            self.selected_query.clear();
+        }
         self.query_result = None;
         self.runtime_message = format!("Opened {}", self.query_documents[index].title);
     }
@@ -860,8 +870,16 @@ impl DbProApp {
         } else if self.active_query_document == index {
             self.active_query_document = self.active_query_document.min(self.query_documents.len() - 1);
         }
-        self.query_text = self.query_documents[self.active_query_document].text().to_owned();
-        self.reset_query_cursor();
+        let doc = &self.query_documents[self.active_query_document];
+        self.query_text = doc.text().to_owned();
+        self.query_cursor_line = doc.cursor.line + 1;
+        self.query_cursor_column = doc.cursor.col + 1;
+        if !doc.selection.is_empty() {
+            let (start, end) = doc.selection.normalized();
+            self.selected_query = doc.buffer.slice(start, end).to_owned();
+        } else {
+            self.selected_query.clear();
+        }
         self.query_result = None;
         self.runtime_message = format!("Closed {}", self.query_documents[self.active_query_document].title);
     }

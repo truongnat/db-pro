@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-const MAX_UNDO_HISTORY: usize = 200;
+const MAX_UNDO_HISTORY: usize = 300;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum UndoAction {
@@ -9,12 +9,26 @@ pub enum UndoAction {
     Group(Vec<UndoAction>),
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct EditorSnapshot {
+    pub cursor_offset: usize,
+    pub anchor_offset: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UndoStep {
+    pub action: UndoAction,
+    pub before: EditorSnapshot,
+    pub after: EditorSnapshot,
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct UndoStack {
-    undo_list: VecDeque<UndoAction>,
-    redo_list: VecDeque<UndoAction>,
-    group_open: bool,
-    current_group: Vec<UndoAction>,
+    pub undo_list: VecDeque<UndoStep>,
+    pub redo_list: VecDeque<UndoStep>,
+    pub group_open: bool,
+    pub current_group_actions: Vec<UndoAction>,
+    pub group_before_snapshot: Option<EditorSnapshot>,
 }
 
 impl UndoStack {
@@ -22,29 +36,45 @@ impl UndoStack {
         Self::default()
     }
 
-    pub fn begin_group(&mut self) {
-        self.group_open = true;
-        self.current_group.clear();
-    }
-
-    pub fn end_group(&mut self) {
-        self.group_open = false;
-        if !self.current_group.is_empty() {
-            let group = std::mem::take(&mut self.current_group);
-            self.push(UndoAction::Group(group));
+    pub fn begin_group(&mut self, before: EditorSnapshot) {
+        if !self.group_open {
+            self.group_open = true;
+            self.current_group_actions.clear();
+            self.group_before_snapshot = Some(before);
         }
     }
 
-    pub fn push(&mut self, action: UndoAction) {
-        self.redo_list.clear();
+    pub fn end_group(&mut self, after: EditorSnapshot) {
         if self.group_open {
-            self.current_group.push(action);
-        } else {
-            if self.undo_list.len() >= MAX_UNDO_HISTORY {
-                self.undo_list.pop_front();
+            self.group_open = false;
+            let before = self.group_before_snapshot.take().unwrap_or(after);
+            if !self.current_group_actions.is_empty() {
+                let actions = std::mem::take(&mut self.current_group_actions);
+                let step = UndoStep {
+                    action: UndoAction::Group(actions),
+                    before,
+                    after,
+                };
+                self.push_step(step);
             }
-            self.undo_list.push_back(action);
         }
+    }
+
+    pub fn push_action(&mut self, action: UndoAction, before: EditorSnapshot, after: EditorSnapshot) {
+        if self.group_open {
+            self.current_group_actions.push(action);
+        } else {
+            let step = UndoStep { action, before, after };
+            self.push_step(step);
+        }
+    }
+
+    pub fn push_step(&mut self, step: UndoStep) {
+        self.redo_list.clear();
+        if self.undo_list.len() >= MAX_UNDO_HISTORY {
+            self.undo_list.pop_front();
+        }
+        self.undo_list.push_back(step);
     }
 
     pub fn can_undo(&self) -> bool {
@@ -58,13 +88,14 @@ impl UndoStack {
     pub fn clear(&mut self) {
         self.undo_list.clear();
         self.redo_list.clear();
-        self.current_group.clear();
+        self.current_group_actions.clear();
+        self.group_before_snapshot = None;
         self.group_open = false;
     }
 }
 
-/// TextBuffer provides an indexed text storage with line/column/offset conversions
-/// and an integrated undo/redo history stack.
+/// TextBuffer provides indexed text storage with line/column/offset conversions,
+/// UTF-8 boundary snapping, and snapshot-aware undo/redo history.
 #[derive(Debug, Clone, Default)]
 pub struct TextBuffer {
     content: String,
@@ -121,13 +152,73 @@ impl TextBuffer {
         self.line_starts.len().max(1)
     }
 
+    // --- UTF-8 Safety Helpers ---
+
+    pub fn floor_char_boundary(&self, mut offset: usize) -> usize {
+        if offset >= self.content.len() {
+            return self.content.len();
+        }
+        while offset > 0 && !self.content.is_char_boundary(offset) {
+            offset -= 1;
+        }
+        offset
+    }
+
+    pub fn ceil_char_boundary(&self, mut offset: usize) -> usize {
+        let len = self.content.len();
+        if offset >= len {
+            return len;
+        }
+        while offset < len && !self.content.is_char_boundary(offset) {
+            offset += 1;
+        }
+        offset
+    }
+
+    pub fn prev_char_boundary(&self, offset: usize) -> usize {
+        if offset == 0 {
+            return 0;
+        }
+        let mut idx = offset.saturating_sub(1);
+        while idx > 0 && !self.content.is_char_boundary(idx) {
+            idx -= 1;
+        }
+        idx
+    }
+
+    pub fn next_char_boundary(&self, offset: usize) -> usize {
+        let len = self.content.len();
+        if offset >= len {
+            return len;
+        }
+        let mut idx = offset + 1;
+        while idx < len && !self.content.is_char_boundary(idx) {
+            idx += 1;
+        }
+        idx
+    }
+
+    pub fn char_at(&self, offset: usize) -> Option<char> {
+        let valid = self.floor_char_boundary(offset);
+        self.content[valid..].chars().next()
+    }
+
+    pub fn prev_char(&self, offset: usize) -> Option<char> {
+        if offset == 0 {
+            return None;
+        }
+        let prev_boundary = self.prev_char_boundary(offset);
+        self.content[prev_boundary..offset].chars().next()
+    }
+
+    // --- Line / Col / Offset Mapping ---
+
     pub fn line_at(&self, line_idx: usize) -> Option<&str> {
         if line_idx >= self.line_starts.len() {
             return None;
         }
         let start = self.line_starts[line_idx];
         let end = if line_idx + 1 < self.line_starts.len() {
-            // Trim trailing \n or \r\n
             let mut next_start = self.line_starts[line_idx + 1];
             if next_start > 0 && self.content.as_bytes().get(next_start - 1) == Some(&b'\n') {
                 next_start -= 1;
@@ -143,7 +234,7 @@ impl TextBuffer {
     }
 
     pub fn split_at(&self, byte_offset: usize) -> (&str, &str) {
-        let clamped = byte_offset.min(self.content.len());
+        let clamped = self.floor_char_boundary(byte_offset.min(self.content.len()));
         self.content.split_at(clamped)
     }
 
@@ -173,15 +264,13 @@ impl TextBuffer {
     }
 
     pub fn offset_to_line_col(&self, byte_offset: usize) -> (usize, usize) {
-        let clamped = byte_offset.min(self.content.len());
+        let clamped = self.floor_char_boundary(byte_offset.min(self.content.len()));
         let line_idx = match self.line_starts.binary_search(&clamped) {
             Ok(idx) => idx,
             Err(idx) => idx.saturating_sub(1),
         };
         let line_start = self.line_starts.get(line_idx).copied().unwrap_or(0);
-        let col_byte_offset = clamped.saturating_sub(line_start);
         let col_char_idx = self.content[line_start..clamped].chars().count();
-        let _ = col_byte_offset;
         (line_idx, col_char_idx)
     }
 
@@ -202,36 +291,84 @@ impl TextBuffer {
     }
 
     pub fn slice(&self, start: usize, end: usize) -> &str {
-        let clamped_start = start.min(self.content.len());
-        let clamped_end = end.min(self.content.len()).max(clamped_start);
+        let clamped_start = self.floor_char_boundary(start.min(self.content.len()));
+        let clamped_end = self.ceil_char_boundary(end.min(self.content.len()).max(clamped_start));
         &self.content[clamped_start..clamped_end]
     }
 
+    // --- Editing Operations ---
+
     pub fn insert(&mut self, offset: usize, text: &str) {
+        self.insert_with_snapshot(
+            offset,
+            text,
+            EditorSnapshot {
+                cursor_offset: offset,
+                anchor_offset: offset,
+            },
+            EditorSnapshot {
+                cursor_offset: offset + text.len(),
+                anchor_offset: offset + text.len(),
+            },
+        );
+    }
+
+    pub fn insert_with_snapshot(&mut self, offset: usize, text: &str, before: EditorSnapshot, after: EditorSnapshot) {
         if text.is_empty() {
             return;
         }
-        let clamped = offset.min(self.content.len());
-        self.undo_stack.push(UndoAction::Insert {
-            offset: clamped,
-            text: text.to_owned(),
-        });
+        let clamped = self.floor_char_boundary(offset.min(self.content.len()));
+        self.undo_stack.push_action(
+            UndoAction::Insert {
+                offset: clamped,
+                text: text.to_owned(),
+            },
+            before,
+            after,
+        );
         self.content.insert_str(clamped, text);
         self.version = self.version.wrapping_add(1);
         self.rebuild_line_index();
     }
 
     pub fn delete(&mut self, start: usize, end: usize) -> String {
-        let clamped_start = start.min(self.content.len());
-        let clamped_end = end.min(self.content.len()).max(clamped_start);
+        let clamped_start = self.floor_char_boundary(start.min(self.content.len()));
+        let clamped_end = self.ceil_char_boundary(end.min(self.content.len()).max(clamped_start));
+        self.delete_with_snapshot(
+            clamped_start,
+            clamped_end,
+            EditorSnapshot {
+                cursor_offset: clamped_end,
+                anchor_offset: clamped_start,
+            },
+            EditorSnapshot {
+                cursor_offset: clamped_start,
+                anchor_offset: clamped_start,
+            },
+        )
+    }
+
+    pub fn delete_with_snapshot(
+        &mut self,
+        start: usize,
+        end: usize,
+        before: EditorSnapshot,
+        after: EditorSnapshot,
+    ) -> String {
+        let clamped_start = self.floor_char_boundary(start.min(self.content.len()));
+        let clamped_end = self.ceil_char_boundary(end.min(self.content.len()).max(clamped_start));
         if clamped_start == clamped_end {
             return String::new();
         }
         let deleted = self.content[clamped_start..clamped_end].to_owned();
-        self.undo_stack.push(UndoAction::Delete {
-            offset: clamped_start,
-            text: deleted.clone(),
-        });
+        self.undo_stack.push_action(
+            UndoAction::Delete {
+                offset: clamped_start,
+                text: deleted.clone(),
+            },
+            before,
+            after,
+        );
         self.content.replace_range(clamped_start..clamped_end, "");
         self.version = self.version.wrapping_add(1);
         self.rebuild_line_index();
@@ -239,28 +376,59 @@ impl TextBuffer {
     }
 
     pub fn replace(&mut self, start: usize, end: usize, text: &str) {
-        let clamped_start = start.min(self.content.len());
-        let clamped_end = end.min(self.content.len()).max(clamped_start);
+        self.replace_with_snapshot(
+            start,
+            end,
+            text,
+            EditorSnapshot {
+                cursor_offset: end,
+                anchor_offset: start,
+            },
+            EditorSnapshot {
+                cursor_offset: start + text.len(),
+                anchor_offset: start + text.len(),
+            },
+        );
+    }
+
+    pub fn replace_with_snapshot(
+        &mut self,
+        start: usize,
+        end: usize,
+        text: &str,
+        before: EditorSnapshot,
+        after: EditorSnapshot,
+    ) {
+        let clamped_start = self.floor_char_boundary(start.min(self.content.len()));
+        let clamped_end = self.ceil_char_boundary(end.min(self.content.len()).max(clamped_start));
         if clamped_start == clamped_end && text.is_empty() {
             return;
         }
-        self.undo_stack.begin_group();
+        self.undo_stack.begin_group(before);
         if clamped_start != clamped_end {
             let deleted = self.content[clamped_start..clamped_end].to_owned();
-            self.undo_stack.push(UndoAction::Delete {
-                offset: clamped_start,
-                text: deleted,
-            });
+            self.undo_stack.push_action(
+                UndoAction::Delete {
+                    offset: clamped_start,
+                    text: deleted,
+                },
+                before,
+                after,
+            );
             self.content.replace_range(clamped_start..clamped_end, "");
         }
         if !text.is_empty() {
-            self.undo_stack.push(UndoAction::Insert {
-                offset: clamped_start,
-                text: text.to_owned(),
-            });
+            self.undo_stack.push_action(
+                UndoAction::Insert {
+                    offset: clamped_start,
+                    text: text.to_owned(),
+                },
+                before,
+                after,
+            );
             self.content.insert_str(clamped_start, text);
         }
-        self.undo_stack.end_group();
+        self.undo_stack.end_group(after);
         self.version = self.version.wrapping_add(1);
         self.rebuild_line_index();
     }
@@ -271,25 +439,34 @@ impl TextBuffer {
         self.replace(0, len, &new_text);
     }
 
-    pub fn undo(&mut self) -> Option<usize> {
-        let action = self.undo_stack.undo_list.pop_back()?;
-        let restore_offset = self.apply_undo_action(&action, true);
-        self.undo_stack.redo_list.push_back(action);
+    pub fn set_text_initial(&mut self, text: impl Into<String>) {
+        self.content = text.into();
         self.version = self.version.wrapping_add(1);
+        self.undo_stack.clear();
         self.rebuild_line_index();
-        Some(restore_offset)
     }
 
-    pub fn redo(&mut self) -> Option<usize> {
-        let action = self.undo_stack.redo_list.pop_back()?;
-        let restore_offset = self.apply_undo_action(&action, false);
-        self.undo_stack.undo_list.push_back(action);
+    pub fn undo(&mut self) -> Option<(usize, usize)> {
+        let step = self.undo_stack.undo_list.pop_back()?;
+        self.apply_undo_action(&step.action, true);
+        let restored_cursor = (step.before.cursor_offset, step.before.anchor_offset);
+        self.undo_stack.redo_list.push_back(step);
         self.version = self.version.wrapping_add(1);
         self.rebuild_line_index();
-        Some(restore_offset)
+        Some(restored_cursor)
     }
 
-    fn apply_undo_action(&mut self, action: &UndoAction, is_undo: bool) -> usize {
+    pub fn redo(&mut self) -> Option<(usize, usize)> {
+        let step = self.undo_stack.redo_list.pop_back()?;
+        self.apply_undo_action(&step.action, false);
+        let restored_cursor = (step.after.cursor_offset, step.after.anchor_offset);
+        self.undo_stack.undo_list.push_back(step);
+        self.version = self.version.wrapping_add(1);
+        self.rebuild_line_index();
+        Some(restored_cursor)
+    }
+
+    fn apply_undo_action(&mut self, action: &UndoAction, is_undo: bool) {
         match action {
             UndoAction::Insert { offset, text } => {
                 if is_undo {
@@ -297,38 +474,32 @@ impl TextBuffer {
                     if end <= self.content.len() {
                         self.content.replace_range(*offset..end, "");
                     }
-                    *offset
                 } else {
                     let off = (*offset).min(self.content.len());
                     self.content.insert_str(off, text);
-                    off + text.len()
                 }
             }
             UndoAction::Delete { offset, text } => {
                 if is_undo {
                     let off = (*offset).min(self.content.len());
                     self.content.insert_str(off, text);
-                    off + text.len()
                 } else {
                     let end = *offset + text.len();
                     if end <= self.content.len() {
                         self.content.replace_range(*offset..end, "");
                     }
-                    *offset
                 }
             }
             UndoAction::Group(actions) => {
-                let mut last_offset = 0;
                 if is_undo {
                     for sub in actions.iter().rev() {
-                        last_offset = self.apply_undo_action(sub, true);
+                        self.apply_undo_action(sub, true);
                     }
                 } else {
                     for sub in actions.iter() {
-                        last_offset = self.apply_undo_action(sub, false);
+                        self.apply_undo_action(sub, false);
                     }
                 }
-                last_offset
             }
         }
     }
@@ -370,7 +541,7 @@ mod tests {
     }
 
     #[test]
-    fn test_text_buffer_undo_redo() {
+    fn test_text_buffer_undo_redo_snapshots() {
         let mut buf = TextBuffer::new();
         buf.insert(0, "SELECT 1;");
         assert_eq!(buf.text(), "SELECT 1;");
@@ -378,20 +549,25 @@ mod tests {
         buf.insert(9, "\nSELECT 2;");
         assert_eq!(buf.text(), "SELECT 1;\nSELECT 2;");
 
-        let undo_off = buf.undo();
-        assert_eq!(undo_off, Some(9));
+        let undo_res = buf.undo();
+        assert_eq!(undo_res, Some((9, 9)));
         assert_eq!(buf.text(), "SELECT 1;");
 
-        let redo_off = buf.redo();
-        assert_eq!(redo_off, Some(19));
+        let redo_res = buf.redo();
+        assert_eq!(redo_res, Some((19, 19)));
         assert_eq!(buf.text(), "SELECT 1;\nSELECT 2;");
     }
 
     #[test]
-    fn test_text_buffer_split_at() {
-        let buf = TextBuffer::from_string("hello world");
-        let (left, right) = buf.split_at(5);
-        assert_eq!(left, "hello");
-        assert_eq!(right, " world");
+    fn test_text_buffer_utf8_boundaries() {
+        let buf = TextBuffer::from_string("SELECT 'Xin chào thế giới';");
+        // "SELECT 'Xin ch" is 14 bytes (0..14). 'à' is 2 bytes at offset 14..16.
+        let offset = 15;
+        let floor = buf.floor_char_boundary(offset);
+        assert_eq!(floor, 14);
+        let ceil = buf.ceil_char_boundary(offset);
+        assert_eq!(ceil, 16);
+        assert_eq!(buf.char_at(floor), Some('à'));
+        assert_eq!(buf.prev_char(ceil), Some('à'));
     }
 }
