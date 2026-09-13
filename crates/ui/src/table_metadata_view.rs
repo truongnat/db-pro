@@ -17,6 +17,7 @@ impl DbProApp {
         self.draw_table_structure_metrics(ui, &info);
         ui.add_space(8.0);
         self.draw_table_structure_columns_table(ui, &info);
+        self.draw_table_column_detail(ui.ctx(), &info);
     }
 
     /// Top metric chips summarising columns, keys, and row count.
@@ -62,6 +63,7 @@ impl DbProApp {
 
     /// Columns table with search filter, type badges, nullability, PK/FK flags, and default expressions.
     fn draw_table_structure_columns_table(&mut self, ui: &mut egui::Ui, info: &UiTableInfo) {
+        let mut selected_column = None;
         card_frame(self.theme).show(ui, |ui| {
             ui.set_min_width(ui.available_width());
             ui.horizontal(|ui| {
@@ -123,6 +125,7 @@ impl DbProApp {
             }
 
             let columns = [
+                TableColumn::fixed("#", 46.0),
                 TableColumn::new("Column Name").width(220.0),
                 TableColumn::new("Data Type").width(180.0),
                 TableColumn::fixed("Nullable", 110.0),
@@ -145,6 +148,13 @@ impl DbProApp {
                         .any(|fk| fk.from_columns.contains(&column.name));
                     match col_idx {
                         0 => {
+                            ui.label(
+                                RichText::new(column.ordinal.to_string())
+                                    .font(font_caption())
+                                    .color(self.theme.text_muted),
+                            );
+                        }
+                        1 => {
                             let (icon, color) = if column.is_primary_key {
                                 (Icon::Key, self.theme.warning)
                             } else if is_fk {
@@ -159,22 +169,38 @@ impl DbProApp {
                                         .color(color),
                                 );
                                 ui.add_space(4.0);
-                                ui.label(
-                                    RichText::new(&column.name)
-                                        .font(font_ui_label())
-                                        .strong()
-                                        .color(self.theme.text_primary),
-                                );
+                                let name_response = ui
+                                    .label(
+                                        RichText::new(&column.name)
+                                            .font(font_ui_label())
+                                            .strong()
+                                            .color(self.theme.text_primary),
+                                    )
+                                    .on_hover_text(format!(
+                                        "{}{}{}{}",
+                                        if column.is_identity { "IDENTITY · " } else { "" },
+                                        if column.is_generated { "GENERATED · " } else { "" },
+                                        if column.is_unique { "UNIQUE · " } else { "" },
+                                        column
+                                            .collation
+                                            .as_deref()
+                                            .map(|value| format!("COLLATION {value}"))
+                                            .unwrap_or_default()
+                                    ));
+                                if name_response.clicked() {
+                                    selected_column = Some(column.name.clone());
+                                }
                             });
                         }
-                        1 => {
+                        2 => {
                             ui.label(
                                 RichText::new(&column.data_type)
                                     .monospace()
                                     .color(self.theme.text_secondary),
-                            );
+                            )
+                            .on_hover_text("Full database type");
                         }
-                        2 => {
+                        3 => {
                             if column.nullable {
                                 Badge::new("NULL", self.theme)
                                     .variant(BadgeVariant::Secondary)
@@ -187,7 +213,7 @@ impl DbProApp {
                                     .show(ui);
                             }
                         }
-                        3 => {
+                        4 => {
                             if column.is_primary_key {
                                 Badge::new("PK", self.theme)
                                     .variant(BadgeVariant::Warning)
@@ -198,11 +224,16 @@ impl DbProApp {
                                     .variant(BadgeVariant::Default)
                                     .compact(true)
                                     .show(ui);
+                            } else if column.is_unique {
+                                Badge::new("UNIQUE", self.theme)
+                                    .variant(BadgeVariant::Default)
+                                    .compact(true)
+                                    .show(ui);
                             } else {
                                 ui.label(RichText::new("—").font(font_caption()).color(self.theme.text_muted));
                             }
                         }
-                        4 => {
+                        5 => {
                             ui.label(
                                 RichText::new(column.default.as_deref().unwrap_or("—"))
                                     .font(font_caption())
@@ -214,6 +245,41 @@ impl DbProApp {
                 },
             );
         });
+        if selected_column.is_some() {
+            self.table_column_detail = selected_column;
+        }
+    }
+
+    fn draw_table_column_detail(&mut self, ctx: &egui::Context, info: &UiTableInfo) {
+        let Some(column_name) = self.table_column_detail.clone() else {
+            return;
+        };
+        let Some(column) = info.columns.iter().find(|column| column.name == column_name) else {
+            self.table_column_detail = None;
+            return;
+        };
+        let mut open = true;
+        egui::Window::new(format!("Column · {}", column.name))
+            .open(&mut open)
+            .resizable(false)
+            .default_width(360.0)
+            .show(ctx, |ui| {
+                ui.label(RichText::new(&column.data_type).monospace().strong());
+                ui.separator();
+                ui.label(format!("Ordinal: {}", column.ordinal));
+                ui.label(format!("Nullable: {}", column.nullable));
+                ui.label(format!("Default: {}", column.default.as_deref().unwrap_or("—")));
+                ui.label(format!("Primary key: {}", column.is_primary_key));
+                ui.label(format!("Unique: {}", column.is_unique));
+                ui.label(format!("Identity: {}", column.is_identity));
+                ui.label(format!("Generated: {}", column.is_generated));
+                if let Some(collation) = &column.collation {
+                    ui.label(format!("Collation: {collation}"));
+                }
+            });
+        if !open {
+            self.table_column_detail = None;
+        }
     }
 
     /// Draw the Indexes tab: full index metadata table with search filter and unique badges.
@@ -223,6 +289,7 @@ impl DbProApp {
             return;
         };
 
+        let mut selected_index = None;
         card_frame(self.theme).show(ui, |ui| {
             ui.set_min_width(ui.available_width());
             ui.horizontal(|ui| {
@@ -281,7 +348,9 @@ impl DbProApp {
             let cols = [
                 TableColumn::new("Index Name").width(240.0),
                 TableColumn::new("Indexed Columns").width(280.0),
-                TableColumn::fixed("Type", 120.0),
+                TableColumn::fixed("Method", 100.0),
+                TableColumn::new("INCLUDE").width(180.0),
+                TableColumn::new("Predicate").width(220.0),
                 TableColumn::new("Status"),
             ];
 
@@ -306,7 +375,12 @@ impl DbProApp {
                                         self.theme.text_muted
                                     },
                                 ));
-                                ui.label(RichText::new(&index.name).strong().color(self.theme.text_primary));
+                                let response = ui
+                                    .label(RichText::new(&index.name).strong().color(self.theme.text_primary))
+                                    .on_hover_text(&index.definition);
+                                if response.clicked() {
+                                    selected_index = Some(index.name.clone());
+                                }
                             });
                         }
                         1 => {
@@ -317,22 +391,40 @@ impl DbProApp {
                             );
                         }
                         2 => {
-                            if index.unique {
-                                Badge::new("UNIQUE", self.theme)
-                                    .variant(BadgeVariant::Default)
-                                    .compact(true)
-                                    .show(ui);
-                            } else {
-                                Badge::new("BTREE INDEX", self.theme)
-                                    .variant(BadgeVariant::Secondary)
-                                    .compact(true)
-                                    .show(ui);
-                            }
+                            ui.label(
+                                RichText::new(&index.method)
+                                    .monospace()
+                                    .color(self.theme.text_secondary),
+                            );
                         }
                         3 => {
+                            let include_columns = if index.include_columns.is_empty() {
+                                "—".to_owned()
+                            } else {
+                                index.include_columns.join(", ")
+                            };
+                            ui.label(
+                                RichText::new(include_columns)
+                                    .monospace()
+                                    .color(self.theme.text_secondary),
+                            );
+                        }
+                        4 => {
+                            ui.label(
+                                RichText::new(index.predicate.as_deref().unwrap_or("—"))
+                                    .monospace()
+                                    .color(self.theme.text_secondary),
+                            )
+                            .on_hover_text(&index.definition);
+                        }
+                        5 => {
                             ui.label(
                                 RichText::new(if index.unique {
-                                    "Enforces uniqueness"
+                                    if index.primary {
+                                        "PRIMARY KEY"
+                                    } else {
+                                        "Enforces uniqueness"
+                                    }
                                 } else {
                                     "Active index"
                                 })
@@ -345,6 +437,41 @@ impl DbProApp {
                 },
             );
         });
+        if let Some(index_name) = selected_index {
+            self.table_index_detail = Some(index_name);
+        }
+        self.draw_table_index_detail(ui.ctx(), &info);
+    }
+
+    fn draw_table_index_detail(&mut self, ctx: &egui::Context, info: &UiTableInfo) {
+        let Some(index_name) = self.table_index_detail.clone() else {
+            return;
+        };
+        let Some(index) = info.indexes.iter().find(|index| index.name == index_name) else {
+            self.table_index_detail = None;
+            return;
+        };
+        let mut open = true;
+        egui::Window::new(format!("Index · {}", index.name))
+            .open(&mut open)
+            .resizable(true)
+            .default_width(520.0)
+            .show(ctx, |ui| {
+                ui.label(RichText::new(&index.definition).monospace());
+                ui.separator();
+                ui.label(format!("Method: {}", index.method));
+                ui.label(format!("Primary: {} · Unique: {}", index.primary, index.unique));
+                ui.label(format!("Columns: {}", index.columns.join(", ")));
+                if !index.include_columns.is_empty() {
+                    ui.label(format!("INCLUDE: {}", index.include_columns.join(", ")));
+                }
+                if let Some(predicate) = &index.predicate {
+                    ui.label(format!("Predicate: {predicate}"));
+                }
+            });
+        if !open {
+            self.table_index_detail = None;
+        }
     }
 
     /// Draw the Foreign Keys tab: relations table with target jump and copy actions.
@@ -457,15 +584,38 @@ impl DbProApp {
                                     .color(self.theme.text_secondary),
                             );
                         }
-                        4 if Button::new(self.theme)
-                            .icon(Icon::ExternalLink)
-                            .text("Open Table")
-                            .size(ButtonSize::Sm)
-                            .variant(ButtonVariant::Ghost)
-                            .show(ui)
-                            .clicked() =>
-                        {
-                            switch_table = Some(relation.to_table.clone());
+                        4 => {
+                            ui.horizontal_wrapped(|ui| {
+                                ui.label(
+                                    RichText::new(format!(
+                                        "UPDATE {} · DELETE {}{}",
+                                        relation.on_update,
+                                        relation.on_delete,
+                                        if relation.deferrable {
+                                            if relation.initially_deferred {
+                                                " · DEFERRABLE INITIALLY DEFERRED"
+                                            } else {
+                                                " · DEFERRABLE"
+                                            }
+                                        } else {
+                                            ""
+                                        }
+                                    ))
+                                    .font(font_caption())
+                                    .color(self.theme.text_muted),
+                                )
+                                .on_hover_text(format!("MATCH {}", relation.match_option));
+                                if Button::new(self.theme)
+                                    .icon(Icon::ExternalLink)
+                                    .text("Open Table")
+                                    .size(ButtonSize::Sm)
+                                    .variant(ButtonVariant::Ghost)
+                                    .show(ui)
+                                    .clicked()
+                                {
+                                    switch_table = Some(relation.to_table.clone());
+                                }
+                            });
                         }
                         _ => {}
                     }
@@ -517,7 +667,6 @@ impl DbProApp {
                 for (val, label) in [
                     ("all", "All"),
                     ("pk", "Primary Key"),
-                    ("fk", "Foreign Key"),
                     ("unique", "Unique"),
                     ("check", "Check"),
                     ("not_null", "Not Null"),
@@ -558,31 +707,11 @@ impl DbProApp {
                 }
             }
 
-            // 2. Foreign Keys
-            if self.table_constraint_filter == "all" || self.table_constraint_filter == "fk" {
-                for fk in &info.foreign_keys {
-                    list.push(ConstraintRow {
-                        name: fk.name.clone(),
-                        kind: "FOREIGN KEY",
-                        variant: BadgeVariant::Default,
-                        icon: Icon::ArrowRightLeft,
-                        color: self.theme.accent,
-                        expression: format!(
-                            "({}) → {}.{}({})",
-                            fk.from_columns.join(", "),
-                            fk.to_schema,
-                            fk.to_table,
-                            fk.to_columns.join(", ")
-                        ),
-                        details: format!("References {}.{}", fk.to_schema, fk.to_table),
-                    });
-                }
-            }
-
-            // 3. Unique constraints from indexes
+            // Unique constraints are represented separately from the primary
+            // key index and foreign-key relation metadata.
             if self.table_constraint_filter == "all" || self.table_constraint_filter == "unique" {
                 for idx in &info.indexes {
-                    if idx.unique {
+                    if idx.unique && !idx.primary {
                         list.push(ConstraintRow {
                             name: idx.name.clone(),
                             kind: "UNIQUE",

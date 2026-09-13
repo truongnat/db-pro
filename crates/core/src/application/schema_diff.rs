@@ -183,6 +183,7 @@ mod tests {
             is_primary_key: true,
             table_name: "my.table".into(),
             schema: "".into(),
+            ..Default::default()
         });
 
         let mut target = source.clone();
@@ -239,6 +240,7 @@ mod tests {
                 origin: IndexOrigin::User,
                 table_name: "users".into(),
                 schema: "public".into(),
+                ..Default::default()
             },
             Index {
                 name: "users_a_idx".into(),
@@ -247,6 +249,7 @@ mod tests {
                 origin: IndexOrigin::User,
                 table_name: "users".into(),
                 schema: "public".into(),
+                ..Default::default()
             },
         ];
 

@@ -62,6 +62,30 @@
   but `orca computer get-app-state --restore-window` and its no-screenshot
   variant both timed out; no UI screenshot or interaction is claimed from this
   run.
+
+## Latest continuation
+
+- Stable named layout persistence: removed columns are dropped, added columns
+  append with defaults, and renamed columns do not inherit old layout state;
+  legacy index layouts are retained only when the schema shape matches exactly.
+- Row identity cache is built once per loaded table result and reused by the
+  grid; targeted row reload matches directly against a PK column-index map
+  without cloning `UiQueryResult`, its columns, or candidate rows.
+- Conflict retry now filters the Apply batch to the related mutation target;
+  unrelated staged rows remain untouched.
+- Pending Changes is grouped by original RowIdentity and temporary insert ID.
+- PostgreSQL introspection now reads catalog index metadata (method, primary,
+  unique, key/include columns, predicate, definition), column identity/
+  generated/collation metadata, and FK action/deferrability metadata. SQLite
+  exposes equivalent supported metadata and PRAGMA FK actions.
+- `cargo fmt --all -- --check`: PASS.
+- `cargo clippy --workspace --all-targets -- -D warnings`: PASS.
+- `cargo test --workspace`: PASS; PostgreSQL fixture tests remain ignored
+  without a configured live fixture.
+- `cargo build --release --locked -p db-pro-native`: PASS.
+- `cargo check -p db-pro-ui --benches`: PASS.
+- `bash .skills/perf-audit/scripts/perf-scan.sh`: PASS; release binary 21.1MB.
+- `git diff --check`: PASS.
 - PostgreSQL runtime mutation flow with a concurrent delete/update.
 - SQLite runtime mutation flow with a concurrent delete/update.
 - Native UI screenshots or recording at 1280x800, 1440x900, and 1920x1080

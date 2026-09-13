@@ -15,16 +15,21 @@
 - [x] Gate filter operators by column datatype and validate before DB dispatch.
 - [x] Support multiple AND filters, editable/removable chips, and pagination reset.
 - [x] Support server-side multi-sort cycle, priority display, and sort guards.
-- [x] Normalize persisted layout after column add/remove/order changes.
+- [x] Persist layout by stable column name, migrate safe legacy layouts, and
+      drop stale schema entries without applying renamed-column state.
 - [x] Add header Add Filter, separator auto-size, expanded cell editor, and value tooltips.
-- [x] Add pending-change review with old/new diff and per-entry revert actions.
+- [x] Add grouped pending-change review by RowIdentity with old/new diff,
+      Revert Cell/Row, Undo Delete, and temporary insert identity actions.
 - [x] Support known/unknown-total pagination and page-size selection.
 - [x] Add regression tests for single/composite PK, PK edits, ChangeSet
       transitions, and mutation failure cleanup.
 - [ ] Verify PostgreSQL and SQLite independently at runtime.
 - [x] Run Rust quality gates and native release build.
 - [ ] Collect native UI evidence at required viewport/state matrix.
-- [ ] Expand structure metadata fields and provider-specific metadata tests.
+- [x] Expand structure metadata fields and catalog-backed PostgreSQL/SQLite
+      mappings for columns, indexes, and foreign-key actions.
+- [ ] Add live PostgreSQL metadata/runtime verification for the expanded fields.
+- [x] Add requested 1k/10k-row, 50-column visual-map benchmark cases.
 - [x] Reload conflict rows by RowIdentity without replacing the whole table result.
 - [ ] Extract SelectionState/TableQueryState/GridLayoutState/MutationState from DbProApp.
 - [x] Record remaining P0/P1/P2 and known limitations.

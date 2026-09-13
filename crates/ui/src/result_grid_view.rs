@@ -1,6 +1,6 @@
 use super::*;
 use egui::{Align2, Pos2, Rect, Rounding, Stroke, Vec2};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 /// Coordinate lookup for the current visible grid slice.
 ///
@@ -69,11 +69,18 @@ impl DbProApp {
             return;
         }
 
-        let order = self.column_order(result.columns.len());
+        let order = self.column_order_for_columns(&result.columns);
         let editable =
             self.active_tab == WorkspaceTab::Table && self.table_view == TableView::Data && self.can_edit_table_rows();
         let indexes =
             crate::filtered_sorted_indexes(result, &self.grid_filter, self.grid_sort_column, self.grid_sort_desc);
+
+        if self.active_tab == WorkspaceTab::Table && self.table_view == TableView::Data {
+            self.rebuild_row_identity_cache(result, &indexes);
+        } else {
+            self.grid_row_identity_cache.clear();
+            self.grid_row_identity_cache_ready = false;
+        }
 
         self.handle_grid_keyboard(ui, result, &indexes, &order, editable);
 
@@ -87,16 +94,74 @@ impl DbProApp {
     }
 
     /// Retrieve or initialize column visual ordering.
+    pub(crate) fn column_order_for_columns(&mut self, columns: &[crate::UiColumn]) -> Vec<usize> {
+        let count = columns.len();
+        self.grid_layout_column_names = columns.iter().map(|column| column.name.clone()).collect();
+
+        if let Some(mut persisted) = self.grid_pending_named_layout.take() {
+            let indexes_by_name: HashMap<&str, usize> = columns
+                .iter()
+                .enumerate()
+                .map(|(index, column)| (column.name.as_str(), index))
+                .collect();
+            persisted.sort_by_key(|column| column.order);
+            let mut seen_names = HashSet::with_capacity(persisted.len());
+            let mut seen_indices = HashSet::with_capacity(count);
+            let mut order = Vec::with_capacity(count);
+            let mut widths = vec![180.0; count];
+            let mut hidden = BTreeSet::new();
+
+            for entry in persisted {
+                let Some(&index) = indexes_by_name.get(entry.column_name.as_str()) else {
+                    continue;
+                };
+                if !seen_names.insert(entry.column_name) {
+                    continue;
+                }
+                seen_indices.insert(index);
+                order.push(index);
+                widths[index] = entry.width.clamp(60.0, 1000.0);
+                if entry.hidden {
+                    hidden.insert(index);
+                }
+            }
+            for index in 0..count {
+                if seen_indices.insert(index) {
+                    order.push(index);
+                }
+            }
+            self.grid_column_order = order;
+            self.grid_column_widths = widths;
+            self.grid_hidden_columns = hidden;
+            self.grid_columns_user_resized = true;
+        } else if self.grid_legacy_layout_pending {
+            // Index-based layouts cannot be safely migrated across a schema
+            // shape change. Keep the old layout only when it exactly matches
+            // the current schema; otherwise start from a safe default.
+            let widths_match = self.grid_column_widths.is_empty() || self.grid_column_widths.len() == count;
+            if self.grid_column_order.len() != count || !widths_match {
+                self.grid_column_order.clear();
+                self.grid_column_widths.clear();
+                self.grid_hidden_columns.clear();
+                self.grid_columns_user_resized = false;
+            }
+            self.grid_legacy_layout_pending = false;
+        }
+
+        self.column_order(count)
+    }
+
     pub(crate) fn column_order(&mut self, count: usize) -> Vec<usize> {
         self.grid_hidden_columns.retain(|&column| column < count);
         let mut normalized_order = Vec::with_capacity(count);
+        let mut seen = HashSet::with_capacity(count);
         for column in self.grid_column_order.iter().copied() {
-            if column < count && !normalized_order.contains(&column) {
+            if column < count && seen.insert(column) {
                 normalized_order.push(column);
             }
         }
         for column in 0..count {
-            if !normalized_order.contains(&column) {
+            if seen.insert(column) {
                 normalized_order.push(column);
             }
         }
@@ -2324,6 +2389,85 @@ mod tests {
         app.cycle_table_data_sort(&result, 0, true);
         assert_eq!(app.table_data_sorts.len(), 1);
         assert_eq!(app.table_data_sorts[0].column, "item_id");
+    }
+
+    #[test]
+    fn named_layout_drops_removed_columns_and_appends_new_columns() {
+        let mut app = DbProApp {
+            grid_pending_named_layout: Some(vec![
+                PersistedGridColumnLayout {
+                    column_name: "id".to_owned(),
+                    width: 240.0,
+                    order: 1,
+                    hidden: true,
+                },
+                PersistedGridColumnLayout {
+                    column_name: "removed".to_owned(),
+                    width: 500.0,
+                    order: 0,
+                    hidden: true,
+                },
+            ]),
+            ..Default::default()
+        };
+        let columns = vec![
+            crate::UiColumn {
+                name: "id".to_owned(),
+                data_type: "integer".to_owned(),
+                nullable: false,
+            },
+            crate::UiColumn {
+                name: "name".to_owned(),
+                data_type: "text".to_owned(),
+                nullable: true,
+            },
+        ];
+
+        assert_eq!(app.column_order_for_columns(&columns), vec![1]);
+        assert_eq!(app.grid_column_order, vec![0, 1]);
+        assert_eq!(app.grid_column_widths, vec![240.0, 180.0]);
+        assert_eq!(app.grid_hidden_columns, [0].into_iter().collect());
+    }
+
+    #[test]
+    fn named_layout_does_not_map_renamed_column_state() {
+        let mut app = DbProApp {
+            grid_pending_named_layout: Some(vec![PersistedGridColumnLayout {
+                column_name: "old_name".to_owned(),
+                width: 420.0,
+                order: 0,
+                hidden: true,
+            }]),
+            ..Default::default()
+        };
+        let columns = vec![crate::UiColumn {
+            name: "new_name".to_owned(),
+            data_type: "text".to_owned(),
+            nullable: true,
+        }];
+
+        assert_eq!(app.column_order_for_columns(&columns), vec![0]);
+        assert_eq!(app.grid_column_widths, vec![180.0]);
+        assert!(app.grid_hidden_columns.is_empty());
+    }
+
+    #[test]
+    fn legacy_layout_is_discarded_when_schema_shape_changes() {
+        let mut app = DbProApp {
+            grid_column_order: vec![1, 0],
+            grid_column_widths: vec![300.0, 300.0],
+            grid_legacy_layout_pending: true,
+            ..Default::default()
+        };
+        let columns = vec![crate::UiColumn {
+            name: "only_column".to_owned(),
+            data_type: "text".to_owned(),
+            nullable: true,
+        }];
+
+        assert_eq!(app.column_order_for_columns(&columns), vec![0]);
+        assert!(app.grid_column_widths.is_empty());
+        assert!(app.grid_hidden_columns.is_empty());
     }
 
     #[test]

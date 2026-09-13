@@ -1457,14 +1457,32 @@ impl DbProApp {
         let Some(primary_key) = info.primary_key.as_ref() else {
             return Err("This table has no primary key for safe row editing".to_owned());
         };
+        let column_indexes: std::collections::HashMap<&str, usize> = result
+            .columns
+            .iter()
+            .enumerate()
+            .map(|(index, column)| (column.name.as_str(), index))
+            .collect();
+        let row = result
+            .rows
+            .get(row_index)
+            .ok_or_else(|| "The selected row is no longer available".to_owned())?;
+        Self::row_identity_from_row(row, primary_key, &column_indexes)
+    }
+
+    fn row_identity_from_row(
+        row: &[UiCell],
+        primary_key: &[String],
+        column_indexes: &std::collections::HashMap<&str, usize>,
+    ) -> Result<RowIdentity, String> {
         let mut pk_values = Vec::with_capacity(primary_key.len());
         for pk_column in primary_key {
-            let Some(pk_index) = result.columns.iter().position(|item| item.name == *pk_column) else {
+            let Some(&pk_index) = column_indexes.get(pk_column.as_str()) else {
                 return Err(format!(
                     "The primary-key column {pk_column} is not present in this result"
                 ));
             };
-            let Some(pk_cell) = result.rows.get(row_index).and_then(|row| row.get(pk_index)) else {
+            let Some(pk_cell) = row.get(pk_index) else {
                 return Err("The selected row is no longer available".to_owned());
             };
             if matches!(pk_cell, UiCell::Null) {
@@ -1473,9 +1491,35 @@ impl DbProApp {
             pk_values.push(pk_cell.clone());
         }
         Ok(RowIdentity {
-            original_pk_columns: primary_key.clone(),
+            original_pk_columns: primary_key.to_vec(),
             original_pk_values: pk_values,
         })
+    }
+
+    pub(crate) fn rebuild_row_identity_cache(&mut self, result: &UiQueryResult, _row_indexes: &[usize]) {
+        if self.grid_row_identity_cache_ready {
+            return;
+        }
+        self.grid_row_identity_cache.clear();
+        let Some(primary_key) = self.table_info.as_ref().and_then(|info| info.primary_key.clone()) else {
+            self.grid_row_identity_cache_ready = true;
+            return;
+        };
+        let column_indexes: std::collections::HashMap<&str, usize> = result
+            .columns
+            .iter()
+            .enumerate()
+            .map(|(index, column)| (column.name.as_str(), index))
+            .collect();
+        for row_index in 0..result.rows.len() {
+            let Some(row) = result.rows.get(row_index) else {
+                continue;
+            };
+            if let Ok(identity) = Self::row_identity_from_row(row, &primary_key, &column_indexes) {
+                self.grid_row_identity_cache.insert(row_index, identity);
+            }
+        }
+        self.grid_row_identity_cache_ready = true;
     }
 
     pub(crate) fn begin_data_cell_edit(
@@ -1682,6 +1726,9 @@ impl DbProApp {
     }
 
     pub(crate) fn row_identity_for_result(&self, result: &UiQueryResult, row_index: usize) -> Option<RowIdentity> {
+        if let Some(identity) = self.grid_row_identity_cache.get(&row_index) {
+            return Some(identity.clone());
+        }
         let info = self.table_info.as_ref()?;
         Self::row_identity(result, info, row_index).ok()
     }
@@ -1787,6 +1834,8 @@ impl DbProApp {
             MutationTarget::Insert => {}
         }
         self.table_mutation_error = None;
+        self.table_mutation_retry_after_reload = false;
+        self.table_mutation_retry_target = None;
         if reload {
             self.table_data_result = None;
             self.table_data_total_rows = None;
@@ -1812,6 +1861,15 @@ impl DbProApp {
     }
 
     fn retry_failed_mutation_after_reload(&mut self) {
+        let Some(target) = self
+            .table_mutation_error
+            .as_ref()
+            .and_then(|failure| failure.target.clone())
+        else {
+            self.runtime_message = "This failure has no retryable mutation target".to_owned();
+            return;
+        };
+        self.table_mutation_retry_target = Some(target);
         self.table_mutation_retry_after_reload = true;
         self.reload_failed_mutation();
     }
@@ -1911,8 +1969,30 @@ impl DbProApp {
             return;
         }
         let entries: Vec<StagedChange> = self.staged_changes.iter().cloned().collect();
+        let mut groups: Vec<(Option<RowIdentity>, Option<u64>, Vec<StagedChange>)> = Vec::new();
+        for entry in entries {
+            let (identity, local_id) = match &entry {
+                StagedChange::Update { identity, .. } | StagedChange::Delete { identity, .. } => {
+                    (Some(identity.clone()), None)
+                }
+                StagedChange::Insert { local_id, .. } => (None, Some(*local_id)),
+            };
+            if let Some(group) = groups
+                .iter_mut()
+                .find(|(group_identity, group_local_id, _)| *group_identity == identity && *group_local_id == local_id)
+            {
+                group.2.push(entry);
+            } else {
+                groups.push((identity, local_id, vec![entry]));
+            }
+        }
         let mut open = true;
-        let mut revert_entry = None;
+        enum PendingAction {
+            Cell(RowIdentity, usize),
+            Row(RowIdentity),
+            Insert(u64),
+        }
+        let mut action = None;
         egui::Window::new("Pending changes")
             .open(&mut open)
             .resizable(true)
@@ -1924,69 +2004,86 @@ impl DbProApp {
                         .color(self.theme.text_muted),
                 );
                 ui.separator();
+                ui.horizontal(|ui| {
+                    ui.label(format!("{} row group(s)", groups.len()));
+                    if ui.small_button("Discard All").clicked() {
+                        self.discard_changes_confirmation = true;
+                    }
+                });
                 egui::ScrollArea::vertical().max_height(360.0).show(ui, |ui| {
-                    for (index, entry) in entries.iter().enumerate() {
+                    for (identity, local_id, changes) in &groups {
+                        let group_label = if let Some(identity) = identity {
+                            format!(
+                                "Row PK: [{}]",
+                                identity
+                                    .original_pk_values
+                                    .iter()
+                                    .map(crate::cell_text)
+                                    .collect::<Vec<_>>()
+                                    .join(", ")
+                            )
+                        } else {
+                            format!("New row · temporary identity #{}", local_id.unwrap_or_default())
+                        };
                         ui.horizontal_wrapped(|ui| {
-                            let description = match entry {
+                            ui.label(RichText::new(group_label).strong());
+                            if let Some(identity) = identity {
+                                if ui.small_button("Revert Row").clicked() {
+                                    action = Some(PendingAction::Row(identity.clone()));
+                                }
+                            } else if let Some(local_id) = local_id {
+                                if ui.small_button("Remove Insert").clicked() {
+                                    action = Some(PendingAction::Insert(*local_id));
+                                }
+                            }
+                        });
+                        for change in changes {
+                            match change {
                                 StagedChange::Update {
                                     identity,
+                                    column_index,
                                     column,
                                     original,
                                     value,
                                     ..
-                                } => format!(
-                                    "Update [{}] · {column}: {} → {}",
-                                    identity
-                                        .original_pk_values
-                                        .iter()
-                                        .map(crate::cell_text)
-                                        .collect::<Vec<_>>()
-                                        .join(", "),
-                                    crate::cell_text(original),
-                                    crate::cell_text(value)
-                                ),
-                                StagedChange::Delete { identity, .. } => format!(
-                                    "Delete [{}]",
-                                    identity
-                                        .original_pk_values
-                                        .iter()
-                                        .map(crate::cell_text)
-                                        .collect::<Vec<_>>()
-                                        .join(", ")
-                                ),
-                                StagedChange::Insert { columns, .. } => {
-                                    format!("Insert ({})", columns.join(", "))
+                                } => {
+                                    ui.horizontal_wrapped(|ui| {
+                                        ui.label(format!(
+                                            "{column}: {} → {}",
+                                            crate::cell_text(original),
+                                            crate::cell_text(value)
+                                        ));
+                                        if ui.small_button("Revert Cell").clicked() {
+                                            action = Some(PendingAction::Cell(identity.clone(), *column_index));
+                                        }
+                                    });
                                 }
-                            };
-                            ui.label(description);
-                            let action = match entry {
-                                StagedChange::Delete { .. } => "Undo delete",
-                                StagedChange::Insert { .. } => "Remove insert",
-                                StagedChange::Update { .. } => "Revert cell",
-                            };
-                            if ui.small_button(action).clicked() {
-                                revert_entry = Some(index);
+                                StagedChange::Delete { .. } => {
+                                    ui.label("Delete row");
+                                }
+                                StagedChange::Insert { columns, .. } => {
+                                    ui.label(format!("Insert ({})", columns.join(", ")));
+                                }
                             }
-                        });
+                        }
+                        ui.separator();
                     }
                 });
             });
-        if let Some(index) = revert_entry {
-            if let Some(entry) = entries.get(index) {
-                match entry {
-                    StagedChange::Update {
-                        identity, column_index, ..
-                    } => {
-                        self.staged_changes.revert_cell(identity, *column_index);
-                    }
-                    StagedChange::Delete { identity, .. } => {
-                        self.staged_changes.revert_row(identity);
-                    }
-                    StagedChange::Insert { local_id, .. } => {
-                        self.staged_changes.remove_insert(*local_id);
-                    }
+        if let Some(action) = action {
+            match action {
+                PendingAction::Cell(identity, column_index) => {
+                    self.staged_changes.revert_cell(&identity, column_index);
+                    self.clear_mutation_error_for_identity(&identity, Some(column_index));
                 }
-                self.table_mutation_error = None;
+                PendingAction::Row(identity) => {
+                    self.staged_changes.revert_row(&identity);
+                    self.clear_mutation_error_for_identity(&identity, None);
+                }
+                PendingAction::Insert(local_id) => {
+                    self.staged_changes.remove_insert(local_id);
+                    self.table_mutation_error = None;
+                }
             }
         }
         if !open {
@@ -2013,6 +2110,7 @@ impl DbProApp {
             self.runtime_message = "Select a table before applying changes".to_owned();
             return;
         };
+        let retry_target = self.table_mutation_retry_target.take();
         let mut changes = Vec::new();
         let mut targets = Vec::new();
         let mut deletes = Vec::new();
@@ -2026,6 +2124,12 @@ impl DbProApp {
             Vec<usize>,
         )>::new();
         for change in self.staged_changes.iter() {
+            if retry_target
+                .as_ref()
+                .is_some_and(|target| !Self::change_matches_target(change, target))
+            {
+                continue;
+            }
             match change {
                 StagedChange::Update {
                     identity,
@@ -2096,6 +2200,11 @@ impl DbProApp {
             changes.push(change);
             targets.push(target);
         }
+        if changes.is_empty() {
+            self.table_mutation_retry_after_reload = false;
+            self.runtime_message = "The related staged change is no longer available".to_owned();
+            return;
+        }
         let request_id = self.task_bridge.next_request_id();
         let command = UiCommand::ApplyTableChanges {
             request_id,
@@ -2122,10 +2231,32 @@ impl DbProApp {
         }
     }
 
+    fn change_matches_target(change: &StagedChange, target: &MutationTarget) -> bool {
+        match (change, target) {
+            (
+                StagedChange::Update { identity, .. },
+                MutationTarget::Update {
+                    identity: target_identity,
+                    ..
+                },
+            )
+            | (
+                StagedChange::Delete { identity, .. },
+                MutationTarget::Delete {
+                    identity: target_identity,
+                    ..
+                },
+            ) => identity == target_identity,
+            (StagedChange::Insert { .. }, MutationTarget::Insert) => true,
+            _ => false,
+        }
+    }
+
     pub(crate) fn staged_apply_completed(&mut self) {
         self.staged_apply_request = None;
         self.table_mutation_request = None;
         self.table_mutation_retry_after_reload = false;
+        self.table_mutation_retry_target = None;
         self.staged_changes.clear();
         self.staged_apply_targets.clear();
         self.table_mutation_error = None;
@@ -2140,6 +2271,8 @@ impl DbProApp {
     pub(crate) fn staged_apply_failed(&mut self, statement_index: usize, code: &str, message: &str, rolled_back: bool) {
         self.staged_apply_request = None;
         self.table_mutation_request = None;
+        self.table_mutation_retry_after_reload = false;
+        self.table_mutation_retry_target = None;
         let target = self.staged_apply_targets.get(statement_index).cloned();
         let has_target = target.is_some();
         if let Some(target) = target.as_ref() {
@@ -2518,6 +2651,7 @@ mod tests {
                     nullable: false,
                     default: None,
                     is_primary_key: false,
+                    ..Default::default()
                 }],
                 primary_key: None,
                 indexes: Vec::new(),

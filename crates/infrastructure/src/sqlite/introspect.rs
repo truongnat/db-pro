@@ -14,8 +14,18 @@ fn escape_identifier(name: &str) -> String {
 pub fn run_introspection(conn: &rusqlite::Connection) -> Result<IntrospectResult, DbError> {
     let table_names = fetch_table_names(conn)?;
     let tables = introspect_tables(conn, &table_names)?;
-    let columns = introspect_columns(conn, &table_names)?;
+    let mut columns = introspect_columns(conn, &table_names)?;
     let indexes = introspect_indexes(conn, &table_names)?;
+    for index in indexes.iter().filter(|index| index.unique || index.primary) {
+        for column_name in &index.columns {
+            if let Some(column) = columns
+                .iter_mut()
+                .find(|column| column.table_name == index.table_name && column.name == *column_name)
+            {
+                column.is_unique = true;
+            }
+        }
+    }
     let foreign_keys = introspect_foreign_keys(conn, &table_names)?;
     let check_constraints = introspect_check_constraints(conn, &table_names)?;
     let views = introspect_views(conn)?;
@@ -96,9 +106,14 @@ fn introspect_columns(conn: &rusqlite::Connection, table_names: &[String]) -> Re
                 Ok(Column {
                     name,
                     data_type,
+                    ordinal: usize::try_from(row.get::<_, i32>(0)?).unwrap_or(0),
                     nullable: !notnull,
                     default,
                     is_primary_key: pk,
+                    is_unique: false,
+                    is_identity: false,
+                    is_generated: false,
+                    collation: None,
                     table_name: table_name.clone(),
                     schema: "main".into(),
                 })
@@ -153,10 +168,24 @@ fn introspect_indexes(conn: &rusqlite::Connection, table_names: &[String]) -> Re
                 .map_err(crate::error::from_rusqlite)?
                 .collect::<Result<Vec<_>, _>>()
                 .map_err(crate::error::from_rusqlite)?;
+            let definition: Option<String> = conn
+                .query_row(
+                    "SELECT sql FROM sqlite_master WHERE type = 'index' AND name = ?1",
+                    [&index_name],
+                    |row| row.get::<_, Option<String>>(0),
+                )
+                .optional()
+                .map_err(crate::error::from_rusqlite)?
+                .flatten();
             indexes.push(Index {
                 name: index_name,
                 columns: cols,
                 unique,
+                method: "btree".to_owned(),
+                primary: false,
+                include_columns: Vec::new(),
+                predicate: None,
+                definition: definition.unwrap_or_default(),
                 origin,
                 table_name: table_name.clone(),
                 schema: "main".into(),
@@ -186,6 +215,9 @@ fn sqlite_primary_key_columns(conn: &rusqlite::Connection, table_name: &str) -> 
     Ok(columns.into_iter().map(|(_, name)| name).collect())
 }
 
+type SqliteForeignKeyRow = (i32, i32, String, String, Option<String>, String, String, String);
+type SqliteForeignKeyGroup = (String, Vec<String>, Vec<String>, String, String, String);
+
 fn introspect_foreign_keys(conn: &rusqlite::Connection, table_names: &[String]) -> Result<Vec<ForeignKey>, DbError> {
     let mut foreign_keys = Vec::new();
     let mut referenced_pk_cache: std::collections::HashMap<String, Vec<String>> = std::collections::HashMap::new();
@@ -201,14 +233,26 @@ fn introspect_foreign_keys(conn: &rusqlite::Connection, table_names: &[String]) 
         // SQLite returns NULL for the referenced column when the schema uses
         // shorthand syntax such as `REFERENCES parent`. Keep the FK sequence so
         // we can resolve that omitted target against the parent primary key.
-        let rows: Vec<(i32, i32, String, String, Option<String>)> = stmt
+        let rows: Vec<SqliteForeignKeyRow> = stmt
             .query_map([], |row| {
                 let id: i32 = row.get(0)?;
                 let seq: i32 = row.get(1)?;
                 let to_table: String = row.get(2)?;
                 let from_column: String = row.get(3)?;
                 let to_column: Option<String> = row.get(4)?;
-                Ok((id, seq, to_table, from_column, to_column))
+                let on_update: String = row.get(5)?;
+                let on_delete: String = row.get(6)?;
+                let match_option: String = row.get(7)?;
+                Ok((
+                    id,
+                    seq,
+                    to_table,
+                    from_column,
+                    to_column,
+                    on_update,
+                    on_delete,
+                    match_option,
+                ))
             })
             .map_err(crate::error::from_rusqlite)?
             .collect::<Result<Vec<_>, _>>()
@@ -216,11 +260,10 @@ fn introspect_foreign_keys(conn: &rusqlite::Connection, table_names: &[String]) 
 
         // Group columns by FK id to support composite foreign keys while keeping
         // the PRAGMA encounter order deterministic.
-        let mut map: std::collections::HashMap<i32, (String, Vec<String>, Vec<String>)> =
-            std::collections::HashMap::new();
+        let mut map: std::collections::HashMap<i32, SqliteForeignKeyGroup> = std::collections::HashMap::new();
         let mut order: Vec<i32> = Vec::new();
 
-        for (id, seq, to_table, from_column, to_column) in rows {
+        for (id, seq, to_table, from_column, to_column, on_update, on_delete, match_option) in rows {
             let resolved_to_column = match to_column {
                 Some(column) => column,
                 None => {
@@ -238,10 +281,10 @@ fn introspect_foreign_keys(conn: &rusqlite::Connection, table_names: &[String]) 
                 }
             };
 
-            let (_, from_cols, to_cols) = match map.entry(id) {
+            let (_, from_cols, to_cols, _, _, _) = match map.entry(id) {
                 Entry::Vacant(entry) => {
                     order.push(id);
-                    entry.insert((to_table, Vec::new(), Vec::new()))
+                    entry.insert((to_table, Vec::new(), Vec::new(), on_update, on_delete, match_option))
                 }
                 Entry::Occupied(entry) => entry.into_mut(),
             };
@@ -250,7 +293,7 @@ fn introspect_foreign_keys(conn: &rusqlite::Connection, table_names: &[String]) 
         }
 
         for id in order {
-            let Some((to_table, from_columns, to_columns)) = map.remove(&id) else {
+            let Some((to_table, from_columns, to_columns, on_update, on_delete, match_option)) = map.remove(&id) else {
                 return Err(DbError::IntrospectionFailed(format!(
                     "foreign-key grouping lost constraint {id} for table {table_name}"
                 )));
@@ -263,6 +306,11 @@ fn introspect_foreign_keys(conn: &rusqlite::Connection, table_names: &[String]) 
                 to_columns,
                 schema: "main".into(),
                 to_schema: "main".into(),
+                on_update,
+                on_delete,
+                match_option,
+                deferrable: false,
+                initially_deferred: false,
             });
         }
     }

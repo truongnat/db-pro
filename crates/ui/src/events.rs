@@ -240,6 +240,8 @@ impl DbProApp {
             }
         }
         self.table_info = Some(table_info);
+        self.grid_row_identity_cache.clear();
+        self.grid_row_identity_cache_ready = false;
         self.table_info_error = None;
         self.table_info_request = None;
         self.runtime_message = "Table structure loaded".to_owned();
@@ -280,6 +282,8 @@ impl DbProApp {
             }
         }
         self.table_data_result = Some(result);
+        self.grid_row_identity_cache.clear();
+        self.grid_row_identity_cache_ready = false;
         self.table_data_total_rows = Some(total_rows);
         if self.staged_changes.is_empty() {
             self.selected_cell = None;
@@ -306,21 +310,26 @@ impl DbProApp {
             self.runtime_message = "Row was deleted".to_owned();
             if self.table_mutation_retry_after_reload {
                 self.table_mutation_retry_after_reload = false;
+                self.table_mutation_retry_target = None;
             }
             return;
         };
 
         if let Some(table_result) = self.table_data_result.as_mut() {
-            if let Some(row_index) = table_result.rows.iter().position(|row| {
-                let candidate = UiQueryResult {
-                    columns: table_result.columns.clone(),
-                    rows: vec![row.clone()],
-                    row_count: 1,
-                    duration_ms: 0,
-                };
-                Self::row_identity_for_result_static(&candidate, &identity)
-            }) {
+            let column_indexes: std::collections::HashMap<&str, usize> = table_result
+                .columns
+                .iter()
+                .enumerate()
+                .map(|(index, column)| (column.name.as_str(), index))
+                .collect();
+            if let Some(row_index) = table_result
+                .rows
+                .iter()
+                .position(|row| Self::row_matches_identity(row, &column_indexes, &identity))
+            {
                 table_result.rows[row_index] = server_row;
+                self.grid_row_identity_cache.clear();
+                self.grid_row_identity_cache_ready = false;
             }
         }
         self.table_data_error = None;
@@ -331,20 +340,19 @@ impl DbProApp {
         }
     }
 
-    fn row_identity_for_result_static(result: &UiQueryResult, identity: &RowIdentity) -> bool {
-        let Some(row) = result.rows.first() else {
-            return false;
-        };
+    fn row_matches_identity(
+        row: &[UiCell],
+        column_indexes: &std::collections::HashMap<&str, usize>,
+        identity: &RowIdentity,
+    ) -> bool {
         identity
             .original_pk_columns
             .iter()
             .zip(&identity.original_pk_values)
             .all(|(column, value)| {
-                result
-                    .columns
-                    .iter()
-                    .position(|candidate| candidate.name == *column)
-                    .and_then(|index| row.get(index))
+                column_indexes
+                    .get(column.as_str())
+                    .and_then(|index| row.get(*index))
                     .is_some_and(|candidate| candidate == value)
             })
     }
@@ -574,10 +582,12 @@ impl DbProApp {
             self.table_row_reload_request = None;
             self.table_row_reload_identity = None;
             self.table_mutation_retry_after_reload = false;
+            self.table_mutation_retry_target = None;
             self.runtime_message = format!("Could not reload row: {message}");
         } else if self.table_data_request == Some(request_id) {
             self.table_data_request = None;
             self.table_mutation_retry_after_reload = false;
+            self.table_mutation_retry_target = None;
             self.table_data_error = Some(message.clone());
             let formatted = format!("Table data failed · {message}");
             self.runtime_message = formatted.clone();
@@ -736,6 +746,7 @@ mod tests {
                         nullable: false,
                         default: None,
                         is_primary_key: true,
+                        ..Default::default()
                     },
                     UiTableColumn {
                         name: "name".to_owned(),
@@ -743,6 +754,7 @@ mod tests {
                         nullable: false,
                         default: None,
                         is_primary_key: false,
+                        ..Default::default()
                     },
                 ],
                 primary_key: Some(vec!["id".to_owned()]),

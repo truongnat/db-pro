@@ -362,6 +362,7 @@ impl DbProApp {
         self.staged_apply_request = None;
         self.staged_apply_targets.clear();
         self.table_mutation_retry_after_reload = false;
+        self.table_mutation_retry_target = None;
         self.table_mutation_error = None;
         self.selected_cell = None;
         self.selected_row = None;

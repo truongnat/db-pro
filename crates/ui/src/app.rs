@@ -26,10 +26,25 @@ use std::time::Duration;
 
 use change_set::{ChangeSet, MutationFailure, MutationTarget, RowIdentity, StagedChange};
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+struct PersistedGridColumnLayout {
+    column_name: String,
+    width: f32,
+    order: usize,
+    hidden: bool,
+}
+
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 struct PersistedGridLayout {
+    /// Stable layout entries. The legacy fields below are read only for
+    /// migration and are intentionally not written after the next save.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    columns: Vec<PersistedGridColumnLayout>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     widths: Vec<f32>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     order: Vec<usize>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     hidden_columns: Vec<usize>,
 }
 
@@ -328,6 +343,11 @@ pub struct DbProApp {
     grid_column_order: Vec<usize>,
     grid_hidden_columns: BTreeSet<usize>,
     grid_layout_preferences: HashMap<String, PersistedGridLayout>,
+    grid_pending_named_layout: Option<Vec<PersistedGridColumnLayout>>,
+    grid_legacy_layout_pending: bool,
+    grid_layout_column_names: Vec<String>,
+    grid_row_identity_cache: HashMap<usize, RowIdentity>,
+    grid_row_identity_cache_ready: bool,
     grid_columns_user_resized: bool,
     selected_cell: Option<(usize, usize)>,
     selected_row: Option<usize>,
@@ -383,6 +403,8 @@ pub struct DbProApp {
     table_data_error: Option<String>,
     table_structure_search: String,
     table_metadata_search: String,
+    table_column_detail: Option<String>,
+    table_index_detail: Option<String>,
     table_dependency_filter: String,
     table_constraint_filter: String,
     table_info_request: Option<crate::RequestId>,
@@ -396,6 +418,7 @@ pub struct DbProApp {
     staged_apply_request: Option<crate::RequestId>,
     staged_apply_targets: Vec<MutationTarget>,
     table_mutation_retry_after_reload: bool,
+    table_mutation_retry_target: Option<MutationTarget>,
     table_mutation_error: Option<MutationFailure>,
     table_view: TableView,
     query_folder: String,
@@ -549,12 +572,29 @@ impl DbProApp {
         let Some(scope) = self.grid_layout_scope() else {
             return;
         };
+        let column_names = self.grid_layout_column_names.clone();
+        if column_names.len() != self.grid_column_order.len() {
+            return;
+        }
+        let columns = self
+            .grid_column_order
+            .iter()
+            .enumerate()
+            .filter_map(|(order, &column_index)| {
+                let column_name = column_names.get(column_index)?.clone();
+                Some(PersistedGridColumnLayout {
+                    column_name,
+                    width: self.grid_column_widths.get(column_index).copied().unwrap_or(180.0),
+                    order,
+                    hidden: self.grid_hidden_columns.contains(&column_index),
+                })
+            })
+            .collect();
         self.grid_layout_preferences.insert(
             scope,
             PersistedGridLayout {
-                widths: self.grid_column_widths.clone(),
-                order: self.grid_column_order.clone(),
-                hidden_columns: self.grid_hidden_columns.iter().copied().collect(),
+                columns,
+                ..PersistedGridLayout::default()
             },
         );
     }
@@ -567,9 +607,15 @@ impl DbProApp {
             self.grid_column_widths.clear();
             self.grid_column_order.clear();
             self.grid_hidden_columns.clear();
+            self.grid_pending_named_layout = None;
+            self.grid_legacy_layout_pending = false;
             self.grid_columns_user_resized = false;
             return;
         };
+        self.grid_layout_column_names.clear();
+        self.grid_pending_named_layout = (!layout.columns.is_empty()).then_some(layout.columns);
+        self.grid_legacy_layout_pending = self.grid_pending_named_layout.is_none()
+            && (!layout.widths.is_empty() || !layout.order.is_empty() || !layout.hidden_columns.is_empty());
         self.grid_column_widths = layout.widths;
         self.grid_column_order = layout.order;
         self.grid_hidden_columns = layout.hidden_columns.into_iter().collect();
@@ -927,6 +973,7 @@ impl DbProApp {
                 self.staged_apply_request = None;
                 self.staged_apply_targets.clear();
                 self.table_mutation_retry_after_reload = false;
+                self.table_mutation_retry_target = None;
                 self.table_mutation_error = None;
                 self.selected_cell = None;
                 self.selected_row = None;

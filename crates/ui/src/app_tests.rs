@@ -289,6 +289,7 @@ fn table_edits_stage_until_explicit_apply() {
                 nullable: false,
                 default: None,
                 is_primary_key: true,
+                ..Default::default()
             },
             crate::UiTableColumn {
                 name: "name".to_owned(),
@@ -296,6 +297,7 @@ fn table_edits_stage_until_explicit_apply() {
                 nullable: false,
                 default: None,
                 is_primary_key: false,
+                ..Default::default()
             },
         ],
         primary_key: Some(vec!["id".to_owned()]),
@@ -381,6 +383,7 @@ fn editing_primary_key_stages_new_value_with_original_identity() {
                 nullable: false,
                 default: None,
                 is_primary_key: true,
+                ..Default::default()
             }],
             primary_key: Some(vec!["id".to_owned()]),
             indexes: Vec::new(),

@@ -669,9 +669,14 @@ fn map_table_info(info: db_pro_core::domain::schema::TableInfo) -> UiTableInfo {
             .map(|column| UiTableColumn {
                 name: column.name,
                 data_type: column.data_type,
+                ordinal: column.ordinal,
                 nullable: column.nullable,
                 default: column.default,
                 is_primary_key: column.is_primary_key,
+                is_unique: column.is_unique,
+                is_identity: column.is_identity,
+                is_generated: column.is_generated,
+                collation: column.collation,
             })
             .collect(),
         primary_key: info.primary_key.map(|primary_key| primary_key.columns),
@@ -682,6 +687,11 @@ fn map_table_info(info: db_pro_core::domain::schema::TableInfo) -> UiTableInfo {
                 name: index.name,
                 columns: index.columns,
                 unique: index.unique,
+                method: index.method,
+                primary: index.primary,
+                include_columns: index.include_columns,
+                predicate: index.predicate,
+                definition: index.definition,
             })
             .collect(),
         foreign_keys: info
@@ -693,6 +703,11 @@ fn map_table_info(info: db_pro_core::domain::schema::TableInfo) -> UiTableInfo {
                 to_schema: foreign_key.to_schema,
                 to_table: foreign_key.to_table,
                 to_columns: foreign_key.to_columns,
+                on_update: foreign_key.on_update,
+                on_delete: foreign_key.on_delete,
+                match_option: foreign_key.match_option,
+                deferrable: foreign_key.deferrable,
+                initially_deferred: foreign_key.initially_deferred,
             })
             .collect(),
         check_constraints: info

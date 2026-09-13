@@ -39,21 +39,39 @@ pub async fn run_introspection(pool: &sqlx::PgPool) -> Result<IntrospectResult, 
                 .map(move |col| (pk.schema.clone(), pk.table_name.clone(), col.clone()))
         })
         .collect();
+    let unique_column_set: HashSet<(String, String, String)> = indexes
+        .iter()
+        .filter(|index| index.unique || index.primary)
+        .flat_map(|index| {
+            index
+                .columns
+                .iter()
+                .map(move |column| (index.schema.clone(), index.table_name.clone(), column.clone()))
+        })
+        .collect();
 
     let columns = raw_cols
         .into_iter()
-        .map(|(schema, table, name, data_type, nullable, default)| {
-            let is_pk = pk_column_set.contains(&(schema.clone(), table.clone(), name.clone()));
-            Column {
-                name,
-                data_type,
-                nullable,
-                default,
-                is_primary_key: is_pk,
-                table_name: table,
-                schema,
-            }
-        })
+        .map(
+            |(schema, table, name, data_type, ordinal, nullable, default, is_identity, is_generated, collation)| {
+                let is_pk = pk_column_set.contains(&(schema.clone(), table.clone(), name.clone()));
+                let is_unique = unique_column_set.contains(&(schema.clone(), table.clone(), name.clone()));
+                Column {
+                    name,
+                    data_type,
+                    ordinal,
+                    nullable,
+                    default,
+                    is_primary_key: is_pk,
+                    is_unique,
+                    is_identity,
+                    is_generated,
+                    collation,
+                    table_name: table,
+                    schema,
+                }
+            },
+        )
         .collect();
 
     Ok(IntrospectResult {
@@ -146,7 +164,18 @@ async fn introspect_tables(pool: &sqlx::PgPool) -> Result<Vec<Table>, DbError> {
 }
 
 /// Raw column row including schema/table for PK matching.
-type RawColumn = (String, String, String, String, bool, Option<String>);
+type RawColumn = (
+    String,
+    String,
+    String,
+    String,
+    usize,
+    bool,
+    Option<String>,
+    bool,
+    bool,
+    Option<String>,
+);
 
 async fn introspect_columns_raw(pool: &sqlx::PgPool) -> Result<Vec<RawColumn>, DbError> {
     let rows = sqlx::query(
@@ -156,12 +185,17 @@ async fn introspect_columns_raw(pool: &sqlx::PgPool) -> Result<Vec<RawColumn>, D
             c.relname AS table_name,
             a.attname AS column_name,
             pg_catalog.format_type(a.atttypid, a.atttypmod) AS data_type,
+            a.attnum::integer AS ordinal,
             NOT a.attnotnull AS is_nullable,
-            pg_get_expr(d.adbin, d.adrelid) AS column_default
+            pg_get_expr(d.adbin, d.adrelid) AS column_default,
+            (a.attidentity <> '') AS is_identity,
+            (a.attgenerated <> '') AS is_generated,
+            CASE WHEN coll.collname = 'default' THEN NULL ELSE coll.collname END AS collation_name
         FROM pg_attribute a
         JOIN pg_class c ON a.attrelid = c.oid
         JOIN pg_namespace n ON c.relnamespace = n.oid
         LEFT JOIN pg_attrdef d ON a.attrelid = d.adrelid AND a.attnum = d.adnum
+        LEFT JOIN pg_collation coll ON a.attcollation = coll.oid
         WHERE n.nspname NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
           AND a.attnum > 0
           AND NOT a.attisdropped
@@ -179,9 +213,24 @@ async fn introspect_columns_raw(pool: &sqlx::PgPool) -> Result<Vec<RawColumn>, D
             let table_name: String = row.get("table_name");
             let column_name: String = row.get("column_name");
             let data_type: String = row.get("data_type");
+            let ordinal: i32 = row.get("ordinal");
             let nullable: bool = row.get("is_nullable");
             let default: Option<String> = row.get("column_default");
-            (table_schema, table_name, column_name, data_type, nullable, default)
+            let is_identity: bool = row.get("is_identity");
+            let is_generated: bool = row.get("is_generated");
+            let collation: Option<String> = row.get("collation_name");
+            (
+                table_schema,
+                table_name,
+                column_name,
+                data_type,
+                usize::try_from(ordinal.max(0)).unwrap_or(0),
+                nullable,
+                default,
+                is_identity,
+                is_generated,
+                collation,
+            )
         })
         .collect())
 }
@@ -238,10 +287,38 @@ async fn introspect_primary_keys(pool: &sqlx::PgPool) -> Result<Vec<PrimaryKey>,
 async fn introspect_indexes(pool: &sqlx::PgPool) -> Result<Vec<Index>, DbError> {
     let rows = sqlx::query(
         r#"
-        SELECT schemaname, tablename, indexname, indexdef
-        FROM pg_indexes
-        WHERE schemaname NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
-        ORDER BY schemaname, tablename, indexname
+        SELECT
+            n.nspname AS schema_name,
+            tbl.relname AS table_name,
+            idx.relname AS index_name,
+            am.amname AS method,
+            i.indisprimary AS is_primary,
+            i.indisunique AS is_unique,
+            pg_get_indexdef(i.indexrelid) AS definition,
+            pg_get_expr(i.indpred, i.indrelid) AS predicate,
+            ARRAY(
+                SELECT att.attname
+                FROM unnest(i.indkey) WITH ORDINALITY AS key(attnum, ord)
+                JOIN pg_attribute att
+                  ON att.attrelid = i.indrelid AND att.attnum = key.attnum
+                WHERE key.ord <= i.indnkeyatts
+                ORDER BY key.ord
+            ) AS columns,
+            ARRAY(
+                SELECT att.attname
+                FROM unnest(i.indkey) WITH ORDINALITY AS key(attnum, ord)
+                JOIN pg_attribute att
+                  ON att.attrelid = i.indrelid AND att.attnum = key.attnum
+                WHERE key.ord > i.indnkeyatts
+                ORDER BY key.ord
+            ) AS include_columns
+        FROM pg_index i
+        JOIN pg_class idx ON idx.oid = i.indexrelid
+        JOIN pg_class tbl ON tbl.oid = i.indrelid
+        JOIN pg_namespace n ON n.oid = tbl.relnamespace
+        JOIN pg_am am ON am.oid = idx.relam
+        WHERE n.nspname NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
+        ORDER BY n.nspname, tbl.relname, idx.relname
         "#,
     )
     .fetch_all(pool)
@@ -251,18 +328,26 @@ async fn introspect_indexes(pool: &sqlx::PgPool) -> Result<Vec<Index>, DbError> 
     Ok(rows
         .into_iter()
         .map(|row| {
-            let schema: String = row.get("schemaname");
-            let table: String = row.get("tablename");
-            let name: String = row.get("indexname");
-            let indexdef: String = row.get("indexdef");
-            let unique = indexdef.starts_with("CREATE UNIQUE INDEX");
-
-            let columns = parse_index_columns(&indexdef);
+            let schema: String = row.get("schema_name");
+            let table: String = row.get("table_name");
+            let name: String = row.get("index_name");
+            let method: String = row.get("method");
+            let primary: bool = row.get("is_primary");
+            let unique: bool = row.get("is_unique");
+            let definition: String = row.get("definition");
+            let predicate: Option<String> = row.get("predicate");
+            let columns: Vec<String> = row.get("columns");
+            let include_columns: Vec<String> = row.get("include_columns");
 
             Index {
                 name,
                 columns,
                 unique,
+                method,
+                primary,
+                include_columns,
+                predicate,
+                definition,
                 origin: IndexOrigin::User,
                 table_name: table,
                 schema,
@@ -276,6 +361,7 @@ async fn introspect_indexes(pool: &sqlx::PgPool) -> Result<Vec<Index>, DbError> 
 /// Handles expressions like `USING btree (col1, col2)` or `USING hash (col1)`.
 /// Also handles functional indexes with parenthesized expressions by tracking
 /// parenthesis depth.
+#[cfg(test)]
 fn parse_index_columns(indexdef: &str) -> Vec<String> {
     let bytes = indexdef.as_bytes();
     let Some(open) = find_unquoted_open_parenthesis(bytes) else {
@@ -289,6 +375,7 @@ fn parse_index_columns(indexdef: &str) -> Vec<String> {
     split_index_columns(&indexdef[open + 1..close])
 }
 
+#[cfg(test)]
 fn find_unquoted_open_parenthesis(bytes: &[u8]) -> Option<usize> {
     let mut quote = None;
     let mut index = 0;
@@ -320,6 +407,7 @@ fn find_unquoted_open_parenthesis(bytes: &[u8]) -> Option<usize> {
     None
 }
 
+#[cfg(test)]
 fn find_matching_parenthesis(bytes: &[u8], open: usize) -> Option<usize> {
     let mut quote = None;
     let mut depth = 0usize;
@@ -359,6 +447,7 @@ fn find_matching_parenthesis(bytes: &[u8], open: usize) -> Option<usize> {
     None
 }
 
+#[cfg(test)]
 fn split_index_columns(col_str: &str) -> Vec<String> {
     let mut columns = Vec::new();
     let mut current = String::new();
@@ -424,7 +513,30 @@ async fn introspect_foreign_keys(pool: &sqlx::PgPool) -> Result<Vec<ForeignKey>,
             src_att.attname AS from_column,
             fnsp.nspname AS to_schema,
             fcls.relname AS to_table,
-            dst_att.attname AS to_column
+            dst_att.attname AS to_column,
+            CASE con.confupdtype
+                WHEN 'a' THEN 'NO ACTION'
+                WHEN 'r' THEN 'RESTRICT'
+                WHEN 'c' THEN 'CASCADE'
+                WHEN 'n' THEN 'SET NULL'
+                WHEN 'd' THEN 'SET DEFAULT'
+                ELSE 'UNKNOWN'
+            END AS on_update,
+            CASE con.confdeltype
+                WHEN 'a' THEN 'NO ACTION'
+                WHEN 'r' THEN 'RESTRICT'
+                WHEN 'c' THEN 'CASCADE'
+                WHEN 'n' THEN 'SET NULL'
+                WHEN 'd' THEN 'SET DEFAULT'
+                ELSE 'UNKNOWN'
+            END AS on_delete,
+            CASE con.confmatchtype
+                WHEN 'f' THEN 'FULL'
+                WHEN 'p' THEN 'PARTIAL'
+                ELSE 'SIMPLE'
+            END AS match_option,
+            con.condeferrable AS deferrable,
+            con.condeferred AS initially_deferred
         FROM pg_constraint con
         JOIN pg_namespace nsp ON nsp.oid = con.connamespace
         JOIN pg_class cls ON cls.oid = con.conrelid
@@ -447,8 +559,10 @@ async fn introspect_foreign_keys(pool: &sqlx::PgPool) -> Result<Vec<ForeignKey>,
     .map_err(crate::error::from_sqlx)?;
 
     // Group columns by constraint name to support composite foreign keys
-    let mut map: std::collections::HashMap<(String, String, String, String, String), (Vec<String>, Vec<String>)> =
-        std::collections::HashMap::new();
+    let mut map: std::collections::HashMap<
+        (String, String, String, String, String),
+        (Vec<String>, Vec<String>, String, String, String, bool, bool),
+    > = std::collections::HashMap::new();
     let mut order: Vec<(String, String, String, String, String)> = Vec::new();
 
     for row in rows {
@@ -459,6 +573,11 @@ async fn introspect_foreign_keys(pool: &sqlx::PgPool) -> Result<Vec<ForeignKey>,
         let to_column: String = row.get("to_column");
         let schema: String = row.get("from_schema");
         let to_schema: String = row.get("to_schema");
+        let on_update: String = row.get("on_update");
+        let on_delete: String = row.get("on_delete");
+        let match_option: String = row.get("match_option");
+        let deferrable: bool = row.get("deferrable");
+        let initially_deferred: bool = row.get("initially_deferred");
 
         let key = (
             name.clone(),
@@ -468,9 +587,17 @@ async fn introspect_foreign_keys(pool: &sqlx::PgPool) -> Result<Vec<ForeignKey>,
             to_schema.clone(),
         );
 
-        let (from_cols, to_cols) = map.entry(key.clone()).or_insert_with(|| {
+        let (from_cols, to_cols, _, _, _, _, _) = map.entry(key.clone()).or_insert_with(|| {
             order.push(key.clone());
-            (Vec::new(), Vec::new())
+            (
+                Vec::new(),
+                Vec::new(),
+                on_update.clone(),
+                on_delete.clone(),
+                match_option.clone(),
+                deferrable,
+                initially_deferred,
+            )
         });
         from_cols.push(from_column);
         to_cols.push(to_column);
@@ -479,7 +606,7 @@ async fn introspect_foreign_keys(pool: &sqlx::PgPool) -> Result<Vec<ForeignKey>,
     Ok(order
         .into_iter()
         .map(|(name, from_table, to_table, schema, to_schema)| {
-            let (from_columns, to_columns) = map
+            let (from_columns, to_columns, on_update, on_delete, match_option, deferrable, initially_deferred) = map
                 .remove(&(
                     name.clone(),
                     from_table.clone(),
@@ -496,6 +623,11 @@ async fn introspect_foreign_keys(pool: &sqlx::PgPool) -> Result<Vec<ForeignKey>,
                 to_columns,
                 schema,
                 to_schema,
+                on_update,
+                on_delete,
+                match_option,
+                deferrable,
+                initially_deferred,
             }
         })
         .collect())

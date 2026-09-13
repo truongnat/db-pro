@@ -215,13 +215,18 @@ pub enum UiTableMutation {
     },
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct UiTableColumn {
     pub name: String,
     pub data_type: String,
+    pub ordinal: usize,
     pub nullable: bool,
     pub default: Option<String>,
     pub is_primary_key: bool,
+    pub is_unique: bool,
+    pub is_identity: bool,
+    pub is_generated: bool,
+    pub collation: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -229,6 +234,11 @@ pub struct UiTableIndex {
     pub name: String,
     pub columns: Vec<String>,
     pub unique: bool,
+    pub method: String,
+    pub primary: bool,
+    pub include_columns: Vec<String>,
+    pub predicate: Option<String>,
+    pub definition: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -238,6 +248,11 @@ pub struct UiTableForeignKey {
     pub to_schema: String,
     pub to_table: String,
     pub to_columns: Vec<String>,
+    pub on_update: String,
+    pub on_delete: String,
+    pub match_option: String,
+    pub deferrable: bool,
+    pub initially_deferred: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
