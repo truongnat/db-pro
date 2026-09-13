@@ -43,5 +43,8 @@
 - [x] Record query-history start time at dispatch, separate from monotonic duration timing.
 - [x] Allocate collision-safe query document IDs across restored drafts, duplicates, and history tabs.
 - [x] Run formatter, workspace checks, clippy, tests, native release build, and performance scan.
+- [x] Re-run the complete automated verification suite after the lifecycle hardening commit.
+- [x] Run the shared result-grid benchmark at 1k and 10k rows with 50 columns.
+- [x] Verify existing transaction-level failure and statement-index coverage in the core suite.
 - [ ] Verify a live provider request and stale/cancel behavior with native UI interaction.
 - [ ] Record native UI evidence at the required viewport/state matrix.

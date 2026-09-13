@@ -4,6 +4,7 @@ Source evidence recorded on 2026-09-13:
 
 - Baseline: `df4e3e5 feat(query): preserve structured database error positions`, with the
   completion, delimiter, and structured diagnostic hardening recorded below.
+- Final lifecycle hardening is in `e39f10d fix(query): harden lifecycle and multi-result contracts`.
 - Native translator now routes `RequestSqlPrediction` and `CancelSqlPrediction` to the runtime worker.
 - Query execution, explain state, prediction request state, and Query Workspace output selection are
   stored per `QueryDocument`; the global query request slot was removed from UI routing.
@@ -66,8 +67,33 @@ Automated evidence recorded on 2026-09-13:
 - `cargo check --workspace` — PASS.
 - `cargo clippy --workspace --all-targets -- -D warnings` — PASS.
 - `cargo build --release --locked -p db-pro-native` — PASS.
-- `bash .skills/perf-audit/scripts/perf-scan.sh` — PASS; native binary 21.5 MB, no warnings.
+- `bash .skills/perf-audit/scripts/perf-scan.sh` — PASS; native binary 21.7 MB, no warnings.
 - `git diff --check` — PASS.
+
+Final verification pass after `e39f10d`:
+
+- `cargo fmt --all -- --check` — PASS.
+- `cargo check --workspace` — PASS.
+- `cargo clippy --workspace --all-targets -- -D warnings` — PASS.
+- `cargo test --workspace --quiet` — PASS: 276 core, 62 infrastructure, 231 UI, 9 native,
+  7 runtime, 21 Tauri library tests, 32 infrastructure integration tests, and the schema
+  regression suites; 18 PostgreSQL tests and 1 SSH test were ignored because their isolated
+  fixtures were not enabled.
+- `cargo build --release --locked -p db-pro-native` — PASS.
+- `bash .skills/perf-audit/scripts/perf-scan.sh` — PASS; 4 checks, 0 warnings, 0 failures.
+- `cargo bench --package db-pro-ui --bench result_grid_benchmarks -- --quick` — PASS. Measured
+  million-row projection at 2.48 ms, 100 visible-row materialization at 35 ns, and visual-map
+  construction at 8.30 µs for 1k rows/50 columns and 85.9 µs for 10k rows/50 columns.
+
+Provider/UI runtime verification:
+
+- SQLite integration coverage passes in the workspace suite; PostgreSQL integration cases remain
+  ignored without the isolated PostgreSQL fixture. This does not substitute one provider for the
+  other.
+- The release process starts, but the standalone binary is not discoverable as an app/window by
+  the available Orca computer provider, so no new native UI interaction evidence is claimed.
+- Live AI verification remains pending because no provider key is configured; no key or secret was
+  read. Required 1280×800, 1440×900, and 1920×1080 state-matrix evidence remains pending.
 
 Lifecycle hardening tests cover explicit multi-result kind routing, structured multi-result
 position propagation, failed-statement diagnostic attachment, execution-start history timestamps,
@@ -91,10 +117,11 @@ replacement. The native runtime worker logs provider latency using request/docum
   diagnostic routing, and concurrent per-document query/output state.
 
 The clean-code scan still reports legacy oversized renderer/query functions and existing clone/cast
-heuristics; this focused change introduces no new unwrap/expect or clippy warning. Live provider and
+heuristics; this focused change introduces no new unwrap/expect or clippy warning. The parallel
+`results`/`result_kinds` compatibility seam is recorded as P2 technical debt. Live provider and
 the required multi-viewport native UI evidence remain the release-phase gaps.
 
-Runtime evidence collected in this turn:
+Earlier runtime evidence collected before the final verification pass:
 
 - Release binary started through the native runtime and connected to the configured PostgreSQL
   connection; schema introspection completed with 68 tables.
