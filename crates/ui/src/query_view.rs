@@ -1,5 +1,5 @@
 use super::*;
-use crate::editor::{CompletionItemKind, CompletionTriggerKind, SqlDialect, SqlEditor};
+use crate::editor::{CompletionItemKind, CompletionTriggerKind, Diagnostic, SqlDialect, SqlEditor};
 use crate::query::{CompletionContext, SchemaCompletionProvider};
 
 impl DbProApp {
@@ -29,7 +29,7 @@ impl DbProApp {
                 self.draw_diagnostics(ui);
                 self.draw_output_tabs(ui);
 
-                let result = self.query_result.clone();
+                let result = self.active_query_result().cloned();
                 ui.add_space(8.0);
                 self.draw_output_pane(ui, result.as_ref());
             });
@@ -59,7 +59,15 @@ impl DbProApp {
                     .color(self.theme.accent),
             );
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                let running = self.next_query_request.is_some();
+                let active_doc_running = self
+                    .query_documents
+                    .get(self.active_query_document)
+                    .and_then(|doc| match doc.execution_state {
+                        QueryExecutionState::Running(req) => Some(req),
+                        _ => None,
+                    })
+                    .or(self.next_query_request);
+                let running = active_doc_running.is_some();
                 let cancel_supported = self.active_capabilities().is_some_and(|c| c.query.cancel);
                 let run_button = if running {
                     if cancel_supported {
@@ -74,7 +82,7 @@ impl DbProApp {
                         .on_hover_text(format!("Run query ({modifier}↵)"))
                 };
                 if run_button.clicked() {
-                    if let Some(request_id) = self.next_query_request {
+                    if let Some(request_id) = active_doc_running {
                         if cancel_supported {
                             self.cancel_query(request_id);
                         } else {
@@ -278,7 +286,7 @@ impl DbProApp {
                             ui.add_space(2.0);
                             ui.label(RichText::new(label).font(font_ui_label()).color(text_color));
                             if tab == OutputTab::Results {
-                                if let Some(res) = &self.query_result {
+                                if let Some(res) = self.active_query_result() {
                                     badge(
                                         ui,
                                         &res.row_count.to_string(),
@@ -286,10 +294,10 @@ impl DbProApp {
                                         self.theme.accent,
                                     );
                                 }
-                            } else if tab == OutputTab::Messages && !self.query_messages.is_empty() {
+                            } else if tab == OutputTab::Messages && !self.active_query_messages().is_empty() {
                                 badge(
                                     ui,
-                                    &self.query_messages.len().to_string(),
+                                    &self.active_query_messages().len().to_string(),
                                     self.theme.surface_hover,
                                     self.theme.text_muted,
                                 );
@@ -361,9 +369,10 @@ impl DbProApp {
     /// Query notice log.
     fn draw_messages_pane(&mut self, ui: &mut egui::Ui) {
         let output_width = ui.available_width();
+        let messages = self.active_query_messages();
         card_frame(self.theme).show(ui, |ui| {
             ui.set_min_width((output_width - 24.0).max(0.0));
-            if self.query_messages.is_empty() {
+            if messages.is_empty() {
                 empty_state(
                     ui,
                     Icon::MessageSquareText,
@@ -372,7 +381,7 @@ impl DbProApp {
                     self.theme,
                 );
             } else {
-                for message in self.query_messages.iter().rev().take(20) {
+                for message in messages.iter().rev().take(20) {
                     ui.label(RichText::new(message).small().color(self.theme.text_secondary));
                 }
             }
@@ -590,7 +599,7 @@ impl DbProApp {
 
     fn draw_query_editor(&mut self, ui: &mut egui::Ui) {
         let editor_width = ui.max_rect().width();
-        let editor_height = if self.query_result.is_some() {
+        let editor_height = if self.active_query_result().is_some() {
             ui.available_height().clamp(260.0, 360.0)
         } else {
             ui.available_height().clamp(320.0, 480.0)
@@ -1004,8 +1013,9 @@ impl DbProApp {
         formatted
     }
 
-    pub(crate) fn parse_sql_diagnostics(sql: &str, driver: &str) -> Vec<String> {
-        let mut diagnostics = Vec::new();
+    pub(crate) fn analyze_sql_diagnostics(sql: &str, driver: &str) -> (Vec<String>, Vec<Diagnostic>) {
+        let mut string_diagnostics = Vec::new();
+        let mut structured_diagnostics = Vec::new();
         let parse_result = if driver.eq_ignore_ascii_case("sqlite") {
             Parser::parse_sql(&SQLiteDialect {}, sql)
         } else if driver.eq_ignore_ascii_case("postgres") {
@@ -1014,37 +1024,52 @@ impl DbProApp {
             Parser::parse_sql(&GenericDialect {}, sql)
         };
         if let Err(error) = parse_result {
-            diagnostics.push(format!("SQL parser: {error}"));
+            let msg = format!("SQL parser: {error}");
+            string_diagnostics.push(msg.clone());
+            structured_diagnostics.push(Diagnostic::error((0, sql.len().clamp(1, 4)), msg));
         }
         if sql.trim().is_empty() {
-            diagnostics.push("Query is empty".to_owned());
-            return diagnostics;
+            string_diagnostics.push("Query is empty".to_owned());
+            return (string_diagnostics, structured_diagnostics);
         }
         let mut tokens = Vec::new();
         let mut current = String::new();
         let mut in_string = false;
+        let mut string_start_byte = 0;
         let mut parentheses = 0i32;
-        for ch in sql.chars() {
+        let mut paren_offsets = Vec::new();
+
+        for (byte_offset, ch) in sql.char_indices() {
             if ch == '\'' {
-                in_string = !in_string;
+                if !in_string {
+                    in_string = true;
+                    string_start_byte = byte_offset;
+                } else {
+                    in_string = false;
+                }
                 current.push(ch);
             } else if in_string {
                 current.push(ch);
             } else if ch == '(' {
                 parentheses += 1;
-                tokens.push(current.to_lowercase());
+                paren_offsets.push(byte_offset);
+                tokens.push((current.to_lowercase(), byte_offset));
                 current.clear();
             } else if ch == ')' {
                 parentheses -= 1;
-                tokens.push(current.to_lowercase());
-                current.clear();
                 if parentheses < 0 {
-                    diagnostics.push("Unexpected closing parenthesis".to_owned());
+                    let msg = "Unexpected closing parenthesis".to_owned();
+                    string_diagnostics.push(msg.clone());
+                    structured_diagnostics.push(Diagnostic::error((byte_offset, byte_offset + 1), msg));
                     parentheses = 0;
+                } else {
+                    paren_offsets.pop();
                 }
+                tokens.push((current.to_lowercase(), byte_offset));
+                current.clear();
             } else if ch.is_whitespace() || ch == ';' || ch == ',' {
                 if !current.is_empty() {
-                    tokens.push(current.to_lowercase());
+                    tokens.push((current.to_lowercase(), byte_offset - current.len()));
                     current.clear();
                 }
             } else {
@@ -1052,33 +1077,62 @@ impl DbProApp {
             }
         }
         if !current.is_empty() {
-            tokens.push(current.to_lowercase());
+            tokens.push((current.to_lowercase(), sql.len() - current.len()));
         }
         if in_string {
-            diagnostics.push("Unclosed string literal".to_owned());
+            let msg = "Unclosed string literal".to_owned();
+            string_diagnostics.push(msg.clone());
+            structured_diagnostics.push(Diagnostic::error((string_start_byte, sql.len()), msg));
         }
         if parentheses > 0 {
-            diagnostics.push("Unclosed parenthesis".to_owned());
+            let msg = "Unclosed parenthesis".to_owned();
+            string_diagnostics.push(msg.clone());
+            let offset = paren_offsets.last().copied().unwrap_or(0);
+            structured_diagnostics.push(Diagnostic::error((offset, (offset + 1).min(sql.len())), msg));
         }
-        if tokens.first().map(String::as_str) == Some("update") && !tokens.iter().any(|token| token == "where") {
-            diagnostics.push("UPDATE without WHERE will affect every row".to_owned());
+        if tokens.first().map(|(t, _)| t.as_str()) == Some("update") && !tokens.iter().any(|(t, _)| t == "where") {
+            let msg = "UPDATE without WHERE will affect every row".to_owned();
+            string_diagnostics.push(msg.clone());
+            structured_diagnostics.push(Diagnostic::warning((0, sql.len()), msg));
+        }
+        if driver.eq_ignore_ascii_case("sqlite") {
+            if let Some((_, offset)) = tokens.iter().find(|(t, _)| t == "ilike") {
+                let msg = "SQLite does not support ILIKE; use LIKE or lower()".to_owned();
+                string_diagnostics.push(msg.clone());
+                structured_diagnostics.push(Diagnostic::error((*offset, offset + 5), msg));
+            }
+        }
+        if driver.eq_ignore_ascii_case("postgres") {
+            if let Some((_, offset)) = tokens.iter().find(|(t, _)| t == "glob") {
+                let msg = "GLOB is SQLite-specific; use LIKE for PostgreSQL".to_owned();
+                string_diagnostics.push(msg.clone());
+                structured_diagnostics.push(Diagnostic::error((*offset, offset + 4), msg));
+            }
         }
         let lower = sql.to_lowercase();
-        if driver.eq_ignore_ascii_case("sqlite") && tokens.iter().any(|token| token == "ilike") {
-            diagnostics.push("SQLite does not support ILIKE; use LIKE or lower()".to_owned());
-        }
-        if driver.eq_ignore_ascii_case("postgres") && tokens.iter().any(|token| token == "glob") {
-            diagnostics.push("GLOB is SQLite-specific; use LIKE for PostgreSQL".to_owned());
-        }
         if lower.contains("select * from") && lower.contains("select * from select") {
-            diagnostics.push("Subquery must be enclosed in parentheses".to_owned());
+            let msg = "Subquery must be enclosed in parentheses".to_owned();
+            string_diagnostics.push(msg.clone());
+            structured_diagnostics.push(Diagnostic::error((0, sql.len()), msg));
         }
-        diagnostics
+
+        (string_diagnostics, structured_diagnostics)
+    }
+
+    pub(crate) fn parse_sql_diagnostics(sql: &str, driver: &str) -> Vec<String> {
+        Self::analyze_sql_diagnostics(sql, driver).0
     }
 
     fn refresh_diagnostics(&mut self) {
-        let driver = self.active_driver();
-        self.diagnostics = Self::parse_sql_diagnostics(&self.query_text, driver);
+        let driver = self.active_driver().to_owned();
+        let doc_index = self.active_query_document;
+        if let Some(doc) = self.query_documents.get_mut(doc_index) {
+            let (raw_diags, structured) = Self::analyze_sql_diagnostics(doc.text(), &driver);
+            self.diagnostics = raw_diags;
+            doc.diagnostics = structured;
+        } else {
+            self.diagnostics = Self::parse_sql_diagnostics(&self.query_text, &driver);
+        }
     }
 
     fn insert_snippet(&mut self, snippet: &str) {

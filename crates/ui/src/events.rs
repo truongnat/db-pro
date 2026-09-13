@@ -508,6 +508,11 @@ impl DbProApp {
                 doc.query_messages
                     .push(format!("Query completed · {} rows", result.row_count));
             }
+        } else if let Some(doc) = self.query_documents.get_mut(self.active_query_document) {
+            doc.query_result = Some(result.clone());
+            doc.execution_state = QueryExecutionState::Idle;
+            doc.query_messages
+                .push(format!("Query completed · {} rows", result.row_count));
         }
         let is_active_doc = self
             .query_documents
@@ -516,7 +521,6 @@ impl DbProApp {
 
         if self.next_query_request == Some(request_id) || is_active_doc {
             self.runtime_message = format!("Query completed · {} rows", result.row_count);
-            self.query_messages.push(self.runtime_message.clone());
             self.grid_sort_column = None;
             self.grid_column_widths = vec![180.0; result.columns.len()];
             self.selected_cell = None;
@@ -525,7 +529,6 @@ impl DbProApp {
             self.selection_anchor_row = None;
             self.selection_anchor_cell = None;
             self.copy_status.clear();
-            self.query_result = Some(result);
             self.output_tab = OutputTab::Results;
             if self.next_query_request == Some(request_id) {
                 self.next_query_request = None;
@@ -539,7 +542,9 @@ impl DbProApp {
             self.explain_plan = Some(plan);
             self.output_tab = OutputTab::Explain;
             self.runtime_message = "Query plan ready".to_owned();
-            self.query_messages.push(self.runtime_message.clone());
+            if let Some(doc) = self.query_documents.get_mut(self.active_query_document) {
+                doc.query_messages.push(self.runtime_message.clone());
+            }
         }
     }
 
@@ -638,7 +643,6 @@ impl DbProApp {
 
             if self.next_query_request == Some(request_id) || is_active_doc {
                 self.runtime_message = format!("Query failed · {message}");
-                self.query_messages.push(self.runtime_message.clone());
                 if self.next_query_request == Some(request_id) {
                     self.next_query_request = None;
                 }
@@ -648,7 +652,9 @@ impl DbProApp {
             self.explain_plan = None;
             self.output_tab = OutputTab::Messages;
             self.runtime_message = format!("Explain failed · {message}");
-            self.query_messages.push(self.runtime_message.clone());
+            if let Some(doc) = self.query_documents.get_mut(self.active_query_document) {
+                doc.query_messages.push(self.runtime_message.clone());
+            }
         } else {
             self.runtime_message = format!("Operation failed · {message}");
         }

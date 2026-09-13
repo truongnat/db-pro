@@ -274,7 +274,7 @@ impl DbProApp {
                                 .color(self.theme.text_muted),
                         );
                     }
-                    if let Some(result) = self.query_result.as_ref().or(self.table_data_result.as_ref()) {
+                    if let Some(result) = self.active_query_result().or(self.table_data_result.as_ref()) {
                         ui.label(
                             RichText::new(format!("{} ms", result.duration_ms))
                                 .font(font_mono_sm())
@@ -361,7 +361,7 @@ impl DbProApp {
                 ui.separator();
                 match self.output_tab {
                     OutputTab::Results => {
-                        let result = self.query_result.as_ref().or(self.table_data_result.as_ref());
+                        let result = self.active_query_result().or(self.table_data_result.as_ref());
                         ui.label(
                             RichText::new(
                                 result
@@ -373,7 +373,7 @@ impl DbProApp {
                         );
                     }
                     OutputTab::Messages => {
-                        for message in self.query_messages.iter().rev().take(8) {
+                        for message in self.active_query_messages().iter().rev().take(8) {
                             ui.label(RichText::new(message).small().color(self.theme.text_secondary));
                         }
                     }

@@ -334,9 +334,7 @@ pub struct DbProApp {
     pub(crate) query_document_requests: HashMap<crate::RequestId, String>,
     runtime_message: String,
     toasts: crate::components::overlay::ToastManager,
-    query_result: Option<UiQueryResult>,
     output_tab: OutputTab,
-    query_messages: Vec<String>,
     explain_plan: Option<String>,
     explain_request: Option<crate::RequestId>,
     grid_filter: String,
@@ -824,9 +822,20 @@ impl DbProApp {
         } else {
             self.selected_query.clear();
         }
-        self.query_result = doc.query_result.clone();
-        self.query_messages = doc.query_messages.clone();
         self.runtime_message = format!("Opened {}", self.query_documents[index].title);
+    }
+
+    pub(crate) fn active_query_result(&self) -> Option<&UiQueryResult> {
+        self.query_documents
+            .get(self.active_query_document)
+            .and_then(|doc| doc.query_result.as_ref())
+    }
+
+    pub(crate) fn active_query_messages(&self) -> &[String] {
+        self.query_documents
+            .get(self.active_query_document)
+            .map(|doc| doc.query_messages.as_slice())
+            .unwrap_or(&[])
     }
 
     pub(crate) fn new_query_document(&mut self) {
@@ -840,7 +849,6 @@ impl DbProApp {
         self.active_query_document = self.query_documents.len() - 1;
         self.query_text.clear();
         self.reset_query_cursor();
-        self.query_result = None;
         self.activity = Activity::Queries;
         self.sidebar_open = true;
         self.active_tab = WorkspaceTab::Query;
@@ -859,7 +867,6 @@ impl DbProApp {
             self.active_query_document = 0;
             self.query_text.clear();
             self.reset_query_cursor();
-            self.query_result = None;
             if self.active_tab == WorkspaceTab::Query {
                 self.activate_fallback_workspace_tab();
             }
@@ -882,8 +889,6 @@ impl DbProApp {
         } else {
             self.selected_query.clear();
         }
-        self.query_result = doc.query_result.clone();
-        self.query_messages = doc.query_messages.clone();
         self.runtime_message = format!("Closed {}", self.query_documents[self.active_query_document].title);
     }
 
@@ -905,7 +910,6 @@ impl DbProApp {
             .push(QueryDocument::new(format!("query-{doc_count}"), title, content));
         self.active_query_document = self.query_documents.len() - 1;
         self.query_text = self.query_documents[self.active_query_document].text().to_owned();
-        self.query_result = None;
         self.active_tab = WorkspaceTab::Query;
         self.runtime_message = format!("Duplicated {}", self.query_documents[index].title);
     }
@@ -919,7 +923,6 @@ impl DbProApp {
         self.query_documents = vec![kept];
         self.active_query_document = 0;
         self.query_text = self.query_documents[0].text().to_owned();
-        self.query_result = None;
         self.runtime_message = "Closed other queries".to_owned();
     }
 
@@ -932,7 +935,6 @@ impl DbProApp {
         if self.active_query_document > index {
             self.active_query_document = index;
             self.query_text = self.query_documents[index].text().to_owned();
-            self.query_result = None;
         }
         self.runtime_message = "Closed queries to the right".to_owned();
     }
@@ -943,7 +945,6 @@ impl DbProApp {
         self.query_documents = vec![QueryDocument::new("query-1", "Query 1", String::new())];
         self.active_query_document = 0;
         self.query_text.clear();
-        self.query_result = None;
         self.selected_table = None;
         self.selected_schema_object = None;
         self.active_tab = WorkspaceTab::Welcome;

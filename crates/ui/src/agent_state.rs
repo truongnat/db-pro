@@ -23,8 +23,7 @@ impl DbProApp {
             self.selected_query.clone()
         };
         let result_summary = self
-            .query_result
-            .as_ref()
+            .active_query_result()
             .or(self.table_data_result.as_ref())
             .map(|result| format!("{} rows returned in {} ms", result.row_count, result.duration_ms));
         let last_error = self.has_runtime_error().then(|| self.runtime_message.clone());

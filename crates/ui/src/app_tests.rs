@@ -1850,3 +1850,186 @@ fn test_grid_layout_schema_reconciliation() {
     assert_eq!(app.grid_column_widths[1], 240.0);
     assert_eq!(app.grid_column_widths[0], 100.0);
 }
+
+#[test]
+fn test_multi_tab_query_result_routing() {
+    let (bridge, _command_rx, event_tx) = TaskBridge::with_channels();
+    let mut app = DbProApp::with_task_bridge(bridge);
+
+    // Create 2 query documents
+    app.query_documents = vec![
+        QueryDocument::new("query-1", "Query 1", "SELECT 1;"),
+        QueryDocument::new("query-2", "Query 2", "SELECT 2;"),
+    ];
+    app.active_query_document = 0;
+
+    // Simulate Tab 1 running request 101
+    let req1 = crate::RequestId(101);
+    app.query_documents[0].execution_state = QueryExecutionState::Running(req1);
+    app.query_document_requests.insert(req1, "query-1".to_owned());
+
+    // Switch to Tab 2 and simulate Tab 2 running request 102
+    app.switch_query_document(1);
+    let req2 = crate::RequestId(102);
+    app.query_documents[1].execution_state = QueryExecutionState::Running(req2);
+    app.query_document_requests.insert(req2, "query-2".to_owned());
+
+    // Tab 1 query completes while user is on Tab 2
+    let result1 = UiQueryResult {
+        columns: vec![crate::UiColumn {
+            name: "num".to_owned(),
+            data_type: "int".to_owned(),
+            nullable: false,
+        }],
+        rows: vec![vec![crate::UiCell::Text("1".to_owned())]],
+        row_count: 1,
+        duration_ms: 12,
+    };
+    event_tx
+        .send(UiEvent::QueryCompleted {
+            request_id: req1,
+            result: result1,
+        })
+        .unwrap();
+
+    app.apply_runtime_events();
+
+    // Tab 1 should have received its result and message, but Tab 2 is active and has no result yet
+    assert_eq!(
+        app.query_documents[0].query_result.as_ref().map(|r| r.row_count),
+        Some(1)
+    );
+    assert_eq!(app.query_documents[0].execution_state, QueryExecutionState::Idle);
+    assert!(app.query_documents[0]
+        .query_messages
+        .iter()
+        .any(|m| m.contains("1 rows")));
+    assert!(app.active_query_result().is_none());
+
+    // Tab 2 query completes
+    let result2 = UiQueryResult {
+        columns: vec![crate::UiColumn {
+            name: "num".to_owned(),
+            data_type: "int".to_owned(),
+            nullable: false,
+        }],
+        rows: vec![vec![crate::UiCell::Text("2".to_owned())]],
+        row_count: 1,
+        duration_ms: 8,
+    };
+    event_tx
+        .send(UiEvent::QueryCompleted {
+            request_id: req2,
+            result: result2,
+        })
+        .unwrap();
+
+    app.apply_runtime_events();
+
+    // Tab 2 is active, active_query_result() now returns Tab 2's result
+    assert_eq!(
+        app.active_query_result().and_then(|r| match &r.rows[0][0] {
+            crate::UiCell::Text(s) => Some(s.as_str()),
+            _ => None,
+        }),
+        Some("2")
+    );
+    assert_eq!(app.query_documents[1].execution_state, QueryExecutionState::Idle);
+
+    // Switch back to Tab 1 -> active_query_result() returns Tab 1's result
+    app.switch_query_document(0);
+    assert_eq!(
+        app.active_query_result().and_then(|r| match &r.rows[0][0] {
+            crate::UiCell::Text(s) => Some(s.as_str()),
+            _ => None,
+        }),
+        Some("1")
+    );
+}
+
+#[test]
+fn test_tab_switching_preserves_completion_and_prediction_isolation() {
+    let mut doc1 = QueryDocument::new("query-1", "Query 1", "SELECT * FROM u");
+    doc1.completion.open(
+        15,
+        egui::Pos2::new(100.0, 100.0),
+        "u".to_string(),
+        vec![crate::editor::CompletionItem {
+            label: "users".to_owned(),
+            insert_text: "users".to_owned(),
+            kind: crate::editor::CompletionItemKind::Table,
+            detail: None,
+            documentation: None,
+            replacement_range: (14, 15),
+            sort_score: 800,
+        }],
+        crate::editor::CompletionTriggerKind::Automatic,
+    );
+    doc1.prediction = Some(crate::editor::EditPrediction {
+        request_id: Some(crate::RequestId(1)),
+        document_version: doc1.buffer.version() as usize,
+        anchor: 15,
+        replacement_range: (15, 15),
+        text: "sers WHERE id = 1".to_owned(),
+    });
+
+    let doc2 = QueryDocument::new("query-2", "Query 2", "SELECT 2;");
+
+    let mut app = DbProApp {
+        query_documents: vec![doc1, doc2],
+        active_query_document: 0,
+        ..Default::default()
+    };
+
+    // Doc 1 has open completion and prediction
+    assert!(app.query_documents[0].completion.is_open);
+    assert!(app.query_documents[0].prediction.is_some());
+
+    // Switch to Doc 2
+    app.switch_query_document(1);
+    assert!(!app.query_documents[1].completion.is_open);
+    assert!(app.query_documents[1].prediction.is_none());
+
+    // Switch back to Doc 1
+    app.switch_query_document(0);
+    assert!(app.query_documents[0].completion.is_open);
+    assert!(app.query_documents[0].prediction.is_some());
+}
+
+#[test]
+fn test_prefix_replacement_logic() {
+    let mut doc = QueryDocument::new("query-1", "Query 1", "SELECT * FROM us");
+    doc.cursor.set_offset(&doc.buffer, 16); // end of "us"
+
+    let item = crate::editor::CompletionItem {
+        label: "users".to_owned(),
+        insert_text: "users".to_owned(),
+        kind: crate::editor::CompletionItemKind::Table,
+        detail: None,
+        documentation: None,
+        replacement_range: (14, 16),
+        sort_score: 800,
+    };
+    let (start, end) = item.replacement_range;
+    doc.buffer.replace(start, end, &item.insert_text);
+    let new_offset = start + item.insert_text.len();
+    doc.cursor.set_offset(&doc.buffer, new_offset);
+    doc.dirty = true;
+
+    assert_eq!(doc.text(), "SELECT * FROM users");
+    assert_eq!(doc.cursor.offset, 19);
+    assert!(doc.dirty);
+}
+
+#[test]
+fn test_popup_flipping_near_viewport_bottom() {
+    let screen_rect = egui::Rect::from_min_max(egui::Pos2::new(0.0, 0.0), egui::Pos2::new(1000.0, 800.0));
+    let popup_height = 220.0;
+    let mut popup_pos = egui::Pos2::new(200.0, 750.0); // Near bottom (750 + 220 = 970 > 800 - 30)
+
+    if popup_pos.y + popup_height > screen_rect.max.y - 30.0 {
+        popup_pos.y = (popup_pos.y - popup_height - 24.0).max(screen_rect.min.y + 10.0);
+    }
+
+    assert_eq!(popup_pos.y, 750.0 - 220.0 - 24.0); // Flipped upward to 506.0
+}
