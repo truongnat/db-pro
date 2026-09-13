@@ -621,6 +621,7 @@ impl DbProApp {
         let doc = &mut self.query_documents[doc_index];
 
         let search_query = self.editor_search.clone();
+        let is_completion_open = doc.completion.is_open;
         let mut editor = SqlEditor::new(
             &mut doc.buffer,
             &mut doc.cursor,
@@ -632,7 +633,8 @@ impl DbProApp {
             "active_sql_editor",
         )
         .with_cached_tokens(&mut doc.cached_tokens)
-        .with_search(&search_query, doc.search.active_match_index);
+        .with_search(&search_query, doc.search.active_match_index)
+        .with_completion_open(is_completion_open);
         editor.font_size = font_size;
 
         let response = editor.show(ui, available_size);
@@ -725,6 +727,12 @@ impl DbProApp {
                         egui::Key::ArrowDown => {
                             doc.completion.select_next();
                         }
+                        egui::Key::PageUp => {
+                            doc.completion.select_page_up(5);
+                        }
+                        egui::Key::PageDown => {
+                            doc.completion.select_page_down(5);
+                        }
                         egui::Key::Enter | egui::Key::Tab => {
                             if let Some(item) = doc.completion.current_item() {
                                 apply_item = Some(item.clone());
@@ -746,6 +754,8 @@ impl DbProApp {
             doc.cursor.set_offset(&doc.buffer, new_offset);
             doc.selection.collapse_to_active();
             doc.reanalyze(dialect);
+            doc.dirty = true;
+            doc.prediction = None;
             self.query_text = doc.text().to_owned();
             doc.completion.close();
             return;
@@ -756,7 +766,19 @@ impl DbProApp {
             return;
         }
 
-        let popup_pos = doc.completion.popup_position;
+        let screen_rect = ctx.screen_rect();
+        let mut popup_pos = doc.completion.popup_position;
+        let popup_height = 220.0;
+        let popup_width = 340.0;
+
+        // Auto-flip popup above cursor if near bottom of screen
+        if popup_pos.y + popup_height > screen_rect.max.y - 30.0 {
+            popup_pos.y = (popup_pos.y - popup_height - 24.0).max(screen_rect.min.y + 10.0);
+        }
+        popup_pos.x = popup_pos.x.clamp(
+            screen_rect.min.x + 10.0,
+            (screen_rect.max.x - popup_width - 20.0).max(screen_rect.min.x + 10.0),
+        );
 
         let mut clicked_item = None;
 
@@ -773,8 +795,8 @@ impl DbProApp {
                     ..Default::default()
                 }
                 .show(ui, |ui| {
-                    ui.set_max_width(340.0);
-                    ui.set_max_height(220.0);
+                    ui.set_max_width(popup_width);
+                    ui.set_max_height(popup_height);
 
                     egui::ScrollArea::vertical().max_height(200.0).show(ui, |ui| {
                         let items = doc.completion.items.clone();
@@ -828,6 +850,12 @@ impl DbProApp {
                                     });
                                 });
 
+                            if is_selected {
+                                item_frame.response.scroll_to_me(Some(egui::Align::Center));
+                            }
+                            if item_frame.response.hovered() {
+                                doc.completion.selected_index = idx;
+                            }
                             if item_frame.response.interact(egui::Sense::click()).clicked() {
                                 clicked_item = Some(item.clone());
                             }
@@ -843,9 +871,10 @@ impl DbProApp {
             doc.cursor.set_offset(&doc.buffer, new_offset);
             doc.selection.collapse_to_active();
             doc.reanalyze(dialect);
+            doc.dirty = true;
+            doc.prediction = None;
             self.query_text = doc.text().to_owned();
             doc.completion.close();
-            return;
         }
 
         // Close on click outside

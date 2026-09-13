@@ -1,4 +1,5 @@
 use crate::editor::completion::{CompletionItem, CompletionItemKind};
+use crate::editor::prediction::AiSqlContext;
 use crate::editor::syntax::CachedSqlTokens;
 use crate::runtime::UiSchemaSummary;
 use std::collections::HashMap;
@@ -53,6 +54,7 @@ impl SchemaCompletionProvider {
                         detail: Some(format!("Table · {}.{}", table.schema, table.name)),
                         documentation: Some(format!("Table with {} columns", table.columns.len())),
                         replacement_range,
+                        sort_score: 2,
                     });
                 }
             }
@@ -65,6 +67,7 @@ impl SchemaCompletionProvider {
                         detail: Some(format!("View · {}.{}", view.schema, view.name)),
                         documentation: Some("Database View".to_owned()),
                         replacement_range,
+                        sort_score: 3,
                     });
                 }
             }
@@ -98,6 +101,7 @@ impl SchemaCompletionProvider {
                                     if col.nullable { " (NULLABLE)" } else { " (NOT NULL)" }
                                 )),
                                 replacement_range,
+                                sort_score: 1,
                             });
                         }
                     }
@@ -127,6 +131,7 @@ impl SchemaCompletionProvider {
                         detail: Some(format!("Table · {}.{}", table.schema, table.name)),
                         documentation: Some(format!("Table with {} columns", table.columns.len())),
                         replacement_range,
+                        sort_score: 2,
                     });
                 }
             }
@@ -140,6 +145,7 @@ impl SchemaCompletionProvider {
                             detail: Some("Table".to_owned()),
                             documentation: None,
                             replacement_range,
+                            sort_score: 2,
                         });
                     }
                 }
@@ -154,6 +160,7 @@ impl SchemaCompletionProvider {
                         detail: Some(format!("View · {}.{}", view.schema, view.name)),
                         documentation: Some("Database View".to_owned()),
                         replacement_range,
+                        sort_score: 3,
                     });
                 }
             }
@@ -179,6 +186,7 @@ impl SchemaCompletionProvider {
                         )),
                         documentation: None,
                         replacement_range,
+                        sort_score: 1,
                     });
                 }
             }
@@ -194,6 +202,7 @@ impl SchemaCompletionProvider {
                     detail: Some(format!("Table · {}.{}", table.schema, table.name)),
                     documentation: None,
                     replacement_range,
+                    sort_score: 2,
                 });
             }
         }
@@ -206,6 +215,7 @@ impl SchemaCompletionProvider {
                     detail: Some(format!("View · {}.{}", view.schema, view.name)),
                     documentation: None,
                     replacement_range,
+                    sort_score: 3,
                 });
             }
         }
@@ -220,6 +230,7 @@ impl SchemaCompletionProvider {
                     detail: Some(format!("Function · {}.{}", func.schema, func.name)),
                     documentation: (!func.data_type.is_empty()).then(|| format!("Returns: {}", func.data_type)),
                     replacement_range,
+                    sort_score: 4,
                 });
             }
         }
@@ -278,12 +289,76 @@ impl SchemaCompletionProvider {
                     detail: Some("SQL Keyword".to_owned()),
                     documentation: None,
                     replacement_range,
+                    sort_score: 5,
                 });
             }
         }
 
         rank_items(&mut items, &prefix_lower);
         (prefix.to_owned(), items)
+    }
+}
+
+pub fn build_ai_sql_context(
+    doc_text: &str,
+    cursor_offset: usize,
+    active_schema: &str,
+    schema_summary: &UiSchemaSummary,
+) -> AiSqlContext {
+    let (before_cursor, after_cursor) = if cursor_offset <= doc_text.len() {
+        doc_text.split_at(cursor_offset)
+    } else {
+        (doc_text, "")
+    };
+
+    let aliases = extract_table_aliases(doc_text);
+    let mut referenced_tables = Vec::new();
+    for table_val in aliases.values() {
+        if !referenced_tables.contains(table_val) {
+            referenced_tables.push(table_val.clone());
+        }
+    }
+    for table in &schema_summary.table_details {
+        if doc_text.to_lowercase().contains(&table.name.to_lowercase())
+            && !referenced_tables.iter().any(|t| t.eq_ignore_ascii_case(&table.name))
+        {
+            referenced_tables.push(table.name.clone());
+        }
+    }
+
+    let mut relevant_columns = Vec::new();
+    let mut fk_neighbors = Vec::new();
+
+    for table_name in &referenced_tables {
+        if let Some(table) = schema_summary
+            .table_details
+            .iter()
+            .find(|t| t.name.eq_ignore_ascii_case(table_name))
+        {
+            for col in &table.columns {
+                relevant_columns.push(format!("{}.{} ({})", table.name, col.name, col.data_type));
+            }
+            for fk in &table.foreign_keys {
+                fk_neighbors.push(format!(
+                    "{} ({}) -> {}.{} ({})",
+                    table.name,
+                    fk.from_columns.join(", "),
+                    fk.to_schema,
+                    fk.to_table,
+                    fk.to_columns.join(", ")
+                ));
+            }
+        }
+    }
+
+    AiSqlContext {
+        sql_before_cursor: before_cursor.to_owned(),
+        sql_after_cursor: after_cursor.to_owned(),
+        current_statement: String::new(),
+        active_schema: active_schema.to_owned(),
+        referenced_tables,
+        relevant_columns,
+        fk_neighbors,
     }
 }
 
@@ -335,22 +410,72 @@ fn extract_qualifier(text: &str) -> Option<&str> {
     None
 }
 
-fn extract_table_aliases(text: &str) -> HashMap<String, String> {
+pub fn extract_table_aliases(text: &str) -> HashMap<String, String> {
     let mut aliases = HashMap::new();
     let words: Vec<&str> = text.split_whitespace().collect();
-    for window in words.windows(3) {
-        if window[0].eq_ignore_ascii_case("FROM") || window[0].eq_ignore_ascii_case("JOIN") {
-            let table = window[1].trim_matches(|c| c == '"' || c == '`' || c == '[' || c == ']');
-            let alias = window[2].trim_matches(|c| c == '"' || c == '`' || c == '[' || c == ']');
-            if !alias.eq_ignore_ascii_case("WHERE")
-                && !alias.eq_ignore_ascii_case("ON")
-                && !alias.eq_ignore_ascii_case("JOIN")
-            {
-                aliases.insert(alias.to_lowercase(), table.to_lowercase());
+    let mut i = 0;
+    while i < words.len() {
+        let w = words[i];
+        if (w.eq_ignore_ascii_case("FROM")
+            || w.eq_ignore_ascii_case("JOIN")
+            || w.eq_ignore_ascii_case("INTO")
+            || w.eq_ignore_ascii_case("UPDATE"))
+            && i + 1 < words.len()
+        {
+            let raw_table = words[i + 1].trim_matches(|c| {
+                c == '"' || c == '`' || c == '[' || c == ']' || c == '(' || c == ')' || c == ';' || c == ','
+            });
+            if !raw_table.is_empty() && !raw_table.starts_with('(') {
+                let table_name = if let Some(dot_pos) = raw_table.rfind('.') {
+                    &raw_table[dot_pos + 1..]
+                } else {
+                    raw_table
+                };
+
+                if i + 2 < words.len() {
+                    if words[i + 2].eq_ignore_ascii_case("AS") {
+                        if i + 3 < words.len() {
+                            let alias = words[i + 3].trim_matches(|c| {
+                                c == '"'
+                                    || c == '`'
+                                    || c == '['
+                                    || c == ']'
+                                    || c == '('
+                                    || c == ')'
+                                    || c == ';'
+                                    || c == ','
+                            });
+                            if is_valid_alias_token(alias) {
+                                aliases.insert(alias.to_lowercase(), table_name.to_lowercase());
+                                i += 3;
+                            }
+                        }
+                    } else {
+                        let alias = words[i + 2].trim_matches(|c| {
+                            c == '"' || c == '`' || c == '[' || c == ']' || c == '(' || c == ')' || c == ';' || c == ','
+                        });
+                        if is_valid_alias_token(alias) {
+                            aliases.insert(alias.to_lowercase(), table_name.to_lowercase());
+                            i += 2;
+                        }
+                    }
+                }
             }
         }
+        i += 1;
     }
     aliases
+}
+
+fn is_valid_alias_token(token: &str) -> bool {
+    if token.is_empty() {
+        return false;
+    }
+    const NON_ALIAS_KEYWORDS: &[&str] = &[
+        "WHERE", "ON", "JOIN", "LEFT", "RIGHT", "INNER", "OUTER", "FULL", "CROSS", "NATURAL", "GROUP", "ORDER",
+        "HAVING", "LIMIT", "OFFSET", "UNION", "SET", "VALUES", "SELECT", "FROM", "AND", "OR", "USING", "AS",
+    ];
+    !NON_ALIAS_KEYWORDS.iter().any(|kw| kw.eq_ignore_ascii_case(token))
 }
 
 #[cfg(test)]
@@ -360,7 +485,7 @@ mod tests {
 
     #[test]
     fn test_extract_table_aliases() {
-        let sql = "SELECT u.id, u.name FROM users u JOIN orders o ON u.id = o.user_id";
+        let sql = "SELECT u.id, u.name FROM users AS u JOIN orders o ON u.id = o.user_id";
         let aliases = extract_table_aliases(sql);
         assert_eq!(aliases.get("u").map(|s| s.as_str()), Some("users"));
         assert_eq!(aliases.get("o").map(|s| s.as_str()), Some("orders"));
@@ -408,5 +533,93 @@ mod tests {
         assert_eq!(items.len(), 1);
         assert_eq!(items[0].label, "email");
         assert_eq!(items[0].kind, CompletionItemKind::Column);
+        assert_eq!(items[0].replacement_range, (9, 11)); // "em" replaced
+    }
+
+    #[test]
+    fn test_completion_suppression_inside_comment() {
+        let summary = UiSchemaSummary::default();
+        let mut tokens = CachedSqlTokens::new();
+        let buf = crate::editor::buffer::TextBuffer::from_string("-- SELECT * FROM users\nSELECT 1;");
+        tokens.get_or_recompute(&buf, crate::editor::syntax::SqlDialect::Postgres);
+
+        let ctx = CompletionContext {
+            text_before_cursor: "-- SELECT * FROM us",
+            text_after_cursor: "\nSELECT 1;",
+            cursor_offset: 19,
+            active_schema: "public",
+            schema_summary: &summary,
+            cached_tokens: Some(&tokens),
+            is_sqlite: false,
+            is_manual_trigger: false,
+        };
+
+        let (prefix, items) = SchemaCompletionProvider::provide(&ctx);
+        assert!(items.is_empty(), "Automatic completion must be suppressed in comments");
+        assert_eq!(prefix, "");
+    }
+
+    #[test]
+    fn test_from_clause_suggests_tables_first() {
+        let summary = UiSchemaSummary {
+            table_details: vec![UiTableSummary {
+                schema: "public".to_owned(),
+                name: "users".to_owned(),
+                row_count: Some(10),
+                columns: vec![],
+                foreign_keys: vec![],
+            }],
+            ..Default::default()
+        };
+
+        let ctx = CompletionContext {
+            text_before_cursor: "SELECT * FROM us",
+            text_after_cursor: " WHERE id = 1",
+            cursor_offset: 16,
+            active_schema: "public",
+            schema_summary: &summary,
+            cached_tokens: None,
+            is_sqlite: false,
+            is_manual_trigger: false,
+        };
+
+        let (prefix, items) = SchemaCompletionProvider::provide(&ctx);
+        assert_eq!(prefix, "us");
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].label, "users");
+        assert_eq!(items[0].kind, CompletionItemKind::Table);
+        assert_eq!(items[0].replacement_range, (14, 16));
+    }
+
+    #[test]
+    fn test_schema_qualified_table_completion() {
+        let summary = UiSchemaSummary {
+            table_details: vec![UiTableSummary {
+                schema: "public".to_owned(),
+                name: "orders".to_owned(),
+                row_count: Some(10),
+                columns: vec![],
+                foreign_keys: vec![],
+            }],
+            ..Default::default()
+        };
+
+        let ctx = CompletionContext {
+            text_before_cursor: "SELECT * FROM public.ord",
+            text_after_cursor: ";",
+            cursor_offset: 24,
+            active_schema: "public",
+            schema_summary: &summary,
+            cached_tokens: None,
+            is_sqlite: false,
+            is_manual_trigger: false,
+        };
+
+        let (prefix, items) = SchemaCompletionProvider::provide(&ctx);
+        assert_eq!(prefix, "ord");
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].label, "orders");
+        assert_eq!(items[0].kind, CompletionItemKind::Table);
+        assert_eq!(items[0].replacement_range, (21, 24));
     }
 }

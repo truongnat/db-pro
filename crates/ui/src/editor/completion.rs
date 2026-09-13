@@ -25,6 +25,7 @@ pub struct CompletionItem {
     pub detail: Option<String>,
     pub documentation: Option<String>,
     pub replacement_range: (usize, usize),
+    pub sort_score: i32,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -33,6 +34,7 @@ pub struct CompletionState {
     pub anchor_offset: usize,
     pub popup_position: Pos2,
     pub query_prefix: String,
+    pub filter_text: String,
     pub items: Vec<CompletionItem>,
     pub selected_index: usize,
     pub trigger_kind: Option<CompletionTriggerKind>,
@@ -54,7 +56,8 @@ impl CompletionState {
         self.is_open = !items.is_empty();
         self.anchor_offset = anchor_offset;
         self.popup_position = popup_position;
-        self.query_prefix = query_prefix;
+        self.query_prefix = query_prefix.clone();
+        self.filter_text = query_prefix;
         self.items = items;
         self.selected_index = 0;
         self.trigger_kind = Some(trigger_kind);
@@ -64,6 +67,7 @@ impl CompletionState {
         self.is_open = false;
         self.items.clear();
         self.query_prefix.clear();
+        self.filter_text.clear();
         self.selected_index = 0;
         self.trigger_kind = None;
     }
@@ -84,11 +88,90 @@ impl CompletionState {
         }
     }
 
+    pub fn select_page_down(&mut self, page_size: usize) {
+        if !self.items.is_empty() {
+            self.selected_index = (self.selected_index + page_size).min(self.items.len().saturating_sub(1));
+        }
+    }
+
+    pub fn select_page_up(&mut self, page_size: usize) {
+        if !self.items.is_empty() {
+            self.selected_index = self.selected_index.saturating_sub(page_size);
+        }
+    }
+
     pub fn current_item(&self) -> Option<&CompletionItem> {
         if self.is_open {
             self.items.get(self.selected_index)
         } else {
             None
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_completion_state_navigation() {
+        let mut state = CompletionState::new();
+        let items = vec![
+            CompletionItem {
+                label: "users".to_owned(),
+                insert_text: "users".to_owned(),
+                kind: CompletionItemKind::Table,
+                detail: None,
+                documentation: None,
+                replacement_range: (0, 2),
+                sort_score: 1,
+            },
+            CompletionItem {
+                label: "user_roles".to_owned(),
+                insert_text: "user_roles".to_owned(),
+                kind: CompletionItemKind::Table,
+                detail: None,
+                documentation: None,
+                replacement_range: (0, 2),
+                sort_score: 2,
+            },
+            CompletionItem {
+                label: "user_profiles".to_owned(),
+                insert_text: "user_profiles".to_owned(),
+                kind: CompletionItemKind::Table,
+                detail: None,
+                documentation: None,
+                replacement_range: (0, 2),
+                sort_score: 3,
+            },
+        ];
+
+        state.open(
+            2,
+            Pos2::new(10.0, 20.0),
+            "us".to_owned(),
+            items,
+            CompletionTriggerKind::Automatic,
+        );
+        assert!(state.is_open);
+        assert_eq!(state.selected_index, 0);
+        assert_eq!(state.current_item().unwrap().label, "users");
+
+        state.select_next();
+        assert_eq!(state.selected_index, 1);
+        assert_eq!(state.current_item().unwrap().label, "user_roles");
+
+        state.select_prev();
+        assert_eq!(state.selected_index, 0);
+
+        state.select_prev(); // wraps to last
+        assert_eq!(state.selected_index, 2);
+
+        state.select_next(); // wraps to first
+        assert_eq!(state.selected_index, 0);
+
+        state.close();
+        assert!(!state.is_open);
+        assert!(state.items.is_empty());
     }
 }

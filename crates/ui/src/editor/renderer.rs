@@ -38,6 +38,7 @@ pub struct SqlEditor<'a> {
     pub cached_tokens: Option<&'a mut CachedSqlTokens>,
     pub search_query: &'a str,
     pub active_search_match_index: usize,
+    pub completion_open: bool,
     pub font_size: f32,
     pub id_salt: &'a str,
 }
@@ -65,6 +66,7 @@ impl<'a> SqlEditor<'a> {
             cached_tokens: None,
             search_query: "",
             active_search_match_index: 0,
+            completion_open: false,
             font_size: FONT_SIZE,
             id_salt,
         }
@@ -78,6 +80,11 @@ impl<'a> SqlEditor<'a> {
     pub fn with_search(mut self, query: &'a str, active_match: usize) -> Self {
         self.search_query = query;
         self.active_search_match_index = active_match;
+        self
+    }
+
+    pub fn with_completion_open(mut self, completion_open: bool) -> Self {
+        self.completion_open = completion_open;
         self
     }
 
@@ -201,6 +208,11 @@ impl<'a> SqlEditor<'a> {
                             }
                             Key::Tab => {
                                 self.buffer.break_typing_group();
+                                // If completion popup is open, do not consume Tab; let completion accept it
+                                if self.completion_open {
+                                    continue;
+                                }
+
                                 // Accept AI prediction on Tab if prediction is active and no popup
                                 if let Some(pred) = self.prediction {
                                     if !pred.is_empty() && pred.anchor == self.cursor.offset && !shift {
@@ -582,24 +594,26 @@ impl<'a> SqlEditor<'a> {
         );
         response.cursor_screen_pos = Pos2::new(cursor_screen.x, cursor_screen.y + line_height);
 
-        // Inline AI Prediction Ghost Text
-        if let Some(pred) = self.prediction {
-            if !pred.is_empty() && pred.anchor == self.cursor.offset {
-                let lines: Vec<&str> = pred.text.split('\n').collect();
-                for (idx, line_str) in lines.iter().enumerate() {
-                    let ghost_x = if idx == 0 {
-                        cursor_screen.x
-                    } else {
-                        rect.min.x + gutter_w + PADDING_LEFT
-                    };
-                    let ghost_y = cursor_screen.y + (idx as f32) * line_height;
-                    ui.painter().text(
-                        Pos2::new(ghost_x, ghost_y),
-                        egui::Align2::LEFT_TOP,
-                        *line_str,
-                        font_id.clone(),
-                        self.theme.text_muted.linear_multiply(0.65),
-                    );
+        // Inline AI Prediction Ghost Text (suppressed while completion popup is open)
+        if !self.completion_open {
+            if let Some(pred) = self.prediction {
+                if !pred.is_empty() && pred.anchor == self.cursor.offset {
+                    let lines: Vec<&str> = pred.text.split('\n').collect();
+                    for (idx, line_str) in lines.iter().enumerate() {
+                        let ghost_x = if idx == 0 {
+                            cursor_screen.x
+                        } else {
+                            rect.min.x + gutter_w + PADDING_LEFT
+                        };
+                        let ghost_y = cursor_screen.y + (idx as f32) * line_height;
+                        ui.painter().text(
+                            Pos2::new(ghost_x, ghost_y),
+                            egui::Align2::LEFT_TOP,
+                            *line_str,
+                            font_id.clone(),
+                            self.theme.text_muted.linear_multiply(0.65),
+                        );
+                    }
                 }
             }
         }
