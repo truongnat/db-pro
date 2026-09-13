@@ -1,4 +1,5 @@
-use super::buffer::TextBuffer;
+use super::brackets;
+use super::buffer::{EditorSnapshot, TextBuffer};
 use super::cursor::CursorPosition;
 use super::decorations::DiagnosticSeverity;
 use super::diagnostics::Diagnostic;
@@ -29,6 +30,13 @@ pub struct SqlEditorResponse {
     pub wants_dismiss_prediction: bool,
     pub accepted_prediction_len: Option<usize>,
     pub focused: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum PairTextResult {
+    NotHandled,
+    Inserted,
+    SkippedExistingClosing,
 }
 
 pub struct SqlEditor<'a> {
@@ -161,6 +169,10 @@ impl<'a> SqlEditor<'a> {
             let events = ui.input(|i| i.events.clone());
             let modifiers = ui.input(|i| i.modifiers);
             let cmd_or_ctrl = modifiers.command || modifiers.ctrl || modifiers.mac_cmd;
+
+            if let Some(cache) = self.cached_tokens.as_mut() {
+                cache.get_or_recompute(self.buffer, self.dialect);
+            }
 
             for event in events {
                 match event {
@@ -372,6 +384,14 @@ impl<'a> SqlEditor<'a> {
                         }
                     }
                     Event::Text(text) if !cmd_or_ctrl && !text.is_empty() => {
+                        match self.handle_pair_text(&text) {
+                            PairTextResult::Inserted => {
+                                response.changed = true;
+                                continue;
+                            }
+                            PairTextResult::SkippedExistingClosing => continue,
+                            PairTextResult::NotHandled => {}
+                        }
                         self.type_text(&text);
                         response.changed = true;
                         if text == "." || text.chars().all(|c| c.is_alphanumeric() || c == '_') {
@@ -513,6 +533,52 @@ impl<'a> SqlEditor<'a> {
             for s_rect in rects {
                 ui.painter()
                     .rect_filled(s_rect, Rounding::same(2.0), self.theme.accent.linear_multiply(0.24));
+            }
+        }
+
+        // Matching delimiter highlight and a subtle warning for an unmatched
+        // structural delimiter near the caret.
+        if let Some(delimiter) = brackets::delimiter_near_cursor(self.buffer.text(), self.cursor.offset) {
+            let delimiter_len = self.buffer.char_at(delimiter.delimiter).map_or(0, char::len_utf8);
+            if delimiter_len > 0 {
+                let color = if delimiter.matching.is_some() {
+                    self.theme.accent
+                } else {
+                    self.theme.warning
+                };
+                for highlighted in self.range_to_screen_rects(
+                    self.buffer,
+                    delimiter.delimiter,
+                    delimiter.delimiter + delimiter_len,
+                    rect.min,
+                    gutter_w,
+                    line_height,
+                    char_width,
+                ) {
+                    ui.painter().rect_stroke(
+                        highlighted,
+                        Rounding::same(2.0),
+                        Stroke::new(1.2, color.linear_multiply(0.85)),
+                    );
+                }
+                if let Some(matching) = delimiter.matching {
+                    let matching_len = self.buffer.char_at(matching).map_or(0, char::len_utf8);
+                    for highlighted in self.range_to_screen_rects(
+                        self.buffer,
+                        matching,
+                        matching + matching_len,
+                        rect.min,
+                        gutter_w,
+                        line_height,
+                        char_width,
+                    ) {
+                        ui.painter().rect_stroke(
+                            highlighted,
+                            Rounding::same(2.0),
+                            Stroke::new(1.2, self.theme.accent.linear_multiply(0.85)),
+                        );
+                    }
+                }
             }
         }
 
@@ -786,6 +852,85 @@ impl<'a> SqlEditor<'a> {
         self.buffer.insert(offset, text);
         self.cursor.set_offset(self.buffer, offset + text.len());
         self.selection.collapse_to_active();
+    }
+
+    fn handle_pair_text(&mut self, text: &str) -> PairTextResult {
+        let mut characters = text.chars();
+        let Some(character) = characters.next() else {
+            return PairTextResult::NotHandled;
+        };
+        if characters.next().is_some() {
+            return PairTextResult::NotHandled;
+        }
+
+        if brackets::closing_pair(character)
+            && self.selection.is_empty()
+            && self.buffer.char_at(self.cursor.offset) == Some(character)
+        {
+            let next = self.buffer.next_char_boundary(self.cursor.offset);
+            self.cursor.set_offset(self.buffer, next);
+            self.selection.collapse_to_active();
+            return PairTextResult::SkippedExistingClosing;
+        }
+
+        let Some(closing) = brackets::opening_pair(character) else {
+            return PairTextResult::NotHandled;
+        };
+        if self
+            .cached_tokens
+            .as_ref()
+            .is_some_and(|cache| cache.is_in_string_or_comment(self.cursor.offset.saturating_sub(1)))
+        {
+            return PairTextResult::NotHandled;
+        }
+
+        if !self.selection.is_empty() {
+            self.wrap_selection(character, closing);
+        } else {
+            let offset = self.cursor.offset;
+            let before = EditorSnapshot {
+                cursor_offset: offset,
+                anchor_offset: self.selection.anchor,
+            };
+            let after = EditorSnapshot {
+                cursor_offset: offset + character.len_utf8(),
+                anchor_offset: offset + character.len_utf8(),
+            };
+            let pair = format!("{character}{closing}");
+            self.buffer.replace_with_snapshot(offset, offset, &pair, before, after);
+            self.cursor.set_offset(self.buffer, offset + character.len_utf8());
+            self.selection.collapse_to_active();
+        }
+        PairTextResult::Inserted
+    }
+
+    fn wrap_selection(&mut self, opening: char, closing: char) {
+        let (start, end) = self.selection.normalized();
+        let selected = self.buffer.slice(start, end).to_owned();
+        let wrapped = format!("{opening}{selected}{closing}");
+        let before = EditorSnapshot {
+            cursor_offset: self.cursor.offset,
+            anchor_offset: self.selection.anchor,
+        };
+        let inner_start = start + opening.len_utf8();
+        let inner_end = inner_start + selected.len();
+        let (anchor, active) = if self.selection.anchor <= self.selection.active {
+            (inner_start, inner_end)
+        } else {
+            (inner_end, inner_start)
+        };
+        self.buffer.replace_with_snapshot(
+            start,
+            end,
+            &wrapped,
+            before,
+            EditorSnapshot {
+                cursor_offset: active,
+                anchor_offset: anchor,
+            },
+        );
+        self.cursor.set_offset(self.buffer, active);
+        *self.selection = SelectionRange::new(anchor, active);
     }
 
     fn insert_prediction_text(&mut self, replacement_range: (usize, usize), text: &str) {

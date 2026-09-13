@@ -1293,6 +1293,15 @@ fn sql_diagnostics_allow_expression_selects_without_from() {
 }
 
 #[test]
+fn sql_diagnostics_include_unmatched_square_bracket_range() {
+    let diagnostics = DbProApp::parse_sql_diagnostics("SELECT items[1 FROM data;", "PostgreSQL");
+
+    assert!(diagnostics
+        .iter()
+        .any(|message| message.contains("Unmatched delimiter [")));
+}
+
+#[test]
 fn failed_schema_request_is_visible_and_retryable() {
     let (bridge, _command_rx, event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);

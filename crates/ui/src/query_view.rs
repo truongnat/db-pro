@@ -1224,6 +1224,15 @@ impl DbProApp {
             string_diagnostics.push("Query is empty".to_owned());
             return (string_diagnostics, structured_diagnostics);
         }
+        for (offset, delimiter) in crate::editor::brackets::unmatched_structural_delimiters(sql) {
+            if !matches!(delimiter, '[' | ']') {
+                continue;
+            }
+            let end = offset + sql[offset..].chars().next().map_or(1, char::len_utf8);
+            let message = format!("Unmatched delimiter {}", delimiter);
+            string_diagnostics.push(message.clone());
+            structured_diagnostics.push(Diagnostic::warning((offset, end), message));
+        }
         let mut tokens = Vec::new();
         let mut current = String::new();
         let mut in_string = false;

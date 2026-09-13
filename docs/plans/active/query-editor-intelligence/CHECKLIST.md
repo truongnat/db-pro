@@ -16,6 +16,8 @@
 - [x] Add clause-aware ORDER BY/GROUP BY projection ranking and INSERT column de-duplication.
 - [x] Add FK-aware JOIN ON condition completion for explicitly aliased tables.
 - [x] Add conservative selection/document SQL formatting with one-step undo and keyboard action.
+- [x] Add SQL-aware bracket/quote pairing, selection wrapping, duplicate-closing skip, and matching highlight.
+- [x] Add unmatched square-bracket diagnostics with editor ranges.
 - [x] Keep Query Workspace output tabs isolated per document.
 - [x] Remove the remaining global query execution request slot from the UI routing path.
 - [x] Verify per-document execution/explain routing.

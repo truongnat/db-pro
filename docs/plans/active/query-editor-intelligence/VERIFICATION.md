@@ -17,6 +17,10 @@ Source evidence recorded on 2026-09-13:
   text, identifiers, and PostgreSQL dollar-quoted bodies while normalizing common clause
   boundaries. Selection/document formatting uses a single editor undo snapshot and is available
   from Query actions and Cmd/Ctrl+Shift+F.
+- The editor now performs SQL-aware `()`, `[]`, `'`, and `"` pairing, wraps selections atomically,
+  skips an already-present closing delimiter, and highlights the delimiter pair near the caret.
+  Unmatched square brackets are surfaced as ranged diagnostics while literals/comments/dollar
+  quotes are ignored by the structural matcher.
 
 Source evidence is not runtime evidence.
 
@@ -38,7 +42,7 @@ replacement. The native runtime worker logs provider latency using request/docum
 - Focused tests cover translator routing, stale document version rejection, debounce/deduplication,
   current-statement context, UTF-8 overlap, atomic replacement acceptance, cooldown handling,
   completion context, FK JOIN suggestions, INSERT/ORDER/GROUP completion ranking, conservative
-  SQL formatting, and concurrent per-document query/output state.
+  SQL formatting, bracket matching/diagnostics, and concurrent per-document query/output state.
 
 Runtime evidence collected in this turn:
 
