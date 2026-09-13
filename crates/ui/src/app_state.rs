@@ -179,6 +179,7 @@ impl Default for DbProApp {
             data_edit_error: None,
             data_delete_confirmation: false,
             discard_changes_confirmation: false,
+            pending_navigation_action: None,
             insert_row_open: false,
             insert_row_values: Vec::new(),
             insert_row_error: String::new(),

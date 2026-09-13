@@ -57,7 +57,6 @@ impl DbProApp {
             ui.set_min_width((data_width - 24.0).max(0.0));
             self.draw_result_grid(ui, &result);
         });
-        self.draw_discard_changes_confirmation(ui);
         self.draw_pending_changes_dialog(ui);
         if self.table_data_result.is_none() {
             self.table_data_result = Some(result);
@@ -571,13 +570,14 @@ impl DbProApp {
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                     if paging.total_known
                         && paging.total_rows > 0
-                        && compact_button_with_icon(ui, Icon::ChevronsLeft, "First", self.theme)
-                            .on_hover_text("First page")
+                        && compact_button_with_icon(ui, Icon::ChevronsRight, "Last", self.theme)
+                            .on_hover_text("Last page")
                             .clicked()
-                        && self.table_data_offset > 0
+                        && paging.has_next
                         && self.staged_changes.is_empty()
                     {
-                        self.table_data_offset = 0;
+                        let last_page = paging.total_rows.saturating_sub(1) / self.table_data_limit;
+                        self.table_data_offset = last_page.saturating_mul(self.table_data_limit);
                         self.request_table_data();
                     }
 
@@ -607,16 +607,17 @@ impl DbProApp {
 
                     if paging.total_known
                         && paging.total_rows > 0
-                        && compact_button_with_icon(ui, Icon::ChevronsRight, "Last", self.theme)
-                            .on_hover_text("Last page")
+                        && compact_button_with_icon(ui, Icon::ChevronsLeft, "First", self.theme)
+                            .on_hover_text("First page")
                             .clicked()
-                        && paging.has_next
+                        && self.table_data_offset > 0
                         && self.staged_changes.is_empty()
                     {
-                        let last_page = paging.total_rows.saturating_sub(1) / self.table_data_limit;
-                        self.table_data_offset = last_page.saturating_mul(self.table_data_limit);
+                        self.table_data_offset = 0;
                         self.request_table_data();
                     }
+
+                    ui.separator();
 
                     let prev_limit = self.table_data_limit;
                     let limit_label = format!("{} / page", self.table_data_limit);
@@ -1924,34 +1925,43 @@ impl DbProApp {
         self.runtime_message = "Reloading row from database…".to_owned();
     }
 
-    fn draw_discard_changes_confirmation(&mut self, ui: &mut egui::Ui) {
+    pub(crate) fn draw_discard_changes_confirmation(&mut self, ui: &mut egui::Ui) {
         if !self.discard_changes_confirmation {
             return;
         }
         let counts = self.staged_changes.counts();
         let description = format!(
-            "Discard {} pending changes (+{} inserts, {} updates, {} deletes) and restore the server state?",
+            "You have {} unapplied staged change(s) (+{} inserts, {} updates, {} deletes). Apply changes to database, discard them, or cancel navigation?",
             counts.total(),
             counts.inserts,
             counts.updates,
             counts.deletes
         );
         let mut open = true;
-        let mut confirm = false;
+        let mut apply = false;
+        let mut discard = false;
         let mut cancel = false;
         let theme = self.theme;
-        Dialog::new(&mut open, "Discard pending changes?", theme)
+        Dialog::new(&mut open, "Unapplied Changes", theme)
             .description(&description)
             .id_salt("discard-table-changes")
             .show(ui, |ui| {
                 ui.horizontal(|ui| {
                     if Button::new(theme)
-                        .text("Discard changes")
+                        .text("Apply Changes")
+                        .variant(ButtonVariant::Default)
+                        .show(ui)
+                        .clicked()
+                    {
+                        apply = true;
+                    }
+                    if Button::new(theme)
+                        .text("Discard Changes")
                         .variant(ButtonVariant::Destructive)
                         .show(ui)
                         .clicked()
                     {
-                        confirm = true;
+                        discard = true;
                     }
                     if Button::new(theme)
                         .text("Cancel")
@@ -1963,10 +1973,19 @@ impl DbProApp {
                     }
                 });
             });
-        if confirm {
+        if apply {
+            self.discard_changes_confirmation = false;
+            self.apply_staged_changes();
+        } else if discard {
+            self.discard_changes_confirmation = false;
+            let pending = self.pending_navigation_action.take();
             self.discard_staged_changes();
+            if let Some(action) = pending {
+                self.execute_pending_navigation(action);
+            }
         } else if cancel || !open {
             self.discard_changes_confirmation = false;
+            self.pending_navigation_action = None;
         }
     }
 
@@ -2274,6 +2293,10 @@ impl DbProApp {
         self.table_mutation_error = None;
         self.runtime_message = "All staged changes applied".to_owned();
         self.show_toast_success("All staged changes applied successfully");
+        if let Some(action) = self.pending_navigation_action.take() {
+            self.execute_pending_navigation(action);
+            return;
+        }
         self.table_data_result = None;
         self.table_data_total_rows = None;
         self.table_data_error = None;
@@ -2281,6 +2304,7 @@ impl DbProApp {
     }
 
     pub(crate) fn staged_apply_failed(&mut self, statement_index: usize, code: &str, message: &str, rolled_back: bool) {
+        self.pending_navigation_action = None;
         self.staged_apply_request = None;
         self.table_mutation_request = None;
         self.table_mutation_retry_after_reload = false;
@@ -2506,7 +2530,7 @@ impl DbProApp {
         self.request_table_data();
     }
 
-    fn filter_operator_supported(data_type: &str, operator: &UiTableFilterOperator) -> bool {
+    pub(crate) fn filter_operator_supported(data_type: &str, operator: &UiTableFilterOperator) -> bool {
         Self::filter_operator_options(data_type)
             .iter()
             .any(|(candidate, _)| candidate == operator)

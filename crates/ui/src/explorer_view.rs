@@ -600,15 +600,17 @@ impl DbProApp {
     }
 
     /// Activates a schema and clears the workspace state that depended on the old one.
-    fn activate_schema(&mut self, schema: &str) {
+    pub(crate) fn activate_schema(&mut self, schema: &str) {
         if self.selected_schema.as_deref() == Some(schema) {
             return;
         }
         if !self.staged_changes.is_empty() {
+            self.pending_navigation_action = Some(PendingNavigationAction::ChangeSchema(schema.to_owned()));
             self.discard_changes_confirmation = true;
             self.runtime_message = "Apply or discard staged changes before changing schema".to_owned();
             return;
         }
+        self.pending_navigation_action = None;
         self.selected_schema = Some(schema.to_owned());
         self.selected_table = None;
         self.selected_schema_object = None;
@@ -778,10 +780,12 @@ impl DbProApp {
             return;
         }
         if !self.staged_changes.is_empty() {
+            self.pending_navigation_action = Some(PendingNavigationAction::ChangeConnection(connection.id.clone()));
             self.discard_changes_confirmation = true;
             self.runtime_message = "Apply or discard staged changes before changing connection".to_owned();
             return;
         }
+        self.pending_navigation_action = None;
         self.reset_agent_context();
         self.active_connection_id = Some(connection.id.clone());
         self.pending_connection_id = Some(connection.id.clone());

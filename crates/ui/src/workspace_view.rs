@@ -550,6 +550,7 @@ impl DbProApp {
             WorkspaceTab::Diagram => self.draw_diagram(ui),
             WorkspaceTab::ComponentGallery => self.draw_component_gallery(ui),
         }
+        self.draw_discard_changes_confirmation(ui);
     }
 }
 

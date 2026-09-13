@@ -1698,3 +1698,155 @@ fn test_query_cancellation_capability_gate() {
     let caps_sqlite = app.active_capabilities().expect("SQLite capabilities");
     assert!(caps_sqlite.query.cancel);
 }
+
+#[test]
+fn test_navigation_staged_changes_apply_discard_cancel_flows() {
+    let mut app = DbProApp {
+        selected_table: Some("users".to_owned()),
+        ..Default::default()
+    };
+    app.staged_changes.ensure_target("users");
+    app.staged_changes.stage_update(StagedChange::Update {
+        identity: primary_key_identity("1"),
+        current_row_index: Some(0),
+        column_index: 0,
+        column: "name".to_owned(),
+        data_type: "text".to_owned(),
+        original: UiCell::Text("Alice".to_owned()),
+        value: UiCell::Text("Alicia".to_owned()),
+    });
+
+    // 1. Navigation Attempt sets pending_navigation_action
+    app.open_table("orders".to_owned());
+    assert_eq!(
+        app.pending_navigation_action,
+        Some(PendingNavigationAction::OpenTable("orders".to_owned()))
+    );
+    assert!(app.discard_changes_confirmation);
+    assert_eq!(app.selected_table, Some("users".to_owned()));
+
+    // 2. Cancel retains current context and clears pending action
+    app.discard_changes_confirmation = false;
+    app.pending_navigation_action = None;
+    assert_eq!(app.selected_table, Some("users".to_owned()));
+    assert!(!app.staged_changes.is_empty());
+
+    // 3. Staged apply success executes pending navigation action
+    app.open_table("products".to_owned());
+    assert_eq!(
+        app.pending_navigation_action,
+        Some(PendingNavigationAction::OpenTable("products".to_owned()))
+    );
+    app.staged_apply_completed();
+    assert_eq!(app.selected_table, Some("products".to_owned()));
+    assert!(app.staged_changes.is_empty());
+    assert!(app.pending_navigation_action.is_none());
+}
+
+#[test]
+fn test_typed_filter_operator_support() {
+    // Text types support full text operators
+    assert!(DbProApp::filter_operator_supported(
+        "text",
+        &UiTableFilterOperator::Contains
+    ));
+    assert!(DbProApp::filter_operator_supported(
+        "varchar(255)",
+        &UiTableFilterOperator::StartsWith
+    ));
+    assert!(DbProApp::filter_operator_supported(
+        "character varying",
+        &UiTableFilterOperator::EndsWith
+    ));
+
+    // Numeric and timestamp types support comparison operators
+    assert!(DbProApp::filter_operator_supported(
+        "integer",
+        &UiTableFilterOperator::GreaterThan
+    ));
+    assert!(DbProApp::filter_operator_supported(
+        "bigint",
+        &UiTableFilterOperator::LessThanOrEqual
+    ));
+    assert!(DbProApp::filter_operator_supported(
+        "numeric(10,2)",
+        &UiTableFilterOperator::GreaterThanOrEqual
+    ));
+    assert!(DbProApp::filter_operator_supported(
+        "timestamptz",
+        &UiTableFilterOperator::GreaterThan
+    ));
+
+    // Boolean only supports equals / not equals
+    assert!(DbProApp::filter_operator_supported(
+        "boolean",
+        &UiTableFilterOperator::Equals
+    ));
+    assert!(DbProApp::filter_operator_supported(
+        "bool",
+        &UiTableFilterOperator::NotEquals
+    ));
+    assert!(!DbProApp::filter_operator_supported(
+        "boolean",
+        &UiTableFilterOperator::GreaterThan
+    ));
+
+    // All types support IS NULL and IS NOT NULL
+    assert!(DbProApp::filter_operator_supported(
+        "integer",
+        &UiTableFilterOperator::IsNull
+    ));
+    assert!(DbProApp::filter_operator_supported(
+        "text",
+        &UiTableFilterOperator::IsNotNull
+    ));
+    assert!(DbProApp::filter_operator_supported(
+        "uuid",
+        &UiTableFilterOperator::IsNull
+    ));
+}
+
+#[test]
+fn test_grid_layout_schema_reconciliation() {
+    let mut app = DbProApp::default();
+    let initial_columns = vec![
+        crate::UiColumn {
+            name: "id".to_owned(),
+            data_type: "int".to_owned(),
+            nullable: false,
+        },
+        crate::UiColumn {
+            name: "email".to_owned(),
+            data_type: "text".to_owned(),
+            nullable: false,
+        },
+    ];
+
+    app.grid_pending_named_layout = Some(vec![
+        PersistedGridColumnLayout {
+            column_name: "email".to_owned(),
+            width: 240.0,
+            order: 0,
+            hidden: false,
+        },
+        PersistedGridColumnLayout {
+            column_name: "id".to_owned(),
+            width: 100.0,
+            order: 1,
+            hidden: false,
+        },
+        // Removed column in DB should be gracefully dropped
+        PersistedGridColumnLayout {
+            column_name: "old_column".to_owned(),
+            width: 300.0,
+            order: 2,
+            hidden: true,
+        },
+    ]);
+
+    let order = app.column_order_for_columns(&initial_columns);
+    // email was index 1, id was index 0
+    assert_eq!(order, vec![1, 0]);
+    assert_eq!(app.grid_column_widths[1], 240.0);
+    assert_eq!(app.grid_column_widths[0], 100.0);
+}

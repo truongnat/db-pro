@@ -26,6 +26,14 @@ use std::time::Duration;
 
 use change_set::{ChangeSet, MutationFailure, MutationTarget, RowIdentity, StagedChange};
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum PendingNavigationAction {
+    OpenTable(String),
+    ChangeSchema(String),
+    ChangeConnection(String),
+    CloseWorkspace(WorkspaceTab),
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 struct PersistedGridColumnLayout {
     column_name: String,
@@ -360,6 +368,7 @@ pub struct DbProApp {
     data_edit_error: Option<String>,
     data_delete_confirmation: bool,
     discard_changes_confirmation: bool,
+    pub(crate) pending_navigation_action: Option<PendingNavigationAction>,
     insert_row_open: bool,
     insert_row_values: Vec<String>,
     insert_row_error: String,
@@ -951,14 +960,35 @@ impl DbProApp {
         }
     }
 
+    pub(crate) fn execute_pending_navigation(&mut self, action: PendingNavigationAction) {
+        match action {
+            PendingNavigationAction::OpenTable(table) => {
+                self.open_table(table);
+            }
+            PendingNavigationAction::ChangeSchema(schema) => {
+                self.activate_schema(&schema);
+            }
+            PendingNavigationAction::ChangeConnection(connection_id) => {
+                if let Some(conn) = self.connections.iter().find(|c| c.id == connection_id).cloned() {
+                    self.connect_to_connection(&conn);
+                }
+            }
+            PendingNavigationAction::CloseWorkspace(tab) => {
+                self.request_close_workspace_tab(tab);
+            }
+        }
+    }
+
     pub(crate) fn request_close_workspace_tab(&mut self, tab: WorkspaceTab) {
         match tab {
             WorkspaceTab::Table => {
                 if !self.staged_changes.is_empty() {
+                    self.pending_navigation_action = Some(PendingNavigationAction::CloseWorkspace(tab));
                     self.discard_changes_confirmation = true;
                     self.runtime_message = "Apply or discard staged changes before closing the table".to_owned();
                     return;
                 }
+                self.pending_navigation_action = None;
                 self.selected_table = None;
                 self.table_info = None;
                 self.table_ddl = None;
@@ -1014,10 +1044,12 @@ impl DbProApp {
             return;
         }
         if !self.staged_changes.is_empty() {
+            self.pending_navigation_action = Some(PendingNavigationAction::OpenTable(table));
             self.discard_changes_confirmation = true;
             self.runtime_message = "Apply or discard staged changes before opening another table".to_owned();
             return;
         }
+        self.pending_navigation_action = None;
         self.persist_current_grid_layout();
         self.selected_table = Some(table);
         self.restore_grid_layout_for_active_table();
