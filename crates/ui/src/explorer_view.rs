@@ -442,10 +442,10 @@ impl DbProApp {
             }
             if actions.create_table {
                 self.new_query_document();
-                self.query_text = format!(
+                self.set_active_query_text(format!(
                     "-- Create table on database `{}`\nCREATE TABLE new_table (\n    id SERIAL PRIMARY KEY,\n    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP\n);\n",
                     connection.database
-                );
+                ));
                 self.active_tab = WorkspaceTab::Query;
             }
             if actions.copy_name {

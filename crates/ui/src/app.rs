@@ -1,4 +1,5 @@
 use crate::components::*;
+use crate::editor::PredictionMode;
 use crate::tokens::*;
 use crate::{
     activity_bar_frame, agent_message_frame, badge, card_frame, compact_button, compact_button_with_icon,
@@ -296,7 +297,7 @@ pub struct DbProApp {
     bottom_panel_open: bool,
     bottom_panel_height: f32,
     sidebar_open_before_agent: Option<bool>,
-    query_text: String,
+    pub prediction_mode: PredictionMode,
     welcome_prompt: String,
     selected_query: String,
     query_documents: Vec<QueryDocument>,
@@ -335,8 +336,6 @@ pub struct DbProApp {
     runtime_message: String,
     toasts: crate::components::overlay::ToastManager,
     output_tab: OutputTab,
-    explain_plan: Option<String>,
-    explain_request: Option<crate::RequestId>,
     grid_filter: String,
     grid_sort_column: Option<usize>,
     grid_sort_desc: bool,
@@ -469,7 +468,6 @@ impl eframe::App for DbProApp {
             "dbpro.native.grid-widths-customized",
             self.grid_columns_user_resized.to_string(),
         );
-        self.persist_active_query_document();
         if let Ok(documents) = serde_json::to_string(&self.query_documents) {
             storage.set_string("dbpro.native.query-documents", documents);
         }
@@ -798,22 +796,48 @@ impl DbProApp {
         (icon, color)
     }
 
-    fn persist_active_query_document(&mut self) {
-        if let Some(document) = self.query_documents.get_mut(self.active_query_document) {
-            if document.text() != self.query_text {
-                document.set_text(self.query_text.clone());
-            }
+    pub(crate) fn active_query_text(&self) -> &str {
+        self.query_documents
+            .get(self.active_query_document)
+            .map(|doc| doc.text())
+            .unwrap_or("")
+    }
+
+    pub(crate) fn set_active_query_text(&mut self, text: impl Into<String>) {
+        if let Some(doc) = self.query_documents.get_mut(self.active_query_document) {
+            doc.set_text(text);
         }
+    }
+
+    pub(crate) fn append_to_active_query(&mut self, text: &str) {
+        if let Some(doc) = self.query_documents.get_mut(self.active_query_document) {
+            let mut current = doc.text().to_owned();
+            if !current.trim().is_empty() {
+                current.push_str("\n\n");
+            }
+            current.push_str(text);
+            doc.set_text(current);
+        }
+    }
+
+    pub(crate) fn active_explain_plan(&self) -> Option<&str> {
+        self.query_documents
+            .get(self.active_query_document)
+            .and_then(|d| d.explain_plan.as_deref())
+    }
+
+    pub(crate) fn active_explain_request(&self) -> Option<crate::RequestId> {
+        self.query_documents
+            .get(self.active_query_document)
+            .and_then(|d| d.explain_request)
     }
 
     pub(crate) fn switch_query_document(&mut self, index: usize) {
         if index >= self.query_documents.len() || index == self.active_query_document {
             return;
         }
-        self.persist_active_query_document();
         self.active_query_document = index;
         let doc = &self.query_documents[index];
-        self.query_text = doc.text().to_owned();
         self.query_cursor_line = doc.cursor.line + 1;
         self.query_cursor_column = doc.cursor.col + 1;
         if !doc.selection.is_empty() {
@@ -839,7 +863,6 @@ impl DbProApp {
     }
 
     pub(crate) fn new_query_document(&mut self) {
-        self.persist_active_query_document();
         let index = self.query_documents.len() + 1;
         self.query_documents.push(QueryDocument::new(
             format!("query-{index}"),
@@ -847,7 +870,6 @@ impl DbProApp {
             String::new(),
         ));
         self.active_query_document = self.query_documents.len() - 1;
-        self.query_text.clear();
         self.reset_query_cursor();
         self.activity = Activity::Queries;
         self.sidebar_open = true;
@@ -859,13 +881,11 @@ impl DbProApp {
             return;
         }
 
-        self.persist_active_query_document();
         let closed_title = self.query_documents[index].title.clone();
         self.query_documents.remove(index);
 
         if self.query_documents.is_empty() {
             self.active_query_document = 0;
-            self.query_text.clear();
             self.reset_query_cursor();
             if self.active_tab == WorkspaceTab::Query {
                 self.activate_fallback_workspace_tab();
@@ -880,7 +900,6 @@ impl DbProApp {
             self.active_query_document = self.active_query_document.min(self.query_documents.len() - 1);
         }
         let doc = &self.query_documents[self.active_query_document];
-        self.query_text = doc.text().to_owned();
         self.query_cursor_line = doc.cursor.line + 1;
         self.query_cursor_column = doc.cursor.col + 1;
         if !doc.selection.is_empty() {
@@ -901,7 +920,6 @@ impl DbProApp {
         if index >= self.query_documents.len() {
             return;
         }
-        self.persist_active_query_document();
         let src = &self.query_documents[index];
         let title = format!("{} (Copy)", src.title);
         let content = src.text().to_owned();
@@ -909,7 +927,6 @@ impl DbProApp {
         self.query_documents
             .push(QueryDocument::new(format!("query-{doc_count}"), title, content));
         self.active_query_document = self.query_documents.len() - 1;
-        self.query_text = self.query_documents[self.active_query_document].text().to_owned();
         self.active_tab = WorkspaceTab::Query;
         self.runtime_message = format!("Duplicated {}", self.query_documents[index].title);
     }
@@ -918,11 +935,9 @@ impl DbProApp {
         if keep_index >= self.query_documents.len() {
             return;
         }
-        self.persist_active_query_document();
         let kept = self.query_documents[keep_index].clone();
         self.query_documents = vec![kept];
         self.active_query_document = 0;
-        self.query_text = self.query_documents[0].text().to_owned();
         self.runtime_message = "Closed other queries".to_owned();
     }
 
@@ -930,21 +945,17 @@ impl DbProApp {
         if index >= self.query_documents.len() {
             return;
         }
-        self.persist_active_query_document();
         self.query_documents.truncate(index + 1);
         if self.active_query_document > index {
             self.active_query_document = index;
-            self.query_text = self.query_documents[index].text().to_owned();
         }
         self.runtime_message = "Closed queries to the right".to_owned();
     }
 
     pub(crate) fn close_all_tabs(&mut self) {
-        self.persist_active_query_document();
         self.welcome_open = true;
         self.query_documents = vec![QueryDocument::new("query-1", "Query 1", String::new())];
         self.active_query_document = 0;
-        self.query_text.clear();
         self.selected_table = None;
         self.selected_schema_object = None;
         self.active_tab = WorkspaceTab::Welcome;
@@ -1112,8 +1123,7 @@ impl DbProApp {
     }
 
     fn insert_agent_sql(&mut self, sql: &str) {
-        self.query_text = sql.to_owned();
-        self.persist_active_query_document();
+        self.set_active_query_text(sql);
         self.active_tab = WorkspaceTab::Query;
         self.runtime_message = "Inserted Agent draft into Query".to_owned();
     }
@@ -1123,9 +1133,8 @@ impl DbProApp {
             self.runtime_message = "Connect to a database before running the Agent draft".to_owned();
             return;
         }
-        self.query_text = sql.to_owned();
+        self.set_active_query_text(sql);
         self.selected_query.clear();
-        self.persist_active_query_document();
         self.active_tab = WorkspaceTab::Query;
         self.dispatch_query();
     }
@@ -1145,7 +1154,7 @@ impl DbProApp {
             || self.pending_connection_request.is_some()
             || self.schema_request.is_some()
             || self.next_query_request.is_some()
-            || self.explain_request.is_some()
+            || self.query_documents.iter().any(|d| d.explain_request.is_some())
             || self.agent_request.is_some()
             || self.table_info_request.is_some()
             || self.table_ddl_request.is_some()

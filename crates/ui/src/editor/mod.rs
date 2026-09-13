@@ -15,7 +15,10 @@ pub use cursor::CursorPosition;
 pub use decorations::{DecorationKind, DiagnosticSeverity, EditorDecoration};
 pub use diagnostics::Diagnostic;
 pub use document::{SqlDocumentAnalysis, SqlStatement};
-pub use prediction::{AiEditPredictionProvider, EditPrediction, PredictionState};
+pub use prediction::{
+    AiEditPredictionProvider, AiSqlContext, AiSqlPredictionProvider, EditPrediction, PredictionMode, PredictionState,
+    PredictionStatus,
+};
 pub use renderer::{SqlEditor, SqlEditorResponse};
 pub use selection::SelectionRange;
 pub use syntax::{CachedSqlTokens, SqlDialect, SqlHighlighter, SyntaxToken, SyntaxTokenKind};

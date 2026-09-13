@@ -543,7 +543,7 @@ fn explain_query_uses_selected_connection_and_switches_output() {
     }];
     app.active_connection_id = Some("conn-1".to_owned());
     app.connected = true;
-    app.query_text = "SELECT 1".to_owned();
+    app.set_active_query_text("SELECT 1");
 
     app.explain_query();
 
@@ -557,7 +557,7 @@ fn explain_query_uses_selected_connection_and_switches_output() {
     };
     assert_eq!(connection_id, "conn-1");
     assert_eq!(sql, "SELECT 1");
-    assert_eq!(app.explain_request, Some(request_id));
+    assert_eq!(app.active_explain_request(), Some(request_id));
     assert_eq!(app.output_tab, OutputTab::Explain);
 }
 
@@ -690,14 +690,13 @@ fn provider_capabilities_gate_provider_specific_actions() {
 fn closing_query_document_restores_the_next_valid_document() {
     let mut app = DbProApp::default();
     app.new_query_document();
-    app.query_text = "select 2".to_owned();
-    app.persist_active_query_document();
+    app.set_active_query_text("select 2");
 
     app.close_query_document(0);
 
     assert_eq!(app.query_documents.len(), 1);
     assert_eq!(app.active_query_document, 0);
-    assert_eq!(app.query_text, "select 2");
+    assert_eq!(app.active_query_text(), "select 2");
     assert_eq!(app.runtime_message, "Closed Query 2");
 }
 
@@ -713,7 +712,7 @@ fn closing_last_query_document_returns_to_welcome() {
     assert!(app.query_documents.is_empty());
     assert_eq!(app.active_tab, WorkspaceTab::Welcome);
     assert!(app.welcome_open);
-    assert!(app.query_text.is_empty());
+    assert!(app.active_query_text().is_empty());
 }
 
 #[test]
@@ -2032,4 +2031,72 @@ fn test_popup_flipping_near_viewport_bottom() {
     }
 
     assert_eq!(popup_pos.y, 750.0 - 220.0 - 24.0); // Flipped upward to 506.0
+}
+
+#[test]
+fn test_multi_tab_explain_plan_routing() {
+    let (bridge, _command_rx, _event_tx) = TaskBridge::with_channels();
+    let mut app = DbProApp::with_task_bridge(bridge);
+    app.active_connection_id = Some("conn-1".to_owned());
+    app.connected = true;
+    app.connections = vec![UiConnectionSummary {
+        id: "conn-1".to_owned(),
+        name: "Test DB".to_owned(),
+        database: "test".to_owned(),
+        host: "localhost".to_owned(),
+        port: 5432,
+        username: "postgres".to_owned(),
+        driver: "PostgreSQL".to_owned(),
+        readonly: false,
+    }];
+
+    // Tab 1
+    app.set_active_query_text("SELECT count(*) FROM users");
+    let doc1_id = app.query_documents[0].id.clone();
+
+    // Trigger explain on Tab 1
+    app.explain_query();
+    let explain_req_id = app.active_explain_request().expect("explain request id must be set");
+    assert_eq!(app.query_documents[0].explain_request, Some(explain_req_id));
+
+    // Create and switch to Tab 2
+    app.new_query_document();
+    app.set_active_query_text("SELECT * FROM orders");
+    assert_eq!(app.active_query_document, 1);
+    assert!(app.active_explain_request().is_none());
+    assert!(app.active_explain_plan().is_none());
+
+    // Explain completion event arrives for Tab 1's request
+    app.apply_runtime_event(UiEvent::ExplainCompleted {
+        request_id: explain_req_id,
+        plan: "Seq Scan on users (cost=0.00..35.50 rows=2550 width=8)".to_owned(),
+    });
+
+    // Tab 2 (currently active) should NOT have the plan
+    assert!(app.active_explain_plan().is_none());
+
+    // Tab 1 must have the plan received and request cleared
+    let doc1 = app.query_documents.iter().find(|d| d.id == doc1_id).unwrap();
+    assert!(doc1.explain_request.is_none());
+    assert_eq!(
+        doc1.explain_plan.as_deref(),
+        Some("Seq Scan on users (cost=0.00..35.50 rows=2550 width=8)")
+    );
+
+    // Switch back to Tab 1, active explain plan is immediately available
+    app.switch_query_document(0);
+    assert_eq!(
+        app.active_explain_plan(),
+        Some("Seq Scan on users (cost=0.00..35.50 rows=2550 width=8)")
+    );
+}
+
+#[test]
+fn test_prediction_mode_defaults_and_options() {
+    let app = DbProApp::default();
+    assert_eq!(app.prediction_mode, PredictionMode::Eager);
+
+    let eager = PredictionMode::Eager;
+    let off = PredictionMode::Off;
+    assert_ne!(eager, off);
 }

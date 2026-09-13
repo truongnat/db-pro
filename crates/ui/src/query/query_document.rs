@@ -92,6 +92,8 @@ pub struct QueryDocument {
     pub search: EditorSearchState,
     pub query_result: Option<UiQueryResult>,
     pub query_messages: Vec<String>,
+    pub explain_plan: Option<String>,
+    pub explain_request: Option<crate::runtime::RequestId>,
 }
 
 impl QueryDocument {
@@ -119,6 +121,8 @@ impl QueryDocument {
             search: EditorSearchState::default(),
             query_result: None,
             query_messages: Vec::new(),
+            explain_plan: None,
+            explain_request: None,
         }
     }
 

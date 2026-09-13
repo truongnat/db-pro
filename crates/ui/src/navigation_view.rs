@@ -378,7 +378,7 @@ impl DbProApp {
                         }
                     }
                     OutputTab::Explain => {
-                        if let Some(plan) = self.explain_plan.as_deref() {
+                        if let Some(plan) = self.active_explain_plan() {
                             egui::ScrollArea::vertical().show(ui, |ui| {
                                 ui.label(RichText::new(plan).monospace().small().color(self.theme.text_secondary));
                             });
@@ -704,7 +704,7 @@ impl DbProApp {
 
         for (index, document) in self.query_documents.clone().into_iter().enumerate() {
             let selected = self.active_tab == WorkspaceTab::Query && self.active_query_document == index;
-            let unsaved = selected && document.content() != self.query_text;
+            let unsaved = document.dirty;
             let title = if unsaved {
                 format!("{}  •", document.title)
             } else {
@@ -872,7 +872,7 @@ impl DbProApp {
             }
         });
         if query_response.clicked() && !is_ctx {
-            self.query_text = query.sql.clone();
+            self.set_active_query_text(query.sql.clone());
             self.active_tab = WorkspaceTab::Query;
         }
         if copy_sql {
@@ -923,13 +923,14 @@ impl DbProApp {
             ui.label(RichText::new("No queries run yet").color(self.theme.text_muted));
             return;
         }
-        for query in self.query_history.iter().rev() {
+        let history = self.query_history.clone();
+        for query in history.iter().rev() {
             let title = query.lines().next().unwrap_or("query");
             if sidebar_item(ui, Icon::History, title, false, self.theme)
                 .on_hover_text("Open query from local history")
                 .clicked()
             {
-                self.query_text = query.clone();
+                self.set_active_query_text(query.clone());
                 self.active_tab = WorkspaceTab::Query;
             }
             ui.add_space(12.0);

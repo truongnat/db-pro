@@ -18,7 +18,7 @@ impl DbProApp {
             .map(|info| info.columns.iter().map(|column| column.name.clone()).collect())
             .unwrap_or_default();
         let current_sql = if self.selected_query.trim().is_empty() {
-            self.query_text.clone()
+            self.active_query_text().to_owned()
         } else {
             self.selected_query.clone()
         };
@@ -38,7 +38,7 @@ impl DbProApp {
             selected_columns,
             current_sql,
             result_summary,
-            explain_plan: self.explain_plan.clone(),
+            explain_plan: self.active_explain_plan().map(|p| p.to_owned()),
             last_error,
         }
     }

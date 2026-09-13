@@ -83,7 +83,6 @@ impl DbProApp {
                 if let Ok(documents) = serde_json::from_str::<Vec<QueryDocument>>(&documents) {
                     if !documents.is_empty() {
                         app.query_documents = documents;
-                        app.query_text = app.query_documents[0].content().to_owned();
                     }
                 }
             }
@@ -110,7 +109,7 @@ impl Default for DbProApp {
             bottom_panel_open: false,
             bottom_panel_height: 180.0,
             sidebar_open_before_agent: None,
-            query_text: DEFAULT_QUERY.to_owned(),
+            prediction_mode: PredictionMode::default(),
             welcome_prompt: String::new(),
             selected_query: String::new(),
             query_documents: vec![QueryDocument::new("query-1", "Query 1", DEFAULT_QUERY)],
@@ -149,8 +148,6 @@ impl Default for DbProApp {
             runtime_message: "Ready".to_owned(),
             toasts: crate::components::overlay::ToastManager::default(),
             output_tab: OutputTab::Results,
-            explain_plan: None,
-            explain_request: None,
             grid_filter: String::new(),
             grid_sort_column: None,
             grid_sort_desc: false,

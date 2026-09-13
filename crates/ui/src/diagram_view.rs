@@ -319,7 +319,7 @@ impl DbProApp {
         self.data_delete_confirmation = false;
         self.discard_changes_confirmation = false;
         self.table_view = TableView::Structure;
-        self.query_text = format!("SELECT *\nFROM {table}\nLIMIT 100;");
+        self.set_active_query_text(format!("SELECT *\nFROM {table}\nLIMIT 100;"));
         self.request_table_info();
         self.activity = Activity::Explorer;
         self.sidebar_open = true;

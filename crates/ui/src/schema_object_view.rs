@@ -36,7 +36,7 @@ impl DbProApp {
                     self.draw_schema_object_view_tabs(ui);
                 }
                 if secondary_button_with_icon(ui, Icon::FileCode2, "Open in Query", self.theme).clicked() {
-                    self.query_text = details.query;
+                    self.set_active_query_text(details.query);
                     self.active_tab = WorkspaceTab::Query;
                 }
             });

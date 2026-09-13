@@ -230,7 +230,7 @@ impl DbProApp {
             self.active_tab = WorkspaceTab::Table;
         }
         if actions.open_query {
-            self.query_text = format!("SELECT *\nFROM {schema}.{table}\nLIMIT 100;");
+            self.set_active_query_text(format!("SELECT *\nFROM {schema}.{table}\nLIMIT 100;"));
             self.active_tab = WorkspaceTab::Query;
         }
         if actions.gen_sql_insert {
@@ -248,7 +248,7 @@ impl DbProApp {
             } else {
                 "'value1', 'value2'".to_owned()
             };
-            self.query_text = format!("INSERT INTO {schema}.{table} ({cols})\nVALUES ({vals});");
+            self.set_active_query_text(format!("INSERT INTO {schema}.{table} ({cols})\nVALUES ({vals});"));
             self.active_tab = WorkspaceTab::Query;
         }
         if actions.gen_sql_update {
@@ -271,7 +271,9 @@ impl DbProApp {
             } else {
                 "id = 1".to_owned()
             };
-            self.query_text = format!("UPDATE {schema}.{table}\nSET\n{set_clause}\nWHERE {pk_clause};");
+            self.set_active_query_text(format!(
+                "UPDATE {schema}.{table}\nSET\n{set_clause}\nWHERE {pk_clause};"
+            ));
             self.active_tab = WorkspaceTab::Query;
         }
         if actions.gen_sql_delete {
@@ -284,7 +286,7 @@ impl DbProApp {
             } else {
                 "id = 1".to_owned()
             };
-            self.query_text = format!("DELETE FROM {schema}.{table}\nWHERE {pk_clause};");
+            self.set_active_query_text(format!("DELETE FROM {schema}.{table}\nWHERE {pk_clause};"));
             self.active_tab = WorkspaceTab::Query;
         }
         if actions.copy_qualified_name {
@@ -330,7 +332,7 @@ impl DbProApp {
         self.restore_grid_layout_for_active_table();
         self.table_view = TableView::Data;
         let schema = self.active_schema();
-        self.query_text = format!("SELECT *\nFROM {schema}.{table}\nLIMIT 100;");
+        self.set_active_query_text(format!("SELECT *\nFROM {schema}.{table}\nLIMIT 100;"));
         self.request_table_info();
         self.request_table_data();
         self.active_tab = WorkspaceTab::Table;

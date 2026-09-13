@@ -24,7 +24,7 @@ impl DbProApp {
             );
         });
         if open_query && !self.welcome_prompt.trim().is_empty() {
-            self.query_text = self.welcome_prompt.trim().to_owned();
+            self.set_active_query_text(self.welcome_prompt.trim().to_owned());
             self.active_tab = WorkspaceTab::Query;
             self.runtime_message = "Opened prompt in Query".to_owned();
         }
@@ -211,7 +211,7 @@ impl DbProApp {
                         .on_hover_text("Open SQL Editor for this table")
                         .clicked()
                     {
-                        self.query_text = format!("SELECT *\nFROM {schema}.{table_name}\nLIMIT 100;");
+                        self.set_active_query_text(format!("SELECT *\nFROM {schema}.{table_name}\nLIMIT 100;"));
                         self.active_tab = WorkspaceTab::Query;
                     }
                     if compact_button_with_icon(ui, Icon::RotateCcw, "Refresh", self.theme)

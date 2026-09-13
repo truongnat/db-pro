@@ -44,7 +44,40 @@ impl SchemaCompletionProvider {
         if let Some(qualifier) = qualifier {
             let qual_lower = qualifier.to_lowercase();
 
-            // 1. Check if qualifier is a schema name (e.g. "public.")
+            // 1. Check if qualifier is a qualified schema.table (e.g. "public.users.")
+            if let Some((schema_part, table_part)) = qual_lower.split_once('.') {
+                for table in &ctx.schema_summary.table_details {
+                    if table.schema.eq_ignore_ascii_case(schema_part) && table.name.eq_ignore_ascii_case(table_part) {
+                        for col in &table.columns {
+                            if col.name.to_lowercase().contains(&prefix_lower) {
+                                items.push(CompletionItem {
+                                    label: col.name.clone(),
+                                    insert_text: col.name.clone(),
+                                    kind: CompletionItemKind::Column,
+                                    detail: Some(format!(
+                                        "Column · {}{}",
+                                        col.data_type,
+                                        if col.is_primary_key { " [PK]" } else { "" }
+                                    )),
+                                    documentation: Some(format!(
+                                        "Column {} of {}.{}{}",
+                                        col.name,
+                                        table.schema,
+                                        table.name,
+                                        if col.nullable { " (NULLABLE)" } else { " (NOT NULL)" }
+                                    )),
+                                    replacement_range,
+                                    sort_score: 1,
+                                });
+                            }
+                        }
+                    }
+                }
+                rank_items(&mut items, &prefix_lower);
+                return (prefix.to_owned(), items);
+            }
+
+            // 2. Check if qualifier is a schema name (e.g. "public.")
             for table in &ctx.schema_summary.table_details {
                 if table.schema.eq_ignore_ascii_case(&qual_lower) && table.name.to_lowercase().contains(&prefix_lower) {
                     items.push(CompletionItem {
@@ -72,7 +105,7 @@ impl SchemaCompletionProvider {
                 }
             }
 
-            // 2. Check if qualifier is a table name or an alias in the document
+            // 3. Check if qualifier is a table name or an alias / CTE in the document
             let mut full_doc = String::with_capacity(ctx.text_before_cursor.len() + ctx.text_after_cursor.len() + 1);
             full_doc.push_str(ctx.text_before_cursor);
             full_doc.push(' ');
@@ -399,7 +432,7 @@ fn extract_qualifier(text: &str) -> Option<&str> {
     let trimmed = text.trim_end();
     if let Some(without_dot) = trimmed.strip_suffix('.') {
         let start = without_dot
-            .rfind(|c: char| !c.is_alphanumeric() && c != '_')
+            .rfind(|c: char| !c.is_alphanumeric() && c != '_' && c != '.')
             .map(|idx| idx + 1)
             .unwrap_or(0);
         let qual = &without_dot[start..];
@@ -416,7 +449,38 @@ pub fn extract_table_aliases(text: &str) -> HashMap<String, String> {
     let mut i = 0;
     while i < words.len() {
         let w = words[i];
-        if (w.eq_ignore_ascii_case("FROM")
+        if w.eq_ignore_ascii_case("WITH") && i + 2 < words.len() {
+            let cte_name = words[i + 1].trim_matches(|c| {
+                c == '"' || c == '`' || c == '[' || c == ']' || c == '(' || c == ')' || c == ';' || c == ','
+            });
+            if words[i + 2].eq_ignore_ascii_case("AS") {
+                // Look inside CTE body for source table
+                let mut j = i + 3;
+                let mut inner_table = None;
+                while j < words.len() && j < i + 20 {
+                    if words[j].eq_ignore_ascii_case("FROM") && j + 1 < words.len() {
+                        let t = words[j + 1].trim_matches(|c| {
+                            c == '"' || c == '`' || c == '[' || c == ']' || c == '(' || c == ')' || c == ';' || c == ','
+                        });
+                        if !t.is_empty() {
+                            inner_table = Some(t);
+                            break;
+                        }
+                    }
+                    j += 1;
+                }
+                if let Some(target) = inner_table {
+                    let target_name = if let Some(dot_pos) = target.rfind('.') {
+                        &target[dot_pos + 1..]
+                    } else {
+                        target
+                    };
+                    aliases.insert(cte_name.to_lowercase(), target_name.to_lowercase());
+                } else {
+                    aliases.insert(cte_name.to_lowercase(), cte_name.to_lowercase());
+                }
+            }
+        } else if (w.eq_ignore_ascii_case("FROM")
             || w.eq_ignore_ascii_case("JOIN")
             || w.eq_ignore_ascii_case("INTO")
             || w.eq_ignore_ascii_case("UPDATE"))
@@ -621,5 +685,164 @@ mod tests {
         assert_eq!(items[0].label, "orders");
         assert_eq!(items[0].kind, CompletionItemKind::Table);
         assert_eq!(items[0].replacement_range, (21, 24));
+    }
+
+    #[test]
+    fn test_cte_alias_resolution_and_column_completion() {
+        let summary = UiSchemaSummary {
+            table_details: vec![UiTableSummary {
+                schema: "public".to_owned(),
+                name: "users".to_owned(),
+                row_count: Some(10),
+                columns: vec![
+                    UiSchemaColumn {
+                        name: "id".to_owned(),
+                        data_type: "integer".to_owned(),
+                        nullable: false,
+                        is_primary_key: true,
+                    },
+                    UiSchemaColumn {
+                        name: "email".to_owned(),
+                        data_type: "text".to_owned(),
+                        nullable: true,
+                        is_primary_key: false,
+                    },
+                ],
+                foreign_keys: vec![],
+            }],
+            ..Default::default()
+        };
+
+        let sql = "WITH active_users AS (SELECT * FROM users) SELECT active_users.em";
+        let ctx = CompletionContext {
+            text_before_cursor: sql,
+            text_after_cursor: " FROM active_users",
+            cursor_offset: sql.len(),
+            active_schema: "public",
+            schema_summary: &summary,
+            cached_tokens: None,
+            is_sqlite: false,
+            is_manual_trigger: false,
+        };
+
+        let (prefix, items) = SchemaCompletionProvider::provide(&ctx);
+        assert_eq!(prefix, "em");
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].label, "email");
+        assert_eq!(items[0].kind, CompletionItemKind::Column);
+        assert_eq!(items[0].detail, Some("Column · text".to_owned()));
+        assert_eq!(items[0].replacement_range, (63, 65));
+    }
+
+    #[test]
+    fn test_multi_segment_schema_table_column_completion() {
+        let summary = UiSchemaSummary {
+            table_details: vec![UiTableSummary {
+                schema: "analytics".to_owned(),
+                name: "events".to_owned(),
+                row_count: Some(500),
+                columns: vec![
+                    UiSchemaColumn {
+                        name: "event_id".to_owned(),
+                        data_type: "uuid".to_owned(),
+                        nullable: false,
+                        is_primary_key: true,
+                    },
+                    UiSchemaColumn {
+                        name: "payload".to_owned(),
+                        data_type: "jsonb".to_owned(),
+                        nullable: true,
+                        is_primary_key: false,
+                    },
+                ],
+                foreign_keys: vec![],
+            }],
+            ..Default::default()
+        };
+
+        let sql = "SELECT analytics.events.pay";
+        let ctx = CompletionContext {
+            text_before_cursor: sql,
+            text_after_cursor: " FROM analytics.events",
+            cursor_offset: sql.len(),
+            active_schema: "public",
+            schema_summary: &summary,
+            cached_tokens: None,
+            is_sqlite: false,
+            is_manual_trigger: false,
+        };
+
+        let (prefix, items) = SchemaCompletionProvider::provide(&ctx);
+        assert_eq!(prefix, "pay");
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].label, "payload");
+        assert_eq!(items[0].kind, CompletionItemKind::Column);
+        assert_eq!(items[0].replacement_range, (24, 27));
+    }
+
+    #[test]
+    fn test_build_ai_sql_context_extracts_references() {
+        let summary = UiSchemaSummary {
+            table_details: vec![
+                UiTableSummary {
+                    schema: "public".to_owned(),
+                    name: "users".to_owned(),
+                    row_count: Some(10),
+                    columns: vec![
+                        UiSchemaColumn {
+                            name: "id".to_owned(),
+                            data_type: "integer".to_owned(),
+                            nullable: false,
+                            is_primary_key: true,
+                        },
+                        UiSchemaColumn {
+                            name: "name".to_owned(),
+                            data_type: "text".to_owned(),
+                            nullable: false,
+                            is_primary_key: false,
+                        },
+                    ],
+                    foreign_keys: vec![],
+                },
+                UiTableSummary {
+                    schema: "public".to_owned(),
+                    name: "orders".to_owned(),
+                    row_count: Some(20),
+                    columns: vec![
+                        UiSchemaColumn {
+                            name: "order_id".to_owned(),
+                            data_type: "integer".to_owned(),
+                            nullable: false,
+                            is_primary_key: true,
+                        },
+                        UiSchemaColumn {
+                            name: "user_id".to_owned(),
+                            data_type: "integer".to_owned(),
+                            nullable: false,
+                            is_primary_key: false,
+                        },
+                    ],
+                    foreign_keys: vec![crate::runtime::UiSchemaForeignKey {
+                        name: "fk_orders_users".to_owned(),
+                        from_columns: vec!["user_id".to_owned()],
+                        to_schema: "public".to_owned(),
+                        to_table: "users".to_owned(),
+                        to_columns: vec!["id".to_owned()],
+                    }],
+                },
+            ],
+            ..Default::default()
+        };
+
+        let sql = "SELECT u.name, o.order_id FROM users u JOIN orders o ON u.id = o.user_id WHERE u.";
+        let ai_ctx = build_ai_sql_context(sql, sql.len(), "public", &summary);
+
+        assert_eq!(ai_ctx.active_schema, "public");
+        assert!(ai_ctx.referenced_tables.contains(&"users".to_owned()));
+        assert!(ai_ctx.referenced_tables.contains(&"orders".to_owned()));
+        assert!(ai_ctx.relevant_columns.iter().any(|c| c.starts_with("users.name")));
+        assert!(ai_ctx.relevant_columns.iter().any(|c| c.starts_with("orders.order_id")));
+        assert_eq!(ai_ctx.fk_neighbors.len(), 1);
+        assert!(ai_ctx.fk_neighbors[0].contains("orders (user_id) -> public.users (id)"));
     }
 }

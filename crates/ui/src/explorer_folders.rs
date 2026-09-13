@@ -155,7 +155,7 @@ impl DbProApp {
             self.runtime_message = format!("Copied `{}` to clipboard", view.name);
         }
         if open_query {
-            self.query_text = format!("SELECT *\nFROM {}\nLIMIT 100;", view.name);
+            self.set_active_query_text(format!("SELECT *\nFROM {}\nLIMIT 100;", view.name));
             self.active_tab = WorkspaceTab::Query;
         }
     }
@@ -243,7 +243,7 @@ impl DbProApp {
             self.runtime_message = format!("Copied `{}` to clipboard", function.name);
         }
         if open_query {
-            self.query_text = format!("SELECT * FROM {}.{}();", function.schema, function.name);
+            self.set_active_query_text(format!("SELECT * FROM {}.{}();", function.schema, function.name));
             self.active_tab = WorkspaceTab::Query;
         }
     }

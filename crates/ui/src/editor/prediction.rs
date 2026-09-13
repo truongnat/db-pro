@@ -1,6 +1,14 @@
 use crate::runtime::RequestId;
 use serde::{Deserialize, Serialize};
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub enum PredictionMode {
+    #[default]
+    Eager,
+    Subtle,
+    Off,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum PredictionStatus {
     #[default]
@@ -8,6 +16,11 @@ pub enum PredictionStatus {
     Generating(RequestId),
     Ready,
     Rejected,
+}
+
+pub trait AiSqlPredictionProvider: Send + Sync {
+    fn request_prediction(&self, context: &AiSqlContext) -> Option<String>;
+    fn cancel_prediction(&self, request_id: RequestId);
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

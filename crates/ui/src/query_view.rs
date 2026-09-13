@@ -211,7 +211,7 @@ impl DbProApp {
                     .on_hover_text("Insert SQL keyword or expression")
                     .clicked()
                 {
-                    self.query_text.push_str(keyword);
+                    self.append_to_active_query(keyword);
                     self.completion_open = false;
                 }
             }
@@ -309,7 +309,7 @@ impl DbProApp {
                     self.output_tab = tab;
                 }
             }
-            if let Some(request_id) = self.explain_request {
+            if let Some(request_id) = self.active_explain_request() {
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                     ui.label(
                         RichText::new(format!("Explain request {}…", request_id.0))
@@ -393,7 +393,7 @@ impl DbProApp {
         let output_width = ui.available_width();
         card_frame(self.theme).show(ui, |ui| {
             ui.set_min_width((output_width - 24.0).max(0.0));
-            if let Some(plan) = self.explain_plan.as_deref() {
+            if let Some(plan) = self.active_explain_plan() {
                 egui::ScrollArea::vertical().max_height(300.0).show(ui, |ui| {
                     ui.label(RichText::new(plan).monospace().color(self.theme.text_secondary));
                 });
@@ -503,7 +503,8 @@ impl DbProApp {
             close_menu = true;
         }
         if menu_button_with_icon(ui, Icon::WandSparkles, "Format SQL", self.theme).clicked() {
-            self.query_text = Self::format_sql(&self.query_text);
+            let formatted = Self::format_sql(self.active_query_text());
+            self.set_active_query_text(formatted);
             close_menu = true;
         }
         if menu_button_with_icon(ui, Icon::ChartNoAxesCombined, "Explain query", self.theme).clicked() {
@@ -543,7 +544,7 @@ impl DbProApp {
             request_id,
             connection_id: connection.id.clone(),
             name,
-            sql: self.query_text.clone(),
+            sql: self.active_query_text().to_owned(),
             folder: (!self.query_folder.trim().is_empty()).then(|| self.query_folder.trim().to_owned()),
         });
         self.runtime_message = "Saving query…".to_owned();
@@ -653,7 +654,6 @@ impl DbProApp {
         self.query_cursor_column = doc.cursor.col + 1;
 
         if response.changed {
-            self.query_text = doc.text().to_owned();
             doc.reanalyze(dialect);
             doc.dirty = true;
             if !doc.selection.is_empty() {
@@ -765,7 +765,6 @@ impl DbProApp {
             doc.reanalyze(dialect);
             doc.dirty = true;
             doc.prediction = None;
-            self.query_text = doc.text().to_owned();
             doc.completion.close();
             return;
         }
@@ -882,7 +881,6 @@ impl DbProApp {
             doc.reanalyze(dialect);
             doc.dirty = true;
             doc.prediction = None;
-            self.query_text = doc.text().to_owned();
             doc.completion.close();
         }
 
@@ -921,7 +919,7 @@ impl DbProApp {
     }
 
     pub(crate) fn explain_query(&mut self) {
-        if self.explain_request.is_some() {
+        if self.active_explain_request().is_some() {
             return;
         }
         let Some(capabilities) = self.active_capabilities() else {
@@ -937,7 +935,7 @@ impl DbProApp {
             return;
         };
         let sql = if self.selected_query.trim().is_empty() {
-            self.query_text.trim().to_owned()
+            self.active_query_text().trim().to_owned()
         } else {
             self.selected_query.trim().to_owned()
         };
@@ -955,8 +953,11 @@ impl DbProApp {
             })
             .is_ok()
         {
-            self.explain_request = Some(request_id);
-            self.explain_plan = None;
+            let doc_index = self.active_query_document;
+            if let Some(doc) = self.query_documents.get_mut(doc_index) {
+                doc.explain_request = Some(request_id);
+                doc.explain_plan = None;
+            }
             self.output_tab = OutputTab::Explain;
             self.runtime_message = "Explaining query…".to_owned();
         }
@@ -1131,14 +1132,11 @@ impl DbProApp {
             self.diagnostics = raw_diags;
             doc.diagnostics = structured;
         } else {
-            self.diagnostics = Self::parse_sql_diagnostics(&self.query_text, &driver);
+            self.diagnostics = Self::parse_sql_diagnostics(self.active_query_text(), &driver);
         }
     }
 
     fn insert_snippet(&mut self, snippet: &str) {
-        if !self.query_text.trim().is_empty() {
-            self.query_text.push_str("\n\n");
-        }
-        self.query_text.push_str(snippet);
+        self.append_to_active_query(snippet);
     }
 }

@@ -12,7 +12,7 @@ impl DbProApp {
     /// Applies a single runtime event. Each arm delegates to a focused handler so
     /// the dispatch table stays readable and every event family is independently
     /// testable.
-    fn apply_runtime_event(&mut self, event: UiEvent) {
+    pub(crate) fn apply_runtime_event(&mut self, event: UiEvent) {
         match event {
             UiEvent::ConnectionsLoaded { connections, .. } => self.on_connections_loaded(connections),
             UiEvent::SavedQueriesLoaded { queries, .. } => self.saved_queries = queries,
@@ -537,14 +537,22 @@ impl DbProApp {
     }
 
     fn on_explain_completed(&mut self, request_id: RequestId, plan: String) {
-        if self.explain_request == Some(request_id) {
-            self.explain_request = None;
-            self.explain_plan = Some(plan);
+        if let Some(doc) = self
+            .query_documents
+            .iter_mut()
+            .find(|d| d.explain_request == Some(request_id))
+        {
+            doc.explain_request = None;
+            doc.explain_plan = Some(plan);
             self.output_tab = OutputTab::Explain;
             self.runtime_message = "Query plan ready".to_owned();
-            if let Some(doc) = self.query_documents.get_mut(self.active_query_document) {
-                doc.query_messages.push(self.runtime_message.clone());
-            }
+            doc.query_messages.push(self.runtime_message.clone());
+        } else if let Some(doc) = self.query_documents.get_mut(self.active_query_document) {
+            doc.explain_request = None;
+            doc.explain_plan = Some(plan);
+            self.output_tab = OutputTab::Explain;
+            self.runtime_message = "Query plan ready".to_owned();
+            doc.query_messages.push(self.runtime_message.clone());
         }
     }
 
@@ -647,14 +655,16 @@ impl DbProApp {
                     self.next_query_request = None;
                 }
             }
-        } else if self.explain_request == Some(request_id) {
-            self.explain_request = None;
-            self.explain_plan = None;
+        } else if let Some(doc) = self
+            .query_documents
+            .iter_mut()
+            .find(|d| d.explain_request == Some(request_id))
+        {
+            doc.explain_request = None;
+            doc.explain_plan = None;
             self.output_tab = OutputTab::Messages;
             self.runtime_message = format!("Explain failed · {message}");
-            if let Some(doc) = self.query_documents.get_mut(self.active_query_document) {
-                doc.query_messages.push(self.runtime_message.clone());
-            }
+            doc.query_messages.push(self.runtime_message.clone());
         } else {
             self.runtime_message = format!("Operation failed · {message}");
         }
@@ -743,10 +753,10 @@ impl DbProApp {
             if !stmt_sql.is_empty() {
                 stmt_sql
             } else {
-                self.query_text.clone()
+                doc.text().to_owned()
             }
         } else {
-            self.query_text.clone()
+            self.active_query_text().to_owned()
         };
         if sql.trim().is_empty() {
             self.runtime_message = "Query is empty".to_owned();
@@ -783,7 +793,7 @@ impl DbProApp {
         let sql = if let Some(doc) = self.query_documents.get(self.active_query_document) {
             doc.text().trim().to_owned()
         } else {
-            self.query_text.trim().to_owned()
+            self.active_query_text().trim().to_owned()
         };
         if sql.is_empty() {
             self.runtime_message = "Query is empty".to_owned();
