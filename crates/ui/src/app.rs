@@ -955,6 +955,7 @@ impl DbProApp {
         match tab {
             WorkspaceTab::Table => {
                 if !self.staged_changes.is_empty() {
+                    self.discard_changes_confirmation = true;
                     self.runtime_message = "Apply or discard staged changes before closing the table".to_owned();
                     return;
                 }
@@ -1013,6 +1014,7 @@ impl DbProApp {
             return;
         }
         if !self.staged_changes.is_empty() {
+            self.discard_changes_confirmation = true;
             self.runtime_message = "Apply or discard staged changes before opening another table".to_owned();
             return;
         }

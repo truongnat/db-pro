@@ -94,6 +94,27 @@ impl TableDataService {
         ))
     }
 
+    pub async fn fetch_row_by_pk(
+        &self,
+        connection_id: &ConnectionId,
+        schema: &str,
+        table: &str,
+        pk_columns: &[String],
+        pk_values: &[CellValue],
+    ) -> Result<Option<QueryResult>, DbError> {
+        let handle = self.resolve_handle(connection_id)?;
+        let dialect = self.connector.dialect(&handle)?;
+        let (select_sql, select_params) =
+            sql_builder::build_select_by_pk(dialect.as_ref(), schema, table, pk_columns, pk_values)?;
+        let data_result = self.connector.query(&handle, &select_sql, &select_params).await?;
+        data_result.validate().map_err(DbError::QueryFailed)?;
+        if data_result.rows.is_empty() {
+            Ok(None)
+        } else {
+            Ok(Some(data_result))
+        }
+    }
+
     pub async fn insert_row(
         &self,
         connection_id: &ConnectionId,

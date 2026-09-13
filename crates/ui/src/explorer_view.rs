@@ -601,6 +601,14 @@ impl DbProApp {
 
     /// Activates a schema and clears the workspace state that depended on the old one.
     fn activate_schema(&mut self, schema: &str) {
+        if self.selected_schema.as_deref() == Some(schema) {
+            return;
+        }
+        if !self.staged_changes.is_empty() {
+            self.discard_changes_confirmation = true;
+            self.runtime_message = "Apply or discard staged changes before changing schema".to_owned();
+            return;
+        }
         self.selected_schema = Some(schema.to_owned());
         self.selected_table = None;
         self.selected_schema_object = None;
@@ -766,6 +774,14 @@ impl DbProApp {
 
     /// Helper to initiate connection logic.
     pub(crate) fn connect_to_connection(&mut self, connection: &UiConnectionSummary) {
+        if self.active_connection_id.as_deref() == Some(&connection.id) && self.connected {
+            return;
+        }
+        if !self.staged_changes.is_empty() {
+            self.discard_changes_confirmation = true;
+            self.runtime_message = "Apply or discard staged changes before changing connection".to_owned();
+            return;
+        }
         self.reset_agent_context();
         self.active_connection_id = Some(connection.id.clone());
         self.pending_connection_id = Some(connection.id.clone());

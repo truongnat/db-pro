@@ -16,7 +16,10 @@ pub fn run_introspection(conn: &rusqlite::Connection) -> Result<IntrospectResult
     let tables = introspect_tables(conn, &table_names)?;
     let mut columns = introspect_columns(conn, &table_names)?;
     let indexes = introspect_indexes(conn, &table_names)?;
-    for index in indexes.iter().filter(|index| index.unique || index.primary) {
+    for index in indexes
+        .iter()
+        .filter(|index| (index.unique || index.primary) && index.columns.len() == 1)
+    {
         for column_name in &index.columns {
             if let Some(column) = columns
                 .iter_mut()

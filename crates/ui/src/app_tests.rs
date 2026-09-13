@@ -1643,7 +1643,14 @@ fn test_open_table_blocked_with_unapplied_staged_changes() {
     // Opening another table should be blocked to prevent mutation retargeting
     app.open_table("orders".to_owned());
     assert_eq!(app.selected_table, Some("users".to_owned()));
+    assert!(app.discard_changes_confirmation);
     assert!(app.runtime_message.contains("Apply or discard staged changes"));
+
+    // Closing table tab with staged changes is guarded
+    app.discard_changes_confirmation = false;
+    app.request_close_workspace_tab(WorkspaceTab::Table);
+    assert_eq!(app.selected_table, Some("users".to_owned()));
+    assert!(app.discard_changes_confirmation);
 
     // Discarding changes allows opening a new table
     app.discard_staged_changes();

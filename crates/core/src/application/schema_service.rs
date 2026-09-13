@@ -242,6 +242,14 @@ impl SchemaService {
             }
         }
 
+        let mut seen_deps = std::collections::HashSet::new();
+        let mut deduplicated_dependencies = Vec::with_capacity(dependencies.len());
+        for dep in dependencies {
+            if seen_deps.insert((dep.kind, dep.direction, dep.schema.clone(), dep.name.clone())) {
+                deduplicated_dependencies.push(dep);
+            }
+        }
+
         Ok(TableInfo {
             table: tbl,
             columns,
@@ -249,7 +257,7 @@ impl SchemaService {
             indexes,
             foreign_keys,
             check_constraints,
-            dependencies,
+            dependencies: deduplicated_dependencies,
         })
     }
 
@@ -1193,5 +1201,57 @@ mod tests {
         assert_eq!(quote_identifier("my table"), "\"my table\"");
         assert_eq!(quote_identifier("select"), "\"select\"");
         assert_eq!(quote_identifier("has\"quote"), "\"has\"\"quote\"");
+    }
+
+    #[tokio::test]
+    async fn test_dependency_deduplication() {
+        let conn_id = ConnectionId::new();
+        let registry = Arc::new(ConnectionRegistry::new());
+        registry.register(conn_id, ConnectionHandle(1));
+
+        let mut introspection = test_introspect_result();
+        // Add two foreign keys referencing the same parent table
+        introspection.foreign_keys.push(ForeignKey {
+            name: "fk_users_parent1".into(),
+            from_table: "users".into(),
+            from_columns: vec!["parent_id".into()],
+            to_table: "parents".into(),
+            to_columns: vec!["id".into()],
+            schema: "public".into(),
+            to_schema: "public".into(),
+            ..Default::default()
+        });
+        introspection.foreign_keys.push(ForeignKey {
+            name: "fk_users_parent2".into(),
+            from_table: "users".into(),
+            from_columns: vec!["alt_parent_id".into()],
+            to_table: "parents".into(),
+            to_columns: vec!["id".into()],
+            schema: "public".into(),
+            to_schema: "public".into(),
+            ..Default::default()
+        });
+
+        let mut cache = MockIntrospectionCache::new();
+        cache.expect_get().returning(move |_| Ok(Some(introspection.clone())));
+
+        let svc = SchemaService::new(
+            Box::new(MockDbConnector::new()),
+            Box::new(cache),
+            Arc::clone(&registry),
+            Box::new(mock_connections()),
+        );
+
+        let info = svc.get_table_info(&conn_id, "public", "users").await.unwrap();
+        let parent_table_deps: Vec<_> = info
+            .dependencies
+            .iter()
+            .filter(|d| d.name == "parents" && d.kind == DependencyKind::Table)
+            .collect();
+        assert_eq!(
+            parent_table_deps.len(),
+            1,
+            "Duplicate table dependency should be deduplicated"
+        );
     }
 }

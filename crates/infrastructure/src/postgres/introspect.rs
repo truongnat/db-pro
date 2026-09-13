@@ -41,7 +41,7 @@ pub async fn run_introspection(pool: &sqlx::PgPool) -> Result<IntrospectResult, 
         .collect();
     let unique_column_set: HashSet<(String, String, String)> = indexes
         .iter()
-        .filter(|index| index.unique || index.primary)
+        .filter(|index| (index.unique || index.primary) && index.columns.len() == 1)
         .flat_map(|index| {
             index
                 .columns
@@ -336,7 +336,10 @@ async fn introspect_indexes(pool: &sqlx::PgPool) -> Result<Vec<Index>, DbError> 
             let unique: bool = row.get("is_unique");
             let definition: String = row.get("definition");
             let predicate: Option<String> = row.get("predicate");
-            let columns: Vec<String> = row.get("columns");
+            let mut columns: Vec<String> = row.get("columns");
+            if columns.is_empty() && !definition.is_empty() {
+                columns = parse_index_columns(&definition);
+            }
             let include_columns: Vec<String> = row.get("include_columns");
 
             Index {
@@ -361,7 +364,6 @@ async fn introspect_indexes(pool: &sqlx::PgPool) -> Result<Vec<Index>, DbError> 
 /// Handles expressions like `USING btree (col1, col2)` or `USING hash (col1)`.
 /// Also handles functional indexes with parenthesized expressions by tracking
 /// parenthesis depth.
-#[cfg(test)]
 fn parse_index_columns(indexdef: &str) -> Vec<String> {
     let bytes = indexdef.as_bytes();
     let Some(open) = find_unquoted_open_parenthesis(bytes) else {
@@ -375,7 +377,6 @@ fn parse_index_columns(indexdef: &str) -> Vec<String> {
     split_index_columns(&indexdef[open + 1..close])
 }
 
-#[cfg(test)]
 fn find_unquoted_open_parenthesis(bytes: &[u8]) -> Option<usize> {
     let mut quote = None;
     let mut index = 0;
@@ -407,7 +408,6 @@ fn find_unquoted_open_parenthesis(bytes: &[u8]) -> Option<usize> {
     None
 }
 
-#[cfg(test)]
 fn find_matching_parenthesis(bytes: &[u8], open: usize) -> Option<usize> {
     let mut quote = None;
     let mut depth = 0usize;
@@ -447,7 +447,6 @@ fn find_matching_parenthesis(bytes: &[u8], open: usize) -> Option<usize> {
     None
 }
 
-#[cfg(test)]
 fn split_index_columns(col_str: &str) -> Vec<String> {
     let mut columns = Vec::new();
     let mut current = String::new();

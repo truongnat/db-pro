@@ -219,6 +219,32 @@ pub fn build_delete(
     Ok((sql, params))
 }
 
+pub fn build_select_by_pk(
+    dialect: &dyn SqlDialect,
+    schema: &str,
+    table: &str,
+    pk_columns: &[String],
+    pk_values: &[CellValue],
+) -> Result<(String, Vec<QueryParam>), DbError> {
+    if pk_columns.is_empty() || pk_columns.len() != pk_values.len() {
+        return Err(DbError::Validation(format!(
+            "pk column count ({}) does not match pk value count ({})",
+            pk_columns.len(),
+            pk_values.len()
+        )));
+    }
+    let mut pw = PlaceholderWriter::new(dialect);
+    let pk_where: Vec<String> = pk_columns
+        .iter()
+        .map(|c| format!("{} = {}", dialect.quote_identifier(c), pw.next()))
+        .collect();
+
+    let target = qualify(dialect, schema, table);
+    let sql = format!("SELECT * FROM {target} WHERE {} LIMIT 1", pk_where.join(" AND "));
+    let params = pk_values.iter().map(cell_to_param).collect();
+    Ok((sql, params))
+}
+
 fn build_where(dialect: &dyn SqlDialect, filters: &[TableFilter]) -> (String, Vec<QueryParam>) {
     if filters.is_empty() {
         return (String::new(), Vec::new());
@@ -815,5 +841,17 @@ mod tests {
         let d = SqlServerDialect;
         assert_eq!(d.quote_identifier("table"), "[table]");
         assert_eq!(d.quote_identifier("has]bracket"), "[has]]bracket]");
+    }
+
+    #[test]
+    fn test_build_select_by_composite_pk() {
+        let pk_columns = vec!["tenant_id".into(), "user_id".into()];
+        let pk_values = vec![CellValue::Int64(10), CellValue::Text("usr_99".into())];
+        let (sql, params) = build_select_by_pk(&DollarNDialect, "public", "accounts", &pk_columns, &pk_values).unwrap();
+        assert_eq!(
+            sql,
+            "SELECT * FROM \"public\".\"accounts\" WHERE \"tenant_id\" = $1 AND \"user_id\" = $2 LIMIT 1"
+        );
+        assert_eq!(params.len(), 2);
     }
 }
