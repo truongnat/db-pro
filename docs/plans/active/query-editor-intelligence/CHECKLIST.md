@@ -18,6 +18,10 @@
 - [x] Add conservative selection/document SQL formatting with one-step undo and keyboard action.
 - [x] Add SQL-aware bracket/quote pairing, selection wrapping, duplicate-closing skip, and matching highlight.
 - [x] Add unmatched square-bracket diagnostics with editor ranges.
+- [x] Harden mixed `()`/`[]` mismatch diagnostics and escaped/dollar-quoted delimiter handling.
+- [x] Add auto-pair backspace deletion and selection wrapping coverage.
+- [x] Make GROUP BY projection filtering distinguish scalar functions from aggregate calls.
+- [x] Deduplicate structured diagnostics with matching overlapping ranges.
 - [x] Keep Query Workspace output tabs isolated per document.
 - [x] Remove the remaining global query execution request slot from the UI routing path.
 - [x] Verify per-document execution/explain routing.

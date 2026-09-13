@@ -1224,21 +1224,20 @@ impl DbProApp {
             string_diagnostics.push("Query is empty".to_owned());
             return (string_diagnostics, structured_diagnostics);
         }
-        for (offset, delimiter) in crate::editor::brackets::unmatched_structural_delimiters(sql) {
-            if !matches!(delimiter, '[' | ']') {
-                continue;
-            }
-            let end = offset + sql[offset..].chars().next().map_or(1, char::len_utf8);
-            let message = format!("Unmatched delimiter {}", delimiter);
+        for issue in crate::editor::brackets::structural_delimiter_issues(sql) {
+            let end = issue.offset + sql[issue.offset..].chars().next().map_or(1, char::len_utf8);
+            let message = if let Some(expected) = issue.expected {
+                format!("Mismatched delimiter {}: expected {}", issue.character, expected)
+            } else {
+                format!("Unmatched delimiter {}", issue.character)
+            };
             string_diagnostics.push(message.clone());
-            structured_diagnostics.push(Diagnostic::warning((offset, end), message));
+            structured_diagnostics.push(Diagnostic::warning((issue.offset, end), message));
         }
         let mut tokens = Vec::new();
         let mut current = String::new();
         let mut in_string = false;
         let mut string_start_byte = 0;
-        let mut parentheses = 0i32;
-        let mut paren_offsets = Vec::new();
 
         for (byte_offset, ch) in sql.char_indices() {
             if ch == '\'' {
@@ -1251,21 +1250,7 @@ impl DbProApp {
                 current.push(ch);
             } else if in_string {
                 current.push(ch);
-            } else if ch == '(' {
-                parentheses += 1;
-                paren_offsets.push(byte_offset);
-                tokens.push((current.to_lowercase(), byte_offset));
-                current.clear();
-            } else if ch == ')' {
-                parentheses -= 1;
-                if parentheses < 0 {
-                    let msg = "Unexpected closing parenthesis".to_owned();
-                    string_diagnostics.push(msg.clone());
-                    structured_diagnostics.push(Diagnostic::error((byte_offset, byte_offset + 1), msg));
-                    parentheses = 0;
-                } else {
-                    paren_offsets.pop();
-                }
+            } else if matches!(ch, '(' | ')') {
                 tokens.push((current.to_lowercase(), byte_offset));
                 current.clear();
             } else if ch.is_whitespace() || ch == ';' || ch == ',' {
@@ -1284,12 +1269,6 @@ impl DbProApp {
             let msg = "Unclosed string literal".to_owned();
             string_diagnostics.push(msg.clone());
             structured_diagnostics.push(Diagnostic::error((string_start_byte, sql.len()), msg));
-        }
-        if parentheses > 0 {
-            let msg = "Unclosed parenthesis".to_owned();
-            string_diagnostics.push(msg.clone());
-            let offset = paren_offsets.last().copied().unwrap_or(0);
-            structured_diagnostics.push(Diagnostic::error((offset, (offset + 1).min(sql.len())), msg));
         }
         if tokens.first().map(|(t, _)| t.as_str()) == Some("update") && !tokens.iter().any(|(t, _)| t == "where") {
             let msg = "UPDATE without WHERE will affect every row".to_owned();
@@ -1317,7 +1296,10 @@ impl DbProApp {
             structured_diagnostics.push(Diagnostic::error((0, sql.len()), msg));
         }
 
-        (string_diagnostics, structured_diagnostics)
+        (
+            deduplicate_messages(string_diagnostics),
+            deduplicate_diagnostics(structured_diagnostics),
+        )
     }
 
     pub(crate) fn parse_sql_diagnostics(sql: &str, driver: &str) -> Vec<String> {
@@ -1339,6 +1321,33 @@ impl DbProApp {
     fn insert_snippet(&mut self, snippet: &str) {
         self.append_to_active_query(snippet);
     }
+}
+
+fn deduplicate_messages(messages: Vec<String>) -> Vec<String> {
+    let mut unique = Vec::with_capacity(messages.len());
+    for message in messages {
+        if !unique.iter().any(|existing| existing == &message) {
+            unique.push(message);
+        }
+    }
+    unique
+}
+
+fn deduplicate_diagnostics(diagnostics: Vec<Diagnostic>) -> Vec<Diagnostic> {
+    let mut unique = Vec::with_capacity(diagnostics.len());
+    for diagnostic in diagnostics {
+        let duplicate = unique.iter().any(|existing: &Diagnostic| {
+            existing.message == diagnostic.message && ranges_overlap(existing.range, diagnostic.range)
+        });
+        if !duplicate {
+            unique.push(diagnostic);
+        }
+    }
+    unique
+}
+
+fn ranges_overlap(left: (usize, usize), right: (usize, usize)) -> bool {
+    left.0 < right.1 && right.0 < left.1
 }
 
 fn format_query_document(doc: &mut QueryDocument, dialect: SqlDialect) {

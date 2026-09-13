@@ -211,7 +211,9 @@ impl<'a> SqlEditor<'a> {
                                     response.changed = true;
                                 } else if self.cursor.offset > 0 {
                                     let prev_off = self.buffer.prev_char_boundary(self.cursor.offset);
-                                    self.buffer.delete(prev_off, self.cursor.offset);
+                                    let delete_end = brackets::auto_pair_range(self.buffer.text(), self.cursor.offset)
+                                        .map_or(self.cursor.offset, |(_, end)| end);
+                                    self.buffer.delete(prev_off, delete_end);
                                     self.cursor.set_offset(self.buffer, prev_off);
                                     self.selection.collapse_to_active();
                                     response.changed = true;

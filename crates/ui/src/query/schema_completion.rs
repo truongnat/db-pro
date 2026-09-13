@@ -631,6 +631,8 @@ struct ParsedSelectContext {
     non_aggregate_names: Vec<String>,
 }
 
+const AGGREGATE_FUNCTIONS: &[&str] = &["COUNT", "SUM", "AVG", "MIN", "MAX"];
+
 fn parse_select_context(before_cursor: &str, after_cursor: &str, is_sqlite: bool) -> Option<ParsedSelectContext> {
     let parse_input = format!("{before_cursor}__dbpro_cursor__{after_cursor}");
     let statements = if is_sqlite {
@@ -650,7 +652,7 @@ fn parse_select_context(before_cursor: &str, after_cursor: &str, is_sqlite: bool
         match item {
             SelectItem::ExprWithAlias { expr, alias } => {
                 context.aliases.push(alias.value.clone());
-                if !matches!(expr, Expr::Function(_)) {
+                if !is_aggregate_expression(expr) {
                     context.non_aggregate_names.push(alias.value.clone());
                 }
             }
@@ -662,7 +664,15 @@ fn parse_select_context(before_cursor: &str, after_cursor: &str, is_sqlite: bool
                     context.non_aggregate_names.push(identifier.value.clone());
                 }
             }
-            SelectItem::UnnamedExpr(_) | SelectItem::QualifiedWildcard(_, _) | SelectItem::Wildcard(_) => {}
+            SelectItem::UnnamedExpr(expr) => {
+                if !is_aggregate_expression(expr) {
+                    let expression = expr.to_string();
+                    if !expression.is_empty() {
+                        context.non_aggregate_names.push(expression);
+                    }
+                }
+            }
+            SelectItem::QualifiedWildcard(_, _) | SelectItem::Wildcard(_) => {}
         }
     }
     context.aliases.sort_unstable_by_key(|name| name.to_lowercase());
@@ -674,6 +684,63 @@ fn parse_select_context(before_cursor: &str, after_cursor: &str, is_sqlite: bool
         .non_aggregate_names
         .dedup_by(|left, right| left.eq_ignore_ascii_case(right));
     Some(context)
+}
+
+fn is_aggregate_expression(expression: &Expr) -> bool {
+    let rendered = expression.to_string();
+    let mut offset = 0;
+    while offset < rendered.len() {
+        let Some(character) = rendered[offset..].chars().next() else {
+            break;
+        };
+        if character == '\'' || character == '"' {
+            offset = skip_quoted_text(&rendered, offset, character);
+            continue;
+        }
+        if character.is_ascii_alphabetic() || character == '_' {
+            let identifier_start = offset;
+            offset += character.len_utf8();
+            while offset < rendered.len() {
+                let Some(next) = rendered[offset..].chars().next() else {
+                    break;
+                };
+                if !next.is_ascii_alphanumeric() && next != '_' {
+                    break;
+                }
+                offset += next.len_utf8();
+            }
+            let identifier = rendered[identifier_start..offset].to_ascii_uppercase();
+            let after_identifier = rendered[offset..].trim_start();
+            if AGGREGATE_FUNCTIONS.iter().any(|name| *name == identifier) && after_identifier.starts_with('(') {
+                return true;
+            }
+            continue;
+        }
+        offset += character.len_utf8();
+    }
+    false
+}
+
+fn skip_quoted_text(text: &str, start: usize, quote: char) -> usize {
+    let mut offset = start + quote.len_utf8();
+    while offset < text.len() {
+        let Some(character) = text[offset..].chars().next() else {
+            break;
+        };
+        offset += character.len_utf8();
+        if character == '\\' && quote == '\'' {
+            if let Some(escaped) = text[offset..].chars().next() {
+                offset += escaped.len_utf8();
+            }
+        } else if character == quote {
+            if text[offset..].starts_with(quote) {
+                offset += quote.len_utf8();
+            } else {
+                break;
+            }
+        }
+    }
+    offset
 }
 
 fn foreign_key_join_suggestions(
@@ -1571,6 +1638,20 @@ mod tests {
         let (_, items) = SchemaCompletionProvider::provide(&ctx);
         assert_eq!(items.first().map(|item| item.label.as_str()), Some("status"));
         assert!(!items.iter().any(|item| item.label == "total"));
+    }
+
+    #[test]
+    fn group_by_keeps_scalar_functions_and_excludes_nested_aggregates() {
+        let parsed = parse_select_context(
+            "SELECT LOWER(name) AS normalized, COALESCE(SUM(total), 0) AS total_sum, first_name || last_name AS full_name FROM users GROUP BY ",
+            "",
+            false,
+        )
+        .expect("valid select context");
+
+        assert!(parsed.non_aggregate_names.iter().any(|name| name == "normalized"));
+        assert!(parsed.non_aggregate_names.iter().any(|name| name == "full_name"));
+        assert!(!parsed.non_aggregate_names.iter().any(|name| name == "total_sum"));
     }
 
     #[test]

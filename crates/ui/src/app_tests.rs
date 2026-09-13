@@ -1302,6 +1302,15 @@ fn sql_diagnostics_include_unmatched_square_bracket_range() {
 }
 
 #[test]
+fn sql_diagnostics_report_mixed_delimiter_mismatch() {
+    let diagnostics = DbProApp::parse_sql_diagnostics("SELECT ([)]", "PostgreSQL");
+
+    assert!(diagnostics
+        .iter()
+        .any(|message| message.contains("Mismatched delimiter ): expected ]")));
+}
+
+#[test]
 fn failed_schema_request_is_visible_and_retryable() {
     let (bridge, _command_rx, event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);

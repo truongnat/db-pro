@@ -2,7 +2,8 @@
 
 Source evidence recorded on 2026-09-13:
 
-- Baseline: `1d3a278 feat(query): harden SQL prediction quality and UX`.
+- Baseline: `8c688d9 feat(query): add editor delimiter pairing UX`, with the completion and
+  delimiter hardening recorded below.
 - Native translator now routes `RequestSqlPrediction` and `CancelSqlPrediction` to the runtime worker.
 - Query execution, explain state, prediction request state, and Query Workspace output selection are
   stored per `QueryDocument`; the global query request slot was removed from UI routing.
@@ -21,12 +22,17 @@ Source evidence recorded on 2026-09-13:
   skips an already-present closing delimiter, and highlights the delimiter pair near the caret.
   Unmatched square brackets are surfaced as ranged diagnostics while literals/comments/dollar
   quotes are ignored by the structural matcher.
+- Mixed structural delimiters now report the closing delimiter and expected pair (for example,
+  `([)]` reports `): expected ]`) instead of silently treating the mismatch as a generic unmatched
+  character. Escaped PostgreSQL E-strings and quoted identifiers are covered by the matcher tests.
+- GROUP BY projection analysis now excludes only known aggregate calls, including nested aggregate
+  calls, while retaining scalar function expressions such as `LOWER(name)` as groupable output.
 
 Source evidence is not runtime evidence.
 
 Automated evidence recorded on 2026-09-13:
 
-- `cargo test --workspace` — PASS, including 203 UI tests and the workspace crate suites.
+- `cargo test --workspace` — PASS, including 219 UI tests and the workspace crate suites.
 - `cargo fmt --all -- --check` — PASS.
 - `cargo check --workspace` — PASS.
 - `cargo clippy --workspace --all-targets -- -D warnings` — PASS.
@@ -42,7 +48,12 @@ replacement. The native runtime worker logs provider latency using request/docum
 - Focused tests cover translator routing, stale document version rejection, debounce/deduplication,
   current-statement context, UTF-8 overlap, atomic replacement acceptance, cooldown handling,
   completion context, FK JOIN suggestions, INSERT/ORDER/GROUP completion ranking, conservative
-  SQL formatting, bracket matching/diagnostics, and concurrent per-document query/output state.
+  SQL formatting, bracket matching/diagnostics (including mixed mismatches and auto-pair deletion),
+  aggregate-aware GROUP BY ranking, and concurrent per-document query/output state.
+
+The clean-code scan still reports legacy oversized renderer/query functions and existing clone/cast
+heuristics; this focused change introduces no new unwrap/expect or clippy warning. Live provider and
+the required multi-viewport native UI evidence remain the release-phase gaps.
 
 Runtime evidence collected in this turn:
 
