@@ -10,6 +10,13 @@ Source evidence recorded on 2026-09-13:
   prediction can replace the current partial token atomically and undo restores the original text.
 - Completion now covers explicit/simple CTE output columns, UPDATE target columns, and simple
   subquery aliases with deterministic context ordering.
+- Completion now recognizes `JOIN ... ON`, ranks matching aliased FK predicates (including
+  composite keys), ranks SELECT aliases/non-aggregate projections for ORDER BY/GROUP BY, and
+  omits INSERT columns already present in the target column list.
+- SQL formatting is conservative and safe for incomplete input: it preserves comments, quoted
+  text, identifiers, and PostgreSQL dollar-quoted bodies while normalizing common clause
+  boundaries. Selection/document formatting uses a single editor undo snapshot and is available
+  from Query actions and Cmd/Ctrl+Shift+F.
 
 Source evidence is not runtime evidence.
 
@@ -30,7 +37,8 @@ replacement. The native runtime worker logs provider latency using request/docum
 
 - Focused tests cover translator routing, stale document version rejection, debounce/deduplication,
   current-statement context, UTF-8 overlap, atomic replacement acceptance, cooldown handling,
-  completion context, and concurrent per-document query/output state.
+  completion context, FK JOIN suggestions, INSERT/ORDER/GROUP completion ranking, conservative
+  SQL formatting, and concurrent per-document query/output state.
 
 Runtime evidence collected in this turn:
 

@@ -13,6 +13,9 @@
 - [x] Reject empty/prose/oversized prediction output before it reaches the editor.
 - [x] Add request deduplication, short-lived prediction cache, and provider cooldown.
 - [x] Improve completion context for UPDATE targets, explicit/simple CTEs, and subquery aliases.
+- [x] Add clause-aware ORDER BY/GROUP BY projection ranking and INSERT column de-duplication.
+- [x] Add FK-aware JOIN ON condition completion for explicitly aliased tables.
+- [x] Add conservative selection/document SQL formatting with one-step undo and keyboard action.
 - [x] Keep Query Workspace output tabs isolated per document.
 - [x] Remove the remaining global query execution request slot from the UI routing path.
 - [x] Verify per-document execution/explain routing.

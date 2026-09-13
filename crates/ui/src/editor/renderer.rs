@@ -357,6 +357,9 @@ impl<'a> SqlEditor<'a> {
                             Key::Space if event_mods.ctrl && event_mods.alt => {
                                 response.wants_manual_prediction = true;
                             }
+                            Key::F if is_cmd && shift => {
+                                response.wants_format = true;
+                            }
                             Key::Space if event_mods.ctrl => {
                                 response.wants_completion = true;
                                 response.wants_manual_completion = true;

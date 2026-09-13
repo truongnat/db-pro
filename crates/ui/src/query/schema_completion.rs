@@ -5,13 +5,17 @@ use crate::editor::prediction::{
 };
 use crate::editor::syntax::CachedSqlTokens;
 use crate::runtime::UiSchemaSummary;
-use std::collections::HashMap;
+use sqlparser::ast::{Expr, SelectItem, SetExpr, Statement};
+use sqlparser::dialect::{PostgreSqlDialect, SQLiteDialect};
+use sqlparser::parser::Parser;
+use std::collections::{HashMap, HashSet};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SqlClause {
     Select,
     From,
     Join,
+    JoinOn,
     Where,
     GroupBy,
     OrderBy,
@@ -78,6 +82,12 @@ impl SchemaCompletionProvider {
         let subquery_aliases = extract_subquery_aliases(&full_doc);
         let clause = detect_clause_context(before_prefix);
         let mutation_target = extract_mutation_target(&full_doc);
+        let parsed_select = parse_select_context(text_before, ctx.text_after_cursor, ctx.is_sqlite);
+        let inserted_columns = if clause == SqlClause::InsertInto {
+            extract_inserted_column_names(&full_doc)
+        } else {
+            HashSet::new()
+        };
 
         let mut items = Vec::new();
 
@@ -303,6 +313,17 @@ impl SchemaCompletionProvider {
 
         // Clause-driven completions when no dot qualifier is present:
 
+        // An ON clause gets relationship-aware snippets first. We only emit a
+        // condition when both FK endpoints have explicit aliases, avoiding a
+        // potentially wrong condition for ambiguous table references.
+        if clause == SqlClause::JoinOn {
+            items.extend(foreign_key_join_suggestions(
+                ctx.schema_summary,
+                &aliases,
+                replacement_range,
+            ));
+        }
+
         // 1. FROM / JOIN clauses: suggest Tables, Views, CTEs, Schemas
         if matches!(clause, SqlClause::From | SqlClause::Join) {
             // Suggest CTE names
@@ -386,8 +407,8 @@ impl SchemaCompletionProvider {
         // 2. SELECT / WHERE / GROUP BY / ORDER BY / HAVING / RETURNING clauses:
         // Prioritize columns from referenced tables/aliases and detect ambiguous columns
         let mut referenced_table_names = Vec::new();
-        if let Some(target) = mutation_target {
-            referenced_table_names.push(target);
+        if let Some(ref target) = mutation_target {
+            referenced_table_names.push(target.clone());
         }
         let mut alias_tables: Vec<String> = aliases.values().cloned().collect();
         alias_tables.sort_unstable();
@@ -436,6 +457,14 @@ impl SchemaCompletionProvider {
                     .find(|(_, val)| val.eq_ignore_ascii_case(&table.name))
                     .map(|(k, _)| k.as_str());
                 for col in &table.columns {
+                    if clause == SqlClause::InsertInto
+                        && mutation_target
+                            .as_deref()
+                            .is_some_and(|target| target.eq_ignore_ascii_case(&table.name))
+                        && inserted_columns.contains(&col.name.to_lowercase())
+                    {
+                        continue;
+                    }
                     if col.name.to_lowercase().contains(&prefix_lower) {
                         let is_ambiguous = col_frequencies.get(&col.name.to_lowercase()).copied().unwrap_or(0) > 1;
                         if let Some(a) = alias {
@@ -471,6 +500,35 @@ impl SchemaCompletionProvider {
                             sort_score: if is_ambiguous { 820 } else { 940 },
                         });
                     }
+                }
+            }
+        }
+
+        if let Some(select_context) = parsed_select {
+            let output_names = if clause == SqlClause::GroupBy {
+                select_context.non_aggregate_names
+            } else if clause == SqlClause::OrderBy {
+                select_context
+                    .aliases
+                    .into_iter()
+                    .chain(select_context.non_aggregate_names)
+                    .collect()
+            } else {
+                Vec::new()
+            };
+            for name in output_names {
+                if name.to_lowercase().contains(&prefix_lower)
+                    && !items.iter().any(|item| item.label.eq_ignore_ascii_case(&name))
+                {
+                    items.push(CompletionItem {
+                        label: name.clone(),
+                        insert_text: name,
+                        kind: CompletionItemKind::Column,
+                        detail: Some("SELECT output".to_owned()),
+                        documentation: Some("Selected output column or alias".to_owned()),
+                        replacement_range,
+                        sort_score: 990,
+                    });
                 }
             }
         }
@@ -567,6 +625,149 @@ impl SchemaCompletionProvider {
     }
 }
 
+#[derive(Debug, Default)]
+struct ParsedSelectContext {
+    aliases: Vec<String>,
+    non_aggregate_names: Vec<String>,
+}
+
+fn parse_select_context(before_cursor: &str, after_cursor: &str, is_sqlite: bool) -> Option<ParsedSelectContext> {
+    let parse_input = format!("{before_cursor}__dbpro_cursor__{after_cursor}");
+    let statements = if is_sqlite {
+        Parser::parse_sql(&SQLiteDialect {}, &parse_input).ok()?
+    } else {
+        Parser::parse_sql(&PostgreSqlDialect {}, &parse_input).ok()?
+    };
+    let Statement::Query(query) = statements.first()? else {
+        return None;
+    };
+    let SetExpr::Select(select) = query.body.as_ref() else {
+        return None;
+    };
+
+    let mut context = ParsedSelectContext::default();
+    for item in &select.projection {
+        match item {
+            SelectItem::ExprWithAlias { expr, alias } => {
+                context.aliases.push(alias.value.clone());
+                if !matches!(expr, Expr::Function(_)) {
+                    context.non_aggregate_names.push(alias.value.clone());
+                }
+            }
+            SelectItem::UnnamedExpr(Expr::Identifier(identifier)) => {
+                context.non_aggregate_names.push(identifier.value.clone());
+            }
+            SelectItem::UnnamedExpr(Expr::CompoundIdentifier(identifiers)) => {
+                if let Some(identifier) = identifiers.last() {
+                    context.non_aggregate_names.push(identifier.value.clone());
+                }
+            }
+            SelectItem::UnnamedExpr(_) | SelectItem::QualifiedWildcard(_, _) | SelectItem::Wildcard(_) => {}
+        }
+    }
+    context.aliases.sort_unstable_by_key(|name| name.to_lowercase());
+    context
+        .non_aggregate_names
+        .sort_unstable_by_key(|name| name.to_lowercase());
+    context.aliases.dedup_by(|left, right| left.eq_ignore_ascii_case(right));
+    context
+        .non_aggregate_names
+        .dedup_by(|left, right| left.eq_ignore_ascii_case(right));
+    Some(context)
+}
+
+fn foreign_key_join_suggestions(
+    summary: &UiSchemaSummary,
+    aliases: &HashMap<String, String>,
+    replacement_range: (usize, usize),
+) -> Vec<CompletionItem> {
+    let mut suggestions = Vec::new();
+    let mut seen = HashSet::new();
+    for source_table in &summary.table_details {
+        let Some(source_alias) = alias_for_table(aliases, &source_table.name) else {
+            continue;
+        };
+        for foreign_key in &source_table.foreign_keys {
+            let Some(target_table) = summary
+                .table_details
+                .iter()
+                .find(|table| table.name.eq_ignore_ascii_case(&foreign_key.to_table))
+            else {
+                continue;
+            };
+            let Some(target_alias) = alias_for_table(aliases, &target_table.name) else {
+                continue;
+            };
+            if foreign_key.from_columns.len() != foreign_key.to_columns.len()
+                || foreign_key.from_columns.is_empty()
+                || source_alias.eq_ignore_ascii_case(&target_alias)
+            {
+                continue;
+            }
+            let predicates = foreign_key
+                .from_columns
+                .iter()
+                .zip(&foreign_key.to_columns)
+                .map(|(source_column, target_column)| {
+                    format!("{source_alias}.{source_column} = {target_alias}.{target_column}")
+                })
+                .collect::<Vec<_>>();
+            let condition = predicates.join(" AND ");
+            if !seen.insert(condition.to_lowercase()) {
+                continue;
+            }
+            suggestions.push(CompletionItem {
+                label: condition.clone(),
+                insert_text: condition,
+                kind: CompletionItemKind::Snippet,
+                detail: Some(format!("FK · {}", foreign_key.name)),
+                documentation: Some(format!(
+                    "Join {} to {} using the declared foreign key",
+                    source_table.name, target_table.name
+                )),
+                replacement_range,
+                sort_score: 1_000,
+            });
+        }
+    }
+    suggestions
+}
+
+fn alias_for_table(aliases: &HashMap<String, String>, table_name: &str) -> Option<String> {
+    aliases
+        .iter()
+        .find(|(_, table)| table.eq_ignore_ascii_case(table_name))
+        .map(|(alias, _)| alias.clone())
+}
+
+fn extract_inserted_column_names(text: &str) -> HashSet<String> {
+    let normalized = text.replace('(', " ( ").replace(')', " ) ").replace(',', " , ");
+    let words: Vec<&str> = normalized.split_whitespace().collect();
+    let Some(into_index) = words.iter().position(|word| word.eq_ignore_ascii_case("INTO")) else {
+        return HashSet::new();
+    };
+    let Some(open_index) = words[into_index.saturating_add(2)..]
+        .iter()
+        .position(|word| *word == "(")
+        .map(|offset| into_index + 2 + offset)
+    else {
+        return HashSet::new();
+    };
+    let mut columns = HashSet::new();
+    for word in words.iter().skip(open_index + 1) {
+        if *word == ")" {
+            break;
+        }
+        if *word != "," {
+            let column = clean_cte_token(word);
+            if !column.is_empty() {
+                columns.insert(column.to_lowercase());
+            }
+        }
+    }
+    columns
+}
+
 pub fn detect_clause_context(text_before: &str) -> SqlClause {
     let upper = text_before.to_ascii_uppercase();
     let tokens: Vec<&str> = upper.split_whitespace().collect();
@@ -579,6 +780,7 @@ pub fn detect_clause_context(text_before: &str) -> SqlClause {
         match w {
             "FROM" => return SqlClause::From,
             "JOIN" | "CROSS" | "INNER" | "LEFT" | "RIGHT" | "OUTER" => return SqlClause::Join,
+            "ON" => return SqlClause::JoinOn,
             "WHERE" => return SqlClause::Where,
             "SET" => return SqlClause::Set,
             "UPDATE" => return SqlClause::Update,
@@ -621,6 +823,7 @@ fn add_clause_keywords(
             "ORDER BY",
             "LIMIT",
         ],
+        SqlClause::JoinOn => &["AND", "OR", "IS NULL", "IS NOT NULL"],
         SqlClause::Where | SqlClause::Having => &[
             "AND",
             "OR",
@@ -1275,6 +1478,152 @@ mod tests {
         };
         let (_, items) = SchemaCompletionProvider::provide(&ctx);
         assert_eq!(items.first().map(|item| item.label.as_str()), Some("email"));
+    }
+
+    #[test]
+    fn insert_completion_excludes_columns_already_entered() {
+        let summary = UiSchemaSummary {
+            table_details: vec![UiTableSummary {
+                schema: "public".to_owned(),
+                name: "users".to_owned(),
+                row_count: None,
+                columns: vec![
+                    UiSchemaColumn {
+                        name: "id".to_owned(),
+                        data_type: "integer".to_owned(),
+                        nullable: false,
+                        is_primary_key: true,
+                    },
+                    UiSchemaColumn {
+                        name: "email".to_owned(),
+                        data_type: "text".to_owned(),
+                        nullable: false,
+                        is_primary_key: false,
+                    },
+                ],
+                foreign_keys: vec![],
+            }],
+            ..Default::default()
+        };
+        let sql = "INSERT INTO users (id, em";
+        let ctx = CompletionContext {
+            text_before_cursor: sql,
+            text_after_cursor: ") VALUES (1, 'a@example.com')",
+            cursor_offset: sql.len(),
+            active_schema: "public",
+            schema_summary: &summary,
+            cached_tokens: None,
+            is_sqlite: false,
+            is_manual_trigger: true,
+        };
+        let (_, items) = SchemaCompletionProvider::provide(&ctx);
+        assert_eq!(items.first().map(|item| item.label.as_str()), Some("email"));
+        assert!(!items.iter().any(|item| item.label == "id"));
+    }
+
+    #[test]
+    fn order_by_prioritizes_select_aliases_from_ast() {
+        let summary = UiSchemaSummary {
+            table_details: vec![UiTableSummary {
+                schema: "public".to_owned(),
+                name: "users".to_owned(),
+                row_count: None,
+                columns: vec![UiSchemaColumn {
+                    name: "name".to_owned(),
+                    data_type: "text".to_owned(),
+                    nullable: false,
+                    is_primary_key: false,
+                }],
+                foreign_keys: vec![],
+            }],
+            ..Default::default()
+        };
+        let sql = "SELECT name AS display_name, count(*) AS total FROM users ORDER BY ";
+        let ctx = CompletionContext {
+            text_before_cursor: sql,
+            text_after_cursor: "",
+            cursor_offset: sql.len(),
+            active_schema: "public",
+            schema_summary: &summary,
+            cached_tokens: None,
+            is_sqlite: false,
+            is_manual_trigger: true,
+        };
+        let (_, items) = SchemaCompletionProvider::provide(&ctx);
+        assert_eq!(items.first().map(|item| item.label.as_str()), Some("display_name"));
+        assert!(items.iter().any(|item| item.label == "total"));
+    }
+
+    #[test]
+    fn group_by_prioritizes_non_aggregate_projection_from_ast() {
+        let summary = UiSchemaSummary::default();
+        let sql = "SELECT status, count(*) AS total FROM users GROUP BY ";
+        let ctx = CompletionContext {
+            text_before_cursor: sql,
+            text_after_cursor: "",
+            cursor_offset: sql.len(),
+            active_schema: "public",
+            schema_summary: &summary,
+            cached_tokens: None,
+            is_sqlite: false,
+            is_manual_trigger: true,
+        };
+        let (_, items) = SchemaCompletionProvider::provide(&ctx);
+        assert_eq!(items.first().map(|item| item.label.as_str()), Some("status"));
+        assert!(!items.iter().any(|item| item.label == "total"));
+    }
+
+    #[test]
+    fn join_on_prioritizes_matching_foreign_key_condition() {
+        let summary = UiSchemaSummary {
+            table_details: vec![
+                UiTableSummary {
+                    schema: "public".to_owned(),
+                    name: "users".to_owned(),
+                    row_count: None,
+                    columns: vec![UiSchemaColumn {
+                        name: "id".to_owned(),
+                        data_type: "integer".to_owned(),
+                        nullable: false,
+                        is_primary_key: true,
+                    }],
+                    foreign_keys: vec![],
+                },
+                UiTableSummary {
+                    schema: "public".to_owned(),
+                    name: "orders".to_owned(),
+                    row_count: None,
+                    columns: vec![UiSchemaColumn {
+                        name: "user_id".to_owned(),
+                        data_type: "integer".to_owned(),
+                        nullable: false,
+                        is_primary_key: false,
+                    }],
+                    foreign_keys: vec![crate::runtime::UiSchemaForeignKey {
+                        name: "orders_user_id_fkey".to_owned(),
+                        from_columns: vec!["user_id".to_owned()],
+                        to_schema: "public".to_owned(),
+                        to_table: "users".to_owned(),
+                        to_columns: vec!["id".to_owned()],
+                    }],
+                },
+            ],
+            ..Default::default()
+        };
+        let sql = "SELECT * FROM users u JOIN orders o ON ";
+        let ctx = CompletionContext {
+            text_before_cursor: sql,
+            text_after_cursor: "",
+            cursor_offset: sql.len(),
+            active_schema: "public",
+            schema_summary: &summary,
+            cached_tokens: None,
+            is_sqlite: false,
+            is_manual_trigger: true,
+        };
+        let (_, items) = SchemaCompletionProvider::provide(&ctx);
+        assert_eq!(items.first().map(|item| item.label.as_str()), Some("o.user_id = u.id"));
+        assert_eq!(items.first().map(|item| item.kind), Some(CompletionItemKind::Snippet));
     }
 
     #[test]

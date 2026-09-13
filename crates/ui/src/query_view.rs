@@ -1,5 +1,7 @@
 use super::*;
-use crate::editor::{CompletionItemKind, CompletionTriggerKind, Diagnostic, SqlDialect, SqlEditor};
+use crate::editor::{
+    CompletionItemKind, CompletionTriggerKind, Diagnostic, EditorSnapshot, SelectionRange, SqlDialect, SqlEditor,
+};
 use crate::query::{CompletionContext, SchemaCompletionProvider};
 use std::time::Instant;
 
@@ -553,8 +555,7 @@ impl DbProApp {
             close_menu = true;
         }
         if menu_button_with_icon(ui, Icon::WandSparkles, "Format SQL", self.theme).clicked() {
-            let formatted = Self::format_sql(self.active_query_text());
-            self.set_active_query_text(formatted);
+            self.format_active_query();
             close_menu = true;
         }
         if menu_button_with_icon(ui, Icon::ChartNoAxesCombined, "Explain query", self.theme).clicked() {
@@ -766,9 +767,25 @@ impl DbProApp {
             .cached_tokens
             .is_in_string_or_comment(doc.cursor.offset.saturating_sub(1));
 
+        if response.wants_format {
+            if let Some(request_id) = doc.pending_prediction_request {
+                // Cancellation is best effort; the document version guard remains authoritative.
+                let _ = self.task_bridge.send(UiCommand::CancelSqlPrediction { request_id });
+            }
+            format_query_document(doc, dialect);
+        }
+
         if response.changed {
             doc.reanalyze(dialect);
             doc.dirty = true;
+            if !doc.selection.is_empty() {
+                let (start, end) = doc.selection.normalized();
+                self.selected_query = doc.buffer.slice(start, end).to_owned();
+            } else {
+                self.selected_query.clear();
+            }
+        }
+        if response.wants_format {
             if !doc.selection.is_empty() {
                 let (start, end) = doc.selection.normalized();
                 self.selected_query = doc.buffer.slice(start, end).to_owned();
@@ -1175,21 +1192,17 @@ impl DbProApp {
         self.export_open = false;
     }
 
-    pub(crate) fn format_sql(sql: &str) -> String {
-        let keywords = [
-            "select", "from", "where", "group by", "order by", "limit", "values", "set",
-        ];
-        let mut formatted = sql.trim().to_owned();
-        for keyword in keywords {
-            formatted = formatted.replace(keyword, &keyword.to_uppercase());
+    pub(crate) fn format_active_query(&mut self) {
+        let doc_index = self.active_query_document;
+        self.cancel_prediction_for_document(doc_index);
+        let dialect = if self.active_query_driver().eq_ignore_ascii_case("sqlite") {
+            SqlDialect::SQLite
+        } else {
+            SqlDialect::Postgres
+        };
+        if let Some(doc) = self.query_documents.get_mut(doc_index) {
+            format_query_document(doc, dialect);
         }
-        formatted = formatted
-            .replace(" FROM ", "\nFROM ")
-            .replace(" WHERE ", "\nWHERE ")
-            .replace(" GROUP BY ", "\nGROUP BY ")
-            .replace(" ORDER BY ", "\nORDER BY ")
-            .replace(" LIMIT ", "\nLIMIT ");
-        formatted
     }
 
     pub(crate) fn analyze_sql_diagnostics(sql: &str, driver: &str) -> (Vec<String>, Vec<Diagnostic>) {
@@ -1317,6 +1330,57 @@ impl DbProApp {
     fn insert_snippet(&mut self, snippet: &str) {
         self.append_to_active_query(snippet);
     }
+}
+
+fn format_query_document(doc: &mut QueryDocument, dialect: SqlDialect) {
+    let original_selection = doc.selection;
+    let had_selection = !original_selection.is_empty();
+    let (start, end) = original_selection.normalized();
+    let original_text = doc.buffer.slice(start, end).to_owned();
+    let formatted_text = crate::query::sql_format::format_sql_for_dialect(&original_text, dialect);
+    if formatted_text == original_text {
+        return;
+    }
+
+    let cursor_after = if had_selection {
+        if original_selection.active >= original_selection.anchor {
+            start + formatted_text.len()
+        } else {
+            start
+        }
+    } else {
+        start + doc.cursor.offset.saturating_sub(start).min(formatted_text.len())
+    };
+    let anchor_after = if had_selection {
+        if original_selection.anchor <= original_selection.active {
+            start
+        } else {
+            start + formatted_text.len()
+        }
+    } else {
+        cursor_after
+    };
+
+    doc.buffer.replace_with_snapshot(
+        start,
+        end,
+        &formatted_text,
+        EditorSnapshot {
+            cursor_offset: doc.cursor.offset,
+            anchor_offset: original_selection.anchor,
+        },
+        EditorSnapshot {
+            cursor_offset: cursor_after,
+            anchor_offset: anchor_after,
+        },
+    );
+    doc.cursor.set_offset(&doc.buffer, cursor_after);
+    doc.selection = SelectionRange::new(anchor_after, cursor_after);
+    doc.completion.clear();
+    doc.invalidate_prediction();
+    doc.reanalyze(dialect);
+    doc.search.update_matches(doc.buffer.text());
+    doc.dirty = true;
 }
 
 fn prediction_replacement_range(
