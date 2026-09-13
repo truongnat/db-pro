@@ -631,7 +631,21 @@ struct ParsedSelectContext {
     non_aggregate_names: Vec<String>,
 }
 
-const AGGREGATE_FUNCTIONS: &[&str] = &["COUNT", "SUM", "AVG", "MIN", "MAX"];
+const POSTGRES_AGGREGATE_FUNCTIONS: &[&str] = &[
+    "COUNT",
+    "SUM",
+    "AVG",
+    "MIN",
+    "MAX",
+    "ARRAY_AGG",
+    "STRING_AGG",
+    "BOOL_AND",
+    "BOOL_OR",
+    "JSON_AGG",
+    "JSONB_AGG",
+    "EVERY",
+];
+const SQLITE_AGGREGATE_FUNCTIONS: &[&str] = &["COUNT", "SUM", "AVG", "MIN", "MAX", "GROUP_CONCAT", "TOTAL"];
 
 fn parse_select_context(before_cursor: &str, after_cursor: &str, is_sqlite: bool) -> Option<ParsedSelectContext> {
     let parse_input = format!("{before_cursor}__dbpro_cursor__{after_cursor}");
@@ -652,7 +666,7 @@ fn parse_select_context(before_cursor: &str, after_cursor: &str, is_sqlite: bool
         match item {
             SelectItem::ExprWithAlias { expr, alias } => {
                 context.aliases.push(alias.value.clone());
-                if !is_aggregate_expression(expr) {
+                if !is_aggregate_expression(expr, is_sqlite) {
                     context.non_aggregate_names.push(alias.value.clone());
                 }
             }
@@ -665,7 +679,7 @@ fn parse_select_context(before_cursor: &str, after_cursor: &str, is_sqlite: bool
                 }
             }
             SelectItem::UnnamedExpr(expr) => {
-                if !is_aggregate_expression(expr) {
+                if !is_aggregate_expression(expr, is_sqlite) {
                     let expression = expr.to_string();
                     if !expression.is_empty() {
                         context.non_aggregate_names.push(expression);
@@ -686,8 +700,13 @@ fn parse_select_context(before_cursor: &str, after_cursor: &str, is_sqlite: bool
     Some(context)
 }
 
-fn is_aggregate_expression(expression: &Expr) -> bool {
+fn is_aggregate_expression(expression: &Expr, is_sqlite: bool) -> bool {
     let rendered = expression.to_string();
+    let aggregate_functions = if is_sqlite {
+        SQLITE_AGGREGATE_FUNCTIONS
+    } else {
+        POSTGRES_AGGREGATE_FUNCTIONS
+    };
     let mut offset = 0;
     while offset < rendered.len() {
         let Some(character) = rendered[offset..].chars().next() else {
@@ -711,7 +730,7 @@ fn is_aggregate_expression(expression: &Expr) -> bool {
             }
             let identifier = rendered[identifier_start..offset].to_ascii_uppercase();
             let after_identifier = rendered[offset..].trim_start();
-            if AGGREGATE_FUNCTIONS.iter().any(|name| *name == identifier) && after_identifier.starts_with('(') {
+            if aggregate_functions.iter().any(|name| *name == identifier) && after_identifier.starts_with('(') {
                 return true;
             }
             continue;
@@ -1643,15 +1662,27 @@ mod tests {
     #[test]
     fn group_by_keeps_scalar_functions_and_excludes_nested_aggregates() {
         let parsed = parse_select_context(
-            "SELECT LOWER(name) AS normalized, COALESCE(SUM(total), 0) AS total_sum, first_name || last_name AS full_name FROM users GROUP BY ",
+            "SELECT LOWER(name) AS normalized, DATE(created_at) AS day, ARRAY_AGG(id) AS ids, COALESCE(SUM(total), 0) AS total_sum, first_name || last_name AS full_name FROM users GROUP BY ",
             "",
             false,
         )
         .expect("valid select context");
 
         assert!(parsed.non_aggregate_names.iter().any(|name| name == "normalized"));
+        assert!(parsed.non_aggregate_names.iter().any(|name| name == "day"));
         assert!(parsed.non_aggregate_names.iter().any(|name| name == "full_name"));
+        assert!(!parsed.non_aggregate_names.iter().any(|name| name == "ids"));
         assert!(!parsed.non_aggregate_names.iter().any(|name| name == "total_sum"));
+
+        let sqlite = parse_select_context(
+            "SELECT GROUP_CONCAT(name) AS names, TOTAL(amount) AS total, DATE(created_at) AS day FROM users GROUP BY ",
+            "",
+            true,
+        )
+        .expect("valid SQLite select context");
+        assert!(!sqlite.non_aggregate_names.iter().any(|name| name == "names"));
+        assert!(!sqlite.non_aggregate_names.iter().any(|name| name == "total"));
+        assert!(sqlite.non_aggregate_names.iter().any(|name| name == "day"));
     }
 
     #[test]

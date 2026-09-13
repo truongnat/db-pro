@@ -707,6 +707,7 @@ impl DbProApp {
 
         let search_query = self.editor_search.clone();
         let is_completion_open = doc.completion.is_open;
+        let execution_range = doc.executing_range;
         let previous_cursor = doc.cursor.offset;
         let previous_selection = doc.selection;
         let mut editor = SqlEditor::new(
@@ -722,6 +723,7 @@ impl DbProApp {
         .with_cached_tokens(&mut doc.cached_tokens)
         .with_search(&search_query, doc.search.active_match_index)
         .with_completion_open(is_completion_open)
+        .with_execution_range(execution_range)
         .with_prediction_visible(self.prediction_mode == PredictionMode::Eager || doc.prediction_reveal);
         editor.font_size = font_size;
 
@@ -778,6 +780,7 @@ impl DbProApp {
         if response.changed {
             doc.reanalyze(dialect);
             doc.dirty = true;
+            doc.execution_diagnostic = None;
             if !doc.selection.is_empty() {
                 let (start, end) = doc.selection.normalized();
                 self.selected_query = doc.buffer.slice(start, end).to_owned();
@@ -1232,7 +1235,7 @@ impl DbProApp {
                 format!("Unmatched delimiter {}", issue.character)
             };
             string_diagnostics.push(message.clone());
-            structured_diagnostics.push(Diagnostic::warning((issue.offset, end), message));
+            structured_diagnostics.push(Diagnostic::delimiter((issue.offset, end), message));
         }
         let mut tokens = Vec::new();
         let mut current = String::new();
@@ -1312,7 +1315,8 @@ impl DbProApp {
         if let Some(doc) = self.query_documents.get_mut(doc_index) {
             let (raw_diags, structured) = Self::analyze_sql_diagnostics(doc.text(), &driver);
             self.diagnostics = raw_diags;
-            doc.diagnostics = structured;
+            doc.diagnostics =
+                deduplicate_diagnostics(structured.into_iter().chain(doc.execution_diagnostic.clone()).collect());
         } else {
             self.diagnostics = Self::parse_sql_diagnostics(self.active_query_text(), &driver);
         }
@@ -1344,6 +1348,48 @@ fn deduplicate_diagnostics(diagnostics: Vec<Diagnostic>) -> Vec<Diagnostic> {
         }
     }
     unique
+}
+
+pub(crate) fn database_error_diagnostic(
+    message: &str,
+    executed_sql: &str,
+    executed_range: (usize, usize),
+) -> Option<Diagnostic> {
+    if executed_sql.is_empty() || executed_range.0 >= executed_range.1 {
+        return None;
+    }
+    let start = extract_postgres_position(message)
+        .map(|position| char_position_to_byte_offset(executed_sql, position))
+        .unwrap_or(0);
+    let end = executed_sql[start..]
+        .chars()
+        .next()
+        .map_or(executed_sql.len(), |character| start + character.len_utf8());
+    let document_start = executed_range.0 + start.min(executed_range.1 - executed_range.0);
+    let document_end = (executed_range.0 + end).min(executed_range.1);
+    Some(Diagnostic::database(
+        (document_start, document_end.max(document_start + 1)),
+        message,
+    ))
+}
+
+fn extract_postgres_position(message: &str) -> Option<usize> {
+    let lower = message.to_ascii_lowercase();
+    let marker = "at character ";
+    let start = lower.find(marker)? + marker.len();
+    let digits = lower[start..]
+        .chars()
+        .take_while(|character| character.is_ascii_digit())
+        .collect::<String>();
+    (!digits.is_empty()).then(|| digits.parse().ok()).flatten()
+}
+
+fn char_position_to_byte_offset(sql: &str, position: usize) -> usize {
+    let index = position.saturating_sub(1);
+    sql.char_indices()
+        .nth(index)
+        .map(|(offset, _)| offset)
+        .unwrap_or(sql.len())
 }
 
 fn ranges_overlap(left: (usize, usize), right: (usize, usize)) -> bool {

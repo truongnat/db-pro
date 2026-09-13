@@ -534,6 +534,10 @@ impl DbProApp {
             if let Some(doc) = self.query_documents.iter_mut().find(|d| &d.id == doc_id) {
                 doc.query_result = Some(result.clone());
                 doc.execution_state = QueryExecutionState::Idle;
+                doc.executing_range = None;
+                doc.executing_sql = None;
+                doc.executing_version = None;
+                doc.execution_diagnostic = None;
                 doc.query_messages
                     .push(format!("Query completed · {} rows", result.row_count));
             }
@@ -582,6 +586,9 @@ impl DbProApp {
         if let Some(doc_id) = &target_doc_id {
             if let Some(doc) = self.query_documents.iter_mut().find(|d| &d.id == doc_id) {
                 doc.execution_state = QueryExecutionState::Idle;
+                doc.executing_range = None;
+                doc.executing_sql = None;
+                doc.executing_version = None;
                 doc.query_messages.push("Query cancelled".to_owned());
             }
         }
@@ -729,7 +736,18 @@ impl DbProApp {
             let target_doc_id = self.query_document_requests.remove(&request_id);
             if let Some(doc_id) = &target_doc_id {
                 if let Some(doc) = self.query_documents.iter_mut().find(|d| &d.id == doc_id) {
+                    let execution_range = doc.executing_range.take();
+                    let execution_sql = doc.executing_sql.take();
+                    let execution_version = doc.executing_version.take();
                     doc.execution_state = QueryExecutionState::Failed;
+                    doc.execution_diagnostic = if execution_version == Some(doc.buffer.version()) {
+                        execution_sql.as_deref().and_then(|sql| {
+                            execution_range
+                                .and_then(|range| super::query_view::database_error_diagnostic(&message, sql, range))
+                        })
+                    } else {
+                        None
+                    };
                     doc.query_messages.push(format!("Query failed · {message}"));
                 }
             }
@@ -840,18 +858,16 @@ impl DbProApp {
             self.runtime_message = "Create or select a connection first".to_owned();
             return;
         };
-        let sql = if !self.selected_query.trim().is_empty() {
-            self.selected_query.clone()
-        } else if let Some(doc) = self.query_documents.get(self.active_query_document) {
-            let (stmt_sql, _) = doc.resolve_executable_sql();
-            if !stmt_sql.is_empty() {
-                stmt_sql
-            } else {
-                doc.text().to_owned()
-            }
-        } else {
-            self.active_query_text().to_owned()
-        };
+        let (sql, execution_range) = self
+            .query_documents
+            .get(self.active_query_document)
+            .map(|doc| doc.resolve_executable_range())
+            .unwrap_or_else(|| {
+                (
+                    self.active_query_text().trim().to_owned(),
+                    (0, self.active_query_text().len()),
+                )
+            });
         if sql.trim().is_empty() {
             self.runtime_message = "Query is empty".to_owned();
             return;
@@ -865,6 +881,11 @@ impl DbProApp {
         let request_id = self.task_bridge.next_request_id();
         if let Some(doc) = self.query_documents.get_mut(self.active_query_document) {
             doc.execution_state = QueryExecutionState::Running(request_id);
+            doc.executing_range = Some(execution_range);
+            doc.executing_sql = Some(sql.clone());
+            doc.executing_version = Some(doc.buffer.version());
+            doc.last_executed_range = Some(execution_range);
+            doc.execution_diagnostic = None;
             self.query_document_requests.insert(request_id, doc.id.clone());
         }
         self.runtime_message = "Sending query to runtime…".to_owned();
@@ -887,11 +908,20 @@ impl DbProApp {
             self.runtime_message = "Create or select a connection first".to_owned();
             return;
         };
-        let sql = if let Some(doc) = self.query_documents.get(self.active_query_document) {
-            doc.text().trim().to_owned()
-        } else {
-            self.active_query_text().trim().to_owned()
-        };
+        let (sql, execution_range) = self
+            .query_documents
+            .get(self.active_query_document)
+            .map(|doc| {
+                let text = doc.text().trim().to_owned();
+                let leading = doc.text().len().saturating_sub(doc.text().trim_start().len());
+                (text.clone(), (leading, leading + text.len()))
+            })
+            .unwrap_or_else(|| {
+                (
+                    self.active_query_text().trim().to_owned(),
+                    (0, self.active_query_text().len()),
+                )
+            });
         if sql.is_empty() {
             self.runtime_message = "Query is empty".to_owned();
             return;
@@ -905,6 +935,11 @@ impl DbProApp {
         let request_id = self.task_bridge.next_request_id();
         if let Some(doc) = self.query_documents.get_mut(self.active_query_document) {
             doc.execution_state = QueryExecutionState::Running(request_id);
+            doc.executing_range = Some(execution_range);
+            doc.executing_sql = Some(sql.clone());
+            doc.executing_version = Some(doc.buffer.version());
+            doc.last_executed_range = Some(execution_range);
+            doc.execution_diagnostic = None;
             self.query_document_requests.insert(request_id, doc.id.clone());
         }
         self.runtime_message = "Sending full script to runtime…".to_owned();

@@ -27,6 +27,13 @@ Source evidence recorded on 2026-09-13:
   character. Escaped PostgreSQL E-strings and quoted identifiers are covered by the matcher tests.
 - GROUP BY projection analysis now excludes only known aggregate calls, including nested aggregate
   calls, while retaining scalar function expressions such as `LOWER(name)` as groupable output.
+- Diagnostic sources are now typed as Parser, Delimiter, or Database. Query documents retain the
+  executing SQL/range/version and last executed range; database failures attach a separate
+  database diagnostic without allowing the next parser refresh to erase it. PostgreSQL driver
+  positions are preserved as an `at character N` marker and mapped from one-based character
+  positions to UTF-8-safe editor byte ranges; failures without a position use the statement range.
+- GROUP BY aggregate detection is dialect-aware: PostgreSQL includes ARRAY_AGG, STRING_AGG,
+  BOOL_AND, BOOL_OR, JSON_AGG, JSONB_AGG, and EVERY; SQLite includes GROUP_CONCAT and TOTAL.
 
 Source evidence is not runtime evidence.
 
@@ -49,7 +56,8 @@ replacement. The native runtime worker logs provider latency using request/docum
   current-statement context, UTF-8 overlap, atomic replacement acceptance, cooldown handling,
   completion context, FK JOIN suggestions, INSERT/ORDER/GROUP completion ranking, conservative
   SQL formatting, bracket matching/diagnostics (including mixed mismatches and auto-pair deletion),
-  aggregate-aware GROUP BY ranking, and concurrent per-document query/output state.
+  aggregate-aware GROUP BY ranking, PostgreSQL error-position mapping over UTF-8, database failure
+  diagnostic routing, and concurrent per-document query/output state.
 
 The clean-code scan still reports legacy oversized renderer/query functions and existing clone/cast
 heuristics; this focused change introduces no new unwrap/expect or clippy warning. Live provider and

@@ -14,7 +14,7 @@ pub use buffer::{EditorSnapshot, TextBuffer, UndoAction, UndoStack, UndoStep};
 pub use completion::{CompletionItem, CompletionItemKind, CompletionState, CompletionTriggerKind};
 pub use cursor::CursorPosition;
 pub use decorations::{DecorationKind, DiagnosticSeverity, EditorDecoration};
-pub use diagnostics::Diagnostic;
+pub use diagnostics::{Diagnostic, DiagnosticSource};
 pub use document::{SqlDocumentAnalysis, SqlStatement};
 pub use prediction::{AiSqlContext, EditPrediction, PredictionMode, PredictionState, PredictionStatus};
 pub use renderer::{SqlEditor, SqlEditorResponse};

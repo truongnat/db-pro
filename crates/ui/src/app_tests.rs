@@ -1311,6 +1311,47 @@ fn sql_diagnostics_report_mixed_delimiter_mismatch() {
 }
 
 #[test]
+fn database_error_position_maps_postgres_character_to_utf8_editor_offset() {
+    let sql = "SELECT café FROM users";
+    let diagnostic =
+        super::query_view::database_error_diagnostic("syntax error (at character 11)", sql, (4, 4 + sql.len()))
+            .expect("database diagnostic should have a range");
+
+    assert_eq!(diagnostic.source, crate::editor::DiagnosticSource::Database);
+    assert_eq!(diagnostic.range, (14, 16));
+}
+
+#[test]
+fn query_failure_attaches_database_diagnostic_to_the_originating_document() {
+    let (bridge, _command_rx, event_tx) = TaskBridge::with_channels();
+    let mut app = DbProApp::with_task_bridge(bridge);
+    let mut doc = QueryDocument::new("query-1", "Query 1", "SELECT café;");
+    let request_id = crate::RequestId(77);
+    doc.execution_state = QueryExecutionState::Running(request_id);
+    doc.executing_range = Some((0, doc.text().len()));
+    doc.executing_sql = Some(doc.text().to_owned());
+    doc.executing_version = Some(doc.buffer.version());
+    app.query_documents = vec![doc];
+    app.query_document_requests.insert(request_id, "query-1".to_owned());
+
+    event_tx
+        .send(UiEvent::QueryFailed {
+            request_id,
+            message: "syntax error (at character 8)".to_owned(),
+        })
+        .expect("query failure should be queued");
+    app.apply_runtime_events();
+
+    let diagnostic = app.query_documents[0]
+        .execution_diagnostic
+        .as_ref()
+        .expect("query failure should attach a diagnostic");
+    assert_eq!(diagnostic.source, crate::editor::DiagnosticSource::Database);
+    assert_eq!(diagnostic.range, (7, 8));
+    assert_eq!(app.query_documents[0].execution_state, QueryExecutionState::Failed);
+}
+
+#[test]
 fn failed_schema_request_is_visible_and_retryable() {
     let (bridge, _command_rx, event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);

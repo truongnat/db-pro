@@ -52,6 +52,7 @@ pub struct SqlEditor<'a> {
     pub search_query: &'a str,
     pub active_search_match_index: usize,
     pub completion_open: bool,
+    pub execution_range: Option<(usize, usize)>,
     pub font_size: f32,
     pub id_salt: &'a str,
 }
@@ -81,6 +82,7 @@ impl<'a> SqlEditor<'a> {
             search_query: "",
             active_search_match_index: 0,
             completion_open: false,
+            execution_range: None,
             font_size: FONT_SIZE,
             id_salt,
         }
@@ -104,6 +106,11 @@ impl<'a> SqlEditor<'a> {
 
     pub fn with_prediction_visible(mut self, visible: bool) -> Self {
         self.prediction_visible = visible;
+        self
+    }
+
+    pub fn with_execution_range(mut self, range: Option<(usize, usize)>) -> Self {
+        self.execution_range = range;
         self
     }
 
@@ -517,6 +524,24 @@ impl<'a> SqlEditor<'a> {
                             .rect_filled(m_rect, Rounding::same(2.0), self.theme.warning.linear_multiply(0.28));
                     }
                 }
+            }
+        }
+
+        if let Some((execution_start, execution_end)) = self.execution_range {
+            for execution_rect in self.range_to_screen_rects(
+                self.buffer,
+                execution_start,
+                execution_end,
+                rect.min,
+                gutter_w,
+                line_height,
+                char_width,
+            ) {
+                ui.painter().rect_filled(
+                    execution_rect,
+                    Rounding::same(1.0),
+                    self.theme.accent.linear_multiply(0.08),
+                );
             }
         }
 

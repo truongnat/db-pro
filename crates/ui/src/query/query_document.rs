@@ -125,6 +125,11 @@ pub struct QueryDocument {
     pub query_messages: Vec<String>,
     pub explain_plan: Option<String>,
     pub explain_request: Option<crate::runtime::RequestId>,
+    pub executing_range: Option<(usize, usize)>,
+    pub executing_sql: Option<String>,
+    pub executing_version: Option<u64>,
+    pub last_executed_range: Option<(usize, usize)>,
+    pub execution_diagnostic: Option<Diagnostic>,
 }
 
 impl QueryDocument {
@@ -174,6 +179,11 @@ impl QueryDocument {
             query_messages: Vec::new(),
             explain_plan: None,
             explain_request: None,
+            executing_range: None,
+            executing_sql: None,
+            executing_version: None,
+            last_executed_range: None,
+            execution_diagnostic: None,
         }
     }
 
@@ -225,6 +235,17 @@ impl QueryDocument {
         let full = self.buffer.text().trim().to_owned();
         let len = self.buffer.len_bytes();
         (full, (0, len))
+    }
+
+    /// Returns the executable SQL and the exact document range after trimming
+    /// editor-only whitespace from the selected/current statement.
+    pub fn resolve_executable_range(&self) -> (String, (usize, usize)) {
+        let (sql, (start, end)) = self.resolve_executable_sql();
+        let raw = self.buffer.slice(start, end);
+        let leading = raw.len().saturating_sub(raw.trim_start().len());
+        let trimmed_start = start + leading;
+        let sql_len = sql.len();
+        (sql, (trimmed_start, trimmed_start + sql_len))
     }
 
     pub fn schedule_prediction(&mut self, now: Instant) {

@@ -1,11 +1,18 @@
 pub use super::decorations::DiagnosticSeverity;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DiagnosticSource {
+    Parser,
+    Delimiter,
+    Database,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Diagnostic {
     pub range: (usize, usize),
     pub severity: DiagnosticSeverity,
     pub message: String,
-    pub source: String,
+    pub source: DiagnosticSource,
 }
 
 impl Diagnostic {
@@ -14,7 +21,7 @@ impl Diagnostic {
             range,
             severity: DiagnosticSeverity::Error,
             message: message.into(),
-            source: "sql-parser".to_owned(),
+            source: DiagnosticSource::Parser,
         }
     }
 
@@ -23,7 +30,25 @@ impl Diagnostic {
             range,
             severity: DiagnosticSeverity::Warning,
             message: message.into(),
-            source: "sql-analyzer".to_owned(),
+            source: DiagnosticSource::Parser,
+        }
+    }
+
+    pub fn delimiter(range: (usize, usize), message: impl Into<String>) -> Self {
+        Self {
+            range,
+            severity: DiagnosticSeverity::Warning,
+            message: message.into(),
+            source: DiagnosticSource::Delimiter,
+        }
+    }
+
+    pub fn database(range: (usize, usize), message: impl Into<String>) -> Self {
+        Self {
+            range,
+            severity: DiagnosticSeverity::Error,
+            message: message.into(),
+            source: DiagnosticSource::Database,
         }
     }
 }

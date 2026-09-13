@@ -22,6 +22,10 @@
 - [x] Add auto-pair backspace deletion and selection wrapping coverage.
 - [x] Make GROUP BY projection filtering distinguish scalar functions from aggregate calls.
 - [x] Deduplicate structured diagnostics with matching overlapping ranges.
+- [x] Preserve database diagnostic source/range separately from parser diagnostics.
+- [x] Map PostgreSQL character positions to UTF-8-safe document byte ranges.
+- [x] Retain per-document executing/last-executed ranges and clear stale execution diagnostics on edit.
+- [x] Use dialect-aware aggregate registries for PostgreSQL and SQLite GROUP BY completion.
 - [x] Keep Query Workspace output tabs isolated per document.
 - [x] Remove the remaining global query execution request slot from the UI routing path.
 - [x] Verify per-document execution/explain routing.

@@ -5,23 +5,24 @@ pub fn from_sqlx(err: sqlx::Error) -> DbError {
         sqlx::Error::PoolTimedOut => DbError::ConnectionTimeout("connection pool timed out".into()),
         sqlx::Error::PoolClosed => DbError::ConnectionFailed("connection pool is closed".into()),
         sqlx::Error::Database(ref db_err) => {
+            let message = database_message(db_err.as_ref());
             if let Some(code) = db_err.code() {
                 let code_str = code.as_ref();
                 // Authentication errors (SQLSTATE 28xxx)
                 if code_str == "28P01" || code_str == "28000" || code_str == "28004" {
-                    return DbError::AuthFailed(db_err.message().into());
+                    return DbError::AuthFailed(message);
                 }
                 // Connection exceptions (SQLSTATE 08xxx)
                 if code_str.starts_with("08") {
-                    return DbError::ConnectionRefused(db_err.message().into());
+                    return DbError::ConnectionRefused(message);
                 }
                 // Syntax errors (SQLSTATE 42xxx)
                 if code_str.starts_with("42") {
                     // Permission denied (SQLSTATE 42501) — check before generic syntax
                     if code_str == "42501" {
-                        return DbError::PermissionDenied(db_err.message().into());
+                        return DbError::PermissionDenied(message);
                     }
-                    return DbError::QuerySyntax(db_err.message().into());
+                    return DbError::QuerySyntax(message);
                 }
                 // Constraint violations (SQLSTATE 23xxx)
                 if let Some(ct) = constraint_type_from_sqlstate(code_str) {
@@ -30,7 +31,7 @@ pub fn from_sqlx(err: sqlx::Error) -> DbError {
                         constraint: db_err.constraint().unwrap_or_default().to_string(),
                         table: db_err.table().unwrap_or_default().to_string(),
                         column: None,
-                        message: db_err.message().to_string(),
+                        message,
                     };
                 }
                 // Database not found (SQLSTATE 3D000)
@@ -38,12 +39,27 @@ pub fn from_sqlx(err: sqlx::Error) -> DbError {
                     return DbError::DatabaseNotFound(db_err.message().into());
                 }
             }
-            DbError::QueryFailed(db_err.message().into())
+            DbError::QueryFailed(message)
         }
         sqlx::Error::Io(e) => DbError::Io(e.to_string()),
         sqlx::Error::RowNotFound => DbError::NotFound("row not found".into()),
         other => DbError::Internal(other.to_string()),
     }
+}
+
+fn database_message(error: &dyn sqlx::error::DatabaseError) -> String {
+    let message = error.message();
+    let Some(position) = error
+        .as_error()
+        .downcast_ref::<sqlx::postgres::PgDatabaseError>()
+        .and_then(|error| match error.position() {
+            Some(sqlx::postgres::PgErrorPosition::Original(position)) => Some(position),
+            Some(sqlx::postgres::PgErrorPosition::Internal { .. }) | None => None,
+        })
+    else {
+        return message.to_owned();
+    };
+    format!("{message} (at character {position})")
 }
 
 fn constraint_type_from_sqlstate(code: &str) -> Option<ConstraintType> {
