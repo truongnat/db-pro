@@ -500,7 +500,21 @@ impl DbProApp {
     }
 
     fn on_query_completed(&mut self, request_id: RequestId, result: UiQueryResult) {
-        if self.next_query_request == Some(request_id) {
+        let target_doc_id = self.query_document_requests.remove(&request_id);
+        if let Some(doc_id) = &target_doc_id {
+            if let Some(doc) = self.query_documents.iter_mut().find(|d| &d.id == doc_id) {
+                doc.query_result = Some(result.clone());
+                doc.execution_state = QueryExecutionState::Idle;
+                doc.query_messages
+                    .push(format!("Query completed · {} rows", result.row_count));
+            }
+        }
+        let is_active_doc = self
+            .query_documents
+            .get(self.active_query_document)
+            .is_some_and(|d| target_doc_id.as_ref() == Some(&d.id));
+
+        if self.next_query_request == Some(request_id) || is_active_doc {
             self.runtime_message = format!("Query completed · {} rows", result.row_count);
             self.query_messages.push(self.runtime_message.clone());
             self.grid_sort_column = None;
@@ -513,7 +527,9 @@ impl DbProApp {
             self.copy_status.clear();
             self.query_result = Some(result);
             self.output_tab = OutputTab::Results;
-            self.next_query_request = None;
+            if self.next_query_request == Some(request_id) {
+                self.next_query_request = None;
+            }
         }
     }
 
@@ -528,6 +544,13 @@ impl DbProApp {
     }
 
     fn on_query_cancelled(&mut self, request_id: RequestId) {
+        let target_doc_id = self.query_document_requests.remove(&request_id);
+        if let Some(doc_id) = &target_doc_id {
+            if let Some(doc) = self.query_documents.iter_mut().find(|d| &d.id == doc_id) {
+                doc.execution_state = QueryExecutionState::Idle;
+                doc.query_messages.push("Query cancelled".to_owned());
+            }
+        }
         if self.next_query_request == Some(request_id) {
             self.runtime_message = "Query cancelled".to_owned();
             self.next_query_request = None;
@@ -599,10 +622,27 @@ impl DbProApp {
             let formatted = format!("DDL execution failed · {message}");
             self.runtime_message = formatted.clone();
             self.show_toast_error(formatted);
-        } else if self.next_query_request == Some(request_id) {
-            self.runtime_message = format!("Query failed · {message}");
-            self.query_messages.push(self.runtime_message.clone());
-            self.next_query_request = None;
+        } else if self.next_query_request == Some(request_id) || self.query_document_requests.contains_key(&request_id)
+        {
+            let target_doc_id = self.query_document_requests.remove(&request_id);
+            if let Some(doc_id) = &target_doc_id {
+                if let Some(doc) = self.query_documents.iter_mut().find(|d| &d.id == doc_id) {
+                    doc.execution_state = QueryExecutionState::Failed;
+                    doc.query_messages.push(format!("Query failed · {message}"));
+                }
+            }
+            let is_active_doc = self
+                .query_documents
+                .get(self.active_query_document)
+                .is_some_and(|d| target_doc_id.as_ref() == Some(&d.id));
+
+            if self.next_query_request == Some(request_id) || is_active_doc {
+                self.runtime_message = format!("Query failed · {message}");
+                self.query_messages.push(self.runtime_message.clone());
+                if self.next_query_request == Some(request_id) {
+                    self.next_query_request = None;
+                }
+            }
         } else if self.explain_request == Some(request_id) {
             self.explain_request = None;
             self.explain_plan = None;
@@ -714,6 +754,10 @@ impl DbProApp {
         }
         let request_id = self.task_bridge.next_request_id();
         self.next_query_request = Some(request_id);
+        if let Some(doc) = self.query_documents.get_mut(self.active_query_document) {
+            doc.execution_state = QueryExecutionState::Running(request_id);
+            self.query_document_requests.insert(request_id, doc.id.clone());
+        }
         self.runtime_message = "Sending query to runtime…".to_owned();
         self.dispatch_command(UiCommand::RunQuery {
             request_id,
@@ -747,6 +791,10 @@ impl DbProApp {
         }
         let request_id = self.task_bridge.next_request_id();
         self.next_query_request = Some(request_id);
+        if let Some(doc) = self.query_documents.get_mut(self.active_query_document) {
+            doc.execution_state = QueryExecutionState::Running(request_id);
+            self.query_document_requests.insert(request_id, doc.id.clone());
+        }
         self.runtime_message = "Sending full script to runtime…".to_owned();
         self.dispatch_command(UiCommand::RunQuery {
             request_id,

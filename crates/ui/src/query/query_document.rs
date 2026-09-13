@@ -6,6 +6,7 @@ use crate::editor::document::SqlDocumentAnalysis;
 use crate::editor::prediction::EditPrediction;
 use crate::editor::selection::SelectionRange;
 use crate::editor::syntax::{CachedSqlTokens, SqlDialect};
+use crate::runtime::UiQueryResult;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -18,6 +19,56 @@ pub enum QueryExecutionState {
         duration_ms: u64,
     },
     Failed,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct EditorSearchState {
+    pub query: String,
+    pub is_open: bool,
+    pub matches: Vec<(usize, usize)>,
+    pub active_match_index: usize,
+}
+
+impl EditorSearchState {
+    pub fn update_matches(&mut self, text: &str) {
+        self.matches.clear();
+        if self.query.is_empty() {
+            self.active_match_index = 0;
+            return;
+        }
+        let q = self.query.to_lowercase();
+        let t = text.to_lowercase();
+        for (idx, _) in t.match_indices(&q) {
+            self.matches.push((idx, idx + q.len()));
+        }
+        if self.active_match_index >= self.matches.len() {
+            self.active_match_index = 0;
+        }
+    }
+
+    pub fn next_match(&mut self) -> Option<(usize, usize)> {
+        if self.matches.is_empty() {
+            return None;
+        }
+        self.active_match_index = (self.active_match_index + 1) % self.matches.len();
+        self.matches.get(self.active_match_index).copied()
+    }
+
+    pub fn prev_match(&mut self) -> Option<(usize, usize)> {
+        if self.matches.is_empty() {
+            return None;
+        }
+        if self.active_match_index == 0 {
+            self.active_match_index = self.matches.len().saturating_sub(1);
+        } else {
+            self.active_match_index -= 1;
+        }
+        self.matches.get(self.active_match_index).copied()
+    }
+
+    pub fn current_match(&self) -> Option<(usize, usize)> {
+        self.matches.get(self.active_match_index).copied()
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -38,6 +89,9 @@ pub struct QueryDocument {
     pub completion: CompletionState,
     pub prediction: Option<EditPrediction>,
     pub cached_tokens: CachedSqlTokens,
+    pub search: EditorSearchState,
+    pub query_result: Option<UiQueryResult>,
+    pub query_messages: Vec<String>,
 }
 
 impl QueryDocument {
@@ -62,6 +116,9 @@ impl QueryDocument {
             completion: CompletionState::new(),
             prediction: None,
             cached_tokens: CachedSqlTokens::new(),
+            search: EditorSearchState::default(),
+            query_result: None,
+            query_messages: Vec::new(),
         }
     }
 
@@ -78,12 +135,14 @@ impl QueryDocument {
         self.cursor.set_offset(&self.buffer, 0);
         self.selection.collapse_to_active();
         self.reanalyze(SqlDialect::Postgres);
+        self.search.update_matches(self.buffer.text());
         self.dirty = true;
     }
 
     pub fn reanalyze(&mut self, dialect: SqlDialect) {
         if self.analysis.version != self.buffer.version() {
             self.analysis = SqlDocumentAnalysis::analyze(&self.buffer, dialect);
+            self.search.update_matches(self.buffer.text());
         }
     }
 
@@ -182,6 +241,22 @@ mod tests {
         doc.selection.active = 19;
         let (sql, _) = doc.resolve_executable_sql();
         assert_eq!(sql, "SELECT 1;\nSELECT 2;");
+    }
+
+    #[test]
+    fn test_query_document_search_matches() {
+        let mut doc = QueryDocument::new("doc-1", "Doc 1", "SELECT id, name FROM users WHERE id = 1;");
+        doc.search.query = "id".to_owned();
+        let text = doc.text().to_owned();
+        doc.search.update_matches(&text);
+        assert_eq!(doc.search.matches.len(), 2);
+        assert_eq!(doc.search.matches[0], (7, 9));
+        assert_eq!(doc.search.matches[1], (33, 35));
+
+        let next = doc.search.next_match();
+        assert_eq!(next, Some((33, 35)));
+        let prev = doc.search.prev_match();
+        assert_eq!(prev, Some((7, 9)));
     }
 
     #[test]

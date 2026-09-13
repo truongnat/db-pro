@@ -98,17 +98,75 @@ impl DbProApp {
     /// "Find in SQL" bar, shown while the editor search is open.
     fn draw_editor_search_bar(&mut self, ui: &mut egui::Ui) {
         ui.add_space(8.0);
-        ui.horizontal(|ui| {
-            input(ui, &mut self.editor_search, "Find in SQL…", 240.0, self.theme);
-            if !self.editor_search.is_empty() {
-                let matches = self.query_text.matches(&self.editor_search).count();
-                ui.label(
-                    RichText::new(format!("{matches} matches"))
-                        .small()
-                        .color(self.theme.text_muted),
-                );
+        let mut goto_range = None;
+        let mut close_search = false;
+
+        if let Some(doc) = self.query_documents.get_mut(self.active_query_document) {
+            ui.horizontal(|ui| {
+                let prev_search = self.editor_search.clone();
+                input(ui, &mut self.editor_search, "Find in SQL…", 240.0, self.theme);
+                if self.editor_search != prev_search {
+                    doc.search.query = self.editor_search.clone();
+                    doc.search.update_matches(doc.buffer.text());
+                    if let Some(first_match) = doc.search.matches.first().copied() {
+                        doc.search.active_match_index = 0;
+                        goto_range = Some(first_match);
+                    }
+                }
+
+                if !self.editor_search.is_empty() {
+                    let total = doc.search.matches.len();
+                    let current = if total == 0 {
+                        0
+                    } else {
+                        doc.search.active_match_index + 1
+                    };
+                    let label_text = if total == 0 {
+                        "No matches".to_string()
+                    } else {
+                        format!("{current} of {total}")
+                    };
+                    ui.label(RichText::new(label_text).small().color(if total == 0 {
+                        self.theme.danger
+                    } else {
+                        self.theme.text_muted
+                    }));
+
+                    if compact_icon_button(ui, Icon::ChevronUp, self.theme)
+                        .on_hover_text("Previous match (Shift+Enter)")
+                        .clicked()
+                    {
+                        if let Some(m) = doc.search.prev_match() {
+                            goto_range = Some(m);
+                        }
+                    }
+                    if compact_icon_button(ui, Icon::ChevronDown, self.theme)
+                        .on_hover_text("Next match (Enter)")
+                        .clicked()
+                    {
+                        if let Some(m) = doc.search.next_match() {
+                            goto_range = Some(m);
+                        }
+                    }
+                }
+
+                if compact_icon_button(ui, Icon::X, self.theme)
+                    .on_hover_text("Close find bar (Esc)")
+                    .clicked()
+                {
+                    close_search = true;
+                }
+            });
+
+            if let Some((start, end)) = goto_range {
+                doc.cursor.set_offset(&doc.buffer, end);
+                doc.selection = crate::editor::SelectionRange::new(start, end);
             }
-        });
+        }
+
+        if close_search {
+            self.editor_search_open = false;
+        }
     }
 
     /// Keyword / table / column completion list.
@@ -574,7 +632,7 @@ impl DbProApp {
             "active_sql_editor",
         )
         .with_cached_tokens(&mut doc.cached_tokens)
-        .with_search_query(&search_query);
+        .with_search(&search_query, doc.search.active_match_index);
         editor.font_size = font_size;
 
         let response = editor.show(ui, available_size);
@@ -614,7 +672,9 @@ impl DbProApp {
                 cursor_offset: doc.cursor.offset,
                 active_schema: &active_schema,
                 schema_summary: &self.schema,
+                cached_tokens: Some(&doc.cached_tokens),
                 is_sqlite,
+                is_manual_trigger: false,
             };
             let (prefix, items) = SchemaCompletionProvider::provide(&ctx);
             if !items.is_empty() {

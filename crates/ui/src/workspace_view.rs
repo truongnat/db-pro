@@ -121,18 +121,19 @@ impl DbProApp {
                                 let idx = *index;
                                 let selected =
                                     self.active_tab == WorkspaceTab::Query && self.active_query_document == idx;
-                                let unsaved = selected
-                                    && self
-                                        .query_documents
-                                        .get(idx)
-                                        .is_some_and(|doc| doc.content() != self.query_text);
+                                let is_running = self
+                                    .query_documents
+                                    .get(idx)
+                                    .is_some_and(|doc| matches!(doc.execution_state, QueryExecutionState::Running(_)));
+                                let unsaved = self.query_documents.get(idx).is_some_and(|doc| doc.dirty);
+                                let icon = if is_running { Icon::Loader } else { Icon::FileCode2 };
 
                                 let action = draw_workspace_tab_item(
                                     ui,
                                     self.theme,
                                     WorkspaceTabItem {
                                         selected,
-                                        icon: Icon::FileCode2,
+                                        icon,
                                         title,
                                         unsaved,
                                         show_close: true,

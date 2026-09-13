@@ -59,6 +59,17 @@ impl CachedSqlTokens {
         &self.tokens
     }
 
+    pub fn is_in_string_or_comment(&self, offset: usize) -> bool {
+        self.tokens.iter().any(|token| {
+            offset >= token.range.0
+                && offset < token.range.1
+                && matches!(
+                    token.kind,
+                    SyntaxTokenKind::String | SyntaxTokenKind::DollarQuote | SyntaxTokenKind::Comment
+                )
+        })
+    }
+
     pub fn invalidate(&mut self) {
         self.initialized = false;
     }
@@ -511,5 +522,16 @@ mod tests {
         buf.insert(9, " SELECT 2;");
         let tokens2 = cache.get_or_recompute(&buf, SqlDialect::Postgres);
         assert_eq!(tokens2.len(), 9);
+    }
+
+    #[test]
+    fn test_is_in_string_or_comment() {
+        let buf = TextBuffer::from_string("SELECT 'hello world', -- comment\n1;");
+        let mut cache = CachedSqlTokens::new();
+        cache.get_or_recompute(&buf, SqlDialect::Postgres);
+
+        assert!(cache.is_in_string_or_comment(10)); // inside 'hello world'
+        assert!(!cache.is_in_string_or_comment(2)); // inside SELECT
+        assert!(cache.is_in_string_or_comment(26)); // inside comment
     }
 }

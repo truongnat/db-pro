@@ -29,6 +29,7 @@ pub struct UndoStack {
     pub group_open: bool,
     pub current_group_actions: Vec<UndoAction>,
     pub group_before_snapshot: Option<EditorSnapshot>,
+    pub typing_group_active: bool,
 }
 
 impl UndoStack {
@@ -38,6 +39,7 @@ impl UndoStack {
 
     pub fn begin_group(&mut self, before: EditorSnapshot) {
         if !self.group_open {
+            self.break_typing_group();
             self.group_open = true;
             self.current_group_actions.clear();
             self.group_before_snapshot = Some(before);
@@ -60,13 +62,62 @@ impl UndoStack {
         }
     }
 
+    pub fn break_typing_group(&mut self) {
+        self.typing_group_active = false;
+    }
+
     pub fn push_action(&mut self, action: UndoAction, before: EditorSnapshot, after: EditorSnapshot) {
         if self.group_open {
             self.current_group_actions.push(action);
         } else {
+            self.typing_group_active = false;
             let step = UndoStep { action, before, after };
             self.push_step(step);
         }
+    }
+
+    pub fn push_typing_insert(&mut self, offset: usize, text: &str, before: EditorSnapshot, after: EditorSnapshot) {
+        if self.group_open {
+            self.current_group_actions.push(UndoAction::Insert {
+                offset,
+                text: text.to_owned(),
+            });
+            return;
+        }
+
+        // Check if we can merge with the previous insert in a continuous typing streak
+        if self.typing_group_active {
+            if let Some(last_step) = self.undo_list.back_mut() {
+                if let UndoAction::Insert {
+                    offset: prev_off,
+                    text: prev_txt,
+                } = &mut last_step.action
+                {
+                    if *prev_off + prev_txt.len() == offset
+                        && !text.contains('\n')
+                        && !text.contains('\t')
+                        && !prev_txt.ends_with(' ')
+                    {
+                        prev_txt.push_str(text);
+                        last_step.after = after;
+                        self.redo_list.clear();
+                        return;
+                    }
+                }
+            }
+        }
+
+        // Otherwise start a new typing step
+        self.typing_group_active = !text.contains('\n') && !text.contains('\t');
+        let step = UndoStep {
+            action: UndoAction::Insert {
+                offset,
+                text: text.to_owned(),
+            },
+            before,
+            after,
+        };
+        self.push_step(step);
     }
 
     pub fn push_step(&mut self, step: UndoStep) {
@@ -91,6 +142,7 @@ impl UndoStack {
         self.current_group_actions.clear();
         self.group_before_snapshot = None;
         self.group_open = false;
+        self.typing_group_active = false;
     }
 }
 
@@ -150,6 +202,13 @@ impl TextBuffer {
 
     pub fn line_count(&self) -> usize {
         self.line_starts.len().max(1)
+    }
+
+    pub fn max_line_len_chars(&self) -> usize {
+        (0..self.line_count())
+            .map(|l| self.line_at(l).unwrap_or("").chars().count())
+            .max()
+            .unwrap_or(0)
     }
 
     // --- UTF-8 Safety Helpers ---
@@ -331,6 +390,17 @@ impl TextBuffer {
         self.rebuild_line_index();
     }
 
+    pub fn type_text(&mut self, offset: usize, text: &str, before: EditorSnapshot, after: EditorSnapshot) {
+        if text.is_empty() {
+            return;
+        }
+        let clamped = self.floor_char_boundary(offset.min(self.content.len()));
+        self.undo_stack.push_typing_insert(clamped, text, before, after);
+        self.content.insert_str(clamped, text);
+        self.version = self.version.wrapping_add(1);
+        self.rebuild_line_index();
+    }
+
     pub fn delete(&mut self, start: usize, end: usize) -> String {
         let clamped_start = self.floor_char_boundary(start.min(self.content.len()));
         let clamped_end = self.ceil_char_boundary(end.min(self.content.len()).max(clamped_start));
@@ -361,6 +431,7 @@ impl TextBuffer {
             return String::new();
         }
         let deleted = self.content[clamped_start..clamped_end].to_owned();
+        self.undo_stack.break_typing_group();
         self.undo_stack.push_action(
             UndoAction::Delete {
                 offset: clamped_start,
@@ -404,6 +475,7 @@ impl TextBuffer {
         if clamped_start == clamped_end && text.is_empty() {
             return;
         }
+        self.undo_stack.break_typing_group();
         self.undo_stack.begin_group(before);
         if clamped_start != clamped_end {
             let deleted = self.content[clamped_start..clamped_end].to_owned();
@@ -444,6 +516,10 @@ impl TextBuffer {
         self.version = self.version.wrapping_add(1);
         self.undo_stack.clear();
         self.rebuild_line_index();
+    }
+
+    pub fn break_typing_group(&mut self) {
+        self.undo_stack.break_typing_group();
     }
 
     pub fn undo(&mut self) -> Option<(usize, usize)> {
@@ -556,6 +632,54 @@ mod tests {
         let redo_res = buf.redo();
         assert_eq!(redo_res, Some((19, 19)));
         assert_eq!(buf.text(), "SELECT 1;\nSELECT 2;");
+    }
+
+    #[test]
+    fn test_text_buffer_typing_undo_grouping() {
+        let mut buf = TextBuffer::new();
+        // Type characters 'S', 'E', 'L' consecutively
+        buf.type_text(
+            0,
+            "S",
+            EditorSnapshot {
+                cursor_offset: 0,
+                anchor_offset: 0,
+            },
+            EditorSnapshot {
+                cursor_offset: 1,
+                anchor_offset: 1,
+            },
+        );
+        buf.type_text(
+            1,
+            "E",
+            EditorSnapshot {
+                cursor_offset: 1,
+                anchor_offset: 1,
+            },
+            EditorSnapshot {
+                cursor_offset: 2,
+                anchor_offset: 2,
+            },
+        );
+        buf.type_text(
+            2,
+            "L",
+            EditorSnapshot {
+                cursor_offset: 2,
+                anchor_offset: 2,
+            },
+            EditorSnapshot {
+                cursor_offset: 3,
+                anchor_offset: 3,
+            },
+        );
+
+        assert_eq!(buf.text(), "SEL");
+        // A single undo should undo the grouped typing word back to empty!
+        let undo_res = buf.undo();
+        assert_eq!(undo_res, Some((0, 0)));
+        assert_eq!(buf.text(), "");
     }
 
     #[test]

@@ -77,6 +77,10 @@ impl SqlDocumentAnalysis {
             .iter()
             .find(|stmt| offset >= stmt.range.0 && offset <= stmt.range.1)
     }
+
+    pub fn all_statements(&self) -> &[SqlStatement] {
+        &self.statements
+    }
 }
 
 #[cfg(test)]

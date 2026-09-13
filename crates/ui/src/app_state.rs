@@ -145,6 +145,7 @@ impl Default for DbProApp {
             agent_configure_request: None,
             task_bridge: TaskBridge::default(),
             next_query_request: None,
+            query_document_requests: HashMap::new(),
             runtime_message: "Ready".to_owned(),
             toasts: crate::components::overlay::ToastManager::default(),
             query_result: None,

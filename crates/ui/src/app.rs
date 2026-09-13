@@ -104,7 +104,7 @@ mod tests;
 #[path = "workspace_view.rs"]
 mod workspace_view;
 
-pub use crate::query::QueryDocument;
+pub use crate::query::{QueryDocument, QueryExecutionState};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Activity {
@@ -331,6 +331,7 @@ pub struct DbProApp {
     agent_configure_request: Option<crate::RequestId>,
     task_bridge: TaskBridge,
     next_query_request: Option<crate::RequestId>,
+    pub(crate) query_document_requests: HashMap<crate::RequestId, String>,
     runtime_message: String,
     toasts: crate::components::overlay::ToastManager,
     query_result: Option<UiQueryResult>,
@@ -823,7 +824,8 @@ impl DbProApp {
         } else {
             self.selected_query.clear();
         }
-        self.query_result = None;
+        self.query_result = doc.query_result.clone();
+        self.query_messages = doc.query_messages.clone();
         self.runtime_message = format!("Opened {}", self.query_documents[index].title);
     }
 
@@ -880,7 +882,8 @@ impl DbProApp {
         } else {
             self.selected_query.clear();
         }
-        self.query_result = None;
+        self.query_result = doc.query_result.clone();
+        self.query_messages = doc.query_messages.clone();
         self.runtime_message = format!("Closed {}", self.query_documents[self.active_query_document].title);
     }
 
