@@ -35,6 +35,8 @@ impl DbProApp {
                 let result = self.active_query_result().cloned();
                 ui.add_space(8.0);
                 self.draw_output_pane(ui, result.as_ref());
+                self.draw_dirty_close_dialog(ui.ctx());
+                self.draw_save_as_dialog(ui.ctx());
             });
     }
 
@@ -389,6 +391,23 @@ impl DbProApp {
         let results_width = ui.max_rect().width();
         grid_frame(self.theme).show(ui, |ui| {
             ui.set_min_width((results_width - 24.0).max(0.0));
+            let result_count = self.active_query_result_count();
+            if result_count > 1 {
+                ui.horizontal(|ui| {
+                    let active_index = self
+                        .query_documents
+                        .get(self.active_query_document)
+                        .map_or(0, |doc| doc.active_result_index);
+                    for index in 0..result_count {
+                        if ui
+                            .selectable_label(active_index == index, format!("Result {}", index + 1))
+                            .clicked()
+                        {
+                            self.set_active_query_result(index);
+                        }
+                    }
+                });
+            }
             ui.horizontal(|ui| {
                 if let Some(value) = result {
                     ui.label(
@@ -466,7 +485,18 @@ impl DbProApp {
         let output_width = ui.available_width();
         card_frame(self.theme).show(ui, |ui| {
             ui.set_min_width((output_width - 24.0).max(0.0));
-            if self.query_history.is_empty() {
+            ui.horizontal(|ui| {
+                ui.label(RichText::new("Search").small().color(self.theme.text_muted));
+                ui.add_sized(
+                    [220.0, 24.0],
+                    egui::TextEdit::singleline(&mut self.query_history_search).hint_text("SQL, connection, schema"),
+                );
+                if compact_button(ui, "Clear History", self.theme).clicked() {
+                    self.query_history_entries.clear();
+                    self.runtime_message = "Query history cleared".to_owned();
+                }
+            });
+            if self.query_history_entries.is_empty() {
                 empty_state(
                     ui,
                     Icon::History,
@@ -475,13 +505,55 @@ impl DbProApp {
                     self.theme,
                 );
             } else {
-                for query in self.query_history.iter().rev().take(20) {
-                    ui.label(
-                        RichText::new(query)
-                            .monospace()
-                            .small()
-                            .color(self.theme.text_secondary),
-                    );
+                let search = self.query_history_search.trim().to_lowercase();
+                let entries = self
+                    .query_history_entries
+                    .iter()
+                    .rev()
+                    .filter(|entry| {
+                        search.is_empty()
+                            || entry.sql.to_lowercase().contains(&search)
+                            || entry
+                                .connection_id
+                                .as_deref()
+                                .is_some_and(|connection| connection.to_lowercase().contains(&search))
+                            || entry
+                                .schema
+                                .as_deref()
+                                .is_some_and(|schema| schema.to_lowercase().contains(&search))
+                    })
+                    .take(20)
+                    .cloned()
+                    .collect::<Vec<_>>();
+                for entry in entries {
+                    ui.horizontal_wrapped(|ui| {
+                        let status = match entry.status {
+                            UiQueryHistoryStatus::Success => "OK",
+                            UiQueryHistoryStatus::Failed => "Failed",
+                            UiQueryHistoryStatus::Cancelled => "Cancelled",
+                        };
+                        ui.label(RichText::new(status).small().color(self.theme.text_muted));
+                        ui.label(
+                            RichText::new(format!("{} ms", entry.duration_ms))
+                                .small()
+                                .color(self.theme.text_muted),
+                        );
+                        ui.label(
+                            RichText::new(entry.sql.lines().next().unwrap_or("query"))
+                                .monospace()
+                                .small()
+                                .color(self.theme.text_secondary),
+                        );
+                        if compact_button(ui, "Open", self.theme).clicked() {
+                            self.open_history_entry(&entry, false);
+                        }
+                        if compact_button(ui, "Copy SQL", self.theme).clicked() {
+                            ui.output_mut(|output| output.copied_text = entry.sql.clone());
+                        }
+                        if compact_button(ui, "Run Again", self.theme).clicked() {
+                            self.open_history_entry(&entry, true);
+                        }
+                    });
                 }
             }
         });
@@ -577,28 +649,149 @@ impl DbProApp {
             self.save_query_document();
             close_menu = true;
         }
+        if menu_button_with_icon(ui, Icon::Save, "Save query as…", self.theme).clicked() {
+            self.open_save_as_dialog();
+            close_menu = true;
+        }
         close_menu
     }
 
     /// Persists the current editor contents as a named saved query.
     fn save_query_document(&mut self) {
-        let Some(connection) = self.active_connection().cloned() else {
+        self.save_query_document_at(self.active_query_document);
+    }
+
+    pub(crate) fn save_query_document_at(&mut self, document_index: usize) {
+        let Some(connection_id) = self
+            .query_documents
+            .get(document_index)
+            .and_then(|document| document.connection_id.clone())
+            .or_else(|| self.active_connection_id.clone())
+        else {
+            self.runtime_message = "Create or select a connection first".to_owned();
             return;
         };
         let request_id = self.task_bridge.next_request_id();
+        let document_id = self
+            .query_documents
+            .get(document_index)
+            .map(|document| document.id.clone());
         let name = self
             .query_documents
-            .get(self.active_query_document)
+            .get(document_index)
             .map(|document| document.title.clone())
             .unwrap_or_else(|| "Saved query".to_owned());
+        let saved_query_id = self
+            .query_documents
+            .get(document_index)
+            .and_then(|document| document.saved_query_id.clone());
+        let sql = self
+            .query_documents
+            .get(document_index)
+            .map_or_else(String::new, |document| document.text().to_owned());
         self.dispatch_command(UiCommand::SaveQuery {
             request_id,
-            connection_id: connection.id.clone(),
+            connection_id,
+            saved_query_id,
             name,
-            sql: self.active_query_text().to_owned(),
+            sql,
             folder: (!self.query_folder.trim().is_empty()).then(|| self.query_folder.trim().to_owned()),
         });
+        if let Some(document_id) = document_id {
+            self.query_save_requests.insert(request_id, document_id);
+        }
         self.runtime_message = "Saving query…".to_owned();
+    }
+
+    pub(crate) fn open_save_as_dialog(&mut self) {
+        self.save_as_name = self
+            .query_documents
+            .get(self.active_query_document)
+            .map_or_else(|| "Saved query".to_owned(), |document| document.title.clone());
+        self.save_as_open = true;
+    }
+
+    fn draw_save_as_dialog(&mut self, ctx: &egui::Context) {
+        if !self.save_as_open {
+            return;
+        }
+        let mut save = false;
+        let mut cancel = false;
+        egui::Window::new("Save Query As")
+            .collapsible(false)
+            .resizable(false)
+            .show(ctx, |ui| {
+                ui.label("Name");
+                ui.text_edit_singleline(&mut self.save_as_name);
+                ui.horizontal(|ui| {
+                    if primary_button_with_icon(ui, Icon::Save, "Save", self.theme).clicked() {
+                        save = true;
+                    }
+                    if secondary_button_with_icon(ui, Icon::X, "Cancel", self.theme).clicked() {
+                        cancel = true;
+                    }
+                });
+            });
+        if cancel {
+            self.save_as_open = false;
+        } else if save {
+            let name = self.save_as_name.trim().to_owned();
+            if name.is_empty() {
+                self.runtime_message = "Enter a name for the saved query".to_owned();
+                return;
+            }
+            let document_index = self.active_query_document;
+            if let Some(document) = self.query_documents.get_mut(document_index) {
+                document.saved_query_id = None;
+                document.title = name;
+            }
+            self.save_as_open = false;
+            self.save_query_document_at(document_index);
+        }
+    }
+
+    fn draw_dirty_close_dialog(&mut self, ctx: &egui::Context) {
+        let Some(document_index) = self.pending_dirty_close else {
+            return;
+        };
+        let Some(title) = self
+            .query_documents
+            .get(document_index)
+            .map(|document| document.title.clone())
+        else {
+            self.pending_dirty_close = None;
+            return;
+        };
+        let mut save = false;
+        let mut discard = false;
+        let mut cancel = false;
+        egui::Window::new("Unsaved query")
+            .collapsible(false)
+            .resizable(false)
+            .show(ctx, |ui| {
+                ui.label(format!("Save changes to {title} before closing?"));
+                ui.horizontal(|ui| {
+                    if primary_button_with_icon(ui, Icon::Save, "Save", self.theme).clicked() {
+                        save = true;
+                    }
+                    if secondary_button_with_icon(ui, Icon::Trash2, "Don't Save", self.theme).clicked() {
+                        discard = true;
+                    }
+                    if secondary_button_with_icon(ui, Icon::X, "Cancel", self.theme).clicked() {
+                        cancel = true;
+                    }
+                });
+            });
+        if cancel {
+            self.pending_dirty_close = None;
+        } else if discard {
+            self.pending_dirty_close = None;
+            self.close_query_document(document_index);
+        } else if save {
+            self.pending_dirty_close = None;
+            self.pending_close_after_save = Some(document_index);
+            self.save_query_document_at(document_index);
+        }
     }
 
     /// Editor entries: find, font size, completion, snippets and folder creation.

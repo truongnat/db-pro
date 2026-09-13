@@ -1,3 +1,4 @@
+use serde::{Deserialize, Serialize};
 use std::sync::mpsc::{self, Receiver, Sender};
 
 /// Stable identity for an async UI operation. Real backend tasks will reuse
@@ -337,6 +338,7 @@ pub enum UiCommand {
     SaveQuery {
         request_id: RequestId,
         connection_id: String,
+        saved_query_id: Option<String>,
         name: String,
         sql: String,
         folder: Option<String>,
@@ -429,6 +431,11 @@ pub enum UiCommand {
         connection_id: String,
         sql: String,
     },
+    RunQueryMulti {
+        request_id: RequestId,
+        connection_id: String,
+        sql: String,
+    },
     ExplainQuery {
         request_id: RequestId,
         connection_id: String,
@@ -492,6 +499,44 @@ pub struct UiQueryResult {
     pub rows: Vec<Vec<UiCell>>,
     pub row_count: u64,
     pub duration_ms: u64,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct UiStatementOutput {
+    pub statement_index: usize,
+    pub result_set: Option<UiQueryResult>,
+    pub affected_rows: Option<u64>,
+    pub duration_ms: u64,
+    pub message: Option<String>,
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct UiQueryExecutionOutput {
+    pub statements: Vec<UiStatementOutput>,
+    pub total_duration_ms: u64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum UiQueryHistoryStatus {
+    Success,
+    Failed,
+    Cancelled,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct UiQueryHistoryEntry {
+    pub id: String,
+    pub sql: String,
+    pub connection_id: Option<String>,
+    pub schema: Option<String>,
+    pub started_at: String,
+    pub duration_ms: u64,
+    pub status: UiQueryHistoryStatus,
+    pub row_count: Option<u64>,
+    pub affected_rows: Option<u64>,
+    pub error_code: Option<String>,
+    pub error_summary: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -565,6 +610,14 @@ pub enum UiEvent {
     QueryCompleted {
         request_id: RequestId,
         result: UiQueryResult,
+    },
+    QueryMultiCompleted {
+        request_id: RequestId,
+        output: UiQueryExecutionOutput,
+    },
+    QuerySaved {
+        request_id: RequestId,
+        query: UiSavedQuerySummary,
     },
     ExplainCompleted {
         request_id: RequestId,

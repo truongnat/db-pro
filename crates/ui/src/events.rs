@@ -1,6 +1,18 @@
 use super::*;
 use crate::RequestId;
 
+struct QueryHistoryRecord {
+    sql: String,
+    connection_id: Option<String>,
+    schema: Option<String>,
+    status: UiQueryHistoryStatus,
+    duration_ms: u64,
+    row_count: Option<u64>,
+    affected_rows: Option<u64>,
+    error_code: Option<String>,
+    error_summary: Option<String>,
+}
+
 impl DbProApp {
     pub(super) fn apply_runtime_events(&mut self) {
         let events: Vec<UiEvent> = self.task_bridge.drain_events().collect();
@@ -71,6 +83,8 @@ impl DbProApp {
                 self.runtime_message = format!("Query queued · request {}", request_id.0);
             }
             UiEvent::QueryCompleted { request_id, result } => self.on_query_completed(request_id, result),
+            UiEvent::QueryMultiCompleted { request_id, output } => self.on_query_multi_completed(request_id, output),
+            UiEvent::QuerySaved { request_id, query } => self.on_query_saved(request_id, query),
             UiEvent::ExplainCompleted { request_id, plan } => self.on_explain_completed(request_id, plan),
             UiEvent::QueryCancelled { request_id } => self.on_query_cancelled(request_id),
             UiEvent::QueryFailed { request_id, message } => self.on_query_failed(request_id, message, None, None),
@@ -536,9 +550,33 @@ impl DbProApp {
 
     fn on_query_completed(&mut self, request_id: RequestId, result: UiQueryResult) {
         let target_doc_id = self.query_document_requests.remove(&request_id);
+        let mut history = None;
         if let Some(doc_id) = &target_doc_id {
             if let Some(doc) = self.query_documents.iter_mut().find(|d| &d.id == doc_id) {
+                let duration_ms = doc
+                    .execution_started_at
+                    .take()
+                    .map_or(result.duration_ms, |started_at| started_at.elapsed().as_millis() as u64);
+                history = Some((
+                    doc.executing_sql.clone().unwrap_or_else(|| doc.text().to_owned()),
+                    doc.connection_id.clone(),
+                    doc.schema.clone(),
+                    duration_ms,
+                ));
                 doc.query_result = Some(result.clone());
+                doc.query_results = vec![result.clone()];
+                doc.active_result_index = 0;
+                doc.execution_output = Some(UiQueryExecutionOutput {
+                    statements: vec![UiStatementOutput {
+                        statement_index: 0,
+                        result_set: Some(result.clone()),
+                        affected_rows: None,
+                        duration_ms: result.duration_ms,
+                        message: None,
+                        error: None,
+                    }],
+                    total_duration_ms: duration_ms,
+                });
                 doc.execution_state = QueryExecutionState::Idle;
                 doc.executing_range = None;
                 doc.executing_sql = None;
@@ -547,6 +585,19 @@ impl DbProApp {
                 doc.query_messages
                     .push(format!("Query completed · {} rows", result.row_count));
             }
+        }
+        if let Some((sql, connection_id, schema, duration_ms)) = history {
+            self.record_query_history(QueryHistoryRecord {
+                sql,
+                connection_id,
+                schema,
+                status: UiQueryHistoryStatus::Success,
+                duration_ms,
+                row_count: Some(result.row_count),
+                affected_rows: None,
+                error_code: None,
+                error_summary: None,
+            });
         }
         let is_active_doc = self
             .query_documents
@@ -566,6 +617,150 @@ impl DbProApp {
             if let Some(doc_id) = target_doc_id.as_deref() {
                 self.set_query_output_tab(doc_id, OutputTab::Results);
             }
+        }
+    }
+
+    fn on_query_multi_completed(&mut self, request_id: RequestId, output: UiQueryExecutionOutput) {
+        let target_doc_id = self.query_document_requests.remove(&request_id);
+        let Some(doc_id) = target_doc_id else {
+            return;
+        };
+        let mut history = None;
+        if let Some(doc) = self.query_documents.iter_mut().find(|doc| doc.id == doc_id) {
+            let duration_ms = doc
+                .execution_started_at
+                .take()
+                .map_or(output.total_duration_ms, |started_at| {
+                    started_at.elapsed().as_millis() as u64
+                });
+            history = Some((
+                doc.executing_sql.clone().unwrap_or_else(|| doc.text().to_owned()),
+                doc.connection_id.clone(),
+                doc.schema.clone(),
+                duration_ms,
+            ));
+            doc.query_results = output
+                .statements
+                .iter()
+                .filter_map(|statement| statement.result_set.clone())
+                .collect();
+            doc.query_result = doc.query_results.first().cloned();
+            doc.active_result_index = 0;
+            doc.execution_output = Some(output.clone());
+            doc.execution_state = if output.statements.iter().any(|statement| statement.error.is_some()) {
+                QueryExecutionState::Failed
+            } else {
+                QueryExecutionState::Idle
+            };
+            doc.executing_range = None;
+            doc.executing_sql = None;
+            doc.executing_version = None;
+            doc.execution_diagnostic = None;
+            for statement in &output.statements {
+                if let Some(message) = &statement.message {
+                    doc.query_messages.push(message.clone());
+                }
+                if let Some(error) = &statement.error {
+                    doc.query_messages
+                        .push(format!("Statement {} failed · {error}", statement.statement_index + 1));
+                }
+            }
+        }
+        if let Some((sql, connection_id, schema, duration_ms)) = history {
+            let failed = output.statements.iter().any(|statement| statement.error.is_some());
+            self.record_query_history(QueryHistoryRecord {
+                sql,
+                connection_id,
+                schema,
+                status: if failed {
+                    UiQueryHistoryStatus::Failed
+                } else {
+                    UiQueryHistoryStatus::Success
+                },
+                duration_ms,
+                row_count: Some(
+                    output
+                        .statements
+                        .iter()
+                        .filter_map(|statement| statement.result_set.as_ref().map(|result| result.row_count))
+                        .sum(),
+                ),
+                affected_rows: Some(
+                    output
+                        .statements
+                        .iter()
+                        .filter_map(|statement| statement.affected_rows)
+                        .sum(),
+                ),
+                error_code: None,
+                error_summary: output.statements.iter().find_map(|statement| statement.error.clone()),
+            });
+        }
+        let is_active_doc = self
+            .query_documents
+            .get(self.active_query_document)
+            .is_some_and(|document| document.id == doc_id);
+        if is_active_doc {
+            self.runtime_message = format!(
+                "Script completed · {} result{} · {} ms",
+                self.query_documents
+                    .get(self.active_query_document)
+                    .map_or(0, |document| document.query_results.len()),
+                if self.active_query_result_count() == 1 { "" } else { "s" },
+                output.total_duration_ms,
+            );
+            self.set_query_output_tab(&doc_id, OutputTab::Results);
+            self.grid_sort_column = None;
+            self.selected_cell = None;
+            self.selected_row = None;
+            self.selected_rows.clear();
+        }
+    }
+
+    fn on_query_saved(&mut self, request_id: RequestId, query: UiSavedQuerySummary) {
+        let document_id = self.query_save_requests.remove(&request_id);
+        let mut close_index = None;
+        if let Some(document_id) = document_id {
+            if let Some((index, doc)) = self
+                .query_documents
+                .iter_mut()
+                .enumerate()
+                .find(|(_, doc)| doc.id == document_id)
+            {
+                doc.saved_query_id = Some(query.id.clone());
+                doc.mark_saved();
+                if self.pending_close_after_save == Some(index) {
+                    close_index = Some(index);
+                }
+            }
+        }
+        self.saved_queries.retain(|saved| saved.id != query.id);
+        self.saved_queries.push(query);
+        self.runtime_message = "Query saved".to_owned();
+        if let Some(index) = close_index {
+            self.pending_close_after_save = None;
+            self.close_query_document(index);
+        }
+    }
+
+    fn record_query_history(&mut self, record: QueryHistoryRecord) {
+        self.query_history_entries.push(UiQueryHistoryEntry {
+            id: uuid::Uuid::new_v4().to_string(),
+            sql: record.sql,
+            connection_id: record.connection_id,
+            schema: record.schema,
+            started_at: chrono::Utc::now().to_rfc3339(),
+            duration_ms: record.duration_ms,
+            status: record.status,
+            row_count: record.row_count,
+            affected_rows: record.affected_rows,
+            error_code: record.error_code,
+            error_summary: record.error_summary,
+        });
+        const QUERY_HISTORY_RETENTION: usize = 500;
+        let excess = self.query_history_entries.len().saturating_sub(QUERY_HISTORY_RETENTION);
+        if excess > 0 {
+            self.query_history_entries.drain(..excess);
         }
     }
 
@@ -589,8 +784,17 @@ impl DbProApp {
 
     fn on_query_cancelled(&mut self, request_id: RequestId) {
         let target_doc_id = self.query_document_requests.remove(&request_id);
+        let mut history = None;
         if let Some(doc_id) = &target_doc_id {
             if let Some(doc) = self.query_documents.iter_mut().find(|d| &d.id == doc_id) {
+                history = Some((
+                    doc.executing_sql.clone().unwrap_or_else(|| doc.text().to_owned()),
+                    doc.connection_id.clone(),
+                    doc.schema.clone(),
+                    doc.execution_started_at
+                        .take()
+                        .map_or(0, |started_at| started_at.elapsed().as_millis() as u64),
+                ));
                 doc.execution_state = QueryExecutionState::Idle;
                 doc.executing_range = None;
                 doc.executing_sql = None;
@@ -598,6 +802,19 @@ impl DbProApp {
                 doc.execution_diagnostic = None;
                 doc.query_messages.push("Query cancelled".to_owned());
             }
+        }
+        if let Some((sql, connection_id, schema, duration_ms)) = history {
+            self.record_query_history(QueryHistoryRecord {
+                sql,
+                connection_id,
+                schema,
+                status: UiQueryHistoryStatus::Cancelled,
+                duration_ms,
+                row_count: None,
+                affected_rows: None,
+                error_code: None,
+                error_summary: Some("Query cancelled".to_owned()),
+            });
         }
         if target_doc_id.as_ref().is_some_and(|doc_id| {
             self.query_documents
@@ -745,13 +962,33 @@ impl DbProApp {
             let formatted = format!("DDL execution failed · {message}");
             self.runtime_message = formatted.clone();
             self.show_toast_error(formatted);
+        } else if let Some(document_id) = self.query_save_requests.remove(&request_id) {
+            if self.pending_close_after_save.is_some_and(|index| {
+                self.query_documents
+                    .get(index)
+                    .is_some_and(|document| document.id == document_id)
+            }) {
+                self.pending_close_after_save = None;
+            }
+            self.runtime_message = format!("Save failed · {message}");
         } else if self.query_document_requests.contains_key(&request_id) {
             let target_doc_id = self.query_document_requests.remove(&request_id);
+            let mut history = None;
             if let Some(doc_id) = &target_doc_id {
                 if let Some(doc) = self.query_documents.iter_mut().find(|d| &d.id == doc_id) {
                     let execution_range = doc.executing_range.take();
                     let execution_sql = doc.executing_sql.take();
                     let execution_version = doc.executing_version.take();
+                    let duration_ms = doc
+                        .execution_started_at
+                        .take()
+                        .map_or(0, |started_at| started_at.elapsed().as_millis() as u64);
+                    history = Some((
+                        execution_sql.clone().unwrap_or_else(|| doc.text().to_owned()),
+                        doc.connection_id.clone(),
+                        doc.schema.clone(),
+                        duration_ms,
+                    ));
                     doc.execution_state = QueryExecutionState::Failed;
                     doc.execution_diagnostic = if execution_version == Some(doc.buffer.version()) {
                         execution_sql.as_deref().and_then(|sql| {
@@ -770,6 +1007,19 @@ impl DbProApp {
                     };
                     doc.query_messages.push(format!("Query failed · {message}"));
                 }
+            }
+            if let Some((sql, connection_id, schema, duration_ms)) = history {
+                self.record_query_history(QueryHistoryRecord {
+                    sql,
+                    connection_id,
+                    schema,
+                    status: UiQueryHistoryStatus::Failed,
+                    duration_ms,
+                    row_count: None,
+                    affected_rows: None,
+                    error_code: code,
+                    error_summary: Some(message.clone()),
+                });
             }
             let is_active_doc = self
                 .query_documents
@@ -813,6 +1063,16 @@ impl DbProApp {
 
     pub(super) fn handle_shortcuts(&mut self, ctx: &egui::Context) {
         if self.palette_mode.is_some() {
+            return;
+        }
+        if ctx.input(|input| {
+            input.key_pressed(egui::Key::S) && Self::primary_modifier_pressed(input) && input.modifiers.shift
+        }) {
+            self.open_save_as_dialog();
+            return;
+        }
+        if ctx.input(|input| input.key_pressed(egui::Key::S) && Self::primary_modifier_pressed(input)) {
+            self.save_query_document_at(self.active_query_document);
             return;
         }
         let text_input_has_focus = ctx.wants_keyboard_input();
@@ -901,6 +1161,7 @@ impl DbProApp {
         let request_id = self.task_bridge.next_request_id();
         if let Some(doc) = self.query_documents.get_mut(self.active_query_document) {
             doc.execution_state = QueryExecutionState::Running(request_id);
+            doc.execution_started_at = Some(Instant::now());
             doc.executing_range = Some(execution_range);
             doc.executing_sql = Some(sql.clone());
             doc.executing_version = Some(doc.buffer.version());
@@ -955,6 +1216,7 @@ impl DbProApp {
         let request_id = self.task_bridge.next_request_id();
         if let Some(doc) = self.query_documents.get_mut(self.active_query_document) {
             doc.execution_state = QueryExecutionState::Running(request_id);
+            doc.execution_started_at = Some(Instant::now());
             doc.executing_range = Some(execution_range);
             doc.executing_sql = Some(sql.clone());
             doc.executing_version = Some(doc.buffer.version());
@@ -963,7 +1225,7 @@ impl DbProApp {
             self.query_document_requests.insert(request_id, doc.id.clone());
         }
         self.runtime_message = "Sending full script to runtime…".to_owned();
-        self.dispatch_command(UiCommand::RunQuery {
+        self.dispatch_command(UiCommand::RunQueryMulti {
             request_id,
             connection_id,
             sql,

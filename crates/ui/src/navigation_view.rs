@@ -704,7 +704,7 @@ impl DbProApp {
 
         for (index, document) in self.query_documents.clone().into_iter().enumerate() {
             let selected = self.active_tab == WorkspaceTab::Query && self.active_query_document == index;
-            let unsaved = document.dirty;
+            let unsaved = document.is_dirty();
             let title = if unsaved {
                 format!("{}  •", document.title)
             } else {
@@ -735,7 +735,7 @@ impl DbProApp {
                 self.duplicate_query_document(index);
             }
             if close_requested {
-                self.close_query_document(index);
+                self.request_close_query_document(index);
             }
         }
 

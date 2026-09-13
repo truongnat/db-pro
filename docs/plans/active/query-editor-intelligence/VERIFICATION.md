@@ -2,8 +2,8 @@
 
 Source evidence recorded on 2026-09-13:
 
-- Baseline: `8c688d9 feat(query): add editor delimiter pairing UX`, with the completion and
-  delimiter hardening recorded below.
+- Baseline: `df4e3e5 feat(query): preserve structured database error positions`, with the
+  completion, delimiter, and structured diagnostic hardening recorded below.
 - Native translator now routes `RequestSqlPrediction` and `CancelSqlPrediction` to the runtime worker.
 - Query execution, explain state, prediction request state, and Query Workspace output selection are
   stored per `QueryDocument`; the global query request slot was removed from UI routing.
@@ -35,18 +35,34 @@ Source evidence recorded on 2026-09-13:
   failures without a position use the statement range.
 - GROUP BY aggregate detection is dialect-aware: PostgreSQL includes ARRAY_AGG, STRING_AGG,
   BOOL_AND, BOOL_OR, JSON_AGG, JSONB_AGG, and EVERY; SQLite includes GROUP_CONCAT and TOTAL.
+- QueryDocument dirty state now compares the current buffer with a persisted saved snapshot,
+  so undoing back to the saved text is clean even when the buffer revision has advanced.
+- Save routes an optional saved-query id through core, runtime, and native translation for
+  update-in-place semantics; Save As has a named native dialog and dirty tab close defers removal
+  until save success.
+- Query drafts and terminal query history are persisted in versioned eframe storage keys. History
+  is bounded to 500 entries and records success, failure, and cancellation independently of the
+  backend history repository.
+- Full-script execution has a native/runtime adapter around `MultiQueryResult`; ordered statement
+  outputs separate result sets from DML messages and are stored per QueryDocument with Result tabs.
 
 Source evidence is not runtime evidence.
 
 Automated evidence recorded on 2026-09-13:
 
-- `cargo test --workspace` — PASS, including 224 UI tests and the workspace crate suites.
+- `cargo test --workspace` — PASS, including 228 UI tests and the workspace crate suites.
 - `cargo fmt --all -- --check` — PASS.
 - `cargo check --workspace` — PASS.
 - `cargo clippy --workspace --all-targets -- -D warnings` — PASS.
 - `cargo build --release --locked -p db-pro-native` — PASS.
 - `bash .skills/perf-audit/scripts/perf-scan.sh` — PASS; native binary 21.5 MB, no warnings.
 - `git diff --check` — PASS.
+
+Lifecycle tests added in this change cover undo-to-saved-snapshot cleanliness, multi-result
+statement order, per-document active result selection, saved-query success/failure baselines,
+and deferred dirty-close state. Native translator tests cover saved-query identity and the
+multi-query command route. The release build and performance audit were rerun after the lifecycle
+changes.
 
 Prediction quality coverage now includes deterministic fingerprints with sorted alias maps,
 bounded before/after/CTE context, short-lived document-local cache, code-fence/explanation

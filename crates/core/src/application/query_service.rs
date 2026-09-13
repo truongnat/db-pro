@@ -17,6 +17,7 @@ use crate::ports::{
 use super::registry::ConnectionRegistry;
 use super::sql_policy::{reject_multi_statement, split_statements};
 
+#[derive(Debug)]
 pub struct MultiQueryResult {
     pub results: Vec<QueryResult>,
     pub total_duration_ms: u64,
@@ -349,13 +350,36 @@ impl QueryService {
         sql: &str,
         folder: Option<&str>,
     ) -> Result<SavedQuery, DbError> {
+        self.save_query_with_id(connection_id, None, name, sql, folder).await
+    }
+
+    pub async fn save_query_with_id(
+        &self,
+        connection_id: &ConnectionId,
+        saved_query_id: Option<uuid::Uuid>,
+        name: &str,
+        sql: &str,
+        folder: Option<&str>,
+    ) -> Result<SavedQuery, DbError> {
+        let existing = if let Some(id) = saved_query_id {
+            Some(
+                self.saved_queries
+                    .list(connection_id)
+                    .await?
+                    .into_iter()
+                    .find(|query| query.id == id)
+                    .ok_or_else(|| DbError::NotFound(format!("saved query not found: {id}")))?,
+            )
+        } else {
+            None
+        };
         let query = SavedQuery {
-            id: uuid::Uuid::new_v4(),
+            id: existing.as_ref().map_or_else(uuid::Uuid::new_v4, |query| query.id),
             connection_id: *connection_id,
             name: name.to_string(),
             sql: sql.to_string(),
             folder: folder.map(String::from),
-            created_at: chrono::Utc::now(),
+            created_at: existing.map_or_else(chrono::Utc::now, |query| query.created_at),
         };
         self.saved_queries.save(&query).await?;
         Ok(query)

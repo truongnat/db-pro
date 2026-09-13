@@ -321,9 +321,24 @@ impl QueryApi {
         sql: &str,
         folder: Option<&str>,
     ) -> Result<SavedQuery, DbErrorDto> {
+        self.save_query_with_id(connection_id, None, name, sql, folder).await
+    }
+
+    pub async fn save_query_with_id(
+        &self,
+        connection_id: &str,
+        saved_query_id: Option<&str>,
+        name: &str,
+        sql: &str,
+        folder: Option<&str>,
+    ) -> Result<SavedQuery, DbErrorDto> {
         let connection_id = parse_connection_id(connection_id)?;
+        let saved_query_id = saved_query_id
+            .map(uuid::Uuid::parse_str)
+            .transpose()
+            .map_err(|error| DbError::Validation(format!("invalid saved query id: {error}")))?;
         self.service
-            .save_query(&connection_id, name, sql, folder)
+            .save_query_with_id(&connection_id, saved_query_id, name, sql, folder)
             .await
             .map_err(Into::into)
     }

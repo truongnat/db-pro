@@ -101,3 +101,44 @@ fn structured_query_failure_event_keeps_database_position_and_code() {
         _ => panic!("unexpected UI event"),
     }
 }
+
+#[test]
+fn save_query_command_preserves_existing_saved_query_identity() {
+    let saved_query_id = "8f7d8d4e-8f30-4d94-bf4f-a7c55d6b2c44";
+    let translated = translate_command(UiCommand::SaveQuery {
+        request_id: RequestId(12),
+        connection_id: "connection-1".to_owned(),
+        saved_query_id: Some(saved_query_id.to_owned()),
+        name: "Users".to_owned(),
+        sql: "SELECT * FROM users".to_owned(),
+        folder: None,
+    })
+    .expect("save command must reach runtime");
+
+    match translated {
+        RuntimeCommand::SaveQuery {
+            saved_query_id: actual, ..
+        } => {
+            assert_eq!(actual.as_deref(), Some(saved_query_id));
+        }
+        _ => panic!("unexpected runtime command"),
+    }
+}
+
+#[test]
+fn multi_query_command_routes_to_runtime() {
+    let translated = translate_command(UiCommand::RunQueryMulti {
+        request_id: RequestId(13),
+        connection_id: "connection-1".to_owned(),
+        sql: "SELECT 1; SELECT 2;".to_owned(),
+    })
+    .expect("multi-query command must reach runtime");
+
+    assert!(matches!(
+        translated,
+        RuntimeCommand::ExecuteQueryMulti {
+            request_id: RuntimeRequestId(13),
+            ..
+        }
+    ));
+}

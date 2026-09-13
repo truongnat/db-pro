@@ -32,6 +32,11 @@
 - [x] Keep Query Workspace output tabs isolated per document.
 - [x] Remove the remaining global query execution request slot from the UI routing path.
 - [x] Verify per-document execution/explain routing.
+- [x] Track dirty state from a saved text snapshot so undoing back to saved content is clean.
+- [x] Route Save through saved-query identity for update-in-place semantics.
+- [x] Persist query drafts and terminal query history locally with a bounded retention policy.
+- [x] Add a compatibility-preserving multi-statement execution adapter and per-document result tabs.
+- [x] Add Save As naming and deferred close confirmation for a dirty query tab.
 - [x] Run formatter, workspace checks, clippy, tests, native release build, and performance scan.
 - [ ] Verify a live provider request and stale/cancel behavior with native UI interaction.
 - [ ] Record native UI evidence at the required viewport/state matrix.

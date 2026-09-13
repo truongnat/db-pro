@@ -92,6 +92,11 @@ impl DbProApp {
                     }
                 }
             }
+            if let Some(history) = storage.get_string("dbpro.native.query-history-v1") {
+                if let Ok(history) = serde_json::from_str(&history) {
+                    app.query_history_entries = history;
+                }
+            }
         }
         app
     }
@@ -131,6 +136,8 @@ impl Default for DbProApp {
             snippets_open: false,
             diagnostics: Vec::new(),
             query_history: Vec::new(),
+            query_history_entries: Vec::new(),
+            query_history_search: String::new(),
             connection_name: "Local PostgreSQL".to_owned(),
             connected: false,
             palette_mode: None,
@@ -150,6 +157,11 @@ impl Default for DbProApp {
             agent_configure_request: None,
             task_bridge: TaskBridge::default(),
             query_document_requests: HashMap::new(),
+            query_save_requests: HashMap::new(),
+            pending_dirty_close: None,
+            pending_close_after_save: None,
+            save_as_name: String::new(),
+            save_as_open: false,
             runtime_message: "Ready".to_owned(),
             toasts: crate::components::overlay::ToastManager::default(),
             output_tab: OutputTab::Results,

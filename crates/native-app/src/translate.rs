@@ -84,6 +84,7 @@ pub(crate) fn translate_command(command: UiCommand) -> Option<RuntimeCommand> {
         | UiCommand::DeleteConnection { .. }
         | UiCommand::Connect { .. } => translate_connection_command(command),
         UiCommand::RunQuery { .. }
+        | UiCommand::RunQueryMulti { .. }
         | UiCommand::ExplainQuery { .. }
         | UiCommand::Backup { .. }
         | UiCommand::Restore { .. }
@@ -112,12 +113,14 @@ fn translate_query_command(command: UiCommand) -> Option<RuntimeCommand> {
         UiCommand::SaveQuery {
             request_id,
             connection_id,
+            saved_query_id,
             name,
             sql,
             folder,
         } => Some(RuntimeCommand::SaveQuery {
             request_id: runtime_request_id(request_id),
             connection_id,
+            saved_query_id,
             name,
             sql,
             folder,
@@ -424,6 +427,15 @@ fn translate_execution_command(command: UiCommand) -> Option<RuntimeCommand> {
             connection_id,
             sql,
         } => Some(RuntimeCommand::ExecuteQuery {
+            request_id: runtime_request_id(request_id),
+            connection_id,
+            sql,
+        }),
+        UiCommand::RunQueryMulti {
+            request_id,
+            connection_id,
+            sql,
+        } => Some(RuntimeCommand::ExecuteQueryMulti {
             request_id: runtime_request_id(request_id),
             connection_id,
             sql,
@@ -845,6 +857,19 @@ pub(crate) fn translate_event(event: RuntimeEvent) -> Option<UiEvent> {
             connection_id,
         } => translate_connected(request_id, connection_id),
         RuntimeEvent::QueryCompleted { request_id, result } => translate_query_completed(request_id, result),
+        RuntimeEvent::QueryMultiCompleted { request_id, output } => Some(UiEvent::QueryMultiCompleted {
+            request_id: ui_request_id(request_id),
+            output: map_multi_query_output(output),
+        }),
+        RuntimeEvent::QuerySaved { request_id, query } => Some(UiEvent::QuerySaved {
+            request_id: ui_request_id(request_id),
+            query: UiSavedQuerySummary {
+                id: query.id,
+                name: query.name,
+                sql: query.sql,
+                folder: query.folder,
+            },
+        }),
         RuntimeEvent::ExplainCompleted { request_id, plan } => translate_explain_completed(request_id, plan),
         RuntimeEvent::TableDataLoaded {
             request_id,
@@ -982,6 +1007,42 @@ fn translate_query_completed(
         request_id: ui_request_id(request_id),
         result: map_query_result(result),
     })
+}
+
+fn map_multi_query_output(output: db_pro_core::application::MultiQueryResult) -> UiQueryExecutionOutput {
+    let mut statements = output
+        .results
+        .into_iter()
+        .enumerate()
+        .map(|(statement_index, result)| {
+            let affected_rows = result.columns.is_empty().then_some(result.row_count);
+            let message = affected_rows.map(|rows| format!("{rows} rows affected"));
+            let duration_ms = result.duration_ms;
+            UiStatementOutput {
+                statement_index,
+                result_set: (!result.columns.is_empty()).then(|| map_query_result(result)),
+                affected_rows,
+                duration_ms,
+                message,
+                error: None,
+            }
+        })
+        .collect::<Vec<_>>();
+    if let Some((statement_index, error)) = output.error {
+        statements.push(UiStatementOutput {
+            statement_index,
+            result_set: None,
+            affected_rows: None,
+            duration_ms: 0,
+            message: None,
+            error: Some(error),
+        });
+        statements.sort_by_key(|statement| statement.statement_index);
+    }
+    UiQueryExecutionOutput {
+        statements,
+        total_duration_ms: output.total_duration_ms,
+    }
 }
 
 fn translate_explain_completed(request_id: RuntimeRequestId, plan: String) -> Option<UiEvent> {

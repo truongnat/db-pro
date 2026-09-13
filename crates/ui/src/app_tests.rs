@@ -2065,6 +2065,112 @@ fn test_multi_tab_query_result_routing() {
 }
 
 #[test]
+fn multi_result_completion_keeps_statement_order_and_active_tab_state() {
+    let (bridge, _command_rx, event_tx) = TaskBridge::with_channels();
+    let mut app = DbProApp::with_task_bridge(bridge);
+    app.query_documents = vec![QueryDocument::new("query-1", "Query 1", "SELECT 1; SELECT 2;")];
+    let request_id = crate::RequestId(301);
+    app.query_documents[0].execution_state = QueryExecutionState::Running(request_id);
+    app.query_documents[0].execution_started_at = Some(std::time::Instant::now());
+    app.query_document_requests.insert(request_id, "query-1".to_owned());
+
+    let make_result = |value: &str| UiQueryResult {
+        columns: vec![crate::UiColumn {
+            name: "value".to_owned(),
+            data_type: "int".to_owned(),
+            nullable: false,
+        }],
+        rows: vec![vec![crate::UiCell::Number(value.to_owned())]],
+        row_count: 1,
+        duration_ms: 1,
+    };
+    event_tx
+        .send(UiEvent::QueryMultiCompleted {
+            request_id,
+            output: crate::UiQueryExecutionOutput {
+                statements: vec![
+                    crate::UiStatementOutput {
+                        statement_index: 0,
+                        result_set: Some(make_result("1")),
+                        affected_rows: None,
+                        duration_ms: 1,
+                        message: None,
+                        error: None,
+                    },
+                    crate::UiStatementOutput {
+                        statement_index: 1,
+                        result_set: Some(make_result("2")),
+                        affected_rows: None,
+                        duration_ms: 1,
+                        message: None,
+                        error: None,
+                    },
+                ],
+                total_duration_ms: 2,
+            },
+        })
+        .unwrap();
+    app.apply_runtime_events();
+
+    assert_eq!(app.query_documents[0].query_results.len(), 2);
+    app.set_active_query_result(1);
+    assert_eq!(app.query_documents[0].active_result_index, 1);
+    assert_eq!(
+        app.query_documents[0].query_results[1].rows[0][0],
+        UiCell::Number("2".to_owned())
+    );
+}
+
+#[test]
+fn saved_query_event_resets_dirty_baseline_and_failed_save_keeps_it() {
+    let (bridge, _command_rx, event_tx) = TaskBridge::with_channels();
+    let mut app = DbProApp::with_task_bridge(bridge);
+    app.query_documents[0].set_text("SELECT changed;");
+    assert!(app.query_documents[0].is_dirty());
+    let save_request = crate::RequestId(302);
+    app.query_save_requests.insert(save_request, "query-1".to_owned());
+    event_tx
+        .send(UiEvent::QuerySaved {
+            request_id: save_request,
+            query: UiSavedQuerySummary {
+                id: "saved-1".to_owned(),
+                name: "Query 1".to_owned(),
+                sql: "SELECT changed;".to_owned(),
+                folder: None,
+            },
+        })
+        .unwrap();
+    app.apply_runtime_events();
+    assert!(!app.query_documents[0].is_dirty());
+    assert_eq!(app.query_documents[0].saved_query_id.as_deref(), Some("saved-1"));
+
+    app.query_documents[0].set_text("SELECT failed;");
+    let failed_save_request = crate::RequestId(303);
+    app.query_save_requests
+        .insert(failed_save_request, "query-1".to_owned());
+    event_tx
+        .send(UiEvent::QueryFailed {
+            request_id: failed_save_request,
+            message: "storage unavailable".to_owned(),
+        })
+        .unwrap();
+    app.apply_runtime_events();
+    assert!(app.query_documents[0].is_dirty());
+}
+
+#[test]
+fn dirty_query_close_is_deferred_until_user_decision() {
+    let (bridge, _command_rx, _event_tx) = TaskBridge::with_channels();
+    let mut app = DbProApp::with_task_bridge(bridge);
+    app.query_documents[0].set_text("SELECT changed;");
+
+    app.request_close_query_document(0);
+
+    assert_eq!(app.query_documents.len(), 1);
+    assert_eq!(app.pending_dirty_close, Some(0));
+}
+
+#[test]
 fn query_dispatch_allows_independent_documents_to_run_concurrently() {
     let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);

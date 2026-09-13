@@ -62,6 +62,7 @@ pub enum RuntimeCommand {
     SaveQuery {
         request_id: RuntimeRequestId,
         connection_id: String,
+        saved_query_id: Option<String>,
         name: String,
         sql: String,
         folder: Option<String>,
@@ -147,6 +148,11 @@ pub enum RuntimeCommand {
         connection_id: String,
     },
     ExecuteQuery {
+        request_id: RuntimeRequestId,
+        connection_id: String,
+        sql: String,
+    },
+    ExecuteQueryMulti {
         request_id: RuntimeRequestId,
         connection_id: String,
         sql: String,
@@ -251,6 +257,14 @@ pub enum RuntimeEvent {
     QueryCompleted {
         request_id: RuntimeRequestId,
         result: QueryResult,
+    },
+    QueryMultiCompleted {
+        request_id: RuntimeRequestId,
+        output: db_pro_core::application::MultiQueryResult,
+    },
+    QuerySaved {
+        request_id: RuntimeRequestId,
+        query: crate::SavedQuerySummary,
     },
     ExplainCompleted {
         request_id: RuntimeRequestId,
@@ -524,18 +538,30 @@ pub fn spawn_worker(
                 RuntimeCommand::SaveQuery {
                     request_id,
                     connection_id,
+                    saved_query_id,
                     name,
                     sql,
                     folder,
                 } => {
                     let event = match runtime
                         .query_api()
-                        .save_query(&connection_id, &name, &sql, folder.as_deref())
+                        .save_query_with_id(
+                            &connection_id,
+                            saved_query_id.as_deref(),
+                            &name,
+                            &sql,
+                            folder.as_deref(),
+                        )
                         .await
                     {
-                        Ok(_) => RuntimeEvent::OperationCompleted {
+                        Ok(query) => RuntimeEvent::QuerySaved {
                             request_id,
-                            operation: "query.saved",
+                            query: crate::SavedQuerySummary {
+                                id: query.id.to_string(),
+                                name: query.name,
+                                sql: query.sql,
+                                folder: query.folder,
+                            },
                         },
                         Err(error) => RuntimeEvent::Failed {
                             request_id,
@@ -1010,6 +1036,51 @@ pub fn spawn_worker(
                         };
                         let event = match result {
                             Ok(result) => RuntimeEvent::QueryCompleted { request_id, result },
+                            Err(error) if error.code == "QUERY_CANCELLED" => {
+                                RuntimeEvent::QueryCancelled { request_id }
+                            }
+                            Err(error) => RuntimeEvent::QueryFailedDetailed { request_id, error },
+                        };
+                        query_cancellations
+                            .lock()
+                            .unwrap_or_else(|poisoned| poisoned.into_inner())
+                            .remove(&request_id);
+                        let _ = event_tx.send(event).await;
+                    });
+                }
+                RuntimeCommand::ExecuteQueryMulti {
+                    request_id,
+                    connection_id,
+                    sql,
+                } => {
+                    let (cancel_tx, cancel_rx) = oneshot::channel();
+                    let query_api = runtime.query_api();
+                    query_cancellations
+                        .lock()
+                        .unwrap_or_else(|poisoned| poisoned.into_inner())
+                        .insert(
+                            request_id,
+                            QueryCancellation {
+                                sender: cancel_tx,
+                                query_api: query_api.clone(),
+                                connection_id: connection_id.clone(),
+                            },
+                        );
+                    let event_tx = event_tx.clone();
+                    let query_cancellations = Arc::clone(&query_cancellations);
+                    tokio::spawn(async move {
+                        let result = tokio::select! {
+                            result = query_api.execute_multi(&connection_id, &sql, None, None) => result,
+                            _ = cancel_rx => Err(crate::DbErrorDto {
+                                code: "QUERY_CANCELLED".to_owned(),
+                                message: "Query cancelled".to_owned(),
+                                message_id: "error.query.cancelled".to_owned(),
+                                retryable: false,
+                                position: None,
+                            }),
+                        };
+                        let event = match result {
+                            Ok(output) => RuntimeEvent::QueryMultiCompleted { request_id, output },
                             Err(error) if error.code == "QUERY_CANCELLED" => {
                                 RuntimeEvent::QueryCancelled { request_id }
                             }

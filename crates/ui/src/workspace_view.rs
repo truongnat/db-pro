@@ -125,7 +125,7 @@ impl DbProApp {
                                     .query_documents
                                     .get(idx)
                                     .is_some_and(|doc| matches!(doc.execution_state, QueryExecutionState::Running(_)));
-                                let unsaved = self.query_documents.get(idx).is_some_and(|doc| doc.dirty);
+                                let unsaved = self.query_documents.get(idx).is_some_and(QueryDocument::is_dirty);
                                 let icon = if is_running { Icon::Loader } else { Icon::FileCode2 };
 
                                 let action = draw_workspace_tab_item(
@@ -268,7 +268,7 @@ impl DbProApp {
                                 self.active_tab = WorkspaceTab::Query;
                             }
                             if let Some(idx) = close_query_idx {
-                                self.close_query_document(idx);
+                                self.request_close_query_document(idx);
                             }
                             if let Some(idx) = duplicate_query_idx {
                                 self.duplicate_query_document(idx);

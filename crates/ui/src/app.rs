@@ -8,9 +8,10 @@ use crate::{
     primary_button_with_icon, secondary_button_with_icon, section_label, sidebar_frame, sidebar_item, tab_frame,
     toolbar_frame, AgentContext, AgentMessage, AgentProvider, AgentRole, DbProTheme, OfflineAgentProvider, TaskBridge,
     UiCell, UiCommand, UiConnectionDraft, UiConnectionSummary, UiDriver, UiEvent, UiFunctionSummary,
-    UiQueryFolderSummary, UiQueryResult, UiSavedQuerySummary, UiSchemaForeignKey, UiSchemaSummary, UiSslMode,
-    UiTableDataFilter, UiTableDataSort, UiTableFilterOperator, UiTableInfo, UiTableMutation, UiTableSummary,
-    UiTriggerSummary, UiViewSummary,
+    UiQueryExecutionOutput, UiQueryFolderSummary, UiQueryHistoryEntry, UiQueryHistoryStatus, UiQueryResult,
+    UiSavedQuerySummary, UiSchemaForeignKey, UiSchemaSummary, UiSslMode, UiStatementOutput, UiTableDataFilter,
+    UiTableDataSort, UiTableFilterOperator, UiTableInfo, UiTableMutation, UiTableSummary, UiTriggerSummary,
+    UiViewSummary,
 };
 use bigdecimal::BigDecimal;
 use db_pro_core::domain::capabilities::DatabaseCapabilities;
@@ -21,7 +22,7 @@ use serde::{Deserialize, Serialize};
 use sqlparser::dialect::{GenericDialect, PostgreSqlDialect, SQLiteDialect};
 use sqlparser::parser::Parser;
 use std::collections::{BTreeSet, HashMap};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use change_set::{ChangeSet, MutationFailure, MutationTarget, RowIdentity, StagedChange};
 
@@ -313,6 +314,8 @@ pub struct DbProApp {
     snippets_open: bool,
     diagnostics: Vec<String>,
     query_history: Vec<String>,
+    query_history_entries: Vec<UiQueryHistoryEntry>,
+    query_history_search: String,
     connection_name: String,
     connected: bool,
     palette_mode: Option<PaletteMode>,
@@ -332,6 +335,11 @@ pub struct DbProApp {
     agent_configure_request: Option<crate::RequestId>,
     task_bridge: TaskBridge,
     pub(crate) query_document_requests: HashMap<crate::RequestId, String>,
+    query_save_requests: HashMap<crate::RequestId, String>,
+    pending_dirty_close: Option<usize>,
+    pending_close_after_save: Option<usize>,
+    save_as_name: String,
+    save_as_open: bool,
     runtime_message: String,
     toasts: crate::components::overlay::ToastManager,
     output_tab: OutputTab,
@@ -470,6 +478,9 @@ impl eframe::App for DbProApp {
         );
         if let Ok(documents) = serde_json::to_string(&self.query_documents) {
             storage.set_string("dbpro.native.query-documents", documents);
+        }
+        if let Ok(history) = serde_json::to_string(&self.query_history_entries) {
+            storage.set_string("dbpro.native.query-history-v1", history);
         }
         storage.set_string("dbpro.native.theme-version", "light-first-v1".to_owned());
         storage.set_string("dbpro.native.dark-mode", self.dark_mode.to_string());
@@ -893,9 +904,27 @@ impl DbProApp {
     }
 
     pub(crate) fn active_query_result(&self) -> Option<&UiQueryResult> {
-        self.query_documents
-            .get(self.active_query_document)
-            .and_then(|doc| doc.query_result.as_ref())
+        self.query_documents.get(self.active_query_document).and_then(|doc| {
+            doc.query_results
+                .get(doc.active_result_index)
+                .or(doc.query_result.as_ref())
+        })
+    }
+
+    pub(crate) fn active_query_result_count(&self) -> usize {
+        self.query_documents.get(self.active_query_document).map_or(0, |doc| {
+            doc.query_results
+                .len()
+                .max(if doc.query_result.is_some() { 1 } else { 0 })
+        })
+    }
+
+    pub(crate) fn set_active_query_result(&mut self, index: usize) {
+        if let Some(doc) = self.query_documents.get_mut(self.active_query_document) {
+            if index < doc.query_results.len() {
+                doc.active_result_index = index;
+            }
+        }
     }
 
     pub(crate) fn active_query_messages(&self) -> &[String] {
@@ -993,6 +1022,25 @@ impl DbProApp {
         self.active_tab = WorkspaceTab::Query;
     }
 
+    pub(crate) fn open_history_entry(&mut self, entry: &UiQueryHistoryEntry, run: bool) {
+        let document_number = self.query_documents.len() + 1;
+        let mut document = QueryDocument::new(
+            format!("query-{document_number}"),
+            format!("History {document_number}"),
+            entry.sql.clone(),
+        );
+        document.connection_id = entry.connection_id.clone();
+        document.schema = entry.schema.clone();
+        self.query_documents.push(document);
+        self.active_query_document = self.query_documents.len() - 1;
+        self.activity = Activity::Queries;
+        self.active_tab = WorkspaceTab::Query;
+        self.reset_query_cursor();
+        if run {
+            self.dispatch_query();
+        }
+    }
+
     pub(crate) fn close_query_document(&mut self, index: usize) {
         if index >= self.query_documents.len() {
             return;
@@ -1029,6 +1077,14 @@ impl DbProApp {
             self.selected_query.clear();
         }
         self.runtime_message = format!("Closed {}", self.query_documents[self.active_query_document].title);
+    }
+
+    pub(crate) fn request_close_query_document(&mut self, index: usize) {
+        if self.query_documents.get(index).is_some_and(QueryDocument::is_dirty) {
+            self.pending_dirty_close = Some(index);
+        } else {
+            self.close_query_document(index);
+        }
     }
 
     fn reset_query_cursor(&mut self) {

@@ -6,7 +6,7 @@ use crate::editor::document::SqlDocumentAnalysis;
 use crate::editor::prediction::EditPrediction;
 use crate::editor::selection::SelectionRange;
 use crate::editor::syntax::{CachedSqlTokens, SqlDialect};
-use crate::runtime::UiQueryResult;
+use crate::runtime::{UiQueryExecutionOutput, UiQueryResult};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::time::{Duration, Instant};
 
@@ -94,6 +94,7 @@ pub struct QueryDocument {
     pub schema: Option<String>,
     pub dirty: bool,
     pub saved_version: u64,
+    pub saved_snapshot: String,
     pub saved_query_id: Option<String>,
     pub execution_state: QueryExecutionState,
     pub analysis: SqlDocumentAnalysis,
@@ -122,6 +123,9 @@ pub struct QueryDocument {
     pub cached_tokens: CachedSqlTokens,
     pub search: EditorSearchState,
     pub query_result: Option<UiQueryResult>,
+    pub query_results: Vec<UiQueryResult>,
+    pub active_result_index: usize,
+    pub execution_output: Option<UiQueryExecutionOutput>,
     pub query_messages: Vec<String>,
     pub explain_plan: Option<String>,
     pub explain_request: Option<crate::runtime::RequestId>,
@@ -130,11 +134,13 @@ pub struct QueryDocument {
     pub executing_version: Option<u64>,
     pub last_executed_range: Option<(usize, usize)>,
     pub execution_diagnostic: Option<Diagnostic>,
+    pub execution_started_at: Option<Instant>,
 }
 
 impl QueryDocument {
     pub fn new(id: impl Into<String>, title: impl Into<String>, content: impl Into<String>) -> Self {
         let content_str = content.into();
+        let saved_snapshot = content_str.clone();
         let buffer = TextBuffer::from_string(content_str);
         let analysis = SqlDocumentAnalysis::analyze(&buffer, SqlDialect::Postgres);
         Self {
@@ -148,6 +154,7 @@ impl QueryDocument {
             schema: None,
             dirty: false,
             saved_version: 0,
+            saved_snapshot,
             saved_query_id: None,
             execution_state: QueryExecutionState::Idle,
             analysis,
@@ -176,6 +183,9 @@ impl QueryDocument {
             cached_tokens: CachedSqlTokens::new(),
             search: EditorSearchState::default(),
             query_result: None,
+            query_results: Vec::new(),
+            active_result_index: 0,
+            execution_output: None,
             query_messages: Vec::new(),
             explain_plan: None,
             explain_request: None,
@@ -184,16 +194,18 @@ impl QueryDocument {
             executing_version: None,
             last_executed_range: None,
             execution_diagnostic: None,
+            execution_started_at: None,
         }
     }
 
     pub fn mark_saved(&mut self) {
         self.saved_version = self.buffer.version();
+        self.saved_snapshot = self.buffer.text().to_owned();
         self.dirty = false;
     }
 
     pub fn is_dirty(&self) -> bool {
-        self.dirty || self.buffer.version() != self.saved_version
+        self.buffer.text() != self.saved_snapshot
     }
 
     pub fn text(&self) -> &str {
@@ -337,6 +349,8 @@ impl Serialize for QueryDocument {
             selection_anchor: usize,
             selection_active: usize,
             scroll: f32,
+            saved_query_id: Option<&'a str>,
+            saved_snapshot: &'a str,
         }
         let helper = SerializedQueryDocument {
             id: &self.id,
@@ -348,6 +362,8 @@ impl Serialize for QueryDocument {
             selection_anchor: self.selection.anchor,
             selection_active: self.selection.active,
             scroll: self.scroll,
+            saved_query_id: self.saved_query_id.as_deref(),
+            saved_snapshot: &self.saved_snapshot,
         };
         helper.serialize(serializer)
     }
@@ -376,6 +392,10 @@ impl<'de> Deserialize<'de> for QueryDocument {
             selection_active: usize,
             #[serde(default)]
             scroll: f32,
+            #[serde(default)]
+            saved_query_id: Option<String>,
+            #[serde(default)]
+            saved_snapshot: Option<String>,
         }
         let helper = DeserializedQueryDocument::deserialize(deserializer)?;
         let id = if helper.id.is_empty() {
@@ -386,10 +406,12 @@ impl<'de> Deserialize<'de> for QueryDocument {
         let mut doc = QueryDocument::new(id, helper.title, helper.content);
         doc.connection_id = helper.connection_id;
         doc.schema = helper.schema;
+        doc.saved_query_id = helper.saved_query_id;
         doc.cursor.set_offset(&doc.buffer, helper.cursor_offset);
         doc.selection.anchor = helper.selection_anchor;
         doc.selection.active = helper.selection_active;
         doc.scroll = helper.scroll;
+        doc.saved_snapshot = helper.saved_snapshot.unwrap_or_else(|| doc.buffer.text().to_owned());
         doc.saved_version = doc.buffer.version();
         doc.dirty = false;
         Ok(doc)
@@ -458,6 +480,18 @@ mod tests {
         assert_eq!(deserialized.selection.active, 14);
         assert_eq!(deserialized.scroll, 42.5);
         assert!(!deserialized.is_dirty());
+    }
+
+    #[test]
+    fn undoing_to_saved_snapshot_clears_dirty_state() {
+        let mut doc = QueryDocument::new("q-1", "Query", "SELECT 1;");
+        doc.mark_saved();
+
+        doc.set_text("SELECT 2;");
+        assert!(doc.is_dirty());
+
+        doc.set_text("SELECT 1;");
+        assert!(!doc.is_dirty());
     }
 
     #[test]
