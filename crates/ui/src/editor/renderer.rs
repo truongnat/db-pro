@@ -21,9 +21,12 @@ pub struct SqlEditorResponse {
     pub changed: bool,
     pub cursor_screen_pos: Pos2,
     pub wants_completion: bool,
+    pub wants_manual_completion: bool,
     pub wants_execute_statement: bool,
     pub wants_execute_all: bool,
     pub wants_format: bool,
+    pub wants_dismiss_prediction: bool,
+    pub accepted_prediction_len: Option<usize>,
     pub focused: bool,
 }
 
@@ -217,7 +220,9 @@ impl<'a> SqlEditor<'a> {
                                 if let Some(pred) = self.prediction {
                                     if !pred.is_empty() && pred.anchor == self.cursor.offset && !shift {
                                         let text_to_insert = pred.accept_full().to_owned();
-                                        self.insert_text(&text_to_insert);
+                                        let len = text_to_insert.len();
+                                        self.insert_prediction_text(pred.replacement_range, &text_to_insert);
+                                        response.accepted_prediction_len = Some(len);
                                         response.changed = true;
                                         continue;
                                     }
@@ -249,6 +254,20 @@ impl<'a> SqlEditor<'a> {
                             }
                             Key::ArrowRight => {
                                 self.buffer.break_typing_group();
+                                if event_mods.alt && !self.completion_open {
+                                    if let Some(pred) = self.prediction {
+                                        if !pred.is_empty() && pred.anchor == self.cursor.offset {
+                                            let word = pred.accept_next_word().to_owned();
+                                            if !word.is_empty() {
+                                                let len = word.len();
+                                                self.insert_prediction_text(pred.replacement_range, &word);
+                                                response.accepted_prediction_len = Some(len);
+                                                response.changed = true;
+                                                continue;
+                                            }
+                                        }
+                                    }
+                                }
                                 if is_cmd {
                                     self.cursor.move_word_right(self.buffer);
                                 } else {
@@ -267,6 +286,20 @@ impl<'a> SqlEditor<'a> {
                             }
                             Key::ArrowDown => {
                                 self.buffer.break_typing_group();
+                                if event_mods.alt && !self.completion_open {
+                                    if let Some(pred) = self.prediction {
+                                        if !pred.is_empty() && pred.anchor == self.cursor.offset {
+                                            let line = pred.accept_next_line().to_owned();
+                                            if !line.is_empty() {
+                                                let len = line.len();
+                                                self.insert_prediction_text(pred.replacement_range, &line);
+                                                response.accepted_prediction_len = Some(len);
+                                                response.changed = true;
+                                                continue;
+                                            }
+                                        }
+                                    }
+                                }
                                 if is_cmd {
                                     self.cursor.move_doc_end(self.buffer);
                                 } else {
@@ -315,9 +348,11 @@ impl<'a> SqlEditor<'a> {
                             }
                             Key::Space if event_mods.ctrl => {
                                 response.wants_completion = true;
+                                response.wants_manual_completion = true;
                             }
                             Key::Escape => {
                                 self.selection.collapse_to_active();
+                                response.wants_dismiss_prediction = true;
                             }
                             _ => {}
                         }
@@ -701,6 +736,13 @@ impl<'a> SqlEditor<'a> {
         let offset = self.cursor.offset;
         self.buffer.insert(offset, text);
         self.cursor.set_offset(self.buffer, offset + text.len());
+        self.selection.collapse_to_active();
+    }
+
+    fn insert_prediction_text(&mut self, replacement_range: (usize, usize), text: &str) {
+        let (start, end) = replacement_range;
+        self.buffer.replace(start, end, text);
+        self.cursor.set_offset(self.buffer, start + text.len());
         self.selection.collapse_to_active();
     }
 

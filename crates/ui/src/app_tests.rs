@@ -1947,6 +1947,71 @@ fn test_multi_tab_query_result_routing() {
 }
 
 #[test]
+fn query_dispatch_allows_independent_documents_to_run_concurrently() {
+    let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
+    let mut app = DbProApp::with_task_bridge(bridge);
+    app.connections = vec![
+        UiConnectionSummary {
+            id: "conn-1".to_owned(),
+            name: "DB 1".to_owned(),
+            host: "localhost".to_owned(),
+            port: 5432,
+            database: "db1".to_owned(),
+            username: "user".to_owned(),
+            driver: "PostgreSQL".to_owned(),
+            readonly: false,
+        },
+        UiConnectionSummary {
+            id: "conn-2".to_owned(),
+            name: "DB 2".to_owned(),
+            host: String::new(),
+            port: 0,
+            database: "db2".to_owned(),
+            username: String::new(),
+            driver: "SQLite".to_owned(),
+            readonly: false,
+        },
+    ];
+    app.active_connection_id = Some("conn-1".to_owned());
+    app.connected = true;
+    app.set_document_connection(0, Some("conn-1".to_owned()));
+    app.set_active_query_text("SELECT 1;");
+    app.dispatch_query();
+    let first = command_rx.recv().expect("first query command");
+    let first_request = match first {
+        UiCommand::RunQuery { request_id, .. } => request_id,
+        _ => panic!("unexpected first command"),
+    };
+
+    app.new_query_document();
+    app.set_document_connection(1, Some("conn-2".to_owned()));
+    app.set_active_query_text("SELECT 2;");
+    app.dispatch_query();
+    let second = command_rx.recv().expect("second query command");
+    let second_request = match second {
+        UiCommand::RunQuery {
+            request_id,
+            connection_id,
+            ..
+        } => {
+            assert_eq!(connection_id, "conn-2");
+            request_id
+        }
+        _ => panic!("unexpected second command"),
+    };
+
+    assert_ne!(first_request, second_request);
+    assert!(matches!(
+        app.query_documents[0].execution_state,
+        QueryExecutionState::Running(request) if request == first_request
+    ));
+    assert!(matches!(
+        app.query_documents[1].execution_state,
+        QueryExecutionState::Running(request) if request == second_request
+    ));
+}
+
+#[test]
 fn test_tab_switching_preserves_completion_and_prediction_isolation() {
     let mut doc1 = QueryDocument::new("query-1", "Query 1", "SELECT * FROM u");
     doc1.completion.open(
@@ -1966,7 +2031,7 @@ fn test_tab_switching_preserves_completion_and_prediction_isolation() {
     );
     doc1.prediction = Some(crate::editor::EditPrediction {
         request_id: Some(crate::RequestId(1)),
-        document_version: doc1.buffer.version() as usize,
+        document_version: doc1.buffer.version(),
         anchor: 15,
         replacement_range: (15, 15),
         text: "sers WHERE id = 1".to_owned(),
@@ -2099,4 +2164,206 @@ fn test_prediction_mode_defaults_and_options() {
     let eager = PredictionMode::Eager;
     let off = PredictionMode::Off;
     assert_ne!(eager, off);
+}
+
+#[test]
+fn test_per_document_connection_and_schema_isolation() {
+    let mut app = DbProApp {
+        connections: vec![
+            UiConnectionSummary {
+                id: "conn-pg".to_owned(),
+                name: "Postgres Prod".to_owned(),
+                driver: "postgresql".to_owned(),
+                host: "localhost".to_owned(),
+                port: 5432,
+                database: "prod".to_owned(),
+                username: "postgres".to_owned(),
+                readonly: false,
+            },
+            UiConnectionSummary {
+                id: "conn-sqlite".to_owned(),
+                name: "Local SQLite".to_owned(),
+                driver: "sqlite".to_owned(),
+                host: "".to_owned(),
+                port: 0,
+                database: "/tmp/test.db".to_owned(),
+                username: "".to_owned(),
+                readonly: false,
+            },
+        ],
+        active_connection_id: Some("conn-pg".to_owned()),
+        ..Default::default()
+    };
+
+    // Tab 1 setup
+    app.set_document_connection(0, Some("conn-pg".to_owned()));
+    app.set_document_schema(0, Some("analytics".to_owned()));
+    assert_eq!(app.active_query_connection_id(), Some("conn-pg"));
+    assert_eq!(app.active_query_schema(), "analytics");
+
+    // Tab 2: create and switch connection to SQLite
+    app.new_query_document();
+    assert_eq!(app.active_query_document, 1);
+    app.set_document_connection(1, Some("conn-sqlite".to_owned()));
+    app.set_document_schema(1, Some("main".to_owned()));
+
+    assert_eq!(app.active_query_connection_id(), Some("conn-sqlite"));
+    assert_eq!(app.active_query_schema(), "main");
+    assert_eq!(app.active_query_driver(), "sqlite");
+
+    // Switch back to Tab 1: retains its own connection and schema
+    app.switch_query_document(0);
+    assert_eq!(app.active_query_connection_id(), Some("conn-pg"));
+    assert_eq!(app.active_query_schema(), "analytics");
+    assert_eq!(app.active_query_driver(), "postgresql");
+}
+
+#[test]
+fn test_ambiguous_column_completion_qualified_ranking() {
+    let summary = UiSchemaSummary {
+        table_details: vec![
+            UiTableSummary {
+                schema: "public".to_owned(),
+                name: "users".to_owned(),
+                row_count: Some(10),
+                columns: vec![
+                    crate::runtime::UiSchemaColumn {
+                        name: "id".to_owned(),
+                        data_type: "integer".to_owned(),
+                        nullable: false,
+                        is_primary_key: true,
+                    },
+                    crate::runtime::UiSchemaColumn {
+                        name: "email".to_owned(),
+                        data_type: "text".to_owned(),
+                        nullable: false,
+                        is_primary_key: false,
+                    },
+                ],
+                foreign_keys: vec![],
+            },
+            UiTableSummary {
+                schema: "public".to_owned(),
+                name: "orders".to_owned(),
+                row_count: Some(50),
+                columns: vec![
+                    crate::runtime::UiSchemaColumn {
+                        name: "id".to_owned(),
+                        data_type: "integer".to_owned(),
+                        nullable: false,
+                        is_primary_key: true,
+                    },
+                    crate::runtime::UiSchemaColumn {
+                        name: "user_id".to_owned(),
+                        data_type: "integer".to_owned(),
+                        nullable: false,
+                        is_primary_key: false,
+                    },
+                ],
+                foreign_keys: vec![],
+            },
+        ],
+        ..Default::default()
+    };
+
+    let ctx = crate::query::CompletionContext {
+        text_before_cursor: "SELECT i",
+        text_after_cursor: " FROM users u JOIN orders o ON u.id = o.user_id",
+        cursor_offset: 8,
+        active_schema: "public",
+        schema_summary: &summary,
+        cached_tokens: None,
+        is_sqlite: false,
+        is_manual_trigger: false,
+    };
+
+    let (prefix, items) = crate::query::SchemaCompletionProvider::provide(&ctx);
+    assert_eq!(prefix, "i");
+    assert!(!items.is_empty());
+
+    // Because 'id' exists in both users and orders, qualified versions (u.id, o.id) should be boosted
+    let u_id = items.iter().find(|it| it.insert_text == "u.id");
+    let o_id = items.iter().find(|it| it.insert_text == "o.id");
+    assert!(u_id.is_some(), "u.id should be suggested");
+    assert!(o_id.is_some(), "o.id should be suggested");
+    assert!(u_id.unwrap().sort_score >= 880);
+}
+
+#[test]
+fn test_prediction_partial_accept_word_and_line() {
+    let mut pred = crate::editor::EditPrediction::new(
+        10,
+        "WHERE users.id = 42\nORDER BY created_at DESC",
+        Some(crate::RequestId(1)),
+    );
+
+    // Accept next word
+    assert_eq!(pred.accept_next_word(), "WHERE");
+    pred.consume("WHERE".len());
+    assert_eq!(pred.anchor, 15);
+    assert_eq!(pred.text, " users.id = 42\nORDER BY created_at DESC");
+
+    // Accept next line
+    assert_eq!(pred.accept_next_line(), " users.id = 42\n");
+    pred.consume(" users.id = 42\n".len());
+    assert_eq!(pred.text, "ORDER BY created_at DESC");
+
+    // Accept remaining full text
+    assert_eq!(pred.accept_full(), "ORDER BY created_at DESC");
+    pred.consume("ORDER BY created_at DESC".len());
+    assert!(pred.is_empty());
+}
+
+#[test]
+fn test_async_prediction_routing_and_stale_rejection() {
+    let mut app = DbProApp::default();
+    app.new_query_document();
+
+    let doc = &mut app.query_documents[0];
+    doc.set_text("SELECT * FROM users ");
+    doc.cursor.offset = doc.buffer.len_bytes();
+    let current_version = doc.buffer.version();
+    let req_id = crate::RequestId(77);
+    doc.pending_prediction_request = Some(req_id);
+
+    // Apply prediction ready event for matching request & version
+    app.apply_runtime_event(UiEvent::SqlPredictionReady {
+        request_id: req_id,
+        document_id: app.query_documents[0].id.clone(),
+        document_version: current_version,
+        anchor: app.query_documents[0].cursor.offset,
+        prediction: "WHERE active = true".to_owned(),
+    });
+
+    let doc = &app.query_documents[0];
+    assert!(doc.pending_prediction_request.is_none());
+    assert!(doc.prediction.is_some());
+    let pred = doc.prediction.as_ref().unwrap();
+    assert_eq!(pred.text, "WHERE active = true");
+    assert_eq!(pred.document_version, current_version);
+}
+
+#[test]
+fn stale_prediction_event_does_not_mutate_a_newer_document_version() {
+    let mut app = DbProApp::default();
+    let document_id = app.query_documents[0].id.clone();
+    let doc = &mut app.query_documents[0];
+    doc.set_text("SELECT 1");
+    doc.cursor.set_offset(&doc.buffer, doc.buffer.len_bytes());
+    let request_id = crate::RequestId(88);
+    let current_version = doc.buffer.version();
+    let anchor = doc.cursor.offset;
+    doc.pending_prediction_request = Some(request_id);
+
+    app.apply_runtime_event(UiEvent::SqlPredictionReady {
+        request_id,
+        document_id,
+        document_version: current_version.saturating_sub(1),
+        anchor,
+        prediction: "WHERE stale = true".to_owned(),
+    });
+
+    let doc = &app.query_documents[0];
+    assert!(doc.pending_prediction_request.is_none());
+    assert!(doc.prediction.is_none());
 }

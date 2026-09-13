@@ -8,6 +8,9 @@ use crate::editor::selection::SelectionRange;
 use crate::editor::syntax::{CachedSqlTokens, SqlDialect};
 use crate::runtime::UiQueryResult;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use std::time::{Duration, Instant};
+
+pub const SQL_PREDICTION_DEBOUNCE: Duration = Duration::from_millis(300);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum QueryExecutionState {
@@ -82,12 +85,15 @@ pub struct QueryDocument {
     pub connection_id: Option<String>,
     pub schema: Option<String>,
     pub dirty: bool,
+    pub saved_version: u64,
     pub saved_query_id: Option<String>,
     pub execution_state: QueryExecutionState,
     pub analysis: SqlDocumentAnalysis,
     pub diagnostics: Vec<Diagnostic>,
     pub completion: CompletionState,
     pub prediction: Option<EditPrediction>,
+    pub pending_prediction_request: Option<crate::runtime::RequestId>,
+    pub prediction_debounce_deadline: Option<Instant>,
     pub cached_tokens: CachedSqlTokens,
     pub search: EditorSearchState,
     pub query_result: Option<UiQueryResult>,
@@ -111,12 +117,15 @@ impl QueryDocument {
             connection_id: None,
             schema: None,
             dirty: false,
+            saved_version: 0,
             saved_query_id: None,
             execution_state: QueryExecutionState::Idle,
             analysis,
             diagnostics: Vec::new(),
             completion: CompletionState::new(),
             prediction: None,
+            pending_prediction_request: None,
+            prediction_debounce_deadline: None,
             cached_tokens: CachedSqlTokens::new(),
             search: EditorSearchState::default(),
             query_result: None,
@@ -124,6 +133,15 @@ impl QueryDocument {
             explain_plan: None,
             explain_request: None,
         }
+    }
+
+    pub fn mark_saved(&mut self) {
+        self.saved_version = self.buffer.version();
+        self.dirty = false;
+    }
+
+    pub fn is_dirty(&self) -> bool {
+        self.dirty || self.buffer.version() != self.saved_version
     }
 
     pub fn text(&self) -> &str {
@@ -166,6 +184,26 @@ impl QueryDocument {
         let len = self.buffer.len_bytes();
         (full, (0, len))
     }
+
+    pub fn schedule_prediction(&mut self, now: Instant) {
+        self.prediction_debounce_deadline = Some(now + SQL_PREDICTION_DEBOUNCE);
+        self.prediction = None;
+    }
+
+    pub fn prediction_is_due(&self, now: Instant) -> bool {
+        self.prediction_debounce_deadline
+            .is_some_and(|deadline| now >= deadline)
+    }
+
+    pub fn take_prediction_schedule(&mut self) -> bool {
+        self.prediction_debounce_deadline.take().is_some()
+    }
+
+    pub fn invalidate_prediction(&mut self) {
+        self.prediction_debounce_deadline = None;
+        self.prediction = None;
+        self.pending_prediction_request = None;
+    }
 }
 
 // Custom serialization for storage persistence
@@ -181,6 +219,10 @@ impl Serialize for QueryDocument {
             content: &'a str,
             connection_id: Option<&'a str>,
             schema: Option<&'a str>,
+            cursor_offset: usize,
+            selection_anchor: usize,
+            selection_active: usize,
+            scroll: f32,
         }
         let helper = SerializedQueryDocument {
             id: &self.id,
@@ -188,6 +230,10 @@ impl Serialize for QueryDocument {
             content: self.buffer.text(),
             connection_id: self.connection_id.as_deref(),
             schema: self.schema.as_deref(),
+            cursor_offset: self.cursor.offset,
+            selection_anchor: self.selection.anchor,
+            selection_active: self.selection.active,
+            scroll: self.scroll,
         };
         helper.serialize(serializer)
     }
@@ -208,6 +254,14 @@ impl<'de> Deserialize<'de> for QueryDocument {
             connection_id: Option<String>,
             #[serde(default)]
             schema: Option<String>,
+            #[serde(default)]
+            cursor_offset: usize,
+            #[serde(default)]
+            selection_anchor: usize,
+            #[serde(default)]
+            selection_active: usize,
+            #[serde(default)]
+            scroll: f32,
         }
         let helper = DeserializedQueryDocument::deserialize(deserializer)?;
         let id = if helper.id.is_empty() {
@@ -218,6 +272,12 @@ impl<'de> Deserialize<'de> for QueryDocument {
         let mut doc = QueryDocument::new(id, helper.title, helper.content);
         doc.connection_id = helper.connection_id;
         doc.schema = helper.schema;
+        doc.cursor.set_offset(&doc.buffer, helper.cursor_offset);
+        doc.selection.anchor = helper.selection_anchor;
+        doc.selection.active = helper.selection_active;
+        doc.scroll = helper.scroll;
+        doc.saved_version = doc.buffer.version();
+        doc.dirty = false;
         Ok(doc)
     }
 }
@@ -265,11 +325,35 @@ mod tests {
 
     #[test]
     fn test_query_document_serde_roundtrip() {
-        let doc = QueryDocument::new("q-1", "My Query", "SELECT * FROM users;");
+        let mut doc = QueryDocument::new("q-1", "My Query", "SELECT * FROM users;");
+        doc.connection_id = Some("conn-123".to_owned());
+        doc.schema = Some("public".to_owned());
+        doc.cursor.set_offset(&doc.buffer, 14);
+        doc.selection = crate::editor::SelectionRange::new(7, 14);
+        doc.scroll = 42.5;
+
         let serialized = serde_json::to_string(&doc).unwrap();
         let deserialized: QueryDocument = serde_json::from_str(&serialized).unwrap();
         assert_eq!(deserialized.id, "q-1");
         assert_eq!(deserialized.title, "My Query");
         assert_eq!(deserialized.text(), "SELECT * FROM users;");
+        assert_eq!(deserialized.connection_id.as_deref(), Some("conn-123"));
+        assert_eq!(deserialized.schema.as_deref(), Some("public"));
+        assert_eq!(deserialized.cursor.offset, 14);
+        assert_eq!(deserialized.selection.anchor, 7);
+        assert_eq!(deserialized.selection.active, 14);
+        assert_eq!(deserialized.scroll, 42.5);
+        assert!(!deserialized.is_dirty());
+    }
+
+    #[test]
+    fn prediction_schedule_is_due_only_after_debounce_and_can_be_consumed() {
+        let mut doc = QueryDocument::new("doc-1", "Doc 1", "SELECT 1");
+        let now = Instant::now();
+        doc.schedule_prediction(now);
+        assert!(!doc.prediction_is_due(now));
+        assert!(doc.prediction_is_due(now + SQL_PREDICTION_DEBOUNCE));
+        assert!(doc.take_prediction_schedule());
+        assert!(!doc.prediction_is_due(now + SQL_PREDICTION_DEBOUNCE));
     }
 }

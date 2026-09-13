@@ -58,7 +58,8 @@ pub(crate) fn translate_command(command: UiCommand) -> Option<RuntimeCommand> {
         | UiCommand::PickBackupFile { .. }
         | UiCommand::PickRestoreFile { .. }
         // Handled in the native command thread (keyring + ConfigureAgent):
-        | UiCommand::SaveAgentApiKey { .. } => None,
+        | UiCommand::SaveAgentApiKey { .. }
+        => None,
         UiCommand::ListQueryFolders { .. }
         | UiCommand::ListSavedQueries { .. }
         | UiCommand::SaveQuery { .. }
@@ -86,7 +87,9 @@ pub(crate) fn translate_command(command: UiCommand) -> Option<RuntimeCommand> {
         | UiCommand::ExplainQuery { .. }
         | UiCommand::Backup { .. }
         | UiCommand::Restore { .. }
-        | UiCommand::CancelQuery { .. } => translate_execution_command(command),
+        | UiCommand::CancelQuery { .. }
+        | UiCommand::RequestSqlPrediction { .. }
+        | UiCommand::CancelSqlPrediction { .. } => translate_execution_command(command),
     }
 }
 
@@ -473,6 +476,33 @@ fn translate_execution_command(command: UiCommand) -> Option<RuntimeCommand> {
         UiCommand::CancelQuery { request_id } => Some(RuntimeCommand::CancelQuery {
             request_id: runtime_request_id(request_id),
         }),
+        UiCommand::RequestSqlPrediction {
+            request_id,
+            document_id,
+            document_version,
+            anchor,
+            context,
+        } => Some(RuntimeCommand::RequestSqlPrediction {
+            request_id: runtime_request_id(request_id),
+            document_id,
+            document_version,
+            anchor,
+            context: db_pro_runtime::SqlPredictionContext {
+                sql_before_cursor: context.sql_before_cursor,
+                sql_after_cursor: context.sql_after_cursor,
+                current_statement: context.current_statement,
+                active_schema: context.active_schema,
+                dialect: context.dialect,
+                referenced_tables: context.referenced_tables,
+                table_aliases: context.table_aliases,
+                relevant_columns: context.relevant_columns,
+                fk_neighbors: context.fk_neighbors,
+                cte_names: context.cte_names,
+            },
+        }),
+        UiCommand::CancelSqlPrediction { request_id } => Some(RuntimeCommand::CancelSqlPrediction {
+            request_id: runtime_request_id(request_id),
+        }),
         _ => None,
     }
 }
@@ -835,6 +865,32 @@ pub(crate) fn translate_event(event: RuntimeEvent) -> Option<UiEvent> {
             request_id: ui_request_id(request_id),
             provider,
             detail,
+        }),
+        RuntimeEvent::SqlPredictionReady {
+            request_id,
+            document_id,
+            document_version,
+            anchor,
+            prediction,
+        } => Some(UiEvent::SqlPredictionReady {
+            request_id: ui_request_id(request_id),
+            document_id,
+            document_version,
+            anchor,
+            prediction,
+        }),
+        RuntimeEvent::SqlPredictionFailed {
+            request_id,
+            document_id,
+            document_version,
+            anchor,
+            message,
+        } => Some(UiEvent::SqlPredictionFailed {
+            request_id: ui_request_id(request_id),
+            document_id,
+            document_version,
+            anchor,
+            message,
         }),
         RuntimeEvent::Failed { request_id, message } => translate_failed(request_id, message),
     }

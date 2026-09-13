@@ -449,6 +449,16 @@ pub enum UiCommand {
     CancelQuery {
         request_id: RequestId,
     },
+    RequestSqlPrediction {
+        request_id: RequestId,
+        document_id: String,
+        document_version: u64,
+        anchor: usize,
+        context: crate::editor::prediction::AiSqlContext,
+    },
+    CancelSqlPrediction {
+        request_id: RequestId,
+    },
     /// Store a new AI provider API key and reconfigure the agent at runtime.
     /// The native adapter is responsible for persisting the key securely
     /// (OS keyring) before forwarding it to the worker.
@@ -582,6 +592,20 @@ pub enum UiEvent {
     },
     QueryFailed {
         request_id: RequestId,
+        message: String,
+    },
+    SqlPredictionReady {
+        request_id: RequestId,
+        document_id: String,
+        document_version: u64,
+        anchor: usize,
+        prediction: String,
+    },
+    SqlPredictionFailed {
+        request_id: RequestId,
+        document_id: String,
+        document_version: u64,
+        anchor: usize,
         message: String,
     },
 }

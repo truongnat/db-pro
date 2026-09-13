@@ -28,6 +28,12 @@ impl DbProApp {
             app.reduce_motion = storage
                 .get_string("dbpro.native.reduce-motion")
                 .is_some_and(|value| value == "true");
+            if let Some(mode) = storage
+                .get_string("dbpro.native.prediction-mode")
+                .and_then(|value| serde_json::from_str::<PredictionMode>(&value).ok())
+            {
+                app.prediction_mode = mode;
+            }
             if let Some(width) = storage
                 .get_string("dbpro.native.sidebar-width")
                 .and_then(|value| value.parse::<f32>().ok())

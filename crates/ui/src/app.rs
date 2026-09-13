@@ -474,6 +474,9 @@ impl eframe::App for DbProApp {
         storage.set_string("dbpro.native.theme-version", "light-first-v1".to_owned());
         storage.set_string("dbpro.native.dark-mode", self.dark_mode.to_string());
         storage.set_string("dbpro.native.reduce-motion", self.reduce_motion.to_string());
+        if let Ok(prediction_mode) = serde_json::to_string(&self.prediction_mode) {
+            storage.set_string("dbpro.native.prediction-mode", prediction_mode);
+        }
         storage.set_string("dbpro.native.sidebar-width", self.sidebar_width.to_string());
         storage.set_string("dbpro.native.agent-width", self.agent_width.to_string());
         storage.set_string("dbpro.native.output-open", self.bottom_panel_open.to_string());
@@ -804,12 +807,14 @@ impl DbProApp {
     }
 
     pub(crate) fn set_active_query_text(&mut self, text: impl Into<String>) {
+        self.cancel_prediction_for_document(self.active_query_document);
         if let Some(doc) = self.query_documents.get_mut(self.active_query_document) {
             doc.set_text(text);
         }
     }
 
     pub(crate) fn append_to_active_query(&mut self, text: &str) {
+        self.cancel_prediction_for_document(self.active_query_document);
         if let Some(doc) = self.query_documents.get_mut(self.active_query_document) {
             let mut current = doc.text().to_owned();
             if !current.trim().is_empty() {
@@ -830,6 +835,15 @@ impl DbProApp {
         self.query_documents
             .get(self.active_query_document)
             .and_then(|d| d.explain_request)
+    }
+
+    pub(crate) fn active_query_running_request(&self) -> Option<crate::RequestId> {
+        self.query_documents
+            .get(self.active_query_document)
+            .and_then(|doc| match doc.execution_state {
+                QueryExecutionState::Running(request_id) => Some(request_id),
+                _ => None,
+            })
     }
 
     pub(crate) fn switch_query_document(&mut self, index: usize) {
@@ -862,13 +876,84 @@ impl DbProApp {
             .unwrap_or(&[])
     }
 
+    pub(crate) fn active_query_connection_id(&self) -> Option<&str> {
+        self.query_documents
+            .get(self.active_query_document)
+            .and_then(|doc| doc.connection_id.as_deref())
+            .or(self.active_connection_id.as_deref())
+    }
+
+    pub(crate) fn active_query_connection(&self) -> Option<&UiConnectionSummary> {
+        let conn_id = self.active_query_connection_id()?;
+        self.connections.iter().find(|c| c.id == conn_id)
+    }
+
+    pub(crate) fn query_capabilities(&self) -> Option<DatabaseCapabilities> {
+        let driver = self.active_query_driver();
+        let driver = if driver.eq_ignore_ascii_case("sqlite") {
+            DriverType::SQLite
+        } else if driver.eq_ignore_ascii_case("postgresql") || driver.eq_ignore_ascii_case("postgres") {
+            DriverType::Postgres
+        } else {
+            return None;
+        };
+        Some(DatabaseCapabilities::for_driver(driver))
+    }
+
+    pub(crate) fn active_query_connection_name(&self) -> &str {
+        self.active_query_connection()
+            .map(|c| c.name.as_str())
+            .unwrap_or(self.connection_name.as_str())
+    }
+
+    pub(crate) fn active_query_driver(&self) -> &str {
+        self.active_query_connection()
+            .map(|c| c.driver.as_str())
+            .unwrap_or_else(|| self.active_driver())
+    }
+
+    pub(crate) fn active_query_schema(&self) -> &str {
+        self.query_documents
+            .get(self.active_query_document)
+            .and_then(|doc| doc.schema.as_deref())
+            .unwrap_or_else(|| self.active_schema())
+    }
+
+    pub(crate) fn set_document_connection(&mut self, doc_index: usize, connection_id: Option<String>) {
+        self.cancel_prediction_for_document(doc_index);
+        if let Some(doc) = self.query_documents.get_mut(doc_index) {
+            doc.connection_id = connection_id;
+            doc.completion.clear();
+        }
+    }
+
+    pub(crate) fn set_document_schema(&mut self, doc_index: usize, schema: Option<String>) {
+        self.cancel_prediction_for_document(doc_index);
+        if let Some(doc) = self.query_documents.get_mut(doc_index) {
+            doc.schema = schema;
+            doc.completion.clear();
+        }
+    }
+
+    pub(crate) fn cancel_prediction_for_document(&mut self, doc_index: usize) {
+        let request_id = self
+            .query_documents
+            .get(doc_index)
+            .and_then(|doc| doc.pending_prediction_request);
+        if let Some(request_id) = request_id {
+            self.dispatch_command(UiCommand::CancelSqlPrediction { request_id });
+        }
+        if let Some(doc) = self.query_documents.get_mut(doc_index) {
+            doc.invalidate_prediction();
+        }
+    }
+
     pub(crate) fn new_query_document(&mut self) {
         let index = self.query_documents.len() + 1;
-        self.query_documents.push(QueryDocument::new(
-            format!("query-{index}"),
-            format!("Query {index}"),
-            String::new(),
-        ));
+        let mut doc = QueryDocument::new(format!("query-{index}"), format!("Query {index}"), String::new());
+        doc.connection_id = self.active_connection_id.clone();
+        doc.schema = Some(self.active_schema().to_owned());
+        self.query_documents.push(doc);
         self.active_query_document = self.query_documents.len() - 1;
         self.reset_query_cursor();
         self.activity = Activity::Queries;
@@ -881,6 +966,7 @@ impl DbProApp {
             return;
         }
 
+        self.cancel_prediction_for_document(index);
         let closed_title = self.query_documents[index].title.clone();
         self.query_documents.remove(index);
 
@@ -924,8 +1010,10 @@ impl DbProApp {
         let title = format!("{} (Copy)", src.title);
         let content = src.text().to_owned();
         let doc_count = self.query_documents.len() + 1;
-        self.query_documents
-            .push(QueryDocument::new(format!("query-{doc_count}"), title, content));
+        let mut new_doc = QueryDocument::new(format!("query-{doc_count}"), title, content);
+        new_doc.connection_id = src.connection_id.clone().or_else(|| self.active_connection_id.clone());
+        new_doc.schema = src.schema.clone().or_else(|| Some(self.active_schema().to_owned()));
+        self.query_documents.push(new_doc);
         self.active_query_document = self.query_documents.len() - 1;
         self.active_tab = WorkspaceTab::Query;
         self.runtime_message = format!("Duplicated {}", self.query_documents[index].title);
@@ -934,6 +1022,11 @@ impl DbProApp {
     pub(crate) fn close_other_query_documents(&mut self, keep_index: usize) {
         if keep_index >= self.query_documents.len() {
             return;
+        }
+        for index in 0..self.query_documents.len() {
+            if index != keep_index {
+                self.cancel_prediction_for_document(index);
+            }
         }
         let kept = self.query_documents[keep_index].clone();
         self.query_documents = vec![kept];
@@ -945,6 +1038,9 @@ impl DbProApp {
         if index >= self.query_documents.len() {
             return;
         }
+        for query_index in index + 1..self.query_documents.len() {
+            self.cancel_prediction_for_document(query_index);
+        }
         self.query_documents.truncate(index + 1);
         if self.active_query_document > index {
             self.active_query_document = index;
@@ -953,6 +1049,9 @@ impl DbProApp {
     }
 
     pub(crate) fn close_all_tabs(&mut self) {
+        for index in 0..self.query_documents.len() {
+            self.cancel_prediction_for_document(index);
+        }
         self.welcome_open = true;
         self.query_documents = vec![QueryDocument::new("query-1", "Query 1", String::new())];
         self.active_query_document = 0;
@@ -1129,7 +1228,10 @@ impl DbProApp {
     }
 
     fn run_agent_read_only(&mut self, sql: &str) {
-        if !self.connected || self.active_connection_id.is_none() || self.next_query_request.is_some() {
+        if !self.connected
+            || self.active_query_connection_id().is_none()
+            || self.active_query_running_request().is_some()
+        {
             self.runtime_message = "Connect to a database before running the Agent draft".to_owned();
             return;
         }
@@ -1154,6 +1256,10 @@ impl DbProApp {
             || self.pending_connection_request.is_some()
             || self.schema_request.is_some()
             || self.next_query_request.is_some()
+            || self
+                .query_documents
+                .iter()
+                .any(|d| d.pending_prediction_request.is_some() || d.prediction_debounce_deadline.is_some())
             || self.query_documents.iter().any(|d| d.explain_request.is_some())
             || self.agent_request.is_some()
             || self.table_info_request.is_some()

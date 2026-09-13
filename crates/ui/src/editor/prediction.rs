@@ -18,10 +18,10 @@ pub enum PredictionStatus {
     Rejected,
 }
 
-pub trait AiSqlPredictionProvider: Send + Sync {
-    fn request_prediction(&self, context: &AiSqlContext) -> Option<String>;
-    fn cancel_prediction(&self, request_id: RequestId);
-}
+pub const MAX_SQL_CHARS: usize = 4000;
+pub const MAX_REFERENCED_TABLES: usize = 10;
+pub const MAX_COLUMNS_PER_TABLE: usize = 30;
+pub const MAX_FK_NEIGHBORS: usize = 15;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AiSqlContext {
@@ -29,9 +29,12 @@ pub struct AiSqlContext {
     pub sql_after_cursor: String,
     pub current_statement: String,
     pub active_schema: String,
+    pub dialect: String,
     pub referenced_tables: Vec<String>,
+    pub table_aliases: std::collections::HashMap<String, String>,
     pub relevant_columns: Vec<String>,
     pub fk_neighbors: Vec<String>,
+    pub cte_names: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -40,7 +43,7 @@ pub struct EditPrediction {
     pub replacement_range: (usize, usize),
     pub text: String,
     pub request_id: Option<RequestId>,
-    pub document_version: usize,
+    pub document_version: u64,
 }
 
 impl EditPrediction {
@@ -60,7 +63,7 @@ impl EditPrediction {
         replacement_range: (usize, usize),
         text: impl Into<String>,
         request_id: Option<RequestId>,
-        document_version: usize,
+        document_version: u64,
     ) -> Self {
         Self {
             anchor,
@@ -114,6 +117,22 @@ impl EditPrediction {
     pub fn accept_line(&self) -> &str {
         self.accept_next_line()
     }
+
+    pub fn consume(&mut self, accepted_len: usize) {
+        if accepted_len >= self.text.len() {
+            self.text.clear();
+        } else {
+            self.text = self.text[accepted_len..].to_owned();
+            let replacement_start = self.replacement_range.0;
+            let replacement_is_non_empty = self.replacement_range.0 != self.replacement_range.1;
+            self.anchor = if replacement_is_non_empty {
+                replacement_start + accepted_len
+            } else {
+                self.anchor + accepted_len
+            };
+            self.replacement_range = (self.anchor, self.anchor);
+        }
+    }
 }
 
 #[derive(Debug, Clone, Default)]
@@ -121,7 +140,7 @@ pub struct PredictionState {
     pub active_prediction: Option<EditPrediction>,
     pub pending_request: Option<RequestId>,
     pub status: PredictionStatus,
-    pub document_version: usize,
+    pub document_version: u64,
     pub enabled: bool,
 }
 
@@ -144,7 +163,7 @@ impl PredictionState {
     pub fn apply_response(
         &mut self,
         request_id: RequestId,
-        request_version: usize,
+        request_version: u64,
         prediction_text: String,
         anchor: usize,
     ) -> bool {
@@ -171,7 +190,7 @@ impl PredictionState {
         true
     }
 
-    pub fn notify_buffer_changed(&mut self, new_version: usize) {
+    pub fn notify_buffer_changed(&mut self, new_version: u64) {
         if self.document_version != new_version {
             self.document_version = new_version;
             self.clear();
@@ -193,11 +212,6 @@ impl PredictionState {
     }
 }
 
-pub trait AiEditPredictionProvider {
-    fn request_prediction(&mut self, buffer_text: &str, cursor_offset: usize, dialect_name: &str) -> Option<RequestId>;
-    fn cancel_pending(&mut self);
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -208,6 +222,15 @@ mod tests {
         assert_eq!(pred.accept_full(), "WHERE id = 100\nLIMIT 10;");
         assert_eq!(pred.accept_next_word(), "WHERE");
         assert_eq!(pred.accept_next_line(), "WHERE id = 100\n");
+    }
+
+    #[test]
+    fn partial_accept_moves_anchor_after_replacement_range() {
+        let mut pred = EditPrediction::with_range_and_version(8, (4, 8), "SELECT", None, 1);
+        pred.consume(3);
+        assert_eq!(pred.anchor, 7);
+        assert_eq!(pred.replacement_range, (7, 7));
+        assert_eq!(pred.text, "ECT");
     }
 
     #[test]

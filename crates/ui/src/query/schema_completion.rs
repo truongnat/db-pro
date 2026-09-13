@@ -1,8 +1,28 @@
 use crate::editor::completion::{CompletionItem, CompletionItemKind};
-use crate::editor::prediction::AiSqlContext;
+use crate::editor::prediction::{
+    AiSqlContext, MAX_COLUMNS_PER_TABLE, MAX_FK_NEIGHBORS, MAX_REFERENCED_TABLES, MAX_SQL_CHARS,
+};
 use crate::editor::syntax::CachedSqlTokens;
 use crate::runtime::UiSchemaSummary;
 use std::collections::HashMap;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SqlClause {
+    Select,
+    From,
+    Join,
+    Where,
+    GroupBy,
+    OrderBy,
+    Having,
+    InsertInto,
+    Values,
+    Update,
+    Set,
+    DeleteFrom,
+    Returning,
+    Unknown,
+}
 
 #[derive(Debug, Clone)]
 pub struct CompletionContext<'a> {
@@ -14,6 +34,13 @@ pub struct CompletionContext<'a> {
     pub cached_tokens: Option<&'a CachedSqlTokens>,
     pub is_sqlite: bool,
     pub is_manual_trigger: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct CteDefinition {
+    pub name: String,
+    pub target_table: Option<String>,
+    pub explicit_columns: Vec<String>,
 }
 
 pub struct SchemaCompletionProvider;
@@ -35,16 +62,25 @@ impl SchemaCompletionProvider {
         let replacement_start = ctx.cursor_offset.saturating_sub(prefix.len());
         let replacement_range = (replacement_start, ctx.cursor_offset);
 
-        // Check if there is a dot qualifier right before the prefix: e.g. "users." or "u." or "public."
+        // Check for dot qualifier right before the prefix
         let before_prefix = &text_before[..text_before.len() - prefix.len()];
         let qualifier = extract_qualifier(before_prefix);
+
+        let mut full_doc = String::with_capacity(ctx.text_before_cursor.len() + ctx.text_after_cursor.len() + 1);
+        full_doc.push_str(ctx.text_before_cursor);
+        full_doc.push(' ');
+        full_doc.push_str(ctx.text_after_cursor);
+
+        let ctes = extract_cte_definitions(&full_doc);
+        let aliases = extract_table_aliases(&full_doc);
+        let clause = detect_clause_context(before_prefix);
 
         let mut items = Vec::new();
 
         if let Some(qualifier) = qualifier {
             let qual_lower = qualifier.to_lowercase();
 
-            // 1. Check if qualifier is a qualified schema.table (e.g. "public.users.")
+            // 1. Multi-part qualifier: schema.table. (e.g. "public.users.")
             if let Some((schema_part, table_part)) = qual_lower.split_once('.') {
                 for table in &ctx.schema_summary.table_details {
                     if table.schema.eq_ignore_ascii_case(schema_part) && table.name.eq_ignore_ascii_case(table_part) {
@@ -64,10 +100,10 @@ impl SchemaCompletionProvider {
                                         col.name,
                                         table.schema,
                                         table.name,
-                                        if col.nullable { " (NULLABLE)" } else { " (NOT NULL)" }
+                                        if col.nullable { " (NULL)" } else { " (NOT NULL)" }
                                     )),
                                     replacement_range,
-                                    sort_score: 1,
+                                    sort_score: 950,
                                 });
                             }
                         }
@@ -78,41 +114,122 @@ impl SchemaCompletionProvider {
             }
 
             // 2. Check if qualifier is a schema name (e.g. "public.")
-            for table in &ctx.schema_summary.table_details {
-                if table.schema.eq_ignore_ascii_case(&qual_lower) && table.name.to_lowercase().contains(&prefix_lower) {
-                    items.push(CompletionItem {
-                        label: table.name.clone(),
-                        insert_text: table.name.clone(),
-                        kind: CompletionItemKind::Table,
-                        detail: Some(format!("Table · {}.{}", table.schema, table.name)),
-                        documentation: Some(format!("Table with {} columns", table.columns.len())),
-                        replacement_range,
-                        sort_score: 2,
-                    });
+            let is_known_schema = ctx
+                .schema_summary
+                .schemas
+                .iter()
+                .any(|s| s.eq_ignore_ascii_case(&qual_lower))
+                || ctx
+                    .schema_summary
+                    .table_details
+                    .iter()
+                    .any(|t| t.schema.eq_ignore_ascii_case(&qual_lower));
+
+            if is_known_schema {
+                for table in &ctx.schema_summary.table_details {
+                    if table.schema.eq_ignore_ascii_case(&qual_lower)
+                        && table.name.to_lowercase().contains(&prefix_lower)
+                    {
+                        items.push(CompletionItem {
+                            label: table.name.clone(),
+                            insert_text: table.name.clone(),
+                            kind: CompletionItemKind::Table,
+                            detail: Some(format!("Table · {}.{}", table.schema, table.name)),
+                            documentation: Some(format!("Table with {} columns", table.columns.len())),
+                            replacement_range,
+                            sort_score: 920,
+                        });
+                    }
                 }
-            }
-            for view in &ctx.schema_summary.views {
-                if view.schema.eq_ignore_ascii_case(&qual_lower) && view.name.to_lowercase().contains(&prefix_lower) {
-                    items.push(CompletionItem {
-                        label: view.name.clone(),
-                        insert_text: view.name.clone(),
-                        kind: CompletionItemKind::View,
-                        detail: Some(format!("View · {}.{}", view.schema, view.name)),
-                        documentation: Some("Database View".to_owned()),
-                        replacement_range,
-                        sort_score: 3,
-                    });
+                for view in &ctx.schema_summary.views {
+                    if view.schema.eq_ignore_ascii_case(&qual_lower) && view.name.to_lowercase().contains(&prefix_lower)
+                    {
+                        items.push(CompletionItem {
+                            label: view.name.clone(),
+                            insert_text: view.name.clone(),
+                            kind: CompletionItemKind::View,
+                            detail: Some(format!("View · {}.{}", view.schema, view.name)),
+                            documentation: Some("Database View".to_owned()),
+                            replacement_range,
+                            sort_score: 900,
+                        });
+                    }
+                }
+                for func in &ctx.schema_summary.functions {
+                    if func.schema.eq_ignore_ascii_case(&qual_lower) && func.name.to_lowercase().contains(&prefix_lower)
+                    {
+                        items.push(CompletionItem {
+                            label: format!("{}()", func.name),
+                            insert_text: format!("{}(", func.name),
+                            kind: CompletionItemKind::Function,
+                            detail: Some(format!("Function · {}.{}", func.schema, func.name)),
+                            documentation: (!func.data_type.is_empty()).then(|| format!("Returns: {}", func.data_type)),
+                            replacement_range,
+                            sort_score: 850,
+                        });
+                    }
+                }
+                if !items.is_empty() {
+                    rank_items(&mut items, &prefix_lower);
+                    return (prefix.to_owned(), items);
                 }
             }
 
-            // 3. Check if qualifier is a table name or an alias / CTE in the document
-            let mut full_doc = String::with_capacity(ctx.text_before_cursor.len() + ctx.text_after_cursor.len() + 1);
-            full_doc.push_str(ctx.text_before_cursor);
-            full_doc.push(' ');
-            full_doc.push_str(ctx.text_after_cursor);
-            let aliases = extract_table_aliases(&full_doc);
+            // 3. Check if qualifier is a defined CTE
+            if let Some(cte) = ctes.get(&qual_lower) {
+                // If CTE has explicit column names, suggest them first
+                if !cte.explicit_columns.is_empty() {
+                    for col in &cte.explicit_columns {
+                        if col.to_lowercase().contains(&prefix_lower) {
+                            items.push(CompletionItem {
+                                label: col.clone(),
+                                insert_text: col.clone(),
+                                kind: CompletionItemKind::Column,
+                                detail: Some(format!("Column · CTE {}", cte.name)),
+                                documentation: None,
+                                replacement_range,
+                                sort_score: 950,
+                            });
+                        }
+                    }
+                }
+                // If CTE targets an underlying table, suggest table columns
+                if let Some(target) = &cte.target_table {
+                    for table in &ctx.schema_summary.table_details {
+                        if table.name.eq_ignore_ascii_case(target) {
+                            for col in &table.columns {
+                                if col.name.to_lowercase().contains(&prefix_lower)
+                                    && !items.iter().any(|i| i.label == col.name)
+                                {
+                                    items.push(CompletionItem {
+                                        label: col.name.clone(),
+                                        insert_text: col.name.clone(),
+                                        kind: CompletionItemKind::Column,
+                                        detail: Some(format!(
+                                            "Column · {}{}",
+                                            col.data_type,
+                                            if col.is_primary_key { " [PK]" } else { "" }
+                                        )),
+                                        documentation: Some(format!(
+                                            "CTE {} -> {}.{}",
+                                            cte.name, table.schema, table.name
+                                        )),
+                                        replacement_range,
+                                        sort_score: 930,
+                                    });
+                                }
+                            }
+                        }
+                    }
+                }
+                if !items.is_empty() {
+                    rank_items(&mut items, &prefix_lower);
+                    return (prefix.to_owned(), items);
+                }
+            }
+
+            // 4. Check if qualifier is a table name or an alias in the document
             let resolved_table = aliases.get(qual_lower.as_str()).cloned().unwrap_or(qual_lower);
-
             for table in &ctx.schema_summary.table_details {
                 if table.name.eq_ignore_ascii_case(&resolved_table) {
                     for col in &table.columns {
@@ -131,10 +248,10 @@ impl SchemaCompletionProvider {
                                     col.name,
                                     table.schema,
                                     table.name,
-                                    if col.nullable { " (NULLABLE)" } else { " (NOT NULL)" }
+                                    if col.nullable { " (NULL)" } else { " (NOT NULL)" }
                                 )),
                                 replacement_range,
-                                sort_score: 1,
+                                sort_score: 950,
                             });
                         }
                     }
@@ -145,15 +262,25 @@ impl SchemaCompletionProvider {
             return (prefix.to_owned(), items);
         }
 
-        // Contextual analysis: FROM | or JOIN | suggests tables & views first
-        let trimmed_before = before_prefix.trim_end();
-        let upper_before = trimmed_before.to_ascii_uppercase();
-        let is_from_or_join = upper_before.ends_with("FROM")
-            || upper_before.ends_with("JOIN")
-            || upper_before.ends_with("INTO")
-            || upper_before.ends_with("TABLE");
+        // Clause-driven completions when no dot qualifier is present:
 
-        if is_from_or_join {
+        // 1. FROM / JOIN clauses: suggest Tables, Views, CTEs, Schemas
+        if matches!(clause, SqlClause::From | SqlClause::Join) {
+            // Suggest CTE names
+            for cte in ctes.values() {
+                if cte.name.to_lowercase().contains(&prefix_lower) {
+                    items.push(CompletionItem {
+                        label: cte.name.clone(),
+                        insert_text: cte.name.clone(),
+                        kind: CompletionItemKind::Cte,
+                        detail: Some("Common Table Expression".to_owned()),
+                        documentation: None,
+                        replacement_range,
+                        sort_score: 960,
+                    });
+                }
+            }
+
             // Suggest Tables
             for table in &ctx.schema_summary.table_details {
                 if table.name.to_lowercase().contains(&prefix_lower) {
@@ -164,7 +291,7 @@ impl SchemaCompletionProvider {
                         detail: Some(format!("Table · {}.{}", table.schema, table.name)),
                         documentation: Some(format!("Table with {} columns", table.columns.len())),
                         replacement_range,
-                        sort_score: 2,
+                        sort_score: 920,
                     });
                 }
             }
@@ -178,7 +305,7 @@ impl SchemaCompletionProvider {
                             detail: Some("Table".to_owned()),
                             documentation: None,
                             replacement_range,
-                            sort_score: 2,
+                            sort_score: 900,
                         });
                     }
                 }
@@ -193,39 +320,153 @@ impl SchemaCompletionProvider {
                         detail: Some(format!("View · {}.{}", view.schema, view.name)),
                         documentation: Some("Database View".to_owned()),
                         replacement_range,
-                        sort_score: 3,
+                        sort_score: 880,
                     });
                 }
             }
+            // Suggest Schemas
+            for schema in &ctx.schema_summary.schemas {
+                if schema.to_lowercase().contains(&prefix_lower) {
+                    items.push(CompletionItem {
+                        label: format!("{schema}."),
+                        insert_text: format!("{schema}."),
+                        kind: CompletionItemKind::Schema,
+                        detail: Some("Database Schema".to_owned()),
+                        documentation: None,
+                        replacement_range,
+                        sort_score: 850,
+                    });
+                }
+            }
+            // Keywords for FROM / JOIN
+            add_clause_keywords(&mut items, clause, &prefix_lower, replacement_range);
             rank_items(&mut items, &prefix_lower);
             return (prefix.to_owned(), items);
         }
 
-        // Default Context: suggest Columns from active schema tables, Tables, Views, Functions, Keywords
-        // 1. Columns
+        // 2. SELECT / WHERE / GROUP BY / ORDER BY / HAVING / RETURNING clauses:
+        // Prioritize columns from referenced tables/aliases and detect ambiguous columns
+        let mut referenced_table_names = Vec::new();
+        for t in aliases.values() {
+            if !referenced_table_names.contains(t) {
+                referenced_table_names.push(t.clone());
+            }
+        }
         for table in &ctx.schema_summary.table_details {
-            for col in &table.columns {
-                if col.name.to_lowercase().contains(&prefix_lower) {
+            if full_doc.to_lowercase().contains(&table.name.to_lowercase())
+                && !referenced_table_names
+                    .iter()
+                    .any(|t| t.eq_ignore_ascii_case(&table.name))
+            {
+                referenced_table_names.push(table.name.clone());
+            }
+        }
+
+        // Detect column name frequencies across referenced tables for ambiguity check
+        let mut col_frequencies: HashMap<String, usize> = HashMap::new();
+        for t_name in &referenced_table_names {
+            if let Some(t) = ctx
+                .schema_summary
+                .table_details
+                .iter()
+                .find(|t| t.name.eq_ignore_ascii_case(t_name))
+            {
+                for c in &t.columns {
+                    *col_frequencies.entry(c.name.to_lowercase()).or_insert(0) += 1;
+                }
+            }
+        }
+
+        // Suggest columns from referenced tables
+        for t_name in &referenced_table_names {
+            if let Some(table) = ctx
+                .schema_summary
+                .table_details
+                .iter()
+                .find(|t| t.name.eq_ignore_ascii_case(t_name))
+            {
+                // Find alias if exists
+                let alias = aliases
+                    .iter()
+                    .find(|(_, val)| val.eq_ignore_ascii_case(&table.name))
+                    .map(|(k, _)| k.as_str());
+                for col in &table.columns {
+                    if col.name.to_lowercase().contains(&prefix_lower) {
+                        let is_ambiguous = col_frequencies.get(&col.name.to_lowercase()).copied().unwrap_or(0) > 1;
+                        if let Some(a) = alias {
+                            // Suggest qualified alias.col
+                            items.push(CompletionItem {
+                                label: format!("{a}.{}", col.name),
+                                insert_text: format!("{a}.{}", col.name),
+                                kind: CompletionItemKind::Column,
+                                detail: Some(format!(
+                                    "Column · {} ({}){}",
+                                    col.data_type,
+                                    table.name,
+                                    if col.is_primary_key { " [PK]" } else { "" }
+                                )),
+                                documentation: None,
+                                replacement_range,
+                                sort_score: if is_ambiguous { 960 } else { 920 },
+                            });
+                        }
+                        // Suggest bare col
+                        items.push(CompletionItem {
+                            label: col.name.clone(),
+                            insert_text: col.name.clone(),
+                            kind: CompletionItemKind::Column,
+                            detail: Some(format!(
+                                "Column · {} ({}){}",
+                                col.data_type,
+                                table.name,
+                                if col.is_primary_key { " [PK]" } else { "" }
+                            )),
+                            documentation: None,
+                            replacement_range,
+                            sort_score: if is_ambiguous { 820 } else { 940 },
+                        });
+                    }
+                }
+            }
+        }
+
+        // Suggest CTE columns if any defined
+        for cte in ctes.values() {
+            for col in &cte.explicit_columns {
+                if col.to_lowercase().contains(&prefix_lower) {
                     items.push(CompletionItem {
-                        label: col.name.clone(),
-                        insert_text: col.name.clone(),
+                        label: format!("{}.{col}", cte.name),
+                        insert_text: format!("{}.{col}", cte.name),
                         kind: CompletionItemKind::Column,
-                        detail: Some(format!(
-                            "{}.{} · {}{}",
-                            table.name,
-                            col.name,
-                            col.data_type,
-                            if col.is_primary_key { " [PK]" } else { "" }
-                        )),
+                        detail: Some(format!("Column · CTE {}", cte.name)),
                         documentation: None,
                         replacement_range,
-                        sort_score: 1,
+                        sort_score: 930,
                     });
                 }
             }
         }
 
-        // 2. Tables & Views
+        // Fallback: suggest all table columns in active schema
+        if items.is_empty() {
+            for table in &ctx.schema_summary.table_details {
+                for col in &table.columns {
+                    if col.name.to_lowercase().contains(&prefix_lower) {
+                        items.push(CompletionItem {
+                            label: col.name.clone(),
+                            insert_text: col.name.clone(),
+                            kind: CompletionItemKind::Column,
+                            detail: Some(format!("{}.{} · {}", table.name, col.name, col.data_type)),
+                            documentation: None,
+                            replacement_range,
+                            sort_score: 800,
+                        });
+                    }
+                }
+            }
+        }
+
+        // Suggest Tables and Views
         for table in &ctx.schema_summary.table_details {
             if table.name.to_lowercase().contains(&prefix_lower) {
                 items.push(CompletionItem {
@@ -235,25 +476,12 @@ impl SchemaCompletionProvider {
                     detail: Some(format!("Table · {}.{}", table.schema, table.name)),
                     documentation: None,
                     replacement_range,
-                    sort_score: 2,
-                });
-            }
-        }
-        for view in &ctx.schema_summary.views {
-            if view.name.to_lowercase().contains(&prefix_lower) {
-                items.push(CompletionItem {
-                    label: view.name.clone(),
-                    insert_text: view.name.clone(),
-                    kind: CompletionItemKind::View,
-                    detail: Some(format!("View · {}.{}", view.schema, view.name)),
-                    documentation: None,
-                    replacement_range,
-                    sort_score: 3,
+                    sort_score: 700,
                 });
             }
         }
 
-        // 3. Functions
+        // Suggest Functions
         for func in &ctx.schema_summary.functions {
             if func.name.to_lowercase().contains(&prefix_lower) {
                 items.push(CompletionItem {
@@ -263,21 +491,119 @@ impl SchemaCompletionProvider {
                     detail: Some(format!("Function · {}.{}", func.schema, func.name)),
                     documentation: (!func.data_type.is_empty()).then(|| format!("Returns: {}", func.data_type)),
                     replacement_range,
-                    sort_score: 4,
+                    sort_score: 650,
                 });
             }
         }
 
-        // 4. SQL Keywords & Snippets
-        const KEYWORDS: &[&str] = &[
+        // Keywords
+        add_clause_keywords(&mut items, clause, &prefix_lower, replacement_range);
+
+        rank_items(&mut items, &prefix_lower);
+        (prefix.to_owned(), items)
+    }
+
+    pub fn build_ai_sql_context(
+        before_cursor: &str,
+        after_cursor: &str,
+        cursor_offset: usize,
+        active_schema: &str,
+        schema_summary: &UiSchemaSummary,
+        is_sqlite: bool,
+    ) -> AiSqlContext {
+        let full_text = format!("{before_cursor}{after_cursor}");
+        let mut ctx = self::build_ai_sql_context(&full_text, cursor_offset, active_schema, schema_summary);
+        ctx.dialect = if is_sqlite {
+            "SQLite".to_owned()
+        } else {
+            "PostgreSQL".to_owned()
+        };
+        ctx
+    }
+}
+
+pub fn detect_clause_context(text_before: &str) -> SqlClause {
+    let upper = text_before.to_ascii_uppercase();
+    let tokens: Vec<&str> = upper.split_whitespace().collect();
+    if tokens.is_empty() {
+        return SqlClause::Unknown;
+    }
+
+    // Scan backwards from last token
+    for &w in tokens.iter().rev() {
+        match w {
+            "FROM" => return SqlClause::From,
+            "JOIN" | "CROSS" | "INNER" | "LEFT" | "RIGHT" | "OUTER" => return SqlClause::Join,
+            "WHERE" => return SqlClause::Where,
+            "SET" => return SqlClause::Set,
+            "UPDATE" => return SqlClause::Update,
+            "VALUES" => return SqlClause::Values,
+            "INTO" => return SqlClause::InsertInto,
+            "DELETE" => return SqlClause::DeleteFrom,
+            "HAVING" => return SqlClause::Having,
+            "ORDER" => return SqlClause::OrderBy,
+            "GROUP" => return SqlClause::GroupBy,
+            "RETURNING" => return SqlClause::Returning,
+            "SELECT" => return SqlClause::Select,
+            _ => {}
+        }
+    }
+    SqlClause::Unknown
+}
+
+fn add_clause_keywords(
+    items: &mut Vec<CompletionItem>,
+    clause: SqlClause,
+    prefix_lower: &str,
+    replacement_range: (usize, usize),
+) {
+    let keywords: &[&str] = match clause {
+        SqlClause::Select => &[
+            "DISTINCT", "FROM", "AS", "CASE", "WHEN", "THEN", "ELSE", "END", "COUNT", "SUM", "AVG", "MIN", "MAX",
+            "COALESCE", "NOW()",
+        ],
+        SqlClause::From | SqlClause::Join => &[
+            "ON",
+            "USING",
+            "LEFT JOIN",
+            "INNER JOIN",
+            "RIGHT JOIN",
+            "FULL JOIN",
+            "CROSS JOIN",
+            "WHERE",
+            "AS",
+            "GROUP BY",
+            "ORDER BY",
+            "LIMIT",
+        ],
+        SqlClause::Where | SqlClause::Having => &[
+            "AND",
+            "OR",
+            "NOT",
+            "IN",
+            "IS NULL",
+            "IS NOT NULL",
+            "LIKE",
+            "ILIKE",
+            "BETWEEN",
+            "EXISTS",
+            "GROUP BY",
+            "ORDER BY",
+            "LIMIT",
+        ],
+        SqlClause::GroupBy => &["HAVING", "ORDER BY", "LIMIT"],
+        SqlClause::OrderBy => &["ASC", "DESC", "NULLS FIRST", "NULLS LAST", "LIMIT", "OFFSET"],
+        SqlClause::Update => &["SET", "WHERE"],
+        SqlClause::Set => &["WHERE", "RETURNING"],
+        SqlClause::InsertInto => &["VALUES", "SELECT", "RETURNING"],
+        SqlClause::DeleteFrom => &["WHERE", "RETURNING"],
+        _ => &[
             "SELECT",
             "FROM",
             "WHERE",
             "JOIN",
             "LEFT JOIN",
             "INNER JOIN",
-            "RIGHT JOIN",
-            "FULL OUTER JOIN",
             "GROUP BY",
             "ORDER BY",
             "HAVING",
@@ -291,15 +617,6 @@ impl SchemaCompletionProvider {
             "IN",
             "IS NULL",
             "IS NOT NULL",
-            "LIKE",
-            "ILIKE",
-            "BETWEEN",
-            "EXISTS",
-            "CASE",
-            "WHEN",
-            "THEN",
-            "ELSE",
-            "END",
             "INSERT INTO",
             "VALUES",
             "UPDATE",
@@ -308,27 +625,23 @@ impl SchemaCompletionProvider {
             "COUNT",
             "SUM",
             "AVG",
-            "MIN",
-            "MAX",
             "COALESCE",
             "NOW()",
-        ];
-        for kw in KEYWORDS {
-            if kw.to_lowercase().contains(&prefix_lower) {
-                items.push(CompletionItem {
-                    label: (*kw).to_owned(),
-                    insert_text: (*kw).to_owned(),
-                    kind: CompletionItemKind::Keyword,
-                    detail: Some("SQL Keyword".to_owned()),
-                    documentation: None,
-                    replacement_range,
-                    sort_score: 5,
-                });
-            }
-        }
+        ],
+    };
 
-        rank_items(&mut items, &prefix_lower);
-        (prefix.to_owned(), items)
+    for kw in keywords {
+        if kw.to_lowercase().contains(prefix_lower) {
+            items.push(CompletionItem {
+                label: (*kw).to_owned(),
+                insert_text: (*kw).to_owned(),
+                kind: CompletionItemKind::Keyword,
+                detail: Some("SQL Keyword".to_owned()),
+                documentation: None,
+                replacement_range,
+                sort_score: 100,
+            });
+        }
     }
 }
 
@@ -338,11 +651,32 @@ pub fn build_ai_sql_context(
     active_schema: &str,
     schema_summary: &UiSchemaSummary,
 ) -> AiSqlContext {
-    let (before_cursor, after_cursor) = if cursor_offset <= doc_text.len() {
-        doc_text.split_at(cursor_offset)
+    let cursor = cursor_offset.min(doc_text.len());
+    let (before_cursor, after_cursor) = doc_text.split_at(cursor);
+    let statement_start = before_cursor.rfind(';').map_or(0, |offset| offset + 1);
+    let statement_end = after_cursor
+        .find(';')
+        .map_or(doc_text.len(), |offset| cursor + offset + 1);
+    let current_statement = doc_text[statement_start..statement_end].trim().to_owned();
+
+    // Truncate SQL before cursor deterministically
+    let truncated_before = if before_cursor.len() > MAX_SQL_CHARS {
+        let start = before_cursor.len() - MAX_SQL_CHARS;
+        &before_cursor[start..]
     } else {
-        (doc_text, "")
+        before_cursor
     };
+
+    // Small suffix after cursor
+    let truncated_after = if after_cursor.len() > 500 {
+        &after_cursor[..500]
+    } else {
+        after_cursor
+    };
+
+    let normalized_sql = doc_text.to_lowercase();
+    let ctes = extract_cte_definitions(doc_text);
+    let cte_names: Vec<String> = ctes.keys().cloned().collect();
 
     let aliases = extract_table_aliases(doc_text);
     let mut referenced_tables = Vec::new();
@@ -352,12 +686,13 @@ pub fn build_ai_sql_context(
         }
     }
     for table in &schema_summary.table_details {
-        if doc_text.to_lowercase().contains(&table.name.to_lowercase())
+        if normalized_sql.contains(&table.name.to_lowercase())
             && !referenced_tables.iter().any(|t| t.eq_ignore_ascii_case(&table.name))
         {
             referenced_tables.push(table.name.clone());
         }
     }
+    referenced_tables.truncate(MAX_REFERENCED_TABLES);
 
     let mut relevant_columns = Vec::new();
     let mut fk_neighbors = Vec::new();
@@ -368,10 +703,10 @@ pub fn build_ai_sql_context(
             .iter()
             .find(|t| t.name.eq_ignore_ascii_case(table_name))
         {
-            for col in &table.columns {
+            for col in table.columns.iter().take(MAX_COLUMNS_PER_TABLE) {
                 relevant_columns.push(format!("{}.{} ({})", table.name, col.name, col.data_type));
             }
-            for fk in &table.foreign_keys {
+            for fk in table.foreign_keys.iter().take(MAX_FK_NEIGHBORS) {
                 fk_neighbors.push(format!(
                     "{} ({}) -> {}.{} ({})",
                     table.name,
@@ -383,40 +718,37 @@ pub fn build_ai_sql_context(
             }
         }
     }
+    fk_neighbors.truncate(MAX_FK_NEIGHBORS);
 
     AiSqlContext {
-        sql_before_cursor: before_cursor.to_owned(),
-        sql_after_cursor: after_cursor.to_owned(),
-        current_statement: String::new(),
+        sql_before_cursor: truncated_before.to_owned(),
+        sql_after_cursor: truncated_after.to_owned(),
+        current_statement,
         active_schema: active_schema.to_owned(),
+        dialect: "PostgreSQL".to_owned(),
         referenced_tables,
+        table_aliases: aliases,
         relevant_columns,
         fk_neighbors,
+        cte_names,
     }
 }
 
 fn rank_items(items: &mut [CompletionItem], prefix: &str) {
     items.sort_by(|a, b| {
-        let a_exact = a.label.to_lowercase().starts_with(prefix);
-        let b_exact = b.label.to_lowercase().starts_with(prefix);
-        match (a_exact, b_exact) {
-            (true, false) => std::cmp::Ordering::Less,
-            (false, true) => std::cmp::Ordering::Greater,
-            _ => {
-                let kind_score = |k: &CompletionItemKind| match k {
-                    CompletionItemKind::Column => 1,
-                    CompletionItemKind::Table => 2,
-                    CompletionItemKind::View => 3,
-                    CompletionItemKind::Function => 4,
-                    CompletionItemKind::Keyword => 5,
-                    CompletionItemKind::Schema => 6,
-                    CompletionItemKind::Snippet => 7,
-                };
-                let score_a = kind_score(&a.kind);
-                let score_b = kind_score(&b.kind);
-                score_a.cmp(&score_b).then_with(|| a.label.cmp(&b.label))
-            }
+        let a_exact = a.label.to_lowercase() == prefix;
+        let b_exact = b.label.to_lowercase() == prefix;
+        if a_exact != b_exact {
+            return b_exact.cmp(&a_exact);
         }
+
+        let a_starts = a.label.to_lowercase().starts_with(prefix);
+        let b_starts = b.label.to_lowercase().starts_with(prefix);
+        if a_starts != b_starts {
+            return b_starts.cmp(&a_starts);
+        }
+
+        b.sort_score.cmp(&a.sort_score).then_with(|| a.label.cmp(&b.label))
     });
 }
 
@@ -443,44 +775,84 @@ fn extract_qualifier(text: &str) -> Option<&str> {
     None
 }
 
+pub fn extract_cte_definitions(text: &str) -> HashMap<String, CteDefinition> {
+    let mut ctes = HashMap::new();
+    let words: Vec<&str> = text.split_whitespace().collect();
+    let mut i = 0;
+    while i < words.len() {
+        if words[i].eq_ignore_ascii_case("WITH") && i + 2 < words.len() {
+            let mut k = i + 1;
+            while k + 1 < words.len() {
+                let header = words[k];
+                // Check if CTE header has (col1, col2)
+                let (cte_name, explicit_cols) = if let Some(open_paren) = header.find('(') {
+                    let name = &header[..open_paren];
+                    let cols_part = &header[open_paren + 1..].trim_end_matches(')');
+                    let cols: Vec<String> = cols_part
+                        .split(',')
+                        .map(|s| s.trim().to_owned())
+                        .filter(|s| !s.is_empty())
+                        .collect();
+                    (name, cols)
+                } else {
+                    let name = header.trim_matches(|c| c == '"' || c == '`' || c == ',' || c == ';');
+                    (name, Vec::new())
+                };
+
+                if k + 1 < words.len() && words[k + 1].eq_ignore_ascii_case("AS") {
+                    let mut j = k + 2;
+                    let mut inner_table = None;
+                    while j < words.len() && j < k + 25 {
+                        if words[j].eq_ignore_ascii_case("FROM") && j + 1 < words.len() {
+                            let t = words[j + 1].trim_matches(|c| {
+                                c == '"'
+                                    || c == '`'
+                                    || c == '['
+                                    || c == ']'
+                                    || c == '('
+                                    || c == ')'
+                                    || c == ';'
+                                    || c == ','
+                            });
+                            if !t.is_empty() && !t.starts_with('(') {
+                                inner_table = Some(t);
+                                break;
+                            }
+                        }
+                        j += 1;
+                    }
+                    let target_table = inner_table.map(|t| {
+                        if let Some(dot_pos) = t.rfind('.') {
+                            t[dot_pos + 1..].to_owned()
+                        } else {
+                            t.to_owned()
+                        }
+                    });
+
+                    ctes.insert(
+                        cte_name.to_lowercase(),
+                        CteDefinition {
+                            name: cte_name.to_owned(),
+                            target_table,
+                            explicit_columns: explicit_cols,
+                        },
+                    );
+                }
+                k += 1;
+            }
+        }
+        i += 1;
+    }
+    ctes
+}
+
 pub fn extract_table_aliases(text: &str) -> HashMap<String, String> {
     let mut aliases = HashMap::new();
     let words: Vec<&str> = text.split_whitespace().collect();
     let mut i = 0;
     while i < words.len() {
         let w = words[i];
-        if w.eq_ignore_ascii_case("WITH") && i + 2 < words.len() {
-            let cte_name = words[i + 1].trim_matches(|c| {
-                c == '"' || c == '`' || c == '[' || c == ']' || c == '(' || c == ')' || c == ';' || c == ','
-            });
-            if words[i + 2].eq_ignore_ascii_case("AS") {
-                // Look inside CTE body for source table
-                let mut j = i + 3;
-                let mut inner_table = None;
-                while j < words.len() && j < i + 20 {
-                    if words[j].eq_ignore_ascii_case("FROM") && j + 1 < words.len() {
-                        let t = words[j + 1].trim_matches(|c| {
-                            c == '"' || c == '`' || c == '[' || c == ']' || c == '(' || c == ')' || c == ';' || c == ','
-                        });
-                        if !t.is_empty() {
-                            inner_table = Some(t);
-                            break;
-                        }
-                    }
-                    j += 1;
-                }
-                if let Some(target) = inner_table {
-                    let target_name = if let Some(dot_pos) = target.rfind('.') {
-                        &target[dot_pos + 1..]
-                    } else {
-                        target
-                    };
-                    aliases.insert(cte_name.to_lowercase(), target_name.to_lowercase());
-                } else {
-                    aliases.insert(cte_name.to_lowercase(), cte_name.to_lowercase());
-                }
-            }
-        } else if (w.eq_ignore_ascii_case("FROM")
+        if (w.eq_ignore_ascii_case("FROM")
             || w.eq_ignore_ascii_case("JOIN")
             || w.eq_ignore_ascii_case("INTO")
             || w.eq_ignore_ascii_case("UPDATE"))
@@ -649,10 +1021,11 @@ mod tests {
 
         let (prefix, items) = SchemaCompletionProvider::provide(&ctx);
         assert_eq!(prefix, "us");
-        assert_eq!(items.len(), 1);
+        assert!(!items.is_empty());
         assert_eq!(items[0].label, "users");
         assert_eq!(items[0].kind, CompletionItemKind::Table);
         assert_eq!(items[0].replacement_range, (14, 16));
+        assert!(items.iter().any(|i| i.label == "USING"));
     }
 
     #[test]
@@ -844,5 +1217,13 @@ mod tests {
         assert!(ai_ctx.relevant_columns.iter().any(|c| c.starts_with("orders.order_id")));
         assert_eq!(ai_ctx.fk_neighbors.len(), 1);
         assert!(ai_ctx.fk_neighbors[0].contains("orders (user_id) -> public.users (id)"));
+    }
+
+    #[test]
+    fn ai_context_contains_only_the_current_statement() {
+        let sql = "SELECT 1; SELECT u.id FROM users u WHERE u.";
+        let ai_ctx = build_ai_sql_context(sql, sql.len(), "public", &UiSchemaSummary::default());
+        assert_eq!(ai_ctx.current_statement, "SELECT u.id FROM users u WHERE u.");
+        assert_eq!(ai_ctx.sql_before_cursor, sql);
     }
 }

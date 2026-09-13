@@ -12,6 +12,7 @@ pub(crate) const DEFAULT_GROQ_ENDPOINT: &str = "https://api.groq.com/openai/v1/r
 pub(crate) const DEFAULT_GROQ_MODEL: &str = "openai/gpt-oss-120b";
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(60);
 const CODEX_INSTRUCTIONS: &str = "You are the DB Pro database copilot. Use only the schema metadata provided in the user context. Explain your answer briefly. When proposing SQL, put each draft in one ```sql fenced block. Never claim that SQL was executed. Never perform or request a database mutation automatically; mutations must be clearly marked for human review. Prefer read-only SQL and include a bounded LIMIT when appropriate.";
+const SQL_PREDICTION_INSTRUCTIONS: &str = "You are an inline SQL completion engine. Return only the SQL text that should be inserted at the cursor. Do not return Markdown, explanations, comments about the request, or code fences. Use only the supplied context. Preserve the user's dialect and do not invent schema objects.";
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct AgentContext {
@@ -33,6 +34,20 @@ pub struct AgentDraft {
     pub content: String,
     pub sql: Option<String>,
     pub requires_confirmation: bool,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct SqlPredictionContext {
+    pub sql_before_cursor: String,
+    pub sql_after_cursor: String,
+    pub current_statement: String,
+    pub active_schema: String,
+    pub dialect: String,
+    pub referenced_tables: Vec<String>,
+    pub table_aliases: std::collections::HashMap<String, String>,
+    pub relevant_columns: Vec<String>,
+    pub fk_neighbors: Vec<String>,
+    pub cte_names: Vec<String>,
 }
 
 #[derive(Debug, Error)]
@@ -141,6 +156,25 @@ impl CodexProvider {
     }
 
     pub async fn respond(&self, prompt: &str, context: &AgentContext) -> Result<AgentDraft, CodexProviderError> {
+        let text = self
+            .request_text(CODEX_INSTRUCTIONS, build_input(prompt, context))
+            .await?;
+        Ok(parse_draft(&text))
+    }
+
+    pub async fn predict_sql(&self, context: &SqlPredictionContext) -> Result<String, CodexProviderError> {
+        let text = self
+            .request_text(SQL_PREDICTION_INSTRUCTIONS, build_prediction_input(context))
+            .await?;
+        let prediction = normalize_prediction(&text);
+        if prediction.is_empty() {
+            Err(CodexProviderError::EmptyResponse)
+        } else {
+            Ok(prediction)
+        }
+    }
+
+    async fn request_text(&self, instructions: &str, input: String) -> Result<String, CodexProviderError> {
         let response = self
             .client
             .post(&self.endpoint)
@@ -148,8 +182,8 @@ impl CodexProvider {
             .json(&json!({
                 "model": self.model,
                 "store": false,
-                "instructions": CODEX_INSTRUCTIONS,
-                "input": build_input(prompt, context),
+                "instructions": instructions,
+                "input": input,
             }))
             .send()
             .await
@@ -169,8 +203,7 @@ impl CodexProvider {
 
         let payload = serde_json::from_str::<ResponsesPayload>(&body)
             .map_err(|error| CodexProviderError::Decode(error.to_string()))?;
-        let text = payload.text().ok_or(CodexProviderError::EmptyResponse)?;
-        Ok(parse_draft(&text))
+        payload.text().ok_or(CodexProviderError::EmptyResponse)
     }
 }
 
@@ -209,6 +242,32 @@ fn build_input(prompt: &str, context: &AgentContext) -> String {
         context.explain_plan.as_deref().unwrap_or("(none)"),
         context.last_error.as_deref().unwrap_or("(none)"),
         prompt.trim()
+    )
+}
+
+fn build_prediction_input(context: &SqlPredictionContext) -> String {
+    let aliases = if context.table_aliases.is_empty() {
+        "(none)".to_owned()
+    } else {
+        context
+            .table_aliases
+            .iter()
+            .map(|(alias, table)| format!("{alias} -> {table}"))
+            .collect::<Vec<_>>()
+            .join(", ")
+    };
+    format!(
+        "Dialect: {}\nActive schema: {}\nSQL before cursor:\n{}\nSQL after cursor:\n{}\nCurrent statement:\n{}\nReferenced tables: {}\nAliases: {}\nRelevant columns: {}\nFK neighbors: {}\nCTEs: {}",
+        context.dialect,
+        context.active_schema,
+        context.sql_before_cursor,
+        context.sql_after_cursor,
+        context.current_statement,
+        context.referenced_tables.join(", "),
+        aliases,
+        context.relevant_columns.join(", "),
+        context.fk_neighbors.join(", "),
+        context.cte_names.join(", "),
     )
 }
 
@@ -299,6 +358,16 @@ fn truncate(value: &str) -> String {
     value.chars().take(500).collect()
 }
 
+fn normalize_prediction(text: &str) -> String {
+    let trimmed = text.trim();
+    let without_fence = trimmed
+        .strip_prefix("```sql")
+        .or_else(|| trimmed.strip_prefix("```SQL"))
+        .and_then(|body| body.strip_suffix("```"))
+        .unwrap_or(trimmed);
+    without_fence.trim().to_owned()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -339,5 +408,11 @@ mod tests {
         let input = build_input("show customers", &context);
         assert!(input.contains("customers"));
         assert!(!input.contains("password"));
+    }
+
+    #[test]
+    fn prediction_normalization_removes_optional_code_fence() {
+        assert_eq!(normalize_prediction("```sql\nWHERE id = 1\n```"), "WHERE id = 1");
+        assert_eq!(normalize_prediction("  LIMIT 10  "), "LIMIT 10");
     }
 }

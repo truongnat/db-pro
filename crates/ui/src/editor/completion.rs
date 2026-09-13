@@ -14,6 +14,7 @@ pub enum CompletionItemKind {
     Column,
     Function,
     Schema,
+    Cte,
     Snippet,
 }
 
@@ -70,6 +71,10 @@ impl CompletionState {
         self.filter_text.clear();
         self.selected_index = 0;
         self.trigger_kind = None;
+    }
+
+    pub fn clear(&mut self) {
+        self.close();
     }
 
     pub fn select_next(&mut self) {

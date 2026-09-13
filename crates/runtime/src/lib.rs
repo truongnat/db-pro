@@ -2,7 +2,7 @@ pub mod agent;
 mod api;
 mod worker;
 
-pub use agent::{AgentContext, AgentDraft, CodexProvider, CodexProviderError};
+pub use agent::{AgentContext, AgentDraft, CodexProvider, CodexProviderError, SqlPredictionContext};
 pub use api::{
     BackupApi, ColumnSummary, ConnectionApi, ConnectionSummary, DataDiffApi, DbErrorDto, ExportApi, ForeignKeySummary,
     FunctionSummary, PostgresApi, QueryApi, QueryFolderSummary, SavedQuerySummary, SchemaApi, SchemaSummary,

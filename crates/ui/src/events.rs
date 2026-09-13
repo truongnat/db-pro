@@ -68,13 +68,29 @@ impl DbProApp {
                 connection_id,
             } => self.on_connected(request_id, connection_id),
             UiEvent::QueryQueued { request_id } => {
-                self.next_query_request = Some(request_id);
+                if self.query_document_requests.contains_key(&request_id) {
+                    self.next_query_request = Some(request_id);
+                }
                 self.runtime_message = format!("Query queued · request {}", request_id.0);
             }
             UiEvent::QueryCompleted { request_id, result } => self.on_query_completed(request_id, result),
             UiEvent::ExplainCompleted { request_id, plan } => self.on_explain_completed(request_id, plan),
             UiEvent::QueryCancelled { request_id } => self.on_query_cancelled(request_id),
             UiEvent::QueryFailed { request_id, message } => self.on_query_failed(request_id, message),
+            UiEvent::SqlPredictionReady {
+                request_id,
+                document_id,
+                document_version,
+                anchor,
+                prediction,
+            } => self.on_sql_prediction_ready(request_id, document_id, document_version, anchor, prediction),
+            UiEvent::SqlPredictionFailed {
+                request_id,
+                document_id,
+                document_version,
+                anchor,
+                message,
+            } => self.on_sql_prediction_failed(request_id, document_id, document_version, anchor, message),
         }
     }
 
@@ -508,11 +524,6 @@ impl DbProApp {
                 doc.query_messages
                     .push(format!("Query completed · {} rows", result.row_count));
             }
-        } else if let Some(doc) = self.query_documents.get_mut(self.active_query_document) {
-            doc.query_result = Some(result.clone());
-            doc.execution_state = QueryExecutionState::Idle;
-            doc.query_messages
-                .push(format!("Query completed · {} rows", result.row_count));
         }
         let is_active_doc = self
             .query_documents
@@ -547,12 +558,6 @@ impl DbProApp {
             self.output_tab = OutputTab::Explain;
             self.runtime_message = "Query plan ready".to_owned();
             doc.query_messages.push(self.runtime_message.clone());
-        } else if let Some(doc) = self.query_documents.get_mut(self.active_query_document) {
-            doc.explain_request = None;
-            doc.explain_plan = Some(plan);
-            self.output_tab = OutputTab::Explain;
-            self.runtime_message = "Query plan ready".to_owned();
-            doc.query_messages.push(self.runtime_message.clone());
         }
     }
 
@@ -567,6 +572,52 @@ impl DbProApp {
         if self.next_query_request == Some(request_id) {
             self.runtime_message = "Query cancelled".to_owned();
             self.next_query_request = None;
+        }
+    }
+
+    fn on_sql_prediction_ready(
+        &mut self,
+        request_id: RequestId,
+        document_id: String,
+        document_version: u64,
+        anchor: usize,
+        prediction_text: String,
+    ) {
+        let Some(doc) = self.query_documents.iter_mut().find(|doc| doc.id == document_id) else {
+            return;
+        };
+        if doc.pending_prediction_request != Some(request_id) {
+            return;
+        }
+        doc.pending_prediction_request = None;
+        if doc.buffer.version() != document_version || doc.cursor.offset != anchor {
+            return;
+        }
+        if !prediction_text.trim().is_empty() {
+            doc.prediction = Some(crate::editor::prediction::EditPrediction::with_range_and_version(
+                anchor,
+                (anchor, anchor),
+                prediction_text,
+                Some(request_id),
+                document_version,
+            ));
+        }
+    }
+
+    fn on_sql_prediction_failed(
+        &mut self,
+        request_id: RequestId,
+        document_id: String,
+        _document_version: u64,
+        _anchor: usize,
+        _message: String,
+    ) {
+        if let Some(doc) = self
+            .query_documents
+            .iter_mut()
+            .find(|doc| doc.id == document_id && doc.pending_prediction_request == Some(request_id))
+        {
+            doc.pending_prediction_request = None;
         }
     }
 
@@ -717,8 +768,8 @@ impl DbProApp {
             self.dispatch_query();
         }
         if ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
-            if let Some(request_id) = self.next_query_request {
-                if self.active_capabilities().is_some_and(|c| c.query.cancel) {
+            if let Some(request_id) = self.active_query_running_request() {
+                if self.query_capabilities().is_some_and(|c| c.query.cancel) {
                     self.cancel_query(request_id);
                 } else {
                     self.runtime_message = "Query cancellation is not supported for this provider".to_owned();
@@ -739,10 +790,14 @@ impl DbProApp {
     }
 
     pub(super) fn dispatch_query(&mut self) {
-        if self.next_query_request.is_some() {
+        if self.active_query_running_request().is_some() {
             return;
         }
-        let Some(connection_id) = self.active_connection().map(|connection| connection.id.clone()) else {
+        let Some(connection_id) = self
+            .active_query_connection_id()
+            .map(String::from)
+            .or_else(|| self.active_connection().map(|connection| connection.id.clone()))
+        else {
             self.runtime_message = "Create or select a connection first".to_owned();
             return;
         };
@@ -783,10 +838,14 @@ impl DbProApp {
     }
 
     pub(super) fn dispatch_query_all(&mut self) {
-        if self.next_query_request.is_some() {
+        if self.active_query_running_request().is_some() {
             return;
         }
-        let Some(connection_id) = self.active_connection().map(|connection| connection.id.clone()) else {
+        let Some(connection_id) = self
+            .active_query_connection_id()
+            .map(String::from)
+            .or_else(|| self.active_connection().map(|connection| connection.id.clone()))
+        else {
             self.runtime_message = "Create or select a connection first".to_owned();
             return;
         };

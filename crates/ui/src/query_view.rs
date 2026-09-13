@@ -1,6 +1,7 @@
 use super::*;
 use crate::editor::{CompletionItemKind, CompletionTriggerKind, Diagnostic, SqlDialect, SqlEditor};
 use crate::query::{CompletionContext, SchemaCompletionProvider};
+use std::time::Instant;
 
 impl DbProApp {
     pub(super) fn draw_query(&mut self, ui: &mut egui::Ui) {
@@ -40,11 +41,23 @@ impl DbProApp {
     fn draw_query_header(&mut self, ui: &mut egui::Ui) -> Option<egui::Rect> {
         let modifier = Self::primary_modifier_label();
         let mut more_anchor = None;
+        let doc_idx = self.active_query_document;
         let query_title = self
             .query_documents
-            .get(self.active_query_document)
+            .get(doc_idx)
             .map(|document| document.title.clone())
             .unwrap_or_else(|| "Query".to_owned());
+        let current_conn_id = self
+            .query_documents
+            .get(doc_idx)
+            .and_then(|d| d.connection_id.clone())
+            .or_else(|| self.active_connection_id.clone());
+        let conn_label = self.active_query_connection_name().to_owned();
+        let current_schema = self.active_query_schema().to_owned();
+
+        let mut next_conn_id = None;
+        let mut next_schema = None;
+
         ui.horizontal(|ui| {
             ui.label(
                 RichText::new(query_title)
@@ -53,11 +66,41 @@ impl DbProApp {
                     .color(self.theme.text_primary),
             );
             ui.label(icon_text(Icon::ChevronRight, "", self.theme.text_muted));
-            ui.label(
-                RichText::new(format!("{} / {}", self.active_connection_name(), self.active_schema()))
-                    .font(font_caption())
-                    .color(self.theme.accent),
-            );
+
+            egui::ComboBox::from_id_salt(("query_header_conn", doc_idx))
+                .selected_text(RichText::new(&conn_label).font(font_caption()).color(self.theme.accent))
+                .show_ui(ui, |ui| {
+                    for conn in &self.connections {
+                        let is_selected = current_conn_id.as_deref() == Some(conn.id.as_str());
+                        if ui.selectable_label(is_selected, &conn.name).clicked() {
+                            next_conn_id = Some(conn.id.clone());
+                        }
+                    }
+                });
+
+            ui.label(icon_text(Icon::ChevronRight, "", self.theme.text_muted));
+
+            let available_schemas = if !self.schema.schemas.is_empty() {
+                self.schema.schemas.clone()
+            } else if self.active_query_driver().eq_ignore_ascii_case("sqlite") {
+                vec!["main".to_string()]
+            } else {
+                vec!["public".to_string()]
+            };
+            egui::ComboBox::from_id_salt(("query_header_schema", doc_idx))
+                .selected_text(
+                    RichText::new(&current_schema)
+                        .font(font_caption())
+                        .color(self.theme.text_secondary),
+                )
+                .show_ui(ui, |ui| {
+                    for sch in &available_schemas {
+                        let is_selected = &current_schema == sch;
+                        if ui.selectable_label(is_selected, sch).clicked() {
+                            next_schema = Some(sch.clone());
+                        }
+                    }
+                });
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                 let active_doc_running = self
                     .query_documents
@@ -65,10 +108,9 @@ impl DbProApp {
                     .and_then(|doc| match doc.execution_state {
                         QueryExecutionState::Running(req) => Some(req),
                         _ => None,
-                    })
-                    .or(self.next_query_request);
+                    });
                 let running = active_doc_running.is_some();
-                let cancel_supported = self.active_capabilities().is_some_and(|c| c.query.cancel);
+                let cancel_supported = self.query_capabilities().is_some_and(|c| c.query.cancel);
                 let run_button = if running {
                     if cancel_supported {
                         secondary_button_with_icon(ui, Icon::Square, "Stop", self.theme)
@@ -100,6 +142,14 @@ impl DbProApp {
                 more_anchor = Some(more_response.rect);
             });
         });
+
+        if let Some(cid) = next_conn_id {
+            self.set_document_connection(doc_idx, Some(cid));
+        }
+        if let Some(sch) = next_schema {
+            self.set_document_schema(doc_idx, Some(sch));
+        }
+
         more_anchor
     }
 
@@ -568,6 +618,21 @@ impl DbProApp {
             self.completion_open = !self.completion_open;
             close_menu = true;
         }
+        ui.horizontal(|ui| {
+            ui.label(RichText::new("AI prediction").small().color(self.theme.text_muted));
+            for (mode, label) in [
+                (PredictionMode::Off, "Off"),
+                (PredictionMode::Subtle, "Subtle"),
+                (PredictionMode::Eager, "Eager"),
+            ] {
+                if ui.selectable_label(self.prediction_mode == mode, label).clicked() {
+                    self.prediction_mode = mode;
+                    if mode == PredictionMode::Off {
+                        self.cancel_prediction_for_document(self.active_query_document);
+                    }
+                }
+            }
+        });
         if menu_button_with_icon(ui, Icon::FileCode2, "SQL snippets", self.theme).clicked() {
             self.snippets_open = !self.snippets_open;
             close_menu = true;
@@ -610,19 +675,20 @@ impl DbProApp {
             return;
         }
 
-        let is_sqlite = self.active_driver().eq_ignore_ascii_case("sqlite");
+        let is_sqlite = self.active_query_driver().eq_ignore_ascii_case("sqlite");
         let dialect = if is_sqlite {
             SqlDialect::SQLite
         } else {
             SqlDialect::Postgres
         };
-        let active_schema = self.active_schema().to_owned();
+        let active_schema = self.active_query_schema().to_owned();
 
         let theme = self.theme;
         let font_size = self.editor_font_size;
         let mut dispatch_statement = false;
         let mut dispatch_all = false;
         let mut trigger_completion = false;
+        let mut manual_completion = false;
         let mut completion_pos = egui::Pos2::ZERO;
 
         let available_size = egui::vec2((editor_width - 24.0).max(280.0), (editor_height - 20.0).max(240.0));
@@ -632,6 +698,8 @@ impl DbProApp {
 
         let search_query = self.editor_search.clone();
         let is_completion_open = doc.completion.is_open;
+        let previous_cursor = doc.cursor.offset;
+        let previous_selection = doc.selection;
         let mut editor = SqlEditor::new(
             &mut doc.buffer,
             &mut doc.cursor,
@@ -649,9 +717,40 @@ impl DbProApp {
 
         let response = editor.show(ui, available_size);
 
+        let cursor_context_changed = previous_cursor != doc.cursor.offset || previous_selection != doc.selection;
+        if cursor_context_changed {
+            if let Some(request_id) = doc.pending_prediction_request {
+                let _ = self.task_bridge.send(UiCommand::CancelSqlPrediction { request_id });
+            }
+            doc.invalidate_prediction();
+        }
+
         self.query_editor_focused = response.focused;
         self.query_cursor_line = doc.cursor.line + 1;
         self.query_cursor_column = doc.cursor.col + 1;
+
+        if let Some(accepted_len) = response.accepted_prediction_len {
+            if let Some(pred) = doc.prediction.as_mut() {
+                pred.consume(accepted_len);
+                if pred.is_empty() {
+                    doc.prediction = None;
+                }
+            }
+        }
+        if response.wants_dismiss_prediction {
+            doc.prediction = None;
+        }
+
+        if let Some(pred) = &doc.prediction {
+            if pred.anchor != doc.cursor.offset {
+                doc.prediction = None;
+            }
+        }
+
+        doc.cached_tokens.get_or_recompute(&doc.buffer, dialect);
+        let cursor_in_string_or_comment = doc
+            .cached_tokens
+            .is_in_string_or_comment(doc.cursor.offset.saturating_sub(1));
 
         if response.changed {
             doc.reanalyze(dialect);
@@ -664,6 +763,43 @@ impl DbProApp {
             }
         }
 
+        if (response.changed || cursor_context_changed)
+            && !response.wants_dismiss_prediction
+            && self.prediction_mode != PredictionMode::Off
+            && doc.selection.is_empty()
+            && !cursor_in_string_or_comment
+        {
+            doc.schedule_prediction(Instant::now());
+        }
+
+        if self.prediction_mode != PredictionMode::Off
+            && doc.prediction_is_due(Instant::now())
+            && doc.pending_prediction_request.is_none()
+            && !doc.completion.is_open
+            && doc.selection.is_empty()
+            && !cursor_in_string_or_comment
+        {
+            doc.take_prediction_schedule();
+            let (before_cursor, after_cursor) = doc.buffer.split_at(doc.cursor.offset);
+            let ai_context = SchemaCompletionProvider::build_ai_sql_context(
+                before_cursor,
+                after_cursor,
+                doc.cursor.offset,
+                &active_schema,
+                &self.schema,
+                is_sqlite,
+            );
+            let req_id = self.task_bridge.next_request_id();
+            doc.pending_prediction_request = Some(req_id);
+            let _ = self.task_bridge.send(UiCommand::RequestSqlPrediction {
+                request_id: req_id,
+                document_id: doc.id.clone(),
+                document_version: doc.buffer.version(),
+                anchor: doc.cursor.offset,
+                context: ai_context,
+            });
+        }
+
         if response.wants_execute_statement {
             dispatch_statement = true;
         } else if response.wants_execute_all {
@@ -672,6 +808,7 @@ impl DbProApp {
 
         if response.wants_completion {
             trigger_completion = true;
+            manual_completion = response.wants_manual_completion;
             completion_pos = response.cursor_screen_pos;
         }
 
@@ -685,7 +822,7 @@ impl DbProApp {
                 schema_summary: &self.schema,
                 cached_tokens: Some(&doc.cached_tokens),
                 is_sqlite,
-                is_manual_trigger: false,
+                is_manual_trigger: manual_completion,
             };
             let (prefix, items) = SchemaCompletionProvider::provide(&ctx);
             if !items.is_empty() {
@@ -832,6 +969,7 @@ impl DbProApp {
                                             CompletionItemKind::Function => ("FN", theme.code_function),
                                             CompletionItemKind::Schema => ("SCH", theme.warning),
                                             CompletionItemKind::Snippet => ("SNP", theme.success),
+                                            CompletionItemKind::Cte => ("CTE", theme.code_type),
                                         };
 
                                         ui.label(
@@ -922,15 +1060,15 @@ impl DbProApp {
         if self.active_explain_request().is_some() {
             return;
         }
-        let Some(capabilities) = self.active_capabilities() else {
+        let Some(capabilities) = self.query_capabilities() else {
             self.runtime_message = "Explain is unavailable until a supported connection is active".to_owned();
             return;
         };
         if !capabilities.query.explain {
-            self.runtime_message = format!("{} does not support Explain", self.active_driver());
+            self.runtime_message = format!("{} does not support Explain", self.active_query_driver());
             return;
         }
-        let Some(connection_id) = self.active_connection_id.clone() else {
+        let Some(connection_id) = self.active_query_connection_id().map(str::to_owned) else {
             self.runtime_message = "Connect to a database before explaining a query".to_owned();
             return;
         };

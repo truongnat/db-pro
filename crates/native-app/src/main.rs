@@ -17,6 +17,8 @@ use eframe::egui;
 use tokio::runtime::Builder;
 
 mod translate;
+#[cfg(test)]
+mod translate_tests;
 
 #[cfg(test)]
 pub(crate) use translate::draft_to_domain;

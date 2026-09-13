@@ -7,7 +7,7 @@ use db_pro_core::domain::backup::{BackupOptions, RestoreOptions};
 use db_pro_core::domain::query::{CellValue, QueryResult};
 use tokio::sync::{mpsc, oneshot};
 
-use crate::{AgentContext, CodexProvider, ConnectionSummary, DbProRuntime, QueryApi};
+use crate::{AgentContext, CodexProvider, ConnectionSummary, DbProRuntime, QueryApi, SqlPredictionContext};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct RuntimeRequestId(pub u64);
@@ -173,6 +173,16 @@ pub enum RuntimeCommand {
         request_id: RuntimeRequestId,
         api_key: String,
     },
+    RequestSqlPrediction {
+        request_id: RuntimeRequestId,
+        document_id: String,
+        document_version: u64,
+        anchor: usize,
+        context: SqlPredictionContext,
+    },
+    CancelSqlPrediction {
+        request_id: RuntimeRequestId,
+    },
 }
 
 #[derive(Debug)]
@@ -264,6 +274,20 @@ pub enum RuntimeEvent {
         provider: String,
         detail: String,
     },
+    SqlPredictionReady {
+        request_id: RuntimeRequestId,
+        document_id: String,
+        document_version: u64,
+        anchor: usize,
+        prediction: String,
+    },
+    SqlPredictionFailed {
+        request_id: RuntimeRequestId,
+        document_id: String,
+        document_version: u64,
+        anchor: usize,
+        message: String,
+    },
     Failed {
         request_id: RuntimeRequestId,
         message: String,
@@ -280,6 +304,8 @@ struct QueryCancellation {
 
 type QueryCancelMap = Arc<Mutex<HashMap<RuntimeRequestId, QueryCancellation>>>;
 
+type PredictionCancelMap = Arc<Mutex<HashMap<RuntimeRequestId, oneshot::Sender<()>>>>;
+
 /// Spawn the async worker that translates native UI commands into application
 /// service calls. The UI receives only typed events and never sees credentials
 /// or infrastructure handles.
@@ -291,13 +317,14 @@ pub fn spawn_worker(
     let (event_tx, event_rx) = mpsc::channel(capacity);
     let cancellations: CancelMap = Arc::new(Mutex::new(HashMap::new()));
     let query_cancellations: QueryCancelMap = Arc::new(Mutex::new(HashMap::new()));
+    let prediction_cancellations: PredictionCancelMap = Arc::new(Mutex::new(HashMap::new()));
     // Shared mutable cell: allows ConfigureAgent to hot-swap the provider key
     // while the worker is running (no restart required).
     let codex_provider: Arc<Mutex<Option<CodexProvider>>> = Arc::new(Mutex::new(CodexProvider::from_env()));
 
     tokio::spawn(async move {
         let (provider, detail) = {
-            let guard = codex_provider.lock().unwrap();
+            let guard = codex_provider.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
             guard
                 .as_ref()
                 .map(|p| {
@@ -693,7 +720,10 @@ pub fn spawn_worker(
                     prompt,
                     context,
                 } => {
-                    let provider = codex_provider.lock().unwrap().clone();
+                    let provider = codex_provider
+                        .lock()
+                        .unwrap_or_else(|poisoned| poisoned.into_inner())
+                        .clone();
                     let Some(provider) = provider else {
                         let _ = event_tx
                             .send(RuntimeEvent::AgentFailed {
@@ -719,6 +749,65 @@ pub fn spawn_worker(
                             },
                         };
                         let _ = event_tx.send(event).await;
+                    });
+                }
+                RuntimeCommand::RequestSqlPrediction {
+                    request_id,
+                    document_id,
+                    document_version,
+                    anchor,
+                    context,
+                } => {
+                    let provider = codex_provider
+                        .lock()
+                        .unwrap_or_else(|poisoned| poisoned.into_inner())
+                        .clone();
+                    let Some(provider) = provider else {
+                        let _ = event_tx
+                            .send(RuntimeEvent::SqlPredictionFailed {
+                                request_id,
+                                document_id,
+                                document_version,
+                                anchor,
+                                message: "AI provider is not configured".to_owned(),
+                            })
+                            .await;
+                        continue;
+                    };
+                    let (cancel_tx, mut cancel_rx) = oneshot::channel();
+                    prediction_cancellations
+                        .lock()
+                        .unwrap_or_else(|poisoned| poisoned.into_inner())
+                        .insert(request_id, cancel_tx);
+                    let event_tx = event_tx.clone();
+                    let cancellation_map = Arc::clone(&prediction_cancellations);
+                    tokio::spawn(async move {
+                        tokio::select! {
+                            _ = &mut cancel_rx => {}
+                            prediction = provider.predict_sql(&context) => {
+                                let event = match prediction {
+                                    Ok(prediction) => RuntimeEvent::SqlPredictionReady {
+                                        request_id,
+                                        document_id,
+                                        document_version,
+                                        anchor,
+                                        prediction,
+                                    },
+                                    Err(error) => RuntimeEvent::SqlPredictionFailed {
+                                        request_id,
+                                        document_id,
+                                        document_version,
+                                        anchor,
+                                        message: error.to_string(),
+                                    },
+                                };
+                                let _ = event_tx.send(event).await;
+                            }
+                        }
+                        cancellation_map
+                            .lock()
+                            .unwrap_or_else(|poisoned| poisoned.into_inner())
+                            .remove(&request_id);
                     });
                 }
                 RuntimeCommand::CreateConnection {
@@ -1048,6 +1137,15 @@ pub fn spawn_worker(
                         }
                     }
                 }
+                RuntimeCommand::CancelSqlPrediction { request_id } => {
+                    if let Some(sender) = prediction_cancellations
+                        .lock()
+                        .unwrap_or_else(|poisoned| poisoned.into_inner())
+                        .remove(&request_id)
+                    {
+                        let _ = sender.send(());
+                    }
+                }
                 RuntimeCommand::CancelOperation { request_id } => {
                     if let Some(sender) = cancellations
                         .lock()
@@ -1076,7 +1174,8 @@ pub fn spawn_worker(
                     ) {
                         Ok(new_provider) => {
                             let detail = format!("{provider_name} Responses API · SQL drafts stay unexecuted");
-                            *codex_provider.lock().unwrap() = Some(new_provider);
+                            *codex_provider.lock().unwrap_or_else(|poisoned| poisoned.into_inner()) =
+                                Some(new_provider);
                             tracing::info!(provider = provider_name, "AI provider reconfigured");
                             RuntimeEvent::AgentConfigured {
                                 request_id,
