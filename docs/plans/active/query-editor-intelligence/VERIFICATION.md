@@ -50,7 +50,7 @@ Source evidence is not runtime evidence.
 
 Automated evidence recorded on 2026-09-13:
 
-- `cargo test --workspace` — PASS, including 228 UI tests and the workspace crate suites.
+- `cargo test --workspace` — PASS, including 226 UI tests and the workspace crate suites.
 - `cargo fmt --all -- --check` — PASS.
 - `cargo check --workspace` — PASS.
 - `cargo clippy --workspace --all-targets -- -D warnings` — PASS.
@@ -61,8 +61,8 @@ Automated evidence recorded on 2026-09-13:
 Lifecycle tests added in this change cover undo-to-saved-snapshot cleanliness, multi-result
 statement order, per-document active result selection, saved-query success/failure baselines,
 and deferred dirty-close state. Native translator tests cover saved-query identity and the
-multi-query command route. The release build and performance audit were rerun after the lifecycle
-changes.
+multi-query command route. The final focused run passed 228 UI tests and 8 native tests. The
+release build and performance audit were rerun after the lifecycle changes.
 
 Prediction quality coverage now includes deterministic fingerprints with sorted alias maps,
 bounded before/after/CTE context, short-lived document-local cache, code-fence/explanation
