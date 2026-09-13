@@ -2,9 +2,9 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use super::agent::{
-    execution_decision, AgentExecutionDecision, AgentMode, AgentPatchError, AgentRunId, AgentSession,
-    AgentSessionError, AgentSessionId, AgentSessionState, AgentSqlSafety, AgentTool, AgentToolInput, AgentToolOutput,
-    AgentToolRequest,
+    allows_stale_document_version, execution_decision, AgentExecutionDecision, AgentMode, AgentPatchError, AgentRunId,
+    AgentSession, AgentSessionError, AgentSessionId, AgentSessionState, AgentSqlSafety, AgentTool, AgentToolInput,
+    AgentToolOutput, AgentToolRequest,
 };
 use super::agent_context::AgentResultSummary;
 
@@ -72,7 +72,7 @@ pub enum AgentConfirmationResult {
     Rejected,
 }
 
-#[derive(Debug, Error, Clone, PartialEq, Eq)]
+#[derive(Debug, Error, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AgentToolError {
     #[error("agent session does not match the requested session")]
     SessionMismatch,
@@ -100,6 +100,8 @@ pub enum AgentToolError {
     ResultUnavailable,
     #[error("agent action requires confirmation: {kind:?}")]
     ConfirmationRequired { kind: AgentConfirmationKind },
+    #[error("agent confirmation was rejected: {kind:?}")]
+    ConfirmationRejected { kind: AgentConfirmationKind },
     #[error("agent query failed: {code}: {message}")]
     QueryFailed {
         code: String,
@@ -114,6 +116,7 @@ pub enum AgentToolError {
     InvalidPatch(#[source] AgentPatchError),
 }
 
+#[derive(Debug)]
 pub struct AgentWorkflow {
     session: AgentSession,
     mode: AgentMode,
@@ -139,6 +142,33 @@ impl AgentWorkflow {
         self.mode
     }
 
+    pub fn allow_read_only_auto_run(&self) -> bool {
+        self.allow_read_only_auto_run
+    }
+
+    pub fn active_run_id(&self) -> Result<AgentRunId, AgentToolError> {
+        self.session
+            .active_run
+            .as_ref()
+            .map(|run| run.id)
+            .ok_or(AgentToolError::RunNotActive)
+    }
+
+    pub fn refresh_document_version(
+        &mut self,
+        run_id: AgentRunId,
+        document_version: u64,
+    ) -> Result<(), AgentToolError> {
+        let Some(run) = self.session.active_run.as_mut() else {
+            return Err(AgentToolError::RunNotActive);
+        };
+        if run.id != run_id {
+            return Err(AgentToolError::RunMismatch);
+        }
+        run.document_version = document_version;
+        Ok(())
+    }
+
     pub fn pending_confirmation(&self) -> Option<&PendingAgentConfirmation> {
         self.pending_confirmation.as_ref()
     }
@@ -154,7 +184,7 @@ impl AgentWorkflow {
         current_text: Option<&str>,
     ) -> Result<AgentToolDisposition, AgentToolError> {
         self.validate_request(&request)?;
-        if request.document_version != current_document_version {
+        if request.document_version != current_document_version && !allows_stale_document_version(request.tool) {
             return Err(AgentToolError::StaleDocument {
                 expected: request.document_version,
                 actual: current_document_version,
@@ -259,7 +289,7 @@ impl AgentWorkflow {
         if request.run_id != run.id {
             return Err(AgentToolError::RunMismatch);
         }
-        if request.document_version != run.document_version {
+        if request.document_version != run.document_version && !allows_stale_document_version(request.tool) {
             return Err(AgentToolError::StaleDocument {
                 expected: run.document_version,
                 actual: request.document_version,
@@ -487,15 +517,33 @@ mod tests {
     }
 
     #[test]
-    fn stale_tool_request_is_rejected() {
+    fn document_strict_tool_request_is_rejected_when_stale() {
         let mut workflow = workflow(AgentMode::Agent, true);
         workflow.start_run(8).expect("run starts");
-        let mut tool_request = request(&workflow, AgentTool::GetCurrentQuery, AgentToolInput::None);
+        let mut tool_request = request(
+            &workflow,
+            AgentTool::RunQuery,
+            AgentToolInput::Query {
+                sql: "SELECT 1".to_owned(),
+            },
+        );
         tool_request.document_version = 9;
         assert_eq!(
             workflow.request_tool(tool_request, 8, None),
             Err(AgentToolError::StaleDocument { expected: 8, actual: 9 })
         );
+    }
+
+    #[test]
+    fn current_query_can_refresh_a_stale_document_context() {
+        let mut workflow = workflow(AgentMode::Ask, false);
+        workflow.start_run(8).expect("run starts");
+        let mut tool_request = request(&workflow, AgentTool::GetCurrentQuery, AgentToolInput::None);
+        tool_request.document_version = 9;
+        assert!(matches!(
+            workflow.request_tool(tool_request, 9, None),
+            Ok(AgentToolDisposition::Execute(_))
+        ));
     }
 
     #[test]

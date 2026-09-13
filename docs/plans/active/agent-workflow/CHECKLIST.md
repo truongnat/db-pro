@@ -13,7 +13,10 @@
 ## Runtime/UI follow-up
 
 - [x] Route typed agent tool requests through the runtime worker.
-- [ ] Tie session state to QueryDocument and document version.
+- [x] Add typed provider tool-call events and a bounded multi-step orchestrator.
+- [x] Keep run/session/document routing explicit, including stale-safe query refresh.
+- [x] Pause and resume the provider loop for patch and database confirmations.
+- [x] Keep agent query output as bounded workflow state instead of overwriting the visible query result.
 - [ ] Add tool activity and patch preview to the existing compact panel.
 - [x] Add executor-side read-only/mutation confirmation enforcement.
 - [ ] Verify PostgreSQL and SQLite runtime paths independently.

@@ -3,13 +3,16 @@ use std::sync::{Arc, Mutex};
 
 use db_pro_core::application::sql_builder::{SortClause, TableFilter};
 use db_pro_core::application::TableDataMutation;
+use db_pro_core::domain::agent::{AgentDocumentSnapshot, AgentMode, AgentRunId, AgentSession, AgentToolOutput};
+use db_pro_core::domain::agent_context::AgentContext as StructuredAgentContext;
+use db_pro_core::domain::agent_workflow::{AgentExecutionContext, AgentWorkflow};
 use db_pro_core::domain::backup::{BackupOptions, RestoreOptions};
 use db_pro_core::domain::query::{CellValue, QueryResult};
 use tokio::sync::{mpsc, oneshot};
 
 use crate::{
-    AgentContext, AgentToolExecutor, CodexProvider, CodexProviderError, ConnectionSummary, DbProRuntime, QueryApi,
-    SqlPredictionContext,
+    AgentContext, AgentRunOrchestrator, AgentToolExecutor, AgentWorkflowEvent, CodexProvider, CodexProviderError,
+    ConnectionSummary, DbProRuntime, QueryApi, SqlPredictionContext,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -128,6 +131,26 @@ pub enum RuntimeCommand {
         request_id: RuntimeRequestId,
         request: db_pro_core::domain::agent::AgentToolRequest,
         context: db_pro_core::domain::agent_workflow::AgentExecutionContext,
+    },
+    StartAgentWorkflow {
+        request_id: RuntimeRequestId,
+        prompt: String,
+        session: AgentSession,
+        document: AgentDocumentSnapshot,
+        mode: AgentMode,
+        allow_read_only_auto_run: bool,
+        context: StructuredAgentContext,
+    },
+    ContinueAgentWorkflow {
+        request_id: RuntimeRequestId,
+        run_id: AgentRunId,
+        approved: bool,
+        current_document: Option<AgentDocumentSnapshot>,
+        applied_patch: Option<AgentToolOutput>,
+    },
+    CancelAgentWorkflow {
+        request_id: RuntimeRequestId,
+        run_id: AgentRunId,
     },
     CreateConnection {
         request_id: RuntimeRequestId,
@@ -310,6 +333,10 @@ pub enum RuntimeEvent {
         document_id: String,
         error: db_pro_core::domain::agent_workflow::AgentToolError,
     },
+    AgentWorkflow {
+        request_id: RuntimeRequestId,
+        event: AgentWorkflowEvent,
+    },
     AgentConfigured {
         request_id: RuntimeRequestId,
         provider: String,
@@ -349,6 +376,7 @@ type QueryCancelMap = Arc<Mutex<HashMap<RuntimeRequestId, QueryCancellation>>>;
 
 type PredictionCancelMap = Arc<Mutex<HashMap<RuntimeRequestId, oneshot::Sender<()>>>>;
 type PredictionCooldown = Arc<Mutex<Option<std::time::Instant>>>;
+type AgentRunMap = Arc<Mutex<HashMap<AgentRunId, AgentRunOrchestrator>>>;
 
 /// Spawn the async worker that translates native UI commands into application
 /// service calls. The UI receives only typed events and never sees credentials
@@ -363,6 +391,7 @@ pub fn spawn_worker(
     let query_cancellations: QueryCancelMap = Arc::new(Mutex::new(HashMap::new()));
     let prediction_cancellations: PredictionCancelMap = Arc::new(Mutex::new(HashMap::new()));
     let prediction_cooldown: PredictionCooldown = Arc::new(Mutex::new(None));
+    let agent_runs: AgentRunMap = Arc::new(Mutex::new(HashMap::new()));
     // Shared mutable cell: allows ConfigureAgent to hot-swap the provider key
     // while the worker is running (no restart required).
     let codex_provider: Arc<Mutex<Option<CodexProvider>>> = Arc::new(Mutex::new(CodexProvider::from_env()));
@@ -837,6 +866,149 @@ pub fn spawn_worker(
                         };
                         let _ = event_tx.send(event).await;
                     });
+                }
+                RuntimeCommand::StartAgentWorkflow {
+                    request_id,
+                    prompt,
+                    session,
+                    document,
+                    mode,
+                    allow_read_only_auto_run,
+                    context,
+                } => {
+                    let provider = codex_provider
+                        .lock()
+                        .unwrap_or_else(|poisoned| poisoned.into_inner())
+                        .clone();
+                    let Some(provider) = provider else {
+                        let _ = event_tx
+                            .send(RuntimeEvent::AgentFailed {
+                                request_id,
+                                message: "AI provider is not configured. Open Agent settings and enter an API key."
+                                    .to_owned(),
+                            })
+                            .await;
+                        continue;
+                    };
+                    let workflow = AgentWorkflow::new(session.clone(), mode, allow_read_only_auto_run);
+                    let execution_context = AgentExecutionContext::new(session, document, mode);
+                    let orchestrator = AgentRunOrchestrator::new(
+                        Box::new(provider),
+                        Box::new(AgentToolExecutor::new(Arc::clone(&runtime))),
+                        workflow,
+                        execution_context,
+                        prompt,
+                        context,
+                    );
+                    let Ok(mut orchestrator) = orchestrator else {
+                        let _ = event_tx
+                            .send(RuntimeEvent::AgentFailed {
+                                request_id,
+                                message: "Agent workflow could not start because its document is unavailable."
+                                    .to_owned(),
+                            })
+                            .await;
+                        continue;
+                    };
+                    let run_id = match orchestrator.run_id() {
+                        Ok(run_id) => run_id,
+                        Err(error) => {
+                            let _ = event_tx
+                                .send(RuntimeEvent::AgentFailed {
+                                    request_id,
+                                    message: error.to_string(),
+                                })
+                                .await;
+                            continue;
+                        }
+                    };
+                    let event_tx = event_tx.clone();
+                    let agent_runs = Arc::clone(&agent_runs);
+                    tokio::spawn(async move {
+                        let events = orchestrator.run().await;
+                        send_agent_workflow_events(&event_tx, request_id, events).await;
+                        if orchestrator.has_pending_confirmation() {
+                            agent_runs
+                                .lock()
+                                .unwrap_or_else(|poisoned| poisoned.into_inner())
+                                .insert(run_id, orchestrator);
+                        }
+                    });
+                }
+                RuntimeCommand::ContinueAgentWorkflow {
+                    request_id,
+                    run_id,
+                    approved,
+                    current_document,
+                    applied_patch,
+                } => {
+                    let Some(mut orchestrator) = agent_runs
+                        .lock()
+                        .unwrap_or_else(|poisoned| poisoned.into_inner())
+                        .remove(&run_id)
+                    else {
+                        let _ = event_tx
+                            .send(RuntimeEvent::AgentWorkflow {
+                                request_id,
+                                event: AgentWorkflowEvent::Failed {
+                                    run_id,
+                                    message: "Agent run is no longer active.".to_owned(),
+                                },
+                            })
+                            .await;
+                        continue;
+                    };
+                    let event_tx = event_tx.clone();
+                    let agent_runs = Arc::clone(&agent_runs);
+                    tokio::spawn(async move {
+                        match orchestrator
+                            .resume_confirmation(approved, current_document, applied_patch)
+                            .await
+                        {
+                            Ok(events) => {
+                                send_agent_workflow_events(&event_tx, request_id, events).await;
+                                if orchestrator.has_pending_confirmation() {
+                                    agent_runs
+                                        .lock()
+                                        .unwrap_or_else(|poisoned| poisoned.into_inner())
+                                        .insert(run_id, orchestrator);
+                                }
+                            }
+                            Err(error) => {
+                                let _ = event_tx
+                                    .send(RuntimeEvent::AgentWorkflow {
+                                        request_id,
+                                        event: AgentWorkflowEvent::Failed {
+                                            run_id,
+                                            message: error.to_string(),
+                                        },
+                                    })
+                                    .await;
+                            }
+                        }
+                    });
+                }
+                RuntimeCommand::CancelAgentWorkflow { request_id, run_id } => {
+                    let Some(mut orchestrator) = agent_runs
+                        .lock()
+                        .unwrap_or_else(|poisoned| poisoned.into_inner())
+                        .remove(&run_id)
+                    else {
+                        let _ = event_tx
+                            .send(RuntimeEvent::AgentWorkflow {
+                                request_id,
+                                event: AgentWorkflowEvent::Failed {
+                                    run_id,
+                                    message: "Agent run is no longer active.".to_owned(),
+                                },
+                            })
+                            .await;
+                        continue;
+                    };
+                    let event = orchestrator
+                        .cancel()
+                        .unwrap_or(AgentWorkflowEvent::Cancelled { run_id });
+                    let _ = event_tx.send(RuntimeEvent::AgentWorkflow { request_id, event }).await;
                 }
                 RuntimeCommand::RequestSqlPrediction {
                     request_id,
@@ -1369,6 +1541,22 @@ fn prediction_is_in_cooldown(cooldown: &PredictionCooldown) -> bool {
             false
         }
         None => false,
+    }
+}
+
+async fn send_agent_workflow_events(
+    event_tx: &mpsc::Sender<RuntimeEvent>,
+    request_id: RuntimeRequestId,
+    events: Vec<AgentWorkflowEvent>,
+) {
+    for event in events {
+        if event_tx
+            .send(RuntimeEvent::AgentWorkflow { request_id, event })
+            .await
+            .is_err()
+        {
+            break;
+        }
     }
 }
 

@@ -2,15 +2,16 @@ use std::sync::Arc;
 
 use db_pro_core::application::{MultiQueryResult, StatementResultKind};
 use db_pro_core::domain::agent::{
-    execution_decision, AgentMode, AgentObjectRef, AgentSqlSafety, AgentTool, AgentToolInput, AgentToolOutput,
-    AgentToolRequest, AgentToolResult, MAX_AGENT_COLUMNS_PER_TABLE, MAX_AGENT_CONTEXT_CHARS, MAX_AGENT_RELATIONS,
-    MAX_AGENT_SAMPLE_ROWS, MAX_AGENT_TABLES,
+    allows_stale_document_version, execution_decision, AgentMode, AgentObjectRef, AgentSqlSafety, AgentTool,
+    AgentToolInput, AgentToolOutput, AgentToolRequest, AgentToolResult, MAX_AGENT_COLUMNS_PER_TABLE,
+    MAX_AGENT_CONTEXT_CHARS, MAX_AGENT_RELATIONS, MAX_AGENT_SAMPLE_ROWS, MAX_AGENT_TABLES,
 };
 use db_pro_core::domain::agent_context::{
     AgentColumnContext, AgentForeignKeyContext, AgentResultSummary, AgentTableContext,
 };
 
 use crate::{DbErrorDto, DbProRuntime};
+use async_trait::async_trait;
 use db_pro_core::domain::agent_workflow::{
     is_tool_allowed, AgentConfirmationKind, AgentExecutionContext, AgentToolError,
 };
@@ -19,6 +20,15 @@ use db_pro_core::domain::schema::{Column, ForeignKey, IntrospectResult, TableInf
 #[derive(Clone)]
 pub struct AgentToolExecutor {
     runtime: Arc<DbProRuntime>,
+}
+
+#[async_trait]
+pub trait AgentToolRunner: Send + Sync {
+    async fn execute(
+        &self,
+        request: &AgentToolRequest,
+        context: &AgentExecutionContext,
+    ) -> Result<AgentToolResult, AgentToolError>;
 }
 
 impl AgentToolExecutor {
@@ -229,6 +239,17 @@ impl AgentToolExecutor {
     }
 }
 
+#[async_trait]
+impl AgentToolRunner for AgentToolExecutor {
+    async fn execute(
+        &self,
+        request: &AgentToolRequest,
+        context: &AgentExecutionContext,
+    ) -> Result<AgentToolResult, AgentToolError> {
+        self.execute(request, context).await
+    }
+}
+
 fn validate_request(request: &AgentToolRequest, context: &AgentExecutionContext) -> Result<(), AgentToolError> {
     if request.session_id != context.session.id {
         return Err(AgentToolError::SessionMismatch);
@@ -242,7 +263,7 @@ fn validate_request(request: &AgentToolRequest, context: &AgentExecutionContext)
     if request.run_id != run.id {
         return Err(AgentToolError::RunMismatch);
     }
-    if request.document_version != run.document_version {
+    if request.document_version != run.document_version && !allows_stale_document_version(request.tool) {
         return Err(AgentToolError::StaleDocument {
             expected: run.document_version,
             actual: request.document_version,
@@ -252,7 +273,7 @@ fn validate_request(request: &AgentToolRequest, context: &AgentExecutionContext)
         if document.document_id != request.document_id {
             return Err(AgentToolError::DocumentMismatch);
         }
-        if document.document_version != request.document_version {
+        if document.document_version != request.document_version && !allows_stale_document_version(request.tool) {
             return Err(AgentToolError::StaleDocument {
                 expected: request.document_version,
                 actual: document.document_version,

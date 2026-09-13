@@ -11,6 +11,7 @@ pub const MAX_AGENT_SAMPLE_ROWS: usize = 20;
 pub const MAX_AGENT_RESULT_COLUMNS: usize = 50;
 pub const MAX_AGENT_CELL_CHARS: usize = 256;
 pub const MAX_AGENT_CONTEXT_CHARS: usize = 12_000;
+pub const MAX_AGENT_TOOL_STEPS: usize = 10;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct AgentSessionId(Uuid);
@@ -181,7 +182,7 @@ impl AgentSqlPatch {
     }
 }
 
-#[derive(Debug, Error, Clone, PartialEq, Eq)]
+#[derive(Debug, Error, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AgentPatchError {
     #[error("agent patch targets another document")]
     DocumentMismatch,
@@ -223,6 +224,24 @@ pub enum AgentTool {
     RunQuery,
     InspectQueryResult,
     ExplainQuery,
+}
+
+pub fn allows_stale_document_version(tool: AgentTool) -> bool {
+    matches!(
+        tool,
+        AgentTool::GetCurrentQuery
+            | AgentTool::InspectSchema
+            | AgentTool::InspectTable
+            | AgentTool::InspectColumns
+            | AgentTool::InspectForeignKeys
+    )
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AgentToolCall {
+    pub call_id: String,
+    pub tool: AgentTool,
+    pub input: AgentToolInput,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -288,6 +307,11 @@ pub enum AgentToolOutput {
         patch: AgentSqlPatch,
         original: String,
         proposed: String,
+    },
+    PatchApplied {
+        document_id: String,
+        new_version: u64,
+        range: (usize, usize),
     },
     QueryResult {
         statement_index: Option<usize>,

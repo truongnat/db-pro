@@ -926,6 +926,10 @@ pub(crate) fn translate_event(event: RuntimeEvent) -> Option<UiEvent> {
             document_id,
             error,
         }),
+        // The workflow event stream is currently consumed by the upcoming
+        // Agent panel integration. Keep it on the runtime boundary without
+        // leaking provider/runtime types into the UI crate yet.
+        RuntimeEvent::AgentWorkflow { .. } => None,
         RuntimeEvent::AgentConfigured {
             request_id,
             provider,

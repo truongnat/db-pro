@@ -1,10 +1,12 @@
 pub mod agent;
 mod agent_executor;
+mod agent_orchestrator;
 mod api;
 mod worker;
 
 pub use agent::{AgentContext, AgentDraft, CodexProvider, CodexProviderError, SqlPredictionContext};
-pub use agent_executor::AgentToolExecutor;
+pub use agent_executor::{AgentToolExecutor, AgentToolRunner};
+pub use agent_orchestrator::{AgentRunOrchestrator, AgentWorkflowEvent};
 pub use api::{
     BackupApi, ColumnSummary, ConnectionApi, ConnectionSummary, DataDiffApi, DbErrorDto, ExportApi, ForeignKeySummary,
     FunctionSummary, PostgresApi, QueryApi, QueryFolderSummary, SavedQuerySummary, SchemaApi, SchemaSummary,

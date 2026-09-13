@@ -19,11 +19,19 @@ The agent permission decision maps `StatementSafety` from the core policy
 classifier. It does not introduce a UI classifier. Unknown/incomplete SQL is
 confirmation-gated rather than silently treated as read-only.
 
-## P2 — Provider tool-call seam is still pending
+## P2 — Native provider and UI evidence is still pending
 
-The current provider contract returns a draft, not a typed tool call or stream.
-The runtime now exposes a typed `ExecuteAgentTool` command/event pair and an
-`AgentToolExecutor` that calls the existing schema/query services. The current
-provider still returns a draft rather than typed tool calls, so provider-driven
-multi-step continuation and compact-panel state remain the next orchestration
-slice; the executor is intentionally usable independently of that provider.
+The runtime now parses Responses API function calls into typed `AgentToolCall`
+values, continues with structured function-call outputs, and runs a bounded
+multi-step `AgentRunOrchestrator`. Confirmation pauses can be resumed without
+creating a synthetic run id, and `GetCurrentQuery` is the explicit recovery
+path for stale document versions. The existing draft provider remains as a
+compatibility path, while native Agent panel wiring, live provider evidence,
+and independent PostgreSQL/SQLite runtime evidence are still pending.
+
+## P2 — Agent query results remain ephemeral by design
+
+Agent query execution returns bounded tool summaries to the provider and does
+not replace the visible `QueryDocument` result workspace. Surfacing an agent
+result in the UI should be an explicit later action so background reasoning
+cannot unexpectedly change the user's current result tab.
