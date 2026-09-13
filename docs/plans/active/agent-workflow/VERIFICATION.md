@@ -2,9 +2,9 @@
 
 ## Initial state
 
-- Branch: `feature/agent-workflow`
-- Base: `main@739f79c`
-- Implementation verification: core foundation checks pass.
+- Branch: `feature/agent-runtime-orchestration`
+- Base: `main@e8d8576`
+- Implementation verification: core foundation and workflow state machine checks pass.
 
 ## Automated evidence
 
@@ -24,6 +24,10 @@
 The tests cover stale document/version rejection, UTF-8 patch boundaries,
 confirmation-gated mutation/unknown SQL, bounded schema retrieval, bounded
 result samples, and serialized context limits.
+
+The workflow tests additionally cover mode/tool permissions, run-id validation,
+stale tool requests, patch preview/confirmation, mutation confirmation,
+rejection without ending the run, and cancellation cleanup.
 
 ## Required evidence
 

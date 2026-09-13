@@ -7,6 +7,8 @@
 - [x] Add bounded context and result summary builders.
 - [x] Add execution permission decisions backed by core SQL safety.
 - [x] Add focused unit tests for safety and stale-state invariants.
+- [x] Add run state machine with run-id validation and pending confirmations.
+- [x] Add centralized mode/tool permission matrix and structured tool errors.
 
 ## Runtime/UI follow-up
 

@@ -18,3 +18,10 @@ separate; Agent Workflow needs its own PostgreSQL/SQLite and native checks.
 The agent permission decision maps `StatementSafety` from the core policy
 classifier. It does not introduce a UI classifier. Unknown/incomplete SQL is
 confirmation-gated rather than silently treated as read-only.
+
+## P2 — Provider tool-call seam is still pending
+
+The current provider contract returns a draft, not a typed tool call or stream.
+This slice therefore stops at a tested domain workflow state machine. Runtime
+tool execution is deliberately not represented by a dead command variant until
+the provider response adapter and service executor are implemented together.
