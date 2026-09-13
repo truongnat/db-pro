@@ -259,6 +259,7 @@ impl SqliteHandle {
         }
     }
 
+    #[allow(clippy::result_large_err)]
     pub async fn execute_transaction(
         &self,
         statements: Vec<String>,
@@ -320,6 +321,7 @@ impl SqliteHandle {
         }
     }
 
+    #[allow(clippy::result_large_err)]
     pub async fn execute_parameterized_transaction(
         &self,
         statements: Vec<ParameterizedTransactionStatement>,
