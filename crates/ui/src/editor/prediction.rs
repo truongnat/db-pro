@@ -1,5 +1,6 @@
 use crate::runtime::RequestId;
 use serde::{Deserialize, Serialize};
+use std::hash::{Hash, Hasher};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub enum PredictionMode {
@@ -19,11 +20,14 @@ pub enum PredictionStatus {
 }
 
 pub const MAX_SQL_CHARS: usize = 4000;
+pub const MAX_SQL_BEFORE_CHARS: usize = MAX_SQL_CHARS;
+pub const MAX_SQL_AFTER_CHARS: usize = 500;
 pub const MAX_REFERENCED_TABLES: usize = 10;
 pub const MAX_COLUMNS_PER_TABLE: usize = 30;
 pub const MAX_FK_NEIGHBORS: usize = 15;
+pub const MAX_CTES: usize = 20;
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AiSqlContext {
     pub sql_before_cursor: String,
     pub sql_after_cursor: String,
@@ -35,6 +39,50 @@ pub struct AiSqlContext {
     pub relevant_columns: Vec<String>,
     pub fk_neighbors: Vec<String>,
     pub cte_names: Vec<String>,
+}
+
+impl AiSqlContext {
+    /// A process-local, deterministic fingerprint for request deduplication.
+    /// HashMap iteration is sorted so equivalent contexts hash identically.
+    pub fn fingerprint(&self, document_version: u64, anchor: usize) -> u64 {
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        document_version.hash(&mut hasher);
+        anchor.hash(&mut hasher);
+        self.sql_before_cursor.hash(&mut hasher);
+        self.sql_after_cursor.hash(&mut hasher);
+        self.current_statement.hash(&mut hasher);
+        self.active_schema.hash(&mut hasher);
+        self.dialect.hash(&mut hasher);
+        self.referenced_tables.hash(&mut hasher);
+        let mut aliases: Vec<_> = self.table_aliases.iter().collect();
+        aliases.sort_unstable_by(|left, right| left.0.cmp(right.0).then_with(|| left.1.cmp(right.1)));
+        aliases.hash(&mut hasher);
+        self.relevant_columns.hash(&mut hasher);
+        self.fk_neighbors.hash(&mut hasher);
+        self.cte_names.hash(&mut hasher);
+        hasher.finish()
+    }
+}
+
+/// Removes text already present immediately around the caret without trimming
+/// meaningful indentation or whitespace inside the provider response.
+pub fn normalize_prediction_overlap(before: &str, after: &str, prediction: &str) -> String {
+    let mut normalized = prediction.to_owned();
+    if let Some(overlap_len) = longest_suffix_prefix_overlap(before, &normalized) {
+        normalized.drain(..overlap_len);
+    }
+    if let Some(overlap_len) = longest_suffix_prefix_overlap(&normalized, after) {
+        let keep = normalized.len().saturating_sub(overlap_len);
+        normalized.truncate(keep);
+    }
+    normalized
+}
+
+fn longest_suffix_prefix_overlap(left: &str, right: &str) -> Option<usize> {
+    let max_len = left.len().min(right.len());
+    (1..=max_len)
+        .rev()
+        .find(|len| left.as_bytes()[left.len() - len..] == right.as_bytes()[..*len])
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -256,5 +304,34 @@ mod tests {
         state.notify_buffer_changed(3);
         assert_eq!(state.active_prediction, None);
         assert_eq!(state.status, PredictionStatus::Idle);
+    }
+
+    #[test]
+    fn context_fingerprint_is_stable_for_alias_map_order() {
+        let mut first = AiSqlContext::default();
+        first.table_aliases.insert("u".to_owned(), "users".to_owned());
+        first.table_aliases.insert("o".to_owned(), "orders".to_owned());
+        let mut second = first.clone();
+        second.table_aliases.clear();
+        second.table_aliases.insert("o".to_owned(), "orders".to_owned());
+        second.table_aliases.insert("u".to_owned(), "users".to_owned());
+        assert_eq!(first.fingerprint(3, 12), second.fingerprint(3, 12));
+    }
+
+    #[test]
+    fn overlap_normalization_removes_duplicate_prefix_and_suffix() {
+        assert_eq!(
+            normalize_prediction_overlap(
+                "SELECT * FROM users WHERE ",
+                " LIMIT 10",
+                "WHERE active = true LIMIT 10"
+            ),
+            "active = true"
+        );
+        assert_eq!(
+            normalize_prediction_overlap("ORDER BY created_at", " DESC", " DESC"),
+            ""
+        );
+        assert_eq!(normalize_prediction_overlap("SELECT ", "", "users"), "users");
     }
 }

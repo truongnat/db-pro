@@ -618,6 +618,14 @@ impl DbProApp {
             self.completion_open = !self.completion_open;
             close_menu = true;
         }
+        if menu_button_with_icon(ui, Icon::Bot, "Generate SQL Prediction", self.theme).clicked() {
+            if self.prediction_mode != PredictionMode::Off {
+                if let Some(doc) = self.query_documents.get_mut(self.active_query_document) {
+                    doc.schedule_prediction_with_mode(Instant::now(), true);
+                }
+            }
+            close_menu = true;
+        }
         ui.horizontal(|ui| {
             ui.label(RichText::new("AI prediction").small().color(self.theme.text_muted));
             for (mode, label) in [
@@ -712,7 +720,8 @@ impl DbProApp {
         )
         .with_cached_tokens(&mut doc.cached_tokens)
         .with_search(&search_query, doc.search.active_match_index)
-        .with_completion_open(is_completion_open);
+        .with_completion_open(is_completion_open)
+        .with_prediction_visible(self.prediction_mode == PredictionMode::Eager || doc.prediction_reveal);
         editor.font_size = font_size;
 
         let response = editor.show(ui, available_size);
@@ -731,7 +740,12 @@ impl DbProApp {
 
         if let Some(accepted_len) = response.accepted_prediction_len {
             if let Some(pred) = doc.prediction.as_mut() {
+                let was_partial = accepted_len < pred.text.len();
                 pred.consume(accepted_len);
+                doc.prediction_accepted = doc.prediction_accepted.saturating_add(1);
+                if was_partial {
+                    doc.prediction_partially_accepted = doc.prediction_partially_accepted.saturating_add(1);
+                }
                 if pred.is_empty() {
                     doc.prediction = None;
                 }
@@ -763,7 +777,9 @@ impl DbProApp {
             }
         }
 
-        if (response.changed || cursor_context_changed)
+        if response.wants_manual_prediction {
+            doc.schedule_prediction_with_mode(Instant::now(), true);
+        } else if (response.changed || cursor_context_changed)
             && !response.wants_dismiss_prediction
             && self.prediction_mode != PredictionMode::Off
             && doc.selection.is_empty()
@@ -780,6 +796,10 @@ impl DbProApp {
             && !cursor_in_string_or_comment
         {
             doc.take_prediction_schedule();
+            let manual = doc.take_prediction_manual();
+            if let Some(scheduled_at) = doc.prediction_scheduled_at.take() {
+                doc.prediction_last_debounce_ms = Some(scheduled_at.elapsed().as_millis() as u64);
+            }
             let (before_cursor, after_cursor) = doc.buffer.split_at(doc.cursor.offset);
             let ai_context = SchemaCompletionProvider::build_ai_sql_context(
                 before_cursor,
@@ -789,15 +809,31 @@ impl DbProApp {
                 &self.schema,
                 is_sqlite,
             );
-            let req_id = self.task_bridge.next_request_id();
-            doc.pending_prediction_request = Some(req_id);
-            let _ = self.task_bridge.send(UiCommand::RequestSqlPrediction {
-                request_id: req_id,
-                document_id: doc.id.clone(),
-                document_version: doc.buffer.version(),
-                anchor: doc.cursor.offset,
-                context: ai_context,
-            });
+            let document_version = doc.buffer.version();
+            let anchor = doc.cursor.offset;
+            let fingerprint = ai_context.fingerprint(document_version, anchor);
+            if !manual {
+                if let Some(cached) = doc.take_cached_prediction(fingerprint, Instant::now()) {
+                    doc.prediction_context_fingerprint = Some(fingerprint);
+                    doc.prediction = Some(cached);
+                }
+            }
+            if doc.prediction.is_none() {
+                let req_id = self.task_bridge.next_request_id();
+                doc.prediction_context_fingerprint = Some(fingerprint);
+                doc.pending_prediction_request = Some(req_id);
+                doc.prediction_request_started_at = Some(Instant::now());
+                doc.prediction_requests_sent = doc.prediction_requests_sent.saturating_add(1);
+                let replacement_range = prediction_replacement_range(&doc.buffer, anchor, manual);
+                let _ = self.task_bridge.send(UiCommand::RequestSqlPrediction {
+                    request_id: req_id,
+                    document_id: doc.id.clone(),
+                    document_version,
+                    anchor,
+                    replacement_range,
+                    context: ai_context,
+                });
+            }
         }
 
         if response.wants_execute_statement {
@@ -1277,4 +1313,21 @@ impl DbProApp {
     fn insert_snippet(&mut self, snippet: &str) {
         self.append_to_active_query(snippet);
     }
+}
+
+fn prediction_replacement_range(
+    buffer: &crate::editor::buffer::TextBuffer,
+    anchor: usize,
+    manual: bool,
+) -> (usize, usize) {
+    if !manual {
+        return (anchor, anchor);
+    }
+    let before = buffer.slice(0, anchor);
+    let start = before
+        .char_indices()
+        .rev()
+        .find(|(_, ch)| !ch.is_ascii_alphanumeric() && *ch != '_')
+        .map_or(0, |(offset, ch)| offset + ch.len_utf8());
+    (start, anchor)
 }

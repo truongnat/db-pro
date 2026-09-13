@@ -22,6 +22,7 @@ pub struct SqlEditorResponse {
     pub cursor_screen_pos: Pos2,
     pub wants_completion: bool,
     pub wants_manual_completion: bool,
+    pub wants_manual_prediction: bool,
     pub wants_execute_statement: bool,
     pub wants_execute_all: bool,
     pub wants_format: bool,
@@ -38,6 +39,7 @@ pub struct SqlEditor<'a> {
     pub theme: &'a DbProTheme,
     pub diagnostics: &'a [Diagnostic],
     pub prediction: Option<&'a EditPrediction>,
+    pub prediction_visible: bool,
     pub cached_tokens: Option<&'a mut CachedSqlTokens>,
     pub search_query: &'a str,
     pub active_search_match_index: usize,
@@ -66,6 +68,7 @@ impl<'a> SqlEditor<'a> {
             theme,
             diagnostics,
             prediction,
+            prediction_visible: true,
             cached_tokens: None,
             search_query: "",
             active_search_match_index: 0,
@@ -88,6 +91,11 @@ impl<'a> SqlEditor<'a> {
 
     pub fn with_completion_open(mut self, completion_open: bool) -> Self {
         self.completion_open = completion_open;
+        self
+    }
+
+    pub fn with_prediction_visible(mut self, visible: bool) -> Self {
+        self.prediction_visible = visible;
         self
     }
 
@@ -345,6 +353,9 @@ impl<'a> SqlEditor<'a> {
                                     *self.selection = SelectionRange::new(anchor, cur);
                                     response.changed = true;
                                 }
+                            }
+                            Key::Space if event_mods.ctrl && event_mods.alt => {
+                                response.wants_manual_prediction = true;
                             }
                             Key::Space if event_mods.ctrl => {
                                 response.wants_completion = true;
@@ -630,7 +641,7 @@ impl<'a> SqlEditor<'a> {
         response.cursor_screen_pos = Pos2::new(cursor_screen.x, cursor_screen.y + line_height);
 
         // Inline AI Prediction Ghost Text (suppressed while completion popup is open)
-        if !self.completion_open {
+        if !self.completion_open && self.prediction_visible {
             if let Some(pred) = self.prediction {
                 if !pred.is_empty() && pred.anchor == self.cursor.offset {
                     let lines: Vec<&str> = pred.text.split('\n').collect();

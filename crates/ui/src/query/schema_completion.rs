@@ -1,6 +1,7 @@
 use crate::editor::completion::{CompletionItem, CompletionItemKind};
 use crate::editor::prediction::{
-    AiSqlContext, MAX_COLUMNS_PER_TABLE, MAX_FK_NEIGHBORS, MAX_REFERENCED_TABLES, MAX_SQL_CHARS,
+    AiSqlContext, MAX_COLUMNS_PER_TABLE, MAX_CTES, MAX_FK_NEIGHBORS, MAX_REFERENCED_TABLES, MAX_SQL_AFTER_CHARS,
+    MAX_SQL_BEFORE_CHARS,
 };
 use crate::editor::syntax::CachedSqlTokens;
 use crate::runtime::UiSchemaSummary;
@@ -660,27 +661,32 @@ pub fn build_ai_sql_context(
     let current_statement = doc_text[statement_start..statement_end].trim().to_owned();
 
     // Truncate SQL before cursor deterministically
-    let truncated_before = if before_cursor.len() > MAX_SQL_CHARS {
-        let start = before_cursor.len() - MAX_SQL_CHARS;
+    let truncated_before = if before_cursor.len() > MAX_SQL_BEFORE_CHARS {
+        let start = before_cursor.len() - MAX_SQL_BEFORE_CHARS;
         &before_cursor[start..]
     } else {
         before_cursor
     };
 
     // Small suffix after cursor
-    let truncated_after = if after_cursor.len() > 500 {
-        &after_cursor[..500]
+    let truncated_after = if after_cursor.len() > MAX_SQL_AFTER_CHARS {
+        &after_cursor[..MAX_SQL_AFTER_CHARS]
     } else {
         after_cursor
     };
 
     let normalized_sql = doc_text.to_lowercase();
     let ctes = extract_cte_definitions(doc_text);
-    let cte_names: Vec<String> = ctes.keys().cloned().collect();
+    let mut cte_names: Vec<String> = ctes.keys().cloned().collect();
+    cte_names.sort_unstable();
+    cte_names.truncate(MAX_CTES);
 
     let aliases = extract_table_aliases(doc_text);
     let mut referenced_tables = Vec::new();
-    for table_val in aliases.values() {
+    let mut alias_tables: Vec<String> = aliases.values().cloned().collect();
+    alias_tables.sort_unstable();
+    alias_tables.dedup();
+    for table_val in &alias_tables {
         if !referenced_tables.contains(table_val) {
             referenced_tables.push(table_val.clone());
         }

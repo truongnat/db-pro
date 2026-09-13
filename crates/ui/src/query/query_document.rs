@@ -11,6 +11,14 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::time::{Duration, Instant};
 
 pub const SQL_PREDICTION_DEBOUNCE: Duration = Duration::from_millis(300);
+const SQL_PREDICTION_CACHE_TTL: Duration = Duration::from_secs(10);
+
+#[derive(Debug, Clone)]
+pub struct CachedPrediction {
+    pub fingerprint: u64,
+    pub expires_at: Instant,
+    pub prediction: EditPrediction,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum QueryExecutionState {
@@ -94,6 +102,19 @@ pub struct QueryDocument {
     pub prediction: Option<EditPrediction>,
     pub pending_prediction_request: Option<crate::runtime::RequestId>,
     pub prediction_debounce_deadline: Option<Instant>,
+    pub prediction_manual: bool,
+    pub prediction_reveal: bool,
+    pub prediction_scheduled_at: Option<Instant>,
+    pub prediction_context_fingerprint: Option<u64>,
+    pub prediction_cache: Option<CachedPrediction>,
+    pub prediction_request_started_at: Option<Instant>,
+    pub prediction_requests_sent: u64,
+    pub prediction_requests_cancelled: u64,
+    pub prediction_stale_responses_dropped: u64,
+    pub prediction_accepted: u64,
+    pub prediction_partially_accepted: u64,
+    pub prediction_last_latency_ms: Option<u64>,
+    pub prediction_last_debounce_ms: Option<u64>,
     pub cached_tokens: CachedSqlTokens,
     pub search: EditorSearchState,
     pub query_result: Option<UiQueryResult>,
@@ -126,6 +147,19 @@ impl QueryDocument {
             prediction: None,
             pending_prediction_request: None,
             prediction_debounce_deadline: None,
+            prediction_manual: false,
+            prediction_reveal: false,
+            prediction_scheduled_at: None,
+            prediction_context_fingerprint: None,
+            prediction_cache: None,
+            prediction_request_started_at: None,
+            prediction_requests_sent: 0,
+            prediction_requests_cancelled: 0,
+            prediction_stale_responses_dropped: 0,
+            prediction_accepted: 0,
+            prediction_partially_accepted: 0,
+            prediction_last_latency_ms: None,
+            prediction_last_debounce_ms: None,
             cached_tokens: CachedSqlTokens::new(),
             search: EditorSearchState::default(),
             query_result: None,
@@ -186,7 +220,14 @@ impl QueryDocument {
     }
 
     pub fn schedule_prediction(&mut self, now: Instant) {
-        self.prediction_debounce_deadline = Some(now + SQL_PREDICTION_DEBOUNCE);
+        self.schedule_prediction_with_mode(now, false);
+    }
+
+    pub fn schedule_prediction_with_mode(&mut self, now: Instant, manual: bool) {
+        self.prediction_debounce_deadline = Some(if manual { now } else { now + SQL_PREDICTION_DEBOUNCE });
+        self.prediction_manual = manual;
+        self.prediction_reveal = manual;
+        self.prediction_scheduled_at = Some(now);
         self.prediction = None;
     }
 
@@ -199,10 +240,36 @@ impl QueryDocument {
         self.prediction_debounce_deadline.take().is_some()
     }
 
+    pub fn take_prediction_manual(&mut self) -> bool {
+        std::mem::replace(&mut self.prediction_manual, false)
+    }
+
+    pub fn take_cached_prediction(&mut self, fingerprint: u64, now: Instant) -> Option<EditPrediction> {
+        let cached = self.prediction_cache.as_ref()?;
+        if cached.fingerprint != fingerprint || cached.expires_at < now {
+            self.prediction_cache = None;
+            return None;
+        }
+        Some(cached.prediction.clone())
+    }
+
+    pub fn cache_prediction(&mut self, fingerprint: u64, prediction: EditPrediction, now: Instant) {
+        self.prediction_cache = Some(CachedPrediction {
+            fingerprint,
+            expires_at: now + SQL_PREDICTION_CACHE_TTL,
+            prediction,
+        });
+    }
+
     pub fn invalidate_prediction(&mut self) {
         self.prediction_debounce_deadline = None;
         self.prediction = None;
         self.pending_prediction_request = None;
+        self.prediction_manual = false;
+        self.prediction_reveal = false;
+        self.prediction_scheduled_at = None;
+        self.prediction_context_fingerprint = None;
+        self.prediction_request_started_at = None;
     }
 }
 
@@ -355,5 +422,24 @@ mod tests {
         assert!(doc.prediction_is_due(now + SQL_PREDICTION_DEBOUNCE));
         assert!(doc.take_prediction_schedule());
         assert!(!doc.prediction_is_due(now + SQL_PREDICTION_DEBOUNCE));
+    }
+
+    #[test]
+    fn cached_prediction_is_reused_only_for_the_same_fingerprint() {
+        let mut doc = QueryDocument::new("doc-1", "Doc 1", "SELECT ");
+        let prediction = EditPrediction::new(7, "* FROM users", None);
+        let now = Instant::now();
+        doc.cache_prediction(41, prediction.clone(), now);
+        assert_eq!(doc.take_cached_prediction(41, now).as_ref(), Some(&prediction));
+        assert!(doc.take_cached_prediction(42, now).is_none());
+    }
+
+    #[test]
+    fn manual_prediction_schedule_bypasses_debounce() {
+        let mut doc = QueryDocument::new("doc-1", "Doc 1", "SELECT ");
+        let now = Instant::now();
+        doc.schedule_prediction_with_mode(now, true);
+        assert!(doc.prediction_is_due(now));
+        assert!(doc.take_prediction_manual());
     }
 }

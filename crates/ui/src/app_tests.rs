@@ -2332,6 +2332,10 @@ fn test_async_prediction_routing_and_stale_rejection() {
         document_id: app.query_documents[0].id.clone(),
         document_version: current_version,
         anchor: app.query_documents[0].cursor.offset,
+        replacement_range: (
+            app.query_documents[0].cursor.offset,
+            app.query_documents[0].cursor.offset,
+        ),
         prediction: "WHERE active = true".to_owned(),
     });
 
@@ -2360,6 +2364,7 @@ fn stale_prediction_event_does_not_mutate_a_newer_document_version() {
         document_id,
         document_version: current_version.saturating_sub(1),
         anchor,
+        replacement_range: (anchor, anchor),
         prediction: "WHERE stale = true".to_owned(),
     });
 

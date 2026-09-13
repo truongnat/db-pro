@@ -178,6 +178,7 @@ pub enum RuntimeCommand {
         document_id: String,
         document_version: u64,
         anchor: usize,
+        replacement_range: (usize, usize),
         context: SqlPredictionContext,
     },
     CancelSqlPrediction {
@@ -279,6 +280,7 @@ pub enum RuntimeEvent {
         document_id: String,
         document_version: u64,
         anchor: usize,
+        replacement_range: (usize, usize),
         prediction: String,
     },
     SqlPredictionFailed {
@@ -286,6 +288,7 @@ pub enum RuntimeEvent {
         document_id: String,
         document_version: u64,
         anchor: usize,
+        replacement_range: (usize, usize),
         message: String,
     },
     Failed {
@@ -756,6 +759,7 @@ pub fn spawn_worker(
                     document_id,
                     document_version,
                     anchor,
+                    replacement_range,
                     context,
                 } => {
                     let provider = codex_provider
@@ -769,6 +773,7 @@ pub fn spawn_worker(
                                 document_id,
                                 document_version,
                                 anchor,
+                                replacement_range,
                                 message: "AI provider is not configured".to_owned(),
                             })
                             .await;
@@ -782,22 +787,32 @@ pub fn spawn_worker(
                     let event_tx = event_tx.clone();
                     let cancellation_map = Arc::clone(&prediction_cancellations);
                     tokio::spawn(async move {
+                        let provider_started_at = std::time::Instant::now();
                         tokio::select! {
                             _ = &mut cancel_rx => {}
                             prediction = provider.predict_sql(&context) => {
+                                let provider_latency_ms = provider_started_at.elapsed().as_millis();
+                                tracing::debug!(
+                                    request_id = request_id.0,
+                                    document_id = %document_id,
+                                    provider_latency_ms,
+                                    "SQL prediction provider completed"
+                                );
                                 let event = match prediction {
                                     Ok(prediction) => RuntimeEvent::SqlPredictionReady {
                                         request_id,
                                         document_id,
-                                        document_version,
-                                        anchor,
-                                        prediction,
+                                    document_version,
+                                    anchor,
+                                    replacement_range,
+                                    prediction,
                                     },
                                     Err(error) => RuntimeEvent::SqlPredictionFailed {
                                         request_id,
                                         document_id,
                                         document_version,
                                         anchor,
+                                        replacement_range,
                                         message: error.to_string(),
                                     },
                                 };

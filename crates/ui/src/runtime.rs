@@ -454,6 +454,7 @@ pub enum UiCommand {
         document_id: String,
         document_version: u64,
         anchor: usize,
+        replacement_range: (usize, usize),
         context: crate::editor::prediction::AiSqlContext,
     },
     CancelSqlPrediction {
@@ -599,6 +600,7 @@ pub enum UiEvent {
         document_id: String,
         document_version: u64,
         anchor: usize,
+        replacement_range: (usize, usize),
         prediction: String,
     },
     SqlPredictionFailed {
@@ -606,6 +608,7 @@ pub enum UiEvent {
         document_id: String,
         document_version: u64,
         anchor: usize,
+        replacement_range: (usize, usize),
         message: String,
     },
 }

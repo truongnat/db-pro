@@ -82,15 +82,31 @@ impl DbProApp {
                 document_id,
                 document_version,
                 anchor,
+                replacement_range,
                 prediction,
-            } => self.on_sql_prediction_ready(request_id, document_id, document_version, anchor, prediction),
+            } => self.on_sql_prediction_ready(
+                request_id,
+                document_id,
+                document_version,
+                anchor,
+                replacement_range,
+                prediction,
+            ),
             UiEvent::SqlPredictionFailed {
                 request_id,
                 document_id,
                 document_version,
                 anchor,
+                replacement_range,
                 message,
-            } => self.on_sql_prediction_failed(request_id, document_id, document_version, anchor, message),
+            } => self.on_sql_prediction_failed(
+                request_id,
+                document_id,
+                document_version,
+                anchor,
+                replacement_range,
+                message,
+            ),
         }
     }
 
@@ -581,6 +597,7 @@ impl DbProApp {
         document_id: String,
         document_version: u64,
         anchor: usize,
+        replacement_range: (usize, usize),
         prediction_text: String,
     ) {
         let Some(doc) = self.query_documents.iter_mut().find(|doc| doc.id == document_id) else {
@@ -591,16 +608,31 @@ impl DbProApp {
         }
         doc.pending_prediction_request = None;
         if doc.buffer.version() != document_version || doc.cursor.offset != anchor {
+            doc.prediction_stale_responses_dropped = doc.prediction_stale_responses_dropped.saturating_add(1);
             return;
         }
-        if !prediction_text.trim().is_empty() {
+        let (before, after) = doc.buffer.split_at(anchor);
+        let prediction_text = if replacement_range.0 == replacement_range.1 {
+            crate::editor::prediction::normalize_prediction_overlap(before, after, &prediction_text)
+        } else {
+            prediction_text
+        };
+        if !prediction_text.is_empty() {
             doc.prediction = Some(crate::editor::prediction::EditPrediction::with_range_and_version(
                 anchor,
-                (anchor, anchor),
+                replacement_range,
                 prediction_text,
                 Some(request_id),
                 document_version,
             ));
+            if let Some(prediction) = doc.prediction.clone() {
+                if let Some(fingerprint) = doc.prediction_context_fingerprint {
+                    doc.cache_prediction(fingerprint, prediction, std::time::Instant::now());
+                }
+            }
+        }
+        if let Some(started_at) = doc.prediction_request_started_at.take() {
+            doc.prediction_last_latency_ms = Some(started_at.elapsed().as_millis() as u64);
         }
     }
 
@@ -610,6 +642,7 @@ impl DbProApp {
         document_id: String,
         _document_version: u64,
         _anchor: usize,
+        _replacement_range: (usize, usize),
         _message: String,
     ) {
         if let Some(doc) = self
@@ -618,6 +651,7 @@ impl DbProApp {
             .find(|doc| doc.id == document_id && doc.pending_prediction_request == Some(request_id))
         {
             doc.pending_prediction_request = None;
+            doc.prediction_request_started_at = None;
         }
     }
 

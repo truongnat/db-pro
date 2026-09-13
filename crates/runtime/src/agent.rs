@@ -249,9 +249,10 @@ fn build_prediction_input(context: &SqlPredictionContext) -> String {
     let aliases = if context.table_aliases.is_empty() {
         "(none)".to_owned()
     } else {
-        context
-            .table_aliases
-            .iter()
+        let mut alias_pairs: Vec<_> = context.table_aliases.iter().collect();
+        alias_pairs.sort_unstable_by(|left, right| left.0.cmp(right.0).then_with(|| left.1.cmp(right.1)));
+        alias_pairs
+            .into_iter()
             .map(|(alias, table)| format!("{alias} -> {table}"))
             .collect::<Vec<_>>()
             .join(", ")
@@ -360,12 +361,43 @@ fn truncate(value: &str) -> String {
 
 fn normalize_prediction(text: &str) -> String {
     let trimmed = text.trim();
-    let without_fence = trimmed
-        .strip_prefix("```sql")
-        .or_else(|| trimmed.strip_prefix("```SQL"))
-        .and_then(|body| body.strip_suffix("```"))
-        .unwrap_or(trimmed);
-    without_fence.trim().to_owned()
+    let body = if let Some(fence_start) = trimmed.find("```") {
+        let fenced = &trimmed[fence_start + 3..];
+        let body_start = fenced.find('\n').map(|offset| offset + 1).unwrap_or(0);
+        let body = &fenced[body_start..];
+        body.split_once("```").map_or(body, |(body, _)| body)
+    } else {
+        trimmed
+    };
+
+    let body = body.trim_matches(['\r', '\n']);
+    let mut lines = body.lines();
+    let Some(first_line) = lines.next() else {
+        return String::new();
+    };
+    if is_explanation_line(first_line) {
+        lines
+            .collect::<Vec<_>>()
+            .join("\n")
+            .trim_matches(['\r', '\n'])
+            .to_owned()
+    } else {
+        body.to_owned()
+    }
+}
+
+fn is_explanation_line(line: &str) -> bool {
+    let lower = line.trim().to_ascii_lowercase();
+    [
+        "here is",
+        "here's",
+        "suggestion:",
+        "suggested query:",
+        "sql:",
+        "answer:",
+    ]
+    .iter()
+    .any(|prefix| lower.starts_with(prefix))
 }
 
 #[cfg(test)]
@@ -414,5 +446,17 @@ mod tests {
     fn prediction_normalization_removes_optional_code_fence() {
         assert_eq!(normalize_prediction("```sql\nWHERE id = 1\n```"), "WHERE id = 1");
         assert_eq!(normalize_prediction("  LIMIT 10  "), "LIMIT 10");
+        assert_eq!(
+            normalize_prediction("Suggestion:\nWHERE active = true"),
+            "WHERE active = true"
+        );
+    }
+
+    #[test]
+    fn prediction_normalization_preserves_internal_formatting() {
+        assert_eq!(
+            normalize_prediction("```sql\n  WHERE active = true\n    AND deleted_at IS NULL\n```"),
+            "  WHERE active = true\n    AND deleted_at IS NULL"
+        );
     }
 }

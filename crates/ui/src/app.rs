@@ -944,6 +944,9 @@ impl DbProApp {
             self.dispatch_command(UiCommand::CancelSqlPrediction { request_id });
         }
         if let Some(doc) = self.query_documents.get_mut(doc_index) {
+            if request_id.is_some() {
+                doc.prediction_requests_cancelled = doc.prediction_requests_cancelled.saturating_add(1);
+            }
             doc.invalidate_prediction();
         }
     }
