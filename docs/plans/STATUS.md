@@ -36,7 +36,7 @@ Pre-release hardening program. Blocks v0.1.
 | P3.6 ER Diagram Large Schema Mode | REVIEW | Neighborhood BFS for 200+ tables; search-first default needs RC1 QA correction before release |
 | P3.7 Performance Budgets | REVIEW | Fixtures at 20/100/500/1000; automated regression test |
 | P3.8 Data Grid / Metadata List Audit | REVIEW | Explorer O(S×T) fixed; deeper RC1 QA found additional state/performance issues |
-| **P1 Large-Schema ER Architecture** | **RUNTIME_VERIFY** | full architecture implemented (ErGraph model + precomputed edge bbox + ErSpatialIndex uniform grid + ErViewport coordinate engine + 3-tier ErLod + BFS neighborhood exploration); 1000-table synthetic benchmark verified sub-millisecond query; 577 tests PASS |
+| **P1 Large-Schema ER Architecture** | **RUNTIME_VERIFY** | full architecture implemented (ErGraph model + precomputed edge bbox + ErSpatialIndex uniform grid + ErViewport coordinate engine + 3-tier ErLod + BFS neighborhood exploration); async layout worker with coalescing; bounded spatial index (max_span=32); worker degraded mode on spawn failure; version overflow fixed (saturating_add); 5 P1/P2 findings fixed; 98 diagram tests + 808 workspace tests PASS; dead code removed; native runtime evidence pending |
 
 | Native UI Foundation | COMPLETED | native egui workspace, shared runtime facades and Tauri command boundary implemented; SQLite UI runtime evidence and isolated PostgreSQL fixture coverage pass |
 | Native IDE Redesign | COMPLETED | goal-1.md P0–P7 source/runtime slice verified for PostgreSQL and SQLite; future provider surfaces remain explicitly out of scope |
