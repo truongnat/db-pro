@@ -1,5 +1,6 @@
 use super::diagram_view::{
-    diagram_candidates, diagram_canvas_size, diagram_search_mode, diagram_show_all_after_search_edit,
+    diagram_candidates, diagram_canvas_size, diagram_edge_bounding_box, diagram_foreign_key_label, diagram_search_mode,
+    diagram_show_all_after_search_edit,
 };
 use super::*;
 use crate::{UiCheckConstraint, UiDependencyDirection, UiDependencyKind, UiTableDependency};
@@ -882,6 +883,43 @@ fn diagram_canvas_fills_the_viewport_before_overflowing() {
         diagram_canvas_size(egui::vec2(2200.0, 1200.0), egui::vec2(1800.0, 900.0)),
         egui::vec2(2200.0, 1200.0)
     );
+}
+
+#[test]
+fn diagram_foreign_key_label_formats_single_and_composite_keys() {
+    let single_fk = UiSchemaForeignKey {
+        name: "fk_orders_customer".to_owned(),
+        from_columns: vec!["customer_id".to_owned()],
+        to_schema: "public".to_owned(),
+        to_table: "customers".to_owned(),
+        to_columns: vec!["id".to_owned()],
+    };
+    assert_eq!(diagram_foreign_key_label(&single_fk), "customer_id → id");
+
+    let composite_fk = UiSchemaForeignKey {
+        name: "fk_order_items_order".to_owned(),
+        from_columns: vec!["tenant_id".to_owned(), "order_id".to_owned()],
+        to_schema: "public".to_owned(),
+        to_table: "orders".to_owned(),
+        to_columns: vec!["tenant_id".to_owned(), "id".to_owned()],
+    };
+    assert_eq!(
+        diagram_foreign_key_label(&composite_fk),
+        "[tenant_id, order_id] → [tenant_id, id]"
+    );
+}
+
+#[test]
+fn diagram_edge_bounding_box_expands_to_cover_both_nodes_with_margins() {
+    let source_rect = egui::Rect::from_min_size(egui::pos2(100.0, 100.0), egui::vec2(280.0, 160.0));
+    let target_rect = egui::Rect::from_min_size(egui::pos2(500.0, 300.0), egui::vec2(280.0, 160.0));
+    let bbox = diagram_edge_bounding_box(source_rect, target_rect, 1.0);
+    assert!(bbox.contains(source_rect.min));
+    assert!(bbox.contains(target_rect.max));
+    assert_eq!(bbox.min.x, 60.0); // 100 - 40
+    assert_eq!(bbox.max.x, 820.0); // 780 + 40
+    assert_eq!(bbox.min.y, 80.0); // 100 - 20
+    assert_eq!(bbox.max.y, 480.0); // 460 + 20
 }
 
 #[test]

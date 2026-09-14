@@ -247,8 +247,12 @@ impl DbProApp {
                     response.rect.min + pan,
                     zoom,
                 );
+                let viewport = painter.clip_rect();
                 paint_diagram_edges(&painter, &nodes, zoom, theme);
                 for node in &nodes {
+                    if !viewport.intersects(node.rect) {
+                        continue;
+                    }
                     let selected = self.selected_table.as_deref() == Some(node.table.name.as_str());
                     paint_er_node(&painter, node, selected, zoom, theme);
                 }
@@ -335,23 +339,33 @@ pub(super) fn diagram_canvas_size(content_size: egui::Vec2, viewport_size: egui:
 }
 
 fn paint_diagram_grid(painter: &egui::Painter, rect: egui::Rect, zoom: f32, theme: DbProTheme) {
-    let grid_step = 24.0 * zoom;
-    let grid_color = theme.border_subtle.linear_multiply(0.55);
-    let mut grid_x = rect.left();
-    while grid_x <= rect.right() {
-        painter.line_segment(
-            [egui::pos2(grid_x, rect.top()), egui::pos2(grid_x, rect.bottom())],
-            egui::Stroke::new(1.0, grid_color),
-        );
-        grid_x += grid_step.max(8.0);
+    let grid_step = (24.0 * zoom).max(8.0);
+    let visible = painter.clip_rect().intersect(rect);
+    if visible.is_negative() {
+        return;
     }
-    let mut grid_y = rect.top();
-    while grid_y <= rect.bottom() {
-        painter.line_segment(
-            [egui::pos2(rect.left(), grid_y), egui::pos2(rect.right(), grid_y)],
-            egui::Stroke::new(1.0, grid_color),
-        );
-        grid_y += grid_step.max(8.0);
+    let grid_color = theme.border_subtle.linear_multiply(0.55);
+    let start_x = rect.left() + ((visible.left() - rect.left()) / grid_step).floor() * grid_step;
+    let mut grid_x = start_x;
+    while grid_x <= visible.right() {
+        if grid_x >= visible.left() {
+            painter.line_segment(
+                [egui::pos2(grid_x, visible.top()), egui::pos2(grid_x, visible.bottom())],
+                egui::Stroke::new(1.0, grid_color),
+            );
+        }
+        grid_x += grid_step;
+    }
+    let start_y = rect.top() + ((visible.top() - rect.top()) / grid_step).floor() * grid_step;
+    let mut grid_y = start_y;
+    while grid_y <= visible.bottom() {
+        if grid_y >= visible.top() {
+            painter.line_segment(
+                [egui::pos2(visible.left(), grid_y), egui::pos2(visible.right(), grid_y)],
+                egui::Stroke::new(1.0, grid_color),
+            );
+        }
+        grid_y += grid_step;
     }
 }
 
@@ -389,14 +403,44 @@ fn paint_diagram_edges(painter: &egui::Painter, nodes: &[ErNode], zoom: f32, the
         .enumerate()
         .map(|(index, node)| ((node.table.schema.as_str(), node.table.name.as_str()), index))
         .collect::<HashMap<_, _>>();
+    let viewport = painter.clip_rect();
     for source_node in nodes {
         for foreign_key in &source_node.table.foreign_keys {
             let Some(target_index) = node_lookup.get(&(foreign_key.to_schema.as_str(), foreign_key.to_table.as_str()))
             else {
                 continue;
             };
-            paint_diagram_edge(painter, source_node, &nodes[*target_index], foreign_key, zoom, theme);
+            let target_node = &nodes[*target_index];
+            let edge_rect = diagram_edge_bounding_box(source_node.rect, target_node.rect, zoom);
+            if !viewport.intersects(edge_rect) {
+                continue;
+            }
+            paint_diagram_edge(painter, source_node, target_node, foreign_key, zoom, theme);
         }
+    }
+}
+
+pub(super) fn diagram_edge_bounding_box(source_rect: egui::Rect, target_rect: egui::Rect, zoom: f32) -> egui::Rect {
+    let min_x = source_rect.min.x.min(target_rect.min.x) - 40.0 * zoom;
+    let max_x = source_rect.max.x.max(target_rect.max.x) + 40.0 * zoom;
+    let min_y = source_rect.min.y.min(target_rect.min.y) - 20.0 * zoom;
+    let max_y = source_rect.max.y.max(target_rect.max.y) + 20.0 * zoom;
+    egui::Rect::from_min_max(egui::pos2(min_x, min_y), egui::pos2(max_x, max_y))
+}
+
+pub(super) fn diagram_foreign_key_label(foreign_key: &UiSchemaForeignKey) -> String {
+    if foreign_key.from_columns.len() > 1 || foreign_key.to_columns.len() > 1 {
+        format!(
+            "[{}] → [{}]",
+            foreign_key.from_columns.join(", "),
+            foreign_key.to_columns.join(", ")
+        )
+    } else {
+        format!(
+            "{} → {}",
+            foreign_key.from_columns.first().map(String::as_str).unwrap_or("key"),
+            foreign_key.to_columns.first().map(String::as_str).unwrap_or("key"),
+        )
     }
 }
 
@@ -428,11 +472,7 @@ fn paint_diagram_edge(
     painter.line_segment([from, bend_a], stroke);
     painter.line_segment([bend_a, bend_b], stroke);
     painter.line_segment([bend_b, to], stroke);
-    let label = format!(
-        "{} → {}",
-        foreign_key.from_columns.first().map(String::as_str).unwrap_or("key"),
-        foreign_key.to_columns.first().map(String::as_str).unwrap_or("key"),
-    );
+    let label = diagram_foreign_key_label(foreign_key);
     let label_position = egui::pos2(bend_x, (from.y + to.y) / 2.0);
     let label_galley = painter.layout_no_wrap(label.clone(), FontId::proportional(10.0), theme.text_secondary);
     let label_rect = egui::Rect::from_center_size(label_position, label_galley.size() + egui::vec2(8.0, 4.0));
