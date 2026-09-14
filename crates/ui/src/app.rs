@@ -432,6 +432,7 @@ pub struct DbProApp {
     table_mutation_retry_after_reload: bool,
     table_mutation_retry_target: Option<MutationTarget>,
     table_mutation_error: Option<MutationFailure>,
+    conflict_dialog_open: bool,
     table_view: TableView,
     query_folder: String,
     backup_output_path: String,

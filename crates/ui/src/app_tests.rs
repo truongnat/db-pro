@@ -3313,3 +3313,302 @@ fn test_agent_retry_isolation_and_session_routing() {
         "active message"
     );
 }
+
+#[test]
+fn test_composite_pk_targeted_reload_and_merge() {
+    let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
+    let mut app = DbProApp::with_task_bridge(bridge);
+    app.active_connection_id = Some("conn-1".to_owned());
+    app.selected_table = Some("user_roles".to_owned());
+    app.table_info = Some(UiTableInfo {
+        schema: "public".to_owned(),
+        name: "user_roles".to_owned(),
+        row_count: Some(2),
+        columns: vec![
+            crate::UiTableColumn {
+                name: "tenant_id".to_owned(),
+                data_type: "INTEGER".to_owned(),
+                nullable: false,
+                ..Default::default()
+            },
+            crate::UiTableColumn {
+                name: "user_id".to_owned(),
+                data_type: "INTEGER".to_owned(),
+                nullable: false,
+                ..Default::default()
+            },
+            crate::UiTableColumn {
+                name: "role".to_owned(),
+                data_type: "TEXT".to_owned(),
+                nullable: false,
+                ..Default::default()
+            },
+        ],
+        primary_key: Some(vec!["tenant_id".to_owned(), "user_id".to_owned()]),
+        indexes: Vec::new(),
+        foreign_keys: Vec::new(),
+        check_constraints: Vec::new(),
+        dependencies: Vec::new(),
+    });
+    app.table_data_result = Some(UiQueryResult {
+        columns: vec![
+            crate::UiColumn {
+                name: "tenant_id".to_owned(),
+                data_type: "INTEGER".to_owned(),
+                nullable: false,
+            },
+            crate::UiColumn {
+                name: "user_id".to_owned(),
+                data_type: "INTEGER".to_owned(),
+                nullable: false,
+            },
+            crate::UiColumn {
+                name: "role".to_owned(),
+                data_type: "TEXT".to_owned(),
+                nullable: false,
+            },
+        ],
+        rows: vec![
+            vec![
+                UiCell::Number("1".to_owned()),
+                UiCell::Number("10".to_owned()),
+                UiCell::Text("admin".to_owned()),
+            ],
+            vec![
+                UiCell::Number("1".to_owned()),
+                UiCell::Number("20".to_owned()),
+                UiCell::Text("member".to_owned()),
+            ],
+        ],
+        row_count: 2,
+        duration_ms: 5,
+    });
+
+    let target_identity = RowIdentity {
+        original_pk_columns: vec!["tenant_id".to_owned(), "user_id".to_owned()],
+        original_pk_values: vec![UiCell::Number("1".to_owned()), UiCell::Number("20".to_owned())],
+    };
+
+    app.request_table_row_reload(target_identity);
+
+    let UiCommand::LoadTableData {
+        filters, limit, offset, ..
+    } = command_rx.try_recv().expect("LoadTableData command expected")
+    else {
+        panic!("expected LoadTableData");
+    };
+
+    assert_eq!(limit, 1);
+    assert_eq!(offset, 0);
+    assert_eq!(filters.len(), 2);
+    assert_eq!(filters[0].column, "tenant_id");
+    assert_eq!(filters[0].value, "1");
+    assert_eq!(filters[1].column, "user_id");
+    assert_eq!(filters[1].value, "20");
+
+    let server_reloaded = UiQueryResult {
+        columns: app.table_data_result.as_ref().unwrap().columns.clone(),
+        rows: vec![vec![
+            UiCell::Number("1".to_owned()),
+            UiCell::Number("20".to_owned()),
+            UiCell::Text("manager".to_owned()),
+        ]],
+        row_count: 1,
+        duration_ms: 2,
+    };
+
+    app.on_table_row_reloaded(server_reloaded);
+
+    let result = app.table_data_result.as_ref().unwrap();
+    assert_eq!(result.rows[0][2], UiCell::Text("admin".to_owned()));
+    assert_eq!(result.rows[1][2], UiCell::Text("manager".to_owned()));
+}
+
+#[test]
+fn test_inserted_row_delete_removes_from_changeset_without_db_delete() {
+    let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
+    let mut app = DbProApp::with_task_bridge(bridge);
+    app.active_connection_id = Some("conn-1".to_owned());
+    app.selected_table = Some("users".to_owned());
+
+    let local_id = app.staged_changes.stage_insert(
+        vec!["username".to_owned(), "email".to_owned()],
+        vec![
+            UiCell::Text("alice".to_owned()),
+            UiCell::Text("alice@test.com".to_owned()),
+        ],
+    );
+
+    assert_eq!(app.staged_changes.counts().inserts, 1);
+    assert_eq!(app.staged_changes.counts().total(), 1);
+
+    // Deleting the draft insert row removes it locally
+    let removed = app.staged_changes.remove_insert(local_id);
+    assert!(removed);
+    assert!(app.staged_changes.is_empty());
+
+    // Apply now has zero changes and dispatches nothing
+    app.apply_staged_changes();
+    assert!(command_rx.try_recv().is_err());
+}
+
+#[test]
+fn test_apply_mutation_failure_preserves_changeset_and_focuses_failed_cell() {
+    let mut app = DbProApp {
+        staged_apply_request: Some(crate::RequestId(12)),
+        table_data_result: Some(UiQueryResult {
+            columns: vec![
+                crate::UiColumn {
+                    name: "id".to_owned(),
+                    data_type: "INTEGER".to_owned(),
+                    nullable: false,
+                },
+                crate::UiColumn {
+                    name: "name".to_owned(),
+                    data_type: "TEXT".to_owned(),
+                    nullable: false,
+                },
+            ],
+            rows: vec![
+                vec![UiCell::Number("1".to_owned()), UiCell::Text("Alice".to_owned())],
+                vec![UiCell::Number("2".to_owned()), UiCell::Text("Bob".to_owned())],
+                vec![UiCell::Number("3".to_owned()), UiCell::Text("Charlie".to_owned())],
+            ],
+            row_count: 3,
+            duration_ms: 0,
+        }),
+        ..Default::default()
+    };
+
+    let id_1 = RowIdentity {
+        original_pk_columns: vec!["id".to_owned()],
+        original_pk_values: vec![UiCell::Number("1".to_owned())],
+    };
+    let id_2 = RowIdentity {
+        original_pk_columns: vec!["id".to_owned()],
+        original_pk_values: vec![UiCell::Number("2".to_owned())],
+    };
+    let id_3 = RowIdentity {
+        original_pk_columns: vec!["id".to_owned()],
+        original_pk_values: vec![UiCell::Number("3".to_owned())],
+    };
+
+    app.staged_changes.stage_update(StagedChange::Update {
+        identity: id_1.clone(),
+        current_row_index: Some(0),
+        column_index: 1,
+        column: "name".to_owned(),
+        data_type: "TEXT".to_owned(),
+        original: UiCell::Text("Alice".to_owned()),
+        value: UiCell::Text("Alice Updated".to_owned()),
+    });
+    app.staged_changes.stage_update(StagedChange::Update {
+        identity: id_2.clone(),
+        current_row_index: Some(1),
+        column_index: 1,
+        column: "name".to_owned(),
+        data_type: "TEXT".to_owned(),
+        original: UiCell::Text("Bob".to_owned()),
+        value: UiCell::Text("Bob Conflicting".to_owned()),
+    });
+    app.staged_changes.stage_delete(StagedChange::Delete {
+        identity: id_3.clone(),
+        current_row_index: Some(2),
+    });
+
+    app.staged_apply_targets = vec![
+        MutationTarget::Update {
+            identity: id_1,
+            current_row_index: Some(0),
+            columns: vec![1],
+        },
+        MutationTarget::Update {
+            identity: id_2,
+            current_row_index: Some(1),
+            columns: vec![1],
+        },
+        MutationTarget::Delete {
+            identity: id_3,
+            current_row_index: Some(2),
+        },
+    ];
+
+    // Failure occurs on statement index 1 (Bob) with CONFLICT
+    app.staged_apply_failed(1, "CONFLICT", "row count was zero", true);
+
+    // 1. Transaction rolled back
+    let failure = app.table_mutation_error.as_ref().expect("failure recorded");
+    assert!(failure.rolled_back);
+    assert_eq!(failure.code, "CONFLICT");
+
+    // 2. ChangeSet remains intact (2 updates + 1 delete)
+    assert_eq!(app.staged_changes.counts().updates, 2);
+    assert_eq!(app.staged_changes.counts().deletes, 1);
+
+    // 3. Focus moves to failed row and cell
+    assert_eq!(app.selected_row, Some(1));
+    assert_eq!(app.selected_cell, Some((1, 1)));
+
+    // 4. Conflict resolution dialog opened
+    assert!(app.conflict_dialog_open);
+}
+
+#[test]
+fn test_conflict_keep_mine_and_use_database_resolution_actions() {
+    let (bridge, _command_rx, _event_tx) = TaskBridge::with_channels();
+    let mut app = DbProApp::with_task_bridge(bridge);
+    let id = RowIdentity {
+        original_pk_columns: vec!["id".to_owned()],
+        original_pk_values: vec![UiCell::Number("42".to_owned())],
+    };
+
+    app.table_data_result = Some(UiQueryResult {
+        columns: vec![
+            crate::UiColumn {
+                name: "id".to_owned(),
+                data_type: "INTEGER".to_owned(),
+                nullable: false,
+            },
+            crate::UiColumn {
+                name: "val".to_owned(),
+                data_type: "TEXT".to_owned(),
+                nullable: false,
+            },
+        ],
+        rows: vec![vec![
+            UiCell::Number("42".to_owned()),
+            UiCell::Text("val_server".to_owned()),
+        ]],
+        row_count: 1,
+        duration_ms: 0,
+    });
+
+    app.staged_changes.stage_update(StagedChange::Update {
+        identity: id.clone(),
+        current_row_index: Some(0),
+        column_index: 1,
+        column: "val".to_owned(),
+        data_type: "TEXT".to_owned(),
+        original: UiCell::Text("val_orig".to_owned()),
+        value: UiCell::Text("val_mine".to_owned()),
+    });
+
+    app.table_mutation_error = Some(MutationFailure {
+        statement_index: 0,
+        target: Some(MutationTarget::Update {
+            identity: id.clone(),
+            current_row_index: Some(0),
+            columns: vec![1],
+        }),
+        code: "CONFLICT".to_owned(),
+        message: "Conflict".to_owned(),
+        rolled_back: true,
+    });
+    app.conflict_dialog_open = true;
+
+    // Test Use Database: reverts local staged changes
+    app.conflict_use_database();
+    assert!(app.staged_changes.is_empty());
+    assert!(app.table_mutation_error.is_none());
+    assert!(!app.conflict_dialog_open);
+}

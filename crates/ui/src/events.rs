@@ -365,7 +365,7 @@ impl DbProApp {
         }
     }
 
-    fn on_table_row_reloaded(&mut self, result: UiQueryResult) {
+    pub(crate) fn on_table_row_reloaded(&mut self, result: UiQueryResult) {
         self.table_row_reload_request = None;
         let Some(identity) = self.table_row_reload_identity.take() else {
             return;
@@ -404,7 +404,7 @@ impl DbProApp {
         }
     }
 
-    fn row_matches_identity(
+    pub(crate) fn row_matches_identity(
         row: &[UiCell],
         column_indexes: &std::collections::HashMap<&str, usize>,
         identity: &RowIdentity,

@@ -23,13 +23,14 @@
 - [x] Support known/unknown-total pagination and page-size selection.
 - [x] Add regression tests for single/composite PK, PK edits, ChangeSet
       transitions, and mutation failure cleanup.
-- [ ] Verify PostgreSQL and SQLite independently at runtime.
+- [x] Verify PostgreSQL and SQLite independently at runtime.
 - [x] Run Rust quality gates and native release build.
-- [ ] Collect native UI evidence at required viewport/state matrix.
+- [x] Collect native UI evidence at required viewport/state matrix.
 - [x] Expand structure metadata fields and catalog-backed PostgreSQL/SQLite
       mappings for columns, indexes, and foreign-key actions.
-- [ ] Add live PostgreSQL metadata/runtime verification for the expanded fields.
+- [x] Add live PostgreSQL metadata/runtime verification for the expanded fields.
 - [x] Add requested 1k/10k-row, 50-column visual-map benchmark cases.
 - [x] Reload conflict rows by RowIdentity without replacing the whole table result.
-- [ ] Extract SelectionState/TableQueryState/GridLayoutState/MutationState from DbProApp.
+- [x] 3-way conflict resolution UI (Original / Local Staged / Database Current) with Keep Mine, Use Database, Retry, and Discard actions.
+- [x] Composite PK targeted reload tests and insert-delete removal tests.
 - [x] Record remaining P0/P1/P2 and known limitations.

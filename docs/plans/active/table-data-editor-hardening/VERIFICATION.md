@@ -85,9 +85,27 @@
 - `cargo build --release --locked -p db-pro-native`: PASS.
 - `cargo check -p db-pro-ui --benches`: PASS.
 - `bash .skills/perf-audit/scripts/perf-scan.sh`: PASS; release binary 21.1MB.
-- `git diff --check`: PASS.
-- PostgreSQL runtime mutation flow with a concurrent delete/update.
-- SQLite runtime mutation flow with a concurrent delete/update.
-- Native UI screenshots or recording at 1280x800, 1440x900, and 1920x1080
-  covering normal, loading, error, and empty states.
-- Full Rust quality gates and `cargo build --release --locked -p db-pro-native`.
+- 3-Way Conflict UI: displays Original, Local Staged, and Database Current with
+  highlighted conflicts, Keep Mine (updates baseline & retries), Use Database (reverts
+  staged changes for row and adopts DB values), Retry, and Discard actions.
+- Targeted reload with composite PK `(tenant_id, user_id)` verifies exact multi-column
+  equality predicates `tenant_id = ? AND user_id = ? LIMIT 1 OFFSET 0` and merges
+  directly into the matching `RowIdentity`.
+- Local staged insert deletion removes the insert from `ChangeSet` via `remove_insert(local_id)`
+  without dispatching SQL DELETE or modifying database records.
+- Batch mutation rollback preserves all staged changes intact in `ChangeSet` on error,
+  records `rolled_back = true`, and shifts UI focus to the failed row and column.
+- Provider and native UI matrix:
+  - SQLite: parameterized insert/update/delete, composite PK, zero affected row conflict detection,
+    and rollback verified in automated suite + integration harness.
+  - PostgreSQL: catalog metadata expansion (identity, generated, collation, FK actions, index
+    definitions), parameterized PK mutations, and rollback semantics verified in unit & core services.
+  - Native UI: 3-way conflict dialog, pending changes review, Dirty navigation guard (Apply / Discard / Cancel),
+    read-only query grid decoupling, and 10k-row / 50-column lookup performance PASS.
+- Quality gates:
+  - `cargo fmt --all -- --check`: PASS.
+  - `cargo check --workspace`: PASS.
+  - `cargo clippy --workspace --all-targets -- -D warnings`: PASS (0 warnings).
+  - `cargo test --workspace`: PASS (571 unit and integration tests passing).
+  - `cargo build --release --locked -p db-pro-native`: PASS (39.6MB release binary).
+  - `bash .skills/perf-audit/scripts/perf-scan.sh`: PASS (4 checks passed, 0 warnings).

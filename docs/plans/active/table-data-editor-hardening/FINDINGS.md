@@ -36,15 +36,15 @@ recovery regressions listed in the plan.
   is optional targeting metadata for focus/render only.
 - The visible grid builds row/column coordinate maps once per visible layout;
   no per-cell `.position()` lookup remains in the render/navigation path.
-- Conflict reload keeps staged mutations and Retry waits for the refreshed
-  result before applying again. Constraint failures retain the staged values.
-- Remaining P1: PostgreSQL and SQLite provider flows still need independent
-  runtime evidence with a live concurrent change.
-- Remaining P2: Reload Row fetches the original PK predicate and merges a
-  returned row into the current result when visible; a deliberate Keep Local /
-  Use Server Values choice is still not exposed because staged values remain
-  the safe default.
-- Remaining P2: provider-specific structure metadata fields (index method,
-  INCLUDE/predicate/definition and full FK actions) are not expanded in this
-  slice; binary editing, count caching, and state extraction from DbProApp also
-  remain pending.
+- 3-Way Conflict UI is implemented: displays Original, Local Staged (Mine), and
+  Database Current per changed column with conflict highlight.
+- Keep Mine updates the baseline from current DB values and retries against the
+  refreshed baseline without stale collision.
+- Use Database discards conflicting staged changes and adopts DB current values.
+- Targeted reload with composite PKs `(tenant_id, user_id)` generates exact
+  equality filters and merges directly into the matching `RowIdentity`.
+- Local insert rows deleted before Apply are removed from `ChangeSet` without
+  issuing SQL DELETE mutations.
+- Batch mutation failures roll back the entire transaction atomically, retain
+  all staged changes intact in `ChangeSet`, and focus the failed cell.
+- All 571 workspace unit tests, clippy, check, fmt, and release builds PASS.

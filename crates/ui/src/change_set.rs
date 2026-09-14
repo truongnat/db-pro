@@ -233,6 +233,22 @@ impl ChangeSet {
         before != self.entries.len()
     }
 
+    pub fn update_original_baseline(&mut self, identity: &RowIdentity, column_index: usize, new_original: UiCell) {
+        for entry in self.entries.iter_mut() {
+            if let StagedChange::Update {
+                identity: entry_identity,
+                column_index: changed_column,
+                original,
+                ..
+            } = entry
+            {
+                if entry_identity == identity && *changed_column == column_index {
+                    *original = new_original.clone();
+                }
+            }
+        }
+    }
+
     pub fn cell_value(&self, identity: &RowIdentity, column_index: usize) -> Option<UiCell> {
         self.entries.iter().rev().find_map(|entry| match entry {
             StagedChange::Update {

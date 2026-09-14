@@ -251,6 +251,7 @@ impl Default for DbProApp {
             table_mutation_retry_after_reload: false,
             table_mutation_retry_target: None,
             table_mutation_error: None,
+            conflict_dialog_open: false,
             table_view: TableView::Structure,
             query_folder: String::new(),
             backup_output_path: String::new(),
