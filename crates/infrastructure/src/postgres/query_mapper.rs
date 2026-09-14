@@ -399,13 +399,69 @@ fn decode_cell(row: &sqlx::postgres::PgRow, i: usize, data_type: &str) -> Result
     }
 }
 
+/// Fallback decoder for every class without an explicit arm above (enum labels,
+/// domains, arrays, ranges, and other provider-specific types).
+///
+/// The wire format decides how a value may be represented, and getting this wrong
+/// is not cosmetic: `as_str` does not check the format, so a binary payload that
+/// happened to be valid UTF-8 (an `int4range`, a `text[]`, a `tsvector`) was served
+/// as mojibake text, while one that was not (`money`, a composite record) failed the
+/// whole query and took the readable columns of the row down with it.
+///
+/// So: a text-format value is the provider's canonical text; a binary-format value
+/// is text only when its column type says the payload *is* text (a character type or
+/// an enum label), and is otherwise kept byte-exact — the UI renders those as
+/// read-only `\x` hex, which cannot be mistaken for a value.
 fn decode_textual_value(row: &sqlx::postgres::PgRow, i: usize, data_type: &str) -> Result<CellValue, DbError> {
     let raw = row.try_get_raw(i).map_err(crate::error::from_sqlx)?;
-    let value = raw
-        .as_str()
-        .map(str::to_owned)
-        .map_err(|error| DbError::QueryFailed(format!("cannot decode PostgreSQL {data_type} as text: {error}")))?;
-    Ok(CellValue::Text(value))
+    match raw.format() {
+        PgValueFormat::Text => {
+            let value = raw.as_str().map(str::to_owned).map_err(|error| {
+                DbError::QueryFailed(format!("cannot decode PostgreSQL {data_type} as text: {error}"))
+            })?;
+            Ok(CellValue::Text(value))
+        }
+        PgValueFormat::Binary if binary_payload_is_text(row, i) => {
+            let value = raw.as_str().map(str::to_owned).map_err(|error| {
+                DbError::QueryFailed(format!("cannot decode PostgreSQL {data_type} as text: {error}"))
+            })?;
+            Ok(CellValue::Text(value))
+        }
+        PgValueFormat::Binary => raw
+            .as_bytes()
+            .map(|bytes| CellValue::Bytes(bytes.to_vec()))
+            .map_err(|error| DbError::QueryFailed(format!("cannot decode PostgreSQL {data_type} as bytes: {error}"))),
+    }
+}
+
+/// Whether a binary-format payload is the UTF-8 text of its value rather than an
+/// opaque encoding. sqlx resolves the column's own type from `pg_type`, so the kind
+/// answers this exactly for enums (arbitrary type name, label payload), domains (the
+/// base type decides) and the structured classes that are *not* text.
+fn binary_payload_is_text(row: &sqlx::postgres::PgRow, i: usize) -> bool {
+    fn kind_is_text(kind: &sqlx::postgres::PgTypeKind) -> bool {
+        match kind {
+            sqlx::postgres::PgTypeKind::Enum(_) => true,
+            sqlx::postgres::PgTypeKind::Domain(base) => {
+                kind_is_text(base.kind()) || is_text_like_type_name(base.name())
+            }
+            _ => false,
+        }
+    }
+
+    let type_info = row.columns()[i].type_info();
+    kind_is_text(type_info.kind()) || is_text_like_type_name(type_info.name())
+}
+
+/// Character types whose binary payload is the value's UTF-8 text (PostgreSQL sends
+/// no length prefix or framing for them, unlike ranges, arrays and composites).
+fn is_text_like_type_name(name: &str) -> bool {
+    let upper = name.trim().to_uppercase();
+    let base = upper.split('(').next().unwrap_or(&upper).trim();
+    matches!(
+        base,
+        "TEXT" | "VARCHAR" | "CHARACTER VARYING" | "BPCHAR" | "CHAR" | "CHARACTER" | "NAME" | "XML" | "CITEXT"
+    )
 }
 
 fn decode_numeric(row: &sqlx::postgres::PgRow, i: usize) -> Result<CellValue, DbError> {
@@ -714,6 +770,43 @@ mod tests {
         }
 
         assert_eq!(decode_binary_numeric(&bytes).as_deref(), Some("1.50"));
+    }
+
+    /// The binary-payload rule is name- and kind-driven: character types and enum
+    /// labels are text, the structured classes (arrays, ranges, composites, money,
+    /// tsvector) are opaque bytes. An enum's own type name is arbitrary, which is why
+    /// the kind check in `binary_payload_is_text` decides for it, not this list.
+    #[test]
+    fn text_like_type_names_cover_character_types_only() {
+        for name in [
+            "TEXT",
+            "text",
+            "VARCHAR",
+            "VARCHAR(20)",
+            "CHARACTER VARYING",
+            "BPCHAR",
+            "CHAR",
+            "CHARACTER(3)",
+            "NAME",
+            "XML",
+            "citext",
+        ] {
+            assert!(is_text_like_type_name(name), "{name} is a character type");
+        }
+
+        for name in [
+            "INT4",
+            "INT4RANGE",
+            "TEXT[]",
+            "MONEY",
+            "RECORD",
+            "tsvector",
+            "JSONB",
+            "POINT",
+            "order_status",
+        ] {
+            assert!(!is_text_like_type_name(name), "{name} must be byte-exact, not text");
+        }
     }
 
     #[test]

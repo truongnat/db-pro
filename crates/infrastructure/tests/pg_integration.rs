@@ -843,3 +843,120 @@ async fn pg_temporal_classes_decode_to_canonical_strings() {
     );
     connector.disconnect(&handle).await.unwrap();
 }
+
+/// #58 (B4): a class the mapper has no explicit arm for must never be served as
+/// mojibake and must never take the readable columns of the row down with it.
+/// The wire format decides the representation: provider text stays text (canonical
+/// enum/domain values), binary stays byte-exact (`\x` hex in the UI, read-only).
+#[tokio::test]
+#[ignore] // Requires DATABASE_URL
+async fn pg_unsupported_binary_classes_stay_exact_and_keep_the_row_readable() {
+    let (connector, handle) = setup().await;
+
+    // Two classes that used to fail the whole query (money, a composite record),
+    // one that used to come back as binary noise (a range), one array, and the
+    // ordinary columns of the same row that must survive all of it.
+    let result = connector
+        .query(
+            &handle,
+            "SELECT                '[1,10)'::int4range AS range_value,                '12.34'::money AS money_value,                ROW(1, 'x')::record AS record_value,                '{a,b}'::text[] AS text_array,                'ok'::text AS note,                42 AS answer",
+            &[],
+        )
+        .await
+        .expect("an unsupported class must not fail the readable columns of the row");
+
+    let cells = &result.rows[0].0;
+
+    // int4range: flags 0x02 (lower bound inclusive) then big-endian bounds 1 and 10.
+    match &cells[0] {
+        CellValue::Bytes(bytes) => assert_eq!(
+            bytes.as_slice(),
+            [0x02, 0, 0, 0, 4, 0, 0, 0, 1, 0, 0, 0, 4, 0, 0, 0, 10],
+            "a range must stay byte-exact"
+        ),
+        other => panic!("a range must not be decoded as text, got {other:?}"),
+    }
+
+    // money in binary form is an int64 count of cents.
+    match &cells[1] {
+        CellValue::Bytes(bytes) => {
+            assert_eq!(bytes.len(), 8, "money is an int64 on the wire: {bytes:?}");
+            let cents = i64::from_be_bytes(bytes.as_slice().try_into().expect("8 bytes"));
+            assert_eq!(cents, 1234, "12.34 in cents");
+        }
+        other => panic!("money must not be decoded as text, got {other:?}"),
+    }
+
+    // A composite record has no flat representation: bytes, not text.
+    match &cells[2] {
+        CellValue::Bytes(bytes) => assert!(!bytes.is_empty(), "a record carries field data"),
+        other => panic!("a record must not be decoded as text, got {other:?}"),
+    }
+
+    // Arrays arrive in the binary wire format and have no element parsing in v0.1,
+    // so the fallback is byte-exact rather than an invented element rendering.
+    match &cells[3] {
+        CellValue::Bytes(bytes) => assert!(!bytes.is_empty(), "an array carries element data"),
+        other => panic!("an array must not be decoded as text, got {other:?}"),
+    }
+
+    // The unrelated readable columns of the same row are intact.
+    assert!(
+        matches!(&cells[4], CellValue::Text(value) if value == "ok"),
+        "the text column of the row must survive, got {:?}",
+        cells[4]
+    );
+    assert!(
+        matches!(&cells[5], CellValue::Int64(42)),
+        "the integer column of the row must survive, got {:?}",
+        cells[5]
+    );
+
+    connector.disconnect(&handle).await.unwrap();
+}
+
+/// #58 (B4): enum labels and domains decode deterministically — the enum label as
+/// canonical text, a domain through its base type (PostgreSQL resolves the domain
+/// to the underlying type on the wire), and a NULL stays NULL for both.
+#[tokio::test]
+#[ignore] // Requires DATABASE_URL
+async fn pg_enum_and_domain_values_decode_to_canonical_values() {
+    let (connector, handle) = setup().await;
+    let result = connector
+        .query(
+            &handle,
+            "SELECT                'shipped'::order_status AS enum_literal,                (SELECT status FROM orders WHERE id = 1) AS enum_column,                'YES'::information_schema.yes_or_no AS domain_over_text,                42::information_schema.cardinal_number AS domain_over_int,                NULL::information_schema.yes_or_no AS domain_null",
+            &[],
+        )
+        .await
+        .expect("enum and domain values must decode");
+
+    let cells = &result.rows[0].0;
+    assert!(
+        matches!(&cells[0], CellValue::Text(value) if value == "shipped"),
+        "an enum literal must keep its canonical label, got {:?}",
+        cells[0]
+    );
+    assert!(
+        matches!(&cells[1], CellValue::Text(value) if value == "delivered"),
+        "an enum column must keep its canonical label, got {:?}",
+        cells[1]
+    );
+    assert!(
+        matches!(&cells[2], CellValue::Text(value) if value == "YES"),
+        "a domain over text keeps canonical text, got {:?}",
+        cells[2]
+    );
+    assert!(
+        matches!(&cells[3], CellValue::Int64(42)),
+        "a domain over integer decodes through its base type, got {:?}",
+        cells[3]
+    );
+    assert!(
+        matches!(&cells[4], CellValue::Null),
+        "a NULL domain value is a null cell, got {:?}",
+        cells[4]
+    );
+
+    connector.disconnect(&handle).await.unwrap();
+}
