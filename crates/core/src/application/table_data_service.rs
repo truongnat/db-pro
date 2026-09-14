@@ -213,6 +213,7 @@ impl TableDataService {
 
     /// Apply mutations while preserving the provider failure metadata for UI
     /// callers that need to identify the failed staged mutation.
+    #[allow(clippy::result_large_err)]
     pub async fn apply_mutations_detailed(
         &self,
         connection_id: &ConnectionId,
@@ -242,15 +243,15 @@ impl TableDataService {
         }
         let handle = self.resolve_handle(connection_id).map_err(validation_failure)?;
         let dialect = self.connector.dialect(&handle).map_err(validation_failure)?;
-        let mut ordered = mutations.to_vec();
-        ordered.sort_by_key(|mutation| match mutation {
+        let mut indexed_mutations: Vec<(usize, &TableDataMutation)> = mutations.iter().enumerate().collect();
+        indexed_mutations.sort_by_key(|(_, mutation)| match mutation {
             TableDataMutation::Delete { .. } => 0,
             TableDataMutation::Update { .. } => 1,
             TableDataMutation::Insert { .. } => 2,
         });
-        let statements = ordered
+        let statements = indexed_mutations
             .iter()
-            .map(|mutation| {
+            .map(|(_, mutation)| {
                 let (sql, params) = match mutation {
                     TableDataMutation::Update {
                         columns,
@@ -285,7 +286,13 @@ impl TableDataService {
         let results = self
             .connector
             .execute_parameterized_transaction(&handle, &statements)
-            .await?;
+            .await
+            .map_err(|mut failure| {
+                if failure.statement_index < indexed_mutations.len() {
+                    failure.statement_index = indexed_mutations[failure.statement_index].0;
+                }
+                failure
+            })?;
         let mut total = 0_u64;
         for result in results {
             match result {
@@ -772,12 +779,9 @@ mod tests {
         connector.expect_execute_parameterized_transaction().returning(|_, _| {
             Err(TransactionFailure {
                 phase: TransactionFailurePhase::Statement,
-                statement_index: 1,
+                statement_index: 0,
                 outcome: TransactionFailureOutcome::RolledBack,
-                results: vec![TransactionStatementResult::Affected {
-                    row_count: 1,
-                    duration_ms: 0,
-                }],
+                results: Vec::new(),
                 error: DbError::QueryFailed("duplicate key value".into()),
             })
         });
@@ -795,9 +799,63 @@ mod tests {
             )
             .await
             .expect_err("a rolled-back transaction must surface its database error");
-        assert_eq!(failure.statement_index, 1);
+        assert_eq!(failure.statement_index, 0);
         assert_eq!(failure.outcome, TransactionFailureOutcome::RolledBack);
         assert!(matches!(failure.error, DbError::QueryFailed(message) if message == "duplicate key value"));
+    }
+
+    #[tokio::test]
+    async fn apply_mutations_detailed_maps_statement_index_to_original_input_mutation() {
+        let (conn_id, registry) = setup();
+        let mut connector = MockDbConnector::new();
+        connector
+            .expect_dialect()
+            .returning(|_| Ok(Box::new(QuestionDialect) as Box<dyn SqlDialect>));
+
+        // Input mutations: [Insert (orig 0), Delete (orig 1)]
+        // Reordered execution statements: [Delete (exec 0), Insert (exec 1)]
+        // Mock transaction execution fails at exec index 1 (the Insert statement).
+        connector
+            .expect_execute_parameterized_transaction()
+            .returning(|_, statements| {
+                assert_eq!(statements.len(), 2);
+                assert!(statements[0].sql.starts_with("DELETE FROM"));
+                assert!(statements[1].sql.starts_with("INSERT INTO"));
+                Err(TransactionFailure {
+                    phase: TransactionFailurePhase::Statement,
+                    statement_index: 1, // exec index 1 (Insert)
+                    outcome: TransactionFailureOutcome::RolledBack,
+                    results: vec![TransactionStatementResult::Affected {
+                        row_count: 1,
+                        duration_ms: 0,
+                    }],
+                    error: DbError::QueryFailed("duplicate key value".into()),
+                })
+            });
+
+        let service = TableDataService::new(Box::new(connector), registry, Box::new(mock_connections()));
+        let failure = service
+            .apply_mutations_detailed(
+                &conn_id,
+                "public",
+                "users",
+                &[
+                    TableDataMutation::Insert {
+                        columns: vec!["name".into()],
+                        values: vec![CellValue::Text("new".into())],
+                    },
+                    TableDataMutation::Delete {
+                        pk_columns: vec!["id".into()],
+                        pk_values: vec![CellValue::Int64(1)],
+                    },
+                ],
+            )
+            .await
+            .expect_err("failing transaction must map statement_index back to original input position");
+
+        // Statement index 1 in reordered execution corresponds to Insert, which was input index 0.
+        assert_eq!(failure.statement_index, 0);
+        assert_eq!(failure.outcome, TransactionFailureOutcome::RolledBack);
     }
 
     #[tokio::test]

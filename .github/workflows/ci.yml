@@ -74,7 +74,7 @@ jobs:
         run: |
           ssh_dir="$RUNNER_TEMP/db-pro-ssh"
           ssh_user="$(whoami)"
-          ssh_port="$(python3 -c 'import socket; s=socket.socket(); s.bind((\"127.0.0.1\", 0)); print(s.getsockname()[1]); s.close()')"
+          ssh_port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1]); s.close()')"
           mkdir -p "$ssh_dir" "$HOME/.ssh"
           chmod 700 "$HOME/.ssh"
           ssh-keygen -q -t ed25519 -N '' -f "$ssh_dir/user_key"
