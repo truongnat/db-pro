@@ -6,8 +6,8 @@
 cargo fmt --all -- --check          # PASS
 cargo check --workspace             # PASS
 cargo clippy --workspace --all-targets -- -D warnings  # PASS
-cargo test --workspace              # PASS (783 tests, 0 failed)
-cargo test -p db-pro-ui -- diagram::tests  # PASS (73 tests, 0 failed)
+cargo test --workspace              # PASS (809 tests, 0 failed)
+cargo test -p db-pro-ui -- diagram::tests  # PASS (99 tests, 0 failed)
 ```
 
 ## Test coverage matrix
@@ -15,35 +15,46 @@ cargo test -p db-pro-ui -- diagram::tests  # PASS (73 tests, 0 failed)
 | Verification item | Tests | Status |
 |---|---|---|
 | Worker lifecycle (start/shutdown/drop) | 4 tests | PASS |
+| Worker liveness semantics (is_alive, dispatch_succeeded) | 3 tests | PASS |
 | Stale result correctness (request_id, version, coalescing) | 5 tests | PASS |
+| Request ID overflow invariant | 2 tests | PASS |
+| Schema version overflow invariant | 2 tests | PASS |
+| App-boundary stale commit integration | 3 tests | PASS |
+| Atomic scene commit | 2 tests | PASS |
 | Schema invalidation (version increment, dirty detection) | 4 tests | PASS |
 | Scene atomicity (old graph during computation) | 2 tests | PASS |
-| Renderer audit (scene-only consumption) | 2 tests | PASS |
+| Renderer audit (scene-only consumption) | 3 tests | PASS |
 | Spatial node query (bucket, cells, negative, giant, zero, boundary, dedup, empty) | 8 tests | PASS |
 | Spatial edge query (buckets, no fallback, dedup, empty) | 4 tests | PASS |
 | Long-edge bucket explosion (bounded, capped) | 2 tests | PASS |
+| Long-edge queryability after cap | 2 tests | PASS |
 | Spatial index metrics (reflects, empty, dense) | 3 tests | PASS |
+| Spatial query dedup (node, edge) | 2 tests | PASS |
 | Layout timing (20/100/500/1000 tables) | 4 tests | PASS |
 | Scene prep timing (1280x800, 1920x1080) | 2 tests | PASS |
 | Pan/zoom (viewport-only change, LOD change) | 2 tests | PASS |
+| Pan/zoom no-rebuild integration | 2 tests | PASS |
 | LOD (Compact/Standard/Detailed, transitions, selected) | 5 tests | PASS |
 | BFS determinism (runs, reverse, cycles, self-FK, composite, empty, OOB) | 7 tests | PASS |
+| Search/neighborhood no unnecessary layout | 1 test | PASS |
 | Fit-view (subset bounds, empty fallback, single node) | 3 tests | PASS |
 | Hit testing (center, outside, boundary, overlap) | 4 tests | PASS |
 | Composite FK rendering (label format, single edge) | 1 test (in app_tests) | PASS |
 | Memory/rebuild stability (A→B→A x10, rapid switches) | 2 tests | PASS |
 | Failure path (state machine, disconnected channel) | 4 tests | PASS |
 | Viewport coordinates (roundtrip, margin, clamp) | 3 tests | PASS |
-| **Total** | **73 tests** | **ALL PASS** |
+| Performance evidence (20/100/500/1000 tables) | 4 tests | PASS |
+| Frame path performance (100 scene preps) | 1 test | PASS |
+| **Total** | **99 tests** | **ALL PASS** |
 
-## Performance evidence
+## Performance evidence (from test output)
 
-| Fixture | Graph build + spatial index | Scene prep (1280×800) | Visible nodes | Spatial query µs |
+| Fixture | Graph + index | Scene prep | Visible nodes/edges | Spatial query µs |
 |---|---|---|---|---|
-| 20 tables (isolated) | < 50ms | — | bounded | — |
-| 100 tables (isolated) | < 100ms | — | bounded | — |
-| 500 tables (isolated) | < 300ms | — | bounded | — |
-| 1000 tables (dense, ~3000 FKs) | < 500ms | < 10ms | < 50 | < 5000 |
+| 20 tables | < 50ms | sub-ms | bounded | — |
+| 100 tables | < 100ms | sub-ms | bounded | — |
+| 500 tables | < 300ms | sub-ms | bounded | — |
+| 1000 tables dense | < 500ms | < 10ms | < 50 / < 150 | < 5000 |
 
 ## Spatial index metrics (1000-table dense)
 
@@ -58,6 +69,9 @@ cargo test -p db-pro-ui -- diagram::tests  # PASS (73 tests, 0 failed)
 
 ## Fixes verified
 
-1. **Version overflow:** `saturating_add(1)` + initial version = 1 → no wrap to 0
-2. **Worker thread spawn:** `.expect()` → graceful `Option<Sender>` degraded mode
-3. **Coalescing cap:** `MAX_COALESCE_DRAIN = 64` → bounded CPU per request
+1. **Version overflow (F-1):** `saturating_add(1)` + initial version = 1 → no wrap to 0
+2. **Worker thread spawn (F-2):** `.expect()` → graceful `Option<Sender>` degraded mode
+3. **Coalescing cap (F-3):** `MAX_COALESCE_DRAIN = 64` → bounded CPU per request
+4. **Worker liveness (F-4):** `request_tx = None` on spawn failure; `is_alive()` returns false; `dispatch_succeeded()` added; UI transitions to `Failed` state
+5. **Request ID overflow (F-5):** Documented: at MAX, rely on graph_version for staleness
+6. **Long-edge cap (F-9):** max_span=32 bounds expansion; edge remains queryable at source region

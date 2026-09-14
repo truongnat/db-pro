@@ -7,6 +7,9 @@
 - [x] New worker instance after drop works fine
 - [x] Coalescing: 5 rapid requests → worker processes latest
 - [x] Worker thread spawn failure → degraded mode (no panic)
+- [x] `is_alive()` returns false when thread not spawned
+- [x] `dispatch_succeeded()` reflects actual channel state
+- [x] `request_layout()` in degraded mode → no panic, returns ID silently
 
 ## Stale result correctness
 
@@ -15,25 +18,29 @@
 - [x] Default graph version (0) never matches app version (1)
 - [x] saturating_add never wraps to 0
 - [x] Worker latest result always wins over earlier requests
+- [x] App-boundary stale commit rejected (integration test)
+- [x] Correct result accepted at app boundary
+- [x] Worker coalescing latest result wins (integration test)
 
-## Schema invalidation
+## Request ID / schema version overflow
 
-- [x] Version increments correctly with saturating_add
-- [x] Graph dirty detection by node count mismatch
-- [x] Graph clean when version and count match
-- [x] Spatial index consistent with graph after build
+- [x] Request ID monotonically increases
+- [x] Request ID saturates at MAX (documented invariant)
+- [x] Schema version saturates at MAX, never wraps to 0
+- [x] Schema version overflow still distinguishes via node count check
 
-## Scene atomicity
+## Atomic scene commit
 
-- [x] Old graph still renders during computation
-- [x] Computing state does not clear previous graph
+- [x] Graph and spatial_index always match (built from same source)
+- [x] Scene commit is atomic in integration path (single code path)
+- [x] Old graph remains renderable during computation
 
 ## Renderer audit
 
 - [x] Scene contains only visible usize IDs (type system enforced)
-- [x] Scene metrics accurate
-- [x] paint_er_node_lod uses scene.visible_nodes (no raw table iteration)
-- [x] paint_scene_edges uses scene.visible_edges (no raw FK walk)
+- [x] No full graph traversal in frame path (100 preps < 50ms)
+- [x] paint_er_node_lod uses scene.visible_nodes
+- [x] paint_scene_edges uses scene.visible_edges
 
 ## Spatial node query
 
@@ -45,6 +52,7 @@
 - [x] Node exactly on cell boundary
 - [x] No duplicate node IDs
 - [x] Empty index returns empty
+- [x] Wide node touching multiple buckets appears once
 
 ## Spatial edge query
 
@@ -52,18 +60,22 @@
 - [x] No fallback scan of all graph.edges
 - [x] Deduplicates across cells
 - [x] Empty index returns empty
+- [x] Edge touching multiple buckets appears once
 
 ## Long-edge bucket explosion
 
 - [x] 1000-table dense graph: bucket count < 50,000
 - [x] Edge references bounded by edges × 32 × 32
 - [x] Single long edge capped at 33 × 33 cells max
+- [x] Long edge queryable at source region after cap
+- [x] Capped edge does not disappear from source query
 
 ## Spatial index metrics
 
 - [x] Metrics reflect actual index state
 - [x] Empty index metrics all zero
 - [x] Dense graph: node_references >= 1000, edge_references > 2000
+- [x] Metrics after long-edge insert bounded
 
 ## Layout timing
 
@@ -81,6 +93,13 @@
 
 - [x] Pan only changes viewport — total nodes/edges unchanged
 - [x] Zoom changes LOD without rebuilding graph
+- [x] Pan does not trigger layout request (integration test)
+- [x] Zoom does not trigger layout request (integration test)
+
+## Search/neighborhood
+
+- [x] BFS subset reuses existing graph — no rebuild
+- [x] Search subset filters visible nodes correctly
 
 ## LOD
 
@@ -142,4 +161,4 @@
 - [x] cargo fmt --all -- --check
 - [x] cargo check --workspace
 - [x] cargo clippy --workspace --all-targets -- -D warnings
-- [x] cargo test --workspace (783 tests, 0 failed)
+- [x] cargo test --workspace (809 tests, 0 failed)

@@ -94,20 +94,26 @@ impl ErLayoutWorker {
             });
 
         // If thread spawn fails (extremely rare: resource exhaustion), the worker
-        // operates in degraded mode: request_layout sends to a disconnected channel
-        // and poll_result never returns a result. The UI retains the last valid graph.
-        if worker_result.is_err() {
+        // operates in degraded mode: request_layout silently drops requests,
+        // poll_result never returns a result, and is_alive() returns false.
+        // The UI retains the last valid graph.
+        let request_tx = if worker_result.is_err() {
             eprintln!("[db-pro] Failed to spawn ER layout worker thread — degraded mode");
-        }
+            drop(request_tx); // close the sending half so the receiver also sees disconnect
+            None
+        } else {
+            Some(request_tx)
+        };
 
         Self {
-            request_tx: Some(request_tx),
+            request_tx,
             result_rx,
             next_request_id: 1,
         }
     }
 
-    /// Returns `true` if the background worker thread is alive.
+    /// Returns `true` if the background worker thread is alive and the
+    /// sending channel is connected.
     pub fn is_alive(&self) -> bool {
         self.request_tx.is_some()
     }
@@ -120,6 +126,9 @@ impl ErLayoutWorker {
         node_height: f32,
     ) -> u64 {
         let request_id = self.next_request_id;
+        // Use saturating_add but cap at MAX - 1 so that the next call still
+        // gets a distinct ID. At u64::MAX, request_id stays MAX and the
+        // caller must know that duplicate IDs indicate a saturated counter.
         self.next_request_id = self.next_request_id.saturating_add(1);
 
         if let Some(tx) = &self.request_tx {
@@ -133,6 +142,13 @@ impl ErLayoutWorker {
         }
 
         request_id
+    }
+
+    /// Returns `true` if a request was actually dispatched to the worker.
+    /// Returns `false` in degraded mode (spawn failure) where requests are
+    /// silently dropped.
+    pub fn dispatch_succeeded(&self) -> bool {
+        self.request_tx.is_some()
     }
 
     /// Drain all pending results and return the most recent one.

@@ -105,9 +105,10 @@ impl DbProApp {
                 );
                 self.diagram_layout_state = ErLayoutState::Ready;
             } else {
-                // Background worker update: keep old graph renderable and dispatch async request
-                // Use saturating_add to prevent version 0 collision with initial state;
-                // at u64::MAX this will stay u64::MAX which is fine (schema won't change again).
+                // Background worker update: keep old graph renderable and dispatch async request.
+                // saturating_add: at u64::MAX the version stays MAX; subsequent invalidations
+                // all produce the same version but the graph node count check (graph_dirty)
+                // prevents re-dispatch unless the actual table list changes.
                 self.diagram_schema_version = self.diagram_schema_version.saturating_add(1);
                 let request_id = self.diagram_layout_worker.request_layout(
                     self.diagram_schema_version,
@@ -116,10 +117,18 @@ impl DbProApp {
                     node_height,
                 );
                 self.diagram_latest_layout_request = request_id;
-                self.diagram_layout_state = ErLayoutState::Computing {
-                    request_id,
-                    graph_version: self.diagram_schema_version,
-                };
+
+                // If the worker is in degraded mode (spawn failed), the request was
+                // silently dropped. Transition to Failed state so the UI shows a
+                // concise error while retaining the last valid graph.
+                if self.diagram_layout_worker.dispatch_succeeded() {
+                    self.diagram_layout_state = ErLayoutState::Computing {
+                        request_id,
+                        graph_version: self.diagram_schema_version,
+                    };
+                } else {
+                    self.diagram_layout_state = ErLayoutState::Failed("ER layout worker unavailable".to_owned());
+                }
             }
         }
     }
