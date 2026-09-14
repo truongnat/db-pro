@@ -1,0 +1,478 @@
+# V01-06 evidence — 12-state-dir-blocker-fix
+
+Captured    : 2026-09-14 (local). No CI run, dispatch, cancel or tag was issued by this session.
+Worktree    : /Users/truongdev/Documents/projects/db-pro/main (branch main)
+Base commit : e22a498 "ci(release): add the Linux dbus build dependency"
+              (HEAD at capture time; the change below was uncommitted when the runs were made).
+Host        : macOS 26.5.2 / arm64 (Apple Silicon)
+Toolchain   : cargo 1.95.0 (f2d3ce0bd 2026-03-21), rustc 1.95.0 (59807616e 2026-04-14)
+              (the repo pin in rust-toolchain.toml; used unchanged)
+Release bin : target/release/db-pro-native
+              size  23733024 bytes
+              sha256 a0645ca3b503e12b647d53ecf29547e61fefc1dbd695c9cc08066cd69aab4f6c
+Archive     : /tmp/dbpro-fix/dist/db-pro-v0.1.0-macos-arm64.tar.gz
+              size  10059857 bytes
+              sha256 87113d5be964fe86cdeffe44404cb189f9502aed2d5af7fdc01964b4c580eb48
+              bundled binary sha256 == the built binary sha256 above
+
+SCOPE OF THIS CHANGE
+  - crates/native-app/src/main.rs : `resolve_data_dir()` rewritten around a new pure
+    `choose_data_dir(...)`; new constants LEGACY_DATA_DIR_NAME / PLATFORM_APP_DIR_NAME; new
+    `platform_data_dir()` and `non_empty_env()` helpers; four new unit tests.
+  - docs/release/evidence/v01-06/12-state-dir-blocker-fix.txt : this file.
+  - NOT touched: any other .rs file, any Cargo.toml/Cargo.lock (no dependency added — the fix
+    uses std::env + cfg!(target_os = ...) only, so `--locked` builds stay valid),
+    rust-toolchain.toml, the keyring service constant, the workflows, and every other doc
+    (the documentation updates are a separate commit).
+
+==============================================================================
+1. THE BLOCKER (as reported, and reproduced here against the pre-fix artifact)
+==============================================================================
+The packaged `.app` could not start when launched the normal way.
+
+The coordinator packaged and extracted the pre-fix tree, ran
+
+    cd / && "/tmp/dbpro-smoke/install/DB Pro.app/Contents/MacOS/db-pro-native"
+
+and got
+
+    Error: CreateDataDir(Os { code: 30, kind: ReadOnlyFilesystem, message: "Read-only file system" })
+    EXIT rc=1
+
+(i.e. `DbProRuntime::new` failed on `create_dir_all(/.db-pro-data)` and `main()` returned Err
+before any window was opened). Repro re-run by this session against the *pre-fix* artifact still
+present on disk, with the unrelated keyring read bypassed (section 6) so the data-directory
+defect is isolated:
+
+    $ shasum -a 256 /tmp/dbpro-smoke/db-pro-v0.1.0-macos-arm64.tar.gz
+    98c54fe181e23778eb333ec6b4ed92e48cba6f7c8e8a8bb714b99a0639a4fc02   (10,058,054 bytes —
+      byte-identical to the archive the coordinator reported)
+    $ shasum -a 256 "/tmp/dbpro-smoke/install/DB Pro.app/Contents/MacOS/db-pro-native"
+    c0da49cd818cf9fdbc635550458f48c370ae5ecb356eb65a40d3c1febce4fcfd   (matches the sha recorded
+      in 08-post-fix-quality-gates.txt §8.3, i.e. the pre-fix binary)
+    $ cd / && GROQ_API_KEY=smoke-bypass-not-a-real-key "/tmp/dbpro-smoke/install/DB Pro.app/Contents/MacOS/db-pro-native"
+    Error: CreateDataDir(Os { code: 30, kind: ReadOnlyFilesystem, message: "Read-only file system" })
+    PRE_FIX_EXIT=1
+
+==============================================================================
+2. ROOT CAUSE
+==============================================================================
+`resolve_data_dir()` (crates/native-app/src/main.rs:127-135 before this change) was
+
+    std::env::var_os("DB_PRO_DATA_DIR")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|| {
+            std::env::current_dir()
+                .expect("current directory is available")
+                .join(".db-pro-data")
+        })
+
+A bundle launched by LaunchServices/Finder inherits `cwd=/` (verified again below with
+`lsof -a -p <pid> -d cwd` -> `cwd DIR 1,16 704 2 /`), so the fallback resolved to `/.db-pro-data`.
+A normal user cannot create a directory at the volume root, so
+`DbProRuntime::new` -> `std::fs::create_dir_all(&data_dir)` returned
+`RuntimeInitError::CreateDataDir(Os { code: 30, kind: ReadOnlyFilesystem, .. })`,
+`main() -> Result<(), Box<dyn Error>>` propagated it, and the process exited with status 1
+**without ever opening a window**. Because the app exits silently from the user's point of view,
+`open` returning 0 ("LaunchServices accepted the bundle") says nothing about whether the app
+stays up — the earlier "LaunchServices-accepted" claim recorded in
+`03-release-binary.txt` / `08-post-fix-quality-gates.txt` was misleading in exactly that way
+(corrected by an appended note in both files; the original text is preserved).
+
+==============================================================================
+3. THE FIX — EXACT BEFORE / AFTER
+==============================================================================
+Resolution order after the change:
+
+  1. `DB_PRO_DATA_DIR`, when set and non-empty            -> used verbatim (unchanged behaviour)
+  2. `<cwd>/.db-pro-data` when it *already exists* as a  -> used (developer checkout / existing
+     directory                                              installs keep their data in place)
+  3. `<platform data dir>/DB Pro` (macOS: `$HOME/Library/Application Support/DB Pro`;
+     Windows: `%APPDATA%\DB Pro`; other Unix: `$XDG_DATA_HOME/db-pro`, else
+     `$HOME/.local/share/db-pro`)
+  4. `<cwd>/.db-pro-data`, or the relative `.db-pro-data` when the working directory cannot be
+     resolved — no `expect(...)` panic any more.
+
+3.1 New code (crates/native-app/src/main.rs, replacing the old body)
+
+    /// Name of the legacy, working-directory-local state directory.
+    const LEGACY_DATA_DIR_NAME: &str = ".db-pro-data";
+    /// Application directory name used inside the per-user platform data root.
+    const PLATFORM_APP_DIR_NAME: &str = "DB Pro";
+
+    fn resolve_data_dir() -> std::path::PathBuf {
+        let override_dir = non_empty_env("DB_PRO_DATA_DIR").map(std::path::PathBuf::from);
+        let cwd = std::env::current_dir().ok();
+        let legacy_exists = cwd
+            .as_deref()
+            .is_some_and(|dir| dir.join(LEGACY_DATA_DIR_NAME).is_dir());
+
+        choose_data_dir(override_dir, cwd.as_deref(), legacy_exists, platform_data_dir())
+    }
+
+    fn choose_data_dir(
+        override_dir: Option<std::path::PathBuf>,
+        cwd: Option<&std::path::Path>,
+        legacy_exists: bool,
+        platform_dir: Option<std::path::PathBuf>,
+    ) -> std::path::PathBuf {
+        if let Some(dir) = override_dir {
+            return dir;
+        }
+        if legacy_exists {
+            if let Some(dir) = cwd {
+                return dir.join(LEGACY_DATA_DIR_NAME);
+            }
+        }
+        if let Some(dir) = platform_dir {
+            return dir;
+        }
+        cwd.map(|dir| dir.join(LEGACY_DATA_DIR_NAME))
+            .unwrap_or_else(|| std::path::PathBuf::from(LEGACY_DATA_DIR_NAME))
+    }
+
+    fn platform_data_dir() -> Option<std::path::PathBuf> {
+        if cfg!(target_os = "macos") {
+            non_empty_env("HOME").map(|home| {
+                std::path::PathBuf::from(home)
+                    .join("Library").join("Application Support").join(PLATFORM_APP_DIR_NAME)
+            })
+        } else if cfg!(target_os = "windows") {
+            non_empty_env("APPDATA")
+                .map(|appdata| std::path::PathBuf::from(appdata).join(PLATFORM_APP_DIR_NAME))
+        } else {
+            non_empty_env("XDG_DATA_HOME")
+                .map(std::path::PathBuf::from)
+                .or_else(|| non_empty_env("HOME")
+                    .map(|home| std::path::PathBuf::from(home).join(".local").join("share")))
+                .map(|data_root| data_root.join("db-pro"))
+        }
+    }
+
+    /// Reads an environment variable, treating an empty value as unset.
+    fn non_empty_env(key: &str) -> Option<std::ffi::OsString> {
+        std::env::var_os(key).filter(|value| !value.is_empty())
+    }
+
+The decision itself is the pure `choose_data_dir` function: it takes the override, the working
+directory, a *pre-computed* "legacy directory exists" boolean and the platform directory, and
+touches no process-global state. `resolve_data_dir()` is the thin environment wrapper, so the
+tests never mutate the process environment.
+
+3.2 New regression tests (crates/native-app/src/main.rs `mod tests`)
+
+    #[test] fn data_dir_override_wins_over_every_other_candidate()
+        choose_data_dir(Some("/override/state"), Some("/work"), legacy_exists = true,
+                        Some("/platform/DB Pro")) == "/override/state"          <- (a)
+
+    #[test] fn existing_legacy_dir_wins_over_the_platform_dir()
+        choose_data_dir(None, Some("/work"), legacy_exists = true,
+                        Some("/platform/DB Pro")) == "/work/.db-pro-data"        <- (b)
+
+    #[test] fn platform_dir_is_used_when_no_legacy_dir_exists()
+        choose_data_dir(None, Some("/"), legacy_exists = false,
+                        Some("/platform/DB Pro")) == "/platform/DB Pro"          <- (c) REGRESSION
+
+    #[test] fn cwd_fallback_is_used_only_when_nothing_else_resolves()
+        choose_data_dir(None, Some("/work"), false, None) == "/work/.db-pro-data"
+        choose_data_dir(None, None, false, None)          == ".db-pro-data"     <- (d) no panic
+
+Test (c) is the one that would have caught the shipped defect: its input is exactly the
+LaunchServices situation (`cwd=/`, no legacy directory, platform directory resolvable).
+
+==============================================================================
+4. QUALITY GATES (post-fix, rustc 1.95.0, this host)
+==============================================================================
+
+--- GATE 1: cargo fmt --all -- --check ---
+exit=0
+output: EMPTY (0 bytes) — no formatting differences
+PASS
+
+--- GATE 2: cargo check --workspace ---
+exit=0
+    Checking db-pro-native v0.1.0 (/Users/truongdev/Documents/projects/db-pro/main/crates/native-app)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.61s
+PASS
+
+--- GATE 3: cargo clippy --workspace --all-targets -- -D warnings ---
+exit=0
+    Checking db-pro-native v0.1.0 (/Users/truongdev/Documents/projects/db-pro/main/crates/native-app)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.82s
+warning lines: 0   error lines: 0
+PASS
+
+--- GATE 4: cargo test --workspace ---
+exit=0
+per-target results (19 test targets):
+  db_pro_core (lib)                            291 passed; 0 failed; 0 ignored
+  db_pro_infrastructure (lib)                   62 passed; 0 failed; 0 ignored
+  integration.rs                                32 passed; 0 failed; 0 ignored
+  pg_integration.rs                              0 passed; 0 failed; 18 ignored
+  schema_columns_atomicity_regression.rs         1 passed; 0 failed; 0 ignored
+  schema_indexes_runtime_verification.rs         1 passed; 0 failed; 0 ignored
+  schema_relations_runtime_verification.rs       1 passed; 0 failed; 0 ignored
+  schema_triggers_runtime_verification.rs        5 passed; 0 failed; 0 ignored
+  ssh_backup_runtime_verification.rs             0 passed; 0 failed; 1 ignored
+  db_pro_native (main)                          14 passed; 0 failed; 0 ignored
+  db_pro_runtime (lib)                          28 passed; 0 failed; 0 ignored
+  db_pro_tauri_lib (lib)                        21 passed; 0 failed; 0 ignored
+  db_pro_tauri (main)                            0 passed; 0 failed; 0 ignored
+  db_pro_ui (lib)                              359 passed; 0 failed; 0 ignored
+  doc-tests + 5 further empty targets            0 passed; 0 failed; 0 ignored
+
+EXACT TOTALS: 815 passed / 0 failed / 19 ignored
+Pre-fix baseline (recorded in 08-post-fix-quality-gates.txt §8.2): 811 / 0 / 19
+DELTA: +4 passed, +0 failed, +0 ignored
+The +4 are this change's new tests (the five new name lines observed in the run):
+  db_pro_native tests::data_dir_override_wins_over_every_other_candidate ... ok
+  db_pro_native tests::existing_legacy_dir_wins_over_the_platform_dir ... ok
+  db_pro_native tests::platform_dir_is_used_when_no_legacy_dir_exists ... ok
+  db_pro_native tests::cwd_fallback_is_used_only_when_nothing_else_resolves ... ok
+  (db_pro_native target count 10 -> 14; all four pass, none ignored)
+The 19 ignored tests are the same 18 `#[ignore]`d pg_integration cases (require DATABASE_URL) and
+the 1 `#[ignore]`d SSH backup case (requires DB_PRO_SSH_* plus an isolated PostgreSQL target).
+They are IGNORED, not passing, and are not counted above.
+PASS
+
+--- GATE 5: cargo build --release --locked -p db-pro-native ---
+exit=0
+    Compiling db-pro-native v0.1.0 (/Users/truongdev/Documents/projects/db-pro/main/crates/native-app)
+    Finished `release` profile [optimized] target(s) in 3.24s
+binary: target/release/db-pro-native, 23733024 bytes
+        sha256 a0645ca3b503e12b647d53ecf29547e61fefc1dbd695c9cc08066cd69aab4f6c
+PASS
+
+--- GATE 6: bash .skills/perf-audit/scripts/perf-scan.sh ---
+exit=0
+  Native UI Binary
+    ✓ cargo build -p db-pro-native: release build succeeded
+    ✓ Binary size: 22.6MB (target < 50MB)
+  Rust Static Analysis
+    ✓ cargo check: Workspace compiles
+    ✓ cargo clippy: No warnings
+  Audit Summary:  Passed: 4   Warnings: 0   Failed: 0
+  Status: PASS — All checks passed
+PASS
+
+==============================================================================
+5. ARTIFACT-LEVEL PROOF (the point of this run)
+==============================================================================
+All scratch output lives outside the repository, under /tmp/dbpro-fix/. The developer's real
+state directory was never used as the app's data directory: `DB_PRO_DATA_DIR` was pointed only at
+scratch paths, never at the repo's `.db-pro-data`.
+
+Pre-state recorded before any launch:
+  - no `db-pro-native` process running (`pgrep -x db-pro-native` -> none)
+  - `ls -ld "$HOME/Library/Application Support/DB Pro"` -> No such file or directory
+  - `ls -ld /.db-pro-data` -> No such file or directory
+  - repo `.db-pro-data` baseline: meta.db 626688 bytes Sep 13 09:51, secrets/secrets.json
+    208 bytes Sep 12 16:07 (recorded to /tmp/dbpro-fix/repo-data-baseline.txt)
+
+5.1 Packaging (unchanged script)
+
+    $ bash scripts/release/package-macos.sh 0.1.0 target/release/db-pro-native /tmp/dbpro-fix/dist
+    Measured LC_BUILD_VERSION minos: 11.0
+    /var/folders/.../db-pro-package.9Aenx2/DB Pro.app/Contents/Info.plist: OK
+    Archive entries:
+      DB Pro.app/
+      DB Pro.app/Contents/
+      DB Pro.app/Contents/MacOS/
+      DB Pro.app/Contents/Info.plist
+      DB Pro.app/Contents/MacOS/db-pro-native
+      README-INSTALL.txt
+    Archive: 10059857 bytes
+    SHA256:  87113d5be964fe86cdeffe44404cb189f9502aed2d5af7fdc01964b4c580eb48
+    exit=0
+    stdout: /tmp/dbpro-fix/dist/db-pro-v0.1.0-macos-arm64.tar.gz
+
+    $ tar -xzf ... -C /tmp/dbpro-fix/install
+    $ shasum -a 256 "install/DB Pro.app/Contents/MacOS/db-pro-native" target/release/db-pro-native
+    a0645ca3b503e12b647d53ecf29547e61fefc1dbd695c9cc08066cd69aab4f6c  install/.../db-pro-native
+    a0645ca3b503e12b647d53ecf29547e61fefc1dbd695c9cc08066cd69aab4f6c  target/release/db-pro-native
+    (the archive carries the binary that was measured in gate 5)
+
+5.2 (i) Bundle launched with `open`, polled for 36 s — ALIVE
+
+    $ open "/tmp/dbpro-fix/install/DB Pro.app"
+    OPEN_EXIT=0
+    t=2s  pid=15873 etime=00:02 stat=S
+    ... (polled every 2 s, no gap) ...
+    t=36s pid=15873 etime=00:37 stat=S
+
+The process survived well past the 30-second requirement. HOWEVER — and this matters for honesty —
+a stack sample taken at that point shows it was *blocked before* data-directory resolution:
+
+    $ sample 15873 2 -f /tmp/dbpro-fix/sample-run1.txt
+    db_pro_native::main -> keyring::Entry::get_password -> security_framework::...::find_generic_password
+      -> SecKeychainFindGenericPassword -> SecurityServer::ClientSession::decrypt -> mach_msg (waiting)
+
+i.e. the pre-existing keyring read in `main()` (section 6) was waiting on a Keychain
+authorization request, so "alive after 36 s" alone does NOT prove the state-directory fix on the
+`open` path. It only proves the process did not exit with `CreateDataDir`.
+
+5.3 (i-bis) Bundle launched with `open` and the unrelated keyring read bypassed — ALIVE,
+     state directory created
+
+    $ rm -rf "$HOME/Library/Application Support/DB Pro"        # scratch pre-condition, see 5.7
+    $ open --env GROQ_API_KEY=smoke-bypass-not-a-real-key \
+           --stdout /tmp/dbpro-fix/open-run2.out --stderr /tmp/dbpro-fix/open-run2.err \
+           -n "/tmp/dbpro-fix/install/DB Pro.app"
+    OPEN_EXIT=0
+    t=2s  pid=28937 etime=00:06 stat=S cpu=24.1
+    t=10s pid=28937 etime=00:14 stat=S cpu=32.4
+    t=20s pid=28937 etime=00:24 stat=S cpu=31.0
+    t=36s pid=28937 etime=00:41 stat=R cpu=31.5      <- still alive, ~30% CPU (render loop)
+    t=41s: terminated on SIGTERM, then `pgrep -x db-pro-native` -> none
+
+    stderr: 0 bytes (no error, no panic)   stdout: 0 bytes
+
+    $ lsof -a -p 28937 -d cwd
+    db-pro-na 28937 truongdev cwd DIR 1,16 704 2 /          <- LaunchServices cwd=/ confirmed
+    $ lsof -p 28937 | grep meta.db
+    db-pro-na 28937 truongdev 9u REG 1,16 90112 61691701 /Users/truongdev/Library/Application Support/DB Pro/meta.db
+
+    $ find "$HOME/Library/Application Support/DB Pro" | sort
+    /Users/truongdev/Library/Application Support/DB Pro
+    /Users/truongdev/Library/Application Support/DB Pro/meta.db
+    /Users/truongdev/Library/Application Support/DB Pro/secrets
+    $ sqlite3 ".../DB Pro/meta.db" ".tables"
+    connections  introspection_cache  query_history  run_configs  saved_queries
+    saved_query_folders  schema_version  settings  workspaces
+    $ sqlite3 ".../DB Pro/meta.db" "select version, description from schema_version;"
+    1|initial schema with versioning table
+    2|add database and schema columns to query_history
+
+So on the LaunchServices path the app now resolves a writable per-user directory, runs the full
+baseline schema + migration (`schema_version = 2`), holds `meta.db` open, and stays in its event
+loop — instead of exiting with `CreateDataDir`.
+
+5.4 (ii)+(iii)+(iv) Bundle binary run directly with `cwd=/` (the exact reproduction)
+
+The state directory created in 5.3 was removed first so this run had to create it from scratch;
+it was launched exactly as in the reproduction (`cd /`), with only the unrelated keyring read
+bypassed:
+
+    $ rm -rf "$HOME/Library/Application Support/DB Pro"      # -> No such file or directory
+    $ cd / && GROQ_API_KEY=smoke-bypass-not-a-real-key \
+        "/tmp/dbpro-fix/install/DB Pro.app/Contents/MacOS/db-pro-native" \
+        > /tmp/dbpro-fix/direct-bypass.out 2> /tmp/dbpro-fix/direct-bypass.err &
+    LAUNCHED_PID=35259
+    t=2s  pid=35259 etime=00:06 stat=SN cpu=11.8
+    t=12s pid=35259 etime=00:16 stat=RN cpu=11.8
+    t=24s pid=35259 etime=00:28 stat=SN cpu=11.4      <- still alive (terminated at etime 00:35)
+
+    $ wc -c /tmp/dbpro-fix/direct-bypass.err
+    0 /tmp/dbpro-fix/direct-bypass.err                <- EMPTY: no CreateDataDir, no error at all
+    $ lsof -a -p 35259 -d cwd
+    db-pro-na 35259 truongdev cwd DIR 1,16 704 2 /    <- cwd=/ as in the reproduction
+    $ find "$HOME/Library/Application Support/DB Pro" | sort
+    /Users/truongdev/Library/Application Support/DB Pro
+    /Users/truongdev/Library/Application Support/DB Pro/meta.db          (90112 bytes, fd 9u held by the app)
+    /Users/truongdev/Library/Application Support/DB Pro/secrets
+    $ ls -ld /.db-pro-data
+    ls: /.db-pro-data: No such file or directory      <- (iv) confirmed: nothing was written at /
+    $ ls -ld /tmp/dbpro-fix/install/.db-pro-data /tmp/dbpro-fix/.db-pro-data
+    both: No such file or directory
+
+Contrast with the pre-fix binary under the same conditions (section 1): `CreateDataDir(Os {
+code: 30, kind: ReadOnlyFilesystem, .. })`, exit 1. The blocker is fixed at the artifact level.
+
+5.5 No behaviour break for existing installs: an existing legacy directory is still used
+
+    $ mkdir -p /tmp/dbpro-fix/legacy/.db-pro-data
+    $ ls -l "$HOME/Library/Application Support/DB Pro/meta.db"        # before: 20:42
+    $ cd /tmp/dbpro-fix/legacy && GROQ_API_KEY=... "<bundle binary>" &   (pid 38659, alive at etime 00:14)
+    $ find /tmp/dbpro-fix/legacy | sort
+    /tmp/dbpro-fix/legacy
+    /tmp/dbpro-fix/legacy/.db-pro-data
+    /tmp/dbpro-fix/legacy/.db-pro-data/meta.db      <- state written here
+    /tmp/dbpro-fix/legacy/.db-pro-data/secrets
+    $ ls -l "$HOME/Library/Application Support/DB Pro/meta.db"        # after: still 20:42, untouched
+    stderr: 0 bytes
+
+5.6 `DB_PRO_DATA_DIR` still wins over everything
+
+    $ mkdir -p /tmp/dbpro-fix/override
+    $ cd /tmp/dbpro-fix/legacy && DB_PRO_DATA_DIR=/tmp/dbpro-fix/override GROQ_API_KEY=... "<bundle binary>" &
+      (pid 39930, alive at etime 00:14)
+    $ find /tmp/dbpro-fix/override | sort
+    /tmp/dbpro-fix/override/meta.db  +  /tmp/dbpro-fix/override/secrets
+    legacy meta.db mtime before == after (2026-09-14 20:43:52, untouched)
+    stderr: 0 bytes
+
+5.7 Side effect of the runs, recorded rather than hidden
+Creating the per-user state directory is the intended new behaviour, so the launches above did
+create `/Users/truongdev/Library/Application Support/DB Pro/` (meta.db with the baseline schema +
+empty `secrets/`) on this host. It was removed twice during the run so that each test started from
+a clean slate; the copy present at capture time is the one created by the direct `cwd=/` run in
+5.4. Nothing was written inside the repository, and `/.db-pro-data` does not exist. The repo's real
+`.db-pro-data` was compared before/after (`diff /tmp/dbpro-fix/repo-data-baseline.txt
+/tmp/dbpro-fix/repo-data-after.txt` -> IDENTICAL: meta.db 626688 bytes Sep 13 09:51,
+secrets.json 208 bytes Sep 12 16:07).
+
+Scratch paths (outside the repository, nothing committed from /tmp):
+  /tmp/dbpro-fix/gates/*.log (raw gate logs), /tmp/dbpro-fix/dist (archive),
+  /tmp/dbpro-fix/install (extracted bundle), /tmp/dbpro-fix/legacy, /tmp/dbpro-fix/override,
+  /tmp/dbpro-fix/{package-stderr.log,open-run2.*,direct-*.out,*.err,sample-*.txt,
+  repo-data-baseline.txt,repo-data-after.txt}
+
+==============================================================================
+6. SEPARATE, PRE-EXISTING STARTUP DEPENDENCY FOUND WHILE DOING THIS (NOT FIXED HERE)
+==============================================================================
+Both launch paths above (via `open` and directly from this shell) initially *blocked* inside
+`seed_groq_api_key_from_keyring()` -> `keyring::Entry::get_password()` ->
+`SecKeychainFindGenericPassword` -> securityd (`mach_msg` wait). Stack samples:
+  /tmp/dbpro-fix/sample-run1.txt      (open-launched, pid 15873)
+  /tmp/dbpro-fix/sample-direct-run.txt (direct cwd=/ run without the bypass, pid 32302)
+
+This is not the data-directory defect and not a regression:
+  * the call already sat before `resolve_data_dir()` in `main()` before this change, and its code
+    is untouched (`crates/native-app/src/main.rs`, function `seed_groq_api_key_from_keyring`);
+  * it is environment-dependent: the coordinator's pre-fix reproduction reached `CreateDataDir`,
+    which means the keyring read returned in that run; here it waited on a Keychain authorization
+    request for the developer's *existing* `com.dbpro.app` / `agent/groq_api_key` item, which an
+    ad-hoc-signed binary cannot read without an interactive grant. Whether it blocks or returns
+    depends on how that prompt is answered, not on the code path.
+  * it is the reason the artifact proof in 5.3/5.4/5.5/5.6 sets `GROQ_API_KEY` to an inert dummy
+    value: `seed_groq_api_key_from_keyring()` returns immediately when the variable is already set,
+    which isolates the state-directory behaviour under test. No other behaviour changes.
+
+Consequence for the release: a user whose Keychain holds a DB Pro item will see a Keychain
+authorization prompt on first launch of the packaged app, and an *unattended* launch (automation,
+CI, or a user who never answers) can wait indefinitely at that prompt. This is a distinct item from
+`R-STATE-DIR`; it is flagged here for the coordinator and is NOT fixed in this change (it is a
+keyring/UX decision, and the instruction for this run was to leave the rest of `main.rs` alone).
+No credential was read, written, printed or deleted by this run.
+
+==============================================================================
+7. WHAT WAS NOT VERIFIED
+==============================================================================
+  * No window was rendered or observed, and no GUI interaction was performed. This shell has no
+    window-server visibility; the only GUI-side signals available are the process table
+    (alive, ~30% CPU in the render loop), the held `meta.db` file descriptor and the stack samples.
+  * The full interactive install smoke — create a SQLite connection, run `SELECT 1;`, quit and
+    relaunch to check persistence — is still `PENDING`, owned by the coordinator. Nothing in this
+    file claims it.
+  * The `open`-launched run in 5.2 (without the keyring bypass) never reached data-directory
+    resolution, so the correctness of the *Finder* path is proven by 5.3/5.4 (same bundle, same
+    `cwd=/`, same binary), not by 5.2 alone.
+  * Windows/Linux were not built or run here (no host); the platform branches of
+    `platform_data_dir()` are covered only by inspection plus the pure-function tests, which are
+    platform-independent by construction.
+  * No tag, no CI dispatch, no `gh` command, no workflow edit was made by this session.
+
+==============================================================================
+8. TREE STATE AND SCOPE AT CAPTURE TIME
+==============================================================================
+`git status --porcelain -uall` before the change showed only the untracked `goal-3.md`; after it,
+exactly one modified path plus this new file:
+
+   M crates/native-app/src/main.rs
+  ?? docs/release/evidence/v01-06/12-state-dir-blocker-fix.txt
+  ?? goal-3.md                       <- pre-existing untracked planning input, not committed
+
+The commit stages exactly these two paths by explicit pathspec (no `git add -A`), with message
+`fix(native): resolve the app state directory outside the working directory`. The documentation
+updates (risk register, readiness, handoff, checklist, release notes, known limitations, packaging
+doc, README and the corrections appended to 03/08) are a separate second commit.

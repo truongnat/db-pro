@@ -124,14 +124,74 @@ fn init_tracing() {
         .try_init();
 }
 
+/// Name of the legacy, working-directory-local state directory.
+const LEGACY_DATA_DIR_NAME: &str = ".db-pro-data";
+/// Application directory name used inside the per-user platform data root.
+const PLATFORM_APP_DIR_NAME: &str = "DB Pro";
+
+/// Resolves the directory holding the application state (`meta.db`, `secrets/`).
+///
+/// Precedence: `DB_PRO_DATA_DIR`, then an *existing* working-directory-local
+/// `.db-pro-data`, then the per-user platform data directory. A bundle launched
+/// through LaunchServices runs with `/` as its working directory, so a legacy
+/// directory that does not already exist is never created there: that failed
+/// with `CreateDataDir(Os { code: 30, kind: ReadOnlyFilesystem })` and the app
+/// quit before it opened a window.
 fn resolve_data_dir() -> std::path::PathBuf {
-    std::env::var_os("DB_PRO_DATA_DIR")
-        .map(std::path::PathBuf::from)
-        .unwrap_or_else(|| {
-            std::env::current_dir()
-                .expect("current directory is available")
-                .join(".db-pro-data")
+    let override_dir = non_empty_env("DB_PRO_DATA_DIR").map(std::path::PathBuf::from);
+    let cwd = std::env::current_dir().ok();
+    let legacy_exists = cwd
+        .as_deref()
+        .is_some_and(|dir| dir.join(LEGACY_DATA_DIR_NAME).is_dir());
+
+    choose_data_dir(override_dir, cwd.as_deref(), legacy_exists, platform_data_dir())
+}
+
+/// The precedence rule behind [`resolve_data_dir`], free of process-global state
+/// so it can be exercised directly.
+fn choose_data_dir(
+    override_dir: Option<std::path::PathBuf>,
+    cwd: Option<&std::path::Path>,
+    legacy_exists: bool,
+    platform_dir: Option<std::path::PathBuf>,
+) -> std::path::PathBuf {
+    if let Some(dir) = override_dir {
+        return dir;
+    }
+    if legacy_exists {
+        if let Some(dir) = cwd {
+            return dir.join(LEGACY_DATA_DIR_NAME);
+        }
+    }
+    if let Some(dir) = platform_dir {
+        return dir;
+    }
+    cwd.map(|dir| dir.join(LEGACY_DATA_DIR_NAME))
+        .unwrap_or_else(|| std::path::PathBuf::from(LEGACY_DATA_DIR_NAME))
+}
+
+/// Per-user state root offered by the platform, if one can be resolved.
+fn platform_data_dir() -> Option<std::path::PathBuf> {
+    if cfg!(target_os = "macos") {
+        non_empty_env("HOME").map(|home| {
+            std::path::PathBuf::from(home)
+                .join("Library")
+                .join("Application Support")
+                .join(PLATFORM_APP_DIR_NAME)
         })
+    } else if cfg!(target_os = "windows") {
+        non_empty_env("APPDATA").map(|appdata| std::path::PathBuf::from(appdata).join(PLATFORM_APP_DIR_NAME))
+    } else {
+        non_empty_env("XDG_DATA_HOME")
+            .map(std::path::PathBuf::from)
+            .or_else(|| non_empty_env("HOME").map(|home| std::path::PathBuf::from(home).join(".local").join("share")))
+            .map(|data_root| data_root.join("db-pro"))
+    }
+}
+
+/// Reads an environment variable, treating an empty value as unset.
+fn non_empty_env(key: &str) -> Option<std::ffi::OsString> {
+    std::env::var_os(key).filter(|value| !value.is_empty())
 }
 
 /// Service name used for all DB Pro keyring entries.
@@ -279,6 +339,58 @@ fn run_native_app(bridge: TaskBridge) -> Result<(), Box<dyn Error>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::{Path, PathBuf};
+
+    #[test]
+    fn data_dir_override_wins_over_every_other_candidate() {
+        let chosen = choose_data_dir(
+            Some(PathBuf::from("/override/state")),
+            Some(Path::new("/work")),
+            true,
+            Some(PathBuf::from("/platform/DB Pro")),
+        );
+
+        assert_eq!(chosen, PathBuf::from("/override/state"));
+    }
+
+    #[test]
+    fn existing_legacy_dir_wins_over_the_platform_dir() {
+        let chosen = choose_data_dir(
+            None,
+            Some(Path::new("/work")),
+            true,
+            Some(PathBuf::from("/platform/DB Pro")),
+        );
+
+        assert_eq!(chosen, PathBuf::from("/work/.db-pro-data"));
+    }
+
+    /// Regression guard for the packaged-app startup blocker: a bundle launched
+    /// through LaunchServices runs with `cwd=/`, where no legacy directory
+    /// exists, so resolving `/.db-pro-data` made `DbProRuntime::new` fail with
+    /// `CreateDataDir(ReadOnlyFilesystem)` and the app quit before opening a
+    /// window. The per-user platform directory must be chosen instead.
+    #[test]
+    fn platform_dir_is_used_when_no_legacy_dir_exists() {
+        let platform_dir = PathBuf::from("/platform/DB Pro");
+
+        let chosen = choose_data_dir(None, Some(Path::new("/")), false, Some(platform_dir.clone()));
+
+        assert_eq!(chosen, platform_dir);
+    }
+
+    #[test]
+    fn cwd_fallback_is_used_only_when_nothing_else_resolves() {
+        let chosen = choose_data_dir(None, Some(Path::new("/work")), false, None);
+
+        assert_eq!(chosen, PathBuf::from("/work/.db-pro-data"));
+
+        // An unresolvable working directory must degrade to a relative path
+        // rather than panic.
+        let chosen = choose_data_dir(None, None, false, None);
+
+        assert_eq!(chosen, PathBuf::from(".db-pro-data"));
+    }
 
     /// Regression guard for the S-2 release-hygiene finding: the developer
     /// connection preset is seeded by debug builds only. `cargo test --release`
