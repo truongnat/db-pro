@@ -6,12 +6,12 @@ use crate::{
     compact_icon_button, compact_icon_button_enabled, danger_button, editor_frame, empty_state, ghost_button_with_icon,
     grid_frame, icon_button, icon_text, input, input_full_width, menu_button_with_icon, panel_frame,
     primary_button_with_icon, secondary_button_with_icon, section_label, sidebar_frame, sidebar_item, tab_frame,
-    toolbar_frame, AgentContext, AgentMessage, AgentProvider, AgentRole, DbProTheme, OfflineAgentProvider, TaskBridge,
-    UiCell, UiCommand, UiConnectionDraft, UiConnectionSummary, UiDriver, UiEvent, UiFunctionSummary,
-    UiQueryExecutionOutput, UiQueryFolderSummary, UiQueryHistoryEntry, UiQueryHistoryStatus, UiQueryResult,
-    UiSavedQuerySummary, UiSchemaForeignKey, UiSchemaSummary, UiSslMode, UiStatementOutput, UiTableDataFilter,
-    UiTableDataSort, UiTableFilterOperator, UiTableInfo, UiTableMutation, UiTableSummary, UiTriggerSummary,
-    UiViewSummary,
+    toolbar_frame, AgentContext, AgentMessage, AgentProvider, AgentRole, ColumnWriteBlock, ColumnWritePolicy,
+    DbProTheme, OfflineAgentProvider, TaskBridge, UiCell, UiCommand, UiConnectionDraft, UiConnectionSummary, UiDriver,
+    UiEvent, UiFunctionSummary, UiQueryExecutionOutput, UiQueryFolderSummary, UiQueryHistoryEntry,
+    UiQueryHistoryStatus, UiQueryResult, UiSavedQuerySummary, UiSchemaForeignKey, UiSchemaSummary, UiSslMode,
+    UiStatementOutput, UiTableDataFilter, UiTableDataSort, UiTableFilterOperator, UiTableInfo, UiTableMutation,
+    UiTableSummary, UiTriggerSummary, UiViewSummary,
 };
 use bigdecimal::BigDecimal;
 use db_pro_core::domain::capabilities::DatabaseCapabilities;

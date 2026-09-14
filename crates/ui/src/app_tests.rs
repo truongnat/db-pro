@@ -504,6 +504,343 @@ fn no_primary_key_table_blocks_safe_row_mutations() {
     assert!(!app.can_edit_table_rows());
 }
 
+/// The edit entry point refuses a column the write policy blocks, and says why.
+#[test]
+fn binary_cell_edit_is_refused_with_a_reason() {
+    let mut app = DbProApp {
+        connected: true,
+        active_connection_id: Some("conn-1".to_owned()),
+        connections: vec![UiConnectionSummary {
+            id: "conn-1".to_owned(),
+            name: "Local".to_owned(),
+            host: "localhost".to_owned(),
+            port: 5432,
+            database: "app".to_owned(),
+            username: "postgres".to_owned(),
+            driver: "PostgreSQL".to_owned(),
+            ssl_mode: UiSslMode::Disable,
+            readonly: false,
+        }],
+        table_info: Some(UiTableInfo {
+            schema: "public".to_owned(),
+            name: "files".to_owned(),
+            row_count: Some(1),
+            columns: vec![
+                crate::UiTableColumn {
+                    name: "id".to_owned(),
+                    data_type: "integer".to_owned(),
+                    nullable: false,
+                    default: None,
+                    is_primary_key: true,
+                    ..Default::default()
+                },
+                crate::UiTableColumn {
+                    name: "payload".to_owned(),
+                    data_type: "bytea".to_owned(),
+                    nullable: true,
+                    default: None,
+                    is_primary_key: false,
+                    ..Default::default()
+                },
+            ],
+            primary_key: Some(vec!["id".to_owned()]),
+            indexes: Vec::new(),
+            foreign_keys: Vec::new(),
+            check_constraints: Vec::new(),
+            dependencies: Vec::new(),
+        }),
+        ..Default::default()
+    };
+    let result = UiQueryResult {
+        columns: vec![
+            crate::UiColumn {
+                name: "id".to_owned(),
+                data_type: "integer".to_owned(),
+                nullable: false,
+            },
+            crate::UiColumn {
+                name: "payload".to_owned(),
+                data_type: "bytea".to_owned(),
+                nullable: true,
+            },
+        ],
+        rows: vec![vec![
+            UiCell::Number("1".to_owned()),
+            UiCell::Bytes("\\x00ff".to_owned()),
+        ]],
+        row_count: 1,
+        duration_ms: 0,
+    };
+
+    app.begin_data_cell_edit(&result, 0, 1, &result.rows[0][1]);
+
+    assert!(
+        app.data_editing_cell.is_none(),
+        "no editor may open for a blocked column"
+    );
+    assert!(
+        app.runtime_message.contains("read-only"),
+        "the reason must be visible: {}",
+        app.runtime_message
+    );
+    assert_eq!(app.staged_changes.counts().total(), 0);
+}
+
+/// A generated column cannot be staged, even through the commit path.
+#[test]
+fn generated_column_edit_is_refused_before_staging() {
+    let mut app = DbProApp {
+        connected: true,
+        active_connection_id: Some("conn-1".to_owned()),
+        connections: vec![UiConnectionSummary {
+            id: "conn-1".to_owned(),
+            name: "Local".to_owned(),
+            host: "localhost".to_owned(),
+            port: 5432,
+            database: "app".to_owned(),
+            username: "postgres".to_owned(),
+            driver: "PostgreSQL".to_owned(),
+            ssl_mode: UiSslMode::Disable,
+            readonly: false,
+        }],
+        table_info: Some(UiTableInfo {
+            schema: "public".to_owned(),
+            name: "line_items".to_owned(),
+            row_count: Some(1),
+            columns: vec![
+                crate::UiTableColumn {
+                    name: "id".to_owned(),
+                    data_type: "integer".to_owned(),
+                    nullable: false,
+                    default: None,
+                    is_primary_key: true,
+                    ..Default::default()
+                },
+                crate::UiTableColumn {
+                    name: "total".to_owned(),
+                    data_type: "numeric".to_owned(),
+                    nullable: false,
+                    default: None,
+                    is_primary_key: false,
+                    is_generated: true,
+                    ..Default::default()
+                },
+            ],
+            primary_key: Some(vec!["id".to_owned()]),
+            indexes: Vec::new(),
+            foreign_keys: Vec::new(),
+            check_constraints: Vec::new(),
+            dependencies: Vec::new(),
+        }),
+        data_edit_value: "99.99".to_owned(),
+        ..Default::default()
+    };
+    let result = UiQueryResult {
+        columns: vec![
+            crate::UiColumn {
+                name: "id".to_owned(),
+                data_type: "integer".to_owned(),
+                nullable: false,
+            },
+            crate::UiColumn {
+                name: "total".to_owned(),
+                data_type: "numeric".to_owned(),
+                nullable: false,
+            },
+        ],
+        rows: vec![vec![UiCell::Number("1".to_owned()), UiCell::Number("9.99".to_owned())]],
+        row_count: 1,
+        duration_ms: 0,
+    };
+
+    let accepted = app.submit_data_cell_edit(&result, 0, 1);
+
+    assert!(!accepted, "the generated column must refuse the edit");
+    assert!(app.data_edit_error.as_deref().unwrap_or_default().contains("computed"));
+    assert_eq!(app.staged_changes.counts().total(), 0, "nothing may be staged");
+    assert!(
+        app.runtime_message.contains("computed"),
+        "the reason must be visible: {}",
+        app.runtime_message
+    );
+}
+
+/// A generated column left empty is skipped on insert; a value for it is refused.
+#[test]
+fn generated_column_is_never_staged_by_insert() {
+    let mut app = DbProApp {
+        connected: true,
+        active_connection_id: Some("conn-1".to_owned()),
+        connections: vec![UiConnectionSummary {
+            id: "conn-1".to_owned(),
+            name: "Local".to_owned(),
+            host: "localhost".to_owned(),
+            port: 5432,
+            database: "app".to_owned(),
+            username: "postgres".to_owned(),
+            driver: "PostgreSQL".to_owned(),
+            ssl_mode: UiSslMode::Disable,
+            readonly: false,
+        }],
+        selected_table: Some("line_items".to_owned()),
+        table_info: Some(UiTableInfo {
+            schema: "public".to_owned(),
+            name: "line_items".to_owned(),
+            row_count: Some(0),
+            columns: vec![
+                crate::UiTableColumn {
+                    name: "id".to_owned(),
+                    data_type: "integer".to_owned(),
+                    nullable: false,
+                    default: None,
+                    is_primary_key: true,
+                    ..Default::default()
+                },
+                crate::UiTableColumn {
+                    name: "qty".to_owned(),
+                    data_type: "integer".to_owned(),
+                    nullable: false,
+                    default: None,
+                    is_primary_key: false,
+                    ..Default::default()
+                },
+                crate::UiTableColumn {
+                    name: "total".to_owned(),
+                    data_type: "numeric".to_owned(),
+                    nullable: false,
+                    default: None,
+                    is_primary_key: false,
+                    is_generated: true,
+                    ..Default::default()
+                },
+            ],
+            primary_key: Some(vec!["id".to_owned()]),
+            indexes: Vec::new(),
+            foreign_keys: Vec::new(),
+            check_constraints: Vec::new(),
+            dependencies: Vec::new(),
+        }),
+        insert_row_values: vec!["1".to_owned(), "2".to_owned(), String::new()],
+        ..Default::default()
+    };
+
+    app.submit_insert_row();
+
+    let Some(StagedChange::Insert { columns, .. }) = app.staged_changes.iter().next() else {
+        panic!("the insert was not staged");
+    };
+    assert_eq!(
+        columns,
+        &["id".to_owned(), "qty".to_owned()],
+        "the generated column must be skipped"
+    );
+    assert!(
+        app.insert_row_error.is_empty(),
+        "skipping a generated column is not an error"
+    );
+
+    // A value for the generated column is refused deterministically, before staging.
+    let mut second = DbProApp {
+        connected: true,
+        active_connection_id: Some("conn-1".to_owned()),
+        connections: vec![UiConnectionSummary {
+            id: "conn-1".to_owned(),
+            name: "Local".to_owned(),
+            host: "localhost".to_owned(),
+            port: 5432,
+            database: "app".to_owned(),
+            username: "postgres".to_owned(),
+            driver: "PostgreSQL".to_owned(),
+            ssl_mode: UiSslMode::Disable,
+            readonly: false,
+        }],
+        selected_table: Some("line_items".to_owned()),
+        table_info: app.table_info.clone(),
+        insert_row_values: vec!["1".to_owned(), "2".to_owned(), "3.0".to_owned()],
+        ..Default::default()
+    };
+    second.submit_insert_row();
+    assert!(
+        second.insert_row_error.contains("computed"),
+        "the refusal must be visible: {}",
+        second.insert_row_error
+    );
+    assert_eq!(second.staged_changes.counts().total(), 0);
+}
+
+/// Duplicating a row must not prefill a column the policy blocks.
+#[test]
+fn duplicated_row_leaves_blocked_columns_empty() {
+    let mut app = DbProApp {
+        connected: true,
+        active_connection_id: Some("conn-1".to_owned()),
+        connections: vec![UiConnectionSummary {
+            id: "conn-1".to_owned(),
+            name: "Local".to_owned(),
+            host: "localhost".to_owned(),
+            port: 5432,
+            database: "app".to_owned(),
+            username: "postgres".to_owned(),
+            driver: "PostgreSQL".to_owned(),
+            ssl_mode: UiSslMode::Disable,
+            readonly: false,
+        }],
+        table_info: Some(UiTableInfo {
+            schema: "public".to_owned(),
+            name: "line_items".to_owned(),
+            row_count: Some(1),
+            columns: vec![
+                crate::UiTableColumn {
+                    name: "id".to_owned(),
+                    data_type: "integer".to_owned(),
+                    nullable: false,
+                    default: None,
+                    is_primary_key: true,
+                    ..Default::default()
+                },
+                crate::UiTableColumn {
+                    name: "total".to_owned(),
+                    data_type: "numeric".to_owned(),
+                    nullable: false,
+                    default: None,
+                    is_primary_key: false,
+                    is_generated: true,
+                    ..Default::default()
+                },
+            ],
+            primary_key: Some(vec!["id".to_owned()]),
+            indexes: Vec::new(),
+            foreign_keys: Vec::new(),
+            check_constraints: Vec::new(),
+            dependencies: Vec::new(),
+        }),
+        ..Default::default()
+    };
+    let result = UiQueryResult {
+        columns: vec![
+            crate::UiColumn {
+                name: "id".to_owned(),
+                data_type: "integer".to_owned(),
+                nullable: false,
+            },
+            crate::UiColumn {
+                name: "total".to_owned(),
+                data_type: "numeric".to_owned(),
+                nullable: false,
+            },
+        ],
+        rows: vec![vec![UiCell::Number("1".to_owned()), UiCell::Number("9.99".to_owned())]],
+        row_count: 1,
+        duration_ms: 0,
+    };
+
+    app.open_duplicate_row(&result, 0);
+
+    assert_eq!(app.insert_row_values, vec![String::new(), String::new()]);
+    assert!(app.insert_row_open);
+    assert!(app.insert_row_error.is_empty());
+}
+
 #[test]
 fn staged_apply_failure_maps_statement_to_mutation_and_keeps_changes() {
     let mut staged_changes = ChangeSet::new();

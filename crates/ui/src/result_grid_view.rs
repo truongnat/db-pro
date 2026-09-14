@@ -385,6 +385,10 @@ impl DbProApp {
     /// Paste-into-cell and Enter/F2-to-edit while the grid is editable.
     fn handle_grid_edit_input(&mut self, ui: &mut egui::Ui, result: &UiQueryResult, pasted: Option<String>) {
         if let (Some((row_index, column_index)), Some(text)) = (self.selected_cell, pasted) {
+            if let Some(block) = self.blocked_write_for_cell(result, column_index) {
+                self.copy_status = block.reason().to_owned();
+                return;
+            }
             self.data_editing_cell = Some((row_index, column_index));
             self.data_edit_value = text;
             self.submit_data_cell_edit(result, row_index, column_index);
@@ -399,6 +403,12 @@ impl DbProApp {
                 }
             }
         }
+    }
+
+    /// The write policy for the column behind a grid cell, if it is blocked.
+    fn blocked_write_for_cell(&self, result: &UiQueryResult, column_index: usize) -> Option<ColumnWriteBlock> {
+        let column = result.columns.get(column_index)?;
+        self.column_write_block(&column.name)
     }
 
     fn select_visible_row(
@@ -1178,20 +1188,30 @@ impl DbProApp {
 
                 if editable {
                     ui.separator();
-                    if ctx_menu_item(
-                        ui,
-                        Some(Icon::Pencil),
-                        "Edit Cell",
-                        Some("Enter / F2"),
-                        theme.text_primary,
-                        theme,
-                    )
-                    .clicked()
-                    {
+                    let write_block = self.blocked_write_for_cell(result, column_index);
+                    let edit_clicked = match write_block {
+                        Some(block) => {
+                            ctx_menu_item(ui, Some(Icon::Lock), "Read-only Column", None, theme.text_muted, theme)
+                                .on_hover_text(block.reason());
+                            false
+                        }
+                        None => ctx_menu_item(
+                            ui,
+                            Some(Icon::Pencil),
+                            "Edit Cell",
+                            Some("Enter / F2"),
+                            theme.text_primary,
+                            theme,
+                        )
+                        .clicked(),
+                    };
+                    if edit_clicked {
                         edit_cell_req = true;
                         *close_menu = true;
                     }
-                    if ctx_menu_item(ui, Some(Icon::Eraser), "Set to NULL", None, theme.text_secondary, theme).clicked()
+                    if write_block.is_none()
+                        && ctx_menu_item(ui, Some(Icon::Eraser), "Set to NULL", None, theme.text_secondary, theme)
+                            .clicked()
                     {
                         set_null_req = true;
                         *close_menu = true;

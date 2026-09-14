@@ -3,6 +3,7 @@ mod app;
 pub mod components;
 pub mod diagram;
 pub mod editor;
+mod policy;
 pub mod query;
 mod result_grid;
 mod runtime;
@@ -23,6 +24,7 @@ pub use components::{
     segmented_control, sidebar_frame, sidebar_item, skeleton, spinner, status_dot, switch, tab_frame, tag_chip, toast,
     toolbar_frame,
 };
+pub(crate) use policy::{ColumnWriteBlock, ColumnWritePolicy};
 pub use result_grid::{
     cell_text, compare_ui_cells, displayed_row_number, filtered_sorted_indexes, grid_keyboard_selection,
 };

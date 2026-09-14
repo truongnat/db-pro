@@ -668,6 +668,10 @@ impl DbProApp {
             .map(|(i, col)| {
                 if col.is_primary_key {
                     String::new()
+                } else if !ColumnWritePolicy::read(col).is_writable() {
+                    // A generated column computes itself on insert; a binary column has
+                    // no editor. Neither may carry the duplicated value.
+                    String::new()
                 } else if let Some(cell) = row.get(i) {
                     match cell {
                         UiCell::Null => String::new(),
@@ -963,7 +967,7 @@ impl DbProApp {
         Ok(UiCell::Number(value.to_owned()))
     }
 
-    fn submit_insert_row(&mut self) {
+    pub(crate) fn submit_insert_row(&mut self) {
         let Some(table) = self.selected_table.clone() else {
             self.insert_row_error = "Select a table before inserting a row".to_owned();
             return;
@@ -975,6 +979,16 @@ impl DbProApp {
         let mut columns = Vec::new();
         let mut values = Vec::new();
         for (column, raw) in info.columns.iter().zip(&self.insert_row_values) {
+            let write_block = ColumnWritePolicy::read(column).write_block();
+            if raw.trim().is_empty() && write_block.is_some() {
+                // A blocked column left empty contributes nothing: a generated column
+                // computes itself and a binary column has no editor to fill it.
+                continue;
+            }
+            if let Some(block) = write_block {
+                self.insert_row_error = format!("{}: {}", column.name, block.reason());
+                return;
+            }
             if raw.trim().is_empty() && !column.nullable && column.default.is_none() {
                 self.insert_row_error = format!("{} is required", column.name);
                 return;
@@ -1153,96 +1167,118 @@ impl DbProApp {
                                             }
 
                                             // Per-field actions
-                                            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                                                if !self.insert_row_values[index].is_empty() {
-                                                    let clear_btn = Button::new(self.theme)
-                                                        .icon(Icon::X)
-                                                        .size(ButtonSize::IconSm)
-                                                        .variant(ButtonVariant::Ghost)
-                                                        .show(ui);
-                                                    if clear_btn.on_hover_text("Clear this field").clicked() {
-                                                        self.insert_row_values[index].clear();
-                                                    }
-                                                }
+                                            if ColumnWritePolicy::read(column).is_writable() {
+                                                ui.with_layout(
+                                                    egui::Layout::right_to_left(egui::Align::Center),
+                                                    |ui| {
+                                                        if !self.insert_row_values[index].is_empty() {
+                                                            let clear_btn = Button::new(self.theme)
+                                                                .icon(Icon::X)
+                                                                .size(ButtonSize::IconSm)
+                                                                .variant(ButtonVariant::Ghost)
+                                                                .show(ui);
+                                                            if clear_btn.on_hover_text("Clear this field").clicked() {
+                                                                self.insert_row_values[index].clear();
+                                                            }
+                                                        }
 
-                                                if column.nullable && self.insert_row_values[index] != "NULL" {
-                                                    let null_btn = Button::new(self.theme)
-                                                        .text("NULL")
-                                                        .size(ButtonSize::Sm)
-                                                        .variant(ButtonVariant::Ghost)
-                                                        .show(ui);
-                                                    if null_btn.on_hover_text("Set value to literal NULL").clicked() {
-                                                        self.insert_row_values[index] = "NULL".to_owned();
-                                                    }
-                                                }
+                                                        if column.nullable && self.insert_row_values[index] != "NULL" {
+                                                            let null_btn = Button::new(self.theme)
+                                                                .text("NULL")
+                                                                .size(ButtonSize::Sm)
+                                                                .variant(ButtonVariant::Ghost)
+                                                                .show(ui);
+                                                            if null_btn
+                                                                .on_hover_text("Set value to literal NULL")
+                                                                .clicked()
+                                                            {
+                                                                self.insert_row_values[index] = "NULL".to_owned();
+                                                            }
+                                                        }
 
-                                                let lower_dt = column.data_type.to_ascii_lowercase();
-                                                let gen_text = if lower_dt.contains("uuid") {
-                                                    "UUID"
-                                                } else if lower_dt.contains("time") || lower_dt.contains("date") {
-                                                    "Now"
-                                                } else {
-                                                    "Gen"
-                                                };
-                                                let gen_btn = Button::new(self.theme)
-                                                    .icon(Icon::Wand2)
-                                                    .text(gen_text)
-                                                    .size(ButtonSize::Sm)
-                                                    .variant(ButtonVariant::Secondary)
-                                                    .show(ui);
-                                                let tooltip =
-                                                    format!("Generate sample {} for {}", column.data_type, column.name);
-                                                if gen_btn.on_hover_text(tooltip).clicked() {
-                                                    self.insert_row_values[index] =
-                                                        Self::generate_sample_value(&column.name, &column.data_type);
-                                                }
-                                            });
+                                                        let lower_dt = column.data_type.to_ascii_lowercase();
+                                                        let gen_text = if lower_dt.contains("uuid") {
+                                                            "UUID"
+                                                        } else if lower_dt.contains("time") || lower_dt.contains("date")
+                                                        {
+                                                            "Now"
+                                                        } else {
+                                                            "Gen"
+                                                        };
+                                                        let gen_btn = Button::new(self.theme)
+                                                            .icon(Icon::Wand2)
+                                                            .text(gen_text)
+                                                            .size(ButtonSize::Sm)
+                                                            .variant(ButtonVariant::Secondary)
+                                                            .show(ui);
+                                                        let tooltip = format!(
+                                                            "Generate sample {} for {}",
+                                                            column.data_type, column.name
+                                                        );
+                                                        if gen_btn.on_hover_text(tooltip).clicked() {
+                                                            self.insert_row_values[index] = Self::generate_sample_value(
+                                                                &column.name,
+                                                                &column.data_type,
+                                                            );
+                                                        }
+                                                    },
+                                                );
+                                            }
                                         });
 
                                         ui.add_space(4.0);
 
                                         let is_null_val =
                                             self.insert_row_values[index].trim().eq_ignore_ascii_case("null");
-                                        let placeholder = if column.default.is_some() {
-                                            "Leave empty for DEFAULT, or enter value / click Gen..."
-                                        } else if column.nullable {
-                                            "Enter value, click NULL, or click Gen..."
-                                        } else {
-                                            "Enter value or click Gen..."
-                                        };
-
-                                        let val_ref = &mut self.insert_row_values[index];
-                                        let edit = egui::TextEdit::singleline(val_ref)
-                                            .hint_text(
-                                                RichText::new(placeholder)
+                                        let write_block = ColumnWritePolicy::read(column).write_block();
+                                        if let Some(block) = write_block {
+                                            ui.label(
+                                                RichText::new(format!("Read-only — {}", block.reason()))
                                                     .font(font_caption())
                                                     .color(self.theme.text_muted),
-                                            )
-                                            .text_color(if is_null_val {
-                                                self.theme.warning
+                                            );
+                                        } else {
+                                            let placeholder = if column.default.is_some() {
+                                                "Leave empty for DEFAULT, or enter value / click Gen..."
+                                            } else if column.nullable {
+                                                "Enter value, click NULL, or click Gen..."
                                             } else {
-                                                self.theme.text_primary
-                                            })
-                                            .font(font_ui_label())
-                                            .margin(Margin::symmetric(8.0, 6.0))
-                                            .desired_width(ui.available_width());
+                                                "Enter value or click Gen..."
+                                            };
 
-                                        Frame {
-                                            fill: self.theme.surface_elevated,
-                                            stroke: Stroke::new(
-                                                1.0,
-                                                if is_null_val {
-                                                    self.theme.warning.linear_multiply(0.6)
+                                            let val_ref = &mut self.insert_row_values[index];
+                                            let edit = egui::TextEdit::singleline(val_ref)
+                                                .hint_text(
+                                                    RichText::new(placeholder)
+                                                        .font(font_caption())
+                                                        .color(self.theme.text_muted),
+                                                )
+                                                .text_color(if is_null_val {
+                                                    self.theme.warning
                                                 } else {
-                                                    self.theme.border_subtle
-                                                },
-                                            ),
-                                            rounding: Rounding::same(6.0),
-                                            ..Default::default()
+                                                    self.theme.text_primary
+                                                })
+                                                .font(font_ui_label())
+                                                .margin(Margin::symmetric(8.0, 6.0))
+                                                .desired_width(ui.available_width());
+
+                                            Frame {
+                                                fill: self.theme.surface_elevated,
+                                                stroke: Stroke::new(
+                                                    1.0,
+                                                    if is_null_val {
+                                                        self.theme.warning.linear_multiply(0.6)
+                                                    } else {
+                                                        self.theme.border_subtle
+                                                    },
+                                                ),
+                                                rounding: Rounding::same(6.0),
+                                                ..Default::default()
+                                            }
+                                            .show(ui, |ui| {
+                                                ui.add(edit);
+                                            });
                                         }
-                                        .show(ui, |ui| {
-                                            ui.add(edit);
-                                        });
                                     });
                                     ui.add_space(6.0);
                                 }
@@ -1459,6 +1495,24 @@ impl DbProApp {
         self.can_mutate_active_connection() && self.table_has_primary_key()
     }
 
+    /// The write policy for a column of the table currently open in the data editor.
+    /// Returns `None` when the table metadata does not describe the column yet; the
+    /// caller then keeps the pre-policy behaviour instead of guessing a restriction.
+    pub(crate) fn column_write_policy(&self, column_name: &str) -> Option<ColumnWritePolicy> {
+        self.table_info
+            .as_ref()?
+            .columns
+            .iter()
+            .find(|column| column.name == column_name)
+            .map(ColumnWritePolicy::read)
+    }
+
+    /// A blocked column explains itself instead of silently refusing the edit.
+    pub(crate) fn column_write_block(&self, column_name: &str) -> Option<ColumnWriteBlock> {
+        self.column_write_policy(column_name)
+            .and_then(|policy| policy.write_block())
+    }
+
     pub(crate) fn row_identity(
         result: &UiQueryResult,
         info: &UiTableInfo,
@@ -1555,12 +1609,13 @@ impl DbProApp {
             self.runtime_message = "Discard the staged delete before editing this row".to_owned();
             return;
         }
-        if result
+        if let Some(block) = result
             .columns
             .get(column_index)
-            .is_some_and(|column| Self::is_binary_type(&column.data_type.to_ascii_lowercase()))
+            .and_then(|column| self.column_write_policy(&column.name))
+            .and_then(|policy| policy.write_block())
         {
-            self.runtime_message = "Binary values are read-only until a binary editor is available".to_owned();
+            self.runtime_message = block.reason().to_owned();
             return;
         }
         self.selected_cell = Some((row_index, column_index));
@@ -1610,8 +1665,8 @@ impl DbProApp {
             self.data_editing_cell = None;
             return false;
         };
-        if Self::is_binary_type(&column_info.data_type.to_ascii_lowercase()) {
-            let error = "Binary values cannot be edited with the normal text editor".to_owned();
+        if let Some(block) = ColumnWritePolicy::read(column_info).write_block() {
+            let error = block.reason().to_owned();
             self.data_edit_error = Some(error.clone());
             self.runtime_message = format!("{}: {error}", column_info.name);
             return false;
