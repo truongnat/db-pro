@@ -215,10 +215,12 @@ impl DbProTheme {
             "C:\\Windows\\Fonts\\segoeui.ttf",
             "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
             "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+            "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
             "/System/Library/Fonts/Supplemental/Arial.ttf",
             "/Library/Fonts/Arial.ttf",
             "C:\\Windows\\Fonts\\arial.ttf",
         ];
+        let mut loaded_system_ui = false;
         for path in system_font_paths {
             if let Ok(bytes) = std::fs::read(path) {
                 fonts
@@ -234,8 +236,40 @@ impl DbProTheme {
                     .entry(FontFamily::Name("ui_medium".into()))
                     .or_default()
                     .push("system_ui".to_owned());
+                loaded_system_ui = true;
                 break;
             }
+        }
+
+        let mono_system_paths = [
+            "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
+            "/usr/share/fonts/truetype/liberation/LiberationMono-Regular.ttf",
+            "/usr/share/fonts/truetype/noto/NotoSansMono-Regular.ttf",
+            "/System/Library/Fonts/Menlo.ttc",
+            "/System/Library/Fonts/Monaco.ttf",
+            "C:\\Windows\\Fonts\\cascadiacode.ttf",
+            "C:\\Windows\\Fonts\\consola.ttf",
+        ];
+        for path in mono_system_paths {
+            if let Ok(bytes) = std::fs::read(path) {
+                fonts
+                    .font_data
+                    .insert("system_mono".to_owned(), egui::FontData::from_owned(bytes));
+                fonts
+                    .families
+                    .entry(FontFamily::Monospace)
+                    .or_default()
+                    .push("system_mono".to_owned());
+                break;
+            }
+        }
+
+        // Fallback for monospace: inter_ext, inter, and system_ui so full Unicode / Vietnamese diacritics / CJK render
+        let monospace = fonts.families.entry(FontFamily::Monospace).or_default();
+        monospace.push("inter_ext".to_owned());
+        monospace.push("inter".to_owned());
+        if loaded_system_ui {
+            monospace.push("system_ui".to_owned());
         }
 
         ctx.set_fonts(fonts);
@@ -375,6 +409,13 @@ mod tests {
                 );
                 assert!(galley.size().x > 8.0);
                 assert!(galley.size().y > 8.0);
+
+                let mono_vietnamese = ui.painter().layout_no_wrap(
+                    "SELECT * FROM bảng_dữ_liệu WHERE tên = 'tiếng Việt'".to_owned(),
+                    egui::FontId::monospace(13.0),
+                    egui::Color32::WHITE,
+                );
+                assert!(mono_vietnamese.size().x > 50.0);
             });
         });
     }

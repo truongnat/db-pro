@@ -407,6 +407,14 @@ impl<'a> SqlEditor<'a> {
                             response.wants_completion = true;
                         }
                     }
+                    Event::Ime(egui::ImeEvent::Commit(text)) if !text.is_empty() => {
+                        self.type_text(&text);
+                        response.changed = true;
+                        if text == "." || text.chars().all(|c| c.is_alphanumeric() || c == '_') {
+                            response.wants_completion = true;
+                        }
+                    }
+                    Event::Ime(egui::ImeEvent::Preedit(_) | egui::ImeEvent::Enabled | egui::ImeEvent::Disabled) => {}
                     Event::Cut if !self.selection.is_empty() => {
                         self.buffer.break_typing_group();
                         let (start, end) = self.selection.normalized();
@@ -798,11 +806,17 @@ impl<'a> SqlEditor<'a> {
             }
         }
 
-        // Caret Line / Blinking Cursor
+        // Caret Line / Blinking Cursor & IME positioning
         if focused {
             let cursor_rect = Rect::from_min_size(cursor_screen, Vec2::new(2.0, line_height));
             ui.painter()
                 .rect_filled(cursor_rect, Rounding::same(1.0), self.theme.accent);
+            ui.output_mut(|o| {
+                o.ime = Some(egui::output::IMEOutput {
+                    rect: cursor_rect,
+                    cursor_rect,
+                });
+            });
         }
 
         let _ = (content_width, content_height);
@@ -1101,5 +1115,32 @@ mod tests {
 
         let resolved_offset = editor.screen_pos_to_offset(&buf, screen_pos, origin, gutter_w, line_height, char_width);
         assert_eq!(resolved_offset, 13);
+    }
+
+    #[test]
+    fn test_ime_text_input_multilingual() {
+        let mut buf = TextBuffer::from_string("SELECT ");
+        let mut cursor = CursorPosition::from_offset(&buf, 7);
+        let mut selection = SelectionRange::default();
+        let theme = DbProTheme::dark();
+        let mut editor = SqlEditor::new(
+            &mut buf,
+            &mut cursor,
+            &mut selection,
+            SqlDialect::Postgres,
+            &theme,
+            &[],
+            None,
+            "test",
+        );
+
+        // Simulate IME committing Vietnamese text
+        editor.type_text("'tiếng Việt có dấu'");
+        assert_eq!(editor.buffer.text(), "SELECT 'tiếng Việt có dấu'");
+        assert_eq!(editor.cursor.offset, "SELECT 'tiếng Việt có dấu'".len());
+
+        // Test undo
+        assert!(editor.buffer.undo().is_some());
+        assert_eq!(editor.buffer.text(), "SELECT ");
     }
 }
