@@ -260,6 +260,108 @@ async fn pg_query_decodes_native_temporal_and_network_values() {
     connector.disconnect(&handle).await.unwrap();
 }
 
+/// #57 (B3): the structured and binary decoder paths hold on a live server —
+/// JSON/JSONB stay structured, a UUID keeps its canonical text, BYTEA stays
+/// byte-exact (a 0xde/0xff byte must not become mojibake), CIDR keeps address and
+/// prefix — and a SQL NULL in any of those classes stays a null cell instead of
+/// failing the row.
+#[tokio::test]
+#[ignore] // Requires DATABASE_URL
+async fn pg_query_decodes_structured_and_binary_value_classes() {
+    let (connector, handle) = setup().await;
+
+    // Real fixture columns, including a NULL and a non-UTF8 byte sequence.
+    let result = connector
+        .query(
+            &handle,
+            "SELECT p.id, p.metadata, d.title, d.binary_data \
+             FROM products p, documents d \
+             WHERE p.sku = 'ELEC-001' AND d.title IN ('Binary Only', 'Empty Doc', 'README') \
+             ORDER BY d.title",
+            &[],
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(result.row_count, 3);
+    let rows = &result.rows;
+
+    // UUID: canonical lowercase text, never a byte blob.
+    assert!(
+        matches!(&rows[0].0[0], CellValue::Uuid(value) if value == "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11"),
+        "UUID must keep canonical text, got {:?}",
+        rows[0].0[0]
+    );
+    // JSONB: structured, keyed access works.
+    assert!(
+        matches!(&rows[0].0[1], CellValue::Json(value) if value["brand"] == "TechCo" && value["weight_kg"] == 1.8),
+        "JSONB must stay structured, got {:?}",
+        rows[0].0[1]
+    );
+
+    // BYTEA: byte-exact in both directions, and a NULL stays NULL.
+    assert!(
+        matches!(&rows[0].0[3], CellValue::Bytes(value) if value == &vec![0xde, 0xad, 0xbe, 0xef]),
+        "BYTEA must stay byte-exact, got {:?}",
+        rows[0].0[3]
+    );
+    assert!(
+        matches!(&rows[1].0[3], CellValue::Null),
+        "a NULL BYTEA is a null cell, not empty bytes, got {:?}",
+        rows[1].0[3]
+    );
+    assert!(
+        matches!(&rows[2].0[3], CellValue::Bytes(value) if value == b"Hello"),
+        "ASCII bytes must decode to their exact bytes, got {:?}",
+        rows[2].0[3]
+    );
+
+    // Inline classes: JSON vs JSONB agree, CIDR keeps its network meaning, and a
+    // SQL NULL is distinguishable from a JSON literal null.
+    let classes = connector
+        .query(
+            &handle,
+            "SELECT \
+               '{\"a\":1,\"b\":[true,null]}'::json AS as_json, \
+               '{\"a\":1,\"b\":[true,null]}'::jsonb AS as_jsonb, \
+               '192.0.2.0/24'::cidr AS as_cidr, \
+               NULL::jsonb AS as_null, \
+               'null'::jsonb AS as_json_null",
+            &[],
+        )
+        .await
+        .unwrap();
+
+    let cells = &classes.rows[0].0;
+    assert!(
+        matches!(&cells[0], CellValue::Json(value) if value["a"] == 1 && value["b"][0] == true),
+        "JSON must decode to a structured value, got {:?}",
+        cells[0]
+    );
+    assert!(
+        matches!(&cells[1], CellValue::Json(value) if value["b"][1].is_null()),
+        "JSONB must decode to a structured value, got {:?}",
+        cells[1]
+    );
+    assert!(
+        matches!(&cells[2], CellValue::Inet(value) if value == "192.0.2.0/24"),
+        "CIDR must keep address and prefix, got {:?}",
+        cells[2]
+    );
+    assert!(
+        matches!(&cells[3], CellValue::Null),
+        "a SQL NULL jsonb is a null cell, got {:?}",
+        cells[3]
+    );
+    assert!(
+        matches!(&cells[4], CellValue::Json(value) if value.is_null()),
+        "a JSON literal null is a JSON value, not a SQL NULL, got {:?}",
+        cells[4]
+    );
+
+    connector.disconnect(&handle).await.unwrap();
+}
+
 #[tokio::test]
 #[ignore]
 async fn pg_typed_temporal_and_network_parameters_bind_without_casts() {
