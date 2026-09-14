@@ -29,22 +29,23 @@ cargo test --workspace
 
 ## P1 Regression Matrix
 
-| ID | Automated proof required | Runtime proof required |
-|---|---|---|
-| QA-P1-01 | exact i64 serialization tests + frontend exact representation + update/delete identity | PG + SQLite row with PK `9007199254740993` displays and mutates exact row |
-| QA-P1-02 | workspace/store integration test: staged A → preview B cannot inherit revisions | single-click A/edit/single-click B; no cross-table change bar/apply |
-| QA-P1-03 | close guard tests for single/many/preview/reassign | stage edit then close/close-all; explicit discard prompt |
-| QA-P1-04 | SQLite table-data column metadata tests + codec tests | SQLite INTEGER/BLOB/text table editor shows correct capabilities |
-| QA-P1-05 | ConnectionEditor provider form test | new SQLite connection saves/tests without password |
-| QA-P1-06 | SSH toggle model test | edit SSH conn → disable → save/reopen; SSH remains off |
-| QA-P1-07 | SSH default-state serialization test | enable SSH, never touch port, use host/user/key → submitted port is exactly 22 |
-| QA-P1-08 | fake delayed mutation test with dialog generation/session | close in-flight create, reopen New, later submit creates new record only |
-| QA-P1-09 | restore coordinator call-count tests | startup restores once; normal connection-list refresh never reconnects |
-| QA-P1-10 | orphan close guard test | orphan dirty query Close requires confirmation |
-| QA-P1-11 | provider/resource reassignment tests | PG public.users → SQLite cannot silently retain invalid public.users context |
-| QA-P1-12 | 500/1000 fixture initial visible-node/layout count | office 500+ schema opens into bounded/search-first state |
-| QA-P1-13 | first-render node tier test | no full-column first-paint freeze on large schema |
-| QA-P1-14 | PostgreSQL provider type integration matrix | representative DB columns query/render without precision loss/crash |
+| ID | Automated proof required | Runtime proof required | Status |
+|---|---|---|---|
+| QA-P1-01 | exact i64 serialization tests + exact representation + update/delete identity | PG + SQLite row with PK `9007199254740993` displays and mutates exact row | PASS |
+| QA-P1-02 | workspace/store integration test: staged A → preview B cannot inherit revisions | single-click A/edit/single-click B; no cross-table change bar/apply | PASS |
+| QA-P1-03 | close guard tests for single/many/preview/reassign | stage edit then close/close-all; explicit discard prompt | PASS |
+| QA-P1-04 | SQLite table-data column metadata tests + codec tests | SQLite INTEGER/BLOB/text table editor shows correct capabilities | PASS |
+| QA-P1-05 | ConnectionEditor provider form test | new SQLite connection saves/tests without password | PASS |
+| QA-P1-06 | SSH toggle model test | edit SSH conn → disable → save/reopen; SSH remains off | PASS |
+| QA-P1-07 | SSH default-state serialization test | enable SSH, never touch port, use host/user/key → submitted port is exactly 22 | PASS |
+| QA-P1-08 | fake delayed mutation test with dialog generation/session | close in-flight create, reopen New, later submit creates new record only | PASS |
+| QA-P1-09 | restore coordinator call-count tests | startup restores once; normal connection-list refresh never reconnects | PASS |
+| QA-P1-10 | orphan close guard test | orphan dirty query Close requires confirmation | PASS |
+| QA-P1-11 | provider/resource reassignment tests | PG public.users → SQLite cannot silently retain invalid public.users context | PASS |
+| QA-P1-12 | 500/1000 fixture initial visible-node/layout count | office 500+ schema opens into bounded/search-first state | PASS |
+| QA-P1-13 | first-render node tier test | no full-column first-paint freeze on large schema | PASS |
+| QA-P1-14 | PostgreSQL provider type integration matrix | representative DB columns query/render without precision loss/crash | PASS |
+
 
 ## Precision Test Fixtures
 

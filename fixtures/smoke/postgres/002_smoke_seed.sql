@@ -44,9 +44,9 @@ INSERT INTO smoke_audit_log (event_type, payload) VALUES
 
 -- ── Documents (BYTEA, 3 rows) ────────────────────────────────
 INSERT INTO smoke_documents (title, body, binary_data) VALUES
-    ('README',      'Smoke test document body.', X'48656C6C6F'),
+    ('README',      'Smoke test document body.', '\x48656C6C6F'),
     ('Empty Doc',   '',                         NULL),
-    ('Binary Only', NULL,                       X'DEADBEEF');
+    ('Binary Only', NULL,                       '\xDEADBEEF');
 
 -- ── Employees (generated column, 3 rows) ─────────────────────
 INSERT INTO smoke_employees (first_name, last_name, hire_date) VALUES

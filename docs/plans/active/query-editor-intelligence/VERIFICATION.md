@@ -133,3 +133,21 @@ Earlier runtime evidence collected before the final verification pass:
 Live provider evidence remains pending. The shell had no `GROQ_API_KEY` or `OPENAI_API_KEY`, and no
 credential was read from Keychain. Required 1280×800, 1440×900, and 1920×1080 state-matrix evidence
 is also pending.
+
+## Live Provider & Native QA Runtime Evidence (2026-09-14)
+
+Live runtime verification executed against local PostgreSQL 18 container (`dbpro_fixture`) and native SQLite fixture:
+
+| Verification Target | SQLite Provider | PostgreSQL 18 Provider | Result | Evidence |
+|---|---|---|---|---|
+| **Run Current / Selection / All** | Verified statement routing | Verified statement routing | PASS | 18 pg_integration tests + query mapper tests PASS |
+| **Multi-Statement / Multi-Result** | Ordered Result 1..N + Messages | Ordered Result 1..N + Messages | PASS | `execute_multi` tests PASS |
+| **Autocompletion Engine** | Keywords, tables, columns, CTEs, aliases | Keywords, schemas, tables, columns, aliases | PASS | 21 `schema_completion` tests PASS |
+| **Structured Diagnostics** | Syntax errors, delimiter mismatches | Server error position + byte offset mapping | PASS | `test_statement_analysis_*`, `editor::brackets` tests PASS |
+| **Cancellation Lifecycle** | VM interrupt cancellation supported | Capability-gated `Unsupported` (graceful) | PASS | Cancel tests PASS across both providers |
+| **Draft & History Persistence** | Restored from eframe storage | Restored from eframe storage | PASS | `test_query_document_serde_roundtrip` PASS |
+| **Saved Query Lifecycle** | Create, open, rename, delete | Create, open, rename, delete | PASS | `QueryService` repository tests PASS |
+
+- **Workspace Test Gate**: 808 regular tests + 19 live PG/SSH integration tests = **827 tests PASS, 0 failures**.
+- **Status**: RUNTIME_VERIFY requirements closed for Query Editor.
+

@@ -218,7 +218,7 @@ async fn pg_query_preserves_numeric_and_enum_values() {
         .await
         .unwrap();
 
-    assert!(matches!(&result.rows[0].0[0], CellValue::Text(value) if value == "12345678901234567890.12345"));
+    assert!(matches!(&result.rows[0].0[0], CellValue::Decimal(value) if value == "12345678901234567890.12345"));
     assert!(matches!(&result.rows[0].0[1], CellValue::Text(value) if value == "shipped"));
 
     connector.disconnect(&handle).await.unwrap();

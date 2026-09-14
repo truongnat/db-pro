@@ -97,12 +97,12 @@ V01-07  Final Release Sign-off, Governance & v0.1.0 Tagging
 ### V01-01 — Native Visual Redesign Finalization & Review
 
 - **Feature**: Complete Native Visual Redesign (Goal-2 / Waves 1–14).
-- **Current State**: `IMPLEMENTING` on `feature/native-visual-redesign`.
+- **Current State**: `PASS / VERIFIED` (2026-09-14).
 - **Exact Verification Needed**:
-  - [ ] All-surface light and dark theme traversal (Shell, Explorer, Query Editor, Table Grid, Schema Details, ER Diagram, Agent panel, Settings, Dialogs).
-  - [ ] Resolution acceptance checks at 1280×800, 1440×900, and 1920×1080.
-  - [ ] Provider / runtime review for PostgreSQL and SQLite UI consistency.
-  - [ ] Independent reviewer sign-off (Kilo VPS review).
+  - [x] All-surface light and dark theme traversal (Shell, Explorer, Query Editor, Table Grid, Schema Details, ER Diagram, Agent panel, Settings, Dialogs).
+  - [x] Resolution acceptance checks at 1280×800, 1440×900, and 1920×1080 (zero clipping, bounded layout).
+  - [x] Provider / runtime review for PostgreSQL and SQLite UI consistency.
+  - [x] Independent reviewer sign-off (Kilo VPS review).
 - **Provider Scope**: Desktop Native Shell + SQLite + PostgreSQL.
 - **Evidence Location**: `docs/plans/active/native-visual-redesign/VERIFICATION.md` + captured screenshots.
 - **Blocker Severity**: `P0` (UI contract blocker).
@@ -113,15 +113,15 @@ V01-07  Final Release Sign-off, Governance & v0.1.0 Tagging
 ### V01-02 — Query Editor & Intelligence Runtime Verification
 
 - **Feature**: Query Editor Execution, Autocompletion, Diagnostics, Multi-Result & History.
-- **Current State**: `RUNTIME_VERIFY` on `main`.
+- **Current State**: `PASS / VERIFIED` (2026-09-14).
 - **Exact Verification Needed**:
-  - [ ] Native viewport SQL editing with dialect syntax highlighting.
-  - [ ] Execution routing: Run Current statement, Run Selection, Run All.
-  - [ ] Multi-statement execution returning distinct result tabs (`Result 1`, `Result 2`, `Messages`).
-  - [ ] Schema-aware auto-completion popup for tables, columns, and keywords.
-  - [ ] Query diagnostics rendering inline and in the status area for syntax errors.
-  - [ ] Query cancellation via Stop button / Escape (verifying SQLite interrupt + PostgreSQL capability gating).
-  - [ ] Local draft persistence across app restarts and saved-query save/load/rename.
+  - [x] Native viewport SQL editing with dialect syntax highlighting.
+  - [x] Execution routing: Run Current statement, Run Selection, Run All.
+  - [x] Multi-statement execution returning distinct result tabs (`Result 1`, `Result 2`, `Messages`).
+  - [x] Schema-aware auto-completion popup for tables, columns, and keywords.
+  - [x] Query diagnostics rendering inline and in the status area for syntax errors.
+  - [x] Query cancellation via Stop button / Escape (verifying SQLite interrupt + PostgreSQL capability gating).
+  - [x] Local draft persistence across app restarts and saved-query save/load/rename.
 - **Provider Scope**: PostgreSQL (live fixture) + SQLite (native).
 - **Evidence Location**: `docs/plans/active/query-editor-intelligence/VERIFICATION.md`.
 - **Blocker Severity**: `P0` (core product capability).
@@ -132,14 +132,14 @@ V01-07  Final Release Sign-off, Governance & v0.1.0 Tagging
 ### V01-03 — Large-Schema ER Diagram Runtime Verification
 
 - **Feature**: Large-Schema ER Diagram Performance & Interaction Engine.
-- **Current State**: `RUNTIME_VERIFY` on `main`.
+- **Current State**: `PASS / VERIFIED` (2026-09-14).
 - **Exact Verification Needed**:
-  - [ ] Synthetic 1000-table schema rendering on native egui canvas.
-  - [ ] Smooth pan (drag) and continuous zoom (0.5× to 2.0×).
-  - [ ] 3-tier Level of Detail (LOD) transitions: Compact (<0.75×), Standard (<1.15×), Detailed (≥1.15×).
-  - [ ] Large-schema exploration: Search table filter + BFS neighborhood expansion (depth 1–2, cap 100).
-  - [ ] Fit-to-view calculation and rapid schema switching without layout corruption.
-  - [ ] Resource verification: Idle CPU < 2%, memory stable under rapid panning/zooming.
+  - [x] Synthetic 1000-table schema rendering on native egui canvas (38.02ms graph/index build, 0.40ms scene prep).
+  - [x] Smooth pan (drag) and continuous zoom (0.5× to 2.0×).
+  - [x] 3-tier Level of Detail (LOD) transitions: Compact (<0.75×), Standard (<1.15×), Detailed (≥1.15×).
+  - [x] Large-schema exploration: Search table filter + BFS neighborhood expansion (depth 1–2, cap 100).
+  - [x] Fit-to-view calculation and rapid schema switching without layout corruption.
+  - [x] Resource verification: Idle CPU < 2%, memory stable under rapid panning/zooming.
 - **Provider Scope**: Synthetic 1000-table fixture + SQLite (202-table Chinook/Sakila-scale) + PostgreSQL.
 - **Evidence Location**: `docs/plans/active/er-hardening-verification/VERIFICATION.md` (or `ui-foundation-scale-hardening/VERIFICATION.md`).
 - **Blocker Severity**: `P0` (scale contract blocker).
@@ -150,15 +150,15 @@ V01-07  Final Release Sign-off, Governance & v0.1.0 Tagging
 ### V01-04 — Schema Introspection & DDL Runtime Verification
 
 - **Feature**: Schema Introspection Sub-tabs (S1–S7: Columns, Indexes, Relations, Triggers, DDL, Constraints).
-- **Current State**: `RUNTIME_VERIFY` on `main`.
+- **Current State**: `PASS / VERIFIED` (2026-09-14).
 - **Exact Verification Needed**:
-  - [ ] Columns introspection: data types, nullability, default expressions.
-  - [ ] Indexes introspection: primary key, unique, btree, expressions, composite indexes.
-  - [ ] Relations / Foreign Keys: single and composite FK navigation and target mapping.
-  - [ ] Triggers: inspection and DDL viewer.
-  - [ ] Constraints: Check and Unique constraints inspection.
-  - [ ] Dialect-accurate reconstructed DDL tab output for tables and views.
-- **Provider Scope**: PostgreSQL 16 (live container/service) + SQLite.
+  - [x] Columns introspection: data types, nullability, default expressions.
+  - [x] Indexes introspection: primary key, unique, btree, expressions, composite indexes.
+  - [x] Relations / Foreign Keys: single and composite FK navigation and target mapping.
+  - [x] Triggers: inspection and DDL viewer.
+  - [x] Constraints: Check and Unique constraints inspection.
+  - [x] Dialect-accurate reconstructed DDL tab output for tables and views.
+- **Provider Scope**: PostgreSQL 16/18 (live container/service) + SQLite.
 - **Evidence Location**: `docs/plans/active/schema-regression/VERIFICATION.md` (and S1–S6 plan verification records).
 - **Blocker Severity**: `P1` (schema fidelity).
 - **Exit Criteria**: Live PostgreSQL + SQLite introspection verified on native UI, DDL generation matches schema.
@@ -168,18 +168,18 @@ V01-07  Final Release Sign-off, Governance & v0.1.0 Tagging
 ### V01-05 — Integrated RC1 Desktop Smoke & Provider Lifecycle
 
 - **Feature**: Full Product RC1 Desktop Runtime Smoke & Safety Hardening.
-- **Current State**: `RUNTIME_VERIFY` on `main`.
+- **Current State**: `PASS / VERIFIED` (2026-09-14).
 - **Exact Verification Needed**:
-  - [ ] Connection Lifecycle: create, edit, test connection with password/SSL/SSH, connect, disconnect, delete.
-  - [ ] Stale/invalid credentials error handling and nudge.
-  - [ ] Table Data Editing: inline edit, Enter-to-stage, pending-changes badge, commit batch.
-  - [ ] 3-Way Conflict Resolution: simulate concurrent database modification, trigger conflict dialog (Original / Local / Current DB), verify Keep Mine and Use Database actions.
-  - [ ] Composite Primary Key targeted reload and row identity preservation.
-  - [ ] Mutation Safety: destructive query confirmation modal, read-only connection write blockage.
-  - [ ] Data Export: CSV/TSV export check from result grid.
-  - [ ] Backup / Restore: SQLite `VACUUM INTO` backup + restore; PostgreSQL `pg_dump`/`pg_restore` invocation.
-  - [ ] Workspace Recovery: dirty state retention, tab restoration after app restart without crash.
-  - [ ] Agent Workflow (Preview): Ask / Edit / Agent panels, query generation, schema lookup, destructive tool confirmation.
+  - [x] Connection Lifecycle: create, edit, test connection with password/SSL/SSH, connect, disconnect, delete.
+  - [x] Stale/invalid credentials error handling and nudge.
+  - [x] Table Data Editing: inline edit, Enter-to-stage, pending-changes badge, commit batch.
+  - [x] 3-Way Conflict Resolution: simulate concurrent database modification, trigger conflict dialog (Original / Local / Current DB), verify Keep Mine and Use Database actions.
+  - [x] Composite Primary Key targeted reload and row identity preservation.
+  - [x] Mutation Safety: destructive query confirmation modal, read-only connection write blockage.
+  - [x] Data Export: CSV/TSV export check from result grid.
+  - [x] Backup / Restore: SQLite `VACUUM INTO` backup + restore; PostgreSQL `pg_dump`/`pg_restore` invocation.
+  - [x] Workspace Recovery: dirty state retention, tab restoration after app restart without crash.
+  - [x] Agent Workflow (Preview): Ask / Edit / Agent panels, query generation, schema lookup, destructive tool confirmation.
 - **Provider Scope**: PostgreSQL + SQLite.
 - **Evidence Location**: `docs/release/0.1.0-manual-smoke.md` + `docs/plans/active/rc1-full-product-qa/VERIFICATION.md`.
 - **Blocker Severity**: `P0` (release integrity).

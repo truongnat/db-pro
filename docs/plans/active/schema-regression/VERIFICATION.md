@@ -24,11 +24,13 @@ State: REVIEW (regression matrix complete; gap-filling tests added; CI green; al
 | `schema_indexes_runtime_verification.rs` | 1 | Index lifecycle: create unique → create composite → introspect → drop → verify |
 | `schema_triggers_runtime_verification.rs` | 5 | Trigger lifecycle, BEFORE INSERT, special identifiers, INSTEAD OF, multiple triggers |
 
-### Rust integration tests (PostgreSQL — CI service container)
+### Rust integration tests (PostgreSQL — Live Container & CI)
 
-| File | Tests | Coverage |
-|---|---|---|
-| `pg_integration.rs` | 9 | Tables, triggers (incl. function_def), views, indexes, FKs, query, composite FK detail, index lifecycle, special identifiers |
+| File | Tests | Coverage | Status |
+|---|---|---|---|
+| `pg_integration.rs` | 18 | Tables, triggers (incl. function_def), views, indexes, FKs, query, composite FK detail, index lifecycle, special identifiers, temporal/network types, transaction rollback, timeout rollback | PASS (18/18) |
+| `ssh_backup_runtime_verification.rs` | 1 | PG backup and restore through live SSH tunnel | PASS (1/1) |
+
 
 ### Frontend tests
 

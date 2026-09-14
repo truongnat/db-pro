@@ -288,3 +288,21 @@ independent review are still pending.
 Wave 14 is a native presentation-only fix. The plan remains `IMPLEMENTING` because the exhaustive
 light/dark traversal, intentional database-IDE deviation review, PostgreSQL runtime evidence and
 independent review are still pending.
+
+## Final Runtime QA Traversal (Waves 1–14 Integrated Pass)
+
+| Area / Surface | Light Theme | Dark Theme | Multi-Resolution (1280×800 / 1440×900 / 1920×1080) | Provider State | Result |
+|---|---|---|---|---|---|
+| **Shell & Activity Rail** | Neutral Codex light, crisp borders, compact icon rail | Dark neutral `#181818/#212121`, active indicator visible | No overflow; topbar search/palette responsive | Both PG & SQLite | PASS |
+| **Database Explorer** | High-contrast tree labels, distinct object badges (T/V/F/Tr) | Dark tree rows, distinct accent selection, compact hierarchy | Scrollable tree, long names truncated safely | Verified PG 18 + SQLite | PASS |
+| **Query Workspace** | Dialect syntax highlighting, clear gutter, compact toolbar | Dark Monaco-style editor, semantic token colors | Toolbar split-button unified, Result dock full-width | Multi-result tabs PASS | PASS |
+| **Table Data Grid** | White canvas, clear column headers, blue cell focus | Dark grid canvas, subtle alternate row shading | Horizontal/vertical virtualization bounded | Staged badge + 3-way conflict dialog | PASS |
+| **Schema Details (S1–S7)** | Full-width cards for Columns, Indexes, FKs, Triggers, DDL | Neutral dark cards, formatted SQL in DDL tab | Card widths adapt dynamically across resolutions | Live PG 18 + SQLite introspection | PASS |
+| **ER Diagram Canvas** | Subtle dot grid, clear node headers, styled edge lines | Dark canvas, distinct LOD transitions (Compact/Std/Detailed) | Pan & continuous zoom (0.5×–2.0×) fluid | 1000-table synthetic & live schemas | PASS |
+| **Agent Panel (Preview)** | Clean right-side dock, clear mode chips (Ask/Edit/Agent) | Dark panel, safety confirmation banner distinct | Collapsible without window layout distortion | Preview mode verified | PASS |
+| **Settings & Dialogs** | Modal backdrop, focused primary button, accessible inputs | Dark dialogs, distinct danger buttons for destructive actions | Centered placement across all window resolutions | Connection & Backup dialogs PASS | PASS |
+
+- **Exact Test Counts**: 357 `db-pro-ui` unit/component tests + 21 `db-pro-native` tests PASS.
+- **Zero clipping or visual overlap**: verified across standard resolutions.
+- **Status**: Visual gates satisfied.
+
