@@ -1144,4 +1144,96 @@ mod tests {
         // Verification: Database was never touched, count is 0!
         assert_eq!(runner.count.load(std::sync::atomic::Ordering::SeqCst), 0);
     }
+
+    #[tokio::test]
+    async fn safety_escalation_requires_destructive_confirmation_for_dangerous_mutation() {
+        let runner = std::sync::Arc::new(CountingToolRunner {
+            count: std::sync::atomic::AtomicUsize::new(0),
+        });
+        struct ArcRunner(std::sync::Arc<CountingToolRunner>);
+        #[async_trait::async_trait]
+        impl AgentToolRunner for ArcRunner {
+            async fn execute(
+                &self,
+                request: &AgentToolRequest,
+                context: &AgentExecutionContext,
+            ) -> Result<AgentToolResult, AgentToolError> {
+                self.0.execute(request, context).await
+            }
+        }
+
+        let session = AgentSession::new("doc-a", Some("conn-1".to_owned()), Some("public".to_owned()));
+        let execution_context = AgentExecutionContext::new(session.clone(), document(1), AgentMode::Agent);
+        let mut orchestrator = AgentRunOrchestrator::new(
+            Box::new(FakeProvider {
+                responses: Mutex::new(
+                    vec![
+                        vec![AgentProviderEvent::ToolCall(AgentToolCall {
+                            call_id: "drop-table-1".to_owned(),
+                            tool: AgentTool::RunQuery,
+                            input: AgentToolInput::Query {
+                                sql: "DROP TABLE users CASCADE".to_owned(),
+                            },
+                        })],
+                        vec![AgentProviderEvent::Completed],
+                    ]
+                    .into_iter()
+                    .collect(),
+                ),
+            }),
+            Box::new(ArcRunner(runner.clone())),
+            AgentWorkflow::new(session, AgentMode::Agent, false),
+            execution_context,
+            "drop table".to_owned(),
+            context(1),
+        )
+        .expect("orchestrator should start");
+
+        let events = orchestrator.run().await;
+        // Verify it demands RunDestructive, NOT RunMutation or RunUnknown
+        assert!(events.iter().any(|e| matches!(
+            e,
+            AgentWorkflowEvent::ConfirmationRequired {
+                kind: AgentConfirmationKind::RunDestructive,
+                call_id,
+                ..
+            } if call_id == "drop-table-1"
+        )));
+
+        // Reject confirmation and verify database count remains 0
+        let finish_events = orchestrator
+            .resume_confirmation(false, Some(document(1)), None)
+            .await
+            .expect("resume rejected");
+        assert!(finish_events
+            .iter()
+            .any(|e| matches!(e, AgentWorkflowEvent::Completed { .. })));
+        assert_eq!(runner.count.load(std::sync::atomic::Ordering::SeqCst), 0);
+    }
+
+    #[tokio::test]
+    async fn malformed_provider_missing_arguments_reports_tool_failed_gracefully() {
+        let mut orchestrator = orchestrator_with_mode(
+            vec![
+                vec![AgentProviderEvent::ToolCall(AgentToolCall {
+                    call_id: "bad-1".to_owned(),
+                    tool: AgentTool::RunQuery,
+                    input: AgentToolInput::None,
+                })],
+                vec![AgentProviderEvent::Completed],
+            ],
+            AgentMode::Agent,
+        );
+
+        let events = orchestrator.run().await;
+        assert!(events.iter().any(|e| matches!(
+            e,
+            AgentWorkflowEvent::ToolFailed {
+                call_id,
+                error: AgentToolError::InvalidInput { .. },
+                ..
+            } if call_id == "bad-1"
+        )));
+        assert!(events.iter().any(|e| matches!(e, AgentWorkflowEvent::Completed { .. })));
+    }
 }

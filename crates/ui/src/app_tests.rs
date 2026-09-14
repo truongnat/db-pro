@@ -3067,3 +3067,114 @@ fn test_agent_vietnamese_ime_input_and_patch_version_safety() {
         "SELECT * FROM người_dùng WHERE tên = 'Nguyễn Văn A'"
     );
 }
+
+#[test]
+fn test_agent_vietnamese_valid_patch_application_and_undo() {
+    let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
+    let mut app = DbProApp::with_task_bridge(bridge);
+    let doc_id = app.query_documents[0].id.clone();
+
+    // Set Vietnamese Unicode query text
+    let initial_text = "SELECT tên FROM người_dùng";
+    app.query_documents[0].set_text(initial_text);
+    let expected_version = app.query_documents[0].buffer.version();
+
+    // "SELECT " is 7 bytes; "tên" is 4 bytes (t: 1 byte, ê: 2 bytes, n: 1 byte) -> range (7, 11)
+    let start_byte = 7;
+    let end_byte = 11;
+    assert_eq!(&initial_text[start_byte..end_byte], "tên");
+
+    let mut session = super::agent_workflow_state::AgentUiSession::for_document(&doc_id, None, None);
+    let run_id = db_pro_core::domain::agent::AgentRunId::new();
+    session.pending_confirmation = Some(super::agent_workflow_state::AgentUiConfirmation {
+        run_id,
+        call_id: "patch-vn".to_owned(),
+        kind: db_pro_core::domain::agent_workflow::AgentConfirmationKind::ApplyPatch,
+        preview: Some(db_pro_core::domain::agent::AgentToolOutput::PatchPreview {
+            patch: db_pro_core::domain::agent::AgentSqlPatch {
+                document_id: doc_id.clone(),
+                expected_version,
+                range: (start_byte, end_byte),
+                replacement: "ho_ten".to_owned(),
+            },
+            original: "tên".to_owned(),
+            proposed: "ho_ten".to_owned(),
+        }),
+        document_id: doc_id.clone(),
+    });
+    app.agent_sessions.insert(doc_id.clone(), session);
+
+    // Approve the patch
+    app.agent_confirmation_action(true);
+
+    // Verify document text was updated cleanly without byte index slicing panic
+    assert_eq!(app.query_documents[0].text(), "SELECT ho_ten FROM người_dùng");
+
+    // Verify ContinueAgentRun command was dispatched with PatchApplied outcome
+    match command_rx.try_recv() {
+        Ok(UiCommand::ContinueAgentRun {
+            run_id: cmd_run_id,
+            approved,
+            applied_patch,
+            ..
+        }) => {
+            assert_eq!(cmd_run_id, run_id);
+            assert!(approved);
+            assert!(matches!(
+                applied_patch,
+                Some(db_pro_core::domain::agent::AgentToolOutput::PatchApplied {
+                    new_version,
+                    range: (7, 11),
+                    ..
+                }) if new_version > expected_version
+            ));
+        }
+        other => panic!("expected ContinueAgentRun, got {:?}", other),
+    }
+
+    // Verify undo restores the exact original Vietnamese text
+    assert!(app.query_documents[0].buffer.undo().is_some());
+    assert_eq!(app.query_documents[0].text(), initial_text);
+}
+
+#[test]
+fn test_agent_event_routing_ignores_mismatched_session_and_document_and_run_ids() {
+    let mut app = DbProApp::default();
+    let doc_id = app.query_documents[0].id.clone();
+    let real_run_id = db_pro_core::domain::agent::AgentRunId::new();
+
+    let mut session = super::agent_workflow_state::AgentUiSession::for_document(&doc_id, None, None);
+    let real_session_id = session.session.as_ref().unwrap().id;
+    session.active_run_id = Some(real_run_id);
+    app.agent_sessions.insert(doc_id.clone(), session);
+
+    // 1. Mismatched document_id -> ignored
+    let wrong_doc_id = "doc-nonexistent".to_owned();
+    app.on_agent_workflow_event(db_pro_core::domain::agent_workflow::AgentWorkflowEvent::TextDelta {
+        session_id: real_session_id,
+        run_id: real_run_id,
+        document_id: wrong_doc_id.clone(),
+        delta: "ignored text".to_owned(),
+    });
+    assert!(!app.agent_sessions.contains_key(&wrong_doc_id));
+    assert!(app.agent_sessions.get(&doc_id).unwrap().streaming_text.is_empty());
+
+    // 2. Mismatched run_id -> ignored
+    let wrong_run_id = db_pro_core::domain::agent::AgentRunId::new();
+    app.on_agent_workflow_event(db_pro_core::domain::agent_workflow::AgentWorkflowEvent::TextDelta {
+        session_id: real_session_id,
+        run_id: wrong_run_id,
+        document_id: doc_id.clone(),
+        delta: "stale run text".to_owned(),
+    });
+    assert!(app.agent_sessions.get(&doc_id).unwrap().streaming_text.is_empty());
+
+    // 3. Matching IDs -> accepted
+    app.on_agent_workflow_event(db_pro_core::domain::agent_workflow::AgentWorkflowEvent::TextDelta {
+        session_id: real_session_id,
+        run_id: real_run_id,
+        document_id: doc_id.clone(),
+        delta: "valid delta".to_owned(),
+    });
+    assert_eq!(app.agent_sessions.get(&doc_id).unwrap().streaming_text, "valid delta");
+}

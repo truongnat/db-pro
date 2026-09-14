@@ -1143,4 +1143,43 @@ mod tests {
         assert!(editor.buffer.undo().is_some());
         assert_eq!(editor.buffer.text(), "SELECT ");
     }
+
+    #[test]
+    fn test_ime_commit_event_in_editor_widget() {
+        let ctx = egui::Context::default();
+        let mut buf = TextBuffer::from_string("SELECT ");
+        let mut cursor = CursorPosition::from_offset(&buf, 7);
+        let mut selection = SelectionRange::default();
+        let theme = DbProTheme::dark();
+
+        let raw_input = egui::RawInput {
+            focused: true,
+            events: vec![egui::Event::Ime(egui::ImeEvent::Commit("tên_cột".to_owned()))],
+            ..Default::default()
+        };
+
+        let _ = ctx.run(raw_input, |ctx| {
+            egui::CentralPanel::default().show(ctx, |ui| {
+                let editor_id = ui.make_persistent_id("test-ime");
+                ui.memory_mut(|m| m.request_focus(editor_id));
+
+                let editor = SqlEditor::new(
+                    &mut buf,
+                    &mut cursor,
+                    &mut selection,
+                    SqlDialect::Postgres,
+                    &theme,
+                    &[],
+                    None,
+                    "test-ime",
+                );
+                let resp = editor.show(ui, egui::vec2(600.0, 400.0));
+                assert!(resp.changed);
+                assert!(resp.wants_completion);
+            });
+        });
+
+        assert_eq!(buf.text(), "SELECT tên_cột");
+        assert_eq!(cursor.offset, "SELECT tên_cột".len());
+    }
 }
