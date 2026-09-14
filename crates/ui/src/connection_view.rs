@@ -2,6 +2,18 @@ use super::*;
 use egui::{pos2, vec2, Align2, FontFamily, FontId, Margin, Rect, Rounding, Stroke};
 use lucide_icons::Icon;
 
+/// In-UI qualification caveat for the SSH tunnel control (#239).
+///
+/// `docs/release/known-limitations.md` LIM-006 records the tunnel as **not E2E
+/// qualified** ("implementation exists … but has not been end-to-end tested";
+/// "SSH tunneling may not work reliably"), and `R009` records that its only
+/// runtime test is `#[ignore]`d and runs as 0 passed / 1 ignored. Until that
+/// changes, the connection dialog must not present the control as a qualified
+/// capability, which the issue's acceptance calls out explicitly. The wording
+/// tracks LIM-006 rather than adding a claim of its own.
+const SSH_QUALIFICATION_HINT: &str =
+    "Unqualified in v0.1: the tunnel has not been end-to-end tested and may not work reliably.";
+
 struct DriverCardProps<'a> {
     icon: Icon,
     name: &'a str,
@@ -717,6 +729,16 @@ impl DbProApp {
                 );
             });
 
+            // Shown with the control itself, before it is enabled: the impression
+            // this caveat guards against is formed while reading the option, not
+            // only after switching it on (#239).
+            ui.add_space(SPACE_XXS);
+            ui.label(
+                RichText::new(SSH_QUALIFICATION_HINT)
+                    .font(font_caption())
+                    .color(self.theme.text_muted),
+            );
+
             if self.connection_draft.ssh_tunnel_enabled {
                 ui.add_space(SPACE_SM);
 
@@ -923,5 +945,81 @@ impl DbProApp {
             "Testing connection…"
         }
         .to_owned();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Every text run the frame actually painted.
+    ///
+    /// The test asserts on the rendered frame rather than on the constant the
+    /// dialog is written from, so removing the label from the section (while
+    /// keeping the constant) still fails.
+    fn rendered_texts(app: &mut DbProApp) -> Vec<String> {
+        fn collect(shape: &egui::Shape, texts: &mut Vec<String>) {
+            match shape {
+                egui::Shape::Text(text) => texts.push(text.galley.text().to_owned()),
+                egui::Shape::Vec(shapes) => {
+                    for shape in shapes {
+                        collect(shape, texts);
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        let ctx = egui::Context::default();
+        DbProTheme::install_fonts(&ctx);
+        let output = ctx.run(Default::default(), |ctx| {
+            egui::CentralPanel::default().show(ctx, |ui| {
+                app.draw_postgres_connection_fields(ui);
+            });
+        });
+
+        let mut texts = Vec::new();
+        for clipped in &output.shapes {
+            collect(&clipped.shape, &mut texts);
+        }
+        texts
+    }
+
+    #[test]
+    fn ssh_section_discloses_its_unqualified_v0_1_status() {
+        let mut app = DbProApp::default();
+        app.connection_draft.ssh_tunnel_enabled = false;
+
+        let texts = rendered_texts(&mut app);
+
+        assert!(
+            texts.iter().any(|text| text == SSH_QUALIFICATION_HINT),
+            "the SSH section must carry the LIM-006 qualification caveat before the tunnel is enabled; painted texts: {texts:?}"
+        );
+    }
+
+    #[test]
+    fn ssh_caveat_is_non_blocking_and_keeps_the_control_usable() {
+        let mut app = DbProApp::default();
+        app.connection_draft.ssh_tunnel_enabled = true;
+
+        let texts = rendered_texts(&mut app);
+
+        assert!(
+            texts.iter().any(|text| text == SSH_QUALIFICATION_HINT),
+            "the caveat stays visible while the tunnel is enabled; painted texts: {texts:?}"
+        );
+        assert!(
+            texts.iter().any(|text| text.contains("SSH Host")),
+            "enabling the tunnel still renders its fields — the caveat changes no behaviour; painted texts: {texts:?}"
+        );
+    }
+
+    #[test]
+    fn ssh_caveat_wording_tracks_the_recorded_limitation() {
+        // LIM-006 title, actual behaviour and user-visible impact, in that order.
+        assert!(SSH_QUALIFICATION_HINT.contains("Unqualified in v0.1"));
+        assert!(SSH_QUALIFICATION_HINT.contains("not been end-to-end tested"));
+        assert!(SSH_QUALIFICATION_HINT.contains("may not work reliably"));
     }
 }
