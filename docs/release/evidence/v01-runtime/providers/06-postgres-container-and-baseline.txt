@@ -1,0 +1,52 @@
+### PostgreSQL fixture — container, credentials, version
+
+$ docker ps --format '{{.Names}} {{.Image}} {{.Ports}} {{.Status}}'
+dbpro-v01-pg-fixture postgres:16 0.0.0.0:55432->5432/tcp, [::]:55432->5432/tcp Up About a minute
+
+$ container image
+postgres:16
+
+$ chosen host port: 55432 (5432/6379/1025/8025/5672/15672 were already taken by the qltx containers)
+
+$ SELECT version();
+PostgreSQL 16.15 (Debian 16.15-1.pgdg13+2) on aarch64-unknown-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+
+$ DATABASE_URL shape actually used (password redacted):
+  postgres://dbpro:<redacted>@127.0.0.1:55432/dbpro_fixture
+  (docker-compose.yml mirrors: POSTGRES_USER=dbpro POSTGRES_PASSWORD=<redacted> POSTGRES_DB=dbpro_fixture)
+
+$ fixture load: the two initdb bind mounts from fixtures/postgres/
+/Users/truongdev/Documents/projects/db-pro/main/fixtures/postgres/001_schema.sql -> /docker-entrypoint-initdb.d/001_schema.sql (ro)
+/Users/truongdev/Documents/projects/db-pro/main/fixtures/postgres/002_seed.sql -> /docker-entrypoint-initdb.d/002_seed.sql (ro)
+/var/lib/docker/volumes/eddfec3b6fe5b5b62179d2c6ab7a262465da7c26f4e7b960e1affdbcd2201a21/_data -> /var/lib/postgresql/data ()
+
+$ docker-entrypoint-initdb.d was populated from those binds; server log:
+CREATE DATABASE
+/usr/local/bin/docker-entrypoint.sh: running /docker-entrypoint-initdb.d/001_schema.sql
+CREATE TYPE
+CREATE SEQUENCE
+CREATE TABLE
+
+$ fixtures/postgres/003_verify.sql (expected deterministic counts)
+003_verify.sql: PASS (exit 0)
+
+$ baseline row counts (before the integration suite)
+     entity      | count 
+-----------------+-------
+ categories      |     4
+ order_items     |     6
+ orders          |     4
+ products        |     4
+ "Ünïcödé Üsers" |     4
+(5 rows)
+
+
+$ baseline object counts
+ relkind | count 
+---------+-------
+ S       |     8
+ i       |    17
+ r       |    10
+ v       |     2
+(4 rows)
+

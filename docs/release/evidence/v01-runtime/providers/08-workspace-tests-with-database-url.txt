@@ -1,0 +1,955 @@
+### Workspace test run WITH DATABASE_URL — precise passed/failed/ignored counts
+
+$ DATABASE_URL=postgres://dbpro:<redacted>@127.0.0.1:55432/dbpro_fixture cargo test --workspace
+  (no DB_PRO_SSH_* variables are set in this environment)
+
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.81s
+     Running unittests src/lib.rs (target/debug/deps/db_pro_core-1e882d4f02743eb4)
+
+running 291 tests
+test application::connection_service::tests::connect_already_active_returns_existing_handle ... ok
+test application::connection_service::tests::connect_not_found ... ok
+test application::connection_service::tests::connect_success ... ok
+test application::connection_service::tests::connect_hydrates_ssh_password_from_secret_store ... ok
+test application::backup_service::tests::sqlite_restore_does_not_require_a_database_secret ... ok
+test application::connection_service::tests::connect_legacy_postgres_uses_default_secret_key ... ok
+test application::backup_service::tests::backup_factory_receives_ssh_configuration ... ok
+test application::backup_service::tests::sqlite_backup_does_not_require_a_database_secret ... ok
+test application::backup_service::tests::restore_uses_persisted_custom_secret_reference ... ok
+test application::backup_service::tests::backup_uses_persisted_custom_secret_reference ... ok
+test application::connection_service::tests::connect_duplicate_disconnect_failure_propagates ... ok
+test application::connection_service::tests::delete_invalidates_schema_cache_after_removing_connection ... ok
+test application::connection_service::tests::delete_removes_ssh_secret_with_connection ... ok
+test application::connection_service::tests::delete_legacy_postgres_removes_default_secret_key ... ok
+test application::connection_service::tests::delete_repo_failure_restores_secret ... ok
+test application::connection_service::tests::duplicate_connect_cleanup_handle_can_be_retried ... ok
+test application::connection_service::tests::delete_active_disconnects_first ... ok
+test application::connection_service::tests::create_cleans_up_secret_on_repo_failure ... ok
+test application::connection_service::tests::lifecycle_tests::disconnect_failure_keeps_handle_for_retry ... ok
+test application::connection_service::tests::lifecycle_tests::disconnect_not_active ... ok
+test application::connection_service::tests::create_valid_connection ... ok
+test application::connection_service::tests::lifecycle_tests::disconnect_success ... ok
+test application::connection_service::tests::lifecycle_tests::list_connections ... ok
+test application::connection_service::tests::lifecycle_tests::test_connectivity_success ... ok
+test application::connection_service::tests::create_invalid_config_rejected ... ok
+test application::connection_service::tests::security_tests::create_stores_ssh_password_separately_and_sanitizes_metadata ... ok
+test application::connection_service::tests::provider_tests::connect_sqlite_does_not_read_database_secret ... ok
+test application::connection_service::tests::provider_tests::test_connectivity_with_secret_sqlite_uses_empty_password ... ok
+test application::connection_service::tests::provider_tests::create_sqlite_connection_does_not_store_database_secret ... ok
+test application::connection_service::tests::provider_tests::update_to_sqlite_removes_database_secret_reference ... ok
+test application::connection_service::tests::test_connectivity_with_secret_hydrates_ssh_password ... ok
+test application::connection_service::tests::test_connectivity_with_secret_uses_provided_password_when_present ... ok
+test application::connection_service::tests::provider_tests::create_postgres_rejects_missing_password ... ok
+test application::connection_service::tests::provider_tests::update_sqlite_to_postgres_requires_a_new_password ... ok
+test application::connection_service::tests::connectivity_tests_reject_invalid_provider_config_before_connector_call ... ok
+test application::connection_service::tests::test_connectivity_with_secret_uses_persisted_custom_secret_ref ... ok
+test application::connection_service::tests::test_connectivity_with_secret_uses_saved_password_when_empty ... ok
+test application::connection_service::tests::update_disconnect_failure_rolls_back_persisted_connection ... ok
+test application::connection_service::tests::security_tests::update_stores_new_ssh_password_and_sanitizes_metadata ... ok
+test application::connection_service::tests::update_invalidates_schema_cache_after_persisting_new_connection_config ... ok
+test application::data_diff::tests::extract_count_rejects_non_scalar_provider_result ... ok
+test application::connection_service::tests::update_repo_failure_keeps_active_connection ... ok
+test application::data_diff::tests::row_count_difference_handles_both_directions ... ok
+test application::ddl_builder::tests::drop_table_qualified ... ok
+test application::connection_service::tests::update_repo_failure_restores_missing_secret ... ok
+test application::connection_service::tests::update_password_assigns_secret_ref_for_legacy_connection ... ok
+test application::ddl_builder::tests::validate_accepts_identifier_containing_keyword_substring ... ok
+test application::data_diff::tests::extract_count_rejects_negative_provider_value ... ok
+test application::export_service::tests::excel_integer_precision_switches_to_text_outside_exact_f64_range ... ok
+test application::ddl_builder::tests::validate_rejects_semicolon_in_view_body ... ok
+test application::ddl_builder::tests::validate_rejects_semicolon_in_data_type ... ok
+test application::ddl_builder::tests::create_table_basic ... ok
+test application::ddl_builder::tests::validate_rejects_drop_in_default ... ok
+test application::export_service::tests::excel_indexes_reject_provider_type_overflow ... ok
+test application::ddl_builder::tests::create_index_unique ... ok
+test application::export_service::tests::export_multi_statement_rejected ... ok
+test application::export_service::tests::export_not_active ... ok
+test application::export_service::tests::export_rejects_mutating_query_on_readonly_connection ... ok
+test application::export_service::tests::export_rejects_malformed_query_result_shape ... ok
+test application::export_service::tests::export_csv_basic ... ok
+test application::query_service::tests::classify_leading_comment_stripped ... ok
+test application::query_service::tests::classify_leading_block_comment_stripped ... ok
+test application::query_service::tests::classify_row_producing_mutations_as_reads_for_result_routing ... ok
+test application::query_service::tests::classify_simple_insert_is_write ... ok
+test application::query_service::tests::classify_simple_select_is_read ... ok
+test application::query_service::tests::classify_with_delete_is_write ... ok
+test application::query_service::tests::classify_with_escaped_quote_in_string ... ok
+test application::export_service::tests::export_json_rejects_non_finite_float ... ok
+test application::query_service::tests::cancel_forwards_to_the_active_connection ... ok
+test application::query_service::tests::classify_with_multiple_ctes_update_is_write ... ok
+test application::query_service::tests::classify_with_paren_in_string_literal ... ok
+test application::query_service::tests::classify_with_select_is_read ... ok
+test application::query_service::tests::classify_with_update_is_write ... ok
+test application::query_service::tests::execute_ddl_invalidates_schema_cache ... ok
+test application::query_service::tests::execute_empty_sql_rejected ... ok
+test application::query_service::tests::execute_history_save_failure_non_fatal ... ok
+test application::query_service::tests::execute_multi_routes_mutating_cte_through_transaction_while_preserving_rows ... ok
+test application::query_service::tests::execute_multi_routes_select_then_update ... ok
+test application::query_service::tests::execute_multi_statement_rejected ... ok
+test application::query_service::tests::execute_multi_commit_failure_reports_unknown_outcome ... ok
+test application::query_service::tests::execute_not_active ... ok
+test application::export_service::tests::export_json_rejects_duplicate_column_names ... ok
+test application::query_service::tests::execute_multi_rejects_malformed_transaction_query_result ... ok
+test application::query_service::tests::execute_multi_partial_failure_preserves_earlier_results ... ok
+test application::query_service::tests::execute_semicolon_in_string_ok ... ok
+test application::query_service::tests::execute_multi_routes_update_returning_through_query ... ok
+test application::query_service::tests::execute_multi_with_update_routes_to_execute ... ok
+test application::query_service::tests::execute_success ... ok
+test application::query_service::tests::returning_inside_cte_does_not_make_outer_mutation_row_producing ... ok
+test application::registry::tests::unregister_returns_handle ... ok
+test application::registry::tests::active_count ... ok
+test application::registry::tests::get_unregistered_returns_none ... ok
+test application::registry::tests::register_and_get ... ok
+test application::registry::tests::is_active_tracks_state ... ok
+test application::registry::tests::register_or_get_first_wins ... ok
+test application::query_service::tests::execute_trailing_semicolon_ok ... ok
+test application::query_service::tests::explain_rejects_mutating_explain_analyze_on_read_only_connection ... ok
+test application::schema_diff::tests::dotted_schema_names_do_not_collide_with_dotted_table_names ... ok
+test application::schema_service::tests::format_trigger_ddl_includes_function_def_when_present ... ok
+test application::schema_service::tests::format_trigger_ddl_reconstructs_from_parts ... ok
+test application::schema_service::tests::format_trigger_ddl_uses_full_definition_when_available ... ok
+test application::schema_diff::tests::qualified_name_preserves_dotted_schema_and_table_names ... ok
+test application::schema_diff::tests::empty_schema_dotted_table_is_compared_by_its_literal_name ... ok
+test application::schema_diff::tests::schema_diff_orders_set_based_results_deterministically ... ok
+test application::schema_service::tests::ddl_generation_groups_composite_fk_rows_into_one_constraint ... ok
+test application::schema_service::tests::get_table_ddl_view ... ok
+test application::schema_service::tests::empty_schema_ddl_generation_omits_prefix ... ok
+test application::schema_service::tests::get_table_ddl_basic ... ok
+test application::schema_service::tests::ddl_generation_with_fk ... ok
+test application::schema_service::tests::get_table_info_not_found ... ok
+test application::schema_service::tests::introspect_cache_hit ... ok
+test application::schema_service::tests::quote_identifier_handles_special_chars ... ok
+test application::schema_service::tests::introspect_cache_miss ... ok
+test application::schema_service::tests::get_table_info_found ... ok
+test application::schema_service::tests::get_table_ddl_sqlite_uses_inline_foreign_keys_and_unqualified_names ... ok
+test application::sql_builder::tests::date_cell_uses_typed_date_parameter ... ok
+test application::schema_service::tests::introspect_force_refresh ... ok
+test application::schema_service::tests::introspect_invalid_cache_is_discarded_and_rebuilt ... ok
+test application::sql_builder::tests::delete_rejects_pk_length_mismatch ... ok
+test application::schema_service::tests::test_dependency_deduplication ... ok
+test application::export_service::tests::export_json_basic ... ok
+test application::sql_builder::tests::dollar_n_select_with_filters ... ok
+test application::sql_builder::tests::empty_schema_omits_schema_prefix ... ok
+test application::sql_builder::tests::insert_rejects_column_value_mismatch ... ok
+test application::sql_builder::tests::insert_rejects_empty_columns ... ok
+test application::sql_builder::tests::like_filter ... ok
+test application::sql_builder::tests::multi_sort ... ok
+test application::sql_builder::tests::delete_rejects_empty_pk ... ok
+test application::sql_builder::tests::mysql_delete ... ok
+test application::sql_builder::tests::mysql_insert ... ok
+test application::sql_builder::tests::count_with_filter ... ok
+test application::sql_builder::tests::dollar_n_insert ... ok
+test application::sql_builder::tests::delete_with_composite_pk ... ok
+test application::sql_builder::tests::dollar_n_update_with_pk ... ok
+test application::sql_builder::tests::dollar_n_delete ... ok
+test application::sql_builder::tests::insert_basic ... ok
+test application::sql_builder::tests::mysql_quoting_special_chars ... ok
+test application::sql_builder::tests::mysql_select_uses_backtick_quoting ... ok
+test application::sql_builder::tests::mysql_update_with_pk ... ok
+test application::sql_builder::tests::select_no_filters_no_sorts ... ok
+test application::sql_builder::tests::quote_identifier_special_chars ... ok
+test application::sql_builder::tests::select_rejects_pagination_values_outside_database_integer_range ... ok
+test application::sql_builder::tests::select_with_null_filters ... ok
+test application::sql_builder::tests::select_with_filters_and_sorts ... ok
+test application::sql_builder::tests::sqlserver_quoting_special_chars ... ok
+test application::sql_builder::tests::sqlserver_select_without_order_by_fails ... ok
+test application::sql_builder::tests::sqlserver_select_with_order_by ... ok
+test application::sql_builder::tests::test_build_select_by_composite_pk ... ok
+test application::sql_builder::tests::temporal_and_network_cells_use_typed_parameters ... ok
+test application::sql_builder::tests::update_rejects_empty_columns ... ok
+test application::sql_builder::tests::update_rejects_column_value_mismatch ... ok
+test application::sql_builder::tests::update_rejects_empty_pk ... ok
+test application::sql_builder::tests::update_rejects_pk_length_mismatch ... ok
+test application::sql_builder::tests::update_with_pk ... ok
+test application::sql_policy::tests::reject_multi_statement_basic ... ok
+test application::sql_policy::tests::reject_multi_statement_ignores_literals_identifiers_and_comments ... ok
+test application::sql_policy::tests::split_statements_basic ... ok
+test application::sql_policy::tests::split_statements_drops_comment_only_tail ... ok
+test application::sql_policy::tests::split_statements_does_not_treat_identifier_dollar_signs_as_quotes ... ok
+test application::sql_policy::tests::split_statements_empty ... ok
+test application::sql_policy::tests::split_statements_respects_comments_and_dollar_quotes ... ok
+test application::sql_policy::tests::split_statements_respects_quotes ... ok
+test application::sql_policy::tests::split_statements_trailing_semicolon ... ok
+test application::table_data_service::tests::apply_mutations_preserves_specific_transaction_failure ... ok
+test application::table_data_service::tests::apply_mutations_builds_one_atomic_parameterized_batch_in_safe_order ... ok
+test application::table_data_service::tests::fetch_rows_connection_not_active ... ok
+test application::table_data_service::tests::delete_row_rejects_empty_pk ... ok
+test application::table_data_service::tests::delete_row_rejects_pk_length_mismatch ... ok
+test application::table_data_service::tests::fetch_rows_fails_when_dialect_errors ... ok
+test application::table_data_service::tests::delete_row_returns_affected ... ok
+test application::table_data_service::tests::delete_row_returns_not_found_when_no_row_is_affected ... ok
+test application::table_data_service::tests::fetch_rows_rejects_malformed_data_result_shape ... ok
+test application::table_data_service::tests::parse_total_count_rejects_negative_values ... ok
+test application::table_data_service::tests::fetch_rows_returns_data_and_count ... ok
+test application::table_data_service::tests::insert_row_blocked_on_readonly ... ok
+test application::table_data_service::tests::parse_total_count_rejects_missing_or_wrong_type ... ok
+test application::table_data_service::tests::parse_total_count_rejects_non_scalar_result ... ok
+test application::table_data_service::tests::insert_row_returns_affected ... ok
+test application::table_data_service::tests::update_row_allows_primary_key_column_with_original_predicate ... ok
+test application::table_data_service::tests::update_row_rejects_empty_pk ... ok
+test application::table_data_service::tests::update_row_rejects_multiple_affected_rows_as_an_invariant_violation ... ok
+test application::table_data_service::tests::update_row_rejects_pk_length_mismatch ... ok
+test domain::agent::tests::patch_rejects_wrong_document_and_version ... ok
+test application::table_data_service::tests::update_row_returns_not_found_when_no_row_is_affected ... ok
+test application::user_service::tests::user_management_rejects_sqlite_before_provider_call ... ok
+test application::table_data_service::tests::update_row_returns_affected ... ok
+test domain::agent::tests::patch_is_utf8_boundary_safe ... ok
+test domain::agent::tests::incomplete_sql_is_confirmation_gated ... ok
+test domain::agent::tests::safety_decision_never_auto_runs_mutations ... ok
+test domain::agent_workflow::tests::document_strict_tool_request_is_rejected_when_stale ... ok
+test domain::agent_workflow::tests::second_run_is_rejected_without_replacing_active_run ... ok
+test domain::agent_workflow::tests::cancellation_clears_confirmation_and_requires_matching_run ... ok
+test domain::agent_workflow::tests::current_query_can_refresh_a_stale_document_context ... ok
+test domain::agent_workflow::tests::modes_enforce_tool_permissions ... ok
+test domain::capabilities::tests::postgres_capabilities_are_complete ... ok
+test domain::agent_workflow::tests::mutation_requires_confirmation_and_rejection_keeps_run_alive ... ok
+test domain::agent_context::tests::context_selects_sql_tables_and_one_hop_fk_neighbor ... ok
+test domain::agent_workflow::tests::patch_enters_preview_and_confirmation_state ... ok
+test domain::agent_workflow::tests::tool_request_after_run_finishes_does_not_create_a_fake_run_id ... ok
+test domain::capabilities::tests::for_driver_returns_correct_capabilities ... ok
+test domain::capabilities::tests::sqlite_capabilities_have_expected_gaps ... ok
+test domain::connection::tests::connection_config_validate_empty_name ... ok
+test domain::connection::tests::connection_config_validate_multiple_errors ... ok
+test domain::connection::tests::connection_config_validate_valid ... ok
+test domain::capabilities::tests::capabilities_are_serializable ... ok
+test domain::connection::tests::connection_id_parse_valid_uuid ... ok
+test domain::connection::tests::connection_id_parse_invalid_uuid ... ok
+test domain::connection::tests::sqlite_does_not_require_host_port_username ... ok
+test domain::connection::tests::sqlite_rejects_ssh_tunnel_configuration ... ok
+test domain::connection::tests::ssh_password_is_not_serialized_or_debugged ... ok
+test domain::connection::tests::validate_max_rows_exceedses_limit ... ok
+test domain::connection::tests::validate_name_too_long ... ok
+test domain::connection::tests::validate_max_rows_zero ... ok
+test domain::connection::tests::validate_name_uses_character_count_for_unicode ... ok
+test domain::connection::tests::validate_zero_query_timeout ... ok
+test domain::connection::tests::validate_ssh_tunnel_empty_fields ... ok
+test domain::diagnostics::tests::redact_sensitive_normal ... ok
+test domain::diagnostics::tests::placeholder_has_basic_info ... ok
+test domain::diagnostics::tests::diagnostic_event_serializes ... ok
+test domain::diagnostics::tests::redact_sensitive_password ... ok
+test domain::error::tests::error_codes_are_unique_and_stable ... ok
+test domain::diagnostics::tests::redact_sensitive_token ... ok
+test domain::execution::tests::execution_id_display ... ok
+test domain::error::tests::query_error_converts_to_correct_db_error ... ok
+test domain::error::tests::error_category_grouping ... ok
+test domain::error::tests::retryable_errors ... ok
+test domain::execution::tests::finish_cancelled_is_terminal ... ok
+test domain::execution::tests::duration_ms_non_negative ... ok
+test domain::execution::tests::finish_error_is_terminal ... ok
+test domain::execution::tests::finish_is_idempotent ... ok
+test domain::execution::tests::finish_rejects_non_terminal_status ... ok
+test domain::execution::tests::finish_success_is_terminal ... ok
+test domain::execution::tests::finish_timed_out_is_terminal ... ok
+test domain::execution::tests::is_terminal_variants ... ok
+test domain::execution::tests::new_execution_starts_created ... ok
+test domain::execution::tests::start_transitions_to_running ... ok
+test domain::execution::tests::succeed_requires_running_state ... ok
+test domain::execution::tests::succeed_sets_metrics ... ok
+test domain::query::tests::int64_serializes_as_string_for_lossless_ipc ... ok
+test domain::query::tests::query_param_int64_string_round_trip ... ok
+test domain::query::tests::int64_boundary_values_round_trip ... ok
+test domain::query::tests::query_result_validate_affected_rows_without_columns ... ok
+test domain::query::tests::query_result_validate_cell_count_mismatch ... ok
+test domain::query::tests::query_result_validate_empty ... ok
+test domain::query::tests::query_result_validate_matching_columns ... ok
+test domain::query::tests::query_result_validate_rejects_rows_without_columns ... ok
+test domain::query::tests::query_result_validate_row_count_mismatch ... ok
+test domain::safety::tests::classify_alter_is_ddl ... ok
+test domain::query::tests::typed_query_params_round_trip_through_ipc_json ... ok
+test domain::safety::tests::classify_create_is_ddl ... ok
+test domain::safety::tests::classify_delete_with_where_is_write ... ok
+test domain::safety::tests::classify_delete_without_where_is_destructive ... ok
+test domain::safety::tests::classify_drop_is_destructive ... ok
+test domain::safety::tests::classify_insert_is_write ... ok
+test domain::safety::tests::classify_merge_delete_as_destructive_but_update_as_write ... ok
+test domain::safety::tests::classify_select_is_read ... ok
+test domain::safety::tests::classify_opaque_server_side_execution_as_destructive ... ok
+test domain::safety::tests::classify_truncate_is_destructive ... ok
+test domain::safety::tests::classify_update_is_write ... ok
+test domain::safety::tests::classify_with_select_is_read ... ok
+test domain::safety::tests::classify_with_update_is_write ... ok
+test domain::safety::tests::cte_classifier_respects_lexical_boundaries_and_comment_separators ... ok
+test domain::safety::tests::cte_delete_requires_a_real_where_keyword ... ok
+test domain::agent_context::tests::context_serialization_is_bounded ... ok
+test domain::safety::tests::destructive_delete_inside_cte_remains_destructive ... ok
+test domain::safety::tests::empty_sql_is_rejected ... ok
+test domain::safety::tests::delete_identifier_containing_where_is_still_destructive ... ok
+test domain::safety::tests::explain_analyze_allows_comments_between_keywords ... ok
+test domain::safety::tests::explain_analyze_delete_is_write ... ok
+test domain::safety::tests::explain_analyze_insert_is_write ... ok
+test domain::safety::tests::explain_analyze_select_is_read ... ok
+test domain::safety::tests::explain_analyze_substrings_in_query_do_not_change_plain_explain_safety ... ok
+test domain::safety::tests::explain_analyze_with_unicode_query_text_does_not_panic ... ok
+test domain::safety::tests::explain_parenthesized_analyze_classifies_the_inner_statement ... ok
+test domain::safety::tests::explain_plain_select_is_read ... ok
+test domain::safety::tests::full_access_policy_allows_everything ... ok
+test domain::safety::tests::leading_comments_stripped ... ok
+test domain::safety::tests::mutating_cte_with_delete_is_write ... ok
+test domain::safety::tests::mutating_cte_with_insert_is_write ... ok
+test domain::safety::tests::no_ddl_policy_rejects_create_alter ... ok
+test domain::safety::tests::read_only_policy_rejects_write ... ok
+test domain::safety::tests::readonly_rejects_explain_analyze_delete ... ok
+test domain::safety::tests::readonly_rejects_mutating_cte ... ok
+test domain::secret::tests::empty_secret_has_none ... ok
+test domain::secret::tests::redacted_empty_display ... ok
+test domain::secret::tests::redacted_display_format ... ok
+test domain::secret::tests::redacted_hides_values ... ok
+test domain::secret::tests::secret_key_format ... ok
+test domain::secret::tests::with_password_has_any ... ok
+test application::export_service::tests::export_excel_basic ... ok
+test domain::agent_context::tests::result_summary_bounds_rows_columns_and_cell_text ... ok
+
+test result: ok. 291 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running unittests src/lib.rs (target/debug/deps/db_pro_infrastructure-ece263e3af655555)
+
+running 62 tests
+test meta::migration::tests::latest_version_matches_registry ... ok
+test meta::migration::tests::migrations_are_ordered ... ok
+test meta::migration::tests::migration_descriptions_non_empty ... ok
+test backup::pg_dump::tests::backup_output_reservation_rejects_existing_file ... ok
+test meta::query_history_repo::tests::query_history_metrics_reject_invalid_values ... ok
+test backup::sqlite_backup::tests::backup_publish_does_not_overwrite_existing_destination ... ok
+test postgres::connector::tests::postgres_cancel_is_explicitly_unsupported ... ok
+test meta::migration::tests::malformed_schema_version_fails_closed ... ok
+test postgres::connector::tests::table_pagination_uses_postgres_placeholders ... ok
+test postgres::introspect::tests::test_composite_fk_grouping ... ok
+test postgres::introspect::tests::test_multiple_separate_fks ... ok
+test postgres::connector::tests::postgres_operation_timeout_returns_query_timeout ... ok
+test postgres::introspect::tests::test_parse_deeply_nested ... ok
+test postgres::introspect::tests::test_parse_empty_parentheses ... ok
+test postgres::introspect::tests::test_parse_expression_with_spaces ... ok
+test postgres::introspect::tests::test_parse_functional_index ... ok
+test postgres::introspect::tests::test_parse_function_with_multiple_args ... ok
+test postgres::introspect::tests::test_parse_mixed_columns_and_functions ... ok
+test postgres::introspect::tests::test_parse_nested_parentheses ... ok
+test postgres::introspect::tests::test_parse_no_parentheses ... ok
+test postgres::introspect::tests::test_parse_simple_columns ... ok
+test postgres::introspect::tests::test_parse_single_column ... ok
+test postgres::introspect::tests::test_parse_whitespace_handling ... ok
+test postgres::query_mapper::tests::binary_numeric_preserves_declared_fractional_zeroes ... ok
+test postgres::query_mapper::tests::binary_numeric_uses_postgres_display_scale ... ok
+test postgres::introspect::tests::test_quoted_identifier_with_parenthesis_and_comma ... ok
+test postgres::query_mapper::tests::bind_params_fails_on_invalid_datetime ... ok
+test postgres::query_mapper::tests::bind_params_fails_on_invalid_uuid ... ok
+test postgres::query_mapper::tests::bind_params_accepts_date_only_value ... ok
+test postgres::query_mapper::tests::parses_interval_components_without_precision_loss ... ok
+test postgres::query_mapper::tests::parses_local_time_and_time_with_offset ... ok
+test postgres::query_mapper::tests::rejects_invalid_interval_values ... ok
+test postgres::user_manager::tests::quote_identifier_escapes_embedded_quotes ... ok
+test postgres::query_mapper::tests::bind_params_handles_supported_types ... ok
+test postgres::user_manager::tests::quote_identifier_rejects_empty_and_null_values ... ok
+test postgres::user_manager::tests::quote_privilege_allows_known_table_privileges_only ... ok
+test secret::keyring_vault::tests::new_vault_fails_closed_without_os_keyring ... ok
+test meta::migration::tests::test_migration_upgrade_from_old_schema ... ok
+test sqlite::connector::tests::table_pagination_uses_sqlite_placeholders ... ok
+test sqlite::introspect::tests::introspection_extracts_each_nested_check_constraint ... ok
+test meta::migration::tests::test_migration_execution ... ok
+test meta::migration::tests::unsupported_future_schema_version_is_rejected ... ok
+test meta::migration::tests::test_migration_idempotency ... ok
+test backup::sqlite_backup::tests::backup_and_restore_publish_only_valid_sqlite_files ... ok
+test meta::introspection_cache_repo::tests::malformed_cache_is_discarded_and_reported_as_a_miss ... ok
+test sqlite::introspect::tests::parse_instead_of_delete_trigger ... ok
+test sqlite::introspect::tests::parse_before_update_trigger ... ok
+test sqlite::introspect::tests::parse_standard_after_insert_trigger ... ok
+test sqlite::introspect::tests::parse_trigger_ignores_timing_and_event_words_in_quoted_names ... ok
+test sqlite::introspect::tests::parse_trigger_with_begin_in_name ... ok
+test sqlite::introspect::tests::parse_trigger_with_quoted_begin_in_name ... ok
+test ssh::tunnel::tests::key_ssh_test_invokes_ssh_directly ... ok
+test ssh::tunnel::tests::password_ssh_test_uses_sshpass_and_keeps_password_out_of_arguments ... ok
+test sqlite::introspect::tests::introspection_ignores_check_text_in_literals_and_comments ... ok
+test meta::saved_query_repo::tests::rename_rejects_missing_saved_query ... ok
+test sqlite::introspect::tests::introspection_marks_unique_constraint_indexes_without_reusing_internal_names ... ok
+test sqlite::introspect::tests::introspection_omits_primary_key_autoindexes ... ok
+test sqlite::introspect::tests::introspection_resolves_shorthand_foreign_key_to_parent_primary_key ... ok
+test backup::pg_dump::tests::external_command_timeout_returns_query_timeout ... ok
+test ssh::tunnel::tests::ssh_test_command_has_a_process_timeout ... ok
+test secret::keyring_vault::tests::missing_os_keyring_secret_returns_none_without_fallback ... ok
+test secret::keyring_vault::tests::session_fallback_round_trips_without_writing_a_file ... ok
+
+test result: ok. 62 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.70s
+
+     Running tests/integration.rs (target/debug/deps/integration-59989b549c69cbdf)
+
+running 32 tests
+test insert_and_query ... ok
+test explain_select ... ok
+test delete_row ... ok
+test connect_and_query ... ok
+test introspect_primary_keys ... ok
+test introspect_triggers ... ok
+test introspect_foreign_keys ... ok
+test introspect_columns_include_nullable ... ok
+test introspect_indexes ... ok
+test introspect_tables ... ok
+test query_composite_pk ... ok
+test query_columns_reflect_declared_types ... ok
+test query_categories ... ok
+test query_products_with_json ... ok
+test introspect_views ... ok
+test query_empty_table ... ok
+test query_documents_with_blob ... ok
+test query_view_active_users ... ok
+test query_table_without_pk ... ok
+test query_unicode_table ... ok
+test sqlite_transaction_commit_failure_reports_unknown_outcome ... ok
+test sqlite_query_timeout_interrupts_vm_and_actor_recovers ... ok
+test test_connection_succeeds ... ok
+test query_weird_name_table ... ok
+test query_view_order_summary ... ok
+test query_with_invalid_sql ... ok
+test sqlite_execute_batch_timeout_waits_for_rollback_before_returning ... ok
+test sqlite_parameterized_table_mutations_roll_back_and_reject_zero_rows ... ok
+test sqlite_typed_temporal_and_network_parameters_remain_text ... ok
+test update_row ... ok
+test sqlite_transaction_timeout_waits_for_rollback_before_returning ... ok
+test sqlite_query_cancel_interrupts_vm_and_waits_for_actor_recovery ... ok
+
+test result: ok. 32 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+
+     Running tests/pg_integration.rs (target/debug/deps/pg_integration-527d712d13b86526)
+
+running 18 tests
+test pg_composite_fk_detail ... ignored
+test pg_date_cell_filter_binds_as_date ... ignored
+test pg_execute_batch_failure_rolls_back_prior_mutation ... ignored
+test pg_execute_batch_timeout_rolls_back_prior_mutation ... ignored
+test pg_index_lifecycle ... ignored
+test pg_introspect_foreign_keys ... ignored
+test pg_introspect_indexes ... ignored
+test pg_introspect_tables ... ignored
+test pg_introspect_triggers ... ignored
+test pg_introspect_views ... ignored
+test pg_query_categories ... ignored
+test pg_query_decodes_native_temporal_and_network_values ... ignored
+test pg_query_preserves_numeric_and_enum_values ... ignored
+test pg_special_identifiers ... ignored
+test pg_transaction_commit_failure_reports_unknown_outcome ... ignored
+test pg_transaction_failure_rolls_back_prior_mutation ... ignored
+test pg_transaction_timeout_rolls_back_prior_mutation ... ignored
+test pg_typed_temporal_and_network_parameters_bind_without_casts ... ignored
+
+test result: ok. 0 passed; 0 failed; 18 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/schema_columns_atomicity_regression.rs (target/debug/deps/schema_columns_atomicity_regression-32edb3f2dfd801b8)
+
+running 1 test
+test execute_batch_middle_failure_rolls_back_prior_ddl ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/schema_indexes_runtime_verification.rs (target/debug/deps/schema_indexes_runtime_verification-7044db0cf55afee2)
+
+running 1 test
+test verify_create_and_drop_index ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/schema_relations_runtime_verification.rs (target/debug/deps/schema_relations_runtime_verification-f31fafb0eff06b86)
+
+running 1 test
+test composite_foreign_key_preserves_constraint_identity_and_order ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/schema_triggers_runtime_verification.rs (target/debug/deps/schema_triggers_runtime_verification-ea87739845b18c02)
+
+running 5 tests
+test trigger_with_special_identifiers ... ok
+test trigger_instead_of_on_view ... ok
+test trigger_before_insert_introspection ... ok
+test multiple_triggers_on_same_table ... ok
+test trigger_lifecycle_create_introspect_drop ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/ssh_backup_runtime_verification.rs (target/debug/deps/ssh_backup_runtime_verification-0d1ffa9f5285505b)
+
+running 1 test
+test pg_backup_and_restore_work_through_live_ssh_tunnel ... ignored, requires an isolated PostgreSQL target and a local SSH server
+
+test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (target/debug/deps/db_pro_native-bfc1e8736350d536)
+
+running 14 tests
+test tests::existing_legacy_dir_wins_over_the_platform_dir ... ok
+test tests::cwd_fallback_is_used_only_when_nothing_else_resolves ... ok
+test tests::data_dir_override_wins_over_every_other_candidate ... ok
+test tests::platform_dir_is_used_when_no_legacy_dir_exists ... ok
+test translate_tests::prediction_event_keeps_document_routing_metadata ... ok
+test translate_tests::multi_query_command_routes_to_runtime ... ok
+test translate_tests::save_query_command_preserves_existing_saved_query_identity ... ok
+test translate_tests::prediction_command_keeps_document_routing_metadata ... ok
+test tests::developer_connection_preset_is_gated_to_debug_builds ... ok
+test translate_tests::structured_query_failure_event_keeps_database_position_and_code ... ok
+test translate_tests::multi_query_translation_uses_explicit_statement_result_kind ... ok
+test translate::tests::table_filter_operator_maps_to_parameterized_sql_filter_kind ... ok
+test tests::sqlite_draft_drops_postgres_only_credentials ... ok
+test translate::tests::test_ui_cell_to_domain_datetime_and_date ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/db_pro_runtime-1b95e56bbb066e5b)
+
+running 28 tests
+test agent_executor::tests::current_query_uses_document_snapshot ... ok
+test agent::tests::parses_read_only_sql_without_confirmation ... ok
+test agent_executor::tests::read_only_execution_respects_explicit_auto_run_setting ... ok
+test agent::tests::marks_mutations_and_multiple_statements_for_confirmation ... ok
+test agent_executor::tests::multi_result_summary_uses_latest_result_set_not_trailing_command ... ok
+test agent::tests::provider_rejects_non_https_endpoint ... ok
+test agent::tests::prediction_normalization_preserves_internal_formatting ... ok
+test agent::tests::prediction_normalization_removes_optional_code_fence ... ok
+test agent_executor::tests::truncate_chars_preserves_utf8 ... ok
+test agent_executor::tests::request_validation_rejects_late_run ... ok
+test agent::tests::provider_input_keeps_tool_calls_structured ... ok
+test agent::tests::parses_responses_function_call_into_typed_tool_call ... ok
+test agent::tests::context_input_contains_metadata_but_no_secret_field ... ok
+test agent_orchestrator::tests::multi_result_inspection_routes_results_by_index_and_reports_tool_failure ... ok
+test agent_orchestrator::tests::cancel_while_awaiting_confirmation_emits_cancelled_event ... ok
+test agent_orchestrator::tests::idempotency_matrix_read_tool_replays_cached_output ... ok
+test agent_orchestrator::tests::duplicate_tool_call_replays_cached_output_without_re_execution ... ok
+test agent_orchestrator::tests::idempotency_collision_with_different_input_fails_with_protocol_error ... ok
+test agent_orchestrator::tests::patch_confirmation_updates_run_version_before_continuation ... ok
+test agent_orchestrator::tests::malformed_provider_missing_arguments_reports_tool_failed_gracefully ... ok
+test agent_orchestrator::tests::rejected_confirmation_is_cached_and_replayed_on_repeated_call_id ... ok
+test agent_orchestrator::tests::mutation_run_query_executes_once_and_repeats_replay_without_database_re_execution ... ok
+test agent_orchestrator::tests::duplicate_pending_confirmation_reuses_pending_state ... ok
+test agent_orchestrator::tests::routes_typed_tool_result_into_provider_continuation ... ok
+test agent_orchestrator::tests::safety_escalation_requires_destructive_confirmation_for_dangerous_mutation ... ok
+test worker::tests::prediction_backoff_is_bounded_and_only_for_transient_provider_errors ... ok
+test agent_orchestrator::tests::stale_document_can_recover_through_current_query ... ok
+test agent_orchestrator::tests::tool_call_collision_with_different_input_fails_with_protocol_error ... ok
+
+test result: ok. 28 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running unittests src/lib.rs (target/debug/deps/db_pro_tauri_lib-6c458516404017ef)
+
+running 21 tests
+test cancel::tests::cancel_by_connection_not_found ... ok
+test cancel::tests::cancel_unknown_execution_returns_not_found ... ok
+test cancel::tests::cancel_finished_execution_is_noop ... ok
+test cancel::tests::cancel_is_idempotent ... ok
+test cancel::tests::finish_execution_sets_terminal_state_and_metrics ... ok
+test cancel::tests::cancel_running_execution_sends_signal ... ok
+test cancel::tests::cancel_by_id_targets_correct_tab_on_same_connection ... ok
+test cancel::tests::finish_is_idempotent ... ok
+test cancel::tests::register_creates_execution_in_created_state ... ok
+test cancel::tests::cancel_by_connection_works ... ok
+test cancel::tests::register_with_id_and_cancel_by_id_roundtrip ... ok
+test cancel::tests::active_executions_excludes_terminal ... ok
+test cancel::tests::sequential_runs_same_tab_different_execution_ids ... ok
+test cancel::tests::stale_cancel_cannot_cancel_different_execution ... ok
+test cancel::tests::remove_cleans_up_execution ... ok
+test cancel::tests::start_execution_transitions_to_running ... ok
+test cancel::tests::timeout_does_not_leave_dangling_state ... ok
+test commands::backup::tests::reveal_rejects_a_missing_directory ... ok
+test dto::tests::cell_value_dto_int64_boundary_values_serialize_as_strings ... ok
+test dto::tests::cell_value_dto_int64_rejects_non_string_json ... ok
+test dto::tests::cell_value_dto_int64_roundtrip_preserves_exact_value ... ok
+
+test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (target/debug/deps/db_pro_tauri-d660ab7ac6015af7)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/db_pro_ui-f8119a2f608a1a8c)
+
+running 359 tests
+test agent::tests::offline_provider_is_explicit_preview ... ok
+test agent::tests::empty_schema_explains_how_to_recover ... ok
+test app::change_set::tests::insert_delete_removes_the_local_insert_before_apply ... ok
+test app::change_set::tests::delete_supersedes_all_updates_for_the_same_row ... ok
+test app::change_set::tests::repeated_cell_updates_keep_only_final_value ... ok
+test app::change_set::tests::composite_identity_keeps_rows_with_shared_pk_prefix_separate ... ok
+test app::change_set::tests::reverting_cell_removes_the_staged_update ... ok
+test app::change_set::tests::staged_value_follows_identity_when_visual_row_changes ... ok
+test app::change_set::tests::staging_original_value_reverts_noop_without_a_pending_change ... ok
+test app::change_set::tests::updates_with_same_original_identity_merge_across_row_coordinates ... ok
+test agent::tests::mutation_is_marked_for_confirmation ... ok
+test agent::tests::sqlite_plan_uses_query_plan_without_execution ... ok
+test agent::tests::table_prompt_generates_read_only_sql ... ok
+test agent::tests::provider_returns_a_draft_without_an_execution_handle ... ok
+test agent::tests::unknown_table_gets_a_recovery_prompt ... ok
+test app::events::tests::row_reload_reports_deleted_row_without_dropping_local_result ... ok
+test app::app_state::tests::stale_theme_storage_resets_to_light_first_default ... ok
+test app::app_state::tests::current_theme_storage_restores_user_choice ... ok
+test app::result_grid_view::tests::legacy_layout_is_discarded_when_schema_shape_changes ... ok
+test app::events::tests::row_reload_merges_server_values_by_original_identity ... ok
+test app::result_grid_view::tests::row_range_selection_follows_filtered_sort_order ... ok
+test app::result_grid_view::tests::select_all_visible_cells_covers_current_grid ... ok
+test app::result_grid_view::tests::sorting_is_blocked_while_staged_changes_are_present ... ok
+test app::result_grid_view::tests::cell_range_selection_uses_visible_row_and_column_order ... ok
+test app::table_editor_view::tests::filter_operators_follow_column_type_and_keep_null_operators_universally ... ok
+test app::result_grid_view::tests::table_sort_cycles_and_shift_adds_prioritized_clauses ... ok
+test app::table_editor_view::tests::test_parse_insert_value_uuid ... ok
+test app::table_editor_view::tests::update_parser_preserves_null_empty_and_whitespace_text ... ok
+test app::result_grid_view::tests::persisted_layout_is_normalized_when_schema_changes ... ok
+test app::result_grid_view::tests::named_layout_does_not_map_renamed_column_state ... ok
+test app::result_grid_view::tests::toggling_last_row_keeps_a_non_empty_selection ... ok
+test app::result_grid_view::tests::named_layout_drops_removed_columns_and_appends_new_columns ... ok
+test app::tests::active_schema_prefers_user_selection_and_loaded_schema_metadata ... ok
+test app::tests::active_schema_columns_do_not_include_other_schemas ... ok
+test app::tests::apply_is_blocked_while_a_validation_error_exists ... ok
+test app::tests::cell_text_keeps_null_and_json_visible ... ok
+test app::table_editor_view::tests::filter_draft_supports_multiple_and_editable_same_column_filters ... ok
+test app::tests::closing_query_document_restores_the_next_valid_document ... ok
+test app::tests::closing_query_tab_cleans_up_agent_session_and_cancels_active_run ... ok
+test app::tests::closing_welcome_activates_the_existing_query_tab ... ok
+test app::tests::closing_last_query_document_returns_to_welcome ... ok
+test app::tests::closing_workspace_tab_clears_its_resource_and_requests ... ok
+test app::table_editor_view::tests::test_generate_sample_value_types ... ok
+test app::table_editor_view::tests::update_parser_validates_temporal_json_and_binary_values ... ok
+test app::tests::conflict_failure_has_distinct_code_and_user_action_message ... ok
+test app::tests::composite_primary_key_identity_preserves_each_cell_type ... ok
+test app::tests::connected_event_starts_schema_and_metadata_loading ... ok
+test app::tests::connection_test_success_is_invalidated_when_the_draft_changes ... ok
+test app::tests::agent_provider_status_uses_runtime_provider_name ... ok
+test app::tests::connection_mutation_refreshes_the_explorer_without_waiting_for_another_frame ... ok
+test app::tests::database_error_without_position_uses_the_executed_statement_range ... ok
+test app::tests::database_error_position_outside_executed_sql_falls_back_to_statement_range ... ok
+test app::tests::ddl_apply_dispatch_requires_an_explicit_request_and_uses_active_connection ... ok
+test app::tests::diagram_bfs_neighborhood_expansion ... ok
+test app::tests::diagram_candidates_bound_clones_until_show_all_is_explicit ... ok
+test app::tests::diagram_canvas_fills_the_viewport_before_overflowing ... ok
+test app::tests::ddl_impact_summary_uses_plain_language_for_destructive_operations ... ok
+test app::tests::diagram_foreign_key_label_formats_single_and_composite_keys ... ok
+test app::tests::diagram_cyclic_and_self_fk_bfs_neighborhood ... ok
+test app::tests::database_error_position_maps_postgres_character_to_utf8_editor_offset ... ok
+test app::tests::database_error_position_maps_selection_relative_to_document_offset ... ok
+test app::tests::diagram_lod_transitions_and_rules ... ok
+test app::tests::diagram_search_matches_schema_table_and_column_names ... ok
+test app::tests::diagram_search_mode_can_leave_explicit_show_all ... ok
+test app::tests::diagram_layout_worker_background_computation_and_stale_drop ... ok
+test app::tests::diagram_viewport_coordinate_transformations_roundtrip ... ok
+test app::tests::displayed_row_number_tracks_database_page_offset ... ok
+test app::tests::dirty_query_close_is_deferred_until_user_decision ... ok
+test app::tests::editor_status_is_scoped_to_the_query_workspace ... ok
+test app::tests::explain_query_uses_selected_connection_and_switches_output ... ok
+test app::tests::explorer_search_matches_table_names_case_insensitively ... ok
+test app::tests::failed_connection_request_clears_connecting_state_and_keeps_error ... ok
+test app::tests::failed_schema_request_is_visible_and_retryable ... ok
+test app::tests::failed_connection_shows_red_indicator_and_records_error ... ok
+test app::tests::filter_returns_original_row_indexes ... ok
+test app::tests::editing_primary_key_stages_new_value_with_original_identity ... ok
+test app::tests::grid_columns_fill_the_viewport_until_manually_resized ... ok
+test app::tests::grid_copy_uses_staged_values_only_for_data_editor ... ok
+test app::tests::grid_keyboard_navigation_preserves_filtered_row_identity ... ok
+test app::tests::grid_keyboard_navigation_starts_at_first_visible_cell ... ok
+test app::tests::insert_value_rejects_invalid_typed_input ... ok
+test app::tests::insert_value_respects_column_types ... ok
+test app::tests::internal_error_code_is_normalized_for_mutation_state ... ok
+test app::tests::late_agent_workflow_events_are_ignored_after_cancellation ... ok
+test app::tests::loading_connections_automatically_connects_active_connection ... ok
+test app::tests::multi_result_completion_keeps_statement_order_and_active_tab_state ... ok
+test app::tests::multi_result_failure_attaches_database_diagnostic_to_failed_statement ... ok
+test app::tests::command_palette_refresh_schema_bypasses_the_metadata_cache ... ok
+test app::tests::command_palette_new_query_keeps_a_query_entry_point ... ok
+test app::tests::new_query_identity_skips_restored_document_ids ... ok
+test app::tests::no_primary_key_table_blocks_safe_row_mutations ... ok
+test app::tests::provider_capabilities_gate_provider_specific_actions ... ok
+test app::tests::query_dispatch_allows_independent_documents_to_run_concurrently ... ok
+test app::tests::query_dispatch_uses_the_active_connection_not_the_first_connection ... ok
+test app::tests::query_failure_attaches_database_diagnostic_to_the_originating_document ... ok
+test app::tests::query_history_uses_execution_start_time ... ok
+test app::tests::query_output_tab_is_scoped_to_each_document ... ok
+test app::tests::saved_query_event_resets_dirty_baseline_and_failed_save_keeps_it ... ok
+test app::tests::quick_open_filters_workspaces_by_title_and_description ... ok
+test app::tests::schema_refresh_reloads_the_selected_table_after_summary_completion ... ok
+test app::tests::schema_refresh_returns_to_welcome_when_selected_table_disappears ... ok
+test app::tests::selected_connection_is_not_shown_as_connected ... ok
+test app::tests::sort_is_stable_over_filtered_indexes ... ok
+test app::tests::sql_diagnostics_include_unmatched_square_bracket_range ... ok
+test app::tests::sql_diagnostics_allow_expression_selects_without_from ... ok
+test app::tests::sql_diagnostics_report_mixed_delimiter_mismatch ... ok
+test app::tests::staged_apply_failure_maps_statement_to_mutation_and_keeps_changes ... ok
+test app::tests::stale_prediction_event_does_not_mutate_a_newer_document_version ... ok
+test app::tests::stale_schema_event_cannot_replace_the_selected_connection_schema ... ok
+test app::tests::switching_query_documents_resets_editor_cursor_metadata ... ok
+test app::tests::table_edits_stage_until_explicit_apply ... ok
+test app::tests::test_agent_event_routing_ignores_mismatched_session_and_document_and_run_ids ... ok
+test app::tests::test_agent_db_cancellation_and_terminal_cleanup ... ok
+test app::tests::diagram_graph_and_spatial_index_support_1000_table_scaling ... ok
+test app::tests::test_agent_retry_isolation_and_session_routing ... ok
+test app::tests::test_agent_multitab_isolation_and_close_tab_cancellation ... ok
+test app::tests::test_agent_vietnamese_ime_input_and_patch_version_safety ... ok
+test app::tests::test_agent_vietnamese_valid_patch_application_and_undo ... ok
+test app::tests::test_apply_mutation_failure_preserves_changeset_and_focuses_failed_cell ... ok
+test app::tests::test_column_order_and_move_column ... ok
+test app::tests::test_async_prediction_routing_and_stale_rejection ... ok
+test app::tests::test_compare_ui_cells_typed_sorting ... ok
+test app::tests::test_ambiguous_column_completion_qualified_ranking ... ok
+test app::tests::test_composite_pk_targeted_reload_and_merge ... ok
+test app::tests::test_format_cell_csv_and_cell_to_json ... ok
+test app::tests::test_conflict_keep_mine_and_use_database_resolution_actions ... ok
+test app::tests::test_inserted_row_delete_removes_from_changeset_without_db_delete ... ok
+test app::tests::test_multi_tab_explain_plan_routing ... ok
+test app::tests::test_grid_layout_schema_reconciliation ... ok
+test app::tests::test_multi_tab_query_result_routing ... ok
+test app::tests::test_navigation_staged_changes_apply_discard_cancel_flows ... ok
+test app::tests::test_open_table_blocked_with_unapplied_staged_changes ... ok
+test app::tests::test_per_document_connection_and_schema_isolation ... ok
+test app::tests::test_popup_flipping_near_viewport_bottom ... ok
+test app::tests::test_prediction_partial_accept_word_and_line ... ok
+test app::tests::test_prediction_mode_defaults_and_options ... ok
+test app::tests::test_prefix_replacement_logic ... ok
+test app::tests::test_query_cancellation_capability_gate ... ok
+test app::tests::test_tab_switching_preserves_completion_and_prediction_isolation ... ok
+test app::tests::test_table_data_limit_and_paging_offset ... ok
+test app::tests::test_table_metadata_dependency_and_constraint_models ... ok
+test app::tests::test_typed_filter_operator_support ... ok
+test app::tests::typed_agent_cancellation_marks_session_and_activities_cancelled ... ok
+test app::tests::typed_agent_events_are_scoped_to_the_origin_document ... ok
+test app::tests::typed_agent_failure_clears_stale_confirmation_and_marks_activity_failed ... ok
+test app::tests::typed_agent_open_result_in_workspace_populates_query_document ... ok
+test app::tests::typed_agent_patch_confirmation_applies_one_document_edit_and_continues ... ok
+test app::tests::update_value_keeps_empty_text_and_parses_typed_values ... ok
+test app::tests::command_palette_shortcut_is_available_from_the_native_shell ... ok
+test app::tests::command_palette_shortcut_accepts_mac_command_modifier ... ok
+test app::tests::closing_agent_restores_sidebar_state_after_narrow_window ... ok
+test app::tests::global_panel_shortcuts_do_not_steal_text_input_combinations ... ok
+test app::tests::native_text_edit_maps_linux_ctrl_to_command_shortcuts ... ok
+test components::form::tests::test_field_rules_validation ... ok
+test components::form::tests::test_form_state_lifecycle ... ok
+test components::select::tests::dropdown_flips_above_when_there_is_no_room_below ... ok
+test app::tests::global_palette_shortcuts_do_not_steal_text_input_combinations ... ok
+test components::animation::tests::indeterminate_beam_fractions_stay_ordered_in_unit_interval ... ok
+test components::animation::tests::pulse_alpha_stays_inside_requested_range ... ok
+test components::animation::tests::named_durations_match_spec_and_helpers_consume_them ... ok
+test components::animation::tests::spinner_angle_is_finite_and_periodic ... ok
+test app::tests::diagram_dense_1000_table_graph_bounds_candidates ... ok
+test components::badge::tests::badge_pill_is_compact_like_codex_status_chip ... ok
+test components::tests::test_agent_sql_action_kind_attributes ... ok
+test components::tabs::tests::tab_underline_animates_with_hover_duration ... ok
+test components::tests::test_alert_variants ... ok
+test components::tests::test_badge_variants ... ok
+test components::tests::test_button_builder_variants_and_sizes ... ok
+test components::tests::test_checkbox_builder ... ok
+test components::tests::test_context_chip_kind_icons ... ok
+test components::tests::space_activates_a_focused_button ... ok
+test components::tests::test_diff_line_builders ... ok
+test components::tests::foundation_widgets_show_inside_egui_context ... ok
+test components::tests::enabled_button_is_tab_focusable_and_disabled_is_not ... ok
+test components::tests::test_progress_fraction_clamping ... ok
+test components::tests::test_progress_indeterminate_is_distinct_constructor ... ok
+test components::tests::test_slider_builder ... ok
+test components::tests::test_table_column_builder ... ok
+test components::tests::closed_dialog_does_not_shut_open_sibling ... ok
+test components::tests::select_with_many_options_shows_without_panic ... ok
+test components::tests::tab_moves_focus_onto_the_first_button ... ok
+test components::tests::closed_sheet_does_not_shut_open_sibling ... ok
+test components::tests::test_workspace_status_bar_and_activity_bar ... ok
+test components::tests::test_transaction_bar_rendering ... ok
+test diagram::tests::bfs_composite_fk ... ok
+test components::tests::unsalted_closed_sheet_does_not_shut_open_sibling ... ok
+test diagram::tests::bfs_cycles_terminate ... ok
+test diagram::tests::bfs_empty_seed ... ok
+test diagram::tests::bfs_deterministic_across_runs ... ok
+test diagram::tests::bfs_out_of_bounds_seed ... ok
+test diagram::tests::bfs_respects_max_nodes_cap ... ok
+test diagram::tests::bfs_self_fk ... ok
+test components::tests::unsalted_closed_dialog_does_not_shut_open_sibling ... ok
+test diagram::tests::bfs_reverse_relations_terminates ... ok
+test diagram::tests::bfs_subset_from_seed ... ok
+test diagram::tests::capped_long_edge_does_not_disappear ... ok
+test diagram::tests::composite_fk_single_edge ... ok
+test diagram::tests::correct_result_accepted_at_app_boundary ... ok
+test components::tests::test_agent_thinking_and_plan_rendering ... ok
+test diagram::tests::default_graph_version_zero_never_matches_app_version_one ... ok
+test diagram::tests::computing_state_does_not_clear_previous_graph ... ok
+test diagram::tests::edge_query_empty_index ... ok
+test diagram::tests::edge_query_uses_edge_buckets ... ok
+test diagram::tests::edge_query_no_fallback_scan ... ok
+test diagram::tests::edge_touching_multiple_buckets_appears_once ... ok
+test components::tests::test_logs_composer_and_devtools ... ok
+test diagram::tests::empty_subset_falls_back_to_world_bounds ... ok
+test diagram::tests::edge_query_deduplicates ... ok
+test diagram::tests::graph_clean_when_version_and_count_match ... ok
+test diagram::tests::graph_dirty_by_node_count_mismatch ... ok
+test diagram::tests::hit_test_center_of_node ... ok
+test diagram::tests::hit_test_on_boundary ... ok
+test diagram::tests::graph_and_spatial_index_always_match ... ok
+test diagram::tests::layout_state_computing_carries_versions ... ok
+test diagram::tests::hit_test_overlap_deterministic ... ok
+test diagram::tests::hit_test_outside_returns_none ... ok
+test diagram::tests::layout_state_failed_carries_message ... ok
+test diagram::tests::layout_state_idle_initial ... ok
+test diagram::tests::lod_compact_hides_columns_and_labels ... ok
+test diagram::tests::lod_detailed_full_columns ... ok
+test diagram::tests::lod_monotonic_transitions ... ok
+test diagram::tests::lod_standard_bounded_columns ... ok
+test components::tests::test_sql_editor_toolbar_and_explain_tree ... ok
+test components::tests::test_database_cards_and_badges ... ok
+test diagram::tests::long_edge_queryable_at_source_region ... ok
+test diagram::tests::metrics_empty_index ... ok
+test diagram::tests::metrics_after_long_edge_insert ... ok
+test diagram::tests::metrics_reflects_actual_index ... ok
+test diagram::tests::long_edge_insert_capped_at_32_cells_per_dim ... ok
+test diagram::tests::node_query_empty_index ... ok
+test diagram::tests::node_query_crosses_multiple_cells ... ok
+test diagram::tests::node_query_inside_one_bucket ... ok
+test diagram::tests::node_query_negative_coordinates ... ok
+test diagram::tests::node_query_no_duplicates ... ok
+test diagram::tests::node_query_on_cell_boundary ... ok
+test diagram::tests::node_query_zero_size_viewport ... ok
+test diagram::tests::node_touching_multiple_buckets_appears_once ... ok
+test diagram::tests::old_graph_still_renders_during_computation ... ok
+test diagram::tests::pan_does_not_trigger_layout_request ... ok
+test components::tests::sibling_progress_bars_lerp_independently ... ok
+test diagram::tests::perf_evidence_100_tables ... ok
+test diagram::tests::perf_evidence_20_tables ... ok
+test diagram::tests::renderer_consumes_only_scene_visible_ids ... ok
+test diagram::tests::no_full_graph_traversal_in_frame_path ... ok
+test diagram::tests::rebuild_stability_a_b_toggle_x10 ... ok
+test diagram::tests::request_id_overflow_keeps_distinct_ids ... ok
+test diagram::tests::request_id_saturates_at_max ... ok
+test diagram::tests::saturating_add_never_wraps_to_zero ... ok
+test diagram::tests::perf_evidence_500_tables ... ok
+test diagram::tests::scene_commit_is_atomic_in_integration ... ok
+test diagram::tests::scene_contains_only_visible_usize_ids ... ok
+test diagram::tests::scene_metrics_accurate ... ok
+test components::tree::tests::test_tree_icons ... ok
+test diagram::tests::schema_version_overflow_still_distinguishes_via_node_count ... ok
+test diagram::tests::schema_version_saturates_at_max ... ok
+test diagram::tests::search_subset_reuses_existing_graph ... ok
+test diagram::tests::selected_node_at_compact_shows_detail ... ok
+test diagram::tests::single_node_subset ... ok
+test diagram::tests::spatial_index_consistent_with_graph ... ok
+test diagram::tests::stale_request_id_rejected_by_integration_check ... ok
+test diagram::tests::stale_result_with_old_request_id_rejected_at_app_boundary ... ok
+test diagram::tests::stale_version_rejected_by_integration_check ... ok
+test diagram::tests::subset_bounds_smaller_than_full ... ok
+test diagram::tests::timing_100_tables ... ok
+test diagram::tests::timing_20_tables ... ok
+test diagram::tests::version_increments_on_each_change ... ok
+test diagram::tests::viewport_roundtrip ... ok
+test diagram::tests::timing_500_tables ... ok
+test diagram::tests::viewport_visible_rect_expands_by_margin ... ok
+test diagram::tests::viewport_zoom_clamped ... ok
+test diagram::tests::pan_only_changes_viewport ... ok
+test diagram::tests::metrics_dense_graph ... ok
+test diagram::tests::worker_degraded_mode_not_alive ... ok
+test diagram::tests::worker_coalesces_rapid_requests ... ok
+test diagram::tests::worker_coalescing_latest_result_wins ... ok
+test diagram::tests::worker_disconnected_no_panic ... ok
+test diagram::tests::worker_dispatch_succeeded_reflects_channel_state ... ok
+test diagram::tests::worker_is_alive_after_successful_spawn ... ok
+test diagram::tests::worker_new_instance_after_drop_works ... ok
+test diagram::tests::worker_starts_and_polls_cleanly ... ok
+test diagram::tests::zoom_changes_lod_not_graph ... ok
+test diagram::tests::zoom_does_not_trigger_layout_request ... ok
+test editor::brackets::tests::cursor_matching_prefers_delimiter_before_caret ... ok
+test editor::brackets::tests::detects_the_range_to_delete_for_an_auto_pair ... ok
+test editor::brackets::tests::handles_escaped_e_strings_and_quoted_identifiers ... ok
+test editor::brackets::tests::ignores_literals_comments_and_dollar_quotes ... ok
+test editor::brackets::tests::matches_nested_parentheses_and_brackets ... ok
+test editor::brackets::tests::reports_mixed_delimiter_mismatch ... ok
+test editor::buffer::tests::replacement_is_one_undo_step_and_restores_original_text ... ok
+test editor::buffer::tests::test_text_buffer_insert_delete_and_lines ... ok
+test editor::buffer::tests::test_text_buffer_typing_undo_grouping ... ok
+test editor::buffer::tests::test_text_buffer_undo_redo_snapshots ... ok
+test editor::buffer::tests::test_text_buffer_utf8_boundaries ... ok
+test editor::completion::tests::test_completion_state_navigation ... ok
+test editor::cursor::tests::test_cursor_utf8_boundary_safety ... ok
+test editor::cursor::tests::test_cursor_vertical_movement_preserves_preferred_column ... ok
+test editor::document::tests::test_statement_analysis_with_dollar_quote ... ok
+test editor::document::tests::test_statement_analysis_with_semicolon_inside_string ... ok
+test editor::prediction::tests::context_fingerprint_is_stable_for_alias_map_order ... ok
+test editor::prediction::tests::overlap_is_utf8_safe_and_does_not_remove_whitespace_only_overlap ... ok
+test editor::prediction::tests::overlap_normalization_removes_duplicate_prefix_and_suffix ... ok
+test editor::prediction::tests::partial_accept_handles_unicode_leading_whitespace ... ok
+test editor::prediction::tests::partial_accept_moves_anchor_after_replacement_range ... ok
+test diagram::tests::worker_latest_result_always_wins ... ok
+test diagram::tests::long_edge_bucket_count_bounded ... ok
+test diagram::tests::worker_survives_rapid_schema_switches ... ok
+test diagram::tests::scene_prep_1000_1280x800 ... ok
+test editor::prediction::tests::prediction_guard_rejects_empty_prose_and_unbounded_output ... ok
+test editor::prediction::tests::test_prediction_state_stale_rejection ... ok
+test diagram::tests::perf_evidence_1000_tables_dense ... ok
+test editor::prediction::tests::test_edit_prediction_accept_helpers ... ok
+test editor::renderer::tests::test_caret_geometry_calculation ... ok
+test editor::renderer::tests::test_ime_text_input_multilingual ... ok
+test editor::selection::tests::test_select_line_at ... ok
+test editor::selection::tests::test_select_word_at ... ok
+test editor::syntax::tests::test_cached_tokens_invalidation ... ok
+test editor::syntax::tests::test_is_in_string_or_comment ... ok
+test query::query_document::tests::cached_prediction_is_reused_only_for_the_same_fingerprint ... ok
+test query::query_document::tests::manual_prediction_schedule_bypasses_debounce ... ok
+test query::query_document::tests::prediction_request_is_deduped_within_cache_window ... ok
+test query::query_document::tests::prediction_schedule_is_due_only_after_debounce_and_can_be_consumed ... ok
+test query::query_document::tests::test_query_document_resolve_executable_sql ... ok
+test query::query_document::tests::test_query_document_search_matches ... ok
+test query::query_document::tests::undoing_to_saved_snapshot_clears_dirty_state ... ok
+test query::query_document::tests::test_query_document_serde_roundtrip ... ok
+test query::schema_completion::tests::ai_context_contains_only_the_current_statement ... ok
+test query::schema_completion::tests::explicit_cte_columns_are_parsed_across_whitespace ... ok
+test query::schema_completion::tests::insert_completion_excludes_columns_already_entered ... ok
+test diagram::tests::scene_prep_1000_1920x1080 ... ok
+test query::schema_completion::tests::join_on_prioritizes_matching_foreign_key_condition ... ok
+test query::schema_completion::tests::simple_cte_select_list_is_available_for_qualified_completion ... ok
+test query::schema_completion::tests::test_build_ai_sql_context_extracts_references ... ok
+test query::schema_completion::tests::test_completion_resolves_alias_column ... ok
+test query::schema_completion::tests::subquery_alias_exposes_simple_select_columns ... ok
+test query::schema_completion::tests::test_completion_suppression_inside_comment ... ok
+test query::schema_completion::tests::group_by_prioritizes_non_aggregate_projection_from_ast ... ok
+test query::schema_completion::tests::test_extract_table_aliases ... ok
+test query::schema_completion::tests::order_by_prioritizes_select_aliases_from_ast ... ok
+test query::schema_completion::tests::group_by_keeps_scalar_functions_and_excludes_nested_aggregates ... ok
+test query::schema_completion::tests::test_cte_alias_resolution_and_column_completion ... ok
+test query::schema_completion::tests::test_schema_qualified_table_completion ... ok
+test query::schema_completion::tests::test_multi_segment_schema_table_column_completion ... ok
+test query::sql_format::tests::formats_clause_boundaries_without_rewriting_literals_or_comments ... ok
+test query::schema_completion::tests::test_from_clause_suggests_tables_first ... ok
+test query::schema_completion::tests::update_set_completion_prioritizes_update_target_columns ... ok
+test query::sql_format::tests::formats_incomplete_sql_without_panicking ... ok
+test runtime::tests::default_draft_identity_follows_build_profile ... ok
+test runtime::tests::request_ids_are_monotonic ... ok
+test query::sql_format::tests::preserves_dollar_quoted_postgres_body ... ok
+test runtime::tests::bridge_delivers_typed_commands ... ok
+test runtime::tests::default_draft_neutral_fields_are_profile_independent ... ok
+test theme::tests::dark_tokens_follow_warm_minimalism_surface_contract ... ok
+test theme::tests::light_and_dark_themes_keep_distinct_surface_tokens ... ok
+test theme::tests::light_tokens_follow_warm_minimalism_surface_contract ... ok
+test diagram::tests::timing_1000_tables_dense ... ok
+test editor::renderer::tests::test_ime_commit_event_in_editor_widget ... ok
+test theme::tests::install_fonts_registers_inter_medium_for_ui_labels ... ok
+test diagram::tests::worker_shutdown_via_drop_no_leak ... ok
+test diagram::tests::node_query_giant_viewport ... ok
+
+test result: ok. 359 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 10.57s
+
+   Doc-tests db_pro_core
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests db_pro_infrastructure
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests db_pro_runtime
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests db_pro_tauri_lib
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests db_pro_ui
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+EXIT_STATUS=0

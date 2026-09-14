@@ -1,0 +1,33 @@
+### Live PostgreSQL integration suite — pg_integration (the 18 #[ignore]d tests)
+
+$ DATABASE_URL=postgres://dbpro:<redacted>@127.0.0.1:55432/dbpro_fixture \
+  cargo test -p db-pro-infrastructure --test pg_integration -- --ignored --test-threads=1
+
+   Compiling db-pro-core v0.1.0 (/Users/truongdev/Documents/projects/db-pro/main/crates/core)
+   Compiling db-pro-infrastructure v0.1.0 (/Users/truongdev/Documents/projects/db-pro/main/crates/infrastructure)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 6.38s
+     Running tests/pg_integration.rs (target/debug/deps/pg_integration-5083e80b121638a5)
+
+running 18 tests
+test pg_composite_fk_detail ... ok
+test pg_date_cell_filter_binds_as_date ... ok
+test pg_execute_batch_failure_rolls_back_prior_mutation ... ok
+test pg_execute_batch_timeout_rolls_back_prior_mutation ... ok
+test pg_index_lifecycle ... ok
+test pg_introspect_foreign_keys ... ok
+test pg_introspect_indexes ... ok
+test pg_introspect_tables ... ok
+test pg_introspect_triggers ... ok
+test pg_introspect_views ... ok
+test pg_query_categories ... ok
+test pg_query_decodes_native_temporal_and_network_values ... ok
+test pg_query_preserves_numeric_and_enum_values ... ok
+test pg_special_identifiers ... ok
+test pg_transaction_commit_failure_reports_unknown_outcome ... ok
+test pg_transaction_failure_rolls_back_prior_mutation ... ok
+test pg_transaction_timeout_rolls_back_prior_mutation ... ok
+test pg_typed_temporal_and_network_parameters_bind_without_casts ... ok
+
+test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.57s
+
+EXIT_STATUS=0

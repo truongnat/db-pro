@@ -1,0 +1,43 @@
+### PostgreSQL fixture state AFTER the integration suite
+
+$ fixtures/postgres/003_verify.sql re-run against the post-test database
+003_verify.sql: PASS (exit 0)
+
+$ post-test row counts
+   entity    | count 
+-------------+-------
+ categories  |     4
+ order_items |     6
+ orders      |     4
+ products    |     4
+(4 rows)
+
+
+$ post-test object counts (compare with the pre-test baseline: 8 S, 17 i, 10 r, 2 v)
+ relkind | count 
+---------+-------
+ S       |     8
+ i       |    17
+ r       |    10
+ v       |     2
+(4 rows)
+
+
+$ leftover objects created by pg_index_lifecycle, if any (expect none):
+ indexname 
+-----------
+(0 rows)
+
+
+$ SSH/backup runtime suite: NOT RUN
+  required variables (all UNSET in this environment):
+    DB_PRO_SSH_HOST, DB_PRO_SSH_PORT, DB_PRO_SSH_USER, DB_PRO_SSH_KEY,
+    DB_PRO_SSH_TARGET_HOST, DB_PRO_SSH_TARGET_PORT, DB_PRO_SSH_DATABASE,
+    DB_PRO_SSH_USERNAME, DB_PRO_SSH_PASSWORD
+  status: BLOCKED — environment variables unavailable
+
+$ precise counts
+  default workspace run (with DATABASE_URL exported): 815 passed / 0 failed / 19 ignored
+  pg_integration run with --ignored --test-threads=1 : 18 passed / 0 failed / 0 ignored
+  -> effective total when the live fixture is supplied: 833 passed / 0 failed / 1 ignored
+     (the single remaining ignored test is ssh_backup_runtime_verification)
