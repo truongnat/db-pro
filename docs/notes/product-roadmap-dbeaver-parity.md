@@ -4,6 +4,19 @@ Updated: 2026-09-14
 
 Purpose: keep a single durable note for the long-term product direction so work on hardening/verification does not make us forget the broader database-client feature surface.
 
+# 0. Audit-grounded companions (2026-09-14)
+
+This note is the original product vision and is retained as-is. It is now
+grounded by a code-evidence audit on `feature/product-audit-roadmap`:
+
+- `docs/notes/PRODUCT_CAPABILITY_MATRIX.md` — master capability matrix
+  (Area × Feature × PostgreSQL × SQLite × Backend × Native UI × Safety ×
+  Tests × Runtime Evidence × Status × Priority × Target Phase), including
+  §16 evidence conflicts where code and release docs disagree.
+- `docs/notes/PRODUCT_ROADMAP.md` — adjusted phase plan (A–H), release
+  boundaries (v0.1/v0.2/v0.3/Later), FINAL sidebar proposal, 20-milestone
+  implementation order, and tech-debt list.
+
 ## Product direction
 
 DB Pro should evolve toward:
