@@ -186,3 +186,63 @@ fn multi_query_translation_uses_explicit_statement_result_kind() {
         _ => panic!("unexpected UI event"),
     }
 }
+
+/// The shipping IPC channel is the in-process `UiQueryResult`, not a serde DTO, so
+/// the field mapping itself is the contract: every domain field must land in the
+/// same-named UI field and every domain value class must keep its UI class. A
+/// silently dropped field or a class collapsed into text fails here (Gate 5 A4).
+#[test]
+fn query_result_translation_keeps_every_field_and_value_class() {
+    use db_pro_core::domain::query::{CellValue, ColumnMeta, QueryResult, Row};
+    use db_pro_ui::{UiCell, UiEvent};
+
+    let result = QueryResult {
+        columns: vec![
+            ColumnMeta {
+                name: "amount".to_owned(),
+                data_type: "numeric(20,4)".to_owned(),
+                nullable: true,
+            },
+            ColumnMeta {
+                name: "note".to_owned(),
+                data_type: "text".to_owned(),
+                nullable: true,
+            },
+        ],
+        rows: vec![Row(vec![
+            CellValue::Decimal("12345678901234567890.12345".to_owned()),
+            CellValue::Null,
+        ])],
+        row_count: 1,
+        duration_ms: 7,
+    };
+
+    let translated = translate_event(RuntimeEvent::QueryCompleted {
+        request_id: RuntimeRequestId(21),
+        result,
+    })
+    .expect("a completed query must reach the UI");
+
+    match translated {
+        UiEvent::QueryCompleted { result, .. } => {
+            assert_eq!(result.row_count, 1, "row_count must not be dropped");
+            assert_eq!(result.duration_ms, 7, "duration_ms must not be dropped");
+            assert_eq!(result.columns.len(), 2, "no column may be dropped or added");
+            assert_eq!(result.columns[0].name, "amount");
+            assert_eq!(result.columns[0].data_type, "numeric(20,4)");
+            assert!(result.columns[0].nullable);
+            assert_eq!(result.columns[1].name, "note");
+            assert_eq!(result.columns[1].data_type, "text");
+            assert!(result.columns[1].nullable);
+            assert_eq!(
+                result.rows,
+                vec![vec![
+                    UiCell::Number("12345678901234567890.12345".to_owned()),
+                    UiCell::Null
+                ]],
+                "the canonical decimal text and the null class must survive translation"
+            );
+        }
+        _ => panic!("unexpected UI event"),
+    }
+}

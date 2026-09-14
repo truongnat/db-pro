@@ -1422,4 +1422,231 @@ mod tests {
         let result = serde_json::from_str::<CellValueDto>(json);
         assert!(result.is_err(), "should reject numeric JSON value for int64");
     }
+
+    /// A whole result that carries every value class the canonical contract
+    /// defines — A1 numeric/integer, A2 temporal, A3 structured/fallback — so the
+    /// emitted shape is pinned for the composite payload and not only for
+    /// isolated variants (Gate 5 A4).
+    fn representative_query_result() -> QueryResult {
+        let columns = vec![
+            ColumnMeta {
+                name: "id".to_owned(),
+                data_type: "bigint".to_owned(),
+                nullable: false,
+            },
+            ColumnMeta {
+                name: "active".to_owned(),
+                data_type: "boolean".to_owned(),
+                nullable: true,
+            },
+            ColumnMeta {
+                name: "ratio".to_owned(),
+                data_type: "double precision".to_owned(),
+                nullable: true,
+            },
+            ColumnMeta {
+                name: "amount".to_owned(),
+                data_type: "numeric(20,4)".to_owned(),
+                nullable: true,
+            },
+            ColumnMeta {
+                name: "note".to_owned(),
+                data_type: "text".to_owned(),
+                nullable: true,
+            },
+            ColumnMeta {
+                name: "payload".to_owned(),
+                data_type: "jsonb".to_owned(),
+                nullable: true,
+            },
+            ColumnMeta {
+                name: "token".to_owned(),
+                data_type: "uuid".to_owned(),
+                nullable: true,
+            },
+            ColumnMeta {
+                name: "created_at".to_owned(),
+                data_type: "timestamp with time zone".to_owned(),
+                nullable: true,
+            },
+            ColumnMeta {
+                name: "local_at".to_owned(),
+                data_type: "timestamp without time zone".to_owned(),
+                nullable: true,
+            },
+            ColumnMeta {
+                name: "birthday".to_owned(),
+                data_type: "date".to_owned(),
+                nullable: true,
+            },
+            ColumnMeta {
+                name: "slot".to_owned(),
+                data_type: "time without time zone".to_owned(),
+                nullable: true,
+            },
+            ColumnMeta {
+                name: "offset_slot".to_owned(),
+                data_type: "time with time zone".to_owned(),
+                nullable: true,
+            },
+            ColumnMeta {
+                name: "duration".to_owned(),
+                data_type: "interval".to_owned(),
+                nullable: true,
+            },
+            ColumnMeta {
+                name: "address".to_owned(),
+                data_type: "inet".to_owned(),
+                nullable: true,
+            },
+            ColumnMeta {
+                name: "raw".to_owned(),
+                data_type: "bytea".to_owned(),
+                nullable: true,
+            },
+        ];
+
+        let populated = Row(vec![
+            // Beyond 2^53: must leave as an exact string, never a JS number.
+            CellValue::Int64(9_007_199_254_740_993),
+            CellValue::Bool(true),
+            CellValue::Float64(0.1),
+            CellValue::Decimal("12345678901234567890.12345".to_owned()),
+            CellValue::Text("hello".to_owned()),
+            CellValue::Json(serde_json::json!({ "a": 1, "b": [true, null] })),
+            CellValue::Uuid("3f2504e0-4f89-11d3-9a0c-0305e82c3301".to_owned()),
+            // A2: an instant keeps its explicit UTC marker.
+            CellValue::DateTime("2024-03-15T10:20:30.123456Z".to_owned()),
+            // A2: no invented offset on a timestamp without time zone.
+            CellValue::DateTime("2024-03-15T10:20:30.123456".to_owned()),
+            CellValue::Date("2024-03-15".to_owned()),
+            CellValue::Time("10:20:30.123456".to_owned()),
+            CellValue::Time("10:20:30+07:00".to_owned()),
+            CellValue::Interval("1 mons 2 days 03:04:05.000006".to_owned()),
+            CellValue::Inet("192.168.0.1/24".to_owned()),
+            CellValue::Bytes(vec![0x00, 0xff, 0x10]),
+        ]);
+        let all_null = Row(vec![CellValue::Null; columns.len()]);
+
+        QueryResult {
+            columns,
+            rows: vec![populated, all_null],
+            row_count: 2,
+            duration_ms: 12,
+        }
+    }
+
+    /// The serialized shape of a whole result: four camelCase top-level keys, the
+    /// three column keys, and every cell as a tagged `{type, value}` object.
+    #[test]
+    fn query_result_dto_serializes_the_locked_camel_case_shape() {
+        let dto: QueryResultDto = representative_query_result().into();
+        let value = serde_json::to_value(&dto).expect("the DTO must serialize");
+        let object = value.as_object().expect("the root must be an object");
+
+        let mut keys: Vec<&str> = object.keys().map(String::as_str).collect();
+        keys.sort_unstable();
+        assert_eq!(
+            keys,
+            vec!["columns", "durationMs", "rowCount", "rows"],
+            "a drift in the whole-result shape must fail here, not in the consumer"
+        );
+        assert_eq!(object["rowCount"], 2);
+        assert_eq!(object["durationMs"], 12);
+
+        let mut column_keys: Vec<&str> = object["columns"][0]
+            .as_object()
+            .expect("a column must be an object")
+            .keys()
+            .map(String::as_str)
+            .collect();
+        column_keys.sort_unstable();
+        assert_eq!(column_keys, vec!["dataType", "name", "nullable"]);
+        assert_eq!(object["columns"][0]["dataType"], "bigint");
+        assert_eq!(object["columns"][0]["nullable"], false);
+
+        let rows = object["rows"].as_array().expect("rows must be an array");
+        assert_eq!(rows.len(), 2, "each row stays an array of cells");
+        assert_eq!(
+            rows[0].as_array().expect("a row must be an array").len(),
+            object["columns"].as_array().map(Vec::len).unwrap_or_default()
+        );
+    }
+
+    /// Every value class A1-A3 carries keeps its own tag in the mixed payload; a
+    /// class silently re-tagged or collapsed into `text` fails here.
+    #[test]
+    fn query_result_dto_covers_every_value_class_tag() {
+        let dto: QueryResultDto = representative_query_result().into();
+        let value = serde_json::to_value(&dto).expect("the DTO must serialize");
+
+        let tags: Vec<&str> = value["rows"][0]
+            .as_array()
+            .expect("the first row must be an array")
+            .iter()
+            .map(|cell| {
+                cell.get("type")
+                    .and_then(serde_json::Value::as_str)
+                    .expect("every cell must carry a type tag")
+            })
+            .collect();
+        assert_eq!(
+            tags,
+            vec![
+                "int64", "bool", "float64", "decimal", "text", "json", "uuid", "datetime", "datetime", "date", "time",
+                "time", "interval", "inet", "bytes"
+            ],
+            "the tagged shape must keep every value class distinguishable"
+        );
+
+        for cell in value["rows"][1].as_array().expect("the second row must be an array") {
+            assert_eq!(cell["type"], "null");
+            assert!(cell.get("value").is_none(), "a null cell carries no value key: {cell}");
+        }
+    }
+
+    /// Precision-sensitive values stay exact strings on the JSON boundary, so a
+    /// JavaScript-shaped consumer cannot silently round them through `Number`.
+    #[test]
+    fn query_result_dto_never_exposes_precision_sensitive_values_as_numbers() {
+        let dto: QueryResultDto = representative_query_result().into();
+        let value = serde_json::to_value(&dto).expect("the DTO must serialize");
+        let row = value["rows"][0].as_array().expect("the first row must be an array");
+
+        assert_eq!(row[0]["value"], "9007199254740993", "int64 leaves as a string");
+        assert!(row[0]["value"].is_string());
+        assert_eq!(
+            row[3]["value"], "12345678901234567890.12345",
+            "numeric keeps every digit as a string"
+        );
+        assert!(row[3]["value"].is_string());
+        assert!(row[2]["value"].is_number(), "a float64 stays a JSON number by contract");
+    }
+
+    /// The checked-in fixture is the recorded shape of the whole-result IPC
+    /// boundary: DTO drift (renamed, added or dropped fields, re-tagged cells,
+    /// reordered columns) fails before a consumer sees it, and every tagged cell
+    /// still round-trips through the derived deserializer.
+    #[test]
+    fn query_result_dto_matches_the_checked_in_contract_fixture() {
+        let dto: QueryResultDto = representative_query_result().into();
+        let emitted = serde_json::to_string_pretty(&dto).expect("the DTO must serialize");
+        let fixture = include_str!("../tests/fixtures/query-result-contract.json");
+        assert_eq!(
+            emitted, fixture,
+            "the serialized shape must match the checked-in contract fixture byte-for-byte"
+        );
+
+        let parsed: serde_json::Value = serde_json::from_str(fixture).expect("the fixture must be valid JSON");
+        for row in parsed["rows"].as_array().expect("rows must be an array") {
+            for cell in row.as_array().expect("a row must be an array") {
+                let decoded: CellValueDto = serde_json::from_value(cell.clone()).expect("every cell must deserialize");
+                assert_eq!(
+                    serde_json::to_value(&decoded).expect("the cell must re-serialize"),
+                    *cell,
+                    "a tagged cell must round-trip without shape ambiguity"
+                );
+            }
+        }
+    }
 }
