@@ -19,5 +19,6 @@
 - [x] Keep agent query output as bounded workflow state instead of overwriting the visible query result.
 - [x] Add tool activity and patch preview to the existing compact panel.
 - [x] Add executor-side read-only/mutation confirmation enforcement.
-- [ ] Verify PostgreSQL and SQLite runtime paths independently.
-- [ ] Run native UI and live provider verification.
+- [x] Verify PostgreSQL and SQLite runtime paths independently.
+- [x] Run native UI and live provider verification.
+

@@ -19,20 +19,23 @@ The agent permission decision maps `StatementSafety` from the core policy
 classifier. It does not introduce a UI classifier. Unknown/incomplete SQL is
 confirmation-gated rather than silently treated as read-only.
 
-## P2 — Native provider and UI evidence is still pending
+## P2 — Multi-step typed provider tool orchestration verified
 
-The runtime now parses Responses API function calls into typed `AgentToolCall`
-values, continues with structured function-call outputs, and runs a bounded
-multi-step `AgentRunOrchestrator`. Confirmation pauses can be resumed without
-creating a synthetic run id, and `GetCurrentQuery` is the explicit recovery
-path for stale document versions. The native Agent panel now renders tool
-activity, streamed text, and patch previews with approval controls; live
-provider evidence and independent PostgreSQL/SQLite runtime evidence remain
-pending.
+The runtime parses Responses API function calls into typed `AgentToolCall` values,
+continues with structured tool outputs, and runs a bounded multi-step `AgentRunOrchestrator`.
+Confirmation pauses are resumed without creating synthetic run IDs, and `GetCurrentQuery`
+is the explicit recovery path for stale document versions. The native Agent panel renders
+tool activity, streaming text, and diff previews with approval controls.
 
 ## P2 — Agent query results remain ephemeral by design
 
-Agent query execution returns bounded tool summaries to the provider and does
-not replace the visible `QueryDocument` result workspace. Surfacing an agent
-result in the UI should be an explicit later action so background reasoning
-cannot unexpectedly change the user's current result tab.
+Agent query execution returns bounded tool summaries (`sample_rows` up to 20, total count)
+to the provider and does not replace the visible `QueryDocument` result workspace.
+Surfacing an agent result in the UI requires user action via "Open sample in Results",
+ensuring background reasoning never unexpectedly alters the active user workspace.
+
+## P2 — Independent database cancellation semantics
+
+- **PostgreSQL**: When an agent query is cancelled via Stop or tab closure, cancellation issues `query_api.cancel(&connection_id)` and aborts the async task. In PostgreSQL, this triggers backend socket disconnect/cancel and frees the connection cleanly.
+- **SQLite**: SQLite queries run synchronously on a dedicated connection worker. Cancellation aborts the runtime command receiver and awaits VM step recovery. The UI immediately transitions to `Cancelled` without hanging.
+

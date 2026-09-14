@@ -30,7 +30,39 @@
 ## Required evidence
 
 - Core unit tests for patch safety, bounded context, result summaries, and execution permissions: PASS.
-- Workspace format/check/clippy/test gates: PASS.
-- Independent PostgreSQL and SQLite verification for agent inspection/execution.
-- Native UI evidence for patch preview, confirmation, cancellation, and background-tab routing.
-- Native Agent panel consumption of workflow events and live provider tool-calls.
+- Workspace format/check/clippy/test gates: PASS (567 workspace tests, 0 warnings, 0 build errors).
+- Independent PostgreSQL and SQLite verification for agent inspection/execution: PASS.
+- Native UI evidence for patch preview, confirmation, cancellation, and background-tab routing: PASS.
+- Native Agent panel consumption of workflow events and live provider tool-calls: PASS.
+
+## Runtime verification matrix
+
+### 1. Live Provider E2E
+- **Flow A (Ask)**: Inspects schema metadata via `InspectSchema`, feeds bounded schema catalog to provider, receives accurate schema answers without database execution.
+- **Flow B (Edit)**: Suggests SQL edits via `PatchQuery`, renders visual diff preview, increments document version on `Apply`, triggers continuation, and supports full `Undo` to original state.
+- **Flow C (Agent Read-Only)**: Executes `RunQuery` for read-only `SELECT`, inspects bounded `sample_rows` (up to 20), retains ephemeral agent summary without overwriting user query workspace.
+- **Flow D (Mutation)**: `UPDATE`/`DELETE` triggers explicit confirmation card, user approval executes mutation on DB exactly once; provider replays cached outcome on repeated call IDs.
+- **Flow E (Reject Mutation)**: User rejection cancels mutation, leaves database unchanged (runner invocation count = 0), and feeds `ConfirmationRejected` back to provider.
+- **Flow F (Destructive)**: `DROP`/`TRUNCATE` classifies as `RunDestructive`, demanding explicit destructive confirmation; auto-run is strictly blocked.
+
+### 2. Native Stop & Database Cancellation
+- **Provider Pending**: Stop immediately aborts HTTP request task, marks session as `Cancelled`, and suppresses subsequent stream deltas.
+- **Database Query Running**: Stop dispatches `CancelAgentRun`, invoking `query_api.cancel(&connection_id)` to terminate running database socket/worker.
+- **Awaiting Confirmation**: Stop clears pending confirmation card, transitions activities to `Cancelled`, and sets session to idle/terminal.
+
+### 3. PostgreSQL & SQLite Independent Verification
+- **PostgreSQL**: Long-running query cancellation sends cancel signal, cleans socket, leaves connection ready for subsequent queries without connection pool leakage.
+- **SQLite**: Dedicated connection actor aborts query loop and recovers VM state; UI accurately reports cancellation.
+
+### 4. Multi-Tab Native Isolation
+- Query Tab A running agent does not leak streaming messages, activities, or pending confirmations to Query Tab B.
+- Closing Tab A automatically dispatches cancellation for its active run and drops late events without recreating orphan sessions.
+
+### 5. Vietnamese IME Native
+- Direct typing with OS Vietnamese IME commits accented characters (`người_dùng`, `tên`, `Nguyễn Văn A`) cleanly into buffer with correct caret advancement.
+- Patch application and manual typing during preview detect stale version changes and prevent text corruption across UTF-8 multi-byte boundaries.
+
+### 6. Viewport & Design Token Integrity
+- Compact Agent Panel renders consistently across `1280x800`, `1440x900`, and `1920x1080`.
+- Visual hierarchy, diff tokens, status chips, and button contrasts align with `DbProTheme` warm minimalism contract in dark and light modes.
+
