@@ -173,16 +173,16 @@ fn persist_groq_api_key(api_key: &str) {
     }
 }
 
-/// Seeds the demo PostgreSQL connection the first time the app runs.
-async fn seed_default_connection(runtime: &DbProRuntime) {
-    let existing = runtime.connections().list().await.unwrap_or_default();
-    if existing
-        .iter()
-        .any(|c| c.config.database == "fullstack_starter" && c.config.port == 5432)
-    {
-        return;
-    }
-    let config = db_pro_core::domain::connection::ConnectionConfig {
+/// The developer-convenience connection seeded on first launch, if any.
+///
+/// Debug builds seed the developer's local PostgreSQL fixture so `cargo run`
+/// starts with a usable connection. Release builds must not: a shipped binary
+/// must never write a developer's private connection metadata into a user's
+/// connection store (goal-3 §16 — never package local connection metadata or
+/// credentials).
+#[cfg(debug_assertions)]
+fn developer_preset_connection() -> Option<db_pro_core::domain::connection::ConnectionConfig> {
+    Some(db_pro_core::domain::connection::ConnectionConfig {
         name: "Xe Lạc Hồng (PostgreSQL)".to_owned(),
         host: "localhost".to_owned(),
         port: 5432,
@@ -197,9 +197,38 @@ async fn seed_default_connection(runtime: &DbProRuntime) {
         tags: vec!["docker".to_owned(), "xe-lac-hong".to_owned()],
         group: None,
         readonly: false,
+    })
+}
+
+/// Release builds seed nothing — see `developer_preset_connection`.
+#[cfg(not(debug_assertions))]
+fn developer_preset_connection() -> Option<db_pro_core::domain::connection::ConnectionConfig> {
+    None
+}
+
+/// Log text for a failed seeding attempt, kept next to the preset it names so
+/// the developer label does not survive into a release binary.
+#[cfg(debug_assertions)]
+const SEED_FAILURE_MESSAGE: &str = "failed to seed default Xe Lạc Hồng connection";
+#[cfg(not(debug_assertions))]
+const SEED_FAILURE_MESSAGE: &str = "failed to seed the developer default connection";
+
+/// Seeds the demo PostgreSQL connection the first time the app runs.
+async fn seed_default_connection(runtime: &DbProRuntime) {
+    let Some(config) = developer_preset_connection() else {
+        return;
     };
+    let database = config.database.clone();
+    let port = config.port;
+    let existing = runtime.connections().list().await.unwrap_or_default();
+    if existing
+        .iter()
+        .any(|c| c.config.database == database && c.config.port == port)
+    {
+        return;
+    }
     if let Err(err) = runtime.connections().create(config, "postgres").await {
-        tracing::warn!("failed to seed default Xe Lạc Hồng connection: {err}");
+        tracing::warn!("{SEED_FAILURE_MESSAGE}: {err}");
     }
 }
 
@@ -250,6 +279,26 @@ fn run_native_app(bridge: TaskBridge) -> Result<(), Box<dyn Error>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Regression guard for the S-2 release-hygiene finding: the developer
+    /// connection preset is seeded by debug builds only. `cargo test --release`
+    /// exercises the release half of this assertion.
+    #[test]
+    fn developer_connection_preset_is_gated_to_debug_builds() {
+        let preset = developer_preset_connection();
+
+        assert_eq!(
+            preset.is_some(),
+            cfg!(debug_assertions),
+            "the developer connection preset must exist in debug builds only"
+        );
+
+        if let Some(config) = preset {
+            assert_eq!(config.name, "Xe Lạc Hồng (PostgreSQL)");
+            assert_eq!(config.database, "fullstack_starter");
+            assert_eq!(config.port, 5432);
+        }
+    }
 
     #[test]
     fn sqlite_draft_drops_postgres_only_credentials() {

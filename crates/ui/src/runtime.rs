@@ -38,15 +38,45 @@ pub struct UiConnectionDraft {
     pub ssh_private_key: String,
 }
 
+/// Developer-convenience identity for a new connection draft.
+///
+/// Debug builds pre-fill the developer's local PostgreSQL fixture so `cargo run`
+/// starts from a usable form. The preset must never reach a release build: it
+/// names a private developer database, and a shipped app must not pre-fill the
+/// New Connection dialog with it.
+#[cfg(debug_assertions)]
+fn default_draft_identity() -> (String, String, String, String, String) {
+    (
+        "Xe Lạc Hồng (PostgreSQL)".to_owned(),
+        "localhost".to_owned(),
+        "fullstack_starter".to_owned(),
+        "postgres".to_owned(),
+        "postgres".to_owned(),
+    )
+}
+
+/// Release builds start from a blank identity — see `default_draft_identity`.
+#[cfg(not(debug_assertions))]
+fn default_draft_identity() -> (String, String, String, String, String) {
+    (
+        String::new(),
+        String::new(),
+        String::new(),
+        String::new(),
+        String::new(),
+    )
+}
+
 impl Default for UiConnectionDraft {
     fn default() -> Self {
+        let (name, host, database, username, password) = default_draft_identity();
         Self {
-            name: "Xe Lạc Hồng (PostgreSQL)".to_owned(),
-            host: "localhost".to_owned(),
+            name,
+            host,
             port: "5432".to_owned(),
-            database: "fullstack_starter".to_owned(),
-            username: "postgres".to_owned(),
-            password: "postgres".to_owned(),
+            database,
+            username,
+            password,
             driver: UiDriver::Postgres,
             ssl_mode: UiSslMode::Disable,
             readonly: false,
@@ -784,6 +814,53 @@ impl TaskBridge {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Regression guard for the S-1 release-hygiene finding: the developer
+    /// connection preset is developer-only. `cargo test --release` exercises the
+    /// release half of this assertion.
+    #[test]
+    fn default_draft_identity_follows_build_profile() {
+        let draft = UiConnectionDraft::default();
+
+        if cfg!(debug_assertions) {
+            assert_eq!(draft.name, "Xe Lạc Hồng (PostgreSQL)");
+            assert_eq!(draft.host, "localhost");
+            assert_eq!(draft.database, "fullstack_starter");
+            assert_eq!(draft.username, "postgres");
+            assert_eq!(draft.password, "postgres");
+        } else {
+            assert!(
+                draft.name.is_empty(),
+                "release builds must not pre-fill a connection name"
+            );
+            assert!(
+                draft.host.is_empty(),
+                "release builds must not pre-fill a connection host"
+            );
+            assert!(
+                draft.database.is_empty(),
+                "release builds must not pre-fill a database name"
+            );
+            assert!(draft.username.is_empty(), "release builds must not pre-fill a username");
+            assert!(draft.password.is_empty(), "release builds must not pre-fill a password");
+        }
+    }
+
+    /// The neutral parts of the draft are the same in every build profile.
+    #[test]
+    fn default_draft_neutral_fields_are_profile_independent() {
+        let draft = UiConnectionDraft::default();
+
+        assert_eq!(draft.port, "5432");
+        assert_eq!(draft.driver, UiDriver::Postgres);
+        assert_eq!(draft.ssl_mode, UiSslMode::Disable);
+        assert!(!draft.readonly);
+        assert!(!draft.ssh_tunnel_enabled);
+        assert_eq!(draft.ssh_port, "22");
+        assert!(draft.ssh_host.is_empty());
+        assert!(draft.ssh_user.is_empty());
+        assert!(draft.ssh_private_key.is_empty());
+    }
 
     #[test]
     fn request_ids_are_monotonic() {

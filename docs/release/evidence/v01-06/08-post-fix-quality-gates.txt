@@ -1,0 +1,465 @@
+# V01-06 evidence — 08-post-fix-quality-gates
+
+Captured    : 2026-09-14T12:37Z (UTC)
+Worktree    : /Users/truongdev/Documents/projects/db-pro/main (branch main)
+Base commit : 3e0b0775c2248d37253d7325eddebd952e26d101 (HEAD at capture time; the fix
+              and CI changes below were still uncommitted in the working tree)
+Host        : macOS 26.5.2 / arm64 (Apple Silicon)
+Toolchain   : cargo 1.95.0 (f2d3ce0bd 2026-03-21), rustc 1.95.0 (59807616e 2026-04-14)
+Extra tools : actionlint 1.7.12, plutil/tar/lipo/codesign/spctl from the OS,
+              PyYAML 6.0.3 in a throwaway venv under /tmp (host python3 has no yaml module)
+Release bin : target/release/db-pro-native  Mach-O 64-bit executable arm64
+              sha256 2ae0540a1850281a5bfd10b85e971f3e0104e3ecbae5dbafeea500b78c844315
+              size   23714096 bytes (22.62 MiB)
+
+Scope: (1) the six quality gates on the post-fix tree, (2) the post-fix byte scan of
+the release binary, (3) local packaging dry-runs for the new scripts, (4) workflow
+validation. Everything below is raw output from commands actually run on this host.
+
+Files changed in this step (all uncommitted at capture time):
+  modified : crates/ui/src/runtime.rs          (default draft identity gated on debug_assertions)
+  modified : crates/native-app/src/main.rs     (developer preset seeding gated on debug_assertions)
+  modified : .github/workflows/release.yml     (package + checksums jobs, macos-14 pin)
+  added    : scripts/release/package-macos.sh, package-linux.sh, package-windows.ps1,
+             write-checksums.sh, README-INSTALL.txt
+
+==============================================================================
+1. QUALITY GATES (post-fix)
+==============================================================================
+
+--- GATE 1: cargo fmt --all -- --check ---
+exit=0 (no output)
+PASS
+
+--- GATE 2: cargo check --workspace ---
+exit=0
+    Checking db-pro-ui v0.1.0 (.../crates/ui)
+    Checking db-pro-native v0.1.0 (.../crates/native-app)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.21s
+PASS
+
+--- GATE 3: cargo clippy --workspace --all-targets -- -D warnings ---
+exit=0
+warning lines: 0   error lines: 0
+    Checking db-pro-native v0.1.0 (.../crates/native-app)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.50s
+PASS
+
+NOTE (honest record of the first attempt): the first clippy run exited 101 with
+`-D clippy::assertions-on-constants` on the two `assert!(cfg!(debug_assertions), ..)`
+arms of the new native-app regression test. Clippy is right: asserting on a compile-time
+constant is not a runtime check. The test was rewritten to compare a runtime value against
+the constant (`assert_eq!(preset.is_some(), cfg!(debug_assertions), ..)`), which keeps the
+regression guard and satisfies the lint. That rewrite is included in the numbers above.
+
+--- GATE 4: cargo test --workspace ---
+exit=0
+test result: ok. 291 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+test result: ok. 62 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.35s
+test result: ok. 32 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+test result: ok. 0 passed; 0 failed; 18 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 28 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 359 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 10.29s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+TOTALS (sum over all 19 test targets): 811 passed / 0 failed / 19 ignored
+Pre-fix baseline (recorded in 02-quality-gates.txt for 3e0b077): 808 / 0 / 19
+DELTA: +3 passed, +0 failed, +0 ignored
+The +3 are the new regression tests:
+  crates/ui/src/runtime.rs   runtime::tests::default_draft_identity_follows_build_profile
+  crates/ui/src/runtime.rs   runtime::tests::default_draft_neutral_fields_are_profile_independent
+  crates/native-app/src/main.rs  tests::developer_connection_preset_is_gated_to_debug_builds
+PASS
+
+--- GATE 5: cargo build --release --locked -p db-pro-native ---
+exit=0
+    Compiling db-pro-native v0.1.0 (.../crates/native-app)
+    Finished `release` profile [optimized] target(s) in 3.04s
+binary: target/release/db-pro-native, 23714096 bytes
+PASS
+
+--- GATE 6: bash .skills/perf-audit/scripts/perf-scan.sh ---
+exit=0
+  Native UI Binary
+    ✓ cargo build -p db-pro-native: release build succeeded
+    ✓ Binary size: 22.6MB (target < 50MB)
+  Rust Static Analysis
+    ✓ cargo check: Workspace compiles
+    ✓ cargo clippy: No warnings
+  Audit Summary:  Passed: 4   Warnings: 0   Failed: 0
+  Status: PASS — All checks passed
+PASS
+
+--- Beyond the six gates: release-profile test run (exercises the release-side assertions) ---
+command: cargo test --release -p db-pro-native -p db-pro-ui
+exit=0
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+test result: ok. 359 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+test tests::developer_connection_preset_is_gated_to_debug_builds ... ok
+test runtime::tests::default_draft_identity_follows_build_profile ... ok
+test runtime::tests::default_draft_neutral_fields_are_profile_independent ... ok
+
+This is the run that actually proves the release branch: with `debug_assertions` off,
+`default_draft_identity_follows_build_profile` takes the `else` branch and asserts the
+identity fields are empty, and `developer_connection_preset_is_gated_to_debug_builds`
+asserts the preset is absent. Both pass.
+
+==============================================================================
+2. POST-FIX BYTE SCAN (S-1/S-2 release-hygiene finding)
+==============================================================================
+
+Method: python3 reads target/release/db-pro-native as bytes and counts UTF-8 occurrences
+of each string (macOS `strings` cannot find "Xe Lạc Hồng" at all because the Vietnamese
+diacritics are non-ASCII bytes — this is why the counts below are byte counts, and why the
+pre-fix numbers are 6/4/3 rather than what `strings | grep -c` reports).
+
+                                       PRE-FIX (3e0b077)   POST-FIX
+  "Xe Lạc Hồng" (developer label)              6                1
+  "fullstack_starter" (private DB name)        4                0
+  "xe-lac-hong" (private connection tag)       3                0
+  binary size                            23714096         23714096 bytes
+  binary sha256 (post-fix)   2ae0540a1850281a5bfd10b85e971f3e0104e3ecbae5dbafeea500b78c844315
+
+Where the preset went: `UiConnectionDraft::default()`'s identity tuple and
+`developer_preset_connection()` are now `#[cfg(debug_assertions)]`-only, and the seeding
+failure message was split per profile, so a release build no longer contains the label,
+the database name, the tag, the user name, the password, or the log text that names them.
+
+RESIDUAL — 1 occurrence of "Xe Lạc Hồng" remains in the release binary, and it is
+deliberately not touched by this fix (out of the specified scope: "do not refactor
+unrelated modules"). Provenance, from the binary itself:
+
+  offset 13920468: '...rigger DROP TABLE Safety ModalActive Context:Xe Lạc Hồng (PostgreSQL)production_dbpubl...'
+
+That is demo data in `crates/ui/src/component_gallery_view.rs` (three source literals at
+lines 2351/2384/2462 used as example text for ConnectionIndicator / StatusBarItem /
+ContextChip in the Component Gallery tab). It carries NO host, database, user name or
+password — it is a display label, not a connection preset — but it is the same private
+label. Coordinator decision needed: either accept, or neutralize those three literals in a
+separate change. This run does not touch them.
+
+==============================================================================
+3. macOS BUNDLE DRY-RUN (scripts/release/package-macos.sh)
+==============================================================================
+
+Scratch dir: /tmp/v0106-dryrun (outside the repository; removed after capture).
+
+command: bash scripts/release/package-macos.sh 0.1.0 target/release/db-pro-native /tmp/v0106-dryrun/dist
+stdout (the script's only stdout line): /tmp/v0106-dryrun/dist/db-pro-v0.1.0-macos-arm64.tar.gz
+stderr:
+  Measured LC_BUILD_VERSION minos: 11.0
+  /var/folders/.../db-pro-package.TJzjVs/DB Pro.app/Contents/Info.plist: OK     <- plutil -lint inside the script
+  Archive entries:
+    DB Pro.app/
+    DB Pro.app/Contents/
+    DB Pro.app/Contents/MacOS/
+    DB Pro.app/Contents/Info.plist
+    DB Pro.app/Contents/MacOS/db-pro-native
+    README-INSTALL.txt
+  Archive: 10058062 bytes
+  SHA256:  bddf4f70b0aa19d937d97000c5f21757854902a286482447f075592303175630
+exit=0
+
+CORRECTION MADE DURING THIS RUN (recorded because the first version was wrong):
+the archive step first used `tar --no-mac-metadata`, which the bsdtar man page
+describes as suppressing macOS metadata. Measurement disagreed — every member still
+carried `LIBARCHIVE.xattr.com.apple.provenance` / `com.apple.macl` pax headers.
+`--no-xattrs` is the flag that actually stops extended attributes from being archived
+(verified side by side: with --no-mac-metadata the pax headers were present, with
+--no-xattrs every member reports `pax={}`). The script now uses
+`COPYFILE_DISABLE=1 tar --no-xattrs`, and the numbers above are from the corrected
+script. `xattr -cr` on the staging tree was also tried and is NOT sufficient: macOS
+re-adds com.apple.provenance on access.
+
+LSMinimumSystemVersion was measured, not guessed: `otool -l` reports
+`LC_BUILD_VERSION ... minos 11.0` for the release binary, and the script fails hard if it
+cannot parse it. 11.0 is the coordinator's expected value.
+
+--- 3.1 plutil -lint on the Info.plist as extracted from the archive ---
+$ plutil -lint "extract/DB Pro.app/Contents/Info.plist"
+extract/DB Pro.app/Contents/Info.plist: OK
+exit=0
+
+--- 3.2 resolved bundle metadata ---
+$ plutil -p "extract/DB Pro.app/Contents/Info.plist"
+{
+  "CFBundleDisplayName" => "DB Pro"
+  "CFBundleExecutable" => "db-pro-native"
+  "CFBundleIdentifier" => "com.dbpro.app"
+  "CFBundleInfoDictionaryVersion" => "6.0"
+  "CFBundleName" => "DB Pro"
+  "CFBundlePackageType" => "APPL"
+  "CFBundleShortVersionString" => "0.1.0"
+  "CFBundleVersion" => "0.1.0"
+  "LSMinimumSystemVersion" => "11.0"
+}
+
+--- 3.3 CFBundleExecutable matches the real binary ---
+$ exe=$(plutil -extract CFBundleExecutable raw "extract/DB Pro.app/Contents/Info.plist")
+CFBundleExecutable = db-pro-native
+MATCH: Contents/MacOS/db-pro-native exists and is executable
+$ lipo -archs "extract/DB Pro.app/Contents/MacOS/db-pro-native"
+arm64
+
+--- 3.4 bundled binary is the built binary (no stray copy) ---
+$ shasum -a 256 "extract/DB Pro.app/Contents/MacOS/db-pro-native" target/release/db-pro-native
+2ae0540a1850281a5bfd10b85e971f3e0104e3ecbae5dbafeea500b78c844315  extract/.../db-pro-native
+2ae0540a1850281a5bfd10b85e971f3e0104e3ecbae5dbafeea500b78c844315  target/release/db-pro-native
+
+--- 3.5 extracted bundle tree ---
+$ tar -xzf dist/db-pro-v0.1.0-macos-arm64.tar.gz -C extract && find extract -print | sort
+extract
+extract/DB Pro.app
+extract/DB Pro.app/Contents
+extract/DB Pro.app/Contents/Info.plist
+extract/DB Pro.app/Contents/MacOS
+extract/DB Pro.app/Contents/MacOS/db-pro-native
+extract/README-INSTALL.txt
+
+--- 3.6 archive listing and pax headers (from the produced tar.gz) ---
+$ tar -tzvf dist/db-pro-v0.1.0-macos-arm64.tar.gz
+drwxr-xr-x  0 truongdev staff        0 Sep 14 19:38 DB Pro.app/
+drwxr-xr-x  0 truongdev staff        0 Sep 14 19:38 DB Pro.app/Contents/
+drwxr-xr-x  0 truongdev staff        0 Sep 14 19:38 DB Pro.app/Contents/MacOS/
+-rw-r--r--  0 truongdev staff      713 Sep 14 19:38 DB Pro.app/Contents/Info.plist
+-rwxr-xr-x  0 truongdev staff 23714096 Sep 14 19:38 DB Pro.app/Contents/MacOS/db-pro-native
+-rw-r--r--  0 truongdev staff     2044 Sep 14 19:38 README-INSTALL.txt
+
+$ python3 -c "import tarfile; [print(repr(m.name), oct(m.mode), sorted(m.pax_headers)) for m in tarfile.open('dist/db-pro-v0.1.0-macos-arm64.tar.gz').getmembers()]"
+'DB Pro.app' 0o755 []
+'DB Pro.app/Contents' 0o755 []
+'DB Pro.app/Contents/MacOS' 0o755 []
+'DB Pro.app/Contents/Info.plist' 0o644 []
+'DB Pro.app/Contents/MacOS/db-pro-native' 0o755 []
+'README-INSTALL.txt' 0o644 []
+
+So: no "._" AppleDouble entries, no extended-attribute pax headers on any member, and
+the executable keeps mode 0755 inside the archive. The script itself also asserts the
+entry set is exactly the contract list and fails on anything unexpected.
+
+--- 3.7 LaunchServices acceptance: `open` the extracted bundle ---
+$ open "extract/DB Pro.app"
+open exit=0
+$ sleep 6; pgrep -fl "Contents/MacOS/db-pro-native"
+21612 /private/tmp/v0106-dryrun/extract/DB Pro.app/Contents/MacOS/db-pro-native
+$ ps -o stat= -p 21612            -> S      (sleeping, i.e. running its event loop)
+$ ps -o etime= -p 21612           -> 00:06  (alive, launched from inside the bundle)
+$ kill -TERM 21612; sleep 3; pgrep -f "Contents/MacOS/db-pro-native"
+(no output — process gone)
+
+So: LaunchServices accepted the bundle (exit 0), launched the real executable from inside
+it, the process initialised and stayed alive without a crash, and it terminated on SIGTERM.
+
+--- 3.8 What was NOT observed (explicit) ---
+* No window was rendered or observed: this shell has no window-server visibility and the
+  project's computer-use harness cannot see an unbundled/unregistered capture target. No
+  claim of visual verification is made here — see 03-release-binary.txt section 4-B for the
+  harness limitation. What IS proven is that plutil, `open` (LaunchServices), codesign and
+  the process table all accepted the bundle.
+* No GUI interaction (Settings, query execution, persistence) was performed.
+* SIGNING: still UNSIGNED. `codesign -dv --verbose=2` on the bundled executable reports
+  `Format=app bundle with Mach-O thin (arm64)`, `Signature=adhoc`, `flags=0x20002(adhoc,linker-signed)`,
+  `TeamIdentifier=not set`, `Info.plist=not bound`. `spctl -a -vvv -t exec "extract/DB Pro.app"`
+  exits 1 ("code has no resources but signature indicates they must be present"). Signing and
+  notarization are deliberately out of the v0.1 contract and no secrets were added.
+
+--- 3.9 One runtime observation worth a decision (not fixed here) ---
+An app launched by LaunchServices inherits cwd="/" (verified: `lsof -d cwd` on the running
+pid reported `n/`). `resolve_data_dir()` therefore resolves the default state directory to
+/.db-pro-data, which is not writable by a normal user. In this run the app did not crash and
+did not create any state directory anywhere (checked: /.db-pro-data, /tmp/v0106-dryrun/extract/.db-pro-data,
+~/.db-pro-data all absent; the repository's own .db-pro-data was untouched, mtime 2026-09-13).
+The runtime creates its workspace DB lazily, so an idle launch does not reveal what happens
+on first write. Flagged for the coordinator: a Finder-launched v0.1 build may be unable to
+persist state. Fixing this means changing data-directory resolution (product behaviour), so
+it is out of scope for this run.
+
+--- 3.10 Scratch cleanup ---
+/tmp/v0106-dryrun, /tmp/v0106-cksum, /tmp/v0106-shakeout, /tmp/v0106-lint, /tmp/v0106-linuxbin
+and /tmp/v0106-yaml-venv were removed after capture. Nothing from the dry run was written
+inside the repository, so .gitignore was not touched.
+
+==============================================================================
+4. LINUX PACKAGING SCRIPT — SCRIPT-LOGIC TEST, NOT A LINUX BUILD
+==============================================================================
+
+This host is macOS/arm64; there is no Linux host and no Linux target installed. What was
+tested is the script's file-layout logic, using the macOS release binary copied to a scratch
+path as an inert stand-in. THIS IS NOT A LINUX BUILD AND NOT LINUX EVIDENCE.
+
+$ for s in scripts/release/package-macos.sh scripts/release/package-linux.sh scripts/release/write-checksums.sh; do bash -n "$s" && echo "OK bash -n $s"; done
+OK  bash -n scripts/release/package-macos.sh
+OK  bash -n scripts/release/package-linux.sh
+OK  bash -n scripts/release/write-checksums.sh
+
+$ cp target/release/db-pro-native /tmp/v0106-dryrun/linux-bin/db-pro-native
+$ bash scripts/release/package-linux.sh 0.1.0 /tmp/v0106-dryrun/linux-bin/db-pro-native /tmp/v0106-dryrun/dist
+NOTE: GNU tar not detected, writing a non-canonical archive
+Archive entries:
+  db-pro-native
+  README-INSTALL.txt
+Archive: 10058212 bytes
+SHA256:  6d02bb8fa519de907bbca77570694ecfbe2d7abf1efbc4340185f511fe27d15f
+/tmp/v0106-dryrun/dist/db-pro-v0.1.0-linux-x86_64.tar.gz
+exit=0
+
+The GNU-tar branch (--sort=name --owner=0 --group=0 --numeric-owner --mtime=@0) is therefore
+NOT exercised here: macOS bsdtar is not GNU tar, and the script correctly took its fallback.
+On the ubuntu-latest runner the GNU branch will be taken; if `tar --version` does not report
+GNU tar there, the fallback still produces a working (non-canonical) archive, so the flag
+choice cannot fail the job — it can only cost determinism.
+
+--- 4.1 Archive determinism (honest limitation) ---
+Two runs of package-linux.sh over the same binary produced different archive hashes
+(eb8c4c41... then 6d02bb8f..., 7 bytes apart), because tar records member mtimes and the
+bsdtar fallback does not sort or normalize them. The macOS archive has the same property.
+The v0.1 contract (goal-3 section 15) requires a locked dependency graph, no floating git
+dependencies and no network-fetched runtime assets — all of which hold — but it does NOT
+claim bit-reproducible archives, and bit-reproducibility is not achieved here. Making the
+macOS archive deterministic would need a fixed-mtime + sorted-traversal step; deliberately
+deferred as out of scope for this run.
+
+==============================================================================
+4b. CHECKSUM SCRIPT TESTS (scripts/release/write-checksums.sh)
+==============================================================================
+
+Test inputs: the real macOS archive plus the real Linux archive, copied to the three
+contract file names inside a scratch directory (the "windows" entry is a copy of the
+macOS archive — this is script-logic testing, not a real Windows artifact).
+
+[a] missing archive -> hard failure
+$ bash scripts/release/write-checksums.sh 0.1.0 /tmp/v0106-cksum
+::error::expected release archive is missing: /tmp/v0106-cksum/db-pro-v0.1.0-linux-x86_64.tar.gz
+exit=1
+
+[b] all three present -> 3 entries, stdout is the file content
+$ bash scripts/release/write-checksums.sh 0.1.0 /tmp/v0106-cksum
+6d02bb8fa519de907bbca77570694ecfbe2d7abf1efbc4340185f511fe27d15f  db-pro-v0.1.0-linux-x86_64.tar.gz
+bddf4f70b0aa19d937d97000c5f21757854902a286482447f075592303175630  db-pro-v0.1.0-macos-arm64.tar.gz
+bddf4f70b0aa19d937d97000c5f21757854902a286482447f075592303175630  db-pro-v0.1.0-windows-x86_64.zip
+exit=0
+
+[c] the file verifies with the standard tool, from the artifact directory
+$ cd /tmp/v0106-cksum && shasum -a 256 -c SHA256SUMS.txt
+db-pro-v0.1.0-linux-x86_64.tar.gz: OK
+db-pro-v0.1.0-macos-arm64.tar.gz: OK
+db-pro-v0.1.0-windows-x86_64.zip: OK
+exit=0
+
+[d] an unexpected file in the directory is ignored with a warning, not hashed
+$ printf junk > /tmp/v0106-cksum/db-pro-v0.1.0-notes.tar.gz
+$ bash scripts/release/write-checksums.sh 0.1.0 /tmp/v0106-cksum >/dev/null
+::warning::not part of the v0.1 checksum set, ignoring: db-pro-v0.1.0-notes.tar.gz
+Wrote /tmp/v0106-cksum/SHA256SUMS.txt (3 entries, sha256sum)
+exit=0
+
+==============================================================================
+5. WINDOWS PACKAGING — NOT EXECUTED ON THIS HOST
+==============================================================================
+
+`pwsh` is not installed on this host (`command -v pwsh` -> not found), so
+scripts/release/package-windows.ps1 could not be parsed or run locally, and no Windows build
+exists. The Windows archive (db-pro-v0.1.0-windows-x86_64.zip) is CI-VERIFIED ONLY. It has
+had a static review only, and the risks are listed in section 7.
+
+==============================================================================
+6. WORKFLOW VALIDATION
+==============================================================================
+
+--- 6.1 YAML parses (PyYAML yaml.safe_load on every workflow) ---
+.github/workflows/ci.yml: safe_load OK | jobs=['rust']
+.github/workflows/release.yml: safe_load OK | jobs=['resolve', 'preflight', 'build', 'package', 'checksums']
+.github/workflows/vps-pr-review.yml: safe_load OK | jobs=['review']
+
+Resulting release job graph:
+  resolve (ubuntu-latest)
+    -> preflight (ubuntu-latest)
+      -> build (matrix: macos-14 / windows-latest / ubuntu-latest)
+        -> package (matrix: macos-14 / windows-latest / ubuntu-latest)
+          -> checksums (ubuntu-latest)
+
+--- 6.2 actionlint 1.7.12 ---
+$ actionlint .github/workflows/*.yml
+.github/workflows/release.yml:61:9  SC2129 (style)  — pre-existing
+.github/workflows/release.yml:127:9 SC2129 (style)  — pre-existing
+.github/workflows/release.yml:216:9 SC2155 (warning) — pre-existing
+.github/workflows/vps-pr-review.yml:28:9 runner-label "db-pro-review-vps" — pre-existing (self-hosted label)
+exit=1
+
+The three release.yml findings are NOT introduced here. Verified by linting the untouched
+HEAD copy of the file:
+$ git show HEAD:.github/workflows/release.yml > /tmp/v0106-lint/release-orig.yml
+$ actionlint /tmp/v0106-lint/release-orig.yml
+release-orig.yml:50:9  SC2129:style     (same issue, shifted line number)
+release-orig.yml:116:9 SC2129:style     (same issue, shifted line number)
+release-orig.yml:205:9 SC2155:warning   (same issue, shifted line number)
+exit=1
+
+=> this change adds ZERO new actionlint findings. The remaining findings sit in the
+pre-existing resolve/preflight steps and in vps-pr-review.yml, which this task must not
+restructure. No new shellcheck/actionlint debt was added by the new package/checksums steps.
+
+--- 6.3 No run was triggered ---
+No `gh workflow run`, no tag, no push of any ref was performed in this step. The workflow
+file is only committed, not dispatched.
+
+==============================================================================
+7. RISKS THAT CANNOT BE TESTED HERE (flagged for the CI run)
+==============================================================================
+
+WINDOWS (highest residual risk — script never executed on any Windows host):
+  * PowerShell quoting: paths are passed as separate `-Parameter` values and joined with
+    Join-Path; no string interpolation into a command line, but `-$env:APP_VERSION` style
+    interpolation inside the pwsh step is untested. If it fails, it fails loudly.
+  * `Compress-Archive -LiteralPath` with an array puts both files at the zip ROOT (no
+    directory entries), which also sidesteps the Windows PowerShell 5.1 backslash-in-zip
+    issue for nested paths. Untested here.
+  * The PE machine-type check (`0x8664`) reads the header bytes directly; it is deterministic
+    but has never run.
+  * `build-output/db-pro-native.exe` uses forward slashes in a pwsh path — accepted by
+    PowerShell, but unverified on the runner.
+  * `ARCHIVE_NAME` is produced with `Split-Path -Leaf` so the bash assertion step never has
+    to parse a Windows path (a `basename` on `D:\...` would have returned the whole string).
+  * Line endings: the .ps1 is committed with LF. PowerShell 5.1/7 both accept LF. The repo
+    has no .gitattributes forcing CRLF.
+
+LINUX:
+  * `file` must exist on ubuntu-latest for the arch assertion (`file` is preinstalled on
+    GitHub's Ubuntu images; if it were missing the job fails on `file: command not found`
+    rather than mislabelling — the failure mode is a hard stop, not a silent bad artifact).
+  * The GNU-tar determinism flags are unverified on the runner (see section 4); the fallback
+    path is functional, so this cannot fail the job.
+  * `keyring`'s `sync-secret-service` requirement on Linux (risk register R002/R011) is
+    unchanged and untested: the packaged Linux binary will need a D-Bus Secret Service
+    provider at runtime.
+  * The packaged binary has never been executed on Linux (no Linux host in this project).
+    Windows/Linux remain BUILD_VERIFIED_VIA_CI at best, RUNTIME_UNVERIFIED.
+
+macOS:
+  * `macos-14` is pinned, but `actions/upload-artifact@v4` does not preserve the executable
+    bit, so the package job `chmod 755`s the downloaded binary before packaging (the tar
+    member mode is 0755 as shown in 3.6).
+  * `--no-xattrs` and `COPYFILE_DISABLE=1` are bsdtar/macOS behaviours, verified with this
+    host's bsdtar 3.5.3; macos-14 and macos-15 images ship the same bsdtar family. If a
+    future image dropped the flag, the script would fail loudly at the member-listing check
+    only if pax metadata changed the entry set — it would NOT fail on xattr pax headers
+    alone (they are not separate entries). Accepted residual risk.
+
+CROSS-PLATFORM CONTRACT RISKS (unchanged by this step):
+  * LICENSE (R-LICENSE) still open => no LICENSE file anywhere in the archives, by design.
+  * All artifacts remain UNSIGNED; the install note states the Gatekeeper/SmartScreen
+    consequences.
+  * macOS x64, universal binaries, .dmg/.msi/NSIS/.deb/.rpm/AppImage: DEFERRED, not built.
