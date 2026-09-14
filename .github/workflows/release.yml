@@ -4,9 +4,20 @@ name: Release Build
 # (crates/native-app). The legacy React/Vite frontend and the Tauri bundler
 # path were removed when the frontend was archived — see _archive/README.md.
 #
-# NOTE: this workflow produces the platform binaries only. Installer/packaging
-# formats (DMG, MSI/NSIS, DEB/RPM/AppImage) and code signing are NOT yet
-# implemented for the native app; see docs/release/0.1.0-packaging.md.
+# v0.1 packaging contract (V01-06): portable archives plus SHA256SUMS.txt, with
+# the macOS build wrapped in a minimal "DB Pro.app" bundle. Installers (DMG,
+# MSI/NSIS, DEB/RPM/AppImage), macOS x64 / universal builds, and code signing
+# and notarization are explicitly DEFERRED and not part of the v0.1 contract;
+# see docs/release/0.1.0-packaging.md and docs/release/evidence/v01-06/.
+#
+# Release artifacts (exact names, produced by the package + checksums jobs):
+#   db-pro-v<version>-macos-arm64.tar.gz    -> "DB Pro.app" + README-INSTALL.txt
+#   db-pro-v<version>-windows-x86_64.zip    -> db-pro-native.exe + README-INSTALL.txt
+#   db-pro-v<version>-linux-x86_64.tar.gz   -> db-pro-native + README-INSTALL.txt
+#   SHA256SUMS.txt                          -> SHA-256 of those three archives
+#
+# This workflow builds and packages only. It runs with `contents: read`, uses no
+# secrets, creates no GitHub Release and pushes no tag.
 
 on:
   workflow_dispatch:
@@ -240,18 +251,21 @@ jobs:
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
+      # The macOS runner is pinned to macos-14 (Apple Silicon) so the produced
+      # architecture is deterministic; `macos-latest` is a moving label. Keep
+      # this matrix in sync with the package job matrix below.
       matrix:
         include:
           - platform: macOS
-            artifact_suffix: macos
-            runner: macos-latest
+            arch_label: macos-arm64
+            runner: macos-14
             binary_path: target/release/db-pro-native
           - platform: Windows
-            artifact_suffix: windows
+            arch_label: windows-x86_64
             runner: windows-latest
             binary_path: target/release/db-pro-native.exe
           - platform: Linux
-            artifact_suffix: linux
+            arch_label: linux-x86_64
             runner: ubuntu-latest
             binary_path: target/release/db-pro-native
 
@@ -316,9 +330,203 @@ jobs:
           }
           ls -lh "${{ matrix.binary_path }}"
 
-      - name: Upload artifact
+      # Intermediate artifact: the package job consumes it and produces the
+      # versioned release archive. It is not part of the v0.1 release contract,
+      # which is why it is named after the binary rather than the product.
+      - name: Upload build output
         uses: actions/upload-artifact@v4
         with:
-          name: db-pro-${{ matrix.artifact_suffix }}-v${{ needs.resolve.outputs.app_version }}-${{ needs.resolve.outputs.short_sha }}
+          name: db-pro-native-${{ matrix.arch_label }}-v${{ needs.resolve.outputs.app_version }}-${{ needs.resolve.outputs.short_sha }}
           path: ${{ matrix.binary_path }}
           if-no-files-found: error
+          retention-days: 30
+
+  package:
+    name: Package (${{ matrix.platform }})
+    needs:
+      - resolve
+      - build
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      # Mirrors the build job matrix. Each entry turns the binary built for that
+      # platform into the v0.1 release archive using scripts/release/*.
+      matrix:
+        include:
+          - platform: macOS
+            arch_label: macos-arm64
+            runner: macos-14
+            archive_ext: tar.gz
+            binary_name: db-pro-native
+          - platform: Windows
+            arch_label: windows-x86_64
+            runner: windows-latest
+            archive_ext: zip
+            binary_name: db-pro-native.exe
+          - platform: Linux
+            arch_label: linux-x86_64
+            runner: ubuntu-latest
+            archive_ext: tar.gz
+            binary_name: db-pro-native
+
+    steps:
+      - name: Checkout exact candidate SHA
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve.outputs.candidate_sha }}
+
+      - name: Download build output
+        uses: actions/download-artifact@v4
+        with:
+          name: db-pro-native-${{ matrix.arch_label }}-v${{ needs.resolve.outputs.app_version }}-${{ needs.resolve.outputs.short_sha }}
+          path: build-output
+
+      - name: Prepare release binary
+        if: matrix.platform != 'Windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          binary="build-output/${{ matrix.binary_name }}"
+          test -f "${binary}" || {
+            echo "::error::Downloaded binary not found at ${binary}"
+            exit 1
+          }
+          # actions/upload-artifact@v4 does not preserve the executable bit.
+          chmod 755 "${binary}"
+          ls -lh "${binary}"
+
+      - name: Verify target architecture (macOS)
+        if: matrix.platform == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          archs="$(lipo -archs "build-output/${{ matrix.binary_name }}")"
+          echo "Mach-O architectures: ${archs}"
+          if [[ "${archs}" != "arm64" ]]; then
+            echo "::error::macOS release artifact expects a thin arm64 binary, got '${archs}'"
+            exit 1
+          fi
+
+      - name: Verify target architecture (Linux)
+        if: matrix.platform == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          binary="build-output/${{ matrix.binary_name }}"
+          file "${binary}"
+          if ! file "${binary}" | grep -q "x86-64"; then
+            echo "::error::Linux release artifact expects an x86-64 ELF binary"
+            exit 1
+          fi
+
+      - name: Verify target architecture (Windows)
+        if: matrix.platform == 'Windows'
+        shell: pwsh
+        run: |
+          $binary = "build-output/${{ matrix.binary_name }}"
+          if (-not (Test-Path -LiteralPath $binary -PathType Leaf)) {
+            throw "downloaded binary not found: $binary"
+          }
+          $bytes = [System.IO.File]::ReadAllBytes($binary)
+          if ($bytes[0] -ne 0x4D -or $bytes[1] -ne 0x5A) {
+            throw "not a PE image: $binary"
+          }
+          $peOffset = [System.BitConverter]::ToInt32($bytes, 0x3C)
+          $machine = [System.BitConverter]::ToUInt16($bytes, $peOffset + 4)
+          Write-Host ("PE machine type: 0x{0:X4}" -f $machine)
+          if ($machine -ne 0x8664) {
+            throw ("expected x86-64 (0x8664), got 0x{0:X4}" -f $machine)
+          }
+
+      - name: Package archive (macOS)
+        if: matrix.platform == 'macOS'
+        shell: bash
+        env:
+          APP_VERSION: ${{ needs.resolve.outputs.app_version }}
+        run: |
+          set -euo pipefail
+          archive="$(bash scripts/release/package-macos.sh "${APP_VERSION}" "build-output/${{ matrix.binary_name }}" dist)"
+          test -f "${archive}"
+          echo "ARCHIVE_PATH=${archive}" >> "${GITHUB_ENV}"
+          echo "ARCHIVE_NAME=$(basename "${archive}")" >> "${GITHUB_ENV}"
+
+      - name: Package archive (Linux)
+        if: matrix.platform == 'Linux'
+        shell: bash
+        env:
+          APP_VERSION: ${{ needs.resolve.outputs.app_version }}
+        run: |
+          set -euo pipefail
+          archive="$(bash scripts/release/package-linux.sh "${APP_VERSION}" "build-output/${{ matrix.binary_name }}" dist)"
+          test -f "${archive}"
+          echo "ARCHIVE_PATH=${archive}" >> "${GITHUB_ENV}"
+          echo "ARCHIVE_NAME=$(basename "${archive}")" >> "${GITHUB_ENV}"
+
+      - name: Package archive (Windows)
+        if: matrix.platform == 'Windows'
+        shell: pwsh
+        env:
+          APP_VERSION: ${{ needs.resolve.outputs.app_version }}
+        run: |
+          $archive = & ./scripts/release/package-windows.ps1 `
+            -Version $env:APP_VERSION `
+            -BinaryPath "build-output/${{ matrix.binary_name }}" `
+            -OutputDir "dist"
+          if (-not $archive) { throw "packaging script did not return an archive path" }
+          "ARCHIVE_PATH=$archive" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "ARCHIVE_NAME=$(Split-Path -Leaf $archive)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Assert archive identity
+        shell: bash
+        env:
+          EXPECTED_NAME: db-pro-v${{ needs.resolve.outputs.app_version }}-${{ matrix.arch_label }}.${{ matrix.archive_ext }}
+        run: |
+          set -euo pipefail
+          if [[ "${ARCHIVE_NAME}" != "${EXPECTED_NAME}" ]]; then
+            echo "::error::Archive name '${ARCHIVE_NAME}' does not match the v0.1 contract '${EXPECTED_NAME}'"
+            exit 1
+          fi
+          echo "Release archive: ${ARCHIVE_NAME}"
+
+      - name: Upload release archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARCHIVE_NAME }}
+          path: ${{ env.ARCHIVE_PATH }}
+          if-no-files-found: error
+          retention-days: 30
+
+  checksums:
+    name: Assemble SHA256SUMS
+    needs:
+      - resolve
+      - package
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact candidate SHA
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve.outputs.candidate_sha }}
+
+      - name: Download packaged archives
+        uses: actions/download-artifact@v4
+        with:
+          pattern: db-pro-v${{ needs.resolve.outputs.app_version }}-*
+          path: dist
+          merge-multiple: true
+
+      - name: Generate SHA256SUMS.txt
+        env:
+          APP_VERSION: ${{ needs.resolve.outputs.app_version }}
+        run: |
+          set -euo pipefail
+          ls -l dist
+          bash scripts/release/write-checksums.sh "${APP_VERSION}" dist dist/SHA256SUMS.txt
+
+      - name: Upload SHA256SUMS.txt
+        uses: actions/upload-artifact@v4
+        with:
+          name: SHA256SUMS.txt
+          path: dist/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 30

@@ -1,0 +1,285 @@
+# V01-06 evidence — 02-quality-gates
+# Captured: 2026-09-14T12:20:41Z (UTC)
+# Repo: /Users/truongdev/Documents/projects/db-pro/main
+# Commit under test: 3e0b0775c2248d37253d7325eddebd952e26d101  (branch: main)
+# Runner: sequential script /tmp/v0106/run-gates.sh, raw logs /tmp/v0106/<id>.log
+# IMPORTANT: no source content was modified. After a first (partly cached) pass, the gates
+# 01/02/03/04 were re-run after an mtime-only 'touch' of crates/**/*.rs to force real
+# recompilation, so the clippy/test numbers below are from genuine compilation.
+
+--- toolchain (see 01-toolchain.txt for detail) ---
+cargo: cargo 1.95.0 (f2d3ce0bd 2026-03-21)
+rustc: rustc 1.95.0 (59807616e 2026-04-14)
+
+==============================================================================
+EXIT STATUS SUMMARY (all six gates, first pass)
+==============================================================================
+### GATE 01-fmt: cargo fmt --all -- --check
+EXIT_STATUS=0 DURATION_S=1 CMD=cargo fmt --all -- --check
+
+### GATE 02-check: cargo check --workspace
+EXIT_STATUS=0 DURATION_S=1 CMD=cargo check --workspace
+
+### GATE 03-clippy: cargo clippy --workspace --all-targets -- -D warnings
+EXIT_STATUS=0 DURATION_S=0 CMD=cargo clippy --workspace --all-targets -- -D warnings
+
+### GATE 04-test: cargo test --workspace
+EXIT_STATUS=0 DURATION_S=14 CMD=cargo test --workspace
+
+### GATE 05-release-build: cargo build --release --locked -p db-pro-native
+EXIT_STATUS=0 DURATION_S=20 CMD=cargo build --release --locked -p db-pro-native
+
+### GATE 06-perf: bash .skills/perf-audit/scripts/perf-scan.sh
+EXIT_STATUS=0 DURATION_S=10 CMD=bash .skills/perf-audit/scripts/perf-scan.sh
+
+ALL_GATES_COMPLETE
+
+=== fresh (non-cached) re-run exit statuses ===
+=== FRESH (non-cached) re-run after mtime touch, no content changes ===
+02-check EXIT=0
+03-clippy EXIT=0
+04-test EXIT=0
+01-fmt EXIT=0
+FRESH_COMPLETE
+
+==============================================================================
+GATE 1 — cargo fmt --all -- --check
+==============================================================================
+EXIT_STATUS=0
+raw log line count: 0 (empty output == no formatting diffs)
+--- raw log ---
+(end)
+OBSERVED: formatter reports no diffs across the workspace.
+
+==============================================================================
+GATE 2 — cargo check --workspace
+==============================================================================
+EXIT_STATUS=0
+--- relevant raw lines (fresh recompile) ---
+    Checking db-pro-core v0.1.0 (/Users/truongdev/Documents/projects/db-pro/main/crates/core)
+   Compiling db-pro-tauri v0.1.0 (/Users/truongdev/Documents/projects/db-pro/main/crates/tauri-app)
+    Checking db-pro-infrastructure v0.1.0 (/Users/truongdev/Documents/projects/db-pro/main/crates/infrastructure)
+    Checking db-pro-ui v0.1.0 (/Users/truongdev/Documents/projects/db-pro/main/crates/ui)
+    Checking db-pro-runtime v0.1.0 (/Users/truongdev/Documents/projects/db-pro/main/crates/runtime)
+    Checking db-pro-native v0.1.0 (/Users/truongdev/Documents/projects/db-pro/main/crates/native-app)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.93s
+
+==============================================================================
+GATE 3 — cargo clippy --workspace --all-targets -- -D warnings
+==============================================================================
+EXIT_STATUS=0
+clippy warning count (fresh log, lines matching '^warning'): 0
+--- fresh raw output (full) ---
+    Checking db-pro-core v0.1.0 (/Users/truongdev/Documents/projects/db-pro/main/crates/core)
+   Compiling db-pro-tauri v0.1.0 (/Users/truongdev/Documents/projects/db-pro/main/crates/tauri-app)
+    Checking db-pro-infrastructure v0.1.0 (/Users/truongdev/Documents/projects/db-pro/main/crates/infrastructure)
+    Checking db-pro-ui v0.1.0 (/Users/truongdev/Documents/projects/db-pro/main/crates/ui)
+    Checking db-pro-runtime v0.1.0 (/Users/truongdev/Documents/projects/db-pro/main/crates/runtime)
+    Checking db-pro-native v0.1.0 (/Users/truongdev/Documents/projects/db-pro/main/crates/native-app)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 8.27s
+OBSERVED: 0 warnings. The gate is self-enforcing (any warning would be promoted to an
+error by -D warnings and the exit status would be non-zero).
+
+==============================================================================
+GATE 4 — cargo test --workspace
+==============================================================================
+EXIT_STATUS=0
+
+--- per-binary results (fresh run) ---
+     Running unittests src/lib.rs (target/debug/deps/db_pro_core-1e882d4f02743eb4) ==> test result: ok. 291 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+     Running unittests src/lib.rs (target/debug/deps/db_pro_infrastructure-ece263e3af655555) ==> test result: ok. 62 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.52s
+     Running tests/integration.rs (target/debug/deps/integration-59989b549c69cbdf) ==> test result: ok. 32 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+     Running tests/pg_integration.rs (target/debug/deps/pg_integration-527d712d13b86526) ==> test result: ok. 0 passed; 0 failed; 18 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running tests/schema_columns_atomicity_regression.rs (target/debug/deps/schema_columns_atomicity_regression-32edb3f2dfd801b8) ==> test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running tests/schema_indexes_runtime_verification.rs (target/debug/deps/schema_indexes_runtime_verification-7044db0cf55afee2) ==> test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running tests/schema_relations_runtime_verification.rs (target/debug/deps/schema_relations_runtime_verification-f31fafb0eff06b86) ==> test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+     Running tests/schema_triggers_runtime_verification.rs (target/debug/deps/schema_triggers_runtime_verification-ea87739845b18c02) ==> test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+     Running tests/ssh_backup_runtime_verification.rs (target/debug/deps/ssh_backup_runtime_verification-0d1ffa9f5285505b) ==> test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running unittests src/main.rs (target/debug/deps/db_pro_native-bfc1e8736350d536) ==> test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running unittests src/lib.rs (target/debug/deps/db_pro_runtime-1b95e56bbb066e5b) ==> test result: ok. 28 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running unittests src/lib.rs (target/debug/deps/db_pro_tauri_lib-6c458516404017ef) ==> test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running unittests src/main.rs (target/debug/deps/db_pro_tauri-d660ab7ac6015af7) ==> test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running unittests src/lib.rs (target/debug/deps/db_pro_ui-f8119a2f608a1a8c) ==> test result: ok. 357 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 10.35s
+     Running unittests src/lib.rs (target/debug/deps/db_pro_ui-f8119a2f608a1a8c) ==> test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running unittests src/lib.rs (target/debug/deps/db_pro_ui-f8119a2f608a1a8c) ==> test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running unittests src/lib.rs (target/debug/deps/db_pro_ui-f8119a2f608a1a8c) ==> test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running unittests src/lib.rs (target/debug/deps/db_pro_ui-f8119a2f608a1a8c) ==> test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running unittests src/lib.rs (target/debug/deps/db_pro_ui-f8119a2f608a1a8c) ==> test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+--- EXACT TOTALS (fresh run) ---
+test total (all bins, incl. ignored) = 827
+passed = 808
+failed = 0
+ignored = 19
+
+--- cross-check against first pass ---
+first pass: test total = 827, passed = 808, failed = 0, ignored = 19
+
+--- the 19 IGNORED tests, named (why they are ignored) ---
+test pg_composite_fk_detail ... ignored
+test pg_date_cell_filter_binds_as_date ... ignored
+test pg_execute_batch_failure_rolls_back_prior_mutation ... ignored
+test pg_execute_batch_timeout_rolls_back_prior_mutation ... ignored
+test pg_index_lifecycle ... ignored
+test pg_introspect_foreign_keys ... ignored
+test pg_introspect_indexes ... ignored
+test pg_introspect_tables ... ignored
+test pg_introspect_triggers ... ignored
+test pg_introspect_views ... ignored
+test pg_query_categories ... ignored
+test pg_query_decodes_native_temporal_and_network_values ... ignored
+test pg_query_preserves_numeric_and_enum_values ... ignored
+test pg_special_identifiers ... ignored
+test pg_transaction_commit_failure_reports_unknown_outcome ... ignored
+test pg_transaction_failure_rolls_back_prior_mutation ... ignored
+test pg_transaction_timeout_rolls_back_prior_mutation ... ignored
+test pg_typed_temporal_and_network_parameters_bind_without_casts ... ignored
+test pg_backup_and_restore_work_through_live_ssh_tunnel ... ignored, requires an isolated PostgreSQL target and a local SSH server
+
+REASON: crates/infrastructure/tests/pg_integration.rs declares 18 tests, each annotated
+'#[tokio::test]' + '#[ignore]' and requiring DATABASE_URL; without a DATABASE_URL fixture
+they are ignored. ssh_backup_runtime_verification.rs declares 1 test, '#[ignore]' with the
+reason string 'requires an isolated PostgreSQL target and a local SSH server', gated on
+DB_PRO_SSH_* environment variables.
+
+NOTE: PostgreSQL live integration tests are EXPECTED to be ignored without DATABASE_URL.
+This run did not set DATABASE_URL and did not attempt to make them pass.
+
+==============================================================================
+GATE 5 — cargo build --release --locked -p db-pro-native
+==============================================================================
+EXIT_STATUS=0
+--- raw output (tail) ---
+   Compiling db-pro-core v0.1.0 (/Users/truongdev/Documents/projects/db-pro/main/crates/core)
+   Compiling db-pro-infrastructure v0.1.0 (/Users/truongdev/Documents/projects/db-pro/main/crates/infrastructure)
+   Compiling db-pro-ui v0.1.0 (/Users/truongdev/Documents/projects/db-pro/main/crates/ui)
+   Compiling db-pro-runtime v0.1.0 (/Users/truongdev/Documents/projects/db-pro/main/crates/runtime)
+   Compiling db-pro-native v0.1.0 (/Users/truongdev/Documents/projects/db-pro/main/crates/native-app)
+    Finished `release` profile [optimized] target(s) in 20.20s
+
+--- binary facts ---
+-rwxr-xr-x@ 1 truongdev  staff  23714096 Sep 14 19:16 target/release/db-pro-native
+size_bytes = 23714096
+size_MiB = 22.62
+
+==============================================================================
+GATE 6 — bash .skills/perf-audit/scripts/perf-scan.sh
+==============================================================================
+EXIT_STATUS=0
+--- raw output (ANSI stripped) ---
+╔══════════════════════════════════════╗
+║      DB Pro Performance Audit        ║
+╚══════════════════════════════════════╝
+
+═══ Native UI Binary ═══
+
+  Building db-pro-native (release)...
+  ✓ cargo build -p db-pro-native: release build succeeded
+  ✓ Binary size: 22.6MB (target < 50MB)
+
+═══ Rust Static Analysis ═══
+
+  ✓ cargo check: Workspace compiles
+  ✓ cargo clippy: No warnings
+
+  Note: 'all' skips benchmarks and ER/DB runtime checks.
+  Run with 'native' or 'rust' for benchmarks, or verify ER/DB manually.
+
+═══ Audit Summary ═══
+
+  Passed: 4
+  Warnings: 0
+  Failed: 0
+
+  Status: PASS — All checks passed
+(end)
+OBSERVED: perf-scan status PASS — 4 passed / 0 warnings / 0 failed.
+NOTE: perf-scan.sh with the default 'all' section runs ONLY: release build, binary-size
+budget, cargo check, cargo clippy. It explicitly skips criterion benchmarks and the ER/DB
+runtime checks; it is not a latency benchmark. Source: .skills/perf-audit/scripts/perf-scan.sh.
+
+==============================================================================
+FAILURE CLASSIFICATION
+==============================================================================
+No gate failed. All six exit statuses are 0 on commit 3e0b077.
+This run introduced no code change, so there is no regression to classify.
+
+==============================================================================
+STALE TEST-COUNT SWEEP
+==============================================================================
+Real current numbers on HEAD 3e0b077: 808 passed, 0 failed, 19 ignored.
+Files claiming a CURRENT count that does not match are listed below (file:line).
+Generated by: grep -rn over docs/ and top-level markdown.
+
+--- occurrences of 808 / 809 / 571 / 567 / 827 / 1324 / 1319 / 1483 / 238 / 232 / 606 in md files (file:line:context) ---
+./plans/07-current-status.md:16:> `a2ce14c` fixes Rust 1.96.0 clippy `needless_borrow` lint (release preflight blocker). PR #9 (ER Diagram IA refactor) merged at preceding commit. Frontend: 106 files, 1324 tests. Exact-SHA automated verification complete. Cross-platform artifacts and manual smoke in progress.
+./goal-3.md:1126:"571 tests"
+./docs/goals/goal-full-product.md:124:| ER Diagram | **RUNTIME_VERIFY** | `ui/src/diagram/*` (98 tests), `ui/src/diagram_view.rs` | Large-schema architecture done; position persistence missing |
+./docs/plans/STATUS.md:53:| RC1 Full Product QA — Static Audit & Remediation | RUNTIME_VERIFY | 0 | 0 | 25 | All 14 P1 findings (W1..W5) resolved & verified with regression test coverage; workspace quality gates green (571 tests PASS); runtime smoke and live provider verification pending |
+./docs/plans/active/query-editor-intelligence/VERIFICATION.md:151:- **Workspace Test Gate**: 808 regular tests + 19 live PG/SSH integration tests = **827 tests PASS, 0 failures**.
+./docs/plans/active/er-hardening-verification/VERIFICATION.md:23:cargo test --workspace              # PASS (808 tests, 0 failed)
+./docs/plans/active/er-hardening-verification/VERIFICATION.md:24:cargo test -p db-pro-ui -- diagram::tests  # PASS (98 tests, 0 failed)
+./docs/plans/active/er-hardening-verification/CHECKLIST.md:164:- [x] cargo test --workspace (809 tests, 0 failed)
+./docs/plans/active/agent-workflow/VERIFICATION.md:14:- `cargo test --workspace` — PASS (567 tests passed: 291 core, 62 infrastructure + 32 integration, 28 runtime, 246 UI, 9 native-app).
+./docs/plans/active/schema-regression/VERIFICATION.md:13:| Frontend tests (local) | npm test -- --run | 105 files, 1319 tests PASS |
+./docs/plans/active/schema-regression/CHECKLIST.md:5:- [x] Existing frontend test inventory catalogued (105 files, 1319 tests)
+./docs/release/0.1.0-release-checklist.md:89:- [x] Full current automated regression suite green — 106 files, 1324 tests at `a2ce14c`
+./docs/release/0.1.0-release-checklist.md:125:| Frontend tests | `npm run test` | PASS at `a2ce14c` — **106 files, 1324 tests, 0 failures** |
+./docs/release/0.1.0-release-notes.md:110:1. ✅ Frontend tests pass: 106 files, 1324 tests, 0 failures at `a2ce14c`
+./docs/release/0.1.0-readiness.md:15:> `a2ce14c` fixes Rust 1.96.0 clippy `needless_borrow` lint that blocked release preflight. PR #9 (ER Diagram IA refactor: schema-level workspace tab, explicit schema context, workspace migration v2→v3) merged at preceding commit. Frontend: 106 test files, 1324 tests. Rust: 238 unit + 9 PG integration. Exact-SHA automated verification complete. Cross-platform artifacts and manual smoke remain.
+./docs/release/0.1.0-readiness.md:111:Completed at `a2ce14c`. CI run [#31472542550](https://github.com/truongnat/db-pro/actions/runs/31472542550): all frontend gates (typecheck, lint, format, 106 test files / 1324 tests, build) and Rust gates (fmt, clippy, build, test) PASS. Local verification confirms: cargo fmt PASS, cargo check PASS, cargo test 238 passed + 9 ignored (PG integration require DB service, covered by CI).
+./docs/release/0.1.0-readiness.md:158:| full Vitest suite | PASS at `a2ce14c` | **106 files, 1324 tests, 0 failures** |
+./docs/release/0.1.0-readiness.md:228:2. ~~Record exact Vitest counts and production build result.~~ DONE: 106 files, 1324 tests (historical)
+./docs/release/0.1.0-source-audit.md:63:| Current full frontend suite | GREEN — 106 files, 1324 tests, 0 failures at `a2ce14c` |
+./docs/release/0.1.0-verification.md:76:| full `npm run test` | PASS | **106 test files, 1324 tests, 0 failures** (CI + local) |
+./docs/release/0.1.0-verification.md:151:| Frontend full tests (106 files, 1324 tests) | PASS at `a2ce14c` |
+
+--- ASSESSED STALE TEST-COUNT TABLE ---
+Ground truth measured in THIS run on HEAD 3e0b077 (fresh, non-cached):
+  cargo test --workspace  ->  808 passed, 0 failed, 19 ignored (19 test binaries)
+  per binary: db_pro_core=291, db_pro_infrastructure=62, integration.rs=32,
+              pg_integration.rs=0 passed/18 ignored, schema_columns_atomicity=1,
+              schema_indexes=1, schema_relations=1, schema_triggers=5,
+              ssh_backup=0 passed/1 ignored, db_pro_native=9, db_pro_runtime=28,
+              db_pro_tauri_lib=21, db_pro_tauri=0, db_pro_ui=357, doc-tests=0
+  cargo test -p db-pro-ui -- diagram::tests  ->  99 passed
+  cargo test -p db-pro-ui -- schema_completion  ->  18 passed
+
+CLAIMS A CURRENT COUNT BUT IS WRONG (file:line | claimed | real | historical label?)
+  docs/plans/active/query-editor-intelligence/VERIFICATION.md:151 | "808 + 19 = 827 tests PASS"        | 808 passed, 19 IGNORED (not passing) | NOT labelled historical
+  docs/plans/active/er-hardening-verification/VERIFICATION.md:24  | "98 tests, 0 failed" (diagram)     | 99                                   | NOT labelled historical
+  docs/plans/active/er-hardening-verification/VERIFICATION.md:62  | "Total diagram tests 98"           | 99                                   | NOT labelled historical
+  docs/plans/active/er-hardening-verification/VERIFICATION.md:126 | "99 ER diagram tests PASS"         | 99  (CORRECT - conflicts with :24/:62) | n/a
+  docs/plans/active/er-hardening-verification/CHECKLIST.md:164    | "cargo test --workspace (809 ...)"  | 808                                  | NOT labelled historical
+  docs/plans/active/agent-workflow/VERIFICATION.md:14             | "567 tests ... 246 UI"              | 808 total; UI is 357 not 246         | NOT labelled historical
+  docs/plans/active/agent-workflow/VERIFICATION.md:33             | "567 workspace tests"               | 808                                  | NOT labelled historical
+  docs/plans/active/table-data-editor-hardening/VERIFICATION.md:109 | "571 unit and integration tests"  | 808                                  | NOT labelled historical
+  docs/plans/active/table-data-editor-hardening/FINDINGS.md:50    | "All 571 workspace unit tests ... PASS" | 808                             | NOT labelled historical
+  docs/plans/active/schema-regression/VERIFICATION.md:14          | "232 passed, 9 ignored (PG)"        | 808 passed, 19 ignored               | NOT labelled historical
+  docs/plans/STATUS.md:7                                          | "571 workspace tests passing"       | 808                                  | NOT labelled historical
+  docs/plans/STATUS.md:8                                          | "571 workspace tests passing"       | 808                                  | NOT labelled historical
+  docs/plans/STATUS.md:10                                         | "567 workspace tests passing"       | 808 (also inconsistent with :7/:8)   | NOT labelled historical
+  docs/plans/STATUS.md:39                                         | "98 diagram tests + 808 workspace"  | 99 diagram; 808 (19 ignored omitted) | NOT labelled historical
+  docs/plans/STATUS.md:53                                         | "workspace quality gates green (571 tests PASS)" | 808                    | NOT labelled historical
+  docs/plans/active/native-visual-redesign/VERIFICATION.md:305    | "357 db-pro-ui + 21 db-pro-native"  | 357 OK; db-pro-native is 9 (21 = db_pro_tauri_lib) | NOT labelled historical
+  docs/plans/active/query-editor-intelligence/VERIFICATION.md:145 | "21 schema_completion tests PASS"   | 18                                   | NOT labelled historical
+  docs/plans/active/query-editor-intelligence/VERIFICATION.md:63,78 | "276 core, 231 UI, 7 runtime"    | core 291, UI 357, runtime 28         | dated 2026-09-13 (weak label)
+  docs/notes/PRODUCT_CAPABILITY_MATRIX.md:42,43,178               | "98 diagram", "567-agent-era"       | 99 diagram; 808                      | NOT labelled historical
+  docs/goals/goal-full-product.md:124                             | "(98 tests)"                        | 99                                   | NOT labelled historical (goals are read-only for this run)
+
+CORRECTLY LABELLED AS HISTORICAL (may stay as-is)
+  docs/release/0.1.0-readiness.md:15,111,158,175   | "238 unit + 9 PG integration", "106 files, 1324 tests" | labelled "at `a2ce14c`" / "historical" | OK
+  docs/release/0.1.0-verification.md:76,151        | "106 test files, 1324 tests"                            | labelled at `a2ce14c`                  | OK
+  docs/release/0.1.0-source-audit.md:63            | "106 files, 1324 tests ... at `a2ce14c`"                | labelled                               | OK
+  docs/release/0.1.0-release-notes.md:110          | "106 files, 1324 tests ... at `a2ce14c`"                | labelled                               | OK
+  docs/release/0.1.0-release-checklist.md:89,125   | "106 files, 1324 tests at `a2ce14c`"                    | labelled at SHA                       | OK (but see doc-consistency note)
+  plans/07-current-status.md:16                    | "106 files, 1324 tests"                                 | labelled at `a2ce14c` + top amendment  | OK
+  docs/plans/active/native-visual-redesign/VERIFICATION.md Wave 1-14 rows | "186 core / 39 infra / 54-64 UI / 21 Tauri / 4 runtime / 1 native" | each row dated "2026-09-11, after Wave N" | dated = acceptable historical
+
+NOTES
+  * 808 is the correct *pass* count today. Docs that say "808 tests PASS" are numerically right
+    but omit the 19 ignored tests; docs that say "827 PASS" are wrong.
+  * 99 (not 98) is the correct ER diagram test count today.
+  * db-pro-native has 9 tests; 21 is db_pro_tauri_lib (the legacy Tauri host).
+  * The stale counts cluster on 567/571/809/827, which are older workspace totals. All of
+    them appear in documents that present themselves as current status, not as history.

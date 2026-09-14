@@ -1,0 +1,160 @@
+# V01-06 evidence — 03-release-binary
+# Captured: 2026-09-14T12:22:36Z (UTC)
+# Commit under test: 3e0b0775c2248d37253d7325eddebd952e26d101
+# Host: macOS 26.5.2 / arm64 (Apple Silicon)
+
+==============================================================================
+1. BINARY IDENTITY — OBSERVED
+==============================================================================
+executable name : db-pro-native
+path            : /Users/truongdev/Documents/projects/db-pro/main/target/release/db-pro-native
+size (bytes)    : 23714096
+size (MiB)      : 22.62
+build profile   : release (built by 'cargo build --release --locked -p db-pro-native', exit 0)
+binary mtime    : Sep 14 19:16:45 2026
+
+--- file(1) ---
+target/release/db-pro-native: Mach-O 64-bit executable arm64
+
+--- architecture (lipo -archs) ---
+arm64
+NOTE: thin arm64 — this is NOT a universal/fat binary. No x86_64 slice.
+
+--- minimum macOS deployment target (LC_BUILD_VERSION) ---
+      cmd LC_BUILD_VERSION
+  cmdsize 32
+ platform 1
+    minos 11.0
+      sdk 26.5
+   ntools 1
+
+==============================================================================
+2. LINKED LIBRARIES (otool -L) — OBSERVED
+==============================================================================
+target/release/db-pro-native:
+	/System/Library/Frameworks/AppKit.framework/Versions/C/AppKit (compatibility version 45.0.0, current version 2685.60.104)
+	/usr/lib/libSystem.B.dylib (compatibility version 1.0.0, current version 1356.0.0)
+	/System/Library/Frameworks/OpenGL.framework/Versions/A/OpenGL (compatibility version 1.0.0, current version 1.0.0)
+	/System/Library/Frameworks/CoreGraphics.framework/Versions/A/CoreGraphics (compatibility version 64.0.0, current version 1965.5.1)
+	/System/Library/Frameworks/Foundation.framework/Versions/C/Foundation (compatibility version 300.0.0, current version 5026.5.4)
+	/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation (compatibility version 150.0.0, current version 5026.5.4)
+	/usr/lib/libobjc.A.dylib (compatibility version 1.0.0, current version 228.0.0)
+	/System/Library/Frameworks/ApplicationServices.framework/Versions/A/ApplicationServices (compatibility version 1.0.0, current version 66.0.0)
+	/System/Library/Frameworks/CoreVideo.framework/Versions/A/CoreVideo (compatibility version 1.2.0, current version 734.4.0)
+	/System/Library/Frameworks/Carbon.framework/Versions/A/Carbon (compatibility version 2.0.0, current version 170.0.0)
+	/System/Library/Frameworks/Security.framework/Versions/A/Security (compatibility version 1.0.0, current version 61901.120.67)
+	/System/Library/Frameworks/SystemConfiguration.framework/Versions/A/SystemConfiguration (compatibility version 1.0.0, current version 1405.120.5)
+	/usr/lib/libiconv.2.dylib (compatibility version 7.0.0, current version 7.0.0)
+	/System/Library/Frameworks/ColorSync.framework/Versions/A/ColorSync (compatibility version 1.0.0, current version 3813.5.1)
+	/System/Library/Frameworks/CoreServices.framework/Versions/A/CoreServices (compatibility version 1.0.0, current version 1226.0.0)
+
+non-system dependencies (outside /usr/lib and /System):
+  (none — every dependency is an OS-provided system library)
+
+IMPLICATION: no Homebrew/third-party dylibs are linked, so the raw binary has no
+non-system runtime dependency to bundle. This is favourable for a portable-binary
+packaging contract (Option A).
+
+==============================================================================
+3. CODE SIGNATURE — OBSERVED (UNSIGNED for distribution purposes)
+==============================================================================
+--- codesign -dv --verbose=2 ---
+Executable=/Users/truongdev/Documents/projects/db-pro/main/target/release/db-pro-native
+Identifier=db_pro_native-84f5704fb6fbd6b3
+Format=Mach-O thin (arm64)
+CodeDirectory v=20400 size=183960 flags=0x20002(adhoc,linker-signed) hashes=5745+0 location=embedded
+Signature=adhoc
+Info.plist=not bound
+TeamIdentifier=not set
+Sealed Resources=none
+Internal requirements=none
+codesign -dv exit=0
+
+--- codesign --verify --verbose ---
+target/release/db-pro-native: valid on disk
+target/release/db-pro-native: satisfies its Designated Requirement
+codesign --verify exit=0
+
+--- spctl (Gatekeeper distribution assessment) ---
+target/release/db-pro-native: rejected
+spctl exit=3
+
+CLASSIFICATION: UNSIGNED
+  * Signature=adhoc, flags=0x20002(adhoc,linker-signed) — this is the linker's automatic
+    ad-hoc signature applied to every arm64 Mach-O on Apple Silicon. It is NOT a
+    Developer ID signature.
+  * TeamIdentifier=not set — no Apple Developer Team is attached.
+  * Info.plist=not bound — no bundle metadata is sealed.
+  * Sealed Resources=none — nothing is sealed.
+  * spctl REJECTS the binary (exit 3) => Gatekeeper would block a downloaded copy.
+
+EXPECTED END-USER WARNING if distributed as-is (macOS):
+  "db-pro-native cannot be opened because the developer cannot be verified."
+  (or on newer macOS: "Apple could not verify ... is free of malware")
+  Workaround requires the user to right-click > Open, or System Settings >
+  Privacy & Security > Open Anyway. Downloaded copies additionally carry the
+  com.apple.quarantine attribute.
+
+==============================================================================
+4. ARTIFACT SMOKE WITH THE RELEASE BUILD — OBSERVED vs NOT OBSERVABLE
+==============================================================================
+Isolation: the app honours DB_PRO_DATA_DIR (crates/native-app/src/main.rs:128), so the
+smoke was run against a throwaway state dir to avoid touching the developer's real
+workspace state. Confirmed afterwards that the real .db-pro-data/ mtimes were unchanged
+(meta.db 2026-09-13 09:51, secrets.json 2026-09-12 16:07).
+
+--- A. Launch from shell, 8s observation window ---
+command: DB_PRO_DATA_DIR=/tmp/v0106/smoke-data RUST_LOG=db_pro_native=info,db_pro_runtime=info <bin>
+result: (OBSERVED) process ALIVE after 8s; still alive at 2m34s elapsed; STAT=SN, %CPU=0.0
+        => the process initialised, entered its event loop and idled without crashing.
+stdout/stderr: EMPTY (no panic, no error, no log line at the requested targets)
+               log: /tmp/v0106/release-launch.log (0 bytes)
+verdict: 'app opens' = OBSERVED at process level (no startup crash).
+
+--- B. Window-level observation attempt (honest account) ---
+Attempt 1: osascript/System Events query of the window list
+  result: AppleEvent timed out (-1712) — System Events is not authorised for this shell;
+          the query hung and was killed.
+Attempt 2: Orca computer-use harness (the SAME harness the repo's own docs cite as
+  'Orca capture' evidence; 'orca' at /usr/local/bin/orca, appVersion 1.4.200)
+  - permissions: accessibility=granted, screenshots=granted (orca computer permissions --json)
+  - 'orca computer list-apps --json' enumerates 11 GUI apps; db-pro-native is NOT among them
+    (1Password 7, AutoClaw, ChatGPT, Code, Finder, Google Chrome, Notes, Orca, Simulator,
+     Terminal, Xcode)
+  - 'orca computer get-app-state --app pid:<pid> --json' => error code 'app_not_found'
+  - reproduced for both a shell-launched instance and an 'open -n'-launched instance
+    (which registers with LaunchServices)
+  result: the un-bundled db-pro-native executable is NOT DISCOVERABLE as an app/window by
+          the available computer-use provider.
+
+  This REPRODUCES a limitation already recorded in the repo at
+  docs/plans/active/query-editor-intelligence/VERIFICATION.md:93-94:
+    'The release process starts, but the standalone binary is not discoverable as an
+     app/window by the available Orca computer provider, so no new native UI interaction
+     evidence is claimed.'
+
+--- C. Smoke checklist verdict ---
+  app opens (process launches, no crash)         OBSERVED
+  native window renders                          NOT OBSERVABLE FROM AUTOMATED SHELL
+  Settings accessible                            NOT OBSERVABLE (needs GUI interaction)
+  SQLite fixture opens                           NOT OBSERVABLE (needs GUI interaction)
+  query executes                                 NOT OBSERVABLE (needs GUI interaction)
+  app exits normally                             PARTIAL — SIGTERM accepted; clean self-exit not exercised
+
+  Supporting (non-GUI) facts that ARE observed:
+  - 'fixtures/smoke/verify-smoke.sh sqlite <db>' => '12 passed, 0 failed', exit 0.
+    This validates the FIXTURE (10 tables/2 views/6 indexes/1 trigger/row counts), NOT the
+    application. It is the origin of the '12/12 passed' figure quoted in the
+    docs/release/0.1.0-manual-smoke.md sign-off, and it must not be read as app evidence.
+  - No state database was created by the app in the isolated data dir during the idle run,
+    so workspace/connection persistence was NOT exercised by this smoke.
+
+--- D. What a human must still do ---
+  1. Launch the artifact on a real desktop session and confirm a window renders.
+  2. Confirm Settings opens; confirm a SQLite connection can be created and a query run
+     (e.g. SELECT 1) — requires GUI interaction, cannot be automated here.
+  3. Confirm the app exits cleanly via the window close control (not SIGTERM).
+  4. Re-run the same on macOS x64 / Windows / Linux once those artifacts exist.
+  5. NOTE: because the binary is un-bundled, the repo's existing Orca-based capture harness
+     cannot see it. Producing .app-bundle evidence is a prerequisite for automated visual
+     evidence on macOS.
