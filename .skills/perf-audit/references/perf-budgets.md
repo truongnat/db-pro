@@ -5,24 +5,35 @@ Complete budget table with rationale and measurement methodology.
 The UI is native `eframe`/`egui` (`crates/ui` + `crates/native-app`). There is no JS or CSS
 bundle to budget; the React frontend was archived under `_archive/frontend/` on 2026-09-11.
 
+**These budgets are guidelines, not CI gates** (`docs/architecture/performance-baseline.md`), and a
+number is only quotable together with the artifact digest and source revision it was measured at —
+`perf-scan.sh` prints both, and its status/exit-code contract is in `.skills/perf-audit/SKILL.md` §8.
+
 ## Native UI Budgets
 
 ### Binary Size
 
 | Category | Target | Critical | Measurement |
 |----------|--------|----------|-------------|
-| `db-pro-native` (release) | < 50 MB | > 100 MB | `ls -l target/release/db-pro-native` |
-| Stripped distribution binary | < 30 MB | > 60 MB | `strip target/release/db-pro-native` then re-measure |
+| `db-pro-native` (release) | < 50 MB | > 100 MB | `ls -l target/release/db-pro-native`; `perf-scan.sh` prints the size **and** the sha256 of the binary it measured |
+| Stripped distribution binary | < 30 MB | > 60 MB | **not a v0.1 step** — no workflow or packaging script strips the binary, so this is a potential future saving, not a property of the shipped artifact |
 
 ### Runtime Performance (criterion: `crates/ui/benches/result_grid_benchmarks.rs`)
 
-| Operation | Target | Critical | Benchmark |
-|-----------|--------|----------|-----------|
-| Grid visible-range computation | < 1ms | > 5ms | `result_grid_benchmarks` |
-| Grid hit-testing | < 1ms | > 5ms | `result_grid_benchmarks` |
-| Cell codec round-trip | < 1ms | > 5ms | `result_grid_benchmarks` |
-| Quick Open index (1k items) | < 5ms | > 20ms | reducer bench |
-| Statement split (100 stmts) | < 5ms | > 20ms | reducer bench |
+Only the three ids below are registered by that file; they are what
+`cargo bench --package db-pro-ui` actually runs. Measured baseline:
+`docs/architecture/performance-baseline.md`.
+
+| Benchmark id (group/function) | Target | Critical |
+|-----------|--------|----------|
+| `result_grid_million_rows/project_without_filter_or_sort` | < 5ms | > 20ms |
+| `result_grid_scroll_window/materialize_100_visible_rows` | < 1ms | > 5ms |
+| `result_grid_requested_sizes/build_visual_maps_{1_000,10_000}_rows_50_columns` | no target | no critical |
+
+**Budget rows with no benchmark behind them (React-era carry-over; nothing in this tree enforces
+them):** grid visible-range computation, grid hit-testing, cell codec round-trip, Quick Open index
+(1k items), statement split (100 statements). They are listed here only so a reader can see they were
+budgeted once; each needs a criterion id before it can be quoted as measured.
 
 ### Frame Time (manual, egui)
 
@@ -44,16 +55,17 @@ bundle to budget; the React frontend was archived under `_archive/frontend/` on 
 
 ## Backend Budgets (Rust/Criterion)
 
-| Operation | Target | Critical | Benchmark |
+| Operation | Target | Critical | Benchmark (exact criterion id) |
 |-----------|--------|----------|-----------|
 | SQLite connect/disconnect | < 100ms | > 500ms | `sqlite_connect_and_disconnect` |
 | Introspect small (5 tables) | < 300ms | > 1s | `introspect_small_db` |
 | Introspect large (50×20) | < 300ms | > 1s | `introspect_large_schema` |
 | Query 10k rows | < 150ms | > 500ms | `query_rows/select_10k` |
 | Query 100k rows | < 500ms | > 2s | `query_rows/select_100k` |
-| JSON blob (5k rows) | < 100ms | > 300ms | `query_json_blob` |
-| Large text (1k rows × 4KB) | < 200ms | > 500ms | `serialize_large_text` |
-| Cancel acknowledgement | < 200ms | > 500ms | Execution registry |
+| JSON blob (5k rows) | < 100ms | > 300ms | `query_json_blob/select_json_metadata_5k` |
+| Large text (1k rows × 4KB) | < 200ms | > 500ms | `serialize_large_text/select_1k_large_text` |
+| Explain on a filtered SELECT | no target | no target | `explain_query` |
+| Cancel acknowledgement | < 200ms | > 500ms | **not a criterion bench** — measured in the execution registry |
 
 ## Database Query Budgets
 

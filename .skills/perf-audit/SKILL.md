@@ -55,15 +55,24 @@ and `cargo bloat --release -p db-pro-native` before accepting it.
 cargo bench --package db-pro-ui
 ```
 
-### Budget targets (from `crates/ui/benches/result_grid_benchmarks.rs`)
+### Benchmarks that exist (from `crates/ui/benches/result_grid_benchmarks.rs`)
 
-| Operation | Budget |
-|-----------|--------|
-| Grid visible-range computation | < 1 ms |
-| Grid hit-testing | < 1 ms |
-| Cell formatting / codec round-trip | < 1 ms |
-| Quick Open index + rank | < 5 ms |
-| Statement split (100 statements) | < 5 ms |
+The criterion ids below are the ones the file actually registers; the measured baseline is in
+`docs/architecture/performance-baseline.md`. Operations with no registered benchmark are listed as
+such — they are **not** measured by this suite, and no budget row here may read as if they were.
+
+| Benchmark id (group / function) | Budget | Status |
+|-----------|--------|--------|
+| `result_grid_million_rows / project_without_filter_or_sort` | < 5 ms | measured (~3.15 ms baseline) |
+| `result_grid_scroll_window / materialize_100_visible_rows` | < 1 ms | measured (~38 ns at a mid-list offset) |
+| `result_grid_requested_sizes / build_visual_maps_{1_000,10_000}_rows_50_columns` | no budget | baseline only |
+| Cell formatting / codec round-trip | < 1 ms | **no benchmark registered** (hand-measured at most) |
+| Quick Open index + rank | < 5 ms | **no benchmark registered** |
+| Statement split (100 statements) | < 5 ms | **no benchmark registered** |
+
+The last three rows are React-era budget entries kept for reference; nothing in `crates/ui/benches/`
+exercises them, so a reader must not treat them as enforced. Check the criterion ids in the bench file
+(`grep -n 'bench_function' crates/ui/benches/result_grid_benchmarks.rs`) before quoting a row.
 
 ### Frame-time measurement (manual)
 
@@ -87,7 +96,10 @@ egui is immediate-mode, so measure at the frame level rather than with a compone
 
 ## 3. ER Diagram Performance
 
-The ER diagram is a custom `egui::Painter` in `crates/ui/src/diagram_view.rs`.
+The ER diagram is a custom `egui::Painter`: the view lives in `crates/ui/src/diagram_view.rs` and the
+graph, layout, LOD, spatial index and viewport code in `crates/ui/src/diagram/` (`layout.rs`, `lod.rs`,
+`model.rs`, `scene.rs`, `spatial.rs`, `viewport.rs`). There is no React Flow, cytoscape or dagre in the
+shipping path — those belonged to the archived frontend.
 
 ### Acceptance metrics
 
@@ -120,13 +132,22 @@ cargo bench --package db-pro-infrastructure
 
 ### Budget targets (Criterion)
 
-| Operation | Budget |
+The real criterion ids are `sqlite_connect_and_disconnect`, `introspect_small_db`,
+`introspect_large_schema`, `query_rows/select_10k`, `query_rows/select_100k`,
+`query_json_blob/select_json_metadata_5k`, `serialize_large_text/select_1k_large_text` and
+`explain_query` (`grep -n 'bench_function' crates/infrastructure/benches/sqlite_benchmarks.rs`).
+Measured baseline: `docs/architecture/performance-baseline.md`.
+
+| Operation (criterion id) | Budget |
 |-----------|--------|
-| SQLite connect/disconnect | < 100 ms |
-| Introspect small DB (5 tables) | < 300 ms |
-| Introspect large schema (50×20) | < 300 ms |
-| Query 10k rows | < 150 ms |
-| Cancel acknowledgement | < 200 ms |
+| SQLite connect/disconnect (`sqlite_connect_and_disconnect`) | < 100 ms |
+| Introspect small DB, 5 tables (`introspect_small_db`) | < 300 ms |
+| Introspect large schema, 50×20 (`introspect_large_schema`) | < 300 ms |
+| Query 10k rows (`query_rows/select_10k`) | < 150 ms |
+| Query 100k rows (`query_rows/select_100k`) | < 500 ms |
+| JSON blob 5k rows (`query_json_blob/select_json_metadata_5k`) | < 100 ms |
+| Large text 1k rows × 4 KB (`serialize_large_text/select_1k_large_text`) | < 200 ms |
+| Cancel acknowledgement | < 200 ms — **not benchmarked here**; measured in the execution registry |
 
 ### Profile with flamegraph (one-time install)
 
@@ -183,9 +204,20 @@ When investigating a reported regression:
 
 ## 7. CI Performance Gates
 
-Recommended CI checks:
+**No performance check runs in CI today, and none is claimed to.** `.github/workflows/ci.yml` has a
+single `Rust checks` job (`fmt`, `check`, `clippy -D warnings`, `test`) and
+`.github/workflows/release.yml` runs the same pre-flight gates before building the three platform
+archives — neither invokes `perf-scan.sh` or `cargo bench`. The perf scan is a **local** release gate
+whose output is recorded in the release evidence (`docs/release/0.1.0-handoff.md` marks it
+"local gate; not run in CI"), and `docs/architecture/performance-baseline.md` states the same:
+"Budget targets are NOT CI gates — they are guidelines for early detection."
+
+This is the deliberate position, not an omission: a criterion run on a shared runner is noisy enough
+that a red build would not reliably mean a regression. If the position changes, wire the checks below
+into `ci.yml` **and** update the release documents that currently say they are not wired.
 
 ```yaml
+# candidate checks — NOT wired into any workflow today
 - name: Rust benchmarks
   run: cargo bench --package db-pro-infrastructure -- --quick
 
@@ -198,7 +230,42 @@ Recommended CI checks:
 
 Never claim performance improved without measurement evidence.
 
+## 8. Output semantics, provenance and exit codes
+
+`perf-scan.sh` is used as release evidence, so its output contract is explicit and self-tested:
+
+| Status | Exit | Meaning |
+|---|---:|---|
+| `PASS` | 0 | every executed check passed, the tree is committed, and no section was skipped |
+| `PASS (partial)` | 0 | every executed check passed, but the run deliberately did not execute sections — **the status names them** (`all` skips the two benchmark sections and the ER/DB runtime sections) |
+| `WARN` | **2** | at least one warning and no failure. Exit 2 exists so an automated gate that only reads the exit status can never certify a warned run as green |
+| `FAIL` | 1 | at least one failed check |
+
+A run whose working tree is not committed is qualified in the status line with
+`[source <sha>+dirty(N): working tree not committed]`, so its numbers describe the tree rather than the
+recorded commit. Every run also prints, in the header and again in the summary:
+
+- `Source revision: <sha>[+dirty(N)]`
+- `Measured artifact: target/release/db-pro-native sha256 <digest> (<size>MB)`
+
+Provenance rule: **a budget number is only quotable together with the artifact digest and the source
+revision it was measured at.** The size check reads the binary produced by the `cargo build` in the same
+run; when that build fails, the scan reports the failure and **no size at all** — a stale binary is
+never measured. Quote the revision and the digest when copying a result into a document or an issue.
+
+```bash
+# assert the status/exit-code contract itself (no build, no benchmark, ~0 s)
+bash .skills/perf-audit/scripts/perf-scan.sh --self-test
+```
+
+The self-test covers: a clean full pass reads as an unqualified `PASS` and exits 0; an uncommitted tree
+is named and does not fail; a warning reads as `WARN` and exits 2; a failure reads as `FAIL` and exits
+1; a skipped section makes the pass partial and is named; `skip()` accounts and records the section; and
+`sha256_of` agrees with `openssl dgst -sha256` on a known file.
+
 ## Resources
 
 - `references/perf-budgets.md` — Complete budget table with rationale
-- `scripts/perf-scan.sh` — Automated audit script (`native|er|rust|db|all`)
+- `scripts/perf-scan.sh` — Automated audit script (`native|er|rust|db|all`, plus `--self-test` for the
+  result/exit-code contract described in §8)
+- `docs/architecture/performance-baseline.md` — the measured baseline the budget tables refer to
