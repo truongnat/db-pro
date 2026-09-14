@@ -1649,4 +1649,250 @@ mod tests {
             }
         }
     }
+
+    /// Connects to the live fixture named by `DATABASE_URL`
+    /// (`postgres://user:password@host:port/database`) — the same server the
+    /// `pg_integration` suite uses — so the DTO can be exercised on values a real
+    /// PostgreSQL produced rather than on hand-built ones.
+    fn live_fixture_credentials() -> (ConnectionConfig, String) {
+        let url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set for the live provider-to-DTO path");
+        let (authority, host_and_database) = url
+            .strip_prefix("postgres://")
+            .expect("DATABASE_URL must use the postgres:// scheme")
+            .rsplit_once('@')
+            .expect("DATABASE_URL must carry user:password@host");
+        let (username, password) = authority
+            .split_once(':')
+            .expect("DATABASE_URL must carry user:password");
+        let (host_and_port, database) = host_and_database
+            .split_once('/')
+            .expect("DATABASE_URL must carry host/database");
+        let (host, port) = host_and_port
+            .split_once(':')
+            .expect("DATABASE_URL must carry host:port");
+        let (database, _parameters) = database.split_once('?').unwrap_or((database, ""));
+
+        let config = ConnectionConfig {
+            name: "provider-to-dto-fixture".to_owned(),
+            host: host.to_owned(),
+            port: port.parse().expect("DATABASE_URL must carry a numeric port"),
+            database: database.to_owned(),
+            username: username.to_owned(),
+            driver: DriverType::Postgres,
+            ssl_mode: SslMode::Disable,
+            ssh_tunnel: None,
+            query_timeout_ms: 30_000,
+            max_rows: 10_000,
+            color: None,
+            tags: vec![],
+            group: None,
+            readonly: false,
+        };
+        (config, password.to_owned())
+    }
+
+    fn sorted_object_keys(value: &serde_json::Value) -> Vec<String> {
+        let mut keys: Vec<String> = value.as_object().expect("a JSON object").keys().cloned().collect();
+        keys.sort_unstable();
+        keys
+    }
+
+    /// Gate 5 D1 (#64) — the whole path on one real server: the fixture's 26-column
+    /// row is decoded by the provider adapter, crosses the domain representation and
+    /// leaves as `QueryResultDto` JSON with every class tag, value and provider type
+    /// name intact. The two neighbouring tests each cover only one half:
+    /// `pg_decoder_matrix_covers_every_value_class` stops at the decoder, and
+    /// `query_result_dto_matches_the_checked_in_contract_fixture` starts from a
+    /// hand-built `QueryResult`.
+    ///
+    /// Ignored unless `DATABASE_URL` is set, like the rest of the live suite.
+    #[tokio::test]
+    #[ignore = "requires DATABASE_URL (live PostgreSQL fixture)"]
+    async fn live_fixture_query_survives_the_provider_to_dto_path() {
+        use db_pro_core::ports::DbConnector;
+        use db_pro_infrastructure::postgres::connector::PostgresConnector;
+
+        let (config, password) = live_fixture_credentials();
+        let connector = PostgresConnector::new();
+        let handle = connector.connect(&config, &password).await.expect("PG connect failed");
+        let decoded = connector
+            .query(&handle, "SELECT * FROM decoder_matrix ORDER BY id", &[])
+            .await
+            .expect("no fixture column may take the row down");
+        connector.disconnect(&handle).await.expect("PG disconnect failed");
+
+        assert_eq!(decoded.row_count, 2, "one populated row and one all-NULL row");
+        let domain_rows = decoded.rows.clone();
+        let emitted = serde_json::to_value(QueryResultDto::from(decoded)).expect("the DTO must serialize");
+
+        // 1. The #54 payload contract, now on data a real server produced.
+        assert_eq!(
+            sorted_object_keys(&emitted),
+            ["columns", "durationMs", "rowCount", "rows"]
+        );
+        assert_eq!(emitted["rowCount"], serde_json::json!(2));
+        assert!(emitted["durationMs"].is_u64(), "durationMs must stay a number");
+
+        let columns = emitted["columns"].as_array().expect("columns must be an array");
+        assert_eq!(columns.len(), 26, "one column per decoder_matrix column");
+        for column in columns {
+            assert_eq!(sorted_object_keys(column), ["dataType", "name", "nullable"]);
+        }
+        // Custom and fallback classes keep their provider type name across the hop, so
+        // the write-policy layer can still tell an array from a range from a composite.
+        let declared_types: Vec<&str> = columns
+            .iter()
+            .map(|column| column["dataType"].as_str().expect("a provider type name"))
+            .collect();
+        for required in ["TEXT[]", "INT4RANGE", "decoder_pair", "NUMERIC", "TIMETZ"] {
+            assert!(
+                declared_types.iter().any(|declared| declared.contains(required)),
+                "the declared provider type {required} must survive into the DTO: {declared_types:?}"
+            );
+        }
+
+        let rows = emitted["rows"].as_array().expect("rows must be an array");
+        assert_eq!(rows.len(), 2, "both fixture rows must reach the DTO");
+        let populated = rows[0].as_array().expect("a row is an array of cells");
+        assert_eq!(populated.len(), 26, "one cell per column");
+
+        // 2. Class by class: one provider class, one domain value, one emitted tag.
+        let expected_classes: [(&str, &str); 26] = [
+            ("id int2", "int64"),
+            ("flag bool", "bool"),
+            ("count int4", "int64"),
+            ("big_count int8", "int64"),
+            ("ratio float4", "float64"),
+            ("precise_ratio float8", "float64"),
+            ("amount numeric(24,4)", "decimal"),
+            ("calendar_date", "date"),
+            ("wall_time", "time"),
+            ("zoned_time timetz", "time"),
+            ("local_stamp timestamp", "datetime"),
+            ("instant timestamptz", "datetime"),
+            ("span interval", "interval"),
+            ("token uuid", "uuid"),
+            ("doc json", "json"),
+            ("payload jsonb", "json"),
+            ("blob bytea", "bytes"),
+            ("address inet", "inet"),
+            ("network cidr", "inet"),
+            ("status enum", "text"),
+            ("quantity domain", "int64"),
+            ("postal domain", "text"),
+            ("labels array", "bytes"),
+            ("slot range", "bytes"),
+            ("pair composite", "bytes"),
+            ("missing null", "null"),
+        ];
+        let emitted_tags: Vec<&str> = populated
+            .iter()
+            .map(|cell| cell["type"].as_str().expect("every cell carries a type tag"))
+            .collect();
+        let mut mismatched = Vec::new();
+        for (index, (label, expected_class)) in expected_classes.iter().enumerate() {
+            if emitted_tags[index] != *expected_class {
+                mismatched.push(format!(
+                    "{label}: expected {expected_class}, emitted {}",
+                    emitted_tags[index]
+                ));
+            }
+        }
+        assert!(
+            mismatched.is_empty(),
+            "provider -> domain -> DTO class mismatch: {mismatched:#?}"
+        );
+
+        // 3. The values that a lossy hop would mangle: exact digits, the temporal
+        // distinction, byte-exact binary and the fallback classes.
+        let exact_cells: [(&str, usize, serde_json::Value); 12] = [
+            (
+                "big_count int8 keeps every digit",
+                3,
+                serde_json::json!({"type": "int64", "value": "9223372036854775807"}),
+            ),
+            (
+                "amount numeric(24,4) keeps every digit",
+                6,
+                serde_json::json!({"type": "decimal", "value": "12345678901234567890.1234"}),
+            ),
+            (
+                "calendar_date",
+                7,
+                serde_json::json!({"type": "date", "value": "2024-03-15"}),
+            ),
+            (
+                "wall_time",
+                8,
+                serde_json::json!({"type": "time", "value": "10:20:30.123456"}),
+            ),
+            (
+                "zoned_time keeps its offset",
+                9,
+                serde_json::json!({"type": "time", "value": "10:20:30.123456+07:00"}),
+            ),
+            (
+                "local_stamp gains no invented zone",
+                10,
+                serde_json::json!({"type": "datetime", "value": "2024-03-15T10:20:30.123456"}),
+            ),
+            (
+                "instant keeps its Z and stays distinct from local_stamp",
+                11,
+                serde_json::json!({"type": "datetime", "value": "2024-03-15T10:20:30.123456Z"}),
+            ),
+            (
+                "span interval",
+                12,
+                serde_json::json!({"type": "interval", "value": "1 mons 2 days 03:04:05.000006"}),
+            ),
+            (
+                "blob bytea stays byte-exact",
+                16,
+                serde_json::json!({"type": "bytes", "value": [0xde, 0xad, 0xbe, 0xef]}),
+            ),
+            (
+                "status enum label",
+                19,
+                serde_json::json!({"type": "text", "value": "shipped"}),
+            ),
+            (
+                "quantity domain through its base type",
+                20,
+                serde_json::json!({"type": "int64", "value": "7"}),
+            ),
+            (
+                "missing null carries no payload",
+                25,
+                serde_json::json!({"type": "null"}),
+            ),
+        ];
+        for (label, index, expected) in exact_cells {
+            assert_eq!(populated[index], expected, "{label}");
+        }
+
+        // 4. No loss anywhere: for every cell of both rows, the domain value's own
+        // JSON, the DTO's JSON and the JSON that survives a round trip back through
+        // `CellValueDto` are the same bytes.
+        for (row_index, domain_row) in domain_rows.iter().enumerate() {
+            let cells = rows[row_index].as_array().expect("a row is an array of cells");
+            assert_eq!(cells.len(), domain_row.0.len(), "row {row_index} must keep every cell");
+            for (cell_index, cell) in domain_row.0.iter().enumerate() {
+                let domain_json = serde_json::to_value(cell).expect("a domain cell must serialize");
+                assert_eq!(
+                    domain_json, cells[cell_index],
+                    "row {row_index} cell {cell_index}: the domain value and the DTO disagree"
+                );
+
+                let round_tripped: CellValue = serde_json::from_value::<CellValueDto>(cells[cell_index].clone())
+                    .expect("every emitted cell must deserialize")
+                    .into();
+                assert_eq!(
+                    serde_json::to_value(&round_tripped).expect("a round-tripped cell must re-serialize"),
+                    cells[cell_index],
+                    "row {row_index} cell {cell_index} does not survive the DTO round trip"
+                );
+            }
+        }
+    }
 }
