@@ -463,3 +463,137 @@ CROSS-PLATFORM CONTRACT RISKS (unchanged by this step):
   * All artifacts remain UNSIGNED; the install note states the Gatekeeper/SmartScreen
     consequences.
   * macOS x64, universal binaries, .dmg/.msi/NSIS/.deb/.rpm/AppImage: DEFERRED, not built.
+
+==============================================================================
+8. GALLERY-LABEL FIX RE-RUN (V01-06 step 3)
+==============================================================================
+
+Captured    : 2026-09-14T12:52Z (UTC)
+Commit under test : a49d4bc4ea71f54044795b7371f8210276bae1f7 (branch main)
+Host        : macOS 26.5.2 / arm64 (Apple Silicon)
+Toolchain   : cargo 1.95.0 (f2d3ce0bd 2026-03-21), rustc 1.95.0 (59807616e 2026-04-14)
+Trigger     : section 2 above recorded 1 residual occurrence of "Xe Lạc Hồng" in
+              target/release/db-pro-native, provenance
+              crates/ui/src/component_gallery_view.rs lines 2351/2384/2462 (demo
+              labels for ConnectionIndicator / StatusBarItem / ContextChip).
+Scope of this section : close that residual. Nothing else was changed.
+Capture dir : /tmp/v0106-step3/clean (outside the repository; removed after capture).
+              Raw per-gate logs: /tmp/v0106-step3/clean/<id>.log at capture time.
+
+--- 8.1 The change (exact) ---
+$ git diff --stat
+ crates/ui/src/component_gallery_view.rs | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+$ git diff -U0 crates/ui/src/component_gallery_view.rs
+@@ -2351 +2351 @@ impl DbProApp {
+-                ConnectionIndicator::new("Xe Lạc Hồng (PostgreSQL)", "pg 16.2", ConnectionHealth::Healthy, theme)
++                ConnectionIndicator::new("Analytics (PostgreSQL)", "pg 16.2", ConnectionHealth::Healthy, theme)
+@@ -2384 +2384 @@ impl DbProApp {
+-                StatusBarItem::new("Xe Lạc Hồng (PostgreSQL)")
++                StatusBarItem::new("Analytics (PostgreSQL)")
+@@ -2462 +2462 @@ impl DbProApp {
+-                ContextChip::new(ContextChipKind::Connection, "Xe Lạc Hồng (PostgreSQL)", theme).show(ui);
++                ContextChip::new(ContextChipKind::Connection, "Analytics (PostgreSQL)", theme).show(ui);
+
+Three string literals only. Call-site structure, surrounding demo text and all
+non-string behaviour are unchanged; no gallery test asserted the developer label
+(`git grep` over crates/ shows the label only in the debug-gated preset paths in
+crates/ui/src/runtime.rs and crates/native-app/src/main.rs, plus this file), so no
+test change was needed or made.
+
+--- 8.2 QUALITY GATES (re-run after the change) ---
+
+### GATE 01-fmt: cargo fmt --all -- --check
+EXIT_STATUS=0 DURATION_S=0
+raw log line count: 0 (empty output == no formatting diffs)
+
+### GATE 02-check: cargo check --workspace
+EXIT_STATUS=0 DURATION_S=1
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.26s
+
+### GATE 03-clippy: cargo clippy --workspace --all-targets -- -D warnings
+EXIT_STATUS=0 DURATION_S=8
+    Checking db-pro-core v0.1.0 (.../crates/core)
+   Compiling db-pro-tauri v0.1.0 (.../crates/tauri-app)
+    Checking db-pro-infrastructure v0.1.0 (.../crates/infrastructure)
+    Checking db-pro-ui v0.1.0 (.../crates/ui)
+    Checking db-pro-runtime v0.1.0 (.../crates/runtime)
+    Checking db-pro-native v0.1.0 (.../crates/native-app)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 8.18s
+warning lines: 0
+
+### GATE 04-test: cargo test --workspace
+EXIT_STATUS=0 DURATION_S=13
+per-binary results (19 test targets):
+  db_pro_core (lib)                          291 passed; 0 failed; 0 ignored
+  db_pro_infrastructure (lib)                 62 passed; 0 failed; 0 ignored
+  integration.rs                              32 passed; 0 failed; 0 ignored
+  pg_integration.rs                            0 passed; 0 failed; 18 ignored
+  schema_columns_atomicity_regression.rs        1 passed; 0 failed; 0 ignored
+  schema_indexes_runtime_verification.rs        1 passed; 0 failed; 0 ignored
+  schema_relations_runtime_verification.rs      1 passed; 0 failed; 0 ignored
+  schema_triggers_runtime_verification.rs       5 passed; 0 failed; 0 ignored
+  ssh_backup_runtime_verification.rs            0 passed; 0 failed; 1 ignored
+  db_pro_native (main)                         10 passed; 0 failed; 0 ignored
+  db_pro_runtime (lib)                         28 passed; 0 failed; 0 ignored
+  db_pro_tauri_lib (lib)                       21 passed; 0 failed; 0 ignored
+  db_pro_tauri (main)                           0 passed; 0 failed; 0 ignored
+  db_pro_ui (lib)                             359 passed; 0 failed; 0 ignored
+  doc-tests / remaining targets                  0 passed; 0 failed; 0 ignored
+                                                       (5 further empty targets)
+
+EXACT TOTALS: 811 passed / 0 failed / 19 ignored   (test targets total 830)
+Pre-fix baseline for this step (section 1 above, same tree minus the string change): 811 / 0 / 19
+DELTA FROM THIS CHANGE: +0 passed, +0 failed, +0 ignored (string-only change; no
+test asserted the label). The suite is unchanged from the state recorded in
+section 1 above; this run re-verifies it on the same code plus the label fix.
+The 19 ignored tests are the same 18 `#[ignore]`d pg_integration cases (require
+DATABASE_URL) and the 1 `#[ignore]`d SSH backup test (requires an isolated
+PostgreSQL target and a local SSH server). They are IGNORED, not passing.
+
+### GATE 05-release-build: cargo build --release --locked -p db-pro-native
+EXIT_STATUS=0 DURATION_S=0   (incremental: this target was relinked by the first
+                               post-edit build; the artifact below is the one measured)
+    Finished `release` profile [optimized] target(s) in 0.30s
+
+### GATE 06-perf: bash .skills/perf-audit/scripts/perf-scan.sh
+EXIT_STATUS=0 DURATION_S=9
+  Native UI Binary
+    ✓ cargo build -p db-pro-native: release build succeeded
+    ✓ Binary size: 22.6MB (target < 50MB)
+  Rust Static Analysis
+    ✓ cargo check: Workspace compiles
+    ✓ cargo clippy: No warnings
+  Audit Summary:  Passed: 4   Warnings: 0   Failed: 0
+  Status: PASS — All checks passed
+
+### GATE 07 (beyond the six, same as section 1): release-profile test run
+command: cargo test --release -p db-pro-native -p db-pro-ui
+EXIT_STATUS=0 DURATION_S=1
+    db_pro_native: 10 passed; 0 failed; 0 ignored
+    db_pro_ui:    359 passed; 0 failed; 0 ignored
+This is the run that exercises the release branch of the debug-gated preset code.
+
+--- 8.3 BYTE SCAN (post gallery fix) ---
+method: python3 reads target/release/db-pro-native as bytes and counts UTF-8
+occurrences (macOS `strings` cannot find the diacritic label; see section 2).
+
+  "Xe Lạc Hồng" (developer label)               PRE (section 2): 1   NOW: 0
+  "fullstack_starter" (private DB name)         PRE (section 2): 0   NOW: 0
+  "xe-lac-hong" (private connection tag)        PRE (section 2): 0   NOW: 0
+  BYTE-SCAN TRIPLE: 0 / 0 / 0
+
+  binary size : 23714096 bytes (22.62 MiB) — unchanged by the string edit
+  binary sha256 : c0da49cd818cf9fdbc635550458f48c370ae5ecb356eb65a40d3c1febce4fcfd
+                  (pre-fix sha256 in section 1: 2ae0540a…844315 — different, as expected)
+  file(1) : target/release/db-pro-native: Mach-O 64-bit executable arm64
+
+This closes the residual recorded in section 2. The developer label, the private
+database name and the private connection tag are now absent from the release binary.
+
+--- 8.4 Local packaging note for this state ---
+The macOS archive in section 3 was built from the pre-fix binary (sha256 2ae0540a…).
+Its staged copy of DB Pro.app therefore predates this label fix. The CI release run
+for a49d4bc (run 34845148946) builds from the committed tree and its artifacts are the
+authoritative ones; this section does not re-run the bundle dry-run.

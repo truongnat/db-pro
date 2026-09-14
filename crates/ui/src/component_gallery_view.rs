@@ -2348,7 +2348,7 @@ impl DbProApp {
                 );
                 ui.add_space(6.0);
 
-                ConnectionIndicator::new("Xe Lạc Hồng (PostgreSQL)", "pg 16.2", ConnectionHealth::Healthy, theme)
+                ConnectionIndicator::new("Analytics (PostgreSQL)", "pg 16.2", ConnectionHealth::Healthy, theme)
                     .latency(42)
                     .show(ui);
 
@@ -2381,7 +2381,7 @@ impl DbProApp {
             ui.add_space(6.0);
 
             let left_status = [
-                StatusBarItem::new("Xe Lạc Hồng (PostgreSQL)")
+                StatusBarItem::new("Analytics (PostgreSQL)")
                     .icon(Icon::Database)
                     .accent(true),
                 StatusBarItem::new("public.users").icon(Icon::Table),
@@ -2459,7 +2459,7 @@ impl DbProApp {
                         .color(theme.text_muted),
                 );
                 ui.add_space(4.0);
-                ContextChip::new(ContextChipKind::Connection, "Xe Lạc Hồng (PostgreSQL)", theme).show(ui);
+                ContextChip::new(ContextChipKind::Connection, "Analytics (PostgreSQL)", theme).show(ui);
                 ui.add_space(4.0);
                 ContextChip::new(ContextChipKind::Database, "production_db", theme).show(ui);
                 ui.add_space(4.0);
