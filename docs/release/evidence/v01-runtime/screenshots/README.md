@@ -59,3 +59,9 @@ created through the UI; `SELECT 1;` and `SELECT * FROM items;` results; row-grid
 pagination/filter/sort against `fixtures/smoke/sqlite/runtime_fixture.sql`; the capability-gated
 "Running…" state while a query runs; and a clean window close / ⌘Q exit. Record the display
 resolution and the exact build SHA alongside each capture.
+
+**The procedure is now scripted:** `docs/release/0.1.0-interactive-verification-runbook.md` — 18
+steps, ~30–60 minutes, with the exact filenames to use (`01-launch-dark.png` …
+`12-settings-light.png`), the disposable SQLite fixture path, and the PostgreSQL container start
+command. Results go in `../human-session/README.md`, which is a marked-`NOT RUN` template until a
+real session fills it in.

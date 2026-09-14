@@ -11,7 +11,11 @@ SQLite fixture run were the largest remaining holes.
 - Raw outputs: [`providers/`](providers/) — every command and its unedited output, numbered in
   the order it was produced.
 - Screenshots: [`screenshots/README.md`](screenshots/README.md) — **none could be captured**, with
-  the reason and the live probe output.
+  the reason and the live probe output; the human session's captures belong in that directory.
+- Human session results: [`human-session/README.md`](human-session/README.md) — a **`NOT RUN`**
+  template to be filled in by whoever executes
+  [`../../0.1.0-interactive-verification-runbook.md`](../../0.1.0-interactive-verification-runbook.md).
+  Nothing in this tree comes from a human session.
 
 ## What this tree proves
 
@@ -96,3 +100,4 @@ Consequently these remain **`PENDING_HUMAN`** and are owned by the coordinator (
 | `21` | GUI unavailability probes (the four blockers, live) |
 | `22` | Keyring stall classification |
 | `23` | Findings and dispositions (`F1`–`F3`) |
+| `24` | Lifecycle transition record (brief §44) — 0 transitions, per-candidate evidence/provider/runtime state |
