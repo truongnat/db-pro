@@ -50,6 +50,17 @@ pub(crate) fn draft_to_domain(
     ))
 }
 
+/// Reverse of the `SslMode` arm in [`draft_to_domain`], used to prefill the
+/// connection dialog from a stored connection.
+fn ui_ssl_mode(mode: db_pro_core::domain::connection::SslMode) -> UiSslMode {
+    match mode {
+        db_pro_core::domain::connection::SslMode::Disable => UiSslMode::Disable,
+        db_pro_core::domain::connection::SslMode::Require => UiSslMode::Require,
+        db_pro_core::domain::connection::SslMode::VerifyCa => UiSslMode::VerifyCa,
+        db_pro_core::domain::connection::SslMode::VerifyFull => UiSslMode::VerifyFull,
+    }
+}
+
 pub(crate) fn translate_command(command: UiCommand) -> Option<RuntimeCommand> {
     match &command {
         UiCommand::OpenQuery
@@ -1217,6 +1228,7 @@ fn translate_connections_loaded(
                 database: connection.database,
                 username: connection.username,
                 driver: connection.driver,
+                ssl_mode: ui_ssl_mode(connection.ssl_mode),
                 readonly: connection.readonly,
             })
             .collect(),

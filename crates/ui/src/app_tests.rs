@@ -263,6 +263,61 @@ fn insert_value_rejects_invalid_typed_input() {
     assert!(DbProApp::parse_update_value("", "DECIMAL(10,2)").is_err());
 }
 
+fn connection_summary_with_ssl_mode(ssl_mode: UiSslMode) -> UiConnectionSummary {
+    UiConnectionSummary {
+        id: "conn-1".to_owned(),
+        name: "Secure Prod".to_owned(),
+        host: "db.example.com".to_owned(),
+        port: 5432,
+        database: "app".to_owned(),
+        username: "postgres".to_owned(),
+        driver: "PostgreSQL".to_owned(),
+        ssl_mode,
+        readonly: false,
+    }
+}
+
+#[test]
+fn editing_a_connection_preserves_its_stored_ssl_mode() {
+    let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
+    let mut app = DbProApp::with_task_bridge(bridge);
+    let connection = connection_summary_with_ssl_mode(UiSslMode::Require);
+
+    app.open_edit_connection(&connection);
+
+    assert_eq!(app.connection_draft.ssl_mode, UiSslMode::Require);
+
+    app.dispatch_connection_command(true);
+
+    let UiCommand::UpdateConnection {
+        connection_id, draft, ..
+    } = command_rx.try_recv().expect("update command expected")
+    else {
+        panic!("expected UpdateConnection");
+    };
+    assert_eq!(connection_id, "conn-1");
+    assert_eq!(draft.ssl_mode, UiSslMode::Require);
+}
+
+#[test]
+fn duplicating_a_connection_preserves_its_stored_ssl_mode() {
+    let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
+    let mut app = DbProApp::with_task_bridge(bridge);
+    let connection = connection_summary_with_ssl_mode(UiSslMode::VerifyFull);
+
+    app.open_duplicate_connection(&connection);
+
+    assert_eq!(app.connection_draft.ssl_mode, UiSslMode::VerifyFull);
+
+    app.dispatch_connection_command(true);
+
+    let UiCommand::CreateConnection { draft, .. } = command_rx.try_recv().expect("create command expected") else {
+        panic!("expected CreateConnection");
+    };
+    assert_eq!(draft.name, "Secure Prod (Copy)");
+    assert_eq!(draft.ssl_mode, UiSslMode::VerifyFull);
+}
+
 #[test]
 fn table_edits_stage_until_explicit_apply() {
     let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
@@ -275,6 +330,7 @@ fn table_edits_stage_until_explicit_apply() {
         database: "app".to_owned(),
         username: "postgres".to_owned(),
         driver: "PostgreSQL".to_owned(),
+        ssl_mode: UiSslMode::Disable,
         readonly: false,
     }];
     app.active_connection_id = Some("conn-1".to_owned());
@@ -372,6 +428,7 @@ fn editing_primary_key_stages_new_value_with_original_identity() {
             database: "app".to_owned(),
             username: "postgres".to_owned(),
             driver: "PostgreSQL".to_owned(),
+            ssl_mode: UiSslMode::Disable,
             readonly: false,
         }],
         active_connection_id: Some("conn-1".to_owned()),
@@ -427,6 +484,7 @@ fn no_primary_key_table_blocks_safe_row_mutations() {
             database: "app".to_owned(),
             username: "postgres".to_owned(),
             driver: "PostgreSQL".to_owned(),
+            ssl_mode: UiSslMode::Disable,
             readonly: false,
         }],
         table_info: Some(UiTableInfo {
@@ -541,6 +599,7 @@ fn explain_query_uses_selected_connection_and_switches_output() {
         database: "app".to_owned(),
         username: "postgres".to_owned(),
         driver: "PostgreSQL".to_owned(),
+        ssl_mode: UiSslMode::Disable,
         readonly: false,
     }];
     app.active_connection_id = Some("conn-1".to_owned());
@@ -611,6 +670,7 @@ fn selected_connection_is_not_shown_as_connected() {
         database: "app".to_owned(),
         username: "postgres".to_owned(),
         driver: "PostgreSQL".to_owned(),
+        ssl_mode: UiSslMode::Disable,
         readonly: false,
     };
     let mut app = DbProApp {
@@ -692,9 +752,11 @@ fn provider_capabilities_gate_provider_specific_actions() {
         database: "app.db".to_owned(),
         username: String::new(),
         driver: "SQLite".to_owned(),
+        ssl_mode: UiSslMode::Disable,
         readonly: false,
     };
     let postgres = UiConnectionSummary {
+        ssl_mode: UiSslMode::Disable,
         driver: "PostgreSQL".to_owned(),
         ..sqlite.clone()
     };
@@ -1441,6 +1503,7 @@ fn command_palette_refresh_schema_bypasses_the_metadata_cache() {
         database: "active".to_owned(),
         username: "postgres".to_owned(),
         driver: "PostgreSQL".to_owned(),
+        ssl_mode: UiSslMode::Disable,
         readonly: false,
     }];
     app.active_connection_id = Some("active".to_owned());
@@ -1477,6 +1540,7 @@ fn loading_connections_automatically_connects_active_connection() {
                 database: "postgres".to_owned(),
                 username: "postgres".to_owned(),
                 driver: "PostgreSQL".to_owned(),
+                ssl_mode: UiSslMode::Disable,
                 readonly: false,
             }],
         })
@@ -1506,6 +1570,7 @@ fn failed_connection_shows_red_indicator_and_records_error() {
         database: "mydb".to_owned(),
         username: "postgres".to_owned(),
         driver: "PostgreSQL".to_owned(),
+        ssl_mode: UiSslMode::Disable,
         readonly: false,
     }];
     app.active_connection_id = Some("conn-bad".to_owned());
@@ -2268,6 +2333,7 @@ fn schema_refresh_reloads_the_selected_table_after_summary_completion() {
         database: "active".to_owned(),
         username: String::new(),
         driver: "SQLite".to_owned(),
+        ssl_mode: UiSslMode::Disable,
         readonly: false,
     }];
     app.active_connection_id = Some("active".to_owned());
@@ -2368,6 +2434,7 @@ fn query_dispatch_uses_the_active_connection_not_the_first_connection() {
             database: "first".to_owned(),
             username: "postgres".to_owned(),
             driver: "PostgreSQL".to_owned(),
+            ssl_mode: UiSslMode::Disable,
             readonly: false,
         },
         UiConnectionSummary {
@@ -2378,6 +2445,7 @@ fn query_dispatch_uses_the_active_connection_not_the_first_connection() {
             database: "active".to_owned(),
             username: "postgres".to_owned(),
             driver: "PostgreSQL".to_owned(),
+            ssl_mode: UiSslMode::Disable,
             readonly: false,
         },
     ];
@@ -2403,6 +2471,7 @@ fn ddl_apply_dispatch_requires_an_explicit_request_and_uses_active_connection() 
         database: "active".to_owned(),
         username: "postgres".to_owned(),
         driver: "PostgreSQL".to_owned(),
+        ssl_mode: UiSslMode::Disable,
         readonly: false,
     }];
     app.active_connection_id = Some("active".to_owned());
@@ -2577,6 +2646,7 @@ fn test_query_cancellation_capability_gate() {
         database: "app".to_owned(),
         username: "postgres".to_owned(),
         driver: "PostgreSQL".to_owned(),
+        ssl_mode: UiSslMode::Disable,
         readonly: false,
     };
     let sqlite_conn = UiConnectionSummary {
@@ -2587,6 +2657,7 @@ fn test_query_cancellation_capability_gate() {
         database: "app.db".to_owned(),
         username: String::new(),
         driver: "SQLite".to_owned(),
+        ssl_mode: UiSslMode::Disable,
         readonly: false,
     };
 
@@ -3056,6 +3127,7 @@ fn query_dispatch_allows_independent_documents_to_run_concurrently() {
             database: "db1".to_owned(),
             username: "user".to_owned(),
             driver: "PostgreSQL".to_owned(),
+            ssl_mode: UiSslMode::Disable,
             readonly: false,
         },
         UiConnectionSummary {
@@ -3066,6 +3138,7 @@ fn query_dispatch_allows_independent_documents_to_run_concurrently() {
             database: "db2".to_owned(),
             username: String::new(),
             driver: "SQLite".to_owned(),
+            ssl_mode: UiSslMode::Disable,
             readonly: false,
         },
     ];
@@ -3209,6 +3282,7 @@ fn test_multi_tab_explain_plan_routing() {
         port: 5432,
         username: "postgres".to_owned(),
         driver: "PostgreSQL".to_owned(),
+        ssl_mode: UiSslMode::Disable,
         readonly: false,
     }];
 
@@ -3275,6 +3349,7 @@ fn test_per_document_connection_and_schema_isolation() {
                 port: 5432,
                 database: "prod".to_owned(),
                 username: "postgres".to_owned(),
+                ssl_mode: UiSslMode::Disable,
                 readonly: false,
             },
             UiConnectionSummary {
@@ -3285,6 +3360,7 @@ fn test_per_document_connection_and_schema_isolation() {
                 port: 0,
                 database: "/tmp/test.db".to_owned(),
                 username: "".to_owned(),
+                ssl_mode: UiSslMode::Disable,
                 readonly: false,
             },
         ],

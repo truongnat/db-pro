@@ -309,6 +309,9 @@ pub struct UiConnectionSummary {
     pub database: String,
     pub username: String,
     pub driver: String,
+    /// The TLS mode stored with the connection. Present so the edit/duplicate
+    /// prefill can restore it instead of falling back to a default.
+    pub ssl_mode: UiSslMode,
     pub readonly: bool,
 }
 

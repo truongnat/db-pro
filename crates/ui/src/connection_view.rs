@@ -144,7 +144,7 @@ impl DbProApp {
             } else {
                 UiDriver::Postgres
             },
-            ssl_mode: UiSslMode::Disable,
+            ssl_mode: connection.ssl_mode,
             readonly: connection.readonly,
             ssh_tunnel_enabled: false,
             ssh_host: String::new(),
@@ -173,7 +173,7 @@ impl DbProApp {
             } else {
                 UiDriver::Postgres
             },
-            ssl_mode: UiSslMode::Disable,
+            ssl_mode: connection.ssl_mode,
             readonly: connection.readonly,
             ssh_tunnel_enabled: false,
             ssh_host: String::new(),

@@ -133,6 +133,9 @@ pub struct ConnectionSummary {
     pub database: String,
     pub username: String,
     pub driver: String,
+    /// The TLS mode stored with the connection. It travels with the summary so an
+    /// edit or duplicate round-trip cannot silently replace it with a default.
+    pub ssl_mode: db_pro_core::domain::connection::SslMode,
     pub readonly: bool,
 }
 
@@ -760,6 +763,7 @@ fn summary_from_connection(connection: db_pro_core::domain::connection::Connecti
             DriverType::Postgres => "PostgreSQL".to_owned(),
             DriverType::SQLite => "SQLite".to_owned(),
         },
+        ssl_mode: connection.config.ssl_mode,
         readonly: connection.config.readonly,
     }
 }
