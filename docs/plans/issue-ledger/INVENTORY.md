@@ -246,7 +246,7 @@ These were created after the first snapshot was taken. They are part of the same
 | 226 | [ER][ER01] Schema Design Mode with Draft Table/Relation Editing | — | P3 | `OUT_OF_SCOPE_V01` | Post-v0.1 scope; depends on #183 plus the Phase A CRUD issues (#207, #186, #185). ER in v0.1 is inspection/navigation only. | docs/goals/goal-phase-a-object-crud.md; docs/plans/STATUS.md (ER large-schema architecture) |
 | 227 | [Data][DA01] Column Profiling, Distribution, Null, Distinct, and Quality Insights | — | P3 | `OUT_OF_SCOPE_V01` | Post-v0.1 scope (data profiling); depends on the Phase C/D services. No v0.1 impact. | docs/notes/PRODUCT_ROADMAP.md; docs/goals/goal-full-product.md |
 
-_Generated from both snapshots; the generator asserts that every open issue has exactly one row and one valid disposition (147/147). Dispositions: DONE_ON_MAIN=10, PARTIAL_ON_MAIN=50, ACTIONABLE_NOW=12, NEEDS_OWNER_DECISION=13, NEEDS_EXTERNAL_RESOURCE=5, OUT_OF_SCOPE_V01=50, SUPERSEDED=7, UNCLEAR=0._
+_Snapshot 1 + snapshot 2 only: 147 rows. The generator asserts that every issue in these two snapshots has exactly one row and one valid disposition (147/147); of these, 50 are `OUT_OF_SCOPE_V01`. Snapshot 3 adds 8 more rows below and the file totals are 155/155 with `OUT_OF_SCOPE_V01`=58._
 
 ## Inventory — snapshot 3, engine/data/administration arrivals (8 issues, all post-v0.1 scope)
 

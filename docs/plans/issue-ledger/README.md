@@ -4,13 +4,16 @@
 **Baseline audited:** `main @ a9c1174`, worktree clean, no product code changed.
 **Snapshots:** [`issues-open-2026-09-14.json`](issues-open-2026-09-14.json) (136 issues, the frozen input)
 plus [`issues-open-2026-09-14-late.json`](issues-open-2026-09-14-late.json) (11 issues, #217–#227, created
-on GitHub a few minutes *after* the first snapshot was written). Live open count re-verified with
-`gh issue list --state open --limit 300` = **147**, which is exactly the row count in `INVENTORY.md`.
+on GitHub a few minutes *after* the first snapshot was written), plus
+[`issues-open-2026-09-15.json`](issues-open-2026-09-15.json) (the full live list of 144 open issues taken
+on 2026-09-15, which is where the 8 issues #228–#235 triaged in `INVENTORY.md` come from).
+Live open count re-verified with `gh issue list --state open --limit 300` on 2026-09-15 = **144**, which
+is exactly the number of open rows in `LEDGER.md` (155 rows total: 144 open + 11 closed on 2026-09-15).
 
 ## What this directory is
 
 A triage of every open GitHub issue against the **actual tree**, not against the issue text. The
-repository has 147 open issues; a large part of what they ask for landed on `main` afterwards
+repository had 147 open issues at the first triage (144 on 2026-09-15); a large part of what they ask for landed on `main` afterwards
 (the native rewrite, Gate 4, Gate 5, the RC1 closure work, the v0.1 release pipeline), and a large
 part is explicitly post-v0.1 product scope. Nobody had mapped the two onto each other. This
 directory is that map, plus the plan for working the leftovers.

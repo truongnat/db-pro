@@ -200,7 +200,7 @@ Two refinements worth stating explicitly, because they are where a triage usuall
   partly historical (for example `platform-prerequisites.md`, whose matrix still describes the
   retired Tauri bundler), the row says so and the disposition is `PARTIAL_ON_MAIN`.
 
-## 4b. The two snapshots (why the row count is 147 and not 136)
+## 4b. The snapshots (why the first row count was 147 and not 136)
 
 The frozen input had 136 issues. Before publishing this triage, the live open count was re-checked
 read-only:
@@ -213,6 +213,10 @@ The difference is 11 issues, #217–#227 (created 2026-09-14T16:52–16:54Z, i.e
 first snapshot was written). They are the tail of the same post-v0.1 decomposition as #182–#216: every
 one of them is either `[Phase …]` or a `[Query]`/`[Data]`/`[ER]`/`[Connections]` feature with
 `Parent Goal: #182`, and all 11 are `OUT_OF_SCOPE_V01` for the same reason as the rest of that family.
+
+_A third snapshot was added on 2026-09-15 (`issues-open-2026-09-15.json`, the live list of 144 open
+issues). It contributed 8 more rows (#228–#235), all created minutes after snapshot 2 was fetched and
+triaged with the same rules; they are `OUT_OF_SCOPE_V01` and have their own table in `INVENTORY.md`._
 
 They were kept in a **separate snapshot file and a separate table** rather than merged into the first
 one, for two reasons: the first snapshot is the frozen input this triage was computed from and must stay

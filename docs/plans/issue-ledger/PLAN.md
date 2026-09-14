@@ -3,10 +3,17 @@
 Companion to [`INVENTORY.md`](INVENTORY.md) (what each issue is) and [`LEDGER.md`](LEDGER.md) (what
 was actually done). This file is the *order* and the *reason* for the order.
 
-Baseline: `main @ a9c1174`. **147 open issues** (136 in the frozen snapshot plus 11 created minutes
-after it — see `INVENTORY.md`). Of those, **12 are `ACTIONABLE_NOW`**, 50 are `PARTIAL_ON_MAIN` with a
-named remainder, 10 are `DONE_ON_MAIN`, 18 need the owner or a host, 7 are superseded and 50 are
-post-v0.1 scope that must not be worked now.
+Baseline: `main @ a9c1174`. **147 open issues at the first triage** (136 in the frozen snapshot plus 11
+created minutes after it — see `INVENTORY.md`). Of those, **12 are `ACTIONABLE_NOW`**, 50 are
+`PARTIAL_ON_MAIN` with a named remainder, 10 are `DONE_ON_MAIN`, 18 need the owner or a host, 7 are
+superseded and 50 are post-v0.1 scope that must not be worked now.
+
+> **Amendment — 2026-09-15.** A third snapshot (`issues-open-2026-09-15.json`) added 8 more rows,
+> #228–#235, all post-v0.1 product scope (`OUT_OF_SCOPE_V01`, so batch 5 grows to 58 issues and the
+> totals below become 155 rows). Neither the batches nor the ordering principles of this plan change:
+> the arrivals are all batch-5 material, and their proposed queue order is recorded in `INVENTORY.md`.
+> The counts in the tables below are the ones this plan was written against and are left as written,
+> with the running numbers kept in `LEDGER.md`.
 
 ## Ordering principles
 
