@@ -77,7 +77,7 @@ Field rules:
 | #81 | [RC1][P2-G] Synthesize Fix/Accept/Defer table and spawn only required RC1 fix tickets | `BLOCKED_OWNER` (2026-09-15) | — | 2026-09-14 | **re-verified 2026-09-15 and left open as `BLOCKED_OWNER`** (blocker comment posted: exact blocker, what is already done, what would unblock it) — triage pointer: docs/release/evidence/v01-06/06-rc1-p2-dispositions.md:30-50 |
 | #82 | [RC1][P2-H] Verify completed P2 dispositions on exact post-remediation main SHA | `BLOCKED_OWNER` (2026-09-15) | — | 2026-09-14 | **re-verified 2026-09-15 and left open as `BLOCKED_OWNER`** (blocker comment posted: exact blocker, what is already done, what would unblock it) — triage pointer: docs/plans/STATUS.md:45-52 ('the P2 gate is formally unsatisfied') |
 | #84 | [RC1][Freeze B1] Run complete frontend release gates on candidate SHA | `SUPERSEDED` | — | 2026-09-14 | triage classification only; not yet re-verified against a post-triage commit — .github/workflows/ci.yml:13-15; .github/workflows/release.yml:163-175; docs/plans/STATUS.md:44 |
-| #88 | [RC1][Freeze C2] Generate candidate evidence manifest and artifact checksums | `PARTIAL_ON_MAIN` | — | 2026-09-14 | triage classification only; not yet re-verified against a post-triage commit — .github/workflows/release.yml:282-283 (db-pro-provenance-*); docs/release/0.1.0-readiness.md:118-160 (artifact values) |
+| #88 | [RC1][Freeze C2] Generate candidate evidence manifest and artifact checksums | **CLOSED** 2026-09-15 · `gh issue close 88` | `PENDING` | 2026-09-15 | **the single in-repo manifest now exists and its invariants are a gate** — `grep -rn 'evidence-manifest\|evidence_manifest'` over the tree returned no matches before this change. `docs/release/evidence-manifest.json` collects: the candidate `85a7fa3` + pinned toolchain, collection provenance, the final run `34860902181` with all **nine job ids re-read from the GitHub API** (not from prose), every gate with the SHA it was observed at, the three archives + `SHA256SUMS.txt` + the three build artifacts + the provenance record with GitHub artifact ids and checksums, signing truth status (`not_configured`), the P2 disposition counts (25 confirmed / 24 OBSOLETE / 20 carried-over / 1 satisfied / 3 not-applicable), the 18-entry limitation registry and the #29/#31 handoff, with superseded run `34859158012` kept as history. Values were cross-checked across five documents and re-read from the API. New `crates/native-app/tests/evidence_manifest_contract.rs` — **9 contract tests** enforcing: closed status vocabulary where `pass` requires evidence and every other status requires a reason (a skipped gate can never read as a pass), all artifacts/provenance at the candidate SHA with gate observations limited to the candidate or a recorded descendant, checksums as 64-hex-or-unavailable-with-reason, no superseded digest posing as a candidate one, `public_release_ready` ⇒ zero blockers + every gate `pass` + signing configured, and every cited evidence path resolving to a non-empty file. **Falsification run first**: three probes (deleted reason; a `not_applicable` gate relabelled `pass` with a dangling pointer; `public_release_ready=true` with a foreign artifact SHA and a `deadbeef` gate observation) each turned the suite red (1, then 2, then 3 failures), restored manifest green. `cargo test --workspace` **872 passed / 0 failed / 26 ignored** (baseline 863/0/26, **+9**); fmt/check/clippy/release-build/perf-scan (`PASS`, 4/0/0) all exit 0; **CI-mirroring** `DATABASE_URL=… cargo test --all -- --include-ignored` → **898 passed / 0 failed / 0 ignored** (baseline 889/0/0). Deliberate limits stated, not hidden: the manifest does not declare `FINAL_RC_SHA` (that is #89, still open), `checksum_manifest.sha256` is `null` with a reason because the run never hashes `SHA256SUMS.txt` itself, and the two intermediate binaries without a recorded digest carry an unavailability reason instead of a guessed value. Evidence: docs/release/evidence/v01-runtime/providers/44-candidate-evidence-manifest.md |
 | #89 | [RC1][Freeze D1] Final latest-head review and declare FINAL_RC_SHA | `BLOCKED_OWNER` (2026-09-15) | — | 2026-09-14 | **re-verified 2026-09-15 and left open as `BLOCKED_OWNER`** (blocker comment posted: exact blocker, what is already done, what would unblock it) — triage pointer: grep -rn 'FINAL_RC_SHA' docs/ README.md CHANGELOG.md -> no matches |
 | #91 | [RC1][Smoke B1] Run packaged macOS runtime smoke on FINAL_RC_SHA artifact | `BLOCKED_EXTERNAL` (2026-09-15) | — | 2026-09-14 | **re-verified 2026-09-15 and left open as `BLOCKED_EXTERNAL`** (blocker comment posted: exact blocker, what is already done, what would unblock it) — triage pointer: docs/release/evidence/v01-06/14-install-smoke.txt §7.7; docs/release/0.1.0-manual-smoke.md (0 passed / 165 blocked) |
 | #92 | [RC1][Smoke B2] Run packaged Windows runtime smoke on FINAL_RC_SHA artifact | `NEEDS_EXTERNAL_RESOURCE` | — | 2026-09-14 | triage classification only; not yet re-verified against a post-triage commit — docs/release/0.1.0-human-decisions.md (HD-003); docs/release/risk-register.md (R-WINLINUX) |
@@ -212,6 +212,8 @@ A closed issue moves here from the triage table with its closing reference; the 
 
 | #23 | [Gate 5][Workstream B] PostgreSQL result decoder implementation | 2026-09-15 · `gh issue close 23` | — (no code change; the work landed under #55-#59) | **triage:** crates/infrastructure/src/postgres/query_mapper.rs:332-409, :402-409 — **closing (SATISFIED_NOW):** children #55/#56/#57/#58/#59 all closed, live integration suite re-run **25 passed / 0 failed**, CI-mirroring **889/0/0**. Evidence: docs/release/evidence/v01-runtime/providers/43-gate5-exact-head-verification.md |
 
+| #88 | [RC1][Freeze C2] Generate candidate evidence manifest and artifact checksums | 2026-09-15 · `gh issue close 88` | `PENDING` | **triage:** .github/workflows/release.yml:282-283 (db-pro-provenance-*); docs/release/0.1.0-readiness.md:118-160 — **closing:** no in-repo manifest existed (`grep -rn 'evidence-manifest\|evidence_manifest'` → no matches). `docs/release/evidence-manifest.json` now ties the candidate `85a7fa3` to its pipeline run (`34860902181`, nine job ids re-read from the GitHub API), every gate result with the SHA it was observed at, the three archives + `SHA256SUMS.txt` + the three build artifacts with checksums and GitHub artifact ids, the provenance record, signing status, the P2 disposition counts and the 18-entry limitation registry. 9 contract tests (`crates/native-app/tests/evidence_manifest_contract.rs`) enforce the acceptance conditions — one SHA, no gate passing without evidence, a non-pass gate always carrying its reason, checksums 64-hex-or-unavailable-with-reason, `public_release_ready` unclaimable with blockers open, no dangling evidence pointer — and were falsified with three probes before being trusted. `cargo test --workspace` **872 passed / 0 failed / 26 ignored** (863/0/26 at session start); CI-mirroring run **898 passed / 0 failed / 0 ignored** (889/0/0). Evidence: docs/release/evidence/v01-runtime/providers/44-candidate-evidence-manifest.md |
+
 ## PARTIAL_ON_MAIN bucket — disposition of the 2026-09-15 run
 
 The bucket was re-verified row by row against the live tree (not against the triage snapshot) and each
@@ -220,12 +222,12 @@ all of them.
 
 | Class | Count | Issues |
 |---|---:|---|
-| `ACTIONABLE` — implemented, verified, committed, pushed and closed in this run | 6 | #53, #54, #57, #58, #59, #66 |
+| `ACTIONABLE` — implemented, verified, committed, pushed and closed in this run | 7 | #53, #54, #57, #58, #59, #66, **#88** |
 | `SATISFIED_NOW` — remainder re-verified as present; closed with a re-verified pointer | 1 | #23 |
 | `BLOCKED_OWNER` — needs a product/governance decision; **left open, blocker comment posted** | 20 | #14, #26, #27, #28, #30, #31, #67, #69, #70, #73, #81, #82, #89, #96, #105, #106, #107, #110, #136, #141 |
 | `BLOCKED_EXTERNAL` — needs a host, GUI session or publication this environment does not have; **left open, blocker comment posted** | 4 | #29, #91, #94, #145 |
 | `SUPERSEDED_CANDIDATE` — awaiting owner confirmation | 0 | — (see the near-misses below) |
-| `ACTIONABLE`, classified but **not reached** in this run (no state change; still `PARTIAL_ON_MAIN`) | 19 | #21, #22, #24, #25, #52, #64, #75, #76, #77, #78, #79, #80, #88, #120, #122, #126, #128, #129, #131 |
+| `ACTIONABLE`, classified but **not reached** in this run (no state change; still `PARTIAL_ON_MAIN`) | 18 | #21, #22, #24, #25, #52, #64, #75, #76, #77, #78, #79, #80, #120, #122, #126, #128, #129, #131 |
 
 Post-triage arrivals this run: **#237** (filed from the CI failure on `main @ 46b2bb5`, fixed in `0d3aa84`,
 closed) — recorded in "Closed by this workstream" and the Revisions table; it was never an open ledger row.
@@ -238,11 +240,21 @@ longer uses — Gate 5 work lands directly on `main`, and the exact-head verific
 the verification children for #25), so both stay open with a blocker comment rather than being closed as
 superseded; the owner may prefer to restate their acceptance for the main-only workflow.
 
-**Not reached, in the order this run would have continued:** #88 (single in-repo evidence manifest —
-workable now), #64 (provider → domain → DTO in one live test), #52 (dedicated `timestamp`/`timetz`/
+**Not reached, in the order this run would have continued:** #64 (provider → domain → DTO in one live test), #52 (dedicated `timestamp`/`timetz`/
 `timestamptz` variants — the last item blocking #22/#24), #22, #24, #21, #25 (unblocked by #52/#64/#67),
 then the documentation audits #75-#80, #122, #126, #128, #129, #131, and #120.
+(#88 was first in that order and is now closed — see the pass-2 table below.)
 
+
+## ACTIONABLE queue — pass 2 (2026-09-15)
+
+The 19 rows the previous pass classified `ACTIONABLE` but did not reach are being worked in the
+order the previous pass proposed, one issue per commit. Each row is re-verified against the live
+tree before it is implemented, re-classified or closed; nothing is closed by assumption.
+
+| # | Proposed order | Outcome |
+|---:|---:|---|
+| #88 | 1 | **implemented + closed** — `docs/release/evidence-manifest.json` + 9 contract tests in `crates/native-app/tests/evidence_manifest_contract.rs`; evidence `providers/44-candidate-evidence-manifest.md` |
 
 ## Status after the phase-2 workstream
 
@@ -250,9 +262,9 @@ Counts over all 155 rows (snapshots 1–3), refreshed in every ledger commit of 
 
 | Status | Count | Note |
 |---|---:|---|
-| Open rows still in the triage table | 128 | 136 from snapshots 1–2 plus the 8 snapshot-3 arrivals (#228–#235), minus the rows closed 2026-09-15 by this session (#23, #53, #54, #56, #57, #58, #59, #61, #62, #66, #72, #102, #114, #121, #127, #134) |
-| — live open issues on 2026-09-15 (`gh issue list --state open --limit 400`) | **128** | **equal to the open-row count above** (155 rows − 27 closed = 128) |
-| Closed by this workstream | 29 | #142, the ten re-verified `DONE_ON_MAIN` rows, #236, #237, #23, #53, #54, #57, #58, #59, #66, and the nine session closures recorded below |
+| Open rows still in the triage table | 127 | 136 from snapshots 1–2 plus the 8 snapshot-3 arrivals (#228–#235), minus the rows closed 2026-09-15 by this session (#23, #53, #54, #56, #57, #58, #59, #61, #62, #66, #72, #88, #102, #114, #121, #127, #134) |
+| — live open issues on 2026-09-15 (`gh issue list --state open --limit 400`) | **127** | **equal to the open-row count above** (155 rows − 28 closed = 127) |
+| Closed by this workstream | 30 | #142, the ten re-verified `DONE_ON_MAIN` rows, #236, #237, #23, #53, #54, #57, #58, #59, #66, #88, and the nine session closures recorded below |
 | — of which `DONE_ON_MAIN` closed with re-verified evidence | 10 | confirmation pass completed 2026-09-15: every pointer re-opened on `main @ e0bfc56` and checked against the live file/identifier before `gh issue close` |
 | Post-triage issues (never an open row at any snapshot) | 2 | #236 (filed from the #144 verification, `aba947b4`) and **#237** — filed from the CI failure on `main @ 46b2bb5` (run 34900407192) and closed in the same session; both are recorded in "Closed by this workstream" and in the Revisions table, and both are absent from `issues-open-2026-09-15.json` because they were closed before that snapshot |
 
@@ -285,3 +297,4 @@ Counts over all 155 rows (snapshots 1–3), refreshed in every ledger commit of 
 | 2026-09-15 | #14, #26, #27, #28, #30, #31, #67, #69, #70, #73, #81, #82, #89, #96, #105, #106, #107, #110, #136, #141 | `PARTIAL_ON_MAIN` → `BLOCKED_OWNER` (2026-09-15), **issues left open** with one blocker comment each | Phase 2, `PARTIAL_ON_MAIN` bucket: each row was re-verified against the live tree first, then classified. Every comment names the exact blocker, what part is already done, and what would unblock it; the classification table is in "PARTIAL_ON_MAIN bucket — disposition of the 2026-09-15 run" |
 | 2026-09-15 | #29, #91, #94, #145 | `PARTIAL_ON_MAIN` → `BLOCKED_EXTERNAL` (2026-09-15), **issues left open** with one blocker comment each | Phase 2, `PARTIAL_ON_MAIN` bucket: no Windows/Linux host, no GUI session and no publication exist in this environment; the parts that are done (non-interactive macOS qualification, the state-directory fix, the SQLite backup snapshot-safety fix, the #134 prerequisite inventory) are named in each comment |
 | 2026-09-15 | #21, #22, #24, #25, #52, #64, #75-#80, #88, #120, #122, #126, #128, #129, #131 | Classified `ACTIONABLE` but **not reached**; rows unchanged (`PARTIAL_ON_MAIN`) | Phase 2, `PARTIAL_ON_MAIN` bucket: budget was spent on depth in the provider-value cluster plus the CI-red defect. The run order for the next pass is recorded in the disposition table |
+| 2026-09-15 | #88 | `PARTIAL_ON_MAIN` → closed with the candidate evidence manifest and its 9 contract tests (`PENDING` sha filled at commit time) | Pass 2, item 1 of the `ACTIONABLE` queue: the single in-repo manifest was missing entirely (`grep` → no matches). Built from the checked-in evidence cross-checked against five documents, with the run/job/artifact ids re-read from the GitHub API; the acceptance conditions are now enforced by tests that were falsified with three probes (1, 2 then 3 failures) before being trusted. `cargo test --workspace` 863/0/26 → **872/0/26**; CI-mirroring 889/0/0 → **898/0/0** |

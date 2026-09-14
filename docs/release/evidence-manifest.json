@@ -1,0 +1,432 @@
+{
+  "manifest_version": 1,
+  "kind": "db-pro-candidate-evidence-manifest",
+  "issue": "#88 [RC1][Freeze C2] Generate candidate evidence manifest and artifact checksums",
+  "app": {
+    "name": "DB Pro",
+    "binary": "db-pro-native",
+    "version": "0.1.0",
+    "version_source": "crates/native-app/Cargo.toml",
+    "shipped_target": "native eframe/egui desktop binary (no WebView, no Node in the shipped path)"
+  },
+  "candidate": {
+    "sha": "85a7fa3cc0a84c56ac2a5049ce08130db06e0a20",
+    "short_sha": "85a7fa3",
+    "ref": "main",
+    "source_kind": "commit",
+    "commit_subject": "docs(release): correct the packaged install note's state directory description",
+    "selection": "docs/release/0.1.0-readiness.md — 'Candidate SHA under assessment' (#83); declared FINAL_RC_SHA only by #89, which is still open",
+    "toolchain": {
+      "pin": "rust-toolchain.toml channel = \"1.95.0\"",
+      "rustc": "rustc 1.95.0 (59807616e 2026-04-14)",
+      "cargo": "cargo 1.95.0 (f2d3ce0bd 2026-03-21)",
+      "evidence": "docs/release/evidence/v01-06/09-toolchain-pinning.txt"
+    },
+    "descendant_evidence_shas": [
+      {
+        "sha": "8e1d63fde79be6e495cdaa49338790e2009896cd",
+        "short_sha": "8e1d63f",
+        "relationship": "descendant of the candidate; the v01-runtime evidence session ran here (documentation and evidence only, no product-code change)",
+        "ancestry_check": "git merge-base --is-ancestor 85a7fa3cc0a84c56ac2a5049ce08130db06e0a20 8e1d63fde79be6e495cdaa49338790e2009896cd -> exit 0, verified 2026-09-15",
+        "evidence": "docs/release/evidence/v01-runtime/providers/01-session-header.txt"
+      }
+    ]
+  },
+  "collection": {
+    "collected_at_utc": "2026-09-14T22:12:08Z",
+    "collected_at_local": "2026-09-15 05:12 +07",
+    "collected_by": "issue-ledger workstream pass (main-only), committed with issue #88",
+    "collection_method": "values read from the checked-in v01-06/v01-runtime evidence files, cross-checked against docs/release/risk-register.md and docs/release/0.1.0-readiness.md, and re-read from the GitHub API for the release run and its job/artifact ids",
+    "sources": [
+      "docs/release/0.1.0-readiness.md",
+      "docs/release/risk-register.md",
+      "docs/release/0.1.0-release-notes.md",
+      "docs/release/known-limitations.md",
+      "docs/release/evidence/v01-06/*",
+      "docs/release/evidence/v01-runtime/*"
+    ]
+  },
+  "claims": {
+    "internal_rc_ready": true,
+    "public_release_ready": false,
+    "public_release_blockers": [
+      {
+        "id": "R-LICENSE",
+        "kind": "owner_decision",
+        "detail": "no LICENSE file and no license metadata in any manifest; no license chosen"
+      },
+      {
+        "id": "R-SIGNING",
+        "kind": "external_resource",
+        "detail": "all three archives ship unsigned (macOS ad-hoc/linker-signed); no signing identity, certificate or notarization in this project"
+      },
+      {
+        "id": "GUI-SMOKE",
+        "kind": "external_resource",
+        "detail": "interactive packaged-runtime smoke not run (manual smoke 0 passed / 165 blocked); no window server or GUI automation available"
+      },
+      {
+        "id": "R-WINLINUX",
+        "kind": "external_resource",
+        "detail": "Windows and Linux runtime unverified; no host for either platform"
+      }
+    ]
+  },
+  "pipeline_run": {
+    "workflow": "Release Build",
+    "run_id": 34860902181,
+    "run_url": "https://github.com/truongnat/db-pro/actions/runs/34860902181",
+    "event": "workflow_dispatch",
+    "head_sha": "85a7fa3cc0a84c56ac2a5049ce08130db06e0a20",
+    "status": "completed",
+    "conclusion": "success",
+    "started_at": "2026-09-14T15:14:54Z",
+    "completed_at": "2026-09-14T15:25:57Z",
+    "run_ids_read_from": "gh run view 34860902181 --json databaseId,headSha,jobs (GitHub API, read 2026-09-15)",
+    "jobs": [
+      { "id": 104032537032, "name": "Resolve release candidate", "conclusion": "success" },
+      { "id": 104032606910, "name": "Pre-flight checks", "conclusion": "success" },
+      { "id": 104033674498, "name": "Build (Linux)", "conclusion": "success" },
+      { "id": 104033674530, "name": "Build (macOS)", "conclusion": "success" },
+      { "id": 104033674605, "name": "Build (Windows)", "conclusion": "success" },
+      { "id": 104036439830, "name": "Package (Windows)", "conclusion": "success" },
+      { "id": 104036439834, "name": "Package (macOS)", "conclusion": "success" },
+      { "id": 104036439867, "name": "Package (Linux)", "conclusion": "success" },
+      { "id": 104036590442, "name": "Assemble SHA256SUMS", "conclusion": "success" }
+    ]
+  },
+  "gates": [
+    {
+      "id": "rust.fmt",
+      "kind": "build",
+      "name": "Format",
+      "command": "cargo fmt --all -- --check",
+      "status": "pass",
+      "result": "exit 0",
+      "observed_at_sha": "85a7fa3cc0a84c56ac2a5049ce08130db06e0a20",
+      "run_job_id": 104032606910,
+      "evidence": [
+        "docs/release/evidence/v01-06/12-state-dir-blocker-fix.txt",
+        "docs/release/0.1.0-readiness.md"
+      ]
+    },
+    {
+      "id": "rust.check",
+      "kind": "build",
+      "name": "Check",
+      "command": "cargo check --workspace",
+      "status": "pass",
+      "result": "exit 0",
+      "observed_at_sha": "85a7fa3cc0a84c56ac2a5049ce08130db06e0a20",
+      "run_job_id": 104032606910,
+      "evidence": [
+        "docs/release/evidence/v01-06/12-state-dir-blocker-fix.txt",
+        "docs/release/0.1.0-readiness.md"
+      ]
+    },
+    {
+      "id": "rust.clippy",
+      "kind": "build",
+      "name": "Clippy",
+      "command": "cargo clippy --workspace --all-targets -- -D warnings",
+      "status": "pass",
+      "result": "exit 0, 0 warnings",
+      "observed_at_sha": "85a7fa3cc0a84c56ac2a5049ce08130db06e0a20",
+      "run_job_id": 104032606910,
+      "evidence": [
+        "docs/release/evidence/v01-06/12-state-dir-blocker-fix.txt",
+        "docs/release/0.1.0-readiness.md"
+      ]
+    },
+    {
+      "id": "rust.test",
+      "kind": "test",
+      "name": "Workspace tests",
+      "command": "cargo test --workspace",
+      "status": "pass",
+      "result": "815 passed / 0 failed / 19 ignored",
+      "observed_at_sha": "85a7fa3cc0a84c56ac2a5049ce08130db06e0a20",
+      "run_job_id": 104032606910,
+      "evidence": [
+        "docs/release/evidence/v01-06/12-state-dir-blocker-fix.txt",
+        "docs/release/evidence/v01-06/13-flaky-er-worker-test.txt"
+      ]
+    },
+    {
+      "id": "rust.release_build",
+      "kind": "build",
+      "name": "Release build",
+      "command": "cargo build --release --locked -p db-pro-native",
+      "status": "pass",
+      "result": "exit 0; local binary 23,733,024 bytes; CI macos-arm64 job artifact 23,716,592 bytes, sha256 cf40855baa980cdaba8d738f40d0bd88cde939225b8fb8e1834c7b80dfacb55c",
+      "observed_at_sha": "85a7fa3cc0a84c56ac2a5049ce08130db06e0a20",
+      "run_job_id": 104033674530,
+      "evidence": [
+        "docs/release/evidence/v01-06/12-state-dir-blocker-fix.txt",
+        "docs/release/0.1.0-readiness.md"
+      ]
+    },
+    {
+      "id": "perf.scan",
+      "kind": "perf",
+      "name": "Performance scan",
+      "command": "bash .skills/perf-audit/scripts/perf-scan.sh",
+      "status": "pass",
+      "result": "PASS — 4 passed / 0 warnings / 0 failed",
+      "observed_at_sha": "85a7fa3cc0a84c56ac2a5049ce08130db06e0a20",
+      "evidence": [
+        "docs/release/evidence/v01-06/12-state-dir-blocker-fix.txt",
+        "docs/release/0.1.0-readiness.md"
+      ]
+    },
+    {
+      "id": "frontend.release_gates",
+      "kind": "frontend",
+      "name": "Frontend release gates",
+      "status": "not_applicable",
+      "reason": "there is no frontend left in the shipping path: the React/Vite app was retired on 2026-09-11 and archived to _archive/frontend, .github/workflows/ci.yml declares a single Rust job and no Node/TS gate, and issue #84 is SUPERSEDED. Recorded as not applicable, never as pass.",
+      "observed_at_sha": "85a7fa3cc0a84c56ac2a5049ce08130db06e0a20",
+      "evidence": [
+        ".github/workflows/ci.yml",
+        "CHANGELOG.md",
+        "docs/plans/STATUS.md"
+      ]
+    },
+    {
+      "id": "postgres.integration_live",
+      "kind": "integration",
+      "name": "Live PostgreSQL integration suite",
+      "command": "DATABASE_URL=<redacted> cargo test -p db-pro-infrastructure --test pg_integration -- --ignored --test-threads=1",
+      "status": "pass",
+      "result": "18 passed / 0 failed / 0 ignored, exit 0 (PostgreSQL 16.15, container dbpro-v01-pg-fixture, host port 55432)",
+      "observed_at_sha": "8e1d63fde79be6e495cdaa49338790e2009896cd",
+      "evidence": [
+        "docs/release/evidence/v01-runtime/providers/07-pg-integration-live.txt",
+        "docs/release/evidence/v01-runtime/providers/08-workspace-tests-with-database-url.txt",
+        "docs/release/evidence/v01-runtime/providers/09-pg-post-test-state-and-counts.txt"
+      ]
+    },
+    {
+      "id": "sqlite.integration",
+      "kind": "integration",
+      "name": "SQLite integration suite",
+      "command": "cargo test --workspace (integration.rs target)",
+      "status": "pass",
+      "result": "integration.rs 32 passed / 0 failed / 0 ignored",
+      "observed_at_sha": "85a7fa3cc0a84c56ac2a5049ce08130db06e0a20",
+      "evidence": [
+        "docs/release/evidence/v01-06/12-state-dir-blocker-fix.txt"
+      ]
+    },
+    {
+      "id": "postgres.backup_restore_cli",
+      "kind": "integration",
+      "name": "PostgreSQL backup/restore at CLI level",
+      "status": "partial",
+      "reason": "pg_dump exits 0 and the restore completes fully, but pg_restore exits 1 under 18.4-client / 16.15-server skew ('SET transaction_timeout = 0'); version-matched 16.15 -> 16.15 round-trips exit 0. Recorded as finding F1/P2, not as a pass, and the app's own Backup/Restore action is not covered by this evidence at all.",
+      "observed_at_sha": "8e1d63fde79be6e495cdaa49338790e2009896cd",
+      "evidence": [
+        "docs/release/evidence/v01-runtime/providers/10-pg-backup-restore-commands.txt",
+        "docs/release/evidence/v01-runtime/providers/12-pg-restore-comparison-and-skew-control.txt",
+        "docs/release/evidence/v01-runtime/providers/14-pg-restore-version-matched-control.txt",
+        "docs/release/evidence/v01-runtime/providers/23-findings-and-dispositions.md"
+      ]
+    },
+    {
+      "id": "runtime.launch_after_extract",
+      "kind": "runtime",
+      "name": "Packaged app launch-after-extract",
+      "status": "partial",
+      "reason": "the macOS ARM64 bundle from the final run launches, stays alive past 30 s, keeps its state directory and reuses the same meta.db across relaunch, and /.db-pro-data stays absent — but no window was rendered or observed, so this is launch-after-extract only and not an interactive pass.",
+      "observed_at_sha": "85a7fa3cc0a84c56ac2a5049ce08130db06e0a20",
+      "evidence": [
+        "docs/release/evidence/v01-06/12-state-dir-blocker-fix.txt",
+        "docs/release/evidence/v01-06/14-install-smoke.txt",
+        "docs/release/evidence/v01-runtime/providers/17-launch-bc-state-dir.txt",
+        "docs/release/evidence/v01-runtime/providers/18-resolution-order-branches.txt"
+      ]
+    },
+    {
+      "id": "runtime.interactive_smoke",
+      "kind": "runtime",
+      "name": "Interactive packaged-runtime smoke",
+      "status": "not_run",
+      "reason": "not run in any environment available to this project: no window server and no GUI automation (Orca runtime unavailable, AppleScript TCC -1743, screencapture 'could not create image from display'), so the manual smoke checklist stands at 0 passed / 165 blocked / 0 failed and no screenshot exists. Owned by #91-#95; prepared by #90.",
+      "observed_at_sha": "85a7fa3cc0a84c56ac2a5049ce08130db06e0a20",
+      "evidence": [
+        "docs/release/0.1.0-manual-smoke.md",
+        "docs/release/evidence/v01-runtime/providers/21-gui-unavailability-probes.txt",
+        "docs/release/evidence/v01-06/14-install-smoke.txt"
+      ]
+    },
+    {
+      "id": "windows_linux.runtime",
+      "kind": "runtime",
+      "name": "Windows / Linux packaged runtime",
+      "status": "not_run",
+      "reason": "no Windows or Linux host exists in this project. Their build state is deliberately distinct: both compile and package successfully in CI (BUILD_VERIFIED) while remaining RUNTIME_UNVERIFIED.",
+      "observed_at_sha": "85a7fa3cc0a84c56ac2a5049ce08130db06e0a20",
+      "evidence": [
+        "docs/release/0.1.0-readiness.md",
+        "docs/release/risk-register.md",
+        "docs/release/platform-prerequisites.md"
+      ]
+    }
+  ],
+  "artifacts": [
+    {
+      "platform": "macOS ARM64",
+      "archive": "db-pro-v0.1.0-macos-arm64.tar.gz",
+      "contents": ["DB Pro.app/Contents/Info.plist", "DB Pro.app/Contents/MacOS/db-pro-native", "README-INSTALL.txt"],
+      "size_bytes": 10045965,
+      "sha256": "8141d6b7b7ecd98399dd9c2ca23c345da96df496abe0cd0169f9ab967bf2a83a",
+      "sha256_source": "run 34860902181 SHA256SUMS.txt; reproduced locally with shasum -a 256 (byte-for-byte)",
+      "github_artifact": { "id": 10356295122, "name": "db-pro-v0.1.0-macos-arm64.tar.gz", "uploaded_bytes": 10031898 },
+      "candidate_sha": "85a7fa3cc0a84c56ac2a5049ce08130db06e0a20",
+      "evidence": ["docs/release/0.1.0-readiness.md", "docs/release/risk-register.md"]
+    },
+    {
+      "platform": "Windows x86_64",
+      "archive": "db-pro-v0.1.0-windows-x86_64.zip",
+      "contents": ["db-pro-native.exe", "README-INSTALL.txt"],
+      "size_bytes": 10076835,
+      "sha256": "3b0ba8ebe8b7aa86d51a53eb1ddc7dd6f5adccaad57e6adc5d26536de4580452",
+      "sha256_source": "run 34860902181 SHA256SUMS.txt; reproduced locally with shasum -a 256 (byte-for-byte)",
+      "github_artifact": { "id": 10355870711, "name": "db-pro-v0.1.0-windows-x86_64.zip", "uploaded_bytes": 10070099 },
+      "candidate_sha": "85a7fa3cc0a84c56ac2a5049ce08130db06e0a20",
+      "evidence": ["docs/release/0.1.0-readiness.md", "docs/release/risk-register.md"]
+    },
+    {
+      "platform": "Linux x86_64",
+      "archive": "db-pro-v0.1.0-linux-x86_64.tar.gz",
+      "contents": ["db-pro-native", "README-INSTALL.txt"],
+      "size_bytes": 15168133,
+      "sha256": "3fecfc171dfae339c2c81d9f79be4616eb4168255116137d59e795ef09194970",
+      "sha256_source": "run 34860902181 SHA256SUMS.txt; reproduced locally with shasum -a 256 (byte-for-byte)",
+      "github_artifact": { "id": 10355207143, "name": "db-pro-v0.1.0-linux-x86_64.tar.gz", "uploaded_bytes": 15135017 },
+      "candidate_sha": "85a7fa3cc0a84c56ac2a5049ce08130db06e0a20",
+      "evidence": ["docs/release/0.1.0-readiness.md", "docs/release/risk-register.md"]
+    }
+  ],
+  "checksum_manifest": {
+    "name": "SHA256SUMS.txt",
+    "size_bytes": 298,
+    "lines": 3,
+    "covers": [
+      "db-pro-v0.1.0-macos-arm64.tar.gz",
+      "db-pro-v0.1.0-windows-x86_64.zip",
+      "db-pro-v0.1.0-linux-x86_64.tar.gz"
+    ],
+    "sha256": null,
+    "sha256_unavailable_reason": "the run does not hash SHA256SUMS.txt itself and it is not distributed as a separate published file, so there is no upstream value to compare against; its content is instead pinned by the three archive digests above, which were re-derived locally and matched. No self-referential hash is invented.",
+    "github_artifact": { "id": 10355007833, "name": "SHA256SUMS.txt", "uploaded_bytes": 333 },
+    "candidate_sha": "85a7fa3cc0a84c56ac2a5049ce08130db06e0a20",
+    "evidence": ["docs/release/0.1.0-readiness.md", "docs/release/0.1.0-packaging.md"]
+  },
+  "build_artifacts": [
+    {
+      "platform": "macOS ARM64",
+      "name": "db-pro-native",
+      "uploaded_bytes": 23716592,
+      "sha256": "cf40855baa980cdaba8d738f40d0bd88cde939225b8fb8e1834c7b80dfacb55c",
+      "sha256_source": "docs/release/0.1.0-readiness.md (Mach-O 64-bit arm64)",
+      "github_artifact": { "id": 10354569603, "name": "db-pro-native-macos-arm64-v0.1.0-85a7fa3cc0a8" },
+      "candidate_sha": "85a7fa3cc0a84c56ac2a5049ce08130db06e0a20"
+    },
+    {
+      "platform": "Windows x86_64",
+      "name": "db-pro-native.exe",
+      "uploaded_bytes": 24227840,
+      "sha256": null,
+      "sha256_unavailable_reason": "the intermediate Windows binary digest was not recorded in any evidence file; the packaged archive digest is the recorded identity for this platform",
+      "github_artifact": { "id": 10355206098, "name": "db-pro-native-windows-x86_64-v0.1.0-85a7fa3cc0a8" },
+      "candidate_sha": "85a7fa3cc0a84c56ac2a5049ce08130db06e0a20"
+    },
+    {
+      "platform": "Linux x86_64",
+      "name": "db-pro-native",
+      "uploaded_bytes": 41549112,
+      "sha256": null,
+      "sha256_unavailable_reason": "the intermediate Linux binary digest was not recorded in any evidence file; the packaged archive digest is the recorded identity for this platform",
+      "github_artifact": { "id": 10355107349, "name": "db-pro-native-linux-x86_64-v0.1.0-85a7fa3cc0a8" },
+      "candidate_sha": "85a7fa3cc0a84c56ac2a5049ce08130db06e0a20"
+    }
+  ],
+  "provenance": {
+    "github_artifact": { "id": 10355160017, "name": "db-pro-provenance-v0.1.0-85a7fa3cc0a8", "uploaded_bytes": 346 },
+    "file": "release-provenance.json",
+    "values": {
+      "candidate_sha": "85a7fa3cc0a84c56ac2a5049ce08130db06e0a20",
+      "short_sha": "85a7fa3",
+      "version": "0.1.0",
+      "rustc": "1.95.0 (59807616e 2026-04-14)",
+      "source_kind": "commit",
+      "event": "workflow_dispatch"
+    },
+    "candidate_sha": "85a7fa3cc0a84c56ac2a5049ce08130db06e0a20",
+    "evidence": ["docs/release/risk-register.md", ".github/workflows/release.yml"]
+  },
+  "signing": {
+    "status": "not_configured",
+    "macos": "ad-hoc / linker-signed only (Signature=adhoc, flags=0x20002(adhoc,linker-signed), TeamIdentifier=not set); spctl -a -vvv -t execute rejects it",
+    "windows": "no Authenticode signature",
+    "notarization": "not configured",
+    "secrets_used_by_workflows": "none",
+    "reason": "no signing identity, certificate or notarization credential exists in this project; this is a distribution blocker owned by the owner (HD-003 region of docs/release/0.1.0-human-decisions.md)",
+    "evidence": ["docs/release/0.1.0-release-notes.md", "docs/release/known-limitations.md", ".github/workflows/release.yml"]
+  },
+  "p2_dispositions": {
+    "status": "recorded",
+    "confirmed_findings": 25,
+    "reference": "docs/release/evidence/v01-06/06-rc1-p2-dispositions.md",
+    "counts": {
+      "obsolete_for_the_shipped_path": 24,
+      "carried_over_unverified": 20,
+      "satisfied_in_native": 1,
+      "not_applicable_in_native": 3
+    },
+    "note": "every one of the 25 recorded fixes targets the archived React frontend, so each finding is OBSOLETE as written and carries a separate native-side verdict; 0 are marked FIXED on the native path from the repository alone",
+    "evidence": ["docs/release/evidence/v01-06/06-rc1-p2-dispositions.md"]
+  },
+  "known_limitations": {
+    "status": "recorded",
+    "registry": "docs/release/known-limitations.md",
+    "user_facing_section": "docs/release/0.1.0-release-notes.md — 'Known limitations' / 'Not included in 0.1.0'",
+    "counts": {
+      "total": 18,
+      "accepted_v01": 11,
+      "blocked_decision": 4,
+      "deferred_v02_plus": 3,
+      "fix_before_v01": 0
+    },
+    "ids": [
+      "LIM-001", "LIM-002", "LIM-003", "LIM-004", "LIM-005", "LIM-006",
+      "LIM-007", "LIM-008", "LIM-009", "LIM-010", "LIM-011", "LIM-012",
+      "LIM-013", "LIM-014", "LIM-015", "LIM-016", "LIM-017", "LIM-018"
+    ],
+    "evidence": ["docs/release/known-limitations.md", "docs/release/0.1.0-release-notes.md"]
+  },
+  "handoff": {
+    "runtime_smoke_issue": "#29, #91, #92, #93, #94, #95 (all open; this manifest is their input)",
+    "publication_issue": "#31, #108, #109 (all open; publication is blocked by claims.public_release_ready = false)",
+    "freeze_issue": "#28 (open; FINAL_RC_SHA is declared by #89, which is open)",
+    "smoke_preparation": [
+      "docs/release/0.1.0-manual-smoke.md",
+      "docs/release/0.1.0-interactive-verification-runbook.md"
+    ],
+    "artifact_contract": "docs/release/0.1.0-packaging.md"
+  },
+  "superseded_history": [
+    {
+      "run_id": 34859158012,
+      "sha": "1a0c186",
+      "why_superseded": "pre-dates the packaged install-note correction that ships in the candidate",
+      "artifacts": [
+        { "archive": "db-pro-v0.1.0-macos-arm64.tar.gz", "size_bytes": 10045739, "sha256": "911335d0ad8623ea44cf6a1f011c227baf6979eeebce6a9ac4c92ddaa2d5f817" },
+        { "archive": "db-pro-v0.1.0-windows-x86_64.zip", "size_bytes": 10076654, "sha256": "62870d9a78f8edfaa7bcd800cf903e031da465ec1624c421d199aedcc01029fd" },
+        { "archive": "db-pro-v0.1.0-linux-x86_64.tar.gz", "size_bytes": 15167954, "sha256": "d28bbf3a55c56f927f283edf4cc47e90867f6c08d285f6dc7d7ea7b7424c54a8" }
+      ],
+      "evidence": ["docs/release/0.1.0-readiness.md"]
+    }
+  ]
+}
