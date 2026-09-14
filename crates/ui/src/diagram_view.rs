@@ -484,15 +484,6 @@ fn paint_diagram_grid(painter: &egui::Painter, rect: egui::Rect, zoom: f32, them
     }
 }
 
-#[allow(dead_code)]
-pub(super) fn diagram_edge_bounding_box(source_rect: egui::Rect, target_rect: egui::Rect, zoom: f32) -> egui::Rect {
-    let min_x = source_rect.min.x.min(target_rect.min.x) - 40.0 * zoom;
-    let max_x = source_rect.max.x.max(target_rect.max.x) + 40.0 * zoom;
-    let min_y = source_rect.min.y.min(target_rect.min.y) - 20.0 * zoom;
-    let max_y = source_rect.max.y.max(target_rect.max.y) + 20.0 * zoom;
-    egui::Rect::from_min_max(egui::pos2(min_x, min_y), egui::pos2(max_x, max_y))
-}
-
 pub(super) fn diagram_foreign_key_label(foreign_key: &UiSchemaForeignKey) -> String {
     if foreign_key.from_columns.len() > 1 || foreign_key.to_columns.len() > 1 {
         format!(

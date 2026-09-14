@@ -1,5 +1,5 @@
 use super::diagram_view::{
-    diagram_candidates, diagram_canvas_size, diagram_edge_bounding_box, diagram_foreign_key_label, diagram_search_mode,
+    diagram_candidates, diagram_canvas_size, diagram_foreign_key_label, diagram_search_mode,
     diagram_show_all_after_search_edit,
 };
 use super::*;
@@ -908,19 +908,6 @@ fn diagram_foreign_key_label_formats_single_and_composite_keys() {
         diagram_foreign_key_label(&composite_fk),
         "[tenant_id, order_id] → [tenant_id, id]"
     );
-}
-
-#[test]
-fn diagram_edge_bounding_box_expands_to_cover_both_nodes_with_margins() {
-    let source_rect = egui::Rect::from_min_size(egui::pos2(100.0, 100.0), egui::vec2(280.0, 160.0));
-    let target_rect = egui::Rect::from_min_size(egui::pos2(500.0, 300.0), egui::vec2(280.0, 160.0));
-    let bbox = diagram_edge_bounding_box(source_rect, target_rect, 1.0);
-    assert!(bbox.contains(source_rect.min));
-    assert!(bbox.contains(target_rect.max));
-    assert_eq!(bbox.min.x, 60.0); // 100 - 40
-    assert_eq!(bbox.max.x, 820.0); // 780 + 40
-    assert_eq!(bbox.min.y, 80.0); // 100 - 20
-    assert_eq!(bbox.max.y, 480.0); // 460 + 20
 }
 
 #[test]
