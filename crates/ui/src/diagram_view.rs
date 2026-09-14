@@ -1,4 +1,5 @@
 use super::*;
+pub use crate::diagram::*;
 
 impl DbProApp {
     pub(super) fn draw_diagram(&mut self, ui: &mut egui::Ui) {
@@ -6,42 +7,91 @@ impl DbProApp {
         let large_schema = all_table_count > ER_LARGE_SCHEMA_THRESHOLD;
         let search_query = self.diagram_search.trim().to_ascii_lowercase();
         let search_mode = diagram_search_mode(large_schema, self.diagram_show_all);
+
+        if self.schema.table_details.is_empty() {
+            self.draw_diagram_empty_state(ui, 0, false, false);
+            return;
+        }
+
         let render_limit = if !large_schema || self.diagram_show_all {
             all_table_count
         } else {
             ER_MAX_TABLES
         };
+
         let (_candidate_count, tables) =
             diagram_candidates(&self.schema.table_details, &search_query, search_mode, render_limit);
-        let visible_tables = tables.len().min(render_limit);
 
-        self.draw_diagram_toolbar(ui, large_schema, all_table_count, &tables, render_limit);
-        ui.add_space(10.0);
+        let grid_columns = if tables.len() <= 3 {
+            tables.len().max(1)
+        } else {
+            ((all_table_count as f32).sqrt().ceil() as usize).clamp(3, 10)
+        };
 
-        if search_mode && search_query.is_empty() {
-            self.draw_diagram_empty_state(ui, all_table_count, true, false);
-            return;
-        }
-
-        if tables.is_empty() {
-            self.draw_diagram_empty_state(
-                ui,
-                all_table_count,
-                search_mode,
-                search_mode && !search_query.is_empty(),
-            );
-            return;
-        }
-
-        let grid_columns = visible_tables.clamp(1, 3);
-        let max_visible_columns = tables
+        let max_visible_columns = self
+            .schema
+            .table_details
             .iter()
-            .take(render_limit)
+            .take(50)
             .map(|table| table.columns.len().clamp(1, ER_MAX_COLUMNS))
             .max()
             .unwrap_or(1);
         let node_height = ER_HEADER_HEIGHT + ER_ROW_HEIGHT * max_visible_columns as f32;
-        self.draw_diagram_canvas(ui, &tables, render_limit, grid_columns, node_height);
+
+        self.ensure_diagram_graph(grid_columns, node_height);
+
+        // Determine active table subset:
+        let active_node_indices: Option<Vec<usize>> = if search_mode && !search_query.is_empty() {
+            let seed_indices: Vec<usize> = self
+                .diagram_graph
+                .nodes
+                .iter()
+                .filter(|node| matches_diagram_search(&node.table, &search_query))
+                .map(|node| node.id)
+                .collect();
+            if seed_indices.is_empty() {
+                self.draw_diagram_toolbar(ui, large_schema, all_table_count, &tables, render_limit);
+                ui.add_space(10.0);
+                self.draw_diagram_empty_state(ui, all_table_count, true, true);
+                return;
+            }
+            Some(
+                self.diagram_graph
+                    .bfs_neighborhood(&seed_indices, self.diagram_neighborhood_depth, 100),
+            )
+        } else if search_mode && search_query.is_empty() {
+            self.draw_diagram_toolbar(ui, large_schema, all_table_count, &tables, render_limit);
+            ui.add_space(10.0);
+            self.draw_diagram_empty_state(ui, all_table_count, true, false);
+            return;
+        } else {
+            None
+        };
+
+        self.draw_diagram_toolbar(ui, large_schema, all_table_count, &tables, render_limit);
+        ui.add_space(10.0);
+
+        self.draw_diagram_canvas(ui, active_node_indices.as_deref());
+    }
+
+    fn ensure_diagram_graph(&mut self, grid_columns: usize, node_height: f32) {
+        let current_count = self.schema.table_details.len();
+        let graph_dirty = self.diagram_graph.nodes.len() != current_count
+            || self.diagram_graph.schema_version != self.diagram_schema_version;
+
+        if graph_dirty && current_count > 0 {
+            self.diagram_graph = ErGraph::build(
+                &self.schema.table_details,
+                self.diagram_schema_version,
+                grid_columns,
+                node_height,
+            );
+            self.diagram_spatial_index = ErSpatialIndex::build(
+                &self.diagram_graph.nodes,
+                &self.diagram_graph.edges,
+                DEFAULT_SPATIAL_CELL_SIZE,
+            );
+        }
     }
 }
 
@@ -97,12 +147,13 @@ impl DbProApp {
         tables: &[UiTableSummary],
         render_limit: usize,
     ) {
-        let visible_tables = tables.len().min(render_limit);
-        let relationship_count: usize = tables
-            .iter()
-            .take(render_limit)
-            .map(|table| table.foreign_keys.len())
-            .sum();
+        let visible_tables = if self.diagram_show_all || !large_schema {
+            all_table_count
+        } else {
+            tables.len().min(render_limit)
+        };
+        let relationship_count: usize = self.diagram_graph.edges.len();
+
         ui.horizontal_wrapped(|ui| {
             section_label(ui, "ER DIAGRAM", self.theme);
             ui.add_space(8.0);
@@ -114,17 +165,10 @@ impl DbProApp {
             );
             badge(
                 ui,
-                &format!("{} relationships", relationship_count.min(ER_MAX_EDGES)),
+                &format!("{relationship_count} relationships"),
                 self.theme.surface_hover,
                 self.theme.text_secondary,
             );
-            if tables.len() > render_limit {
-                ui.label(
-                    RichText::new("More tables outside view")
-                        .small()
-                        .color(self.theme.text_muted),
-                );
-            }
             if large_schema {
                 ui.separator();
                 let search_changed =
@@ -133,6 +177,20 @@ impl DbProApp {
                     diagram_show_all_after_search_edit(self.diagram_show_all, &self.diagram_search, search_changed);
                 let search_mode = diagram_search_mode(large_schema, self.diagram_show_all);
                 if search_mode {
+                    ui.label(RichText::new("Neighborhood:").small().color(self.theme.text_muted));
+                    if ui
+                        .selectable_label(self.diagram_neighborhood_depth == 1, "1 hop")
+                        .clicked()
+                    {
+                        self.diagram_neighborhood_depth = 1;
+                    }
+                    if ui
+                        .selectable_label(self.diagram_neighborhood_depth == 2, "2 hops")
+                        .clicked()
+                    {
+                        self.diagram_neighborhood_depth = 2;
+                    }
+                    ui.add_space(4.0);
                     if secondary_button_with_icon(
                         ui,
                         Icon::Workflow,
@@ -188,7 +246,7 @@ impl DbProApp {
                     "Try a different table or column name.".to_owned()
                 } else if search_mode {
                     format!(
-                        "This schema has {all_table_count} tables. Search by table or column to open a focused map, or show all tables explicitly."
+                        "This schema has {all_table_count} tables. Search by table or column to open a focused neighborhood map, or show all tables explicitly."
                     )
                 } else {
                     "Connect to a database and load its tables to see the relationship map.".to_owned()
@@ -207,25 +265,10 @@ impl DbProApp {
 }
 
 impl DbProApp {
-    fn draw_diagram_canvas(
-        &mut self,
-        ui: &mut egui::Ui,
-        tables: &[UiTableSummary],
-        render_limit: usize,
-        grid_columns: usize,
-        node_height: f32,
-    ) {
-        let visible_tables = tables.len().min(render_limit);
-        let grid_rows = visible_tables.div_ceil(grid_columns);
-        let canvas_width = (ER_CANVAS_MARGIN * 2.0
-            + grid_columns as f32 * ER_NODE_WIDTH
-            + (grid_columns.saturating_sub(1)) as f32 * ER_GAP_X)
-            * self.diagram_zoom;
-        let canvas_height =
-            (ER_CANVAS_MARGIN * 2.0 + grid_rows as f32 * node_height + (grid_rows.saturating_sub(1)) as f32 * ER_GAP_Y)
-                * self.diagram_zoom;
+    fn draw_diagram_canvas(&mut self, ui: &mut egui::Ui, active_filter: Option<&[usize]>) {
+        let world_size = self.diagram_graph.world_bounds.size();
         let viewport_size = egui::vec2(ui.available_width(), ui.available_height());
-        let canvas_size = diagram_canvas_size(egui::vec2(canvas_width, canvas_height), viewport_size);
+        let canvas_size = diagram_canvas_size(world_size * self.diagram_zoom, viewport_size);
         let zoom = self.diagram_zoom;
         let pan = self.diagram_pan;
         let theme = self.theme;
@@ -239,30 +282,43 @@ impl DbProApp {
             egui::ScrollArea::both().auto_shrink([false, false]).show(ui, |ui| {
                 let (response, painter) = ui.allocate_painter(canvas_size, Sense::click_and_drag());
                 paint_diagram_grid(&painter, response.rect, zoom, theme);
-                let nodes = diagram_nodes(
-                    tables,
-                    render_limit,
-                    grid_columns,
-                    node_height,
-                    response.rect.min + pan,
-                    zoom,
+
+                let viewport = ErViewport::new(pan, zoom, response.rect.min);
+                let scene = prepare_render_scene(
+                    &self.diagram_graph,
+                    &self.diagram_spatial_index,
+                    &viewport,
+                    response.rect,
+                    active_filter,
                 );
-                let viewport = painter.clip_rect();
-                paint_diagram_edges(&painter, &nodes, zoom, theme);
-                for node in &nodes {
-                    if !viewport.intersects(node.rect) {
-                        continue;
+
+                // Paint visible edges:
+                paint_scene_edges(&painter, &self.diagram_graph, &scene, &viewport, theme);
+
+                // Paint visible nodes:
+                let selected_table_name = self.selected_table.as_deref();
+                for &node_id in &scene.visible_nodes {
+                    if let Some(node) = self.diagram_graph.nodes.get(node_id) {
+                        let screen_rect = viewport.world_to_screen_rect(node.world_rect);
+                        let selected = selected_table_name == Some(node.table.name.as_str());
+                        paint_er_node_lod(&painter, node, screen_rect, selected, scene.lod, zoom, theme);
                     }
-                    let selected = self.selected_table.as_deref() == Some(node.table.name.as_str());
-                    paint_er_node(&painter, node, selected, zoom, theme);
                 }
 
                 draw_diagram_zoom_controls(ui, response.rect, &mut self.diagram_zoom, &mut self.diagram_pan, theme);
                 self.update_diagram_pan(&response);
+
                 if response.clicked() {
                     if let Some(pointer) = response.interact_pointer_pos() {
-                        if let Some(node) = nodes.iter().find(|node| node.rect.contains(pointer)) {
-                            self.open_diagram_table(&node.table.name);
+                        let world_pos = viewport.screen_to_world_pos(pointer);
+                        if let Some(hit_id) = self
+                            .diagram_spatial_index
+                            .hit_test_node(world_pos, &self.diagram_graph.nodes)
+                        {
+                            let table_name = self.diagram_graph.nodes.get(hit_id).map(|node| node.table.name.clone());
+                            if let Some(name) = table_name {
+                                self.open_diagram_table(&name);
+                            }
                         }
                     }
                 }
@@ -369,57 +425,7 @@ fn paint_diagram_grid(painter: &egui::Painter, rect: egui::Rect, zoom: f32, them
     }
 }
 
-fn diagram_nodes(
-    tables: &[UiTableSummary],
-    render_limit: usize,
-    grid_columns: usize,
-    node_height: f32,
-    origin: egui::Pos2,
-    zoom: f32,
-) -> Vec<ErNode> {
-    tables
-        .iter()
-        .take(render_limit)
-        .enumerate()
-        .map(|(index, table)| {
-            let column = index % grid_columns;
-            let row = index / grid_columns;
-            let position = origin
-                + egui::vec2(
-                    (ER_CANVAS_MARGIN + column as f32 * (ER_NODE_WIDTH + ER_GAP_X)) * zoom,
-                    (ER_CANVAS_MARGIN + row as f32 * (node_height + ER_GAP_Y)) * zoom,
-                );
-            ErNode {
-                table: table.clone(),
-                rect: egui::Rect::from_min_size(position, egui::vec2(ER_NODE_WIDTH * zoom, node_height * zoom)),
-            }
-        })
-        .collect()
-}
-
-fn paint_diagram_edges(painter: &egui::Painter, nodes: &[ErNode], zoom: f32, theme: DbProTheme) {
-    let node_lookup = nodes
-        .iter()
-        .enumerate()
-        .map(|(index, node)| ((node.table.schema.as_str(), node.table.name.as_str()), index))
-        .collect::<HashMap<_, _>>();
-    let viewport = painter.clip_rect();
-    for source_node in nodes {
-        for foreign_key in &source_node.table.foreign_keys {
-            let Some(target_index) = node_lookup.get(&(foreign_key.to_schema.as_str(), foreign_key.to_table.as_str()))
-            else {
-                continue;
-            };
-            let target_node = &nodes[*target_index];
-            let edge_rect = diagram_edge_bounding_box(source_node.rect, target_node.rect, zoom);
-            if !viewport.intersects(edge_rect) {
-                continue;
-            }
-            paint_diagram_edge(painter, source_node, target_node, foreign_key, zoom, theme);
-        }
-    }
-}
-
+#[allow(dead_code)]
 pub(super) fn diagram_edge_bounding_box(source_rect: egui::Rect, target_rect: egui::Rect, zoom: f32) -> egui::Rect {
     let min_x = source_rect.min.x.min(target_rect.min.x) - 40.0 * zoom;
     let max_x = source_rect.max.x.max(target_rect.max.x) + 40.0 * zoom;
@@ -444,46 +450,213 @@ pub(super) fn diagram_foreign_key_label(foreign_key: &UiSchemaForeignKey) -> Str
     }
 }
 
-fn paint_diagram_edge(
+fn paint_scene_edges(
     painter: &egui::Painter,
-    source_node: &ErNode,
-    target_node: &ErNode,
-    foreign_key: &UiSchemaForeignKey,
+    graph: &ErGraph,
+    scene: &ErRenderScene,
+    viewport: &ErViewport,
+    theme: DbProTheme,
+) {
+    for &edge_id in &scene.visible_edges {
+        let Some(edge) = graph.edges.get(edge_id) else {
+            continue;
+        };
+        let Some(source_node) = graph.nodes.get(edge.source) else {
+            continue;
+        };
+        let Some(target_node) = graph.nodes.get(edge.target) else {
+            continue;
+        };
+
+        let source_on_right = source_node.world_rect.center().x < target_node.world_rect.center().x;
+        let from_world = source_node.column_anchor(
+            edge.foreign_key.from_columns.first().map(String::as_str),
+            source_on_right,
+            scene.lod.max_columns(),
+        );
+        let to_world = target_node.column_anchor(
+            edge.foreign_key.to_columns.first().map(String::as_str),
+            !source_on_right,
+            scene.lod.max_columns(),
+        );
+
+        let from = viewport.world_to_screen_pos(from_world);
+        let to = viewport.world_to_screen_pos(to_world);
+
+        let bend_x = (from.x + to.x) / 2.0;
+        let bend_a = egui::pos2(bend_x, from.y);
+        let bend_b = egui::pos2(bend_x, to.y);
+        let stroke = egui::Stroke::new(1.2, theme.accent);
+        painter.line_segment([from, bend_a], stroke);
+        painter.line_segment([bend_a, bend_b], stroke);
+        painter.line_segment([bend_b, to], stroke);
+
+        if scene.lod.shows_edge_labels() {
+            let label = diagram_foreign_key_label(&edge.foreign_key);
+            let display_label = if label.len() > 36 {
+                format!("{}…", &label[..34])
+            } else {
+                label
+            };
+            let label_position = egui::pos2(bend_x, (from.y + to.y) / 2.0);
+            let label_galley =
+                painter.layout_no_wrap(display_label.clone(), FontId::proportional(10.0), theme.text_secondary);
+            let label_rect = egui::Rect::from_center_size(label_position, label_galley.size() + egui::vec2(8.0, 4.0));
+            painter.rect_filled(label_rect, egui::Rounding::same(3.0), theme.surface_panel);
+            painter.text(
+                label_position,
+                egui::Align2::CENTER_CENTER,
+                display_label,
+                FontId::proportional(10.0),
+                theme.text_secondary,
+            );
+        }
+    }
+}
+
+fn paint_er_node_lod(
+    painter: &egui::Painter,
+    node: &ErNode,
+    screen_rect: egui::Rect,
+    selected: bool,
+    lod: ErLod,
     zoom: f32,
     theme: DbProTheme,
 ) {
-    let source_on_right = source_node.rect.center().x < target_node.rect.center().x;
-    let from = er_column_anchor(
-        source_node,
-        foreign_key.from_columns.first().map(String::as_str),
-        source_on_right,
-        zoom,
-    );
-    let to = er_column_anchor(
-        target_node,
-        foreign_key.to_columns.first().map(String::as_str),
-        !source_on_right,
-        zoom,
-    );
-    let bend_x = (from.x + to.x) / 2.0;
-    let bend_a = egui::pos2(bend_x, from.y);
-    let bend_b = egui::pos2(bend_x, to.y);
-    let stroke = egui::Stroke::new(1.2, theme.accent);
-    painter.line_segment([from, bend_a], stroke);
-    painter.line_segment([bend_a, bend_b], stroke);
-    painter.line_segment([bend_b, to], stroke);
-    let label = diagram_foreign_key_label(foreign_key);
-    let label_position = egui::pos2(bend_x, (from.y + to.y) / 2.0);
-    let label_galley = painter.layout_no_wrap(label.clone(), FontId::proportional(10.0), theme.text_secondary);
-    let label_rect = egui::Rect::from_center_size(label_position, label_galley.size() + egui::vec2(8.0, 4.0));
-    painter.rect_filled(label_rect, egui::Rounding::same(3.0), theme.surface_panel);
-    painter.text(
-        label_position,
-        egui::Align2::CENTER_CENTER,
-        label,
-        FontId::proportional(10.0),
-        theme.text_secondary,
-    );
+    match lod {
+        ErLod::Compact => {
+            // Compact pill card: only header with table name and PK count
+            painter.rect_filled(screen_rect, egui::Rounding::same(6.0), theme.surface_panel);
+            painter.rect_stroke(
+                screen_rect,
+                egui::Rounding::same(6.0),
+                egui::Stroke::new(1.0, if selected { theme.accent } else { theme.border_default }),
+            );
+            let header_fill = if selected {
+                theme.accent_soft
+            } else {
+                theme.surface_hover
+            };
+            painter.rect_filled(screen_rect, egui::Rounding::same(6.0), header_fill);
+            painter.text(
+                screen_rect.center_top() + egui::vec2(0.0, 14.0 * zoom),
+                egui::Align2::CENTER_CENTER,
+                &node.table.name,
+                FontId::proportional((12.0 * zoom).clamp(8.0, 14.0)),
+                theme.text_primary,
+            );
+            let pk_count = node.table.columns.iter().filter(|c| c.is_primary_key).count();
+            if pk_count > 0 {
+                painter.text(
+                    egui::pos2(screen_rect.right() - 8.0 * zoom, screen_rect.center().y),
+                    egui::Align2::RIGHT_CENTER,
+                    format!("{pk_count} PK"),
+                    FontId::proportional((9.0 * zoom).clamp(7.0, 11.0)),
+                    theme.warning,
+                );
+            }
+        }
+        ErLod::Standard | ErLod::Detailed => {
+            // Header:
+            painter.rect_filled(screen_rect, egui::Rounding::same(8.0), theme.surface_panel);
+            painter.rect_stroke(
+                screen_rect,
+                egui::Rounding::same(8.0),
+                egui::Stroke::new(1.0, if selected { theme.accent } else { theme.border_default }),
+            );
+            let header_height = ER_HEADER_HEIGHT * zoom;
+            let header_rect = egui::Rect::from_min_max(
+                screen_rect.min,
+                egui::pos2(screen_rect.max.x, screen_rect.min.y + header_height),
+            );
+            let header_fill = if selected {
+                theme.accent_soft
+            } else {
+                theme.surface_hover
+            };
+            painter.rect_filled(header_rect, egui::Rounding::same(8.0), header_fill);
+            painter.rect_filled(
+                egui::Rect::from_min_max(
+                    egui::pos2(header_rect.min.x, header_rect.max.y - 8.0 * zoom),
+                    header_rect.max,
+                ),
+                egui::Rounding::ZERO,
+                header_fill,
+            );
+            painter.text(
+                screen_rect.min + egui::vec2(14.0 * zoom, 20.0 * zoom),
+                egui::Align2::LEFT_CENTER,
+                format!("{}.{}", node.table.schema, node.table.name),
+                FontId::proportional(13.0 * zoom),
+                theme.text_primary,
+            );
+            painter.text(
+                egui::pos2(screen_rect.max.x - 12.0 * zoom, screen_rect.min.y + 20.0 * zoom),
+                egui::Align2::RIGHT_CENTER,
+                "TABLE",
+                FontId::proportional(9.0 * zoom),
+                theme.text_muted,
+            );
+
+            // Columns:
+            let max_cols = lod.max_columns();
+            for (index, column) in node.table.columns.iter().take(max_cols).enumerate() {
+                let row_top = screen_rect.min.y + (ER_HEADER_HEIGHT + index as f32 * ER_ROW_HEIGHT) * zoom;
+                let row_rect = egui::Rect::from_min_max(
+                    egui::pos2(screen_rect.min.x, row_top),
+                    egui::pos2(screen_rect.max.x, row_top + ER_ROW_HEIGHT * zoom),
+                );
+                if index % 2 == 0 {
+                    painter.rect_filled(row_rect, egui::Rounding::ZERO, theme.surface_app);
+                }
+                let is_foreign_key = node
+                    .table
+                    .foreign_keys
+                    .iter()
+                    .any(|foreign_key| foreign_key.from_columns.iter().any(|name| name == &column.name));
+                let marker_color = if column.is_primary_key {
+                    theme.warning
+                } else if is_foreign_key {
+                    theme.accent
+                } else {
+                    theme.border_strong
+                };
+                painter.circle_filled(
+                    egui::pos2(row_rect.min.x + 13.0 * zoom, row_rect.center().y),
+                    3.0 * zoom,
+                    marker_color,
+                );
+                painter.text(
+                    egui::pos2(row_rect.min.x + 23.0 * zoom, row_rect.center().y),
+                    egui::Align2::LEFT_CENTER,
+                    &column.name,
+                    FontId::proportional(11.0 * zoom),
+                    theme.text_primary,
+                );
+                if lod.shows_data_types() {
+                    painter.text(
+                        egui::pos2(row_rect.max.x - 12.0 * zoom, row_rect.center().y),
+                        egui::Align2::RIGHT_CENTER,
+                        &column.data_type,
+                        FontId::monospace(10.0 * zoom),
+                        theme.text_secondary,
+                    );
+                }
+            }
+            if node.table.columns.len() > max_cols {
+                painter.text(
+                    egui::pos2(
+                        screen_rect.min.x + 14.0 * zoom,
+                        screen_rect.min.y + (ER_HEADER_HEIGHT + ER_ROW_HEIGHT * (max_cols as f32 - 0.5)) * zoom,
+                    ),
+                    egui::Align2::LEFT_CENTER,
+                    format!("+ {} more columns", node.table.columns.len() - max_cols),
+                    FontId::proportional(10.0 * zoom),
+                    theme.text_muted,
+                );
+            }
+        }
+    }
 }
 
 fn draw_diagram_zoom_controls(
@@ -511,7 +684,7 @@ fn draw_diagram_zoom_controls(
                     .on_hover_text("Zoom out")
                     .clicked()
                 {
-                    *zoom = (*zoom - 0.1).clamp(0.7, 1.5);
+                    *zoom = (*zoom - 0.1).clamp(0.5, 2.0);
                 }
                 ui.label(
                     RichText::new(format!("{:.0}%", *zoom * 100.0))
@@ -522,7 +695,7 @@ fn draw_diagram_zoom_controls(
                     .on_hover_text("Zoom in")
                     .clicked()
                 {
-                    *zoom = (*zoom + 0.1).clamp(0.7, 1.5);
+                    *zoom = (*zoom + 0.1).clamp(0.5, 2.0);
                 }
                 if compact_icon_button(ui, Icon::Square, theme)
                     .on_hover_text("Fit diagram")
@@ -534,106 +707,4 @@ fn draw_diagram_zoom_controls(
             });
         });
     });
-}
-
-fn paint_er_node(painter: &egui::Painter, node: &ErNode, selected: bool, zoom: f32, theme: DbProTheme) {
-    paint_er_node_header(painter, node, selected, zoom, theme);
-    paint_er_node_columns(painter, node, zoom, theme);
-}
-
-fn paint_er_node_header(painter: &egui::Painter, node: &ErNode, selected: bool, zoom: f32, theme: DbProTheme) {
-    painter.rect_filled(node.rect, egui::Rounding::same(8.0), theme.surface_panel);
-    painter.rect_stroke(
-        node.rect,
-        egui::Rounding::same(8.0),
-        egui::Stroke::new(1.0, if selected { theme.accent } else { theme.border_default }),
-    );
-    let header_rect = egui::Rect::from_min_max(
-        node.rect.min,
-        egui::pos2(node.rect.max.x, node.rect.min.y + ER_HEADER_HEIGHT * zoom),
-    );
-    let header_fill = if selected {
-        theme.accent_soft
-    } else {
-        theme.surface_hover
-    };
-    painter.rect_filled(header_rect, egui::Rounding::same(8.0), header_fill);
-    painter.rect_filled(
-        egui::Rect::from_min_max(
-            egui::pos2(header_rect.min.x, header_rect.max.y - 8.0 * zoom),
-            header_rect.max,
-        ),
-        egui::Rounding::ZERO,
-        header_fill,
-    );
-    painter.text(
-        node.rect.min + egui::vec2(14.0 * zoom, 20.0 * zoom),
-        egui::Align2::LEFT_CENTER,
-        format!("{}.{}", node.table.schema, node.table.name),
-        FontId::proportional(13.0 * zoom),
-        theme.text_primary,
-    );
-    painter.text(
-        egui::pos2(node.rect.max.x - 12.0 * zoom, node.rect.min.y + 20.0 * zoom),
-        egui::Align2::RIGHT_CENTER,
-        "TABLE",
-        FontId::proportional(9.0 * zoom),
-        theme.text_muted,
-    );
-}
-
-fn paint_er_node_columns(painter: &egui::Painter, node: &ErNode, zoom: f32, theme: DbProTheme) {
-    for (index, column) in node.table.columns.iter().take(ER_MAX_COLUMNS).enumerate() {
-        let row_top = node.rect.min.y + (ER_HEADER_HEIGHT + index as f32 * ER_ROW_HEIGHT) * zoom;
-        let row_rect = egui::Rect::from_min_max(
-            egui::pos2(node.rect.min.x, row_top),
-            egui::pos2(node.rect.max.x, row_top + ER_ROW_HEIGHT * zoom),
-        );
-        if index % 2 == 0 {
-            painter.rect_filled(row_rect, egui::Rounding::ZERO, theme.surface_app);
-        }
-        let is_foreign_key = node
-            .table
-            .foreign_keys
-            .iter()
-            .any(|foreign_key| foreign_key.from_columns.iter().any(|name| name == &column.name));
-        let marker_color = if column.is_primary_key {
-            theme.warning
-        } else if is_foreign_key {
-            theme.accent
-        } else {
-            theme.border_strong
-        };
-        painter.circle_filled(
-            egui::pos2(row_rect.min.x + 13.0 * zoom, row_rect.center().y),
-            3.0 * zoom,
-            marker_color,
-        );
-        painter.text(
-            egui::pos2(row_rect.min.x + 23.0 * zoom, row_rect.center().y),
-            egui::Align2::LEFT_CENTER,
-            &column.name,
-            FontId::proportional(11.0 * zoom),
-            theme.text_primary,
-        );
-        painter.text(
-            egui::pos2(row_rect.max.x - 12.0 * zoom, row_rect.center().y),
-            egui::Align2::RIGHT_CENTER,
-            &column.data_type,
-            FontId::monospace(10.0 * zoom),
-            theme.text_secondary,
-        );
-    }
-    if node.table.columns.len() > ER_MAX_COLUMNS {
-        painter.text(
-            egui::pos2(
-                node.rect.min.x + 14.0 * zoom,
-                node.rect.min.y + (ER_HEADER_HEIGHT + ER_ROW_HEIGHT * 7.5) * zoom,
-            ),
-            egui::Align2::LEFT_CENTER,
-            format!("+ {} more columns", node.table.columns.len() - ER_MAX_COLUMNS),
-            FontId::proportional(10.0 * zoom),
-            theme.text_muted,
-        );
-    }
 }

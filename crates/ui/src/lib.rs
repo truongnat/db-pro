@@ -1,6 +1,7 @@
 mod agent;
 mod app;
 pub mod components;
+pub mod diagram;
 pub mod editor;
 pub mod query;
 mod result_grid;

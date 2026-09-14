@@ -167,42 +167,9 @@ const OUTPUT_MIN_HEIGHT: f32 = 120.0;
 const OUTPUT_MAX_HEIGHT: f32 = 420.0;
 const TABLE_PAGE_SIZE: u64 = 100;
 const GRID_ROW_NUMBER_WIDTH: f32 = 48.0;
-const ER_MAX_TABLES: usize = 5;
-const ER_MAX_COLUMNS: usize = 8;
-const ER_MAX_EDGES: usize = 6;
-const ER_LARGE_SCHEMA_THRESHOLD: usize = 200;
+pub use crate::diagram::{ErGraph, ErSpatialIndex};
+
 const EXPLORER_MAX_TABLES: usize = 100;
-const ER_NODE_WIDTH: f32 = 280.0;
-const ER_HEADER_HEIGHT: f32 = 40.0;
-const ER_ROW_HEIGHT: f32 = 24.0;
-const ER_GAP_X: f32 = 84.0;
-const ER_GAP_Y: f32 = 76.0;
-const ER_CANVAS_MARGIN: f32 = 48.0;
-
-#[derive(Debug, Clone)]
-struct ErNode {
-    table: UiTableSummary,
-    rect: egui::Rect,
-}
-
-fn er_column_anchor(node: &ErNode, column: Option<&str>, right_side: bool, zoom: f32) -> egui::Pos2 {
-    let column_index = column
-        .and_then(|name| node.table.columns.iter().position(|item| item.name == name))
-        .unwrap_or(0);
-    let y = if node.table.columns.is_empty() {
-        node.rect.center().y
-    } else {
-        node.rect.top() + ER_HEADER_HEIGHT * zoom + ER_ROW_HEIGHT * zoom * (column_index as f32 + 0.5)
-    };
-    egui::pos2(
-        if right_side {
-            node.rect.right()
-        } else {
-            node.rect.left()
-        },
-        y,
-    )
-}
 
 fn matches_diagram_search(table: &UiTableSummary, query: &str) -> bool {
     table.name.to_ascii_lowercase().contains(query)
@@ -395,6 +362,10 @@ pub struct DbProApp {
     diagram_pan_origin: Option<egui::Vec2>,
     diagram_search: String,
     diagram_show_all: bool,
+    diagram_neighborhood_depth: usize,
+    diagram_graph: ErGraph,
+    diagram_spatial_index: ErSpatialIndex,
+    diagram_schema_version: u64,
     table_info: Option<UiTableInfo>,
     table_ddl: Option<String>,
     table_info_error: Option<String>,

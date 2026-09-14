@@ -3,7 +3,8 @@ use super::diagram_view::{
     diagram_show_all_after_search_edit,
 };
 use super::*;
-use crate::{UiCheckConstraint, UiDependencyDirection, UiDependencyKind, UiTableDependency};
+use crate::diagram::*;
+use crate::{UiCheckConstraint, UiDependencyDirection, UiDependencyKind, UiSchemaColumn, UiTableDependency};
 
 fn result() -> UiQueryResult {
     UiQueryResult {
@@ -920,6 +921,220 @@ fn diagram_edge_bounding_box_expands_to_cover_both_nodes_with_margins() {
     assert_eq!(bbox.max.x, 820.0); // 780 + 40
     assert_eq!(bbox.min.y, 80.0); // 100 - 20
     assert_eq!(bbox.max.y, 480.0); // 460 + 20
+}
+
+#[test]
+fn diagram_viewport_coordinate_transformations_roundtrip() {
+    let screen_origin = egui::pos2(50.0, 100.0);
+    let pan = egui::vec2(20.0, -30.0);
+    let zoom = 1.5;
+    let viewport = ErViewport::new(pan, zoom, screen_origin);
+
+    let world_pos = egui::pos2(300.0, 400.0);
+    let screen_pos = viewport.world_to_screen_pos(world_pos);
+    let roundtrip_world = viewport.screen_to_world_pos(screen_pos);
+
+    assert!((world_pos.x - roundtrip_world.x).abs() < 1e-4);
+    assert!((world_pos.y - roundtrip_world.y).abs() < 1e-4);
+
+    let world_rect = egui::Rect::from_min_size(world_pos, egui::vec2(280.0, 160.0));
+    let screen_rect = viewport.world_to_screen_rect(world_rect);
+    let roundtrip_rect = viewport.screen_to_world_rect(screen_rect);
+
+    assert!((world_rect.min.x - roundtrip_rect.min.x).abs() < 1e-4);
+    assert!((world_rect.max.x - roundtrip_rect.max.x).abs() < 1e-4);
+    assert!((world_rect.min.y - roundtrip_rect.min.y).abs() < 1e-4);
+    assert!((world_rect.max.y - roundtrip_rect.max.y).abs() < 1e-4);
+}
+
+#[test]
+fn diagram_lod_transitions_and_rules() {
+    let compact = ErLod::from_zoom(0.6);
+    assert_eq!(compact, ErLod::Compact);
+    assert!(!compact.shows_columns());
+    assert!(!compact.shows_edge_labels());
+    assert_eq!(compact.max_columns(), 0);
+
+    let standard = ErLod::from_zoom(1.0);
+    assert_eq!(standard, ErLod::Standard);
+    assert!(standard.shows_columns());
+    assert!(standard.shows_edge_labels());
+    assert_eq!(standard.max_columns(), 6);
+
+    let detailed = ErLod::from_zoom(1.4);
+    assert_eq!(detailed, ErLod::Detailed);
+    assert!(detailed.shows_columns());
+    assert!(detailed.shows_edge_labels());
+    assert_eq!(detailed.max_columns(), 12);
+}
+
+#[test]
+fn diagram_bfs_neighborhood_expansion() {
+    let tables = vec![
+        UiTableSummary {
+            schema: "public".to_owned(),
+            name: "users".to_owned(),
+            row_count: Some(100),
+            columns: vec![UiSchemaColumn {
+                name: "id".to_owned(),
+                data_type: "int".to_owned(),
+                nullable: false,
+                is_primary_key: true,
+            }],
+            foreign_keys: vec![],
+        },
+        UiTableSummary {
+            schema: "public".to_owned(),
+            name: "orders".to_owned(),
+            row_count: Some(500),
+            columns: vec![
+                UiSchemaColumn {
+                    name: "id".to_owned(),
+                    data_type: "int".to_owned(),
+                    nullable: false,
+                    is_primary_key: true,
+                },
+                UiSchemaColumn {
+                    name: "user_id".to_owned(),
+                    data_type: "int".to_owned(),
+                    nullable: false,
+                    is_primary_key: false,
+                },
+            ],
+            foreign_keys: vec![UiSchemaForeignKey {
+                name: "fk_order_user".to_owned(),
+                from_columns: vec!["user_id".to_owned()],
+                to_schema: "public".to_owned(),
+                to_table: "users".to_owned(),
+                to_columns: vec!["id".to_owned()],
+            }],
+        },
+        UiTableSummary {
+            schema: "public".to_owned(),
+            name: "order_items".to_owned(),
+            row_count: Some(2000),
+            columns: vec![
+                UiSchemaColumn {
+                    name: "id".to_owned(),
+                    data_type: "int".to_owned(),
+                    nullable: false,
+                    is_primary_key: true,
+                },
+                UiSchemaColumn {
+                    name: "order_id".to_owned(),
+                    data_type: "int".to_owned(),
+                    nullable: false,
+                    is_primary_key: false,
+                },
+            ],
+            foreign_keys: vec![UiSchemaForeignKey {
+                name: "fk_item_order".to_owned(),
+                from_columns: vec!["order_id".to_owned()],
+                to_schema: "public".to_owned(),
+                to_table: "orders".to_owned(),
+                to_columns: vec!["id".to_owned()],
+            }],
+        },
+        UiTableSummary {
+            schema: "public".to_owned(),
+            name: "logs".to_owned(),
+            row_count: Some(50),
+            columns: vec![UiSchemaColumn {
+                name: "id".to_owned(),
+                data_type: "int".to_owned(),
+                nullable: false,
+                is_primary_key: true,
+            }],
+            foreign_keys: vec![],
+        },
+    ];
+
+    let graph = ErGraph::build(&tables, 1, 2, 120.0);
+
+    // 1-hop neighborhood from users (index 0) -> users + orders
+    let hop1 = graph.bfs_neighborhood(&[0], 1, 10);
+    assert_eq!(hop1.len(), 2);
+    assert!(hop1.contains(&0)); // users
+    assert!(hop1.contains(&1)); // orders
+    assert!(!hop1.contains(&2)); // order_items is 2 hops away
+
+    // 2-hop neighborhood from users (index 0) -> users + orders + order_items
+    let hop2 = graph.bfs_neighborhood(&[0], 2, 10);
+    assert_eq!(hop2.len(), 3);
+    assert!(hop2.contains(&0));
+    assert!(hop2.contains(&1));
+    assert!(hop2.contains(&2));
+    assert!(!hop2.contains(&3)); // logs is disconnected
+}
+
+#[test]
+fn diagram_graph_and_spatial_index_support_1000_table_scaling() {
+    // Generate 1000 tables with realistic FK connections (every 3rd table references table 0 or previous)
+    let tables: Vec<UiTableSummary> = (0..1000)
+        .map(|i| {
+            let fks = if i > 0 && i % 3 == 0 {
+                vec![UiSchemaForeignKey {
+                    name: format!("fk_t{i}_t0"),
+                    from_columns: vec!["ref_id".to_owned()],
+                    to_schema: "public".to_owned(),
+                    to_table: format!("table_{}", i - 1),
+                    to_columns: vec!["id".to_owned()],
+                }]
+            } else {
+                vec![]
+            };
+            UiTableSummary {
+                schema: "public".to_owned(),
+                name: format!("table_{i}"),
+                row_count: Some(100),
+                columns: vec![
+                    UiSchemaColumn {
+                        name: "id".to_owned(),
+                        data_type: "int".to_owned(),
+                        nullable: false,
+                        is_primary_key: true,
+                    },
+                    UiSchemaColumn {
+                        name: "ref_id".to_owned(),
+                        data_type: "int".to_owned(),
+                        nullable: false,
+                        is_primary_key: false,
+                    },
+                ],
+                foreign_keys: fks,
+            }
+        })
+        .collect();
+
+    let grid_columns = 10;
+    let node_height = 140.0;
+    let graph = ErGraph::build(&tables, 1, grid_columns, node_height);
+    assert_eq!(graph.nodes.len(), 1000);
+    assert!(graph.edges.len() > 300);
+
+    let spatial_index = ErSpatialIndex::build(&graph.nodes, &graph.edges, DEFAULT_SPATIAL_CELL_SIZE);
+
+    // Simulate standard desktop viewport at 1.0 zoom (1280x800)
+    let viewport = ErViewport::new(egui::Vec2::ZERO, 1.0, egui::Pos2::ZERO);
+    let screen_clip = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1280.0, 800.0));
+
+    let scene = prepare_render_scene(&graph, &spatial_index, &viewport, screen_clip, None);
+
+    // Visible candidates must be strictly bounded (far less than all 1000 tables)
+    assert!(scene.visible_nodes.len() < 50);
+    assert!(scene.visible_nodes.len() >= 4);
+    assert_eq!(scene.metrics.total_nodes, 1000);
+    // Spatial query execution must be fast (typically < 1000 microseconds)
+    assert!(scene.metrics.spatial_query_micros < 10_000);
+
+    // Test hit testing: hit exact center of table_0
+    let table0_center = graph.nodes[0].world_rect.center();
+    let hit = spatial_index.hit_test_node(table0_center, &graph.nodes);
+    assert_eq!(hit, Some(0));
+
+    // Hit testing outside any node rect returns None
+    let hit_outside = spatial_index.hit_test_node(egui::pos2(99999.0, 99999.0), &graph.nodes);
+    assert_eq!(hit_outside, None);
 }
 
 #[test]
