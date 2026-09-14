@@ -87,7 +87,7 @@ Each adapter maps this enum to its native bind API. Unsupported values fail with
 ### Statement execution
 
 - SQL parsing must be performed with a PostgreSQL-aware tokenizer/parser where possible; splitting on `;` is not sufficient because of strings, dollar quoting, comments, and procedural blocks.
-- Multi-statement execution is disabled by default for the first slice and enabled only with an explicit transaction policy.
+- ~~Multi-statement execution is disabled by default for the first slice and enabled only with an explicit transaction policy.~~ **Superseded (2026-09-15, #147/#129):** multi-statement scripts execute — a script is reduced to its **most dangerous** statement, and a batch containing any mutation runs as **one transaction** through `Connector::execute_transaction`, while a read-only batch runs sequentially without one. Documented contract and matrix: `docs/09-architecture-decisions.md` §5 and `docs/release/audit-execution-safety.md`. See the note on explicit transaction control in that matrix before adding `BEGIN`/`COMMIT`/`ROLLBACK` to a batch.
 - `SELECT`, explain, and metadata queries are read-only by default.
 - `INSERT`, `UPDATE`, `DELETE`, DDL, and transaction commands are classified and shown clearly in the UI.
 - `EXPLAIN ANALYZE` is opt-in because it executes the query. Plain `EXPLAIN` is the safe default.
