@@ -49,3 +49,26 @@ disposition; no `Fix RC1` was needed, so no child issue was spawned. No code was
 rows marked `Accept RC1` on a machine with a window server — it claims the *mechanism* of each finding
 is absent or is centralised in source that can be read. Interactive confirmation remains with
 `docs/release/0.1.0-manual-smoke.md` (#91).
+
+---
+
+## B. Data Grid / read-update-delete (#76)
+
+Scope rows: `QA-P2-07`, `08`, `09`, `10`, `11`, `12`. The issue's other scope bullets (staged
+update/delete edge cases, partial-success revision behaviour, PK/no-PK boundaries, sorting/filtering
+UX correctness, stale query/data after schema reassignment, value display) map onto these rows plus
+the Gate 5 work already closed; no additional live P2 row exists for them.
+
+| Row | Native mechanism (opened for this audit) | Disposition | Rationale |
+|---|---|---|---|
+| `QA-P2-07` columns picker double-toggle on checkbox click | the native visibility state is a set (`grid_hidden_columns`) mutated by an explicit hide action (`result_grid_view.rs:212`) and a "show all" reset (`:216`), not a checkbox bound to a toggle | **`Accept RC1`** | the React defect came from two handlers toggling one checkbox; the native picker has one mutation path per action. **Not pinned by a test** — the four layout tests around `:2472-2526` cover persisted layouts and schema-shape normalisation, not single-toggle semantics; recorded as an untested (not verified) part |
+| `QA-P2-08` read-only connections still show editable grid affordances | edit affordances derive from **both** conditions: `can_edit_table_rows()` = `can_mutate_active_connection() && table_has_primary_key()` (`crates/ui/src/table_editor_view.rs:1494`), and #62's `ColumnWritePolicy` gates every entry point (cell edit, insert row, duplicate row, paste, context menu) with four policy + four interaction tests | **`Accept RC1`** — positively verified | this was the highest-priority carry-over in the #74 audit ("safety-adjacent"); it is now checked in source and pinned by tests, including `no_primary_key_table_blocks_safe_row_mutations`. The React-era defect (edit UI on a read-only connection) has no native path: the grid is `editable` only when the connection is writable and the table has a PK (`result_grid_view.rs:73`) |
+| `QA-P2-09` grid context menu can render off-screen; no desktop menu behaviour | native menus are egui popups (`crates/ui/src/components/overlay.rs:787` `is_context_menu_triggered`, `:825`), positioned and clamped by egui's own popup layer | **`Accept RC1`** | there is no DOM, no absolutely-positioned React portal and no viewport clipping to escape; the mechanism is absent rather than fixed |
+| `QA-P2-10` column/shell resize handles mouse-only | column resize is a drag handle; no keyboard equivalent exists (no `keyboard.*resize` path found) | **`Defer post-v0.1`** | a real UX/accessibility gap, but no v0.1 acceptance item requires keyboard resizing and the v0.1 keyboard requirements cover the core flows (run, save, palette, navigation), not resize. Recorded so it is not silently dropped |
+| `QA-P2-11` resize drag cleanup not guaranteed on unmount | there is no component unmount lifecycle in immediate mode: drag state is per-frame input state | **`Accept RC1`** | the leak the finding describes needs a mounted/unmounted component with a retained handler; neither exists in egui |
+| `QA-P2-12` large query-result sorting synchronous on main thread | `filtered_sorted_indexes` (`crates/ui/src/result_grid.rs:97`) is called from the draw path (`result_grid_view.rs:76`) **every frame**, uncached, with a comparator that allocates via `cell_text` per comparison (`:113-122`) | **`Fix RC1`** — child issue **#238** | **measured, not suspected**: 200,000 rows × 4 columns → projection 5.35 ms unsorted, **3,414 ms sorted on a text column**, 83.65 ms filtered+sorted (debug, this host). Reachable at `max_rows` up to 100,000 (`crates/core/src/domain/connection.rs:111,116`; default 500), and the grid is deliberately virtualized for large results (`result_grid_view.rs:813`) — so a sorted large result cannot repaint. Responsiveness only: no crash/data loss/credential leak/SQL misclassification, so it stays P2 by the goal-3 §24 rule |
+
+**Acceptance check for this section:** all six live Data Grid rows have exactly one disposition; the
+single `Fix RC1` row has a focused child issue (**#238**) with the measurement, the blast radius, the
+bounded fix options and its own acceptance list. No speculative fix was implemented in this audit;
+the only code touched was a temporary measurement probe, removed before the commit.
