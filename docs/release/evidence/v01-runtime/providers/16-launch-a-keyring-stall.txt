@@ -1,0 +1,95 @@
+### Launch A — no GROQ_API_KEY (real HOME, cwd=/), the stall reproduction
+  binary: /tmp/dbpro-v01-runtime/install/DB Pro.app/Contents/MacOS/db-pro-native
+  state dir before: meta.db inode/size/mtime = 61691875 90112 1789393378
+  /.db-pro-data before: ABSENT
+  GROQ_API_KEY in environment: UNSET
+
+$ launched pid=22096 (cwd=/) ; waiting 12s
+  process still ALIVE after 12s (pid=22096)
+
+$ state dir after 12s:
+  meta.db inode/size/mtime = 61691875 90112 1789393378
+  -> UNCHANGED (startup never reached the data directory)
+  /.db-pro-data after: ABSENT
+
+$ stdout/stderr captured so far (0 lines):
+
+$ thread dump: sample 22096 6 -file /tmp/dbpro-v01-runtime/sample-launch-a.txt
+  exit=0  size=103764 bytes
+
+$ main-thread stack (top 45 lines of the sampled call graph):
+  | Analysis of sampling db-pro-native (pid 22096) every 1 millisecond
+  | Process:         db-pro-native [22096]
+  | Path:            /private/tmp/*/DB Pro.app/Contents/MacOS/db-pro-native
+  | Load Address:    0x100410000
+  | Identifier:      com.dbpro.app
+  | Version:         0.1.0 (0.1.0)
+  | Code Type:       ARM64
+  | Platform:        macOS
+  | Parent Process:  bash [22091]
+  | Target Type:     live task
+  | 
+  | Date/Time:       2026-09-14 23:04:30.437 +0700
+  | Launch Time:     2026-09-14 23:04:18.357 +0700
+  | OS Version:      macOS 26.5.2 (25F84)
+  | Report Version:  7
+  | Analysis Tool:   /usr/bin/sample
+  | 
+  | Physical footprint:         3376K
+  | Physical footprint (peak):  3440K
+  | Idle exit:                  untracked
+  | ----
+  | 
+  | Call graph:
+  |     4762 Thread_135352045   DispatchQueue_1: com.apple.main-thread  (serial)
+  |     + 4762 start  (in dyld) + 6992  [0x1869d3e00]
+  |     +   4762 main  (in db-pro-native) + 52  [0x10047672c]
+  |     +     4762 _RNvNtCsg55jX0GwzBC_3std2rt19lang_start_internal  (in db-pro-native) + 952  [0x100fb0450]
+  |     +       4762 std::rt::lang_start::_$u7b$$u7b$closure$u7d$$u7d$::h88be8e69f7db7a49  (in db-pro-native) + 16  [0x100486e70]
+  |     +         4762 std::sys::backtrace::__rust_begin_short_backtrace::h109cd3a7a7676786  (in db-pro-native) + 12  [0x100453f04]
+  |     +           4762 db_pro_native::main::h1d723d9279319963  (in db-pro-native) + 732  [0x10046e738]
+  |     +             4762 keyring::Entry::get_password::hc1622f049522d8c6  (in db-pro-native) + 168  [0x100bbcb1c]
+  |     +               4762 _$LT$keyring..macos..MacCredential$u20$as$u20$keyring..credential..CredentialApi$GT$::get_password::h6cb452c4bbfef595  (in db-pro-native) + 128  [0x100bbc25c]
+  |     +                 4762 security_framework::os::macos::passwords::find_generic_password::hf561f40829277ed0  (in db-pro-native) + 116  [0x100bbd59c]
+  |     +                   4762 SecKeychainFindGenericPassword  (in Security) + 384  [0x18a9473bc]
+  |     +                     4762 Security::KeychainCore::ItemImpl::getData(Security::CssmDataContainer&)  (in Security) + 84  [0x18a90cec8]
+  |     +                       4762 Security::KeychainCore::ItemImpl::getContent(Security::CssmClient::DbAttributes*, Security::CssmDataContainer*)  (in Security) + 572  [0x18a9075e0]
+  |     +                         4762 Security::CssmClient::SSDbUniqueRecordImpl::get(Security::CssmClient::DbAttributes*, Security::CssmDataContainer*, cssm_access_credentials const*)  (in Security) + 288  [0x18a699c50]
+  |     +                           4762 Security::CssmClient::SSGroupImpl::decodeDataBlob(cssm_data const&, cssm_access_credentials const*, Security::Allocator&, cssm_data&)  (in Security) + 640  [0x18a852080]
+  |     +                             4762 CSSM_DecryptDataFinal  (in Security) + 152  [0x18a8e4a1c]
+  |     +                               4762 cssm_DecryptDataFinal(long, unsigned long long, cssm_data*)  (in Security) + 188  [0x18a856f9c]
+  |     +                                 4762 Security::CSPFullPluginSession::CSPContext::final(Security::CssmData&, Security::Allocator&)  (in Security) + 68  [0x18a69e4b4]
+  |     +                                   4762 SSCryptContext::outputSize(bool, unsigned long)  (in Security) + 372  [0x18a82df48]
+  |     +                                     4762 Security::SecurityServer::ClientSession::decrypt(Security::Context const&, unsigned int, Security::CssmData const&, Security::CssmData&, Security::Allocator&)  (in Security) + 768  [0x18a9bb38c]
+  |     +                                       4762 mach_msg  (in libsystem_kernel.dylib) + 24  [0x186d4dfc0]
+  |     +                                         4762 mach_msg_overwrite  (in libsystem_kernel.dylib) + 480  [0x186d569c0]
+
+$ lines in the dump touching the keyring / Security framework:
+  | 31:    +             4762 keyring::Entry::get_password::hc1622f049522d8c6  (in db-pro-native) + 168  [0x100bbcb1c]
+  | 32:    +               4762 _$LT$keyring..macos..MacCredential$u20$as$u20$keyring..credential..CredentialApi$GT$::get_password::h6cb452c4bbfef595  (in db-pro-native) + 128  [0x100bbc25c]
+  | 33:    +                 4762 security_framework::os::macos::passwords::find_generic_password::hf561f40829277ed0  (in db-pro-native) + 116  [0x100bbd59c]
+  | 34:    +                   4762 SecKeychainFindGenericPassword  (in Security) + 384  [0x18a9473bc]
+  | 35:    +                     4762 Security::KeychainCore::ItemImpl::getData(Security::CssmDataContainer&)  (in Security) + 84  [0x18a90cec8]
+  | 36:    +                       4762 Security::KeychainCore::ItemImpl::getContent(Security::CssmClient::DbAttributes*, Security::CssmDataContainer*)  (in Security) + 572  [0x18a9075e0]
+  | 37:    +                         4762 Security::CssmClient::SSDbUniqueRecordImpl::get(Security::CssmClient::DbAttributes*, Security::CssmDataContainer*, cssm_access_credentials const*)  (in Security) + 288  [0x18a699c50]
+  | 38:    +                           4762 Security::CssmClient::SSGroupImpl::decodeDataBlob(cssm_data const&, cssm_access_credentials const*, Security::Allocator&, cssm_data&)  (in Security) + 640  [0x18a852080]
+  | 39:    +                             4762 CSSM_DecryptDataFinal  (in Security) + 152  [0x18a8e4a1c]
+  | 40:    +                               4762 cssm_DecryptDataFinal(long, unsigned long long, cssm_data*)  (in Security) + 188  [0x18a856f9c]
+  | 41:    +                                 4762 Security::CSPFullPluginSession::CSPContext::final(Security::CssmData&, Security::Allocator&)  (in Security) + 68  [0x18a69e4b4]
+  | 42:    +                                   4762 SSCryptContext::outputSize(bool, unsigned long)  (in Security) + 372  [0x18a82df48]
+  | 43:    +                                     4762 Security::SecurityServer::ClientSession::decrypt(Security::Context const&, unsigned int, Security::CssmData const&, Security::CssmData&, Security::Allocator&)  (in Security) + 768  [0x18a9bb38c]
+  | 92:       0x18a673000 -        0x18aa91aff  com.apple.security (7.0 - 61901.120.67) <8FDCF5BF-61B9-3D69-BF9E-D134D220B8D9> /System/Library/Frameworks/Security.framework/Versions/A/Security
+  | 175:       0x195d3f000 -        0x195dd1a9f  com.apple.securityfoundation (6.0 - 55293) <B186B3B6-62A5-3680-8FB4-1CC6DFB3D551> /System/Library/Frameworks/SecurityFoundation.framework/Versions/A/SecurityFoundation
+  | 342:       0x1a3f4a000 -        0x1a3f4dd3f  com.apple.security.CryptoKit-C-Bridging (1.0 - 1) <CB10F56E-9B75-3D0E-9EF8-C053F4A519BB> /System/Library/PrivateFrameworks/CryptoKitCBridging.framework/Versions/A/CryptoKitCBridging
+  | 356:       0x1a8c5a000 -        0x1a8c5cd27  com.apple.securityhi (9.0 - 55010) <7ADCFC9C-78DC-3D01-802F-EB04542677B3> /System/Library/Frameworks/Carbon.framework/Versions/A/Frameworks/SecurityHI.framework/Versions/A/SecurityHI
+  | 435:       0x1dd08c000 -        0x1dd13135f  com.apple.security.CryptoKit (1.0 - 1) <73D66B11-1861-3143-A7E5-23F68183B945> /System/Library/Frameworks/CryptoKit.framework/Versions/A/CryptoKit
+  | 521:       0x25fc83000 -        0x25fce4abf  com.apple.MessageSecurity (1.0 - 195.121.2) <0BAED8A7-51DE-39EE-9686-893CE0916B1B> /System/Library/PrivateFrameworks/MessageSecurity.framework/Versions/A/MessageSecurity
+  | 541:       0x277c20000 -        0x277c4c4a1  com.apple.security.SwiftASN1Internal (1.0 - 1) <B9F3D5F5-9880-3CFB-B799-1A2DE78AD70B> /System/Library/PrivateFrameworks/SwiftASN1Internal.framework/Versions/A/SwiftASN1Internal
+  | 557:       0x289cf9000 -        0x289d035bb  libEndpointSecuritySystem.dylib (589.120.4) <9D2D1079-37C4-3EAF-88E3-A38F8425CB86> /usr/lib/libEndpointSecuritySystem.dylib
+  | 558:       0x289d7c000 -        0x289d7dd1f  libInterpreterSecurity.dylib (726.121.1) <11408F95-3855-3E85-846D-CBD4661D1E84> /usr/lib/libInterpreterSecurity.dylib
+
+$ cleanup: kill 22096
+/tmp/dbpro-v01-runtime/launch-a.sh: line 64: 22096 Terminated: 15          env -u GROQ_API_KEY "$BIN" > "$LOG" 2>&1
+  process terminated cleanly
+  post-cleanup pgrep for the binary:
+    none

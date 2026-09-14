@@ -1,0 +1,58 @@
+### GUI availability probes — re-run live in THIS session (accurate exit codes, full messages)
+
+  Four independent probes. Recorded verbatim because every GUI-dependent deliverable
+  in this run is out of scope. Where today's wording differs from the wording recorded
+  in 14-install-smoke.txt §7, the difference is noted — the conclusion is the same.
+
+--- probe 1: orca computer get-app-state --app com.dbpro.app --json
+  {
+    "id": "local",
+    "ok": false,
+    "error": {
+      "code": "runtime_unavailable",
+      "message": "Could not read Orca runtime metadata at /Users/truongdev/Library/Application Support/orca/orca-runtime.json. Start the Orca app first."
+    },
+    "_meta": {
+      "runtimeId": null
+    }
+  }
+  exit=1
+
+--- probe 2: orca computer list-windows --app com.dbpro.app --json
+  {
+    "id": "local",
+    "ok": false,
+    "error": {
+      "code": "runtime_unavailable",
+      "message": "Could not read Orca runtime metadata at /Users/truongdev/Library/Application Support/orca/orca-runtime.json. Start the Orca app first."
+    },
+    "_meta": {
+      "runtimeId": null
+    }
+  }
+  (exit 0 on the JSON envelope, which carries "ok": false)
+  An earlier invocation of this probe omitted the required --app flag and returned
+  invalid_argument "Missing required --app" — that was a CLI usage error on my part, not a
+  runtime result. The corrected invocation above is the real answer.
+
+--- probe 3: osascript -e 'tell application "System Events" to get name of first process'
+  40:44: execution error: Not authorized to send Apple events to System Events. (-1743)
+  exit=1
+  This reproduces the previously recorded blocker exactly. (One earlier invocation of this
+  same probe in this session instead returned -600 "Application isn't running"; both leave
+  the AppleScript path unusable. The -1743 TCC denial is the result on this re-run.)
+
+--- probe 4: screencapture -x /tmp/dbpro-v01-runtime/probe.png
+  could not create image from display
+  exit=1
+  no file was created — screencapture could not reach a display
+
+--- probe 5 (accessibility tree)
+  No accessibility tree is obtainable: probes 1-3 are the three mechanisms that would
+  read one (Orca helper, AppleScript System Events, and any AX API client). All fail
+  before returning a tree, so no element can be enumerated, queried or clicked.
+
+--- CONCLUSION
+  No window can be observed, no screen image can be captured, and no UI element can be
+  inspected or clicked from this shell. Every GUI-dependent verification is PENDING_HUMAN,
+  and no visual, screenshot or interaction claim is made anywhere in this evidence tree.

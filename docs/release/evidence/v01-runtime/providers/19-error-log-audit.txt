@@ -1,0 +1,69 @@
+### Error-log audit — every launch performed in this run
+
+$ RUST_LOG: NOT set for launches A, B, C and branches 1/2/4.
+  Set to RUST_LOG=info only for the dedicated launch D, to show the binary's default silence.
+
+--- log inventory -------------------------------------------------
+  launch-a-no-groq-key.log                   0 lines, 0 bytes
+  launch-b-fake-home.log                     0 lines, 0 bytes
+  launch-c-placeholder-key.log               0 lines, 0 bytes
+  branch1.log                                0 lines, 0 bytes
+  branch2.log                                0 lines, 0 bytes
+  branch4.log                                0 lines, 0 bytes
+  launch-d-rustlog.log                       13 lines, 2093 bytes
+
+--- pattern scan across ALL captured launch output (ANSI stripped) ---
+  patterns: panic | unwrap | channel | disconnected | stale | lock | keyring | keychain |
+            worker | provider | error | warn
+
+  launch-a-no-groq-key.log: 0 matching line(s)
+  launch-b-fake-home.log: 0 matching line(s)
+  launch-c-placeholder-key.log: 0 matching line(s)
+  branch1.log: 0 matching line(s)
+  branch2.log: 0 matching line(s)
+  branch4.log: 0 matching line(s)
+  launch-d-rustlog.log: 13 matching line(s)
+      1:2026-09-14T16:06:33.200604Z  WARN epaint::text::font: Failed to find replacement characters '◻' or '?'. Will use empty glyph.
+      2:2026-09-14T16:06:33.200888Z  WARN epaint::text::font: Failed to find replacement characters '◻' or '?'. Will use empty glyph.
+      3:2026-09-14T16:06:33.200989Z  WARN epaint::text::font: Failed to find replacement characters '◻' or '?'. Will use empty glyph.
+      4:2026-09-14T16:06:33.201155Z  WARN epaint::text::font: Failed to find replacement characters '◻' or '?'. Will use empty glyph.
+      5:2026-09-14T16:06:33.201250Z  WARN epaint::text::font: Failed to find replacement characters '◻' or '?'. Will use empty glyph.
+      6:2026-09-14T16:06:33.201365Z  WARN epaint::text::font: Failed to find replacement characters '◻' or '?'. Will use empty glyph.
+      7:2026-09-14T16:06:33.201478Z  WARN epaint::text::font: Failed to find replacement characters '◻' or '?'. Will use empty glyph.
+      8:2026-09-14T16:06:33.202096Z  WARN epaint::text::font: Failed to find replacement characters '◻' or '?'. Will use empty glyph.
+      9:2026-09-14T16:06:33.202139Z  WARN epaint::text::font: Failed to find replacement characters '◻' or '?'. Will use empty glyph.
+      10:2026-09-14T16:06:33.202268Z  WARN epaint::text::font: Failed to find replacement characters '◻' or '?'. Will use empty glyph.
+      11:2026-09-14T16:06:33.202759Z  WARN epaint::text::font: Failed to find replacement characters '◻' or '?'. Will use empty glyph.
+      12:2026-09-14T16:06:33.202987Z  WARN epaint::text::font: Failed to find replacement characters '◻' or '?'. Will use empty glyph.
+      13:2026-09-14T16:06:33.203204Z  WARN epaint::text::font: Failed to find replacement characters '◻' or '?'. Will use empty glyph.
+  TOTAL matching lines across all launches: 13
+
+--- findings ------------------------------------------------------
+
+  FINDING 1 — P3 (cosmetic): epaint font-atlas glyph fallback warning
+    raw line (ANSI stripped; 13 identical occurrences; only in launch D, RUST_LOG=info):
+      2026-09-14T16:06:33.200604Z  WARN epaint::text::font: Failed to find replacement characters '◻' or '?'. Will use empty glyph.
+    source   : egui/epaint font atlas, NOT db-pro code.
+    meaning  : the bundled icon font asks for '◻' (U+25FB) and neither it nor a
+               fallback provides the glyph, so egui draws an empty glyph.
+    impact   : cosmetic. Whether it is visible on screen is NOT verifiable here.
+    action   : recorded, not chased (policy: P3).
+
+  FINDINGS LOOKED FOR AND NOT FOUND (all zero in every launch):
+    panic                        : 0
+    unwrap on Err                : 0
+    channel-disconnected         : 0
+    stale-event                  : 0
+    database-lock                : 0
+    keyring errors               : 0  (launch A never returned from the keychain call,
+                                      so it logged nothing; B/D never needed the item)
+    worker failure               : 0
+    unhandled provider error     : 0
+
+  DEFAULT SILENCE: launches A, B, C and branches 1/2/4 wrote ZERO bytes to stdout and
+  stderr with RUST_LOG unset — the release binary is quiet by default, and the 13
+  warnings above appear only when RUST_LOG is set.
+
+  EXIT BEHAVIOUR: no launch exited on its own or with a failure status. Launch A was
+  SIGTERM'd while stalled in the keychain call; B, C, 1, 2, 4 and D stayed alive until
+  SIGTERM. No process was left behind (final pgrep: none).

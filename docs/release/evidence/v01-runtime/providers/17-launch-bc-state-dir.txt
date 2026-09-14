@@ -1,0 +1,104 @@
+===================================================================
+### Launch B — fake HOME, NO GROQ_API_KEY (no keychain item available)
+===================================================================
+  HOME              : /tmp/dbpro-v01-runtime/fake-home  (fake)
+  cwd               : /
+  GROQ_API_KEY      : none
+  real state dir meta.db before: 61691875 90112 1789393378
+  /.db-pro-data before: ABSENT
+  fake HOME created fresh: /tmp/dbpro-v01-runtime/fake-home
+
+$ launched pid=23121 ; waiting 15s
+  process ALIVE after 15s
+
+$ stdout/stderr (0 lines):
+
+$ state-directory resolution:
+  expected branch-3 path: /tmp/dbpro-v01-runtime/fake-home/Library/Application Support/DB Pro
+  CREATED. Contents:
+    /tmp/dbpro-v01-runtime/fake-home/Library/Application Support/DB Pro inode=61738277 size=128 mtime=Sep 14 23:04:56 2026
+    /tmp/dbpro-v01-runtime/fake-home/Library/Application Support/DB Pro/secrets inode=61738278 size=64 mtime=Sep 14 23:04:56 2026
+    /tmp/dbpro-v01-runtime/fake-home/Library/Application Support/DB Pro/meta.db inode=61738279 size=90112 mtime=Sep 14 23:04:56 2026
+  /.db-pro-data after: ABSENT
+
+$ did anything get written INSIDE the extracted bundle?
+  NO — bundle tree unchanged (names, sizes and mtimes identical)
+  bundle file list:
+    /tmp/dbpro-v01-runtime/install/DB Pro.app/Contents/MacOS/db-pro-native inode=61738159 size=23716592
+    /tmp/dbpro-v01-runtime/install/DB Pro.app/Contents/Info.plist inode=61738158 size=713
+
+$ thread dump (is it still in the keyring, or past it into the GUI loop?)
+  dump: /tmp/dbpro-v01-runtime/sample-Launch-B-—-fake-HOME,-NO-GROQ_API_KEY-(no-keychain-item-available).txt
+  main-thread top frames:
+  | Call graph:
+  |     2606 Thread_135354558: main
+  |     + 2605 start  (in dyld) + 6992  [0x1869d3e00]
+  |     + ! 2605 main  (in db-pro-native) + 52  [0x100aa272c]
+  |     + !   2605 _RNvNtCsg55jX0GwzBC_3std2rt19lang_start_internal  (in db-pro-native) + 952  [0x1015dc450]
+  |     + !     2605 std::rt::lang_start::_$u7b$$u7b$closure$u7d$$u7d$::h88be8e69f7db7a49  (in db-pro-native) + 16  [0x100ab2e70]
+  |     + !       2605 std::sys::backtrace::__rust_begin_short_backtrace::h109cd3a7a7676786  (in db-pro-native) + 12  [0x100a7ff04]
+  |     + !         2605 db_pro_native::main::h1d723d9279319963  (in db-pro-native) + 3108  [0x100a9b080]
+  |     + !           2605 eframe::run_native::h932a52c0eb422dc6  (in db-pro-native) + 448  [0x100e87788]
+  |     + !             2605 eframe::native::run::run_glow::he37da7de47bcb3ba  (in db-pro-native) + 180  [0x100e8ffc0]
+  |     + !               2605 std::thread::local::LocalKey$LT$T$GT$::with::h4eab1c2d53738807  (in db-pro-native) + 396  [0x100e856d8]
+  |     + !                 2605 eframe::native::run::run_and_return::h460070a21b6e8464  (in db-pro-native) + 396  [0x100e8f3cc]
+  |     + !                   2605 winit::platform_impl::macos::event_handler::EventHandler::set::h1d5f2d6767ab7e57  (in db-pro-native) + 240  [0x100e8188c]
+  |     + !                     2605 -[NSApplication run]  (in AppKit) + 368  [0x18b26f13c]
+
+$ cleanup: kill 23121
+/tmp/dbpro-v01-runtime/launch-bc.sh: line 14: 23121 Terminated: 15          HOME="$target_home" env -u GROQ_API_KEY "$BIN" > "$log" 2>&1
+  terminated cleanly
+  pgrep db-pro-native after cleanup: none
+
+===================================================================
+### Launch C — real HOME, GROQ_API_KEY=placeholder (EXPLICIT keyring bypass)
+===================================================================
+  HOME              : /Users/truongdev  (real)
+  cwd               : /
+  GROQ_API_KEY      : placeholder
+  real state dir meta.db before: 61691875 90112 1789393378
+  /.db-pro-data before: ABSENT
+
+$ launched pid=23833 ; waiting 15s
+  process ALIVE after 15s
+
+$ stdout/stderr (0 lines):
+
+$ state-directory resolution:
+  real state dir meta.db after: 61691875 90112 1789393378
+  -> meta.db UNCHANGED
+  real state dir listing:
+    /Users/truongdev/Library/Application Support/DB Pro inode=61691873 size=128 mtime=Sep 14 20:42:58 2026
+    /Users/truongdev/Library/Application Support/DB Pro/secrets inode=61691874 size=64 mtime=Sep 14 20:42:58 2026
+    /Users/truongdev/Library/Application Support/DB Pro/meta.db inode=61691875 size=90112 mtime=Sep 14 20:42:58 2026
+  /.db-pro-data after: ABSENT
+
+$ did anything get written INSIDE the extracted bundle?
+  NO — bundle tree unchanged (names, sizes and mtimes identical)
+  bundle file list:
+    /tmp/dbpro-v01-runtime/install/DB Pro.app/Contents/MacOS/db-pro-native inode=61738159 size=23716592
+    /tmp/dbpro-v01-runtime/install/DB Pro.app/Contents/Info.plist inode=61738158 size=713
+
+$ thread dump (is it still in the keyring, or past it into the GUI loop?)
+  dump: /tmp/dbpro-v01-runtime/sample-Launch-C-—-real-HOME,-GROQ_API_KEY=placeholder-(EXPLICIT-keyring-bypass).txt
+  main-thread top frames:
+  | Call graph:
+  |     3045 Thread_135356329: main
+  |     + 3045 start  (in dyld) + 6992  [0x1869d3e00]
+  |     +   3045 main  (in db-pro-native) + 52  [0x104e3672c]
+  |     +     3045 _RNvNtCsg55jX0GwzBC_3std2rt19lang_start_internal  (in db-pro-native) + 952  [0x105970450]
+  |     +       3045 std::rt::lang_start::_$u7b$$u7b$closure$u7d$$u7d$::h88be8e69f7db7a49  (in db-pro-native) + 16  [0x104e46e70]
+  |     +         3045 std::sys::backtrace::__rust_begin_short_backtrace::h109cd3a7a7676786  (in db-pro-native) + 12  [0x104e13f04]
+  |     +           3045 db_pro_native::main::h1d723d9279319963  (in db-pro-native) + 3108  [0x104e2f080]
+  |     +             3045 eframe::run_native::h932a52c0eb422dc6  (in db-pro-native) + 448  [0x10521b788]
+  |     +               3045 eframe::native::run::run_glow::he37da7de47bcb3ba  (in db-pro-native) + 180  [0x105223fc0]
+  |     +                 3045 std::thread::local::LocalKey$LT$T$GT$::with::h4eab1c2d53738807  (in db-pro-native) + 396  [0x1052196d8]
+  |     +                   3045 eframe::native::run::run_and_return::h460070a21b6e8464  (in db-pro-native) + 396  [0x1052233cc]
+  |     +                     3045 winit::platform_impl::macos::event_handler::EventHandler::set::h1d5f2d6767ab7e57  (in db-pro-native) + 240  [0x10521588c]
+  |     +                       3045 -[NSApplication run]  (in AppKit) + 368  [0x18b26f13c]
+
+$ cleanup: kill 23833
+/tmp/dbpro-v01-runtime/launch-bc.sh: line 14: 23833 Terminated: 15          HOME="$target_home" GROQ_API_KEY="smoke-placeholder-not-a-real-key" "$BIN" > "$log" 2>&1
+  terminated cleanly
+  pgrep db-pro-native after cleanup: none
+

@@ -1,0 +1,60 @@
+### EMPIRICAL RESOLUTION-ORDER VERIFICATION (branch tests, packaged binary)
+  Resolution order under test (crates/native-app/src/main.rs:152-171):
+    1. DB_PRO_DATA_DIR (set and non-empty) -> used as-is
+    2. an EXISTING <cwd>/.db-pro-data      -> wins over the platform dir
+    3. <platform data dir>/DB Pro          -> macOS $HOME/Library/Application Support/DB Pro
+    4. otherwise <cwd>/.db-pro-data
+
+### Branch 1 — DB_PRO_DATA_DIR=/tmp/dbpro-v01-runtime/branch1-explicit, fake HOME, cwd=/
+  alive after 8s
+/tmp/dbpro-v01-runtime/branches.sh: line 44: 25007 Terminated: 15          HOME="$R/fake-home-b1" DB_PRO_DATA_DIR="$R/branch1-explicit" GROQ_API_KEY="smoke-placeholder-not-a-real-key" "$BIN" > "$R/branch1.log" 2>&1
+  DB_PRO_DATA_DIR contents (expect meta.db created HERE):
+    /tmp/dbpro-v01-runtime/branch1-explicit inode=61738385 size=128
+    /tmp/dbpro-v01-runtime/branch1-explicit/secrets inode=61738387 size=64
+    /tmp/dbpro-v01-runtime/branch1-explicit/meta.db inode=61738388 size=90112
+  fake HOME platform dir created? (expect NO):
+    absent — good, the override won
+
+### Branch 2 — existing <cwd>/.db-pro-data present, fake HOME resolvable, cwd=/tmp/dbpro-v01-runtime/branch2-cwd
+  alive after 8s
+/tmp/dbpro-v01-runtime/branches.sh: line 59: 25323 Terminated: 15          HOME="$R/fake-home-b2" GROQ_API_KEY="smoke-placeholder-not-a-real-key" "$BIN" > "$R/branch2.log" 2>&1
+  legacy dir contents (expect meta.db created HERE):
+    /tmp/dbpro-v01-runtime/branch2-cwd/.db-pro-data inode=61738412 size=128
+    /tmp/dbpro-v01-runtime/branch2-cwd/.db-pro-data/secrets inode=61738415 size=64
+    /tmp/dbpro-v01-runtime/branch2-cwd/.db-pro-data/meta.db inode=61738416 size=90112
+  fake HOME platform dir created? (expect NO — legacy dir wins):
+    absent — good, the existing legacy dir won
+
+### Branch 4 — HOME empty (platform dir unresolvable), cwd=/tmp/dbpro-v01-runtime/branch4-cwd
+  alive after 8s
+/tmp/dbpro-v01-runtime/branches.sh: line 73: 25591 Terminated: 15          HOME="" GROQ_API_KEY="smoke-placeholder-not-a-real-key" "$BIN" > "$R/branch4.log" 2>&1
+  <cwd>/.db-pro-data contents (expect created here):
+    /tmp/dbpro-v01-runtime/branch4-cwd/.db-pro-data inode=61738442 size=128
+    /tmp/dbpro-v01-runtime/branch4-cwd/.db-pro-data/secrets inode=61738443 size=64
+    /tmp/dbpro-v01-runtime/branch4-cwd/.db-pro-data/meta.db inode=61738444 size=90112
+
+===================================================================
+### RUST_LOG=info launch — tracing output (real HOME, placeholder key bypass)
+===================================================================
+  alive after 10s
+/tmp/dbpro-v01-runtime/branches.sh: line 86: 25854 Terminated: 15          HOME="$HOME" RUST_LOG="info" GROQ_API_KEY="smoke-placeholder-not-a-real-key" "$BIN" > "$R/launch-d-rustlog.log" 2>&1
+  RUST_LOG=info output (13 lines):
+  | [2m2026-09-14T16:06:33.200604Z[0m [33m WARN[0m [2mepaint::text::font[0m[2m:[0m Failed to find replacement characters '◻' or '?'. Will use empty glyph.
+  | [2m2026-09-14T16:06:33.200888Z[0m [33m WARN[0m [2mepaint::text::font[0m[2m:[0m Failed to find replacement characters '◻' or '?'. Will use empty glyph.
+  | [2m2026-09-14T16:06:33.200989Z[0m [33m WARN[0m [2mepaint::text::font[0m[2m:[0m Failed to find replacement characters '◻' or '?'. Will use empty glyph.
+  | [2m2026-09-14T16:06:33.201155Z[0m [33m WARN[0m [2mepaint::text::font[0m[2m:[0m Failed to find replacement characters '◻' or '?'. Will use empty glyph.
+  | [2m2026-09-14T16:06:33.201250Z[0m [33m WARN[0m [2mepaint::text::font[0m[2m:[0m Failed to find replacement characters '◻' or '?'. Will use empty glyph.
+  | [2m2026-09-14T16:06:33.201365Z[0m [33m WARN[0m [2mepaint::text::font[0m[2m:[0m Failed to find replacement characters '◻' or '?'. Will use empty glyph.
+  | [2m2026-09-14T16:06:33.201478Z[0m [33m WARN[0m [2mepaint::text::font[0m[2m:[0m Failed to find replacement characters '◻' or '?'. Will use empty glyph.
+  | [2m2026-09-14T16:06:33.202096Z[0m [33m WARN[0m [2mepaint::text::font[0m[2m:[0m Failed to find replacement characters '◻' or '?'. Will use empty glyph.
+  | [2m2026-09-14T16:06:33.202139Z[0m [33m WARN[0m [2mepaint::text::font[0m[2m:[0m Failed to find replacement characters '◻' or '?'. Will use empty glyph.
+  | [2m2026-09-14T16:06:33.202268Z[0m [33m WARN[0m [2mepaint::text::font[0m[2m:[0m Failed to find replacement characters '◻' or '?'. Will use empty glyph.
+  | [2m2026-09-14T16:06:33.202759Z[0m [33m WARN[0m [2mepaint::text::font[0m[2m:[0m Failed to find replacement characters '◻' or '?'. Will use empty glyph.
+  | [2m2026-09-14T16:06:33.202987Z[0m [33m WARN[0m [2mepaint::text::font[0m[2m:[0m Failed to find replacement characters '◻' or '?'. Will use empty glyph.
+  | [2m2026-09-14T16:06:33.203204Z[0m [33m WARN[0m [2mepaint::text::font[0m[2m:[0m Failed to find replacement characters '◻' or '?'. Will use empty glyph.
+
+### FINAL SAFETY CHECKS
+  /.db-pro-data still absent? ABSENT (correct)
+  real state dir untouched?
+    /Users/truongdev/Library/Application Support/DB Pro/meta.db inode=61691875 size=90112 mtime=Sep 14 20:42:58 2026
+  processes left behind: none
