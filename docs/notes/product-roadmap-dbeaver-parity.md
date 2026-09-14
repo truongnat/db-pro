@@ -17,6 +17,41 @@ grounded by a code-evidence audit on `feature/product-audit-roadmap`:
   boundaries (v0.1/v0.2/v0.3/Later), FINAL sidebar proposal, 20-milestone
   implementation order, and tech-debt list.
 
+## Authority and goal documents (added 2026-09-14)
+
+**`docs/goals/goal-full-product.md` is the authority for long-term product direction.** It owns
+the vision and binding non-goals, the final Information Architecture / Activity Bar, the
+architecture principles (including the shared UI component contract), feature areas A–L with
+full field sets, the release roadmap, the 39-milestone breakdown, the provider capability matrix,
+the safety model, the testing/verification strategy, and exit criteria. This parity note remains
+the **vision and rationale record** — it explains *why* DB Pro is shaped this way; the master goal
+decides *what* ships and *when*. Where the two differ, the master goal wins.
+
+Execution goals (implementation-ready, one per phase):
+
+- `docs/goals/goal-phase-a-object-crud.md`
+- `docs/goals/goal-phase-b-routines.md`
+- `docs/goals/goal-phase-c-transfer.md`
+- `docs/goals/goal-phase-d-monitoring.md`
+- `docs/goals/goal-phase-e-security.md`
+- `docs/goals/goal-phase-f-compare-migration.md`
+- `docs/goals/goal-phase-g-productivity.md`
+- `docs/goals/goal-phase-h-ai.md`
+
+The sections below keep their original wording as the vision record. Two points where the goals
+work superseded this note's wording:
+
+- §3.4's component/pattern names are realized by the contract in the master goal §4.5 (real
+  implementations today: `components/diff.rs::DiffViewer`, `components/explain.rs::ExplainPlanTree`,
+  `components/tree.rs::DatabaseTreeNode`, `components/form.rs::FormField`,
+  `components/input.rs::SearchInput`, `components/chrome.rs::EmptyState`,
+  `components/dialog.rs::Dialog`, `components/agent_primitives.rs::{ExecutionApproval, RiskLevel}`,
+  `result_grid.rs`/`result_grid_view.rs`, `palette_view.rs`).
+- §5's long-term surface and §1's Activity Bar are implemented exactly as listed in the master
+  goal §3.1, with two additions the audit justified: **Security** stays an Explorer node rather
+  than a rail icon, and **Data** enters the rail only when Phase C gives it real content.
+
+
 ## Product direction
 
 DB Pro should evolve toward:

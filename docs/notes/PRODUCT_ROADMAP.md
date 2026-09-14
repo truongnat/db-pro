@@ -6,6 +6,32 @@
 - Direction (unchanged): **DBeaver-class database client + Codex/VS Code-style native UX + AI-native workflow.**
 - This doc adjusts the phase plan to what the audit actually found. No implementation in this task.
 
+## Authority and goal documents (added 2026-09-14)
+
+**The long-term product direction is owned by `docs/goals/goal-full-product.md`.** That master
+goal is the authority for vision, non-goals, the final Activity Bar, architecture principles,
+feature areas A–L, release boundaries, the 39-milestone breakdown (each with ID, scope,
+prerequisites, surfaces, acceptance criteria, verification, priority, release), the provider
+capability matrix, the safety model, the testing strategy, and exit criteria.
+
+Execution goals per phase:
+
+- `docs/goals/goal-phase-a-object-crud.md` — typed object CRUD workbench (A01–A08)
+- `docs/goals/goal-phase-b-routines.md` — functions/procedures workbench (B01–B04)
+- `docs/goals/goal-phase-c-transfer.md` — import/export/backup/restore (C01–C05)
+- `docs/goals/goal-phase-d-monitoring.md` — monitoring and administration (D01–D04)
+- `docs/goals/goal-phase-e-security.md` — users/roles/permissions (E01–E03)
+- `docs/goals/goal-phase-f-compare-migration.md` — schema compare and migration (F01–F04)
+- `docs/goals/goal-phase-g-productivity.md` — search, snippets, settings, keybindings (G01–G04)
+- `docs/goals/goal-phase-h-ai.md` — advanced AI assistants (H01–H03)
+
+This note is retained as the audit-grounded phase/release summary and the record of the audit
+that produced those goals. **Where this note and the master goal differ, the master goal wins.**
+The phase sections and the 20-milestone list below remain as the audit's original organizing
+view; they are not the current milestone authority, and the milestone IDs in this note (M1–M20)
+are superseded by the master goal's IDs (A01…L01).
+
+
 ## 0. Where we are
 
 Current (do not expand scope until closed):
@@ -23,13 +49,30 @@ Release boundaries (firm):
 | v0.3 | Phase C (transfer) + Phase D (monitoring core) + Phase E (users/roles UI) | Admin surface becomes real |
 | Later | Phase F depth (migration apply), Phase G remainder, Phase H (advanced AI), ER design mode, DB-to-DB transfer | Only on stable typed tools |
 
+**Authoritative release packing is `docs/goals/goal-full-product.md` §6**, which also rebalances
+the boundary (for example routine execution B04 and setting up the Settings Center K01 move into
+v0.2/v0.3 respectively, and monitoring depth D03–D04 plus compare/migration F01–F04 land in
+v0.4). The table above records the audit's original boundary; the master goal decides.
+
 No DBeaver parity in a single release. Each phase below lists exit criteria; a phase is not done until its runtime verification + safety + tests are recorded.
 
 Architecture rules (binding for every phase):
 
 1. Reuse `domain → application → ports → provider adapters → runtime worker → native workbench`. New `UiCommand`/`RuntimeCommand` pairs only; UI never calls provider logic directly.
 2. Unsupported operations are capability-gated with a surfaced reason; never emit unsupported SQL.
-3. Reuse workbench patterns (`ObjectList`, `ObjectDetails`, `PropertyGrid`, `DDLViewer`, `FormEditor`, `Confirmation`, `CommandPalette`, `SearchResults`, `Tree`, `DataGrid`, `ResultGrid`, `ActivityPanel`, `EmptyState`, `Loading/Error`) — no one-off UI per object.
+3. Reuse workbench patterns — no one-off UI per object. The **component contract lives in
+   `docs/goals/goal-full-product.md` §4.5** (contract name → real implementation today → gap).
+   Note: earlier drafts of this note listed component names that do not exist in `crates/ui`
+   (`ObjectList`, `ObjectDetails`, `PropertyGrid`, `DDLViewer`, `FormEditor`, `Confirmation`,
+   `CommandPalette`, `SearchResults`, `ActivityPanel`). The real implementations today are
+   `components/chrome.rs::EmptyState`, `components/dialog.rs::Dialog`,
+   `components/agent_primitives.rs::{ExecutionApproval, RiskLevel}`,
+   `components/diff.rs::DiffViewer`, `components/explain.rs::ExplainPlanTree`,
+   `components/tree.rs::DatabaseTreeNode`, `components/form.rs::FormField`,
+   `components/input.rs::SearchInput`, `components/code.rs::CodeBlock`,
+   `components/workspace.rs::{ActivityBar, StatusBar}`, the palette in `palette_view.rs`, and
+   the grid in `result_grid.rs` + `result_grid_view.rs`. Several of those are gallery-only and
+   must be *wired*, not forked — see the master goal §4.5.
 4. Agent gets no parallel DB implementation; new capabilities arrive as typed tools over canonical actions; destructive ops always explicit confirmation with execution-time re-classification.
 5. Fix the §16 matrix conflicts (cancel inversion, flag-without-code) before building on those flags.
 
@@ -195,12 +238,22 @@ New from this audit (not fixes in this task):
 - Provider: cancel flag/matrix inversion; flag-without-code (sequences/enums/sessions/partitions); rename only via PG inherent method; SQLite index/trigger/check fidelity loss; no PG benches.
 - Native UI: export-backend unwired + separate unquoted CSV writer; server history unwired; `RunConfig` unwired; connection tags dropped; Ctrl+N hint unwired; tab-close doesn't cancel; staged-copy gap; binary/default placeholders; query results unbounded in memory; diagram positions not persisted.
 - Tests: PG live suites `--ignored` without fixture; SSH E2E pending; coverage % unmeasured; visual gate (3 resolutions × states) pending.
-- Runtime: every active plan in RUNTIME_VERIFY; native packaging/installers unproven; tauri-app blocks workspace check.
+- Runtime: every active plan in RUNTIME_VERIFY; native packaging/installers unproven; the legacy
+  `crates/tauri-app` host still fails a workspace-wide build — note that the previously recorded
+  reason (`commands/query.rs:50,114`) is **stale**: those lines are a comment and a struct field
+  in the current tree, and the real blocker is `tauri.conf.json` referencing a non-existent
+  `_archive/frontend/dist` (master goal §2.5 C10; not verified by running a build).
 - Performance: no native paint/scroll harness; no ER large-schema Criterion bench; external processes (pg_dump/ssh/keyring) unbudgeted.
 
 ---
 
 ## Implementation order (20 milestones, each independently implementable + verifiable)
+
+> **Superseded for planning purposes (2026-09-14).** The milestone authority is now
+> `docs/goals/goal-full-product.md` §7 (39 milestones, IDs A01…L01, each with scope,
+> prerequisites, implementation surfaces, acceptance criteria, verification, priority, and
+> release). The list below is retained as the audit's original 20-milestone view and as the
+> record of how the phases were first sequenced. Do not plan new work from M-numbers.
 
 1. M1 View CRUD (builders exist; add replace/alter + native UI + PG/SQLite evidence)
 2. M2 Index create/drop wizard UI (builders exist)
@@ -223,6 +276,18 @@ New from this audit (not fixes in this task):
 19. M19 Unified global search (index + Search activity + palette expansion)
 20. M20 Productivity completion (snippets, scratch, favorites/recent/pinned, params dialog, editor/provider settings, connection folders/tags, staged-copy + JSON tree + keybinding docs)
 
-Suggested release packing: v0.2 = M1–M5, M9–M11, M19-search-part; v0.3 = M6–M8, M12–M17; Later = M18-depth, M20-remainder, H-assistants, ER design, DB-to-DB transfer.
+Suggested release packing (superseded — see `docs/goals/goal-full-product.md` §6 for the
+authoritative packing): v0.2 = M1–M5, M9–M11, M19-search-part; v0.3 = M6–M8, M12–M17;
+Later = M18-depth, M20-remainder, H-assistants, ER design, DB-to-DB transfer.
 
 Each milestone PR must reference its plan dir (`PLAN/CHECKLIST/FINDINGS/VERIFICATION`), record PG+SQLite disposition separately, and cannot close on source evidence alone.
+
+## Contradictions recorded by the goals work (2026-09-14)
+
+`docs/goals/goal-full-product.md` §2.5 records 15 documentation conflicts found while writing
+the goals (for example the query-cancel inversion between `docs/release/provider-capability-matrix.md`
+and the code, capability flags with no implementation for sequences/enums, and a stale legacy
+`tauri-app` build-blocker claim). Where the fix belongs to a file outside the goals work
+(`docs/release/*`, `docs/architecture/*`), the conflict is recorded with a named chore instead of
+being edited silently. Two conflicts were fixed here: the non-existent component names in the
+architecture rules above, and the "firm" release-boundary table now deferring to the master goal.
