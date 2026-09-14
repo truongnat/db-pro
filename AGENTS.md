@@ -220,6 +220,30 @@ Report:
 - P0/P1/P2
 - known limitations
 
+## Agent evidence contract
+
+Every coding, research, audit and review agent hands off through the canonical template:
+
+```text
+docs/plans/_template/AGENT_EVIDENCE.md
+```
+
+Rules that apply to every handoff (the template's §1-§6 are the authoritative list):
+
+- Fill the sections that apply to the task's lane; never delete a section header — write `n/a`.
+- An exact SHA is mandatory wherever source behaviour is asserted. Line anchors without a SHA are
+  not evidence.
+- A skipped or failed gate is reported as skipped/failed; "passed" for a command that was not run is
+  a contract violation.
+- Review outcomes separate inherited baseline failures from regressions introduced by the reviewed
+  SHA, and record the verdict (`ACCEPT` / `BLOCK` / `ACCEPT WITH P2`) plus P0/P1/P2 counts.
+- Task states are normalized (`Todo / Ready / In Progress / Review / Blocked / Done / Deferred`) and
+  PR states too (`Draft / Ready / Merged`).
+- Every implementation/review handoff ends with a short Vietnamese summary
+  (`Tổng kết bằng tiếng Việt`, per #113).
+- The template contains one filled coding example and one filled research/audit example; use them as
+  the shape reference, not as boilerplate to copy verbatim.
+
 ## Runtime verification
 
 Source inspection alone is not runtime evidence.
