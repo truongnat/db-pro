@@ -33,6 +33,14 @@ impl ErSpatialIndex {
         for edge in edges {
             index.insert_edge(edge.id, edge.world_bbox);
         }
+        for node_list in index.node_cells.values_mut() {
+            node_list.sort_unstable();
+            node_list.dedup();
+        }
+        for edge_list in index.edge_cells.values_mut() {
+            edge_list.sort_unstable();
+            edge_list.dedup();
+        }
         index
     }
 
@@ -55,8 +63,12 @@ impl ErSpatialIndex {
 
     pub fn insert_edge(&mut self, edge_id: usize, bbox: egui::Rect) {
         let (min_x, max_x, min_y, max_y) = self.cell_range(bbox);
-        for x in min_x..=max_x {
-            for y in min_y..=max_y {
+        // Bound the cell expansion for pathological long edges
+        let max_span = 32;
+        let bounded_max_x = max_x.min(min_x + max_span);
+        let bounded_max_y = max_y.min(min_y + max_span);
+        for x in min_x..=bounded_max_x {
+            for y in min_y..=bounded_max_y {
                 self.edge_cells.entry((x, y)).or_default().push(edge_id);
             }
         }

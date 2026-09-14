@@ -156,6 +156,11 @@ impl ErGraph {
             }
         }
 
+        for neighbors in adjacency.values_mut() {
+            neighbors.sort_unstable();
+            neighbors.dedup();
+        }
+
         let world_bounds = if nodes.is_empty() {
             egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(640.0, 360.0))
         } else {
@@ -176,6 +181,19 @@ impl ErGraph {
         }
     }
 
+    pub fn active_subset_bounds(&self, subset: &[usize]) -> egui::Rect {
+        let mut bounds: Option<egui::Rect> = None;
+        for &id in subset {
+            if let Some(node) = self.nodes.get(id) {
+                bounds = match bounds {
+                    Some(b) => Some(b.union(node.world_rect)),
+                    None => Some(node.world_rect),
+                };
+            }
+        }
+        bounds.map_or(self.world_bounds, |b| b.expand(ER_CANVAS_MARGIN))
+    }
+
     pub fn bfs_neighborhood(&self, seed_indices: &[usize], max_depth: usize, max_nodes: usize) -> Vec<usize> {
         let mut visited = HashSet::new();
         let mut queue = VecDeque::new();
@@ -185,6 +203,9 @@ impl ErGraph {
             if seed < self.nodes.len() && visited.insert(seed) {
                 queue.push_back((seed, 0));
                 result.push(seed);
+                if result.len() >= max_nodes {
+                    return result;
+                }
             }
         }
 

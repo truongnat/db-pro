@@ -1138,6 +1138,253 @@ fn diagram_graph_and_spatial_index_support_1000_table_scaling() {
 }
 
 #[test]
+fn diagram_layout_worker_background_computation_and_stale_drop() {
+    let mut worker = ErLayoutWorker::new();
+    let tables = vec![
+        UiTableSummary {
+            schema: "public".to_owned(),
+            name: "categories".to_owned(),
+            row_count: Some(10),
+            columns: vec![UiSchemaColumn {
+                name: "id".to_owned(),
+                data_type: "int".to_owned(),
+                nullable: false,
+                is_primary_key: true,
+            }],
+            foreign_keys: vec![],
+        },
+        UiTableSummary {
+            schema: "public".to_owned(),
+            name: "products".to_owned(),
+            row_count: Some(100),
+            columns: vec![
+                UiSchemaColumn {
+                    name: "id".to_owned(),
+                    data_type: "int".to_owned(),
+                    nullable: false,
+                    is_primary_key: true,
+                },
+                UiSchemaColumn {
+                    name: "cat_id".to_owned(),
+                    data_type: "int".to_owned(),
+                    nullable: false,
+                    is_primary_key: false,
+                },
+            ],
+            foreign_keys: vec![UiSchemaForeignKey {
+                name: "fk_prod_cat".to_owned(),
+                from_columns: vec!["cat_id".to_owned()],
+                to_schema: "public".to_owned(),
+                to_table: "categories".to_owned(),
+                to_columns: vec!["id".to_owned()],
+            }],
+        },
+    ];
+
+    let req_id1 = worker.request_layout(1, tables.clone(), 2, 120.0);
+    let req_id2 = worker.request_layout(2, tables, 2, 120.0);
+    assert!(req_id2 > req_id1);
+
+    // Wait for worker background computation
+    let start = std::time::Instant::now();
+    let mut received_result = None;
+    while start.elapsed() < std::time::Duration::from_millis(500) {
+        if let Some(res) = worker.poll_result() {
+            received_result = Some(res);
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    }
+
+    assert!(received_result.is_some());
+    let res = received_result.unwrap();
+    // Coalescing / latest request guarantees version 2 is processed
+    assert_eq!(res.graph_version, 2);
+    assert_eq!(res.graph.nodes.len(), 2);
+    assert_eq!(res.graph.edges.len(), 1);
+}
+
+#[test]
+fn diagram_dense_1000_table_graph_bounds_candidates() {
+    // 1000 tables with dense relationships (~3 FKs per table = ~3000 edges)
+    let tables: Vec<UiTableSummary> = (0..1000)
+        .map(|i| {
+            let mut fks = Vec::new();
+            if i > 0 {
+                fks.push(UiSchemaForeignKey {
+                    name: format!("fk_{i}_prev"),
+                    from_columns: vec!["parent_id".to_owned()],
+                    to_schema: "public".to_owned(),
+                    to_table: format!("dense_table_{}", i - 1),
+                    to_columns: vec!["id".to_owned()],
+                });
+            }
+            if i > 2 {
+                fks.push(UiSchemaForeignKey {
+                    name: format!("fk_{i}_prev2"),
+                    from_columns: vec!["mod_id".to_owned()],
+                    to_schema: "public".to_owned(),
+                    to_table: format!("dense_table_{}", i - 2),
+                    to_columns: vec!["id".to_owned()],
+                });
+            }
+            if i % 10 > 3 {
+                fks.push(UiSchemaForeignKey {
+                    name: format!("fk_{i}_cluster"),
+                    from_columns: vec!["cluster_id".to_owned()],
+                    to_schema: "public".to_owned(),
+                    to_table: format!("dense_table_{}", i - (i % 10)),
+                    to_columns: vec!["id".to_owned()],
+                });
+            }
+            UiTableSummary {
+                schema: "public".to_owned(),
+                name: format!("dense_table_{i}"),
+                row_count: Some(50),
+                columns: vec![
+                    UiSchemaColumn {
+                        name: "id".to_owned(),
+                        data_type: "int".to_owned(),
+                        nullable: false,
+                        is_primary_key: true,
+                    },
+                    UiSchemaColumn {
+                        name: "parent_id".to_owned(),
+                        data_type: "int".to_owned(),
+                        nullable: false,
+                        is_primary_key: false,
+                    },
+                    UiSchemaColumn {
+                        name: "mod_id".to_owned(),
+                        data_type: "int".to_owned(),
+                        nullable: false,
+                        is_primary_key: false,
+                    },
+                    UiSchemaColumn {
+                        name: "step_id".to_owned(),
+                        data_type: "int".to_owned(),
+                        nullable: false,
+                        is_primary_key: false,
+                    },
+                ],
+                foreign_keys: fks,
+            }
+        })
+        .collect();
+
+    let graph = ErGraph::build(&tables, 1, 10, 160.0);
+    assert_eq!(graph.nodes.len(), 1000);
+    assert!(graph.edges.len() > 2000);
+
+    let spatial_index = ErSpatialIndex::build(&graph.nodes, &graph.edges, DEFAULT_SPATIAL_CELL_SIZE);
+    let viewport = ErViewport::new(egui::Vec2::ZERO, 1.0, egui::Pos2::ZERO);
+    let screen_clip = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1280.0, 800.0));
+
+    let scene = prepare_render_scene(&graph, &spatial_index, &viewport, screen_clip, None);
+
+    // Visible nodes & edges must both remain strictly bounded
+    assert!(scene.visible_nodes.len() < 50);
+    assert!(scene.visible_edges.len() < 150);
+}
+
+#[test]
+fn diagram_cyclic_and_self_fk_bfs_neighborhood() {
+    let tables = vec![
+        UiTableSummary {
+            schema: "public".to_owned(),
+            name: "node_a".to_owned(),
+            row_count: Some(10),
+            columns: vec![UiSchemaColumn {
+                name: "id".to_owned(),
+                data_type: "int".to_owned(),
+                nullable: false,
+                is_primary_key: true,
+            }],
+            foreign_keys: vec![UiSchemaForeignKey {
+                name: "fk_a_b".to_owned(),
+                from_columns: vec!["b_id".to_owned()],
+                to_schema: "public".to_owned(),
+                to_table: "node_b".to_owned(),
+                to_columns: vec!["id".to_owned()],
+            }],
+        },
+        UiTableSummary {
+            schema: "public".to_owned(),
+            name: "node_b".to_owned(),
+            row_count: Some(10),
+            columns: vec![UiSchemaColumn {
+                name: "id".to_owned(),
+                data_type: "int".to_owned(),
+                nullable: false,
+                is_primary_key: true,
+            }],
+            foreign_keys: vec![UiSchemaForeignKey {
+                name: "fk_b_c".to_owned(),
+                from_columns: vec!["c_id".to_owned()],
+                to_schema: "public".to_owned(),
+                to_table: "node_c".to_owned(),
+                to_columns: vec!["id".to_owned()],
+            }],
+        },
+        UiTableSummary {
+            schema: "public".to_owned(),
+            name: "node_c".to_owned(),
+            row_count: Some(10),
+            columns: vec![UiSchemaColumn {
+                name: "id".to_owned(),
+                data_type: "int".to_owned(),
+                nullable: false,
+                is_primary_key: true,
+            }],
+            foreign_keys: vec![UiSchemaForeignKey {
+                name: "fk_c_a".to_owned(), // cycle back to A
+                from_columns: vec!["a_id".to_owned()],
+                to_schema: "public".to_owned(),
+                to_table: "node_a".to_owned(),
+                to_columns: vec!["id".to_owned()],
+            }],
+        },
+        UiTableSummary {
+            schema: "public".to_owned(),
+            name: "self_referential".to_owned(),
+            row_count: Some(10),
+            columns: vec![UiSchemaColumn {
+                name: "id".to_owned(),
+                data_type: "int".to_owned(),
+                nullable: false,
+                is_primary_key: true,
+            }],
+            foreign_keys: vec![UiSchemaForeignKey {
+                name: "fk_self".to_owned(), // self reference
+                from_columns: vec!["parent_id".to_owned()],
+                to_schema: "public".to_owned(),
+                to_table: "self_referential".to_owned(),
+                to_columns: vec!["id".to_owned()],
+            }],
+        },
+    ];
+
+    let graph = ErGraph::build(&tables, 1, 2, 100.0);
+
+    // BFS on cycle terminates cleanly without infinite recursion
+    let cycle_bfs = graph.bfs_neighborhood(&[0], 5, 100);
+    assert_eq!(cycle_bfs.len(), 3);
+    assert!(cycle_bfs.contains(&0));
+    assert!(cycle_bfs.contains(&1));
+    assert!(cycle_bfs.contains(&2));
+    assert!(!cycle_bfs.contains(&3));
+
+    // Self-referential BFS
+    let self_bfs = graph.bfs_neighborhood(&[3], 3, 100);
+    assert_eq!(self_bfs.len(), 1);
+    assert_eq!(self_bfs[0], 3);
+
+    // Active subset bounds
+    let subset_bounds = graph.active_subset_bounds(&[0, 1]);
+    assert!(subset_bounds.width() >= ER_NODE_WIDTH);
+}
+
+#[test]
 fn ddl_impact_summary_uses_plain_language_for_destructive_operations() {
     assert!(ddl_impact_summary("DROP TABLE customers", "customers").contains("recovery requires a backup"));
     assert!(

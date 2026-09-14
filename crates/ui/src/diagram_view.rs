@@ -8,6 +8,16 @@ impl DbProApp {
         let search_query = self.diagram_search.trim().to_ascii_lowercase();
         let search_mode = diagram_search_mode(large_schema, self.diagram_show_all);
 
+        // Poll background layout worker:
+        if let Some(res) = self.diagram_layout_worker.poll_result() {
+            if res.graph_version == self.diagram_schema_version && res.request_id == self.diagram_latest_layout_request
+            {
+                self.diagram_graph = res.graph;
+                self.diagram_spatial_index = res.spatial_index;
+                self.diagram_layout_state = ErLayoutState::Ready;
+            }
+        }
+
         if self.schema.table_details.is_empty() {
             self.draw_diagram_empty_state(ui, 0, false, false);
             return;
@@ -80,17 +90,35 @@ impl DbProApp {
             || self.diagram_graph.schema_version != self.diagram_schema_version;
 
         if graph_dirty && current_count > 0 {
-            self.diagram_graph = ErGraph::build(
-                &self.schema.table_details,
-                self.diagram_schema_version,
-                grid_columns,
-                node_height,
-            );
-            self.diagram_spatial_index = ErSpatialIndex::build(
-                &self.diagram_graph.nodes,
-                &self.diagram_graph.edges,
-                DEFAULT_SPATIAL_CELL_SIZE,
-            );
+            if self.diagram_graph.nodes.is_empty() {
+                // First load: build immediately so canvas starts populated without blank frame
+                self.diagram_graph = ErGraph::build(
+                    &self.schema.table_details,
+                    self.diagram_schema_version,
+                    grid_columns,
+                    node_height,
+                );
+                self.diagram_spatial_index = ErSpatialIndex::build(
+                    &self.diagram_graph.nodes,
+                    &self.diagram_graph.edges,
+                    DEFAULT_SPATIAL_CELL_SIZE,
+                );
+                self.diagram_layout_state = ErLayoutState::Ready;
+            } else {
+                // Background worker update: keep old graph renderable and dispatch async request
+                self.diagram_schema_version = self.diagram_schema_version.wrapping_add(1);
+                let request_id = self.diagram_layout_worker.request_layout(
+                    self.diagram_schema_version,
+                    self.schema.table_details.clone(),
+                    grid_columns,
+                    node_height,
+                );
+                self.diagram_latest_layout_request = request_id;
+                self.diagram_layout_state = ErLayoutState::Computing {
+                    request_id,
+                    graph_version: self.diagram_schema_version,
+                };
+            }
         }
     }
 }
@@ -169,6 +197,14 @@ impl DbProApp {
                 self.theme.surface_hover,
                 self.theme.text_secondary,
             );
+            if matches!(self.diagram_layout_state, ErLayoutState::Computing { .. }) {
+                badge(
+                    ui,
+                    "Arranging map…",
+                    self.theme.surface_hover,
+                    self.theme.text_secondary,
+                );
+            }
             if large_schema {
                 ui.separator();
                 let search_changed =
@@ -266,7 +302,11 @@ impl DbProApp {
 
 impl DbProApp {
     fn draw_diagram_canvas(&mut self, ui: &mut egui::Ui, active_filter: Option<&[usize]>) {
-        let world_size = self.diagram_graph.world_bounds.size();
+        let world_size = if let Some(filter) = active_filter {
+            self.diagram_graph.active_subset_bounds(filter).size()
+        } else {
+            self.diagram_graph.world_bounds.size()
+        };
         let viewport_size = egui::vec2(ui.available_width(), ui.available_height());
         let canvas_size = diagram_canvas_size(world_size * self.diagram_zoom, viewport_size);
         let zoom = self.diagram_zoom;
@@ -305,7 +345,15 @@ impl DbProApp {
                     }
                 }
 
-                draw_diagram_zoom_controls(ui, response.rect, &mut self.diagram_zoom, &mut self.diagram_pan, theme);
+                draw_diagram_zoom_controls(
+                    ui,
+                    response.rect,
+                    &mut self.diagram_zoom,
+                    &mut self.diagram_pan,
+                    &self.diagram_graph,
+                    active_filter,
+                    theme,
+                );
                 self.update_diagram_pan(&response);
 
                 if response.clicked() {
@@ -524,20 +572,15 @@ fn paint_er_node_lod(
     theme: DbProTheme,
 ) {
     match lod {
-        ErLod::Compact => {
+        ErLod::Compact if !selected => {
             // Compact pill card: only header with table name and PK count
             painter.rect_filled(screen_rect, egui::Rounding::same(6.0), theme.surface_panel);
             painter.rect_stroke(
                 screen_rect,
                 egui::Rounding::same(6.0),
-                egui::Stroke::new(1.0, if selected { theme.accent } else { theme.border_default }),
+                egui::Stroke::new(1.0, theme.border_default),
             );
-            let header_fill = if selected {
-                theme.accent_soft
-            } else {
-                theme.surface_hover
-            };
-            painter.rect_filled(screen_rect, egui::Rounding::same(6.0), header_fill);
+            painter.rect_filled(screen_rect, egui::Rounding::same(6.0), theme.surface_hover);
             painter.text(
                 screen_rect.center_top() + egui::vec2(0.0, 14.0 * zoom),
                 egui::Align2::CENTER_CENTER,
@@ -556,7 +599,7 @@ fn paint_er_node_lod(
                 );
             }
         }
-        ErLod::Standard | ErLod::Detailed => {
+        _ => {
             // Header:
             painter.rect_filled(screen_rect, egui::Rounding::same(8.0), theme.surface_panel);
             painter.rect_stroke(
@@ -599,7 +642,11 @@ fn paint_er_node_lod(
             );
 
             // Columns:
-            let max_cols = lod.max_columns();
+            let max_cols = if selected && lod == ErLod::Compact {
+                3
+            } else {
+                lod.max_columns()
+            };
             for (index, column) in node.table.columns.iter().take(max_cols).enumerate() {
                 let row_top = screen_rect.min.y + (ER_HEADER_HEIGHT + index as f32 * ER_ROW_HEIGHT) * zoom;
                 let row_rect = egui::Rect::from_min_max(
@@ -664,6 +711,8 @@ fn draw_diagram_zoom_controls(
     canvas_rect: egui::Rect,
     zoom: &mut f32,
     pan: &mut egui::Vec2,
+    graph: &ErGraph,
+    active_filter: Option<&[usize]>,
     theme: DbProTheme,
 ) {
     let controls_rect = egui::Rect::from_min_size(
@@ -701,8 +750,24 @@ fn draw_diagram_zoom_controls(
                     .on_hover_text("Fit diagram")
                     .clicked()
                 {
-                    *zoom = 1.0;
-                    *pan = egui::Vec2::ZERO;
+                    let target_bounds = if let Some(filter) = active_filter {
+                        graph.active_subset_bounds(filter)
+                    } else {
+                        graph.world_bounds
+                    };
+                    let bounds_size = target_bounds.size();
+                    if bounds_size.x > 10.0 && bounds_size.y > 10.0 {
+                        let zoom_x = (canvas_rect.width() - 80.0) / bounds_size.x;
+                        let zoom_y = (canvas_rect.height() - 80.0) / bounds_size.y;
+                        *zoom = zoom_x.min(zoom_y).clamp(0.5, 1.5);
+                        *pan = egui::vec2(
+                            (canvas_rect.width() - bounds_size.x * *zoom) / 2.0 - target_bounds.left() * *zoom,
+                            (canvas_rect.height() - bounds_size.y * *zoom) / 2.0 - target_bounds.top() * *zoom,
+                        );
+                    } else {
+                        *zoom = 1.0;
+                        *pan = egui::Vec2::ZERO;
+                    }
                 }
             });
         });
