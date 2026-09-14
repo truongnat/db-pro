@@ -38,7 +38,7 @@
 | Test connection | SUPPORTED + QUALIFIED | SUPPORTED + QUALIFIED | `test_connection` in DbConnector trait |
 | Disconnect | SUPPORTED + QUALIFIED | SUPPORTED + QUALIFIED | |
 | Reconnect | SUPPORTED + NOT YET QUALIFIED | SUPPORTED + NOT YET QUALIFIED | Manual reconnection path exists |
-| Password storage | SUPPORTED + NOT YET QUALIFIED | N/A | OS keyring (Keychain/Credential Manager/keyutils); encrypted fallback is dev-only (#142). SQLite has no auth |
+| Password storage | SUPPORTED + NOT YET QUALIFIED | N/A | OS keyring (Keychain/Credential Manager/keyutils) is the primary store in every build; a release build with no keyring item keeps the password in memory for the session only, and the encrypted-file fallback is debug/`DB_PRO_ALLOW_FILE_SECRET_FALLBACK`-gated so a release build never reads it (#142). SQLite has no auth |
 | TLS/SSL | SUPPORTED + NOT YET QUALIFIED | N/A | PG via `runtime-tokio-rustls`; SQLite is local file |
 | SSH tunnel | SUPPORTED + NOT YET QUALIFIED | NOT SUPPORTED | Shells out to `ssh` binary; not E2E qualified (#issue) |
 | File picker (SQLite) | N/A | SUPPORTED + NOT YET QUALIFIED | Native `rfd` file dialog (`crates/ui`); the earlier `tauri-plugin-dialog` wiring belonged to the retired Tauri host |

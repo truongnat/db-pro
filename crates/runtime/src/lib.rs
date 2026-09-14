@@ -58,6 +58,57 @@ pub enum RuntimeInitError {
     Metadata(#[from] db_pro_core::domain::error::DbError),
 }
 
+/// Keyring service name used for every DB Pro secret entry.
+pub const KEYRING_SERVICE: &str = "com.dbpro.app";
+
+/// Opt-in that enables the development encrypted-file secret fallback in a release build.
+///
+/// The file's encryption key is derived from [`KEYRING_SERVICE`], which is not a secret, so the
+/// fallback is never enabled in a release build by default (#142).
+pub const ALLOW_FILE_SECRET_FALLBACK_ENV: &str = "DB_PRO_ALLOW_FILE_SECRET_FALLBACK";
+
+/// Whether the development encrypted-file secret fallback is enabled for this build.
+///
+/// Debug builds keep it (development and CI have no OS keyring guarantee); a release build only
+/// enables it when [`ALLOW_FILE_SECRET_FALLBACK_ENV`] is set to `1` or `true`. The OS keyring and
+/// the in-memory session fallback are always used, in every build.
+pub fn file_secret_fallback_enabled() -> bool {
+    file_secret_fallback_enabled_for(
+        cfg!(debug_assertions),
+        std::env::var(ALLOW_FILE_SECRET_FALLBACK_ENV).ok().as_deref(),
+    )
+}
+
+/// The decision behind [`file_secret_fallback_enabled`], free of build/process-global state.
+fn file_secret_fallback_enabled_for(debug_build: bool, opt_in: Option<&str>) -> bool {
+    if debug_build {
+        return true;
+    }
+    match opt_in.map(str::trim) {
+        Some(value) => value == "1" || value.eq_ignore_ascii_case("true"),
+        None => false,
+    }
+}
+
+/// Build the secret store used by the application.
+///
+/// The OS keyring is the primary store in every build. The encrypted-file fallback is a
+/// development/CI affordance and is only wired in when [`file_secret_fallback_enabled`] allows it;
+/// the in-memory session fallback keeps a release build usable when the platform has no keyring
+/// item for a key (the password is then asked for again after a restart).
+fn build_secret_store(secrets_dir: PathBuf) -> KeyringVault {
+    let vault = KeyringVault::new(KEYRING_SERVICE, secrets_dir).with_session_fallback();
+    if file_secret_fallback_enabled() {
+        tracing::warn!(
+            "encrypted-file secret fallback enabled (debug build or {ALLOW_FILE_SECRET_FALLBACK_ENV} set): \
+             its key is derived from the service name, so use the OS keyring outside development and CI"
+        );
+        vault.with_fallback()
+    } else {
+        vault
+    }
+}
+
 impl DbProRuntime {
     /// Build the shared service graph once at application startup.
     pub async fn new(data_dir: impl AsRef<Path>) -> Result<Arc<Self>, RuntimeInitError> {
@@ -69,11 +120,7 @@ impl DbProRuntime {
 
         let meta_path = data_dir.join("meta.db");
         let meta_store = SQLiteMetaStore::new(&meta_path.to_string_lossy()).await?;
-        let secret_store = Arc::new(
-            KeyringVault::new("com.dbpro.app", secrets_dir)
-                .with_session_fallback()
-                .with_fallback(),
-        );
+        let secret_store = Arc::new(build_secret_store(secrets_dir));
         let connector = Arc::new(CompositeConnector::new());
         let registry = Arc::new(ConnectionRegistry::new());
 
@@ -264,5 +311,64 @@ fn db_config(
         tags: Vec::new(),
         group: None,
         readonly: false,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn file_fallback_needs_a_debug_build_or_an_explicit_opt_in() {
+        assert!(file_secret_fallback_enabled_for(true, None));
+        assert!(file_secret_fallback_enabled_for(true, Some("0")));
+        assert!(!file_secret_fallback_enabled_for(false, None));
+        assert!(!file_secret_fallback_enabled_for(false, Some("")));
+        assert!(!file_secret_fallback_enabled_for(false, Some("0")));
+        assert!(!file_secret_fallback_enabled_for(false, Some("yes")));
+        assert!(file_secret_fallback_enabled_for(false, Some("1")));
+        assert!(file_secret_fallback_enabled_for(false, Some(" true ")));
+        assert!(file_secret_fallback_enabled_for(false, Some("TRUE")));
+    }
+
+    /// Regression guard for #142: the shipping wiring always selects the OS keyring and the
+    /// in-memory session fallback, and selects the encrypted-file fallback only when
+    /// [`file_secret_fallback_enabled`] allows it — so the weakly-keyed file can never be
+    /// consulted in a release build that did not opt in.
+    #[test]
+    fn shipping_secret_store_follows_the_build_profile() {
+        let secrets_dir = std::env::temp_dir().join(format!("db-pro-runtime-secrets-{}", std::process::id()));
+        let vault = build_secret_store(secrets_dir);
+        let opt_in = std::env::var(ALLOW_FILE_SECRET_FALLBACK_ENV).ok();
+
+        assert!(
+            vault.session_fallback_enabled(),
+            "a build without an OS keyring item must degrade to the in-memory session fallback"
+        );
+        assert_eq!(
+            vault.file_fallback_enabled(),
+            file_secret_fallback_enabled_for(cfg!(debug_assertions), opt_in.as_deref()),
+            "the encrypted-file fallback must follow the build profile and the explicit opt-in only"
+        );
+    }
+
+    /// The release half of the guard above, compiled only when `debug_assertions` is off, so
+    /// `cargo test -p db-pro-runtime --release` is what runs it. It fails deliberately when
+    /// [`ALLOW_FILE_SECRET_FALLBACK_ENV`] is set in the environment: the release default is what is
+    /// being pinned here, and the gate run does not set the opt-in.
+    #[cfg(not(debug_assertions))]
+    #[test]
+    fn release_secret_store_never_selects_the_file_fallback_by_default() {
+        let secrets_dir = std::env::temp_dir().join(format!("db-pro-runtime-release-secrets-{}", std::process::id()));
+        let vault = build_secret_store(secrets_dir);
+
+        assert!(
+            vault.session_fallback_enabled(),
+            "the release store keeps the in-memory session fallback so a missing keyring item is recoverable"
+        );
+        assert!(
+            !vault.file_fallback_enabled(),
+            "a release build without {ALLOW_FILE_SECRET_FALLBACK_ENV} must not select the encrypted-file fallback"
+        );
     }
 }

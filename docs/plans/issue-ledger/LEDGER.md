@@ -125,7 +125,6 @@ Field rules:
 | #135 | [RC1][Truth] Build canonical known-limitations and non-goals registry for v0.1 | `DONE_ON_MAIN` | — | 2026-09-14 | triage: docs/release/known-limitations.md:16 ('Issue: #135'), :35-287 (registry), :289-300 (summary by status) |
 | #136 | [META][RC1] Central release risk, decision, and blocker register | `PARTIAL_ON_MAIN` | — | 2026-09-14 | triage classification only; not yet re-verified against a post-triage commit — docs/release/risk-register.md:1-40,336-370; docs/plans/STATUS.md:45-52 |
 | #141 | [RC1][Brand A1.5] Synthesize competitor research into parity, gap, and positioning evidence map | `PARTIAL_ON_MAIN` | — | 2026-09-14 | triage classification only; not yet re-verified against a post-triage commit — docs/notes/PRODUCT_CAPABILITY_MATRIX.md (partial substitute); no synthesis doc found |
-| #142 | [P1][RC1][Security] Configure real OS keyring stores and remove DEV-only fallback from production | `ACTIONABLE_NOW` | — | 2026-09-14 | triage classification only; not yet re-verified against a post-triage commit — crates/runtime/src/lib.rs:73-75; crates/infrastructure/src/secret/keyring_vault.rs:159-181,244; Cargo.toml:29-33; regression history 81dcad19 -> cce09fd3 |
 | #144 | [P1][RC1][Security] Make PostgreSQL remote connections secure by default | `ACTIONABLE_NOW` | — | 2026-09-14 | triage classification only; not yet re-verified against a post-triage commit — crates/core/src/domain/connection.rs:45-53; crates/ui/src/runtime.rs:81; docs/notes/PRODUCT_CAPABILITY_MATRIX.md:357 |
 | #145 | [P1][RC1][Data Safety] Make SQLite backup and restore snapshot-safe | `ACTIONABLE_NOW` | — | 2026-09-14 | triage classification only; not yet re-verified against a post-triage commit — crates/infrastructure/src/backup/sqlite_backup.rs:58-156,184-261; crates/core/src/application/backup_service.rs:61-71; grep wal_checkpoint/journal_mode -> no matches |
 | #146 | [P1][RC1][Governance] Protect main and require release CI checks | `NEEDS_OWNER_DECISION` | — | 2026-09-14 | triage classification only; not yet re-verified against a post-triage commit — .github/workflows/ci.yml:13-15 (single job 'Rust checks'); issue body 'Ready for Human Action' |
@@ -179,7 +178,21 @@ Field rules:
 
 ## Closed by this workstream
 
-_None yet._ Phase 1 (this pass) closed nothing: it is analysis and documentation only. The first entries appear after the phase-2 confirmation pass on the `DONE_ON_MAIN` rows.
+A closed issue moves here from the triage table with its closing reference; the triage content is kept, nothing is deleted. Phase 1 (the triage pass) closed nothing: it is analysis and documentation only.
+
+| # | Title | Closed | Commit(s) | Verification evidence (triage pointer → closing evidence) |
+|---:|---|---|---|---|
+| #142 | [P1][RC1][Security] Configure real OS keyring stores and remove DEV-only fallback from production | 2026-09-15 · `gh issue close 142` | `<sha #142 fix>` | **triage:** crates/runtime/src/lib.rs:73-75 (`with_fallback()` wired unconditionally); crates/infrastructure/src/secret/keyring_vault.rs:159-181,244; Cargo.toml:29-33; regression history 81dcad19 -> cce09fd3 — **closing:** `DbProRuntime::new` now builds the store through `build_secret_store` (`crates/runtime/src/lib.rs:99`): OS keyring + in-memory session fallback in every build, encrypted-file fallback added only when `file_secret_fallback_enabled_for` (`:83`) allows it (debug build or `DB_PRO_ALLOW_FILE_SECRET_FALLBACK` = `1`/`true`), and a release build that did not opt in never opens `secrets.json` at all (`crates/infrastructure/src/secret/keyring_vault.rs:189`). No-keyring-item release degradation is the session store, not the file (`:194`, `:213-221`), pinned by `secret::keyring_vault::tests::disabled_file_fallback_never_touches_a_stale_fallback_file`. 5 tests in `db-pro-runtime` + `db-pro-infrastructure` (incl. the release-only `release_secret_store_never_selects_the_file_fallback_by_default`); `cargo test --workspace` **827 passed / 0 failed / 19 ignored** (baseline at `1ff33ae`: 823/0/19), fmt/check/clippy/release-build/perf-scan green. `docs/architecture/security-boundaries.md:35`, `docs/release/provider-capability-matrix.md:41`, `docs/release/risk-register.md` (`R011` corrected + new `R-KEYRING-FALLBACK`) updated. Evidence: docs/release/evidence/v01-runtime/providers/26-keyring-fallback-gating.md — **not** closed by this: the cross-platform runtime leg of the keyring backends (Windows/Linux hosts), owned by #92/#93 (`R-WINLINUX`), and `R-KEYRING-STALL`/`LIM-018`, which is untouched by this fix. |
+
+## Status after the phase-2 workstream
+
+Counts over the rows that were open at triage (147), refreshed in every ledger commit of the phase-2 pass.
+
+| Status | Count | Note |
+|---|---:|---|
+| Open rows still in the triage table | 146 | #142 moved to "Closed by this workstream" |
+| Closed by this workstream | 1 | #142 |
+| — of which `DONE_ON_MAIN` closed with re-verified evidence | 0 | pending the confirmation pass on the ten `DONE_ON_MAIN` rows |
 
 ## Revisions
 
@@ -187,3 +200,4 @@ _None yet._ Phase 1 (this pass) closed nothing: it is analysis and documentation
 |---|---|---|---|
 | 2026-09-14 | all 136 | Initial triage recorded | Phase 1 of "work through all open issues" |
 | 2026-09-15 | #147, #129 | Status `ACTIONABLE_NOW`/`PARTIAL_ON_MAIN` → same disposition with lifecycle state `REVIEW`; commit and verification evidence recorded | Phase 2, batch 1 item 1: the Agent-path multi-statement classification defect is fixed and covered by 7 regression tests; both issues stay open because their documented remainders are not part of this fix |
+| 2026-09-15 | #142 | `ACTIONABLE_NOW` → closed and moved to "Closed by this workstream" | Phase 2, batch 2 item A: the encrypted-file secret fallback is out of the release path (`build_secret_store`), 5 tests pin the gating and the degradation path, three release/architecture documents corrected, new risk-register row `R-KEYRING-FALLBACK` (`FIXED`) |

@@ -46,8 +46,10 @@ impl KeyringVault {
 
     /// Enable the encrypted-file fallback for environments without an OS keyring.
     ///
-    /// **Do not enable in production.** The encryption key is derived from the
-    /// service name, which is not a secret.
+    /// **Development and CI only.** The encryption key is derived from the
+    /// service name, which is not a secret. The shipping wiring
+    /// (`DbProRuntime::new`) enables this only for debug builds or when
+    /// `DB_PRO_ALLOW_FILE_SECRET_FALLBACK` is set explicitly (#142).
     pub fn with_fallback(mut self) -> Self {
         self.allow_fallback = true;
         self
@@ -60,6 +62,16 @@ impl KeyringVault {
     pub fn with_session_fallback(mut self) -> Self {
         self.allow_session_fallback = true;
         self
+    }
+
+    /// Whether the encrypted-file fallback is enabled for this vault.
+    pub fn file_fallback_enabled(&self) -> bool {
+        self.allow_fallback
+    }
+
+    /// Whether the in-memory session fallback is enabled for this vault.
+    pub fn session_fallback_enabled(&self) -> bool {
+        self.allow_session_fallback
     }
 
     // -- helpers -------------------------------------------------------------
@@ -241,7 +253,7 @@ impl KeyringVault {
 
         let store = self.get_or_init_fallback()?;
         store.store(key, blob)?;
-        tracing::info!("secret stored in fallback file (keyring unavailable)");
+        tracing::info!("secret also stored in the encrypted-file fallback (development/CI fallback)");
         Ok(())
     }
 
@@ -302,5 +314,63 @@ mod tests {
         );
         assert!(!fallback_dir.join("secrets.json").exists());
         vault.delete_secret(&key).await.expect("session delete should succeed");
+    }
+
+    #[test]
+    fn fallback_flags_follow_the_builder_calls() {
+        let dir = PathBuf::from("/tmp/db-pro-fallback-flags");
+
+        let plain = KeyringVault::new("db-pro-flags", dir.clone());
+        assert!(!plain.file_fallback_enabled());
+        assert!(!plain.session_fallback_enabled());
+
+        let session = KeyringVault::new("db-pro-flags", dir.clone()).with_session_fallback();
+        assert!(!session.file_fallback_enabled());
+        assert!(session.session_fallback_enabled());
+
+        let file = KeyringVault::new("db-pro-flags", dir).with_fallback();
+        assert!(file.file_fallback_enabled());
+        assert!(!file.session_fallback_enabled());
+    }
+
+    /// Regression guard for #142: a vault without the file fallback must neither read nor
+    /// write `secrets.json`, even when an older build left one behind.
+    #[tokio::test]
+    async fn disabled_file_fallback_never_touches_a_stale_fallback_file() {
+        let dir = std::env::temp_dir().join(format!("db-pro-stale-fallback-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).expect("temp dir");
+        let path = dir.join("secrets.json");
+        std::fs::write(&path, b"written by an older build").expect("stale file");
+
+        let vault = KeyringVault::new("db-pro-stale-fallback-test", dir.clone()).with_session_fallback();
+        let key = format!("stale/{}", std::process::id());
+
+        vault
+            .store_secret(&key, "<REDACTED>")
+            .await
+            .expect("session store should succeed");
+        assert_eq!(
+            std::fs::read(&path).expect("stale file must still exist"),
+            b"written by an older build",
+            "a disabled file fallback must not rewrite the stale file"
+        );
+        assert_eq!(
+            vault
+                .retrieve_secret(&key)
+                .await
+                .expect("session read should succeed")
+                .as_deref(),
+            Some("<REDACTED>"),
+            "the value must come from the session store, never from the stale file"
+        );
+
+        let absent = format!("stale/absent/{}", std::process::id());
+        assert_eq!(
+            vault.retrieve_secret(&absent).await.expect("missing key lookup"),
+            None,
+            "a key missing from the OS keyring must not resolve to the stale file"
+        );
+
+        let _ = std::fs::remove_file(&path);
     }
 }

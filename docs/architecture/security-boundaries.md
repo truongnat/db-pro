@@ -34,8 +34,15 @@ Credentials must **never** appear in:
 
 ### Storage
 
-- Primary: OS keychain via `keyring` crate
-- Fallback: AES-256-GCM encrypted file (dev/CI only, disabled in production)
+- Primary: OS keychain via `keyring` crate — selected in every build
+  (`KEYRING_SERVICE = "com.dbpro.app"`, `crates/runtime/src/lib.rs:62`)
+- Session fallback: in-memory only, enabled in every build
+  (`crates/runtime/src/lib.rs:100`); a password that only ever reached this store must be
+  re-entered after a restart
+- Encrypted-file fallback: AES-256-GCM `secrets.json`. **Development/CI only** — the shipping
+  wiring enables it for debug builds or when `DB_PRO_ALLOW_FILE_SECRET_FALLBACK` is `1`/`true`
+  (`crates/runtime/src/lib.rs:83`, `:99`), and a release build that did not opt in never
+  consults the file at all (`crates/infrastructure/src/secret/keyring_vault.rs:189`) (#142)
 - Reference: `Connection.secret_ref` stores only the keyring key, not the password
 
 ### Redaction
