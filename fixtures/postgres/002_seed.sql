@@ -63,3 +63,28 @@ INSERT INTO employees (first_name, last_name, hire_date) VALUES
 INSERT INTO "weird""name" ("col with spaces", "SELECT") VALUES
     ('hello', 'world'),
     (NULL, 'not a query');
+
+-- Decoder matrix rows: one fully populated row per class, and one row that is NULL
+-- in every nullable column (id and flag are NOT NULL by DDL).
+INSERT INTO decoder_matrix (
+    id, flag, count, big_count, ratio, precise_ratio, amount,
+    calendar_date, wall_time, zoned_time, local_stamp, instant, span,
+    token, doc, payload, blob, address, network, status, quantity, postal,
+    labels, slot, pair, missing
+) VALUES (
+    1, TRUE, 2147483647, 9223372036854775807, 1.5, 0.1, 12345678901234567890.1234,
+    '2024-03-15', '10:20:30.123456', '10:20:30.123456+07:00',
+    '2024-03-15 10:20:30.123456', '2024-03-15 10:20:30.123456+00:00',
+    '1 mons 2 days 03:04:05.000006',
+    'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
+    '{"a": 1, "b": [true, null]}', '{"brand": "TechCo", "weight_kg": 1.8}',
+    E'\\xDEADBEEF', '192.0.2.1', '192.0.2.0/24',
+    'shipped', 7, 'SW1A 1AA',
+    ARRAY['laptop', 'computer'], '[1,10)', ROW(1, 'x'), NULL
+), (
+    2, FALSE, NULL, NULL, NULL, NULL, NULL,
+    NULL, NULL, NULL, NULL, NULL, NULL,
+    NULL, NULL, NULL, NULL, NULL, NULL,
+    NULL, NULL, NULL,
+    NULL, NULL, NULL, NULL
+);

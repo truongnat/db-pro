@@ -140,3 +140,41 @@ BEGIN
             FROM order_items WHERE order_id = p_order_id);
 END;
 $$ LANGUAGE plpgsql;
+
+-- ── Decoder matrix (Gate 5 B5, #59) ────────────────────────────
+-- One column per value class the provider contract defines, so the decoder is
+-- exercised against a real server instead of unit-level metadata: temporal
+-- classes, exact numerics, structured classes, and the provider-specific
+-- enum/domain/array/range/composite classes the fallback has to survive.
+CREATE DOMAIN positive_quantity AS INTEGER CHECK (VALUE > 0);
+CREATE DOMAIN postal_code AS TEXT;
+CREATE TYPE decoder_pair AS (left_value INTEGER, right_value TEXT);
+
+CREATE TABLE decoder_matrix (
+    id SMALLINT PRIMARY KEY,             -- int2
+    flag BOOLEAN NOT NULL,               -- bool
+    count INTEGER,                       -- int4
+    big_count BIGINT,                    -- int8
+    ratio REAL,                          -- float4
+    precise_ratio DOUBLE PRECISION,      -- float8
+    amount NUMERIC(24, 4),               -- numeric/decimal, high precision
+    calendar_date DATE,                  -- date
+    wall_time TIME(6),                   -- time
+    zoned_time TIMETZ,                   -- timetz
+    local_stamp TIMESTAMP(6),            -- timestamp
+    instant TIMESTAMPTZ,                 -- timestamptz
+    span INTERVAL,                       -- interval
+    token UUID,                          -- uuid
+    doc JSON,                            -- json
+    payload JSONB,                       -- jsonb
+    blob BYTEA,                          -- bytea
+    address INET,                        -- inet
+    network CIDR,                        -- cidr
+    status order_status,                 -- enum
+    quantity positive_quantity,          -- domain over int4
+    postal postal_code,                  -- domain over text
+    labels TEXT[],                       -- array
+    slot INT4RANGE,                      -- range (no explicit decoder arm)
+    pair decoder_pair,                   -- composite (no flat representation)
+    missing TEXT                         -- nulls
+);

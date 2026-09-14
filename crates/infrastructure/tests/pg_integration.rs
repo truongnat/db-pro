@@ -960,3 +960,136 @@ async fn pg_enum_and_domain_values_decode_to_canonical_values() {
 
     connector.disconnect(&handle).await.unwrap();
 }
+
+/// #59 (B5): the decoder against the full fixture matrix — one column per value
+/// class the contract defines, in `fixtures/postgres/decoder_matrix` (DDL in
+/// `001_schema.sql`, row in `002_seed.sql`), asserted expected-vs-actual on a live
+/// server, plus a second row that is NULL in every nullable column, so each class
+/// is proven to survive a NULL.
+#[tokio::test]
+#[ignore] // Requires DATABASE_URL
+async fn pg_decoder_matrix_covers_every_value_class() {
+    let (connector, handle) = setup().await;
+    let result = connector
+        .query(&handle, "SELECT * FROM decoder_matrix ORDER BY id", &[])
+        .await
+        .expect("every fixture column must decode without unintended query failure");
+
+    assert_eq!(result.row_count, 2, "one populated row and one NULL row");
+    let row = &result.rows[0].0;
+    assert_eq!(row.len(), 26, "one cell per decoder_matrix column");
+
+    let checks: Vec<(&str, bool)> = vec![
+        ("id int2", matches!(&row[0], CellValue::Int64(1))),
+        ("flag bool", matches!(&row[1], CellValue::Bool(true))),
+        ("count int4", matches!(&row[2], CellValue::Int64(2_147_483_647))),
+        (
+            "big_count int8",
+            matches!(&row[3], CellValue::Int64(9_223_372_036_854_775_807)),
+        ),
+        (
+            "ratio float4",
+            matches!(&row[4], CellValue::Float64(value) if (*value - 1.5).abs() < f64::EPSILON),
+        ),
+        (
+            "precise_ratio float8",
+            matches!(&row[5], CellValue::Float64(value) if (*value - 0.1).abs() < f64::EPSILON),
+        ),
+        (
+            "amount numeric(24,4)",
+            matches!(&row[6], CellValue::Decimal(value) if value == "12345678901234567890.1234"),
+        ),
+        (
+            "calendar_date",
+            matches!(&row[7], CellValue::Date(value) if value == "2024-03-15"),
+        ),
+        (
+            "wall_time",
+            matches!(&row[8], CellValue::Time(value) if value == "10:20:30.123456"),
+        ),
+        (
+            "zoned_time timetz",
+            matches!(&row[9], CellValue::Time(value) if value == "10:20:30.123456+07:00"),
+        ),
+        (
+            "local_stamp timestamp",
+            matches!(&row[10], CellValue::DateTime(value) if value == "2024-03-15T10:20:30.123456"),
+        ),
+        (
+            "instant timestamptz",
+            matches!(&row[11], CellValue::DateTime(value) if value == "2024-03-15T10:20:30.123456Z"),
+        ),
+        (
+            "span interval",
+            matches!(&row[12], CellValue::Interval(value) if value == "1 mons 2 days 03:04:05.000006"),
+        ),
+        (
+            "token uuid",
+            matches!(&row[13], CellValue::Uuid(value) if value == "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11"),
+        ),
+        (
+            "doc json",
+            matches!(&row[14], CellValue::Json(value) if value["a"] == 1),
+        ),
+        (
+            "payload jsonb",
+            matches!(&row[15], CellValue::Json(value) if value["brand"] == "TechCo"),
+        ),
+        (
+            "blob bytea",
+            matches!(&row[16], CellValue::Bytes(value) if value == &vec![0xde, 0xad, 0xbe, 0xef]),
+        ),
+        (
+            "address inet",
+            matches!(&row[17], CellValue::Inet(value) if value.starts_with("192.0.2.1")),
+        ),
+        (
+            "network cidr",
+            matches!(&row[18], CellValue::Inet(value) if value == "192.0.2.0/24"),
+        ),
+        (
+            "status enum",
+            matches!(&row[19], CellValue::Text(value) if value == "shipped"),
+        ),
+        ("quantity domain", matches!(&row[20], CellValue::Int64(7))),
+        (
+            "postal domain",
+            matches!(&row[21], CellValue::Text(value) if value == "SW1A 1AA"),
+        ),
+        ("labels array", matches!(&row[22], CellValue::Bytes(_))),
+        ("slot range", matches!(&row[23], CellValue::Bytes(_))),
+        ("pair composite", matches!(&row[24], CellValue::Bytes(_))),
+        ("missing null", matches!(&row[25], CellValue::Null)),
+    ];
+
+    let wrong: Vec<&str> = checks.iter().filter(|(_, ok)| !ok).map(|(name, _)| *name).collect();
+    assert!(wrong.is_empty(), "decoder matrix mismatch: {wrong:?}");
+
+    // Provider type identity stays available to the policy layer for each column.
+    let declared: Vec<&str> = result.columns.iter().map(|c| c.data_type.as_str()).collect();
+    for expected in ["INT2", "NUMERIC", "TIMETZ", "TEXT[]", "INT4RANGE", "decoder_pair"] {
+        assert!(
+            declared.iter().any(|name| name.contains(expected)),
+            "the declared type {expected} must reach the caller: {declared:?}"
+        );
+    }
+
+    // Every nullable class in the second row is a null cell, not an error and not
+    // empty bytes. The key and the flag are NOT NULL by DDL and keep their values.
+    assert!(
+        matches!(&result.rows[1].0[0], CellValue::Int64(2)),
+        "the NOT NULL key column keeps its value"
+    );
+    assert!(
+        matches!(&result.rows[1].0[1], CellValue::Bool(false)),
+        "the NOT NULL flag column keeps its value"
+    );
+    for (index, cell) in result.rows[1].0.iter().enumerate().skip(2) {
+        assert!(
+            matches!(cell, CellValue::Null),
+            "column {index} of the NULL row must be Null, got {cell:?}"
+        );
+    }
+
+    connector.disconnect(&handle).await.unwrap();
+}
