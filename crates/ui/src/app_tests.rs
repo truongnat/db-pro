@@ -2530,6 +2530,122 @@ fn test_format_cell_csv_and_cell_to_json() {
     );
 }
 
+/// Copy-as-JSON must not round an exact value through `f64`.
+#[test]
+fn test_copy_as_json_keeps_exact_numeric_digits() {
+    // Beyond f64's 2^53 exact-integer range: must stay the identical text.
+    assert_eq!(
+        DbProApp::cell_to_json_value(&UiCell::Number("9007199254740993".to_owned())),
+        serde_json::Value::String("9007199254740993".to_owned())
+    );
+    // Exact decimal with trailing zeroes: the digits are the value.
+    assert_eq!(
+        DbProApp::cell_to_json_value(&UiCell::Number("42.50".to_owned())),
+        serde_json::Value::String("42.50".to_owned())
+    );
+    assert_eq!(
+        DbProApp::cell_to_json_value(&UiCell::Number("12345678901234567890.12345".to_owned())),
+        serde_json::Value::String("12345678901234567890.12345".to_owned())
+    );
+    // A value f64 represents exactly still serializes as a JSON number.
+    assert_eq!(
+        DbProApp::cell_to_json_value(&UiCell::Number("1.5".to_owned())),
+        serde_json::json!(1.5)
+    );
+    // ... and the serialized text of that number is the original text.
+    let copied = DbProApp::cell_to_json_value(&UiCell::Number("100".to_owned())).to_string();
+    assert_eq!(copied, "100");
+}
+
+/// The copied/exported record shape must survive values that contain the
+/// separator, a quote, or a line break.
+#[test]
+fn test_delimited_export_keeps_field_count_for_awkward_values() {
+    let value = UiQueryResult {
+        columns: vec![
+            crate::UiColumn {
+                name: "id".to_owned(),
+                data_type: "int".to_owned(),
+                nullable: false,
+            },
+            crate::UiColumn {
+                name: "note".to_owned(),
+                data_type: "text".to_owned(),
+                nullable: true,
+            },
+        ],
+        rows: vec![vec![
+            crate::UiCell::Number("9007199254740993".to_owned()),
+            crate::UiCell::Text("first, \"second\"\nthird".to_owned()),
+        ]],
+        row_count: 1,
+        duration_ms: 0,
+    };
+
+    let csv = DbProApp::format_result_delimited(&value, ",");
+    assert_eq!(
+        csv, "id,note\n9007199254740993,\"first, \"\"second\"\"\nthird\"\n",
+        "the delimiter, the quotes and the newline must be escaped inside one field, \
+         and the exact digits must survive unquoted"
+    );
+
+    let tsv = DbProApp::format_result_delimited(&value, "\t");
+    assert_eq!(
+        tsv, "id\tnote\n9007199254740993\t\"first, \"\"second\"\"\nthird\"\n",
+        "the tab-separated shape must survive too"
+    );
+}
+
+/// The export writes exactly the shared serializer's text to disk.
+#[test]
+fn test_export_result_writes_escaped_delimited_text() {
+    let value = UiQueryResult {
+        columns: vec![
+            crate::UiColumn {
+                name: "note".to_owned(),
+                data_type: "text".to_owned(),
+                nullable: true,
+            },
+            crate::UiColumn {
+                name: "amount".to_owned(),
+                data_type: "numeric".to_owned(),
+                nullable: true,
+            },
+        ],
+        rows: vec![
+            vec![
+                crate::UiCell::Text("line, one\ntwo".to_owned()),
+                crate::UiCell::Number("42.50".to_owned()),
+            ],
+            vec![
+                crate::UiCell::Null,
+                crate::UiCell::Number("9007199254740993".to_owned()),
+            ],
+        ],
+        row_count: 2,
+        duration_ms: 0,
+    };
+
+    let path = std::env::temp_dir().join(format!("db-pro-export-test-{}.csv", uuid::Uuid::new_v4()));
+    let path_text = path.to_string_lossy().into_owned();
+    let mut app = DbProApp {
+        export_format: "CSV".to_owned(),
+        export_path: path_text.clone(),
+        export_open: true,
+        ..Default::default()
+    };
+    app.export_result(&value);
+    assert!(!app.export_open, "the dialog closes after a successful export");
+    assert_eq!(app.runtime_message, format!("Exported 2 rows to {path_text}"));
+
+    let written = std::fs::read_to_string(&path).expect("export file must exist");
+    let _ = std::fs::remove_file(&path);
+    assert_eq!(
+        written, "note,amount\n\"line, one\ntwo\",42.50\n,9007199254740993\n",
+        "NULL is an empty field, the exact digits survive, and the embedded newline stays quoted"
+    );
+}
+
 #[test]
 fn test_table_data_limit_and_paging_offset() {
     let mut app = DbProApp::default();

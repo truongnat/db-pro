@@ -1354,33 +1354,14 @@ impl DbProApp {
         }
     }
 
-    fn export_result(&mut self, result: &UiQueryResult) {
+    pub(crate) fn export_result(&mut self, result: &UiQueryResult) {
         let path = self.export_path.trim();
         if path.is_empty() {
             self.runtime_message = "Choose an export path first".to_owned();
             return;
         }
         let delimiter = if self.export_format == "CSV" { "," } else { "\t" };
-        let mut output = result
-            .columns
-            .iter()
-            .map(|column| column.name.clone())
-            .collect::<Vec<_>>()
-            .join(delimiter);
-        output.push('\n');
-        for row in &result.rows {
-            output.push_str(
-                &row.iter()
-                    .map(|cell| match cell {
-                        UiCell::Null => String::new(),
-                        UiCell::Boolean(v) => v.to_string(),
-                        UiCell::Number(v) | UiCell::Text(v) | UiCell::Json(v) | UiCell::Bytes(v) => v.clone(),
-                    })
-                    .collect::<Vec<_>>()
-                    .join(delimiter),
-            );
-            output.push('\n');
-        }
+        let output = DbProApp::format_result_delimited(result, delimiter);
         match std::fs::write(path, output) {
             Ok(()) => self.runtime_message = format!("Exported {} rows to {path}", result.rows.len()),
             Err(error) => self.runtime_message = format!("Export failed: {error}"),
