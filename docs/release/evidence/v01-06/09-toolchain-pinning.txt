@@ -1,0 +1,357 @@
+# V01-06 evidence — 09-toolchain-pinning
+
+Captured    : 2026-09-14T13:05Z (UTC) / 2026-09-14 20:05 +07 (local)
+Worktree    : /Users/truongdev/Documents/projects/db-pro/main (branch main)
+Base commit : 7794196 "fix(ui): remove developer connection label from shipped component gallery"
+              (HEAD at capture time; the changes documented below were still uncommitted in the worktree).
+              The failed CI run below was dispatched for a49d4bc "ci(release): qualify cross-platform
+              native artifacts", which is an ancestor of this HEAD.
+Host        : macOS 26.5.2 / arm64 (Apple Silicon)
+Extra tools : actionlint 1.7.12, rustup 1.29.1, PyYAML 6.0.3 via /opt/homebrew/bin/python3
+              (the host's default /usr/bin/python3 3.9.6 has no yaml module — see section 6)
+
+SCOPE OF THIS CHANGE
+  - rust-toolchain.toml           : channel "stable" -> "1.95.0" (the pin is now exact)
+  - .github/workflows/release.yml : both `uses: dtolnay/rust-toolchain@stable` steps replaced by one
+                                    explicit, cross-platform, self-verifying `Install pinned Rust toolchain` step
+  - NOT touched: any .rs file, any Cargo.toml/Cargo.lock, .github/workflows/ci.yml,
+                 .github/workflows/vps-pr-review.yml, docs/plans/** and the other docs edits already
+                 dirty in this worktree.
+  - No `#[allow(clippy::result_large_err)]` was added and no error was boxed. The 1.98 lint behaviour is a
+    recorded follow-up, not something this change papers over.
+
+==============================================================================
+1. THE OBSERVED FAILURE (real CI run, quoted)
+==============================================================================
+GitHub Actions run 34845148946, workflow "Release Build", job `pre-flight checks`
+(dispatched via workflow_dispatch for SHA a49d4bc). The job failed at the gate step
+`cargo clippy --workspace --all-targets -- -D warnings`, before any build:
+
+    error: the `Err`-variant returned from this function is very large
+      --> crates/core/src/application/table_data_service.rs:222:10
+       = help: ... visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#result_large_err
+       = note: `-D clippy::result-large-err` implied by `-D warnings`
+    Process completed with exit code 101.
+
+The referenced line is the return type of `TableDataService::apply_mutations_detailed`:
+
+    ) -> Result<u64, crate::ports::TransactionFailure> {
+
+==============================================================================
+2. ROOT CAUSE
+==============================================================================
+The release was qualified on rustc 1.95.0, but nothing in the repository pinned the compiler:
+
+  * rust-toolchain.toml declared `channel = "stable"` — a moving target. GitHub's `stable` is currently
+    1.98.0, so the same commit is compiled by a different compiler in CI than on the release machine.
+  * release.yml installed `dtolnay/rust-toolchain@stable`, i.e. it explicitly asked for the floating
+    channel instead of honouring the toolchain file (the action installs the requested toolchain; the
+    workflow never asserted which compiler ended up active).
+  * clippy 1.98 added/beefed up `result_large_err`, which fires at the site above. The codebase already
+    carries five targeted exemptions for this lint (verification below), but not at that site.
+
+Consequence: with no repository change at all, a locally green quality gate (and the release binary
+built from it) turned red in CI, and any artifact produced by CI would have been built by a compiler the
+V01-06 evidence does not cover.
+
+Verification performed in this run (what could and could not be checked locally):
+  [x] the failure site really is the `apply_mutations_detailed` signature (table_data_service.rs:222) — read
+  [x] the five pre-existing targeted exceptions exist, exactly as stated:
+        crates/core/src/application/query_service.rs:661
+        crates/core/src/ports/db_connector.rs:54
+        crates/infrastructure/src/sqlite/actor.rs:478
+        crates/infrastructure/src/sqlite/actor.rs:573
+        crates/core/src/application/table_data_service.rs:356
+  [x] the local machine was never pinned by the file; before this change, with the environment override
+      removed, the file resolved to the floating channel:
+        $ env -u RUSTUP_TOOLCHAIN ~/.cargo/bin/rustup show active-toolchain
+        stable-aarch64-apple-darwin (overridden by '.../db-pro/main/rust-toolchain.toml')
+      and the local `stable` toolchain happens to be a frozen 1.95.0 install, which is exactly why the
+      drift was invisible locally.
+  [ ] NOT reproduced: rustc 1.98.0 is not installed on this host and no 1.98 toolchain was downloaded in
+      this run. The "stable is now 1.98.0 and fires this lint" claim rests on the CI log quoted in
+      section 1 (its help URL says rust-1.98.0) plus section 5 (1.95.0 clippy is silent on this tree).
+
+==============================================================================
+3. THE FIX — EXACT BEFORE / AFTER
+==============================================================================
+3.1 rust-toolchain.toml (`git diff`)
+
+    --- a/rust-toolchain.toml
+    +++ b/rust-toolchain.toml
+    @@ -1,3 +1,9 @@
+    +# Single source of truth for the compiler used by developers and by the release
+    +# workflow. Keep this an exact version: the release workflow reads this value,
+    +# installs it, and fails if the active rustc does not match, so that a floating
+    +# `stable` can never make CI compile with a different compiler than the one the
+    +# v0.1 release evidence was produced on.
+    +# See docs/release/evidence/v01-06/09-toolchain-pinning.txt.
+     [toolchain]
+    -channel = "stable"
+    +channel = "1.95.0"
+     components = ["rustfmt", "clippy"]
+
+    AFTER (full file body):
+      [toolchain]
+      channel = "1.95.0"
+      components = ["rustfmt", "clippy"]
+
+3.2 .github/workflows/release.yml — preflight job (was lines 190-192) and build job (was lines 295-297)
+
+    BEFORE (both jobs, identical):
+        - uses: dtolnay/rust-toolchain@stable
+          with:
+            components: rustfmt, clippy
+
+    AFTER (both jobs, identical run body):
+        # Reproducibility (goal-3 §15): the release must compile with the exact
+        # compiler it was qualified on. rust-toolchain.toml in the checked-out
+        # candidate is the single source of truth — no second copy of the version
+        # is hard-coded here. A non-exact pin, or an active rustc that does not
+        # match it, fails the job instead of silently falling back to the runner's
+        # floating `stable`.
+        - name: Install pinned Rust toolchain
+          shell: bash
+          run: |
+            set -euo pipefail
+
+            pinned_channel="$(sed -n 's/^[[:space:]]*channel[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' rust-toolchain.toml)"
+            if [[ -z "${pinned_channel}" ]]; then
+              echo "::error::rust-toolchain.toml does not declare a toolchain channel"
+              exit 1
+            fi
+            if [[ ! "${pinned_channel}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "::error::rust-toolchain.toml channel '${pinned_channel}' is not an exact version pin; a release must not build with a floating toolchain"
+              exit 1
+            fi
+
+            rustup toolchain install "${pinned_channel}" \
+              --profile minimal \
+              --component rustfmt \
+              --component clippy
+            rustup default "${pinned_channel}"
+
+            rustup show active-toolchain
+            rustc --version --verbose
+            cargo clippy --version
+
+            active_version="$(rustc --version | awk '{print $2}')"
+            if [[ "${active_version}" != "${pinned_channel}" ]]; then
+              echo "::error::Active rustc ${active_version} does not match pin ${pinned_channel} from rust-toolchain.toml"
+              exit 1
+            fi
+            echo "Pinned toolchain active: rustc ${active_version}"
+
+    (The only textual difference between the two copies is the comment above them: the preflight copy
+    carries the full rationale, the build copy points at the preflight copy. The `run:` bodies are
+    byte-identical — verified by parsing the YAML and hashing them:
+      preflight run body sha256(first 16) = d41c49f27c531f62
+      build     run body sha256(first 16) = d41c49f27c531f62
+      identical = True, occurrences of step name "Install pinned Rust toolchain" = 2)
+
+  Notes on the step:
+    * `shell: bash` is required because the step also runs on `windows-latest` (Git Bash is the shell
+      GitHub provides there; the pre-existing `Report Rust toolchain` step already used the same pattern).
+    * No action is used at all any more, so there is nothing third-party in the toolchain path and no
+      floating `@stable` ref anywhere: `grep -n "dtolnay" .github/workflows/release.yml` -> (none).
+      The workflow now contains no toolchain selection other than these two steps (the remaining
+      `Report Rust toolchain` step only prints versions).
+    * `rustup default` is set in addition to the repository's rust-toolchain.toml directory override, so
+      both mechanisms agree; the assertion below checks the resulting compiler, not the mechanism.
+    * `-D warnings` is untouched: the gates in preflight still run
+      `cargo fmt --all --check`, `cargo clippy --workspace --all-targets -- -D warnings`,
+      `cargo test --workspace` on the pinned compiler.
+
+3.3 Full diffstat of this change
+
+    .github/workflows/release.yml | 77 +++++++++++++++++++++++++++++++++++++++----
+    rust-toolchain.toml           |  8 ++++-
+    2 files changed, 78 insertions(+), 7 deletions(-)
+
+==============================================================================
+4. LOCAL TOOLCHAIN RESOLUTION AFTER THE CHANGE
+==============================================================================
+Resolution driven by the repository file, with the environment override removed (use the real rustup
+proxy, not the mise shim):
+
+  $ env -u RUSTUP_TOOLCHAIN ~/.cargo/bin/rustup show active-toolchain
+  1.95.0-aarch64-apple-darwin (overridden by '/Users/truongdev/Documents/projects/db-pro/main/rust-toolchain.toml')
+
+  $ env -u RUSTUP_TOOLCHAIN ~/.cargo/bin/rustc --version
+  rustc 1.95.0 (59807616e 2026-04-14)
+
+  $ env -u RUSTUP_TOOLCHAIN ~/.cargo/bin/cargo clippy --version
+  clippy 0.1.95 (59807616e1 2026-04-14)
+
+Same versions through the normal dev shell (where mise additionally exports RUSTUP_TOOLCHAIN=1.95.0):
+
+  $ rustup show active-toolchain
+  1.95.0-aarch64-apple-darwin (overridden by environment variable RUSTUP_TOOLCHAIN)
+  $ rustc --version
+  rustc 1.95.0 (59807616e 2026-04-14)
+  $ cargo clippy --version
+  clippy 0.1.95 (59807616e1 2026-04-14)
+
+Both resolution paths now agree, and the file-based one — the one CI uses — is the pin.
+Installed toolchains on this host remain `stable-aarch64-apple-darwin` (default) and
+`1.95.0-aarch64-apple-darwin`; nothing was uninstalled or globally repointed by this run.
+
+==============================================================================
+5. GATES RE-RUN ON THE CURRENT TREE (toolchain resolved from rust-toolchain.toml)
+==============================================================================
+Run from the repo root with PATH=~/.cargo/bin first and RUSTUP_TOOLCHAIN unset, raw log /tmp/gate-results.txt:
+
+  01. cargo fmt --all -- --check                                    EXIT 0 (no diff)
+  02. cargo clippy --workspace --all-targets -- -D warnings         EXIT 0
+        0 lines matching ^warning / ^error; "Finished `dev` profile ... in 9.69s"
+  03. cargo test --workspace                                        EXIT 0
+        19 test binaries, every result line `ok`
+        TOTAL: 811 passed / 0 failed / 19 ignored
+
+  Pre-flight toolchain block printed by the same script:
+        active-toolchain: 1.95.0-aarch64-apple-darwin (overridden by '.../rust-toolchain.toml')
+        rustc 1.95.0 (59807616e 2026-04-14) / cargo 1.95.0 (f2d3ce0bd 2026-03-21) / clippy 0.1.95
+
+  These numbers are identical to the V01-06 qualification run (811 passed / 0 failed / 19 ignored), as
+  expected: no Rust source, no Cargo.toml and no Cargo.lock changed, so the compiled input is unchanged.
+
+  NOT re-run, deliberately: the release binary build (03-release-binary.txt) and the perf scan. Nothing
+  in this change can affect compiled output or runtime behaviour — the only edits are the toolchain pin
+  and two CI steps — so the existing qualification artifacts remain valid and their numbers are NOT
+  restated here. Re-running them would only mint a second artifact with different provenance.
+
+==============================================================================
+6. WORKFLOW YAML VALIDITY + ACTIONLINT
+==============================================================================
+YAML parse — the suggested one-liner cannot run on this host's default interpreter, so it was run with
+an equivalent PyYAML-capable one (this is a local tooling gap, not a repo defect):
+
+  $ python3 -c "import yaml;yaml.safe_load(open('.github/workflows/release.yml'))"
+  ModuleNotFoundError: No module named 'yaml'            (/usr/bin/python3 3.9.6)
+  $ /opt/homebrew/bin/python3 -c "import yaml;d=yaml.safe_load(open('.github/workflows/release.yml')); ..."
+  PARSE OK; jobs = ['resolve', 'preflight', 'build', 'package', 'checksums']
+  steps(preflight) = ['Checkout exact candidate SHA', 'Verify candidate SHA', 'Install system dependencies',
+                      'Install pinned Rust toolchain',
+                      <4 unnamed steps: actions/cache@v4, cargo fmt --all --check,
+                       cargo clippy --workspace --all-targets -- -D warnings, cargo test --workspace>,
+                      'Write release provenance', 'Upload provenance']
+
+  (No CI impact: the workflow's own python3 usages import only stdlib `re` and `pathlib`.)
+
+actionlint 1.7.12 — findings on the old (HEAD) file vs the new file, same actionlint version:
+
+  old release.yml : exit 1, 3 findings
+    line 61 : shellcheck SC2129 (style)   [resolve job, unrelated]
+    line 127: shellcheck SC2129 (style)   [resolve job, unrelated]
+    line 216: shellcheck SC2155 (warning) [pre-existing `export RUSTC_VERSION="$(rustc --version)"`]
+  new release.yml : exit 1, 3 findings
+    line 61 : shellcheck SC2129 (style)   [identical]
+    line 127: shellcheck SC2129 (style)   [identical]
+    line 250: shellcheck SC2155 (warning) [identical finding, shifted 216 -> 250 by the inserted lines]
+
+  Normalized comparison (line:col stripped): identical multiset of findings before and after.
+  Workflow-schema-level (non-shellcheck) findings: 0 before, 0 after.
+  No finding points at any line of the new step (checked: none in 196-225 / 332-361).
+  => the change adds ZERO new actionlint findings; the 3 pre-existing ones are untouched and were not
+     "fixed" here (they are outside this change's scope).
+
+==============================================================================
+7. PROOF THAT THE RELEASE BUILD CANNOT SILENTLY USE `stable`
+==============================================================================
+Which command establishes the version: the new step's first line reads the pin out of the candidate
+tree — `pinned_channel="$(sed -n 's/^[[:space:]]*channel[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' rust-toolchain.toml)"`
+(value today: 1.95.0) — then `rustup toolchain install "${pinned_channel}" --profile minimal
+--component rustfmt --component clippy` provisions exactly that toolchain, `rustup default
+"${pinned_channel}"` makes it the default as well as the directory override, and finally
+`active_version="$(rustc --version | awk '{print $2}')"` is compared for exact equality against the pin.
+
+Why it cannot fall back silently:
+  a) The asserted quantity is the *compiler itself* (the version token printed by rustc), not the exit
+     status of an installer step and not a channel label. If the active rustc is not exactly the pinned
+     version, the step prints `::error::` and exits 1 under `set -euo pipefail`, failing the job before
+     fmt/clippy/test in preflight and before the build on all three platforms.
+  b) The number exists in exactly one place (rust-toolchain.toml). Nothing in the workflow hard-codes it,
+     so a bump cannot leave the workflow pointing at the old compiler.
+  c) Reverting the file to a floating channel is itself a hard failure: `channel = "stable"` fails the
+     exact-version guard instead of silently re-enabling the floating compiler (scenario B below).
+  d) There is no other toolchain selection left in the workflow (no `dtolnay/rust-toolchain`, no
+     `RUSTUP_TOOLCHAIN` env in any `env:` block), so nothing can re-point the compiler after this step.
+  e) rustup's own behaviour is a second backstop: if the pinned toolchain cannot be provisioned, rustup
+     exits non-zero rather than substituting another toolchain (scenario D below).
+
+Dry-run evidence — the shipped script was extracted from the YAML (sha256 d41c49f2..., identical for
+both jobs) and executed on this host, against real rustup, in a throwaway directory outside the repo:
+
+  A. current pin (1.95.0, already installed)                     -> EXIT 0
+       `1.95.0-aarch64-apple-darwin unchanged - rustc 1.95.0 (59807616e 2026-04-14)`
+       `1.95.0-aarch64-apple-darwin (overridden by '<tmp>/rust-toolchain.toml')`
+       `rustc 1.95.0 ... / clippy 0.1.95 ...`
+       `Pinned toolchain active: rustc 1.95.0`
+  B. rust-toolchain.toml changed to channel = "stable"          -> EXIT 1
+       `::error::rust-toolchain.toml channel 'stable' is not an exact version pin; a release must not
+        build with a floating toolchain`
+  C. pin 1.94.9 while the install is a silent no-op and the
+     ambient compiler stays 1.95.0 (the dangerous case)          -> EXIT 1
+       `::error::Active rustc 1.95.0 does not match pin 1.94.9 from rust-toolchain.toml`
+  D. real rustup, pin pointing at a nonexistent release          -> EXIT 1 (no substitution)
+       `error: could not download nonexistent rust version \`1.94.9-aarch64-apple-darwin\``
+
+  Harness disclosure: scenario A exercised the real `rustup toolchain install` (it reported the 1.95.0
+  install unchanged, components up to date); `rustup default` was intercepted in A/C only so the harness
+  would not mutate this machine's global default toolchain. Scenario D ran real rustup unmodified.
+  Side effect of running rustup for real: rustup self-updated 1.29.0 -> 1.29.1 on this host (tooling
+  only; unrelated to the repository).
+
+==============================================================================
+8. WHAT COULD STILL FAIL ON WINDOWS / LINUX (cannot be executed on this macOS host)
+==============================================================================
+  1. `shell: bash` on `windows-latest` is Git Bash: the step needs `rustup`, `rustc`, `cargo` on PATH
+     inside bash. GitHub-hosted Windows images put `~/.cargo/bin` on PATH and propagate it to bash steps,
+     and the pre-existing `Report Rust toolchain` step already relied on the same assumption — but this
+     is unverified here. Failure mode would be a loud "command not found" (exit 127 under `set -e`), not
+     a silent wrong compiler.
+  2. The step now downloads a second toolchain on each runner (~200-400 MB per platform) instead of
+     reusing the preinstalled `stable`. Hosted runners have network access to static.rust-lang.org; an
+     egress restriction would fail the job loudly (scenario D) rather than fall back.
+  3. Host triples assumed available upstream: `x86_64-unknown-linux-gnu` (ubuntu-latest),
+     `x86_64-pc-windows-msvc` (windows-latest), `aarch64-apple-darwin` (macos-14). All are tier-1 hosts
+     for the pinned release; the assertion compares only the version token, so it is host-independent.
+  4. `actions/cache` caches `target/` under a key that does not include the toolchain version
+     (`${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}`). This is safe — rustc fingerprints
+     include the compiler version, so artifacts are rebuilt rather than reused across compilers — but it
+     does mean the first run after this pin pays a full rebuild on each platform. Left unchanged on
+     purpose (out of scope).
+  5. Pre-existing, unrelated, out of scope: `ci.yml` is red on `main` because of an escaped-quote bug in
+     the Python one-liner in its `Configure live SSH backup fixture` step. That workflow is untouched
+     here and does not gate the release workflow, but it will keep failing until fixed separately.
+  6. Follow-up to record (deliberately NOT fixed here): the `clippy::result_large_err` finding at
+     table_data_service.rs:222 is real under clippy 1.98. Pinning 1.95.0 restores reproducibility but
+     does not make the codebase 1.98-clean; when the pin is eventually bumped, that site needs either a
+     targeted `#[allow]` (matching the five existing ones) or an error-type change, under review.
+
+==============================================================================
+9. TREE STATE AT CAPTURE TIME
+==============================================================================
+`git status --porcelain -uall` (13 pre-existing documentation edits under docs/ and plans/, plus this
+run's two files, plus an untracked goal-3.md that is not part of this change):
+
+   M .github/workflows/release.yml        <- this change
+   M docs/notes/V0_1_CLOSURE_PLAN.md      <- pre-existing, untouched
+   M docs/plans/STATUS.md                 <- pre-existing, untouched
+   M docs/plans/active/agent-workflow/VERIFICATION.md                      <- pre-existing, untouched
+   M docs/plans/active/er-hardening-verification/CHECKLIST.md              <- pre-existing, untouched
+   M docs/plans/active/er-hardening-verification/VERIFICATION.md           <- pre-existing, untouched
+   M docs/plans/active/native-visual-redesign/VERIFICATION.md              <- pre-existing, untouched
+   M docs/plans/active/query-editor-intelligence/VERIFICATION.md           <- pre-existing, untouched
+   M docs/plans/active/rc1-full-product-qa/VERIFICATION.md                 <- pre-existing, untouched
+   M docs/plans/active/schema-regression/CHECKLIST.md                      <- pre-existing, untouched
+   M docs/plans/active/schema-regression/VERIFICATION.md                   <- pre-existing, untouched
+   M docs/plans/active/table-data-editor-hardening/FINDINGS.md             <- pre-existing, untouched
+   M docs/plans/active/table-data-editor-hardening/VERIFICATION.md         <- pre-existing, untouched
+   M plans/07-current-status.md                                            <- pre-existing, untouched
+   M rust-toolchain.toml                  <- this change
+  ?? goal-3.md                            <- pre-existing untracked, not committed
+
+Commit for this change stages exactly three paths: rust-toolchain.toml, .github/workflows/release.yml
+and this evidence file. No GitHub Actions run was dispatched, cancelled or triggered by this run, and no
+tag was pushed.

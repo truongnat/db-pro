@@ -187,9 +187,43 @@ jobs:
             libxkbcommon-dev libwayland-dev libx11-dev libgl1-mesa-dev \
             libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev
 
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy
+      # Reproducibility (goal-3 §15): the release must compile with the exact
+      # compiler it was qualified on. rust-toolchain.toml in the checked-out
+      # candidate is the single source of truth — no second copy of the version
+      # is hard-coded here. A non-exact pin, or an active rustc that does not
+      # match it, fails the job instead of silently falling back to the runner's
+      # floating `stable`.
+      - name: Install pinned Rust toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          pinned_channel="$(sed -n 's/^[[:space:]]*channel[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' rust-toolchain.toml)"
+          if [[ -z "${pinned_channel}" ]]; then
+            echo "::error::rust-toolchain.toml does not declare a toolchain channel"
+            exit 1
+          fi
+          if [[ ! "${pinned_channel}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::rust-toolchain.toml channel '${pinned_channel}' is not an exact version pin; a release must not build with a floating toolchain"
+            exit 1
+          fi
+
+          rustup toolchain install "${pinned_channel}" \
+            --profile minimal \
+            --component rustfmt \
+            --component clippy
+          rustup default "${pinned_channel}"
+
+          rustup show active-toolchain
+          rustc --version --verbose
+          cargo clippy --version
+
+          active_version="$(rustc --version | awk '{print $2}')"
+          if [[ "${active_version}" != "${pinned_channel}" ]]; then
+            echo "::error::Active rustc ${active_version} does not match pin ${pinned_channel} from rust-toolchain.toml"
+            exit 1
+          fi
+          echo "Pinned toolchain active: rustc ${active_version}"
 
       - uses: actions/cache@v4
         with:
@@ -292,9 +326,40 @@ jobs:
           echo "Source ref: ${SOURCE_REF}"
           echo "Candidate SHA: ${actual_sha}"
 
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy
+      # Reproducibility (goal-3 §15): identical pin resolution to the preflight
+      # job, so the artifact is built by the same compiler the release was
+      # qualified on. See the preflight step for the rationale.
+      - name: Install pinned Rust toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          pinned_channel="$(sed -n 's/^[[:space:]]*channel[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' rust-toolchain.toml)"
+          if [[ -z "${pinned_channel}" ]]; then
+            echo "::error::rust-toolchain.toml does not declare a toolchain channel"
+            exit 1
+          fi
+          if [[ ! "${pinned_channel}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::rust-toolchain.toml channel '${pinned_channel}' is not an exact version pin; a release must not build with a floating toolchain"
+            exit 1
+          fi
+
+          rustup toolchain install "${pinned_channel}" \
+            --profile minimal \
+            --component rustfmt \
+            --component clippy
+          rustup default "${pinned_channel}"
+
+          rustup show active-toolchain
+          rustc --version --verbose
+          cargo clippy --version
+
+          active_version="$(rustc --version | awk '{print $2}')"
+          if [[ "${active_version}" != "${pinned_channel}" ]]; then
+            echo "::error::Active rustc ${active_version} does not match pin ${pinned_channel} from rust-toolchain.toml"
+            exit 1
+          fi
+          echo "Pinned toolchain active: rustc ${active_version}"
 
       - name: Report Rust toolchain
         shell: bash

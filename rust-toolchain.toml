@@ -1,3 +1,9 @@
+# Single source of truth for the compiler used by developers and by the release
+# workflow. Keep this an exact version: the release workflow reads this value,
+# installs it, and fails if the active rustc does not match, so that a floating
+# `stable` can never make CI compile with a different compiler than the one the
+# v0.1 release evidence was produced on.
+# See docs/release/evidence/v01-06/09-toolchain-pinning.txt.
 [toolchain]
-channel = "stable"
+channel = "1.95.0"
 components = ["rustfmt", "clippy"]
