@@ -50,7 +50,7 @@ Audit branch: `qa/rc1-static-audit`
 
 | Program | State | P0 | P1 | P2 | Notes |
 |---|---|---:|---:|---:|---|
-| RC1 Full Product QA — Static Audit & Remediation | PLANNING | 0 | 14 | 25 | release-blocking findings recorded under `docs/plans/active/rc1-full-product-qa/`; fixes must use focused branches/PRs |
+| RC1 Full Product QA — Static Audit & Remediation | RUNTIME_VERIFY | 0 | 0 | 25 | All 14 P1 findings (W1..W5) resolved & verified with regression test coverage; workspace quality gates green (571 tests PASS); runtime smoke and live provider verification pending |
 
 Release rule for this QA program:
 
