@@ -31,6 +31,23 @@
 > (`risk-register.md` `R-CI-PREFLIGHT`). **Green CI does not close V01-01…V01-05:** their gaps are
 > runtime evidence, not build evidence (§3.6 and `04-v01-01-05-evidence-audit.md`).
 
+> **Runtime evidence update — 2026-09-14 (`v01-runtime` session, non-GUI).** A live runtime-evidence
+> session then closed the gaps that do **not** require a GUI, with no production code changed:
+> **live PostgreSQL 16.15 integration 18/18 PASS** (`docs/release/evidence/v01-runtime/providers/07`;
+> with `DATABASE_URL` the workspace suite is 815/0/19, effective **833 passed / 0 failed / 1 ignored**),
+> a deterministic SQLite runtime fixture (`providers/02`–`05`), CLI-level `pg_dump`/`pg_restore`
+> verification with finding `F1`/`P2` recorded (`providers/10`–`14`, `23`), cancellation capability
+> gating re-verified as correct (`providers/15`), all four state-directory branches re-verified on
+> the packaged CI artifact (`providers/17`, `18`), the keyring stall reproduced and classified `P2`
+> (`providers/16`, `22`), and an error-log audit with one cosmetic `P3` (`providers/19`, `23`).
+> **No `P0`/`P1` was found, and nothing in §3 below is upgraded by it:** the V01-01/V01-05 gaps need
+> GUI/visual evidence that still does not exist — `orca`/`osascript`/`screencapture` all fail on this
+> host (`providers/21`) and **no screenshot exists or is claimed**. V01-02/V01-04 keep
+> `EVIDENCE_GAP`: their PostgreSQL half now has a live *automated* run, but the native-UI criterion
+> has no artifact. The SSH suite stays `BLOCKED` (nine `DB_PRO_SSH_*` unset). The executable human
+> runbook is `docs/release/0.1.0-interactive-verification-runbook.md`; the owner decisions that
+> remain are in `docs/release/0.1.0-human-decisions.md`.
+
 ---
 
 ## 1. Executive Summary & Release Reconciliation
@@ -64,10 +81,10 @@ The remaining gap to ship `v0.1.0` is **not new feature code**, but **runtime ve
 | Area | Implementation State | v0.1 Status | Missing Evidence to Close v0.1 |
 |---|---|---|---|
 | **Native Visual Redesign** | Waves 1–14 implemented | `EVIDENCE_GAP` (was recorded `IMPLEMENTING` / `REVIEW`) | All-surface light/dark traversal, 1920×1080 acceptance, provider review, independent review |
-| **Query Editor Intelligence** | Lexer, completion, multi-result, diagnostics done | `EVIDENCE_GAP` (was `RUNTIME_VERIFY`) | Native viewport evidence (PostgreSQL + SQLite execution, completion popup, diagnostics, drafts/history); live provider run for the 18 `#[ignore]`d PG tests |
+| **Query Editor Intelligence** | Lexer, completion, multi-result, diagnostics done | `EVIDENCE_GAP` (was `RUNTIME_VERIFY`) | Native viewport evidence (PostgreSQL + SQLite execution, completion popup, diagnostics, drafts/history); the 18 `#[ignore]`d PG tests now **run live (18/18 PASS, `providers/07`)** but that is a provider-level automated run, not a native-viewport record |
 | **Large-Schema ER Canvas** | `ErGraph`, spatial index, 3-tier LOD, BFS done | `PARTIAL` (was `RUNTIME_VERIFY`) | Native 1000-table synthetic & 200+ live table viewport, zoom/pan/LOD, rapid schema switch, memory/CPU stability |
-| **Schema Introspection** | S1–S7 columns, indexes, FKs, triggers, DDL done | `EVIDENCE_GAP` (was `RUNTIME_VERIFY`) | Live PostgreSQL + SQLite UI introspection traversal; CHECK/Unique constraint coverage |
-| **Table Data Editor & Safety** | Staged mutations, 3-way conflict, PK reload, safety policy | `RUNTIME_VERIFY` (unchanged) | Live PostgreSQL & SQLite mutation safety walkthrough, rollback verification |
+| **Schema Introspection** | S1–S7 columns, indexes, FKs, triggers, DDL done | `EVIDENCE_GAP` (was `RUNTIME_VERIFY`) | Live PostgreSQL + SQLite UI introspection traversal; CHECK/Unique constraint coverage. The live PostgreSQL **automated** introspection suite now passes (18/18, `providers/07`); the native-UI criterion still has no artifact |
+| **Table Data Editor & Safety** | Staged mutations, 3-way conflict, PK reload, safety policy | `RUNTIME_VERIFY` (unchanged) | Live PostgreSQL & SQLite mutation safety walkthrough, rollback verification. Live PostgreSQL **automated** coverage of transaction/rollback, batch failure and timeout paths now passes (18/18, `providers/07`); the interactive walkthrough is still absent |
 | **Connection & Workspace** | Registry, credentials, SSH tunnel, startup recovery | `RUNTIME_VERIFY` (unchanged) | Live connect/disconnect, bad credential nudge; **workspace tab restore does not exist in the shipping build** (eframe persistence is off — see `risk-register.md` R-015) |
 | **Agent Workflow** | 9 canonical tools, preview/confirmation, IME safety | `RUNTIME_VERIFY` (Preview) | Desktop panel smoke with live DB execution; live provider key run |
 | **Packaging & Release Build** | Native `db-pro-native` target + portable archives | `PASS` (V01-06) | **Builds and packages verified in CI, final**: run `34860902181` green end to end for the candidate `85a7fa3` — all three archives + `SHA256SUMS.txt` independently re-hashed and member lists contract-checked (final values in `0.1.0-readiness.md` / `0.1.0-handoff.md` §3). Windows/Linux remain `BUILD_VERIFIED` / `RUNTIME_UNVERIFIED` (no host). Host install smoke = extraction + launch + file-level state persistence verified, including on the CI-produced artifact; GUI interaction **NOT VERIFIED** (`14-install-smoke.txt` §7.7, runbook §8). Contract is portable archives + `SHA256SUMS.txt` — **no `.dmg`/`.msi`/`.deb`/`.rpm`/AppImage** (deferred) |
@@ -142,7 +159,7 @@ V01-07  Final Release Sign-off, Governance & v0.1.0 Tagging
 
 - **Feature**: Query Editor Execution, Autocompletion, Diagnostics, Multi-Result & History.
 - **Current State**: `EVIDENCE_GAP` — recorded `PASS / VERIFIED` (2026-09-14) is **downgraded**.
-  - **Missing evidence**: no live-provider execution record exists; the PostgreSQL half rests on the 18 `#[ignore]`d `pg_integration` tests (ignored, not passing); cancellation is SQLite-interrupt-only with PostgreSQL capability-gated `Unsupported`, so the claimed PASS overstates it; the source doc's own §"live provider evidence remains pending" paragraphs were never retracted.
+  - **Missing evidence**: no live-provider execution record **through the native viewport** exists. The 18 `pg_integration` tests now run against a live PostgreSQL 16.15 server — **18/18 PASS** (`docs/release/evidence/v01-runtime/providers/07`) — but that is provider-level *automated* evidence, not a UI execution record. Cancellation is SQLite-interrupt-only with PostgreSQL capability-gated `Unsupported`; the `v01-runtime` session verified that gating is **correct as designed**, so the earlier claimed PASS overstates what was measured rather than describing a defect (`providers/15`). The source doc's own §"live provider evidence remains pending" paragraphs were never retracted.
   - **Audit**: `04-v01-01-05-evidence-audit.md` §3.
 - **Correction scope**: the `[x]` marks below record what was claimed on 2026-09-14; they are not evidence.
 - **Exact Verification Needed** *(as claimed; see correction above)*:
@@ -187,7 +204,7 @@ V01-07  Final Release Sign-off, Governance & v0.1.0 Tagging
 - **Feature**: Schema Introspection Sub-tabs (S1–S7: Columns, Indexes, Relations, Triggers, DDL, Constraints).
 - **Current State**: `EVIDENCE_GAP` — recorded `PASS / VERIFIED` (2026-09-14) is **downgraded**.
   - **What is real**: SQLite introspection has passing automated coverage (columns/indexes/relations/triggers test binaries, plus 32 SQLite integration tests).
-  - **Missing evidence**: the live PostgreSQL half rests on `#[ignore]`d tests (0 passed / 18 ignored without `DATABASE_URL`); no native-UI schema traversal artifact exists; CHECK/Unique constraint inspection has no dedicated test and its disposition is still recorded as unresolved in the risk register (`R005`).
+  - **Missing evidence**: the live-PostgreSQL half now has a retrievable run — the `pg_integration` suite, including tables/indexes/foreign-keys/triggers/views introspection, passes **18/18** against a live PostgreSQL 16.15 server (`docs/release/evidence/v01-runtime/providers/07`) — but it is automated provider-level evidence, and no native-UI schema traversal artifact exists; CHECK/Unique constraint inspection has no dedicated test and its disposition is still recorded as unresolved in the risk register (`R005`).
   - **Audit**: `04-v01-01-05-evidence-audit.md` §5.
 - **Correction scope**: the `[x]` marks below record what was claimed on 2026-09-14; they are not evidence.
 - **Exact Verification Needed** *(as claimed; see correction above)*:
@@ -208,8 +225,8 @@ V01-07  Final Release Sign-off, Governance & v0.1.0 Tagging
 
 - **Feature**: Full Product RC1 Desktop Runtime Smoke & Safety Hardening.
 - **Current State**: `EVIDENCE_GAP` — recorded `PASS / VERIFIED` (2026-09-14) is **downgraded**.
-  - **What is real**: the source flows exist and the automated suite is green (811 passed / 0 failed / 19 ignored on HEAD).
-  - **Missing evidence**: the only document that could record these walkthroughs, `docs/release/0.1.0-manual-smoke.md`, has **0 of 165 checklist items ticked** while its sign-off block reads "Passed: 65 / 65 checked sections"; it cites three different SHAs (`56c3a94` in the header, `b2cc33e` in the sign-off, actual HEAD is different); the `12/12 passed` figure validates the SQLite *fixture* via `fixtures/smoke/verify-smoke.sh`, not the application; no provider run artifacts (container log, connection trace, version query output) exist for the asserted PostgreSQL 18.2 session.
+  - **What is real**: the source flows exist and the automated suite is green (**815 passed / 0 failed / 19 ignored** on the candidate; with a live `DATABASE_URL` the effective total is **833 passed / 0 failed / 1 ignored**, `providers/08`, `09`). The `v01-runtime` session additionally verified, at CLI level, the PostgreSQL backup/restore dependency, the deterministic SQLite fixture and the state-directory branches — **supporting material only; it ticks no interactive item**.
+  - **Missing evidence**: the only document that could record these walkthroughs, `docs/release/0.1.0-manual-smoke.md`, has **0 of 165 checklist items ticked** (all 165 blocked by the absent GUI: no window server, `providers/21`) while its sign-off block reads "Passed: 65 / 65 checked sections"; it cites three different SHAs (`56c3a94` in the header, `b2cc33e` in the sign-off, actual HEAD is different); the `12/12 passed` figure validates the SQLite *fixture* via `fixtures/smoke/smoke.db`-era `verify-smoke.sh`, not the application; the live PostgreSQL session that now exists is a `pg_integration` run (`providers/07`), not the walkthrough this gate describes. The executable runbook is `docs/release/0.1.0-interactive-verification-runbook.md`.
   - **Audit**: `04-v01-01-05-evidence-audit.md` §6.
 - **Correction scope**: the `[x]` marks below record what was claimed on 2026-09-14; they are not evidence.
 - **Exact Verification Needed** *(as claimed; see correction above)*:
@@ -224,7 +241,7 @@ V01-07  Final Release Sign-off, Governance & v0.1.0 Tagging
   - [x] Workspace Recovery: dirty state retention, tab restoration after app restart without crash.
   - [x] Agent Workflow (Preview): Ask / Edit / Agent panels, query generation, schema lookup, destructive tool confirmation.
 - **Provider Scope**: PostgreSQL + SQLite.
-- **Evidence Location**: `docs/release/0.1.0-manual-smoke.md` + `docs/plans/active/rc1-full-product-qa/VERIFICATION.md`.
+- **Evidence Location**: `docs/release/0.1.0-manual-smoke.md` + `docs/plans/active/rc1-full-product-qa/VERIFICATION.md`. Supporting (non-interactive) evidence: `docs/release/evidence/v01-runtime/*`. Executable runbook: `docs/release/0.1.0-interactive-verification-runbook.md`.
 - **Blocker Severity**: `P0` (release integrity).
 - **Exit Criteria**: All test cases in `0.1.0-manual-smoke.md` pass without open P0 or P1 regressions.
 
@@ -470,6 +487,12 @@ To eliminate redundant application launches and context switching, verification 
 │     • Verify workspace tab and draft recovery without crash            │
 └────────────────────────────────────────────────────────────────────────┘
 ```
+
+This script is packaged as an executable, timed, screenshot-instrumented procedure in
+`docs/release/0.1.0-interactive-verification-runbook.md` (~30–60 minutes), including the
+PostgreSQL container start-up and the disposable SQLite fixture. It stays `NOT RUN` until a human
+with a desktop session executes it; the `v01-runtime` session could not (no window server,
+`docs/release/evidence/v01-runtime/providers/21`).
 
 ---
 

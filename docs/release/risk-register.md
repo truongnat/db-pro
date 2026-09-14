@@ -23,6 +23,14 @@
 > Companion docs: `docs/release/0.1.0-readiness.md`, `docs/release/0.1.0-handoff.md`,
 > `docs/notes/PRODUCT_CAPABILITY_MATRIX.md`, `docs/release/known-limitations.md`
 > Evidence base: `docs/release/evidence/v01-06/*`
+> **Runtime evidence update (2026-09-14, `v01-runtime` session):** live PostgreSQL 16.15
+> integration **18/18 PASS** (`providers/07`), a deterministic SQLite runtime fixture
+> (`providers/02`–`05`), CLI-level `pg_dump`/`pg_restore` verification with a version-skew caveat
+> (`providers/10`–`14`), cancellation capability gating re-verified correct (`providers/15`),
+> keyring stall reproduced and classified (`providers/16`, `providers/22`), launch error-log audit
+> (`providers/19`), and findings `F1`–`F3` (`providers/23`). **No GUI evidence, no screenshots**
+> (`providers/21`). New entries below: `F1`, `F2`; `R-KEYRING-STALL` and `R-PROV` updated. No
+> production code changed in that session.
 
 ## Record format
 
@@ -83,7 +91,7 @@ blocks.
 | Field | Value |
 |---|---|
 | ID | `R009` |
-| Description | SSH tunnels shell out to the system `ssh` binary (`crates/infrastructure/src/ssh/tunnel.rs`) with host-key verification; the single automated runtime test (`ssh_backup_runtime_verification.rs`) is `#[ignore]`d and requires nine `DB_PRO_SSH_*` variables, so on HEAD it runs as **0 passed / 1 ignored**. No cross-platform E2E qualification exists (no Windows/Linux host). |
+| Description | SSH tunnels shell out to the system `ssh` binary (`crates/infrastructure/src/ssh/tunnel.rs`) with host-key verification; the single automated runtime test (`ssh_backup_runtime_verification.rs`) is `#[ignore]`d and requires nine `DB_PRO_SSH_*` variables, so on HEAD it runs as **0 passed / 1 ignored**. The `v01-runtime` session confirmed all nine variables are unset in this environment, so the suite was **`BLOCKED`, not run** (`docs/release/evidence/v01-runtime/providers/07`, `09`). No cross-platform E2E qualification exists (no Windows/Linux host). |
 | Severity | `P2` |
 | Owner / Decision | Decision: keep SSH out of the qualified feature set for 0.1.0; document the `ssh`-on-`PATH` requirement (LIM-006). |
 | Status | `DEFERRED` |
@@ -127,7 +135,7 @@ blocks.
 | Field | Value |
 |---|---|
 | ID | `R-PROV` |
-| Description | Provider capabilities are asymmetric and partly unqualified. **Query cancellation: SQLite supported (VM interrupt + actor acknowledgement), PostgreSQL `Unsupported`/capability-gated** (`capabilities.rs`: `postgres.cancel = false`, `sqlite.cancel = true`; `postgres/connector.rs` exposes no wire-level cancel). Earlier release docs stated the inverse; the code is the authority and the docs are corrected. Also: `sequences:true` / `enum_types:true` are declared in `DatabaseCapabilities::postgres()` with **no catalog implementation** (the capability matrix records both as `MISSING`); CHECK/Unique constraint introspection is unqualified (`R005`); SQLite has no UUID/array/generated-column support; `pg_dump`/`pg_restore` are not bundled (`R006`). |
+| Description | Provider capabilities are asymmetric and partly unqualified. **Query cancellation: SQLite supported (VM interrupt + actor acknowledgement), PostgreSQL `Unsupported`/capability-gated** (`capabilities.rs`: `postgres.cancel = false`, `sqlite.cancel = true`; `postgres/connector.rs` exposes no wire-level cancel). Earlier release docs stated the inverse; the code is the authority and the docs are corrected. **The `v01-runtime` session verified this against the live provider and the shipping paths** — `cancel: false` for PostgreSQL, `true` for SQLite, gated in the UI render/activation, the Esc path and the fail-closed lookup, with an explicit connector-level `Unsupported`; the only other cancel-shaped control is gallery-only (`providers/15`, `providers/23`). The same session ran **18/18 live PostgreSQL integration tests** covering introspection (tables/indexes/FKs/triggers/views), transaction/rollback and typed value decoding (`providers/07`) — provider-level evidence only, no UI run. Still open: `sequences:true` / `enum_types:true` are declared in `DatabaseCapabilities::postgres()` with **no catalog implementation** (the capability matrix records both as `MISSING`); CHECK/Unique constraint introspection is unqualified (`R005`); SQLite has no UUID/array/generated-column support; `pg_dump`/`pg_restore` are not bundled (`R006`, and see `F1` for the version-skew behaviour). |
 | Severity | `P2` |
 | Owner / Decision | Decision: document the real per-provider state; do not infer PostgreSQL support from a SQLite result or vice versa. Flag corrections are recorded here as a follow-up (production code is out of scope for this pass). |
 | Status | `ACCEPTED` (documented) / flag fix `DEFERRED` |
@@ -160,7 +168,7 @@ blocks.
 | Field | Value |
 |---|---|
 | ID | `R-GUI-SMOKE` |
-| Description | No window has ever been rendered, inspected or interacted with on a packaged build. Specifically **NOT VERIFIED** (`14-install-smoke.txt` §7.7): that the window renders at all; Settings navigation and the light/dark switch; creating a SQLite connection through the UI (driver cards, file-path field, Test/Save); running `SELECT 1;` and reading the result grid; running `SELECT * FROM items;` and counting 3 rows; quitting with a clean window-close / ⌘Q; and the interactive persistence check (a saved connection surviving relaunch). What **is** verified on the packaged archive: the contract layout and checksum, the shipped executable being byte-identical to the qualified build, LaunchServices launch and survival from the extracted path, the state directory resolving to `~/Library/Application Support/DB Pro` with no `/.db-pro-data`, and file-level state reuse across relaunch (`14-install-smoke.txt` §1–§5). The 2026-09-14 attempt could not reach the GUI at all, for four separately recorded environment reasons: the Orca computer-use helper returned `runtime_unavailable` (and later lost its runtime metadata entirely), AppleScript fallback hit a `-1743` TCC denial, `screencapture` returned "could not create image from display", and no accessibility tree was available (`14-install-smoke.txt` §7.1–§7.6). These are host/authorization limits, not app failures — and precisely because they could not be lifted, no app-side GUI claim can be made either way. The human runbook that closes the gap is `14-install-smoke.txt` §8. |
+| Description | No window has ever been rendered, inspected or interacted with on a packaged build. Specifically **NOT VERIFIED** (`14-install-smoke.txt` §7.7): that the window renders at all; Settings navigation and the light/dark switch; creating a SQLite connection through the UI (driver cards, file-path field, Test/Save); running `SELECT 1;` and reading the result grid; running `SELECT * FROM items;` and counting 3 rows; quitting with a clean window-close / ⌘Q; and the interactive persistence check (a saved connection surviving relaunch). What **is** verified on the packaged archive: the contract layout and checksum, the shipped executable being byte-identical to the qualified build, LaunchServices launch and survival from the extracted path, the state directory resolving to `~/Library/Application Support/DB Pro` with no `/.db-pro-data`, and file-level state reuse across relaunch (`14-install-smoke.txt` §1–§5). The 2026-09-14 attempt could not reach the GUI at all, for four separately recorded environment reasons: the Orca computer-use helper returned `runtime_unavailable` (and later lost its runtime metadata entirely), AppleScript fallback hit a `-1743` TCC denial, `screencapture` returned "could not create image from display", and no accessibility tree was available (`14-install-smoke.txt` §7.1–§7.6). These are host/authorization limits, not app failures — and precisely because they could not be lifted, no app-side GUI claim can be made either way. The human runbook that closes the gap is `14-install-smoke.txt` §8, in executable form `docs/release/0.1.0-interactive-verification-runbook.md`. The `v01-runtime` session re-verified all four blockers live and captured no screenshot (`providers/21`, `screenshots/README.md`). |
 | Severity | `P1` (blocks any "installable and usable" runtime claim) |
 | Owner / Decision | Decision: record as an open, disclosed gap and keep every release document from claiming interactive or visual verification. `docs/release/0.1.0-ui-visual-description.md` is a **code-derived** description of the shipped surfaces that does **not** close this gap. Closing it requires a desktop session and the §8 runbook. |
 | Status | `OPEN` |
@@ -171,9 +179,9 @@ blocks.
 | Field | Value |
 |---|---|
 | ID | `R-KEYRING-STALL` |
-| Description | `main()` calls `seed_groq_api_key_from_keyring()` (`crates/native-app/src/main.rs`) **before** the state directory is resolved; when a `com.dbpro.app` item exists in the Keychain, that call blocks on a Keychain authorization request for the stored item, so an unattended launch waits there before it ever reaches the data-directory code. Recorded as `LIM-018`; first characterised in `12-state-dir-blocker-fix.txt` §6, then bypassed in the host smoke with a placeholder `GROQ_API_KEY` (`14-install-smoke.txt` §3 — which is why that smoke does **not** evidence a plain double-click launch on a machine that has a stored key). |
+| Description | `main()` calls `seed_groq_api_key_from_keyring()` (`crates/native-app/src/main.rs`) **before** the state directory is resolved; when a `com.dbpro.app` item exists in the Keychain, that call blocks on a Keychain authorization request for the stored item, so an unattended launch waits there before it ever reaches the data-directory code. Recorded as `LIM-018`; first characterised in `12-state-dir-blocker-fix.txt` §6, then bypassed in the host smoke with a placeholder `GROQ_API_KEY` (`14-install-smoke.txt` §3 — which is why that smoke does **not** evidence a plain double-click launch on a machine that has a stored key). **Reproduced and classified in the `v01-runtime` session (2026-09-14):** on the packaged CI artifact, launch A (real HOME, no `GROQ_API_KEY`) stalled with **4762/4762 samples** in one stack — `main → keyring::Entry::get_password → SecKeychainFindGenericPassword → CSSM_DecryptDataFinal → SecurityServer::ClientSession::decrypt → mach_msg`, waiting on `securityd` — with `meta.db` unchanged and zero bytes of output; the block is unbounded (no timeout on the call). Control launch B (empty fake HOME, no keychain item) passed the keyring instantly and reached `-[NSApplication run]`. Classification: **environment + keyring-backend behaviour, not an app-logic error**, with one real design weakness (the read is unbounded and on the startup path before the data directory is resolved). Practical exposure: **a returning user or any unattended launch on a machine where the app has already stored a keychain item** — a brand-new user is unaffected. Evidence: `providers/16`, `providers/22`, `providers/23` (`F3`). No code was changed and no placeholder key was used to paper over the stall in the reproduction. |
 | Severity | `P2` |
-| Owner / Decision | Decision: keep as a documented known limitation for 0.1.0 (a fix would be code work, out of scope for this documentation pass). It is a consequence of shipping unsigned/ad-hoc-signed (`R003`): an ad-hoc-signed binary cannot read an existing keyring item without an interactive grant; answering the prompt is the only user-side workaround. |
+| Owner / Decision | Decision: keep as a documented known limitation for 0.1.0 (a fix would be code work, out of scope for this documentation pass). It is a consequence of shipping unsigned/ad-hoc-signed (`R003`): an ad-hoc-signed binary cannot read an existing keyring item without an interactive grant; answering the prompt is the only user-side workaround. **Escalation condition (recorded, owner's call):** if v0.1 is ever deployed to an unattended/headless context, or if the prompt is found to recur on every launch after "Always Allow" (plausible under ad-hoc signing, since the code identity changes across builds), this item must be re-classified `P1` and fixed by making the keyring read **bounded and off the pre-data-dir critical path** (`providers/22` §5). |
 | Status | `OPEN` (pre-existing, disclosed) |
 | Release disposition | `ACCEPTED` — stated in `known-limitations.md` (LIM-018), the release notes and the handoff. |
 
@@ -274,11 +282,33 @@ blocks.
 | Field | Value |
 |---|---|
 | ID | `R006` |
-| Description | PostgreSQL backup/restore shells out to `pg_dump`/`pg_restore` (and restore through `psql`), which must be on `PATH`. Silent-failure risk if missing, with no in-app guidance beyond documentation. |
+| Description | PostgreSQL backup/restore shells out to `pg_dump`/`pg_restore` (and restore through `psql`), which must be on `PATH`. Silent-failure risk if missing, with no in-app guidance beyond documentation. The `v01-runtime` session verified the dependency at CLI level against a live fixture — dump exit 0, restore complete — and found the client/server **version-skew** behaviour recorded separately as `F1`. |
 | Severity | `P2` |
 | Owner / Decision | Decision: accept for 0.1.0 with documentation; bundling is a post-0.1 decision (LIM-015). |
 | Status | `ACCEPTED` |
 | Release disposition | `ACCEPTED` |
+
+### F1 — `pg_restore` reports failure under client/server major-version skew, after a complete restore
+
+| Field | Value |
+|---|---|
+| ID | `F1` (raised by the `v01-runtime` session, 2026-09-14) |
+| Description | With PostgreSQL **client tools 18.4** on `PATH` against the fixture **server 16.15**, a custom-format restore **restores everything correctly but exits 1**: `pg_restore: error: could not execute query: ERROR: unrecognized configuration parameter "transaction_timeout"` / `Command was: SET transaction_timeout = 0;` / `warning: errors ignored on restore: 1`. `transaction_timeout` was introduced in PostgreSQL 17. The restore is nevertheless **complete**: 10 tables / 2 views / 17 indexes / 8 sequences, identical row counts, identical per-table MD5 fingerprints, enum/trigger/functions/view present, and `fixtures/postgres/003_verify.sql` PASS against the restored database. Root cause isolated by control: version-matched 16.15→16.15 tools give **exit 0** with identical data; a 16.15 `pg_restore` cannot even read an 18.4-written archive (`unsupported version (1.16) in file header`). The app surfaces this because `crates/infrastructure/src/backup/pg_dump.rs:167-170` treats **any** nonzero `pg_restore` exit as `restore failed: …`. The plain-format path (`psql -f`, `pg_dump.rs:143-147`) is unaffected: exit 0 on the same skew. Evidence: `docs/release/evidence/v01-runtime/providers/10`–`14`, `providers/23`. |
+| Severity | `P2` — the reported *status* is wrong, no data is lost and nothing is written to the wrong target. Deliberately **not** `P1`. |
+| Owner / Decision | **Owner decision required (`HD-006`)** on the disposition: state the client/server version expectation in `platform-prerequisites.md`, and/or detect the version pair before a custom-format restore. **The nonzero-exit check was deliberately not weakened**: failing on a nonzero `pg_restore` exit is the safe default, and relaxing it is a production change to the credential/backup path — out of scope for a documentation-only pass and not requested. |
+| Status | `OPEN` (recorded, not chased) |
+| Release disposition | `ACCEPTED` with disclosure for the internal RC — `pg_dump`/`pg_restore` remain "must be on `PATH`; not bundled" and the version-skew behaviour is stated in `known-limitations`/readiness. **`BLOCKING` for any claim that PostgreSQL restore is qualified across client/server versions.** |
+
+### F2 — `epaint` font-atlas glyph fallback warning (cosmetic)
+
+| Field | Value |
+|---|---|
+| ID | `F2` (raised by the `v01-runtime` session, 2026-09-14) |
+| Description | With `RUST_LOG=info` the packaged binary emits 13 identical lines: `WARN epaint::text::font: Failed to find replacement characters '◻' or '?'. Will use empty glyph.` A glyph requested by the bundled icon font (`◻`, U+25FB) has neither a glyph in the font nor a resolvable replacement, so egui draws an empty glyph. Source is `egui`/`epaint`, not DB Pro code. Emitted only when `RUST_LOG` is set; with `RUST_LOG` unset, every launch in the session produced **zero bytes** of output. Whether it is visible on screen is **not verifiable here** (no window server), so no visual claim is made either way. Evidence: `docs/release/evidence/v01-runtime/providers/19`, `providers/23`. |
+| Severity | `P3` (cosmetic) |
+| Owner / Decision | Decision: record only; no code change. If a future visual pass shows a missing glyph in the UI, treat it as a packaging/icon-font issue, not a UI-logic bug. |
+| Status | `OPEN` (recorded, not chased) |
+| Release disposition | `ACCEPTED` (cosmetic, log-only, `RUST_LOG`-gated) |
 
 ### R011 — keyring feature coverage (historical)
 
@@ -327,6 +357,8 @@ blocks.
 | `B-1`…`B-10` | see table | — | `FIXED` (B-4, B-5, B-8, B-10), `BLOCKING` (B-1), `ACCEPTED` (B-2, B-7, B-9), `DEFERRED` (B-3), B-6 = `BUILD_VERIFIED` + `BLOCKING` for runtime claims | see table |
 | `R005` | P2 | DEFERRED | `DEFERRED` | constraint-introspection claims |
 | `R006` | P2 | ACCEPTED | `ACCEPTED` | backup UX |
+| `F1` (`pg_restore` version-skew exit code) | P2 | OPEN (recorded) | `ACCEPTED` with disclosure / **`BLOCKING`** for cross-version restore claims | restore-status reporting; owner decision `HD-006` |
+| `F2` (glyph-fallback log warning) | P3 | OPEN (recorded) | `ACCEPTED` (cosmetic) | — |
 | `R011` | P2 | FIXED | `FIXED` | — |
 | `R-STATE-MIGRATION` | P2 | ACCEPTED | `ACCEPTED` | — |
 
@@ -337,7 +369,9 @@ the open V01-01…V01-05 runtime evidence gaps, and Windows/Linux runtime being 
 `34860902181` produced, packaged and checksum-verified all three platforms for the candidate
 `85a7fa3` (final values in §4).
 
-**P0 count: 0.**
+**P0 count: 0.** The `v01-runtime` session (2026-09-14) found **no `P0` and no `P1`**; its three
+findings (`F1` `P2`, `F2` `P3`, `F3` = the already-tracked `R-KEYRING-STALL`) are recorded with
+dispositions in `providers/23` and above.
 
 ## 3. Decision records
 
