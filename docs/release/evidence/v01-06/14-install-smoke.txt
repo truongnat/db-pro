@@ -1,0 +1,421 @@
+# V01-06 evidence — 14-install-smoke
+
+Captured    : 2026-09-14 (local). No CI run, dispatch, cancel or tag was issued by this session.
+Worktree    : /Users/truongdev/Documents/projects/db-pro/main (branch main)
+Base commit : 1a0c186 "test(er): make the layout worker coalescing test deterministic"
+              (HEAD at capture time; the tree was clean apart from the untracked goal-3.md)
+Host        : macOS 26.5.2 (build 25F84) / arm64 (Apple Silicon)
+Toolchain   : rustc 1.95.0 (59807616e 2026-04-14), cargo 1.95.0 (f2d3ce0bd 2026-03-21)
+              (the exact pin in rust-toolchain.toml)
+Release bin : target/release/db-pro-native
+              size   23733024 bytes
+              sha256 a0645ca3b503e12b647d53ecf29547e61fefc1dbd695c9cc08066cd69aab4f6c
+Archive     : /tmp/dbpro-smoke2/db-pro-v0.1.0-macos-arm64.tar.gz
+              size   10059858 bytes
+              sha256 be90b7b8028a9af7faab6f5b532eff60e2653dda44d867bba2763bd9aa0ab0e4
+Extracted   : /tmp/dbpro-smoke2/install
+
+This is a HOST install smoke of the packaged artifact — goal-3 §30, "test the artifact from
+packaged output, not target/release directly". Nothing in this file was captured from CI.
+
+WHAT THIS FILE PROVES: the archive built from this tree extracts to the contract layout, its
+bundled executable is the qualified binary byte-for-byte, the extracted bundle launches through
+LaunchServices, and the relaunched app reuses one state store. WHAT IT DOES NOT PROVE: anything
+that needs a rendered window. Every GUI step is listed as a blocker in §6 and as an open gap in
+§7 and §8. Do not cite this file for interactive behavior.
+
+==============================================================================
+1. ARTIFACT AND EXTRACTION
+==============================================================================
+Packaged with the repo script (its own stdout is the archive path; progress went to stderr):
+
+    $ bash scripts/release/package-macos.sh 0.1.0 target/release/db-pro-native /tmp/dbpro-smoke2
+    ... (package-macos.sh stderr) ...
+    Measured LC_BUILD_VERSION minos: 11.0
+    /var/folders/.../db-pro-package.lRoPUr/DB Pro.app/Contents/Info.plist: OK
+    Archive entries:
+      DB Pro.app/
+      DB Pro.app/Contents/
+      DB Pro.app/Contents/MacOS/
+      DB Pro.app/Contents/Info.plist
+      DB Pro.app/Contents/MacOS/db-pro-native
+      README-INSTALL.txt
+    Archive: 10059858 bytes
+    SHA256:  be90b7b8028a9af7faab6f5b532eff60e2653dda44d867bba2763bd9aa0ab0e4
+
+1.1 Archive checksum
+
+    $ shasum -a 256 /tmp/dbpro-smoke2/db-pro-v0.1.0-macos-arm64.tar.gz
+    be90b7b8028a9af7faab6f5b532eff60e2653dda44d867bba2763bd9aa0ab0e4
+
+1.2 Member list, read back from the archive on disk
+
+    $ tar -tzf /tmp/dbpro-smoke2/db-pro-v0.1.0-macos-arm64.tar.gz
+    DB Pro.app/
+    DB Pro.app/Contents/
+    DB Pro.app/Contents/MacOS/
+    DB Pro.app/Contents/Info.plist
+    DB Pro.app/Contents/MacOS/db-pro-native
+    README-INSTALL.txt
+
+Six entries, exactly the contract layout in scripts/release/package-macos.sh (which itself
+rejects any unexpected entry). No LICENSE, no user state, no build output, no AppleDouble "._"
+sidecars.
+
+1.3 Extracted bundle ships the qualified binary
+
+    $ cd /tmp/dbpro-smoke2 && tar -xzf db-pro-v0.1.0-macos-arm64.tar.gz -C install
+    $ shasum -a 256 "target/release/db-pro-native"            # in the repo worktree
+    a0645ca3b503e12b647d53ecf29547e61fefc1dbd695c9cc08066cd69aab4f6c
+    $ shasum -a 256 "install/DB Pro.app/Contents/MacOS/db-pro-native"
+    a0645ca3b503e12b647d53ecf29547e61fefc1dbd695c9cc08066cd69aab4f6c
+
+The two hashes are equal, so the shipped executable IS the qualified build. The built binary was
+23,733,024 bytes, the same figure 12-state-dir-blocker-fix.txt §4 records for the post-fix
+release build.
+
+Re-verified while writing this file (same session, artifacts still on disk): `target/release/
+db-pro-native` now carries a later mtime (Sep 14 21:54:33) than the archive (Sep 14 20:50)
+because it was rebuilt for the flaky-test change in 1a0c186. The rebuild is byte-identical — the
+sha256 above is the value measured after the rebuild — so the archive still ships the qualified
+build. Anyone auditing later should expect that mtime ordering and not read it as "the archive
+predates the binary it contains".
+
+1.4 Bundle metadata, as written by the script (`plutil -p`)
+
+    $ plutil -p "install/DB Pro.app/Contents/Info.plist"
+    {
+      "CFBundleDisplayName" => "DB Pro"
+      "CFBundleExecutable" => "db-pro-native"
+      "CFBundleIdentifier" => "com.dbpro.app"
+      "CFBundleInfoDictionaryVersion" => "6.0"
+      "CFBundleName" => "DB Pro"
+      "CFBundlePackageType" => "APPL"
+      "CFBundleShortVersionString" => "0.1.0"
+      "CFBundleVersion" => "0.1.0"
+      "LSMinimumSystemVersion" => "11.0"
+    }
+
+CFBundleIdentifier `com.dbpro.app`, CFBundleExecutable `db-pro-native`, both version keys
+`0.1.0`, package type `APPL`, and `LSMinimumSystemVersion 11.0` — the last measured from the
+binary's LC_BUILD_VERSION by the script (see its stderr line above), not assumed.
+
+==============================================================================
+2. LAUNCH FROM THE PACKAGED OUTPUT
+==============================================================================
+Launched the extracted bundle the way a user would, with a placeholder key (see §3 for why that
+is needed and what it hides):
+
+    $ open --env GROQ_API_KEY=smoke-placeholder "/tmp/dbpro-smoke2/install/DB Pro.app"
+    $ pgrep -fl db-pro-native
+    83055 /private/tmp/dbpro-smoke2/install/DB Pro.app/Contents/MacOS/db-pro-native
+
+The process is alive and running from the extracted bundle path — not from target/release, and not
+from any other copy. LaunchServices accepted the bundle and registered it under its declared
+identifier: `orca computer list-apps --json` listed it as `com.dbpro.app`.
+
+(Pid note for auditors: the coordinator's first launch during this smoke was `pid:64519`; the
+process still alive at the time this file was written is `83055`, which is the RELAUNCHED instance
+from the persistence test in §5. The pid changing between those two observations is the expected
+consequence of the SIGTERM + relaunch, not a second app instance.)
+
+==============================================================================
+3. THE PLACEHOLDER KEY, AND THE PRE-EXISTING STALL IT BYPASSES
+==============================================================================
+`GROQ_API_KEY=smoke-placeholder` was set for one reason: to bypass a pre-existing, unrelated
+startup stall. `main()` calls `seed_groq_api_key_from_keyring()` (crates/native-app/src/main.rs:31,
+function at :205) BEFORE the state directory is resolved; when a `com.dbpro.app` item exists in the
+Keychain, that call blocks on a Keychain authorization request for the stored item, so an
+unattended launch waits there before it ever reaches the data-directory code. Passing a non-empty
+env var makes the seed function return early (it only injects when the variable is unset), which
+lets the launch proceed past it.
+
+This is a PRE-EXISTING and SEPARATE defect from the one fixed in 543b526, and it is already
+recorded as LIM-018 ("Application state location and first-launch credential prompt"). It is not
+introduced or worsened by this smoke.
+
+Consequences to carry forward honestly:
+
+  - This smoke used the bypass. It therefore does NOT evidence that a plain double-click launch
+    reaches the window on a machine that has a stored key.
+  - An unattended launch on such a machine may still hang at that point.
+  - The stall is caused by shipping unsigned/ad-hoc-signed (R003): the binary cannot read an
+    existing keyring item without an interactive grant. Answering the prompt is the only user-side
+    workaround; §8's runbook flags where to look for it.
+
+==============================================================================
+4. STATE DIRECTORY — FIRST LAUNCH
+==============================================================================
+With `cwd=/` (what LaunchServices gives a bundle) and no legacy directory present, the app created
+and used the per-user platform data directory:
+
+    $ ls -la ~/Library/Application\ Support/DB\ Pro/
+    drwxr-xr-x@   4 truongdev  staff    128 Sep 14 20:42 .
+    -rw-r--r--@   1 truongdev  staff  90112 Sep 14 20:42 meta.db
+    drwxr-xr-x@   2 truongdev  staff     64 Sep 14 20:42 secrets
+
+    $ stat -f "inode=%i size=%z mtime=%Sm" ~/Library/Application\ Support/DB\ Pro/meta.db
+    inode=61691875 size=90112 mtime=Sep 14 20:42:58 2026
+
+And the defect path is NOT taken — nothing is created at the filesystem root:
+
+    $ ls -ld /.db-pro-data
+    ls: /.db-pro-data: No such file or directory
+
+That is the R-STATE-DIR contract (fixed in 543b526) holding on the packaged artifact: `meta.db`
+and `secrets/` under `~/Library/Application Support/DB Pro/`, `/.db-pro-data` absent.
+
+==============================================================================
+5. RELAUNCH PERSISTENCE
+==============================================================================
+Recorded the state store before quitting, terminated the app, relaunched the SAME packaged bundle,
+and re-measured:
+
+    before quit : inode=61691875 size=90112 mtime=Sep 14 20:42:58 2026
+    (SIGTERM to the app, then relaunch the extracted bundle)
+    after relaunch: inode=61691875 size=90112 mtime=Sep 14 20:42:58 2026
+
+IDENTICAL inode, size and mtime, and `~/Library/Application Support/DB Pro/` still contains exactly
+`meta.db` and `secrets`. Conclusion: the relaunched app reuses the same state store and creates no
+second or rogue directory. (An unchanged mtime also means the relaunched instance did not rewrite
+the database merely by starting; the value here is a stable identity check, not a sign the app
+never touches `meta.db`.)
+
+Scope of this claim, stated narrowly: it proves ONE state store is reused across relaunch, measured
+at the file level. It is a process/file-level observation. It is NOT the interactive persistence
+check ("my saved connection is still listed"): no connection was ever created, and nothing was
+seen in a window (see §6).
+
+==============================================================================
+6. SQLITE FIXTURE PREPARED FOR THE GUI STEP
+==============================================================================
+A fixture was prepared for the interactive step that could not be executed (§7):
+
+    $ sqlite3 /tmp/dbpro-smoke2/smoke.db "CREATE TABLE items(id INTEGER PRIMARY KEY, name TEXT NOT NULL);"
+    $ sqlite3 /tmp/dbpro-smoke2/smoke.db ".schema"
+    CREATE TABLE items(id INTEGER PRIMARY KEY, name TEXT NOT NULL);
+    $ sqlite3 /tmp/dbpro-smoke2/smoke.db "SELECT * FROM items;"
+    1|alpha
+    2|beta
+    3|gamma
+
+8192 bytes on disk. It is input to the runbook in §8 and is NOT evidence that the app can open it.
+
+==============================================================================
+7. GUI STEPS THAT COULD NOT BE EXECUTED — EXACT BLOCKERS
+==============================================================================
+No window was rendered, inspected, or interacted with. Every attempt to reach the GUI failed, and
+the four blockers below are recorded verbatim. These are environment/authorization limits on this
+host, not app failures — except that, precisely because they could not be lifted, no app-side GUI
+claim can be made either way.
+
+7.1 Orca computer helper: connection closed before responding
+
+    $ orca computer get-app-state --app com.dbpro.app --json
+    {"code":"runtime_unavailable","message":"The Orca runtime closed the connection before
+     responding. Restart Orca and try again."}
+
+The same error came back for every variant tried:
+
+    --app pid:64519
+    --app "DB Pro"
+    --app com.dbpro.app --window-index 0
+    --app com.dbpro.app --no-screenshot --json
+
+7.2 The failure is helper-wide, not specific to DB Pro
+
+    $ orca computer list-windows --app com.apple.finder --json
+    {"code":"runtime_unavailable","message":"The Orca runtime closed the connection before
+     responding. Restart Orca and try again."}
+
+Asking the helper about Finder's windows fails the same way, so this is not a DB Pro bundle
+problem.
+
+7.3 At that time the lightweight subcommands still worked
+
+`orca computer list-apps --json` and `orca computer permissions --json` still returned results
+(permissions reported `accessibility=granted`, `screenshots=granted`). That is why the
+process-level checks in §2 and the LaunchServices registration check were possible at all, while
+anything needing a window snapshot or the accessibility tree was not.
+
+7.4 AppleScript fallback blocked by TCC
+
+    $ osascript -e 'tell application "System Events" to get name of first process whose bundle
+      identifier is "com.dbpro.app"'
+    Not authorized to send Apple events to System Events. (-1743)
+
+7.5 Screen capture unavailable
+
+    $ screencapture -x /tmp/dbpro-smoke2/shot-test.png
+    could not create image from display
+
+rc=1 and no file was produced (`ls -l /tmp/dbpro-smoke2/shot-test.png` → No such file or
+directory).
+
+7.6 RE-CHECK while writing this file — the helper has degraded further
+
+Re-running the same helper calls in the same session, later, gives a DIFFERENT error: the runtime
+metadata file is now absent entirely, so even the two subcommands that worked in 7.3 fail:
+
+    $ orca computer list-apps --json
+    {"id":"local","ok":false,"error":{"code":"runtime_unavailable","message":"Could not read Orca
+     runtime metadata at /Users/truongdev/Library/Application Support/orca/orca-runtime.json.
+     Start the Orca app first."},"_meta":{"runtimeId":null}}
+
+    $ orca computer permissions --json      # same error
+    $ orca computer list-windows --app com.apple.finder --json   # same error
+
+7.4 and 7.5 were re-run unchanged: `osascript` still returns the -1743 TCC denial (the full text
+this time reads `40:104: execution error: Not authorized to send Apple events to System Events.
+(-1743)`), and `screencapture` still reports `could not create image from display` with no file
+produced.
+
+Net effect on this file: unchanged conclusions. The GUI is unreachable now for a wider reason than
+it was during the smoke, which makes the gap in §8 more, not less, necessary. It also means the
+`com.dbpro.app` LaunchServices registration in §2 (observed via `list-apps` while that subcommand
+still answered) can no longer be re-confirmed in this session.
+
+7.7 Conclusion — the honest NOT VERIFIED list
+
+The following are NOT VERIFIED in this environment, and are not claimed anywhere in the release
+documents on the strength of this smoke:
+
+    - that the window renders at all
+    - Settings navigation, and the light/dark appearance switch inside it
+    - creating a SQLite connection through the UI (driver cards, file-path field, Test/Save)
+    - running `SELECT 1` and reading the result grid
+    - running `SELECT * FROM items` and counting 3 rows
+    - quitting with a clean window-close / ⌘Q exit
+    - the interactive persistence check (a connection surviving relaunch)
+
+This is the only remaining V01-07 install-smoke gap. Sections 1–6 cover packaging, extraction,
+launch-after-extract and file-level state reuse; they deliberately say nothing about the window.
+
+==============================================================================
+8. HUMAN RUNBOOK — CLOSING THE REMAINING GAP
+==============================================================================
+Anyone with a desktop session on this machine can close the gap in a few minutes. Run these in
+order and record the observed result for each; do not tick anything not actually observed.
+
+Preconditions: a logged-in GUI session (not SSH), and a place to keep the extracted copy.
+
+  1. Extract the archive to a clean directory.
+
+        mkdir -p /tmp/dbpro-manual && tar -xzf /tmp/dbpro-smoke2/db-pro-v0.1.0-macos-arm64.tar.gz \
+          -C /tmp/dbpro-manual
+        shasum -a 256 /tmp/dbpro-smoke2/db-pro-v0.1.0-macos-arm64.tar.gz
+
+     Expected: six members extracted (`DB Pro.app` tree + README-INSTALL.txt); sha256
+     `be90b7b8…ab0e4`, matching §1.1.
+
+  2. Copy the fixture somewhere writable, so the smoke edits a scratch file rather than the
+     original.
+
+        cp /tmp/dbpro-smoke2/smoke.db /tmp/dbpro-manual/scratch.db
+
+     Expected: `/tmp/dbpro-manual/scratch.db` exists (8192 bytes, table `items` with 3 rows).
+
+  3. Launch `DB Pro.app` from Finder (double-click, or right-click → Open the first time).
+
+     Expected: this is where the Keychain prompt from §3 may appear — an authorization dialog for
+     a stored `com.dbpro.app` item, BEFORE any window. If it appears, answer it (Allow / Always
+     Allow) and the launch continues; if it hangs instead, that is LIM-018 reproducing, and note
+     it. Watch for the Gatekeeper "cannot be verified" dialog too (unsigned build): right-click →
+     Open, or System Settings → Privacy & Security → Open Anyway.
+
+  4. Confirm the window renders.
+
+     Expected: the app window is visible and usable — top bar with connection breadcrumb on the
+     left, activity rail of icons down the left edge, a workspace area with tabs, and a status bar
+     along the bottom. Record what is actually on screen, and whether light or dark.
+
+  5. Open Settings (the gear icon at the bottom of the activity rail) and check the appearance
+     switch.
+
+     Expected: the sidebar shows an APPEARANCE card with Light/Dark options, plus a "Reduce motion"
+     checkbox; the theme switches immediately when you pick the other option, and the choice
+     survives the relaunch in step 10.
+
+  6. Create a new SQLite connection pointing at the fixture copy.
+
+     Expected: the "New Connection" dialog opens with a 4×2 grid of database-engine cards. PostgreSQL
+     and SQLite are selectable; MySQL, MariaDB, Redis, MongoDB, ClickHouse and DuckDB show a "Soon"
+     badge and are disabled ("…provider is coming soon in a future release" on hover). Pick SQLite;
+     the form shows "Connection Display Name", a "Read-only mode" checkbox, and a "SQLite Database
+     File Path" field; enter `/tmp/dbpro-manual/scratch.db` (or use "Browse File…"). "Test
+     Connection" should report success ("Database server is reachable and validated."), then "Save
+     Connection".
+
+     Expected: the connection appears as a root node in the Explorer sidebar.
+
+  7. Open the query editor (the "New query" button in the sidebar, or ⌘N).
+
+     Expected: a query tab with the SQL editor; a Run button (play icon) in the header.
+
+  8. Run `SELECT 1;`.
+
+        SELECT 1;
+
+     Expected: the output pane shows a result grid with a single column and a single row whose
+     value is `1`; the status bar reports a duration in ms.
+
+  9. Run `SELECT * FROM items;` and count the rows.
+
+        SELECT * FROM items;
+
+     Expected: the result grid shows 3 rows — `1|alpha`, `2|beta`, `3|gamma` — i.e. alpha, beta,
+     gamma in the `name` column.
+
+ 10. Quit with ⌘Q (and also try closing the window from its close button on a second run).
+
+     Expected: the process exits cleanly — no panic, no crash dialog, no lingering
+     `db-pro-native` in Activity Monitor. Confirm from a terminal with `pgrep -fl db-pro-native`
+     (should print nothing).
+
+ 11. Relaunch the same extracted bundle and confirm persistence.
+
+     Expected: the saved SQLite connection is still listed in the Explorer sidebar without
+     re-entering anything.
+
+ 12. Re-check the state store and record it.
+
+        stat -f "inode=%i size=%z mtime=%Sm" ~/Library/Application\ Support/DB\ Pro/meta.db
+        ls -la ~/Library/Application\ Support/DB\ Pro/
+
+     Expected: `meta.db` and `secrets/` still present, `meta.db` size at or above the 90112 bytes
+     recorded in §4, and mtime/contents changed by the saved connection — the point being that the
+     store the GUI writes to is the SAME one §4 and §5 measured, never `/.db-pro-data`.
+
+Record the results in `docs/release/0.1.0-manual-smoke.md` and update
+`docs/release/0.1.0-handoff.md` §5 and `docs/release/0.1.0-readiness.md` "Runtime QA" accordingly.
+
+==============================================================================
+9. FINDING RAISED WHILE WRITING THIS FILE (not fixed here — reported only)
+==============================================================================
+`scripts/release/README-INSTALL.txt` is shipped inside the archive (member `README-INSTALL.txt`,
+byte-identical to the repo file — verified with `diff`) and its "First run" section still documents
+the PRE-543b526 behavior:
+
+    "DB Pro keeps its workspace state (connections, saved queries, query history, open tabs,
+     settings) in a ".db-pro-data" directory next to the directory the app is started from."
+
+That contradicts the fixed and now smoke-verified behavior (LIM-018, and §4 above): state goes to
+`~/Library/Application Support/DB Pro/` unless an existing `<cwd>/.db-pro-data` is present. A user
+reading the shipped note will look in the wrong place.
+
+Not corrected in this commit: the note is shipped-artifact text that belongs to the packaging step,
+and this session was scoped to documentation evidence only. Flagged for the coordinator to fix in
+the packaging path (and then re-verify the archive contents).
+
+==============================================================================
+10. WHAT AN AUDITOR MAY AND MAY NOT CITE FROM THIS FILE
+==============================================================================
+MAY cite: the archive layout and checksum (§1.1–1.2); that the shipped executable is the qualified
+build (§1.3); the bundle metadata (§1.4); that the extracted bundle launches and stays alive from
+its own path (§2); that the state directory resolves to the platform data dir with no
+`/.db-pro-data` (§4); that one state store is reused across relaunch at the file level (§5).
+
+MAY NOT cite: any interactive behavior — window rendering, Settings, connection creation, query
+execution, clean quit, or a saved connection surviving relaunch (§7.7). Screenshots: none exist for
+this smoke. If a reader needs the visual surface in the meantime, see
+`docs/release/0.1.0-ui-visual-description.md`, which is CODE-DERIVED and explicitly not a capture.
