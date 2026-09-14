@@ -1,183 +1,110 @@
-# Platform Native Prerequisites — v0.1
+# Platform Native Prerequisites — v0.1 (native `db-pro-native`)
 
-> **Amendment (2026-09-11) — native UI direction.** The product no longer runs inside a
-> Tauri WebView and no longer requires Node.js or pnpm. The shipped binary is the native
-> `db-pro-native` (eframe/egui). This document was written against the Tauri host
-> (`crates/tauri-app`) and the archived React frontend, so its Tauri/WebView/Node
-> prerequisites are historical. The native requirements are:
->
-> - macOS: Xcode command line tools
-> - Linux: `libxkbcommon-dev libwayland-dev libx11-dev libgl1-mesa-dev libdbus-1-dev pkg-config`
->   (the D-Bus packages are a **build** dependency of the `keyring` credential backend —
->   `dbus-secret-service` → `dbus` → `libdbus-sys` probes `dbus-1.pc` and panics without it — and
->   the same Secret Service stack is the expected **runtime** credential service on Linux; both
->   Linux jobs in `release.yml` install this list, see
->   `docs/release/evidence/v01-06/11-linux-build-dependency-fix.txt`)
-> - Windows: MSVC build tools
->
-> See `README.md` for the current development setup.
+- Baseline SHA: `main @ 5866f09` (the tree this inventory was read against)
+- Issue: **#134** ([RC1][Platform] Inventory packaged-runtime native prerequisites and OS-specific
+  dependency risks)
+- Scope: **audit and documentation only** — no packaging behavior, workflow, artifact, checksum or
+  toolchain change.
+- Authoritative sources: `.github/workflows/release.yml` (build + package jobs and the exact
+  `apt-get install` lists), `scripts/release/package-{macos,linux}.sh`,
+  `scripts/release/README-INSTALL.txt` (the consumer-facing counterpart), `Cargo.toml` feature
+  flags, `Cargo.lock` (resolved keyring backends), and
+  `docs/release/evidence/v01-06/08-post-fix-quality-gates.txt` (measured `minos`).
 
-> Source: `tauri.conf.json`, `Cargo.toml`, `capabilities/default.json`, infrastructure code.
-> Baseline SHA: `65bbca3`
-> Issue: #134
+> **Historical note.** An earlier revision of this document described the Tauri/WebView era
+> (`crates/tauri-app`, React frontend, `.dmg`/`.deb`/`.rpm`/MSI installers, WebKitGTK, WebView2).
+> None of that is in the v0.1 delivery path: the shipped artifact is the native `db-pro-native`
+> (eframe/egui) archive. Tauri-era rows are kept at the end as historical reference only.
 
-## Build configuration summary
+## 1. What v0.1 actually ships
 
-| Setting | Value | Source |
+| Item | Value | Source |
 |---|---|---|
-| Product name | DB Pro | `tauri.conf.json` `productName` |
-| Version | 0.1.0 | `tauri.conf.json` `version` |
-| Identifier | com.dbpro.app | `tauri.conf.json` `identifier` |
-| Bundle targets | deb, appimage, rpm, dmg, msi, nsis | `tauri.conf.json` `bundle.targets` |
-| Rust edition | 2021 | `Cargo.toml` workspace |
-| Min Rust version | 1.77.2 | `Cargo.toml` `rust-version` |
-| Tauri version | 2 | `tauri-app/Cargo.toml` |
-| Window min size | 1024×640 | `tauri.conf.json` |
-| Frontend dist | `frontend/dist` | `tauri.conf.json` `build.frontendDist` |
+| Binary | `db-pro-native` (native eframe/egui; no WebView, no Node) | `crates/native-app`, `README.md:4,159` |
+| macOS artifact | `db-pro-v0.1.0-macos-arm64.tar.gz` → `DB Pro.app` + `README-INSTALL.txt` | `package-macos.sh`, `release.yml:14` |
+| Windows artifact | `db-pro-v0.1.0-windows-x86_64.zip` → `db-pro-native.exe` + `README-INSTALL.txt` | `package-windows.ps1`, `release.yml:15` |
+| Linux artifact | `db-pro-v0.1.0-linux-x86_64.tar.gz` → `db-pro-native` + `README-INSTALL.txt` | `package-linux.sh`, `release.yml:16` |
+| Installers | none (no `.dmg`/MSI/NSIS/`.deb`/`.rpm`/AppImage) | `risk-register.md:110` (R-PKG-DEFER), LIM-017 |
+| Updater | none | `0.1.0-versioning-updater-persistence.md` §2 (#127) |
+| Signing / notarization | none (unsigned archives) | LIM-017, #118 |
 
-## Native dependencies
+## 2. Prerequisite matrix
 
-### Rust crates with native bindings
+`build` = needed on the machine that compiles/qualifies the release; `run` = needed on the machine
+that executes the packaged binary.
 
-| Crate | Version | Feature flags | Native requirement |
+| OS | Arch | Package | Build prerequisites | Runtime prerequisites | Missing-dependency behavior |
+|---|---|---|---|---|---|
+| macOS | arm64 only | `.tar.gz` with `DB Pro.app` | Xcode command line tools, `rustup` with the pinned toolchain (`rust-toolchain.toml`), `macos-14` runner | macOS **11.0+** (measured `LC_BUILD_VERSION minos 11.0` — `evidence/v01-06/08-post-fix-quality-gates.txt:163`), system Keychain (Security.framework), the OS OpenGL/Metal driver | Gatekeeper blocks an unsigned app on first launch → right-click → Open; Keychain authorization prompt on first credential access |
+| Windows | x86_64 | `.zip` | MSVC build tools (present on the `windows-latest` image), `rustup` + pinned toolchain | Windows 10/11 x86_64, Windows Credential Manager, system OpenGL/D3D driver. **No WebView2 runtime is required** — the shipping binary is not a Tauri/WebView host | SmartScreen warns on an unsigned binary ("More info" → "Run anyway") |
+| Linux | x86_64 | `.tar.gz` | `libxkbcommon-dev libwayland-dev libx11-dev libgl1-mesa-dev libdbus-1-dev pkg-config` (`release.yml:191-193` preflight, `:397-399` build job) | X11 or Wayland session, a working OpenGL driver, `libdbus-1.so.3` (linked through `dbus-secret-service` → `libdbus-sys`, resolved in `Cargo.lock`), and a **D-Bus Secret Service provider** (`gnome-keyring`, KWallet, KeePassXC) for credential storage | Without a Secret Service provider, credential writes fail — release builds keep secrets in memory for the session only (#142); without an OpenGL driver, window creation fails |
+
+The Linux row is the one to check against the real package list: the workflow's two
+`apt-get install` blocks are the build-time truth, and they agree with the runtime list above. No
+WebKitGTK/GTK/AppIndicator package is installed or needed for `-p db-pro-native`
+(`release.yml:385-392` says this explicitly — the preflight job's larger list exists only because
+that job also builds the legacy `crates/tauri-app`).
+
+## 3. Provider and external-tool prerequisites
+
+| Tool | Required for | Bundled? | Notes |
 |---|---|---|---|
-| `sqlx` | 0.8 | `postgres`, `runtime-tokio-rustls`, `chrono`, `uuid`, `json` | TLS via rustls (no OpenSSL needed) |
-| `rusqlite` | 0.32 | `bundled`, `column_decltype` | SQLite compiled from bundled source (no system libsqlite3) |
-| `keyring` | 3 | — | Platform credential storage (see per-OS below) |
-| `aes-gcm` | 0.10 | — | Pure Rust (no native dep) |
-| `argon2` | 0.5 | — | Pure Rust (no native dep) |
+| `pg_dump` | PostgreSQL backup | **No** | must be on `PATH`; when missing, the backup action fails with the shell-out error and no in-app guidance |
+| `pg_restore` | PostgreSQL restore | **No** | must be on `PATH`; **version skew matters** — an 18.x `pg_restore` exits 1 against a 16.x server (`evidence/v01-runtime/providers/23`, finding `F1`/P2) |
+| `ssh` | SSH tunnels | **No** | system client, must be on `PATH` |
+| `psql`, `sqlite3` | — | Not required | the app speaks the wire protocol through `sqlx`; SQLite runs in-process |
+| SQLite library | all SQLite work | **Yes** | `rusqlite` `bundled` feature (`Cargo.toml:28`); no system `libsqlite3` |
+| TLS | PostgreSQL TLS | **Yes** | `sqlx` `runtime-tokio-rustls`; no OpenSSL, no system CA-bundle dependency beyond rustls' roots |
 
-### Tauri plugins
+This matches the consumer-facing note in `scripts/release/README-INSTALL.txt` ("PostgreSQL backup
+and restore shell out to `pg_dump` and `pg_restore`, and SSH tunnels use the system `ssh` client")
+and the release notes (`0.1.0-release-notes.md:110-111`). Nothing claims these tools are bundled.
 
-| Plugin | Version | Purpose |
+## 4. Packaging risks carried by v0.1
+
+| Risk | Severity | Status |
 |---|---|---|
-| `tauri-plugin-dialog` | 2 | File picker (SQLite database selection) |
+| Unsigned, not-notarized archives trigger Gatekeeper (macOS) / SmartScreen (Windows) | P2 | accepted and recorded (LIM-017, #118); the install note gives the workaround |
+| No macOS x86_64 artifact (arm64 only) | P2 | accepted and recorded (LIM-017) |
+| Linux credential storage needs a Secret Service provider; minimal/headless installs cannot write credentials | P2 | accepted and recorded in the release notes and install note; #142 removed the plaintext-file fallback from release builds, so the degradation is session-only |
+| `pg_dump`/`pg_restore` not bundled and version-skew sensitive | P2 | recorded (findings `F1`/P2, providers/23); prerequisite stated in the install note and release notes |
+| Windows and Linux archives are `RUNTIME_UNVERIFIED` (no host available) | P1 for release claims | recorded in the risk register and readiness docs; not a prerequisites defect |
+| No installers/package-manager metadata, so no OS-level dependency declaration exists for any platform | informational | by design (portable archives); §2 is the substitute |
 
-### Capabilities (permissions)
+**No new release-critical missing dependency was found by this reconciliation:** the Linux build
+list in `release.yml` is the complete build set for `-p db-pro-native`, the runtime libraries it
+implies are stated in §2, and the external tools are stated in §3. No focused child issue is
+spawned.
 
-| Permission | Purpose |
-|---|---|
-| `core:default` | Standard Tauri core permissions |
-| `dialog:allow-open` | Open file dialog for SQLite file picker |
+## 5. Smoke setup checklist (#91-#93)
 
-## Platform matrix
+Record these before a packaged-runtime smoke run starts:
 
-### macOS
+1. **macOS** — Apple Silicon host, macOS 11+, archive unpacked, Gatekeeper override performed,
+   unlockable Keychain, `pg_dump`/`pg_restore`/`ssh` on `PATH` if those features are in scope.
+2. **Windows** — x86_64 Windows 10/11 host, archive unpacked, SmartScreen override performed,
+   Credential Manager available, external tools on `PATH` for the backup/SSH items.
+3. **Linux** — x86_64 host with an X11 or Wayland session and a working OpenGL driver,
+   `libdbus-1.so.3` present, a running Secret Service provider (or the credential items are
+   expected to fail), external tools on `PATH` for the backup/SSH items.
+4. **All platforms** — `SHA256SUMS.txt` verified before launch, a writable data directory
+   (`DB_PRO_DATA_DIR` or the platform default — see
+   `0.1.0-versioning-updater-persistence.md` §3), and the exact archive SHA recorded in the smoke
+   worksheet.
 
-| Item | Detail |
-|---|---|
-| Package format | `.dmg` |
-| Architecture | Determined by build host (x64 or aarch64) |
-| Minimum OS | macOS 10.15+ (Tauri 2 default; WebView2 equivalent via WebKit) |
-| WebView | System WebKit (bundled with macOS) — no additional install |
-| Keyring | macOS Keychain (via `keyring` crate → Security.framework) |
-| TLS | rustls (bundled, no system OpenSSL) |
-| SQLite | Bundled (rusqlite `bundled` feature) |
-| Signing | Not configured in v0.1 (#118) |
-| Notarization | Not configured in v0.1 (#118) |
-| Unsigned behavior | Gatekeeper may block; user must right-click → Open or allow in System Settings |
-| File picker | `NSSavePanel`/`NSOpenPanel` via Tauri dialog plugin |
-| System prompts | Keychain access prompts on first use; no special entitlements needed |
+The manual-smoke worksheet classifies unexecuted rows as blocked
+(`docs/release/0.1.0-manual-smoke.md`, tallies `passed 0 / blocked 165 / failed 0`); this checklist
+is what an operator must satisfy before those rows can be unblocked.
 
-**Risks:**
-- Unsigned builds will show "damaged" or "can't be opened" on macOS Sequoia+ without user override.
-- No universal binary — separate x64 and aarch64 builds needed for full coverage.
+## 6. Historical reference (Tauri era — not part of v0.1)
 
-### Windows
+Kept for traceability only; do not use for release claims.
 
-| Item | Detail |
-|---|---|
-| Package formats | `.msi` (Windows Installer), `.nsis` (NSIS installer) |
-| Architecture | x64 (primary); x86 possible but not tested |
-| WebView | WebView2 Runtime — **must be present on target system** |
-| WebView2 bundling | Tauri 2 does NOT bundle WebView2 by default; it's a bootstrapper dependency |
-| VC Runtime | Required (MSVC toolchain builds link against `vcruntime140.dll`) |
-| Keyring | Windows Credential Manager (via `keyring` crate → `credman`) |
-| TLS | rustls (bundled) |
-| SQLite | Bundled |
-| Code signing | Not configured in v0.1 (#118) |
-| SmartScreen | Unsigned `.msi`/`.exe` triggers Windows SmartScreen warning |
-| Firewall | No network server opened; outbound connections to PG servers only |
-| Certificate store | Not used in v0.1 |
-
-**Risks:**
-- WebView2 Runtime is pre-installed on Windows 11 and recent Windows 10 updates, but older systems may need the Evergreen Bootstrapper.
-- Unsigned MSIs trigger SmartScreen — users must click "Run anyway."
-- No code signing certificate configured.
-
-### Linux
-
-| Item | Detail |
-|---|---|
-| Package formats | `.deb` (Debian/Ubuntu), `.rpm` (Fedora/RHEL), `.appimage` (universal) |
-| Architecture | x86_64 |
-| **deb depends** | `libwebkit2gtk-4.1-0`, `libgtk-3-0` |
-| **rpm depends** | `webkit2gtk4.1`, `gtk3` |
-| WebView | WebKitGTK 4.1 — **must be installed** (declared as package dependency) |
-| AppImage | Requires FUSE for direct execution; `--appimage-extract` alternative |
-| Keyring | `libsecret` / Secret Service D-Bus API (GNOME Keyring, KWallet, KeePassXC) |
-| TLS | rustls (bundled) |
-| SQLite | Bundled |
-| Signing | Not configured in v0.1 |
-
-**deb declared dependencies** (from `tauri.conf.json`):
-```json
-"deb": { "depends": ["libwebkit2gtk-4.1-0", "libgtk-3-0"] }
-```
-
-**rpm declared dependencies** (from `tauri.conf.json`):
-```json
-"rpm": { "depends": ["webkit2gtk4.1", "gtk3"] }
-```
-
-**Missing dependency declarations:**
-- `libsecret` / `libsecret-1-0` — needed by `keyring` crate for credential storage. Not declared in deb/rpm depends. **This is a packaging bug risk.**
-- `libssl` — not needed (rustls is bundled), but if any transitive dep requires OpenSSL, it's undeclared.
-- `glib2` — pulled in transitively by GTK3 but not explicitly declared.
-
-**Risks:**
-- Missing `libsecret` dependency will cause runtime credential storage failure on minimal installs.
-- AppImage + FUSE not available on all distros (e.g., RHEL 9+ removed FUSE 2).
-- WebKitGTK 4.1 is relatively new; older distros (Ubuntu 20.04, Debian 11) ship 4.0 and cannot run the app.
-
-## Provider tooling
-
-| Tool | Required? | Bundled? | Notes |
-|---|---|---|---|
-| `psql` | No | No | Not required; PG connection is over TCP via sqlx |
-| `pg_dump` | Yes (for backup) | **No** | PG backup shells out to `pg_dump` — must be on PATH |
-| `pg_restore` | Yes (for restore) | **No** | PG restore shells out to `pg_restore` — must be on PATH |
-| `sqlite3` | No | No | SQLite is handled by rusqlite (bundled) |
-| `ssh` | Yes (for SSH tunnel) | **No** | SSH tunnel shells out to system `ssh` — must be on PATH |
-
-**Critical finding:** `pg_dump` and `pg_restore` are NOT bundled and must exist on the user's PATH for backup/restore to work. This is a runtime prerequisite that is not documented in the app or installer.
-
-## Minimum OS support matrix
-
-| OS | Minimum version | WebView | Package | Risk level |
-|---|---|---|---|---|
-| macOS | 10.15 (Catalina) | System WebKit | .dmg | Medium (unsigned) |
-| Windows | 10 1809+ | WebView2 | .msi / .nsis | Medium (unsigned + WebView2) |
-| Ubuntu | 22.04+ | WebKitGTK 4.1 | .deb | Low |
-| Fedora | 36+ | WebKitGTK 4.1 | .rpm | Low |
-| Debian | 12+ | WebKitGTK 4.1 | .deb | Low |
-| RHEL/Alma | 9+ | WebKitGTK 4.1 | .rpm | Medium (FUSE for AppImage) |
-| Arch | Current | WebKitGTK 4.1 | .pkg / AppImage | Low |
-
-## Actionable findings
-
-1. **[P1] Missing `libsecret` dependency** in deb/rpm package declarations — will break credential storage on minimal Linux installs.
-2. **[P2] `pg_dump`/`pg_restore` not bundled** — backup/restore requires these on PATH; no in-app guidance.
-3. **[P2] No WebView2 bootstrapper** for Windows — older Windows 10 systems may fail silently.
-4. **[P2] No code signing** — all platforms show security warnings to users.
-5. **[P3] No universal macOS binary** — separate x64/aarch64 builds needed.
-
-## Source references
-
-- `crates/tauri-app/tauri.conf.json` — bundle config, Linux depends
-- `crates/tauri-app/Cargo.toml` — Tauri + plugin dependencies
-- `crates/tauri-app/capabilities/default.json` — permission declarations
-- `Cargo.toml` (workspace) — sqlx/rusqlite/keyring feature flags
-- `crates/infrastructure/src/backup/pg_dump.rs` — pg_dump shell-out
-- `crates/infrastructure/src/ssh/tunnel.rs` — ssh shell-out
-- `crates/infrastructure/src/secret/keyring_vault.rs` — keyring usage
+- Tauri-era package targets (`deb`, `appimage`, `rpm`, `dmg`, `msi`, `nsis`) and the Linux
+  `deb`/`rpm` `depends` lists lived in `crates/tauri-app/tauri.conf.json`; that bundler path is
+  archived with the webview frontend (`_archive/README.md`).
+- WebKitGTK 4.1, WebView2 and `libayatana-appindicator3` were required by that host; they are not
+  required by `db-pro-native`.
+- The old `libsecret`-dependency finding assumed declared package metadata (`deb`/`rpm` `depends`),
+  which v0.1 does not have at all; the live equivalent is the D-Bus Secret Service runtime
+  requirement in §2.
