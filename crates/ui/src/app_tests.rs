@@ -3177,4 +3177,139 @@ fn test_agent_event_routing_ignores_mismatched_session_and_document_and_run_ids(
         delta: "valid delta".to_owned(),
     });
     assert_eq!(app.agent_sessions.get(&doc_id).unwrap().streaming_text, "valid delta");
+
+    // 4. Wrong session_id with matching doc/run -> ignored
+    let wrong_session_id = db_pro_core::domain::agent::AgentSessionId::new();
+    app.on_agent_workflow_event(db_pro_core::domain::agent_workflow::AgentWorkflowEvent::TextDelta {
+        session_id: wrong_session_id,
+        run_id: real_run_id,
+        document_id: doc_id.clone(),
+        delta: "ignored session delta".to_owned(),
+    });
+    assert_eq!(app.agent_sessions.get(&doc_id).unwrap().streaming_text, "valid delta");
+}
+
+#[test]
+fn test_agent_db_cancellation_and_terminal_cleanup() {
+    let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
+    let mut app = DbProApp::with_task_bridge(bridge);
+    let doc_id = app.query_documents[0].id.clone();
+    let run_id = db_pro_core::domain::agent::AgentRunId::new();
+
+    let mut session = super::agent_workflow_state::AgentUiSession::for_document(
+        &doc_id,
+        Some("conn-1".to_owned()),
+        Some("public".to_owned()),
+    );
+    let session_id = session.session.as_ref().unwrap().id;
+    session.active_run_id = Some(run_id);
+    session.state = db_pro_core::domain::agent::AgentSessionState::Running;
+    session.activities.push(super::agent_workflow_state::AgentUiActivity {
+        call_id: Some("call-db-1".to_owned()),
+        tool: Some(db_pro_core::domain::agent::AgentTool::RunQuery),
+        label: "Executing query".to_owned(),
+        status: super::agent_workflow_state::AgentUiActivityStatus::Running,
+        duration_ms: None,
+    });
+    app.agent_sessions.insert(doc_id.clone(), session);
+
+    // Cancel the active agent run
+    app.cancel_active_agent_run();
+
+    // Verify CancelAgentRun command was dispatched to runtime bridge
+    assert!(matches!(
+        command_rx.try_recv(),
+        Ok(UiCommand::CancelAgentRun { run_id: cmd_run_id, .. }) if cmd_run_id == run_id
+    ));
+
+    // Runtime returns Cancelled event
+    app.on_agent_workflow_event(db_pro_core::domain::agent_workflow::AgentWorkflowEvent::Cancelled {
+        session_id,
+        run_id,
+        document_id: doc_id.clone(),
+    });
+
+    let finished_session = app.agent_sessions.get(&doc_id).unwrap();
+    assert_eq!(
+        finished_session.state,
+        db_pro_core::domain::agent::AgentSessionState::Cancelled
+    );
+    assert_eq!(finished_session.active_run_id, None);
+    assert_eq!(finished_session.pending_confirmation, None);
+    assert_eq!(
+        finished_session.activities[0].status,
+        super::agent_workflow_state::AgentUiActivityStatus::Cancelled
+    );
+
+    // Late event arrives after cancellation -> ignored, state remains Cancelled
+    app.on_agent_workflow_event(db_pro_core::domain::agent_workflow::AgentWorkflowEvent::TextDelta {
+        session_id,
+        run_id,
+        document_id: doc_id.clone(),
+        delta: "Late output".to_owned(),
+    });
+    let after_late = app.agent_sessions.get(&doc_id).unwrap();
+    assert_eq!(
+        after_late.state,
+        db_pro_core::domain::agent::AgentSessionState::Cancelled
+    );
+    assert_eq!(after_late.active_run_id, None);
+}
+
+#[test]
+fn test_agent_retry_isolation_and_session_routing() {
+    let mut app = DbProApp::default();
+    let doc_id = app.query_documents[0].id.clone();
+    let run_1 = db_pro_core::domain::agent::AgentRunId::new();
+
+    let mut session = super::agent_workflow_state::AgentUiSession::for_document(&doc_id, None, None);
+    let session_1_id = session.session.as_ref().unwrap().id;
+    session.active_run_id = Some(run_1);
+    session.state = db_pro_core::domain::agent::AgentSessionState::Running;
+    app.agent_sessions.insert(doc_id.clone(), session);
+
+    // Run 1 fails
+    app.on_agent_workflow_event(db_pro_core::domain::agent_workflow::AgentWorkflowEvent::Failed {
+        session_id: session_1_id,
+        run_id: run_1,
+        document_id: doc_id.clone(),
+        message: "API error".to_owned(),
+    });
+
+    let failed_session = app.agent_sessions.get(&doc_id).unwrap();
+    assert_eq!(
+        failed_session.state,
+        db_pro_core::domain::agent::AgentSessionState::Failed
+    );
+    assert_eq!(failed_session.active_run_id, None);
+
+    // Start Run 2 (Retry)
+    let run_2 = db_pro_core::domain::agent::AgentRunId::new();
+    let mut session_2 = super::agent_workflow_state::AgentUiSession::for_document(&doc_id, None, None);
+    let session_2_id = session_2.session.as_ref().unwrap().id;
+    assert_ne!(session_1_id, session_2_id);
+    session_2.active_run_id = Some(run_2);
+    session_2.state = db_pro_core::domain::agent::AgentSessionState::Running;
+    app.agent_sessions.insert(doc_id.clone(), session_2);
+
+    // Late event from Run 1 / Session 1 -> ignored
+    app.on_agent_workflow_event(db_pro_core::domain::agent_workflow::AgentWorkflowEvent::TextDelta {
+        session_id: session_1_id,
+        run_id: run_1,
+        document_id: doc_id.clone(),
+        delta: "stale message".to_owned(),
+    });
+    assert!(app.agent_sessions.get(&doc_id).unwrap().streaming_text.is_empty());
+
+    // Event from Run 2 / Session 2 -> accepted
+    app.on_agent_workflow_event(db_pro_core::domain::agent_workflow::AgentWorkflowEvent::TextDelta {
+        session_id: session_2_id,
+        run_id: run_2,
+        document_id: doc_id.clone(),
+        delta: "active message".to_owned(),
+    });
+    assert_eq!(
+        app.agent_sessions.get(&doc_id).unwrap().streaming_text,
+        "active message"
+    );
 }

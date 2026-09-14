@@ -1236,4 +1236,134 @@ mod tests {
         )));
         assert!(events.iter().any(|e| matches!(e, AgentWorkflowEvent::Completed { .. })));
     }
+
+    #[tokio::test]
+    async fn idempotency_matrix_read_tool_replays_cached_output() {
+        let session = AgentSession::new("doc-a", Some("conn-1".to_owned()), Some("public".to_owned()));
+        let execution_context = AgentExecutionContext::new(session.clone(), document(1), AgentMode::Ask);
+        let mut orchestrator = AgentRunOrchestrator::new(
+            Box::new(FakeProvider {
+                responses: Mutex::new(
+                    vec![
+                        vec![AgentProviderEvent::ToolCall(AgentToolCall {
+                            call_id: "read-1".to_owned(),
+                            tool: AgentTool::GetCurrentQuery,
+                            input: AgentToolInput::None,
+                        })],
+                        vec![AgentProviderEvent::ToolCall(AgentToolCall {
+                            call_id: "read-1".to_owned(),
+                            tool: AgentTool::GetCurrentQuery,
+                            input: AgentToolInput::None,
+                        })],
+                        vec![AgentProviderEvent::Completed],
+                    ]
+                    .into_iter()
+                    .collect(),
+                ),
+            }),
+            Box::new(FakeToolRunner),
+            AgentWorkflow::new(session, AgentMode::Ask, false),
+            execution_context,
+            "read query twice".to_owned(),
+            context(1),
+        )
+        .expect("orchestrator starts");
+
+        let events = orchestrator.run().await;
+        let tool_completed_count = events
+            .iter()
+            .filter(|e| matches!(e, AgentWorkflowEvent::ToolCompleted { call_id, .. } if call_id == "read-1"))
+            .count();
+        // Emitted ToolCompleted twice: once executed, once replayed from cache
+        assert_eq!(tool_completed_count, 2);
+    }
+
+    #[tokio::test]
+    async fn idempotency_collision_with_different_input_fails_with_protocol_error() {
+        let mut orchestrator = orchestrator_with_mode(
+            vec![
+                vec![AgentProviderEvent::ToolCall(AgentToolCall {
+                    call_id: "schema-dup".to_owned(),
+                    tool: AgentTool::InspectSchema,
+                    input: AgentToolInput::Schema {
+                        schema: Some("public".to_owned()),
+                    },
+                })],
+                vec![AgentProviderEvent::ToolCall(AgentToolCall {
+                    call_id: "schema-dup".to_owned(),
+                    tool: AgentTool::InspectSchema,
+                    input: AgentToolInput::Schema {
+                        schema: Some("secret".to_owned()),
+                    },
+                })],
+                vec![AgentProviderEvent::Completed],
+            ],
+            AgentMode::Ask,
+        );
+
+        let events = orchestrator.run().await;
+        assert!(events.iter().any(|e| matches!(
+            e,
+            AgentWorkflowEvent::Failed { message, .. } if message.contains("collision")
+        )));
+    }
+
+    #[tokio::test]
+    async fn cancel_while_awaiting_confirmation_emits_cancelled_event() {
+        let mut orchestrator = orchestrator_with_mode(
+            vec![
+                vec![AgentProviderEvent::ToolCall(AgentToolCall {
+                    call_id: "mut-cancel".to_owned(),
+                    tool: AgentTool::RunQuery,
+                    input: AgentToolInput::Query {
+                        sql: "UPDATE users SET active = true".to_owned(),
+                    },
+                })],
+                vec![AgentProviderEvent::Completed],
+            ],
+            AgentMode::Agent,
+        );
+
+        let first = orchestrator.run().await;
+        assert!(first.iter().any(|e| matches!(
+            e,
+            AgentWorkflowEvent::ConfirmationRequired {
+                kind: AgentConfirmationKind::RunMutation,
+                ..
+            }
+        )));
+        assert!(orchestrator.has_pending_confirmation());
+
+        // Cancel the orchestrator directly while confirmation is pending
+        let cancel_event = orchestrator.cancel().expect("orchestrator cancel succeeds");
+        assert!(matches!(cancel_event, AgentWorkflowEvent::Cancelled { .. }));
+        assert!(!orchestrator.has_pending_confirmation());
+    }
+
+    #[tokio::test]
+    async fn multi_result_inspection_routes_results_by_index_and_reports_tool_failure() {
+        let mut orchestrator = orchestrator_with_mode(
+            vec![
+                vec![AgentProviderEvent::ToolCall(AgentToolCall {
+                    call_id: "inspect-res-1".to_owned(),
+                    tool: AgentTool::InspectQueryResult,
+                    input: AgentToolInput::ResultSample {
+                        max_rows: 20,
+                        statement_index: Some(99),
+                    },
+                })],
+                vec![AgentProviderEvent::Completed],
+            ],
+            AgentMode::Agent,
+        );
+
+        let events = orchestrator.run().await;
+        assert!(events.iter().any(|e| matches!(
+            e,
+            AgentWorkflowEvent::ToolFailed {
+                call_id,
+                ..
+            } if call_id == "inspect-res-1"
+        )));
+    }
 }
