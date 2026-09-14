@@ -1,0 +1,50 @@
+### Session header — captured command output
+
+$ date -u +%Y-%m-%dT%H:%M:%SZ   (and local)
+  utc   : 2026-09-14T16:08:27Z
+  local : 2026-09-14 23:08:27 +07
+
+$ git rev-parse HEAD ; git rev-parse --short HEAD ; git branch --show-current
+  HEAD       : 8e1d63fde79be6e495cdaa49338790e2009896cd
+  short      : 8e1d63f
+  branch     : main
+  worktree   : CLEAN at session start (`git status --porcelain -uall` empty at HEAD 8e1d63f).
+               The 25 paths reported dirty at the moment this header was captured are the
+               v01-runtime evidence files created by this run itself (all untracked/new, plus
+               the new SQLite fixture), not pre-existing modifications.
+
+$ host
+  machine    : Mac-mini-cua-Truong.local
+  hw model   : Mac16,10
+  chip       : Apple M4
+  arch       : arm64
+  macOS      : macOS 26.5.2 (build 25F84)
+  kernel     : 25.5.0
+
+$ toolchain
+  rustc      : rustc 1.95.0 (59807616e 2026-04-14)
+  cargo      : cargo 1.95.0 (f2d3ce0bd 2026-03-21)
+  pinned by  : rust-toolchain.toml -> channel="1.95.0"
+
+$ database tooling
+  sqlite3    : 3.51.0 2025-06-12 13:14:41 f0ca7bba1c5e232e5d279fad6338121ab55af0c8c68c84cdfb18ba5114dcaapl (64-bit)
+  pg_dump    : pg_dump (PostgreSQL) 18.4
+  pg_restore : pg_restore (PostgreSQL) 18.4
+  psql       : psql (PostgreSQL) 18.4
+  docker     : Docker version 29.7.2, build a7dcaa6
+
+$ release artifact under test
+  archive    : /tmp/dbpro-ci-smoke/db-pro-v0.1.0-macos-arm64.tar.gz
+  size       : 10045965 bytes
+  sha256     : 8141d6b7b7ecd98399dd9c2ca23c345da96df496abe0cd0169f9ab967bf2a83a
+  recorded   : 8141d6b7b7ecd98399dd9c2ca23c345da96df496abe0cd0169f9ab967bf2a83a
+  => matches the value recorded in docs/release/0.1.0-readiness.md for run 34860902181
+  bundled bin: cf40855baa980cdaba8d738f40d0bd88cde939225b8fb8e1834c7b80dfacb55c
+  recorded   : cf40855baa980cdaba8d738f40d0bd88cde939225b8fb8e1834c7b80dfacb55c
+
+$ Agent provider
+  status     : NOT VERIFIED — no live provider call was made in this session
+  GROQ_API_KEY in the environment: UNSET
+
+$ display / GUI situation
+  no window-server access: GUI is NOT verifiable from this shell (see 21-...)
