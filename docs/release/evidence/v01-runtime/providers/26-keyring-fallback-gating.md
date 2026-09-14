@@ -1,7 +1,8 @@
 # Keyring is primary in every build; the DEV-only file fallback is gated out of release (#142)
 
 - Session: `v01-runtime` provider follow-up, 2026-09-15
-- Tree: `main @ 1ff33ae` (clean at the start of the change); fix commit recorded in the ledger
+- Tree: `main @ 1ff33ae` (clean at the start of the change); fix commit `78fb39b8`
+  (`fix(security): keep the keyring file fallback out of release builds (#142)`), pushed to `origin/main`
 - Related register/limitation entries: `R011` (description corrected), new `R-KEYRING-FALLBACK`
   (`FIXED`); `R-KEYRING-STALL` deliberately **unchanged** (separate, already-classified finding)
 - Issue: **#142** ([P1][RC1][Security] Configure real OS keyring stores and remove DEV-only

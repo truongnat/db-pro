@@ -333,7 +333,7 @@ blocks.
 | ID | `R-KEYRING-FALLBACK` (raised and closed by the `#142` fix, 2026-09-15) |
 | Description | `DbProRuntime::new` unconditionally built the secret store with `KeyringVault::new(...).with_session_fallback().with_fallback()`, so **every** build — release included — created and read `secrets/<dir>/secrets.json`, an AES-256-GCM file whose key is derived from the non-secret service name (`crates/infrastructure/src/secret/keyring_vault.rs:110`). `retrieve_secret` consults that file **before** the OS keyring (`:189`), i.e. the weakest store was also the fastest path. In a release build the attack was local-only (read the state directory → derive the key from `com.dbpro.app` → decrypt every stored password), but it made the OS keyring advisory rather than authoritative. |
 | Severity | `P2` — local file disclosure of stored database passwords; no remote exposure, no silent corruption. |
-| Owner / Decision | **FIXED** in the `#142` commit on `main`: the file fallback is now gated by `file_secret_fallback_enabled_for` (`crates/runtime/src/lib.rs:83`) — enabled for debug builds or when `DB_PRO_ALLOW_FILE_SECRET_FALLBACK` is `1`/`true`, disabled in a release build by default, and the OS keyring is selected in every build (`:100`). A release build with no keyring item degrades to the in-memory session fallback (password re-entered after restart), never to the file. A stale `secrets.json` left by an older build is neither read nor rewritten. Evidence: `docs/release/evidence/v01-runtime/providers/26-keyring-fallback-gating.md`. |
+| Owner / Decision | **FIXED** in `78fb39b8` (`fix(security): keep the keyring file fallback out of release builds (#142)`): the file fallback is now gated by `file_secret_fallback_enabled_for` (`crates/runtime/src/lib.rs:83`) — enabled for debug builds or when `DB_PRO_ALLOW_FILE_SECRET_FALLBACK` is `1`/`true`, disabled in a release build by default, and the OS keyring is selected in every build (`:100`). A release build with no keyring item degrades to the in-memory session fallback (password re-entered after restart), never to the file. A stale `secrets.json` left by an older build is neither read nor rewritten. Evidence: `docs/release/evidence/v01-runtime/providers/26-keyring-fallback-gating.md`. |
 | Status | `FIXED` |
 | Release disposition | `FIXED` for the fallback wiring. The separate `R-KEYRING-STALL` finding (unbounded keychain read on the startup path) is **not** changed by this fix and stays `OPEN`/`ACCEPTED`. |
 
@@ -376,7 +376,7 @@ blocks.
 | `F1` (`pg_restore` version-skew exit code) | P2 | OPEN (recorded) | `ACCEPTED` with disclosure / **`BLOCKING`** for cross-version restore claims | restore-status reporting; owner decision `HD-006` |
 | `F2` (glyph-fallback log warning) | P3 | OPEN (recorded) | `ACCEPTED` (cosmetic) | — |
 | `R011` | P2 | FIXED | `FIXED` | — |
-| `R-KEYRING-FALLBACK` | P2 | FIXED | **`FIXED`** | — (was: dev-only file fallback wired into release builds; fixed by the `#142` commit on `main`) |
+| `R-KEYRING-FALLBACK` | P2 | FIXED | **`FIXED`** | — (was: dev-only file fallback wired into release builds; fixed in `78fb39b8`) |
 | `R-STATE-MIGRATION` | P2 | ACCEPTED | `ACCEPTED` | — |
 
 **Blockers to public release:** `R-LICENSE` (no license chosen — the binding reason), the
