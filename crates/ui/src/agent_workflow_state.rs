@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 
-use db_pro_core::domain::agent::{AgentMode, AgentRunId, AgentSession, AgentSessionState, AgentTool, AgentToolOutput};
+use db_pro_core::domain::agent::{
+    AgentMode, AgentRunId, AgentSession, AgentSessionState, AgentSqlSafety, AgentTool, AgentToolOutput,
+};
 use db_pro_core::domain::agent_workflow::AgentConfirmationKind;
 
 use crate::{AgentMessage, RequestId};
@@ -20,6 +22,16 @@ pub(crate) struct AgentUiActivity {
     pub tool: Option<AgentTool>,
     pub label: String,
     pub status: AgentUiActivityStatus,
+    pub duration_ms: Option<u64>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct AgentUiToolResult {
+    pub call_id: String,
+    pub tool: AgentTool,
+    pub output: AgentToolOutput,
+    pub duration_ms: Option<u64>,
+    pub status: AgentUiActivityStatus,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -28,6 +40,16 @@ pub(crate) struct AgentUiConfirmation {
     pub call_id: String,
     pub kind: AgentConfirmationKind,
     pub preview: Option<AgentToolOutput>,
+    pub document_id: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct AgentAuditEntry {
+    pub run_id: AgentRunId,
+    pub tool: AgentTool,
+    pub duration_ms: Option<u64>,
+    pub safety: Option<AgentSqlSafety>,
+    pub confirmed: bool,
 }
 
 #[derive(Debug)]
@@ -40,7 +62,8 @@ pub(crate) struct AgentUiSession {
     pub activities: Vec<AgentUiActivity>,
     pub pending_confirmation: Option<AgentUiConfirmation>,
     pub streaming_text: String,
-    pub tool_results: HashMap<String, AgentToolOutput>,
+    pub tool_results: HashMap<String, AgentUiToolResult>,
+    pub audit_trail: Vec<AgentAuditEntry>,
     pub request_id: Option<RequestId>,
 }
 
@@ -56,6 +79,7 @@ impl Default for AgentUiSession {
             pending_confirmation: None,
             streaming_text: String::new(),
             tool_results: HashMap::new(),
+            audit_trail: Vec::new(),
             request_id: None,
         }
     }

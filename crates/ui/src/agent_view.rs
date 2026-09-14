@@ -36,6 +36,12 @@ impl DbProApp {
     }
 
     fn draw_agent_header(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
+        let typed_session_busy = self
+            .query_documents
+            .get(self.active_query_document)
+            .and_then(|document| self.agent_sessions.get(&document.id))
+            .is_some_and(|session| session.request_id.is_some() || session.pending_confirmation.is_some());
+        let can_clear_conversation = self.agent_request.is_none() && !typed_session_busy;
         ui.horizontal(|ui| {
             ui.label(icon_text(Icon::Sparkles, "Agent", self.theme.accent));
             if let Some(document_id) = self
@@ -44,17 +50,24 @@ impl DbProApp {
                 .map(|document| document.id.clone())
             {
                 let session = self.agent_sessions.entry(document_id).or_default();
-                egui::ComboBox::from_id_salt("agent-workflow-mode")
-                    .selected_text(match session.mode {
-                        db_pro_core::domain::agent::AgentMode::Ask => "Ask",
-                        db_pro_core::domain::agent::AgentMode::Edit => "Edit",
-                        db_pro_core::domain::agent::AgentMode::Agent => "Agent",
-                    })
-                    .show_ui(ui, |ui| {
-                        ui.selectable_value(&mut session.mode, db_pro_core::domain::agent::AgentMode::Ask, "Ask");
-                        ui.selectable_value(&mut session.mode, db_pro_core::domain::agent::AgentMode::Edit, "Edit");
-                        ui.selectable_value(&mut session.mode, db_pro_core::domain::agent::AgentMode::Agent, "Agent");
-                    });
+                let is_running = session.active_run_id.is_some() || session.request_id.is_some();
+                ui.add_enabled_ui(!is_running, |ui| {
+                    egui::ComboBox::from_id_salt("agent-workflow-mode")
+                        .selected_text(match session.mode {
+                            db_pro_core::domain::agent::AgentMode::Ask => "Ask",
+                            db_pro_core::domain::agent::AgentMode::Edit => "Edit",
+                            db_pro_core::domain::agent::AgentMode::Agent => "Agent",
+                        })
+                        .show_ui(ui, |ui| {
+                            ui.selectable_value(&mut session.mode, db_pro_core::domain::agent::AgentMode::Ask, "Ask");
+                            ui.selectable_value(&mut session.mode, db_pro_core::domain::agent::AgentMode::Edit, "Edit");
+                            ui.selectable_value(
+                                &mut session.mode,
+                                db_pro_core::domain::agent::AgentMode::Agent,
+                                "Agent",
+                            );
+                        });
+                });
             }
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                 let typed_has_messages = self
@@ -62,7 +75,8 @@ impl DbProApp {
                     .get(self.active_query_document)
                     .and_then(|document| self.agent_sessions.get(&document.id))
                     .is_some_and(|session| !session.messages.is_empty());
-                if (!self.agent_messages.is_empty() || typed_has_messages)
+                if can_clear_conversation
+                    && (!self.agent_messages.is_empty() || typed_has_messages)
                     && compact_icon_button(ui, Icon::RotateCcw, self.theme)
                         .on_hover_text("Clear conversation")
                         .clicked()
@@ -73,6 +87,9 @@ impl DbProApp {
                             session.messages.clear();
                             session.activities.clear();
                             session.streaming_text.clear();
+                            session.tool_results.clear();
+                            session.state = db_pro_core::domain::agent::AgentSessionState::Idle;
+                            session.active_run_id = None;
                         }
                     }
                 }
@@ -176,6 +193,11 @@ impl DbProApp {
         });
 
         ui.add_space(8.0);
+        ui.checkbox(
+            &mut self.agent_auto_run_read_only,
+            "Auto-run read-only queries in Agent mode",
+        );
+        ui.add_space(8.0);
         ui.separator();
         ui.add_space(4.0);
         ui.label(
@@ -201,6 +223,9 @@ impl DbProApp {
                             self.theme.accent_soft,
                             self.theme.accent,
                         );
+                        if self.agent_auto_run_read_only {
+                            badge(ui, "Auto-run Read-only", self.theme.accent_soft, self.theme.accent);
+                        }
                         ContextChip::new(
                             ContextChipKind::Connection,
                             context.connection_name.as_deref().unwrap_or("No connection"),
@@ -356,10 +381,14 @@ impl DbProApp {
         };
         let messages = session.messages.clone();
         let activities = session.activities.clone();
+        let tool_results = session.tool_results.clone();
         let streaming_text = session.streaming_text.clone();
         let pending = session.pending_confirmation.clone();
-        let running = session.request_id.is_some();
+        let session_state = session.state;
+        let running = session.request_id.is_some() || session.active_run_id.is_some();
 
+        let mut open_result_call_id = None;
+        let mut retry = false;
         let messages_height = (ui.available_height() - 86.0).max(160.0);
         egui::ScrollArea::vertical()
             .max_height(messages_height)
@@ -382,18 +411,52 @@ impl DbProApp {
                     });
                 }
                 for activity in activities {
-                    let status = match activity.status {
+                    let status_str = match activity.status {
                         super::agent_workflow_state::AgentUiActivityStatus::Running => "Running",
                         super::agent_workflow_state::AgentUiActivityStatus::AwaitingConfirmation => "Needs approval",
                         super::agent_workflow_state::AgentUiActivityStatus::Success => "Done",
                         super::agent_workflow_state::AgentUiActivityStatus::Failed => "Failed",
                         super::agent_workflow_state::AgentUiActivityStatus::Cancelled => "Cancelled",
                     };
+                    let duration_str = activity.duration_ms.map(|d| format!(" · {d} ms")).unwrap_or_default();
                     ui.label(
-                        RichText::new(format!("{status} · {}", activity.label))
+                        RichText::new(format!("{status_str} · {}{duration_str}", activity.label))
                             .small()
                             .color(self.theme.text_secondary),
                     );
+                    if let Some(call_id) = &activity.call_id {
+                        if let Some(tool_result) = tool_results.get(call_id) {
+                            if let db_pro_core::domain::agent::AgentToolOutput::QueryResult {
+                                summary,
+                                result_count,
+                                ..
+                            } = &tool_result.output
+                            {
+                                ui.horizontal(|ui| {
+                                    let rows_str = summary
+                                        .row_count
+                                        .map(|rc| format!("{rc} rows"))
+                                        .unwrap_or_else(|| format!("{} rows", summary.sample_rows.len()));
+                                    let cols_str = format!("{} cols", summary.columns.len());
+                                    let count_str = if *result_count > 1 {
+                                        format!(" ({result_count} results)")
+                                    } else {
+                                        String::new()
+                                    };
+                                    ui.label(
+                                        RichText::new(format!("↳ {rows_str}, {cols_str}{count_str}"))
+                                            .small()
+                                            .color(self.theme.text_muted),
+                                    );
+                                    if compact_button_with_icon(ui, Icon::Table2, "Open in Results", self.theme)
+                                        .clicked()
+                                    {
+                                        open_result_call_id = Some(call_id.clone());
+                                    }
+                                });
+                            }
+                        }
+                    }
                 }
                 if let Some(pending) = pending {
                     ui.add_space(SPACE_SM);
@@ -403,7 +466,15 @@ impl DbProApp {
                                 .strong()
                                 .color(self.theme.text_primary),
                         );
+                        if pending.document_id != document_id {
+                            ui.label(
+                                RichText::new(format!("Target query: {}", pending.document_id))
+                                    .small()
+                                    .color(self.theme.accent),
+                            );
+                        }
                         if let Some(db_pro_core::domain::agent::AgentToolOutput::PatchPreview {
+                            patch: _,
                             original,
                             proposed,
                             ..
@@ -414,22 +485,58 @@ impl DbProApp {
                                     .small()
                                     .color(self.theme.text_secondary),
                             );
-                            ui.label(
-                                RichText::new(format!("- {original}"))
-                                    .monospace()
-                                    .color(self.theme.danger),
-                            );
-                            ui.label(
-                                RichText::new(format!("+ {proposed}"))
-                                    .monospace()
-                                    .color(self.theme.success),
-                            );
+                            egui::ScrollArea::vertical()
+                                .max_height(120.0)
+                                .id_salt("patch-diff-scroll")
+                                .show(ui, |ui| {
+                                    if !original.is_empty() {
+                                        ui.label(
+                                            RichText::new(format!("- {original}"))
+                                                .monospace()
+                                                .color(self.theme.danger),
+                                        );
+                                    }
+                                    ui.label(
+                                        RichText::new(format!("+ {proposed}"))
+                                            .monospace()
+                                            .color(self.theme.success),
+                                    );
+                                });
                         } else {
-                            ui.label(
-                                RichText::new("Review the requested action before continuing.")
-                                    .small()
-                                    .color(self.theme.text_secondary),
-                            );
+                            match pending.kind {
+                                db_pro_core::domain::agent_workflow::AgentConfirmationKind::RunMutation => {
+                                    ui.label(
+                                        RichText::new("Warning: This mutation will modify database data or schema.")
+                                            .small()
+                                            .color(self.theme.warning),
+                                    );
+                                }
+                                db_pro_core::domain::agent_workflow::AgentConfirmationKind::RunDestructive => {
+                                    ui.label(
+                                        RichText::new(
+                                            "Caution: Destructive query may irreversibly drop or truncate data.",
+                                        )
+                                        .small()
+                                        .color(self.theme.danger),
+                                    );
+                                }
+                                db_pro_core::domain::agent_workflow::AgentConfirmationKind::RunUnknown => {
+                                    ui.label(
+                                        RichText::new(
+                                            "Classification unknown: Review the query carefully before running.",
+                                        )
+                                        .small()
+                                        .color(self.theme.text_secondary),
+                                    );
+                                }
+                                _ => {
+                                    ui.label(
+                                        RichText::new("Review the requested action before continuing.")
+                                            .small()
+                                            .color(self.theme.text_secondary),
+                                    );
+                                }
+                            }
                         }
                         ui.horizontal(|ui| {
                             let approve_label = match pending.kind {
@@ -456,6 +563,14 @@ impl DbProApp {
                         });
                     });
                 }
+                if session_state == db_pro_core::domain::agent::AgentSessionState::Failed {
+                    ui.add_space(SPACE_SM);
+                    ui.horizontal(|ui| {
+                        if compact_button_with_icon(ui, Icon::RotateCcw, "Retry", self.theme).clicked() {
+                            retry = true;
+                        }
+                    });
+                }
                 if running {
                     ui.add_space(SPACE_SM);
                     AgentThinking::new("Working in this query…", &mut true, self.theme)
@@ -463,6 +578,12 @@ impl DbProApp {
                         .show(ui);
                 }
             });
+        if let Some(call_id) = open_result_call_id {
+            self.open_agent_result_in_workspace(&call_id);
+        }
+        if retry {
+            self.retry_agent_run();
+        }
         ui.add_space(SPACE_XS);
         ui.separator();
         ui.add_space(SPACE_XS);

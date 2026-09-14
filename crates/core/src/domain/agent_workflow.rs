@@ -44,7 +44,7 @@ pub struct PendingAgentConfirmation {
     pub safety: Option<AgentSqlSafety>,
     pub kind: AgentConfirmationKind,
     pub reason: String,
-    request: AgentToolRequest,
+    pub request: AgentToolRequest,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -167,8 +167,43 @@ pub enum AgentToolError {
     },
     #[error("agent run was cancelled")]
     Cancelled,
+    #[error("agent stopped after too many tool steps")]
+    MaxStepsExceeded,
     #[error("agent SQL patch is stale or invalid: {0}")]
     InvalidPatch(#[source] AgentPatchError),
+}
+
+impl AgentToolError {
+    pub fn format_user_error(&self) -> String {
+        match self {
+            AgentToolError::QueryFailed {
+                message, detail, hint, ..
+            } => {
+                let mut out = message.clone();
+                if let Some(detail) = detail {
+                    out.push_str(&format!("\nDetail: {detail}"));
+                }
+                if let Some(hint) = hint {
+                    out.push_str(&format!("\nHint: {hint}"));
+                }
+                out
+            }
+            AgentToolError::MaxStepsExceeded => "Agent stopped after too many tool steps (limit reached).".to_owned(),
+            AgentToolError::ConfirmationRejected { kind } => {
+                format!("Action {kind:?} was rejected.")
+            }
+            AgentToolError::StaleDocument { expected, actual } => {
+                format!("The query document changed (expected version {expected}, found {actual}).")
+            }
+            AgentToolError::PermissionDenied { tool, mode } => {
+                format!("Tool {tool:?} is not permitted in {mode:?} mode.")
+            }
+            AgentToolError::SchemaObjectNotFound { name } => {
+                format!("Schema object '{name}' was not found.")
+            }
+            other => other.to_string(),
+        }
+    }
 }
 
 #[derive(Debug)]

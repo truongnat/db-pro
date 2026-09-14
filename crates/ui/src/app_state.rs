@@ -153,6 +153,7 @@ impl Default for DbProApp {
             agent_input: String::new(),
             agent_messages: Vec::new(),
             agent_sessions: HashMap::new(),
+            agent_auto_run_read_only: false,
             agent_settings_open: false,
             agent_api_key_draft: String::new(),
             agent_configure_request: None,

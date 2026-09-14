@@ -25,9 +25,10 @@ The runtime now parses Responses API function calls into typed `AgentToolCall`
 values, continues with structured function-call outputs, and runs a bounded
 multi-step `AgentRunOrchestrator`. Confirmation pauses can be resumed without
 creating a synthetic run id, and `GetCurrentQuery` is the explicit recovery
-path for stale document versions. The existing draft provider remains as a
-compatibility path, while native Agent panel wiring, live provider evidence,
-and independent PostgreSQL/SQLite runtime evidence are still pending.
+path for stale document versions. The native Agent panel now renders tool
+activity, streamed text, and patch previews with approval controls; live
+provider evidence and independent PostgreSQL/SQLite runtime evidence remain
+pending.
 
 ## P2 — Agent query results remain ephemeral by design
 

@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use db_pro_core::domain::agent::{
     AgentTool, AgentToolCall, AgentToolInput, AgentToolOutput, AgentToolRequest, MAX_AGENT_TOOL_STEPS,
@@ -25,6 +25,7 @@ pub struct AgentRunOrchestrator {
     execution_context: AgentExecutionContext,
     provider_request: AgentProviderRequest,
     seen_call_ids: HashSet<String>,
+    completed_tool_calls: HashMap<String, AgentToolOutput>,
     tool_steps: usize,
     pending_tool: Option<PendingToolCall>,
 }
@@ -62,6 +63,7 @@ impl AgentRunOrchestrator {
                 messages: Vec::new(),
             },
             seen_call_ids: HashSet::new(),
+            completed_tool_calls: HashMap::new(),
             tool_steps: 0,
             pending_tool: None,
         })
@@ -202,6 +204,8 @@ impl AgentRunOrchestrator {
                 }
             }
         };
+        self.completed_tool_calls
+            .insert(pending_call_id.clone(), output.clone());
         self.push_tool_result(pending_call_id, request.tool, output.clone());
         Ok(self.drive().await)
     }
@@ -261,12 +265,68 @@ impl AgentRunOrchestrator {
     }
 
     async fn handle_tool_call(&mut self, call: AgentToolCall) -> Result<Option<AgentWorkflowEvent>, AgentToolError> {
+        if let Some(pending) = &self.pending_tool {
+            if pending.call_id == call.call_id {
+                let preview = match &pending.confirmation.kind {
+                    AgentConfirmationKind::ApplyPatch => match &pending.confirmation.request.input {
+                        AgentToolInput::Patch { patch } => {
+                            let current_text = self
+                                .execution_context
+                                .document
+                                .as_ref()
+                                .map(|d| d.sql.as_str())
+                                .unwrap_or("");
+                            let (start, end) = patch.range;
+                            let original = current_text.get(start..end).unwrap_or("").to_owned();
+                            let proposed = patch
+                                .apply_to(
+                                    &pending.confirmation.document_id,
+                                    pending.confirmation.document_version,
+                                    current_text,
+                                )
+                                .unwrap_or_default();
+                            Some(AgentToolOutput::PatchPreview {
+                                patch: patch.clone(),
+                                original,
+                                proposed,
+                            })
+                        }
+                        _ => None,
+                    },
+                    _ => None,
+                };
+                return Ok(Some(AgentWorkflowEvent::ConfirmationRequired {
+                    run_id: self.run_id()?,
+                    session_id: self.workflow.session().id,
+                    document_id: self.workflow.session().document_id.clone(),
+                    call_id: call.call_id,
+                    kind: pending.confirmation.kind,
+                    preview,
+                }));
+            }
+        }
+
+        if let Some(cached_output) = self.completed_tool_calls.get(&call.call_id) {
+            let run_id = self.run_id()?;
+            let result = db_pro_core::domain::agent::AgentToolResult {
+                tool: call.tool,
+                output: cached_output.clone(),
+            };
+            return Ok(Some(AgentWorkflowEvent::ToolCompleted {
+                run_id,
+                session_id: self.workflow.session().id,
+                document_id: self.workflow.session().document_id.clone(),
+                call_id: call.call_id,
+                result,
+            }));
+        }
+
         if !self.seen_call_ids.insert(call.call_id.clone()) {
             return Err(AgentToolError::InvalidInput { tool: call.tool });
         }
         self.tool_steps += 1;
         if self.tool_steps > MAX_AGENT_TOOL_STEPS {
-            return Err(AgentToolError::InvalidInput { tool: call.tool });
+            return Err(AgentToolError::MaxStepsExceeded);
         }
         let run_id = self.run_id()?;
         self.provider_request
@@ -301,6 +361,7 @@ impl AgentRunOrchestrator {
                     Ok(result) => {
                         let output = result.output.clone();
                         self.refresh_context_from_output(&output, run_id)?;
+                        self.completed_tool_calls.insert(call.call_id.clone(), output.clone());
                         self.push_tool_result(call.call_id.clone(), call.tool, output);
                         Ok(Some(AgentWorkflowEvent::ToolCompleted {
                             run_id,
@@ -687,5 +748,62 @@ mod tests {
                 .map(|run| run.document_version),
             None
         );
+    }
+
+    #[tokio::test]
+    async fn duplicate_tool_call_replays_cached_output_without_re_execution() {
+        let mut orchestrator = orchestrator(vec![
+            vec![AgentProviderEvent::ToolCall(AgentToolCall {
+                call_id: "dedup-1".to_owned(),
+                tool: AgentTool::GetCurrentQuery,
+                input: AgentToolInput::None,
+            })],
+            vec![AgentProviderEvent::ToolCall(AgentToolCall {
+                call_id: "dedup-1".to_owned(),
+                tool: AgentTool::GetCurrentQuery,
+                input: AgentToolInput::None,
+            })],
+            vec![AgentProviderEvent::Completed],
+        ]);
+
+        let events = orchestrator.run().await;
+        let completed_count = events
+            .iter()
+            .filter(|event| matches!(event, AgentWorkflowEvent::ToolCompleted { call_id, .. } if call_id == "dedup-1"))
+            .count();
+        assert_eq!(completed_count, 2);
+    }
+
+    #[tokio::test]
+    async fn duplicate_pending_confirmation_reuses_pending_state() {
+        let patch = db_pro_core::domain::agent::AgentSqlPatch {
+            document_id: "doc-a".to_owned(),
+            expected_version: 1,
+            range: (0, 8),
+            replacement: "SELECT 2".to_owned(),
+        };
+        let mut orchestrator = orchestrator_with_mode(
+            vec![
+                vec![AgentProviderEvent::ToolCall(AgentToolCall {
+                    call_id: "patch-dup".to_owned(),
+                    tool: AgentTool::PatchQuery,
+                    input: AgentToolInput::Patch { patch: patch.clone() },
+                })],
+                vec![AgentProviderEvent::ToolCall(AgentToolCall {
+                    call_id: "patch-dup".to_owned(),
+                    tool: AgentTool::PatchQuery,
+                    input: AgentToolInput::Patch { patch },
+                })],
+            ],
+            AgentMode::Edit,
+        );
+
+        let events = orchestrator.run().await;
+        let confirmations = events
+            .iter()
+            .filter(|event| matches!(event, AgentWorkflowEvent::ConfirmationRequired { call_id, .. } if call_id == "patch-dup"))
+            .count();
+        assert!(confirmations >= 1);
+        assert!(orchestrator.has_pending_confirmation());
     }
 }

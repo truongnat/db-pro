@@ -97,6 +97,11 @@ impl DbProApp {
             self.runtime_message = "No query document is available for Agent".to_owned();
             return;
         };
+        if self.agent_provider_label == "Offline draft" {
+            self.runtime_message = "AI provider is not configured. Enter an API key in Agent Settings.".to_owned();
+            self.show_toast_error("Configure an API key in Agent Settings to start.");
+            return;
+        }
         let document_id = document.id.clone();
         let connection_id = document
             .connection_id
@@ -154,7 +159,7 @@ impl DbProApp {
                 session: core_session,
                 document: snapshot,
                 mode,
-                allow_read_only_auto_run: false,
+                allow_read_only_auto_run: self.agent_auto_run_read_only,
                 context,
             })
             .is_err()
@@ -290,17 +295,14 @@ impl DbProApp {
             return;
         }
         if session.active_run_id.is_none() {
+            if session.state != db_pro_core::domain::agent::AgentSessionState::Running {
+                return;
+            }
             session.active_run_id = Some(run_id);
         }
 
         apply_agent_workflow_event(session, event, run_id);
         self.agent_request = self.agent_sessions.values().find_map(|value| value.request_id);
-    }
-
-    fn active_agent_document_snapshot(&self) -> Option<AgentDocumentSnapshot> {
-        self.query_documents
-            .get(self.active_query_document)
-            .map(|document| self.agent_document_snapshot(document))
     }
 
     pub(super) fn agent_confirmation_action(&mut self, approved: bool) {
@@ -318,18 +320,27 @@ impl DbProApp {
         else {
             return;
         };
-        let current_document = self.active_agent_document_snapshot();
+        let target_doc_index = self
+            .query_documents
+            .iter()
+            .position(|doc| doc.id == pending.document_id)
+            .unwrap_or(self.active_query_document);
+        let current_document = self
+            .query_documents
+            .get(target_doc_index)
+            .map(|document| self.agent_document_snapshot(document));
         let mut applied_patch = None;
         if approved && pending.kind == db_pro_core::domain::agent_workflow::AgentConfirmationKind::ApplyPatch {
             let Some(db_pro_core::domain::agent::AgentToolOutput::PatchPreview { patch, .. }) = pending.preview else {
                 self.runtime_message = "Agent patch preview is unavailable".to_owned();
                 return;
             };
-            let Some(document) = self.query_documents.get_mut(self.active_query_document) else {
+            let Some(document) = self.query_documents.get_mut(target_doc_index) else {
                 return;
             };
             if document.id != patch.document_id || document.buffer.version() != patch.expected_version {
-                self.runtime_message = "Document changed since this suggestion.".to_owned();
+                self.runtime_message = "This query changed since the suggestion was created.".to_owned();
+                self.show_toast_error("The query changed since the suggestion was created.");
                 self.agent_confirmation_action(false);
                 return;
             }
@@ -361,6 +372,7 @@ impl DbProApp {
             document.selection = crate::editor::selection::SelectionRange::point(new_cursor);
             document.reanalyze(crate::editor::syntax::SqlDialect::Postgres);
             document.invalidate_prediction();
+            document.completion = crate::editor::completion::CompletionState::default();
             document.execution_diagnostic = None;
             document
                 .diagnostics
@@ -374,7 +386,7 @@ impl DbProApp {
             });
         }
         let request_id = self.task_bridge.next_request_id();
-        if let Some(session) = self.agent_sessions.get_mut(&document_id) {
+        if let Some(session) = self.agent_sessions.get_mut(&pending.document_id) {
             session.pending_confirmation = None;
             session.request_id = Some(request_id);
             session.state = db_pro_core::domain::agent::AgentSessionState::Running;
@@ -386,6 +398,71 @@ impl DbProApp {
             current_document,
             applied_patch,
         });
+    }
+
+    pub(super) fn open_agent_result_in_workspace(&mut self, call_id: &str) {
+        let Some(document) = self.query_documents.get_mut(self.active_query_document) else {
+            return;
+        };
+        let document_id = document.id.clone();
+        let Some(session) = self.agent_sessions.get(&document_id) else {
+            return;
+        };
+        let Some(tool_result) = session.tool_results.get(call_id) else {
+            return;
+        };
+        if let db_pro_core::domain::agent::AgentToolOutput::QueryResult { summary, .. } = &tool_result.output {
+            let columns = summary
+                .columns
+                .iter()
+                .map(|col| crate::runtime::UiColumn {
+                    name: col.name.clone(),
+                    data_type: col.data_type.clone().unwrap_or_else(|| "text".to_owned()),
+                    nullable: true,
+                })
+                .collect();
+            let rows = summary
+                .sample_rows
+                .iter()
+                .map(|row| {
+                    row.iter()
+                        .map(|cell| crate::runtime::UiCell::Text(cell.clone()))
+                        .collect()
+                })
+                .collect();
+            let ui_result = crate::runtime::UiQueryResult {
+                columns,
+                rows,
+                row_count: summary.row_count.unwrap_or(summary.sample_rows.len() as u64),
+                duration_ms: tool_result.duration_ms.unwrap_or(0),
+            };
+            document.query_result = Some(ui_result.clone());
+            document.query_results = vec![ui_result];
+            document.active_result_index = 0;
+            self.output_tab = OutputTab::Results;
+            self.runtime_message = "Opened Agent query result in workspace".to_owned();
+        }
+    }
+
+    pub(super) fn retry_agent_run(&mut self) {
+        let Some(document_id) = self
+            .query_documents
+            .get(self.active_query_document)
+            .map(|document| document.id.clone())
+        else {
+            return;
+        };
+        let prompt = self.agent_sessions.get(&document_id).and_then(|session| {
+            session
+                .messages
+                .iter()
+                .rev()
+                .find(|msg| msg.role == AgentRole::User)
+                .map(|msg| msg.content.clone())
+        });
+        if let Some(prompt) = prompt {
+            self.submit_typed_agent_prompt(prompt);
+        }
     }
 
     pub(super) fn cancel_active_agent_run(&mut self) {
@@ -448,7 +525,9 @@ fn apply_agent_workflow_event(
     event: db_pro_core::domain::agent_workflow::AgentWorkflowEvent,
     run_id: db_pro_core::domain::agent::AgentRunId,
 ) {
-    use super::agent_workflow_state::{AgentUiActivity, AgentUiActivityStatus, AgentUiConfirmation};
+    use super::agent_workflow_state::{
+        AgentAuditEntry, AgentUiActivity, AgentUiActivityStatus, AgentUiConfirmation, AgentUiToolResult,
+    };
     use db_pro_core::domain::agent_workflow::AgentWorkflowEvent;
 
     match event {
@@ -457,17 +536,38 @@ fn apply_agent_workflow_event(
             session.streaming_text.push_str(&delta);
         }
         AgentWorkflowEvent::ToolRequested { call, .. } => {
+            flush_agent_stream(session);
             session.state = db_pro_core::domain::agent::AgentSessionState::Running;
             session.activities.push(AgentUiActivity {
                 call_id: Some(call.call_id),
                 tool: Some(call.tool),
                 label: agent_tool_label(call.tool),
                 status: AgentUiActivityStatus::Running,
+                duration_ms: None,
             });
         }
         AgentWorkflowEvent::ToolCompleted { call_id, result, .. } => {
             set_activity_status(session, &call_id, AgentUiActivityStatus::Success);
-            session.tool_results.insert(call_id, result.output);
+            session.tool_results.insert(
+                call_id.clone(),
+                AgentUiToolResult {
+                    call_id: call_id.clone(),
+                    tool: result.tool,
+                    output: result.output.clone(),
+                    duration_ms: None,
+                    status: AgentUiActivityStatus::Success,
+                },
+            );
+            session.audit_trail.push(AgentAuditEntry {
+                run_id,
+                tool: result.tool,
+                duration_ms: None,
+                safety: None,
+                confirmed: false,
+            });
+            if session.audit_trail.len() > 30 {
+                session.audit_trail.remove(0);
+            }
             session.state = db_pro_core::domain::agent::AgentSessionState::Running;
         }
         AgentWorkflowEvent::ToolFailed {
@@ -476,7 +576,7 @@ fn apply_agent_workflow_event(
             set_activity_status(session, &call_id, AgentUiActivityStatus::Failed);
             session.messages.push(AgentMessage {
                 role: AgentRole::Assistant,
-                content: format!("{} failed: {error}", agent_tool_label(tool)),
+                content: format!("{} failed: {}", agent_tool_label(tool), error.format_user_error()),
                 sql: None,
                 requires_confirmation: false,
             });
@@ -486,11 +586,17 @@ fn apply_agent_workflow_event(
             call_id, kind, preview, ..
         } => {
             set_activity_status(session, &call_id, AgentUiActivityStatus::AwaitingConfirmation);
+            let document_id = session
+                .session
+                .as_ref()
+                .map(|s| s.document_id.clone())
+                .unwrap_or_default();
             session.pending_confirmation = Some(AgentUiConfirmation {
                 run_id,
                 call_id,
                 kind,
                 preview,
+                document_id,
             });
             session.state = db_pro_core::domain::agent::AgentSessionState::AwaitingConfirmation;
         }
@@ -536,10 +642,30 @@ fn set_activity_status(
     }
 }
 
-fn finish_agent_session(
+pub(super) fn finish_agent_session(
     session: &mut super::agent_workflow_state::AgentUiSession,
     state: db_pro_core::domain::agent::AgentSessionState,
 ) {
+    let terminal_activity_status = match state {
+        db_pro_core::domain::agent::AgentSessionState::Failed => {
+            Some(super::agent_workflow_state::AgentUiActivityStatus::Failed)
+        }
+        db_pro_core::domain::agent::AgentSessionState::Cancelled => {
+            Some(super::agent_workflow_state::AgentUiActivityStatus::Cancelled)
+        }
+        _ => None,
+    };
+    if let Some(status) = terminal_activity_status {
+        for activity in &mut session.activities {
+            if matches!(
+                activity.status,
+                super::agent_workflow_state::AgentUiActivityStatus::Running
+                    | super::agent_workflow_state::AgentUiActivityStatus::AwaitingConfirmation
+            ) {
+                activity.status = status;
+            }
+        }
+    }
     flush_agent_stream(session);
     session.state = state;
     session.active_run_id = None;

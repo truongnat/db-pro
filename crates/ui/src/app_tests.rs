@@ -1146,6 +1146,135 @@ fn typed_agent_patch_confirmation_applies_one_document_edit_and_continues() {
 }
 
 #[test]
+fn typed_agent_failure_clears_stale_confirmation_and_marks_activity_failed() {
+    let (bridge, _command_rx, _event_tx) = TaskBridge::with_channels();
+    let mut app = DbProApp::with_task_bridge(bridge);
+    let document_id = app.query_documents[0].id.clone();
+    let session = super::agent_workflow_state::AgentUiSession::for_document(&document_id, None, None);
+    let _session_id = session.session.as_ref().expect("session should exist").id;
+    let run_id = db_pro_core::domain::agent::AgentRunId::new();
+    app.agent_sessions.insert(document_id.clone(), session);
+    let session = app.agent_sessions.get_mut(&document_id).expect("session should exist");
+    session.active_run_id = Some(run_id);
+    session.request_id = Some(crate::RequestId(17));
+    session.activities.push(super::agent_workflow_state::AgentUiActivity {
+        call_id: Some("patch-1".to_owned()),
+        tool: Some(db_pro_core::domain::agent::AgentTool::PatchQuery),
+        label: "Preparing SQL change".to_owned(),
+        status: super::agent_workflow_state::AgentUiActivityStatus::Running,
+        duration_ms: None,
+    });
+    session.pending_confirmation = Some(super::agent_workflow_state::AgentUiConfirmation {
+        run_id,
+        call_id: "patch-1".to_owned(),
+        kind: db_pro_core::domain::agent_workflow::AgentConfirmationKind::ApplyPatch,
+        preview: None,
+        document_id: document_id.clone(),
+    });
+
+    app.apply_runtime_event(UiEvent::AgentFailed {
+        request_id: crate::RequestId(17),
+        message: "provider unavailable".to_owned(),
+    });
+
+    let session = &app.agent_sessions[&document_id];
+    assert_eq!(session.state, db_pro_core::domain::agent::AgentSessionState::Failed);
+    assert_eq!(session.active_run_id, None);
+    assert_eq!(session.request_id, None);
+    assert_eq!(session.pending_confirmation, None);
+    assert_eq!(
+        session.activities[0].status,
+        super::agent_workflow_state::AgentUiActivityStatus::Failed
+    );
+}
+
+#[test]
+fn typed_agent_open_result_in_workspace_populates_query_document() {
+    let (bridge, _command_rx, _event_tx) = TaskBridge::with_channels();
+    let mut app = DbProApp::with_task_bridge(bridge);
+    let document_id = app.query_documents[0].id.clone();
+    let mut session = super::agent_workflow_state::AgentUiSession::for_document(&document_id, None, None);
+    let summary = db_pro_core::domain::agent_context::AgentResultSummary {
+        columns: vec![
+            db_pro_core::domain::agent_context::AgentResultColumn {
+                name: "id".to_owned(),
+                data_type: Some("integer".to_owned()),
+            },
+            db_pro_core::domain::agent_context::AgentResultColumn {
+                name: "name".to_owned(),
+                data_type: Some("text".to_owned()),
+            },
+        ],
+        sample_rows: vec![vec!["1".to_owned(), "Alice".to_owned()]],
+        row_count: Some(1),
+        affected_rows: None,
+        truncated: false,
+    };
+    session.tool_results.insert(
+        "query-1".to_owned(),
+        super::agent_workflow_state::AgentUiToolResult {
+            call_id: "query-1".to_owned(),
+            tool: db_pro_core::domain::agent::AgentTool::RunQuery,
+            output: db_pro_core::domain::agent::AgentToolOutput::QueryResult {
+                statement_index: Some(0),
+                result_count: 1,
+                summary,
+            },
+            duration_ms: Some(42),
+            status: super::agent_workflow_state::AgentUiActivityStatus::Success,
+        },
+    );
+    app.agent_sessions.insert(document_id, session);
+
+    app.open_agent_result_in_workspace("query-1");
+
+    assert!(app.query_documents[0].query_result.is_some());
+    let res = app.query_documents[0].query_result.as_ref().unwrap();
+    assert_eq!(res.columns.len(), 2);
+    assert_eq!(res.rows.len(), 1);
+    assert_eq!(res.duration_ms, 42);
+    assert_eq!(app.output_tab, crate::app::OutputTab::Results);
+}
+
+#[test]
+fn typed_agent_cancellation_marks_session_and_activities_cancelled() {
+    let (bridge, _command_rx, _event_tx) = TaskBridge::with_channels();
+    let mut app = DbProApp::with_task_bridge(bridge);
+    let document_id = app.query_documents[0].id.clone();
+    let session = super::agent_workflow_state::AgentUiSession::for_document(&document_id, None, None);
+    let session_id = session.session.as_ref().expect("session should exist").id;
+    let run_id = db_pro_core::domain::agent::AgentRunId::new();
+    app.agent_sessions.insert(document_id.clone(), session);
+    let session = app.agent_sessions.get_mut(&document_id).expect("session should exist");
+    session.active_run_id = Some(run_id);
+    session.state = db_pro_core::domain::agent::AgentSessionState::Running;
+    session.activities.push(super::agent_workflow_state::AgentUiActivity {
+        call_id: Some("tool-1".to_owned()),
+        tool: Some(db_pro_core::domain::agent::AgentTool::InspectSchema),
+        label: "Inspecting schema".to_owned(),
+        status: super::agent_workflow_state::AgentUiActivityStatus::Running,
+        duration_ms: None,
+    });
+
+    app.apply_runtime_event(UiEvent::AgentWorkflow {
+        request_id: crate::RequestId(1),
+        event: db_pro_core::domain::agent_workflow::AgentWorkflowEvent::Cancelled {
+            run_id,
+            session_id,
+            document_id: document_id.clone(),
+        },
+    });
+
+    let session = &app.agent_sessions[&document_id];
+    assert_eq!(session.state, db_pro_core::domain::agent::AgentSessionState::Cancelled);
+    assert_eq!(session.active_run_id, None);
+    assert_eq!(
+        session.activities[0].status,
+        super::agent_workflow_state::AgentUiActivityStatus::Cancelled
+    );
+}
+
+#[test]
 fn command_palette_shortcut_is_available_from_the_native_shell() {
     let (bridge, _command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);

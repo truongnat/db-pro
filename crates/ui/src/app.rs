@@ -334,6 +334,7 @@ pub struct DbProApp {
     agent_input: String,
     agent_messages: Vec<AgentMessage>,
     agent_sessions: HashMap<String, AgentUiSession>,
+    pub(crate) agent_auto_run_read_only: bool,
     agent_settings_open: bool,
     agent_api_key_draft: String,
     agent_configure_request: Option<crate::RequestId>,

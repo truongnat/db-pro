@@ -10,6 +10,9 @@
 
 ## Automated evidence
 
+- Native panel source evidence at `main@61ec815`: the compact Agent panel consumes
+  typed workflow events for streamed text, tool activity, and patch-preview
+  confirmation; focused UI tests cover document routing and patch continuation.
 - `cargo fmt --all` — PASS.
 - `cargo test -p db-pro-core --quiet` — PASS (290 tests).
 - `cargo clippy -p db-pro-core --all-targets -- -D warnings` — PASS.
@@ -20,6 +23,11 @@
 - `cargo test --workspace --quiet` — PASS (291 core, 62 infrastructure,
   32 infrastructure integration, 17 runtime, 231 UI tests; provider-dependent
   PostgreSQL/SSH cases remain ignored).
+- Local recheck on 2026-09-14: `cargo fmt --all -- --check` and
+  `git diff --check` PASS. Compile/test reruns are blocked before compilation
+  because the local Cargo cache has no `ipnetwork` package and the registry
+  hostname cannot resolve; no current-HEAD gate pass is claimed from that
+  environment.
 - Runtime agent tests — PASS (provider function-call decoding, structured tool
   continuation input, stale `GetCurrentQuery` recovery, patch confirmation
   version progression, and typed tool-result routing).
