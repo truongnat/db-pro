@@ -369,9 +369,9 @@ pub(super) fn draw_category_folder(
 /// Determines the best semantic Lucide icon and color for a column.
 pub(super) fn column_icon_and_color(data_type: &str, is_pk: bool, is_fk: bool, theme: &DbProTheme) -> (Icon, Color32) {
     if is_pk {
-        (Icon::Key, Color32::from_rgb(217, 119, 6)) // amber
+        (Icon::Key, theme.warning)
     } else if is_fk {
-        (Icon::Link, Color32::from_rgb(37, 99, 235)) // blue
+        (Icon::Link, theme.info)
     } else {
         let dt = data_type.to_ascii_lowercase();
         if dt.contains("int")

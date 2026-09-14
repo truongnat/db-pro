@@ -137,10 +137,13 @@ impl DbProApp {
                         {
                             self.active_tab = WorkspaceTab::ComponentGallery;
                         }
+                        // No shortcut is bound to the agent panel, so the tooltip must
+                        // not advertise one (it previously claimed a hardcoded ⌘I that
+                        // existed on no platform and in no handler).
                         let agent_tooltip = if self.agent_open {
-                            "Close Copilot Panel (⌘I)"
+                            "Close Copilot Panel"
                         } else {
-                            "Open Copilot Assistant (⌘I)"
+                            "Open Copilot Assistant"
                         };
                         if Button::new(self.theme)
                             .icon(Icon::Bot)
@@ -230,7 +233,7 @@ impl DbProApp {
 
     pub(super) fn draw_statusbar(&mut self, ctx: &egui::Context) {
         let (icon, color, label) = self.statusbar_state();
-        let show_runtime_message = self.has_runtime_error();
+        let runtime_status = self.runtime_status();
         TopBottomPanel::bottom("statusbar")
             .exact_height(28.0)
             .frame(egui::Frame {
@@ -281,15 +284,11 @@ impl DbProApp {
                                 .color(self.theme.text_muted),
                         );
                     }
-                    if show_runtime_message {
+                    if let Some((message, message_color)) = runtime_status {
                         ui.separator();
                         ui.add_sized(
                             [260.0, 18.0],
-                            egui::Label::new(
-                                RichText::new(self.runtime_message.as_str())
-                                    .font(font_caption())
-                                    .color(self.theme.danger),
-                            ),
+                            egui::Label::new(RichText::new(message).font(font_caption()).color(message_color)),
                         );
                     }
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {

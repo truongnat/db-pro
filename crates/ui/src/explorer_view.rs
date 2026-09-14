@@ -6,7 +6,7 @@
 
 use super::explorer_tree::{draw_codex_tree_row, draw_hint_row, CodexTreeRow};
 use super::*;
-use egui::{vec2, Color32, FontFamily, Margin, Rounding, Stroke};
+use egui::{vec2, FontFamily, Margin, Rounding, Stroke};
 use lucide_icons::Icon;
 
 /// Actions selectable from a connection row's context menu.
@@ -329,13 +329,13 @@ impl DbProApp {
             let is_open = collapsing.is_open();
 
             let status_dot = if is_connected {
-                Some(Color32::from_rgb(34, 197, 94)) // vibrant emerald green
+                Some(self.theme.success) // connection status dot belongs to the theme
             } else if is_connecting {
                 Some(self.theme.accent)
             } else if is_failed {
-                Some(Color32::from_rgb(239, 68, 68)) // red error badge / dot
+                Some(self.theme.danger)
             } else {
-                Some(Color32::from_rgb(156, 163, 175)) // neutral slate gray
+                Some(self.theme.text_muted) // neutral, follows the active theme
             };
 
             let badge_text = if is_failed {
@@ -551,7 +551,7 @@ impl DbProApp {
                 is_expanded: is_open,
                 icon: if is_open { Icon::FolderOpen } else { Icon::Folder },
                 icon_color: if is_active_schema {
-                    Color32::from_rgb(217, 119, 6) // warm amber
+                    self.theme.warning // warm amber for the active schema
                 } else {
                     self.theme.text_secondary
                 },
@@ -685,7 +685,7 @@ impl DbProApp {
                 is_expandable: true,
                 is_expanded: is_open,
                 icon: Icon::Table2,
-                icon_color: Color32::from_rgb(37, 99, 235), // slate blue
+                icon_color: self.theme.info,
                 label: "Tables",
                 is_selected: false,
                 is_dimmed: total_tables == 0,

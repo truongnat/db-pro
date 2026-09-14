@@ -4651,3 +4651,27 @@ fn test_conflict_keep_mine_and_use_database_resolution_actions() {
     assert!(app.table_mutation_error.is_none());
     assert!(!app.conflict_dialog_open);
 }
+
+/// The status bar used to render `runtime_message` only when the text happened to
+/// contain "failed"/"error", so every refusal, gate and informational message the app
+/// sets was silently dropped — "Select a row before deleting" and "Connect with write
+/// access to delete rows" among them.
+#[test]
+fn every_runtime_message_reaches_the_status_bar() {
+    let mut app = DbProApp::default();
+    app.runtime_message.clear();
+    assert!(app.runtime_status().is_none(), "an empty message renders nothing");
+
+    app.runtime_message = "Select a row before deleting".to_owned();
+    let (message, color) = app.runtime_status().expect("a refusal must be shown");
+    assert_eq!(message, "Select a row before deleting");
+    assert_eq!(color, app.theme.text_secondary, "a refusal is not an error");
+
+    app.runtime_message = "Connect with write access to delete rows".to_owned();
+    let (_, color) = app.runtime_status().expect("a read-only refusal must be shown");
+    assert_eq!(color, app.theme.text_secondary);
+
+    app.runtime_message = "Query failed: syntax error at or near SELECT".to_owned();
+    let (_, color) = app.runtime_status().expect("an error must be shown");
+    assert_eq!(color, app.theme.danger, "errors keep the danger colour");
+}

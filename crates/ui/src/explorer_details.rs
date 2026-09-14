@@ -5,7 +5,6 @@ use super::explorer_tree::{
     column_icon_and_color, draw_category_folder, draw_codex_tree_row, shorten_data_type, CategoryFolder, CodexTreeRow,
 };
 use super::*;
-use egui::Color32;
 use lucide_icons::Icon;
 
 /// Actions selectable from a table row's context menu.
@@ -461,7 +460,7 @@ impl DbProApp {
                             is_expandable: false,
                             is_expanded: false,
                             icon: Icon::Link,
-                            icon_color: Color32::from_rgb(37, 99, 235),
+                            icon_color: theme.info,
                             label: &fk.name,
                             is_selected: false,
                             is_dimmed: false,

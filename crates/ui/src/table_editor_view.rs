@@ -5,6 +5,15 @@ use crate::components::dialog::Dialog;
 use egui::{FontFamily, FontId, Frame, Margin, Rounding, Stroke};
 use lucide_icons::Icon;
 
+/// Whether the table editor executes DDL itself.
+///
+/// It does not: v0.1 ships schema/DDL *inspection* from the table editor and DDL
+/// *execution* through the query editor (`docs/release/known-limitations.md`, "DDL via
+/// query editor"). The confirmation card and `submit_ddl` stay compiled behind this
+/// flag so the capability can be enabled by a deliberate change (with its own
+/// qualification) instead of by a stray click.
+const DDL_APPLY_ENABLED: bool = false;
+
 /// Paging state for the table data editor toolbar.
 struct TableDataPaging {
     page_range: String,
@@ -174,13 +183,19 @@ impl DbProApp {
                         }
                         let apply_enabled = self.staged_apply_request.is_none() && self.data_edit_error.is_none();
                         if compact_button_with_icon_enabled(ui, Icon::Check, "Apply", apply_enabled, self.theme)
-                            .on_hover_text("Apply all staged changes (Cmd/Ctrl+S)")
+                            .on_hover_text(format!(
+                                "Apply all staged changes ({}S)",
+                                Self::primary_modifier_label()
+                            ))
                             .clicked()
                         {
                             self.apply_staged_changes();
                         }
                         if compact_button_with_icon(ui, Icon::Undo2, "Discard", self.theme)
-                            .on_hover_text("Discard all staged changes (Cmd/Ctrl+Z)")
+                            .on_hover_text(format!(
+                                "Discard all staged changes ({}Z)",
+                                Self::primary_modifier_label()
+                            ))
                             .clicked()
                         {
                             if self.staged_changes.counts().total() > 1 {
@@ -1403,16 +1418,23 @@ impl DbProApp {
                 section_label(ui, "CREATE SCRIPT", self.theme);
                 ui.label(
                     RichText::new(if writable {
-                        "Editable preview · execution is confirmation-gated"
+                        "Editable preview · execute DDL in the query editor (Open in Query)"
                     } else {
                         "Read-only preview"
                     })
                     .small()
                     .color(self.theme.text_muted),
                 );
+                // DDL execution from the table editor is not enabled in v0.1: the shipped
+                // path is the query editor (`docs/release/known-limitations.md`). The
+                // control stays visible and says why rather than looking live and doing
+                // nothing — pressing it used to store the buffer back and stop there.
                 if writable
                     && self.ddl_execution_request.is_none()
-                    && primary_button_with_icon(ui, Icon::Play, "Apply DDL", self.theme).clicked()
+                    && compact_button_with_icon_enabled(ui, Icon::Play, "Apply DDL", DDL_APPLY_ENABLED, self.theme)
+                        .on_hover_text("Execute the DDL script")
+                        .on_disabled_hover_text("Not enabled in v0.1 — run DDL with Open in Query")
+                        .clicked()
                 {
                     request_execution = true;
                 }

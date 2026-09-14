@@ -783,12 +783,15 @@ pub(crate) fn screen_rect(ui: &Ui) -> Rect {
 /// Robustly handles:
 /// - Secondary click (Right-click) with or without Ctrl/Cmd
 /// - macOS Ctrl+Click or Cmd+Click on primary button
-/// - Keyboard Shift+F10
+/// - Keyboard Shift+F10 on the *focused* widget, not only the hovered one
 pub fn is_context_menu_triggered(response: &egui::Response, ui: &egui::Ui) -> bool {
     let pointer_in_rect = ui
         .input(|i| i.pointer.latest_pos().or_else(|| i.pointer.interact_pos()))
         .is_some_and(|pos| response.rect.contains(pos));
-    let is_target = response.hovered() || pointer_in_rect;
+    // `Sense::click()` is focusable in egui, so a widget reached with Tab can hold focus
+    // with the pointer somewhere else entirely; gating on hover alone made Shift+F10
+    // unreachable for keyboard-only users.
+    let is_target = response.hovered() || pointer_in_rect || response.has_focus();
 
     if !is_target {
         return false;

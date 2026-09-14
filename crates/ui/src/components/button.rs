@@ -156,6 +156,10 @@ impl Button {
         self.access_label
             .clone()
             .or_else(|| self.label.clone())
+            // An icon-only control carries no visible text, so its tooltip is the only
+            // name a screen reader could be given; without this the button would be
+            // announced as the literal string "Button".
+            .or_else(|| self.tooltip.clone())
             .unwrap_or_else(|| "Button".to_owned())
     }
 
@@ -360,5 +364,37 @@ fn interactive_colors(variant: ButtonVariant, theme: DbProTheme) -> (Color32, Co
             Stroke::NONE,
             theme.accent,
         ),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Icon-only controls carry no visible text, so the name a screen reader receives
+    /// comes from `access_label`, the visible label, or the tooltip. The tooltip arm is
+    /// what stops the app's toolbar from announcing every control as "Button".
+    #[test]
+    fn accessible_name_prefers_access_label_then_label_then_tooltip() {
+        let theme = DbProTheme::dark();
+
+        let icon_only_with_tooltip = Button::new(theme).icon(Icon::X).tooltip("Close Agent");
+        assert_eq!(icon_only_with_tooltip.accessible_name(), "Close Agent");
+
+        let labelled = Button::new(theme).icon(Icon::X).text("Close").tooltip("Close Agent");
+        assert_eq!(labelled.accessible_name(), "Close");
+
+        let explicit = Button::new(theme)
+            .icon(Icon::X)
+            .text("Close")
+            .access_label("Dismiss the agent panel")
+            .tooltip("Close Agent");
+        assert_eq!(explicit.accessible_name(), "Dismiss the agent panel");
+    }
+
+    #[test]
+    fn a_button_with_no_name_at_all_still_has_one() {
+        let theme = DbProTheme::dark();
+        assert_eq!(Button::new(theme).accessible_name(), "Button");
     }
 }

@@ -727,6 +727,23 @@ impl DbProApp {
             || self.runtime_message.contains("Error")
     }
 
+    /// The status-bar message and the colour it is rendered in.
+    ///
+    /// Every `runtime_message` is user-facing: a refusal such as "Connect with write
+    /// access to delete rows" is the *only* feedback a blocked action produces, so the
+    /// bar shows any non-empty message and reserves the danger colour for errors.
+    /// Restricting the bar to strings containing "failed"/"error" hid every refusal,
+    /// gate and informational message the app sets.
+    fn runtime_status(&self) -> Option<(String, Color32)> {
+        if self.runtime_message.trim().is_empty() {
+            None
+        } else if self.has_runtime_error() {
+            Some((self.runtime_message.clone(), self.theme.danger))
+        } else {
+            Some((self.runtime_message.clone(), self.theme.text_secondary))
+        }
+    }
+
     fn statusbar_state(&self) -> (Icon, Color32, &'static str) {
         if self.connected && self.active_connection_id.is_some() {
             return (Icon::CircleCheck, self.theme.success, "Connected");

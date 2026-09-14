@@ -727,13 +727,19 @@ impl DbProApp {
                 ui.separator();
 
                 if compact_button_with_icon(ui, Icon::Copy, "Copy Cell", self.theme)
-                    .on_hover_text("Copy selected cell value (Cmd/Ctrl+C)")
+                    .on_hover_text(format!(
+                        "Copy selected cell value ({modifier}C)",
+                        modifier = Self::primary_modifier_label()
+                    ))
                     .clicked()
                 {
                     self.copy_selected_cell(ui, result);
                 }
                 if compact_button_with_icon(ui, Icon::Table2, "Copy Row", self.theme)
-                    .on_hover_text("Copy entire selected row as tab-separated text (Cmd/Ctrl+Shift+C)")
+                    .on_hover_text(format!(
+                        "Copy entire selected row as tab-separated text ({modifier}Shift+C)",
+                        modifier = Self::primary_modifier_label()
+                    ))
                     .clicked()
                 {
                     self.copy_selected_row(ui, result);

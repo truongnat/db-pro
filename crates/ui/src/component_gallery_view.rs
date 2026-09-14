@@ -1223,7 +1223,10 @@ impl DbProApp {
             let mut shortcuts_open = self.gallery_state.shortcuts_dialog_open;
             Dialog::new(&mut shortcuts_open, "Keyboard Shortcuts Cheatsheet", theme)
                 .id_salt("gallery_shortcuts_cheatsheet_dialog")
-                .description("System-wide hotkeys and shortcuts for rapid database workflows.")
+                .description(
+                    "Design reference for the shortcut vocabulary. The shipped build binds a subset \
+                     of these — the live bindings are the ones the toolbar tooltips show.",
+                )
                 .width(540.0)
                 .show(ui, |ui| {
                     type ShortcutEntry = (&'static str, &'static [&'static str]);
