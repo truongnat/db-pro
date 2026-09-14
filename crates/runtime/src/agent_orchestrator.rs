@@ -1,54 +1,17 @@
 use std::collections::HashSet;
 
 use db_pro_core::domain::agent::{
-    AgentTool, AgentToolCall, AgentToolInput, AgentToolOutput, AgentToolRequest, AgentToolResult, MAX_AGENT_TOOL_STEPS,
+    AgentTool, AgentToolCall, AgentToolInput, AgentToolOutput, AgentToolRequest, MAX_AGENT_TOOL_STEPS,
 };
 use db_pro_core::domain::agent_context::AgentContext;
 use db_pro_core::domain::agent_workflow::{
     AgentConfirmationKind, AgentExecutionContext, AgentToolDisposition, AgentToolError, AgentWorkflow,
 };
 
+pub use db_pro_core::domain::agent_workflow::AgentWorkflowEvent;
+
 use crate::agent::{AgentProvider, AgentProviderEvent, AgentProviderMessage, AgentProviderRequest};
 use crate::agent_executor::AgentToolRunner;
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum AgentWorkflowEvent {
-    TextDelta {
-        run_id: db_pro_core::domain::agent::AgentRunId,
-        delta: String,
-    },
-    ToolRequested {
-        run_id: db_pro_core::domain::agent::AgentRunId,
-        call: AgentToolCall,
-    },
-    ToolCompleted {
-        run_id: db_pro_core::domain::agent::AgentRunId,
-        call_id: String,
-        result: AgentToolResult,
-    },
-    ToolFailed {
-        run_id: db_pro_core::domain::agent::AgentRunId,
-        call_id: String,
-        tool: AgentTool,
-        error: AgentToolError,
-    },
-    ConfirmationRequired {
-        run_id: db_pro_core::domain::agent::AgentRunId,
-        call_id: String,
-        kind: AgentConfirmationKind,
-        preview: Option<AgentToolOutput>,
-    },
-    Completed {
-        run_id: db_pro_core::domain::agent::AgentRunId,
-    },
-    Cancelled {
-        run_id: db_pro_core::domain::agent::AgentRunId,
-    },
-    Failed {
-        run_id: db_pro_core::domain::agent::AgentRunId,
-        message: String,
-    },
-}
 
 struct PendingToolCall {
     call_id: String,
@@ -131,7 +94,11 @@ impl AgentRunOrchestrator {
         let run_id = self.run_id()?;
         self.pending_tool = None;
         self.workflow.cancel(run_id)?;
-        Ok(AgentWorkflowEvent::Cancelled { run_id })
+        Ok(AgentWorkflowEvent::Cancelled {
+            run_id,
+            session_id: self.workflow.session().id,
+            document_id: self.workflow.session().document_id.clone(),
+        })
     }
 
     pub async fn resume_confirmation(
@@ -224,6 +191,8 @@ impl AgentRunOrchestrator {
                     self.push_tool_error(pending_call_id.clone(), tool, error.clone());
                     let mut emitted = vec![AgentWorkflowEvent::ToolFailed {
                         run_id,
+                        session_id: self.workflow.session().id,
+                        document_id: pending.confirmation.document_id.clone(),
                         call_id: pending_call_id,
                         tool,
                         error,
@@ -253,13 +222,18 @@ impl AgentRunOrchestrator {
             let mut handled_tool = false;
             for provider_event in provider_events {
                 match provider_event {
-                    AgentProviderEvent::TextDelta { delta } => {
-                        emitted.push(AgentWorkflowEvent::TextDelta { run_id, delta })
-                    }
+                    AgentProviderEvent::TextDelta { delta } => emitted.push(AgentWorkflowEvent::TextDelta {
+                        run_id,
+                        session_id: self.workflow.session().id,
+                        document_id: self.workflow.session().document_id.clone(),
+                        delta,
+                    }),
                     AgentProviderEvent::ToolCall(call) => {
                         handled_tool = true;
                         emitted.push(AgentWorkflowEvent::ToolRequested {
                             run_id,
+                            session_id: self.workflow.session().id,
+                            document_id: self.workflow.session().document_id.clone(),
                             call: call.clone(),
                         });
                         match self.handle_tool_call(call).await {
@@ -313,6 +287,8 @@ impl AgentRunOrchestrator {
                 self.push_tool_error(call.call_id.clone(), call.tool, error.clone());
                 return Ok(Some(AgentWorkflowEvent::ToolFailed {
                     run_id,
+                    session_id: self.workflow.session().id,
+                    document_id: self.workflow.session().document_id.clone(),
                     call_id: call.call_id,
                     tool: call.tool,
                     error,
@@ -328,6 +304,8 @@ impl AgentRunOrchestrator {
                         self.push_tool_result(call.call_id.clone(), call.tool, output);
                         Ok(Some(AgentWorkflowEvent::ToolCompleted {
                             run_id,
+                            session_id: self.workflow.session().id,
+                            document_id: self.workflow.session().document_id.clone(),
                             call_id: call.call_id,
                             result,
                         }))
@@ -336,6 +314,8 @@ impl AgentRunOrchestrator {
                         self.push_tool_error(call.call_id.clone(), call.tool, error.clone());
                         Ok(Some(AgentWorkflowEvent::ToolFailed {
                             run_id,
+                            session_id: self.workflow.session().id,
+                            document_id: self.workflow.session().document_id.clone(),
                             call_id: call.call_id,
                             tool: call.tool,
                             error,
@@ -350,6 +330,8 @@ impl AgentRunOrchestrator {
                 });
                 Ok(Some(AgentWorkflowEvent::ConfirmationRequired {
                     run_id,
+                    session_id: self.workflow.session().id,
+                    document_id: self.workflow.session().document_id.clone(),
                     call_id: call.call_id,
                     kind: confirmation.kind,
                     preview: Some(preview),
@@ -362,6 +344,8 @@ impl AgentRunOrchestrator {
                 });
                 Ok(Some(AgentWorkflowEvent::ConfirmationRequired {
                     run_id,
+                    session_id: self.workflow.session().id,
+                    document_id: self.workflow.session().document_id.clone(),
                     call_id: call.call_id,
                     kind: confirmation.kind,
                     preview: None,
@@ -460,14 +444,23 @@ impl AgentRunOrchestrator {
         if let Err(error) = self.workflow.complete(run_id) {
             tracing::warn!(%error, "agent workflow completion state was already invalid");
         }
-        AgentWorkflowEvent::Completed { run_id }
+        AgentWorkflowEvent::Completed {
+            run_id,
+            session_id: self.workflow.session().id,
+            document_id: self.workflow.session().document_id.clone(),
+        }
     }
 
     fn fail_run(&mut self, run_id: db_pro_core::domain::agent::AgentRunId, message: String) -> AgentWorkflowEvent {
         if let Err(error) = self.workflow.fail(run_id) {
             tracing::warn!(%error, "agent workflow failure state was already invalid");
         }
-        AgentWorkflowEvent::Failed { run_id, message }
+        AgentWorkflowEvent::Failed {
+            run_id,
+            session_id: self.workflow.session().id,
+            document_id: self.workflow.session().document_id.clone(),
+            message,
+        }
     }
 }
 
@@ -488,7 +481,7 @@ mod tests {
     use std::sync::Mutex;
 
     use async_trait::async_trait;
-    use db_pro_core::domain::agent::{AgentDocumentSnapshot, AgentMode, AgentSession, AgentToolInput};
+    use db_pro_core::domain::agent::{AgentDocumentSnapshot, AgentMode, AgentSession, AgentToolInput, AgentToolResult};
     use db_pro_core::domain::agent_context::AgentContext;
 
     use super::*;

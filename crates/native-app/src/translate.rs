@@ -74,6 +74,9 @@ pub(crate) fn translate_command(command: UiCommand) -> Option<RuntimeCommand> {
         | UiCommand::ApplyTableChanges { .. } => translate_table_command(command),
         UiCommand::RunAgent { .. }
         | UiCommand::ExecuteAgentTool { .. }
+        | UiCommand::StartAgentRun { .. }
+        | UiCommand::ContinueAgentRun { .. }
+        | UiCommand::CancelAgentRun { .. }
         | UiCommand::IntrospectSchema { .. }
         | UiCommand::LoadTableInfo { .. }
         | UiCommand::LoadTableDdl { .. }
@@ -322,6 +325,40 @@ fn translate_schema_command(command: UiCommand) -> Option<RuntimeCommand> {
             request_id: runtime_request_id(request_id),
             request,
             context,
+        }),
+        UiCommand::StartAgentRun {
+            request_id,
+            prompt,
+            session,
+            document,
+            mode,
+            allow_read_only_auto_run,
+            context,
+        } => Some(RuntimeCommand::StartAgentWorkflow {
+            request_id: runtime_request_id(request_id),
+            prompt,
+            session,
+            document,
+            mode,
+            allow_read_only_auto_run,
+            context,
+        }),
+        UiCommand::ContinueAgentRun {
+            request_id,
+            run_id,
+            approved,
+            current_document,
+            applied_patch,
+        } => Some(RuntimeCommand::ContinueAgentWorkflow {
+            request_id: runtime_request_id(request_id),
+            run_id,
+            approved,
+            current_document,
+            applied_patch,
+        }),
+        UiCommand::CancelAgentRun { request_id, run_id } => Some(RuntimeCommand::CancelAgentWorkflow {
+            request_id: runtime_request_id(request_id),
+            run_id,
         }),
         UiCommand::IntrospectSchema {
             request_id,
@@ -926,10 +963,10 @@ pub(crate) fn translate_event(event: RuntimeEvent) -> Option<UiEvent> {
             document_id,
             error,
         }),
-        // The workflow event stream is currently consumed by the upcoming
-        // Agent panel integration. Keep it on the runtime boundary without
-        // leaking provider/runtime types into the UI crate yet.
-        RuntimeEvent::AgentWorkflow { .. } => None,
+        RuntimeEvent::AgentWorkflow { request_id, event } => Some(UiEvent::AgentWorkflow {
+            request_id: ui_request_id(request_id),
+            event,
+        }),
         RuntimeEvent::AgentConfigured {
             request_id,
             provider,

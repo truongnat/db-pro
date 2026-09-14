@@ -42,6 +42,7 @@ impl DbProApp {
             }
             UiEvent::AgentFailed { request_id, message } => self.on_agent_failed(request_id, message),
             UiEvent::AgentToolCompleted { .. } | UiEvent::AgentToolFailed { .. } => {}
+            UiEvent::AgentWorkflow { event, .. } => self.on_agent_workflow_event(event),
             UiEvent::AgentConfigured {
                 request_id,
                 provider,
@@ -244,6 +245,32 @@ impl DbProApp {
     }
 
     fn on_agent_failed(&mut self, request_id: RequestId, message: String) {
+        if let Some(session) = self
+            .agent_sessions
+            .values_mut()
+            .find(|session| session.request_id == Some(request_id))
+        {
+            if !session.streaming_text.is_empty() {
+                session.messages.push(AgentMessage {
+                    role: AgentRole::Assistant,
+                    content: std::mem::take(&mut session.streaming_text),
+                    sql: None,
+                    requires_confirmation: false,
+                });
+            }
+            session.messages.push(AgentMessage {
+                role: AgentRole::Assistant,
+                content: message,
+                sql: None,
+                requires_confirmation: false,
+            });
+            session.state = db_pro_core::domain::agent::AgentSessionState::Failed;
+            session.active_run_id = None;
+            session.request_id = None;
+            self.agent_request = self.agent_sessions.values().find_map(|value| value.request_id);
+            self.runtime_message = "Agent workflow failed".to_owned();
+            return;
+        }
         if self.agent_request == Some(request_id) {
             self.agent_request = None;
             self.runtime_message = "Agent unavailable · switched to offline draft".to_owned();

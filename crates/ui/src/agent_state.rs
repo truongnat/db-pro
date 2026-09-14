@@ -1,5 +1,11 @@
 use super::*;
 
+use db_pro_core::domain::agent::{AgentDocumentSnapshot, AgentObjectRef};
+use db_pro_core::domain::agent_context::{
+    AgentColumnContext, AgentContext as CoreAgentContext, AgentContextBuilder, AgentContextRequest,
+    AgentDiagnosticContext, AgentForeignKeyContext, AgentSchemaCatalog, AgentTableContext,
+};
+
 impl DbProApp {
     pub(super) fn reset_agent_context(&mut self) {
         self.agent_request = None;
@@ -49,6 +55,15 @@ impl DbProApp {
             return;
         }
 
+        // Keep the old offline draft path available for preview mode and for
+        // shells that have not established a runtime connection yet. The
+        // typed workflow is only useful once the runtime can resolve the
+        // document's pinned database context.
+        if self.active_connection_id.is_some() {
+            self.submit_typed_agent_prompt(prompt);
+            return;
+        }
+
         self.agent_messages.push(AgentMessage {
             role: AgentRole::User,
             content: prompt.clone(),
@@ -77,6 +92,321 @@ impl DbProApp {
         }
     }
 
+    fn submit_typed_agent_prompt(&mut self, prompt: String) {
+        let Some(document) = self.query_documents.get(self.active_query_document) else {
+            self.runtime_message = "No query document is available for Agent".to_owned();
+            return;
+        };
+        let document_id = document.id.clone();
+        let connection_id = document
+            .connection_id
+            .clone()
+            .or_else(|| self.active_connection_id.clone());
+        let schema = document
+            .schema
+            .clone()
+            .or_else(|| Some(self.active_schema().to_owned()));
+        let snapshot = self.agent_document_snapshot(document);
+        let context = self.build_agent_context(&prompt, document, connection_id.as_deref(), schema.as_deref());
+
+        let session = self
+            .agent_sessions
+            .entry(document_id.clone())
+            .or_insert_with(|| AgentUiSession::for_document(&document_id, connection_id.clone(), schema.clone()));
+        if session.session.is_none() {
+            *session = AgentUiSession::for_document(&document_id, connection_id.clone(), schema.clone());
+        }
+        if session.active_run_id.is_some() || session.request_id.is_some() {
+            self.runtime_message = "An Agent run is already active for this query".to_owned();
+            return;
+        }
+        let Some(mut core_session) = session.session.clone() else {
+            session.state = db_pro_core::domain::agent::AgentSessionState::Failed;
+            self.runtime_message = "Agent session could not be initialized".to_owned();
+            return;
+        };
+        core_session.connection_id = connection_id;
+        core_session.schema = schema;
+        session.session = Some(core_session.clone());
+        let mode = session.mode;
+        session.messages.push(AgentMessage {
+            role: AgentRole::User,
+            content: prompt.clone(),
+            sql: None,
+            requires_confirmation: false,
+        });
+        session.state = db_pro_core::domain::agent::AgentSessionState::Running;
+        session.streaming_text.clear();
+        session.activities.clear();
+        session.pending_confirmation = None;
+        session.tool_results.clear();
+
+        let request_id = self.task_bridge.next_request_id();
+        session.request_id = Some(request_id);
+        self.agent_request = Some(request_id);
+        self.agent_input.clear();
+        self.runtime_message = format!("Sending request to {}…", self.agent_provider_label);
+        if self
+            .task_bridge
+            .send(UiCommand::StartAgentRun {
+                request_id,
+                prompt,
+                session: core_session,
+                document: snapshot,
+                mode,
+                allow_read_only_auto_run: false,
+                context,
+            })
+            .is_err()
+        {
+            session.request_id = None;
+            session.state = db_pro_core::domain::agent::AgentSessionState::Failed;
+            self.agent_request = None;
+            self.runtime_message = "Agent runtime unavailable".to_owned();
+        }
+    }
+
+    fn agent_document_snapshot(&self, document: &crate::query::QueryDocument) -> AgentDocumentSnapshot {
+        let selection = (!document.selection.is_empty()).then(|| document.selection.normalized());
+        AgentDocumentSnapshot {
+            document_id: document.id.clone(),
+            document_version: document.buffer.version(),
+            sql: document.text().to_owned(),
+            cursor_offset: document.cursor.offset,
+            selection,
+            current_statement: document
+                .analysis
+                .current_statement_at(document.cursor.offset)
+                .map(|statement| statement.text.clone()),
+        }
+    }
+
+    fn build_agent_context(
+        &self,
+        prompt: &str,
+        document: &crate::query::QueryDocument,
+        connection_id: Option<&str>,
+        schema: Option<&str>,
+    ) -> CoreAgentContext {
+        let tables = self
+            .schema
+            .table_details
+            .iter()
+            .map(|table| AgentTableContext {
+                object: AgentObjectRef {
+                    schema: Some(table.schema.clone()),
+                    name: table.name.clone(),
+                },
+                columns: table
+                    .columns
+                    .iter()
+                    .enumerate()
+                    .map(|(ordinal, column)| AgentColumnContext {
+                        name: column.name.clone(),
+                        data_type: column.data_type.clone(),
+                        nullable: column.nullable,
+                        ordinal,
+                        default: None,
+                        is_primary_key: column.is_primary_key,
+                        is_unique: false,
+                        is_identity: false,
+                        is_generated: false,
+                    })
+                    .collect(),
+            })
+            .collect::<Vec<_>>();
+        let foreign_keys = self
+            .schema
+            .table_details
+            .iter()
+            .flat_map(|table| {
+                table.foreign_keys.iter().map(|foreign_key| AgentForeignKeyContext {
+                    name: foreign_key.name.clone(),
+                    source: AgentObjectRef {
+                        schema: Some(table.schema.clone()),
+                        name: table.name.clone(),
+                    },
+                    source_columns: foreign_key.from_columns.clone(),
+                    target: AgentObjectRef {
+                        schema: Some(foreign_key.to_schema.clone()),
+                        name: foreign_key.to_table.clone(),
+                    },
+                    target_columns: foreign_key.to_columns.clone(),
+                })
+            })
+            .collect::<Vec<_>>();
+        let catalog = AgentSchemaCatalog { tables, foreign_keys };
+        let diagnostics = document
+            .diagnostics
+            .iter()
+            .map(|diagnostic| AgentDiagnosticContext {
+                message: diagnostic.message.clone(),
+                range: Some(diagnostic.range),
+            })
+            .collect::<Vec<_>>();
+        AgentContextBuilder::default().build(&AgentContextRequest {
+            document_id: &document.id,
+            document_version: document.buffer.version(),
+            connection_id,
+            schema,
+            current_sql: document.text(),
+            selected_range: (!document.selection.is_empty()).then(|| document.selection.normalized()),
+            user_request: prompt,
+            diagnostics: &diagnostics,
+            result_summary: None,
+            catalog: &catalog,
+        })
+    }
+
+    pub(super) fn on_agent_workflow_event(&mut self, event: db_pro_core::domain::agent_workflow::AgentWorkflowEvent) {
+        use db_pro_core::domain::agent_workflow::AgentWorkflowEvent;
+
+        let document_id = match &event {
+            AgentWorkflowEvent::TextDelta { document_id, .. }
+            | AgentWorkflowEvent::ToolRequested { document_id, .. }
+            | AgentWorkflowEvent::ToolCompleted { document_id, .. }
+            | AgentWorkflowEvent::ToolFailed { document_id, .. }
+            | AgentWorkflowEvent::ConfirmationRequired { document_id, .. }
+            | AgentWorkflowEvent::Completed { document_id, .. }
+            | AgentWorkflowEvent::Failed { document_id, .. }
+            | AgentWorkflowEvent::Cancelled { document_id, .. } => document_id.clone(),
+        };
+        let Some(session) = self.agent_sessions.get_mut(&document_id) else {
+            return;
+        };
+        let (session_id, run_id) = match &event {
+            AgentWorkflowEvent::TextDelta { session_id, run_id, .. }
+            | AgentWorkflowEvent::ToolRequested { session_id, run_id, .. }
+            | AgentWorkflowEvent::ToolCompleted { session_id, run_id, .. }
+            | AgentWorkflowEvent::ToolFailed { session_id, run_id, .. }
+            | AgentWorkflowEvent::ConfirmationRequired { session_id, run_id, .. }
+            | AgentWorkflowEvent::Completed { session_id, run_id, .. }
+            | AgentWorkflowEvent::Failed { session_id, run_id, .. }
+            | AgentWorkflowEvent::Cancelled { session_id, run_id, .. } => (*session_id, *run_id),
+        };
+        if session.session.as_ref().map(|value| value.id) != Some(session_id)
+            || session.active_run_id.is_some_and(|active| active != run_id)
+        {
+            return;
+        }
+        if session.active_run_id.is_none() {
+            session.active_run_id = Some(run_id);
+        }
+
+        apply_agent_workflow_event(session, event, run_id);
+        self.agent_request = self.agent_sessions.values().find_map(|value| value.request_id);
+    }
+
+    fn active_agent_document_snapshot(&self) -> Option<AgentDocumentSnapshot> {
+        self.query_documents
+            .get(self.active_query_document)
+            .map(|document| self.agent_document_snapshot(document))
+    }
+
+    pub(super) fn agent_confirmation_action(&mut self, approved: bool) {
+        let Some(document_id) = self
+            .query_documents
+            .get(self.active_query_document)
+            .map(|document| document.id.clone())
+        else {
+            return;
+        };
+        let Some(pending) = self
+            .agent_sessions
+            .get(&document_id)
+            .and_then(|session| session.pending_confirmation.clone())
+        else {
+            return;
+        };
+        let current_document = self.active_agent_document_snapshot();
+        let mut applied_patch = None;
+        if approved && pending.kind == db_pro_core::domain::agent_workflow::AgentConfirmationKind::ApplyPatch {
+            let Some(db_pro_core::domain::agent::AgentToolOutput::PatchPreview { patch, .. }) = pending.preview else {
+                self.runtime_message = "Agent patch preview is unavailable".to_owned();
+                return;
+            };
+            let Some(document) = self.query_documents.get_mut(self.active_query_document) else {
+                return;
+            };
+            if document.id != patch.document_id || document.buffer.version() != patch.expected_version {
+                self.runtime_message = "Document changed since this suggestion.".to_owned();
+                self.agent_confirmation_action(false);
+                return;
+            }
+            let Some(current) = current_document.clone() else {
+                return;
+            };
+            if patch
+                .apply_to(&current.document_id, current.document_version, &current.sql)
+                .is_err()
+            {
+                self.runtime_message = "Agent patch range is no longer valid".to_owned();
+                self.agent_confirmation_action(false);
+                return;
+            }
+            let (start, end) = patch.range;
+            let before = crate::editor::buffer::EditorSnapshot {
+                cursor_offset: document.cursor.offset,
+                anchor_offset: document.selection.anchor,
+            };
+            let new_cursor = start + patch.replacement.len();
+            let after = crate::editor::buffer::EditorSnapshot {
+                cursor_offset: new_cursor,
+                anchor_offset: new_cursor,
+            };
+            document
+                .buffer
+                .replace_with_snapshot(start, end, &patch.replacement, before, after);
+            document.cursor.set_offset(&document.buffer, new_cursor);
+            document.selection = crate::editor::selection::SelectionRange::point(new_cursor);
+            document.reanalyze(crate::editor::syntax::SqlDialect::Postgres);
+            document.invalidate_prediction();
+            document.execution_diagnostic = None;
+            document
+                .diagnostics
+                .retain(|diagnostic| diagnostic.source != crate::editor::diagnostics::DiagnosticSource::Database);
+            document.dirty = true;
+            let new_version = document.buffer.version();
+            applied_patch = Some(db_pro_core::domain::agent::AgentToolOutput::PatchApplied {
+                document_id: patch.document_id,
+                new_version,
+                range: patch.range,
+            });
+        }
+        let request_id = self.task_bridge.next_request_id();
+        if let Some(session) = self.agent_sessions.get_mut(&document_id) {
+            session.pending_confirmation = None;
+            session.request_id = Some(request_id);
+            session.state = db_pro_core::domain::agent::AgentSessionState::Running;
+        }
+        let _ = self.task_bridge.send(UiCommand::ContinueAgentRun {
+            request_id,
+            run_id: pending.run_id,
+            approved,
+            current_document,
+            applied_patch,
+        });
+    }
+
+    pub(super) fn cancel_active_agent_run(&mut self) {
+        let Some(document_id) = self
+            .query_documents
+            .get(self.active_query_document)
+            .map(|document| document.id.clone())
+        else {
+            return;
+        };
+        let Some(run_id) = self
+            .agent_sessions
+            .get(&document_id)
+            .and_then(|session| session.active_run_id)
+        else {
+            return;
+        };
+        let request_id = self.task_bridge.next_request_id();
+        let _ = self.task_bridge.send(UiCommand::CancelAgentRun { request_id, run_id });
+    }
+
     pub(super) fn fallback_agent_response(&mut self, reason: Option<&str>) {
         let Some(prompt) = self.agent_pending_prompt.take() else {
             return;
@@ -98,5 +428,136 @@ impl DbProApp {
         self.agent_provider_label = info.label.to_owned();
         self.agent_provider_detail = info.detail.to_owned();
         self.agent_messages.push(response);
+    }
+}
+
+fn flush_agent_stream(session: &mut super::agent_workflow_state::AgentUiSession) {
+    if session.streaming_text.is_empty() {
+        return;
+    }
+    session.messages.push(AgentMessage {
+        role: AgentRole::Assistant,
+        content: std::mem::take(&mut session.streaming_text),
+        sql: None,
+        requires_confirmation: false,
+    });
+}
+
+fn apply_agent_workflow_event(
+    session: &mut super::agent_workflow_state::AgentUiSession,
+    event: db_pro_core::domain::agent_workflow::AgentWorkflowEvent,
+    run_id: db_pro_core::domain::agent::AgentRunId,
+) {
+    use super::agent_workflow_state::{AgentUiActivity, AgentUiActivityStatus, AgentUiConfirmation};
+    use db_pro_core::domain::agent_workflow::AgentWorkflowEvent;
+
+    match event {
+        AgentWorkflowEvent::TextDelta { delta, .. } => {
+            session.state = db_pro_core::domain::agent::AgentSessionState::Running;
+            session.streaming_text.push_str(&delta);
+        }
+        AgentWorkflowEvent::ToolRequested { call, .. } => {
+            session.state = db_pro_core::domain::agent::AgentSessionState::Running;
+            session.activities.push(AgentUiActivity {
+                call_id: Some(call.call_id),
+                tool: Some(call.tool),
+                label: agent_tool_label(call.tool),
+                status: AgentUiActivityStatus::Running,
+            });
+        }
+        AgentWorkflowEvent::ToolCompleted { call_id, result, .. } => {
+            set_activity_status(session, &call_id, AgentUiActivityStatus::Success);
+            session.tool_results.insert(call_id, result.output);
+            session.state = db_pro_core::domain::agent::AgentSessionState::Running;
+        }
+        AgentWorkflowEvent::ToolFailed {
+            call_id, tool, error, ..
+        } => {
+            set_activity_status(session, &call_id, AgentUiActivityStatus::Failed);
+            session.messages.push(AgentMessage {
+                role: AgentRole::Assistant,
+                content: format!("{} failed: {error}", agent_tool_label(tool)),
+                sql: None,
+                requires_confirmation: false,
+            });
+            session.state = db_pro_core::domain::agent::AgentSessionState::Running;
+        }
+        AgentWorkflowEvent::ConfirmationRequired {
+            call_id, kind, preview, ..
+        } => {
+            set_activity_status(session, &call_id, AgentUiActivityStatus::AwaitingConfirmation);
+            session.pending_confirmation = Some(AgentUiConfirmation {
+                run_id,
+                call_id,
+                kind,
+                preview,
+            });
+            session.state = db_pro_core::domain::agent::AgentSessionState::AwaitingConfirmation;
+        }
+        AgentWorkflowEvent::Completed { .. } => {
+            finish_agent_session(session, db_pro_core::domain::agent::AgentSessionState::Completed);
+        }
+        AgentWorkflowEvent::Failed { message, .. } => {
+            flush_agent_stream(session);
+            session.messages.push(AgentMessage {
+                role: AgentRole::Assistant,
+                content: message,
+                sql: None,
+                requires_confirmation: false,
+            });
+            finish_agent_session(session, db_pro_core::domain::agent::AgentSessionState::Failed);
+        }
+        AgentWorkflowEvent::Cancelled { .. } => {
+            for activity in &mut session.activities {
+                if matches!(
+                    activity.status,
+                    AgentUiActivityStatus::Running | AgentUiActivityStatus::AwaitingConfirmation
+                ) {
+                    activity.status = AgentUiActivityStatus::Cancelled;
+                }
+            }
+            finish_agent_session(session, db_pro_core::domain::agent::AgentSessionState::Cancelled);
+        }
+    }
+}
+
+fn set_activity_status(
+    session: &mut super::agent_workflow_state::AgentUiSession,
+    call_id: &str,
+    status: super::agent_workflow_state::AgentUiActivityStatus,
+) {
+    if let Some(activity) = session
+        .activities
+        .iter_mut()
+        .rev()
+        .find(|activity| activity.call_id.as_deref() == Some(call_id))
+    {
+        activity.status = status;
+    }
+}
+
+fn finish_agent_session(
+    session: &mut super::agent_workflow_state::AgentUiSession,
+    state: db_pro_core::domain::agent::AgentSessionState,
+) {
+    flush_agent_stream(session);
+    session.state = state;
+    session.active_run_id = None;
+    session.request_id = None;
+    session.pending_confirmation = None;
+}
+
+fn agent_tool_label(tool: db_pro_core::domain::agent::AgentTool) -> String {
+    use db_pro_core::domain::agent::AgentTool;
+    match tool {
+        AgentTool::InspectSchema => "Inspecting schema".to_owned(),
+        AgentTool::InspectTable => "Reading table metadata".to_owned(),
+        AgentTool::InspectColumns => "Reading columns".to_owned(),
+        AgentTool::InspectForeignKeys => "Reading foreign keys".to_owned(),
+        AgentTool::GetCurrentQuery => "Reading current query".to_owned(),
+        AgentTool::PatchQuery => "Preparing SQL change".to_owned(),
+        AgentTool::RunQuery => "Running query".to_owned(),
+        AgentTool::InspectQueryResult => "Inspecting query result".to_owned(),
+        AgentTool::ExplainQuery => "Explaining query".to_owned(),
     }
 }

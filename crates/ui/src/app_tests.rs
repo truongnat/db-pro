@@ -1061,6 +1061,91 @@ fn agent_provider_status_uses_runtime_provider_name() {
 }
 
 #[test]
+fn typed_agent_events_are_scoped_to_the_origin_document() {
+    let (bridge, _command_rx, _event_tx) = TaskBridge::with_channels();
+    let mut app = DbProApp::with_task_bridge(bridge);
+    app.new_query_document();
+    let first_id = app.query_documents[0].id.clone();
+    let second_id = app.query_documents[1].id.clone();
+    let first_session = super::agent_workflow_state::AgentUiSession::for_document(&first_id, None, None);
+    let session_id = first_session.session.as_ref().expect("session should exist").id;
+    let run_id = db_pro_core::domain::agent::AgentRunId::new();
+    app.agent_sessions.insert(first_id.clone(), first_session);
+    app.agent_sessions.insert(
+        second_id.clone(),
+        super::agent_workflow_state::AgentUiSession::for_document(&second_id, None, None),
+    );
+    app.agent_sessions
+        .get_mut(&first_id)
+        .expect("first session should exist")
+        .active_run_id = Some(run_id);
+
+    app.apply_runtime_event(UiEvent::AgentWorkflow {
+        request_id: crate::RequestId(7),
+        event: db_pro_core::domain::agent_workflow::AgentWorkflowEvent::TextDelta {
+            run_id,
+            session_id,
+            document_id: first_id.clone(),
+            delta: "Use the users table".to_owned(),
+        },
+    });
+
+    assert_eq!(app.agent_sessions[&first_id].streaming_text, "Use the users table");
+    assert!(app.agent_sessions[&second_id].streaming_text.is_empty());
+}
+
+#[test]
+fn typed_agent_patch_confirmation_applies_one_document_edit_and_continues() {
+    let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
+    let mut app = DbProApp::with_task_bridge(bridge);
+    app.query_documents[0].set_text("SELECT old");
+    let document_id = app.query_documents[0].id.clone();
+    let session = super::agent_workflow_state::AgentUiSession::for_document(&document_id, None, None);
+    let session_id = session.session.as_ref().expect("session should exist").id;
+    let run_id = db_pro_core::domain::agent::AgentRunId::new();
+    app.agent_sessions.insert(document_id.clone(), session);
+    app.agent_sessions
+        .get_mut(&document_id)
+        .expect("session should exist")
+        .active_run_id = Some(run_id);
+    let patch = db_pro_core::domain::agent::AgentSqlPatch {
+        document_id: document_id.clone(),
+        expected_version: app.query_documents[0].buffer.version(),
+        range: (7, 10),
+        replacement: "users".to_owned(),
+    };
+    app.apply_runtime_event(UiEvent::AgentWorkflow {
+        request_id: crate::RequestId(8),
+        event: db_pro_core::domain::agent_workflow::AgentWorkflowEvent::ConfirmationRequired {
+            run_id,
+            session_id,
+            document_id: document_id.clone(),
+            call_id: "patch-1".to_owned(),
+            kind: db_pro_core::domain::agent_workflow::AgentConfirmationKind::ApplyPatch,
+            preview: Some(db_pro_core::domain::agent::AgentToolOutput::PatchPreview {
+                patch,
+                original: "old".to_owned(),
+                proposed: "users".to_owned(),
+            }),
+        },
+    });
+
+    app.agent_confirmation_action(true);
+
+    assert_eq!(app.query_documents[0].text(), "SELECT users");
+    assert!(matches!(
+        command_rx.try_recv(),
+        Ok(UiCommand::ContinueAgentRun {
+            approved: true,
+            applied_patch: Some(db_pro_core::domain::agent::AgentToolOutput::PatchApplied { .. }),
+            ..
+        })
+    ));
+    app.query_documents[0].buffer.undo();
+    assert_eq!(app.query_documents[0].text(), "SELECT old");
+}
+
+#[test]
 fn command_palette_shortcut_is_available_from_the_native_shell() {
     let (bridge, _command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);

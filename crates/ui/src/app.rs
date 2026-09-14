@@ -24,6 +24,7 @@ use sqlparser::parser::Parser;
 use std::collections::{BTreeSet, HashMap};
 use std::time::{Duration, Instant};
 
+use agent_workflow_state::AgentUiSession;
 use change_set::{ChangeSet, MutationFailure, MutationTarget, RowIdentity, StagedChange};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -60,6 +61,8 @@ struct PersistedGridLayout {
 mod agent_state;
 #[path = "agent_view.rs"]
 mod agent_view;
+#[path = "agent_workflow_state.rs"]
+mod agent_workflow_state;
 #[path = "app_state.rs"]
 mod app_state;
 #[path = "change_set.rs"]
@@ -330,6 +333,7 @@ pub struct DbProApp {
     agent_provider_detail: String,
     agent_input: String,
     agent_messages: Vec<AgentMessage>,
+    agent_sessions: HashMap<String, AgentUiSession>,
     agent_settings_open: bool,
     agent_api_key_draft: String,
     agent_configure_request: Option<crate::RequestId>,
@@ -1045,6 +1049,15 @@ impl DbProApp {
         self.cancel_prediction_for_document(index);
         let closed_id = self.query_documents[index].id.clone();
         let closed_title = self.query_documents[index].title.clone();
+        if let Some(run_id) = self
+            .agent_sessions
+            .get(&closed_id)
+            .and_then(|session| session.active_run_id)
+        {
+            let request_id = self.task_bridge.next_request_id();
+            let _ = self.task_bridge.send(UiCommand::CancelAgentRun { request_id, run_id });
+        }
+        self.agent_sessions.remove(&closed_id);
         self.query_documents.remove(index);
         self.query_output_tabs.remove(&closed_id);
 
@@ -1357,6 +1370,7 @@ impl DbProApp {
                 .iter()
                 .any(|d| d.pending_prediction_request.is_some() || d.prediction_debounce_deadline.is_some())
             || self.query_documents.iter().any(|d| d.explain_request.is_some())
+            || self.agent_sessions.values().any(|session| session.request_id.is_some())
             || self.agent_request.is_some()
             || self.table_info_request.is_some()
             || self.table_ddl_request.is_some()

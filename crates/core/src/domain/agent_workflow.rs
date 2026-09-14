@@ -3,8 +3,8 @@ use thiserror::Error;
 
 use super::agent::{
     allows_stale_document_version, execution_decision, AgentExecutionDecision, AgentMode, AgentPatchError, AgentRunId,
-    AgentSession, AgentSessionError, AgentSessionId, AgentSessionState, AgentSqlSafety, AgentTool, AgentToolInput,
-    AgentToolOutput, AgentToolRequest,
+    AgentSession, AgentSessionError, AgentSessionId, AgentSessionState, AgentSqlSafety, AgentTool, AgentToolCall,
+    AgentToolInput, AgentToolOutput, AgentToolRequest, AgentToolResult,
 };
 use super::agent_context::AgentResultSummary;
 
@@ -54,6 +54,61 @@ pub enum AgentConfirmationKind {
     RunMutation,
     RunDestructive,
     RunUnknown,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum AgentWorkflowEvent {
+    TextDelta {
+        run_id: AgentRunId,
+        session_id: AgentSessionId,
+        document_id: String,
+        delta: String,
+    },
+    ToolRequested {
+        run_id: AgentRunId,
+        session_id: AgentSessionId,
+        document_id: String,
+        call: AgentToolCall,
+    },
+    ToolCompleted {
+        run_id: AgentRunId,
+        session_id: AgentSessionId,
+        document_id: String,
+        call_id: String,
+        result: AgentToolResult,
+    },
+    ToolFailed {
+        run_id: AgentRunId,
+        session_id: AgentSessionId,
+        document_id: String,
+        call_id: String,
+        tool: AgentTool,
+        error: AgentToolError,
+    },
+    ConfirmationRequired {
+        run_id: AgentRunId,
+        session_id: AgentSessionId,
+        document_id: String,
+        call_id: String,
+        kind: AgentConfirmationKind,
+        preview: Option<AgentToolOutput>,
+    },
+    Completed {
+        run_id: AgentRunId,
+        session_id: AgentSessionId,
+        document_id: String,
+    },
+    Failed {
+        run_id: AgentRunId,
+        session_id: AgentSessionId,
+        document_id: String,
+        message: String,
+    },
+    Cancelled {
+        run_id: AgentRunId,
+        session_id: AgentSessionId,
+        document_id: String,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

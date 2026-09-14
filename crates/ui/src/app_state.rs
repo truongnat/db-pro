@@ -152,6 +152,7 @@ impl Default for DbProApp {
             agent_provider_detail: offline_info.detail.to_owned(),
             agent_input: String::new(),
             agent_messages: Vec::new(),
+            agent_sessions: HashMap::new(),
             agent_settings_open: false,
             agent_api_key_draft: String::new(),
             agent_configure_request: None,

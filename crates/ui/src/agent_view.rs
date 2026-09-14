@@ -38,13 +38,43 @@ impl DbProApp {
     fn draw_agent_header(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
         ui.horizontal(|ui| {
             ui.label(icon_text(Icon::Sparkles, "Agent", self.theme.accent));
+            if let Some(document_id) = self
+                .query_documents
+                .get(self.active_query_document)
+                .map(|document| document.id.clone())
+            {
+                let session = self.agent_sessions.entry(document_id).or_default();
+                egui::ComboBox::from_id_salt("agent-workflow-mode")
+                    .selected_text(match session.mode {
+                        db_pro_core::domain::agent::AgentMode::Ask => "Ask",
+                        db_pro_core::domain::agent::AgentMode::Edit => "Edit",
+                        db_pro_core::domain::agent::AgentMode::Agent => "Agent",
+                    })
+                    .show_ui(ui, |ui| {
+                        ui.selectable_value(&mut session.mode, db_pro_core::domain::agent::AgentMode::Ask, "Ask");
+                        ui.selectable_value(&mut session.mode, db_pro_core::domain::agent::AgentMode::Edit, "Edit");
+                        ui.selectable_value(&mut session.mode, db_pro_core::domain::agent::AgentMode::Agent, "Agent");
+                    });
+            }
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                if !self.agent_messages.is_empty()
+                let typed_has_messages = self
+                    .query_documents
+                    .get(self.active_query_document)
+                    .and_then(|document| self.agent_sessions.get(&document.id))
+                    .is_some_and(|session| !session.messages.is_empty());
+                if (!self.agent_messages.is_empty() || typed_has_messages)
                     && compact_icon_button(ui, Icon::RotateCcw, self.theme)
                         .on_hover_text("Clear conversation")
                         .clicked()
                 {
                     self.agent_messages.clear();
+                    if let Some(document) = self.query_documents.get(self.active_query_document) {
+                        if let Some(session) = self.agent_sessions.get_mut(&document.id) {
+                            session.messages.clear();
+                            session.activities.clear();
+                            session.streaming_text.clear();
+                        }
+                    }
                 }
                 if compact_icon_button(ui, Icon::X, self.theme)
                     .on_hover_text("Close Agent")
@@ -236,6 +266,20 @@ impl DbProApp {
     }
 
     fn draw_agent_thread(&mut self, ui: &mut egui::Ui, copy_sql: &mut Option<String>) -> bool {
+        let typed_document_id = self
+            .query_documents
+            .get(self.active_query_document)
+            .map(|document| document.id.clone());
+        if typed_document_id.as_ref().is_some_and(|document_id| {
+            self.agent_sessions.get(document_id).is_some_and(|session| {
+                !session.messages.is_empty()
+                    || !session.activities.is_empty()
+                    || session.pending_confirmation.is_some()
+                    || !session.streaming_text.is_empty()
+            })
+        }) {
+            return self.draw_typed_agent_thread(ui);
+        }
         let messages_height = (ui.available_height() - 86.0).max(160.0);
         let mut submit = false;
         egui::ScrollArea::vertical()
@@ -299,6 +343,132 @@ impl DbProApp {
         submit
     }
 
+    fn draw_typed_agent_thread(&mut self, ui: &mut egui::Ui) -> bool {
+        let Some(document_id) = self
+            .query_documents
+            .get(self.active_query_document)
+            .map(|document| document.id.clone())
+        else {
+            return false;
+        };
+        let Some(session) = self.agent_sessions.get(&document_id) else {
+            return false;
+        };
+        let messages = session.messages.clone();
+        let activities = session.activities.clone();
+        let streaming_text = session.streaming_text.clone();
+        let pending = session.pending_confirmation.clone();
+        let running = session.request_id.is_some();
+
+        let messages_height = (ui.available_height() - 86.0).max(160.0);
+        egui::ScrollArea::vertical()
+            .max_height(messages_height)
+            .auto_shrink([false, false])
+            .stick_to_bottom(true)
+            .show(ui, |ui| {
+                for message in messages {
+                    let is_user = message.role == AgentRole::User;
+                    ui.with_layout(Layout::left_to_right(Align::Min), |ui| {
+                        agent_message_frame(self.theme, is_user).show(ui, |ui| {
+                            ui.label(RichText::new(message.content).color(self.theme.text_primary));
+                        });
+                    });
+                    ui.add_space(SPACE_XS);
+                }
+                if !streaming_text.is_empty() {
+                    agent_message_frame(self.theme, false).show(ui, |ui| {
+                        ui.label(icon_text(Icon::Sparkles, "Agent", self.theme.accent));
+                        ui.label(RichText::new(streaming_text).color(self.theme.text_primary));
+                    });
+                }
+                for activity in activities {
+                    let status = match activity.status {
+                        super::agent_workflow_state::AgentUiActivityStatus::Running => "Running",
+                        super::agent_workflow_state::AgentUiActivityStatus::AwaitingConfirmation => "Needs approval",
+                        super::agent_workflow_state::AgentUiActivityStatus::Success => "Done",
+                        super::agent_workflow_state::AgentUiActivityStatus::Failed => "Failed",
+                        super::agent_workflow_state::AgentUiActivityStatus::Cancelled => "Cancelled",
+                    };
+                    ui.label(
+                        RichText::new(format!("{status} · {}", activity.label))
+                            .small()
+                            .color(self.theme.text_secondary),
+                    );
+                }
+                if let Some(pending) = pending {
+                    ui.add_space(SPACE_SM);
+                    editor_frame(self.theme).show(ui, |ui| {
+                        ui.label(
+                            RichText::new(agent_confirmation_title(pending.kind))
+                                .strong()
+                                .color(self.theme.text_primary),
+                        );
+                        if let Some(db_pro_core::domain::agent::AgentToolOutput::PatchPreview {
+                            original,
+                            proposed,
+                            ..
+                        }) = pending.preview.as_ref()
+                        {
+                            ui.label(
+                                RichText::new("Proposed SQL change")
+                                    .small()
+                                    .color(self.theme.text_secondary),
+                            );
+                            ui.label(
+                                RichText::new(format!("- {original}"))
+                                    .monospace()
+                                    .color(self.theme.danger),
+                            );
+                            ui.label(
+                                RichText::new(format!("+ {proposed}"))
+                                    .monospace()
+                                    .color(self.theme.success),
+                            );
+                        } else {
+                            ui.label(
+                                RichText::new("Review the requested action before continuing.")
+                                    .small()
+                                    .color(self.theme.text_secondary),
+                            );
+                        }
+                        ui.horizontal(|ui| {
+                            let approve_label = match pending.kind {
+                                db_pro_core::domain::agent_workflow::AgentConfirmationKind::ApplyPatch => {
+                                    "Apply Change"
+                                }
+                                db_pro_core::domain::agent_workflow::AgentConfirmationKind::RunReadOnly => "Run Query",
+                                db_pro_core::domain::agent_workflow::AgentConfirmationKind::RunMutation => {
+                                    "Run Mutation"
+                                }
+                                db_pro_core::domain::agent_workflow::AgentConfirmationKind::RunDestructive => {
+                                    "Execute Destructive Query"
+                                }
+                                db_pro_core::domain::agent_workflow::AgentConfirmationKind::RunUnknown => {
+                                    "Run Unclassified Query"
+                                }
+                            };
+                            if primary_button_with_icon(ui, Icon::Check, approve_label, self.theme).clicked() {
+                                self.agent_confirmation_action(true);
+                            }
+                            if secondary_button_with_icon(ui, Icon::X, "Reject", self.theme).clicked() {
+                                self.agent_confirmation_action(false);
+                            }
+                        });
+                    });
+                }
+                if running {
+                    ui.add_space(SPACE_SM);
+                    AgentThinking::new("Working in this query…", &mut true, self.theme)
+                        .is_active(true)
+                        .show(ui);
+                }
+            });
+        ui.add_space(SPACE_XS);
+        ui.separator();
+        ui.add_space(SPACE_XS);
+        false
+    }
+
     fn draw_agent_response(&mut self, ui: &mut egui::Ui, message: AgentMessage, copy_sql: &mut Option<String>) {
         agent_message_frame(self.theme, false).show(ui, |ui| {
             ui.label(icon_text(Icon::Sparkles, "Agent", self.theme.accent));
@@ -352,18 +522,46 @@ impl DbProApp {
     }
 
     fn draw_agent_composer(&mut self, ui: &mut egui::Ui, submit: &mut bool) {
-        let is_generating = self.agent_request.is_some();
+        let active_mode = self
+            .query_documents
+            .get(self.active_query_document)
+            .and_then(|document| self.agent_sessions.get(&document.id))
+            .map(|session| session.mode);
+        let composer_mode = match active_mode {
+            Some(db_pro_core::domain::agent::AgentMode::Ask) => AgentMode::Chat,
+            Some(db_pro_core::domain::agent::AgentMode::Edit) => AgentMode::Plan,
+            Some(db_pro_core::domain::agent::AgentMode::Agent) => AgentMode::Code,
+            None => AgentMode::Code,
+        };
+        let is_generating = self
+            .query_documents
+            .get(self.active_query_document)
+            .and_then(|document| self.agent_sessions.get(&document.id))
+            .is_some_and(|session| session.request_id.is_some())
+            || self.agent_request.is_some();
         let action = AgentComposer::new(
             &mut self.agent_input,
             &self.agent_provider_label,
-            AgentMode::Code,
+            composer_mode,
             self.theme,
         )
         .is_generating(is_generating)
         .show(ui);
 
-        if let Some(AgentComposerAction::Submit) = action {
-            *submit = true;
+        match action {
+            Some(AgentComposerAction::Submit) => *submit = true,
+            Some(AgentComposerAction::Stop) => self.cancel_active_agent_run(),
+            Some(AgentComposerAction::Clear) | None => {}
         }
+    }
+}
+
+fn agent_confirmation_title(kind: db_pro_core::domain::agent_workflow::AgentConfirmationKind) -> &'static str {
+    match kind {
+        db_pro_core::domain::agent_workflow::AgentConfirmationKind::ApplyPatch => "Apply Agent change?",
+        db_pro_core::domain::agent_workflow::AgentConfirmationKind::RunReadOnly => "Run read-only query?",
+        db_pro_core::domain::agent_workflow::AgentConfirmationKind::RunMutation => "Run mutation?",
+        db_pro_core::domain::agent_workflow::AgentConfirmationKind::RunDestructive => "Execute destructive query?",
+        db_pro_core::domain::agent_workflow::AgentConfirmationKind::RunUnknown => "Run unclassified query?",
     }
 }

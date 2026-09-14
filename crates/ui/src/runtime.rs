@@ -398,6 +398,26 @@ pub enum UiCommand {
         request: db_pro_core::domain::agent::AgentToolRequest,
         context: db_pro_core::domain::agent_workflow::AgentExecutionContext,
     },
+    StartAgentRun {
+        request_id: RequestId,
+        prompt: String,
+        session: db_pro_core::domain::agent::AgentSession,
+        document: db_pro_core::domain::agent::AgentDocumentSnapshot,
+        mode: db_pro_core::domain::agent::AgentMode,
+        allow_read_only_auto_run: bool,
+        context: db_pro_core::domain::agent_context::AgentContext,
+    },
+    ContinueAgentRun {
+        request_id: RequestId,
+        run_id: db_pro_core::domain::agent::AgentRunId,
+        approved: bool,
+        current_document: Option<db_pro_core::domain::agent::AgentDocumentSnapshot>,
+        applied_patch: Option<db_pro_core::domain::agent::AgentToolOutput>,
+    },
+    CancelAgentRun {
+        request_id: RequestId,
+        run_id: db_pro_core::domain::agent::AgentRunId,
+    },
     Connect {
         request_id: RequestId,
         connection_id: String,
@@ -666,6 +686,10 @@ pub enum UiEvent {
         run_id: db_pro_core::domain::agent::AgentRunId,
         document_id: String,
         error: db_pro_core::domain::agent_workflow::AgentToolError,
+    },
+    AgentWorkflow {
+        request_id: RequestId,
+        event: db_pro_core::domain::agent_workflow::AgentWorkflowEvent,
     },
     AgentConfigured {
         request_id: RequestId,
