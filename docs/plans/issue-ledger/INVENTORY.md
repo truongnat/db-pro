@@ -3,8 +3,9 @@
 One row per open issue. Titles are verbatim from the snapshot; nothing is omitted.
 Disposition vocabulary and how each was decided: `README.md` and `METHOD.md`.
 
-- Snapshot: `issues-open-2026-09-14.json` (copy of `/tmp/dbpro-issues/open.json`), taken 2026-09-14.
-- **Open issues in the snapshot: 136.** Rows below: **136**. They must be equal and are asserted by the generator.
+- Snapshot 1: `issues-open-2026-09-14.json` (copy of `/tmp/dbpro-issues/open.json`) — **136** open issues.
+- Snapshot 2 (late arrivals): `issues-open-2026-09-14-late.json` — **11** open issues (#217–#227) created 2–4 minutes *after* snapshot 1 was taken, fetched read-only from GitHub before this triage was published.
+- **Rows below: 147** (snapshot 1: 136 · snapshot 2: 11). Live open count re-verified with `gh issue list --state open --limit 300` at 2026-09-14: **147** — equal to the row count.
 - Tree audited: `main @ a9c1174`, worktree clean (no product code was changed by this triage).
 - Priority is the **proposed** priority for the *remaining* work, not a restatement of the issue's own labels:
   `P0` stops all further v0.1 work · `P1` blocks the v0.1 release until fixed or explicitly accepted · `P2` v0.1 quality/evidence item · `P3` post-v0.1 / backlog.
@@ -18,14 +19,14 @@ Disposition vocabulary and how each was decided: `README.md` and `METHOD.md`.
 | `ACTIONABLE_NOW` | 12 | #56, #61, #62, #72, #102, #114, #121, #127, #142, #144, #145, #147 |
 | `NEEDS_OWNER_DECISION` | 13 | #68, #71, #97, #98, #99, #101, #103, #104, #108, #109, #111, #119, #146 |
 | `NEEDS_EXTERNAL_RESOURCE` | 5 | #92, #93, #95, #100, #112 |
-| `OUT_OF_SCOPE_V01` | 39 | #32, #33, #34, #35, #182, #183, #184, #185, #186, #187, #188, #189, #190, #191, #192, #193, #194, #195, #196, #197, #198, #199, #200, #201, #202, #203, #204, #205, #206, #207, #208, #209, #210, #211, #212, #213, #214, #215, #216 |
+| `OUT_OF_SCOPE_V01` | 50 | #32, #33, #34, #35, #182, #183, #184, #185, #186, #187, #188, #189, #190, #191, #192, #193, #194, #195, #196, #197, #198, #199, #200, #201, #202, #203, #204, #205, #206, #207, #208, #209, #210, #211, #212, #213, #214, #215, #216, #217, #218, #219, #220, #221, #222, #223, #224, #225, #226, #227 |
 | `SUPERSEDED` | 7 | #60, #63, #65, #84, #113, #115, #116 |
 | `UNCLEAR` | 0 | — |
-| **Total** | **136** | |
+| **Total** | **147** | |
 
 ### `ACTIONABLE_NOW` — the scoping number for phase 2
 
-**12 of 136 issues** are `ACTIONABLE_NOW`: a real, bounded change that can be implemented and verified in this repository now, with no new host, credential or owner decision. These are the issues phase 2 can start on without asking anyone anything:
+**12 of 147 issues** are `ACTIONABLE_NOW`: a real, bounded change that can be implemented and verified in this repository now, with no new host, credential or owner decision. These are the issues phase 2 can start on without asking anyone anything:
 
 | # | Title | Proposed batch | Estimate | Concrete change (summary — full text in the row below) |
 |---|---|---|---|---|
@@ -49,18 +50,18 @@ Disposition vocabulary and how each was decided: `README.md` and `METHOD.md`.
 | P0 | 2 |
 | P1 | 51 |
 | P2 | 38 |
-| P3 | 45 |
-| **Total** | **136** |
+| P3 | 56 |
+| **Total** | **147** |
 
 ## Post-v0.1 product scope — do not read these as v0.1 gaps
 
-**39 issues** are explicitly post-v0.1 product scope and must not be treated as v0.1 gaps by any later run. They are split into two families:
+**50 issues** are explicitly post-v0.1 product scope and must not be treated as v0.1 gaps by any later run. They are split into two families:
 
 | Family | Issues | Count | Authority |
 |---|---|---:|---|
 | v0.2–v0.5 backlog tiers | #32, #33, #34, #35 | 4 | issue bodies ('Do not start before v0.1 sign-off') |
 | Post-v0.1 product Goal + Phase A–H, productivity, settings, tasks, diagnostics | #182 & 35 children (#183–#216) | 35 | `docs/goals/goal-full-product.md`, `docs/goals/goal-phase-*.md`, `docs/notes/PRODUCT_ROADMAP.md` |
-| **Total** | | **39** | `docs/notes/V0_1_CLOSURE_PLAN.md:7` — 'Strict zero-feature-expansion policy … no Phase A–H feature work is admitted into the v0.1.0 release queue' |
+| **Total** | | **50** | `docs/notes/V0_1_CLOSURE_PLAN.md:7` — 'Strict zero-feature-expansion policy … no Phase A–H feature work is admitted into the v0.1.0 release queue' |
 
 Related, but **not** in this group: #112 (GitHub Projects control plane, blocked by tooling) and #113/#115/#116 (React-era planning artifacts, superseded) — see their rows.
 
@@ -81,7 +82,7 @@ These rows are `DONE_ON_MAIN` with a pointer that was read on this tree. They ar
 | #133 | [RC1][Smoke Prep] Create deterministic PostgreSQL/SQLite packaged-smoke fixture datasets | fixtures/smoke/README.md:1-40; fixtures/smoke/large-er/large_er_fixture.sql; fixtures/smoke/verify-smoke.sh |
 | #135 | [RC1][Truth] Build canonical known-limitations and non-goals registry for v0.1 | docs/release/known-limitations.md:16 ('Issue: #135'), :35-287 (registry), :289-300 (summary by status) |
 
-## Inventory
+## Inventory — snapshot 1 (136 issues)
 
 | # | Title (verbatim) | Labels | Pri | Disposition | Dependency / blocker / concrete change | Evidence pointer |
 |---:|---|---|---:|---|---|---|
@@ -118,7 +119,7 @@ These rows are `DONE_ON_MAIN` with a pointer that was read on this tree. They ar
 | 66 | [Gate 5][D3] Run exact-head Rust/frontend/provider verification for type matrix | documentation | P2 | `PARTIAL_ON_MAIN` | Rust and provider gates are recorded for the candidate (six gates green on rustc 1.95.0; live PG 18/18), but no Gate-5-specific type-matrix verification record exists and the frontend half is void. | docs/release/evidence/v01-06/08-post-fix-quality-gates.txt; docs/release/evidence/v01-runtime/providers/07-pg-integration-live.txt |
 | 67 | [Gate 5][D4] Merge verified Gate 5 PR and prove main contains the exact accepted type matrix | documentation | P2 | `PARTIAL_ON_MAIN` | The decoder substance is on main, but the issue's own acceptance (record the Gate 5 merge SHA, prove main carries the accepted matrix, then state P1=0) was never executed as a recorded step. | crates/infrastructure/src/postgres/query_mapper.rs (on main); docs/plans/STATUS.md:42 (P1 matrix status is a requirement list, not evidence) |
 | 68 | [RC1][Introspection A1] Decide CHECK constraint v0.1 disposition from current source and consumer value | — | P1 | `NEEDS_OWNER_DECISION` | Owner decision: CHECK shipped end-to-end on both providers, so the practical answer is KEEP - but the release-truth documents still say the disposition is pending, and closing it changes release scope wording. Needs an explicit KEEP/DEFER record before #69/#70 or #71. | docs/release/known-limitations.md:175-186 (LIM-011 'Decision pending (#68)'); docs/release/provider-capability-matrix.md:65 ('Disposition pending (#68)') |
-| 69 | [RC1][Introspection A2-KEEP] Harden SQLite CHECK parser semantics and focused tests | bug | P2 | `PARTIAL_ON_MAIN` | Conditional on #68 = KEEP. The SQLite parser is already lexical rather than regex: case-insensitive keyword match, quote/comment skipping, nested-paren depth, safe stop on malformed SQL, two focused tests. Missing: preserving a `CONSTRAINT <name>` instead of synthesising `<table>_check_<idx>`, escaped-quote and mixed-case fixtures. | crates/infrastructure/src/sqlite/introspect.rs:355-437 (parser), :607-637 (tests) |
+| 69 | [RC1][Introspection A2-KEEP] Harden SQLite CHECK parser semantics and focused tests | bug | P2 | `PARTIAL_ON_MAIN` | Conditional on #68 = KEEP. The SQLite parser is already lexical rather than regex: case-insensitive keyword match, quote/comment skipping, nested-paren depth, doubled-quote escapes, safe stop on malformed SQL, two focused tests. Missing: preserving a `CONSTRAINT <name>` instead of synthesising `<table>_check_<idx>`, and fixtures for escaped quotes / mixed case / a malformed definition (the code paths exist untested). | crates/infrastructure/src/sqlite/introspect.rs:355-437 (parser), :455-473 (skip_quoted escapes), :607-637 (tests) |
 | 70 | [RC1][Introspection A3-KEEP] Complete CHECK provider -> domain -> Tauri -> frontend exposure | enhancement | P2 | `PARTIAL_ON_MAIN` | Conditional on #68 = KEEP. The exposure already runs provider -> domain -> native -> UI (Constraints tab renders Check constraints), so the issue's 'backend-only partial metadata' premise no longer matches main. Missing: PG expression normalisation parity, serialization-shape tests, and a deterministic name policy shared by both providers. | crates/infrastructure/src/postgres/introspect.rs:635; crates/core/src/domain/schema.rs:145; crates/native-app/src/translate.rs:804; crates/ui/src/table_metadata_view.rs:641,736 |
 | 71 | [RC1][Introspection A2-DEFER] Remove/deactivate partial CHECK exposure cleanly for v0.1 | documentation | P3 | `NEEDS_OWNER_DECISION` | Owner decision, and only reachable if #68 resolves to DEFER. There is no longer any 'partial backend-only' exposure to remove - deferring would mean removing a shipped, tested feature, which is a scope reduction the owner must authorise. | crates/ui/src/table_metadata_view.rs:641,736; docs/release/known-limitations.md:175-186 |
 | 72 | [RC1][Introspection B1] Add explicit introspection IPC serialization contract tests | bug | P2 | `ACTIONABLE_NOW` | CONCRETE CHANGE: add serialized-shape contract tests for the introspection payload on the shipping path - composite FK column order, exact camelCase/snake_case field names, null/optional fields - so the old singular fromColumn/toColumn drift cannot return. Files: crates/native-app/src/translate.rs:804 (+ tests in crates/native-app/src/translate_tests.rs) and the core domain structs in crates/core/src/domain/schema.rs; the legacy tauri DTO at crates/tauri-app/src/dto.rs:494 is a second, non-shipping consumer. Active regardless of the #68 outcome; the CHECK-payload part becomes conditional on KEEP. | crates/core/src/domain/schema.rs:145,201; crates/tauri-app/src/dto.rs:494-506; no introspect-shape test found (grep 'fn .*introspect' in crates/tauri-app/src/dto.rs, crates/native-app/src/translate*.rs) |
@@ -222,4 +223,24 @@ These rows are `DONE_ON_MAIN` with a pointer that was read on this tree. They ar
 | 215 | [Phase H][H02] Query Plan Visualizer and Slow Query Advisor | — | P3 | `OUT_OF_SCOPE_V01` | Phase H post-v0.1 scope; depends on #196 for live context. | docs/goals/goal-phase-h-ai.md |
 | 216 | [Phase A][A10] Object Dependencies and References Navigator | — | P3 | `OUT_OF_SCOPE_V01` | Phase A post-v0.1 scope; depends on the Phase A object models. | docs/goals/goal-phase-a-object-crud.md |
 
-_Generated from `issues-open-2026-09-14.json`; the generator asserts that every open issue has exactly one row and one valid disposition (136/136). Dispositions: DONE_ON_MAIN=10, PARTIAL_ON_MAIN=50, ACTIONABLE_NOW=12, NEEDS_OWNER_DECISION=13, NEEDS_EXTERNAL_RESOURCE=5, OUT_OF_SCOPE_V01=39, SUPERSEDED=7, UNCLEAR=0._
+_Snapshot 1: 136 rows; snapshot 2 below: 11 rows; total 147._
+
+## Inventory — snapshot 2, late arrivals (11 issues, all post-v0.1 scope)
+
+These were created after the first snapshot was taken. They are part of the same post-v0.1 decomposition (`Parent Goal: #182`) and are classified with the same rules; they appear here rather than being merged into the table above so that both snapshots stay auditable.
+
+| # | Title (verbatim) | Labels | Pri | Disposition | Dependency / blocker / concrete change | Evidence pointer |
+|---:|---|---|---:|---|---|---|
+| 217 | [Phase A][A11] PostgreSQL Partitioned Tables and Partition Management | — | P3 | `OUT_OF_SCOPE_V01` | Phase A post-v0.1 scope ('Parent Goal: #182'); partitioned-table management needs the #183 mutation framework. No v0.1 impact. | docs/goals/goal-phase-a-object-crud.md; issue body 'Parent Goal: #182' |
+| 218 | [Phase A][A12] PostgreSQL Extensions Workbench | — | P3 | `OUT_OF_SCOPE_V01` | Phase A post-v0.1 scope; extension management is schema mutation, deferred in v0.1 (LIM-004). | docs/release/known-limitations.md:77-89 (LIM-004); docs/goals/goal-phase-a-object-crud.md |
+| 219 | [Phase E][E02] PostgreSQL Row-Level Security Policies Workbench | — | P3 | `OUT_OF_SCOPE_V01` | Phase E post-v0.1 scope; the existing user/role backend is deliberately not surfaced in v0.1 (LIM-005). | docs/release/known-limitations.md:91-103 (LIM-005); docs/goals/goal-phase-e-security.md |
+| 220 | [Phase C][C06] SQL INSERT, PostgreSQL COPY, and Script Export Formats | — | P3 | `OUT_OF_SCOPE_V01` | Phase C post-v0.1 scope. Note the overlap with v0.1 truth: the UI exports CSV/TSV only, while LIM-012 advertises XLSX (#61 tracks the UI gap). | docs/release/known-limitations.md:189-201 (LIM-012); docs/goals/goal-phase-c-transfer.md |
+| 221 | [Phase D][D03] Transaction and Session State Inspector | — | P3 | `OUT_OF_SCOPE_V01` | Phase D post-v0.1 scope; depends on the #196 monitoring foundation. Related v0.1 truth: SQLite cancellation works, PostgreSQL cancellation is capability-gated off (LIM-014). | docs/goals/goal-phase-d-monitoring.md; docs/release/known-limitations.md:217-229 |
+| 222 | [Phase G][G05] Workspace Sessions, Layout Presets, and Window Restore | — | P3 | `OUT_OF_SCOPE_V01` | Phase G post-v0.1 scope. Related v0.1 truth: workspace/session persistence is not implemented at all (LIM-016) and is already registered as a limitation. | docs/release/known-limitations.md:245-257 (LIM-016); docs/goals/goal-phase-g-productivity.md |
+| 223 | [Connections][I02] Advanced SSL/TLS, SSH Profiles, and Connection Diagnostics | — | P3 | `OUT_OF_SCOPE_V01` | Post-v0.1 scope, but it overlaps two open v0.1 items: the secure-by-default policy (#144) and the unqualified SSH status (LIM-006). Whatever #144 decides fixes the v0.1 baseline; this issue then extends it (CA/client certs, profiles, staged diagnostics). | docs/release/known-limitations.md:105-117 (LIM-006); issue #144; docs/notes/PRODUCT_CAPABILITY_MATRIX.md:356-357 |
+| 224 | [Query][Q01] Explicit Auto-Commit, Manual Transaction, Commit, and Rollback Controls | — | P3 | `OUT_OF_SCOPE_V01` | Post-v0.1 scope, but it is the natural home of the contract that #147 must record for v0.1: today a multi-statement batch containing any mutation already runs in one transaction and rolls back (query_service.rs:213-239), and there are no user-facing commit/rollback controls. | issue #147; crates/core/src/application/query_service.rs:213-239 |
+| 225 | [Query][Q02] SQL Parameters, Variables, and Reusable Execution Bindings | — | P3 | `OUT_OF_SCOPE_V01` | Post-v0.1 scope. Related v0.1 truth: typed parameter binding exists at the provider layer (bind_params fails explicitly rather than coercing) but there is no user-facing parameter/variable system. | crates/infrastructure/src/postgres/query_mapper.rs:9-64; docs/goals/goal-phase-g-productivity.md |
+| 226 | [ER][ER01] Schema Design Mode with Draft Table/Relation Editing | — | P3 | `OUT_OF_SCOPE_V01` | Post-v0.1 scope; depends on #183 plus the Phase A CRUD issues (#207, #186, #185). ER in v0.1 is inspection/navigation only. | docs/goals/goal-phase-a-object-crud.md; docs/plans/STATUS.md (ER large-schema architecture) |
+| 227 | [Data][DA01] Column Profiling, Distribution, Null, Distinct, and Quality Insights | — | P3 | `OUT_OF_SCOPE_V01` | Post-v0.1 scope (data profiling); depends on the Phase C/D services. No v0.1 impact. | docs/notes/PRODUCT_ROADMAP.md; docs/goals/goal-full-product.md |
+
+_Generated from both snapshots; the generator asserts that every open issue has exactly one row and one valid disposition (147/147). Dispositions: DONE_ON_MAIN=10, PARTIAL_ON_MAIN=50, ACTIONABLE_NOW=12, NEEDS_OWNER_DECISION=13, NEEDS_EXTERNAL_RESOURCE=5, OUT_OF_SCOPE_V01=50, SUPERSEDED=7, UNCLEAR=0._

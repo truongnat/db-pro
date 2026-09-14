@@ -20,10 +20,10 @@ Field rules:
 | `ACTIONABLE_NOW` | 12 |
 | `NEEDS_OWNER_DECISION` | 13 |
 | `NEEDS_EXTERNAL_RESOURCE` | 5 |
-| `OUT_OF_SCOPE_V01` | 39 |
+| `OUT_OF_SCOPE_V01` | 50 |
 | `SUPERSEDED` | 7 |
 | `UNCLEAR` | 0 |
-| **Total** | **136** |
+| **Total** | **147** |
 
 ## Rows
 
@@ -165,6 +165,17 @@ Field rules:
 | #214 | [Diagnostics][L01] Native Diagnostics, Logs, and Support Bundle | `OUT_OF_SCOPE_V01` | — | 2026-09-14 | triage classification only; not yet re-verified against a post-triage commit — docs/release/evidence/v01-runtime/providers/19-error-log-audit.txt |
 | #215 | [Phase H][H02] Query Plan Visualizer and Slow Query Advisor | `OUT_OF_SCOPE_V01` | — | 2026-09-14 | triage classification only; not yet re-verified against a post-triage commit — docs/goals/goal-phase-h-ai.md |
 | #216 | [Phase A][A10] Object Dependencies and References Navigator | `OUT_OF_SCOPE_V01` | — | 2026-09-14 | triage classification only; not yet re-verified against a post-triage commit — docs/goals/goal-phase-a-object-crud.md |
+| #217 | [Phase A][A11] PostgreSQL Partitioned Tables and Partition Management | `OUT_OF_SCOPE_V01` | — | 2026-09-14 | triage classification only; not yet re-verified against a post-triage commit — docs/goals/goal-phase-a-object-crud.md; issue body 'Parent Goal: #182' |
+| #218 | [Phase A][A12] PostgreSQL Extensions Workbench | `OUT_OF_SCOPE_V01` | — | 2026-09-14 | triage classification only; not yet re-verified against a post-triage commit — docs/release/known-limitations.md:77-89 (LIM-004); docs/goals/goal-phase-a-object-crud.md |
+| #219 | [Phase E][E02] PostgreSQL Row-Level Security Policies Workbench | `OUT_OF_SCOPE_V01` | — | 2026-09-14 | triage classification only; not yet re-verified against a post-triage commit — docs/release/known-limitations.md:91-103 (LIM-005); docs/goals/goal-phase-e-security.md |
+| #220 | [Phase C][C06] SQL INSERT, PostgreSQL COPY, and Script Export Formats | `OUT_OF_SCOPE_V01` | — | 2026-09-14 | triage classification only; not yet re-verified against a post-triage commit — docs/release/known-limitations.md:189-201 (LIM-012); docs/goals/goal-phase-c-transfer.md |
+| #221 | [Phase D][D03] Transaction and Session State Inspector | `OUT_OF_SCOPE_V01` | — | 2026-09-14 | triage classification only; not yet re-verified against a post-triage commit — docs/goals/goal-phase-d-monitoring.md; docs/release/known-limitations.md:217-229 |
+| #222 | [Phase G][G05] Workspace Sessions, Layout Presets, and Window Restore | `OUT_OF_SCOPE_V01` | — | 2026-09-14 | triage classification only; not yet re-verified against a post-triage commit — docs/release/known-limitations.md:245-257 (LIM-016); docs/goals/goal-phase-g-productivity.md |
+| #223 | [Connections][I02] Advanced SSL/TLS, SSH Profiles, and Connection Diagnostics | `OUT_OF_SCOPE_V01` | — | 2026-09-14 | triage classification only; not yet re-verified against a post-triage commit — docs/release/known-limitations.md:105-117 (LIM-006); issue #144; docs/notes/PRODUCT_CAPABILITY_MATRIX.md:356-357 |
+| #224 | [Query][Q01] Explicit Auto-Commit, Manual Transaction, Commit, and Rollback Controls | `OUT_OF_SCOPE_V01` | — | 2026-09-14 | triage classification only; not yet re-verified against a post-triage commit — issue #147; crates/core/src/application/query_service.rs:213-239 |
+| #225 | [Query][Q02] SQL Parameters, Variables, and Reusable Execution Bindings | `OUT_OF_SCOPE_V01` | — | 2026-09-14 | triage classification only; not yet re-verified against a post-triage commit — crates/infrastructure/src/postgres/query_mapper.rs:9-64; docs/goals/goal-phase-g-productivity.md |
+| #226 | [ER][ER01] Schema Design Mode with Draft Table/Relation Editing | `OUT_OF_SCOPE_V01` | — | 2026-09-14 | triage classification only; not yet re-verified against a post-triage commit — docs/goals/goal-phase-a-object-crud.md; docs/plans/STATUS.md (ER large-schema architecture) |
+| #227 | [Data][DA01] Column Profiling, Distribution, Null, Distinct, and Quality Insights | `OUT_OF_SCOPE_V01` | — | 2026-09-14 | triage classification only; not yet re-verified against a post-triage commit — docs/notes/PRODUCT_ROADMAP.md; docs/goals/goal-full-product.md |
 
 ## Closed by this workstream
 

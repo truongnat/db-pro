@@ -3,9 +3,10 @@
 Companion to [`INVENTORY.md`](INVENTORY.md) (what each issue is) and [`LEDGER.md`](LEDGER.md) (what
 was actually done). This file is the *order* and the *reason* for the order.
 
-Baseline: `main @ a9c1174`. Snapshot: 136 open issues. Of those, **12 are `ACTIONABLE_NOW`**, 50 are
-`PARTIAL_ON_MAIN` with a named remainder, 10 are `DONE_ON_MAIN`, 18 need the owner or a host, 7 are
-superseded and 39 are post-v0.1 scope that must not be worked now.
+Baseline: `main @ a9c1174`. **147 open issues** (136 in the frozen snapshot plus 11 created minutes
+after it — see `INVENTORY.md`). Of those, **12 are `ACTIONABLE_NOW`**, 50 are `PARTIAL_ON_MAIN` with a
+named remainder, 10 are `DONE_ON_MAIN`, 18 need the owner or a host, 7 are superseded and 50 are
+post-v0.1 scope that must not be worked now.
 
 ## Ordering principles
 
@@ -23,7 +24,7 @@ superseded and 39 are post-v0.1 scope that must not be worked now.
 5. **Nothing is closed because it "sounds done".** Every closure in the later phases cites the same kind
    of pointer the triage required: a commit, a file:line, a test name, a command output or an evidence
    file. `LEDGER.md` records it.
-6. **The post-v0.1 roadmap stays post-v0.1.** 39 issues are listed in batch 5 purely so that no later
+6. **The post-v0.1 roadmap stays post-v0.1.** 50 issues are listed in batch 5 purely so that no later
    run mistakes them for v0.1 gaps. Working them is a product decision, not a triage outcome.
 
 ## How to read a batch
@@ -193,7 +194,7 @@ Genuinely blocked: needs the owner, a host, a GUI session or a publication that 
 
 _17 issues · estimates: S=7, M=6, L=4._
 
-## Batch 5 — not work (`OUT_OF_SCOPE_V01`, 39 issues) — listed so nobody re-triages them
+## Batch 5 — not work (`OUT_OF_SCOPE_V01`, 50 issues) — listed so nobody re-triages them
 
 | # | Title | Why it is here |
 |---:|---|---|
@@ -236,6 +237,17 @@ _17 issues · estimates: S=7, M=6, L=4._
 | #214 | [Diagnostics][L01] Native Diagnostics, Logs, and Support Bundle | Post-v0.1 diagnostics scope. Related v0.1-era material exists (error-log audit, redaction rules in AGENTS.md) but the support-bundle surface is not v0.1 scope. |
 | #215 | [Phase H][H02] Query Plan Visualizer and Slow Query Advisor | Phase H post-v0.1 scope; depends on #196 for live context. |
 | #216 | [Phase A][A10] Object Dependencies and References Navigator | Phase A post-v0.1 scope; depends on the Phase A object models. |
+| #217 | [Phase A][A11] PostgreSQL Partitioned Tables and Partition Management | Phase A post-v0.1 scope ('Parent Goal: #182'); partitioned-table management needs the #183 mutation framework. No v0.1 impact. |
+| #218 | [Phase A][A12] PostgreSQL Extensions Workbench | Phase A post-v0.1 scope; extension management is schema mutation, deferred in v0.1 (LIM-004). |
+| #219 | [Phase E][E02] PostgreSQL Row-Level Security Policies Workbench | Phase E post-v0.1 scope; the existing user/role backend is deliberately not surfaced in v0.1 (LIM-005). |
+| #220 | [Phase C][C06] SQL INSERT, PostgreSQL COPY, and Script Export Formats | Phase C post-v0.1 scope. Note the overlap with v0.1 truth: the UI exports CSV/TSV only, while LIM-012 advertises XLSX (#61 tracks the UI gap). |
+| #221 | [Phase D][D03] Transaction and Session State Inspector | Phase D post-v0.1 scope; depends on the #196 monitoring foundation. Related v0.1 truth: SQLite cancellation works, PostgreSQL cancellation is capability-gated off (LIM-014). |
+| #222 | [Phase G][G05] Workspace Sessions, Layout Presets, and Window Restore | Phase G post-v0.1 scope. Related v0.1 truth: workspace/session persistence is not implemented at all (LIM-016) and is already registered as a limitation. |
+| #223 | [Connections][I02] Advanced SSL/TLS, SSH Profiles, and Connection Diagnostics | Post-v0.1 scope, but it overlaps two open v0.1 items: the secure-by-default policy (#144) and the unqualified SSH status (LIM-006). Whatever #144 decides fixes the v0.1 baseline; this issue then extends it (CA/client certs, profiles, staged diagnostics). |
+| #224 | [Query][Q01] Explicit Auto-Commit, Manual Transaction, Commit, and Rollback Controls | Post-v0.1 scope, but it is the natural home of the contract that #147 must record for v0.1: today a multi-statement batch containing any mutation already runs in one transaction and rolls back (query_service.rs:213-239), and there are no user-facing commit/rollback controls. |
+| #225 | [Query][Q02] SQL Parameters, Variables, and Reusable Execution Bindings | Post-v0.1 scope. Related v0.1 truth: typed parameter binding exists at the provider layer (bind_params fails explicitly rather than coercing) but there is no user-facing parameter/variable system. |
+| #226 | [ER][ER01] Schema Design Mode with Draft Table/Relation Editing | Post-v0.1 scope; depends on #183 plus the Phase A CRUD issues (#207, #186, #185). ER in v0.1 is inspection/navigation only. |
+| #227 | [Data][DA01] Column Profiling, Distribution, Null, Distinct, and Quality Insights | Post-v0.1 scope (data profiling); depends on the Phase C/D services. No v0.1 impact. |
 
 ## Superseded set (7 issues) — close with a pointer, do not work
 
@@ -281,7 +293,7 @@ batch 4  owner:    #119 license (BLOCKS public distribution) · #101 naming · #
                    #112 GitHub Projects v2
          blocked:  #14 #21..31 #91 #94 #105 #106 #107 #110  (cannot finish before publication)
              |
-batch 5  39 post-v0.1 issues — not work
+batch 5  50 post-v0.1 issues — not work
 ```
 
 Three cycles exist and should be recognised when planning capacity:
@@ -318,5 +330,5 @@ Three cycles exist and should be recognised when planning capacity:
 | 2 – bounded fixes & contracts | 15 | 3 × S, 8 × M, 4 × L | the 8 `ACTIONABLE_NOW` plus the 7 `PARTIAL` rows whose remainder is not blocked |
 | 3 – evidence & disposition records | 44 | 10 × S, 25 × M, 7 × L, 2 × XL | ordered by the dependency graph above; mostly documents, tests and disposition records, not code |
 | 4 – owner / external / publication | 17 | 7 × S, 6 × M, 4 × L | cannot be finished here; collect answers and external hosts |
-| 5 – post-v0.1 | 39 | — | explicitly out of scope |
+| 5 – post-v0.1 | 50 | — | explicitly out of scope (39 from snapshot 1, 11 late arrivals) |
 | Superseded | 7 | S | close with a pointer to the replacement |

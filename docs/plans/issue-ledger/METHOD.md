@@ -1,8 +1,10 @@
 # Method — how each disposition was decided
 
 Baseline: `main @ a9c1174cbfdfd0105c939c3bc703f4c6fa07a975`, branch `main`, worktree clean
-(`git status --porcelain -uall` empty). Snapshot: `issues-open-2026-09-14.json`, 136 issues.
-Nothing on GitHub was modified and no product code was touched by this pass.
+(`git status --porcelain -uall` empty). Snapshots: `issues-open-2026-09-14.json` (136 issues) and
+`issues-open-2026-09-14-late.json` (11 issues, #217–#227). Nothing on GitHub was modified — the late
+snapshot and the live count were fetched with **read-only** `gh issue list` calls — and no product code
+was touched by this pass.
 
 This file exists so a later reader can **re-derive or falsify** the classification rather than
 trust it. Every claim in `INVENTORY.md` is reproducible with the probes below.
@@ -40,6 +42,11 @@ they settle.
 
 ```bash
 python3 -c "import json;d=json.load(open('docs/plans/issue-ledger/issues-open-2026-09-14.json'));print(len(d))"   # 136
+python3 -c "import json;d=json.load(open('docs/plans/issue-ledger/issues-open-2026-09-14-late.json'));print(len(d))"  # 11
+# read-only live recount (no GitHub mutation):
+gh issue list --state open --limit 300 --json number --jq 'length'                      # 147
+gh issue list --state open --limit 300 --json number,title,labels,body,createdAt,updatedAt,author,milestone \
+  --jq '[.[] | select(.number >= 217)] | sort_by(.number)' > docs/plans/issue-ledger/issues-open-2026-09-14-late.json
 git log --oneline -1                     # a9c1174 docs(release): clarify the HEAD field ...
 git status --porcelain -uall             # empty
 git tag -l                               # empty  -> no v0.1.0 tag exists (#108)
@@ -192,6 +199,31 @@ Two refinements worth stating explicitly, because they are where a triage usuall
 - No `DONE_ON_MAIN` was granted on the strength of a document title alone. Where a document is
   partly historical (for example `platform-prerequisites.md`, whose matrix still describes the
   retired Tauri bundler), the row says so and the disposition is `PARTIAL_ON_MAIN`.
+
+## 4b. The two snapshots (why the row count is 147 and not 136)
+
+The frozen input had 136 issues. Before publishing this triage, the live open count was re-checked
+read-only:
+
+```bash
+gh issue list --state open --limit 300 --json number --jq 'length'   # 147
+```
+
+The difference is 11 issues, #217–#227 (created 2026-09-14T16:52–16:54Z, i.e. a few minutes after the
+first snapshot was written). They are the tail of the same post-v0.1 decomposition as #182–#216: every
+one of them is either `[Phase …]` or a `[Query]`/`[Data]`/`[ER]`/`[Connections]` feature with
+`Parent Goal: #182`, and all 11 are `OUT_OF_SCOPE_V01` for the same reason as the rest of that family.
+
+They were kept in a **separate snapshot file and a separate table** rather than merged into the first
+one, for two reasons: the first snapshot is the frozen input this triage was computed from and must stay
+reproducible, and the late arrivals arrived with no chance to be reviewed against the tree in the same
+pass. The inventory therefore states three numbers explicitly — 136 (snapshot 1), 11 (snapshot 2) and
+147 (rows = live open count) — and the generator asserts
+`len(rows) == len(snapshot1) + len(snapshot2)`.
+
+Two of the late arrivals overlap open v0.1 items and could be mistaken for v0.1 work; their rows say so:
+#223 (advanced TLS/SSH profiles) overlaps #144, and #224 (explicit transaction controls) is the natural
+home of the contract #147 must record. Both remain post-v0.1.
 
 ## 5. On the absence of `UNCLEAR`
 

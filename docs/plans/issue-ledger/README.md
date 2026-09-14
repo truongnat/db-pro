@@ -2,23 +2,27 @@
 
 **Phase:** 1 of *"work through all open issues"* — triage and execution plan only.
 **Baseline audited:** `main @ a9c1174`, worktree clean, no product code changed.
-**Snapshot:** 136 open issues, frozen in [`issues-open-2026-09-14.json`](issues-open-2026-09-14.json).
+**Snapshots:** [`issues-open-2026-09-14.json`](issues-open-2026-09-14.json) (136 issues, the frozen input)
+plus [`issues-open-2026-09-14-late.json`](issues-open-2026-09-14-late.json) (11 issues, #217–#227, created
+on GitHub a few minutes *after* the first snapshot was written). Live open count re-verified with
+`gh issue list --state open --limit 300` = **147**, which is exactly the row count in `INVENTORY.md`.
 
 ## What this directory is
 
 A triage of every open GitHub issue against the **actual tree**, not against the issue text. The
-repository has 136 open issues; a large part of what they ask for landed on `main` afterwards
+repository has 147 open issues; a large part of what they ask for landed on `main` afterwards
 (the native rewrite, Gate 4, Gate 5, the RC1 closure work, the v0.1 release pipeline), and a large
 part is explicitly post-v0.1 product scope. Nobody had mapped the two onto each other. This
 directory is that map, plus the plan for working the leftovers.
 
 | File | What it holds |
 |---|---|
-| [`INVENTORY.md`](INVENTORY.md) | One row per open issue (136 rows), each with exactly one disposition, a proposed priority, a dependency/blocker note and a one-line evidence pointer. |
+| [`INVENTORY.md`](INVENTORY.md) | One row per open issue (**147 rows** — 136 from snapshot 1 plus the 11 late arrivals in their own table), each with exactly one disposition, a proposed priority, a dependency/blocker note and a one-line evidence pointer. |
 | [`PLAN.md`](PLAN.md) | The ordered execution plan: batches, per-issue complexity, rationale, dependencies, stop conditions. |
 | [`LEDGER.md`](LEDGER.md) | The running traceability ledger — issue, status, commit(s), timestamp, verification evidence. Starts at the triage state and is updated after every later push. |
 | [`METHOD.md`](METHOD.md) | How each disposition was decided, with the exact commands/greps used, so a later reader can re-derive or challenge the classification. |
-| [`issues-open-2026-09-14.json`](issues-open-2026-09-14.json) | Raw snapshot of the 136 open issues (number, title, labels, body, timestamps, author, milestone) that this triage was computed from. |
+| [`issues-open-2026-09-14.json`](issues-open-2026-09-14.json) | Raw snapshot of the 136 open issues (number, title, labels, body, timestamps, author, milestone) that this triage was computed from. Frozen; never edited by hand. |
+| [`issues-open-2026-09-14-late.json`](issues-open-2026-09-14-late.json) | Raw snapshot of the 11 further open issues (#217–#227) created after the first snapshot was taken, fetched read-only before this triage was published. |
 
 Non-goals of this directory: it is **not** a release document, it does not replace
 `docs/release/*` (those stay the release-truth source), and it does not change any issue on
@@ -98,8 +102,10 @@ This directory is a running artifact, not a one-shot report. After every later p
 4. Update `INVENTORY.md`'s generated tables by editing the classification block and re-running the
    generator (see `METHOD.md` §6) — or edit by hand *and* recount: the invariant is
    **open issues = inventory rows**.
-5. Keep the frozen JSON snapshot in place. If the triage is redone against a newer snapshot, add a
-   new file rather than overwriting this one, and say which snapshot the rows refer to.
+5. Keep both frozen JSON snapshots in place. If the triage is redone against a newer snapshot, add a
+   new file rather than overwriting these, and say which snapshot the rows refer to. `INVENTORY.md`
+   currently keeps snapshot 1 and snapshot 2 in separate tables so the two can be recounted
+   independently; if a third snapshot is needed, follow the same pattern.
 
 ## Related documents (do not duplicate them)
 
