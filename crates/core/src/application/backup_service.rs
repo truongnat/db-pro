@@ -2,7 +2,7 @@ use super::registry::ConnectionRegistry;
 use crate::domain::backup::{BackupOptions, BackupResult, RestoreOptions};
 use crate::domain::connection::{Connection, ConnectionConfig, ConnectionId, DriverType};
 use crate::domain::error::DbError;
-use crate::ports::{BackupEngine, ConnectionRepository, SecretStore};
+use crate::ports::{BackupEngine, ConnectionRepository, IntrospectionCache, SecretStore};
 use std::sync::Arc;
 
 type PgEngineFactory = Box<dyn Fn(&ConnectionConfig) -> Box<dyn BackupEngine> + Send + Sync>;
@@ -12,6 +12,7 @@ pub struct BackupService {
     connections: Box<dyn ConnectionRepository>,
     secrets: Box<dyn SecretStore>,
     registry: Arc<ConnectionRegistry>,
+    introspection_cache: Box<dyn IntrospectionCache>,
     pg_engine_factory: PgEngineFactory,
     sqlite_engine_factory: SqliteEngineFactory,
 }
@@ -21,6 +22,7 @@ impl BackupService {
         connections: Box<dyn ConnectionRepository>,
         secrets: Box<dyn SecretStore>,
         registry: Arc<ConnectionRegistry>,
+        introspection_cache: Box<dyn IntrospectionCache>,
         pg_engine_factory: PgEngineFactory,
         sqlite_engine_factory: SqliteEngineFactory,
     ) -> Self {
@@ -28,6 +30,7 @@ impl BackupService {
             connections,
             secrets,
             registry,
+            introspection_cache,
             pg_engine_factory,
             sqlite_engine_factory,
         }
@@ -78,7 +81,20 @@ impl BackupService {
             DriverType::SQLite => (self.sqlite_engine_factory)(&config.database),
         };
 
-        engine.restore(options, &password).await
+        engine.restore(options, &password).await?;
+
+        // The target database now holds the backup's content, so any introspected
+        // schema cached for this connection describes a database that no longer
+        // exists. Drop it rather than serving it on the next connect.
+        if let Err(error) = self.introspection_cache.invalidate(&conn_id).await {
+            tracing::warn!(
+                connection_id = %conn_id,
+                %error,
+                "failed to invalidate introspection cache after restore"
+            );
+        }
+
+        Ok(())
     }
 
     async fn load_connection(&self, conn_id: &ConnectionId) -> Result<Connection, DbError> {
@@ -125,8 +141,14 @@ mod tests {
     use super::*;
     use crate::domain::backup::BackupFormat;
     use crate::domain::connection::{DriverType, SshTunnelConfig, SslMode};
-    use crate::ports::{MockBackupEngine, MockConnectionRepository, MockSecretStore};
+    use crate::ports::{MockBackupEngine, MockConnectionRepository, MockIntrospectionCache, MockSecretStore};
     use std::sync::{Arc, Mutex};
+
+    fn permissive_cache() -> MockIntrospectionCache {
+        let mut cache = MockIntrospectionCache::new();
+        cache.expect_invalidate().returning(|_| Ok(()));
+        cache
+    }
 
     fn postgres_config_with_ssh() -> ConnectionConfig {
         ConnectionConfig {
@@ -219,6 +241,7 @@ mod tests {
             Box::new(connections),
             Box::new(secrets),
             Arc::new(ConnectionRegistry::new()),
+            Box::new(permissive_cache()),
             pg_factory,
             sqlite_factory,
         );
@@ -270,6 +293,7 @@ mod tests {
             Box::new(connections),
             Box::new(secrets),
             Arc::new(ConnectionRegistry::new()),
+            Box::new(permissive_cache()),
             pg_factory,
             sqlite_factory,
         );
@@ -314,6 +338,7 @@ mod tests {
             Box::new(connections),
             Box::new(secrets),
             Arc::new(ConnectionRegistry::new()),
+            Box::new(permissive_cache()),
             pg_factory,
             sqlite_factory,
         );
@@ -356,6 +381,7 @@ mod tests {
             Box::new(connections),
             Box::new(MockSecretStore::new()),
             Arc::new(ConnectionRegistry::new()),
+            Box::new(permissive_cache()),
             pg_factory,
             sqlite_factory,
         );
@@ -395,6 +421,7 @@ mod tests {
             Box::new(connections),
             Box::new(MockSecretStore::new()),
             Arc::new(ConnectionRegistry::new()),
+            Box::new(permissive_cache()),
             pg_factory,
             sqlite_factory,
         );
@@ -407,5 +434,96 @@ mod tests {
             })
             .await
             .expect("SQLite restore should not require a database secret");
+    }
+
+    #[tokio::test]
+    async fn sqlite_restore_is_refused_while_the_connection_is_active() {
+        let connection_id = ConnectionId::new();
+        let connection = Connection::new(sqlite_config());
+        let mut connections = MockConnectionRepository::new();
+        connections
+            .expect_get()
+            .returning(move |_| Ok(Some(connection.clone())));
+
+        let registry = Arc::new(ConnectionRegistry::new());
+        registry.register(connection_id, crate::domain::connection::ConnectionHandle::new(1));
+
+        let restore_reached_the_engine = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let observed = Arc::clone(&restore_reached_the_engine);
+        let sqlite_factory = Box::new(move |_: &str| {
+            let observed = Arc::clone(&observed);
+            let mut engine = MockBackupEngine::new();
+            engine.expect_restore().returning(move |_, _| {
+                observed.store(true, std::sync::atomic::Ordering::SeqCst);
+                Ok(())
+            });
+            Box::new(engine) as Box<dyn BackupEngine>
+        });
+        let service = BackupService::new(
+            Box::new(connections),
+            Box::new(MockSecretStore::new()),
+            registry,
+            Box::new(permissive_cache()),
+            Box::new(|_: &ConnectionConfig| -> Box<dyn BackupEngine> { Box::new(MockBackupEngine::new()) }),
+            sqlite_factory,
+        );
+
+        let error = service
+            .restore(&RestoreOptions {
+                connection_id: connection_id.to_string(),
+                input_path: "/tmp/sqlite-backup.db".into(),
+                format: BackupFormat::Custom,
+            })
+            .await
+            .expect_err("restore must be refused while the connection is active");
+
+        assert!(
+            error.to_string().contains("disconnect the SQLite connection"),
+            "{error}"
+        );
+        assert!(
+            !restore_reached_the_engine.load(std::sync::atomic::Ordering::SeqCst),
+            "the engine must not run a restore that replaces a live database file"
+        );
+    }
+
+    #[tokio::test]
+    async fn successful_restore_drops_the_cached_schema_for_the_connection() {
+        let connection_id = ConnectionId::new();
+        let connection = Connection::new(sqlite_config());
+        let mut connections = MockConnectionRepository::new();
+        connections
+            .expect_get()
+            .returning(move |_| Ok(Some(connection.clone())));
+
+        let mut cache = MockIntrospectionCache::new();
+        cache
+            .expect_invalidate()
+            .withf(move |id| *id == connection_id)
+            .times(1)
+            .returning(|_| Ok(()));
+
+        let sqlite_factory = Box::new(|_: &str| {
+            let mut engine = MockBackupEngine::new();
+            engine.expect_restore().returning(|_, _| Ok(()));
+            Box::new(engine) as Box<dyn BackupEngine>
+        });
+        let service = BackupService::new(
+            Box::new(connections),
+            Box::new(MockSecretStore::new()),
+            Arc::new(ConnectionRegistry::new()),
+            Box::new(cache),
+            Box::new(|_: &ConnectionConfig| -> Box<dyn BackupEngine> { Box::new(MockBackupEngine::new()) }),
+            sqlite_factory,
+        );
+
+        service
+            .restore(&RestoreOptions {
+                connection_id: connection_id.to_string(),
+                input_path: "/tmp/sqlite-backup.db".into(),
+                format: BackupFormat::Custom,
+            })
+            .await
+            .expect("restore should succeed");
     }
 }

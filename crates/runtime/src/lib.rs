@@ -167,6 +167,7 @@ impl DbProRuntime {
             Box::new(meta_store.clone()),
             Box::new(Arc::clone(&secret_store)),
             Arc::clone(&registry),
+            Box::new(meta_store.clone()),
             Box::new(|config| Box::new(PgDumpEngine::new(config.clone()))),
             Box::new(|database| {
                 Box::new(SqliteBackupEngine::new(db_config(
