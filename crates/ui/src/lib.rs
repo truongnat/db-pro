@@ -26,7 +26,8 @@ pub use components::{
 };
 pub(crate) use policy::{ColumnWriteBlock, ColumnWritePolicy};
 pub use result_grid::{
-    cell_text, compare_ui_cells, displayed_row_number, filtered_sorted_indexes, grid_keyboard_selection,
+    cell_text, cell_text_as_str, compare_ui_cells, displayed_row_number, filtered_sorted_indexes,
+    grid_keyboard_selection,
 };
 pub use runtime::{
     RequestId, TaskBridge, UiCell, UiCheckConstraint, UiColumn, UiCommand, UiConnectionDraft, UiConnectionSummary,
