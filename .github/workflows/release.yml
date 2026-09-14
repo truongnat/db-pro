@@ -180,12 +180,19 @@ jobs:
           test "${actual_sha}" = "${EXPECTED_SHA}"
           echo "Preflight candidate SHA: ${actual_sha}"
 
+      # libdbus-1-dev/pkg-config are named even though this list already reaches them
+      # transitively (libgtk-3-dev -> libatk-bridge2.0-dev -> libatspi2.0-dev ->
+      # libdbus-1-dev): the keyring credential backend (dbus-secret-service -> dbus ->
+      # libdbus-sys) needs the `dbus-1.pc` that libdbus-1-dev provides, and a gate must
+      # not depend on an undeclared transitive pull. See
+      # docs/release/evidence/v01-06/11-linux-build-dependency-fix.txt.
       - name: Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
             libxkbcommon-dev libwayland-dev libx11-dev libgl1-mesa-dev \
-            libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev
+            libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev \
+            libdbus-1-dev pkg-config
 
       # Reproducibility (goal-3 §15): the release must compile with the exact
       # compiler it was qualified on. rust-toolchain.toml in the checked-out
@@ -375,12 +382,22 @@ jobs:
             target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
+      # Only what `-p db-pro-native` actually compiles: the GL/X11/Wayland headers for
+      # eframe/egui (libgl1-mesa-dev also pulls libglvnd-dev -> libegl-dev, which
+      # glutin_egl_sys links against) plus libdbus-1-dev/pkg-config for the keyring
+      # credential backend (dbus-secret-service -> dbus -> libdbus-sys needs `dbus-1.pc`;
+      # without it the build panics in libdbus-sys's build script — release run
+      # 34847235273, job `Build (Linux)`). The WebKit/GTK headers are NOT needed here
+      # because this job does not build the legacy crates/tauri-app, so the preflight
+      # job's larger list must not be relied on. See
+      # docs/release/evidence/v01-06/11-linux-build-dependency-fix.txt.
       - name: Install Linux system deps
         if: matrix.platform == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            libxkbcommon-dev libwayland-dev libx11-dev libgl1-mesa-dev
+            libxkbcommon-dev libwayland-dev libx11-dev libgl1-mesa-dev \
+            libdbus-1-dev pkg-config
 
       - name: Build native app
         run: cargo build --release --locked -p db-pro-native

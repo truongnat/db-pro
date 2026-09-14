@@ -1,0 +1,310 @@
+# V01-06 evidence — 11-linux-build-dependency-fix
+
+Captured    : 2026-09-14 (local). No CI run, dispatch, cancel or tag was issued by this session.
+Worktree    : /Users/truongdev/Documents/projects/db-pro/main (branch main)
+Base commit : fdf6adc "docs(release): document the v0.1 packaging contract, reproducibility and
+              lifecycle outcomes" (HEAD at capture time; the change below was uncommitted).
+              The failed CI run below was dispatched for fbf9fda "ci(release): pin the release
+              toolchain to the qualified compiler version". `git diff --stat fbf9fda..HEAD --
+              .github/workflows/release.yml` is empty, so the workflow edited here is identical to
+              the one that failed.
+Host        : macOS 26.5.2 / arm64 (Apple Silicon). This host cannot compile or link for Linux.
+Extra tools : actionlint 1.7.12; cargo 1.95.0 (host toolchain, same version as the repo pin);
+              PyYAML via /opt/homebrew/bin/python3 (the host's /usr/bin/python3 3.9.6 lacks yaml)
+
+SCOPE OF THIS CHANGE
+  - .github/workflows/release.yml : `build` job step `Install Linux system deps` gains
+                                    `libdbus-1-dev pkg-config`; `preflight` job step `Install system
+                                    dependencies` gains the same two packages (alignment only — that
+                                    job already reached them transitively).
+  - docs/release/0.1.0-packaging.md, docs/release/platform-prerequisites.md : Linux prerequisite
+                                    lists updated + a build/runtime D-Bus note.
+  - NOT touched: any .rs file, any Cargo.toml/Cargo.lock, rust-toolchain.toml,
+                 .github/workflows/ci.yml, .github/workflows/vps-pr-review.yml, README.md, and every
+                 other doc/evidence file. No `#[allow]` was added, the toolchain pin is unchanged.
+
+==============================================================================
+1. THE OBSERVED FAILURE (real CI run 34847235273)
+==============================================================================
+Workflow "Release Build", candidate fbf9fda (fbf9fdab9100f08f12e29434983f32c18f14ac2f).
+Outcomes: `Resolve release candidate` success, `Pre-flight checks` success, `Build (macOS)` success,
+`Build (Windows)` success, `Build (Linux)` FAILURE; `Package` and `Assemble SHA256SUMS` skipped
+(both depend on `build`).
+
+Job `Build (Linux)`, step `Build native app` — excerpt as reported by the release-closure
+coordinator's `gh run view 34847235273 --log-failed` (this session ran no `gh` command):
+
+    ` required by crate `libdbus-sys` was not found.
+    The file `dbus-1.pc` needs to be installed and the PKG_CONFIG_PATH environment variable must contain its parent directory.
+      HINT: if you have installed the library, try setting PKG_CONFIG_PATH to the directory containing `dbus-1.pc`.
+      One possible solution is to check whether packages 'libdbus-1-dev' and 'pkg-config' are installed
+      thread 'main' (8893) panicked at /home/runner/.cargo/registry/src/.../libdbus-sys-0.2.7/build.rs:25:9: explicit panic
+
+This is a build-script failure, i.e. it happens while compiling dependencies, before any of that
+job's own source or link steps.
+
+==============================================================================
+2. ROOT CAUSE
+==============================================================================
+The shipping crate's credential backend is the D-Bus Secret Service, and its Rust dependency chain
+needs the D-Bus *development* file `dbus-1.pc` on Linux at compile time.
+
+Chain, verified locally with the locked graph for the shipped target
+(`cargo tree -p db-pro-native --offline --locked --target x86_64-unknown-linux-gnu -e normal,build
+-i libdbus-sys`):
+
+    libdbus-sys v0.2.7
+    └── dbus v0.9.12
+        └── dbus-secret-service v4.1.0
+            └── keyring v3.6.3
+                ├── db-pro-infrastructure v0.1.0
+                │   └── db-pro-runtime v0.1.0
+                │       └── db-pro-native v0.1.0
+                └── db-pro-native v0.1.0
+
+  * `crates/native-app/Cargo.toml` declares
+    `keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service"] }`.
+  * `crates/infrastructure/Cargo.toml` uses `keyring.workspace = true`; the workspace features are
+    `["apple-native", "linux-native-sync-persistent", "windows-native"]`.
+  * In keyring 3.6.3's own manifest (`~/.cargo/registry/src/.../keyring-3.6.3/Cargo.toml`),
+    `sync-secret-service = ["dep:dbus-secret-service"]` and
+    `linux-native-sync-persistent = ["linux-native", "sync-secret-service"]` — so *both* keyring
+    consumers resolve to the libdbus-based backend on Linux. (The zbus-based `secret-service` crate
+    is not in this graph: `cargo tree -p db-pro-native --target x86_64-unknown-linux-gnu` contains
+    no `secret-service`, `zbus` appears only under accesskit/atspi/ashpd.)
+  * `libdbus-sys` 0.2.7 has a build-dependency on the `pkg-config` crate and its build script
+    panics when the `dbus-1` pkg-config file is missing — the panic quoted in section 1.
+
+Why the same commit passed `Pre-flight checks` on the same runner image but failed `Build (Linux)`:
+the preflight list is larger and includes `libgtk-3-dev`, and on Ubuntu that package reaches
+`libdbus-1-dev` transitively:
+
+    libgtk-3-dev -> libatk-bridge2.0-dev -> libatspi2.0-dev -> libdbus-1-dev
+
+(`libatspi2.0-dev`'s Depends list contains `libdbus-1-dev`; verified on packages.ubuntu.com for
+jammy, the "libatspi2.0-dev" and "libatk-bridge2.0-dev" pages.) The build job's Linux list has no
+GTK/WebKit member, so nothing supplied `dbus-1.pc` and the build-script panic was the first error.
+A job's dependency list must cover what that job's own compile needs; borrowing the preflight list's
+transitive side effects is what broke the release.
+
+Note the target dependency is easy to miss on this host: against the default (macOS) target the same
+query prints "nothing to print" — `libdbus-sys` is only in the Linux graph.
+
+==============================================================================
+3. THE FIX — EXACT BEFORE / AFTER
+==============================================================================
+3.1 `build` job, step `Install Linux system deps` (now lines 385-399; the step that failed)
+
+    BEFORE
+        - name: Install Linux system deps
+          if: matrix.platform == 'Linux'
+          run: |
+            sudo apt-get update
+            sudo apt-get install -y \
+              libxkbcommon-dev libwayland-dev libx11-dev libgl1-mesa-dev
+
+    AFTER
+        # Only what `-p db-pro-native` actually compiles: the GL/X11/Wayland headers for
+        # eframe/egui (libgl1-mesa-dev also pulls libglvnd-dev -> libegl-dev, which
+        # glutin_egl_sys links against) plus libdbus-1-dev/pkg-config for the keyring
+        # credential backend (dbus-secret-service -> dbus -> libdbus-sys needs `dbus-1.pc`;
+        # without it the build panics in libdbus-sys's build script — release run
+        # 34847235273, job `Build (Linux)`). The WebKit/GTK headers are NOT needed here
+        # because this job does not build the legacy crates/tauri-app, so the preflight
+        # job's larger list must not be relied on. See
+        # docs/release/evidence/v01-06/11-linux-build-dependency-fix.txt.
+        - name: Install Linux system deps
+          if: matrix.platform == 'Linux'
+          run: |
+            sudo apt-get update
+            sudo apt-get install -y \
+              libxkbcommon-dev libwayland-dev libx11-dev libgl1-mesa-dev \
+              libdbus-1-dev pkg-config
+
+3.2 `preflight` job, step `Install system dependencies` (now lines 189-196) — alignment only
+
+    BEFORE
+        - name: Install system dependencies
+          run: |
+            sudo apt-get update
+            sudo apt-get install -y \
+              libxkbcommon-dev libwayland-dev libx11-dev libgl1-mesa-dev \
+              libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev
+
+    AFTER (comment added above the step; the four original packages and the three WebKit/GTK ones
+    are all still present — nothing was removed)
+        # libdbus-1-dev/pkg-config are named even though this list already reaches them
+        # transitively (libgtk-3-dev -> libatk-bridge2.0-dev -> libatspi2.0-dev ->
+        # libdbus-1-dev): the keyring credential backend (dbus-secret-service -> dbus ->
+        # libdbus-sys) needs the `dbus-1.pc` that libdbus-1-dev provides, and a gate must
+        # not depend on an undeclared transitive pull. See
+        # docs/release/evidence/v01-06/11-linux-build-dependency-fix.txt.
+        - name: Install system dependencies
+          run: |
+            sudo apt-get update
+            sudo apt-get install -y \
+              libxkbcommon-dev libwayland-dev libx11-dev libgl1-mesa-dev \
+              libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev \
+              libdbus-1-dev pkg-config
+
+3.3 diffstat (before this evidence file was added)
+
+    .github/workflows/release.yml          | 21 +++++++++++++++++++--
+    docs/release/0.1.0-packaging.md        | 11 ++++++++++-
+    docs/release/platform-prerequisites.md |  7 ++++++-
+
+Both edited `run:` bodies were re-parsed out of the YAML after the edit and print exactly the
+package lists above (section 7).
+
+==============================================================================
+4. PER-PACKAGE JUSTIFICATION
+==============================================================================
+ADDED to both Linux jobs
+
+  libdbus-1-dev — provides `dbus-1.pc`, the file `libdbus-sys`'s build script looks for. Required by
+    the actual compile of `-p db-pro-native` via db-pro-native/-infrastructure -> keyring 3.6.3 ->
+    dbus-secret-service 4.1.0 -> dbus 0.9.12 -> libdbus-sys 0.2.7 (chain in section 2). This is the
+    package the failing run's own hint names, and the direct cause of the panic.
+  pkg-config — the tool `libdbus-sys`'s build script (through the `pkg-config` crate, present in the
+    Linux graph) uses to locate `dbus-1.pc`. GitHub's ubuntu images ship it today, but that is the
+    same kind of undeclared assumption that broke this release; naming it makes each Linux job's
+    dependency list sufficient on its own. It is also the probe used by `wayland-sys` and
+    `libsqlite3-sys` in the same graph.
+
+KEPT, unchanged (pre-existing four — this change adds no package to them)
+
+  libgl1-mesa-dev — the only package in the kept set that is clearly link-relevant: `glutin_egl_sys`
+    and `glutin_glx_sys` link `-lEGL`/`-lGL`. It satisfies them transitively:
+    `libgl1-mesa-dev -> libglvnd-dev -> {libegl-dev, libgl-dev, libglx-dev, libgles-dev,
+    libopengl-dev}` (verified on packages.ubuntu.com for both jammy and noble, the current
+    ubuntu-latest).
+  libwayland-dev, libx11-dev, libxkbcommon-dev — cover the eframe/egui windowing stack. Worth
+    recording precisely: in this graph the Wayland/X11/XKB loading is `dlopen`-based, not link-time
+    (`cargo tree -e features` shows `wayland-sys feature "dlopen"`, `wayland-backend feature
+    "dlopen"`, `smithay-clipboard feature "dlopen"`; `xkbcommon-dl` and `x11-dl` resolve their
+    libraries at runtime). They are kept because they are the documented eframe Linux requirement,
+    because removing packages is out of scope for this fix, and because the passing preflight in the
+    same run used the same base list for the same crates.
+
+WHY NO OTHER PACKAGE WAS ADDED (each checked against the graph, not assumed)
+
+  * `-p db-pro-native` on Linux resolves to 346 packages
+    (`cargo tree -p db-pro-native --offline --locked --target x86_64-unknown-linux-gnu -e
+    normal,build --prefix none`). Filtering that list:
+      - `openssl-sys` / `native-tls`: absent (count 0). TLS is rustls everywhere
+        (`sqlx ... runtime-tokio-rustls`, `reqwest ... rustls-tls`), so no libssl-dev is required —
+        and `dbus-secret-service`'s optional `crypto-openssl` feature is not enabled.
+      - `libsqlite3-sys`: present but with `libsqlite3-sys feature "bundled"` activated by
+        `rusqlite feature "bundled"` (verified with `cargo tree -e features -i libsqlite3-sys`);
+        SQLite is compiled from bundled C source with `cc`, so no system `libsqlite3-dev`/`sqlite3`.
+      - `gtk`, `gtk-sys`, `glib`, `webkit2gtk`, `soup3`, `libappindicator`: absent. The legacy
+        `crates/tauri-app` (which needs them) is not in this job's build set, so the WebKit/GTK
+        headers stay preflight-only. The file picker is `rfd 0.15.4`, which on Linux uses the XDG
+        portal path (`rfd feature "xdg-portal"` / `"ashpd"`, D-Bus over zbus — no pkg-config, no
+        GTK); the `gtk-sys` edge belongs to `rfd 0.16.0`, pulled only by `tauri-plugin-dialog`.
+      - `libegl1-mesa-dev`: not added — already reached through `libgl1-mesa-dev -> libglvnd-dev ->
+        libegl-dev` (section above).
+  * The first release run reached its link stage only in preflight. The strongest available
+    cross-check that the four kept packages are the right set for this job is that preflight — same
+    ubuntu-latest image, same four base packages plus GTK — both compiled *and linked* the same
+    crates in the same run via `cargo test --workspace` (which links the test harnesses of every
+    workspace member, including db-pro-native's). The release build links the same crates on the
+    same image; with `dbus-1.pc` present its link inputs are the ones preflight already exercised.
+
+==============================================================================
+5. DOCUMENTATION UPDATED
+==============================================================================
+  * docs/release/0.1.0-packaging.md §1 "Per-platform native requirements", Linux row: build-time
+    list is now `libxkbcommon-dev libwayland-dev libx11-dev libgl1-mesa-dev libdbus-1-dev
+    pkg-config`, notes that both Linux jobs name the D-Bus/pkg-config packages explicitly instead of
+    borrowing them from `libgtk-3-dev`, and that `libdbus-1` is a runtime item. A short paragraph
+    under the table records the D-Bus packages as a **build** dependency of the credential backend
+    (naming the chain and run 34847235273 / `Build (Linux)`) and as the expected **runtime**
+    credential service on Linux (binary links libdbus-1; credential storage needs a Secret Service
+    provider on the session bus).
+  * docs/release/platform-prerequisites.md: the "Amendment (2026-09-11) — native UI direction" block
+    (the current-state section of that historical document) now lists the same six packages with the
+    same build/runtime D-Bus note. The Tauri-era tables below it are left as the historical record
+    the amendment declares them to be.
+
+Deliberately left unchanged (out of this run's scope, flagged rather than silently edited):
+  * README.md:147 still lists only the four packages for the Linux development setup.
+  * docs/release/evidence/v01-06/05-workflow-audit.md:223 records the build job's list as it stood
+    at that audit (`release.yml:302-304`); evidence files record the revision they name and were not
+    rewritten. This file supersedes that row for the current list.
+  * .github/workflows/ci.yml:46-48 carries the same four + WebKit/GTK list and therefore has the
+    same *implicit* dependency on GTK for `dbus-1.pc`; it is excluded from this change by
+    instruction. Its `rust` job is currently red for an unrelated pre-existing reason recorded in
+    docs/release/evidence/v01-06/09-toolchain-pinning.txt §8.5.
+
+==============================================================================
+6. VERIFICATION PERFORMED HERE (and what only CI can verify)
+==============================================================================
+  YAML parse — the suggested one-liner cannot run on this host's default interpreter:
+      $ python3 -c "import yaml;yaml.safe_load(open('.github/workflows/release.yml'))"
+      ModuleNotFoundError: No module named 'yaml'          (/usr/bin/python3 3.9.6)
+      $ /opt/homebrew/bin/python3 -c "import yaml;d=yaml.safe_load(...)"
+      PARSE OK; jobs = ['resolve', 'preflight', 'build', 'package', 'checksums']
+  The two edited steps were re-parsed out of the YAML and their command bodies printed; they contain
+  exactly the package lists shown in section 3.
+
+  actionlint 1.7.12 — before (HEAD file) vs after, same version:
+      before : 3 findings — SC2129:style (resolve job, lines 61 and 127), SC2155:warning (line 250)
+      after  : 3 findings — same three, SC2155 shifted 250 -> 257 by the 7 inserted comment lines
+      normalized multisets identical (line:col stripped); workflow-schema-level findings: 0 before,
+      0 after. Repo-path run on the new file reports 61:9, 127:9, 257:9 — none in either edited step
+      (189 preflight, 394 build).
+      => the change adds ZERO new actionlint findings; the 3 pre-existing shellcheck findings are
+         untouched and out of scope.
+
+  Rust gates — NOT re-run, deliberately: no `.rs` file, `Cargo.toml`, `Cargo.lock`, or
+  `rust-toolchain.toml` changed (`git diff --name-only | grep '\.rs$'` -> none). `cargo fmt --all --
+  --check` and `cargo clippy --workspace --all-targets -- -D warnings` cannot observe a workflow/doc
+  edit, so re-running them would only mint identical numbers against the same compiled input; the
+  V01-06 qualification results stand.
+
+  NOT POSSIBLE ON THIS HOST: any Linux compile or link. There is no Linux host, no dbus headers, no
+  cross toolchain in this session, so `cargo build --release --locked -p db-pro-native` for
+  `x86_64-unknown-linux-gnu` was not executed. The CI re-run on the commit carrying this file is the
+  verification of the fix.
+
+==============================================================================
+7. RESIDUAL RISK FOR THE WINDOWS / LINUX JOBS (cannot be executed here)
+==============================================================================
+  1. Linux link stage: the release `build` job has not yet been observed green on Linux (this run
+     died in a dependency build script, before linking). The four kept packages plus dbus are
+     expected to suffice — preflight linked the same crates on the same image in the same run, and
+     the EGL/GL dev files are reached from `libgl1-mesa-dev` (section 4) — but the re-run is the
+     first direct proof.
+  2. Runner image drift: `ubuntu-latest` is a moving label (`libgl1-mesa-dev`/`libatspi2.0-dev`
+     dependency chains were checked for jammy and noble). A future image change could alter either
+     chain; the packaging contract already records the moving Windows/Linux labels as a known
+     limitation (0.1.0-packaging.md §2).
+  3. `sudo apt-get install` requires network access to the Ubuntu mirrors in both Linux jobs; a
+     transient mirror failure fails the job loudly rather than silently.
+  4. If the credential backend changes, the package set must follow: keyring's
+     `linux-native-async-persistent` would pull the zbus-based `secret-service` crate (no
+     libdbus-sys, so `libdbus-1-dev` would no longer be needed), and enabling
+     `dbus-secret-service/crypto-openssl` would add `openssl-sys` (needs `libssl-dev`). Neither is
+     active today — checked, not assumed.
+  5. Windows job: unaffected by this commit (only the Linux-only step and preflight's apt step
+     changed; no Windows dev package is implicated by the graph). Residual Windows risk is the
+     pre-existing MSVC/keyring-windows-native set, unchanged and unverifiable here.
+  6. Pre-existing and out of scope: preflight's fmt/clippy/test steps still run without `--locked`
+     (recorded as PARTIAL in 0.1.0-packaging.md §2).
+
+==============================================================================
+8. TREE STATE AND SCOPE AT CAPTURE TIME
+==============================================================================
+`git status --porcelain -uall` showed only the expected untracked `goal-3.md` before this change, and
+afterwards exactly the three modified paths plus this new file:
+
+   M .github/workflows/release.yml
+   M docs/release/0.1.0-packaging.md
+   M docs/release/platform-prerequisites.md
+  ?? docs/release/evidence/v01-06/11-linux-build-dependency-fix.txt
+  ?? goal-3.md                                   <- pre-existing untracked, not committed
+
+The commit for this change stages exactly these four paths (explicit pathspec, no `git add -A`), with
+message `ci(release): add the Linux dbus build dependency`. No GitHub Actions run was dispatched,
+cancelled or triggered by this session, and no tag was created.

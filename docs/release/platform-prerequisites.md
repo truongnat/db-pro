@@ -7,7 +7,12 @@
 > prerequisites are historical. The native requirements are:
 >
 > - macOS: Xcode command line tools
-> - Linux: `libxkbcommon-dev libwayland-dev libx11-dev libgl1-mesa-dev`
+> - Linux: `libxkbcommon-dev libwayland-dev libx11-dev libgl1-mesa-dev libdbus-1-dev pkg-config`
+>   (the D-Bus packages are a **build** dependency of the `keyring` credential backend —
+>   `dbus-secret-service` → `dbus` → `libdbus-sys` probes `dbus-1.pc` and panics without it — and
+>   the same Secret Service stack is the expected **runtime** credential service on Linux; both
+>   Linux jobs in `release.yml` install this list, see
+>   `docs/release/evidence/v01-06/11-linux-build-dependency-fix.txt`)
 > - Windows: MSVC build tools
 >
 > See `README.md` for the current development setup.
