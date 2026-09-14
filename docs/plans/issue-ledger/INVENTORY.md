@@ -1,12 +1,14 @@
-# Open-issue inventory — db-pro, snapshot 2026-09-14
+# Open-issue inventory — db-pro, snapshots 2026-09-14 and 2026-09-15
 
-One row per open issue. Titles are verbatim from the snapshot; nothing is omitted.
+One row per open issue. Titles are verbatim from the snapshots; nothing is omitted.
 Disposition vocabulary and how each was decided: `README.md` and `METHOD.md`.
 
 - Snapshot 1: `issues-open-2026-09-14.json` (copy of `/tmp/dbpro-issues/open.json`) — **136** open issues.
 - Snapshot 2 (late arrivals): `issues-open-2026-09-14-late.json` — **11** open issues (#217–#227) created 2–4 minutes *after* snapshot 1 was taken, fetched read-only from GitHub before this triage was published.
-- **Rows below: 147** (snapshot 1: 136 · snapshot 2: 11). Live open count re-verified with `gh issue list --state open --limit 300` at 2026-09-14: **147** — equal to the row count.
-- Tree audited: `main @ a9c1174`, worktree clean (no product code was changed by this triage).
+- Snapshot 3: `issues-open-2026-09-15.json` — **144** open issues, the full live list taken after the 2026-09-15 work (see below); the **8** issues created after snapshot 2 and not covered by it are #228–#235 (created 2026-09-14T17:15–17:16Z, i.e. minutes after snapshot 2 was fetched), triaged in the third table below.
+- **Rows below: 155** (snapshot 1: 136 · snapshot 2: 11 · snapshot 3 arrivals: 8).
+- **Live open count re-verified with `gh issue list --state open --limit 300` on 2026-09-15: 144** — equal to the open-row count, because **11** rows have since been closed (#55, #74, #83, #85, #86, #87, #90, #132, #133, #135, #142; 155 − 11 = 144). #236 was filed from the #144 verification on 2026-09-15 and closed in the same session, so it was never an open row here — it is recorded in `LEDGER.md` ("Closed by this workstream") and is absent from the snapshot-3 file by design.
+- Tree audited: snapshot 1/2 against `main @ a9c1174`; snapshot 3 against `main @ f15b1a9` (clean; no product code changed by either triage).
 - Priority is the **proposed** priority for the *remaining* work, not a restatement of the issue's own labels:
   `P0` stops all further v0.1 work · `P1` blocks the v0.1 release until fixed or explicitly accepted · `P2` v0.1 quality/evidence item · `P3` post-v0.1 / backlog.
 
@@ -19,14 +21,14 @@ Disposition vocabulary and how each was decided: `README.md` and `METHOD.md`.
 | `ACTIONABLE_NOW` | 12 | #56, #61, #62, #72, #102, #114, #121, #127, #142, #144, #145, #147 |
 | `NEEDS_OWNER_DECISION` | 13 | #68, #71, #97, #98, #99, #101, #103, #104, #108, #109, #111, #119, #146 |
 | `NEEDS_EXTERNAL_RESOURCE` | 5 | #92, #93, #95, #100, #112 |
-| `OUT_OF_SCOPE_V01` | 50 | #32, #33, #34, #35, #182, #183, #184, #185, #186, #187, #188, #189, #190, #191, #192, #193, #194, #195, #196, #197, #198, #199, #200, #201, #202, #203, #204, #205, #206, #207, #208, #209, #210, #211, #212, #213, #214, #215, #216, #217, #218, #219, #220, #221, #222, #223, #224, #225, #226, #227 |
+| `OUT_OF_SCOPE_V01` | 58 | #32, #33, #34, #35, #182, #183, #184, #185, #186, #187, #188, #189, #190, #191, #192, #193, #194, #195, #196, #197, #198, #199, #200, #201, #202, #203, #204, #205, #206, #207, #208, #209, #210, #211, #212, #213, #214, #215, #216, #217, #218, #219, #220, #221, #222, #223, #224, #225, #226, #227, #228, #229, #230, #231, #232, #233, #234, #235 |
 | `SUPERSEDED` | 7 | #60, #63, #65, #84, #113, #115, #116 |
 | `UNCLEAR` | 0 | — |
-| **Total** | **147** | |
+| **Total** | **155** | |
 
 ### `ACTIONABLE_NOW` — the scoping number for phase 2
 
-**12 of 147 issues** are `ACTIONABLE_NOW`: a real, bounded change that can be implemented and verified in this repository now, with no new host, credential or owner decision. These are the issues phase 2 can start on without asking anyone anything:
+**12 of 155 issues** are `ACTIONABLE_NOW`: a real, bounded change that can be implemented and verified in this repository now, with no new host, credential or owner decision. These are the issues phase 2 can start on without asking anyone anything. None of the snapshot-3 arrivals (#228–#235) is `ACTIONABLE_NOW`: all eight are post-v0.1 product scope.
 
 | # | Title | Proposed batch | Estimate | Concrete change (summary — full text in the row below) |
 |---|---|---|---|---|
@@ -50,18 +52,19 @@ Disposition vocabulary and how each was decided: `README.md` and `METHOD.md`.
 | P0 | 2 |
 | P1 | 51 |
 | P2 | 38 |
-| P3 | 56 |
-| **Total** | **147** |
+| P3 | 64 |
+| **Total** | **155** |
 
 ## Post-v0.1 product scope — do not read these as v0.1 gaps
 
-**50 issues** are explicitly post-v0.1 product scope and must not be treated as v0.1 gaps by any later run. They are split into two families:
+**58 issues** are explicitly post-v0.1 product scope and must not be treated as v0.1 gaps by any later run. They are split into three families:
 
 | Family | Issues | Count | Authority |
 |---|---|---:|---|
 | v0.2–v0.5 backlog tiers | #32, #33, #34, #35 | 4 | issue bodies ('Do not start before v0.1 sign-off') |
 | Post-v0.1 product Goal + Phase A–H, productivity, settings, tasks, diagnostics | #182 & 35 children (#183–#216) | 35 | `docs/goals/goal-full-product.md`, `docs/goals/goal-phase-*.md`, `docs/notes/PRODUCT_ROADMAP.md` |
-| **Total** | | **50** | `docs/notes/V0_1_CLOSURE_PLAN.md:7` — 'Strict zero-feature-expansion policy … no Phase A–H feature work is admitted into the v0.1.0 release queue' |
+| Snapshot-3 arrivals: engine provider SDK + MySQL, advanced data surface, PostgreSQL administration | #228–#235 | 8 | issue bodies ('Parent Goal: #182'; #235 'Depends on #234', #229 'Depends on #183', #233 'Depends on: #207', #232 'Depends on #196'), plus the capability limitations the tree already registers — see the snapshot-3 table |
+| **Total** | | **58** | `docs/notes/V0_1_CLOSURE_PLAN.md:7` — 'Strict zero-feature-expansion policy … no Phase A–H feature work is admitted into the v0.1.0 release queue' |
 
 Related, but **not** in this group: #112 (GitHub Projects control plane, blocked by tooling) and #113/#115/#116 (React-era planning artifacts, superseded) — see their rows.
 
@@ -223,7 +226,7 @@ These rows are `DONE_ON_MAIN` with a pointer that was read on this tree. They ar
 | 215 | [Phase H][H02] Query Plan Visualizer and Slow Query Advisor | — | P3 | `OUT_OF_SCOPE_V01` | Phase H post-v0.1 scope; depends on #196 for live context. | docs/goals/goal-phase-h-ai.md |
 | 216 | [Phase A][A10] Object Dependencies and References Navigator | — | P3 | `OUT_OF_SCOPE_V01` | Phase A post-v0.1 scope; depends on the Phase A object models. | docs/goals/goal-phase-a-object-crud.md |
 
-_Snapshot 1: 136 rows; snapshot 2 below: 11 rows; total 147._
+_Snapshot 1: 136 rows; snapshot 2 below: 11 rows; snapshot 3 further below: 8 rows; total 155._
 
 ## Inventory — snapshot 2, late arrivals (11 issues, all post-v0.1 scope)
 
@@ -244,3 +247,35 @@ These were created after the first snapshot was taken. They are part of the same
 | 227 | [Data][DA01] Column Profiling, Distribution, Null, Distinct, and Quality Insights | — | P3 | `OUT_OF_SCOPE_V01` | Post-v0.1 scope (data profiling); depends on the Phase C/D services. No v0.1 impact. | docs/notes/PRODUCT_ROADMAP.md; docs/goals/goal-full-product.md |
 
 _Generated from both snapshots; the generator asserts that every open issue has exactly one row and one valid disposition (147/147). Dispositions: DONE_ON_MAIN=10, PARTIAL_ON_MAIN=50, ACTIONABLE_NOW=12, NEEDS_OWNER_DECISION=13, NEEDS_EXTERNAL_RESOURCE=5, OUT_OF_SCOPE_V01=50, SUPERSEDED=7, UNCLEAR=0._
+
+## Inventory — snapshot 3, engine/data/administration arrivals (8 issues, all post-v0.1 scope)
+
+Fetched on 2026-09-15 with `gh issue list --state open --limit 300 --json number,title,labels,body,createdAt` (saved as `issues-open-2026-09-15.json`, 144 issues) and triaged against `main @ f15b1a9`. All eight carry `Parent Goal: #182` and were created 2026-09-14T17:15–17:16Z — minutes after snapshot 2 (#217–#227) was fetched, which is why snapshot 2 does not contain them. Classified with the same rules as the earlier snapshots; they appear in their own table so every snapshot stays auditable.
+
+| # | Title (verbatim) | Labels | Pri | Disposition | Dependency / blocker / concrete change | Evidence pointer |
+|---:|---|---|---:|---|---|---|
+| 228 | [Data][DA02] Advanced Cell/Record Viewer for JSON, Arrays, Binary, and Large Text | — | P3 | `OUT_OF_SCOPE_V01` | Post-v0.1 data surface ('Parent Goal: #182'), no dependency declared. Related v0.1 truth: the native UI has no record/detail panel and maps Uuid/DateTime/Date/Time/Interval/Inet into a single `UiCell::Text` variant, while the two bounded v0.1 items in this family are still open (#61 lossless copy/export, #62 type-aware editability). A read-only inspection surface is a *new* feature, not a v0.1 gap — the v0.1 limitation is registered as LIM-012 (export formats) and by #61/#62. | crates/ui/src/runtime.rs:544-552 (`UiCell`, no record/detail variant); crates/native-app/src/translate.rs:660-679 (`map_cell` maps Uuid/DateTime/Date/Time/Interval/Inet into one `UiCell::Text`); issue #61 and #62; docs/notes/V0_1_CLOSURE_PLAN.md:7 |
+| 229 | [PostgreSQL][PG01] Foreign Data Wrappers, Foreign Servers, and User Mappings | — | P3 | `OUT_OF_SCOPE_V01` | Post-v0.1 PostgreSQL administration ('Parent Goal: #182'); depends on #183 (Phase A mutation framework) and preferably #198/#218 for security/extension integration. There is **no partial surface**: `grep -ril 'postgres_fdw'/'FOREIGN TABLE' crates/ fixtures/` returns nothing, and no product document names FDW. | issue body 'Depends on: #183 and preferably #198/#218'; grep over crates/ and fixtures/ (no matches); docs/notes/V0_1_CLOSURE_PLAN.md:7 |
+| 230 | [PostgreSQL][PG02] Logical Replication — Publications, Subscriptions, and Replication Slots | — | P3 | `OUT_OF_SCOPE_V01` | Post-v0.1 PostgreSQL administration ('Parent Goal: #182'); the least foundational of the family (subscriptions/slots are operationally sensitive and depend on monitoring/security foundations). The product documents place replication in later phases, not v0.1. | docs/goals/goal-full-product.md:648 (replication dashboards listed as non-goals); docs/goals/goal-phase-d-monitoring.md:85; docs/notes/PRODUCT_ROADMAP.md:227 (server-side extras deferred); grep 'pg_publication'/'pg_replication_slots' over crates/ and fixtures/ (no matches) |
+| 231 | [PostgreSQL][PG03] Event Triggers and Database-Level Trigger Administration | — | P3 | `OUT_OF_SCOPE_V01` | Post-v0.1 PostgreSQL administration ('Parent Goal: #182'); depends on #183 and preferably #187. v0.1 ships **table** trigger introspection only, so this is genuinely new surface, not a gap. | issue body 'Depends on: #183 and preferably #187'; crates/infrastructure/src/postgres/introspect.rs (table triggers only); grep 'EVENT TRIGGER' over crates/ and fixtures/ (no matches); docs/goals/goal-phase-a-object-crud.md |
+| 232 | [PostgreSQL][PG04] Server Configuration, Runtime Parameters, and Session Settings | — | P3 | `OUT_OF_SCOPE_V01` | Post-v0.1 PostgreSQL administration ('Parent Goal: #182'); depends on #196 (Phase D monitoring) for the shared admin/runtime context. The product plan gates the settings view explicitly, and the code reads no server settings today. | docs/goals/goal-full-product.md:1375 ('Settings view (`pg_settings`) | GATED (Later)'); docs/goals/goal-phase-d-monitoring.md:88 ('Server-side configuration editing' — listed, not v0.1); grep 'pg_settings' over crates/ (no matches); docs/notes/V0_1_CLOSURE_PLAN.md:7 |
+| 233 | [Data][DA03] Synthetic Data Generator and Table Seed Workbench | — | P3 | `OUT_OF_SCOPE_V01` | Post-v0.1 data tooling ('Parent Goal: #182'); depends on #207 (Phase A table/column CRUD) for stable metadata and mutation capability. The only generator in the tree is a **test-fixture** script, not a product surface — do not mistake one for the other. | issue body 'Depends on: #207'; fixtures/smoke/large-er/generate-large-er.js (fixture generator, not product); docs/goals/goal-phase-g-productivity.md:589 (synthetic schema used as a test technique); docs/notes/V0_1_CLOSURE_PLAN.md:7 |
+| 234 | [Provider][P01] Provider SDK and Capability Contract for Additional Database Engines | — | P3 | `OUT_OF_SCOPE_V01` | Post-v0.1 architecture ('Parent Goal: #182'); it is the precondition for #235 and for any third engine, which is why it is first in the proposed queue. Today's boundary is the internal `DbConnector`/capability pair, not a documented SDK with a conformance suite: the capability model exists per driver, and LIM-002 registers the engine restriction as accepted v0.1 scope. | crates/core/src/ports.rs (DbConnector and peers); crates/core/src/domain/capabilities.rs:116 (`DatabaseCapabilities::for_driver`); docs/release/known-limitations.md:49-55 (LIM-002); docs/notes/PRODUCT_ROADMAP.md:227 ('additional drivers (PG + SQLite only per LIM-002)') |
+| 235 | [Provider][P02] MySQL 8 Provider — Connection, Query, Schema, Data, and Core Tooling | — | P3 | `OUT_OF_SCOPE_V01` | Post-v0.1 engine expansion ('Parent Goal: #182'); depends on #234. The restriction is already recorded as accepted v0.1 scope, and the UI already presents MySQL as an unavailable future provider — no v0.1 promise is broken by leaving this queued. | docs/release/known-limitations.md:49-55 (LIM-002: 'MySQL, MariaDB, SQL Server, Oracle, etc. are not supported'); crates/ui/src/connection_view.rs:391 (MySQL tile) with the disabled badge/copy at `:125` and `:332` ('2 active · 6 coming soon'); issue body 'Depends on: #234' |
+
+### Proposed order for the snapshot-3 queue (all after v0.1; not work now)
+
+Ordered by what unblocks what, then by dependency depth. Nothing here may start before the owner opens the post-v0.1 queue (`docs/notes/V0_1_CLOSURE_PLAN.md:7`).
+
+| Order | # | Why here |
+|---:|---:|---|
+| 1 | #234 | No dependency of its own, and #235 plus every later engine depends on it; the issue itself says 'Merge independently before broad engine expansion' |
+| 2 | #235 | The first engine to prove #234; depends only on #234 |
+| 3 | #228 | No dependency declared; shares the existing Table Data Editor ChangeSet and the #61/#62 value policy, so it is the cheapest data-surface item once v0.1's own value-policy work has landed |
+| 4 | #233 | Depends on #207 (Phase A CRUD) for stable table/column metadata |
+| 5 | #231 | Depends on #183 and reuses #187's trigger surface |
+| 6 | #229 | Depends on #183 and benefits from #198/#218 for security/extension integration |
+| 7 | #232 | Depends on #196 (monitoring foundation) for the shared admin/runtime context |
+| 8 | #230 | Depends on the monitoring/security foundations and is the most operationally sensitive of the family (subscriptions, slots); last |
+
+_Generated from all three snapshots; the generator asserts that every open issue has exactly one row and one valid disposition (155/155 rows, 144 of them open on 2026-09-15). Dispositions: DONE_ON_MAIN=10, PARTIAL_ON_MAIN=50, ACTIONABLE_NOW=12, NEEDS_OWNER_DECISION=13, NEEDS_EXTERNAL_RESOURCE=5, OUT_OF_SCOPE_V01=58, SUPERSEDED=7, UNCLEAR=0._

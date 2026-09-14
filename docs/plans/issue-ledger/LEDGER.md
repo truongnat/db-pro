@@ -20,10 +20,12 @@ Field rules:
 | `ACTIONABLE_NOW` | 12 |
 | `NEEDS_OWNER_DECISION` | 13 |
 | `NEEDS_EXTERNAL_RESOURCE` | 5 |
-| `OUT_OF_SCOPE_V01` | 50 |
+| `OUT_OF_SCOPE_V01` | 58 |
 | `SUPERSEDED` | 7 |
 | `UNCLEAR` | 0 |
-| **Total** | **147** |
+| **Total** | **155** |
+| — from snapshots 1–2 (2026-09-14) | 147 |
+| — from snapshot 3, #228–#235 (2026-09-15) | 8 |
 
 ## Rows
 
@@ -165,6 +167,14 @@ Field rules:
 | #225 | [Query][Q02] SQL Parameters, Variables, and Reusable Execution Bindings | `OUT_OF_SCOPE_V01` | — | 2026-09-14 | triage classification only; not yet re-verified against a post-triage commit — crates/infrastructure/src/postgres/query_mapper.rs:9-64; docs/goals/goal-phase-g-productivity.md |
 | #226 | [ER][ER01] Schema Design Mode with Draft Table/Relation Editing | `OUT_OF_SCOPE_V01` | — | 2026-09-14 | triage classification only; not yet re-verified against a post-triage commit — docs/goals/goal-phase-a-object-crud.md; docs/plans/STATUS.md (ER large-schema architecture) |
 | #227 | [Data][DA01] Column Profiling, Distribution, Null, Distinct, and Quality Insights | `OUT_OF_SCOPE_V01` | — | 2026-09-14 | triage classification only; not yet re-verified against a post-triage commit — docs/notes/PRODUCT_ROADMAP.md; docs/goals/goal-full-product.md |
+| #228 | [Data][DA02] Advanced Cell/Record Viewer for JSON, Arrays, Binary, and Large Text | `OUT_OF_SCOPE_V01` | — | 2026-09-15 | snapshot 3, triaged against `main @ f15b1a9`; post-v0.1 data surface (`Parent Goal: #182`), no dependency declared — crates/ui/src/runtime.rs:544-552 (`UiCell` has no record/detail variant); crates/native-app/src/translate.rs:660-679 (`map_cell`); v0.1 items in the same family: #61, #62; docs/notes/V0_1_CLOSURE_PLAN.md:7 |
+| #229 | [PostgreSQL][PG01] Foreign Data Wrappers, Foreign Servers, and User Mappings | `OUT_OF_SCOPE_V01` | — | 2026-09-15 | snapshot 3, triaged against `main @ f15b1a9`; post-v0.1 admin scope, depends on #183 (+#198/#218); no partial surface — grep 'postgres_fdw'/'FOREIGN TABLE' over crates/ and fixtures/ returns nothing; docs/notes/V0_1_CLOSURE_PLAN.md:7 |
+| #230 | [PostgreSQL][PG02] Logical Replication — Publications, Subscriptions, and Replication Slots | `OUT_OF_SCOPE_V01` | — | 2026-09-15 | snapshot 3, triaged against `main @ f15b1a9`; post-v0.1 admin scope, last in the proposed queue — docs/goals/goal-full-product.md:648; docs/goals/goal-phase-d-monitoring.md:85; docs/notes/PRODUCT_ROADMAP.md:227; grep 'pg_publication'/'pg_replication_slots' over crates/ and fixtures/ returns nothing |
+| #231 | [PostgreSQL][PG03] Event Triggers and Database-Level Trigger Administration | `OUT_OF_SCOPE_V01` | — | 2026-09-15 | snapshot 3, triaged against `main @ f15b1a9`; post-v0.1 admin scope, depends on #183 (+#187); v0.1 ships table-trigger introspection only — crates/infrastructure/src/postgres/introspect.rs; grep 'EVENT TRIGGER' over crates/ and fixtures/ returns nothing |
+| #232 | [PostgreSQL][PG04] Server Configuration, Runtime Parameters, and Session Settings | `OUT_OF_SCOPE_V01` | — | 2026-09-15 | snapshot 3, triaged against `main @ f15b1a9`; post-v0.1 admin scope, depends on #196 — docs/goals/goal-full-product.md:1375 ('Settings view (`pg_settings`) | GATED (Later)'); docs/goals/goal-phase-d-monitoring.md:88; grep 'pg_settings' over crates/ returns nothing |
+| #233 | [Data][DA03] Synthetic Data Generator and Table Seed Workbench | `OUT_OF_SCOPE_V01` | — | 2026-09-15 | snapshot 3, triaged against `main @ f15b1a9`; post-v0.1 data tooling, depends on #207 — fixtures/smoke/large-er/generate-large-er.js is a *test-fixture* generator, not a product surface; docs/goals/goal-phase-g-productivity.md:589; docs/notes/V0_1_CLOSURE_PLAN.md:7 |
+| #234 | [Provider][P01] Provider SDK and Capability Contract for Additional Database Engines | `OUT_OF_SCOPE_V01` | — | 2026-09-15 | snapshot 3, triaged against `main @ f15b1a9`; post-v0.1 architecture, first in the proposed queue because #235 and every later engine depends on it — crates/core/src/ports.rs; crates/core/src/domain/capabilities.rs:116; docs/release/known-limitations.md:49-55 (LIM-002); docs/notes/PRODUCT_ROADMAP.md:227 |
+| #235 | [Provider][P02] MySQL 8 Provider — Connection, Query, Schema, Data, and Core Tooling | `OUT_OF_SCOPE_V01` | — | 2026-09-15 | snapshot 3, triaged against `main @ f15b1a9`; post-v0.1 engine expansion, depends on #234; the restriction is already accepted v0.1 scope and the UI already shows MySQL as unavailable — docs/release/known-limitations.md:49-55 (LIM-002); crates/ui/src/connection_view.rs:391 with `:125` and `:332` ('2 active · 6 coming soon') |
 
 ## Closed by this workstream
 
@@ -188,14 +198,15 @@ A closed issue moves here from the triage table with its closing reference; the 
 
 ## Status after the phase-2 workstream
 
-Counts over the rows that were open at triage (147), refreshed in every ledger commit of the phase-2 pass.
+Counts over all 155 rows (snapshots 1–3), refreshed in every ledger commit of the phase-2 pass. The invariant this file keeps: **open ledger rows equal the live open-issue count.**
 
 | Status | Count | Note |
 |---|---:|---|
-| Open rows still in the triage table | 136 | #142 and the ten re-verified `DONE_ON_MAIN` rows (#55, #74, #83, #85, #86, #87, #90, #132, #133, #135) moved to "Closed by this workstream" |
-| Closed by this workstream | 11 | #142 plus the ten `DONE_ON_MAIN` rows confirmed on the current tree |
+| Open rows still in the triage table | 144 | 136 from snapshots 1–2 plus the 8 snapshot-3 arrivals (#228–#235), minus nothing: no snapshot-3 row was closed |
+| — live open issues on 2026-09-15 (`gh issue list --state open --limit 300`) | **144** | **equal to the open-row count above** (155 rows − 11 closed = 144) |
+| Closed by this workstream | 12 | #142 plus the ten re-verified `DONE_ON_MAIN` rows, plus #236 |
 | — of which `DONE_ON_MAIN` closed with re-verified evidence | 10 | confirmation pass completed 2026-09-15: every pointer re-opened on `main @ e0bfc56` and checked against the live file/identifier before `gh issue close` |
-| Post-triage issues (created after the 147-row snapshot) | 1 | #236 — filed from the #144 verification and closed in the same session with `aba947b4`; it was never an open row at triage, so it is recorded in "Closed by this workstream" and in the Revisions table rather than in the triage table. The issues created by the same wave as #228–#235 are recorded in `INVENTORY.md` |
+| Post-triage issues (never an open row at any snapshot) | 1 | #236 — filed from the #144 verification and closed in the same session with `aba947b4`; recorded in "Closed by this workstream" and in the Revisions table. It is absent from `issues-open-2026-09-15.json` because it was already closed when that snapshot was taken |
 
 ## Revisions
 
@@ -210,3 +221,4 @@ Counts over the rows that were open at triage (147), refreshed in every ledger c
 | 2026-09-15 | #55, #74, #83, #85, #86, #87, #90, #132, #133, #135 | All ten `DONE_ON_MAIN` rows → closed and moved to "Closed by this workstream" | Phase 2, batch 3 item 3: each cited pointer was re-opened on the current tree before closing — files exist, identifiers/line anchors match, and the `db-pro-infrastructure` mapper tests were re-run green (9 passed / 0 failed). Where the evidence is historical (#85 gate totals, #86 live run) or scoped (#90 is the *preparation* deliverable, with #88 still open), the closing comment states that explicitly rather than implying more than was verified |
 | 2026-09-15 | #145 | Status `ACTIONABLE_NOW` → `PARTIAL_ON_MAIN (REVIEW)`; commit and verification evidence recorded; **issue left open** | Phase 2, item 2: the SQLite backup was proved snapshot-safe, and the two paths that silently replaced a database with something a reader could not see were fixed (`e39290b`). Closed would have meant claiming the packaged-runtime smoke and the acceptance this environment cannot produce, so the row records the remainder instead |
 | 2026-09-15 | #236 (new) | Created from the #144 verification, fixed, closed, and recorded in "Closed by this workstream"; the #144 row updated | Phase 2, item 1: the edit/duplicate TLS-mode downgrade is a real security defect that no existing issue covered. Reproduced with two failing tests before the change (`0 passed; 2 failed`, exit 101), fixed in `aba947b4`, green after it; `cargo test --workspace` 829/0/19 (baseline 827/0/19). #144 is **not** closed — its row now states which secondary blocker this removed and which remain |
+| 2026-09-15 | #228–#235 (8 new) | Triaged `OUT_OF_SCOPE_V01` and added to the triage table; `INVENTORY.md` gained a snapshot-3 table with the proposed queue order; snapshot file `issues-open-2026-09-15.json` added | Phase 2, item 3: the eight issues created minutes after snapshot 2 were never triaged. All eight carry `Parent Goal: #182` and none has any partial surface on `main @ f15b1a9` (verified by grep per row); none is `ACTIONABLE_NOW`, so nothing was implemented from this batch. Invariant re-stated: open ledger rows 144 = live open issues 144 |
