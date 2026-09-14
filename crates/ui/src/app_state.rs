@@ -144,8 +144,6 @@ impl Default for DbProApp {
             palette_query: String::new(),
             palette_selected: 0,
             palette_focus_requested: false,
-            agent_provider: Box::new(offline_provider),
-            agent_request: None,
             agent_pending_prompt: None,
             agent_pending_context: None,
             agent_provider_label: offline_info.label.to_owned(),

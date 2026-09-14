@@ -296,82 +296,8 @@ impl DbProApp {
         submit
     }
 
-    fn draw_agent_thread(&mut self, ui: &mut egui::Ui, copy_sql: &mut Option<String>) -> bool {
-        let typed_document_id = self
-            .query_documents
-            .get(self.active_query_document)
-            .map(|document| document.id.clone());
-        if typed_document_id.as_ref().is_some_and(|document_id| {
-            self.agent_sessions.get(document_id).is_some_and(|session| {
-                !session.messages.is_empty()
-                    || !session.activities.is_empty()
-                    || session.pending_confirmation.is_some()
-                    || !session.streaming_text.is_empty()
-            })
-        }) {
-            return self.draw_typed_agent_thread(ui);
-        }
-        let messages_height = (ui.available_height() - 86.0).max(160.0);
-        let mut submit = false;
-        egui::ScrollArea::vertical()
-            .max_height(messages_height)
-            .auto_shrink([false, false])
-            .stick_to_bottom(true)
-            .show(ui, |ui| {
-                if self.agent_messages.is_empty() {
-                    ui.add_space(18.0);
-                    ui.vertical_centered(|ui| {
-                        ui.label(icon_text(Icon::Bot, "", self.theme.accent));
-                        ui.add_space(6.0);
-                        ui.label(
-                            RichText::new("Database copilot")
-                                .strong()
-                                .color(self.theme.text_primary),
-                        );
-                        ui.label(
-                            RichText::new("Ask for an overview, a read-only query, or a query plan.")
-                                .small()
-                                .color(self.theme.text_secondary),
-                        );
-                    });
-                    ui.add_space(18.0);
-                    for suggestion in [
-                        "Show me the schema overview",
-                        "Count rows in customers",
-                        "Explain customers query performance",
-                    ] {
-                        if ghost_button_with_icon(ui, Icon::WandSparkles, suggestion, self.theme).clicked() {
-                            self.agent_input = suggestion.to_owned();
-                            submit = true;
-                        }
-                    }
-                } else {
-                    let messages = self.agent_messages.clone();
-                    for message in messages {
-                        if message.role == AgentRole::User {
-                            ui.with_layout(Layout::right_to_left(Align::Min), |ui| {
-                                agent_message_frame(self.theme, true).show(ui, |ui| {
-                                    ui.label(RichText::new(message.content).color(self.theme.text_primary));
-                                });
-                            });
-                        } else {
-                            self.draw_agent_response(ui, message, copy_sql);
-                        }
-                        ui.add_space(8.0);
-                    }
-                }
-                if self.agent_request.is_some() {
-                    let mut expanded = true;
-                    AgentThinking::new("Analyzing schema and generating SQL draft…", &mut expanded, self.theme)
-                        .is_active(true)
-                        .show(ui);
-                    ui.add_space(SPACE_SM);
-                }
-            });
-        ui.add_space(SPACE_XS);
-        ui.separator();
-        ui.add_space(SPACE_XS);
-        submit
+    fn draw_agent_thread(&mut self, ui: &mut egui::Ui, _copy_sql: &mut Option<String>) -> bool {
+        self.draw_typed_agent_thread(ui)
     }
 
     fn draw_typed_agent_thread(&mut self, ui: &mut egui::Ui) -> bool {
@@ -382,9 +308,19 @@ impl DbProApp {
         else {
             return false;
         };
-        let Some(session) = self.agent_sessions.get(&document_id) else {
-            return false;
-        };
+        let connection_id = self
+            .query_documents
+            .get(self.active_query_document)
+            .and_then(|d| d.connection_id.clone())
+            .or_else(|| self.active_connection_id.clone());
+        let schema = self
+            .query_documents
+            .get(self.active_query_document)
+            .and_then(|d| d.schema.clone())
+            .or_else(|| Some(self.active_schema().to_owned()));
+        let session = self.agent_sessions.entry(document_id.clone()).or_insert_with(|| {
+            super::agent_workflow_state::AgentUiSession::for_document(&document_id, connection_id, schema)
+        });
         let messages = session.messages.clone();
         let activities = session.activities.clone();
         let tool_results = session.tool_results.clone();
@@ -395,12 +331,37 @@ impl DbProApp {
 
         let mut open_result_call_id = None;
         let mut retry = false;
+        let mut submit = false;
         let messages_height = (ui.available_height() - 86.0).max(160.0);
         egui::ScrollArea::vertical()
             .max_height(messages_height)
             .auto_shrink([false, false])
             .stick_to_bottom(true)
             .show(ui, |ui| {
+                if messages.is_empty() && activities.is_empty() && streaming_text.is_empty() && pending.is_none() {
+                    ui.add_space(18.0);
+                    ui.vertical_centered(|ui| {
+                        ui.label(icon_text(Icon::Bot, "", self.theme.accent));
+                        ui.add_space(6.0);
+                        ui.label(RichText::new("Database Agent").strong().color(self.theme.text_primary));
+                        ui.label(
+                            RichText::new("Ask for schema info, propose SQL edits, or run safe queries.")
+                                .small()
+                                .color(self.theme.text_secondary),
+                        );
+                    });
+                    ui.add_space(18.0);
+                    for suggestion in [
+                        "Show me the schema overview",
+                        "Count rows in the active table",
+                        "Explain query performance",
+                    ] {
+                        if ghost_button_with_icon(ui, Icon::WandSparkles, suggestion, self.theme).clicked() {
+                            self.agent_input = suggestion.to_owned();
+                            submit = true;
+                        }
+                    }
+                }
                 for message in messages {
                     let is_user = message.role == AgentRole::User;
                     ui.with_layout(Layout::left_to_right(Align::Min), |ui| {
@@ -435,7 +396,7 @@ impl DbProApp {
                             if let db_pro_core::domain::agent::AgentToolOutput::QueryResult {
                                 summary,
                                 result_count,
-                                ..
+                                statement_index,
                             } = &tool_result.output
                             {
                                 ui.horizontal(|ui| {
@@ -443,13 +404,17 @@ impl DbProApp {
                                     let total_rows = summary.row_count.unwrap_or(sample_len as u64);
                                     let is_sampled = total_rows > sample_len as u64;
                                     let rows_str = if is_sampled {
-                                        format!("{sample_len} sampled of {total_rows} rows")
+                                        format!("Showing {sample_len} sampled rows of {total_rows}")
                                     } else {
                                         format!("{total_rows} rows")
                                     };
                                     let cols_str = format!("{} cols", summary.columns.len());
                                     let count_str = if *result_count > 1 {
-                                        format!(" ({result_count} results)")
+                                        if let Some(idx) = statement_index {
+                                            format!(" (statement #{})", idx + 1)
+                                        } else {
+                                            format!(" ({result_count} results)")
+                                        }
                                     } else {
                                         String::new()
                                     };
@@ -600,59 +565,7 @@ impl DbProApp {
         ui.add_space(SPACE_XS);
         ui.separator();
         ui.add_space(SPACE_XS);
-        false
-    }
-
-    fn draw_agent_response(&mut self, ui: &mut egui::Ui, message: AgentMessage, copy_sql: &mut Option<String>) {
-        agent_message_frame(self.theme, false).show(ui, |ui| {
-            ui.label(icon_text(Icon::Sparkles, "Agent", self.theme.accent));
-            ui.add_space(SPACE_XS);
-            ui.label(RichText::new(message.content).color(self.theme.text_primary));
-            if message.requires_confirmation {
-                ui.add_space(SPACE_SM);
-                let sql_preview = message.sql.as_deref().unwrap_or("Pending database mutation");
-                let approval = ExecutionApproval::new(
-                    "Mutation Review Required",
-                    "This query will modify data or schema. Review carefully before running.",
-                    sql_preview,
-                    RiskLevel::High,
-                    self.theme,
-                );
-                let action = approval.show(ui);
-                if let Some(ExecutionApprovalAction::Run) = action {
-                    if let Some(ref sql) = message.sql {
-                        self.insert_agent_sql(sql);
-                    }
-                }
-            } else if let Some(sql) = message.sql {
-                ui.add_space(SPACE_SM);
-                editor_frame(self.theme).show(ui, |ui| {
-                    ui.horizontal(|ui| {
-                        section_label(ui, "SQL draft", self.theme);
-                        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                            if compact_icon_button(ui, Icon::Copy, self.theme)
-                                .on_hover_text("Copy SQL")
-                                .clicked()
-                            {
-                                *copy_sql = Some(sql.clone());
-                            }
-                        });
-                    });
-                    ui.add_space(SPACE_XS);
-                    ui.label(RichText::new(sql.as_str()).monospace().color(self.theme.code_keyword));
-                });
-                ui.add_space(SPACE_SM);
-                if secondary_button_with_icon(ui, Icon::ArrowUp, "Insert into Query", self.theme).clicked() {
-                    self.insert_agent_sql(&sql);
-                }
-                if self.connected
-                    && self.active_connection_id.is_some()
-                    && secondary_button_with_icon(ui, Icon::Play, "Run read-only", self.theme).clicked()
-                {
-                    self.run_agent_read_only(&sql);
-                }
-            }
-        });
+        submit
     }
 
     fn draw_agent_composer(&mut self, ui: &mut egui::Ui, submit: &mut bool) {

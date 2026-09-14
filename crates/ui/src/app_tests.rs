@@ -1057,7 +1057,7 @@ fn agent_provider_status_uses_runtime_provider_name() {
 
     assert_eq!(app.agent_provider_label, "Groq");
     assert_eq!(app.runtime_message, "Sending request to Groq…");
-    assert!(matches!(command_rx.try_recv(), Ok(UiCommand::RunAgent { .. })));
+    assert!(matches!(command_rx.try_recv(), Ok(UiCommand::StartAgentRun { .. })));
 }
 
 #[test]

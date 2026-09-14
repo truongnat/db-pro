@@ -382,6 +382,7 @@ struct AgentCancellation {
     handle: tokio::task::AbortHandle,
     session_id: db_pro_core::domain::agent::AgentSessionId,
     document_id: String,
+    connection_id: Option<String>,
 }
 
 type AgentCancellationMap = Arc<Mutex<HashMap<AgentRunId, AgentCancellation>>>;
@@ -933,6 +934,7 @@ pub fn spawn_worker(
                     };
                     let session_id = orchestrator.workflow().session().id;
                     let document_id = orchestrator.workflow().session().document_id.clone();
+                    let connection_id = orchestrator.workflow().session().connection_id.clone();
                     let event_tx = event_tx.clone();
                     let agent_runs = Arc::clone(&agent_runs);
                     let agent_cancellations = Arc::clone(&agent_cancellations);
@@ -960,6 +962,7 @@ pub fn spawn_worker(
                                 handle: task.abort_handle(),
                                 session_id,
                                 document_id,
+                                connection_id,
                             },
                         );
                 }
@@ -985,6 +988,7 @@ pub fn spawn_worker(
                     };
                     let session_id = orchestrator.workflow().session().id;
                     let document_id = orchestrator.workflow().session().document_id.clone();
+                    let connection_id = orchestrator.workflow().session().connection_id.clone();
                     let event_tx = event_tx.clone();
                     let agent_runs = Arc::clone(&agent_runs);
                     let agent_cancellations = Arc::clone(&agent_cancellations);
@@ -1026,6 +1030,7 @@ pub fn spawn_worker(
                                 handle: task.abort_handle(),
                                 session_id,
                                 document_id,
+                                connection_id,
                             },
                         );
                 }
@@ -1036,6 +1041,12 @@ pub fn spawn_worker(
                         .remove(&run_id);
                     if let Some(cancellation) = cancellation {
                         cancellation.handle.abort();
+                        if let Some(connection_id) = cancellation.connection_id {
+                            let runtime_cancel = Arc::clone(&runtime);
+                            tokio::spawn(async move {
+                                let _ = runtime_cancel.query_api().cancel(&connection_id).await;
+                            });
+                        }
                         let event = AgentWorkflowEvent::Cancelled {
                             run_id,
                             session_id: cancellation.session_id,
@@ -1057,6 +1068,13 @@ pub fn spawn_worker(
                             .await;
                         continue;
                     };
+                    let connection_id = orchestrator.workflow().session().connection_id.clone();
+                    if let Some(connection_id) = connection_id {
+                        let runtime_cancel = Arc::clone(&runtime);
+                        tokio::spawn(async move {
+                            let _ = runtime_cancel.query_api().cancel(&connection_id).await;
+                        });
+                    }
                     match orchestrator.cancel() {
                         Ok(event) => {
                             let _ = event_tx.send(RuntimeEvent::AgentWorkflow { request_id, event }).await;

@@ -325,8 +325,6 @@ pub struct DbProApp {
     palette_query: String,
     palette_selected: usize,
     palette_focus_requested: bool,
-    agent_provider: Box<dyn AgentProvider>,
-    agent_request: Option<crate::RequestId>,
     agent_pending_prompt: Option<String>,
     agent_pending_context: Option<AgentContext>,
     agent_provider_label: String,
@@ -1332,26 +1330,6 @@ impl DbProApp {
         self.set_agent_open(true, ctx);
     }
 
-    fn insert_agent_sql(&mut self, sql: &str) {
-        self.set_active_query_text(sql);
-        self.active_tab = WorkspaceTab::Query;
-        self.runtime_message = "Inserted Agent draft into Query".to_owned();
-    }
-
-    fn run_agent_read_only(&mut self, sql: &str) {
-        if !self.connected
-            || self.active_query_connection_id().is_none()
-            || self.active_query_running_request().is_some()
-        {
-            self.runtime_message = "Connect to a database before running the Agent draft".to_owned();
-            return;
-        }
-        self.set_active_query_text(sql);
-        self.selected_query.clear();
-        self.active_tab = WorkspaceTab::Query;
-        self.dispatch_query();
-    }
-
     fn request_connections_once(&mut self) {
         if self.connections_requested {
             return;
@@ -1371,8 +1349,10 @@ impl DbProApp {
                 .iter()
                 .any(|d| d.pending_prediction_request.is_some() || d.prediction_debounce_deadline.is_some())
             || self.query_documents.iter().any(|d| d.explain_request.is_some())
-            || self.agent_sessions.values().any(|session| session.request_id.is_some())
-            || self.agent_request.is_some()
+            || self
+                .agent_sessions
+                .values()
+                .any(|session| session.request_id.is_some() || session.active_run_id.is_some())
             || self.table_info_request.is_some()
             || self.table_ddl_request.is_some()
             || self.table_data_request.is_some()

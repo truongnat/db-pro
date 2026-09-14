@@ -1073,4 +1073,75 @@ mod tests {
         // Verification: Even though provider called tool "mut-1" twice, the database runner executed exactly ONCE!
         assert_eq!(runner.count.load(std::sync::atomic::Ordering::SeqCst), 1);
     }
+
+    #[tokio::test]
+    async fn rejected_confirmation_is_cached_and_replayed_on_repeated_call_id() {
+        let runner = std::sync::Arc::new(CountingToolRunner {
+            count: std::sync::atomic::AtomicUsize::new(0),
+        });
+        struct ArcRunner(std::sync::Arc<CountingToolRunner>);
+        #[async_trait::async_trait]
+        impl AgentToolRunner for ArcRunner {
+            async fn execute(
+                &self,
+                request: &AgentToolRequest,
+                context: &AgentExecutionContext,
+            ) -> Result<AgentToolResult, AgentToolError> {
+                self.0.execute(request, context).await
+            }
+        }
+
+        let session = AgentSession::new("doc-a", Some("conn-1".to_owned()), Some("public".to_owned()));
+        let execution_context = AgentExecutionContext::new(session.clone(), document(1), AgentMode::Agent);
+        let mut orchestrator = AgentRunOrchestrator::new(
+            Box::new(FakeProvider {
+                responses: Mutex::new(
+                    vec![
+                        vec![AgentProviderEvent::ToolCall(AgentToolCall {
+                            call_id: "mut-rej".to_owned(),
+                            tool: AgentTool::RunQuery,
+                            input: AgentToolInput::Query {
+                                sql: "DELETE FROM users".to_owned(),
+                            },
+                        })],
+                        vec![AgentProviderEvent::ToolCall(AgentToolCall {
+                            call_id: "mut-rej".to_owned(),
+                            tool: AgentTool::RunQuery,
+                            input: AgentToolInput::Query {
+                                sql: "DELETE FROM users".to_owned(),
+                            },
+                        })],
+                        vec![AgentProviderEvent::Completed],
+                    ]
+                    .into_iter()
+                    .collect(),
+                ),
+            }),
+            Box::new(ArcRunner(runner.clone())),
+            AgentWorkflow::new(session, AgentMode::Agent, false),
+            execution_context,
+            "delete".to_owned(),
+            context(1),
+        )
+        .expect("orchestrator should start");
+
+        let first = orchestrator.run().await;
+        assert!(first.iter().any(|e| matches!(
+            e,
+            AgentWorkflowEvent::ConfirmationRequired {
+                kind: AgentConfirmationKind::RunDestructive,
+                ..
+            }
+        )));
+
+        // User rejects confirmation
+        let second = orchestrator
+            .resume_confirmation(false, Some(document(1)), None)
+            .await
+            .expect("confirmation rejected handled");
+        assert!(second.iter().any(|e| matches!(e, AgentWorkflowEvent::Completed { .. })));
+
+        // Verification: Database was never touched, count is 0!
+        assert_eq!(runner.count.load(std::sync::atomic::Ordering::SeqCst), 0);
+    }
 }

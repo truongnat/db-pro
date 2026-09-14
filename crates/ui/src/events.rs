@@ -231,17 +231,12 @@ impl DbProApp {
         }
     }
 
-    fn on_agent_completed(&mut self, request_id: RequestId, provider: String, message: AgentMessage) {
-        if self.agent_request == Some(request_id) {
-            self.agent_request = None;
-            self.agent_pending_prompt = None;
-            self.agent_pending_context = None;
-            let provider_detail = format!("{provider} Responses API · SQL drafts stay unexecuted");
-            self.agent_provider_label = provider;
-            self.agent_provider_detail = provider_detail;
-            self.agent_messages.push(message);
-            self.runtime_message = "Agent response received".to_owned();
-        }
+    fn on_agent_completed(&mut self, _request_id: RequestId, provider: String, message: AgentMessage) {
+        let provider_detail = format!("{provider} Responses API · SQL drafts stay unexecuted");
+        self.agent_provider_label = provider;
+        self.agent_provider_detail = provider_detail;
+        self.agent_messages.push(message);
+        self.runtime_message = "Agent response received".to_owned();
     }
 
     fn on_agent_failed(&mut self, request_id: RequestId, message: String) {
@@ -266,12 +261,6 @@ impl DbProApp {
             });
             super::agent_state::finish_agent_session(session, db_pro_core::domain::agent::AgentSessionState::Failed);
             self.runtime_message = "Agent workflow failed".to_owned();
-            return;
-        }
-        if self.agent_request == Some(request_id) {
-            self.agent_request = None;
-            self.runtime_message = "Agent unavailable · switched to offline draft".to_owned();
-            self.fallback_agent_response(Some(&format!("Agent unavailable: {message}")));
         }
     }
 
