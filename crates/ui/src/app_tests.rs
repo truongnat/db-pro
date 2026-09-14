@@ -1172,23 +1172,46 @@ fn diagram_layout_worker_background_computation_and_stale_drop() {
     let req_id2 = worker.request_layout(2, tables, 2, 120.0);
     assert!(req_id2 > req_id1);
 
-    // Wait for worker background computation
+    // Drain until the worker emits the layout for the newest request, or the deadline
+    // expires. The worker coalesces only what is already queued when it wakes up, so if
+    // the scheduler runs it between the two calls it emits the superseded version-1
+    // layout first; that intermediate is dropped at the app boundary because
+    // request_id != diagram_latest_layout_request. Asserting on the first result would
+    // assert on the scheduler instead. The deadline is seconds because a descheduled
+    // worker thread can take hundreds of milliseconds to run on a shared CI runner,
+    // while the layout itself takes microseconds.
+    const COALESCING_DEADLINE: std::time::Duration = std::time::Duration::from_secs(5);
+
     let start = std::time::Instant::now();
-    let mut received_result = None;
-    while start.elapsed() < std::time::Duration::from_millis(500) {
-        if let Some(res) = worker.poll_result() {
-            received_result = Some(res);
-            break;
+    let mut intermediate: Vec<ErLayoutResult> = Vec::new();
+    let mut latest: Option<ErLayoutResult> = None;
+    while latest.is_none() && start.elapsed() < COALESCING_DEADLINE {
+        match worker.poll_result() {
+            Some(res) if res.request_id == req_id2 && res.graph_version == 2 => latest = Some(res),
+            Some(res) => intermediate.push(res),
+            None => std::thread::sleep(std::time::Duration::from_millis(5)),
         }
-        std::thread::sleep(std::time::Duration::from_millis(10));
     }
 
-    assert!(received_result.is_some());
-    let res = received_result.unwrap();
-    // Coalescing / latest request guarantees version 2 is processed
+    // Coalescing / latest request guarantees version 2 is the layout the app commits.
+    let res = latest.expect("worker should emit the newest layout within the deadline");
     assert_eq!(res.graph_version, 2);
     assert_eq!(res.graph.nodes.len(), 2);
     assert_eq!(res.graph.edges.len(), 1);
+
+    // Any earlier emission can only be the stale version-1 layout, which the app boundary
+    // rejects because request_id != latest_layout_request.
+    for stale in &intermediate {
+        assert_eq!(stale.request_id, req_id1, "only the older request may be emitted first");
+        assert_eq!(stale.graph_version, 1);
+        // App-boundary acceptance check (diagram_view.rs): a result is committed only when both
+        // its request id and its version match the latest request.
+        let accepted = stale.request_id == req_id2 && stale.graph_version == 2;
+        assert!(
+            !accepted,
+            "the intermediate layout must be rejected at the app boundary"
+        );
+    }
 }
 
 #[test]

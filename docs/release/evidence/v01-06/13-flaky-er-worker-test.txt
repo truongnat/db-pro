@@ -1,0 +1,575 @@
+# V01-06 evidence — 13-flaky-er-worker-test
+
+Captured    : 2026-09-14 (local). No CI run, dispatch, cancel or tag was issued by this session.
+Worktree    : /Users/truongdev/Documents/projects/db-pro/main (branch main)
+Base commit : eff2766bd38ec4f9cc9a0baa77fcf00978dc917e "docs(release): record the state-directory
+              blocker fix in the v0.1 documents" (HEAD; the fix described below was uncommitted
+              while the runs were made).
+Host        : macOS 26.5.2 / arm64 (Apple Silicon), 10 CPUs, otherwise idle unless stated.
+Toolchain   : cargo 1.95.0 (f2d3ce0bd 2026-03-21), rustc 1.95.0 (59807616e 2026-04-14)
+              (the repo pin in rust-toolchain.toml; used unchanged).
+
+SCOPE OF THIS CHANGE
+  - crates/ui/src/diagram/tests.rs  : worker_coalescing_latest_result_wins rewritten to drain
+    results until the newest layout is emitted; worker_latest_result_always_wins rewritten the
+    same way (same first-result assumption, same root cause).
+  - crates/ui/src/app_tests.rs      : diagram_layout_worker_background_computation_and_stale_drop
+    rewritten the same way (same root cause).
+  - NOT touched: crates/ui/src/diagram/layout.rs — the ER layout worker's runtime behaviour is
+    UNCHANGED (`git diff` shows no worker edit), because the evidence below rules out (b).
+    Also untouched: Cargo.toml / Cargo.lock, rust-toolchain.toml, .github/workflows/*, every
+    other module and every other v0.1 document.
+
+==============================================================================
+1. THE CI FAILURE (pre-flight gate of the release pipeline)
+==============================================================================
+Run        : 34851704292 (release workflow, `Pre-flight checks` -> `cargo test --workspace`)
+Runner SHA : eff2766
+Job output (Linux runner):
+
+    thread 'diagram::tests::worker_coalescing_latest_result_wins' (8695) panicked at
+    crates/ui/src/diagram/tests.rs:1346:5:
+    assertion `left == right` failed
+      left: 5
+     right: 6
+    test result: FAILED. 358 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out
+    error: test failed, to rerun pass `-p db-pro-ui --lib`
+
+Line 1346 in the candidate was `assert_eq!(res.graph_version, 6);` in the pre-fix body of
+`worker_coalescing_latest_result_wins`: the test sent `request_layout(5, ...)` then
+`request_layout(6, ...)`, broke on the FIRST result it observed within 500 ms, and asserted that
+this first result was version 6. It observed version 5 instead.
+
+Local baseline for the same suite on this host before any change (captured for this file):
+`cargo test --workspace` -> 815 passed; 0 failed; 19 ignored (identical to the release baseline).
+
+==============================================================================
+2. LOCAL REPRODUCTION OF THE FAILURE (uninstrumented binary)
+==============================================================================
+The failure did NOT reproduce locally by looping the shipped test, including under CPU
+contention. Each iteration is one process running
+`diagram::tests::worker_coalescing_latest_result_wins --exact --test-threads=1`:
+
+    configuration                                        invocations   failures
+    idle                                                 1000          0
+    24 x `yes > /dev/null` spinners (10 CPUs)            1000          0
+    120 x `yes > /dev/null` spinners (10 CPUs)           300           0
+    ----------------------------------------------------------------------------
+    total, uninstrumented                                2300          0
+
+CI-like in-process concurrency (all 100 `diagram::tests::` tests, `--test-threads=4` to match
+the 4-vCPU CI runner, under the 24-spinner load), pre-fix test in the binary:
+
+    20 runs -> 0 runs with a failure
+
+So the shipped assertion is not deterministic on this host either way: it depends on a scheduler
+event that this 10-core, lightly loaded machine essentially never produces. Its probability has
+to be measured from the worker's own emissions instead (sections 3-6).
+
+==============================================================================
+3. INSTRUMENTED CHARACTERISATION (temporary code, removed before the commit)
+==============================================================================
+Two temporary edits were used and then reverted (the committed tree contains neither; verified
+with `grep` for the markers and `git diff` showing only the two test files):
+
+  a) layout.rs: an `eprintln!` at each worker event (thread start, recv, drain result, emit) so
+     the exact results and their order could be read out of the worker thread itself.
+  b) tests.rs: a harness that replicated the shipped test body (send 5, send 6, poll until the
+     first result, 500 ms deadline, 5 ms poll interval) many times in one process and then kept
+     draining to see everything the worker emitted afterwards. Optional knobs: extra busy
+     threads inside the process, a delay between the two sends, drain deadlines.
+
+Temporary code is not part of the deliverable; the evidence it produced is quoted verbatim
+below. Line numbers inside the raw experiment output below refer to those temporary files,
+not to the committed tree: the coalescing test's `expect` is at diagram/tests.rs:1385 and the
+stale-emission panic of the pre-fix body was reported at tests.rs:1381 of the experiment file.
+
+--- 3.1 Natural race, no deliberate delay: the worker always coalesces ------------------------
+
+    DBPRO_ITERS=3000, idle:
+    [instr] SUMMARY iters=3000 spinners=0 separation_us=0 first_is_v6=3000 first_is_v5=0 \
+      first_no_result=0 first_other=0 saw_v5_and_v6=0 v5_first_then_v6=0 emitted_after_first=0 \
+      v6_never_seen=0 ... histogram={"new_v6": 3000}
+
+    worker-side ground truth, first iteration, verbatim:
+    [instr] iter_begin i=0 t=1789394521270442
+    [instr] worker_start t=1789394521270689
+    [instr] worker_recv t=1789394521271118 req=1 ver=5
+    [instr] worker_planned t=1789394521271162 req=2 ver=6 drain=1
+    [instr] worker_emit t=1789394521271471 req=2 ver=6
+    [instr] iter_end i=0 first=new_v6 saw_v6=true t=1789394521278736
+
+    `drain=1` means the worker's try_recv() drain picked up the second request before laying
+    out, so exactly ONE result was emitted for the pair: (request_id=2, graph_version=6).
+
+    DBPRO_ITERS=3000 with 9 in-process spinner threads: identical result (3000/3000 coalesced,
+    one emit of (2,6) per iteration). Parsing the worker log of the 3000-iteration idle run:
+    3000 x `worker_emit req=2 ver=6`, no other emission.
+
+--- 3.2 Starvation (macOS background QoS + 24 spinners): deadline misses, still no split ------
+
+    DBPRO_ITERS=3000 at `taskpolicy -b` with 24 spinners, run stopped after 1526 completed
+    iterations (~1.5 iterations/s):
+      completed iterations            : 1526
+      emissions observed              : 1527, all (request_id=2, graph_version=6); 0 of version 5
+      shipped test's 500 ms deadline   : exceeded in 123/1526 iterations (8.1%) with NO result
+      worker latency, those iterations : min 261 us, p50 331 ms, p90 780 ms, max 2.44 s
+      iterations where v6 never arrived: 0
+
+    A shorter run of the same configuration (200 iterations) completed with 0/200 deadline
+    misses and 200/200 coalesced: the starvation regime is not stable on this host, which is
+    itself the point — the shipped 500 ms budget is a property of the machine, not of the
+    worker. Note that in these 1526 starved iterations the shipped assertion `assert_eq!
+    (res.graph_version, 6)` would still have passed whenever a result arrived at all; the
+    failure mode under pure starvation is the earlier `expect("worker should produce a
+    result")`.
+
+--- 3.3 What the worker emits when the two requests are separated in time --------------------
+
+    A delay of D microseconds was placed between the two `request_layout` calls (i.e. the test
+    thread is stalled between the sends — the event the CI scheduler produced). 60 iterations
+    per configuration:
+
+    D        shipped body's first result      emitted sequence           v6 ever seen
+    100 us   old (1,5) in 59/60              (1,5) then (2,6) in 60/60  yes, 60/60
+    200 us   old (1,5) in 60/60              (1,5) then (2,6) in 60/60  yes, 60/60
+    1000 us  old (1,5) in 60/60              (1,5) then (2,6) in 60/60  yes, 60/60
+
+    Gap between the two emissions, measured from the worker log (t of emit (1,5) -> t of emit
+    (2,6)):
+    D=100 us : n=60, min 112 us, p50 150 us, max 217 us
+    D=200 us : n=60, min 237 us, p50 303 us, max 439 us
+    D=1000us : n=60, min 1407 us, p50 1533 us, max 1562 us
+
+    Verbatim single iteration (D=200 us), worker-side ground truth:
+
+    [instr] iter_begin i=0 t=1789395426476512
+    [instr] worker_start t=1789395426476581
+    [instr] worker_recv t=1789395426476635 req=1 ver=5
+    [instr] worker_planned t=1789395426476654 req=1 ver=5 drain=0
+    [instr] worker_emit t=1789395426476751 req=1 ver=5
+    [instr] worker_recv t=1789395426476946 req=2 ver=6
+    [instr] worker_planned t=1789395426476960 req=2 ver=6 drain=0
+    [instr] worker_emit t=1789395426476988 req=2 ver=6
+    [instr] INTERESTING i=0 first=old_v5 first_req=Some(1) later_obs=[(2, 6)] versions=[5, 6] saw_v6=true
+
+    Read this as: the worker drained (`drain=0`, nothing queued because the second request had
+    not been sent yet), laid out version 5, emitted it, and then handled version 6 and emitted
+    it. Both results are produced, in request order; nothing is dropped.
+
+    Across every configuration above, no emission ever carried a mismatched pair: there is no
+    observed (request_id=2, graph_version=5) or (request_id=1, graph_version=6).
+
+==============================================================================
+4. VERDICT: (a) legitimate intermediate emission — the test, not the worker
+==============================================================================
+(a) is supported, (b) is contradicted, by the following:
+
+  * The worker emits the layout for the newest request in every observation: 3000/3000
+    coalesced (section 3.1), 1526/1526 starved (section 3.2), 180/180 with a deliberate stall
+    (section 3.3). `v6_never_seen = 0` throughout, and no iteration ended without an emission
+    for the second request once the thread got CPU.
+  * The pre-fix failure mode is exactly "the first of several legitimate results is the older
+    one": (1,5) is emitted first, (2,6) follows ~150 us - 1.5 ms later (section 3.3). The
+    shipped test broke on the first result, so a stalled test thread turns that ordering into
+    `left: 5, right: 6` — the CI signature.
+  * The worker's design makes (b) impossible for this scenario: `request_layout` sends on a
+    queue the worker drains with try_recv (layout.rs); with the sender alive and only two
+    requests in flight (the drain cap is 64), every request is either coalesced into the
+    latest one or processed in a later pass, and each pass emits exactly one result. There is
+    no path that discards the newest request.
+  * The sibling tests in the same file already document the intended design: an intermediate
+    stale result is emitted and then rejected at the app boundary because
+    `request_id != diagram_latest_layout_request` (diagram_view.rs keeps the result only when
+    `res.graph_version == diagram_schema_version && res.request_id == diagram_latest_layout_request`).
+    The shipped test's assumption that the FIRST result is the coalesced latest contradicts
+    that documented behaviour.
+
+==============================================================================
+5. DETERMINISTIC REPRODUCTION OF THE CI SIGNATURE, AND PROOF THE FIX IS NOT A WEAKENING
+==============================================================================
+Three temporary tests/mutations were used for these two experiments and reverted afterwards
+(the committed tree contains none of them):
+
+--- 5.1 Same worker, same stall: pre-fix body fails, fixed body passes ------------------------
+
+The worker was warmed up first (one request sent and drained), so the outcome does not depend on
+thread-start latency, and a 200 us stall was placed between the two sends — the emulation of the
+CI scheduler event. Both bodies then ran against the same, unchanged worker:
+
+    pre-fix body (temporary copy of the shipped code):
+    thread 'diagram::tests::zz_tmp_pre_fix_body_with_thread_stall' (...) panicked at
+    crates/ui/src/diagram/tests.rs:1381:5:
+    assertion `left == right` failed
+      left: 5
+     right: 6
+
+    fixed body (temporary copy of the committed rewrite), same worker, same stall:
+    test diagram::tests::zz_tmp_fixed_body_with_thread_stall ... ok
+    test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out
+
+    repeated 10 times: pre-fix body 10/10 FAILED (left: 5, right: 6), fixed body 0/10 failed.
+
+The fixed body also asserted that it observed exactly one intermediate result, that it was
+(request_id=old, graph_version=5), and that the app-boundary acceptance check rejects it.
+
+--- 5.2 Negative control: a worker that really loses the latest request -----------------------
+
+Temporary worker mutation `if latest_request.request_id > 1 { continue; }` (every request after
+the first is dropped, i.e. the layout for the latest request is never emitted). With the
+committed tests, both rewritten tests FAIL — the fix does not paper over a broken worker:
+
+    thread 'app::tests::diagram_layout_worker_background_computation_and_stale_drop' panicked at
+    crates/ui/src/app_tests.rs:1197:22:
+    worker should emit the newest layout within the deadline
+
+    thread 'diagram::tests::worker_coalescing_latest_result_wins' panicked at
+    crates/ui/src/diagram/tests.rs:1458:22:
+    worker should emit the layout for the latest request within the deadline
+
+    test result: FAILED. 0 passed; 2 failed; 0 ignored; 0 measured; 359 filtered out;
+    finished in 5.01s
+
+The assertions kept (and strengthened) by the rewrite:
+  - the result the app commits is the newest request: `request_id == req_new` and
+    `graph_version == 6`, plus `graph.schema_version == 6` (the payload really is the v6 layout);
+  - any result emitted earlier is the superseded one (request_id/version/schema_version of the
+    older request) and fails the app-boundary acceptance check;
+  - "latest wins" still has to hold within the deadline, or the test fails.
+Nothing was deleted, relaxed, or marked `#[ignore]`; no assertion was replaced by a sleep.
+
+==============================================================================
+6. THE FIX (exact diff, tests only — no worker change)
+==============================================================================
+diff --git a/crates/ui/src/app_tests.rs b/crates/ui/src/app_tests.rs
+index 1050189..86a7c3c 100644
+--- a/crates/ui/src/app_tests.rs
++++ b/crates/ui/src/app_tests.rs
+@@ -1172,23 +1172,46 @@ fn diagram_layout_worker_background_computation_and_stale_drop() {
+     let req_id2 = worker.request_layout(2, tables, 2, 120.0);
+     assert!(req_id2 > req_id1);
+ 
+-    // Wait for worker background computation
++    // Drain until the worker emits the layout for the newest request, or the deadline
++    // expires. The worker coalesces only what is already queued when it wakes up, so if
++    // the scheduler runs it between the two calls it emits the superseded version-1
++    // layout first; that intermediate is dropped at the app boundary because
++    // request_id != diagram_latest_layout_request. Asserting on the first result would
++    // assert on the scheduler instead. The deadline is seconds because a descheduled
++    // worker thread can take hundreds of milliseconds to run on a shared CI runner,
++    // while the layout itself takes microseconds.
++    const COALESCING_DEADLINE: std::time::Duration = std::time::Duration::from_secs(5);
++
+     let start = std::time::Instant::now();
+-    let mut received_result = None;
+-    while start.elapsed() < std::time::Duration::from_millis(500) {
+-        if let Some(res) = worker.poll_result() {
+-            received_result = Some(res);
+-            break;
++    let mut intermediate: Vec<ErLayoutResult> = Vec::new();
++    let mut latest: Option<ErLayoutResult> = None;
++    while latest.is_none() && start.elapsed() < COALESCING_DEADLINE {
++        match worker.poll_result() {
++            Some(res) if res.request_id == req_id2 && res.graph_version == 2 => latest = Some(res),
++            Some(res) => intermediate.push(res),
++            None => std::thread::sleep(std::time::Duration::from_millis(5)),
+         }
+-        std::thread::sleep(std::time::Duration::from_millis(10));
+     }
+ 
+-    assert!(received_result.is_some());
+-    let res = received_result.unwrap();
+-    // Coalescing / latest request guarantees version 2 is processed
++    // Coalescing / latest request guarantees version 2 is the layout the app commits.
++    let res = latest.expect("worker should emit the newest layout within the deadline");
+     assert_eq!(res.graph_version, 2);
+     assert_eq!(res.graph.nodes.len(), 2);
+     assert_eq!(res.graph.edges.len(), 1);
++
++    // Any earlier emission can only be the stale version-1 layout, which the app boundary
++    // rejects because request_id != latest_layout_request.
++    for stale in &intermediate {
++        assert_eq!(stale.request_id, req_id1, "only the older request may be emitted first");
++        assert_eq!(stale.graph_version, 1);
++        // App-boundary acceptance check (diagram_view.rs): a result is committed only when both
++        // its request id and its version match the latest request.
++        let accepted = stale.request_id == req_id2 && stale.graph_version == 2;
++        assert!(
++            !accepted,
++            "the intermediate layout must be rejected at the app boundary"
++        );
++    }
+ }
+ 
+ #[test]
+diff --git a/crates/ui/src/diagram/tests.rs b/crates/ui/src/diagram/tests.rs
+index cf02cf9..17f3388 100644
+--- a/crates/ui/src/diagram/tests.rs
++++ b/crates/ui/src/diagram/tests.rs
+@@ -14,7 +14,7 @@
+ //! - Composite FK rendering
+ //! - Memory/rebuild stability
+ 
+-use super::layout::ErLayoutWorker;
++use super::layout::{ErLayoutResult, ErLayoutWorker};
+ use super::lod::ErLod;
+ use super::model::{ErGraph, ER_CANVAS_MARGIN, ER_NODE_WIDTH};
+ use super::scene::prepare_render_scene;
+@@ -261,19 +261,40 @@ fn worker_latest_result_always_wins() {
+     let req2 = worker.request_layout(2, tables.clone(), 2, 120.0);
+     assert!(req2 > req1);
+ 
++    // Drain until the layout for the newest request is emitted, for the reason spelled
++    // out in worker_coalescing_latest_result_wins above: a worker the scheduler runs
++    // between the two sends lays out version 1 first, emits it, and only then handles
++    // version 2, so the first result cannot be asserted on.
++    const COALESCING_DEADLINE: Duration = Duration::from_secs(5);
++
+     let start = Instant::now();
+-    let mut result = None;
+-    while start.elapsed() < Duration::from_millis(500) {
+-        if let Some(res) = worker.poll_result() {
+-            result = Some(res);
+-            break;
++    let mut intermediate: Vec<ErLayoutResult> = Vec::new();
++    let mut latest: Option<ErLayoutResult> = None;
++    while latest.is_none() && start.elapsed() < COALESCING_DEADLINE {
++        match worker.poll_result() {
++            Some(res) if res.request_id == req2 && res.graph_version == 2 => latest = Some(res),
++            Some(res) => intermediate.push(res),
++            None => std::thread::sleep(Duration::from_millis(5)),
+         }
+-        std::thread::sleep(Duration::from_millis(5));
+     }
+ 
+-    let res = result.expect("worker should produce a result");
++    let res = latest.expect("worker should emit the newest layout within the deadline");
+     assert!(res.graph_version >= 2);
+     assert_eq!(res.request_id, req2);
++
++    // A superseded version-1 layout may be emitted first; the app boundary drops it
++    // because request_id != latest_layout_request.
++    for stale in &intermediate {
++        assert_eq!(stale.request_id, req1, "only the older request may be emitted first");
++        assert_eq!(stale.graph_version, 1);
++        // App-boundary acceptance check (diagram_view.rs): a result is committed only when both
++        // its request id and its version match the latest request.
++        let accepted = stale.request_id == req2 && stale.graph_version == 2;
++        assert!(
++            !accepted,
++            "the intermediate layout must be rejected at the app boundary"
++        );
++    }
+ }
+ 
+ // ===========================================================================
+@@ -1330,22 +1351,58 @@ fn worker_coalescing_latest_result_wins() {
+     // Send request for version 6
+     let req_new = worker.request_layout(6, tables, 2, 120.0);
+ 
+-    // Wait for worker to finish
++    // Drain results until the worker emits the layout for the latest request, or the
++    // deadline expires.
++    //
++    // The worker coalesces only what is already queued when it wakes up (layout.rs:
++    // recv() followed by the try_recv() drain). When the scheduler runs it between the
++    // two sends it lays out version 5 on its own and emits that result before version 6
++    // arrives. That first result is a legitimate intermediate, not a coalescing failure:
++    // the app boundary rejects it because `request_id != diagram_latest_layout_request`
++    // (the shape pinned by stale_result_with_old_request_id_rejected_at_app_boundary
++    // above), and the layout the app commits is the *last* result the worker emits.
++    // Asserting on the first result therefore asserts on the scheduler, not on coalescing.
++    //
++    // The deadline is seconds rather than milliseconds because a descheduled worker
++    // thread can take hundreds of milliseconds to run again on a shared CI runner
++    // (~2.4 s measured under heavy starvation), while laying out three tables takes
++    // microseconds once the thread runs.
++    const COALESCING_DEADLINE: Duration = Duration::from_secs(5);
++
+     let start = Instant::now();
+-    let mut result = None;
+-    while start.elapsed() < Duration::from_millis(500) {
+-        if let Some(res) = worker.poll_result() {
+-            result = Some(res);
+-            break;
++    let mut intermediate: Vec<ErLayoutResult> = Vec::new();
++    let mut latest: Option<ErLayoutResult> = None;
++    while latest.is_none() && start.elapsed() < COALESCING_DEADLINE {
++        match worker.poll_result() {
++            Some(res) if res.request_id == req_new && res.graph_version == 6 => latest = Some(res),
++            Some(res) => intermediate.push(res),
++            None => std::thread::sleep(Duration::from_millis(5)),
+         }
+-        std::thread::sleep(Duration::from_millis(5));
+     }
+ 
+-    let res = result.expect("worker should produce a result");
+-    // Coalescing means the latest request (version 6) is processed
++    // Coalescing means the latest request (version 6) is the layout the app ends up
++    // committing, and it carries that newest version into the graph it built.
++    let res = latest.expect("worker should emit the layout for the latest request within the deadline");
+     assert_eq!(res.graph_version, 6);
+     assert_eq!(res.request_id, req_new);
+     assert_ne!(res.request_id, req_old);
++    assert_eq!(res.graph.schema_version, 6);
++
++    // Anything emitted before it can only be the superseded version-5 layout; it is stale
++    // and is dropped at the app boundary, mirroring
++    // stale_result_with_old_request_id_rejected_at_app_boundary above.
++    for stale in &intermediate {
++        assert_eq!(stale.request_id, req_old, "only the older request may be emitted first");
++        assert_eq!(stale.graph_version, 5);
++        assert_eq!(stale.graph.schema_version, 5);
++        // App-boundary acceptance check (diagram_view.rs): a result is committed only when both
++        // its request id and its version match the latest request.
++        let accepted = stale.request_id == req_new && stale.graph_version == 6;
++        assert!(
++            !accepted,
++            "the intermediate layout must be rejected at the app boundary"
++        );
++    }
+ }
+ 
+ // ===========================================================================
+
+==============================================================================
+7. STABILITY RUNS ON THE FIXED ARTIFACT
+==============================================================================
+Each "invocation" runs the three affected tests together in one process
+(`--exact ... --test-threads=1`), i.e. 3 test executions per invocation:
+
+    configuration                                              invocations  failed
+    60 consecutive runs, idle                                  60           0
+    50 consecutive runs, 24 x `yes` spinners                    50           0
+    20 consecutive runs, background QoS + 24 spinners           20           0
+    15 CI-like runs, 100 diagram tests, --test-threads=4,
+       24 spinners (one run = 99 tests)                        15 runs      0 runs
+    ------------------------------------------------------------------------------
+    consecutively: 130 invocations / 390 test executions, 0 failures
+
+Re-run after the final `cargo fmt --all` pass (the artifact that is committed):
+    60 consecutive idle runs -> 60/60, 20 consecutive starved runs -> 20/20.
+
+For comparison, the performance tests in the same file (`timing_*`, `scene_prep_*`) and the
+other worker tests were not modified; the whole-suite numbers in section 8 are unchanged.
+
+==============================================================================
+8. THE SIX QUALITY GATES (HEAD eff2766 + this fix, worktree state)
+==============================================================================
+Runner script: /tmp/v0106_13/run-gates.sh, raw logs /tmp/v0106_13/gate-*.log.
+
+    GATE 01-fmt            cargo fmt --all -- --check                          EXIT 0  ( 1 s)
+    GATE 02-check          cargo check --workspace                             EXIT 0  ( 1 s)
+    GATE 03-clippy         cargo clippy --workspace --all-targets -- -D warnings EXIT 0 (11 s)
+    GATE 04-test           cargo test --workspace                              EXIT 0  (17 s)
+    GATE 05-release-build  cargo build --release --locked -p db-pro-native     EXIT 0  ( 1 s)
+    GATE 06-perf           sh .skills/perf-audit/scripts/perf-scan.sh          EXIT 0  (12 s)
+    ALL_GATES_COMPLETE
+
+Gate 04 raw totals, per binary (from gate-04-test.log):
+
+    db_pro_core                                291 passed  0 failed  0 ignored
+    db_pro_infrastructure                       62 passed  0 failed  0 ignored
+    integration (tests/)                        32 passed  0 failed  0 ignored
+    pg_integration (tests/)                      0 passed  0 failed 18 ignored
+    schema_columns_atomicity_regression          1 passed  0 failed  0 ignored
+    schema_indexes_runtime_verification          1 passed  0 failed  0 ignored
+    schema_relations_runtime_verification        1 passed  0 failed  0 ignored
+    schema_triggers_runtime_verification         5 passed  0 failed  0 ignored
+    ssh_backup_runtime_verification              0 passed  0 failed  1 ignored
+    db_pro_native                               14 passed  0 failed  0 ignored
+    db_pro_runtime                              28 passed  0 failed  0 ignored
+    db_pro_tauri_lib                            21 passed  0 failed  0 ignored
+    db_pro_ui (lib)                            359 passed  0 failed  0 ignored
+    -------------------------------------------------------------------------------
+    WORKSPACE TOTAL                            815 passed  0 failed 19 ignored
+
+Delta vs the release baseline (815 passed / 0 failed / 19 ignored): none. The UI library binary
+still contains 359 tests, i.e. the three rewrites did not add or remove tests.
+
+Gate 06 raw summary: "Passed: 4 / Warnings: 0 / Failed: 0 / Status: PASS", db-pro-native release
+binary 22.6 MB (budget < 50 MB).
+
+Note on the first gate attempt: `cargo fmt --all -- --check` initially returned EXIT 1 because
+three of the new `assert!` lines were not rustfmt-shaped. `cargo fmt --all` was applied (no
+semantic change) and the whole gate run above is the post-format run; the stability runs in
+section 7 were also repeated on that final artifact.
+
+==============================================================================
+9. AUDIT — OTHER SITES THAT DEPEND ON WHICH ASYNCHRONOUS RESULT ARRIVES FIRST
+==============================================================================
+Search covered every test in the workspace: poll/recv loops with `break` on the first result,
+deadline loops (`elapsed() < ...`), `recv`/`try_recv`/`poll_result` sites and channel timeouts.
+
+FIXED (same root cause: assert on the first of several asynchronous results)
+
+  crates/ui/src/diagram/tests.rs:1342  worker_coalescing_latest_result_wins
+      The CI failure. First result asserted to be the coalesced latest; 500 ms budget.
+  crates/ui/src/diagram/tests.rs:256   worker_latest_result_always_wins
+      Identical shape (requests 1 and 2, breaks on the first result, asserts
+      `request_id == req2`). Would fail the same way, only less often, because the two versions
+      carry the same table set and the assertion on request_id is what breaks.
+  crates/ui/src/app_tests.rs:1128      diagram_layout_worker_background_computation_and_stale_drop
+      Identical shape (versions 1 and 2, breaks on the first result, asserts version 2), the same
+      worker, only a 10 ms poll interval instead of 5 ms.
+
+LEFT UNTOUCHED — safe, because the assertion does not depend on which result arrives
+
+  crates/ui/src/diagram/tests.rs:196   worker_coalesces_rapid_requests
+      Sends versions 1..=5 and breaks on the first result, but asserts `graph_version >= 1` and
+      a node count that is 3 for every version, so every coalescing outcome satisfies it. Its
+      500 ms deadline is the same wall-clock budget as the fixed test, but no ordering
+      assumption is encoded; this is a different sensitivity (see the last paragraph).
+  crates/ui/src/diagram/tests.rs:1105  worker_survives_rapid_schema_switches
+      Breaks on the first result; the only assertion is `worker.is_alive()`, which holds whether
+      a result, a different result, or no result arrives within the 1000 ms budget.
+  crates/ui/src/app_tests.rs:3077,3087 (blocking `command_rx.recv()` after `dispatch_query`)
+  crates/ui/src/app_tests.rs:336,338,556,1456,1488,1548,1647,1832,2076,2241,2299,2388,2414,
+  3522,3624,3731,3906,3962 (`try_recv` assertions and one drain loop)
+  crates/ui/src/runtime.rs:879         bridge_delivers_typed_commands
+  crates/tauri-app/src/cancel.rs:462   register_with_id_and_cancel_by_id_roundtrip
+      These use a single-threaded mpsc channel whose message is enqueued synchronously by the
+      code under test on the same thread before the receive/assert. There is no second producer
+      and no background task, so the first item received is deterministic. The one drain loop
+      (app_tests.rs:1832) scans the whole queue for the command it looks for instead of
+      asserting on a position.
+  crates/ui/src/diagram/tests.rs:173   worker_shutdown_via_drop_no_leak
+      A 50 ms sleep with no assertion afterwards ("no panic, no crash"): nothing is observed,
+      so nothing can be observed out of order.
+
+LEFT UNTOUCHED — different root cause (wall-clock budget or timeout-under-test, not ordering)
+
+  crates/ui/src/diagram/tests.rs:651,665,679,693   timing_20/100/500/1000_tables
+  crates/ui/src/diagram/tests.rs:711,732           scene_prep_1000_*
+  crates/ui/src/diagram/tests.rs:1567              no_full_graph_traversal_in_frame_path
+      `assert!(elapsed < 50/100/300/500/10/15/50 ms)`: performance budgets on a debug build.
+      They measure machine speed, not the order of asynchronous results, and there is no CI
+      evidence of them failing. They are a candidate for a separate follow-up if the release
+      needs a stricter determinism review; they were deliberately not touched here.
+  crates/infrastructure/src/postgres/connector.rs:700 postgres_operation_timeout_returns_query_timeout
+  crates/infrastructure/tests/integration.rs:192,261,367 (query / transaction / batch timeouts)
+      The timeouts are the product behaviour under test (1-10 ms deadlines that must produce
+      DbError::QueryTimeout); the assertions are about the timeout itself, not about which of
+      several results arrives first.
+  crates/infrastructure/src/sqlite/actor.rs:117,237,288,345,375
+      Product code paths taking `timeout_ms` as a parameter, not tests.
+
+==============================================================================
+10. WHAT WAS NOT VERIFIED / LIMITATIONS
+==============================================================================
+  * The scheduler event that made CI fail was NOT reproduced naturally on this host: 2300
+    uninstrumented invocations and 7526 instrumented iterations produced 0 failures of the
+    pre-fix test. The mechanism was instead reproduced deterministically by stalling the test
+    thread between the two sends (section 3.3, 5.1), which yields byte-identical output to the
+    CI failure (`left: 5`, `right: 6`) on the same worker. Whether the CI runner's stall looked
+    exactly like this cannot be verified from here; what is verified is that the shipped
+    assertion fails iff the test thread is stalled long enough for the worker to emit the
+    superseded layout first, and that the worker always emits the newest layout afterwards.
+  * No Linux runner was used: the 500 ms-deadline starvation data (section 3.2) comes from
+    macOS background QoS, which is harsher than a shared CI runner and is reported as an
+    aggravated case, not as a CI measurement.
+  * The 5 s deadline in the rewrites is a bounded wait, not a proof of unbounded liveness: on a
+    host starved beyond the measured worst case (2.44 s for the layout result) the test would
+    still fail, now with an explicit message naming the missing latest result.
+  * CI was not re-run for this change (no run, no dispatch, no tag was issued by this session);
+    the local six gates in section 8 are the verification evidence.

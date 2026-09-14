@@ -14,7 +14,7 @@
 //! - Composite FK rendering
 //! - Memory/rebuild stability
 
-use super::layout::ErLayoutWorker;
+use super::layout::{ErLayoutResult, ErLayoutWorker};
 use super::lod::ErLod;
 use super::model::{ErGraph, ER_CANVAS_MARGIN, ER_NODE_WIDTH};
 use super::scene::prepare_render_scene;
@@ -261,19 +261,40 @@ fn worker_latest_result_always_wins() {
     let req2 = worker.request_layout(2, tables.clone(), 2, 120.0);
     assert!(req2 > req1);
 
+    // Drain until the layout for the newest request is emitted, for the reason spelled
+    // out in worker_coalescing_latest_result_wins above: a worker the scheduler runs
+    // between the two sends lays out version 1 first, emits it, and only then handles
+    // version 2, so the first result cannot be asserted on.
+    const COALESCING_DEADLINE: Duration = Duration::from_secs(5);
+
     let start = Instant::now();
-    let mut result = None;
-    while start.elapsed() < Duration::from_millis(500) {
-        if let Some(res) = worker.poll_result() {
-            result = Some(res);
-            break;
+    let mut intermediate: Vec<ErLayoutResult> = Vec::new();
+    let mut latest: Option<ErLayoutResult> = None;
+    while latest.is_none() && start.elapsed() < COALESCING_DEADLINE {
+        match worker.poll_result() {
+            Some(res) if res.request_id == req2 && res.graph_version == 2 => latest = Some(res),
+            Some(res) => intermediate.push(res),
+            None => std::thread::sleep(Duration::from_millis(5)),
         }
-        std::thread::sleep(Duration::from_millis(5));
     }
 
-    let res = result.expect("worker should produce a result");
+    let res = latest.expect("worker should emit the newest layout within the deadline");
     assert!(res.graph_version >= 2);
     assert_eq!(res.request_id, req2);
+
+    // A superseded version-1 layout may be emitted first; the app boundary drops it
+    // because request_id != latest_layout_request.
+    for stale in &intermediate {
+        assert_eq!(stale.request_id, req1, "only the older request may be emitted first");
+        assert_eq!(stale.graph_version, 1);
+        // App-boundary acceptance check (diagram_view.rs): a result is committed only when both
+        // its request id and its version match the latest request.
+        let accepted = stale.request_id == req2 && stale.graph_version == 2;
+        assert!(
+            !accepted,
+            "the intermediate layout must be rejected at the app boundary"
+        );
+    }
 }
 
 // ===========================================================================
@@ -1330,22 +1351,58 @@ fn worker_coalescing_latest_result_wins() {
     // Send request for version 6
     let req_new = worker.request_layout(6, tables, 2, 120.0);
 
-    // Wait for worker to finish
+    // Drain results until the worker emits the layout for the latest request, or the
+    // deadline expires.
+    //
+    // The worker coalesces only what is already queued when it wakes up (layout.rs:
+    // recv() followed by the try_recv() drain). When the scheduler runs it between the
+    // two sends it lays out version 5 on its own and emits that result before version 6
+    // arrives. That first result is a legitimate intermediate, not a coalescing failure:
+    // the app boundary rejects it because `request_id != diagram_latest_layout_request`
+    // (the shape pinned by stale_result_with_old_request_id_rejected_at_app_boundary
+    // above), and the layout the app commits is the *last* result the worker emits.
+    // Asserting on the first result therefore asserts on the scheduler, not on coalescing.
+    //
+    // The deadline is seconds rather than milliseconds because a descheduled worker
+    // thread can take hundreds of milliseconds to run again on a shared CI runner
+    // (~2.4 s measured under heavy starvation), while laying out three tables takes
+    // microseconds once the thread runs.
+    const COALESCING_DEADLINE: Duration = Duration::from_secs(5);
+
     let start = Instant::now();
-    let mut result = None;
-    while start.elapsed() < Duration::from_millis(500) {
-        if let Some(res) = worker.poll_result() {
-            result = Some(res);
-            break;
+    let mut intermediate: Vec<ErLayoutResult> = Vec::new();
+    let mut latest: Option<ErLayoutResult> = None;
+    while latest.is_none() && start.elapsed() < COALESCING_DEADLINE {
+        match worker.poll_result() {
+            Some(res) if res.request_id == req_new && res.graph_version == 6 => latest = Some(res),
+            Some(res) => intermediate.push(res),
+            None => std::thread::sleep(Duration::from_millis(5)),
         }
-        std::thread::sleep(Duration::from_millis(5));
     }
 
-    let res = result.expect("worker should produce a result");
-    // Coalescing means the latest request (version 6) is processed
+    // Coalescing means the latest request (version 6) is the layout the app ends up
+    // committing, and it carries that newest version into the graph it built.
+    let res = latest.expect("worker should emit the layout for the latest request within the deadline");
     assert_eq!(res.graph_version, 6);
     assert_eq!(res.request_id, req_new);
     assert_ne!(res.request_id, req_old);
+    assert_eq!(res.graph.schema_version, 6);
+
+    // Anything emitted before it can only be the superseded version-5 layout; it is stale
+    // and is dropped at the app boundary, mirroring
+    // stale_result_with_old_request_id_rejected_at_app_boundary above.
+    for stale in &intermediate {
+        assert_eq!(stale.request_id, req_old, "only the older request may be emitted first");
+        assert_eq!(stale.graph_version, 5);
+        assert_eq!(stale.graph.schema_version, 5);
+        // App-boundary acceptance check (diagram_view.rs): a result is committed only when both
+        // its request id and its version match the latest request.
+        let accepted = stale.request_id == req_new && stale.graph_version == 6;
+        assert!(
+            !accepted,
+            "the intermediate layout must be rejected at the app boundary"
+        );
+    }
 }
 
 // ===========================================================================
