@@ -106,7 +106,9 @@ impl DbProApp {
                 self.diagram_layout_state = ErLayoutState::Ready;
             } else {
                 // Background worker update: keep old graph renderable and dispatch async request
-                self.diagram_schema_version = self.diagram_schema_version.wrapping_add(1);
+                // Use saturating_add to prevent version 0 collision with initial state;
+                // at u64::MAX this will stay u64::MAX which is fine (schema won't change again).
+                self.diagram_schema_version = self.diagram_schema_version.saturating_add(1);
                 let request_id = self.diagram_layout_worker.request_layout(
                     self.diagram_schema_version,
                     self.schema.table_details.clone(),

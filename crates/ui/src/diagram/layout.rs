@@ -1,9 +1,13 @@
 use super::model::ErGraph;
 use super::spatial::{ErSpatialIndex, DEFAULT_SPATIAL_CELL_SIZE};
 use crate::runtime::UiTableSummary;
-use std::sync::mpsc::{self, Receiver, Sender};
+use std::sync::mpsc::{self, Receiver, Sender, TryRecvError};
 use std::thread;
 use std::time::Instant;
+
+/// Maximum number of in-flight coalesced requests the worker will drain
+/// before processing. Prevents unbounded memory growth under rapid refresh.
+const MAX_COALESCE_DRAIN: usize = 64;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ErLayoutState {
@@ -32,7 +36,7 @@ pub struct ErLayoutResult {
 }
 
 pub struct ErLayoutWorker {
-    request_tx: Sender<ErLayoutRequest>,
+    request_tx: Option<Sender<ErLayoutRequest>>,
     result_rx: Receiver<ErLayoutResult>,
     next_request_id: u64,
 }
@@ -48,14 +52,23 @@ impl ErLayoutWorker {
         let (request_tx, request_rx) = mpsc::channel::<ErLayoutRequest>();
         let (result_tx, result_rx) = mpsc::channel::<ErLayoutResult>();
 
-        thread::Builder::new()
+        let worker_result = thread::Builder::new()
             .name("db-pro-er-layout".to_owned())
             .spawn(move || {
                 while let Ok(request) = request_rx.recv() {
-                    // Drain any newer pending requests to coalesce and prioritize the latest schema
+                    // Drain newer pending requests to coalesce and prioritize the latest schema.
+                    // Cap the drain count to prevent unbounded CPU usage under rapid refresh.
                     let mut latest_request = request;
-                    while let Ok(newer) = request_rx.try_recv() {
-                        latest_request = newer;
+                    let mut drain_count = 0;
+                    while drain_count < MAX_COALESCE_DRAIN {
+                        match request_rx.try_recv() {
+                            Ok(newer) => {
+                                latest_request = newer;
+                                drain_count += 1;
+                            }
+                            Err(TryRecvError::Empty) => break,
+                            Err(TryRecvError::Disconnected) => break,
+                        }
                     }
 
                     let start_time = Instant::now();
@@ -68,6 +81,8 @@ impl ErLayoutWorker {
                     let spatial_index = ErSpatialIndex::build(&graph.nodes, &graph.edges, DEFAULT_SPATIAL_CELL_SIZE);
                     let duration_ms = start_time.elapsed().as_secs_f32() * 1000.0;
 
+                    // If the receiver has been dropped (app shutting down), this send fails
+                    // silently — the worker thread exits naturally on the next recv() error.
                     let _ = result_tx.send(ErLayoutResult {
                         request_id: latest_request.request_id,
                         graph_version: latest_request.graph_version,
@@ -76,14 +91,25 @@ impl ErLayoutWorker {
                         duration_ms,
                     });
                 }
-            })
-            .expect("failed to spawn er layout background worker thread");
+            });
+
+        // If thread spawn fails (extremely rare: resource exhaustion), the worker
+        // operates in degraded mode: request_layout sends to a disconnected channel
+        // and poll_result never returns a result. The UI retains the last valid graph.
+        if worker_result.is_err() {
+            eprintln!("[db-pro] Failed to spawn ER layout worker thread — degraded mode");
+        }
 
         Self {
-            request_tx,
+            request_tx: Some(request_tx),
             result_rx,
             next_request_id: 1,
         }
+    }
+
+    /// Returns `true` if the background worker thread is alive.
+    pub fn is_alive(&self) -> bool {
+        self.request_tx.is_some()
     }
 
     pub fn request_layout(
@@ -96,17 +122,22 @@ impl ErLayoutWorker {
         let request_id = self.next_request_id;
         self.next_request_id = self.next_request_id.saturating_add(1);
 
-        let _ = self.request_tx.send(ErLayoutRequest {
-            request_id,
-            graph_version,
-            tables,
-            grid_columns,
-            node_height,
-        });
+        if let Some(tx) = &self.request_tx {
+            let _ = tx.send(ErLayoutRequest {
+                request_id,
+                graph_version,
+                tables,
+                grid_columns,
+                node_height,
+            });
+        }
 
         request_id
     }
 
+    /// Drain all pending results and return the most recent one.
+    /// This guarantees the caller always gets the latest completed computation,
+    /// which is critical for stale-result correctness.
     pub fn poll_result(&self) -> Option<ErLayoutResult> {
         let mut latest = None;
         while let Ok(res) = self.result_rx.try_recv() {

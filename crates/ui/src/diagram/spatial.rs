@@ -3,6 +3,16 @@ use std::collections::{HashMap, HashSet};
 
 pub const DEFAULT_SPATIAL_CELL_SIZE: f32 = 256.0;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ErSpatialMetrics {
+    pub node_bucket_count: usize,
+    pub edge_bucket_count: usize,
+    pub node_references: usize,
+    pub edge_references: usize,
+    pub max_node_bucket_size: usize,
+    pub max_edge_bucket_size: usize,
+}
+
 #[derive(Debug, Clone)]
 pub struct ErSpatialIndex {
     pub cell_size: f32,
@@ -42,6 +52,22 @@ impl ErSpatialIndex {
             edge_list.dedup();
         }
         index
+    }
+
+    pub fn metrics(&self) -> ErSpatialMetrics {
+        let node_references = self.node_cells.values().map(|v| v.len()).sum();
+        let edge_references = self.edge_cells.values().map(|v| v.len()).sum();
+        let max_node_bucket_size = self.node_cells.values().map(|v| v.len()).max().unwrap_or(0);
+        let max_edge_bucket_size = self.edge_cells.values().map(|v| v.len()).max().unwrap_or(0);
+
+        ErSpatialMetrics {
+            node_bucket_count: self.node_cells.len(),
+            edge_bucket_count: self.edge_cells.len(),
+            node_references,
+            edge_references,
+            max_node_bucket_size,
+            max_edge_bucket_size,
+        }
     }
 
     fn cell_range(&self, rect: egui::Rect) -> (i32, i32, i32, i32) {

@@ -217,7 +217,9 @@ impl Default for DbProApp {
             diagram_neighborhood_depth: 1,
             diagram_graph: ErGraph::default(),
             diagram_spatial_index: ErSpatialIndex::default(),
-            diagram_schema_version: 0,
+            // Start from 1 so saturating_add never wraps to 0 and collides with
+            // a stale worker result from the initial state.
+            diagram_schema_version: 1,
             diagram_layout_worker: crate::diagram::ErLayoutWorker::default(),
             diagram_layout_state: crate::diagram::ErLayoutState::Idle,
             diagram_latest_layout_request: 0,
