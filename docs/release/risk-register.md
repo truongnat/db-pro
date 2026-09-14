@@ -1,11 +1,24 @@
 # Central Release Risk, Decision & Blocker Register — v0.1
 
 > One canonical release-risk and decision ledger for DB Pro v0.1.
-> Candidate SHA under assessment: `fbf9fdab9100f08f12e29434983f32c18f14ac2f` (2026-09-14)
-> **Post-candidate fix:** the packaged-app startup blocker `R-STATE-DIR` was reproduced on that
-> candidate and fixed afterwards in code commit `543b526`
-> (`fix(native): resolve the app state directory outside the working directory`); evidence:
-> `docs/release/evidence/v01-06/12-state-dir-blocker-fix.txt`. See §4.
+> Current HEAD under assessment: `85a7fa3cc0a84c56ac2a5049ce08130db06e0a20` (2026-09-14).
+> **Release pipeline verified end to end** for `1a0c186…` in run `34859158012`: every job green
+> (`Resolve`, `Pre-flight checks` — fmt/clippy/tests on the pinned 1.95.0 toolchain, `Build`
+> macOS/Windows/Linux, `Package` macOS/Windows/Linux, `Assemble SHA256SUMS`). Its three archives
+> were downloaded and independently verified: sizes and SHA-256 values reproduced
+> byte-for-byte against the run's `SHA256SUMS.txt`, archive member lists matching the contract,
+> provenance recording `candidate_sha 1a0c186…`, `rustc 1.95.0 (59807616e 2026-04-14)`,
+> `version 0.1.0`. Those values are cited throughout this register **as run `34859158012`**.
+> The **final** release run `34860902181` is in flight for the current HEAD `85a7fa3` (which also
+> carries the packaged install-note fix, `R-INSTALL-NOTE`); final artifact values are recorded as
+> **`PENDING_FINAL_CI_RUN_34860902181`** and must not be filled from the `1a0c186` run.
+> **Post-candidate history:** the packaged-app startup blocker `R-STATE-DIR` was reproduced on
+> candidate `fbf9fdab9100f08f12e29434983f32c18f14ac2f` and fixed in code commit `543b526`
+> (`fix(native): resolve the app state directory outside the working directory`); the release
+> pre-flight blocker chain (toolchain drift → Linux D-Bus → flaky ER worker test) was closed by
+> `fbf9fda`, `e22a498` and `1a0c186`. Evidence:
+> `docs/release/evidence/v01-06/09-toolchain-pinning.txt`, `11-linux-build-dependency-fix.txt`,
+> `12-state-dir-blocker-fix.txt`, `13-flaky-er-worker-test.txt`, `14-install-smoke.txt`. See §4.
 > Companion docs: `docs/release/0.1.0-readiness.md`, `docs/release/0.1.0-handoff.md`,
 > `docs/notes/PRODUCT_CAPABILITY_MATRIX.md`, `docs/release/known-limitations.md`
 > Evidence base: `docs/release/evidence/v01-06/*`
@@ -36,7 +49,7 @@ blocks.
 | Field | Value |
 |---|---|
 | ID | `R-LICENSE` |
-| Description | There is no `LICENSE` file anywhere in the tree and no `license`/`license-file` key in `Cargo.toml` or any `crates/*/Cargo.toml`. No license has been chosen. Confirmed 2026-09-14 by `git ls-files | grep -iE '(^|/)(LICENSE|COPYING|NOTICE|UNLICENSE)'` (no matches) and by grep over every manifest. The only license text in the repo is `crates/ui/assets/fonts/OFL.txt` (SIL OFL for the bundled Inter font — a third-party asset license, not a project license). |
+| Description | There is no `LICENSE` file anywhere in the tree and no `license`/`license-file` key in `Cargo.toml` or any `crates/*/Cargo.toml`. No license has been chosen. Confirmed 2026-09-14 by `git ls-files \| grep -iE '(^\|/)(LICENSE\|COPYING\|NOTICE\|UNLICENSE)'` (no matches) and by grep over every manifest. The only license text in the repo is `crates/ui/assets/fonts/OFL.txt` (SIL OFL for the bundled Inter font — a third-party asset license, not a project license). |
 | Severity | `P1` (governance) |
 | Owner / Decision | **User/project owner decision required.** Not chosen, not added, not implied by this pass. |
 | Status | `OPEN` |
@@ -86,16 +99,16 @@ blocks.
 | Status | `DEFERRED` |
 | Release disposition | `DEFERRED` — release notes and README state the deferral explicitly. |
 
-### R-WINLINUX — Windows/Linux artifacts build-unverified, runtime-unverified
+### R-WINLINUX — Windows/Linux build-verified in CI, runtime-unverified
 
 | Field | Value |
 |---|---|
 | ID | `R-WINLINUX` |
-| Description | The release matrix builds `windows-latest` (x86_64 MSVC) and `ubuntu-latest` (x86_64 GNU), but only macOS ARM64 was built on a real host in this pass. Windows/Linux are therefore `BUILD_UNVERIFIED` here, and they will remain `RUNTIME_NOT_VERIFIED`: **no Windows or Linux host exists in this project.** Artifact names/checksums from the in-flight run are `PENDING_CI_RUN_RE_DISPATCH`. Additionally, Linux credential storage requires a D-Bus Secret Service provider (the shipping crate uses `sync-secret-service`), so headless/minimal installs will fail credential writes. |
-| Severity | `P1` (for any cross-platform claim) |
-| Owner / Decision | Decision: ship the matrix as contract, state `BUILD_UNVERIFIED` / `RUNTIME_NOT_VERIFIED` until the CI run completes, and never claim Linux/Windows runtime quality. |
-| Status | `BLOCKING` (until the CI run completes) |
-| Release disposition | `BLOCKING` for cross-platform release claims; `ACCEPTED` for the internal macOS-ARM64-only RC. |
+| Description | The release matrix builds `windows-latest` (x86_64 MSVC) and `ubuntu-latest` (x86_64 GNU). In run `34859158012` both **compile and package successfully in CI** — `Build (Windows)` ✔, `Build (Linux)` ✔, `Package (Windows)` ✔, `Package (Linux)` ✔ — so they are **`BUILD_VERIFIED`** (and `PACKAGE_VERIFIED`), and the produced archives were checked against the contract member list. They remain **`RUNTIME_UNVERIFIED`**: **no Windows or Linux host exists in this project**, so no process has ever been launched from those archives. The two states are deliberately not blurred: "the pipeline can build and package them" is not "they run". Additionally, Linux credential storage requires a D-Bus Secret Service provider (the shipping crate uses `sync-secret-service`), so headless/minimal installs will fail credential writes. |
+| Severity | `P1` (for any cross-platform *runtime* claim) |
+| Owner / Decision | Decision: ship the matrix as contract; record `BUILD_VERIFIED` from run `34859158012` and `RUNTIME_UNVERIFIED` (no host), and never claim Linux/Windows runtime quality. Final artifact values for HEAD `85a7fa3` are `PENDING_FINAL_CI_RUN_34860902181`. |
+| Status | `OPEN` (build/package verified; runtime not verifiable here) |
+| Release disposition | `ACCEPTED` for the internal macOS-ARM64-only RC; **`BLOCKING`** for any cross-platform runtime-quality claim. |
 
 ### R-AGENT — Agent Preview not verified live
 
@@ -126,7 +139,51 @@ blocks.
 | ID | `R-STATE-DIR` |
 | Description | **Reproduced as a real startup blocker and fixed on 2026-09-14 (code commit `543b526`).** `resolve_data_dir()` (formerly `crates/native-app/src/main.rs:127-135`) returned `DB_PRO_DATA_DIR` if set, otherwise `current_dir()/.db-pro-data`. A `.app` launched through LaunchServices inherits `cwd=/`, so it resolved `/.db-pro-data`; `DbProRuntime::new`'s `create_dir_all` failed and `main()` returned `Err`, exiting 1 **without ever opening a window** with the exact error `Error: CreateDataDir(Os { code: 30, kind: ReadOnlyFilesystem, message: "Read-only file system" })`. Because the process dies after `open` returns, "LaunchServices accepted the bundle" (the earlier claim in `03-release-binary.txt` / `08-post-fix-quality-gates.txt`, now annotated) proved nothing by itself. Fixed resolution order: `DB_PRO_DATA_DIR` (set and non-empty) → an **existing** `<cwd>/.db-pro-data` (so the developer checkout and existing installs keep their data in place) → `<platform data dir>/DB Pro` (macOS `$HOME/Library/Application Support/DB Pro`, Windows `%APPDATA%\DB Pro`, other Unix `$XDG_DATA_HOME/db-pro` else `$HOME/.local/share/db-pro`) → `<cwd>/.db-pro-data`, or the relative `.db-pro-data` when the working directory is unavailable (the old `expect(...)` panic is gone). No dependency added; `--locked` builds unaffected. |
 | Severity | `P2` |
-| Owner / Decision | **Fixed** in `543b526`, with the regression test `platform_dir_is_used_when_no_legacy_dir_exists` (exactly the `cwd=/` + no-legacy-dir + resolvable-platform-dir case) and artifact-level proof in `docs/release/evidence/v01-06/12-state-dir-blocker-fix.txt`. Honest scope of the verification: on macOS the packaged bundle now launches through `open` and stays alive past 30 s, and a direct `cwd=/` run creates a writable per-user state directory containing `meta.db` (baseline schema + migration v2) with no `/.db-pro-data`; **no window was rendered or interacted with**, and the full interactive smoke (create a SQLite connection, run `SELECT 1;`, relaunch for persistence) remains `PENDING`, owned by the coordinator. Not fixed here and recorded separately in `12-…txt` §6: a pre-existing Keychain authorization prompt on first launch of the ad-hoc-signed app can stall an *unattended* launch before data-dir resolution. |
+| Owner / Decision | **Fixed** in `543b526`, with the regression test `platform_dir_is_used_when_no_legacy_dir_exists` (exactly the `cwd=/` + no-legacy-dir + resolvable-platform-dir case) and artifact-level proof in `docs/release/evidence/v01-06/12-state-dir-blocker-fix.txt`. Honest scope of the verification: on macOS the packaged bundle now launches through `open` and stays alive past 30 s, and a direct `cwd=/` run creates a writable per-user state directory containing `meta.db` (baseline schema + migration v2) with no `/.db-pro-data`; **no window was rendered or interacted with**, and the full interactive smoke (create a SQLite connection, run `SELECT 1;`, relaunch for persistence) remains `PENDING`, owned by the coordinator — the post-fix host smoke is recorded in `docs/release/evidence/v01-06/14-install-smoke.txt` (archive extraction, launch and file-level state reuse verified; every GUI step is listed as NOT VERIFIED in its §7.7, human runbook in its §8) and the residual gap is tracked separately as `R-GUI-SMOKE`. Not fixed here and recorded separately in `12-…txt` §6: a pre-existing Keychain authorization prompt on first launch of the ad-hoc-signed app can stall an *unattended* launch before data-dir resolution (register entry `R-KEYRING-STALL`, limitation LIM-018). |
+| Status | `FIXED` |
+| Release disposition | `FIXED` |
+
+### R-INSTALL-NOTE — packaged install note contradicted the fixed state-directory behaviour
+
+| Field | Value |
+|---|---|
+| ID | `R-INSTALL-NOTE` |
+| Description | `scripts/release/README-INSTALL.txt` ships inside all three v0.1 archives. Its "First run" section still described the **pre-`543b526`** behaviour — *"DB Pro keeps its workspace state (connections, saved queries, query history, open tabs, settings) in a `.db-pro-data` directory next to the directory the app is started from. Set the `DB_PRO_DATA_DIR` environment variable to choose a different location."* — so a user reading the shipped note would look in the wrong place. Found while writing `14-install-smoke.txt` (§9: the note in the archive is byte-identical to the repo file, verified with `diff`). |
+| Severity | `P3` (shipped documentation defect) |
+| Owner / Decision | **Fixed in `85a7fa3`** (`docs(release): correct the packaged install note's state directory description`), a text-only packaging-asset commit (no `.rs`, manifest or workflow change). The new "First run" text documents the resolution order as implemented: (1) `DB_PRO_DATA_DIR` when set and non-empty, used as-is; (2) an existing `.db-pro-data` next to the directory the app is started from; (3) the per-user data directory (macOS `~/Library/Application Support/DB Pro`, Windows `%APPDATA%\DB Pro`, Linux `$XDG_DATA_HOME/db-pro` or `~/.local/share/db-pro`); (4) otherwise a `.db-pro-data` next to the start directory. |
+| Status | `FIXED` |
+| Release disposition | `FIXED` — **scoped to the tree**: the fix is in HEAD `85a7fa3`, so the archives produced by the final run `34860902181` carry the corrected note. The archives of run `34859158012` (`1a0c186`, the last fully green run) were built before this commit and still contain the old wording; if those artifacts are ever distributed, so is the stale note. |
+
+### R-GUI-SMOKE — interactive install smoke not verified
+
+| Field | Value |
+|---|---|
+| ID | `R-GUI-SMOKE` |
+| Description | No window has ever been rendered, inspected or interacted with on a packaged build. Specifically **NOT VERIFIED** (`14-install-smoke.txt` §7.7): that the window renders at all; Settings navigation and the light/dark switch; creating a SQLite connection through the UI (driver cards, file-path field, Test/Save); running `SELECT 1;` and reading the result grid; running `SELECT * FROM items;` and counting 3 rows; quitting with a clean window-close / ⌘Q; and the interactive persistence check (a saved connection surviving relaunch). What **is** verified on the packaged archive: the contract layout and checksum, the shipped executable being byte-identical to the qualified build, LaunchServices launch and survival from the extracted path, the state directory resolving to `~/Library/Application Support/DB Pro` with no `/.db-pro-data`, and file-level state reuse across relaunch (`14-install-smoke.txt` §1–§5). The 2026-09-14 attempt could not reach the GUI at all, for four separately recorded environment reasons: the Orca computer-use helper returned `runtime_unavailable` (and later lost its runtime metadata entirely), AppleScript fallback hit a `-1743` TCC denial, `screencapture` returned "could not create image from display", and no accessibility tree was available (`14-install-smoke.txt` §7.1–§7.6). These are host/authorization limits, not app failures — and precisely because they could not be lifted, no app-side GUI claim can be made either way. The human runbook that closes the gap is `14-install-smoke.txt` §8. |
+| Severity | `P1` (blocks any "installable and usable" runtime claim) |
+| Owner / Decision | Decision: record as an open, disclosed gap and keep every release document from claiming interactive or visual verification. `docs/release/0.1.0-ui-visual-description.md` is a **code-derived** description of the shipped surfaces that does **not** close this gap. Closing it requires a desktop session and the §8 runbook. |
+| Status | `OPEN` |
+| Release disposition | `ACCEPTED` for the internal RC **with the gap stated**; **`BLOCKING`** for any public claim that the packaged app is interactive/visually verified. |
+
+### R-KEYRING-STALL — pre-existing keyring prompt can stall an unattended first launch
+
+| Field | Value |
+|---|---|
+| ID | `R-KEYRING-STALL` |
+| Description | `main()` calls `seed_groq_api_key_from_keyring()` (`crates/native-app/src/main.rs`) **before** the state directory is resolved; when a `com.dbpro.app` item exists in the Keychain, that call blocks on a Keychain authorization request for the stored item, so an unattended launch waits there before it ever reaches the data-directory code. Recorded as `LIM-018`; first characterised in `12-state-dir-blocker-fix.txt` §6, then bypassed in the host smoke with a placeholder `GROQ_API_KEY` (`14-install-smoke.txt` §3 — which is why that smoke does **not** evidence a plain double-click launch on a machine that has a stored key). |
+| Severity | `P2` |
+| Owner / Decision | Decision: keep as a documented known limitation for 0.1.0 (a fix would be code work, out of scope for this documentation pass). It is a consequence of shipping unsigned/ad-hoc-signed (`R003`): an ad-hoc-signed binary cannot read an existing keyring item without an interactive grant; answering the prompt is the only user-side workaround. |
+| Status | `OPEN` (pre-existing, disclosed) |
+| Release disposition | `ACCEPTED` — stated in `known-limitations.md` (LIM-018), the release notes and the handoff. |
+
+### R-CI-PREFLIGHT — release pre-flight blocker chain (toolchain drift → Linux D-Bus → flaky ER worker test)
+
+| Field | Value |
+|---|---|
+| ID | `R-CI-PREFLIGHT` |
+| Description | Three successive, independent blockers stopped the release workflow before run `34859158012`, and all three are now closed. **(1) Toolchain drift:** CI's floating `stable` had moved to rustc 1.98.0, where `clippy::result_large_err` fires at `crates/core/src/application/table_data_service.rs:222` (recorded separately as `R-CLIPPY-198`) — fixed by pinning the release toolchain to the qualified 1.95.0 in `fbf9fda` (`rust-toolchain.toml`, with both release jobs verifying the active compiler; `09-toolchain-pinning.txt`). **(2) Linux build failure:** in run `34847235273`, job `Build (Linux)` died because `libdbus-sys`'s build script could not find `dbus-1.pc` — fixed in `e22a498` by declaring `libdbus-1-dev`/`pkg-config` explicitly in the build job (and naming them in preflight too), removing the reliance on a transitive pull through `libgtk-3-dev` (`11-linux-build-dependency-fix.txt`). **(3) Flaky test:** in run `34851704292`, job `Pre-flight checks` failed on the Linux runner with `diagram::tests::worker_coalescing_latest_result_wins` panicking `left: 5, right: 6` — a test that asserted on the *first* asynchronous layout result while the worker legitimately emits a superseded one first. Fixed in `1a0c186`, tests only (the ER layout worker's runtime behaviour is unchanged), with a deterministic reproduction of the CI signature and a negative control proving the rewrite still catches a worker that loses the newest request (`13-flaky-er-worker-test.txt`). |
+| Severity | `P1` (release gate) |
+| Owner / Decision | **Closed.** Chain fixed by `fbf9fda`, `e22a498`, `1a0c186`; the release pipeline then ran green end to end in **run `34859158012`** (`Resolve` ✔, `Pre-flight checks` ✔ on the pinned 1.95.0 toolchain, `Build` ×3 ✔, `Package` ×3 ✔, `Assemble SHA256SUMS` ✔). `R-CLIPPY-198` remains a recorded follow-up for a future 1.98 toolchain bump, and the wall-clock performance-budget tests in the same diagram test file are named in `13-…txt` §9 as a candidate for a separate determinism review — neither blocks 0.1.0. |
 | Status | `FIXED` |
 | Release disposition | `FIXED` |
 
@@ -146,7 +203,7 @@ blocks.
 | Field | Value |
 |---|---|
 | ID | `R-CI-MAIN-RED` |
-| Description | The push CI workflow fails on `main` because of an escaped-quote bug in a Python one-liner inside the `Configure live SSH backup fixture` step. This predates the candidate and is unrelated to the release artifact; the release workflow's own gates pass. It is recorded so nobody misreads a red `main` as a release blocker — and so nobody "fixes" it inside a release commit. |
+| Description | The push CI workflow fails on `main` because of an escaped-quote bug in a Python one-liner inside the `Configure live SSH backup fixture` step. This predates the candidate and is unrelated to the release artifact. **Still open, but no longer a release-gate concern:** the **release** workflow is green end to end (run `34859158012`), so nothing in the release path is blocked by `ci.yml` being red. It is recorded so nobody misreads a red `main` as a release blocker — and so nobody "fixes" it inside a release commit. |
 | Severity | `P2` |
 | Owner / Decision | Decision: out of scope for the release closure pass; fix separately with a `ci(...)`-scoped commit. |
 | Status | `DEFERRED` |
@@ -193,8 +250,8 @@ blocks.
 | `B-2` | All artifacts `UNSIGNED`; macOS `spctl` rejects | P2 | `ACCEPTED` if stated — see `R003` |
 | `B-3` | macOS x64 not built; runner architecture historically implicit, now pinned to `macos-14` | P2 | `DEFERRED` — see `R-PKG-DEFER`; the pin is fixed, the x64 slice is not offered |
 | `B-4` | No `.app` bundle originally → no bundle ID, capture harness cannot see the app | P2 | **`FIXED`** — `scripts/release/package-macos.sh` builds a minimal `DB Pro.app` with a generated `Info.plist` |
-| `B-5` | No archive packaging, no `SHA256SUMS.txt`, no arch in artifact names, no assembly job | P1 (deliverable) | **`FIXED`** — `release.yml` `package` + `checksums` jobs and `scripts/release/*` implement the contract; artifact values `PENDING_CI_RUN_RE_DISPATCH` |
-| `B-6` | Windows/Linux `BUILD_UNVERIFIED` and permanently `RUNTIME_NOT_VERIFIED` | P1 (for the claim) | `BLOCKING` for cross-platform claims — see `R-WINLINUX` |
+| `B-5` | No archive packaging, no `SHA256SUMS.txt`, no arch in artifact names, no assembly job | P1 (deliverable) | **`FIXED`** — `release.yml` `package` + `checksums` jobs and `scripts/release/*` implement the contract; all three archives + `SHA256SUMS.txt` were produced and independently verified in run `34859158012` (values in §4); final values for HEAD `85a7fa3` are `PENDING_FINAL_CI_RUN_34860902181` |
+| `B-6` | Windows/Linux build+package verified in CI, permanently `RUNTIME_UNVERIFIED` | P1 (for the claim) | `BUILD_VERIFIED` in run `34859158012`; `BLOCKING` for cross-platform *runtime* claims — see `R-WINLINUX` |
 | `B-7` | Linux credential storage requires a D-Bus Secret Service provider | P2 | `ACCEPTED` (documented) / `DEFERRED` (hardening) |
 | `B-8` | Developer connection preset shipped in the release binary | P2 (hygiene) | **`FIXED`** — `c682552`: preset gated to debug builds; residual single "Xe Lạc Hồng" string is component-gallery demo text with no host/db/user/password, and the gallery label was removed in `7794196` |
 | `B-9` | `pg_dump`/`pg_restore`/`ssh` not bundled and not documented for users | P2 | `ACCEPTED` — documented as a limitation (LIM-006, LIM-015) |
@@ -249,7 +306,8 @@ blocks.
 | ID | Severity | Status | Release disposition | Blocks |
 |---|---|---|---|---|
 | `R-LICENSE` | P1 | OPEN | **BLOCKING** | public distribution |
-| `R-WINLINUX` | P1 | BLOCKING | **BLOCKING** | cross-platform claims (until CI run lands) |
+| `R-WINLINUX` | P1 | OPEN (build+package verified in CI) | `ACCEPTED` (internal RC) / **`BLOCKING`** | cross-platform *runtime* claims |
+| `R-GUI-SMOKE` | P1 | OPEN | `ACCEPTED` (internal RC, disclosed) / **`BLOCKING`** | interactive/visual runtime claims |
 | `R-015` | P1 | ACCEPTED | `ACCEPTED` | tab-restore claim |
 | `R003` | P2 | ACCEPTED | `ACCEPTED` | public trust UX |
 | `R001` | P2 | DEFERRED | `DEFERRED` | public naming/marketing |
@@ -257,19 +315,25 @@ blocks.
 | `R-PKG-DEFER` | P2 | DEFERRED | `DEFERRED` | installer/platform-coverage claims |
 | `R-AGENT` | P2 | ACCEPTED | `ACCEPTED` | autonomy claims |
 | `R-PROV` | P2 | ACCEPTED / DEFERRED | `ACCEPTED` (+`DEFERRED` flag fix) | provider qualification |
-| `R-STATE-DIR` | P2 | FIXED | **`FIXED`** | — (was: packaged-app install smoke; fixed in `543b526`) |
-| `R-CI-MAIN-RED` | P2 | DEFERRED | `DEFERRED` | nothing release-specific |
+| `R-STATE-DIR` | P2 | FIXED | **`FIXED`** | — (was: packaged-app startup; fixed in `543b526`) |
+| `R-INSTALL-NOTE` | P3 | FIXED | **`FIXED`** | — (was: shipped install note; fixed in `85a7fa3`) |
+| `R-KEYRING-STALL` | P2 | OPEN | `ACCEPTED` | unattended first-launch behaviour |
+| `R-CI-PREFLIGHT` | P1 | FIXED | **`FIXED`** | — (toolchain pin `fbf9fda`, Linux D-Bus `e22a498`, flaky test `1a0c186`; run `34859158012` green) |
+| `R-CI-MAIN-RED` | P2 | DEFERRED | `DEFERRED` | nothing release-specific (release workflow is green) |
 | `R-CLIPPY-198` | P2 | DEFERRED | `DEFERRED` | future 1.98 toolchain bump |
 | `R-MINOS` | P3 | ACCEPTED | `ACCEPTED` | — |
 | `R-RC1-P2` | P2 | DEFERRED / FIXED | `DEFERRED` + `ACCEPTED` + `FIXED` | native P2 re-verification |
-| `B-1`…`B-10` | see table | — | `FIXED` (B-4, B-5, B-8, B-10), `BLOCKING` (B-1, B-6), `ACCEPTED` (B-2, B-7, B-9), `DEFERRED` (B-3) | see table |
+| `B-1`…`B-10` | see table | — | `FIXED` (B-4, B-5, B-8, B-10), `BLOCKING` (B-1), `ACCEPTED` (B-2, B-7, B-9), `DEFERRED` (B-3), B-6 = `BUILD_VERIFIED` + `BLOCKING` for runtime claims | see table |
 | `R005` | P2 | DEFERRED | `DEFERRED` | constraint-introspection claims |
 | `R006` | P2 | ACCEPTED | `ACCEPTED` | backup UX |
 | `R011` | P2 | FIXED | `FIXED` | — |
 | `R-STATE-MIGRATION` | P2 | ACCEPTED | `ACCEPTED` | — |
 
-**Blockers to public release:** `R-LICENSE`, `R-WINLINUX` (until artifacts exist), unsigned
-artifacts (accepted with disclosure), and the open V01-01…V01-05 runtime evidence gaps.
+**Blockers to public release:** `R-LICENSE` (no license chosen), the interactive GUI install-smoke
+gap (`R-GUI-SMOKE`), unsigned artifacts (accepted with disclosure), and the open V01-01…V01-05
+runtime evidence gaps. **Not** a blocker any more: the packaging/build pipeline — run
+`34859158012` produced and packaged all three platforms green, and the final run for the current
+HEAD (`34860902181`) is in flight.
 
 **P0 count: 0.**
 
@@ -317,9 +381,33 @@ LaunchServices' `cwd=/`, `DbProRuntime::new` failed with
 `CreateDataDir(Os { code: 30, kind: ReadOnlyFilesystem, message: "Read-only file system" })` and the
 app exited 1 without opening a window (`R-STATE-DIR`, reproduced by the coordinator and re-verified
 here). Fixed in code commit `543b526` with a regression test and artifact-level evidence
-(`12-state-dir-blocker-fix.txt`). Consequence: any release-CI contribution for the deferred V01-06
-steps must be re-dispatched for the new HEAD (`PENDING_CI_RUN_RE_DISPATCH`), not for `fbf9fda`.
-No tag exists for either SHA.
+(`12-state-dir-blocker-fix.txt`). No tag exists for `fbf9fda` or for the SHA that superseded it.
+
+**Resolution (2026-09-14).** The re-dispatch this log required happened: run **`34859158012`** was
+dispatched for SHA **`1a0c186`** (which contains `543b526`, `e22a498`, `fbf9fda` and the flaky-test
+fix) and finished **fully green** — `Resolve` ✔, `Pre-flight checks` ✔ (fmt/clippy/tests on the
+pinned 1.95.0 toolchain), `Build (macOS)` ✔, `Build (Windows)` ✔, `Build (Linux)` ✔,
+`Package (macOS|Windows|Linux)` ✔, `Assemble SHA256SUMS` ✔. Its artifacts were downloaded and
+verified independently: the three archives' sizes and SHA-256 values reproduced byte-for-byte with
+`shasum -a 256` against the run's `SHA256SUMS.txt`, the archive member lists matched the contract
+exactly (`DB Pro.app/Contents/{Info.plist,MacOS/db-pro-native}` + `README-INSTALL.txt`;
+`db-pro-native` + note; `db-pro-native.exe` + note), and the provenance record named
+`candidate_sha 1a0c186…`, `rustc 1.95.0 (59807616e 2026-04-14)`, `version 0.1.0`.
+
+**Values below belong to run `34859158012` only — they are NOT the final release artifacts.** The
+final run is `34860902181`, in flight for the current HEAD `85a7fa3` (which adds the packaged
+install-note fix `R-INSTALL-NOTE`); every value that belongs to it reads
+**`PENDING_FINAL_CI_RUN_34860902181`**. Do not copy these figures into a final-artifact table.
+
+| Archive (run `34859158012`, SHA `1a0c186`) | Size (bytes) | SHA-256 |
+|---|---|---|
+| `db-pro-v0.1.0-macos-arm64.tar.gz` | 10,045,739 | `911335d0ad8623ea44cf6a1f011c227baf6979eeebce6a9ac4c92ddaa2d5f817` |
+| `db-pro-v0.1.0-linux-x86_64.tar.gz` | 15,167,954 | `d28bbf3a55c56f927f283edf4cc47e90867f6c08d285f6dc7d7ea7b7424c54a8` |
+| `db-pro-v0.1.0-windows-x86_64.zip` | 10,076,654 | `62870d9a78f8edfaa7bcd800cf903e031da465ec1624c421d199aedcc01029fd` |
+
+Final release values: **`PENDING_FINAL_CI_RUN_34860902181`** (run `34860902181`, SHA `85a7fa3`).
+
+A second invalidation, if any, must be recorded here rather than silently re-tagging.
 
 ## 5. Completion criteria
 

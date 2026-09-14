@@ -5,9 +5,11 @@ All notable user-facing changes to DB Pro. The shipped application is the native
 
 ## [0.1.0] - 2026-09-14
 
-DB Pro 0.1.0 is the first release candidate of the native desktop application. Release candidate
-SHA `fbf9fdab9100f08f12e29434983f32c18f14ac2f`. The `v0.1.0` tag has not been created; see
-`docs/release/0.1.0-readiness.md` for the release decisions and
+DB Pro 0.1.0 is the first release candidate of the native desktop application. Current HEAD is
+`85a7fa3cc0a84c56ac2a5049ce08130db06e0a20`; the release pipeline is green end to end for
+`1a0c186` (run `34859158012`, all three platforms built and packaged with independently verified
+checksums) and the final run `34860902181` for this HEAD is in flight. The `v0.1.0` tag has not
+been created; see `docs/release/0.1.0-readiness.md` for the release decisions and
 `docs/release/0.1.0-handoff.md` for the tag/release/rollback procedure.
 
 ### Added
@@ -67,6 +69,17 @@ SHA `fbf9fdab9100f08f12e29434983f32c18f14ac2f`. The `v0.1.0` tag has not been cr
   in-cell editor and input copy.
 - Staged writes no longer replay already-successful changes after a partial apply; staged row
   edits no longer use stale full-row snapshots.
+- **The packaged app can start when launched the normal way.** A Finder/`open`-launched macOS
+  bundle inherits `cwd=/`, so the app had resolved its state directory to `/.db-pro-data`, failed
+  with `CreateDataDir(ReadOnlyFilesystem)` and exited before opening a window; the data directory
+  is now resolved from `DB_PRO_DATA_DIR`, an existing `<cwd>/.db-pro-data`, or the per-user
+  platform data directory (`543b526`).
+- **The packaged `README-INSTALL.txt` documents the real state location** (it previously described
+  the pre-`543b526` behaviour); the "First run" section now lists the resolution order (`85a7fa3`).
+- **The release pre-flight is deterministic.** The ER layout-worker coalescing test asserted on the
+  first asynchronous layout result and failed on slow runners; the tests (not the worker) were
+  rewritten to wait for the newest layout, with a negative control that still catches a worker
+  losing the newest request (`1a0c186`).
 
 ### Security & Safety
 

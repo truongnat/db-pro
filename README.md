@@ -15,10 +15,16 @@ SQL, inspect results, edit table data safely, and keep workspace context across 
 - Public distribution: **NO** — the project license is undecided (see
   [Governance](#governance--license))
 
-Candidate SHA `fbf9fdab9100f08f12e29434983f32c18f14ac2f`; exact-HEAD quality gates are green on
-the pinned toolchain (rustc 1.95.0) with `cargo test --workspace` = 811 passed / 0 failed /
-19 ignored. Runtime smoke of the candidate is not complete (V01-01/02/04/05 `EVIDENCE_GAP`,
-V01-03 `PARTIAL`), and cross-platform artifacts are pending.
+Candidate SHA `85a7fa3cc0a84c56ac2a5049ce08130db06e0a20` (current HEAD). Exact-HEAD quality
+gates are green on the pinned toolchain (rustc 1.95.0) with `cargo test --workspace` = 815 passed /
+0 failed / 19 ignored, and the **release pipeline ran green end to end** in run `34859158012` for
+`1a0c186`: all three platforms built and packaged, and the three archives + `SHA256SUMS.txt` were
+independently checksum-verified. Windows and Linux are therefore `BUILD_VERIFIED` but remain
+`RUNTIME_UNVERIFIED` — no Windows/Linux host exists here. The final run `34860902181` for this HEAD
+is in flight, so the final artifact sizes/hashes are pending. Runtime smoke of the candidate is not
+complete (V01-01/02/04/05 `EVIDENCE_GAP`, V01-03 `PARTIAL`, manual smoke 0/165), and no window has
+been rendered or interacted with on a packaged build — the interactive install smoke is
+`NOT VERIFIED` (`docs/release/evidence/v01-06/14-install-smoke.txt` §7.7).
 
 See:
 - [`docs/release/0.1.0-release-notes.md`](docs/release/0.1.0-release-notes.md)
@@ -228,9 +234,13 @@ public use, and the release archives deliberately contain no `LICENSE` file. See
 
 Do not tag `v0.1.0` until:
 
-1. the candidate SHA has fully green Rust gates and a green release build;
-2. cross-platform archives + `SHA256SUMS.txt` exist from a completed release run;
-3. the packaged install smoke has been performed and recorded;
+1. the candidate SHA has fully green Rust gates and a green release build — **met** (run
+   `34859158012`, green end to end); the final run `34860902181` for the current HEAD is in flight;
+2. cross-platform archives + `SHA256SUMS.txt` exist from a completed release run — **met for
+   `1a0c186`** (verified); the final values for HEAD `85a7fa3` are still pending;
+3. the packaged install smoke has been performed and recorded — **partly**: extraction, launch and
+   file-level state persistence are recorded (`14-install-smoke.txt` §1–§5), the interactive GUI
+   steps are `NOT VERIFIED` (§7.7, runbook §8);
 4. the runtime evidence gaps (V01-01…V01-05) are closed or explicitly accepted;
 5. the license decision is made.
 

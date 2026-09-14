@@ -4,6 +4,12 @@
 > Baseline SHA: `65bbca3` (historical); **corrected 2026-09-14 for candidate `fbf9fdab9100f08f12e29434983f32c18f14ac2f`**
 > Corrections in this revision: LIM-001/LIM-007/LIM-009 evidence updated to the native build, LIM-003 wording aligned with the staged insert that ships, **LIM-014 inversion fixed** (SQLite cancellation is supported; PostgreSQL is not), LIM-016/LIM-017 added. No entry was deleted.
 > Further correction (2026-09-14, after the `543b526` state-directory fix): **LIM-018 added** — application state location and the first-launch credential prompt. No entry was deleted or rewritten.
+> Further note (2026-09-14, release-pipeline pass): the release pipeline is **green end to end** — run
+> `34859158012` (SHA `1a0c186`) built and packaged all three platforms and produced `SHA256SUMS.txt`,
+> independently checksum-verified. That verifies **builds/packages only**: Windows and Linux stay
+> `RUNTIME_UNVERIFIED` (no host), and the interactive GUI smoke is `NOT VERIFIED`
+> (`docs/release/evidence/v01-06/14-install-smoke.txt` §7.7). Final artifact values for the current
+> HEAD `85a7fa3` read `PENDING_FINAL_CI_RUN_34860902181`. No limitation below is retracted by this note.
 > Risk IDs referenced below (`R003`, `R-LICENSE`, `R001`) are defined in `docs/release/risk-register.md`.
 > Issue: #135
 > Supports: #27, #30, #105, #110, #111
@@ -260,7 +266,7 @@ Each entry includes:
 | Target issue | N/A |
 | Safe release-note wording | "Apple Silicon macOS, Windows x86_64 and Linux x86_64 portable archives; unsigned; no installers" |
 | Must not contradict | `0.1.0-packaging.md`, release notes, readiness |
-| Evidence | `.github/workflows/release.yml` (matrix pins `macos-14`), `docs/release/0.1.0-packaging.md`, `docs/release/risk-register.md` `R-PKG-DEFER` / `R003` |
+| Evidence | `.github/workflows/release.yml` (matrix pins `macos-14`), `docs/release/0.1.0-packaging.md`, `docs/release/risk-register.md` `R-PKG-DEFER` / `R003`. **Release-pipeline verification (2026-09-14):** run `34859158012` built and packaged all three targets green (`BUILD_VERIFIED`), with the archives' member lists and checksums independently reproduced; Windows/Linux remain `RUNTIME_UNVERIFIED` (no host) and the interactive GUI smoke is `NOT VERIFIED` (`14-install-smoke.txt` §7.7). Final values for HEAD `85a7fa3`: `PENDING_FINAL_CI_RUN_34860902181` |
 
 ## LIM-018: Application state location and first-launch credential prompt
 
@@ -274,7 +280,7 @@ Each entry includes:
 | Target issue | N/A |
 | Safe release-note wording | "Application state is stored in your user profile; an existing `.db-pro-data` beside the app is still used. An unsigned build can ask for keychain access on first launch." |
 | Must not contradict | `0.1.0-handoff.md` §7, `0.1.0-release-notes.md`, `0.1.0-packaging.md` §4, `README.md` |
-| Evidence | `crates/native-app/src/main.rs` (`choose_data_dir`, `platform_data_dir`; tests `platform_dir_is_used_when_no_legacy_dir_exists` and the override/legacy/cwd cases); `docs/release/evidence/v01-06/12-state-dir-blocker-fix.txt` §5–§6; register `R-STATE-DIR` (`FIXED`), `R003` (`ACCEPTED`), `R011` |
+| Evidence | `crates/native-app/src/main.rs` (`choose_data_dir`, `platform_data_dir`; tests `platform_dir_is_used_when_no_legacy_dir_exists` and the override/legacy/cwd cases); `docs/release/evidence/v01-06/12-state-dir-blocker-fix.txt` §5–§6; `docs/release/evidence/v01-06/14-install-smoke.txt` §3–§4 (the host smoke had to bypass the prompt with a placeholder `GROQ_API_KEY`, so it does not evidence a plain double-click launch on a machine with a stored key); register `R-STATE-DIR` (`FIXED`), `R-KEYRING-STALL` (`ACCEPTED`), `R003` (`ACCEPTED`), `R011` |
 
 ---
 

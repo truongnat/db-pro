@@ -407,6 +407,34 @@ Not corrected in this commit: the note is shipped-artifact text that belongs to 
 and this session was scoped to documentation evidence only. Flagged for the coordinator to fix in
 the packaging path (and then re-verify the archive contents).
 
+------------------------------------------------------------------------------
+9.1 RESOLVED (2026-09-14, commit 85a7fa3) — kept as history, no longer open
+------------------------------------------------------------------------------
+The finding above was fixed by the coordinator in commit `85a7fa3`
+("docs(release): correct the packaged install note's state directory description"). It is a
+text-only packaging-asset change: `scripts/release/README-INSTALL.txt` only, no Rust source,
+manifest or workflow change, and only the "First run" section is touched.
+
+The section now documents the resolution order implemented in
+`crates/native-app/src/main.rs` (`resolve_data_dir` / `choose_data_dir` / `platform_data_dir`):
+`DB_PRO_DATA_DIR` when set and non-empty; then an existing working-directory-local
+".db-pro-data"; then the per-user platform data directory (macOS
+"~/Library/Application Support/DB Pro", Windows "%APPDATA%\DB Pro", other Unix
+"$XDG_DATA_HOME/db-pro" or "~/.local/share/db-pro"); then a working-directory-local
+".db-pro-data". Register entry `R-INSTALL-NOTE` is `FIXED`; `risk-register.md` carries the old and
+new text side by side.
+
+Scope of the fix, stated precisely:
+  - `85a7fa3` is the current HEAD, so the archives produced by the final release run `34860902181`
+    will carry the corrected note.
+  - The archives from run `34859158012` (SHA `1a0c186`) — the ones this file's §1 smoke extracted
+    and packaged — were built BEFORE that commit and still contain the old wording. Anyone
+    auditing those archives should expect the pre-fix text and not read it as a regression.
+  - The archive member list is unchanged: `README-INSTALL.txt` remains exactly one member of each
+    archive, so the layout findings in §1.2 still stand. No post-`85a7fa3` archive had been
+    inspected at the time this note was written (the final run was still in flight), so the
+    corrected text has not yet been re-verified *inside* an archive.
+
 ==============================================================================
 10. WHAT AN AUDITOR MAY AND MAY NOT CITE FROM THIS FILE
 ==============================================================================
