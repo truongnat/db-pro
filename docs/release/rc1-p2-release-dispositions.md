@@ -72,3 +72,26 @@ the Gate 5 work already closed; no additional live P2 row exists for them.
 single `Fix RC1` row has a focused child issue (**#238**) with the measurement, the blast radius, the
 bounded fix options and its own acceptance list. No speculative fix was implemented in this audit;
 the only code touched was a temporary measurement probe, removed before the commit.
+
+---
+
+## C. Connection / session / SSH (#77)
+
+Scope rows: `QA-P2-15`, `16`, `17`, `18`, `19`, `20`, `21`, plus one scope item the issue names
+explicitly (SSH controls visible although full SSH qualification is post-v0.1).
+
+| Row | Native mechanism (opened for this audit) | Disposition | Rationale |
+|---|---|---|---|
+| `QA-P2-15` connection test result goes stale after form edits | the tested draft is remembered (`connection_view.rs:917` `connection_test_draft = Some(draft)`) and the result is accepted only while the current draft still equals it: `events.rs:481-485` sets `connection_test_valid = true` on equality and otherwise keeps it `false` with the message `"Connection changed · test again before saving"`; every edit path also clears it (`connection_view.rs:156,185,303,914`) | **`Accept RC1`** — positively verified | a stale "verified" indicator cannot survive an edit, and the user is told to re-test rather than left guessing |
+| `QA-P2-16` Test Connection hides backend error detail | on failure the UI stores the runtime's own message: `events.rs:956` `self.connection_error = message.clone()` and `runtime_message = format!("Connection failed · {message}")`, and the dialog renders that string verbatim in a `Destructive` alert (`connection_view.rs:497-501`) | **`Accept RC1`** — positively verified | the finding's intent (detail suppressed behind a generic failure) is inverted in the native dialog: the backend text is what the user reads |
+| `QA-P2-17` SQLite Browse has no user-visible error path | the file picker result is handled in `events.rs:425-441`: a picked path sets the draft and clears the error; a **cancelled** pick sets `connection_error = "File selection was cancelled"` and clears the validity flag | **`Accept RC1`** — verified for the cancelled path | the React defect mechanism (the Tauri dialog plugin's rejection vanishing) is replaced by an explicit handled branch. Note the backend is `rfd`, a different mechanism from the one the original fix targeted — so this is not the same defect repaired, it is the absence of the failure mode |
+| `QA-P2-18` `driverChanged` means "ever changed", not "differs from original" | there is no change-tracked driver flag natively: the driver is a plain field of `UiConnectionDraft`, and the domain config is derived per submit (`draft_to_domain`) | **`Accept RC1`** | the React state variable the finding describes does not exist; there is no "ever changed" heuristic to be wrong |
+| `QA-P2-19` Duplicate connection silently omits credentials | `open_duplicate_connection` (`connection_view.rs:161`) copies the summary but sets `password: String::new()` (`:171`) | **`Accept RC1`** | secrets stay in the keyring and are never copied into a new draft; the field is empty and visible, and a remote connection cannot be saved without re-entering it. **Recorded, not asserted as ideal:** there is no explicit "password not copied" hint — that is a possible polish item for a later release, not a v0.1 defect since nothing is implied to be present |
+| `QA-P2-20` Favorite optimistic update has no rollback | there is **no favourites feature** in the shipped product: `grep -rln favorite crates/ui/src crates/core/src crates/runtime/src` returns nothing | **`Defer post-v0.1`** | the finding's subject is absent by scope (connection folders/tags/favourites are #204, post-v0.1); nothing to roll back |
+| `QA-P2-21` SQLite recent subtitle renders meaningless host/port | there is no "recent connections" list in the native shell — the only `recent` references are the saved/recent **queries** palette entry (`palette_view.rs:40`, `query_view.rs:483`) | **`Defer post-v0.1`** | the mechanism requires a recent-connections surface that v0.1 does not ship |
+| scope item: SSH control visible though SSH is post-v0.1-qualified | `connection_view.rs:713` renders `Connect via SSH Bastion Tunnel` with no in-UI caveat, while the repository records the capability as unqualified (LIM-006, readiness row, `R009`) | **`Fix RC1`** — child issue **#239** | the issue's own acceptance requires that v0.1 "does not accidentally imply fully qualified SSH support", and the packaged app shows the user none of the documents that say otherwise. The fix is one muted hint, matching the existing `Preview` badge pattern on the agent surface (`agent_view.rs:224`) |
+
+**Acceptance check for this section:** all seven live connection/session rows have exactly one
+disposition, and the SSH scope item is dispositioned rather than left to the documents. The single
+`Fix RC1` row has a focused child issue (**#239**) with its own acceptance list. No code was changed
+by this audit.
