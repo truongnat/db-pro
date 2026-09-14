@@ -158,9 +158,13 @@ cd db-pro
 cargo run -p db-pro-native
 ```
 
-Runtime state is written to `./.db-pro-data` by default (override with
-`DB_PRO_DATA_DIR=/some/path`). It holds your connection metadata (`meta.db`) and credential
-store; it is gitignored and must never be copied into a release archive.
+Runtime state (`meta.db` plus the credential store) goes to `./.db-pro-data` when that directory
+already exists — the usual case for a checkout — otherwise to your per-user data directory
+(`~/Library/Application Support/DB Pro` on macOS, `%APPDATA%\DB Pro` on Windows,
+`$XDG_DATA_HOME/db-pro` or `~/.local/share/db-pro` elsewhere), because a Finder/`open`-launched
+macOS bundle runs with `/` as its working directory. `DB_PRO_DATA_DIR=/some/path` overrides both.
+The state directory is gitignored and must never be copied into a release archive. An unsigned
+build can additionally prompt for keychain access on first launch.
 
 ### Rust quality gates
 

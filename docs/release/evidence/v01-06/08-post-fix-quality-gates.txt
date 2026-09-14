@@ -597,3 +597,29 @@ The macOS archive in section 3 was built from the pre-fix binary (sha256 2ae0540
 Its staged copy of DB Pro.app therefore predates this label fix. The CI release run
 for a49d4bc (run 34845148946) builds from the committed tree and its artifacts are the
 authoritative ones; this section does not re-run the bundle dry-run.
+
+==============================================================================
+9. CORRECTION APPENDED 2026-09-14 (state-directory blocker) — ORIGINAL TEXT KEPT ABOVE
+==============================================================================
+Everything above is the record as captured on 2026-09-14T12:37Z for commit a49d4bc / 3e0b077.
+It is NOT rewritten. Two claims in it are superseded, and they are corrected here rather than
+edited in place:
+
+  (a) §3.7 "LaunchServices acceptance" and the §3.7/§3.9 conclusions are MISLEADING.
+      `open "extract/DB Pro.app"` returning exit 0 and the process being alive at t=6s did NOT
+      mean the packaged app started. The bundle inherits `cwd=/` (§3.9 had already measured it),
+      `resolve_data_dir()` fell back to `/.db-pro-data`, `DbProRuntime::new` failed with
+      `Error: CreateDataDir(Os { code: 30, kind: ReadOnlyFilesystem, message: "Read-only file
+      system" })` and the process exited with status 1 WITHOUT OPENING A WINDOW. §3.9's closing
+      remark ("the app did not crash") was therefore wrong for the launch path that matters; the
+      process that was observed alive at t=6s in this capture was a shell-launched instance, and an
+      `open`-launched instance dies seconds later. The pre-fix claim "LaunchServices accepted the
+      bundle => the bundle is fine" must not be cited.
+  (b) The pre-fix binary/archive identities above are superseded by the fix: the release binary is
+      now 23,733,024 bytes (sha256 a0645ca3b503e12b647d53ecf29547e61fefc1dbd695c9cc08066cd69aab4f6c)
+      and `cargo test --workspace` is now 815 passed / 0 failed / 19 ignored (the +4 are the new
+      state-directory regression tests). All six gates were re-run green.
+
+Full account, root cause, fix and artifact-level proof:
+    docs/release/evidence/v01-06/12-state-dir-blocker-fix.txt
+Register: `R-STATE-DIR` is now `FIXED` (code commit 543b526).

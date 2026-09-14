@@ -219,22 +219,23 @@ V01-07  Final Release Sign-off, Governance & v0.1.0 Tagging
 - **Feature**: Multi-Platform Native Binary Packaging & Workspace Quality Gates.
 - **Current State**: `PARTIAL` (2026-09-14).
   - **PASS**: quality gates. All six gates exit 0 on `main` after the component-gallery label fix (fmt, check, clippy `-D warnings`, `cargo test --workspace` = 811 passed / 0 failed / 19 ignored, `cargo build --release --locked -p db-pro-native`, perf-scan `PASS 4/0/0`); release-profile test run also green. Evidence: `docs/release/evidence/v01-06/02-quality-gates.txt` + `08-post-fix-quality-gates.txt` §8.
-  - **PASS (host only)**: local macOS ARM64 build + bundle/launch smoke — `DB Pro.app` archive produced and LaunchServices-accepted; process runs and exits on SIGTERM. No window/GUI interaction was observed (harness limitation). Evidence: `08-post-fix-quality-gates.txt` §3.
-  - **PENDING**: cross-platform artifacts (Windows x86_64, Linux x86_64, macOS ARM64 CI artifacts + `SHA256SUMS.txt`) from release CI run **34847235273** for SHA `fbf9fdab9100f08f12e29434983f32c18f14ac2f`. Windows/Linux remain `BUILD_UNVERIFIED` until that run completes; they will remain `RUNTIME_UNVERIFIED` (no Windows/Linux host exists in this project).
+  - **PASS (host only)**: local macOS ARM64 build + bundle/launch smoke — `DB Pro.app` archive produced; process runs and exits on SIGTERM. No window/GUI interaction was observed (harness limitation). Evidence: `08-post-fix-quality-gates.txt` §3.
+    - **CORRECTION (2026-09-14, appended — the original "LaunchServices-accepted" wording is kept visible above, but it was misleading):** `open` returning 0 does **not** mean the packaged app started. A LaunchServices-launched `.app` inherits `cwd=/`, the app resolved its state directory to `/.db-pro-data`, and the process exited 1 with `CreateDataDir(Os { code: 30, kind: ReadOnlyFilesystem, message: "Read-only file system" })` before opening a window. Reproduced and fixed in code commit `543b526` (`R-STATE-DIR` → `FIXED`); artifact-level re-verification (`open`-launched bundle alive past 30 s, `~/Library/Application Support/DB Pro/meta.db` created, no `/.db-pro-data`) and the post-fix gate numbers (**815 passed / 0 failed / 19 ignored**) are in `docs/release/evidence/v01-06/12-state-dir-blocker-fix.txt`.
+  - **PENDING**: cross-platform artifacts (Windows x86_64, Linux x86_64, macOS ARM64 CI artifacts + `SHA256SUMS.txt`) — the earlier in-flight release CI run was for the pre-fix candidate and is superseded; a re-dispatch for the current HEAD is required (`PENDING_CI_RUN_RE_DISPATCH`). Windows/Linux remain `BUILD_UNVERIFIED` until that run completes; they will remain `RUNTIME_UNVERIFIED` (no Windows/Linux host exists in this project).
   - **Correction**: the artifact contract listed below (`.dmg`, `.msi`, `.deb`) is **not** the v0.1 contract. v0.1 ships portable archives (`db-pro-v0.1.0-macos-arm64.tar.gz` with a minimal `DB Pro.app`, `db-pro-v0.1.0-windows-x86_64.zip`, `db-pro-v0.1.0-linux-x86_64.tar.gz`) plus `SHA256SUMS.txt`; installers are DEFERRED. See `docs/release/0.1.0-packaging.md`.
 
 #### §27 platform report (V01-06 result)
 
 | Platform | BUILD | RUNTIME | PACKAGE | SIGNING |
 |---|---|---|---|---|
-| macOS ARM64 (`aarch64-apple-darwin`) | PASS (local, measured) | `PARTIAL` — process launch/idle PASS; no GUI interaction observed; runtime QA not run | `PASS` locally (`.app` archive produced); CI `PENDING_CI_RUN_34847235273` | `UNSIGNED` — `adhoc`/linker-signed, `spctl` rejects |
+| macOS ARM64 (`aarch64-apple-darwin`) | PASS (local, measured) | `PARTIAL` — process launch/idle PASS; no GUI interaction observed; runtime QA not run | `PASS` locally (`.app` archive produced); CI `PENDING_CI_RUN_RE_DISPATCH` | `UNSIGNED` — `adhoc`/linker-signed, `spctl` rejects |
 | macOS x64 | **NOT BUILT** (not in matrix) | — | — | — |
-| Windows x86_64 (`x86_64-pc-windows-msvc`) | `BUILD_UNVERIFIED` (CI in flight) | `RUNTIME_NOT_VERIFIED` (no host) | `PENDING_CI_RUN_34847235273` | `UNSIGNED` (none configured) |
-| Linux x86_64 (`x86_64-unknown-linux-gnu`) | `BUILD_UNVERIFIED` (CI in flight) | `RUNTIME_NOT_VERIFIED` (no host) | `PENDING_CI_RUN_34847235273` | `UNSIGNED` (none configured) |
+| Windows x86_64 (`x86_64-pc-windows-msvc`) | `BUILD_UNVERIFIED` (CI in flight) | `RUNTIME_NOT_VERIFIED` (no host) | `PENDING_CI_RUN_RE_DISPATCH` | `UNSIGNED` (none configured) |
+| Linux x86_64 (`x86_64-unknown-linux-gnu`) | `BUILD_UNVERIFIED` (CI in flight) | `RUNTIME_NOT_VERIFIED` (no host) | `PENDING_CI_RUN_RE_DISPATCH` | `UNSIGNED` (none configured) |
 
-- **Quality gates**: **PASS** (6/6 on rustc 1.95.0; `811 passed / 0 failed / 19 ignored`).
-- **Artifacts**: exact names above; values `PENDING_CI_RUN_34847235273`.
-- **Checksums**: `PENDING_CI_RUN_34847235273` (the `checksums` job assembles `SHA256SUMS.txt`; nothing computes hashes locally in CI terms).
+- **Quality gates**: **PASS** (6/6 on rustc 1.95.0; `811 passed / 0 failed / 19 ignored` on the candidate, `815 passed / 0 failed / 19 ignored` after the `543b526` state-directory fix).
+- **Artifacts**: exact names above; values `PENDING_CI_RUN_RE_DISPATCH`.
+- **Checksums**: `PENDING_CI_RUN_RE_DISPATCH` (the `checksums` job assembles `SHA256SUMS.txt`; nothing computes hashes locally in CI terms).
 - **Remaining blockers**: cross-platform artifacts (CI run in flight); Windows/Linux runtime verification (no host); `R-LICENSE` for public distribution; unsigned artifacts (accepted); V01-01…V01-05 runtime evidence gaps (not closed here).
 - **Exact Verification Needed** *(status per item as of 2026-09-14)*:
   - [x] Workspace Quality Gates (all exit 0):
@@ -249,7 +250,7 @@ V01-07  Final Release Sign-off, Governance & v0.1.0 Tagging
     cargo build --release --locked -p db-pro-native
     ```
   - [ ] Multi-Platform Artifact Generation *(CI run 34847235273 in flight)*:
-    - [ ] macOS: ARM64 (`aarch64-apple-darwin`) portable `.tar.gz` containing `DB Pro.app` — local equivalent produced; CI artifact `PENDING_CI_RUN_34847235273`.
+    - [ ] macOS: ARM64 (`aarch64-apple-darwin`) portable `.tar.gz` containing `DB Pro.app` — local equivalent produced; CI artifact `PENDING_CI_RUN_RE_DISPATCH`.
     - [ ] Windows: x86_64 (`x86_64-pc-windows-msvc`) `.zip` — `BUILD_UNVERIFIED`.
     - [ ] Linux: x86_64 (`x86_64-unknown-linux-gnu`) `.tar.gz` — `BUILD_UNVERIFIED`.
   - [ ] Artifact execution verification on host operating system — macOS process-level launch PASS; GUI smoke NOT OBSERVABLE; Windows/Linux not attempted.
@@ -265,7 +266,7 @@ V01-07  Final Release Sign-off, Governance & v0.1.0 Tagging
 
 - **Feature**: 0.1.0 Release Governance, Documentation Alignment & Tagging.
 - **Current State**: `BLOCKED` (2026-09-14).
-  - **Blocked by**: (1) `R-LICENSE` — no LICENSE file and no license metadata anywhere; public distribution must not be represented as licensed until the user decides (goal-3 §11); (2) the in-flight cross-platform artifact run for `fbf9fdab9100f08f12e29434983f32c18f14ac2f` (run 34847235273) — artifact names and SHA256 values are `PENDING_CI_RUN_34847235273` in `docs/release/0.1.0-handoff.md`; (3) the V01-01…V01-05 runtime evidence gaps from §3 above (these are not closed by this run).
+  - **Blocked by**: (1) `R-LICENSE` — no LICENSE file and no license metadata anywhere; public distribution must not be represented as licensed until the user decides (goal-3 §11); (2) the in-flight cross-platform artifact run for `fbf9fdab9100f08f12e29434983f32c18f14ac2f` (run 34847235273) — artifact names and SHA256 values are `PENDING_CI_RUN_RE_DISPATCH` in `docs/release/0.1.0-handoff.md`; (3) the V01-01…V01-05 runtime evidence gaps from §3 above (these are not closed by this run).
   - **Done in this run** (does not unblock): documentation alignment, governance/risk register rewrite, packaging contract rewrite, release notes, README, CHANGELOG, handoff document, release checklist, readiness assessment, provider capability matrix corrections.
   - **Not done / not authorised**: no tag, no public release, no signing, no license selection.
 - **Exact Verification Needed**:

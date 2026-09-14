@@ -2,6 +2,10 @@
 
 > One canonical release-risk and decision ledger for DB Pro v0.1.
 > Candidate SHA under assessment: `fbf9fdab9100f08f12e29434983f32c18f14ac2f` (2026-09-14)
+> **Post-candidate fix:** the packaged-app startup blocker `R-STATE-DIR` was reproduced on that
+> candidate and fixed afterwards in code commit `543b526`
+> (`fix(native): resolve the app state directory outside the working directory`); evidence:
+> `docs/release/evidence/v01-06/12-state-dir-blocker-fix.txt`. See §4.
 > Companion docs: `docs/release/0.1.0-readiness.md`, `docs/release/0.1.0-handoff.md`,
 > `docs/notes/PRODUCT_CAPABILITY_MATRIX.md`, `docs/release/known-limitations.md`
 > Evidence base: `docs/release/evidence/v01-06/*`
@@ -87,7 +91,7 @@ blocks.
 | Field | Value |
 |---|---|
 | ID | `R-WINLINUX` |
-| Description | The release matrix builds `windows-latest` (x86_64 MSVC) and `ubuntu-latest` (x86_64 GNU), but only macOS ARM64 was built on a real host in this pass. Windows/Linux are therefore `BUILD_UNVERIFIED` here, and they will remain `RUNTIME_NOT_VERIFIED`: **no Windows or Linux host exists in this project.** Artifact names/checksums from the in-flight run are `PENDING_CI_RUN_34847235273`. Additionally, Linux credential storage requires a D-Bus Secret Service provider (the shipping crate uses `sync-secret-service`), so headless/minimal installs will fail credential writes. |
+| Description | The release matrix builds `windows-latest` (x86_64 MSVC) and `ubuntu-latest` (x86_64 GNU), but only macOS ARM64 was built on a real host in this pass. Windows/Linux are therefore `BUILD_UNVERIFIED` here, and they will remain `RUNTIME_NOT_VERIFIED`: **no Windows or Linux host exists in this project.** Artifact names/checksums from the in-flight run are `PENDING_CI_RUN_RE_DISPATCH`. Additionally, Linux credential storage requires a D-Bus Secret Service provider (the shipping crate uses `sync-secret-service`), so headless/minimal installs will fail credential writes. |
 | Severity | `P1` (for any cross-platform claim) |
 | Owner / Decision | Decision: ship the matrix as contract, state `BUILD_UNVERIFIED` / `RUNTIME_NOT_VERIFIED` until the CI run completes, and never claim Linux/Windows runtime quality. |
 | Status | `BLOCKING` (until the CI run completes) |
@@ -120,11 +124,11 @@ blocks.
 | Field | Value |
 |---|---|
 | ID | `R-STATE-DIR` |
-| Description | `resolve_data_dir()` (`crates/native-app/src/main.rs:127-135`) returns `DB_PRO_DATA_DIR` if set, otherwise `current_dir()/.db-pro-data`. A `.app` launched through LaunchServices inherits `cwd=/`, so the state directory would be `/.db-pro-data` unless the override is set — a location the user may not be able to create. **Not reproduced as a crash**; the app was launched in this pass from an explicit working directory. |
+| Description | **Reproduced as a real startup blocker and fixed on 2026-09-14 (code commit `543b526`).** `resolve_data_dir()` (formerly `crates/native-app/src/main.rs:127-135`) returned `DB_PRO_DATA_DIR` if set, otherwise `current_dir()/.db-pro-data`. A `.app` launched through LaunchServices inherits `cwd=/`, so it resolved `/.db-pro-data`; `DbProRuntime::new`'s `create_dir_all` failed and `main()` returned `Err`, exiting 1 **without ever opening a window** with the exact error `Error: CreateDataDir(Os { code: 30, kind: ReadOnlyFilesystem, message: "Read-only file system" })`. Because the process dies after `open` returns, "LaunchServices accepted the bundle" (the earlier claim in `03-release-binary.txt` / `08-post-fix-quality-gates.txt`, now annotated) proved nothing by itself. Fixed resolution order: `DB_PRO_DATA_DIR` (set and non-empty) → an **existing** `<cwd>/.db-pro-data` (so the developer checkout and existing installs keep their data in place) → `<platform data dir>/DB Pro` (macOS `$HOME/Library/Application Support/DB Pro`, Windows `%APPDATA%\DB Pro`, other Unix `$XDG_DATA_HOME/db-pro` else `$HOME/.local/share/db-pro`) → `<cwd>/.db-pro-data`, or the relative `.db-pro-data` when the working directory is unavailable (the old `expect(...)` panic is gone). No dependency added; `--locked` builds unaffected. |
 | Severity | `P2` |
-| Owner / Decision | To be settled empirically by the real install smoke (`docs/release/0.1.0-handoff.md` §7 step 3). If the state directory cannot be created for a LaunchServices-launched app, that is a must-fix before publishing. No speculative code fix was made in this pass. |
-| Status | `OPEN` |
-| Release disposition | `DEFERRED` (to the install-smoke result) |
+| Owner / Decision | **Fixed** in `543b526`, with the regression test `platform_dir_is_used_when_no_legacy_dir_exists` (exactly the `cwd=/` + no-legacy-dir + resolvable-platform-dir case) and artifact-level proof in `docs/release/evidence/v01-06/12-state-dir-blocker-fix.txt`. Honest scope of the verification: on macOS the packaged bundle now launches through `open` and stays alive past 30 s, and a direct `cwd=/` run creates a writable per-user state directory containing `meta.db` (baseline schema + migration v2) with no `/.db-pro-data`; **no window was rendered or interacted with**, and the full interactive smoke (create a SQLite connection, run `SELECT 1;`, relaunch for persistence) remains `PENDING`, owned by the coordinator. Not fixed here and recorded separately in `12-…txt` §6: a pre-existing Keychain authorization prompt on first launch of the ad-hoc-signed app can stall an *unattended* launch before data-dir resolution. |
+| Status | `FIXED` |
+| Release disposition | `FIXED` |
 
 ### R-015 — workspace/session persistence not implemented
 
@@ -189,7 +193,7 @@ blocks.
 | `B-2` | All artifacts `UNSIGNED`; macOS `spctl` rejects | P2 | `ACCEPTED` if stated — see `R003` |
 | `B-3` | macOS x64 not built; runner architecture historically implicit, now pinned to `macos-14` | P2 | `DEFERRED` — see `R-PKG-DEFER`; the pin is fixed, the x64 slice is not offered |
 | `B-4` | No `.app` bundle originally → no bundle ID, capture harness cannot see the app | P2 | **`FIXED`** — `scripts/release/package-macos.sh` builds a minimal `DB Pro.app` with a generated `Info.plist` |
-| `B-5` | No archive packaging, no `SHA256SUMS.txt`, no arch in artifact names, no assembly job | P1 (deliverable) | **`FIXED`** — `release.yml` `package` + `checksums` jobs and `scripts/release/*` implement the contract; artifact values `PENDING_CI_RUN_34847235273` |
+| `B-5` | No archive packaging, no `SHA256SUMS.txt`, no arch in artifact names, no assembly job | P1 (deliverable) | **`FIXED`** — `release.yml` `package` + `checksums` jobs and `scripts/release/*` implement the contract; artifact values `PENDING_CI_RUN_RE_DISPATCH` |
 | `B-6` | Windows/Linux `BUILD_UNVERIFIED` and permanently `RUNTIME_NOT_VERIFIED` | P1 (for the claim) | `BLOCKING` for cross-platform claims — see `R-WINLINUX` |
 | `B-7` | Linux credential storage requires a D-Bus Secret Service provider | P2 | `ACCEPTED` (documented) / `DEFERRED` (hardening) |
 | `B-8` | Developer connection preset shipped in the release binary | P2 (hygiene) | **`FIXED`** — `c682552`: preset gated to debug builds; residual single "Xe Lạc Hồng" string is component-gallery demo text with no host/db/user/password, and the gallery label was removed in `7794196` |
@@ -234,7 +238,7 @@ blocks.
 | Field | Value |
 |---|---|
 | ID | `R-STATE-MIGRATION` |
-| Description | The runtime state directory holds `meta.db` (SQLite workspace store: connections, saved queries, query history, workspace, settings, introspection cache, run configs) plus `secrets/`. A **versioned migration mechanism does exist**: `crates/infrastructure/src/meta/migration.rs` keeps an ordered `MIGRATIONS` registry with `LATEST_VERSION = 2`, records applied versions in `schema_version`, skips already-applied migrations, **fails closed on a malformed version row**, and **rejects a database newer than `LATEST_VERSION`**. Residual risk: there is no automated backup/downgrade path if a future migration is wrong, and the state directory is derived from the working directory (see `R-STATE-DIR`). |
+| Description | The runtime state directory holds `meta.db` (SQLite workspace store: connections, saved queries, query history, workspace, settings, introspection cache, run configs) plus `secrets/`. A **versioned migration mechanism does exist**: `crates/infrastructure/src/meta/migration.rs` keeps an ordered `MIGRATIONS` registry with `LATEST_VERSION = 2`, records applied versions in `schema_version`, skips already-applied migrations, **fails closed on a malformed version row**, and **rejects a database newer than `LATEST_VERSION`**. Residual risk: there is no automated backup/downgrade path if a future migration is wrong; the state directory now resolves to a per-user location (platform data dir) unless an existing working-directory-local `.db-pro-data` is present — see `R-STATE-DIR` (`FIXED`). |
 | Severity | `P2` |
 | Owner / Decision | Decision: accept for 0.1.0; state layout and migration behaviour documented in the packaging/startup documentation. |
 | Status | `ACCEPTED` |
@@ -253,7 +257,7 @@ blocks.
 | `R-PKG-DEFER` | P2 | DEFERRED | `DEFERRED` | installer/platform-coverage claims |
 | `R-AGENT` | P2 | ACCEPTED | `ACCEPTED` | autonomy claims |
 | `R-PROV` | P2 | ACCEPTED / DEFERRED | `ACCEPTED` (+`DEFERRED` flag fix) | provider qualification |
-| `R-STATE-DIR` | P2 | OPEN | `DEFERRED` | packaged-app install smoke |
+| `R-STATE-DIR` | P2 | FIXED | **`FIXED`** | — (was: packaged-app install smoke; fixed in `543b526`) |
 | `R-CI-MAIN-RED` | P2 | DEFERRED | `DEFERRED` | nothing release-specific |
 | `R-CLIPPY-198` | P2 | DEFERRED | `DEFERRED` | future 1.98 toolchain bump |
 | `R-MINOS` | P3 | ACCEPTED | `ACCEPTED` | — |
@@ -306,7 +310,16 @@ Rationale: the preview is useful and confirmation-gated; autonomy is unverified 
 
 ## 4. Candidate invalidation log
 
-No invalidation events recorded for `fbf9fdab9100f08f12e29434983f32c18f14ac2f`.
+**One event recorded (2026-09-14).** Candidate `fbf9fdab9100f08f12e29434983f32c18f14ac2f` is
+superseded for artifact purposes: the packaged macOS artifact produced from that tree could not
+start when launched the normal way. `resolve_data_dir()` resolved `/.db-pro-data` under
+LaunchServices' `cwd=/`, `DbProRuntime::new` failed with
+`CreateDataDir(Os { code: 30, kind: ReadOnlyFilesystem, message: "Read-only file system" })` and the
+app exited 1 without opening a window (`R-STATE-DIR`, reproduced by the coordinator and re-verified
+here). Fixed in code commit `543b526` with a regression test and artifact-level evidence
+(`12-state-dir-blocker-fix.txt`). Consequence: any release-CI contribution for the deferred V01-06
+steps must be re-dispatched for the new HEAD (`PENDING_CI_RUN_RE_DISPATCH`), not for `fbf9fda`.
+No tag exists for either SHA.
 
 ## 5. Completion criteria
 

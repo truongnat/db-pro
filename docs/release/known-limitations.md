@@ -3,6 +3,7 @@
 > Canonical registry of what DB Pro v0.1 intentionally does not support or has not yet qualified.
 > Baseline SHA: `65bbca3` (historical); **corrected 2026-09-14 for candidate `fbf9fdab9100f08f12e29434983f32c18f14ac2f`**
 > Corrections in this revision: LIM-001/LIM-007/LIM-009 evidence updated to the native build, LIM-003 wording aligned with the staged insert that ships, **LIM-014 inversion fixed** (SQLite cancellation is supported; PostgreSQL is not), LIM-016/LIM-017 added. No entry was deleted.
+> Further correction (2026-09-14, after the `543b526` state-directory fix): **LIM-018 added** — application state location and the first-launch credential prompt. No entry was deleted or rewritten.
 > Risk IDs referenced below (`R003`, `R-LICENSE`, `R001`) are defined in `docs/release/risk-register.md`.
 > Issue: #135
 > Supports: #27, #30, #105, #110, #111
@@ -261,13 +262,27 @@ Each entry includes:
 | Must not contradict | `0.1.0-packaging.md`, release notes, readiness |
 | Evidence | `.github/workflows/release.yml` (matrix pins `macos-14`), `docs/release/0.1.0-packaging.md`, `docs/release/risk-register.md` `R-PKG-DEFER` / `R003` |
 
+## LIM-018: Application state location and first-launch credential prompt
+
+| Field | Value |
+|---|---|
+| Category | platform |
+| Actual behavior | State (`meta.db`, `secrets/`, query history, settings) is stored in the per-user platform data directory — macOS `~/Library/Application Support/DB Pro`, Windows `%APPDATA%\DB Pro`, other Unix `$XDG_DATA_HOME/db-pro` (fallback `~/.local/share/db-pro`) — **unless** `<cwd>/.db-pro-data` already exists, which keeps being used; `DB_PRO_DATA_DIR` overrides both. The build is unsigned, so on macOS a first launch can show a Keychain authorization prompt for the app's own stored provider key before the window appears, and an unattended launch waits there. |
+| User-visible impact | On a fresh install the state directory is no longer created next to the working directory; an existing `.db-pro-data` continues to be used, so nothing migrates and no data is orphaned. A first launch can pause on an OS credential prompt. |
+| Reason | The previous fallback (`current_dir()/.db-pro-data`) made a Finder/`open`-launched `.app` (which inherits `cwd=/`) resolve `/.db-pro-data`, fail with `CreateDataDir(ReadOnlyFilesystem)` and exit before opening a window; fixed in `543b526`. The prompt follows from shipping unsigned (`R003`): an ad-hoc-signed binary cannot read an existing keyring item without an interactive grant. |
+| Status | Accepted v0.1 |
+| Target issue | N/A |
+| Safe release-note wording | "Application state is stored in your user profile; an existing `.db-pro-data` beside the app is still used. An unsigned build can ask for keychain access on first launch." |
+| Must not contradict | `0.1.0-handoff.md` §7, `0.1.0-release-notes.md`, `0.1.0-packaging.md` §4, `README.md` |
+| Evidence | `crates/native-app/src/main.rs` (`choose_data_dir`, `platform_data_dir`; tests `platform_dir_is_used_when_no_legacy_dir_exists` and the override/legacy/cwd cases); `docs/release/evidence/v01-06/12-state-dir-blocker-fix.txt` §5–§6; register `R-STATE-DIR` (`FIXED`), `R003` (`ACCEPTED`), `R011` |
+
 ---
 
 ## Summary by status
 
 | Status | Count | IDs |
 |---|---|---|
-| Accepted v0.1 | 10 | LIM-002, LIM-003, LIM-005, LIM-006, LIM-007, LIM-013, LIM-014, LIM-015, LIM-016, LIM-017 |
+| Accepted v0.1 | 11 | LIM-002, LIM-003, LIM-005, LIM-006, LIM-007, LIM-013, LIM-014, LIM-015, LIM-016, LIM-017, LIM-018 |
 | Blocked decision | 4 | LIM-001, LIM-009, LIM-010, LIM-011 |
 | Deferred v0.2+ | 3 | LIM-004, LIM-008, LIM-012 |
 | Fix before v0.1 | 0 | — |

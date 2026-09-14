@@ -158,3 +158,29 @@ Attempt 2: Orca computer-use harness (the SAME harness the repo's own docs cite 
   5. NOTE: because the binary is un-bundled, the repo's existing Orca-based capture harness
      cannot see it. Producing .app-bundle evidence is a prerequisite for automated visual
      evidence on macOS.
+
+==============================================================================
+5. CORRECTION APPENDED 2026-09-14 (state-directory blocker) — ORIGINAL TEXT KEPT ABOVE
+==============================================================================
+Sections 1-4 above are the record as captured for commit 3e0b077 (binary sha256 2ae0540a…). They
+are NOT rewritten. Two corrections:
+
+  (a) Binary identity is superseded: after the state-directory fix (commit 543b526) the release
+      binary is 23,733,024 bytes,
+      sha256 a0645ca3b503e12b647d53ecf29547e61fefc1dbd695c9cc08066cd69aab4f6c. The code-signature
+      findings in section 3 (adhoc / linker-signed, `spctl` rejects, `Info.plist=not bound`) are
+      unchanged and still hold.
+  (b) Section 4-B/4-C's "app opens (process launches, no crash) OBSERVED" is true only for the
+      *un-bundled, shell-launched* case it measured. For the packaged bundle the claim was
+      misleading: a LaunchServices/`open`-launched `.app` inherits `cwd=/`, the app resolved its
+      state directory to `/.db-pro-data`, and it exited with status 1 and
+      `Error: CreateDataDir(Os { code: 30, kind: ReadOnlyFilesystem, message: "Read-only file
+      system" })` before opening a window. `open` returning 0 says nothing about the process
+      staying up. That is fixed in 543b526: the state directory now resolves outside the working
+      directory (per-user platform data directory), and the packaged app is verified to launch,
+      create `~/Library/Application Support/DB Pro/meta.db` and stay alive past 30 s.
+      Note that section 4's smoke used `DB_PRO_DATA_DIR`, which bypasses the defect entirely —
+      it could not have caught it.
+
+Full account: docs/release/evidence/v01-06/12-state-dir-blocker-fix.txt (register: `R-STATE-DIR`,
+now `FIXED`).
