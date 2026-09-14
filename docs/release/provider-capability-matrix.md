@@ -110,11 +110,14 @@
 
 | Capability | PostgreSQL | SQLite | Notes |
 |---|---|---|---|
-| Backup | SUPPORTED + NOT YET QUALIFIED | SUPPORTED + NOT YET QUALIFIED | PG: pg_dump; SQLite: file copy/VACUUM |
-| Restore | SUPPORTED + NOT YET QUALIFIED | SUPPORTED + NOT YET QUALIFIED | |
-| CSV export | SUPPORTED + NOT YET QUALIFIED | SUPPORTED + NOT YET QUALIFIED | Via `csv` crate |
-| XLSX export | SUPPORTED + NOT YET QUALIFIED | SUPPORTED + NOT YET QUALIFIED | Via `rust_xlsxwriter` crate |
-| Import | DEFERRED | DEFERRED | Not in v0.1 scope |
+| Backup (shipped UI) | SUPPORTED + NOT YET QUALIFIED | SUPPORTED + QUALIFIED | PG: `pg_dump` must be on `PATH` (not bundled — LIM-015); the destination is reserved with `create_new` and removed on failure. SQLite: `VACUUM INTO` + fsync + no-overwrite publish, sidecar-clean, 8 regression tests (#145). **A running backup cannot be cancelled** (#244) |
+| Restore (shipped UI) | PARTIAL | SUPPORTED + QUALIFIED | PG: `psql -f` / `pg_restore` run **without a transaction boundary**, so a mid-script failure leaves the database partially restored (#244); tools must be on `PATH`. SQLite: staged copy → `PRAGMA quick_check` → atomic rename + sidecar removal + introspection-cache drop |
+| CSV / TSV export (query view) | SUPPORTED + NOT YET QUALIFIED | SUPPORTED + NOT YET QUALIFIED | the shipped writer is the query view's own delimited serializer, shared with the clipboard paths and pinned by tests — **not** the core `ExportService`; not atomic and not cancellable (#244) |
+| JSON / XLSX export | NOT SUPPORTED | NOT SUPPORTED | the core `ExportService` (`csv` + `rust_xlsxwriter`) has **no shipped surface**: `grep -rn "export_api()" crates/native-app crates/ui crates/runtime` → 0 hits, and no `xlsx` reference exists in `crates/ui`. Library code reachable only from the legacy `crates/tauri-app` |
+| Import | DEFERRED | DEFERRED | Not in v0.1 scope — no code path at all (LIM-012) |
+| Backup / restore cancellation | NOT SUPPORTED | NOT SUPPORTED | `RuntimeCommand::CancelOperation` is declared and handled but constructed nowhere (#244) |
+
+Classification and per-operation partial-failure semantics: `docs/release/audit-data-integrity.md` (#128).
 
 ## ER Diagram
 
@@ -163,3 +166,4 @@
 - `crates/infrastructure/src/ssh/tunnel.rs` — SSH tunnel (external process)
 - `crates/infrastructure/src/backup/pg_dump.rs` — PG backup via pg_dump
 - `crates/infrastructure/src/backup/sqlite_backup.rs` — SQLite backup via `VACUUM INTO` + atomic no-overwrite publish (not a file copy)
+- `docs/release/audit-data-integrity.md` — export/import/backup classification, partial-failure semantics and cancellation findings (#128)
